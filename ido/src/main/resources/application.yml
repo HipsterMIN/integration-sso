@@ -162,8 +162,9 @@ ido:
       "1": L1
       "2": L2
       "3": L3
-    # Kafka 인증 이벤트 토픽 (Strategy B — IdO가 직접 발행)
-    auth-events-topic: qsign.auth.events
+    # NOTE(P1): Kafka 인증 이벤트 토픽은 ido.kafka.topic-auth-events 로 통일.
+    # KeycloakOidcService / NonOidcAuthService 모두 ${ido.kafka.topic-auth-events} 참조.
+    # 이전에 있던 ido.keycloak.auth-events-topic 키는 제거 — ido.kafka.topic-auth-events 사용.
 
   # §16.4 Handoff Ticket 설정
   ticket:
@@ -194,6 +195,8 @@ ido:
   kafka:
     topic-handoff-events: ido.handoff.events
     topic-session-advisory: platform.session.advisory
+    # P1 수정: KeycloakOidcService / NonOidcAuthService @Value(${ido.kafka.topic-auth-events}) 키와 일치
+    topic-auth-events: ${IDO_KAFKA_TOPIC_AUTH_EVENTS:qsign.auth.events}
     consumer-group-qim: ido-qim-consumer               # qim.user.events 구독
     consumer-group-qsign: ido-qsign-consumer            # qsign.auth.events 구독
     consumer-group-fe-advisory: ido-fe-advisory-consumer  # platform.session.advisory 구독 (FE 세션)
@@ -203,6 +206,14 @@ ido:
     relay-interval-ms: 500
     batch-size: 100
     max-retry: 3
+
+  # ── CORS (React dev-server / Nginx → IdO) ──────────────────────────────
+  # BFF 이관에 따라 CORS 허용 Origin 관리
+  cors:
+    enabled: true
+    allowed-origins:
+      - ${CORS_ORIGIN_DEV:http://localhost:3000}    # React dev server (개발)
+      - ${CORS_ORIGIN_PROD:http://localhost:3001}   # Nginx React (Option B 프로덕션)
 
 # ── Resilience4j ──────────────────────────────────────────────
 resilience4j:
@@ -218,9 +229,12 @@ resilience4j:
         wait-duration-in-open-state: 15s
         permitted-number-of-calls-in-half-open-state: 3
         minimum-number-of-calls: 5
-      qsign-client:
+      # P2 수정: qsign-client → keycloak-client (Keycloak HTTP 호출 보호)
+      keycloak-client:
         sliding-window-size: 10
         failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3s
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 5
         minimum-number-of-calls: 5
@@ -232,14 +246,19 @@ resilience4j:
         retry-exceptions:
           - java.io.IOException
           - java.util.concurrent.TimeoutException
-      qsign-client:
+      # P2 수정: qsign-client → keycloak-client
+      keycloak-client:
         max-attempts: 3
         wait-duration: 500ms
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
   timelimiter:
     instances:
       qim-client:
         timeout-duration: 5s
-      qsign-client:
+      # P2 수정: qsign-client → keycloak-client
+      keycloak-client:
         timeout-duration: 5s
 
 # ── Actuator ──────────────────────────────────────────────────
@@ -256,15 +275,6 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
-
-# ── CORS (React dev-server / Nginx → IdO) ─────────────────────────────
-# BFF 이관에 따라 CORS 허용 Origin 관리
-ido:
-  cors:
-    enabled: true
-    allowed-origins:
-      - ${CORS_ORIGIN_DEV:http://localhost:3000}    # React dev server (개발)
-      - ${CORS_ORIGIN_PROD:http://localhost:3001}   # Nginx React (Option B 프로덕션)
 
 logging:
   level:
