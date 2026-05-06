@@ -1,109 +1,224 @@
 version: "3.9"
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
 # 통합인증 플랫폼 PoC — 로컬 인프라
-# Q-Sign / Q-IM / IdO / Onepass-FE / Agency-Stub 의존 인프라
-# ──────────────────────────────────────────────────────────────────────────────
+# 서비스: PostgreSQL 16 / Redis 7.2 / Kafka (Confluent 7.6.1) / Monitoring UI
+# ══════════════════════════════════════════════════════════════════════════════
 
 networks:
   onepass-net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
 
 volumes:
   pg-data:
   redis-data:
   kafka-data:
   zookeeper-data:
+  zookeeper-log:
 
 services:
 
-  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  # ════════════════════════════════════════════════════════════
+  # PostgreSQL 16
+  # ════════════════════════════════════════════════════════════
   postgres:
     image: postgres:16-alpine
     container_name: onepass-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: onepass
       POSTGRES_PASSWORD: onepass
       POSTGRES_DB: onepass
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
+      TZ: UTC
+      PGTZ: UTC
     ports:
       - "5432:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./init-db.sql:/docker-entrypoint-initdb.d/00-init-db.sql:ro
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    command: >
+      postgres
+        -c config_file=/etc/postgresql/postgresql.conf
+        -c hba_file=/etc/postgresql/pg_hba.conf
     networks:
-      - onepass-net
+      onepass-net:
+        ipv4_address: 172.20.0.10
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U onepass"]
+      test: ["CMD-SHELL", "pg_isready -U onepass -d onepass"]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
-  # ── Redis ───────────────────────────────────────────────────────────────────
+  # ════════════════════════════════════════════════════════════
+  # Redis 7.2
+  # ════════════════════════════════════════════════════════════
   redis:
     image: redis:7.2-alpine
     container_name: onepass-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
     networks:
-      - onepass-net
+      onepass-net:
+        ipv4_address: 172.20.0.11
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+        reservations:
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ── Zookeeper ───────────────────────────────────────────────────────────────
+  # ════════════════════════════════════════════════════════════
+  # Zookeeper
+  # ════════════════════════════════════════════════════════════
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: onepass-zookeeper
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_MAX_CLIENT_CNXNS: 60
+      ZOOKEEPER_AUTOPURGE_SNAP_RETAIN_COUNT: 3
+      ZOOKEEPER_AUTOPURGE_PURGE_INTERVAL: 24
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,stat,mntr,conf"
     ports:
       - "2181:2181"
     volumes:
       - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
     networks:
-      - onepass-net
+      onepass-net:
+        ipv4_address: 172.20.0.12
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ── Kafka ───────────────────────────────────────────────────────────────────
+  # ════════════════════════════════════════════════════════════
+  # Kafka Broker
+  # ════════════════════════════════════════════════════════════
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: onepass-kafka
+    restart: unless-stopped
     depends_on:
       zookeeper:
         condition: service_healthy
     environment:
+      # ── 브로커 기본 ──────────────────────────────────────────
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # ── 리스너 설정 ──────────────────────────────────────────
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # ── 토픽 기본값 ──────────────────────────────────────────
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      # ── 트랜잭션 / 멱등 ──────────────────────────────────────
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_TRANSACTION_STATE_LOG_NUM_PARTITIONS: 50
+      KAFKA_TRANSACTIONAL_ID_EXPIRATION_MS: 604800000
+      # ── 로그 보관 ────────────────────────────────────────────
       KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      # ── Compacted 토픽용 Log Cleaner ─────────────────────────
+      KAFKA_LOG_CLEANER_ENABLE: "true"
+      KAFKA_LOG_CLEANER_THREADS: 2
+      KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE: 134217728
+      KAFKA_LOG_CLEANER_MIN_CLEANABLE_RATIO: "0.5"
+      # ── 성능 ─────────────────────────────────────────────────
+      KAFKA_NUM_NETWORK_THREADS: 3
+      KAFKA_NUM_IO_THREADS: 8
+      KAFKA_SOCKET_SEND_BUFFER_BYTES: 102400
+      KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 102400
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
+      # ── 그룹 리밸런스 ────────────────────────────────────────
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      # ── JMX (Kafka UI 메트릭) ────────────────────────────────
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
     ports:
       - "9092:9092"
+      - "9999:9999"
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
-      - onepass-net
+      onepass-net:
+        ipv4_address: 172.20.0.13
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test:
+        - "CMD-SHELL"
+        - "kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1"
       interval: 10s
       timeout: 10s
       retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
-  # ── Kafka Topic 초기화 ───────────────────────────────────────────────────────
+  # ════════════════════════════════════════════════════════════
+  # Kafka 토픽 초기화
+  # ════════════════════════════════════════════════════════════
   kafka-init:
     image: confluentinc/cp-kafka:7.6.1
     container_name: onepass-kafka-init
@@ -112,72 +227,131 @@ services:
         condition: service_healthy
     networks:
       - onepass-net
-    entrypoint: ["/bin/sh", "-c"]
-    command: |
-      "
-      # 설계서 10.5절: cleanup.policy=compact (qimUserId 기준 Compacted Snapshot)
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-        --topic qim.user.events \
-        --partitions 12 \
-        --replication-factor 1 \
-        --config cleanup.policy=compact \
-        --config min.compaction.lag.ms=0 \
-        --config segment.bytes=1048576
-
-      # 설계서 11.5.6절: Compacted Snapshot Topic
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-        --topic qim.user.snapshot \
-        --partitions 12 \
-        --replication-factor 1 \
-        --config cleanup.policy=compact
-
-      # 설계서 9.3절: Q-Sign 인증 이벤트
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-        --topic qsign.auth.events \
-        --partitions 6 \
-        --replication-factor 1 \
-        --config cleanup.policy=delete \
-        --config retention.ms=31536000000
-
-      # 설계서 16.3절: IdO Handoff 이벤트
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-        --topic ido.handoff.events \
-        --partitions 6 \
-        --replication-factor 1 \
-        --config cleanup.policy=delete \
-        --config retention.ms=31536000000
-
-      # 설계서 14.11절: 세션 권고 이벤트 (Advisory)
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
-        --topic platform.session.advisory \
-        --partitions 6 \
-        --replication-factor 1 \
-        --config cleanup.policy=delete \
-        --config retention.ms=31536000000
-
-      echo '✅ Kafka 토픽 초기화 완료'
-      "
+    volumes:
+      - ./kafka/create-topics.sh:/create-topics.sh:ro
+    entrypoint: ["/bin/bash", "/create-topics.sh"]
     restart: on-failure
 
-  # ── Kafka UI ─────────────────────────────────────────────────────────────────
+  # ════════════════════════════════════════════════════════════
+  # Schema Registry (Avro 스키마 관리 — 선택적 활성화)
+  # ════════════════════════════════════════════════════════════
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.1
+    container_name: onepass-schema-registry
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "8085:8081"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.14
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/subjects || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - schema          # docker compose --profile schema up 으로 선택 기동
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ════════════════════════════════════════════════════════════
+  # Kafka UI (provectuslabs)
+  # http://localhost:8090
+  # ════════════════════════════════════════════════════════════
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: onepass-kafka-ui
+    restart: unless-stopped
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     ports:
       - "8090:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: onepass-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_JMXPORT: 9999
+      DYNAMIC_CONFIG_ENABLED: "true"
+      AUTH_TYPE: "LOGIN_FORM"
+      SPRING_SECURITY_USER_NAME: admin
+      SPRING_SECURITY_USER_PASSWORD: admin
     networks:
-      - onepass-net
+      onepass-net:
+        ipv4_address: 172.20.0.15
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ── Redis Insight (Redis 모니터링) ───────────────────────────────────────────
+  # ════════════════════════════════════════════════════════════
+  # Redis Insight
+  # http://localhost:5540
+  # ════════════════════════════════════════════════════════════
   redis-insight:
-    image: redislabs/redisinsight:latest
+    image: redis/redisinsight:latest
     container_name: onepass-redis-insight
+    restart: unless-stopped
     ports:
       - "5540:5540"
     networks:
-      - onepass-net
+      onepass-net:
+        ipv4_address: 172.20.0.16
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ════════════════════════════════════════════════════════════
+  # pgAdmin 4
+  # http://localhost:5050 (admin@onepass.local / admin)
+  # ════════════════════════════════════════════════════════════
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: onepass-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@onepass.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - ./postgres/pgadmin-servers.json:/pgadmin4/servers.json:ro
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.17
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools           # docker compose --profile tools up 으로 선택 기동
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

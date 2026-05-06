@@ -25,4 +25,16 @@ public interface FeSessionService {
      * 화이트리스트 외 URL은 거부
      */
     boolean isValidReturnUrl(String returnUrl);
+
+    /**
+     * qimUserId 기준 FE 세션 일괄 무효화 (§12.5 MANDATORY 처리)
+     * SessionAdvisoryConsumer 에서 MANDATORY_SECURITY_TERMINATE 이벤트 수신 시 호출
+     */
+    void invalidateByQimUserId(String qimUserId, String reason);
+
+    /**
+     * qimUserId 기준 Advisory 플래그 설정 (§12.5 Advisory 처리)
+     * 다음 요청 시 로그아웃 안내용 플래그
+     */
+    void markAdvisoryFlag(String qimUserId, String reason);
 }

@@ -1,58 +1,140 @@
 server:
   port: 8082
+  shutdown: graceful
 
 spring:
   application:
     name: q-im
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
 
+  # ── DataSource ──────────────────────────────────────────────
   datasource:
-    url: jdbc:postgresql://localhost:5432/qim
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:onepass}?currentSchema=qim
     username: ${DB_USERNAME:onepass}
     password: ${DB_PASSWORD:onepass}
+    driver-class-name: org.postgresql.Driver
     hikari:
+      pool-name: qim-hikari
       maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      keepalive-time: 60000
+      connection-test-query: SELECT 1
 
+  # ── JPA ────────────────────────────────────────────────────
   jpa:
     hibernate:
       ddl-auto: validate
+    show-sql: false
+    open-in-view: false
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         default_schema: qim
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
 
+  # ── Flyway ─────────────────────────────────────────────────
   flyway:
     enabled: true
     locations: classpath:db/migration
     schemas: qim
+    default-schema: qim
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+    out-of-order: false
+    connect-retries: 5
+    connect-retries-interval: 10s
 
+  # ── Redis ──────────────────────────────────────────────────
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 1000ms
 
+  # ── Kafka ──────────────────────────────────────────────────
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    properties:
+      security.protocol: PLAINTEXT
     producer:
+      client-id: q-im-producer
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all
+      retries: 3
+      batch-size: 16384
+      linger-ms: 5
+      compression-type: lz4
       properties:
-        enable.idempotence: true
+        enable.idempotence: "true"
+        max.in.flight.requests.per.connection: "5"
+        spring.json.add.type.headers: "false"
+        # Transactional Outbox – 트랜잭션 프로듀서 ID
+        transactional.id: q-im-tx-producer
     consumer:
-      group-id: q-im
+      group-id: q-im-consumer
       auto-offset-reset: earliest
+      enable-auto-commit: false
+      max-poll-records: 50
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.onepass.*"
+        isolation.level: read_committed
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+      concurrency: 3
+      missing-topics-fatal: true
 
-# Transactional Outbox Relay 설정 (설계서 10.5.2절)
+# ── Q-IM 도메인 설정 ───────────────────────────────────────────
 qim:
+  # §10.5.2 Transactional Outbox Relay
   outbox:
     relay-interval-ms: 500
     batch-size: 100
-  # Kafka 토픽
+    max-retry: 3
+    retry-back-off-ms: 1000
+  # Kafka 토픽 (§10.5.2 / §11.5.6)
   kafka:
-    topic-user-events: qim.user.events   # cleanup.policy=compact
-    topic-snapshot: qim.user.snapshot    # Compacted Snapshot Topic
+    topic-user-events: qim.user.events       # cleanup.policy=compact
+    topic-snapshot: qim.user.snapshot        # Compacted Snapshot Topic
+  # Redis 캐시 TTL (IdO 가 pull 시 기준)
+  cache:
+    user-ttl-seconds: 300                    # ≤5분 (설계서 §11.3)
 
+# ── Actuator ──────────────────────────────────────────────────
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,flyway
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.onepass.qim: INFO
+    org.springframework.kafka: WARN
+    org.flywaydb: INFO

@@ -2,86 +2,181 @@ server:
   port: 8081
   servlet:
     context-path: /
+  shutdown: graceful
 
 spring:
   application:
     name: q-sign
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
 
+  # ── DataSource ──────────────────────────────────────────────
   datasource:
-    url: jdbc:postgresql://localhost:5432/qsign
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:onepass}?currentSchema=qsign
     username: ${DB_USERNAME:onepass}
     password: ${DB_PASSWORD:onepass}
     driver-class-name: org.postgresql.Driver
     hikari:
+      pool-name: qsign-hikari
       maximum-pool-size: 20
       minimum-idle: 5
+      idle-timeout: 300000        # 5분
+      connection-timeout: 30000   # 30초
+      max-lifetime: 1800000       # 30분
+      keepalive-time: 60000       # 1분
+      connection-test-query: SELECT 1
 
+  # ── JPA ────────────────────────────────────────────────────
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: validate           # Flyway 가 DDL 관리 → validate 만
     show-sql: false
+    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         default_schema: qsign
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        format_sql: false
 
+  # ── Flyway ─────────────────────────────────────────────────
   flyway:
     enabled: true
     locations: classpath:db/migration
     schemas: qsign
+    default-schema: qsign
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+    out-of-order: false
+    connect-retries: 5
+    connect-retries-interval: 10s
 
+  # ── Redis ──────────────────────────────────────────────────
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
       timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 8
+          min-idle: 2
+          max-wait: 1000ms
 
+  # ── Kafka ──────────────────────────────────────────────────
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    properties:
+      security.protocol: PLAINTEXT
     producer:
+      client-id: q-sign-producer
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all
+      acks: all                    # 모든 ISR 확인 후 응답
       retries: 3
+      batch-size: 16384
+      linger-ms: 5
+      buffer-memory: 33554432
+      compression-type: lz4
       properties:
-        enable.idempotence: true
+        enable.idempotence: "true"
+        max.in.flight.requests.per.connection: "5"
+        spring.json.add.type.headers: "false"
     consumer:
-      group-id: q-sign
+      group-id: q-sign-consumer
       auto-offset-reset: earliest
+      enable-auto-commit: false    # 수동 커밋 (멱등 처리)
+      max-poll-records: 50
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.onepass.*"
+        isolation.level: read_committed
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+      concurrency: 3
+      missing-topics-fatal: true
 
-# 잠금/재시도 정책 (설계서 9.6절)
+# ── Q-Sign 도메인 설정 ─────────────────────────────────────────
 qsign:
+  # §9.6 잠금·재시도 정책
   lock:
     max-attempts: 5
     lock-duration-minutes: 30
-  # 인증수단별 허용 레벨
+    reset-window-minutes: 10      # 이 시간 내 연속 실패만 카운트
+  # 인증수단별 보증 수준
   auth-level:
     KAKAO_OIDC: L1
     NAVER_OIDC: L1
     PASS: L2
     FINANCIAL_CERT: L3
     GPKI: L3
-  # IdO 브로커 내부 통신 (mTLS)
+  # IdO 내부 통신 (X-Internal-Sig)
   ido:
     base-url: ${IDO_BASE_URL:http://localhost:8083}
     internal-sig-ttl-seconds: 60
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
+  # Kafka 토픽
+  kafka:
+    topic-auth-events: qsign.auth.events
+  # Outbox Relay
+  outbox:
+    relay-interval-ms: 500
+    batch-size: 100
 
+# ── Resilience4j ──────────────────────────────────────────────
 resilience4j:
   circuitbreaker:
     instances:
       idp-broker:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
         sliding-window-size: 20
         failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3s
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 5
+        minimum-number-of-calls: 5
+  retry:
+    instances:
+      idp-broker:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  timelimiter:
+    instances:
+      idp-broker:
+        timeout-duration: 5s
+        cancel-running-future: true
 
+# ── Actuator ──────────────────────────────────────────────────
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,flyway
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.onepass.qsign: INFO
+    org.springframework.kafka: WARN
+    org.flywaydb: INFO

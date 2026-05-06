@@ -1,46 +1,108 @@
 server:
   port: 8080
+  shutdown: graceful
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        name: feSessionId
+        http-only: true
+        secure: true
+        same-site: lax
 
 spring:
   application:
     name: onepass-fe
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
 
+  # ── Redis (세션 저장소) ─────────────────────────────────────
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
       timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 1000ms
 
+  # ── Kafka ──────────────────────────────────────────────────
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    properties:
+      security.protocol: PLAINTEXT
     consumer:
-      group-id: onepass-fe
+      group-id: onepass-fe-consumer
       auto-offset-reset: earliest
+      enable-auto-commit: false
+      max-poll-records: 50
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.onepass.*"
+        isolation.level: read_committed
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+      concurrency: 2
+      missing-topics-fatal: true
 
+# ── Onepass FE 도메인 설정 ─────────────────────────────────────
 onepass:
-  # IdO 연동
+  # §11 IdO 연동
   ido:
     base-url: ${IDO_BASE_URL:http://localhost:8083}
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
 
-  # FE 세션 설정 (설계서 12.4 / 12.5절)
+  # §12.4 / §12.5 FE 세션 설정
   session:
     cookie-name: feSessionId
     ttl-minutes: 30
-    absolute-timeout-minutes: 480   # 8시간 절대 만료
+    absolute-timeout-minutes: 480    # 8시간 절대 만료
     same-site: Lax
+    secure: true
+    http-only: true
 
-  # returnUrl / deepLink 화이트리스트 (설계서 12.3 / 12.6절)
+  # §12.3 / §12.6 returnUrl / deepLink 화이트리스트
   whitelist:
     return-urls:
       - "https://agency-a.example.com"
       - "https://agency-b.example.com"
-      - "http://localhost:*"   # 개발 환경
+      - "http://localhost:8084"       # 개발: agency-stub
     app-schemes:
       - "onepass://"
       - "agencya://"
 
+  # §12.7 OIDC 파라미터
+  oidc:
+    state-ttl-seconds: 300
+    nonce-ttl-seconds: 300
+
+  # Kafka 토픽 구독 (세션 advisory 수신)
+  kafka:
+    consumer-group: onepass-fe-consumer
+    topic-session-advisory: platform.session.advisory
+
+# ── Actuator ──────────────────────────────────────────────────
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.onepass.fe: INFO
+    org.springframework.kafka: WARN
