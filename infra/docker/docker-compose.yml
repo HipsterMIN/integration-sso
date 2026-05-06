@@ -3,6 +3,10 @@ version: "3.9"
 # ══════════════════════════════════════════════════════════════════════════════
 # 통합인증 플랫폼 PoC — 로컬 인프라
 # 서비스: PostgreSQL 16 / Redis 7.2 / Kafka (Confluent 7.6.1) / Monitoring UI
+#
+# [아키텍처 변경] onepass-fe Spring Boot BFF 제거
+#   - onepass-fe : 순수 React SPA (Nginx 서빙)
+#   - BFF 역할   : ido(port 8083) 가 /api/v1/fe-session/** 담당
 # ══════════════════════════════════════════════════════════════════════════════
 
 networks:
@@ -350,6 +354,104 @@ services:
         condition: service_healthy
     profiles:
       - tools           # docker compose --profile tools up 으로 선택 기동
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ════════════════════════════════════════════════════════════
+  # ★ IdO (정책 오케스트레이터 + FE BFF)
+  # http://localhost:8083
+  #
+  # [변경] BFF 책임 이관: onepass-fe BFF → ido
+  #   /api/v1/fe-session/**  — FE 세션 발급/확인/로그아웃
+  #   /api/v1/handoff/**     — Handoff Ticket 발급/검증
+  #   CORS 허용 Origin       — onepass-react(3001), React dev(3000)
+  #
+  # 빌드: ./gradlew :ido:bootJar -x test
+  #       docker build -f ido/Dockerfile -t onepass-ido:latest .
+  # ════════════════════════════════════════════════════════════
+  onepass-ido:
+    image: onepass-ido:latest
+    container_name: onepass-ido
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST:               postgres
+      DB_PORT:               "5432"
+      DB_NAME:               onepass
+      DB_USERNAME:           onepass
+      DB_PASSWORD:           onepass
+      REDIS_HOST:            redis
+      REDIS_PORT:            "6379"
+      KAFKA_SERVERS:         kafka:29092
+      QIM_BASE_URL:          http://onepass-qim:8082
+      QSIGN_BASE_URL:        http://onepass-qsign:8081
+      # CORS: React SPA Origin 허용
+      CORS_ORIGIN_DEV:       http://localhost:3000
+      CORS_ORIGIN_PROD:      http://localhost:3001
+    ports:
+      - "8083:8083"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.19
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - app
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ════════════════════════════════════════════════════════════
+  # ★ React SPA (Nginx)  — onepass-fe 순수 프론트엔드
+  # http://localhost:3001
+  #
+  # [변경] onepass-fe는 순수 React SPA 모듈.
+  #   Nginx가 /api/**, /actuator/** → ido:8083 역방향 프록시
+  #   Spring Boot BFF 는 완전 제거됨.
+  #
+  # 빌드: cd onepass-fe && docker build -f Dockerfile.optionB \
+  #             -t onepass-react:latest .
+  # 또는 개발:  cd onepass-fe/frontend && yarn dev  (port 3000)
+  # ════════════════════════════════════════════════════════════
+  onepass-react:
+    build:
+      context: ../../onepass-fe
+      dockerfile: Dockerfile.optionB
+      target: react-nginx
+    image: onepass-react:latest
+    container_name: onepass-react
+    restart: unless-stopped
+    ports:
+      - "3001:80"       # Nginx 서빙 — http://localhost:3001
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.20
+    depends_on:
+      - onepass-ido     # BFF(ido) 먼저 기동되어야 프록시 가능
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    profiles:
+      - optionB         # docker compose --profile optionB up 으로 선택 기동
     logging:
       driver: json-file
       options:
