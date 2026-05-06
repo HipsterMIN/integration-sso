@@ -127,6 +127,44 @@ ido:
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
 
+  # ── 브로커 모드 설정 (문서 §6) ──────────────────────────────────────────
+  # qsign    : 기존 방식 — ido → q-sign으로 URL 발급 위임 (현재 기본값)
+  # keycloak : 신규 방식 — ido가 직접 Keycloak Authorization URL 생성
+  broker:
+    mode: ${IDO_BROKER_MODE:qsign}
+
+  # ── Keycloak OIDC 브로커 설정 (문서 §7, §10) ──────────────────────────
+  # ido.broker.mode=keycloak 전환 시 아래 설정 활성화
+  keycloak:
+    # Keycloak 서버 URL (로컬: http://localhost:8088, Docker: http://keycloak:8088)
+    base-url: ${KEYCLOAK_BASE_URL:http://localhost:8088}
+    # Realm 이름 (§10-1)
+    realm: ${KEYCLOAK_REALM:onepass}
+    # ido-client 클라이언트 ID (§10-2 confidential client)
+    client-id: ${KEYCLOAK_CLIENT_ID:ido-client}
+    # ido-client 클라이언트 시크릿 (§10-2 — Keycloak Admin Console에서 생성)
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:change-me}
+    # Keycloak 콜백 redirect_uri (§10-2 Valid Redirect URIs에 등록 필수)
+    redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:8083/api/v1/broker/callback}
+    # state/nonce Redis TTL (초) — CSRF 방어
+    state-ttl-seconds: 300
+    # JWKS 캐시 TTL (초) — 키 로테이션 주기보다 짧게 설정
+    jwks-cache-ttl-seconds: 3600
+    # HTTP 타임아웃
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
+    # kc_idp_hint 매핑 (§10-3 — Keycloak Identity Provider alias)
+    idp-hint-mapping:
+      kakao: social-kakao
+      naver: social-naver
+    # ACR → AuthLevel 매핑 (§10-4 — Keycloak ACR Mapper 설정 필요)
+    acr-to-auth-level:
+      "1": L1
+      "2": L2
+      "3": L3
+    # Kafka 인증 이벤트 토픽 (Strategy B — IdO가 직접 발행)
+    auth-events-topic: qsign.auth.events
+
   # §16.4 Handoff Ticket 설정
   ticket:
     ttl-seconds: 60                  # 1회성 TTL
