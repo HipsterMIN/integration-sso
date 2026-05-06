@@ -1,22 +1,84 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// onepass-fe — 순수 React SPA 모듈
+//
+// Spring Boot BFF 책임은 ido 모듈로 이관.
+// 이 모듈은 React(TypeScript) + Webpack5 + Ant Design 프론트엔드만 담당.
+//
+// 개발 (Option B):  ./gradlew :onepass-fe:frontendDev
+//   → webpack-dev-server port 3000, /api/** proxy → ido:8083
+//
+// 빌드 (Option A):  ./gradlew :onepass-fe:build
+//   → dist/ 산출물. Nginx 혹은 ido 정적 리소스로 서빙
+// ══════════════════════════════════════════════════════════════════════════════
 plugins {
-    id("org.springframework.boot")
-    id("io.spring.dependency-management")
-    java
+    id("com.github.node-gradle.node") version "7.1.0"
 }
 
-dependencies {
-    implementation(project(":platform-common"))
+// ── Node / Yarn 버전 고정 ──────────────────────────────────────────────────
+node {
+    version        = "20.14.0"
+    yarnVersion    = "1.22.22"
+    download       = true
+    nodeProjectDir = file("${projectDir}/frontend")
+}
 
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    implementation("org.springframework.kafka:spring-kafka")
+// ── 의존성 없음: 순수 프론트엔드 모듈 ────────────────────────────────────
+// Spring Boot, Kafka, Redis 의존성은 모두 제거됨.
+// BFF 기능은 ido 모듈(port 8083)에서 제공.
 
-    // JWT (feSessionId 관리, 설계서 12.5절)
-    implementation("io.jsonwebtoken:jjwt-api:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
+// ── 태스크 ────────────────────────────────────────────────────────────────
 
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
+/** frontend/node_modules 설치 */
+val yarnInstall by tasks.registering(com.github.gradle.node.yarn.task.YarnTask::class) {
+    description = "Install React frontend dependencies"
+    group       = "frontend"
+    // --frozen-lockfile 를 사용하지 않음: yarn.lock 이 없거나 비어있는 초기 환경 대응
+    args        = listOf("install")
+    workingDir  = file("${projectDir}/frontend")
+    inputs.files(file("frontend/package.json"))
+    outputs.dir("frontend/node_modules")
+}
+
+/** yarn build:prod — Webpack 프로덕션 빌드 */
+val yarnBuild by tasks.registering(com.github.gradle.node.yarn.task.YarnTask::class) {
+    description = "Build React frontend (production)"
+    group       = "frontend"
+    dependsOn(yarnInstall)
+    args        = listOf("build:prod")
+    workingDir  = file("${projectDir}/frontend")
+    inputs.dir("frontend/src")
+    inputs.files(file("frontend/package.json"), file("frontend/webpack.config.js"))
+    outputs.dir("frontend/dist")
+}
+
+/** build 태스크 = yarnBuild */
+tasks.named("build") {
+    dependsOn(yarnBuild)
+}
+
+/** Option B: React 개발서버 기동 (port 3000, /api/** → ido:8083) */
+tasks.register<com.github.gradle.node.yarn.task.YarnTask>("frontendDev") {
+    description = "Start React dev server on port 3000 (proxy /api → ido:8083)"
+    group       = "frontend"
+    dependsOn(yarnInstall)
+    args        = listOf("dev")
+    workingDir  = file("${projectDir}/frontend")
+}
+
+/** ESLint */
+tasks.register<com.github.gradle.node.yarn.task.YarnTask>("lint") {
+    description = "Run ESLint on frontend sources"
+    group       = "frontend"
+    dependsOn(yarnInstall)
+    args        = listOf("lint")
+    workingDir  = file("${projectDir}/frontend")
+}
+
+/** Jest */
+tasks.register<com.github.gradle.node.yarn.task.YarnTask>("test") {
+    description = "Run Jest unit tests"
+    group       = "frontend"
+    dependsOn(yarnInstall)
+    args        = listOf("test")
+    workingDir  = file("${projectDir}/frontend")
 }

@@ -14,6 +14,10 @@ CREATE SCHEMA IF NOT EXISTS ido;
 
 -- Agency-Stub 스키마
 CREATE SCHEMA IF NOT EXISTS agency_stub;
+-- Keycloak 스키마 (문서 §10 — Keycloak DB 격리)
+-- Keycloak이 자동으로 테이블을 생성하므로 스키마만 생성
+CREATE SCHEMA IF NOT EXISTS keycloak;
+
 
 -- ── Q-Sign ──────────────────────────────────────────────────────────────────
 

@@ -77,7 +77,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: "com.onepass.*"
+        spring.json.trusted.packages: "kr.go.smes.*"
         isolation.level: read_committed
     listener:
       ack-mode: MANUAL_IMMEDIATE
@@ -129,6 +129,6 @@ management:
 
 logging:
   level:
-    com.onepass.agency: INFO
+    kr.go.smes.agency: INFO
     org.springframework.kafka: WARN
     org.flywaydb: INFO

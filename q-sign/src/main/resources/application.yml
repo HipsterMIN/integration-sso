@@ -97,7 +97,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: "com.onepass.*"
+        spring.json.trusted.packages: "kr.go.smes.*"
         isolation.level: read_committed
     listener:
       ack-mode: MANUAL_IMMEDIATE
@@ -131,6 +131,28 @@ qsign:
   outbox:
     relay-interval-ms: 500
     batch-size: 100
+    max-retry: 3
+
+  # ── 카카오 OIDC 브로커 설정 ────────────────────────────────────
+  oidc:
+    # state / nonce Redis TTL (5분 — Authorization URL 유효시간)
+    state-ttl-seconds: 300
+    # JWKS 공개키 캐시 TTL (1시간)
+    jwks-cache-ttl-seconds: 3600
+    # HTTP 클라이언트 타임아웃
+    http:
+      connect-timeout-ms: 3000
+      read-timeout-ms: 5000
+    kakao:
+      # 카카오 개발자 콘솔 → 내 애플리케이션 → 앱 키 → REST API 키
+      client-id: ${KAKAO_CLIENT_ID:your-kakao-client-id}
+      # 카카오 보안 → Client Secret (선택, 활성화 권장)
+      client-secret: ${KAKAO_CLIENT_SECRET:}
+      # 카카오 개발자 콘솔 → Redirect URI 에 등록한 값과 정확히 일치해야 함
+      # q-sign 이 직접 callback 수신
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8081/api/v1/oidc/kakao/callback}
+      # 요청 scope (openid 필수 — id_token 발급 요건)
+      scope: "openid profile_nickname account_email"
 
 # ── Resilience4j ──────────────────────────────────────────────
 resilience4j:
@@ -177,6 +199,6 @@ management:
 
 logging:
   level:
-    com.onepass.qsign: INFO
+    kr.go.smes.qsign: INFO
     org.springframework.kafka: WARN
     org.flywaydb: INFO
