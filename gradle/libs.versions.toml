@@ -60,3 +60,4 @@ testcontainers-kafka                  = { module = "org.testcontainers:kafka" }
 [plugins]
 spring-boot          = { id = "org.springframework.boot",        version.ref = "spring-boot" }
 spring-dependency-dm = { id = "io.spring.dependency-management", version.ref = "spring-dm"   }
+node-gradle          = { id = "com.github.node-gradle.node",     version = "7.1.0"            }

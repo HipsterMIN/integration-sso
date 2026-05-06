@@ -1,6 +1,14 @@
 server:
   port: 8083
   shutdown: graceful
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        name: feSessionId
+        http-only: true
+        secure: true
+        same-site: lax
 
 spring:
   application:
@@ -94,7 +102,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: "com.onepass.*"
+        spring.json.trusted.packages: "kr.go.smes.*"
         isolation.level: read_committed
     listener:
       ack-mode: MANUAL_IMMEDIATE
@@ -131,12 +139,26 @@ ido:
   # §16.4.1 Clock Skew 허용
   clock-skew-tolerance-minutes: 5
 
+  # ── FE 세션 설정 (onepass-fe BFF 이관) ──────────────────────────────────
+  fe:
+    session:
+      sliding-ttl-minutes: 30            # §12.4 Sliding TTL
+      absolute-timeout-minutes: 480      # §12.4 절대 만료 (8h)
+    # returnUrl 화이트리스트 (§12.6 — 기관 callback_whitelist 보조)
+    allowed-return-urls:
+      - https://agency-a.example.com
+      - https://agency-b.example.com
+      - http://localhost:8084            # agency-stub (PoC)
+      - http://localhost:3000            # React dev server (개발)
+      - http://localhost:3001            # Nginx React (Option B 프로덕션)
+
   # Kafka 토픽
   kafka:
     topic-handoff-events: ido.handoff.events
     topic-session-advisory: platform.session.advisory
-    consumer-group-qim: ido-qim-consumer          # qim.user.events 구독
-    consumer-group-qsign: ido-qsign-consumer      # qsign.auth.events 구독
+    consumer-group-qim: ido-qim-consumer               # qim.user.events 구독
+    consumer-group-qsign: ido-qsign-consumer            # qsign.auth.events 구독
+    consumer-group-fe-advisory: ido-fe-advisory-consumer  # platform.session.advisory 구독 (FE 세션)
 
   # Outbox Relay
   outbox:
@@ -197,8 +219,18 @@ management:
     tags:
       application: ${spring.application.name}
 
+# ── CORS (React dev-server / Nginx → IdO) ─────────────────────────────
+# BFF 이관에 따라 CORS 허용 Origin 관리
+ido:
+  cors:
+    enabled: true
+    allowed-origins:
+      - ${CORS_ORIGIN_DEV:http://localhost:3000}    # React dev server (개발)
+      - ${CORS_ORIGIN_PROD:http://localhost:3001}   # Nginx React (Option B 프로덕션)
+
 logging:
   level:
-    com.onepass.ido: INFO
+    kr.go.smes.ido: INFO
+    kr.go.smes.ido.fe: INFO
     org.springframework.kafka: WARN
     org.flywaydb: INFO

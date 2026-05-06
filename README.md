@@ -1,464 +1,626 @@
-# OnePass Platform — 통합인증 플랫폼
+# OnePass 통합인증 플랫폼 PoC
 
-Kafka 기반 이벤트 드리븐 아키텍처(EDA)로 구축된 통합인증 플랫폼 PoC입니다.
-70여 개 유관기관 연계를 위한 **Transactional Outbox**, **Idempotent Consumer**, **Compacted Topic** 패턴을 적용합니다.
+중기원패스(OnePass) 통합인증 플랫폼 — Gradle 멀티프로젝트 PoC 구현체입니다.  
+**3+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe) 기반 EDA 아키텍처로 구성됩니다.
+
+> **[아키텍처 변경]** `onepass-fe`는 **순수 React SPA** 모듈로 전환되었습니다.  
+> 구 Spring Boot BFF 기능(FE 세션 관리, Kafka Advisory 소비, CORS)은 **`ido`** 모듈로 이관되었습니다.
 
 ---
 
 ## 목차
 
-1. [프로젝트 구조](#1-프로젝트-구조)
-2. [기술 스택](#2-기술-스택)
-3. [개발 환경 준비](#3-개발-환경-준비)
-4. [인프라 실행](#4-인프라-실행)
-5. [애플리케이션 빌드 및 실행](#5-애플리케이션-빌드-및-실행)
-6. [서비스 포트 및 관리 UI](#6-서비스-포트-및-관리-ui)
-7. [코드 작성 규칙](#7-코드-작성-규칙)
-8. [테스트 작성 및 실행](#8-테스트-작성-및-실행)
-9. [Kafka 토픽 설계](#9-kafka-토픽-설계)
-10. [DB 마이그레이션 (Flyway)](#10-db-마이그레이션-flyway)
-11. [브랜치 및 커밋 전략](#11-브랜치-및-커밋-전략)
-12. [트러블슈팅](#12-트러블슈팅)
+1. [아키텍처 개요](#아키텍처-개요)
+2. [모듈 책임 분리 요약](#모듈-책임-분리-요약)
+3. [기술 스택](#기술-스택)
+4. [모듈 구성](#모듈-구성)
+5. [패키지 규칙](#패키지-규칙)
+6. [빠른 시작](#빠른-시작)
+7. [인프라 (Docker Compose)](#인프라-docker-compose)
+8. [Flyway 마이그레이션](#flyway-마이그레이션)
+9. [Kafka 토픽 / 컨슈머 그룹](#kafka-토픽--컨슈머-그룹)
+10. [onepass-fe: 순수 React SPA](#onepass-fe-순수-react-spa)
+11. [개발 환경 설정](#개발-환경-설정)
+12. [빌드 & 실행](#빌드--실행)
+13. [접속 URL](#접속-url)
+14. [코딩 컨벤션](#코딩-컨벤션)
 
 ---
 
-## 1. 프로젝트 구조
+## 아키텍처 개요
 
 ```
-onepass-platform/          # Gradle 루트 프로젝트
-├── platform-common/       # 공통 도메인 / 유틸리티 (실행 JAR 없음, 라이브러리 전용)
-├── q-sign/                # Q-Sign 인증 서비스          (port 8081)
-├── q-im/                  # Q-IM 사용자 관리 서비스      (port 8082)
-├── ido/                   # IdO (Identity Orchestrator)  (port 8083)
-├── onepass-fe/            # OnePass 프론트엔드 서비스    (port 8080)
-├── agency-stub/           # 유관기관 연동 스텁           (port 8084)
-├── infra/docker/          # 로컬 인프라 Docker Compose
-└── gradle/
-    └── libs.versions.toml # 버전 카탈로그 (단일 버전 관리)
-```
-
-각 모듈은 `com.onepass.<모듈명>` 패키지를 루트로 사용하며, 아키텍처 레이어는 다음을 따릅니다.
-
-```
-api/           ← REST 컨트롤러 (입출력 DTO 포함)
-application/   ← 서비스 인터페이스 + 구현체
-domain/        ← 도메인 엔티티 및 값 객체
-infrastructure/← 리포지토리 구현체, 외부 시스템 어댑터
-outbox/        ← Transactional Outbox 릴레이 (q-im, q-sign)
-config/        ← 스프링 설정 클래스
+┌─────────────────────────────────────────────────────────────────┐
+│                      외부 채널 (브라우저 / 앱)                        │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │ HTTPS
+            ┌───────────┴────────────┐
+            ▼                        ▼
+  [개발] React dev :3000     [운영] Nginx :3001
+    webpack proxy /api           /api → ido:8083
+         │                            │
+         └────────────┬───────────────┘
+                      │ /api/v1/fe-session/**
+                      │ /api/v1/handoff/**
+┌─────────────────────▼───────────────────────────────────────────┐
+│  ido  :8083  정책 오케스트레이터 + FE BFF (BFF 이관)                 │
+│  - feSessionId 쿠키 발급 · 갱신 · 만료 (세션 오너십)                  │
+│  - returnUrl 화이트리스트 검증 (§12.6)                              │
+│  - IdO Handoff Ticket 발급 / 검증 / Revoke                        │
+│  - platform.session.advisory Kafka 소비 → FE 세션 무효화           │
+│  - CORS: React SPA (port 3000/3001) 허용                         │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │ HTTP (내부망)
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+┌───────────────┐ ┌───────────────┐ ┌──────────────────┐
+│  q-sign :8081 │ │  q-im   :8082 │ │agency-stub :8084 │
+│  인증 SoR      │ │  식별 SoR      │ │기관 로컬 세션 Stub  │
+└───────┬───────┘ └───────┬───────┘ └──────────────────┘
+        │  Outbox         │  Outbox
+        └────────┬────────┘
+                 ▼
+         ┌───────────────────────────────────┐
+         │           Apache Kafka            │
+         │  qsign.auth.events                │
+         │  qim.user.events / snapshot       │
+         │  ido.handoff.events               │
+         │  platform.session.advisory        │
+         │  platform.audit.log  (+DLQ ×5)    │
+         └───────────────────────────────────┘
+                        │
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+  PostgreSQL 16     Redis 7.2     onepass-fe
+  (qsign/qim/       (FE세션·캐시)  (순수 React SPA)
+   ido/agency)                     dist/ → Nginx 서빙
 ```
 
 ---
 
-## 2. 기술 스택
+## 모듈 책임 분리 요약
 
-| 범주 | 기술 | 버전 |
-|------|------|------|
-| 런타임 | Java (LTS) | 21 |
-| 프레임워크 | Spring Boot | 3.5.9 |
-| 빌드 | Gradle (Kotlin DSL) | Wrapper 포함 |
-| DB | PostgreSQL | 16 |
-| 캐시 | Redis | 7.2 |
-| 메시지 | Kafka (Confluent) | 7.6.1 |
-| 마이그레이션 | Flyway | 11.8.0 |
-| 회복 탄력성 | Resilience4j | 2.2.0 |
-| 인증 | JJWT | 0.12.6 |
-| 매핑 | MapStruct | 1.6.3 |
-| 테스트 인프라 | Testcontainers | 1.20.4 |
-| 코드 생성 | Lombok | BOM 관리 |
+### 변경 전 (구 아키텍처)
 
----
+| 책임 | 담당 모듈 |
+|------|-----------|
+| FE 세션 발급/확인/로그아웃 | `onepass-fe` (Spring Boot BFF) |
+| `platform.session.advisory` Kafka 소비 | `onepass-fe` (SessionAdvisoryConsumer) |
+| returnUrl 화이트리스트 검증 | `onepass-fe` |
+| React SPA 정적 서빙 (Option A) | `onepass-fe` (Spring Boot) |
+| CORS 설정 (`/api/**`) | `onepass-fe` (WebMvcConfig) |
 
-## 3. 개발 환경 준비
+### 변경 후 (현재 아키텍처)
 
-### 3.1 필수 설치 항목
+| 책임 | 담당 모듈 | 비고 |
+|------|-----------|------|
+| FE 세션 발급/확인/로그아웃 | **`ido`** (`FeSessionController`) | `/api/v1/fe-session/**` |
+| `platform.session.advisory` Kafka 소비 | **`ido`** (`FeAdvisoryConsumer`) | 그룹: `ido-fe-advisory-consumer` |
+| returnUrl 화이트리스트 검증 | **`ido`** (`FeSessionServiceImpl`) | DB(`ido.fe_return_url_whitelist`) + yml |
+| React SPA 정적 서빙 | **Nginx** (Option B) / **ido** static (Option A) | |
+| CORS 설정 (`/api/**`) | **`ido`** (`IdoWebMvcConfig`) | Origin: 3000, 3001 |
+| React SPA 소스 코드 | **`onepass-fe`** (순수 Node 모듈) | Spring Boot 완전 제거 |
 
-| 항목 | 최소 버전 | 확인 명령 |
-|------|-----------|----------|
-| JDK | 21 | `java -version` |
-| Docker Desktop | 4.x | `docker --version` |
-| Docker Compose | v2 (CLI 내장) | `docker compose version` |
-| IntelliJ IDEA | 2023.1+ | — |
+### 4축 책임 모델 (현행)
 
-> **JDK 21 권장 배포판**: Eclipse Temurin 21 (Adoptium) 또는 Amazon Corretto 21
-
-### 3.2 IntelliJ IDEA 설정
-
-1. **Gradle JVM**: `File > Settings > Build > Gradle > Gradle JVM` → JDK 21 선택
-2. **Lombok 플러그인**: Marketplace에서 *Lombok* 설치 후 `Enable annotation processing` 활성화
-3. **인코딩**: `Settings > Editor > File Encodings` → 전체 UTF-8 통일
-4. **Import**: `File > Open` → 루트 `build.gradle.kts` 선택 (Open as Project)
+| 축 | 서비스 | 책임 |
+|----|--------|------|
+| **Q-Sign** | `q-sign` :8081 | 인증 SoR — IdP 연동, 인증 결과 기록, 잠금 정책 |
+| **Q-IM** | `q-im` :8082 | 식별 SoR — QIM 사용자 원장, 인증수단 매핑, Outbox 이벤트 |
+| **IdO** | `ido` :8083 | 정책 오케스트레이터 + FE BFF — Handoff, 기관 메타, **FE 세션**, Advisory 소비 |
+| **onepass-FE** | `onepass-fe` | 순수 React SPA — UI 로직만 담당, 백엔드 없음 |
 
 ---
 
-## 4. 인프라 실행
+## 기술 스택
 
-모든 명령은 프로젝트 루트에서 실행합니다.
+### 백엔드
 
-### 4.1 기본 인프라 가동
+| 항목 | 버전 |
+|------|------|
+| JDK | Eclipse Temurin **21** |
+| Spring Boot | **3.5.9** |
+| Gradle | **9.5.0** |
+| Spring Kafka | Spring Boot BOM 관리 |
+| Flyway | **11.8.0** |
+| Resilience4j | **2.2.0** |
+| JJWT | **0.12.6** |
+| PostgreSQL Driver | Spring Boot BOM 관리 |
+| Lombok / MapStruct | 최신 안정 버전 |
 
-```bash
-docker compose -f infra/docker/docker-compose.yml up -d
-```
+### 프론트엔드 (`onepass-fe/frontend/`)
 
-Kafka 토픽 초기화 컨테이너(`kafka-init`)가 자동으로 실행되어 필요한 토픽을 생성합니다.
-별도로 `create-topics.sh`를 수동 실행할 필요가 없습니다.
+| 항목 | 버전 |
+|------|------|
+| React | **18.3** |
+| TypeScript | **5.4** |
+| Webpack | **5.92** |
+| Ant Design | **5.18** |
+| React Router | **v6** |
+| TanStack Query | **v5** |
+| Axios | **1.7** |
+| Zustand | **4.5** |
+| Node.js (빌드) | **20.14** (LTS) |
+| Yarn | **1.22** |
 
-### 4.2 상태 확인
+### 인프라
 
-```bash
-docker compose -f infra/docker/docker-compose.yml ps
-```
-
-모든 컨테이너가 `healthy` 상태가 될 때까지 대기합니다 (최초 기동 시 약 1~2분 소요).
-
-### 4.3 선택적 프로파일
-
-```bash
-# Schema Registry 포함 (Avro 스키마 관리)
-docker compose -f infra/docker/docker-compose.yml --profile schema up -d
-
-# pgAdmin 포함 (DB GUI)
-docker compose -f infra/docker/docker-compose.yml --profile tools up -d
-
-# 두 프로파일 모두
-docker compose -f infra/docker/docker-compose.yml --profile schema --profile tools up -d
-```
-
-### 4.4 인프라 종료 및 데이터 초기화
-
-```bash
-# 컨테이너만 중지 (데이터 볼륨 유지)
-docker compose -f infra/docker/docker-compose.yml down
-
-# 데이터 볼륨까지 완전 삭제 (초기화)
-docker compose -f infra/docker/docker-compose.yml down -v
-```
-
-### 4.5 DB 연결 정보
-
-| 항목 | 값 |
-|------|----|
-| Host | `localhost:5432` |
-| Database | `onepass` |
-| Username | `onepass` |
-| Password | `onepass` |
-
-각 서비스는 독립 스키마를 사용합니다: `qsign`, `qim`, `ido`, `fe`, `agency`
+| 서비스 | 이미지 |
+|--------|--------|
+| PostgreSQL | `postgres:16-alpine` |
+| Redis | `redis:7.2-alpine` |
+| Kafka | `confluentinc/cp-kafka:7.6.1` |
+| Zookeeper | `confluentinc/cp-zookeeper:7.6.1` |
+| Nginx | `nginx:1.27-alpine` (React SPA 서빙) |
 
 ---
 
-## 5. 애플리케이션 빌드 및 실행
-
-### 5.1 전체 빌드
-
-```bash
-./gradlew clean build -x test
-```
-
-### 5.2 특정 모듈만 빌드
-
-```bash
-./gradlew :q-im:build -x test
-./gradlew :ido:build -x test
-```
-
-### 5.3 실행 순서
-
-서비스 간 의존 관계가 있으므로 아래 순서로 기동합니다.
+## 모듈 구성
 
 ```
-[1] q-sign      (port 8081) — 인증 SoR
-[2] q-im        (port 8082) — 사용자 SoR
-[3] ido         (port 8083) — 인증 오케스트레이터
-[4] onepass-fe  (port 8080) — 프론트엔드 게이트웨이
-[5] agency-stub (port 8084) — 유관기관 스텁 (선택)
+onepass-platform/                  ← Gradle 루트
+├── platform-common/               # 공통 도메인 · 이벤트 · 에러코드
+├── q-sign/                        # 인증 SoR (port 8081)
+├── q-im/                          # 식별 SoR (port 8082)
+├── ido/                           # 정책 오케스트레이터 + FE BFF (port 8083)
+│   └── src/main/java/.../ido/
+│       ├── api/                   # HandoffController
+│       ├── fe/                    # ★ BFF 이관 코드
+│       │   ├── api/               # FeSessionController, FeSessionCreateRequest
+│       │   ├── session/           # FeSession, FeSessionService, FeSessionServiceImpl
+│       │   ├── kafka/             # FeAdvisoryConsumer (platform.session.advisory)
+│       │   └── config/            # IdoWebMvcConfig (CORS)
+│       ├── config/                # KafkaConsumerConfig (feAdvisoryListenerFactory 포함)
+│       └── ...
+├── onepass-fe/                    # ★ 순수 React SPA (Spring Boot 없음)
+│   ├── build.gradle.kts           # Node 전용 (com.github.node-gradle.node)
+│   ├── Dockerfile.optionA         # React → ido static resource 빌드
+│   ├── Dockerfile.optionB         # React → Nginx (2-stage)
+│   └── frontend/                  # React SPA (TypeScript / Webpack5)
+│       ├── src/api/
+│       │   ├── client.ts          # Axios (proxy → ido:8083)
+│       │   └── session.ts         # /api/v1/fe-session/** 호출
+│       └── webpack.config.js      # devServer proxy: /api → localhost:8083
+├── agency-stub/                   # 기관 로컬 세션 시뮬레이터 (port 8084)
+└── infra/
+    └── docker/
+        ├── docker-compose.yml     # onepass-fe Spring Boot 제거, onepass-ido 추가
+        ├── nginx/nginx.conf       # upstream: onepass-ido:8083
+        └── ...
 ```
 
-```bash
-# 각 모듈을 개별 터미널에서 실행
-./gradlew :q-sign:bootRun
-./gradlew :q-im:bootRun
-./gradlew :ido:bootRun
-./gradlew :onepass-fe:bootRun
-./gradlew :agency-stub:bootRun
-```
+---
 
-IntelliJ에서는 각 `*Application.java`의 main 메서드를 직접 실행해도 됩니다.
+## 패키지 규칙
 
-### 5.4 환경 변수 (로컬 기본값)
+모든 Java 소스의 루트 패키지는 **`kr.go.smes`** 입니다.
 
-애플리케이션은 환경 변수가 없으면 아래 기본값을 사용하므로, 로컬에서는 추가 설정 없이 바로 실행됩니다.
-
-| 변수 | 기본값 |
+| 모듈 | 패키지 |
 |------|--------|
-| `DB_HOST` | `localhost` |
-| `DB_PORT` | `5432` |
-| `DB_NAME` | `onepass` |
-| `DB_USERNAME` | `onepass` |
-| `DB_PASSWORD` | `onepass` |
-| `REDIS_HOST` | `localhost` |
-| `REDIS_PORT` | `6379` |
-| `KAFKA_SERVERS` | `localhost:9092` |
+| platform-common | `kr.go.smes.common` |
+| q-sign | `kr.go.smes.qsign` |
+| q-im | `kr.go.smes.qim` |
+| ido (기존) | `kr.go.smes.ido` |
+| ido (FE BFF 이관) | `kr.go.smes.ido.fe` |
+| agency-stub | `kr.go.smes.agency` |
+
+> `kr.go.smes.fe` 패키지(구 `onepass-fe` BFF)는 완전 제거됨.
 
 ---
 
-## 6. 서비스 포트 및 관리 UI
+## 빠른 시작
 
-### 애플리케이션
+### 사전 요구사항
 
-| 서비스 | 포트 | 비고 |
-|--------|------|------|
-| onepass-fe | 8080 | 프론트엔드 진입점 |
-| q-sign | 8081 | 인증 서비스 |
-| q-im | 8082 | 사용자 관리 |
-| ido | 8083 | 인증 오케스트레이터 |
-| agency-stub | 8084 | 유관기관 스텁 |
+- **JDK 21** (Eclipse Temurin 권장)
+- **Docker 24+** / Docker Compose v2
+- **Node.js 20 LTS** + **Yarn 1.22** (프론트엔드 개발 시)
 
-### 인프라 관리 UI
-
-| 도구 | URL | 계정 |
-|------|-----|------|
-| Kafka UI | http://localhost:8090 | admin / admin |
-| Redis Insight | http://localhost:5540 | — |
-| pgAdmin | http://localhost:5050 | admin@onepass.local / admin |
-| Schema Registry | http://localhost:8085/subjects | profile: schema |
-
-### Actuator 엔드포인트
-
-각 서비스는 `/actuator/health`, `/actuator/metrics`, `/actuator/prometheus`를 노출합니다.
+### 1. 인프라 기동
 
 ```bash
-curl http://localhost:8082/actuator/health
-```
-
----
-
-## 7. 코드 작성 규칙
-
-### 7.1 공통 원칙
-
-- **SoR(Source of Record) 원칙 준수**: 각 데이터의 원천 서비스 외부에서는 해당 데이터를 직접 수정하지 않습니다.
-  - 사용자 정보 → q-im 만 변경 가능
-  - 인증 결과 → q-sign 만 기록 가능
-- **이벤트 발행은 반드시 Transactional Outbox를 경유**합니다. Kafka Producer를 서비스 레이어에서 직접 호출하지 마십시오.
-- 모든 Kafka 컨슈머는 **멱등성**을 보장해야 합니다. 동일 이벤트가 재전달되어도 데이터가 오염되지 않도록 구현합니다.
-
-### 7.2 패키지 및 클래스 작성
-
-- 인터페이스와 구현체를 분리합니다: `UserService` (interface) + `UserServiceImpl` (class)
-- DTO는 API 레이어에만 둡니다. 도메인 객체를 컨트롤러 응답에 그대로 노출하지 않습니다.
-- 엔티티-DTO 변환은 **MapStruct**를 사용합니다. 수동 변환 코드를 작성하지 마십시오.
-- `@Transactional`은 서비스 구현체 메서드에만 선언합니다. 컨트롤러에 선언하지 않습니다.
-
-### 7.3 Kafka 관련
-
-- **파티션 키 규칙**: 동일 사용자의 이벤트 순서 보장을 위해 `qimUserId`를 파티션 키로 사용합니다.
-- `KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`로 설정되어 있습니다. 신규 토픽은 반드시 `create-topics.sh`에 추가하고 리뷰를 받아야 합니다.
-- DLQ 토픽은 본 토픽 이름에 `.dlq` 접미사를 붙입니다.
-- 컨슈머 오류 처리: 재시도 후 DLQ로 라우팅하는 패턴을 따릅니다. 예외를 삼키고 넘어가지 않습니다.
-
-### 7.4 예외 처리
-
-- 비즈니스 예외는 `platform-common`의 공통 예외 클래스를 상속합니다.
-- 컨트롤러 레이어에서 `@ExceptionHandler` 또는 `@ControllerAdvice`로 일괄 처리합니다.
-- 스택 트레이스 전체를 API 응답에 노출하지 않습니다.
-
-### 7.5 설정 관리
-
-- 민감한 설정값(비밀번호, 시크릿)은 코드에 하드코딩하지 않습니다. 환경 변수를 사용합니다.
-- `application.yml`에 새로운 커스텀 설정을 추가할 때는 `@ConfigurationProperties` 클래스를 만들어 바인딩합니다.
-
-### 7.6 의존성 추가
-
-신규 라이브러리를 추가할 때는 반드시 `gradle/libs.versions.toml`에 버전을 등록한 후 각 모듈의 `build.gradle.kts`에서 참조합니다.
-
-```toml
-# libs.versions.toml에 버전 추가
-[versions]
-some-lib = "1.2.3"
-
-[libraries]
-some-lib = { module = "com.example:some-lib", version.ref = "some-lib" }
-```
-
-```kotlin
-// build.gradle.kts에서 참조
-dependencies {
-    implementation(libs.some.lib)
-}
-```
-
----
-
-## 8. 테스트 작성 및 실행
-
-### 8.1 테스트 실행
-
-```bash
-# 전체 테스트
-./gradlew test
-
-# 특정 모듈 테스트
-./gradlew :q-im:test
-
-# 특정 클래스만
-./gradlew :q-im:test --tests "com.onepass.qim.*"
-
-# 테스트 결과 재실행 (캐시 무시)
-./gradlew :q-im:test --rerun-tasks
-```
-
-테스트 리포트: `{module}/build/reports/tests/test/index.html`
-
-### 8.2 테스트 종류 및 규칙
-
-**단위 테스트**
-- 외부 의존성(DB, Kafka, Redis)을 Mockito로 모킹합니다.
-- 서비스, 도메인 로직 검증에 집중합니다.
-- 클래스명 접미사: `*Test`
-
-**통합 테스트**
-- **Testcontainers**를 사용하여 실제 PostgreSQL, Kafka 컨테이너를 띄웁니다. 인메모리 H2나 Embedded Kafka로 대체하지 않습니다.
-- 클래스명 접미사: `*IntegrationTest`
-- `@SpringBootTest` + Testcontainers 조합을 기본으로 합니다.
-
-**Outbox / 이벤트 테스트**
-- Outbox 릴레이가 실제로 Kafka에 메시지를 발행하는지 통합 테스트로 검증합니다.
-- 멱등성 검증: 동일 이벤트를 2회 이상 전달해도 부작용이 없음을 테스트로 증명합니다.
-
-### 8.3 테스트 작성 시 주의사항
-
-- `@Transactional`을 테스트 클래스에 붙여 롤백에 의존하는 테스트는 지양합니다 (Kafka 메시지 발행 누락 등 사이드 이펙트 발생).
-- 테스트 데이터는 `@BeforeEach`에서 명시적으로 세팅하고 `@AfterEach`에서 정리합니다.
-- 타임아웃이 있는 비동기 검증은 `Awaitility`를 사용합니다.
-
----
-
-## 9. Kafka 토픽 설계
-
-토픽 초기화는 `docker compose up` 시 `kafka-init` 컨테이너가 자동 처리합니다.
-
-| 토픽 | 파티션 | 정책 | 보존 | 파티션 키 | 용도 |
-|------|--------|------|------|-----------|------|
-| `qsign.auth.events` | 6 | delete | 1년 | identifierHash | Q-Sign 인증 결과 이벤트 |
-| `qsign.auth.events.dlq` | 3 | delete | 7일 | — | Q-Sign DLQ |
-| `qim.user.events` | 12 | **compact** | — | qimUserId | Q-IM 사용자 변경 이벤트 |
-| `qim.user.snapshot` | 12 | **compact** | — | qimUserId | Q-IM 전체 상태 스냅샷 |
-| `qim.user.events.dlq` | 6 | delete | 7일 | — | Q-IM DLQ |
-| `ido.handoff.events` | 6 | delete | 1년 | correlationId | IdO Handoff 이벤트 |
-| `ido.handoff.events.dlq` | 3 | delete | 7일 | — | IdO DLQ |
-| `platform.session.advisory` | 6 | delete | 1일 | qimUserId | 세션 권고 / 강제 로그아웃 |
-| `platform.session.advisory.dlq` | 3 | delete | 7일 | — | Advisory DLQ |
-| `platform.audit.log` | 6 | delete | 2년 | — | 플랫폼 감사 로그 |
-
-> `compact` 정책 토픽에 메시지를 발행할 때 **반드시 파티션 키를 지정**해야 합니다. 키 없이 발행하면 Compaction이 올바르게 동작하지 않습니다.
-
----
-
-## 10. DB 마이그레이션 (Flyway)
-
-각 모듈은 자체 PostgreSQL 스키마를 소유하며 Flyway로 독립 관리합니다.
-
-### 마이그레이션 파일 위치
-
-```
-{module}/src/main/resources/db/migration/
-└── V{version}__{description}.sql
-    예) V1__create_users_table.sql
-        V2__add_auth_mean_mapping.sql
-```
-
-### 규칙
-
-- 파일명은 반드시 `V{숫자}__{설명}.sql` 형식을 따릅니다 (언더스코어 두 개).
-- **한번 커밋된 마이그레이션 파일은 절대 수정하지 않습니다.** 변경이 필요하면 새 버전을 추가합니다.
-- DDL 변경은 마이그레이션 파일로만 진행합니다. `ddl-auto: validate`로 설정되어 있어, 스키마 불일치 시 애플리케이션이 기동하지 않습니다.
-- 로컬에서 마이그레이션 초기화가 필요하면 `docker compose down -v`로 볼륨을 삭제 후 재기동합니다.
-
----
-
-## 11. 브랜치 및 커밋 전략
-
-### 브랜치 네이밍
-
-```
-feature/{이슈번호}-{간단한-설명}    예) feature/42-add-handoff-expiry
-fix/{이슈번호}-{간단한-설명}        예) fix/55-outbox-relay-npe
-refactor/{설명}
-```
-
-### 커밋 메시지
-
-```
-<type>(<scope>): <요약>
-
-<상세 설명 (선택)>
-```
-
-| type | 사용 시점 |
-|------|----------|
-| `feat` | 신규 기능 |
-| `fix` | 버그 수정 |
-| `refactor` | 리팩터링 (기능 변화 없음) |
-| `test` | 테스트 추가/수정 |
-| `chore` | 빌드, 의존성 등 설정 변경 |
-| `docs` | 문서 변경 |
-
-예시:
-```
-feat(q-im): add idempotent outbox relay with retry backoff
-
-- OutboxServiceImpl에 max-retry 3회, backoff 1초 적용
-- 실패한 레코드는 FAILED 상태로 마킹하여 DLQ 라우팅 준비
-```
-
-### PR 규칙
-
-- PR은 단일 책임 원칙을 따릅니다. 연관 없는 변경은 분리합니다.
-- 셀프 리뷰 후 PR을 오픈합니다.
-- 빌드 및 테스트가 통과해야 머지할 수 있습니다.
-
----
-
-## 12. 트러블슈팅
-
-### Kafka 연결 실패
-
-```bash
-# 브로커 상태 확인
-docker logs onepass-kafka --tail 50
-
-# 토픽 목록 확인
-docker exec onepass-kafka kafka-topics --bootstrap-server localhost:9092 --list
-```
-
-### PostgreSQL 스키마 없음 오류
-
-```bash
-# DB 초기화 SQL 수동 적용
-docker exec -i onepass-postgres psql -U onepass -d onepass < infra/docker/init-db.sql
-```
-
-### Flyway 체크섬 불일치
-
-기존 마이그레이션 파일을 수정한 경우 발생합니다. 절대 기존 파일을 수정하지 말고 새 버전 파일을 추가하십시오.
-로컬 개발 중 초기화가 필요하면:
-
-```bash
-docker compose -f infra/docker/docker-compose.yml down -v
+# 기본 인프라 (PostgreSQL · Redis · Kafka · Zookeeper · Kafka-init)
 docker compose -f infra/docker/docker-compose.yml up -d
+
+# 모니터링 UI 포함
+docker compose -f infra/docker/docker-compose.yml \
+  --profile tools up -d
 ```
 
-### Kafka-init 컨테이너 실패
-
-`docker logs onepass-kafka-init`으로 원인을 확인합니다. 브로커가 healthy 상태가 되기 전에 종료된 경우 아래로 재실행합니다.
+### 2. 전체 Java 빌드
 
 ```bash
-docker compose -f infra/docker/docker-compose.yml restart kafka-init
+./gradlew build -x test
+# ※ onepass-fe 는 Node 모듈이므로 별도 yarn install 필요
 ```
 
-### Lombok 코드 생성 오류 (IntelliJ)
+### 3. 서비스 기동 (로컬 개발)
 
-`File > Invalidate Caches > Invalidate and Restart` 후 재빌드합니다.
-`Enable annotation processing`이 비활성화된 경우 `Settings > Build > Compiler > Annotation Processors`에서 활성화합니다.
+```bash
+# Q-Sign (인증 SoR)
+./gradlew :q-sign:bootRun
+
+# Q-IM (식별 SoR)
+./gradlew :q-im:bootRun
+
+# IdO (정책 오케스트레이터 + FE BFF)
+./gradlew :ido:bootRun
+
+# agency-stub (기관 세션 시뮬레이터)
+./gradlew :agency-stub:bootRun
+
+# React 개발서버 (별도 터미널, proxy → ido:8083)
+cd onepass-fe/frontend && yarn install && yarn dev
+# → http://localhost:3000
+```
+
+---
+
+## 인프라 (Docker Compose)
+
+### 서비스 목록
+
+| 컨테이너 | 이미지 | 포트 | IP | Profile |
+|----------|--------|------|----|---------| 
+| `onepass-postgres` | postgres:16-alpine | **5432** | 172.20.0.10 | 기본 |
+| `onepass-redis` | redis:7.2-alpine | **6379** | 172.20.0.11 | 기본 |
+| `onepass-zookeeper` | cp-zookeeper:7.6.1 | **2181** | 172.20.0.12 | 기본 |
+| `onepass-kafka` | cp-kafka:7.6.1 | **9092** | 172.20.0.13 | 기본 |
+| `onepass-kafka-init` | cp-kafka:7.6.1 | — | — | 기본 (one-shot) |
+| `onepass-kafka-ui` | kafka-ui:latest | **8090** | 172.20.0.15 | 기본 |
+| `onepass-redis-insight` | redisinsight:latest | **5540** | 172.20.0.16 | 기본 |
+| `onepass-schema-registry` | cp-schema-registry:7.6.1 | **8085** | 172.20.0.14 | `schema` |
+| `onepass-pgadmin` | pgadmin4:latest | **5050** | 172.20.0.17 | `tools` |
+| `onepass-ido` ★ | onepass-ido:latest | **8083** | 172.20.0.19 | `app` |
+| `onepass-react` ★ | onepass-react:latest | **3001** | 172.20.0.20 | `optionB` |
+
+> ★ `onepass-fe` Spring Boot 컨테이너는 제거됨. `onepass-ido` 가 BFF 역할 수행.
+
+### Docker Compose 프로파일
+
+```bash
+# 기본 인프라만
+docker compose -f infra/docker/docker-compose.yml up -d
+
+# 앱 스택 (ido BFF + React Nginx)
+docker compose -f infra/docker/docker-compose.yml \
+  --profile app --profile optionB up -d
+
+# 전체 (인프라 + 앱 + 모니터링)
+docker compose -f infra/docker/docker-compose.yml \
+  --profile app --profile optionB --profile tools up -d
+
+# 스키마 레지스트리 포함
+docker compose -f infra/docker/docker-compose.yml --profile schema up -d
+```
+
+### ido 환경변수 (Docker)
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `DB_HOST` | `postgres` | PostgreSQL 호스트 |
+| `REDIS_HOST` | `redis` | Redis 호스트 |
+| `KAFKA_SERVERS` | `kafka:29092` | Kafka 브로커 |
+| `QIM_BASE_URL` | `http://onepass-qim:8082` | Q-IM 서비스 URL |
+| `QSIGN_BASE_URL` | `http://onepass-qsign:8081` | Q-Sign 서비스 URL |
+| `CORS_ORIGIN_DEV` | `http://localhost:3000` | React dev server Origin |
+| `CORS_ORIGIN_PROD` | `http://localhost:3001` | Nginx React Origin |
+
+---
+
+## Flyway 마이그레이션
+
+각 서비스 `src/main/resources/db/migration/` 하위에 위치합니다.
+
+| 모듈 | 파일 | 주요 테이블 |
+|------|------|------------|
+| **q-sign** | `V1__create_schema.sql` | `idp_provider`, `auth_result`, `auth_lock`, `outbox` |
+| **q-sign** | `V2__add_audit_log.sql` | `auth_audit_log`, `lock_event_log`, `used_nonce` (리플레이 방어) |
+| **q-im** | `V1__create_schema.sql` | `qim_user`, `auth_mean_mapping`, `user_profile`, `user_status_history`, `outbox` |
+| **q-im** | `V2__add_idempotent_consumer.sql` | `last_event_version`, `processed_event`, `snapshot_meta` |
+| **ido** | `V1__create_schema.sql` | `agency_meta`, `handoff_audit`, `policy_conflict_log`, `outbox` + 시드 데이터 |
+| **ido** | `V2__add_fe_session.sql` ★ | `fe_session_audit`, `fe_return_url_whitelist` + PoC 화이트리스트 시드 |
+| **agency-stub** | `V1__create_schema.sql` | `agency_user`, `agency_permission`, `agency_local_session`, `session_event_log` |
+
+> ★ `V2__add_fe_session.sql`: onepass-fe BFF 이관으로 추가된 FE 세션 감사 및 returnUrl 화이트리스트 테이블.
+
+### 스키마 분리
+
+```
+PostgreSQL DB: onepass
+├── qsign.*        (q-sign 전용)
+├── qim.*          (q-im 전용)
+├── ido.*          (ido 전용 — fe_session_audit, fe_return_url_whitelist 포함)
+└── agency_stub.*  (agency-stub 전용)
+```
+
+---
+
+## Kafka 토픽 / 컨슈머 그룹
+
+### 토픽 목록 (11개, DLQ 포함)
+
+| 토픽 | 파티션 | Cleanup | 보관 기간 | 생산자 |
+|------|--------|---------|----------|--------|
+| `qsign.auth.events` | 6 | delete | **1년** | q-sign |
+| `qim.user.events` | 12 | **compact** | 무기한 | q-im |
+| `qim.user.snapshot` | 12 | **compact** | 무기한 | q-im |
+| `ido.handoff.events` | 6 | delete | **1년** | ido |
+| `platform.session.advisory` | 6 | delete | **24시간** | ido |
+| `platform.audit.log` | 6 | delete | **2년** | 전 서비스 |
+| `*.DLQ` (×5) | 3 | delete | **7일** | Error Handler |
+
+### 컨슈머 그룹 (현행 — BFF 이관 후)
+
+| 그룹 ID | 구독 토픽 | 모듈 | 처리 내용 |
+|---------|----------|------|----------|
+| `ido-qim-consumer` | `qim.user.events` | `ido` | 버전 검사 + 캐시 무효화 (Ordered Consumer) |
+| `ido-qsign-consumer` | `qsign.auth.events` | `ido` | 인증 결과 처리 |
+| `ido-fe-advisory-consumer` ★ | `platform.session.advisory` | `ido` | FE 세션 즉시 무효화 / Advisory 플래그 |
+| `agency-stub-consumer-handoff` | `ido.handoff.events` | `agency-stub` | REVOKED → 기관 세션 무효화 |
+| `agency-stub-consumer-advisory` | `platform.session.advisory` | `agency-stub` | qimUserId 기준 일괄 무효화 |
+
+> ★ 구 `onepass-fe-consumer`(onepass-fe BFF) → `ido-fe-advisory-consumer`(ido) 로 이관.
+
+### Outbox 패턴
+
+| 서비스 | 방식 |
+|--------|------|
+| Q-Sign | `FOR UPDATE SKIP LOCKED` 배치 읽기 → 비동기 Kafka publish |
+| Q-IM | `KafkaTransactionManager` (Exactly-once) |
+| IdO | `ON CONFLICT DO NOTHING` 멱등 Insert |
+
+---
+
+## onepass-fe: 순수 React SPA
+
+`onepass-fe`는 **Spring Boot가 없는 순수 React(TypeScript) 모듈**입니다.  
+모든 백엔드 기능은 `ido`(port 8083)에서 제공합니다.
+
+### 개발 구조
+
+```
+onepass-fe/
+├── build.gradle.kts          # Node Gradle Plugin 전용 (Spring Boot 의존성 없음)
+├── Dockerfile.optionA        # React → ido static resource 포함 단일 JAR
+├── Dockerfile.optionB        # React → Nginx (2-stage: node:20 → nginx:1.27)
+└── frontend/
+    ├── package.json           React 18 / TypeScript / Webpack5 / Ant Design 5
+    ├── webpack.config.js      devServer proxy: /api → ido:8083 ★
+    ├── tsconfig.json          path alias (@/, @pages/, @api/ 등)
+    └── src/
+        ├── index.tsx          React 진입점 (QueryClient + BrowserRouter)
+        ├── App.tsx             lazy 라우팅 (/login · /conversion/* · /error)
+        ├── api/
+        │   ├── client.ts      axios (proxy → /api → ido:8083) ★
+        │   └── session.ts     /api/v1/fe-session/** 호출 ★ (구: /api/v1/session)
+        ├── pages/
+        │   ├── Login/         세션 체크 + 인증수단 선택 UI
+        │   ├── Conversion/    7단계 인증 전환 흐름
+        │   └── Error/         에러 코드별 메시지
+        ├── types/index.ts     AuthLevel · SessionCheckResponse 등
+        └── styles/global.scss
+```
+
+### API 엔드포인트 변경
+
+| 구분 | 구 경로 (onepass-fe BFF) | 신 경로 (ido BFF) |
+|------|--------------------------|-------------------|
+| 세션 확인 | `GET /api/v1/session/check` | `GET /api/v1/fe-session/check` |
+| 세션 로그아웃 | `POST /api/v1/session/logout` | `POST /api/v1/fe-session/logout` |
+| 세션 발급 | (내부) | `POST /api/v1/fe-session` |
+
+### Option A — React + ido 단일 JAR
+
+React 빌드 산출물을 **ido** 정적 리소스에 포함시켜 하나의 컨테이너로 배포합니다.
+
+```bash
+# Docker 이미지 빌드 (3-stage: node → jdk21 → jre21, ido 기반)
+docker build -f onepass-fe/Dockerfile.optionA \
+  -t onepass-ido:latest .
+
+docker run -p 8083:8083 onepass-ido:latest
+# → http://localhost:8083 (React + BFF 단일 서버)
+```
+
+### Option B — React 독립 서버 + Nginx (권장: 개발)
+
+```
+[개발]
+  브라우저 → React dev-server :3000
+              ↓ /api/** (webpack proxy)
+           ido :8083  (BFF)
+
+[운영]
+  브라우저 → Nginx :3001 → /api/** → ido :8083
+              ↓ 정적 파일 (SPA fallback)
+           React build dist/
+```
+
+```bash
+# 개발
+cd onepass-fe/frontend && yarn install && yarn dev
+# → http://localhost:3000
+
+# 프로덕션 Docker
+docker build -f onepass-fe/Dockerfile.optionB \
+  -t onepass-react:latest .
+docker run -p 3001:80 onepass-react:latest
+# → http://localhost:3001
+```
+
+### Gradle 태스크
+
+| 태스크 | 명령어 | 설명 |
+|--------|--------|------|
+| 의존성 설치 | `./gradlew :onepass-fe:yarnInstall` | `yarn install` |
+| 프로덕션 빌드 | `./gradlew :onepass-fe:build` | `yarn build:prod` → `dist/` |
+| 개발서버 기동 | `./gradlew :onepass-fe:frontendDev` | `yarn dev` (port 3000) |
+| Lint | `./gradlew :onepass-fe:lint` | ESLint |
+| 테스트 | `./gradlew :onepass-fe:test` | Jest |
+
+### React 스크립트
+
+| 명령어 | 설명 |
+|--------|------|
+| `yarn dev` | 개발 서버 (port 3000, HMR, proxy → ido:8083) |
+| `yarn build` | 프로덕션 빌드 (`dist/`) |
+| `yarn build:dev` | 개발 환경 빌드 |
+| `yarn build:prod` | 운영 환경 빌드 |
+| `yarn lint` | ESLint 검사 |
+| `yarn lint:fix` | ESLint 자동 수정 |
+| `yarn test` | Jest 테스트 |
+| `yarn jest:watch` | Jest watch 모드 |
+| `yarn prettify` | Prettier 포맷팅 |
+
+---
+
+## ido: FE BFF 이관 코드 상세
+
+| 클래스 | 패키지 | 역할 |
+|--------|--------|------|
+| `FeSessionController` | `kr.go.smes.ido.fe.api` | `GET /check`, `POST /logout`, `POST /` (세션 발급) |
+| `FeSessionCreateRequest` | `kr.go.smes.ido.fe.api` | 세션 발급 DTO |
+| `FeSession` | `kr.go.smes.ido.fe.session` | FE 세션 객체 (Redis 저장 + advisoryFlag) |
+| `FeSessionService` | `kr.go.smes.ido.fe.session` | FE 세션 CRUD 인터페이스 |
+| `FeSessionServiceImpl` | `kr.go.smes.ido.fe.session` | Redis 구현체 (sliding TTL, 사용자별 세션 역인덱스) |
+| `FeAdvisoryConsumer` | `kr.go.smes.ido.fe.kafka` | `platform.session.advisory` Kafka 소비 |
+| `IdoWebMvcConfig` | `kr.go.smes.ido.fe.config` | CORS 설정 (`/api/v1/fe-session/**`, `/api/v1/handoff/**`) |
+
+### Redis 키 구조 (FE 세션)
+
+```
+fe:session:{feSessionId}        → FeSession 객체 (sliding TTL 30분)
+fe:user-sessions:{qimUserId}    → Set<feSessionId> (사용자별 역인덱스)
+```
+
+### ido application.yml 추가 설정
+
+```yaml
+ido:
+  fe:
+    session:
+      sliding-ttl-minutes: 30         # §12.4 Sliding TTL
+      absolute-timeout-minutes: 480   # §12.4 절대 만료 (8h)
+    allowed-return-urls:              # §12.6 returnUrl 화이트리스트
+      - https://agency-a.example.com
+      - https://agency-b.example.com
+      - http://localhost:8084          # agency-stub
+      - http://localhost:3000          # React dev (개발)
+      - http://localhost:3001          # Nginx React (운영)
+  cors:
+    enabled: true
+    allowed-origins:
+      - ${CORS_ORIGIN_DEV:http://localhost:3000}
+      - ${CORS_ORIGIN_PROD:http://localhost:3001}
+  kafka:
+    consumer-group-fe-advisory: ido-fe-advisory-consumer
+```
+
+---
+
+## 개발 환경 설정
+
+### 환경변수 (ido — 로컬)
+
+| 환경변수 | 기본값 | 설명 |
+|----------|--------|------|
+| `REDIS_HOST` | `localhost` | Redis 호스트 |
+| `REDIS_PORT` | `6379` | Redis 포트 |
+| `KAFKA_SERVERS` | `localhost:9092` | Kafka 브로커 |
+| `DB_USERNAME` | `onepass` | PostgreSQL 사용자 |
+| `DB_PASSWORD` | `onepass` | PostgreSQL 비밀번호 |
+| `QIM_BASE_URL` | `http://localhost:8082` | Q-IM 서비스 URL |
+| `QSIGN_BASE_URL` | `http://localhost:8081` | Q-Sign 서비스 URL |
+| `CORS_ORIGIN_DEV` | `http://localhost:3000` | React dev server Origin |
+| `CORS_ORIGIN_PROD` | `http://localhost:3001` | Nginx React Origin |
+
+---
+
+## 빌드 & 실행
+
+### 전체 Java 빌드
+
+```bash
+# 테스트 제외 전체 빌드 (onepass-fe 는 Node 모듈이므로 별도)
+./gradlew :platform-common:build :q-sign:build :q-im:build \
+          :ido:build :agency-stub:build -x test
+
+# onepass-fe React 빌드
+./gradlew :onepass-fe:build   # yarn build:prod → dist/
+```
+
+### 개별 모듈 실행
+
+```bash
+./gradlew :platform-common:build    # 공통 라이브러리 (JAR만)
+./gradlew :q-sign:bootRun           # 인증 SoR           :8081
+./gradlew :q-im:bootRun             # 식별 SoR           :8082
+./gradlew :ido:bootRun              # 정책 오케스트레이터+BFF :8083
+./gradlew :agency-stub:bootRun      # 기관 스텁           :8084
+
+# React 개발서버 (별도 터미널)
+./gradlew :onepass-fe:frontendDev   # port 3000, proxy→ido:8083
+# 또는
+cd onepass-fe/frontend && yarn dev
+```
+
+### Gradle 주요 프로퍼티
+
+| 프로퍼티 | 효과 |
+|----------|------|
+| `-x test` | 테스트 스킵 |
+| `--no-daemon` | Gradle 데몬 비활성 |
+
+---
+
+## 접속 URL
+
+| URL | 용도 | 비고 |
+|-----|------|------|
+| http://localhost:3000 | React HMR 개발서버 | webpack proxy → ido:8083 |
+| http://localhost:3001 | Nginx React 빌드 | Option B 운영, proxy → ido:8083 |
+| ~~http://localhost:8080~~ | ~~onepass-fe BFF~~ | **제거됨** |
+| http://localhost:8081 | q-sign API | |
+| http://localhost:8082 | q-im API | |
+| **http://localhost:8083** | **ido API + FE BFF** | `/api/v1/fe-session/**` 포함 |
+| http://localhost:8084 | agency-stub | |
+| http://localhost:8090 | Kafka UI | admin / admin |
+| http://localhost:5540 | Redis Insight | |
+| http://localhost:5050 | pgAdmin 4 | admin@onepass.local / admin (`--profile tools`) |
+| http://localhost:8085 | Schema Registry | (`--profile schema`) |
+
+---
+
+## 코딩 컨벤션
+
+### Java / Kotlin
+
+- **패키지 루트**: `kr.go.smes.<모듈>`
+- **클래스**: `PascalCase`
+- **메서드 / 변수**: `camelCase`
+- **상수**: `UPPER_SNAKE_CASE`
+- **Lombok** 적극 활용 (`@Getter`, `@Builder`, `@RequiredArgsConstructor`)
+- **커밋 메시지**: [Conventional Commits](https://www.conventionalcommits.org/) (`feat`, `fix`, `chore`, `refactor`, `docs`)
+
+### TypeScript / React
+
+- **인터페이스**: `PascalCase`
+- **함수명**: `camelCase`
+- **상수**: `UPPER_SNAKE_CASE`
+- **컴포넌트 파일**: `PascalCase.tsx`
+- **CSS 클래스명**: `camelCase`
+- **Path alias**: `@/`, `@pages/`, `@api/`, `@components/` 등
+
+### Git 브랜치 전략
+
+| 브랜치 | 용도 |
+|--------|------|
+| `main` | 안정 릴리즈 |
+| `genspark_ai_developer` | AI 개발 작업 브랜치 |
+
+---
+
+## 라이선스
+
+PoC 내부 개발용 프로젝트입니다.
