@@ -617,7 +617,7 @@ cd onepass-fe/frontend && yarn dev
 | 브랜치 | 용도 |
 |--------|------|
 | `main` | 안정 릴리즈 |
-| `genspark_ai_developer` | AI 개발 작업 브랜치 |
+| `develop` | 개발 작업 브랜치 |
 
 ---
 
