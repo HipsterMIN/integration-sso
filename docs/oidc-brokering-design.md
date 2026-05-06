@@ -989,12 +989,15 @@ services:
 
 ### 11.3 Circuit Breaker 설정
 
+> **P2 수정 (2026-05)**: Resilience4j 인스턴스 키를 `qsign-client` → `keycloak-client`로 변경.
+> Keycloak HTTP 호출(token endpoint, JWKS) 및 비OIDC 외부 IdP 호출 모두를 `keycloak-client`로 보호.
+
 ```yaml
-# Resilience4j (application.yml)
+# Resilience4j (application.yml) — keycloak-client 키로 통일
 resilience4j:
   circuitbreaker:
     instances:
-      qsign-client:
+      keycloak-client:          # 구 키: qsign-client (P2 수정)
         sliding-window-size: 10
         failure-rate-threshold: 50          # 50% 실패 시 OPEN
         slow-call-duration-threshold: 3s
@@ -1004,14 +1007,15 @@ resilience4j:
         minimum-number-of-calls: 5
   retry:
     instances:
-      qsign-client:
+      keycloak-client:          # 구 키: qsign-client (P2 수정)
         max-attempts: 3
         wait-duration: 500ms
         retry-exceptions:
           - java.io.IOException
+          - java.util.concurrent.TimeoutException
   timelimiter:
     instances:
-      qsign-client:
+      keycloak-client:          # 구 키: qsign-client (P2 수정)
         timeout-duration: 5s
 ```
 
@@ -1103,12 +1107,35 @@ ido/src/main/java/kr/go/smes/ido/
 │   │       └── KeycloakTokenResponse.java   ← Token Endpoint 응답 DTO
 │   │
 │   ├── nonoidc/
-│   │   ├── NonOidcAuthService.java          ← PASS/GPKI 등 비OIDC 인증 (향후)
-│   │   └── NonOidcAuthCommand.java          ← 비OIDC 인증 커맨드
+│   │   ├── NonOidcBrokerController.java    ← GET /{provider}/nonoidc/initiate
+│   │   │                                     GET /{provider}/nonoidc/callback
+│   │   │                                     (P0 추가 — 비OIDC 진입점)
+│   │   ├── NonOidcBrokerAdapter.java       ← IdpBrokerService 구현체
+│   │   │                                     PASS/금융인증서/GPKI/공동인증서
+│   │   │                                     initiateAuth() + normalizeResponse()
+│   │   ├── NonOidcAuthService.java         ← AuthResult 생성·Kafka 발행·잠금
+│   │   │                                     processAuth() / recordFailure()
+│   │   └── NonOidcAuthCommand.java         ← 비OIDC 인증 커맨드 DTO
+│   │
+│   ├── IdpBrokerService.java              ← 비OIDC 브로커 인터페이스 (Option 3)
+│   ├── IdpBrokerResult.java               ← 브로커 결과 DTO (BrokerStatus enum)
 │   │
 │   └── state/
 │       ├── IdoOidcStateStore.java           ← state/nonce Redis 저장·검증
 │       └── IdoOidcStateEntry.java           ← state 엔트리 DTO (JSON 직렬화)
+│
+├── infrastructure/
+│   └── outbox/
+│       ├── IdoOutboxRelay.java             ← @Scheduled PENDING 레코드 재발행
+│       │                                     (P0 추가 — ido.outbox 전용 relay)
+│       ├── IdoOutboxRepository.java        ← ido.outbox JDBC 리포지토리
+│       │                                     findPendingBatch / markPublished /
+│       │                                     markFailed / incrementRetry
+│       └── IdoOutboxRecord.java            ← ido.outbox 레코드 DTO
+│
+├── kafka/
+│   └── QsignAuthEventConsumer.java        ← AUTH 이벤트 구독
+│                                            (P1: 토픽 키 ido.kafka.topic-auth-events)
 │
 └── config/
     └── IdoWebConfig.java              ← RestTemplate, ObjectMapper, CacheManager 빈
@@ -1302,7 +1329,7 @@ Response:
 | 인증 성공률 | `ido.auth_result WHERE verification_result='SUCCESS'` 비율 | < 95% 알람 |
 | state 검증 실패 수 | 로그 `state 검증 실패` 건수 | 급증 시 CSRF 공격 의심 |
 | JWT 서명 실패 수 | 로그 `JWT 서명 검증 실패` 건수 | 급증 시 토큰 위조 의심 |
-| Keycloak 응답 시간 | `qsign-client` Resilience4j 메트릭 | > 3초 알람 |
+| Keycloak 응답 시간 | `keycloak-client` Resilience4j 메트릭 | > 3초 알람 |
 | Circuit Breaker 상태 | Actuator `/actuator/metrics/resilience4j.circuitbreaker.state` | OPEN 시 즉시 알람 |
 | Outbox 미처리 건수 | `ido.outbox WHERE status='PENDING'` 건수 | > 100건 알람 |
 | FE 세션 생성 실패 | 로그 `FE 세션 생성 실패` 건수 | 발생 즉시 알람 |
@@ -1481,6 +1508,94 @@ cd infra/docker && docker build -f onepass-ido/Dockerfile -t onepass-ido:latest 
 
 ---
 
+## 부록 D. 비OIDC 브로커 흐름 (Option 3)
+
+### D.1 인증 시작 시퀀스
+
+```mermaid
+sequenceDiagram
+    participant FE as onepass-fe
+    participant Ido as ido (NonOidcBrokerController)
+    participant Adapter as NonOidcBrokerAdapter
+    participant IdP as 외부 IdP (PASS / GPKI 등)
+
+    FE->>Ido: GET /api/v1/broker/{provider}/nonoidc/initiate
+              ?returnUrl=...
+    Ido->>Adapter: initiateAuth(providerCode, correlationId, callbackUrl)
+    Adapter-->>Ido: IdpBrokerResult { redirectUrl, providerTxId, REDIRECT_REQUIRED }
+    Ido-->>FE: 302 → 사업자 인증 페이지(redirectUrl)
+    FE->>IdP: (사용자 인증 수행)
+    IdP->>Ido: GET /api/v1/broker/{provider}/nonoidc/callback
+              ?txId=...&identifier=...
+```
+
+### D.2 콜백 처리 시퀀스
+
+```mermaid
+sequenceDiagram
+    participant IdP as 외부 IdP
+    participant Ctl as NonOidcBrokerController
+    participant Adapter as NonOidcBrokerAdapter
+    participant Svc as NonOidcAuthService
+    participant DB as PostgreSQL (ido.*)
+    participant Kafka as Kafka (qsign.auth.events)
+    participant Fe as FeSessionService
+
+    IdP->>Ctl: GET /callback?txId=X&identifier=Y
+    Ctl->>Adapter: normalizeResponse(providerCode, cid, txId, rawResponse)
+    Adapter->>Svc: processAuth(NonOidcAuthCommand)
+    Svc->>DB: INSERT auth_result (auth_result_id, identifier_hash, ...)
+    Svc->>DB: INSERT outbox (PENDING, qsign.auth.events)
+    Svc->>Kafka: send(AUTH_COMPLETED)
+    Svc-->>Adapter: authResultId
+    Adapter-->>Ctl: IdOAuthInput (internalSignature=authResultId)
+    Ctl->>Fe: create(identifierHash, authResultId, authLevel, returnUrl)
+    Fe-->>Ctl: FeSession { feSessionId }
+    Ctl-->>FE: 302 + Set-Cookie: feSessionId=...
+```
+
+### D.3 Outbox Relay 흐름
+
+```mermaid
+sequenceDiagram
+    participant Scheduler as @Scheduled (500ms)
+    participant Relay as IdoOutboxRelay
+    participant Repo as IdoOutboxRepository
+    participant DB as ido.outbox
+    participant Kafka as Kafka
+
+    loop 매 500ms
+        Scheduler->>Relay: relay()
+        Relay->>Repo: findPendingBatch(100) — FOR UPDATE SKIP LOCKED
+        Repo->>DB: SELECT ... WHERE status='PENDING'
+        DB-->>Relay: [IdoOutboxRecord, ...]
+        loop 각 레코드
+            Relay->>Kafka: send(topic, partitionKey, AuthEvent)
+            alt 성공
+                Kafka-->>Relay: SendResult
+                Relay->>Repo: markPublished(eventId)
+            else 실패
+                Relay->>Repo: incrementRetry() 또는 markFailed()
+            end
+        end
+    end
+```
+
+### D.4 비OIDC 지원 인증 수단
+
+| 인증 수단 코드 | 표시명 | auth_level | broker_mode | PoC 상태 |
+|--------------|--------|------------|-------------|----------|
+| `PASS` | PASS 본인인증 | L2 | nonoidc | 플레이스홀더 (더미 URL) |
+| `FINANCIAL_CERT` | 금융인증서 | L3 | nonoidc | 플레이스홀더 |
+| `GPKI` | 정부공개키인증서 | L3 | nonoidc | 플레이스홀더 |
+| `JOINT_CERT` | 공동인증서 | L3 | nonoidc | 플레이스홀더 |
+
+> **운영 전환 시**: `NonOidcBrokerAdapter`의 `initPass()` / `initFinancialCert()` 등
+> 각 사업자별 SDK 또는 REST API 호출 코드로 교체 필요.
+> `verifyProviderResponse()`에 사업자별 전자서명(RSA/ECDSA) 검증 로직 추가 필수.
+
+---
+
 ## 부록 C. 변경 이력
 
 | 버전 | 날짜 | 변경 내용 | 작성자 |
@@ -1488,7 +1603,8 @@ cd infra/docker && docker build -f onepass-ido/Dockerfile -t onepass-ido:latest 
 | v1.0.0 | 2026-05-06 | 초안 — q-sign 직접 브로커 설계 | AI Developer |
 | v1.1.0 | 2026-05-06 | Keycloak 이중 모드 브로커링 추가 | AI Developer |
 | v1.2.0 | 2026-05-06 | 전체 시퀀스 다이어그램, Keycloak 설정 가이드, 운영 절차 완성 | AI Developer |
+| v1.3.0 | 2026-05-06 | P0: NonOidcBrokerAdapter + Controller 구현 반영<br>P0: IdoOutboxRelay 구현 반영 (ido.outbox 전용 relay)<br>P1: Kafka 설정 키 `ido.kafka.topic-auth-events` 통일<br>P1: QsignAuthEventConsumer 토픽 키 수정<br>P2: Resilience4j `qsign-client` → `keycloak-client` 교체<br>P2: IdpBrokerService Javadoc Option 3 반영<br>부록 D 추가 (비OIDC 브로커 시퀀스 다이어그램) | AI Developer |
 
 ---
 
-*문서 끝 — OnePass 통합인증 플랫폼 OIDC 브로커링 설계서 v1.2.0*
+*문서 끝 — OnePass 통합인증 플랫폼 OIDC 브로커링 설계서 v1.3.0*

@@ -9,7 +9,7 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 /**
- * IdO ← Q-Sign 인증 이벤트 컨슈머
+ * IdO ← Q-Sign / Keycloak / NonOidc 인증 이벤트 컨슈머
  * 설계서 §9.3 인증 결과 발행 → IdO 수신 후 Handoff Ticket 발급 연계
  *
  * <p>처리 흐름:
@@ -18,6 +18,13 @@ import org.springframework.stereotype.Component;
  *   <li>AUTH_COMPLETED → Handoff 발급 준비 상태로 전환</li>
  *   <li>AUTH_LOCKED → 진행 중인 세션 Advisory 발행</li>
  * </ol>
+ *
+ * <p>토픽 설정 키 (P1 수정):<br>
+ * 이전: {@code qsign.kafka.topic-auth-events} (q-sign 모듈 네임스페이스 — 잘못된 참조)<br>
+ * 변경: {@code ido.kafka.topic-auth-events} (ido application.yml 통일 키)<br>
+ * 실제 토픽명은 동일: {@code qsign.auth.events} (하위 호환 기본값 유지).
+ * KeycloakOidcService / NonOidcAuthService 도 같은 토픽에 발행하므로
+ * 이 컨슈머가 모든 브로커 모드의 인증 이벤트를 수신한다.
  */
 @Slf4j
 @Component
@@ -29,7 +36,9 @@ public class QsignAuthEventConsumer {
     private final IdempotentEventStore idempotentEventStore;
 
     @KafkaListener(
-            topics           = "${qsign.kafka.topic-auth-events:qsign.auth.events}",
+            // P1 수정: qsign.kafka.topic-auth-events → ido.kafka.topic-auth-events
+            // 실제 토픽명(qsign.auth.events)은 동일하지만 설정 키를 ido 네임스페이스로 통일
+            topics           = "${ido.kafka.topic-auth-events:qsign.auth.events}",
             groupId          = "${ido.kafka.consumer-group-qsign:ido-qsign-consumer}",
             containerFactory = "qsignListenerContainerFactory"
     )

@@ -55,8 +55,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class KeycloakOidcService {
 
-    private static final String AUTH_EVENTS_TOPIC = "qsign.auth.events";
-    private static final String SOURCE_SYSTEM     = "ido-keycloak";
+    private static final String SOURCE_SYSTEM = "ido-keycloak";
 
     private final IdoOidcStateStore          stateStore;
     private final KeycloakJwksVerifier       jwksVerifier;
@@ -67,6 +66,7 @@ public class KeycloakOidcService {
     private final JdbcTemplate               jdbcTemplate;
     private final ObjectMapper               objectMapper;
 
+    // P1: ido.keycloak.auth-events-topic(구 키) → ido.kafka.topic-auth-events 로 통일
     @Value("${ido.kafka.topic-auth-events:qsign.auth.events}")
     private String authEventsTopic;
 
