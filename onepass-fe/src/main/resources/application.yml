@@ -1,0 +1,46 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: onepass-fe
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    consumer:
+      group-id: onepass-fe
+      auto-offset-reset: earliest
+
+onepass:
+  # IdO 연동
+  ido:
+    base-url: ${IDO_BASE_URL:http://localhost:8083}
+
+  # FE 세션 설정 (설계서 12.4 / 12.5절)
+  session:
+    cookie-name: feSessionId
+    ttl-minutes: 30
+    absolute-timeout-minutes: 480   # 8시간 절대 만료
+    same-site: Lax
+
+  # returnUrl / deepLink 화이트리스트 (설계서 12.3 / 12.6절)
+  whitelist:
+    return-urls:
+      - "https://agency-a.example.com"
+      - "https://agency-b.example.com"
+      - "http://localhost:*"   # 개발 환경
+    app-schemes:
+      - "onepass://"
+      - "agencya://"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

@@ -1,0 +1,62 @@
+[versions]
+# ── 런타임 플랫폼 ─────────────────────────────────────────────────────────────
+java                = "21"
+spring-boot         = "3.5.9"
+spring-dm           = "1.1.7"        # io.spring.dependency-management
+
+# ── 핵심 라이브러리 ───────────────────────────────────────────────────────────
+resilience4j        = "2.2.0"
+jjwt                = "0.12.6"
+mapstruct           = "1.6.3"
+testcontainers      = "1.20.4"
+flyway              = "11.8.0"
+
+# ── 유틸리티 ─────────────────────────────────────────────────────────────────
+commons-lang3       = "3.17.0"
+guava               = "33.4.0-jre"
+
+[libraries]
+# ── Spring Boot Starters (버전은 BOM 관리) ────────────────────────────────────
+spring-boot-web                       = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-validation                = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-actuator                  = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-data-jpa                  = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-data-redis                = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
+spring-boot-aop                       = { module = "org.springframework.boot:spring-boot-starter-aop" }
+spring-boot-test                      = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-oauth2-resource-server    = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
+spring-kafka                          = { module = "org.springframework.kafka:spring-kafka" }
+spring-kafka-test                     = { module = "org.springframework.kafka:spring-kafka-test" }
+
+# ── Database ──────────────────────────────────────────────────────────────────
+postgresql                            = { module = "org.postgresql:postgresql" }
+h2                                    = { module = "com.h2database:h2" }
+flyway-core                           = { module = "org.flywaydb:flyway-core",                   version.ref = "flyway" }
+flyway-postgresql                     = { module = "org.flywaydb:flyway-database-postgresql",    version.ref = "flyway" }
+
+# ── Resilience4j ─────────────────────────────────────────────────────────────
+resilience4j-spring-boot3             = { module = "io.github.resilience4j:resilience4j-spring-boot3",    version.ref = "resilience4j" }
+resilience4j-circuitbreaker           = { module = "io.github.resilience4j:resilience4j-circuitbreaker",  version.ref = "resilience4j" }
+
+# ── JWT ───────────────────────────────────────────────────────────────────────
+jjwt-api                              = { module = "io.jsonwebtoken:jjwt-api",     version.ref = "jjwt" }
+jjwt-impl                             = { module = "io.jsonwebtoken:jjwt-impl",    version.ref = "jjwt" }
+jjwt-jackson                          = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+
+# ── MapStruct ────────────────────────────────────────────────────────────────
+mapstruct                             = { module = "org.mapstruct:mapstruct",           version.ref = "mapstruct" }
+mapstruct-processor                   = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+commons-lang3                         = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
+guava                                 = { module = "com.google.guava:guava",            version.ref = "guava" }
+
+# ── Testcontainers ───────────────────────────────────────────────────────────
+testcontainers-bom                    = { module = "org.testcontainers:testcontainers-bom",  version.ref = "testcontainers" }
+testcontainers-junit5                 = { module = "org.testcontainers:junit-jupiter" }
+testcontainers-postgresql             = { module = "org.testcontainers:postgresql" }
+testcontainers-kafka                  = { module = "org.testcontainers:kafka" }
+
+[plugins]
+spring-boot          = { id = "org.springframework.boot",        version.ref = "spring-boot" }
+spring-dependency-dm = { id = "io.spring.dependency-management", version.ref = "spring-dm"   }

@@ -1,0 +1,91 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: ido
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ido
+    username: ${DB_USERNAME:onepass}
+    password: ${DB_PASSWORD:onepass}
+    hikari:
+      maximum-pool-size: 20
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: ido
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: ido
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: ido
+      auto-offset-reset: earliest
+
+ido:
+  # Q-IM 연동 (설계서 11.5절)
+  qim:
+    base-url: ${QIM_BASE_URL:http://localhost:8082}
+    cache-ttl-seconds: 300          # ≤5분 (Q-IM 조회 캐시)
+    agency-meta-ttl-seconds: 3600   # ≤60분 (기관 메타·정책 캐시)
+
+  # Q-Sign 연동 — mTLS + X-Internal-Sig (설계서 11.8절)
+  qsign:
+    base-url: ${QSIGN_BASE_URL:http://localhost:8081}
+    internal-sig-ttl-seconds: 60
+    nonce-ttl-seconds: 60
+
+  # Handoff Ticket 설정 (설계서 16.4절)
+  ticket:
+    ttl-seconds: 60                 # 1회성 TTL
+    encryption-algorithm: AES-256-GCM
+    signing-algorithm: HMAC-SHA256
+    key-rotation-days: 90
+    key-grace-period-hours: 24
+    reuse-block-threshold: 3        # 임계치 초과 시 기관 키 일시 차단
+
+  # Clock Skew 허용 (설계서 16.4.1절)
+  clock-skew-tolerance-minutes: 5
+
+  # Kafka 토픽
+  kafka:
+    topic-handoff-events: ido.handoff.events
+    topic-session-advisory: platform.session.advisory
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      idp-broker:
+        sliding-window-size: 20
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 5
+      qim-client:
+        sliding-window-size: 10
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

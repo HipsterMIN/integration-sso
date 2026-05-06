@@ -1,0 +1,40 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: agency-stub
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    consumer:
+      group-id: agency-stub
+      auto-offset-reset: earliest
+
+agency-stub:
+  code: AGENCY_STUB_001
+  # IdO Verify API 엔드포인트
+  ido:
+    base-url: ${IDO_BASE_URL:http://localhost:8083}
+    api-key: ${AGENCY_API_KEY:stub-api-key-dev}
+
+  # 기관 로컬 세션 설정 (설계서 14.6절)
+  session:
+    cookie-name: AGSID
+    idle-timeout-minutes: 30
+    absolute-timeout-minutes: 480
+    same-site: Strict
+
+  # 기관 최소 인증 수준 (설계서 14.8절)
+  min-auth-level: L1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

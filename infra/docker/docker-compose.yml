@@ -1,0 +1,183 @@
+version: "3.9"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 통합인증 플랫폼 PoC — 로컬 인프라
+# Q-Sign / Q-IM / IdO / Onepass-FE / Agency-Stub 의존 인프라
+# ──────────────────────────────────────────────────────────────────────────────
+
+networks:
+  onepass-net:
+    driver: bridge
+
+volumes:
+  pg-data:
+  redis-data:
+  kafka-data:
+  zookeeper-data:
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: onepass-postgres
+    environment:
+      POSTGRES_USER: onepass
+      POSTGRES_PASSWORD: onepass
+      POSTGRES_DB: onepass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - onepass-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onepass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: onepass-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - onepass-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Zookeeper ───────────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: onepass-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+    networks:
+      - onepass-net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Kafka ───────────────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: onepass-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - onepass-net
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── Kafka Topic 초기화 ───────────────────────────────────────────────────────
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: onepass-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - onepass-net
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      # 설계서 10.5절: cleanup.policy=compact (qimUserId 기준 Compacted Snapshot)
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+        --topic qim.user.events \
+        --partitions 12 \
+        --replication-factor 1 \
+        --config cleanup.policy=compact \
+        --config min.compaction.lag.ms=0 \
+        --config segment.bytes=1048576
+
+      # 설계서 11.5.6절: Compacted Snapshot Topic
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+        --topic qim.user.snapshot \
+        --partitions 12 \
+        --replication-factor 1 \
+        --config cleanup.policy=compact
+
+      # 설계서 9.3절: Q-Sign 인증 이벤트
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+        --topic qsign.auth.events \
+        --partitions 6 \
+        --replication-factor 1 \
+        --config cleanup.policy=delete \
+        --config retention.ms=31536000000
+
+      # 설계서 16.3절: IdO Handoff 이벤트
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+        --topic ido.handoff.events \
+        --partitions 6 \
+        --replication-factor 1 \
+        --config cleanup.policy=delete \
+        --config retention.ms=31536000000
+
+      # 설계서 14.11절: 세션 권고 이벤트 (Advisory)
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+        --topic platform.session.advisory \
+        --partitions 6 \
+        --replication-factor 1 \
+        --config cleanup.policy=delete \
+        --config retention.ms=31536000000
+
+      echo '✅ Kafka 토픽 초기화 완료'
+      "
+    restart: on-failure
+
+  # ── Kafka UI ─────────────────────────────────────────────────────────────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: onepass-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: onepass-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    networks:
+      - onepass-net
+
+  # ── Redis Insight (Redis 모니터링) ───────────────────────────────────────────
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: onepass-redis-insight
+    ports:
+      - "5540:5540"
+    networks:
+      - onepass-net
