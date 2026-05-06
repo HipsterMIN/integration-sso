@@ -22,6 +22,7 @@ volumes:
   kafka-data:
   zookeeper-data:
   zookeeper-log:
+  keycloak-data:
 
 services:
 
@@ -361,6 +362,62 @@ services:
         max-file: "3"
 
   # ════════════════════════════════════════════════════════════
+  # Keycloak 24.0 — OIDC 브로커 (문서 §10)
+  # http://localhost:8088
+  #
+  # 역할: KAKAO_OIDC / NAVER_OIDC 등 Social IdP 브로커링
+  #   - Realm       : onepass
+  #   - Client      : ido-client (confidential)
+  #   - IdP alias   : social-kakao, social-naver
+  #   - Redirect URI: http://localhost:8083/api/v1/broker/callback
+  #
+  # 초기 설정: http://localhost:8088 → Admin Console (admin/admin)
+  # ════════════════════════════════════════════════════════════
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: onepass-keycloak
+    restart: unless-stopped
+    command: start-dev --http-port=8080
+    environment:
+      KEYCLOAK_ADMIN:          admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      # DB 설정 — PostgreSQL keycloak 스키마 사용
+      KC_DB:              postgres
+      KC_DB_URL:          jdbc:postgresql://postgres:5432/onepass?currentSchema=keycloak
+      KC_DB_USERNAME:     onepass
+      KC_DB_PASSWORD:     onepass
+      KC_DB_SCHEMA:       keycloak
+      # 호스트 설정
+      KC_HOSTNAME_STRICT:         "false"
+      KC_HOSTNAME_STRICT_HTTPS:   "false"
+      KC_HTTP_ENABLED:            "true"
+      KC_PROXY:                   edge
+      KC_LOG_LEVEL:               INFO
+    ports:
+      - "8088:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.18
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    profiles:
+      - keycloak             # docker compose --profile keycloak up 으로 선택 기동
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ════════════════════════════════════════════════════════════
   # ★ IdO (정책 오케스트레이터 + FE BFF)
   # http://localhost:8083
   #
@@ -391,6 +448,13 @@ services:
       # CORS: React SPA Origin 허용
       CORS_ORIGIN_DEV:       http://localhost:3000
       CORS_ORIGIN_PROD:      http://localhost:3001
+      # Keycloak 브로커 설정 (ido.broker.mode=keycloak 전환 시 활성화)
+      IDO_BROKER_MODE:       qsign        # 전환 시: keycloak
+      KEYCLOAK_BASE_URL:     http://keycloak:8080
+      KEYCLOAK_REALM:        onepass
+      KEYCLOAK_CLIENT_ID:    ido-client
+      KEYCLOAK_CLIENT_SECRET: change-me   # Keycloak Admin Console에서 생성 후 교체
+      KEYCLOAK_REDIRECT_URI: http://localhost:8083/api/v1/broker/callback
     ports:
       - "8083:8083"
     networks:
