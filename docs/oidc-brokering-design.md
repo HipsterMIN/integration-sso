@@ -1,8 +1,8 @@
 # OnePass 통합인증 플랫폼 — OIDC 브로커링 설계서
 
 > **문서 분류**: 개발자 배포용 설계서 (Developer Design Document)  
-> **버전**: v1.2.0  
-> **최종 수정**: 2026-05-06  
+> **버전**: v1.4.0  
+> **최종 수정**: 2026-05-07  
 > **대상 독자**: 백엔드 개발자, 인프라 엔지니어, 보안 검토자  
 > **관련 모듈**: `ido`, `q-sign`, `onepass-fe`
 
@@ -15,17 +15,18 @@
 3. [브로커링 이중 모드 설계](#3-브로커링-이중-모드-설계)
 4. [q-sign 직접 브로커 모드 (qsign mode)](#4-q-sign-직접-브로커-모드-qsign-mode)
 5. [Keycloak OIDC 브로커 모드 (keycloak mode)](#5-keycloak-oidc-브로커-모드-keycloak-mode)
-6. [시퀀스 다이어그램 — 전체 흐름 비교](#6-시퀀스-다이어그램--전체-흐름-비교)
-7. [보안 설계](#7-보안-설계)
-8. [데이터 모델](#8-데이터-모델)
-9. [Keycloak 서버 설정 가이드](#9-keycloak-서버-설정-가이드)
-10. [환경별 설정](#10-환경별-설정)
-11. [에러 처리 및 에러 코드](#11-에러-처리-및-에러-코드)
-12. [모드 전환 운영 절차](#12-모드-전환-운영-절차)
-13. [클래스 책임 맵](#13-클래스-책임-맵)
-14. [API 명세](#14-api-명세)
-15. [모니터링 및 장애 대응](#15-모니터링-및-장애-대응)
-16. [개발 환경 시작 가이드](#16-개발-환경-시작-가이드)
+6. [비OIDC 브로커 모드 (nonoidc mode)](#6-비oidc-브로커-모드-nonoidc-mode)
+7. [시퀀스 다이어그램 — 전체 흐름 비교](#7-시퀀스-다이어그램--전체-흐름-비교)
+8. [보안 설계](#8-보안-설계)
+9. [데이터 모델](#9-데이터-모델)
+10. [Keycloak 서버 설정 가이드](#10-keycloak-서버-설정-가이드)
+11. [환경별 설정](#11-환경별-설정)
+12. [에러 처리 및 에러 코드](#12-에러-처리-및-에러-코드)
+13. [모드 전환 운영 절차](#13-모드-전환-운영-절차)
+14. [클래스 책임 맵](#14-클래스-책임-맵)
+15. [API 명세](#15-api-명세)
+16. [모니터링 및 장애 대응](#16-모니터링-및-장애-대응)
+17. [개발 환경 시작 가이드](#17-개발-환경-시작-가이드)
 
 ---
 
@@ -33,23 +34,25 @@
 
 ### 1.1 배경
 
-OnePass 통합인증 플랫폼은 **카카오, 네이버 등 외부 OIDC 사업자**를 통한 간편인증을 중개(브로커링)하는 플랫폼이다. 본 문서는 인증 브로커링의 두 가지 구현 전략을 상세히 설명한다.
+OnePass 통합인증 플랫폼은 **카카오, 네이버 등 외부 OIDC 사업자** 및 **PASS·공인인증서 등 비OIDC 수단**을 통한 간편인증을 중개(브로커링)하는 플랫폼이다. 본 문서는 인증 브로커링의 **세 가지 구현 전략**을 상세히 설명한다.
 
-| 구분 | q-sign 직접 브로커 (현재) | Keycloak OIDC 브로커 (전환 후) |
-|------|--------------------------|-------------------------------|
-| 브로커 역할 | `q-sign` Spring Boot 서비스 | Keycloak (Red Hat SSO) |
-| OIDC 코드 교환 | `q-sign`이 직접 카카오 Token Endpoint 호출 | `ido`가 Keycloak Token Endpoint 호출 |
-| JWT 검증 | `q-sign`의 `KakaoJwksVerifier` | `ido`의 `KeycloakJwksVerifier` |
-| AuthResult 생성 | `q-sign.auth_result` 테이블 | `ido.auth_result` 테이블 (Strategy B) |
-| FE 세션 발급 | q-sign → ido 내부 API 호출 | ido가 직접 발급 |
-| 전환 방법 | — | `IDO_BROKER_MODE=keycloak` 환경변수 |
+| 구분 | q-sign 직접 브로커 (현재) | Keycloak OIDC 브로커 (전환 후) | 비OIDC 브로커 (신규) |
+|------|--------------------------|-------------------------------|---------------------|
+| 브로커 역할 | `q-sign` Spring Boot 서비스 | Keycloak (Red Hat SSO) | IdO 직접 처리 |
+| OIDC 코드 교환 | `q-sign`이 직접 카카오 Token Endpoint 호출 | `ido`가 Keycloak Token Endpoint 호출 | 해당 없음 |
+| JWT 검증 | `q-sign`의 `KakaoJwksVerifier` | `ido`의 `KeycloakJwksVerifier` | 해당 없음 |
+| AuthResult 생성 | `qsign.auth_result` 테이블 | `ido.auth_result` 테이블 (Strategy B) | `ido.auth_result` 테이블 |
+| FE 세션 발급 | q-sign → ido 내부 API 호출 | ido가 직접 발급 | ido가 직접 발급 |
+| 지원 사업자 | Kakao, Naver | Kakao, Naver (kc_idp_hint) | PASS, 금융인증서, GPKI, 공동인증서 |
+| 전환 방법 | — | `IDO_BROKER_MODE=keycloak` 환경변수 | provider 경로 자동 분기 |
 
 ### 1.2 설계 원칙
 
 - **무중단 전환**: `ido.broker.mode` 설정 하나로 q-sign ↔ Keycloak 전환 (코드 변경 없음)
-- **하위 컨슈머 불변**: 두 모드 모두 동일한 Kafka 토픽(`qsign.auth.events`)으로 `AUTH_COMPLETED` 이벤트 발행 → 하위 소비자(`QsignAuthEventConsumer` 등) 변경 불필요
+- **하위 컨슈머 불변**: 세 모드 모두 동일한 Kafka 토픽(`qsign.auth.events`)으로 `AUTH_COMPLETED` 이벤트 발행 → 하위 소비자(`QsignAuthEventConsumer` 등) 변경 불필요
 - **보안 우선**: CSRF(state), Replay Attack(nonce), JWT 위조(JWKS RS256), Audience 검증 등 4중 방어
 - **감사 추적**: 모든 브로커링 과정은 `ido.oidc_session_log` + Kafka 이벤트로 추적 가능
+- **Strategy B 통일**: Keycloak·비OIDC 모두 IdO가 직접 `ido.auth_result`를 생성, 동일 Kafka 버스 사용
 
 ### 1.3 용어 정의
 
@@ -65,6 +68,8 @@ OnePass 통합인증 플랫폼은 **카카오, 네이버 등 외부 OIDC 사업�
 | `kc_idp_hint` | Keycloak에 특정 IdP(카카오 등)로 바로 리다이렉트하도록 지시하는 파라미터 |
 | `acr` | Authentication Context Class Reference — 인증 수준 (1=L1, 2=L2, 3=L3) |
 | `AuthLevel` | 플랫폼 인증 수준 (L1: 간편, L2: 본인인증, L3: 공인인증서) |
+| `Strategy B` | IdO가 직접 `ido.auth_result`를 생성하는 방식 (q-sign이 콜백을 수신하지 않음) |
+| `PoC` | Proof of Concept — 현재 구현체는 실제 외부 SDK 호출 전 플레이스홀더 포함 |
 
 ---
 
@@ -74,56 +79,88 @@ OnePass 통합인증 플랫폼은 **카카오, 네이버 등 외부 OIDC 사업�
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                        onepass-fe (React SPA)                             │
 │                    http://localhost:3000  /  3001                         │
-└───────────────────────────────┬───────────────────────────────────────────┘
-                                │  GET /api/v1/broker/{provider}/authorize
-                                ▼
+└───────────────────────┬───────────────────────────────────────────────────┘
+                        │  GET /api/v1/broker/{provider}/authorize   (OIDC)
+                        │  GET /api/v1/broker/{provider}/nonoidc/initiate (비OIDC)
+                        ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
-│                              ido (:8083)                                   │
+│                              ido (:8083)                                  │
 │                                                                           │
-│  ┌─────────────────────┐    ┌──────────────────────────────────────────┐  │
-│  │  BrokerController   │    │           BrokerService                  │  │
-│  │ GET /{provider}/    │───▶│  mode=qsign  ──▶  q-sign 위임           │  │
-│  │     authorize       │    │  mode=keycloak ▶  Keycloak URL 직접생성 │  │
-│  └─────────────────────┘    └──────────────────────────────────────────┘  │
+│  ┌──────────────────────┐   ┌───────────────────────────────────────────┐ │
+│  │  BrokerController    │   │           BrokerService                   │ │
+│  │  GET /{provider}/    │──▶│  mode=qsign  ──▶  q-sign 위임            │ │
+│  │      authorize       │   │  mode=keycloak ▶  Keycloak URL 직접생성  │ │
+│  └──────────────────────┘   └───────────────────────────────────────────┘ │
 │                                                                           │
-│  ┌──────────────────────────────────────────────────────────────────────┐ │
-│  │   KeycloakCallbackController  GET /api/v1/broker/callback            │ │
-│  │   (keycloak 모드 전용)                                                │ │
-│  │   ┌──────────────────────────────────────────────────────────────┐   │ │
-│  │   │  KeycloakOidcService                                         │   │ │
-│  │   │   1. state 검증 (Redis 1회 소비)                              │   │ │
-│  │   │   2. code → token 교환 (Keycloak Token EP)                   │   │ │
-│  │   │   3. id_token JWKS 서명 검증 (KeycloakJwksVerifier)          │   │ │
-│  │   │   4. nonce + audience 검증                                    │   │ │
-│  │   │   5. identifierHash = SHA-256(sub)                           │   │ │
-│  │   │   6. ido.auth_result INSERT (Strategy B)                     │   │ │
-│  │   │   7. ido.outbox INSERT → Kafka qsign.auth.events             │   │ │
-│  │   │   8. FE 세션 생성 → feSessionId 쿠키                          │   │ │
-│  │   └──────────────────────────────────────────────────────────────┘   │ │
-│  └──────────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────────┐   │
+│  │  KeycloakCallbackController  GET /api/v1/broker/callback           │   │
+│  │  (keycloak 모드 전용)                                               │   │
+│  │  ┌──────────────────────────────────────────────────────────────┐  │   │
+│  │  │  KeycloakOidcService (11단계)                                 │  │   │
+│  │  │   1. state 검증 (Redis 1회 소비)                              │  │   │
+│  │  │   2. code → token 교환 (Keycloak Token EP)                   │  │   │
+│  │  │   3. id_token JWKS 서명 검증 (KeycloakJwksVerifier)          │  │   │
+│  │  │   4. nonce + audience 검증                                    │  │   │
+│  │  │   5. identifierHash = SHA-256(sub)                           │  │   │
+│  │  │   6. providerCode 결정 (identity_provider 클레임)             │  │   │
+│  │  │   7. ido.auth_result INSERT (Strategy B)                     │  │   │
+│  │  │   8. ido.outbox INSERT → Kafka qsign.auth.events             │  │   │
+│  │  │   9. FE 세션 생성 → feSessionId 쿠키                          │  │   │
+│  │  │  10. ido.oidc_session_log 기록                                │  │   │
+│  │  └──────────────────────────────────────────────────────────────┘  │   │
+│  └────────────────────────────────────────────────────────────────────┘   │
 │                                                                           │
-│  ┌──────────────────────────────────────────────────────────────────────┐ │
-│  │   OidcCompleteController  POST /api/internal/v1/oidc/complete        │ │
-│  │   (qsign 모드 전용 — q-sign이 호출)                                   │ │
-│  └──────────────────────────────────────────────────────────────────────┘ │
-└─────────────┬──────────────────────────────┬──────────────────────────────┘
-              │                              │
-     qsign mode                     keycloak mode
-              │                              │
-              ▼                              ▼
-┌─────────────────────┐       ┌──────────────────────────┐
-│    q-sign (:8081)   │       │   Keycloak (:8088)        │
-│                     │       │                          │
-│  KakaoOidcBroker    │       │  Realm: onepass          │
-│  ├ StateStore (R.)  │       │  Client: ido-client      │
-│  ├ KakaoJwksVerif.  │       │  IdP: social-kakao       │
-│  └ AuthResultRepo   │       │      social-naver        │
-└──────────┬──────────┘       └─────────────┬────────────┘
-           │                                │
-           ▼                                ▼
-  kauth.kakao.com                  kauth.kakao.com
-  (Kakao OIDC AS)                  (Kakao OIDC AS)
-  [q-sign 직접 연결]               [Keycloak → 카카오]
+│  ┌────────────────────────────────────────────────────────────────────┐   │
+│  │  OidcCompleteController  POST /api/internal/v1/oidc/complete       │   │
+│  │  (qsign 모드 전용 — q-sign이 호출)                                  │   │
+│  └────────────────────────────────────────────────────────────────────┘   │
+│                                                                           │
+│  ┌────────────────────────────────────────────────────────────────────┐   │
+│  │  NonOidcBrokerController  GET /api/v1/broker/{provider}/nonoidc/*  │   │
+│  │  (비OIDC 전용: pass / financial-cert / gpki / joint-cert)          │   │
+│  │  ┌──────────────────────────────────────────────────────────────┐  │   │
+│  │  │  NonOidcBrokerAdapter (IdpBrokerService 구현)                │  │   │
+│  │  │   initiateAuth()   → 사업자 인증 페이지 redirect URL 반환     │  │   │
+│  │  │   normalizeResponse() → IdOAuthInput 정규화                  │  │   │
+│  │  │       → NonOidcAuthService.processAuth()                     │  │   │
+│  │  │           (ido.auth_result + ido.outbox + Kafka 발행)        │  │   │
+│  │  └──────────────────────────────────────────────────────────────┘  │   │
+│  └────────────────────────────────────────────────────────────────────┘   │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  IdoOutboxRelay  @Scheduled(500ms)                                  │  │
+│  │  ido.outbox PENDING → Kafka qsign.auth.events 재발행 (at-least-once)│  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+└──────┬───────────────────────────────┬──────────────────────────────────┘
+       │                               │
+    qsign mode                  keycloak/nonoidc mode
+       │                               │
+       ▼                               ▼
+┌──────────────────┐      ┌──────────────────────────┐
+│  q-sign (:8081)  │      │   Keycloak (:8088)        │
+│                  │      │                           │
+│  KakaoOidcBroker │      │   Realm: onepass          │
+│  ├ OidcStateStore│      │   Client: ido-client      │
+│  ├ KakaoJwksVerif│      │   IdP: social-kakao       │
+│  └ AuthResultRepo│      │       social-naver        │
+│  OutboxRelay     │      └─────────────┬─────────────┘
+└────────┬─────────┘                    │
+         │                             │
+         ▼                             ▼
+kauth.kakao.com                kauth.kakao.com
+(q-sign 직접 연결)              (Keycloak → 카카오)
+
+                         ┌──────────────────────────────────────┐
+                         │  외부 비OIDC 사업자                   │
+                         │  PASS / 금융인증서 / GPKI / 공동인증서 │
+                         │  (PoC: 플레이스홀더, 실 SDK 교체 예정) │
+                         └──────────────────────────────────────┘
+
+                         ┌───────────────────────────────────────┐
+                         │  Kafka: qsign.auth.events             │
+                         │  (모든 모드 공통 발행 — 하위 컨슈머 불변) │
+                         │   QsignAuthEventConsumer (ido-module) │
+                         └───────────────────────────────────────┘
 ```
 
 ---
@@ -146,30 +183,57 @@ ido:
 | `qsign` (기본) | 기존 q-sign 서비스에 URL 발급 위임 | q-sign 서비스 가동 필요 |
 | `keycloak` | ido가 직접 Keycloak URL 생성 및 콜백 수신 | Keycloak 서버 가동 필요 |
 
+> **비OIDC 모드**는 이 환경변수와 무관하게 `/api/v1/broker/{provider}/nonoidc/*` 경로로 **항상 활성화**된다.
+
 ### 3.2 BrokerService 분기 로직
 
 ```java
 // BrokerService.buildAuthorizationUrl()
+// 파일: ido/src/main/java/kr/go/smes/ido/broker/BrokerService.java
 return switch (brokerMode) {
     case "keycloak" -> buildKeycloakAuthorizationUrl(provider, correlationId, returnUrl, requestedLevel);
     case "qsign"    -> buildQsignAuthorizationUrl(provider, correlationId, returnUrl, requestedLevel);
     default -> {
-        log.warn("알 수 없는 브로커 모드: {} — qsign 폴백", brokerMode);
+        log.warn("[BrokerService] 알 수 없는 브로커 모드: {} — qsign 폴백", brokerMode);
         yield buildQsignAuthorizationUrl(provider, correlationId, returnUrl, requestedLevel);
     }
 };
+```
+
+**Keycloak URL 생성 핵심 코드**:
+```java
+// BrokerService.buildKeycloakAuthorizationUrl()
+IdoOidcStateEntry entry = idoOidcStateStore.create(
+        correlationId, returnUrl, requestedLevel, provider,
+        keycloakProperties.getStateTtlSeconds()   // 기본 300s
+);
+String idpHint = keycloakProperties.resolveIdpHint(provider);  // kakao → social-kakao
+
+String authUrl = UriComponentsBuilder
+        .fromUriString(keycloakProperties.authorizationEndpoint())
+        .queryParam("response_type", "code")
+        .queryParam("client_id",     keycloakProperties.getClientId())
+        .queryParam("redirect_uri",  keycloakProperties.getRedirectUri())
+        .queryParam("scope",         "openid profile email")
+        .queryParam("state",         entry.getState())
+        .queryParam("nonce",         entry.getNonce())
+        .queryParam("kc_idp_hint",   idpHint)
+        .build(false).toUriString();
 ```
 
 > **안전 폴백**: 알 수 없는 모드 값은 자동으로 `qsign`으로 폴백하여 서비스 중단을 방지한다.
 
 ### 3.3 콜백 엔드포인트 비교
 
-| 구분 | q-sign 모드 | Keycloak 모드 |
-|------|------------|---------------|
-| OIDC 콜백 수신자 | `q-sign` `/api/v1/oidc/kakao/callback` | `ido` `/api/v1/broker/callback` |
-| FE 세션 발급 | q-sign → ido POST `/api/internal/v1/oidc/complete` | ido 자체 발급 |
-| `OidcCompleteController` | **활성** — q-sign이 호출 | **비활성** — 409 반환 |
-| `KeycloakCallbackController` | **비활성** — 409 반환 | **활성** |
+| 구분 | q-sign 모드 | Keycloak 모드 | 비OIDC 모드 |
+|------|------------|---------------|------------|
+| OIDC 콜백 수신자 | `q-sign` `/api/v1/oidc/kakao/callback` | `ido` `/api/v1/broker/callback` | `ido` `/api/v1/broker/{provider}/nonoidc/callback` |
+| FE 세션 발급 | q-sign → ido POST `/api/internal/v1/oidc/complete` | ido 자체 발급 | ido 자체 발급 |
+| `OidcCompleteController` | **활성** — q-sign이 호출 | **비활성** — 409 반환 | **비활성** — 409 반환 |
+| `KeycloakCallbackController` | **비활성** — 409 반환 | **활성** | 해당 없음 |
+| `NonOidcBrokerController` | 별도 경로 (항상 활성) | 별도 경로 (항상 활성) | **활성** |
+| AuthResult 저장 | `qsign.auth_result` | `ido.auth_result` | `ido.auth_result` |
+| Outbox/Relay | `q-sign OutboxRelay` | `ido IdoOutboxRelay` | `ido IdoOutboxRelay` |
 
 ---
 
@@ -180,7 +244,7 @@ return switch (brokerMode) {
 ```
 FE(browser) → ido BrokerController → q-sign KakaoAuthUrlController
                                            ↓
-                                     state/nonce 생성 (Redis)
+                                     state/nonce 생성 (Redis, oidc:state:{state})
                                            ↓
                                    Kakao Authorization URL 반환
                                            ↓ (302 redirect chain)
@@ -189,725 +253,773 @@ FE(browser) → kauth.kakao.com → [카카오 로그인]
                               q-sign KakaoOidcBrokerController
                                     (콜백 수신: code, state)
                                            ↓
-                              1. state 검증 (Redis 소비)
+                              1. state 검증 (Redis 소비 — OidcStateStore)
                               2. code → token 교환 (카카오 Token EP)
+                                 POST https://kauth.kakao.com/oauth/token
                               3. id_token JWKS 검증 (KakaoJwksVerifier)
-                              4. identifierHash = SHA-256(sub)
-                              5. AuthResult INSERT (qsign.auth_result)
-                              6. Outbox INSERT → Kafka qsign.auth.events
-                              7. ido POST /api/internal/v1/oidc/complete
+                                 JWKS URI: https://kauth.kakao.com/.well-known/jwks.json
+                              4. issuer / audience / nonce / exp 검증
+                              5. identifierHash = SHA-256(sub)
+                              6. 잠금 확인 (LockRepository)
+                              7. AuthResult INSERT (qsign.auth_result)
+                                 + Outbox 저장 (qsign.outbox) — 동일 트랜잭션
+                              8. ido POST /api/internal/v1/oidc/complete
                                            ↓
-                              ido OidcCompleteController
-                              8. FE 세션 생성 (Redis)
-                              9. feSessionId 쿠키 Set
-                             10. redirectUrl 반환
+                              ido: FE 세션 생성 (Redis fe:session:{id})
+                              ido: feSessionId 쿠키 + redirectUrl 반환
                                            ↓
-                              q-sign 302 → returnUrl
+                              q-sign: 302 → returnUrl (feSessionId 쿠키 포함)
 ```
 
-### 4.2 q-sign 모드 핵심 클래스
+### 4.2 핵심 클래스
 
 | 클래스 | 위치 | 역할 |
 |--------|------|------|
-| `BrokerController` | `ido/broker/` | `/api/v1/broker/kakao/authorize` 수신 → q-sign 위임 |
-| `BrokerService.buildQsignAuthorizationUrl()` | `ido/broker/` | q-sign POST `/api/v1/oidc/kakao/auth-url` 호출 |
-| `KakaoAuthUrlController` | `q-sign/broker/oidc/` | Authorization URL 발급 엔드포인트 |
-| `KakaoOidcBrokerService` | `q-sign/broker/oidc/` | 전체 콜백 처리 오케스트레이션 |
-| `KakaoOidcClient` | `q-sign/broker/oidc/` | 카카오 OIDC Token EP 호출 + 검증 |
-| `KakaoJwksVerifier` | `q-sign/broker/oidc/` | 카카오 JWKS RS256 서명 검증 (캐시 적용) |
-| `OidcStateStore` | `q-sign/broker/state/` | state/nonce Redis 저장·검증 |
-| `OidcCompleteController` | `ido/broker/` | q-sign으로부터 완료 통보 수신 → FE 세션 발급 |
+| `BrokerController` | `ido/broker/` | GET `/{provider}/authorize` — FE 진입점 |
+| `BrokerService` | `ido/broker/` | qsign 모드: q-sign에 URL 발급 위임 |
+| `KakaoAuthUrlController` | `q-sign/broker/oidc/` | POST `/api/v1/oidc/kakao/auth-url` — URL 발급 |
+| `KakaoOidcBrokerController` | `q-sign/broker/oidc/` | GET `/api/v1/oidc/kakao/callback` — 콜백 수신 |
+| `KakaoOidcBrokerService` | `q-sign/broker/oidc/` | Authorization URL 발급 + Callback 전 과정 처리 |
+| `KakaoOidcClient` | `q-sign/broker/oidc/` | 카카오 Token EP 호출 + identifierHash 계산 |
+| `KakaoJwksVerifier` | `q-sign/broker/oidc/` | 카카오 JWKS RS256 서명 검증 (`@Cacheable kakaoJwks`) |
+| `OidcStateStore` | `q-sign/broker/state/` | state/nonce Redis 저장 (키: `oidc:state:{state}`, TTL 300s) |
+| `OidcStateEntry` | `q-sign/broker/state/` | Redis 저장 DTO (state, nonce, correlationId, returnUrl, requestedLevel) |
+| `AuthResultRepository` | `q-sign/infrastructure/` | `qsign.auth_result` CRUD |
+| `QSignOutboxRepository` | `q-sign/outbox/` | `qsign.outbox` PENDING 조회·상태 갱신 |
+| `OutboxRelay` | `q-sign/outbox/` | `@Scheduled(500ms)` `qsign.outbox` → Kafka 발행 |
+| `OidcCompleteController` | `ido/broker/` | POST `/api/internal/v1/oidc/complete` — FE 세션 발급 |
+| `FeSessionService` | `ido/fe/session/` | Redis 기반 FE 세션 관리 (Sliding TTL 30분, 절대만료 8시간) |
 
 ### 4.3 내부 API 연동 (q-sign → ido)
 
-```http
-POST /api/internal/v1/oidc/complete
-Host: ido:8083
-X-Internal-Caller: q-sign
-X-Internal-Sig: {HMAC-SHA256 서명}
+**Step 1: q-sign → ido Authorization URL 요청**
+
+```
+POST http://localhost:8083/api/v1/oidc/kakao/auth-url   ← 실제로는 q-sign이 보내는 것이 아님
+                                                          ido BrokerService → q-sign이 이 역할
+실제 흐름:
+POST http://localhost:8081/api/v1/oidc/kakao/auth-url   ← ido → q-sign
 X-Correlation-Id: {correlationId}
-Content-Type: application/json
+X-Internal-Caller: ido
+X-Internal-Sig: sig-{correlationId.substring(0,8)}
 
 {
-  "correlationId":  "uuid",
+  "correlationId": "550e8400-...",
+  "returnUrl": "https://agency-a.example.com/callback",
+  "requestedLevel": "L1"
+}
+
+응답:
+{ "authorizationUrl": "https://kauth.kakao.com/oauth/authorize?client_id=...&state=...&nonce=..." }
+```
+
+**Step 2: q-sign → ido FE 세션 발급 요청**
+
+```
+POST /api/internal/v1/oidc/complete
+X-Internal-Caller: q-sign
+X-Internal-Sig: sig-{correlationId.substring(0,8)}
+X-Correlation-Id: {correlationId}
+
+{
   "authResultId":   "uuid",
-  "identifierHash": "sha256hex",
+  "identifierHash": "sha256-hex",
   "authLevel":      "L1",
-  "returnUrl":      "https://agency.example.com/callback"
+  "providerCode":   "KAKAO_OIDC",
+  "correlationId":  "uuid",
+  "returnUrl":      "https://agency-a.example.com/callback"
 }
-```
 
-**응답**:
-```json
+성공 응답:
 {
-  "redirectUrl": "https://agency.example.com/callback",
-  "feSessionId": "uuid"
+  "redirectUrl":  "https://agency-a.example.com/callback",
+  "feSessionId":  "base64url-256bit"
 }
+Set-Cookie: feSessionId=...; HttpOnly; Secure; SameSite=Lax; Path=/
+
+Keycloak 모드에서 이 엔드포인트 호출 시:
+HTTP 409
+{ "error": "BROKER_MODE_MISMATCH", "message": "keycloak 모드에서는 /api/v1/broker/callback을 사용하세요" }
 ```
 
-> **보안 주의**: `X-Internal-Sig`는 PoC 수준의 단순 서명이다. 운영 환경에서는 **mTLS** 또는 **HMAC-SHA256(correlationId + timestamp, sharedSecret)** 방식으로 강화해야 한다.
+> **보안**: `X-Internal-Sig`는 현재 PoC 수준의 단순 서명. 운영에서는 `HMAC-SHA256(correlationId + timestamp, sharedSecret)` + mTLS 적용 권고.
+
+### 4.4 q-sign Authorization URL 구조
+
+```
+https://kauth.kakao.com/oauth/authorize
+  ?response_type=code
+  &client_id={qsign.oidc.kakao.client-id}
+  &redirect_uri={qsign.oidc.kakao.redirect-uri}  ← q-sign 콜백 URL
+  &scope=openid profile_nickname account_email
+  &state={32자 랜덤 UUID, Redis 저장}
+  &nonce={32자 랜덤 UUID, Redis 저장}
+```
 
 ---
 
 ## 5. Keycloak OIDC 브로커 모드 (keycloak mode)
 
-### 5.1 Strategy B — IdO AuthResult 직접 생성
+### 5.1 Strategy B — IdO가 직접 AuthResult 생성
 
-Keycloak 모드에서는 q-sign이 콜백을 수신하지 않는다. 대신 ido가 모든 책임을 직접 담당한다.
+Keycloak 도입 후 **q-sign이 더 이상 카카오 콜백을 수신하지 않는다**. 대신:
 
-```
-Strategy A (기존 q-sign 모드):
-  q-sign이 AuthResult 생성 → qsign.auth_result 테이블
-  q-sign이 qsign.auth.events Kafka 토픽 발행
+- **IdO**가 Keycloak으로부터 authorization code를 직접 수신
+- **IdO**가 Keycloak Token Endpoint에 code 교환 요청
+- **IdO**가 id_token JWKS 검증
+- **IdO**가 `ido.auth_result` 테이블에 직접 INSERT
+- **IdO**가 Kafka `qsign.auth.events` 토픽에 직접 발행
 
-Strategy B (Keycloak 모드, §8.3):
-  ido가 AuthResult 직접 생성 → ido.auth_result 테이블
-  ido가 qsign.auth.events Kafka 토픽 발행 (동일 토픽 — 하위 컨슈머 변경 없음)
-```
+기존 `QsignAuthEventConsumer`는 변경 없이 이 이벤트를 소비한다.
 
-### 5.2 Keycloak 모드 핵심 클래스
+### 5.2 핵심 클래스
 
 | 클래스 | 위치 | 역할 |
 |--------|------|------|
-| `BrokerController` | `ido/broker/` | `/api/v1/broker/{provider}/authorize` 수신 |
-| `BrokerService.buildKeycloakAuthorizationUrl()` | `ido/broker/` | Keycloak Auth URL 직접 생성 + state/nonce Redis 저장 |
-| `KeycloakCallbackController` | `ido/broker/keycloak/` | `GET /api/v1/broker/callback` — Keycloak 콜백 수신 |
-| `KeycloakOidcService` | `ido/broker/keycloak/` | 콜백 처리 전 과정 오케스트레이션 (11단계) |
-| `KeycloakJwksVerifier` | `ido/broker/keycloak/` | Keycloak JWKS RS256 서명 검증 (캐시 적용) |
-| `KeycloakProperties` | `ido/broker/keycloak/` | Keycloak 연동 설정 (`ido.keycloak.*`) |
-| `IdoOidcStateStore` | `ido/broker/state/` | state/nonce Redis 저장·검증 (1회 소비) |
-| `IdoOidcStateEntry` | `ido/broker/state/` | Redis 저장 state 엔트리 DTO |
-| `KeycloakJwtClaims` | `ido/broker/keycloak/dto/` | id_token JWT 클레임 DTO |
+| `BrokerController` | `ido/broker/` | GET `/{provider}/authorize` — FE 진입점 |
+| `BrokerService` | `ido/broker/` | keycloak 모드: Keycloak Authorization URL 직접 생성 |
+| `IdoOidcStateStore` | `ido/broker/state/` | state/nonce Redis 저장 (키: `oidc:state:{state}`) |
+| `IdoOidcStateEntry` | `ido/broker/state/` | Redis 저장 DTO (state, nonce, correlationId, returnUrl, requestedLevel, provider) |
+| `KeycloakProperties` | `ido/broker/keycloak/` | `@ConfigurationProperties(prefix="ido.keycloak")` |
+| `KeycloakCallbackController` | `ido/broker/keycloak/` | GET `/api/v1/broker/callback` — Keycloak 콜백 수신 |
+| `KeycloakOidcService` | `ido/broker/keycloak/` | 11단계 콜백 처리 오케스트레이터 |
+| `KeycloakJwksVerifier` | `ido/broker/keycloak/` | JWKS RS256 서명 검증 (`@Cacheable keycloakJwks`, TTL 1시간) |
+| `KeycloakJwtClaims` | `ido/broker/keycloak/dto/` | id_token 클레임 DTO |
 | `KeycloakTokenResponse` | `ido/broker/keycloak/dto/` | Token Endpoint 응답 DTO |
+| `IdoOutboxRepository` | `ido/infrastructure/outbox/` | `ido.outbox` CRUD (JdbcTemplate 기반) |
+| `IdoOutboxRelay` | `ido/infrastructure/outbox/` | `@Scheduled(500ms)` `ido.outbox` → Kafka 재발행 |
 
-### 5.3 Keycloak 모드 처리 단계 (KeycloakOidcService.handleCallback)
-
-```
-단계 1: state 검증
-  ┌─────────────────────────────────────────────────────────────┐
-  │ Redis oidc:state:{state} 조회 → 존재하면 즉시 삭제 (1회 소비) │
-  │ 없거나 만료 → PlatformException(IDP_SIGNATURE_MISMATCH)     │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 2: Authorization Code → Token 교환
-  ┌─────────────────────────────────────────────────────────────┐
-  │ POST {keycloak}/realms/{realm}/protocol/openid-connect/token │
-  │ Body: grant_type=authorization_code                          │
-  │       code={code}                                            │
-  │       redirect_uri={ido.keycloak.redirect-uri}               │
-  │       client_id={ido.keycloak.client-id}                     │
-  │       client_secret={ido.keycloak.client-secret}             │
-  │ → KeycloakTokenResponse { access_token, id_token, ... }      │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 3: id_token JWKS 서명 검증
-  ┌─────────────────────────────────────────────────────────────┐
-  │ JWT 헤더에서 kid 추출                                         │
-  │ GET {keycloak}/realms/{realm}/protocol/openid-connect/certs  │
-  │ → kid 매칭 RSA 공개키 조회 (캐시 1h)                          │
-  │ → Jwts.parser().verifyWith(publicKey).parseSignedClaims()    │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 4: nonce 검증 (Replay Attack 방지)
-  ┌─────────────────────────────────────────────────────────────┐
-  │ id_token.nonce == Redis에 저장된 entry.nonce 비교             │
-  │ 불일치 → PlatformException(IDP_SIGNATURE_MISMATCH)           │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 5: audience 검증
-  ┌─────────────────────────────────────────────────────────────┐
-  │ id_token.aud 포함 여부 확인: ido.keycloak.client-id           │
-  │ 불일치 → PlatformException(IDP_SIGNATURE_MISMATCH)           │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 6: identifierHash 생성
-  ┌─────────────────────────────────────────────────────────────┐
-  │ identifierHash = HexFormat(SHA-256(sub.getBytes(UTF-8)))     │
-  │ 64자 hex 문자열 — PII(sub) 직접 저장 방지                     │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 7: providerCode 결정
-  ┌─────────────────────────────────────────────────────────────┐
-  │ id_token.identity_provider 클레임 → resolveProviderCode()    │
-  │ social-kakao → KAKAO_OIDC                                    │
-  │ social-naver → NAVER_OIDC                                    │
-  │ 없으면 stateEntry.provider 사용 (fallback)                    │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 8: AuthResult 생성 + DB 저장
-  ┌─────────────────────────────────────────────────────────────┐
-  │ INSERT INTO ido.auth_result                                  │
-  │   (auth_result_id, correlation_id, auth_level,              │
-  │    provider_code, provider_tx_id, identifier_hash,          │
-  │    verification_result='SUCCESS', source_system='ido-kc')   │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 9: Outbox 이벤트 저장 + Kafka 즉시 발행
-  ┌─────────────────────────────────────────────────────────────┐
-  │ INSERT INTO ido.outbox (AUTH_COMPLETED, qsign.auth.events)  │
-  │ KafkaTemplate.send(authEventsTopic, identifierHash, event)  │
-  │ Kafka 실패 → 경고 로그만, Outbox relay가 재처리              │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 10: FE 세션 생성
-  ┌─────────────────────────────────────────────────────────────┐
-  │ FeSessionService.create(identifierHash, authResultId,       │
-  │                          authLevel, returnUrl)              │
-  │ → Redis fe:session:{feSessionId} 저장                        │
-  │ → 슬라이딩 TTL 30분 / 절대 만료 8시간                         │
-  └─────────────────────────────────────────────────────────────┘
-
-단계 11: OIDC 세션 로그 기록
-  ┌─────────────────────────────────────────────────────────────┐
-  │ INSERT INTO ido.oidc_session_log (감사 목적)                  │
-  │ 저장 실패 → 경고 로그, 인증 흐름은 계속 진행                   │
-  └─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 6. 시퀀스 다이어그램 — 전체 흐름 비교
-
-### 6.1 q-sign 모드 전체 시퀀스
-
-```mermaid
-sequenceDiagram
-    actor User as 사용자 브라우저
-    participant FE as onepass-fe<br/>(React :3000)
-    participant IDO as ido<br/>(:8083)
-    participant QSIGN as q-sign<br/>(:8081)
-    participant REDIS as Redis<br/>(:6379)
-    participant KAKAO as 카카오 OIDC<br/>(kauth.kakao.com)
-    participant DB as PostgreSQL<br/>(qsign schema)
-    participant KAFKA as Kafka<br/>(:9092)
-
-    User->>FE: 카카오 로그인 버튼 클릭
-    FE->>IDO: GET /api/v1/broker/kakao/authorize<br/>?returnUrl=https://agency.example.com/cb
-    
-    Note over IDO: broker.mode = qsign<br/>BrokerService.buildQsignAuthorizationUrl()
-    
-    IDO->>QSIGN: POST /api/v1/oidc/kakao/auth-url<br/>{ correlationId, returnUrl, requestedLevel }
-    QSIGN->>REDIS: SET oidc:state:{state} { state, nonce, correlationId, returnUrl }<br/>TTL=300s
-    QSIGN-->>IDO: { authorizationUrl: "https://kauth.kakao.com/oauth/authorize?..." }
-    IDO-->>User: 302 → kauth.kakao.com/oauth/authorize?<br/>response_type=code&client_id=...&state=...&nonce=...
-
-    User->>KAKAO: 카카오 계정 로그인
-    KAKAO-->>User: 302 → q-sign/api/v1/oidc/kakao/callback?code=CODE&state=STATE
-
-    User->>QSIGN: GET /api/v1/oidc/kakao/callback?code=CODE&state=STATE
-    
-    rect rgb(240, 248, 255)
-        Note over QSIGN,REDIS: CSRF 방어 — state 1회 소비
-        QSIGN->>REDIS: GET oidc:state:{STATE} → entry
-        QSIGN->>REDIS: DEL oidc:state:{STATE}
-    end
-    
-    rect rgb(255, 248, 240)
-        Note over QSIGN,KAKAO: Token 교환
-        QSIGN->>KAKAO: POST kapi.kakao.com/oauth/token<br/>grant_type=authorization_code&code=CODE
-        KAKAO-->>QSIGN: { access_token, id_token, ... }
-    end
-    
-    rect rgb(240, 255, 240)
-        Note over QSIGN,KAKAO: JWT 검증
-        QSIGN->>KAKAO: GET kauth.kakao.com/.well-known/jwks.json (캐시 1h)
-        QSIGN->>QSIGN: RS256 서명 검증 + nonce 비교 + aud 확인
-        QSIGN->>QSIGN: identifierHash = SHA-256(sub)
-    end
-    
-    QSIGN->>DB: INSERT qsign.auth_result<br/>(authResultId, correlationId, identifierHash, L1, KAKAO_OIDC)
-    QSIGN->>DB: INSERT qsign.outbox<br/>(AUTH_COMPLETED, qsign.auth.events)
-    QSIGN->>KAFKA: send(qsign.auth.events, AUTH_COMPLETED event)
-    
-    rect rgb(255, 240, 255)
-        Note over QSIGN,IDO: FE 세션 발급 위임
-        QSIGN->>IDO: POST /api/internal/v1/oidc/complete<br/>{ authResultId, identifierHash, authLevel, returnUrl }
-        IDO->>REDIS: SET fe:session:{feSessionId} { ... } TTL=30min
-        IDO-->>QSIGN: { redirectUrl, feSessionId }
-    end
-    
-    QSIGN-->>User: 302 → https://agency.example.com/cb<br/>Set-Cookie: feSessionId=...
-    User->>FE: returnUrl에 도착 (인증 완료)
-```
-
----
-
-### 6.2 Keycloak 모드 전체 시퀀스
-
-```mermaid
-sequenceDiagram
-    actor User as 사용자 브라우저
-    participant FE as onepass-fe<br/>(React :3000)
-    participant IDO as ido<br/>(:8083)
-    participant KC as Keycloak<br/>(:8088)
-    participant KAKAO as 카카오 OIDC<br/>(kauth.kakao.com)
-    participant REDIS as Redis<br/>(:6379)
-    participant DB as PostgreSQL<br/>(ido schema)
-    participant KAFKA as Kafka<br/>(:9092)
-
-    User->>FE: 카카오 로그인 버튼 클릭
-    FE->>IDO: GET /api/v1/broker/kakao/authorize<br/>?returnUrl=https://agency.example.com/cb
-
-    Note over IDO: broker.mode = keycloak<br/>BrokerService.buildKeycloakAuthorizationUrl()
-
-    IDO->>REDIS: SET oidc:state:{state} { state, nonce, correlationId,<br/>returnUrl, provider='kakao' }<br/>TTL=300s
-    IDO-->>User: 302 → keycloak:8088/realms/onepass/protocol/openid-connect/auth?<br/>response_type=code<br/>&client_id=ido-client<br/>&redirect_uri=http://ido:8083/api/v1/broker/callback<br/>&scope=openid profile email<br/>&state={state}<br/>&nonce={nonce}<br/>&kc_idp_hint=social-kakao
-
-    User->>KC: Keycloak 로그인 페이지 접속
-    
-    rect rgb(240, 248, 255)
-        Note over KC,KAKAO: Keycloak → 카카오 IdP 브로커링
-        KC->>KAKAO: 카카오 OAuth2 Authorization URL 리다이렉트<br/>(kc_idp_hint=social-kakao에 의해 자동 선택)
-        User->>KAKAO: 카카오 계정 로그인
-        KAKAO-->>KC: 302 → Keycloak callback?code=KC_CODE
-        KC->>KAKAO: POST kapi.kakao.com/oauth/token (Keycloak 내부 처리)
-        KC->>KC: 카카오 토큰 검증, 사용자 정보 매핑
-    end
-
-    KC-->>User: 302 → ido:8083/api/v1/broker/callback?<br/>code=IDO_CODE&state={state}
-
-    User->>IDO: GET /api/v1/broker/callback?code=IDO_CODE&state={state}
-    
-    Note over IDO: KeycloakCallbackController → KeycloakOidcService.handleCallback()
-    
-    rect rgb(240, 248, 255)
-        Note over IDO,REDIS: 단계 1: CSRF 방어 — state 1회 소비
-        IDO->>REDIS: GET oidc:state:{STATE} → { state, nonce, correlationId, ... }
-        IDO->>REDIS: DEL oidc:state:{STATE}
-    end
-
-    rect rgb(255, 248, 240)
-        Note over IDO,KC: 단계 2: Token 교환
-        IDO->>KC: POST /realms/onepass/protocol/openid-connect/token<br/>grant_type=authorization_code&code=IDO_CODE<br/>&client_id=ido-client&client_secret=***
-        KC-->>IDO: { access_token, id_token (JWT), refresh_token, ... }
-    end
-
-    rect rgb(240, 255, 240)
-        Note over IDO,KC: 단계 3–5: JWT 검증
-        IDO->>KC: GET /realms/onepass/protocol/openid-connect/certs<br/>(JWKS 조회 — 캐시 1h)
-        KC-->>IDO: { keys: [ { kid, kty=RSA, use=sig, n, e } ] }
-        IDO->>IDO: RS256 서명 검증 (kid 매칭 공개키)
-        IDO->>IDO: nonce 검증 (id_token.nonce == Redis entry.nonce)
-        IDO->>IDO: audience 검증 (id_token.aud contains 'ido-client')
-    end
-
-    rect rgb(255, 255, 240)
-        Note over IDO,IDO: 단계 6–7: 식별자 처리
-        IDO->>IDO: identifierHash = HexFormat(SHA-256(sub))
-        IDO->>IDO: providerCode = resolveProviderCode(identity_provider)<br/>social-kakao → KAKAO_OIDC
-    end
-
-    rect rgb(255, 240, 240)
-        Note over IDO,DB: 단계 8: Strategy B — IdO가 AuthResult 직접 저장
-        IDO->>DB: INSERT ido.auth_result<br/>(authResultId, correlationId, L1, KAKAO_OIDC,<br/> identifierHash, 'SUCCESS', 'ido-keycloak')
-    end
-
-    rect rgb(240, 240, 255)
-        Note over IDO,KAFKA: 단계 9: Outbox 이벤트 → Kafka (기존 토픽 동일)
-        IDO->>DB: INSERT ido.outbox<br/>(AUTH_COMPLETED, topic=qsign.auth.events, PENDING)
-        IDO->>KAFKA: send(qsign.auth.events, AUTH_COMPLETED)<br/>{ authResultId, identifierHash, authLevel=L1, ... }
-    end
-
-    rect rgb(240, 255, 255)
-        Note over IDO,REDIS: 단계 10: FE 세션 생성
-        IDO->>REDIS: SET fe:session:{feSessionId} { ... } TTL=30min
-    end
-
-    IDO->>DB: INSERT ido.oidc_session_log (감사)
-    IDO-->>User: 302 → https://agency.example.com/cb<br/>Set-Cookie: feSessionId=...; HttpOnly; Secure; SameSite=Lax
-
-    User->>FE: returnUrl에 도착 (인증 완료)
-```
-
----
-
-### 6.3 Authorization URL 구조 비교
-
-```mermaid
-graph LR
-    subgraph qsign_mode["q-sign 모드 — Authorization URL"]
-        QA[kauth.kakao.com/oauth/authorize] --> QB["?response_type=code"]
-        QB --> QC["&client_id={KAKAO_CLIENT_ID}"]
-        QC --> QD["&redirect_uri=q-sign:8081/callback"]
-        QD --> QE["&state={32자 UUID}"]
-        QE --> QF["&nonce={32자 UUID}"]
-        QF --> QG["&scope=openid profile_nickname account_email"]
-    end
-    
-    subgraph kc_mode["Keycloak 모드 — Authorization URL"]
-        KA[keycloak:8088/realms/onepass/protocol/openid-connect/auth] --> KB["?response_type=code"]
-        KB --> KC["&client_id=ido-client"]
-        KC --> KD["&redirect_uri=ido:8083/api/v1/broker/callback"]
-        KD --> KE["&state={32자 UUID}"]
-        KE --> KF["&nonce={32자 UUID}"]
-        KF --> KG["&scope=openid profile email"]
-        KG --> KH["&kc_idp_hint=social-kakao ← 핵심!"]
-    end
-```
-
-### 6.4 JWKS 캐시 및 키 로테이션 시퀀스
-
-```mermaid
-sequenceDiagram
-    participant IDO as ido<br/>KeycloakJwksVerifier
-    participant CACHE as Spring Cache<br/>(keycloakJwks)
-    participant KC as Keycloak<br/>JWKS Endpoint
-
-    Note over IDO: id_token 검증 요청 (kid=abc123)
-    IDO->>CACHE: @Cacheable("keycloakJwks", key="#kid")<br/>캐시 조회 kid=abc123
-    
-    alt 캐시 HIT (TTL 1h 이내)
-        CACHE-->>IDO: RSAPublicKey (캐시 반환)
-        Note over IDO: 바로 서명 검증 진행
-    else 캐시 MISS (최초 또는 TTL 만료)
-        CACHE-->>IDO: null
-        IDO->>KC: GET /realms/onepass/protocol/openid-connect/certs
-        KC-->>IDO: { keys: [...] }
-        IDO->>IDO: kid=abc123 매칭 → RSAPublicKey 생성<br/>(n, e → BigInteger → RSAPublicKeySpec)
-        IDO->>CACHE: 캐시 저장 (key=abc123, TTL 1h)
-    end
-    
-    Note over IDO: Jwts.parser().verifyWith(publicKey)<br/>.parseSignedClaims(idToken)
-    
-    Note over KC: 키 로테이션 발생 → kid 변경 (신규 kid=def456)
-    
-    IDO->>CACHE: @Cacheable("keycloakJwks", key="def456")
-    CACHE-->>IDO: null (새 kid는 캐시 없음)
-    IDO->>KC: GET /realms/onepass/protocol/openid-connect/certs
-    KC-->>IDO: { keys: [{ kid: "def456", ... }] }
-    IDO->>CACHE: 캐시 저장 (key=def456)
-```
-
-### 6.5 에러 처리 흐름
-
-```mermaid
-sequenceDiagram
-    actor User as 사용자 브라우저
-    participant IDO as ido<br/>KeycloakCallbackController
-    participant SVC as KeycloakOidcService
-    participant REDIS as Redis
-
-    User->>IDO: GET /api/v1/broker/callback?code=CODE&state=STATE
-
-    alt Keycloak 인증 실패 (error 파라미터 포함)
-        IDO-->>User: 302 → /error?code=KEYCLOAK_AUTH_FAILED
-    else code 파라미터 없음
-        IDO-->>User: 302 → /error?code=MISSING_CODE
-    else state 파라미터 없음
-        IDO-->>User: 302 → /error?code=MISSING_STATE
-    else 정상 요청
-        IDO->>SVC: handleCallback(code, state)
-        
-        SVC->>REDIS: GET oidc:state:{STATE}
-        alt state 없음 / 만료 (CSRF 의심)
-            REDIS-->>SVC: null
-            SVC-->>IDO: PlatformException(IDP_SIGNATURE_MISMATCH)
-            IDO-->>User: 302 → /error?code=E-IDP-403
-        end
-        
-        SVC->>SVC: Token 교환
-        alt Keycloak 응답 오류
-            SVC-->>IDO: PlatformException(IDP_PROVIDER_UNAVAILABLE)
-            IDO-->>User: 302 → /error?code=E-IDP-401
-        end
-        
-        SVC->>SVC: JWT 서명 검증
-        alt 서명 불일치
-            SVC-->>IDO: PlatformException(IDP_SIGNATURE_MISMATCH)
-            IDO-->>User: 302 → /error?code=E-IDP-403
-        end
-        
-        SVC->>SVC: nonce 검증
-        alt nonce 불일치 (Replay Attack)
-            SVC-->>IDO: PlatformException(IDP_SIGNATURE_MISMATCH)
-            IDO-->>User: 302 → /error?code=E-IDP-403
-        end
-        
-        Note over SVC,IDO: 정상 처리 완료
-        IDO-->>User: 302 → returnUrl<br/>Set-Cookie: feSessionId=...
-    end
-```
-
----
-
-## 7. 보안 설계
-
-### 7.1 4중 보안 방어 계층
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Layer 1: CSRF 방어 — state 파라미터                                      │
-│  ─────────────────────────────────────────────────────────────────────  │
-│  • state = UUID.randomUUID().toString().replace("-","") (32자)           │
-│  • Redis 저장: oidc:state:{state} TTL=300초                              │
-│  • 콜백 수신 즉시 1회 소비(DEL) → 재사용 불가                              │
-│  • state 없거나 만료 → IDP_SIGNATURE_MISMATCH (즉시 거부)                 │
-└─────────────────────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Layer 2: Replay Attack 방어 — nonce                                     │
-│  ─────────────────────────────────────────────────────────────────────  │
-│  • nonce = UUID.randomUUID().toString().replace("-","") (32자)           │
-│  • Keycloak이 id_token.nonce에 그대로 포함해야 함 (§10-5 설정 필요)        │
-│  • 콜백 처리 시: id_token.nonce == Redis entry.nonce 비교                 │
-│  • 불일치 → IDP_SIGNATURE_MISMATCH                                       │
-│  • 보조: ido.oidc_nonce_used 테이블에 사용 이력 기록                       │
-└─────────────────────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Layer 3: JWT 위조 방어 — JWKS RS256 서명 검증                            │
-│  ─────────────────────────────────────────────────────────────────────  │
-│  • 알고리즘: RS256 (비대칭키, 위조 불가)                                   │
-│  • kid 기반 공개키 조회: GET /realms/{realm}/openid-connect/certs        │
-│  • 캐시: @Cacheable("keycloakJwks") TTL=1h                              │
-│  • 키 로테이션: 새 kid → 자동 캐시 갱신 (kid별 독립 캐시)                  │
-│  • 검증 실패 → IDP_SIGNATURE_MISMATCH                                    │
-└─────────────────────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Layer 4: Audience 검증                                                  │
-│  ─────────────────────────────────────────────────────────────────────  │
-│  • id_token.aud 포함 여부: ido.keycloak.client-id ('ido-client')         │
-│  • 다른 클라이언트용 토큰으로 위장 시도 차단                                │
-│  • 불일치 → IDP_SIGNATURE_MISMATCH                                       │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 7.2 개인정보 보호
-
-| 항목 | 처리 방법 |
-|------|----------|
-| Kakao `sub` (고유 식별자) | SHA-256 해시 후 64자 hex로 저장 (`identifierHash`) |
-| `sub` 원본 | `ido.oidc_session_log.provider_subject` 에만 저장 — 운영 환경 암호화 권고 |
-| `email` | id_token에 포함되나 별도 저장 안 함 (PoC) — 운영 시 필요 시 별도 설계 |
-| FE 세션 ID | SecureRandom 256비트 → Base64 URL-safe 인코딩 |
-
-### 7.3 쿠키 보안 설정
+### 5.3 처리 단계 (KeycloakOidcService.handleCallback)
 
 ```java
-ResponseCookie cookie = ResponseCookie.from("feSessionId", session.getFeSessionId())
-    .httpOnly(true)   // JavaScript 접근 차단 (XSS 방어)
-    .secure(true)     // HTTPS 전송만 허용
-    .sameSite("Lax")  // CSRF 방어 (동일 사이트 요청만 전송)
-    .path("/")        // 전체 경로
-    .build();
+// 파일: ido/src/main/java/kr/go/smes/ido/broker/keycloak/KeycloakOidcService.java
+@Transactional
+public CallbackResult handleCallback(String code, String state) {
 ```
 
-### 7.4 내부 서비스 간 인증 (q-sign → ido)
+| 단계 | 설명 | 구현 |
+|------|------|------|
+| 1 | **state 검증** (CSRF 방지, 1회 소비) | `IdoOidcStateStore.consumeAndValidate(state)` |
+| 2 | **Authorization Code → Token 교환** | POST `{keycloak}/realms/{realm}/protocol/openid-connect/token` |
+| 3 | **id_token JWKS 서명 검증 + 클레임 파싱** | `KeycloakJwksVerifier.verifyAndParse(idToken, correlationId)` |
+| 4 | **nonce 검증** (replay attack 방지) | `id_token.nonce == stateEntry.nonce` |
+| 5 | **audience 검증** | `id_token.aud.contains(keycloakProperties.getClientId())` |
+| 6 | **identifierHash 생성** | `SHA-256(sub)` → hex encoding |
+| 7 | **providerCode 결정** | `identity_provider` 클레임 → `KeycloakProperties.resolveProviderCode()` |
+| 8 | **AuthResult 저장** (Strategy B) | `ido.auth_result` INSERT (`ON CONFLICT DO NOTHING`) |
+| 9 | **Outbox 이벤트 저장 + 즉시 Kafka 발행** | `ido.outbox` INSERT → `KafkaTemplate.send()` |
+| 10 | **FE 세션 생성** | `FeSessionService.create(identifierHash, authResultId, authLevel, returnUrl)` |
+| 11 | **OIDC 세션 로그 기록** | `ido.oidc_session_log` INSERT |
+
+### 5.4 Keycloak Authorization URL 구조
 
 ```
-현재 (PoC): X-Internal-Sig: sig-{correlationId.substring(0,8)}
-운영 권고:  X-Internal-Sig: HMAC-SHA256(correlationId + ":" + timestamp, sharedSecret)
-최고 수준:  mTLS (mutual TLS) — 클라이언트 인증서 기반
+http://localhost:8088/realms/onepass/protocol/openid-connect/auth
+  ?response_type=code
+  &client_id=ido-client
+  &redirect_uri=http://localhost:8083/api/v1/broker/callback
+  &scope=openid profile email
+  &state={IdoOidcStateStore가 생성, Redis 저장, TTL 300s}
+  &nonce={IdoOidcStateStore가 생성, Redis 저장}
+  &kc_idp_hint=social-kakao   ← Keycloak이 바로 카카오로 리다이렉트
+```
+
+### 5.5 idpHint / providerCode 매핑
+
+```yaml
+# application.yml
+ido.keycloak.idp-hint-mapping:
+  kakao: social-kakao    # kc_idp_hint 파라미터 값
+  naver: social-naver
+```
+
+```java
+// KeycloakProperties.resolveProviderCode()
+// identity_provider 클레임 역매핑: social-kakao → KAKAO_OIDC
+idpHintMapping.entrySet().stream()
+    .filter(e -> e.getValue().equals(identityProvider))
+    .map(e -> e.getKey().toUpperCase() + "_OIDC")
+    .findFirst()
+    .orElse(identityProvider.toUpperCase().replace("-", "_"));
+```
+
+### 5.6 acr → AuthLevel 매핑
+
+```yaml
+ido.keycloak.acr-to-auth-level:
+  "1": L1    # 간편인증
+  "2": L2    # 본인인증
+  "3": L3    # 공인인증서
+```
+
+```java
+// KeycloakProperties.resolveAuthLevel()
+// null 또는 미등록 acr → L1 (최소 수준, 안전 우선)
+acrToAuthLevel.getOrDefault(acr, "L1");
+```
+
+### 5.7 KeycloakJwksVerifier 동작
+
+```java
+// 파일: ido/src/main/java/kr/go/smes/ido/broker/keycloak/KeycloakJwksVerifier.java
+// JWKS 엔드포인트: {baseUrl}/realms/{realm}/protocol/openid-connect/certs
+
+public KeycloakJwtClaims verifyAndParse(String idToken, String correlationId) {
+    String kid = extractKid(idToken);          // JWT 헤더에서 kid 추출
+    RSAPublicKey publicKey = fetchPublicKey(kid); // @Cacheable(keycloakJwks, key=#kid)
+
+    Jws<Claims> jws = Jwts.parser()
+            .verifyWith(publicKey)
+            .build()
+            .parseSignedClaims(idToken);       // JJWT RS256 검증
+    // ...
+}
+
+@Cacheable(value = "keycloakJwks", key = "#kid")  // TTL: CacheManager에서 3600s 설정
+public RSAPublicKey fetchPublicKey(String kid) { ... }
 ```
 
 ---
 
-## 8. 데이터 모델
+## 6. 비OIDC 브로커 모드 (nonoidc mode)
 
-### 8.1 V3 마이그레이션 테이블 목록
+### 6.1 개요
 
-| 테이블 | 스키마 | 목적 |
-|--------|--------|------|
-| `ido.auth_result` | ido | Strategy B — Keycloak 모드 AuthResult SoR |
-| `ido.auth_lock` | ido | 연속 인증 실패 잠금 |
-| `ido.oidc_session_log` | ido | Keycloak OIDC 세션 감사 이력 |
-| `ido.oidc_nonce_used` | ido | nonce 사용 이력 (replay 방지 보조) |
-| `ido.provider_config` | ido | 인증 수단별 AuthLevel/모드 설정 |
+PASS·금융인증서·GPKI·공동인증서 등 **OIDC를 사용하지 않는 인증 수단**을 IdO가 직접 브로커링하는 모드다. `IdpBrokerService` 인터페이스를 통해 추상화되어 있으며, `NonOidcBrokerAdapter`가 구현체다.
 
-### 8.2 ido.auth_result 스키마
+> **현재 상태**: PoC 단계 — 실제 사업자 SDK/REST API 연동 코드 교체 전 플레이스홀더 구현. 실운영 전환 시 각 사업자별 인증 로직 교체 필요.
+
+### 6.2 지원 인증 수단
+
+| provider (경로변수) | providerCode | AuthLevel | 사업자 |
+|---------------------|-------------|-----------|--------|
+| `pass` | `PASS` | L2 | 통신 3사 본인인증 |
+| `financial-cert` | `FINANCIAL_CERT` | L3 | 금융인증서 |
+| `gpki` | `GPKI` | L3 | 정부 공개키 인증서 |
+| `joint-cert` | `JOINT_CERT` | L3 | 공동인증서 |
+
+### 6.3 흐름
+
+```
+[인증 시작]
+FE → GET /api/v1/broker/{provider}/nonoidc/initiate
+         ?returnUrl=https://agency.example.com/cb
+         &requestedLevel=L2
+     → NonOidcBrokerController
+         → NonOidcBrokerAdapter.initiateAuth(providerCode, correlationId, callbackUrl)
+         ← IdpBrokerResult { redirectUrl, providerTxId, status }
+
+status=REDIRECT_REQUIRED  → 302 → 사업자 인증 페이지
+status=DIRECT_CALL_REQUIRED → 202 { "providerTxId": "..." }
+status=CIRCUIT_OPEN         → 503
+
+[콜백 수신]
+사업자 → GET /api/v1/broker/{provider}/nonoidc/callback
+              ?txId={providerTxId}&identifier={rawIdentifier}&returnUrl=...
+         → NonOidcBrokerController
+             → NonOidcBrokerAdapter.normalizeResponse(
+                   providerCode, correlationId, providerTxId, rawResponse)
+                 → NonOidcAuthService.processAuth(command)
+                     → ido.auth_result INSERT
+                     → ido.outbox INSERT
+                     → Kafka qsign.auth.events 즉시 발행 시도
+                 ← authResultId
+             → FeSessionService.create(identifierHash, authResultId, authLevel, returnUrl)
+         ← 302 → returnUrl  (feSessionId 쿠키 포함)
+```
+
+### 6.4 핵심 클래스
+
+| 클래스 | 위치 | 역할 |
+|--------|------|------|
+| `IdpBrokerService` | `ido/broker/` | 브로커 인터페이스 (`initiateAuth`, `normalizeResponse`) |
+| `IdpBrokerResult` | `ido/broker/` | 인증 시작 결과 DTO (redirectUrl, providerTxId, status) |
+| `NonOidcBrokerController` | `ido/broker/nonoidc/` | GET `/api/v1/broker/{provider}/nonoidc/*` 진입점 |
+| `NonOidcBrokerAdapter` | `ido/broker/nonoidc/` | `IdpBrokerService` 구현 — provider별 분기 |
+| `NonOidcAuthCommand` | `ido/broker/nonoidc/` | processAuth 명령 DTO |
+| `NonOidcAuthService` | `ido/broker/nonoidc/` | AuthResult 생성 + Kafka 발행 + 잠금 처리 |
+
+### 6.5 NonOidcAuthService 처리
+
+```java
+// 파일: ido/src/main/java/kr/go/smes/ido/broker/nonoidc/NonOidcAuthService.java
+@Transactional
+public String processAuth(NonOidcAuthCommand command) {
+    // 1. identifierHash = SHA-256(rawIdentifier)
+    // 2. authResultId 생성 (UUID)
+    // 3. authLevel 결정 (resolveAuthLevel: PASS→L2, FINANCIAL_CERT/GPKI/JOINT_CERT→L3)
+    // 4. ido.auth_result INSERT (source_system='ido-nonoidc')
+    // 5. ido.outbox INSERT (status=PENDING)
+    // 6. Kafka qsign.auth.events 즉시 발행 시도 (실패 시 OutboxRelay가 재처리)
+}
+
+public void recordFailure(String identifierHash, String providerCode, String correlationId) {
+    // ido.auth_lock UPDATE — 5회 실패 시 30분 잠금
+    // AUTH_LOCKED 이벤트 발행
+}
+```
+
+**AuthLevel 자동 결정**:
+```java
+// NonOidcAuthService.resolveAuthLevel()
+return switch (providerCode.toUpperCase()) {
+    case "PASS"            -> "L2";
+    case "FINANCIAL_CERT",
+         "GPKI",
+         "JOINT_CERT"      -> "L3";
+    default               -> "L1";
+};
+```
+
+---
+
+## 7. 시퀀스 다이어그램 — 전체 흐름 비교
+
+### 7.1 q-sign 모드 전체 시퀀스
+
+```mermaid
+sequenceDiagram
+    participant FE as onepass-fe
+    participant IDO as ido (:8083)
+    participant QS as q-sign (:8081)
+    participant KAKAO as kauth.kakao.com
+    participant REDIS as Redis
+    participant DB as PostgreSQL
+    participant KAFKA as Kafka
+
+    FE->>IDO: GET /api/v1/broker/kakao/authorize?returnUrl=...
+    IDO->>IDO: BrokerService (mode=qsign)
+    IDO->>QS: POST /api/v1/oidc/kakao/auth-url<br>X-Internal-Caller: ido
+    QS->>REDIS: SET oidc:state:{state} {nonce, correlationId, returnUrl} TTL=300s
+    QS-->>IDO: { "authorizationUrl": "https://kauth.kakao.com/oauth/authorize?..." }
+    IDO-->>FE: 302 → https://kauth.kakao.com/oauth/authorize?state=...&nonce=...
+
+    FE->>KAKAO: 카카오 로그인
+    KAKAO-->>QS: GET /api/v1/oidc/kakao/callback?code=AUTH_CODE&state=STATE
+
+    QS->>REDIS: GET oidc:state:{state} (소비 후 삭제)
+    REDIS-->>QS: { nonce, correlationId, returnUrl }
+
+    QS->>KAKAO: POST /oauth/token (code 교환)
+    KAKAO-->>QS: { id_token: "JWT", access_token: "..." }
+
+    QS->>QS: KakaoJwksVerifier (RS256 서명 검증)<br>JWKS 캐시 hit (kakaoJwks/{kid})
+    QS->>QS: issuer / audience / nonce / exp 검증
+    QS->>QS: identifierHash = SHA-256(sub)
+
+    QS->>DB: INSERT qsign.auth_result (AuthResult)
+    QS->>DB: INSERT qsign.outbox (status=PENDING, topic=qsign.auth.events)
+    Note over QS,DB: 동일 트랜잭션
+
+    QS->>IDO: POST /api/internal/v1/oidc/complete<br>{ authResultId, identifierHash, authLevel, providerCode }
+    IDO->>REDIS: SET fe:session:{feSessionId} {qimUserId, authResultId, authLevel} TTL=30min
+    IDO-->>QS: { "redirectUrl": "https://agency.example.com/cb", "feSessionId": "..." }<br>Set-Cookie: feSessionId=...
+
+    QS-->>FE: 302 → returnUrl (feSessionId 쿠키 포함)
+
+    Note over QS,KAFKA: OutboxRelay @Scheduled(500ms)
+    QS->>KAFKA: PUBLISH qsign.auth.events (AUTH_COMPLETED)
+    DB->>DB: UPDATE qsign.outbox SET status=PUBLISHED
+```
+
+### 7.2 Keycloak 모드 전체 시퀀스
+
+```mermaid
+sequenceDiagram
+    participant FE as onepass-fe
+    participant IDO as ido (:8083)
+    participant KC as Keycloak (:8088)
+    participant KAKAO as kauth.kakao.com
+    participant REDIS as Redis
+    participant DB as PostgreSQL
+    participant KAFKA as Kafka
+
+    FE->>IDO: GET /api/v1/broker/kakao/authorize?returnUrl=...
+    IDO->>IDO: BrokerService (mode=keycloak)
+    IDO->>REDIS: SET oidc:state:{state} {nonce, correlationId, returnUrl, provider}<br>TTL=300s (IdoOidcStateStore)
+    IDO-->>FE: 302 → {keycloak}/realms/onepass/protocol/openid-connect/auth<br>?state=...&nonce=...&kc_idp_hint=social-kakao
+
+    FE->>KC: 카카오 IdP 힌트로 직접 이동
+    KC->>KAKAO: 카카오 OIDC Authorization 위임
+    KAKAO-->>KC: 카카오 로그인 완료 → code
+    KC-->>IDO: GET /api/v1/broker/callback?code=KEYCLOAK_CODE&state=STATE
+
+    IDO->>REDIS: GET+DEL oidc:state:{state} (1회 소비 — CSRF 방지)
+    REDIS-->>IDO: { nonce, correlationId, returnUrl, provider }
+
+    IDO->>KC: POST /realms/onepass/protocol/openid-connect/token<br>grant_type=authorization_code&client_secret=...
+    KC-->>IDO: { id_token: "JWT", access_token: "..." }
+
+    IDO->>IDO: KeycloakJwksVerifier (RS256 검증)<br>JWKS 캐시 (keycloakJwks/{kid})
+    IDO->>IDO: nonce 검증 (stateEntry.nonce == id_token.nonce)
+    IDO->>IDO: audience 검증 (ido-client)
+    IDO->>IDO: identifierHash = SHA-256(sub)
+    IDO->>IDO: providerCode = social-kakao → KAKAO_OIDC
+
+    IDO->>DB: INSERT ido.auth_result (Strategy B, source='ido-keycloak')
+    IDO->>DB: INSERT ido.outbox (status=PENDING, topic=qsign.auth.events)
+    IDO->>KAFKA: PUBLISH qsign.auth.events (즉시 시도)
+    Note over IDO,KAFKA: 실패 시 IdoOutboxRelay가 500ms 후 재발행
+
+    IDO->>REDIS: SET fe:session:{feSessionId} {identifierHash, authResultId, authLevel}
+    IDO->>DB: INSERT ido.oidc_session_log
+
+    IDO-->>FE: 302 → returnUrl<br>Set-Cookie: feSessionId=...; HttpOnly; Secure; SameSite=Lax
+
+    Note over IDO,KAFKA: IdoOutboxRelay @Scheduled(500ms)
+    IDO->>KAFKA: RETRY PUBLISH ido.outbox PENDING (at-least-once)
+    DB->>DB: UPDATE ido.outbox SET status=PUBLISHED
+```
+
+### 7.3 비OIDC 모드 시퀀스 (PASS 예시)
+
+```mermaid
+sequenceDiagram
+    participant FE as onepass-fe
+    participant IDO as ido (:8083)
+    participant PASS as PASS 사업자
+    participant DB as PostgreSQL
+    participant KAFKA as Kafka
+
+    FE->>IDO: GET /api/v1/broker/pass/nonoidc/initiate?returnUrl=...
+    IDO->>IDO: NonOidcBrokerAdapter.initiateAuth("PASS", correlationId, callbackUrl)
+    IDO-->>FE: 302 → PASS 인증 페이지 (PoC: 플레이스홀더 URL)
+
+    FE->>PASS: PASS 본인인증
+    PASS-->>IDO: GET /api/v1/broker/pass/nonoidc/callback?txId=...&identifier=...
+
+    IDO->>IDO: NonOidcBrokerAdapter.normalizeResponse()
+    IDO->>IDO: identifierHash = SHA-256(identifier)
+    IDO->>IDO: NonOidcAuthService.processAuth()
+    IDO->>DB: INSERT ido.auth_result (source='ido-nonoidc', authLevel='L2')
+    IDO->>DB: INSERT ido.outbox (status=PENDING)
+    IDO->>KAFKA: PUBLISH qsign.auth.events AUTH_COMPLETED
+    IDO->>IDO: FeSessionService.create()
+
+    IDO-->>FE: 302 → returnUrl<br>Set-Cookie: feSessionId=...
+```
+
+### 7.4 Authorization URL 구조 비교
+
+| 항목 | q-sign 모드 | Keycloak 모드 |
+|------|------------|---------------|
+| Authorization Endpoint | `https://kauth.kakao.com/oauth/authorize` | `{keycloak}/realms/onepass/protocol/openid-connect/auth` |
+| `kc_idp_hint` | 없음 | `social-kakao` (Keycloak이 카카오로 직접 리다이렉트) |
+| state/nonce 생성자 | q-sign `OidcStateStore` | ido `IdoOidcStateStore` |
+| redirect_uri | q-sign 콜백 URL (8081) | ido 콜백 URL (8083) |
+| scope | `openid profile_nickname account_email` | `openid profile email` |
+
+### 7.5 JWKS 캐시 및 키 로테이션 시퀀스
+
+```mermaid
+sequenceDiagram
+    participant SVC as KeycloakJwksVerifier / KakaoJwksVerifier
+    participant CACHE as Spring Cache (CaffeineCacheManager)
+    participant JWKS as JWKS 엔드포인트
+
+    SVC->>CACHE: fetchPublicKey(kid) @Cacheable
+    alt 캐시 HIT
+        CACHE-->>SVC: RSAPublicKey (캐시 TTL 내)
+    else 캐시 MISS
+        SVC->>JWKS: GET /certs 또는 /.well-known/jwks.json
+        JWKS-->>SVC: { keys: [...] }
+        SVC->>SVC: kid 매칭 → RSAPublicKeySpec(n, e) 조립
+        SVC->>CACHE: 캐시 저장 (TTL: keycloakJwks=3600s, kakaoJwks=캐시 기본값)
+        CACHE-->>SVC: RSAPublicKey
+    end
+    SVC->>SVC: Jwts.parser().verifyWith(publicKey).parseSignedClaims(idToken)
+
+    Note over SVC,JWKS: 키 로테이션 발생 시
+    SVC->>JWKS: 새 kid로 MISS 발생 → 자동 재조회
+    Note over SVC,CACHE: 구 kid 캐시는 자연 만료까지 유지 (기존 토큰 처리 가능)
+```
+
+### 7.6 에러 처리 흐름
+
+```mermaid
+sequenceDiagram
+    participant KC as Keycloak
+    participant IDO as KeycloakCallbackController
+
+    KC-->>IDO: GET /callback?error=access_denied&error_description=...
+    IDO->>IDO: error 파라미터 체크
+    IDO-->>FE: 302 → /error?code=KEYCLOAK_AUTH_FAILED&detail=access_denied
+
+    KC-->>IDO: GET /callback?code=CODE&state=EXPIRED_STATE
+    IDO->>REDIS: GET oidc:state:{state} → null (만료)
+    IDO->>IDO: PlatformException(IDP_SIGNATURE_MISMATCH, "state 검증 실패")
+    IDO-->>FE: 302 → /error?code=E-IDP-003
+
+    KC-->>IDO: GET /callback?code=CODE (state 누락)
+    IDO->>IDO: state == null 체크
+    IDO-->>FE: 302 → /error?code=MISSING_STATE
+
+    KC-->>IDO: GET /callback (Keycloak 모드 아닌데 수신)
+    IDO->>IDO: brokerMode != "keycloak" 체크
+    IDO-->>FE: 302 → /error?code=BROKER_MODE_MISMATCH
+```
+
+---
+
+## 8. 보안 설계
+
+### 8.1 4중 보안 방어 계층
+
+| 계층 | 방어 대상 | 구현 | 위치 |
+|------|----------|------|------|
+| Layer 1 — CSRF | state 위조 | Redis 32자 UUID, TTL 300s, 1회 소비 | `IdoOidcStateStore` / `OidcStateStore` |
+| Layer 2 — Replay Attack | nonce 재사용 | state 엔트리에 nonce 포함, 소비 시 함께 삭제 | `IdoOidcStateStore` / `OidcStateStore` |
+| Layer 3 — JWT 위조 | id_token 서명 | JWKS RS256 서명 검증, kid 기반 공개키 조회 | `KeycloakJwksVerifier` / `KakaoJwksVerifier` |
+| Layer 4 — Audience | 다른 클라이언트 토큰 사용 | `aud == client_id` 검증 | `KeycloakOidcService.validateAudience()` |
+
+### 8.2 개인정보 보호
+
+```java
+// identifierHash 계산 (KeycloakOidcService, NonOidcAuthService, KakaoOidcClient 공통)
+MessageDigest md   = MessageDigest.getInstance("SHA-256");
+byte[]        hash = md.digest(sub.getBytes(StandardCharsets.UTF_8));
+String identifierHash = HexFormat.of().formatHex(hash);
+```
+
+- **sub 원문**: id_token payload에만 존재, 메모리에서 즉시 해제
+- **identifierHash**: Q-IM 조회 키 + `ido.auth_result.identifier_hash` + Kafka 이벤트 파티션 키
+- **이메일**: DB에 영구 저장하지 않음
+- **provider_subject** (`ido.oidc_session_log`): 감사 목적 저장 — **운영 환경에서 암호화 저장 권고**
+
+### 8.3 쿠키 보안 설정
+
+```java
+// KeycloakCallbackController, OidcCompleteController, NonOidcBrokerController 공통
+ResponseCookie cookie = ResponseCookie.from("feSessionId", session.getFeSessionId())
+        .httpOnly(true)     // JavaScript 접근 차단 (XSS 방어)
+        .secure(true)       // HTTPS 전용
+        .sameSite("Lax")    // CSRF 방어 (cross-origin redirect 허용)
+        .path("/")
+        .build();
+response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+```
+
+### 8.4 내부 서비스 간 인증
+
+| 헤더 | 값 | 설명 |
+|------|-----|------|
+| `X-Internal-Caller` | `ido` / `q-sign` | 호출자 서비스 식별 |
+| `X-Internal-Sig` | `sig-{correlationId.substring(0,8)}` | PoC 수준 서명 |
+| `X-Correlation-Id` | UUID | 전체 흐름 추적 |
+
+> **운영 권고**: `X-Internal-Sig` 를 `HMAC-SHA256(correlationId + timestamp, sharedSecret)` 로 교체 + mTLS 적용.
+
+### 8.5 FE 세션 보안 (FeSessionServiceImpl)
+
+```yaml
+ido.fe.session:
+  sliding-ttl-minutes: 30       # 요청마다 TTL 갱신
+  absolute-timeout-minutes: 480 # 8시간 절대 만료
+
+ido.fe.allowed-return-urls:
+  - https://agency-a.example.com
+  - https://agency-b.example.com
+  - http://localhost:3000  # dev
+```
+
+- Redis 키: `fe:session:{feSessionId}` (Sliding TTL)
+- 역인덱스: `fe:user-sessions:{qimUserId}` Set → 일괄 무효화 지원
+- `feSessionId`: `SecureRandom 256-bit → Base64URL(no-padding)` 생성
+
+---
+
+## 9. 데이터 모델
+
+### 9.1 V3 마이그레이션 테이블 목록
+
+| 테이블 | 스키마 | 생성 마이그레이션 | 설명 |
+|--------|--------|-----------------|------|
+| `ido.auth_result` | ido | V3 | Keycloak/비OIDC AuthResult SoR (Strategy B) |
+| `ido.auth_lock` | ido | V3 | 연속 인증 실패 잠금 (5회→30분) |
+| `ido.oidc_session_log` | ido | V3 | OIDC 세션 감사 이력 |
+| `ido.oidc_nonce_used` | ido | V3 | nonce 사용 이력 (replay 방지 보조) |
+| `ido.provider_config` | ido | V3 | 인증 수단 설정 캐시 |
+| `ido.outbox` | ido | V1 | Transactional Outbox (Keycloak/비OIDC 공용) |
+| `ido.processed_event` | ido | V2 | 멱등 컨슈머 이벤트 처리 이력 |
+| `qsign.auth_result` | qsign | V1 | q-sign 모드 AuthResult SoR |
+| `qsign.outbox` | qsign | V1 | q-sign Transactional Outbox |
+| `qsign.oidc_session_log` | qsign | V3 | q-sign OIDC 세션 감사 이력 |
+
+### 9.2 ido.auth_result 스키마
 
 ```sql
 CREATE TABLE ido.auth_result (
-    auth_result_id      VARCHAR(36)   NOT NULL,           -- UUID PK
-    correlation_id      VARCHAR(36)   NOT NULL,           -- 흐름 추적
+    auth_result_id      VARCHAR(36)   NOT NULL,          -- UUID PK
+    correlation_id      VARCHAR(36)   NOT NULL,           -- 흐름 추적 ID
     auth_level          VARCHAR(10)   NOT NULL,           -- L1 / L2 / L3
-    provider_code       VARCHAR(50)   NOT NULL,           -- KAKAO_OIDC / NAVER_OIDC 등
-    provider_tx_id      VARCHAR(200),                     -- Keycloak sub
-    identifier_hash     VARCHAR(64)   NOT NULL,           -- SHA-256(sub)
+    provider_code       VARCHAR(50)   NOT NULL,           -- KAKAO_OIDC / PASS / FINANCIAL_CERT / GPKI / JOINT_CERT
+    provider_tx_id      VARCHAR(200),                     -- Keycloak sub 또는 사업자 txId
+    identifier_hash     VARCHAR(64)   NOT NULL,           -- SHA-256(sub | rawIdentifier)
     verification_result VARCHAR(20)   NOT NULL DEFAULT 'SUCCESS',
-    source_system       VARCHAR(50)   NOT NULL,           -- ido-keycloak
-    session_ref         VARCHAR(36),                      -- 연관 FE 세션
+    source_system       VARCHAR(50)   NOT NULL,           -- ido-keycloak | ido-nonoidc | ido-adapter
+    session_ref         VARCHAR(36),                      -- 연관 FE 세션 ID (선택)
     authenticated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    CONSTRAINT pk_ido_auth_result PRIMARY KEY (auth_result_id)
+    CONSTRAINT pk_ido_auth_result PRIMARY KEY (auth_result_id),
+    CONSTRAINT chk_ido_auth_level
+        CHECK (auth_level IN ('L1','L2','L3')),
+    CONSTRAINT chk_ido_source_system
+        CHECK (source_system IN ('ido-keycloak','ido-nonoidc','ido-adapter'))
 );
-
--- 인덱스
 CREATE INDEX idx_ido_auth_result_correlation ON ido.auth_result (correlation_id);
 CREATE INDEX idx_ido_auth_result_identifier  ON ido.auth_result (identifier_hash, authenticated_at DESC);
-CREATE INDEX idx_ido_auth_result_provider    ON ido.auth_result (provider_code, authenticated_at DESC);
 ```
 
-### 8.3 Redis 키 구조
+### 9.3 Redis 키 구조
 
-```
-Redis 키: oidc:state:{state}
-값 (JSON):
+| 키 패턴 | 모듈 | TTL | 값 구조 | 용도 |
+|---------|------|-----|---------|------|
+| `oidc:state:{state}` | ido | 300s | `IdoOidcStateEntry` JSON | Keycloak/비OIDC CSRF 방어 |
+| `oidc:state:{state}` | q-sign | 300s | `OidcStateEntry` JSON | q-sign CSRF 방어 |
+| `fe:session:{feSessionId}` | ido | sliding 30min | `FeSession` 객체 | FE 세션 |
+| `fe:user-sessions:{qimUserId}` | ido | 8h | `Set<feSessionId>` | 사용자별 세션 역인덱스 |
+| `keycloakJwks::{kid}` | ido | 3600s | `RSAPublicKey` | Keycloak JWKS 캐시 |
+| `kakaoJwks::{kid}` | q-sign | CacheManager 기본 | `PublicKey` | 카카오 JWKS 캐시 |
+
+**IdoOidcStateEntry JSON 필드**:
+```json
 {
-  "state":          "a1b2c3d4e5f6...",   // 32자 UUID (하이픈 제거)
-  "nonce":          "z9y8x7w6v5u4...",   // 32자 UUID (하이픈 제거)
-  "correlationId":  "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "state":          "uuid-no-dash",
+  "nonce":          "uuid-no-dash",
+  "correlationId":  "550e8400-...",
   "returnUrl":      "https://agency.example.com/callback",
   "requestedLevel": "L1",
   "provider":       "kakao"
 }
-TTL: 300초 (ido.keycloak.state-ttl-seconds)
-
-Redis 키: fe:session:{feSessionId}
-값: FE 세션 정보 (슬라이딩 TTL 30분, 절대 만료 8시간)
 ```
 
-### 8.4 ido.provider_config 초기 데이터
+**FeSession 필드**:
+```json
+{
+  "feSessionId":       "base64url-256bit",
+  "qimUserId":         "identifierHash (PoC)",
+  "authResultId":      "uuid",
+  "authLevel":         "L1",
+  "createdAt":         "2026-05-07T12:00:00Z",
+  "lastActivityAt":    "2026-05-07T12:15:00Z",
+  "absoluteExpiresAt": "2026-05-07T20:00:00Z",
+  "returnUrl":         "https://agency.example.com/callback",
+  "advisoryFlag":      false
+}
+```
+
+### 9.4 ido.provider_config 초기 데이터
 
 ```sql
-INSERT INTO ido.provider_config (provider_code, display_name, auth_level, broker_mode, idp_hint, active)
+INSERT INTO ido.provider_config
+    (provider_code, display_name, auth_level, broker_mode, idp_hint, active)
 VALUES
     ('KAKAO_OIDC',     '카카오 간편인증',     'L1', 'keycloak', 'social-kakao', TRUE),
     ('NAVER_OIDC',     '네이버 간편인증',     'L1', 'keycloak', 'social-naver', TRUE),
     ('PASS',           'PASS 본인인증',       'L2', 'direct',   NULL,           TRUE),
     ('FINANCIAL_CERT', '금융인증서',          'L3', 'direct',   NULL,           TRUE),
     ('GPKI',           '정부 공개키 인증서',  'L3', 'direct',   NULL,           TRUE),
-    ('JOINT_CERT',     '공동인증서',          'L3', 'direct',   NULL,           TRUE);
+    ('JOINT_CERT',     '공동인증서',          'L3', 'direct',   NULL,           TRUE)
+ON CONFLICT (provider_code) DO NOTHING;
 ```
 
 ---
 
-## 9. Keycloak 서버 설정 가이드
+## 10. Keycloak 서버 설정 가이드
 
-> **이 섹션은 Keycloak 모드 전환 시 필수 수행 항목이다.**
-
-### 9.1 Realm 생성
+### 10.1 Realm 생성
 
 ```
-Keycloak Admin Console → Add realm
-  Name: onepass
-  Enabled: true
+Keycloak Admin Console → Create Realm
+  Realm name: onepass
+  Enabled: ON
 ```
 
-### 9.2 ido-client 등록 (Confidential Client)
+### 10.2 ido-client 등록
 
 ```
-Clients → Create
-  Client ID:    ido-client
-  Client type:  OpenID Connect
-  Enabled:      true
+Clients → Create Client
+  Client ID:        ido-client
+  Client Protocol:  openid-connect
+  Client Type:      Confidential
 
 Settings 탭:
-  Client authentication: ON  (Confidential)
-  Authorization:          OFF
-  Authentication flow:    Standard flow ✓
-
-Valid Redirect URIs:
-  http://localhost:8083/api/v1/broker/callback   ← 로컬 개발
-  https://ido.onepass.example.com/api/v1/broker/callback  ← 운영
-
-Valid post logout redirect URIs: (선택)
-  http://localhost:3000
-
-Web origins:
-  http://localhost:3000
-  http://localhost:3001
+  Root URL:          http://localhost:8083
+  Valid Redirect URIs: http://localhost:8083/api/v1/broker/callback
+  Web Origins:       http://localhost:8083
 
 Credentials 탭:
-  → Client Secret 복사 → application.yml KEYCLOAK_CLIENT_SECRET 설정
+  Client Authenticator: Client Id and Secret
+  Secret: (복사 → KEYCLOAK_CLIENT_SECRET 환경변수로 설정)
 ```
 
-### 9.3 카카오 Identity Provider 등록
+### 10.3 카카오 Identity Provider 등록
 
 ```
-Identity Providers → Add provider → OpenID Connect v1.0
-
-Alias:              social-kakao            ← kc_idp_hint 값
-Display name:       카카오 로그인
-Enabled:            true
-
-Discovery endpoint:
-  https://kauth.kakao.com/.well-known/openid-configuration
-
-Client authentication:
-  Client ID:     {KAKAO_CLIENT_ID}           ← 카카오 개발자 콘솔
-  Client secret: {KAKAO_CLIENT_SECRET}
-
-Default scopes: openid profile_nickname account_email
-
-Store tokens:     OFF  (보안상 불필요)
-Trust email:      true
+Identity Providers → Add Provider → OpenID Connect v1.0
+  Alias:           social-kakao        ← kc_idp_hint 값과 일치해야 함
+  Display Name:    카카오
+  Authorization URL: https://kauth.kakao.com/oauth/authorize
+  Token URL:       https://kauth.kakao.com/oauth/token
+  JWKS URL:        https://kauth.kakao.com/.well-known/jwks.json
+  Client ID:       {카카오 앱 REST API 키}
+  Client Secret:   {카카오 앱 Client Secret}
+  Scopes:          openid profile_nickname account_email
 ```
 
-### 9.4 필수 Mapper 설정 (중요)
+### 10.4 필수 Mapper 설정
 
-**nonce Mapper** — id_token에 nonce 포함 (기본 활성화 여부 확인):
+**nonce Mapper** (ido-client → Mappers):
 ```
-Clients → ido-client → Client scopes → ido-client-dedicated → Add mapper
-  Mapper type:   Hardcoded claim  (또는 OIDC 표준 nonce mapper)
-  
-  ※ Keycloak 기본 설정에서 nonce는 OIDC 표준에 따라 자동 포함됨.
-     확인: Realm settings → Tokens → nonce 관련 설정 검토
-```
-
-**identity_provider Mapper** — id_token에 사용한 IdP alias 포함:
-```
-Clients → ido-client → Client scopes → ido-client-dedicated → Add mapper
-  Mapper type:  User Session Note Mapper
-  Name:         identity-provider-mapper
-  User session note: identity_provider
-  Token claim name: identity_provider
-  Claim JSON type: String
-  Add to ID token: ON   ← 반드시 ON
-  Add to access token: OFF
+Name: nonce-passthrough
+Mapper Type: Hardcoded claim
+Token Claim Name: nonce
+Claim Value: ${AUTH_NONCE}     ← 실제로는 OIDC 흐름에서 자동 처리
 ```
 
-**acr Mapper** — 인증 수준 매핑:
+**identity_provider Mapper** (social-kakao IdP → Mappers):
 ```
-Authentication → Required Actions 또는
-Realm Settings → Authentication Policy → ACR
-  ※ Keycloak은 기본 acr 클레임을 발급한다.
-  
-  IdP 연동 후 acr를 커스텀 수준으로 제어하려면:
-  Authentication → Flows → 카카오 IdP 흐름에 ACR 조건 추가
-  
-  application.yml 매핑:
-    ido.keycloak.acr-to-auth-level:
-      "1": L1
-      "2": L2
+Name: identity-provider-claim
+Mapper Type: Hardcoded attribute
+User Attribute: identity_provider
+Attribute Value: social-kakao
+Token Claim Name: identity_provider
 ```
 
-### 9.5 네이버 Identity Provider 등록
+### 10.5 네이버 Identity Provider 등록
 
 ```
-Identity Providers → Add provider → OpenID Connect v1.0
-
-Alias:              social-naver            ← kc_idp_hint 값
-Display name:       네이버 로그인
-
-※ 네이버는 표준 OIDC Discovery를 지원하지 않으므로 수동 설정 필요:
+Identity Providers → Add Provider → OpenID Connect v1.0
+  Alias:           social-naver        ← kc_idp_hint 값과 일치
+  Display Name:    네이버
   Authorization URL: https://nid.naver.com/oauth2.0/authorize
-  Token URL:         https://nid.naver.com/oauth2.0/token
-  User Info URL:     https://openapi.naver.com/v1/nid/me
-  JWKS URL:          (네이버 JWKS 엔드포인트 확인 필요)
-  
-  Client ID:     {NAVER_CLIENT_ID}
-  Client secret: {NAVER_CLIENT_SECRET}
+  Token URL:       https://nid.naver.com/oauth2.0/token
+  UserInfo URL:    https://openapi.naver.com/v1/nid/me
+  Client ID:       {네이버 앱 Client ID}
+  Client Secret:   {네이버 앱 Client Secret}
+  Scopes:          openid name email
 ```
 
 ---
 
-## 10. 환경별 설정
+## 11. 환경별 설정
 
-### 10.1 로컬 개발 환경
+### 11.1 로컬 개발 (application.yml)
 
 ```yaml
-# ido/src/main/resources/application.yml (로컬)
+# ido/src/main/resources/application.yml (핵심 설정)
+
 ido:
   broker:
-    mode: ${IDO_BROKER_MODE:qsign}    # 기본 qsign, keycloak 전환 시 변경
+    mode: ${IDO_BROKER_MODE:qsign}      # qsign | keycloak
 
   keycloak:
-    base-url: ${KEYCLOAK_BASE_URL:http://localhost:8088}
-    realm: ${KEYCLOAK_REALM:onepass}
-    client-id: ${KEYCLOAK_CLIENT_ID:ido-client}
+    base-url:     ${KEYCLOAK_BASE_URL:http://localhost:8088}
+    realm:        ${KEYCLOAK_REALM:onepass}
+    client-id:    ${KEYCLOAK_CLIENT_ID:ido-client}
     client-secret: ${KEYCLOAK_CLIENT_SECRET:change-me}
     redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:8083/api/v1/broker/callback}
     state-ttl-seconds: 300
-    jwks-cache-ttl-seconds: 3600
     idp-hint-mapping:
       kakao: social-kakao
       naver: social-naver
@@ -915,696 +1027,753 @@ ido:
       "1": L1
       "2": L2
       "3": L3
+
+  qsign:
+    base-url:              ${QSIGN_BASE_URL:http://localhost:8081}
+    internal-sig-ttl-seconds: 60
+
+  outbox:
+    relay-interval-ms: 500
+    batch-size:        100
+    max-retry:         3
+
+  kafka:
+    topic-auth-events: ${IDO_KAFKA_TOPIC_AUTH_EVENTS:qsign.auth.events}
 ```
 
-### 10.2 Docker Compose 환경 변수
+### 11.2 Docker Compose 환경변수
 
 ```yaml
-# infra/docker/docker-compose.yml — onepass-ido 서비스
+# docker-compose.yml
 services:
   onepass-ido:
-    image: onepass-ido:latest
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      DB_HOST: onepass-postgres
+      # DB
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: onepass
-      REDIS_HOST: onepass-redis
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      
-      # 브로커 모드 전환 (기본: qsign)
-      IDO_BROKER_MODE: keycloak              # keycloak 모드 전환 시 변경
-      
-      # Keycloak 설정
-      KEYCLOAK_BASE_URL: http://onepass-keycloak:8088
-      KEYCLOAK_REALM: onepass
-      KEYCLOAK_CLIENT_ID: ido-client
-      KEYCLOAK_CLIENT_SECRET: ${KC_IDO_CLIENT_SECRET}  # .env 파일로 관리
-      KEYCLOAK_REDIRECT_URI: http://localhost:8083/api/v1/broker/callback
-      
+      DB_USERNAME: onepass
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+
+      # Kafka
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      IDO_KAFKA_TOPIC_AUTH_EVENTS: qsign.auth.events
+
       # CORS
-      CORS_DEV_ORIGIN: http://localhost:3000
-      CORS_PROD_ORIGIN: http://localhost:3001
+      CORS_ORIGIN_DEV:  http://localhost:3000
+      CORS_ORIGIN_PROD: https://agency-a.example.com
+
+      # 브로커 모드 (qsign → keycloak 전환)
+      IDO_BROKER_MODE: ${IDO_BROKER_MODE:-qsign}
+
+      # Keycloak (mode=keycloak 시 필수)
+      KEYCLOAK_BASE_URL:      http://keycloak:8088
+      KEYCLOAK_REALM:         onepass
+      KEYCLOAK_CLIENT_ID:     ido-client
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}    # 필수 — change-me 사용 금지
+      KEYCLOAK_REDIRECT_URI:  https://ido.example.com/api/v1/broker/callback
 ```
 
-### 10.3 환경변수 요약표
+### 11.3 환경변수 요약 테이블
 
-| 환경변수 | 기본값 | 설명 | 필수 여부 |
+| 환경변수 | 기본값 | 설명 | 운영 필수 |
 |---------|--------|------|----------|
-| `IDO_BROKER_MODE` | `qsign` | 브로커 모드 (`qsign`/`keycloak`) | ○ |
-| `KEYCLOAK_BASE_URL` | `http://localhost:8088` | Keycloak 서버 URL | Keycloak 모드 시 필수 |
-| `KEYCLOAK_REALM` | `onepass` | Realm 이름 | Keycloak 모드 시 필수 |
-| `KEYCLOAK_CLIENT_ID` | `ido-client` | ido-client 클라이언트 ID | Keycloak 모드 시 필수 |
-| `KEYCLOAK_CLIENT_SECRET` | `change-me` | ido-client 시크릿 | **운영 필수** |
-| `KEYCLOAK_REDIRECT_URI` | `http://localhost:8083/...` | Callback Redirect URI | Keycloak 모드 시 필수 |
-| `DB_HOST` | `localhost` | PostgreSQL 호스트 | ○ |
-| `REDIS_HOST` | `localhost` | Redis 호스트 | ○ |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka 부트스트랩 서버 | ○ |
+| `IDO_BROKER_MODE` | `qsign` | 브로커 모드 선택 | 선택 |
+| `KEYCLOAK_BASE_URL` | `http://localhost:8088` | Keycloak 서버 URL | keycloak 모드 필수 |
+| `KEYCLOAK_REALM` | `onepass` | Keycloak Realm | keycloak 모드 필수 |
+| `KEYCLOAK_CLIENT_ID` | `ido-client` | ido-client ID | keycloak 모드 필수 |
+| `KEYCLOAK_CLIENT_SECRET` | `change-me` | Client Secret | **운영 필수 (변경 필수)** |
+| `KEYCLOAK_REDIRECT_URI` | `http://localhost:8083/api/v1/broker/callback` | 콜백 URL | keycloak 모드 필수 |
+| `IDO_KAFKA_TOPIC_AUTH_EVENTS` | `qsign.auth.events` | 인증 이벤트 Kafka 토픽 | 선택 |
+| `QSIGN_BASE_URL` | `http://localhost:8081` | q-sign 서버 URL | qsign 모드 필수 |
 
 ---
 
-## 11. 에러 처리 및 에러 코드
+## 12. 에러 처리 및 에러 코드
 
-### 11.1 플랫폼 에러 코드
+### 12.1 플랫폼 에러 코드
 
-| 에러 코드 | HTTP 상태 | 발생 조건 | 대응 방법 |
-|----------|----------|----------|----------|
-| `E-QS-001` (QS_AUTH_FAILED) | 401 | 인증 실패 일반 | 사용자에게 재시도 안내 |
-| `E-QS-002` (QS_AUTH_LOCKED) | 429 | 연속 5회 실패 잠금 | 30분 후 재시도 안내 |
-| `E-QS-003` (QS_PROVIDER_TIMEOUT) | 504 | 외부 사업자 응답 시간 초과 | 사업자 상태 확인 |
-| `E-IDP-401` (IDP_PROVIDER_UNAVAILABLE) | 502 | Keycloak/카카오 연결 불가 | 서비스 상태 확인 |
-| `E-IDP-402` (IDP_RESPONSE_INVALID) | 502 | 응답 형식 오류 (id_token 없음 등) | Keycloak 로그 확인 |
-| `E-IDP-403` (IDP_SIGNATURE_MISMATCH) | 422 | state/nonce/JWT 서명 불일치 | 보안 경고 — 로그 분석 |
-| `E-IDP-404` (IDP_CIRCUIT_OPEN) | 503 | Circuit Breaker OPEN | Keycloak 상태 복구 대기 |
+| 에러 코드 | HTTP 상태 | 발생 조건 | 조치 |
+|----------|-----------|----------|------|
+| `E-QS-001` | 401 | 인증 실패 (일반) | 재시도 안내 |
+| `E-QS-002` | 401 | 인증 잠금 (5회 연속 실패) | 30분 후 재시도 또는 관리자 해제 |
+| `E-IDP-001` | 502 | Kakao OIDC Token EP 오류 | Kakao 상태 확인 |
+| `E-IDP-002` | 502 | Keycloak Token EP 오류 | Keycloak 서버 상태 확인 |
+| `E-IDP-003` | 400 | state 검증 실패 (CSRF/만료) | 재인증 안내 |
+| `E-IDP-004` | 400 | nonce 불일치 (replay 의심) | 재인증 안내 |
+| `E-IDP-005` | 400 | JWT 서명 검증 실패 | JWKS 서버 및 키 로테이션 확인 |
+| `E-IDP-401` | 502 | Keycloak/IdP 서버 불가용 | 장애 대응 절차 (Circuit Breaker 확인) |
+| `IDP_RESPONSE_INVALID` | 400 | id_token 형식 오류 | 사업자 API 변경 확인 |
+| `BROKER_MODE_MISMATCH` | 409 | 잘못된 모드에서 콜백 수신 | `IDO_BROKER_MODE` 설정 확인 |
+| `MISSING_CODE` | 400 | code 파라미터 누락 | 요청 무결성 오류 |
+| `MISSING_STATE` | 400 | state 파라미터 누락 | 요청 무결성 오류 |
+| `INVALID_RETURN_URL` | 400 | returnUrl 화이트리스트 미포함 | 허용 URL 설정 확인 |
 
-### 11.2 Keycloak 특화 에러
+### 12.2 Keycloak 특화 에러 파라미터
 
-| 에러 파라미터 | 발생 원인 | 처리 |
-|-------------|---------|------|
-| `error=access_denied` | 사용자가 카카오 로그인 취소 | `/error?code=KEYCLOAK_AUTH_FAILED` 리다이렉트 |
-| `error=invalid_request` | redirect_uri 불일치 | Keycloak Valid Redirect URIs 설정 확인 |
-| `MISSING_CODE` | code 파라미터 없음 | 요청 무결성 오류 |
-| `MISSING_STATE` | state 파라미터 없음 | 요청 무결성 오류 |
-| `BROKER_MODE_MISMATCH` | 잘못된 엔드포인트 호출 | 모드 설정 확인 |
+| `error` 파라미터 | 원인 | 조치 |
+|----------------|------|------|
+| `access_denied` | 사용자 인증 거부/취소 | 재시도 안내 |
+| `invalid_request` | redirect_uri 불일치 | Keycloak Valid Redirect URIs 확인 |
+| `server_error` | Keycloak 내부 오류 | Keycloak 서버 상태 확인 |
 
-### 11.3 Circuit Breaker 설정
-
-> **P2 수정 (2026-05)**: Resilience4j 인스턴스 키를 `qsign-client` → `keycloak-client`로 변경.
-> Keycloak HTTP 호출(token endpoint, JWKS) 및 비OIDC 외부 IdP 호출 모두를 `keycloak-client`로 보호.
+### 12.3 Circuit Breaker 설정 (Resilience4j)
 
 ```yaml
-# Resilience4j (application.yml) — keycloak-client 키로 통일
+# ido/src/main/resources/application.yml
 resilience4j:
   circuitbreaker:
     instances:
-      keycloak-client:          # 구 키: qsign-client (P2 수정)
-        sliding-window-size: 10
-        failure-rate-threshold: 50          # 50% 실패 시 OPEN
+      keycloak-client:          # (구: qsign-client → v1.3.0에서 keycloak-client로 변경)
+        register-health-indicator: true
+        sliding-window-type:    COUNT_BASED
+        sliding-window-size:    10
+        failure-rate-threshold: 50      # 50% 이상 실패 → OPEN
         slow-call-duration-threshold: 3s
         slow-call-rate-threshold: 80
-        wait-duration-in-open-state: 30s    # 30초 후 HALF-OPEN
+        wait-duration-in-open-state: 30s
         permitted-calls-in-half-open-state: 5
         minimum-number-of-calls: 5
+
+      qim-client:
+        failure-rate-threshold: 60
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 80
+        wait-duration-in-open-state: 15s
+        permitted-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+
   retry:
     instances:
-      keycloak-client:          # 구 키: qsign-client (P2 수정)
+      keycloak-client:
         max-attempts: 3
         wait-duration: 500ms
         retry-exceptions:
           - java.io.IOException
           - java.util.concurrent.TimeoutException
+      qim-client:
+        max-attempts: 3
+        wait-duration: 300ms
+
   timelimiter:
     instances:
-      keycloak-client:          # 구 키: qsign-client (P2 수정)
+      keycloak-client:
+        timeout-duration: 5s
+      qim-client:
         timeout-duration: 5s
 ```
 
 ---
 
-## 12. 모드 전환 운영 절차
+## 13. 모드 전환 운영 절차
 
-### 12.1 qsign → keycloak 전환 체크리스트
+### 13.1 qsign → keycloak 전환 체크리스트
 
-```
-사전 준비:
-  □ Keycloak 서버 설치 및 기동 확인 (§9 설정 완료)
-  □ onepass Realm 생성 완료
-  □ ido-client (Confidential) 등록 완료
-  □ social-kakao IdP 등록 완료
-  □ identity_provider Mapper 추가 완료 (§9.4)
-  □ nonce Mapper 활성화 확인
-  □ Valid Redirect URIs에 ido callback URL 등록 확인
-  □ KEYCLOAK_CLIENT_SECRET 환경변수 설정 완료
-  □ DB 마이그레이션 V3 적용 완료 (ido.auth_result 등 5개 테이블)
-  □ Redis 연결 확인
+**사전 준비:**
+- [ ] Keycloak 서버 가동 확인: `curl http://localhost:8088/realms/onepass`
+- [ ] ido-client Realm + Client 등록 완료 (§10.2)
+- [ ] 카카오/네이버 IdP 등록 완료 (§10.3, §10.5)
+- [ ] `KEYCLOAK_CLIENT_SECRET` 환경변수 설정 (운영: Vault/SecretManager 사용)
+- [ ] `KEYCLOAK_REDIRECT_URI` 환경변수 설정 (Keycloak Valid Redirect URIs와 일치)
+- [ ] Keycloak → ido 네트워크 통신 확인
 
-전환:
-  □ IDO_BROKER_MODE=keycloak 환경변수 설정
-  □ ido 서비스 재시작
+**전환 단계:**
+```bash
+# Step 1: 환경변수 변경
+export IDO_BROKER_MODE=keycloak
 
-검증:
-  □ GET /api/v1/broker/kakao/authorize → Keycloak 리다이렉트 확인
-  □ Keycloak 로그인 → 카카오 로그인 → ido callback 수신 확인
-  □ ido.auth_result 레코드 생성 확인
-  □ Kafka qsign.auth.events 이벤트 발행 확인
-  □ feSessionId 쿠키 발급 확인
-  □ returnUrl 리다이렉트 확인
-  □ ido.oidc_session_log 레코드 생성 확인
+# Step 2: ido 서비스 재시작 (Graceful shutdown)
+./gradlew :ido:bootRun
+# 또는 Docker: docker compose up -d --no-deps onepass-ido
 
-롤백 (문제 발생 시):
-  □ IDO_BROKER_MODE=qsign 환경변수 변경
-  □ ido 서비스 재시작 (약 30초 이내 복구)
+# Step 3: 전환 검증
+curl -v "http://localhost:8083/api/v1/broker/kakao/authorize?returnUrl=http://localhost:3000"
+# → 302 Location: http://localhost:8088/realms/onepass/protocol/openid-connect/auth?...&kc_idp_hint=social-kakao
+
+# Step 4: DB 검증 (실제 인증 후)
+psql -c "SELECT auth_result_id, source_system, auth_level FROM ido.auth_result ORDER BY created_at DESC LIMIT 5;"
+
+# Step 5: Kafka 이벤트 검증
+kafka-console-consumer.sh --topic qsign.auth.events --from-beginning --max-messages 1
 ```
 
-### 12.2 카나리 배포 권장 순서
-
+**롤백 절차:**
+```bash
+# 즉시 롤백 (q-sign 모드 복구)
+export IDO_BROKER_MODE=qsign
+# ido 서비스 재시작 (q-sign 서비스가 가동 중이어야 함)
 ```
-1단계 (10% 트래픽): IDO_BROKER_MODE=keycloak (일부 인스턴스)
-  → 에러율, 응답 시간 모니터링 (5분)
-  → Kafka 이벤트 정상 발행 확인
 
-2단계 (50% 트래픽): 이상 없으면 확대
-  → auth_result 레코드 증가 확인
+### 13.2 Canary 배포 권고
 
-3단계 (100% 트래픽): 전체 전환
-  → qsign 서비스는 일정 기간 유지 (롤백 대비)
+| 단계 | 트래픽 | 확인 지표 | 기준 |
+|------|--------|----------|------|
+| 1단계 | 10% | 인증 성공률, 오류율 | 오류율 < 1% |
+| 2단계 | 50% | auth_result 증가율, latency | p99 < 3s |
+| 3단계 | 100% | 전체 지표 안정화 | 24h 유지 |
 
-완전 전환 후:
-  → q-sign 서비스 deprecated 처리 (향후 제거 계획 수립)
-```
+### 13.3 keycloak → qsign 롤백 트리거
+
+- Keycloak 인증 성공률 < 95%
+- Circuit Breaker `keycloak-client` OPEN 상태 > 2분
+- Keycloak 응답 시간 p99 > 5s
 
 ---
 
-## 13. 클래스 책임 맵
+## 14. 클래스 책임 맵
 
-### 13.1 ido 모듈 — 브로커 관련
+### 14.1 ido 모듈 (ido/src/main/java/kr/go/smes/ido/)
 
-```
-ido/src/main/java/kr/go/smes/ido/
-│
-├── broker/
-│   ├── BrokerController.java          ← GET /{provider}/authorize 진입점
-│   │                                     (모드 무관 — 두 모드 공통)
-│   │
-│   ├── BrokerService.java             ← 모드 분기 오케스트레이터
-│   │                                     buildQsignAuthorizationUrl()
-│   │                                     buildKeycloakAuthorizationUrl()
-│   │
-│   ├── OidcCompleteController.java    ← q-sign 모드 전용 내부 콜백
-│   │                                     POST /api/internal/v1/oidc/complete
-│   │
-│   ├── dto/
-│   │   └── OidcCompleteRequest.java   ← q-sign → ido 완료 요청 DTO
-│   │
-│   ├── keycloak/
-│   │   ├── KeycloakCallbackController.java  ← GET /api/v1/broker/callback
-│   │   │                                      (Keycloak 모드 전용)
-│   │   ├── KeycloakOidcService.java         ← 콜백 처리 11단계 오케스트레이터
-│   │   ├── KeycloakJwksVerifier.java        ← JWKS RS256 검증 + 공개키 캐시
-│   │   ├── KeycloakProperties.java          ← ido.keycloak.* 설정 바인딩
-│   │   └── dto/
-│   │       ├── KeycloakJwtClaims.java       ← id_token 클레임 DTO
-│   │       └── KeycloakTokenResponse.java   ← Token Endpoint 응답 DTO
-│   │
-│   ├── nonoidc/
-│   │   ├── NonOidcBrokerController.java    ← GET /{provider}/nonoidc/initiate
-│   │   │                                     GET /{provider}/nonoidc/callback
-│   │   │                                     (P0 추가 — 비OIDC 진입점)
-│   │   ├── NonOidcBrokerAdapter.java       ← IdpBrokerService 구현체
-│   │   │                                     PASS/금융인증서/GPKI/공동인증서
-│   │   │                                     initiateAuth() + normalizeResponse()
-│   │   ├── NonOidcAuthService.java         ← AuthResult 생성·Kafka 발행·잠금
-│   │   │                                     processAuth() / recordFailure()
-│   │   └── NonOidcAuthCommand.java         ← 비OIDC 인증 커맨드 DTO
-│   │
-│   ├── IdpBrokerService.java              ← 비OIDC 브로커 인터페이스 (Option 3)
-│   ├── IdpBrokerResult.java               ← 브로커 결과 DTO (BrokerStatus enum)
-│   │
-│   └── state/
-│       ├── IdoOidcStateStore.java           ← state/nonce Redis 저장·검증
-│       └── IdoOidcStateEntry.java           ← state 엔트리 DTO (JSON 직렬화)
-│
-├── infrastructure/
-│   └── outbox/
-│       ├── IdoOutboxRelay.java             ← @Scheduled PENDING 레코드 재발행
-│       │                                     (P0 추가 — ido.outbox 전용 relay)
-│       ├── IdoOutboxRepository.java        ← ido.outbox JDBC 리포지토리
-│       │                                     findPendingBatch / markPublished /
-│       │                                     markFailed / incrementRetry
-│       └── IdoOutboxRecord.java            ← ido.outbox 레코드 DTO
-│
-├── kafka/
-│   └── QsignAuthEventConsumer.java        ← AUTH 이벤트 구독
-│                                            (P1: 토픽 키 ido.kafka.topic-auth-events)
-│
-└── config/
-    └── IdoWebConfig.java              ← RestTemplate, ObjectMapper, CacheManager 빈
-```
+#### broker/ 패키지
 
-### 13.2 q-sign 모듈 — 브로커 관련
+| 클래스 | 역할 | 의존성 |
+|--------|------|--------|
+| `BrokerController` | GET `/{provider}/authorize` 진입점, 302 리다이렉트 | `BrokerService` |
+| `BrokerService` | 모드 분기 (`qsign`/`keycloak`), Authorization URL 발급 | `IdoOidcStateStore`, `KeycloakProperties`, `RestTemplate` |
+| `OidcCompleteController` | POST `/api/internal/v1/oidc/complete` (qsign 모드 전용) | `FeSessionService` |
+| `IdpBrokerService` | 비OIDC 브로커 인터페이스 (`initiateAuth`, `normalizeResponse`) | — |
+| `IdpBrokerResult` | 인증 시작 결과 DTO | — |
+| `dto/OidcCompleteRequest` | q-sign → ido FE 세션 발급 요청 DTO | — |
 
-```
-q-sign/src/main/java/kr/go/smes/qsign/
-│
-└── broker/
-    ├── oidc/
-    │   ├── KakaoAuthUrlController.java       ← POST /api/v1/oidc/kakao/auth-url
-    │   ├── KakaoOidcBrokerController.java    ← GET /api/v1/oidc/kakao/callback
-    │   ├── KakaoOidcBrokerService.java       ← 카카오 브로커링 오케스트레이터
-    │   ├── KakaoOidcClient.java              ← 카카오 OIDC Token EP 호출
-    │   ├── KakaoJwksVerifier.java            ← 카카오 JWKS RS256 검증
-    │   └── dto/
-    │       ├── KakaoIdTokenClaims.java       ← 카카오 id_token 클레임 DTO
-    │       └── KakaoTokenResponse.java       ← 카카오 Token 응답 DTO
-    │
-    └── state/
-        ├── OidcStateStore.java               ← state/nonce Redis 저장·검증
-        └── OidcStateEntry.java               ← state 엔트리 DTO
-```
+#### broker/keycloak/ 패키지
 
-### 13.3 의존성 그래프 (Keycloak 모드)
+| 클래스 | 역할 | 의존성 |
+|--------|------|--------|
+| `KeycloakCallbackController` | GET `/api/v1/broker/callback` — Keycloak 콜백 수신 | `KeycloakOidcService` |
+| `KeycloakOidcService` | 11단계 콜백 처리 오케스트레이터 (`@Transactional`) | `IdoOidcStateStore`, `KeycloakJwksVerifier`, `FeSessionService`, `JdbcTemplate`, `KafkaTemplate` |
+| `KeycloakJwksVerifier` | JWKS RS256 서명 검증, 공개키 캐시 (`@Cacheable keycloakJwks`) | `KeycloakProperties`, `RestTemplate` |
+| `KeycloakProperties` | `@ConfigurationProperties(prefix="ido.keycloak")`, 헬퍼 메서드 포함 | Spring Boot |
+| `dto/KeycloakJwtClaims` | id_token 클레임 DTO (sub, nonce, aud, acr, identity_provider) | Jackson |
+| `dto/KeycloakTokenResponse` | Token Endpoint 응답 DTO (id_token, access_token) | Jackson |
+
+#### broker/nonoidc/ 패키지
+
+| 클래스 | 역할 | 의존성 |
+|--------|------|--------|
+| `NonOidcBrokerController` | GET `/api/v1/broker/{provider}/nonoidc/*` 진입점 | `IdpBrokerService`, `FeSessionService`, `NonOidcAuthService` |
+| `NonOidcBrokerAdapter` | `IdpBrokerService` 구현 — provider별 분기 (PoC 플레이스홀더) | `NonOidcAuthService` |
+| `NonOidcAuthService` | AuthResult 생성, Kafka 발행, 잠금 처리 (`@Transactional`) | `JdbcTemplate`, `KafkaTemplate`, `ObjectMapper` |
+| `NonOidcAuthCommand` | 비OIDC 인증 처리 명령 DTO | — |
+
+#### broker/state/ 패키지
+
+| 클래스 | 역할 | 의존성 |
+|--------|------|--------|
+| `IdoOidcStateStore` | state/nonce Redis 저장 (`oidc:state:{state}`, TTL=300s) | `StringRedisTemplate` |
+| `IdoOidcStateEntry` | Redis 저장 DTO (state, nonce, correlationId, returnUrl, requestedLevel, provider) | Jackson |
+
+#### infrastructure/outbox/ 패키지
+
+| 클래스 | 역할 | 의존성 |
+|--------|------|--------|
+| `IdoOutboxRelay` | `@Scheduled(500ms)` `ido.outbox` PENDING → Kafka 재발행 (at-least-once) | `IdoOutboxRepository`, `KafkaTemplate`, `ObjectMapper` |
+| `IdoOutboxRepository` | `ido.outbox` CRUD (`JdbcTemplate` — FOR UPDATE SKIP LOCKED 지원) | `JdbcTemplate` |
+| `IdoOutboxRecord` | Outbox 레코드 DTO (eventId, topic, payload, status, retryCount) | — |
+
+#### kafka/ 패키지
+
+| 클래스 | 역할 | 의존성 |
+|--------|------|--------|
+| `QsignAuthEventConsumer` | Kafka `qsign.auth.events` 소비 (AUTH_COMPLETED/FAILED/LOCKED) | `IdempotentEventStore` |
+| `IdempotentEventStore` | 중복 이벤트 방지 (`ido.processed_event` INSERT ON CONFLICT DO NOTHING) | `JdbcTemplate` |
+
+#### fe/session/ 패키지
+
+| 클래스 | 역할 | 의존성 |
+|--------|------|--------|
+| `FeSessionService` | FE 세션 관리 인터페이스 | — |
+| `FeSessionServiceImpl` | Redis 기반 구현 (Sliding TTL, 역인덱스, Advisory 플래그) | `RedisTemplate` |
+| `FeSession` | FE 세션 도메인 객체 (feSessionId, qimUserId, authLevel, advisoryFlag 등) | — |
+
+### 14.2 q-sign 모듈 (q-sign/src/main/java/kr/go/smes/qsign/)
+
+| 클래스 | 역할 | 의존성 |
+|--------|------|--------|
+| `KakaoAuthUrlController` | POST `/api/v1/oidc/kakao/auth-url` — URL 발급 | `KakaoOidcBrokerService` |
+| `KakaoOidcBrokerController` | GET `/api/v1/oidc/kakao/callback` — 카카오 콜백 수신 | `KakaoOidcBrokerService` |
+| `KakaoOidcBrokerService` | Authorization URL 발급 + Callback 전 과정 처리 (`@Transactional`) | `KakaoOidcClient`, `OidcStateStore`, `AuthResultRepository`, `QSignOutboxRepository`, `RestTemplate` |
+| `KakaoOidcClient` | 카카오 Token EP 호출, identifierHash 계산, issuer/aud/nonce/exp 검증 | `KakaoJwksVerifier`, `RestTemplate` |
+| `KakaoJwksVerifier` | 카카오 JWKS RS256 서명 검증 (`@Cacheable kakaoJwks`) | `RestTemplate`, `ObjectMapper` |
+| `OidcStateStore` | state/nonce Redis 저장 (`oidc:state:{state}`, TTL 300s) | `StringRedisTemplate` |
+| `OidcStateEntry` | Redis 저장 DTO (state, nonce, correlationId, returnUrl, requestedLevel) | Jackson |
+| `OutboxRelay` | `@Scheduled(500ms)` `qsign.outbox` → Kafka 재발행 | `QSignOutboxRepository`, `KafkaTemplate` |
+
+### 14.3 의존성 그래프 (Keycloak 모드)
 
 ```
-onepass-fe (React)
-    │
-    │  GET /api/v1/broker/{provider}/authorize
+onepass-fe
+    │ GET /api/v1/broker/kakao/authorize
     ▼
 BrokerController
-    │  brokerMode="keycloak"
+    │ buildAuthorizationUrl("kakao", correlationId, returnUrl, "L1")
     ▼
-BrokerService.buildKeycloakAuthorizationUrl()
-    ├──▶ IdoOidcStateStore.create()  → Redis
-    ├──▶ KeycloakProperties.resolveIdpHint()
-    └──▶ UriComponentsBuilder → Keycloak Auth URL
-    │
-    │  (브라우저 302 리다이렉트)
+BrokerService (mode=keycloak)
+    ├─ IdoOidcStateStore.create() → Redis
+    └─ KeycloakProperties.authorizationEndpoint()
+    │ 302 → Keycloak Auth URL
     ▼
-Keycloak → 카카오 → 사용자 로그인
-    │
-    │  GET /api/v1/broker/callback?code=...&state=...
+Keycloak(:8088) → kauth.kakao.com → 카카오 로그인
+    │ GET /api/v1/broker/callback?code=...&state=...
     ▼
 KeycloakCallbackController
-    │
+    │ keycloakOidcService.handleCallback(code, state)
     ▼
-KeycloakOidcService.handleCallback()
-    ├──▶ IdoOidcStateStore.consumeAndValidate()  → Redis DEL
-    ├──▶ exchangeCodeForToken()  → Keycloak Token EP (RestTemplate)
-    ├──▶ KeycloakJwksVerifier.verifyAndParse()
-    │       └──▶ fetchPublicKey() @Cacheable  → Keycloak JWKS EP
-    ├──▶ validateNonce() / validateAudience()
-    ├──▶ saveAuthResult()  → JdbcTemplate → ido.auth_result
-    ├──▶ saveOutboxEvent()  → JdbcTemplate → ido.outbox
-    ├──▶ publishAuthEvent()  → KafkaTemplate → qsign.auth.events
-    ├──▶ FeSessionService.create()  → Redis
-    └──▶ saveOidcSessionLog()  → JdbcTemplate → ido.oidc_session_log
-    │
+KeycloakOidcService
+    ├─ IdoOidcStateStore.consumeAndValidate(state)
+    ├─ exchangeCodeForToken(code) → Keycloak Token EP
+    ├─ KeycloakJwksVerifier.verifyAndParse(idToken)
+    ├─ validateNonce() / validateAudience()
+    ├─ computeIdentifierHash(sub)
+    ├─ resolveProviderCode(claims, stateEntry)
+    ├─ saveAuthResult() → ido.auth_result
+    ├─ saveOutboxEvent() → ido.outbox
+    │   └─ publishAuthEvent() → Kafka qsign.auth.events
+    ├─ FeSessionService.create() → Redis fe:session
+    └─ saveOidcSessionLog() → ido.oidc_session_log
+    │ CallbackResult { feSession, authResultId, ... }
     ▼
 KeycloakCallbackController
-    ├──▶ ResponseCookie (feSessionId, HttpOnly, Secure, SameSite=Lax)
-    └──▶ 302 → returnUrl
+    │ Set-Cookie: feSessionId=...
+    │ 302 → returnUrl
+    ▼
+onepass-fe
+
+--- 비동기 ---
+IdoOutboxRelay (@Scheduled 500ms)
+    ├─ IdoOutboxRepository.findPendingBatch()  -- FOR UPDATE SKIP LOCKED
+    └─ KafkaTemplate.send(topic, partitionKey, payload)
+        └─ handleSuccess → markPublished
+        └─ handleFailure → incrementRetry / markFailed
+
+QsignAuthEventConsumer
+    ├─ @KafkaListener topics="${ido.kafka.topic-auth-events:qsign.auth.events}"
+    ├─ IdempotentEventStore.isAlreadyProcessed()
+    ├─ handleAuthCompleted() / handleAuthFailed() / handleAuthLocked()
+    └─ IdempotentEventStore.markProcessed()
 ```
 
 ---
 
-## 14. API 명세
+## 15. API 명세
 
-### 14.1 인증 시작 (공통)
+### 15.1 GET /api/v1/broker/{provider}/authorize
 
+OIDC 브로커 로그인 시작 (q-sign/Keycloak 모드 공용)
+
+| 항목 | 값 |
+|------|-----|
+| Method | GET |
+| Path | `/api/v1/broker/{provider}/authorize` |
+| 지원 provider | `kakao`, `naver` |
+| 처리 클래스 | `BrokerController.authorize()` |
+
+**요청 파라미터**:
+
+| 파라미터 | 위치 | 필수 | 설명 |
+|---------|------|------|------|
+| `provider` | path | 필수 | `kakao` \| `naver` |
+| `returnUrl` | query | 선택 | 인증 완료 후 이동 URL |
+| `requestedLevel` | query | 선택 (기본 `L1`) | 요청 인증 수준 |
+| `X-Correlation-Id` | header | 선택 | 흐름 추적 ID (없으면 자동 생성) |
+
+**응답**:
 ```
-GET /api/v1/broker/{provider}/authorize
-
-Path Variables:
-  provider: kakao | naver
-
-Query Parameters:
-  returnUrl       (optional) 인증 완료 후 리다이렉트 URL
-                  예: https://agency.example.com/callback
-  requestedLevel  (optional, default=L1) 요청 인증 수준 (L1/L2/L3)
-
-Headers:
-  X-Correlation-Id (optional) 흐름 추적 ID (없으면 자동 생성)
-
-Response:
-  302 Found
-  Location: {Keycloak 또는 카카오 Authorization URL}
-
-Error Response:
-  4xx/5xx (PlatformException 발생 시)
-  {"errorCode": "E-IDP-401", "message": "..."}
-```
-
-### 14.2 Keycloak 콜백 수신 (Keycloak 모드 전용)
-
-```
-GET /api/v1/broker/callback
-
-Query Parameters:
-  code              Keycloak authorization code (인증 성공 시)
-  state             CSRF 검증용 state
-  error             Keycloak 인증 실패 코드 (실패 시)
-  error_description 에러 상세 설명 (실패 시)
-
-Headers:
-  X-Correlation-Id (optional)
-
-Response (성공):
-  302 Found
-  Location: {returnUrl}
-  Set-Cookie: feSessionId={uuid}; Path=/; HttpOnly; Secure; SameSite=Lax
-
-Response (실패):
-  302 Found
-  Location: /error?code={에러코드}&detail={상세}
+302 Found
+Location: {Keycloak 또는 카카오 Authorization URL}
 ```
 
-### 14.3 OIDC 완료 내부 API (q-sign 모드 전용)
-
+**에러 응답** (리다이렉트):
 ```
-POST /api/internal/v1/oidc/complete
-
-Headers:
-  X-Internal-Caller: q-sign
-  X-Internal-Sig: {서명값}
-  X-Correlation-Id: {correlationId}
-  Content-Type: application/json
-
-Body:
-  {
-    "correlationId":  "string (UUID)",
-    "authResultId":   "string (UUID)",
-    "identifierHash": "string (64자 hex)",
-    "authLevel":      "L1 | L2 | L3",
-    "returnUrl":      "string (URL, optional)"
-  }
-
-Response (qsign 모드):
-  200 OK
-  Set-Cookie: feSessionId=...
-  {
-    "redirectUrl": "https://agency.example.com/callback",
-    "feSessionId": "uuid"
-  }
-
-Response (keycloak 모드 — 잘못된 경로):
-  409 Conflict
-  {
-    "error": "BROKER_MODE_MISMATCH",
-    "message": "keycloak 모드에서는 /api/v1/broker/callback을 사용하세요"
-  }
+302 Found
+Location: /error?code=IDP_PROVIDER_UNAVAILABLE
 ```
 
-### 14.4 q-sign Auth URL 발급 (q-sign 내부)
+### 15.2 GET /api/v1/broker/callback
 
+Keycloak Authorization Code 콜백 (Keycloak 모드 전용)
+
+| 항목 | 값 |
+|------|-----|
+| Method | GET |
+| Path | `/api/v1/broker/callback` |
+| 처리 클래스 | `KeycloakCallbackController.callback()` |
+
+**요청 파라미터**:
+
+| 파라미터 | 위치 | 설명 |
+|---------|------|------|
+| `code` | query | Keycloak authorization code |
+| `state` | query | CSRF 검증용 state |
+| `error` | query | Keycloak 인증 실패 시 에러 코드 |
+| `error_description` | query | 에러 상세 설명 |
+
+**성공 응답**:
 ```
-POST /api/v1/oidc/kakao/auth-url
+302 Found
+Set-Cookie: feSessionId=...; HttpOnly; Secure; SameSite=Lax; Path=/
+Location: {returnUrl 또는 /conversion/complete}
+```
 
-Headers:
-  X-Correlation-Id: {correlationId}
-  X-Internal-Caller: ido
-  X-Internal-Sig: {서명값}
-  Content-Type: application/json
+**에러 응답**:
+```
+302 Found
+Location: /error?code={에러코드}&detail={설명}
+```
 
-Body:
-  {
-    "correlationId":  "string",
-    "returnUrl":      "string",
-    "requestedLevel": "L1 | L2 | L3"
-  }
+**모드 불일치 응답** (q-sign 모드에서 호출 시):
+```
+302 Found
+Location: /error?code=BROKER_MODE_MISMATCH&detail=broker+mode+is+qsign
+```
 
-Response:
-  200 OK
-  {
-    "authorizationUrl": "https://kauth.kakao.com/oauth/authorize?..."
-  }
+### 15.3 POST /api/internal/v1/oidc/complete
+
+q-sign → ido FE 세션 발급 요청 (q-sign 모드 전용)
+
+| 항목 | 값 |
+|------|-----|
+| Method | POST |
+| Path | `/api/internal/v1/oidc/complete` |
+| 처리 클래스 | `OidcCompleteController.complete()` |
+
+**요청 헤더**:
+
+| 헤더 | 필수 | 설명 |
+|-----|------|------|
+| `X-Internal-Caller` | 선택 | 호출자 (`q-sign`) |
+| `X-Internal-Sig` | 선택 | 내부 서명 |
+| `X-Correlation-Id` | 선택 | 흐름 추적 ID |
+
+**요청 바디** (`OidcCompleteRequest`):
+```json
+{
+  "authResultId":   "uuid",
+  "identifierHash": "sha256-hex-64chars",
+  "authLevel":      "L1",
+  "providerCode":   "KAKAO_OIDC",
+  "correlationId":  "uuid",
+  "returnUrl":      "https://agency.example.com/callback"
+}
+```
+
+**성공 응답**:
+```
+HTTP 200
+Set-Cookie: feSessionId=...; HttpOnly; Secure; SameSite=Lax; Path=/
+
+{
+  "redirectUrl": "https://agency.example.com/callback",
+  "feSessionId": "base64url-256bit"
+}
+```
+
+**Keycloak 모드에서 호출 시**:
+```
+HTTP 409
+{
+  "error":   "BROKER_MODE_MISMATCH",
+  "message": "keycloak 모드에서는 /api/v1/broker/callback을 사용하세요"
+}
+```
+
+### 15.4 GET /api/v1/broker/{provider}/nonoidc/initiate
+
+비OIDC 인증 시작
+
+| 항목 | 값 |
+|------|-----|
+| Method | GET |
+| Path | `/api/v1/broker/{provider}/nonoidc/initiate` |
+| 지원 provider | `pass`, `financial-cert`, `gpki`, `joint-cert` |
+| 처리 클래스 | `NonOidcBrokerController.initiate()` |
+
+**요청 파라미터**:
+
+| 파라미터 | 위치 | 설명 |
+|---------|------|------|
+| `provider` | path | `pass` \| `financial-cert` \| `gpki` \| `joint-cert` |
+| `returnUrl` | query | 인증 완료 후 이동 URL |
+| `requestedLevel` | query | 요청 인증 수준 (provider에 따라 override) |
+
+**응답** (REDIRECT_REQUIRED):
+```
+302 Found
+Location: {사업자 인증 페이지 URL}
+```
+
+**응답** (DIRECT_CALL_REQUIRED):
+```
+HTTP 202
+{ "providerTxId": "..." }
+```
+
+### 15.5 GET /api/v1/broker/{provider}/nonoidc/callback
+
+비OIDC 사업자 콜백 수신
+
+| 항목 | 값 |
+|------|-----|
+| Method | GET |
+| Path | `/api/v1/broker/{provider}/nonoidc/callback` |
+| 처리 클래스 | `NonOidcBrokerController.callback()` |
+
+**요청 파라미터**:
+
+| 파라미터 | 위치 | 설명 |
+|---------|------|------|
+| `txId` | query | 사업자 트랜잭션 ID |
+| `identifier` | query | 사용자 식별 정보 |
+| `returnUrl` | query | 기관 콜백 URL |
+
+**성공 응답**:
+```
+302 Found
+Set-Cookie: feSessionId=...; HttpOnly; Secure; SameSite=Lax; Path=/
+Location: {returnUrl}
+```
+
+### 15.6 POST /api/v1/oidc/kakao/auth-url (q-sign 내부)
+
+| 항목 | 값 |
+|------|-----|
+| Method | POST |
+| Path | `/api/v1/oidc/kakao/auth-url` (q-sign :8081) |
+| 처리 클래스 | `KakaoAuthUrlController.issueAuthorizationUrl()` |
+
+**요청**:
+```json
+{
+  "correlationId":  "uuid",
+  "returnUrl":      "https://agency.example.com/callback",
+  "requestedLevel": "L1"
+}
+```
+
+**응답**:
+```json
+{ "authorizationUrl": "https://kauth.kakao.com/oauth/authorize?client_id=...&state=...&nonce=..." }
 ```
 
 ---
 
-## 15. 모니터링 및 장애 대응
+## 16. 모니터링 및 장애 대응
 
-### 15.1 주요 모니터링 지표
+### 16.1 핵심 모니터링 지표
 
-| 지표 | 확인 방법 | 임계값 |
-|------|----------|--------|
-| 인증 성공률 | `ido.auth_result WHERE verification_result='SUCCESS'` 비율 | < 95% 알람 |
-| state 검증 실패 수 | 로그 `state 검증 실패` 건수 | 급증 시 CSRF 공격 의심 |
-| JWT 서명 실패 수 | 로그 `JWT 서명 검증 실패` 건수 | 급증 시 토큰 위조 의심 |
-| Keycloak 응답 시간 | `keycloak-client` Resilience4j 메트릭 | > 3초 알람 |
-| Circuit Breaker 상태 | Actuator `/actuator/metrics/resilience4j.circuitbreaker.state` | OPEN 시 즉시 알람 |
-| Outbox 미처리 건수 | `ido.outbox WHERE status='PENDING'` 건수 | > 100건 알람 |
-| FE 세션 생성 실패 | 로그 `FE 세션 생성 실패` 건수 | 발생 즉시 알람 |
+| 지표 | 확인 방법 | 알람 기준 | 대응 |
+|------|----------|----------|------|
+| 인증 성공률 | Prometheus `auth_result_count{status="SUCCESS"}` | < 95% | 브로커 모드/외부 IdP 상태 확인 |
+| Keycloak 응답 시간 | Actuator Resilience4j metrics | > 3s | keycloak-client CB 상태 확인 |
+| Circuit Breaker 상태 | `/actuator/health` → `circuitBreakers` | OPEN | 롤백 트리거 검토 |
+| Outbox PENDING 건수 | `SELECT COUNT(*) FROM ido.outbox WHERE status='PENDING'` | > 100 | Kafka/IdoOutboxRelay 상태 확인 |
+| FE 세션 생성 실패 | 로그 `[FeSession] 세션 생성` 오류 | 발생 즉시 | Redis 상태 확인 |
+| JWKS 캐시 히트율 | `@Cacheable keycloakJwks` 메트릭 | 히트율 < 80% | JWKS 엔드포인트 상태 확인 |
+| state 검증 실패 | 로그 `state 검증 실패` grep | 급증 | CSRF 공격 가능성 검토 |
+| JWT 서명 검증 실패 | 로그 `JWT 서명 검증 실패` grep | 발생 | 키 로테이션 여부 확인 |
 
-### 15.2 Actuator 엔드포인트
+### 16.2 Actuator 엔드포인트
 
 ```bash
-# 서비스 상태 확인
-curl http://localhost:8083/actuator/health
+# 전체 헬스 체크
+curl http://localhost:8083/actuator/health | jq .
 
-# Circuit Breaker 상태
-curl http://localhost:8083/actuator/metrics/resilience4j.circuitbreaker.state
+# Circuit Breaker 상태 확인
+curl http://localhost:8083/actuator/health | jq '.components.circuitBreakers'
 
 # Flyway 마이그레이션 상태
-curl http://localhost:8083/actuator/flyway
+curl http://localhost:8083/actuator/health | jq '.components.db'
 
-# Prometheus 메트릭
-curl http://localhost:8083/actuator/prometheus
+# Prometheus 메트릭 수집
+curl http://localhost:8083/actuator/prometheus | grep resilience4j
 ```
 
-### 15.3 로그 패턴 가이드
+### 16.3 로그 패턴 가이드
 
 ```bash
-# 인증 흐름 추적 (correlationId로 전체 흐름 조회)
-grep "correlationId=TARGET_ID" /var/log/ido/application.log
+# correlationId 기반 전체 흐름 추적
+grep "correlationId=550e8400" /var/log/ido/*.log
 
-# 보안 이벤트 모니터링
-grep "state 검증 실패" /var/log/ido/application.log  # CSRF
-grep "nonce 불일치"   /var/log/ido/application.log  # Replay Attack
-grep "JWT 서명 검증 실패" /var/log/ido/application.log  # 위조 시도
-grep "audience 불일치"   /var/log/ido/application.log  # Audience 공격
+# CSRF 의심 (state 검증 실패)
+grep "state 검증 실패" /var/log/ido/*.log
 
-# Keycloak 연동 오류
-grep "Keycloak token 교환 실패" /var/log/ido/application.log
-grep "JWKS 조회/파싱 실패"     /var/log/ido/application.log
+# Replay attack 의심 (nonce 불일치)
+grep "nonce 불일치" /var/log/ido/*.log
 
-# Kafka 발행 모니터링
-grep "Kafka 이벤트 발행"             /var/log/ido/application.log
-grep "Kafka 즉시 발행 실패 (Outbox)" /var/log/ido/application.log
+# JWT 서명 검증 실패
+grep "JWT 서명 검증 실패\|id_token 서명 검증 실패" /var/log/ido/*.log
+
+# Keycloak token 교환 실패
+grep "Keycloak token 교환 실패" /var/log/ido/*.log
+
+# Outbox 재발행 현황
+grep "IdoOutboxRelay" /var/log/ido/*.log
+
+# JWKS 캐시 동작
+grep "JWKS 조회\|JWKS 캐시" /var/log/ido/*.log
+
+# FE 세션 생성
+grep "\[FeSession\] 세션 생성" /var/log/ido/*.log
+
+# 비OIDC 인증 처리
+grep "NonOidcAuthService\|NonOidcBrokerAdapter" /var/log/ido/*.log
 ```
 
-### 15.4 장애 시나리오별 대응
+### 16.4 장애 시나리오 대응
 
-| 시나리오 | 증상 | 즉각 대응 | 근본 대응 |
-|---------|------|----------|----------|
-| Keycloak 다운 | `IDP_PROVIDER_UNAVAILABLE` 급증 | `IDO_BROKER_MODE=qsign` 롤백 | Keycloak HA 구성 |
-| Redis 다운 | state/nonce 저장 실패 → 인증 불가 | Redis failover 전환 | Redis Sentinel/Cluster |
-| Kafka 다운 | Outbox에 PENDING 쌓임 | 서비스 계속 (Outbox relay 재처리) | Kafka 클러스터 복구 |
-| JWKS 캐시 만료 + KC 다운 | 서명 검증 실패 | Keycloak 복구 대기 (캐시 TTL 1h) | JWKS 로컬 백업 |
-| DB 연결 오류 | auth_result 저장 실패 → 500 | DB Connection Pool 점검 | DB HA/Failover |
+| 장애 | 증상 | 즉각 조치 | 복구 |
+|------|------|----------|------|
+| Keycloak 다운 | CB OPEN, 인증 실패 | `IDO_BROKER_MODE=qsign` 롤백 | Keycloak 재시작 후 검증 |
+| Redis 다운 | state 저장 실패 → 인증 불가 | Redis 페일오버 | Sentinel/Cluster 확인 |
+| Kafka 다운 | Outbox 즉시 발행 실패 | `ido.outbox` PENDING 쌓임 (자동 재발행) | Kafka 복구 후 Relay 재처리 |
+| JWKS 캐시 만료 + Keycloak 다운 | 키 조회 실패 → 모든 JWT 검증 실패 | CB가 OPEN → q-sign 롤백 | Keycloak 복구 후 캐시 갱신 |
+| DB 연결 오류 | auth_result 저장 실패 → 트랜잭션 롤백 | 500 응답 | DB 연결 풀 확인, 재시작 |
+| 잠금 해제 필요 | auth_lock에 locked_until 남은 경우 | `UPDATE ido.auth_lock SET locked_until = NULL WHERE identifier_hash = ?` | 관리자 수동 처리 |
 
 ---
 
-## 16. 개발 환경 시작 가이드
+## 17. 개발 환경 시작 가이드
 
-### 16.1 사전 요구사항
+### 17.1 필수 요건
 
-```
-JDK 21+
-Gradle 9.5+
-Docker & Docker Compose
-Git
-```
+| 도구 | 버전 | 비고 |
+|------|------|------|
+| JDK | 21+ | Amazon Corretto 21 권장 |
+| Gradle | 9.5+ (Wrapper 사용) | `./gradlew` 사용 |
+| Docker | 24+ | Docker Compose v2 |
+| Docker Compose | v2.20+ | `docker compose` 명령 |
 
-### 16.2 인프라 기동
+### 17.2 인프라 시작
 
 ```bash
-# 인프라 전체 기동 (PostgreSQL, Redis, Kafka, Keycloak)
-cd infra/docker
+# PostgreSQL, Redis, Kafka, Zookeeper 시작
 docker compose up -d postgres redis kafka zookeeper
 
-# Keycloak 포함 기동 (keycloak 모드 개발 시)
-docker compose up -d postgres redis kafka zookeeper onepass-keycloak
+# Keycloak 시작 (keycloak 모드 사용 시)
+docker compose up -d keycloak
 
 # 상태 확인
 docker compose ps
+docker compose logs -f kafka
 ```
 
-### 16.3 DB 마이그레이션 확인
+### 17.3 서비스 실행
 
 ```bash
-# Flyway 마이그레이션 (ido 서비스 기동 시 자동 실행)
-./gradlew :ido:bootRun
-
-# 또는 직접 확인
-psql -h localhost -U onepass -d onepass -c "\dt ido.*"
-# 예상: auth_result, auth_lock, oidc_session_log, oidc_nonce_used, provider_config
-```
-
-### 16.4 q-sign 모드로 개발 시작
-
-```bash
-# 1. q-sign 서비스 기동 (port 8081)
+# q-sign 서비스 (qsign 모드 필수, keycloak 모드에서는 선택)
 ./gradlew :q-sign:bootRun
 
-# 2. ido 서비스 기동 (기본 qsign 모드, port 8083)
+# ido 서비스 (다른 터미널)
 ./gradlew :ido:bootRun
 
-# 3. 프론트엔드 기동 (port 3000)
+# React 프론트엔드 (다른 터미널)
 cd onepass-fe && npm install && npm run dev
-
-# 4. 테스트
-curl -v "http://localhost:8083/api/v1/broker/kakao/authorize?returnUrl=http://localhost:8084"
-# → 302 to https://kauth.kakao.com/...
 ```
 
-### 16.5 Keycloak 모드로 전환 개발
+### 17.4 모드별 빠른 테스트
 
+**q-sign 모드 테스트**:
 ```bash
-# 1. Keycloak 기동 (port 8088) — docker compose 사용 권장
-docker run -d --name onepass-keycloak \
-  -p 8088:8080 \
-  -e KEYCLOAK_ADMIN=admin \
-  -e KEYCLOAK_ADMIN_PASSWORD=admin \
-  quay.io/keycloak/keycloak:24.0.3 start-dev
+# Authorization URL 발급 확인 (q-sign으로 위임)
+curl -v "http://localhost:8083/api/v1/broker/kakao/authorize?returnUrl=http://localhost:3000" \
+  -H "X-Correlation-Id: test-001" 2>&1 | grep "Location:"
+# → Location: https://kauth.kakao.com/oauth/authorize?...
+```
 
-# 2. §9 Keycloak 설정 완료 (Realm, Client, IdP 설정)
-
-# 3. ido 서비스 keycloak 모드로 기동
-IDO_BROKER_MODE=keycloak \
-KEYCLOAK_CLIENT_SECRET={복사한_시크릿} \
+**keycloak 모드 전환 및 테스트**:
+```bash
+# 환경변수 설정 후 재시작
+export IDO_BROKER_MODE=keycloak
+export KEYCLOAK_CLIENT_SECRET=your-secret-here
 ./gradlew :ido:bootRun
 
-# 4. 테스트
-curl -v "http://localhost:8083/api/v1/broker/kakao/authorize?returnUrl=http://localhost:8084"
-# → 302 to http://localhost:8088/realms/onepass/protocol/openid-connect/auth?...&kc_idp_hint=social-kakao
+# Authorization URL 확인 (Keycloak으로 위임)
+curl -v "http://localhost:8083/api/v1/broker/kakao/authorize?returnUrl=http://localhost:3000" 2>&1 | grep "Location:"
+# → Location: http://localhost:8088/realms/onepass/protocol/openid-connect/auth?...&kc_idp_hint=social-kakao
 ```
 
-### 16.6 빌드 및 테스트
+**비OIDC 모드 테스트**:
+```bash
+# PASS 인증 시작 (PoC 플레이스홀더 URL 반환)
+curl -v "http://localhost:8083/api/v1/broker/pass/nonoidc/initiate?returnUrl=http://localhost:3000" 2>&1 | grep "Location:"
+```
+
+### 17.5 빌드 및 검증
 
 ```bash
 # 전체 빌드 (테스트 제외)
 ./gradlew build -x test
 
-# ido 모듈만 컴파일 확인
-./gradlew :ido:compileJava
+# Java 컴파일만
+./gradlew compileJava
 
-# 테스트 실행
-./gradlew :ido:test
+# 단위 테스트
+./gradlew test
 
 # Docker 이미지 빌드
-cd infra/docker && docker build -f onepass-ido/Dockerfile -t onepass-ido:latest ../../
+./gradlew :ido:bootBuildImage
+./gradlew :q-sign:bootBuildImage
+```
+
+### 17.6 DB 마이그레이션 확인
+
+```bash
+# Flyway 마이그레이션 이력 확인
+psql -h localhost -U onepass -d onepass -c "SELECT version, description, success FROM ido.flyway_schema_history ORDER BY installed_rank;"
+
+# V3 테이블 생성 확인
+psql -h localhost -U onepass -d onepass -c "\dt ido.*"
+# → ido.auth_result, ido.auth_lock, ido.oidc_session_log, ido.oidc_nonce_used, ido.provider_config
 ```
 
 ---
 
 ## 부록 A. q-sign vs Keycloak 기능 대응표
 
-| 기능 | q-sign 모드 | Keycloak 모드 | 비고 |
-|------|------------|---------------|------|
-| state 생성·저장 | `OidcStateStore` (q-sign) | `IdoOidcStateStore` (ido) | Redis 키 동일 |
-| nonce 생성·저장 | `OidcStateStore` (q-sign) | `IdoOidcStateStore` (ido) | |
-| Authorization URL 조립 | `KakaoOidcClient` (q-sign) | `BrokerService` (ido) | |
-| OIDC 콜백 수신 | `KakaoOidcBrokerController` (q-sign) | `KeycloakCallbackController` (ido) | |
-| code → token 교환 | `KakaoOidcClient` (q-sign) | `KeycloakOidcService` (ido) | |
-| JWKS 서명 검증 | `KakaoJwksVerifier` (q-sign) | `KeycloakJwksVerifier` (ido) | 동일 알고리즘 |
-| identifierHash 생성 | `KakaoOidcClient` (q-sign) | `KeycloakOidcService` (ido) | SHA-256(sub) |
-| AuthResult 저장 | `qsign.auth_result` | `ido.auth_result` | Strategy B |
-| Kafka 이벤트 발행 | q-sign Outbox relay | ido Outbox relay | 동일 토픽 |
-| FE 세션 발급 | ido (q-sign 요청) | ido (직접) | |
+| 기능 | q-sign 모드 | Keycloak 모드 |
+|------|------------|---------------|
+| state 저장 | q-sign `OidcStateStore` (Redis `oidc:state:`) | ido `IdoOidcStateStore` (Redis `oidc:state:`) |
+| nonce 저장 | q-sign `OidcStateEntry` | ido `IdoOidcStateEntry` |
+| Authorization URL 조립 | q-sign `KakaoOidcClient.buildAuthorizationUrl()` | ido `BrokerService.buildKeycloakAuthorizationUrl()` |
+| 콜백 수신 컨트롤러 | q-sign `KakaoOidcBrokerController` | ido `KeycloakCallbackController` |
+| Code → Token 교환 | q-sign `KakaoOidcClient.exchangeCode()` | ido `KeycloakOidcService.exchangeCodeForToken()` |
+| JWKS 서명 검증 | q-sign `KakaoJwksVerifier` (카카오 직접) | ido `KeycloakJwksVerifier` (Keycloak) |
+| identifierHash 계산 | q-sign `KakaoOidcClient.computeIdentifierHash()` | ido `KeycloakOidcService.computeIdentifierHash()` |
+| AuthResult 저장 | `qsign.auth_result` | `ido.auth_result` (Strategy B) |
+| Kafka 이벤트 발행 | q-sign `OutboxRelay` → `qsign.auth.events` | ido `IdoOutboxRelay` → `qsign.auth.events` |
+| FE 세션 발급 | ido `OidcCompleteController` (q-sign이 POST 호출) | ido `KeycloakCallbackController` 직접 발급 |
+| OIDC 세션 로그 | `qsign.oidc_session_log` | `ido.oidc_session_log` |
 
 ---
 
 ## 부록 B. 참조 링크
 
-| 항목 | URL |
+| 문서 | URL |
 |------|-----|
 | Keycloak 공식 문서 | https://www.keycloak.org/documentation |
-| Keycloak OIDC 설정 | https://www.keycloak.org/docs/latest/securing_apps/index.html#_oidc |
-| 카카오 OIDC | https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api |
-| RFC 6749 (OAuth 2.0) | https://www.rfc-editor.org/rfc/rfc6749 |
-| RFC 7519 (JWT) | https://www.rfc-editor.org/rfc/rfc7519 |
-| OpenID Connect Core | https://openid.net/specs/openid-connect-core-1_0.html |
+| 카카오 OIDC 공식 문서 | https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api#oidc |
+| RFC 6749 (OAuth 2.0) | https://datatracker.ietf.org/doc/html/rfc6749 |
+| RFC 7519 (JWT) | https://datatracker.ietf.org/doc/html/rfc7519 |
+| OpenID Connect Core 1.0 | https://openid.net/specs/openid-connect-core-1_0.html |
 | JJWT 라이브러리 | https://github.com/jwtk/jjwt |
-| Resilience4j 문서 | https://resilience4j.readme.io/docs/circuitbreaker |
-
----
-
-## 부록 D. 비OIDC 브로커 흐름 (Option 3)
-
-### D.1 인증 시작 시퀀스
-
-```mermaid
-sequenceDiagram
-    participant FE as onepass-fe
-    participant Ido as ido (NonOidcBrokerController)
-    participant Adapter as NonOidcBrokerAdapter
-    participant IdP as 외부 IdP (PASS / GPKI 등)
-
-    FE->>Ido: GET /api/v1/broker/{provider}/nonoidc/initiate
-              ?returnUrl=...
-    Ido->>Adapter: initiateAuth(providerCode, correlationId, callbackUrl)
-    Adapter-->>Ido: IdpBrokerResult { redirectUrl, providerTxId, REDIRECT_REQUIRED }
-    Ido-->>FE: 302 → 사업자 인증 페이지(redirectUrl)
-    FE->>IdP: (사용자 인증 수행)
-    IdP->>Ido: GET /api/v1/broker/{provider}/nonoidc/callback
-              ?txId=...&identifier=...
-```
-
-### D.2 콜백 처리 시퀀스
-
-```mermaid
-sequenceDiagram
-    participant IdP as 외부 IdP
-    participant Ctl as NonOidcBrokerController
-    participant Adapter as NonOidcBrokerAdapter
-    participant Svc as NonOidcAuthService
-    participant DB as PostgreSQL (ido.*)
-    participant Kafka as Kafka (qsign.auth.events)
-    participant Fe as FeSessionService
-
-    IdP->>Ctl: GET /callback?txId=X&identifier=Y
-    Ctl->>Adapter: normalizeResponse(providerCode, cid, txId, rawResponse)
-    Adapter->>Svc: processAuth(NonOidcAuthCommand)
-    Svc->>DB: INSERT auth_result (auth_result_id, identifier_hash, ...)
-    Svc->>DB: INSERT outbox (PENDING, qsign.auth.events)
-    Svc->>Kafka: send(AUTH_COMPLETED)
-    Svc-->>Adapter: authResultId
-    Adapter-->>Ctl: IdOAuthInput (internalSignature=authResultId)
-    Ctl->>Fe: create(identifierHash, authResultId, authLevel, returnUrl)
-    Fe-->>Ctl: FeSession { feSessionId }
-    Ctl-->>FE: 302 + Set-Cookie: feSessionId=...
-```
-
-### D.3 Outbox Relay 흐름
-
-```mermaid
-sequenceDiagram
-    participant Scheduler as @Scheduled (500ms)
-    participant Relay as IdoOutboxRelay
-    participant Repo as IdoOutboxRepository
-    participant DB as ido.outbox
-    participant Kafka as Kafka
-
-    loop 매 500ms
-        Scheduler->>Relay: relay()
-        Relay->>Repo: findPendingBatch(100) — FOR UPDATE SKIP LOCKED
-        Repo->>DB: SELECT ... WHERE status='PENDING'
-        DB-->>Relay: [IdoOutboxRecord, ...]
-        loop 각 레코드
-            Relay->>Kafka: send(topic, partitionKey, AuthEvent)
-            alt 성공
-                Kafka-->>Relay: SendResult
-                Relay->>Repo: markPublished(eventId)
-            else 실패
-                Relay->>Repo: incrementRetry() 또는 markFailed()
-            end
-        end
-    end
-```
-
-### D.4 비OIDC 지원 인증 수단
-
-| 인증 수단 코드 | 표시명 | auth_level | broker_mode | PoC 상태 |
-|--------------|--------|------------|-------------|----------|
-| `PASS` | PASS 본인인증 | L2 | nonoidc | 플레이스홀더 (더미 URL) |
-| `FINANCIAL_CERT` | 금융인증서 | L3 | nonoidc | 플레이스홀더 |
-| `GPKI` | 정부공개키인증서 | L3 | nonoidc | 플레이스홀더 |
-| `JOINT_CERT` | 공동인증서 | L3 | nonoidc | 플레이스홀더 |
-
-> **운영 전환 시**: `NonOidcBrokerAdapter`의 `initPass()` / `initFinancialCert()` 등
-> 각 사업자별 SDK 또는 REST API 호출 코드로 교체 필요.
-> `verifyProviderResponse()`에 사업자별 전자서명(RSA/ECDSA) 검증 로직 추가 필수.
+| Resilience4j 문서 | https://resilience4j.readme.io/docs |
+| Spring Cache 문서 | https://docs.spring.io/spring-framework/docs/current/reference/html/integration.html#cache |
 
 ---
 
 ## 부록 C. 변경 이력
 
-| 버전 | 날짜 | 변경 내용 | 작성자 |
-|------|------|----------|--------|
-| v1.0.0 | 2026-05-06 | 초안 — q-sign 직접 브로커 설계 | AI Developer |
-| v1.1.0 | 2026-05-06 | Keycloak 이중 모드 브로커링 추가 | AI Developer |
-| v1.2.0 | 2026-05-06 | 전체 시퀀스 다이어그램, Keycloak 설정 가이드, 운영 절차 완성 | AI Developer |
-| v1.3.0 | 2026-05-06 | P0: NonOidcBrokerAdapter + Controller 구현 반영<br>P0: IdoOutboxRelay 구현 반영 (ido.outbox 전용 relay)<br>P1: Kafka 설정 키 `ido.kafka.topic-auth-events` 통일<br>P1: QsignAuthEventConsumer 토픽 키 수정<br>P2: Resilience4j `qsign-client` → `keycloak-client` 교체<br>P2: IdpBrokerService Javadoc Option 3 반영<br>부록 D 추가 (비OIDC 브로커 시퀀스 다이어그램) | AI Developer |
+| 버전 | 날짜 | 변경 유형 | 내용 |
+|------|------|----------|------|
+| v1.0.0 | 2026-05-06 | 신규 | q-sign 직접 브로커 설계 초안 |
+| v1.1.0 | 2026-05-06 | 추가 | Keycloak 이중 모드 브로커 설계 추가 |
+| v1.2.0 | 2026-05-06 | 보완 | 전체 시퀀스 다이어그램, Keycloak 설정 가이드, 운영 절차 완성 |
+| v1.3.0 | 2026-05-06 | 수정 | P0: NonOidcBrokerAdapter+Controller 추가, IdoOutboxRelay 추가; P1: Kafka 토픽 키 통일 (`ido.kafka.topic-auth-events`); P2: Resilience4j 인스턴스 `qsign-client` → `keycloak-client` 변경; 설계서 Appendix D 비OIDC 흐름 다이어그램 추가 |
+| v1.4.0 | 2026-05-07 | 전면 보완 | 실제 코드베이스 전면 재분석 기반 재작성: (1) 비OIDC 브로커 모드 §6 신규 섹션 추가 (NonOidcBrokerAdapter·Controller·AuthService 상세 기술); (2) KeycloakOidcService 11단계 처리 상세화; (3) BrokerService 분기 로직 실제 코드 기반 갱신; (4) FeSessionServiceImpl 동작 상세화 (Sliding TTL, 역인덱스, Advisory 플래그); (5) 클래스 책임 맵 §14 전면 갱신 (모든 패키지 포함); (6) API 명세 §15 비OIDC 엔드포인트 추가; (7) 시퀀스 다이어그램 q-sign/Keycloak/비OIDC 분리 및 정밀화; (8) 아키텍처 다이어그램 비OIDC + IdoOutboxRelay 반영; (9) 데이터 모델 ido.outbox/processed_event 추가; (10) 장애 대응 테이블 잠금 해제 시나리오 추가 |
 
 ---
 
-*문서 끝 — OnePass 통합인증 플랫폼 OIDC 브로커링 설계서 v1.3.0*
+*OnePass 통합인증 플랫폼 OIDC 브로커링 설계서 v1.4.0*  
+*마지막 업데이트: 2026-05-07*
