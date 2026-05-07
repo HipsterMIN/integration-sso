@@ -1,8 +1,8 @@
 # 중기원패스 회원 전환 — 프로젝트 반영 구현 플랜
 
 > **문서 분류**: 구현 계획서 (Implementation Plan)  
-> **버전**: v1.0.0  
-> **작성일**: 2026-05-07  
+> **버전**: v1.1.0  
+> **최종 수정**: 2026-05-07  
 > **근거 문서**: 중기원패스 프로세스 설계서 v0.9 (44슬라이드), PoC 실행문서  
 > **대상 독자**: 백엔드 개발자, 아키텍트, PM  
 > **관련 모듈**: `q-im`, `ido`, `q-sign`, `onepass-fe`, `agency-stub`
@@ -40,17 +40,27 @@
 ### 1.2 현재 코드베이스 구현 현황
 
 ```
-현재 구현된 영역 (GREEN)
-├── OIDC 브로커링 (q-sign / keycloak / nonoidc 3모드) ✅
-├── AuthResult 생성 + Outbox 발행 ✅
-├── FeSession 발급·관리 (Redis, 슬라이딩 TTL) ✅
+현재 구현된 영역 (GREEN) — v1.1.0 기준
+├── OIDC 브로커링 — q-sign Keycloak 어댑터 (v1.1.0 완료) ✅
+│   ├── KeycloakAuthUrlController (POST /api/v1/oidc/{provider}/auth-url) ✅
+│   ├── KeycloakCallbackController (GET /api/v1/oidc/keycloak/callback) ✅
+│   ├── KeycloakCallbackService (state→token→JWKS→identifierHash→AuthResult) ✅
+│   ├── KeycloakStateStore (Redis, qsign:oidc:state:{state}, TTL 300s) ✅
+│   ├── KeycloakJwksVerifier (Java 표준 라이브러리, @Cacheable keycloakJwks) ✅
+│   ├── KeycloakProperties (idp-hint-mapping: kakao/naver/pass/gpki) ✅
+│   └── realm-export.json (onepass, q-sign-client, ido-client, social-kakao IdP) ✅
+│
+├── OIDC 브로커링 — ido Keycloak 모드 (IDO_BROKER_MODE=keycloak) ✅
+├── 비OIDC 브로커링 (PASS/GPKI/금융인증서/공동인증서 — PoC 플레이스홀더) ✅
+├── AuthResult 생성 + Outbox 발행 (qsign.auth_result, ido.auth_result) ✅
+├── FeSession 발급·관리 (Redis, 슬라이딩 TTL 30분, 절대만료 8시간) ✅
 ├── Handoff Ticket Issue/Verify/Revoke ✅
 ├── Q-IM qimUserId 등록 (registerUser) ✅
 ├── Q-IM 상태 전이 (ACTIVE→SUSPENDED→WITHDRAWN) ✅
 ├── 인증수단 매핑 (auth_mean_mapping) 구조 ✅
 └── 기관 정책 (AgencyMeta, PolicyEngine) ✅
 
-미구현 영역 (RED) — PPTX와 대조하여 도출
+미구현 영역 (RED) — PPTX와 대조하여 도출 (v1.1.0 기준 변동 없음)
 ├── [P1] CI값 기반 68개 유관시스템 회원정보 조회 ❌
 ├── [P1] 통합계정 UUID 생성 및 연결 대상 선택 로직 ❌
 ├── [P1] 인증수단 추가 (addAuthMeanMapping) 실제 구현 ❌
