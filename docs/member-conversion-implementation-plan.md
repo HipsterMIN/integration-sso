@@ -1,7 +1,7 @@
 # 중기원패스 회원 전환 — 프로젝트 반영 구현 플랜
 
 > **문서 분류**: 구현 계획서 (Implementation Plan)  
-> **버전**: v1.1.0  
+> **버전**: v1.2.0  
 > **최종 수정**: 2026-05-07  
 > **근거 문서**: 중기원패스 프로세스 설계서 v0.9 (44슬라이드), PoC 실행문서  
 > **대상 독자**: 백엔드 개발자, 아키텍트, PM  
@@ -40,7 +40,7 @@
 ### 1.2 현재 코드베이스 구현 현황
 
 ```
-현재 구현된 영역 (GREEN) — v1.1.0 기준
+현재 구현된 영역 (GREEN) — v1.2.0 기준 (2026-05-07)
 ├── OIDC 브로커링 — q-sign Keycloak 어댑터 (v1.1.0 완료) ✅
 │   ├── KeycloakAuthUrlController (POST /api/v1/oidc/{provider}/auth-url) ✅
 │   ├── KeycloakCallbackController (GET /api/v1/oidc/keycloak/callback) ✅
@@ -58,9 +58,21 @@
 ├── Q-IM qimUserId 등록 (registerUser) ✅
 ├── Q-IM 상태 전이 (ACTIVE→SUSPENDED→WITHDRAWN) ✅
 ├── 인증수단 매핑 (auth_mean_mapping) 구조 ✅
-└── 기관 정책 (AgencyMeta, PolicyEngine) ✅
+├── 기관 정책 (AgencyMeta, PolicyEngine) ✅
+│
+└── [v1.2.0 신규] Q-IM SP 수신 API — IdO 완전 중재 패턴 ✅
+    ├── QimSpReceiverController  (POST /api/qim/sp/v1/member/{query|register|withdraw}) ✅
+    ├── QimSpReceiverService     (멱등성·AES 복호화·instMbrId 매핑·Outbox 발행) ✅
+    ├── InstMbrIdMappingRepository (ido.inst_mbr_id_mapping CRUD) ✅
+    ├── SpReceiverIdempotencyStore (ido.sp_receiver_idempotency TTL=7일) ✅
+    ├── AesSharedKeyDecryptor    (AES-256-CBC, identifierHash SHA-256) ✅
+    ├── InstMbrIdMapping         (도메인: PERSONAL|CORPORATE, ACTIVE|WITHDRAWN) ✅
+    ├── QimSpMemberEventConsumer (Kafka: qim.sp.member.events 구독) ✅
+    ├── QimSpMemberEventHandler  (REGISTERED/TRANSFERRED/WITHDRAWN 이벤트 처리) ✅
+    ├── DB V4 마이그레이션        (inst_mbr_id_mapping, sp_receiver_idempotency, qim_sp_receiver_log) ✅
+    └── application.yml          (ido.qim.inbound-api-key-hash, aes-shared-key 설정 추가) ✅
 
-미구현 영역 (RED) — PPTX와 대조하여 도출 (v1.1.0 기준 변동 없음)
+미구현 영역 (RED) — PPTX와 대조하여 도출 (v1.2.0 기준)
 ├── [P1] CI값 기반 68개 유관시스템 회원정보 조회 ❌
 ├── [P1] 통합계정 UUID 생성 및 연결 대상 선택 로직 ❌
 ├── [P1] 인증수단 추가 (addAuthMeanMapping) 실제 구현 ❌
@@ -69,11 +81,17 @@
 ├── [P2] 개인정보 동의 기록 (제3자 정보제공 동의) ❌
 ├── [P2] 개인회원 ID/PW 찾기 (CI 기반 조회) ❌
 ├── [P2] 회원정보 수정 + 유관시스템 동기화 ❌
+├── [P2] 유관기관 어댑터 알림 (AgencyAdapterService — QimSpMemberEventHandler Phase 2) ❌
 ├── [P3] 회원 탈퇴 — 기본, 삭제불가, 부분탈퇴, 개인정보포털 4종 ❌
 ├── [P3] 논리적 삭제 + 보존기간 만료 시 영구파기 ❌
+├── [P3] 개인정보 파기 스케줄링 (QimSpMemberEventHandler.onMemberWithdrawn Phase 3) ❌
 ├── [P4] 중기원패스 장애 시 유관시스템 임시 로그인 Fallback ❌
 └── [P4] IM 서버 장애 모드 Circuit Breaker 완성 ❌
 ```
+
+> **v1.2.0 주요 변경 사항**: Q-IM SP 수신 API(MEMBER_QUERY / MEMBER_REGISTER / MEMBER_WITHDRAW) 전체를
+> IdO가 대리 구현 완료. Q-IM 명세서 v1.52 기반 완전 중재 패턴 적용.
+> 상세 설계는 [qim-ido-integration-architecture.md](qim-ido-integration-architecture.md) 참조.
 
 ---
 
@@ -807,10 +825,16 @@ WDRL_MINOR_NOT_ALLOWED    ("E-WDRL-603", HttpStatus.FORBIDDEN,     "미성년자
 
 | 토픽 | 생산자 | 소비자 | 용도 |
 |------|-------|-------|------|
+| `qim.sp.member.events` | IdO (Outbox) | IdO (QimSpMemberEventConsumer) | **[v1.2.0 구현완료]** SP 수신 회원 이벤트 내부 전파 |
 | `qim.conversion.events` | Q-IM | IdO, agency-stub | 전환 완료/취소 이벤트 |
 | `qim.consent.events` | Q-IM | 법무/감사 시스템 | 개인정보 동의 기록 |
 | `qim.withdrawal.events` | Q-IM | IdO, 유관시스템 | 탈퇴/삭제 전파 |
 | `ido.fallback.events` | IdO | 모니터링 | Circuit Breaker 전환 감사 |
+
+> **`qim.sp.member.events` 이벤트 타입** (v1.2.0 구현):
+> - `QIM_MEMBER_REGISTERED`  — Q-IM이 SP(IdO)에 신규 회원 등록 통보
+> - `QIM_MEMBER_TRANSFERRED` — Q-IM이 SP(IdO)에 전환 회원 등록 통보
+> - `QIM_MEMBER_WITHDRAWN`   — Q-IM이 SP(IdO)에 회원 탈퇴 통보
 
 ### 10.2 이벤트 페이로드
 

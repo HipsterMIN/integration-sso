@@ -118,6 +118,19 @@ ido:
     agency-meta-ttl-seconds: 3600    # ≤60분 (기관 메타·정책 캐시)
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
+    # ── Q-IM → IdO 아웃바운드 수신 API (SP 역할) ─────────────────────────
+    # Q-IM 관리 콘솔에서 발급한 API Key 해시 (PBKDF2 또는 임시 평문)
+    # 운영: ${QIM_INBOUND_API_KEY_HASH} 환경변수로 주입
+    # 개발: CHANGEME 유지 시 API Key 검증 우회 (QimSpReceiverService.isValidApiKey 참조)
+    inbound-api-key-hash: ${QIM_INBOUND_API_KEY_HASH:CHANGEME}
+    # Q-IM과 협의하여 발급받은 AES-256 공유키 (Base64 인코딩, 32바이트 디코드)
+    # 운영: ${QIM_AES_SHARED_KEY} 환경변수로 주입
+    # 개발: 플레이스홀더 사용 — 실제 값은 Q-IM 팀에서 수령 후 교체 [합의 필요 #1]
+    aes-shared-key: ${QIM_AES_SHARED_KEY:CHANGEME_32BYTES_BASE64_PLACEHOLDER=}
+    # SP 수신 API 멱등성 키 TTL (일) — sp_receiver_idempotency.expires_at 기준
+    idempotency-ttl-days: 7
+    # SP 수신 감사 로그 활성화 (운영: true 권장)
+    receiver-audit-enabled: ${QIM_RECEIVER_AUDIT:true}
 
   # §11.8 Q-Sign 연동 — X-Internal-Sig
   qsign:
@@ -200,6 +213,9 @@ ido:
     consumer-group-qim: ido-qim-consumer               # qim.user.events 구독
     consumer-group-qsign: ido-qsign-consumer            # qsign.auth.events 구독
     consumer-group-fe-advisory: ido-fe-advisory-consumer  # platform.session.advisory 구독 (FE 세션)
+    # Q-IM SP 수신 API 내부 전파 컨슈머 (QimSpMemberEventConsumer)
+    topic-qim-sp-member-events: ${QIM_SP_MEMBER_TOPIC:qim.sp.member.events}
+    consumer-group-qim-sp-member: ido-qim-sp-member-consumer
 
   # Outbox Relay
   outbox:
