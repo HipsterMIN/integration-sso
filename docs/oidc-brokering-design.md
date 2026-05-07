@@ -1893,8 +1893,154 @@ psql -h localhost -U onepass -d onepass -c "\dt ido.*"
 | v1.2.0 | 2026-05-06 | 보완 | 전체 시퀀스 다이어그램, Keycloak 설정 가이드, 운영 절차 완성 |
 | v1.3.0 | 2026-05-06 | 수정 | P0: NonOidcBrokerAdapter+Controller 추가, IdoOutboxRelay 추가; P1: Kafka 토픽 키 통일 (`ido.kafka.topic-auth-events`); P2: Resilience4j 인스턴스 `qsign-client` → `keycloak-client` 변경; 설계서 Appendix D 비OIDC 흐름 다이어그램 추가 |
 | v1.4.0 | 2026-05-07 | 전면 보완 | 실제 코드베이스 전면 재분석 기반 재작성: (1) 비OIDC 브로커 모드 §6 신규 섹션 추가 (NonOidcBrokerAdapter·Controller·AuthService 상세 기술); (2) KeycloakOidcService 11단계 처리 상세화; (3) BrokerService 분기 로직 실제 코드 기반 갱신; (4) FeSessionServiceImpl 동작 상세화 (Sliding TTL, 역인덱스, Advisory 플래그); (5) 클래스 책임 맵 §14 전면 갱신 (모든 패키지 포함); (6) API 명세 §15 비OIDC 엔드포인트 추가; (7) 시퀀스 다이어그램 q-sign/Keycloak/비OIDC 분리 및 정밀화; (8) 아키텍처 다이어그램 비OIDC + IdoOutboxRelay 반영; (9) 데이터 모델 ido.outbox/processed_event 추가; (10) 장애 대응 테이블 잠금 해제 시나리오 추가 |
+| v1.5.0 | 2026-05-07 | 추가 | Q-IM SP 수신 API 연동 섹션(§18) 추가 — IdO 완전 중재 패턴, 3종 수신 API, EDA 내부 전파, instMbrId 매핑, AES 복호화, 멱등성 처리, Kafka Consumer 설계 |
 
 ---
 
-*OnePass 통합인증 플랫폼 OIDC 브로커링 설계서 v1.4.0*  
+## §18. Q-IM SP 수신 API 연동 (v1.5.0 신규)
+
+> **참조 문서**: [qim-ido-integration-architecture.md](qim-ido-integration-architecture.md),
+> [qim-sp-receiver-api-spec.md](qim-sp-receiver-api-spec.md)
+
+### 18.1 개요 — IdO 완전 중재 패턴 (ADR-001)
+
+Q-IM 명세서 v1.52는 SP(Service Provider)에게 3종의 수신 API 구현을 요구한다.  
+**본 아키텍처에서는 IdO가 해당 SP 역할을 대리 수행한다.**
+
+```
+Q-IM 명세 관점:    SP = 중기원패스 유관기관 정보시스템
+아키텍처 결정:     SP = IdO (Q-IM과 외부 세계 사이의 완전 중재자)
+
+Q-IM ──► IdO (SP 수신 API) ──► Outbox ──► Kafka ──► 유관기관 Adapter
+                                           ↑
+                               qim.sp.member.events
+                               (QimSpMemberEventConsumer)
+```
+
+**결정 근거**:
+- Q-IM 설계 정책(외부 단절)을 지키면서도 Q-IM 명세서 v1.52를 완전 충족
+- IdO가 보유한 AgencyMeta, PolicyEngine, Outbox, FeSessionService 재사용
+- Q-IM 개발팀 변경 최소화 (Q-IM 입장에서 IdO는 하나의 SP)
+- 외부 유관기관은 Q-IM을 직접 알 필요 없이 IdO API만 사용
+
+### 18.2 구현된 수신 API 3종
+
+| API | 엔드포인트 | 용도 |
+|-----|-----------|------|
+| MEMBER_QUERY | `POST /api/qim/sp/v1/member/query` | Q-IM이 전환/탈퇴 전 SP에 회원 존재 확인 |
+| MEMBER_REGISTER | `POST /api/qim/sp/v1/member/register` | Q-IM이 회원 저장 후 SP에 통보 (신규/전환) |
+| MEMBER_WITHDRAW | `POST /api/qim/sp/v1/member/withdraw` | Q-IM이 탈퇴 처리 후 모든 활성 SP에 전파 |
+
+### 18.3 공통 처리 파이프라인
+
+```
+Q-IM 호출
+  │
+  ▼
+[QimSpReceiverController]
+  │ ① X-API-Key 검증 (PBKDF2 / 개발: CHANGEME 우회)
+  │ ② 입력값 유효성 검사
+  ▼
+[QimSpReceiverService]
+  │ ③ Idempotency-Key 중복 확인 (sp_receiver_idempotency, TTL 7일)
+  │    └── 중복 시 저장된 응답 즉시 반환 (재처리 없음)
+  │ ④ AES-256-CBC 복호화 (encCi → plainCi)
+  │    └── AesSharedKeyDecryptor (Base64(IV[16] || CipherText))
+  │ ⑤ SHA-256(CI) → identifierHash 산출
+  │ ⑥ inst_mbr_id_mapping 조회/저장
+  │    └── instMbrId = qimUserId (UUID 1:1 설계)
+  │ ⑦ ido.outbox INSERT (topic: qim.sp.member.events)
+  │ ⑧ 멱등성 저장 (idempotency_key → response_json)
+  ▼
+[응답 반환] ← SLA 목표 < 500ms
+  │
+  ▼ (비동기 — Outbox Relay)
+[Kafka: qim.sp.member.events]
+  │
+  ▼
+[QimSpMemberEventConsumer]
+  │ ① 멱등 재처리 방지 (processed_event)
+  │ ② 이벤트 타입 디스패치
+  ▼
+[QimSpMemberEventHandler]
+  ├── onMemberRegistered()  → 감사 로그 / [Phase 2] 유관기관 알림
+  ├── onMemberTransferred() → 감사 로그 / [Phase 2] 이전 SP 탈퇴 + 전환 알림
+  └── onMemberWithdrawn()   → 매핑 상태 재확인 / [Phase 3] 개인정보 파기 스케줄
+```
+
+### 18.4 식별자 매핑 체계
+
+```
+Q-IM 발행 UUID    IdO 내부 매핑 테이블              SP 반환 instMbrId
+──────────────    ─────────────────────────────    ────────────────────
+mbrUuid      ──► inst_mbr_id_mapping.mbr_uuid
+qimUserId    ──► inst_mbr_id_mapping.qim_user_id
+                 inst_mbr_id_mapping.inst_mbr_id ──► (= qimUserId)
+                 inst_mbr_id_mapping.identifier_hash (SHA-256 조회 최적화)
+```
+
+> **설계 원칙**: `instMbrId = qimUserId` (UUID 1:1).  
+> Q-IM이 이미 전역 유일 UUID를 발행하므로 별도 ID 체계 불필요.  
+> 향후 다른 ID 체계 요구 시 이 매핑 테이블을 통해 전환 가능.
+
+### 18.5 보안 규약
+
+| 항목 | 내용 |
+|------|------|
+| **인바운드 인증** | `X-API-Key` 헤더 검증 (`ido.qim.inbound-api-key-hash`) |
+| **AES 공유키** | `ido.qim.aes-shared-key` (Base64 AES-256, Q-IM 발급) |
+| **CI 암호화** | AES/CBC/PKCS5Padding, IV는 암호문 앞 16바이트 |
+| **개발 환경** | `CHANGEME` 플레이스홀더 → Q-IM 팀 키 수령 후 교체 필요 |
+| **키 관리** | 환경변수 주입: `QIM_INBOUND_API_KEY_HASH`, `QIM_AES_SHARED_KEY` |
+
+> **[합의 필요 #1]**: AES 정확한 모드/패딩/IV 전달 방식은 Q-IM 팀과 확정 필요.  
+> 현재 가정: `AES/CBC/PKCS5Padding`, IV = 암호문 앞 16바이트.
+
+### 18.6 관련 DB 테이블 (V4 마이그레이션)
+
+| 테이블 | 용도 |
+|--------|------|
+| `ido.inst_mbr_id_mapping` | instMbrId ↔ qimUserId UUID 매핑 SoR |
+| `ido.sp_receiver_idempotency` | Idempotency-Key 기반 응답 재생 (TTL 7일) |
+| `ido.qim_sp_receiver_log` | 전수 감사 로그 (멱등 재호출 포함) |
+| `ido.agency_meta` (+컬럼) | fallback_login_url, fallback_enabled, qim_sp_notified |
+
+### 18.7 EDA 이벤트 토픽 요약
+
+```
+토픽: qim.sp.member.events
+생산자: IdO (QimSpReceiverService → Outbox → Relay)
+소비자: IdO (QimSpMemberEventConsumer, group: ido-qim-sp-member-consumer)
+파티션 키: qimUserId (순서 보장)
+
+이벤트 타입:
+  QIM_MEMBER_REGISTERED  — 신규 회원 등록 완료
+  QIM_MEMBER_TRANSFERRED — 전환(TRANSFER) 등록 완료
+  QIM_MEMBER_WITHDRAWN   — 회원 탈퇴 처리 완료
+```
+
+### 18.8 Q-IM 팀 합의 필요 사항
+
+| # | 항목 | 현재 가정 | 확정 필요 |
+|---|------|----------|----------|
+| 1 | AES 암호화 모드 | CBC/PKCS5Padding | Q-IM 팀 확인 |
+| 2 | IV 전달 방식 | 암호문 앞 16바이트 | Q-IM 팀 확인 |
+| 3 | API Key 검증 방식 | 단순 문자열 비교 (개발) | PBKDF2 해시 비교 (운영) |
+| 4 | instMbrId 설계 | qimUserId와 동일 UUID | Q-IM 수용 여부 확인 |
+| 5 | 재시도 정책 | Q-IM이 5xx 수신 시 재시도 | 재시도 간격/횟수 합의 |
+| 6 | TCC Confirm/Cancel | 현재 미구현 | 필요 여부 합의 |
+
+### 18.9 미구현 (Phase 2/3 예정)
+
+| 항목 | Phase | 설명 |
+|------|-------|------|
+| AgencyAdapterService 유관기관 알림 | Phase 2 | REGISTERED/TRANSFERRED 후 알림 발송 |
+| 이전 SP 탈퇴 처리 | Phase 2 | TRANSFER 시 이전 SP 탈퇴 API 호출 |
+| 개인정보 파기 스케줄링 | Phase 3 | WITHDRAWN 후 보존 정책 기반 파기 |
+| TCC Confirm/Cancel | Phase 2 | 2단계 커밋 보상 트랜잭션 |
+| API Key PBKDF2 해시 검증 | 운영 전 필수 | 현재 단순 문자열 비교 |
+
+---
+
+*OnePass 통합인증 플랫폼 OIDC 브로커링 설계서 v1.5.0*  
 *마지막 업데이트: 2026-05-07*

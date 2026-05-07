@@ -55,6 +55,9 @@ public class KafkaConsumerConfig {
     @Value("${ido.kafka.consumer-group-fe-advisory:ido-fe-advisory-consumer}")
     private String feAdvisoryConsumerGroup;
 
+    @Value("${ido.kafka.consumer-group-qim-sp-member:ido-qim-sp-member-consumer}")
+    private String qimSpMemberConsumerGroup;
+
     // ── Q-IM 이벤트 컨슈머 팩토리 ────────────────────────────────────────
 
     @Bean("qimConsumerFactory")
@@ -104,6 +107,38 @@ public class KafkaConsumerConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(qsignConsumerFactory());
         factory.setConcurrency(3);
+        factory.getContainerProperties()
+               .setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setCommonErrorHandler(defaultErrorHandler());
+        factory.getContainerProperties().setObservationEnabled(true);
+        return factory;
+    }
+
+    // ── Q-IM SP 회원 이벤트 컨슈머 팩토리 (qim.sp.member.events) ─────────
+    // QimSpReceiverService Outbox 발행 → 내부 전파용 String 역직렬화
+
+    @Bean("qimSpMemberConsumerFactory")
+    public ConsumerFactory<String, String> qimSpMemberConsumerFactory() {
+        return new DefaultKafkaConsumerFactory<>(
+                consumerProps(qimSpMemberConsumerGroup),
+                new StringDeserializer(),
+                new StringDeserializer()
+        );
+    }
+
+    /**
+     * Q-IM SP 회원 이벤트 리스너 컨테이너 팩토리
+     * - concurrency=2: SP 수신 처리량 대비 충분한 병렬도
+     * - MANUAL_IMMEDIATE: 핸들러 완료 후 명시적 ACK
+     * - Outbox 발행 payload = String JSON → String 역직렬화
+     */
+    @Bean("qimSpMemberListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<String, String>
+    qimSpMemberListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(qimSpMemberConsumerFactory());
+        factory.setConcurrency(2);
         factory.getContainerProperties()
                .setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         factory.setCommonErrorHandler(defaultErrorHandler());
