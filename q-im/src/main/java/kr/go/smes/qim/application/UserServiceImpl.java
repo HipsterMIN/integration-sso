@@ -136,9 +136,39 @@ public class UserServiceImpl implements UserService {
         });
 
         long nextVersion = user.getEventVersion() + 1;
-        // TODO: 실제 구현 시 매핑 목록에 추가 후 저장
-        log.info("[Q-IM] 인증수단 추가 qimUserId={} provider={}", qimUserId, providerCode);
-        return user;
+
+        // 신규 매핑 생성
+        AuthMeanMapping newMapping = AuthMeanMapping.builder()
+                .mappingId(UUID.randomUUID().toString())
+                .qimUserId(qimUserId)
+                .providerCode(providerCode)
+                .identifierHash(identifierHash)
+                .status(AuthMeanMapping.MappingStatus.ACTIVE)
+                .linkedAt(java.time.Instant.now())
+                .build();
+
+        // 기존 매핑 목록에 추가 (불변 List 대비 새 List 생성)
+        List<AuthMeanMapping> updatedMappings = new java.util.ArrayList<>(
+                user.getAuthMeanMappings() != null ? user.getAuthMeanMappings() : List.of());
+        updatedMappings.add(newMapping);
+
+        QimUser updated = QimUser.builder()
+                .qimUserId(user.getQimUserId())
+                .status(user.getStatus())
+                .authMeanMappings(updatedMappings)
+                .profile(user.getProfile())
+                .eventVersion(nextVersion)
+                .build();
+
+        // 저장 + Outbox 이벤트 발행 (단일 트랜잭션)
+        userRepository.save(updated);
+        outboxService.publishInTx(buildUserEvent(
+                UserEvent.TYPE_UPDATED, updated, correlationId, nextVersion,
+                "인증수단 추가: " + providerCode, true));
+
+        log.info("[Q-IM] 인증수단 추가 완료 qimUserId={} provider={} mappingId={}",
+                qimUserId, providerCode, newMapping.getMappingId());
+        return updated;
     }
 
     // ── private ─────────────────────────────────────────────────────────────

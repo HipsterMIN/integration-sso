@@ -1,9 +1,10 @@
 package kr.go.smes.ido.kafka;
 
+import kr.go.smes.common.domain.UserStatus;
 import kr.go.smes.common.event.UserEvent;
 import kr.go.smes.ido.infrastructure.LastEventVersionStore;
+import kr.go.smes.ido.infrastructure.QimClient;
 import kr.go.smes.ido.infrastructure.UserStatusCache;
-import kr.go.smes.common.domain.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -31,8 +32,9 @@ public class QimEventConsumer {
     private static final String CONSUMER_GROUP = "ido-qim-consumer";
 
     private final LastEventVersionStore lastEventVersionStore;
-    private final UserStatusCache userStatusCache;
-    private final IdempotentEventStore idempotentEventStore;
+    private final UserStatusCache       userStatusCache;
+    private final IdempotentEventStore  idempotentEventStore;
+    private final QimClient             qimClient;
     // consumer group 전용 버전 저장 → 단순 qimUserId 기반 LastEventVersionStore 래핑
     // (consumerGroup prefix 는 key 에 포함하여 구분)
 
@@ -82,10 +84,20 @@ public class QimEventConsumer {
             userStatusCache.invalidate(qimUserId);
             log.debug("[QimEventConsumer] Q-IM 캐시 무효화: qimUserId={}", qimUserId);
 
-            // ④ needsSync=true → Selective Pull 트리거 (로그만 기록, 실운영 시 Q-IM API 호출)
+            // ④ needsSync=true → Selective Pull: Q-IM API 직접 호출하여 최신 상태 갱신 (§10.5.1, §24.4.1)
             if (Boolean.TRUE.equals(event.isNeedsSync())) {
-                log.info("[QimEventConsumer] Selective Pull 트리거: qimUserId={} eventType={}",
+                log.info("[QimEventConsumer] Selective Pull 실행: qimUserId={} eventType={}",
                         qimUserId, event.getEventType());
+                try {
+                    UserStatus freshStatus = qimClient.getUserStatus(qimUserId, eventId);
+                    userStatusCache.put(qimUserId, freshStatus);
+                    log.info("[QimEventConsumer] Selective Pull 완료: qimUserId={} status={}",
+                            qimUserId, freshStatus);
+                } catch (Exception pullEx) {
+                    // Pull 실패는 캐시 무효화로 대체 — 다음 Handoff Issue 시 재조회됨
+                    log.warn("[QimEventConsumer] Selective Pull 실패 (캐시 무효화 유지): qimUserId={} error={}",
+                            qimUserId, pullEx.getMessage());
+                }
             }
 
             // ⑤ 버전 갱신 + ProcessedEvent 기록

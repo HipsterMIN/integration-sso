@@ -48,14 +48,32 @@ public class IdoWebConfig {
 
     // ── HTTP 클라이언트 ────────────────────────────────────────────────────
 
+    @Value("${ido.qim.connect-timeout-ms:3000}")
+    private int qimConnectTimeoutMs;
+
+    @Value("${ido.qim.read-timeout-ms:5000}")
+    private int qimReadTimeoutMs;
+
     /**
-     * 공통 RestTemplate — q-sign, Keycloak, Q-IM 내부 HTTP 통신
+     * 공통 RestTemplate — q-sign, Keycloak 내부 HTTP 통신
      */
     @Bean
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(connectTimeoutMs);
         factory.setReadTimeout(readTimeoutMs);
+        return new RestTemplate(factory);
+    }
+
+    /**
+     * Q-IM 전용 RestTemplate (§11.5.4 QimClientImpl 의존)
+     * - 별도 타임아웃 설정 (connect 3s / read 5s)
+     */
+    @Bean
+    public RestTemplate qimRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(qimConnectTimeoutMs);
+        factory.setReadTimeout(qimReadTimeoutMs);
         return new RestTemplate(factory);
     }
 
