@@ -2,8 +2,8 @@ package kr.go.smes.qim.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.common.event.DomainEvent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -18,17 +18,28 @@ import java.util.List;
  * 흐름:
  *   1. publishInTx() → 현재 트랜잭션 내 OUTBOX 레코드 INSERT
  *   2. relayPendingEvents() → 스케줄러가 PENDING 레코드 조회 후 Kafka 발행 + 상태 PUBLISHED 갱신
+ *
+ * [DB] NHN Cloud RDS for MariaDB (PoC: Docker MariaDB 11.x)
+ *      Outbox 테이블: qim.outbox (idx_qim_outbox_status 인덱스 활용)
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class OutboxServiceImpl implements OutboxService {
 
     private static final String TOPIC_USER_EVENTS = "qim.user.events";
 
-    private final OutboxRepository             outboxRepository;
+    private final OutboxRepository              outboxRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final ObjectMapper                 objectMapper;
+    private final ObjectMapper                  objectMapper;
+
+    public OutboxServiceImpl(
+            OutboxRepository outboxRepository,
+            @Qualifier("qimKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate,
+            ObjectMapper objectMapper) {
+        this.outboxRepository = outboxRepository;
+        this.kafkaTemplate    = kafkaTemplate;
+        this.objectMapper     = objectMapper;
+    }
 
     @Override
     @Transactional  // 호출자 트랜잭션에 참여 (PROPAGATION.REQUIRED)

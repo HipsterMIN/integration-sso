@@ -2,7 +2,13 @@ version: "3.9"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 통합인증 플랫폼 PoC — 로컬 인프라
-# 서비스: PostgreSQL 16 / Redis 7.2 / Kafka (Confluent 7.6.1) / Monitoring UI
+# 서비스: PostgreSQL 16 / MariaDB 11 / Redis 7.2 / Kafka (Confluent 7.6.1) / Monitoring UI
+#
+# [DB 분리 구조]
+#   PostgreSQL 16 (port 5432) : Q-Sign / IdO / agency-stub / Keycloak
+#   MariaDB 11    (port 3306) : Q-IM 전용
+#     → 운영: NHN Cloud RDS for MariaDB
+#     → PoC:  self-hosted MariaDB 컨테이너 (172.20.0.21)
 #
 # [아키텍처 변경] onepass-fe Spring Boot BFF 제거
 #   - onepass-fe : 순수 React SPA (Nginx 서빙)
@@ -18,6 +24,7 @@ networks:
 
 volumes:
   pg-data:
+  mariadb-data:
   redis-data:
   kafka-data:
   zookeeper-data:
@@ -27,7 +34,49 @@ volumes:
 services:
 
   # ════════════════════════════════════════════════════════════
-  # PostgreSQL 16
+  # MariaDB 11 — Q-IM 전용
+  # 운영: NHN Cloud RDS for MariaDB
+  # PoC:  self-hosted (172.20.0.21:3306)
+  # http://localhost:3306  (adminer: localhost:8091)
+  # ════════════════════════════════════════════════════════════
+  mariadb:
+    image: mariadb:11.4
+    container_name: onepass-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: qim
+      MARIADB_USER: qim
+      MARIADB_PASSWORD: qim
+      TZ: UTC
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./mariadb/mariadb.cnf:/etc/mysql/conf.d/mariadb.cnf:ro
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.21
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ════════════════════════════════════════════════════════════
+  # PostgreSQL 16 — Q-Sign / IdO / agency-stub / Keycloak
   # ════════════════════════════════════════════════════════════
   postgres:
     image: postgres:16-alpine
@@ -421,6 +470,81 @@ services:
         max-file: "5"
 
   # ════════════════════════════════════════════════════════════
+  # ★ Q-IM (식별·매핑 SoR)
+  # http://localhost:8082
+  #
+  # DB: MariaDB (onepass-mariadb:3306/qim)
+  # 빌드: ./gradlew :q-im:bootJar -x test
+  #       docker build -f q-im/Dockerfile -t onepass-qim:latest .
+  # ════════════════════════════════════════════════════════════
+  onepass-qim:
+    image: onepass-qim:latest
+    container_name: onepass-qim
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # ── MariaDB (Q-IM 전용) ─────────────────────────────────
+      QIM_DB_HOST:       mariadb
+      QIM_DB_PORT:       "3306"
+      QIM_DB_NAME:       qim
+      QIM_DB_USERNAME:   qim
+      QIM_DB_PASSWORD:   qim
+      QIM_DB_SSL:        "false"     # PoC: SSL 미사용 / 운영: true
+      REDIS_HOST:        redis
+      REDIS_PORT:        "6379"
+      KAFKA_SERVERS:     kafka:29092
+    ports:
+      - "8082:8082"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.22
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - app
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ════════════════════════════════════════════════════════════
+  # Adminer — MariaDB 관리 UI
+  # http://localhost:8091
+  #   서버: mariadb  /  사용자: qim  /  암호: qim  /  DB: qim
+  # ════════════════════════════════════════════════════════════
+  adminer:
+    image: adminer:latest
+    container_name: onepass-adminer
+    restart: unless-stopped
+    ports:
+      - "8091:8080"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.23
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    profiles:
+      - tools
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ════════════════════════════════════════════════════════════
   # ★ IdO (정책 오케스트레이터 + FE BFF)
   # http://localhost:8083
   #
@@ -429,6 +553,7 @@ services:
   #   /api/v1/handoff/**     — Handoff Ticket 발급/검증
   #   CORS 허용 Origin       — onepass-react(3001), React dev(3000)
   #
+  # DB: PostgreSQL (onepass-postgres:5432/onepass, schema=ido)
   # 빌드: ./gradlew :ido:bootJar -x test
   #       docker build -f ido/Dockerfile -t onepass-ido:latest .
   # ════════════════════════════════════════════════════════════
@@ -438,6 +563,7 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      # ── PostgreSQL (IdO 전용) ───────────────────────────────
       DB_HOST:               postgres
       DB_PORT:               "5432"
       DB_NAME:               onepass

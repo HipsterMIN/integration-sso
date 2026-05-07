@@ -25,16 +25,17 @@
 10. [IDE 설정 가이드](#10-ide-설정-가이드)
 11. [자주 발생하는 오류 및 해결 방법](#11-자주-발생하는-오류-및-해결-방법)
     - 11.1 [Docker 관련 오류](#111-docker-관련-오류)
-    - 11.2 [PostgreSQL 관련 오류](#112-postgresql-관련-오류)
-    - 11.3 [Kafka / Zookeeper 관련 오류](#113-kafka--zookeeper-관련-오류)
-    - 11.4 [Redis 관련 오류](#114-redis-관련-오류)
-    - 11.5 [Gradle / Java 빌드 오류](#115-gradle--java-빌드-오류)
-    - 11.6 [Spring Boot 기동 오류](#116-spring-boot-기동-오류)
-    - 11.7 [Flyway 마이그레이션 오류](#117-flyway-마이그레이션-오류)
-    - 11.8 [프론트엔드 (Node.js / Yarn) 오류](#118-프론트엔드-nodejs--yarn-오류)
-    - 11.9 [Keycloak 관련 오류 (v1.1.0 신규)](#119-keycloak-관련-오류)
-    - 11.10 [Windows 전용 오류](#1110-windows-전용-오류)
-    - 11.11 [macOS 전용 오류](#1111-macos-전용-오류)
+    - 11.2 [MariaDB 관련 오류 (Q-IM 전용)](#112-mariadb-관련-오류-q-im-전용)
+    - 11.3 [PostgreSQL 관련 오류](#113-postgresql-관련-오류)
+    - 11.4 [Kafka / Zookeeper 관련 오류](#114-kafka--zookeeper-관련-오류)
+    - 11.5 [Redis 관련 오류](#115-redis-관련-오류)
+    - 11.6 [Gradle / Java 빌드 오류](#116-gradle--java-빌드-오류)
+    - 11.7 [Spring Boot 기동 오류](#117-spring-boot-기동-오류)
+    - 11.8 [Flyway 마이그레이션 오류](#118-flyway-마이그레이션-오류)
+    - 11.9 [프론트엔드 (Node.js / Yarn) 오류](#119-프론트엔드-nodejs--yarn-오류)
+    - 11.10 [Keycloak 관련 오류](#1110-keycloak-관련-오류)
+    - 11.11 [Windows 전용 오류](#1111-windows-전용-오류)
+    - 11.12 [macOS 전용 오류](#1112-macos-전용-오류)
 12. [개발 Tips 및 유용한 명령어](#12-개발-tips-및-유용한-명령어)
 13. [서비스 종료 방법](#13-서비스-종료-방법)
 
@@ -426,9 +427,11 @@ integration-sso/                      ← 프로젝트 루트
 ├── infra/
 │   └── docker/
 │       ├── docker-compose.yml        ← ★ 인프라 기동 파일
-│       ├── init-db.sql               ← PostgreSQL 초기 스키마
+│       ├── init-db.sql               ← PostgreSQL 초기 스키마 (Q-IM 제외)
 │       ├── kafka/
 │       │   └── create-topics.sh      ← Kafka 토픽 초기화
+│       ├── mariadb/
+│       │   └── mariadb.cnf           ← MariaDB PoC 튜닝 설정 (Q-IM 전용)
 │       ├── nginx/
 │       │   └── nginx.conf
 │       ├── postgres/
@@ -453,8 +456,11 @@ chmod +x gradlew
 
 ## 3. Step 1 — 인프라 기동 (Docker Compose)
 
-> 📋 **기동 순서**: 인프라(PostgreSQL → Redis → Zookeeper → Kafka) → 백엔드 → 프론트엔드  
+> 📋 **기동 순서**: 인프라(MariaDB + PostgreSQL → Redis → Zookeeper → Kafka) → 백엔드 → 프론트엔드  
 > 인프라가 완전히 준비되지 않은 상태에서 Spring Boot를 기동하면 연결 오류가 발생합니다.
+>
+> ⚠️ **DB 분리**: Q-IM은 **MariaDB 11** (port 3306, 별도 컨테이너)을 사용합니다.  
+> Q-Sign / IdO / agency-stub / Keycloak은 **PostgreSQL 16** (port 5432)을 공유합니다.
 
 ### 3.1 docker-compose.yml 위치
 
@@ -472,7 +478,8 @@ docker compose -f infra/docker/docker-compose.yml up -d
 ```
 
 이 명령으로 기동되는 서비스:
-- `onepass-postgres` — PostgreSQL 16 (port 5432)
+- `onepass-mariadb` — **MariaDB 11.4 (port 3306) — Q-IM 전용**
+- `onepass-postgres` — PostgreSQL 16 (port 5432) — Q-Sign / IdO / agency-stub / Keycloak 공용
 - `onepass-redis` — Redis 7.2 (port 6379)
 - `onepass-zookeeper` — Zookeeper (port 2181)
 - `onepass-kafka` — Kafka Broker (port 9092)
@@ -502,7 +509,9 @@ docker compose -f infra/docker/docker-compose.yml up -d
 ### 3.3 선택적 프로파일 기동
 
 ```bash
-# pgAdmin 4 포함 기동 (DB GUI 관리 도구, port 5050)
+# pgAdmin 4 + Adminer 포함 기동 (DB GUI 관리 도구)
+# pgAdmin 4 (port 5050): PostgreSQL 관리
+# Adminer   (port 8091): MariaDB(Q-IM) 관리 — 서버: mariadb / 사용자: qim / 암호: qim / DB: qim
 docker compose -f infra/docker/docker-compose.yml --profile tools up -d
 
 # Keycloak 포함 기동 (OIDC 브로커 모드 사용 시, port 8088)
@@ -547,6 +556,7 @@ docker compose -f infra/docker/docker-compose.yml ps
 
 ```
 NAME                    STATUS              PORTS
+onepass-mariadb         Up (healthy)        0.0.0.0:3306->3306/tcp   ← Q-IM 전용 MariaDB
 onepass-postgres        Up (healthy)        0.0.0.0:5432->5432/tcp
 onepass-redis           Up (healthy)        0.0.0.0:6379->6379/tcp
 onepass-zookeeper       Up (healthy)        0.0.0.0:2181->2181/tcp
@@ -558,14 +568,47 @@ onepass-redis-insight   Up                  0.0.0.0:5540->5540/tcp
 
 > ⚠️ `kafka-init`의 exit code가 **0** 이어야 정상입니다. **1** 이면 토픽 생성 실패입니다.
 
-### 4.2 PostgreSQL 연결 확인
+### 4.2 MariaDB 연결 확인 (Q-IM 전용)
+
+```bash
+# MariaDB 컨테이너 연결 확인
+docker exec -it onepass-mariadb mariadb -u qim -pqim qim -e "SHOW TABLES;"
+```
+
+**Q-IM Flyway 마이그레이션 후 정상 출력:**
+
+```
++---------------------------+
+| Tables_in_qim             |
++---------------------------+
+| auth_mean_mapping         |
+| flyway_schema_history     |
+| last_event_version        |
+| outbox                    |
+| processed_event           |
+| qim_user                  |
+| snapshot_meta             |
+| user_profile              |
+| user_status_history       |
++---------------------------+
+```
+
+> ⚠️ `flyway_schema_history` 테이블에 V1, V2 마이그레이션이 `Success` 상태이어야 합니다.
+
+```bash
+# MariaDB Flyway 이력 확인
+docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
+  -e "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
+```
+
+### 4.3 PostgreSQL 연결 확인
 
 ```bash
 # Docker 컨테이너 내부에서 psql 실행
 docker exec -it onepass-postgres psql -U onepass -d onepass -c "\dn"
 ```
 
-**정상 출력:**
+**정상 출력 (Q-IM 제거, MariaDB로 이관됨):**
 
 ```
       List of schemas
@@ -575,19 +618,20 @@ docker exec -it onepass-postgres psql -U onepass -d onepass -c "\dn"
  ido         | onepass
  keycloak    | onepass
  public      | pg_database_owner
- qim         | onepass
  qsign       | onepass
-(6 rows)
+(5 rows)
 ```
 
-### 4.3 Redis 연결 확인
+> ℹ️ `qim` 스키마는 PostgreSQL에 없습니다. Q-IM은 MariaDB(`onepass-mariadb:3306/qim`)를 사용합니다.
+
+### 4.4 Redis 연결 확인
 
 ```bash
 docker exec -it onepass-redis redis-cli ping
 # PONG 이 출력되면 정상
 ```
 
-### 4.4 Kafka 토픽 생성 확인
+### 4.5 Kafka 토픽 생성 확인
 
 ```bash
 docker exec -it onepass-kafka \
@@ -609,15 +653,16 @@ qsign.auth.events
 qsign.auth.events.dlq
 ```
 
-> ⚠️ 토픽 목록이 비어 있거나 일부만 있는 경우 → [11.3 Kafka 오류 해결](#113-kafka--zookeeper-관련-오류) 참조
+> ⚠️ 토픽 목록이 비어 있거나 일부만 있는 경우 → [11.4 Kafka 오류 해결](#114-kafka--zookeeper-관련-오류) 참조
 
-### 4.5 모니터링 UI 접속 확인
+### 4.6 모니터링 UI 접속 확인
 
 | 서비스 | URL | 계정 |
 |--------|-----|------|
 | Kafka UI | http://localhost:8090 | admin / admin |
 | Redis Insight | http://localhost:5540 | 없음 |
 | pgAdmin 4 | http://localhost:5050 | admin@onepass.local / admin |
+| **Adminer (MariaDB)** | **http://localhost:8091** | **qim / qim (DB: qim)** |
 
 ---
 
@@ -747,6 +792,9 @@ curl http://localhost:8081/actuator/health
 ./gradlew :q-im:bootRun
 ```
 
+> ⚠️ q-im은 **MariaDB** (`localhost:3306/qim`)에 연결합니다.  
+> `onepass-mariadb` 컨테이너가 `healthy` 상태인지 먼저 확인하세요.
+
 #### Windows PowerShell
 
 ```powershell
@@ -810,26 +858,48 @@ curl http://localhost:8084/actuator/health
 #### Linux / macOS
 
 ```bash
-# 환경변수 재정의 예시
+# IdO / Q-Sign / agency-stub 환경변수 재정의 예시 (PostgreSQL 공용)
 REDIS_HOST=localhost \
 DB_HOST=localhost \
 KAFKA_SERVERS=localhost:9092 \
 ./gradlew :ido:bootRun
+
+# Q-IM 환경변수 재정의 예시 (MariaDB 전용 — QIM_DB_* 네임스페이스)
+QIM_DB_HOST=localhost \
+QIM_DB_PORT=3306 \
+QIM_DB_NAME=qim \
+QIM_DB_USERNAME=qim \
+QIM_DB_PASSWORD=qim \
+REDIS_HOST=localhost \
+KAFKA_SERVERS=localhost:9092 \
+./gradlew :q-im:bootRun
 ```
 
 #### Windows PowerShell
 
 ```powershell
+# IdO / Q-Sign / agency-stub
 $env:REDIS_HOST="localhost"
 $env:DB_HOST="localhost"
 $env:KAFKA_SERVERS="localhost:9092"
 .\gradlew.bat :ido:bootRun
+
+# Q-IM (MariaDB 전용)
+$env:QIM_DB_HOST="localhost"
+$env:QIM_DB_PORT="3306"
+$env:QIM_DB_NAME="qim"
+$env:QIM_DB_USERNAME="qim"
+$env:QIM_DB_PASSWORD="qim"
+.\gradlew.bat :q-im:bootRun
 ```
 
 #### Windows Git Bash
 
 ```bash
+# IdO
 REDIS_HOST=localhost DB_HOST=localhost ./gradlew :ido:bootRun
+# Q-IM
+QIM_DB_HOST=localhost QIM_DB_PORT=3306 QIM_DB_NAME=qim QIM_DB_USERNAME=qim QIM_DB_PASSWORD=qim ./gradlew :q-im:bootRun
 ```
 
 ### 6.6 Spring Boot 브로커 모드 설정 (ido)
@@ -990,23 +1060,41 @@ curl http://localhost:8084/actuator/health
 | **Keycloak** | http://localhost:8088 | admin / admin | OIDC 브로커 (profile: keycloak) |
 | **Kafka UI** | http://localhost:8090 | admin / admin | Kafka 토픽/메시지 모니터링 |
 | **Redis Insight** | http://localhost:5540 | — | Redis 키/데이터 뷰어 |
-| **pgAdmin 4** | http://localhost:5050 | admin@onepass.local / admin | DB GUI (profile: tools) |
+| **pgAdmin 4** | http://localhost:5050 | admin@onepass.local / admin | PostgreSQL DB GUI (profile: tools) |
+| **Adminer** | http://localhost:8091 | qim / qim (DB: qim) | **MariaDB(Q-IM) 관리 UI** (profile: tools) |
 | **Schema Registry** | http://localhost:8085 | — | Avro 스키마 관리 (profile: schema) |
-| **PostgreSQL** | localhost:5432 | onepass / onepass | DB 직접 접속 |
+| **PostgreSQL** | localhost:5432 | onepass / onepass | Q-Sign / IdO / agency-stub / Keycloak DB |
+| **MariaDB** | localhost:3306 | qim / qim (DB: qim) | **Q-IM 전용 DB** |
 | **Redis** | localhost:6379 | 없음 | Redis 직접 접속 |
 | **Kafka** | localhost:9092 | — | Kafka 외부 리스너 |
 | **Zookeeper** | localhost:2181 | — | Zookeeper |
 
-### PostgreSQL 스키마 구조
+### DB 엔진별 스키마 구조
 
+**PostgreSQL** (`localhost:5432`, DB: `onepass`)
 ```
 DB명: onepass
 ├── qsign.*        — Q-Sign 인증 SoR 테이블
-├── qim.*          — Q-IM 식별 SoR 테이블
 ├── ido.*          — IdO 정책·Handoff·FE세션 테이블
 ├── agency_stub.*  — Agency-Stub 테이블
 └── keycloak.*     — Keycloak 테이블 (keycloak 프로파일 사용 시)
 ```
+
+**MariaDB** (`localhost:3306`, DB: `qim`) — Q-IM 전용
+```
+DB명: qim
+├── qim_user           — 사용자 오브젝트 SoR (§10.2)
+├── auth_mean_mapping  — identifierHash → qimUserId 단방향 매핑 (§10.3)
+├── user_profile       — 사용자 속성 (PII 마스킹, §10.4)
+├── user_status_history— 상태 전이 감사 이력 (§10.5)
+├── outbox             — Transactional Outbox (§10.5.2)
+├── last_event_version — Ordered Consumer 버전 추적 (§11.5.5)
+├── processed_event    — 멱등 컨슈머 중복 방지 (§16.3)
+└── snapshot_meta      — Compacted Snapshot 발행 이력 (§11.5.6)
+```
+
+> ℹ️ Q-IM 테이블은 Flyway(`q-im/src/main/resources/db/migration/`)가 자동 생성합니다.  
+> PostgreSQL `init-db.sql`에 Q-IM 스키마는 포함되지 않습니다.
 
 ---
 
@@ -1227,11 +1315,83 @@ docker system prune -a --volumes
 docker compose -f infra/docker/docker-compose.yml down -v
 ```
 
-> ⚠️ `-v` 옵션은 **PostgreSQL, Kafka, Redis 데이터를 모두 삭제**합니다. 주의!
+> ⚠️ `-v` 옵션은 **MariaDB, PostgreSQL, Kafka, Redis 데이터를 모두 삭제**합니다. 주의!
 
 ---
 
-### 11.2 PostgreSQL 관련 오류
+### 11.2 MariaDB 관련 오류 (Q-IM 전용)
+
+---
+
+#### 오류: Q-IM Flyway 마이그레이션 실패 — `Unable to obtain connection`
+
+**증상:**
+```
+org.flywaydb.core.api.exception.FlywayException:
+  Unable to obtain connection from database:
+  Communications link failure
+```
+
+**원인**: MariaDB 컨테이너가 아직 준비되지 않았습니다.
+
+**해결:**
+```bash
+# MariaDB 컨테이너 상태 확인
+docker compose -f infra/docker/docker-compose.yml ps mariadb
+# STATUS 컬럼이 "Up (healthy)" 인지 확인
+
+# healthy 상태가 아니면 로그 확인
+docker compose -f infra/docker/docker-compose.yml logs mariadb
+
+# MariaDB 재시작
+docker compose -f infra/docker/docker-compose.yml restart mariadb
+
+# 준비 완료까지 대기 후 Q-IM 재기동
+./gradlew :q-im:bootRun
+```
+
+---
+
+#### 오류: `Access denied for user 'qim'@'...'`
+
+**증상:**
+```
+java.sql.SQLException: Access denied for user 'qim'@'172.20.0.22' (using password: YES)
+```
+
+**원인**: MariaDB 컨테이너 볼륨이 손상되거나 사용자 설정이 누락되었습니다.
+
+**해결:**
+```bash
+# MariaDB 볼륨 초기화 (데이터 삭제 주의)
+docker compose -f infra/docker/docker-compose.yml down -v mariadb
+docker compose -f infra/docker/docker-compose.yml up -d mariadb
+# healthy 상태 확인 후 q-im 재기동
+```
+
+---
+
+#### 오류: `Bind for 0.0.0.0:3306 failed: port is already allocated`
+
+**원인**: 로컬에 MySQL/MariaDB가 이미 실행 중입니다.
+
+**해결:**
+```bash
+# Linux
+sudo systemctl stop mysql
+sudo systemctl stop mariadb
+
+# macOS (Homebrew)
+brew services stop mysql
+brew services stop mariadb
+
+# Windows
+net stop MySQL80
+```
+
+---
+
+### 11.3 PostgreSQL 관련 오류
 
 ---
 
@@ -1304,7 +1464,7 @@ docker compose -f infra/docker/docker-compose.yml up -d
 
 ---
 
-### 11.3 Kafka / Zookeeper 관련 오류
+### 11.4 Kafka / Zookeeper 관련 오류
 
 ---
 
@@ -1388,7 +1548,7 @@ docker compose -f infra/docker/docker-compose.yml restart kafka
 
 ---
 
-### 11.4 Redis 관련 오류
+### 11.5 Redis 관련 오류
 
 ---
 
@@ -1442,7 +1602,7 @@ docker compose -f infra/docker/docker-compose.yml restart redis
 
 ---
 
-### 11.5 Gradle / Java 빌드 오류
+### 11.6 Gradle / Java 빌드 오류
 
 ---
 
@@ -1573,7 +1733,7 @@ sdk install gradle 9.5
 
 ---
 
-### 11.6 Spring Boot 기동 오류
+### 11.7 Spring Boot 기동 오류
 
 ---
 
@@ -1658,7 +1818,7 @@ docker exec -it onepass-kafka \
 
 ---
 
-### 11.7 Flyway 마이그레이션 오류
+### 11.8 Flyway 마이그레이션 오류
 
 ---
 
@@ -1717,7 +1877,7 @@ docker compose -f infra/docker/docker-compose.yml up -d
 
 ---
 
-### 11.8 프론트엔드 (Node.js / Yarn) 오류
+### 11.9 프론트엔드 (Node.js / Yarn) 오류
 
 ---
 
@@ -1816,7 +1976,7 @@ curl http://localhost:8083/actuator/health
 
 ---
 
-### 11.9 Keycloak 관련 오류
+### 11.10 Keycloak 관련 오류
 
 ---
 
@@ -2043,7 +2203,7 @@ q-sign이 `bootRun`으로 실행 중이면 Keycloak 컨테이너와 포트가 �
 
 ---
 
-### 11.10 Windows 전용 오류
+### 11.11 Windows 전용 오류
 
 ---
 
@@ -2127,7 +2287,7 @@ REM PowerShell에서는 .\ 필요
 
 ---
 
-### 11.11 macOS 전용 오류
+### 11.12 macOS 전용 오류
 
 ---
 
@@ -2241,20 +2401,41 @@ docker network ls
 docker network inspect onepass_onepass-net
 ```
 
-### 12.3 PostgreSQL 유용한 명령어
+### 12.3 MariaDB 유용한 명령어 (Q-IM 전용)
+
+```bash
+# MariaDB CLI 접속
+docker exec -it onepass-mariadb mariadb -u qim -pqim qim
+
+# 테이블 목록
+SHOW TABLES;
+
+# 특정 테이블 조회
+SELECT * FROM qim_user LIMIT 10;
+SELECT * FROM auth_mean_mapping WHERE status = 'ACTIVE' LIMIT 10;
+SELECT * FROM outbox WHERE status = 'PENDING' ORDER BY created_at LIMIT 10;
+
+# Flyway 마이그레이션 이력 확인
+SELECT version, description, success, installed_on
+FROM flyway_schema_history ORDER BY installed_rank;
+
+# 사용자 상태 분포
+SELECT status, COUNT(*) FROM qim_user GROUP BY status;
+```
+
+### 12.4 PostgreSQL 유용한 명령어
 
 ```bash
 # psql 접속
 docker exec -it onepass-postgres psql -U onepass -d onepass
 
 # 스키마별 테이블 목록
-\dn          -- 스키마 목록
+\dn          -- 스키마 목록 (qim 없음 — MariaDB 이관)
 \dt qsign.*  -- qsign 스키마 테이블 목록
 \dt ido.*    -- ido 스키마 테이블 목록
 
 # 특정 테이블 조회
 SELECT * FROM ido.agency_meta LIMIT 10;
-SELECT * FROM qim.qim_user LIMIT 10;
 
 # Flyway 마이그레이션 이력 확인
 SELECT * FROM ido.flyway_schema_history ORDER BY installed_on;
@@ -2436,11 +2617,16 @@ Step 5 — 프론트엔드 기동 (1개 터미널)
 
 | 설정 | 로컬 기본값 | Docker 기본값 |
 |------|-----------|-------------|
-| PostgreSQL Host | `localhost` | `postgres` |
+| PostgreSQL Host (IdO/Q-Sign) | `localhost` | `postgres` |
 | PostgreSQL Port | `5432` | `5432` |
 | PostgreSQL DB | `onepass` | `onepass` |
 | PostgreSQL User | `onepass` | `onepass` |
 | PostgreSQL Password | `onepass` | `onepass` |
+| **MariaDB Host (Q-IM)** | **`localhost`** | **`mariadb`** |
+| **MariaDB Port** | **`3306`** | **`3306`** |
+| **MariaDB DB** | **`qim`** | **`qim`** |
+| **MariaDB User (Q-IM)** | **`qim`** | **`qim`** |
+| **MariaDB Password (Q-IM)** | **`qim`** | **`qim`** |
 | Redis Host | `localhost` | `redis` |
 | Redis Port | `6379` | `6379` |
 | Kafka Servers | `localhost:9092` | `kafka:29092` |
