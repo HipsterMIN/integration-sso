@@ -377,7 +377,8 @@ services:
     image: quay.io/keycloak/keycloak:24.0
     container_name: onepass-keycloak
     restart: unless-stopped
-    command: start-dev --http-port=8080
+    # --import-realm: 컨테이너 최초 기동 시 realm-export.json 을 자동 임포트
+    command: start-dev --http-port=8080 --import-realm
     environment:
       KEYCLOAK_ADMIN:          admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -397,6 +398,8 @@ services:
       - "8088:8080"
     volumes:
       - keycloak-data:/opt/keycloak/data
+      # realm-export.json 자동 임포트 (--import-realm 옵션과 함께)
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     networks:
       onepass-net:
         ipv4_address: 172.20.0.18
@@ -408,7 +411,7 @@ services:
       interval: 20s
       timeout: 10s
       retries: 10
-      start_period: 60s
+      start_period: 90s
     profiles:
       - keycloak             # docker compose --profile keycloak up 으로 선택 기동
     logging:

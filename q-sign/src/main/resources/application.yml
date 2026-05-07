@@ -115,12 +115,15 @@ qsign:
   auth-level:
     KAKAO_OIDC: L1
     NAVER_OIDC: L1
+    PASS_OIDC: L2
     PASS: L2
     FINANCIAL_CERT: L3
+    GPKI_OIDC: L3
     GPKI: L3
-  # IdO 내부 통신 (X-Internal-Sig)
+  # IdO 내부 통신 설정
   ido:
     base-url: ${IDO_BASE_URL:http://localhost:8083}
+    internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:ido-internal-secret}
     internal-sig-ttl-seconds: 60
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
@@ -133,26 +136,40 @@ qsign:
     batch-size: 100
     max-retry: 3
 
-  # ── 카카오 OIDC 브로커 설정 ────────────────────────────────────
-  oidc:
-    # state / nonce Redis TTL (5분 — Authorization URL 유효시간)
+  # ── Keycloak 어댑터 설정 ────────────────────────────────────
+  # q-sign 은 Keycloak 의 OIDC 클라이언트 어댑터로 동작한다.
+  # 카카오·네이버 등 소셜 IdP 연동은 Keycloak 이 내부 처리하며,
+  # q-sign 은 Keycloak 과만 통신한다 (외부 IdP 직접 호출 금지).
+  keycloak:
+    # Keycloak 서버 Base URL
+    # Docker 환경: http://keycloak:8080
+    # 로컬 환경:   http://localhost:8088
+    base-url: ${KEYCLOAK_URL:http://localhost:8088}
+    # Keycloak Realm
+    realm: ${KEYCLOAK_REALM:onepass}
+    # q-sign 용 Keycloak Client ID
+    client-id: ${QSIGN_KEYCLOAK_CLIENT_ID:q-sign-client}
+    # q-sign 용 Keycloak Client Secret
+    # 환경변수: QSIGN_KEYCLOAK_CLIENT_SECRET
+    client-secret: ${QSIGN_KEYCLOAK_CLIENT_SECRET:change-me}
+    # Keycloak 이 인증 완료 후 리다이렉트할 q-sign Callback URI
+    # Keycloak Admin Console > Clients > q-sign-client > Valid Redirect URIs 에 등록 필요
+    redirect-uri: ${QSIGN_KEYCLOAK_REDIRECT_URI:http://localhost:8081/api/v1/oidc/keycloak/callback}
+    # state/nonce Redis TTL (초)
     state-ttl-seconds: 300
-    # JWKS 공개키 캐시 TTL (1시간)
+    # JWKS 공개키 캐시 TTL (초, 기본 1시간)
     jwks-cache-ttl-seconds: 3600
     # HTTP 클라이언트 타임아웃
     http:
       connect-timeout-ms: 3000
       read-timeout-ms: 5000
-    kakao:
-      # 카카오 개발자 콘솔 → 내 애플리케이션 → 앱 키 → REST API 키
-      client-id: ${KAKAO_CLIENT_ID:your-kakao-client-id}
-      # 카카오 보안 → Client Secret (선택, 활성화 권장)
-      client-secret: ${KAKAO_CLIENT_SECRET:}
-      # 카카오 개발자 콘솔 → Redirect URI 에 등록한 값과 정확히 일치해야 함
-      # q-sign 이 직접 callback 수신
-      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8081/api/v1/oidc/kakao/callback}
-      # 요청 scope (openid 필수 — id_token 발급 요건)
-      scope: "openid profile_nickname account_email"
+    # provider 식별자 → Keycloak kc_idp_hint 매핑
+    # ido 가 전달하는 provider 이름을 Keycloak Identity Provider alias 로 변환
+    idp-hint-mapping:
+      kakao: social-kakao
+      naver: social-naver
+      pass:  social-pass
+      gpki:  social-gpki
 
 # ── Resilience4j ──────────────────────────────────────────────
 resilience4j:
