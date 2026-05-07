@@ -9,11 +9,14 @@ spring:
     timeout-per-shutdown-phase: 20s
 
   # ── DataSource ──────────────────────────────────────────────
+  # [변경] PostgreSQL → MariaDB
+  # 운영: NHN Cloud RDS for MariaDB (${QIM_DB_HOST})
+  # 로컬 PoC: Docker self-hosted MariaDB 11.x (172.20.0.21:3306)
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:onepass}?currentSchema=qim
-    username: ${DB_USERNAME:onepass}
-    password: ${DB_PASSWORD:onepass}
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:mariadb://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:3306}/${QIM_DB_NAME:qim}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true&useSSL=${QIM_DB_SSL:false}
+    username: ${QIM_DB_USERNAME:qim}
+    password: ${QIM_DB_PASSWORD:qim}
+    driver-class-name: org.mariadb.jdbc.Driver
     hikari:
       pool-name: qim-hikari
       maximum-pool-size: 20
@@ -25,6 +28,8 @@ spring:
       connection-test-query: SELECT 1
 
   # ── JPA ────────────────────────────────────────────────────
+  # [변경] PostgreSQLDialect → MariaDBDialect
+  # MariaDB는 스키마 개념 없음 → default_schema 제거, DB 자체가 qim
   jpa:
     hibernate:
       ddl-auto: validate
@@ -32,8 +37,7 @@ spring:
     open-in-view: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_schema: qim
+        dialect: org.hibernate.dialect.MariaDBDialect
         jdbc:
           time_zone: UTC
           batch_size: 50
@@ -41,11 +45,11 @@ spring:
         order_updates: true
 
   # ── Flyway ─────────────────────────────────────────────────
+  # [변경] schemas/default-schema 제거 (MariaDB는 DB = 스키마)
+  # MariaDB Flyway는 flyway-mysql 플러그인 사용 (build.gradle.kts 참조)
   flyway:
     enabled: true
     locations: classpath:db/migration
-    schemas: qim
-    default-schema: qim
     baseline-on-migrate: true
     baseline-version: 0
     validate-on-migrate: true
