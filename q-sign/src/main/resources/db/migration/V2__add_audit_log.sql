@@ -72,8 +72,7 @@ CREATE TABLE qsign.used_nonce (
     CONSTRAINT pk_used_nonce PRIMARY KEY (nonce)
 );
 
-CREATE INDEX idx_used_nonce_expires ON qsign.used_nonce (expires_at)
-    WHERE expires_at < NOW() + INTERVAL '5 minutes';  -- purge 배치 대상
+CREATE INDEX idx_used_nonce_expires ON qsign.used_nonce (expires_at);  -- purge 배치 대상 (일반 인덱스; partial index WHERE NOW() 는 IMMUTABLE 제약으로 불가)
 
 COMMENT ON TABLE  qsign.used_nonce          IS '§16.4.1 Nonce 재사용 방지 – TTL 기반 자동 purge 대상';
 COMMENT ON COLUMN qsign.used_nonce.nonce    IS 'JTI 또는 HMAC-based nonce';

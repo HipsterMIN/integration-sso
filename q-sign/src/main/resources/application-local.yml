@@ -1,0 +1,21 @@
+# ============================================================
+# Q-Sign local 프로파일 — 샌드박스 직접 구동용
+# ============================================================
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      missing-topics-fatal: false
+    consumer:
+      properties:
+        metadata.max.age.ms: 5000
+  flyway:
+    enabled: true
+    connect-retries: 3
+    connect-retries-interval: 3s
+
+logging:
+  level:
+    org.springframework.kafka: ERROR
+    org.apache.kafka: ERROR

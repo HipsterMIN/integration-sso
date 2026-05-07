@@ -61,8 +61,7 @@ CREATE TABLE ido.sp_receiver_idempotency (
         CHECK (endpoint IN ('QUERY','REGISTER','WITHDRAW'))
 );
 
-CREATE INDEX idx_sp_idempotency_expires ON ido.sp_receiver_idempotency (expires_at)
-    WHERE expires_at > NOW();
+CREATE INDEX idx_sp_idempotency_expires ON ido.sp_receiver_idempotency (expires_at);  -- 일반 인덱스 (partial index WHERE NOW() 는 IMMUTABLE 제약으로 불가)
 
 COMMENT ON TABLE  ido.sp_receiver_idempotency               IS 'Q-IM SP 수신 API 멱등성 저장소 (TTL=7일)';
 COMMENT ON COLUMN ido.sp_receiver_idempotency.response_json IS '재호출 시 그대로 반환할 응답 JSON 문자열';

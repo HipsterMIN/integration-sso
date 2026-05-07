@@ -1,0 +1,28 @@
+# ============================================================
+# Q-IM local 프로파일 — 샌드박스 직접 구동용
+# Kafka 브로커 없이 DB + Redis 계층만 검증
+# ============================================================
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      missing-topics-fatal: false   # 토픽 없어도 기동 허용
+    consumer:
+      properties:
+        metadata.max.age.ms: 5000   # 메타데이터 재조회 주기 단축
+  # Flyway: 마이그레이션 실행
+  flyway:
+    enabled: true
+    connect-retries: 3
+    connect-retries-interval: 3s
+
+# Outbox Relay 비활성 (Kafka 없으므로)
+qim:
+  outbox:
+    relay-interval-ms: 3600000     # 1시간 = 사실상 비활성
+
+logging:
+  level:
+    org.springframework.kafka: ERROR
+    org.apache.kafka: ERROR
