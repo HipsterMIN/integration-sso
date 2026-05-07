@@ -664,7 +664,7 @@ sequenceDiagram
     IDO->>REDIS: SET fe:session:{feSessionId} {identifierHash, authResultId, authLevel}
     IDO->>DB: INSERT ido.oidc_session_log
 
-    IDO-->>FE: 302 → returnUrl<br>Set-Cookie: feSessionId=...; HttpOnly; Secure; SameSite=Lax
+    IDO-->>FE: 302 → returnUrl (Set-Cookie: feSessionId, HttpOnly/Secure/SameSite=Lax)
 
     Note over IDO,KAFKA: IdoOutboxRelay @Scheduled(500ms)
     IDO->>KAFKA: RETRY PUBLISH ido.outbox PENDING (at-least-once)
