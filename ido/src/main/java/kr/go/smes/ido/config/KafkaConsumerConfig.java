@@ -9,6 +9,7 @@ import kr.go.smes.common.event.SessionAdvisoryEvent;
 import kr.go.smes.common.event.UserEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
@@ -219,6 +221,11 @@ public class KafkaConsumerConfig {
     /**
      * 지수 백오프 재시도 (최대 3회) → DLQ 전송
      * 재시도 간격: 1s → 2s → 4s
+     *
+     * <p>설계서 §19.4 / §24.4.1 DLQ 전략:
+     * 최대 재시도 초과 시 "{원본토픽}.dlt" 토픽으로 전송.
+     * DLQ 레코드 헤더에 originalTopic / failureReason / failureCount /
+     * correlationId / eventId 를 보존하여 운영 추적 가능하게 함.
      */
     private DefaultErrorHandler defaultErrorHandler() {
         ExponentialBackOffWithMaxRetries backOff =
@@ -226,7 +233,36 @@ public class KafkaConsumerConfig {
         backOff.setInitialInterval(1_000L);
         backOff.setMultiplier(2.0);
         backOff.setMaxInterval(10_000L);
-        return new DefaultErrorHandler(backOff);
+
+        // DLQ: 원본 토픽명 + ".dlt" 접미사 토픽으로 전송
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                idoKafkaTemplate(),
+                (record, ex) -> new TopicPartition(record.topic() + ".dlt", -1)
+        );
+
+        // DLQ 헤더에 장애 컨텍스트 정보 보존 (설계서 §24.4.1)
+        recoverer.setHeadersFunction((consumerRecord, ex) -> {
+            org.apache.kafka.common.header.internals.RecordHeaders headers =
+                    new org.apache.kafka.common.header.internals.RecordHeaders();
+            // originalTopic 보존
+            headers.add("x-original-topic",
+                    consumerRecord.topic().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            // failureReason 보존
+            String reason = ex.getCause() != null ? ex.getCause().getClass().getSimpleName()
+                    : ex.getClass().getSimpleName();
+            headers.add("x-failure-reason",
+                    reason.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            // 원본 헤더 전달 (correlationId / eventId 등 보존)
+            consumerRecord.headers().forEach(h -> {
+                if (!"x-original-topic".equals(h.key())
+                        && !"x-failure-reason".equals(h.key())) {
+                    headers.add(h);
+                }
+            });
+            return headers;
+        });
+
+        return new DefaultErrorHandler(recoverer, backOff);
     }
 
     // ── Shared ────────────────────────────────────────────────────────────

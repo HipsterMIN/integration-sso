@@ -18,10 +18,16 @@ public enum PlatformErrorCode {
     QS_PROVIDER_TIMEOUT   ("E-QS-003", HttpStatus.GATEWAY_TIMEOUT,"외부 인증 사업자 응답 시간 초과."),
 
     // ── 브로커 오류 (E-IDP-4xx) — 비OIDC/반표준 정규화 경로 전용 ────────────
-    IDP_PROVIDER_UNAVAILABLE("E-IDP-401", HttpStatus.BAD_GATEWAY,     "인증 사업자 연결 불가."),
-    IDP_RESPONSE_INVALID     ("E-IDP-402", HttpStatus.BAD_GATEWAY,     "인증 사업자 응답 형식 오류."),
-    IDP_SIGNATURE_MISMATCH   ("E-IDP-403", HttpStatus.UNPROCESSABLE_ENTITY, "사업자 응답 서명 불일치."),
-    IDP_CIRCUIT_OPEN         ("E-IDP-404", HttpStatus.SERVICE_UNAVAILABLE,  "Circuit Breaker OPEN 상태."),
+    // 설계서 §6.3.1 브로커 오류 코드 상세 정의 참조
+    IDP_PROVIDER_UNAVAILABLE    ("E-IDP-401", HttpStatus.BAD_GATEWAY,          "인증 사업자 연결 불가."),
+    IDP_RESPONSE_INVALID        ("E-IDP-402", HttpStatus.BAD_GATEWAY,          "인증 사업자 응답 형식 오류."),
+    IDP_SIGNATURE_MISMATCH      ("E-IDP-403", HttpStatus.UNPROCESSABLE_ENTITY, "사업자 응답 서명 불일치."),
+    // E-IDP-404: Provider Registry 미등록 providerCode — §24.4.1 체크리스트 항목
+    IDP_PROVIDER_NOT_REGISTERED ("E-IDP-404", HttpStatus.NOT_FOUND,            "등록되지 않은 인증 사업자 코드입니다."),
+    // E-IDP-405: Circuit Breaker OPEN 상태 (이전 E-IDP-404에서 변경)
+    IDP_CIRCUIT_OPEN            ("E-IDP-405", HttpStatus.SERVICE_UNAVAILABLE,  "Circuit Breaker OPEN 상태 — 해당 인증 사업자 일시 차단."),
+    // E-OPS-901: 외부 시스템 장애 (Retry-After 헤더 필수 — §17.5)
+    OPS_EXTERNAL_SYSTEM_ERROR   ("E-OPS-901", HttpStatus.BAD_GATEWAY,          "외부 인증 사업자 장애."),
 
     // ── Q-IM 오류 (E-IM-2xx) ─────────────────────────────────────────────────
     IM_USER_NOT_FOUND     ("E-IM-201", HttpStatus.NOT_FOUND,      "사용자 정본을 찾을 수 없습니다."),

@@ -272,6 +272,7 @@ public class KeycloakCallbackService {
                 .correlationId(correlationId)
                 .authLevel(authLevel)
                 .providerCode(providerCode)
+                .authMethod(AuthResult.resolveAuthMethod(providerCode))
                 .providerTxId("kc-" + claims.getSubject().hashCode())
                 .identifierHash(identifierHash)
                 .authenticatedAt(Instant.now())

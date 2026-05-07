@@ -71,11 +71,16 @@ public class OutboxServiceImpl implements OutboxService {
                                 outboxRepository.markPublished(record.getEventId());
                                 log.debug("[Outbox] 발행 완료 eventId={}", record.getEventId());
                             } else {
-                                log.error("[Outbox] 발행 실패 eventId={}", record.getEventId(), ex);
+                                // 설계서 §10.5.2 GAP-QIM-04: 비동기 발행 실패 → FAILED 전환
+                                outboxRepository.markFailed(record.getEventId());
+                                log.error("[Outbox] 발행 실패 → FAILED 전환 eventId={}",
+                                        record.getEventId(), ex);
                             }
                         });
             } catch (Exception e) {
-                log.error("[Outbox] Relay 오류 eventId={}", record.getEventId(), e);
+                // 동기 예외(직렬화·전송 오류 등): 즉시 FAILED 전환
+                outboxRepository.markFailed(record.getEventId());
+                log.error("[Outbox] Relay 동기 오류 → FAILED 전환 eventId={}", record.getEventId(), e);
             }
         }
     }

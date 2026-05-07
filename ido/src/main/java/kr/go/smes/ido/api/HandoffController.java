@@ -10,10 +10,14 @@ import kr.go.smes.ido.handoff.HandoffIssueCommand;
 import kr.go.smes.ido.handoff.HandoffService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.time.Duration;
+import java.util.UUID;
 
 /**
  * IdO Handoff Issue / Verify API
@@ -25,19 +29,37 @@ import jakarta.validation.Valid;
 @RequiredArgsConstructor
 public class HandoffController {
 
+    private static final String IDEMPOTENCY_KEY_PREFIX = "ido:idempotency:handoff:";
+    private static final Duration IDEMPOTENCY_TTL       = Duration.ofDays(1);
+
     private final HandoffService handoffService;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
      * Handoff Ticket 발급
      * POST /api/v1/handoff/issue
+     * §17.5 Idempotency-Key 헤더 지원 — 재시도 시 중복 Ticket 발급 방지 (GAP-API-02)
      */
     @PostMapping("/issue")
     public ResponseEntity<HandoffTicket> issue(
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @RequestHeader(value = "Idempotency-Key",  required = false) String idempotencyKey,
             @Valid @RequestBody HandoffIssueRequest req) {
 
         String cid = correlationId != null ? correlationId : CorrelationIdHolder.generate();
         CorrelationIdHolder.set(cid);
+
+        // §17.5 Idempotency-Key 멱등 처리
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            String redisKey = IDEMPOTENCY_KEY_PREFIX + idempotencyKey;
+            Object cached = redisTemplate.opsForValue().get(redisKey);
+            if (cached != null) {
+                log.info("[HandoffController] Idempotency-Key 캐시 HIT — 이전 응답 반환: key={} cid={}",
+                        idempotencyKey, cid);
+                // 캐시된 응답은 ticketId 문자열로 저장 → 재발급 없이 204 반환
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+            }
+        }
 
         HandoffIssueCommand cmd = HandoffIssueCommand.builder()
                 .correlationId(cid)
@@ -50,6 +72,13 @@ public class HandoffController {
                 .build();
 
         HandoffTicket ticket = handoffService.issue(cmd);
+
+        // Idempotency-Key 캐시 저장 (TTL 1일)
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            String redisKey = IDEMPOTENCY_KEY_PREFIX + idempotencyKey;
+            redisTemplate.opsForValue().set(redisKey, ticket.getTicketId(), IDEMPOTENCY_TTL);
+        }
+
         return ResponseEntity.ok(ticket);
     }
 

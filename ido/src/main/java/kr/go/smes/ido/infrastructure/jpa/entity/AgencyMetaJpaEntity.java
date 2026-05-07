@@ -1,0 +1,97 @@
+package kr.go.smes.ido.infrastructure.jpa.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.Instant;
+
+/**
+ * 기관 메타 JPA 엔터티 — ido.agency_meta 테이블 매핑
+ * 설계서 §11.2 / §11.3 기관 정책 SoR
+ *
+ * [DB] PostgreSQL — ido 스키마
+ */
+@Entity
+@Table(name = "agency_meta", schema = "ido")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class AgencyMetaJpaEntity {
+
+    @Id
+    @Column(name = "agency_code", length = 50, nullable = false)
+    private String agencyCode;
+
+    @Column(name = "official_name", length = 200, nullable = false)
+    private String officialName;
+
+    /** 최소 인증 수준: L1 / L2 / L3 */
+    @Column(name = "min_auth_level", length = 10, nullable = false)
+    private String minAuthLevel;
+
+    /** 현재 정책 버전 — Handoff Payload policyVersion 에 반영 */
+    @Column(name = "policy_version", length = 20, nullable = false)
+    private String policyVersion;
+
+    /** PBKDF2(apiKey) 해시 — 평문 저장 금지 */
+    @Column(name = "api_key_hash", length = 300)
+    private String apiKeyHash;
+
+    /**
+     * 허용된 콜백 URL 화이트리스트 (JSONB → TEXT 로 저장, 도메인에서 파싱)
+     * e.g. ["https://agency-a.example.com/callback"]
+     */
+    @Column(name = "callback_whitelist", columnDefinition = "jsonb")
+    private String callbackWhitelist;
+
+    /**
+     * 기관이 조회 허용한 사용자 속성 목록 (JSONB)
+     * e.g. ["name_masked","mobile_masked"]
+     */
+    @Column(name = "allowed_attributes", columnDefinition = "jsonb")
+    private String allowedAttributes;
+
+    /**
+     * 점검 시간대 (JSONB)
+     * e.g. [{"dayOfWeek":"MON","startTime":"02:00","endTime":"04:00"}]
+     */
+    @Column(name = "maintenance_windows", columnDefinition = "jsonb")
+    private String maintenanceWindows;
+
+    /** 연동 유형: DIRECT / APACHE_GATE / BRIDGE / INTERNAL_SSO */
+    @Column(name = "integration_type", length = 20, nullable = false)
+    private String integrationType;
+
+    @Column(name = "bridge_endpoint", length = 500)
+    private String bridgeEndpoint;
+
+    @Column(name = "sso_domain", length = 200)
+    private String ssoDomain;
+
+    @Column(name = "active", nullable = false)
+    @Builder.Default
+    private boolean active = true;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
+        if (minAuthLevel == null) minAuthLevel = "L1";
+        if (policyVersion == null) policyVersion = "1.0";
+        if (integrationType == null) integrationType = "DIRECT";
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+}

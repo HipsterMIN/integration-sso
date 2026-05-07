@@ -1,5 +1,6 @@
 package kr.go.smes.ido.handoff;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.common.domain.HandoffPayload;
 import kr.go.smes.common.domain.HandoffTicket;
 import kr.go.smes.common.domain.UserStatus;
@@ -7,6 +8,7 @@ import kr.go.smes.common.error.PlatformErrorCode;
 import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.event.HandoffEvent;
 import kr.go.smes.ido.domain.AgencyMeta;
+import kr.go.smes.ido.handoff.crypto.HandoffCryptoService;
 import kr.go.smes.ido.infrastructure.AgencyMetaRepository;
 import kr.go.smes.ido.infrastructure.TicketRepository;
 import kr.go.smes.ido.policy.PolicyEngine;
@@ -35,6 +37,8 @@ public class HandoffServiceImpl implements HandoffService {
     private final AgencyMetaRepository agencyMetaRepository;
     private final TicketRepository     ticketRepository;
     private final PolicyEngine         policyEngine;
+    private final HandoffCryptoService handoffCryptoService;
+    private final ObjectMapper         objectMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
@@ -70,10 +74,21 @@ public class HandoffServiceImpl implements HandoffService {
             throw new PlatformException(PlatformErrorCode.IM_USER_WITHDRAWN, cmd.getCorrelationId());
         }
 
-        // 5. Ticket 발급 (AEAD 암호화 + 서명)
+        // 5. Ticket 발급 (AES-256-GCM 암호화 + HMAC-SHA256 서명)
         Instant now = Instant.now();
+        String ticketId = UUID.randomUUID().toString();
+
+        // 5-1. 페이로드 직렬화 (암호화 대상)
+        String plainPayload = buildPlainPayload(ticketId, cmd);
+
+        // 5-2. AES-256-GCM 암호화 — AAD = ticketId (바인딩)
+        String encryptedPayload = handoffCryptoService.encrypt(plainPayload, ticketId);
+
+        // 5-3. HMAC-SHA256 서명 — ticketId|agencyCode|encryptedPayload
+        String signature = handoffCryptoService.sign(ticketId, cmd.getAgencyCode(), encryptedPayload);
+
         HandoffTicket ticket = HandoffTicket.builder()
-                .ticketId(UUID.randomUUID().toString())
+                .ticketId(ticketId)
                 .correlationId(cmd.getCorrelationId())
                 .agencyCode(cmd.getAgencyCode())
                 .qimUserId(cmd.getQimUserId())
@@ -82,10 +97,8 @@ public class HandoffServiceImpl implements HandoffService {
                 .state(HandoffTicket.TicketState.ISSUED)
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(TICKET_TTL_SEC))
-                // TODO: 실제 AEAD 암호화 적용
-                .encryptedPayload("TODO:ENCRYPTED")
-                // TODO: HMAC-SHA256 서명 적용
-                .signature("TODO:SIGNATURE")
+                .encryptedPayload(encryptedPayload)
+                .signature(signature)
                 .build();
 
         ticketRepository.save(ticket);
@@ -146,6 +159,27 @@ public class HandoffServiceImpl implements HandoffService {
     }
 
     // ── private ─────────────────────────────────────────────────────────────
+
+    /**
+     * Ticket payload 직렬화 (AES 암호화 전 평문)
+     * 설계서 §16.4: qimUserId / authResultId / authLevel / agencyCode / issuedAt 포함
+     */
+    private String buildPlainPayload(String ticketId, HandoffIssueCommand cmd) {
+        try {
+            java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+            payload.put("ticketId",     ticketId);
+            payload.put("qimUserId",    cmd.getQimUserId());
+            payload.put("agencyCode",   cmd.getAgencyCode());
+            payload.put("authResultId", cmd.getAuthResultId());
+            payload.put("authLevel",    cmd.getAuthLevel().name());
+            payload.put("providerCode", cmd.getProviderCode());
+            payload.put("issuedAt",     Instant.now().toString());
+            return objectMapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            log.error("[HandoffService] 페이로드 직렬화 실패", e);
+            throw new RuntimeException("Handoff payload 직렬화 실패", e);
+        }
+    }
 
     private void publishHandoffEvent(String type, HandoffTicket ticket, String revokeReason) {
         HandoffEvent event = new HandoffEvent(
