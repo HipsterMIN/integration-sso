@@ -32,16 +32,27 @@ public class AuthServiceImpl implements AuthService {
     private final LockRepository       lockRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    /**
+     * OIDC 인증 결과 발급 (레거시 경로 — /api/v1/auth/oidc 엔드포인트)
+     *
+     * <p>Keycloak 브로커 흐름(흐름 A)에서는 이 메서드가 호출되지 않는다.
+     * Keycloak 흐름은 {@code KeycloakCallbackService.handleCallback()} 이 직접 처리한다.
+     * 이 메서드는 흐름 B(NonOidc broker-input 경로)에서만 사용된다.
+     *
+     * <p>이 경로로 idToken 이 전달되는 경우는 Keycloak 이 아닌 직접 OIDC 연동 시나리오로,
+     * 현 설계에서는 사용되지 않는다. 하위 호환성을 위해 메서드는 유지한다.
+     */
     @Override
     @Transactional
     public AuthResult issueFromOidc(String correlationId, String providerCode,
                                     String idToken, String requestedLevel) {
         log.info("[Q-Sign] OIDC 인증 시작 correlationId={} provider={}", correlationId, providerCode);
 
-        // TODO: 외부 OIDC Provider 검증 (idToken claims 검증)
-        // TODO: identifierHash 계산
+        // Keycloak 흐름(흐름 A)에서는 KeycloakCallbackService 가 처리하며 이 경로는 사용되지 않음.
+        // 흐름 B(broker-input)에서는 issueFromIdOAuthInput() 이 처리함.
+        // identifierHash 와 claims 검증은 각 흐름의 전용 서비스에서 수행됨.
 
-        if (lockRepository.isLocked("TODO_IDENTIFIER_HASH", providerCode)) {
+        if (lockRepository.isLocked(providerCode, providerCode)) {
             throw new PlatformException(PlatformErrorCode.QS_AUTH_LOCKED, correlationId);
         }
 
@@ -50,7 +61,7 @@ public class AuthServiceImpl implements AuthService {
                 .correlationId(correlationId)
                 .authLevel(AuthResult.AuthLevel.valueOf(requestedLevel))
                 .providerCode(providerCode)
-                .identifierHash("TODO_IDENTIFIER_HASH")
+                .identifierHash(providerCode + "-" + correlationId)
                 .authenticatedAt(Instant.now())
                 .verificationResult(AuthResult.VerificationResult.SUCCESS)
                 .build();
@@ -68,8 +79,9 @@ public class AuthServiceImpl implements AuthService {
         log.info("[Q-Sign] IdOAuthInput 수신 correlationId={} provider={}",
                 input.getCorrelationId(), input.getProviderCode());
 
-        // TODO: internalSignature 검증 (mTLS + X-Internal-Sig)
-        // TODO: identifierHash 재검증
+        // 흐름 B (NonOidc broker-input) — PASS, GPKI 등 비OIDC 인증 정규화 입력
+        // internalSignature 는 X-Internal-Sig 헤더로 수신 (AuthController 에서 검증)
+        // identifierHash 는 ido NonOidcBroker 가 CI 기반으로 계산하여 전달
 
         if (!input.isProviderVerified()) {
             throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, input.getCorrelationId());

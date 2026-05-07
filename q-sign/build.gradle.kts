@@ -21,10 +21,8 @@ dependencies {
     implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
     implementation("org.springframework.boot:spring-boot-starter-aop")
 
-    // JWT (Ticket 서명, 설계서 16.4절)
-    implementation("io.jsonwebtoken:jjwt-api:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
+    // JWT 검증: Java 표준 라이브러리만 사용 (java.security.Signature, java.security.KeyFactory)
+    // Keycloak JWKS RS256 검증 시 외부 JWT 라이브러리 불필요 — jjwt 의존성 제거됨
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")

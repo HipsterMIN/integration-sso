@@ -23,24 +23,27 @@ import java.time.Duration;
 /**
  * Q-Sign Web / RestTemplate / Cache 설정
  *
- * <p>카카오 OIDC 연동에 필요한:
+ * <p>Keycloak 어댑터 연동에 필요한:
  * <ul>
- *   <li>RestTemplate — token endpoint, JWKS 호출</li>
- *   <li>CacheManager (Redis) — JWKS 공개키 캐싱 (kakaoJwks)</li>
+ *   <li>RestTemplate — Keycloak token endpoint, JWKS 호출</li>
+ *   <li>CacheManager (Redis) — Keycloak JWKS 공개키 캐싱 (keycloakJwks, TTL 3600초)</li>
  *   <li>ObjectMapper — JSON 직렬화</li>
  * </ul>
+ *
+ * <p><b>설계 원칙</b>: q-sign 은 Keycloak 과만 통신한다.
+ * 카카오·네이버 등 외부 IdP 직접 연결은 금지.
  */
 @Configuration
 @EnableCaching
 public class QSignWebConfig implements WebMvcConfigurer {
 
-    @Value("${qsign.oidc.http.connect-timeout-ms:3000}")
+    @Value("${qsign.keycloak.http.connect-timeout-ms:3000}")
     private int connectTimeoutMs;
 
-    @Value("${qsign.oidc.http.read-timeout-ms:5000}")
+    @Value("${qsign.keycloak.http.read-timeout-ms:5000}")
     private int readTimeoutMs;
 
-    @Value("${qsign.oidc.jwks-cache-ttl-seconds:3600}")
+    @Value("${qsign.keycloak.jwks-cache-ttl-seconds:3600}")
     private long jwksCacheTtlSeconds;
 
     // ── RestTemplate ────────────────────────────────────────────────────
@@ -74,13 +77,14 @@ public class QSignWebConfig implements WebMvcConfigurer {
                         RedisSerializationContext.SerializationPair
                                 .fromSerializer(new GenericJackson2JsonRedisSerializer()));
 
-        // kakaoJwks 캐시: JWKS 공개키를 1시간 캐싱 (카카오 JWKS 는 변경 빈도 낮음)
+        // keycloakJwks 캐시: Keycloak JWKS 공개키를 1시간 캐싱
+        // KeycloakJwksVerifier.fetchPublicKey() 의 @Cacheable(value="keycloakJwks") 와 일치해야 함
         RedisCacheConfiguration jwksConfig = defaultConfig
                 .entryTtl(Duration.ofSeconds(jwksCacheTtlSeconds));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
-                .withCacheConfiguration("kakaoJwks", jwksConfig)
+                .withCacheConfiguration("keycloakJwks", jwksConfig)
                 .build();
     }
 }

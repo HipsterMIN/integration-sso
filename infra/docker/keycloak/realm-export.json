@@ -1,0 +1,175 @@
+{
+  "realm": "onepass",
+  "enabled": true,
+  "displayName": "OnePass 통합인증",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "clients": [
+    {
+      "clientId": "q-sign-client",
+      "name": "Q-Sign OIDC 어댑터 클라이언트",
+      "description": "q-sign 모듈이 Keycloak Authorization Code Flow 를 처리하는 Confidential Client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "secret": "change-me",
+      "redirectUris": [
+        "http://localhost:8081/api/v1/oidc/keycloak/callback",
+        "http://onepass-qsign:8081/api/v1/oidc/keycloak/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8081",
+        "http://onepass-qsign:8081"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "+"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "ido-client",
+      "name": "IdO BFF 클라이언트",
+      "description": "ido 모듈 (Policy Orchestrator + FE BFF) — broker.mode=keycloak 전환 시 사용",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "secret": "change-me",
+      "redirectUris": [
+        "http://localhost:8083/api/v1/broker/callback",
+        "http://onepass-ido:8083/api/v1/broker/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8083"
+      ],
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ]
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "social-kakao",
+      "displayName": "카카오 로그인",
+      "providerId": "oidc",
+      "enabled": true,
+      "updateProfileFirstLoginMode": "on",
+      "trustEmail": false,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${env.KAKAO_CLIENT_ID:your-kakao-client-id}",
+        "clientSecret": "${env.KAKAO_CLIENT_SECRET:}",
+        "authorizationUrl": "https://kauth.kakao.com/oauth/authorize",
+        "tokenUrl": "https://kauth.kakao.com/oauth/token",
+        "jwksUrl": "https://kauth.kakao.com/.well-known/jwks.json",
+        "issuer": "https://kauth.kakao.com",
+        "defaultScopes": "openid profile account_email",
+        "validateSignature": "true",
+        "useJwksUrl": "true",
+        "pkceEnabled": "false",
+        "sendClientSecretBasic": "false"
+      }
+    },
+    {
+      "alias": "social-naver",
+      "displayName": "네이버 로그인",
+      "providerId": "oidc",
+      "enabled": false,
+      "config": {
+        "clientId": "${env.NAVER_CLIENT_ID:your-naver-client-id}",
+        "clientSecret": "${env.NAVER_CLIENT_SECRET:}",
+        "authorizationUrl": "https://nid.naver.com/oauth2.0/authorize",
+        "tokenUrl": "https://nid.naver.com/oauth2.0/token",
+        "defaultScopes": "openid",
+        "validateSignature": "false",
+        "useJwksUrl": "false"
+      }
+    },
+    {
+      "alias": "social-pass",
+      "displayName": "PASS 인증",
+      "providerId": "oidc",
+      "enabled": false,
+      "config": {
+        "clientId": "${env.PASS_CLIENT_ID:your-pass-client-id}",
+        "clientSecret": "${env.PASS_CLIENT_SECRET:}",
+        "defaultScopes": "openid"
+      }
+    },
+    {
+      "alias": "social-gpki",
+      "displayName": "GPKI 공동인증서",
+      "providerId": "oidc",
+      "enabled": false,
+      "config": {
+        "clientId": "${env.GPKI_CLIENT_ID:your-gpki-client-id}",
+        "clientSecret": "${env.GPKI_CLIENT_SECRET:}",
+        "defaultScopes": "openid"
+      }
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "onepass-user",
+        "description": "OnePass 일반 사용자"
+      },
+      {
+        "name": "onepass-admin",
+        "description": "OnePass 관리자"
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "poc-testuser",
+      "email": "poc@onepass.test",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "PoC",
+      "lastName": "테스터",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Test1234!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["onepass-user"]
+    }
+  ]
+}
