@@ -32,8 +32,9 @@
     - 11.6 [Spring Boot 기동 오류](#116-spring-boot-기동-오류)
     - 11.7 [Flyway 마이그레이션 오류](#117-flyway-마이그레이션-오류)
     - 11.8 [프론트엔드 (Node.js / Yarn) 오류](#118-프론트엔드-nodejs--yarn-오류)
-    - 11.9 [Windows 전용 오류](#119-windows-전용-오류)
-    - 11.10 [macOS 전용 오류](#1110-macos-전용-오류)
+    - 11.9 [Keycloak 관련 오류 (v1.1.0 신규)](#119-keycloak-관련-오류)
+    - 11.10 [Windows 전용 오류](#1110-windows-전용-오류)
+    - 11.11 [macOS 전용 오류](#1111-macos-전용-오류)
 12. [개발 Tips 및 유용한 명령어](#12-개발-tips-및-유용한-명령어)
 13. [서비스 종료 방법](#13-서비스-종료-방법)
 
@@ -1815,7 +1816,234 @@ curl http://localhost:8083/actuator/health
 
 ---
 
-### 11.9 Windows 전용 오류
+### 11.9 Keycloak 관련 오류
+
+---
+
+#### 오류: `Connection refused` — Keycloak에 연결할 수 없음
+
+**증상:**
+```
+java.net.ConnectException: Connection refused: localhost/127.0.0.1:8081
+# 또는 q-sign 로그에서:
+ERROR KeycloakCallbackService - Keycloak token endpoint 호출 실패
+```
+
+**원인**: Keycloak 컨테이너가 기동되지 않았습니다.
+
+**해결:**
+```bash
+# Keycloak 컨테이너 상태 확인
+docker compose -f infra/docker/docker-compose.yml ps | grep keycloak
+
+# Keycloak 기동 (--profile keycloak 필요)
+docker compose -f infra/docker/docker-compose.yml --profile keycloak up -d
+
+# 기동까지 대기 (1~2분 소요)
+docker compose -f infra/docker/docker-compose.yml logs -f keycloak
+
+# healthy 확인
+curl -s http://localhost:8081/health/ready
+# {"status":"UP"} 이면 정상
+```
+
+---
+
+#### 오류: `Realm 'onepass' not found` — realm-export.json 임포트 실패
+
+**증상:**
+```
+# Keycloak 로그에서:
+ERROR: Failed to import realm: File not found
+# 또는 curl http://localhost:8081/realms/onepass 에서 404
+```
+
+**원인**: `realm-export.json` 마운트 경로 오류 또는 파일 누락
+
+**해결:**
+```bash
+# realm-export.json 파일 존재 확인
+ls -la infra/docker/keycloak/realm-export.json
+
+# 파일이 없으면 git에서 복구
+git checkout -- infra/docker/keycloak/realm-export.json
+
+# Keycloak 컨테이너 재시작 (볼륨은 유지)
+docker compose -f infra/docker/docker-compose.yml restart keycloak
+
+# 재시작 후 Realm 임포트 확인
+curl -s http://localhost:8081/realms/onepass | python3 -m json.tool | grep '"realm"'
+# "realm": "onepass" 이면 정상
+
+# 임포트가 여전히 실패하면 컨테이너 재생성
+docker compose -f infra/docker/docker-compose.yml --profile keycloak down
+docker compose -f infra/docker/docker-compose.yml --profile keycloak up -d
+```
+
+---
+
+#### 오류: `authorizationUrl`이 `kauth.kakao.com`으로 시작함 (잘못된 URL)
+
+**증상:**
+```json
+{ "authorizationUrl": "https://kauth.kakao.com/oauth/authorize?..." }
+```
+
+**원인**: q-sign의 `application.yml`이 올바르게 적용되지 않았거나 이전 버전의 JAR가 실행 중입니다.
+
+**해결:**
+```bash
+# 1. 클린 빌드 후 재기동
+./gradlew :q-sign:clean :q-sign:build -x test
+./gradlew :q-sign:bootRun
+
+# 2. q-sign application.yml에 Keycloak 설정 확인
+grep -A 10 "keycloak:" q-sign/src/main/resources/application.yml
+# qsign.keycloak.base-url 항목이 있어야 함
+
+# 3. 환경변수 확인 (로컬 기동 시)
+echo $QSIGN_KEYCLOAK_BASE_URL
+# 값이 없으면 application.yml 기본값(http://localhost:8081) 사용
+```
+
+---
+
+#### 오류: `state 검증 실패` — CSRF state 불일치
+
+**증상:**
+```
+PlatformException: IDP_SIGNATURE_MISMATCH — state 검증 실패 (만료 또는 불일치)
+# 브라우저 리다이렉트: /error?code=E-IDP-003
+```
+
+**원인 및 해결:**
+1. **state TTL 만료** (기본 300초): 인증 페이지를 5분 이상 방치 후 로그인 시도
+   ```bash
+   # state TTL 확인 (application.yml)
+   grep "state-ttl-seconds" q-sign/src/main/resources/application.yml
+   # 기본값: 300 (5분). 개발 시 600으로 늘릴 수 있음
+   ```
+2. **Redis 연결 끊김**: state가 저장되지 않은 경우
+   ```bash
+   docker exec -it onepass-redis redis-cli ping
+   # PONG 이면 정상
+   docker compose -f infra/docker/docker-compose.yml restart redis
+   ```
+3. **중복 콜백 요청**: 브라우저 새로고침 등으로 콜백이 두 번 실행된 경우
+   - state는 1회 소비(consume) 후 삭제되므로 재사용 불가
+   - 재인증 안내 후 처음부터 다시 시도
+
+---
+
+#### 오류: `IDP_SIGNATURE_MISMATCH` — Keycloak JWKS 서명 검증 실패
+
+**증상:**
+```
+PlatformException: IDP_SIGNATURE_MISMATCH — JWKS 서명 검증 실패
+```
+
+**원인**: Keycloak JWKS 엔드포인트에서 공개키를 가져오지 못하거나, 키가 로테이션된 경우
+
+**해결:**
+```bash
+# 1. Keycloak JWKS 엔드포인트 접근 가능 확인
+curl -s http://localhost:8081/realms/onepass/protocol/openid-connect/certs \
+  | python3 -m json.tool | grep '"kid"'
+# kid 값이 있으면 정상
+
+# 2. keycloakJwks 캐시 만료 강제 (Spring Boot 재시작으로 캐시 초기화)
+# q-sign 재시작 시 캐시가 초기화됨
+./gradlew :q-sign:bootRun
+
+# 3. Keycloak 로그에서 오류 확인
+docker compose -f infra/docker/docker-compose.yml logs keycloak | tail -50
+```
+
+---
+
+#### 오류: `QSIGN_KEYCLOAK_CLIENT_SECRET` 미설정으로 token exchange 실패
+
+**증상:**
+```
+# Keycloak 응답:
+{"error":"unauthorized_client","error_description":"Invalid client credentials"}
+```
+
+**원인**: q-sign의 Client Secret이 잘못 설정되었거나 미설정
+
+**해결:**
+```bash
+# 1. Keycloak Admin Console에서 q-sign-client Secret 확인
+# http://localhost:8081 → admin/admin
+# Clients → q-sign-client → Credentials 탭 → Secret 복사
+
+# 2. 환경변수로 설정 (Linux/macOS)
+export QSIGN_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
+./gradlew :q-sign:bootRun
+
+# Windows PowerShell
+$env:QSIGN_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
+.\gradlew.bat :q-sign:bootRun
+
+# 3. application.yml에 직접 설정 (로컬 개발 전용 — 운영 사용 금지)
+# qsign.keycloak.client-secret: "직접-값-입력"
+```
+
+---
+
+#### 오류: `kc_idp_hint`가 URL에 없음 — IdP 힌트 매핑 오류
+
+**증상**: authorizationUrl에 `kc_idp_hint` 파라미터가 없음
+
+**원인**: `qsign.keycloak.idp-hint-mapping`에 해당 provider가 없음
+
+**해결:**
+```bash
+# application.yml 매핑 확인
+grep -A 10 "idp-hint-mapping" q-sign/src/main/resources/application.yml
+# 출력 예시:
+#   idp-hint-mapping:
+#     kakao: social-kakao
+#     naver: social-naver
+#     pass: social-pass
+#     gpki: social-gpki
+
+# 매핑이 없으면 추가 후 재기동
+./gradlew :q-sign:bootRun
+```
+
+---
+
+#### 오류: Keycloak Admin Console 로그인 불가 (포트 8081 충돌)
+
+**증상**: `http://localhost:8081` 접속 시 q-sign API 응답이 옴 (Keycloak 화면 아님)
+
+**원인**: q-sign(8081)과 Keycloak(8081) 포트 충돌
+
+**중요**: 이 프로젝트에서 **Keycloak은 8081 포트**를 사용합니다.
+q-sign이 `bootRun`으로 실행 중이면 Keycloak 컨테이너와 포트가 충돌합니다.
+
+**해결:**
+```bash
+# q-sign은 JAR로 별도 포트(8081)에서 실행되지만
+# 로컬 개발 시 q-sign bootRun과 Keycloak 컨테이너를 동시에
+# 같은 포트에서 실행할 수 없음.
+# → Keycloak은 컨테이너, q-sign은 다른 포트로 기동하거나
+# → docker-compose.yml에서 Keycloak 포트를 8088로 변경 후 application.yml도 수정
+
+# 임시 해결: Keycloak 포트를 8088로 변경
+# infra/docker/docker-compose.yml 내 keycloak 서비스:
+#   ports: "8088:8080"  (8081→8088 변경)
+# q-sign/src/main/resources/application.yml:
+#   qsign.keycloak.base-url: http://localhost:8088
+```
+
+> 💡 **권장**: 로컬에서 전체 스택 통합 테스트 시 백엔드 서비스를 `bootRun`이 아닌
+> Docker 컨테이너로 실행하면 포트 충돌을 피할 수 있습니다.
+
+---
+
+### 11.10 Windows 전용 오류
 
 ---
 
@@ -1899,7 +2127,7 @@ REM PowerShell에서는 .\ 필요
 
 ---
 
-### 11.10 macOS 전용 오류
+### 11.11 macOS 전용 오류
 
 ---
 
