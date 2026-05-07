@@ -43,9 +43,9 @@
                       │ /api/v1/fe-session/**
                       │ /api/v1/handoff/**
 ┌─────────────────────▼───────────────────────────────────────────┐
-│  ido  :8083  정책 오케스트레이터 + FE BFF (BFF 이관)                 │
-│  - feSessionId 쿠키 발급 · 갱신 · 만료 (세션 오너십)                  │
-│  - returnUrl 화이트리스트 검증 (§12.6)                              │
+│  ido  :8083  정책 오케스트레이터 + FE BFF (BFF 이관)                │
+│  - feSessionId 쿠키 발급 · 갱신 · 만료 (세션 오너십)                 │
+│  - returnUrl 화이트리스트 검증 (§12.6)                             │
 │  - IdO Handoff Ticket 발급 / 검증 / Revoke                        │
 │  - platform.session.advisory Kafka 소비 → FE 세션 무효화           │
 │  - CORS: React SPA (port 3000/3001) 허용                         │
@@ -55,7 +55,7 @@
         ▼               ▼               ▼
 ┌───────────────┐ ┌───────────────┐ ┌──────────────────┐
 │  q-sign :8081 │ │  q-im   :8082 │ │agency-stub :8084 │
-│  인증 SoR      │ │  식별 SoR      │ │기관 로컬 세션 Stub  │
+│  인증 SoR      │ │  식별 SoR      │ │기관 로컬 세션 Stub │
 └───────┬───────┘ └───────┬───────┘ └──────────────────┘
         │  Outbox         │  Outbox
         └────────┬────────┘
@@ -617,7 +617,7 @@ cd onepass-fe/frontend && yarn dev
 | 브랜치 | 용도 |
 |--------|------|
 | `main` | 안정 릴리즈 |
-| `genspark_ai_developer` | AI 개발 작업 브랜치 |
+| `develop` | 개발 작업 브랜치 |
 
 ---
 
