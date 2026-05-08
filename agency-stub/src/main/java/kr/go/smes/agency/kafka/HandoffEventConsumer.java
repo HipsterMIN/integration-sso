@@ -1,11 +1,11 @@
 package kr.go.smes.agency.kafka;
 
+import kr.go.smes.agency.session.AgencySessionService;
 import kr.go.smes.common.event.HandoffEvent;
 import kr.go.smes.common.event.SessionAdvisoryEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
@@ -14,7 +14,6 @@ import java.time.Instant;
 
 /**
  * Agency-Stub Kafka 이벤트 컨슈머 — PoC 전용
- * 설계서 §16.3 Handoff 이벤트 / §14.9 세션 보안 이벤트
  *
  * <p><b>⚠️ PoC 한정 코드 — 실 운영에서 사용 불가</b>
  *
@@ -22,19 +21,20 @@ import java.time.Instant;
  * 실제 운영 환경에서 유관기관은 내부 Kafka에 접근할 수 없으며,
  * OnePass 플랫폼과의 통신은 반드시 IdO 공개 API(HTTPS)를 통해서만 이루어집니다.
  *
- * <p><b>운영 대체 방안:</b>
+ * <p><b>운영 대체 방안 (설계서 §16.3, §14.9):</b>
  * <ul>
- *   <li>Option A (권장): IdO WebhookDispatcher → 기관 Webhook URL (HTTPS POST)</li>
- *   <li>Option B (대안): 기관 → IdO 이벤트 폴링 API (GET /api/v1/agency/events)</li>
+ *   <li><b>Option A (권장)</b>: IdO WebhookDispatcher → POST /api/v1/webhook/inbound → {@link kr.go.smes.agency.webhook.WebhookInboundController}</li>
+ *   <li><b>Option B (대안)</b>: 기관 → GET /api/v1/events/poll → {@link kr.go.smes.agency.api.AgencyEventPollingController}</li>
  * </ul>
  *
  * <p>설계 상세: docs/agency-external-arch-supplement.md §3.1, §5.2
  *
  * <p><b>현재 처리 내용 (PoC):</b>
  * <ul>
- *   <li>HANDOFF_REVOKED 수신 시: 해당 ticketId 로 생성된 기관 세션 즉시 무효화</li>
- *   <li>REUSE_ATTEMPT 수신 시: 감사 로그 기록 + 보안 알림</li>
- *   <li>MANDATORY_SECURITY Advisory 수신 시: qimUserId 기준 기관 세션 일괄 무효화</li>
+ *   <li>HANDOFF_REVOKED → {@link AgencySessionService#invalidateByTicketId} 호출</li>
+ *   <li>REUSE_ATTEMPT → 감사 로그 기록 + 보안 경고</li>
+ *   <li>MANDATORY_SECURITY Advisory → {@link AgencySessionService#invalidateByQimUserId} 일괄 무효화</li>
+ *   <li>기타 Advisory → 로그 기록만</li>
  * </ul>
  */
 @Slf4j
@@ -45,9 +45,12 @@ public class HandoffEventConsumer {
     private static final String CONSUMER_GROUP_HANDOFF  = "agency-stub-consumer-handoff";
     private static final String CONSUMER_GROUP_ADVISORY = "agency-stub-consumer-advisory";
 
-    private final JdbcTemplate jdbcTemplate;
+    /** DB 기반 세션 서비스 — ticketId / qimUserId 기준 무효화 위임 */
+    private final AgencySessionService agencySessionService;
 
-    // ── Handoff 이벤트 ─────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    // Handoff 이벤트 컨슈머
+    // ══════════════════════════════════════════════════════════════════════
 
     @KafkaListener(
             topics           = "${agency-stub.kafka.topic-handoff-events:ido.handoff.events}",
@@ -56,15 +59,20 @@ public class HandoffEventConsumer {
     )
     public void consumeHandoff(ConsumerRecord<String, HandoffEvent> record,
                                Acknowledgment ack) {
+
         HandoffEvent event = record.value();
-        if (event == null) { ack.acknowledge(); return; }
+        if (event == null) {
+            log.warn("[AgencyHandoffConsumer] null 이벤트 수신 — 스킵");
+            ack.acknowledge();
+            return;
+        }
 
         String eventId   = event.getEventId();
         String eventType = event.getEventType();
         String ticketId  = event.getTicketId();
 
         try {
-            // ① 멱등 처리
+            // 멱등 처리
             if (isProcessed(eventId, CONSUMER_GROUP_HANDOFF)) {
                 log.debug("[AgencyHandoffConsumer] 중복 스킵: eventId={}", eventId);
                 ack.acknowledge();
@@ -74,21 +82,26 @@ public class HandoffEventConsumer {
             switch (eventType) {
                 case HandoffEvent.TYPE_HANDOFF_REVOKED -> handleRevoked(event);
                 case HandoffEvent.TYPE_REUSE_ATTEMPT   -> handleReuseAttempt(event);
-                default -> log.debug("[AgencyHandoffConsumer] 스킵 타입: {}", eventType);
+                default -> log.debug("[AgencyHandoffConsumer] 처리 불필요 타입: {} ticketId={}", eventType, ticketId);
             }
 
             markProcessed(eventId, CONSUMER_GROUP_HANDOFF, eventType, "OK");
-            log.info("[AgencyHandoffConsumer] 처리 완료: eventType={} ticketId={}", eventType, ticketId);
+            log.info("[AgencyHandoffConsumer] 처리 완료: eventType={} ticketId={} correlationId={}",
+                    eventType, ticketId, event.getCorrelationId());
 
         } catch (Exception e) {
-            log.error("[AgencyHandoffConsumer] 처리 실패: eventId={}", eventId, e);
-            throw e;
+            log.error("[AgencyHandoffConsumer] 처리 실패: eventId={} eventType={} err={}",
+                    eventId, eventType, e.getMessage(), e);
+            throw e;  // DefaultErrorHandler 가 재시도 / DLQ 처리
+
         } finally {
             ack.acknowledge();
         }
     }
 
-    // ── Session Advisory 이벤트 ────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    // Session Advisory 컨슈머
+    // ══════════════════════════════════════════════════════════════════════
 
     @KafkaListener(
             topics           = "${agency-stub.kafka.topic-session-advisory:platform.session.advisory}",
@@ -97,8 +110,12 @@ public class HandoffEventConsumer {
     )
     public void consumeAdvisory(ConsumerRecord<String, SessionAdvisoryEvent> record,
                                 Acknowledgment ack) {
+
         SessionAdvisoryEvent event = record.value();
-        if (event == null) { ack.acknowledge(); return; }
+        if (event == null) {
+            ack.acknowledge();
+            return;
+        }
 
         String eventId   = event.getEventId();
         String eventType = event.getEventType();
@@ -111,96 +128,75 @@ public class HandoffEventConsumer {
             }
 
             if (SessionAdvisoryEvent.TYPE_MANDATORY_SECURITY.equals(eventType)) {
-                // MANDATORY: 해당 qimUserId 의 기관 세션 즉시 무효화
-                invalidateSessionsByQimUser(qimUserId, "MANDATORY_SECURITY");
-                log.warn("[AgencyAdvisoryConsumer] MANDATORY 세션 무효화: qimUserId={}", qimUserId);
+                // MANDATORY: qimUserId 기준 기관 세션 즉시 일괄 무효화
+                int invalidated = agencySessionService.invalidateByQimUserId(
+                        qimUserId, "MANDATORY_SECURITY_TERMINATE", event.getCorrelationId());
+                log.warn("[AgencyAdvisoryConsumer] MANDATORY 세션 무효화 {}건: qimUserId={} correlationId={}",
+                        invalidated, qimUserId, event.getCorrelationId());
             } else {
-                // ADVISORY: 감사 로그만 기록
-                log.info("[AgencyAdvisoryConsumer] Advisory 수신: qimUserId={} reason={}",
-                        qimUserId, event.getReason());
+                // ADVISORY: 감사 로그만 기록 (세션은 유지)
+                log.info("[AgencyAdvisoryConsumer] Advisory 수신 (세션 유지): eventType={} qimUserId={} reason={}",
+                        eventType, qimUserId, event.getReason());
             }
 
             markProcessed(eventId, CONSUMER_GROUP_ADVISORY, eventType, "OK");
 
         } catch (Exception e) {
-            log.error("[AgencyAdvisoryConsumer] 처리 실패: eventId={}", eventId, e);
+            log.error("[AgencyAdvisoryConsumer] 처리 실패: eventId={} err={}", eventId, e.getMessage(), e);
             throw e;
+
         } finally {
             ack.acknowledge();
         }
     }
 
-    // ── Private ────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    // 이벤트별 핸들러
+    // ══════════════════════════════════════════════════════════════════════
 
-    /** HANDOFF_REVOKED: ticketId 로 생성된 세션 무효화 */
+    /** HANDOFF_REVOKED: ticketId 로 생성된 기관 세션 즉시 무효화 */
     private void handleRevoked(HandoffEvent event) {
-        int updated = jdbcTemplate.update("""
-                UPDATE agency_stub.agency_local_session
-                SET invalidated_at = ?, invalidate_reason = 'HANDOFF_REVOKED'
-                WHERE ticket_id = ? AND invalidated_at IS NULL
-                """, Instant.now(), event.getTicketId());
-
-        if (updated > 0) {
-            log.warn("[AgencyHandoffConsumer] REVOKED 세션 무효화 {} 건: ticketId={} reason={}",
-                    updated, event.getTicketId(), event.getRevokeReason());
-        }
-
-        // 세션 이벤트 감사 로그
-        jdbcTemplate.update("""
-                INSERT INTO agency_stub.session_event_log
-                    (log_id, event_type, correlation_id, detail, occurred_at)
-                VALUES (gen_random_uuid()::text, 'SESSION_INVALIDATED', ?, ?::jsonb, ?)
-                """,
-                event.getCorrelationId(),
-                String.format("{\"reason\":\"HANDOFF_REVOKED\",\"ticketId\":\"%s\"}", event.getTicketId()),
-                Instant.now()
+        int invalidated = agencySessionService.invalidateByTicketId(
+                event.getTicketId(),
+                "HANDOFF_REVOKED:" + nullToEmpty(event.getRevokeReason()),
+                event.getCorrelationId()
         );
+
+        log.warn("[AgencyHandoffConsumer] REVOKED 세션 무효화 {}건: ticketId={} reason={} correlationId={}",
+                invalidated, event.getTicketId(), event.getRevokeReason(), event.getCorrelationId());
     }
 
-    /** REUSE_ATTEMPT: 재사용 시도 감사 로그 */
+    /** REUSE_ATTEMPT: 재사용 시도 감지 → 보안 감사 로그만 (세션은 AgencySessionService에서 관리) */
     private void handleReuseAttempt(HandoffEvent event) {
-        log.warn("[AgencyHandoffConsumer] REUSE_ATTEMPT 감지: ticketId={} agencyCode={}",
-                event.getTicketId(), event.getAgencyCode());
-
-        jdbcTemplate.update("""
-                INSERT INTO agency_stub.session_event_log
-                    (log_id, event_type, correlation_id, detail, occurred_at)
-                VALUES (gen_random_uuid()::text, 'HANDOFF_VERIFY_FAILED', ?, ?::jsonb, ?)
-                """,
-                event.getCorrelationId(),
-                String.format("{\"reason\":\"REUSE_ATTEMPT\",\"ticketId\":\"%s\"}", event.getTicketId()),
-                Instant.now()
-        );
+        log.warn("[AgencyHandoffConsumer] REUSE_ATTEMPT 감지: ticketId={} agencyCode={} correlationId={}",
+                event.getTicketId(), event.getAgencyCode(), event.getCorrelationId());
+        // WebhookInboundController 또는 AgencySessionService 가 처리하는 보안 이벤트와 중복 방지
+        // 여기서는 Kafka 감사 로그만 기록 (DB 직접 조작 없음)
     }
 
-    /** qimUserId 기반 기관 세션 일괄 무효화 */
-    private void invalidateSessionsByQimUser(String qimUserId, String reason) {
-        jdbcTemplate.update("""
-                UPDATE agency_stub.agency_local_session als
-                SET invalidated_at = ?, invalidate_reason = ?
-                FROM agency_stub.agency_user au
-                WHERE als.agency_user_id = au.agency_user_id
-                  AND au.qim_user_id = ?
-                  AND als.invalidated_at IS NULL
-                """, Instant.now(), reason, qimUserId);
-    }
-
-    // ── Idempotent helpers ─────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    // 멱등 처리 헬퍼 — AgencySessionService 의 DB 사용
+    // ══════════════════════════════════════════════════════════════════════
 
     private boolean isProcessed(String eventId, String group) {
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM agency_stub.processed_event " +
-                "WHERE event_id = ? AND consumer_group = ?",
-                Integer.class, eventId, group);
-        return count != null && count > 0;
+        try {
+            Integer count = agencySessionService.countProcessedEvent(eventId, group);
+            return count != null && count > 0;
+        } catch (Exception e) {
+            log.warn("[AgencyHandoffConsumer] processed_event 조회 실패: eventId={} err={}", eventId, e.getMessage());
+            return false;
+        }
     }
 
     private void markProcessed(String eventId, String group, String type, String code) {
-        jdbcTemplate.update("""
-                INSERT INTO agency_stub.processed_event
-                    (event_id, consumer_group, event_type, result_code, processed_at)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT (event_id, consumer_group) DO NOTHING
-                """, eventId, group, type, code, Instant.now());
+        try {
+            agencySessionService.markEventProcessed(eventId, group, type, code);
+        } catch (Exception e) {
+            log.warn("[AgencyHandoffConsumer] processed_event 기록 실패: eventId={} err={}", eventId, e.getMessage());
+        }
+    }
+
+    private String nullToEmpty(String s) {
+        return s != null ? s : "";
     }
 }

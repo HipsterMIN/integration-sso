@@ -110,11 +110,62 @@ agency-stub:
   # §14.8 기관 최소 인증 수준
   min-auth-level: L1
 
-  # Kafka 토픽 구독
+  # §14.7 Webhook 수신 (IdO → 기관)
+  webhook:
+    signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-change-in-production}
+    # 수신 엔드포인트: POST /api/v1/webhook/inbound
+    # HMAC-SHA256 서명 검증 + 타임스탬프 ±5분
+    enabled: true
+
+  # Kafka 토픽 구독 (PoC 전용 — 운영 시 webhook으로 대체)
   kafka:
     consumer-group: agency-stub-consumer
     topic-handoff-events: ido.handoff.events
     topic-session-advisory: platform.session.advisory
+
+# ── Resilience4j — IdO Verify API Circuit Breaker / Retry ────
+resilience4j:
+  circuitbreaker:
+    instances:
+      ido-verify:
+        # 슬라이딩 윈도우: 최근 10회 호출 중 실패율 50% 초과 시 OPEN
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        # OPEN 상태 유지 시간: 10초
+        wait-duration-in-open-state: 10s
+        # HALF-OPEN: 3회 시도 후 판정
+        permitted-number-of-calls-in-half-open-state: 3
+        # 슬로우 콜 임계값: 4초 초과 시 실패로 간주
+        slow-call-duration-threshold: 4s
+        slow-call-rate-threshold: 80
+        # 예외 기반 실패 판정
+        record-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+          - java.net.SocketTimeoutException
+          - java.io.IOException
+        # 4xx 는 실패로 간주하지 않음 (비즈니스 로직으로 처리)
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+        register-health-indicator: true
+
+  retry:
+    instances:
+      ido-verify:
+        # 최대 재시도 2회 (초기 시도 포함 총 3회)
+        max-attempts: 3
+        # 재시도 대기: 500ms → 1000ms (exponential)
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 2
+        # 5xx / 네트워크 오류만 재시도
+        retry-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+          - java.net.SocketTimeoutException
+        # 4xx 는 재시도하지 않음
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
 
 # ── Actuator ──────────────────────────────────────────────────
 management:

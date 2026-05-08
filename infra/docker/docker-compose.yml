@@ -707,3 +707,65 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # ════════════════════════════════════════════════════════════
+  # ★ Agency-Stub — 유관기관 OIDC 클라이언트 시뮬레이터
+  # http://localhost:8084
+  #
+  # 역할 (설계서 §14~16장):
+  #   - POST /agency/entry           → IdO Handoff Verify → 기관 세션 생성
+  #   - GET  /agency/entry/session   → 세션 유효성 확인 (Sliding Window)
+  #   - DELETE /agency/entry/session → 기관 로그아웃
+  #   - POST /api/v1/webhook/inbound → IdO Webhook 수신 (HMAC-SHA256 검증)
+  #   - GET  /api/v1/events/poll     → 이벤트 폴링 (Option B)
+  #
+  # ⚠️ 네트워크 격리 원칙 (docs/agency-external-arch-supplement.md §2):
+  #   - IdO 공개 API(HTTPS)를 통해서만 통신 (Kafka 직접 구독 = PoC 전용)
+  #   - 운영 배포: 별도 외부망 브리지 네트워크 사용 권장
+  #
+  # DB: PostgreSQL schema=agency_stub
+  # 빌드: ./gradlew :agency-stub:bootJar -x test
+  #       docker build -f agency-stub/Dockerfile -t onepass-agency-stub:latest .
+  # ════════════════════════════════════════════════════════════
+  onepass-agency-stub:
+    image: onepass-agency-stub:latest
+    container_name: onepass-agency-stub
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST:               postgres
+      DB_PORT:               "5432"
+      DB_NAME:               onepass
+      DB_USERNAME:           onepass
+      DB_PASSWORD:           onepass
+      REDIS_HOST:            redis
+      REDIS_PORT:            "6379"
+      KAFKA_SERVERS:         kafka:29092
+      IDO_BASE_URL:          http://onepass-ido:8083
+      AGENCY_API_KEY:        ${AGENCY_API_KEY:-stub-api-key-dev-001}
+      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
+    ports:
+      - "8084:8084"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    profiles:
+      - app
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
