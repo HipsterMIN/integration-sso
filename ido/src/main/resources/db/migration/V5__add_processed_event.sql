@@ -14,7 +14,7 @@
 --    at-least-once 구간에서 eventId 기준 중복 처리 차단.
 --    컨슈머 그룹: ido-qim-consumer / ido-qsign-consumer / ido-qim-sp-member-consumer
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.processed_event (
+CREATE TABLE IF NOT EXISTS ido.processed_event (
     event_id       VARCHAR(36)   NOT NULL,
     consumer_group VARCHAR(100)  NOT NULL,
     event_type     VARCHAR(80),
@@ -24,7 +24,7 @@ CREATE TABLE ido.processed_event (
         PRIMARY KEY (event_id, consumer_group)
 );
 
-CREATE INDEX idx_ido_processed_event_group
+CREATE INDEX IF NOT EXISTS idx_ido_processed_event_group
     ON ido.processed_event (consumer_group, processed_at DESC);
 
 COMMENT ON TABLE  ido.processed_event
@@ -45,7 +45,7 @@ COMMENT ON COLUMN ido.processed_event.result_code
 --    참고: Redis LastEventVersionStoreImpl 이 1차 저장소이며,
 --          이 테이블은 Redis 장애 복구용 fallback 및 감사 목적.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.last_event_version (
+CREATE TABLE IF NOT EXISTS ido.last_event_version (
     consumer_group   VARCHAR(100)  NOT NULL,
     aggregate_id     VARCHAR(36)   NOT NULL, -- qimUserId
     last_version     BIGINT        NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE ido.last_event_version (
         PRIMARY KEY (consumer_group, aggregate_id)
 );
 
-CREATE INDEX idx_ido_last_event_version_updated
+CREATE INDEX IF NOT EXISTS idx_ido_last_event_version_updated
     ON ido.last_event_version (updated_at DESC);
 
 COMMENT ON TABLE  ido.last_event_version

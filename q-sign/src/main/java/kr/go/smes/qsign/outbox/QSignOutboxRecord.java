@@ -46,7 +46,7 @@ public class QSignOutboxRecord {
     private String status;   // PENDING / PUBLISHED / FAILED
 
     @Column(name = "retry_count", nullable = false)
-    private int retryCount;
+    private short retryCount;  // DB: SMALLINT (V1 migration 기준)
 
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;

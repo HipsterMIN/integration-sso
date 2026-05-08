@@ -22,6 +22,7 @@ import java.time.Duration;
  *  - Q-IM 사용자 상태 캐시 TTL ≤ 5분
  *  - 기관 메타·정책 캐시 TTL ≤ 60분
  *  - Handoff Ticket 저장 TTL 60초 (1회성)
+ *  - keycloakJwks : Keycloak JWKS RSA 공개키 TTL 60분 (§7.4)
  */
 @EnableCaching
 @Configuration
@@ -75,10 +76,14 @@ public class RedisConfig {
         RedisCacheConfiguration agencyMetaCfg = defaultCfg
                 .entryTtl(Duration.ofMinutes(60));
 
+        RedisCacheConfiguration keycloakJwksCfg = defaultCfg
+                .entryTtl(Duration.ofMinutes(60));
+
         return RedisCacheManager.builder(factory)
                 .cacheDefaults(defaultCfg)
-                .withCacheConfiguration("qimUserStatus", defaultCfg)
-                .withCacheConfiguration("agencyMeta",    agencyMetaCfg)
+                .withCacheConfiguration("qimUserStatus",  defaultCfg)
+                .withCacheConfiguration("agencyMeta",     agencyMetaCfg)
+                .withCacheConfiguration("keycloakJwks",   keycloakJwksCfg)
                 .build();
     }
 }
