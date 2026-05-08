@@ -142,3 +142,13 @@ logging:
     kr.go.smes.qim: INFO
     org.springframework.kafka: WARN
     org.flywaydb: INFO
+
+# ── CI 암호화 키 설정 ───────────────────────────────────────────────────────
+qim:
+  crypto:
+    ci:
+      key-v1:         ${QIM_CI_AES_KEY_V1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      key-v2:         ${QIM_CI_AES_KEY_V2:}
+      current-version: ${QIM_CI_CURRENT_VERSION:v1}
+    di:
+      secret:         ${QIM_DI_SECRET:default-di-secret-change-in-production}
