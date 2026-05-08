@@ -159,7 +159,7 @@ public class HandoffKeyRotationScheduler {
 
             // 6. 감사 로그
             auditLogPublisher.publish(AuditLogPublisher.AuditEntry.builder()
-                    .eventCategory(AuditLogEvent.CATEGORY_SECURITY)
+                    .eventCategory(AuditLogEvent.CATEGORY_SYSTEM)
                     .eventAction("AES_KEY_ROTATED")
                     .actorType(AuditLogEvent.ACTOR_SYSTEM)
                     .actorId(adminId)

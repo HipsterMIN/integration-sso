@@ -38,6 +38,12 @@ public class AgencyMeta {
     /** 기관 API Key (검증용) */
     private final String apiKeyHash;
 
+    /** 연동 유형 (DIRECT / BRIDGE / APACHE_GATE / INTERNAL_SSO) */
+    private final String integrationType;
+
+    /** Bridge 서버 엔드포인트 (integrationType=BRIDGE 일 때만 사용) */
+    private final String bridgeEndpoint;
+
     /** 활성 여부 */
     private final boolean active;
 

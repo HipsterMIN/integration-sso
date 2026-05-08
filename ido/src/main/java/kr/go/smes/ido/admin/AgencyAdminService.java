@@ -261,9 +261,9 @@ public class AgencyAdminService {
                        String adminId, String outcome) {
         try {
             auditLogPublisher.publish(AuditLogPublisher.AuditEntry.builder()
-                    .eventCategory(AuditLogEvent.CATEGORY_ADMIN)
+                    .eventCategory(AuditLogEvent.CATEGORY_SYSTEM)
                     .eventAction(action)
-                    .actorType(AuditLogEvent.ACTOR_ADMIN)
+                    .actorType(AuditLogEvent.ACTOR_SYSTEM)
                     .actorId(adminId)
                     .resourceType("AGENCY")
                     .resourceId(resourceId != null ? resourceId : agencyCode)

@@ -1,10 +1,28 @@
 # OnePass 통합인증 플랫폼 — 로컬 개발 환경 구동 가이드
 
 > **문서 분류**: 개발자 운영 가이드  
-> **버전**: v1.0.0  
-> **최종 수정**: 2026-05-07  
+> **버전**: v1.2.0  
+> **최종 수정**: 2026-05-08  
 > **대상 독자**: 백엔드 개발자, 프론트엔드 개발자, DevOps  
 > **관련 모듈**: `q-sign`, `q-im`, `ido`, `onepass-fe`, `agency-stub`, `platform-common`
+
+> **v1.2.0 변경 내역** (2026-05-08)
+> - §8.2 PoC 흐름 테스트에 Admin API / PKCE / Rate Limiter / MemberLookup curl 예제 추가
+> - §9 DB 스키마 구조에 IdO V9 신규 테이블 4개 추가 (`crypto_key_registry`, `agency_rate_limit_config`, `agency_meta_history`, `member_lookup_log`)
+> - §11.13 Rate Limiter / PKCE / Admin API 오류 트러블슈팅 섹션 실제 내용 추가
+> - §12.4 Redis 키 패턴 표 추가 (Rate Limiter, PKCE, AES 키 로테이션, Idempotency)
+> - §12.3 MariaDB 유용한 명령어에 `user_status_history`, `crypto_key_version` 조회 예제 추가
+> - 부록 A 체크리스트에 Monitoring 스택 / Admin API 확인 항목 추가
+> - 부록 B 환경변수 표에 Q-IM 암호화 키 (`QIM_CI_*`, `QIM_DI_SECRET`) 행 추가
+>
+> **v1.1.0 변경 내역** (2026-05-08)
+> - Monitoring 스택 추가 (Prometheus / Grafana / Loki / Promtail — profile: monitoring)
+> - 기관 Admin API 엔드포인트 동작 확인 절차 추가
+> - Redis Rate Limiter / PKCE / AES 키 로테이션 키 패턴 추가
+> - IdO DB 마이그레이션 V9 / Q-IM V3 테이블 목록 업데이트
+> - 디렉토리 구조에 `infra/monitoring/` 추가
+> - 서비스 포트 표 업데이트 (Prometheus :9090, Grafana :3002, Loki :3100)
+> - 트러블슈팅 §11.13 Rate Limiter·PKCE·Admin API 오류 추가
 
 ---
 
@@ -21,6 +39,8 @@
 6. [Step 4 — 백엔드 서비스 기동](#6-step-4--백엔드-서비스-기동)
 7. [Step 5 — 프론트엔드 기동](#7-step-5--프론트엔드-기동)
 8. [Step 6 — 전체 동작 확인](#8-step-6--전체-동작-확인)
+   - 8.2 [PoC 흐름 기본 테스트](#82-poc-흐름-기본-테스트)
+   - 8.3 [v1.8.0 신규 기능 동작 확인](#83-v180-신규-기능-동작-확인)
 9. [서비스 포트 및 접속 URL 정리](#9-서비스-포트-및-접속-url-정리)
 10. [IDE 설정 가이드](#10-ide-설정-가이드)
 11. [자주 발생하는 오류 및 해결 방법](#11-자주-발생하는-오류-및-해결-방법)
@@ -36,7 +56,16 @@
     - 11.10 [Keycloak 관련 오류](#1110-keycloak-관련-오류)
     - 11.11 [Windows 전용 오류](#1111-windows-전용-오류)
     - 11.12 [macOS 전용 오류](#1112-macos-전용-오류)
+    - 11.13 [Rate Limiter / PKCE / Admin API / AES 키 로테이션 오류](#1113-rate-limiter--pkce--admin-api-오류)
 12. [개발 Tips 및 유용한 명령어](#12-개발-tips-및-유용한-명령어)
+    - 12.1 [Gradle 빠른 명령어](#121-gradle-빠른-명령어-모음)
+    - 12.2 [Docker 명령어](#122-docker-유용한-명령어)
+    - 12.3 [MariaDB 명령어 (Q-IM)](#123-mariadb-유용한-명령어-q-im-전용)
+    - 12.4 [PostgreSQL 명령어](#124-postgresql-유용한-명령어)
+    - 12.5 [Redis 명령어](#125-redis-유용한-명령어)
+    - 12.6 [Redis 키 패턴 전체 목록](#126-redis-키-패턴-전체-목록-v180-기준)
+    - 12.7 [Kafka 명령어](#127-kafka-유용한-명령어)
+    - 12.8 [Spring Boot Actuator](#128-spring-boot-actuator-엔드포인트)
 13. [서비스 종료 방법](#13-서비스-종료-방법)
 
 ---
@@ -425,20 +454,32 @@ integration-sso/                      ← 프로젝트 루트
 │       └── src/
 │
 ├── infra/
-│   └── docker/
-│       ├── docker-compose.yml        ← ★ 인프라 기동 파일
-│       ├── init-db.sql               ← PostgreSQL 초기 스키마 (Q-IM 제외)
-│       ├── kafka/
-│       │   └── create-topics.sh      ← Kafka 토픽 초기화
-│       ├── mariadb/
-│       │   └── mariadb.cnf           ← MariaDB PoC 튜닝 설정 (Q-IM 전용)
-│       ├── nginx/
-│       │   └── nginx.conf
-│       ├── postgres/
-│       │   ├── postgresql.conf
-│       │   └── pg_hba.conf
-│       └── redis/
-│           └── redis.conf
+│   ├── docker/
+│   │   ├── docker-compose.yml        ← ★ 인프라 기동 파일
+│   │   ├── init-db.sql               ← PostgreSQL 초기 스키마 (Q-IM 제외)
+│   │   ├── kafka/
+│   │   │   └── create-topics.sh      ← Kafka 토픽 초기화
+│   │   ├── mariadb/
+│   │   │   └── mariadb.cnf           ← MariaDB 튜닝 설정 (Q-IM 전용)
+│   │   ├── nginx/
+│   │   │   └── nginx.conf
+│   │   ├── postgres/
+│   │   │   ├── postgresql.conf
+│   │   │   └── pg_hba.conf
+│   │   └── redis/
+│   │       └── redis.conf
+│   └── monitoring/                   ← ★ v1.1.0 신규 — Monitoring 설정
+│       ├── prometheus/
+│       │   ├── prometheus.yml        ← scrape 설정 (ido/qim/qsign/agency-stub)
+│       │   └── alert_rules.yml       ← 알림 규칙 (오류율/응답시간/Rate Limit)
+│       ├── grafana/
+│       │   └── provisioning/
+│       │       ├── datasources/      ← Prometheus + Loki 데이터소스 자동 등록
+│       │       └── dashboards/       ← 대시보드 프로비저닝
+│       ├── loki/
+│       │   └── loki-config.yml       ← 로그 수집 설정
+│       └── promtail/
+│           └── promtail-config.yml   ← Docker 컨테이너 로그 수집
 │
 └── docs/                             ← 설계 문서
 ```
@@ -520,12 +561,30 @@ docker compose -f infra/docker/docker-compose.yml --profile keycloak up -d
 # Schema Registry 포함 기동 (Avro 스키마 관리, port 8085)
 docker compose -f infra/docker/docker-compose.yml --profile schema up -d
 
-# 전체 동시 기동 (인프라 + 모니터링 도구 + Keycloak)
+# ★ v1.1.0 신규: Monitoring 스택 기동 (Prometheus + Grafana + Loki + Promtail)
+# - Prometheus (port 9090): 메트릭 수집 / Grafana (port 3002): 대시보드
+# - Loki (port 3100): 로그 수집 / Promtail: Docker 로그 수집
+docker compose -f infra/docker/docker-compose.yml --profile monitoring up -d
+
+# 전체 동시 기동 (인프라 + 도구 + Keycloak + Monitoring)
 docker compose -f infra/docker/docker-compose.yml \
   --profile tools \
   --profile keycloak \
+  --profile monitoring \
   up -d
 ```
+
+> 💡 **프로파일 정리표**
+>
+> | 프로파일 | 포함 서비스 | 용도 |
+> |---------|-----------|------|
+> | *(없음)* | MariaDB, PostgreSQL, Redis, Zookeeper, Kafka, Kafka UI, Redis Insight | **필수 기반 인프라** |
+> | `tools` | pgAdmin 4, Adminer | DB GUI 관리 |
+> | `schema` | Schema Registry | Avro 스키마 |
+> | `keycloak` | Keycloak | OIDC 브로커 |
+> | `monitoring` | Prometheus, Grafana, Loki, Promtail | **★ 신규** 모니터링 |
+> | `app` | onepass-qsign, onepass-qim, onepass-ido, onepass-agency-stub | Docker 이미지 실행 |
+> | `optionB` | onepass-react (Nginx) | 프로덕션 FE |
 
 ### 3.4 기동 로그 실시간 확인
 
@@ -582,6 +641,7 @@ docker exec -it onepass-mariadb mariadb -u qim -pqim qim -e "SHOW TABLES;"
 | Tables_in_qim             |
 +---------------------------+
 | auth_mean_mapping         |
+| crypto_key_version        |  ← v1.1.0 신규 (CiCryptoService CI 암호화 키 버전)
 | flyway_schema_history     |
 | last_event_version        |
 | outbox                    |
@@ -589,16 +649,20 @@ docker exec -it onepass-mariadb mariadb -u qim -pqim qim -e "SHOW TABLES;"
 | qim_user                  |
 | snapshot_meta             |
 | user_profile              |
-| user_status_history       |
+| user_status_history       |  ← v1.1.0 신규 (UserRegistrationService 상태 변경 이력)
 +---------------------------+
 ```
 
-> ⚠️ `flyway_schema_history` 테이블에 V1, V2 마이그레이션이 `Success` 상태이어야 합니다.
+> ⚠️ `flyway_schema_history` 테이블에 V1, V2, **V3** 마이그레이션이 모두 `Success` 상태이어야 합니다.
 
 ```bash
 # MariaDB Flyway 이력 확인
 docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
   -e "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
+# 정상 출력:
+# | 1 | Initial Q-IM schema     | 1 |
+# | 2 | Add idempotent consumer | 1 |
+# | 3 | Add CI encryption ...   | 1 |  ← v1.1.0
 ```
 
 ### 4.3 PostgreSQL 연결 확인
@@ -657,12 +721,39 @@ qsign.auth.events.dlq
 
 ### 4.6 모니터링 UI 접속 확인
 
-| 서비스 | URL | 계정 |
-|--------|-----|------|
-| Kafka UI | http://localhost:8090 | admin / admin |
-| Redis Insight | http://localhost:5540 | 없음 |
-| pgAdmin 4 | http://localhost:5050 | admin@onepass.local / admin |
-| **Adminer (MariaDB)** | **http://localhost:8091** | **qim / qim (DB: qim)** |
+| 서비스 | URL | 계정 | 비고 |
+|--------|-----|------|------|
+| Kafka UI | http://localhost:8090 | admin / admin | 기본 기동 |
+| Redis Insight | http://localhost:5540 | 없음 | 기본 기동 |
+| pgAdmin 4 | http://localhost:5050 | admin@onepass.local / admin | profile: tools |
+| **Adminer (MariaDB)** | **http://localhost:8091** | **qim / qim (DB: qim)** | profile: tools |
+| **Prometheus** | **http://localhost:9090** | **없음** | **profile: monitoring** |
+| **Grafana** | **http://localhost:3002** | **admin / admin** | **profile: monitoring** |
+| **Loki** | **http://localhost:3100** | **없음** | **profile: monitoring (내부)** |
+
+### 4.7 Monitoring 스택 기동 확인 (profile: monitoring 사용 시)
+
+```bash
+# Prometheus 정상 확인
+curl -s http://localhost:9090/-/healthy
+# Prometheus Server is Healthy.
+
+# Grafana 정상 확인
+curl -s http://localhost:3002/api/health | python3 -m json.tool
+# { "commit": "...", "database": "ok", "version": "10.4.2" }
+
+# Loki 정상 확인
+curl -s http://localhost:3100/ready
+# ready
+
+# Prometheus 스크레이프 타겟 확인 (Spring Boot 서비스 기동 후)
+curl -s 'http://localhost:9090/api/v1/targets' | python3 -m json.tool | grep '"health"'
+# "health": "up"  (ido, q-im, q-sign, agency-stub 각 1개씩)
+```
+
+> 💡 Grafana 접속 후 **Dashboards → Browse** 에서 자동 프로비저닝된 데이터소스 확인:
+> - **Prometheus** (기본 데이터소스) — Spring Boot Actuator `/actuator/prometheus` scrape
+> - **Loki** — Promtail이 Docker 컨테이너 로그를 JSON 파싱해 `correlationId` 레이블 추출
 
 ---
 
@@ -1045,6 +1136,103 @@ curl http://localhost:8083/api/v1/fe-session/check \
 curl http://localhost:8084/actuator/health
 ```
 
+### 8.3 v1.8.0 신규 기능 동작 확인
+
+#### Admin API — 기관 관리
+
+```bash
+# 기관 목록 조회
+curl -s http://localhost:8083/api/v1/admin/agencies \
+  -H "X-Admin-Id: local-admin" | python3 -m json.tool
+
+# 기관 상세 조회 (agency-stub 기본 기관코드 사용)
+curl -s http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001 \
+  -H "X-Admin-Id: local-admin" | python3 -m json.tool
+
+# 기관 통계 조회
+curl -s http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001/stats \
+  -H "X-Admin-Id: local-admin" | python3 -m json.tool
+
+# API 키 로테이션 (새 키 발급)
+curl -s -X POST http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001/rotate-key \
+  -H "X-Admin-Id: local-admin" \
+  -H "Content-Type: application/json" | python3 -m json.tool
+```
+
+> ⚠️ `X-Admin-Id` 헤더는 내부 네트워크 접근 가정 하에 관리자 식별에 사용됩니다.  
+> 운영 환경에서는 X-Admin-Token 검증 및 내부 네트워크 접근 제한이 적용됩니다.
+
+#### Rate Limiter — Redis 상태 확인
+
+```bash
+# Rate Limiter Redis 키 확인 (Redis CLI)
+docker exec -it onepass-redis redis-cli
+
+# TPS 카운터 키 확인 (에포크 초 단위 슬라이딩 윈도우)
+KEYS ido:rl:tps:*
+
+# 일별 쿼터 카운터 키 확인
+KEYS ido:rl:daily:*
+
+# 특정 기관의 현재 TPS 확인 (예: AGENCY_STUB_001, 현재 에포크 초 대입)
+# GET ido:rl:tps:AGENCY_STUB_001:<epochSecond>
+
+# per-agency Rate Limit 설정 확인 (PostgreSQL)
+docker exec -it onepass-postgres psql -U onepass -d onepass \
+  -c "SELECT * FROM ido.agency_rate_limit_config;"
+```
+
+#### PKCE — Q-Sign PKCE 흐름 테스트
+
+```bash
+# PKCE가 활성화되어 있는지 application.yml 확인
+grep -A 3 "pkce" q-sign/src/main/resources/application.yml
+# qsign.pkce.enabled: true 이어야 함
+
+# Redis에서 PKCE challenge 키 확인 (인증 흐름 진행 중일 때)
+docker exec -it onepass-redis redis-cli KEYS "qsign:pkce:challenge:*"
+
+# PKCE challenge TTL 확인
+# docker exec -it onepass-redis redis-cli TTL "qsign:pkce:challenge:<state>"
+```
+
+#### MemberLookup — CI 기반 회원 조회 (IdO → Q-IM)
+
+```bash
+# CI(암호화된 개인식별정보) 기반 회원 조회
+# 실제 CI는 암호화된 값이므로 테스트 시 더미 값 사용 (404 응답 기대)
+curl -s -X POST http://localhost:8083/api/v1/member/lookup \
+  -H "Content-Type: application/json" \
+  -H "X-Agency-Code: AGENCY_STUB_001" \
+  -H "X-Correlation-Id: test-corr-001" \
+  -d '{"encryptedCi": "dGVzdC1jaS12YWx1ZQ=="}' | python3 -m json.tool
+# 기대 결과: 유효하지 않은 CI → 404 또는 복호화 오류 응답
+
+# Q-IM MemberLookup 로그 확인 (member_lookup_log 테이블)
+docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
+  -e "SELECT agency_code, lookup_type, result_code, response_ms, occurred_at \
+      FROM member_lookup_log ORDER BY occurred_at DESC LIMIT 10;"
+```
+
+#### AES 키 로테이션 스케줄러 — Redis 상태 확인
+
+```bash
+# 현재 활성 AES 키 버전 확인
+docker exec -it onepass-redis redis-cli GET "ido:crypto:aes:current-version"
+# 예시 출력: "v1"
+
+# 키 버전별 등록 여부 확인
+docker exec -it onepass-redis redis-cli KEYS "ido:crypto:aes:version:*"
+
+# 로테이션 분산 락 확인 (로테이션 진행 중에만 존재)
+docker exec -it onepass-redis redis-cli EXISTS "ido:crypto:aes:rotate-lock"
+
+# PostgreSQL crypto_key_registry 테이블 확인
+docker exec -it onepass-postgres psql -U onepass -d onepass \
+  -c "SELECT key_type, key_version, active, current_flag, grace_until \
+      FROM ido.crypto_key_registry ORDER BY created_at;"
+```
+
 ---
 
 ## 9. 서비스 포트 및 접속 URL 정리
@@ -1052,7 +1240,7 @@ curl http://localhost:8084/actuator/health
 | 서비스 | URL | 계정 | 용도 |
 |--------|-----|------|------|
 | **React SPA (개발)** | http://localhost:3000 | — | 프론트엔드 HMR 개발서버 |
-| **React SPA (Nginx)** | http://localhost:3001 | — | 프로덕션 Nginx 서빙 (Docker optionB) |
+| **React SPA (Nginx)** | http://localhost:3001 | — | 프로덕션 Nginx 서빙 (profile: optionB) |
 | **q-sign** | http://localhost:8081 | — | 인증 SoR API |
 | **q-im** | http://localhost:8082 | — | 식별 SoR API |
 | **ido (BFF)** | http://localhost:8083 | — | 정책 오케스트레이터 + FE BFF |
@@ -1063,6 +1251,9 @@ curl http://localhost:8084/actuator/health
 | **pgAdmin 4** | http://localhost:5050 | admin@onepass.local / admin | PostgreSQL DB GUI (profile: tools) |
 | **Adminer** | http://localhost:8091 | qim / qim (DB: qim) | **MariaDB(Q-IM) 관리 UI** (profile: tools) |
 | **Schema Registry** | http://localhost:8085 | — | Avro 스키마 관리 (profile: schema) |
+| **Prometheus** | http://localhost:9090 | — | 메트릭 수집 (profile: monitoring) |
+| **Grafana** | http://localhost:3002 | admin / admin | 대시보드 (profile: monitoring) |
+| **Loki** | http://localhost:3100 | — | 로그 수집 (profile: monitoring) |
 | **PostgreSQL** | localhost:5432 | onepass / onepass | Q-Sign / IdO / agency-stub / Keycloak DB |
 | **MariaDB** | localhost:3306 | qim / qim (DB: qim) | **Q-IM 전용 DB** |
 | **Redis** | localhost:6379 | 없음 | Redis 직접 접속 |
@@ -1076,21 +1267,40 @@ curl http://localhost:8084/actuator/health
 DB명: onepass
 ├── qsign.*        — Q-Sign 인증 SoR 테이블
 ├── ido.*          — IdO 정책·Handoff·FE세션 테이블
+│   ├── agency_meta              — 기관 메타/정책 (whitelist, auth level 등)
+│   ├── handoff_ticket           — Handoff 티켓 (TTL 60초)
+│   ├── fe_session               — FE 세션
+│   ├── audit_log                — 감사 로그 (2년 보존)
+│   ├── idempotency_key          — 멱등 처리 키
+│   ├── crypto_key_registry      ← ★ V9 신규 AES/HMAC 키 버전 레지스트리
+│   ├── agency_rate_limit_config ← ★ V9 신규 기관별 Rate Limit 설정
+│   ├── agency_meta_history      ← ★ V9 신규 기관 설정 변경 이력 (JSONB)
+│   └── member_lookup_log        ← ★ V9 신규 CI/Hash 회원조회 감사 로그
 ├── agency_stub.*  — Agency-Stub 테이블
 └── keycloak.*     — Keycloak 테이블 (keycloak 프로파일 사용 시)
 ```
 
+> 💡 **IdO V9 신규 테이블 요약**
+>
+> | 테이블 | 용도 | 주요 컬럼 |
+> |--------|------|----------|
+> | `crypto_key_registry` | AES/HMAC 키 버전 관리, grace period 지원 | `key_type`, `key_version`, `active`, `current_flag`, `grace_until` |
+> | `agency_rate_limit_config` | 기관별 TPS/일별 쿼터 오버라이드 | `tps_limit`(기본 200), `daily_limit`(기본 1,000,000), `burst_multiplier` |
+> | `agency_meta_history` | 기관 설정 변경 이력 감사 | `policy_version`, `changed_by`, `change_reason`, `change_detail (JSONB)` |
+> | `member_lookup_log` | CI/Hash 기반 조회 감사 (GDPR 준수) | `lookup_type`, `result_code`, `qim_user_id`, `response_ms` |
+
 **MariaDB** (`localhost:3306`, DB: `qim`) — Q-IM 전용
 ```
 DB명: qim
-├── qim_user           — 사용자 오브젝트 SoR (§10.2)
-├── auth_mean_mapping  — identifierHash → qimUserId 단방향 매핑 (§10.3)
-├── user_profile       — 사용자 속성 (PII 마스킹, §10.4)
-├── user_status_history— 상태 전이 감사 이력 (§10.5)
-├── outbox             — Transactional Outbox (§10.5.2)
-├── last_event_version — Ordered Consumer 버전 추적 (§11.5.5)
-├── processed_event    — 멱등 컨슈머 중복 방지 (§16.3)
-└── snapshot_meta      — Compacted Snapshot 발행 이력 (§11.5.6)
+├── qim_user            — 사용자 오브젝트 SoR (§10.2)
+├── auth_mean_mapping   — identifierHash → qimUserId 단방향 매핑 (§10.3)
+├── user_profile        — 사용자 속성 (PII 마스킹, §10.4)
+├── user_status_history — 상태 전이 감사 이력 (§10.5)     ← ★ V3 신규
+├── crypto_key_version  — CI 암호화 AES 키 버전 관리       ← ★ V3 신규
+├── outbox              — Transactional Outbox (§10.5.2)
+├── last_event_version  — Ordered Consumer 버전 추적 (§11.5.5)
+├── processed_event     — 멱등 컨슈머 중복 방지 (§16.3)
+└── snapshot_meta       — Compacted Snapshot 발행 이력 (§11.5.6)
 ```
 
 > ℹ️ Q-IM 테이블은 Flyway(`q-im/src/main/resources/db/migration/`)가 자동 생성합니다.  
@@ -2352,6 +2562,230 @@ Docker Desktop → Settings → Resources
 
 ---
 
+### 11.13 Rate Limiter / PKCE / Admin API 오류
+
+---
+
+#### 오류: `AGENCY_RATE_LIMIT_EXCEEDED` — 기관 Rate Limit 초과
+
+**증상:**
+```json
+{ "errorCode": "E-AGENCY-306", "message": "기관 요청 한도를 초과했습니다." }
+```
+HTTP 429 Too Many Requests 응답.
+
+**원인**: AgencyRateLimiter가 TPS(기본 200 req/s) 또는 일별 한도(기본 1,000,000)를 초과했습니다.
+
+**해결:**
+
+```bash
+# 1. 현재 TPS 카운터 확인 (Redis)
+docker exec -it onepass-redis redis-cli \
+  KEYS "ido:rl:tps:AGENCY_STUB_001:*"
+# 키가 있으면 해당 초에 요청이 집중된 것
+
+# 2. 일별 쿼터 카운터 확인
+docker exec -it onepass-redis redis-cli \
+  GET "ido:rl:daily:AGENCY_STUB_001:$(date +%Y%m%d)"
+# 1000000 이상이면 일별 한도 초과
+
+# 3. 로컬 개발 시 Rate Limit 일시 비활성화 방법
+# ido/src/main/resources/application.yml에서:
+# ido.rate-limit.default-tps: 10000
+# ido.rate-limit.daily-limit: 100000000
+
+# 4. DB에서 기관별 Rate Limit 설정 확인/수정 (개발 환경)
+docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+  "SELECT * FROM ido.agency_rate_limit_config;"
+# 특정 기관 한도 상향 (개발용)
+docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+  "UPDATE ido.agency_rate_limit_config \
+   SET tps_limit=10000, daily_limit=100000000 \
+   WHERE agency_code='AGENCY_STUB_001';"
+
+# 5. Redis Rate Limit 카운터 수동 초기화 (긴급 시)
+docker exec -it onepass-redis redis-cli DEL \
+  "ido:rl:daily:AGENCY_STUB_001:$(date +%Y%m%d)"
+```
+
+> ⚠️ Rate Limiter는 Redis 오류 시 **Fail-Open** (허용) 방식으로 동작합니다.  
+> Redis가 다운되어도 서비스는 계속 동작하지만 Rate Limiting은 비활성화됩니다.
+
+---
+
+#### 오류: PKCE `code_verifier` 검증 실패
+
+**증상:**
+```
+PkceException: PKCE code_verifier 검증에 실패했습니다.
+# 또는 HTTP 400 Bad Request
+```
+
+**원인 및 해결:**
+
+1. **PKCE challenge TTL 만료** (기본 300초)
+   ```bash
+   # application.yml에서 TTL 확인
+   grep -A 5 "pkce" q-sign/src/main/resources/application.yml
+   # qsign.pkce.challenge-ttl-seconds: 300
+   # 개발 시 600으로 늘릴 수 있음
+   ```
+
+2. **Redis 연결 문제** — challenge 저장 실패
+   ```bash
+   docker exec -it onepass-redis redis-cli ping
+   # PONG 이면 정상
+   
+   # PKCE 키 존재 여부 확인
+   docker exec -it onepass-redis redis-cli KEYS "qsign:pkce:challenge:*"
+   ```
+
+3. **PKCE 비활성화** (로컬 테스트용)
+   ```yaml
+   # q-sign/src/main/resources/application.yml
+   qsign:
+     pkce:
+       enabled: false   # 로컬 테스트 전용 — 운영 사용 금지
+   ```
+
+4. **code_verifier 형식 오류** — Base64URL 인코딩, 43~128자 범위 필수
+   ```bash
+   # 올바른 code_verifier 생성 예시 (Python)
+   python3 -c "import secrets, base64; \
+     v=secrets.token_bytes(64); \
+     print(base64.urlsafe_b64encode(v).rstrip(b'=').decode())"
+   ```
+
+---
+
+#### 오류: Admin API `403 Forbidden` 또는 빈 응답
+
+**증상**: `/api/v1/admin/agencies/**` 호출 시 403 응답 또는 응답 없음
+
+**원인 및 해결:**
+
+1. **X-Admin-Id 헤더 누락**
+   ```bash
+   # X-Admin-Id 헤더 반드시 포함
+   curl -H "X-Admin-Id: local-admin" \
+     http://localhost:8083/api/v1/admin/agencies
+   ```
+
+2. **기관 코드를 찾을 수 없음** → 404 응답
+   ```bash
+   # DB에서 등록된 기관 목록 확인
+   docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+     "SELECT agency_code, official_name, active FROM ido.agency_meta;"
+   
+   # 기관이 없으면 V8/V9 마이그레이션 확인
+   docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+     "SELECT version, description, success \
+      FROM ido.flyway_schema_history ORDER BY installed_rank;"
+   # V8 (seed agency api key), V9 (crypto key registry) 모두 Success이어야 함
+   ```
+
+3. **AgencyMeta Redis 캐시 stale** — 캐시 TTL 60분 내 변경 사항 미반영
+   ```bash
+   # 캐시 수동 삭제 (재기동 없이 즉시 반영)
+   docker exec -it onepass-redis redis-cli KEYS "ido:agency:*"
+   docker exec -it onepass-redis redis-cli DEL "ido:agency:AGENCY_STUB_001"
+   ```
+
+---
+
+#### 오류: `MemberLookup` — CI 복호화 실패 또는 Q-IM 연결 오류
+
+**증상:**
+```
+# IdO 로그:
+ERROR MemberLookupService - Q-IM 회원 조회 실패: Connection refused
+# 또는
+ERROR CiCryptoServiceImpl - CI 복호화 실패: AES-256-GCM tag mismatch
+```
+
+**원인 및 해결:**
+
+1. **Q-IM 서비스 미기동** — q-im(8082)가 실행되지 않은 경우
+   ```bash
+   curl http://localhost:8082/actuator/health
+   # {"status":"UP"} 이어야 함
+   # 기동되지 않았으면:
+   ./gradlew :q-im:bootRun
+   ```
+
+2. **CI 암호화 키 버전 불일치** — IdO와 Q-IM의 키가 다른 경우
+   ```bash
+   # Q-IM의 active CI 암호화 키 버전 확인 (MariaDB)
+   docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
+     -e "SELECT key_type, key_version, active FROM crypto_key_version;"
+   
+   # IdO application.yml의 CI 암호화 키 버전 확인
+   grep -A 5 "ci-encryption" ido/src/main/resources/application.yml
+   # q-im.ci-encryption.current-version 항목 확인
+   ```
+
+3. **Q-IM Base URL 설정 오류**
+   ```bash
+   # ido application.yml에서 Q-IM URL 확인
+   grep "qim" ido/src/main/resources/application.yml
+   # ido.qim.base-url: http://localhost:8082  (로컬 기동 시)
+   ```
+
+4. **member_lookup_log 감사 기록 확인**
+   ```bash
+   docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
+     -e "SELECT agency_code, lookup_type, result_code, response_ms, occurred_at \
+         FROM member_lookup_log ORDER BY occurred_at DESC LIMIT 20;"
+   # result_code: NOT_FOUND / FOUND / ERROR / DECRYPTION_FAILED
+   ```
+
+---
+
+#### 오류: HandoffKeyRotationScheduler — AES 키 로테이션 실패
+
+**증상:**
+```
+ERROR HandoffKeyRotationScheduler - 키 로테이션 실패: 분산 락 획득 불가
+# 또는
+ERROR HandoffKeyRotationScheduler - 로테이션 중 오류 발생
+```
+
+**원인 및 해결:**
+
+1. **분산 락이 해제되지 않음** — 이전 로테이션이 비정상 종료된 경우
+   ```bash
+   # 로테이션 락 키 존재 여부 확인
+   docker exec -it onepass-redis redis-cli EXISTS "ido:crypto:aes:rotate-lock"
+   # 1 = 락 존재 (정상 로테이션 중), 0 = 락 없음 (정상)
+   
+   # 락이 오래 지속되면 (비정상 잔류) 수동 삭제
+   docker exec -it onepass-redis redis-cli DEL "ido:crypto:aes:rotate-lock"
+   ```
+
+2. **현재 키 버전 확인 및 수동 초기화**
+   ```bash
+   # 현재 버전 확인
+   docker exec -it onepass-redis redis-cli GET "ido:crypto:aes:current-version"
+   
+   # 등록된 키 버전 목록
+   docker exec -it onepass-redis redis-cli KEYS "ido:crypto:aes:version:*"
+   
+   # DB crypto_key_registry 확인
+   docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+     "SELECT key_type, key_version, active, current_flag, grace_until \
+      FROM ido.crypto_key_registry ORDER BY created_at;"
+   ```
+
+3. **로컬 환경에서 스케줄러 비활성화 (선택)**
+   ```yaml
+   # ido/src/main/resources/application.yml
+   ido:
+     ticket:
+       key-rotation-days: 36500  # 사실상 비활성화 (100년)
+   ```
+
+---
+
 ## 12. 개발 Tips 및 유용한 명령어
 
 ### 12.1 Gradle 빠른 명령어 모음
@@ -2410,7 +2844,7 @@ docker exec -it onepass-mariadb mariadb -u qim -pqim qim
 # 테이블 목록
 SHOW TABLES;
 
-# 특정 테이블 조회
+# 기본 테이블 조회
 SELECT * FROM qim_user LIMIT 10;
 SELECT * FROM auth_mean_mapping WHERE status = 'ACTIVE' LIMIT 10;
 SELECT * FROM outbox WHERE status = 'PENDING' ORDER BY created_at LIMIT 10;
@@ -2418,9 +2852,19 @@ SELECT * FROM outbox WHERE status = 'PENDING' ORDER BY created_at LIMIT 10;
 # Flyway 마이그레이션 이력 확인
 SELECT version, description, success, installed_on
 FROM flyway_schema_history ORDER BY installed_rank;
+# 정상: V1, V2, V3 모두 success=1
 
 # 사용자 상태 분포
 SELECT status, COUNT(*) FROM qim_user GROUP BY status;
+
+# ★ V3 신규 — 사용자 상태 전이 이력 조회
+SELECT qim_user_id, old_status, new_status, reason, changed_by, changed_at
+FROM user_status_history ORDER BY changed_at DESC LIMIT 20;
+
+# ★ V3 신규 — CI 암호화 키 버전 현황
+SELECT key_type, key_version, active, grace_until, created_at
+FROM crypto_key_version ORDER BY created_at;
+# active=1 인 행이 현재 사용 중인 버전
 ```
 
 ### 12.4 PostgreSQL 유용한 명령어
@@ -2434,18 +2878,37 @@ docker exec -it onepass-postgres psql -U onepass -d onepass
 \dt qsign.*  -- qsign 스키마 테이블 목록
 \dt ido.*    -- ido 스키마 테이블 목록
 
-# 특정 테이블 조회
+# 기본 테이블 조회
 SELECT * FROM ido.agency_meta LIMIT 10;
 
 # Flyway 마이그레이션 이력 확인
-SELECT * FROM ido.flyway_schema_history ORDER BY installed_on;
+SELECT version, description, success FROM ido.flyway_schema_history ORDER BY installed_rank;
+# 정상: V1 ~ V9 모두 success=true
+
+# ★ V9 신규 — crypto_key_registry 확인
+SELECT key_type, key_version, active, current_flag, grace_until
+FROM ido.crypto_key_registry ORDER BY created_at;
+
+# ★ V9 신규 — 기관별 Rate Limit 설정 확인
+SELECT agency_code, tps_limit, daily_limit, burst_multiplier, enabled
+FROM ido.agency_rate_limit_config;
+
+# ★ V9 신규 — 기관 설정 변경 이력 확인
+SELECT agency_code, policy_version, changed_by, change_reason, changed_at
+FROM ido.agency_meta_history ORDER BY changed_at DESC LIMIT 20;
+
+# ★ V9 신규 — 회원 조회 감사 로그 확인
+SELECT agency_code, lookup_type, result_code, response_ms, occurred_at
+FROM ido.member_lookup_log ORDER BY occurred_at DESC LIMIT 20;
 ```
 
-### 12.4 Redis 유용한 명령어
+### 12.5 Redis 유용한 명령어
 
 ```bash
 # Redis CLI 접속
 docker exec -it onepass-redis redis-cli
+
+# --- 기존 키 패턴 ---
 
 # FE 세션 키 목록
 KEYS fe:session:*
@@ -2466,7 +2929,41 @@ DBSIZE
 INFO memory
 ```
 
-### 12.5 Kafka 유용한 명령어
+### 12.6 Redis 키 패턴 전체 목록 (v1.8.0 기준)
+
+| 키 패턴 | TTL | 설명 | 담당 컴포넌트 |
+|---------|-----|------|---------------|
+| `fe:session:{feSessionId}` | 30분 | FE 세션 데이터 | IdO |
+| `fe:user-sessions:{qimUserId}` | 30분 | 사용자 세션 목록 (Set) | IdO |
+| `oidc:state:{state}` | 5분 | OIDC CSRF state | Q-Sign |
+| `qsign:pkce:challenge:{state}` | 5분 (설정 가능) | PKCE code_challenge | Q-Sign (PkceService) |
+| `ido:idempotency:handoff:{key}` | 60초 | Handoff 멱등 처리 키 | IdO |
+| `ido:rl:tps:{agencyCode}:{epochSecond}` | 2초 | Rate Limit TPS 슬라이딩 카운터 | IdO (AgencyRateLimiter) |
+| `ido:rl:daily:{agencyCode}:{yyyyMMdd}` | 25시간 | Rate Limit 일별 누적 카운터 | IdO (AgencyRateLimiter) |
+| `ido:crypto:aes:current-version` | 없음 | 현재 활성 AES 키 버전 (e.g., `v1`) | IdO (HandoffKeyRotationScheduler) |
+| `ido:crypto:aes:version:{vN}` | 없음 | AES 키 버전별 Base64 인코딩 키 | IdO (HandoffKeyRotationScheduler) |
+| `ido:crypto:aes:rotate-lock` | 5분 | 키 로테이션 분산 락 | IdO (HandoffKeyRotationScheduler) |
+
+```bash
+# 전체 IdO Rate Limit 키 확인
+docker exec -it onepass-redis redis-cli KEYS "ido:rl:*"
+
+# 전체 PKCE 키 확인
+docker exec -it onepass-redis redis-cli KEYS "qsign:pkce:*"
+
+# 전체 AES 암호화 관련 키 확인
+docker exec -it onepass-redis redis-cli KEYS "ido:crypto:*"
+
+# 특정 기관의 오늘 Rate Limit 카운터 조회
+AGENCY=AGENCY_STUB_001
+DATE=$(date +%Y%m%d)
+docker exec -it onepass-redis redis-cli GET "ido:rl:daily:${AGENCY}:${DATE}"
+
+# 현재 AES 키 버전 조회
+docker exec -it onepass-redis redis-cli GET "ido:crypto:aes:current-version"
+```
+
+### 12.7 Kafka 유용한 명령어
 
 ```bash
 # 토픽 목록 확인
@@ -2494,7 +2991,7 @@ docker exec -it onepass-kafka \
   --describe --group ido-qsign-consumer
 ```
 
-### 12.6 Spring Boot Actuator 엔드포인트
+### 12.8 Spring Boot Actuator 엔드포인트
 
 ```bash
 # 헬스체크 (상세)
@@ -2577,11 +3074,11 @@ cd onepass-fe/frontend && yarn dev  # 터미널 5
 
 ```
 사전 준비
-□ JDK 21 설치 확인 (java -version)
-□ Docker 및 Docker Compose v2 설치 확인
-□ Node.js 20 LTS 설치 확인
-□ Yarn 1.22 설치 확인
-□ 프로젝트 클론 및 브랜치 확인
+□ JDK 21 설치 확인 (java -version → openjdk 21.x.x)
+□ Docker 및 Docker Compose v2 설치 확인 (docker compose version)
+□ Node.js 20 LTS 설치 확인 (node --version → v20.x.x)
+□ Yarn 1.22 설치 확인 (yarn --version → 1.22.x)
+□ 프로젝트 클론 및 브랜치 확인 (git branch)
 □ chmod +x gradlew (Linux/macOS)
 
 Step 1 — 인프라 기동
@@ -2590,30 +3087,45 @@ Step 1 — 인프라 기동
 
 Step 2 — 인프라 확인
 □ docker compose ps → 모두 "Up (healthy)" 확인
-□ kafka-init → "Exited (0)" 확인
+□ kafka-init → "Exited (0)" 확인 (1이면 오류 → §11.4)
 □ Kafka 토픽 11개 생성 확인
+□ MariaDB Flyway: V1~V3 모두 Success 확인 (Q-IM 전용)
+□ PostgreSQL Flyway: V1~V9 모두 Success 확인 (IdO 기준)
+□ Redis AES 키 초기화 확인: GET ido:crypto:aes:current-version → "v1"
 
 Step 3 — 백엔드 빌드
 □ ./gradlew :platform-common:build :q-sign:build :q-im:build :ido:build :agency-stub:build -x test
+□ BUILD SUCCESSFUL 확인 (빌드 오류 시 → §11.6)
 
 Step 4 — 백엔드 기동 (4개 터미널)
-□ 터미널 1: ./gradlew :q-sign:bootRun → http://localhost:8081/actuator/health
-□ 터미널 2: ./gradlew :q-im:bootRun   → http://localhost:8082/actuator/health
-□ 터미널 3: ./gradlew :ido:bootRun    → http://localhost:8083/actuator/health
-□ 터미널 4: ./gradlew :agency-stub:bootRun → http://localhost:8084/actuator/health
+□ 터미널 1: ./gradlew :q-sign:bootRun → http://localhost:8081/actuator/health {"status":"UP"}
+□ 터미널 2: ./gradlew :q-im:bootRun   → http://localhost:8082/actuator/health {"status":"UP"}
+□ 터미널 3: ./gradlew :ido:bootRun    → http://localhost:8083/actuator/health {"status":"UP"}
+□ 터미널 4: ./gradlew :agency-stub:bootRun → http://localhost:8084/actuator/health {"status":"UP"}
 
 Step 5 — 프론트엔드 기동 (1개 터미널)
 □ 터미널 5: cd onepass-fe/frontend && yarn install && yarn dev
 □ http://localhost:3000 접속 확인
 
-모니터링 확인
-□ Kafka UI: http://localhost:8090 (admin/admin)
-□ Redis Insight: http://localhost:5540
+기본 모니터링 확인 (기본 기동 시)
+□ Kafka UI: http://localhost:8090 (admin/admin) — 토픽 목록 확인
+□ Redis Insight: http://localhost:5540 — Redis 키 확인
+
+[선택] v1.8.0 신규 기능 확인
+□ Monitoring 스택 기동: docker compose --profile monitoring up -d
+□ Prometheus 정상: http://localhost:9090/-/healthy
+□ Grafana 정상: http://localhost:3002 (admin/admin)
+□ Admin API 동작 확인: curl -H "X-Admin-Id: local-admin" http://localhost:8083/api/v1/admin/agencies
+□ Rate Limiter Redis 키 확인: KEYS ido:rl:*
+□ PKCE 활성화 확인: grep pkce q-sign/src/main/resources/application.yml
+□ AES 키 버전 확인: GET ido:crypto:aes:current-version
 ```
 
 ---
 
 ## 부록 B. 환경별 기본 설정값 요약
+
+### B.1 인프라 연결 설정
 
 | 설정 | 로컬 기본값 | Docker 기본값 |
 |------|-----------|-------------|
@@ -2634,3 +3146,28 @@ Step 5 — 프론트엔드 기동 (1개 터미널)
 | Q-Sign Base URL | `http://localhost:8081` | `http://onepass-qsign:8081` |
 | IDO Broker Mode | `qsign` | `qsign` |
 | Keycloak Base URL | `http://localhost:8088` | `http://keycloak:8080` |
+
+### B.2 v1.8.0 신규 환경변수 (application.yml 설정)
+
+> ⚠️ 로컬 개발 환경에서는 아래 값이 `application.yml` placeholder로 설정되어 있습니다.  
+> **운영 환경에서는 반드시 실제 비밀 값으로 교체하고 Vault/AWS KMS를 사용하세요.**
+
+| 설정 키 (application.yml) | 기본값 (로컬/PoC) | 설명 |
+|--------------------------|-----------------|------|
+| `q-im.ci-encryption.keys[0].version` | `v1` | CI 암호화 AES 키 버전 |
+| `q-im.ci-encryption.keys[0].key` | `(placeholder)` | AES-256 키 (Base64) |
+| `q-im.ci-encryption.current-version` | `v1` | 현재 활성 버전 |
+| `q-im.di.secret` | `(placeholder)` | DI 생성 HMAC-SHA256 비밀 (`QIM_DI_SECRET`) |
+| `ido.rate-limit.default-tps` | `200` | 기관 기본 TPS 한도 |
+| `ido.rate-limit.daily-limit` | `1000000` | 기관 기본 일별 한도 |
+| `ido.ticket.key-rotation-days` | `90` | AES 키 로테이션 주기(일) |
+| `ido.ticket.key-grace-period-hours` | `24` | 로테이션 후 구 버전 유예 기간 |
+| `qsign.pkce.enabled` | `true` | PKCE RFC 7636 활성화 여부 |
+| `qsign.pkce.challenge-ttl-seconds` | `300` | PKCE challenge Redis TTL (초) |
+
+```bash
+# 로컬에서 환경변수로 override 예시
+export QIM_DI_SECRET="local-dev-secret-not-for-production"
+export QIM_CI_KEY_V1="bG9jYWwtZGV2LWtleS1ub3QtZm9yLXByb2Q="  # Base64
+./gradlew :q-im:bootRun
+```
