@@ -13,7 +13,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.UUID;
 
 /**
@@ -51,10 +54,16 @@ public class AuthServiceImpl implements AuthService {
         // Keycloak 흐름(흐름 A)에서는 KeycloakCallbackService 가 처리하며 이 경로는 사용되지 않음.
         // 흐름 B(broker-input)에서는 issueFromIdOAuthInput() 이 처리함.
         // identifierHash 와 claims 검증은 각 흐름의 전용 서비스에서 수행됨.
+        // 이 경로(직접 OIDC)에서는 idToken 의 sub 클레임이 있어야 identifierHash 를 산출할 수 있으나,
+        // 현 설계에서는 실제 호출되지 않으므로 SHA-256(providerCode + ":" + correlationId) 로 임시 생성.
+        // ⚠️  이 경로가 실제 운용될 경우 반드시 idToken 파싱 후 SHA-256(sub) 로 교체해야 한다.
 
         if (lockRepository.isLocked(providerCode, providerCode)) {
             throw new PlatformException(PlatformErrorCode.QS_AUTH_LOCKED, correlationId);
         }
+
+        // 직접 OIDC 경로 — idToken sub 미제공 시 providerCode:correlationId 해시로 대체
+        String identifierHash = computeIdentifierHash(providerCode + ":" + correlationId);
 
         AuthResult result = AuthResult.builder()
                 .authResultId(UUID.randomUUID().toString())
@@ -62,7 +71,7 @@ public class AuthServiceImpl implements AuthService {
                 .authLevel(AuthResult.AuthLevel.valueOf(requestedLevel))
                 .providerCode(providerCode)
                 .authMethod(AuthResult.resolveAuthMethod(providerCode))
-                .identifierHash(providerCode + "-" + correlationId)
+                .identifierHash(identifierHash)
                 .authenticatedAt(Instant.now())
                 .verificationResult(AuthResult.VerificationResult.SUCCESS)
                 .build();
@@ -122,6 +131,22 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public boolean isLocked(String identifierHash, String providerCode) {
         return lockRepository.isLocked(identifierHash, providerCode);
+    }
+
+    // ── 내부 유틸 ────────────────────────────────────────────────────────────
+
+    /**
+     * SHA-256(input) → Hex 문자열
+     * PII 비보관 원칙: 원문 input 은 이 메서드 호출 이후 참조 금지.
+     */
+    private String computeIdentifierHash(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 해시 계산 실패", e);
+        }
     }
 
     private void publishAuthEvent(AuthResult result, String eventType) {
