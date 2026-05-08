@@ -216,12 +216,53 @@ ido:
     # Q-IM SP 수신 API 내부 전파 컨슈머 (QimSpMemberEventConsumer)
     topic-qim-sp-member-events: ${QIM_SP_MEMBER_TOPIC:qim.sp.member.events}
     consumer-group-qim-sp-member: ido-qim-sp-member-consumer
+    # Handoff 이벤트 컨슈머 (HandoffEventConsumer → WebhookDispatcherService)
+    consumer-group-handoff: ido-handoff-consumer
+    # 60,000명 대응 파티션/복제 설정 (KafkaTopicConfig 참조)
+    # PoC: partition-count-main=12(기본), replication-factor=1, min-insync-replicas=1
+    # 운영 3-broker: 환경변수 IDO_KAFKA_PARTITION_COUNT_MAIN=12, REPLICATION_FACTOR=3, ISR=2
+    partition-count-main: ${IDO_KAFKA_PARTITION_COUNT_MAIN:12}
+    partition-count-dlq:  ${IDO_KAFKA_PARTITION_COUNT_DLQ:6}
+    replication-factor:   ${IDO_KAFKA_REPLICATION_FACTOR:1}
+    min-insync-replicas:  ${IDO_KAFKA_MIN_INSYNC_REPLICAS:1}
 
-  # Outbox Relay
+  # Outbox Relay (ido.outbox 테이블 — Session Advisory 폴백)
   outbox:
     relay-interval-ms: 500
     batch-size: 100
     max-retry: 3
+
+  # ── Webhook Dispatcher 설정 ────────────────────────────────────────────
+  # 기관 외부 HTTPS webhook 발송 Outbox Relay 설정
+  webhook:
+    # Outbox 폴링 간격 (ms) — 500ms: 60k 급증 시 빠른 발송
+    relay-interval-ms: 500
+    # 배치당 처리 건수 — 50건: 기관당 HTTP 동시 연결 수 제어
+    relay-batch-size: 50
+    # 기본 최대 재시도 횟수 (기관별 설정 우선)
+    max-retry: 3
+    # webhook 요청 타임아웃
+    connect-timeout-ms: 3000
+    read-timeout-ms: 8000
+    # HMAC-SHA256 기본 서명 비밀키 (운영: Vault/KMS 주입 필수)
+    signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-change-in-production}
+
+  # ── 60k 급증 대응 — Redis Pre-warming (Burst Absorption) ──────────────
+  burst:
+    # Auth Result Redis 캐시 TTL (초)
+    # Handoff Ticket TTL(60s)보다 길게 설정 (사용자 이동 시간 고려)
+    auth-result-cache-ttl-seconds: 300
+
+  # ── Kafka 토픽 파티션 수 (환경별 오버라이드) ───────────────────────────
+  # PoC 단일 브로커: partition-count-main=6, replication-factor=1
+  # 운영 3-broker: partition-count-main=12, replication-factor=3, min-insync-replicas=2
+  # (KafkaTopicConfig 참조)
+  # kafka.partition-count-main, replication-factor, min-insync-replicas는
+  # ido.kafka.* 네임스페이스가 아닌 KafkaTopicConfig @Value로 직접 주입됨.
+  # 아래는 해당 설정을 위한 표준 위치 안내 주석 — 실제 값은 환경변수 또는 k8s ConfigMap으로 주입.
+  # IDO_KAFKA_PARTITION_COUNT_MAIN=12
+  # IDO_KAFKA_REPLICATION_FACTOR=3
+  # IDO_KAFKA_MIN_INSYNC_REPLICAS=2
 
   # ── CORS (React dev-server / Nginx → IdO) ──────────────────────────────
   # BFF 이관에 따라 CORS 허용 Origin 관리
@@ -292,9 +333,29 @@ management:
     tags:
       application: ${spring.application.name}
 
+# ── Async Executor 설정 ───────────────────────────────────────────────────
+ido:
+  async:
+    audit:
+      core-pool-size: ${IDO_AUDIT_EXECUTOR_CORE:4}
+      max-pool-size:  ${IDO_AUDIT_EXECUTOR_MAX:16}
+      queue-capacity: ${IDO_AUDIT_EXECUTOR_QUEUE:10000}
+      keep-alive-seconds: 60
+    webhook:
+      core-pool-size: ${IDO_WEBHOOK_EXECUTOR_CORE:4}
+      max-pool-size:  ${IDO_WEBHOOK_EXECUTOR_MAX:20}
+      queue-capacity: ${IDO_WEBHOOK_EXECUTOR_QUEUE:5000}
+
+  audit:
+    kafka-publish-enabled: ${IDO_AUDIT_KAFKA_ENABLED:true}
+    retry-interval-ms: 600000   # 10분마다 Kafka 미발행 감사 로그 재처리
+
 logging:
   level:
     kr.go.smes.ido: INFO
     kr.go.smes.ido.fe: INFO
+    kr.go.smes.ido.webhook: INFO
+    kr.go.smes.ido.burst: INFO
+    kr.go.smes.ido.audit: INFO
     org.springframework.kafka: WARN
     org.flywaydb: INFO

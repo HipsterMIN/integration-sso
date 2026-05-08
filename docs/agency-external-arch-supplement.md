@@ -334,37 +334,138 @@ IdO WebhookDispatcher → 기관 Webhook URL (HTTPS) ← 외부
 
 ## 6. PoC 구현 현황 vs 운영 설계 갭
 
-| 항목 | PoC 현재 상태 | 운영 목표 | 우선순위 | 구현 위치 |
-|------|--------------|-----------|---------|-----------|
+> **최종 업데이트**: 2026-05-08 — v1.5.0 P1 항목 구현 완료
+
+| 항목 | 현재 상태 | 운영 목표 | 우선순위 | 구현 위치 |
+|------|-----------|-----------|---------|-----------|
 | 기관 → IdO Verify 호출 | ✅ 구조 완성 (Stub 반환) | RestTemplate 실제 호출 | P1 | `AgencyEntryController.callIdoVerify()` |
 | 기관 API Key 검증 | ⚠️ 미구현 (TODO) | X-Agency-Key 헤더 검증 | P1 | `HandoffController` 인터셉터 |
 | Ticket 서명 검증 (기관 측) | ⚠️ 미구현 | HMAC-SHA256 검증 | P1 | `AgencyEntryController` |
 | agency-stub Kafka 직접 구독 | ⚠️ PoC 편의 코드 | 운영 시 제거 | P2 | `HandoffEventConsumer.java` |
-| Webhook 디스패처 | ❌ 미구현 | IdO 내부 컴포넌트 추가 | P1 | `ido/webhook/` 신규 패키지 |
+| **Webhook 디스패처** | ✅ **구현 완료** (v1.5.0) | IdO 내부 컴포넌트 | P1 | `ido/webhook/` 패키지 |
+| **Webhook Outbox Relay** | ✅ **구현 완료** (v1.5.0) | 지수 백오프 재시도 | P1 | `WebhookDispatchOutboxRelay` |
+| **Handoff 이벤트 → Webhook** | ✅ **구현 완료** (v1.5.0) | Kafka→HTTPS 브리지 | P1 | `HandoffEventConsumer` |
+| **Redis Pre-warming** | ✅ **구현 완료** (v1.5.0) | 60k 부하 흡수 | P1 | `AuthResultCacheService` |
+| **감사 로그 (Audit)** | ✅ **구현 완료** (v1.5.0) | DB + Kafka 이중 기록 | P1 | `AuditLogPublisher` |
+| **DB 마이그레이션 V7** | ✅ **구현 완료** (v1.5.0) | 4개 신규 테이블 | P1 | `V7__add_webhook_and_audit.sql` |
 | 이벤트 폴링 API | ❌ 미구현 | GET `/api/v1/agency/events` | P2 | `ido/api/AgencyEventController` |
 | agency-stub Docker 격리 | ❌ onepass-net 포함 | 별도 네트워크 또는 host | P2 | `docker-compose.yml` |
 | mTLS 기관 인증 | ❌ 미구현 (API Key 대체) | 클라이언트 인증서 검증 | P3 | Nginx/Gateway 레벨 |
 
 ---
 
-## 7. 즉시 적용 사항 (코드 주석 보완)
+## 7. v1.5.0 구현 상세 — 유관기관 외부 연동 인프라
 
-`agency-stub`의 다음 파일에 운영 불가 경고 주석 추가가 필요합니다:
+> v1.5.0(PR #16)에서 구현된 외부 기관 Webhook 연동 전체 스택을 기록한다.
 
-1. `HandoffEventConsumer.java` — 클래스 레벨 Javadoc에 PoC 한정 명시
-2. `application.yml` — Kafka 설정 블록에 주석 추가
-3. `AgencyEntryController.java` — `callIdoVerify` 메서드 TODO 상세화
+### 7.1 핵심 컴포넌트 목록
 
-이 작업은 다음 PR에서 일괄 처리 예정입니다.
+| 클래스 | 패키지 | 역할 |
+|--------|--------|------|
+| `WebhookDispatcherService` | `ido.webhook` | Outbox 적재 (HandoffEvent / MemberLookup / MemberWithdrawn) |
+| `WebhookDispatchOutboxRelay` | `ido.webhook` | 500ms 폴링 → HTTPS POST → 지수 백오프 재시도 |
+| `HandoffEventConsumer` | `ido.kafka` | `ido.handoff.events` 수신 → WebhookDispatcherService 호출 |
+| `QsignAuthEventConsumer` | `ido.kafka` | `qsign.auth.events` 수신 → Redis Pre-warming + Advisory |
+| `AuthResultCacheService` | `ido.burst` | Redis `ido:auth_result:{correlationId}` TTL 300s |
+| `SessionAdvisoryPublisher` | `ido.burst` | `platform.session.advisory` 발행 + Outbox 폴백 |
+| `AuditLogPublisher` | `ido.audit` | DB 기록 후 `platform.audit.log` Kafka 비동기 발행 |
+| `AsyncConfig` | `ido.config` | `auditExecutor` (4/16/10000) / `webhookExecutor` (4/20/5000) |
+
+### 7.2 DB 스키마 변경 (V7)
+
+```
+V7__add_webhook_and_audit.sql 추가 테이블:
+  ido.agency_webhook_config    — 기관별 endpoint / HMAC 시크릿 / 재시도 정책
+  ido.webhook_dispatch_outbox  — at-least-once HTTPS 발송 Outbox
+  ido.audit_log                — 플랫폼 감사 로그 (2년 보존)
+  ido.member_lookup_request    — CI/DN 해시 기반 회원 조회 요청 추적
+
+추가 컬럼:
+  ido.agency_meta.webhook_enabled   BOOLEAN DEFAULT FALSE
+  ido.agency_meta.webhook_endpoint  VARCHAR(500)
+```
+
+### 7.3 Kafka 토픽 확장 (60,000명 대응)
+
+```
+qsign.auth.events      파티션 12 / RF 3 / ISR 2  (신규)
+qim.sp.member.events   파티션 6  / RF 3 / ISR 2  (신규)
+ido.handoff.events     파티션 12 / RF 3 / ISR 2  (6→12 확장)
+platform.session.advisory 파티션 12 / RF 3 / ISR 2 (6→12 확장)
+platform.audit.log     파티션 6  / RF 3 / ISR 2  (기존 유지)
+
+컨슈머 concurrency:
+  qsign.auth.events    → 6 스레드 (Pre-warming 병렬도)
+  ido.handoff.events   → 6 스레드 (Webhook 큐잉 병렬도)
+  qim.user.events      → 3 스레드 (캐시 갱신)
+  platform.advisory    → 3 스레드 (FE 세션 처리)
+  qim.sp.member.events → 2 스레드 (SP 회원 이벤트)
+```
+
+### 7.4 완성된 이벤트 흐름도
+
+```
+[60,000명 동시 인증]
+        │
+        ▼
+Q-Sign AUTH_COMPLETED
+  → Kafka(qsign.auth.events)
+        │
+        ▼
+IdO QsignAuthEventConsumer [concurrency=6]
+  → AuthResultCacheService.preWarm()
+      └─► Redis TTL 300s  ← DB 폭발 차단 (30MB / 60k entries)
+        │
+        ▼
+사용자 → 기관 콜백 페이지 이동
+        │
+        ▼
+IdO HandoffServiceImpl.issue()
+  → Kafka(ido.handoff.events: HANDOFF_ISSUED)
+        │
+        ▼
+IdO HandoffEventConsumer [concurrency=6]
+  → WebhookDispatcherService.enqueueForHandoffEvent()
+      └─► INSERT webhook_dispatch_outbox (PENDING)
+            │
+            ▼ (500ms 폴링)
+        WebhookDispatchOutboxRelay
+          └─► HTTPS POST → 기관 Webhook URL (외부망)
+                └─► 2xx: DISPATCHED
+                └─► 실패: 지수 백오프 재시도 (2s / 4s / 8s → FAILED)
+
+[AUTH_LOCKED 보안 이벤트]
+        │
+        ▼
+IdO QsignAuthEventConsumer
+  → authResultCacheService.invalidate()
+  → SessionAdvisoryPublisher.publishAuthLocked()
+      └─► Kafka(platform.session.advisory: MANDATORY_SECURITY_TERMINATE)
+            └─► FeAdvisoryConsumer → FE 세션 강제 무효화
+```
 
 ---
 
-## 8. 결론
+## 8. 즉시 적용 사항 (코드 주석 보완 — 완료)
+
+v1.5.0에서 다음 코드 주석 보완이 완료되었습니다:
+
+1. `HandoffEventConsumer.java` (IdO) — 기관 Kafka 직접 접근 불가 이유 및 Webhook 브리지 설계 Javadoc 추가 ✅
+2. `QimSpMemberEventHandler.java` — `notifyAgencies()` Phase 2 TODO → WebhookDispatcherService 완전 구현 ✅
+3. `QsignAuthEventConsumer.java` — Redis Pre-warming 60k 시나리오 설계 주석 추가 ✅
+
+**미완료 (다음 PR 대상)**:
+- `agency-stub/HandoffEventConsumer.java` — PoC 한정 Javadoc (클래스 레벨) 추가
+- `agency-stub/application.yml` — Kafka 설정 블록 경고 주석
+
+---
+
+## 9. 결론
 
 ### 핵심 원칙 재확인
 
 > **유관기관은 항상 외부망에 존재한다.**  
-> 기관과 OnePass 플랫폼 간의 유일한 통신 채널은 **IdO 공개 API (HTTPS)** 이다.  
+> 기관과 OnePass 플랫폼 간의 유일한 통신 채널은 **IdO 공개 API (HTTPS)** 및 **Webhook** 이다.  
 > 내부 Kafka, 내부 DB, 내부 서비스에 대한 기관의 직접 접근은 **절대 허용하지 않는다.**
 
 ### agency-stub의 올바른 역할 정의
@@ -372,18 +473,19 @@ IdO WebhookDispatcher → 기관 Webhook URL (HTTPS) ← 외부
 `agency-stub`은 **PoC 시뮬레이터**입니다:
 - 실제 유관기관이 구현해야 할 `IdO Verify API 호출` 흐름을 시뮬레이션
 - 기관 로컬 세션(AGSID) 관리 로직 시연
-- **Kafka 직접 구독은 PoC 편의 코드 — 운영에서는 Webhook/Polling으로 대체**
+- **Kafka 직접 구독은 PoC 편의 코드 — 운영에서는 Webhook으로 대체 (v1.5.0 구현 완료)**
 
-### 다음 단계 (v1.5.0 목표)
+### 남은 단계 (v1.6.0 목표)
 
 1. **P1**: `AgencyEntryController.callIdoVerify()` 실제 RestTemplate 구현
-2. **P1**: IdO `WebhookDispatcherService` 신규 구현
-3. **P1**: agency-stub docker-compose 격리 (별도 네트워크 또는 host 모드)
-4. **P1**: `HandoffEventConsumer`에 PoC 경고 Javadoc 추가
-5. **P2**: 이벤트 폴링 API (`GET /api/v1/agency/events`) 구현
-6. **P2**: `returnUrl` 화이트리스트에서 `http://localhost:8084` 제거 (PoC 설정 정리)
+2. **P1**: 기관 API Key 검증 인터셉터 (`X-Agency-Key` 헤더)
+3. **P2**: 이벤트 폴링 API (`GET /api/v1/agency/events`) 구현
+4. **P2**: agency-stub docker-compose 격리 (별도 네트워크 또는 host 모드)
+5. **P2**: `returnUrl` 화이트리스트에서 `http://localhost:8084` 제거
+6. **P3**: mTLS 기관 인증 (Nginx/Gateway 레벨)
 
 ---
 
-*작성: genspark_ai_developer / 트리거: README 아키텍처 다이어그램 검토*  
+*초기 작성: genspark_ai_developer / 트리거: README 아키텍처 다이어그램 검토*  
+*v1.5.0 업데이트: 2026-05-08 — Webhook 연동 인프라 전체 구현 완료*  
 *관련 PR: genspark_ai_developer → main*

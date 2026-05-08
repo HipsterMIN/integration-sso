@@ -16,13 +16,19 @@ import org.springframework.web.client.RestTemplate;
  * IdO Web / HTTP 클라이언트 + 캐시 설정 (문서 §7.4)
  *
  * <p>Keycloak JWKS 공개키 캐시(keycloakJwks)를 포함한
- * RestTemplate, ObjectMapper, CacheManager Bean 등록.
+ * RestTemplate, ObjectMapper Bean 등록.
  *
- * <p>캐시 전략:
+ * <p><b>RestTemplate 목록</b>:
  * <ul>
- *   <li>{@code keycloakJwks} : Keycloak JWKS 공개키 — kid 기반 캐시 (TTL 1시간)</li>
- *   <li>ConcurrentMapCacheManager 사용 — TTL 지원을 위해 Caffeine 권장 (실운영 시 교체)</li>
+ *   <li>{@code restTemplate}        — Q-Sign / Keycloak 내부 HTTP 통신</li>
+ *   <li>{@code qimRestTemplate}     — Q-IM 조회 전용 (3s/5s 타임아웃)</li>
+ *   <li>{@code webhookRestTemplate} — 기관 외부 HTTPS webhook 발송 전용 (3s/8s 타임아웃)</li>
  * </ul>
+ *
+ * <p><b>webhookRestTemplate 설계</b>:
+ * 기관 외부 서버는 응답이 느릴 수 있어 read-timeout을 8s로 설정.
+ * 60,000명 급증 시 webhook 발송 지연이 생겨도 내부 서비스 영향 최소화.
+ * WebhookDispatchOutboxRelay가 이 빈을 {@code @Qualifier("webhookRestTemplate")}로 주입받아 사용.
  */
 @Configuration
 @EnableScheduling
@@ -34,16 +40,22 @@ public class IdoWebConfig {
     @Value("${ido.qsign.read-timeout-ms:5000}")
     private int readTimeoutMs;
 
-    // ── HTTP 클라이언트 ────────────────────────────────────────────────────
-
     @Value("${ido.qim.connect-timeout-ms:3000}")
     private int qimConnectTimeoutMs;
 
     @Value("${ido.qim.read-timeout-ms:5000}")
     private int qimReadTimeoutMs;
 
+    @Value("${ido.webhook.connect-timeout-ms:3000}")
+    private int webhookConnectTimeoutMs;
+
+    @Value("${ido.webhook.read-timeout-ms:8000}")
+    private int webhookReadTimeoutMs;
+
+    // ── HTTP 클라이언트 ────────────────────────────────────────────────────
+
     /**
-     * 공통 RestTemplate — q-sign, Keycloak 내부 HTTP 통신
+     * 공통 RestTemplate — Q-Sign, Keycloak 내부 HTTP 통신
      */
     @Bean
     public RestTemplate restTemplate() {
@@ -55,13 +67,32 @@ public class IdoWebConfig {
 
     /**
      * Q-IM 전용 RestTemplate (§11.5.4 QimClientImpl 의존)
-     * - 별도 타임아웃 설정 (connect 3s / read 5s)
      */
     @Bean
     public RestTemplate qimRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(qimConnectTimeoutMs);
         factory.setReadTimeout(qimReadTimeoutMs);
+        return new RestTemplate(factory);
+    }
+
+    /**
+     * 기관 webhook 발송 전용 RestTemplate
+     *
+     * <p><b>설계 근거</b>:
+     * <ul>
+     *   <li>connect-timeout 3s: 기관 서버 응답 여부 빠르게 판단</li>
+     *   <li>read-timeout 8s: 기관 내부 처리 시간 여유 (내부 서비스보다 길게)</li>
+     *   <li>별도 빈으로 분리: 기관 외부 호출이 내부 서비스 타임아웃에 영향 없도록</li>
+     * </ul>
+     *
+     * <p>WebhookDispatchOutboxRelay가 {@code @Qualifier("webhookRestTemplate")}으로 주입받음.
+     */
+    @Bean("webhookRestTemplate")
+    public RestTemplate webhookRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(webhookConnectTimeoutMs);
+        factory.setReadTimeout(webhookReadTimeoutMs);
         return new RestTemplate(factory);
     }
 

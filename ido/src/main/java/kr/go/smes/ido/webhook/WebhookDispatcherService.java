@@ -1,0 +1,463 @@
+package kr.go.smes.ido.webhook;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.go.smes.common.event.AuditLogEvent;
+import kr.go.smes.common.event.HandoffEvent;
+import kr.go.smes.ido.audit.AuditLogPublisher;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.*;
+
+/**
+ * 기관 Webhook 발송 핵심 서비스
+ *
+ * <p><b>책임</b>:
+ * <ol>
+ *   <li>기관 webhook 설정 조회 ({@code ido.agency_webhook_config})</li>
+ *   <li>기관별 이벤트 필터 적용 (event_type_filter 매칭)</li>
+ *   <li>{@code ido.webhook_dispatch_outbox} 에 발송 레코드 적재</li>
+ *   <li>HMAC-SHA256 서명 생성 (X-Webhook-Signature 헤더)</li>
+ * </ol>
+ *
+ * <p><b>실제 HTTP 발송은 {@link WebhookDispatchOutboxRelay}가 담당</b>.
+ * 이 서비스는 Outbox 적재만 수행 — 트랜잭션 경계 내 at-least-once 보장.
+ *
+ * <p><b>이벤트 흐름</b>:
+ * <pre>
+ * Kafka(ido.handoff.events) → HandoffEventConsumer
+ *       → WebhookDispatcherService.enqueueForAllAgencies()
+ *             → ido.webhook_dispatch_outbox INSERT (트랜잭션)
+ *                   → WebhookDispatchOutboxRelay (500ms 폴링)
+ *                         → HTTPS POST 기관 endpoint
+ * </pre>
+ *
+ * <p><b>보안 원칙</b>:
+ * <ul>
+ *   <li>webhook payload에 qimUserId 원본 금지 → agencySubjectId 사용</li>
+ *   <li>CI/DN 원본값 포함 금지</li>
+ *   <li>HMAC-SHA256 서명으로 위·변조 방지</li>
+ *   <li>기관별 독립 signing secret → 한 기관 key 유출이 타 기관에 영향 없음</li>
+ * </ul>
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class WebhookDispatcherService {
+
+    private static final String SOURCE_SYSTEM = "ido";
+
+    private final JdbcTemplate      jdbcTemplate;
+    private final ObjectMapper       objectMapper;
+    private final AuditLogPublisher  auditLogPublisher;
+
+    @Value("${ido.webhook.default-max-retry:3}")
+    private int defaultMaxRetry;
+
+    @Value("${ido.webhook.signing-secret:poc-webhook-secret-change-in-production}")
+    private String defaultSigningSecret;   // PoC 기본값; 운영: Vault/KMS 주입
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 공개 API
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Handoff 이벤트를 수신하는 모든 활성 기관에 webhook 발송 큐 등록
+     *
+     * <p>대상 기관 선택 기준:
+     * <ul>
+     *   <li>{@code agency_meta.webhook_enabled = true}</li>
+     *   <li>이벤트 타입이 기관 {@code event_type_filter}와 매칭 (filter null = 전체 허용)</li>
+     *   <li>동일 source_event_id + agency_code 조합이 아직 없는 경우 (중복 방지)</li>
+     * </ul>
+     *
+     * @param handoffEvent  Kafka에서 수신한 HandoffEvent
+     * @param correlationId 추적 ID
+     */
+    @Transactional
+    public void enqueueForHandoffEvent(HandoffEvent handoffEvent, String correlationId) {
+        String eventType    = handoffEvent.getEventType();
+        String sourceEventId = handoffEvent.getEventId();
+        String agencyCode   = handoffEvent.getAgencyCode();
+
+        log.info("[WebhookDispatcher] Handoff 이벤트 수신: eventType={} agencyCode={} sourceEventId={}",
+                eventType, agencyCode, sourceEventId);
+
+        // ① 대상 기관 목록 조회 (webhook_enabled + event_type_filter 적용)
+        List<AgencyWebhookConfig> targets = findWebhookTargets(eventType, agencyCode);
+
+        if (targets.isEmpty()) {
+            log.debug("[WebhookDispatcher] webhook 대상 기관 없음: eventType={} agencyCode={}",
+                    eventType, agencyCode);
+            return;
+        }
+
+        // ② 각 기관별 Outbox 적재
+        int enqueued = 0;
+        for (AgencyWebhookConfig config : targets) {
+            try {
+                String payload = buildHandoffWebhookPayload(handoffEvent, config, correlationId);
+                boolean inserted = insertOutbox(
+                        config, sourceEventId, eventType,
+                        "ido.handoff.events", payload, correlationId
+                );
+                if (inserted) enqueued++;
+            } catch (Exception e) {
+                log.error("[WebhookDispatcher] Outbox 적재 실패: agencyCode={} sourceEventId={} error={}",
+                        config.agencyCode(), sourceEventId, e.getMessage());
+            }
+        }
+
+        log.info("[WebhookDispatcher] Outbox 적재 완료: eventType={} 총{}건 대상 {}건 등록",
+                eventType, targets.size(), enqueued);
+
+        // ③ 감사 로그
+        auditLogPublisher.publish(
+                AuditLogPublisher.AuditEntry.builder()
+                        .eventCategory(AuditLogEvent.CATEGORY_WEBHOOK)
+                        .eventAction("WEBHOOK_ENQUEUED")
+                        .actorType(AuditLogEvent.ACTOR_SYSTEM)
+                        .actorId(SOURCE_SYSTEM)
+                        .resourceType("TICKET")
+                        .resourceId(handoffEvent.getTicketId())
+                        .agencyCode(agencyCode)
+                        .correlationId(correlationId)
+                        .outcome(AuditLogEvent.OUTCOME_SUCCESS)
+                        .outcomeDetail("enqueued=" + enqueued + "/" + targets.size())
+                        .metadata(Map.of(
+                                "eventType",     eventType,
+                                "sourceEventId", sourceEventId,
+                                "enqueuedCount", enqueued
+                        ))
+                        .build()
+        );
+    }
+
+    /**
+     * 회원 조회 결과를 특정 기관에 webhook 발송 큐 등록
+     *
+     * <p>유관기관이 CI/DN으로 회원 가입 여부를 조회한 결과를
+     * 비동기 webhook으로 push.
+     *
+     * @param requestId      원본 조회 요청 ID
+     * @param agencyCode     결과를 받을 기관 코드
+     * @param identifierHash SHA-256(CI|DN|BRNO)
+     * @param exists         회원 존재 여부
+     * @param instMbrId      회원 ID (없으면 null)
+     * @param correlationId  추적 ID
+     */
+    @Transactional
+    public void enqueueForMemberLookupResult(String requestId, String agencyCode,
+                                              String identifierHash, boolean exists,
+                                              String instMbrId, String correlationId) {
+        List<AgencyWebhookConfig> targets = findWebhookTargets("MEMBER_LOOKUP_RESULT", agencyCode);
+        if (targets.isEmpty()) {
+            log.info("[WebhookDispatcher] MEMBER_LOOKUP_RESULT webhook 대상 없음: agencyCode={}", agencyCode);
+            return;
+        }
+
+        AgencyWebhookConfig config = targets.get(0);
+        try {
+            String payload = buildMemberLookupPayload(
+                    requestId, identifierHash, exists, instMbrId, correlationId
+            );
+            insertOutbox(config, requestId, "MEMBER_LOOKUP_RESULT",
+                    "ido.member.lookup.requests", payload, correlationId);
+            log.info("[WebhookDispatcher] MEMBER_LOOKUP_RESULT Outbox 등록: agencyCode={} exists={}",
+                    agencyCode, exists);
+        } catch (Exception e) {
+            log.error("[WebhookDispatcher] MEMBER_LOOKUP_RESULT Outbox 실패: agencyCode={} error={}",
+                    agencyCode, e.getMessage());
+        }
+    }
+
+    /**
+     * 회원 탈퇴 이벤트를 모든 기관에 webhook 발송 큐 등록
+     */
+    @Transactional
+    public void enqueueForMemberWithdrawn(String instMbrId, String qimUserId,
+                                           String correlationId) {
+        List<AgencyWebhookConfig> targets = findWebhookTargets("MEMBER_WITHDRAWN", null);
+        if (targets.isEmpty()) return;
+
+        String sourceEventId = UUID.randomUUID().toString();
+        for (AgencyWebhookConfig config : targets) {
+            try {
+                String payload = buildMemberWithdrawnPayload(instMbrId, correlationId);
+                insertOutbox(config, sourceEventId, "MEMBER_WITHDRAWN",
+                        "qim.sp.member.events", payload, correlationId);
+            } catch (Exception e) {
+                log.error("[WebhookDispatcher] MEMBER_WITHDRAWN Outbox 실패: agencyCode={} error={}",
+                        config.agencyCode(), e.getMessage());
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // HMAC 서명 생성 (WebhookDispatchOutboxRelay 에서도 호출)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * HMAC-SHA256 서명 생성
+     *
+     * <p>기관 webhook 수신측 검증 방법:
+     * <pre>
+     * expectedSig = HmacSHA256(payload, rawSecret)
+     * if (X-Webhook-Signature != "sha256=" + hex(expectedSig)) → 거부
+     * </pre>
+     *
+     * @param payload      발송 payload (UTF-8 바이트)
+     * @param rawSecret    서명 비밀키 원본 (Base64 디코딩 전)
+     * @return "sha256=" + HEX(HMAC-SHA256)
+     */
+    public String computeHmacSignature(String payload, String rawSecret) {
+        try {
+            String secret = (rawSecret != null && !rawSecret.isBlank())
+                    ? rawSecret : defaultSigningSecret;
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] digest = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            return "sha256=" + bytesToHex(digest);
+        } catch (Exception e) {
+            log.error("[WebhookDispatcher] HMAC 서명 생성 실패: {}", e.getMessage());
+            return "sha256=error";
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 내부 구현
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * webhook 대상 기관 목록 조회
+     * agencyCode 지정 시 해당 기관만, null이면 webhook_enabled 전체 기관
+     */
+    @SuppressWarnings("unchecked")
+    private List<AgencyWebhookConfig> findWebhookTargets(String eventType, String agencyCode) {
+        String sql;
+        Object[] params;
+
+        if (agencyCode != null) {
+            sql = """
+                    SELECT wc.agency_code, wc.endpoint_url,
+                           wc.signing_secret_hash, wc.connect_timeout_ms, wc.read_timeout_ms,
+                           wc.max_retry_count, wc.retry_backoff_ms, wc.event_type_filter::text
+                    FROM ido.agency_webhook_config wc
+                    JOIN ido.agency_meta am ON am.agency_code = wc.agency_code
+                    WHERE wc.active = TRUE
+                      AND am.active = TRUE
+                      AND am.webhook_enabled = TRUE
+                      AND wc.agency_code = ?
+                    """;
+            params = new Object[]{ agencyCode };
+        } else {
+            sql = """
+                    SELECT wc.agency_code, wc.endpoint_url,
+                           wc.signing_secret_hash, wc.connect_timeout_ms, wc.read_timeout_ms,
+                           wc.max_retry_count, wc.retry_backoff_ms, wc.event_type_filter::text
+                    FROM ido.agency_webhook_config wc
+                    JOIN ido.agency_meta am ON am.agency_code = wc.agency_code
+                    WHERE wc.active = TRUE
+                      AND am.active = TRUE
+                      AND am.webhook_enabled = TRUE
+                    """;
+            params = new Object[]{};
+        }
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, params);
+        List<AgencyWebhookConfig> result = new ArrayList<>();
+
+        for (Map<String, Object> row : rows) {
+            String filterJson = (String) row.get("event_type_filter");
+            if (!matchesEventTypeFilter(eventType, filterJson)) {
+                log.debug("[WebhookDispatcher] 이벤트 필터 미매칭: agencyCode={} eventType={}",
+                        row.get("agency_code"), eventType);
+                continue;
+            }
+
+            result.add(new AgencyWebhookConfig(
+                    (String) row.get("agency_code"),
+                    (String) row.get("endpoint_url"),
+                    (String) row.get("signing_secret_hash"),
+                    toInt(row.get("connect_timeout_ms"), 3000),
+                    toInt(row.get("read_timeout_ms"), 8000),
+                    toInt(row.get("max_retry_count"), defaultMaxRetry),
+                    toInt(row.get("retry_backoff_ms"), 1000)
+            ));
+        }
+        return result;
+    }
+
+    /**
+     * event_type_filter JSON 배열과 이벤트 타입 매칭
+     * filter == null → 전체 허용
+     */
+    @SuppressWarnings("unchecked")
+    private boolean matchesEventTypeFilter(String eventType, String filterJson) {
+        if (filterJson == null || filterJson.isBlank() || filterJson.equals("null")) {
+            return true;  // filter 없음 → 전체 허용
+        }
+        try {
+            List<String> allowed = objectMapper.readValue(filterJson, List.class);
+            return allowed.contains(eventType);
+        } catch (Exception e) {
+            log.warn("[WebhookDispatcher] event_type_filter 파싱 실패, 전체 허용 처리: {}", filterJson);
+            return true;
+        }
+    }
+
+    /**
+     * webhook_dispatch_outbox INSERT
+     *
+     * @return true = 신규 삽입, false = 중복 (이미 등록)
+     */
+    private boolean insertOutbox(AgencyWebhookConfig config,
+                                  String sourceEventId, String sourceEventType,
+                                  String sourceTopic, String payloadJson,
+                                  String correlationId) {
+        try {
+            // next_retry_at = NOW() (즉시 발송 시도)
+            int updated = jdbcTemplate.update("""
+                    INSERT INTO ido.webhook_dispatch_outbox (
+                        dispatch_id, agency_code, endpoint_url,
+                        source_event_id, source_event_type, source_topic,
+                        correlation_id, payload, status,
+                        retry_count, max_retry, next_retry_at, created_at
+                    ) VALUES (?,?,?,?,?,?,?,?::jsonb,'PENDING',0,?,NOW(),NOW())
+                    ON CONFLICT (source_event_id, agency_code) DO NOTHING
+                    """,
+                    UUID.randomUUID().toString(),
+                    config.agencyCode(),
+                    config.endpointUrl(),
+                    sourceEventId, sourceEventType, sourceTopic,
+                    correlationId,
+                    payloadJson,
+                    config.maxRetry()
+            );
+            if (updated == 0) {
+                log.debug("[WebhookDispatcher] 중복 Outbox 스킵: agencyCode={} sourceEventId={}",
+                        config.agencyCode(), sourceEventId);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            log.error("[WebhookDispatcher] Outbox INSERT 실패: agencyCode={} error={}",
+                    config.agencyCode(), e.getMessage());
+            throw new RuntimeException("Webhook Outbox 적재 실패", e);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Payload 빌더 (개인정보 마스킹 원칙 적용)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Handoff 이벤트 webhook payload 구성
+     *
+     * <p>qimUserId 원본 포함 금지.
+     * 기관은 ticketId, agencyCode, eventType, correlationId 로 이벤트를 식별.
+     */
+    private String buildHandoffWebhookPayload(HandoffEvent event,
+                                               AgencyWebhookConfig config,
+                                               String correlationId) throws JsonProcessingException {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("eventId",       event.getEventId());
+        payload.put("eventType",     event.getEventType());
+        payload.put("agencyCode",    event.getAgencyCode());
+        payload.put("ticketId",      event.getTicketId());
+        payload.put("ticketState",   event.getTicketState());
+        payload.put("correlationId", correlationId);
+        payload.put("occurredAt",    event.getOccurredAt() != null
+                ? event.getOccurredAt().toString() : Instant.now().toString());
+
+        // REVOKED 이벤트에만 사유 포함
+        if (HandoffEvent.TYPE_HANDOFF_REVOKED.equals(event.getEventType())
+                && event.getRevokeReason() != null) {
+            payload.put("revokeReason", event.getRevokeReason());
+        }
+
+        // 플랫폼 메타
+        payload.put("platformVersion", "1.0");
+        payload.put("sourceSystem",    "ido");
+
+        return objectMapper.writeValueAsString(payload);
+    }
+
+    /**
+     * 회원 조회 결과 payload
+     * identifierHash만 포함 — CI/DN 원본값 절대 포함 금지
+     */
+    private String buildMemberLookupPayload(String requestId, String identifierHash,
+                                             boolean exists, String instMbrId,
+                                             String correlationId) throws JsonProcessingException {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("requestId",      requestId);
+        payload.put("eventType",      "MEMBER_LOOKUP_RESULT");
+        payload.put("identifierHash", identifierHash);
+        payload.put("exists",         exists);
+        if (exists && instMbrId != null) {
+            payload.put("instMbrId", instMbrId);
+        }
+        payload.put("correlationId", correlationId);
+        payload.put("occurredAt",    Instant.now().toString());
+        return objectMapper.writeValueAsString(payload);
+    }
+
+    /**
+     * 회원 탈퇴 통보 payload
+     */
+    private String buildMemberWithdrawnPayload(String instMbrId,
+                                                String correlationId) throws JsonProcessingException {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("eventType",     "MEMBER_WITHDRAWN");
+        payload.put("instMbrId",     instMbrId);
+        payload.put("correlationId", correlationId);
+        payload.put("occurredAt",    Instant.now().toString());
+        return objectMapper.writeValueAsString(payload);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 유틸
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
+
+    private String bytesToHex(byte[] bytes) {
+        char[] hex = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int v = bytes[i] & 0xFF;
+            hex[i * 2]     = HEX_CHARS[v >>> 4];
+            hex[i * 2 + 1] = HEX_CHARS[v & 0x0F];
+        }
+        return new String(hex);
+    }
+
+    private int toInt(Object val, int defaultVal) {
+        if (val instanceof Number n) return n.intValue();
+        return defaultVal;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 내부 VO
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** DB에서 읽은 기관 webhook 설정 */
+    record AgencyWebhookConfig(
+            String agencyCode,
+            String endpointUrl,
+            String signingSecretHash,
+            int connectTimeoutMs,
+            int readTimeoutMs,
+            int maxRetry,
+            int retryBackoffMs
+    ) {}
+}

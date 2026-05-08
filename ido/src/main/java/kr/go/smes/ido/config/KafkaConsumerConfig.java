@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import kr.go.smes.common.event.AuthEvent;
+import kr.go.smes.common.event.HandoffEvent;
 import kr.go.smes.common.event.SessionAdvisoryEvent;
 import kr.go.smes.common.event.UserEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -25,22 +26,31 @@ import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * IdO Kafka Consumer / Producer 설정
- * 설계서 §11.5 Q-IM 이벤트 소비 / §9.3 Q-Sign 이벤트 소비
+ * 설계서 §11.5 Q-IM 이벤트 소비 / §9.3 Q-Sign 이벤트 소비 / §16.3 Handoff 이벤트
  *
- * <p>컨슈머 그룹:
+ * <p><b>컨슈머 그룹 목록</b>:
  * <ul>
- *   <li>ido-qim-consumer        : qim.user.events 구독 (Q-IM 캐시 갱신)</li>
- *   <li>ido-qsign-consumer      : qsign.auth.events 구독 (인증 결과 연계)</li>
- *   <li>ido-fe-advisory-consumer: platform.session.advisory 구독 (FE 세션 처리)</li>
+ *   <li>{@code ido-qim-consumer}         — qim.user.events 구독 (Q-IM 캐시 갱신)</li>
+ *   <li>{@code ido-qsign-consumer}        — qsign.auth.events 구독 (인증 결과 Pre-warming)</li>
+ *   <li>{@code ido-handoff-consumer}      — ido.handoff.events 구독 (기관 webhook 트리거)</li>
+ *   <li>{@code ido-fe-advisory-consumer}  — platform.session.advisory 구독 (FE 세션 처리)</li>
+ *   <li>{@code ido-qim-sp-member-consumer}— qim.sp.member.events 구독 (SP 회원 이벤트)</li>
  * </ul>
  *
- * <p>onepass-fe Spring Boot BFF 제거에 따라
- * FE Advisory Consumer 가 IdO 로 이관됨.
+ * <p><b>60,000명 부하 대응 Concurrency 설계</b>:
+ * <pre>
+ * qsign.auth.events   → concurrency=6 (파티션 12개 기준 절반, pre-warming 병렬도)
+ * ido.handoff.events  → concurrency=6 (파티션 12개 기준 절반, webhook 큐잉 병렬도)
+ * qim.user.events     → concurrency=3 (캐시 갱신, 순서 중요)
+ * platform.advisory   → concurrency=3 (FE 세션 처리)
+ * qim.sp.member.events→ concurrency=2 (SP 회원 이벤트, 낮은 빈도)
+ * </pre>
  */
 @Configuration
 public class KafkaConsumerConfig {
@@ -53,6 +63,9 @@ public class KafkaConsumerConfig {
 
     @Value("${ido.kafka.consumer-group-qsign:ido-qsign-consumer}")
     private String qsignConsumerGroup;
+
+    @Value("${ido.kafka.consumer-group-handoff:ido-handoff-consumer}")
+    private String handoffConsumerGroup;
 
     @Value("${ido.kafka.consumer-group-fe-advisory:ido-fe-advisory-consumer}")
     private String feAdvisoryConsumerGroup;
@@ -74,8 +87,7 @@ public class KafkaConsumerConfig {
     /**
      * §11.5.5 Ordered Consumer 패턴
      * - concurrency=3 (파티션 수의 약수)
-     * - MANUAL_IMMEDIATE: 처리 완료 후 수동 커밋 (멱등 처리 보장)
-     * - 지수 백오프 재시도 후 DLQ 전송
+     * - MANUAL_IMMEDIATE: 처리 완료 후 수동 커밋
      */
     @Bean("qimListenerContainerFactory")
     public ConcurrentKafkaListenerContainerFactory<String, UserEvent>
@@ -91,7 +103,7 @@ public class KafkaConsumerConfig {
         return factory;
     }
 
-    // ── Q-Sign 인증 이벤트 컨슈머 팩토리 ─────────────────────────────────
+    // ── Q-Sign 인증 이벤트 컨슈머 팩토리 (60k 급증 핵심) ─────────────────
 
     @Bean("qsignConsumerFactory")
     public ConsumerFactory<String, AuthEvent> qsignConsumerFactory() {
@@ -102,13 +114,59 @@ public class KafkaConsumerConfig {
         );
     }
 
+    /**
+     * 60,000명 급증 대응 — concurrency=6
+     *
+     * <p>qsign.auth.events 파티션 12개 기준 concurrency=6 설정.
+     * AUTH_COMPLETED 수신 즉시 Redis Pre-warming 수행.
+     * 6개 스레드 × 폴링 주기 = 초당 수백 건 Pre-warming 처리 가능.
+     */
     @Bean("qsignListenerContainerFactory")
     public ConcurrentKafkaListenerContainerFactory<String, AuthEvent>
     qsignListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, AuthEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(qsignConsumerFactory());
-        factory.setConcurrency(3);
+        factory.setConcurrency(6);  // 60k 대응: 파티션 12개의 절반
+        factory.getContainerProperties()
+               .setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setCommonErrorHandler(defaultErrorHandler());
+        factory.getContainerProperties().setObservationEnabled(true);
+        return factory;
+    }
+
+    // ── Handoff 이벤트 컨슈머 팩토리 (기관 webhook 트리거) ───────────────
+
+    /**
+     * HandoffEvent는 String으로 수신 후 HandoffEventConsumer 내에서 역직렬화.
+     * HandoffEvent가 abstract DomainEvent를 상속하므로 타입 매핑 이슈 방지.
+     */
+    @Bean("handoffConsumerFactory")
+    public ConsumerFactory<String, String> handoffConsumerFactory() {
+        return new DefaultKafkaConsumerFactory<>(
+                consumerProps(handoffConsumerGroup),
+                new StringDeserializer(),
+                new StringDeserializer()
+        );
+    }
+
+    /**
+     * Handoff 이벤트 리스너 팩토리
+     *
+     * <p><b>60,000명 급증 대응 — concurrency=6</b>:
+     * ido.handoff.events 파티션 12개 기준 concurrency=6.
+     * HANDOFF_ISSUED 수신 → webhook Outbox 적재 → 병렬 처리.
+     *
+     * <p>Handoff Ticket TTL=60s이므로 처리 지연이 생기면 안 됨.
+     * 높은 concurrency로 즉시 처리 보장.
+     */
+    @Bean("handoffListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<String, String>
+    handoffListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(handoffConsumerFactory());
+        factory.setConcurrency(6);  // 60k 대응: 파티션 12개의 절반
         factory.getContainerProperties()
                .setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         factory.setCommonErrorHandler(defaultErrorHandler());
@@ -117,7 +175,6 @@ public class KafkaConsumerConfig {
     }
 
     // ── Q-IM SP 회원 이벤트 컨슈머 팩토리 (qim.sp.member.events) ─────────
-    // QimSpReceiverService Outbox 발행 → 내부 전파용 String 역직렬화
 
     @Bean("qimSpMemberConsumerFactory")
     public ConsumerFactory<String, String> qimSpMemberConsumerFactory() {
@@ -128,12 +185,6 @@ public class KafkaConsumerConfig {
         );
     }
 
-    /**
-     * Q-IM SP 회원 이벤트 리스너 컨테이너 팩토리
-     * - concurrency=2: SP 수신 처리량 대비 충분한 병렬도
-     * - MANUAL_IMMEDIATE: 핸들러 완료 후 명시적 ACK
-     * - Outbox 발행 payload = String JSON → String 역직렬화
-     */
     @Bean("qimSpMemberListenerContainerFactory")
     public ConcurrentKafkaListenerContainerFactory<String, String>
     qimSpMemberListenerContainerFactory() {
@@ -149,7 +200,6 @@ public class KafkaConsumerConfig {
     }
 
     // ── FE Advisory 컨슈머 팩토리 (platform.session.advisory) ────────────
-    // onepass-fe BFF 제거 → FeAdvisoryConsumer 이관
 
     @Bean("feAdvisoryConsumerFactory")
     public ConsumerFactory<String, SessionAdvisoryEvent> feAdvisoryConsumerFactory() {
@@ -160,18 +210,13 @@ public class KafkaConsumerConfig {
         );
     }
 
-    /**
-     * FE Advisory 리스너 컨테이너 팩토리
-     * - concurrency=2: FE 세션 처리 부하 고려
-     * - MANUAL_IMMEDIATE: 세션 무효화 완료 후 ACK
-     */
     @Bean("feAdvisoryListenerFactory")
     public ConcurrentKafkaListenerContainerFactory<String, SessionAdvisoryEvent>
     feAdvisoryListenerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, SessionAdvisoryEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(feAdvisoryConsumerFactory());
-        factory.setConcurrency(2);
+        factory.setConcurrency(3);
         factory.getContainerProperties()
                .setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         factory.setCommonErrorHandler(defaultErrorHandler());
@@ -179,7 +224,7 @@ public class KafkaConsumerConfig {
         return factory;
     }
 
-    // ── IdO Outbox 용 Producer ────────────────────────────────────────────
+    // ── Producer (IdO Outbox용) ───────────────────────────────────────────
 
     @Bean("idoProducerFactory")
     public ProducerFactory<String, Object> idoProducerFactory() {
@@ -216,16 +261,14 @@ public class KafkaConsumerConfig {
         return template;
     }
 
-    // ── Error Handler ────────────────────────────────────────────────────
+    // ── Error Handler (공통) ──────────────────────────────────────────────
 
     /**
-     * 지수 백오프 재시도 (최대 3회) → DLQ 전송
-     * 재시도 간격: 1s → 2s → 4s
+     * 지수 백오프 재시도 (최대 3회, 1s→2s→4s) → DLQ 전송
      *
-     * <p>설계서 §19.4 / §24.4.1 DLQ 전략:
-     * 최대 재시도 초과 시 "{원본토픽}.dlt" 토픽으로 전송.
-     * DLQ 레코드 헤더에 originalTopic / failureReason / failureCount /
-     * correlationId / eventId 를 보존하여 운영 추적 가능하게 함.
+     * <p>DLQ 토픽: "{원본토픽}.dlt"
+     * DLQ 헤더: x-original-topic, x-failure-reason, x-failure-count
+     * (설계서 §24.4.1 DLQ 전략)
      */
     private DefaultErrorHandler defaultErrorHandler() {
         ExponentialBackOffWithMaxRetries backOff =
@@ -234,25 +277,20 @@ public class KafkaConsumerConfig {
         backOff.setMultiplier(2.0);
         backOff.setMaxInterval(10_000L);
 
-        // DLQ: 원본 토픽명 + ".dlt" 접미사 토픽으로 전송
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 idoKafkaTemplate(),
                 (record, ex) -> new TopicPartition(record.topic() + ".dlt", -1)
         );
 
-        // DLQ 헤더에 장애 컨텍스트 정보 보존 (설계서 §24.4.1)
         recoverer.setHeadersFunction((consumerRecord, ex) -> {
-            org.apache.kafka.common.header.internals.RecordHeaders headers =
-                    new org.apache.kafka.common.header.internals.RecordHeaders();
-            // originalTopic 보존
+            var headers = new org.apache.kafka.common.header.internals.RecordHeaders();
             headers.add("x-original-topic",
-                    consumerRecord.topic().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            // failureReason 보존
-            String reason = ex.getCause() != null ? ex.getCause().getClass().getSimpleName()
+                    consumerRecord.topic().getBytes(StandardCharsets.UTF_8));
+            String reason = ex.getCause() != null
+                    ? ex.getCause().getClass().getSimpleName()
                     : ex.getClass().getSimpleName();
             headers.add("x-failure-reason",
-                    reason.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            // 원본 헤더 전달 (correlationId / eventId 등 보존)
+                    reason.getBytes(StandardCharsets.UTF_8));
             consumerRecord.headers().forEach(h -> {
                 if (!"x-original-topic".equals(h.key())
                         && !"x-failure-reason".equals(h.key())) {
@@ -265,8 +303,15 @@ public class KafkaConsumerConfig {
         return new DefaultErrorHandler(recoverer, backOff);
     }
 
-    // ── Shared ────────────────────────────────────────────────────────────
+    // ── 공통 컨슈머 프로퍼티 ─────────────────────────────────────────────
 
+    /**
+     * 컨슈머 공통 프로퍼티
+     *
+     * <p>max-poll-records=50: 60k 급증 시 배치 처리로 처리량 향상.
+     * isolation-level=read_committed: 트랜잭셔널 Outbox 발행 레코드만 소비.
+     * auto-commit 비활성: MANUAL_IMMEDIATE ACK로 정확한 처리 보장.
+     */
     private Map<String, Object> consumerProps(String groupId) {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
