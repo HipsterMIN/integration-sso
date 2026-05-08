@@ -93,9 +93,18 @@ public class AgencyEntryController {
     // ── private ─────────────────────────────────────────────────────────────
 
     private HandoffPayload callIdoVerify(String ticketId, String correlationId) {
-        // TODO: 실제 IdO Verify API 호출 (mTLS or API Key 헤더 포함)
-        // TODO: Ticket 서명 검증
-        // 현재는 stub 반환
+        // ⚠️ PoC Stub 반환 — 실 운영 구현 필요 (P1)
+        //
+        // 운영 구현 체크리스트 (docs/agency-external-arch-supplement.md §4.1):
+        //   [P1] RestTemplate 실제 HTTP POST 구현:
+        //        POST {ido.base-url}/api/v1/handoff/verify
+        //        헤더: X-Agency-Code: {agency-stub.code}
+        //              X-Agency-Key:  {agency-stub.ido.api-key}
+        //              X-Correlation-Id: {correlationId}
+        //   [P1] 응답의 HMAC-SHA256 서명 검증 (X-OnePass-Signature 헤더)
+        //   [P1] HTTP 4xx/5xx 에러 처리 (Resilience4j CircuitBreaker 적용)
+        //   [P2] Ticket payload 복호화 (AES-256-GCM, IdO 제공 공개 키)
+        //
         return HandoffPayload.builder()
                 .ticketId(ticketId)
                 .correlationId(correlationId)

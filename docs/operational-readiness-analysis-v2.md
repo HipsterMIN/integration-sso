@@ -1,8 +1,8 @@
-# Operational Readiness Analysis — v2.1
+# Operational Readiness Analysis — v2.2
 **작성일**: 2026-05-08  
 **대상 브랜치**: `genspark_ai_developer`  
 **분석 범위**: q-sign · q-im · ido · onepass-fe · agency-stub  
-**목적**: v1.4.1 버그 수정 및 코드 보완 후 재검증  
+**목적**: v1.4.2 아키텍처 원칙 재검토 — 유관기관 외부망 배치 원칙 보완  
 **전 버전**: operational-readiness-analysis.md (2026-05-07)
 
 ---
@@ -14,6 +14,7 @@
 | v1.0 | 2026-05-07 | 최초 분석 |
 | v2.0 | 2026-05-08 | v1.4.0/v1.4.1 버그 수정 반영 (9개 항목) |
 | v2.1 | 2026-05-08 | P0~P1 보완 작업 반영: Dockerfile 생성, docker-compose 완성, identifierHash SHA-256 일관화, HMAC-SHA256 내부 서명 교체 |
+| **v2.2** | **2026-05-08** | **아키텍처 원칙 재검토: 유관기관 외부망 배치 원칙 명확화, README 구성도 수정, 설계 보완 문서 신규 작성** |
 
 ---
 
@@ -226,6 +227,9 @@ webapp/
 | P1-01 | Resilience4j 어노테이션 실 적용 | `KeycloakCallbackService`, `QimClientImpl` | `application.yml`에 circuitbreaker/retry 설정 완비되어 있으나 실제 `@CircuitBreaker`, `@Retry` 어노테이션 미적용 |
 | P1-02 | 기관 Attribute 필터링 | `PolicyEngineImpl` | `filterAttributes()` 빈 구현 — 기관 정책에 따른 속성 마스킹 미구현 |
 | P1-03 | IdO `X-Internal-Sig` 검증 구현 | `OidcCompleteController` / Filter | HMAC-SHA256 재계산 + `±60초` 타임스탬프 유효성 검사 |
+| P1-04 | `AgencyEntryController.callIdoVerify()` 실 구현 | `agency-stub` | 현재 Stub 반환 → RestTemplate으로 실제 IdO Verify API 호출, API Key 헤더 전송 구현 |
+| P1-05 | IdO Webhook 디스패처 신규 구현 | `ido/webhook/` 신규 패키지 | Handoff REVOKED/Advisory 이벤트 발생 시 기관 Webhook URL로 HTTPS POST (Resilience4j retry 포함) |
+| P1-06 | agency-stub Docker 격리 | `docker-compose.yml` | agency-stub을 `onepass-net`에서 제거 → 별도 `agency-net` 또는 host 모드 |
 
 ### P2 — 중기 구현 대상
 
@@ -236,6 +240,8 @@ webapp/
 | P2-03 | 동의 테이블 V3 migration | `ido` | `ido.consent_record`, `ido.consent_version` 스키마 추가 예정 |
 | P2-04 | `AgencyMemberLookupService` | `ido` | 기관 회원 조회 API 스텁 상태 |
 | P2-05 | Non-OIDC 흐름 `issueFromOidc` 교체 | `AuthServiceImpl` | PASS/GPKI 실 운용 시 idToken sub 파싱 후 `SHA-256(sub)` 기반 `identifierHash` 산출로 교체 필요 |
+| P2-06 | 이벤트 폴링 API 구현 | `ido/api/AgencyEventController` | 기관 Webhook 대안 — GET `/api/v1/agency/events?since={ts}` |
+| P2-07 | agency-stub Kafka 직접 구독 제거 | `agency-stub/HandoffEventConsumer` | PoC 코드 정리 — 운영 전 Webhook/Polling 방식으로 교체 필수 |
 
 ---
 
@@ -319,6 +325,9 @@ curl http://localhost:8088/health/ready     # Keycloak
 | AES-256-GCM Handoff 암호화 | ✅ | HandoffCryptoService |
 | Kafka 멱등 컨슈머 | ✅ | IdempotentEventStore (processed_event 테이블) |
 | DB Outbox 패턴 | ✅ | Q-Sign, IdO, Q-IM 전 모듈 |
+| **기관 외부망 원칙 명문화** | ✅ | README 구성도 수정 + agency-external-arch-supplement.md 신규 작성 (v2.2) |
+| **내부 Kafka 외부 노출 차단** | ⚠️ | agency-stub PoC 한정 직접 구독 중 — P1-06, P2-07에서 해결 |
+| **기관 API 인증 (X-Agency-Key)** | ⚠️ | HandoffController에 API Key 검증 인터셉터 미구현 — P1-04와 연계 |
 
 ---
 
@@ -362,6 +371,7 @@ SPRING_PROFILES_ACTIVE=local \
 | Q-IM 사용자 SoR | **90%** | 전환·탈퇴 흐름 P2 |
 | Docker 컨테이너화 | **100%** | Dockerfile 전 모듈 완비, docker-compose 완성 ★ |
 | 보안 (서명/암호화/해시) | **95%** | 수신 측 서명 검증 P1 |
+| **아키텍처 설계 원칙 (외부망 격리)** | **90%** | 원칙 명문화 완료, PoC 코드 경고 추가 / 실 격리는 P1-P2 |
 
 ### 최소 운용 가능(MVO) 판단
 
@@ -369,6 +379,16 @@ SPRING_PROFILES_ACTIVE=local \
 > Keycloak OIDC(Kakao/Naver) 흐름 및 비OIDC(PASS/GPKI) 흐름이 End-to-End로 동작한다.  
 > **Kakao Client Secret 실 값 교체**가 유일한 P0 잔여 조건이며, 이것이 충족되면 PoC 데모 가능 상태.
 
+### v2.2 신규 발견 — 아키텍처 원칙 보완 사항
+
+| 항목 | 발견 경위 | 처리 결과 |
+|------|-----------|----------|
+| README 구성도에 agency-stub이 내부망으로 표시 | 아키텍처 다이어그램 재검토 | README 구성도 전면 수정 ✅ |
+| agency-stub이 내부 Kafka 직접 구독 | 코드 분석 (`HandoffEventConsumer.java`) | PoC 경고 Javadoc 추가, P1-P2 이슈 등록 ✅ |
+| agency-stub `application.yml` Kafka 설정 | 코드 분석 | PoC 경고 주석 추가 ✅ |
+| `AgencyEntryController.callIdoVerify()` Stub 반환 | 코드 분석 | TODO 상세화 + P1-04 이슈 등록 ✅ |
+| 설계 보완 문서 부재 | 문서 검토 | `docs/agency-external-arch-supplement.md` 신규 작성 ✅ |
+
 ---
 
-*분석 작성: genspark_ai_developer / 브랜치: genspark_ai_developer → main PR #14 예정*
+*분석 작성: genspark_ai_developer / 브랜치: genspark_ai_developer → main PR #15*

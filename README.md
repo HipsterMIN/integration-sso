@@ -29,51 +29,82 @@
 
 ## 아키텍처 개요
 
+> **⚠️ 설계 원칙**: 모든 유관기관(기관 시스템)은 **외부망**에 위치합니다.  
+> 기관은 내부 Kafka·DB에 직접 접근하지 않으며, **IdO 공개 API(HTTPS)** 만을 통해 통신합니다.  
+> `agency-stub`은 이 외부 기관을 시뮬레이션하는 PoC 전용 컴포넌트입니다.
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      외부 채널 (브라우저 / 앱)                        │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │ HTTPS
-            ┌───────────┴────────────┐
-            ▼                        ▼
-  [개발] React dev :3000     [운영] Nginx :3001
-    webpack proxy /api           /api → ido:8083
-         │                            │
-         └────────────┬───────────────┘
-                      │ /api/v1/fe-session/**
-                      │ /api/v1/handoff/**
-┌─────────────────────▼───────────────────────────────────────────┐
-│  ido  :8083  정책 오케스트레이터 + FE BFF (BFF 이관)                │
-│  - feSessionId 쿠키 발급 · 갱신 · 만료 (세션 오너십)                 │
-│  - returnUrl 화이트리스트 검증 (§12.6)                             │
-│  - IdO Handoff Ticket 발급 / 검증 / Revoke                        │
-│  - platform.session.advisory Kafka 소비 → FE 세션 무효화           │
-│  - CORS: React SPA (port 3000/3001) 허용                         │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │ HTTP (내부망)
-        ┌───────────────┼───────────────┐
-        ▼               ▼               ▼
-┌───────────────┐ ┌───────────────┐ ┌──────────────────┐
-│  q-sign :8081 │ │  q-im   :8082 │ │agency-stub :8084 │
-│  인증 SoR      │ │  식별 SoR      │ │기관 로컬 세션 Stub │
-└───────┬───────┘ └───────┬───────┘ └──────────────────┘
-        │  Outbox         │  Outbox
-        └────────┬────────┘
-                 ▼
-         ┌───────────────────────────────────┐
-         │           Apache Kafka            │
-         │  qsign.auth.events                │
-         │  qim.user.events / snapshot       │
-         │  ido.handoff.events               │
-         │  platform.session.advisory        │
-         │  platform.audit.log  (+DLQ ×5)    │
-         └───────────────────────────────────┘
-                        │
-        ┌───────────────┼───────────────┐
-        ▼               ▼               ▼
-  PostgreSQL 16     Redis 7.2     onepass-fe
-  (qsign/qim/       (FE세션·캐시)  (순수 React SPA)
-   ido/agency)                     dist/ → Nginx 서빙
+══════════════════════════════════════════════════════════════════════
+  외부망 (External Network)
+══════════════════════════════════════════════════════════════════════
+
+  ┌──────────────────────────────────┐  ┌──────────────────────────────┐
+  │      최종 사용자 (브라우저 / 앱)     │  │    유관기관 시스템 (외부망)       │
+  │                                  │  │                              │
+  │  [개발] React dev :3000           │  │  agency-stub :8084  ←PoC    │
+  │    webpack proxy /api            │  │  (실제 기관 앱을 시뮬레이션)     │
+  │  [운영] Nginx :3001               │  │                              │
+  │    /api → ido:8083               │  │  ① POST /agency/entry        │
+  └──────────┬───────────────────────┘  │     ticketId → IdO Verify API│
+             │ HTTPS                   │  ② HTTPS: IdO :8083/handoff  │
+             │ /api/v1/fe-session/**   │     verify (API Key 인증)      │
+             │ /api/v1/handoff/**      │  ③ AGSID 쿠키 발급 (기관 세션)  │
+             │                         └──────────────┬───────────────┘
+             │                                        │ HTTPS (공개 API)
+══════════════════════════════════════════════════════╪═════════════════
+  내부망 (Internal Network — onepass-net 172.20.0.0/24)│
+══════════════════════════════════════════════════════╪═════════════════
+             │                                        │
+             ▼                                        ▼
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  ido  :8083  정책 오케스트레이터 + FE BFF                           │
+  │                                                                  │
+  │  [사용자향 BFF]                      [기관향 공개 API]               │
+  │  - feSessionId 쿠키 발급/갱신/만료    - POST /handoff/issue          │
+  │  - returnUrl 화이트리스트 검증        - POST /handoff/verify ◀ 기관  │
+  │  - CORS: React SPA (3000/3001)      - DELETE /handoff/{id}        │
+  │  - platform.session.advisory 소비   - X-Agency-Code + API Key 인증 │
+  │    → FE 세션 무효화                  - Handoff REVOKED 시 Kafka 발행 │
+  └──────────────────┬───────────────────────────────────────────────┘
+                     │ HTTP (내부망 전용)
+         ┌───────────┴───────────┐
+         ▼                       ▼
+  ┌─────────────┐       ┌─────────────┐
+  │ q-sign:8081 │       │  q-im:8082  │
+  │  인증 SoR    │       │   식별 SoR   │
+  └──────┬──────┘       └──────┬──────┘
+         │  Outbox              │  Outbox
+         └──────────┬───────────┘
+                    ▼
+    ┌───────────────────────────────────┐
+    │           Apache Kafka            │
+    │  qsign.auth.events                │
+    │  qim.user.events / snapshot       │
+    │  ido.handoff.events      ──────►  │──► [기관은 직접 구독 불가]
+    │  platform.session.advisory        │    기관 세션 무효화는 IdO가
+    │  platform.audit.log  (+DLQ ×5)   │    Handoff REVOKED 이벤트를
+    └─────────────────┬─────────────────┘    발행 → 기관이 Verify 실패로
+                      │                       간접 감지 (Push/Webhook P1)
+         ┌────────────┼────────────┐
+         ▼            ▼            ▼
+  PostgreSQL 16    Redis 7.2   MariaDB 11
+  (qsign/ido)    (FE세션·캐시)   (qim 전용)
+```
+
+### 기관 연동 흐름 요약
+
+```
+[유관기관 시스템] ── HTTPS ──► [IdO :8083]
+                               │
+  ① 인증 완료 후 Handoff         │  /api/v1/handoff/verify
+     Ticket 발급 (ido 내부)      │  - X-Agency-Code 헤더
+  ② 기관이 ticketId 수신          │  - X-Agency-Key API Key
+  ③ 기관 → IdO Verify 호출 ──►  │  - 1회성 Ticket 소비
+  ④ IdO → HandoffPayload 반환   │  - agencySubjectId 포함
+  ⑤ 기관 로컬 세션(AGSID) 발급    │
+
+  ※ Kafka 직접 구독: 불가 (내부망 격리)
+  ※ 세션 무효화 통지: Webhook/Push 방식으로 설계 예정 (§PoC: polling 허용)
 ```
 
 ---
@@ -181,7 +212,8 @@ onepass-platform/                  ← Gradle 루트
 │       │   ├── client.ts          # Axios (proxy → ido:8083)
 │       │   └── session.ts         # /api/v1/fe-session/** 호출
 │       └── webpack.config.js      # devServer proxy: /api → localhost:8083
-├── agency-stub/                   # 기관 로컬 세션 시뮬레이터 (port 8084)
+├── agency-stub/                   # ★PoC 전용: 외부 유관기관 시뮬레이터 (port 8084)
+│   # ⚠️ 실 기관은 외부망에 위치 — Kafka 직접 구독 불가 (설계 제약)
 └── infra/
     └── docker/
         ├── docker-compose.yml     # onepass-fe Spring Boot 제거, onepass-ido 추가
@@ -246,7 +278,8 @@ docker compose -f infra/docker/docker-compose.yml \
 # IdO (정책 오케스트레이터 + FE BFF)
 ./gradlew :ido:bootRun
 
-# agency-stub (기관 세션 시뮬레이터)
+# agency-stub (외부 유관기관 시뮬레이터 — PoC 전용)
+# ⚠️ 실 기관은 IdO HTTPS API 만 사용 (Kafka 직접 구독 불가)
 ./gradlew :agency-stub:bootRun
 
 # React 개발서버 (별도 터미널, proxy → ido:8083)
@@ -275,6 +308,10 @@ cd onepass-fe/frontend && yarn install && yarn dev
 | `onepass-react` ★ | onepass-react:latest | **3001** | 172.20.0.20 | `optionB` |
 
 > ★ `onepass-fe` Spring Boot 컨테이너는 제거됨. `onepass-ido` 가 BFF 역할 수행.
+
+> ⚠️ **agency-stub 미포함**: `agency-stub`은 **외부 유관기관을 시뮬레이션**하므로 내부망(`onepass-net`)에 포함되지 않습니다.  
+> PoC 로컬 실행 시 `localhost:8084`로 별도 기동하여 IdO `localhost:8083` 공개 API를 HTTPS로 호출합니다.  
+> (실 운영에서 기관 시스템은 완전히 독립된 외부망 환경에서 운영됩니다.)
 
 ### Docker Compose 프로파일
 
@@ -327,12 +364,17 @@ docker compose -f infra/docker/docker-compose.yml --profile schema up -d
 ### 스키마 분리
 
 ```
-PostgreSQL DB: onepass
+PostgreSQL DB: onepass  (내부망 — 172.20.0.10)
 ├── qsign.*        (q-sign 전용)
-├── qim.*          (q-im 전용)
 ├── ido.*          (ido 전용 — fe_session_audit, fe_return_url_whitelist 포함)
-└── agency_stub.*  (agency-stub 전용)
+└── agency_stub.*  (agency-stub PoC 전용 — PoC 한정, 실 기관은 자체 DB 보유)
+
+MariaDB DB: qim  (내부망 — 172.20.0.21)
+└── qim.*          (q-im 전용 — 운영: NHN Cloud RDS for MariaDB)
 ```
+
+> ⚠️ **agency-stub DB 스키마** (`agency_stub.*`): PoC 시뮬레이션 전용.  
+> 실 유관기관은 자신의 망 내 독립 DB를 사용하며, OnePass 내부 PostgreSQL에 접근하지 않습니다.
 
 ---
 
@@ -352,15 +394,20 @@ PostgreSQL DB: onepass
 
 ### 컨슈머 그룹 (현행 — BFF 이관 후)
 
-| 그룹 ID | 구독 토픽 | 모듈 | 처리 내용 |
-|---------|----------|------|----------|
-| `ido-qim-consumer` | `qim.user.events` | `ido` | 버전 검사 + 캐시 무효화 (Ordered Consumer) |
-| `ido-qsign-consumer` | `qsign.auth.events` | `ido` | 인증 결과 처리 |
-| `ido-fe-advisory-consumer` ★ | `platform.session.advisory` | `ido` | FE 세션 즉시 무효화 / Advisory 플래그 |
-| `agency-stub-consumer-handoff` | `ido.handoff.events` | `agency-stub` | REVOKED → 기관 세션 무효화 |
-| `agency-stub-consumer-advisory` | `platform.session.advisory` | `agency-stub` | qimUserId 기준 일괄 무효화 |
+| 그룹 ID | 구독 토픽 | 모듈 | 위치 | 처리 내용 |
+|---------|----------|------|------|-----------|
+| `ido-qim-consumer` | `qim.user.events` | `ido` | 내부망 | 버전 검사 + 캐시 무효화 (Ordered Consumer) |
+| `ido-qsign-consumer` | `qsign.auth.events` | `ido` | 내부망 | 인증 결과 처리 |
+| `ido-fe-advisory-consumer` ★ | `platform.session.advisory` | `ido` | 내부망 | FE 세션 즉시 무효화 / Advisory 플래그 |
+| `agency-stub-consumer-handoff` ⚠️ | `ido.handoff.events` | `agency-stub` | **PoC 한정** | REVOKED → 기관 세션 무효화 |
+| `agency-stub-consumer-advisory` ⚠️ | `platform.session.advisory` | `agency-stub` | **PoC 한정** | qimUserId 기준 일괄 무효화 |
 
 > ★ 구 `onepass-fe-consumer`(onepass-fe BFF) → `ido-fe-advisory-consumer`(ido) 로 이관.
+
+> ⚠️ **PoC 한정 설계 주의**: `agency-stub`의 Kafka 직접 구독은 **PoC 시뮬레이션 전용**입니다.  
+> 실 운영에서 유관기관은 내부 Kafka에 직접 접근할 수 없습니다.  
+> 실 운영 기관 세션 무효화 연동 방식은 **Webhook Push** 또는 **Polling API** 로 설계합니다.  
+> (상세: [agency-external-arch-supplement.md](docs/agency-external-arch-supplement.md))
 
 ### Outbox 패턴
 
@@ -584,7 +631,7 @@ cd onepass-fe/frontend && yarn dev
 | http://localhost:8081 | q-sign API | |
 | http://localhost:8082 | q-im API | |
 | **http://localhost:8083** | **ido API + FE BFF** | `/api/v1/fe-session/**` 포함 |
-| http://localhost:8084 | agency-stub | |
+| http://localhost:8084 | agency-stub | ⚠️ 외부 기관 시뮬레이터 (PoC 전용, 내부망 외부에 위치) |
 | http://localhost:8090 | Kafka UI | admin / admin |
 | http://localhost:5540 | Redis Insight | |
 | http://localhost:5050 | pgAdmin 4 | admin@onepass.local / admin (`--profile tools`) |
