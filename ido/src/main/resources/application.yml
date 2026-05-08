@@ -359,3 +359,18 @@ logging:
     kr.go.smes.ido.audit: INFO
     org.springframework.kafka: WARN
     org.flywaydb: INFO
+
+# ── Rate Limiting (Redis 기반 기관별 TPS/Daily 제한) ──────────────────────
+ido:
+  rate-limit:
+    enabled:              ${IDO_RATE_LIMIT_ENABLED:true}
+    default-tps:          ${IDO_RATE_LIMIT_DEFAULT_TPS:200}
+    default-daily-limit:  ${IDO_RATE_LIMIT_DEFAULT_DAILY:1000000}
+
+  # ── AES 키 로테이션 스케줄러 ────────────────────────────────────────────
+  crypto:
+    rotation-enabled:      ${IDO_CRYPTO_ROTATION_ENABLED:true}
+    rotation-check-cron:   "0 0 * * * *"    # 매 시간 정각
+    # 실제 운영 키는 Vault/KMS에서 주입 — 아래는 PoC 기본값
+    handoff-aes-key:       ${IDO_HANDOFF_AES_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+    handoff-hmac-key:      ${IDO_HANDOFF_HMAC_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}

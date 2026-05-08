@@ -5,8 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * Handoff Issue 커맨드
- * 설계서 11.4 / 16.1절 참조
+ * Handoff Issue 커맨드 (v2.0)
  */
 @Getter
 @Builder
@@ -19,6 +18,9 @@ public class HandoffIssueCommand {
     private final AuthResult.AuthLevel authLevel;
     private final String providerCode;
 
-    /** returnUrl 화이트리스트 검증 후 전달 */
+    /** Callback URL — 화이트리스트 검증 대상 */
     private final String callbackUrl;
+
+    /** Redirect URI — 화이트리스트 검증 대상 (callbackUrl alias) */
+    private final String redirectUri;
 }

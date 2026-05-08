@@ -219,3 +219,9 @@ logging:
     kr.go.smes.qsign: INFO
     org.springframework.kafka: WARN
     org.flywaydb: INFO
+
+# ── PKCE (RFC 7636) ────────────────────────────────────────────────────────
+qsign:
+  pkce:
+    enabled:              ${QSIGN_PKCE_ENABLED:true}
+    challenge-ttl-seconds: ${QSIGN_PKCE_TTL:300}    # 5분

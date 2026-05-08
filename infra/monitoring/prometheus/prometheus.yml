@@ -1,0 +1,84 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'onepass-local'
+    env:     'development'
+
+rule_files:
+  - 'alert_rules.yml'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []   # 운영: alertmanager:9093
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Scrape Configs — Spring Boot Actuator /actuator/prometheus 엔드포인트
+# ──────────────────────────────────────────────────────────────────────────────
+scrape_configs:
+
+  # Prometheus 자체 메트릭
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Q-Sign (port 8081)
+  - job_name: 'q-sign'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8081']
+    labels:
+      service: 'q-sign'
+      module:  'auth'
+
+  # Q-IM (port 8082)
+  - job_name: 'q-im'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8082']
+    labels:
+      service: 'q-im'
+      module:  'identity'
+
+  # IdO (port 8083)
+  - job_name: 'ido'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8083']
+    labels:
+      service: 'ido'
+      module:  'handoff'
+
+  # Agency-Stub (port 8084)
+  - job_name: 'agency-stub'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8084']
+    labels:
+      service: 'agency-stub'
+      module:  'simulation'
+
+  # Redis Exporter (port 9121)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    labels:
+      service: 'redis'
+      module:  'infra'
+
+  # Kafka Exporter (port 9308)
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+    labels:
+      service: 'kafka'
+      module:  'infra'
+
+  # PostgreSQL Exporter (port 9187)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    labels:
+      service: 'postgres'
+      module:  'infra'

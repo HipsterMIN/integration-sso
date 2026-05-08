@@ -30,6 +30,9 @@ volumes:
   zookeeper-data:
   zookeeper-log:
   keycloak-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
 
 services:
 
@@ -769,3 +772,130 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # ════════════════════════════════════════════════════════════
+  # ★ Monitoring Stack — Prometheus + Grafana + Loki + Promtail
+  # Sprint 5 Production 모니터링 구성 (설계서 §22)
+  #
+  # Prometheus : http://localhost:9090
+  # Grafana    : http://localhost:3002  (admin/admin)
+  # Loki       : http://localhost:3100  (Grafana datasource)
+  #
+  # 활성화: docker compose --profile monitoring up
+  # ════════════════════════════════════════════════════════════
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: onepass-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.50
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    profiles:
+      - monitoring
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: onepass-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER:     admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      GF_SERVER_ROOT_URL:         "http://localhost:3002"
+      GF_INSTALL_PLUGINS:         grafana-clock-panel,grafana-simple-json-datasource
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/onepass-overview.json
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.51
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: onepass-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ../monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/tmp/loki
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.52
+    profiles:
+      - monitoring
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: onepass-promtail
+    restart: unless-stopped
+    volumes:
+      - ../monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+    command: -config.file=/etc/promtail/promtail-config.yml
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.53
+    depends_on:
+      - loki
+    profiles:
+      - monitoring
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+

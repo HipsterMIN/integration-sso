@@ -1,0 +1,117 @@
+groups:
+  - name: onepass_platform_alerts
+    interval: 30s
+    rules:
+
+      # ────────────────────────────────────────────────────────────────────────
+      # IdO Handoff 티켓 발급 오류율 (5분 윈도우 > 5%)
+      # ────────────────────────────────────────────────────────────────────────
+      - alert: IdoHandoffErrorRateHigh
+        expr: |
+          rate(http_server_requests_seconds_count{job="ido",uri="/api/v1/handoff/issue",status=~"5.."}[5m])
+          / rate(http_server_requests_seconds_count{job="ido",uri="/api/v1/handoff/issue"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service:  ido
+        annotations:
+          summary:     "IdO Handoff 발급 오류율 급증"
+          description: "Handoff 발급 5xx 오류율 {{ $value | humanizePercentage }} (임계값: 5%)"
+
+      # ────────────────────────────────────────────────────────────────────────
+      # IdO API 응답 지연 (P95 > 500ms)
+      # ────────────────────────────────────────────────────────────────────────
+      - alert: IdoApiLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_server_requests_seconds_bucket{job="ido"}[5m])
+          ) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          service:  ido
+        annotations:
+          summary:     "IdO API P95 응답 지연"
+          description: "IdO P95 응답시간 {{ $value | humanizeDuration }} (임계값: 500ms)"
+
+      # ────────────────────────────────────────────────────────────────────────
+      # Rate Limit 초과 급증 (분당 100회 이상)
+      # ────────────────────────────────────────────────────────────────────────
+      - alert: RateLimitExceeded
+        expr: |
+          increase(http_server_requests_seconds_count{job="ido",status="429"}[1m]) > 100
+        for: 1m
+        labels:
+          severity: warning
+          service:  ido
+        annotations:
+          summary:     "Rate Limit 초과 급증"
+          description: "분당 429 응답 {{ $value }}회 — 기관 DDoS 또는 오동작 의심"
+
+      # ────────────────────────────────────────────────────────────────────────
+      # Q-IM 서비스 다운 (30초 이상)
+      # ────────────────────────────────────────────────────────────────────────
+      - alert: QimServiceDown
+        expr: up{job="q-im"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service:  q-im
+        annotations:
+          summary:     "Q-IM 서비스 다운"
+          description: "Q-IM이 30초 이상 응답하지 않습니다 — IdO 핸드오프 불가"
+
+      # ────────────────────────────────────────────────────────────────────────
+      # Q-Sign 서비스 다운 (30초 이상)
+      # ────────────────────────────────────────────────────────────────────────
+      - alert: QSignServiceDown
+        expr: up{job="q-sign"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service:  q-sign
+        annotations:
+          summary:     "Q-Sign 서비스 다운"
+          description: "Q-Sign이 30초 이상 응답하지 않습니다 — 인증 불가"
+
+      # ────────────────────────────────────────────────────────────────────────
+      # Redis 메모리 사용률 > 80%
+      # ────────────────────────────────────────────────────────────────────────
+      - alert: RedisMemoryHigh
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service:  redis
+        annotations:
+          summary:     "Redis 메모리 사용률 높음"
+          description: "Redis 메모리 사용률 {{ $value | humanizePercentage }}"
+
+      # ────────────────────────────────────────────────────────────────────────
+      # Kafka Consumer Lag 급증 (ido-handoff-consumer > 10000)
+      # ────────────────────────────────────────────────────────────────────────
+      - alert: KafkaConsumerLagHigh
+        expr: |
+          kafka_consumergroup_lag{consumergroup="ido-handoff-consumer"} > 10000
+        for: 2m
+        labels:
+          severity: warning
+          service:  kafka
+        annotations:
+          summary:     "Kafka Consumer Lag 급증"
+          description: "ido-handoff-consumer Lag: {{ $value }} (임계값: 10000)"
+
+      # ────────────────────────────────────────────────────────────────────────
+      # Webhook 발송 실패 누적 (DLQ 급증)
+      # ────────────────────────────────────────────────────────────────────────
+      - alert: WebhookDispatchFailureHigh
+        expr: |
+          increase(http_server_requests_seconds_count{job="ido",uri=~".*webhook.*",status=~"5.."}[10m]) > 50
+        for: 5m
+        labels:
+          severity: warning
+          service:  ido
+        annotations:
+          summary:     "Webhook 발송 실패 급증"
+          description: "10분간 Webhook 5xx 오류 {{ $value }}건"
