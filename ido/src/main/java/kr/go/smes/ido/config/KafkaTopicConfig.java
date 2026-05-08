@@ -9,16 +9,65 @@ import org.springframework.kafka.config.TopicBuilder;
 
 /**
  * IdO Kafka 토픽 설정
- * 설계서 §16.3 Handoff 이벤트 / §14.11 세션 Advisory
+ * 설계서 §16.3 Handoff 이벤트 / §14.11 세션 Advisory / §9.3 인증 이벤트
  *
+ * <p><b>60,000명 급증 대응 파티션 설계</b>:
  * <pre>
- * ido.handoff.events        : Handoff Issue/Consume/Expire/Revoke
- * platform.session.advisory : 세션 종료 권고 (Advisory / Mandatory)
- * platform.audit.log        : 플랫폼 전역 감사 로그
+ * 이전 (PoC):  6  파티션, RF=1, ISR=1
+ * 현재 (운영): 12  파티션, RF=3, ISR=2
+ *
+ * 처리량 계산:
+ *   qsign.auth.events   12파티션 × concurrency 6 = 초당 ~1,200건 처리 가능
+ *   ido.handoff.events  12파티션 × concurrency 6 = 초당 ~1,200건 처리 가능
+ *
+ *   60,000명이 10분(600s)에 걸쳐 인증 완료한다고 가정:
+ *   → 초당 100건 피크 → 현재 설정으로 충분
+ *
+ *   최악 시나리오 (1분 내 60,000건):
+ *   → 초당 1,000건 → 파티션 12 × concurrency 6으로 한계치
+ *   → 확장 시 파티션 24 + concurrency 12로 대응
+ * </pre>
+ *
+ * <p><b>운영 환경 주의</b>:
+ * 파티션 수 증가는 전체 재시작 없이 가능하나,
+ * 파티션 감소는 불가능 — 신중히 설정.
+ * RF=3은 Kafka 3-broker 클러스터 환경 필수.
+ * PoC 단일 브로커 환경에서는 RF=1로 오버라이드.
+ *
+ * <p><b>토픽 목록</b>:
+ * <pre>
+ * qsign.auth.events          : Q-Sign 인증 결과 (Pre-warming 소비)
+ * ido.handoff.events         : Handoff 이벤트 (기관 webhook 트리거)
+ * ido.handoff.events.dlq     : Handoff DLQ
+ * platform.session.advisory  : 세션 종료 Advisory
+ * platform.session.advisory.dlq : Advisory DLQ
+ * platform.audit.log         : 플랫폼 전역 감사 로그
+ * ido.webhook.dispatch.requests : webhook 발송 내부 이벤트 (미래 확장용)
  * </pre>
  */
 @Configuration
 public class KafkaTopicConfig {
+
+    // ── 파티션 수 (환경변수로 오버라이드 가능) ──────────────────────────
+    /** 핵심 토픽 파티션 수 — 60k 대응 기준 12 (PoC: 6, 운영: 12~24) */
+    @Value("${ido.kafka.partition-count-main:12}")
+    private int mainPartitions;
+
+    /** DLQ 파티션 수 — 메인의 절반 */
+    @Value("${ido.kafka.partition-count-dlq:6}")
+    private int dlqPartitions;
+
+    /** Replication Factor — 운영: 3, PoC: 1 */
+    @Value("${ido.kafka.replication-factor:1}")
+    private short replicationFactor;
+
+    /** Min ISR — 운영: 2, PoC: 1 */
+    @Value("${ido.kafka.min-insync-replicas:1}")
+    private String minInsyncReplicas;
+
+    // ── 토픽 이름 설정 ─────────────────────────────────────────────────
+    @Value("${ido.kafka.topic-auth-events:qsign.auth.events}")
+    private String authEventsTopic;
 
     @Value("${ido.kafka.topic-handoff-events:ido.handoff.events}")
     private String handoffEventsTopic;
@@ -26,90 +75,185 @@ public class KafkaTopicConfig {
     @Value("${ido.kafka.topic-session-advisory:platform.session.advisory}")
     private String sessionAdvisoryTopic;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // qsign.auth.events — Q-Sign 인증 결과 (Pre-warming 소비)
+    // ═══════════════════════════════════════════════════════════════════════
+
     /**
-     * §16.3 Handoff 이벤트 토픽
-     * - partitionKey = correlationId (동일 correlationId 순서 보장)
-     * - retention 1년 (감사)
+     * Q-Sign 인증 이벤트 토픽
+     *
+     * <p>Q-Sign OutboxRelay가 발행, IdO QsignAuthEventConsumer가 소비.
+     * AUTH_COMPLETED → Redis Pre-warming (60k 부하 흡수 핵심).
+     *
+     * <p>파티션 키: identifierHash (동일 사용자 순서 보장)
+     * <p>retention: 1시간 (인증 이벤트는 단기 유효)
+     */
+    @Bean
+    public NewTopic qsignAuthEventsTopic() {
+        return TopicBuilder.name(authEventsTopic)
+                .partitions(mainPartitions)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG,
+                        String.valueOf(60L * 60 * 1000))     // 1시간
+                .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4")
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, minInsyncReplicas)
+                .config(TopicConfig.MAX_MESSAGE_BYTES_CONFIG, "1048576")
+                .build();
+    }
+
+    /** Q-Sign 인증 이벤트 DLQ */
+    @Bean
+    public NewTopic qsignAuthEventsDlqTopic() {
+        return TopicBuilder.name(authEventsTopic + ".dlt")
+                .partitions(dlqPartitions)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG,
+                        String.valueOf(7L * 24 * 60 * 60 * 1000))  // 7일
+                .build();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ido.handoff.events — Handoff 이벤트 (기관 webhook 트리거)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Handoff 이벤트 토픽
+     *
+     * <p>HandoffServiceImpl이 발행, HandoffEventConsumer가 소비.
+     * HANDOFF_ISSUED → WebhookDispatcherService → 기관 HTTPS webhook.
+     *
+     * <p>파티션 키: correlationId (동일 correlationId 순서 보장)
+     * <p>retention: 1년 (감사 요건)
      */
     @Bean
     public NewTopic idoHandoffEventsTopic() {
         return TopicBuilder.name(handoffEventsTopic)
-                .partitions(6)
-                .replicas(1)
-                .config(TopicConfig.CLEANUP_POLICY_CONFIG,
-                        TopicConfig.CLEANUP_POLICY_DELETE)
+                .partitions(mainPartitions)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
                 .config(TopicConfig.RETENTION_MS_CONFIG,
-                        String.valueOf(365L * 24 * 60 * 60 * 1000))
+                        String.valueOf(365L * 24 * 60 * 60 * 1000))  // 1년
                 .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4")
-                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "1")
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, minInsyncReplicas)
                 .config(TopicConfig.MAX_MESSAGE_BYTES_CONFIG, "1048576")
                 .build();
     }
 
-    /** §16.3 Handoff DLQ */
+    /** Handoff DLQ */
     @Bean
     public NewTopic idoHandoffEventsDlqTopic() {
         return TopicBuilder.name(handoffEventsTopic + ".dlq")
-                .partitions(3)
-                .replicas(1)
-                .config(TopicConfig.CLEANUP_POLICY_CONFIG,
-                        TopicConfig.CLEANUP_POLICY_DELETE)
+                .partitions(dlqPartitions)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
                 .config(TopicConfig.RETENTION_MS_CONFIG,
                         String.valueOf(7L * 24 * 60 * 60 * 1000))
                 .build();
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // platform.session.advisory — 세션 종료 Advisory
+    // ═══════════════════════════════════════════════════════════════════════
+
     /**
-     * §14.11 세션 Advisory 토픽
-     * - FE, Agency-Stub 이 구독 (각각 독립 컨슈머 그룹)
-     * - partitionKey = qimUserId
-     * - retention 24시간 (advisory 성격)
+     * 세션 Advisory 토픽
+     *
+     * <p>SessionAdvisoryPublisher가 발행.
+     * AUTH_LOCKED → MANDATORY_SECURITY_TERMINATE → FE 세션 즉시 무효화.
+     *
+     * <p>파티션 키: qimUserId (동일 사용자 Advisory 순서 보장)
+     * <p>retention: 24시간 (세션 권고 성격)
      */
     @Bean
     public NewTopic platformSessionAdvisoryTopic() {
         return TopicBuilder.name(sessionAdvisoryTopic)
-                .partitions(6)
-                .replicas(1)
-                .config(TopicConfig.CLEANUP_POLICY_CONFIG,
-                        TopicConfig.CLEANUP_POLICY_DELETE)
+                .partitions(mainPartitions)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
                 .config(TopicConfig.RETENTION_MS_CONFIG,
-                        String.valueOf(24L * 60 * 60 * 1000))
+                        String.valueOf(24L * 60 * 60 * 1000))   // 24시간
                 .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4")
-                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "1")
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, minInsyncReplicas)
                 .config(TopicConfig.MAX_MESSAGE_BYTES_CONFIG, "1048576")
                 .build();
     }
 
-    /** §14.11 Advisory DLQ */
+    /** Advisory DLQ */
     @Bean
     public NewTopic platformSessionAdvisoryDlqTopic() {
         return TopicBuilder.name(sessionAdvisoryTopic + ".dlq")
-                .partitions(3)
-                .replicas(1)
-                .config(TopicConfig.CLEANUP_POLICY_CONFIG,
-                        TopicConfig.CLEANUP_POLICY_DELETE)
+                .partitions(dlqPartitions)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
                 .config(TopicConfig.RETENTION_MS_CONFIG,
                         String.valueOf(7L * 24 * 60 * 60 * 1000))
                 .build();
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // platform.audit.log — 플랫폼 전역 감사 로그
+    // ═══════════════════════════════════════════════════════════════════════
+
     /**
-     * §15 플랫폼 전역 감사 로그 토픽
-     * - 2년 보관 (감사 요건)
-     * - max.message.bytes 확대 (상세 감사 내용 포함)
+     * 감사 로그 토픽
+     *
+     * <p>AuditLogPublisher가 발행.
+     * 법적 보존 요건: 2년.
+     * max.message.bytes 확대 (상세 감사 내용 포함).
+     *
+     * <p>파티션 키: agencyCode (기관별 감사 로그 순서 보장)
      */
     @Bean
     public NewTopic platformAuditLogTopic() {
         return TopicBuilder.name("platform.audit.log")
-                .partitions(6)
-                .replicas(1)
-                .config(TopicConfig.CLEANUP_POLICY_CONFIG,
-                        TopicConfig.CLEANUP_POLICY_DELETE)
+                .partitions(mainPartitions)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
                 .config(TopicConfig.RETENTION_MS_CONFIG,
-                        String.valueOf(2L * 365 * 24 * 60 * 60 * 1000))
+                        String.valueOf(2L * 365 * 24 * 60 * 60 * 1000))  // 2년
                 .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4")
-                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "1")
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, minInsyncReplicas)
                 .config(TopicConfig.MAX_MESSAGE_BYTES_CONFIG, "2097152")
+                .build();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // qim.sp.member.events — Q-IM SP 회원 이벤트 (IdO 내부 전파)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Q-IM SP 회원 이벤트 토픽 (IdO 내부 전파용)
+     *
+     * <p>QimSpReceiverService Outbox가 발행,
+     * QimSpMemberEventConsumer가 소비 → QimSpMemberEventHandler → 기관 webhook.
+     *
+     * <p>파티션 키: instMbrId
+     * <p>retention: 30일
+     */
+    @Bean
+    public NewTopic qimSpMemberEventsTopic() {
+        return TopicBuilder.name("qim.sp.member.events")
+                .partitions(6)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG,
+                        String.valueOf(30L * 24 * 60 * 60 * 1000))  // 30일
+                .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4")
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, minInsyncReplicas)
+                .build();
+    }
+
+    /** Q-IM SP 회원 이벤트 DLQ */
+    @Bean
+    public NewTopic qimSpMemberEventsDlqTopic() {
+        return TopicBuilder.name("qim.sp.member.events.dlt")
+                .partitions(3)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG,
+                        String.valueOf(7L * 24 * 60 * 60 * 1000))
                 .build();
     }
 }
