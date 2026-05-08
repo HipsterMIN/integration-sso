@@ -150,6 +150,25 @@ resilience4j:
           - org.springframework.web.client.HttpClientErrorException
         register-health-indicator: true
 
+      # IdO Ticket 발급 CircuitBreaker (시뮬레이터 전용)
+      ido-ticket:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-duration-threshold: 5s
+        slow-call-rate-threshold: 80
+        record-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+          - java.net.SocketTimeoutException
+          - java.io.IOException
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+          - kr.go.smes.agency.client.IdoTicketClient$IdoTicketIssuanceException
+        register-health-indicator: true
+
   retry:
     instances:
       ido-verify:
@@ -164,6 +183,18 @@ resilience4j:
           - org.springframework.web.client.ResourceAccessException
           - java.net.SocketTimeoutException
         # 4xx 는 재시도하지 않음
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+
+      # IdO Ticket 발급 (시뮬레이터 전용)
+      ido-ticket:
+        max-attempts: 3
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+          - java.net.SocketTimeoutException
         ignore-exceptions:
           - org.springframework.web.client.HttpClientErrorException
 
