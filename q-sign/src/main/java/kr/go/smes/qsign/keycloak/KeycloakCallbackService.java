@@ -22,6 +22,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -374,8 +376,25 @@ public class KeycloakCallbackService {
         }
     }
 
-    /** PoC 수준 내부 서명 — 실운영에서는 HMAC-SHA256(correlationId + timestamp, secret) 적용 */
+    /**
+     * HMAC-SHA256(correlationId + ":" + epochSeconds, secret) → Hex 문자열
+     * 설계서 §9.4 — Q-Sign → IdO 내부 서명 규칙
+     *
+     * <p>서명 페이로드: "{correlationId}:{epochSeconds}"
+     * <p>수신 측(IdO)은 동일 secret 으로 HMAC 을 재계산하고 타임스탬프 ±60초 유효성도 검사해야 한다.
+     */
     private String buildInternalSig(String correlationId) {
-        return "sig-" + correlationId.replace("-", "").substring(0, 8);
+        try {
+            long epochSeconds = System.currentTimeMillis() / 1000L;
+            String payload = correlationId + ":" + epochSeconds;
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(
+                    internalSigSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(rawHmac);
+        } catch (Exception e) {
+            log.error("[KeycloakCallback] 내부 서명 생성 실패: correlationId={}", correlationId, e);
+            throw new IllegalStateException("HMAC-SHA256 내부 서명 생성 실패", e);
+        }
     }
 }

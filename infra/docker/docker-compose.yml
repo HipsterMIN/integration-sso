@@ -470,6 +470,63 @@ services:
         max-file: "5"
 
   # ════════════════════════════════════════════════════════════
+  # ★ Q-Sign (인증 결과 SoR + Keycloak 어댑터)
+  # http://localhost:8081
+  #
+  # DB: PostgreSQL (onepass-postgres:5432/onepass, schema=qsign)
+  # 빌드: ./gradlew :q-sign:bootJar -x test
+  #       docker build -f q-sign/Dockerfile -t onepass-qsign:latest .
+  # ════════════════════════════════════════════════════════════
+  onepass-qsign:
+    image: onepass-qsign:latest
+    container_name: onepass-qsign
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # ── PostgreSQL (Q-Sign 전용) ────────────────────────────
+      DB_HOST:               postgres
+      DB_PORT:               "5432"
+      DB_NAME:               onepass
+      DB_USERNAME:           onepass
+      DB_PASSWORD:           onepass
+      REDIS_HOST:            redis
+      REDIS_PORT:            "6379"
+      KAFKA_SERVERS:         kafka:29092
+      IDO_BASE_URL:          http://onepass-ido:8083
+      IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-padding-secret}
+      # Keycloak 어댑터 설정
+      KEYCLOAK_URL:          http://keycloak:8080
+      KEYCLOAK_REALM:        onepass
+      QSIGN_KEYCLOAK_CLIENT_ID:     q-sign-client
+      QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET:-change-me}
+      QSIGN_KEYCLOAK_REDIRECT_URI:  http://localhost:8081/api/v1/oidc/keycloak/callback
+    ports:
+      - "8081:8081"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.24
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    profiles:
+      - app
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ════════════════════════════════════════════════════════════
   # ★ Q-IM (식별·매핑 SoR)
   # http://localhost:8082
   #
