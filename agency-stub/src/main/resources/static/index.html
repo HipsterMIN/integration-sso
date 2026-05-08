@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>유관기관 연동 테스트 시뮬레이터 — Agency Stub</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #0f1117;
+      --panel:    #1a1d27;
+      --border:   #2d3148;
+      --accent:   #4f8ef7;
+      --success:  #22c55e;
+      --warn:     #f59e0b;
+      --danger:   #ef4444;
+      --text:     #e2e8f0;
+      --muted:    #8892a4;
+      --mono:     'Fira Code', 'Cascadia Code', monospace;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    /* ── 헤더 ── */
+    header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 14px 24px;
+      display: flex; align-items: center; gap: 16px; }
+    header .logo { font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; }
+    header .badge { background: #2d3748; border: 1px solid var(--border); border-radius: 4px;
+      font-size: 11px; padding: 2px 8px; color: var(--warn); font-family: var(--mono); }
+    header .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-left: auto; }
+    header .status-dot.up   { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    header .status-dot.down { background: var(--danger);  box-shadow: 0 0 6px var(--danger);  }
+
+    /* ── 레이아웃 ── */
+    .layout { display: grid; grid-template-columns: 320px 1fr; gap: 0; min-height: calc(100vh - 53px); }
+    .sidebar { background: var(--panel); border-right: 1px solid var(--border); padding: 20px 16px;
+      display: flex; flex-direction: column; gap: 8px; }
+    .main { padding: 24px; overflow-y: auto; }
+
+    /* ── 사이드바 버튼 ── */
+    .nav-btn { display: block; width: 100%; text-align: left; padding: 10px 14px; border-radius: 8px;
+      border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer;
+      font-size: 13px; transition: all .15s; }
+    .nav-btn:hover { background: #242740; color: var(--text); }
+    .nav-btn.active { background: #1e2d52; border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .nav-section { font-size: 10px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase;
+      padding: 12px 14px 4px; }
+
+    /* ── 패널 카드 ── */
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px 24px; margin-bottom: 20px; }
+    .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .card p.sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+
+    /* ── 폼 요소 ── */
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-row.single { grid-template-columns: 1fr; }
+    label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+    input, select, textarea {
+      width: 100%; background: #0f1117; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); padding: 8px 10px; font-size: 13px; outline: none;
+      transition: border-color .15s; font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 80px; font-family: var(--mono); font-size: 12px; }
+    select option { background: #1a1d27; }
+
+    /* ── 버튼 ── */
+    .btn { padding: 9px 20px; border-radius: 7px; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 600; transition: all .15s; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #6ba3ff; }
+    .btn-primary:disabled { background: #374151; color: var(--muted); cursor: not-allowed; }
+    .btn-secondary { background: #242740; color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: #2d3148; }
+    .btn-danger { background: #7f1d1d; color: #fca5a5; border: 1px solid #ef4444; }
+    .btn-danger:hover { background: #991b1b; }
+    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ── 스텝 배지 ── */
+    .steps { display: flex; gap: 0; margin: 16px 0; }
+    .step { flex: 1; text-align: center; padding: 8px 4px; font-size: 11px; border-top: 2px solid var(--border); color: var(--muted); transition: all .3s; }
+    .step.active  { border-color: var(--accent); color: var(--accent); }
+    .step.success { border-color: var(--success); color: var(--success); }
+    .step.failed  { border-color: var(--danger);  color: var(--danger);  }
+
+    /* ── 결과 패널 ── */
+    .result-box { background: #0a0c14; border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px; font-family: var(--mono); font-size: 12px; overflow-x: auto; white-space: pre-wrap; line-height: 1.6; }
+    .result-box.success { border-color: var(--success); }
+    .result-box.error   { border-color: var(--danger);  }
+    .result-box.warn    { border-color: var(--warn);    }
+
+    /* ── 상태 배지 ── */
+    .badge-ok   { background: #14532d; color: #86efac; border-radius: 4px; padding: 2px 8px; font-size: 11px; }
+    .badge-fail { background: #7f1d1d; color: #fca5a5; border-radius: 4px; padding: 2px 8px; font-size: 11px; }
+    .badge-warn { background: #78350f; color: #fcd34d; border-radius: 4px; padding: 2px 8px; font-size: 11px; }
+    .badge-info { background: #1e3a5f; color: #93c5fd; border-radius: 4px; padding: 2px 8px; font-size: 11px; }
+
+    /* ── 테이블 ── */
+    .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .tbl th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 10px;
+      border-bottom: 1px solid var(--border); }
+    .tbl td { padding: 7px 10px; border-bottom: 1px solid #1e2130; vertical-align: middle; }
+    .tbl tr:hover td { background: #1e2130; }
+    .tbl .mono { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+    /* ── 로딩 스피너 ── */
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── 토스트 ── */
+    #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex;
+      flex-direction: column; gap: 8px; }
+    .toast { background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 16px; font-size: 13px; min-width: 260px; max-width: 380px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.4); animation: slideIn .2s ease; }
+    .toast.ok   { border-color: var(--success); }
+    .toast.err  { border-color: var(--danger);  }
+    .toast.warn { border-color: var(--warn);    }
+    @keyframes slideIn { from { opacity:0; transform: translateX(30px); } to { opacity:1; transform: none; } }
+
+    /* ── 탭 ── */
+    .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+    .tab { padding: 8px 16px; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+    /* ── 구분선 ── */
+    .divider { height: 1px; background: var(--border); margin: 20px 0; }
+    .meta { display: flex; gap: 20px; flex-wrap: wrap; }
+    .meta-item { font-size: 12px; }
+    .meta-item .k { color: var(--muted); }
+    .meta-item .v { color: var(--text); font-family: var(--mono); }
+
+    /* ── 반응형 ── */
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── 헤더 ── -->
+<header>
+  <div class="logo">🔐 Agency Stub</div>
+  <div class="badge">PoC / Test</div>
+  <div style="font-size:12px;color:var(--muted);">유관기관 OIDC 클라이언트 시뮬레이터</div>
+  <div id="ido-status-dot" class="status-dot" title="IdO 연결 상태"></div>
+  <span id="ido-status-label" style="font-size:11px;color:var(--muted);">확인 중...</span>
+</header>
+
+<!-- ── 레이아웃 ── -->
+<div class="layout">
+
+  <!-- 사이드바 -->
+  <aside class="sidebar">
+    <div class="nav-section">시뮬레이터</div>
+    <button class="nav-btn active" onclick="showPage('e2e')">⚡ E2E 전체 흐름</button>
+    <button class="nav-btn" onclick="showPage('ticket')">🎟 Ticket 발급 (Step 1)</button>
+    <button class="nav-btn" onclick="showPage('verify')">✅ Ticket 검증 (Step 2)</button>
+    <div class="nav-section">모니터링</div>
+    <button class="nav-btn" onclick="showPage('health')">🩺 헬스 / 진단</button>
+    <button class="nav-btn" onclick="showPage('sessions')">🗂 세션 목록</button>
+    <button class="nav-btn" onclick="showPage('events')">📬 이벤트 큐</button>
+    <button class="nav-btn" onclick="showPage('webhook')">📡 Webhook 현황</button>
+    <div class="nav-section">정보</div>
+    <button class="nav-btn" onclick="showPage('about')">ℹ 흐름 설명</button>
+  </aside>
+
+  <!-- 메인 콘텐츠 -->
+  <main class="main">
+
+    <!-- ══ E2E 전체 흐름 ══ -->
+    <div id="page-e2e">
+      <div class="card">
+        <h2>⚡ E2E 전체 흐름 시뮬레이션</h2>
+        <p class="sub">Ticket 발급 → Verify → 세션 생성까지 3단계를 한 번에 수행합니다.</p>
+
+        <!-- 스텝 표시 -->
+        <div class="steps">
+          <div class="step" id="step-ticket">① Ticket 발급</div>
+          <div class="step" id="step-verify">② Ticket 검증</div>
+          <div class="step" id="step-session">③ 세션 생성</div>
+        </div>
+
+        <!-- 입력 폼 -->
+        <div class="form-row">
+          <div>
+            <label>QIM User ID <span style="color:var(--muted)">(비워두면 자동생성)</span></label>
+            <input id="e2e-qimUserId" placeholder="sim-user-xxxxxxxx" />
+          </div>
+          <div>
+            <label>인증 수준</label>
+            <select id="e2e-authLevel">
+              <option value="L1">L1 — 기본 (패스워드)</option>
+              <option value="L2" selected>L2 — 중급 (인증서)</option>
+              <option value="L3">L3 — 고급 (생체)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Auth Result ID <span style="color:var(--muted)">(비워두면 자동생성)</span></label>
+            <input id="e2e-authResultId" placeholder="UUID" />
+          </div>
+          <div>
+            <label>Provider Code</label>
+            <select id="e2e-providerCode">
+              <option value="QSIGN_CERT">QSIGN_CERT</option>
+              <option value="QSIGN_BIOMETRIC">QSIGN_BIOMETRIC</option>
+              <option value="QSIGN_OTP">QSIGN_OTP</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="runE2E()">▶ 시뮬레이션 실행</button>
+          <button class="btn btn-secondary" onclick="clearE2EResult()">지우기</button>
+        </div>
+      </div>
+
+      <!-- 결과 -->
+      <div id="e2e-result-area" style="display:none">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <h2>실행 결과</h2>
+            <span id="e2e-status-badge"></span>
+            <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="e2e-elapsed"></span>
+          </div>
+          <div class="meta" id="e2e-meta"></div>
+          <div class="divider"></div>
+          <div class="tabs">
+            <div class="tab active" onclick="switchTab('e2e','summary')">요약</div>
+            <div class="tab" onclick="switchTab('e2e','raw')">원본 JSON</div>
+          </div>
+          <div id="e2e-tab-summary"></div>
+          <div id="e2e-tab-raw" style="display:none">
+            <div class="result-box" id="e2e-raw-json"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ Ticket 발급 (Step 1) ══ -->
+    <div id="page-ticket" style="display:none">
+      <div class="card">
+        <h2>🎟 Step 1 — Ticket 발급</h2>
+        <p class="sub">IdO 에 POST /api/v1/handoff/issue 를 직접 호출합니다.</p>
+        <div class="form-row">
+          <div>
+            <label>QIM User ID</label>
+            <input id="t-qimUserId" placeholder="sim-user-xxxxxxxx" />
+          </div>
+          <div>
+            <label>인증 수준</label>
+            <select id="t-authLevel">
+              <option value="L1">L1</option>
+              <option value="L2" selected>L2</option>
+              <option value="L3">L3</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="runTicket()">▶ Ticket 발급</button>
+        </div>
+      </div>
+      <div id="ticket-result" style="display:none" class="card">
+        <h2>결과 <span id="ticket-status-badge"></span></h2>
+        <div class="result-box" id="ticket-raw"></div>
+      </div>
+    </div>
+
+    <!-- ══ Ticket 검증 (Step 2) ══ -->
+    <div id="page-verify" style="display:none">
+      <div class="card">
+        <h2>✅ Step 2 — Ticket 검증</h2>
+        <p class="sub">발급된 ticketId 로 POST /api/v1/handoff/verify 를 호출합니다.</p>
+        <div class="form-row single">
+          <div>
+            <label>Ticket ID</label>
+            <input id="v-ticketId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="runVerify()">▶ Ticket 검증</button>
+        </div>
+      </div>
+      <div id="verify-result" style="display:none" class="card">
+        <h2>결과 <span id="verify-status-badge"></span></h2>
+        <div class="result-box" id="verify-raw"></div>
+      </div>
+    </div>
+
+    <!-- ══ 헬스 / 진단 ══ -->
+    <div id="page-health" style="display:none">
+      <div class="card">
+        <h2>🩺 헬스 / 진단</h2>
+        <p class="sub">DB, IdO 연결 상태, Webhook 수신 현황을 한 번에 확인합니다.</p>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="loadHealth()">새로고침</button>
+        </div>
+      </div>
+      <div id="health-content"></div>
+    </div>
+
+    <!-- ══ 세션 목록 ══ -->
+    <div id="page-sessions" style="display:none">
+      <div class="card">
+        <h2>🗂 세션 목록</h2>
+        <p class="sub">최근 생성된 기관 로컬 세션 목록. 특정 세션을 강제 무효화할 수 있습니다.</p>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label style="margin:0;">표시 수</label>
+          <select id="sessions-limit" style="width:80px">
+            <option>10</option><option selected>20</option><option>50</option>
+          </select>
+          <button class="btn btn-secondary" onclick="loadSessions()">새로고침</button>
+        </div>
+      </div>
+      <div class="card" id="sessions-content">
+        <p style="color:var(--muted)">새로고침을 눌러 세션을 불러오세요.</p>
+      </div>
+    </div>
+
+    <!-- ══ 이벤트 큐 ══ -->
+    <div id="page-events" style="display:none">
+      <div class="card">
+        <h2>📬 이벤트 큐</h2>
+        <p class="sub">미배달 포함 최근 이벤트 큐 항목을 조회합니다.</p>
+        <button class="btn btn-secondary" onclick="loadEvents()">새로고침</button>
+      </div>
+      <div class="card" id="events-content">
+        <p style="color:var(--muted)">새로고침을 눌러 이벤트를 불러오세요.</p>
+      </div>
+    </div>
+
+    <!-- ══ Webhook 현황 ══ -->
+    <div id="page-webhook" style="display:none">
+      <div class="card">
+        <h2>📡 Webhook 수신 현황</h2>
+        <p class="sub">최근 1시간 Webhook 수신 통계.</p>
+        <button class="btn btn-secondary" onclick="loadWebhook()">새로고침</button>
+      </div>
+      <div class="card" id="webhook-content">
+        <p style="color:var(--muted)">새로고침을 눌러 Webhook 현황을 불러오세요.</p>
+      </div>
+    </div>
+
+    <!-- ══ 흐름 설명 ══ -->
+    <div id="page-about" style="display:none">
+      <div class="card">
+        <h2>ℹ 유관기관 OIDC 연동 흐름</h2>
+        <p class="sub">설계서 §14~16장 기반 — 이 시뮬레이터가 재현하는 3단계 흐름</p>
+        <div style="margin-top:16px">
+          <div class="result-box">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  실제 유관기관 연동 전체 흐름 (E2E)                                          │
+│                                                                             │
+│  [사용자]  →  QIM (Q-IM) 인증 완료                                           │
+│                 │                                                           │
+│                 ▼                                                           │
+│  [IdO FE]  ← GET /api/v1/fe-session/... (Keycloak 세션 확인)               │
+│  [IdO]     → POST /api/v1/handoff/issue   ← ① 기관이 Ticket 요청           │
+│               Headers: X-Agency-Code, X-Agency-Key ← IdO 인터셉터 검증     │
+│               Body: { qimUserId, authLevel, providerCode, ... }             │
+│               → HandoffTicket { ticketId, expiresAt }                       │
+│                 │                                                           │
+│                 ▼                                                           │
+│  [기관]    → POST /api/v1/handoff/verify  ← ② Ticket 소비                  │
+│               Headers: X-Agency-Code, X-Agency-Key (DB SHA-256 검증)       │
+│               Body: { ticketId }                                            │
+│               Resilience4j CB + Retry 적용                                  │
+│               → HandoffPayload { APPROVED | REJECTED | HOLD }               │
+│                 │                                                           │
+│                 ▼  (APPROVED 만 계속)                                        │
+│  [기관]    Session Fixation 방지                                              │
+│               → 기존 AGSID 쿠키 DB 무효화 + 삭제                            │
+│               → AgencySessionService.createSession()                        │
+│                  192-bit SecureRandom → rawAGSID                            │
+│                  DB 저장: SHA-256(rawAGSID)  ← 원문 미저장                  │
+│               → AGSID 쿠키 (Secure/HttpOnly/SameSite=Strict)                │
+│                 │                                                           │
+│  [기관앱]  → GET /agency/entry/session  (세션 유효성 확인)                   │
+│           → DELETE /agency/entry/session (로그아웃)                          │
+│                                                                             │
+│  Webhook 수신 (Push): POST /api/v1/webhook/inbound                          │
+│    HMAC-SHA256 서명 검증 + 타임스탬프 ±5분                                   │
+│    이벤트 유형: HANDOFF_REVOKED, SESSION_ADVISORY, MEMBER_WITHDRAWN, ...     │
+│                                                                             │
+│  이벤트 폴링 (Pull): GET /api/v1/events/poll                                 │
+│    우선순위 기반 배달, 중복 배달 방지                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+          </div>
+          <div style="margin-top:16px">
+            <h3 style="font-size:13px;margin-bottom:8px">보안 체크리스트</h3>
+            <table class="tbl">
+              <tr><th>항목</th><th>구현 상태</th></tr>
+              <tr><td>API Key 검증 (SHA-256 DB 비교)</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+              <tr><td>IdO X-Agency-Key 인터셉터</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+              <tr><td>Resilience4j CB + Retry</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+              <tr><td>AGSID 192-bit SecureRandom</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+              <tr><td>DB 저장 SHA-256 해시만</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+              <tr><td>Session Fixation 방지</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+              <tr><td>Secure/HttpOnly/SameSite=Strict 쿠키</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+              <tr><td>Webhook HMAC-SHA256 서명 검증</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+              <tr><td>중복 이벤트 방지 (UNIQUE 인덱스)</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+              <tr><td>rawKey 로그 기록 금지</td><td><span class="badge-ok">✓ 구현</span></td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- 토스트 컨테이너 -->
+<div id="toast-container"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// 페이지 라우팅
+// ════════════════════════════════════════════════════════════════════════
+const PAGES = ['e2e','ticket','verify','health','sessions','events','webhook','about'];
+
+function showPage(name) {
+  PAGES.forEach(p => {
+    document.getElementById('page-' + p).style.display = p === name ? '' : 'none';
+  });
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.includes(name) ||
+      (name === 'e2e' && b.textContent.includes('E2E')) ||
+      (name === 'ticket' && b.textContent.includes('Ticket 발급')) ||
+      (name === 'verify' && b.textContent.includes('Ticket 검증')) ||
+      (name === 'health' && b.textContent.includes('헬스')) ||
+      (name === 'sessions' && b.textContent.includes('세션')) ||
+      (name === 'events' && b.textContent.includes('이벤트')) ||
+      (name === 'webhook' && b.textContent.includes('Webhook')) ||
+      (name === 'about' && b.textContent.includes('흐름'))
+    );
+  });
+
+  // 페이지 로드 시 자동 조회
+  if (name === 'health')   loadHealth();
+  if (name === 'sessions') loadSessions();
+  if (name === 'events')   loadEvents();
+  if (name === 'webhook')  loadWebhook();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// API 공통
+// ════════════════════════════════════════════════════════════════════════
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({ error: 'PARSE_ERROR' }));
+  return { status: res.status, ok: res.ok, data };
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// E2E 시뮬레이션
+// ════════════════════════════════════════════════════════════════════════
+let e2eCurrentTab = 'summary';
+
+async function runE2E() {
+  const body = {
+    qimUserId:    document.getElementById('e2e-qimUserId').value.trim()    || undefined,
+    authResultId: document.getElementById('e2e-authResultId').value.trim() || undefined,
+    authLevel:    document.getElementById('e2e-authLevel').value,
+    providerCode: document.getElementById('e2e-providerCode').value,
+  };
+
+  // 스텝 초기화
+  ['ticket','verify','session'].forEach(s => setStep(s, ''));
+  document.getElementById('e2e-result-area').style.display = 'none';
+
+  setStep('ticket', 'active');
+  showToast('info', '시뮬레이션 시작...');
+
+  const { status, data } = await api('POST', '/api/v1/simulator/run', body);
+
+  // 스텝 상태 업데이트
+  if (data.steps) {
+    data.steps.forEach(s => {
+      const stepKey = s.step === 'TICKET_ISSUE'   ? 'ticket'
+                    : s.step === 'TICKET_VERIFY'   ? 'verify'
+                    : s.step === 'SESSION_CREATE'  ? 'session'
+                    : null;
+      if (stepKey) setStep(stepKey, s.status === 'OK' ? 'success' : 'failed');
+    });
+  }
+
+  // 결과 표시
+  document.getElementById('e2e-result-area').style.display = '';
+  const badge = document.getElementById('e2e-status-badge');
+  if (data.status === 'OK') {
+    badge.innerHTML = '<span class="badge-ok">✓ 성공</span>';
+    showToast('ok', `E2E 완료 — sessionId: ${data.session?.sessionId?.substring(0,8)}...`);
+  } else {
+    badge.innerHTML = '<span class="badge-fail">✗ 실패</span>';
+    showToast('err', `실패: ${data.steps?.find(s=>s.status==='FAILED')?.error || 'UNKNOWN'}`);
+  }
+
+  document.getElementById('e2e-elapsed').textContent = data.elapsedMs + 'ms';
+
+  // meta
+  const meta = document.getElementById('e2e-meta');
+  if (data.input) {
+    meta.innerHTML = `
+      <div class="meta-item"><span class="k">qimUserId</span> <span class="v">${data.input.qimUserId||''}</span></div>
+      <div class="meta-item"><span class="k">authLevel</span> <span class="v">${data.input.authLevel||''}</span></div>
+      <div class="meta-item"><span class="k">correlationId</span> <span class="v">${data.correlationId||''}</span></div>
+    `;
+  }
+
+  // 탭 내용
+  renderE2ESummary(data);
+  document.getElementById('e2e-raw-json').textContent = JSON.stringify(data, null, 2);
+  colorizeJson('e2e-raw-json');
+}
+
+function renderE2ESummary(data) {
+  const el = document.getElementById('e2e-tab-summary');
+  let html = '<table class="tbl"><tr><th>Step</th><th>상태</th><th>상세</th></tr>';
+  (data.steps || []).forEach(s => {
+    const badge = s.status === 'OK'
+      ? `<span class="badge-ok">✓ OK</span>`
+      : `<span class="badge-fail">✗ ${s.error||'FAILED'}</span>`;
+    const details = Object.entries(s)
+      .filter(([k]) => !['step','status','error','message'].includes(k))
+      .map(([k,v]) => `<span class="mono">${k}=${v}</span>`)
+      .join(' ');
+    html += `<tr><td>${s.step}</td><td>${badge}</td><td>${details} ${s.message||''}</td></tr>`;
+  });
+  if (data.session) {
+    html += `<tr><td colspan="3" style="padding-top:12px">
+      <strong>세션 생성 완료</strong><br>
+      <span class="mono">sessionId: ${data.session.sessionId}</span><br>
+      <span class="mono">agencySubjectId: ${data.session.agencySubjectId}</span><br>
+      <span class="mono">authLevel: ${data.session.authLevel}</span>
+    </td></tr>`;
+  }
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+function clearE2EResult() {
+  document.getElementById('e2e-result-area').style.display = 'none';
+  ['ticket','verify','session'].forEach(s => setStep(s, ''));
+}
+
+function switchTab(page, tab) {
+  const tabs = document.querySelectorAll(`#page-${page} .tab`);
+  tabs.forEach(t => t.classList.toggle('active', t.textContent.includes(tab === 'summary' ? '요약' : 'JSON')));
+  document.getElementById(`${page}-tab-summary`).style.display = tab === 'summary' ? '' : 'none';
+  document.getElementById(`${page}-tab-raw`).style.display     = tab === 'raw'     ? '' : 'none';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Ticket 발급 단독
+// ════════════════════════════════════════════════════════════════════════
+async function runTicket() {
+  const body = {
+    qimUserId: document.getElementById('t-qimUserId').value.trim() || undefined,
+    authLevel: document.getElementById('t-authLevel').value,
+    providerCode: 'QSIGN_CERT',
+  };
+  const { status, data } = await api('POST', '/api/v1/simulator/ticket', body);
+  document.getElementById('ticket-result').style.display = '';
+  const badge = document.getElementById('ticket-status-badge');
+  badge.innerHTML = data.status === 'OK'
+    ? `<span class="badge-ok">✓ 발급 완료</span>`
+    : `<span class="badge-fail">✗ ${data.error||'실패'}</span>`;
+  document.getElementById('ticket-raw').textContent = JSON.stringify(data, null, 2);
+  colorizeJson('ticket-raw');
+
+  // ticketId를 verify 탭에 자동 입력
+  if (data.ticketId) {
+    document.getElementById('v-ticketId').value = data.ticketId;
+    showToast('ok', `Ticket 발급: ${data.ticketId.substring(0,8)}...`);
+  } else {
+    showToast('err', data.message || '발급 실패');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Ticket 검증 단독
+// ════════════════════════════════════════════════════════════════════════
+async function runVerify() {
+  const ticketId = document.getElementById('v-ticketId').value.trim();
+  if (!ticketId) { showToast('warn', 'Ticket ID를 입력하세요'); return; }
+  const { status, data } = await api('POST', `/api/v1/simulator/verify?ticketId=${encodeURIComponent(ticketId)}`);
+  document.getElementById('verify-result').style.display = '';
+  const badge = document.getElementById('verify-status-badge');
+  const st = data.handoffState;
+  badge.innerHTML = st === 'APPROVED'
+    ? `<span class="badge-ok">✓ APPROVED</span>`
+    : st === 'REJECTED'
+    ? `<span class="badge-fail">✗ REJECTED</span>`
+    : `<span class="badge-warn">⚠ ${st||'ERROR'}</span>`;
+  document.getElementById('verify-raw').textContent = JSON.stringify(data, null, 2);
+  colorizeJson('verify-raw');
+  showToast(st === 'APPROVED' ? 'ok' : 'err', `Verify 결과: ${st||data.error}`);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// 헬스 / 진단
+// ════════════════════════════════════════════════════════════════════════
+async function loadHealth() {
+  document.getElementById('health-content').innerHTML = '<div class="card"><div class="spinner"></div> 조회 중...</div>';
+  try {
+    const [overall, dbR, idoR, webhookR, queueR] = await Promise.all([
+      api('GET', '/api/v1/health'),
+      api('GET', '/api/v1/health/db'),
+      api('GET', '/api/v1/health/ido'),
+      api('GET', '/api/v1/health/webhook'),
+      api('GET', '/api/v1/health/queue'),
+    ]);
+
+    const statusBadge = s => s === 'UP' || s === 'OK'
+      ? `<span class="badge-ok">✓ ${s}</span>`
+      : s === 'DEGRADED'
+      ? `<span class="badge-warn">⚠ ${s}</span>`
+      : `<span class="badge-fail">✗ ${s}</span>`;
+
+    let html = `
+      <div class="card">
+        <h2>전체 상태 ${statusBadge(overall.data.status||'UNKNOWN')}</h2>
+        <div class="meta" style="margin-top:8px">
+          <div class="meta-item"><span class="k">DB</span> ${statusBadge(overall.data.components?.db||'?')}</div>
+          <div class="meta-item"><span class="k">IdO</span> ${statusBadge(overall.data.components?.ido||'?')}</div>
+          <div class="meta-item"><span class="k">확인시각</span> <span class="v">${overall.data.timestamp||''}</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>DB 상태 ${statusBadge(dbR.data.status||'?')}</h2>
+        <table class="tbl" style="margin-top:10px">
+          <tr><th>테이블</th><th>레코드 수</th></tr>
+          ${Object.entries(dbR.data.tableCounts||{}).map(([k,v]) =>
+            `<tr><td>${k}</td><td class="mono">${v}</td></tr>`
+          ).join('')}
+        </table>
+      </div>
+      <div class="card">
+        <h2>IdO 연결 ${statusBadge(idoR.data.status||'?')}</h2>
+        <div class="meta" style="margin-top:8px">
+          <div class="meta-item"><span class="k">URL</span> <span class="v">${idoR.data.idoBaseUrl||''}</span></div>
+          <div class="meta-item"><span class="k">응답 코드</span> <span class="v">${idoR.data.httpCode||''}</span></div>
+          <div class="meta-item"><span class="k">응답 시간</span> <span class="v">${idoR.data.elapsedMs||0}ms</span></div>
+        </div>
+        ${idoR.data.error ? `<p style="color:var(--danger);margin-top:8px;font-size:12px">${idoR.data.error}</p>` : ''}
+      </div>
+      <div class="card">
+        <h2>이벤트 큐 ${statusBadge(queueR.data.status||'?')}</h2>
+        <div class="meta" style="margin-top:8px">
+          <div class="meta-item"><span class="k">미배달 수</span> <span class="v" style="color:${queueR.data.pendingCount>0?'var(--warn)':'var(--success)'}">${queueR.data.pendingCount||0}</span></div>
+        </div>
+      </div>
+    `;
+    document.getElementById('health-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('health-content').innerHTML = `<div class="card"><p style="color:var(--danger)">조회 실패: ${e.message}</p></div>`;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// 세션 목록
+// ════════════════════════════════════════════════════════════════════════
+async function loadSessions() {
+  const limit = document.getElementById('sessions-limit').value;
+  document.getElementById('sessions-content').innerHTML = '<div class="spinner"></div> 로딩 중...';
+  const { data } = await api('GET', `/api/v1/simulator/sessions?limit=${limit}`);
+
+  if (!data.sessions || data.sessions.length === 0) {
+    document.getElementById('sessions-content').innerHTML = '<p style="color:var(--muted)">세션이 없습니다.</p>';
+    return;
+  }
+
+  let html = `<p style="font-size:12px;color:var(--muted);margin-bottom:12px">총 ${data.total}개</p>
+    <table class="tbl">
+      <tr><th>Session ID</th><th>인증수준</th><th>QIM User</th><th>생성시각</th><th>상태</th><th>액션</th></tr>`;
+
+  data.sessions.forEach(s => {
+    const isActive = !s.invalidated_at;
+    const status = isActive
+      ? `<span class="badge-ok">활성</span>`
+      : `<span class="badge-fail">무효화</span>`;
+    html += `<tr>
+      <td class="mono">${(s.session_id||'').substring(0,12)}...</td>
+      <td><span class="badge-info">${s.auth_level||''}</span></td>
+      <td class="mono">${(s.qim_user_id||'').substring(0,16)}</td>
+      <td class="mono">${formatTs(s.created_at)}</td>
+      <td>${status}</td>
+      <td>${isActive ? `<button class="btn btn-danger" style="padding:3px 10px;font-size:11px"
+        onclick="invalidateSession('${s.session_id}')">무효화</button>` : ''}</td>
+    </tr>`;
+  });
+  html += '</table>';
+  document.getElementById('sessions-content').innerHTML = html;
+}
+
+async function invalidateSession(sessionId) {
+  if (!confirm(`세션 ${sessionId.substring(0,8)}... 을(를) 강제 무효화하시겠습니까?`)) return;
+  const { data } = await api('DELETE', `/api/v1/simulator/sessions/${sessionId}`);
+  showToast(data.status === 'INVALIDATED' ? 'ok' : 'err',
+    data.status === 'INVALIDATED' ? '세션 무효화 완료' : (data.error || '실패'));
+  loadSessions();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// 이벤트 큐
+// ════════════════════════════════════════════════════════════════════════
+async function loadEvents() {
+  document.getElementById('events-content').innerHTML = '<div class="spinner"></div>';
+  const { data } = await api('GET', '/api/v1/simulator/events?limit=30');
+
+  if (!data.events || data.events.length === 0) {
+    document.getElementById('events-content').innerHTML = '<p style="color:var(--muted)">이벤트가 없습니다.</p>';
+    return;
+  }
+
+  let html = `<table class="tbl">
+    <tr><th>ID</th><th>이벤트 유형</th><th>우선순위</th><th>배달</th><th>생성시각</th></tr>`;
+  data.events.forEach(e => {
+    html += `<tr>
+      <td class="mono">${(e.event_queue_id||'').substring(0,10)}...</td>
+      <td>${e.event_type||''}</td>
+      <td>${e.priority||''}</td>
+      <td>${e.delivered ? '<span class="badge-ok">배달됨</span>' : '<span class="badge-warn">미배달</span>'}</td>
+      <td class="mono">${formatTs(e.created_at)}</td>
+    </tr>`;
+  });
+  html += '</table>';
+  document.getElementById('events-content').innerHTML = html;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Webhook 현황
+// ════════════════════════════════════════════════════════════════════════
+async function loadWebhook() {
+  document.getElementById('webhook-content').innerHTML = '<div class="spinner"></div>';
+  const { data } = await api('GET', '/api/v1/health/webhook');
+
+  let html = `<h3 style="font-size:13px;margin-bottom:8px">최근 1시간 — 상태별</h3>
+    <table class="tbl"><tr><th>처리 상태</th><th>건수</th></tr>`;
+  (data.last1hByStatus||[]).forEach(r => {
+    html += `<tr><td>${r.processing_status}</td><td>${r.cnt}</td></tr>`;
+  });
+  html += `</table>
+    <h3 style="font-size:13px;margin:12px 0 8px">최근 1시간 — 이벤트 유형별</h3>
+    <table class="tbl"><tr><th>이벤트 유형</th><th>건수</th></tr>`;
+  (data.last1hByType||[]).forEach(r => {
+    html += `<tr><td>${r.source_event_type}</td><td>${r.cnt}</td></tr>`;
+  });
+  html += `</table>
+    <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+      서명 실패: <span style="color:${data.signatureFailures1h > 0 ? 'var(--danger)' : 'var(--muted)'}">${data.signatureFailures1h||0}건</span>
+    </div>`;
+  document.getElementById('webhook-content').innerHTML = html;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// 헤더 상태 표시
+// ════════════════════════════════════════════════════════════════════════
+async function checkIdoStatus() {
+  try {
+    const { data } = await api('GET', '/api/v1/health/ido');
+    const dot   = document.getElementById('ido-status-dot');
+    const label = document.getElementById('ido-status-label');
+    if (data.status === 'UP') {
+      dot.classList.add('up'); dot.classList.remove('down');
+      label.textContent = 'IdO UP';
+    } else {
+      dot.classList.add('down'); dot.classList.remove('up');
+      label.textContent = 'IdO DOWN';
+    }
+  } catch { /* silent */ }
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// 유틸
+// ════════════════════════════════════════════════════════════════════════
+function setStep(name, state) {
+  const el = document.getElementById('step-' + name);
+  if (!el) return;
+  el.className = 'step' + (state ? ' ' + state : '');
+}
+
+function formatTs(ts) {
+  if (!ts) return '';
+  try { return new Date(ts).toLocaleString('ko-KR', { hour12: false }); }
+  catch { return ts; }
+}
+
+function showToast(type, msg) {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function colorizeJson(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = el.textContent
+    .replace(/"([^"]+)":/g, '<span style="color:#93c5fd">"$1"</span>:')
+    .replace(/: "([^"]*)"(,?)/g, ': <span style="color:#86efac">"$1"</span>$2')
+    .replace(/: (true|false|null)/g, ': <span style="color:#f9a8d4">$1</span>')
+    .replace(/: (-?\d+\.?\d*)/g, ': <span style="color:#fcd34d">$1</span>');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// 초기화
+// ════════════════════════════════════════════════════════════════════════
+checkIdoStatus();
+setInterval(checkIdoStatus, 30000);
+</script>
+</body>
+</html>
