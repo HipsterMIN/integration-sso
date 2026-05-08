@@ -3,6 +3,7 @@ package kr.go.smes.ido.handoff.strategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.common.domain.HandoffPayload;
 import kr.go.smes.common.domain.HandoffTicket;
+import kr.go.smes.ido.domain.AgencyMeta;
 import kr.go.smes.ido.infrastructure.AgencyMetaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,7 +53,7 @@ public class BridgeHandoffStrategy implements HandoffStrategy {
 
         // Bridge endpoint 조회
         String bridgeEndpoint = agencyMetaRepository.findByCode(agencyCode)
-                .map(m -> m.getBridgeEndpoint())
+                .map(AgencyMeta::getBridgeEndpoint)
                 .orElse(null);
 
         if (bridgeEndpoint == null || bridgeEndpoint.isBlank()) {

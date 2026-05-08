@@ -48,7 +48,8 @@ public enum PlatformErrorCode {
     AGENCY_CODE_MISMATCH  ("E-AGENCY-302", HttpStatus.FORBIDDEN,   "기관 코드 불일치."),
     AGENCY_KEY_INVALID    ("E-AGENCY-303", HttpStatus.UNAUTHORIZED, "기관 API Key 인증 실패."),
     AGENCY_CALLBACK_BLOCKED("E-AGENCY-304", HttpStatus.FORBIDDEN,  "허용되지 않은 콜백 URL."),
-    AGENCY_MAINTENANCE    ("E-AGENCY-305", HttpStatus.SERVICE_UNAVAILABLE, "기관 점검 시간입니다.");
+    AGENCY_MAINTENANCE    ("E-AGENCY-305", HttpStatus.SERVICE_UNAVAILABLE, "기관 점검 시간입니다."),
+    AGENCY_RATE_LIMIT_EXCEEDED("E-AGENCY-306", HttpStatus.TOO_MANY_REQUESTS, "요청 한도를 초과했습니다.");
 
     private final String code;
     private final HttpStatus httpStatus;
