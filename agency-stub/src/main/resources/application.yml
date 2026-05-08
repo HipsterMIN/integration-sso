@@ -65,6 +65,10 @@ spring:
           max-wait: 1000ms
 
   # ── Kafka ──────────────────────────────────────────────────
+  # ⚠️  PoC ONLY — 실 운영에서 외부 기관은 내부 Kafka에 직접 연결 불가
+  # 운영 시 이 Kafka 설정 블록 전체를 제거하고,
+  # 기관 세션 무효화는 IdO Webhook(Push) 또는 Polling API로 대체합니다.
+  # 설계 상세: docs/agency-external-arch-supplement.md §3.1
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
     properties:

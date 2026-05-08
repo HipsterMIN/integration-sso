@@ -13,11 +13,29 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 
 /**
- * Agency-Stub ← ido.handoff.events 컨슈머
+ * Agency-Stub Kafka 이벤트 컨슈머 — PoC 전용
  * 설계서 §16.3 Handoff 이벤트 / §14.9 세션 보안 이벤트
  *
- * <p>HANDOFF_REVOKED 수신 시: 해당 ticketId 로 생성된 기관 세션 즉시 무효화
- * <p>REUSE_ATTEMPT 수신 시: 감사 로그 기록 + 보안 알림
+ * <p><b>⚠️ PoC 한정 코드 — 실 운영에서 사용 불가</b>
+ *
+ * <p>이 클래스는 PoC 시뮬레이션을 위해 내부 Kafka 브로커를 직접 구독합니다.
+ * 실제 운영 환경에서 유관기관은 내부 Kafka에 접근할 수 없으며,
+ * OnePass 플랫폼과의 통신은 반드시 IdO 공개 API(HTTPS)를 통해서만 이루어집니다.
+ *
+ * <p><b>운영 대체 방안:</b>
+ * <ul>
+ *   <li>Option A (권장): IdO WebhookDispatcher → 기관 Webhook URL (HTTPS POST)</li>
+ *   <li>Option B (대안): 기관 → IdO 이벤트 폴링 API (GET /api/v1/agency/events)</li>
+ * </ul>
+ *
+ * <p>설계 상세: docs/agency-external-arch-supplement.md §3.1, §5.2
+ *
+ * <p><b>현재 처리 내용 (PoC):</b>
+ * <ul>
+ *   <li>HANDOFF_REVOKED 수신 시: 해당 ticketId 로 생성된 기관 세션 즉시 무효화</li>
+ *   <li>REUSE_ATTEMPT 수신 시: 감사 로그 기록 + 보안 알림</li>
+ *   <li>MANDATORY_SECURITY Advisory 수신 시: qimUserId 기준 기관 세션 일괄 무효화</li>
+ * </ul>
  */
 @Slf4j
 @Component
