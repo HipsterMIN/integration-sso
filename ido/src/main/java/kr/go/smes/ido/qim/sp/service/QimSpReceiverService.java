@@ -10,6 +10,7 @@ import kr.go.smes.ido.qim.sp.domain.InstMbrIdMapping;
 import kr.go.smes.ido.qim.sp.infrastructure.InstMbrIdMappingRepository;
 import kr.go.smes.ido.qim.sp.infrastructure.SpReceiverIdempotencyStore;
 import kr.go.smes.ido.fe.session.FeSessionService;
+import kr.go.smes.common.util.ApiKeyHashUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -280,16 +281,39 @@ public class QimSpReceiverService {
     // ── API Key 검증 ─────────────────────────────────────────────────────────
 
     /**
-     * Q-IM 아웃바운드 API Key 검증
-     * PBKDF2 해시 비교 (ido.qim.inbound-api-key-hash 설정값과 비교)
+     * Q-IM 아웃바운드 API Key 검증 — PBKDF2-HMAC-SHA256 해시 비교
      *
-     * TODO: 운영 전 PBKDF2 해시 검증으로 강화 (현재: 단순 문자열 비교)
+     * <p>저장 포맷: {@code pbkdf2:{iterations}:{saltBase64}:{hashBase64}}
+     * 환경변수 {@code QIM_INBOUND_API_KEY_HASH}에 PBKDF2 해시값을 설정해야 한다.
+     *
+     * <p>보안 원칙:
+     * <ul>
+     *   <li>CHANGEME 또는 미설정 시 검증 즉시 실패 (우회 경로 완전 제거)</li>
+     *   <li>상수 시간 비교로 타이밍 공격 방지 ({@link ApiKeyHashUtil#verify})</li>
+     *   <li>검증 실패 사유는 로그에 상세히 남기지 않음 (열거 공격 방지)</li>
+     * </ul>
+     *
+     * @param apiKey Q-IM이 전송한 API Key (X-Api-Key 헤더값)
+     * @return 유효하면 {@code true}
      */
     public boolean isValidApiKey(String apiKey) {
-        if (apiKey == null || apiKey.isBlank()) return false;
-        // 운영 환경에서는 PBKDF2(apiKey, salt) 해시 비교로 교체 필요
-        // 현재 개발 단계: 설정된 해시값과 직접 비교 (임시)
-        return inboundApiKeyHash.equals(apiKey) || "CHANGEME".equals(inboundApiKeyHash);
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("[QIM-SP] API Key 검증 실패: 빈 값");
+            return false;
+        }
+
+        // CHANGEME sentinel 즉각 거부 (운영 환경 기동 차단)
+        if ("CHANGEME".equals(inboundApiKeyHash) || !ApiKeyHashUtil.isPbkdf2Format(inboundApiKeyHash)) {
+            log.error("[QIM-SP][보안경고] QIM_INBOUND_API_KEY_HASH가 PBKDF2 포맷이 아닙니다. " +
+                      "운영 전 반드시 pbkdf2:...:{salt}:{hash} 형식으로 설정하세요. 현재 모든 요청 거부.");
+            return false;
+        }
+
+        boolean valid = ApiKeyHashUtil.verify(apiKey, inboundApiKeyHash);
+        if (!valid) {
+            log.warn("[QIM-SP] API Key 검증 실패: 해시 불일치");
+        }
+        return valid;
     }
 
     // ── 내부 유틸 ─────────────────────────────────────────────────────────────

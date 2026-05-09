@@ -1,5 +1,6 @@
 package kr.go.smes.qsign.api;
 
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -41,12 +42,33 @@ public class InternalSigVerifier {
 
     private static final String HMAC_ALGORITHM = "HmacSHA256";
 
+    private static final String INSECURE_DEFAULT = "ido-internal-secret";
+    private static final int    MIN_SECRET_LENGTH = 32;
+
     /**
      * IdO 와 공유하는 비밀키 (docker-compose: IDO_INTERNAL_SIG_SECRET)
      * 설계서 §9.4 / Q-Sign application.yml: qsign.ido.internal-sig-secret
+     * 환경변수 IDO_INTERNAL_SIG_SECRET 필수 설정 (기본값 없음)
      */
-    @Value("${qsign.ido.internal-sig-secret:ido-internal-secret}")
+    @Value("${qsign.ido.internal-sig-secret:}")
     private String sigSecret;
+
+    /**
+     * 기동 시 내부 서명 비밀키 보안 검증
+     */
+    @PostConstruct
+    void validateSigSecret() {
+        if (sigSecret == null || sigSecret.isBlank()) {
+            log.error("[QSign-InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 환경변수 미설정. " +
+                      "내부 서명 검증이 모든 요청에 대해 실패합니다. 즉시 설정하세요.");
+        } else if (INSECURE_DEFAULT.equals(sigSecret)) {
+            log.error("[QSign-InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
+                      "운영 환경에서는 반드시 최소 32자 이상의 무작위 비밀값으로 교체하세요.");
+        } else if (sigSecret.length() < MIN_SECRET_LENGTH) {
+            log.warn("[QSign-InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 길이 부족: 현재={}자, 권장={}자 이상.",
+                     sigSecret.length(), MIN_SECRET_LENGTH);
+        }
+    }
 
     /**
      * 타임스탬프 유효 범위 (초, 양방향): 기본 60초
@@ -77,6 +99,11 @@ public class InternalSigVerifier {
         if (correlationId == null || correlationId.isBlank()) {
             log.warn("[QSign-InternalSigVerifier] correlationId 없음 — 서명 검증 불가");
             return !strictMode;
+        }
+        // 비밀키 미설정 시 즉시 거부 (strict 여부 무관)
+        if (sigSecret == null || sigSecret.isBlank()) {
+            log.error("[QSign-InternalSigVerifier] sigSecret 미설정 — 모든 내부 서명 검증 거부");
+            return false;
         }
 
         long nowEpochSeconds = System.currentTimeMillis() / 1000L;
