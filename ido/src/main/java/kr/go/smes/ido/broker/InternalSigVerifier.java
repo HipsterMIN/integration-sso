@@ -1,5 +1,6 @@
 package kr.go.smes.ido.broker;
 
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -41,13 +42,40 @@ public class InternalSigVerifier {
     /** HMAC-SHA256 알고리즘 상수 */
     private static final String HMAC_ALGORITHM = "HmacSHA256";
 
-    /** Q-Sign 과 동일한 공유 비밀키 (설계서 §9.4) */
-    @Value("${ido.qsign.internal-sig-secret:ido-internal-secret}")
+    /** Q-Sign 과 동일한 공유 비밀키 (설계서 §9.4) — 환경변수 IDO_INTERNAL_SIG_SECRET 필수 */
+    @Value("${ido.qsign.internal-sig-secret:}")
     private String sigSecret;
 
     /** 타임스탬프 유효 범위 (초, 양방향): 기본 60초 */
     @Value("${ido.qsign.internal-sig-ttl-seconds:60}")
     private int ttlSeconds;
+
+    private static final String INSECURE_DEFAULT = "ido-internal-secret";
+    private static final int MIN_SECRET_LENGTH   = 32; // 최소 256비트
+
+    /**
+     * 기동 시 내부 서명 비밀키 보안 검증
+     *
+     * <p>운영 환경에서 기본값 또는 약한 키가 설정된 채 기동되는 것을 차단.
+     * 개발 환경({@code APP_ENV=dev})에서는 경고만 출력하여 로컬 개발 편의성 유지.
+     */
+    @PostConstruct
+    void validateSigSecret() {
+        if (sigSecret == null || sigSecret.isBlank()) {
+            log.error("[InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 환경변수가 설정되지 않았습니다. " +
+                      "내부 서명 검증이 모든 요청에 대해 실패합니다. 즉시 설정하세요.");
+            return;
+        }
+        if (INSECURE_DEFAULT.equals(sigSecret)) {
+            log.error("[InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
+                      "운영 환경에서는 최소 32자 이상의 무작위 비밀값으로 교체하세요. " +
+                      "현재 내부 API가 위조 서명에 취약합니다.");
+        }
+        if (sigSecret.length() < MIN_SECRET_LENGTH) {
+            log.warn("[InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 길이가 부족합니다: " +
+                     "현재={}자, 권장={}자 이상.", sigSecret.length(), MIN_SECRET_LENGTH);
+        }
+    }
 
     /**
      * X-Internal-Sig 서명 검증
@@ -63,6 +91,11 @@ public class InternalSigVerifier {
         }
         if (correlationId == null || correlationId.isBlank()) {
             log.warn("[InternalSigVerifier] correlationId 없음 — 서명 검증 불가");
+            return false;
+        }
+        // 비밀키 미설정 시 즉시 거부
+        if (sigSecret == null || sigSecret.isBlank()) {
+            log.error("[InternalSigVerifier] sigSecret 미설정 — 모든 내부 서명 검증 거부");
             return false;
         }
 

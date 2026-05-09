@@ -123,7 +123,8 @@ qsign:
   # IdO 내부 통신 설정
   ido:
     base-url: ${IDO_BASE_URL:http://localhost:8083}
-    internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:ido-internal-secret}
+    # X-Internal-Sig HMAC-SHA256 공유 비밀키 (ido와 동일 값, IDO_INTERNAL_SIG_SECRET 필수)
+    internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:}
     internal-sig-ttl-seconds: 60
     # GAP-QS-04: broker-input 수신 측 서명 검증 strict 모드
     # true(운영): HMAC 불일치 시 403 반환 / false(PoC): 경고 로그 후 통과

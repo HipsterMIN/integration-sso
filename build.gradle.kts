@@ -36,6 +36,8 @@ subprojects {
         }
     }
 
+    val testcontainersVersion = "1.20.4"
+
     dependencies {
         // Lombok
         "compileOnly"("org.projectlombok:lombok")
@@ -46,6 +48,14 @@ subprojects {
         // Test
         "testImplementation"("org.springframework.boot:spring-boot-starter-test")
         "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+
+        // Testcontainers BOM + 모듈
+        "testImplementation"(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
+        "testImplementation"("org.testcontainers:junit-jupiter")
+        "testImplementation"("org.testcontainers:postgresql")
+        "testImplementation"("org.testcontainers:mariadb")
+        "testImplementation"("org.testcontainers:kafka")
+        "testImplementation"("org.springframework.boot:spring-boot-testcontainers")
     }
 
     tasks.withType<Test> {
