@@ -1,0 +1,52 @@
+# IdO 테스트 전용 application.yml
+# @WebMvcTest 슬라이스 테스트가 main application.yml의 SnakeYaml 중복키 오류를 피하도록
+# 최소 설정만 포함한 독립 설정 파일
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  kafka:
+    bootstrap-servers: localhost:9092
+
+ido:
+  qim:
+    base-url: http://localhost:8082
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
+  audit:
+    kafka-publish-enabled: false
+    retry-interval-ms: 600000
+  cors:
+    enabled: false
+    allowed-origins: http://localhost:3000
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 5
+        minimum-number-of-calls: 5
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 1s
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 5s
+
+logging:
+  level:
+    root: WARN
+    kr.go.smes: INFO
