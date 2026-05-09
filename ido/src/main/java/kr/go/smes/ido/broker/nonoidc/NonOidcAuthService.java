@@ -19,7 +19,7 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * 비OIDC 인증 AuthResult 생성 서비스 (문서 §9)
@@ -73,7 +73,7 @@ public class NonOidcAuthService {
         String correlationId  = command.getCorrelationId();
         String providerCode   = command.getProviderCode();
         String identifierHash = computeIdentifierHash(command.getRawIdentifier(), correlationId);
-        String authResultId   = UUID.randomUUID().toString();
+        String authResultId   = UuidV7.generate();
         String authLevel      = resolveAuthLevel(providerCode);
 
         log.info("[NonOidcAuthService] 인증 처리: providerCode={} authLevel={} correlationId={}",
@@ -126,7 +126,7 @@ public class NonOidcAuthService {
                                 ELSE NULL
                             END
                     """,
-                    UUID.randomUUID().toString(), identifierHash, providerCode
+                    UuidV7.generate(), identifierHash, providerCode
             );
 
             // 잠금 여부 확인 후 LOCKED 이벤트 발행
@@ -178,7 +178,7 @@ public class NonOidcAuthService {
     private void saveAndPublishEvent(String authResultId, String correlationId,
                                       String authLevel, String providerCode,
                                       String identifierHash) {
-        String eventId = UUID.randomUUID().toString();
+        String eventId = UuidV7.generate();
         try {
             String payload = buildEventPayload(eventId, authResultId, correlationId,
                     authLevel, providerCode, identifierHash);

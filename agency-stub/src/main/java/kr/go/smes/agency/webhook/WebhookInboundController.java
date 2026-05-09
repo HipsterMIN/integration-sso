@@ -17,7 +17,7 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * IdO → 기관 Webhook 수신 컨트롤러
@@ -91,7 +91,7 @@ public class WebhookInboundController {
             @RequestHeader(value = "X-Source-System",     defaultValue = "ido") String sourceSystem,
             @RequestBody String rawBody) {
 
-        String inboundId = UUID.randomUUID().toString();
+        String inboundId = UuidV7.generate();
         log.info("[WebhookInbound] 수신: inboundId={} correlationId={} bodyLen={}",
                 inboundId, correlationId, rawBody.length());
 

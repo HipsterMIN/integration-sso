@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * Q-IM Snapshot 서비스 구현체
@@ -135,7 +136,7 @@ public class SnapshotServiceImpl implements SnapshotService {
         UserEvent snapshotEvent = new UserEvent(
                 EVENT_TYPE_SNAPSHOT,
                 SOURCE_SYSTEM,
-                correlationId != null ? correlationId : UUID.randomUUID().toString(),
+                correlationId != null ? correlationId : UuidV7.generate(),
                 qimUserId,
                 currentVersion,
                 user.getStatus(),
@@ -144,7 +145,7 @@ public class SnapshotServiceImpl implements SnapshotService {
         );
 
         // 4. Kafka Compacted Topic 비동기 발행
-        String snapshotId = UUID.randomUUID().toString();
+        String snapshotId = UuidV7.generate();
         final String[] finalStatus = {SnapshotMetaJpaEntity.SnapshotStatus.PUBLISHED.name()};
 
         kafkaTemplate.send(TOPIC_SNAPSHOT, qimUserId, snapshotEvent)

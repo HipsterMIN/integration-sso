@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * 플랫폼 전역 감사 로그 발행기 (IdO 전담)
@@ -67,7 +67,7 @@ public class AuditLogPublisher {
     @Async("auditExecutor")
     public void publish(AuditEntry entry) {
         try {
-            String auditId = UUID.randomUUID().toString();
+            String auditId = UuidV7.generate();
             String metadataJson = toJson(entry.metadata());
 
             // ① DB 저장 (at-most-once — 실패해도 계속)

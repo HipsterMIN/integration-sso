@@ -1,6 +1,7 @@
 package kr.go.smes.common.util;
 
 import java.util.UUID;
+// correlationId는 UUID v7 사용 — 시간순 정렬로 로그·추적 분석 효율 향상
 
 /**
  * correlationId ThreadLocal 홀더
@@ -26,7 +27,7 @@ public final class CorrelationIdHolder {
     }
 
     public static String generate() {
-        return UUID.randomUUID().toString();
+        return UuidV7.generate();  // v7: 시간 정렬 가능 → 로그 시간순 조회 효율
     }
 
     public static void clear() {

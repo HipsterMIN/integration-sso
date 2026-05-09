@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.Map;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * 비OIDC 인증 수단 브로커 컨트롤러 (문서 §7 — Option 3 진입점)
@@ -270,7 +270,7 @@ public class NonOidcBrokerController {
         }
         String existing = CorrelationIdHolder.get();
         if (existing != null && !existing.isBlank()) return existing;
-        String generated = UUID.randomUUID().toString();
+        String generated = UuidV7.generate();
         CorrelationIdHolder.set(generated);
         return generated;
     }

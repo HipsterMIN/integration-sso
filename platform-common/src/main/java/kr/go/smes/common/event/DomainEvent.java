@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 
 import java.time.Instant;
 import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * 플랫폼 공통 도메인 이벤트 베이스
@@ -41,7 +42,7 @@ public abstract class DomainEvent {
 
     protected DomainEvent(String eventType, String sourceSystem, String correlationId,
                           String qimUserId, Long eventVersion) {
-        this.eventId       = UUID.randomUUID().toString();
+        this.eventId       = UuidV7.generate();  // UUID v7: 시간 정렬 가능 (DB 인덱스 효율)
         this.eventType     = eventType;
         this.sourceSystem  = sourceSystem;
         this.correlationId = correlationId;

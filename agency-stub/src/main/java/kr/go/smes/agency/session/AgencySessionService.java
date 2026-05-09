@@ -19,7 +19,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * 기관 로컬 세션 서비스 (DB 기반 완전 구현)
@@ -103,7 +103,7 @@ public class AgencySessionService {
         String agsidHash = sha256Hex(rawAgsid);
 
         // ④ 세션 ID 및 만료 시각 계산
-        String  sessionId  = UUID.randomUUID().toString();
+        String  sessionId  = UuidV7.generate();
         Instant now        = Instant.now();
         Instant idleExp    = now.plusSeconds(idleTimeoutMinutes * 60L);
         Instant absExp     = now.plusSeconds(absoluteTimeoutMinutes * 60L);
@@ -295,7 +295,7 @@ public class AgencySessionService {
         }
 
         // 신규 사용자 생성
-        String newUserId = UUID.randomUUID().toString();
+        String newUserId = UuidV7.generate();
         Instant now = Instant.now();
         jdbcTemplate.update("""
                 INSERT INTO agency_stub.agency_user

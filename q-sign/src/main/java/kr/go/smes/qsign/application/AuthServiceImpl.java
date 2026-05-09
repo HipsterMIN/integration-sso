@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * Q-Sign AuthService 구현체
@@ -70,7 +70,7 @@ public class AuthServiceImpl implements AuthService {
         long startMs = System.currentTimeMillis();
 
         AuthResult result = AuthResult.builder()
-                .authResultId(UUID.randomUUID().toString())
+                .authResultId(UuidV7.generate())
                 .correlationId(correlationId)
                 .authLevel(AuthResult.AuthLevel.valueOf(requestedLevel))
                 .providerCode(providerCode)
@@ -115,7 +115,7 @@ public class AuthServiceImpl implements AuthService {
                 ? input.getRequestedAuthLevel().name() : "UNKNOWN";
 
         AuthResult result = AuthResult.builder()
-                .authResultId(UUID.randomUUID().toString())
+                .authResultId(UuidV7.generate())
                 .correlationId(input.getCorrelationId())
                 .authLevel(input.getRequestedAuthLevel())
                 .providerCode(input.getProviderCode())

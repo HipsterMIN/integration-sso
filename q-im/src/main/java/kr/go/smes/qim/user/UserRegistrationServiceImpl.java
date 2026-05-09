@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * 사용자 등록 서비스 구현체
@@ -121,7 +122,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
     // ── private ──────────────────────────────────────────────────────────────
 
     private UserResponse createNewUser(UserRegisterRequest req) {
-        String qimUserId = UUID.randomUUID().toString();
+        String qimUserId = UuidV7.generate();
         Instant now = Instant.now();
 
         // CI 암호화 (rawCi가 있는 경우만)
@@ -158,7 +159,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
         // 인증수단 매핑 생성
         AuthMeanMappingJpaEntity mappingEntity = AuthMeanMappingJpaEntity.builder()
-                .mappingId(UUID.randomUUID().toString())
+                .mappingId(UuidV7.generate())
                 .user(userEntity)
                 .providerCode(req.getProviderCode())
                 .identifierHash(req.getIdentifierHash())
