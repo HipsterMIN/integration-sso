@@ -188,6 +188,39 @@ public class WebhookDispatcherService {
      * 회원 탈퇴 이벤트를 모든 기관에 webhook 발송 큐 등록
      */
     @Transactional
+    /**
+     * SLO (Single Logout) 기관 Webhook 발송 — Outbox 적재
+     * Sprint 2 P1-03
+     *
+     * <p>feSession 만료 후 연계 기관 전체에 USER_LOGOUT 이벤트 전파.
+     * WebhookDispatchOutboxRelay가 HTTPS POST로 기관별 endpoint에 비동기 발송.
+     *
+     * @param instMbrId    기관 회원 ID
+     * @param qimUserId    Q-IM 사용자 ID (로그 추적용)
+     * @param correlationId 추적 ID
+     */
+    public void enqueueForUserLogout(String instMbrId, String qimUserId, String correlationId) {
+        List<AgencyWebhookConfig> targets = findWebhookTargets("USER_LOGOUT", null);
+        if (targets.isEmpty()) {
+            log.debug("[WebhookDispatcher] USER_LOGOUT Webhook 대상 없음: qimUserId={}", qimUserId);
+            return;
+        }
+
+        String sourceEventId = UUID.randomUUID().toString();
+        for (AgencyWebhookConfig config : targets) {
+            try {
+                String payload = buildUserLogoutPayload(instMbrId, correlationId);
+                insertOutbox(config, sourceEventId, "USER_LOGOUT",
+                        "ido.session.events", payload, correlationId);
+            } catch (Exception e) {
+                log.error("[WebhookDispatcher] USER_LOGOUT Outbox 실패: agencyCode={} error={}",
+                        config.agencyCode(), e.getMessage());
+            }
+        }
+        log.info("[WebhookDispatcher] USER_LOGOUT Outbox 적재 완료: qimUserId={} targets={}",
+                qimUserId, targets.size());
+    }
+
     public void enqueueForMemberWithdrawn(String instMbrId, String qimUserId,
                                            String correlationId) {
         List<AgencyWebhookConfig> targets = findWebhookTargets("MEMBER_WITHDRAWN", null);
@@ -419,6 +452,16 @@ public class WebhookDispatcherService {
     /**
      * 회원 탈퇴 통보 payload
      */
+    private String buildUserLogoutPayload(String instMbrId,
+                                          String correlationId) throws JsonProcessingException {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("eventType",     "USER_LOGOUT");
+        payload.put("instMbrId",     instMbrId);
+        payload.put("correlationId", correlationId);
+        payload.put("occurredAt",    Instant.now().toString());
+        return objectMapper.writeValueAsString(payload);
+    }
+
     private String buildMemberWithdrawnPayload(String instMbrId,
                                                 String correlationId) throws JsonProcessingException {
         Map<String, Object> payload = new LinkedHashMap<>();
