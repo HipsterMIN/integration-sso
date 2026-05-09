@@ -48,6 +48,19 @@ public class OutboxRepositoryImpl implements OutboxRepository {
         jpaRepository.markFailed(eventId, "발행 실패 — Relay 재시도 대기");
     }
 
+    @Override
+    public List<OutboxRecord> findRetryable(short maxRetry, int limit) {
+        return jpaRepository.findRetryable(maxRetry).stream()
+                .limit(limit)
+                .map(this::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void markPending(String eventId) {
+        jpaRepository.markPending(eventId);
+    }
+
     // ── 매핑 ──────────────────────────────────────────────────────────────────
 
     private OutboxRecord toDomain(OutboxJpaEntity e) {
@@ -58,6 +71,9 @@ public class OutboxRepositoryImpl implements OutboxRepository {
                 .eventVersion(e.getEventVersion())
                 .payload(e.getPayload())
                 .status(OutboxRecord.OutboxStatus.valueOf(e.getStatus()))
+                // GAP-QIM-04: retryCount / errorMessage 도메인 레코드에 반영
+                .retryCount(e.getRetryCount())
+                .errorMessage(e.getErrorMessage())
                 .createdAt(e.getCreatedAt())
                 .publishedAt(e.getPublishedAt())
                 .build();

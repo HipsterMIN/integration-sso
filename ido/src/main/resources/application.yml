@@ -139,6 +139,8 @@ ido:
     nonce-ttl-seconds: 60
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
+    # P1-03: X-Internal-Sig 수신 측 HMAC 검증 공유 비밀키 (Q-Sign 동일 값 사용)
+    internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:ido-internal-secret}
 
   # ── 브로커 모드 설정 (문서 §6) ──────────────────────────────────────────
   # qsign    : 기존 방식 — ido → q-sign으로 URL 발급 위임 (현재 기본값)

@@ -264,13 +264,27 @@ public class KafkaConsumerConfig {
     // ── Error Handler (공통) ──────────────────────────────────────────────
 
     /**
-     * 지수 백오프 재시도 (최대 3회, 1s→2s→4s) → DLQ 전송
+     * GAP-IDO-09: DLQ DeadLetterPublishingRecoverer 완전 구현
      *
-     * <p>DLQ 토픽: "{원본토픽}.dlt"
-     * DLQ 헤더: x-original-topic, x-failure-reason, x-failure-count
+     * <p>지수 백오프 재시도 (최대 3회: 1s → 2s → 4s) 후 DLQ 전송.
+     *
+     * <p><b>DLQ 토픽</b>: "{원본토픽}.dlt" (파티션 -1 → Kafka 기본 파티션 결정)
+     *
+     * <p><b>보존 헤더 6종</b> (설계서 §24.4.1):
+     * <ol>
+     *   <li>{@code x-original-topic}   — 원본 토픽명</li>
+     *   <li>{@code x-failure-reason}   — 예외 클래스 단순명</li>
+     *   <li>{@code x-failure-count}    — 재시도 횟수 (1-indexed)</li>
+     *   <li>{@code x-correlation-id}   — 흐름 추적 ID (원본 레코드 헤더에서 복사)</li>
+     *   <li>{@code x-event-id}         — 이벤트 ID (원본 레코드 헤더에서 복사)</li>
+     *   <li>{@code x-failed-at}        — 실패 epoch ms (ISO-8601 문자열)</li>
+     * </ol>
+     *
+     * <p>{@code @Bean} 등록으로 단일 인스턴스를 모든 리스너 컨테이너에서 공유.
      * (설계서 §24.4.1 DLQ 전략)
      */
-    private DefaultErrorHandler defaultErrorHandler() {
+    @Bean
+    public DefaultErrorHandler defaultErrorHandler() {
         ExponentialBackOffWithMaxRetries backOff =
                 new ExponentialBackOffWithMaxRetries(3);
         backOff.setInitialInterval(1_000L);
@@ -279,28 +293,59 @@ public class KafkaConsumerConfig {
 
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 idoKafkaTemplate(),
+                // 파티션 -1: Kafka 기본 파티셔너에게 위임 (DLT 파티션 수에 상관없이 동작)
                 (record, ex) -> new TopicPartition(record.topic() + ".dlt", -1)
         );
 
         recoverer.setHeadersFunction((consumerRecord, ex) -> {
             var headers = new org.apache.kafka.common.header.internals.RecordHeaders();
+
+            // ① 원본 토픽명
             headers.add("x-original-topic",
                     consumerRecord.topic().getBytes(StandardCharsets.UTF_8));
+
+            // ② 실패 원인 (예외 클래스 단순명 — 스택 노출 방지)
             String reason = ex.getCause() != null
                     ? ex.getCause().getClass().getSimpleName()
                     : ex.getClass().getSimpleName();
             headers.add("x-failure-reason",
                     reason.getBytes(StandardCharsets.UTF_8));
+
+            // ③ 재시도 횟수: 원본 레코드에 x-failure-count 가 있으면 +1, 없으면 1
+            byte[] prevCountBytes = consumerRecord.headers().lastHeader("x-failure-count") != null
+                    ? consumerRecord.headers().lastHeader("x-failure-count").value()
+                    : null;
+            int failureCount = (prevCountBytes != null)
+                    ? Integer.parseInt(new String(prevCountBytes, StandardCharsets.UTF_8)) + 1
+                    : 1;
+            headers.add("x-failure-count",
+                    String.valueOf(failureCount).getBytes(StandardCharsets.UTF_8));
+
+            // ④ 실패 시각 (epoch ms)
+            headers.add("x-failed-at",
+                    String.valueOf(System.currentTimeMillis()).getBytes(StandardCharsets.UTF_8));
+
+            // ⑤ 원본 레코드 헤더 전파 (x-correlation-id, x-event-id 포함)
+            //    단, 이미 위에서 추가한 헤더는 덮어쓰지 않기 위해 제외
+            java.util.Set<String> skipKeys = java.util.Set.of(
+                    "x-original-topic", "x-failure-reason",
+                    "x-failure-count",  "x-failed-at"
+            );
             consumerRecord.headers().forEach(h -> {
-                if (!"x-original-topic".equals(h.key())
-                        && !"x-failure-reason".equals(h.key())) {
+                if (!skipKeys.contains(h.key())) {
                     headers.add(h);
                 }
             });
+
             return headers;
         });
 
-        return new DefaultErrorHandler(recoverer, backOff);
+        DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, backOff);
+        // 재시도 불가 예외: 역직렬화 오류는 즉시 DLQ로 (재시도 의미 없음)
+        handler.addNotRetryableExceptions(
+                org.springframework.kafka.support.serializer.DeserializationException.class
+        );
+        return handler;
     }
 
     // ── 공통 컨슈머 프로퍼티 ─────────────────────────────────────────────

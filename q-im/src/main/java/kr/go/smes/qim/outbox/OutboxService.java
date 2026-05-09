@@ -9,6 +9,16 @@ import kr.go.smes.common.event.DomainEvent;
  * DB 트랜잭션 내에서 OUTBOX 레코드를 적재하고,
  * 별도 Relay(스케줄러)가 Kafka로 발행하여 최종 일관성을 확보한다.
  * 'DB 커밋은 됐지만 이벤트 유실' 문제를 방지.
+ *
+ * <p>GAP-QIM-04: FAILED 레코드 재시도 흐름
+ * <pre>
+ *   relayPendingEvents()  → PENDING 레코드 발행 시도
+ *       └ 실패 → markFailed() (retryCount+1, errorMessage 저장)
+ *
+ *   relayFailedEvents()   → retryCount < maxRetry 인 FAILED 레코드 재시도
+ *       └ 성공 → markPublished()
+ *       └ 실패 → retryCount 누적 (maxRetry 도달 시 영구 FAILED)
+ * </pre>
  */
 public interface OutboxService {
 
@@ -18,8 +28,15 @@ public interface OutboxService {
     void publishInTx(DomainEvent event);
 
     /**
-     * Relay: 미발행 Outbox 레코드를 Kafka에 발행
-     * @EnableScheduling + @Scheduled 로 주기적 실행
+     * Relay: 미발행(PENDING) Outbox 레코드를 Kafka에 발행
+     * {@code @EnableScheduling + @Scheduled} 로 주기적 실행
      */
     void relayPendingEvents();
+
+    /**
+     * GAP-QIM-04: FAILED 레코드 재시도 Relay
+     * retryCount &lt; maxRetry 인 레코드를 재발행하고,
+     * maxRetry 도달 시 영구 FAILED 유지 (수동 개입 필요).
+     */
+    void relayFailedEvents();
 }
