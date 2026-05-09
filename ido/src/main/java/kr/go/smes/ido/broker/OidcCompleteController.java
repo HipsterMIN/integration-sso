@@ -2,6 +2,7 @@ package kr.go.smes.ido.broker;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import kr.go.smes.common.error.PlatformErrorCode;
 import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.util.CorrelationIdHolder;
 import kr.go.smes.ido.broker.dto.OidcCompleteRequest;
@@ -54,7 +55,8 @@ public class OidcCompleteController {
 
     private static final String COOKIE_NAME = "feSessionId";
 
-    private final FeSessionService feSessionService;
+    private final FeSessionService     feSessionService;
+    private final InternalSigVerifier  internalSigVerifier;
 
     @Value("${ido.broker.mode:qsign}")
     private String brokerMode;
@@ -88,6 +90,17 @@ public class OidcCompleteController {
                 ? req.getCorrelationId()
                 : (correlationId != null ? correlationId : CorrelationIdHolder.get());
         CorrelationIdHolder.set(cid);
+
+        // ── P1-03: X-Internal-Sig HMAC-SHA256 수신 측 검증 ───────────────
+        // 설계서 §9.4 — q-sign → ido 내부 서명 검증 (재계산 + ±60초 타임스탬프 유효성)
+        // q-sign 모드에서만 서명 검증 수행 (keycloak 모드는 아래에서 409 반환)
+        if (!"keycloak".equals(brokerMode)) {
+            if (!internalSigVerifier.verify(internalSig, cid)) {
+                log.warn("[OidcComplete] X-Internal-Sig 검증 실패: caller={} correlationId={}", caller, cid);
+                throw new PlatformException(PlatformErrorCode.IDP_SIGNATURE_MISMATCH, cid);
+            }
+            log.debug("[OidcComplete] X-Internal-Sig 검증 통과: caller={} correlationId={}", caller, cid);
+        }
 
         // ── Keycloak 모드 확인 ────────────────────────────────────────────
         if ("keycloak".equals(brokerMode)) {

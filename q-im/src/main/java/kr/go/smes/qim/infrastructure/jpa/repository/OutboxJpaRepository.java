@@ -65,4 +65,17 @@ public interface OutboxJpaRepository extends JpaRepository<OutboxJpaEntity, Stri
         ORDER BY o.createdAt ASC
         """)
     List<OutboxJpaEntity> findRetryable(@Param("maxRetry") short maxRetry);
+
+    /**
+     * GAP-QIM-04: FAILED → PENDING 상태 복구 (재시도 큐 복귀)
+     * retryCount 는 유지 (markFailed 에서 이미 증가했으므로)
+     */
+    @Modifying
+    @Query("""
+        UPDATE OutboxJpaEntity o
+        SET o.status = 'PENDING',
+            o.errorMessage = NULL
+        WHERE o.eventId = :eventId
+        """)
+    void markPending(@Param("eventId") String eventId);
 }

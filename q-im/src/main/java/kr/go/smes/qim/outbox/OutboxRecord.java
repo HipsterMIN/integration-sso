@@ -7,7 +7,7 @@ import java.time.Instant;
 
 /**
  * Transactional Outbox 레코드
- * 설계서 10.5.2절 참조
+ * 설계서 10.5.2절 / GAP-QIM-04 참조
  */
 @Getter
 @Builder
@@ -26,6 +26,16 @@ public class OutboxRecord {
     private final String payload;
 
     private final OutboxStatus status;
+
+    /**
+     * GAP-QIM-04: 발행 재시도 횟수
+     * markFailed() 호출 시마다 +1, maxRetry 도달 시 영구 FAILED
+     */
+    private final Short retryCount;
+
+    /** 실패 원인 메시지 */
+    private final String errorMessage;
+
     private final Instant createdAt;
     private final Instant publishedAt;
 

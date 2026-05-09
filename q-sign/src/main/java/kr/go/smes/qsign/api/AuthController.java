@@ -1,6 +1,8 @@
 package kr.go.smes.qsign.api;
 
 import kr.go.smes.common.domain.AuthResult;
+import kr.go.smes.common.error.PlatformErrorCode;
+import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.util.CorrelationIdHolder;
 import kr.go.smes.qsign.api.dto.OidcAuthRequest;
 import kr.go.smes.qsign.api.dto.IdOAuthInputRequest;
@@ -24,7 +26,8 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthService authService;
+    private final AuthService          authService;
+    private final InternalSigVerifier  internalSigVerifier;
 
     /**
      * 표준 OIDC 인증 결과 발급
@@ -45,9 +48,13 @@ public class AuthController {
     }
 
     /**
-     * IdO → Q-Sign 비OIDC/반표준 인증 정규화 입력
+     * GAP-QS-04: IdO → Q-Sign 비OIDC/반표준 인증 정규화 입력
      * POST /api/v1/auth/broker-input
      * 설계서 11.7절 — 내부 전용 (mTLS 보호 구간)
+     *
+     * <p>X-Internal-Sig 헤더를 HMAC-SHA256으로 검증한다.
+     * strict-mode=true(운영): 불일치 시 403 반환.
+     * strict-mode=false(PoC): 경고 로그 후 통과.
      */
     @PostMapping("/broker-input")
     public ResponseEntity<AuthResult> authenticateFromBroker(
@@ -57,6 +64,14 @@ public class AuthController {
 
         String cid = correlationId != null ? correlationId : CorrelationIdHolder.generate();
         CorrelationIdHolder.set(cid);
+
+        // ── GAP-QS-04: X-Internal-Sig HMAC-SHA256 검증 ───────────────────
+        // 설계서 §9.4 — IdO → Q-Sign 내부 서명 검증 (재계산 + ±60초 타임스탬프 유효성)
+        if (!internalSigVerifier.verify(internalSig, cid)) {
+            log.warn("[AuthController] X-Internal-Sig 검증 실패: correlationId={}", cid);
+            throw new PlatformException(PlatformErrorCode.IDP_SIGNATURE_MISMATCH, cid);
+        }
+        log.debug("[AuthController] X-Internal-Sig 검증 통과: correlationId={}", cid);
 
         IdOAuthInput input = IdOAuthInput.builder()
                 .correlationId(cid)

@@ -108,12 +108,14 @@ spring:
 
 # ── Q-IM 도메인 설정 ───────────────────────────────────────────
 qim:
-  # §10.5.2 Transactional Outbox Relay
+  # §10.5.2 / GAP-QIM-04 Transactional Outbox Relay
   outbox:
-    relay-interval-ms: 500
+    relay-interval-ms: 500      # PENDING 레코드 발행 주기 (ms)
     batch-size: 100
-    max-retry: 3
+    max-retry: 5                # 최대 재시도 횟수 (도달 시 영구 FAILED)
     retry-back-off-ms: 1000
+    # GAP-QIM-04: FAILED 레코드 재시도 스케줄러 실행 주기 (ms)
+    retry-interval-ms: 30000    # 30초마다 FAILED 레코드 재시도
   # Kafka 토픽 (§10.5.2 / §11.5.6)
   kafka:
     topic-user-events: qim.user.events       # cleanup.policy=compact
