@@ -1,0 +1,206 @@
+package kr.go.smes.ido.slo;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.go.smes.ido.audit.AuditLogPublisher;
+import kr.go.smes.ido.fe.session.FeSession;
+import kr.go.smes.ido.qim.sp.domain.InstMbrIdMapping;
+import kr.go.smes.ido.qim.sp.infrastructure.InstMbrIdMappingRepository;
+import kr.go.smes.ido.webhook.WebhookDispatcherService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * SLO (Single Logout) 오케스트레이션 서비스 구현체
+ * 설계서 §13.3 / Sprint 2 P1-01~03
+ *
+ * <p><b>실행 순서</b>:
+ * <ol>
+ *   <li>Q-Sign → Keycloak 세션 종료 (비치명적: 실패해도 계속)</li>
+ *   <li>기관 로그아웃 Webhook Outbox 적재 (비치명적)</li>
+ *   <li>감사 로그 기록 (비치명적)</li>
+ * </ol>
+ *
+ * <p><b>비치명적 원칙</b>:
+ * 각 단계 실패가 전체 SLO 흐름을 중단하지 않는다.
+ * feSession 만료는 SloController에서 이미 완료된 상태로 이 메서드 진입.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class SloServiceImpl implements SloService {
+
+    private static final String EVENT_CATEGORY_SESSION = "SESSION";
+    private static final String EVENT_ACTION_LOGOUT    = "SLO_LOGOUT";
+    private static final String ACTOR_TYPE_USER        = "USER";
+    private static final String RESOURCE_TYPE_SESSION  = "FE_SESSION";
+
+    private final RestTemplate                 restTemplate;
+    private final WebhookDispatcherService     webhookDispatcherService;
+    private final AuditLogPublisher            auditLogPublisher;
+    private final InstMbrIdMappingRepository   instMbrIdMappingRepository;
+    private final ObjectMapper                 objectMapper;
+
+    /** Q-Sign 서비스 내부 베이스 URL */
+    @Value("${ido.qsign.base-url:http://localhost:8081}")
+    private String qsignBaseUrl;
+
+    /** Q-Sign 내부 서명 비밀키 (HMAC-SHA256 서명 생성용) */
+    @Value("${ido.qsign.internal-sig-secret:}")
+    private String internalSigSecret;
+
+    @Value("${ido.qsign.internal-sig-ttl-seconds:60}")
+    private int internalSigTtlSeconds;
+
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Override
+    public void executeSlo(FeSession session, String correlationId) {
+        String qimUserId    = session.getQimUserId();
+        String feSessionId  = session.getFeSessionId();
+
+        log.info("[SLO] SLO 시작: qimUserId={} feSessionId={} correlationId={}",
+                qimUserId, feSessionId, correlationId);
+
+        // ① Q-Sign → Keycloak 세션 종료 (비치명적)
+        revokeKeycloakSessionSafely(qimUserId, correlationId);
+
+        // ② 기관 로그아웃 Webhook Outbox 적재 (비치명적)
+        enqueueLogoutWebhookSafely(qimUserId, correlationId);
+
+        // ③ 감사 로그 기록 (비치명적)
+        publishAuditLogSafely(qimUserId, feSessionId, correlationId);
+
+        log.info("[SLO] SLO 완료: qimUserId={} correlationId={}", qimUserId, correlationId);
+    }
+
+    // ── private: ① Keycloak 세션 종료 ──────────────────────────────────────
+
+    /**
+     * Q-Sign 내부 API를 통해 Keycloak 세션 강제 종료
+     *
+     * <p>POST {qsignBaseUrl}/api/v1/internal/session/logout
+     * X-Internal-Sig HMAC-SHA256 서명 포함
+     */
+    private void revokeKeycloakSessionSafely(String qimUserId, String correlationId) {
+        try {
+            String url = qsignBaseUrl + "/api/v1/internal/session/logout";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("X-Correlation-Id",  correlationId);
+            headers.set("X-Internal-Caller", "ido");
+            headers.set("X-Internal-Sig",    buildInternalSig(correlationId));
+
+            // qimUserId를 sub로 사용 (Keycloak preferred_username 또는 sub와 일치해야 함)
+            Map<String, String> body = Map.of(
+                    "sub",           qimUserId,
+                    "correlationId", correlationId
+            );
+
+            ResponseEntity<Void> resp = restTemplate.exchange(
+                    url, HttpMethod.POST,
+                    new HttpEntity<>(body, headers),
+                    Void.class);
+
+            if (resp.getStatusCode().is2xxSuccessful()) {
+                log.info("[SLO] Q-Sign Keycloak 세션 종료 요청 완료: qimUserId={} correlationId={}",
+                        qimUserId, correlationId);
+            } else {
+                log.warn("[SLO] Q-Sign 세션 종료 응답 이상: status={} qimUserId={} correlationId={}",
+                        resp.getStatusCode(), qimUserId, correlationId);
+            }
+        } catch (Exception e) {
+            log.warn("[SLO] Keycloak 세션 종료 실패 (비치명적): qimUserId={} correlationId={} cause={}",
+                    qimUserId, correlationId, e.getMessage());
+        }
+    }
+
+    // ── private: ② 기관 로그아웃 Webhook ────────────────────────────────────
+
+    /**
+     * instMbrId 조회 후 기관 로그아웃 Webhook Outbox 적재
+     *
+     * <p>WebhookDispatcherService.enqueueForUserLogout() 위임.
+     * instMbrId 조회 실패 시 qimUserId 기반으로 폴백하지 않고 경고 로그만 출력.
+     */
+    private void enqueueLogoutWebhookSafely(String qimUserId, String correlationId) {
+        try {
+            Optional<InstMbrIdMapping> mappingOpt =
+                    instMbrIdMappingRepository.findByQimUserId(qimUserId);
+
+            if (mappingOpt.isEmpty()) {
+                log.warn("[SLO] instMbrId 매핑 없음 — Webhook 스킵: qimUserId={} correlationId={}",
+                        qimUserId, correlationId);
+                return;
+            }
+
+            String instMbrId = mappingOpt.get().getInstMbrId();
+            webhookDispatcherService.enqueueForUserLogout(instMbrId, qimUserId, correlationId);
+            log.info("[SLO] 기관 로그아웃 Webhook Outbox 적재 완료: qimUserId={} instMbrId={} correlationId={}",
+                    qimUserId, instMbrId, correlationId);
+        } catch (Exception e) {
+            log.error("[SLO] 기관 로그아웃 Webhook 적재 실패 (비치명적): qimUserId={} correlationId={} cause={}",
+                    qimUserId, correlationId, e.getMessage());
+        }
+    }
+
+    // ── private: ③ 감사 로그 ────────────────────────────────────────────────
+
+    private void publishAuditLogSafely(String qimUserId, String feSessionId, String correlationId) {
+        try {
+            auditLogPublisher.publish(
+                    AuditLogPublisher.AuditEntry.builder()
+                            .eventCategory(EVENT_CATEGORY_SESSION)
+                            .eventAction(EVENT_ACTION_LOGOUT)
+                            .actorType(ACTOR_TYPE_USER)
+                            .actorId(qimUserId)
+                            .resourceType(RESOURCE_TYPE_SESSION)
+                            .resourceId(feSessionId)
+                            .correlationId(correlationId)
+                            .build());
+        } catch (Exception e) {
+            log.warn("[SLO] 감사 로그 기록 실패 (비치명적): qimUserId={} cause={}", qimUserId, e.getMessage());
+        }
+    }
+
+    // ── private: X-Internal-Sig 생성 ─────────────────────────────────────
+
+    /**
+     * HMAC-SHA256 내부 서명 생성
+     *
+     * <p>payload = "{correlationId}:{epochSeconds}"
+     * sig = HMAC-SHA256(payload, internalSigSecret) → Hex 문자열
+     *
+     * <p>internalSigSecret이 비어 있으면 경고 후 임시 식별자 반환.
+     * (비밀키 미설정 시 Q-Sign 측 검증이 거부하므로 SLO 2단계는 비치명적 실패)
+     */
+    private String buildInternalSig(String correlationId) {
+        if (internalSigSecret == null || internalSigSecret.isBlank()) {
+            log.warn("[SLO] IDO_INTERNAL_SIG_SECRET 미설정 — X-Internal-Sig 생성 불가: correlationId={}",
+                    correlationId);
+            // 비치명적: 서명 검증은 Q-Sign 측에서 실패 → revokeKeycloakSessionSafely()가 warn만 출력
+            return "sig-unsigned";
+        }
+        try {
+            long epochSeconds = System.currentTimeMillis() / 1000L;
+            String payload = correlationId + ":" + epochSeconds;
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(
+                    internalSigSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    "HmacSHA256"));
+            byte[] rawHmac = mac.doFinal(
+                    payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(rawHmac);
+        } catch (Exception e) {
+            log.error("[SLO] X-Internal-Sig 생성 실패: correlationId={} cause={}", correlationId, e.getMessage());
+            return "sig-error";
+        }
+    }
+}
