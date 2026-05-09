@@ -5,6 +5,7 @@ import kr.go.smes.common.domain.AuthResult;
 import kr.go.smes.common.error.PlatformErrorCode;
 import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.event.AuthEvent;
+import kr.go.smes.ido.broker.BrokerAuditLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,6 +53,7 @@ public class NonOidcAuthService {
     private final JdbcTemplate               jdbcTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper               objectMapper;
+    private final BrokerAuditLogService      brokerAuditLogService;
 
     @Value("${ido.kafka.topic-auth-events:qsign.auth.events}")
     private String authEventsTopic;
@@ -77,12 +79,23 @@ public class NonOidcAuthService {
         log.info("[NonOidcAuthService] 인증 처리: providerCode={} authLevel={} correlationId={}",
                 providerCode, authLevel, correlationId);
 
-        // 1. AuthResult DB 저장
+        // 1. AuthResult DB 저장 (V10: auth_method 추가)
+        String authMethod = kr.go.smes.common.domain.AuthResult.resolveAuthMethod(providerCode);
         saveAuthResult(authResultId, correlationId, authLevel, providerCode,
-                command.getProviderTxId(), identifierHash);
+                command.getProviderTxId(), identifierHash, authMethod);
 
         // 2. Outbox 이벤트 저장 + Kafka 발행
         saveAndPublishEvent(authResultId, correlationId, authLevel, providerCode, identifierHash);
+
+        // 3. broker_audit_log COMPLETE 기록 (P1)
+        String authMethodForType = kr.go.smes.common.domain.AuthResult.resolveAuthMethod(providerCode);
+        String providerType = authMethodForType.startsWith("STANDARD_OIDC") ? "STANDARD_OIDC"
+                : authMethodForType.startsWith("SEMI_STANDARD_OIDC") ? "SEMI_STANDARD_OIDC"
+                : "NON_STANDARD";
+        brokerAuditLogService.recordComplete(
+                correlationId, providerCode, providerType,
+                command.getProviderTxId(), identifierHash, authLevel, "nonoidc", null
+        );
 
         log.info("[NonOidcAuthService] 처리 완료: authResultId={} correlationId={}",
                 authResultId, correlationId);
@@ -137,19 +150,24 @@ public class NonOidcAuthService {
 
     private void saveAuthResult(String authResultId, String correlationId,
                                  String authLevel, String providerCode,
-                                 String providerTxId, String identifierHash) {
+                                 String providerTxId, String identifierHash,
+                                 String authMethod) {
         try {
             jdbcTemplate.update("""
                     INSERT INTO ido.auth_result
                         (auth_result_id, correlation_id, auth_level, provider_code,
                          provider_tx_id, identifier_hash, verification_result,
-                         source_system, authenticated_at, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, 'SUCCESS', ?, NOW(), NOW())
+                         source_system, auth_method,
+                         authenticated_at, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'SUCCESS', ?, ?, NOW(), NOW())
                     ON CONFLICT (auth_result_id) DO NOTHING
                     """,
                     authResultId, correlationId, authLevel, providerCode,
-                    providerTxId, identifierHash, SOURCE_SYSTEM
+                    providerTxId, identifierHash, SOURCE_SYSTEM,
+                    authMethod  // V10: 비OIDC 인증 수단은 issued_at/expires_at/raw_id_token = NULL
             );
+            log.debug("[NonOidcAuthService] auth_result 저장: authResultId={} authMethod={}",
+                    authResultId, authMethod);
         } catch (Exception e) {
             log.error("[NonOidcAuthService] auth_result 저장 실패: authResultId={}", authResultId, e);
             throw new PlatformException(PlatformErrorCode.QS_AUTH_FAILED, correlationId,

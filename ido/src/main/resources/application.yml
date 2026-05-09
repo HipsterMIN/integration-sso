@@ -179,6 +179,17 @@ ido:
     # KeycloakOidcService / NonOidcAuthService 모두 ${ido.kafka.topic-auth-events} 참조.
     # 이전에 있던 ido.keycloak.auth-events-topic 키는 제거 — ido.kafka.topic-auth-events 사용.
 
+  # 플랫폼 API 버전 (Webhook 헤더, Payload 등에 사용)
+  platform-version: ${IDO_PLATFORM_VERSION:1.0}
+
+  # provider_circuit_config 캐시 (ProviderCircuitBreakerConfig / ProviderConfigRepository)
+  provider:
+    circuit-cache-ttl-seconds: ${IDO_PROVIDER_CIRCUIT_CACHE_TTL:3600}
+
+  # §11.2 기관 정책 기본값
+  policy:
+    default-version: ${IDO_DEFAULT_POLICY_VERSION:1.0}   # 신규 기관 생성 시 policyVersion 기본값
+
   # §16.4 Handoff Ticket 설정
   ticket:
     ttl-seconds: 60                  # 1회성 TTL

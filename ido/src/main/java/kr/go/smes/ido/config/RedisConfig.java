@@ -79,11 +79,16 @@ public class RedisConfig {
         RedisCacheConfiguration keycloakJwksCfg = defaultCfg
                 .entryTtl(Duration.ofMinutes(60));
 
+        // provider_config 캐시 TTL 60분 (ProviderConfigRepository @Cacheable)
+        RedisCacheConfiguration providerConfigCfg = defaultCfg
+                .entryTtl(Duration.ofMinutes(60));
+
         return RedisCacheManager.builder(factory)
                 .cacheDefaults(defaultCfg)
                 .withCacheConfiguration("qimUserStatus",  defaultCfg)
                 .withCacheConfiguration("agencyMeta",     agencyMetaCfg)
                 .withCacheConfiguration("keycloakJwks",   keycloakJwksCfg)
+                .withCacheConfiguration("provider-config", providerConfigCfg)
                 .build();
     }
 }
