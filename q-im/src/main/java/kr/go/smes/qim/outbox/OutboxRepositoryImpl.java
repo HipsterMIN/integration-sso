@@ -44,8 +44,12 @@ public class OutboxRepositoryImpl implements OutboxRepository {
     }
 
     @Override
-    public void markFailed(String eventId) {
-        jpaRepository.markFailed(eventId, "발행 실패 — Relay 재시도 대기");
+    public void markFailed(String eventId, String errorMessage) {
+        // GAP-QIM-04: 실제 예외 메시지를 DB에 기록 (이전: 고정 문자열)
+        String msg = (errorMessage != null && !errorMessage.isBlank())
+                ? errorMessage
+                : "발행 실패 — Relay 재시도 대기";
+        jpaRepository.markFailed(eventId, msg);
     }
 
     @Override

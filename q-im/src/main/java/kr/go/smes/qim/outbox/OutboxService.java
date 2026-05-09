@@ -13,7 +13,7 @@ import kr.go.smes.common.event.DomainEvent;
  * <p>GAP-QIM-04: FAILED 레코드 재시도 흐름
  * <pre>
  *   relayPendingEvents()  → PENDING 레코드 발행 시도
- *       └ 실패 → markFailed() (retryCount+1, errorMessage 저장)
+ *       └ 실패 → markFailed(eventId, realExceptionMessage) (retryCount+1, 실제 오류 메시지)
  *
  *   relayFailedEvents()   → retryCount < maxRetry 인 FAILED 레코드 재시도
  *       └ 성공 → markPublished()

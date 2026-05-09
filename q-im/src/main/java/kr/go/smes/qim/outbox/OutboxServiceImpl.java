@@ -159,6 +159,9 @@ public class OutboxServiceImpl implements OutboxService {
 
     /**
      * Kafka 비동기 발행 + 결과에 따른 PUBLISHED / FAILED 상태 갱신
+     *
+     * <p>GAP-QIM-04 개선: markFailed()에 실제 예외 메시지 전달 (이전에는 고정 문자열)
+     * — DB outbox.error_message 컬럼에 실패 원인이 정확히 기록되어 운영 디버깅 용이.
      * GAP-QIM-05: 발행 성공 후 스냅샷 발행 트리거 추가 (§11.5.6)
      */
     private void sendToKafka(OutboxRecord record) {
@@ -171,24 +174,41 @@ public class OutboxServiceImpl implements OutboxService {
                             // GAP-QIM-05: 스냅샷 발행 트리거 (§11.5.6 Compacted Snapshot Topic)
                             triggerSnapshotIfNeeded(record);
                         } else {
-                            // GAP-QIM-04: 비동기 발행 실패 → FAILED 전환 (retryCount+1, errorMessage)
-                            outboxRepository.markFailed(record.getEventId());
+                            // GAP-QIM-04: 비동기 발행 실패 → FAILED 전환 (retryCount+1, 실제 errorMessage)
+                            String errorMsg = buildErrorMessage(ex);
+                            outboxRepository.markFailed(record.getEventId(), errorMsg);
                             short currentRetry = record.getRetryCount() != null
                                     ? (short)(record.getRetryCount() + 1) : 1;
                             if (currentRetry >= maxRetry) {
-                                log.error("[Outbox] 발행 영구 실패 (retryCount={}/maxRetry={}) — 수동 조치 필요 eventId={}",
-                                        currentRetry, maxRetry, record.getEventId(), ex);
+                                log.error("[Outbox] 발행 영구 실패 (retryCount={}/maxRetry={}) — 수동 조치 필요 eventId={} err={}",
+                                        currentRetry, maxRetry, record.getEventId(), errorMsg, ex);
                             } else {
-                                log.warn("[Outbox] 발행 실패 → FAILED 전환 (retryCount={}) eventId={}",
-                                        currentRetry, record.getEventId());
+                                log.warn("[Outbox] 발행 실패 → FAILED 전환 (retryCount={}) eventId={} err={}",
+                                        currentRetry, record.getEventId(), errorMsg);
                             }
                         }
                     });
         } catch (Exception e) {
-            // 동기 예외(직렬화·전송 오류 등): 즉시 FAILED 전환
-            outboxRepository.markFailed(record.getEventId());
-            log.error("[Outbox] Relay 동기 오류 → FAILED 전환 eventId={}", record.getEventId(), e);
+            // 동기 예외(직렬화·전송 오류 등): 즉시 FAILED 전환 + 실제 메시지 기록
+            String errorMsg = buildErrorMessage(e);
+            outboxRepository.markFailed(record.getEventId(), errorMsg);
+            log.error("[Outbox] Relay 동기 오류 → FAILED 전환 eventId={} err={}", record.getEventId(), errorMsg, e);
         }
+    }
+
+    /**
+     * 예외에서 운영 디버깅용 오류 메시지 추출 (최대 500자)
+     *
+     * <p>예외 메시지가 null이면 예외 클래스명을 사용.
+     * 너무 긴 메시지는 잘라서 DB error_message(TEXT) 컬럼 오버플로우 방지.
+     */
+    private String buildErrorMessage(Throwable t) {
+        Throwable cause = t.getCause() != null ? t.getCause() : t;
+        String msg = cause.getMessage() != null
+                ? cause.getMessage()
+                : cause.getClass().getSimpleName();
+        // 최대 500자 (DB error_message TEXT 컬럼 현실적 제한)
+        return msg.length() > 500 ? msg.substring(0, 497) + "..." : msg;
     }
 
     private String serialize(DomainEvent event) {

@@ -12,6 +12,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 /**
  * IdO ← Q-IM 사용자 이벤트 컨슈머
  * 설계서 §11.5 Selective Pull 최적화 / §11.5.5 Ordered Consumer 패턴
@@ -84,19 +86,40 @@ public class QimEventConsumer {
             userStatusCache.invalidate(qimUserId);
             log.debug("[QimEventConsumer] Q-IM 캐시 무효화: qimUserId={}", qimUserId);
 
-            // ④ needsSync=true → Selective Pull: Q-IM API 직접 호출하여 최신 상태 갱신 (§10.5.1, §24.4.1)
+            // ④ needsSync=true → Selective Pull (GAP-QIM-01): Q-IM getUserById() 전체 정보 조회
+            //    getUserStatus() 대신 getUserById()로 상태+프로필 전체를 한 번에 pull (§10.5.1, §24.4.1)
             if (Boolean.TRUE.equals(event.isNeedsSync())) {
-                log.info("[QimEventConsumer] Selective Pull 실행: qimUserId={} eventType={}",
+                log.info("[QimEventConsumer] Selective Pull (getUserById) 실행: qimUserId={} eventType={}",
                         qimUserId, event.getEventType());
                 try {
-                    UserStatus freshStatus = qimClient.getUserStatus(qimUserId, eventId);
-                    userStatusCache.put(qimUserId, freshStatus);
-                    log.info("[QimEventConsumer] Selective Pull 완료: qimUserId={} status={}",
-                            qimUserId, freshStatus);
+                    Map<String, Object> userInfo = qimClient.getUserById(qimUserId, eventId);
+                    if (userInfo != null) {
+                        // 상태 캐시 갱신
+                        String statusStr = (String) userInfo.get("status");
+                        if (statusStr != null) {
+                            try {
+                                UserStatus freshStatus = UserStatus.valueOf(statusStr);
+                                userStatusCache.put(qimUserId, freshStatus);
+                                log.info("[QimEventConsumer] Selective Pull 완료: qimUserId={} status={} eventType={}",
+                                        qimUserId, freshStatus, event.getEventType());
+                            } catch (IllegalArgumentException e) {
+                                log.warn("[QimEventConsumer] 알 수 없는 UserStatus '{}' qimUserId={}", statusStr, qimUserId);
+                                userStatusCache.invalidate(qimUserId);
+                            }
+                        } else {
+                            userStatusCache.invalidate(qimUserId);
+                        }
+                    } else {
+                        // getUserById 실패(null) → 상태 캐시 무효화로 대체
+                        // 다음 Handoff Issue 시 getUserStatus로 재조회
+                        log.warn("[QimEventConsumer] Selective Pull null 반환 — 캐시 무효화 유지: qimUserId={}", qimUserId);
+                        userStatusCache.invalidate(qimUserId);
+                    }
                 } catch (Exception pullEx) {
-                    // Pull 실패는 캐시 무효화로 대체 — 다음 Handoff Issue 시 재조회됨
-                    log.warn("[QimEventConsumer] Selective Pull 실패 (캐시 무효화 유지): qimUserId={} error={}",
+                    // Pull 예외 → 캐시 무효화로 fallback
+                    log.warn("[QimEventConsumer] Selective Pull 예외 (캐시 무효화 유지): qimUserId={} error={}",
                             qimUserId, pullEx.getMessage());
+                    userStatusCache.invalidate(qimUserId);
                 }
             }
 
