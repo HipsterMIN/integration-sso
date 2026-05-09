@@ -1,0 +1,244 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# OnePass Platform CI/CD Pipeline
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# 트리거:
+#   - push: main, develop, genspark_ai_developer 브랜치
+#   - pull_request: main, develop 대상
+#
+# Job 구성:
+#   1. build-and-test   — Gradle 빌드 + 단위 테스트 (모든 모듈)
+#   2. frontend-check   — FE TypeScript 컴파일 + Webpack 빌드
+#   3. security-scan    — OWASP Dependency-Check 취약점 스캔
+#   4. code-quality     — (Optional) SonarQube 정적 분석 (SONAR_TOKEN 설정 시 활성화)
+#
+# 시크릿 (GitHub Settings → Secrets):
+#   SONAR_TOKEN    — SonarCloud 분석 토큰 (설정 시 code-quality 활성화)
+#   SONAR_HOST_URL — SonarQube 서버 URL (기본: https://sonarcloud.io)
+
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, genspark_ai_developer ]
+  pull_request:
+    branches: [ main, develop ]
+
+# 동일 브랜치/PR 동시 실행 방지 (이전 실행 자동 취소)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '21'
+  GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false'
+  # 통합 테스트 비활성화 (Docker 없는 CI 환경)
+  DOCKER_UNAVAILABLE: 'true'
+
+jobs:
+  # ── Job 1: 빌드 + 단위 테스트 ────────────────────────────────────────────────
+  build-and-test:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # SonarQube blame 분석 위해 전체 이력 필요
+
+      - name: Java ${{ env.JAVA_VERSION }} 설정
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Gradle Wrapper 실행 권한
+        run: chmod +x ./gradlew
+
+      # 빌드 캐시 (Gradle 증분 빌드 활용)
+      - name: Gradle 캐시
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.kts', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Gradle 빌드 (테스트 제외)
+        run: ./gradlew build -x test --no-daemon --stacktrace
+
+      - name: 단위 테스트 실행
+        env:
+          DOCKER_UNAVAILABLE: 'true'    # Testcontainers(Docker 필요) 자동 스킵
+        run: |
+          ./gradlew test --no-daemon --continue \
+            -x :q-im:test \
+            --tests "kr.go.smes.**"
+
+      - name: 테스트 결과 업로드
+        uses: actions/upload-artifact@v4
+        if: always()    # 테스트 실패해도 결과 업로드
+        with:
+          name: test-results
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+          retention-days: 7
+
+      - name: JaCoCo 커버리지 리포트 생성
+        if: success()
+        run: ./gradlew jacocoTestReport --no-daemon || true    # 미설정 시 무시
+
+      - name: 빌드 산출물 업로드 (bootJar)
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: build-artifacts-${{ github.run_number }}
+          path: |
+            ido/build/libs/*.jar
+            q-sign/build/libs/*.jar
+            q-im/build/libs/*.jar
+          retention-days: 3
+
+  # ── Job 2: FE 빌드 검증 ───────────────────────────────────────────────────────
+  frontend-check:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: onepass-fe/frontend
+
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: onepass-fe/frontend/yarn.lock
+
+      - name: 의존성 설치
+        run: yarn install --frozen-lockfile
+
+      - name: TypeScript 컴파일 검사
+        run: yarn tsc --noEmit
+
+      - name: Webpack 빌드
+        env:
+          NODE_ENV: production
+        run: yarn build
+
+  # ── Job 3: OWASP Dependency-Check ────────────────────────────────────────────
+  security-scan:
+    name: OWASP Dependency-Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # main / develop 브랜치 push 및 PR 대상 main 시에만 실행
+    if: |
+      github.event_name == 'pull_request' ||
+      github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Java ${{ env.JAVA_VERSION }} 설정
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Gradle 캐시
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.kts') }}
+
+      # OWASP NVD 캐시 (의존성 취약점 DB — 매일 갱신)
+      - name: OWASP NVD 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/dependency-check-data
+          key: owasp-nvd-${{ hashFiles('build.gradle.kts') }}-${{ github.run_id }}
+          restore-keys: |
+            owasp-nvd-${{ hashFiles('build.gradle.kts') }}-
+            owasp-nvd-
+
+      - name: OWASP Dependency-Check 실행
+        run: |
+          ./gradlew dependencyCheckAnalyze --no-daemon \
+            -Pdependency.check.failBuildOnCVSS=7 \
+            -Pdependency.check.formats=HTML,JSON,SARIF \
+            || true    # CVSS 임계값 초과해도 워크플로우 계속 (리포트 업로드 목적)
+
+      - name: 취약점 리포트 업로드
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report-${{ github.run_number }}
+          path: |
+            **/build/reports/dependency-check/
+          retention-days: 14
+
+      - name: SARIF 결과를 GitHub Security에 업로드
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: build/reports/dependency-check/dependency-check-report.sarif
+        continue-on-error: true    # SARIF 없을 때 실패 방지
+
+  # ── Job 4: SonarQube 정적 분석 (SONAR_TOKEN 설정 시 활성화) ──────────────────
+  code-quality:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build-and-test    # 빌드/테스트 통과 후 실행
+    # SONAR_TOKEN 시크릿이 설정된 경우에만 실행
+    if: ${{ secrets.SONAR_TOKEN != '' }}
+
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Java ${{ env.JAVA_VERSION }} 설정
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Gradle 캐시
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.kts') }}
+
+      - name: SonarQube 스캔
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+        run: |
+          ./gradlew sonarqube --no-daemon \
+            -Dsonar.projectKey=HipsterMIN_integration-sso \
+            -Dsonar.organization=hipstermin \
+            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+            -Dsonar.coverage.jacoco.xmlReportPaths=**/build/reports/jacoco/**/*.xml \
+            -Dsonar.exclusions=**/generated/**,**/*.sql \
+            || true

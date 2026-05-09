@@ -10,6 +10,7 @@ import kr.go.smes.qsign.keycloak.dto.KeycloakIdTokenClaims;
 import kr.go.smes.qsign.keycloak.dto.KeycloakTokenResponse;
 import kr.go.smes.qsign.infrastructure.AuthResultRepository;
 import kr.go.smes.qsign.infrastructure.LockRepository;
+import kr.go.smes.qsign.metrics.AuthMetrics;
 import kr.go.smes.qsign.outbox.QSignOutboxRecord;
 import kr.go.smes.qsign.outbox.QSignOutboxRepository;
 import lombok.RequiredArgsConstructor;
@@ -71,6 +72,7 @@ public class KeycloakCallbackService {
     private final QSignOutboxRepository   outboxRepository;
     private final RestTemplate            restTemplate;
     private final ObjectMapper            objectMapper;
+    private final AuthMetrics             authMetrics;
 
     @Value("${qsign.ido.base-url:http://localhost:8083}")
     private String idoBaseUrl;
@@ -146,8 +148,11 @@ public class KeycloakCallbackService {
 
         // ── 9. 잠금 상태 확인 ─────────────────────────────────────────────
         if (lockRepository.isLocked(identifierHash, providerCode)) {
+            authMetrics.incrementAuthLocked(providerCode);
             throw new PlatformException(PlatformErrorCode.QS_AUTH_LOCKED, correlationId);
         }
+
+        long startMs = System.currentTimeMillis();
 
         // ── 10. AuthResult + Outbox 저장 (단일 트랜잭션) ─────────────────
         AuthResult authResult = issueAuthResult(
@@ -155,6 +160,13 @@ public class KeycloakCallbackService {
 
         log.info("[KeycloakCallback] AuthResult 발급: authResultId={} providerCode={} correlationId={}",
                 authResult.getAuthResultId(), providerCode, correlationId);
+
+        // 인증 성공 메트릭
+        authMetrics.incrementAuthSuccess(providerCode,
+                authResult.getAuthLevel() != null ? authResult.getAuthLevel().name() : "UNKNOWN");
+        authMetrics.recordAuthDuration(providerCode,
+                authResult.getAuthLevel() != null ? authResult.getAuthLevel().name() : "UNKNOWN",
+                System.currentTimeMillis() - startMs);
 
         // ── 11. ido FE 세션 발급 요청 ────────────────────────────────────
         String redirectUrl = notifyIdoAndGetRedirect(authResult, returnUrl);
@@ -202,9 +214,11 @@ public class KeycloakCallbackService {
             return resp.getBody();
 
         } catch (PlatformException e) {
+            authMetrics.incrementAuthFailure("KEYCLOAK", AuthMetrics.REASON_IDP_ERROR);
             throw e;
         } catch (Exception e) {
             log.error("[KeycloakCallback] Keycloak token 교환 실패: correlationId={}", correlationId, e);
+            authMetrics.incrementAuthFailure("KEYCLOAK", AuthMetrics.REASON_IDP_ERROR);
             throw new PlatformException(PlatformErrorCode.IDP_PROVIDER_UNAVAILABLE, correlationId, e);
         }
     }

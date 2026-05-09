@@ -7,6 +7,7 @@ import kr.go.smes.common.event.AuthEvent;
 import kr.go.smes.common.domain.IdOAuthInput;
 import kr.go.smes.qsign.infrastructure.AuthResultRepository;
 import kr.go.smes.qsign.infrastructure.LockRepository;
+import kr.go.smes.qsign.metrics.AuthMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -34,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthResultRepository authResultRepository;
     private final LockRepository       lockRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final AuthMetrics authMetrics;
 
     /**
      * OIDC 인증 결과 발급 (레거시 경로 — /api/v1/auth/oidc 엔드포인트)
@@ -59,11 +61,13 @@ public class AuthServiceImpl implements AuthService {
         // ⚠️  이 경로가 실제 운용될 경우 반드시 idToken 파싱 후 SHA-256(sub) 로 교체해야 한다.
 
         if (lockRepository.isLocked(providerCode, providerCode)) {
+            authMetrics.incrementAuthLocked(providerCode);
             throw new PlatformException(PlatformErrorCode.QS_AUTH_LOCKED, correlationId);
         }
 
         // 직접 OIDC 경로 — idToken sub 미제공 시 providerCode:correlationId 해시로 대체
         String identifierHash = computeIdentifierHash(providerCode + ":" + correlationId);
+        long startMs = System.currentTimeMillis();
 
         AuthResult result = AuthResult.builder()
                 .authResultId(UUID.randomUUID().toString())
@@ -78,6 +82,9 @@ public class AuthServiceImpl implements AuthService {
 
         authResultRepository.save(result);
         publishAuthEvent(result, AuthEvent.TYPE_AUTH_COMPLETED);
+
+        authMetrics.incrementAuthSuccess(providerCode, requestedLevel);
+        authMetrics.recordAuthDuration(providerCode, requestedLevel, System.currentTimeMillis() - startMs);
 
         log.info("[Q-Sign] 인증 결과 발급 authResultId={}", result.getAuthResultId());
         return result;
@@ -94,12 +101,18 @@ public class AuthServiceImpl implements AuthService {
         // identifierHash 는 ido NonOidcBroker 가 CI 기반으로 계산하여 전달
 
         if (!input.isProviderVerified()) {
+            authMetrics.incrementAuthFailure(input.getProviderCode(), AuthMetrics.REASON_INVALID_RESPONSE);
             throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, input.getCorrelationId());
         }
 
         if (lockRepository.isLocked(input.getIdentifierHash(), input.getProviderCode())) {
+            authMetrics.incrementAuthLocked(input.getProviderCode());
             throw new PlatformException(PlatformErrorCode.QS_AUTH_LOCKED, input.getCorrelationId());
         }
+
+        long startMs = System.currentTimeMillis();
+        String authLevelTag = input.getRequestedAuthLevel() != null
+                ? input.getRequestedAuthLevel().name() : "UNKNOWN";
 
         AuthResult result = AuthResult.builder()
                 .authResultId(UUID.randomUUID().toString())
@@ -115,6 +128,9 @@ public class AuthServiceImpl implements AuthService {
 
         authResultRepository.save(result);
         publishAuthEvent(result, AuthEvent.TYPE_AUTH_COMPLETED);
+
+        authMetrics.incrementAuthSuccess(input.getProviderCode(), authLevelTag);
+        authMetrics.recordAuthDuration(input.getProviderCode(), authLevelTag, System.currentTimeMillis() - startMs);
 
         log.info("[Q-Sign] IdOAuthInput 기반 인증 결과 발급 authResultId={}", result.getAuthResultId());
         return result;
