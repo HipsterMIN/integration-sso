@@ -1,11 +1,19 @@
 # OnePass 통합인증 플랫폼 — 로컬 개발 환경 구동 가이드
 
 > **문서 분류**: 개발자 운영 가이드  
-> **버전**: v1.2.0  
-> **최종 수정**: 2026-05-08  
+> **버전**: v1.3.0  
+> **최종 수정**: 2026-05-09  
 > **대상 독자**: 백엔드 개발자, 프론트엔드 개발자, DevOps  
 > **관련 모듈**: `q-sign`, `q-im`, `ido`, `onepass-fe`, `agency-stub`, `platform-common`
 
+> **v1.3.0 변경 내역** (2026-05-09)
+> - §8.4 v1.9.x 신규 기능 동작 확인 절차 추가 (기관 이벤트 폴링 API, Provider 라우팅, Broker Audit Log)
+> - §9 서비스 포트 표 — `docs/spec/` 신규 문서 디렉토리 링크 추가
+> - §10 DB 스키마 구조 — IdO V10 신규 테이블 반영 (`provider_circuit_config`, auth_result 확장 4컬럼)
+> - §12 Redis 키 패턴 표 — `ido:provider-config:*` 캐시 키 추가
+> - 부록 A 체크리스트 — v1.9.3 기준 항목 추가 (기관 이벤트 폴링, Provider CB)
+> - 부록 B 환경변수 표 — `IDO_AGENCY_SUBJECT_SECRET` 행 추가
+>
 > **v1.2.0 변경 내역** (2026-05-08)
 > - §8.2 PoC 흐름 테스트에 Admin API / PKCE / Rate Limiter / MemberLookup curl 예제 추가
 > - §9 DB 스키마 구조에 IdO V9 신규 테이블 4개 추가 (`crypto_key_registry`, `agency_rate_limit_config`, `agency_meta_history`, `member_lookup_log`)
@@ -41,6 +49,7 @@
 8. [Step 6 — 전체 동작 확인](#8-step-6--전체-동작-확인)
    - 8.2 [PoC 흐름 기본 테스트](#82-poc-흐름-기본-테스트)
    - 8.3 [v1.8.0 신규 기능 동작 확인](#83-v180-신규-기능-동작-확인)
+   - 8.4 [v1.9.x 신규 기능 동작 확인](#84-v19x-신규-기능-동작-확인-★-v190v193)
 9. [서비스 포트 및 접속 URL 정리](#9-서비스-포트-및-접속-url-정리)
 10. [IDE 설정 가이드](#10-ide-설정-가이드)
 11. [자주 발생하는 오류 및 해결 방법](#11-자주-발생하는-오류-및-해결-방법)
@@ -1231,6 +1240,92 @@ docker exec -it onepass-redis redis-cli EXISTS "ido:crypto:aes:rotate-lock"
 docker exec -it onepass-postgres psql -U onepass -d onepass \
   -c "SELECT key_type, key_version, active, current_flag, grace_until \
       FROM ido.crypto_key_registry ORDER BY created_at;"
+```
+
+---
+
+### 8.4 v1.9.x 신규 기능 동작 확인 (★ v1.9.0~v1.9.3)
+
+#### 기관 이벤트 폴링 API (v1.9.3)
+
+```bash
+# 기관 이벤트 폴링 — agency-stub 기관키로 직접 호출
+curl -s "http://localhost:8083/api/v1/agency/events?limit=10" \
+  -H "X-Agency-Code: AGENCY_STUB_001" \
+  -H "X-Agency-Key: stub-api-key-dev-001" | python3 -m json.tool
+# 기대 결과: { "events": [...], "count": N, "hasMore": false, "polledAt": "..." }
+
+# since 커서를 사용한 연속 폴링
+curl -s "http://localhost:8083/api/v1/agency/events?since=2026-05-09T00:00:00Z&limit=5" \
+  -H "X-Agency-Code: AGENCY_STUB_001" \
+  -H "X-Agency-Key: stub-api-key-dev-001" | python3 -m json.tool
+
+# 이벤트 읽음 처리 (dispatchId는 위 응답에서 확인)
+curl -s -X POST "http://localhost:8083/api/v1/agency/events/{dispatchId}/read" \
+  -H "X-Agency-Code: AGENCY_STUB_001" \
+  -H "X-Agency-Key: stub-api-key-dev-001"
+# 기대 결과: HTTP 204 No Content
+
+# webhook_dispatch_outbox 테이블 직접 확인
+docker exec -it onepass-postgres psql -U onepass -d onepass \
+  -c "SELECT dispatch_id, event_type, status, agency_code, created_at \
+      FROM ido.webhook_dispatch_outbox \
+      ORDER BY created_at DESC LIMIT 10;"
+```
+
+#### Provider 라우팅 확인 (v1.9.0)
+
+```bash
+# provider_config 테이블에서 provider_type 확인
+docker exec -it onepass-postgres psql -U onepass -d onepass \
+  -c "SELECT provider_code, provider_type, broker_mode, active \
+      FROM ido.provider_config ORDER BY provider_code;"
+
+# provider_circuit_config 테이블 확인 (동적 CB 설정)
+docker exec -it onepass-postgres psql -U onepass -d onepass \
+  -c "SELECT provider_code, sliding_window_size, failure_rate_threshold, \
+             wait_duration_open_ms, active \
+      FROM ido.provider_circuit_config;"
+
+# Redis에서 Provider 설정 캐시 확인
+docker exec -it onepass-redis redis-cli KEYS "ido:provider-config:*"
+```
+
+#### Broker Audit Log 확인 (v1.9.0)
+
+```bash
+# 브로커 감사 로그 최근 20건 확인
+docker exec -it onepass-postgres psql -U onepass -d onepass \
+  -c "SELECT provider_code, provider_type, action, auth_level, \
+             error_code, created_at \
+      FROM ido.broker_audit_log \
+      ORDER BY created_at DESC LIMIT 20;"
+
+# 특정 provider_code의 실패 내역 확인
+docker exec -it onepass-postgres psql -U onepass -d onepass \
+  -c "SELECT action, error_code, error_detail, client_ip, created_at \
+      FROM ido.broker_audit_log \
+      WHERE provider_code = 'KAKAO_OIDC' AND action = 'FAIL' \
+      ORDER BY created_at DESC LIMIT 10;"
+```
+
+#### auth_result V10 확장 컬럼 확인
+
+```bash
+# IdO auth_result V10 확장 컬럼 확인
+docker exec -it onepass-postgres psql -U onepass -d onepass \
+  -c "SELECT auth_result_id, provider_code, auth_method, \
+             issued_at, expires_at,
+             CASE WHEN raw_id_token IS NOT NULL THEN 'SET' ELSE 'NULL' END AS raw_token_status,
+             created_at \
+      FROM ido.auth_result \
+      ORDER BY created_at DESC LIMIT 5;"
+
+# Q-Sign auth_method 컬럼 확인
+docker exec -it onepass-postgres psql -U onepass -d onepass \
+  -c "SELECT auth_result_id, provider_code, auth_method, created_at \
+      FROM qsign.auth_result \
+      ORDER BY created_at DESC LIMIT 5;"
 ```
 
 ---
