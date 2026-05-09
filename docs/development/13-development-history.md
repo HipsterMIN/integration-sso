@@ -1,6 +1,6 @@
 # 13. 개발 이력 (Development History)
 
-> **문서 버전**: v1.9.2  
+> **문서 버전**: v1.9.3  
 > **최종 수정**: 2026-05-09  
 > **브랜치**: `genspark_ai_developer` → `main`
 
@@ -9,6 +9,7 @@
 ## 1. Git 커밋 이력 (최신순)
 
 ```
+(v1.9.3)  feat(v1.9.3): P1-06 완성 — IdO 기관 이벤트 폴링 API (GET /api/v1/agency/events)
 (v1.9.2)  feat(v1.9.2): P2 GAP 마감 — HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05 Snapshot
 99ad8c6  feat(v1.9.1): P1 GAP 마감 — DLQ 완전 구현, X-Internal-Sig 검증, Outbox 재시도 스케줄러
 3f243fa  feat(v1.9.0): P0/P1/P2 GAP 마감 — auth_result V10, broker_audit_log 코드 연결, ProviderRouter, 동적 CB
@@ -31,6 +32,52 @@ f141009  feat(v1.5.0): 유관기관 외부망 Webhook 연동 전체 스택 구�
 ---
 
 ## 2. 버전별 상세 변경 이력
+
+### v1.9.3 (2026-05-09) — PR #28 (예정)
+
+**목적**: P1-06 완성 — 유관기관 HTTP 이벤트 폴링 API
+
+**배경**:
+유관기관은 Kafka에 직접 접속할 수 없다. `WebhookDispatcherService`가 이미 `webhook_dispatch_outbox`에
+마스킹·저장한 이벤트를 기관이 HTTP 폴링으로 가져갈 수 있는 엔드포인트가 전혀 없었다.
+이번 버전에서 `GET /api/v1/agency/events` 전체 스택을 완성하였다.
+
+**주요 구현 내용**:
+
+| 파일 | 유형 | 설명 |
+|------|------|------|
+| `ido/.../api/dto/AgencyEventResponse.java` | **신규** | 이벤트 단건 DTO — `dispatchId`, `eventType`, `payload`, `status`, `createdAt`, `dispatchedAt` |
+| `ido/.../api/dto/AgencyEventListResponse.java` | **신규** | 폴링 목록 래퍼 — `events[]`, `count`, `hasMore`, `polledAt`, `queryInfo` |
+| `ido/.../webhook/AgencyEventQueryService.java` | **신규** | 폴링 서비스 인터페이스 — `queryEvents()`, `markAsRead()` |
+| `ido/.../webhook/AgencyEventQueryServiceImpl.java` | **신규** | `webhook_dispatch_outbox` JdbcTemplate 동적 SQL 조회, JSONB payload 역직렬화, PENDING→DISPATCHED mark |
+| `ido/.../api/AgencyEventController.java` | **신규** | `GET /api/v1/agency/events` + `POST /{dispatchId}/read` — since 커서·eventType 필터·limit 검증 |
+| `ido/.../fe/config/IdoWebMvcConfig.java` | **수정** | `/api/v1/agency/**` 인터셉터(X-Agency-Key) + CORS 등록 |
+
+**API 설계**:
+```
+GET /api/v1/agency/events
+  Header:  X-Agency-Code, X-Agency-Key (HandoffAgencyKeyInterceptor 검증)
+  Query:   limit(1~100, 기본20), eventType(선택), since(ISO-8601, 선택)
+  Response 200: { events:[...], count:N, hasMore:bool, polledAt:"...", queryInfo:{...} }
+
+POST /api/v1/agency/events/{dispatchId}/read
+  Header:  X-Agency-Code, X-Agency-Key
+  Response 204: 읽음 처리 성공
+  Response 404: 존재하지 않거나 권한 없음 (보안: 정보 노출 방지)
+```
+
+**설계 결정**:
+- **데이터 소스**: `webhook_dispatch_outbox` 재활용 — 신규 테이블 없이 기존 Outbox 활용
+- **status 필터**: `PENDING + DISPATCHED` 반환 — FAILED/SKIPPED는 기관 불필요
+- **since 커서**: `created_at ASC` 정렬 + `created_at > ?` 조건으로 연속 폴링 중복 방지
+- **X-Agency-Key 재사용**: `HandoffAgencyKeyInterceptor` 기존 검증 로직 그대로 활용, `/api/v1/agency/**` 경로 추가
+- **소유권 검증**: `markAsRead()`에서 `agency_code = ?` AND 조건으로 타 기관 레코드 변경 방지
+- **멱등**: 이미 DISPATCHED인 레코드 re-mark 시 0 rows updated → 404 반환 (비치명적)
+- **payload**: JSONB → `Map<String,Object>` 역직렬화, 실패 시 원문 문자열 반환 (비치명적)
+
+**빌드 결과**: `./gradlew build -x test` → BUILD SUCCESSFUL
+
+---
 
 ### v1.9.2 (2026-05-09) — PR #27 (예정)
 
@@ -303,7 +350,8 @@ f141009  feat(v1.5.0): 유관기관 외부망 Webhook 연동 전체 스택 구�
 
 | PR # | 제목 | 상태 |
 |------|------|------|
-| #27 | feat(v1.9.2): P2 GAP 마감 — HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05 | 🔄 예정 |
+| #28 | feat(v1.9.3): P1-06 완성 — IdO 기관 이벤트 폴링 API | 🔄 예정 |
+| #27 | feat(v1.9.2): P2 GAP 마감 — HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05 | ✅ Open |
 | #26 | feat(v1.9.1): P1 GAP 마감 — DLQ, X-Internal-Sig, Outbox retry | ✅ Open |
 | #24 | feat(v1.9.0): P0/P1/P2 GAP 마감 | ✅ Open |
 | #23 | Merge PR: v1.8.0 docs+fix | ✅ Merged |

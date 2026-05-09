@@ -37,8 +37,10 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
      *
      * <p>적용 경로:
      * <ul>
-     *   <li>{@code POST /api/v1/handoff/verify} — 기관이 티켓 소비 시 API Key 필수</li>
-     *   <li>{@code POST /api/v1/handoff/issue}  — 내부 연동 발급 시 API Key 필수</li>
+     *   <li>{@code POST /api/v1/handoff/verify}  — 기관이 티켓 소비 시 API Key 필수</li>
+     *   <li>{@code POST /api/v1/handoff/issue}   — 내부 연동 발급 시 API Key 필수</li>
+     *   <li>{@code GET  /api/v1/agency/events}   — P1-06 기관 이벤트 폴링 (API Key 필수)</li>
+     *   <li>{@code POST /api/v1/agency/events/**} — 읽음 처리 (API Key 필수)</li>
      * </ul>
      *
      * <p>제외 경로: {@code /api/v1/handoff/{ticketId}} (DELETE 취소는 관리 API 별도 인증)
@@ -48,7 +50,9 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(handoffAgencyKeyInterceptor)
                 .addPathPatterns(
                         "/api/v1/handoff/verify",
-                        "/api/v1/handoff/issue"
+                        "/api/v1/handoff/issue",
+                        // P1-06: 기관 이벤트 폴링 API — X-Agency-Key 검증 필수
+                        "/api/v1/agency/**"
                 );
     }
 
@@ -74,6 +78,14 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "POST", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
+                .maxAge(3600);
+
+        // /api/v1/agency/**: 기관 이벤트 폴링 API (P1-06)
+        registry.addMapping("/api/v1/agency/**")
+                .allowedOrigins(origins)
+                .allowedMethods("GET", "POST", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(false)   // 기관 서버 간 통신 — 쿠키 불필요
                 .maxAge(3600);
 
         // /actuator/**: 헬스체크 (읽기 전용)

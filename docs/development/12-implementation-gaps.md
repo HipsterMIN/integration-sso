@@ -1,22 +1,23 @@
 # 12. 미구현 항목 및 후속 계획 (Implementation Gaps)
 
-> **문서 버전**: v1.9.2  
+> **문서 버전**: v1.9.3  
 > **최종 수정**: 2026-05-09  
 > **기준 분석 문서**: `docs/2026-05-08_unimplemented_analysis.md`, `docs/gap-analysis-v0.8.3-vs-project.md`  
-> **v1.9.2 변경**: P2 GAP 항목 전체 구현 완료 (HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05)
+> **v1.9.2 변경**: P2 GAP 항목 전체 구현 완료 (HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05)  
+> **v1.9.3 변경**: P1-06 구현 완료 — IdO `GET /api/v1/agency/events` 기관 이벤트 폴링 API
 
 ---
 
 ## 1. 현재 완성도 요약
 
-v1.9.2 기준 전체 구현 완성도: **약 84%** (PoC → 프리프로덕션 단계)
+v1.9.3 기준 전체 구현 완성도: **약 86%** (PoC → 프리프로덕션 단계)
 
 | 모듈 | 완성도 | 비고 |
 |------|--------|------|
 | platform-common | **100%** | 도메인·이벤트·에러코드 완비 |
 | Q-Sign | **95%** | GAP-QS-03 멱등 컨슈머 완성; X-Internal-Sig 수신 검증 미구현 |
 | Q-IM | **92%** | GAP-QIM-05 Snapshot 완성; 고급 전환·탈퇴 흐름 미완성 |
-| IdO | **98%** | HandoffStrategy 완전 구현; X-Internal-Sig 수신 검증 미구현 |
+| IdO | **99%** | P1-06 기관 폴링 API 완성; HandoffStrategy 완전 구현 |
 | agency-stub | **90%** | Docker 격리 미완성, mTLS P3 |
 | onepass-fe | **60%** | 회원 전환·관리 UI 미구현 |
 | 인프라/Docker | **100%** | 전 모듈 Dockerfile + docker-compose 완비 |
@@ -62,9 +63,17 @@ v1.9.2 기준 전체 구현 완성도: **약 84%** (PoC → 프리프로덕션 �
 
 ### 3.4 기관 연동
 
-| ID | 항목 | 담당 모듈 | 작업 내용 |
-|----|------|---------|---------|
-| P1-06 | agency-stub 이벤트 폴링 API 완성 | IdO | `GET /api/v1/agency/events` 완전 구현 |
+| ID | 항목 | 담당 모듈 | 작업 내용 | 상태 |
+|----|------|---------|---------|------|
+| ~~P1-06~~ | ~~agency-stub 이벤트 폴링 API 완성~~ | ~~IdO~~ | ~~`GET /api/v1/agency/events` 완전 구현~~ | ✅ **완료** (v1.9.3) |
+
+**P1-06 구현 파일** (v1.9.3):
+- `ido/.../api/dto/AgencyEventResponse.java` — 이벤트 단건 응답 DTO
+- `ido/.../api/dto/AgencyEventListResponse.java` — 목록 응답 래퍼 (hasMore 커서 포함)
+- `ido/.../webhook/AgencyEventQueryService.java` — 폴링 조회 서비스 인터페이스
+- `ido/.../webhook/AgencyEventQueryServiceImpl.java` — `webhook_dispatch_outbox` JdbcTemplate 조회 + `markAsRead()`
+- `ido/.../api/AgencyEventController.java` — `GET /api/v1/agency/events` + `POST /{dispatchId}/read`
+- `ido/.../fe/config/IdoWebMvcConfig.java` — `/api/v1/agency/**` 인터셉터·CORS 등록
 
 ---
 
