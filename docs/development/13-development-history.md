@@ -1,6 +1,6 @@
 # 13. 개발 이력 (Development History)
 
-> **문서 버전**: v1.9.0  
+> **문서 버전**: v1.9.2  
 > **최종 수정**: 2026-05-09  
 > **브랜치**: `genspark_ai_developer` → `main`
 
@@ -9,6 +9,8 @@
 ## 1. Git 커밋 이력 (최신순)
 
 ```
+(v1.9.2)  feat(v1.9.2): P2 GAP 마감 — HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05 Snapshot
+99ad8c6  feat(v1.9.1): P1 GAP 마감 — DLQ 완전 구현, X-Internal-Sig 검증, Outbox 재시도 스케줄러
 3f243fa  feat(v1.9.0): P0/P1/P2 GAP 마감 — auth_result V10, broker_audit_log 코드 연결, ProviderRouter, 동적 CB
 3ffb47c  Merge pull request #23 from HipsterMIN/genspark_ai_developer
 6404347  docs+fix(v1.8.0): build error fix and local-dev-guide v1.2.0 update
@@ -29,6 +31,68 @@ f141009  feat(v1.5.0): 유관기관 외부망 Webhook 연동 전체 스택 구�
 ---
 
 ## 2. 버전별 상세 변경 이력
+
+### v1.9.2 (2026-05-09) — PR #27 (예정)
+
+**목적**: P2 GAP 마감 — HandoffStrategy 완성, GAP-QS-03 Q-Sign 멱등 컨슈머, GAP-QIM-05 Snapshot 발행
+
+#### 신규 생성 파일
+
+| 파일 | 설명 |
+|------|------|
+| `ido/.../handoff/strategy/InternalSsoHandoffStrategy.java` | INTERNAL_SSO 전략 — `POST {ssoDomain}/internal/sso-session` SSO 세션 사전 등록 |
+| `ido/.../handoff/strategy/ApacheGateHandoffStrategy.java` | APACHE_GATE 전략 — Apache mod_auth_openidc 호환 헤더 (`X-Remote-User`, `X-Auth-Level`, `X-Handoff-Token`, `X-Session-Expiry`) 사전 Push |
+| `q-sign/.../kafka/IdempotentEventStore.java` | Q-Sign 멱등 이벤트 저장소 — `qsign.processed_event` ON CONFLICT DO NOTHING + `qsign.last_event_version` 버전 추적 |
+| `q-sign/.../kafka/QimUserEventConsumer.java` | Q-Sign Q-IM 이벤트 컨슈머 — `@KafkaListener(qim.user.events)` + 6단계 멱등 처리 + USER_SUSPENDED/WITHDRAWN → auth_lock 강제 잠금 |
+| `q-im/.../entity/SnapshotMetaJpaEntity.java` | `snapshot_meta` 테이블 JPA 엔터티 (PUBLISHED/FAILED 상태) |
+| `q-im/.../repository/SnapshotMetaJpaRepository.java` | 최신 스냅샷 조회, 중복 발행 방지 쿼리 |
+| `q-im/.../outbox/SnapshotService.java` | 스냅샷 발행 서비스 인터페이스 |
+| `q-im/.../outbox/SnapshotServiceImpl.java` | 스냅샷 발행 구현체 — N개 이벤트마다 `qim.user.snapshot` Compacted Topic 발행 |
+
+#### 수정된 파일
+
+| 파일 | 변경 내용 |
+|------|---------|
+| `ido/.../handoff/HandoffServiceImpl.java` | Ticket 발급 후 `strategyFactory.getStrategy(integrationType).postIssue()` 호출 블록 추가 (7단계) |
+| `ido/.../domain/AgencyMeta.java` | `ssoDomain`, `apacheGateEndpoint` 필드 추가 |
+| `ido/.../infrastructure/AgencyMetaRepositoryImpl.java` | `toDomain()` integrationType/ssoDomain/apacheGateEndpoint 매핑 수정; `toEntity()` bridgeEndpoint 분기 수정 |
+| `q-im/.../outbox/OutboxServiceImpl.java` | `SnapshotService` 주입 + `triggerSnapshotIfNeeded()` — 이벤트 발행 성공 후 스냅샷 트리거 |
+| `docs/development/12-implementation-gaps.md` | v1.9.2 완성도 업데이트, P2 완료 항목 반영 |
+| `docs/development/13-development-history.md` | v1.9.2 이력 추가 |
+
+#### GAP 해소 현황
+
+| GAP ID | 항목 | 해소 방법 |
+|--------|------|---------|
+| **GAP-HandoffStrategy** | INTERNAL_SSO / APACHE_GATE 전략 미구현 | `InternalSsoHandoffStrategy`, `ApacheGateHandoffStrategy` 신규 구현 |
+| **GAP-QS-03** | Q-Sign `processed_event` Java 미구현 | `IdempotentEventStore` + `QimUserEventConsumer` 신규 구현 |
+| **GAP-QIM-05** | `snapshot_meta` Java 미구현 | `SnapshotMetaJpaEntity`, `SnapshotMetaJpaRepository`, `SnapshotService`, `SnapshotServiceImpl`, `OutboxServiceImpl` 수정 |
+
+#### 설계 결정 사항
+
+1. **INTERNAL_SSO ssoDomain 재사용**: `agency_meta.sso_domain` (VARCHAR 200) 컬럼 전용 사용.  
+   기관 내부 SSO 엔드포인트 기본 도메인 (예: `https://sso.agency-a.go.kr`)을 저장.
+
+2. **APACHE_GATE bridge_endpoint 재사용**: `agency_meta.bridge_endpoint` 컬럼을 integrationType에 따라 분기.  
+   BRIDGE면 `bridgeEndpoint`, APACHE_GATE면 `apacheGateEndpoint`로 매핑.  
+   장기적으로는 전용 컬럼 추가 필요 (DEBT 항목으로 분류).
+
+3. **Q-Sign auth_lock 강제 잠금 방식**: Q-Sign에는 `qim_user_id` 직접 저장 컬럼이 없으므로  
+   `USER_SUSPENDED`/`USER_WITHDRAWN` 이벤트 수신 시 현재 잠긴 `auth_lock` 레코드를 대상으로  
+   경고 로그 + 잠금 유지 처리. 향후 `auth_result`에 `qim_user_id` 컬럼 추가 시 완전 연동 가능.
+
+4. **스냅샷 발행 주기**: `qim.snapshot.interval-events` 설정값(기본 10) 이상의 이벤트 발행마다 트리거.  
+   `OutboxServiceImpl.sendToKafka()` 성공 콜백에서 비동기 트리거.  
+   스냅샷 실패는 비치명적 처리 — 이벤트 발행 흐름에 영향 없음.
+
+---
+
+### v1.9.1 (2026-05-09) — PR #26
+
+**커밋**: `99ad8c6`  
+**목적**: P1 GAP 마감 — DLQ 완전 구현, X-Internal-Sig 검증, Outbox 재시도 스케줄러
+
+---
 
 ### v1.9.0 (2026-05-09) — PR #24
 
@@ -239,6 +303,8 @@ f141009  feat(v1.5.0): 유관기관 외부망 Webhook 연동 전체 스택 구�
 
 | PR # | 제목 | 상태 |
 |------|------|------|
+| #27 | feat(v1.9.2): P2 GAP 마감 — HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05 | 🔄 예정 |
+| #26 | feat(v1.9.1): P1 GAP 마감 — DLQ, X-Internal-Sig, Outbox retry | ✅ Open |
 | #24 | feat(v1.9.0): P0/P1/P2 GAP 마감 | ✅ Open |
 | #23 | Merge PR: v1.8.0 docs+fix | ✅ Merged |
 | #22 | feat(v1.8.0): production-ready | ✅ Merged |

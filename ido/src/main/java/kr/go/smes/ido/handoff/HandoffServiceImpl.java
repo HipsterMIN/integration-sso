@@ -128,9 +128,36 @@ public class HandoffServiceImpl implements HandoffService {
             ticketRepository.save(ticket);
             publishHandoffEvent(HandoffEvent.TYPE_HANDOFF_ISSUED, ticket, null);
 
-            // 7. 감사 로그 — 발급 성공
+            // 7. 연동 유형별 후처리 (Strategy Pattern — 설계서 §8절)
+            // DIRECT: 아무 작업 없음 (기관이 직접 verify 호출)
+            // BRIDGE: Bridge 서버에 Payload 미리 푸시
+            // INTERNAL_SSO: SSO 도메인 쿠키 세션 사전 등록
+            // APACHE_GATE: 게이트웨이 세션 헤더 사전 등록
+            HandoffPayload preBuiltPayload = null;
+            String integrationType = agency.getIntegrationType();
+            if (integrationType != null && !"DIRECT".equalsIgnoreCase(integrationType)) {
+                // DIRECT 외 전략에서는 Payload가 필요할 수 있으므로 사전 빌드
+                try {
+                    preBuiltPayload = policyEngine.buildHandoffPayload(ticket, cmd.getCorrelationId());
+                } catch (Exception payloadEx) {
+                    log.warn("[HandoffSvc] 사전 Payload 빌드 실패 (비치명적): ticketId={} err={}",
+                            ticketId, payloadEx.getMessage());
+                }
+            }
+            try {
+                strategyFactory.getStrategy(integrationType)
+                        .postIssue(ticket, preBuiltPayload, cmd.getCorrelationId());
+            } catch (Exception strategyEx) {
+                // 전략 후처리 실패는 Ticket 발급 자체를 롤백하지 않음
+                // (Ticket은 이미 DB에 저장됨 — 기관이 직접 verify 폴백 가능)
+                log.error("[HandoffSvc] Strategy postIssue 실패 (비치명적, DIRECT 폴백): " +
+                          "integrationType={} ticketId={} err={}",
+                        integrationType, ticketId, strategyEx.getMessage());
+            }
+
+            // 8. 감사 로그 — 발급 성공
             auditIssue(cmd, ticketId, AuditLogEvent.OUTCOME_SUCCESS, null, null);
-            log.info("[IdO] Handoff Ticket 발급 ticketId={}", ticketId);
+            log.info("[IdO] Handoff Ticket 발급 완료: ticketId={} integrationType={}", ticketId, integrationType);
             return ticket;
 
         } catch (PlatformException e) {
