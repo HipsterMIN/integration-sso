@@ -99,6 +99,10 @@ public class WebhookDispatchOutboxRelay {
     @Value("${ido.webhook.read-timeout-ms:8000}")
     private int readTimeoutMs;
 
+    /** 플랫폼 API 버전 헤더값 (하드코딩 "1.0" 제거) */
+    @Value("${ido.platform-version:1.0}")
+    private String platformVersion;
+
     // ═══════════════════════════════════════════════════════════════════════
     // 폴링 스케줄러
     // ═══════════════════════════════════════════════════════════════════════
@@ -395,7 +399,7 @@ public class WebhookDispatchOutboxRelay {
         headers.set("X-Webhook-Signature", signature);
         headers.set("X-Webhook-Timestamp",  timestamp);
         headers.set("X-Source-System",      SOURCE_SYSTEM);
-        headers.set("X-Platform-Version",   "1.0");
+        headers.set("X-Platform-Version",   platformVersion);
 
         if (correlationId != null && !correlationId.isBlank()) {
             headers.set("X-Correlation-Id", correlationId);

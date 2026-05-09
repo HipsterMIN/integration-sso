@@ -80,13 +80,16 @@ public class AgencyMetaJpaEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** 기본 policyVersion — 하드코딩 방지: AgencyMetaRepositoryImpl / AgencyAdminService 에서 설정값 주입 */
+    public static final String DEFAULT_POLICY_VERSION = "1.0"; // fallback only
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
         if (createdAt == null) createdAt = now;
         if (updatedAt == null) updatedAt = now;
         if (minAuthLevel == null) minAuthLevel = "L1";
-        if (policyVersion == null) policyVersion = "1.0";
+        if (policyVersion == null) policyVersion = DEFAULT_POLICY_VERSION;
         if (integrationType == null) integrationType = "DIRECT";
     }
 

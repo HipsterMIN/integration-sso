@@ -8,6 +8,7 @@ import kr.go.smes.ido.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import kr.go.smes.ido.infrastructure.jpa.repository.AgencyMetaJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -30,6 +31,10 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
 
     private final AgencyMetaJpaRepository jpaRepository;
     private final ObjectMapper objectMapper;
+
+    /** 신규 기관 생성 시 policyVersion 기본값 (하드코딩 "1.0" 제거 — §11.2) */
+    @Value("${ido.policy.default-version:1.0}")
+    private String defaultPolicyVersion;
 
     @Override
     public Optional<AgencyMeta> findByCode(String agencyCode) {
@@ -70,7 +75,7 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
                 .agencyCode(domain.getAgencyCode())
                 .officialName(domain.getOfficialName() != null ? domain.getOfficialName() : domain.getAgencyCode())
                 .minAuthLevel(domain.getMinAuthLevel() != null ? domain.getMinAuthLevel().name() : "L1")
-                .policyVersion(domain.getPolicyVersion() != null ? domain.getPolicyVersion() : "1.0")
+                .policyVersion(domain.getPolicyVersion() != null ? domain.getPolicyVersion() : defaultPolicyVersion)
                 .apiKeyHash(domain.getApiKeyHash())
                 .callbackWhitelist(callbackJson)
                 .allowedAttributes(attrJson)

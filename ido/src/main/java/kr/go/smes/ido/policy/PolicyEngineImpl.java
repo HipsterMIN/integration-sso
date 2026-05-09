@@ -10,6 +10,7 @@ import kr.go.smes.ido.domain.AgencyMeta;
 import kr.go.smes.ido.infrastructure.AgencyMetaRepository;
 import kr.go.smes.ido.infrastructure.QimClient;
 import kr.go.smes.ido.infrastructure.UserStatusCache;
+import kr.go.smes.ido.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -42,6 +43,10 @@ public class PolicyEngineImpl implements PolicyEngine {
 
     @Value("${ido.agency-subject-secret:default-poc-secret-change-in-production}")
     private String agencySubjectIdSecret;
+
+    /** policyVersion 기본값 — DB에 값 없을 때 fallback (하드코딩 "1.0" 제거) */
+    @Value("${ido.policy.default-version:1.0}")
+    private String defaultPolicyVersion;
 
     public PolicyEngineImpl(UserStatusCache userStatusCache,
                             QimClient qimClient,
@@ -94,7 +99,7 @@ public class PolicyEngineImpl implements PolicyEngine {
         List<String> allowedAttrKeys = agencyMeta != null && agencyMeta.getAllowedAttributes() != null
                 ? agencyMeta.getAllowedAttributes()
                 : List.of();
-        String resolvedPolicyVersion = agencyMeta != null ? agencyMeta.getPolicyVersion() : "1.0";
+        String resolvedPolicyVersion = agencyMeta != null ? agencyMeta.getPolicyVersion() : defaultPolicyVersion;
 
         // 2. agencySubjectId — Q-IM DI 우선, fallback HMAC
         String agencySubjectId = resolveAgencySubjectId(qimUserId, agencyCode, correlationId);

@@ -1,8 +1,10 @@
 package kr.go.smes.ido.broker.keycloak;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.util.CorrelationIdHolder;
+import kr.go.smes.ido.broker.BrokerAuditLogService;
 import kr.go.smes.ido.fe.session.FeSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +50,8 @@ public class KeycloakCallbackController {
 
     private static final String COOKIE_NAME = "feSessionId";
 
-    private final KeycloakOidcService keycloakOidcService;
+    private final KeycloakOidcService   keycloakOidcService;
+    private final BrokerAuditLogService brokerAuditLogService;
 
     @Value("${ido.broker.mode:qsign}")
     private String brokerMode;
@@ -71,16 +74,30 @@ public class KeycloakCallbackController {
             @RequestParam(required = false) String error,
             @RequestParam(value = "error_description", required = false) String errorDescription,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationIdHeader,
+            HttpServletRequest request,
             HttpServletResponse response) {
 
         String cid = (correlationIdHeader != null && !correlationIdHeader.isBlank())
                 ? correlationIdHeader : CorrelationIdHolder.get();
         CorrelationIdHolder.set(cid);
+        String clientIp = resolveClientIp(request);
+
+        // ── CALLBACK 수신 기록 (P1: broker_audit_log) ─────────────────────
+        brokerAuditLogService.record(BrokerAuditLogService.AuditEntry.builder()
+                .correlationId(cid)
+                .providerCode("KEYCLOAK")
+                .providerType("STANDARD_OIDC")
+                .brokerMode("keycloak")
+                .action(BrokerAuditLogService.ACTION_CALLBACK)
+                .clientIp(clientIp)
+                .build());
 
         // ── Keycloak 인증 실패 처리 ───────────────────────────────────────
         if (error != null) {
             log.warn("[KeycloakCallback] Keycloak 인증 오류: error={} description={} cid={}",
                     error, errorDescription, cid);
+            brokerAuditLogService.recordFail(cid, "KEYCLOAK", "STANDARD_OIDC",
+                    "keycloak", "KEYCLOAK_AUTH_FAILED", error, clientIp);
             return redirectToError("KEYCLOAK_AUTH_FAILED", error);
         }
 
@@ -132,9 +149,13 @@ public class KeycloakCallbackController {
         } catch (PlatformException e) {
             log.error("[KeycloakCallback] 인증 처리 오류: code={} cid={}",
                     e.getErrorCode().getCode(), cid, e);
+            brokerAuditLogService.recordFail(cid, "KEYCLOAK", "STANDARD_OIDC",
+                    "keycloak", e.getErrorCode().getCode(), e.getMessage(), clientIp);
             return redirectToError(e.getErrorCode().getCode(), e.getMessage());
         } catch (Exception e) {
             log.error("[KeycloakCallback] 예상치 못한 오류: cid={}", cid, e);
+            brokerAuditLogService.recordFail(cid, "KEYCLOAK", "STANDARD_OIDC",
+                    "keycloak", "INTERNAL_ERROR", e.getMessage(), clientIp);
             return redirectToError("INTERNAL_ERROR", "internal server error");
         }
     }
@@ -156,5 +177,13 @@ public class KeycloakCallbackController {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

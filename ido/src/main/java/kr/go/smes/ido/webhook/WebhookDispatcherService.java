@@ -66,6 +66,10 @@ public class WebhookDispatcherService {
     @Value("${ido.webhook.signing-secret:poc-webhook-secret-change-in-production}")
     private String defaultSigningSecret;   // PoC 기본값; 운영: Vault/KMS 주입
 
+    /** 플랫폼 API 버전 헤더값 (하드코딩 "1.0" 제거) */
+    @Value("${ido.platform-version:1.0}")
+    private String platformVersion;
+
     // ═══════════════════════════════════════════════════════════════════════
     // 공개 API
     // ═══════════════════════════════════════════════════════════════════════
@@ -386,7 +390,7 @@ public class WebhookDispatcherService {
         }
 
         // 플랫폼 메타
-        payload.put("platformVersion", "1.0");
+        payload.put("platformVersion", platformVersion);
         payload.put("sourceSystem",    "ido");
 
         return objectMapper.writeValueAsString(payload);

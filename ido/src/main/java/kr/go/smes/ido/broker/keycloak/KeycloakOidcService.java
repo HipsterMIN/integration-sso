@@ -5,6 +5,7 @@ import kr.go.smes.common.domain.AuthResult;
 import kr.go.smes.common.error.PlatformErrorCode;
 import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.event.AuthEvent;
+import kr.go.smes.ido.broker.BrokerAuditLogService;
 import kr.go.smes.ido.broker.keycloak.dto.KeycloakJwtClaims;
 import kr.go.smes.ido.broker.keycloak.dto.KeycloakTokenResponse;
 import kr.go.smes.ido.broker.state.IdoOidcStateEntry;
@@ -65,6 +66,7 @@ public class KeycloakOidcService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final JdbcTemplate               jdbcTemplate;
     private final ObjectMapper               objectMapper;
+    private final BrokerAuditLogService      brokerAuditLogService;
 
     // P1: ido.keycloak.auth-events-topic(구 키) → ido.kafka.topic-auth-events 로 통일
     @Value("${ido.kafka.topic-auth-events:qsign.auth.events}")
@@ -118,9 +120,13 @@ public class KeycloakOidcService {
         // ── 8. AuthResult 생성 + DB 저장 (Strategy B) ────────────────────
         String authResultId = UUID.randomUUID().toString();
         String authLevel    = keycloakProperties.resolveAuthLevel(claims.getAcr());
+        String authMethod   = kr.go.smes.common.domain.AuthResult.resolveAuthMethod(providerCode);
+        Instant issuedAt    = claims.getIssuedAt() > 0 ? Instant.ofEpochSecond(claims.getIssuedAt()) : null;
+        Instant expiresAt   = claims.getExpiresAt() > 0 ? Instant.ofEpochSecond(claims.getExpiresAt()) : null;
 
         saveAuthResult(authResultId, correlationId, authLevel, providerCode,
-                identifierHash, claims.getSubject());
+                identifierHash, claims.getSubject(),
+                authMethod, issuedAt, expiresAt, tokenResponse.getIdToken());
 
         // ── 9. Outbox 이벤트 저장 → Kafka 발행 ───────────────────────────
         saveOutboxEvent(authResultId, correlationId, authLevel, providerCode, identifierHash);
@@ -136,6 +142,12 @@ public class KeycloakOidcService {
         // ── 11. OIDC 세션 로그 기록 ───────────────────────────────────────
         saveOidcSessionLog(correlationId, providerCode, claims.getSubject(),
                 identifierHash, authResultId);
+
+        // ── 12. broker_audit_log COMPLETE 기록 (P1) ──────────────────────
+        brokerAuditLogService.recordComplete(
+                correlationId, providerCode, "STANDARD_OIDC",
+                claims.getSubject(), identifierHash, authLevel, "keycloak", null
+        );
 
         log.info("[KeycloakOidcService] 인증 완료: correlationId={} authResultId={} authLevel={}",
                 correlationId, authResultId, authLevel);
@@ -252,26 +264,34 @@ public class KeycloakOidcService {
 
     /**
      * AuthResult DB 저장 (Strategy B — IdO가 직접 생성)
-     * 테이블: ido.auth_result (V3 마이그레이션으로 생성)
+     * 테이블: ido.auth_result (V3 생성, V10에서 auth_method/issued_at/expires_at/raw_id_token 추가)
      */
     private void saveAuthResult(String authResultId, String correlationId,
                                  String authLevel, String providerCode,
-                                 String identifierHash, String sub) {
+                                 String identifierHash, String sub,
+                                 String authMethod, Instant issuedAt, Instant expiresAt,
+                                 String rawIdToken) {
         try {
             jdbcTemplate.update("""
                     INSERT INTO ido.auth_result
                         (auth_result_id, correlation_id, auth_level, provider_code,
                          provider_tx_id, identifier_hash, verification_result, source_system,
+                         auth_method, issued_at, expires_at, raw_id_token,
                          authenticated_at, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, 'SUCCESS', ?, NOW(), NOW())
+                    VALUES (?, ?, ?, ?, ?, ?, 'SUCCESS', ?, ?, ?, ?, ?, NOW(), NOW())
                     ON CONFLICT (auth_result_id) DO NOTHING
                     """,
                     authResultId, correlationId, authLevel, providerCode,
-                    sub,          // provider_tx_id = Keycloak sub
+                    sub,            // provider_tx_id = Keycloak sub
                     identifierHash,
-                    SOURCE_SYSTEM
+                    SOURCE_SYSTEM,
+                    authMethod,     // V10: auth_method (§24.4.1)
+                    issuedAt != null ? java.sql.Timestamp.from(issuedAt) : null,
+                    expiresAt != null ? java.sql.Timestamp.from(expiresAt) : null,
+                    rawIdToken      // V10: raw_id_token (감사 목적, 운영 시 암호화 고려)
             );
-            log.debug("[KeycloakOidcService] auth_result 저장: authResultId={}", authResultId);
+            log.debug("[KeycloakOidcService] auth_result 저장: authResultId={} authMethod={}",
+                    authResultId, authMethod);
         } catch (Exception e) {
             log.error("[KeycloakOidcService] auth_result 저장 실패: authResultId={}", authResultId, e);
             throw new PlatformException(PlatformErrorCode.QS_AUTH_FAILED, correlationId,

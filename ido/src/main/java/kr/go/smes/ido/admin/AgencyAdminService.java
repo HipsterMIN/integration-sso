@@ -9,6 +9,7 @@ import kr.go.smes.ido.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import kr.go.smes.ido.infrastructure.jpa.repository.AgencyMetaJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,10 @@ public class AgencyAdminService {
     private final JdbcTemplate            jdbcTemplate;
     private final ObjectMapper            objectMapper;
 
+    /** 신규 기관 생성 시 policyVersion 기본값 (하드코딩 "1.0" 제거) */
+    @Value("${ido.policy.default-version:1.0}")
+    private String defaultPolicyVersion;
+
     // ── 기관 등록 ──────────────────────────────────────────────────────────
 
     @Transactional
@@ -50,7 +55,7 @@ public class AgencyAdminService {
                 .agencyCode(req.getAgencyCode())
                 .officialName(req.getOfficialName())
                 .minAuthLevel(req.getMinAuthLevel() != null ? req.getMinAuthLevel() : "L1")
-                .policyVersion(req.getPolicyVersion() != null ? req.getPolicyVersion() : "1.0")
+                .policyVersion(req.getPolicyVersion() != null ? req.getPolicyVersion() : defaultPolicyVersion)
                 .integrationType(req.getIntegrationType() != null ? req.getIntegrationType() : "DIRECT")
                 .bridgeEndpoint(req.getBridgeEndpoint())
                 .ssoDomain(req.getSsoDomain())
