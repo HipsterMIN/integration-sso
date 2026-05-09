@@ -1,21 +1,22 @@
 # 12. 미구현 항목 및 후속 계획 (Implementation Gaps)
 
-> **문서 버전**: v1.9.0  
+> **문서 버전**: v1.9.2  
 > **최종 수정**: 2026-05-09  
-> **기준 분석 문서**: `docs/2026-05-08_unimplemented_analysis.md`, `docs/gap-analysis-v0.8.3-vs-project.md`
+> **기준 분석 문서**: `docs/2026-05-08_unimplemented_analysis.md`, `docs/gap-analysis-v0.8.3-vs-project.md`  
+> **v1.9.2 변경**: P2 GAP 항목 전체 구현 완료 (HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05)
 
 ---
 
 ## 1. 현재 완성도 요약
 
-v1.9.0 기준 전체 구현 완성도: **약 78%** (PoC → 프리프로덕션 단계)
+v1.9.2 기준 전체 구현 완성도: **약 84%** (PoC → 프리프로덕션 단계)
 
 | 모듈 | 완성도 | 비고 |
 |------|--------|------|
 | platform-common | **100%** | 도메인·이벤트·에러코드 완비 |
-| Q-Sign | **92%** | X-Internal-Sig 수신 검증, AuthResult 서명 미구현 |
-| Q-IM | **85%** | 고급 전환·탈퇴 흐름, Outbox retry 미완성 |
-| IdO | **97%** | X-Internal-Sig 수신 검증 미구현 |
+| Q-Sign | **95%** | GAP-QS-03 멱등 컨슈머 완성; X-Internal-Sig 수신 검증 미구현 |
+| Q-IM | **92%** | GAP-QIM-05 Snapshot 완성; 고급 전환·탈퇴 흐름 미완성 |
+| IdO | **98%** | HandoffStrategy 완전 구현; X-Internal-Sig 수신 검증 미구현 |
 | agency-stub | **90%** | Docker 격리 미완성, mTLS P3 |
 | onepass-fe | **60%** | 회원 전환·관리 UI 미구현 |
 | 인프라/Docker | **100%** | 전 모듈 Dockerfile + docker-compose 완비 |
@@ -81,12 +82,16 @@ v1.9.0 기준 전체 구현 완성도: **약 78%** (PoC → 프리프로덕션 �
 | - | 회원 탈퇴 4종 전체 구현 | IMMEDIATE/SCHEDULED/AGENCY_REQUESTED/ADMIN_FORCED |
 | - | 논리적 삭제 + 보존기간 만료 영구파기 | GDPR Right to be Forgotten |
 
-### 4.2 Handoff 전략 완성
+### 4.2 Handoff 전략 완성 ✅ v1.9.2 완료
 
-| ID | 항목 | 설명 |
-|----|------|------|
-| - | INTERNAL_SSO HandoffStrategy | `sso_domain` 기반 쿠키 세션 발급 |
-| - | APACHE_GATE HandoffStrategy | Apache mod_auth 호환 헤더 주입 |
+| ID | 항목 | 설명 | 상태 |
+|----|------|------|------|
+| ~~-~~ | ~~INTERNAL_SSO HandoffStrategy~~ | ~~`sso_domain` 기반 쿠키 세션 발급~~ | ✅ **완료** (v1.9.2) |
+| ~~-~~ | ~~APACHE_GATE HandoffStrategy~~ | ~~Apache mod_auth 호환 헤더 주입~~ | ✅ **완료** (v1.9.2) |
+
+**구현 파일**:
+- `ido/.../handoff/strategy/InternalSsoHandoffStrategy.java` — `POST {ssoDomain}/internal/sso-session`
+- `ido/.../handoff/strategy/ApacheGateHandoffStrategy.java` — Apache `X-Remote-User`, `X-Auth-Level`, `X-Handoff-Token` 헤더 Push
 
 ### 4.3 인프라
 
@@ -94,8 +99,18 @@ v1.9.0 기준 전체 구현 완성도: **약 78%** (PoC → 프리프로덕션 �
 |----|------|------|
 | P2-07 | agency-stub Kafka 직접 구독 제거 | PoC 코드 정리 → Webhook/폴링 방식으로 교체 |
 | P2-06 | agency-stub Docker 격리 | 별도 네트워크 또는 host 모드 |
-| GAP-QS-03 | `qsign.processed_event` migration + IdempotentEventStore | Q-Sign 멱등 컨슈머 |
-| GAP-QIM-05 | `snapshot_meta` 사용 로직 구현 | Q-IM Snapshot 발행 기능 |
+| ~~GAP-QS-03~~ | ~~`qsign.processed_event` migration + IdempotentEventStore~~ | ~~Q-Sign 멱등 컨슈머~~ | ✅ **완료** (v1.9.2) |
+| ~~GAP-QIM-05~~ | ~~`snapshot_meta` 사용 로직 구현~~ | ~~Q-IM Snapshot 발행 기능~~ | ✅ **완료** (v1.9.2) |
+
+**GAP-QS-03 구현 파일**:
+- `q-sign/.../kafka/IdempotentEventStore.java` — `qsign.processed_event` + `qsign.last_event_version` ON CONFLICT 패턴
+- `q-sign/.../kafka/QimUserEventConsumer.java` — `@KafkaListener` + 6단계 멱등 처리 + USER_SUSPENDED/WITHDRAWN → auth_lock 잠금
+
+**GAP-QIM-05 구현 파일**:
+- `q-im/.../entity/SnapshotMetaJpaEntity.java` — `snapshot_meta` 테이블 JPA 매핑
+- `q-im/.../repository/SnapshotMetaJpaRepository.java` — 최신 스냅샷 조회, 중복 방지
+- `q-im/.../outbox/SnapshotService.java` / `SnapshotServiceImpl.java` — 10개 이벤트마다 스냅샷 발행
+- `q-im/.../outbox/OutboxServiceImpl.java` — `relayPendingEvents()` 스냅샷 트리거 분기 추가
 
 ### 4.4 프론트엔드
 
