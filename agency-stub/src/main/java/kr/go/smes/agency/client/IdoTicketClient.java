@@ -16,7 +16,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * IdO Handoff Ticket 발급 클라이언트
@@ -90,7 +90,7 @@ public class IdoTicketClient {
             String correlationId) {
 
         String url = idoBaseUrl + PATH_ISSUE;
-        String idempotencyKey = UUID.randomUUID().toString();
+        String idempotencyKey = UuidV7.generate();
 
         log.info("[IdoTicketClient] Ticket 발급 요청: qimUserId={} authLevel={} correlationId={} url={}",
                 qimUserId, authLevel, correlationId, url);

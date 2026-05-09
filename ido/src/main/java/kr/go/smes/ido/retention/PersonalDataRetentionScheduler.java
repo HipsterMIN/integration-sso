@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * 개인정보 보존 기간 만료 시 자동 파기 스케줄러
@@ -185,7 +185,7 @@ public class PersonalDataRetentionScheduler {
                             .actorId("RetentionScheduler")
                             .resourceType("PERSONAL_DATA")
                             .resourceId("batch")
-                            .correlationId(UUID.randomUUID().toString())
+                            .correlationId(UuidV7.generate())
                             .outcome(failCount == 0
                                     ? AuditLogEvent.OUTCOME_SUCCESS
                                     : AuditLogEvent.OUTCOME_PARTIAL)

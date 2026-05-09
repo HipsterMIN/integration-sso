@@ -11,6 +11,7 @@ import kr.go.smes.agency.session.AgencySessionService;
 import kr.go.smes.agency.session.AgencySessionService.SessionCreateResult;
 import kr.go.smes.common.domain.HandoffPayload;
 import kr.go.smes.common.util.CorrelationIdHolder;
+import kr.go.smes.common.util.UuidV7;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -480,9 +481,9 @@ public class AgencySimulatorController {
      */
     public static class SimulationRequest {
         /** QIM 사용자 ID (없으면 임의 UUID 생성) */
-        private String qimUserId    = "sim-user-" + UUID.randomUUID().toString().substring(0, 8);
+        private String qimUserId    = "sim-user-" + UuidV7.generate().substring(0, 8);
         /** 인증 결과 ID (없으면 임의 UUID 생성) */
-        private String authResultId = UUID.randomUUID().toString();
+        private String authResultId = UuidV7.generate();
         /** 인증 수준: L1 / L2 / L3 */
         private String authLevel    = "L2";
         /** 인증 수단 코드 */

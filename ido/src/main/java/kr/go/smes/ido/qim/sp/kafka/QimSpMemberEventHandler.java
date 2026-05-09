@@ -1,5 +1,6 @@
 package kr.go.smes.ido.qim.sp.kafka;
 
+import kr.go.smes.common.util.UuidV7;
 import kr.go.smes.common.event.AuditLogEvent;
 import kr.go.smes.ido.audit.AuditLogPublisher;
 import kr.go.smes.ido.qim.sp.infrastructure.InstMbrIdMappingRepository;
@@ -336,7 +337,7 @@ public class QimSpMemberEventHandler {
                                     String correlationId, int httpStatus,
                                     boolean isReplay, String errorCode) {
         try {
-            String logId = java.util.UUID.randomUUID().toString();
+            String logId = UuidV7.generate();
             jdbcTemplate.update(
                     "INSERT INTO " + SCHEMA + ".qim_sp_receiver_log "
                     + "(log_id, endpoint, inst_mbr_id, qim_user_id, correlation_id, "

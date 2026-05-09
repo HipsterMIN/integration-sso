@@ -6,7 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * broker_audit_log 기록 서비스 (P1 — GAP 마감)
@@ -73,7 +73,7 @@ public class BrokerAuditLogService {
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
                     ON CONFLICT (log_id) DO NOTHING
                     """,
-                    UUID.randomUUID().toString(),
+                    UuidV7.generate(),
                     entry.correlationId(),
                     entry.providerCode(),
                     entry.providerType() != null ? entry.providerType() : "STANDARD_OIDC",

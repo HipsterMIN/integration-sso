@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * Q-IM SP 수신 API 핵심 서비스
@@ -163,7 +163,7 @@ public class QimSpReceiverService {
                     instMbrId, correlationId);
         } else {
             // 신규 등록
-            instMbrId = UUID.randomUUID().toString();
+            instMbrId = UuidV7.generate();
             registeredAt = Instant.now();
 
             InstMbrIdMapping.RegMode regMode = request.isTransfer()
@@ -332,7 +332,7 @@ public class QimSpReceiverService {
                                   String correlationId) {
         try {
             String payloadJson = objectMapper.writeValueAsString(payloadMap);
-            String eventId = UUID.randomUUID().toString();
+            String eventId = UuidV7.generate();
 
             jdbcTemplate.update(
                     "INSERT INTO ido.outbox "

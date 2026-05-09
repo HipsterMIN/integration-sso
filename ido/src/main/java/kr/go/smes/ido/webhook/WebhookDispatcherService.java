@@ -1,5 +1,6 @@
 package kr.go.smes.ido.webhook;
 
+import kr.go.smes.common.util.UuidV7;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.common.event.AuditLogEvent;
@@ -206,7 +207,7 @@ public class WebhookDispatcherService {
             return;
         }
 
-        String sourceEventId = UUID.randomUUID().toString();
+        String sourceEventId = UuidV7.generate();
         for (AgencyWebhookConfig config : targets) {
             try {
                 String payload = buildUserLogoutPayload(instMbrId, correlationId);
@@ -226,7 +227,7 @@ public class WebhookDispatcherService {
         List<AgencyWebhookConfig> targets = findWebhookTargets("MEMBER_WITHDRAWN", null);
         if (targets.isEmpty()) return;
 
-        String sourceEventId = UUID.randomUUID().toString();
+        String sourceEventId = UuidV7.generate();
         for (AgencyWebhookConfig config : targets) {
             try {
                 String payload = buildMemberWithdrawnPayload(instMbrId, correlationId);
@@ -372,7 +373,7 @@ public class WebhookDispatcherService {
                     ) VALUES (?,?,?,?,?,?,?,?::jsonb,'PENDING',0,?,NOW(),NOW())
                     ON CONFLICT (source_event_id, agency_code) DO NOTHING
                     """,
-                    UUID.randomUUID().toString(),
+                    UuidV7.generate(),
                     config.agencyCode(),
                     config.endpointUrl(),
                     sourceEventId, sourceEventType, sourceTopic,

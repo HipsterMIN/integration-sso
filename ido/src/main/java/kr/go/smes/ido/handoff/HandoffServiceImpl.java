@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * Handoff 서비스 구현체 (v2.0 — Production)
@@ -106,7 +106,7 @@ public class HandoffServiceImpl implements HandoffService {
 
             // 6. Ticket 발급
             Instant now      = Instant.now();
-            String  ticketId = UUID.randomUUID().toString();
+            String  ticketId = UuidV7.generate();
             String  plain    = buildPlainPayload(ticketId, cmd);
             String  encrypted = handoffCryptoService.encrypt(plain, ticketId);
             String  signature = handoffCryptoService.sign(ticketId, cmd.getAgencyCode(), encrypted);

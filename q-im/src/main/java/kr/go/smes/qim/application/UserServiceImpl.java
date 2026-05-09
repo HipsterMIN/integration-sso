@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * Q-IM UserService 구현체
@@ -59,10 +60,10 @@ public class UserServiceImpl implements UserService {
 
         long nextVersion = 1L;
         QimUser newUser = QimUser.builder()
-                .qimUserId(UUID.randomUUID().toString())
+                .qimUserId(UuidV7.generate())
                 .status(UserStatus.ACTIVE)
                 .authMeanMappings(List.of(AuthMeanMapping.builder()
-                        .mappingId(UUID.randomUUID().toString())
+                        .mappingId(UuidV7.generate())
                         .providerCode(providerCode)
                         .identifierHash(identifierHash)
                         .status(AuthMeanMapping.MappingStatus.ACTIVE)
@@ -139,7 +140,7 @@ public class UserServiceImpl implements UserService {
 
         // 신규 매핑 생성
         AuthMeanMapping newMapping = AuthMeanMapping.builder()
-                .mappingId(UUID.randomUUID().toString())
+                .mappingId(UuidV7.generate())
                 .qimUserId(qimUserId)
                 .providerCode(providerCode)
                 .identifierHash(identifierHash)

@@ -30,7 +30,7 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * Keycloak Authorization Code Callback 처리 서비스
@@ -284,7 +284,7 @@ public class KeycloakCallbackService {
         AuthResult.AuthLevel authLevel = parseAuthLevel(requestedLevel);
 
         AuthResult result = AuthResult.builder()
-                .authResultId(UUID.randomUUID().toString())
+                .authResultId(UuidV7.generate())
                 .correlationId(correlationId)
                 .authLevel(authLevel)
                 .providerCode(providerCode)
@@ -314,7 +314,7 @@ public class KeycloakCallbackService {
             String payload = objectMapper.writeValueAsString(event);
 
             QSignOutboxRecord outbox = QSignOutboxRecord.builder()
-                    .eventId(UUID.randomUUID().toString())
+                    .eventId(UuidV7.generate())
                     .eventType(eventType)
                     .partitionKey(result.getIdentifierHash())
                     .aggregateId(result.getAuthResultId())

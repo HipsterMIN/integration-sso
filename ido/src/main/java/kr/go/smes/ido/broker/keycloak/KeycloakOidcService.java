@@ -30,7 +30,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
-import java.util.UUID;
+import kr.go.smes.common.util.UuidV7;
 
 /**
  * Keycloak OIDC 콜백 처리 서비스 (문서 §7, §8)
@@ -118,7 +118,7 @@ public class KeycloakOidcService {
         String providerCode = resolveProviderCode(claims, stateEntry);
 
         // ── 8. AuthResult 생성 + DB 저장 (Strategy B) ────────────────────
-        String authResultId = UUID.randomUUID().toString();
+        String authResultId = UuidV7.generate();
         String authLevel    = keycloakProperties.resolveAuthLevel(claims.getAcr());
         String authMethod   = kr.go.smes.common.domain.AuthResult.resolveAuthMethod(providerCode);
         Instant issuedAt    = claims.getIssuedAt() > 0 ? Instant.ofEpochSecond(claims.getIssuedAt()) : null;
@@ -307,7 +307,7 @@ public class KeycloakOidcService {
                                   String authLevel, String providerCode,
                                   String identifierHash) {
         try {
-            String eventId  = UUID.randomUUID().toString();
+            String eventId  = UuidV7.generate();
             String payload  = buildAuthEventPayload(eventId, authResultId, correlationId,
                     authLevel, providerCode, identifierHash);
 
@@ -371,7 +371,7 @@ public class KeycloakOidcService {
                     VALUES (?, ?, ?, ?, ?, ?, NOW())
                     ON CONFLICT (log_id) DO NOTHING
                     """,
-                    UUID.randomUUID().toString(),
+                    UuidV7.generate(),
                     correlationId, providerCode, sub,
                     identifierHash, authResultId
             );
