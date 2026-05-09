@@ -3,6 +3,7 @@ package kr.go.smes.ido.slo;
 import kr.go.smes.common.util.CorrelationIdHolder;
 import kr.go.smes.ido.fe.session.FeSession;
 import kr.go.smes.ido.fe.session.FeSessionService;
+import kr.go.smes.ido.metrics.SloMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -41,6 +42,7 @@ public class SloController {
 
     private final FeSessionService feSessionService;
     private final SloService       sloService;
+    private final SloMetrics       sloMetrics;
 
     /**
      * SLO 시작 — FE 로그아웃 버튼 클릭 시 호출
@@ -67,12 +69,16 @@ public class SloController {
         String cid = resolveCorrelationId(correlationId);
         CorrelationIdHolder.set(cid);
 
+        sloMetrics.incrementSloInitiate();
+        long startMs = System.currentTimeMillis();
+
         if (feSessionId != null && !feSessionId.isBlank()) {
             FeSession session = feSessionService.findById(feSessionId).orElse(null);
 
             // ① feSession 즉시 만료 (세션 존재 여부 무관 — 방어적 처리)
             feSessionService.expire(feSessionId);
             log.info("[SLO] feSession 만료: feSessionId={} correlationId={}", feSessionId, cid);
+            sloMetrics.incrementSloCompleted();
 
             // ② SLO 오케스트레이션 실행 (Keycloak + Webhook + 감사로그)
             if (session != null) {
@@ -82,8 +88,11 @@ public class SloController {
                          "feSessionId={} correlationId={}", feSessionId, cid);
             }
         } else {
+            sloMetrics.incrementSloSkipped();
             log.debug("[SLO] feSessionId 없음 — 쿠키 제거만 수행: correlationId={}", cid);
         }
+
+        sloMetrics.recordSloDuration(System.currentTimeMillis() - startMs);
 
         // ③ feSessionId 쿠키 제거 (Max-Age=0)
         clearSessionCookie(response);

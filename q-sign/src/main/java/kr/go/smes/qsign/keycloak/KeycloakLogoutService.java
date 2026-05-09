@@ -1,5 +1,6 @@
 package kr.go.smes.qsign.keycloak;
 
+import kr.go.smes.qsign.metrics.AuthMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -40,6 +41,7 @@ public class KeycloakLogoutService {
 
     private final KeycloakProperties keycloakProperties;
     private final RestTemplate restTemplate;
+    private final AuthMetrics authMetrics;
 
     /**
      * Keycloak 내 해당 사용자의 모든 활성 세션 강제 종료
@@ -65,14 +67,17 @@ public class KeycloakLogoutService {
             String userId = resolveUserId(sub, adminToken, correlationId);
             if (userId != null) {
                 deleteUserSessions(userId, adminToken, correlationId);
+                authMetrics.incrementSloKeycloakSuccess();
                 log.info("[KeycloakLogout] 세션 종료 완료: sub={} userId={} correlationId={}",
                         sub, userId, correlationId);
             } else {
+                authMetrics.incrementSloKeycloakFailure();
                 log.warn("[KeycloakLogout] Keycloak 사용자 조회 실패 — sub={} correlationId={}",
                         sub, correlationId);
             }
         } catch (Exception e) {
             // 비치명적 — SLO 흐름 계속 진행
+            authMetrics.incrementSloKeycloakFailure();
             log.warn("[KeycloakLogout] Keycloak 세션 종료 실패 (비치명적): sub={} correlationId={} cause={}",
                     sub, correlationId, e.getMessage());
         }

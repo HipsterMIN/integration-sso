@@ -2,6 +2,7 @@ package kr.go.smes.ido.retention;
 
 import kr.go.smes.ido.audit.AuditLogPublisher;
 import kr.go.smes.common.event.AuditLogEvent;
+import kr.go.smes.ido.metrics.SloMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -56,6 +57,7 @@ public class PersonalDataRetentionScheduler {
 
     private final JdbcTemplate        jdbcTemplate;
     private final AuditLogPublisher   auditLogPublisher;
+    private final SloMetrics          sloMetrics;
 
     // ════════════════════════════════════════════════════════════════════════
 
@@ -87,8 +89,10 @@ public class PersonalDataRetentionScheduler {
             try {
                 purgePersonalData(instMbrId);
                 successCount++;
+                sloMetrics.incrementPurgeSuccess(1);
             } catch (Exception e) {
                 failCount++;
+                sloMetrics.incrementPurgeFailed();
                 log.error("[RetentionScheduler] 파기 실패 (개별 오류 — 계속 처리): instMbrId={} cause={}",
                         instMbrId, e.getMessage());
             }
