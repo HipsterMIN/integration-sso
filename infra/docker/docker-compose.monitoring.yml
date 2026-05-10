@@ -1,0 +1,331 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# OnePass 통합인증 플랫폼 — 모니터링 스택 (Sprint 5)
+#
+# 구성:
+#   Prometheus  (port 9090)  — 메트릭 수집
+#   Grafana     (port 3000)  — 대시보드 / 알림
+#   Loki        (port 3100)  — 로그 집계
+#   Promtail    (port 9080)  — Docker 컨테이너 로그 → Loki 전송
+#   redis-exporter   (9121)  — Redis 메트릭 → Prometheus
+#   kafka-exporter   (9308)  — Kafka 메트릭 → Prometheus
+#   postgres-exporter(9187)  — PostgreSQL 메트릭 → Prometheus
+#
+# 사용법:
+#   # 기본 인프라(docker-compose.yml) 기동 후:
+#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+#
+#   # 모니터링만 별도 기동:
+#   docker compose -f docker-compose.monitoring.yml up -d
+#
+# 접속 정보:
+#   Grafana    → http://localhost:3000  (admin / onepass-admin)
+#   Prometheus → http://localhost:9090
+#   Loki       → http://localhost:3100
+#
+# IP 할당 (172.20.0.30~39):
+#   .30 prometheus
+#   .31 grafana
+#   .32 loki
+#   .33 promtail
+#   .34 redis-exporter
+#   .35 kafka-exporter
+#   .36 postgres-exporter
+# ══════════════════════════════════════════════════════════════════════════════
+
+networks:
+  onepass-net:
+    external: true          # docker-compose.yml에서 생성한 네트워크 재사용
+
+volumes:
+  prometheus-data:
+    name: infra_prometheus-data
+    external: true          # docker-compose.yml 볼륨 공유
+  grafana-data:
+    name: infra_grafana-data
+    external: true
+  loki-data:
+    name: infra_loki-data
+    external: true
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+
+  # ════════════════════════════════════════════════════════════
+  # Prometheus 2.x — 메트릭 수집 및 알림 평가
+  # http://localhost:9090
+  #
+  # Scrape 대상:
+  #   - Spring Boot Actuator /actuator/prometheus (q-sign, q-im, ido, agency-stub)
+  #   - Redis / Kafka / PostgreSQL Exporter
+  # ════════════════════════════════════════════════════════════
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: onepass-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--storage.tsdb.retention.size=10GB"
+      - "--web.enable-lifecycle"            # POST /-/reload 로 무중단 설정 반영
+      - "--web.enable-admin-api"
+      - "--log.level=info"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.30
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
+    logging: *default-logging
+
+  # ════════════════════════════════════════════════════════════
+  # Grafana 10.x — 대시보드 & 알림
+  # http://localhost:3000
+  #   - 초기 계정: admin / onepass-admin
+  #   - 데이터소스: Prometheus + Loki (자동 프로비저닝)
+  #   - 대시보드:  OnePass 플랫폼 전체 현황 (자동 로드)
+  # ════════════════════════════════════════════════════════════
+  grafana:
+    image: grafana/grafana-oss:10.4.2
+    container_name: onepass-grafana
+    restart: unless-stopped
+    environment:
+      # ── 계정 ─────────────────────────────────────────────────
+      GF_SECURITY_ADMIN_USER:               admin
+      GF_SECURITY_ADMIN_PASSWORD:           onepass-admin
+      GF_SECURITY_SECRET_KEY:               ${GF_SECRET_KEY:-change-me-secret-key-32bytes!!}
+      # ── 익명 접근 비활성화 ────────────────────────────────────
+      GF_AUTH_ANONYMOUS_ENABLED:            "false"
+      # ── 대시보드 기본 설정 ────────────────────────────────────
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/onepass-overview.json
+      # ── 알림 (Alerting) ───────────────────────────────────────
+      GF_ALERTING_ENABLED:                  "true"
+      GF_UNIFIED_ALERTING_ENABLED:          "true"
+      # ── 플러그인 ──────────────────────────────────────────────
+      GF_INSTALL_PLUGINS:                   "grafana-piechart-panel"
+      # ── 서버 ──────────────────────────────────────────────────
+      GF_SERVER_ROOT_URL:                   "http://localhost:3000"
+      GF_SERVER_ENABLE_GZIP:                "true"
+      # ── 타임존 ────────────────────────────────────────────────
+      TZ: Asia/Seoul
+    ports:
+      - "3000:3000"
+    volumes:
+      # 프로비저닝: 데이터소스 (Prometheus, Loki)
+      - ../monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      # 프로비저닝: 대시보드 설정
+      - ../monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      # 대시보드 JSON 파일
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      # 영구 저장
+      - grafana-data:/var/lib/grafana
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.31
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 128m
+    logging: *default-logging
+
+  # ════════════════════════════════════════════════════════════
+  # Loki 2.9 — 로그 집계 및 쿼리
+  # http://localhost:3100
+  #   - Promtail이 Docker 컨테이너 로그를 수집하여 전송
+  #   - Grafana에서 LogQL로 조회
+  #   - 보존 기간: 31일
+  # ════════════════════════════════════════════════════════════
+  loki:
+    image: grafana/loki:2.9.6
+    container_name: onepass-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+      - "9096:9096"    # gRPC
+    volumes:
+      - ../monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/tmp/loki
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.32
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 128m
+    logging: *default-logging
+
+  # ════════════════════════════════════════════════════════════
+  # Promtail — Docker 컨테이너 로그 수집기
+  #
+  # 로그 레이블 설정:
+  #   container: 컨테이너명
+  #   service:   compose 서비스명
+  #
+  # 주의: 로그를 수집하려면 컨테이너에 레이블 추가 필요:
+  #   labels:
+  #     logging: "promtail"
+  #
+  # JSON 구조화 로그 파싱 (Logback JsonEncoder 사용 시):
+  #   level, message, correlationId 필드 추출
+  # ════════════════════════════════════════════════════════════
+  promtail:
+    image: grafana/promtail:2.9.6
+    container_name: onepass-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    ports:
+      - "9080:9080"
+    volumes:
+      - ../monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # Docker API 접근
+      - /var/log:/var/log:ro                           # 호스트 시스템 로그 (선택)
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.33
+    depends_on:
+      loki:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 64m
+    logging: *default-logging
+
+  # ════════════════════════════════════════════════════════════
+  # Redis Exporter — Redis 메트릭 → Prometheus
+  # http://localhost:9121/metrics
+  # ════════════════════════════════════════════════════════════
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.59.0-alpine
+    container_name: onepass-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      # REDIS_PASSWORD: ""  # 패스워드 설정 시 활성화
+    ports:
+      - "9121:9121"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.34
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9121/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+        reservations:
+          memory: 16m
+    logging: *default-logging
+
+  # ════════════════════════════════════════════════════════════
+  # Kafka Exporter — Kafka 메트릭 (Consumer Lag 등) → Prometheus
+  # http://localhost:9308/metrics
+  # ════════════════════════════════════════════════════════════
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: onepass-kafka-exporter
+    restart: unless-stopped
+    command:
+      - "--kafka.server=kafka:29092"
+      - "--kafka.version=3.6.1"
+      - "--log.level=info"
+      - "--topic.filter=.*"                 # 전체 토픽
+      - "--group.filter=.*"                 # 전체 컨슈머 그룹
+      - "--offset.show-all=true"
+    ports:
+      - "9308:9308"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.35
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9308/metrics | grep kafka_brokers || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 32m
+    logging: *default-logging
+
+  # ════════════════════════════════════════════════════════════
+  # PostgreSQL Exporter — PG 메트릭 → Prometheus
+  # http://localhost:9187/metrics
+  # ════════════════════════════════════════════════════════════
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: onepass-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://onepass:onepass@postgres:5432/onepass?sslmode=disable"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+    ports:
+      - "9187:9187"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.36
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9187/metrics | grep pg_up || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 32m
+    logging: *default-logging
