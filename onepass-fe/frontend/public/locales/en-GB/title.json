@@ -1,0 +1,19 @@
+{
+	"Status": "Home",
+	"Home": "Home",
+	"Services": "Service",
+	"Service": "Service",
+	"Traces": "Traces",
+	"Explorer": "Explorer",
+	"Logs": "Logs",
+	"Dashboards": "Dashboards",
+	"Alerts": "Alerts",
+	"Exceptions": "Exceptions",
+	"Settings": "Settings",
+	"Infrastructure": "Infrastructure",
+	"APM": "APM",
+	"Apm": "APM",
+	"Management": "Management",
+	"Host": "Host",
+	"Process": "Process"
+}

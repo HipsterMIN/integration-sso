@@ -27,3 +27,8 @@ Thumbs.db
 *.env
 .env.*
 !.env.example
+
+# FE 통합 백업 (2026-05-10)
+onepass-fe/frontend/src_backup_*/
+onepass-fe/frontend/public_backup_*/
+onepass-fe/frontend/*.backup_*

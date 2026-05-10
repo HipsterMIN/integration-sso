@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
+        <title>Welcome to EZ Auth</title>
+        <link rel="shortcut icon" href="img/icons/favicon.ico" type="image/x-icon" />
+
+        <!-- link rel="stylesheet" type="text/css" href="../font/Pretendard-1.3.8/web/static/pretendard.css"/> -->
+        <!-- 미사용 <link rel="stylesheet" type="text/css" href="../font/Pretendard-1.3.8/web/static/pretendard-subset.css"/> -->
+        <!-- 미사용 <link rel="stylesheet" type="text/css" href="../font/Pretendard-1.3.8/web/variable/pretendardvariable.css"/> -->
+        <!-- <link rel="stylesheet" type="text/css" href="../css/EzauthInit.css"/> -->
+        <!-- <link rel="stylesheet" type="text/css" href="../css/EzauthChild.css"/> -->
+
+        <!-- style -->
+        <link rel="stylesheet" href="./assets/font/Pretendard-1.3.8/web/variable/pretendardvariable.css" />
+        <link rel="stylesheet" href="./assets/css/EzauthInit.css" />
+        <link rel="stylesheet" href="./assets/css/EzauthChild.css" />
+        <link rel="stylesheet" href="./assets/css/EzauthAlert.css" />
+        <link rel="stylesheet" href="./assets/css/EzauthBlock.css" />
+        <link rel="stylesheet" href="./assets/css/EzauthModal.css" />
+
+        <!-- script -->
+        <!-- Automatically provides/replaces `Promise` if missing or broken. -->
+        <script src="api/es6-promise.min.js"></script>
+        <script src="api/es6-promise.auto.min.js"></script>
+        <script src="js/EzAuthPAct.bundle.js"></script>
+    </head>
+
+    <body>
+        <div id="EzauthContainer">
+            <div class="encase">
+                <!-- <header>
+			<div class="left">
+				<div class="customer-logo-image">
+					<img src="" title="" alt="">
+				</div>
+				<div class="title">
+				</div>
+			</div>
+			<div class="right">
+				<div class="close">
+					<img tabindex="0" src="" title="" alt="">
+				</div>
+			</div>
+		</header> -->
+                <div class="body">
+                    <section class="step1">
+                        <div class="Block-Wrap loading-center">
+                            <section class="block">
+                                <img class="loading-img color-gray02" src="assets/img/ico_loading.svg" alt="로딩 중" />
+                            </section>
+                        </div>
+                        <article class="left">
+                            <section class="left_title-area">
+                                <div class="left_title">
+                                    <img src="assets/img/ico_cert.svg" title="" alt="" />
+                                    <p>사업자 인증서</p>
+                                </div>
+                            </section>
+                            <section class="provider-list">
+                                <header></header>
+                                <ul class="body"></ul>
+                            </section>
+                            <section class="ezauth-info">
+                                <header></header>
+                                <div class="body">
+                                    <div class="version">
+                                        <p></p>
+                                    </div>
+                                </div>
+                            </section>
+                        </article>
+                        <article class="right">
+                            <section class="user-info">
+                                <header class="header_right">
+                                    <!-- 로고 및 타이틀 섹션 (좌측 정렬) -->
+                                    <div class="header_logo_area">
+                                        <div>
+                                            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" title="" alt="" />
+                                            <p></p>
+                                        </div>
+                                        <img class="logo_24" src="assets/img/logo_gov.svg" title="" alt="" />
+                                    </div>
+                                    <!-- 인증방식선택 탭 -->
+                                    <section class="buttons sign_type_buttons">
+                                        <div>
+                                            <div tabindex="0" role="button"  class="button-show cloud-button" id="cloud-btn">클라우드</div>
+                                            <div tabindex="0" role="button"  class="button-show app-push-button" id="app-push-btn">앱 알림(PUSH)</div>
+                                            <div tabindex="0" role="button"  class="button-show qr-button">QR</div>
+                                        </div>
+                                    </section>
+                                </header>
+
+                                <!-- QR 코드 섹션을 담는 컨테이너 -->
+                                <section class="qr-info">
+                                    <!-- 내부 요소를 세로로 정렬하고 중앙에 위치시킵니다. -->
+                                    <div class="qr-code-section">
+                                        <!-- QR 코드 캔버스 컨테이너 -->
+                                        <div class="qr-code-container">
+                                            <canvas id="qrCodeDisplay"></canvas>
+                                            <div class="qr-dimmed"></div>
+                                            <button class="qrRequestButton" type="button" title="QR 생성">
+                                                <img src="assets/img/ico_refresh.svg" alt="" />
+                                                QR 생성
+                                            </button>
+                                            <button class="qrRetryButton" type="button" title="재시도">
+                                                <img src="assets/img/ico_refresh.svg" alt="" />
+                                                재시도
+                                            </button>
+                                        </div>
+                                        <!-- 타이머 텍스트 -->
+                                        <span class="qr-timer">QR 코드 유효 시간</span>
+                                        <span class="qr-timer-text" id="qrTimerDisplay"></span>
+                                        <p class="qr-guide">휴대폰 카메라로 QR코드를 촬영하세요</p>
+                                        <!-- 로딩 레이어 -->
+                                        <div class="qr-loading">
+                                            <div class="Block-Wrap loading-content">
+                                                <section class="block">
+                                                    <img class="loading-img color-gray02" src="assets/img/ico_loading.svg" alt="로딩 중" />
+                                                    <div>QR 코드 요청 중...</div>
+                                                </section>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section class="push-info">
+                                    <strong class="push-info-title content_title">사업자 정보 입력</strong>
+                                    <ul class="body">
+                                        <li class="name">
+                                            <p class="label"></p>
+                                            <div class="wrap">
+                                                <input tabindex="0" type="text" style="ime-mode: active" placeholder="" maxlength="50" />
+                                            </div>
+                                        </li>
+                                        <li class="birth">
+                                            <p class="label"></p>
+                                            <div class="wrap">
+                                                <input tabindex="0" type="text" placeholder="" numberOnly maxlength="8" />
+                                            </div>
+                                        </li>
+                                        <li class="biz-registration-number">
+                                            <p class="label"></p>
+                                            <div class="wrap">
+                                                <input tabindex="0" type="text" placeholder="" numberOnly maxlength="10" />
+                                            </div>
+                                        </li>
+                                        <li class="hp">
+                                            <p class="label"></p>
+                                            <div class="wrap">
+                                                <!-- <select class="telco" tabindex="0" > --><!-- </select> -->
+                                                <!-- <select class="sel_telnum" tabindex="0">
+                                                    <option value="010" selected>010</option>
+                                                </select>-->
+                                                <input tabindex="0" type="text" title="010" readonly maxlength="3" value="010" class="sel_telnum telnum_start"/>
+                                                <input tabindex="0" type="text" placeholder="" numberOnly maxlength="8" class="telnum_end"/>
+                                            </div>
+                                        </li>
+                                        <li class="ssn">
+                                            <p class="label"></p>
+                                            <div class="wrap">
+                                                <input class="ssn1" tabindex="0" type="text" placeholder="" numberOnly maxlength="6" />
+                                                <input class="ssn2" tabindex="0" type="password" placeholder="" numberOnly maxlength="7" />
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </section>
+
+                                <!-- 클라우드 인증안내 section -->
+                                <section class="cloud-info">
+                                    <div class="cloud-innner-wrap">
+                                        <div class="cloud-guide-wrap">
+                                            <div class="cloud-guide-item">
+                                                <p>STEP 01</p>
+                                                <strong>인증정보입력</strong>
+                                                <div class="cloud-img-wrap">
+                                                    <img src="assets/img/clould_step_01.svg" alt="" />
+                                                </div>
+                                            </div>
+                                            <img class="cloud-guide-arrow" src="assets/img/ico_arrow.svg" alt="" />
+                                            <div class="cloud-guide-item">
+                                                <p>STEP 02</p>
+                                                <strong>SMS 인증</strong>
+                                                <div class="cloud-img-wrap">
+                                                    <img src="assets/img/clould_step_02.svg" alt="" />
+                                                </div>
+                                            </div>
+                                            <img class="cloud-guide-arrow" src="assets/img/ico_arrow.svg" alt="" />
+                                            <div class="cloud-guide-item">
+                                                <p>STEP 03</p>
+                                                <strong>간편비밀번호 입력</strong>
+                                                <div class="cloud-img-wrap">
+                                                    <img src="assets/img/clould_step_03.svg" alt="" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p style="font-size: 18px">인증 요청 버튼을 눌러 주세요.</p>
+                                    </div>
+                                </section>
+                            </section>
+                            <section class="policys">
+                                <div class="encase">
+                                    <header>
+                                        <div class="policy-title">
+                                            <p class="title"></p>
+                                            <div class="agree-wrap">
+                                                <img role="checkbox" aria-checked="false" aria-labelledby="all-agree" tabindex="0" class="checkbox" src="assets/img/ico_chk_all_nor.svg" title="" alt="" />
+                                                <p class="all-agree" id="all-agree"></p>
+                                            </div>
+                                        </div>
+                                    </header>
+                                    <ul class="body">
+                                        <li id="policy1" class="policy" data-required="false">
+                                            <div class="agree-wrap">
+                                                <img role="checkbox" aria-checked="false" aria-labelledby="agree_check_01" tabindex="0" class="checkbox" src="assets/img/ico_chk_nor.svg" title="" alt="" />
+                                                <p class="text" id="agree_check_01"></p>
+                                            </div>
+                                            <div role="button" tabindex="0" class="button-show" title=""></div>
+                                        </li>
+                                        <li id="policy2" class="policy" data-required="false">
+                                            <div class="agree-wrap">
+                                                <img role="checkbox" aria-checked="false" aria-labelledby="agree_check_02" tabindex="0" class="checkbox" src="assets/img/ico_chk_nor.svg" title="" alt="" />
+                                                <p class="text" id="agree_check_02"></p>
+                                            </div>
+                                            <div role="button" tabindex="0" class="button-show" title=""></div>
+                                        </li>
+                                        <li id="policy3" class="policy" data-required="false">
+                                            <div class="agree-wrap">
+                                                <img role="checkbox" aria-checked="false" aria-labelledby="agree_check_03" tabindex="0" class="checkbox" src="assets/img/ico_chk_nor.svg" title="" alt="" />
+                                                <p class="text" id="agree_check_03"></p>
+                                            </div>
+                                            <div role="button" tabindex="0" class="button-show" title=""></div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </section>
+                            <section class="guide">
+                                <footer>
+                                    <a href="pdf/guide.pdf" target="_blank" title="사용방법 매뉴얼 안내 pdf(새창열림)" rel="noopener noreferrer" class="btn_show_manual">
+                                        <img src="assets/img/ico_info.svg" alt=""/>
+                                        <span>사용방법 메뉴얼 안내</span>
+                                    </a>
+                                </footer>
+                            </section>
+                            <section class="buttons">
+                                <div role="button" tabindex="0" title="" class="button close"></div>
+                                <div role="button" tabindex="0" title="" class="button req-auth"></div>
+                                <div role="button" tabindex="0" title="" class="button complete-auth">
+                                    <span class="label"></span>
+                                    <div class="icon_auth_loading">
+                                        <img src="assets/img/ico_loading.svg" alt="" />
+                                    </div>
+                                </div>
+                            </section>
+                            <div class="area_dimmed">
+                                <!-- 가이드 오버레이 추가 -->
+                                <div class="guide-overlay" id="guideOverlay">
+                                    <div class="guide-content">
+                                        <div class="guide-message">
+                                            <h3>
+                                                <img src="assets/img/straight_arrow.png" style="height: 15px;">
+                                                사업자 인증서를 먼저 선택하세요
+                                            </h3>
+                                            <p>왼쪽의 사업자 인증서 아이콘을 클릭하여<br>사업자 인증서를 선택해주세요.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    </section>
+                    <section class="step2">
+                        <article class="main">
+                            <div class="header">
+                                <div class="left">
+                                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" />
+                                    <span class="step2_provider_name"></span>
+                                </div>
+                                <div class="center">
+                                    <span class="step2_name"></span>
+                                </div>
+                                <div class="right">
+                                    <img src="assets/img/logo_gov.svg" alt="" title=""/>
+                                </div>
+                            </div>
+                            <section class="top">
+                                <div class="title">
+                                    <p class="text"></p>
+                                </div>
+                                <div>
+                                    <p class="text-detail"></p>
+                                </div>
+                            </section>
+                            <section class="middle">
+                                <div class="step-info">
+                                    <div></div>
+                                    <div></div>
+                                    <div></div>
+                                </div>
+                                <div class="step-image">
+                                    <div class="step01img">
+                                        <!-- <img class="StepImg" src="assets/img/step_01_bg.png" title="" alt="">						 -->
+                                        <img class="StepImg" src="assets/img/pc_step_01_kakaobank.svg" title="" alt="" />
+                                    </div>
+                                    <img class="arrow" src="assets/img/ico_arrow.svg" title="" alt="" />
+                                    <div class="step02img">
+                                        <img class="StepImg" src="assets/img/pc_step_02.svg" title="" alt="" />
+                                    </div>
+                                    <img class="arrow" src="assets/img/ico_arrow.svg" title="" alt="" />
+                                    <div class="step03img">
+                                        <img class="StepImg" src="assets/img/pc_step_03.svg" title="" alt="" />
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="bottom">
+                                <div class="infomation">
+                                    <div class="info-detail"></div>
+                                </div>
+                            </section>
+                            <section class="buttons">
+                                <div role="button" tabindex="0" title="" class="button close"></div>
+                                <div role="button" tabindex="0" title="" class="button complete-auth">
+                                    <span class="label"></span>
+                                    <div class="icon_auth_loading">
+                                        <img src="assets/img/ico_loading.svg" alt="" />
+                                    </div>
+                                </div>
+                            </section>
+                        </article>
+                    </section>
+                    <section class="step3">
+                        <!-- reserved -->
+                    </section>
+                    <section class="step4">
+                        <!-- reserved -->
+                    </section>
+                </div>
+            </div>
+        </div>
+        <div id="iframeContainer" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 99999; background-color: rgba(0, 0, 0, 0.5); display: none; justify-content: center; align-items: center"></div>
+    </body>
+</html>

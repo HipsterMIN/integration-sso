@@ -1,0 +1,9 @@
+// =============================================
+// Pages aggregator
+// 각 partial은 pages/ 하위에 위치.
+// _mypage 마지막의 Page-specific Hover 블록은 다른 페이지 룰 뒤에 와야 하므로 mypage를 끝에 둠.
+// =============================================
+@import 'pages/main';
+@import 'pages/sub';
+@import 'pages/content';
+@import 'pages/mypage';

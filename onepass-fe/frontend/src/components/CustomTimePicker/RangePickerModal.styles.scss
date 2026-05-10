@@ -1,0 +1,278 @@
+// 수정주의
+// .custom-date-picker {
+// 	display: flex;
+// 	flex-direction: column;
+// }
+
+//date-picker-popup(신규 추가)
+.ant-picker-dropdown {
+	padding: 16px 0;
+	background-color: #222326;	
+	border-radius: 8px;
+	box-shadow: 0 3px 8px 0 rgba(0,0,0,0.25);
+	.ant-picker-panel-container{
+		.ant-picker-panel-layout {
+			.ant-picker-panel {
+				border-top: 1px solid #2B2D32;
+			}
+			.ant-picker-header {
+				border-bottom-color: #33373F;
+			}
+			.ant-picker-header {
+				height: 52px;
+				padding: 12px 20px;
+				align-items: center;
+				> button {
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+					width: 30px;
+					height: 30px;
+					border-radius: 50%;
+					&:hover{
+						background-color: #33373F;
+					}
+					> span::before, > span::after {
+						content: none;
+					}
+					> span {
+						width: 20px;
+						height: 20px;
+						background-repeat: no-repeat;
+						background-position: center;
+						transform: none;
+					}
+					.ant-picker-super-prev-icon {
+						background-image: url(/Icons/icon_datepicker_first.png);
+					}
+					.ant-picker-prev-icon {
+						background-image: url(/Icons/icon_datepicker_prev.png);
+					}
+					.ant-picker-next-icon {
+						background-image: url(/Icons/icon_datepicker_next.png);
+					}
+					.ant-picker-super-next-icon {
+						background-image: url(/Icons/icon_datepicker_last.png);
+					}
+				}
+				.ant-picker-header-view {
+					line-height: 52px;
+					font-weight: 500;
+					font-size: 13px;
+					> button {
+						line-height: 52px;
+					}
+				}
+			}
+			// select Date
+			.ant-picker-date-panel {
+				width: 327px;				
+				.ant-picker-body {
+					padding: 6px 12px;
+					.ant-picker-content {
+						width: 100%;
+						th {
+							width: 32px;
+							height: 32px;
+							color: #fff;
+						}
+						.ant-picker-cell {
+							padding: 2px 0;
+							.ant-picker-cell-in-view {
+								color: #fff;
+							}
+							.ant-picker-cell-inner {
+								display: inline-flex;
+								align-items: center;
+								width: 32px;
+								height: 32px;
+								justify-content: center;
+								border-radius: 50%;
+							}
+							&.ant-picker-cell-range-start,
+							&.ant-picker-cell-range-end {
+								&:before {
+									background-color: rgba(78,116,248,0.1);
+								}
+								.ant-picker-cell-inner {
+									background-color: /*원래색상 : #4e74f8*/#2bd8ff;
+								}
+							} 
+							&.ant-picker-cell-in-range:before{
+								background-color: rgba(78,116,248,0.1);
+							}
+							&.ant-picker-cell-disabled:before{
+								height: 32px;
+								// background-color: #2B2D32;
+							}
+							&.ant-picker-cell-range-hover-start,
+							&.ant-picker-cell-range-hover-end {
+								.ant-picker-cell-inner:after{
+									background-color: rgba(78,116,248,0.1);
+									inset-inline-start: 0 !important;
+									inset-inline-end: 0 !important;
+								}
+							}
+							&.ant-picker-cell-today {
+								.ant-picker-cell-inner {
+									border: 1px solid /*원래색상 : #4e74f8*/#2bd8ff;
+									border-radius: 50%;
+									&::before{
+										content: none
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			// select Time
+			.ant-picker-time-panel {
+				width: 225px;
+				border-left-color: #33373F;
+				.ant-picker-header {
+					.ant-picker-header-view {
+						font-weight: 700;
+					}
+				}
+				.ant-picker-content {
+					// padding: 18px 20px 18px;
+					position: relative;
+					padding-top: 8px;
+					&::after,
+					&::before{
+						content:'';
+						position: absolute;
+						top: 0;
+						left: 75px;
+						display: block;
+						width: 1px;
+						height: 8px;
+						background-color: #33373F;
+					}
+					&:after{
+						left: auto;
+						right: 73px;
+					}
+					.ant-picker-time-panel-column {
+						::-webkit-scrollbar {
+							display: none;
+						}
+						scrollbar-width: none;
+						width: 75px;
+						margin: 0;
+						&:not(:first-child) {
+							border-left-color: #33373F;
+						}
+						.ant-picker-time-panel-cell {
+							display: flex;
+							justify-content: center;
+							margin: 4px 0 0;
+							.ant-picker-time-panel-cell-inner {
+								padding: 0;
+								text-align: center;
+								border-radius: 16px;
+								&:hover{
+									background-color: #33373F;
+								}
+							}
+							&.ant-picker-time-panel-cell-selected {
+								.ant-picker-time-panel-cell-inner {
+									background-color: /*원래색상 : #4e74f8*/#2bd8ff;
+								}
+							}
+						}
+					}
+				}
+			}
+			// select Month and Year
+			.ant-picker-month-panel,
+			.ant-picker-year-panel {
+				width: 327px;
+				.ant-picker-body {
+					padding: 14px 0;
+				}
+				.ant-picker-content {
+					height: 232px;
+				}
+				.ant-picker-cell {
+					padding: 14px 12px;					
+					&.ant-picker-cell-disabled {
+						opacity: 0.8;
+						&:before{
+							content: none;
+						}
+					}
+					&:hover {
+						.ant-picker-cell-inner{
+							background-color: #33373F !important;
+						}
+					}
+					&.ant-picker-cell-selected .ant-picker-cell-inner {
+						background-color: /*원래색상 : #4e74f8*/#2bd8ff;
+					}
+				}
+				.ant-picker-cell-inner {
+					border-radius: 30px;
+				}
+			}
+			.ant-picker-footer {
+				line-height: 1;
+				border-bottom: none;
+				.ant-picker-ranges {
+					justify-content: flex-end;
+					margin-top: 10px;
+					padding: 0;
+				}
+				.ant-picker-ok {
+					margin: 0 8px 0 0;
+					line-height: 1;
+					button{
+						width: 80px;
+						height: 32px;
+						background-color: #33373F;
+						color: #CECFD4;
+						&:hover {
+							background-color: #404757;
+							color: #CECFD4;
+						}
+						&:active {
+							background-color: /*원래색상 : #4e74f8*/#2bd8ff;
+							color: #fff;
+						}
+					}
+				} 
+			}
+		}
+	}
+	.ant-picker-footer-extra:not(:last-child) {
+		border-bottom: none;
+	}
+}
+
+.top-nav-picker.ant-picker-dropdown {
+	padding: 0;
+	border-radius: 0;
+	box-shadow: none;
+	.ant-picker-range-wrapper {
+		margin-top: 6px;
+	}
+	.ant-picker-panel-container{
+		.ant-picker-panel-layout {
+			.ant-picker-date-panel {
+				width: 370px;
+			}
+			// select Month
+			.ant-picker-month-panel,
+			.ant-picker-year-panel {
+				width: 594px;
+				.ant-picker-cell-inner {
+					width: 164px;
+					height: 28px;
+					line-height: 28px;
+					border-radius: 100px;
+				}
+			}
+		}
+	}
+}

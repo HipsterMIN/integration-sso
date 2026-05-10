@@ -1,161 +1,232 @@
-// ══════════════════════════════════════════════════════════════════════════════
-// Webpack 5 Config — Onepass FE (Pure React SPA)
-//
-// BFF 책임은 ido(port 8083)로 이관됨. onepass-fe 는 순수 React 모듈.
-//
-// 프로덕션 빌드: yarn build:prod
-//   - output: dist/  → Nginx 혹은 ido 정적 리소스로 서빙
-//   - publicPath: /
-//
-// 개발 서버: yarn dev
-//   - port: 3000
-//   - proxy: /api/** → http://localhost:8083 (ido Spring Boot)
-//   - HMR enabled
-// ══════════════════════════════════════════════════════════════════════════════
-'use strict';
-
-const path = require('path');
+/* eslint-disable @typescript-eslint/no-var-requires */
+// shared config (dev and prod)
+const { resolve } = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const { sentryWebpackPlugin } = require('@sentry/webpack-plugin');
+const portFinderSync = require('portfinder-sync');
+const dotenv = require('dotenv');
+const webpack = require('webpack');
+const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 
-module.exports = (env = {}) => {
-  const isProduction = env.mode === 'production';
+const appEnv = process.env.APP_ENV || 'local';
+const envFile = appEnv === 'local' ? '.env' : `.env.${appEnv}`;
+dotenv.config({ path: resolve(__dirname, envFile) });
 
-  return {
-    mode: isProduction ? 'production' : 'development',
-    devtool: isProduction ? 'source-map' : 'eval-cheap-module-source-map',
+console.log(resolve(__dirname, './src/'));
 
-    entry: path.resolve(__dirname, 'src/index.tsx'),
+const cssLoader = 'css-loader';
+const sassLoader = 'sass-loader';
+const styleLoader = 'style-loader';
 
-    output: {
-      path: path.resolve(__dirname, 'dist'),
-      filename: isProduction ? 'static/js/[name].[contenthash:8].js' : 'static/js/[name].js',
-      chunkFilename: isProduction ? 'static/js/[name].[contenthash:8].chunk.js' : 'static/js/[name].chunk.js',
-      assetModuleFilename: 'static/media/[name].[hash][ext]',
-      publicPath: '/',
-      clean: true,
-    },
+const plugins = [
+	new HtmlWebpackPlugin({
+		template: 'src/index.html.ejs',
+		INTERCOM_APP_ID: process.env.INTERCOM_APP_ID,
+		SEGMENT_ID: process.env.SEGMENT_ID,
+		POSTHOG_KEY: process.env.POSTHOG_KEY,
+		SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN,
+		SENTRY_ORG: process.env.SENTRY_ORG,
+		SENTRY_PROJECT_ID: process.env.SENTRY_PROJECT_ID,
+		SENTRY_DSN: process.env.SENTRY_DSN,
+		TUNNEL_URL: process.env.TUNNEL_URL,
+		TUNNEL_DOMAIN: process.env.TUNNEL_DOMAIN,
+	}),
+	new webpack.ProvidePlugin({
+		process: 'process/browser',
+	}),
+	new webpack.DefinePlugin({
+		'process.env': JSON.stringify({
+			NODE_ENV: process.env.NODE_ENV,
+			FRONTEND_API_ENDPOINT: process.env.FRONTEND_API_ENDPOINT,
+			WEBSOCKET_API_ENDPOINT: process.env.WEBSOCKET_API_ENDPOINT,
+			INTERCOM_APP_ID: process.env.INTERCOM_APP_ID,
+			SEGMENT_ID: process.env.SEGMENT_ID,
+			POSTHOG_KEY: process.env.POSTHOG_KEY,
+			SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN,
+			SENTRY_ORG: process.env.SENTRY_ORG,
+			SENTRY_PROJECT_ID: process.env.SENTRY_PROJECT_ID,
+			SENTRY_DSN: process.env.SENTRY_DSN,
+			TUNNEL_URL: process.env.TUNNEL_URL,
+			TUNNEL_DOMAIN: process.env.TUNNEL_DOMAIN,
+			SKIP_AUTH: process.env.SKIP_AUTH,
+			FARO_COLLECTOR_URL: process.env.FARO_COLLECTOR_URL,
+			FARO_TENANT_ID: process.env.FARO_TENANT_ID,
+			QSIGN_BASE_URL: process.env.QSIGN_BASE_URL,
+			QSIGN_REALM: process.env.QSIGN_REALM,
+			QSIGN_CLIENT_ID: process.env.QSIGN_CLIENT_ID,
+			EXT_API_KEY: process.env.EXT_API_KEY,
+			EXT_API_ENDPOINT: process.env.EXT_API_ENDPOINT,
+			BE_API_KEY: process.env.BE_API_KEY,
+			BE_API_ENDPOINT: process.env.BE_API_ENDPOINT,
+			EASYSIGN_URL: process.env.EASYSIGN_URL,
+			EASYSIGN_ORIGIN: process.env.EASYSIGN_ORIGIN,
+			AES_GCM_KEY: process.env.AES_GCM_KEY,
+		}),
+	}),
+	sentryWebpackPlugin({
+		authToken: process.env.SENTRY_AUTH_TOKEN,
+		org: process.env.SENTRY_ORG,
+		project: process.env.SENTRY_PROJECT_ID,
+	}),
+];
 
-    resolve: {
-      extensions: ['.tsx', '.ts', '.jsx', '.js'],
-      alias: {
-        '@': path.resolve(__dirname, 'src'),
-        '@api': path.resolve(__dirname, 'src/api'),
-        '@components': path.resolve(__dirname, 'src/components'),
-        '@pages': path.resolve(__dirname, 'src/pages'),
-        '@hooks': path.resolve(__dirname, 'src/hooks'),
-        '@store': path.resolve(__dirname, 'src/store'),
-        '@types': path.resolve(__dirname, 'src/types'),
-        '@utils': path.resolve(__dirname, 'src/utils'),
-        '@styles': path.resolve(__dirname, 'src/styles'),
-        '@constants': path.resolve(__dirname, 'src/constants'),
-      },
-    },
+if (process.env.BUNDLE_ANALYSER === 'true') {
+	plugins.push(new BundleAnalyzerPlugin({ analyzerMode: 'server' }));
+}
 
-    module: {
-      rules: [
-        // TypeScript / JavaScript
-        {
-          test: /\.(ts|tsx|js|jsx)$/,
-          exclude: /node_modules/,
-          use: {
-            loader: 'babel-loader',
-            options: {
-              presets: [
-                ['@babel/preset-env', { targets: 'defaults' }],
-                ['@babel/preset-react', { runtime: 'automatic' }],
-                '@babel/preset-typescript',
-              ],
-              cacheDirectory: true,
-            },
-          },
-        },
-        // SCSS / CSS
-        {
-          test: /\.(scss|css)$/,
-          use: [
-            isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
-            { loader: 'css-loader', options: { sourceMap: !isProduction } },
-            { loader: 'sass-loader', options: { sourceMap: !isProduction } },
-          ],
-        },
-        // Assets
-        {
-          test: /\.(png|svg|jpg|jpeg|gif|ico|woff|woff2|eot|ttf|otf)$/,
-          type: 'asset/resource',
-        },
-      ],
-    },
-
-    plugins: [
-      new HtmlWebpackPlugin({
-        template: path.resolve(__dirname, 'public/index.html'),
-        filename: 'index.html',
-        favicon: path.resolve(__dirname, 'public/favicon.ico'),
-        inject: true,
-        minify: isProduction ? {
-          removeComments: true,
-          collapseWhitespace: true,
-          removeRedundantAttributes: true,
-        } : false,
-      }),
-      ...(isProduction
-        ? [
-            new MiniCssExtractPlugin({
-              filename: 'static/css/[name].[contenthash:8].css',
-              chunkFilename: 'static/css/[name].[contenthash:8].chunk.css',
-            }),
-          ]
-        : []),
-    ],
-
-    // ── Code Splitting ──────────────────────────────────────────────────────
-    optimization: {
-      splitChunks: {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/](react|react-dom|react-router-dom)[\\/]/,
-            name: 'vendors-react',
-            priority: 20,
-          },
-          antd: {
-            test: /[\\/]node_modules[\\/]antd[\\/]/,
-            name: 'vendors-antd',
-            priority: 10,
-          },
-        },
-      },
-    },
-
-    // ── Option B: Dev Server ─────────────────────────────────────────────────
-    devServer: {
-      port: 3000,
-      host: 'localhost',
-      hot: true,
-      historyApiFallback: true,        // SPA 라우팅 지원
-      open: false,
-      compress: true,
-      client: {
-        overlay: { errors: true, warnings: false },
-      },
-      // /api, /actuator 요청을 IdO(ido Spring Boot, port 8083)로 프록시
-      // BFF 책임이 ido 모듈로 이관됨
-      proxy: [
-        {
-          context: ['/api', '/actuator'],
-          target: 'http://localhost:8083',
-          changeOrigin: true,
-          secure: false,
-          logLevel: 'warn',
-        },
-      ],
-    },
-
-    performance: {
-      hints: isProduction ? 'warning' : false,
-      maxAssetSize: 512 * 1024,
-      maxEntrypointSize: 1024 * 1024,
-    },
-  };
+/**
+ * @type {import('webpack').Configuration}
+ */
+const config = {
+	mode: 'development',
+	devtool: 'source-map',
+	entry: resolve(__dirname, './src/index.tsx'),
+	devServer: {
+		historyApiFallback: {
+			index: '/',
+			disableDotRule: true,
+		},
+		open: '/',
+		hot: true,
+		liveReload: true,
+		port: portFinderSync.getPort(3301),
+		static: {
+			directory: resolve(__dirname, 'public'),
+			publicPath: '/',
+			watch: true,
+		},
+		allowedHosts: 'all',
+		// API 엔드포인트가 설정되어 있을 때만 proxy 활성화
+		proxy: {
+			'/api/ext': {
+				target: process.env.EXT_API_ENDPOINT || 'https://onepass-dev.smes.go.kr/im',
+				changeOrigin: true,
+				secure: false,
+				onProxyReq(proxyReq) {
+					proxyReq.setHeader('X-API-Key', process.env.EXT_API_KEY || '');
+					proxyReq.removeHeader('origin');
+					proxyReq.removeHeader('referer');
+				},
+			},
+			'/api': {
+				target: process.env.BE_API_TARGET || 'http://localhost:9292',
+				changeOrigin: true,
+				secure: false,
+				onProxyReq(proxyReq) {
+					proxyReq.setHeader('X-BE-API-Key', process.env.BE_API_KEY || '');
+				},
+			},
+			'/bizezauth-api-dev': {
+				target: 'https://www.smes.go.kr',
+				changeOrigin: true,
+				secure: false,
+				onProxyReq(proxyReq) {
+					proxyReq.removeHeader('origin');
+					proxyReq.removeHeader('referer');
+				},
+			},
+			'/faro': {
+				target: 'https://faro.smes-tipa.go.kr',
+				changeOrigin: true,
+				secure: false,
+				pathRewrite: { '^/faro': '' },
+			},
+		},
+	},
+	target: 'web',
+	output: {
+		path: resolve(__dirname, './build'),
+		publicPath: '/',
+	},
+	resolve: {
+		extensions: ['.ts', '.tsx', '.js', '.jsx'],
+		plugins: [new TsconfigPathsPlugin({})],
+		fallback: { 'process/browser': require.resolve('process/browser') },
+	},
+	module: {
+		rules: [
+			{
+				test: [/\.jsx?$/, /\.tsx?$/],
+				use: ['babel-loader'],
+				exclude: /node_modules/,
+			},
+			// Add a rule for Markdown files using raw-loader
+			{
+				test: /\.md$/,
+				use: 'raw-loader',
+			},
+			{
+				test: /\.css$/,
+				use: [
+					styleLoader,
+					{
+						loader: cssLoader,
+						options: {
+							modules: true,
+						},
+					},
+				],
+			},
+			{
+				test: /\.(jpe?g|png|gif|svg)$/i,
+				use: [
+					'file-loader?hash=sha512&digest=hex&name=img/[chunkhash].[ext]',
+					'image-webpack-loader?bypassOnDebug&optipng.optimizationLevel=7&gifsicle.interlaced=false',
+				],
+			},
+			{
+				test: /\.(ttf|eot|woff|woff2)$/,
+				use: ['file-loader'],
+			},
+			{
+				test: /\.less$/i,
+				use: [
+					{
+						loader: styleLoader,
+					},
+					{
+						loader: cssLoader,
+						options: {
+							modules: true,
+						},
+					},
+					{
+						loader: 'less-loader',
+						options: {
+							lessOptions: {
+								javascriptEnabled: true,
+							},
+						},
+					},
+				],
+			},
+			{
+				test: /\.s[ac]ss$/i,
+				use: [
+					// Creates `style` nodes from JS strings
+					styleLoader,
+					// Translates CSS into CommonJS
+					// cssLoader,
+					{
+						loader: cssLoader,
+						options: {
+							url: false,
+						},
+					},
+					// Compiles Sass to CSS
+					sassLoader,
+				],
+			},
+		],
+	},
+	plugins,
+	performance: {
+		hints: false,
+	},
+	optimization: {
+		minimize: false,
+	},
 };
+
+module.exports = config;

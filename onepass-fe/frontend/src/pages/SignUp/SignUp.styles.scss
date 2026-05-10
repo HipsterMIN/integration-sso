@@ -1,0 +1,27 @@
+.signupFormWrapper {
+	display: flex;
+	justify-content: center;
+	max-width: 432px;
+	flex: 1;
+}
+
+.signupLabel {
+	margin-bottom: 11px;
+	margin-top: 19px;
+	display: inline-block;
+	font-size: 1rem;
+	line-height: 24px;
+}
+
+.signupButtonContainer {
+	margin-top: 1.8125rem;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.signupFormContainer {
+	.ant-form-item {
+		margin-bottom: 0;
+	}
+}

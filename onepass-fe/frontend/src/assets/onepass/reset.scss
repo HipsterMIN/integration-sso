@@ -1,0 +1,316 @@
+// =============================================
+// Global box-sizing — width/height에 padding/border 포함시켜
+// width:100% + padding 조합에서 가로 overflow가 발생하지 않게 차단.
+// =============================================
+*, *::before, *::after {
+	box-sizing: border-box;
+}
+
+// =============================================
+// Meyer Reset (adapted)
+// =============================================
+html, body, div, span, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, address, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strong, sub, sup, var,
+b, u, i,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed,
+figure, figcaption, footer, header,
+nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+}
+
+article, aside, details, figcaption, figure,
+footer, header, menu, nav, section {
+	display: block;
+}
+
+ol, ul {
+	list-style: none;
+}
+
+blockquote, q {
+	quotes: none;
+}
+
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content: '';
+	content: none;
+}
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+	width: 100%;
+	caption { display: none; }
+}
+
+a {
+	text-decoration: none;
+	color: var(--krds-light-color-text-basic);
+	transition: .5s ease;
+}
+
+img {
+	vertical-align: bottom;
+	max-width: 100%;
+}
+
+strong, b {
+	font-weight: 700;
+}
+
+span, strong, a {
+	display: inline-block;
+}
+
+address {
+	font-style: normal;
+}
+
+// =============================================
+// Form Reset
+// =============================================
+input:not([type="checkbox"]):not([type="radio"]),
+textarea, button, select {
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	border: none;
+	outline: none;
+	border-radius: 0;
+}
+
+input {
+	vertical-align: middle;
+	margin: 0;
+	display: inline-block;
+}
+
+input[type="number"] {
+	-moz-appearance: textfield;
+	appearance: textfield;
+
+	&::-webkit-inner-spin-button,
+	&::-webkit-outer-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+}
+
+input[type="checkbox"],
+input[type="radio"],
+label {
+	cursor: pointer;
+}
+
+input::placeholder {
+	color: var(--krds-light-color-text-disabled);
+}
+
+select::-ms-expand {
+	display: none;
+}
+
+button {
+	cursor: pointer;
+	padding: 0;
+	background-color: transparent;
+	font: inherit;
+}
+
+// =============================================
+// iOS
+// =============================================
+html {
+	-webkit-text-size-adjust: none;
+	-moz-text-size-adjust: none;
+	-ms-text-size-adjust: none;
+}
+
+// =============================================
+// Base
+// =============================================
+html {
+	scroll-behavior: smooth;
+	font-size: var(--font-size);
+	line-height: 1.2;
+	font-family: var(--font-family);
+	color: var(--color-body-text);
+	background: #F6F8FF;
+	word-break: keep-all;
+	overflow-x: hidden;   // 자식 요소가 viewport 초과해도 가로 스크롤 안 생기게 안전망
+}
+
+html,
+body,
+#root {
+	height: 100%;
+	overflow-x: hidden;   // 가로 스크롤 다층 차단 (lib·자식 요소 무관하게 viewport 캡)
+}
+
+body,
+select,
+input,
+textarea,
+button {
+	font-family: var(--font-family);
+	font-size: var(--krds-pc-font-size-body-medium);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: auto;
+}
+
+// =============================================
+// Layout
+// =============================================
+.inner {
+	padding: 0 var(--inner-padding);
+	max-width: calc(var(--inner) + var(--inner-padding));
+	width: 100%;
+	margin: 0 auto;
+	box-sizing: border-box;
+}
+
+.inner2 {
+	max-width: var(--inner2);
+	width: 100%;
+	margin: 0 auto;
+}
+
+.inner.inner2 {
+	max-width: calc(var(--inner2) + var(--inner-padding));
+}
+
+// =============================================
+// A11y
+// =============================================
+.clearfix::after {
+	content: "";
+	clear: both;
+	display: table;
+}
+
+.hidden, .sr-only {
+	overflow: hidden;
+	display: inline-block;
+	position: absolute;
+	z-index: -1;
+	border: 0;
+	width: 1px;
+	height: 1px;
+	clip: rect(1px, 1px, 1px, 1px);
+	clip-path: inset(50%);
+}
+
+#skip > a, a#skip {
+	position: fixed;
+	z-index: 999;
+	display: block;
+	width: 100%;
+	height: 40px;
+	background: rgba(0, 0, 0, .8);
+	color: var(--krds-light-color-text-inverse-static);
+	line-height: 40px;
+	text-align: center;
+	left: 0;
+	top: -40px;
+	cursor: pointer;
+
+	&:focus, &:active {
+		top: 0;
+	}
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-primary);
+	outline-offset: 2px;
+}
+
+// 최소 터치 영역은 컴포넌트 레벨에서 관리
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+// =============================================
+// Scrollbar
+// =============================================
+::-webkit-scrollbar {
+	width: 5px;
+	height: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--color-border);
+	border-radius: 5px;
+}
+
+// =============================================
+// Animations
+// =============================================
+@keyframes fade_in { 0% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes fade_out { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes fade_up { 0% { opacity: 0; transform: translateY(18px); } 100% { opacity: 1; transform: none; } }
+@keyframes fade_up_100 { 0% { opacity: 0; transform: translateY(100%); } 100% { opacity: 1; transform: none; } }
+@keyframes fade_down { 0% { opacity: 0; transform: translateY(-18px); } 100% { opacity: 1; transform: none; } }
+@keyframes fade_left { 0% { opacity: 0; transform: translateX(-18px); } 100% { opacity: 1; transform: none; } }
+@keyframes fade_right { 0% { opacity: 0; transform: translateX(18px); } 100% { opacity: 1; transform: none; } }
+@keyframes zoom_in { 0% { transform: scale(.8); opacity: 0; } }
+@keyframes zoom_out { 0% { transform: scale(1.1); } }
+@keyframes bg_blur_zoom_out { 0% { filter: blur(10px); transform: scale(1.1); } }
+@keyframes filp_up { 0% { transform: perspective(2500px) rotateX(-90deg); } }
+@keyframes width_move { 0% { width: 0; } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.animate-spin {
+	animation: spin 1s linear infinite;
+}
+
+// =============================================
+// Responsive Layout Tokens
+// (모든 .inner / popup 등 토큰 사용처에 자동 반영)
+// =============================================
+@include mobile-down {
+	:root {
+		--inner-padding: 16px;
+		--popup-width: calc(100% - 32px);
+		--popup-padding: 24px;
+	}
+}
+
+@include small-mobile-down {
+	:root {
+		--inner-padding: 12px;
+		--popup-width: calc(100% - 24px);
+		--popup-padding: 16px;
+	}
+}
+
+// =============================================
+// [TEST] 폰트 점진 축소 (PUB260506 패턴)
+// ---------------------------------------------
+// 1200/1024/768/480 구간에서 html base font-size를 단계적으로 줄여
+// rem 기반 컴포넌트가 자연 비례 축소되는 효과를 만든다.
+// 컨벤션상 raw @media는 지양하지만, 퍼블 호환을 위해 시험 적용.
+// 채택 결정 시 본 블록 유지, 롤백 시 블록 통째로 제거.
+// =============================================
+@media screen and (max-width: 1200px) { :root { --font-size: 9.8px; } }
+@media screen and (max-width: 1024px) { :root { --font-size: 9.5px; } }
+@media screen and (max-width: 768px)  { :root { --font-size: 9.2px; } }
+@media screen and (max-width: 480px)  { :root { --font-size: 9px; } }

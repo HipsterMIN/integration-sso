@@ -1,0 +1,22 @@
+{
+	"hostMap": "호스트맵",
+	"host": "호스트",
+	"kubernetes": "쿠버네티스",
+	"process": "프로세스",
+	"network-devices": "네트워크 디바이스",
+	"DB & Storage": "DB & 스토리지",
+	"devops": "데브옵스",
+	"sw": "소프트웨어",
+	"explorer": "탐색",
+	"traces": "추적",
+	"pipelines": "파이프라인",
+	"views": "조회",
+	"triggered alerts": "실행된 알람",
+	"alert": "알람",
+	"alert rules": "알람",
+	"configuration": "구성",
+	"general": "종합",
+	"org settings": "조직 설정",
+	"channels": "알람 채널",
+	"colletor map": "콜렉터맵"
+}
