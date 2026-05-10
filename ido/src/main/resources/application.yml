@@ -332,7 +332,7 @@ ido:
       - ${CORS_ORIGIN_DEV:http://localhost:3000}    # React dev server (개발)
       - ${CORS_ORIGIN_PROD:http://localhost:3001}   # Nginx React (Option B 프로덕션)
 
-# ── Resilience4j ──────────────────────────────────────────────
+# ── Resilience4j (S9-T2: NICE/OACX/통합인증 CB+Retry 추가) ───────────────
 resilience4j:
   circuitbreaker:
     instances:
@@ -355,6 +355,36 @@ resilience4j:
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 5
         minimum-number-of-calls: 5
+      # ── S9-T2 신규: NICE API 클라이언트 CB ────────────────────────────────
+      # NICE 서버 장애 시 빠른 Open 전환으로 불필요한 블로킹 방지
+      # Half-Open: 3건 탐침 → 실패율 50% 이하이면 Closed 복귀
+      nice-api-client:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 8s          # NICE API 평균 응답 ~1s, SLA 기준 8s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        record-exceptions:
+          - java.lang.IllegalStateException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+      # ── S9-T2 신규: 통합인증 서버 CB ─────────────────────────────────────
+      # 기업 간편인증 콜백 처리 시 통합인증 서버 장애 격리
+      integration-auth-client:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 8s
+        wait-duration-in-open-state: 60s           # 통합인증 서버 장애 복구에 더 긴 대기
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        record-exceptions:
+          - java.lang.IllegalStateException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
   retry:
     instances:
       qim-client:
@@ -370,6 +400,28 @@ resilience4j:
         retry-exceptions:
           - java.io.IOException
           - java.util.concurrent.TimeoutException
+      # ── S9-T2 신규: NICE API Retry ────────────────────────────────────────
+      # 최대 2회 재시도 (총 3회 시도): NICE 서버 간헐적 5xx 대응
+      # Exponential Backoff: 500ms → 1000ms (jitter 포함)
+      nice-api-client:
+        max-attempts: 2
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2.0
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException   # 클라이언트 입력 오류는 재시도 불필요
+      # ── S9-T2 신규: 통합인증 서버 Retry ──────────────────────────────────
+      integration-auth-client:
+        max-attempts: 2
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2.0
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
   timelimiter:
     instances:
       qim-client:
@@ -377,8 +429,15 @@ resilience4j:
       # P2 수정: qsign-client → keycloak-client
       keycloak-client:
         timeout-duration: 5s
+      # ── S9-T2 신규: NICE/통합인증 TimeLimiter ─────────────────────────────
+      # WebClient는 자체 타임아웃이 있으나 Resilience4j TimeLimiter도 추가하여
+      # 반응형 파이프라인 외부에서도 시간 제한 보장
+      nice-api-client:
+        timeout-duration: 12s    # WebClient 타임아웃(10s) + 여유 2s
+      integration-auth-client:
+        timeout-duration: 12s
 
-# ── Actuator ──────────────────────────────────────────────────
+# ── Actuator (S9-T4: OTel 추적 설정 포함) ─────────────────────
 management:
   endpoints:
     web:
@@ -392,6 +451,18 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  # ── Micrometer Tracing (S9-T4) ──────────────────────────────────
+  # Spring Boot Actuator 자동 설정: Micrometer Tracing Bridge → OTel SDK → OTLP Exporter
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}   # 운영: 0.1~0.3 권장 (10%~30% 샘플링)
+    # W3C TraceContext 전파 (traceparent 헤더)
+    propagation:
+      type: W3C
+  otlp:
+    tracing:
+      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+      timeout: 5s
 
 # ── Async Executor 설정 ───────────────────────────────────────────────────
 ido:
@@ -427,6 +498,23 @@ ido:
     default-tps:          ${IDO_RATE_LIMIT_DEFAULT_TPS:200}
     default-daily-limit:  ${IDO_RATE_LIMIT_DEFAULT_DAILY:1000000}
 
+  # ── Auth 엔드포인트 IP 기반 Rate Limiting (S9-T7) ─────────────────────────
+  # /api/v1/auth/** 경로 전용 제한 (NICE/OACX 인증 API 남용 방지)
+  # 기관별 Rate Limit(AgencyRateLimiter)과 독립적으로 동작 (AND 조건)
+  auth:
+    rate-limit:
+      enabled:    ${IDO_RATE_LIMIT_ENABLED:true}
+      # TPS: 초당 최대 요청 수 (IP 단위)
+      # 기본 20 req/s — 정상 사용자는 버튼 1회 클릭 시 1~3 req 발생
+      # NICE 인증 flow: URL 발급(1) + 결과 조회(1) = 2 req
+      tps:        ${IDO_AUTH_RL_TPS:20}
+      # 분당 최대 요청 수 (IP 단위)
+      # 기본 100 req/min — 연속 재시도 허용 범위
+      per-minute: ${IDO_AUTH_RL_PER_MIN:100}
+      # 일별 최대 요청 수 (IP 단위)
+      # 기본 1000 req/day — 하루 인증 시도 횟수 제한
+      daily:      ${IDO_AUTH_RL_DAILY:1000}
+
   # ── AES 키 로테이션 스케줄러 ────────────────────────────────────────────
   crypto:
     rotation-enabled:      ${IDO_CRYPTO_ROTATION_ENABLED:true}
@@ -434,3 +522,42 @@ ido:
     # 실제 운영 키는 Vault/KMS에서 주입 — 아래는 PoC 기본값
     handoff-aes-key:       ${IDO_HANDOFF_AES_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
     handoff-hmac-key:      ${IDO_HANDOFF_HMAC_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+
+  # ── KMS 연동 설정 (S9-T8) ─────────────────────────────────────────────────
+  # NHN Cloud Secure Key Manager(SKM)를 이용한 키 재료 보호
+  # Spring Profile: dev/local/test → NoOpKmsClient (Base64 패스스루)
+  #                 prod           → NhnKmsClient  (NHN SKM REST API)
+  #
+  # API 문서: https://docs.nhncloud.com/ko/Security/Secure Key Manager/ko/api-guide-v1.0/
+  # 엔드포인트: https://api-keymanager.nhncloudservice.com
+  kms:
+    # ── 연결 타임아웃 ────────────────────────────────────────────────────────
+    connection-timeout-ms: 3000
+    request-timeout-ms:    5000
+
+    # ── NHN Cloud Secure Key Manager 설정 ────────────────────────────────────
+    nhn:
+      # SKM API 엔드포인트 (기본: Global)
+      endpoint: ${NHN_SKM_ENDPOINT:https://api-keymanager.nhncloudservice.com}
+
+      # NHN Cloud 프로젝트 Appkey — 운영: K8s Secret NHN_SKM_APPKEY로 주입
+      # NHN Cloud 콘솔 > 프로젝트 > API 보안 설정 > Appkey 확인
+      appkey: ${NHN_SKM_APPKEY:}
+
+      # 운영 모드: secret(권장) | envelope
+      # secret:   SKM에 키 재료를 기밀 데이터로 저장, keyId를 DB에 보관
+      # envelope: SKM 대칭 키로 DEK를 암/복호화, 암호문을 DB에 보관
+      mode: ${NHN_SKM_MODE:secret}
+
+      # SKM 키 저장소의 AES 대칭 키 ID (Handoff AES 키용)
+      # secret 모드: 기밀 데이터 keyId (UUID 형식)
+      # envelope 모드: 대칭 키 keyId (UUID 형식)
+      aes-key-id: ${NHN_SKM_AES_KEY_ID:}
+
+      # SKM 키 저장소의 HMAC 대칭 키 ID (Handoff HMAC 키용)
+      hmac-key-id: ${NHN_SKM_HMAC_KEY_ID:}
+
+      # secret 모드 전용: aes/hmac-key-id와 다른 keyId를 사용하는 경우만 설정
+      # aes-secret-id: ${NHN_SKM_AES_SECRET_ID:}
+      # hmac-secret-id: ${NHN_SKM_HMAC_SECRET_ID:}
+

@@ -1,6 +1,7 @@
 package kr.go.smes.ido.fe.config;
 
 import kr.go.smes.ido.config.HandoffAgencyKeyInterceptor;
+import kr.go.smes.ido.ratelimit.AuthRateLimitInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +32,7 @@ import java.util.List;
 public class IdoWebMvcConfig implements WebMvcConfigurer {
 
     private final HandoffAgencyKeyInterceptor handoffAgencyKeyInterceptor;
+    private final AuthRateLimitInterceptor authRateLimitInterceptor;
 
     @Value("${ido.cors.enabled:true}")
     private boolean corsEnabled;
@@ -60,6 +62,12 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
                         // P1-06: 기관 이벤트 폴링 API — X-Agency-Key 검증 필수
                         "/api/v1/agency/**"
                 );
+
+        // S9-T7: auth 엔드포인트 IP 기반 Rate Limiting
+        // - /api/v1/auth/** 경로 전체 적용
+        // - OPTIONS(CORS preflight)는 인터셉터 내부에서 제외 처리
+        registry.addInterceptor(authRateLimitInterceptor)
+                .addPathPatterns("/api/v1/auth/**");
     }
 
     @Override

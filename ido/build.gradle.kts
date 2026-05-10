@@ -4,6 +4,48 @@ plugins {
     java
 }
 
+// ── 통합 테스트 소스 세트 분리 (S8-T4) ────────────────────────────────────
+// `./gradlew :ido:integrationTest` 로 별도 실행 가능
+// CI에서는 Docker 사용 불가 시 SKIP 처리 (DOCKER_UNAVAILABLE 환경 변수)
+sourceSets {
+    create("integrationTest") {
+        java.srcDir("src/test/java")
+        resources.srcDir("src/test/resources")
+        compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+        runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+    }
+}
+
+val integrationTestImplementation: Configuration by configurations.getting {
+    extendsFrom(configurations.testImplementation.get())
+}
+
+val integrationTestRuntimeOnly: Configuration by configurations.getting {
+    extendsFrom(configurations.testRuntimeOnly.get())
+}
+
+tasks.register<Test>("integrationTest") {
+    description = "Testcontainers 기반 통합 테스트 실행 (DB + Redis + WireMock)"
+    group       = "verification"
+
+    testClassesDirs = sourceSets["integrationTest"].output.classesDirs
+    classpath       = sourceSets["integrationTest"].runtimeClasspath
+
+    useJUnitPlatform {
+        // @Tag("integration") 만 실행
+        includeTags("integration")
+    }
+
+    // Docker 미사용 환경에서는 통합 테스트 스킵
+    val dockerUnavailable = System.getenv("DOCKER_UNAVAILABLE") == "true"
+    if (dockerUnavailable) {
+        enabled = false
+        logger.lifecycle("⚠️  DOCKER_UNAVAILABLE=true — integrationTest 비활성화")
+    }
+
+    systemProperty("spring.profiles.active", "integration-test")
+}
+
 // ── 로컬 libs 디렉토리 (OACX SDK, BouncyCastle 등 Maven Central 미등록 JAR) ──
 configurations {
     compileOnly {
@@ -24,9 +66,19 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.springframework.kafka:spring-kafka")
 
-    // Resilience4j — Circuit Breaker (설계서 11.6.5절)
+    // Resilience4j — Circuit Breaker + Retry (설계서 11.6.5절, S9-T2)
     implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
     implementation("org.springframework.boot:spring-boot-starter-aop")
+
+    // Redisson — 분산 락 (S9-T1: NiceTokenStore ensureAccessToken() 다중 Pod 대응)
+    // redisson-spring-boot-starter: Spring Boot 자동 설정 + RedissonClient 빈 자동 등록
+    implementation("org.redisson:redisson-spring-boot-starter:3.32.0")
+
+    // OpenTelemetry — 분산 추적 (S9-T4: auth 스팬)
+    // Spring Boot Actuator + Micrometer Tracing: W3C TraceContext 전파 + OTLP 내보내기
+    implementation("io.micrometer:micrometer-tracing-bridge-otel")
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+    runtimeOnly("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
 
     // JWT (Handoff Ticket 서명, 설계서 16.4절)
     implementation("io.jsonwebtoken:jjwt-api:0.12.6")
@@ -53,4 +105,13 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("com.h2database:h2")
+
+    // ── Testcontainers (S8-T4: 통합 테스트) ──────────────────────────────
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    // Redis Testcontainer (공식 모듈 없음 → GenericContainer 사용)
+    testImplementation("org.testcontainers:testcontainers")
+    // WireMock: NICE 외부 API Mock 서버
+    testImplementation("org.wiremock:wiremock-standalone:3.10.0")
 }

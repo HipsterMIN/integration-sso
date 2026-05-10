@@ -1,5 +1,7 @@
 package kr.go.smes.ido.auth.client;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import kr.go.smes.ido.auth.config.AuthProperties;
 import kr.go.smes.ido.auth.config.AuthWebClientConfig;
 import kr.go.smes.ido.auth.dto.nice.NiceResultApiResponse;
@@ -92,6 +94,20 @@ public class NiceApiClient {
      * @return NICE Token 발급 응답 DTO
      * @throws IllegalStateException NICE 서버 HTTP 오류
      */
+    /**
+     * Resilience4j CB+Retry Fallback — NICE 토큰 발급 실패 시
+     *
+     * <p>Circuit Breaker OPEN 상태 또는 재시도 소진 시 호출.
+     * null 반환으로 호출 측(NiceAuthService)에서 "응답 없음" 처리.
+     */
+    public NiceTokenApiResponse fetchAccessTokenFallback(String requestNo, Throwable t) {
+        log.error("[NICE][CB-FALLBACK] fetchAccessToken 실패 — requestNo={}, cause={}",
+                requestNo, t.getMessage());
+        return null;
+    }
+
+    @CircuitBreaker(name = "nice-api-client", fallbackMethod = "fetchAccessTokenFallback")
+    @Retry(name = "nice-api-client")
     public NiceTokenApiResponse fetchAccessToken(String requestNo) {
         // clientId와 clientSecret은 민감 정보 — 로그에 노출하지 않음
         String basicAuth = Base64.getEncoder()
@@ -139,6 +155,14 @@ public class NiceApiClient {
      * @return NICE URL 발급 응답 DTO (authUrl, transactionId, requestNo 포함)
      * @throws IllegalStateException NICE 서버 HTTP 오류
      */
+    public NiceUrlApiResponse requestAuthUrlFallback(String accessToken, String requestNo, String returnUrl, Throwable t) {
+        log.error("[NICE][CB-FALLBACK] requestAuthUrl 실패 — requestNo={}, cause={}",
+                requestNo, t.getMessage());
+        return null;
+    }
+
+    @CircuitBreaker(name = "nice-api-client", fallbackMethod = "requestAuthUrlFallback")
+    @Retry(name = "nice-api-client")
     public NiceUrlApiResponse requestAuthUrl(String accessToken, String requestNo, String returnUrl) {
         Map<String, Object> body = Map.of(
                 "request_no", requestNo,
@@ -184,6 +208,18 @@ public class NiceApiClient {
      * @return NICE 결과 응답 DTO (encData, integrityValue 포함 — 복호화 전)
      * @throws IllegalStateException NICE 서버 HTTP 오류
      */
+    public NiceResultApiResponse requestAuthResultFallback(String accessToken,
+                                                             String webTransactionId,
+                                                             String transactionId,
+                                                             String requestNo,
+                                                             Throwable t) {
+        log.error("[NICE][CB-FALLBACK] requestAuthResult 실패 — requestNo={}, cause={}",
+                requestNo, t.getMessage());
+        return null;
+    }
+
+    @CircuitBreaker(name = "nice-api-client", fallbackMethod = "requestAuthResultFallback")
+    @Retry(name = "nice-api-client")
     public NiceResultApiResponse requestAuthResult(String accessToken,
                                                     String webTransactionId,
                                                     String transactionId,

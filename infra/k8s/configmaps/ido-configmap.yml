@@ -1,0 +1,91 @@
+# =============================================================================
+# ido-configmap.yml — IdO 서비스 K8s ConfigMap (S9-T6)
+#
+# 목적:
+#   민감하지 않은 설정값을 K8s ConfigMap으로 관리.
+#   민감 정보(비밀번호, API 키 등)는 절대 ConfigMap에 포함하지 않는다.
+#
+# 사용법:
+#   kubectl apply -f ido-configmap.yml
+#   kubectl rollout restart deployment/ido -n smes
+#
+# 참고:
+#   - 민감 정보는 infra/k8s/secrets/ido-secrets-template.yml 참조
+#   - 설계서 11.6.6절 K8s 설정 관리
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ido-config
+  namespace: smes
+  labels:
+    app: ido
+    component: auth
+data:
+  # ── 서버 기본 설정 ─────────────────────────────────────────────────────────
+  SERVER_PORT: "8083"
+  SPRING_PROFILES_ACTIVE: "prod"
+
+  # ── NICE API 설정 (비민감) ───────────────────────────────────────────────
+  NICE_RETURN_URL: "https://smes.go.kr/auth/nice/callback"
+  NICE_TIMEOUT_SECONDS: "10"
+
+  # ── OACX 설정 ──────────────────────────────────────────────────────────────
+  OACX_DEBUG_MODE: "false"
+  OACX_PROVIDER_KEY_PATH: "/app/config/oacx"
+
+  # ── Q-IM 연동 설정 ────────────────────────────────────────────────────────
+  QIM_BASE_URL: "http://q-im-service:8082"
+  QIM_AES_IV_LENGTH: "12"
+  QIM_AES_TRANSFORMATION: "AES/GCM/NoPadding"
+  QIM_RECEIVER_AUDIT: "true"
+  QIM_SP_MEMBER_TOPIC: "platform.qim.sp-member"
+
+  # ── 통합인증 서버 연동 ────────────────────────────────────────────────────
+  INTEGRATION_AUTH_BASE_URL: "https://auth.smes.go.kr"
+  INTEGRATION_AUTH_TIMEOUT_SECONDS: "10"
+
+  # ── Keycloak 설정 ─────────────────────────────────────────────────────────
+  KEYCLOAK_BASE_URL: "https://keycloak.smes.go.kr"
+  KEYCLOAK_REALM: "smes"
+  KEYCLOAK_REDIRECT_URI: "https://smes.go.kr/auth/callback"
+
+  # ── CORS 설정 ─────────────────────────────────────────────────────────────
+  CORS_ORIGIN_DEV: "http://localhost:3000"
+  CORS_ORIGIN_PROD: "https://smes.go.kr"
+
+  # ── OpenTelemetry 분산 추적 (S9-T4) ──────────────────────────────────────
+  OTLP_ENDPOINT: "http://otel-collector:4318/v1/traces"
+  TRACING_SAMPLING_PROBABILITY: "0.1"    # 운영: 10% 샘플링
+
+  # ── Rate Limiting (S9-T7) ─────────────────────────────────────────────────
+  IDO_RATE_LIMIT_ENABLED: "true"
+  IDO_RATE_LIMIT_DEFAULT_TPS: "20"
+  IDO_RATE_LIMIT_DEFAULT_DAILY: "1000"
+
+  # ── 감사 로그 설정 (S9-T5) ───────────────────────────────────────────────
+  IDO_AUDIT_KAFKA_ENABLED: "true"
+  IDO_AUDIT_EXECUTOR_CORE: "2"
+  IDO_AUDIT_EXECUTOR_MAX: "8"
+  IDO_AUDIT_EXECUTOR_QUEUE: "200"
+
+  # ── Kafka 토픽 설정 ───────────────────────────────────────────────────────
+  IDO_KAFKA_TOPIC_AUTH_EVENTS: "platform.auth.events"
+  IDO_KAFKA_PARTITION_COUNT_MAIN: "6"
+  IDO_KAFKA_PARTITION_COUNT_DLQ: "3"
+  IDO_KAFKA_REPLICATION_FACTOR: "3"
+  IDO_KAFKA_MIN_INSYNC_REPLICAS: "2"
+
+  # ── Webhook 실행기 설정 ───────────────────────────────────────────────────
+  IDO_WEBHOOK_EXECUTOR_CORE: "2"
+  IDO_WEBHOOK_EXECUTOR_MAX: "10"
+  IDO_WEBHOOK_EXECUTOR_QUEUE: "100"
+
+  # ── 암호화 정책 설정 ─────────────────────────────────────────────────────
+  IDO_CRYPTO_ROTATION_ENABLED: "true"
+  IDO_DEFAULT_POLICY_VERSION: "v1"
+  IDO_PROVIDER_CIRCUIT_CACHE_TTL: "300"
+  IDO_BROKER_MODE: "KAFKA"
+
+  # ── 플랫폼 버전 ───────────────────────────────────────────────────────────
+  IDO_PLATFORM_VERSION: "2.2.0"

@@ -199,6 +199,155 @@ jobs:
           sarif_file: build/reports/dependency-check/dependency-check-report.sarif
         continue-on-error: true    # SARIF 없을 때 실패 방지
 
+  # ── Job 5: k6 스모크 테스트 (배포 직후 핵심 엔드포인트 검증) ─────────────────
+  smoke-test:
+    name: k6 Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build-and-test    # 빌드/단위 테스트 통과 후 실행
+    # push 이벤트 (main, develop, genspark_ai_developer) 에서만 실행
+    if: github.event_name == 'push'
+
+    services:
+      # ido 서버가 의존하는 Redis (Rate Limiter, Session)
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      # ido 서버가 의존하는 PostgreSQL
+      postgres:
+        image: postgres:15-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: onepass
+          POSTGRES_USER: onepass
+          POSTGRES_PASSWORD: onepass
+        options: >-
+          --health-cmd "pg_isready -U onepass"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Java ${{ env.JAVA_VERSION }} 설정
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Gradle 캐시
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.kts', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # 빌드 산출물 재사용 (build-and-test에서 업로드)
+      - name: 빌드 산출물 다운로드
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts-${{ github.run_number }}
+          path: ./artifacts
+
+      - name: k6 설치
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update && sudo apt-get install -y k6
+          k6 version
+
+      - name: ido 서버 시작
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/onepass
+          SPRING_DATASOURCE_USERNAME: onepass
+          SPRING_DATASOURCE_PASSWORD: onepass
+          SPRING_DATA_REDIS_HOST: localhost
+          SPRING_DATA_REDIS_PORT: 6379
+          SPRING_PROFILES_ACTIVE: test
+        run: |
+          # 빌드된 JAR로 서버 시작 (백그라운드)
+          IDO_JAR=$(find ./artifacts -name "ido-*.jar" | head -1)
+          if [ -z "$IDO_JAR" ]; then
+            echo "⚠️  ido JAR not found in artifacts, building from source..."
+            ./gradlew :ido:bootJar -x test --no-daemon
+            IDO_JAR=$(find ido/build/libs -name "ido-*.jar" | head -1)
+          fi
+          echo "Starting ido server: $IDO_JAR"
+          java -jar "$IDO_JAR" \
+            --server.port=8083 \
+            --spring.datasource.url=jdbc:postgresql://localhost:5432/onepass \
+            --spring.datasource.username=onepass \
+            --spring.datasource.password=onepass \
+            --spring.data.redis.host=localhost \
+            --spring.data.redis.port=6379 \
+            --spring.profiles.active=test \
+            > /tmp/ido-server.log 2>&1 &
+          echo "IDO_PID=$!" >> $GITHUB_ENV
+
+      - name: ido 서버 헬스체크 대기 (최대 60초)
+        run: |
+          echo "Waiting for ido server to start..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8083/actuator/health > /dev/null 2>&1; then
+              echo "✅ ido server is UP (attempt $i)"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ ido server failed to start"
+              cat /tmp/ido-server.log
+              exit 1
+            fi
+            echo "Attempt $i/30 — waiting 2s..."
+            sleep 2
+          done
+
+      - name: k6 스모크 테스트 실행
+        run: |
+          k6 run k6/scenarios/smoke.js \
+            --env BASE_URL=http://localhost:8083 \
+            --env AGENCY_CODE=AGENCY001 \
+            --env INTERNAL_API_KEY=test-internal-key \
+            --out json=/tmp/smoke-result.json
+        continue-on-error: false    # 스모크 테스트 실패 시 워크플로우 중단
+
+      - name: ido 서버 로그 출력 (실패 시)
+        if: failure()
+        run: cat /tmp/ido-server.log || true
+
+      - name: k6 스모크 결과 업로드
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-smoke-result-${{ github.run_number }}
+          path: /tmp/smoke-result.json
+          retention-days: 7
+
+      - name: ido 서버 종료
+        if: always()
+        run: |
+          if [ -n "$IDO_PID" ]; then
+            kill "$IDO_PID" 2>/dev/null || true
+          fi
+
   # ── Job 4: SonarQube 정적 분석 (SONAR_TOKEN 설정 시 활성화) ──────────────────
   code-quality:
     name: SonarQube Analysis
@@ -242,3 +391,92 @@ jobs:
             -Dsonar.coverage.jacoco.xmlReportPaths=**/build/reports/jacoco/**/*.xml \
             -Dsonar.exclusions=**/generated/**,**/*.sql \
             || true
+
+  # ── Job 6: Docker 멀티스테이지 이미지 빌드 검증 (S8-T6) ─────────────────────
+  docker-build:
+    name: Docker Build (Multistage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build-and-test
+    # main / develop 브랜치 push 시에만 실행 (PR에서는 빌드 검증만)
+    if: |
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' ||
+       github.ref == 'refs/heads/genspark_ai_developer')
+
+    strategy:
+      matrix:
+        module:
+          - name: ido
+            dockerfile: ido/Dockerfile
+            port: 8083
+          - name: q-im
+            dockerfile: q-im/Dockerfile
+            port: 8082
+          - name: q-sign
+            dockerfile: q-sign/Dockerfile
+            port: 8081
+      fail-fast: false    # 하나 실패해도 나머지 빌드 계속
+
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Docker BuildKit 활성화
+        run: echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+
+      - name: Docker Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      # GitHub Actions 캐시를 Docker 레이어 캐시로 활용
+      - name: Docker 레이어 캐시
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache-${{ matrix.module.name }}
+          key: ${{ runner.os }}-buildx-${{ matrix.module.name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ matrix.module.name }}-
+
+      - name: Docker 이미지 빌드 (${{ matrix.module.name }})
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.module.dockerfile }}
+          push: false    # 레지스트리 미등록 — 빌드 검증만
+          tags: |
+            onepass/${{ matrix.module.name }}:${{ github.sha }}
+            onepass/${{ matrix.module.name }}:latest
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=local,src=/tmp/.buildx-cache-${{ matrix.module.name }}
+          cache-to: type=local,dest=/tmp/.buildx-cache-${{ matrix.module.name }}-new,mode=max
+          # 빌드 출력 (레지스트리 미사용 시 local export)
+          outputs: type=docker
+
+      # 캐시 교체 (새 캐시로 덮어쓰기)
+      - name: Docker 캐시 교체
+        if: always()
+        run: |
+          rm -rf /tmp/.buildx-cache-${{ matrix.module.name }}
+          mv /tmp/.buildx-cache-${{ matrix.module.name }}-new \
+             /tmp/.buildx-cache-${{ matrix.module.name }} 2>/dev/null || true
+
+      - name: 이미지 레이어 정보 출력
+        run: |
+          echo "=== ${{ matrix.module.name }} 이미지 레이어 정보 ==="
+          docker image inspect onepass/${{ matrix.module.name }}:latest \
+            --format '{{json .RootFS.Layers}}' | python3 -m json.tool || true
+          docker image ls onepass/${{ matrix.module.name }}
+
+      - name: Trivy 보안 스캔 (취약점 검사)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: onepass/${{ matrix.module.name }}:latest
+          format: table
+          exit-code: '0'         # CRITICAL 취약점도 빌드 중단 안함 (리포트만)
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+        continue-on-error: true  # Trivy 오류 시 전체 Job 실패 방지
