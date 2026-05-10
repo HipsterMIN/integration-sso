@@ -2,6 +2,8 @@ package kr.go.smes.ido.auth.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import kr.go.smes.ido.auth.config.AuthWebClientConfig;
 import kr.go.smes.ido.auth.dto.AuthCallbackRequest;
 import kr.go.smes.ido.auth.dto.AuthCheckResponse;
@@ -28,6 +30,10 @@ import reactor.core.publisher.Mono;
  *
  * <p><b>설정:</b> {@code ido.auth.integration.base-url}, {@code ido.auth.integration.timeout-seconds}
  *
+ * <p><b>Resilience4j (S9-T2):</b>
+ * {@code integration-auth-client} CB+Retry — 통합인증 서버 장애 격리.
+ * CB OPEN 시 fallback null 반환 → AuthService에서 5001 처리.
+ *
  * @see kr.go.smes.ido.auth.service.AuthService
  */
 @Slf4j
@@ -45,6 +51,18 @@ public class IntegrationAuthClient {
             ObjectMapper objectMapper) {
         this.client = client;
         this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Resilience4j CB+Retry Fallback — 통합인증 서버 장애 시
+     *
+     * <p>Circuit Breaker OPEN 상태 또는 재시도 소진 시 호출.
+     * null 반환으로 호출 측(AuthService)에서 5001 처리.
+     */
+    public AuthCheckResponse sendAuthCheckFallback(AuthCallbackRequest request, Throwable t) {
+        log.error("[IntegrationAuth][CB-FALLBACK] sendAuthCheck 실패 — txId={}, cause={}",
+                request.getTxId(), t.getMessage());
+        return null;
     }
 
     /**
@@ -67,6 +85,8 @@ public class IntegrationAuthClient {
      * @return 통합인증 서버 응답 (resultCode, resultData 포함)
      * @throws IllegalStateException 통합인증 서버 HTTP 오류 또는 JSON 파싱 실패
      */
+    @CircuitBreaker(name = "integration-auth-client", fallbackMethod = "sendAuthCheckFallback")
+    @Retry(name = "integration-auth-client")
     public AuthCheckResponse sendAuthCheck(AuthCallbackRequest request) {
         log.info("[IntegrationAuth] auth-check 요청: txId={}, tokenId={}",
                 request.getTxId(), request.getTokenId());
@@ -99,3 +119,4 @@ public class IntegrationAuthClient {
                 .block();
     }
 }
+

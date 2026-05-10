@@ -1,39 +1,106 @@
-# ============================================================
-# Q-IM — Dockerfile
-# 멀티스테이지 빌드: Gradle 빌드 → JRE 런타임 이미지
-# ============================================================
+# ════════════════════════════════════════════════════════════════════════════
+# Q-IM — Dockerfile (최적화 v2.0)
+# S8-T6: Docker 멀티스테이지 빌드 최적화
+#
+# 주요 개선사항:
+#   1. Gradle 빌드 캐시 마운트 (BuildKit --mount=type=cache)
+#   2. Spring Boot Layered JAR → 레이어별 COPY
+#   3. OCI 이미지 레이블 표준
+#   4. HEALTHCHECK 내장
+#   5. 빌드 ARG (APP_VERSION, GIT_SHA) 주입 지원
+#
+# 빌드:
+#   DOCKER_BUILDKIT=1 docker build -t q-im:latest -f q-im/Dockerfile .
+# ════════════════════════════════════════════════════════════════════════════
 
-# ── Stage 1: Build ───────────────────────────────────────────
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# ── 빌드 인수 ────────────────────────────────────────────────────────────────
+ARG JAVA_VERSION=21
+ARG APP_VERSION=latest
+ARG GIT_SHA=unknown
+ARG BUILD_DATE=unknown
+
+# ── Stage 1: Dependency Layer ────────────────────────────────────────────────
+FROM eclipse-temurin:${JAVA_VERSION}-jdk-alpine AS deps
 WORKDIR /workspace
+
+ENV GRADLE_USER_HOME=/root/.gradle
+ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true"
 
 COPY gradlew .
 COPY gradle/ gradle/
 COPY settings.gradle.kts .
 COPY build.gradle.kts .
-
 COPY platform-common/build.gradle.kts platform-common/
 COPY q-im/build.gradle.kts q-im/
+
+RUN --mount=type=cache,target=/root/.gradle \
+    chmod +x gradlew && \
+    ./gradlew :q-im:dependencies --no-daemon --quiet || true
+
+# ── Stage 2: Build ────────────────────────────────────────────────────────────
+FROM deps AS builder
 
 COPY platform-common/src/ platform-common/src/
 COPY q-im/src/ q-im/src/
 
-RUN chmod +x gradlew && \
-    ./gradlew :q-im:bootJar -x test --no-daemon --parallel
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew :q-im:bootJar \
+        -x test \
+        --no-daemon \
+        --parallel \
+        --build-cache && \
+    mkdir -p /workspace/layers && \
+    java -Djarmode=layertools \
+         -jar /workspace/q-im/build/libs/q-im-*.jar \
+         extract --destination /workspace/layers
 
-# ── Stage 2: Runtime ─────────────────────────────────────────
-FROM eclipse-temurin:21-jre-alpine AS runtime
+# ── Stage 3: Runtime ─────────────────────────────────────────────────────────
+FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine AS runtime
+
+ARG APP_VERSION
+ARG GIT_SHA
+ARG BUILD_DATE
+LABEL org.opencontainers.image.title="OnePass Platform — Q-IM Service" \
+      org.opencontainers.image.description="Q-IM (Identity Management) — 회원 정보 관리 및 CI 저장 서비스" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.source="https://github.com/HipsterMIN/integration-sso" \
+      org.opencontainers.image.vendor="SMES" \
+      org.opencontainers.image.licenses="Proprietary"
+
 WORKDIR /app
 
-RUN addgroup -S qim && adduser -S qim -G qim
-USER qim
+RUN addgroup -S qim && \
+    adduser -S qim -G qim -h /app -s /sbin/nologin && \
+    apk add --no-cache curl
 
-COPY --from=builder /workspace/q-im/build/libs/q-im-*.jar app.jar
+# Spring Boot Layered JAR 레이어 순서 복사
+COPY --from=builder --chown=qim:qim /workspace/layers/dependencies/          ./
+COPY --from=builder --chown=qim:qim /workspace/layers/spring-boot-loader/    ./
+COPY --from=builder --chown=qim:qim /workspace/layers/snapshot-dependencies/ ./
+COPY --from=builder --chown=qim:qim /workspace/layers/application/           ./
+
+USER qim
 
 EXPOSE 8082
 
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 \
-               -Djava.security.egd=file:/dev/./urandom \
-               -Dfile.encoding=UTF-8 -Duser.timezone=UTC"
+ENV JAVA_OPTS="\
+    -XX:+UseG1GC \
+    -XX:MaxGCPauseMillis=200 \
+    -XX:MaxRAMPercentage=75.0 \
+    -XX:InitialRAMPercentage=50.0 \
+    -XX:+ExitOnOutOfMemoryError \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Dfile.encoding=UTF-8 \
+    -Duser.timezone=Asia/Seoul \
+    -Dspring.backgroundpreinitializer.ignore=true"
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS org.springframework.boot.loader.launch.JarLauncher"]
+
+HEALTHCHECK --interval=10s \
+            --timeout=5s \
+            --start-period=30s \
+            --retries=3 \
+    CMD curl -sf http://localhost:8082/actuator/health | \
+        grep -q '"status":"UP"' || exit 1

@@ -1,6 +1,8 @@
 package kr.go.smes.ido.auth.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -42,6 +44,8 @@ public class NicePhoneAuthResultRequest {
      * <p>NICE 인증 팝업이 postMessage로 전달하는 {@code web_transaction_id} 값.
      * NICE 결과 API 호출 시 필수.
      */
+    @NotBlank(message = "web_transaction_id는 필수입니다")
+    @Size(max = 100, message = "web_transaction_id는 100자를 초과할 수 없습니다")
     @JsonProperty("web_transaction_id")
     private String webTransactionId;
 
@@ -51,6 +55,8 @@ public class NicePhoneAuthResultRequest {
      * <p>{@code GET /api/v1/auth/nice/phone/url} 응답의 {@code requestNo} 값.
      * Redis 세션 조회 키로 사용됨. 필수.
      */
+    @NotBlank(message = "request_no는 필수입니다")
+    @Size(max = 80, message = "request_no는 80자를 초과할 수 없습니다")
     @JsonProperty("request_no")
     private String requestNo;
 }

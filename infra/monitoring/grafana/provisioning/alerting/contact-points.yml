@@ -1,0 +1,169 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Grafana Unified Alerting — Contact Points & Notification Policies
+# S8-T7: 알림 채널 설정 (Slack + 이메일)
+#
+# 파일 위치: infra/monitoring/grafana/provisioning/alerting/contact-points.yml
+#
+# Grafana 10.x Provisioning API 참조:
+#   https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/file-provisioning/
+#
+# 환경 변수 (docker-compose.monitoring.yml에서 주입):
+#   SLACK_WEBHOOK_URL         — Slack Incoming Webhook URL
+#   SLACK_CRITICAL_CHANNEL    — 긴급 알림 Slack 채널 (예: #onepass-alerts-critical)
+#   SLACK_WARNING_CHANNEL     — 경고 알림 Slack 채널 (예: #onepass-alerts)
+#   ALERT_EMAIL_TO            — 수신 이메일 주소 (콤마 구분)
+#   ALERT_EMAIL_FROM          — 발신 이메일 주소 (예: alert@smes.go.kr)
+#   SMTP_HOST                 — SMTP 서버 (예: smtp.gmail.com:587)
+#   SMTP_USER                 — SMTP 계정
+#   SMTP_PASSWORD             — SMTP 비밀번호
+# ══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: 1
+
+# ── Contact Points (알림 수신 채널) ──────────────────────────────────────────
+contactPoints:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 1. Slack — Critical (긴급 알림: 서비스 다운, 오류율 급증)
+  # ──────────────────────────────────────────────────────────────────────────
+  - orgId: 1
+    name: slack-critical
+    receivers:
+      - uid: slack-critical-receiver
+        type: slack
+        settings:
+          url: ${SLACK_WEBHOOK_URL}
+          recipient: "${SLACK_CRITICAL_CHANNEL:#onepass-alerts-critical}"
+          # 알림 메시지 템플릿
+          title: |
+            :red_circle: [{{ .CommonLabels.severity | toUpper }}] {{ .GroupLabels.alertname }}
+          text: |
+            *서비스*: {{ .CommonLabels.service }}
+            *환경*: {{ .CommonLabels.env | default "production" }}
+            *발생 시각*: {{ .CommonAnnotations.timestamp | default (now | date "2006-01-02 15:04:05 KST") }}
+
+            {{ range .Alerts }}
+            *알림*: {{ .Annotations.summary }}
+            *상세*: {{ .Annotations.description }}
+            *대시보드*: {{ .GeneratorURL }}
+            {{ end }}
+          # 알림 색상 (critical = 빨강)
+          color: "#FF0000"
+          # 알림 아이콘
+          icon_emoji: ":rotating_light:"
+          # 멘션 (PagerDuty 없을 시 팀 전체 핑)
+          mention_channel: "here"
+        disableResolveMessage: false
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 2. Slack — Warning (경고 알림: P95 지연, Rate Limit 급증 등)
+  # ──────────────────────────────────────────────────────────────────────────
+  - orgId: 1
+    name: slack-warning
+    receivers:
+      - uid: slack-warning-receiver
+        type: slack
+        settings:
+          url: ${SLACK_WEBHOOK_URL}
+          recipient: "${SLACK_WARNING_CHANNEL:#onepass-alerts}"
+          title: |
+            :warning: [WARNING] {{ .GroupLabels.alertname }}
+          text: |
+            *서비스*: {{ .CommonLabels.service }}
+            *환경*: {{ .CommonLabels.env | default "production" }}
+
+            {{ range .Alerts }}
+            *알림*: {{ .Annotations.summary }}
+            *상세*: {{ .Annotations.description }}
+            {{ end }}
+          color: "#FF9900"
+          icon_emoji: ":warning:"
+          mention_channel: ""
+        disableResolveMessage: false
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 3. 이메일 — Critical (긴급 알림: 서비스 담당자 이메일)
+  # ──────────────────────────────────────────────────────────────────────────
+  - orgId: 1
+    name: email-critical
+    receivers:
+      - uid: email-critical-receiver
+        type: email
+        settings:
+          addresses: "${ALERT_EMAIL_TO:oncall@smes.go.kr}"
+          subject: |
+            [CRITICAL] OnePass 플랫폼 알림: {{ .GroupLabels.alertname }}
+          # HTML 이메일 본문
+          message: |
+            <h2 style="color:#FF0000">🚨 긴급 알림 — OnePass Platform</h2>
+
+            <table border="1" cellpadding="8" style="border-collapse:collapse">
+              <tr><th>항목</th><th>내용</th></tr>
+              <tr><td>알림명</td><td>{{ .GroupLabels.alertname }}</td></tr>
+              <tr><td>서비스</td><td>{{ .CommonLabels.service }}</td></tr>
+              <tr><td>심각도</td><td style="color:#FF0000">{{ .CommonLabels.severity | toUpper }}</td></tr>
+            </table>
+
+            <h3>상세 내용</h3>
+            <ul>
+            {{ range .Alerts }}
+              <li>
+                <strong>{{ .Annotations.summary }}</strong><br/>
+                {{ .Annotations.description }}<br/>
+                <a href="{{ .GeneratorURL }}">대시보드 링크</a>
+              </li>
+            {{ end }}
+            </ul>
+
+            <hr/>
+            <small>발송: OnePass Monitoring System | Grafana 10.x</small>
+          singleEmail: false
+        disableResolveMessage: false
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 4. 이메일 — Warning (경고 알림: 정기 보고용)
+  # ──────────────────────────────────────────────────────────────────────────
+  - orgId: 1
+    name: email-warning
+    receivers:
+      - uid: email-warning-receiver
+        type: email
+        settings:
+          addresses: "${ALERT_EMAIL_TO:oncall@smes.go.kr}"
+          subject: |
+            [WARNING] OnePass 플랫폼 알림: {{ .GroupLabels.alertname }}
+          message: |
+            <h2 style="color:#FF9900">⚠️ 경고 알림 — OnePass Platform</h2>
+
+            <table border="1" cellpadding="8" style="border-collapse:collapse">
+              <tr><th>항목</th><th>내용</th></tr>
+              <tr><td>알림명</td><td>{{ .GroupLabels.alertname }}</td></tr>
+              <tr><td>서비스</td><td>{{ .CommonLabels.service }}</td></tr>
+              <tr><td>심각도</td><td style="color:#FF9900">WARNING</td></tr>
+            </table>
+
+            <h3>상세 내용</h3>
+            <ul>
+            {{ range .Alerts }}
+              <li>
+                <strong>{{ .Annotations.summary }}</strong><br/>
+                {{ .Annotations.description }}
+              </li>
+            {{ end }}
+            </ul>
+          singleEmail: false
+        disableResolveMessage: false
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 5. Default (Grafana 기본 내장 — 모든 미라우팅 알림 수신)
+  # ──────────────────────────────────────────────────────────────────────────
+  - orgId: 1
+    name: default-receiver
+    receivers:
+      - uid: default-email-receiver
+        type: email
+        settings:
+          addresses: "${ALERT_EMAIL_TO:oncall@smes.go.kr}"
+          subject: "[OnePass Alert] {{ .GroupLabels.alertname }}"
+          singleEmail: true
+        disableResolveMessage: true

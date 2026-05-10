@@ -3,10 +3,10 @@
 **중소벤처기업부 중기원패스(OnePass) 통합인증 SSO 및 아이덴티티 관리 시스템** PoC/프리프로덕션 구현체.  
 **4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) 기반 EDA 아키텍처.
 
-> **현재 버전: v2.1.0** — Sprint 7 S7-T2 완료 (NICE/OACX 본인인증 ido BFF 완전 이식)  
+> **현재 버전: v2.2.0** — Sprint 9 완료 (Redisson 분산 락 · Resilience4j CB · Bean Validation · OTel 추적 · 감사 로그 · K8s Secret · Rate Limiting · NHN KMS)  
 > **빌드 상태**: `./gradlew build -x test` → **BUILD SUCCESSFUL** (전 모듈)  
-> **테스트**: `./gradlew test` → **397개 통과** (기존 365 + S7-T2 신규 32)  
-> **PR**: [#45 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/45) — Sprint 7 S7-T2 NICE/OACX 본인인증
+> **테스트**: `./gradlew test` → **397개 통과** (기존 397, Sprint 9는 인프라/보안 강화 중심)  
+> **PR**: [#50 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/50) — Sprint 9 프로덕션 강화 (S9-T1~T8)
 
 ---
 
@@ -39,6 +39,7 @@
 
 | 버전 | PR | 스프린트 | 주요 내용 |
 |------|----|---------|---------| 
+| **v2.2.0** | [#50](https://github.com/HipsterMIN/integration-sso/pull/50) | Sprint 9 | **프로덕션 강화** — Redisson 분산 락, Resilience4j CB+Retry, Bean Validation, OTel AOP 계측, 감사 로그(platform.audit.log), K8s Secret/ConfigMap, Auth Rate Limit, NHN Cloud SKM 연동 |
 | **v2.1.0** | [#45](https://github.com/HipsterMIN/integration-sso/pull/45) | Sprint 7 S7-T2 | **NICE/OACX 본인인증 ido BFF 완전 이식** — 6개 API, Redis 세션/토큰 캐시, PBKDF2+AES-256-GCM, 32개 테스트 |
 | v2.0.0 | [#39](https://github.com/HipsterMIN/integration-sso/pull/39) | Sprint 5 | **AES 키 로테이션** (KeyVersionRegistry + v{n}.{iv}.{ct} 포맷) + **모니터링 인프라** (Prometheus/Grafana/Loki Docker Compose + 대시보드) |
 | v1.9.9 | [#38](https://github.com/HipsterMIN/integration-sso/pull/38) | Sprint 4-5 | **UuidV7Test 27개** (v7 포맷·단조증가·고유성·스레드안전) + **WebhookDispatcherServiceTest 33개** |
@@ -55,7 +56,7 @@
 
 ## 전체 구현 진행률
 
-> **기준일**: 2026-05-10 | **총 테스트**: 397개 (ido 202 + platform-common 59 + q-sign 23 + q-im 113)
+> **기준일**: 2026-05-10 | **총 테스트**: 397개 (ido 202 + platform-common 59 + q-sign 23 + q-im 113) | v2.2.0 Sprint 9 반영
 
 ### 모듈별 구현 완성도
 
@@ -83,8 +84,9 @@ onepass-fe       ████████████████░░░░  7
 | **Sprint 4** | 테스트 기반 | ✅ **완료** | HandoffServiceImpl 18개, Webhook 33개, UuidV7 27개 |
 | **Sprint 5** | 암호화 + 모니터링 | ✅ **완료** | AES 키 로테이션, Prometheus/Grafana/Loki, 대시보드 |
 | **Sprint 6** | 잔여 테스트 | ✅ **완료** | agency-stub 테스트, 유관기관 패턴 Stub (S6-T1~T2) |
-| **Sprint 7** | 본인인증 BFF | 🔄 **진행 중** | S7-T2 완료 (NICE/OACX 이식), S7-T5/T6 미완 |
-| **Sprint 8** | CI/CD + 부하테스트 | 🔲 **미시작** | GitHub Actions, k6, OWASP |
+| **Sprint 7** | 본인인증 BFF | ✅ **완료** | S7-T2 NICE/OACX 이식, S7-T6 CI→Q-IM 등록 (ImApiOutPort) |
+| **Sprint 8** | CI/CD + 부하테스트 | ✅ **완료** | GitHub Actions, k6 부하테스트, OWASP ZAP, Grafana 알림 |
+| **Sprint 9** | 프로덕션 강화 | ✅ **완료** | Redisson 분산 락, Resilience4j CB+Retry, Bean Validation, OTel AOP 추적, 감사 로그, K8s Secret, Rate Limiting, NHN SKM |
 
 ---
 

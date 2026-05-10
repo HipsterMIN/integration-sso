@@ -1,6 +1,7 @@
 package kr.go.smes.ido.auth.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.go.smes.ido.auth.audit.AuthAuditService;
 import kr.go.smes.ido.auth.client.IntegrationAuthClient;
 import kr.go.smes.ido.auth.client.OacxClient;
 import kr.go.smes.ido.auth.dto.*;
@@ -51,6 +52,7 @@ public class AuthService {
     private final OacxClient oacxClient;
     private final ObjectMapper objectMapper;
     private final ImApiOutPort imApiOutPort;
+    private final AuthAuditService authAuditService;
 
     /**
      * 기업 간편인증 콜백 수신 및 auth-check 처리 (Q2=B)
@@ -84,6 +86,7 @@ public class AuthService {
             log.info("[기업인증] auth-check 응답: resultCode={}", response != null ? response.getResultCode() : "null");
 
             if (response == null) {
+                authAuditService.publishCallbackEvent(request.getTxId(), "5001", "기업인증 서버 응답 없음");
                 return AuthCallbackResponse.builder()
                         .resultCode("5001")
                         .resultMsg("기업인증 서버 응답 없음")
@@ -103,6 +106,13 @@ public class AuthService {
                             .bizOpendt(data.getBizOpendt())
                             .build();
 
+            // 감사 로그: 기업인증 콜백 성공/실패
+            boolean callbackSuccess = "2000".equals(response.getResultCode());
+            authAuditService.publishCallbackEvent(
+                    request.getTxId(),
+                    response.getResultCode(),
+                    callbackSuccess ? null : response.getResultMsg());
+
             return AuthCallbackResponse.builder()
                     .resultCode(response.getResultCode())
                     .resultMsg(response.getResultMsg())
@@ -111,6 +121,7 @@ public class AuthService {
 
         } catch (Exception e) {
             log.error("[기업인증] 콜백 처리 중 오류 발생", e);
+            authAuditService.publishCallbackEvent(request.getTxId(), "5000", e.getMessage());
             return AuthCallbackResponse.builder()
                     .resultCode("5000")
                     .resultMsg("기업인증 처리 오류: " + e.getMessage())
@@ -137,7 +148,10 @@ public class AuthService {
      */
     public OacxAccessInfoResponse getOacxAccessInfo(String fn) {
         log.info("[OACX] getAccessInfo 요청: fn={}", fn);
-        return oacxClient.getAccessInfo(fn);
+        OacxAccessInfoResponse response = oacxClient.getAccessInfo(fn);
+        authAuditService.publishOacxAccessInfoEvent(fn,
+                response != null ? response.getResultCode() : "5000");
+        return response;
     }
 
     /**
@@ -176,6 +190,8 @@ public class AuthService {
         // fn 검증: "authComplete"가 아니면 잘못된 요청
         if (!"authComplete".equals(request.getFn())) {
             log.warn("[OACX] 예상치 못한 fn 값: {}", request.getFn());
+            authAuditService.publishOacxEasysignEvent(null, "4000",
+                    "유효하지 않은 fn: " + request.getFn());
             return OacxEasysignResponse.builder()
                     .resultCode("4000")
                     .resultMsg("유효하지 않은 fn 값: " + request.getFn() + " (예상: authComplete)")
@@ -188,6 +204,8 @@ public class AuthService {
                 : null;
         if (!"200".equals(oacxResultCode)) {
             log.warn("[OACX] 인증 실패 또는 취소: resultCode={}", oacxResultCode);
+            authAuditService.publishOacxEasysignEvent(null, "4001",
+                    "OACX 인증 실패: resultCode=" + oacxResultCode);
             return OacxEasysignResponse.builder()
                     .resultCode("4001")
                     .resultMsg("OACX 인증 실패: resultCode=" + oacxResultCode)
@@ -205,6 +223,8 @@ public class AuthService {
         if (!"success".equals(decrypted.get("status"))) {
             log.error("[OACX] JWT 복호화 실패: status={}, message={}",
                     decrypted.get("status"), decrypted.get("message"));
+            authAuditService.publishOacxEasysignEvent(null, "5002",
+                    "JWT 복호화 실패: " + decrypted.get("message"));
             return OacxEasysignResponse.builder()
                     .resultCode("5002")
                     .resultMsg("OACX 인증 결과 복호화 실패")
@@ -239,6 +259,8 @@ public class AuthService {
             } catch (Exception e) {
                 // Q-IM 등록 실패 시 인증 플로우 중단 (CI 미등록 상태로 진행 불가)
                 log.error("[OACX] Q-IM 등록 실패 — 인증 중단: {}", e.getMessage(), e);
+                authAuditService.publishOacxEasysignEvent(
+                        decrypted.get("provider"), "5010", "Q-IM 등록 실패: " + e.getMessage());
                 return OacxEasysignResponse.builder()
                         .resultCode("5010")
                         .resultMsg("사용자 정보 등록 실패: " + e.getMessage())
@@ -249,6 +271,9 @@ public class AuthService {
         }
 
         log.info("[OACX] 인증 성공: name={}", name);
+
+        // 감사 로그: OACX 간편서명 성공 (provider 정보는 PII 없음)
+        authAuditService.publishOacxEasysignEvent(decrypted.get("provider"), "2000", null);
 
         // CI는 FE 미반환 (Q3=B) — OacxEasysignResponse.ci 필드를 null로 유지
         return OacxEasysignResponse.builder()
@@ -327,6 +352,7 @@ public class AuthService {
                 // 기존 회원: Q-IM에서 조회된 indvlMbrId / cmpMbrId 반환
                 QimMemberInfo info = existing.get();
                 log.info("[NICE CI] 기존 회원 조회 성공: qimUserId={} mbrDvsnCd={}", info.getQimUserId(), mbrDvsnCd);
+                authAuditService.publishCiCheckEvent(mbrDvsnCd, "2000", null);
                 return CiCheckResponse.builder()
                         .resultCode("2000")
                         .resultMsg("기존 회원")
@@ -345,6 +371,7 @@ public class AuthService {
             QimRegisterResponse registerResult = imApiOutPort.register(authResult, correlationId);
             log.info("[NICE CI] Q-IM 신규 등록 완료: qimUserId={}", registerResult.getQimUserId());
 
+            authAuditService.publishCiCheckEvent(mbrDvsnCd, "2000", null);
             return CiCheckResponse.builder()
                     .resultCode("2000")
                     .resultMsg("신규 등록 완료")
@@ -353,6 +380,7 @@ public class AuthService {
 
         } catch (Exception e) {
             log.error("[NICE CI] Q-IM 조회/등록 실패: mbrDvsnCd={} err={}", mbrDvsnCd, e.getMessage(), e);
+            authAuditService.publishCiCheckEvent(mbrDvsnCd, "5010", e.getMessage());
             return CiCheckResponse.builder()
                     .resultCode("5010")
                     .resultMsg("사용자 정보 처리 실패: " + e.getMessage())

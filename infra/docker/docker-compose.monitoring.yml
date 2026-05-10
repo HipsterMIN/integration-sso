@@ -123,6 +123,21 @@ services:
       # ── 알림 (Alerting) ───────────────────────────────────────
       GF_ALERTING_ENABLED:                  "true"
       GF_UNIFIED_ALERTING_ENABLED:          "true"
+      # ── SMTP 설정 (이메일 알림) — S8-T7 ──────────────────────
+      GF_SMTP_ENABLED:                      "${GF_SMTP_ENABLED:-false}"
+      GF_SMTP_HOST:                         "${SMTP_HOST:-smtp.gmail.com:587}"
+      GF_SMTP_USER:                         "${SMTP_USER:-alert@smes.go.kr}"
+      GF_SMTP_PASSWORD:                     "${SMTP_PASSWORD:-}"
+      GF_SMTP_FROM_ADDRESS:                 "${ALERT_EMAIL_FROM:-alert@smes.go.kr}"
+      GF_SMTP_FROM_NAME:                    "OnePass Platform Monitoring"
+      GF_SMTP_STARTTLS_POLICY:              "MandatoryStartTLS"
+      GF_SMTP_SKIP_VERIFY:                  "false"
+      # ── Slack 알림 채널 환경 변수 (contact-points.yml 참조) ────
+      SLACK_WEBHOOK_URL:                    "${SLACK_WEBHOOK_URL:-}"
+      SLACK_CRITICAL_CHANNEL:               "${SLACK_CRITICAL_CHANNEL:-#onepass-alerts-critical}"
+      SLACK_WARNING_CHANNEL:                "${SLACK_WARNING_CHANNEL:-#onepass-alerts}"
+      ALERT_EMAIL_TO:                       "${ALERT_EMAIL_TO:-oncall@smes.go.kr}"
+      ALERT_EMAIL_FROM:                     "${ALERT_EMAIL_FROM:-alert@smes.go.kr}"
       # ── 플러그인 ──────────────────────────────────────────────
       GF_INSTALL_PLUGINS:                   "grafana-piechart-panel"
       # ── 서버 ──────────────────────────────────────────────────
@@ -139,6 +154,8 @@ services:
       - ../monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       # 대시보드 JSON 파일
       - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      # 프로비저닝: 알림 채널 (Contact Points + Notification Policies) — S8-T7
+      - ../monitoring/grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
       # 영구 저장
       - grafana-data:/var/lib/grafana
     networks:

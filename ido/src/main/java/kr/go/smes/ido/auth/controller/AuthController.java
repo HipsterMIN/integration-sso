@@ -5,7 +5,9 @@ import kr.go.smes.ido.auth.service.AuthService;
 import kr.go.smes.ido.auth.service.NiceAuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 /**
  * 본인인증 API 컨트롤러
@@ -49,6 +51,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Validated
 public class AuthController {
 
     private final AuthService authService;
@@ -137,7 +140,7 @@ public class AuthController {
      */
     @PostMapping("/nice/phone/result")
     public NicePhoneAuthResultResponse getNicePhoneAuthResult(
-            @RequestBody NicePhoneAuthResultRequest request) {
+            @Valid @RequestBody NicePhoneAuthResultRequest request) {
         return niceAuthService.getNicePhoneAuthResult(request);
     }
 
@@ -183,7 +186,7 @@ public class AuthController {
      * @return CI 확인 결과 (resultCode, result, indvlMbrId/cmpMbrId)
      */
     @PostMapping("/nice/ci-check")
-    public CiCheckResponse niceCiCheck(@RequestBody CiCheckRequest request) {
+    public CiCheckResponse niceCiCheck(@Valid @RequestBody CiCheckRequest request) {
         return authService.checkNiceCi(request);
     }
 
@@ -285,7 +288,7 @@ public class AuthController {
      * @return OACX 인증 결과 응답 (name, birthday, phone — CI 제외)
      */
     @PostMapping("/oacx/easysign")
-    public OacxEasysignResponse oacxEasysignCallback(@RequestBody OacxEasysignRequest request) {
+    public OacxEasysignResponse oacxEasysignCallback(@Valid @RequestBody OacxEasysignRequest request) {
         return authService.handleOacxEasysign(request);
     }
 

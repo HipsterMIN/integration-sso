@@ -1,0 +1,61 @@
+# 통합 테스트 전용 application.yml (profile: integration-test)
+# IntegrationTestBase의 @DynamicPropertySource로 DB/Redis/WireMock URL이 주입됨
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate       # Flyway 마이그레이션이 스키마를 관리
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: ido
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: ido
+    default-schema: ido
+    baseline-on-migrate: true
+
+ido:
+  qim:
+    base-url: http://localhost:8082
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
+  audit:
+    kafka-publish-enabled: false
+    retry-interval-ms: 600000
+  cors:
+    enabled: false
+    allowed-origins: http://localhost:3000
+  rate-limit:
+    enabled: true
+    default-tps: 200
+    default-daily-limit: 1000000
+  policy:
+    default-version: "1.0"
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+  retry:
+    configs:
+      default:
+        max-attempts: 2
+        wait-duration: 100ms
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 5s
+
+logging:
+  level:
+    root: WARN
+    kr.go.smes: DEBUG
+    org.testcontainers: INFO
+    com.github.tomakehurst.wiremock: INFO

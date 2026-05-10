@@ -1,5 +1,6 @@
 package kr.go.smes.ido.crypto;
 
+import kr.go.smes.ido.crypto.kms.KmsClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,6 +56,7 @@ public class KeyVersionRegistry {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final JdbcTemplate                  jdbcTemplate;
+    private final KmsClient                     kmsClient;
 
     // ── 폴백 프로퍼티 (개발/테스트 환경) ─────────────────────────────────
     @Value("${ido.ticket.aes-key:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}")
@@ -226,7 +228,7 @@ public class KeyVersionRegistry {
             log.warn("[KeyVersionRegistry] Redis 키 조회 실패 ({}, {}): {}", keyType, version, e.getMessage());
         }
 
-        // 3. DB (key_material_encrypted 컬럼 — 운영: KMS 복호화 필요, 개발: Base64 원문)
+        // 3. DB (key_material_encrypted 컬럼 — KMS로 복호화, S9-T8)
         String keyTypeStr = keyType == KeyType.AES ? "HANDOFF_AES" : "HANDOFF_HMAC";
         try {
             List<Map<String, Object>> rows = jdbcTemplate.queryForList(
@@ -237,11 +239,19 @@ public class KeyVersionRegistry {
             if (!rows.isEmpty()) {
                 Object material = rows.get(0).get("key_material_encrypted");
                 if (material != null) {
-                    byte[] keyBytes = decodeBase64(material.toString());
+                    // S9-T8: KmsClient를 통해 Envelope Encryption 복호화
+                    // - NoOpKmsClient (dev): Base64 디코딩만 수행
+                    // - AwsKmsClient (prod): AWS KMS Decrypt API 호출
+                    byte[] keyBytes = kmsClient.decrypt(material.toString());
+                    log.debug("[KeyVersionRegistry] KMS 복호화 완료: provider={} keyType={} version={}",
+                            kmsClient.providerName(), keyType, version);
                     cache.put(version, new CachedKey(keyBytes));
                     return keyBytes;
                 }
             }
+        } catch (KmsClient.KmsDecryptException e) {
+            log.error("[KeyVersionRegistry] KMS 복호화 실패 ({}, {}): {}", keyType, version, e.getMessage());
+            // KMS 실패 시 v1 폴백으로 진행 (아래 폴백 코드로 fall-through)
         } catch (Exception e) {
             log.warn("[KeyVersionRegistry] DB 키 재료 조회 실패 ({}, {}): {}", keyType, version, e.getMessage());
         }
