@@ -111,6 +111,46 @@ spring:
 
 # ── IdO 도메인 설정 ────────────────────────────────────────────
 ido:
+
+  # ── S7-T2: NICE/OACX 본인인증 연동 (AuthProperties 바인딩) ──────────────
+  # 설계 결정: Q1=B(API Key 없음), Q2=B(callback 추가), Q3=B(CI FE 미반환), Q4=A(WebClient)
+  auth:
+    # ── NICE 휴대폰 본인인증 ───────────────────────────────────────────────
+    # NICE IDO 인증 서버: https://auth.niceid.co.kr
+    # NICE 계약 후 발급받은 clientId/clientSecret 필수
+    nice:
+      # NICE 클라이언트 ID — 운영: NICE_CLIENT_ID 환경변수 필수 설정
+      client-id: ${NICE_CLIENT_ID:}
+      # NICE 클라이언트 시크릿 — 운영: NICE_CLIENT_SECRET 환경변수 필수 설정 (절대 코드에 하드코딩 금지)
+      client-secret: ${NICE_CLIENT_SECRET:}
+      # NICE 인증 완료 후 리다이렉트 URL (FE 팝업 결과 수신 페이지)
+      # 개발: http://localhost:3000/otp/auth-result (React dev-server)
+      # 운영: https://www.smes.go.kr/otp/auth-result (실제 도메인)
+      return-url: ${NICE_RETURN_URL:http://localhost:3000/otp/auth-result}
+      # NICE API 응답 타임아웃 (초) — 기본 10초
+      timeout-seconds: ${NICE_TIMEOUT_SECONDS:10}
+
+    # ── OACX 전자서명 중계모듈 ───────────────────────────────────────────
+    # OACX SDK(v1.3.2)를 통한 간편서명 기능 제공
+    # OACX-SDK-v1.3.2.jar: ido/libs/ 디렉토리에 배치 필요
+    oacx:
+      # OACX provider key JSON 파일 절대 경로
+      # OACX 운영사에서 발급한 파일 — 운영: OACX_PROVIDER_KEY_PATH 환경변수 필수 설정
+      # 예: /app/config/oacx-provider-key.json
+      provider-key-path: ${OACX_PROVIDER_KEY_PATH:}
+      # OACX SDK 디버그 모드 — 개발/검증: true, 운영: 반드시 false
+      debug-mode: ${OACX_DEBUG_MODE:false}
+
+    # ── 통합인증 서버 연동 (기업 간편인증 콜백, Q2=B) ──────────────────────
+    # 기업인증 콜백(POST /api/v1/auth/callback) 처리 시 auth-check 요청
+    # 현재 FE 미호출 상태 — 향후 FE 기업인증 구현 시 활성화
+    integration:
+      # 통합인증 서버 기본 URL — 운영: INTEGRATION_AUTH_BASE_URL 환경변수 필수 설정
+      # 예: https://intg-auth.smes.go.kr
+      base-url: ${INTEGRATION_AUTH_BASE_URL:}
+      # 통합인증 서버 응답 타임아웃 (초) — 기본 10초
+      timeout-seconds: ${INTEGRATION_AUTH_TIMEOUT_SECONDS:10}
+
   # §11.5 Q-IM 연동
   qim:
     base-url: ${QIM_BASE_URL:http://localhost:8082}

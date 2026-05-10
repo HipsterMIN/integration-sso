@@ -21,7 +21,35 @@ ido:
   qim:
     aes-shared-key: bG9jYWwtdGVzdC1zZWNyZXQtMzJieXRlcy1wYWRkZWQ=  # Base64(local-test-secret-32bytes-padded)
 
+  # ── S7-T2: NICE/OACX 본인인증 로컬 테스트 설정 ─────────────────────────
+  # 실제 NICE/OACX 연동 테스트를 위해 각 환경변수 또는 아래 값 직접 설정
+  # 주의: 실제 NICE 계정 정보는 절대 커밋하지 말 것 (환경변수 또는 .env.local 사용)
+  auth:
+    nice:
+      # NICE 개발 테스트 계정 — 실제 값은 환경변수 NICE_CLIENT_ID로 주입
+      # 로컬 테스트 시: export NICE_CLIENT_ID=<NICE 계약 clientId>
+      client-id: ${NICE_CLIENT_ID:}
+      # 실제 값은 환경변수 NICE_CLIENT_SECRET으로 주입 (절대 여기에 하드코딩 금지)
+      client-secret: ${NICE_CLIENT_SECRET:}
+      # 로컬 개발 환경 리다이렉트 URL (FE dev-server)
+      return-url: ${NICE_RETURN_URL:http://localhost:3000/otp/auth-result}
+      timeout-seconds: 15  # 로컬 환경에서는 타임아웃 여유있게 설정
+    oacx:
+      # OACX provider key JSON 파일 경로
+      # 로컬 테스트 시: export OACX_PROVIDER_KEY_PATH=/path/to/oacx-provider-key.json
+      # 또는 아래를 직접 설정:
+      # provider-key-path: /home/user/oacx-provider-key.json
+      provider-key-path: ${OACX_PROVIDER_KEY_PATH:}
+      debug-mode: true  # 로컬 개발환경에서는 OACX SDK 디버그 로그 활성화
+    integration:
+      # 통합인증 서버 로컬 테스트 URL (실제 서버 또는 mock 서버)
+      # 로컬 테스트 시: export INTEGRATION_AUTH_BASE_URL=http://localhost:9292
+      base-url: ${INTEGRATION_AUTH_BASE_URL:http://localhost:9292}
+      timeout-seconds: 15
+
 logging:
   level:
     org.springframework.kafka: ERROR
     org.apache.kafka: ERROR
+    # NICE/OACX 연동 디버그 로그 (로컬 개발환경)
+    kr.go.smes.ido.auth: DEBUG

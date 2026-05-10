@@ -1,0 +1,335 @@
+package kr.go.smes.ido.auth.controller;
+
+import kr.go.smes.ido.auth.dto.*;
+import kr.go.smes.ido.auth.service.AuthService;
+import kr.go.smes.ido.auth.service.NiceAuthService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * 본인인증 API 컨트롤러
+ *
+ * <p>NICE 휴대폰 본인인증 및 OACX 전자서명 간편서명 API를 제공한다.
+ * onepass-fe React SPA의 BFF(Backend-For-Frontend)로 동작.
+ *
+ * <h2>보안 정책</h2>
+ * <ul>
+ *   <li>Q1=B: API Key 검증 없음 — Nginx same-origin 프록시로 보안 처리</li>
+ *   <li>Q3=B: CI(연계정보)는 FE에 미반환 — 백엔드 내부에서만 처리 (PII 보호)</li>
+ *   <li>CORS: {@code /api/v1/auth/**} 매핑 추가 ({@code IdoWebMvcConfig})</li>
+ * </ul>
+ *
+ * <h2>엔드포인트 목록</h2>
+ * <pre>
+ * GET  /api/v1/auth/nice/phone/url     — NICE 휴대폰 인증 URL 발급
+ * POST /api/v1/auth/nice/phone/result  — NICE 휴대폰 인증 결과 조회
+ * POST /api/v1/auth/nice/ci-check     — NICE 인증 CI 기반 회원 확인
+ * POST /api/v1/auth/oacx/access-info  — OACX 접근키/토큰 발급
+ * POST /api/v1/auth/oacx/easysign     — OACX 간편서명 결과 처리
+ * POST /api/v1/auth/callback          — 기업 간편인증 콜백 (Q2=B, 향후 FE 연동)
+ * </pre>
+ *
+ * <h2>FE 연동 방법</h2>
+ * <p>FE는 {@code beApiInstance} (axios)를 사용하여 이 API들을 호출한다.
+ * {@code beApiInstance}는 {@code /api} 경로로 요청을 보내며, webpack dev-server proxy가
+ * {@code http://localhost:8083}(ido)으로 전달한다.
+ *
+ * <pre>
+ * // FE (useNicePhoneAuth.ts)
+ * const response = await beApiInstance.get('/api/v1/auth/nice/phone/url', {
+ *   params: { returnUrl: window.location.href }
+ * });
+ * </pre>
+ *
+ * @see AuthService
+ * @see NiceAuthService
+ */
+@Slf4j
+@RestController
+@RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+    private final NiceAuthService niceAuthService;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NICE 휴대폰 본인인증 API
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * NICE 휴대폰 본인인증 URL 발급
+     *
+     * <p>{@code GET /api/v1/auth/nice/phone/url?returnUrl=...}
+     *
+     * <p>NICE IDO 통합인증 표준창 URL을 발급한다.
+     * 내부적으로 Access Token 발급(Redis 캐시) 후 NICE URL 발급 API를 호출.
+     * 응답의 authUrl로 팝업을 열고 완료 후 requestNo를 이용해 결과 조회.
+     *
+     * <p><b>FE 사용 예시:</b>
+     * <pre>
+     * // useNicePhoneAuth.ts
+     * const { data } = await beApiInstance.get('/api/v1/auth/nice/phone/url', {
+     *   params: { returnUrl: 'https://www.smes.go.kr/otp/auth-result' }
+     * });
+     * if (data.resultCode === '2000') {
+     *   // data.authUrl: NICE 표준창 URL
+     *   // data.requestNo: 결과 조회 시 필수 (보관 필요)
+     *   const popup = window.open(data.authUrl, 'niceAuth', 'width=500,height=600');
+     * }
+     * </pre>
+     *
+     * <p><b>응답 코드:</b>
+     * <ul>
+     *   <li>{@code 2000} — 성공 (authUrl, requestNo 포함)</li>
+     *   <li>{@code 5001} — NICE URL 발급 실패</li>
+     *   <li>{@code 5000} — 내부 오류</li>
+     * </ul>
+     *
+     * @param returnUrl 인증 완료 후 리다이렉트 URL (선택, 미입력 시 설정 기본값 사용)
+     * @return NICE 인증 URL 응답 (resultCode, resultMsg, authUrl, requestNo)
+     */
+    @GetMapping("/nice/phone/url")
+    public NicePhoneAuthUrlResponse getNicePhoneAuthUrl(
+            @RequestParam(value = "returnUrl", required = false) String returnUrl) {
+        return niceAuthService.getNicePhoneAuthUrl(returnUrl);
+    }
+
+    /**
+     * NICE 휴대폰 본인인증 결과 조회
+     *
+     * <p>{@code POST /api/v1/auth/nice/phone/result}
+     *
+     * <p>NICE 팝업 완료 후 postMessage로 받은 web_transaction_id와
+     * URL 발급 시 받은 request_no로 인증 결과를 조회하고 복호화한다.
+     *
+     * <p><b>보안 정책 (Q3=B):</b>
+     * 복호화 결과에 CI가 포함되어 있어도 FE에 반환하지 않음. DI는 반환.
+     *
+     * <p><b>FE 사용 예시:</b>
+     * <pre>
+     * // useNicePhoneAuth.ts
+     * window.addEventListener('message', async (event) => {
+     *   const { web_transaction_id, request_no } = event.data;
+     *   const { data } = await beApiInstance.post('/api/v1/auth/nice/phone/result', {
+     *     web_transaction_id,
+     *     request_no
+     *   });
+     *   if (data.resultCode === '2000') {
+     *     // data.resultData: { name, birthdate, gender, nationalInfo, di, mobileCo, mobileNo }
+     *     // CI는 응답에 없음 (보안 정책 Q3=B)
+     *   }
+     * });
+     * </pre>
+     *
+     * <p><b>응답 코드:</b>
+     * <ul>
+     *   <li>{@code 2000} — 성공 (resultData 포함)</li>
+     *   <li>{@code 4000} — 파라미터 오류 (request_no 누락, 세션 없음/만료)</li>
+     *   <li>{@code 5002} — NICE 결과 조회 실패</li>
+     *   <li>{@code 5003} — 무결성 검증 실패</li>
+     *   <li>{@code 5000} — 내부 오류</li>
+     * </ul>
+     *
+     * @param request web_transaction_id, request_no 포함 요청 body
+     * @return NICE 인증 결과 (name, birthdate, gender, nationalInfo, di, mobileCo, mobileNo)
+     */
+    @PostMapping("/nice/phone/result")
+    public NicePhoneAuthResultResponse getNicePhoneAuthResult(
+            @RequestBody NicePhoneAuthResultRequest request) {
+        return niceAuthService.getNicePhoneAuthResult(request);
+    }
+
+    /**
+     * NICE 본인인증 CI 기반 회원 확인
+     *
+     * <p>{@code POST /api/v1/auth/nice/ci-check}
+     *
+     * <p>NICE 휴대폰 인증 결과에서 획득한 CI로 기존 회원 조회 또는 신규 등록 처리.
+     * CI는 요청 body에 포함되며, 서버 내부에서만 처리하고 응답에는 CI를 포함하지 않음.
+     *
+     * <p><b>주의:</b> 현재 IM API 미연동으로 파라미터 검증 후 성공 반환만 구현됨.
+     * S7-T6에서 IM API 연동 후 실제 회원 조회/등록 로직 구현 예정.
+     *
+     * <p><b>FE 요청 예시 (개인회원):</b>
+     * <pre>
+     * // nice/ciCheck.ts
+     * const { data } = await beApiInstance.post('/api/v1/auth/nice/ci-check', {
+     *   ci: niceResult.ci,     // NICE 결과에서 수신한 CI
+     *   mbrDvsnCd: 'A101',
+     *   indvlMbrNm: '홍길동',
+     *   indvlMbrId: 'user123'
+     * });
+     * </pre>
+     *
+     * <p><b>FE 요청 예시 (기업회원):</b>
+     * <pre>
+     * const { data } = await beApiInstance.post('/api/v1/auth/nice/ci-check', {
+     *   ci: niceResult.ci,
+     *   mbrDvsnCd: 'A102',
+     *   cmpMbrId: 'company123',
+     *   bizno: '1234567890'
+     * });
+     * </pre>
+     *
+     * <p><b>응답 코드:</b>
+     * <ul>
+     *   <li>{@code 2000} — 성공 (result: true)</li>
+     *   <li>{@code 4000} — 파라미터 오류 (ci 누락, mbrDvsnCd 잘못됨, bizno 누락)</li>
+     * </ul>
+     *
+     * @param request CI 확인 요청 (ci, mbrDvsnCd, bizno 등)
+     * @return CI 확인 결과 (resultCode, result, indvlMbrId/cmpMbrId)
+     */
+    @PostMapping("/nice/ci-check")
+    public CiCheckResponse niceCiCheck(@RequestBody CiCheckRequest request) {
+        return authService.checkNiceCi(request);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // OACX 전자서명 간편서명 API
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * OACX 전자서명 접근키/토큰 발급
+     *
+     * <p>{@code POST /api/v1/auth/oacx/access-info}
+     *
+     * <p>OACX JS SDK 초기화에 필요한 접근키(accKey)와 접근토큰(accToken)을 발급한다.
+     *
+     * <p><b>OACX 인증 플로우 (Step 1~3):</b>
+     * <pre>
+     * Step 1: FE → POST /api/v1/auth/oacx/access-info (body: "simpleAuth")
+     * Step 2: ido → OACX SDK.getAccessInfo() 호출
+     * Step 3: FE ← {fn, accKey, accToken}
+     * Step 4: FE → OACXsdk.init({fn, accKey, accToken}) → 간편서명 팝업 실행
+     * </pre>
+     *
+     * <p><b>Content-Type 주의:</b>
+     * Request Body는 JSON string ({@code "simpleAuth"})이므로
+     * axios 호출 시 Content-Type: application/json 확인 필요.
+     *
+     * <p><b>FE 사용 예시:</b>
+     * <pre>
+     * // usePersonalEasyAuth.ts
+     * const { data } = await beApiInstance.post(
+     *   '/api/v1/auth/oacx/access-info',
+     *   JSON.stringify('simpleAuth'),  // plain string을 JSON으로 전달
+     *   { headers: { 'Content-Type': 'application/json' } }
+     * );
+     * if (data.resultCode === '2000') {
+     *   OACXsdk.init({ fn: data.fn, accKey: data.accKey, accToken: data.accToken });
+     * }
+     * </pre>
+     *
+     * <p><b>응답 코드:</b>
+     * <ul>
+     *   <li>{@code 2000} — 성공 (fn, accKey, accToken 포함)</li>
+     *   <li>{@code 5001} — OACX 접근정보 발급 실패</li>
+     * </ul>
+     *
+     * @param fn OACX 기능 코드 (plain JSON string, 예: {@code "simpleAuth"})
+     * @return OACX 접근 정보 응답 (fn, accKey, accToken)
+     */
+    @PostMapping("/oacx/access-info")
+    public OacxAccessInfoResponse getOacxAccessInfo(@RequestBody String fn) {
+        return authService.getOacxAccessInfo(fn);
+    }
+
+    /**
+     * OACX 전자서명 간편서명 결과 처리
+     *
+     * <p>{@code POST /api/v1/auth/oacx/easysign}
+     *
+     * <p>OACX JS SDK 간편서명 완료 콜백 데이터를 수신하여 JWT를 복호화하고
+     * 사용자 정보를 반환한다.
+     *
+     * <p><b>보안 정책 (Q3=B):</b>
+     * CI(연계정보)는 복호화 결과에 있어도 FE에 반환하지 않음.
+     * {@code OacxEasysignResponse}의 ci 필드가 null이며 {@code @JsonInclude(NON_NULL)}로 응답에서 제외.
+     *
+     * <p><b>OACX 인증 플로우 (Step 7~11):</b>
+     * <pre>
+     * Step 5: FE → OACXsdk.open() → 간편서명 팝업 실행
+     * Step 6: 사용자 간편서명 완료
+     * Step 7: OACX SDK → FE 콜백 (fn, status, res 포함)
+     * Step 8: FE → POST /api/v1/auth/oacx/easysign (이 API)
+     * Step 9: ido → OACX SDK.jwtDecryptResult() → JWT 복호화
+     * Step 10: CI 내부 처리 (FE 미반환 Q3=B)
+     * Step 11: FE ← {name, birthday, phone}
+     * </pre>
+     *
+     * <p><b>FE 사용 예시:</b>
+     * <pre>
+     * // usePersonalEasyAuth.ts
+     * OACXsdk.open(async (callbackData) => {
+     *   // callbackData = { fn: 'authComplete', status: 'success', res: {...} }
+     *   const { data } = await beApiInstance.post('/api/v1/auth/oacx/easysign', callbackData);
+     *   if (data.resultCode === '2000') {
+     *     const { name, birthday, phone } = data;
+     *     // CI는 응답에 없음 (보안 정책 Q3=B)
+     *   }
+     * });
+     * </pre>
+     *
+     * <p><b>응답 코드:</b>
+     * <ul>
+     *   <li>{@code 2000} — 성공 (name, birthday, phone 포함)</li>
+     *   <li>{@code 4000} — fn이 "authComplete"가 아님</li>
+     *   <li>{@code 4001} — OACX resultCode가 "200"이 아님 (인증 실패/취소)</li>
+     *   <li>{@code 5002} — JWT 복호화 실패</li>
+     * </ul>
+     *
+     * @param request OACX SDK 콜백 데이터 (fn, status, res 포함)
+     * @return OACX 인증 결과 응답 (name, birthday, phone — CI 제외)
+     */
+    @PostMapping("/oacx/easysign")
+    public OacxEasysignResponse oacxEasysignCallback(@RequestBody OacxEasysignRequest request) {
+        return authService.handleOacxEasysign(request);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 기업인증 API (Q2=B — 향후 FE 기업인증 구현 대비)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * 기업 간편인증 콜백 수신 처리 (Q2=B)
+     *
+     * <p>{@code POST /api/v1/auth/callback}
+     *
+     * <p>간편인증창(통합인증 서버)이 FE에 postMessage로 전달한 콜백 데이터를
+     * 수신하여 통합인증 서버에 auth-check를 요청한다.
+     *
+     * <p><b>현재 상태 (Q2=B):</b>
+     * onepass-fe FE Step3(기업인증) 코드에 "미구현" 주석 다수 존재.
+     * 현재 FE에서 이 API를 호출하지 않음.
+     * 향후 FE 기업인증 구현 시 사용 예정.
+     *
+     * <p><b>FE 향후 사용 예시:</b>
+     * <pre>
+     * // 기업인증 팝업 완료 후 (향후 FE 구현 시)
+     * window.addEventListener('message', async (event) => {
+     *   // event.data = { txId, tokenId, siteInfo: { siteId }, userToken, hubToken }
+     *   const { data } = await beApiInstance.post('/api/v1/auth/callback', event.data);
+     *   if (data.resultCode === '2000') {
+     *     const { name, businessNumber, birth } = data.resultData;
+     *   }
+     * });
+     * </pre>
+     *
+     * <p><b>응답 코드:</b>
+     * <ul>
+     *   <li>{@code 2000} — 성공 (resultData: name, businessNumber, birth, phone, bizOpendt)</li>
+     *   <li>{@code 5000} — 내부 처리 오류</li>
+     *   <li>{@code 5001} — 통합인증 서버 응답 없음</li>
+     * </ul>
+     *
+     * @param request 간편인증 콜백 요청 (siteInfo, txId, tokenId, userToken, hubToken)
+     * @return 기업인증 결과 응답 (resultCode, resultMsg, resultData)
+     */
+    @PostMapping("/callback")
+    public AuthCallbackResponse callback(@RequestBody AuthCallbackRequest request) {
+        return authService.callback(request);
+    }
+}
