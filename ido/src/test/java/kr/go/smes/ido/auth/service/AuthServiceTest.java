@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.ido.auth.client.IntegrationAuthClient;
 import kr.go.smes.ido.auth.client.OacxClient;
 import kr.go.smes.ido.auth.dto.*;
+import kr.go.smes.ido.auth.dto.im.QimMemberInfo;
+import kr.go.smes.ido.auth.dto.im.QimRegisterResponse;
+import kr.go.smes.ido.auth.port.ImApiOutPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -13,9 +16,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -37,11 +42,14 @@ class AuthServiceTest {
     @Mock
     private OacxClient oacxClient;
 
+    @Mock
+    private ImApiOutPort imApiOutPort;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(integrationAuthClient, oacxClient, new ObjectMapper());
+        authService = new AuthService(integrationAuthClient, oacxClient, new ObjectMapper(), imApiOutPort);
     }
 
     // ── callback 테스트 ──────────────────────────────────────────────────────
@@ -189,6 +197,13 @@ class AuthServiceTest {
                     "birthday", "19900101",
                     "ci", "ABCDEF0123456789ABCDEF0123456789..."  // 88자 CI
             ));
+            // S7-T6: Q-IM 등록 Mock
+            given(imApiOutPort.register(any(), anyString()))
+                    .willReturn(QimRegisterResponse.builder()
+                            .qimUserId("qim-user-001")
+                            .isNew(true)
+                            .status("ACTIVE")
+                            .build());
 
             // when
             OacxEasysignResponse response = authService.handleOacxEasysign(request);
@@ -204,9 +219,9 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("PASS 통신사 provider (userNm/phoneNo 키) 응답 정상 처리")
+        @DisplayName("PASS 통신사 provider (userNm/phoneNo 키) 응답 정상 처리 — CI 없음 (정상 케이스)")
         void handleOacxEasysign_shouldHandlePassProviderKeys() {
-            // given: PASS(통신3사) provider는 userNm, phoneNo 키 사용
+            // given: PASS(통신3사) provider는 userNm, phoneNo 키 사용 + CI 미제공
             OacxEasysignRequest request = OacxEasysignRequest.builder()
                     .fn("authComplete")
                     .status("success")
@@ -217,6 +232,7 @@ class AuthServiceTest {
                     "userNm", "김철수",   // PASS provider: userNm (name 아님)
                     "phoneNo", "01098765432",  // PASS provider: phoneNo (phone 아님)
                     "birthday", "19851215"
+                    // ci 없음 — Q-IM 등록 건너뜀
             ));
 
             // when
@@ -304,7 +320,7 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("개인회원(A101) 정상 요청 시 2000 반환")
+        @DisplayName("개인회원(A101) 정상 요청 — Q-IM 미등록 사용자 신규 등록 후 2000 반환")
         void checkNiceCi_shouldReturn2000ForValidA101Request() {
             // given
             CiCheckRequest request = CiCheckRequest.builder()
@@ -313,6 +329,12 @@ class AuthServiceTest {
                     .indvlMbrNm("홍길동")
                     .indvlMbrId("hong123")
                     .build();
+            // Q-IM에서 CI 미발견 → 신규 등록
+            given(imApiOutPort.findByCi(anyString(), eq("A101"), anyString()))
+                    .willReturn(Optional.empty());
+            given(imApiOutPort.register(any(), anyString()))
+                    .willReturn(QimRegisterResponse.builder()
+                            .qimUserId("qim-new-001").isNew(true).status("ACTIVE").build());
 
             // when
             CiCheckResponse response = authService.checkNiceCi(request);
@@ -320,6 +342,35 @@ class AuthServiceTest {
             // then
             assertThat(response.getResultCode()).isEqualTo("2000");
             assertThat(response.getResult()).isTrue();
+            assertThat(response.getResultMsg()).contains("신규");
+        }
+
+        @Test
+        @DisplayName("개인회원(A101) 정상 요청 — Q-IM 기존 회원 조회 후 indvlMbrId 반환")
+        void checkNiceCi_shouldReturnIndvlMbrIdForExistingA101Member() {
+            // given
+            CiCheckRequest request = CiCheckRequest.builder()
+                    .ci("VALID_CI_VALUE_88_CHARS_LONG_STRING_FOR_TEST_PURPOSE")
+                    .mbrDvsnCd("A101")
+                    .indvlMbrNm("홍길동")
+                    .build();
+            // Q-IM에서 기존 회원 발견
+            given(imApiOutPort.findByCi(anyString(), eq("A101"), anyString()))
+                    .willReturn(Optional.of(QimMemberInfo.builder()
+                            .qimUserId("qim-existing-001")
+                            .status("ACTIVE")
+                            .memberType("A101")
+                            .indvlMbrId("honggildong")
+                            .build()));
+
+            // when
+            CiCheckResponse response = authService.checkNiceCi(request);
+
+            // then
+            assertThat(response.getResultCode()).isEqualTo("2000");
+            assertThat(response.getResult()).isTrue();
+            assertThat(response.getIndvlMbrId()).isEqualTo("honggildong");
+            assertThat(response.getResultMsg()).contains("기존");
         }
 
         @Test
@@ -332,6 +383,12 @@ class AuthServiceTest {
                     .cmpMbrId("company-001")
                     .bizno("1234567890")
                     .build();
+            // Q-IM에서 CI 미발견 → 신규 등록
+            given(imApiOutPort.findByCi(anyString(), eq("A102"), anyString()))
+                    .willReturn(Optional.empty());
+            given(imApiOutPort.register(any(), anyString()))
+                    .willReturn(QimRegisterResponse.builder()
+                            .qimUserId("qim-new-002").isNew(true).status("ACTIVE").build());
 
             // when
             CiCheckResponse response = authService.checkNiceCi(request);

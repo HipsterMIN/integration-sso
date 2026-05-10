@@ -4,12 +4,15 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.ido.auth.client.NiceApiClient;
 import kr.go.smes.ido.auth.config.AuthProperties;
+import kr.go.smes.ido.auth.dto.AuthResult;
 import kr.go.smes.ido.auth.dto.NicePhoneAuthResultRequest;
 import kr.go.smes.ido.auth.dto.NicePhoneAuthResultResponse;
 import kr.go.smes.ido.auth.dto.NicePhoneAuthUrlResponse;
+import kr.go.smes.ido.auth.dto.im.QimRegisterResponse;
 import kr.go.smes.ido.auth.dto.nice.NiceResultApiResponse;
 import kr.go.smes.ido.auth.dto.nice.NiceTokenApiResponse;
 import kr.go.smes.ido.auth.dto.nice.NiceUrlApiResponse;
+import kr.go.smes.ido.auth.port.ImApiOutPort;
 import kr.go.smes.ido.auth.store.NiceAuthSessionStore;
 import kr.go.smes.ido.auth.store.NiceAuthSessionStore.NiceAuthSession;
 import kr.go.smes.ido.auth.store.NiceTokenStore;
@@ -96,17 +99,20 @@ public class NiceAuthService {
     private final NiceAuthSessionStore sessionStore;
     private final ObjectMapper objectMapper;
     private final String defaultReturnUrl;
+    private final ImApiOutPort imApiOutPort;
 
     public NiceAuthService(NiceApiClient niceApiClient,
                             NiceTokenStore tokenStore,
                             NiceAuthSessionStore sessionStore,
                             ObjectMapper objectMapper,
-                            AuthProperties props) {
+                            AuthProperties props,
+                            ImApiOutPort imApiOutPort) {
         this.niceApiClient = niceApiClient;
         this.tokenStore = tokenStore;
         this.sessionStore = sessionStore;
         this.objectMapper = objectMapper;
         this.defaultReturnUrl = props.nice().returnUrl();
+        this.imApiOutPort = imApiOutPort;
     }
 
     /**
@@ -175,9 +181,9 @@ public class NiceAuthService {
      * Redis에서 transactionId를 찾아 NICE API를 호출하고, 결과를 AES-GCM으로 복호화.
      * 복호화 결과에서 개인 정보(name, birthdate 등)를 추출하여 FE에 반환.
      *
-     * <p><b>CI 처리 (Q3=B):</b>
-     * 복호화 결과에 CI가 포함되어 있지만 FE 응답 DTO에는 ci 필드가 없으므로 자동 제외.
-     * TODO(S7-T6): IM API 연동 후 이 메서드에서 CI를 추출하여 IM API에 등록 예정.
+     * <p><b>CI 처리 (Q3=B, S7-T6 완료):</b>
+     * 복호화 결과에서 CI를 추출하여 {@link ImApiOutPort#register}를 통해 Q-IM에 등록.
+     * FE 응답 DTO({@code NicePhoneAuthResultResponse})에는 ci 필드가 없으므로 FE에 미반환.
      *
      * @param request web_transaction_id, request_no 포함 요청
      * @return 본인인증 결과 응답 (name, birthdate, gender, nationalInfo, di, mobileCo, mobileNo)
@@ -231,10 +237,34 @@ public class NiceAuthService {
             String ciForInternalUse = (String) resultMap.get("ci");
             log.info("[NICE] 인증 결과 복호화 성공: name={}, nationalInfo={}",
                     resultMap.get("name"), resultMap.get("national_info"));
-            // TODO(S7-T6): IM API 연동 후 아래 주석 해제하여 CI 저장 처리
-            // if (ciForInternalUse != null && !ciForInternalUse.isBlank()) {
-            //     authService.processCiRegistration(ciForInternalUse, resultMap);
-            // }
+
+            // S7-T6: CI → Q-IM 등록 (Q3=B: CI는 FE 미반환, Q-IM에만 전달)
+            if (ciForInternalUse != null && !ciForInternalUse.isBlank()) {
+                try {
+                    String correlationId = "nice-" + webTransactionId;
+                    AuthResult authResult = AuthResult.builder()
+                            .ci(ciForInternalUse)
+                            .di((String) resultMap.get("di"))
+                            .name((String) resultMap.get("name"))
+                            .birthday((String) resultMap.get("birthdate"))
+                            .gender((String) resultMap.get("gender"))
+                            .mobile((String) resultMap.get("mobile_no"))
+                            .mobileCorp((String) resultMap.get("mobile_co"))
+                            .build();
+                    QimRegisterResponse registerResult = imApiOutPort.register(authResult, correlationId);
+                    log.info("[NICE] Q-IM 등록 완료: qimUserId={} isNew={}",
+                            registerResult.getQimUserId(), registerResult.getIsNew());
+                } catch (Exception e) {
+                    // Q-IM 등록 실패 시 인증 플로우 중단
+                    log.error("[NICE] Q-IM 등록 실패 — 인증 중단: {}", e.getMessage(), e);
+                    return NicePhoneAuthResultResponse.builder()
+                            .resultCode("5010")
+                            .resultMsg("사용자 정보 등록 실패: " + e.getMessage())
+                            .build();
+                }
+            } else {
+                log.warn("[NICE] CI 미포함 — Q-IM 등록 건너뜀");
+            }
 
             return NicePhoneAuthResultResponse.builder()
                     .resultCode("2000")
