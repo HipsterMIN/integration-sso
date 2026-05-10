@@ -209,10 +209,63 @@
             <label>Provider Code</label>
             <select id="e2e-providerCode">
               <option value="QSIGN_CERT">QSIGN_CERT</option>
+              <option value="NPKI_CERT">NPKI_CERT — NPKI 인증서</option>
+              <option value="GPKI_CERT">GPKI_CERT — 행안부 공무원인증</option>
+              <option value="PASS_APP">PASS_APP — 통신사 PASS</option>
               <option value="QSIGN_BIOMETRIC">QSIGN_BIOMETRIC</option>
               <option value="QSIGN_OTP">QSIGN_OTP</option>
             </select>
           </div>
+        </div>
+
+        <!-- ── 시나리오 모드 + 기관 코드 ── -->
+        <div style="background:#12151f;border:1px solid #2d3148;border-radius:8px;padding:14px 16px;margin-bottom:12px">
+          <div style="font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:10px">시나리오 설정 (S6-T2)</div>
+          <div class="form-row">
+            <div>
+              <label>시나리오 모드</label>
+              <select id="e2e-scenarioMode" onchange="onScenarioModeChange()">
+                <optgroup label="정상">
+                  <option value="NORMAL" selected>NORMAL — 정상 흐름</option>
+                </optgroup>
+                <optgroup label="지연 시나리오">
+                  <option value="SLOW_RESPONSE">SLOW_RESPONSE — 3.5s 지연</option>
+                  <option value="TIMEOUT">TIMEOUT — 6s 지연 (CB 트리거)</option>
+                </optgroup>
+                <optgroup label="장애 시나리오">
+                  <option value="CHAOS">CHAOS — 30% 랜덤 실패</option>
+                  <option value="CB_STORM">CB_STORM — CircuitBreaker 강제 OPEN</option>
+                </optgroup>
+                <optgroup label="보안 공격 시나리오">
+                  <option value="REPLAY_ATTACK">REPLAY_ATTACK — ticketId 재사용 공격</option>
+                  <option value="WRONG_AGENCY">WRONG_AGENCY — 위조 ticketId</option>
+                  <option value="EXPIRED_TICKET">EXPIRED_TICKET — 만료 ticketId</option>
+                  <option value="HMAC_TAMPER">HMAC_TAMPER — Webhook 서명 변조</option>
+                </optgroup>
+              </select>
+            </div>
+            <div>
+              <label>기관 코드 (패턴 선택)</label>
+              <select id="e2e-agencyCode" onchange="onAgencyCodeChange()">
+                <optgroup label="DIRECT 패턴">
+                  <option value="AGENCY_STUB_001" selected>AGENCY_STUB_001 — 기본 DIRECT</option>
+                  <option value="AGENCY_STRICT_L3">AGENCY_STRICT_L3 — L3 고보안 DIRECT</option>
+                  <option value="AGENCY_CHAOS_001">AGENCY_CHAOS_001 — 최악 시나리오 전용</option>
+                </optgroup>
+                <optgroup label="BRIDGE 패턴">
+                  <option value="AGENCY_BRIDGE_001">AGENCY_BRIDGE_001 — 폐쇄망 Bridge</option>
+                </optgroup>
+                <optgroup label="APACHE_GATE 패턴">
+                  <option value="AGENCY_APACHEGATE_001">AGENCY_APACHEGATE_001 — 레거시 Apache</option>
+                </optgroup>
+                <optgroup label="INTERNAL_SSO 패턴">
+                  <option value="AGENCY_SSO_001">AGENCY_SSO_001 — 기관 내부 SSO</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+          <!-- 시나리오 설명 배너 -->
+          <div id="scenario-desc" style="font-size:11px;color:var(--muted);margin-top:6px;padding:6px 10px;background:#0f1117;border-radius:4px"></div>
         </div>
 
         <div class="btn-group">
@@ -464,12 +517,50 @@ async function api(method, path, body) {
 // ════════════════════════════════════════════════════════════════════════
 let e2eCurrentTab = 'summary';
 
+// 시나리오 모드 설명 맵
+const SCENARIO_DESCRIPTIONS = {
+  NORMAL:        '정상 흐름: Ticket 발급 → Verify → 세션 생성 3단계 표준 동작.',
+  SLOW_RESPONSE: '⚠ 3.5s 응답 지연 — Resilience4j 슬로우 콜 임계치(4s)에 근접합니다. 테스트가 느려집니다.',
+  TIMEOUT:       '⚠ 6s 응답 지연 — CB 슬로우 콜 임계치 초과. CircuitBreaker OPEN 유발 가능.',
+  CHAOS:         '🎲 30% 확률 랜덤 실패. Chaos Engineering 시뮬레이션. 여러 번 실행하세요.',
+  CB_STORM:      '⚡ 12회 연속 위조 ticketId verify → CB OPEN 강제 유발. /actuator/health 에서 CB 상태 확인.',
+  REPLAY_ATTACK: '🛡 동일 ticketId 2회 verify 시도 → 2차는 409 ALREADY_CONSUMED 차단 확인.',
+  WRONG_AGENCY:  '🚫 위조된 ticketId로 verify 시도 → 404 TICKET_NOT_FOUND 확인.',
+  EXPIRED_TICKET:'⏱ 만료 ticketId verify 시도 → 404/410 확인.',
+  HMAC_TAMPER:   '🔑 세션 생성 후 steps에 HMAC_TAMPER NOTE 포함 확인. 실제 서명 변조는 Webhook 테스트에서.',
+};
+
+function onScenarioModeChange() {
+  const mode = document.getElementById('e2e-scenarioMode').value;
+  const desc = document.getElementById('scenario-desc');
+  desc.textContent = SCENARIO_DESCRIPTIONS[mode] || '';
+  // CHAOS 기관 자동 선택
+  if (mode === 'CB_STORM' || mode === 'CHAOS') {
+    document.getElementById('e2e-agencyCode').value = 'AGENCY_CHAOS_001';
+  }
+}
+
+function onAgencyCodeChange() {
+  const code = document.getElementById('e2e-agencyCode').value;
+  // L3 기관 선택 시 인증수준 자동 조정
+  if (code === 'AGENCY_STRICT_L3') {
+    document.getElementById('e2e-authLevel').value    = 'L3';
+    document.getElementById('e2e-providerCode').value = 'GPKI_CERT';
+  } else if (code === 'AGENCY_BRIDGE_001') {
+    document.getElementById('e2e-providerCode').value = 'NPKI_CERT';
+  } else if (code === 'AGENCY_SSO_001') {
+    document.getElementById('e2e-providerCode').value = 'PASS_APP';
+  }
+}
+
 async function runE2E() {
+  const scenarioMode = document.getElementById('e2e-scenarioMode').value;
   const body = {
     qimUserId:    document.getElementById('e2e-qimUserId').value.trim()    || undefined,
     authResultId: document.getElementById('e2e-authResultId').value.trim() || undefined,
     authLevel:    document.getElementById('e2e-authLevel').value,
     providerCode: document.getElementById('e2e-providerCode').value,
+    scenarioMode: scenarioMode,
   };
 
   // 스텝 초기화
@@ -477,7 +568,8 @@ async function runE2E() {
   document.getElementById('e2e-result-area').style.display = 'none';
 
   setStep('ticket', 'active');
-  showToast('info', '시뮬레이션 시작...');
+  const scenarioMode = document.getElementById('e2e-scenarioMode').value;
+  showToast('info', `시뮬레이션 시작... [${scenarioMode}]`);
 
   const { status, data } = await api('POST', '/api/v1/simulator/run', body);
 
@@ -495,12 +587,13 @@ async function runE2E() {
   // 결과 표시
   document.getElementById('e2e-result-area').style.display = '';
   const badge = document.getElementById('e2e-status-badge');
+  const modeLabel = document.getElementById('e2e-scenarioMode').value;
   if (data.status === 'OK') {
-    badge.innerHTML = '<span class="badge-ok">✓ 성공</span>';
-    showToast('ok', `E2E 완료 — sessionId: ${data.session?.sessionId?.substring(0,8)}...`);
+    badge.innerHTML = `<span class="badge-ok">✓ 성공 [${modeLabel}]</span>`;
+    showToast('ok', `E2E 완료 — [${modeLabel}] ${data.session?.sessionId ? 'sessionId: ' + data.session.sessionId.substring(0,8) + '...' : ''}`);
   } else {
-    badge.innerHTML = '<span class="badge-fail">✗ 실패</span>';
-    showToast('err', `실패: ${data.steps?.find(s=>s.status==='FAILED')?.error || 'UNKNOWN'}`);
+    badge.innerHTML = `<span class="badge-fail">✗ 실패 [${modeLabel}]</span>`;
+    showToast('err', `[${modeLabel}] 실패: ${data.steps?.find(s=>s.status==='FAILED')?.error || 'UNKNOWN'}`);
   }
 
   document.getElementById('e2e-elapsed').textContent = data.elapsedMs + 'ms';
@@ -511,6 +604,7 @@ async function runE2E() {
     meta.innerHTML = `
       <div class="meta-item"><span class="k">qimUserId</span> <span class="v">${data.input.qimUserId||''}</span></div>
       <div class="meta-item"><span class="k">authLevel</span> <span class="v">${data.input.authLevel||''}</span></div>
+      <div class="meta-item"><span class="k">scenarioMode</span> <span class="v" style="color:var(--warn)">${document.getElementById('e2e-scenarioMode').value}</span></div>
       <div class="meta-item"><span class="k">correlationId</span> <span class="v">${data.correlationId||''}</span></div>
     `;
   }
@@ -527,6 +621,8 @@ function renderE2ESummary(data) {
   (data.steps || []).forEach(s => {
     const badge = s.status === 'OK'
       ? `<span class="badge-ok">✓ OK</span>`
+      : s.status === 'NOTE'
+      ? `<span class="badge-info">📝 NOTE</span>`
       : `<span class="badge-fail">✗ ${s.error||'FAILED'}</span>`;
     const details = Object.entries(s)
       .filter(([k]) => !['step','status','error','message'].includes(k))
@@ -818,6 +914,8 @@ function colorizeJson(id) {
 // ════════════════════════════════════════════════════════════════════════
 checkIdoStatus();
 setInterval(checkIdoStatus, 30000);
+// 시나리오 설명 초기 표시
+onScenarioModeChange();
 </script>
 </body>
 </html>
