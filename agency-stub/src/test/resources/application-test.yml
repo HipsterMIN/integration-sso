@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL;DATABASE_TO_LOWER=true;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+  flyway:
+    enabled: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: test-group
+      auto-offset-reset: earliest
+
+agency-stub:
+  code: AGENCY_TEST_001
+  webhook:
+    signing-secret: test-signing-secret-for-unit-tests
+  session:
+    idle-timeout-minutes: 30
+    absolute-timeout-minutes: 480
+  ido:
+    base-url: http://localhost:8083
+    api-key: test-api-key-dev-001
+
+logging:
+  level:
+    kr.go.smes: DEBUG
+    root: WARN
