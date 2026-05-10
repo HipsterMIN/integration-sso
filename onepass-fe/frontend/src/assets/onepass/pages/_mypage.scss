@@ -1,0 +1,543 @@
+// =============================================
+// Mypage
+// =============================================
+.sub.mypage {
+	max-width: calc(var(--inner) + var(--inner-padding));
+	padding: 4.8rem var(--inner-padding) 7.2rem;
+	display: flex;
+	flex-direction: column;
+	gap: 4.8rem;
+	margin: 0 auto;
+
+	> .page-title-wrap { width: 100%; }
+
+	.mypage-row {
+		display: flex;
+		align-items: flex-start;
+	}
+
+	@include mobile-down {
+		padding: 3.2rem var(--inner-padding) 4.8rem;
+		// gap 은 데스크톱과 동일하게 4.8rem 유지 — PUB260507 .container .inner 정렬,
+		// 줄이면 page-title-wrap 과 sub-nav 사이 시각 gap 이 무너짐 (_main.scss 와 동일 기준)
+
+		.sub-wrap { padding-left: 0; }
+	}
+
+	// PUB260507 — sub-nav 가로 변형(태블릿/모바일): max-width 1024px
+	@media screen and (max-width: 1024px) {
+		.mypage-row { flex-direction: column; gap: 4rem; }
+	}
+
+	.sub-nav {
+		max-width: 220px;
+		width: 20%;
+		flex: none;
+		position: sticky;
+		top: 3rem;
+		height: fit-content;
+		animation: fade_up 1s .1s ease both;
+
+		.nav-title {
+			background: var(--blue-color-deep);
+			height: 9.6rem;
+			position: relative;
+			padding: 0 clamp(1rem, 3vw, 2.4rem);
+			display: flex;
+			align-items: center;
+			border-top-right-radius: 2.4rem;
+			border-top-left-radius: 2.4rem;
+			overflow: hidden;
+			box-sizing: border-box;
+
+			h2 {
+				font-size: 2.4rem;
+				color: #fff;
+				font-weight: 700;
+			}
+
+			.img {
+				position: absolute;
+				right: 1rem;
+				bottom: -1rem;
+				max-width: 20%;
+			}
+		}
+
+		.list-wrap {
+			position: relative;
+			width: 100%;
+		}
+
+		.now-page {
+			display: none;
+		}
+
+		.list {
+			background: #fff;
+			box-shadow: 0 0 16px rgb(0 0 0 / 5%);
+			border-bottom-right-radius: 2.4rem;
+			border-bottom-left-radius: 2.4rem;
+			display: flex;
+			flex-direction: column;
+
+			> li:not(:last-child) { border-bottom: 1px solid #d6dbee; }
+
+			> li > a {
+				padding: 1.6rem;
+				height: 5.2rem;
+				box-sizing: border-box;
+				display: flex;
+				align-items: center;
+				gap: .8rem;
+				font-size: 1.6rem;
+				font-weight: 500;
+				color: #999999;
+
+				.icon {
+					width: 2rem;
+					height: 2rem;
+					flex: none;
+					background-color: #999999;
+				}
+
+				span { width: 100%; }
+
+				&:after {
+					content: "";
+					width: 1.6rem;
+					height: 1.6rem;
+					display: none;
+					-webkit-mask-image: url(/images/onepass/renewal/ico_chevron_forward.svg);
+					mask-image: url(/images/onepass/renewal/ico_chevron_forward.svg);
+					-webkit-mask-repeat: no-repeat;
+					mask-repeat: no-repeat;
+					-webkit-mask-position: center center;
+					mask-position: center center;
+					-webkit-mask-size: contain;
+					mask-size: contain;
+					background-color: var(--point-color);
+					flex: none;
+				}
+			}
+
+			> li.active > a {
+				color: var(--point-color);
+				font-weight: 700;
+
+				.icon { background-color: var(--point-color); }
+
+				&:after { display: block; }
+			}
+		}
+
+		// PUB260507 — sub-nav 가로/드롭다운 변형: max-width 1024px
+		@media screen and (max-width: 1024px) {
+			position: relative;
+			display: flex;
+			max-width: none;
+			width: 100%;
+			top: unset;
+			z-index: 1;
+
+			.nav-title {
+				width: clamp(100px, 25vw, 280px);
+				flex: none;
+				height: 6rem;
+				justify-content: center;
+				border-top-right-radius: 0;
+				border-bottom-left-radius: 2.4rem;
+
+				h2 { font-size: 1.8rem; }
+			}
+
+			.now-page {
+				display: flex;
+				height: 100%;
+				width: 100%;
+				background: #fff;
+				border-top-right-radius: 2.4rem;
+				border-bottom-right-radius: 2.4rem;
+				box-shadow: 0 0 16px rgb(0 0 0 / 5%);
+				font-size: 1.8rem;
+				align-items: center;
+				justify-content: space-between;
+				gap: .8rem;
+				padding: 1rem 1.6rem;
+				box-sizing: border-box;
+				font-weight: 600;
+				transition: .5s ease;
+				border: 0;
+				cursor: pointer;
+				color: var(--krds-light-color-text-default);
+
+				span {
+					flex: 1;
+					overflow: hidden;
+					display: -webkit-box;
+					-webkit-line-clamp: 1;
+					-webkit-box-orient: vertical;
+					text-align: left;
+				}
+
+				.icon {
+					width: 2rem;
+					height: 2rem;
+					transition: transform .3s ease;
+				}
+
+				&.open .icon.arrow-top { transform: rotate(180deg); }
+				&.open { border-bottom-right-radius: 0; }
+			}
+
+			.list {
+				position: absolute;
+				width: 100%;
+				z-index: 100;
+				display: none;
+				transition: .5s ease;
+			}
+
+			.now-page.open + .list {
+				display: block;
+				animation: fade_down 1s ease both;
+			}
+		}
+	}
+
+	.sub-wrap {
+		width: 100%;
+		// PUB260507 — sub-nav 와의 간격(퍼블 .sub-wrap gap 대응)
+		padding-top: 0;
+		padding-left: clamp(1rem, 2vw, 3.2rem);
+		padding-right: 0;
+
+		.breadcrumb-wrap {
+			padding-top: 3rem;
+			padding-bottom: 3rem;
+			margin-bottom: 0;
+		}
+	}
+
+	.sub-body {
+		padding-top: 0;
+		padding-bottom: 5rem;
+
+		.sub-title + .blue-text-list { margin-top: -2.4rem; }
+
+		// PUB260507 page.css:397-398 — white-wrap 안 .title-box (h3-title + 안내 .text)
+		// 베이스 `.white-wrap .title-box` 의 KRDS heading-xsmall(1.7rem) / primary text 컬러를
+		// mypage 스코프에서 PUB 톤(2rem 다크그레이 + 안내 #999) 으로 오버라이드.
+		.title-box {
+			gap: 1.6rem;
+
+			.h3-title {
+				color: #333333;
+				font-size: 2rem;
+				font-weight: 700;
+			}
+
+			.text {
+				color: #999999;
+				font-size: 1.6rem;
+			}
+
+			@include mobile-down {
+				gap: 1.2rem;
+				.h3-title { font-size: 1.8rem; }
+				.text { font-size: 1.4rem; }
+			}
+		}
+
+		.btn-box {
+			gap: 5%;
+			justify-content: center;
+
+			// PUB260507 page.css:34 — max-width 32rem / height clamp(6.6,14vw,8rem)
+			// border-radius 2.4rem / font 2rem 600
+			.btn {
+				max-width: 32rem;
+				height: clamp(6.6rem, 14vw, 8rem);
+				border-radius: 2.4rem;
+				font-size: 2rem;
+				font-weight: 600;
+
+				@include mobile-down {
+					font-size: 1.8rem;
+					height: clamp(5.4rem, 14vw, 6.4rem);
+				}
+			}
+		}
+
+		> *:not(.sub-title) {
+			opacity: 0;
+			animation: fade_up 1s ease both;
+		}
+
+		// PUB260507 — title-top-box (페이지 상단 cont-title + 안내 박스 묶음)
+		.title-top-box {
+			display: flex;
+			flex-direction: column;
+			gap: 3.2rem;
+
+			.cont-title-box .tit {
+				font-size: 2.4rem;
+				color: var(--point-color);
+				font-weight: 800;
+
+				@include mobile-down { font-size: 2rem; }
+			}
+
+			// 마이페이지 한정 — point 변형의 옅은 보라 배경 대신 흰 배경 + 그림자
+			.text-info-wrap.point {
+				background: #fff;
+				box-shadow: 0 0 16px rgb(0 0 0 / 5%);
+			}
+		}
+
+		// .text-info-wrap.point 안 체크리스트 — 텍스트가 여러 줄로 줄바꿈 될 때
+		// 베이스 `align-items: center` 가 아이콘을 본문 세로 가운데에 띄워 어색해 보이므로
+		// 첫 줄 line-box 상단에 정렬되도록 데스크톱에서도 flex-start + 1lh 높이로 조정.
+		.text-info-wrap.point .text-list-wrap.check li {
+			align-items: flex-start;
+
+			&:before { height: 1lh; }
+		}
+	}
+
+	// information
+	&.information .sub-body {
+		.form-wrap:has(.form-title-box) { gap: 1.2rem; }
+
+		.form-wrap .form-group {
+			padding: 3.2rem 0;
+			display: flex;
+			flex-direction: column;
+			gap: 2.4rem;
+			border-top: 1px solid var(--krds-light-color-divider-gray-light);
+			border-bottom: 1px solid var(--krds-light-color-divider-gray-light);
+		}
+
+		// 전화번호(business 대표 전화번호 / member 휴대전화번호) — 통신사번호 select : 뒷자리 input = 3:7
+		.form-wrap .input-flex-box:has(input[name="tel2"]),
+		.form-wrap .input-flex-box:has(input[name="phone2"]) {
+			> .input-box:first-child { flex: 3; }
+			> .input-box:last-child { flex: 7; }
+		}
+	}
+
+	&.information:not(.step2) .sub-body .form-wrap:last-child .form-group {
+		padding-bottom: 1rem;
+		border-bottom: none;
+	}
+
+	&.information.step2 .sub-body {
+		.form-wrap:has(.form-title-box) { gap: 1.6rem; }
+		.form-wrap .form-group.certifi { padding-top: 0; gap: 1.6rem; border-top: none; }
+	}
+
+	// 이전/다음 두 버튼 페이지 — 모바일에서 컬럼 스택 대신 row 1:1 (퍼블 매칭)
+	// 베이스 `.btn-box` mobile-down 룰이 column 으로 스택해 `.btn { max-width: none }` 처리하므로
+	// 두 버튼인 케이스에만 row + flex 1 로 환원 — 단일 버튼 페이지(step1) 풀폭은 그대로 유지.
+	@include mobile-down {
+		&.information.step3 .sub-body .btn-box:has(.btn + .btn),
+		&.withdraw .sub-body .btn-box:has(.btn + .btn) {
+			flex-direction: row;
+			gap: 1.2rem;
+			align-items: stretch;
+
+			.btn { flex: 1; width: auto; max-width: none; }
+		}
+	}
+
+	// affiliation
+	&.affiliation .check-box-wrap .check-box.style3:not(:has(input:checked)) {
+		border-color: var(--krds-color-light-gray-20);
+
+		.text-box .tit { color: var(--krds-color-light-gray-90); }
+	}
+
+	&.affiliation .check-box.style1.all {
+		justify-content: flex-start;
+		padding: .4rem 1.6rem;
+		height: 7.4rem;
+		align-items: center;
+		box-sizing: border-box;
+	}
+
+	// PUB260507 page.css:517 — 모바일에서 유관기관 리스트 카드 풀폭
+	@include mobile-down {
+		&.affiliation .check-box-wrap .check-box.style3 { width: 100%; }
+	}
+
+	&.affiliation.step1 {
+		.btn-box { margin-top: -.8rem; }
+
+		.sub-body .form-wrap:has(.form-title-box) { gap: 1.6rem; }
+
+		.sub-body .form-wrap .form-group {
+			padding: 3.2rem 0;
+			display: flex;
+			flex-direction: column;
+			gap: 2.4rem;
+			border-top: 1px solid var(--krds-light-color-divider-gray-light);
+			border-bottom: 1px solid var(--krds-light-color-divider-gray-light);
+		}
+
+		.sub-body .form-wrap .form-group.certifi { padding-top: 0; gap: 1.6rem; border-top: none; }
+	}
+
+	// PUB260507 page.css:412-415 — withdraw 계열(통합회원/유관기관) 공통:
+	// white-wrap gap 4rem + 안 .box 컬럼 스택 + 테이블 셀 너비 보정.
+	// `.affiliation.withdraw` (유관기관 탈퇴) 와 `.withdraw:not(.affiliation)` (통합회원 탈퇴) 모두 적용.
+	&.withdraw {
+		.sub-body .white-wrap { gap: 4rem; }
+
+		.sub-body .box {
+			display: flex;
+			flex-direction: column;
+			gap: 2.4rem;
+		}
+
+		.sub-body .table-box.style1 table { min-width: fit-content; }
+		.sub-body .table-box.style1 table tr th { min-width: 12.5rem; }
+	}
+
+	// 멤버 인증 페이지 — 카드 4장(개인인증서 / 개인 간편인증서 / 휴대폰 인증 / Any-ID) 2x2 배치
+	// :nth-child(4) 가드로 4장 이상 케이스만 활성화 — business 의 2장 카드는 영향 없음.
+	// 베이스 `.check-box-wrap:has(.check-box.style2) { flex-wrap: nowrap }` 를 wrap 으로 환원.
+	.sub-body .check-box-wrap:has(.check-box.style2:nth-child(4)) {
+		flex-wrap: wrap;
+
+		.check-box.style2 { width: calc(50% - 1.6rem / 2); }
+
+		@include mobile-down {
+			.check-box.style2 { width: 100%; }
+		}
+	}
+
+	// 회원 탈퇴 완료 — PUB260507 conversion_business_step6 와 동일한 .white-wrap.completed 패턴
+	// (image + completed-tit + completed-txt + 하단 .btn.point)
+	.form-container .white-wrap.completed {
+		min-height: 40rem;
+		box-sizing: border-box;
+		justify-content: center;
+		align-items: center;
+		text-align: center;
+		gap: 1.6rem;
+
+		.img {
+			max-width: 30%;
+			margin: 0 auto;
+
+			img { width: 100%; height: auto; }
+		}
+
+		.completed-tit {
+			font-size: clamp(2.5rem, 3.5vw, 3rem);
+			color: var(--point-color);
+			font-weight: 700;
+		}
+
+		.completed-txt {
+			font-size: 1.6rem;
+			line-height: 1.5;
+			color: var(--krds-light-color-text-subtle);
+		}
+	}
+
+}
+
+body:has(.modal-wrap.open) .sub.mypage .sub-body > *:not(.sub-title) {
+	opacity: 1;
+	animation: none;
+}
+
+// =============================================
+// Mypage Modals — KrdsModal 이 createPortal 로 body 직속에 렌더되므로
+// 모달 스코프 룰은 `.sub.mypage` 밖에서 정의해야 매칭됨.
+// =============================================
+
+// PUB260507 page.css:408-411 — affiliation 의 #modal_completed 안 .completed-box
+// 베이스(라이트 블루 + height 30rem)를 유지하되, 콘텐츠가 길어질 수 있으니 height auto + 보더 추가
+body:has(.sub.mypage.affiliation) #modal_completed .completed-box {
+	gap: 1.6rem;
+	height: auto;
+	padding: 3rem 0;
+	border: 1px solid #D8E5FD;
+
+	.text-list-wrap.dots {
+		gap: 0;
+		padding: 1.7rem 0;
+		// 항목이 많아지면 리스트 영역만 스크롤 — 모달/box 가 세로로 폭주하지 않도록 캡
+		max-height: 18rem;
+		overflow-y: auto;
+		// 리스트가 박스 좌측에 너무 붙지 않도록 가운데 정렬 + 가독 폭 캡
+		max-width: 32rem;
+		width: 100%;
+		margin: 0 auto;
+		box-sizing: border-box;
+
+		// 스크롤바 — 모달 다른 영역과 동일한 톤 (퍼블 매칭 없음 — 우리 디자인 톤 유지)
+		&::-webkit-scrollbar { width: 6px; }
+		&::-webkit-scrollbar-track { background: transparent; }
+		&::-webkit-scrollbar-thumb { background: #D8E5FD; border-radius: 3px; }
+		&::-webkit-scrollbar-thumb:hover { background: var(--point-color); }
+
+		li {
+			color: var(--point-color);
+			font-size: clamp(2rem, 2vw, 2.4rem);
+			text-align: left;
+			font-weight: 700;
+
+			&:before { top: 1.5rem; background: var(--point-color); }
+		}
+	}
+}
+
+// PUB260507 — mypage 의 #modal_completed 확인 버튼은 .btn.point.half 톤
+// (Modal 컴포넌트는 variant: 'primary' → .primary 클래스를 그리는데,
+//  PUB은 동일 위치에 .point 색상이라 모달 스코프에서만 강제)
+body:has(.sub.mypage) #modal_completed .modal-btn .btn.primary {
+	background: var(--point-color);
+	color: var(--krds-light-color-text-inverse-static);
+	border-color: var(--point-color);
+
+	.icon { background-color: #ffffff; }
+}
+
+// =============================================
+// Desktop Hover (Page-specific)
+// =============================================
+@include desktop-up {
+	footer .inner .bot address ul li .box a:hover {
+		color: var(--krds-light-color-text-primary);
+
+		&:after { opacity: 1; }
+	}
+
+	.main .sec02 .cont01 .certi-wrap .list li .btn:hover {
+		border-color: var(--krds-light-color-border-primary);
+
+		strong { color: var(--krds-light-color-text-primary); }
+	}
+
+	.sub:has(.sub-nav) .sub-nav .list li:not(.active) a:hover {
+		color: var(--point-color);
+
+		.icon { background-color: var(--point-color); }
+	}
+
+	.check-box.style1.circle:not(:has(input:checked)):hover input:not(:disabled):before {
+		opacity: .2;
+		background-color: var(--krds-form-check--color-text);
+	}
+
+	.certifi-list li .btn:hover {
+		border-color: var(--krds-light-color-border-primary);
+
+		strong { color: var(--krds-light-color-text-primary); }
+	}
+
+	.privacy_policy_list a:hover:after { opacity: 1; }
+}

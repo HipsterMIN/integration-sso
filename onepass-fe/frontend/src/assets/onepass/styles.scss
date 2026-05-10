@@ -1,0 +1,30 @@
+// =============================================
+// onepass SCSS entry
+// ---------------------------------------------
+// 파일 구조 컨벤션
+//   - variables.scss : design token, $bp-*, mixin (desktop-up / mobile-down / small-mobile-down)
+//   - reset.scss     : global reset, layout util(.inner), 토큰의 미디어쿼리 오버라이드
+//   - components.scss: components/_*.scss aggregator (layout, form, ui, modal)
+//   - pages.scss     : pages/_*.scss aggregator (main, sub, content, mypage)
+//
+//   각 partial은 '한 영역 = 한 파일' 원칙. 새 컴포넌트/페이지는 partial 추가 후 해당 aggregator에 @import 한 줄 등록.
+//
+// 페이지 단위 SCSS 배치 규칙
+//   - 기본       : pages.scss 안의 섹션으로 추가
+//   - 분리 기준 : 200줄 초과 또는 컴포넌트 결합도가 높을 때 pages/<Page>/<Page>.styles.scss 로 co-locate
+//   - 컴포넌트  : <Comp>/<Comp>.styles.scss 로 컴포넌트 옆에 둠
+//
+// 클래스 네이밍
+//   - 이 폴더(src/assets/onepass/**) : kebab-case (KRDS 정렬, 예: .modal-wrap)
+//   - co-located *.styles.scss        : camelCase (예: .topNavContainer)
+//
+// 미디어쿼리는 raw @media 대신 mixin 사용 (variables.scss 참고)
+// =============================================
+@import './krds_tokens.css';
+@import 'overlayscrollbars/overlayscrollbars.css';
+@import '/public/fonts/fonts.css';
+
+@import './variables';
+@import './reset';
+@import './components';
+@import './pages';

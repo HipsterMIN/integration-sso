@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <clipPath id="clip-clould_step_01">
+      <rect width="64" height="64"/>
+    </clipPath>
+  </defs>
+  <g id="clould_step_01" clip-path="url(#clip-clould_step_01)">
+    <g id="그룹_162743" data-name="그룹 162743" transform="translate(-389 -326)">
+      <rect id="사각형_148365" data-name="사각형 148365" width="58" height="58" transform="translate(392 329)" fill="none"/>
+      <g id="패스_83974" data-name="패스 83974" transform="translate(406 333)" fill="#fff">
+        <path d="M 24 49 L 6 49 C 3.242990016937256 49 1 46.75701141357422 1 44 L 1 6 C 1 3.242990016937256 3.242990016937256 1 6 1 L 24 1 C 26.75700950622559 1 29 3.242990016937256 29 6 L 29 44 C 29 46.75701141357422 26.75700950622559 49 24 49 Z" stroke="none"/>
+        <path d="M 6 2 C 3.794389724731445 2 2 3.794391632080078 2 6 L 2 44 C 2 46.20560836791992 3.794389724731445 48 6 48 L 24 48 C 26.20561027526855 48 28 46.20560836791992 28 44 L 28 6 C 28 3.794391632080078 26.20561027526855 2 24 2 L 6 2 M 6 0 L 24 0 C 27.3137092590332 0 30 2.686290740966797 30 6 L 30 44 C 30 47.3137092590332 27.3137092590332 50 24 50 L 6 50 C 2.686290740966797 50 0 47.3137092590332 0 44 L 0 6 C 0 2.686290740966797 2.686290740966797 0 6 0 Z" stroke="none" fill="#52585d"/>
+      </g>
+      <path id="edit-2" d="M17,3a2.828,2.828,0,0,1,4,4L7.5,20.5,2,22l1.5-5.5Z" transform="translate(427 355.914)" fill="#fff" stroke="#52585d" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+      <g id="사각형_148368" data-name="사각형 148368" transform="translate(412 343)" fill="#fff" stroke="#52585d" stroke-width="1">
+        <rect width="18" height="4" rx="1" stroke="none"/>
+        <rect x="0.5" y="0.5" width="17" height="3" rx="0.5" fill="none"/>
+      </g>
+      <g id="사각형_148369" data-name="사각형 148369" transform="translate(412 350)" fill="#fff" stroke="#52585d" stroke-width="1">
+        <rect width="18" height="4" rx="1" stroke="none"/>
+        <rect x="0.5" y="0.5" width="17" height="3" rx="0.5" fill="none"/>
+      </g>
+      <g id="사각형_148370" data-name="사각형 148370" transform="translate(412 357)" fill="#fff" stroke="#52585d" stroke-width="1">
+        <rect width="18" height="4" rx="1" stroke="none"/>
+        <rect x="0.5" y="0.5" width="17" height="3" rx="0.5" fill="none"/>
+      </g>
+      <g id="사각형_148371" data-name="사각형 148371" transform="translate(412 364)" fill="#fff" stroke="#52585d" stroke-width="1">
+        <rect width="18" height="4" rx="1" stroke="none"/>
+        <rect x="0.5" y="0.5" width="17" height="3" rx="0.5" fill="none"/>
+      </g>
+    </g>
+  </g>
+</svg>

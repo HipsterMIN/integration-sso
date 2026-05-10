@@ -1,0 +1,859 @@
+// =============================================
+// Point Color
+// =============================================
+.point {
+	color: var(--krds-light-color-text-point);
+}
+
+// =============================================
+// Essential — (필수) 라벨 (PUB260506 page.css:68)
+// =============================================
+.essential {
+	font-size: 11px;
+	font-weight: 600;
+	color: #FE5D48;
+	vertical-align: middle;
+}
+
+// 입력 라벨 안에서 — 라벨 텍스트와 essential 사이 간격 (page.css:161)
+.input-wrap label:first-child .essential { margin-left: .4rem; }
+// text-list 안에서 — essential 다음 텍스트와 간격 (page.css:284)
+.text-list-wrap li .essential { margin-right: .4rem; }
+
+
+// =============================================
+// Icon
+// =============================================
+i.icon {
+	display: block;
+	-webkit-mask-repeat: no-repeat;
+	-webkit-mask-position: center center;
+	-webkit-mask-size: contain;
+	mask-repeat: no-repeat;
+	mask-position: center center;
+	mask-size: contain;
+
+	&.arrow-right { -webkit-mask-image: url(/images/onepass/ico_arrow_right.svg); mask-image: url(/images/onepass/ico_arrow_right.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.person { -webkit-mask-image: url(/images/onepass/ico_person.svg); mask-image: url(/images/onepass/ico_person.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.home { -webkit-mask-image: url(/images/onepass/ico_home.svg); mask-image: url(/images/onepass/ico_home.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.arrow-forward { -webkit-mask-image: url(/images/onepass/ico_arrow_forward.svg); mask-image: url(/images/onepass/ico_arrow_forward.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.arrow-top { -webkit-mask-image: url(/images/onepass/ico_arrow_top.svg); mask-image: url(/images/onepass/ico_arrow_top.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.close { -webkit-mask-image: url(/images/onepass/ico_close.svg); mask-image: url(/images/onepass/ico_close.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.arrow-bottom { -webkit-mask-image: url(/images/onepass/ico_arrow_bottom.svg); mask-image: url(/images/onepass/ico_arrow_bottom.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.search { -webkit-mask-image: url(/images/onepass/ico_search.svg); mask-image: url(/images/onepass/ico_search.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.pw-visible { -webkit-mask-image: url(/images/onepass/ico_pw_visible_off.svg); mask-image: url(/images/onepass/ico_pw_visible_off.svg); background-color: #999999; }
+	&.pw-visible.on { -webkit-mask-image: url(/images/onepass/ico_pw_visible_on.svg); mask-image: url(/images/onepass/ico_pw_visible_on.svg); background-color: #999999; }
+	&.article { -webkit-mask-image: url(/images/onepass/ico_article.svg); mask-image: url(/images/onepass/ico_article.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.settings { -webkit-mask-image: url(/images/onepass/ico_settings.svg); mask-image: url(/images/onepass/ico_settings.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.key { -webkit-mask-image: url(/images/onepass/ico_key.svg); mask-image: url(/images/onepass/ico_key.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.person_check { -webkit-mask-image: url(/images/onepass/ico_person_check.svg); mask-image: url(/images/onepass/ico_person_check.svg); background-color: var(--krds-light-color-icon-gray); }
+
+	// Renewal (PUB260506) — public/images/onepass/renewal/
+	&.ico-arrow-right { -webkit-mask-image: url(/images/onepass/renewal/ico_arrow_right.svg); mask-image: url(/images/onepass/renewal/ico_arrow_right.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.ico-arrow-forward { -webkit-mask-image: url(/images/onepass/renewal/ico_arrow_forward.svg); mask-image: url(/images/onepass/renewal/ico_arrow_forward.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.ico-arrow-forward-ios { -webkit-mask-image: url(/images/onepass/renewal/ico_arrow_forward_ios.svg); mask-image: url(/images/onepass/renewal/ico_arrow_forward_ios.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.ico-home { -webkit-mask-image: url(/images/onepass/renewal/ico_home.svg); mask-image: url(/images/onepass/renewal/ico_home.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.ico-add { -webkit-mask-image: url(/images/onepass/renewal/ico_add.svg); mask-image: url(/images/onepass/renewal/ico_add.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.ico-exit-to-app { -webkit-mask-image: url(/images/onepass/renewal/ico_exit_to_app.svg); mask-image: url(/images/onepass/renewal/ico_exit_to_app.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.ico-attach-file-add { -webkit-mask-image: url(/images/onepass/renewal/ico_attach_file_add.svg); mask-image: url(/images/onepass/renewal/ico_attach_file_add.svg); background-color: var(--krds-light-color-icon-gray); }
+	&.ico-reset-exposure { -webkit-mask-image: url(/images/onepass/renewal/ico_reset_exposure.svg); mask-image: url(/images/onepass/renewal/ico_reset_exposure.svg); background-color: var(--krds-light-color-icon-gray); }
+
+	// 직접 사이즈 클래스 — `<i class="icon foo small">` 형태(퍼블 PUB260506 패턴) 지원
+	// (기존 `.btn.small .icon` 패턴과 병행 동작)
+	&.xsmall { width: var(--krds-icon--size-xsmall); height: var(--krds-icon--size-xsmall); }
+	&.small { width: var(--krds-icon--size-small); height: var(--krds-icon--size-small); }
+	&.medium { width: var(--krds-icon--size-medium); height: var(--krds-icon--size-medium); }
+	&.large { width: var(--krds-icon--size-large); height: var(--krds-icon--size-large); }
+	&.xlarge { width: var(--krds-icon--size-xlarge); height: var(--krds-icon--size-xlarge); }
+}
+
+// =============================================
+// Button (KRDS)
+// =============================================
+.btn {
+	--krds-button--color-primary-fill: var(--krds-light-color-button-primary-fill);
+	--krds-button--color-primary-fill-hover: var(--krds-light-color-button-primary-fill-hover);
+	--krds-button--color-primary-fill-pressed: var(--krds-light-color-button-primary-fill-pressed);
+	--krds-button--color-primary-fill-disabled: var(--krds-light-color-button-disabled-fill);
+	--krds-button--color-primary-border: var(--krds-light-color-button-primary-fill);
+	--krds-button--color-primary-border-disabled: var(--krds-light-color-button-disabled-border);
+	--krds-button--color-primary-text: var(--krds-light-color-text-inverse-static);
+	--krds-button--color-primary-text-disabled: var(--krds-light-color-text-disabled-on);
+	--krds-button--color-secondary-fill: var(--krds-light-color-button-secondary-fill);
+	--krds-button--color-secondary-fill-hover: var(--krds-light-color-button-secondary-fill-hover);
+	--krds-button--color-secondary-fill-pressed: var(--krds-light-color-button-secondary-fill-pressed);
+	--krds-button--color-secondary-fill-disabled: var(--krds-light-color-button-disabled-fill);
+	--krds-button--color-secondary-border: var(--krds-light-color-button-secondary-border);
+	--krds-button--color-secondary-border-disabled: var(--krds-light-color-button-disabled-border);
+	--krds-button--color-secondary-text: var(--krds-light-color-text-primary);
+	--krds-button--color-secondary-text-disabled: var(--krds-light-color-text-disabled-on);
+	--krds-button--color-tertiary-fill: var(--krds-light-color-button-tertiary-fill);
+	--krds-button--color-tertiary-fill-hover: var(--krds-light-color-button-tertiary-fill-hover);
+	--krds-button--color-tertiary-fill-pressed: var(--krds-light-color-button-tertiary-fill-pressed);
+	--krds-button--color-tertiary-fill-disabled: var(--krds-light-color-button-disabled-fill);
+	--krds-button--color-tertiary-border: var(--krds-light-color-button-tertiary-border);
+	--krds-button--color-tertiary-border-disabled: var(--krds-light-color-button-disabled-border);
+	--krds-button--color-tertiary-text: var(--krds-light-color-text-basic);
+	--krds-button--color-tertiary-text-disabled: var(--krds-light-color-text-disabled-on);
+	--krds-button--color-text-fill: var(--krds-light-color-button-text-fill);
+	--krds-button--color-text-fill-hover: var(--krds-light-color-button-text-fill-hover);
+	--krds-button--color-text-fill-pressed: var(--krds-light-color-button-text-fill-pressed);
+	--krds-button--color-text-fill-disabled: var(--krds-light-color-button-text-fill);
+	--krds-button--color-text-border: var(--krds-light-color-button-text-border);
+	--krds-button--color-text-border-disabled: var(--krds-light-color-border-transparency);
+	--krds-button--color-text-text: var(--krds-light-color-text-basic);
+	--krds-button--color-text-text-disabled: var(--krds-light-color-text-disabled);
+	--krds-button--color-link-fill: var(--krds-light-color-button-text-fill);
+	--krds-button--color-link-fill-hover: var(--krds-light-color-button-text-fill);
+	--krds-button--color-link-fill-pressed: var(--krds-light-color-button-text-fill);
+	--krds-button--color-link-fill-disabled: var(--krds-light-color-button-text-fill);
+	--krds-button--color-link-border: var(--krds-light-color-button-text-border);
+	--krds-button--color-link-border-disabled: var(--krds-light-color-border-transparency);
+	--krds-button--color-link-text: var(--krds-light-color-link-default);
+	--krds-button--color-link-text-disabled: var(--krds-light-color-text-disabled);
+	transition: .5s ease;
+
+	&:not(.text, .icon) {
+		display: flex;
+		width: 100%;
+		border-radius: 8px;
+		align-items: center;
+		justify-content: center;
+		height: 5.6rem;
+		font-size: var(--krds-pc-font-size-label-large);
+		border-style: solid;
+		white-space: nowrap;
+		border-width: var(--krds-light-border-width-variable-regular);
+		border-color: transparent;
+	}
+
+	&.primary {
+		background: var(--krds-light-color-button-primary-fill);
+		color: var(--krds-light-color-text-inverse-static);
+	}
+
+	&.tertiary {
+		background-color: var(--krds-button--color-tertiary-fill);
+		border-color: var(--krds-button--color-tertiary-border);
+		color: var(--krds-button--color-tertiary-text);
+	}
+
+	&.secondary {
+		background-color: var(--krds-button--color-secondary-fill);
+		border-color: var(--krds-button--color-secondary-border);
+		color: var(--krds-button--color-secondary-text);
+	}
+
+	&.green {
+		background-color: #33A927;
+		border-color: transparent;
+		color: var(--krds-light-color-text-inverse-static);
+	}
+
+	// Renewal (PUB260506) — point-color 솔리드 (로그인 등 주요 액션 버튼)
+	&.point {
+		background: var(--point-color);
+		color: var(--krds-light-color-text-inverse-static);
+		transition: background .3s ease, box-shadow .3s ease;
+
+		.icon { background-color: #ffffff; }
+
+		// 데스크톱 hover (퍼블 page.css:416) — disabled 상태에서는 hover 효과 제거
+		// (예: 이름 필드처럼 disabled input 옆에 붙은 중복확인 버튼이 disabled 일 때)
+		@include desktop-up {
+			&:not(:disabled):hover {
+				background: var(--point-color2);            // 다크 네이비
+				box-shadow: 0 5px 0 rgba(0, 55, 100, 0.27); // navy 27% 투명도, y 5px
+			}
+		}
+	}
+
+	// Renewal — white 변형 (이전 / 건너뛰기 등 보조 액션, 퍼블 krds_tokens.css:31-32)
+	&.white {
+		background: #ffffff;
+		color: #999999;
+		border-color: #999999;
+
+		.icon { background-color: #999999; }
+
+		// 데스크톱 hover (퍼블 page.css:417-418) — disabled 상태에서는 hover 효과 제거
+		@include desktop-up {
+			&:not(:disabled):hover {
+				background: #999999;
+				color: #ffffff;
+				box-shadow: 0 5px 0 rgba(153, 153, 153, 0.27);   // gray 27% (#99999945)
+
+				.icon { background-color: #ffffff; }
+			}
+		}
+	}
+
+	// Renewal — prev 변형 (좌향 화살표 — 동일 forward 아이콘을 row-reverse + flip 으로 재활용)
+	// 퍼블 krds_tokens.css:33-34
+	&.prev {
+		flex-direction: row-reverse;
+
+		.ico-arrow-forward-ios { transform: rotateY(180deg); }
+	}
+
+	// Renewal (PUB260507 page.css:43-44) — purple 액션 버튼 (예: 유관기관 추가)
+	&.purple {
+		background: #8E51C3;
+		color: #ffffff;
+
+		.icon { background-color: #ffffff; }
+
+		@include desktop-up {
+			&:hover {
+				background: #6c2ea2;
+				box-shadow: 0 5px 0 rgba(142, 81, 195, 0.27);
+			}
+
+			&.add-btn:hover { box-shadow: 0 3px 0 rgba(142, 81, 195, 0.27); }
+		}
+	}
+
+	// Renewal (PUB260507 page.css:59-60) — 인라인 추가 버튼 (h3-title-box 옆 등)
+	// 베이스 `.btn:not(.text, .icon) { width: 100% }` 대신 자동 폭 + 작은 padding/radius
+	&.add-btn {
+		font-size: 1.4rem;
+		font-weight: 600;
+		display: flex;
+		align-items: center;
+		gap: .8rem;
+		padding: .8rem;
+		border-radius: 1.2rem;
+		width: auto;
+		height: auto;
+
+		.icon { width: 2rem; height: 2rem; }
+	}
+
+	// Renewal — .medium 폰트 사이즈 (퍼블 .btn.medium)
+	&.medium { font-size: 1.6rem; }
+
+	&:has(.icon) { gap: 1rem; }
+
+	&.text:not(:has(.icon)) { padding: .5rem; margin: -.5rem; }
+	&.text:has(.icon) { display: flex; gap: 4px; padding: 0 2px; align-items: center; }
+
+	&.text:not(.icon) {
+		position: relative;
+
+		&:after {
+			content: "";
+			position: absolute;
+			width: calc(100% - 3px);
+			height: calc(100% - 3px);
+			border-radius: 3px;
+			background: var(--krds-light-color-element-primary-lighter);
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			z-index: -1;
+			opacity: 0;
+			transition: .5s ease;
+		}
+	}
+
+	&.text:has(.icon):after {
+		width: calc(100% + 3px);
+		height: calc(100% + 3px);
+	}
+
+	&.xsmall .icon { width: var(--krds-icon--size-xsmall); height: var(--krds-icon--size-xsmall); }
+	&.small .icon { width: var(--krds-icon--size-small); height: var(--krds-icon--size-small); }
+	&.medium .icon { width: var(--krds-icon--size-medium); height: var(--krds-icon--size-medium); }
+	&.large .icon { width: var(--krds-icon--size-large); height: var(--krds-icon--size-large); }
+	&.xlarge .icon { width: var(--krds-icon--size-xlarge); height: var(--krds-icon--size-xlarge); }
+}
+
+.btn-box {
+	display: flex;
+	gap: 2%;
+	justify-content: center;
+
+	@include mobile-down {
+		flex-direction: column;
+		gap: .6rem;
+		align-items: center;     // 단일 버튼이 컨테이너 가로 중앙 정렬되도록 (max-width 캡 가진 케이스 포함)
+		.btn { max-width: none; }
+	}
+}
+
+// Utility — 우측 정렬 래퍼 (퍼블 .text-align-right)
+.text-align-right {
+	display: flex;
+	justify-content: flex-end;
+}
+
+// 14세 미만 회원가입 버튼 (퍼블 .age-14-btn) — 보조 텍스트 톤
+.age-14-btn {
+	gap: 0;
+	color: #464C53;
+
+	.icon { background-color: #464C53; }
+}
+
+// Red 컬러 변형 (퍼블 page.css:41-42) — 계정연결 라벨 등
+.btn.red {
+	background: rgb(254 93 72 / 30%);
+	color: #FE5D48;
+
+	.icon { background-color: #FE5D48; }
+}
+
+// 계정연결 라벨 — `#modal_service_list .check-box.style3 .text-box .tit .account-connec` (퍼블 page.css:438-440)
+#modal_service_list .check-box.style3 .text-box .tit:has(.account-connec) {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+#modal_service_list .check-box.style3 .text-box .tit .account-connec {
+	font-size: 11px;
+	padding: 0 5px;
+	height: 26px;
+	border-radius: 8px;
+	display: inline-flex;
+	align-items: center;
+
+	.icon { width: 15px; height: 15px; }
+}
+
+// =============================================
+// Breadcrumb
+// =============================================
+.breadcrumb-wrap {
+	animation: fade_in 2s ease both;
+	--krds-breadcrumb--padding-x: var(--krds-padding-2);
+	--krds-breadcrumb--margin-bottom: var(--krds-pc-gap-layout-breadcrumb-h1);
+	--krds-breadcrumb--radius: var(--krds-radius-medium2);
+	--krds-breadcrumb--pc-font-size: var(--krds-pc-font-size-label-small);
+	--krds-breadcrumb--mobile-font-size: var(--krds-mobile-font-size-label-small);
+	--krds-breadcrumb--color-action: var(--krds-light-color-action-secondary);
+	--krds-breadcrumb--color-action-hover: var(--krds-light-color-action-secondary-hover);
+	--krds-breadcrumb--color-action-pressed: var(--krds-light-color-action-secondary-pressed);
+	--krds-breadcrumb--color-text: var(--krds-light-color-text-basic);
+	--krds-breadcrumb--color-text-disabled: var(--krds-light-color-text-disabled);
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	flex-direction: row;
+	padding-top: var(--krds-pc-gap-layout-header-breadcrumb);
+	padding-bottom: var(--krds-pc-gap-layout-breadcrumb-h2);
+	margin-bottom: var(--krds-breadcrumb--margin-bottom);
+
+	.breadcrumb {
+		display: flex;
+		align-items: center;
+		gap: var(--krds-gap-2);
+		width: 100%;
+
+		li {
+			font-weight: 500;
+			display: inline-flex;
+			align-items: center;
+			font-size: var(--krds-breadcrumb--pc-font-size);
+
+			&:not(:last-child)::after {
+				content: "";
+				margin-left: var(--krds-gap-2);
+				display: inline-flex;
+				width: var(--krds-icon--size-small);
+				height: var(--krds-icon--size-small);
+				background-color: var(--krds-light-color-text-basic);
+				-webkit-mask-repeat: no-repeat;
+				-webkit-mask-position: center center;
+				-webkit-mask-size: contain;
+				mask-repeat: no-repeat;
+				mask-position: center center;
+				mask-size: contain;
+				-webkit-mask-image: url(/images/onepass/ico_arrow_forward_ios.svg);
+				mask-image: url(/images/onepass/ico_arrow_forward_ios.svg);
+			}
+
+			&.home {
+				gap: 0;
+
+				a { display: flex; align-items: center; }
+				.icon { width: var(--krds-icon--size-medium); height: var(--krds-icon--size-medium); }
+			}
+
+			a.text {
+				text-decoration: underline;
+				text-underline-offset: var(--krds-font-underline-offset);
+			}
+		}
+	}
+}
+// =============================================
+// Step
+// =============================================
+.step-wrap {
+	&.show > li { animation: zoom_in 1s ease both; }
+
+	--krds-step--layout-gap: var(--krds-number-18);
+	--krds-step--step-font-size: var(--krds-pc-font-size-body-xsmall);
+	--krds-step--step-title-font-size: var(--krds-pc-font-size-body-small);
+	--krds-step--circle-size-default: var(--krds-icon--size-medium);
+	--krds-step--circle-size-active: 1.2rem;
+	--krds-step--circle-radius: var(--krds-radius-max);
+	--krds-step--padding-txt-top: var(--krds-padding-9);
+	--krds-step--padding-txt-right: var(--krds-padding-9);
+	--krds-step--border-width-medium: 0.3rem;
+	--krds-step--color-step: var(--krds-light-color-text-subtle);
+	--krds-step--color-step-title: var(--krds-light-color-text-basic);
+	--krds-step--color-fill-default: var(--krds-light-color-element-gray-light);
+	--krds-step--color-fill-done: var(--krds-light-color-element-gray);
+	--krds-step--color-fill-active: var(--krds-light-color-element-primary);
+	--krds-step--color-fill-white: var(--krds-light-color-element-inverse-static);
+	--krds-step--color-border-default: var(--krds-light-color-element-disabled-light);
+	--krds-step--color-border-done: var(--krds-step--color-fill-done);
+	--krds-step--color-border-active: var(--krds-step--color-fill-active);
+	--krds-step--color-icon-done: var(--krds-step--color-fill-white);
+	--krds-step--color-icon-active: var(--krds-step--color-fill-active);
+	display: flex;
+
+	> li {
+		position: relative;
+		font-size: var(--krds-pc-font-size-body-xsmall);
+
+		&:not(:last-child) {
+			width: 100%;
+
+			&:after {
+				position: absolute;
+				top: calc(var(--krds-step--circle-size-default) / 2 - var(--krds-step--border-width-medium) / 2);
+				left: 0.1rem;
+				content: "";
+				width: 100%;
+				height: var(--krds-step--border-width-medium);
+				background-color: var(--krds-step--color-fill-default);
+			}
+		}
+
+		&.done:after { background-color: var(--krds-step--color-fill-done); }
+		&.active:after { background-color: var(--krds-step--color-border-default); }
+
+		> span {
+			display: flex;
+			gap: 2px;
+			flex-direction: column;
+			position: relative;
+			padding-top: var(--krds-step--padding-txt-top);
+
+			&:before, &:after {
+				content: "";
+				border-radius: var(--krds-step--circle-radius);
+			}
+
+			&:before {
+				box-sizing: border-box;
+				position: absolute;
+				top: 0;
+				left: 0;
+				z-index: 2;
+				width: var(--krds-step--circle-size-default);
+				height: var(--krds-step--circle-size-default);
+				background-color: var(--krds-step--color-fill-default);
+				border: 0.1rem solid var(--krds-step--color-border-default);
+			}
+		}
+
+		&.done > span:before {
+			border-color: var(--krds-step--color-border-done);
+			background-color: var(--krds-step--color-fill-done);
+		}
+
+		&.active > span:before {
+			background-color: var(--krds-step--color-fill-white);
+			border-width: var(--krds-step--border-width-medium);
+			border-color: var(--krds-step--color-border-active);
+		}
+
+		&.active > span:after {
+			position: absolute;
+			top: calc((var(--krds-step--circle-size-active) - var(--krds-step--circle-size-default)) / 2 * -1);
+			left: calc((var(--krds-step--circle-size-default) - var(--krds-step--circle-size-active)) / 2);
+			width: var(--krds-step--circle-size-active);
+			height: var(--krds-step--circle-size-active);
+			background-color: var(--krds-step--color-icon-active);
+			z-index: 3;
+		}
+
+		.step { color: var(--krds-light-color-text-subtle); }
+		.step-tit { font-weight: 500; white-space: nowrap; }
+		&.active .step-tit { color: var(--krds-light-color-element-primary); }
+	}
+}
+
+// =============================================
+// Badge
+// =============================================
+.badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	--krds-badge--size-height: var(--krds-size-height-4);
+	--krds-badge--line-height: 2.4rem;
+	--krds-badge--padding: var(--krds-padding-3);
+	--krds-badge--radius: var(--krds-radius-small2);
+	--krds-badge--radius-max: var(--krds-radius-max);
+	--krds-badge--number-size-height: var(--krds-size-height-3);
+	--krds-badge--pc-font-size: var(--krds-pc-font-size-label-small);
+	--krds-badge--color-primary-element: var(--krds-light-color-element-primary);
+	--krds-badge--color-text-basic: var(--krds-light-color-text-inverse-static);
+	height: var(--krds-badge--size-height);
+	line-height: var(--krds-badge--line-height);
+	font-size: var(--krds-badge--pc-font-size);
+	padding: 0 var(--krds-badge--padding);
+	border-radius: var(--krds-badge--radius);
+
+	&.primary { background-color: var(--krds-badge--color-primary-element); color: var(--krds-badge--color-text-basic); }
+	&.number { height: var(--krds-badge--number-size-height); border-radius: var(--krds-badge--radius-max); }
+
+	// Renewal (PUB260506) — point 변형 (page.css:54)
+	&.point {
+		background: var(--point-color);
+		color: #ffffff;
+		font-weight: 600;
+		font-size: 1.3rem;
+		padding: 0 1.2rem;
+		height: 2.8rem;
+		border-radius: 8px;
+		gap: 8px;
+	}
+
+	// 서비스 상태 칩 (check-conversion 응답 기반)
+	&.linked         { background: #ffe8e8; color: #e8344e; }  // 계정연결 (registered)
+	&.down           { background: #f1f3f5; color: #8b95a1; }  // 서비스중단 (DOWN)
+	&.cb-open        { background: #fff3e0; color: #e67e22; }  // 일시중단 (CB_OPEN)
+	&.not-configured { background: #f1f3f5; color: #adb5bd; }  // 미연동 (EP_NOT_CONFIGURED)
+	&.query-error    { background: #fff3e0; color: #e67e22; }  // 조회실패 (queryStatus=ERROR)
+	&.query-timeout  { background: #fff8e1; color: #f59f00; }  // 응답지연 (queryStatus=TIMEOUT)
+}
+
+// =============================================
+// Agree
+// =============================================
+.all-agree-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 3.2rem;
+
+	// "모두 동의합니다" 행 — 퍼블 PUB260506 (page.css:201-203)
+	.all-box {
+		padding: 0 1.6rem;
+
+		.check-box {
+			height: 2.6rem;
+			align-items: center;
+			font-size: var(--krds-pc-font-size-heading-xxsmall);
+
+			small { font-size: 2rem; }
+		}
+	}
+
+	.agree-box {
+		border-top: 1px solid var(--krds-light-color-border-gray-dark);
+		display: flex;
+		flex-direction: column;
+
+		> li {
+			&:not(:first-child) {
+				border-top: 1px solid var(--krds-light-color-divider-gray-light);
+			}
+
+			// 마지막 항목 — 약관 박스 하단 보더로 시각 클로즈
+			&:last-child {
+				border-bottom: 1px solid var(--krds-light-color-divider-gray-light);
+			}
+
+			.agree-title-box {
+				padding: 2rem 1.6rem;
+				display: flex;
+				justify-content: space-between;
+				gap: 1.6rem;
+
+				&:has(.title) { padding-left: 0; padding-right: 0; }
+
+				// `<button>` 으로 사용되는 경우 (예: register/step4 — 서비스 목록 모달 트리거)
+				// 브라우저 기본 button 스타일 제거 + 풀폭 + 텍스트 좌측 정렬
+				&:is(button) {
+					background: transparent;
+					border: none;
+					width: 100%;
+					text-align: left;
+					font: inherit;
+					color: inherit;
+					cursor: pointer;
+				}
+
+				.title .badge { margin-left: .5rem; }
+
+				.check-box.style1 {
+					min-height: 2.3rem;
+
+					small {
+						font-size: var(--krds-pc-font-size-heading-xxsmall);
+						line-height: 1.4;
+
+						.point { margin-right: 3px; }
+					}
+				}
+
+				.arrow-top {
+					background-color: var(--krds-light-color-icon-gray);
+				}
+			}
+
+			&:not(.open) {
+				.agree-title-box .arrow-top { transform: rotate(180deg); }
+				.detail-box { display: none; }
+			}
+
+			// 약관 본문 (오픈 시 표시) — 퍼블 PUB260507 (page.css:220-229)
+			.detail-box {
+				padding: 2rem 1.6rem 4rem;
+				display: flex;
+				flex-direction: column;
+				gap: 1.5rem;
+				font-size: var(--krds-pc-font-size-label-small);   // 1.5rem (15px) — 퍼블 page.css:220
+				line-height: 1.5;
+				word-break: keep-all;
+				color: #333333;
+				background: var(--krds-light-color-action-primary-hover);
+				border-bottom: 1px solid var(--krds-light-color-divider-gray-light);   // 퍼블 page.css:220
+
+				// 약관 본문 스크롤 — 퍼블 매칭. 직속 자식이 자체 스크롤,
+				// 스크롤바는 .detail-box 패딩 안쪽 (콘텐츠 우측 엣지) 에 위치 (퍼블 page.css:221-222).
+				> * {
+					min-height: 20rem;
+					max-height: 35rem;
+					overflow-y: auto;
+
+					&::-webkit-scrollbar { background: #ffffff; }
+				}
+
+				// 엘리먼트 레벨 폴백 — 백엔드가 .privacy_policy_list 등 클래스를 안 붙이고
+				// 평문 HTML 만 반환해도 헤딩 위계 / 여백이 보이도록 적용.
+				// (.privacy_policy_list / dl 룰은 클래스가 있을 때 가산 적용)
+				h1, h2, h3 {
+					font-weight: 700;
+					line-height: 1.4;
+					margin: 1.6rem 0 .8rem;
+
+					&:first-child { margin-top: 0; }
+				}
+
+				h1 { font-size: var(--krds-pc-font-size-heading-xxsmall); }  // 1.5rem (15px)
+				h2 { font-size: var(--krds-pc-font-size-label-small); }      // 1.5rem (15px) — 퍼블 page.css:226
+				h3 { font-size: var(--krds-pc-font-size-label-small); }      // 1.5rem (15px) — 퍼블 page.css:226
+
+				ol, ul {
+					display: flex;
+					flex-direction: column;
+					gap: 1rem;
+					padding-left: 1.6rem;
+				}
+
+				ol ol, ul ul, ol ul, ul ol { gap: .5rem; padding-top: .4rem; }
+
+				p { margin: 0; }
+
+				table {
+					width: 100%;
+					margin: .5rem 0;
+					border-collapse: collapse;
+					table-layout: fixed;
+
+					th, td {
+						padding: .8rem .6rem;
+						border-bottom: 1px solid var(--krds-light-color-divider-gray-light);
+						vertical-align: middle;
+						font-size: var(--krds-pc-font-size-label-small);
+						line-height: 1.5;
+						word-break: keep-all;
+					}
+
+					thead th {
+						background: var(--krds-light-color-surface-secondary-subtler);
+						font-weight: 700;
+						color: var(--point-color);
+						border-top: 1px solid var(--krds-light-color-divider-gray-light);
+					}
+				}
+
+				// dl 정의 리스트 (퍼블 page.css:223-225)
+				dl {
+					display: flex;
+					flex-direction: column;
+					gap: 1rem;
+					line-height: 1.4;
+
+					h2 { font-weight: 700; color: #0B50D0; }   // 퍼블 강조 블루
+					dt.top-text { margin-bottom: 1.6rem; }
+				}
+
+				// privacy_policy_list 오버라이드 — 클래스가 있을 때 정밀 적용 (퍼블 page.css:226-228).
+				// 글로벌 _content.scss 의 `.privacy_policy_list > li { font-size: 1.6rem }` 가
+				// detail-box 안에서도 그대로 유효 (퍼블이 의도한 본문 1.6rem).
+				.privacy_policy_list > li h2 {
+					padding-bottom: 0;
+					border-bottom: none;
+					color: var(--krds-light-color-text-subtle);
+				}
+				.privacy_policy_list > li h3 { font-weight: 600; }
+
+				// 표 폰트 (퍼블 page.css:229)
+				.table-box table tr > * { font-size: var(--krds-pc-font-size-label-small); }
+			}
+
+			&.open .agree-title-box {
+				background: var(--krds-light-color-action-primary-hover);
+
+				.check-box.style1 small {
+					color: var(--krds-light-color-text-primary);
+				}
+			}
+		}
+	}
+}
+
+// =============================================
+// Table
+// =============================================
+.table-box {
+	table caption { display: none; }
+
+	&.style1 {
+		table thead { border-top: 1px solid var(--krds-light-color-divider-gray-light); }
+		table:not(:has(thead)) tbody { border-top: 1px solid var(--krds-light-color-divider-gray-light); }
+
+		table tr th {
+			background: var(--krds-light-color-surface-secondary-subtler);
+			font-weight: 700;
+			font-size: var(--krds-pc-font-size-heading-xxsmall);
+			color: var(--point-color);   // 퍼블 page.css:239 매칭
+		}
+
+		table tr > * {
+			padding: 1rem .5rem;
+			text-align: center;
+			border-bottom: 1px solid var(--krds-light-color-divider-gray-light);
+			vertical-align: middle;
+			height: 4.7rem;
+			box-sizing: border-box;
+			font-size: var(--krds-pc-font-size-label-medium);
+			word-break: keep-all;
+		}
+
+		table tr td {
+			color: var(--krds-light-color-text-subtle);
+			line-height: 1.5;
+		}
+	}
+
+	&.scroll {
+		overflow-x: auto;
+
+		table { min-width: 600px; }
+	}
+}
+
+// =============================================
+// Blue Background
+// =============================================
+.blue-bg {
+	font-size: var(--krds-pc-font-size-heading-medium);
+	font-weight: 700;
+	border-radius: 8px;
+	background: var(--krds-light-color-surface-secondary-subtler);
+	padding: 8rem 1.6rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	gap: 4rem;
+	min-height: 19.6rem;
+	box-sizing: border-box;
+	color: var(--krds-light-color-text-subtle);
+
+	.text-list-wrap.dots {
+		gap: 0;
+		width: 100%;
+		max-width: 45.4rem;
+
+		li {
+			color: var(--krds-light-color-element-primary);
+
+			&:before { top: .65em; background: var(--krds-light-color-element-primary); }
+		}
+	}
+}
+
+// =============================================
+// Blue Text List
+// =============================================
+.blue-text-list {
+	border-radius: 8px;
+	background: var(--krds-light-color-surface-secondary-subtler);
+	padding: 1.6rem;
+	display: flex;
+	flex-direction: column;
+	gap: .8rem;
+
+	li {
+		position: relative;
+		display: flex;
+		align-items: center;
+		font-size: var(--krds-pc-font-size-body-small);
+		line-height: 1.5;
+		gap: 1rem;
+	}
+
+	&.check-cricle li:before {
+		content: "";
+		width: var(--krds-icon--size-large);
+		height: var(--krds-icon--size-large);
+		display: block;
+		background: url(/images/onepass/ico_round_check.svg) no-repeat center / contain;
+	}
+
+	&.check-cricle2 li:before {
+		content: "";
+		width: var(--krds-icon--size-large);
+		height: var(--krds-icon--size-large);
+		display: block;
+		background: url(/images/onepass/ico_round_check2.svg) no-repeat center / contain;
+	}
+}
+
+div.blue-text-list {
+	gap: 1.2rem;
+
+	.blue-text-list-title {
+		font-size: var(--krds-pc-font-size-heading-medium);
+		font-weight: 700;
+		display: flex;
+		gap: 4px;
+		align-items: center;
+
+		.icon {
+			width: 3.2rem;
+			height: 3.2rem;
+			flex: none;
+			background: url(/images/onepass/ico_guide_check.svg) no-repeat center / contain;
+		}
+	}
+
+	ul {
+		display: flex;
+		flex-direction: column;
+		gap: .8rem;
+		padding: 0;
+		background: transparent;
+		border-radius: 0;
+	}
+}

@@ -1,0 +1,186 @@
+{
+    "divId": "Ezauth_divId",
+    "layerZIndex": 1000000001,
+    "childHtmlPath": "EzauthChild.html",
+    "childHtmlMobilePath": "EzauthMobileChild.html",
+    "loadingMessage": "잠시만 기다려 주세요.",
+    "childLoadMaxRetries": 50,
+    "childLoadRetryDelay": 100,
+    "alertZIndex": 9999,
+    "blockZIndex": 9998,
+    "DEVICE_TYPE": {
+        "PC": "PC",
+        "MOBILE_WEB": "MobileWeb",
+        "MOBILE_APP": "MobileApp",
+        "ETC": "etc"
+    },
+    "BROWSER_TYPE": {
+        "Edge": "Edge",
+        "IE": "IE",
+        "Chrome": "Chrome",
+        "Firefox": "Firefox",
+        "Safari": "Safari",
+        "Opera": "Opera",
+        "Etc": "etc"
+    },
+    "TELCO_TYPE": {
+        "SKT": "S",
+        "KT": "K",
+        "LGU": "L"
+    },
+    "MOBILE_OS": {
+        "ANDROID": "ANDROID",
+        "IOS": "IOS"
+    },
+    "PC_OS": {
+        "WINDOWS": "WINDOWS",
+        "MAC": "MAC"
+    },
+    "ajaxTimeout": 30000,
+    "ui": {
+        "header": {
+            "titleText": "간편인증",
+            "logoText": "국세청"
+        },
+        "step1": {
+            "sectionProviderInfo": {},
+            "sectionEzauthInfo": {
+                "version": "EZ Auth v1.0.0.0",
+                "guideText": "사용방법 안내"
+            },
+            "sectionUserInfo": {
+                "signTitleText": "전자서명",
+                "authTitleText": "간편인증",
+                "bizTitleText" : "인증기관 선택",
+                "bizTitleSelectCertText": " 인증서 정보를 입력하세요",
+                "bizTitleAuthMethodText": "인증방법을 선택하세요",
+                "bizTitleServiceListText": "사업자 인증서",
+                "bizTitleAuthListText": "인증 방법",
+                "bizTitleCert": "인증서",
+                "bizTitleBusinessRegistrationNumber": "사업자등록번호",
+                "bizTitleBusinessRegistrationNumberPlaceholder": "1234567890",
+                "bizTitleName": "이름",
+                "bizTitleNamePlaceholder": "홍길동",
+                "bizTitleBirth": "생년월일",
+                "bizTitleBirthPlaceholder": "19900101",
+                "bizTitleHP": "휴대폰번호",
+                "bizTitleHPCompany": "통신사",
+                "bizTitleHPCompanyS": "SKT",
+                "bizTitleHPCompanyK": "KT",
+                "bizTitleHPCompanyL": "LGU+",
+                "bizTitleHPCompanyMvnoS": "SKT(알뜰폰)",
+                "bizTitleHPCompanyMvnoK": "KT(알뜰폰)",
+                "bizTitleHPCompanyMvnoL": "LGU+(알뜰폰)",
+                "bizTitleHPPlaceholder": "12341234",
+                "bizTitleSsn": "주민등록번호",
+                "bizTitleSsn1Placeholder": "주민번호 앞자리",
+                "bizTitleSsn2Placeholder": "주민번호 뒷자리"
+            },
+            "webAccessibilityText": {
+                "headerLogo": "로고",
+                "closeButton": "닫기",
+                "certBiz": "인증 사업자",
+                "guideText": "사용방법 안내",
+                "selectAuthMethod": "인증방법 선택",
+                "bizTitleBusinessRegistrationNumber": "사업자등록번호",
+                "bizTitleName": "이름",
+                "bizTitleBirth": "생년월일",
+                "bizTitleHPCompanySelect": "통신사 선택",
+                "bizTitleHPNumberPrefixSelect": "휴대폰번호 앞자리 선택",
+                "bizTitleHP": "휴대폰번호",
+                "bizTitleSsn1": "주민번호 앞6자리",
+                "bizTitleSsn2": "주민번호 뒤7자리",
+                "allAgree": "전체동의",
+                "policyShowButton": "보기",
+                "reqAuthButton": "인증 요청",
+                "agreeAllAndReqAuthButton": "모두 동의하고 인증 요청",
+                "step01ImgText": "STEP 1",
+                "step02ImgText": "STEP 2",
+                "step03ImgText": "STEP 3",
+                "progressArrow": "화살표",
+                "completeAuthButton": "인증 완료"
+            },
+            "sectionPolicys": {
+                "allAgree": "전체동의",
+                "policyShowButton": "보기"
+            },
+            "sectionButtons": {
+                "nextButton": "다음",
+                "closeButton": "닫기",
+                "reqAuthButton": "인증 요청",
+                "agreeAllAndReqAuthButton": "모두 동의하고 인증 요청",
+                "completeAuthButton": "인증 완료"
+            }
+        },
+        "step2": {
+            "titleText": "인증을 진행해 주세요.",
+            "titleMobileText": "인증을 진행해 주세요.",
+            "titleTextDetail": "입력하신 휴대폰으로 인증 요청 메시지를 보냈습니다.</br>앱에서 인증을 진행해주세요.",
+            "titleCloudTextDetail": "클라우드 인증서를 실행합니다.</br>클라우드 인증 화면에서 인증을 진행해주세요.",
+            "titleMobileTextDetail": "입력하신 휴대폰으로 인증 요청 메시지를 보냈습니다.</br>앱에서 인증을 진행해주세요.",
+            "stepInfo1": "<strong>STEP 01</strong> 앱에서 인증 요청 메세지 확인",
+            "stepInfo2": "<strong>STEP 02</strong> 간편인증(비밀번호 등)",
+            "stepInfo3": "<strong>STEP 03</strong> 인증완료 후, 인증완료 버튼 클릭",
+            "infoQuestion": "휴대폰에 인증요청 알림이 오지 않나요?",
+            "infoAnswer1": "해당 앱 설치 및 로그인 여부를 확인하세요.",
+            "infoAnswer2": "앱 알림 수신동의가 되어있는지 확인해주세요.",
+            "infoAnswer3": "문제가 지속되면 도움말/이메일문의를 통해 문의해주세요.",
+            "closeButton": "닫기",
+            "completeAuthButton": "인증 완료"
+        },
+        "errorText": {
+            "certNotSelected": "사업자 인증서를 선택해 주세요.",
+            "authTypeNotSelected": "인증 방법을 선택해 주세요.",
+            "bizNumEmpty": "사업자번호를 입력해주세요.",
+            "bizNumInvalid": "사업자번호를 정확히 입력해주세요.",
+            "nameNotInput": "이름을 입력해주세요.",
+            "nameExceededCharacterCount": "이름은 최대 50글자 입니다.",
+            "birthError": "생년월일을 입력해주세요.",
+            "hpNumError": "휴대폰번호를 입력해주세요.",
+            "mobileCompanySelect": "통신사를 선택해 주세요.",
+            "ssn1Error": "주민등록번호 앞 6자리를 확인해 주세요.",
+            "ssn2Error": "주민등록번호 뒤 7자리를 확인해 주세요.",
+            "enterOnlyNum": "숫자만 입력하세요.",
+            "notAgreeTerms": "이용 동의를 해주세요.",
+            "popupBlocked": "팝업이 차단되었습니다.</br>브라우저 설정에서 팝업 차단을 해제하고</br>다시 시도해주세요."
+        },
+        "errorPage": {
+            "errorTitle": "오류가 발생했습니다!",
+            "errorDetail": "요청한 페이지 주소가 변경 혹은 삭제되었거나 일시적인 오류가 발생했을 수 있습니다.</br>해당 오류가 지속적으로 발생할 경우 고객센터로 문의해 주시기 바랍니다.",
+            "closeButton": "닫기",
+            "previousButton": "이전으로"
+        }
+    },
+    "inputtype": {
+        "type1": ["이름", "생년월일", "전화번호"],
+        "type2": ["이름", "생년월일", "전화번호", "통신사"],
+        "type3": ["이름", "전화번호"],
+        "type11": ["이름", "생년월일", "전화번호", "주민번호 앞자리", "주민번호 뒷자리"],
+        "type12": ["이름", "생년월일", "전화번호", "통신사", "주민번호 앞자리", "주민번호 뒷자리"],
+        "type13": ["이름", "전화번호", "주민번호 앞자리", "주민번호 뒷자리"]
+    },
+    "inputtypebiz": {
+        "type81": ["이름", "생년월일", "전화번호"],
+        "type82": ["이름", "사업자등록번호", "전화번호"],
+        "type83": ["사업자등록번호", "전화번호"],
+        "type84": ["이름", "생년월일", "사업자등록번호", "전화번호"]
+    },
+    "provider": [
+        { "id": "ibk", "name": "기업은행", "imgPath": "assets/img/cp_logo_21_nor.png" },
+        { "id": "kakaobank", "name": "카카오뱅크", "imgPath": "assets/img/cp_logo_19_nor.png" },
+        { "id": "nhlife", "name": "농협", "imgPath": "assets/img/cp_logo_18_nor.png" },
+        { "id": "hana", "name": "하나은행", "imgPath": "assets/img/cp_logo_11_nor.png" },
+        { "id": "passauth", "name": "패스인증", "imgPath": "assets/img/cp_logo_04_nor.png" },
+        { "id": "toss", "name": "토스인증", "imgPath": "assets/img/cp_logo_05_nor.png" },
+        { "id": "bank", "name": "뱅크샐러드", "imgPath": "assets/img/cp_logo_07_nor.png" },
+        { "id": "kb", "name": "국민인증서", "imgPath": "assets/img/cp_kbstar.png" },
+        { "id": "shinhan", "name": "신한인증", "imgPath": "assets/img/cp_logo_10_nor.png" },
+        { "id": "payco", "name": "페이코", "imgPath": "assets/img/cp_logo_06_nor.png" },
+        { "id": "naver", "name": "네이버", "imgPath": "assets/img/cp_logo_02_nor.png" },
+        { "id": "dream", "name": "드림인증", "imgPath": "assets/img/cp_logo_01_nor.png" },
+        { "id": "kakao", "name": "카카오", "imgPath": "assets/img/cp_logo_03_nor.png" },
+        { "id": "signgate", "name": "삼성패스", "imgPath": "assets/img/cp_logo_08_nor.png" },
+        { "id": "woori", "name": "우리", "imgPath": "assets/img/cp_logo_20_nor.png" },
+        { "id": "standard", "name": "standard", "imgPath": "assets/img/cp_logo_01_nor.png" }
+    ]
+}

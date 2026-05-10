@@ -1,0 +1,14 @@
+// =============================================
+// Nav Layout (SideNav + TopNav)
+// =============================================
+.navLayout {
+	display: flex;
+	height: 100vh;
+	position: relative;
+}
+
+.navContent {
+	flex: 1;
+	overflow-y: auto;
+	z-index: 0;
+}

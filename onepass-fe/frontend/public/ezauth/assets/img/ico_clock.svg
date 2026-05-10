@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="22" height="22" viewBox="0 0 22 22">
+  <defs>
+    <clipPath id="clip-ico_clock">
+      <rect width="22" height="22"/>
+    </clipPath>
+  </defs>
+  <g id="ico_clock" clip-path="url(#clip-ico_clock)">
+    <g id="clock" transform="translate(1 1)">
+      <circle id="타원_9356" data-name="타원 9356" cx="10" cy="10" r="10" fill="none" stroke="#171616" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+      <path id="패스_83105" data-name="패스 83105" d="M12,6v6l4,2" transform="translate(-2 -2)" fill="none" stroke="#171616" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+    </g>
+  </g>
+</svg>

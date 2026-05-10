@@ -1,0 +1,92 @@
+/* ===============================================================================================
+
+Name : EzauthBlock.css
+
+Description :
+	EZ Auth 간편인증 block ui 구성을 위한 css
+
+Remarks :
+	
+=============================================================================================== */
+#EzauthBlock {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+#EzauthBlock > .encase {
+    background: #0000004d 0% 0% no-repeat padding-box;
+    border-radius: 10px;
+    opacity: 1;
+    width: 100%;
+    height: 100%;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+}
+.Block-Wrap {
+    background: transparent;
+    position: relative;
+}
+.Block-Wrap .block {
+    padding: 30px;
+}
+.Block-Wrap .block img {
+    width: 4rem;
+    height: 4rem;
+    /* 여기에 애니메이션을 적용합니다. */
+    animation-name: spin; /* 위에서 정의한 @keyframes 이름 */
+    animation-duration: 3s; /* 한 바퀴 도는 데 걸리는 시간 (3초) */
+    animation-timing-function: linear; /* 일정한 속도로 회전 */
+    animation-iteration-count: infinite; /* 무한 반복 */
+}
+.Block-Wrap .block img.color-black {
+    filter: brightness(0);
+}
+
+.Block-Wrap .block img.color-gray01 {
+    filter: brightness(25%);
+}
+
+.Block-Wrap .block img.color-gray02 {
+    filter: brightness(50%);
+}
+
+.Block-Wrap .block img.color-gray03 {
+    filter: brightness(75%);
+}
+
+/* 컬러1 (#009dce) */
+.Block-Wrap .block img.color-custom1 {
+    filter: brightness(0) invert(42%) sepia(85%) saturate(1457%) hue-rotate(164deg) brightness(97%) contrast(101%);
+}
+@keyframes spin {
+    from {
+        transform: rotate(0deg); /* 0도에서 시작 */
+    }
+    to {
+        transform: rotate(360deg); /* 360도(한 바퀴)까지 회전 */
+    }
+}

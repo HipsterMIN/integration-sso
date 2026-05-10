@@ -1,0 +1,48 @@
+.notFoundContainer {
+	min-height: 80vh;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+}
+
+.notFoundTextContainer {
+	min-height: 50px;
+	display: flex;
+	justify-content: space-between;
+	flex-direction: column;
+	margin-bottom: 30px;
+	margin-top: 20px;
+}
+
+.notFoundText {
+	font-style: normal;
+	font-weight: 300;
+	font-size: 18px;
+	line-height: 20px;
+	display: flex;
+	align-items: center;
+	text-align: center;
+	color: #828282;
+	margin: 0;
+	justify-content: center;
+}
+
+.notFoundButton {
+	border: 2px solid var(--color-primary);
+	box-sizing: border-box;
+	border-radius: 10px;
+	width: 400px;
+	background: inherit;
+	font-style: normal;
+	font-weight: normal;
+	font-size: 24px;
+	line-height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding-top: 14px;
+	padding-bottom: 14px;
+	color: var(--color-primary);
+	text-decoration: none;
+}

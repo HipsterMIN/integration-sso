@@ -1,0 +1,103 @@
+.custom-time-picker {
+	display: flex;
+	// flex-direction: column;				// 수정주의
+	width: 100%;
+}
+
+.time-options-container {
+	.time-options-item {
+		margin: 2px 0;
+		padding: 8px;
+		border-radius: 2px;
+
+		&.active {
+			background-color: rgba($color: #000000, $alpha: 0.2);
+
+			&:hover {
+				cursor: pointer;
+				background-color: rgba($color: #000000, $alpha: 0.3);
+			}
+		}
+
+		&:hover {
+			cursor: pointer;
+			background-color: rgba($color: #000000, $alpha: 0.3);
+		}
+	}
+}
+
+.time-selection-dropdown-content {
+	min-width: 172px;
+	width: 100%;
+}
+
+.timeSelection-input {
+	display: flex;
+	gap: 0px;
+	height: 32px;								// 수정주의
+	align-items: center;
+	padding: 0px;					// 수정주의
+	background-color: #343434;				// 수정주의
+	border: none;							// 수정주의
+	box-sizing: border-box;				// 수정주의
+	border-radius: 0 4px 4px 0;
+	cursor: pointer;
+	&.custom-time {
+		input {
+			min-width: 240px;
+		}
+	}
+	.ant-input {
+		font-size: 14px;							// 수정주의
+		color: #555769;						// 수정주의
+		background-color: #2b2d32;				// 수정주의
+		display: none;
+		&::placeholder{
+			color: #cecfd4;					// 수정주의
+		}
+	}
+	
+	&.active .ant-input {
+		color: /*원래색상 : #4e74f8*/#2bd8ff;						// 수정주의
+	}
+	.ant-input-suffix {
+		color: #727272;						// 수정주의
+		margin-inline-start: 0px;
+		width: 32px;
+		align-items: center;
+		justify-content: center;
+		svg {
+			width: 32px;
+			height: 32px;
+			padding: 9px;
+			stroke: white;
+		}
+	}
+}
+
+.valid-format-error {
+	margin-top: 4px;
+	color: var(--bg-cherry-400) !important;
+	font-size: 13px !important;
+	font-weight: 400 !important;
+}
+
+.info-text {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px;
+	cursor: default;
+	color: var(--bg-vanilla-400, #c0c1c3) !important;
+	font-size: 14px;
+	font-style: normal;
+	font-weight: 400;
+	line-height: normal;
+	letter-spacing: 0.14px;
+}
+
+.info-text:hover {
+	&.ant-btn-text {
+		background-color: unset !important;
+	}
+}

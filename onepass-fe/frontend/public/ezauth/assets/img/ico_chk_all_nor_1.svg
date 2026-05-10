@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="18" height="18" viewBox="0 0 18 18">
+  <defs>
+    <clipPath id="clip-ico_chk_all_nor_1">
+      <rect width="18" height="18"/>
+    </clipPath>
+  </defs>
+  <g id="ico_chk_all_nor_1" data-name="ico_chk_all_nor – 1" clip-path="url(#clip-ico_chk_all_nor_1)">
+    <rect id="사각형_4168" data-name="사각형 4168" width="18" height="18" fill="#007abe"/>
+    <g id="check" transform="translate(4 5.5)">
+      <path id="check-2" data-name="check" d="M14,6,7.125,13,4,9.818" transform="translate(-4 -6)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,885 @@
+// =============================================
+// Tab
+// =============================================
+.tab-list ul {
+	display: flex;
+}
+
+.tab-list ul li a {
+	width: 100%;
+	height: 100%;
+}
+
+.tab-wrap .tab-cont > div[class*="cont"]:not(.active) {
+	display: none;
+}
+
+.tab-list.style1 ul {
+	border-radius: .8rem;
+	border: 1px solid var(--krds-light-color-border-gray);
+	overflow: hidden;
+
+	li {
+		width: 100%;
+
+		&:not(:last-child) {
+			border-right: 1px solid var(--krds-light-color-border-gray);
+		}
+
+		a {
+			position: relative;
+			height: 5.6rem;
+			font-size: var(--krds-pc-font-size-heading-small);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-weight: 700;
+			color: var(--krds-light-color-text-subtle);
+
+			&:before {
+				content: "";
+				position: absolute;
+				bottom: 0;
+				width: 100%;
+				height: 0;
+				background: var(--krds-light-color-action-secondary-active);
+				z-index: -1;
+				transition: .5s ease;
+			}
+		}
+
+		&.active a {
+			color: var(--krds-light-color-text-inverse-static);
+
+			&:before {
+				height: 100%;
+			}
+		}
+
+		&:not(.active) a:before {
+			background: var(--krds-light-color-element-primary-lighter);
+		}
+	}
+}
+
+.tab-list.style2 ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .8rem;
+
+	li a {
+		border-radius: 6px;
+		padding: 0 1.2rem;
+		height: 4rem;
+		box-sizing: border-box;
+		font-weight: 700;
+		color: var(--krds-light-color-text-subtle);
+		font-size: var(--krds-pc-font-size-heading-xsmall);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	li.active a {
+		background: var(--krds-light-color-action-secondary-active);
+		color: var(--krds-light-color-text-inverse-static);
+	}
+}
+
+// =============================================
+// Form
+// =============================================
+span.select { color: var(--krds-light-color-text-subtle); margin-right: 4px; }
+
+.form-title {
+	font-size: var(--krds-pc-font-size-heading-xsmall);
+	font-weight: 700;
+	line-height: 1.5;
+
+	span.select { margin-right: 4px; font-weight: 400; }
+}
+
+.form-title-box {
+	display: flex;
+	align-items: center;
+	gap: 1rem 2rem;
+	justify-content: space-between;
+
+	.btn:not(.text, .icon) {
+		width: auto;
+		margin-left: auto;
+		font-size: 1.6rem;
+		padding: 1rem;
+		height: 4.2rem;
+		flex: none;
+	}
+
+	&.column {
+		flex-direction: column;
+		gap: 2rem;
+		align-items: flex-start;
+
+		.form-title-text { color: var(--krds-light-color-text-subtle); }
+	}
+
+	.form-title {
+		font-size: var(--krds-pc-font-size-heading-small);
+
+		&.large { font-size: var(--krds-pc-font-size-heading-medium); }
+	}
+}
+
+.form-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 2.4rem;
+
+	// 다중 input-wrap 사이 세로 간격 (form-group 가 display: contents 인 width50 그리드에선
+	// 자동으로 form-wrap 의 gap 이 input-wrap 사이에 적용되므로 여기는 column 모드 전용)
+	.form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 2.4rem;
+	}
+
+	// 2-column 그리드 — `.input-wrap.width50` 자식이 있으면 row + wrap (퍼블 page.css:70)
+	&:has(.input-wrap[class*='width']) {
+		flex-direction: row;
+		flex-wrap: wrap;
+
+		// 중간 .form-group 래퍼를 layout 에서 투명하게 — input-wrap.width50 이
+		// form-wrap 의 effective direct child 가 되어 grid 가 정상 동작
+		> .form-group { display: contents; }
+	}
+
+	.input-wrap.width50 {
+		width: calc(50% - 2.4rem / 2);
+
+		@include mobile-down { width: 100%; }
+	}
+
+	// 빈 placeholder cell — 데스크톱 2-col 그리드에서 한 행 우측을 비울 때 사용
+	// (예: register/step5 의 아이디 단독 행). 모바일은 1열 스택이므로 빈 공간 제거
+	.input-wrap.width50[aria-hidden='true']:empty {
+		@include mobile-down { display: none; }
+	}
+
+	.input-wrap label:first-child {
+		font-weight: 700;
+		line-height: 1.5;
+
+		// 라벨 옆 보조 안내문 (예: "5~20자의 영문 소문자, …") — 라벨 우측에 그레이 톤으로 inline 표기
+		// 라벨 자체를 flex row 로 만들어 텍스트/.essential/.info-text 를 가로 정렬
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 0;
+
+		.info-text {
+			color: #999999;
+			font-size: 1.3rem;
+			font-weight: 400;
+			line-height: 1.4;
+			margin-left: auto;
+			padding-left: .8rem;
+			max-width: 75%;
+			word-break: keep-all;
+
+			// 정보 아이콘 prefix
+			display: inline-flex;
+			align-items: flex-start;
+			gap: .4rem;
+
+			&:before {
+				content: "";
+				display: inline-block;
+				width: 1.4rem;
+				height: 1.4rem;
+				flex: none;
+				margin-top: .2rem;       // 텍스트 첫 줄 baseline 보정
+				background-color: #999999;
+				-webkit-mask-image: url(/images/onepass/ico_info.svg);
+				-webkit-mask-repeat: no-repeat;
+				-webkit-mask-position: center center;
+				-webkit-mask-size: contain;
+				mask-image: url(/images/onepass/ico_info.svg);
+				mask-repeat: no-repeat;
+				mask-position: center center;
+				mask-size: contain;
+			}
+
+			// 모바일 — 라벨 옆 inline 우측 정렬 대신 다음 줄로 줄바꿈해 풀폭 표시
+			@include mobile-down {
+				width: 100%;
+				max-width: none;
+				margin-left: 0;
+				padding-left: 0;
+				margin-top: .4rem;
+			}
+		}
+	}
+
+	.input-wrap .input-flex-box:has(input[type="number"]) .input-box:first-child {
+		width: 33%;
+		flex: none;
+		max-width: 15rem;
+	}
+}
+
+// =============================================
+// Form Cols — 2-column 컬럼 레이아웃 (예: member step5 — 계정 정보 / 회원 정보)
+// 각 col 안에서는 form-wrap row+wrap 비활성, width50 도 풀폭으로 동작
+// =============================================
+.form-cols {
+	// CSS subgrid 으로 양쪽 컬럼의 동일 인덱스 행이 항상 같은 높이를 공유.
+	// 한쪽에 input-hint-box(검증 메시지 등) 가 추가돼 행이 늘어나면, 반대편 행도 함께 늘어남.
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-template-rows: repeat(4, auto);   // member step5 기준 — col1: 3, col2: 4 (max 4 행)
+	gap: 2.4rem;
+	width: 100%;
+
+	> .col {
+		display: grid;
+		grid-template-rows: subgrid;       // 부모 grid 의 row 트랙을 그대로 상속
+		grid-template-columns: 1fr;
+		grid-row: 1 / -1;                  // 4 행 전체에 걸쳐 배치
+		min-width: 0;
+	}
+
+	// 중간 form-wrap / form-group 래퍼를 layout 에서 투명화 →
+	// input-wrap 들이 .col 의 직속 grid item 으로 행을 차지
+	.form-wrap,
+	.form-group {
+		display: contents;
+	}
+
+	.input-wrap.width50 { width: 100%; }
+
+	@include mobile-down {
+		// 모바일 — subgrid 해제 후 일반 flex 컬럼으로 환원.
+		// .col / .form-wrap / .form-group 모두 정상 블록 레이아웃으로 복원해 input-wrap 들이
+		// 자연스러운 세로 스택이 되도록.
+		display: flex;
+		flex-direction: column;
+		grid-template-columns: none;
+		grid-template-rows: none;
+		gap: 2.4rem;
+
+		> .col {
+			display: flex;
+			flex-direction: column;
+			grid-template-rows: none;
+			grid-template-columns: none;
+			grid-row: auto;
+			gap: 2.4rem;
+		}
+
+		.form-wrap,
+		.form-group {
+			display: flex;
+			flex-direction: column;
+			gap: 2.4rem;
+		}
+	}
+}
+
+.input-flex-box {
+	display: flex;
+	gap: 1rem 2%;             // 퍼블 page.css:110 — row gap 1rem / column gap 2%
+	align-items: center;
+
+	> .btn { max-width: 10.6rem; width: 20%; }
+	.input-box { width: 100%; }
+
+	// 모바일 — 이메일 필드 전용 레이아웃 (퍼블 page.css:534-536 기반).
+	// 1행: 이메일 아이디 인풋 풀폭 / 2행: @ + 도메인 인풋 + 도메인 선택(직접입력) 한 줄에.
+	// 앱 mobile-down(767px) 기준으로 확장 — 퍼블의 480px 보다 넓게 잡아 태블릿 portrait 도 커버.
+	@include mobile-down {
+		&:has(input[name*='email']):has(.input-box select + button) {
+			flex-wrap: wrap;
+
+			// `@` span 이 줄바꿈 없이 컴팩트하게 자리 잡도록
+			> span { flex: none; }
+
+			.input-box:first-child { width: 100%; }
+			.input-box:not(:first-child) {
+				flex: 1;        // @ span 제외 후 남은 공간을 도메인 인풋 + select 박스가 균등 분할
+				min-width: 0;   // calc 기반보다 안정 — 부모 폭 변동에도 한 줄 유지
+				width: auto;
+			}
+		}
+	}
+}
+
+// =============================================
+// Input
+// =============================================
+.input-wrap {
+	--krds-form-group--label-pc-font-size: var(--krds-pc-font-size-label-small);
+	--krds-form-group--gap: var(--krds-gap-3);
+	--krds-form-group--message-text-color: var(--krds-light-color-text-subtle);
+	--krds-form-group--message-information-text-color: var(--krds-light-color-text-information);
+	--krds-form-group--message-error-text-color: var(--krds-light-color-text-danger);
+
+	display: flex;
+	flex-direction: column;
+	gap: var(--krds-form-group--gap);
+	width: 100%;
+
+	label:first-child {
+		font-size: var(--krds-form-group--label-pc-font-size);
+
+		span:first-child {
+			margin-right: 4px;
+			font-weight: 400;
+		}
+	}
+
+	.input-box:nth-child(2) {
+		width: 100%;
+	}
+
+	&.style2 {
+		padding: 0 .8rem;
+		flex-direction: row;
+		align-items: center;
+		box-sizing: border-box;
+
+		label:first-child, > *:first-child { width: 11rem; flex: none; color: var(--krds-light-color-text-subtle); }
+		.input-box, .input-flex-box { height: 4rem; max-width: 40rem; }
+		.input-flex-box { gap: 4px; }
+		.input-box input, .input-box select { font-size: var(--krds-pc-font-size-body-small); }
+
+		.right-box {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+
+			p { line-height: 1.5; font-size: var(--krds-pc-font-size-body-small); color: var(--krds-light-color-text-subtle); }
+		}
+
+		> p + p:nth-child(2) { font-weight: 700; color: var(--krds-light-color-text-subtle); }
+		.input-flex-box:has(select) { max-width: 46rem; }
+	}
+
+	.input-hint-box {
+		margin-top: .2rem;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+
+		> * {
+			display: flex;
+			align-items: flex-start;
+			gap: var(--krds-gap-2);
+			width: 100%;
+			font-size: var(--krds-form-group--label-pc-font-size);
+			color: var(--krds-form-group--message-text-color);
+			line-height: 1.5;
+
+			&::before {
+				content: "";
+				display: inline-flex;
+				width: var(--krds-icon--size-small);
+				height: var(--krds-icon--size-small);
+				background-color: transparent;
+				background-size: contain;
+				flex-shrink: 0;
+				margin-top: .3rem;
+			}
+		}
+
+		.information {
+			color: var(--krds-form-group--message-information-text-color);
+			&::before { background-image: url(/images/onepass/ico_information_fill.svg); }
+		}
+
+		.invalid {
+			color: var(--krds-form-group--message-error-text-color);
+			&::before { background-image: url(/images/onepass/ico_error_fill.svg); }
+		}
+	}
+}
+
+.input-box {
+	--krds-input--color-surface: var(--krds-light-color-input-surface);
+	--krds-input--color-surface-readonly: var(--krds-light-color-input-surface-disabled);
+	--krds-input--color-surface-disabled: var(--krds-light-color-input-surface-disabled);
+	--krds-input--color-surface-error: var(--krds-light-color-input-surface);
+	--krds-input--color-border: var(--krds-light-color-input-border);
+	--krds-input--color-border-active: var(--krds-light-color-input-border-active);
+	--krds-input--color-border-readonly: var(--krds-light-color-input-border-disabled);
+	--krds-input--color-border-disabled: var(--krds-light-color-input-border-disabled);
+	--krds-input--color-border-error: var(--krds-light-color-input-border-error);
+	--krds-input--color-text: var(--krds-light-color-text-subtle);
+	--krds-input--color-text-active: var(--krds-light-color-text-basic);
+	--krds-input--color-text-readonly: var(--krds-light-color-text-subtle);
+	--krds-input--color-text-disabled: var(--krds-light-color-text-disabled-on);
+	--krds-input--color-text-placeholder: var(--krds-light-color-text-disabled);
+	--krds-input--color-text-error: var(--krds-light-color-text-subtle);
+	--krds-input--padding-x: var(--krds-padding-6);
+
+	// sizes
+	--krds-input--size-height-small: var(--krds-size-height-6);
+	--krds-input--radius-small: var(--krds-radius-medium1);
+	--krds-input--pc-font-size-small: var(--krds-pc-font-size-label-small);
+	--krds-input--mobile-font-size-small: var(--krds-mobile-font-size-label-small);
+	--krds-input--size-height-medium: var(--krds-size-height-7);
+	--krds-input--radius-medium: var(--krds-radius-medium2);
+	--krds-input--pc-font-size-medium: var(--krds-pc-font-size-label-medium);
+	--krds-input--mobile-font-size-medium: var(--krds-mobile-font-size-label-medium);
+	--krds-input--size-height-large: var(--krds-size-height-8);
+	--krds-input--radius-large: var(--krds-radius-medium3);
+	--krds-input--pc-font-size-large: var(--krds-pc-font-size-label-large);
+	--krds-input--mobile-font-size-large: var(--krds-mobile-font-size-label-large);
+	--krds-input--size-height-xlarge: var(--krds-size-height-11);
+	--krds-input--radius-xlarge: var(--krds-radius-large2);
+	--krds-input--pc-font-size-xlarge: var(--krds-pc-font-size-heading-medium);
+	--krds-input--mobile-font-size-xlarge: var(--krds-mobile-font-size-heading-medium);
+
+	position: relative;
+	// PUB260507 page.css:93 — 1.6rem 라운드 + 라이트톤 보더(#D6DBEE)
+	border-radius: 1.6rem;
+	border: 1px solid #D6DBEE;
+	height: 5.6rem;
+	overflow: hidden;
+	box-sizing: border-box;
+	transition: all .5s ease, border 0s;
+
+	input, select {
+		width: 100%;
+		height: 100%;
+		// PUB260507 page.css:95 — 1.6rem 입력 폰트 사이즈
+		font-size: 1.6rem;
+		padding: 0 1.6rem;
+		box-sizing: border-box;
+		background: transparent;
+	}
+
+	// PUB260507 page.css:97 — focus 시 point-color 보더, 1px 유지(2px X)
+	&:has(input:focus),
+	&:has(select:focus) {
+		border-color: var(--point-color);
+		border-width: 1px;
+		outline: none;
+		box-shadow: none;
+	}
+
+	// Renewal (PUB260506) — small 변형 (page.css:84)
+	&.small {
+		height: 4.8rem;
+		border-radius: 1.2rem;
+	}
+
+	input[readonly], select[readonly] {
+		background-color: var(--krds-input--color-surface-readonly);
+		color: var(--krds-input--color-text-readonly);
+		opacity: 1;
+	}
+
+	// readonly 시 보더는 베이스(#D6DBEE) 유지 — focus 등 다른 상태로 변경되지 않도록
+	// 위 focus 룰보다 source 순서가 뒤라 specificity 동률에서 이 룰이 승.
+	&:has(input[readonly]),
+	&:has(select[readonly]) {
+		border-color: #D6DBEE;
+	}
+
+	// PUB260507 — disabled 보더는 베이스(#D6DBEE) 그대로 유지(KRDS gray-30 오버라이드 제거)
+
+	// PUB260507 page.css:100 — disabled 배경은 라이트 그레이(#F7F7F7).
+	// readonly 와 달리 KRDS gray-20 토큰을 쓰지 않고 별도 라이트톤을 사용.
+	input[disabled], select[disabled] {
+		background-color: #F7F7F7;
+		color: var(--krds-light-color-text-subtle);
+		opacity: 1;
+	}
+
+	&:has(.btn) input, &:has(.btn) select { padding-right: 5rem; }
+
+	.btn {
+		position: absolute;
+		top: 50%;
+		right: 1.6rem;
+		transform: translateY(-50%);
+	}
+
+	// Renewal (PUB260506) — input-box 안 텍스트 버튼은 컴팩트 칩 사이즈 (page.css:94)
+	.btn:not(.icon) {
+		font-size: 1.3rem;
+		font-weight: 600;
+		padding: 0 1.2rem;
+		width: auto;
+		height: 2.9rem;
+		border-radius: .8rem;
+	}
+
+	&:has(select) .btn { pointer-events: none; }
+
+	// .btn.point (중복확인 등) 가 input-box 안에 있을 때 인풋 텍스트가 가려지지 않도록
+	// 우측 패딩 확보 (퍼블 page.css:172 기반 — 아이디/사업자등록번호 공통)
+	&:has(.btn.point) input { padding-right: 11rem; }
+
+	input::placeholder, select:invalid { color: var(--krds-light-color-text-disabled); }
+}
+
+// =============================================
+// Checkbox
+// =============================================
+.check-box-wrap {
+	display: flex;
+	flex-wrap: wrap;
+
+	&:has(.check-box.style1) {
+		gap: 1.6rem;
+	}
+
+	&:has(.check-box.style2) {
+		gap: 1.6rem;
+		flex-wrap: nowrap;
+
+		@include mobile-down { flex-direction: column; }
+	}
+
+	&:has(.check-box.style3) {
+		gap: 2.4rem;
+	}
+
+	&:has(.check-box.style4) {
+		gap: 1.6rem;
+	}
+
+	.check-box.style3 {
+		width: calc(50% - 2.4rem / 2);
+	}
+}
+
+.check-box {
+	--krds-form-check--color-text: var(--krds-light-color-text-bolder);
+	--krds-form-check--color-text-disabled: var(--krds-light-color-text-disabled);
+	--krds-form-check--color-text-sub: var(--krds-light-color-text-subtle);
+	--krds-form-check--color-text-sub-disabled: var(--krds-light-color-text-disabled);
+	--krds-form-check--button-color-element: var(--krds-light-color-element-inverse);
+	--krds-form-check--button-color-element-disabled: var(--krds-light-color-element-disabled-light);
+	--krds-form-check--button-color-border: var(--krds-light-color-element-gray-dark);
+	--krds-form-check--button-color-border-checked: var(--krds-light-color-element-primary);
+	--krds-form-check--button-color-border-disabled: var(--krds-light-color-element-disabled-dark);
+	--krds-form-check--checkbox-button-color-element-checked: var(--krds-light-color-element-primary);
+	--krds-form-check--radio-check-color-element: var(--krds-light-alpha-black0);
+	--krds-form-check--radio-check-color-element-checked: var(--krds-light-color-element-primary);
+	--krds-form-check--radio-check-color-element-disabled: var(--krds-light-color-element-disabled-dark);
+	--krds-form-check--checkbox-check-color-element: var(--krds-light-alpha-black0);
+	--krds-form-check--checkbox-check-color-element-checked: var(--krds-light-color-element-inverse-static);
+	--krds-form-check--checkbox-check-color-element-disabled: var(--krds-light-color-element-disabled-dark);
+	--krds-form-check--additional-text-color-text: var(--krds-light-color-text-subtle);
+	--krds-form-check--button-size-medium: var(--krds-size-height-3);
+	--krds-form-check--radio-check-size-medium: 1rem;
+	--krds-form-check--checkbox-check-size-medium: 1.2rem;
+	--krds-form-check--radio-button-radius-medium: var(--krds-radius-max);
+	--krds-form-check--checkbox-button-radius-medium: var(--krds-radius-small1);
+	--krds-form-check--pc-font-size-medium: var(--krds-pc-font-size-label-medium);
+	--krds-form-check--mobile-font-size-medium: var(--krds-mobile-font-size-label-medium);
+	--krds-form-check--additional-text-pc-font-size-medium: var(--krds-pc-font-size-label-small);
+	--krds-form-check--additional-text-mobile-font-size-medium: var(--krds-mobile-font-size-label-small);
+	--krds-form-check--button-size-large: var(--krds-size-height-4);
+	--krds-form-check--radio-check-size-large: 1.2rem;
+	--krds-form-check--checkbox-check-size-large: var(--krds-size-height-2);
+	--krds-form-check--radio-button-radius-large: var(--krds-radius-max);
+	--krds-form-check--checkbox-button-radius-large: var(--krds-radius-small2);
+	--krds-form-check--pc-font-size-large: var(--krds-pc-font-size-label-large);
+	--krds-form-check--mobile-font-size-large: var(--krds-mobile-font-size-label-large);
+	--krds-form-check--additional-text-pc-font-size-large: var(--krds-pc-font-size-label-medium);
+	--krds-form-check--additional-text-mobile-font-size-large: var(--krds-mobile-font-size-label-medium);
+	--krds-form-check--gap: var(--krds-gap-3);
+	--krds-form-check--button-margin-top: 0.3rem;
+
+	input {
+		appearance: none;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		position: relative;
+		flex: none;
+		border-radius: var(--krds-form-check--checkbox-button-radius-medium);
+		width: var(--krds-form-check--button-size-medium);
+		height: var(--krds-form-check--button-size-medium);
+		z-index: 3;
+		background-color: var(--krds-form-check--button-color-element);
+		border: 1px solid var(--krds-form-check--button-color-border);
+		box-sizing: border-box;
+		transition: .5s ease;
+
+		&:after {
+			content: "";
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			display: inline-flex;
+			width: var(--krds-form-check--checkbox-check-size-medium);
+			height: var(--krds-form-check--checkbox-check-size-medium);
+			background-color: var(--krds-form-check--checkbox-check-color-element-checked);
+			-webkit-mask-repeat: no-repeat;
+			-webkit-mask-position: center center;
+			-webkit-mask-size: contain;
+			mask-repeat: no-repeat;
+			mask-position: center center;
+			mask-size: contain;
+			-webkit-mask-image: url(/images/onepass/ico_checkbox_checked.svg);
+			mask-image: url(/images/onepass/ico_checkbox_checked.svg);
+			opacity: 0;
+			transition: .5s ease;
+		}
+
+		&:checked {
+			// PUB260506 renewal — 포인트 컬러로 통일 (퍼블 page.css:107)
+			background-color: var(--point-color);
+			border-color: var(--point-color);
+
+			&:after {
+				opacity: 1;
+			}
+		}
+	}
+
+	.text-box {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+
+	&.large {
+		input {
+			border-radius: var(--krds-form-check--checkbox-button-radius-large);
+			width: var(--krds-form-check--button-size-large);
+			height: var(--krds-form-check--button-size-large);
+
+			&:after {
+				width: var(--krds-form-check--checkbox-check-size-large);
+				height: var(--krds-form-check--checkbox-check-size-large);
+			}
+		}
+
+		small, .text-box { font-size: var(--krds-form-check--pc-font-size-large); }
+	}
+
+	&.style1 {
+		display: flex;
+		gap: .8rem;
+
+		&.circle input {
+			border-radius: 50%;
+
+			&:before {
+				content: "";
+				position: absolute;
+				width: 1rem;
+				height: 1rem;
+				border-radius: 50%;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				background: var(--krds-light-color-element-primary);
+				opacity: 0;
+				transition: .5s ease;
+			}
+
+			&:checked {
+				background: transparent;
+
+				&:before { opacity: 1; }
+			}
+
+			&:checked:after { display: none; }
+		}
+
+		&.circle input:after { display: none; }
+	}
+
+	&.style2 {
+		// PUB260506 renewal — 1px 라이트 보더, 포인트 컬러 강조, 고정 높이
+		border: 1px solid var(--krds-light-color-border-gray-light);
+		border-radius: 8px;
+		padding: 3rem;
+		height: 20rem;
+		display: flex;
+		align-items: center;
+		gap: 2rem;
+		width: 100%;
+		box-sizing: border-box;
+		transition: .5s ease;
+
+		// 선택 상태 — 포인트 컬러 보더 (퍼블 page.css:136-137)
+		// `<label>` + `<input type="radio/checkbox">` 패턴: input:checked
+		// `<button aria-pressed="true">` 패턴 (register/step3, conversion/step3): aria-pressed="true"
+		&:has(input:checked),
+		&[aria-pressed='true'] {
+			border-color: var(--point-color);
+
+			.right-box .text-box .tit { color: var(--point-color); }
+		}
+
+		// 데스크톱 hover — 미선택 카드에만 light tint + point 강조 (퍼블 page.css:428-429)
+		@include desktop-up {
+			&:not(:has(input:checked)):not([aria-pressed='true']):hover {
+				background: #f6f8ff;
+				border-color: rgba(78, 106, 197, 0.23);   // var(--point-color) 23%
+
+				.right-box .text-box .tit { color: var(--point-color); }
+			}
+		}
+
+		.right-box {
+			display: flex;
+			gap: 7%;
+			align-items: center;
+			flex: 1;
+
+			figure {
+				width: 20%;
+				max-width: 5rem;
+				flex: none;
+
+				img {
+					width: 100%;
+					object-fit: contain;
+				}
+			}
+
+			.text-box {
+				gap: .8rem;
+				text-align: left;   // <button> 부모일 때 기본 center 상속 방지 (퍼블 page.css:133)
+
+				.tit {
+					font-size: 2rem;
+					font-weight: 700;
+					color: var(--point-color);   // 기본 = hover/선택 컬러 통일 (퍼블 디자인 적용)
+				}
+
+				.text {
+					font-size: var(--krds-mobile-font-size-body-small);
+					line-height: 1.5;
+				}
+			}
+		}
+
+		// 모바일 — 카드 자체는 세로 스택, 래퍼는 _sub.scss / _form.scss 의 :has 룰에서 처리
+		// 퍼블 page.css:466 매칭 — padding 은 베이스 3rem 유지, vertical 만 압축
+		@include mobile-down {
+			height: auto;
+			gap: .6rem;
+			padding: 2.4rem 2rem;
+			align-items: flex-start;
+			flex-direction: column;
+
+			.right-box .text-box .text br { display: none; }
+		}
+	}
+
+	// Renewal (PUB260506) — 알림 수신 등 칩형 체크박스 (page.css:145-150)
+	&.style4 {
+		position: relative;
+		border-radius: 1.6rem;
+		padding: 0 2.4rem 0 1.6rem;
+		border: 1px solid #BBBBBB;
+		font-weight: 500;
+		color: #BBBBBB;
+		height: 5.6rem;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		box-sizing: border-box;
+		transition: .5s ease;
+
+		input {
+			width: 2rem;
+			height: 2rem;
+			flex: none;
+			border: none;
+			border-radius: 0;
+			background-color: #BBBBBB;
+			-webkit-mask: url(/images/onepass/renewal/ico_check.svg) no-repeat center / contain;
+			mask: url(/images/onepass/renewal/ico_check.svg) no-repeat center / contain;
+
+			&:after { display: none; }
+			&:checked { background-color: var(--point-color); }
+		}
+
+		// .large 의 KRDS 라벨 크기(~1.7rem) 가 칩에 비해 큰 편이라 명시적으로 1.6rem (16px) 사용
+		small { font-size: 1.6rem; }
+
+		&:has(input:checked) {
+			border-color: var(--point-color);
+			color: var(--point-color);
+			font-weight: 600;
+		}
+
+		// 데스크톱 hover (퍼블 page.css:431-432)
+		// disabled/readonly 인풋은 hover 효과 제외
+		@include desktop-up {
+			&:not(:has(input:checked)):not(:has(input[disabled])):not(:has(input[readonly])):hover {
+				background: #f6f8ff;
+				border-color: rgba(78, 106, 197, 0.23);   // var(--point-color) 23%
+				color: var(--point-color);
+
+				input { background-color: var(--point-color); }
+			}
+		}
+	}
+
+	&.style3 {
+		// 퍼블 page.css:147 — 1px 라이트 보더 + 1.6rem 라운딩
+		border: 1px solid var(--krds-light-color-border-primary);
+		border-radius: 1.6rem;
+		padding: clamp(1.3rem, 3.5vw, 2rem) 1.6rem;
+		display: flex;
+		gap: 1.6rem;
+		align-items: center;
+		box-sizing: border-box;
+		transition: .5s ease;
+
+		&:has(input:checked) {
+			background: var(--krds-light-color-action-primary-hover);
+			border-color: var(--krds-light-color-border-primary-light);
+
+			.text-box .tit { color: var(--krds-light-color-text-primary); }
+		}
+
+		// 비활성(연동 불가) 카드
+		&.disabled {
+			background: #f9fafb;
+			cursor: not-allowed;
+			opacity: 0.72;
+			pointer-events: auto;           // label 클릭은 허용하되 checkbox disabled 로 차단
+
+			&:hover, &:has(input:checked) {
+				background: #f9fafb;
+				border-color: var(--krds-light-color-border-primary);
+			}
+
+			input[type="checkbox"] { cursor: not-allowed; }
+			.text-box .tit { color: var(--krds-color-light-gray-50); }
+		}
+
+		.text-box {
+			gap: .2rem;
+			line-height: 1.55;
+
+			.tit {
+				display: flex;
+				align-items: center;
+				gap: .6rem;
+				flex-wrap: wrap;
+				font-size: var(--krds-pc-font-size-heading-xsmall);
+				color: var(--krds-light-color-text-primary);   // 퍼블 page.css:149
+			}
+
+			.text {
+				font-size: var(--krds-pc-font-size-body-small);
+				overflow: hidden;
+				display: -webkit-box;
+				-webkit-line-clamp: 1;
+				-webkit-box-orient: vertical;
+			}
+		}
+	}
+}
