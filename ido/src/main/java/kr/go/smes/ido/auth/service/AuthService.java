@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.ido.auth.client.IntegrationAuthClient;
 import kr.go.smes.ido.auth.client.OacxClient;
 import kr.go.smes.ido.auth.dto.*;
+import kr.go.smes.ido.auth.dto.im.QimMemberInfo;
+import kr.go.smes.ido.auth.dto.im.QimRegisterResponse;
+import kr.go.smes.ido.auth.port.ImApiOutPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Base64;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 본인인증 비즈니스 로직 서비스 (기업인증 콜백, OACX 간편서명, CI 확인)
@@ -28,10 +32,10 @@ import java.util.Map;
  *   <li>Q3=B: CI는 FE 응답에 포함하지 않음 — 보안 원칙 (PII 보호)</li>
  * </ul>
  *
- * <p><b>현재 한계 (TODO 목록):</b>
+ * <p><b>S7-T6 구현 완료:</b>
  * <ul>
- *   <li>CI 처리: 현재는 로그만 남기고 IM API 전달 미구현 (S7-T6 예정)</li>
- *   <li>ciCheck: IM API 미연동으로 파라미터 검증 후 항상 성공 반환 (S7-T6 예정)</li>
+ *   <li>CI 처리: OACX 인증 결과 CI → {@link kr.go.smes.ido.auth.port.ImApiOutPort#register} 등록</li>
+ *   <li>ciCheck: CI 기반 Q-IM 조회/신규 등록 — {@link ImApiOutPort#findByCi} / {@link ImApiOutPort#register} 연동</li>
  * </ul>
  *
  * @see IntegrationAuthClient
@@ -46,6 +50,7 @@ public class AuthService {
     private final IntegrationAuthClient integrationAuthClient;
     private final OacxClient oacxClient;
     private final ObjectMapper objectMapper;
+    private final ImApiOutPort imApiOutPort;
 
     /**
      * 기업 간편인증 콜백 수신 및 auth-check 처리 (Q2=B)
@@ -207,18 +212,41 @@ public class AuthService {
         }
 
         // CI 내부 처리 (FE 미반환 — Q3=B)
-        // TODO(S7-T6): IM API 연동 후 아래 주석 해제하여 CI 등록 처리
-        // String ciForInternalUse = decrypted.get("ci");
-        // if (ciForInternalUse != null && !ciForInternalUse.isBlank()) {
-        //     imApiClient.register(AuthResult.builder().ci(ciForInternalUse).name(name)...build());
-        // }
         log.debug("[OACX] 복호화 결과 keys={}", decrypted.keySet());
+        String ciForInternalUse = decrypted.get("ci");
 
         // OACX provider별 키 이름 차이 통일 처리
         // - naver/toss/dream/banksalad: name, phone
         // - PASS(통신3사): userNm, phoneNo
         String name = decrypted.getOrDefault("name", decrypted.get("userNm"));
         String phone = decrypted.getOrDefault("phone", decrypted.get("phoneNo"));
+
+        // S7-T6: CI → Q-IM 등록 (Q3=B: CI는 FE 미반환, Q-IM에만 전달)
+        if (ciForInternalUse != null && !ciForInternalUse.isBlank()) {
+            try {
+                String correlationId = decrypted.getOrDefault("correlationId", "oacx-" + System.currentTimeMillis());
+                AuthResult authResult = AuthResult.builder()
+                        .ci(ciForInternalUse)
+                        .di(decrypted.get("di"))
+                        .name(name)
+                        .birthday(decrypted.get("birthday"))
+                        .gender(decrypted.get("gender"))
+                        .mobile(phone)
+                        .mobileCorp(decrypted.get("mobileCorp"))
+                        .build();
+                QimRegisterResponse registerResult = imApiOutPort.register(authResult, correlationId);
+                log.info("[OACX] Q-IM 등록 완료: qimUserId={} isNew={}", registerResult.getQimUserId(), registerResult.getIsNew());
+            } catch (Exception e) {
+                // Q-IM 등록 실패 시 인증 플로우 중단 (CI 미등록 상태로 진행 불가)
+                log.error("[OACX] Q-IM 등록 실패 — 인증 중단: {}", e.getMessage(), e);
+                return OacxEasysignResponse.builder()
+                        .resultCode("5010")
+                        .resultMsg("사용자 정보 등록 실패: " + e.getMessage())
+                        .build();
+            }
+        } else {
+            log.warn("[OACX] CI 미포함 — Q-IM 등록 건너뜀 (provider가 CI를 미제공)");
+        }
 
         log.info("[OACX] 인증 성공: name={}", name);
 
@@ -239,9 +267,8 @@ public class AuthService {
      * <p>NICE 휴대폰 인증 결과({@code POST /nice/phone/result})에서 수신한 CI로
      * 회원 정보를 조회하거나 신규 등록 처리.
      *
-     * <p><b>현재 구현 상태 (TODO):</b>
-     * 현재는 파라미터 유효성 검증 후 성공(2000)만 반환.
-     * TODO(S7-T6): IM API 연동 후 실제 CI 기반 회원 조회/등록 로직 구현 필요.
+     * <p><b>구현 상태 (S7-T6 완료):</b>
+     * {@link ImApiOutPort}를 통해 Q-IM에서 CI 기반 회원 조회/신규 등록을 수행한다.
      *
      * <p><b>유효성 검증 규칙:</b>
      * <ul>
@@ -291,26 +318,47 @@ public class AuthService {
             }
         }
 
-        // TODO(S7-T6): IM API 연동 후 실제 CI 기반 회원 조회/등록 구현
-        // 현재는 파라미터 검증 완료 후 성공 반환
-        // 실제 구현 예상:
-        // MemberInfo existing = imApiClient.findByCi(request.getCi(), mbrDvsnCd);
-        // if (existing != null) {
-        //     return CiCheckResponse.builder()
-        //         .resultCode("2000").resultMsg("기존 회원").result(true)
-        //         .indvlMbrId(existing.getMemberId()).build();
-        // } else {
-        //     imApiClient.register(AuthResult.builder().ci(request.getCi())...build());
-        //     return CiCheckResponse.builder().resultCode("2000").result(true).build();
-        // }
+        // S7-T6: CI로 Q-IM 기존 회원 조회 → 미등록 시 신규 등록
+        String correlationId = "ci-check-" + System.currentTimeMillis();
+        try {
+            Optional<QimMemberInfo> existing = imApiOutPort.findByCi(request.getCi(), mbrDvsnCd, correlationId);
 
-        log.info("[NICE CI] 검증 완료 (IM API 미연동 상태): mbrDvsnCd={}", mbrDvsnCd);
+            if (existing.isPresent()) {
+                // 기존 회원: Q-IM에서 조회된 indvlMbrId / cmpMbrId 반환
+                QimMemberInfo info = existing.get();
+                log.info("[NICE CI] 기존 회원 조회 성공: qimUserId={} mbrDvsnCd={}", info.getQimUserId(), mbrDvsnCd);
+                return CiCheckResponse.builder()
+                        .resultCode("2000")
+                        .resultMsg("기존 회원")
+                        .result(true)
+                        .indvlMbrId(info.getIndvlMbrId())
+                        .cmpMbrId(info.getCmpMbrId())
+                        .build();
+            }
 
-        return CiCheckResponse.builder()
-                .resultCode("2000")
-                .resultMsg("성공")
-                .result(true)
-                .build();
+            // 미등록 사용자: Q-IM에 신규 등록
+            log.info("[NICE CI] Q-IM 미등록 사용자 — 신규 등록 처리: mbrDvsnCd={}", mbrDvsnCd);
+            AuthResult authResult = AuthResult.builder()
+                    .ci(request.getCi())
+                    .name(request.getIndvlMbrNm())
+                    .build();
+            QimRegisterResponse registerResult = imApiOutPort.register(authResult, correlationId);
+            log.info("[NICE CI] Q-IM 신규 등록 완료: qimUserId={}", registerResult.getQimUserId());
+
+            return CiCheckResponse.builder()
+                    .resultCode("2000")
+                    .resultMsg("신규 등록 완료")
+                    .result(true)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("[NICE CI] Q-IM 조회/등록 실패: mbrDvsnCd={} err={}", mbrDvsnCd, e.getMessage(), e);
+            return CiCheckResponse.builder()
+                    .resultCode("5010")
+                    .resultMsg("사용자 정보 처리 실패: " + e.getMessage())
+                    .result(false)
+                    .build();
+        }
     }
 
     /**
