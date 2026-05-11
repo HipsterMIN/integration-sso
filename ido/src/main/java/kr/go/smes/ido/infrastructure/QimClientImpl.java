@@ -45,6 +45,17 @@ public class QimClientImpl implements QimClient {
     @Value("${ido.qim.base-url:http://localhost:8082}")
     private String qimBaseUrl;
 
+    /**
+     * [P2 수정] Q-IM 내부 API 호출 키 — 환경변수 주입 (하드코딩 제거)
+     *
+     * <p>기존: {@code headers.set("X-Internal-Api-Key", "ido-internal")} — 하드코딩으로 소스 노출 위험.
+     * <p>수정: {@code IDO_QIM_INTERNAL_API_KEY} 환경변수에서 주입.
+     * <p>운영: K8s Secret / Vault에서 주입 필수. 기본값 빈 문자열 → Q-IM 서버가 401 반환하여 실패 조기 감지.
+     * <p>로컬 개발: {@code IDO_QIM_INTERNAL_API_KEY=ido-internal} (docker-compose.yml에 설정)
+     */
+    @Value("${ido.qim.internal-api-key:}")
+    private String qimInternalApiKey;
+
     // ── getUserStatus ─────────────────────────────────────────────────────
 
     @Override
@@ -248,7 +259,13 @@ public class QimClientImpl implements QimClient {
     private HttpHeaders buildHeaders(String correlationId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Correlation-Id", correlationId != null ? correlationId : "");
-        headers.set("X-Internal-Api-Key", "ido-internal");
+        // [P2 수정] 환경변수 IDO_QIM_INTERNAL_API_KEY 에서 주입 (하드코딩 제거)
+        if (qimInternalApiKey != null && !qimInternalApiKey.isBlank()) {
+            headers.set("X-Internal-Api-Key", qimInternalApiKey);
+        } else {
+            log.warn("[QimClient][P2-보안경고] IDO_QIM_INTERNAL_API_KEY 미설정 — Q-IM API 인증 헤더 누락. " +
+                     "운영 배포 전 반드시 환경변수 설정 필요. correlationId={}", correlationId);
+        }
         return headers;
     }
 

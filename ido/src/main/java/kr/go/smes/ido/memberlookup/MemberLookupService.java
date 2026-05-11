@@ -49,6 +49,10 @@ public class MemberLookupService {
     @Value("${ido.qim.base-url:http://localhost:8082}")
     private String qimBaseUrl;
 
+    /** [P2 수정] Q-IM 내부 API 호출 키 — 환경변수 IDO_QIM_INTERNAL_API_KEY 주입 */
+    @Value("${ido.qim.internal-api-key:}")
+    private String qimInternalApiKey;
+
     /**
      * CI 기반 회원 조회
      *
@@ -64,7 +68,10 @@ public class MemberLookupService {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Correlation-Id", correlationId != null ? correlationId : "");
-            headers.set("X-Internal-Api-Key", "ido-internal");
+            // [P2 수정] 환경변수 주입 (하드코딩 'ido-internal' 제거)
+            if (qimInternalApiKey != null && !qimInternalApiKey.isBlank()) {
+                headers.set("X-Internal-Api-Key", qimInternalApiKey);
+            }
             headers.set("X-Agency-Code", agencyCode);
 
             Map<String, String> body = Map.of(
@@ -110,7 +117,10 @@ public class MemberLookupService {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Correlation-Id", correlationId != null ? correlationId : "");
-            headers.set("X-Internal-Api-Key", "ido-internal");
+            // [P2 수정] 환경변수 주입 (하드코딩 'ido-internal' 제거)
+            if (qimInternalApiKey != null && !qimInternalApiKey.isBlank()) {
+                headers.set("X-Internal-Api-Key", qimInternalApiKey);
+            }
 
             String url = qimBaseUrl + "/api/v1/internal/users/by-hash?identifierHash=" + identifierHash;
             @SuppressWarnings("unchecked")

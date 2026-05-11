@@ -54,19 +54,37 @@ public class InternalSigVerifier {
     private String sigSecret;
 
     /**
-     * 기동 시 내부 서명 비밀키 보안 검증
+     * 기동 시 내부 서명 비밀키 및 strict-mode 보안 검증
+     *
+     * <p><b>[P1 강화]</b> strict-mode=false + sigSecret 미설정 조합은 SSO 내부 API를
+     * 완전히 무방비 상태로 노출한다. 해당 조합을 감지하면 ERROR 레벨로 경고하여
+     * 운영 배포 전 반드시 수정하도록 유도한다.
      */
     @PostConstruct
     void validateSigSecret() {
         if (sigSecret == null || sigSecret.isBlank()) {
-            log.error("[QSign-InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 환경변수 미설정. " +
+            log.error("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET 환경변수 미설정. " +
                       "내부 서명 검증이 모든 요청에 대해 실패합니다. 즉시 설정하세요.");
+            if (!strictMode) {
+                log.error("[QSign-InternalSigVerifier][P1-치명적경고] strict-mode=false + sigSecret 미설정 조합 감지! " +
+                          "/api/v1/auth/broker-input 엔드포인트가 서명 검증 없이 모든 요청을 허용합니다. " +
+                          "운영 배포 전 QSIGN_INTERNAL_SIG_STRICT=true 및 IDO_INTERNAL_SIG_SECRET 설정 필수!");
+            }
         } else if (INSECURE_DEFAULT.equals(sigSecret)) {
-            log.error("[QSign-InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
+            log.error("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
                       "운영 환경에서는 반드시 최소 32자 이상의 무작위 비밀값으로 교체하세요.");
         } else if (sigSecret.length() < MIN_SECRET_LENGTH) {
-            log.warn("[QSign-InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 길이 부족: 현재={}자, 권장={}자 이상.",
+            log.warn("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET 길이 부족: 현재={}자, 권장={}자 이상.",
                      sigSecret.length(), MIN_SECRET_LENGTH);
+        }
+
+        if (!strictMode) {
+            log.warn("[QSign-InternalSigVerifier][P1-경고] strict-mode=false 로 기동 중입니다. " +
+                     "X-Internal-Sig 불일치 시 경고만 출력하고 요청을 허용합니다. " +
+                     "운영 배포 전 반드시 QSIGN_INTERNAL_SIG_STRICT=true 로 설정하세요. " +
+                     "현재 strictMode={}", strictMode);
+        } else {
+            log.info("[QSign-InternalSigVerifier] strict-mode=true — X-Internal-Sig 검증 활성화됨.");
         }
     }
 
