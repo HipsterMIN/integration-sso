@@ -35,7 +35,7 @@ function Login(): JSX.Element {
 	const bizFormRef = useRef<HTMLFormElement>(null);
 	const easyAuthFormRef = useRef<HTMLFormElement>(null);
 
-	const { actionUrl, error, code, returnUri } = useKeycloakParams();
+	const { actionUrl, error, code, returnUri, returnClient } = useKeycloakParams();
 
 	// 개인 간편인증 훅
 	const { busy: easyAuthBusy, startAuth: startEasyAuth } = usePersonalEasyAuth(
@@ -497,7 +497,7 @@ function Login(): JSX.Element {
 												className="btn text medium"
 												aria-label="개인회원 회원가입 페이지로 이동"
 												onClick={(): void =>
-													history.push(`${ROUTES.REGISTER_STEP1}?type=member`)
+													history.push(`${ROUTES.REGISTER_STEP1}?type=member${returnClient ? `&return_client=${returnClient}` : ''}${returnUri ? `&return_uri=${encodeURIComponent(returnUri)}` : ''}`)
 												}
 											>
 												<span>통합회원가입</span>
@@ -748,6 +748,27 @@ function Login(): JSX.Element {
 											</li>
 										</ul> */}
 
+										<div className="find-wrap">
+											<button
+												type="button"
+												className="btn text homepage-btn"
+												aria-label="홈페이지로 돌아가기"
+												onClick={(): void => {
+													if (returnUri) {
+														window.location.href = returnUri;
+													}
+												}}
+												disabled={!returnUri}
+												style={{ marginLeft: 'auto' }}
+											>
+												<i
+													className="icon ico-reset-exposure small"
+													aria-hidden="true"
+												/>
+												<span>홈페이지로 돌아가기</span>
+											</button>
+										</div>
+
 										<div className="join-box">
 											<strong>
 												중기원패스 하나로 중기부 유관서비스를 편리하게 이용하세요
@@ -757,7 +778,7 @@ function Login(): JSX.Element {
 												className="btn text medium"
 												aria-label="기업회원 회원가입 페이지로 이동"
 												onClick={(): void =>
-													history.push(`${ROUTES.REGISTER_STEP1}?type=business`)
+													history.push(`${ROUTES.REGISTER_STEP1}?type=business${returnClient ? `&return_client=${returnClient}` : ''}${returnUri ? `&return_uri=${encodeURIComponent(returnUri)}` : ''}`)
 												}
 											>
 												<span>통합회원가입</span>

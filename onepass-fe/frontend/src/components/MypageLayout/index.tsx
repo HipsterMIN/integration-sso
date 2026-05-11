@@ -1,5 +1,6 @@
 import { getEnterprise, getMember } from 'api/ext/members';
 import cx from 'classnames';
+import KrdsModal from 'components/KrdsModal';
 import MypageSideNav from 'components/MypageSideNav';
 import Spinner from 'components/Spinner';
 import IMAGES from 'constants/images';
@@ -81,6 +82,7 @@ async function fetchMemberInfo(
 	mbrNo: string,
 	setMember: React.Dispatch<React.SetStateAction<MemberInfo>>,
 	setLoading: React.Dispatch<React.SetStateAction<boolean>>,
+	setNotFound: React.Dispatch<React.SetStateAction<boolean>>,
 ): Promise<void> {
 	setLoading(true);
 	try {
@@ -94,6 +96,8 @@ async function fetchMemberInfo(
 				saveToStorage({ ...stored, member: next });
 				return next;
 			});
+		} else if (res.statusCode === 404 && res.error === 'PROV_003') {
+			setNotFound(true);
 		}
 	} finally {
 		setLoading(false);
@@ -104,6 +108,7 @@ async function fetchEnterpriseInfo(
 	entMbrNo: string,
 	setBusiness: React.Dispatch<React.SetStateAction<BusinessInfo>>,
 	setLoading: React.Dispatch<React.SetStateAction<boolean>>,
+	setNotFound: React.Dispatch<React.SetStateAction<boolean>>,
 ): Promise<void> {
 	setLoading(true);
 	try {
@@ -117,6 +122,8 @@ async function fetchEnterpriseInfo(
 				saveToStorage({ ...stored, business: next });
 				return next;
 			});
+		} else if (res.statusCode === 404 && res.error === 'PROV_003') {
+			setNotFound(true);
 		}
 	} finally {
 		setLoading(false);
@@ -136,6 +143,7 @@ function MypageLayout({
 	const [member, setMember] = useState<MemberInfo>(stored.member);
 	const [business, setBusiness] = useState<BusinessInfo>(stored.business);
 	const [loading, setLoading] = useState(false);
+	const [notFound, setNotFound] = useState(false);
 
 	const updateMember = useCallback(
 		(data: Partial<MemberInfo>) =>
@@ -163,20 +171,35 @@ function MypageLayout({
 		const entMbrNo = params.get('entMbrNo');
 		const uuid = params.get('uuid');
 
+		setNotFound(false);
+
 		if (memberType === 'member') {
 			const id = mbrNo || uuid || loadUserId('member') || stored.member.mbrNo;
-			if (id) fetchMemberInfo(id, setMember, setLoading);
+			if (id) fetchMemberInfo(id, setMember, setLoading, setNotFound);
 		} else if (memberType === 'business') {
 			const id = entMbrNo || uuid || loadUserId('business') || stored.business.entMbrNo;
-			if (id) fetchEnterpriseInfo(id, setBusiness, setLoading);
+			if (id) fetchEnterpriseInfo(id, setBusiness, setLoading, setNotFound);
 		}
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [memberType, search]);
+	}, [memberType, search, pathname]);
 
 	const ctxValue = useMemo(
 		() => ({ member, business, updateMember, updateBusiness }),
 		[member, business, updateMember, updateBusiness],
 	);
+
+	const handleNotFoundConfirm = useCallback((): void => {
+		setNotFound(false);
+		const redirectUri = new URLSearchParams(search).get('redirect_uri');
+		if (redirectUri) {
+			try {
+				const { origin } = new URL(redirectUri);
+				window.location.href = `${origin}/`;
+			} catch {
+				// invalid URL — ignore
+			}
+		}
+	}, [search]);
 
 	return (
 		<InfoStoreContext.Provider value={ctxValue}>
@@ -204,6 +227,29 @@ function MypageLayout({
 						</div>
 					</div>
 				</main>
+				<KrdsModal
+					id="modal_member_not_found"
+					isOpen={notFound}
+					onClose={handleNotFoundConfirm}
+					topText=""
+					title="안내"
+					size="small"
+					buttons={[
+						{
+							label: '확인',
+							variant: 'primary',
+							onClick: handleNotFoundConfirm,
+						},
+					]}
+				>
+					<p>
+						회원 정보를 찾을 수 없습니다.
+						<br />
+						가입 여부를 다시 한 번 확인해 주시거나,
+						<br />
+						문제가 계속되면 고객센터로 문의해 주세요.
+					</p>
+				</KrdsModal>
 			</MypageContext.Provider>
 		</InfoStoreContext.Provider>
 	);

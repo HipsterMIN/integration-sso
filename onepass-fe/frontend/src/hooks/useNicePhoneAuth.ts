@@ -62,18 +62,26 @@ function useNicePhoneAuth(
 		callbacksRef.current = { onSuccess, onError };
 	}, [onSuccess, onError]);
 
+	const resultHandledRef = useRef(false);
+
 	const cleanup = useCallback((): void => {
 		popupRef.current = null;
 		requestNoRef.current = undefined;
+		resultHandledRef.current = false;
 		setBusy(false);
 	}, []);
 
-	// 팝업 닫힘 감지
+	// 팝업 닫힘 감지 — postMessage 처리 시간을 확보하기 위해 지연 후 cleanup
 	useEffect(() => {
 		if (!busy) return;
 		const timer = setInterval(() => {
 			if (popupRef.current && popupRef.current.closed) {
-				cleanup();
+				// 결과가 이미 처리됐으면 즉시 정리, 아니면 잠시 대기 후 정리
+				setTimeout(() => {
+					if (!resultHandledRef.current) {
+						cleanup();
+					}
+				}, 500);
 			}
 		}, 500);
 		return (): void => clearInterval(timer);
@@ -81,6 +89,7 @@ function useNicePhoneAuth(
 
 	const fetchAuthResult = useCallback(
 		async (webTransactionId: string, requestNo?: string): Promise<void> => {
+			resultHandledRef.current = true;
 			try {
 				const res = await beInstance.post('/api/v1/auth/nice/phone/result', {
 					web_transaction_id: webTransactionId,

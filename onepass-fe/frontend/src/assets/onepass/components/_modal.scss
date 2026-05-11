@@ -252,7 +252,7 @@ body:has(.modal-wrap.open) .modal-bg {
 @include desktop-up {
 	.tab-list.style1 ul li:not(.active):hover a:before { height: 100%; }
 	.tab-list.style2 ul li:not(.active) a:hover { background: var(--krds-light-color-action-secondary-hover); color: var(--krds-light-color-action-secondary-active); }
-	.check-box:not(:has(input:checked)):hover input:after { opacity: .3; background-color: var(--krds-form-check--color-text); }
+	.check-box:not(.disabled):not(:has(input:checked)):hover input:not(:disabled):after { opacity: .3; background-color: var(--krds-form-check--color-text); }
 	// PUB260507 page.css:455 — disabled/readonly 인풋은 hover 효과 제외
 	.input-box:has(input:not(:disabled):not(:read-only), select:not(:disabled):not(:read-only)):hover {
 		border-color: var(--krds-light-color-input-border-active);
@@ -262,7 +262,7 @@ body:has(.modal-wrap.open) .modal-bg {
 	button.btn.tertiary:hover { background-color: var(--krds-button--color-tertiary-fill-hover); }
 	button.btn.secondary:hover { background-color: var(--krds-button--color-secondary-fill-hover); }
 	.btn.text:not(.icon):hover:after { opacity: 1; }
-	.check-box.style2:not(:has(input:checked)):not([aria-pressed='true']):hover { background: var(--krds-light-color-action-primary-hover); border-color: var(--krds-light-color-border-primary-light); }
-	.check-box.style2:not(:has(input:checked)):not([aria-pressed='true']):hover .right-box .text-box .tit { color: var(--krds-light-color-text-primary); }
-	.check-box.style3:not(:has(input:checked)):hover { background: var(--krds-light-color-action-primary-hover); border-color: var(--krds-light-color-border-primary-light); }
+	.check-box.style2:not(.disabled):not(:has(input:checked)):not([aria-pressed='true']):hover { background: var(--krds-light-color-action-primary-hover); border-color: var(--krds-light-color-border-primary-light); }
+	.check-box.style2:not(.disabled):not(:has(input:checked)):not([aria-pressed='true']):hover .right-box .text-box .tit { color: var(--krds-light-color-text-primary); }
+	.check-box.style3:not(.disabled):not(:has(input:checked)):hover { background: var(--krds-light-color-action-primary-hover); border-color: var(--krds-light-color-border-primary-light); }
 }

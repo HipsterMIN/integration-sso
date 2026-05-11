@@ -1,7 +1,7 @@
 # NICE 본인인증 / OACX 간편인증서 데이터 흐름 A→Z
 
 **문서 ID**: FLOW-2026-005  
-**버전**: v1.1  
+**버전**: v1.2  
 **작성일**: 2026-05-11  
 **최종 수정**: 2026-05-11  
 **작성자**: GenSpark AI (코드베이스 자동 분석)  
@@ -11,6 +11,7 @@
 > **변경 이력**
 > - v1.0 (2026-05-11): 최초 작성
 > - v1.1 (2026-05-11): ASCII 시퀀스 다이어그램 3개 → Mermaid 변환, 분산락 flowchart 추가, OACX 팝업 통신 sequence 추가
+> - v1.2 (2026-05-11): 9.1 ci-check 흐름 ASCII → Mermaid sequenceDiagram 변환
 
 ---
 
@@ -700,46 +701,28 @@ imApiOutPort.register(authResult, correlationId);
 
 ### 9.1 ci-check 흐름
 
-```
-FE (회원전환 Step)       ido (AuthService)          Q-IM
-       │                        │                       │
-       │  POST /api/v1/auth/nice/ci-check               │
-       │  {ci, mbrDvsnCd, bizno, indvlMbrNm}            │
-       │──────────────────────> │                       │
-       │                        │                       │
-       │              [유효성 검증]                      │
-       │              1. ci 필수                        │
-       │              2. mbrDvsnCd: A101(개인)/A102(기업)│
-       │              3. A102이면 bizno 필수            │
-       │                        │                       │
-       │              [Q-IM 기존 회원 조회]              │
-       │              imApiOutPort.findByCi(ci, mbrDvsnCd, correlationId)
-       │              → POST /api/v1/internal/users/find-by-ci
-       │              ────────────────────────────────> │
-       │                        │  [기존 회원]           │
-       │                        │  {qimUserId,          │
-       │                        │   indvlMbrId,         │
-       │                        │   cmpMbrId}           │
-       │              <──────────────────────────────── │
-       │                        │  [신규 사용자]         │
-       │                        │  404/empty            │
-       │              <──────────────────────────────── │
-       │                        │                       │
-       │              [신규인 경우: Q-IM 등록]           │
-       │              imApiOutPort.register(authResult)  │
-       │              ────────────────────────────────> │
-       │                        │  {qimUserId, isNew}   │
-       │              <──────────────────────────────── │
-       │                        │                       │
-       │  [기존 회원]            │                       │
-       │  {resultCode:"2000",   │                       │
-       │   result:true,         │                       │
-       │   indvlMbrId, cmpMbrId}│                       │
-       │<─────────────────────  │                       │
-       │  [신규 등록 완료]       │                       │
-       │  {resultCode:"2000",   │                       │
-       │   result:true}         │                       │
-       │<─────────────────────  │                       │
+```mermaid
+sequenceDiagram
+    participant FE as FE (회원전환 Step)
+    participant IDO as ido (AuthService)
+    participant QIM as Q-IM (ImApiOutPort)
+
+    FE->>IDO: POST /api/v1/auth/nice/ci-check<br/>{ci, mbrDvsnCd, bizno?, indvlMbrNm?}
+
+    note over IDO: 유효성 검증<br/>1. ci 필수<br/>2. mbrDvsnCd: A101(개인) / A102(기업)<br/>3. A102이면 bizno 필수<br/>4. CI 앞 8자 마스킹 로그 출력
+
+    IDO->>QIM: POST /api/v1/internal/users/find-by-ci<br/>{ci, mbrDvsnCd, correlationId}
+
+    alt 기존 회원 (identifierHash 매칭)
+        QIM-->>IDO: {qimUserId, indvlMbrId, cmpMbrId}
+        IDO-->>FE: {resultCode:"2000", result:true,<br/>indvlMbrId, cmpMbrId}
+    else 신규 사용자 (404 / empty)
+        QIM-->>IDO: 404 Not Found
+        note over IDO: AuthResult 구성 후 Q-IM 신규 등록
+        IDO->>QIM: POST /api/v1/internal/users/register<br/>{ci, name, mbrDvsnCd, ...}
+        QIM-->>IDO: {qimUserId, isNew:true}
+        IDO-->>FE: {resultCode:"2000", result:true}
+    end
 ```
 
 ### 9.2 ci-check 응답 구조
@@ -1086,5 +1069,5 @@ String correlationId = UUID.randomUUID().toString();
 
 ---
 
-*문서 끝 — FLOW-2026-005 v1.0*  
+*문서 끝 — FLOW-2026-005 v1.2*  
 *다음 문서: `docs/internal/analysis/code-completeness-analysis.md` (ANAL-2026-001)*

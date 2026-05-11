@@ -2,6 +2,7 @@ import RegisterLayout from 'components/RegisterLayout';
 import type { MemberType } from 'components/StepIndicator';
 import IMAGES from 'constants/images';
 import ROUTES from 'constants/routes';
+import { useRegister } from 'providers/Register/RegisterContext';
 
 interface Step6Props {
 	memberType?: MemberType;
@@ -12,11 +13,19 @@ function RegisterStep6({
 	memberType = 'member',
 	currentStep = 6,
 }: Step6Props): JSX.Element {
+	const { data } = useRegister();
+
+	const handleLogin = (): void => {
+		if (data.returnUri) {
+			window.location.href = data.returnUri;
+		} else {
+			window.location.href = ROUTES.LOGIN;
+		}
+	};
+
 	return (
 		<RegisterLayout
 			currentStep={currentStep}
-			nextRoute={ROUTES.LOGIN}
-			nextLabel="로그인 하기"
 			memberType={memberType}
 			noWrap
 		>
@@ -33,6 +42,16 @@ function RegisterStep6({
 					모든 중소벤처기업부의 유관기관 서비스를 <br />
 					한곳에서 편리하게 이용해 보세요!
 				</p>
+			</div>
+			<div className="btn-box" role="group" aria-label="페이지 이동">
+				<button
+					type="button"
+					className="btn point"
+					onClick={handleLogin}
+				>
+					<span>로그인 하기</span>
+					<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
+				</button>
 			</div>
 		</RegisterLayout>
 	);

@@ -1,15 +1,71 @@
+import { modifyEnterprise, modifyMember } from 'api/ext/members';
 import Modal from 'components/KrdsModal';
 import MypageContent from 'components/MypageContent';
 import { useMypageType } from 'components/MypageLayout';
 import IMAGES from 'constants/images';
 import history from 'lib/history';
 import { ChangeEvent, FormEvent, useRef, useState } from 'react';
-import { updateEnterprise, updateMember } from 'api/ext/members';
 
 import { getMypageRoute } from './routes';
-import { useInfoStore } from './useInfoStore';
+import { loadUserId, useInfoStore } from './useInfoStore';
 
 const EMAIL_OPTIONS = ['direct', 'naver.com', 'gmail.com', 'hanmail.net'];
+
+/** 숫자만 추출하여 YYYY-MM-DD 형식으로 포맷 */
+function formatDateInput(value: string): string {
+	const digits = value.replace(/\D/g, '').slice(0, 8);
+	if (digits.length <= 4) return digits;
+	if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+	return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+}
+
+/** YYYY-MM-DD 형식의 날짜가 유효한지 검증 */
+function isValidDate(value: string): boolean {
+	const digits = value.replace(/\D/g, '');
+	if (digits.length !== 8) return false;
+	const year = parseInt(digits.slice(0, 4), 10);
+	const month = parseInt(digits.slice(4, 6), 10);
+	const day = parseInt(digits.slice(6, 8), 10);
+	if (year < 1900 || year > new Date().getFullYear()) return false;
+	if (month < 1 || month > 12) return false;
+	const date = new Date(year, month - 1, day);
+	return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+/** 이메일 형식 검증 */
+function isValidEmail(email1: string, email2: string): boolean {
+	if (!email1 || !email2) return false;
+	const full = `${email1}@${email2}`;
+	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(full);
+}
+
+interface DateInputProps {
+	id: string;
+	name: string;
+	defaultValue: string;
+	placeholder?: string;
+}
+
+function DateInput({ id, name, defaultValue, placeholder }: DateInputProps): JSX.Element {
+	const [value, setValue] = useState(formatDateInput(defaultValue));
+
+	const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
+		const formatted = formatDateInput(e.target.value);
+		setValue(formatted);
+	};
+
+	return (
+		<input
+			id={id}
+			type="text"
+			name={name}
+			value={value}
+			onChange={handleChange}
+			placeholder={placeholder || 'YYYY-MM-DD'}
+			maxLength={10}
+		/>
+	);
+}
 
 interface EmailFieldProps {
 	defaultEmail1: string;
@@ -90,12 +146,10 @@ function EmailField({
 interface FormProps {
 	formRef: React.RefObject<HTMLFormElement>;
 	onSubmit: () => void;
-	onPrev: () => void;
-	isSubmitting: boolean;
 }
 
-// PUB260507 mypage_information_step3.html — 기본 정보(편집) + 알림 수신 + 이전/다음
-function BusinessForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): JSX.Element {
+// PUB260507 mypage_information_step3.html — 기본 정보(편집) + 알림 수신 + 수정
+function BusinessForm({ formRef, onSubmit }: FormProps): JSX.Element {
 	const { business } = useInfoStore();
 	const telCombined = `${business.tel2}${business.tel3}`;
 
@@ -139,6 +193,8 @@ function BusinessForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): J
 									type="text"
 									name="company_name"
 									defaultValue={business.company_name}
+									disabled
+									readOnly
 								/>
 							</div>
 						</div>
@@ -152,6 +208,8 @@ function BusinessForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): J
 									type="text"
 									name="name"
 									defaultValue={business.name}
+									disabled
+									readOnly
 								/>
 							</div>
 						</div>
@@ -160,13 +218,11 @@ function BusinessForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): J
 								설립일<span className="essential">필수</span>
 							</label>
 							<div className="input-box">
-								<input
+								<DateInput
 									id="founded_date"
-									type="text"
 									name="founded_date"
 									defaultValue={business.estbDt || ''}
-									disabled
-									readOnly
+									placeholder="YYYY-MM-DD"
 								/>
 							</div>
 						</div>
@@ -258,12 +314,8 @@ function BusinessForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): J
 					</div>
 				</div> */}
 				<div className="btn-box" role="group" aria-label="페이지 이동">
-					<button type="button" className="btn white prev" onClick={onPrev} disabled={isSubmitting}>
-						<span>이전</span>
-						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
-					</button>
-					<button type="button" className="btn point" onClick={onSubmit} disabled={isSubmitting}>
-						<span>{isSubmitting ? '저장 중...' : '저장'}</span>
+					<button type="button" className="btn point" onClick={onSubmit}>
+						<span>수정</span>
 						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
 					</button>
 				</div>
@@ -272,8 +324,8 @@ function BusinessForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): J
 	);
 }
 
-// PUB260507 business step3 패턴 차용 — 기본 정보(편집) + 알림 수신 + 이전/다음
-function MemberForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): JSX.Element {
+// PUB260507 business step3 패턴 차용 — 기본 정보(편집) + 알림 수신 + 수정
+function MemberForm({ formRef, onSubmit }: FormProps): JSX.Element {
 	const { member } = useInfoStore();
 	const phoneCombined = `${member.phone2}${member.phone3}`;
 
@@ -342,7 +394,7 @@ function MemberForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): JSX
 									<select
 										id="phone1"
 										name="phone1"
-										defaultValue={member.phone1}
+										defaultValue={member.phone1 || '011'}
 										aria-label="휴대전화 통신사 번호"
 									>
 										<option value="" hidden>선택</option>
@@ -411,12 +463,8 @@ function MemberForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): JSX
 					</div>
 				</div> */}
 				<div className="btn-box" role="group" aria-label="페이지 이동">
-					<button type="button" className="btn white prev" onClick={onPrev} disabled={isSubmitting}>
-						<span>이전</span>
-						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
-					</button>
-					<button type="button" className="btn point" onClick={onSubmit} disabled={isSubmitting}>
-						<span>{isSubmitting ? '저장 중...' : '저장'}</span>
+					<button type="button" className="btn point" onClick={onSubmit}>
+						<span>수정</span>
 						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
 					</button>
 				</div>
@@ -425,177 +473,177 @@ function MemberForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): JSX
 	);
 }
 
-/** FormData → 전화번호 조합 ("010" + "12345678" → "010-1234-5678") */
-function buildPhoneNumber(prefix: string, rest: string): string | undefined {
-	const p = prefix.trim();
-	const r = rest.trim().replace(/-/g, '');
-	if (!p || !r) return undefined;
-	// 뒷자리 길이에 따라 분리 (7자리: 3+4, 8자리: 4+4)
-	const mid = r.length > 7 ? r.slice(0, 4) : r.slice(0, 3);
-	const last = r.slice(mid.length);
-	return last ? `${p}-${mid}-${last}` : undefined;
-}
-
-/** FormData → 이메일 조합 ("user" + "example.com" → "user@example.com") */
-function buildEmail(local: string, domain: string): string | undefined {
-	const l = local.trim();
-	const d = domain.trim();
-	if (!l || !d) return undefined;
-	return `${l}@${d}`;
-}
-
 function InformationStep3(): JSX.Element {
 	const memberType = useMypageType();
 	const isBusiness = memberType === 'business';
-	const { member, business, updateMember: updateMemberStore, updateBusiness } = useInfoStore();
-
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [errorModal, setErrorModal] = useState<{ open: boolean; message: string }>({
-		open: false,
-		message: '',
-	});
-
-	const prevRoute = getMypageRoute(memberType, 'INFORMATION_STEP2');
-	const infoRoute = getMypageRoute(memberType, 'INFORMATION');
+	const [resultModal, setResultModal] = useState<{ title: string; message: string; success?: boolean } | null>(null);
+	const [loading, setLoading] = useState(false);
 	const formRef = useRef<HTMLFormElement>(null);
+	const informationRoute = getMypageRoute(memberType, 'INFORMATION');
 
-	const handleSubmit = async (): Promise<void> => {
-		if (isSubmitting || !formRef.current) return;
+	const handleResultConfirm = (): void => {
+		const isSuccess = resultModal?.success;
+		setResultModal(null);
+		if (isSuccess) history.push(informationRoute);
+	};
 
+	const handleBusinessSubmit = async (): Promise<void> => {
+		if (!formRef.current) return;
 		const fd = new FormData(formRef.current);
-		const get = (name: string): string => (fd.get(name) as string | null)?.trim() ?? '';
 
-		setIsSubmitting(true);
-		try {
-			if (isBusiness) {
-				// 기업회원 — §5.4 PATCH /api/ext/enterprises/{entMbrNo}
-				const bzmnNm = get('company_name');
-				const rprsvNm = get('name');
-				if (!bzmnNm || !rprsvNm) {
-					setErrorModal({ open: true, message: '회사명과 대표자명은 필수 항목입니다.' });
-					return;
-				}
+		const mbrUuid = loadUserId('business');
+		if (!mbrUuid) {
+			setResultModal({ title: '오류', message: '회원 정보를 찾을 수 없습니다. 다시 로그인해주세요.' });
+			return;
+		}
 
-				const email = buildEmail(get('email1'), get('email2'));
-				const rprsTelno = buildPhoneNumber(get('tel1'), get('tel2'));
+		// 필수값 검증: 설립일, 이메일
+		const estbDt = (fd.get('founded_date') as string || '').trim();
+		const email1 = (fd.get('email1') as string || '').trim();
+		const email2 = (fd.get('email2') as string || '').trim();
 
-				const result = await updateEnterprise(business.entMbrNo, {
-					bzmnNm,
-					rprsvNm,
-					...(email && { email }),
-					...(rprsTelno && { rprsTelno }),
-				});
+		if (!estbDt) {
+			setResultModal({ title: '필수 입력', message: '설립일을 입력해주세요.' });
+			return;
+		}
+		if (!isValidDate(estbDt)) {
+			setResultModal({ title: '필수 입력', message: '설립일이 유효하지 않습니다. YYYY-MM-DD 형식으로 입력해주세요.' });
+			return;
+		}
+		if (!email1 || !email2) {
+			setResultModal({ title: '필수 입력', message: '이메일을 입력해주세요.' });
+			return;
+		}
+		if (!isValidEmail(email1, email2)) {
+			setResultModal({ title: '필수 입력', message: '이메일 형식이 올바르지 않습니다.' });
+			return;
+		}
 
-				if (result.error !== null) {
-					setErrorModal({
-						open: true,
-						message: result.message || '회원정보 수정에 실패했습니다. 다시 시도해 주세요.',
-					});
-					return;
-				}
+		// 전화번호 조합
+		const tel1 = (fd.get('tel1') as string || '').trim();
+		const tel2 = (fd.get('tel2') as string || '').trim();
+		const rprsTelno = tel1 && tel2 ? `${tel1}-${tel2}` : '';
 
-				// Context 업데이트 (낙관적 반영)
-				updateBusiness({
-					company_name: bzmnNm,
-					name: rprsvNm,
-					...(email && {
-						email1: email.split('@')[0] ?? '',
-						email2: email.split('@')[1] ?? '',
-					}),
-					...(rprsTelno && ((): object => {
-						const parts = rprsTelno.split('-');
-						return { tel1: parts[0] ?? '', tel2: parts[1] ?? '', tel3: parts[2] ?? '' };
-					})()),
-				});
-			} else {
-				// 개인회원 — §5.3 PATCH /api/ext/members/{mbrNo}
-				const memberName = get('name');
-				if (!memberName) {
-					setErrorModal({ open: true, message: '이름은 필수 항목입니다.' });
-					return;
-				}
+		setLoading(true);
+		const res = await modifyEnterprise({
+			mbrUuid,
+			rprsTelno: rprsTelno || undefined,
+			rprsEmlAddr: `${email1}@${email2}`,
+			estbDt,
+		});
+		setLoading(false);
 
-				const email = buildEmail(get('email1'), get('email2'));
-				const phone = buildPhoneNumber(get('phone1'), get('phone2'));
-
-				const result = await updateMember(member.mbrNo, {
-					memberName,
-					...(email && { email }),
-					...(phone && { phone }),
-				});
-
-				if (result.error !== null) {
-					setErrorModal({
-						open: true,
-						message: result.message || '회원정보 수정에 실패했습니다. 다시 시도해 주세요.',
-					});
-					return;
-				}
-
-				// Context 업데이트 (낙관적 반영)
-				updateMemberStore({
-					name: memberName,
-					...(email && {
-						email1: email.split('@')[0] ?? '',
-						email2: email.split('@')[1] ?? '',
-					}),
-					...(phone && ((): object => {
-						const parts = phone.split('-');
-						return { phone1: parts[0] ?? '', phone2: parts[1] ?? '', phone3: parts[2] ?? '' };
-					})()),
-				});
-			}
-
-			// 성공 → 나의 정보 페이지로 이동
-			history.push(infoRoute);
-		} catch {
-			setErrorModal({
-				open: true,
-				message: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
-			});
-		} finally {
-			setIsSubmitting(false);
+		if (res.statusCode === 200) {
+			setResultModal({ title: '나의 정보 수정', message: '회원정보가 정상적으로 변경되었습니다', success: true });
+		} else {
+			setResultModal({ title: '수정 실패', message: res.message || '회원정보 수정에 실패했습니다.' });
 		}
 	};
 
-	const handlePrev = (): void => history.push(prevRoute);
+	const handleMemberSubmit = async (): Promise<void> => {
+		if (!formRef.current) return;
+		const fd = new FormData(formRef.current);
+
+		const mbrUuid = loadUserId('member');
+		if (!mbrUuid) {
+			setResultModal({ title: '오류', message: '회원 정보를 찾을 수 없습니다. 다시 로그인해주세요.' });
+			return;
+		}
+
+		// 이름 검증 (필수)
+		const memberName = (fd.get('name') as string || '').trim();
+		if (!memberName) {
+			setResultModal({ title: '필수 입력', message: '이름을 입력해주세요.' });
+			return;
+		}
+		if (memberName.length < 2) {
+			setResultModal({ title: '필수 입력', message: '이름은 2자 이상 입력해주세요.' });
+			return;
+		}
+
+		// 휴대전화 (선택값) — 입력된 경우에만 조합, 검증 생략
+		const phone1 = (fd.get('phone1') as string || '').trim();
+		const phone2 = (fd.get('phone2') as string || '').trim();
+		const indvMblTelno = phone1 && phone2 ? `${phone1}-${phone2}` : '';
+
+		// 이메일 검증 (필수)
+		const email1 = (fd.get('email1') as string || '').trim();
+		const email2 = (fd.get('email2') as string || '').trim();
+
+		if (!email1 || !email2) {
+			setResultModal({ title: '필수 입력', message: '이메일을 입력해주세요.' });
+			return;
+		}
+		if (!isValidEmail(email1, email2)) {
+			setResultModal({ title: '필수 입력', message: '이메일 형식이 올바르지 않습니다.' });
+			return;
+		}
+
+		setLoading(true);
+		const res = await modifyMember({
+			mbrUuid,
+			memberName: memberName || undefined,
+			indvMblTelno: indvMblTelno || undefined,
+			emlAddr: `${email1}@${email2}`,
+		});
+		setLoading(false);
+
+		if (res.statusCode === 200) {
+			setResultModal({ title: '나의 정보 수정', message: '회원정보가 정상적으로 변경되었습니다', success: true });
+		} else {
+			setResultModal({ title: '수정 실패', message: res.message || '회원정보 수정에 실패했습니다.' });
+		}
+	};
+
+	const handleSubmit = (): void => {
+		if (isBusiness) {
+			handleBusinessSubmit();
+		} else {
+			handleMemberSubmit();
+		}
+	};
 
 	return (
 		<MypageContent>
 			{isBusiness ? (
-				<BusinessForm
-					formRef={formRef}
-					onSubmit={(): void => { void handleSubmit(); }}
-					onPrev={handlePrev}
-					isSubmitting={isSubmitting}
-				/>
+				<BusinessForm formRef={formRef} onSubmit={handleSubmit} />
 			) : (
-				<MemberForm
-					formRef={formRef}
-					onSubmit={(): void => { void handleSubmit(); }}
-					onPrev={handlePrev}
-					isSubmitting={isSubmitting}
-				/>
+				<MemberForm formRef={formRef} onSubmit={handleSubmit} />
 			)}
 
-			{/* 오류 모달 */}
 			<Modal
-				id="modal_update_error"
-				isOpen={errorModal.open}
-				onClose={(): void => setErrorModal({ open: false, message: '' })}
-				topText="오류"
-				title="회원정보 수정 실패"
-				size="small"
+				id={resultModal?.success ? 'modal_completed' : 'modal_result'}
+				isOpen={!!resultModal}
+				onClose={handleResultConfirm}
+				topText=""
+				title={resultModal?.title || ''}
+				size={resultModal?.success ? undefined : 'small'}
 				buttons={[
 					{
 						label: '확인',
 						variant: 'primary',
-						onClick: (): void => setErrorModal({ open: false, message: '' }),
+						half: resultModal?.success ? true : undefined,
+						onClick: handleResultConfirm,
 					},
 				]}
 			>
-				<p>{errorModal.message}</p>
+				{resultModal?.success ? (
+					<div className="completed-box">
+						<figure className="img">
+							<img
+								src={IMAGES.RENEWAL_WRITE_COMPLETED_IMG_MODAL}
+								alt=""
+								aria-hidden="true"
+							/>
+						</figure>
+						<p className="completed-title blue">{resultModal.message}</p>
+					</div>
+				) : (
+					<p>{resultModal?.message}</p>
+				)}
 			</Modal>
+
+			{loading && <div className="loading-overlay" aria-label="처리 중" />}
 		</MypageContent>
 	);
 }

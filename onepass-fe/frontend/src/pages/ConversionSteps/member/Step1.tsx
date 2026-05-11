@@ -10,18 +10,36 @@ function ConversionStep1(): JSX.Element {
 	const { updateData } = useConversion();
 	const [selected, setSelected] = useState<MemberType>('member');
 	const [missingParams, setMissingParams] = useState(false);
+	// userType: 'ENT' = 기업만 선택 가능 / 'IND' = 개인만 선택 가능 / null = 둘 다 선택 가능
+	const [userType, setUserType] = useState<'ENT' | 'IND' | null>(null);
 
-	// URL에서 redirect_uri, mbrId 파라미터를 읽어 Context에 저장
+	// URL에서 redirect_uri, mbrId, userType 파라미터를 읽어 Context에 저장
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
 		const redirectUri = params.get('redirect_uri');
 		const mbrId = params.get('mbrId');
+		const clientId = params.get('client_id') || '';
+		const rawUserType = params.get('userType');
+		const ut = rawUserType === 'ENT' || rawUserType === 'IND' ? rawUserType : null;
+		setUserType(ut);
+
+		if (ut === 'ENT') {
+			setSelected('business');
+			updateData({ memberType: 'business' });
+		} else if (ut === 'IND') {
+			setSelected('member');
+			updateData({ memberType: 'member' });
+		}
+
 		if (redirectUri && mbrId) {
-			updateData({ redirectUri, mbrId });
+			updateData({ redirectUri, mbrId, initialClientId: clientId });
 		} else {
 			setMissingParams(true);
 		}
 	}, [updateData]);
+
+	const memberDisabled = userType === 'ENT';
+	const businessDisabled = userType === 'IND';
 
 	const handleModalClose = (): void => {
 		setMissingParams(false);
@@ -43,13 +61,14 @@ function ConversionStep1(): JSX.Element {
 				role="radiogroup"
 				aria-label="회원유형 선택"
 			>
-				<label className="check-box style2">
+				<label className={`check-box style2${memberDisabled ? ' disabled' : ''}`}>
 					<input
 						type="radio"
 						id="type_member"
 						name="type"
 						checked={selected === 'member'}
 						onChange={(): void => { setSelected('member'); updateData({ memberType: 'member' }); }}
+						disabled={memberDisabled}
 					/>
 					<div className="right-box">
 						<figure>
@@ -67,13 +86,14 @@ function ConversionStep1(): JSX.Element {
 						</div>
 					</div>
 				</label>
-				<label className="check-box style2">
+				<label className={`check-box style2${businessDisabled ? ' disabled' : ''}`}>
 					<input
 						type="radio"
 						id="type_business"
 						name="type"
 						checked={selected === 'business'}
 						onChange={(): void => { setSelected('business'); updateData({ memberType: 'business' }); }}
+						disabled={businessDisabled}
 					/>
 					<div className="right-box">
 						<figure>

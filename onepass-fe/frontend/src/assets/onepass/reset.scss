@@ -90,6 +90,7 @@ textarea, button, select {
 	border: none;
 	outline: none;
 	border-radius: 0;
+	color: inherit;
 }
 
 input {
@@ -127,6 +128,7 @@ button {
 	cursor: pointer;
 	padding: 0;
 	background-color: transparent;
+	color: inherit;
 	font: inherit;
 }
 

@@ -1,4 +1,4 @@
-import { withdrawAffiliation } from 'api/provision/affiliations';
+import { withdrawAffiliation, withdrawMemberAffiliation } from 'api/provision/affiliations';
 import Modal from 'components/KrdsModal';
 import MypageContent from 'components/MypageContent';
 import { useMypageType } from 'components/MypageLayout';
@@ -6,7 +6,7 @@ import IMAGES from 'constants/images';
 import history from 'lib/history';
 import { FormEvent, useMemo, useState } from 'react';
 
-import { loadSelectedServices } from './affiliationServices';
+import { clearCiToken, loadCiToken, loadSelectedServices } from './affiliationServices';
 import { getMypageRoute } from './routes';
 import { loadUserId, useInfoStore } from './useInfoStore';
 
@@ -16,23 +16,32 @@ function AffiliationWithdrawStep2(): JSX.Element {
 	const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const affiliationRoute = getMypageRoute(memberType, 'AFFILIATION');
-	const { business } = useInfoStore();
+	const isBusiness = memberType === 'business';
+	const { member, business } = useInfoStore();
+	const clients = isBusiness ? business.clients : member.clients;
 
 	const selectedIds = useMemo(() => loadSelectedServices(), []);
 	const selectedServices = useMemo(
-		() => business.clients.filter((c) => selectedIds.includes(c.clientId ?? c.clientNm)),
-		[selectedIds, business.clients],
+		() => clients.filter((c) => selectedIds.includes(c.clientId ?? c.clientNm)),
+		[selectedIds, clients],
 	);
 
 	const handleWithdraw = async (): Promise<void> => {
-		const uuid = loadUserId('business');
+		const uuid = loadUserId(isBusiness ? 'business' : 'member');
 		if (!uuid) {
 			setIsErrorModalOpen(true);
 			return;
 		}
 
 		setSubmitting(true);
-		const res = await withdrawAffiliation(uuid, selectedIds);
+		let res;
+		if (isBusiness) {
+			res = await withdrawAffiliation(uuid, selectedIds);
+		} else {
+			const ciToken = loadCiToken();
+			res = await withdrawMemberAffiliation(uuid, selectedIds, ciToken);
+			clearCiToken();
+		}
 		setSubmitting(false);
 
 		if (res.statusCode === 200) {

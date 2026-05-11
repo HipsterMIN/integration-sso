@@ -1,5 +1,5 @@
 import getClients from 'api/ext/clients';
-import { addAffiliation } from 'api/provision/affiliations';
+import { addAffiliation, addMemberAffiliation } from 'api/provision/affiliations';
 import Modal from 'components/KrdsModal';
 import MypageContent from 'components/MypageContent';
 import { useMypageType } from 'components/MypageLayout';
@@ -117,7 +117,7 @@ function AffiliationAddStep2(): JSX.Element {
 			return;
 		}
 
-		const uuid = loadUserId('business');
+		const uuid = loadUserId(isBusiness ? 'business' : 'member');
 		if (!uuid) {
 			setIsErrorModalOpen(true);
 			return;
@@ -125,7 +125,9 @@ function AffiliationAddStep2(): JSX.Element {
 
 		setSubmitting(true);
 		const clientIds = newlyAdded.map((c) => c.ssoClientId);
-		const res = await addAffiliation(uuid, clientIds);
+		const res = isBusiness
+			? await addAffiliation(uuid, clientIds)
+			: await addMemberAffiliation(uuid, clientIds);
 		setSubmitting(false);
 		setIsListModalOpen(false);
 
@@ -134,7 +136,7 @@ function AffiliationAddStep2(): JSX.Element {
 		} else {
 			setIsErrorModalOpen(true);
 		}
-	}, [newlyAdded]);
+	}, [newlyAdded, isBusiness]);
 
 	const handleClose = (): void => {
 		setIsListModalOpen(false);

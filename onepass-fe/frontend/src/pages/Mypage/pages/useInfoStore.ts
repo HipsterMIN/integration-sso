@@ -111,7 +111,8 @@ export function mapEnterpriseResponse(
 	const [tel1, tel2, tel3] = data.rprsTelno
 		? parsePhone(data.rprsTelno)
 		: ['', '', ''];
-	const [email1, email2] = data.email ? parseEmail(data.email) : ['', ''];
+	const emailRaw = data.rprsEmlAddr || data.email;
+	const [email1, email2] = emailRaw ? parseEmail(emailRaw) : ['', ''];
 	return {
 		company_name: data.bzmnNm,
 		company_num: data.brno,
@@ -122,7 +123,7 @@ export function mapEnterpriseResponse(
 		email1,
 		email2,
 		entMbrNo: data.entMbrNo,
-		estbDt: '',
+		estbDt: data.estbDt ?? '',
 		mbrSttsCd: data.mbrSttsCd,
 		mbrSttsNm: data.mbrSttsNm,
 		ssoLastLoginDt: data.ssoLastLoginDt ?? '',
