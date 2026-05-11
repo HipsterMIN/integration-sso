@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -38,8 +39,14 @@ import java.io.IOException;
  * Nginx 설정 파일({@code infra/nginx/nginx-fe.conf})에서 별도 관리한다.
  * 이 필터는 IdO API 서버 응답 헤더 전용이다.
  */
+/**
+ * F-10 On/Off: {@code IDO_SECURITY_HEADERS_ENABLED=false} 시 이 필터 빈 자체가 미등록됨.
+ * FE 개발 중 CSP 오류 없이 테스트 가능. matchIfMissing=true → 기본 활성(ON).
+ */
 @Component
 @Order(1)
+@ConditionalOnProperty(name = "ido.security-headers.enabled",
+        havingValue = "true", matchIfMissing = true)
 public class SecurityHeadersFilter extends OncePerRequestFilter {
 
     /**

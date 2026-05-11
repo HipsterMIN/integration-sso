@@ -442,7 +442,8 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,flyway
+        # features: 현재 기능 플래그 On/Off 상태 조회 (/actuator/features)
+        include: health,info,metrics,prometheus,flyway,features
   endpoint:
     health:
       show-details: when-authorized
@@ -478,7 +479,10 @@ ido:
       queue-capacity: ${IDO_WEBHOOK_EXECUTOR_QUEUE:5000}
 
   audit:
+    # F-03: Kafka 감사 발행 On/Off (IDO_AUDIT_KAFKA_ENABLED) — Kafka 없는 환경 false 권장
     kafka-publish-enabled: ${IDO_AUDIT_KAFKA_ENABLED:true}
+    # F-04: DB 감사 저장 On/Off (IDO_AUDIT_DB_ENABLED) — ⚠️ 운영에서 false 금지
+    db-save-enabled: ${IDO_AUDIT_DB_ENABLED:true}
     retry-interval-ms: 600000   # 10분마다 Kafka 미발행 감사 로그 재처리
 
 logging:
@@ -501,9 +505,10 @@ ido:
   # ── Auth 엔드포인트 IP 기반 Rate Limiting (S9-T7) ─────────────────────────
   # /api/v1/auth/** 경로 전용 제한 (NICE/OACX 인증 API 남용 방지)
   # 기관별 Rate Limit(AgencyRateLimiter)과 독립적으로 동작 (AND 조건)
+  # ⚠️ F-01 독립 환경변수: IDO_AUTH_RL_ENABLED (F-02의 IDO_RATE_LIMIT_ENABLED와 분리)
   auth:
     rate-limit:
-      enabled:    ${IDO_RATE_LIMIT_ENABLED:true}
+      enabled:    ${IDO_AUTH_RL_ENABLED:true}
       # TPS: 초당 최대 요청 수 (IP 단위)
       # 기본 20 req/s — 정상 사용자는 버튼 1회 클릭 시 1~3 req 발생
       # NICE 인증 flow: URL 발급(1) + 결과 조회(1) = 2 req
@@ -514,6 +519,43 @@ ido:
       # 일별 최대 요청 수 (IP 단위)
       # 기본 1000 req/day — 하루 인증 시도 횟수 제한
       daily:      ${IDO_AUTH_RL_DAILY:1000}
+
+  # ── F-08: Redisson 분산 락 On/Off ──────────────────────────────────────────
+  # false → NoOpRedissonConfig 사용 (Redis 없는 환경 앱 기동 가능)
+  # ⚠️ K8s 다중 Pod 환경에서는 반드시 true
+  redisson:
+    enabled: ${IDO_REDISSON_ENABLED:true}
+
+  # ── F-10: 보안 응답 헤더 On/Off ──────────────────────────────────────────
+  # false → SecurityHeadersFilter 빈 미등록 (FE 개발 환경 CSP 오류 방지)
+  security-headers:
+    enabled: ${IDO_SECURITY_HEADERS_ENABLED:true}
+
+  # ── F-05: OTel 분산 추적 AOP On/Off ──────────────────────────────────────
+  # false → AuthTracingAspect 빈 미등록 (Jaeger/Tempo 없는 환경)
+  tracing:
+    auth-aspect-enabled: ${IDO_AUTH_TRACING_ENABLED:true}
+
+  # ── F-11: 개인정보 파기 스케줄러 (이중 안전장치) ───────────────────────────
+  # enabled 기본 false — 명시적 true 설정 시에만 실행
+  # dry-run 기본 true  — 실제 삭제 전 반드시 dry-run 검증
+  # ⚠️ 법무팀 보존 기간 확정 후 IDO_RETENTION_DAYS 설정 필수
+  retention:
+    enabled: ${IDO_RETENTION_ENABLED:false}
+    dry-run: ${IDO_RETENTION_DRY_RUN:true}
+    personal-data-days: ${IDO_RETENTION_DAYS:365}
+    batch-size: ${IDO_RETENTION_BATCH_SIZE:100}
+
+  # ── F-13: IdO Outbox Relay On/Off ────────────────────────────────────────
+  # false → PENDING 폴링 없음 (Kafka 없는 환경 500ms 오류 방지)
+  outbox:
+    relay-enabled: ${IDO_OUTBOX_RELAY_ENABLED:true}
+    relay-interval-ms: 500
+    batch-size: 100
+    max-retry: 3
+
+  # ── F-14: Webhook Outbox Relay On/Off ────────────────────────────────────
+  # false → 기관 webhook 발송 없음 (PENDING은 DB 유지 → 재활성 시 처리)
 
   # ── AES 키 로테이션 스케줄러 ────────────────────────────────────────────
   crypto:

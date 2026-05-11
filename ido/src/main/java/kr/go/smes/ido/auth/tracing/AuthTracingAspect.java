@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -41,10 +42,17 @@ import org.springframework.stereotype.Component;
  * @see kr.go.smes.ido.auth.service.NiceAuthService
  * @see kr.go.smes.ido.auth.service.AuthService
  */
+/**
+ * F-05 On/Off: {@code IDO_AUTH_TRACING_ENABLED=false} 시 이 빈 자체가 미등록됨.
+ * Jaeger/Tempo 없는 로컬/개발 환경에서 OTLP 연결 오류 없이 실행 가능.
+ * matchIfMissing=true → 설정값 없으면 기본 활성(ON).
+ */
 @Slf4j
 @Aspect
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "ido.tracing.auth-aspect-enabled",
+        havingValue = "true", matchIfMissing = true)
 public class AuthTracingAspect {
 
     private final Tracer tracer;

@@ -74,7 +74,10 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @Value("${ido.auth.rate-limit.enabled:${IDO_RATE_LIMIT_ENABLED:true}}")
+    // F-01: IP Auth Rate Limiting 독립 스위치 (F-02 기관 RL의 IDO_RATE_LIMIT_ENABLED와 완전 분리)
+    // 로컬/개발: IDO_AUTH_RL_ENABLED=false 권장 (반복 테스트 시 자기 IP 차단 방지)
+    // 운영: IDO_AUTH_RL_ENABLED=true (기본값)
+    @Value("${ido.auth.rate-limit.enabled:${IDO_AUTH_RL_ENABLED:true}}")
     private boolean rateLimitEnabled;
 
     @Value("${ido.auth.rate-limit.tps:${IDO_RATE_LIMIT_DEFAULT_TPS:20}}")
@@ -91,7 +94,10 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
                               HttpServletResponse response,
                               Object handler) throws Exception {
 
-        if (!rateLimitEnabled) return true;
+        if (!rateLimitEnabled) {
+            log.debug("[AuthRateLimit] DISABLED — 모든 /api/v1/auth/** 요청 무제한 허용 (IDO_AUTH_RL_ENABLED=false)");
+            return true;
+        }
 
         String clientIp = extractClientIp(request);
         String method   = request.getMethod();

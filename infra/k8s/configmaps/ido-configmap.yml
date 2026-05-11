@@ -1,5 +1,5 @@
 # =============================================================================
-# ido-configmap.yml — IdO 서비스 K8s ConfigMap (S9-T6)
+# ido-configmap.yml — IdO 서비스 K8s ConfigMap (S9-T6 + Feature Flags)
 #
 # 목적:
 #   민감하지 않은 설정값을 K8s ConfigMap으로 관리.
@@ -57,14 +57,17 @@ data:
   # ── OpenTelemetry 분산 추적 (S9-T4) ──────────────────────────────────────
   OTLP_ENDPOINT: "http://otel-collector:4318/v1/traces"
   TRACING_SAMPLING_PROBABILITY: "0.1"    # 운영: 10% 샘플링
+  IDO_TRACING_AUTH_ASPECT_ENABLED: "true" # F-05: 인증 흐름 분산 추적 Aspect
 
   # ── Rate Limiting (S9-T7) ─────────────────────────────────────────────────
-  IDO_RATE_LIMIT_ENABLED: "true"
+  IDO_RATE_LIMIT_ENABLED: "true"           # F-02: 기관별 API Rate Limit (Bucket4j)
   IDO_RATE_LIMIT_DEFAULT_TPS: "20"
   IDO_RATE_LIMIT_DEFAULT_DAILY: "1000"
+  IDO_AUTH_RL_ENABLED: "true"              # F-01: IP 기반 Auth 엔드포인트 Rate Limit (독립)
 
   # ── 감사 로그 설정 (S9-T5) ───────────────────────────────────────────────
-  IDO_AUDIT_KAFKA_ENABLED: "true"
+  IDO_AUDIT_KAFKA_ENABLED: "true"          # F-03: 감사 로그 Kafka 발행
+  IDO_AUDIT_DB_ENABLED: "true"             # F-04: 감사 로그 DB 저장 (독립 제어)
   IDO_AUDIT_EXECUTOR_CORE: "2"
   IDO_AUDIT_EXECUTOR_MAX: "8"
   IDO_AUDIT_EXECUTOR_QUEUE: "200"
@@ -82,10 +85,30 @@ data:
   IDO_WEBHOOK_EXECUTOR_QUEUE: "100"
 
   # ── 암호화 정책 설정 ─────────────────────────────────────────────────────
-  IDO_CRYPTO_ROTATION_ENABLED: "true"
+  IDO_CRYPTO_ROTATION_ENABLED: "true"     # F-06: 암호화 키 자동 로테이션
   IDO_DEFAULT_POLICY_VERSION: "v1"
   IDO_PROVIDER_CIRCUIT_CACHE_TTL: "300"
   IDO_BROKER_MODE: "KAFKA"
+
+  # ── Redisson 분산 락 (F-08) ───────────────────────────────────────────────
+  # false 시 NoOpRedissonConfig 활성화 → JVM synchronized 폴백 (단일 Pod 환경용)
+  # 운영(K8s 다중 Pod) 환경에서는 반드시 true 유지
+  IDO_REDISSON_ENABLED: "true"            # F-08: Redisson 분산 락 (NICE 토큰 중복 방지)
+
+  # ── Security Headers (F-10) ───────────────────────────────────────────────
+  IDO_SECURITY_HEADERS_ENABLED: "true"    # F-10: CSP·HSTS 등 보안 응답 헤더
+
+  # ── 개인정보 파기 스케줄러 (F-11) ────────────────────────────────────────
+  # ⚠️  운영 적용 전 반드시 법무·보안팀 승인 필요
+  # ⚠️  IDO_RETENTION_DRY_RUN=false 전환은 별도 배포 티켓으로 관리
+  IDO_RETENTION_ENABLED: "true"           # F-11: 개인정보 파기 스케줄러 활성화
+  IDO_RETENTION_DRY_RUN: "true"          # F-11b: 파기 시뮬레이션 (false여야 실제 삭제)
+  IDO_RETENTION_PERSONAL_DATA_DAYS: "1825" # 5년 = 1825일
+  IDO_RETENTION_BATCH_SIZE: "100"
+
+  # ── Transactional Outbox Relay (F-13 / F-14) ──────────────────────────────
+  IDO_OUTBOX_RELAY_ENABLED: "true"        # F-13: IdO → Kafka Outbox 릴레이 (500ms 폴링)
+  IDO_WEBHOOK_RELAY_ENABLED: "true"       # F-14: 기관 Webhook Outbox 릴레이 (500ms 폴링)
 
   # ── 플랫폼 버전 ───────────────────────────────────────────────────────────
   IDO_PLATFORM_VERSION: "2.2.0"
