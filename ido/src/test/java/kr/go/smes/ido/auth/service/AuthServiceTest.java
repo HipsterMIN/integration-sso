@@ -1,6 +1,7 @@
 package kr.go.smes.ido.auth.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.go.smes.ido.auth.audit.AuthAuditService;
 import kr.go.smes.ido.auth.client.IntegrationAuthClient;
 import kr.go.smes.ido.auth.client.OacxClient;
 import kr.go.smes.ido.auth.dto.*;
@@ -45,11 +46,14 @@ class AuthServiceTest {
     @Mock
     private ImApiOutPort imApiOutPort;
 
+    @Mock
+    private AuthAuditService authAuditService;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(integrationAuthClient, oacxClient, new ObjectMapper(), imApiOutPort);
+        authService = new AuthService(integrationAuthClient, oacxClient, new ObjectMapper(), imApiOutPort, authAuditService);
     }
 
     // ── callback 테스트 ──────────────────────────────────────────────────────

@@ -46,8 +46,12 @@ public class KeycloakProperties {
     /**
      * ido-client Client Secret (§10-2 confidential client)
      * Token Endpoint code 교환 시 사용
+     *
+     * <p>[P2 수정] 기본값 "change-me" 제거 → 환경변수 KEYCLOAK_CLIENT_SECRET 필수 설정.
+     * application.yml에서 ${KEYCLOAK_CLIENT_SECRET:} 로 주입됨.
+     * 미설정 시 Keycloak Token Endpoint 401 → 기동 후 즉시 감지 가능.
      */
-    private String clientSecret = "change-me";
+    private String clientSecret = "";
 
     /**
      * Keycloak 콜백 Redirect URI (§10-2 Valid Redirect URIs)

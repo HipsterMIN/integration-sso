@@ -49,9 +49,12 @@ public class KeycloakProperties {
 
     /**
      * q-sign 용 Keycloak Client Secret
-     * 환경변수: QSIGN_KEYCLOAK_CLIENT_SECRET
+     * 환경변수: QSIGN_KEYCLOAK_CLIENT_SECRET (필수)
+     *
+     * <p>[P2 수정] 기본값 "change-me" 제거 → 환경변수 주입 필수.
+     * 미설정 시 Keycloak Token Endpoint 401 → 기동 후 즉시 감지 가능.
      */
-    private String clientSecret = "change-me";
+    private String clientSecret = "";
 
     /**
      * Keycloak 이 인증 완료 후 리다이렉트할 q-sign Callback URI
