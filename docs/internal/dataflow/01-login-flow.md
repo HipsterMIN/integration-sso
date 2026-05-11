@@ -78,46 +78,27 @@ broker.mode=keycloak
 
 ### 3.1 전체 시퀀스
 
-```
-[사용자]          [FE: Login.tsx]     [Keycloak]       [q-sign]         [ido]           [q-im]
-   │                    │                  │                │               │               │
-   │  로그인 버튼 클릭    │                  │                │               │               │
-   ├──────────────────→│                  │                │               │               │
-   │                    │                  │                │               │               │
-   │                    │ ① form POST      │                │               │               │
-   │                    │ action=actionUrl │                │               │               │
-   │                    │─────────────────→│                │               │               │
-   │                    │                  │                │               │               │
-   │                    │                  │ ② ID/PW 검증   │               │               │
-   │                    │                  │ (Keycloak DB) │               │               │
-   │                    │                  │                │               │               │
-   │                    │                  │ ③ 302 Redirect │               │               │
-   │                    │                  │ to q-sign      │               │               │
-   │                    │                  │ /callback?code │               │               │
-   │                    │                  │─────────────────────────────→│               │
-   │                    │                  │                │               │               │
-   │                    │                  │                │ ④ token 교환  │               │
-   │                    │                  │                │ /token        │               │
-   │                    │                  │─────────────────────────────→│               │
-   │                    │                  │                │               │               │
-   │                    │                  │                │ ⑤ JWKS 검증   │               │
-   │                    │                  │                │ nonce 검증     │               │
-   │                    │                  │                │               │               │
-   │                    │                  │                │ ⑥ AuthResult  │               │
-   │                    │                  │                │ + Outbox 저장 │               │
-   │                    │                  │                │               │               │
-   │                    │                  │                │ ⑦ POST /oidc/complete          │
-   │                    │                  │                │ (X-Internal-Sig 서명)          │
-   │                    │                  │                │──────────────→│               │
-   │                    │                  │                │               │               │
-   │                    │                  │                │               │ ⑧ FE 세션 생성 │
-   │                    │                  │                │               │ (Redis)       │
-   │                    │                  │                │               │               │
-   │                    │                  │                │               │ ⑨ 302 Redirect│
-   │                    │                  │                │               │ + feSessionId │
-   │                    │                  │                │               │ 쿠키          │
-   │    ⑩ 마이페이지 이동 │                  │                │               │               │
-   │←──────────────────│                  │                │               │               │
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE (Login.tsx)
+    participant KC as Keycloak
+    participant QS as q-sign
+    participant IDO as ido
+    participant QIM as q-im
+
+    사용자->>FE: 로그인 버튼 클릭
+    FE->>KC: ① form POST (loginType=IND, loginId, password)
+    note over KC: ② ID/PW 검증 (Keycloak DB)
+    KC-->>QS: ③ 302 Redirect /callback?code={auth_code}&state=...
+    QS->>KC: ④ POST /token — authorization_code 교환
+    KC-->>QS: ④ {id_token, access_token, ...}
+    note over QS: ⑤ JWKS RS256 서명 검증 + nonce 검증
+    note over QS: ⑥ @Transactional — AuthResult + Outbox 저장
+    QS->>IDO: ⑦ POST /api/internal/v1/oidc/complete (X-Internal-Sig)
+    note over IDO: ⑧ X-Internal-Sig 검증 → FE 세션 생성 (Redis)
+    IDO-->>FE: ⑨ 302 Redirect + Set-Cookie: feSessionId (HttpOnly, Secure, SameSite=Lax)
+    FE-->>사용자: ⑩ 마이페이지 이동
 ```
 
 ### 3.2 각 단계 상세 설명
@@ -303,57 +284,41 @@ Redis Keys:
 
 ### 4.1 전체 시퀀스
 
-```
-[사용자]   [FE: Login.tsx]    [ido: /auth/nice]   [NICE 서버]    [q-im]      [Redis]
-   │              │                    │                 │             │           │
-   │ 휴대폰인증 클릭│                   │                 │             │           │
-   ├─────────────→│                   │                 │             │           │
-   │              │ ① GET /nice/phone/url?returnUrl=... │             │           │
-   │              │────────────────────→                │             │           │
-   │              │                    │ ② POST /auth/token (Basic)   │           │
-   │              │                    │─────────────────→            │           │
-   │              │                    │ ③ {accessToken, ticket, ...} │           │
-   │              │                    │←─────────────────            │           │
-   │              │                    │                 │             │           │
-   │              │                    │ ④ POST /auth/url│             │           │
-   │              │                    │─────────────────→            │           │
-   │              │                    │ ⑤ {authUrl, transactionId}  │           │
-   │              │                    │←─────────────────            │           │
-   │              │                    │                 │             │           │
-   │              │                    │ ⑥ Redis: requestNo→txId 저장 │           │
-   │              │                    │─────────────────────────────────────────→│
-   │              │ ⑦ {authUrl, requestNo}              │             │           │
-   │              │←───────────────────                 │             │           │
-   │              │                    │                 │             │           │
-   │ ⑧ 팝업 오픈   │                   │                 │             │           │
-   │ (NICE 표준창) │                   │                 │             │           │
-   │              │                    │                 │             │           │
-   │ ⑨ 본인인증 완료                   │                 │             │           │
-   │ (NICE 팝업에서)│                  │                 │             │           │
-   │              │                    │                 │             │           │
-   │ ⑩ postMessage │                  │                 │             │           │
-   │ (web_transaction_id)              │                 │             │           │
-   │─────────────→│                   │                 │             │           │
-   │              │ ⑪ POST /nice/phone/result           │             │           │
-   │              │────────────────────→                │             │           │
-   │              │                    │ ⑫ POST /auth/result          │           │
-   │              │                    │─────────────────→            │           │
-   │              │                    │ ⑬ {encData, integrityValue} │           │
-   │              │                    │←─────────────────            │           │
-   │              │                    │                 │             │           │
-   │              │                    │ ⑭ HMAC 검증 + AES-GCM 복호화│           │
-   │              │                    │                 │             │           │
-   │              │                    │ ⑮ CI → Q-IM 등록 (S7-T6)    │           │
-   │              │                    │────────────────────────────→│           │
-   │              │                    │                 │ ⑯ qimUserId 발급 │     │
-   │              │                    │←────────────────────────────│           │
-   │              │                    │                 │             │           │
-   │              │ ⑰ {name, birthdate, gender, di ...}│             │           │
-   │              │ (CI는 FE 미반환 Q3=B)               │             │           │
-   │              │←───────────────────                 │             │           │
-   │              │                    │                 │             │           │
-   │ ⑱ encCi 수신  │                  │                 │             │           │
-   │ form 자동 POST│                  │                 │             │           │
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE (Login.tsx)
+    participant IDO as ido (/auth/nice)
+    participant NICE as NICE 서버
+    participant QIM as q-im
+    participant RDS as Redis
+
+    사용자->>FE: 휴대폰 인증 클릭
+    FE->>IDO: ① GET /api/v1/auth/nice/phone/url?returnUrl=...
+
+    note over IDO: ensureAccessToken() — 분산 락 (Redisson)<br/>Double-Checked Locking
+    IDO->>NICE: ② POST /auth/token (Basic 인증)
+    NICE-->>IDO: ③ {accessToken, ticket, iterators, expiresIn}
+    IDO->>NICE: ④ POST /auth/url (requestNo 생성)
+    NICE-->>IDO: ⑤ {authUrl, transactionId}
+    IDO->>RDS: ⑥ HSET nice:session:{requestNo} → {transactionId, requestNo} (TTL 10분)
+    IDO-->>FE: ⑦ {authUrl, requestNo}
+
+    사용자->>사용자: ⑧ 팝업 오픈 (NICE 표준창)
+    note over 사용자: ⑨ 휴대폰 본인인증 완료
+    사용자->>FE: ⑩ window.opener.postMessage({web_transaction_id})
+
+    FE->>IDO: ⑪ POST /api/v1/auth/nice/phone/result<br/>{web_transaction_id, request_no}
+    IDO->>NICE: ⑫ POST /auth/result (token, webTransactionId, transactionId)
+    NICE-->>IDO: ⑬ {resultCode, encData, integrityValue}
+
+    note over IDO: ⑭ HMAC-SHA256 무결성 검증<br/>PBKDF2(ticket+txId+iterators) → AES-256-GCM 복호화<br/>→ {name, birthdate, gender, ci, di, mobile_co, mobile_no}
+
+    IDO->>QIM: ⑮ POST /api/v1/internal/users/register (CI 포함)
+    QIM-->>IDO: ⑯ {qimUserId}
+
+    IDO-->>FE: ⑰ {name, birthdate, gender, di, mobileCo, mobileNo}<br/>⚠️ CI 미포함 (보안 정책 Q3=B)
+    note over FE: ⑱ encCi 수신 → hidden form 자동 POST<br/>(loginType=IND_CI)
 ```
 
 ### 4.2 각 단계 상세 설명
@@ -519,43 +484,33 @@ useEffect(() => {
 
 ### 5.1 전체 시퀀스
 
-```
-[사용자]   [FE]       [ido: /auth/oacx]    [OACX 서버]    [q-im]
-   │         │                │                  │             │
-   │ 간편인증 │                │                  │             │
-   │ 클릭    │                │                  │             │
-   ├────────→│                │                  │             │
-   │         │ ① POST /oacx/access-info          │             │
-   │         │─────────────────→                 │             │
-   │         │                │ ② OACX.getAccessInfo()        │
-   │         │                │──────────────────→            │
-   │         │                │ ③ {fn, accKey, accToken}       │
-   │         │                │←──────────────────            │
-   │         │ ④ {fn, accKey, accToken}          │             │
-   │         │←────────────────                  │             │
-   │         │                │                  │             │
-   │         │ ⑤ OACX.init() → 팝업 실행         │             │
-   │         │                │                  │             │
-   │ ⑥ 간편서명│               │                  │             │
-   │ 팝업에서  │               │                  │             │
-   │         │                │                  │             │
-   │         │ ⑦ OACX SDK 콜백 (fn, status, res) │             │
-   │         │←────────────────────────────────── │            │
-   │         │                │                  │             │
-   │         │ ⑧ POST /oacx/easysign             │             │
-   │         │─────────────────→                 │             │
-   │         │                │ ⑨ OACX.jwtDecryptResult()    │
-   │         │                │──────────────────→            │
-   │         │                │ ⑩ JWT 복호화 → {name, CI...} │
-   │         │                │←──────────────────            │
-   │         │                │                  │             │
-   │         │                │ ⑪ CI → Q-IM 등록              │
-   │         │                │─────────────────────────────→│
-   │         │                │ ⑫ qimUserId 반환              │
-   │         │                │←─────────────────────────────│
-   │         │                │                  │             │
-   │         │ ⑬ {name, birthday, phone} (CI 제외)            │
-   │         │←────────────────                  │             │
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE
+    participant IDO as ido (/auth/oacx)
+    participant OACX as OACX 서버 (SDK)
+    participant QIM as q-im
+
+    사용자->>FE: 간편인증서 클릭
+    FE->>IDO: ① POST /api/v1/auth/oacx/access-info
+    note over IDO: ② OacxClient.getAccessInfo()<br/>(OACX SDK JAR 네이티브 호출)
+    IDO->>OACX: ② OacxUtil.getAccessInfo()
+    OACX-->>IDO: ③ {fn, accKey, accToken}
+    IDO-->>FE: ④ {fn, accKey, accToken}
+
+    note over FE: ⑤ OACX.init(fn, accKey, accToken) → SDK 팝업 실행
+    사용자->>사용자: ⑥ 간편서명 팝업에서 인증 완료
+    OACX-->>FE: ⑦ OACX SDK 콜백 (fn, status, res)
+
+    FE->>IDO: ⑧ POST /api/v1/auth/oacx/easysign<br/>{fn, status, res}
+    IDO->>OACX: ⑨ OacxClient.jwtDecryptResult(fn, res)
+    OACX-->>IDO: ⑩ JWT 복호화 → {name, CI, birthday, phone, ...}
+
+    IDO->>QIM: ⑪ POST /api/v1/internal/users/register (CI 포함)
+    QIM-->>IDO: ⑫ {qimUserId}
+
+    IDO-->>FE: ⑬ {name, birthday, phone}<br/>⚠️ CI 미포함 (보안 정책 Q3=B)
 ```
 
 ### 5.2 OACX 플로우 단계 요약
@@ -575,54 +530,37 @@ useEffect(() => {
 
 ### 6.1 전체 시퀀스 (카카오 예시)
 
-```
-[사용자]   [FE]   [ido:BrokerService] [q-sign:KeycloakAuthUrlCtrl] [Keycloak] [카카오] [q-sign:CallbackService] [ido:OidcCompleteCtrl]
-   │         │              │                     │                     │          │               │                      │
-   │ 카카오   │              │                     │                     │          │               │                      │
-   │ 로그인   │              │                     │                     │          │               │                      │
-   ├────────→│              │                     │                     │          │               │                      │
-   │         │ ① GET /broker/kakao/authorize       │                     │          │               │                      │
-   │         │──────────────→                     │                     │          │               │                      │
-   │         │              │ ② POST /oidc/kakao/auth-url               │          │               │                      │
-   │         │              │─────────────────────→                     │          │               │                      │
-   │         │              │                     │ ③ state/nonce Redis 저장        │               │                      │
-   │         │              │                     │ ④ Keycloak URL 조립 │          │               │                      │
-   │         │              │                     │ (kc_idp_hint=social-kakao)      │               │                      │
-   │         │              │ ⑤ {authorizationUrl}│                     │          │               │                      │
-   │         │              │←────────────────────                      │          │               │                      │
-   │         │ ⑥ 302 Redirect │                   │                     │          │               │                      │
-   │         │ to Keycloak  │                     │                     │          │               │                      │
-   │         │←─────────────                      │                     │          │               │                      │
-   │         │              │                     │                     │          │               │                      │
-   │ ⑦ 브라우저 → Keycloak Authorization 요청      │                     │          │               │                      │
-   ├──────────────────────────────────────────────────────────────────→│          │               │                      │
-   │         │              │                     │                     │          │               │                      │
-   │ ⑧ Keycloak → 카카오 OAuth2 리다이렉트          │                     │          │               │                      │
-   │         │              │                     │                     │─────────→│               │                      │
-   │         │              │                     │                     │          │               │                      │
-   │ ⑨ 카카오 로그인 화면 → 사용자 승인              │                     │          │               │                      │
-   │←─────────────────────────────────────────────────────────────────────────────│               │                      │
-   │         │              │                     │                     │          │               │                      │
-   │ ⑩ 카카오 → Keycloak 콜백                      │                     │          │               │                      │
-   │         │              │                     │                     │←─────────│               │                      │
-   │         │              │                     │                     │          │               │                      │
-   │ ⑪ Keycloak → q-sign 콜백 (code + state)       │                     │          │               │                      │
-   │         │              │                     │                     │──────────────────────────→│                      │
-   │         │              │                     │                     │          │               │                      │
-   │         │              │                     │                     │          │ ⑫ 11단계 처리  │                      │
-   │         │              │                     │                     │          │ (state, token교환, │               │
-   │         │              │                     │                     │          │ JWKS검증, nonce, │                │
-   │         │              │                     │                     │          │ SHA-256(sub)...)  │                │
-   │         │              │                     │                     │          │               │                      │
-   │         │              │                     │                     │          │ ⑬ POST /oidc/complete              │
-   │         │              │                     │                     │          │ (HMAC-SHA256 서명)│                │
-   │         │              │                     │                     │          │───────────────────────────────────→│
-   │         │              │                     │                     │          │               │                      │
-   │         │              │                     │                     │          │               │ ⑭ 서명 검증           │
-   │         │              │                     │                     │          │               │ FE 세션 생성          │
-   │         │              │                     │                     │          │               │ feSessionId 쿠키      │
-   │ ⑮ 302 to returnUrl (feSessionId 쿠키)        │                     │          │               │                      │
-   │←────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE
+    participant IDO_B as ido (BrokerService)
+    participant QS_URL as q-sign (KeycloakAuthUrlCtrl)
+    participant KC as Keycloak
+    participant KAKAO as 카카오
+    participant QS_CB as q-sign (CallbackService)
+    participant IDO_C as ido (OidcCompleteCtrl)
+
+    사용자->>FE: 카카오 로그인 클릭
+    FE->>IDO_B: ① GET /api/v1/broker/kakao/authorize
+    IDO_B->>QS_URL: ② POST /api/v1/oidc/kakao/auth-url<br/>{correlationId, returnUrl, requestedLevel}
+    note over QS_URL: ③ state/nonce 생성 → Redis 저장<br/>(qsign:oidc:state:{state}, TTL 300초)<br/>④ Keycloak Authorization URL 조립<br/>(kc_idp_hint=social-kakao, PKCE S256)
+    QS_URL-->>IDO_B: ⑤ {authorizationUrl}
+    IDO_B-->>FE: ⑥ 302 Redirect → Keycloak Authorization Endpoint
+
+    FE->>KC: ⑦ 브라우저 → Keycloak Authorization 요청
+    KC->>KAKAO: ⑧ 카카오 OAuth2 리다이렉트
+    KAKAO-->>사용자: ⑨ 카카오 로그인 화면 표시
+    사용자->>KAKAO: ⑨ 사용자 동의/승인
+    KAKAO->>KC: ⑩ 카카오 → Keycloak 콜백 (code)
+    KC->>QS_CB: ⑪ Keycloak → q-sign 콜백 (code + state)
+
+    note over QS_CB: ⑫ 11단계 처리:<br/>① state Redis 소비 (CSRF 방어)<br/>② Keycloak /token 교환<br/>③ JWKS RS256 검증<br/>④ nonce 검증 (Replay 방어)<br/>⑤ audience 검증<br/>⑥ exp 검증<br/>⑦ SHA-256(sub) → identifierHash<br/>⑧ providerCode 결정<br/>⑨ 잠금 확인<br/>⑩ AuthResult + Outbox @Transactional 저장<br/>⑪ ido 완료 통보 준비
+
+    QS_CB->>IDO_C: ⑬ POST /api/internal/v1/oidc/complete<br/>(X-Internal-Sig: HMAC-SHA256)
+    note over IDO_C: ⑭ X-Internal-Sig 검증<br/>FE 세션 생성 (Redis)<br/>feSessionId 발급 (256-bit 엔트로피)
+    IDO_C-->>FE: ⑮ 302 Redirect → returnUrl<br/>Set-Cookie: feSessionId (HttpOnly, Secure, SameSite=Lax)
+    FE-->>사용자: 마이페이지 이동
 ```
 
 ### 6.2 BrokerService 처리 (qsign 모드)
@@ -773,37 +711,25 @@ public boolean isAbsoluteExpired() {
 
 ### 9.1 SLO 시퀀스
 
-```
-[사용자]   [FE]              [ido: /slo]    [q-sign]     [Kafka]    [Redis]
-   │         │                    │             │             │          │
-   │ 로그아웃  │                   │             │             │          │
-   │ 버튼 클릭 │                   │             │             │          │
-   ├────────→│                   │             │             │          │
-   │         │ POST /api/v1/slo/initiate       │             │          │
-   │         │ (feSessionId 쿠키 자동 포함)      │             │          │
-   │         │────────────────────→            │             │          │
-   │         │                    │            │             │          │
-   │         │                    │ ① Redis    │             │          │
-   │         │                    │ feSession  │             │          │
-   │         │                    │ 삭제        │             │          │
-   │         │                    │────────────────────────────────────→│
-   │         │                    │            │             │          │
-   │         │                    │ ② Keycloak │             │          │
-   │         │                    │ 세션 종료   │             │          │
-   │         │                    │────────────→            │          │
-   │         │                    │            │             │          │
-   │         │                    │ ③ 기관 로그아웃           │          │
-   │         │                    │ Webhook Outbox 적재       │          │
-   │         │                    │──────────────────────────→│         │
-   │         │                    │            │             │          │
-   │         │                    │ ④ 감사 로그 │             │          │
-   │         │                    │ 기록        │             │          │
-   │         │ 204 No Content     │             │             │          │
-   │         │ (feSessionId 쿠키 제거)           │             │          │
-   │         │←───────────────────             │             │          │
-   │         │                    │            │             │          │
-   │ ⑤ 로그인 페이지로 이동        │             │             │          │
-   │←────────│                   │             │             │          │
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE
+    participant IDO as ido (/slo)
+    participant KC as Keycloak
+    participant KF as Kafka (Outbox)
+    participant RDS as Redis
+
+    사용자->>FE: 로그아웃 버튼 클릭
+    FE->>IDO: POST /api/v1/slo/initiate<br/>(feSessionId 쿠키 자동 포함)
+
+    IDO->>RDS: ① DEL fe:session:{feSessionId}<br/>DEL fe:user-sessions:{qimUserId} 항목 제거
+    IDO->>KC: ② Keycloak 세션 종료 (Back-channel logout)
+    IDO->>KF: ③ 기관 로그아웃 Webhook — Outbox 적재<br/>(Transactional Outbox 패턴)
+    note over IDO: ④ 감사 로그 기록
+
+    IDO-->>FE: 204 No Content<br/>Set-Cookie: feSessionId=; Max-Age=0 (쿠키 제거)
+    FE-->>사용자: ⑤ 로그인 페이지로 이동
 ```
 
 **파일**: `onepass-fe/frontend/src/api/feSession.ts`
