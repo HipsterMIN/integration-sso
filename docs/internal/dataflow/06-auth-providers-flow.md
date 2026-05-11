@@ -131,15 +131,15 @@ graph TD
 
 ```mermaid
 flowchart TD
-    A([GET /{provider}/authorize]) --> B{DB에서\nprovider_config 조회}
-    B -->|조회 성공| C{ProviderType?}
-    B -->|DB 없음| D{providerCode suffix\n휴리스틱}
-    C -->|STANDARD_OIDC\nSEMI_STANDARD_OIDC| E[KEYCLOAK_RELAY\nKeycloak IDP Hint 설정]
-    C -->|NON_STANDARD| F[DIRECT_BROKER\nNonOidcBrokerAdapter]
+    A(["GET /{provider}/authorize"]) --> B{"DB에서\nprovider_config 조회"}
+    B -->|조회 성공| C{"ProviderType?"}
+    B -->|DB 없음| D{"providerCode suffix\n휴리스틱"}
+    C -->|STANDARD_OIDC\nSEMI_STANDARD_OIDC| E["KEYCLOAK_RELAY\nKeycloak IDP Hint 설정"]
+    C -->|NON_STANDARD| F["DIRECT_BROKER\nNonOidcBrokerAdapter"]
     D -->|_OIDC suffix| E
     D -->|그 외| F
-    E --> G[Keycloak\n/realms/{realm}/protocol/openid-connect/auth\n?kc_idp_hint={idpHint}]
-    F --> H[NonOidcAuthService.processAuth\n→ PoC placeholder 처리]
+    E --> G["Keycloak\n/realms/{realm}/protocol/openid-connect/auth\n?kc_idp_hint={idpHint}"]
+    F --> H["NonOidcAuthService.processAuth\n→ PoC placeholder 처리"]
 ```
 
 ### 2.2 idpHintMapping (Keycloak IDP 매핑)
