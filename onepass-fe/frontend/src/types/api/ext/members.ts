@@ -67,3 +67,29 @@ export interface EnterprisePic {
 	picJbpsNm: string;
 	ssoLastLoginDt: string | null;
 }
+
+/**
+ * 개인회원 정보 수정 요청 (§5.3 PATCH /api/ext/members/{mbrNo})
+ * - memberName: 이름 (필수)
+ * - phone:      휴대전화번호 "010-1234-5678" 형식 (선택)
+ * - email:      이메일 "user@example.com" 형식 (선택)
+ */
+export interface UpdateMemberRequest {
+	memberName: string;
+	phone?: string;
+	email?: string;
+}
+
+/**
+ * 기업회원 정보 수정 요청 (§5.4 PATCH /api/ext/enterprises/{entMbrNo})
+ * - bzmnNm:    회사명 (필수)
+ * - rprsvNm:   대표자명 (필수)
+ * - rprsTelno: 대표 전화번호 "02-1234-5678" 형식 (선택)
+ * - email:     이메일 "user@example.com" 형식 (선택)
+ */
+export interface UpdateEnterpriseRequest {
+	bzmnNm: string;
+	rprsvNm: string;
+	rprsTelno?: string;
+	email?: string;
+}

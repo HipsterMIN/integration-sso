@@ -2,6 +2,7 @@ import cx from 'classnames';
 import type { MypageMemberType, MypageSection } from 'components/MypageLayout';
 import IMAGES from 'constants/images';
 import ROUTES from 'constants/routes';
+import useAuthState from 'hooks/useAuthState';
 import history from 'lib/history';
 import { useState } from 'react';
 
@@ -29,6 +30,7 @@ function MypageSideNav({
 	memberType,
 }: MypageSideNavProps): JSX.Element {
 	const [isOpen, setIsOpen] = useState(false);
+	const { logout } = useAuthState();
 	const isBusiness = memberType === 'business';
 	const infoRoute = isBusiness
 		? ROUTES.MYPAGE_BUSINESS_INFORMATION
@@ -94,6 +96,18 @@ function MypageSideNav({
 						</a>
 					</li>
 				</ul>
+				{/* 로그아웃 — SLO 흐름 (POST /api/v1/slo/initiate → Keycloak + Webhook + 감사로그) */}
+				<div className="nav-logout">
+					<button
+						type="button"
+						className="btn logout-btn"
+						onClick={(): void => logout()}
+						aria-label="로그아웃"
+					>
+						<i className="icon logout" aria-hidden="true" />
+						<span>로그아웃</span>
+					</button>
+				</div>
 			</div>
 		</div>
 	);
