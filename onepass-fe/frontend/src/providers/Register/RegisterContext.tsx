@@ -13,6 +13,8 @@ import type { Client } from 'types/api/ext/clients';
 export interface RegisterData {
 	// Step1
 	memberType: MemberType;
+	initialClientId: string;
+	returnUri: string;
 
 	// Step3 (기업인증)
 	brno: string;
@@ -35,6 +37,12 @@ export interface RegisterData {
 	rprsvNm: string;
 	startDt: string;
 	password: string;
+	mbrId: string;
+
+	// 프로비저닝 결과
+	entMbrNo: string;
+	mbrNo: string;
+	provisioningToken: string;
 
 	// Step5 (MemberInfoForm - 개인)
 	name: string;
@@ -55,6 +63,8 @@ export interface RegisterData {
 
 const INITIAL_DATA: RegisterData = {
 	memberType: 'member',
+	initialClientId: '',
+	returnUri: '',
 	brno: '',
 	ciToken: '',
 	mbrUuid: '',
@@ -69,6 +79,10 @@ const INITIAL_DATA: RegisterData = {
 	rprsvNm: MOCK_BUSINESS.repName,
 	startDt: '',
 	password: '',
+	mbrId: '',
+	entMbrNo: '',
+	mbrNo: '',
+	provisioningToken: '',
 	name: MOCK_MEMBER.name,
 	phonePrefix: MOCK_MEMBER.phonePrefix,
 	phoneSuffix: MOCK_MEMBER.phoneSuffix,

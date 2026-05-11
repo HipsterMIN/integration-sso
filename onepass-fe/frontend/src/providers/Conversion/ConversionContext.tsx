@@ -13,6 +13,7 @@ import type { Client } from 'types/api/ext/clients';
 export interface ConversionData {
 	// Step1
 	memberType: MemberType;
+	initialClientId: string;
 
 	// Step3 (기업인증)
 	brno: string;
@@ -67,6 +68,7 @@ export interface ConversionData {
 
 const INITIAL_DATA: ConversionData = {
 	memberType: 'member',
+	initialClientId: '',
 	brno: '',
 	ciToken: '',
 	birthDate: '',

@@ -10,15 +10,16 @@ function RegisterStep1(): JSX.Element {
 	const { updateData } = useRegister();
 
 	// 로그인 페이지의 통합회원가입 버튼 진입 시 `?type=member|business` 로 사전 선택
+	const params = new URLSearchParams(window.location.search);
 	const initialType: MemberType =
-		new URLSearchParams(window.location.search).get('type') === 'business'
-			? 'business'
-			: 'member';
+		params.get('type') === 'business' ? 'business' : 'member';
 	const [selected, setSelected] = useState<MemberType>(initialType);
 
-	// 사전 선택된 타입을 RegisterContext 에 즉시 반영 (마운트 시 1회)
+	// 사전 선택된 타입 및 return_client를 RegisterContext 에 즉시 반영 (마운트 시 1회)
 	useEffect(() => {
-		updateData({ memberType: initialType });
+		const returnClient = params.get('return_client') || '';
+		const returnUri = params.get('return_uri') || '';
+		updateData({ memberType: initialType, initialClientId: returnClient, returnUri });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 

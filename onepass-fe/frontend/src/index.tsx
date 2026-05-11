@@ -16,47 +16,52 @@ import { initializeFaro, getWebInstrumentations, LogLevel } from '@grafana/faro-
 import { TracingInstrumentation } from '@grafana/faro-web-tracing';
 
  
-const faro = initializeFaro({
-  url: process.env.FARO_COLLECTOR_URL || '',
-  app: {
-    name: 'onepass-ui',
-    version: process.env.VITE_APP_VERSION || '1.0.0',
-    environment: process.env.VITE_ENV || 'production',
-  },
-  globalObjectKey: 'faro',
-  user: {
-    attributes: {
-      tenant_id: process.env.FARO_TENANT_ID || window.location.hostname.split('.')[0],
-    }
-  },
-  sessionTracking: {
-    enabled: true,
-    samplingRate: 1.0,
-  },
-  batching: {
-    enabled: false, // 페이지 이동/종료 시 frontend span 유실 방지
-  },
-  instrumentations: [
-    ...getWebInstrumentations({
-      captureConsole: true,
-      captureConsoleDisabledLevels: [LogLevel.DEBUG, LogLevel.LOG],
-    }),
-    new TracingInstrumentation({
-      instrumentationOptions: {
-        propagateTraceHeaderCorsUrls: [
-          /\/api\/.*/,
-          /\/im\/api\/.*/,
-          ...(process.env.BE_API_ENDPOINT
-            ? [new RegExp(process.env.BE_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
-            : []),
-          ...(process.env.EXT_API_ENDPOINT
-            ? [new RegExp(process.env.EXT_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
-            : []),
-        ],
+const appEnv = process.env.APP_ENV || 'local';
+
+// 로컬 환경에서는 Faro 수집 비활성화
+const faro = appEnv !== 'local'
+  ? initializeFaro({
+      url: process.env.FARO_COLLECTOR_URL || '',
+      app: {
+        name: `onepass-ui-${appEnv}`,
+        version: '1.0.0',
+        environment: appEnv,
       },
-    }),
-  ],
-});
+      globalObjectKey: 'faro',
+      user: {
+        attributes: {
+          tenant_id: process.env.FARO_TENANT_ID || window.location.hostname.split('.')[0],
+        }
+      },
+      sessionTracking: {
+        enabled: true,
+        samplingRate: 1.0,
+      },
+      batching: {
+        enabled: false, // 페이지 이동/종료 시 frontend span 유실 방지
+      },
+      instrumentations: [
+        ...getWebInstrumentations({
+          captureConsole: true,
+          captureConsoleDisabledLevels: [LogLevel.DEBUG, LogLevel.LOG],
+        }),
+        new TracingInstrumentation({
+          instrumentationOptions: {
+            propagateTraceHeaderCorsUrls: [
+              /\/api\/.*/,
+              /\/im\/api\/.*/,
+              ...(process.env.BE_API_ENDPOINT
+                ? [new RegExp(process.env.BE_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
+                : []),
+              ...(process.env.EXT_API_ENDPOINT
+                ? [new RegExp(process.env.EXT_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
+                : []),
+            ],
+          },
+        }),
+      ],
+    })
+  : null;
 
 // 활성 사용자 추적을 위한 heartbeat (60초 주기, 탭 활성 시에만)
 setInterval(() => {

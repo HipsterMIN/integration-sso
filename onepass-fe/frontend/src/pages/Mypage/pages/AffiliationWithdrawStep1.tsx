@@ -1,12 +1,20 @@
+import exchangeCiToken from 'api/provision/ciToken';
 import Modal from 'components/KrdsModal';
 import MypageContent from 'components/MypageContent';
 import { useMypageType } from 'components/MypageLayout';
 import IMAGES from 'constants/images';
 import useEzAuth from 'hooks/useEzAuth';
+import type { NicePhoneAuthResult } from 'hooks/useNicePhoneAuth';
+import useNicePhoneAuth from 'hooks/useNicePhoneAuth';
+import type { EasysignResult } from 'hooks/usePersonalEasyAuth';
+import usePersonalEasyAuth from 'hooks/usePersonalEasyAuth';
 import history from 'lib/history';
 import { FormEvent, useCallback, useState } from 'react';
+import { encryptCi } from 'utils/crypto/aesGcm';
 
+import { saveCiToken } from './affiliationServices';
 import { getMypageRoute } from './routes';
+import { loadUserId } from './useInfoStore';
 
 // PUB260507 mypage_affiliation_withdraw_step1.html — 기업 인증 카드 2개
 function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
@@ -139,9 +147,78 @@ function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
 	);
 }
 
-// 개인 인증 카드 2개 — AffiliationAddStep1 MemberAuth 와 동일 패턴
+// 개인 인증 카드 4개 — 간편인증/휴대폰인증 시 CI→ciToken 발급
 function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
-	const goNext = (): void => history.push(onNext);
+	const [devNoticeModal, setDevNoticeModal] = useState(false);
+	const [failedModal, setFailedModal] = useState(false);
+
+	/** CI 암호화 → ciToken 발급 → sessionStorage 저장 → Step2 이동 */
+	const processCiToken = useCallback(
+		async (ci: string): Promise<void> => {
+			const mbrUuid = loadUserId('member') || '';
+			const encrypted = await encryptCi(ci);
+			const tokenRes = await exchangeCiToken({
+				encryptedCi: encrypted,
+				realm: 'ucube-qsign',
+				clientId: 'onepassCli',
+				flowContext: 'USER_WITHDRAW',
+				mbrUuid,
+			});
+			if (tokenRes.statusCode === 200 && tokenRes.payload?.data) {
+				saveCiToken(tokenRes.payload.data.ciToken);
+				history.push(onNext);
+			} else {
+				setFailedModal(true);
+			}
+		},
+		[onNext],
+	);
+
+	const handleEasyAuthSuccess = useCallback(
+		(result: EasysignResult): void => {
+			if (result.resultCode !== '2000') {
+				setFailedModal(true);
+				return;
+			}
+			if (result.ci) {
+				const ci = result.ci;
+				// eslint-disable-next-line no-param-reassign
+				result.ci = undefined; // CI 평문 즉시 폐기
+				processCiToken(ci).catch(() => setFailedModal(true));
+			} else {
+				setFailedModal(true);
+			}
+		},
+		[processCiToken],
+	);
+
+	const handlePhoneAuthSuccess = useCallback(
+		(result: NicePhoneAuthResult): void => {
+			if (result.resultCode !== '2000') {
+				setFailedModal(true);
+				return;
+			}
+			if (result.ci) {
+				const ci = result.ci;
+				// eslint-disable-next-line no-param-reassign
+				result.ci = undefined; // CI 평문 즉시 폐기
+				processCiToken(ci).catch(() => setFailedModal(true));
+			} else {
+				setFailedModal(true);
+			}
+		},
+		[processCiToken],
+	);
+
+	const handleAuthError = useCallback((): void => {
+		setFailedModal(true);
+	}, []);
+
+	const { startAuth } = usePersonalEasyAuth(handleEasyAuthSuccess, handleAuthError);
+	const { busy: phoneAuthBusy, startAuth: startPhoneAuth } = useNicePhoneAuth(
+		handlePhoneAuthSuccess,
+		handleAuthError,
+	);
 
 	return (
 		<>
@@ -174,10 +251,14 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 				<div className="white-wrap">
 					<div className="title-box">
 						<h3 className="h3-title">개인 인증</h3>
-						<p className="text">나의 정보 변경 시 본인 인증 후 진행해 주시기 바랍니다</p>
+						<p className="text">유관기관 탈퇴 시 본인 인증 후 진행해 주시기 바랍니다</p>
 					</div>
 					<div className="check-box-wrap" role="group" aria-label="인증 수단 선택">
-						<button type="button" className="check-box style2" onClick={goNext}>
+						<button
+							type="button"
+							className="check-box style2"
+							onClick={(): void => setDevNoticeModal(true)}
+						>
 							<div className="right-box">
 								<figure>
 									<img src={IMAGES.RENEWAL_CERT_JOINT_BIG} alt="" aria-hidden="true" />
@@ -191,7 +272,11 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 								</div>
 							</div>
 						</button>
-						<button type="button" className="check-box style2" onClick={goNext}>
+						<button
+							type="button"
+							className="check-box style2"
+							onClick={(): void => { startAuth(); }}
+						>
 							<div className="right-box">
 								<figure>
 									<img src={IMAGES.RENEWAL_CERT_APP_BIG} alt="" aria-hidden="true" />
@@ -205,7 +290,12 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 								</div>
 							</div>
 						</button>
-						<button type="button" className="check-box style2" onClick={goNext}>
+						<button
+							type="button"
+							className="check-box style2"
+							disabled={phoneAuthBusy}
+							onClick={(): void => { startPhoneAuth(); }}
+						>
 							<div className="right-box">
 								<figure>
 									<img src={IMAGES.RENEWAL_CERT_PHONE} alt="" aria-hidden="true" />
@@ -218,7 +308,11 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 								</div>
 							</div>
 						</button>
-						<button type="button" className="check-box style2" onClick={goNext}>
+						<button
+							type="button"
+							className="check-box style2"
+							onClick={(): void => setDevNoticeModal(true)}
+						>
 							<div className="right-box">
 								<figure>
 									<img src={IMAGES.RENEWAL_CERT_ANY} alt="" aria-hidden="true" />
@@ -234,6 +328,44 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 					</div>
 				</div>
 			</form>
+			<Modal
+				id="modal_affiliation_withdraw_member_dev_notice"
+				isOpen={devNoticeModal}
+				onClose={(): void => setDevNoticeModal(false)}
+				topText="안내"
+				title="서비스 준비 중"
+				size="small"
+				buttons={[
+					{
+						label: '확인',
+						variant: 'primary',
+						onClick: (): void => setDevNoticeModal(false),
+					},
+				]}
+			>
+				<p>현재 개발 중인 기능입니다.</p>
+				<p>
+					<strong>개인 간편인증서</strong> 또는 <strong>휴대폰 인증</strong>을 이용해 주세요.
+				</p>
+			</Modal>
+			<Modal
+				id="modal_affiliation_withdraw_member_auth_failed"
+				isOpen={failedModal}
+				onClose={(): void => setFailedModal(false)}
+				topText="안내"
+				title="본인 인증이 실패하였습니다"
+				size="small"
+				buttons={[
+					{
+						label: '확인',
+						variant: 'primary',
+						onClick: (): void => setFailedModal(false),
+					},
+				]}
+			>
+				<p>해당 정보로 본인인증이 실패하였습니다.</p>
+				<p>다른 방식으로 본인인증을 진행해 주시기 바랍니다.</p>
+			</Modal>
 		</>
 	);
 }

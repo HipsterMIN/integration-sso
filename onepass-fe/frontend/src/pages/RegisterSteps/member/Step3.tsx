@@ -3,11 +3,15 @@ import Modal from 'components/KrdsModal';
 import RegisterLayout from 'components/RegisterLayout';
 import type { MemberType } from 'components/StepIndicator';
 import IMAGES from 'constants/images';
+import type { EzAuthBizResult } from 'hooks/useEzAuth';
+import useEzAuth from 'hooks/useEzAuth';
 import type { NicePhoneAuthResult } from 'hooks/useNicePhoneAuth';
 import useNicePhoneAuth from 'hooks/useNicePhoneAuth';
 import type { EasysignResult } from 'hooks/usePersonalEasyAuth';
 import usePersonalEasyAuth from 'hooks/usePersonalEasyAuth';
-import { useCallback, useState } from 'react';
+import history from 'lib/history';
+import { ChangeEvent, useCallback, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import { useRegister } from 'providers/Register/RegisterContext';
 import { encryptCi } from 'utils/crypto/aesGcm';
 
@@ -23,6 +27,7 @@ function RegisterStep3({
 	currentStep = 3,
 }: Step3Props): JSX.Element {
 	const isBusiness = memberType === 'business';
+	const history = useHistory();
 	const { data, updateData } = useRegister();
 	const [authType, setAuthType] = useState<
 		'certificate' | 'app' | 'phone' | 'anyid' | 'cert' | 'easy' | ''
@@ -31,6 +36,7 @@ function RegisterStep3({
 	const [failedModal, setFailedModal] = useState(false);
 	const [devNoticeModal, setDevNoticeModal] = useState(false);
 	const [authRequiredModal, setAuthRequiredModal] = useState(false);
+	const [showAlert, setShowAlert] = useState(false);
 
 	// 개인 간편인증 콜백
 	const handleEasyAuthSuccess = useCallback(
@@ -71,11 +77,12 @@ function RegisterStep3({
 					mbrUuid,
 					birthDate: result.birthday || '',
 				});
+				history.push(getRegisterRoute(currentStep + 1, memberType));
 			})().catch(() => {
 				setFailedModal(true);
 			});
 		},
-		[updateData],
+		[updateData, currentStep, memberType],
 	);
 
 	const handleEasyAuthError = useCallback((): void => {
@@ -126,11 +133,12 @@ function RegisterStep3({
 					mbrUuid,
 					birthDate: result.birthdate || '',
 				});
+				history.push(getRegisterRoute(currentStep + 1, memberType));
 			})().catch(() => {
 				setFailedModal(true);
 			});
 		},
-		[updateData],
+		[updateData, currentStep, memberType],
 	);
 
 	const handlePhoneAuthError = useCallback((): void => {
@@ -142,15 +150,49 @@ function RegisterStep3({
 		handlePhoneAuthError,
 	);
 
+	// 사업자 간편인증 (EzAuth SDK) 콜백
+	const handleBizAuthSuccess = useCallback(
+		(resultData?: EzAuthBizResult): void => {
+			if (!resultData) {
+				setFailedModal(true);
+				return;
+			}
+			updateData({
+				bzmnNm: resultData.name,
+				rprsvNm: resultData.name,
+				brno: resultData.businessNumber || data.brno,
+			});
+			history.push(getRegisterRoute(currentStep + 1, memberType));
+		},
+		[updateData, data.brno, history, currentStep, memberType],
+	);
+
+	const handleBizAuthError = useCallback((errno: number): void => {
+		if (errno === 302) return; // 사용자 취소
+		setFailedModal(true);
+	}, []);
+
+	const { loading: ezAuthLoading, startAuth: startEzAuth } = useEzAuth(
+		handleBizAuthSuccess,
+		handleBizAuthError,
+	);
+
+	const handleBrnoChange = (e: ChangeEvent<HTMLInputElement>): void => {
+		const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+		updateData({ brno: value });
+	};
+
 	const handleNext = (): boolean => {
+		if (isBusiness && data.brno.length !== 10) {
+			setShowAlert(true);
+			return false;
+		}
+
 		if (!isBusiness && !data.ciToken) {
 			setAuthRequiredModal(true);
 			return false;
 		}
-		if (isBusiness && !authType) {
-			setAuthRequiredModal(true);
-			return false;
-		}
+
 		return true;
 	};
 
@@ -186,64 +228,89 @@ function RegisterStep3({
 				</div>
 
 				{isBusiness ? (
-					<div
-						className="check-box-wrap"
-						role="group"
-						aria-label="기업인증 방식 선택"
-					>
-						<button
-							type="button"
-							className="check-box style2"
-							aria-pressed={authType === 'cert'}
-							onClick={(): void => {
-								setAuthType('cert');
-								setDevNoticeModal(true);
-							}}
-						>
-							<div className="right-box">
-								<figure>
-									<img
-										src={IMAGES.RENEWAL_CERT_JOINT_BIG}
-										alt=""
-										aria-hidden="true"
+					<>
+						<div className="form-wrap">
+							<div className="input-wrap style2">
+								<label htmlFor="business_num">사업자등록번호</label>
+								<div className="input-box">
+									<input
+										id="business_num"
+										type="text"
+										name="business_num"
+										placeholder="사업자 등록번호를 입력해주세요"
+										value={data.brno}
+										onChange={handleBrnoChange}
+										maxLength={10}
+										required
+										aria-required="true"
 									/>
-								</figure>
-								<div className="text-box">
-									<strong className="tit">기업인증서</strong>
-									<p className="text">
-										공동인증서(구 공인인증서) 또는 금융인증서를 활용하여 <br />
-										기업 정보를 안전하고 확실하게 인증합니다
-									</p>
 								</div>
 							</div>
-						</button>
-						<button
-							type="button"
-							className="check-box style2"
-							aria-pressed={authType === 'easy'}
-							onClick={(): void => {
-								setAuthType('easy');
-								setDevNoticeModal(true);
-							}}
+						</div>
+						<div
+							className="check-box-wrap"
+							role="group"
+							aria-label="기업인증 방식 선택"
 						>
-							<div className="right-box">
-								<figure>
-									<img
-										src={IMAGES.RENEWAL_CERT_APP_BIG}
-										alt=""
-										aria-hidden="true"
-									/>
-								</figure>
-								<div className="text-box">
-									<strong className="tit">사업자 간편인증서</strong>
-									<p className="text">
-										별도의 보안 프로그램 설치 없이 네이버, 카카오, PASS 등 간편인증
-										수단으로 사업자 여부를 빠르게 확인하여 인증합니다
-									</p>
+							<button
+								type="button"
+								className="check-box style2"
+								aria-pressed={authType === 'cert'}
+								onClick={(): void => {
+									setAuthType('cert');
+									setDevNoticeModal(true);
+								}}
+							>
+								<div className="right-box">
+									<figure>
+										<img
+											src={IMAGES.RENEWAL_CERT_JOINT_BIG}
+											alt=""
+											aria-hidden="true"
+										/>
+									</figure>
+									<div className="text-box">
+										<strong className="tit">기업인증서</strong>
+										<p className="text">
+											공동인증서(구 공인인증서) 또는 금융인증서를 활용하여 <br />
+											기업 정보를 안전하고 확실하게 인증합니다
+										</p>
+									</div>
 								</div>
-							</div>
-						</button>
-					</div>
+							</button>
+							<button
+								type="button"
+								className="check-box style2"
+								aria-pressed={authType === 'easy'}
+								disabled={ezAuthLoading}
+								onClick={(): void => {
+									setAuthType('easy');
+									if (data.brno.length !== 10) {
+										setShowAlert(true);
+										return;
+									}
+									startEzAuth(data.brno);
+								}}
+							>
+								<div className="right-box">
+									<figure>
+										<img
+											src={IMAGES.RENEWAL_CERT_APP_BIG}
+											alt=""
+											aria-hidden="true"
+										/>
+									</figure>
+									<div className="text-box">
+										<strong className="tit">사업자 간편인증서</strong>
+										<p className="text">
+											별도의 보안 프로그램 설치 없이 네이버, 카카오, PASS 등 간편인증
+											수단으로 사업자 여부를 빠르게 확인하여 인증합니다
+										</p>
+									</div>
+								</div>
+							</button>
+						</div>
+					</>
 				) : (
 					<div
 						className="check-box-wrap"
@@ -441,6 +508,25 @@ function RegisterStep3({
 					이용해 주세요.
 				</p>
 			</Modal>
+			{isBusiness && (
+				<Modal
+					id="brno-validation-alert"
+					isOpen={showAlert}
+					onClose={(): void => setShowAlert(false)}
+					topText="알림"
+					title="사업자등록번호를 확인해주세요."
+					size="small"
+					buttons={[
+						{
+							label: '확인',
+							variant: 'primary',
+							onClick: (): void => setShowAlert(false),
+						},
+					]}
+				>
+					<p>사업자등록번호는 10자리를 입력해주세요.</p>
+				</Modal>
+			)}
 		</>
 	);
 }

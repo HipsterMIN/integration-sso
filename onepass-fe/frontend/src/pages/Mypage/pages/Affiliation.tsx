@@ -29,7 +29,6 @@ function Affiliation(): JSX.Element {
 	);
 	const [checked, setChecked] = useState<Record<string, boolean>>({});
 	const [isAlertOpen, setIsAlertOpen] = useState(false);
-	const [devNoticeModal, setDevNoticeModal] = useState(false);
 
 	const allChecked = services.length > 0 && services.every((s) => checked[s.id]);
 
@@ -45,11 +44,6 @@ function Affiliation(): JSX.Element {
 	};
 
 	const handleWithdraw = (): void => {
-		if (!isBusiness) {
-			// TODO: 개인회원 API 배포 후 복원
-			setDevNoticeModal(true);
-			return;
-		}
 		const selected = services.filter((s) => checked[s.id]).map((s) => s.id);
 		if (selected.length === 0) {
 			setIsAlertOpen(true);
@@ -157,24 +151,6 @@ function Affiliation(): JSX.Element {
 				<p>탈퇴할 유관기관을 선택해 주세요.</p>
 			</Modal>
 
-			<Modal
-				id="modal_withdraw_dev_notice"
-				isOpen={devNoticeModal}
-				onClose={(): void => setDevNoticeModal(false)}
-				topText="안내"
-				title="서비스 준비 중"
-				size="small"
-				buttons={[
-					{
-						label: '확인',
-						variant: 'primary',
-						onClick: (): void => setDevNoticeModal(false),
-					},
-				]}
-			>
-				<p>현재 개발 중인 기능입니다.</p>
-				<p>빠른 시일 내에 서비스를 제공할 예정입니다.</p>
-			</Modal>
 		</MypageContent>
 	);
 }

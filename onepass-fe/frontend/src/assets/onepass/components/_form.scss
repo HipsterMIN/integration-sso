@@ -718,9 +718,9 @@ span.select { color: var(--krds-light-color-text-subtle); margin-right: 4px; }
 			.right-box .text-box .tit { color: var(--point-color); }
 		}
 
-		// 데스크톱 hover — 미선택 카드에만 light tint + point 강조 (퍼블 page.css:428-429)
+		// 데스크톱 hover — 미선택·미비활성 카드에만 light tint + point 강조 (퍼블 page.css:428-429)
 		@include desktop-up {
-			&:not(:has(input:checked)):not([aria-pressed='true']):hover {
+			&:not(:has(input:checked)):not([aria-pressed='true']):not(.disabled):hover {
 				background: #f6f8ff;
 				border-color: rgba(78, 106, 197, 0.23);   // var(--point-color) 23%
 
@@ -759,6 +759,28 @@ span.select { color: var(--krds-light-color-text-subtle); margin-right: 4px; }
 					font-size: var(--krds-mobile-font-size-body-small);
 					line-height: 1.5;
 				}
+			}
+		}
+
+		// 비활성(접근 오류 등) 카드 — style3.disabled 와 동일 톤
+		// hover 는 위의 `:not(.disabled)` 가드로 차단됨
+		&.disabled {
+			background: #f9fafb;
+			cursor: not-allowed;
+			opacity: 0.72;
+
+			// 체크 시에도 포인트 컬러 보더/텍스트 제거
+			&:has(input:checked) {
+				border-color: var(--krds-light-color-border-gray-light);
+
+				.right-box .text-box .tit { color: var(--krds-color-light-gray-50); }
+			}
+
+			input { cursor: not-allowed; }
+
+			.right-box {
+				figure img { filter: grayscale(1); }
+				.text-box .tit { color: var(--krds-color-light-gray-50); }
 			}
 		}
 

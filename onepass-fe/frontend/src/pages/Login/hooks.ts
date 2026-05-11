@@ -67,6 +67,7 @@ export function useKeycloakParams(): {
 	error: string | null;
 	code: string | null;
 	returnUri: string | null;
+	returnClient: string | null;
 } {
 	const { search } = useLocation();
 
@@ -77,6 +78,7 @@ export function useKeycloakParams(): {
 			error: params.get('error'),
 			code: params.get('code'),
 			returnUri: extractHomeUrl(params.get('return_uri')),
+			returnClient: params.get('return_client'),
 		};
 	}, [search]);
 }

@@ -74,6 +74,8 @@ function RegisterStep4({
 	const allSelected =
 		checkableClients.length > 0 && selectedCount === checkableClients.length;
 
+	const { initialClientId } = data;
+
 	// 페이지 진입 시 클라이언트 목록 조회
 	useEffect(() => {
 		let cancelled = false;
@@ -91,6 +93,16 @@ function RegisterStep4({
 				updateData({ availableClients: result.clientList });
 				setGroupMap(new Map(result.groups.map((g) => [g.key, g.name])));
 				setBusinessTypes(result.bizTypes);
+
+				// initialClientId가 있으면 매칭되는 서비스를 기본 선택
+				if (initialClientId) {
+					const matchingClient = result.clientList
+						.filter(isCheckable)
+						.find((c) => c.ssoClientId === initialClientId);
+					if (matchingClient) {
+						updateData({ selectedClients: [matchingClient.ssoClientId] });
+					}
+				}
 			}
 			setLoading(false);
 		};
@@ -98,7 +110,7 @@ function RegisterStep4({
 		return (): void => {
 			cancelled = true;
 		};
-	}, [isMember, data.ciToken, data.mbrUuid]);
+	}, [isMember, data.ciToken, data.mbrUuid, initialClientId]);
 
 	// "모두 선택합니다" → 체크 가능 항목만 전체 선택/해제
 	const handleSelectAll = useCallback(() => {
