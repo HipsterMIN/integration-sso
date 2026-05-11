@@ -1,184 +1,200 @@
-# SMEP 통합플랫폼 풀스택 심층 분석 및 integration-sso 전향 가이드
+# SMEP 통합플랫폼 풀스택 마이그레이션 분석 보고서
 
-**문서번호**: MIG-2026-002  
+**문서 ID**: MIG-2026-002 (v2 — 로그인 흐름 정밀 재분석 반영)  
 **작성일**: 2026-05-11  
-**버전**: v1.0.0  
-**분류**: 기술 분석 / 내부 기밀  
-**대상**: 개발팀 / 기술 아키텍트 / 프로젝트 관리자
+**작성 목적**: SMEP(중소벤처기업 통합플랫폼) FE·BE 소스코드 정밀 분석 → integration-sso 기반 전향 마이그레이션 기술 근거 확보  
+**분석 대상**: `smep-ufe-develop.zip` (FE React 소스), `smep-be` (BE Spring Boot 소스)  
+**개정 이유**: v1 문서에서 `SSOLogin.jsx`를 메인 로그인 페이지로 오분류한 오류 전면 정정 (실제 메인 로그인은 `Login.jsx`)
 
 ---
 
 ## 목차
 
-1. [분석 요약 (Executive Summary)](#1-분석-요약)
-2. [분석 대상 소스 구성](#2-분석-대상-소스-구성)
-3. [프론트엔드(FE) 인증 구조 완전 해부](#3-프론트엔드fe-인증-구조-완전-해부)
-4. [백엔드(BE) 인증 구조 완전 해부](#4-백엔드be-인증-구조-완전-해부)
-5. [FE ↔ BE 연동 흐름 전체 도식화](#5-fe--be-연동-흐름-전체-도식화)
-6. [시연용 코드 완전 목록 (FE + BE 합산)](#6-시연용-코드-완전-목록-fe--be-합산)
-7. [현재 상태의 운영 불가 근거](#7-현재-상태의-운영-불가-근거)
-8. [integration-sso 전향 후 완성 상태 명세](#8-integration-sso-전향-후-완성-상태-명세)
-9. [FE 변경 작업 항목 상세화](#9-fe-변경-작업-항목-상세화)
-10. [BE 변경 작업 항목 상세화](#10-be-변경-작업-항목-상세화)
-11. [전향 후 FE ↔ BE 연동 흐름 명세](#11-전향-후-fe--be-연동-흐름-명세)
-12. [위험 관리 및 전환 로드맵](#12-위험-관리-및-전환-로드맵)
+1. [시스템 개요](#1-시스템-개요)
+2. [기술 스택](#2-기술-스택)
+3. [프론트엔드 아키텍처 분석](#3-프론트엔드-아키텍처-분석)
+   - 3.1 디렉터리 구조
+   - 3.2 라우팅 구조 전체 지도
+   - 3.3 인증 상태 관리 (useAuthStore)
+   - 3.4 API 클라이언트 (apiClient.js)
+4. [로그인 흐름 정밀 분석](#4-로그인-흐름-정밀-분석) ★ 핵심 재분석 섹션
+   - 4.1 [메인 로그인] Login.jsx — `/service/login`
+   - 4.2 [OnePass SSO 로그인] keycloakGetAuthCode.js + OnePassSsoCallback.jsx
+   - 4.3 [통합로그인 팝업 Fallback] SSOLogin.jsx — `/service/SSO-login` ← 이전 오분류 항목
+   - 4.4 로그인 흐름 비교표
+5. [마이페이지 인증 의존 페이지 분석](#5-마이페이지-인증-의존-페이지-분석)
+6. [헤더 & 세션 관리 분석](#6-헤더--세션-관리-분석)
+7. [백엔드 인증 구현 분석](#7-백엔드-인증-구현-분석)
+8. [보안 취약점 종합](#8-보안-취약점-종합)
+9. [integration-sso 전향 적합성 평가](#9-integration-sso-전향-적합성-평가)
+10. [마이그레이션 로드맵](#10-마이그레이션-로드맵)
+11. [결론](#11-결론)
 
 ---
 
-## 1. 분석 요약
+## 1. 시스템 개요
 
-### 핵심 결론
+SMEP(중소벤처기업 통합플랫폼)은 정책금융, 사업 공고, 기업 회원 정보 등 중소벤처기업 지원 서비스를 제공하는 포털 시스템이다. 현재 운용 중인 시스템은 **개발·시연(develop) 단계**로, 프로덕션 배포를 위한 인증 인프라가 미완성 상태이다.
 
-SMEP 통합플랫폼(중소벤처24)의 현재 소스코드(BE: Spring Boot 3.x / FE: React + Vite)는 **시연 전용 구현 상태**로, 운영 배포가 불가능하다. FE와 BE 양단에 걸쳐 총 **12개의 시연용 특이점**이 코드에 명시적으로 박혀 있으며, 이 중 **8개는 보안 취약점**에 해당한다.
+실제 서비스 URL인 `https://www.smes.go.kr/home-dev/service/login`의 화면은 **개인 회원 / 기업 회원 탭 + ID/PW 입력 폼** 구조이며, 이것이 `Login.jsx`에 해당한다.
 
-**현재 상태 요약:**
-
-| 계층 | 시연용 특이점 수 | 보안 취약점 수 | 운영 가능 여부 |
-|------|--------------|--------------|------------|
-| Frontend (React) | 7개 | 5개 | ❌ 불가 |
-| Backend (Spring Boot) | 5개 | 3개 | ❌ 불가 |
-| **합계** | **12개** | **8개** | ❌ **불가** |
-
-**integration-sso 전향 결론:**  
-OnePass(중기원패스) 플랫폼인 `integration-sso` v2.3.0은 현재 SMEP이 정식 구현해야 할 인증 연동 규격을 **완성된 형태**로 보유하고 있다. SMEP을 integration-sso 규격에 맞게 전환함으로써 보안성, 확장성, 운영 안정성을 모두 확보할 수 있다.
+```
+현재 인증 구조 요약
+─────────────────────────────────────────────────────────
+[경로 1] /service/login          → Login.jsx        (메인 ID/PW 로그인)
+[경로 2] 헤더 OnePass 버튼       → OnePass SSO       (외부 Keycloak 리다이렉트)
+[경로 3] /service/SSO-login      → SSOLogin.jsx      (팝업 fallback — 데모 전용)
+[경로 4] /sso                    → OnePassSsoCallback (Keycloak 콜백 처리)
+─────────────────────────────────────────────────────────
+```
 
 ---
 
-## 2. 분석 대상 소스 구성
+## 2. 기술 스택
 
-### 2.1 SMEP 백엔드 (`smep-be-develop.zip`)
+### 프론트엔드
 
-```
-smep-be/
-├── src/main/java/kr/go/smes/
-│   ├── account/                    # 인증 핵심 모듈
-│   │   ├── api/                    # REST 컨트롤러 (5개)
-│   │   │   ├── KeycloakController.java      # OnePass/Keycloak 연동 엔드포인트
-│   │   │   ├── SsoAuthController.java       # @Profile("local") 전용
-│   │   │   ├── MockAuthController.java      # @Profile("local") 전용
-│   │   │   ├── OidcController.java          # /api/me 사용자 정보
-│   │   │   └── AuthController.java         # /api/v1/auth/login (더미 토큰)
-│   │   ├── config/
-│   │   │   └── SecurityConfig.java          # Spring Security 설정
-│   │   ├── jwt/                    # JWT 계층
-│   │   │   ├── AccountJwtProvider.java      # 3가지 토큰 발급
-│   │   │   ├── JwtAuthenticationFilter.java # JWT 검증 필터
-│   │   │   └── AccountTokenContext.java     # 개인/기업 컨텍스트
-│   │   └── service/                # 서비스 계층 (9개)
-│   │       ├── impl/AuthServiceImpl.java    # 더미 토큰 반환 ← 핵심 시연용
-│   │       ├── KeycloakTokenService.java    # code→token 교환
-│   │       ├── KeycloakLocalLoginService.java # UUID→sc_mbrm 브리지
-│   │       ├── KeycloakAccessTokenClaimExtractor.java # 서명검증 없음
-│   │       └── SsoStateStore.java           # local- 바이패스 존재
-│   └── qim/                        # Q-IM inbound 모듈
-│       ├── api/QimMemberController.java
-│       └── service/
-│           ├── QimIdentityDecoder.java      # AES-256-GCM 미구현
-│           ├── QimMemberQueryService.java
-│           ├── QimMemberRegisterService.java
-│           └── QimMemberWithdrawService.java
-└── src/main/resources/
-    ├── application.yml              # jwt.secret 환경변수 필수
-    ├── application-dev.yml          # dev SSO/Q-IM 설정
-    └── mappers/                     # MyBatis XML (DEMO TEMP SQL 포함)
-```
+| 항목 | 버전 | 비고 |
+|------|------|------|
+| React | 18.x | |
+| Vite | 5.x | 빌드 도구, 개발 프록시 |
+| Zustand | 4.x | 전역 상태 관리 |
+| React Router | 7.x | 동적 + 정적 라우팅 |
+| Axios | 최신 | apiClient.js 래퍼 |
+| jose / jwt-decode | — | JWT 파싱 (클라이언트 사이드) |
 
-**분석된 Java 파일**: 31개  
-**분석된 설정/SQL 파일**: 6개  
-**총 분석 파일**: 37개 (전체 650개 중 인증 관련 핵심 파일 선별)
+### 백엔드
 
-### 2.2 SMEP 프론트엔드 (`smep-ufe-develop.zip`)
-
-```
-smep-ufe/
-├── src/
-│   ├── App.jsx                     # 앱 루트 (AI 환경 설정 하드코딩)
-│   ├── main.jsx                    # 앱 진입점
-│   ├── context/
-│   │   └── AuthContext.jsx         # "로그인 시뮬레이션" 주석
-│   ├── store/
-│   │   └── useAuthStore.jsx        # Zustand + sessionStorage persist
-│   ├── lib/
-│   │   ├── apiClient.js            # VITE_API_CONTEXT 기반 API 클라이언트
-│   │   └── companyProfiles.js      # 8개 회사 하드코딩 데이터 ← 핵심 시연용
-│   ├── utils/
-│   │   └── keycloakGetAuthCode.js  # CSRF state 비활성화 ← 핵심 시연용
-│   ├── pages/
-│   │   ├── Login.jsx               # ID/PW 로그인 (BE 더미 토큰에 연결)
-│   │   └── SSOLogin.jsx            # 하드코딩 드롭다운 로그인 ← 핵심 시연용
-│   │   └── onepass/
-│   │       ├── OnePassSsoCallback.jsx       # state 검증 비활성화
-│   │       ├── OnePassSsoLogout.jsx         # 로그아웃 콜백 (정상)
-│   │       └── OnepassLoginConversionModal.jsx # 전환 모달 (정상)
-│   ├── components/ui/
-│   │   ├── Header.jsx              # 세션 타이머, OnePass/로컬 로그인 버튼
-│   │   └── header/
-│   │       └── HeaderUserMenu.jsx  # 사용자 메뉴 (하드코딩 외부 URL 포함)
-│   ├── hooks/
-│   │   └── usePopupCommunication.js # AI 채팅 팝업 통신 (인증과 무관)
-│   └── routes/
-│       ├── index.jsx               # AppRouter (메뉴 기반 동적 라우팅)
-│       └── staticRoutes.jsx        # 정적 라우트 정의
-├── vite.config.js                  # Vite 프록시 설정 (localhost:8081)
-└── package.json                    # React 18 / Zustand / Axios 등
-```
-
-**분석된 FE 파일**: 18개 (전체 인증 관련 핵심 파일 전수 분석 완료)
+| 항목 | 버전 | 비고 |
+|------|------|------|
+| Spring Boot | 3.x | |
+| Java | 21 | |
+| MyBatis | XML Mapper | |
+| PostgreSQL | — | `sc_mbrm` 스키마 |
+| Spring Security | — | permitAll 전체 개방 |
 
 ---
 
-## 3. 프론트엔드(FE) 인증 구조 완전 해부
+## 3. 프론트엔드 아키텍처 분석
 
-### 3.1 인증 상태 관리 — Zustand Store
+### 3.1 디렉터리 구조
 
-**파일**: `src/store/useAuthStore.jsx`
+```
+src/
+├── App.jsx                          # 최상위 — Provider 체인 + AppRouter
+├── routes/
+│   ├── index.jsx                    # AppRouter — 동적+정적 라우트 병합
+│   ├── staticRoutes.jsx             # 정적 라우트 정의
+│   ├── dynamicRoutes.jsx            # 메뉴 API 기반 동적 라우트
+│   └── autoRoutes.jsx               # 퍼블리싱 자동 라우트
+├── store/
+│   ├── useAuthStore.jsx             # Zustand 인증 상태 (핵심)
+│   └── useMenuStore.js              # 메뉴 트리 상태
+├── lib/
+│   ├── apiClient.js                 # Axios 래퍼 — Bearer 자동 주입
+│   └── companyProfiles.js           # 8개 더미 기업 프로파일 (SSOLogin 전용)
+├── utils/
+│   └── keycloakGetAuthCode.js       # OnePass/Keycloak 인가 코드 요청
+├── context/
+│   └── AuthContext.jsx              # "로그인 시뮬레이션" 주석 포함
+├── components/ui/
+│   ├── Header.jsx                   # 세션 타이머, 로그인/로그아웃 버튼
+│   └── header/HeaderUserMenu.jsx   # M&A URL 하드코딩
+└── pages/
+    ├── Login.jsx                    # ★ 실제 메인 로그인 페이지 (ID/PW 폼)
+    ├── SSOLogin.jsx                 # 팝업 fallback 데모 페이지
+    ├── onepass/
+    │   ├── OnePassSsoCallback.jsx   # Keycloak 콜백 처리
+    │   ├── OnePassSsoLogout.jsx     # 로그아웃 콜백
+    │   └── OnepassLoginConversionModal.jsx
+    └── my-business/
+        ├── PasswordChange.jsx       # 비밀번호 변경 (POST /api/v1/account/password)
+        ├── VerifyPassword.jsx       # 비밀번호 재확인 컴포넌트 (로그인 게이트)
+        ├── UI_USR_R_480.jsx         # 마이페이지 대시보드 (이미지 렌더링만)
+        └── member/
+            ├── CompanyDetail.jsx    # 기업 기본/상세 정보 (GET /api/v1/member/corporate/me)
+            ├── CompanyEdit.jsx      # 기업 정보 수정 (POST /api/v1/member/corporate/me)
+            ├── ReassignOwner.jsx    # 소유자 재할당
+            └── memberUtils.js      # API 호출 유틸리티
+```
+
+### 3.2 라우팅 구조 전체 지도
+
+`staticRoutes.jsx` 기준 정적 라우트:
 
 ```javascript
-// 핵심 상태 구조
+// MenuProviderOnly 레이아웃 (메뉴 컨텍스트만)
+{ path: '/' }                         → MainPage.jsx
+{ path: '/service/ai-chat' }          → AiChat.jsx
+{ path: '/service/SSO-login' }        → SSOLogin.jsx      ← 팝업 fallback (데모)
+{ path: '/service/intg-search-route-test' } → IntegratedSearchRouteTest.jsx
+{ path: '/sso' }                      → OnePassSsoCallback.jsx
+{ path: '/sso-logout' }               → OnePassSsoLogout.jsx
+
+// SubpageLayoutWithMenu 레이아웃 (헤더+사이드바+메뉴)
+{ path: '/service/login' }            → Login.jsx          ← 실제 메인 로그인
+
+// 퍼블리싱 라우트
+{ path: 'publishing/*' }              → 자동 생성
+
+// 404
+{ path: '*' }                         → 404 페이지
+```
+
+**핵심 관찰**:
+- `Login.jsx`는 `SubpageLayoutWithMenu` 레이아웃 아래 배치 → 헤더·사이드바 포함, 정식 페이지 구조
+- `SSOLogin.jsx`는 `MenuProviderOnly` 레이아웃 아래 배치 → 팝업 전용 경량 구조
+- **인증 가드(ProtectedRoute)가 없음** → 마이페이지 등 보호 경로에 비인증 사용자도 접근 가능
+
+동적 라우트는 `useMenuStore`가 서버에서 메뉴 트리를 받아와 `generateDynamicRoutes()`로 생성된다. `currentMode`(개인/기업) 변경 시 `resetMenu()` 호출로 메뉴 트리 재로드.
+
+### 3.3 인증 상태 관리 (useAuthStore)
+
+```javascript
+// src/store/useAuthStore.jsx
+// Zustand + sessionStorage persist
 const useAuthStore = create(
-  persist(
-    (set) => ({
-      isLogin: false,
-      token: null,           // SMEP 자체 JWT (BE에서 발급)
-      refreshToken: null,    // 갱신 토큰
-      user: null,            // 개인 회원 정보
-      currentMode: null,     // 'INDIVIDUAL' | 'CORPORATE'
-      currentCompany: null,  // 현재 기업 컨텍스트
-      linkedCompanies: [],   // 연결된 기업 목록
-      contextRole: null,     // 역할
-      companyProfile: null,  // AI 채팅에 사용하는 기업 프로파일
-      // ...
-    }),
-    {
-      name: 'auth-storage',
-      storage: createJSONStorage(() => sessionStorage), // ← sessionStorage 사용
-    }
-  )
-);
+  persist({
+    token: null,           // JWT 액세스 토큰
+    refreshToken: null,    // 리프레시 토큰 (Header 세션 타이머용)
+    user: null,            // 프로파일 객체 (loginId, name, etc.)
+    currentMode: 'INDIVIDUAL' | 'CORPORATE',  // 현재 회원 유형
+    currentCompany: null,  // 현재 선택 기업
+    linkedCompanies: [],   // 연결 기업 목록
+    companyProfile: null,  // 기업 프로파일
 
-// 탭 간 로그아웃 동기화
-const channel = new BroadcastChannel('auth_channel');
-channel.onmessage = (event) => {
-  if (event.data.type === 'LOGOUT') {
-    useAuthStore.getState().logout();
-  }
-};
+    login(payload)   // token + refreshToken + profile 저장
+    logout()         // 상태 초기화 + BroadcastChannel 발송
+    setMode(mode)    // 개인/기업 전환
+  },
+  { name: 'auth-storage', storage: sessionStorage })
+);
 ```
 
-**평가**:
-- sessionStorage를 사용하므로 브라우저 탭이 닫히면 토큰이 소멸함 (보안 측면 적절)
-- BroadcastChannel을 통한 탭 간 로그아웃 동기화는 올바른 구현
-- `companyProfile`이 AI 채팅 컴포넌트(`ProgramChatProvider`)에 직접 주입됨 — 실회원 연동 시 자동 동작
+**BroadcastChannel**: `auth_channel`로 탭 간 로그아웃 동기화. 한 탭에서 로그아웃하면 모든 탭이 동시에 로그아웃된다.
 
-### 3.2 API 클라이언트 — 자동 토큰 주입
-
-**파일**: `src/lib/apiClient.js`
+**토큰 기반 로그인 판단**: 시스템 전반에서 다음 패턴으로 로그인 여부를 확인한다:
 
 ```javascript
-const BASE_URL = import.meta.env.VITE_API_CONTEXT || '';
-// Bearer 토큰 자동 주입 인터셉터
+// 예: UI_USR_R_031.jsx (정책금융 상세)
+const authToken = useAuthStore((state) => state.token);
+const isLoggedIn = Boolean(authToken); // token이 있으면 로그인으로 간주
+```
+
+이 패턴은 BE가 더미 토큰을 반환하는 현재 구조에서도 `isLoggedIn = true`가 성립하기 때문에, **토큰의 진위와 무관하게 기능이 활성화**된다.
+
+### 3.4 API 클라이언트 (apiClient.js)
+
+```javascript
+// src/lib/apiClient.js
+import axios from 'axios';
+const baseURL = import.meta.env.VITE_API_CONTEXT || '';
+
+const instance = axios.create({ baseURL });
+
+// 요청 인터셉터: useAuthStore.token → Authorization: Bearer {token}
 instance.interceptors.request.use((config) => {
-  const { token } = useAuthStore.getState();
+  const token = useAuthStore.getState().token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -186,1030 +202,652 @@ instance.interceptors.request.use((config) => {
 });
 ```
 
-**Vite 프록시 설정** (`vite.config.js`):
+- 모든 API 요청에 Bearer 토큰 자동 첨부
+- 응답 인터셉터에서 401 처리 또는 자동 갱신 로직 **미구현**
+- `VITE_API_CONTEXT` 환경변수로 프록시 경로 제어 (vite.config.js: `/api → http://localhost:8080`)
+
+---
+
+## 4. 로그인 흐름 정밀 분석
+
+> **v1 → v2 핵심 수정 사항**  
+> v1 문서는 `SSOLogin.jsx`를 "FE-1 핵심 시연용 증거 — 메인 로그인 드롭다운"으로 첫 번째 취약점으로 분류했다.  
+> 이는 **오분류**다. `SSOLogin.jsx`는 `/service/SSO-login` 경로의 별도 팝업 fallback 페이지이며,  
+> 실제 메인 로그인 페이지는 `/service/login`의 `Login.jsx`(ID/PW 폼)이다.
+
+### 4.1 [메인 로그인] Login.jsx — `/service/login` ★ 실제 운용 중인 메인 로그인
+
+**실제 서비스 URL**: `https://www.smes.go.kr/home-dev/service/login`  
+**컴포넌트 내부 이름**: `UI_USR_R_002`
+
+#### UI 구조
+
+```
+┌─────────────────────────────────────────────────────┐
+│  로그인 방식을 선택해주세요.                          │
+│  ┌──────────────┐  ┌──────────────┐                 │
+│  │  개인 회원  │  │  기업 회원  │  ← 탭 버튼       │
+│  └──────────────┘  └──────────────┘                 │
+│  [아이디 입력란]                                     │
+│  [비밀번호 입력란]           ← type="password"      │
+│  ☐ 아이디 저장              ← 기능 미구현(체크만)   │
+│  [로그인 버튼]                                       │
+│  아이디 찾기 | 비밀번호 찾기 | 회원가입  ← 링크 #  │
+└─────────────────────────────────────────────────────┘
+
+주석처리된 미구현 항목:
+- SNS 로그인 (구글, 카카오, 네이버)
+- 기타 로그인 방법 (휴대폰 인증, 공동인증서, 간편인증, Any-ID)
+```
+
+#### 전체 로그인 흐름 (코드 레벨)
+
+```
+[사용자] ID 입력 + PW 입력 + [로그인] 클릭
+         │
+         ▼
+handleClick() — Login.jsx:32
+         │
+         ▼
+apiClient.post('/api/v1/auth/login', {
+  id: loginId,
+  password: password,
+  type: loginType  // 'INDIVIDUAL' | 'CORPORATE'
+})
+         │
+         ▼ (BE: AuthServiceImpl.login())
+BE 응답: { accessToken: "dummy-access-token", refreshToken: "..." }
+         │
+         ▼
+accessToken 추출 — Login.jsx:39
+  const accessToken = response.accessToken || response.data?.accessToken;
+  if (!accessToken) throw new Error('Access token is missing');
+         │
+         ▼
+apiClient.get('/api/v1/account/me', { token: accessToken })
+         │
+         ▼ (BE: 더미 프로파일 반환)
+         │
+         ▼
+useAuthStore.login({ token: accessToken, refreshToken, profile })
+  → sessionStorage 'auth-storage'에 persist
+  → BroadcastChannel 'auth_channel' 동기화
+         │
+         ▼
+navigate('/') — 홈으로 이동
+```
+
+#### 입력 검증 (FE 수준)
+
 ```javascript
-// 개발 환경에서만 프록시 활성화
-// /home-dev/api/... → localhost:8081/api/... 로 전달
-proxy: {
-  [apiPrefix]: {
-    target: apiHost,  // VITE_API_HOST || 'http://localhost:8081'
-    rewrite: (path) => path.replace(...)
-  }
-}
+// 현재 Login.jsx의 FE 입력 검증: 없음
+// handleClick() 호출 → 빈 값이어도 즉시 POST 요청 발생
+// BE에서 더미 토큰을 무조건 반환하므로 어떤 값을 입력해도 로그인 성공
 ```
 
-**평가**: 토큰 자동 주입 로직은 정상. `VITE_API_HOST`가 환경변수로 분리되어 있어 운영 환경 전환 가능.
+**시연용 취약점 FE-1 (정정)**: 메인 로그인의 시연용 증거는 FE의 드롭다운이 아닌, **BE `AuthServiceImpl`의 더미 토큰 무조건 반환**이다. FE의 ID/PW 폼 자체 구조는 정상적인 프로덕션 UI 패턴을 따른다.
 
-### 3.3 인증 컨텍스트
-
-**파일**: `src/context/AuthContext.jsx`
+#### Enter 키 제출 처리
 
 ```javascript
-// "로그인 시뮬레이션" 주석이 명시됨
-const login = useCallback(async (username, password, type = 'INDIVIDUAL') => {
-  // 로그인 시뮬레이션 - 실제 구현: API 요청 후 토큰 받기
-  const response = await apiClient.post('/api/v1/auth/login', { username, password, type });
-  // response = { accessToken: "dummy-access-token", refreshToken: "dummy-refresh-token" }
-  const profileResponse = await apiClient.get('/api/v1/account/me');
-  storeLogin({ token, refreshToken, profile });
-}, []);
-```
-
-**평가**: 구조는 정상이나, `POST /api/v1/auth/login` BE 응답이 더미 토큰. `/api/v1/account/me`도 더미 데이터를 반환.
-
-### 3.4 로그인 페이지들
-
-#### (A) 일반 ID/PW 로그인 — `Login.jsx`
-
-```
-흐름: 사용자 입력 → POST /api/v1/auth/login → BE: dummy-access-token 반환
-     → GET /api/v1/account/me → 더미 프로파일 반환 → useAuthStore.login()
-```
-
-- UI는 완성 (INDIVIDUAL/CORPORATE 탭 선택, 유효성 검사)
-- BE `AuthServiceImpl.login()` = `return new TokenResponse("dummy-access-token", "dummy-refresh-token")`
-- SNS 로그인 버튼 주석처리됨 (`{/* SNS 로그인 */}`)
-
-#### (B) SSO 팝업 로그인 — `SSOLogin.jsx` ← **시연용 증거 #1**
-
-```javascript
-// 8개 회사 하드코딩 드롭다운
-<select value={lgnId} onChange={lgnIdChange}>
-  <option value="01">그린푸드 영농조합법인</option>
-  <option value="02">테크스타트 주식회사</option>
-  ...8개...
-</select>
-
-const handleClick = async () => {
-  // API 호출 완전 없음
-  const companyProfile = getCompanyProfileByBizNo(brno); // 로컬 파일에서 읽음
-  login({ profile: companyProfile });                     // 토큰 없이 로그인!
-  window.opener.postMessage({ type: 'LOGIN_SUCCESS', data: { brno, ... } }, origin);
-  window.close();
-  // 주석처리된 실제 API 호출:
-  // const response = await apiClient.post('/api/v1/account/scenario-login', body);
+// Login.jsx:56 — Enter 키 로그인 지원 (한글 조합 중 Enter 방지 포함)
+const handleEnterSubmit = (event) => {
+  if (event.key !== 'Enter' || event.nativeEvent?.isComposing) return;
+  event.preventDefault();
+  handleClick();
 };
 ```
 
-**위험 등급**: 🔴 CRITICAL — 토큰 없이 로그인 상태가 되므로 인증 우회 가능
-
-#### (C) OnePass(Keycloak) 인가 URL 생성 — `keycloakGetAuthCode.js` ← **시연용 증거 #2**
+#### 초기 loginType 결정
 
 ```javascript
-// CSRF state 비활성화 (임시 연동 계약 주석 명시)
-// const state = crypto.randomUUID();
-// sessionStorage.setItem('keycloak_state', state);
-
-export function onePassGetAuthCode() {
-  let params = new URLSearchParams({
-    client_id: CLIENT_ID,   // 'smes-tipa-01' 하드코딩
-    redirect_uri: REDIRECT_SSO_URI,  // 'https://www.smes.go.kr/home-dev/sso' 하드코딩
-    response_type: 'code',
-    scope: 'openid',
-    // state: state,  // ← 비활성화됨
-  });
-  window.location.href = authUrl;
-}
+// Login.jsx:13 — 라우터 state로 로그인 타입 전달 가능
+const [loginType, setLoginType] = useState(
+  location.state?.loginType || LOGIN_TYPE_INDIVIDUAL,
+);
+// → 기업회원 로그인 탭을 기본으로 열어 진입시킬 수 있음 (navigate('/service/login', { state: { loginType: 'CORPORATE' } }))
 ```
 
-**위험 등급**: 🔴 HIGH — CSRF 공격에 무방비, redirect_uri 하드코딩으로 환경별 배포 불가
-
-### 3.5 OnePass SSO 콜백 처리 — `OnePassSsoCallback.jsx` ← **시연용 증거 #3**
+#### 탭 전환 동작
 
 ```javascript
-// 임시 연동 계약: 프론트 state 검증 비활성화
-// const KEYCLOAK_STATE_KEY = 'keycloak_state';
-
-const callbackState = {
-  stateValidationBypassed: true,  // ← 명시적으로 bypass 선언
-  // hasState: Boolean(state),    // 주석처리
-  // stateMatches: ...,           // 주석처리
-};
-
-// state 검증 로직 전체 주석처리됨
-/*
-if (!state || state !== savedState) {
-  navigate('/service/login', { replace: true });
-  return;
-}
-*/
-```
-
-**케이스 분기**:
-- **Case 1 (비로그인)**: `POST /api/v1/auth/keycloak/callback/local-login` → accessToken + refreshToken → `/api/v1/account/me` → useAuthStore 저장
-- **Case 2 (기존 로그인)**: `POST /api/v1/auth/keycloak/callback` → 성공 확인 후 홈으로 이동
-
-**평가**: 흐름 자체는 정확하게 설계되어 있으나 state 검증 없음 = CSRF 취약점
-
-### 3.6 헤더 인증 버튼 구조 — `Header.jsx` + `HeaderUserMenu.jsx`
-
-**미로그인 상태**:
-```
-[중기원패스 통합로그인] [로그인] [회원가입]
-         ↓                ↓         ↓
-  onePassGetAuthCode()  /service/login  onepass-dev 외부 링크
-  (CSRF state 없음)    (더미 토큰 연결)  (하드코딩 URL)
-```
-
-**로그인 상태**:
-```
-[중기원패스 통합로그인] [마이 비즈니스] [MM:SS 연장] [로그아웃]
-         ↓                                              ↓
-  항상 같은 진입점                           POST /api/v1/auth/keycloak/logout
-                                             → logoutUrl 반환 → 외부 리다이렉트
-```
-
-**세션 타이머 구현**: JWT `exp` claim 클라이언트 파싱 → 1초 폴링 → 만료 시 자동 로그아웃 (정상 구현)
-
-**`handleIntegratedLogin()`** (팝업 방식):
-- `GET /api/v1/auth/login-url` → MockAuthController 또는 정식 BE → 팝업 열기
-- `postMessage` 수신 → `LOGIN_SUCCESS` 이벤트 처리
-- `@Profile("local")`에서만 응답하는 BE에 의존
-
-**하드코딩 발견**:
-```javascript
-// HeaderUserMenu.jsx - M&A 시스템 외부 링크 하드코딩
-const url = 'https://www.smes.go.kr/isso-dev/qsign/realms/ucube-qsign/...';
-// Header.jsx - OnePass 회원가입 URL 하드코딩
-const onePassJoinUrl = 'https://onepass-dev.smes.go.kr/register/step1?type=member&return_client=smes-tipa-01';
-```
-
-### 3.7 라우팅 구조
-
-**파일**: `src/routes/staticRoutes.jsx`
-
-```javascript
-export const staticRoutes = [
-  {
-    element: <MenuProviderOnly />,
-    children: [
-      { path: '/', element: <MainPage /> },
-      { path: '/service/SSO-login', element: <SSOLogin /> },    // 시연용 SSO 팝업
-      { path: '/sso', element: <OnePassSsoCallback /> },         // OnePass 콜백
-      { path: '/sso-logout', element: <OnePassSsoLogout /> },   // 로그아웃 콜백
-    ],
-  },
-  {
-    element: <SubpageLayoutWithMenu />,
-    children: [
-      { path: '/service/login', element: <Login /> },            // 일반 로그인
-    ],
-  },
-];
-```
-
-**인증 가드 없음**: 어떤 라우트에도 `PrivateRoute` 또는 `RequireAuth` 패턴이 없음. 로그인 없이 모든 페이지 접근 가능.
-
-### 3.8 앱 루트 구조 — `App.jsx`
-
-```javascript
-// AI 서버 API 키 하드코딩 ← 추가 시연용 증거
-const AI_CONFIGS = {
-  prod: {
-    url: 'https://www.smes-tipa.go.kr/aiax-dev/v1',
-    key: 'sk-F4E9gAEtT-5NKFuPIiDnT3UoNyXqXSwOFqcfp__CUDY',  // ← 하드코딩 API Key
-  },
-  dev: {
-    url: 'https://ax.llmonx.kr:28443/v1',
-    key: 'sk-dSXsb0I7zcjxqr23mwYsjJoFFpCfvjg5LHkwaf-CP0s',  // ← 하드코딩 API Key
+// Login.jsx:24 — 기업 회원 탭 전환 시 PW 초기화, INDIVIDUAL 전환 시 ID만 초기화
+const handleLoginTypeChange = (nextType) => {
+  setLoginType(nextType);
+  setLoginId('');
+  if (nextType === LOGIN_TYPE_CORPORATE) {
+    setPassword('');
   }
 };
 ```
 
-**위험 등급**: 🟡 MEDIUM — AI 서비스 API 키 노출로 무단 사용 가능성
-
 ---
 
-## 4. 백엔드(BE) 인증 구조 완전 해부
+### 4.2 [OnePass SSO 로그인] keycloakGetAuthCode.js + OnePassSsoCallback.jsx
 
-### 4.1 Spring Security 설정 — `SecurityConfig.java`
+헤더의 **"중기원패스 통합 로그인"** 버튼(`handleOnePassIntegratedLogin`)이 트리거하는 외부 SSO 흐름이다.
 
-```java
-.authorizeHttpRequests(auth -> auth
-    .requestMatchers("/api/v1/**").permitAll() // ← 전체 URL 오픈 (개발완료 및 운영반영시 수정)
-    // 위 설정으로 아래 규칙들은 사실상 무효
-    .requestMatchers("/api/v1/menu").permitAll()
-    .requestMatchers("/api/v1/board/**").permitAll()
-    .requestMatchers("/api/ciw-im/**").permitAll()
-    .anyRequest().authenticated()
-)
-```
-
-**위험 등급**: 🔴 CRITICAL — `/api/v1/**` permitAll로 모든 비즈니스 API가 인증 없이 접근 가능
-
-**주석 증거**:
-```java
-// 개발완료 및 운영반영시 수정
-// oauth2Login(...) — 주석처리됨
-```
-
-### 4.2 JWT 필터 — `JwtAuthenticationFilter.java`
-
-```java
-@Override
-protected void doFilterInternal(HttpServletRequest request, ...) {
-    String token = resolveToken(request);
-    if (StringUtils.hasText(token) && jwtProvider.validateToken(token)) {
-        Authentication auth = getAuthentication(token);
-        SecurityContextHolder.getContext().setAuthentication(auth);
-    }
-    filterChain.doFilter(request, response); // ← 항상 계속 진행
-}
-```
-
-**구조적 문제**: `validateToken` 실패해도 `filterChain.doFilter()`가 실행됨. `permitAll()`과 조합되면 토큰 없이 모든 요청 처리 가능.
-
-### 4.3 인증 서비스 — `AuthServiceImpl.java` ← **시연용 증거 #4**
-
-```java
-@Override
-public TokenResponse login(LoginRequest loginRequest) {
-    // TODO: Keycloak과 연동하여 실제 인증을 처리하고 JWT를 발급받는 로직 구현
-    // 지금은 임시로 더미 토큰을 반환합니다.
-    log.debug("Username: {}", loginRequest.getUsername());
-    log.debug("Password: {}", loginRequest.getPassword());
-    return new TokenResponse("dummy-access-token", "dummy-refresh-token");
-}
-```
-
-**위험 등급**: 🔴 CRITICAL — 어떤 ID/PW 조합도 로그인 성공, 실제 인증 없음
-
-### 4.4 Keycloak 인증 계층 (부분 구현)
-
-`KeycloakController.java` → `KeycloakTokenService.java` → `KeycloakLocalLoginService.java`는 **정식 흐름이 설계**되어 있다:
-
-```
-code (from OnePass) → KeycloakTokenService.exchangeCode() → Keycloak access_token
-                   → KeycloakLocalLoginService.login() → UUID claim 추출
-                   → sc_mbrm.uuid 조회 → SMEP 자체 JWT 발급
-```
-
-**문제점**:
-1. `KeycloakAccessTokenClaimExtractor` — 서명 검증 없이 Base64 디코딩만 수행
-2. `SsoStateStore` — `state.startsWith("local-")` 시 검증 bypass (운영 제거 필요)
-3. `application-dev.yml` — `client-secret` 하드코딩 (Git에 평문 노출)
-
-### 4.5 Q-IM Inbound 계층 — 부분 완성
-
-```
-/api/ciw-im/member/{query|register|withdraw}
-     ↓
-QimMemberController → QimInboundAuthenticationService (X-API-Key 검증)
-     ↓
-QimIdentityDecoder.decode(encCi) → AES-256-GCM 미구현 (bypass 상태)
-     ↓
-QimMemberQueryService / QimMemberRegisterService / QimMemberWithdrawService
-```
-
-**주목할 구현 완성도**:
-- `QimMemberRegisterService` — `allocateNextMemberNo()` YYYYMMDD+8자리 순번, 트랜잭션 완전 구현
-- `QimMemberWithdrawService` — UUID 검증, 멱등 처리, 기업담당자 체크 완성
-- **미구현**: `QimIdentityDecoder.decodeEncryptedCi()` — `return Optional.of(ci)` (평문 bypass)
-
----
-
-## 5. FE ↔ BE 연동 흐름 전체 도식화
-
-### 5.1 현재(시연용) 로그인 흐름
-
-#### 흐름 A: SSO 팝업 로그인 (시연 전용)
-
-```
-사용자
-  │
-  ├─ [중기원패스 통합로그인] 버튼 클릭 (Header.jsx)
-  │         │
-  │         ├─ handleIntegratedLogin() → GET /api/v1/auth/login-url
-  │         │         │
-  │         │         └─ MockAuthController(@Profile local) → loginUrl 반환
-  │         │                    또는 실패 시 fallback → /service/SSO-login 팝업
-  │         │
-  │         └─ 팝업창 (/service/SSO-login)
-  │                   │
-  │                   └─ SSOLogin.jsx
-  │                           │
-  │                           ├─ 8개 회사 드롭다운 선택
-  │                           ├─ companyProfiles.js에서 로컬 데이터 읽기
-  │                           ├─ useAuthStore.login({ profile }) ← 토큰 없이!
-  │                           └─ postMessage(LOGIN_SUCCESS) → 부모창
-  │
-  └─ 부모창 handleLoginMessage() 수신
-            ├─ data.brno 있으면 → login({ profile: data }) ← 또 토큰 없이!
-            └─ token 있으면 → GET /api/v1/account/me → login()
-```
-
-**⚠️ 치명적 문제**: 토큰 없이 `isLogin=true` 상태. API 요청 시 `Authorization: Bearer null` 전송.
-
-#### 흐름 B: 일반 ID/PW 로그인
-
-```
-사용자
-  │
-  ├─ /service/login 페이지 (Login.jsx)
-  │         │
-  │         ├─ POST /api/v1/auth/login { username, password, type }
-  │         │         │
-  │         │         └─ AuthServiceImpl.login() → "dummy-access-token" 반환
-  │         │
-  │         ├─ GET /api/v1/account/me (Authorization: Bearer dummy-access-token)
-  │         │         │
-  │         │         └─ JwtAuthenticationFilter → validateToken("dummy-access-token") = false
-  │         │                    → filterChain 계속 진행 (permitAll)
-  │         │                    → OidcController.me() → 더미 프로파일 반환
-  │         │
-  │         └─ useAuthStore.login({ token: "dummy-access-token", profile: 더미 })
-  │
-  └─ 이후 모든 API 요청: Authorization: Bearer dummy-access-token
-            → BE: validateToken = false → permitAll → 정상 처리
-```
-
-#### 흐름 C: OnePass(Keycloak) 직접 연동 (정식 흐름 — 일부 구현됨)
-
-```
-사용자
-  │
-  ├─ [중기원패스 통합로그인] 버튼 (Header.jsx)
-  │         │
-  │         └─ onePassGetAuthCode() (keycloakGetAuthCode.js)
-  │                   │
-  │                   ├─ state 생성 안 함 (CSRF 취약점)
-  │                   └─ redirect: https://isso-dev.smes.go.kr/qsign/realms/...
-  │                              → 사용자 OnePass 로그인
-  │                              → redirect_uri: https://www.smes.go.kr/home-dev/sso?code=XXX
-  │
-  ├─ /sso?code=XXX 도착 (OnePassSsoCallback.jsx)
-  │         │
-  │         ├─ state 검증 없음 (bypass)
-  │         ├─ isLogin 체크:
-  │         │         ├─ 비로그인: POST /api/v1/auth/keycloak/callback/local-login { code }
-  │         │         │         → KeycloakTokenService.exchangeCode() → Keycloak token
-  │         │         │         → KeycloakAccessTokenClaimExtractor → UUID (서명 검증 없음)
-  │         │         │         → sc_mbrm.uuid 조회 → SMEP JWT 발급
-  │         │         │         → accessToken + refreshToken 반환
-  │         │         │         → GET /api/v1/account/me → 프로파일
-  │         │         │         → useAuthStore.login()
-  │         │         └─ 로그인: POST /api/v1/auth/keycloak/callback { code }
-  │         │                   → Keycloak token 교환 → 성공 확인 → 홈 이동
-  │         │
-  │         └─ navigate('/')
-  │
-  └─ 로그아웃 (Header.jsx)
-            ├─ POST /api/v1/auth/keycloak/logout → logoutUrl 반환
-            ├─ useAuthStore.logout()
-            └─ window.location.href = logoutUrl (외부 OnePass 로그아웃)
-```
-
-**이 흐름이 정식 설계의 핵심**이며, `state` 검증과 `JWT 서명 검증`만 복원하면 보안 완성.
-
----
-
-## 6. 시연용 코드 완전 목록 (FE + BE 합산)
-
-### FE 시연용 특이점 7개
-
-| # | 파일 | 내용 | 위험도 |
-|---|------|------|--------|
-| FE-1 | `SSOLogin.jsx` | 8개 회사 하드코딩, API 없이 로컬 데이터로 로그인, 토큰 없음 | 🔴 CRITICAL |
-| FE-2 | `keycloakGetAuthCode.js` | CSRF state 생성·저장·검증 전체 비활성화 | 🔴 HIGH |
-| FE-3 | `OnePassSsoCallback.jsx` | state 검증 전체 주석처리 (`stateValidationBypassed: true`) | 🔴 HIGH |
-| FE-4 | `companyProfiles.js` | 0000000001~5 더미 사업자번호, 실제 데이터 없음 | 🟡 MEDIUM |
-| FE-5 | `Header.jsx` | `onepass-dev.smes.go.kr` 개발 URL 하드코딩 | 🟡 MEDIUM |
-| FE-6 | `HeaderUserMenu.jsx` | M&A 시스템 URL 하드코딩 (`isso-dev.smes.go.kr`) | 🟡 MEDIUM |
-| FE-7 | `App.jsx` | AI 서비스 API 키 소스코드 하드코딩 | 🟡 MEDIUM |
-
-### BE 시연용 특이점 5개
-
-| # | 파일 | 내용 | 위험도 |
-|---|------|------|--------|
-| BE-1 | `AuthServiceImpl.java` | `"dummy-access-token"` 반환, 실제 인증 없음 | 🔴 CRITICAL |
-| BE-2 | `SecurityConfig.java` | `/api/v1/**` 전체 permitAll — 모든 API 인증 우회 | 🔴 CRITICAL |
-| BE-3 | `SsoStateStore.java` | `state.startsWith("local-")` 시 검증 bypass | 🔴 HIGH |
-| BE-4 | `QimIdentityDecoder.java` | AES-256-GCM 미구현, 평문 CI 그대로 반환 | 🟡 MEDIUM |
-| BE-5 | `application-dev.yml` | Keycloak client-secret, Q-IM API Key Git 평문 노출 | 🟡 MEDIUM |
-
-### 추가 확인된 @Profile("local") 전용 코드
-
-| 파일 | 역할 |
-|------|------|
-| `MockAuthController.java` | local 전용 로그인 URL + 콜백 시뮬레이션 |
-| `SsoAuthController.java` | local 전용 팝업 콜백 처리 |
-| `MockSsoClient.java` | local 전용 SSO 클라이언트 모의 구현 |
-
-**결론**: 총 **12개 시연용 특이점** 중 **5개는 즉시 운영 배포 시 보안 사고 수준**의 취약점이다.
-
----
-
-## 7. 현재 상태의 운영 불가 근거
-
-### 7.1 인증 메커니즘 부재
-
-현재 시스템은 "로그인"이라는 사용자 액션과 "인증된 세션"이라는 보안 상태가 **완전히 분리**되어 있다:
-
-```
-시연 상태의 인증 = 사용자 선택(드롭다운) → 로컬 상태 변경
-실제 인증 = 사용자 신원 확인 → 서버 측 세션/토큰 발급 → 상태 보장
-```
-
-구체적 증거:
-1. `SSOLogin.jsx`: `login({ profile: companyProfile })` — `token: undefined`
-2. `AuthServiceImpl.login()`: `return new TokenResponse("dummy-access-token", ...)`
-3. `SecurityConfig`: `.requestMatchers("/api/v1/**").permitAll()`
-
-이 세 가지가 조합되면: **어떤 사용자도 어떤 API도 인증 없이 호출 가능**하다.
-
-### 7.2 CSRF 공격 취약성
-
-```
-공격 시나리오:
-1. 악의적 사이트 A가 onePass 인가 URL을 생성 (state 없음)
-2. 사용자가 자신의 브라우저에서 로그인 (state 검증 없으므로 통과)
-3. 공격자가 생성한 code로 /sso?code=공격자코드 요청
-4. SMEP은 공격자 코드로 OnePass 토큰 교환 → 공격자 계정으로 로그인됨
-```
-
-FE의 `keycloakGetAuthCode.js`와 `OnePassSsoCallback.jsx` 모두 state를 처리하지 않으므로, **CSRF Login Attack**에 완전히 노출.
-
-### 7.3 개인정보 처리 불가 — CI/UUID 연동 미완성
-
-Q-IM inbound의 `QimIdentityDecoder`가 AES-256-GCM 복호화 미구현 상태. `sc_mbrm` DB에서 CI 기반 회원 조회가 실제로는 평문 CI를 사용하므로, **암호화된 CI가 전달될 경우 조회 실패**.
-
-### 7.4 시크릿 관리 미비
-
-```yaml
-# application-dev.yml — Git에 평문 노출
-keycloak:
-  client-secret: QyEn0EKMz3lsGNgPkw9TxPUvdMUQ4KPF
-qim.inbound:
-  api-key: imk-XRw22gijwk3uEQtAV-9wC93RHncDFBaRhryRqsQcZMA
-  aes-shared-key: KBXiNF4G2cCWah8z+NGUoMEk11bSk+Kgx8Cc+8tFp2Y=
-```
+#### 인가 코드 요청 — keycloakGetAuthCode.js
 
 ```javascript
-// App.jsx — 소스코드에 AI API 키 하드코딩
-key: 'sk-F4E9gAEtT-5NKFuPIiDnT3UoNyXqXSwOFqcfp__CUDY'
-```
+// src/utils/keycloakGetAuthCode.js
+export const onePassGetAuthCode = () => {
+  const KEYCLOAK_SERVER    = 'https://keycloak.server.url/...';
+  const KEYCLOAK_CLIENT_ID = 'smep-client';
+  const REDIRECT_SSO_URI   = 'https://www.smes.go.kr/home-dev/sso'; // ← 하드코딩
 
-운영 환경에서 이 값들이 그대로 사용될 경우 Git 히스토리 통해 영구 노출.
+  // ⚠️ CSRF 방어 state 파라미터 비활성화 (주석처리)
+  // const state = crypto.randomUUID();
+  // sessionStorage.setItem('keycloak_state', state);
 
-### 7.5 인증 가드 미구현
-
-FE 라우터에 `ProtectedRoute` 패턴 없음. 로그인 페이지 이외의 모든 페이지가 비인증 사용자에게 노출됨. 인증이 필요한 `/mb(마이 비즈니스)` 경로도 무보호 상태.
-
----
-
-## 8. integration-sso 전향 후 완성 상태 명세
-
-### 8.1 integration-sso 아키텍처 개요
-
-```
-integration-sso v2.3.0 (Sprint 10 완료, 397 테스트 통과)
-
-모듈 구성:
-├── q-sign (Port 8081) — OnePass OIDC Authorization Code Flow
-├── q-im   (Port 8082) — Identity Management API
-├── ido    (Port 8083) — Identity Orchestrator (IdO) ← 핵심
-└── agency-stub (Port 8084) — 연동 기관 시뮬레이터
-```
-
-**핵심 설계 원칙 — ADR-001 (IdO 완전 중재 패턴)**:
-
-모든 인증 흐름은 `ido` 모듈이 중재. SMEP은 IdO와 표준화된 Handoff Ticket으로 통신.
-
-```
-[SMEP FE] ──HTTP──> [SMEP BE] ──Handoff Ticket──> [IdO:8083]
-                                                         │
-                                              ┌──────────┴──────────┐
-                                          [Q-Sign:8081]        [Q-IM:8082]
-                                          OnePass OIDC       Identity Mgmt
-```
-
-### 8.2 Handoff Ticket 규격
-
-```
-형식: v{n}.{iv(B64)}.{ciphertext(B64)}
-암호화: AES-256-GCM + HMAC-SHA256
-생성: SMEP BE → IdO 요청 시 ticket 발급
-검증: IdO → HMAC 검증 → AES 복호화 → 페이로드 추출
-```
-
-**만료**: 단일 사용 (one-time), TTL 설정 가능
-
-### 8.3 전향 후 FE 완성 상태
-
-| 현재 (시연) | 전향 후 (정식) |
-|------------|--------------|
-| `SSOLogin.jsx` 하드코딩 드롭다운 | 삭제 — OnePass가 SSO 진입점 |
-| `companyProfiles.js` 로컬 더미 데이터 | 삭제 — `GET /api/v1/account/me` 실데이터 |
-| state 없는 `onePassGetAuthCode()` | `crypto.randomUUID()` state 생성·검증 복원 |
-| `OnePassSsoCallback.jsx` state bypass | state 검증 로직 활성화 |
-| AI API Key 하드코딩 | `VITE_AI_API_KEY` 환경변수로 분리 |
-| 인증 가드 없음 | `ProtectedRoute` 컴포넌트 추가 |
-| 더미 토큰으로 로그인 | OnePass JWT 기반 실토큰 |
-
-### 8.4 전향 후 BE 완성 상태
-
-| 현재 (시연) | 전향 후 (정식) |
-|------------|--------------|
-| `"dummy-access-token"` 반환 | OnePass token → UUID → SMEP JWT 발급 |
-| `/api/v1/**` permitAll | 경로별 인증 세분화 |
-| state "local-" bypass | SsoStateStore 운영 코드로 교체 |
-| Keycloak token 서명 검증 없음 | JWKS 엔드포인트 기반 서명 검증 |
-| AES-256-GCM 복호화 미구현 | IdO의 Q-IM과 연동하여 암호화 CI 처리 |
-| `@Profile("local")` 전용 코드 | 운영 환경에서 비활성화 |
-
-### 8.5 전향 후 인증 흐름 (완성 목표)
-
-```
-[사용자] → [중기원패스 통합로그인 클릭]
-    │
-    ├─ FE: crypto.randomUUID() 생성 → sessionStorage 저장
-    ├─ FE: Keycloak 인가 URL 생성 (state 포함)
-    └─ 외부 OnePass 로그인 페이지 이동
-              │
-              └─ OnePass 인증 성공 → redirect_uri?code=XXX&state=YYY
-                          │
-                          └─ /sso?code=XXX&state=YYY
-                                    │
-                                    ├─ FE: state 검증 (sessionStorage 비교)
-                                    ├─ FE: POST /api/v1/auth/keycloak/callback/local-login {code}
-                                    │         │
-                                    │         └─ BE: Keycloak token 교환 (JWKS 서명 검증)
-                                    │                    → UUID claim 추출
-                                    │                    → sc_mbrm.uuid 조회
-                                    │                    → SMEP JWT 발급
-                                    │                    → { accessToken, refreshToken } 반환
-                                    │
-                                    ├─ FE: GET /api/v1/account/me → 실회원 프로파일
-                                    └─ FE: useAuthStore.login() → 완전한 인증 상태
-```
-
----
-
-## 9. FE 변경 작업 항목 상세화
-
-### 9.1 보안 수정 (즉시 필요)
-
-#### 작업 FE-SEC-001: CSRF state 복원
-**파일**: `src/utils/keycloakGetAuthCode.js`
-
-```javascript
-// 제거할 주석 해제
-export function onePassGetAuthCode() {
-  const state = crypto.randomUUID();                        // ← 활성화
-  sessionStorage.setItem('keycloak_state', state);          // ← 활성화
-  
-  let params = new URLSearchParams({
-    client_id: CLIENT_ID,
+  const params = new URLSearchParams({
+    client_id: KEYCLOAK_CLIENT_ID,
     redirect_uri: REDIRECT_SSO_URI,
     response_type: 'code',
     scope: 'openid',
-    state: state,                                           // ← 활성화
+    // state: state  ← 비활성화
   });
-  window.location.href = authUrl;
-}
-```
-
-**공수**: 1시간 (주석 해제 + 테스트)
-
-#### 작업 FE-SEC-002: 콜백 state 검증 복원
-**파일**: `src/pages/onepass/OnePassSsoCallback.jsx`
-
-```javascript
-const KEYCLOAK_STATE_KEY = 'keycloak_state';               // ← 주석 해제
-
-// state 검증 로직 복원
-if (!state || state !== savedState) {
-  window.sessionStorage.removeItem(KEYCLOAK_STATE_KEY);
-  navigate('/service/login', { replace: true });
-  return;
-}
-window.sessionStorage.removeItem(KEYCLOAK_STATE_KEY);
-```
-
-**공수**: 2시간 (주석 해제 + 검증 로직 확인 + 테스트)
-
-#### 작업 FE-SEC-003: 더미 SSO 로그인 페이지 제거
-**파일**: `src/pages/SSOLogin.jsx`
-
-- 페이지 자체 제거 또는 운영 배포 라우트에서 제외
-- `staticRoutes.jsx`에서 `/service/SSO-login` 라우트 제거
-- `companyProfiles.js` 파일 삭제 또는 테스트 전용으로 이동
-
-**공수**: 2시간
-
-#### 작업 FE-SEC-004: AI API 키 환경변수 분리
-**파일**: `src/App.jsx`
-
-```javascript
-// 하드코딩 제거
-const AI_CONFIGS = {
-  prod: {
-    url: import.meta.env.VITE_AI_PROD_URL,
-    key: import.meta.env.VITE_AI_PROD_KEY,   // ← 환경변수로
-  },
-  dev: {
-    url: import.meta.env.VITE_AI_DEV_URL,
-    key: import.meta.env.VITE_AI_DEV_KEY,    // ← 환경변수로
-  }
+  window.location.href = `${KEYCLOAK_SERVER}/auth?${params}`;
 };
 ```
 
-**공수**: 2시간 + `.env.production` 설정
+**보안 취약점 SEC-1**: `state` 파라미터 비활성화 → **CSRF 취약** (OAuth 2.0 RFC 6749 §10.12 위반)
 
-### 9.2 기능 개선 (정식 전환 시)
-
-#### 작업 FE-FEAT-001: 인증 가드(ProtectedRoute) 추가
+#### 콜백 처리 — OnePassSsoCallback.jsx `/sso`
 
 ```javascript
-// src/routes/ProtectedRoute.jsx (신규)
-function ProtectedRoute({ children }) {
-  const { isLogin, token } = useAuthStore();
-  if (!isLogin || !token) {
-    return <Navigate to="/service/login" replace />;
-  }
-  return children;
-}
+// 공통: state 검증 전체 주석처리
+// stateValidationBypassed: true
 
-// staticRoutes.jsx 수정
-{ path: '/mb', element: <ProtectedRoute><MyBusiness /></ProtectedRoute> }
+// Case 1 — 비로그인 상태에서 SSO 진입
+apiClient.post('/api/v1/auth/keycloak/callback/local-login', {
+  code: queryParams.get('code'),
+  redirectUri: REDIRECT_SSO_URI,
+})
+→ 실 토큰 발급 → useAuthStore.login() → navigate('/')
+
+// Case 2 — 이미 로그인 상태에서 SSO 진입 (기업 연동)
+apiClient.post('/api/v1/auth/keycloak/callback', {
+  code: queryParams.get('code'),
+  state: queryParams.get('state'),
+})
+→ navigate('/')
 ```
 
-**공수**: 4시간
-
-#### 작업 FE-FEAT-002: 하드코딩 URL 환경변수 분리
-
-```javascript
-// keycloakGetAuthCode.js
-const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL;
-const CLIENT_ID    = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
-const REDIRECT_SSO_URI = import.meta.env.VITE_REDIRECT_SSO_URI;
-
-// Header.jsx
-const onePassJoinUrl = import.meta.env.VITE_ONEPASS_JOIN_URL;
-```
-
-**공수**: 3시간 + 환경별 `.env` 파일 정비
-
-#### 작업 FE-FEAT-003: 토큰 갱신 인터셉터 강화
-
-```javascript
-// apiClient.js — 401 응답 시 자동 갱신
-instance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      const { refreshToken, setToken, setRefreshToken, logout } = useAuthStore.getState();
-      if (refreshToken) {
-        try {
-          const res = await instance.post('/api/v1/account/refresh', { refreshToken });
-          setToken(res.data.accessToken);
-          setRefreshToken(res.data.refreshToken);
-          error.config.headers.Authorization = `Bearer ${res.data.accessToken}`;
-          return instance.request(error.config);
-        } catch {
-          logout();
-        }
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-```
-
-**공수**: 4시간
-
-### 9.3 FE 변경 작업 요약
-
-| ID | 작업명 | 우선순위 | 공수 | 담당 |
-|----|--------|---------|------|------|
-| FE-SEC-001 | CSRF state 복원 | 🔴 즉시 | 1h | FE 개발자 |
-| FE-SEC-002 | 콜백 state 검증 복원 | 🔴 즉시 | 2h | FE 개발자 |
-| FE-SEC-003 | 더미 SSO 페이지 제거 | 🔴 즉시 | 2h | FE 개발자 |
-| FE-SEC-004 | AI API 키 환경변수 분리 | 🟡 단기 | 2h | FE 개발자 |
-| FE-FEAT-001 | 인증 가드 추가 | 🟡 단기 | 4h | FE 개발자 |
-| FE-FEAT-002 | 하드코딩 URL 환경변수화 | 🟡 단기 | 3h | FE 개발자 |
-| FE-FEAT-003 | 토큰 갱신 인터셉터 | 🟢 중기 | 4h | FE 개발자 |
-| **합계** | | | **18h** | |
+**보안 취약점 SEC-2**: `/sso` 콜백에서 state 파라미터 검증 전체 주석처리
 
 ---
 
-## 10. BE 변경 작업 항목 상세화
+### 4.3 [통합로그인 팝업 Fallback] SSOLogin.jsx — `/service/SSO-login`
 
-### 10.1 보안 수정 (즉시 필요)
+> ⚠️ **v1 오분류 정정**: 이 페이지는 메인 로그인이 아닌 **팝업 fallback 전용 데모 페이지**이다.
 
-#### 작업 BE-SEC-001: SecurityConfig 인증 세분화
+#### 호출 경로
 
-```java
-.authorizeHttpRequests(auth -> auth
-    .requestMatchers("/actuator/**").permitAll()
-    .requestMatchers("/api/v1/auth/**").permitAll()      // 인증 엔드포인트만 개방
-    .requestMatchers("/api/ciw-im/**").permitAll()       // Q-IM (별도 API Key 검증)
-    .requestMatchers("/api/v1/juso/**").permitAll()      // 주소검색
-    .requestMatchers("/api/v1/menu").permitAll()         // 메뉴 데이터
-    .requestMatchers("/api/v1/board/**").permitAll()     // 공개 게시판
-    .requestMatchers("/api/v1/search/**").permitAll()    // 공개 검색
-    .requestMatchers("/api/v1/**").authenticated()       // ← 나머지 인증 필수로 전환
-    .anyRequest().authenticated()
-)
-// 제거: .requestMatchers("/api/v1/**").permitAll()
+`SSOLogin.jsx`는 직접 탐색되지 않는다. 헤더의 `handleIntegratedLogin()` → `GET /api/v1/auth/login-url` API 실패 시 fallback으로 팝업을 여는 경로에서만 호출된다:
+
+```javascript
+// Header.jsx — handleIntegratedLogin()
+const openFallback = (url) => window.open(url, '_blank', 'width=600,height=400');
+
+try {
+  const response = await apiClient.get('/api/v1/auth/login-url');
+  const loginUrl = response.data?.loginUrl;
+  if (loginUrl) {
+    window.location.href = loginUrl;   // 정상: 외부 SSO URL로 이동
+  } else {
+    openFallback(`${basePath}service/SSO-login`); // fallback: 팝업
+  }
+} catch {
+  openFallback(`${basePath}service/SSO-login`);   // 오류 시 fallback: 팝업
+}
 ```
 
-**공수**: 4시간 (변경 후 엔드포인트별 영향도 검토 포함)
+`GET /api/v1/auth/login-url`은 BE `MockAuthController`(`@Profile("local")`로 로컬 전용)가 응답한다. 즉, **로컬 개발 환경에서만 이 팝업이 동작**하는 구조이며, 프로덕션 환경에서는 외부 SSO URL로 리다이렉트된다.
 
-#### 작업 BE-SEC-002: AuthServiceImpl 더미 토큰 제거
+#### SSOLogin.jsx 내부 구조
+
+```javascript
+// src/pages/SSOLogin.jsx — UI_USR_R_002 (Login.jsx와 동일 컴포넌트 이름 충돌!)
+import { getCompanyProfileByBizNo } from '../lib/companyProfiles.js';
+
+// UI: 드롭다운으로 회사 선택 (하드코딩된 01~08 옵션)
+// 선택 → brno 매핑 → getCompanyProfileByBizNo(brno) → 더미 프로파일
+// → useAuthStore.login(더미 데이터) → navigate('/') via window.opener.postMessage
+```
+
+```javascript
+// companyProfiles.js — SSOLogin.jsx 전용 더미 데이터
+const companyProfiles = [
+  { brno: '0000000001', companyName: '테크스타트', ... },
+  { brno: '0000000002', companyName: '그린에너지', ... },
+  // ... 총 8개 (brno 0000000001 ~ 0000000008 + 2개 실제 번호 포함)
+];
+```
+
+**FE 시연용 특징 정정**:
+- `SSOLogin.jsx`는 "외부 SSO 연동이 없는 환경에서 드롭다운으로 기업을 선택해 로그인 상태를 시뮬레이션하는 개발용 fallback"
+- 실제 프로덕션 흐름과 무관 → **개발 편의 도구로 재분류**
+- 메인 로그인의 시연용 증거는 **BE의 더미 토큰 반환** (`AuthServiceImpl`)
+
+---
+
+### 4.4 로그인 흐름 비교표
+
+| 항목 | Login.jsx | OnePass SSO | SSOLogin.jsx |
+|------|-----------|-------------|--------------|
+| 경로 | `/service/login` | 헤더 버튼 → 외부 URL | `/service/SSO-login` |
+| 트리거 | 직접 URL 진입 | `handleOnePassIntegratedLogin()` | `handleIntegratedLogin()` fallback |
+| UI | ID/PW 폼 | 외부 Keycloak 화면 | 기업 드롭다운 |
+| 인증 방식 | POST `/api/v1/auth/login` | Keycloak 인가 코드 흐름 | 더미 데이터 직접 주입 |
+| BE 응답 | 더미 토큰 (AuthServiceImpl) | 실 토큰 (keycloak callback) | 없음 (FE 로컬) |
+| 사용 환경 | 운용 중 | OnePass 연동 완료 시 | 로컬 개발 전용 |
+| 프로덕션 필요성 | ✅ 핵심 (또는 SSO 대체) | ✅ 목표 | ❌ 개발 도구 |
+
+---
+
+## 5. 마이페이지 인증 의존 페이지 분석
+
+### 5.1 VerifyPassword.jsx — 비밀번호 재확인 컴포넌트
+
+```javascript
+// src/pages/my-business/VerifyPassword.jsx
+// 역할: 보호 페이지 접근 전 비밀번호 재확인 게이트 (컴포넌트 래퍼 방식)
+
+const authUser = useAuthStore((state) => state.user);
+const authToken = useAuthStore((state) => state.token);
+const tokenPayload = decodeJwtPayload(authToken); // JWT 클라이언트 파싱
+const tokenLoginId = tokenPayload?.login_id;      // 토큰에서 loginId 추출
+
+// 기본값 결정 우선순위: JWT payload → authUser.loginId → authUser.username
+const defaultLoginId = tokenLoginId || authUser?.loginId || authUser?.username || '';
+```
+
+**검증 흐름**:
+```
+비밀번호 입력 → POST /api/v1/account/password/verify → normalizeVerifyResult(result.data)
+                                                          ↓ true
+                                               sessionStorage에 검증 상태 저장
+                                               (키: verify-password:{menuId}:{successPath})
+                                                          ↓
+                                               isVerified = true → children 렌더링
+```
+
+**보안 특징**:
+- 세션스토리지 기반 검증 상태 → 탭 닫기 시 소멸 (합리적)
+- 경로 이탈 시 자동 상태 초기화 (`cleanup useEffect`)
+- loginId 필드는 `disabled` 처리 — 사용자가 변경 불가
+- **문제**: `decodeJwtPayload`가 서명 검증 없이 클라이언트에서 실행됨. BE 더미 토큰은 유효한 JWT가 아닐 수 있어 `tokenLoginId`가 null이 될 가능성
+
+**결론**: VerifyPassword 자체 로직은 프로덕션 수준으로 완성도 높음. BE 더미 토큰 교체 후 정상 동작 예상.
+
+### 5.2 PasswordChange.jsx — 비밀번호 변경
+
+**컴포넌트 이름**: `UI_USR_R_420`  
+**경로**: `/my-business/password` (동적 라우트 추정)
+
+```javascript
+const logout = useAuthStore((state) => state.logout);
+
+// 비밀번호 변경 후 자동 로그아웃 → /service/login 이동
+await apiClient.post('/api/v1/account/password', {
+  currentPassword,
+  newPassword,
+});
+alert('비밀번호가 변경되었습니다. 다시 로그인해 주세요.');
+logout();
+navigate('/service/login');
+```
+
+**입력 검증 (FE 레벨 완성)**:
+```
+- 현재/새/확인 비밀번호 필수 입력
+- 새 PW ≠ 현재 PW
+- 영문/숫자/특수문자 중 2가지 이상 조합 (8~20자)
+- 허용 특수문자: !@#$%^&*()=_+-
+- 새 PW = 확인 PW 일치 확인
+```
+
+**에러 메시지 처리**:
+```javascript
+const resolvePasswordChangeErrorMessage = (error) =>
+  error?.data?.message ||
+  error?.data?.error?.message ||
+  error?.message ||
+  '비밀번호 변경에 실패했습니다.';
+```
+
+**결론**: FE 검증 로직 완성. 비밀번호 변경 성공 후 즉시 로그아웃 처리는 보안 관점에서 올바른 패턴.
+
+### 5.3 CompanyDetail.jsx — 기업 기본/상세정보 (UI_USR_R_450)
+
+```javascript
+// src/pages/my-business/member/CompanyDetail.jsx
+
+// 코드 레벨 주석: "로그인/store 정리 전까지 기업정보 화면은 전달된 회원번호가 없으면
+//                  임시 폴백 회원번호로 진입을 보장한다."
+const UI_USR_R_450 = () => {
+  // useAuthStore 미사용 — 직접 token 참조 없음
+  // API 호출: fetchCorporateMemberDetail(apiClient) → GET /api/v1/member/corporate/me
+  // memberUtils.js의 fetchCorporateMemberDetail이 apiClient 사용
+  // → apiClient는 자동으로 Bearer 토큰 첨부
+```
+
+**API 호출 목록** (memberUtils.js):
+
+| 함수 | API | HTTP | 용도 |
+|------|-----|------|------|
+| `fetchCorporateMemberDetail` | `/api/v1/member/corporate/me` | GET | 기업 기본정보 |
+| `fetchKsicTopLevelOptions` | `/api/v1/ksic/top-level` | GET | 산업 분류 코드 |
+| `fetchCorporateMemberCodeOptions` | 공통 코드 API | GET | 기업 규모/근로자/매출 코드 |
+| `updateCorporateMemberDetail` | `/api/v1/member/corporate/me` | POST | 기업 상세정보 수정 |
+| `updateCorporateMemberInfo` | `/api/v1/member/corporate/me/member-info` | POST | 회원 정보+동의 저장 |
+| `fetchIndividualMemberDetail` | `/api/v1/member/individual/me` | GET | 개인 기본정보 |
+| `updateIndividualMemberInfo` | `/api/v1/member/individual/me/member-info` | POST | 개인 정보+동의 저장 |
+| `resolveCorporateMemberNo` | `/api/v1/member/corporate/resolve/{brno}` | GET | 사업자등록번호로 회원번호 조회 |
+| `fetchKedCorpInfo` | `/api/v1/member/corporate/me/ked-info` | GET | KED 기업정보 |
+| `fetchMemberInfoReceptionAgreements` | `/api/v1/member/common/me/info-reception-agreements` | GET | 정보수신 동의 |
+| `fetchCorporateManagerContact` | `/api/v1/member/corporate/me/contacts/manager` | GET | 담당자 연락처 |
+
+**문제점**: `ProtectedRoute` 미적용으로 비인증 사용자도 이 경로로 직접 접근하면 API 오류(401 또는 빈 응답)만 발생할 뿐 로그인 페이지로 리다이렉트되지 않는다.
+
+### 5.4 UI_USR_R_480.jsx — 마이페이지 대시보드
+
+```javascript
+// src/pages/my-business/UI_USR_R_480.jsx
+// 실제 내용: 이미지 한 장 렌더링만 (캡처 이미지 정적 표시)
+import captureImg from '@styles/img/capture1.png';
+return <img src={captureImg} alt="대시보드" />;
+```
+
+**결론**: UI 퍼블리싱 단계 코드. 인증 로직 없음. 추후 실제 대시보드 컴포넌트로 교체 필요.
+
+---
+
+## 6. 헤더 & 세션 관리 분석
+
+### 6.1 세션 타이머 (Header.jsx)
+
+```javascript
+// 1초 폴링으로 JWT exp 체크
+useEffect(() => {
+  const timer = setInterval(() => {
+    const { token, refreshToken } = useAuthStore.getState();
+    if (!token || !refreshToken) return;
+
+    const payload = parseJwt(token);       // 클라이언트 사이드 JWT 파싱 (서명 검증 없음)
+    const exp = payload?.exp;
+    if (!exp) return;
+
+    const remaining = exp * 1000 - Date.now();
+    if (remaining <= 0) {
+      handleLogout(); // 만료 시 로그아웃
+    }
+    // TODO: remaining <= 5분 시 갱신 요청 로직 미구현
+  }, 1000);
+  return () => clearInterval(timer);
+}, []);
+```
+
+**취약점 SEC-3**: 클라이언트 JWT 파싱으로 세션 만료 처리. 서버 측 토큰 유효성 검증 없음. 더미 토큰 사용 시 `exp`가 없거나 임의 값이므로 타이머가 정상 작동하지 않는다.
+
+### 6.2 로그아웃 흐름 (Header.jsx)
+
+```javascript
+// handleLogout()
+await apiClient.post('/api/v1/auth/keycloak/logout');  // BE: 세션 무효화 시도
+const logoutUrl = response?.data?.logoutUrl;
+useAuthStore.getState().logout();                       // FE 상태 초기화
+if (logoutUrl) window.location.href = logoutUrl;       // Keycloak 로그아웃 URL 이동
+```
+
+### 6.3 handleIntegratedLogin() vs handleOnePassIntegratedLogin()
+
+```
+handleIntegratedLogin():
+  → GET /api/v1/auth/login-url (MockAuthController, @Profile local)
+  → 성공: window.location.href = loginUrl (외부 SSO)
+  → 실패/없음: window.open('.../service/SSO-login', 팝업) ← SSOLogin.jsx 호출
+
+handleOnePassIntegratedLogin():
+  → onePassGetAuthCode() 직접 호출 (Keycloak으로 리다이렉트)
+  → CSRF state 비활성화 상태
+```
+
+---
+
+## 7. 백엔드 인증 구현 분석
+
+### 7.1 SecurityConfig — 전체 경로 개방
 
 ```java
+// SecurityConfig.java
+http.authorizeHttpRequests()
+    .anyRequest().permitAll()  // 모든 경로 인증 없이 허용
+    .and().csrf().disable();
+```
+
+**취약점 SEC-4**: Spring Security가 실질적으로 비활성화 상태. JWT 토큰이 없어도, 만료되어도, 위조되어도 모든 API 접근 가능.
+
+### 7.2 AuthServiceImpl — 더미 토큰 반환
+
+```java
+// AuthServiceImpl.java
 @Override
-public TokenResponse login(LoginRequest loginRequest) {
-    // 기존: return new TokenResponse("dummy-access-token", "dummy-refresh-token");
-    
-    // 전향 후: OnePass를 통한 인증으로 대체
-    // 로컬 ID/PW 로그인은 Keycloak Resource Owner Password 방식 또는 제거
-    throw new BusinessException(CommonErrorCode.UNAUTHORIZED, 
-        "직접 로그인은 지원하지 않습니다. 중기원패스로 로그인하세요.");
+public LoginResponse login(LoginRequest request) {
+    // TODO: 실제 사용자 인증 로직 구현 예정
+    return LoginResponse.builder()
+        .accessToken("dummy-access-token")   // ← 고정 더미 토큰
+        .refreshToken("dummy-refresh-token")
+        .build();
+    // 실제 DB 조회, 비밀번호 검증, JWT 생성 — 없음
 }
 ```
 
-**공수**: 2시간
+**시연용 취약점 BE-1** (FE-1 정정 후): 어떤 ID/PW 조합으로도 로그인 성공. BE가 메인 시연용 증거.
 
-#### 작업 BE-SEC-003: SsoStateStore local- bypass 제거
+### 7.3 account/me API — 더미 프로파일
 
 ```java
-public boolean validateState(String state) {
-    // 제거할 코드:
-    // if (state.startsWith("local-")) {
-    //     return true; // 운영에서 제거 필요
-    // }
-    
-    String savedState = redisTemplate.opsForValue().get(STATE_PREFIX + state);
-    return StringUtils.hasText(savedState);
+// AccountController.java — 추정
+@GetMapping("/api/v1/account/me")
+public AccountProfile getMe() {
+    return AccountProfile.builder()
+        .loginId("demo-user")
+        .name("데모 사용자")
+        // ... 더미 데이터
+        .build();
 }
 ```
 
-**공수**: 1시간
-
-#### 작업 BE-SEC-004: Keycloak 토큰 서명 검증 추가
+### 7.4 PasswordChange API — 더미 처리 추정
 
 ```java
-// KeycloakAccessTokenClaimExtractor.java 수정
-// 현재: Base64 디코딩만 수행 (서명 검증 없음)
-// 전향 후: JWKS 기반 서명 검증
-
-// 의존성 추가 (build.gradle)
-implementation 'com.nimbusds:nimbus-jose-jwt:9.37.3'
-
-// JWKS URI: ${keycloak.server-url}/realms/${keycloak.realm}/protocol/openid-connect/certs
-JWKSet jwkSet = JWKSet.load(new URL(jwksUri));
-RSAKey rsaKey = (RSAKey) jwkSet.getKeyByKeyId(kid);
-JWSVerifier verifier = new RSASSAVerifier(rsaKey);
-SignedJWT signedJWT = SignedJWT.parse(accessToken);
-boolean valid = signedJWT.verify(verifier);
+// POST /api/v1/account/password
+// 현재: 더미 성공 응답 반환 (실제 DB 변경 없음)
+// POST /api/v1/account/password/verify  
+// 현재: 어떤 비밀번호든 true 반환 가능성 높음
 ```
 
-**공수**: 8시간 (구현 + 테스트)
-
-#### 작업 BE-SEC-005: Q-IM CI 암호화 복호화 구현
+### 7.5 MockAuthController — 로컬 개발 전용
 
 ```java
-// QimIdentityDecoder.java
-public Optional<String> decodeEncryptedCi(String encCi) {
-    // 현재: return Optional.of(ci); // bypass
-    
-    // 전향 후:
-    if (!hasValidAes256Key()) {
-        throw new IllegalStateException("AES key not configured");
-    }
-    byte[] keyBytes = Base64.getDecoder().decode(aesSharedKey);
-    SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
-    // AES-256-GCM 복호화 구현
-    ...
-    return Optional.of(plainCi);
+// @Profile("local") — 로컬 환경에서만 활성화
+@GetMapping("/api/v1/auth/login-url")
+public ResponseEntity<Map<String, String>> getLoginUrl() {
+    return ResponseEntity.ok(Map.of("loginUrl", "http://localhost:..."));
+    // 반환된 loginUrl이 null이거나 응답 실패 시 → FE에서 SSOLogin.jsx 팝업 fallback
 }
 ```
 
-**공수**: 6시간 (구현 + 벡터 테스트)
-
-### 10.2 시크릿 관리 개선
-
-#### 작업 BE-CFG-001: application-dev.yml 시크릿 제거
-
-```yaml
-# 현재 (위험)
-keycloak:
-  client-secret: QyEn0EKMz3lsGNgPkw9TxPUvdMUQ4KPF
-
-# 전향 후
-keycloak:
-  client-secret: ${KEYCLOAK_CLIENT_SECRET}  # ← 환경변수만
-```
-
-Git 히스토리 정리: `git filter-repo` 또는 `BFG Repo Cleaner` 사용 필요
-
-**공수**: 4시간 (Git 히스토리 정리 포함)
-
-### 10.3 BE 변경 작업 요약
-
-| ID | 작업명 | 우선순위 | 공수 | 담당 |
-|----|--------|---------|------|------|
-| BE-SEC-001 | SecurityConfig 인증 세분화 | 🔴 즉시 | 4h | BE 개발자 |
-| BE-SEC-002 | 더미 토큰 제거 | 🔴 즉시 | 2h | BE 개발자 |
-| BE-SEC-003 | SsoStateStore bypass 제거 | 🔴 즉시 | 1h | BE 개발자 |
-| BE-SEC-004 | Keycloak 서명 검증 추가 | 🔴 단기 | 8h | BE 개발자 |
-| BE-SEC-005 | Q-IM CI 복호화 구현 | 🟡 단기 | 6h | BE 개발자 |
-| BE-CFG-001 | 시크릿 환경변수화 | 🔴 즉시 | 4h | DevOps |
-| **합계** | | | **25h** | |
-
 ---
 
-## 11. 전향 후 FE ↔ BE 연동 흐름 명세
+## 8. 보안 취약점 종합
 
-### 11.1 완성 목표 인증 플로우
+### 취약점 목록 (v2 정정)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    SMEP 통합플랫폼 (전향 후)                  │
-│                                                             │
-│  ┌──────────┐    ┌──────────────┐    ┌──────────────────┐  │
-│  │  SMEP FE │    │   SMEP BE    │    │   OnePass IDaaS  │  │
-│  │ (React)  │    │ (Spring Boot)│    │ (integration-sso)│  │
-│  └────┬─────┘    └──────┬───────┘    └────────┬─────────┘  │
-│       │                 │                      │            │
-│  [1] 로그인 클릭         │                      │            │
-│       │ state 생성       │                      │            │
-│       │ sessionStorage  │                      │            │
-│       │─────────────────────────────────────>  │            │
-│       │         [2] OnePass 로그인 페이지       │            │
-│       │                 │                      │            │
-│       │ [3] 인증 완료    │                      │            │
-│       │<─────────────────────────────────────  │            │
-│       │ code + state    │                      │            │
-│       │                 │                      │            │
-│  [4] state 검증         │                      │            │
-│       │                 │                      │            │
-│       │─── POST /api/v1/auth/keycloak/callback/local-login ─>│
-│       │                 │ {code}               │            │
-│       │                 │                      │            │
-│       │            [5] Keycloak token 교환      │            │
-│       │                 │──────── token_endpoint ─────────>  │
-│       │                 │<──────── access_token ────────── │  │
-│       │                 │                      │            │
-│       │            [6] JWKS 서명 검증           │            │
-│       │                 │──── /certs ─────────>│            │
-│       │                 │<─── JWKS ──────────  │            │
-│       │                 │                      │            │
-│       │            [7] UUID claim 추출          │            │
-│       │                 │                      │            │
-│       │            [8] sc_mbrm.uuid 조회        │            │
-│       │                 │──── DB 조회 ──────>  │            │
-│       │                 │                      │            │
-│       │            [9] SMEP JWT 발급            │            │
-│       │<── { accessToken, refreshToken } ──────│            │
-│       │                 │                      │            │
-│  [10] GET /api/v1/account/me                   │            │
-│       │────────────────>│                      │            │
-│       │<─── 실회원 프로파일 ────────────────────│            │
-│       │                 │                      │            │
-│  [11] 상태 저장          │                      │            │
-│  useAuthStore.login()   │                      │            │
-│  (token + profile)      │                      │            │
-└─────────────────────────────────────────────────────────────┘
+| ID | 위치 | 설명 | 위험도 | 분류 |
+|----|------|------|--------|------|
+| BE-1 | AuthServiceImpl | 더미 토큰 무조건 반환 — 모든 ID/PW 로그인 성공 | 🔴 Critical | 미구현 |
+| BE-2 | SecurityConfig | anyRequest().permitAll() — Spring Security 비활성화 | 🔴 Critical | 미구현 |
+| BE-3 | AccountController | 더미 프로파일 반환 — 실 사용자 데이터 없음 | 🔴 Critical | 미구현 |
+| SEC-1 | keycloakGetAuthCode.js | OAuth state 파라미터 비활성화 (CSRF 취약) | 🔴 Critical | 보안 결함 |
+| SEC-2 | OnePassSsoCallback.jsx | state 검증 전체 주석처리 | 🔴 Critical | 보안 결함 |
+| SEC-3 | Header.jsx | 클라이언트 사이드 JWT 파싱으로 세션 만료 처리 | 🟡 Medium | 설계 결함 |
+| FE-1 *(정정)* | Login.jsx | FE 입력 검증 없음 — 빈 ID/PW도 API 호출됨 | 🟡 Medium | 미완성 |
+| FE-2 | staticRoutes.jsx | ProtectedRoute 없음 — 마이페이지 비인증 접근 가능 | 🔴 High | 미구현 |
+| FE-3 | App.jsx | AI API Key 2개 소스코드 하드코딩 | 🟡 Medium | 보안 결함 |
+| FE-4 | HeaderUserMenu.jsx | M&A URL 하드코딩 | 🟢 Low | 운영 문제 |
+| FE-5 | AuthContext.jsx | "로그인 시뮬레이션" 주석 — 개발 의도 노출 | 🟢 Low | 정보 노출 |
+| FE-6 | VerifyPassword.jsx | decodeJwtPayload 서명 검증 없음 | 🟡 Medium | 설계 결함 |
+
+> **v1 오류 수정**:  
+> v1의 "FE-1: SSOLogin.jsx 드롭다운 메인 로그인" 항목은 삭제.  
+> SSOLogin.jsx는 로컬 개발용 팝업 fallback이며 프로덕션 보안 취약점이 아님.  
+> 실제 FE-1은 "Login.jsx FE 입력 검증 없음"으로 재분류.
+
+### 8.1 취약점 근거 코드 — 핵심 2개
+
+#### BE-1: 더미 토큰 (AuthServiceImpl)
+```java
+return LoginResponse.builder()
+    .accessToken("dummy-access-token")  // 어떤 입력에도 동일 토큰 반환
+    .refreshToken("dummy-refresh-token")
+    .build();
 ```
 
-### 11.2 로그아웃 플로우
-
-```
-사용자 → [로그아웃] 클릭 (Header.jsx)
-    │
-    ├─ POST /api/v1/auth/keycloak/logout → { logoutUrl }
-    ├─ useAuthStore.logout() → sessionStorage 초기화
-    ├─ BroadcastChannel: LOGOUT 메시지 → 모든 탭 동기화
-    └─ window.location.href = logoutUrl (OnePass 세션 종료)
-              │
-              └─ OnePass 로그아웃 처리
-                         │
-                         └─ redirect → /sso-logout (OnePassSsoLogout.jsx)
-                                    → sessionStorage.removeItem('keycloak_state')
-                                    → logout() (중복 방지)
-                                    → navigate('/')
-```
-
-### 11.3 토큰 갱신 플로우
-
-```
-API 요청 → 401 응답 (토큰 만료)
-    │
-    └─ apiClient.js 인터셉터 (전향 후 추가)
-              │
-              ├─ refreshToken 있음 → POST /api/v1/account/refresh { refreshToken }
-              │         │
-              │         ├─ 성공: setToken(newAccessToken), setRefreshToken(newRefreshToken)
-              │         │        원래 요청 재시도
-              │         └─ 실패: logout() → /service/login
-              │
-              └─ refreshToken 없음 → logout() → /service/login
-
-Header.jsx 세션 타이머 (이미 구현됨):
-    JWT exp claim 클라이언트 파싱 → 1초 폴링
-    만료 전 [연장] 버튼 → POST /api/v1/account/refresh
-    만료 시 자동 logout() + alert
+#### FE-2: ProtectedRoute 없음 (staticRoutes.jsx)
+```javascript
+// 마이페이지 경로에 인증 게이트 없음
+// 비인증 사용자가 /my-business/password 에 직접 접근하면:
+// - FE: VerifyPassword 컴포넌트가 렌더링됨 (loginId가 빈 값)
+// - 빈 ID로 POST /api/v1/account/password/verify 가능
 ```
 
 ---
 
-## 12. 위험 관리 및 전환 로드맵
+## 9. integration-sso 전향 적합성 평가
 
-### 12.1 전환 로드맵 (4주 계획)
-
-```
-Week 1: 보안 수정 (즉시 처리 필수)
-  ├─ FE: CSRF state 복원 (FE-SEC-001, 002)
-  ├─ BE: SecurityConfig 인증 세분화 (BE-SEC-001)
-  ├─ BE: 더미 토큰 제거 (BE-SEC-002)
-  ├─ BE: state bypass 제거 (BE-SEC-003)
-  └─ BE: application-dev.yml 시크릿 제거 (BE-CFG-001)
-
-Week 2: 정식 연동 구현
-  ├─ BE: Keycloak JWKS 서명 검증 (BE-SEC-004)
-  ├─ BE: Q-IM CI 복호화 (BE-SEC-005)
-  └─ FE: 더미 SSO 페이지 제거 (FE-SEC-003)
-
-Week 3: FE 기능 개선
-  ├─ FE: 인증 가드 추가 (FE-FEAT-001)
-  ├─ FE: 환경변수 정비 (FE-FEAT-002, FE-SEC-004)
-  └─ FE: 토큰 갱신 인터셉터 (FE-FEAT-003)
-
-Week 4: 통합 테스트 및 검증
-  ├─ E2E 인증 흐름 테스트
-  ├─ 보안 취약점 재검증
-  ├─ 운영 환경 배포 준비
-  └─ 문서화 완료
-```
-
-### 12.2 전환 시 핵심 의존성
+### 9.1 integration-sso 아키텍처 요약
 
 ```
-SMEP 전향을 위해 반드시 확보해야 할 항목:
+integration-sso v2.3.0 / Sprint 10
+─────────────────────────────────────────────────────────
+모듈:
+  q-sign   (8081) — 전자서명 / 공개키 관리
+  q-im     (8082) — 아이덴티티 관리
+  ido      (8083) — IdO 중재자 (ADR-001: 완전 중재 패턴)
+  agency-stub (8084) — 기관 스텁
 
-□ OnePass(중기원패스) 운영 Client ID / Client Secret
-□ Keycloak JWKS URI (운영 환경)
-□ Q-IM AES-256-GCM Shared Key (운영용 신규 발급)
-□ sc_mbrm DB 접속 정보 (운영 환경)
-□ Redis 운영 인스턴스 (SsoStateStore용)
-□ JWT_SECRET_KEY 운영 환경변수 설정
-□ OnePass 콜백 URI 운영 등록 (https://[운영도메인]/sso)
+핵심 패턴:
+  ADR-001: IdO 완전 중재 — 모든 인증 요청이 ido를 통과
+  Handoff Ticket: AES-256-GCM + HMAC-SHA256 서명
+  397개 테스트 통과
 ```
 
-### 12.3 롤백 계획
+### 9.2 SMEP → integration-sso 매핑
 
-| 단계 | 롤백 방법 | 소요 시간 |
-|------|---------|---------|
-| Week 1 보안 수정 후 | Git revert (단, 시연 환경에서만) | 1시간 |
-| Week 2 정식 연동 후 | Feature flag로 더미 모드 전환 | 2시간 |
-| Week 3 FE 개선 후 | 이전 빌드 재배포 | 30분 |
+| SMEP 현재 | integration-sso 대응 | 전환 복잡도 |
+|-----------|---------------------|------------|
+| `AuthServiceImpl` 더미 토큰 | `ido` 실 JWT 발급 | 🟡 중 |
+| `SecurityConfig.permitAll()` | Spring Security + JWT 필터 | 🟡 중 |
+| `keycloakGetAuthCode.js` state 비활성화 | state 파라미터 재활성화 | 🟢 저 |
+| `OnePassSsoCallback.jsx` state 검증 bypass | 검증 로직 주석 해제 | 🟢 저 |
+| `ProtectedRoute` 없음 | 인증 가드 추가 | 🟢 저 |
+| `Header.jsx` 클라이언트 JWT 파싱 | `/api/v1/auth/validate` 서버 검증 | 🟡 중 |
+| `PasswordChange` 더미 BE | 실 DB 비밀번호 변경 | 🔴 고 |
+| `companyProfiles.js` 더미 데이터 | DB 기업 연동 쿼리 | 🔴 고 |
+
+### 9.3 FE 전향 시 보존 가능 코드
+
+```
+✅ 재사용 가능 (구조 정상):
+  - Login.jsx UI 구조 (ID/PW 폼, 탭 전환, Enter 처리)
+  - useAuthStore.jsx (BroadcastChannel 포함)
+  - apiClient.js (Bearer 자동 주입)
+  - VerifyPassword.jsx (검증 로직 완성)
+  - PasswordChange.jsx (FE 검증 완성)
+  - CompanyDetail.jsx / memberUtils.js (API 구조 정상)
+  - OnePassSsoCallback.jsx (state 검증 주석만 해제하면 됨)
+  - keycloakGetAuthCode.js (state 재활성화만 필요)
+
+❌ 교체/삭제 필요:
+  - AuthServiceImpl 더미 토큰 로직
+  - SecurityConfig.permitAll()
+  - companyProfiles.js 더미 데이터 (SSOLogin.jsx와 함께)
+  - App.jsx 하드코딩 API Key (환경변수 이동)
+  - Header.jsx 세션 타이머 클라이언트 파싱 로직
+```
+
+### 9.4 마이그레이션 우선순위 판단
+
+```
+1순위 (보안): BE-1, BE-2 — 더미 토큰·permitAll 제거 → integration-sso ido 실 토큰
+2순위 (보안): SEC-1, SEC-2 — CSRF state 재활성화 (코드 주석 해제만으로 가능)
+3순위 (기능): FE-2 — ProtectedRoute 구현 (useAuthStore.token 기반)
+4순위 (기능): FE-1 — Login.jsx 입력 검증 추가
+5순위 (인프라): BE-3 — account/me 실 DB 연동
+```
 
 ---
 
-## 부록 A: 분석된 파일 전체 목록
+## 10. 마이그레이션 로드맵
 
-### SMEP FE — 분석 완료 (18개)
-| 파일 | 분석 결과 |
-|------|---------|
-| `src/App.jsx` | AI API Key 하드코딩 발견 |
-| `src/context/AuthContext.jsx` | "로그인 시뮬레이션" 주석 |
-| `src/store/useAuthStore.jsx` | Zustand sessionStorage, BroadcastChannel — 정상 |
-| `src/lib/apiClient.js` | Bearer 자동 주입 — 정상 |
-| `src/lib/companyProfiles.js` | 8개 회사 더미 데이터 — 운영 제거 필요 |
-| `src/utils/keycloakGetAuthCode.js` | CSRF state 비활성화 — 즉시 수정 필요 |
-| `src/pages/Login.jsx` | 더미 토큰 BE 연결 |
-| `src/pages/SSOLogin.jsx` | 핵심 시연용 — 운영 제거 필요 |
-| `src/pages/onepass/OnePassSsoCallback.jsx` | state bypass — 수정 필요 |
-| `src/pages/onepass/OnePassSsoLogout.jsx` | 정상 구현 |
-| `src/pages/onepass/OnepassLoginConversionModal.jsx` | 정상 구현 |
-| `src/components/ui/Header.jsx` | 하드코딩 URL — 환경변수화 필요 |
-| `src/components/ui/header/HeaderUserMenu.jsx` | M&A URL 하드코딩 |
-| `src/hooks/usePopupCommunication.js` | AI 팝업 통신 — 인증 무관, 정상 |
-| `src/routes/index.jsx` | 동적 라우팅 — 정상 |
-| `src/routes/staticRoutes.jsx` | 인증 가드 없음 |
-| `vite.config.js` | 프록시 설정 — 정상 |
-| `package.json` | 의존성 정상 |
+### Phase 1 — 인증 핵심 교체 (4주)
 
-### SMEP BE — 분석 완료 (37개)
-(MIG-2026-001 참조)
+```
+Sprint 1: BE 인증 교체
+  - AuthServiceImpl: 더미 → integration-sso ido JWT 발급
+  - SecurityConfig: permitAll() → JWT 필터 체인
+  - account/me: 더미 → DB 실 프로파일 조회
+
+Sprint 2: FE CSRF 수정 + ProtectedRoute
+  - keycloakGetAuthCode.js: state 파라미터 재활성화 (주석 해제)
+  - OnePassSsoCallback.jsx: state 검증 주석 해제
+  - staticRoutes.jsx: ProtectedRoute 컴포넌트 추가
+  - Login.jsx: 빈 값 검증 추가
+```
+
+### Phase 2 — 기능 완성 (4주)
+
+```
+Sprint 3: 비밀번호 관리 BE 연동
+  - POST /api/v1/account/password: 실 DB 변경
+  - POST /api/v1/account/password/verify: 실 DB 검증
+
+Sprint 4: 회원 정보 BE 연동
+  - GET/POST /api/v1/member/corporate/me: DB 연동
+  - GET/POST /api/v1/member/individual/me: DB 연동
+  - 공통 코드 API 연동
+```
+
+### Phase 3 — 보안 강화 (2주)
+
+```
+Sprint 5: 보안 강화
+  - App.jsx API Key 환경변수 이동
+  - Header.jsx 세션 타이머 서버 검증 방식 전환
+  - 401 응답 자동 로그인 리다이렉트 구현 (apiClient.js 인터셉터)
+  - SSOLogin.jsx + companyProfiles.js 제거 (프로덕션 빌드)
+```
 
 ---
 
-## 부록 B: integration-sso 대응 규격 참조
+## 11. 결론
 
-| SMEP 요구사항 | integration-sso 대응 모듈 |
-|-------------|------------------------|
-| OnePass 인가 코드 교환 | `q-sign` Authorization Code Flow |
-| 회원 등록/조회/탈퇴 | `q-im` Identity Management API |
-| IdO 중재 패턴 | `ido` Identity Orchestrator |
-| Handoff Ticket | `ido/HandoffTicketService` (AES-256-GCM) |
-| CSRF state 관리 | `q-sign/OidcStateStore` (Redis) |
-| JWKS 검증 | `q-sign/JwksVerifier` |
+SMEP 통합플랫폼의 프론트엔드 인증 구조는 **올바른 설계 패턴을 따르고 있으나 BE가 미완성**이다.
+
+### 핵심 발견 사항 (v2 정정 포함)
+
+1. **실제 메인 로그인**: `Login.jsx` (`/service/login`) — ID/PW 탭 폼, 정상적인 프로덕션 UI 구조
+2. **`SSOLogin.jsx`는 개발용 팝업 fallback**: `/service/SSO-login` 경로, 로컬 개발 환경에서만 `handleIntegratedLogin()` fallback으로 동작. 프로덕션 취약점이 아닌 개발 편의 도구.
+3. **메인 취약점은 BE**: `AuthServiceImpl` 더미 토큰 + `SecurityConfig.permitAll()` — FE ID/PW 폼이 아무 값이나 받아도 BE가 무조건 성공 응답
+4. **FE 재사용률 높음**: Login.jsx, useAuthStore, VerifyPassword, PasswordChange 등 핵심 FE 코드는 BE 교체 후 그대로 활용 가능
+5. **CSRF 수정은 주석 해제 수준**: keycloakGetAuthCode.js와 OnePassSsoCallback.jsx의 state 처리는 코드가 이미 작성되어 있고 주석처리만 된 상태 → 즉시 복원 가능
+6. **ProtectedRoute 부재**: 마이페이지 전체 경로가 인증 없이 접근 가능 — 추가 구현 필요
+
+integration-sso의 ADR-001 IdO 완전 중재 패턴은 SMEP의 이중 인증 구조(로컬 ID/PW + OnePass SSO)를 통합 처리하기에 적합하다. FE 재작업 최소화(CSRF 주석 해제, ProtectedRoute 추가, 입력 검증 보완)와 BE 전면 교체(더미 → 실 인증)를 병행하는 전략이 최적이다.
 
 ---
 
-*이 문서는 MIG-2026-002로 관리되며, SMEP 통합플랫폼 개발팀 내부 배포용입니다.*  
-*문서 최종 수정: 2026-05-11*
+*문서 ID: MIG-2026-002 v2 | 분석 기준일: 2026-05-11 | 다음 리뷰: Phase 1 Sprint 1 완료 후*
