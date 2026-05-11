@@ -1,11 +1,16 @@
 # NICE 본인인증 / OACX 간편인증서 데이터 흐름 A→Z
 
 **문서 ID**: FLOW-2026-005  
-**버전**: v1.0  
+**버전**: v1.1  
 **작성일**: 2026-05-11  
+**최종 수정**: 2026-05-11  
 **작성자**: GenSpark AI (코드베이스 자동 분석)  
 **분류**: 내부 기술 문서 (Internal Technical Document)  
 **대상 독자**: 백엔드 개발팀, FE 개발팀, 보안 검토팀  
+
+> **변경 이력**
+> - v1.0 (2026-05-11): 최초 작성
+> - v1.1 (2026-05-11): ASCII 시퀀스 다이어그램 3개 → Mermaid 변환, 분산락 flowchart 추가, OACX 팝업 통신 sequence 추가
 
 ---
 
@@ -72,58 +77,39 @@ OnePass 플랫폼의 인증 아키텍처(ADR-001)는 **IdO 완전 중재 패턴*
 
 ### 2.1 전체 시퀀스 다이어그램
 
-```
-사용자 브라우저 (FE)          ido (NiceAuthService)         NICE 서버
-       │                              │                         │
-[로그인 페이지 또는 회원전환]          │                         │
-       │                              │                         │
-       │  GET /api/v1/auth/nice/phone/url?returnUrl=...         │
-       │─────────────────────────────>│                         │
-       │                              │                         │
-       │                     [ensureAccessToken()]              │
-       │                       Redis: nice:token:snapshot       │
-       │                       → isValid() 검사                 │
-       │                       ┌──────────────────────────┐    │
-       │                       │ [캐시 HIT] 즉시 반환       │    │
-       │                       │ [캐시 MISS]               │    │
-       │                       │   Redisson tryLock()      │    │
-       │                       │   (대기 3s, 만료 10s)     │    │
-       │                       │   Double-Checked Locking  │    │
-       │                       │   POST /auth/token        │    │
-       │                       │   ───────────────────────>│    │
-       │                       │   {accessToken,ticket,    │    │
-       │                       │    iterators,expiresIn}   │    │
-       │                       │   <───────────────────────│    │
-       │                       │   Redis: save(token)      │    │
-       │                       │   Redisson unlock()       │    │
-       │                       └──────────────────────────┘    │
-       │                              │                         │
-       │                     requestNo = "REQ_yyyyMMddHHmmss"   │
-       │                              + UUID12자              │
-       │                              │                         │
-       │                       POST /auth/url                   │
-       │                       {request_no, return_url,         │
-       │                        svc_types:["M"], method_type}   │
-       │                       ─────────────────────────────────>
-       │                              │   {authUrl,             │
-       │                              │    transactionId,       │
-       │                              │    requestNo}           │
-       │                       <─────────────────────────────────
-       │                              │                         │
-       │                       Redis: nice:session:{requestNo}  │
-       │                       HSET requestNo, transactionId    │
-       │                       EXPIRE 10분                      │
-       │                              │                         │
-       │                       Kafka: NICE_URL_ISSUED 감사 이벤트│
-       │                              │                         │
-       │  {resultCode:"2000",         │                         │
-       │   authUrl, requestNo}        │                         │
-       │<─────────────────────────────│                         │
-       │                              │                         │
-[window.open(authUrl, 'niceAuth',    │                         │
-  'width=500,height=700')]            │                         │
-       │                              │                         │
-[NICE 표준창 팝업 오픈]              │                         │
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE (로그인/회원전환)
+    participant IDO as ido (NiceAuthService)
+    participant RDS as Redis
+    participant NICE as NICE 서버
+    participant KF as Kafka
+
+    사용자->>FE: 휴대폰 인증 시작
+    FE->>IDO: GET /api/v1/auth/nice/phone/url?returnUrl=...
+
+    note over IDO: ensureAccessToken()
+    alt 캐시 HIT (nice:token:snapshot 유효)
+        IDO->>RDS: HGET nice:token:snapshot
+        RDS-->>IDO: {accessToken, ticket, iterators, expiresIn}
+    else 캐시 MISS → 분산락 획득
+        IDO->>IDO: Redisson.tryLock(wait=3s, lease=10s)
+        note over IDO: Double-Checked Locking 재확인
+        IDO->>NICE: POST /auth/token (Basic 인증)
+        NICE-->>IDO: {accessToken, ticket, iterators, expiresIn}
+        IDO->>RDS: HSET nice:token:snapshot + EXPIRE
+        IDO->>IDO: Redisson.unlock()
+    end
+
+    IDO->>NICE: POST /auth/url {request_no, return_url, svc_types, method_type}
+    NICE-->>IDO: {authUrl, transactionId, requestNo}
+    IDO->>RDS: HSET nice:session:{requestNo} {requestNo, transactionId} EXPIRE 10분
+    IDO->>KF: NICE_URL_ISSUED 감사 이벤트
+
+    IDO-->>FE: {resultCode:"2000", authUrl, requestNo}
+    note over FE: window.open(authUrl, 'niceAuth', 'width=500,height=700')
+    FE-->>사용자: NICE 표준창 팝업 오픈
 ```
 
 ### 2.2 단계별 상세 설명
@@ -253,55 +239,33 @@ window.open(authUrl, 'niceAuth',
 
 ### 3.1 전체 시퀀스 다이어그램
 
-```
-사용자 브라우저 (FE)             ido                    NICE 서버          Q-IM
-       │                          │                         │                 │
-[NICE 팝업에서 사용자 인증 완료]  │                         │                 │
-       │                          │                         │                 │
-[return_url 리다이렉트]           │                         │                 │
-  또는 postMessage(web_txn_id)    │                         │                 │
-       │                          │                         │                 │
-       │  POST /api/v1/auth/nice/phone/result               │                 │
-       │  {web_transaction_id, request_no}                  │                 │
-       │─────────────────────────>│                         │                 │
-       │                          │                         │                 │
-       │                 [ensureAccessToken()]              │                 │
-       │                 (캐시 HIT → 즉시 반환)             │                 │
-       │                          │                         │                 │
-       │                 Redis: HGET nice:session:{requestNo}│                │
-       │                 → {requestNo, transactionId}       │                 │
-       │                          │                         │                 │
-       │                 POST /auth/result                  │                 │
-       │                 {web_transaction_id,               │                 │
-       │                  transaction_id, request_no}       │                 │
-       │                 ─────────────────────────────────> │                 │
-       │                          │  {resultCode:"0000",    │                 │
-       │                          │   encData,              │                 │
-       │                          │   integrityValue}       │                 │
-       │                 <──────────────────────────────────│                 │
-       │                          │                         │                 │
-       │                 [decryptAndVerify()]               │                 │
-       │                   1. PBKDF2: keyString             │                 │
-       │                   2. HMAC-SHA256 검증              │                 │
-       │                   3. AES-256-GCM 복호화            │                 │
-       │                   4. JSON → Map 파싱               │                 │
-       │                          │                         │                 │
-       │                 Redis: DEL nice:session:{requestNo}│                 │
-       │                          │                         │                 │
-       │                 [CI 내부 처리 — Q3=B]              │                 │
-       │                 imApiOutPort.register(authResult)  │                 │
-       │                 ──────────────────────────────────────────────────>  │
-       │                          │    {qimUserId, isNew}   │                 │
-       │                 <──────────────────────────────────────────────────  │
-       │                          │                         │                 │
-       │                 Kafka: NICE_AUTH_RESULT_SUCCESS    │                 │
-       │                          │                         │                 │
-       │  {resultCode:"2000",     │                         │                 │
-       │   name, birthdate,       │                         │                 │
-       │   gender, nationalInfo,  │                         │                 │
-       │   di, mobileCo, mobileNo}│                         │                 │
-       │<─────────────────────────│                         │                 │
-       │   ※ CI 미포함 (Q3=B)    │                         │                 │
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE
+    participant IDO as ido (NiceAuthService)
+    participant RDS as Redis
+    participant NICE as NICE 서버
+    participant QIM as q-im
+    participant KF as Kafka
+
+    note over 사용자: NICE 팝업에서 휴대폰 인증 완료
+    사용자->>FE: postMessage({web_transaction_id}) 또는 return_url 리다이렉트
+    FE->>IDO: POST /api/v1/auth/nice/phone/result\n{web_transaction_id, request_no}
+
+    IDO->>RDS: HGET nice:session:{requestNo} → {requestNo, transactionId}
+    note over IDO: 세션 없음/만료 → 4000 에러
+    IDO->>NICE: POST /auth/result {web_transaction_id, transaction_id, request_no}
+    NICE-->>IDO: {resultCode:"0000", encData, integrityValue}
+
+    note over IDO: decryptAndVerify()\n1. PBKDF2(ticket, transactionId, iterators) → keyString\n2. aesKey=keyString[0:32], hmacKey=keyString[48:80]\n3. HMAC-SHA256(encData, hmacKey) == integrityValue 검증\n4. AES-256-GCM 복호화 → JSON 파싱
+
+    IDO->>RDS: DEL nice:session:{requestNo} (1회성 삭제)
+    IDO->>QIM: POST /api/v1/internal/users/register (CI 포함)
+    QIM-->>IDO: {qimUserId, isNew}
+    IDO->>KF: NICE_AUTH_RESULT_SUCCESS 감사 이벤트
+
+    IDO-->>FE: {name, birthdate, gender, nationalInfo, di, mobileCo, mobileNo}\n※ CI 미포함 (Q3=B 보안 정책)
 ```
 
 ### 3.2 단계별 상세 설명
@@ -456,29 +420,22 @@ keyString (Base64URL 인코딩된 64바이트 = ~86자):
 
 ### 5.1 분산 락 상태 머신
 
-```
-                        ┌─────────────────────────────────────────────────────┐
-                        │              ensureAccessToken() 호출                │
-                        └─────────────────────────────────────────────────────┘
-                                                │
-                          tokenStore.isValid()? │
-                               ┌────────────────┴─────────────────────┐
-                              YES                                      NO
-                               │                                        │
-                    tokenStore.get() 반환                  Redisson.tryLock(wait=3s, lease=10s)
-                    (락 불필요)                                         │
-                                                        ┌──────────────┴──────────────┐
-                                                   락 획득 성공                   락 획득 실패
-                                                       │                              │
-                                          tokenStore.isValid()?              Thread.sleep(500ms)
-                                         ┌─────────────┴──────┐              tokenStore.get()
-                                        YES                    NO                    │
-                                         │                     │           ┌─────────┴──────────┐
-                                  tokenStore.get()   niceApiClient         유효                 없음
-                                  반환 (재확인 후      .fetchAccessToken()   │                    │
-                                  캐시 HIT)            │                반환            IllegalStateException
-                                  unlock()            tokenStore.save()
-                                                       unlock()
+```mermaid
+flowchart TD
+    A([ensureAccessToken 호출]) --> B{tokenStore.isValid?\nRedis nice:token:snapshot}
+    B -->|YES 캐시 HIT| C[tokenStore.get 반환\n락 불필요]
+    B -->|NO 캐시 MISS| D["Redisson.tryLock\n(wait=3s, lease=10s)"]
+    D -->|락 획득 실패| E["Thread.sleep(500ms)\ntokenStore.get 재확인"]
+    E -->|유효| C
+    E -->|없음| F[IllegalStateException\n→ 5001 에러]
+    D -->|락 획득 성공| G{Double-Checked\ntokenStore.isValid?}
+    G -->|YES 재확인 HIT| H["tokenStore.get 반환\nRedisson.unlock()"]
+    G -->|NO 여전히 MISS| I["NICE POST /auth/token\nResilience4j CB+Retry 적용"]
+    I -->|CB OPEN 장애| J["fetchAccessTokenFallback → null\n→ 5001 에러"]
+    I -->|성공| K["tokenStore.save\nHSET nice:token:snapshot 4개 필드\nEXPIRE = (expiresIn-now-60s)/1000\nRedisson.unlock()"]
+    K --> L([반환])
+    C --> L
+    H --> L
 ```
 
 ### 5.2 Redis 저장 구조
@@ -511,42 +468,35 @@ TTL:   (expiresIn - now - 60,000ms) / 1000 초
 
 ### 6.1 전체 시퀀스 다이어그램
 
-```
-사용자 브라우저 (FE)          ido (AuthService → OacxClient)     OACX 서버
-       │                              │                                │
-[OACX 팝업 열기 전]                   │                                │
-       │                              │                                │
-       │  POST /api/v1/auth/oacx/access-info                          │
-       │  Body: "simpleAuth" (plain string)                           │
-       │─────────────────────────────>│                                │
-       │                              │                                │
-       │                   OacxClient.getAccessInfo("simpleAuth")     │
-       │                              │                                │
-       │                   OacxUtil 인스턴스 생성 (매 요청마다 신규)  │
-       │                   oacx.setDebugMode(false)                   │
-       │                   oacx.loadJSONInfo(providerKeyPath)         │
-       │                              │                                │
-       │                   oacx.getAccessInfo()                       │
-       │                   ─────────────────────────────────────────> │
-       │                              │  {status:"success",           │
-       │                              │   accKey, accToken}           │
-       │                   <───────────────────────────────────────── │
-       │                              │                                │
-       │                   Kafka: OACX_ACCESS_INFO 감사 이벤트        │
-       │                              │                                │
-       │  {resultCode:"2000",         │                                │
-       │   fn:"simpleAuth",           │                                │
-       │   accKey, accToken}          │                                │
-       │<─────────────────────────────│                                │
-       │                              │                                │
-[EASYSIGN_URL 팝업 오픈]              │                                │
-  window.open(EASYSIGN_URL, 'simpleAuth', ...)
-       │                              │                                │
-[팝업 → FE: {initFlag:"true"}]       │                                │
-       │                              │                                │
-[FE → 팝업: postMessage({simpleType,  │                                │
-           accKey, accToken},         │                                │
-           EASYSIGN_ORIGIN)]          │                                │
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE
+    participant IDO as ido (AuthService→OacxClient)
+    participant OACX as OACX 서버 (SDK JAR)
+    participant KF as Kafka
+    participant POPUP as OACX 팝업
+
+    사용자->>FE: OACX 간편인증 클릭
+    FE->>IDO: POST /api/v1/auth/oacx/access-info\nBody: "simpleAuth"
+
+    note over IDO: OacxUtil 인스턴스 신규 생성 (매 요청마다)\noacx.setDebugMode(false)\noacx.loadJSONInfo(providerKeyPath)
+    IDO->>OACX: OacxUtil.getAccessInfo()
+    OACX-->>IDO: {status:"success", accKey, accToken}
+    IDO->>KF: OACX_ACCESS_INFO 감사 이벤트
+    IDO-->>FE: {fn:"simpleAuth", accKey, accToken}
+
+    note over FE: window.open(EASYSIGN_URL, 'simpleAuth', ...)
+    FE->>POPUP: 팝업 오픈
+
+    par Race Condition 처리
+        POPUP->>FE: postMessage({initFlag:"true"}, EASYSIGN_ORIGIN)
+    and
+        FE->>FE: access-info API 응답 수신
+    end
+
+    note over FE: initRequestedRef 플래그로 순서 무관 처리\n- 토큰 수신 후 initFlag → sendTokenToPopup()\n- initFlag 수신 후 토큰 → initSentRef=false면 즉시 전송
+    FE->>POPUP: postMessage({simpleType, accKey, accToken}, EASYSIGN_ORIGIN)
 ```
 
 ### 6.2 OacxClient 상세
@@ -604,53 +554,33 @@ if (providerKeyPath == null || providerKeyPath.isBlank()) {
 
 ### 7.1 전체 시퀀스 다이어그램
 
-```
-OACX 팝업           사용자 브라우저 (FE)    ido (AuthService)    Q-IM
-    │                       │                     │                 │
-[사용자 간편서명 완료]      │                     │                 │
-    │                       │                     │                 │
-    │  postMessage({         │                     │                 │
-    │    status:"success",   │                     │                 │
-    │    fn:"authComplete",  │                     │                 │
-    │    res:{resultCode:"200", ...}               │                 │
-    │  }, EASYSIGN_ORIGIN)   │                     │                 │
-    │──────────────────────> │                     │                 │
-    │                        │                     │                 │
-    │                [handleMessage 핸들러]        │                 │
-    │                 data.fn === "authComplete"   │                 │
-    │                 data.status === "success"    │                 │
-    │                        │                     │                 │
-    │                        │  POST /api/v1/auth/oacx/easysign     │
-    │                        │  Body: event.data  (JSON string)     │
-    │                        │──────────────────> │                 │
-    │                        │                    │                 │
-    │                        │           [fn 검증] "authComplete"?  │
-    │                        │           [OACX resultCode 검증] "200"?
-    │                        │                    │                 │
-    │                        │           OacxClient.decryptEasysignResult()
-    │                        │           oacx.jwtDecryptResult(callbackData)
-    │                        │                    │                 │
-    │                        │           [복호화 결과 Map]          │
-    │                        │             status:"success"         │
-    │                        │             name 또는 userNm         │
-    │                        │             phone 또는 phoneNo        │
-    │                        │             birthday, gender         │
-    │                        │             ci (내부용)              │
-    │                        │                    │                 │
-    │                        │           [CI 내부 처리 — Q3=B]     │
-    │                        │           imApiOutPort.register()   │
-    │                        │           ─────────────────────────> │
-    │                        │                    │  {qimUserId}    │
-    │                        │           <─────────────────────────  │
-    │                        │                    │                 │
-    │                        │           Kafka: OACX_EASYSIGN_SUCCESS
-    │                        │                    │                 │
-    │                        │  {resultCode:"2000", name, birthday, phone}
-    │                        │  ※ CI 미포함 (Q3=B)                │
-    │                        │<───────────────────│                 │
-    │                        │                    │                 │
-    │                [팝업 닫기]                   │                 │
-    │<───────── popup.close() ─────────────────── │                 │
+```mermaid
+sequenceDiagram
+    participant POPUP as OACX 팝업
+    participant FE as FE
+    participant IDO as ido (AuthService)
+    participant OACX as OACX SDK
+    participant QIM as q-im
+    participant KF as Kafka
+
+    note over POPUP: 사용자 간편서명 완료
+    POPUP->>FE: postMessage({status:"success", fn:"authComplete",\nres:{resultCode:"200", ...}}, EASYSIGN_ORIGIN)
+
+    note over FE: handleMessage 핸들러\ndata.fn === "authComplete" && data.status === "success" 확인
+    FE->>IDO: POST /api/v1/auth/oacx/easysign\nBody: event.data (JSON string)
+
+    note over IDO: fn 검증: "authComplete"?\nOACX resultCode 검증: "200"?
+    IDO->>OACX: OacxClient.jwtDecryptResult(callbackData)
+    OACX-->>IDO: {status:"success", name/userNm, phone/phoneNo,\nbirthday, gender, ci, di, ...}
+
+    note over IDO: provider별 키 이름 통일\nname = decrypted.getOrDefault("name", "userNm")\nphone = decrypted.getOrDefault("phone", "phoneNo")
+
+    IDO->>QIM: POST /api/v1/internal/users/register (CI 포함)
+    QIM-->>IDO: {qimUserId}
+    IDO->>KF: OACX_EASYSIGN_SUCCESS 감사 이벤트
+
+    IDO-->>FE: {resultCode:"2000", name, birthday, phone}\n※ CI 미포함 (Q3=B — @JsonInclude NON_NULL)
+    FE->>POPUP: popup.close()
 ```
 
 ### 7.2 OACX provider별 키 이름 통일 처리

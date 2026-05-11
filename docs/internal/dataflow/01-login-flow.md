@@ -1,10 +1,15 @@
 # 로그인 데이터 흐름 (A→Z 완전 추적)
 
 **문서 번호**: FLOW-2026-001  
-**버전**: 1.0  
+**버전**: 1.1  
 **작성일**: 2026-05-11  
+**최종 수정**: 2026-05-11  
 **작성자**: AI 코드 분석 시스템  
 **분류**: 내부 기술 문서 / 데이터 흐름
+
+> **변경 이력**
+> - v1.0 (2026-05-11): 최초 작성
+> - v1.1 (2026-05-11): 전체 시퀀스 다이어그램 Mermaid 변환, keycloak 모드 시퀀스 추가, FE 세션 생성 공통 흐름 다이어그램 추가, 시스템 구성도 Mermaid 변환
 
 ---
 
@@ -29,19 +34,36 @@
 
 ### 1.1 시스템 구성
 
-```
-onepass-fe (React SPA, :3000)
-    ↕ Nginx Proxy
-ido (Spring Boot, :8083)         ← 인증 중재자 (IdO)
-    ↕ HTTP
-q-sign (Spring Boot, :8081)      ← OIDC/소셜 브로커
-    ↕ HTTP
-Keycloak (:8080)                 ← OIDC Provider / 소셜 연동
-    ↕ OIDC
-소셜 IdP (카카오/네이버/Pass/GPKI 등)
+```mermaid
+graph TD
+    FE["onepass-fe\nReact SPA :3000"]
+    NGX["Nginx Proxy"]
+    IDO["ido :8083\n인증 중재자 IdO"]
+    QS["q-sign :8081\nOIDC/소셜 브로커"]
+    KC["Keycloak :8080\nOIDC Provider"]
+    IDP["소셜 IdP\n카카오/네이버/Pass/GPKI"]
+    QIM["q-im :8082\n사용자 식별 관리"]
+    AGS["agency-stub :8084\n기관 시뮬레이터"]
+    NICE["NICE IDO 서버\nhttps://auth.niceid.co.kr"]
+    OACX["OACX SDK\nJAR 로컬"]
+    RDS[("Redis")]
+    DB[("MariaDB")]
+    KF["Kafka"]
 
-q-im (Spring Boot, :8082)        ← 사용자 식별 관리
-agency-stub (Spring Boot, :8084) ← 기관 시뮬레이터
+    FE --> NGX --> IDO
+    IDO --> QS --> KC --> IDP
+    IDO --> QIM
+    IDO --> NICE
+    IDO --> OACX
+    IDO --> RDS
+    IDO --> DB
+    IDO --> KF
+    QS --> RDS
+    QS --> DB
+    QS --> KF
+    QIM --> DB
+    QIM --> KF
+    IDO --- AGS
 ```
 
 ### 1.2 아키텍처 결정 (ADR-001)
@@ -49,14 +71,16 @@ agency-stub (Spring Boot, :8084) ← 기관 시뮬레이터
 **IdO 완전 중재 패턴**: FE는 직접 Keycloak이나 소셜 IdP를 호출하지 않는다.  
 모든 인증 요청은 ido를 경유한다.
 
-```
-broker.mode=qsign (기본)
-  FE → ido → q-sign → Keycloak → 소셜IdP
-              └─────── 콜백 ─────────┘
-
-broker.mode=keycloak
-  FE → ido → Keycloak → 소셜IdP
-       └──── 콜백 ──────────┘
+```mermaid
+graph LR
+    subgraph "broker.mode=qsign (기본)"
+        FE1[FE] --> IDO1[ido] --> QS1[q-sign] --> KC1[Keycloak] --> IDP1[소셜IdP]
+        IDP1 -.콜백.-> KC1 -.콜백.-> QS1 -.콜백.-> IDO1 -.302.-> FE1
+    end
+    subgraph "broker.mode=keycloak"
+        FE2[FE] --> IDO2[ido] --> KC2[Keycloak] --> IDP2[소셜IdP]
+        IDP2 -.콜백.-> KC2 -.콜백.-> IDO2 -.302.-> FE2
+    end
 ```
 
 ---
@@ -635,26 +659,73 @@ TTL: qsign.keycloak.state-ttl-seconds (기본 300초)
 
 ## 7. E. 소셜 로그인 흐름 (keycloak 모드)
 
-### 7.1 차이점
+### 7.1 전체 시퀀스
 
-```java
-// broker.mode=keycloak
-// BrokerService.java에서
-IdoOidcStateStore.saveState(state, nonce, correlationId, provider, returnUrl);
-String authUrl = buildKeycloakAuthUrl(state, nonce, provider);
-// 302 Redirect 직접 반환 (q-sign 경유 없음)
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE
+    participant IDO as ido (BrokerService)
+    participant KC as Keycloak
+    participant IDP as 소셜 IdP
+    participant IDO_CB as ido (OidcCallbackCtrl)
+
+    사용자->>FE: 소셜 로그인 클릭
+    FE->>IDO: ① GET /api/v1/broker/{provider}/authorize
+    note over IDO: ② state/nonce 생성<br/>→ IdoOidcStateStore(Redis) 저장<br/>③ Keycloak Authorization URL 조립<br/>(kc_idp_hint={provider})
+    IDO-->>FE: ④ 302 Redirect → Keycloak Auth Endpoint
+
+    FE->>KC: ⑤ Authorization 요청
+    KC->>IDP: ⑥ 소셜 IdP OAuth2 Redirect
+    IDP-->>사용자: ⑦ 소셜 로그인 화면
+    사용자->>IDP: ⑦ 동의/승인
+    IDP->>KC: ⑧ 콜백 (code)
+    KC->>IDO_CB: ⑨ 콜백 (code + state) → ido 직접 수신
+
+    note over IDO_CB: ⑩ state Redis 소비 (CSRF 방어)<br/>⑪ Keycloak /token 교환<br/>⑫ JWKS RS256 검증 + nonce 검증<br/>⑬ SHA-256(sub) → identifierHash<br/>⑭ AuthResult + Outbox @Transactional 저장
+    note over IDO_CB: ⑮ FE 세션 생성 (Redis)<br/>feSessionId 발급
+
+    IDO_CB-->>FE: ⑯ 302 Redirect + Set-Cookie: feSessionId
+    FE-->>사용자: 마이페이지 이동
 ```
 
-**주요 차이**:
-- state/nonce를 ido가 직접 관리 (q-sign 경유 없음)
-- 콜백도 ido가 직접 처리
-- q-sign의 JWKS 검증, HMAC 서명 생성이 ido에서 수행됨
+**qsign 모드와 주요 차이점**:
+
+| 항목 | qsign 모드 | keycloak 모드 |
+|------|-----------|---------------|
+| state/nonce 관리 | q-sign (Redis) | ido 직접 (Redis) |
+| Keycloak 콜백 수신 | q-sign | ido |
+| JWKS 검증 | q-sign | ido |
+| HMAC 서명 (→ ido 통보) | q-sign → ido | 불필요 (ido가 직접 처리) |
+| Outbox 저장 | q-sign DB | ido DB |
+| 설정 | `broker.mode=qsign` | `broker.mode=keycloak` |
 
 ---
 
 ## 8. FE 세션 생성 공통 흐름
 
 모든 로그인 방식 (A~E)이 최종적으로 이 흐름을 거친다.
+
+### 8.0 FE 세션 생성 공통 시퀀스
+
+```mermaid
+sequenceDiagram
+    participant TRIGGER as 인증 완료 트리거<br/>(q-sign 또는 ido)
+    participant IDO as ido (FeSessionServiceImpl)
+    participant RDS as Redis
+    participant FE as FE / 브라우저
+
+    TRIGGER->>IDO: 인증 완료 통보 (qimUserId, authResultId, authLevel, returnUrl)
+    note over IDO: 256-bit 엔트로피 세션 ID 생성<br/>SecureRandom(32 bytes) → Base64URL
+    IDO->>RDS: SET fe:session:{feSessionId} = FeSession JSON<br/>EX 1800 (30분 sliding)
+    IDO->>RDS: SADD fe:user-sessions:{qimUserId} {feSessionId}<br/>EXPIRE fe:user-sessions:{qimUserId} 28800 (480분)
+    IDO-->>FE: 302 Redirect → returnUrl<br/>Set-Cookie: feSessionId={id}; HttpOnly; Secure; SameSite=Lax; Max-Age=1800
+
+    note over FE: 이후 모든 API 요청에 feSessionId 쿠키 자동 포함
+    FE->>IDO: API 요청 (withCredentials: true)
+    IDO->>RDS: GET fe:session:{feSessionId} → 세션 조회
+    note over IDO: absoluteExpiresAt 확인 (480분 절대 만료)<br/>lastActivityAt 갱신 + TTL 1800초 재설정
+```
 
 ### 8.1 FeSessionServiceImpl 세션 생성
 

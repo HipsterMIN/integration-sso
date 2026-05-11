@@ -1,10 +1,15 @@
 # Handoff Ticket 발급·검증·취소 데이터 흐름 (A→Z 완전 추적)
 
 **문서 ID**: FLOW-2026-004  
-**버전**: v1.0  
+**버전**: v1.1  
 **작성일**: 2026-05-11  
+**최종 수정**: 2026-05-11  
 **작성자**: AI 분석 (GenSpark)  
 **대상 독자**: 개발팀, 기관 연동 담당자, 보안팀
+
+> **변경 이력**
+> - v1.0 (2026-05-11): 최초 작성
+> - v1.1 (2026-05-11): ASCII 다이어그램 → Mermaid 변환 (Overview/Issue/Verify 3개), 연동 전략 패턴 flowchart 추가, 보안 메커니즘 통합 표
 
 ---
 
@@ -28,48 +33,26 @@
 
 **Handoff Ticket**이란 통합플랫폼(ido)이 사용자를 외부 기관(Agency)으로 안전하게 인계할 때 사용하는 1회용 암호화 티켓이다.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Handoff 흐름 개요                         │
-│                                                               │
-│  사용자 브라우저                                              │
-│       │                                                       │
-│       │ 1) 기관 서비스 이용 클릭                              │
-│       ▼                                                       │
-│  [FE / onepass-fe]                                           │
-│       │                                                       │
-│       │ POST /api/v1/handoff/issue (Idempotency-Key 포함)    │
-│       ▼                                                       │
-│  [ido] HandoffController                                      │
-│       │                                                       │
-│       │ - 기관 검증 (AgencyMeta)                             │
-│       │ - Rate Limiting 검증                                  │
-│       │ - Callback URL 화이트리스트 검증                      │
-│       │ - 인증수준 검증                                       │
-│       │ - Q-IM 사용자 상태 확인                               │
-│       │ - AES-256-GCM 암호화 + HMAC-SHA256 서명              │
-│       │ - DB 저장 + Kafka 이벤트                             │
-│       ▼                                                       │
-│  { ticketId, encryptedPayload, signature, expiresAt }        │
-│       │                                                       │
-│       │ 2) ticketId를 기관 서비스로 전달 (URL 파라미터)       │
-│       ▼                                                       │
-│  [기관 서비스]                                                │
-│       │                                                       │
-│       │ POST /api/v1/handoff/verify                          │
-│       │ Headers: X-Agency-Code, X-Agency-Key                 │
-│       ▼                                                       │
-│  [ido] HandoffController.verify()                            │
-│       │                                                       │
-│       │ - Ticket 조회 (DB)                                    │
-│       │ - 상태 검증 (ISSUED → CONSUMED)                       │
-│       │ - 만료 검증                                           │
-│       │ - 기관 코드 검증                                      │
-│       │ - 1회 소비 처리                                       │
-│       ▼                                                       │
-│  { qimUserId, authLevel, di, ... } (복호화된 페이로드)        │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE (onepass-fe)
+    participant IDO as ido (HandoffController)
+    participant QIM as q-im
+    participant AGC as 기관 서버
+
+    사용자->>FE: 기관 서비스 이용 클릭
+    FE->>IDO: POST /api/v1/handoff/issue (Idempotency-Key 포함)
+    note over IDO: 기관 검증 → Rate Limiting → Callback URL 화이트리스트\n인증수준 검증 → Q-IM 상태 확인\nAES-256-GCM 암호화 + HMAC-SHA256 서명\nDB 저장 + Kafka 이벤트
+    IDO->>QIM: GET /api/v1/users/{qimUserId}
+    QIM-->>IDO: {status: ACTIVE}
+    IDO-->>FE: {ticketId, encryptedPayload, signature, expiresAt}
+
+    FE-->>AGC: ticketId를 URL 파라미터로 전달
+    AGC->>IDO: POST /api/v1/handoff/verify\nX-Agency-Code, X-Agency-Key, {ticketId}
+    note over IDO: Ticket 조회 → 상태 검증 (ISSUED→CONSUMED)\n만료 검증 → 기관 코드 검증 → 1회 소비 처리\nAES-GCM 복호화 → DI 생성/조회
+    IDO-->>AGC: {qimUserId, authLevel, di, agencyCode, ...}
+    AGC-->>사용자: 기관 서비스 제공
 ```
 
 ### 핵심 보안 원칙
@@ -85,49 +68,36 @@
 
 ### 2.1 전체 시퀀스
 
-```
-FE(사용자)      ido HandoffCtrl      HandoffServiceImpl      AgencyMetaRepo      q-im(8082)       DB(Ticket)      Kafka
-    │                  │                     │                     │                  │               │              │
-    │ [A] 기관서비스   │                     │                     │                  │               │              │
-    │ 이용 버튼 클릭   │                     │                     │                  │               │              │
-    │                  │                     │                     │                  │               │              │
-    │ [B] POST /api/v1/│                     │                     │                  │               │              │
-    │ handoff/issue    │                     │                     │                  │               │              │
-    │ Headers:         │                     │                     │                  │               │              │
-    │  Idempotency-Key │                     │                     │                  │               │              │
-    │  feSessionId     │                     │                     │                  │               │              │
-    │─────────────────>│                     │                     │                  │               │              │
-    │                  │ [C] Idempotency-Key │                     │                  │               │              │
-    │                  │ 중복 확인(Redis)     │                     │                  │               │              │
-    │                  │ feSession 검증      │                     │                  │               │              │
-    │                  │─────────────────────>                     │                  │               │              │
-    │                  │                     │ [D] 기관 조회       │                  │               │              │
-    │                  │                     │─────────────────────>                  │               │              │
-    │                  │                     │ AgencyMeta 반환     │                  │               │              │
-    │                  │                     │<─────────────────────                  │               │              │
-    │                  │                     │ [E] Rate Limiting   │                  │               │              │
-    │                  │                     │ 검증(Redis 카운터)   │                  │               │              │
-    │                  │                     │ [F] Callback URL    │                  │               │              │
-    │                  │                     │ 화이트리스트 검증    │                  │               │              │
-    │                  │                     │ [G] 점검시간 차단   │                  │               │              │
-    │                  │                     │ [H] 인증수준 검증   │                  │               │              │
-    │                  │                     │ [I] Q-IM 상태 확인 │                  │               │              │
-    │                  │                     │──────────────────────────────────────>│               │              │
-    │                  │                     │ UserStatus 반환     │                  │               │              │
-    │                  │                     │<──────────────────────────────────────│               │              │
-    │                  │                     │ [J] Ticket 발급     │                  │               │              │
-    │                  │                     │ AES-GCM 암호화      │                  │               │              │
-    │                  │                     │ HMAC-SHA256 서명    │                  │               │              │
-    │                  │                     │ DB 저장             │                  │──────────────>│              │
-    │                  │                     │ Kafka 이벤트        │                  │               │──────────────>
-    │                  │                     │ Strategy postIssue  │                  │               │              │
-    │                  │ [K] 감사 로그        │                     │                  │               │              │
-    │ Ticket 응답      │                     │                     │                  │               │              │
-    │<─────────────────│                     │                     │                  │               │              │
-    │                  │                     │                     │                  │               │              │
-    │ [L] ticketId를   │                     │                     │                  │               │              │
-    │ 기관 URL에 포함  │                     │                     │                  │               │              │
-    │ 하여 이동        │                     │                     │                  │               │              │
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE (사용자)
+    participant IDO_C as ido (HandoffController)
+    participant IDO_S as ido (HandoffServiceImpl)
+    participant AGM as AgencyMetaRepo
+    participant QIM as q-im :8082
+    participant DB as DB (handoff_ticket)
+    participant KF as Kafka
+
+    사용자->>FE: [A] 기관 서비스 이용 버튼 클릭
+    FE->>IDO_C: [B] POST /api/v1/handoff/issue\nHeaders: Idempotency-Key, Cookie: feSessionId
+
+    IDO_C->>IDO_S: [C] Idempotency-Key 중복 확인 (Redis)\nfeSession 검증
+    IDO_S->>AGM: [D] 기관 조회 findByCode(agencyCode)
+    AGM-->>IDO_S: AgencyMeta {isActive, minAuthLevel, callbackWhitelist, ...}
+
+    note over IDO_S: [E] Rate Limiting 검증 (Redis 슬라이딩 윈도우)\n[F] Callback URL 화이트리스트 검증\n[G] 점검시간 차단\n[H] 인증수준 검증 (authLevel >= minAuthLevel)
+
+    IDO_S->>QIM: [I] GET /api/v1/users/{qimUserId} (상태 확인)
+    QIM-->>IDO_S: {status: ACTIVE}
+
+    note over IDO_S: [J] Ticket 발급\nAES-256-GCM 암호화 (ticketId를 AAD로)\nHMAC-SHA256 서명 (ticketId+agencyCode+encrypted)
+    IDO_S->>DB: INSERT handoff_ticket (state=ISSUED, expiresAt=now+60s)
+    IDO_S->>KF: publishHandoffEvent(TYPE_HANDOFF_ISSUED)
+    IDO_S->>IDO_S: Strategy.postIssue() (BRIDGE/SSO/GATE 사전 처리)
+
+    IDO_C-->>FE: [K] {ticketId, encryptedPayload, signature, expiresAt}
+    FE-->>사용자: [L] ticketId를 기관 URL에 포함하여 이동
 ```
 
 ### 2.2 단계별 상세
@@ -308,47 +278,35 @@ FE: window.location.href = `https://기관서버/entry?ticketId=${ticketId}`
 
 ### 3.1 전체 흐름
 
-```
-기관 서버                 ido HandoffCtrl          HandoffServiceImpl        DB(Ticket)       Kafka
-    │                           │                         │                      │              │
-    │ [A] ticketId 수신          │                         │                      │              │
-    │ (FE에서 URL로 전달)         │                         │                      │              │
-    │                           │                         │                      │              │
-    │ [B] POST /api/v1/         │                         │                      │              │
-    │ handoff/verify            │                         │                      │              │
-    │ Headers:                  │                         │                      │              │
-    │  X-Agency-Code: AGENCY_001│                         │                      │              │
-    │  X-Agency-Key: {key}      │                         │                      │              │
-    │ Body: { "ticketId": "..." }│                         │                      │              │
-    │──────────────────────────>│                         │                      │              │
-    │                           │ [C] X-Agency-Code +     │                      │              │
-    │                           │ X-Agency-Key 검증       │                      │              │
-    │                           │─────────────────────────>                      │              │
-    │                           │                         │ [D] Ticket 조회      │              │
-    │                           │                         │─────────────────────>│              │
-    │                           │                         │ Ticket 반환          │              │
-    │                           │                         │<─────────────────────│              │
-    │                           │                         │ [E] 상태 검증        │              │
-    │                           │                         │ CONSUMED 여부        │              │
-    │                           │                         │ REVOKED 여부         │              │
-    │                           │                         │ 만료(expiresAt) 확인 │              │
-    │                           │                         │ agencyCode 일치 확인 │              │
-    │                           │                         │ [F] 1회 소비 처리    │              │
-    │                           │                         │ ticketRepository     │              │
-    │                           │                         │ .consume(ticketId)   │              │
-    │                           │                         │─────────────────────>│              │
-    │                           │                         │ [G] Kafka 이벤트     │              │
-    │                           │                         │──────────────────────────────────────>
-    │                           │                         │ [H] Payload 복호화   │              │
-    │                           │                         │ AES-GCM 복호화       │              │
-    │                           │                         │ DI 생성/조회         │              │
-    │                           │ 감사 로그               │                      │              │
-    │ {qimUserId, authLevel,    │                         │                      │              │
-    │  di, agencyCode, ...}     │                         │                      │              │
-    │<──────────────────────────│                         │                      │              │
-    │                           │                         │                      │              │
-    │ [I] 기관 세션 생성         │                         │                      │              │
-    │ 서비스 제공 시작           │                         │                      │              │
+```mermaid
+sequenceDiagram
+    participant AGC as 기관 서버
+    participant IDO_C as ido (HandoffController)
+    participant IDO_S as ido (HandoffServiceImpl)
+    participant DB as DB (handoff_ticket)
+    participant KF as Kafka
+    participant QIM as q-im (DI 조회)
+
+    AGC->>AGC: [A] ticketId 수신 (FE에서 URL로 전달)
+    AGC->>IDO_C: [B] POST /api/v1/handoff/verify\nX-Agency-Code: AGENCY_001\nX-Agency-Key: {key}\nBody: {ticketId}
+
+    note over IDO_C: [C] HandoffAgencyKeyInterceptor\nX-Agency-Code + X-Agency-Key 검증
+    IDO_C->>IDO_S: verify(ticketId, agencyCode)
+    IDO_S->>DB: [D] findById(ticketId)
+    DB-->>IDO_S: HandoffTicket
+
+    note over IDO_S: [E] 상태 검증:\nCONSUMED → Reuse 이벤트 발행 → 예외\nREVOKED → 예외\n만료(expiresAt) → 예외\nagencyCode 불일치 → 예외
+
+    IDO_S->>DB: [F] consume(ticketId)\nUPDATE state=CONSUMED, consumedAt=now
+    IDO_S->>KF: [G] publishHandoffEvent(TYPE_HANDOFF_CONSUMED)
+
+    note over IDO_S: [H] AES-GCM 복호화 (ticketId를 AAD로)\nDI 생성/조회 (Q-IM)
+    IDO_S->>QIM: GET /api/v1/internal/users/{qimUserId}/di?agencyCode=...
+    QIM-->>IDO_S: {di} (없으면 HMAC 기반 신규 생성)
+
+    IDO_S-->>IDO_C: HandoffPayload
+    IDO_C-->>AGC: {qimUserId, authLevel, di, agencyCode, authResultId, ...}
+    AGC-->>AGC: [I] 기관 세션 생성 → 서비스 제공 시작
 ```
 
 ### 3.2 단계별 상세
@@ -452,26 +410,25 @@ Headers:
 
 **파일**: `ido/src/main/java/kr/go/smes/ido/handoff/strategy/HandoffStrategyFactory.java`
 
-```
-DIRECT (기본):
-  - 기관이 직접 /verify API 호출
-  - postIssue(): 아무 작업 없음
-  - 흐름: FE → ticketId 전달 → 기관 서버 → verify 호출
+```mermaid
+graph TD
+    ISSUE([Ticket 발급 완료]) --> STRAT{integrationType}
 
-BRIDGE:
-  - 중간 Bridge 서버에 Payload 미리 푸시
-  - postIssue(): Bridge 서버에 HTTP POST (payload 사전 전송)
-  - 흐름: FE → Bridge URL 이동 → Bridge → 자체 처리
+    STRAT -->|DIRECT| D_POST["postIssue(): 아무 작업 없음"]
+    D_POST --> D_FLOW["FE → ticketId URL 파라미터 전달\n→ 기관 서버 → verify 호출"]
 
-INTERNAL_SSO:
-  - SSO 도메인 쿠키 세션 사전 등록
-  - postIssue(): SSO 세션 스토어에 미리 등록
-  - 흐름: FE → SSO URL 이동 → 쿠키로 자동 인증
+    STRAT -->|BRIDGE| B_POST["postIssue(): Bridge 서버에 HTTP POST\n(payload 사전 전송)"]
+    B_POST --> B_FLOW["FE → Bridge URL 이동\n→ Bridge 자체 처리"]
 
-APACHE_GATE:
-  - Apache Gateway 세션 헤더 사전 등록
-  - postIssue(): Gateway에 세션 헤더 미리 등록
-  - 흐름: FE → Gateway URL 이동 → 헤더로 자동 인증
+    STRAT -->|INTERNAL_SSO| S_POST["postIssue(): SSO 세션 스토어에 미리 등록"]
+    S_POST --> S_FLOW["FE → SSO URL 이동\n→ 쿠키로 자동 인증"]
+
+    STRAT -->|APACHE_GATE| G_POST["postIssue(): Gateway에 세션 헤더 미리 등록"]
+    G_POST --> G_FLOW["FE → Gateway URL 이동\n→ 헤더로 자동 인증"]
+
+    D_FLOW & B_FLOW & S_FLOW & G_FLOW --> FALLBACK{postIssue 실패?}
+    FALLBACK -->|YES| FALLBACK_D["Ticket DB 저장은 유지\nDIRECT 방식으로 폴백 가능"]
+    FALLBACK -->|NO| DONE([완료])
 ```
 
 **전략 실패 처리**: `postIssue` 실패해도 Ticket DB 저장은 유지됨.  

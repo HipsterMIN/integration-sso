@@ -1,10 +1,15 @@
 # 회원 수정 · 탈퇴 데이터 흐름 (A→Z 완전 추적)
 
 **문서 ID**: FLOW-2026-003  
-**버전**: v1.0  
+**버전**: v1.1  
 **작성일**: 2026-05-11  
+**최종 수정**: 2026-05-11  
 **작성자**: AI 분석 (GenSpark)  
 **대상 독자**: 개발팀, 운영팀, 보안팀
+
+> **변경 이력**
+> - v1.0 (2026-05-11): 최초 작성
+> - v1.1 (2026-05-11): ASCII 다이어그램 → Mermaid 변환, 탈퇴/수정/세션무효화 시퀀스 다이어그램 추가, 비밀번호 변경·소속기관 시퀀스 추가
 
 ---
 
@@ -45,19 +50,25 @@
   (동일 하위 구조)
 ```
 
-### 1.2 인증 요구사항
+### 1.2 인증 요구사항 및 세션 체크
 
-마이페이지 라우트는 `isPrivate: true` — `feSessionId` 쿠키 필수.  
-세션 없으면 `/unauthorized` 페이지로 리다이렉트.
+마이페이지 라우트는 `isPrivate: true` — `feSessionId` 쿠키 필수.
 
-### 1.3 세션 체크 흐름
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE
+    participant IDO as ido
 
-```
-FE 마이페이지 진입
-  ↓
-GET /api/v1/fe-session/check (withCredentials: true)
-  → 200: 세션 유효 → 마이페이지 표시
-  → 401: 세션 없음/만료 → /login으로 리다이렉트
+    사용자->>FE: 마이페이지 진입
+    FE->>IDO: GET /api/v1/fe-session/check (withCredentials: true)
+    alt 세션 유효
+        IDO-->>FE: 200 OK {qimUserId, authLevel, ...}
+        FE-->>사용자: 마이페이지 표시
+    else 세션 없음/만료
+        IDO-->>FE: 401 Unauthorized
+        FE-->>사용자: /login으로 리다이렉트
+    end
 ```
 
 **API 파일**: `onepass-fe/frontend/src/api/feSession.ts`
@@ -68,67 +79,49 @@ GET /api/v1/fe-session/check (withCredentials: true)
 
 ### 2.1 정보 조회 (Information.tsx)
 
-```
-[A] 사용자 마이페이지 접속
-    FE: feSessionId 쿠키 자동 포함
-
-[B] 회원 정보 표시 (useInfoStore 훅)
-    FE: 레거시 외부 API 또는 provision API 호출
-    표시 정보:
-      - 아이디 (수정 불가)
-      - 이름 (수정 불가)
-      - 휴대전화번호 (수정 가능)
-      - 이메일 (수정 가능)
-    ※ 알림 수신 설정은 현재 주석 처리됨 (미구현)
-
-[C] 사용자 [정보변경] 클릭
-    FE: history.push('/mypage/member/information/step2')
-```
-
-**현재 상태**: `Information.tsx`의 모든 입력 필드가 `disabled` / `readOnly` 상태.  
+현재 `Information.tsx`의 모든 입력 필드가 `disabled` / `readOnly` 상태.  
 조회 전용으로만 동작 중. 수정은 Step2에서 진행.
 
-### 2.2 정보 수정 흐름 (InformationStep2 → Step3)
+표시 정보:
+- 아이디 (수정 불가)
+- 이름 (수정 불가)
+- 휴대전화번호 (수정 가능 → Step2)
+- 이메일 (수정 가능 → Step2)
 
+### 2.2 정보 수정 시퀀스
+
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE (React)
+    participant IDO as ido :8083
+    participant NICE as NICE / OACX
+    participant QIM as q-im :8082
+    participant KF as Kafka (Outbox)
+
+    사용자->>FE: [A] 마이페이지 → [정보변경] 클릭
+    FE->>FE: [B] /mypage/member/information/step2 이동
+
+    note over FE: [Step2] 재인증 — 새 번호 확인
+    FE->>IDO: NICE 또는 OACX 본인인증 흐름 수행
+    IDO->>NICE: 인증 API 호출
+    NICE-->>IDO: 인증 결과 (CI 포함)
+    IDO-->>FE: {name, phone, ...} CI 미포함
+
+    FE->>FE: [C] /mypage/member/information/step3 이동
+    note over FE: [Step3] 변경 정보 입력<br/>(휴대전화번호, 이메일, 알림 수신 설정)
+
+    FE->>IDO: [D] PATCH /api/v1/provision/users/{qimUserId}<br/>{phone, email, notifications}
+    note over IDO: feSessionId 세션 검증<br/>⚠️ Q-IM 직접 프로필 수정 API 미구현
+    IDO->>QIM: PATCH /api/v1/internal/users/{qimUserId}/profile
+    note over QIM: UPDATE user_profile SET mobile_masked=?<br/>INSERT user_status_history (PROFILE_UPDATED)<br/>INSERT outbox (UserEvent TYPE_UPDATED)
+    QIM->>KF: Outbox → Kafka Relay
+    QIM-->>IDO: 200 OK
+    IDO-->>FE: 수정 완료
+    FE-->>사용자: [E] Information 페이지로 이동 (갱신된 정보)
 ```
-[A] Step2 진입 — 본인인증 (재인증)
-    본인인증 방법:
-      - NICE 휴대폰 인증 (새 번호 확인)
-      - OACX 간편인증서
 
-[B] 본인인증 완료
-    → 인증 토큰/CI 임시 보관
-
-[C] Step3 — 변경 정보 입력
-    변경 가능 항목:
-      - 휴대전화번호
-      - 이메일
-      - 알림 수신 설정
-
-[D] FE → 외부 API (레거시 SMEP 연동):
-    PATCH /api/v1/ext/members/{memberId}
-    or
-    PUT /api/v1/provision/users/{qimUserId}
-    Body:
-    {
-      "phone": "010-1234-5678",
-      "email": "user@example.com",
-      "ci": "...",     ← 재인증된 CI (서버에서만 처리)
-      "notifications": { "sms": true, "email": false }
-    }
-
-[E] 백엔드 처리:
-    1. feSessionId 세션 검증
-    2. Q-IM: PATCH /api/v1/internal/users/{qimUserId}/status
-       또는 전용 프로필 업데이트 API (현재 미구현)
-    3. Outbox: UserEvent(TYPE_UPDATED) 적재
-    4. FeSession advisory flag 갱신 (필요 시)
-
-[F] 수정 완료
-    → Information 페이지로 이동 (갱신된 정보 표시)
-```
-
-> ⚠️ **현재 상태**: Q-IM 직접 프로필 수정 API (`PATCH /api/v1/internal/users/{id}/profile`)가 미구현.  
+> ⚠️ **현재 상태**: Q-IM 직접 프로필 수정 API(`PATCH /api/v1/internal/users/{id}/profile`)가 미구현.  
 > `UserController`에는 상태 변경(`/status`)만 있음. 이름/전화번호/이메일 변경 API 추가 필요.
 
 ### 2.3 수정 시 Q-IM DB 변경
@@ -136,7 +129,7 @@ GET /api/v1/fe-session/check (withCredentials: true)
 ```sql
 -- Q-IM user_profile 업데이트 (현재 미구현, 향후 추가 필요)
 UPDATE user_profile
-SET mobile_masked = ?,   -- "010****5678"
+SET mobile_masked = ?,
     updated_at = NOW(6)
 WHERE qim_user_id = ?;
 
@@ -154,57 +147,7 @@ VALUES ('USER_UPDATED', '{"qimUserId":"...","reason":"PROFILE_UPDATED"}', NOW(6)
 
 ## 3. 회원 탈퇴 흐름 (A→Z)
 
-### 3.1 전체 흐름
-
-```
-사용자      FE(React)          ido(8083)           q-im(8082)          Kafka
-  │             │                  │                   │                   │
-  │ [A] 탈퇴    │                  │                   │                   │
-  │ 메뉴 클릭   │                  │                   │                   │
-  │────────────>│                  │                   │                   │
-  │             │ [B] Withdraw.tsx │                   │                   │
-  │             │ 탈퇴 안내 + 보관│                   │                   │
-  │             │ 정보 표시        │                   │                   │
-  │             │                  │                   │                   │
-  │ [C] 다음    │                  │                   │                   │
-  │ 클릭        │                  │                   │                   │
-  │────────────>│                  │                   │                   │
-  │             │ [D] "서비스 준비 │                   │                   │
-  │             │ 중" 모달 표시    │                   │                   │
-  │             │ (개발 중)        │                   │                   │
-  │             │                  │                   │                   │
-  │   ┌──── 향후 구현 예정 ────────────────────────────────────────────────┐
-  │   │         │                  │                   │                   │
-  │   │         │ [E-미래] Step2   │                   │                   │
-  │   │         │ 본인인증 (재확인)│                   │                   │
-  │   │         │                  │                   │                   │
-  │   │         │ [F-미래] 탈퇴    │                   │                   │
-  │   │         │ 사유 입력        │                   │                   │
-  │   │         │                  │                   │                   │
-  │   │         │ [G-미래] 최종    │                   │                   │
-  │   │         │ 확인             │                   │                   │
-  │   │         │                  │                   │                   │
-  │   │         │ [H-미래] DELETE  │                   │                   │
-  │   │         │ /api/v1/internal/│                   │                   │
-  │   │         │ users/{qimUserId}│                   │                   │
-  │   │         │─────────────────────────────────────>│                   │
-  │   │         │                  │                   │ [I-미래]          │
-  │   │         │                  │                   │ 탈퇴 처리:        │
-  │   │         │                  │                   │ status=WITHDRAWN  │
-  │   │         │                  │                   │ withdrawnAt=now() │
-  │   │         │                  │                   │ PII 즉시 삭제     │
-  │   │         │                  │                   │ Outbox 적재       │
-  │   │         │                  │                   │─────────────────>│
-  │   │         │ [J-미래] FE 세션 │                   │                   │
-  │   │         │ 일괄 무효화      │                   │                   │
-  │   │         │ SLO 처리         │                   │                   │
-  │   │         │                  │                   │                   │
-  │   │         │ [K-미래] 탈퇴    │                   │                   │
-  │   │         │ 완료 페이지      │                   │                   │
-  │   └──────────────────────────────────────────────────────────────────┘
-```
-
-### 3.2 현재 구현 상태 (Withdraw.tsx)
+### 3.1 현재 구현 상태
 
 ```typescript
 // Withdraw.tsx — 현재 "다음" 버튼은 "서비스 준비 중" 모달만 표시
@@ -212,25 +155,56 @@ VALUES ('USER_UPDATED', '{"qimUserId":"...","reason":"PROFILE_UPDATED"}', NOW(6)
   onClick={(): void => setDevNoticeModal(true)}>
   <span>다음</span>
 </button>
-
 // TODO: API 배포 후 복원 — goNext 로 다음 단계 이동
-// const nextRoute = getMypageRoute(memberType, 'WITHDRAW_STEP2');
 ```
 
 **현재 탈퇴 기능 완전 미구현** — "서비스 준비 중" 모달만 표시됨.
+
+### 3.2 전체 탈퇴 시퀀스 (현재 + 향후)
+
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE
+    participant IDO as ido (/slo + /mypage)
+    participant QIM as q-im
+    participant KC as Keycloak
+    participant RDS as Redis
+    participant KF as Kafka (Outbox)
+
+    사용자->>FE: [A] 마이페이지 → 탈퇴 메뉴 클릭
+    FE-->>사용자: [B] 탈퇴 안내 + 보관 정보 표시 (Withdraw.tsx)
+    사용자->>FE: [C] 다음 클릭
+    note over FE: ⚠️ 현재: "서비스 준비 중" 모달만 표시<br/>향후: WithdrawStep2로 이동
+
+    rect rgb(240, 248, 255)
+        note over FE,KF: 향후 구현 예정
+        FE->>IDO: [D] Step2 — 재인증 (본인 확인)
+        FE->>IDO: [E] 탈퇴 사유 입력 후 최종 확인
+        FE->>IDO: [F] DELETE /api/v1/internal/users/{qimUserId}?reason=USER_REQUEST
+        IDO->>QIM: DELETE /api/v1/internal/users/{qimUserId}
+        note over QIM: @Transactional {<br/>  status = WITHDRAWN<br/>  withdrawnAt = now<br/>  PII NULL (name, mobile, ci, di_map)<br/>  user_status_history INSERT<br/>  outbox INSERT (TYPE_WITHDRAWN)<br/>}
+        QIM->>KF: Outbox → Kafka Relay (USER_WITHDRAWN)
+        QIM-->>IDO: 200 OK
+
+        IDO->>RDS: [G] DEL fe:session:{feSessionId} (모든 세션)<br/>DEL fe:user-sessions:{qimUserId}
+        IDO->>KC: [H] Keycloak 세션 종료 (Back-channel logout)
+        IDO->>KF: [I] 기관 탈퇴 Webhook Outbox 적재
+
+        IDO-->>FE: 200 OK<br/>Set-Cookie: feSessionId=; Max-Age=0
+        FE-->>사용자: [J] 탈퇴 완료 페이지 → 로그인 페이지 이동
+    end
+```
 
 ### 3.3 향후 구현 시 탈퇴 처리 상세 (Q-IM 기준)
 
 **파일**: `q-im/src/main/java/kr/go/smes/qim/user/UserRegistrationServiceImpl.java`
 
 ```java
-// UserRegistrationServiceImpl.withdraw()
 @Transactional
 public void withdraw(String qimUserId, String reason) {
-    
     // 1. 상태 변경
     QimUserJpaEntity user = userRepository.findById(qimUserId).orElseThrow(...);
-    String oldStatus = user.getStatus();
     user.setStatus("WITHDRAWN");
     user.setWithdrawnAt(Instant.now());
     user.setWithdrawalReason(reason);
@@ -264,42 +238,7 @@ public void withdraw(String qimUserId, String reason) {
 }
 ```
 
-### 3.4 탈퇴 처리 시 전체 데이터 흐름
-
-```
-탈퇴 요청 수신 (ido)
-  ↓
-1. feSessionId 세션 검증
-2. 재인증 확인 (본인 확인)
-  ↓
-Q-IM: DELETE /api/v1/internal/users/{qimUserId}?reason=USER_REQUEST
-  ↓
-q-im: @Transactional {
-    status = WITHDRAWN
-    withdrawnAt = now
-    PII NULL 처리 (name_masked, mobile_masked, ci, di_map)
-    user_status_history INSERT
-    outbox INSERT (UserEvent TYPE_WITHDRAWN)
-}
-  ↓
-ido: FE 세션 일괄 무효화
-  FeSessionService.invalidateByQimUserId(qimUserId, "USER_WITHDRAWAL")
-  → Redis: fe:session:* 삭제
-  → Redis: fe:user-sessions:{qimUserId} 삭제
-  ↓
-ido: SLO 처리 (Keycloak 세션 종료)
-  ↓
-ido: 기관 탈퇴 Webhook Outbox 적재
-  → Relay가 등록된 기관 Webhook URL에 POST
-  ↓
-FE: feSessionId 쿠키 삭제 (Set-Cookie: Max-Age=0)
-탈퇴 완료 페이지 표시
-  ↓
-Kafka Relay: qim.user.events에 TYPE_WITHDRAWN 이벤트 발행
-  → 구독 서비스들이 탈퇴 처리 (e.g., 기관 회원 연동 해제)
-```
-
-### 3.5 탈퇴 후 데이터 보존 정책
+### 3.4 탈퇴 후 데이터 보존 정책
 
 | 데이터 | 처리 | 보존 기간 |
 |---|---|---|
@@ -322,38 +261,32 @@ Kafka Relay: qim.user.events에 TYPE_WITHDRAWN 이벤트 발행
 
 **파일**: `onepass-fe/frontend/src/pages/Mypage/pages/PasswordStep1.tsx`
 
-```
-[A] 마이페이지 → 비밀번호 변경 클릭
-    → /mypage/member/password/step1
+### 4.1 비밀번호 변경 시퀀스
 
-[B] PasswordStep1 — 현재 비밀번호 + 새 비밀번호 입력
-    유효성 검사:
-      - 현재 비밀번호 확인
-      - 새 비밀번호: 8자 이상, 영문+숫자+특수문자 조합
-      - 새 비밀번호 확인 일치
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE (PasswordStep1.tsx)
+    participant IDO as ido (BFF)
+    participant KC as Keycloak
 
-[C] FE → Keycloak 비밀번호 변경 API
-    (Keycloak Account REST API 또는 SMEP 레거시 API 경유)
-    
-    경로 1 (Keycloak 직접):
-      PUT https://keycloak/realms/sso/account/credentials/password
-      Authorization: Bearer {access_token}
-      Body: { currentPassword, newPassword }
-    
-    경로 2 (ido BFF):
-      PUT /api/v1/mypage/password
-      feSessionId 쿠키 포함
-      Body: { currentPassword, newPassword }
-      ido → Keycloak Admin API 호출
+    사용자->>FE: [A] 마이페이지 → 비밀번호 변경 클릭
+    FE->>FE: /mypage/member/password/step1 이동
 
-[D] 변경 성공 시:
-    - FE 세션 일괄 무효화 (보안 강화)
-      FeSessionService.invalidateByQimUserId(qimUserId, "PASSWORD_CHANGED")
-    - 현재 세션 재발급 (재로그인 없이 유지)
-    - Advisory 플래그 해제
+    note over FE: [B] 유효성 검사<br/>- 현재 비밀번호 확인<br/>- 새 비밀번호: 8자↑, 영문+숫자+특수문자<br/>- 새 비밀번호 확인 일치
 
-[E] 완료 → 로그인 페이지로 이동 (재로그인 필요)
-    또는 세션 유지 후 마이페이지 유지 (정책 결정 필요)
+    alt 경로 1 — Keycloak 직접 호출
+        FE->>KC: PUT /realms/sso/account/credentials/password<br/>Authorization: Bearer {access_token}<br/>{currentPassword, newPassword}
+    else 경로 2 — ido BFF 경유
+        FE->>IDO: PUT /api/v1/mypage/password<br/>feSessionId 쿠키 포함<br/>{currentPassword, newPassword}
+        IDO->>KC: Keycloak Admin API 호출
+        KC-->>IDO: 200 OK
+        IDO-->>FE: 200 OK
+    end
+
+    note over IDO: [C] 변경 성공 시:<br/>FeSessionService.invalidateByQimUserId()<br/>→ 모든 기존 세션 무효화 (보안 강화)
+
+    FE-->>사용자: [D] 재로그인 안내 → 로그인 페이지 이동
 ```
 
 > ⚠️ **현재 상태**: `PasswordStep1.tsx` 존재하나 구체적인 API 연동 구현 여부 확인 필요.  
@@ -363,57 +296,40 @@ Kafka Relay: qim.user.events에 TYPE_WITHDRAWN 이벤트 발행
 
 ## 5. 소속 기관 관리 흐름 (A→Z)
 
-### 5.1 소속 기관 목록 조회
+### 5.1 소속 기관 조회 / 추가 / 탈퇴 시퀀스
 
-```
-[A] 마이페이지 → 소속 기관 클릭
-    → /mypage/member/affiliation
+```mermaid
+sequenceDiagram
+    actor 사용자
+    participant FE as FE
+    participant IDO as ido
 
-[B] FE → API 호출
-    GET /api/v1/provision/affiliations
-    또는
-    GET /api/v1/ext/affiliations
-    feSessionId 쿠키 포함
+    사용자->>FE: 마이페이지 → 소속 기관 클릭
 
-[C] 현재 소속 기관 목록 표시
-    { agencyCode, agencyName, status, linkedAt }[]
-```
+    %% 목록 조회
+    FE->>IDO: GET /api/v1/provision/affiliations (feSessionId 쿠키)
+    IDO-->>FE: [{agencyCode, agencyName, status, linkedAt}, ...]
+    FE-->>사용자: 소속 기관 목록 표시
 
-### 5.2 소속 기관 추가
+    %% 기관 추가
+    alt 기관 추가
+        사용자->>FE: [기관 추가] 클릭 → AffiliationAddStep1
+        FE-->>사용자: 기관 검색 (기관명/기관코드)
+        사용자->>FE: 기관 선택 → AffiliationAddStep2
+        FE->>IDO: POST /api/v1/provision/affiliations {agencyCode}
+        note over IDO: 기관 유효성 검증 (AgencyMetaRepository)<br/>중복 소속 확인<br/>소속 관계 생성
+        IDO-->>FE: 201 Created
+    end
 
-```
-[A] [기관 추가] 클릭 → AffiliationAddStep1
-    → 기관 검색 (기관명/기관코드)
-
-[B] 기관 선택 → AffiliationAddStep2
-    → 추가 확인
-
-[C] FE → API
-    POST /api/v1/provision/affiliations
-    Body: { agencyCode }
-    
-    처리:
-    - 기관 유효성 검증 (AgencyMetaRepository)
-    - 중복 소속 확인
-    - 소속 관계 생성
-```
-
-### 5.3 소속 기관 탈퇴
-
-```
-[A] 기관 탈퇴 클릭 → AffiliationWithdrawStep1
-    → 탈퇴 안내 표시
-
-[B] 확인 → AffiliationWithdrawStep2
-    → 탈퇴 사유 입력
-
-[C] FE → API
-    DELETE /api/v1/provision/affiliations/{agencyCode}
-    
-    처리:
-    - 소속 관계 삭제
-    - 해당 기관 Webhook 알림 (탈퇴 이벤트)
-    - Kafka 이벤트 발행
+    %% 기관 탈퇴
+    alt 기관 탈퇴
+        사용자->>FE: 기관 탈퇴 클릭 → AffiliationWithdrawStep1
+        FE-->>사용자: 탈퇴 안내 표시
+        사용자->>FE: 탈퇴 사유 입력 → AffiliationWithdrawStep2
+        FE->>IDO: DELETE /api/v1/provision/affiliations/{agencyCode}
+        note over IDO: 소속 관계 삭제<br/>기관 Webhook 알림<br/>Kafka 이벤트 발행
+        IDO-->>FE: 204 No Content
+    end
 ```
 
 ---
@@ -471,22 +387,35 @@ Kafka Relay: qim.user.events에 TYPE_WITHDRAWN 이벤트 발행
 
 ## 8. 세션 무효화 처리
 
-### 탈퇴/보안 이벤트 시 세션 처리
+### 8.1 탈퇴/보안 이벤트 시 강제 무효화 시퀀스
+
+```mermaid
+sequenceDiagram
+    participant TRIGGER as 트리거 (탈퇴·정지·비밀번호변경)
+    participant IDO as ido (FeSessionServiceImpl)
+    participant RDS as Redis
+
+    TRIGGER->>IDO: invalidateByQimUserId(qimUserId, reason)
+    IDO->>RDS: SMEMBERS fe:user-sessions:{qimUserId}
+    RDS-->>IDO: [feSessionId1, feSessionId2, ...]
+    loop 각 세션
+        IDO->>RDS: DEL fe:session:{feSessionId}
+    end
+    IDO->>RDS: DEL fe:user-sessions:{qimUserId}
+    note over IDO: warn 로그: MANDATORY 일괄 무효화<br/>qimUserId={} count={} reason={}
+```
+
+### 8.2 세션 무효화 코드
 
 ```java
 // FeSessionServiceImpl.invalidateByQimUserId()
 void invalidateByQimUserId(String qimUserId, String reason) {
-    
-    // 1. 사용자의 모든 세션 ID 조회
     Set<Object> sessionIds = redisTemplate.opsForSet()
         .members("fe:user-sessions:" + qimUserId);
     
-    // 2. 각 세션 삭제
     for (Object sid : sessionIds) {
         redisTemplate.delete("fe:session:" + sid);
     }
-    
-    // 3. 역인덱스 삭제
     redisTemplate.delete("fe:user-sessions:" + qimUserId);
     
     log.warn("[FeSession] MANDATORY 일괄 무효화 qimUserId={} count={} reason={}",
@@ -494,7 +423,7 @@ void invalidateByQimUserId(String qimUserId, String reason) {
 }
 ```
 
-### Advisory 플래그 설정 (소프트 경고)
+### 8.3 Advisory 플래그 (소프트 경고)
 
 비밀번호 변경 권고, 의심 활동 감지 등 즉각 강제 로그아웃이 아닌 경우:
 
@@ -536,7 +465,8 @@ void markAdvisoryFlag(String qimUserId, String reason) {
 | 탈퇴 시 identifierHash 유지 | 중 | 재가입 방지 목적이나 정책 문서화 필요 |
 | PII 삭제 감사 로그 부재 | 중 | GDPR 준수 증명을 위한 감사 로그 필요 |
 | 탈퇴 후 기관 세션 연동 해제 | 고 | Webhook 실패 시 재시도 메커니즘 필요 |
+| HMAC 비교 타이밍 공격 | 중 | `String.equals()` → `MessageDigest.isEqual()` 교체 권고 |
 
 ---
 
-*문서 끝 — FLOW-2026-003 v1.0*
+*문서 끝 — FLOW-2026-003 v1.1*
