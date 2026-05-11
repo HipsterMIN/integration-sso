@@ -2,7 +2,13 @@ import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
 import extInstance from 'api/extInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
-import type { AffiliationsResponse, EnterpriseResponse, MemberResponse } from 'types/api/ext/members';
+import type {
+	AffiliationsResponse,
+	EnterpriseResponse,
+	MemberResponse,
+	UpdateMemberRequest,
+	UpdateEnterpriseRequest,
+} from 'types/api/ext/members';
 
 /** 개인회원 조회 (§5.1) */
 export const getMember = async (
@@ -61,6 +67,42 @@ export const getEnterprise = async (
 ): Promise<SuccessResponse<EnterpriseResponse> | ErrorResponse> => {
 	try {
 		const response = await extInstance.get(`/api/ext/enterprises/${entMbrNo}`);
+		return {
+			statusCode: 200,
+			error: null,
+			message: 'success',
+			payload: response.data,
+		};
+	} catch (error) {
+		return ErrorResponseHandler(error as AxiosError);
+	}
+};
+
+/** 개인회원 정보 수정 (§5.3 PATCH /api/ext/members/{mbrNo}) */
+export const updateMember = async (
+	mbrNo: string,
+	body: UpdateMemberRequest,
+): Promise<SuccessResponse<MemberResponse> | ErrorResponse> => {
+	try {
+		const response = await extInstance.patch(`/api/ext/members/${mbrNo}`, body);
+		return {
+			statusCode: 200,
+			error: null,
+			message: 'success',
+			payload: response.data,
+		};
+	} catch (error) {
+		return ErrorResponseHandler(error as AxiosError);
+	}
+};
+
+/** 기업회원 정보 수정 (§5.4 PATCH /api/ext/enterprises/{entMbrNo}) */
+export const updateEnterprise = async (
+	entMbrNo: string,
+	body: UpdateEnterpriseRequest,
+): Promise<SuccessResponse<EnterpriseResponse> | ErrorResponse> => {
+	try {
+		const response = await extInstance.patch(`/api/ext/enterprises/${entMbrNo}`, body);
 		return {
 			statusCode: 200,
 			error: null,

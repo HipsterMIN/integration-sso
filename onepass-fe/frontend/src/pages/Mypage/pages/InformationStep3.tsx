@@ -4,6 +4,7 @@ import { useMypageType } from 'components/MypageLayout';
 import IMAGES from 'constants/images';
 import history from 'lib/history';
 import { ChangeEvent, FormEvent, useRef, useState } from 'react';
+import { updateEnterprise, updateMember } from 'api/ext/members';
 
 import { getMypageRoute } from './routes';
 import { useInfoStore } from './useInfoStore';
@@ -90,10 +91,11 @@ interface FormProps {
 	formRef: React.RefObject<HTMLFormElement>;
 	onSubmit: () => void;
 	onPrev: () => void;
+	isSubmitting: boolean;
 }
 
 // PUB260507 mypage_information_step3.html — 기본 정보(편집) + 알림 수신 + 이전/다음
-function BusinessForm({ formRef, onSubmit, onPrev }: FormProps): JSX.Element {
+function BusinessForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): JSX.Element {
 	const { business } = useInfoStore();
 	const telCombined = `${business.tel2}${business.tel3}`;
 
@@ -256,12 +258,12 @@ function BusinessForm({ formRef, onSubmit, onPrev }: FormProps): JSX.Element {
 					</div>
 				</div> */}
 				<div className="btn-box" role="group" aria-label="페이지 이동">
-					<button type="button" className="btn white prev" onClick={onPrev}>
+					<button type="button" className="btn white prev" onClick={onPrev} disabled={isSubmitting}>
 						<span>이전</span>
 						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
 					</button>
-					<button type="button" className="btn point" onClick={onSubmit}>
-						<span>다음</span>
+					<button type="button" className="btn point" onClick={onSubmit} disabled={isSubmitting}>
+						<span>{isSubmitting ? '저장 중...' : '저장'}</span>
 						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
 					</button>
 				</div>
@@ -271,7 +273,7 @@ function BusinessForm({ formRef, onSubmit, onPrev }: FormProps): JSX.Element {
 }
 
 // PUB260507 business step3 패턴 차용 — 기본 정보(편집) + 알림 수신 + 이전/다음
-function MemberForm({ formRef, onSubmit, onPrev }: FormProps): JSX.Element {
+function MemberForm({ formRef, onSubmit, onPrev, isSubmitting }: FormProps): JSX.Element {
 	const { member } = useInfoStore();
 	const phoneCombined = `${member.phone2}${member.phone3}`;
 
@@ -409,12 +411,12 @@ function MemberForm({ formRef, onSubmit, onPrev }: FormProps): JSX.Element {
 					</div>
 				</div> */}
 				<div className="btn-box" role="group" aria-label="페이지 이동">
-					<button type="button" className="btn white prev" onClick={onPrev}>
+					<button type="button" className="btn white prev" onClick={onPrev} disabled={isSubmitting}>
 						<span>이전</span>
 						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
 					</button>
-					<button type="button" className="btn point" onClick={onSubmit}>
-						<span>다음</span>
+					<button type="button" className="btn point" onClick={onSubmit} disabled={isSubmitting}>
+						<span>{isSubmitting ? '저장 중...' : '저장'}</span>
 						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
 					</button>
 				</div>
@@ -423,15 +425,137 @@ function MemberForm({ formRef, onSubmit, onPrev }: FormProps): JSX.Element {
 	);
 }
 
+/** FormData → 전화번호 조합 ("010" + "12345678" → "010-1234-5678") */
+function buildPhoneNumber(prefix: string, rest: string): string | undefined {
+	const p = prefix.trim();
+	const r = rest.trim().replace(/-/g, '');
+	if (!p || !r) return undefined;
+	// 뒷자리 길이에 따라 분리 (7자리: 3+4, 8자리: 4+4)
+	const mid = r.length > 7 ? r.slice(0, 4) : r.slice(0, 3);
+	const last = r.slice(mid.length);
+	return last ? `${p}-${mid}-${last}` : undefined;
+}
+
+/** FormData → 이메일 조합 ("user" + "example.com" → "user@example.com") */
+function buildEmail(local: string, domain: string): string | undefined {
+	const l = local.trim();
+	const d = domain.trim();
+	if (!l || !d) return undefined;
+	return `${l}@${d}`;
+}
+
 function InformationStep3(): JSX.Element {
 	const memberType = useMypageType();
 	const isBusiness = memberType === 'business';
-	const [devNoticeModal, setDevNoticeModal] = useState(false);
+	const { member, business, updateMember: updateMemberStore, updateBusiness } = useInfoStore();
+
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [errorModal, setErrorModal] = useState<{ open: boolean; message: string }>({
+		open: false,
+		message: '',
+	});
+
 	const prevRoute = getMypageRoute(memberType, 'INFORMATION_STEP2');
+	const infoRoute = getMypageRoute(memberType, 'INFORMATION');
 	const formRef = useRef<HTMLFormElement>(null);
 
-	const handleSubmit = (): void => {
-		setDevNoticeModal(true);
+	const handleSubmit = async (): Promise<void> => {
+		if (isSubmitting || !formRef.current) return;
+
+		const fd = new FormData(formRef.current);
+		const get = (name: string): string => (fd.get(name) as string | null)?.trim() ?? '';
+
+		setIsSubmitting(true);
+		try {
+			if (isBusiness) {
+				// 기업회원 — §5.4 PATCH /api/ext/enterprises/{entMbrNo}
+				const bzmnNm = get('company_name');
+				const rprsvNm = get('name');
+				if (!bzmnNm || !rprsvNm) {
+					setErrorModal({ open: true, message: '회사명과 대표자명은 필수 항목입니다.' });
+					return;
+				}
+
+				const email = buildEmail(get('email1'), get('email2'));
+				const rprsTelno = buildPhoneNumber(get('tel1'), get('tel2'));
+
+				const result = await updateEnterprise(business.entMbrNo, {
+					bzmnNm,
+					rprsvNm,
+					...(email && { email }),
+					...(rprsTelno && { rprsTelno }),
+				});
+
+				if (result.error !== null) {
+					setErrorModal({
+						open: true,
+						message: result.message || '회원정보 수정에 실패했습니다. 다시 시도해 주세요.',
+					});
+					return;
+				}
+
+				// Context 업데이트 (낙관적 반영)
+				updateBusiness({
+					company_name: bzmnNm,
+					name: rprsvNm,
+					...(email && {
+						email1: email.split('@')[0] ?? '',
+						email2: email.split('@')[1] ?? '',
+					}),
+					...(rprsTelno && ((): object => {
+						const parts = rprsTelno.split('-');
+						return { tel1: parts[0] ?? '', tel2: parts[1] ?? '', tel3: parts[2] ?? '' };
+					})()),
+				});
+			} else {
+				// 개인회원 — §5.3 PATCH /api/ext/members/{mbrNo}
+				const memberName = get('name');
+				if (!memberName) {
+					setErrorModal({ open: true, message: '이름은 필수 항목입니다.' });
+					return;
+				}
+
+				const email = buildEmail(get('email1'), get('email2'));
+				const phone = buildPhoneNumber(get('phone1'), get('phone2'));
+
+				const result = await updateMember(member.mbrNo, {
+					memberName,
+					...(email && { email }),
+					...(phone && { phone }),
+				});
+
+				if (result.error !== null) {
+					setErrorModal({
+						open: true,
+						message: result.message || '회원정보 수정에 실패했습니다. 다시 시도해 주세요.',
+					});
+					return;
+				}
+
+				// Context 업데이트 (낙관적 반영)
+				updateMemberStore({
+					name: memberName,
+					...(email && {
+						email1: email.split('@')[0] ?? '',
+						email2: email.split('@')[1] ?? '',
+					}),
+					...(phone && ((): object => {
+						const parts = phone.split('-');
+						return { phone1: parts[0] ?? '', phone2: parts[1] ?? '', phone3: parts[2] ?? '' };
+					})()),
+				});
+			}
+
+			// 성공 → 나의 정보 페이지로 이동
+			history.push(infoRoute);
+		} catch {
+			setErrorModal({
+				open: true,
+				message: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
 	const handlePrev = (): void => history.push(prevRoute);
@@ -439,27 +563,38 @@ function InformationStep3(): JSX.Element {
 	return (
 		<MypageContent>
 			{isBusiness ? (
-				<BusinessForm formRef={formRef} onSubmit={handleSubmit} onPrev={handlePrev} />
+				<BusinessForm
+					formRef={formRef}
+					onSubmit={(): void => { void handleSubmit(); }}
+					onPrev={handlePrev}
+					isSubmitting={isSubmitting}
+				/>
 			) : (
-				<MemberForm formRef={formRef} onSubmit={handleSubmit} onPrev={handlePrev} />
+				<MemberForm
+					formRef={formRef}
+					onSubmit={(): void => { void handleSubmit(); }}
+					onPrev={handlePrev}
+					isSubmitting={isSubmitting}
+				/>
 			)}
 
+			{/* 오류 모달 */}
 			<Modal
-				id="modal_dev_notice"
-				isOpen={devNoticeModal}
-				onClose={(): void => setDevNoticeModal(false)}
-				topText="안내"
-				title="API 연동 구현 중"
+				id="modal_update_error"
+				isOpen={errorModal.open}
+				onClose={(): void => setErrorModal({ open: false, message: '' })}
+				topText="오류"
+				title="회원정보 수정 실패"
 				size="small"
 				buttons={[
 					{
 						label: '확인',
 						variant: 'primary',
-						onClick: (): void => setDevNoticeModal(false),
+						onClick: (): void => setErrorModal({ open: false, message: '' }),
 					},
 				]}
 			>
-				<p>현재 회원정보 수정 API 연동 개발 중입니다.</p>
+				<p>{errorModal.message}</p>
 			</Modal>
 		</MypageContent>
 	);
