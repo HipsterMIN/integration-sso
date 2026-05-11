@@ -191,7 +191,7 @@ sequenceDiagram
         IDO->>KC: [H] Keycloak 세션 종료 (Back-channel logout)
         IDO->>KF: [I] 기관 탈퇴 Webhook Outbox 적재
 
-        IDO-->>FE: 200 OK<br/>Set-Cookie: feSessionId=; Max-Age=0
+        IDO-->>FE: 200 OK<br/>Set-Cookie: feSessionId=&#59; Max-Age=0
         FE-->>사용자: [J] 탈퇴 완료 페이지 → 로그인 페이지 이동
     end
 ```
