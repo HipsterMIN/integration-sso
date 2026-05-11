@@ -55,8 +55,16 @@ public class AuditLogPublisher {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper                  objectMapper;
 
-    @Value("${ido.audit.kafka-publish-enabled:true}")
+    // F-03: Kafka 발행 On/Off (IDO_AUDIT_KAFKA_ENABLED)
+    // false → Kafka 없는 환경에서 연결 오류 없음, 재처리 스케줄러도 건너뜀
+    @Value("${ido.audit.kafka-publish-enabled:${IDO_AUDIT_KAFKA_ENABLED:true}}")
     private boolean kafkaPublishEnabled;
+
+    // F-04: DB 저장 On/Off (IDO_AUDIT_DB_ENABLED)
+    // false → ido.audit_log 테이블 없는 환경에서도 오류 없음
+    // ⚠️ 운영에서 false 금지 — 컴플라이언스(개인정보보호법) 위반 가능
+    @Value("${ido.audit.db-save-enabled:${IDO_AUDIT_DB_ENABLED:true}}")
+    private boolean dbSaveEnabled;
 
     // ── 공개 API ───────────────────────────────────────────────────────────
 
@@ -67,13 +75,24 @@ public class AuditLogPublisher {
     @Async("auditExecutor")
     public void publish(AuditEntry entry) {
         try {
+            // F-03, F-04 모두 비활성이면 전체 건너뜀
+            if (!dbSaveEnabled && !kafkaPublishEnabled) {
+                log.trace("[AuditLogPublisher] DISABLED — DB·Kafka 모두 비활성. action={}", entry.eventAction());
+                return;
+            }
+
             String auditId = UuidV7.generate();
             String metadataJson = toJson(entry.metadata());
 
-            // ① DB 저장 (at-most-once — 실패해도 계속)
-            boolean dbSaved = insertAuditLog(auditId, entry, metadataJson);
+            // ① DB 저장 (F-04: at-most-once — 실패해도 계속)
+            boolean dbSaved = false;
+            if (dbSaveEnabled) {
+                dbSaved = insertAuditLog(auditId, entry, metadataJson);
+            } else {
+                log.debug("[AuditLogPublisher] DB 저장 SKIP (IDO_AUDIT_DB_ENABLED=false): action={}", entry.eventAction());
+            }
 
-            // ② Kafka 발행 (비동기 fire-and-forget)
+            // ② Kafka 발행 (F-03: 비동기 fire-and-forget)
             if (kafkaPublishEnabled) {
                 publishToKafka(auditId, entry, metadataJson, dbSaved);
             }

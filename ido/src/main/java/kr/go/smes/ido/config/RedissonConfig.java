@@ -5,6 +5,8 @@ import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,11 +25,19 @@ import org.springframework.context.annotation.Configuration;
  *   <li>Watch Dog 패턴: 락 보유 중 서비스 종료 시 10초 후 자동 해제로 데드락 방지</li>
  * </ul>
  *
- * <p><b>redisson-spring-boot-starter 자동 설정과의 관계:</b>
- * redisson-spring-boot-starter는 {@code spring.data.redis.*} 설정을 자동 읽어
- * {@code RedissonClient} 빈을 등록한다.
- * 다만, Lettuce 연결 풀 설정이 이미 존재하므로 Redisson 전용 Config를 명시적으로 정의하여
- * 동일 Redis 서버에 연결하되 Redisson이 자체 Netty 연결 풀을 사용하도록 한다.
+ * <p><b>F-08 On/Off 제어:</b>
+ * <pre>
+ * IDO_REDISSON_ENABLED=true  (기본) → RedissonClient 빈 등록, 분산 락 활성
+ * IDO_REDISSON_ENABLED=false         → RedissonClient 빈 미등록, NoOpRedissonClient 사용
+ *                                      Redis 없는 로컬 환경에서도 앱 정상 기동 가능
+ * </pre>
+ *
+ * <p><b>OFF 시 동작:</b>
+ * {@code NiceAuthService.ensureAccessToken()}은 JVM 내 {@code synchronized}만으로 동작.
+ * 단일 Pod 환경에서는 충분하나, K8s 다중 Pod에서는 중복 발급 가능성 있음.
+ *
+ * <p><b>⚠️ 운영 멀티 Pod 주의:</b>
+ * HPA로 2개 이상 Pod 운영 시 반드시 {@code IDO_REDISSON_ENABLED=true} 유지.
  *
  * <p><b>Key 네이밍:</b>
  * <pre>
@@ -36,9 +46,11 @@ import org.springframework.context.annotation.Configuration;
  * </pre>
  *
  * @see kr.go.smes.ido.auth.service.NiceAuthService
+ * @see kr.go.smes.ido.config.NoOpRedissonConfig
  */
 @Slf4j
 @Configuration
+@ConditionalOnProperty(name = "ido.redisson.enabled", havingValue = "true", matchIfMissing = true)
 public class RedissonConfig {
 
     @Value("${spring.data.redis.host:localhost}")
@@ -79,7 +91,7 @@ public class RedissonConfig {
             singleServerConfig.setPassword(redisPassword);
         }
 
-        log.info("[RedissonConfig] RedissonClient 초기화 완료: address={}", address);
+        log.info("[RedissonConfig] RedissonClient 초기화 완료 (분산 락 활성): address={}", address);
         return Redisson.create(config);
     }
 }

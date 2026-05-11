@@ -1,12 +1,16 @@
 # ============================================================
-# IdO local 프로파일 — 샌드박스 직접 구동용
+# IdO local 프로파일 — 로컬 개발 환경 안전 기본값
+# 목적: 외부 의존성(Redis 분산락/Kafka/OTel/SKM) 없이도 앱 기동 가능
+# 사용법: --spring.profiles.active=local
+#
+# 전체 기능 플래그 설명: docs/FEATURE_FLAGS.md 참조
 # ============================================================
 
 spring:
   kafka:
     bootstrap-servers: localhost:9092
     listener:
-      missing-topics-fatal: false
+      missing-topics-fatal: false        # Kafka 없어도 기동 허용
     consumer:
       properties:
         metadata.max.age.ms: 5000
@@ -15,41 +19,101 @@ spring:
     connect-retries: 3
     connect-retries-interval: 3s
 
-# 로컬 테스트용 설정
+# ── Feature Flags: 로컬 안전 기본값 ─────────────────────────────────────────
 ido:
-  agency-subject-secret: local-test-secret-32-bytes-padding
-  qim:
-    aes-shared-key: bG9jYWwtdGVzdC1zZWNyZXQtMzJieXRlcy1wYWRkZWQ=  # Base64(local-test-secret-32bytes-padded)
 
-  # ── S7-T2: NICE/OACX 본인인증 로컬 테스트 설정 ─────────────────────────
-  # 실제 NICE/OACX 연동 테스트를 위해 각 환경변수 또는 아래 값 직접 설정
-  # 주의: 실제 NICE 계정 정보는 절대 커밋하지 말 것 (환경변수 또는 .env.local 사용)
+  # F-08: Redisson 분산 락 OFF → Redis 없어도 앱 기동 가능
+  # (NiceAuthService는 JVM 내 synchronized 만 사용)
+  redisson:
+    enabled: false
+
+  # F-01: IP Auth Rate Limiting OFF → 반복 테스트 시 자기 IP 차단 방지
   auth:
+    rate-limit:
+      enabled: false
+    # NICE/OACX 로컬 테스트 설정
     nice:
-      # NICE 개발 테스트 계정 — 실제 값은 환경변수 NICE_CLIENT_ID로 주입
-      # 로컬 테스트 시: export NICE_CLIENT_ID=<NICE 계약 clientId>
       client-id: ${NICE_CLIENT_ID:}
-      # 실제 값은 환경변수 NICE_CLIENT_SECRET으로 주입 (절대 여기에 하드코딩 금지)
       client-secret: ${NICE_CLIENT_SECRET:}
-      # 로컬 개발 환경 리다이렉트 URL (FE dev-server)
       return-url: ${NICE_RETURN_URL:http://localhost:3000/otp/auth-result}
-      timeout-seconds: 15  # 로컬 환경에서는 타임아웃 여유있게 설정
+      timeout-seconds: 15
     oacx:
-      # OACX provider key JSON 파일 경로
-      # 로컬 테스트 시: export OACX_PROVIDER_KEY_PATH=/path/to/oacx-provider-key.json
-      # 또는 아래를 직접 설정:
-      # provider-key-path: /home/user/oacx-provider-key.json
       provider-key-path: ${OACX_PROVIDER_KEY_PATH:}
-      debug-mode: true  # 로컬 개발환경에서는 OACX SDK 디버그 로그 활성화
+      debug-mode: true
     integration:
-      # 통합인증 서버 로컬 테스트 URL (실제 서버 또는 mock 서버)
-      # 로컬 테스트 시: export INTEGRATION_AUTH_BASE_URL=http://localhost:9292
       base-url: ${INTEGRATION_AUTH_BASE_URL:http://localhost:9292}
       timeout-seconds: 15
 
+  # F-02: 기관 Rate Limiting OFF → 로컬 테스트 중 기관 제한 없음
+  rate-limit:
+    enabled: false
+
+  # F-03: Kafka 감사 로그 발행 OFF → Kafka 없어도 연결 오류 없음
+  # F-04: DB 감사 로그 저장 OFF  → audit_log 테이블 없어도 오류 없음
+  audit:
+    kafka-publish-enabled: false
+    db-save-enabled: false
+    retry-interval-ms: 3600000          # 로컬에서 재처리 주기 1시간으로 늘림
+
+  # F-05: OTel 추적 AOP OFF → Jaeger/Tempo 없는 로컬 환경
+  tracing:
+    auth-aspect-enabled: false
+
+  # F-10: 보안 헤더 OFF → FE 개발 중 CSP 오류 없음 (필요 시 ON으로 변경)
+  security-headers:
+    enabled: false
+
+  # F-11: 개인정보 파기 스케줄러 OFF → 개발 DB 데이터 보호 (이중 안전장치)
+  retention:
+    enabled: false
+    dry-run: true                        # 이중 안전장치
+
+  # F-12: 키 로테이션 OFF → 개발 중 키 변경으로 인한 테스트 불안정성 방지
+  crypto:
+    rotation-enabled: false
+
+  # F-13: IdO Outbox Relay OFF → Kafka 없는 환경 500ms 폴링 오류 없음
+  outbox:
+    relay-enabled: false
+
+  # F-14: Webhook Relay OFF → 기관 endpoint 없는 로컬 환경 오류 없음
+  webhook:
+    relay-enabled: false
+
+  # F-18: SP 수신 감사 로그 OFF
+  qim:
+    aes-shared-key: bG9jYWwtdGVzdC1zZWNyZXQtMzJieXRlcy1wYWRkZWQ=
+    receiver-audit-enabled: false
+
+  agency-subject-secret: local-test-secret-32-bytes-padding
+
+# ── Resilience4j 로컬 완화 설정 (F-06, F-07) ─────────────────────────────────
+# NICE/통합인증 서버 없는 로컬에서 CB가 즉시 OPEN되어
+# 모든 요청이 fallback 반환하는 현상 방지
+resilience4j:
+  circuitbreaker:
+    instances:
+      nice-api-client:
+        minimum-number-of-calls: 100    # 100건 쌓여야 CB 집계 시작 (사실상 비활성)
+        failure-rate-threshold: 100     # 100% 실패해야 OPEN
+        sliding-window-size: 100
+      integration-auth-client:
+        minimum-number-of-calls: 100
+        failure-rate-threshold: 100
+        sliding-window-size: 100
+  retry:
+    instances:
+      nice-api-client:
+        max-attempts: 1                 # 재시도 없음 (로컬 테스트 속도 향상)
+      integration-auth-client:
+        max-attempts: 1
+
+# ── 로컬 로그 레벨 ────────────────────────────────────────────────────────────
 logging:
   level:
     org.springframework.kafka: ERROR
     org.apache.kafka: ERROR
-    # NICE/OACX 연동 디버그 로그 (로컬 개발환경)
-    kr.go.smes.ido.auth: DEBUG
+    kr.go.smes.ido.auth: DEBUG          # 인증 흐름 상세 로그
+    kr.go.smes.ido.crypto: DEBUG        # 암호화 디버그
+    kr.go.smes.ido.ratelimit: DEBUG     # Rate Limit 디버그
+    kr.go.smes.ido.config: DEBUG        # FeatureFlags 기동 로그 확인

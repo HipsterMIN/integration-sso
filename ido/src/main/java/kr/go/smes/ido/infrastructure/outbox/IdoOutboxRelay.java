@@ -55,6 +55,12 @@ public class IdoOutboxRelay {
     private final KafkaTemplate<String, Object>     kafkaTemplate;
     private final ObjectMapper                       objectMapper;
 
+    // F-13: Outbox Relay On/Off (IDO_OUTBOX_RELAY_ENABLED)
+    // false → @Scheduled 실행되어도 즉시 return, DB 500ms 폴링 없음
+    // Kafka 없는 로컬 환경에서 연결 오류 없이 실행 가능
+    @Value("${ido.outbox.relay-enabled:${IDO_OUTBOX_RELAY_ENABLED:true}}")
+    private boolean relayEnabled;
+
     @Value("${ido.outbox.batch-size:100}")
     private int batchSize;
 
@@ -75,6 +81,11 @@ public class IdoOutboxRelay {
     @Scheduled(fixedDelayString = "${ido.outbox.relay-interval-ms:500}")
     @Transactional
     public void relay() {
+        // F-13 Guard
+        if (!relayEnabled) {
+            log.trace("[IdoOutboxRelay] DISABLED (IDO_OUTBOX_RELAY_ENABLED=false)");
+            return;
+        }
         List<IdoOutboxRecord> pending = outboxRepository.findPendingBatch(batchSize);
         if (pending.isEmpty()) {
             return;
