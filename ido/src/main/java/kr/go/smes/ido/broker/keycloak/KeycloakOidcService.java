@@ -132,8 +132,16 @@ public class KeycloakOidcService {
         saveOutboxEvent(authResultId, correlationId, authLevel, providerCode, identifierHash);
 
         // ── 10. FE 세션 생성 ─────────────────────────────────────────────
+        // [설계 주의] Keycloak 소셜 로그인 경로에서는 CI가 없으므로 Q-IM qimUserId를
+        // 직접 조회할 수 없다. identifierHash(SHA-256(sub))를 세션 식별자로 사용한다.
+        // 이는 소셜 로그인 전용 설계이며, 본인인증(CI 기반) 경로는 OidcCompleteController
+        // 의 resolveQimUserId()가 실제 qimUserId를 조회/등록한다.
+        // → Q-IM 팀과 소셜 로그인 사용자 식별 전략 협의 필요 (현재 identifierHash 사용)
+        log.debug("[KeycloakOidcService] 소셜 로그인 세션 생성: identifierHash(prefix)={} authResultId={}",
+                identifierHash.length() >= 8 ? identifierHash.substring(0, 8) : identifierHash,
+                authResultId);
         FeSession feSession = feSessionService.create(
-                identifierHash,   // PoC: identifierHash를 qimUserId 대용
+                identifierHash,   // 소셜 로그인 경로: CI 없음 → identifierHash 사용 (Q-IM 팀 협의 필요)
                 authResultId,
                 authLevel,
                 stateEntry.getReturnUrl()
@@ -341,7 +349,7 @@ public class KeycloakOidcService {
                     AuthEvent.TYPE_AUTH_COMPLETED,
                     SOURCE_SYSTEM,
                     correlationId,
-                    identifierHash,   // qimUserId 대용 (PoC)
+                    identifierHash,   // 소셜 로그인: CI 없음 → identifierHash 사용 (Q-IM 팀 협의 필요)
                     1L,               // eventVersion
                     authResultId,
                     AuthResult.AuthLevel.valueOf(authLevel),

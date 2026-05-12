@@ -13,6 +13,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import jakarta.annotation.PostConstruct;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 import java.util.Map;
 
 /**
@@ -49,6 +54,27 @@ public class BrokerService {
 
     @Value("${ido.qsign.internal-sig-ttl-seconds:60}")
     private int internalSigTtl;
+
+    /**
+     * [P0-수정] IdO → Q-Sign 내부 서명 HMAC 시크릿
+     * 환경변수: IDO_INTERNAL_SIG_SECRET (q-sign의 QSIGN_INTERNAL_SIG_SECRET과 동일 값 필수)
+     * application.yml: ido.qsign.internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:}
+     */
+    @Value("${ido.qsign.internal-sig-secret:}")
+    private String internalSigSecret;
+
+    private static final String HMAC_ALGORITHM = "HmacSHA256";
+
+    @PostConstruct
+    void validateInternalSigConfig() {
+        if (internalSigSecret == null || internalSigSecret.isBlank()) {
+            log.error("[BrokerService][보안경고] IDO_INTERNAL_SIG_SECRET 미설정 — " +
+                      "q-sign 모드에서 모든 내부 서명이 빈 시크릿으로 생성되어 검증 실패합니다. " +
+                      "운영 환경에서 반드시 IDO_INTERNAL_SIG_SECRET 환경변수를 설정하세요.");
+        } else {
+            log.info("[BrokerService] X-Internal-Sig HMAC-SHA256 서명 활성화됨.");
+        }
+    }
 
     // ── Keycloak 모드용 컴포넌트 ──────────────────────────────────────────
     private final KeycloakProperties keycloakProperties;
@@ -187,11 +213,40 @@ public class BrokerService {
     }
 
     /**
-     * 내부 서비스 간 단순 서명 (PoC 수준)
-     * 실운영: HMAC-SHA256(correlationId + timestamp, sharedSecret)
+     * IdO → Q-Sign 내부 서명 생성
+     *
+     * <p>[P0-수정] PoC 수준의 단순 접두어 방식을 제거하고,
+     * q-sign {@code InternalSigVerifier}가 기대하는 HMAC-SHA256 방식으로 교체.
+     *
+     * <p>서명 페이로드: {@code "{correlationId}:{epochSeconds}"}
+     * <pre>
+     *   payload  = correlationId + ":" + System.currentTimeMillis()/1000
+     *   sig      = HmacSHA256(payload, IDO_INTERNAL_SIG_SECRET) → HEX
+     * </pre>
+     *
+     * <p>q-sign 수신 측은 ±60초 범위의 epochSeconds 후보를 전수 검사하므로
+     * 동일 시크릿 공유 시 타임스탬프 편차가 있어도 검증 통과.
+     *
+     * @param correlationId 흐름 추적 ID
+     * @return HMAC-SHA256 서명 HEX 문자열
      */
     private String buildInternalSig(String correlationId) {
-        String safe = correlationId.replace("-", "");
-        return "sig-" + (safe.length() >= 8 ? safe.substring(0, 8) : safe);
+        if (internalSigSecret == null || internalSigSecret.isBlank()) {
+            // 시크릿 미설정 — 경고 후 빈 값 반환 (q-sign strict=false 환경에서만 허용됨)
+            log.warn("[BrokerService] IDO_INTERNAL_SIG_SECRET 미설정 — X-Internal-Sig 빈값 전송 correlationId={}",
+                     correlationId);
+            return "";
+        }
+        try {
+            long epochSeconds = System.currentTimeMillis() / 1000L;
+            String payload = correlationId + ":" + epochSeconds;
+            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+            mac.init(new SecretKeySpec(internalSigSecret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
+            byte[] hmacBytes = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hmacBytes);
+        } catch (Exception e) {
+            log.error("[BrokerService] X-Internal-Sig HMAC 생성 실패: correlationId={}", correlationId, e);
+            throw new PlatformException(PlatformErrorCode.IDP_PROVIDER_UNAVAILABLE, correlationId, e);
+        }
     }
 }
