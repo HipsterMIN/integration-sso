@@ -190,8 +190,8 @@ def slide_02_agenda(prs):
     items = [
         ("01", "현재 상황 — 시연 프로젝트의 구조적 한계",
          "단일 장애점·확장 불가·설계 불일치를 한눈에"),
-        ("02", "TPO 100k란 무엇인가",
-         "목표 수치의 의미와 달성 조건"),
+        ("02", "TPO · TPS — 목표 수치의 의미",
+         "TPO 100k / TPS 100 이 왜 중요한가, 두 지표의 차이"),
         ("03", "목표 설계 — integration-sso 아키텍처",
          "수평 확장·EDA·장애 격리가 내장된 구조"),
         ("04", "시연 vs 목표 설계 비교",
@@ -315,7 +315,7 @@ def slide_03_current_problem(prs):
 
 
 # ══════════════════════════════════════════════════════════════════
-# SLIDE 4 — TPO 100k란 무엇인가
+# SLIDE 4 — TPO vs TPS 개념 차이 & 목표 수치
 # ══════════════════════════════════════════════════════════════════
 def slide_04_tpo100k(prs):
     sl = blank_slide(prs)
@@ -324,71 +324,286 @@ def slide_04_tpo100k(prs):
 
     add_text_box(sl, "02  목표 수치", Inches(0.8), Inches(0.28), Inches(5), Inches(0.45),
                  font_size=Pt(12), bold=True, color=C_CYAN)
-    add_text_box(sl, "TPO 100,000 — 이게 왜 중요한가",
-                 Inches(0.8), Inches(0.7), Inches(11), Inches(0.65),
-                 font_size=Pt(28), bold=True, color=C_WHITE)
+    add_text_box(sl, "TPO vs TPS — 두 지표가 왜 모두 필요한가",
+                 Inches(0.8), Inches(0.7), Inches(12), Inches(0.65),
+                 font_size=Pt(26), bold=True, color=C_WHITE)
     add_rect(sl, Inches(0.8), Inches(1.42), Inches(11.7), Inches(0.05),
              fill_color=RGBColor(0x2A, 0x4A, 0x7A))
 
-    # TPO 정의 박스
-    add_rect(sl, Inches(0.8), Inches(1.6), Inches(11.7), Inches(1.1),
+    # ── 왼쪽: TPO 정의 카드 ──
+    add_rect(sl, Inches(0.8), Inches(1.58), Inches(5.6), Inches(2.52),
              fill_color=RGBColor(0x0A, 0x2A, 0x50))
-    add_rect(sl, Inches(0.8), Inches(1.6), Inches(0.12), Inches(1.1),
+    add_rect(sl, Inches(0.8), Inches(1.58), Inches(5.6), Inches(0.44),
              fill_color=C_CYAN)
-    add_text_box(sl,
-                 "TPO (Transactions Per Operation)  =  일 단위 통합인증 처리 건수",
-                 Inches(1.1), Inches(1.68), Inches(10), Inches(0.42),
-                 font_size=Pt(15), bold=True, color=C_WHITE)
-    add_text_box(sl,
-                 "연계 기관 수 × 기관별 일 평균 인증 요청 건수  |  피크 시간대 집중도 포함",
-                 Inches(1.1), Inches(2.1), Inches(10.5), Inches(0.42),
-                 font_size=Pt(12), color=C_MIDGRAY)
+    add_text_box(sl, "TPO  —  Transactions Per Operation",
+                 Inches(0.82), Inches(1.6), Inches(5.56), Inches(0.4),
+                 font_size=Pt(13), bold=True, color=C_NAVY, align=PP_ALIGN.CENTER)
 
-    # 3단 카드
-    cards = [
-        (C_ORANGE, "현재 시연 프로젝트",
-         "~수백 TPO",
-         ["단일 인스턴스 Q-IM 직접 호출",
-          "Rate Limit 없음",
-          "Circuit Breaker 미적용",
-          "→ 실 부하 시 붕괴"]),
-        (C_BLUE, "중기 목표",
-         "10,000 TPO",
-         ["ido 수평 확장 (Pod 3~5개)",
-          "Redis 캐싱 적용",
-          "기관별 Rate Limit 활성",
-          "→ Resilience4j CB 보호"]),
-        (C_GREEN, "최종 목표",
-         "100,000 TPO",
-         ["EDA (Kafka) 비동기 처리",
-          "Q-IM 읽기 복제본 분리",
-          "K8s HPA 자동 확장",
-          "→ 피크 5× 버스트 수용"]),
+    add_text_box(sl, "일(日) 단위 누적 처리 건수",
+                 Inches(0.95), Inches(2.1), Inches(5.3), Inches(0.38),
+                 font_size=Pt(14), bold=True, color=C_WHITE)
+    add_text_box(sl,
+                 "연계 기관 수  ×  기관별 일 평균 인증 요청 건수\n"
+                 "→ 시스템 전체의 '하루 처리 규모'를 나타내는 지표\n"
+                 "→ DB 용량·배치 처리·감사 로그 규모 산정 기준",
+                 Inches(0.95), Inches(2.5), Inches(5.3), Inches(1.35),
+                 font_size=Pt(11), color=RGBColor(0xBB, 0xCC, 0xDD))
+    # TPO 목표 배지
+    add_rect(sl, Inches(2.2), Inches(3.72), Inches(2.8), Inches(0.32),
+             fill_color=C_CYAN)
+    add_text_box(sl, "목표:  100,000 TPO / day",
+                 Inches(2.2), Inches(3.73), Inches(2.8), Inches(0.3),
+                 font_size=Pt(11), bold=True, color=C_NAVY, align=PP_ALIGN.CENTER)
+
+    # ── 오른쪽: TPS 정의 카드 ──
+    add_rect(sl, Inches(6.7), Inches(1.58), Inches(5.6), Inches(2.52),
+             fill_color=RGBColor(0x0A, 0x2A, 0x50))
+    add_rect(sl, Inches(6.7), Inches(1.58), Inches(5.6), Inches(0.44),
+             fill_color=C_BLUE)
+    add_text_box(sl, "TPS  —  Transactions Per Second",
+                 Inches(6.72), Inches(1.6), Inches(5.56), Inches(0.4),
+                 font_size=Pt(13), bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
+
+    add_text_box(sl, "초(秒) 단위 순간 처리량",
+                 Inches(6.85), Inches(2.1), Inches(5.3), Inches(0.38),
+                 font_size=Pt(14), bold=True, color=C_WHITE)
+    add_text_box(sl,
+                 "피크 시간대(09~10시) 집중 요청을 처리하는 순간 처리 능력\n"
+                 "→ Pod 수·CPU 코어·네트워크 대역폭 산정 기준\n"
+                 "→ Circuit Breaker·Rate Limit 임계값 설정 기준",
+                 Inches(6.85), Inches(2.5), Inches(5.3), Inches(1.35),
+                 font_size=Pt(11), color=RGBColor(0xBB, 0xCC, 0xDD))
+    # TPS 목표 배지
+    add_rect(sl, Inches(8.1), Inches(3.72), Inches(2.8), Inches(0.32),
+             fill_color=C_BLUE)
+    add_text_box(sl, "목표:  100 TPS (버스트 대응)",
+                 Inches(8.1), Inches(3.73), Inches(2.8), Inches(0.3),
+                 font_size=Pt(11), bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
+
+    # ── 가운데 관계 화살표 ──
+    add_text_box(sl, "⇔", Inches(6.05), Inches(2.6),
+                 Inches(0.65), Inches(0.65),
+                 font_size=Pt(22), bold=True, color=C_MIDGRAY, align=PP_ALIGN.CENTER)
+    add_text_box(sl, "연관", Inches(6.0), Inches(3.15),
+                 Inches(0.8), Inches(0.28),
+                 font_size=Pt(9), color=C_MIDGRAY, align=PP_ALIGN.CENTER)
+
+    # ── 관계 공식 박스 ──
+    add_rect(sl, Inches(0.8), Inches(4.18), Inches(11.7), Inches(0.62),
+             fill_color=RGBColor(0x06, 0x18, 0x30))
+    add_rect(sl, Inches(0.8), Inches(4.18), Inches(0.12), Inches(0.62),
+             fill_color=C_YELLOW)
+    add_text_box(sl,
+                 "관계식:  TPO ÷ 86,400초  =  평균 TPS   →   "
+                 "100,000 TPO ÷ 86,400 ≈ 1.16 TPS (평균)   →   "
+                 "피크 집중률 15% 가정 시  ≈  20~50 TPS   →   장애 여유치  ≈  100 TPS",
+                 Inches(1.05), Inches(4.26), Inches(11.3), Inches(0.45),
+                 font_size=Pt(11.5), bold=True, color=C_YELLOW)
+
+    # ── 현실적 목표 수치 4칸 카드 ──
+    metrics = [
+        (C_ORANGE, "일반 TPS (로그인)",  "20 ~ 50 TPS",
+         "피크 시간대 집중률\n5~15% 기준"),
+        (C_RED,    "버스트 TPS",          "100 TPS",
+         "장애 대비 여유치\nCircuit Breaker 임계값"),
+        (C_CYAN,   "일 처리량 (TPO)",     "100,000 ~ 200,000",
+         "공공기관 평균 패턴\n기관 수 확장 고려"),
+        (C_GREEN,  "SSO 최종 목표",       "100K TPO  /  100 TPS",
+         "안정적 운영 기준\n피크 5× 버스트 수용"),
     ]
 
-    for i, (color, label, tpo, bullets) in enumerate(cards):
-        x = Inches(0.8) + i * Inches(4.05)
-        add_rect(sl, x, Inches(2.88), Inches(3.85), Inches(4.2),
+    for i, (color, label, val, desc) in enumerate(metrics):
+        x = Inches(0.8) + i * Inches(3.05)
+        add_rect(sl, x, Inches(4.9), Inches(2.88), Inches(2.35),
                  fill_color=RGBColor(0x0D, 0x23, 0x44))
-        add_rect(sl, x, Inches(2.88), Inches(3.85), Inches(0.42), fill_color=color)
-        add_text_box(sl, label, x, Inches(2.88), Inches(3.85), Inches(0.42),
-                     font_size=Pt(12), bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
-        add_text_box(sl, tpo, x, Inches(3.38), Inches(3.85), Inches(0.72),
-                     font_size=Pt(28), bold=True, color=color, align=PP_ALIGN.CENTER)
-        for j, b in enumerate(bullets):
-            add_text_box(sl, b, x + Inches(0.15),
-                         Inches(4.18) + j * Inches(0.5),
-                         Inches(3.6), Inches(0.45),
-                         font_size=Pt(11), color=RGBColor(0xBB, 0xCC, 0xDD))
+        add_rect(sl, x, Inches(4.9), Inches(2.88), Inches(0.38), fill_color=color)
+        add_text_box(sl, label, x, Inches(4.9), Inches(2.88), Inches(0.38),
+                     font_size=Pt(10), bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
+        add_text_box(sl, val, x + Inches(0.1), Inches(5.36), Inches(2.7), Inches(0.68),
+                     font_size=Pt(16), bold=True, color=color, align=PP_ALIGN.CENTER)
+        add_text_box(sl, desc, x + Inches(0.12), Inches(6.1), Inches(2.65), Inches(0.8),
+                     font_size=Pt(10), color=C_MIDGRAY, align=PP_ALIGN.CENTER)
 
-    # 달성 조건 요약
-    add_rect(sl, Inches(0.8), Inches(7.05), Inches(11.7), Inches(0.32),
+    # 하단 달성 조건
+    add_rect(sl, Inches(0.8), Inches(7.22), Inches(11.7), Inches(0.22),
              fill_color=RGBColor(0x00, 0x3A, 0x2A))
     add_text_box(sl,
-                 "TPO 100k 달성 3대 조건:  ① 수평 확장 가능한 Stateless 설계  "
-                 "② 동기 직접 호출 → EDA 비동기 전환  ③ 단일 장애점 제거",
-                 Inches(0.95), Inches(7.07), Inches(11.5), Inches(0.28),
-                 font_size=Pt(11), bold=True, color=C_GREEN)
+                 "달성 조건:  ① Stateless 수평 확장  "
+                 "② EDA 비동기 (동기 직접 호출 제거)  "
+                 "③ 단일 장애점 제거  "
+                 "④ 기관별 Rate Limit / Circuit Breaker",
+                 Inches(0.95), Inches(7.23), Inches(11.5), Inches(0.2),
+                 font_size=Pt(10), bold=True, color=C_GREEN)
+
+    return sl
+
+
+# ══════════════════════════════════════════════════════════════════
+# SLIDE 4b — TPO / TPS 달성 전략 로드맵
+# ══════════════════════════════════════════════════════════════════
+def slide_04b_tpo_strategy(prs):
+    sl = blank_slide(prs)
+    fill_bg(sl, C_NAVY)
+    add_rect(sl, Inches(0), Inches(0), Inches(0.45), SLIDE_H, fill_color=C_CYAN)
+
+    add_text_box(sl, "02-B  달성 전략", Inches(0.8), Inches(0.28), Inches(5), Inches(0.45),
+                 font_size=Pt(12), bold=True, color=C_CYAN)
+    add_text_box(sl, "100K TPO / 100 TPS — 단계별 달성 전략",
+                 Inches(0.8), Inches(0.7), Inches(12), Inches(0.65),
+                 font_size=Pt(26), bold=True, color=C_WHITE)
+    add_rect(sl, Inches(0.8), Inches(1.42), Inches(11.7), Inches(0.05),
+             fill_color=RGBColor(0x2A, 0x4A, 0x7A))
+
+    # ── 상단: 수치 흐름 타임라인 ──
+    add_rect(sl, Inches(0.8), Inches(1.55), Inches(11.7), Inches(1.62),
+             fill_color=RGBColor(0x0A, 0x1A, 0x38))
+    add_text_box(sl, "처리량 성장 경로",
+                 Inches(0.9), Inches(1.6), Inches(3), Inches(0.32),
+                 font_size=Pt(10), bold=True, color=C_MIDGRAY)
+
+    stages = [
+        (C_RED,    "지금 (시연)",   "~수백 TPO\n~수 TPS",   Inches(0.85)),
+        (C_ORANGE, "Phase 1",      "~5,000 TPO\n~10 TPS",  Inches(3.7)),
+        (C_BLUE,   "Phase 2",      "~30,000 TPO\n~50 TPS", Inches(6.55)),
+        (C_GREEN,  "Phase 3 (목표)", "100K+ TPO\n100 TPS",  Inches(9.4)),
+    ]
+    # 타임라인 선
+    add_rect(sl, Inches(1.2), Inches(2.65), Inches(11.0), Inches(0.06),
+             fill_color=RGBColor(0x2A, 0x4A, 0x7A))
+    for (color, label, val, x) in stages:
+        # 노드 원
+        add_rect(sl, x, Inches(2.52), Inches(0.3), Inches(0.3), fill_color=color)
+        add_text_box(sl, label, x - Inches(0.3), Inches(1.63),
+                     Inches(0.92), Inches(0.35),
+                     font_size=Pt(8.5), bold=True, color=color, align=PP_ALIGN.CENTER)
+        add_text_box(sl, val, x - Inches(0.25), Inches(2.86),
+                     Inches(0.8), Inches(0.45),
+                     font_size=Pt(8), color=RGBColor(0xBB, 0xCC, 0xDD), align=PP_ALIGN.CENTER)
+    # 화살표
+    for ax in [Inches(2.1), Inches(4.95), Inches(7.8)]:
+        add_text_box(sl, "▶", ax, Inches(2.55), Inches(0.4), Inches(0.3),
+                     font_size=Pt(10), color=C_MIDGRAY, align=PP_ALIGN.CENTER)
+
+    # ── 3단 전략 카드 ──
+    strategies = [
+        {
+            "phase": "Phase 1  —  FE 구조 정렬",
+            "period": "4주",
+            "color": C_ORANGE,
+            "tpo": "~5,000 TPO",
+            "tps": "~10 TPS",
+            "title": "FE → ido 단일 경로 + 보안 정비",
+            "items": [
+                ("TPS 관점", "extInstance 제거 → ido 단일 경로",
+                 "기관별 Rate Limit 활성 (AgencyRateLimiter)",
+                 "Resilience4j Circuit Breaker 보호"),
+                ("TPO 관점", "SKIP_AUTH·Mock 데이터 제거 → 실 데이터 집계",
+                 "BrokerAuditLog 전 구간 기록 시작",
+                 "일별 처리량 추적 가능 상태 확보"),
+            ],
+        },
+        {
+            "phase": "Phase 2  —  q-sign OIDC 표준화",
+            "period": "5~10주",
+            "color": C_BLUE,
+            "tpo": "~30,000 TPO",
+            "tps": "~50 TPS",
+            "title": "수평 확장 + Redis 캐싱",
+            "items": [
+                ("TPS 관점", "ido K8s HPA: Pod 3~5개 수평 확장",
+                 "Redis 토큰·세션 캐싱 (DB 직접 조회 제거)",
+                 "q-sign OIDC 표준화 → 외부 SP 연동"),
+                ("TPO 관점", "Q-IM 읽기 복제본 분리 (조회 부하 분산)",
+                 "Kafka 비동기 이벤트 처리 시작",
+                 "기관 수 확장에 따른 TPO 자연 증가"),
+            ],
+        },
+        {
+            "phase": "Phase 3  —  운영 전환 & 확장",
+            "period": "11~16주",
+            "color": C_GREEN,
+            "tpo": "100K+ TPO",
+            "tps": "100 TPS",
+            "title": "Kafka EDA + HPA 완전 자동화",
+            "items": [
+                ("TPS 관점", "Kafka EDA 비동기 → 순간 부하 흡수",
+                 "HPA 자동 Pod 증가 (피크 5× 버스트)",
+                 "k6 100 TPS 부하 테스트 검증"),
+                ("TPO 관점", "100,000 ~ 200,000 TPO/day 달성",
+                 "기관별 SLA 모니터링 (Grafana 대시보드)",
+                 "k6 stress: 100K TPO 연속 24h 검증"),
+            ],
+        },
+    ]
+
+    for i, s in enumerate(strategies):
+        x = Inches(0.8) + i * Inches(4.1)
+        color = s["color"]
+
+        # 카드 배경
+        add_rect(sl, x, Inches(3.32), Inches(3.88), Inches(3.85),
+                 fill_color=RGBColor(0x0D, 0x23, 0x44))
+        # 헤더
+        add_rect(sl, x, Inches(3.32), Inches(3.88), Inches(0.38), fill_color=color)
+        add_text_box(sl, s["phase"], x + Inches(0.08), Inches(3.33),
+                     Inches(2.8), Inches(0.34),
+                     font_size=Pt(10), bold=True, color=C_WHITE)
+        # 기간 배지
+        add_rect(sl, x + Inches(3.0), Inches(3.37), Inches(0.82), Inches(0.26),
+                 fill_color=RGBColor(0x00, 0x00, 0x00))
+        add_text_box(sl, s["period"], x + Inches(3.0), Inches(3.37),
+                     Inches(0.82), Inches(0.26),
+                     font_size=Pt(8), bold=True, color=color, align=PP_ALIGN.CENTER)
+
+        # TPO / TPS 수치 나란히
+        add_rect(sl, x + Inches(0.08), Inches(3.76), Inches(1.74), Inches(0.5),
+                 fill_color=RGBColor(0x06, 0x14, 0x28))
+        add_text_box(sl, "TPO", x + Inches(0.08), Inches(3.78),
+                     Inches(0.46), Inches(0.2),
+                     font_size=Pt(7.5), bold=True, color=C_CYAN)
+        add_text_box(sl, s["tpo"], x + Inches(0.08), Inches(3.97),
+                     Inches(1.74), Inches(0.26),
+                     font_size=Pt(12), bold=True, color=color, align=PP_ALIGN.CENTER)
+
+        add_rect(sl, x + Inches(1.9), Inches(3.76), Inches(1.74), Inches(0.5),
+                 fill_color=RGBColor(0x06, 0x14, 0x28))
+        add_text_box(sl, "TPS", x + Inches(1.9), Inches(3.78),
+                     Inches(0.46), Inches(0.2),
+                     font_size=Pt(7.5), bold=True, color=C_BLUE)
+        add_text_box(sl, s["tps"], x + Inches(1.9), Inches(3.97),
+                     Inches(1.74), Inches(0.26),
+                     font_size=Pt(12), bold=True, color=color, align=PP_ALIGN.CENTER)
+
+        # 전략 타이틀
+        add_text_box(sl, s["title"],
+                     x + Inches(0.08), Inches(4.33), Inches(3.75), Inches(0.32),
+                     font_size=Pt(10.5), bold=True, color=C_WHITE)
+
+        # TPS / TPO 관점 항목
+        y_offset = Inches(4.7)
+        for (perspective, *bullets) in s["items"]:
+            clr = C_CYAN if "TPS" in perspective else C_ORANGE
+            add_rect(sl, x + Inches(0.08), y_offset,
+                     Inches(0.7), Inches(0.22), fill_color=clr)
+            add_text_box(sl, perspective,
+                         x + Inches(0.08), y_offset, Inches(0.7), Inches(0.22),
+                         font_size=Pt(7), bold=True, color=C_NAVY, align=PP_ALIGN.CENTER)
+            for j, b in enumerate(bullets):
+                add_text_box(sl, f"• {b}",
+                             x + Inches(0.08), y_offset + Inches(0.25) + j * Inches(0.3),
+                             Inches(3.75), Inches(0.28),
+                             font_size=Pt(9), color=RGBColor(0xBB, 0xCC, 0xDD))
+            y_offset += Inches(0.25) + len(bullets) * Inches(0.3) + Inches(0.12)
+
+    # 하단 요약 배너
+    add_rect(sl, Inches(0.8), Inches(7.22), Inches(11.7), Inches(0.22),
+             fill_color=RGBColor(0x00, 0x2A, 0x4A))
+    add_text_box(sl,
+                 "TPO = 하루 전체 규모 (DB·배치·감사 설계 기준)   "
+                 "TPS = 순간 처리 능력 (Pod·CPU·네트워크 설계 기준)   "
+                 "두 지표를 함께 관리해야 안정적 100K 달성 가능",
+                 Inches(0.9), Inches(7.23), Inches(11.5), Inches(0.2),
+                 font_size=Pt(10), bold=True, color=C_CYAN)
 
     return sl
 
@@ -823,8 +1038,8 @@ def slide_09_closing(prs):
          "구조적으로 불가능합니다. 코드를 고쳐서 해결할 수 있는 문제가 아닙니다."),
         (C_CYAN,   "🔵",
          "integration-sso는 그 답을 이미 설계해 두었습니다",
-         "수평 확장 가능한 ido BFF, Kafka EDA, Resilience4j Circuit Breaker,\n"
-         "K8s HPA — TPO 100k를 위한 구성 요소가 93% 구현 완료 상태입니다."),
+         "ido BFF 수평 확장 · Kafka EDA · Resilience4j CB · K8s HPA\n"
+         "→ 100K TPO / 100 TPS 달성을 위한 구성 요소 93% 구현 완료 상태입니다."),
         (C_GREEN,  "🟢",
          "지금이 방향을 잡기 가장 좋은 시점입니다",
          "각 팀이 서로 다른 방향으로 더 깊이 들어가기 전에,\n"
@@ -1292,6 +1507,7 @@ def main():
     slide_02_agenda(prs)
     slide_03_current_problem(prs)
     slide_04_tpo100k(prs)
+    slide_04b_tpo_strategy(prs)
     slide_05_target_arch(prs)
     slide_06_comparison(prs)
     slide_07_why_now(prs)
