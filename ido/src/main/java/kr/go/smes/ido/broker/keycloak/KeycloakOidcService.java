@@ -5,6 +5,8 @@ import kr.go.smes.common.domain.AuthResult;
 import kr.go.smes.common.error.PlatformErrorCode;
 import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.event.AuthEvent;
+import kr.go.smes.ido.auth.dto.im.QimMemberInfo;
+import kr.go.smes.ido.auth.dto.im.QimRegisterResponse;
 import kr.go.smes.ido.broker.BrokerAuditLogService;
 import kr.go.smes.ido.broker.keycloak.dto.KeycloakJwtClaims;
 import kr.go.smes.ido.broker.keycloak.dto.KeycloakTokenResponse;
@@ -12,6 +14,7 @@ import kr.go.smes.ido.broker.state.IdoOidcStateEntry;
 import kr.go.smes.ido.broker.state.IdoOidcStateStore;
 import kr.go.smes.ido.fe.session.FeSession;
 import kr.go.smes.ido.fe.session.FeSessionService;
+import kr.go.smes.ido.infrastructure.QimClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +33,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
+import java.util.Optional;
 import kr.go.smes.common.util.UuidV7;
 
 /**
@@ -40,7 +44,8 @@ import kr.go.smes.common.util.UuidV7;
  *   <li>state 검증 (Redis 1회 소비 — CSRF 방지)</li>
  *   <li>authorization code → token 교환 (Keycloak Token Endpoint)</li>
  *   <li>id_token JWKS 서명 검증 + nonce 검증 (replay attack 방지)</li>
- *   <li>identifierHash 생성 (SHA-256(sub))</li>
+ *   <li>identifierHash 생성 (SHA-256(sub)) — 감사 로그/DB 추적용으로만 사용</li>
+ *   <li>Q-IM에서 실제 qimUserId 조회/등록 (SSO 핵심 — agencySubjectId 정확성 보장)</li>
  *   <li>AuthResult 생성 → ido.auth_result 저장 (Keycloak 모드 Strategy B)</li>
  *   <li>Outbox 이벤트 저장 → Kafka qsign.auth.events 발행</li>
  *   <li>FE 세션 생성 → feSessionId 쿠키 발급 준비</li>
@@ -50,6 +55,12 @@ import kr.go.smes.common.util.UuidV7;
  * Keycloak 도입 후 q-sign이 더 이상 콜백을 수신하지 않으므로,
  * IdO가 직접 AuthResult를 생성하고 {@code qsign.auth.events} Kafka 토픽에 발행.
  * 기존 Q-IM, Handoff 처리 등 하위 컨슈머(QsignAuthEventConsumer 등)는 변경 없음.
+ *
+ * <p><b>SSO 식별자 전략 (v2.4.0 수정)</b>:
+ * Keycloak 소셜 로그인 콜백에서 CI를 직접 받을 수 없으므로, Q-IM의
+ * {@code /api/v1/internal/users/find-or-register-by-sub} API를 통해
+ * Keycloak sub → qimUserId를 조회/등록한다.
+ * identifierHash(SHA-256(sub))는 감사 로그 및 DB 추적 목적으로만 유지한다.
  */
 @Slf4j
 @Service
@@ -62,6 +73,7 @@ public class KeycloakOidcService {
     private final KeycloakJwksVerifier       jwksVerifier;
     private final KeycloakProperties         keycloakProperties;
     private final FeSessionService           feSessionService;
+    private final QimClient                  qimClient;
     private final RestTemplate               restTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final JdbcTemplate               jdbcTemplate;
@@ -111,13 +123,21 @@ public class KeycloakOidcService {
         // ── 5. audience 검증 ─────────────────────────────────────────────
         validateAudience(claims.getAudienceAsString(), correlationId);
 
-        // ── 6. identifierHash 생성 (SHA-256(sub)) ────────────────────────
+        // ── 6. identifierHash 생성 (SHA-256(sub)) — 감사 로그/DB 추적 전용 ──
         String identifierHash = computeIdentifierHash(claims.getSubject(), correlationId);
 
         // ── 7. providerCode 결정 ─────────────────────────────────────────
         String providerCode = resolveProviderCode(claims, stateEntry);
 
-        // ── 8. AuthResult 생성 + DB 저장 (Strategy B) ────────────────────
+        // ── 8. Q-IM에서 실제 qimUserId 조회/등록 (SSO 핵심) ──────────────
+        // Keycloak 소셜 로그인 경로에서는 CI가 없다. 대신 Q-IM의 소셜 계정 연동 API
+        // (sub 기반 find-or-register)를 통해 실제 qimUserId를 확보한다.
+        // qimUserId가 있어야 PolicyEngine이 Q-IM DI를 정확히 조회하고
+        // agencySubjectId를 올바르게 계산할 수 있다 (SSO 기관 간 동일 사용자 식별).
+        String qimUserId = resolveQimUserIdFromSub(
+                claims.getSubject(), identifierHash, providerCode, correlationId);
+
+        // ── 9. AuthResult 생성 + DB 저장 (Strategy B) ────────────────────
         String authResultId = UuidV7.generate();
         String authLevel    = keycloakProperties.resolveAuthLevel(claims.getAcr());
         String authMethod   = kr.go.smes.common.domain.AuthResult.resolveAuthMethod(providerCode);
@@ -128,37 +148,34 @@ public class KeycloakOidcService {
                 identifierHash, claims.getSubject(),
                 authMethod, issuedAt, expiresAt, tokenResponse.getIdToken());
 
-        // ── 9. Outbox 이벤트 저장 → Kafka 발행 ───────────────────────────
-        saveOutboxEvent(authResultId, correlationId, authLevel, providerCode, identifierHash);
+        // ── 10. Outbox 이벤트 저장 → Kafka 발행 ──────────────────────────
+        saveOutboxEvent(authResultId, correlationId, authLevel, providerCode,
+                qimUserId, identifierHash);
 
-        // ── 10. FE 세션 생성 ─────────────────────────────────────────────
-        // [설계 주의] Keycloak 소셜 로그인 경로에서는 CI가 없으므로 Q-IM qimUserId를
-        // 직접 조회할 수 없다. identifierHash(SHA-256(sub))를 세션 식별자로 사용한다.
-        // 이는 소셜 로그인 전용 설계이며, 본인인증(CI 기반) 경로는 OidcCompleteController
-        // 의 resolveQimUserId()가 실제 qimUserId를 조회/등록한다.
-        // → Q-IM 팀과 소셜 로그인 사용자 식별 전략 협의 필요 (현재 identifierHash 사용)
-        log.debug("[KeycloakOidcService] 소셜 로그인 세션 생성: identifierHash(prefix)={} authResultId={}",
-                identifierHash.length() >= 8 ? identifierHash.substring(0, 8) : identifierHash,
+        // ── 11. FE 세션 생성 (실제 qimUserId 사용) ───────────────────────
+        log.debug("[KeycloakOidcService] FE 세션 생성: qimUserId(prefix)={} authResultId={}",
+                qimUserId.length() >= 8 ? qimUserId.substring(0, 8) : qimUserId,
                 authResultId);
         FeSession feSession = feSessionService.create(
-                identifierHash,   // 소셜 로그인 경로: CI 없음 → identifierHash 사용 (Q-IM 팀 협의 필요)
+                qimUserId,    // 실제 Q-IM 사용자 ID — SSO Handoff 정확성 보장
                 authResultId,
                 authLevel,
                 stateEntry.getReturnUrl()
         );
 
-        // ── 11. OIDC 세션 로그 기록 ───────────────────────────────────────
+        // ── 12. OIDC 세션 로그 기록 ──────────────────────────────────────
         saveOidcSessionLog(correlationId, providerCode, claims.getSubject(),
                 identifierHash, authResultId);
 
-        // ── 12. broker_audit_log COMPLETE 기록 (P1) ──────────────────────
+        // ── 13. broker_audit_log COMPLETE 기록 (P1) ──────────────────────
         brokerAuditLogService.recordComplete(
                 correlationId, providerCode, "STANDARD_OIDC",
-                claims.getSubject(), identifierHash, authLevel, "keycloak", null
+                claims.getSubject(), qimUserId, authLevel, "keycloak", null
         );
 
-        log.info("[KeycloakOidcService] 인증 완료: correlationId={} authResultId={} authLevel={}",
-                correlationId, authResultId, authLevel);
+        log.info("[KeycloakOidcService] 인증 완료: correlationId={} authResultId={} authLevel={} qimUserId(prefix)={}",
+                correlationId, authResultId, authLevel,
+                qimUserId.length() >= 8 ? qimUserId.substring(0, 8) : qimUserId);
 
         return CallbackResult.builder()
                 .feSession(feSession)
@@ -241,6 +258,62 @@ public class KeycloakOidcService {
     }
 
     /**
+     * Keycloak sub → Q-IM qimUserId 조회/등록 (SSO 핵심 메서드)
+     *
+     * <p>소셜 로그인 경로에서 CI는 없으나, Q-IM은 소셜 계정(Keycloak sub)을 키로
+     * 사용자를 등록/조회할 수 있다. 이를 통해 실제 qimUserId를 확보하여
+     * Handoff 발급 시 PolicyEngine이 정확한 agencySubjectId를 계산하도록 한다.
+     *
+     * <p><b>흐름</b>:
+     * <ol>
+     *   <li>Q-IM {@code findBySocialSub(sub, providerCode)} 조회</li>
+     *   <li>기존 사용자 → qimUserId 반환</li>
+     *   <li>신규 사용자 → {@code registerSocialUser(sub, providerCode, identifierHash)} 등록 후 qimUserId 반환</li>
+     *   <li>Q-IM 통신 실패 → identifierHash 폴백 + ERROR 로그 (SSO 기능 저하, 인증 플로우 중단하지 않음)</li>
+     * </ol>
+     *
+     * @param sub           Keycloak id_token sub 클레임
+     * @param identifierHash SHA-256(sub) — 폴백 식별자
+     * @param providerCode  소셜 제공자 코드 (KAKAO_OIDC 등)
+     * @param correlationId 요청 추적 ID
+     * @return 실제 qimUserId (Q-IM 통신 실패 시 identifierHash 폴백)
+     */
+    private String resolveQimUserIdFromSub(String sub, String identifierHash,
+                                            String providerCode, String correlationId) {
+        try {
+            // Q-IM 소셜 계정 조회 (sub + providerCode 기반)
+            Optional<QimMemberInfo> existing = qimClient.findBySocialSub(sub, providerCode, correlationId);
+
+            if (existing.isPresent()) {
+                String qimUserId = existing.get().getQimUserId();
+                log.info("[KeycloakOidcService] Q-IM 소셜 기존 사용자: qimUserId(prefix)={} correlationId={}",
+                        qimUserId.length() >= 8 ? qimUserId.substring(0, 8) : qimUserId, correlationId);
+                return qimUserId;
+            }
+
+            // 신규 소셜 사용자 → Q-IM 등록
+            log.info("[KeycloakOidcService] Q-IM 소셜 신규 등록: providerCode={} correlationId={}",
+                    providerCode, correlationId);
+            QimRegisterResponse registered = qimClient.registerSocialUser(
+                    sub, providerCode, identifierHash, correlationId);
+            String newQimUserId = registered.getQimUserId();
+            log.info("[KeycloakOidcService] Q-IM 소셜 등록 완료: qimUserId(prefix)={} isNew={} correlationId={}",
+                    newQimUserId.length() >= 8 ? newQimUserId.substring(0, 8) : newQimUserId,
+                    registered.getIsNew(), correlationId);
+            return newQimUserId;
+
+        } catch (Exception e) {
+            // Q-IM 통신 실패 → identifierHash 폴백 (인증 플로우는 계속)
+            // 이 경우 Handoff 발급 시 agencySubjectId가 HMAC fallback으로 계산됨
+            // 운영 환경에서는 반드시 Q-IM 연동 상태를 모니터링해야 함
+            log.error("[KeycloakOidcService][SSO-DEGRADED] Q-IM 소셜 계정 조회/등록 실패 " +
+                      "— identifierHash 폴백 사용 (SSO agencySubjectId 정확성 저하): " +
+                      "correlationId={} cause={}", correlationId, e.getMessage());
+            return identifierHash;
+        }
+    }
+
+    /**
      * identifierHash 생성: SHA-256(sub) → hex encoding
      */
     private String computeIdentifierHash(String sub, String correlationId) {
@@ -313,11 +386,11 @@ public class KeycloakOidcService {
      */
     private void saveOutboxEvent(String authResultId, String correlationId,
                                   String authLevel, String providerCode,
-                                  String identifierHash) {
+                                  String qimUserId, String identifierHash) {
         try {
             String eventId  = UuidV7.generate();
             String payload  = buildAuthEventPayload(eventId, authResultId, correlationId,
-                    authLevel, providerCode, identifierHash);
+                    authLevel, providerCode, qimUserId, identifierHash);
 
             jdbcTemplate.update("""
                     INSERT INTO ido.outbox
@@ -325,11 +398,11 @@ public class KeycloakOidcService {
                          payload, topic, status, created_at)
                     VALUES (?, 'AUTH_COMPLETED', ?, ?, ?::jsonb, ?, 'PENDING', NOW())
                     """,
-                    eventId, identifierHash, authResultId, payload, authEventsTopic
+                    eventId, qimUserId, authResultId, payload, authEventsTopic
             );
 
             // 즉시 Kafka 발행 시도 (Outbox relay 보완 — 장애 시 relay가 재처리)
-            publishAuthEvent(eventId, authResultId, correlationId, authLevel, providerCode, identifierHash);
+            publishAuthEvent(eventId, authResultId, correlationId, authLevel, providerCode, qimUserId);
 
         } catch (Exception e) {
             log.error("[KeycloakOidcService] outbox 이벤트 저장 실패: correlationId={}", correlationId, e);
@@ -343,21 +416,21 @@ public class KeycloakOidcService {
      * Kafka AUTH_COMPLETED 이벤트 즉시 발행
      */
     private void publishAuthEvent(String eventId, String authResultId, String correlationId,
-                                   String authLevel, String providerCode, String identifierHash) {
+                                   String authLevel, String providerCode, String qimUserId) {
         try {
             AuthEvent event = new AuthEvent(
                     AuthEvent.TYPE_AUTH_COMPLETED,
                     SOURCE_SYSTEM,
                     correlationId,
-                    identifierHash,   // 소셜 로그인: CI 없음 → identifierHash 사용 (Q-IM 팀 협의 필요)
+                    qimUserId,        // 실제 Q-IM 사용자 ID — Handoff/PolicyEngine에서 정확한 DI 계산 가능
                     1L,               // eventVersion
                     authResultId,
                     AuthResult.AuthLevel.valueOf(authLevel),
                     providerCode,
-                    null,             // providerTxId — Keycloak 모드에서 sub는 identifierHash에 포함
+                    null,             // providerTxId
                     AuthResult.VerificationResult.SUCCESS
             );
-            kafkaTemplate.send(authEventsTopic, identifierHash, event);
+            kafkaTemplate.send(authEventsTopic, qimUserId, event);
             log.debug("[KeycloakOidcService] Kafka 이벤트 발행: eventId={} correlationId={}", eventId, correlationId);
         } catch (Exception e) {
             // Kafka 발행 실패는 경고만 — Outbox relay가 재처리
@@ -393,7 +466,8 @@ public class KeycloakOidcService {
      * AUTH_COMPLETED 이벤트 페이로드 JSON 생성
      */
     private String buildAuthEventPayload(String eventId, String authResultId, String correlationId,
-                                          String authLevel, String providerCode, String identifierHash) {
+                                          String authLevel, String providerCode,
+                                          String qimUserId, String identifierHash) {
         try {
             Map<String, Object> payload = Map.of(
                     "eventId",         eventId,
@@ -403,7 +477,7 @@ public class KeycloakOidcService {
                     "authResultId",    authResultId,
                     "authLevel",       authLevel,
                     "providerCode",    providerCode,
-                    "identifierHash",  identifierHash,
+                    "qimUserId",       qimUserId,
                     "occurredAt",      Instant.now().toString()
             );
             return objectMapper.writeValueAsString(payload);

@@ -95,9 +95,14 @@ public class PkceService {
     /**
      * 인가 요청 처리 시 code_challenge를 Redis에 저장
      *
+     * <p><b>P2 보안 수정</b>: {@code plain} 방식 거부. S256만 허용.
+     * plain은 code_verifier가 네트워크에 그대로 노출되어 탈취 시 PKCE 보호가 무력화됨.
+     * Discovery 문서의 {@code code_challenge_methods_supported}에서도 plain 제거.
+     *
      * @param state          CSRF 방어용 state 값 (기존 KeycloakStateEntry key와 연계)
      * @param codeChallenge  클라이언트가 제출한 code_challenge
-     * @param method         code_challenge_method (S256 또는 plain — plain은 비권장)
+     * @param method         code_challenge_method — S256만 허용 (plain 거부)
+     * @throws PkceException method가 S256이 아닌 경우 (plain 포함 모든 비표준 method)
      */
     public void storeChallenge(String state, String codeChallenge, String method) {
         if (!pkceEnabled) {
@@ -107,16 +112,19 @@ public class PkceService {
         if (state == null || codeChallenge == null) {
             throw new PkceException("state와 code_challenge는 필수입니다");
         }
+        // P2 보안 수정: plain 방식 명시적 거부 — S256만 허용 (RFC 7636 §4.2)
         if (!"S256".equalsIgnoreCase(method)) {
-            // plain 방식은 보안상 권장하지 않음 (RFC 7636 §4.2)
-            log.warn("[PKCE] 비권장 method '{}' — S256 사용 권장", method);
+            log.warn("[PKCE][P2-보안] 허용되지 않는 PKCE method '{}' — S256만 허용. 요청 거부: state={}",
+                    method, state);
+            throw new PkceException(
+                    "지원하지 않는 code_challenge_method: '" + method + "'. S256만 허용됩니다.");
         }
 
         String key   = KEY_PREFIX + state;
-        String value = (method != null ? method : CHALLENGE_METHOD) + ":" + codeChallenge;
+        String value = CHALLENGE_METHOD + ":" + codeChallenge;  // method는 항상 S256
 
         redisTemplate.opsForValue().set(key, value, Duration.ofSeconds(challengeTtlSeconds));
-        log.debug("[PKCE] code_challenge 저장: state={} method={}", state, method);
+        log.debug("[PKCE] code_challenge 저장: state={} method=S256", state);
     }
 
     // ────────────────────────────────────────────────────────────────────────

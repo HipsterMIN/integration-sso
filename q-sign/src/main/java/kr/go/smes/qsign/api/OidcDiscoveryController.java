@@ -138,7 +138,9 @@ public class OidcDiscoveryController {
                 "urn:openid:params:grant-type:ciba"));
         metadata.put("scopes_supported", List.of("openid", "profile", "email",
                 "address", "phone", "offline_access", "microprofile-jwt", "roles", "web-origins"));
-        metadata.put("code_challenge_methods_supported", List.of("plain", "S256"));
+        // P2 보안 수정: plain 방식 제거 — S256만 허용 (RFC 7636 §4.2 권장)
+        // plain은 code_verifier가 그대로 노출되어 탈취 시 PKCE 보호가 무력화됨
+        metadata.put("code_challenge_methods_supported", List.of("S256"));
         metadata.put("request_parameter_supported", true);
         metadata.put("request_uri_parameter_supported", true);
         metadata.put("require_request_uri_registration", true);

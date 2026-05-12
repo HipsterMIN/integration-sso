@@ -70,4 +70,37 @@ public interface QimClient {
      * @throws kr.go.smes.common.error.PlatformException Q-IM 통신 오류
      */
     Optional<QimMemberInfo> findByCi(String ci, String memberType, String correlationId);
+
+    /**
+     * 소셜 로그인(Keycloak) sub 기반 Q-IM 사용자 조회
+     *
+     * <p>POST /api/v1/internal/users/find-by-social-sub
+     *
+     * <p>Keycloak 콜백에서 CI 없이 소셜 계정(sub)만 있을 때 사용.
+     * Q-IM이 (providerCode + sub) 조합으로 기존 등록 사용자를 조회한다.
+     * 매칭되는 사용자가 없으면 {@code Optional.empty()} 반환.
+     *
+     * @param sub           Keycloak id_token sub 클레임
+     * @param providerCode  소셜 제공자 코드 (KAKAO_OIDC, NAVER_OIDC 등)
+     * @param correlationId 요청 추적 ID
+     * @return Q-IM 사용자 정보 (없으면 empty)
+     */
+    Optional<QimMemberInfo> findBySocialSub(String sub, String providerCode, String correlationId);
+
+    /**
+     * 소셜 로그인 신규 사용자 Q-IM 등록
+     *
+     * <p>POST /api/v1/internal/users/register-social
+     *
+     * <p>Keycloak 콜백에서 CI 없이 소셜 계정(sub)만 있는 신규 사용자를
+     * Q-IM에 등록한다. Q-IM은 (providerCode + sub) 조합으로 qimUserId를 생성한다.
+     *
+     * @param sub            Keycloak id_token sub 클레임
+     * @param providerCode   소셜 제공자 코드 (KAKAO_OIDC, NAVER_OIDC 등)
+     * @param identifierHash SHA-256(sub) — Q-IM 내부 추적용
+     * @param correlationId  요청 추적 ID
+     * @return Q-IM 등록 결과 (qimUserId, isNew)
+     */
+    QimRegisterResponse registerSocialUser(String sub, String providerCode,
+                                           String identifierHash, String correlationId);
 }

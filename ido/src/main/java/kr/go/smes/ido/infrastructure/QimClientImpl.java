@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Q-IM HTTP 클라이언트 구현체 (v3.0 — S7-T6)
+ * Q-IM HTTP 클라이언트 구현체 (v4.0 — SSO 소셜 계정 지원)
  *
  * <p>v2.0 추가:
  * <ul>
@@ -32,6 +32,12 @@ import java.util.Optional;
  * <ul>
  *   <li>{@link #registerUser(AuthResult, String)} — CI → Q-IM 등록</li>
  *   <li>{@link #findByCi(String, String, String)} — CI로 Q-IM 사용자 조회</li>
+ * </ul>
+ *
+ * <p>v4.0 추가 (SSO — Keycloak identifierHash 수정):
+ * <ul>
+ *   <li>{@link #findBySocialSub(String, String, String)} — Keycloak sub로 소셜 계정 조회</li>
+ *   <li>{@link #registerSocialUser(String, String, String, String)} — 소셜 신규 사용자 Q-IM 등록</li>
  * </ul>
  */
 @Slf4j
@@ -250,6 +256,111 @@ public class QimClientImpl implements QimClient {
             throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
         } catch (Exception e) {
             log.error("[QimClient] CI 조회 예외: ci={} err={}", ciMasked, e.getMessage(), e);
+            throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
+        }
+    }
+
+    // ── findBySocialSub ───────────────────────────────────────────────────
+
+    /**
+     * v2.4.0 (SSO): Keycloak sub로 Q-IM 소셜 계정 조회
+     * POST /api/v1/internal/users/find-by-social-sub
+     *
+     * <p>Keycloak 콜백에서 발급된 sub(JWT subject)와 providerCode로
+     * Q-IM에 등록된 소셜 계정을 조회한다.
+     * 404 응답 → 미등록 → {@code Optional.empty()} 반환.
+     * 그 외 오류 → {@link PlatformException} 발생.
+     *
+     * @param sub           Keycloak JWT sub 클레임 (provider 내부 사용자 식별자)
+     * @param providerCode  인증 제공자 코드 (e.g. "KAKAO", "NAVER")
+     * @param correlationId 요청 추적 ID
+     */
+    @Override
+    public Optional<QimMemberInfo> findBySocialSub(String sub, String providerCode, String correlationId) {
+        log.debug("[QimClient] 소셜 sub 조회: providerCode={}", providerCode);
+        try {
+            HttpHeaders headers = buildHeaders(correlationId);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("sub", sub);
+            body.put("providerCode", providerCode);
+
+            String url = qimBaseUrl + "/api/v1/internal/users/find-by-social-sub";
+            ResponseEntity<QimMemberInfo> response = qimRestTemplate.exchange(
+                    url, HttpMethod.POST,
+                    new HttpEntity<>(body, headers),
+                    QimMemberInfo.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                log.debug("[QimClient] 소셜 sub 조회 성공: qimUserId={}", response.getBody().getQimUserId());
+                return Optional.of(response.getBody());
+            }
+            return Optional.empty();
+
+        } catch (HttpClientErrorException.NotFound e) {
+            // 404: 미등록 소셜 계정 — 정상 케이스 (이후 registerSocialUser 호출)
+            log.debug("[QimClient] 소셜 미등록 사용자: providerCode={}", providerCode);
+            return Optional.empty();
+        } catch (RestClientException e) {
+            log.error("[QimClient] 소셜 sub 조회 네트워크 오류: {}", e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
+        } catch (Exception e) {
+            log.error("[QimClient] 소셜 sub 조회 예외: providerCode={} err={}", providerCode, e.getMessage(), e);
+            throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
+        }
+    }
+
+    // ── registerSocialUser ────────────────────────────────────────────────
+
+    /**
+     * v2.4.0 (SSO): Keycloak 소셜 신규 사용자 Q-IM 등록
+     * POST /api/v1/internal/users/register-social
+     *
+     * <p>{@link #findBySocialSub}에서 {@code Optional.empty()} 반환 시 호출.
+     * Q-IM이 sub+providerCode 조합으로 소셜 계정을 생성하고 qimUserId를 발급한다.
+     * identifierHash는 Q-IM이 초기 식별자로 보관 (추후 CI 연동 시 사용 가능).
+     *
+     * @param sub            Keycloak JWT sub 클레임
+     * @param providerCode   인증 제공자 코드 (e.g. "KAKAO", "NAVER")
+     * @param identifierHash SHA-256(sub) — CI 미보유 소셜 사용자의 임시 식별자
+     * @param correlationId  요청 추적 ID
+     */
+    @Override
+    public QimRegisterResponse registerSocialUser(String sub, String providerCode,
+                                                   String identifierHash, String correlationId) {
+        log.info("[QimClient] 소셜 신규 사용자 등록: providerCode={}", providerCode);
+        try {
+            HttpHeaders headers = buildHeaders(correlationId);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("sub", sub);
+            body.put("providerCode", providerCode);
+            body.put("identifierHash", identifierHash);
+
+            String url = qimBaseUrl + "/api/v1/internal/users/register-social";
+            ResponseEntity<QimRegisterResponse> response = qimRestTemplate.exchange(
+                    url, HttpMethod.POST,
+                    new HttpEntity<>(body, headers),
+                    QimRegisterResponse.class);
+
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                log.error("[QimClient] 소셜 등록 비정상 응답: status={}", response.getStatusCode());
+                throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
+            }
+
+            QimRegisterResponse result = response.getBody();
+            log.info("[QimClient] 소셜 등록 완료: qimUserId={} isNew={}", result.getQimUserId(), result.getIsNew());
+            return result;
+
+        } catch (PlatformException e) {
+            throw e;
+        } catch (RestClientException e) {
+            log.error("[QimClient] 소셜 등록 네트워크 오류: {}", e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
+        } catch (Exception e) {
+            log.error("[QimClient] 소셜 등록 예외: providerCode={} err={}", providerCode, e.getMessage(), e);
             throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
         }
     }
