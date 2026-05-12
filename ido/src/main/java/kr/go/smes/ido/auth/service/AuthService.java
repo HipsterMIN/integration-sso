@@ -76,6 +76,33 @@ public class AuthService {
     private String feAesGcmKey;
 
     /**
+     * FE AES-GCM 키 제공 (B-1)
+     *
+     * <p>FE 번들({@code AES_GCM_KEY} webpack DefinePlugin)에 AES-GCM 키를 포함하지 않고
+     * 서버 사이드에서 런타임에 키를 제공한다. FE는 앱 초기화 시 이 엔드포인트를 호출하여
+     * 키를 주입받아야 한다.
+     *
+     * <p><b>보안 원칙 (B-1):</b>
+     * FE 번들에 AES-GCM 키가 포함되면 번들 분석으로 키가 노출된다.
+     * 이 메서드는 키를 런타임에 주입하여 번들 노출 위험을 차단한다.
+     *
+     * <p><b>운영 설정:</b>
+     * {@code ido.fe-aes-gcm-key} (환경변수: {@code FE_AES_GCM_KEY}) 필수.
+     * 미설정 시 {@link IllegalStateException} 발생 → 500 응답.
+     *
+     * @return FE AES-GCM 키 응답 ({@code aesGcmKey} 필드)
+     * @throws IllegalStateException FE_AES_GCM_KEY 환경변수 미설정 시
+     */
+    public Map<String, String> getFeAesGcmKey() {
+        if (feAesGcmKey == null || feAesGcmKey.isBlank()) {
+            log.error("[AES-GCM-KEY][보안경고] ido.fe-aes-gcm-key 미설정 — FE_AES_GCM_KEY 환경변수를 설정하세요.");
+            throw new IllegalStateException("서버 설정 오류: FE_AES_GCM_KEY가 설정되지 않았습니다.");
+        }
+        log.debug("[AES-GCM-KEY] FE AES-GCM 키 제공 완료");
+        return Map.of("aesGcmKey", feAesGcmKey);
+    }
+
+    /**
      * 기업 간편인증 콜백 수신 및 auth-check 처리 (Q2=B)
      *
      * <p>통합인증 간편인증창이 FE에 postMessage로 전달한 콜백 데이터를

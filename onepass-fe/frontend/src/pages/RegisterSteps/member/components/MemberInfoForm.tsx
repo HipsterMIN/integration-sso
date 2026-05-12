@@ -1,5 +1,4 @@
 import { ChangeEvent } from 'react';
-import { MOCK_BUSINESS } from 'constants/mockData';
 import { useRegister } from 'providers/Register/RegisterContext';
 
 interface MemberInfoFormProps {
@@ -33,7 +32,7 @@ function MemberInfoForm({
 								id="company_name"
 								type="text"
 								name="company_name"
-								value={MOCK_BUSINESS.companyName}
+								value={data.bzmnNm}
 								disabled
 							/>
 						</div>
@@ -47,7 +46,7 @@ function MemberInfoForm({
 								id="business_num"
 								type="number"
 								name="business_num"
-								value={MOCK_BUSINESS.businessNum}
+								value={data.brno}
 								disabled
 							/>
 						</div>

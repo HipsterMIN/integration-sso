@@ -50,11 +50,9 @@ const faro = appEnv !== 'local'
             propagateTraceHeaderCorsUrls: [
               /\/api\/.*/,
               /\/im\/api\/.*/,
+              // B-5: /api/ext 가 ido(8083)로 통합됨 — BE_API_ENDPOINT 하나로 커버
               ...(process.env.BE_API_ENDPOINT
                 ? [new RegExp(process.env.BE_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
-                : []),
-              ...(process.env.EXT_API_ENDPOINT
-                ? [new RegExp(process.env.EXT_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
                 : []),
             ],
           },

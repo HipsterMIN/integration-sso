@@ -33,6 +33,7 @@ import java.util.Map;
  * POST /api/v1/auth/oacx/easysign        — OACX 간편서명 결과 처리
  * POST /api/v1/auth/callback             — 기업 간편인증 콜백 (Q2=B, 향후 FE 연동)
  * GET  /api/v1/auth/provision/temp-password — 임시 비밀번호 생성 (CSPRNG 기반)
+ * GET  /api/v1/auth/provision/aes-gcm-key  — FE AES-GCM 키 제공 (B-1: FE 번들 미포함)
  * POST /api/v1/auth/ci-token              — CI → ciToken 교환 (Q3=B: CI FE 미반환)
  * </pre>
  *
@@ -350,7 +351,41 @@ public class AuthController {
     public Map<String, String> generateTempPassword() {
         String password = SecurePasswordGenerator.generate();
         log.info("[임시비밀번호] CSPRNG 기반 임시 비밀번호 생성 완료");
-        return Map.of("password", password);
+        return Map.of("tempPassword", password);
+    }
+
+    /**
+     * FE AES-GCM 키 제공 (B-1)
+     *
+     * <p>{@code GET /api/v1/auth/provision/aes-gcm-key}
+     *
+     * <p>FE 번들({@code AES_GCM_KEY} webpack DefinePlugin)에 AES-GCM 키를 포함하지 않고
+     * 서버 사이드에서 세션 바인딩 키를 제공한다.
+     * FE는 앱 초기화 시 이 엔드포인트를 호출하여 런타임에 키를 주입받아야 한다.
+     *
+     * <p><b>보안 원칙 (B-1):</b>
+     * FE 번들에 AES-GCM 키를 포함하면 번들 분석으로 키가 노출된다.
+     * 이 엔드포인트를 통해 키를 런타임에 주입하면 번들 분석으로부터 키를 보호할 수 있다.
+     *
+     * <p><b>운영 필수 설정:</b>
+     * {@code FE_AES_GCM_KEY} 환경변수 미설정 시 500 오류 반환.
+     *
+     * <p><b>응답 예시:</b>
+     * <pre>
+     * { "aesGcmKey": "base64EncodedKey=" }
+     * </pre>
+     *
+     * <p><b>응답 코드:</b>
+     * <ul>
+     *   <li>{@code 200} — 성공 (aesGcmKey 포함)</li>
+     *   <li>{@code 500} — 서버 설정 오류 (FE_AES_GCM_KEY 미설정)</li>
+     * </ul>
+     *
+     * @return FE AES-GCM 키 응답 (aesGcmKey 필드)
+     */
+    @GetMapping("/provision/aes-gcm-key")
+    public Map<String, String> getFeAesGcmKey() {
+        return authService.getFeAesGcmKey();
     }
 
     /**

@@ -55,8 +55,8 @@ function RegisterStep3({
 					result.ci = undefined;
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: 'ucube-qsign',
-						clientId: 'onepassCli',
+						realm: process.env.QSIGN_REALM || 'ucube-qsign',
+						clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
 						flowContext: 'PROVISION_USER',
 					});
 					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.data) {
@@ -111,8 +111,8 @@ function RegisterStep3({
 					result.ci = undefined;
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: 'ucube-qsign',
-						clientId: 'onepassCli',
+						realm: process.env.QSIGN_REALM || 'ucube-qsign',
+						clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
 						flowContext: 'PROVISION_USER',
 					});
 					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.data) {
