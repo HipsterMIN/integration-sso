@@ -8,6 +8,7 @@ import kr.go.smes.ido.auth.dto.*;
 import kr.go.smes.ido.auth.dto.im.QimMemberInfo;
 import kr.go.smes.ido.auth.dto.im.QimRegisterResponse;
 import kr.go.smes.ido.auth.port.ImApiOutPort;
+import kr.go.smes.ido.qim.crypto.AesSharedKeyDecryptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -49,11 +50,15 @@ class AuthServiceTest {
     @Mock
     private AuthAuditService authAuditService;
 
+    @Mock
+    private AesSharedKeyDecryptor aesSharedKeyDecryptor;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(integrationAuthClient, oacxClient, new ObjectMapper(), imApiOutPort, authAuditService);
+        authService = new AuthService(integrationAuthClient, oacxClient, new ObjectMapper(),
+                imApiOutPort, authAuditService, aesSharedKeyDecryptor);
     }
 
     // ── callback 테스트 ──────────────────────────────────────────────────────

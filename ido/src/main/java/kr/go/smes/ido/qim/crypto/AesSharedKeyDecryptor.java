@@ -7,10 +7,12 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
@@ -41,6 +43,15 @@ import java.util.Base64;
 public class AesSharedKeyDecryptor {
 
     private static final String ALGORITHM = "AES";
+
+    /** GCM 인증 태그 비트 길이 (128비트 = 16바이트 — NIST 권장 최대값) */
+    private static final int GCM_TAG_LENGTH_BITS = 128;
+
+    /** AES-GCM IV 고정 길이 (12바이트 — NIST SP 800-38D 권장) */
+    private static final int GCM_IV_LENGTH = 12;
+
+    /** CSPRNG: SecureRandom 인스턴스 (스레드 안전) */
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     /** AES 암호화 모드/패딩 (환경변수 QIM_AES_TRANSFORMATION으로 주입, Q-IM 팀 합의 필요) */
     private final String transformation;
@@ -156,6 +167,117 @@ public class AesSharedKeyDecryptor {
     }
 
     /**
+     * CI 평문을 AES-GCM으로 암호화하여 Q-IM에 전달할 형식으로 반환한다.
+     *
+     * <p>{@code POST /api/v1/auth/ci-token} 엔드포인트에서 FE가 전달한 CI 원문을
+     * Q-IM 공유키로 암호화하여 Q-IM에 전송한다.
+     *
+     * <p><b>출력 형식</b>: {@code Base64(IV[12 bytes] || GCM CipherText+Tag[len+16 bytes])}
+     *
+     * <p><b>왜 AES-GCM인가?</b>
+     * <ul>
+     *   <li>무결성 보장: GCM 인증 태그(128bit)로 암호문 위변조 탐지</li>
+     *   <li>IV 재사용 위험 없음: {@code SecureRandom}으로 매 호출마다 새 IV 생성</li>
+     *   <li>CBC 대비 패딩 오라클 공격 면역</li>
+     * </ul>
+     *
+     * <p><b>Q-IM 팀 합의 필요</b>: Q-IM이 GCM을 지원하지 않으면 {@code encryptCbc()}를 사용.
+     * 현재는 GCM을 기본값으로 사용하며, 환경변수 {@code QIM_AES_TRANSFORMATION=AES/CBC/PKCS5Padding}
+     * 설정 시 CBC 방식으로 fallback된다.
+     *
+     * @param plainText 암호화할 평문 (CI 원문, 88자 기준)
+     * @return AES-GCM 암호화 결과 (Base64 인코딩: IV || CipherText+Tag)
+     * @throws QimEncryptionException AES 암호화 실패 시
+     */
+    public String encrypt(String plainText) {
+        if (plainText == null || plainText.isBlank()) {
+            throw new QimEncryptionException("암호화할 평문이 null 또는 빈 문자열입니다.");
+        }
+        if (sharedKeyBytes.length != 32) {
+            throw new QimEncryptionException(
+                "AES 공유키가 올바르게 설정되지 않았습니다. Q-IM 팀에서 발급된 32바이트 키를 설정하세요.");
+        }
+
+        // transformation 기반 암호화 방식 분기
+        if (transformation.contains("GCM")) {
+            return encryptGcm(plainText);
+        } else {
+            return encryptCbc(plainText);
+        }
+    }
+
+    /**
+     * AES-GCM 암호화 (기본 방식)
+     *
+     * <p>출력: {@code Base64(IV[12 bytes] || CipherText+Tag)}
+     * NIST SP 800-38D 준수 — IV는 매 호출마다 SecureRandom으로 생성.
+     *
+     * @param plainText 암호화할 평문
+     * @return Base64 인코딩된 암호문 (IV + CipherText + GCM Tag)
+     */
+    private String encryptGcm(String plainText) {
+        try {
+            // 1. IV 생성 (12바이트 — NIST 권장)
+            byte[] iv = new byte[GCM_IV_LENGTH];
+            SECURE_RANDOM.nextBytes(iv);
+
+            // 2. AES-GCM 암호화
+            SecretKey secretKey = new SecretKeySpec(sharedKeyBytes, ALGORITHM);
+            GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec);
+            byte[] cipherBytes = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+
+            // 3. IV || CipherText+Tag 결합 후 Base64 인코딩
+            byte[] combined = new byte[iv.length + cipherBytes.length];
+            System.arraycopy(iv, 0, combined, 0, iv.length);
+            System.arraycopy(cipherBytes, 0, combined, iv.length, cipherBytes.length);
+
+            return Base64.getEncoder().encodeToString(combined);
+
+        } catch (Exception e) {
+            log.warn("[QIM-CRYPTO] AES-GCM 암호화 실패: {}", e.getMessage());
+            throw new QimEncryptionException("AES-GCM 암호화에 실패했습니다.", e);
+        }
+    }
+
+    /**
+     * AES-CBC 암호화 (Q-IM 팀이 CBC를 요구할 경우 사용)
+     *
+     * <p>출력: {@code Base64(IV[ivLength bytes] || CipherText)}
+     * Q-IM이 CBC 방식을 사용하는 경우 {@code ido.qim.aes-transformation=AES/CBC/PKCS5Padding} 설정.
+     *
+     * @param plainText 암호화할 평문
+     * @return Base64 인코딩된 암호문 (IV + CipherText)
+     */
+    private String encryptCbc(String plainText) {
+        try {
+            // 1. IV 생성 (ivLength 바이트)
+            byte[] iv = new byte[ivLength];
+            SECURE_RANDOM.nextBytes(iv);
+
+            // 2. AES-CBC 암호화
+            SecretKey secretKey = new SecretKeySpec(sharedKeyBytes, ALGORITHM);
+            IvParameterSpec ivSpec = new IvParameterSpec(iv);
+            Cipher cipher = Cipher.getInstance(transformation);
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
+            byte[] cipherBytes = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+
+            // 3. IV || CipherText 결합 후 Base64 인코딩
+            byte[] combined = new byte[iv.length + cipherBytes.length];
+            System.arraycopy(iv, 0, combined, 0, iv.length);
+            System.arraycopy(cipherBytes, 0, combined, iv.length, cipherBytes.length);
+
+            return Base64.getEncoder().encodeToString(combined);
+
+        } catch (Exception e) {
+            log.warn("[QIM-CRYPTO] AES-CBC 암호화 실패: transformation={} cause={}", transformation, e.getMessage());
+            throw new QimEncryptionException(
+                "AES-CBC 암호화에 실패했습니다. transformation=" + transformation, e);
+        }
+    }
+
+    /**
      * 복호화된 CI로부터 identifierHash(SHA-256) 생성
      *
      * @param plainCi 복호화된 CI 평문 (88바이트 정상 CI)
@@ -193,11 +315,21 @@ public class AesSharedKeyDecryptor {
     }
 
     // ── 내부 예외 클래스 ──────────────────────────────────────────────────────
+
     public static class QimDecryptionException extends RuntimeException {
         public QimDecryptionException(String message) {
             super(message);
         }
         public QimDecryptionException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    public static class QimEncryptionException extends RuntimeException {
+        public QimEncryptionException(String message) {
+            super(message);
+        }
+        public QimEncryptionException(String message, Throwable cause) {
             super(message, cause);
         }
     }

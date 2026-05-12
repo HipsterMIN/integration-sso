@@ -8,10 +8,16 @@ import kr.go.smes.ido.auth.dto.*;
 import kr.go.smes.ido.auth.dto.im.QimMemberInfo;
 import kr.go.smes.ido.auth.dto.im.QimRegisterResponse;
 import kr.go.smes.ido.auth.port.ImApiOutPort;
+import kr.go.smes.ido.qim.crypto.AesSharedKeyDecryptor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +62,18 @@ public class AuthService {
     private final ObjectMapper objectMapper;
     private final ImApiOutPort imApiOutPort;
     private final AuthAuditService authAuditService;
+    private final AesSharedKeyDecryptor aesSharedKeyDecryptor;
+
+    /**
+     * FE에서 AES-GCM으로 암호화하여 전송한 CI를 복호화하는 키
+     *
+     * <p>FE의 {@code aesGcm.ts}에서 사용하는 AES-GCM 키.
+     * webpack DefinePlugin에 {@code AES_GCM_KEY}로 번들링되는 키와 동일한 값이어야 한다.
+     *
+     * <p>운영: {@code FE_AES_GCM_KEY} 환경변수 필수 설정 (32바이트, Base64 인코딩)
+     */
+    @Value("${ido.fe-aes-gcm-key:}")
+    private String feAesGcmKey;
 
     /**
      * 기업 간편인증 콜백 수신 및 auth-check 처리 (Q2=B)
@@ -392,6 +410,160 @@ public class AuthService {
                     .resultMsg("사용자 정보 조회 실패: " + e.getMessage())
                     .result(false)
                     .build();
+        }
+    }
+
+    /**
+     * FE → ido → Q-IM CI 토큰 교환 (Q3=B 구현)
+     *
+     * <p>FE가 전달한 AES-GCM 암호화 CI를 복호화하고, Q-IM 공유키로 재암호화하여
+     * Q-IM에 등록 후 ciToken을 발급받아 반환한다.
+     *
+     * <p><b>처리 플로우</b>:
+     * <ol>
+     *   <li>FE 전송 암호화 CI 수신 (Base64: IV[12] || CipherText+Tag)</li>
+     *   <li>FE AES-GCM 키({@code ido.fe-aes-gcm-key})로 복호화 → CI 평문</li>
+     *   <li>CI 평문을 Q-IM 공유키로 재암호화({@link AesSharedKeyDecryptor#encrypt})</li>
+     *   <li>Q-IM {@code POST /api/v1/internal/users/register} 호출</li>
+     *   <li>Q-IM이 발급한 qimUserId를 ciToken으로 반환</li>
+     * </ol>
+     *
+     * <p><b>보안 원칙 (Q3=B)</b>:
+     * CI 원문은 이 메서드 스코프 내에서만 존재하며, 응답 DTO에는 포함되지 않는다.
+     * ciToken은 Q-IM qimUserId 기반 불투명 식별자로, 회원 조회 시 사용한다.
+     *
+     * @param request FE 요청 (encryptedCi, mbrDvsnCd, bizno)
+     * @return ciToken 교환 결과 (resultCode, ciToken, qimUserId)
+     */
+    public CiTokenExchangeResponse exchangeCiToken(CiTokenExchangeRequest request) {
+        String mbrDvsnCd = request.getMbrDvsnCd();
+        log.info("[CI-TOKEN] CI 토큰 교환 요청: mbrDvsnCd={}", mbrDvsnCd);
+
+        // 1. FE AES-GCM 키 설정 검증
+        if (feAesGcmKey == null || feAesGcmKey.isBlank()) {
+            log.error("[CI-TOKEN][보안경고] ido.fe-aes-gcm-key 미설정 — CI 복호화 불가. FE_AES_GCM_KEY 환경변수를 설정하세요.");
+            return CiTokenExchangeResponse.builder()
+                    .resultCode("5000")
+                    .resultMsg("서버 설정 오류: FE AES-GCM 키가 설정되지 않았습니다.")
+                    .build();
+        }
+
+        // 2. 회원 구분 코드 검증
+        if (!"A101".equals(mbrDvsnCd) && !"A102".equals(mbrDvsnCd)) {
+            return CiTokenExchangeResponse.builder()
+                    .resultCode("4000")
+                    .resultMsg("mbrDvsnCd 값이 유효하지 않습니다. 허용값: A101(개인), A102(기업)")
+                    .build();
+        }
+        if ("A102".equals(mbrDvsnCd) && (request.getBizno() == null || request.getBizno().isBlank())) {
+            return CiTokenExchangeResponse.builder()
+                    .resultCode("4000")
+                    .resultMsg("기업회원(A102)은 bizno(사업자등록번호)가 필수입니다.")
+                    .build();
+        }
+
+        // 3. FE AES-GCM 복호화 (암호화 CI → CI 평문)
+        String plainCi;
+        try {
+            plainCi = decryptFeAesGcm(request.getEncryptedCi());
+        } catch (Exception e) {
+            log.warn("[CI-TOKEN] FE AES-GCM 복호화 실패: {}", e.getMessage());
+            return CiTokenExchangeResponse.builder()
+                    .resultCode("4010")
+                    .resultMsg("CI 복호화 실패: AES-GCM 키 불일치 또는 암호문 형식 오류. " + e.getMessage())
+                    .build();
+        }
+
+        // 4. CI 평문 기본 검증 (NICE CI는 88자)
+        if (plainCi == null || plainCi.isBlank()) {
+            log.warn("[CI-TOKEN] 복호화 결과 CI가 비어있음");
+            return CiTokenExchangeResponse.builder()
+                    .resultCode("4010")
+                    .resultMsg("복호화된 CI가 비어있습니다.")
+                    .build();
+        }
+
+        // 5. Q-IM에 CI 등록 (Q-IM 공유키로 재암호화하여 전달 — AesSharedKeyDecryptor.encrypt() 내부 처리)
+        String correlationId = "ci-token-" + UUID.randomUUID();
+        try {
+            AuthResult authResult = AuthResult.builder()
+                    .ci(plainCi)
+                    .build();
+            QimRegisterResponse qimResult = imApiOutPort.register(authResult, correlationId);
+
+            log.info("[CI-TOKEN] Q-IM 등록 완료: qimUserId={} isNew={} mbrDvsnCd={}",
+                    qimResult.getQimUserId(), qimResult.getIsNew(), mbrDvsnCd);
+
+            // 6. ciToken = qimUserId (불투명 식별자, CI 원문 미포함)
+            return CiTokenExchangeResponse.builder()
+                    .resultCode("2000")
+                    .resultMsg("성공")
+                    .ciToken(qimResult.getQimUserId())
+                    .qimUserId(qimResult.getQimUserId())
+                    .build();
+
+        } catch (Exception e) {
+            log.error("[CI-TOKEN] Q-IM 등록/ciToken 발급 실패: mbrDvsnCd={} correlationId={} err={}",
+                    mbrDvsnCd, correlationId, e.getMessage(), e);
+            return CiTokenExchangeResponse.builder()
+                    .resultCode("5010")
+                    .resultMsg("CI 토큰 발급 실패: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    /**
+     * FE가 AES-GCM으로 암호화하여 전달한 CI를 복호화한다.
+     *
+     * <p>FE 암호화 형식: {@code Base64(IV[12 bytes] || CipherText+Tag[len+16 bytes])}
+     * GCM 태그 길이: 128비트(16바이트).
+     *
+     * <p><b>키 형식</b>: {@code feAesGcmKey}는 Base64 인코딩된 32바이트(AES-256) 또는
+     * raw 32바이트 문자열(FE webpack에서는 일반적으로 raw 문자열 사용).
+     *
+     * @param encryptedCi FE가 AES-GCM 암호화한 CI (Base64 인코딩)
+     * @return CI 평문
+     * @throws IllegalArgumentException 복호화 실패 시
+     */
+    private String decryptFeAesGcm(String encryptedCi) {
+        try {
+            // 1. Base64 디코딩
+            byte[] combined = Base64.getDecoder().decode(encryptedCi);
+            if (combined.length < 12) {
+                throw new IllegalArgumentException("암호문이 너무 짧습니다 (최소 12바이트 IV 필요)");
+            }
+
+            // 2. IV 추출 (앞 12바이트)
+            byte[] iv = new byte[12];
+            System.arraycopy(combined, 0, iv, 0, 12);
+
+            // 3. 암호문+태그 추출 (나머지)
+            byte[] cipherBytes = new byte[combined.length - 12];
+            System.arraycopy(combined, 12, cipherBytes, 0, cipherBytes.length);
+
+            // 4. AES-GCM 복호화
+            // FE에서 사용하는 키는 UTF-8 바이트 또는 Base64 디코딩된 바이트
+            byte[] keyBytes;
+            try {
+                // Base64 인코딩된 키 시도
+                keyBytes = Base64.getDecoder().decode(feAesGcmKey);
+            } catch (Exception e) {
+                // Base64가 아니면 UTF-8 바이트로 사용
+                keyBytes = feAesGcmKey.getBytes(StandardCharsets.UTF_8);
+            }
+
+            SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
+            GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
+            byte[] plainBytes = cipher.doFinal(cipherBytes);
+
+            return new String(plainBytes, StandardCharsets.UTF_8);
+
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("FE AES-GCM 복호화 실패: " + e.getMessage(), e);
         }
     }
 
