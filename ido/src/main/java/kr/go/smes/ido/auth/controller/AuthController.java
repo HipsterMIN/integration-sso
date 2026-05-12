@@ -1,5 +1,6 @@
 package kr.go.smes.ido.auth.controller;
 
+import kr.go.smes.common.util.SecurePasswordGenerator;
 import kr.go.smes.ido.auth.dto.*;
 import kr.go.smes.ido.auth.service.AuthService;
 import kr.go.smes.ido.auth.service.NiceAuthService;
@@ -8,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
+import java.util.Map;
 
 /**
  * 본인인증 API 컨트롤러
@@ -24,12 +26,13 @@ import jakarta.validation.Valid;
  *
  * <h2>엔드포인트 목록</h2>
  * <pre>
- * GET  /api/v1/auth/nice/phone/url     — NICE 휴대폰 인증 URL 발급
- * POST /api/v1/auth/nice/phone/result  — NICE 휴대폰 인증 결과 조회
- * POST /api/v1/auth/nice/ci-check     — NICE 인증 CI 기반 회원 확인
- * POST /api/v1/auth/oacx/access-info  — OACX 접근키/토큰 발급
- * POST /api/v1/auth/oacx/easysign     — OACX 간편서명 결과 처리
- * POST /api/v1/auth/callback          — 기업 간편인증 콜백 (Q2=B, 향후 FE 연동)
+ * GET  /api/v1/auth/nice/phone/url        — NICE 휴대폰 인증 URL 발급
+ * POST /api/v1/auth/nice/phone/result     — NICE 휴대폰 인증 결과 조회
+ * POST /api/v1/auth/nice/ci-check        — NICE 인증 CI 기반 회원 확인 (조회 전용)
+ * POST /api/v1/auth/oacx/access-info     — OACX 접근키/토큰 발급
+ * POST /api/v1/auth/oacx/easysign        — OACX 간편서명 결과 처리
+ * POST /api/v1/auth/callback             — 기업 간편인증 콜백 (Q2=B, 향후 FE 연동)
+ * GET  /api/v1/auth/provision/temp-password — 임시 비밀번호 생성 (CSPRNG 기반)
  * </pre>
  *
  * <h2>FE 연동 방법</h2>
@@ -295,6 +298,59 @@ public class AuthController {
     // ─────────────────────────────────────────────────────────────────────────
     // 기업인증 API (Q2=B — 향후 FE 기업인증 구현 대비)
     // ─────────────────────────────────────────────────────────────────────────
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 프로비저닝 보조 API
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * 암호학적으로 안전한 임시 비밀번호 생성 (CSPRNG 기반)
+     *
+     * <p>{@code GET /api/v1/auth/provision/temp-password}
+     *
+     * <p>기업 관리자 계정 초기화 시 임시 비밀번호를 서버 사이드에서 생성하여 반환한다.
+     * {@link SecurePasswordGenerator}를 사용하여 {@link java.security.SecureRandom} 기반
+     * CSPRNG(Cryptographically Secure PRNG)으로 생성하므로 {@code Math.random()} 대비
+     * 예측 불가능한 비밀번호를 보장한다.
+     *
+     * <p><b>보안 배경:</b>
+     * FE Step5에서 {@code Math.random().toString(36)}으로 임시 비밀번호를 생성하는 것은
+     * 암호학적으로 안전하지 않다(예측 가능한 PRNG). 68개 기관 관리자 계정의 초기 비밀번호에
+     * 이 취약점이 적용되면 계정 탈취 위험이 있다.
+     * 이 엔드포인트를 통해 FE가 서버 사이드 생성 비밀번호를 사용하도록 마이그레이션해야 한다.
+     *
+     * <p><b>비밀번호 정책:</b>
+     * 대문자·소문자·숫자·특수문자 각 2개 이상 포함, 기본 12자.
+     * Keycloak 허용 특수문자(!@#$%^&amp;*) 범위 내 생성.
+     *
+     * <p><b>운영 권고:</b>
+     * 이 API가 반환한 비밀번호는 임시 비밀번호이며, Keycloak 사용자 생성 시
+     * {@code requiredAction: UPDATE_PASSWORD}를 반드시 설정하여
+     * 첫 로그인 후 사용자가 직접 변경하도록 강제해야 한다.
+     *
+     * <p><b>FE 마이그레이션 가이드:</b>
+     * <pre>
+     * // Step5.tsx — 기존 (비안전 PRNG)
+     * const password = `Rnd${Math.random().toString(36).slice(2, 10)}!${Math.floor(Math.random() * 90 + 10)}`;
+     *
+     * // Step5.tsx — 개선 (서버 사이드 CSPRNG)
+     * const { data } = await beApiInstance.get('/api/v1/auth/provision/temp-password');
+     * const password = data.password;
+     * </pre>
+     *
+     * <p><b>응답 예시:</b>
+     * <pre>
+     * { "password": "aB3#Kp9!mZ2@" }
+     * </pre>
+     *
+     * @return 임시 비밀번호 응답 (password 필드)
+     */
+    @GetMapping("/provision/temp-password")
+    public Map<String, String> generateTempPassword() {
+        String password = SecurePasswordGenerator.generate();
+        log.info("[임시비밀번호] CSPRNG 기반 임시 비밀번호 생성 완료");
+        return Map.of("password", password);
+    }
 
     /**
      * 기업 간편인증 콜백 수신 처리 (Q2=B)
