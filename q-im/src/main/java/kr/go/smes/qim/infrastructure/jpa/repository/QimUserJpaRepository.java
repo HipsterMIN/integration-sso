@@ -26,4 +26,24 @@ public interface QimUserJpaRepository extends JpaRepository<QimUserJpaEntity, St
           AND m.status = 'ACTIVE'
         """)
     Optional<QimUserJpaEntity> findByIdentifierHash(@Param("identifierHash") String identifierHash);
+
+    /**
+     * identifierHash + providerCode 복합 조회 (소셜 로그인 SSO 전용)
+     *
+     * <p>Keycloak 소셜 콜백에서 IdO가 SHA-256(sub)를 identifierHash로,
+     * 소셜 제공자 코드(KAKAO_OIDC 등)를 providerCode로 전달한다.
+     * identifierHash + providerCode 쌍이 일치하는 사용자만 반환하여
+     * 서로 다른 소셜 계정이 우연히 동일 hash를 가지는 경우를 방지한다.
+     * (SHA-256 충돌 가능성은 극히 낮으나 방어적 설계)
+     */
+    @Query("""
+        SELECT u FROM QimUserJpaEntity u
+        JOIN u.authMeanMappings m
+        WHERE m.identifierHash = :identifierHash
+          AND m.providerCode   = :providerCode
+          AND m.status         = 'ACTIVE'
+        """)
+    Optional<QimUserJpaEntity> findByIdentifierHashAndProviderCode(
+            @Param("identifierHash") String identifierHash,
+            @Param("providerCode")   String providerCode);
 }

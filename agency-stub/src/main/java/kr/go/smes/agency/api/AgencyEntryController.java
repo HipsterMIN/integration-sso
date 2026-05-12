@@ -150,6 +150,20 @@ public class AgencyEntryController {
                                 "correlationId", cid
                         ));
             }
+            case GUEST -> {
+                // 기관 매핑 없는 인증 사용자 — Q-IM UUID는 있지만 기관 회원 연결 없음
+                // 기관은 이 응답을 받아 신규 회원 가입 유도 또는 제한된 게스트 접근을 제공해야 한다.
+                String guestQimUserId = payload.getSubject() != null ? payload.getSubject().getQimUserId() : null;
+                log.info("[AgencyEntry] GUEST — 기관 매핑 없음: ticketId={} qimUserId={} correlationId={}",
+                        ticketId, guestQimUserId, cid);
+                return ResponseEntity.status(200)
+                        .body(Map.of(
+                                "state",         "GUEST",
+                                "qimUserId",     guestQimUserId != null ? guestQimUserId : "",
+                                "correlationId", cid,
+                                "message",       "기관 회원 연결이 없습니다. 회원 가입 또는 계정 연결이 필요합니다."
+                        ));
+            }
             case APPROVED -> log.info("[AgencyEntry] APPROVED 확인: ticketId={}", ticketId);
             default -> {
                 log.error("[AgencyEntry] 알 수 없는 state={}: ticketId={}", state, ticketId);

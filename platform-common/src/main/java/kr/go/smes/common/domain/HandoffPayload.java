@@ -36,6 +36,12 @@ public class HandoffPayload {
 
     public enum HandoffState {
         APPROVED,
+        /**
+         * Q-IM UUID 매핑이 없는 사용자 — 기관 회원 연결이 없음.
+         * 기관은 이 상태를 받으면 제한된 게스트 접근을 허용하거나 회원 가입 안내로 유도해야 한다.
+         * agencySubjectId는 null이고 qimUserId만 포함된다.
+         */
+        GUEST,
         HOLD,
         REJECTED,
         MANUAL_REVIEW

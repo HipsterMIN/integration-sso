@@ -135,7 +135,8 @@ public class QimClientImpl implements QimClient {
      * 기관별 DI 조회/생성
      * GET /api/v1/internal/users/{qimUserId}/di?agencyCode={agencyCode}
      *
-     * <p>실패 시 null 반환 → PolicyEngineImpl이 HMAC fallback 처리
+     * <p>실패 시 null 반환 → {@link kr.go.smes.ido.policy.PolicyEngineImpl}이
+     * {@code HandoffState.GUEST} 반환 (v3.0 — HMAC fallback 제거)
      */
     @Override
     public String getDi(String qimUserId, String agencyCode, String correlationId) {
@@ -151,7 +152,7 @@ public class QimClientImpl implements QimClient {
             }
             return null;
         } catch (Exception e) {
-            log.warn("[QimClient] DI 조회 실패 — HMAC fallback 사용: agencyCode={} err={}", agencyCode, e.getMessage());
+            log.warn("[QimClient] DI 조회 실패 — GUEST 반환 대상: agencyCode={} err={}", agencyCode, e.getMessage());
             return null;
         }
     }
