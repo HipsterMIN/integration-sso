@@ -15,21 +15,26 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * IdO 정책 엔진 구현체 (v2.0 — Production)
+ * IdO 정책 엔진 구현체 (v3.0 — UUID 기반 매핑 + GUEST 정책)
+ *
+ * <p>v3.0 변경사항 (smep-be-develop 심층 분석 반영):
+ * <ul>
+ *   <li>HMAC fallback agencySubjectId 생성 제거 — DI 없으면 GUEST 반환</li>
+ *   <li>smep-be는 Keycloak access token의 {@code "UUID"} claim으로 {@code tb_mbrm_mbr_m.uuid} 조회</li>
+ *   <li>UUID 매핑 없는 사용자: {@code HandoffState.GUEST} — 기관이 게스트/회원가입 유도 처리</li>
+ *   <li>UUID 매핑 있는 사용자: DI → agencySubjectId 연계 후 {@code APPROVED}</li>
+ * </ul>
  *
  * <p>v2.0 변경사항:
  * <ul>
  *   <li>allowedAttributes 실제 필터링 구현</li>
- *   <li>Q-IM DI → agencySubjectId 연계 (DI 우선, fallback HMAC)</li>
+ *   <li>Q-IM DI → agencySubjectId 연계 (DI 우선)</li>
  *   <li>사용자 속성 맵 Q-IM 조회 연동</li>
  * </ul>
  */
@@ -40,9 +45,6 @@ public class PolicyEngineImpl implements PolicyEngine {
     private final UserStatusCache      userStatusCache;
     private final QimClient            qimClient;
     private final AgencyMetaRepository agencyMetaRepository;
-
-    @Value("${ido.agency-subject-secret:default-poc-secret-change-in-production}")
-    private String agencySubjectIdSecret;
 
     /** policyVersion 기본값 — DB에 값 없을 때 fallback (하드코딩 "1.0" 제거) */
     @Value("${ido.policy.default-version:1.0}")
@@ -101,22 +103,59 @@ public class PolicyEngineImpl implements PolicyEngine {
                 : List.of();
         String resolvedPolicyVersion = agencyMeta != null ? agencyMeta.getPolicyVersion() : defaultPolicyVersion;
 
-        // 2. agencySubjectId — Q-IM DI 우선, fallback HMAC
-        String agencySubjectId = resolveAgencySubjectId(qimUserId, agencyCode, correlationId);
-
-        // 3. 사용자 속성 수집 후 allowedAttributes 필터링
-        Map<String, Object> rawAttributes = collectUserAttributes(ticket, qimUserId);
-        Map<String, Object> filteredAttributes = filterAttributes(rawAttributes, allowedAttrKeys);
-        log.debug("[PolicyEngine] 속성 필터링: total={} allowed={} filtered={}",
-                rawAttributes.size(), allowedAttrKeys.size(), filteredAttributes.size());
-
-        // 4. 사용자 상태 (캐시)
+        // 2. 사용자 상태 (캐시)
         UserStatus userStatus;
         try {
             userStatus = userStatusCache.get(qimUserId).orElse(UserStatus.ACTIVE);
         } catch (Exception e) {
             userStatus = UserStatus.ACTIVE;
         }
+
+        // 3. agencySubjectId — Q-IM DI 조회 (실패 시 HMAC fallback 없이 GUEST 반환)
+        //
+        // [smep-be 분석 결과]:
+        //   smep-be는 Keycloak access token의 "UUID" claim으로 tb_mbrm_mbr_m.uuid를 조회.
+        //   UUID(=qimUserId) 매핑 없는 사용자는 RESOURCE_NOT_FOUND → 403.
+        //   즉 smep-be는 사전 등록된 UUID 매핑이 없는 사용자를 인정하지 않는다.
+        //
+        // [정책]: DI 조회 성공 = 기관 매핑 있음 → APPROVED
+        //        DI 없음/실패 = 기관 매핑 없음 → GUEST (HMAC fallback ID 발급 금지)
+        String agencySubjectId = tryResolveDi(qimUserId, agencyCode, correlationId);
+        if (agencySubjectId == null) {
+            log.info("[PolicyEngine] 기관 매핑 없음(DI 없음) — GUEST 반환: qimUserId={} agency={} correlationId={}",
+                    qimUserId, agencyCode, correlationId);
+
+            // 3. GUEST 사용자 속성 (최소 정보만)
+            Map<String, Object> guestAttributes = collectUserAttributes(ticket, qimUserId);
+            Map<String, Object> filteredGuestAttrs = filterAttributes(guestAttributes, allowedAttrKeys);
+
+            return HandoffPayload.builder()
+                    .ticketId(ticket.getTicketId())
+                    .correlationId(ticket.getCorrelationId())
+                    .agencyCode(agencyCode)
+                    .policyVersion(resolvedPolicyVersion)
+                    .state(HandoffPayload.HandoffState.GUEST)
+                    .subject(HandoffPayload.SubjectIdentifier.builder()
+                            .agencySubjectId(null)   // GUEST는 기관 식별자 없음
+                            .qimUserId(qimUserId)
+                            .status(userStatus)
+                            .build())
+                    .authContext(HandoffPayload.AuthContext.builder()
+                            .authLevel(ticket.getAuthLevel())
+                            .authResultId(ticket.getAuthResultId())
+                            .authenticatedAt(ticket.getIssuedAt())
+                            .build())
+                    .attributes(filteredGuestAttrs)
+                    .issuedAt(ticket.getIssuedAt())
+                    .expiresAt(ticket.getExpiresAt())
+                    .build();
+        }
+
+        // 4. APPROVED — 사용자 속성 수집 후 allowedAttributes 필터링
+        Map<String, Object> rawAttributes = collectUserAttributes(ticket, qimUserId);
+        Map<String, Object> filteredAttributes = filterAttributes(rawAttributes, allowedAttrKeys);
+        log.debug("[PolicyEngine] 속성 필터링: total={} allowed={} filtered={}",
+                rawAttributes.size(), allowedAttrKeys.size(), filteredAttributes.size());
 
         return HandoffPayload.builder()
                 .ticketId(ticket.getTicketId())
@@ -143,21 +182,34 @@ public class PolicyEngineImpl implements PolicyEngine {
     // ── private ──────────────────────────────────────────────────────────────
 
     /**
-     * agencySubjectId 결정:
-     * 1. Q-IM DI 조회 시도 → 성공하면 DI 사용
-     * 2. 실패 시 HMAC-SHA256(qimUserId|agencyCode) fallback
+     * Q-IM DI 조회 시도.
+     *
+     * <p>DI가 있으면 반환 (= 기관 매핑 있음 → APPROVED).
+     * DI가 없거나 조회 실패면 {@code null} 반환 (= 기관 매핑 없음 → GUEST).
+     *
+     * <p>이전 HMAC fallback({@code generateAgencySubjectId}) 완전 제거:
+     * <ul>
+     *   <li>smep-be는 UUID 매핑 없는 사용자를 RESOURCE_NOT_FOUND(403)으로 거부</li>
+     *   <li>HMAC으로 임의 ID를 발급하면 기관은 실제 회원이 아닌 사용자를 받게 됨</li>
+     *   <li>매핑 없으면 GUEST를 반환하여 기관이 직접 처리하도록 위임</li>
+     * </ul>
+     *
+     * @return DI 문자열 (기관 매핑 있음), 또는 null (기관 매핑 없음)
      */
-    private String resolveAgencySubjectId(String qimUserId, String agencyCode, String correlationId) {
+    private String tryResolveDi(String qimUserId, String agencyCode, String correlationId) {
         try {
             String di = qimClient.getDi(qimUserId, agencyCode, correlationId);
             if (di != null && !di.isBlank()) {
                 log.debug("[PolicyEngine] agencySubjectId = Q-IM DI: agency={}", agencyCode);
                 return di;
             }
+            // getDi()가 null/blank 반환 = 기관 DI 없음 → GUEST
+            log.info("[PolicyEngine] Q-IM DI 없음(null/blank) — GUEST 대상: qimUserId={} agency={}", qimUserId, agencyCode);
+            return null;
         } catch (Exception e) {
-            log.warn("[PolicyEngine] Q-IM DI 조회 실패 — HMAC fallback: agency={} err={}", agencyCode, e.getMessage());
+            log.warn("[PolicyEngine] Q-IM DI 조회 실패 — GUEST 대상: agency={} err={}", agencyCode, e.getMessage());
+            return null;
         }
-        return generateAgencySubjectId(qimUserId, agencyCode);
     }
 
     /**
@@ -189,18 +241,4 @@ public class PolicyEngineImpl implements PolicyEngine {
         return attrs;
     }
 
-    /**
-     * HMAC-SHA256 기반 agencySubjectId (DI 조회 실패 시 fallback)
-     */
-    private String generateAgencySubjectId(String qimUserId, String agencyCode) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(agencySubjectIdSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] hash = mac.doFinal((qimUserId + "|" + agencyCode).getBytes(StandardCharsets.UTF_8));
-            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-        } catch (Exception e) {
-            log.error("[PolicyEngine] agencySubjectId HMAC 생성 실패 qimUserId={} agency={}", qimUserId, agencyCode, e);
-            throw new RuntimeException("agencySubjectId 생성 실패", e);
-        }
-    }
 }
