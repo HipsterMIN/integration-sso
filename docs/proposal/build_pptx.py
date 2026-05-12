@@ -866,6 +866,423 @@ def slide_09_closing(prs):
 
 
 # ══════════════════════════════════════════════════════════════════
+# SLIDE 10 — 전환해도 여러분의 코드는 그대로입니다
+# ══════════════════════════════════════════════════════════════════
+def slide_10_low_impact(prs):
+    sl = blank_slide(prs)
+    fill_bg(sl, C_NAVY)
+    add_rect(sl, Inches(0), Inches(0), Inches(0.45), SLIDE_H, fill_color=C_GREEN)
+
+    add_text_box(sl, "07  영향 분석", Inches(0.8), Inches(0.28), Inches(5), Inches(0.45),
+                 font_size=Pt(12), bold=True, color=C_GREEN)
+    add_text_box(sl, "전환해도 여러분이 만든 코드는 그대로입니다",
+                 Inches(0.8), Inches(0.7), Inches(12), Inches(0.65),
+                 font_size=Pt(26), bold=True, color=C_WHITE)
+    add_rect(sl, Inches(0.8), Inches(1.42), Inches(11.7), Inches(0.05),
+             fill_color=RGBColor(0x2A, 0x4A, 0x7A))
+
+    # 핵심 메시지 배너
+    add_rect(sl, Inches(0.8), Inches(1.55), Inches(11.7), Inches(0.72),
+             fill_color=RGBColor(0x00, 0x3A, 0x2A))
+    add_rect(sl, Inches(0.8), Inches(1.55), Inches(0.12), Inches(0.72),
+             fill_color=C_GREEN)
+    add_text_box(sl,
+                 "이번 전환은 각 팀이 만든 비즈니스 로직에 손대지 않습니다."
+                 "  연결 방식만 바꿉니다.",
+                 Inches(1.05), Inches(1.63), Inches(11.3), Inches(0.52),
+                 font_size=Pt(14), bold=True, color=C_GREEN)
+
+    # 3단 카드 (FE팀 / Q-IM팀 / ido·BE팀)
+    teams = [
+        {
+            "color": C_CYAN,
+            "team": "FE 팀",
+            "impact_level": "변경 최소",
+            "icon": "🔵",
+            "keep": [
+                "화면 UI / UX 컴포넌트 전체 유지",
+                "비즈니스 로직 (Step1 ~ Step6) 그대로",
+                "API 파라미터·응답 형식 동일",
+                "26개 API 시그니처 Q-IM이 그대로 유지",
+            ],
+            "change": [
+                "extInstance.ts  baseURL 1줄 변경",
+                "  Q-IM 직접 → ido 경유 (같은 경로명)",
+                "SKIP_AUTH / AES_GCM_KEY 환경변수 제거",
+                "Math.random() → BE API 1회 호출로 교체",
+            ],
+        },
+        {
+            "color": C_ORANGE,
+            "team": "Q-IM 팀",
+            "impact_level": "변경 없음",
+            "icon": "🟠",
+            "keep": [
+                "Q-IM 내부 로직 코드 변경 없음",
+                "API 엔드포인트 전체 유지",
+                "DB 스키마·데이터 모델 그대로",
+                "기존 인증·회원·프로비저닝 로직 보존",
+            ],
+            "change": [
+                "호출자가 FE → ido로 바뀜 (내부 변경 없음)",
+                "관리자 기능: ido Admin API가 흡수",
+                "  (Q-IM 관리자 UI → ido 관리자 UI로 이동)",
+                "신규 개발 없음 — 검토·확인 작업만",
+            ],
+        },
+        {
+            "color": C_BLUE,
+            "team": "ido / BE 팀",
+            "impact_level": "소규모 추가",
+            "icon": "🔷",
+            "keep": [
+                "기존 7개 Auth API 구현 그대로 유지",
+                "Kafka·Outbox 패턴 이미 구현 완료",
+                "AgencyAdminController 9개 API 완성",
+                "QimSpReceiverController proxy 완성",
+            ],
+            "change": [
+                "/api/ext/** → Q-IM forward proxy 라우팅 추가",
+                "  (QimSpReceiverController 패턴 재사용)",
+                "extInstance 26개 API forward 설정",
+                "인프라팀과 webpack proxy 경로 합의",
+            ],
+        },
+    ]
+
+    for i, t in enumerate(teams):
+        x = Inches(0.8) + i * Inches(4.1)
+        color = t["color"]
+
+        # 카드 배경
+        add_rect(sl, x, Inches(2.38), Inches(3.88), Inches(4.75),
+                 fill_color=RGBColor(0x0D, 0x23, 0x44))
+        # 헤더
+        add_rect(sl, x, Inches(2.38), Inches(3.88), Inches(0.68), fill_color=color)
+        add_text_box(sl, t["team"], x, Inches(2.38), Inches(2.5), Inches(0.38),
+                     font_size=Pt(14), bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
+        # 영향 레벨 배지
+        add_rect(sl, x + Inches(2.55), Inches(2.43), Inches(1.28), Inches(0.28),
+                 fill_color=RGBColor(0x00, 0x00, 0x00))
+        add_text_box(sl, t["impact_level"],
+                     x + Inches(2.55), Inches(2.43), Inches(1.28), Inches(0.28),
+                     font_size=Pt(9), bold=True, color=color, align=PP_ALIGN.CENTER)
+        add_text_box(sl, t["icon"], x + Inches(0.05), Inches(2.42),
+                     Inches(0.45), Inches(0.5),
+                     font_size=Pt(16), color=C_WHITE)
+
+        # "유지되는 것" 섹션
+        add_text_box(sl, "✅ 그대로 유지",
+                     x + Inches(0.1), Inches(3.14), Inches(3.7), Inches(0.32),
+                     font_size=Pt(10), bold=True, color=C_GREEN)
+        for j, item in enumerate(t["keep"]):
+            add_text_box(sl, f"  {item}",
+                         x + Inches(0.1), Inches(3.46) + j * Inches(0.33),
+                         Inches(3.75), Inches(0.31),
+                         font_size=Pt(9.5), color=RGBColor(0x88, 0xFF, 0xCC))
+
+        # 구분선
+        add_rect(sl, x + Inches(0.1), Inches(4.82), Inches(3.68), Inches(0.03),
+                 fill_color=RGBColor(0x2A, 0x4A, 0x7A))
+
+        # "변경되는 것" 섹션
+        add_text_box(sl, "🔧 변경되는 것",
+                     x + Inches(0.1), Inches(4.9), Inches(3.7), Inches(0.32),
+                     font_size=Pt(10), bold=True, color=C_ORANGE)
+        for j, item in enumerate(t["change"]):
+            clr = RGBColor(0xFF, 0xCC, 0x88) if not item.startswith("  ") else RGBColor(0xAA, 0x99, 0x77)
+            add_text_box(sl, item,
+                         x + Inches(0.1), Inches(5.26) + j * Inches(0.33),
+                         Inches(3.75), Inches(0.31),
+                         font_size=Pt(9.5), color=clr)
+
+    # 하단 강조 메시지
+    add_rect(sl, Inches(0.8), Inches(7.12), Inches(11.7), Inches(0.3),
+             fill_color=RGBColor(0x00, 0x3A, 0x2A))
+    add_text_box(sl,
+                 "코드 재사용률 약 95%  |  각 팀 순 추가 개발량: FE ~3일  ·  Q-IM ~0일  ·  ido/BE ~5일  ·  인프라 ~1일",
+                 Inches(0.85), Inches(7.13), Inches(11.6), Inches(0.27),
+                 font_size=Pt(11), bold=True, color=C_GREEN, align=PP_ALIGN.CENTER)
+
+    return sl
+
+
+# ══════════════════════════════════════════════════════════════════
+# SLIDE 11 — 관리자 페이지 흡수 + API 전환 비용은 낮습니다
+# ══════════════════════════════════════════════════════════════════
+def slide_11_admin_and_cost(prs):
+    sl = blank_slide(prs)
+    fill_bg(sl, C_NAVY)
+    add_rect(sl, Inches(0), Inches(0), Inches(0.45), SLIDE_H, fill_color=C_CYAN)
+
+    add_text_box(sl, "08  전환 비용", Inches(0.8), Inches(0.28), Inches(5), Inches(0.45),
+                 font_size=Pt(12), bold=True, color=C_CYAN)
+    add_text_box(sl, "이미 만들어진 것을 연결만 합니다",
+                 Inches(0.8), Inches(0.7), Inches(12), Inches(0.65),
+                 font_size=Pt(28), bold=True, color=C_WHITE)
+    add_rect(sl, Inches(0.8), Inches(1.42), Inches(11.7), Inches(0.05),
+             fill_color=RGBColor(0x2A, 0x4A, 0x7A))
+
+    # ── 왼쪽: 관리자 페이지 흡수 ──
+    add_rect(sl, Inches(0.8), Inches(1.58), Inches(5.7), Inches(5.6),
+             fill_color=RGBColor(0x0A, 0x1A, 0x38))
+    add_rect(sl, Inches(0.8), Inches(1.58), Inches(5.7), Inches(0.42),
+             fill_color=C_CYAN)
+    add_text_box(sl, "Q-IM 관리자 → ido 관리자로 흡수",
+                 Inches(0.82), Inches(1.6), Inches(5.66), Inches(0.38),
+                 font_size=Pt(12), bold=True, color=C_NAVY, align=PP_ALIGN.CENTER)
+
+    # 이미 구현된 AgencyAdminController API 목록
+    add_text_box(sl, "ido AgencyAdminController — 이미 구현 완료",
+                 Inches(0.9), Inches(2.08), Inches(5.5), Inches(0.35),
+                 font_size=Pt(10.5), bold=True, color=C_CYAN)
+
+    admin_apis = [
+        ("POST",   "/api/v1/admin/agencies",              "기관 등록"),
+        ("GET",    "/api/v1/admin/agencies",              "기관 목록 조회"),
+        ("PUT",    "/api/v1/admin/agencies/{code}",       "기관 정보 수정"),
+        ("POST",   "/api/v1/admin/agencies/{code}/activate",   "기관 활성화"),
+        ("POST",   "/api/v1/admin/agencies/{code}/deactivate", "기관 비활성화"),
+        ("POST",   "/api/v1/admin/agencies/{code}/rotate-key", "API 키 로테이션"),
+        ("GET",    "/api/v1/admin/agencies/{code}/history",    "변경 이력 조회"),
+        ("GET",    "/api/v1/admin/agencies/{code}/stats",      "통계 조회"),
+    ]
+    method_colors = {
+        "GET":  RGBColor(0x00, 0xB0, 0x72),
+        "POST": RGBColor(0x1A, 0x5C, 0xBF),
+        "PUT":  RGBColor(0xF5, 0x8A, 0x07),
+    }
+    for i, (method, path, desc) in enumerate(admin_apis):
+        y = Inches(2.5) + i * Inches(0.35)
+        mc = method_colors.get(method, C_MIDGRAY)
+        add_rect(sl, Inches(0.9), y, Inches(0.5), Inches(0.28), fill_color=mc)
+        add_text_box(sl, method, Inches(0.9), y, Inches(0.5), Inches(0.28),
+                     font_size=Pt(8), bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
+        add_text_box(sl, path, Inches(1.48), y, Inches(3.2), Inches(0.28),
+                     font_size=Pt(8.5), color=RGBColor(0x88, 0xCC, 0xFF))
+        add_text_box(sl, desc, Inches(4.7), y, Inches(1.65), Inches(0.28),
+                     font_size=Pt(8.5), color=C_MIDGRAY)
+
+    # 결론 박스
+    add_rect(sl, Inches(0.85), Inches(5.45), Inches(5.6), Inches(1.52),
+             fill_color=RGBColor(0x00, 0x2A, 0x1A))
+    add_text_box(sl, "Q-IM 관리자 기능",
+                 Inches(0.9), Inches(5.5), Inches(5.5), Inches(0.32),
+                 font_size=Pt(11), bold=True, color=C_CYAN)
+    add_text_box(sl,
+                 "기관 등록·수정·활성화·API 키 관리 등 핵심 관리 기능이\n"
+                 "ido AgencyAdminController에 이미 구현되어 있습니다.\n"
+                 "Q-IM 관리자 UI를 ido 관리자 화면에서 동일하게 제공할 수 있어\n"
+                 "Q-IM 관리자 페이지는 ido로 자연스럽게 흡수됩니다.",
+                 Inches(0.9), Inches(5.86), Inches(5.5), Inches(1.05),
+                 font_size=Pt(10.5), color=RGBColor(0x88, 0xFF, 0xCC))
+
+    # ── 오른쪽: API 전환 비용 낮음 근거 ──
+    add_rect(sl, Inches(6.7), Inches(1.58), Inches(5.8), Inches(5.6),
+             fill_color=RGBColor(0x0A, 0x1A, 0x38))
+    add_rect(sl, Inches(6.7), Inches(1.58), Inches(5.8), Inches(0.42),
+             fill_color=C_BLUE)
+    add_text_box(sl, "API 전환 비용이 낮은 3가지 이유",
+                 Inches(6.72), Inches(1.6), Inches(5.76), Inches(0.38),
+                 font_size=Pt(12), bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
+
+    reasons = [
+        {
+            "no": "①",
+            "color": C_CYAN,
+            "title": "FE baseURL 1줄 변경 → 26개 API 전환",
+            "body": (
+                "extInstance.ts의 baseURL 한 줄만 바꾸면\n"
+                "26개 Q-IM 직접 호출이 모두 ido 경유로 전환됩니다.\n"
+                "API 경로명·파라미터·응답 형식은 Q-IM이 그대로 유지하므로\n"
+                "FE 비즈니스 로직은 수정이 필요 없습니다."
+            ),
+            "code": "// extInstance.ts — 변경 전\nbaseURL: process.env.EXT_API_ENDPOINT  // → Q-IM\n// 변경 후\nbaseURL: process.env.BE_API_ENDPOINT   // → ido",
+        },
+        {
+            "no": "②",
+            "color": C_GREEN,
+            "title": "QimSpReceiverController — proxy 패턴 이미 구현",
+            "body": (
+                "ido에 이미 /api/qim/sp/v1/ proxy 패턴이 구현되어 있습니다.\n"
+                "/api/ext/** forward proxy도 동일한 패턴으로\n"
+                "낮은 비용에 적용 가능합니다."
+            ),
+            "code": "@RequestMapping(\"/api/qim/sp/v1\")\n// member/query · member/register 이미 구현\n// /api/ext/** forward도 동일 패턴 적용",
+        },
+        {
+            "no": "③",
+            "color": C_ORANGE,
+            "title": "Kafka — ido에 이미 구현 완료",
+            "body": (
+                "KafkaTemplate, Outbox 패턴이 ido에 이미 구현되어 있습니다.\n"
+                "비동기 처리 전환 시 추가 인프라 설치 없이\n"
+                "기존 구현을 재사용하면 됩니다."
+            ),
+            "code": "// KeycloakOidcService.java — 이미 구현\nprivate final KafkaTemplate<String,Object> kafkaTemplate;\n// qsign.auth.events 발행 → Outbox 완성",
+        },
+    ]
+
+    for i, r in enumerate(reasons):
+        y = Inches(2.1) + i * Inches(1.68)
+        color = r["color"]
+        add_rect(sl, Inches(6.75), y, Inches(5.7), Inches(1.6),
+                 fill_color=RGBColor(0x0D, 0x23, 0x44))
+        add_rect(sl, Inches(6.75), y, Inches(0.38), Inches(1.6), fill_color=color)
+        add_text_box(sl, r["no"], Inches(6.75), y + Inches(0.55),
+                     Inches(0.38), Inches(0.5),
+                     font_size=Pt(18), bold=True, color=C_WHITE, align=PP_ALIGN.CENTER)
+        add_text_box(sl, r["title"],
+                     Inches(7.2), y + Inches(0.06), Inches(5.2), Inches(0.36),
+                     font_size=Pt(11), bold=True, color=color)
+        add_text_box(sl, r["body"],
+                     Inches(7.2), y + Inches(0.45), Inches(5.15), Inches(0.72),
+                     font_size=Pt(9.5), color=RGBColor(0xBB, 0xCC, 0xDD))
+        # 코드 인용
+        add_rect(sl, Inches(7.2), y + Inches(1.22), Inches(5.15), Inches(0.34),
+                 fill_color=RGBColor(0x04, 0x0E, 0x1C))
+        add_text_box(sl, r["code"],
+                     Inches(7.24), y + Inches(1.24), Inches(5.08), Inches(0.3),
+                     font_size=Pt(7.5), color=RGBColor(0x88, 0xCC, 0xFF))
+
+    return sl
+
+
+# ══════════════════════════════════════════════════════════════════
+# SLIDE 12 — 팀별 할 일 한눈에 (Sprint 1주 이내)
+# ══════════════════════════════════════════════════════════════════
+def slide_12_team_tasks(prs):
+    sl = blank_slide(prs)
+    fill_bg(sl, C_NAVY)
+    add_rect(sl, Inches(0), Inches(0), Inches(0.45), SLIDE_H, fill_color=C_YELLOW)
+
+    add_text_box(sl, "09  팀별 할 일", Inches(0.8), Inches(0.28), Inches(5), Inches(0.45),
+                 font_size=Pt(12), bold=True, color=C_YELLOW)
+    add_text_box(sl, "각 팀이 해야 할 일  —  Sprint 1주 이내 완료 가능",
+                 Inches(0.8), Inches(0.7), Inches(12), Inches(0.65),
+                 font_size=Pt(26), bold=True, color=C_WHITE)
+    add_rect(sl, Inches(0.8), Inches(1.42), Inches(11.7), Inches(0.05),
+             fill_color=RGBColor(0x2A, 0x4A, 0x7A))
+
+    teams = [
+        {
+            "team":    "FE 팀",
+            "days":    "~3일",
+            "color":   C_CYAN,
+            "tasks": [
+                ("extInstance.ts  baseURL 환경변수 1줄 변경",
+                 "EXT_API_ENDPOINT → BE_API_ENDPOINT (ido 주소)"),
+                ("SKIP_AUTH=true 환경변수 제거 + Private.tsx 우회 코드 삭제",
+                 "lines 67, 109, 130 제거 — 정상 인증 흐름 활성"),
+                ("AES_GCM_KEY 환경변수 제거",
+                 "webpack DefinePlugin에서 삭제, CI 암호화는 BE 처리로 이관"),
+                ("Math.random() 임시비밀번호 → BE API 호출로 교체",
+                 "Step5.tsx:73–76  →  GET /api/v1/auth/provision/temp-password"),
+                ("ConversionContext MOCK_MEMBER/MOCK_BUSINESS 초기값 제거",
+                 "INITIAL_DATA에서 '홍길동' 등 Mock 데이터 삭제"),
+            ],
+        },
+        {
+            "team":    "Q-IM 팀",
+            "days":    "~1일",
+            "color":   C_ORANGE,
+            "tasks": [
+                ("기존 Q-IM API 엔드포인트 명세 공유",
+                 "ido proxy forward 설정 시 경로·파라미터 확인용"),
+                ("관리자 기능 이관 검토·확인",
+                 "ido AgencyAdminController 9개 API와 기존 관리자 기능 대조"),
+                ("내부 코드 변경 없음 — 검토·승인만",
+                 "Q-IM 비즈니스 로직은 그대로 유지"),
+            ],
+        },
+        {
+            "team":    "ido / BE 팀",
+            "days":    "~5일",
+            "color":   C_BLUE,
+            "tasks": [
+                ("/api/ext/** → Q-IM forward proxy 라우팅 추가",
+                 "QimSpReceiverController 패턴 재사용 — 신규 패턴 불필요"),
+                ("extInstance 26개 API forward 설정 구현",
+                 "경로 매핑·헤더 forwarding·X-API-Key 전달"),
+                ("GET /api/v1/auth/provision/temp-password 엔드포인트 확인",
+                 "SecurePasswordGenerator 연결 — 이미 구현 완료"),
+                ("FE → ido 단일 경로 E2E 통합 테스트",
+                 "extInstance 제거 후 beInstance 단일 흐름 검증"),
+                ("AgencyAdminController API 문서화",
+                 "Q-IM 관리자 UI 연동을 위한 API 스펙 공유"),
+            ],
+        },
+        {
+            "team":    "인프라 팀",
+            "days":    "~1일",
+            "color":   C_MIDGRAY,
+            "tasks": [
+                ("webpack proxy 설정 변경",
+                 "/api/ext 타겟을 Q-IM → ido로 변경"),
+                ("K8s ConfigMap 환경변수 업데이트",
+                 "EXT_API_ENDPOINT 제거, SKIP_AUTH 제거, AES_GCM_KEY 제거"),
+                ("개발 환경 재배포 및 동작 확인",
+                 "ido Pod 재시작 후 26개 API 경로 연결 검증"),
+            ],
+        },
+    ]
+
+    # 2×2 레이아웃
+    positions = [
+        (Inches(0.8),  Inches(1.58)),
+        (Inches(6.95), Inches(1.58)),
+        (Inches(0.8),  Inches(4.55)),
+        (Inches(6.95), Inches(4.55)),
+    ]
+    card_w = Inches(5.95)
+    card_h = Inches(2.82)
+
+    for i, (t, (cx, cy)) in enumerate(zip(teams, positions)):
+        color = t["color"]
+
+        # 카드 배경
+        add_rect(sl, cx, cy, card_w, card_h,
+                 fill_color=RGBColor(0x0D, 0x23, 0x44))
+        # 헤더
+        add_rect(sl, cx, cy, card_w, Inches(0.45), fill_color=color)
+        add_text_box(sl, t["team"], cx, cy, Inches(3.5), Inches(0.45),
+                     font_size=Pt(14), bold=True, color=C_WHITE)
+        # 예상 일수 배지
+        add_rect(sl, cx + Inches(4.65), cy + Inches(0.08),
+                 Inches(1.22), Inches(0.3),
+                 fill_color=RGBColor(0x00, 0x00, 0x00))
+        add_text_box(sl, f"예상 {t['days']}",
+                     cx + Inches(4.65), cy + Inches(0.08),
+                     Inches(1.22), Inches(0.3),
+                     font_size=Pt(9.5), bold=True, color=color,
+                     align=PP_ALIGN.CENTER)
+
+        # 태스크 목록
+        for j, (task, detail) in enumerate(t["tasks"]):
+            ty = cy + Inches(0.52) + j * Inches(0.47)
+            # 번호 도트
+            add_rect(sl, cx + Inches(0.1), ty + Inches(0.06),
+                     Inches(0.18), Inches(0.18), fill_color=color)
+            add_text_box(sl, task,
+                         cx + Inches(0.38), ty, Inches(5.48), Inches(0.28),
+                         font_size=Pt(10), bold=True, color=C_WHITE)
+            add_text_box(sl, detail,
+                         cx + Inches(0.38), ty + Inches(0.28), Inches(5.48), Inches(0.2),
+                         font_size=Pt(8.5), color=C_MIDGRAY)
+
+    # 하단 총계 배너
+    add_rect(sl, Inches(0.8), Inches(7.18), Inches(11.7), Inches(0.24),
+             fill_color=RGBColor(0x00, 0x2A, 0x00))
+    add_text_box(sl,
+                 "전체 총 개발 소요: FE 3일 + Q-IM 1일 + ido/BE 5일 + 인프라 1일  =  최대 10 person-days  |  "
+                 "팀 간 순차 의존성 없음 — 병렬 진행 가능",
+                 Inches(0.85), Inches(7.18), Inches(11.6), Inches(0.24),
+                 font_size=Pt(10), bold=True, color=C_GREEN, align=PP_ALIGN.CENTER)
+
+    return sl
+
+
+# ══════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════
 def main():
@@ -880,6 +1297,9 @@ def main():
     slide_07_why_now(prs)
     slide_08_roadmap(prs)
     slide_09_closing(prs)
+    slide_10_low_impact(prs)
+    slide_11_admin_and_cost(prs)
+    slide_12_team_tasks(prs)
 
     out = "/home/user/webapp/docs/proposal/onepass-architecture-proposal-2026-05-13.pptx"
     prs.save(out)
