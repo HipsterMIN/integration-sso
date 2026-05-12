@@ -13,7 +13,6 @@ import {
 } from 'types/actions/app';
 import { SuccessResponse } from 'types/api';
 import { PayloadProps } from 'types/api/user/getUser';
-import { USER_ROLES } from 'types/roles';
 
 const afterLogin = async (
 	userId: string,
@@ -31,38 +30,14 @@ const afterLogin = async (
 		},
 	});
 
-	const shouldSkipAuth = process.env.SKIP_AUTH === 'true';
-	const hasApiEndpoint = !!process.env.FRONTEND_API_ENDPOINT;
-
-	let getUserResponse;
-
-	if (shouldSkipAuth && !hasApiEndpoint) {
-		// 인증 스킵 설정이 활성화되고 API 엔드포인트가 없으면 mock 데이터 직접 사용
-		getUserResponse = {
-			statusCode: 200 as const,
-			error: null,
-			message: 'success',
-			payload: {
-				createdAt: Date.now(),
-				email: 'dev@localhost.com',
-				id: userId,
-				name: 'Development User',
-				orgId: 'dev-org-123',
-				profilePictureURL: '',
-				organization: 'Development Organization',
-				role: USER_ROLES.ADMIN,
-				flags: {},
-			},
-		};
-	} else {
-		const [response] = await Promise.all([
-			getUserApi({
-				userId,
-				token: authToken,
-			}),
-		]);
-		getUserResponse = response;
-	}
+	// B-2: SKIP_AUTH mock 분기 제거 — 항상 실제 API 호출
+	const [response] = await Promise.all([
+		getUserApi({
+			userId,
+			token: authToken,
+		}),
+	]);
+	const getUserResponse = response;
 
 	if (getUserResponse.statusCode === 200 && getUserResponse.payload) {
 		store.dispatch<AppActions>({

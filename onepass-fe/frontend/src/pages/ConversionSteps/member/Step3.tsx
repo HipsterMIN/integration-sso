@@ -49,8 +49,8 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					result.ci = undefined; // CI 평문 즉시 폐기
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: 'ucube-qsign',
-						clientId: 'onepassCli',
+						realm: process.env.QSIGN_REALM || 'ucube-qsign',
+						clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
 						flowContext: 'PROVISION_USER',
 					});
 					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.data) {
@@ -108,8 +108,8 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					result.ci = undefined; // CI 평문 즉시 폐기
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: 'ucube-qsign',
-						clientId: 'onepassCli',
+						realm: process.env.QSIGN_REALM || 'ucube-qsign',
+						clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
 						flowContext: 'PROVISION_USER',
 					});
 					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.data) {
