@@ -501,7 +501,7 @@ services:
       KEYCLOAK_URL:          http://keycloak:8080
       KEYCLOAK_REALM:        onepass
       QSIGN_KEYCLOAK_CLIENT_ID:     q-sign-client
-      QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET:-change-me}
+      QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET:-}  # B-6: 반드시 환경변수로 주입
       QSIGN_KEYCLOAK_REDIRECT_URI:  http://localhost:8081/api/v1/oidc/keycloak/callback
     ports:
       - "8081:8081"
@@ -642,7 +642,7 @@ services:
       KEYCLOAK_BASE_URL:     http://keycloak:8080
       KEYCLOAK_REALM:        onepass
       KEYCLOAK_CLIENT_ID:    ido-client
-      KEYCLOAK_CLIENT_SECRET: change-me   # Keycloak Admin Console에서 생성 후 교체
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_IDO_CLIENT_SECRET:-}  # B-6: 반드시 환경변수로 주입 (change-me 제거)
       KEYCLOAK_REDIRECT_URI: http://localhost:8083/api/v1/broker/callback
     ports:
       - "8083:8083"

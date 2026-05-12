@@ -5,9 +5,13 @@
  * - 알고리즘: AES-256-GCM (IV 12바이트, GCM tag 128bit)
  * - 결과: base64(IV || ciphertext || tag)
  * - IV는 매 요청마다 SecureRandom 12바이트 신규 생성
+ *
+ * B-1 보안 패치:
+ *   - 기존: process.env.AES_GCM_KEY → FE 번들에 AES 키 노출
+ *   - 변경: /api/v1/auth/provision/aes-gcm-key 엔드포인트에서 키 취득
+ *           (ido 서버가 세션 인증 후 키 반환 — FE 번들 미포함)
  */
-
-const AES_GCM_KEY = process.env.AES_GCM_KEY || '';
+import { beApiInstance } from 'api/beInstance';
 
 function base64ToBytes(b64: string): Uint8Array {
 	const binary = atob(b64);
@@ -27,17 +31,30 @@ function bytesToBase64(bytes: Uint8Array): string {
 }
 
 /**
+ * ido 서버에서 세션 바인딩된 AES-GCM 키(Base64)를 취득한다.
+ * FE 번들에 키를 포함하지 않으므로 B-1 보안 요건을 충족한다.
+ */
+async function fetchAesGcmKey(): Promise<string> {
+	const res = await beApiInstance.get<{ aesGcmKey: string }>(
+		'/api/v1/auth/provision/aes-gcm-key',
+	);
+	const { aesGcmKey } = res.data;
+	if (!aesGcmKey) {
+		throw new Error('서버에서 AES-GCM 키를 수신하지 못했습니다');
+	}
+	return aesGcmKey;
+}
+
+/**
  * CI 평문을 AES-256-GCM으로 암호화한다.
  *
  * @param ciPlaintext CI 평문 문자열
  * @returns base64(IV(12B) || ciphertext || tag(16B))
  */
 export async function encryptCi(ciPlaintext: string): Promise<string> {
-	if (!AES_GCM_KEY) {
-		throw new Error('AES_GCM_KEY 환경변수가 설정되지 않았습니다');
-	}
+	const aesGcmKeyB64 = await fetchAesGcmKey();
 
-	const keyBytes = base64ToBytes(AES_GCM_KEY);
+	const keyBytes = base64ToBytes(aesGcmKeyB64);
 	const key = await crypto.subtle.importKey(
 		'raw',
 		keyBytes,
