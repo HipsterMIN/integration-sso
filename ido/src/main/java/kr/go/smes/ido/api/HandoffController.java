@@ -3,9 +3,13 @@ package kr.go.smes.ido.api;
 import kr.go.smes.common.domain.HandoffPayload;
 import kr.go.smes.common.domain.HandoffTicket;
 import kr.go.smes.common.domain.AuthResult;
+import kr.go.smes.common.error.PlatformErrorCode;
+import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.util.CorrelationIdHolder;
 import kr.go.smes.ido.api.dto.HandoffIssueRequest;
 import kr.go.smes.ido.api.dto.HandoffVerifyRequest;
+import kr.go.smes.ido.fe.session.FeSession;
+import kr.go.smes.ido.fe.session.FeSessionService;
 import kr.go.smes.ido.handoff.HandoffIssueCommand;
 import kr.go.smes.ido.handoff.HandoffService;
 import kr.go.smes.ido.infrastructure.TicketRepository;
@@ -16,14 +20,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
  * IdO Handoff Issue / Verify API
  * 설계서 17.2 / 16.6절 참조
+ *
+ * <p><b>v2.4.0 P1 보안 수정</b>: Handoff 발급 시 {@code qimUserId}를 FE request body가 아닌
+ * 서버 측 {@code Fe-Session-Id} HttpOnly 쿠키로 조회하도록 변경.
+ * FE가 임의의 qimUserId를 전달하여 타 사용자 권한을 탈취하는 공격을 차단.
  */
 @Slf4j
 @RestController
@@ -33,8 +44,11 @@ public class HandoffController {
 
     private static final String IDEMPOTENCY_KEY_PREFIX = "ido:idempotency:handoff:";
     private static final Duration IDEMPOTENCY_TTL       = Duration.ofDays(1);
+    /** FE 세션 쿠키명 — §12.3 설계서 참조 */
+    private static final String FE_SESSION_COOKIE_NAME  = "Fe-Session-Id";
 
     private final HandoffService handoffService;
+    private final FeSessionService feSessionService;
     private final TicketRepository ticketRepository;
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -43,6 +57,10 @@ public class HandoffController {
      * POST /api/v1/handoff/issue
      *
      * <p>§17.5 GAP-API-02: Idempotency-Key 헤더 지원 — 재시도 시 중복 Ticket 발급 방지.
+     *
+     * <p><b>v2.4.0 P1 보안 수정</b>: {@code qimUserId}를 FE request body가 아닌
+     * {@code Fe-Session-Id} HttpOnly 쿠키로 조회하여 서버 측에서 추출.
+     * FE가 임의의 qimUserId를 주입하는 공격 차단.
      *
      * <p><b>Idempotency-Key 처리 흐름</b>:
      * <ol>
@@ -59,10 +77,27 @@ public class HandoffController {
     public ResponseEntity<HandoffTicket> issue(
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @RequestHeader(value = "Idempotency-Key",  required = false) String idempotencyKey,
-            @Valid @RequestBody HandoffIssueRequest req) {
+            @Valid @RequestBody HandoffIssueRequest req,
+            HttpServletRequest httpRequest) {
 
         String cid = correlationId != null ? correlationId : CorrelationIdHolder.generate();
         CorrelationIdHolder.set(cid);
+
+        // ── P1 보안 수정: feSession 쿠키에서 qimUserId 서버 측 추출 ──────────────────
+        String feSessionId = extractCookieValue(httpRequest, FE_SESSION_COOKIE_NAME);
+        if (feSessionId == null || feSessionId.isBlank()) {
+            log.warn("[HandoffController][P1] Fe-Session-Id 쿠키 없음 — 인증 세션 없는 Handoff 요청 거부: cid={}", cid);
+            throw new PlatformException(PlatformErrorCode.IDO_SESSION_NOT_FOUND, cid);
+        }
+        FeSession feSession = feSessionService.findById(feSessionId)
+                .orElseThrow(() -> {
+                    log.warn("[HandoffController][P1] feSession 없음 또는 만료 — feSessionId={} cid={}", feSessionId, cid);
+                    return new PlatformException(PlatformErrorCode.IDO_SESSION_NOT_FOUND, cid);
+                });
+        String qimUserId = feSession.getQimUserId();
+        log.debug("[HandoffController][P1] feSession 서버 조회 완료: qimUserId={} feSessionId={} cid={}",
+                qimUserId, feSessionId, cid);
+        // ── P1 끝 ────────────────────────────────────────────────────────────────────
 
         // §17.5 GAP-API-02: Idempotency-Key 멱등 처리 — 기존 Ticket 재반환
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
@@ -93,7 +128,7 @@ public class HandoffController {
         HandoffIssueCommand cmd = HandoffIssueCommand.builder()
                 .correlationId(cid)
                 .agencyCode(req.getAgencyCode())
-                .qimUserId(req.getQimUserId())
+                .qimUserId(qimUserId)   // P1: feSession에서 서버 측 추출한 qimUserId
                 .authResultId(req.getAuthResultId())
                 .authLevel(AuthResult.AuthLevel.valueOf(req.getAuthLevel()))
                 .providerCode(req.getProviderCode())
@@ -127,6 +162,22 @@ public class HandoffController {
 
         HandoffPayload payload = handoffService.verify(req.getTicketId(), agencyCode, cid);
         return ResponseEntity.ok(payload);
+    }
+
+    // ── private ─────────────────────────────────────────────────────────────
+
+    /**
+     * HttpServletRequest 쿠키 배열에서 특정 이름의 쿠키 값 추출.
+     * 쿠키가 없거나 해당 이름이 없으면 null 반환.
+     */
+    private String extractCookieValue(HttpServletRequest request, String cookieName) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        return Arrays.stream(cookies)
+                .filter(c -> cookieName.equals(c.getName()))
+                .map(Cookie::getValue)
+                .findFirst()
+                .orElse(null);
     }
 
     /**

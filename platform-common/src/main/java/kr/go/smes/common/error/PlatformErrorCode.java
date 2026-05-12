@@ -42,6 +42,8 @@ public enum PlatformErrorCode {
     IDO_POLICY_REJECTED   ("E-IDO-104", HttpStatus.FORBIDDEN,      "정책 검증에서 거부되었습니다."),
     IDO_AUTH_LEVEL_INSUFFICIENT("E-IDO-105", HttpStatus.FORBIDDEN, "인증 수준이 부족합니다."),
     IDO_QIM_UNREACHABLE   ("E-IDO-106", HttpStatus.SERVICE_UNAVAILABLE, "Q-IM 조회 실패 — 안전 우선 거부."),
+    // E-IDO-107: FE 세션 없음/만료 — P1 수정: Handoff 발급 시 feSession 쿠키 검증 실패
+    IDO_SESSION_NOT_FOUND ("E-IDO-107", HttpStatus.UNAUTHORIZED,       "FE 세션이 없거나 만료되었습니다. 재인증 필요."),
 
     // ── 기관 오류 (E-AGENCY-3xx) ─────────────────────────────────────────────
     AGENCY_NOT_REGISTERED ("E-AGENCY-301", HttpStatus.FORBIDDEN,   "등록되지 않은 기관 코드입니다."),
