@@ -33,6 +33,7 @@ import java.util.Map;
  * POST /api/v1/auth/oacx/easysign        — OACX 간편서명 결과 처리
  * POST /api/v1/auth/callback             — 기업 간편인증 콜백 (Q2=B, 향후 FE 연동)
  * GET  /api/v1/auth/provision/temp-password — 임시 비밀번호 생성 (CSPRNG 기반)
+ * POST /api/v1/auth/ci-token              — CI → ciToken 교환 (Q3=B: CI FE 미반환)
  * </pre>
  *
  * <h2>FE 연동 방법</h2>
@@ -350,6 +351,52 @@ public class AuthController {
         String password = SecurePasswordGenerator.generate();
         log.info("[임시비밀번호] CSPRNG 기반 임시 비밀번호 생성 완료");
         return Map.of("password", password);
+    }
+
+    /**
+     * CI → ciToken 교환 엔드포인트 (Q3=B)
+     *
+     * <p>{@code POST /api/v1/auth/ci-token}
+     *
+     * <p>FE가 AES-GCM으로 암호화하여 전달한 CI를 ido BE가 복호화하고,
+     * Q-IM 공유키로 재암호화하여 Q-IM에 등록 후 ciToken을 발급받아 반환한다.
+     *
+     * <p><b>보안 설계 (Q3=B)</b>:
+     * CI는 FE에서 AES-GCM 암호화 후 ido BE로만 전달된다.
+     * ido BE는 CI 평문을 Q-IM에만 전달하고, FE 응답에는 ciToken(불투명 식별자)만 반환한다.
+     * CI 원문은 네트워크 상에서 평문으로 전달되지 않는다.
+     *
+     * <p><b>FE 마이그레이션 가이드</b>:
+     * 기존 {@code extInstance}를 통한 Q-IM 직접 호출 방식에서 이 엔드포인트로 전환한다.
+     * <pre>
+     * // 기존 (ciToken.ts — Q-IM 직접 호출, 보안 위반)
+     * const { data } = await extInstance.post('/api/v1/users/ci-token', { encCi });
+     *
+     * // 변경 후 (beApiInstance — ido 경유, 보안 준수)
+     * const encryptedCi = await encryptAesGcm(rawCi);
+     * const { data } = await beApiInstance.post('/api/v1/auth/ci-token', {
+     *   encryptedCi,
+     *   mbrDvsnCd: 'A101'
+     * });
+     * const ciToken = data.ciToken;
+     * </pre>
+     *
+     * <p><b>응답 코드:</b>
+     * <ul>
+     *   <li>{@code 2000} — 성공 (ciToken 포함)</li>
+     *   <li>{@code 4000} — 파라미터 오류 (encryptedCi 누락, mbrDvsnCd 잘못됨)</li>
+     *   <li>{@code 4010} — CI 복호화 실패 (AES-GCM 키 불일치)</li>
+     *   <li>{@code 5010} — Q-IM 연동 실패</li>
+     *   <li>{@code 5000} — 서버 설정 오류 (FE_AES_GCM_KEY 미설정)</li>
+     * </ul>
+     *
+     * @param request FE 요청 (encryptedCi, mbrDvsnCd, bizno)
+     * @return ciToken 교환 결과
+     */
+    @PostMapping("/ci-token")
+    public CiTokenExchangeResponse exchangeCiToken(
+            @Valid @RequestBody CiTokenExchangeRequest request) {
+        return authService.exchangeCiToken(request);
     }
 
     /**
