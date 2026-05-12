@@ -46,6 +46,15 @@ tasks.register<Test>("integrationTest") {
     systemProperty("spring.profiles.active", "integration-test")
 }
 
+// ── 단위 테스트 태스크: @Tag("integration") 제외 ─────────────────────────────
+// `./gradlew :ido:test` 실행 시 Docker 의존 통합 테스트를 자동으로 제외
+// Docker 없는 CI/CD 환경(DOCKER_UNAVAILABLE=true)에서도 단위 테스트만 안전하게 실행
+tasks.named<Test>("test") {
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
+}
+
 // ── 로컬 libs 디렉토리 (OACX SDK, BouncyCastle 등 Maven Central 미등록 JAR) ──
 configurations {
     compileOnly {

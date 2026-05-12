@@ -6,6 +6,7 @@ import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.ido.audit.AuditLogPublisher;
 import kr.go.smes.ido.config.HandoffAgencyKeyInterceptor;
 import kr.go.smes.ido.fe.config.IdoWebMvcConfig;
+import kr.go.smes.ido.ratelimit.AuthRateLimitInterceptor;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -62,6 +63,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 @ComponentScan.Filter(
                         type = FilterType.ASSIGNABLE_TYPE,
                         classes = IdoWebMvcConfig.class
+                ),
+                // [P2 수정 후 추가] AuthRateLimitInterceptor는 RedisTemplate 의존성을 가지므로
+                // @WebMvcTest 슬라이스에서 Redis 빈 없이 컨텍스트 로딩 실패를 방지하기 위해 제외
+                @ComponentScan.Filter(
+                        type = FilterType.ASSIGNABLE_TYPE,
+                        classes = AuthRateLimitInterceptor.class
                 )
         }
 )

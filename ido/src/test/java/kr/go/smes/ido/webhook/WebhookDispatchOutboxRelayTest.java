@@ -67,6 +67,7 @@ class WebhookDispatchOutboxRelayTest {
     void setUp() {
         sut = new WebhookDispatchOutboxRelay(
                 jdbcTemplate, restTemplate, webhookDispatcherService, auditLogPublisher);
+        ReflectionTestUtils.setField(sut, "relayEnabled",       true);   // @Value 주입 없이 boolean 기본값=false → 명시 활성화
         ReflectionTestUtils.setField(sut, "relayIntervalMs",   500L);
         ReflectionTestUtils.setField(sut, "relayBatchSize",    50);
         ReflectionTestUtils.setField(sut, "defaultMaxRetry",   3);
