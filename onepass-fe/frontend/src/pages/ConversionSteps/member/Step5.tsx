@@ -1,3 +1,4 @@
+import { beApiInstance } from 'api/beInstance';
 import provisionEnterprise from 'api/provision/enterprises';
 import provisionUser from 'api/provision/users';
 import ConversionLayout from 'components/ConversionLayout';
@@ -70,11 +71,21 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 			}
 
 			const loginId = data.mbrId;
-			const password =
-				data.password ||
-				`Rnd${Math.random().toString(36).slice(2, 10)}!${Math.floor(
-					Math.random() * 90 + 10,
-				)}`;
+			// B-4: Math.random() PRNG 제거 — 서버에서 CSPRNG 기반 임시 비밀번호 발급
+			let password = data.password;
+			if (!password) {
+				try {
+					const pwRes = await beApiInstance.get<{ tempPassword: string }>(
+						'/api/v1/auth/provision/temp-password',
+					);
+					password = pwRes.data.tempPassword;
+				} catch {
+					setErrorMessage('임시 비밀번호 생성에 실패하였습니다. 다시 시도해 주세요.');
+					setFailedModal(true);
+					return false;
+				}
+			}
+
 
 			const clients =
 				data.selectedClients.length > 0

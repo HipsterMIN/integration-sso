@@ -1,19 +1,20 @@
+// Task 1-4: MOCK_MEMBER/MOCK_BUSINESS 하드코딩 PII 제거 (홍길동, 12341234 등)
 export const MOCK_MEMBER = {
-	name: '홍길동',
+	name: '',
 	phonePrefix: '010',
-	phoneSuffix: '12341234',
+	phoneSuffix: '',
 	telPrefix: '02',
-	telSuffix: '12341234',
+	telSuffix: '',
 	emailId: '',
 	emailDomain: '',
 } as const;
 
 export const MOCK_BUSINESS = {
 	companyName: '',
-	businessNum: '12345677',
+	businessNum: '',
 	repName: '',
 	phonePrefix: '010',
-	phoneSuffix: '12341234',
+	phoneSuffix: '',
 	emailId: '',
 	emailDomain: '',
 } as const;

@@ -14,7 +14,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -44,8 +47,8 @@ public class AuthServiceImpl implements AuthService {
      * Keycloak 흐름은 {@code KeycloakCallbackService.handleCallback()} 이 직접 처리한다.
      * 이 메서드는 흐름 B(NonOidc broker-input 경로)에서만 사용된다.
      *
-     * <p>이 경로로 idToken 이 전달되는 경우는 Keycloak 이 아닌 직접 OIDC 연동 시나리오로,
-     * 현 설계에서는 사용되지 않는다. 하위 호환성을 위해 메서드는 유지한다.
+     * <p>idToken 의 {@code sub} 클레임을 파싱하여 {@code SHA-256(sub)} 으로 identifierHash 를 산출한다.
+     * Task 3-2: 임시 {@code SHA-256(providerCode + ":" + correlationId)} 해시 제거.
      */
     @Override
     @Transactional
@@ -53,20 +56,15 @@ public class AuthServiceImpl implements AuthService {
                                     String idToken, String requestedLevel) {
         log.info("[Q-Sign] OIDC 인증 시작 correlationId={} provider={}", correlationId, providerCode);
 
-        // Keycloak 흐름(흐름 A)에서는 KeycloakCallbackService 가 처리하며 이 경로는 사용되지 않음.
-        // 흐름 B(broker-input)에서는 issueFromIdOAuthInput() 이 처리함.
-        // identifierHash 와 claims 검증은 각 흐름의 전용 서비스에서 수행됨.
-        // 이 경로(직접 OIDC)에서는 idToken 의 sub 클레임이 있어야 identifierHash 를 산출할 수 있으나,
-        // 현 설계에서는 실제 호출되지 않으므로 SHA-256(providerCode + ":" + correlationId) 로 임시 생성.
-        // ⚠️  이 경로가 실제 운용될 경우 반드시 idToken 파싱 후 SHA-256(sub) 로 교체해야 한다.
-
         if (lockRepository.isLocked(providerCode, providerCode)) {
             authMetrics.incrementAuthLocked(providerCode);
             throw new PlatformException(PlatformErrorCode.QS_AUTH_LOCKED, correlationId);
         }
 
-        // 직접 OIDC 경로 — idToken sub 미제공 시 providerCode:correlationId 해시로 대체
-        String identifierHash = computeIdentifierHash(providerCode + ":" + correlationId);
+        // Task 3-2: idToken sub 파싱 → SHA-256(sub) 기반 identifierHash
+        // PII 비보관 원칙: sub 원문은 hash 계산 직후 GC 대상이 됨
+        String sub = extractSubFromIdToken(idToken, correlationId);
+        String identifierHash = computeIdentifierHash(sub);
         long startMs = System.currentTimeMillis();
 
         AuthResult result = AuthResult.builder()
@@ -150,6 +148,47 @@ public class AuthServiceImpl implements AuthService {
     }
 
     // ── 내부 유틸 ────────────────────────────────────────────────────────────
+
+    /**
+     * ID Token(JWT)에서 {@code sub} 클레임을 추출한다.
+     *
+     * <p>서명 검증은 호출 전 InternalSigVerifier / KeycloakCallbackService 에서 이미 수행됨.
+     * 이 메서드는 페이로드 Base64 디코딩만 수행한다 (서명 검증 스킵).
+     * 세부 import: 스프링 의존성에 포함된 Jackson ObjectMapper 사용.
+     *
+     * @throws PlatformException sub 클레임 없거나 파싱 실패 시
+     */
+    private String extractSubFromIdToken(String idToken, String correlationId) {
+        try {
+            // JWT 구조: header.payload.signature — payload는 1번 인덱스
+            String[] parts = idToken.split("\\.", -1);
+            if (parts.length < 2) {
+                throw new PlatformException(
+                        PlatformErrorCode.IDP_RESPONSE_INVALID, correlationId,
+                        "idToken format invalid");
+            }
+            // Base64Url 디코딩 (패딩 없이)
+            byte[] payloadBytes = Base64.getUrlDecoder().decode(
+                    parts[1].replace("-", "+").replace("_", "/")
+                            + "=".repeat((4 - parts[1].length() % 4) % 4));
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode claims = mapper.readTree(payloadBytes);
+            JsonNode subNode = claims.get("sub");
+            if (subNode == null || subNode.isNull() || subNode.asText().isBlank()) {
+                throw new PlatformException(
+                        PlatformErrorCode.IDP_RESPONSE_INVALID, correlationId,
+                        "idToken sub claim is missing");
+            }
+            return subNode.asText();
+        } catch (PlatformException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[Q-Sign] idToken sub 파싱 실패 correlationId={}", correlationId, e);
+            throw new PlatformException(
+                    PlatformErrorCode.IDP_RESPONSE_INVALID, correlationId,
+                    "idToken 파싱 실패: " + e.getMessage());
+        }
+    }
 
     /**
      * SHA-256(input) → Hex 문자열
