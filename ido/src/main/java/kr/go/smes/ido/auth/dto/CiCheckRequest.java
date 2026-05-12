@@ -11,10 +11,16 @@ import lombok.NoArgsConstructor;
 /**
  * NICE 본인인증 CI 확인 요청 DTO (S9-T3: Bean Validation 적용)
  *
- * <p>NICE 휴대폰 본인인증 결과로 획득한 CI를 바탕으로 회원 조회/등록을 요청한다.
+ * <p>NICE 휴대폰 본인인증 결과로 획득한 CI를 바탕으로 회원 조회를 요청한다.
  * 회원구분코드(mbrDvsnCd)에 따라 필수 파라미터가 달라진다.
  *
  * <p><b>API 경로:</b> {@code POST /api/v1/auth/nice/ci-check}
+ *
+ * <p><b>설계 원칙 (운영 수준 정책):</b>
+ * 이 API는 CI 기반 기존 회원 조회 전용이다.
+ * 신규 사용자 등록은 반드시 {@code POST /api/v1/auth/nice/phone/result} 흐름을 통해 완료되어야 하며,
+ * 해당 흐름에서 name/birthday/gender/mobile 등 완전한 프로필이 Q-IM에 등록된다.
+ * ci-check 시점에 Q-IM에 CI가 없으면 선행 인증 미완료로 간주하고 에러를 반환한다.
  *
  * <p><b>유효성 규칙:</b>
  * <ul>

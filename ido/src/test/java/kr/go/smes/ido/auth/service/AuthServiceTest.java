@@ -324,8 +324,8 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("개인회원(A101) 정상 요청 — Q-IM 미등록 사용자 신규 등록 후 2000 반환")
-        void checkNiceCi_shouldReturn2000ForValidA101Request() {
+        @DisplayName("개인회원(A101) 정상 요청 — Q-IM 미등록 사용자: 선행 인증 미완료로 4040 반환 (신규 등록 없음)")
+        void checkNiceCi_shouldReturn4040ForUnregisteredA101() {
             // given
             CiCheckRequest request = CiCheckRequest.builder()
                     .ci("VALID_CI_VALUE_88_CHARS_LONG_STRING_FOR_TEST_PURPOSE")
@@ -333,20 +333,19 @@ class AuthServiceTest {
                     .indvlMbrNm("홍길동")
                     .indvlMbrId("hong123")
                     .build();
-            // Q-IM에서 CI 미발견 → 신규 등록
+            // Q-IM에서 CI 미발견 → 선행 인증 미완료로 에러 반환 (신규 등록 없음)
             given(imApiOutPort.findByCi(anyString(), eq("A101"), anyString()))
                     .willReturn(Optional.empty());
-            given(imApiOutPort.register(any(), anyString()))
-                    .willReturn(QimRegisterResponse.builder()
-                            .qimUserId("qim-new-001").isNew(true).status("ACTIVE").build());
 
             // when
             CiCheckResponse response = authService.checkNiceCi(request);
 
-            // then
-            assertThat(response.getResultCode()).isEqualTo("2000");
-            assertThat(response.getResult()).isTrue();
-            assertThat(response.getResultMsg()).contains("신규");
+            // then: ci-check는 조회 전용 — 미등록 CI는 4040 반환 (신규 등록 시도 없음)
+            assertThat(response.getResultCode()).isEqualTo("4040");
+            assertThat(response.getResult()).isFalse();
+            assertThat(response.getResultMsg()).contains("본인인증 이력이 없습니다");
+            // register() 호출 없음 확인
+            verify(imApiOutPort, never()).register(any(), anyString());
         }
 
         @Test
@@ -378,8 +377,8 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("기업회원(A102) 정상 요청 시 2000 반환 (bizno 포함)")
-        void checkNiceCi_shouldReturn2000ForValidA102Request() {
+        @DisplayName("기업회원(A102) Q-IM 미등록 시 4040 반환 (신규 등록 없음)")
+        void checkNiceCi_shouldReturn4040ForUnregisteredA102() {
             // given
             CiCheckRequest request = CiCheckRequest.builder()
                     .ci("VALID_CI_VALUE_88_CHARS_LONG_STRING_FOR_TEST_PURPOSE")
@@ -387,12 +386,38 @@ class AuthServiceTest {
                     .cmpMbrId("company-001")
                     .bizno("1234567890")
                     .build();
-            // Q-IM에서 CI 미발견 → 신규 등록
+            // Q-IM에서 CI 미발견 → 선행 인증 미완료로 에러 반환
             given(imApiOutPort.findByCi(anyString(), eq("A102"), anyString()))
                     .willReturn(Optional.empty());
-            given(imApiOutPort.register(any(), anyString()))
-                    .willReturn(QimRegisterResponse.builder()
-                            .qimUserId("qim-new-002").isNew(true).status("ACTIVE").build());
+
+            // when
+            CiCheckResponse response = authService.checkNiceCi(request);
+
+            // then: ci-check는 조회 전용 — 미등록 CI는 4040 반환 (신규 등록 시도 없음)
+            assertThat(response.getResultCode()).isEqualTo("4040");
+            assertThat(response.getResult()).isFalse();
+            // register() 호출 없음 확인
+            verify(imApiOutPort, never()).register(any(), anyString());
+        }
+
+        @Test
+        @DisplayName("기업회원(A102) Q-IM 기존 회원 조회 후 cmpMbrId 반환")
+        void checkNiceCi_shouldReturnCmpMbrIdForExistingA102Member() {
+            // given
+            CiCheckRequest request = CiCheckRequest.builder()
+                    .ci("VALID_CI_VALUE_88_CHARS_LONG_STRING_FOR_TEST_PURPOSE")
+                    .mbrDvsnCd("A102")
+                    .cmpMbrId("company-001")
+                    .bizno("1234567890")
+                    .build();
+            // Q-IM에서 기존 기업 회원 발견
+            given(imApiOutPort.findByCi(anyString(), eq("A102"), anyString()))
+                    .willReturn(Optional.of(QimMemberInfo.builder()
+                            .qimUserId("qim-existing-002")
+                            .status("ACTIVE")
+                            .memberType("A102")
+                            .cmpMbrId("company-001")
+                            .build()));
 
             // when
             CiCheckResponse response = authService.checkNiceCi(request);
@@ -400,6 +425,8 @@ class AuthServiceTest {
             // then
             assertThat(response.getResultCode()).isEqualTo("2000");
             assertThat(response.getResult()).isTrue();
+            assertThat(response.getCmpMbrId()).isEqualTo("company-001");
+            assertThat(response.getResultMsg()).contains("기존");
         }
     }
 

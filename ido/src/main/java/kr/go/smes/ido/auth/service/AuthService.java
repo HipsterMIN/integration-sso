@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * 본인인증 비즈니스 로직 서비스 (기업인증 콜백, OACX 간편서명, CI 확인)
@@ -24,7 +25,7 @@ import java.util.Optional;
  *   <li>{@link #callback} — 기업 간편인증 콜백 수신 및 통합인증 서버 auth-check (Q2=B)</li>
  *   <li>{@link #getOacxAccessInfo} — OACX 전자서명 접근키/토큰 발급</li>
  *   <li>{@link #handleOacxEasysign} — OACX 간편서명 결과 복호화 (Q3=B: CI FE 미반환)</li>
- *   <li>{@link #checkNiceCi} — NICE 본인인증 CI 기반 회원 조회</li>
+ *   <li>{@link #checkNiceCi} — NICE 본인인증 CI 기반 회원 조회 (조회 전용)</li>
  * </ol>
  *
  * <p><b>설계 결정 요약:</b>
@@ -33,10 +34,12 @@ import java.util.Optional;
  *   <li>Q3=B: CI는 FE 응답에 포함하지 않음 — 보안 원칙 (PII 보호)</li>
  * </ul>
  *
- * <p><b>S7-T6 구현 완료:</b>
+ * <p><b>S7-T6 구현 완료 (운영 수준 개선):</b>
  * <ul>
  *   <li>CI 처리: OACX 인증 결과 CI → {@link kr.go.smes.ido.auth.port.ImApiOutPort#register} 등록</li>
- *   <li>ciCheck: CI 기반 Q-IM 조회/신규 등록 — {@link ImApiOutPort#findByCi} / {@link ImApiOutPort#register} 연동</li>
+ *   <li>ciCheck: CI 기반 Q-IM 조회 전용 — 신규 등록 없음 (데이터 품질 보호)
+ *       <br>신규 등록은 반드시 {@code POST /nice/phone/result} 또는 OACX easysign 완전 흐름을 통해 수행</li>
+ *   <li>correlationId: {@code UUID.randomUUID()} 기반 — 충돌 없는 고유 추적 ID 보장</li>
  * </ul>
  *
  * @see IntegrationAuthClient
@@ -244,7 +247,7 @@ public class AuthService {
         // S7-T6: CI → Q-IM 등록 (Q3=B: CI는 FE 미반환, Q-IM에만 전달)
         if (ciForInternalUse != null && !ciForInternalUse.isBlank()) {
             try {
-                String correlationId = decrypted.getOrDefault("correlationId", "oacx-" + System.currentTimeMillis());
+                String correlationId = "oacx-" + UUID.randomUUID();
                 AuthResult authResult = AuthResult.builder()
                         .ci(ciForInternalUse)
                         .di(decrypted.get("di"))
@@ -287,13 +290,20 @@ public class AuthService {
     }
 
     /**
-     * NICE 본인인증 CI 기반 회원 조회/매칭
+     * NICE 본인인증 CI 기반 회원 조회 (조회 전용 — 신규 등록 없음)
      *
      * <p>NICE 휴대폰 인증 결과({@code POST /nice/phone/result})에서 수신한 CI로
-     * 회원 정보를 조회하거나 신규 등록 처리.
+     * Q-IM에 기등록된 회원 정보를 조회한다.
      *
-     * <p><b>구현 상태 (S7-T6 완료):</b>
-     * {@link ImApiOutPort}를 통해 Q-IM에서 CI 기반 회원 조회/신규 등록을 수행한다.
+     * <p><b>설계 원칙 (운영 수준):</b>
+     * 이 메서드는 CI 기반 회원 조회 전용이다. 신규 사용자 등록은 수행하지 않는다.
+     * 올바른 인증 흐름이라면 {@code POST /nice/phone/result} 처리 시점에 Q-IM 등록이
+     * 이미 완료된 상태여야 한다. 해당 시점에 name/birthday/gender/mobile 등
+     * 완전한 프로필이 함께 등록된다.
+     *
+     * ci-check 시점에 Q-IM에 CI가 없다면 이는 선행 인증 플로우 미완료를 의미하며,
+     * 불완전한 프로필로 신규 등록하는 것보다 명시적 에러 반환이 안전하다.
+     * (100만+ 사용자 대상 DB에 불완전한 프로필 레코드 생성 방지)
      *
      * <p><b>유효성 검증 규칙:</b>
      * <ul>
@@ -343,8 +353,9 @@ public class AuthService {
             }
         }
 
-        // S7-T6: CI로 Q-IM 기존 회원 조회 → 미등록 시 신규 등록
-        String correlationId = "ci-check-" + System.currentTimeMillis();
+        // CI 기반 Q-IM 기존 회원 조회 (조회 전용 — 신규 등록 없음)
+        // 정상 흐름: POST /nice/phone/result에서 Q-IM 등록 완료 후 이 API 호출
+        String correlationId = "ci-check-" + UUID.randomUUID();
         try {
             Optional<QimMemberInfo> existing = imApiOutPort.findByCi(request.getCi(), mbrDvsnCd, correlationId);
 
@@ -362,28 +373,23 @@ public class AuthService {
                         .build();
             }
 
-            // 미등록 사용자: Q-IM에 신규 등록
-            log.info("[NICE CI] Q-IM 미등록 사용자 — 신규 등록 처리: mbrDvsnCd={}", mbrDvsnCd);
-            AuthResult authResult = AuthResult.builder()
-                    .ci(request.getCi())
-                    .name(request.getIndvlMbrNm())
-                    .build();
-            QimRegisterResponse registerResult = imApiOutPort.register(authResult, correlationId);
-            log.info("[NICE CI] Q-IM 신규 등록 완료: qimUserId={}", registerResult.getQimUserId());
-
-            authAuditService.publishCiCheckEvent(mbrDvsnCd, "2000", null);
+            // CI 미등록 — 선행 인증 플로우(POST /nice/phone/result) 미완료로 간주
+            // 불완전한 프로필(name만)로 신규 등록하지 않음: 운영 DB 데이터 품질 보호
+            log.warn("[NICE CI] Q-IM 미등록 CI — 선행 인증 미완료 또는 비정상 접근: ci={} mbrDvsnCd={}", ciMasked, mbrDvsnCd);
+            authAuditService.publishCiCheckEvent(mbrDvsnCd, "4040",
+                    "Q-IM 미등록 CI: 선행 인증(POST /nice/phone/result) 미완료");
             return CiCheckResponse.builder()
-                    .resultCode("2000")
-                    .resultMsg("신규 등록 완료")
-                    .result(true)
+                    .resultCode("4040")
+                    .resultMsg("본인인증 이력이 없습니다. 먼저 NICE 휴대폰 본인인증을 완료해 주세요.")
+                    .result(false)
                     .build();
 
         } catch (Exception e) {
-            log.error("[NICE CI] Q-IM 조회/등록 실패: mbrDvsnCd={} err={}", mbrDvsnCd, e.getMessage(), e);
+            log.error("[NICE CI] Q-IM 조회 실패: mbrDvsnCd={} err={}", mbrDvsnCd, e.getMessage(), e);
             authAuditService.publishCiCheckEvent(mbrDvsnCd, "5010", e.getMessage());
             return CiCheckResponse.builder()
                     .resultCode("5010")
-                    .resultMsg("사용자 정보 처리 실패: " + e.getMessage())
+                    .resultMsg("사용자 정보 조회 실패: " + e.getMessage())
                     .result(false)
                     .build();
         }
