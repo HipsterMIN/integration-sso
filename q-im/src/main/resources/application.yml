@@ -154,3 +154,10 @@ qim:
       current-version: ${QIM_CI_CURRENT_VERSION:v1}
     di:
       secret:         ${QIM_DI_SECRET:default-di-secret-change-in-production}
+
+  # ── 내부 API 보안 (P2 보안 수정) ─────────────────────────────────────────────
+  # IdO → Q-IM 내부 호출 시 X-Internal-Api-Key 헤더 검증
+  # 운영 환경에서 반드시 QIM_INTERNAL_API_KEY 환경변수를 설정하십시오.
+  # (32자 이상 랜덤 문자열 권장 — openssl rand -hex 32)
+  security:
+    internal-api-key: ${QIM_INTERNAL_API_KEY:}
