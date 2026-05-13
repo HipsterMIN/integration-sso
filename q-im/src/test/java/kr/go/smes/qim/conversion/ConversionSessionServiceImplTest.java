@@ -54,6 +54,9 @@ class ConversionSessionServiceImplTest {
     @Mock
     private ConversionSessionJpaRepository sessionRepository;
 
+    @Mock
+    private AgencyMemberLookupService agencyMemberLookupService;
+
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -123,15 +126,24 @@ class ConversionSessionServiceImplTest {
     class FetchCandidates {
 
         @Test
-        @DisplayName("INITIATED → MEMBERS_FETCHED 전이 성공")
+        @DisplayName("INITIATED → MEMBERS_FETCHED 전이 성공 (AgencyMemberLookupService 호출)")
         void fetch_initiated_to_membersFetched() {
             given(sessionRepository.findById(SESSION_ID))
                     .willReturn(Optional.of(session("INITIATED")));
             given(sessionRepository.save(any()))
                     .willAnswer(inv -> inv.getArgument(0));
+            given(agencyMemberLookupService.lookupByIdentifierHash(anyString(), anyString(), anyString()))
+                    .willReturn(List.of(
+                            CandidateMember.builder()
+                                    .agencyCode("GOV_SMES").agencyName("소상공인시장진흥공단")
+                                    .memberId("m-001").nameMasked("홍*동")
+                                    .build()));
 
             ConversionSessionResult result = sut.fetchCandidates(SESSION_ID, CORRELATION_ID);
             assertThat(result.getState()).isEqualTo(ConversionSessionState.MEMBERS_FETCHED);
+            // AgencyMemberLookupService 실제 호출 확인
+            then(agencyMemberLookupService).should()
+                    .lookupByIdentifierHash(eq(QIM_USER_ID), anyString(), eq(CORRELATION_ID));
         }
 
         @Test
@@ -177,16 +189,23 @@ class ConversionSessionServiceImplTest {
     class Link {
 
         @Test
-        @DisplayName("ACCOUNT_SELECTED → COMPLETED, linkedAgencyCodes 포함")
+        @DisplayName("ACCOUNT_SELECTED → COMPLETED, AgencyMemberLookupService.performLinking 호출")
         void link_success() {
             ConversionSessionJpaEntity s = session("ACCOUNT_SELECTED");
             s.setSelectedAgencyCodesJson("[\"GOV_A\",\"GOV_B\"]");
             given(sessionRepository.findById(SESSION_ID)).willReturn(Optional.of(s));
             given(sessionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+            given(agencyMemberLookupService.performLinking(anyString(), anyString(),
+                    anyList(), anyString()))
+                    .willReturn(List.of("GOV_A", "GOV_B"));
 
             ConversionSessionResult result = sut.link(SESSION_ID, CORRELATION_ID);
             assertThat(result.getState()).isEqualTo(ConversionSessionState.COMPLETED);
             assertThat(result.getLinkedAgencyCodes()).containsExactly("GOV_A", "GOV_B");
+            // AgencyMemberLookupService 실제 호출 확인
+            then(agencyMemberLookupService).should()
+                    .performLinking(eq(QIM_USER_ID), anyString(),
+                            eq(List.of("GOV_A", "GOV_B")), eq(CORRELATION_ID));
         }
     }
 

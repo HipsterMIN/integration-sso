@@ -253,14 +253,17 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     }
 
     private void deletePii(String qimUserId) {
+        // GDPR §17 Right to be Forgotten — V6 컬럼(guardian_qim_user_id, guardian_consent_at) 포함
         jdbcTemplate.update("""
                 UPDATE user_profile
-                SET name_masked      = NULL,
-                    mobile_masked    = NULL,
-                    ci               = NULL,
-                    di_map           = NULL,
-                    extra_attributes = NULL,
-                    updated_at       = NOW(6)
+                SET name_masked           = NULL,
+                    mobile_masked         = NULL,
+                    ci                    = NULL,
+                    di_map                = NULL,
+                    extra_attributes      = NULL,
+                    guardian_qim_user_id  = NULL,
+                    guardian_consent_at   = NULL,
+                    updated_at            = NOW(6)
                 WHERE qim_user_id = ?
                 """, qimUserId);
         log.info("[Withdrawal] PII 삭제 완료: qimUserId={}", qimUserId);

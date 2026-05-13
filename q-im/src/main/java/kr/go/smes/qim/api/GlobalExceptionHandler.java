@@ -5,7 +5,10 @@ import kr.go.smes.common.error.PlatformErrorCode;
 import kr.go.smes.common.error.PlatformException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -42,6 +45,29 @@ public class GlobalExceptionHandler {
         }
 
         return builder.body(ErrorResponse.of(ex.getErrorCode(), ex.getCorrelationId()));
+    }
+
+    /**
+     * Bean Validation 실패 (@Valid @RequestBody) → 400 Bad Request
+     *
+     * <p>첫 번째 필드 오류의 메시지를 응답에 포함합니다.
+     * 복수 오류가 있는 경우 message 필드에 쉼표 구분으로 모두 포함합니다.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage)
+                .reduce((a, b) -> a + "; " + b)
+                .orElse("입력값 검증에 실패했습니다.");
+
+        log.warn("[Q-IM] 입력 검증 실패: {}", message);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ErrorResponse.builder()
+                        .code("E-IM-400")
+                        .message(message)
+                        .timestamp(java.time.Instant.now())
+                        .build());
     }
 
     @ExceptionHandler(Exception.class)

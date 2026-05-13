@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 사용자 프로필 JPA 엔터티 — MariaDB qim.user_profile 테이블 매핑
@@ -63,6 +64,28 @@ public class UserProfileJpaEntity {
     /** 확장 속성 (provider별) — JSON 컬럼 */
     @Column(name = "extra_attributes", columnDefinition = "JSON")
     private String extraAttributes;
+
+    // ── P3-05: 미성년자/보호자 ────────────────────────────────────────────────
+
+    /**
+     * 14세 미만 여부 — birth_year 기준으로 등록 시 자동 판정 (P3-05)
+     * 보호자 동의 완료 전까지 일부 서비스 제한
+     */
+    @Column(name = "is_minor", nullable = false)
+    private Boolean isMinor;
+
+    /**
+     * 보호자 qim_user_id — isMinor=true인 경우에만 설정됨
+     * FK → qim_user.qim_user_id
+     */
+    @Column(name = "guardian_qim_user_id", length = 36)
+    private String guardianQimUserId;
+
+    /**
+     * 보호자 동의 완료 시각 — null이면 아직 미동의
+     */
+    @Column(name = "guardian_consent_at")
+    private LocalDateTime guardianConsentAt;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
