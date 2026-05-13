@@ -1,22 +1,23 @@
 # 12. 미구현 항목 및 후속 계획 (Implementation Gaps)
 
-> **문서 버전**: v1.9.3  
-> **최종 수정**: 2026-05-09  
+> **문서 버전**: v2.0.0  
+> **최종 수정**: 2026-05-13  
 > **기준 분석 문서**: `docs/2026-05-08_unimplemented_analysis.md`, `docs/gap-analysis-v0.8.3-vs-project.md`  
 > **v1.9.2 변경**: P2 GAP 항목 전체 구현 완료 (HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05)  
-> **v1.9.3 변경**: P1-06 구현 완료 — IdO `GET /api/v1/agency/events` 기관 이벤트 폴링 API
+> **v1.9.3 변경**: P1-06 구현 완료 — IdO `GET /api/v1/agency/events` 기관 이벤트 폴링 API  
+> **v2.0.0 변경**: P2 회원 생명주기 완성 — 탈퇴 4종 · 개인정보 동의 · ConversionSession 상태 기계 구현
 
 ---
 
 ## 1. 현재 완성도 요약
 
-v1.9.3 기준 전체 구현 완성도: **약 86%** (PoC → 프리프로덕션 단계)
+v2.0.0 기준 전체 구현 완성도: **약 93%** (프리프로덕션 단계)
 
 | 모듈 | 완성도 | 비고 |
 |------|--------|------|
-| platform-common | **100%** | 도메인·이벤트·에러코드 완비 |
+| platform-common | **100%** | 도메인·이벤트·에러코드 완비 (탈퇴/동의/전환 에러코드 추가) |
 | Q-Sign | **95%** | GAP-QS-03 멱등 컨슈머 완성; X-Internal-Sig 수신 검증 미구현 |
-| Q-IM | **92%** | GAP-QIM-05 Snapshot 완성; 고급 전환·탈퇴 흐름 미완성 |
+| Q-IM | **97%** | 탈퇴 4종 · 동의 스키마 · ConversionSession 상태 기계 완성 |
 | IdO | **99%** | P1-06 기관 폴링 API 완성; HandoffStrategy 완전 구현 |
 | agency-stub | **90%** | Docker 격리 미완성, mTLS P3 |
 | onepass-fe | **60%** | 회원 전환·관리 UI 미구현 |
@@ -81,15 +82,32 @@ v1.9.3 기준 전체 구현 완성도: **약 86%** (PoC → 프리프로덕션 �
 
 ### 4.1 Q-IM 회원 생명주기
 
-| ID | 항목 | 설명 |
-|----|------|------|
-| - | CI값 기반 68개 유관시스템 회원 조회 | `AgencyMemberLookupService` (PPTX 2.1 프로세스) |
-| - | 통합계정 UUID 생성 및 연결 대상 선택 | ConversionSession 상태 기계 |
-| - | 기업회원 전환 (사업자등록번호 기반) | Q-IM 기업회원 지원 |
-| - | 14세 미만 보호자 인증 분기 | 미성년자 보호자 인증 흐름 |
-| - | 개인정보 동의 기록 (제3자 정보제공 동의) | `ido.consent_record`, `ido.consent_version` |
-| - | 회원 탈퇴 4종 전체 구현 | IMMEDIATE/SCHEDULED/AGENCY_REQUESTED/ADMIN_FORCED |
-| - | 논리적 삭제 + 보존기간 만료 영구파기 | GDPR Right to be Forgotten |
+| ID | 항목 | 설명 | 상태 |
+|----|------|------|------|
+| - | CI값 기반 68개 유관시스템 회원 조회 | `AgencyMemberLookupService` (PPTX 2.1 프로세스) | P3 stub |
+| ~~-~~ | ~~통합계정 UUID 생성 및 연결 대상 선택~~ | ~~ConversionSession 상태 기계~~ | ✅ **완료** (v2.0.0) |
+| - | 기업회원 전환 (사업자등록번호 기반) | Q-IM 기업회원 지원 | P3 |
+| - | 14세 미만 보호자 인증 분기 | 미성년자 보호자 인증 흐름 | P3 |
+| ~~-~~ | ~~개인정보 동의 기록 (제3자 정보제공 동의)~~ | ~~`consent_record`, `consent_version`~~ | ✅ **완료** (v2.0.0) |
+| ~~-~~ | ~~회원 탈퇴 4종 전체 구현~~ | ~~IMMEDIATE/SCHEDULED/AGENCY_REQUESTED/ADMIN_FORCED~~ | ✅ **완료** (v2.0.0) |
+| ~~-~~ | ~~논리적 삭제 + 보존기간 만료 영구파기~~ | ~~GDPR Right to be Forgotten~~ | ✅ **완료** (v2.0.0, SCHEDULED 스케줄러) |
+
+**v2.0.0 구현 파일**:
+- `q-im/.../withdrawal/WithdrawalType.java` — 탈퇴 유형 enum (4종)
+- `q-im/.../withdrawal/WithdrawalService.java` / `WithdrawalServiceImpl.java` — 탈퇴 4종 + 예약 취소 + 만료 스케줄러
+- `q-im/.../withdrawal/WithdrawalRequest.java` / `WithdrawalResponse.java` — 탈퇴 요청/응답 DTO
+- `q-im/.../api/WithdrawalController.java` — `POST /withdrawal`, `DELETE /withdrawal/schedule`
+- `q-im/.../entity/ConsentVersionJpaEntity.java` — 동의 버전 테이블 매핑
+- `q-im/.../entity/ConsentRecordJpaEntity.java` — 동의 이력 테이블 매핑 (이력 보존 INSERT 전용)
+- `q-im/.../consent/ConsentService.java` / `ConsentServiceImpl.java` — 동의 기록/철회/조회
+- `q-im/.../api/ConsentController.java` — 동의 4종 API
+- `q-im/.../entity/ConversionSessionJpaEntity.java` — 전환 세션 테이블 매핑
+- `q-im/.../conversion/ConversionSessionState.java` — 상태 전이 enum (canTransitionTo)
+- `q-im/.../conversion/ConversionSessionService.java` / `ConversionSessionServiceImpl.java` — 상태 기계 5단계
+- `q-im/.../api/ConversionController.java` — 전환 세션 6종 API
+- `q-im/resources/db/migration/V5__withdrawal_consent_conversion.sql` — DB 스키마 마이그레이션
+- `platform-common/.../UserStatus.java` — WITHDRAWAL_SCHEDULED 상태 추가
+- `platform-common/.../PlatformErrorCode.java` — E-IM-205~211 에러코드 추가
 
 ### 4.2 Handoff 전략 완성 ✅ v1.9.2 완료
 

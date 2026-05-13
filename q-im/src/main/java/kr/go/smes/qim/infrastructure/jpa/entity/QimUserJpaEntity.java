@@ -45,6 +45,20 @@ public class QimUserJpaEntity {
     @Column(name = "withdrawn_at")
     private Instant withdrawnAt;
 
+    /**
+     * 예약 탈퇴 예정 일시 (SCHEDULED 탈퇴 전용)
+     * null이면 즉시 탈퇴 또는 예약 없음.
+     */
+    @Column(name = "withdrawal_scheduled_at")
+    private Instant withdrawalScheduledAt;
+
+    /**
+     * 탈퇴 유형 (IMMEDIATE/SCHEDULED/AGENCY_REQUESTED/ADMIN_FORCED)
+     * null이면 탈퇴하지 않은 상태.
+     */
+    @Column(name = "withdrawal_type", length = 30)
+    private String withdrawalType;
+
     /** 인증수단 매핑 목록 (1:N) */
     @OneToMany(
         mappedBy = "user",
