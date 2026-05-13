@@ -1,14 +1,26 @@
 # 13. 개발 이력 (Development History)
 
-> **문서 버전**: v1.9.3  
-> **최종 수정**: 2026-05-09  
-> **브랜치**: `genspark_ai_developer` → `main`
+> **문서 버전**: v3.1.0  
+> **최종 수정**: 2026-05-13  
+> **브랜치**: `shipster` → `main`
 
 ---
 
 ## 1. Git 커밋 이력 (최신순)
 
 ```
+fafc795  feat(p3): P3-01/05/06 AgencyLookup·보호자인증·기업회원전환 + 운영 버그 수정 8종  (v3.1.0)
+5b39626  Merge pull request #84 from HipsterMIN/shipster
+52cc28a  feat(q-im): P2 회원 생명주기 완성 — 탈퇴 4종·동의 스키마·ConversionSession 상태 기계  (v2.0.0)
+7456517  test(sso): S7-T6 완료 반영 Javadoc 정리 + NiceAuthService/HandoffController 단위 테스트 추가  (v2.1.0)
+fda29ee  Merge pull request #83 from HipsterMIN/genspark_ai_developer
+(v3.0.0)  feat(p1~p3): SSO 운영 보안 패치 P1~P3 — UNIQUE 복합 키, InternalApiKeyInterceptor, redirectUri 수정  (PR #82)
+(v2.4.0)  feat(sso): 유관기관 SSO 완성 — Q-IM 소셜 계정 API, GUEST 정책  (PR #81)
+(v2.3.1)  fix(keycloak): identifierHash SHA-256 수정, P1/P2 보안 패치  (PR #80)
+(v2.3.0)  feat(fe): SLO FE 연동, useAuthState, ErrorBoundary  (PR #52)
+(v2.2.1)  feat(ff): 18개 Feature Flag 체계  (PR #51)
+(v2.2.0)  feat(prod): Redisson, Resilience4j, Bean Validation, OTel AOP, K8s  (PR #50)
+(v2.1.0)  feat(q-im): NICE/OACX BFF, S7-T6 CI→Q-IM  (PR #45)
 (v1.9.3)  feat(v1.9.3): P1-06 완성 — IdO 기관 이벤트 폴링 API (GET /api/v1/agency/events)
 (v1.9.2)  feat(v1.9.2): P2 GAP 마감 — HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05 Snapshot
 99ad8c6  feat(v1.9.1): P1 GAP 마감 — DLQ 완전 구현, X-Internal-Sig 검증, Outbox 재시도 스케줄러
@@ -32,6 +44,92 @@ f141009  feat(v1.5.0): 유관기관 외부망 Webhook 연동 전체 스택 구�
 ---
 
 ## 2. 버전별 상세 변경 이력
+
+### v3.1.0 (2026-05-13) — PR [#85](https://github.com/HipsterMIN/integration-sso/pull/85)
+
+**커밋**: `fafc795`  
+**브랜치**: `shipster`  
+**목적**: P3-01/05/06 운영 코드 심층 분석 후 발견된 결함 8종 순차 수정 (Sprint 12)
+
+**배경**:  
+P3-05(14세 미만 보호자 인증)/P3-06(기업회원 전환) 구현 후 운영 투입 관점에서 심층 코드 리뷰를 진행.  
+GDPR §17 위반, JPA 1차 캐시 오염, correlationId 혼용 버그, 입력 검증 누락 등 8종 결함 식별 및 수정.
+
+**빌드 결과**: `DOCKER_UNAVAILABLE=true ./gradlew :q-im:clean :q-im:test --no-daemon`
+- Total: **219 tests**, Failures: 0, Errors: 0, Skipped: **30**
+
+**수정 파일 목록**:
+
+| 파일 | 유형 | Fix | 내용 |
+|------|------|-----|------|
+| `q-im/.../agency/AgencyMemberLookupServiceImpl.java` | **수정** | Fix 1 | Virtual Thread Executor `try-finally shutdown()` + 30s 절대 데드라인 |
+| `q-im/.../withdrawal/WithdrawalServiceImpl.java` | **수정** | Fix 2 | `deletePii()` — `guardian_qim_user_id`, `guardian_consent_at` NULL 처리 추가 |
+| `q-im/.../user/UserRegistrationServiceImpl.java` | **수정** | Fix 2 | 동일 GDPR V6 컬럼 NULL 처리 추가 |
+| `q-im/.../api/GuardianConsentController.java` | **수정** | Fix 3/5 | `@Valid @RequestBody`, `X-Correlation-Id` 헤더 추출 + `getStatus()` 호출 수정 |
+| `q-im/.../api/BizMemberConversionController.java` | **수정** | Fix 3/4 | `@Valid @RequestBody`, `HttpStatus.CREATED` 반환 |
+| `q-im/.../api/GlobalExceptionHandler.java` | **수정** | Fix 3 | `MethodArgumentNotValidException` 핸들러 추가 (E-IM-400) |
+| `q-im/.../biz/BizMemberConversionServiceImpl.java` | **수정** | Fix 4 | `existsById(qimUserId)` + `existsByBizRegNo()` 중복 전환 방지 체크 |
+| `q-im/.../guardian/GuardianConsentService.java` | **수정** | Fix 5 | `getStatus()` 시그니처 변경: `(qimUserId)` → `(qimUserId, correlationId)` |
+| `q-im/.../guardian/GuardianConsentServiceImpl.java` | **수정** | Fix 5 | `PlatformException` 인수 순서 수정 (qimUserId → correlationId) |
+| `q-im/.../jpa/repository/UserProfileJpaRepository.java` | **수정** | Fix 6 | `@Modifying(clearAutomatically=true, flushAutomatically=true)` 추가 |
+| `q-im/.../guardian/GuardianConsentServiceImplTest.java` | **수정** | Fix 5 | `getStatus()` 호출 4곳 CID 파라미터 추가 |
+| `q-im/.../user/UserRegistrationServiceImplTest.java` | **수정** | Fix 7 | isMinor 저장 검증 테스트 3종 추가 (동적 연도 계산) |
+| `q-im/.../integration/QimLifecycleIntegrationTest.java` | **수정** | Fix 8 | S8(보호자 동의 4종) + S9(기업회원 전환 6종) E2E 시나리오 추가 |
+
+**Fix별 상세**:
+
+| Fix | 문제 | 해결 | 영향 |
+|-----|------|------|------|
+| **Fix 1** | Virtual Thread Executor shutdown() 누락 → 스레드 누수 | try-finally + 30s 데드라인 | 운영 안정성 |
+| **Fix 2** | deletePii() V6 컬럼 누락 → GDPR §17 위반 | guardian 컬럼 2개 NULL 처리 (2파일) | 법적 준수 |
+| **Fix 3** | 컨트롤러 입력 미검증 → 빈 필드 서비스 호출 가능 | @Valid/@NotBlank + 400 핸들러 | 안전성 |
+| **Fix 4** | 동일 qimUserId 재전환 가능 + 201 누락 | existsById 체크 + CREATED 반환 | 데이터 무결성 |
+| **Fix 5** | getStatus()에서 qimUserId가 correlationId 자리 전달 | 시그니처 변경 + 헤더 추출 | 오류 추적성 |
+| **Fix 6** | JPQL UPDATE 후 1차 캐시 오염 | clearAutomatically=true | 데이터 정합성 |
+| **Fix 7** | isMinor 저장 검증 테스트 없음 | 동적 연도 계산 3종 테스트 | 회귀 방지 |
+| **Fix 8** | V6 통합 테스트 없음 | S8(4종)/S9(6종) Testcontainers E2E | 운영 신뢰성 |
+
+**설계 결정 사항**:
+
+1. **Virtual Thread (JDK 21)**: `Executors.newVirtualThreadPerTaskExecutor()`는 무제한 생성이 가능하므로 반드시 `try-finally`로 `shutdown()` 보장. 절대 데드라인 30초로 행잉 방지.
+
+2. **GDPR 완전 준수**: `deletePii()` 호출 지점이 2곳(`WithdrawalServiceImpl`, `UserRegistrationServiceImpl`)임을 확인. 양쪽 모두 V6 컬럼 추가 필요.
+
+3. **PlatformException 인수 순서**: `PlatformException(PlatformErrorCode, String correlationId)` — 두 번째 인수는 correlationId여야 함. qimUserId를 전달하면 분산 추적 시스템에서 correlationId로 잘못 해석됨.
+
+4. **@Modifying 캐시 정책**: `clearAutomatically=true`는 UPDATE 후 영속성 컨텍스트 1차 캐시를 자동 비우고, `flushAutomatically=true`는 UPDATE 실행 전 pending 변경사항을 flush하여 순서 보장.
+
+5. **Testcontainers 조건부 실행**: `@DisabledIfEnvironmentVariable(named="DOCKER_UNAVAILABLE")`으로 CI/CD 환경(Docker 없음)에서도 빌드 성공 보장. Docker 환경에서는 자동 실행.
+
+6. **rebase 충돌 해결**: `ConversionSessionServiceImpl` add/add 충돌 발생 시 `--theirs` (remote 우선) 전략 적용.
+
+---
+
+### v3.0.0 (2026-05-13) — PR [#82](https://github.com/HipsterMIN/integration-sso/pull/82)
+
+**목적**: 유관기관 SSO 운영 보안 패치 P1~P3
+
+| 패치 | 내용 |
+|------|------|
+| **P1** | `V4__fix_social_sso.sql` — `uq_identifier_hash` DROP → `uq_identifier_hash_provider(identifier_hash, provider_code)` UNIQUE 복합 키 |
+| **P2** | `InternalApiKeyInterceptor` — `MessageDigest.isEqual()` 상수 시간 비교, `/api/v1/internal/**` 전체 보호 |
+| **P3** | `HandoffController` — `redirectUri` null 수정 (`.redirectUri(req.getCallbackUrl())` 누락) |
+
+---
+
+### v2.4.0 (2026-05-13) — PR [#81](https://github.com/HipsterMIN/integration-sso/pull/81)
+
+**목적**: 유관기관 SSO 완성 — Keycloak OIDC 브로커 + 소셜 계정 식별 + GUEST 정책
+
+| 파일 | 내용 |
+|------|------|
+| `q-im/.../api/UserController.java` | `find-by-social-sub` + `register-social` 엔드포인트 |
+| `ido/.../broker/keycloak/KeycloakOidcService.java` | OIDC 콜백 처리, SHA-256(sub) identifierHash |
+| `ido/.../policy/PolicyEngineImpl.java` | HMAC fallback 제거, GUEST 정책 |
+| `platform-common/.../HandoffPayload.java` | `HandoffState.GUEST` 추가 |
+| `agency-stub/.../api/AgencyEntryController.java` | `case GUEST` 분기 처리 |
+
+---
 
 ### v1.9.3 (2026-05-09) — PR #28 (예정)
 

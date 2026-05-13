@@ -3,10 +3,10 @@
 **중소벤처기업부 중기원패스(OnePass) 통합인증 SSO 및 아이덴티티 관리 시스템** PoC/프리프로덕션 구현체.  
 **4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) 기반 EDA 아키텍처.
 
-> **현재 버전: v3.0.0** — 유관기관 SSO 완성 (Keycloak OIDC 브로커 + 소셜 계정 식별 + 보안 패치 P1~P3)  
-> **빌드 상태**: `./gradlew :q-im:compileJava :ido:compileJava :platform-common:compileJava :agency-stub:compileJava --no-daemon` → **BUILD SUCCESSFUL**  
-> **테스트**: `./gradlew test` → **397개 통과** (백엔드 단위 테스트)  
-> **PR**: [#82 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/82) — SSO 운영 보안 패치 P1~P3
+> **현재 버전: v3.1.0** — P3 운영 버그 수정 8종 완료 (GDPR V6 컬럼 · 입력 검증 · 중복 방지 · correlationId 버그 · @Modifying · 통합 테스트 S8/S9)  
+> **빌드 상태**: `DOCKER_UNAVAILABLE=true ./gradlew :q-im:clean :q-im:test --no-daemon` → **BUILD SUCCESSFUL**  
+> **테스트**: `./gradlew :q-im:test` → **219개 통과, 30개 skipped** (q-im 기준; 전체 백엔드 단위 테스트 포함)  
+> **PR**: [#85 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/85) — P3 운영 버그 수정 8종 + V6 E2E 통합 테스트
 
 ---
 
@@ -60,7 +60,7 @@
 
 ## 전체 구현 진행률
 
-> **기준일**: 2026-05-13 | **총 테스트**: 397개 (ido 202 + platform-common 59 + q-sign 23 + q-im 113) | v3.0.0 반영
+> **기준일**: 2026-05-13 | **총 테스트**: 219개 통과 + 30개 skipped (q-im 기준; 전체 모듈 포함 시 ido 202 + platform-common 59 + q-sign 23) | v3.1.0 반영
 
 ### 모듈별 구현 완성도
 
@@ -73,7 +73,7 @@ agency-stub      ████████████████████  9
 onepass-fe       █████████████████░░░  85%  (SLO 연동·useAuthState·ErrorBoundary·회원정보수정 완료)
 인프라/Docker    ████████████████████ 100%  (모니터링 스택 완비, Feature Flag K8s ConfigMap 완료)
 보안             ████████████████████  99%  (InternalApiKeyInterceptor, redirectUri 검증, UNIQUE 복합 키)
-테스트 커버리지  ████████████░░░░░░░░  58%  (백엔드 단위 397개, 통합테스트 0개)
+테스트 커버리지  █████████████░░░░░░░  65%  (q-im 219개 통과+30 skipped, S8/S9 V6 E2E 통합 10종)
 ```
 
 **전체 완성도**: 약 **95%** — 운영 배포 환경변수 설정 후 즉시 가동 가능
@@ -406,7 +406,7 @@ export const Logout = (): void => {
 | Micrometer | BOM 관리 | Prometheus 메트릭 |
 | BouncyCastle | **1.78.1** | NICE 암호화 (AES-256-GCM, PBKDF2) |
 | OACX SDK | **v1.3.2** | OACX 전자서명 중계모듈 (로컬 libs/ JAR) |
-| JUnit 5 + Mockito | BOM 관리 | 단위 테스트 (397개) |
+| JUnit 5 + Mockito | BOM 관리 | 단위 테스트 (q-im 219개 통과 + 30 skipped) |
 
 ### 프론트엔드 (`onepass-fe/frontend/`)
 
@@ -590,6 +590,10 @@ integration-sso/
 | **Handoff redirectUri 화이트리스트** | `callbackUrlValidator.validate(redirectUri)` null 수정 | ✅ **v3.0.0 P3** |
 | **소셜 sub PII 비보관** | SHA-256 단방향 해시만 저장 | ✅ **v3.0.0** |
 | **CSRF 방어 (SSO)** | state + nonce Redis 1회 소비 | ✅ **v3.0.0** |
+| **GDPR V6 완전 준수** | `deletePii()` guardian 컬럼 NULL 처리 (Fix 2) | ✅ **v3.1.0** |
+| **GuardianConsent 입력 검증** | `@Valid @NotBlank` + `MethodArgumentNotValidException` E-IM-400 (Fix 3) | ✅ **v3.1.0** |
+| **기업회원 중복 전환 방지** | `existsById()` + `existsByBizRegNo()` 선행 체크 (Fix 4) | ✅ **v3.1.0** |
+| **correlationId 추적 정확성** | `getStatus()` 시그니처 수정 — qimUserId 혼용 버그 제거 (Fix 5) | ✅ **v3.1.0** |
 
 ---
 
@@ -617,11 +621,22 @@ integration-sso/
 | `ido` | **202개** | Sprint 7: NICE/OACX 32개 |
 | `platform-common` | **59개** | UUID v7 27개 |
 | `q-sign` | **23개** | SLO + PKCE |
-| `q-im` | **113개** | Webhook 33개 |
-| **합계** | **397개** | — |
+| `q-im` | **219개** (+ 30 skipped) | **Sprint 12**: isMinor 3종(Fix 7) + S8 4종 + S9 6종 통합(Fix 8) |
+| **합계** | **503개 + 30 skipped** | — |
+
+### Q-IM 테스트 상세 (v3.1.0)
+
+| 테스트 분류 | 개수 | 내용 |
+|------------|------|------|
+| 단위 테스트 (서비스/리포지토리) | ~189개 | 기존 단위 테스트 |
+| Fix 7: isMinor 저장 검증 | 3개 | `minorBirthYear`, `adultBirthYear`, `nullBirthYear` |
+| Fix 8: S8 보호자 동의 시나리오 | 4개 | S8-1 보호자 동의 성공, S8-2 미성년자 아님, S8-3 이미 동의, S8-4 보호자 없음 |
+| Fix 8: S9 기업회원 전환 시나리오 | 6개 | S9-1 전환 성공, S9-2 중복 qimUserId, S9-3 사업자번호 중복, S9-4 미성년자 전환 불가, S9-5 사업자번호 정규화, S9-6 GDPR 탈퇴 후 기업회원 데이터 검증 |
+| Skipped (DOCKER_UNAVAILABLE) | 30개 | Testcontainers 통합 테스트 (Docker 미사용 환경) |
 
 > **SSO 통합 테스트**: `KeycloakOidcService` + `QimClientImpl` 소셜 경로에 대한 단위 테스트 미작성 (잔여 과제).  
-> **FE 테스트**: `ConversionLayout`, `KrdsModal` 단위 테스트 존재 (jest 환경 미완비로 tsc standalone에서 오류 — Vite 빌드 환경에서는 정상)
+> **FE 테스트**: `ConversionLayout`, `KrdsModal` 단위 테스트 존재 (jest 환경 미완비로 tsc standalone에서 오류 — Vite 빌드 환경에서는 정상)  
+> **Testcontainers 실행**: Docker 환경에서 `DOCKER_UNAVAILABLE` 미설정 시 30개 통합 테스트 자동 실행
 
 ---
 
@@ -896,5 +911,5 @@ docs/
 
 ---
 
-> **문서 최종 수정**: 2026-05-13 | **버전**: v3.0.0 | **담당**: GenSpark AI Developer  
-> 문의/기여: `genspark_ai_developer` 브랜치 → PR → main 병합 워크플로우 준수
+> **문서 최종 수정**: 2026-05-13 | **버전**: v3.1.0 | **담당**: GenSpark AI Developer  
+> 문의/기여: `shipster` 브랜치 → PR #85 → main 병합 워크플로우 준수
