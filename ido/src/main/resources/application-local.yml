@@ -72,6 +72,13 @@ ido:
   crypto:
     rotation-enabled: false
 
+  # P4 [MODERATE]: broker.mode 명시 — 미설정 시 qsign 모드가 기본값이어서
+  # Keycloak SSO 경로가 전혀 활성화되지 않는 문제 방지.
+  # 로컬에서 SSO 흐름 테스트 시: broker.mode=keycloak 으로 변경
+  # (기본값 qsign 유지 — Keycloak 없는 기본 로컬 환경을 깨지 않음)
+  broker:
+    mode: ${IDO_BROKER_MODE:qsign}    # SSO 테스트: IDO_BROKER_MODE=keycloak 환경변수 설정
+
   # F-13: IdO Outbox Relay OFF → Kafka 없는 환경 500ms 폴링 오류 없음
   outbox:
     relay-enabled: false

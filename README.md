@@ -3,10 +3,10 @@
 **중소벤처기업부 중기원패스(OnePass) 통합인증 SSO 및 아이덴티티 관리 시스템** PoC/프리프로덕션 구현체.  
 **4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) 기반 EDA 아키텍처.
 
-> **현재 버전: v2.3.0** — Sprint 10 완료 (SLO FE 완전 연동 · useAuthState 훅 · ErrorBoundary · 회원정보 수정 API 실연동)  
-> **빌드 상태**: `DOCKER_UNAVAILABLE=true ./gradlew :ido:compileJava --no-daemon -q` → **BUILD SUCCESSFUL**  
+> **현재 버전: v3.0.0** — 유관기관 SSO 완성 (Keycloak OIDC 브로커 + 소셜 계정 식별 + 보안 패치 P1~P3)  
+> **빌드 상태**: `./gradlew :q-im:compileJava :ido:compileJava :platform-common:compileJava :agency-stub:compileJava --no-daemon` → **BUILD SUCCESSFUL**  
 > **테스트**: `./gradlew test` → **397개 통과** (백엔드 단위 테스트)  
-> **PR**: [#52 (MERGED)](https://github.com/HipsterMIN/integration-sso/pull/52) — Sprint 10 SLO FE + FE 기반 강화
+> **PR**: [#82 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/82) — SSO 운영 보안 패치 P1~P3
 
 ---
 
@@ -18,66 +18,70 @@
 4. [모듈 책임 분리](#모듈-책임-분리)
 5. [기술 스택](#기술-스택)
 6. [모듈 구성](#모듈-구성)
-7. [Sprint 10: SLO FE 완성 + FE 기반](#sprint-10-slo-fe-완성--fe-기반)
-8. [S7-T2: NICE/OACX 본인인증 통합](#s7-t2-niceoacx-본인인증-통합)
-9. [Feature Flag 체계](#feature-flag-체계)
-10. [데이터베이스 구성](#데이터베이스-구성)
-11. [Kafka 토픽](#kafka-토픽)
-12. [보안 체계](#보안-체계)
-13. [Flyway 마이그레이션 현황](#flyway-마이그레이션-현황)
-14. [테스트 현황](#테스트-현황)
-15. [모니터링 인프라](#모니터링-인프라)
-16. [빠른 시작](#빠른-시작)
-17. [접속 URL](#접속-url)
-18. [개발 환경 설정](#개발-환경-설정)
-19. [전체 로드맵 & 개발 플랜](#전체-로드맵--개발-플랜)
-20. [팀별 개발 가이드](#팀별-개발-가이드)
-21. [코딩 컨벤션](#코딩-컨벤션)
-22. [문서 디렉토리](#문서-디렉토리)
+7. [유관기관 SSO (v3.0)](#유관기관-sso-v30)
+8. [Sprint 10: SLO FE 완성 + FE 기반](#sprint-10-slo-fe-완성--fe-기반)
+9. [S7-T2: NICE/OACX 본인인증 통합](#s7-t2-niceoacx-본인인증-통합)
+10. [Feature Flag 체계](#feature-flag-체계)
+11. [데이터베이스 구성](#데이터베이스-구성)
+12. [Kafka 토픽](#kafka-토픽)
+13. [보안 체계](#보안-체계)
+14. [Flyway 마이그레이션 현황](#flyway-마이그레이션-현황)
+15. [테스트 현황](#테스트-현황)
+16. [모니터링 인프라](#모니터링-인프라)
+17. [빠른 시작](#빠른-시작)
+18. [접속 URL](#접속-url)
+19. [개발 환경 설정](#개발-환경-설정)
+20. [전체 로드맵 & 개발 플랜](#전체-로드맵--개발-플랜)
+21. [팀별 개발 가이드](#팀별-개발-가이드)
+22. [코딩 컨벤션](#코딩-컨벤션)
+23. [문서 디렉토리](#문서-디렉토리)
 
 ---
 
 ## 버전 히스토리
 
-| 버전 | PR | 스프린트 | 주요 내용 |
-|------|----|---------|---------| 
-| **v2.3.0** | [#52](https://github.com/HipsterMIN/integration-sso/pull/52) | Sprint 10 | **SLO FE 완전 연동** — `initiateSlo()` API 클라이언트, `Logout()` SLO 통합, `useAuthState` 훅, `ErrorBoundary`, `MypageSideNav` 로그아웃 버튼, `InformationStep3` 실 API 연동 (`UpdateMemberRequest` / `UpdateEnterpriseRequest` 타입 정의 완료) |
-| **v2.2.1** | [#51](https://github.com/HipsterMIN/integration-sso/pull/51) | Sprint 9 (FF) | **18개 Feature Flag 체계** — `@ConditionalOnProperty` / `@Value` 가드, K8s ConfigMap 14개 환경변수, `docs/FEATURE_FLAGS.md` 완전 문서화 |
-| **v2.2.0** | [#50](https://github.com/HipsterMIN/integration-sso/pull/50) | Sprint 9 | **프로덕션 강화** — Redisson 분산 락, Resilience4j CB+Retry, Bean Validation, OTel AOP 계측, 감사 로그(`platform.audit.log`), K8s Secret/ConfigMap, Auth Rate Limit, NHN Cloud SKM 연동 |
-| **v2.1.0** | [#45](https://github.com/HipsterMIN/integration-sso/pull/45) | Sprint 7 S7-T2 | **NICE/OACX 본인인증 ido BFF 완전 이식** — 6개 API, Redis 세션/토큰 캐시, PBKDF2+AES-256-GCM, 32개 테스트 |
-| v2.0.0 | [#39](https://github.com/HipsterMIN/integration-sso/pull/39) | Sprint 5 | **AES 키 로테이션** (KeyVersionRegistry + v{n}.{iv}.{ct} 포맷) + **모니터링 인프라** |
-| v1.9.9 | [#38](https://github.com/HipsterMIN/integration-sso/pull/38) | Sprint 4-5 | UUID v7 테스트 27개 + Webhook 33개 |
-| v1.9.5 | [#35](https://github.com/HipsterMIN/integration-sso/pull/35) | Sprint 3-4 | UUID v4 → v7 전체 교체 (RFC 9562) |
-| v1.9.4 | [#33](https://github.com/HipsterMIN/integration-sso/pull/33) | Sprint 3-4 | P2 운영 고도화 + P3 배포 준비 완전 구현 |
-| v1.9.3 | [#32](https://github.com/HipsterMIN/integration-sso/pull/32) | Sprint 2 | **SLO 완전 구현** + 개인정보 파기 스케줄러 + FE 인증 기반 |
-| v1.9.2 | [#31](https://github.com/HipsterMIN/integration-sso/pull/31) | Sprint 1 | P0 보안 결함 완전 제거 + 테스트 기반 구축 |
+| 버전 | PR | 주요 내용 |
+|------|----|---------|
+| **v3.0.0** | [#82](https://github.com/HipsterMIN/integration-sso/pull/82) | **SSO 운영 보안 패치 P1~P3** — `V4__fix_social_sso.sql` UNIQUE 복합 키, `InternalApiKeyInterceptor` 구현, `HandoffController` redirectUri null 수정 |
+| **v2.4.0** | [#81](https://github.com/HipsterMIN/integration-sso/pull/81) | **유관기관 SSO 완성** — Q-IM 소셜 계정 API(`find-by-social-sub` / `register-social`), GUEST 정책, HMAC fallback 완전 제거 |
+| **v2.3.1** | [#80](https://github.com/HipsterMIN/integration-sso/pull/80) | **Keycloak identifierHash 수정** — SHA-256(sub) 올바른 계산, `KeycloakOidcService` P1/P2 보안 패치 |
+| **v2.3.0** | [#52](https://github.com/HipsterMIN/integration-sso/pull/52) | **SLO FE 완전 연동** — `initiateSlo()` API 클라이언트, `useAuthState` 훅, `ErrorBoundary`, `InformationStep3` 실 API 연동 |
+| **v2.2.1** | [#51](https://github.com/HipsterMIN/integration-sso/pull/51) | **18개 Feature Flag 체계** — `@ConditionalOnProperty` / `@Value` 가드, K8s ConfigMap 14개 환경변수 |
+| **v2.2.0** | [#50](https://github.com/HipsterMIN/integration-sso/pull/50) | **프로덕션 강화** — Redisson 분산 락, Resilience4j CB+Retry, Bean Validation, OTel AOP, 감사 로그, K8s Secret/ConfigMap |
+| **v2.1.0** | [#45](https://github.com/HipsterMIN/integration-sso/pull/45) | **NICE/OACX 본인인증 ido BFF 완전 이식** — 6개 API, Redis 세션/토큰 캐시, PBKDF2+AES-256-GCM, 32개 테스트 |
+| v2.0.0 | [#39](https://github.com/HipsterMIN/integration-sso/pull/39) | AES 키 로테이션 + 모니터링 인프라 |
+| v1.9.9 | [#38](https://github.com/HipsterMIN/integration-sso/pull/38) | UUID v7 테스트 27개 + Webhook 33개 |
+| v1.9.5 | [#35](https://github.com/HipsterMIN/integration-sso/pull/35) | UUID v4 → v7 전체 교체 (RFC 9562) |
+| v1.9.4 | [#33](https://github.com/HipsterMIN/integration-sso/pull/33) | P2 운영 고도화 + P3 배포 준비 완전 구현 |
+| v1.9.3 | [#32](https://github.com/HipsterMIN/integration-sso/pull/32) | SLO 완전 구현 + 개인정보 파기 스케줄러 + FE 인증 기반 |
+| v1.9.2 | [#31](https://github.com/HipsterMIN/integration-sso/pull/31) | P0 보안 결함 완전 제거 + 테스트 기반 구축 |
 
 ---
 
 ## 전체 구현 진행률
 
-> **기준일**: 2026-05-11 | **총 테스트**: 397개 (ido 202 + platform-common 59 + q-sign 23 + q-im 113) | v2.3.0 Sprint 10 반영
+> **기준일**: 2026-05-13 | **총 테스트**: 397개 (ido 202 + platform-common 59 + q-sign 23 + q-im 113) | v3.0.0 반영
 
 ### 모듈별 구현 완성도
 
 ```
-platform-common  ████████████████████ 100%  (도메인·이벤트·에러코드 완비, UUID v7 유틸)
+platform-common  ████████████████████ 100%  (도메인·이벤트·에러코드 완비, UUID v7, HandoffPayload.GUEST)
 Q-Sign           ████████████████████  97%  (InternalSig 수신 검증 완료, SLO 완료)
-Q-IM             ████████████████████  96%  (CI 암호화 v{n} 포맷, 파기 스케줄러 완료)
-IdO              ████████████████████  88%  (AES 키 로테이션, NICE/OACX BFF, SLO 백엔드 완료)
-agency-stub      ████████████████████  90%  (E2E 시뮬레이터 완비)
+Q-IM             ████████████████████  98%  (소셜 SSO API, CI 암호화 v{n}, 파기 스케줄러, InternalApiKeyInterceptor)
+IdO              ████████████████████  93%  (Keycloak OIDC 브로커, SSO 소셜 계정 연동, AES 키 로테이션, NICE/OACX BFF)
+agency-stub      ████████████████████  90%  (E2E 시뮬레이터, GUEST 정책 처리 완비)
 onepass-fe       █████████████████░░░  85%  (SLO 연동·useAuthState·ErrorBoundary·회원정보수정 완료)
 인프라/Docker    ████████████████████ 100%  (모니터링 스택 완비, Feature Flag K8s ConfigMap 완료)
-보안             ████████████████████  98%  (AES 키 로테이션, NICE/OACX PII 보호 완료)
+보안             ████████████████████  99%  (InternalApiKeyInterceptor, redirectUri 검증, UNIQUE 복합 키)
 테스트 커버리지  ████████████░░░░░░░░  58%  (백엔드 단위 397개, 통합테스트 0개)
 ```
 
-**전체 완성도**: 약 **93%** — 프리프로덕션 단계
+**전체 완성도**: 약 **95%** — 운영 배포 환경변수 설정 후 즉시 가동 가능
 
 ### Sprint별 완료 현황
 
 | Sprint | 목표 | 상태 | 완료 항목 |
-|--------|------|------|-----------| 
+|--------|------|------|-----------|
 | **Sprint 1** | P0 보안 결함 | ✅ **완료** | API Key PBKDF2, 기본 시크릿 제거, X-Internal-Sig |
 | **Sprint 2** | P1 SLO + 개인정보 | ✅ **완료** | SLO Keycloak 전파, SP 로그아웃 Webhook, 파기 스케줄러 |
 | **Sprint 3** | P2 운영 고도화 | ✅ **완료** | UUID v7, Micrometer 기초, 구조화 로깅, FE 상태관리 |
@@ -89,6 +93,7 @@ onepass-fe       █████████████████░░░  8
 | **Sprint 9** | 프로덕션 강화 | ✅ **완료** | Redisson 분산 락, Resilience4j, Bean Validation, OTel AOP, 감사 로그, K8s |
 | **Sprint 9 FF** | Feature Flag | ✅ **완료** | 18개 Feature Flag, K8s ConfigMap 14개 환경변수 |
 | **Sprint 10** | SLO FE + 회원정보 | ✅ **완료** | SLO FE 연동, useAuthState 훅, ErrorBoundary, InformationStep3 실 API |
+| **Sprint 11** | **유관기관 SSO** | ✅ **완료** | Keycloak OIDC 브로커, 소셜 계정 식별, GUEST 정책, P1~P3 보안 패치 |
 
 ---
 
@@ -107,57 +112,55 @@ onepass-fe       █████████████████░░░  8
   │                                                                          │
   │   [개발] React dev :3000 → webpack proxy → ido:8083                     │
   │   [운영] Nginx :3001 → /api/** → ido:8083 (same-origin 보안)            │
-  │                                                                          │
-  │   ※ Sprint 10 신규 FE 기능:                                              │
-  │     - MypageSideNav 로그아웃 버튼 (SLO 통합)                             │
-  │     - InformationStep3 회원정보 수정 (실제 PATCH API 연동)                │
-  │     - useAuthState 훅 (Redux 인증 상태 단일 인터페이스)                    │
-  │     - ErrorBoundary 컴포넌트 (페이지/섹션 수준 에러 격리)                  │
   └──────────────┬───────────────────────────────────────────────────────────┘
                  │ HTTPS / /api/v1/**
                  │  ├── /fe-session/**          (FE 세션 관리)
-                 │  ├── /slo/**                 (SLO 로그아웃 ★Sprint 10)
+                 │  ├── /slo/**                 (SLO 로그아웃)
                  │  ├── /handoff/**             (Handoff 발급/검증)
-                 │  ├── /auth/**                (본인인증 BFF ★S7-T2)
-                 │  └── /broker/**              (OIDC 브로커)
+                 │  ├── /auth/**                (본인인증 BFF S7-T2)
+                 │  └── /broker/**              (OIDC 브로커 ★SSO)
                  │
-  ┌──────────────────────────────────────────────────────────────────────┐
-  │  유관기관 시스템 (외부망)              외부 인증 공급자                  │
-  │  agency-stub :8084                   NICE IDO 서버                   │
-  │                                      OACX SDK v1.3.2                 │
-  └──────────────────────────┬───────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │  유관기관 시스템 (외부망)              외부 인증 공급자                     │
+  │  agency-stub :8084                   Keycloak :8080 (OIDC IdP)          │
+  │                                      NICE IDO 서버                       │
+  │                                      OACX SDK v1.3.2                    │
+  └──────────────────────────┬───────────────────────────────────────────────┘
                              │ HTTPS (공개 API만)
-══════════════════════════  ╪  ═══════════════════════════════════════════
+══════════════════════════  ╪  ═══════════════════════════════════════════════
   내부망 (Internal Network)
-══════════════════════════  ╪  ═══════════════════════════════════════════
+══════════════════════════  ╪  ═══════════════════════════════════════════════
                             ▼
-  ┌──────────────────────────────────────────────────────────────────────┐
-  │  ido :8083  정책 오케스트레이터 + FE BFF                              │
-  │                                                                      │
-  │  [FE BFF]               [SLO ★Sprint 10]      [기관향 공개 API]      │
-  │  feSessionId 쿠키       POST /slo/initiate      /handoff/issue        │
-  │  ReturnUrl 검증         feSession 삭제           /handoff/verify       │
-  │                         Webhook Outbox 적재      /agency/events        │
-  │  [본인인증 BFF]          감사 로그 기록           [Webhook Push]        │
-  │  NICE 휴대폰 인증        Keycloak end_session    Outbox Relay          │
-  │  OACX 간편서명                                                        │
-  │  Redis 세션 캐시         [18개 Feature Flag ★Sprint 9]                │
-  │  PBKDF2+AES-256-GCM     @ConditionalOnProperty                        │
-  │                          @Value 가드 패턴                              │
-  └──────────────────┬───────────────────────────────────────────────────┘
-                     │ HTTP (내부망 전용)
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │  ido :8083  정책 오케스트레이터 + FE BFF                                  │
+  │                                                                          │
+  │  [FE BFF]               [SLO]               [기관향 공개 API]            │
+  │  feSessionId 쿠키       POST /slo/initiate   /handoff/issue              │
+  │  ReturnUrl 검증         feSession 삭제        /handoff/verify             │
+  │                         Webhook Outbox 적재   /agency/events              │
+  │  [본인인증 BFF]                                                           │
+  │  NICE 휴대폰 인증        [★SSO 브로커 v3.0]                               │
+  │  OACX 간편서명           GET  /broker/authorize  Keycloak 인가 URL 생성   │
+  │  Redis 세션 캐시         GET  /broker/callback   OIDC 콜백 처리           │
+  │  PBKDF2+AES-256-GCM     sub → Q-IM qimUserId 조회/등록                   │
+  │                         FeSession 생성 → Handoff 발급 준비                │
+  │  [18개 Feature Flag]                                                     │
+  │  @ConditionalOnProperty / @Value 가드                                    │
+  └──────────────────┬───────────────────────────────────────────────────────┘
+                     │ HTTP (내부망 전용, X-Internal-Api-Key 검증)
          ┌───────────┴───────────┐
          ▼                       ▼
-  ┌─────────────┐       ┌─────────────┐
-  │ q-sign:8081 │       │  q-im:8082  │
-  │  인증 SoR    │       │  식별 SoR    │
-  │  Keycloak   │       │  회원 원장   │
-  │  OIDC 브로커 │       │  CI 암호화   │
-  │  SLO 전파   │       │  v{n}.{iv}  │
-  └──────┬──────┘       └──────┬──────┘
-         │  Outbox              │  Outbox
-         └──────────┬───────────┘
-                    ▼
+  ┌─────────────┐       ┌─────────────────────────────────────┐
+  │ q-sign:8081 │       │  q-im:8082  (MariaDB)               │
+  │  인증 SoR    │       │  식별 SoR                           │
+  │  Keycloak   │       │  회원 원장 · CI AES-256-GCM v{n}    │
+  │  OIDC 브로커 │       │  ★SSO: find-by-social-sub           │
+  │  SLO 전파   │       │  ★SSO: register-social              │
+  └──────┬──────┘       │  InternalApiKeyInterceptor (P2)     │
+         │              └──────────────────┬──────────────────┘
+         │  Outbox                         │  Outbox
+         └──────────────┬──────────────────┘
+                        ▼
     ┌─────────────────────────────────────┐
     │           Apache Kafka              │
     │  qsign.auth.events                  │
@@ -169,12 +172,125 @@ onepass-fe       █████████████████░░░  8
     └─────────────────────────────────────┘
 
     ┌─────────────────────────────────────┐
-    │     모니터링 스택 (Sprint 5)          │
+    │     모니터링 스택                    │
     │  Prometheus :9090                   │
     │  Grafana    :3000                   │
     │  Loki       :3100                   │
     └─────────────────────────────────────┘
 ```
+
+---
+
+## 유관기관 SSO (v3.0)
+
+> **Sprint 11 완료** (v2.4.0 → v3.0.0) — Keycloak 소셜 로그인 후 유관기관 Handoff까지 전 과정 완성.
+
+### SSO 전체 흐름
+
+```
+사용자 브라우저
+    │
+    │ ① GET /api/v1/broker/authorize?provider=kakao&agencyCode=SMBA
+    ▼
+IdO (KeycloakCallbackController)
+    │  state/nonce Redis 저장 (CSRF 방어)
+    │  Keycloak Authorization URL 생성 (kc_idp_hint=kakao)
+    │
+    │ ② 302 redirect → Keycloak
+    ▼
+Keycloak :8080
+    │  카카오 OIDC 연동 → 사용자 동의
+    │
+    │ ③ GET /api/v1/broker/callback?code=...&state=...
+    ▼
+IdO (KeycloakOidcService.handleCallback)
+    │  state 검증 (1회 소비, CSRF 방어)
+    │  code → token 교환 (Keycloak Token Endpoint)
+    │  id_token JWKS 서명 검증 + nonce 검증
+    │  SHA-256(sub) = identifierHash 생성
+    │
+    │ ④ POST /api/v1/internal/users/find-by-social-sub
+    ▼                    {sub, providerCode}
+Q-IM (UserController)
+    │  findByIdentifierHashAndProviderCode(SHA-256(sub), providerCode)
+    │  → 기존 사용자: qimUserId 반환 (200)
+    │  → 신규 사용자: 404 반환
+    │
+    │ ⑤ [신규 사용자] POST /api/v1/internal/users/register-social
+    ▼                    {sub, providerCode, identifierHash}
+Q-IM (UserController.registerSocialUser)
+    │  qim_user + auth_mean_mapping(identifierHash, providerCode) 생성
+    │  UNIQUE(identifier_hash, provider_code) 복합 키 보장 (V4 마이그레이션)
+    │  Kafka Outbox SOCIAL_USER_REGISTERED 이벤트 발행
+    │  qimUserId 반환 (201)
+    │
+    │ ⑥ FeSession 생성 (실제 qimUserId 사용)
+    ▼
+IdO
+    │  POST /api/v1/handoff/issue
+    │  → feSession에서 서버 측 qimUserId 추출 (P1 보안)
+    │  → redirectUri 화이트리스트 검증 (P3 수정)
+    │  → PolicyEngine: Q-IM DI 조회
+    │      DI 있음 → APPROVED + agencySubjectId
+    │      DI 없음 → GUEST (HMAC fallback 없음)
+    │
+    │ ⑦ POST /agency/entry?ticketId=...
+    ▼
+agency-stub (AgencyEntryController)
+    │  IdO Handoff verify (Resilience4j CB + Retry)
+    │  APPROVED → 기관 세션(AGSID 쿠키) 발급
+    │  GUEST    → 200 + 회원 가입 안내 메시지
+    ▼
+완료
+```
+
+### 소셜 계정 식별 전략
+
+| 항목 | 내용 |
+|------|------|
+| **식별 키** | `identifierHash` = SHA-256(sub) + `providerCode` 복합 |
+| **저장 테이블** | `auth_mean_mapping` (qim DB) |
+| **UNIQUE 제약** | `UNIQUE(identifier_hash, provider_code)` — V4 마이그레이션 |
+| **PII 원칙** | sub 원문 미저장, SHA-256 단방향 해시만 보관 |
+| **경합 방어** | `registerSocialUser()` 내 재조회로 동시 요청 중복 방지 |
+
+### 새로 구현된 파일 목록 (Sprint 11)
+
+| 파일 | 구분 | 내용 |
+|------|------|------|
+| `q-im/.../api/UserController.java` | 수정 | `find-by-social-sub` + `register-social` 엔드포인트 추가 |
+| `q-im/.../api/dto/SocialRegisterRequest.java` | 신규 | 소셜 등록 요청 DTO |
+| `q-im/.../repository/QimUserJpaRepository.java` | 수정 | `findByIdentifierHashAndProviderCode()` JPQL 쿼리 추가 |
+| `q-im/.../config/InternalApiKeyInterceptor.java` | **신규** | `X-Internal-Api-Key` 상수 시간 비교 검증 인터셉터 (P2) |
+| `q-im/.../config/QimWebMvcConfig.java` | **신규** | `/api/v1/internal/**` 인터셉터 등록 (P2) |
+| `q-im/.../db/migration/V4__fix_social_sso.sql` | **신규** | `uq_identifier_hash` DROP → 복합 UNIQUE 추가 (P1) |
+| `q-im/.../resources/application.yml` | 수정 | `qim.security.internal-api-key` 설정 추가 (P2) |
+| `ido/.../infrastructure/QimClientImpl.java` | 수정 | `findBySocialSub()` + `registerSocialUser()` HTTP 클라이언트 |
+| `ido/.../broker/keycloak/KeycloakOidcService.java` | 수정 | `resolveQimUserIdFromSub()` — Q-IM 소셜 API 연동 |
+| `ido/.../api/HandoffController.java` | 수정 | `.redirectUri(req.getCallbackUrl())` 누락 수정 (P3) |
+| `ido/.../policy/PolicyEngineImpl.java` | 수정 | HMAC fallback 완전 제거, `tryResolveDi()` + GUEST 정책 |
+| `platform-common/.../HandoffPayload.java` | 수정 | `HandoffState.GUEST` 추가 |
+| `agency-stub/.../api/AgencyEntryController.java` | 수정 | `case GUEST` 분기 처리 추가 |
+
+### 운영 배포 필수 환경변수
+
+```bash
+# IdO 서버
+IDO_BROKER_MODE=keycloak              # 필수 — 기본값 qsign, 이 설정 없으면 SSO 경로 비활성
+IDO_QIM_INTERNAL_API_KEY=<32자+>      # Q-IM 내부 API 인증키
+
+# Q-IM 서버
+QIM_INTERNAL_API_KEY=<동일 키>        # IDO_QIM_INTERNAL_API_KEY와 반드시 동일
+
+# Keycloak 연동 (application.yml ido.keycloak.* 항목)
+KEYCLOAK_BASE_URL=https://keycloak.example.com
+KEYCLOAK_REALM=onepass
+KEYCLOAK_CLIENT_ID=ido-client
+KEYCLOAK_CLIENT_SECRET=<client secret>
+KEYCLOAK_REDIRECT_URI=https://ido.example.com/api/v1/broker/callback
+```
+
+> **키 생성 방법**: `openssl rand -hex 32`
 
 ---
 
@@ -194,7 +310,7 @@ onepass-fe       █████████████████░░░  8
 | **S10-5** | `components/MypageSideNav/index.tsx` (수정) | `useAuthState` 훅 + 로그아웃 버튼 UI |
 | **S10-6** | `api/ext/members.ts` (수정) | `updateMember(§5.3)`, `updateEnterprise(§5.4)` PATCH API 추가 |
 | **S10-6** | `types/api/ext/members.ts` (수정) | `UpdateMemberRequest`, `UpdateEnterpriseRequest` 타입 정의 |
-| **S10-6** | `pages/Mypage/pages/InformationStep3.tsx` (수정) | `handleSubmit` 실제 API 호출 연동 (devNoticeModal 제거) |
+| **S10-6** | `pages/Mypage/pages/InformationStep3.tsx` (수정) | `handleSubmit` 실제 API 호출 연동 |
 
 ### SLO best-effort 정책
 
@@ -206,12 +322,6 @@ export const Logout = (): void => {
     clearLocalAuthState();          // 6개 localStorage + Redux 5개 dispatch
     history.push(ROUTES.LOGIN);
 };
-
-// 감사 추적이 중요한 경우 비동기 버전 사용
-export const LogoutAsync = async (): Promise<void> => {
-    try { await initiateSlo(); } catch {}
-    finally { clearLocalAuthState(); history.push(ROUTES.LOGIN); }
-};
 ```
 
 **SLO 서버 흐름** (`POST /api/v1/slo/initiate`):
@@ -221,62 +331,11 @@ export const LogoutAsync = async (): Promise<void> => {
 4. 감사 로그 기록 (`platform.audit.log`)
 5. 204 No Content 반환 (feSessionId 쿠키 Max-Age=0)
 
-### useAuthState 훅
-
-```typescript
-// hooks/useAuthState.ts
-const { isLoggedIn, user, email, name, orgId, logout } = useAuthState();
-
-// 이전 방식 (직접 Redux selector 사용)
-const isLoggedIn = useSelector((state: AppState) => state.app.isLoggedIn);
-
-// Sprint 10 이후 (훅 하나로)
-const { isLoggedIn, logout } = useAuthState();
-```
-
-### InformationStep3 수정 흐름
-
-```typescript
-// FormData 수집 → payload 조립 → PATCH API → 성공/실패 처리
-const handleSubmit = async (): Promise<void> => {
-    const fd = new FormData(formRef.current);
-    
-    if (isBusiness) {
-        const result = await updateEnterprise(business.entMbrNo, {
-            bzmnNm: get('company_name'),   // 회사명
-            rprsvNm: get('name'),          // 대표자명
-            rprsTelno: buildPhoneNumber(get('tel1'), get('tel2')),
-            email: buildEmail(get('email1'), get('email2')),
-        });
-        if (result.error !== null) { setErrorModal(...); return; }
-        updateBusiness({ ... }); // Context 낙관적 업데이트
-    } else {
-        const result = await updateMember(member.mbrNo, {
-            memberName: get('name'),
-            phone: buildPhoneNumber(get('phone1'), get('phone2')),
-            email: buildEmail(get('email1'), get('email2')),
-        });
-        if (result.error !== null) { setErrorModal(...); return; }
-        updateMemberStore({ ... });
-    }
-    history.push(infoRoute); // INFORMATION 페이지로 이동
-};
-```
-
 ---
 
 ## S7-T2: NICE/OACX 본인인증 통합
 
 > **Sprint 7 Task 2 완료** — onepass-be 헥사고날 아키텍처에서 ido 평탄화 계층 구조로 이식. 32개 단위 테스트 통과.
-
-### 설계 결정 요약
-
-| Q | 결정 | 근거 |
-|---|------|------|
-| **Q1=B** | API Key 없음 | Nginx same-origin 프록시로 보안 처리 (`/api/v1/auth/**` FE BFF 전용) |
-| **Q2=B** | callback 엔드포인트 추가 | 기업인증 FE 구현 대비 (백엔드 완성, FE 미연동) |
-| **Q3=B** | CI FE 미반환 | PII 보호 핵심 원칙. CI는 백엔드 내부에서만 처리 |
-| **Q4=A** | WebClient (Tomcat 유지) | `spring-webflux` + `reactor-netty-http`만 추가 |
 
 ### 본인인증 API 엔드포인트 (6개)
 
@@ -319,12 +378,12 @@ const handleSubmit = async (): Promise<void> => {
 
 | 모듈 | SoR 역할 | 포트 | 핵심 책임 |
 |------|---------|------|----------|
-| `platform-common` | — | — | 공통 도메인·이벤트·에러코드·UUID v7 유틸 |
+| `platform-common` | — | — | 공통 도메인·이벤트·에러코드·UUID v7 유틸, `HandoffPayload.GUEST` |
 | `q-sign` | **인증 SoR** | 8081 | OIDC 브로커링, JWT 검증, PKCE, SLO Keycloak 전파 |
-| `q-im` | **식별 SoR** | 8082 | qimUserId, CI AES-256-GCM v{n}, DI HMAC, 회원 원장, 파기 |
-| `ido` | **정책 오케스트레이터 + FE BFF** | 8083 | Handoff 발급/검증, Policy, Webhook, FE BFF, AES 키 로테이션, NICE/OACX BFF, **SLO API(S10)** |
-| `agency-stub` | — (PoC 전용) | 8084 | 유관기관 연동 E2E 시뮬레이터 |
-| `onepass-fe` | — | 3000/3001 | React 18 SPA — **Sprint 10: SLO 완전 연동, 회원정보 수정 실연동** |
+| `q-im` | **식별 SoR** | 8082 | qimUserId, CI AES-256-GCM v{n}, DI HMAC, 회원 원장, 소셜 계정 SSO API, InternalApiKeyInterceptor |
+| `ido` | **정책 오케스트레이터 + FE BFF** | 8083 | Handoff 발급/검증, Keycloak OIDC 브로커, Policy+GUEST, Webhook, NICE/OACX BFF, AES 키 로테이션, SLO |
+| `agency-stub` | — (PoC 전용) | 8084 | 유관기관 연동 E2E 시뮬레이터 (APPROVED/GUEST 분기 처리) |
+| `onepass-fe` | — | 3000/3001 | React 18 SPA — SLO 연동, 회원정보 수정 실연동 |
 
 ---
 
@@ -343,7 +402,7 @@ const handleSubmit = async (): Promise<void> => {
 | Spring WebFlux | BOM 관리 | ido (WebClient 전용, Tomcat 유지) |
 | Flyway | **11.8.0** | DB 마이그레이션 |
 | Resilience4j | **2.2.0** | Circuit Breaker, Retry |
-| JJWT | **0.12.6** | JWT 서명 검증 |
+| JJWT | **0.12.6** | JWT 서명 검증 (Keycloak id_token) |
 | Micrometer | BOM 관리 | Prometheus 메트릭 |
 | BouncyCastle | **1.78.1** | NICE 암호화 (AES-256-GCM, PBKDF2) |
 | OACX SDK | **v1.3.2** | OACX 전자서명 중계모듈 (로컬 libs/ JAR) |
@@ -369,7 +428,7 @@ const handleSubmit = async (): Promise<void> => {
 | MariaDB | `mariadb:11.4` | q-im 전용 |
 | Redis | `redis:7.2-alpine` | 세션, PKCE, 캐시, Rate Limit, NICE 토큰/세션 |
 | Kafka | `confluentinc/cp-kafka:7.6.1` | 이벤트 버스 |
-| Keycloak | `quay.io/keycloak/keycloak:24` | OIDC IdP 브로커 |
+| Keycloak | `quay.io/keycloak/keycloak:24` | OIDC IdP 브로커 (SSO) |
 | Prometheus | `prom/prometheus:v2.51.2` | 메트릭 수집 |
 | Grafana | `grafana/grafana-oss:10.4.2` | 대시보드 |
 | Loki | `grafana/loki:2.9.6` | 로그 집계 |
@@ -383,7 +442,7 @@ const handleSubmit = async (): Promise<void> => {
 integration-sso/
 ├── platform-common/
 │   └── src/main/java/kr/go/smes/common/
-│       ├── domain/           # AuthResult, HandoffPayload, HandoffTicket
+│       ├── domain/           # AuthResult, HandoffPayload(+GUEST), HandoffTicket
 │       ├── error/            # PlatformErrorCode
 │       ├── event/            # AuthEvent, HandoffEvent, AuditLogEvent
 │       └── util/             # UuidV7, ApiKeyHashValidator
@@ -397,52 +456,67 @@ integration-sso/
 │
 ├── q-im/                     # 식별 SoR (포트 8082, MariaDB)
 │   └── src/main/java/kr/go/smes/qim/
-│       ├── api/              # MemberLookupController (CI 기반 조회)
+│       ├── api/
+│       │   ├── UserController.java          # ★SSO: find-by-social-sub, register-social
+│       │   ├── dto/SocialRegisterRequest.java  # ★SSO: 소셜 등록 DTO
+│       │   └── QimStatusController.java     # 상태 조회 (공개)
+│       ├── config/
+│       │   ├── InternalApiKeyInterceptor.java  # ★P2: X-Internal-Api-Key 검증
+│       │   └── QimWebMvcConfig.java            # ★P2: /api/v1/internal/** 인터셉터 등록
 │       ├── crypto/           # CI AES-256-GCM v{n}.{iv}.{ct}
 │       ├── identity/         # DI HMAC-SHA256
+│       ├── infrastructure/jpa/repository/
+│       │   └── QimUserJpaRepository.java    # ★SSO: findByIdentifierHashAndProviderCode()
 │       ├── outbox/           # Outbox + Snapshot
-│       ├── retention/        # 개인정보 파기 스케줄러
 │       └── user/             # 회원 등록·조회·상태
+│   └── src/main/resources/db/migration/
+│       ├── V1__create_schema.sql
+│       ├── V2__add_idempotent_consumer.sql
+│       ├── V3__add_ci_encryption_and_status_history.sql
+│       └── V4__fix_social_sso.sql            # ★P1: UNIQUE 복합 키 수정
 │
 ├── ido/                      # 정책 오케스트레이터 + FE BFF (포트 8083)
 │   ├── libs/
 │   │   └── OACX-SDK-v1.3.2.jar
 │   └── src/main/java/kr/go/smes/ido/
 │       ├── auth/             # NICE/OACX 본인인증 BFF (S7-T2)
-│       ├── slo/              # SLO API — initiate (Sprint 2/7/10)
-│       │   ├── SloController.java      POST /api/v1/slo/initiate
-│       │   ├── SloService.java
-│       │   └── SloServiceImpl.java
+│       ├── broker/
+│       │   └── keycloak/
+│       │       ├── KeycloakCallbackController.java  # ★SSO: GET /broker/callback
+│       │       ├── KeycloakOidcService.java          # ★SSO: OIDC 콜백 전 처리
+│       │       ├── KeycloakJwksVerifier.java         # ★SSO: id_token 서명 검증
+│       │       └── KeycloakProperties.java           # ★SSO: Keycloak 설정 바인딩
+│       ├── api/
+│       │   └── HandoffController.java       # ★P3: redirectUri null 수정
+│       ├── infrastructure/
+│       │   └── QimClientImpl.java           # ★SSO: findBySocialSub(), registerSocialUser()
+│       ├── policy/
+│       │   └── PolicyEngineImpl.java        # ★SSO: HMAC fallback 제거, GUEST 정책
+│       ├── slo/              # SLO API (Sprint 2/7/10)
 │       ├── admin/            # 기관 Admin API
-│       ├── api/              # Handoff + 기관 이벤트 폴링
-│       ├── broker/           # IdP 브로커
 │       ├── config/           # Feature Flag, Rate Limit, TraceparentFilter
 │       ├── crypto/           # KeyVersionRegistry + HandoffKeyRotationScheduler
 │       ├── fe/               # FE 세션 관리
 │       ├── handoff/          # HandoffStrategy 패턴
 │       ├── kafka/            # 이벤트 컨슈머
-│       ├── policy/           # PolicyEngine
 │       ├── ratelimit/        # Redis Lua 슬라이딩 윈도우
 │       └── webhook/          # Webhook Push + Outbox Relay
 │
 ├── agency-stub/              # 기관 시뮬레이터 (포트 8084)
+│   └── src/main/java/kr/go/smes/agency/
+│       └── api/AgencyEntryController.java   # ★SSO: GUEST case 분기 추가
 │
 ├── onepass-fe/               # React SPA
 │   └── frontend/src/
 │       ├── api/
-│       │   ├── feSession.ts      # SLO API 클라이언트 (Sprint 10 신규)
-│       │   ├── utils.ts          # Logout() SLO 통합 (Sprint 10 수정)
-│       │   └── ext/
-│       │       └── members.ts    # updateMember/updateEnterprise (Sprint 10)
-│       ├── hooks/
-│       │   └── useAuthState.ts   # 인증 상태 중앙 관리 훅 (Sprint 10 신규)
+│       │   ├── feSession.ts      # SLO API 클라이언트
+│       │   ├── utils.ts          # Logout() SLO 통합
+│       │   └── ext/members.ts    # updateMember/updateEnterprise
+│       ├── hooks/useAuthState.ts # 인증 상태 중앙 관리 훅
 │       ├── components/
-│       │   ├── ErrorBoundary/    # React class ErrorBoundary (Sprint 10 신규)
-│       │   └── MypageSideNav/    # 로그아웃 버튼 (Sprint 10 수정)
-│       ├── pages/Mypage/pages/
-│       │   └── InformationStep3.tsx  # 회원정보 수정 실 API (Sprint 10)
-│       └── types/api/ext/
-│           └── members.ts        # UpdateMemberRequest/EnterpriseRequest (Sprint 10)
+│       │   ├── ErrorBoundary/    # React class ErrorBoundary
+│       │   └── MypageSideNav/    # 로그아웃 버튼
+│       └── pages/Mypage/pages/InformationStep3.tsx
 │
 └── infra/
     ├── docker/
@@ -450,7 +524,7 @@ integration-sso/
     │   └── docker-compose.monitoring.yml
     ├── k8s/
     │   └── configmaps/
-    │       └── ido-configmap.yml     # Feature Flag 환경변수 14개 (Sprint 9 FF)
+    │       └── ido-configmap.yml     # Feature Flag 환경변수 14개
     ├── monitoring/
     │   ├── prometheus/
     │   ├── grafana/
@@ -466,8 +540,8 @@ integration-sso/
 | 모듈 | DB 엔진 | 스키마 | 최신 Flyway 버전 |
 |------|---------|--------|----------------|
 | Q-Sign | PostgreSQL 16 | `qsign` | **V5** — auth_method 컬럼 |
-| IdO | PostgreSQL 16 | `ido` | **V10** — auth_result 확장, provider_routing |
-| Q-IM | MariaDB 11.4 | `qim` | **V3** — CI 암호화 키 버전, user_status_history |
+| IdO | PostgreSQL 16 | `ido` | **V13** — agency pattern scenarios seed |
+| Q-IM | MariaDB 11.4 | `qim` | **V4** — 소셜 SSO UNIQUE 복합 키 (`★신규`) |
 | agency-stub | PostgreSQL 16 | `agency_stub` | **V2** — webhook + api_key |
 
 ---
@@ -476,7 +550,7 @@ integration-sso/
 
 | 토픽 | 파티션 | 보존 | 생산자 | 소비자 |
 |------|--------|------|--------|--------|
-| `qsign.auth.events` | 12 | 1h | Q-Sign | IdO |
+| `qsign.auth.events` | 12 | 1h | Q-Sign, **IdO(SSO)** | IdO |
 | `ido.handoff.events` | 12 | 1y | IdO | IdO → Webhook |
 | `platform.session.advisory` | 12 | 24h | IdO | IdO |
 | `platform.audit.log` | 12 | 2y | IdO | 감사 시스템 |
@@ -484,6 +558,8 @@ integration-sso/
 | `qim.user.snapshot` | 6 | Compacted | Q-IM | (확장 예정) |
 | `qim.sp.member.events` | 6 | 30d | IdO | IdO |
 | *.dlq / *.dlt | 3~6 | 7d | 에러핸들러 | 운영 |
+
+> **SSO 추가**: `qsign.auth.events` 토픽에 `AUTH_COMPLETED` 이벤트를 IdO(KeycloakOidcService)가 직접 발행 (Strategy B — Q-Sign 우회 없음).
 
 ---
 
@@ -503,25 +579,33 @@ integration-sso/
 | Rate Limiter (IP Auth) | `IDO_AUTH_RL_ENABLED` Feature Flag | ✅ Sprint 9 FF |
 | Provider 단위 CB | Resilience4j 동적 생성 | ✅ 완료 |
 | SLO Keycloak 전파 | end_session_endpoint 연동 | ✅ Sprint 2 |
-| SLO FE 완전 연동 | `POST /api/v1/slo/initiate` FE 호출 | ✅ **Sprint 10** |
+| SLO FE 완전 연동 | `POST /api/v1/slo/initiate` FE 호출 | ✅ Sprint 10 |
 | 개인정보 파기 스케줄러 | GDPR §17 준수, 탈퇴 후 90일 | ✅ Sprint 2 |
 | NICE 암호화 | PBKDF2(512bit)→HMAC-SHA256→AES-256-GCM | ✅ Sprint 7 |
 | CI FE 미반환 (Q3=B) | `@JsonInclude(NON_NULL)` | ✅ Sprint 7 |
 | Bean Validation | `@Valid`, `@NotBlank`, `@Size` | ✅ Sprint 9 |
 | 보안 응답 헤더 | CSP, HSTS, X-Frame-Options | ✅ Sprint 9 FF |
+| **Q-IM InternalApiKeyInterceptor** | `MessageDigest.isEqual()` 상수 시간 비교 | ✅ **v3.0.0 P2** |
+| **Keycloak id_token JWKS 서명 검증** | `KeycloakJwksVerifier` nonce·audience 검증 | ✅ **v3.0.0** |
+| **Handoff redirectUri 화이트리스트** | `callbackUrlValidator.validate(redirectUri)` null 수정 | ✅ **v3.0.0 P3** |
+| **소셜 sub PII 비보관** | SHA-256 단방향 해시만 저장 | ✅ **v3.0.0** |
+| **CSRF 방어 (SSO)** | state + nonce Redis 1회 소비 | ✅ **v3.0.0** |
 
 ---
 
 ## Flyway 마이그레이션 현황
 
-| 모듈 | 파일 | 내용 |
+| 모듈 | 버전 | 내용 |
 |------|------|------|
 | ido | V1 | 기본 스키마 |
 | ido | V5 | handoff_ticket 테이블 |
 | ido | V9 | crypto_key_registry (AES 키 버전 메타데이터) |
 | ido | V10 | auth_result 확장, provider_routing |
+| ido | V13 | agency pattern scenarios seed |
 | q-sign | V5 | auth_method 컬럼 추가 |
+| q-im | V1 | 기본 스키마 (auth_mean_mapping, qim_user 등) |
 | q-im | V3 | CI 암호화 키 버전, user_status_history |
+| **q-im** | **V4** | **`★신규` 소셜 SSO UNIQUE 복합 키** — `uq_identifier_hash` DROP → `uq_identifier_hash_provider(identifier_hash, provider_code)` + 커버링 인덱스 |
 | agency-stub | V2 | webhook + api_key |
 
 ---
@@ -536,6 +620,7 @@ integration-sso/
 | `q-im` | **113개** | Webhook 33개 |
 | **합계** | **397개** | — |
 
+> **SSO 통합 테스트**: `KeycloakOidcService` + `QimClientImpl` 소셜 경로에 대한 단위 테스트 미작성 (잔여 과제).  
 > **FE 테스트**: `ConversionLayout`, `KrdsModal` 단위 테스트 존재 (jest 환경 미완비로 tsc standalone에서 오류 — Vite 빌드 환경에서는 정상)
 
 ---
@@ -595,24 +680,33 @@ npm install
 npm run dev    # :3000 (webpack proxy → ido:8083)
 ```
 
-### 4. 로컬 환경변수 (중요 Feature Flag)
+### 4. 로컬 환경변수
 
 ```yaml
 # ido/src/main/resources/application-local.yml
 ido:
+  broker:
+    mode: keycloak             # ★SSO 활성화 (기본값 qsign)
   auth-rl:
-    enabled: false         # IP Rate Limit OFF (로컬)
+    enabled: false             # IP Rate Limit OFF (로컬)
   audit:
-    kafka-enabled: false   # Kafka 감사 로그 OFF
-    db-enabled: false      # DB 감사 로그 OFF
+    kafka-enabled: false       # Kafka 감사 로그 OFF
+    db-enabled: false          # DB 감사 로그 OFF
   redisson:
-    enabled: false         # Redisson 분산 락 OFF (Redis 없을 때)
+    enabled: false             # Redisson 분산 락 OFF (Redis 없을 때)
   security-headers:
-    enabled: false         # CSP 헤더 OFF (FE 개발)
+    enabled: false             # CSP 헤더 OFF (FE 개발)
   outbox-relay:
     enabled: false
   webhook-relay:
     enabled: false
+```
+
+```bash
+# 환경변수 (로컬 개발 — docker-compose.yml에 설정 권장)
+IDO_BROKER_MODE=keycloak
+IDO_QIM_INTERNAL_API_KEY=local-dev-key-change-in-production
+QIM_INTERNAL_API_KEY=local-dev-key-change-in-production
 ```
 
 ---
@@ -627,7 +721,7 @@ ido:
 | q-sign API | http://localhost:8081 | 인증 SoR |
 | q-im API | http://localhost:8082 | 식별 SoR |
 | agency-stub | http://localhost:8084 | 기관 시뮬레이터 |
-| Keycloak | http://localhost:8080 | OIDC IdP |
+| Keycloak | http://localhost:8080 | OIDC IdP (SSO) |
 | Grafana | http://localhost:3000 | 모니터링 |
 | Kafka UI | http://localhost:8090 | 이벤트 브라우저 |
 
@@ -669,17 +763,18 @@ Annotation Processors: 활성화 (Lombok)
 
 ## 전체 로드맵 & 개발 플랜
 
-### 잔여 작업 (P1~P3)
+### 잔여 작업
 
 | 우선순위 | 항목 | 담당 | 비고 |
 |---------|------|------|------|
-| **P1** | 내부 서비스 서명 수신 측 검증 (`OidcCompleteController`) | IdO BE | GAP-BE-01 |
+| **P1** | SSO 단위/통합 테스트 작성 | IdO/Q-IM BE | `KeycloakOidcService`, `QimClientImpl` 소셜 경로 |
 | **P1** | 통합 테스트 (Spring Boot Test + Testcontainers) | 전 팀 | 현재 0개 |
+| **P2** | Keycloak realm 구성 문서화 | DevOps | social IDP 설정, ACR mapper |
 | **P2** | agency-stub Kafka 직접 구독 → 공개 API 전환 | IdO BE | 망 분리 원칙 |
 | **P2** | CSR(관리자 UI) 미구현 기관 관리 화면 | FE | — |
 | **P2** | DLQ 전략 구현 (`KafkaConsumerConfig`) | IdO BE | GAP-IDO-09 |
 | **P3** | FE E2E 테스트 (Cypress/Playwright) | FE | — |
-| **P3** | k6 부하 테스트 고도화 | DevOps | — |
+| **P3** | k6 부하 테스트 고도화 | DevOps | SSO 경로 포함 |
 
 ---
 
@@ -689,10 +784,10 @@ Annotation Processors: 활성화 (Lombok)
 
 | 팀 | 가이드 문서 | 내용 요약 |
 |----|-----------|---------|
-| **IdO 백엔드** | [`docs/development/guide-backend-ido.md`](docs/development/guide-backend-ido.md) | Feature Flag 운영, SLO API, NICE/OACX BFF, 회원 수정 API, AES 키 로테이션 |
-| **Q-IM 백엔드** | [`docs/development/guide-backend-qim.md`](docs/development/guide-backend-qim.md) | CI 암호화, 회원 원장 API, 개인정보 파기 스케줄러 |
+| **IdO 백엔드** | [`docs/development/guide-backend-ido.md`](docs/development/guide-backend-ido.md) | Feature Flag 운영, SSO 브로커 설정, SLO API, NICE/OACX BFF, AES 키 로테이션 |
+| **Q-IM 백엔드** | [`docs/development/guide-backend-qim.md`](docs/development/guide-backend-qim.md) | CI 암호화, 소셜 SSO API, InternalApiKeyInterceptor, 회원 원장 API, 파기 스케줄러 |
 | **프론트엔드** | [`docs/development/guide-frontend.md`](docs/development/guide-frontend.md) | SLO 연동, useAuthState 훅, ErrorBoundary, 회원정보 수정, API 클라이언트 패턴 |
-| **인프라/DevOps** | [`docs/development/guide-infra.md`](docs/development/guide-infra.md) | Docker Compose, K8s ConfigMap, Grafana, Feature Flag 운영 |
+| **인프라/DevOps** | [`docs/development/guide-infra.md`](docs/development/guide-infra.md) | Docker Compose, K8s ConfigMap, Keycloak realm 구성, Feature Flag 운영 |
 | **Q-IM 상세** | [`docs/qim-development-guide.md`](docs/qim-development-guide.md) | Q-IM 전체 아키텍처 + 운영 피드백 |
 
 ---
@@ -708,7 +803,7 @@ kr.go.smes.ido.{기능}/
     {기능}Service.java
     {기능}ServiceImpl.java
     dto/
-    
+
 // 2. 빈 네이밍: 인터페이스 기반
 @Service
 public class SloServiceImpl implements SloService { ... }
@@ -730,8 +825,11 @@ public void execute() {
 @RequiredArgsConstructor
 public class SloServiceImpl { ... }
 
-// 5. 예외 처리
-throw new BusinessException(PlatformErrorCode.SLO_FAILED, "세션 삭제 실패");
+// 5. 보안 비교는 상수 시간으로
+// ❌ 금지
+if (expected.equals(actual)) { ... }
+// ✅ 권장
+if (MessageDigest.isEqual(expected.getBytes(), actual.getBytes())) { ... }
 ```
 
 ### 프론트엔드 (TypeScript/React)
@@ -788,7 +886,7 @@ docs/
 │   ├── 06-kafka-event-catalog.md
 │   ├── 07-security.md
 │   └── 09-gap-and-roadmap.md
-└── development/                        # 팀별 개발 가이드 ★Sprint 10 신규
+└── development/                        # 팀별 개발 가이드
     ├── guide-backend-ido.md            # IdO 백엔드 팀 가이드
     ├── guide-backend-qim.md            # Q-IM 백엔드 팀 가이드
     ├── guide-frontend.md               # FE 팀 가이드
@@ -798,5 +896,5 @@ docs/
 
 ---
 
-> **문서 최종 수정**: 2026-05-11 | **버전**: v2.3.0 | **담당**: GenSpark AI Developer  
+> **문서 최종 수정**: 2026-05-13 | **버전**: v3.0.0 | **담당**: GenSpark AI Developer  
 > 문의/기여: `genspark_ai_developer` 브랜치 → PR → main 병합 워크플로우 준수
