@@ -9,15 +9,16 @@ import lombok.NoArgsConstructor;
  * 본인인증 결과 통합 DTO
  *
  * <p>NICE 휴대폰 인증 또는 OACX 간편서명 인증 결과를 담는 내부 데이터 전달 객체.
- * 향후 IM API(Identity Management)에 CI/개인정보를 등록할 때 사용할 예정.
+ * {@link kr.go.smes.ido.auth.port.ImApiOutPort#register}를 통해 Q-IM에 CI/개인정보를 등록할 때 사용한다.
  *
- * <p><b>현재 상태:</b> ImApiOutPort.register() 구현 시 이 DTO를 전달 예정.
- * CI는 PII(개인식별정보)이므로 절대 FE 응답에 포함하지 말 것.
+ * <p><b>보안 원칙 (Q3=B):</b>
+ * CI는 PII(개인식별정보)이므로 절대 FE 응답 DTO에 포함하지 않는다.
+ * 이 DTO는 백엔드 내부(Q-IM API 전달) 전용으로만 사용한다.
  *
- * <p><b>사용 예정:</b>
+ * <p><b>S7-T6 구현 완료:</b>
  * <ul>
- *   <li>OACX 간편서명 완료 후 → IM API 사용자 등록/매칭 (TODO: S7-T6)</li>
- *   <li>NICE 휴대폰 인증 완료 후 → ci-check 내부 호출로 CI 처리</li>
+ *   <li>OACX 간편서명 완료 후 → {@link kr.go.smes.ido.auth.service.AuthService#handleOacxEasysign} 에서 Q-IM 등록</li>
+ *   <li>NICE 휴대폰 인증 완료 후 → {@link kr.go.smes.ido.auth.service.NiceAuthService#getNicePhoneAuthResult} 에서 Q-IM 등록</li>
  * </ul>
  */
 @Data

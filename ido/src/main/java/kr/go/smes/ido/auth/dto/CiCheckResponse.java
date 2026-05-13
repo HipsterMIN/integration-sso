@@ -56,25 +56,27 @@ public class CiCheckResponse {
     /**
      * CI 매칭 결과
      *
-     * <p>true: 기존 회원 존재 또는 신규 등록 성공<br>
-     * false: 처리 실패 (resultCode != 2000일 때는 null)
+     * <p>true: Q-IM에 CI가 등록된 기존 회원 존재<br>
+     * false: 처리 실패 또는 선행 인증 이력 없음 (resultCode != 2000일 때는 null)
      *
-     * <p><b>TODO(S7-T6):</b> IM API 연동 후 실제 CI 매칭 로직 구현 필요.
-     * 현재는 파라미터 검증 후 성공(true)만 반환.
+     * <p>Q-IM CI 조회는 {@link kr.go.smes.ido.auth.service.AuthService#checkNiceCi}에서
+     * {@link kr.go.smes.ido.auth.port.ImApiOutPort#findByCi}를 통해 실제 구현됨 (S7-T6 완료).
      */
     private Boolean result;
 
     /**
      * 개인회원 아이디 (기존 회원이 CI로 조회될 때 반환)
      *
-     * <p><b>TODO(S7-T6):</b> IM API 연동 후 실제 회원 조회 결과로 채워야 함.
+     * <p>Q-IM {@link kr.go.smes.ido.auth.dto.im.QimMemberInfo#getIndvlMbrId}에서 추출.
+     * 미등록 사용자이거나 기업회원(A102)인 경우 null.
      */
     private String indvlMbrId;
 
     /**
      * 기업회원 아이디 (기존 기업회원이 CI로 조회될 때 반환)
      *
-     * <p><b>TODO(S7-T6):</b> IM API 연동 후 실제 회원 조회 결과로 채워야 함.
+     * <p>Q-IM {@link kr.go.smes.ido.auth.dto.im.QimMemberInfo#getCmpMbrId}에서 추출.
+     * 미등록 사용자이거나 개인회원(A101)인 경우 null.
      */
     private String cmpMbrId;
 }
