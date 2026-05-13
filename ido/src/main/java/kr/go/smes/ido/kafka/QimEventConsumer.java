@@ -5,6 +5,7 @@ import kr.go.smes.common.event.UserEvent;
 import kr.go.smes.ido.infrastructure.LastEventVersionStore;
 import kr.go.smes.ido.infrastructure.QimClient;
 import kr.go.smes.ido.infrastructure.UserStatusCache;
+import kr.go.smes.ido.provision.ProvisioningService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -37,6 +38,8 @@ public class QimEventConsumer {
     private final UserStatusCache       userStatusCache;
     private final IdempotentEventStore  idempotentEventStore;
     private final QimClient             qimClient;
+    /** Sprint 14: 전 기관 프로비저닝 트리거 (USER_REGISTERED / BIZ_CONVERTED) */
+    private final ProvisioningService   provisioningService;
     // consumer group 전용 버전 저장 → 단순 qimUserId 기반 LastEventVersionStore 래핑
     // (consumerGroup prefix 는 key 에 포함하여 구분)
 
@@ -126,6 +129,27 @@ public class QimEventConsumer {
             // ⑤ 버전 갱신 + ProcessedEvent 기록
             lastEventVersionStore.put(versionKey, version);
             idempotentEventStore.markProcessed(eventId, CONSUMER_GROUP, event.getEventType(), "OK");
+
+            // ⑥ Sprint 14: 전 기관 프로비저닝 트리거
+            //    USER_REGISTERED(회원가입) / BIZ_CONVERTED(기업 전환) 시 68개 기관 병렬 알림
+            //    provisioningService 내부에서 Feature Flag + 중복 sourceEventId 방어 처리
+            String evtType = event.getEventType();
+            if ("USER_REGISTERED".equals(evtType) || "BIZ_CONVERTED".equals(evtType)) {
+                try {
+                    provisioningService.triggerProvisioning(
+                            qimUserId,
+                            evtType,
+                            eventId,        // sourceEventId — 중복 트리거 방어
+                            eventId         // correlationId — 이벤트 단위 흐름 추적
+                    );
+                } catch (Exception provEx) {
+                    // 프로비저닝 실패는 provisioning_outbox PENDING으로 이미 저장됨
+                    // Relay가 재시도하므로 consumer 실패로 전파하지 않음
+                    log.error("[QimEventConsumer] 프로비저닝 트리거 예외 (Relay 재시도 예정): " +
+                                    "qimUserId={} eventType={} eventId={} error={}",
+                            qimUserId, evtType, eventId, provEx.getMessage());
+                }
+            }
 
             log.info("[QimEventConsumer] 처리 완료: qimUserId={} eventType={} version={}",
                     qimUserId, event.getEventType(), version);
