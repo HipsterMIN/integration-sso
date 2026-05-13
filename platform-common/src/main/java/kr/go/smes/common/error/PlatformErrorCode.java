@@ -68,7 +68,23 @@ public enum PlatformErrorCode {
     AGENCY_KEY_INVALID    ("E-AGENCY-303", HttpStatus.UNAUTHORIZED, "기관 API Key 인증 실패."),
     AGENCY_CALLBACK_BLOCKED("E-AGENCY-304", HttpStatus.FORBIDDEN,  "허용되지 않은 콜백 URL."),
     AGENCY_MAINTENANCE    ("E-AGENCY-305", HttpStatus.SERVICE_UNAVAILABLE, "기관 점검 시간입니다."),
-    AGENCY_RATE_LIMIT_EXCEEDED("E-AGENCY-306", HttpStatus.TOO_MANY_REQUESTS, "요청 한도를 초과했습니다.");
+    AGENCY_RATE_LIMIT_EXCEEDED("E-AGENCY-306", HttpStatus.TOO_MANY_REQUESTS, "요청 한도를 초과했습니다."),
+
+    // ── Cross-Agency SSO — CAST 토큰 오류 (E-SSO-CAST-4xx) ──────────────────
+    // Sprint 13 신규: 기관 간 SSO 1회성 토큰 검증 오류 (§13.3)
+    SSO_CAST_EXPIRED          ("E-SSO-CAST-401", HttpStatus.GONE,                  "CAST 토큰이 만료되었습니다."),
+    SSO_CAST_CONSUMED         ("E-SSO-CAST-402", HttpStatus.CONFLICT,              "이미 사용된 CAST 토큰입니다."),
+    SSO_CAST_AGENCY_MISMATCH  ("E-SSO-CAST-403", HttpStatus.FORBIDDEN,            "CAST 토큰의 대상 기관이 일치하지 않습니다."),
+    SSO_CAST_SIGNATURE_INVALID("E-SSO-CAST-404", HttpStatus.UNAUTHORIZED,         "CAST 토큰 서명 검증에 실패했습니다."),
+    SSO_CAST_SESSION_NOT_FOUND("E-SSO-CAST-405", HttpStatus.UNAUTHORIZED,         "유효한 FE 세션이 없습니다. 재인증이 필요합니다."),
+    SSO_CAST_ISSUE_FAILED     ("E-SSO-CAST-406", HttpStatus.INTERNAL_SERVER_ERROR, "CAST 토큰 발급 중 오류가 발생했습니다."),
+
+    // ── 프로비저닝 오류 (E-PROV-5xx) ─────────────────────────────────────────
+    // Sprint 14 신규: 전 기관 프로비저닝 관련 오류 (§14.3)
+    PROV_AGENCY_ENDPOINT_NOT_FOUND("E-PROV-501", HttpStatus.NOT_FOUND,             "기관 엔드포인트가 등록되지 않았습니다."),
+    PROV_OUTBOX_DEAD_LETTER       ("E-PROV-502", HttpStatus.INTERNAL_SERVER_ERROR,  "프로비저닝 최대 재시도 초과 — DEAD_LETTER."),
+    PROV_IDEMPOTENCY_CONFLICT     ("E-PROV-503", HttpStatus.CONFLICT,              "중복 프로비저닝 요청 (멱등 키 충돌)."),
+    PROV_INBOUND_REJECTED         ("E-PROV-504", HttpStatus.UNPROCESSABLE_ENTITY,  "기관 인바운드 데이터 검증 실패.");
 
     private final String code;
     private final HttpStatus httpStatus;
