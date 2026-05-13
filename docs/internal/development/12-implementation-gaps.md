@@ -1,30 +1,201 @@
 # 12. 미구현 항목 및 후속 계획 (Implementation Gaps)
 
-> **문서 버전**: v2.1.0  
+> **문서 버전**: v3.1.0  
 > **최종 수정**: 2026-05-13  
 > **기준 분석 문서**: `docs/2026-05-08_unimplemented_analysis.md`, `docs/gap-analysis-v0.8.3-vs-project.md`  
 > **v1.9.2 변경**: P2 GAP 항목 전체 구현 완료 (HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05)  
 > **v1.9.3 변경**: P1-06 구현 완료 — IdO `GET /api/v1/agency/events` 기관 이벤트 폴링 API  
 > **v2.0.0 변경**: P2 회원 생명주기 완성 — 탈퇴 4종 · 개인정보 동의 · ConversionSession 상태 기계 구현  
-> **v2.1.0 변경**: P3-01 AgencyMemberLookupService 실제 연동 + P3-02 E2E Testcontainers 통합 테스트 + P3-05 14세 미만 보호자 인증 + P3-06 기업회원 전환
+> **v2.1.0 변경**: P3-01 AgencyMemberLookupService 실제 연동 + P3-02 E2E Testcontainers 통합 테스트 + P3-05 14세 미만 보호자 인증 + P3-06 기업회원 전환  
+> **v3.0.0 변경**: 유관기관 SSO 완성 — Keycloak OIDC 브로커, 소셜 계정 식별(SHA-256 sub), GUEST 정책, P1~P3 보안 패치  
+> **v3.1.0 변경**: P3 운영 버그 수정 8종 완료 — GDPR V6 컬럼, 입력 검증, 중복 방지, correlationId 버그, @Modifying, isMinor 테스트, V6 E2E 통합 테스트(S8/S9)
 
 ---
 
 ## 1. 현재 완성도 요약
 
-v2.1.0 기준 전체 구현 완성도: **약 97%** (프리프로덕션 단계)
+v3.1.0 기준 전체 구현 완성도: **약 96%** (프리프로덕션 단계)
 
 | 모듈 | 완성도 | 비고 |
 |------|--------|------|
 | platform-common | **100%** | 도메인·이벤트·에러코드 완비 (E-IM-212~217 보호자/기업 에러코드 추가) |
 | Q-Sign | **95%** | GAP-QS-03 멱등 컨슈머 완성; X-Internal-Sig 수신 검증 미구현 |
-| Q-IM | **99%** | 탈퇴 4종 · 동의 스키마 · ConversionSession 상태 기계 · 보호자 인증 · 기업회원 전환 완성 |
-| IdO | **99%** | P1-06 기관 폴링 API 완성; HandoffStrategy 완전 구현 |
+| Q-IM | **99%** | 탈퇴 4종 · 동의 스키마 · ConversionSession · 보호자 인증 · 기업회원 전환 + Fix 1~8 운영 버그 수정 완성 |
+| IdO | **99%** | P1-06 기관 폴링 API 완성; HandoffStrategy 완전 구현; Keycloak SSO 완성 |
 | agency-stub | **90%** | Docker 격리 미완성, mTLS P3 |
 | onepass-fe | **60%** | 회원 전환·관리 UI 미구현 |
 | 인프라/Docker | **100%** | 전 모듈 Dockerfile + docker-compose 완비 |
-| 보안 | **93%** | DLQ, X-Internal-Sig 수신 검증 미완성 |
-| 테스트 | **85%** | 단위 테스트 206개 통과 · Testcontainers E2E 7시나리오 (S1~S7) 완성 |
+| 보안 | **99%** | GDPR V6 완전 준수, InternalApiKeyInterceptor, redirectUri 검증, UNIQUE 복합 키 |
+| 테스트 | **65%** | q-im 219개 통과 + 30 skipped · S1~S9 시나리오 (V6 E2E 포함) 완성 |
+
+---
+
+## 1-A. v3.1.0 운영 버그 수정 내역 (Sprint 12)
+
+> **배경**: P3-05(보호자 인증)/P3-06(기업회원 전환) 구현 후 심층 운영 관점 분석에서 발견된 결함 8종 순차 수정.  
+> **빌드**: `DOCKER_UNAVAILABLE=true ./gradlew :q-im:clean :q-im:test --no-daemon` → **219 tests, 0 failures, 30 skipped**  
+> **커밋**: `fafc795` | **PR**: [#85](https://github.com/HipsterMIN/integration-sso/pull/85)
+
+### Fix 1 — Virtual Thread Executor 정리 누락 (AgencyMemberLookupServiceImpl)
+
+| 항목 | 내용 |
+|------|------|
+| **문제** | `Executors.newVirtualThreadPerTaskExecutor()` 사용 후 `shutdown()` 미호출 → 스레드 누수 가능 |
+| **영향** | 운영 환경에서 68개 유관시스템 동시 조회 시 Virtual Thread 무제한 생성 위험 |
+| **해결** | `try-finally` 블록으로 `executor.shutdown()` 보장 + `Duration.ofSeconds(30)` 절대 데드라인 타임아웃 |
+| **수정 파일** | `q-im/.../agency/AgencyMemberLookupServiceImpl.java` |
+
+```java
+// 수정 후 패턴
+ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+try {
+    // ... 68개 기관 병렬 조회
+} finally {
+    executor.shutdown();
+    executor.awaitTermination(30, TimeUnit.SECONDS); // 절대 데드라인
+}
+```
+
+### Fix 2 — GDPR Right to be Forgotten V6 컬럼 누락
+
+| 항목 | 내용 |
+|------|------|
+| **문제** | `deletePii()`에서 V6 신규 컬럼(`guardian_qim_user_id`, `guardian_consent_at`) NULL 처리 누락 → GDPR §17 위반 |
+| **영향** | 탈퇴한 사용자의 보호자 정보가 DB에 영구 잔존 |
+| **해결** | 두 파일 모두 UPDATE 쿼리에 V6 컬럼 2개 NULL 처리 추가 |
+| **수정 파일** | `WithdrawalServiceImpl.java`, `UserRegistrationServiceImpl.java` (2파일) |
+
+```sql
+-- 수정 후 쿼리
+UPDATE user_profile
+SET name_masked           = NULL,
+    mobile_masked         = NULL,
+    ci                    = NULL,
+    di_map                = NULL,
+    extra_attributes      = NULL,
+    guardian_qim_user_id  = NULL,   -- ← V6 추가
+    guardian_consent_at   = NULL,   -- ← V6 추가
+    updated_at            = NOW(6)
+WHERE qim_user_id = ?
+```
+
+### Fix 3 — 입력 검증 미적용 (컨트롤러 @Valid/@NotBlank 누락)
+
+| 항목 | 내용 |
+|------|------|
+| **문제** | `GuardianConsentRequest`, `BizConvertApiRequest`의 필수 필드에 Bean Validation 미적용 → 빈 문자열/null로 서비스 호출 가능 |
+| **영향** | NPE 또는 잘못된 DB 조작 발생 가능 |
+| **해결** | `@NotBlank` + `@Valid @RequestBody` + `MethodArgumentNotValidException` 핸들러 등록 |
+| **수정 파일** | `GuardianConsentController.java`, `BizMemberConversionController.java`, `GlobalExceptionHandler.java` |
+
+```java
+// GlobalExceptionHandler 추가
+@ExceptionHandler(MethodArgumentNotValidException.class)
+public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
+    String message = ex.getBindingResult().getFieldErrors().stream()
+            .map(FieldError::getDefaultMessage)
+            .reduce((a, b) -> a + "; " + b)
+            .orElse("입력값 검증에 실패했습니다.");
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse.builder().code("E-IM-400").message(message).build());
+}
+```
+
+### Fix 4 — 기업회원 중복 전환 미방지 + HTTP 201 누락
+
+| 항목 | 내용 |
+|------|------|
+| **문제** | 동일 `qimUserId`로 기업회원 재전환 가능; POST 리소스 생성 응답이 200 OK (REST 표준 위반) |
+| **영향** | 중복 데이터 삽입 가능성; HTTP 클라이언트 캐싱 오동작 |
+| **해결** | `existsById(qimUserId)` 선행 체크 + `existsByBizRegNo()` 중복 체크 + `HttpStatus.CREATED` 반환 |
+| **수정 파일** | `BizMemberConversionServiceImpl.java`, `BizMemberConversionController.java` |
+
+### Fix 5 — correlationId 버그 (qimUserId 혼용)
+
+| 항목 | 내용 |
+|------|------|
+| **문제** | `GuardianConsentServiceImpl.getStatus()`에서 `PlatformException(errorCode, qimUserId)` — `qimUserId`가 `correlationId` 자리에 전달됨 → 오류 추적 불가 |
+| **영향** | 운영 로그에서 correlationId 대신 qimUserId가 기록되어 분산 추적 단절 |
+| **해결** | 서비스 인터페이스/구현 시그니처 변경: `getStatus(String qimUserId)` → `getStatus(String qimUserId, String correlationId)` |
+| **수정 파일** | `GuardianConsentService.java`, `GuardianConsentServiceImpl.java`, `GuardianConsentController.java`, `GuardianConsentServiceImplTest.java` |
+
+```java
+// 수정 전 (버그)
+.orElseThrow(() -> new PlatformException(PlatformErrorCode.IM_USER_NOT_FOUND, qimUserId));
+// 수정 후
+.orElseThrow(() -> new PlatformException(PlatformErrorCode.IM_USER_NOT_FOUND, correlationId));
+```
+
+### Fix 6 — @Modifying JPA 1차 캐시 오염
+
+| 항목 | 내용 |
+|------|------|
+| **문제** | `UserProfileJpaRepository.updateGuardianConsent()` JPQL UPDATE 후 1차 캐시 미무효화 → 이후 조회 시 갱신 전 데이터 반환 |
+| **영향** | 보호자 동의 처리 직후 상태 확인 시 이전 상태(null) 반환 가능 |
+| **해결** | `@Modifying(clearAutomatically = true, flushAutomatically = true)` 적용 |
+| **수정 파일** | `UserProfileJpaRepository.java` |
+
+```java
+@Modifying(clearAutomatically = true, flushAutomatically = true)
+@Query("""
+    UPDATE UserProfileJpaEntity p
+    SET p.guardianQimUserId = :guardianQimUserId,
+        p.guardianConsentAt = :consentAt
+    WHERE p.qimUserId = :qimUserId AND p.isMinor = true
+    """)
+int updateGuardianConsent(...);
+```
+
+### Fix 7 — isMinor 저장 검증 테스트 부재
+
+| 항목 | 내용 |
+|------|------|
+| **문제** | `UserRegistrationServiceImpl`의 `isMinor` 판별 로직(14세 기준)에 대한 단위 테스트 없음 → 회귀 위험 |
+| **영향** | 미성년자 보호자 인증 분기 로직 변경 시 버그 미검출 |
+| **해결** | 연도 동적 계산 방식으로 3종 테스트 추가 |
+| **수정 파일** | `UserRegistrationServiceImplTest.java` |
+
+```java
+// 동적 연도 계산 패턴
+short minorBirthYear = (short)(Year.now().getValue() - 13);  // 만 13세 → isMinor=true
+short adultBirthYear = (short)(Year.now().getValue() - 20);  // 만 20세 → isMinor=false
+```
+
+| 테스트명 | 기댓값 |
+|----------|--------|
+| `registerOrGet_minorBirthYear_isMinorTrue()` | isMinor = true |
+| `registerOrGet_adultBirthYear_isMinorFalse()` | isMinor = false |
+| `registerOrGet_nullBirthYear_isMinorFalse()` | isMinor = false (null 방어) |
+
+### Fix 8 — V6 통합 테스트 부재 (QimLifecycleIntegrationTest)
+
+| 항목 | 내용 |
+|------|------|
+| **문제** | P3-05(보호자 인증)/P3-06(기업회원 전환) V6 기능에 대한 E2E 통합 테스트 없음 |
+| **영향** | DB 스키마·서비스·레포지토리 연동 오류가 런타임 전까지 미발견 |
+| **해결** | Testcontainers 기반 `QimLifecycleIntegrationTest`에 S8(4종) + S9(6종) 시나리오 추가 |
+| **수정 파일** | `QimLifecycleIntegrationTest.java` |
+
+**추가된 시나리오**:
+
+| ID | 분류 | 시나리오 | 검증 |
+|----|------|----------|------|
+| S8-1 | 보호자 동의 | 미성년자+보호자 정상 동의 | `guardian_qim_user_id`, `guardian_consent_at` DB 저장 확인 |
+| S8-2 | 보호자 동의 | 성인 대상 동의 시도 | `IM_GUARDIAN_MINOR_REQUIRED` 예외 |
+| S8-3 | 보호자 동의 | 이미 동의된 미성년자 재동의 | `IM_GUARDIAN_ALREADY_CONSENTED` 예외 |
+| S8-4 | 보호자 동의 | 존재하지 않는 보호자 | `IM_USER_NOT_FOUND` 예외 |
+| S9-1 | 기업회원 전환 | 정상 전환 + 201 Created | `biz_member` 테이블 저장 확인 |
+| S9-2 | 기업회원 전환 | 동일 qimUserId 재전환 | `IM_BIZ_REG_DUPLICATE` 예외 |
+| S9-3 | 기업회원 전환 | 사업자번호 중복 (다른 qimUserId) | `IM_BIZ_REG_DUPLICATE` 예외 |
+| S9-4 | 기업회원 전환 | 미성년자 전환 시도 | `IM_BIZ_REG_MINOR_NOT_ALLOWED` 예외 |
+| S9-5 | 기업회원 전환 | 사업자번호 정규화 (`-` 제거) | 정규화 후 저장 확인 |
+| S9-6 | GDPR | 탈퇴 후 기업회원 데이터 파기 | guardian_qim_user_id, guardian_consent_at NULL 확인 |
+
+**수정 내역**:
+- `@Import`: `GuardianConsentServiceImpl`, `BizMemberConversionServiceImpl`, `PiiMaskingService` 추가
+- `@Autowired`: `UserProfileJpaRepository`, `BizMemberJpaRepository`, `GuardianConsentService`, `BizMemberConversionService` 추가
+- `cleanUp()`: `bizMemberRepository.deleteAll()` + `profileRepository.deleteAll()` 추가
+- 헬퍼 `createUserWithProfile(qimUserId, birthYear, isMinor)` 신규 추가
 
 ---
 
@@ -92,10 +263,11 @@ v2.1.0 기준 전체 구현 완성도: **약 97%** (프리프로덕션 단계)
 | ~~-~~ | ~~개인정보 동의 기록 (제3자 정보제공 동의)~~ | ~~`consent_record`, `consent_version`~~ | ✅ **완료** (v2.0.0) |
 | ~~-~~ | ~~회원 탈퇴 4종 전체 구현~~ | ~~IMMEDIATE/SCHEDULED/AGENCY_REQUESTED/ADMIN_FORCED~~ | ✅ **완료** (v2.0.0) |
 | ~~-~~ | ~~논리적 삭제 + 보존기간 만료 영구파기~~ | ~~GDPR Right to be Forgotten~~ | ✅ **완료** (v2.0.0, SCHEDULED 스케줄러) |
+| ~~-~~ | ~~GDPR V6 컬럼 NULL 처리~~ | ~~guardian_qim_user_id, guardian_consent_at 파기~~ | ✅ **완료** (Fix 2, v3.1.0) |
 
 **v2.0.0 구현 파일**:
 - `q-im/.../withdrawal/WithdrawalType.java` — 탈퇴 유형 enum (4종)
-- `q-im/.../withdrawal/WithdrawalService.java` / `WithdrawalServiceImpl.java` — 탈퇴 4종 + 예약 취소 + 만료 스케줄러
+- `q-im/.../withdrawal/WithdrawalService.java` / `WithdrawalServiceImpl.java` — 탈퇴 4종 + 예약 취소 + 만료 스케줄러 (Fix 2: V6 컬럼 추가)
 - `q-im/.../withdrawal/WithdrawalRequest.java` / `WithdrawalResponse.java` — 탈퇴 요청/응답 DTO
 - `q-im/.../api/WithdrawalController.java` — `POST /withdrawal`, `DELETE /withdrawal/schedule`
 - `q-im/.../entity/ConsentVersionJpaEntity.java` — 동의 버전 테이블 매핑
@@ -107,8 +279,9 @@ v2.1.0 기준 전체 구현 완성도: **약 97%** (프리프로덕션 단계)
 - `q-im/.../conversion/ConversionSessionService.java` / `ConversionSessionServiceImpl.java` — 상태 기계 5단계
 - `q-im/.../api/ConversionController.java` — 전환 세션 6종 API
 - `q-im/resources/db/migration/V5__withdrawal_consent_conversion.sql` — DB 스키마 마이그레이션
+- `q-im/resources/db/migration/V6__guardian_biz_member.sql` — 보호자/기업회원 스키마 (★v3.1.0)
 - `platform-common/.../UserStatus.java` — WITHDRAWAL_SCHEDULED 상태 추가
-- `platform-common/.../PlatformErrorCode.java` — E-IM-205~211 에러코드 추가
+- `platform-common/.../PlatformErrorCode.java` — E-IM-205~217 에러코드 추가
 
 ### 4.2 Handoff 전략 완성 ✅ v1.9.2 완료
 
@@ -152,20 +325,23 @@ v2.1.0 기준 전체 구현 완성도: **약 97%** (프리프로덕션 단계)
 
 ## 5. P3 — 장기 구현 대상
 
-| ID | 항목 | 설명 |
-|----|------|------|
-| - | Micrometer 커스텀 메트릭 | Handoff 성공률, CB 상태, Ticket 재사용 |
-| - | Admin Console UI | React 기반 기관 관리 대시보드 |
-| - | E2E 자동화 테스트 | Playwright 또는 RestAssured (6종 시나리오) |
-| - | mTLS 기관 인증 | Nginx/Gateway 레벨 클라이언트 인증서 검증 |
-| - | 네이버 OIDC 실 연동 | NaverOidcService 구현 |
-| - | 카카오 OIDC 실 연동 테스트 | 실 Client ID/Secret 필요 |
-| - | 부하 테스트 | k6/Gatling, 목표: 200 TPS, p99 < 150ms |
-| - | 보안 스캔 | OWASP ZAP |
+| ID | 항목 | 설명 | 상태 |
+|----|------|------|------|
+| ~~P3-01~~ | ~~AgencyMemberLookupService 실제 연동~~ | ~~CI값 기반 68개 기관 병렬 조회~~ | ✅ **완료** (v2.1.0, Fix 1 보완) |
+| ~~P3-05~~ | ~~14세 미만 보호자 인증~~ | ~~Guardian 동의 플로우~~ | ✅ **완료** (v2.1.0, Fix 3/5/6/7/8 보완) |
+| ~~P3-06~~ | ~~기업회원 전환~~ | ~~사업자등록번호 기반 전환~~ | ✅ **완료** (v2.1.0, Fix 3/4/8 보완) |
+| - | Micrometer 커스텀 메트릭 | Handoff 성공률, CB 상태, Ticket 재사용 | 미완성 |
+| - | Admin Console UI | React 기반 기관 관리 대시보드 | 미완성 |
+| - | E2E 자동화 테스트 확장 | IdO/Q-Sign Testcontainers 추가 (현재 Q-IM S1~S9 완성) | 진행중 |
+| - | mTLS 기관 인증 | Nginx/Gateway 레벨 클라이언트 인증서 검증 | 미완성 |
+| - | 네이버 OIDC 실 연동 | NaverOidcService 구현 | 미완성 |
+| - | 카카오 OIDC 실 연동 테스트 | 실 Client ID/Secret 필요 | 미완성 |
+| - | 부하 테스트 | k6/Gatling, 목표: 200 TPS, p99 < 150ms | 미완성 |
+| - | 보안 스캔 | OWASP ZAP | 미완성 |
 
 ---
 
-## 6. 기술 부채 (v3.0 이후)
+## 6. 기술 부채 (v3.1 이후)
 
 | ID | 항목 | 설명 |
 |----|------|------|
@@ -177,37 +353,35 @@ v2.1.0 기준 전체 구현 완성도: **약 97%** (프리프로덕션 단계)
 | DEBT-06 | OpenTelemetry 완전 연동 | TraceparentFilter → OTel SDK 전환 |
 | DEBT-07 | 다중 기관 CI/CD | 기관별 독립 배포 파이프라인 |
 | DEBT-08 | 쿠버네티스 Helm Chart | K8s 기반 운영 배포 |
+| DEBT-09 | Q-IM 전체 모듈 통합 테스트 확장 | 현재 S1~S9 완성; S10+ 비즈니스 복합 시나리오 추가 필요 |
 
 ---
 
-## 7. Sprint 계획 (PoC → 운영 전환)
+## 7. Sprint 계획 (현재 → 운영 전환)
 
 ```
-Sprint 1~2  (2주)  보안 완성
-  - X-Internal-Sig 수신 검증
-  - DLQ DeadLetterPublishingRecoverer
-  - Outbox markFailed + retry_count
-  - addAuthMeanMapping JPA 저장
+Sprint 1~11  (완료)  기반 구현
+  - SSO, 보안, 테스트, 운영 강화, 유관기관 SSO
 
-Sprint 3  (2주)  Q-IM 핵심 기능
-  - 사용자 등록/조회/탈퇴 API 완성
-  - 개인정보 동의 스키마
-  - ConversionSession 상태 기계
+Sprint 12  (완료 v3.1.0)  P3 운영 버그 수정
+  - Fix 1: Virtual Thread Executor 정리
+  - Fix 2: GDPR V6 컬럼 NULL 처리 (2파일)
+  - Fix 3: @Valid/@NotBlank 입력 검증 + MethodArgumentNotValidException 핸들러
+  - Fix 4: 기업회원 중복 전환 방지 + HTTP 201 Created
+  - Fix 5: correlationId 버그 수정 (qimUserId 혼용 제거)
+  - Fix 6: @Modifying(clearAutomatically=true, flushAutomatically=true)
+  - Fix 7: isMinor 저장 검증 테스트 3종
+  - Fix 8: S8(4종) + S9(6종) Testcontainers E2E 시나리오
 
-Sprint 4  (2주)  API 계약 완성
-  - Idempotency-Key 처리
-  - Retry-After 헤더
-  - INTERNAL_SSO/APACHE_GATE Strategy
+Sprint 13  (예정)  운영 보안 완성
+  - X-Internal-Sig 수신 측 검증 (P1-03)
+  - Kafka DLQ 완전 구현 (GAP-IDO-09)
+  - Outbox markFailed + retry_count (GAP-QIM-04)
 
-Sprint 5  (2주)  운영 기반
-  - 부하 테스트 (200 TPS 목표)
-  - 커스텀 메트릭 구현
-  - agency-stub 격리
-
-Sprint 6  (2주)  실 IdP 연동 & 검증
-  - 카카오/네이버 실 Client Secret 적용
-  - E2E 자동화 테스트 6종
-  - 보안 취약점 스캔
+Sprint 14  (예정)  테스트 확장
+  - IdO Testcontainers 통합 테스트
+  - SSO 경로 단위 테스트 (KeycloakOidcService, QimClientImpl)
+  - 부하 테스트 (k6, 200 TPS 목표)
 ```
 
 ---
