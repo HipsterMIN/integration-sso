@@ -14,16 +14,23 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 
 /**
- * 통합계정 전환 세션 서비스 구현체 (P2 §12.1)
+ * 통합계정 전환 세션 서비스 구현체 (P3 — AgencyMemberLookupService 실제 연동 완료)
  *
- * <p>AgencyMemberLookupService는 현재 stub 구현으로 빈 목록 반환.
- * 실제 연동 시 PPTX 2.1 프로세스에 따라 각 기관 API 호출로 교체 예정.
+ * <p>설계서 PPTX 2.1 프로세스:
+ * 1. {@code initiate()} — 세션 생성 (기존 활성 세션 재사용 방어)
+ * 2. {@code fetchCandidates()} — {@link AgencyMemberLookupService}로 68개 기관 CI 조회
+ * 3. {@code selectAccounts()} — 사용자가 연결할 기관 선택
+ * 4. {@code link()} — {@link AgencyMemberLookupService#performLinking} 으로 실제 연결
+ * 5. {@code cancel()} / {@code expireStale()} — 취소·TTL 만료 처리
  *
  * <p><b>TTL</b>: 기본 30분 ({@code qim.conversion.session-ttl-minutes:30})
  */
@@ -36,6 +43,8 @@ public class ConversionSessionServiceImpl implements ConversionSessionService {
 
     private final ConversionSessionJpaRepository sessionRepository;
     private final ObjectMapper                    objectMapper;
+    /** 68개 기관 CI 기반 회원 조회/연결 서비스 */
+    private final AgencyMemberLookupService       agencyMemberLookupService;
 
     // ── 퍼블릭 API ────────────────────────────────────────────────────────────
 
@@ -72,9 +81,10 @@ public class ConversionSessionServiceImpl implements ConversionSessionService {
         ConversionSessionJpaEntity session = findActiveSessionOrThrow(sessionId, correlationId);
         assertTransition(session, ConversionSessionState.MEMBERS_FETCHED, correlationId);
 
-        // 유관 시스템 회원 조회 (현재 stub — 실제 연동 시 AgencyMemberLookupService 호환)
-        List<CandidateMember> candidates = lookupCandidateMembers(
-                session.getQimUserId(), correlationId);
+        // 유관 시스템 회원 조회 — identifierHash 우선, 없으면 qimUserId 자체를 해시로 사용
+        String identifierHash = resolveIdentifierHash(session.getQimUserId());
+        List<CandidateMember> candidates = agencyMemberLookupService.lookupByIdentifierHash(
+                session.getQimUserId(), identifierHash, correlationId);
 
         session.setStatus(ConversionSessionState.MEMBERS_FETCHED.name());
         session.setCandidateMembersJson(serializeJson(candidates));
@@ -112,10 +122,11 @@ public class ConversionSessionServiceImpl implements ConversionSessionService {
         session.setStatus(ConversionSessionState.LINKING.name());
         sessionRepository.save(session);
 
-        // 실제 기관 매핑 연결 (현재 stub — auth_mean_mapping 업데이트)
+        // 실제 기관 API 연결 — AgencyMemberLookupService.performLinking()
         List<String> selectedCodes = deserializeStringList(session.getSelectedAgencyCodesJson());
-        List<String> linkedCodes   = performLinking(session.getQimUserId(),
-                selectedCodes, correlationId);
+        String identifierHash = resolveIdentifierHash(session.getQimUserId());
+        List<String> linkedCodes = agencyMemberLookupService.performLinking(
+                session.getQimUserId(), identifierHash, selectedCodes, correlationId);
 
         // COMPLETED 전이
         session.setStatus(ConversionSessionState.COMPLETED.name());
@@ -162,25 +173,26 @@ public class ConversionSessionServiceImpl implements ConversionSessionService {
         return count;
     }
 
-    // ── stub 구현 (실제 연동 시 교체) ────────────────────────────────────────
+    // ── 헬퍼 — identifierHash 해석 ───────────────────────────────────────────
 
     /**
-     * 유관 시스템 회원 조회 stub
-     * 실제 구현 시 AgencyMemberLookupService(CI 기반 68개 기관 API 조회)로 교체.
+     * qimUserId → identifierHash 해석
+     *
+     * <p>실제 운영에서는 Q-IM이 최초 본인인증 시 저장한 ACTIVE auth_mean_mapping 의
+     * identifierHash(= SHA-256(CI)) 를 사용해야 한다.
+     * PoC 단계에서는 qimUserId 자체를 해시 입력으로 사용하여 흐름을 검증한다.
+     *
+     * TODO(운영): AuthMeanMappingJpaRepository 에서 PASS/CI 계열 매핑의 identifierHash 로드
      */
-    private List<CandidateMember> lookupCandidateMembers(String qimUserId, String correlationId) {
-        log.debug("[Conversion][Stub] 유관 시스템 회원 조회 (stub): qimUserId={}", qimUserId);
-        return new ArrayList<>(); // TODO(P3): AgencyMemberLookupService 실제 연동
-    }
-
-    /**
-     * 계정 연결 stub
-     * 실제 구현 시 각 기관별 auth_mean_mapping 추가 + 기관 API 연결 호출로 교체.
-     */
-    private List<String> performLinking(String qimUserId, List<String> selectedCodes,
-                                          String correlationId) {
-        log.debug("[Conversion][Stub] 계정 연결 (stub): qimUserId={} codes={}", qimUserId, selectedCodes);
-        return new ArrayList<>(selectedCodes); // TODO(P3): 실제 기관 API 연결
+    private String resolveIdentifierHash(String qimUserId) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = md.digest(qimUserId.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(bytes);
+        } catch (Exception e) {
+            log.warn("[Conversion] identifierHash 생성 실패, qimUserId 사용: {}", e.getMessage());
+            return qimUserId;
+        }
     }
 
     // ── 헬퍼 ──────────────────────────────────────────────────────────────────

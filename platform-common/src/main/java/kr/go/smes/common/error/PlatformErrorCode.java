@@ -42,6 +42,16 @@ public enum PlatformErrorCode {
     IM_CONVERSION_EXPIRED     ("E-IM-210", HttpStatus.GONE,           "전환 세션이 만료되었습니다."),
     IM_CONVERSION_INVALID_STATE("E-IM-211", HttpStatus.CONFLICT,      "전환 세션 상태 전이가 유효하지 않습니다."),
 
+    // ── 보호자 인증 오류 (E-IM-212~214) ───────────────────────────────────────
+    IM_MINOR_GUARDIAN_REQUIRED  ("E-IM-212", HttpStatus.FORBIDDEN,    "14세 미만 회원은 보호자 동의가 필요합니다."),
+    IM_GUARDIAN_NOT_FOUND       ("E-IM-213", HttpStatus.NOT_FOUND,    "보호자 정보를 찾을 수 없습니다."),
+    IM_GUARDIAN_CONSENT_ALREADY ("E-IM-214", HttpStatus.CONFLICT,     "이미 보호자 동의가 완료된 계정입니다."),
+
+    // ── 기업회원 전환 오류 (E-IM-215~217) ──────────────────────────────────────
+    IM_BIZ_REG_INVALID          ("E-IM-215", HttpStatus.BAD_REQUEST,  "유효하지 않은 사업자등록번호 형식입니다."),
+    IM_BIZ_REG_DUPLICATE        ("E-IM-216", HttpStatus.CONFLICT,     "이미 등록된 사업자등록번호입니다."),
+    IM_BIZ_MEMBER_NOT_FOUND     ("E-IM-217", HttpStatus.NOT_FOUND,    "기업회원 정보를 찾을 수 없습니다."),
+
     // ── IdO 오류 (E-IDO-1xx) ─────────────────────────────────────────────────
     IDO_TICKET_EXPIRED    ("E-IDO-101", HttpStatus.GONE,           "Handoff Ticket이 만료되었습니다."),
     IDO_TICKET_CONSUMED   ("E-IDO-102", HttpStatus.CONFLICT,       "이미 소비된 Ticket입니다."),

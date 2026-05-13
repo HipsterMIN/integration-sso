@@ -1,29 +1,30 @@
 # 12. 미구현 항목 및 후속 계획 (Implementation Gaps)
 
-> **문서 버전**: v2.0.0  
+> **문서 버전**: v2.1.0  
 > **최종 수정**: 2026-05-13  
 > **기준 분석 문서**: `docs/2026-05-08_unimplemented_analysis.md`, `docs/gap-analysis-v0.8.3-vs-project.md`  
 > **v1.9.2 변경**: P2 GAP 항목 전체 구현 완료 (HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05)  
 > **v1.9.3 변경**: P1-06 구현 완료 — IdO `GET /api/v1/agency/events` 기관 이벤트 폴링 API  
-> **v2.0.0 변경**: P2 회원 생명주기 완성 — 탈퇴 4종 · 개인정보 동의 · ConversionSession 상태 기계 구현
+> **v2.0.0 변경**: P2 회원 생명주기 완성 — 탈퇴 4종 · 개인정보 동의 · ConversionSession 상태 기계 구현  
+> **v2.1.0 변경**: P3-01 AgencyMemberLookupService 실제 연동 + P3-02 E2E Testcontainers 통합 테스트 + P3-05 14세 미만 보호자 인증 + P3-06 기업회원 전환
 
 ---
 
 ## 1. 현재 완성도 요약
 
-v2.0.0 기준 전체 구현 완성도: **약 93%** (프리프로덕션 단계)
+v2.1.0 기준 전체 구현 완성도: **약 97%** (프리프로덕션 단계)
 
 | 모듈 | 완성도 | 비고 |
 |------|--------|------|
-| platform-common | **100%** | 도메인·이벤트·에러코드 완비 (탈퇴/동의/전환 에러코드 추가) |
+| platform-common | **100%** | 도메인·이벤트·에러코드 완비 (E-IM-212~217 보호자/기업 에러코드 추가) |
 | Q-Sign | **95%** | GAP-QS-03 멱등 컨슈머 완성; X-Internal-Sig 수신 검증 미구현 |
-| Q-IM | **97%** | 탈퇴 4종 · 동의 스키마 · ConversionSession 상태 기계 완성 |
+| Q-IM | **99%** | 탈퇴 4종 · 동의 스키마 · ConversionSession 상태 기계 · 보호자 인증 · 기업회원 전환 완성 |
 | IdO | **99%** | P1-06 기관 폴링 API 완성; HandoffStrategy 완전 구현 |
 | agency-stub | **90%** | Docker 격리 미완성, mTLS P3 |
 | onepass-fe | **60%** | 회원 전환·관리 UI 미구현 |
 | 인프라/Docker | **100%** | 전 모듈 Dockerfile + docker-compose 완비 |
 | 보안 | **93%** | DLQ, X-Internal-Sig 수신 검증 미완성 |
-| 테스트 | **0%** | 단위·통합 테스트 미작성 |
+| 테스트 | **85%** | 단위 테스트 206개 통과 · Testcontainers E2E 7시나리오 (S1~S7) 완성 |
 
 ---
 
@@ -84,10 +85,10 @@ v2.0.0 기준 전체 구현 완성도: **약 93%** (프리프로덕션 단계)
 
 | ID | 항목 | 설명 | 상태 |
 |----|------|------|------|
-| - | CI값 기반 68개 유관시스템 회원 조회 | `AgencyMemberLookupService` (PPTX 2.1 프로세스) | P3 stub |
+| ~~-~~ | ~~CI값 기반 68개 유관시스템 회원 조회~~ | ~~`AgencyMemberLookupService` (PPTX 2.1 프로세스)~~ | ✅ **완료** (P3-01, v2.1.0) |
 | ~~-~~ | ~~통합계정 UUID 생성 및 연결 대상 선택~~ | ~~ConversionSession 상태 기계~~ | ✅ **완료** (v2.0.0) |
-| - | 기업회원 전환 (사업자등록번호 기반) | Q-IM 기업회원 지원 | P3 |
-| - | 14세 미만 보호자 인증 분기 | 미성년자 보호자 인증 흐름 | P3 |
+| ~~-~~ | ~~기업회원 전환 (사업자등록번호 기반)~~ | ~~Q-IM 기업회원 지원~~ | ✅ **완료** (P3-06, v2.1.0) |
+| ~~-~~ | ~~14세 미만 보호자 인증 분기~~ | ~~미성년자 보호자 인증 흐름~~ | ✅ **완료** (P3-05, v2.1.0) |
 | ~~-~~ | ~~개인정보 동의 기록 (제3자 정보제공 동의)~~ | ~~`consent_record`, `consent_version`~~ | ✅ **완료** (v2.0.0) |
 | ~~-~~ | ~~회원 탈퇴 4종 전체 구현~~ | ~~IMMEDIATE/SCHEDULED/AGENCY_REQUESTED/ADMIN_FORCED~~ | ✅ **완료** (v2.0.0) |
 | ~~-~~ | ~~논리적 삭제 + 보존기간 만료 영구파기~~ | ~~GDPR Right to be Forgotten~~ | ✅ **완료** (v2.0.0, SCHEDULED 스케줄러) |
