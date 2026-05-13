@@ -133,6 +133,10 @@ public class HandoffController {
                 .authLevel(AuthResult.AuthLevel.valueOf(req.getAuthLevel()))
                 .providerCode(req.getProviderCode())
                 .callbackUrl(req.getCallbackUrl())
+                // P3 보안 수정: redirectUri를 callbackUrl과 동일하게 세팅.
+                // HandoffServiceImpl이 callbackUrlValidator.validate(cmd.getRedirectUri(), ...)를
+                // 호출하므로 redirectUri가 null이면 화이트리스트 검증이 스킵된다.
+                .redirectUri(req.getCallbackUrl())
                 .build();
 
         HandoffTicket ticket = handoffService.issue(cmd);
