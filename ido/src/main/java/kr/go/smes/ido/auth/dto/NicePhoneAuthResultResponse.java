@@ -102,12 +102,15 @@ public class NicePhoneAuthResultResponse {
          * CI (연계정보) — 주민등록번호 기반 SHA-512 해시 (88자)
          *
          * <p><b>설계 결정 Q3=B: FE 미반환</b>
-         * 이 필드는 FE 응답에 포함되지 않음.
-         * ci-check 내부 처리는 {@code NiceAuthService} 서비스 레이어에서 자동 호출.
-         * TODO(S7-T6): IM API 연동 후 실제 CI 저장 로직 구현 필요.
+         * 이 필드는 FE 응답에 포함되지 않음. CI는 PII(개인식별정보)이므로 서버 내부에서만 처리.
+         *
+         * <p><b>S7-T6 구현 완료:</b>
+         * CI는 {@link kr.go.smes.ido.auth.service.NiceAuthService#getNicePhoneAuthResult}에서
+         * 복호화 후 {@link kr.go.smes.ido.auth.port.ImApiOutPort#register}를 통해 Q-IM에 등록됨.
+         * FE 응답 DTO인 이 클래스에는 ci 필드가 없으므로 FE에 자연스럽게 미반환.
          */
-        // CI는 FE 응답에 포함하지 않음 (Q3=B 결정)
-        // private String ci;  ← 의도적으로 주석 처리
+        // CI는 FE 응답에 포함하지 않음 (Q3=B 결정) — ci 필드 의도적으로 미선언
+        // private String ci;  ← Q3=B: 필드 자체를 제거하여 실수로 포함 방지
 
         /**
          * DI (중복가입확인정보) — 사이트별 고유 식별자 (64자)

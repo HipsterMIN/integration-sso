@@ -30,10 +30,17 @@ public enum PlatformErrorCode {
     OPS_EXTERNAL_SYSTEM_ERROR   ("E-OPS-901", HttpStatus.BAD_GATEWAY,          "외부 인증 사업자 장애."),
 
     // ── Q-IM 오류 (E-IM-2xx) ─────────────────────────────────────────────────
-    IM_USER_NOT_FOUND     ("E-IM-201", HttpStatus.NOT_FOUND,      "사용자 정본을 찾을 수 없습니다."),
-    IM_USER_SUSPENDED     ("E-IM-202", HttpStatus.FORBIDDEN,      "정지 상태 사용자입니다."),
-    IM_USER_WITHDRAWN     ("E-IM-203", HttpStatus.GONE,           "탈퇴한 사용자입니다."),
-    IM_IDENTIFIER_CONFLICT("E-IM-204", HttpStatus.CONFLICT,       "인증수단 중복 매핑 오류."),
+    IM_USER_NOT_FOUND         ("E-IM-201", HttpStatus.NOT_FOUND,      "사용자 정본을 찾을 수 없습니다."),
+    IM_USER_SUSPENDED         ("E-IM-202", HttpStatus.FORBIDDEN,      "정지 상태 사용자입니다."),
+    IM_USER_WITHDRAWN         ("E-IM-203", HttpStatus.GONE,           "탈퇴한 사용자입니다."),
+    IM_IDENTIFIER_CONFLICT    ("E-IM-204", HttpStatus.CONFLICT,       "인증수단 중복 매핑 오류."),
+    IM_WITHDRAWAL_ALREADY     ("E-IM-205", HttpStatus.CONFLICT,       "이미 탈퇴 처리 중이거나 완료된 사용자입니다."),
+    IM_WITHDRAWAL_NOT_ALLOWED ("E-IM-206", HttpStatus.FORBIDDEN,      "현재 상태에서 탈퇴가 허용되지 않습니다."),
+    IM_CONSENT_NOT_FOUND      ("E-IM-207", HttpStatus.NOT_FOUND,      "동의 기록을 찾을 수 없습니다."),
+    IM_CONSENT_VERSION_INVALID("E-IM-208", HttpStatus.CONFLICT,       "동의 버전이 유효하지 않습니다."),
+    IM_CONVERSION_NOT_FOUND   ("E-IM-209", HttpStatus.NOT_FOUND,      "전환 세션을 찾을 수 없습니다."),
+    IM_CONVERSION_EXPIRED     ("E-IM-210", HttpStatus.GONE,           "전환 세션이 만료되었습니다."),
+    IM_CONVERSION_INVALID_STATE("E-IM-211", HttpStatus.CONFLICT,      "전환 세션 상태 전이가 유효하지 않습니다."),
 
     // ── IdO 오류 (E-IDO-1xx) ─────────────────────────────────────────────────
     IDO_TICKET_EXPIRED    ("E-IDO-101", HttpStatus.GONE,           "Handoff Ticket이 만료되었습니다."),

@@ -2,9 +2,12 @@ package kr.go.smes.qim.infrastructure.jpa.repository;
 
 import kr.go.smes.qim.infrastructure.jpa.entity.QimUserJpaEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -46,4 +49,36 @@ public interface QimUserJpaRepository extends JpaRepository<QimUserJpaEntity, St
     Optional<QimUserJpaEntity> findByIdentifierHashAndProviderCode(
             @Param("identifierHash") String identifierHash,
             @Param("providerCode")   String providerCode);
+
+    /**
+     * WITHDRAWAL_SCHEDULED 상태이고 예약 일시가 지난 사용자 조회
+     * (스케줄러 → processExpiredScheduledWithdrawals 용)
+     */
+    @Query("""
+        SELECT u FROM QimUserJpaEntity u
+        WHERE u.status = 'WITHDRAWAL_SCHEDULED'
+          AND u.withdrawalScheduledAt <= :now
+        """)
+    List<QimUserJpaEntity> findExpiredScheduledWithdrawals(@Param("now") Instant now);
+
+    /**
+     * 사용자 상태 즉시 갱신 (탈퇴 처리용 — JPA flush 없이 직접 UPDATE)
+     */
+    @Modifying
+    @Query("""
+        UPDATE QimUserJpaEntity u
+        SET u.status            = :status,
+            u.withdrawnAt       = :withdrawnAt,
+            u.withdrawalReason  = :reason,
+            u.withdrawalType    = :type,
+            u.updatedAt         = :now,
+            u.eventVersion      = u.eventVersion + 1
+        WHERE u.qimUserId = :qimUserId
+        """)
+    int markWithdrawn(@Param("qimUserId")   String qimUserId,
+                      @Param("status")      String status,
+                      @Param("withdrawnAt") Instant withdrawnAt,
+                      @Param("reason")      String reason,
+                      @Param("type")        String type,
+                      @Param("now")         Instant now);
 }
