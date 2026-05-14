@@ -574,6 +574,37 @@ ido:
   # ── F-14: Webhook Outbox Relay On/Off ────────────────────────────────────
   # false → 기관 webhook 발송 없음 (PENDING은 DB 유지 → 재활성 시 처리)
 
+  # ════════════════════════════════════════════════════════════════════════
+  # Sprint 14~16 신규 기능 — Phase-Gate Feature Flags
+  # 📖 docs/phased-rollout-strategy.md 참조
+  # ⚠️  Phase 1: 아래 모든 신규 기능 기본값 false (안전)
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── F-20: 전 기관 프로비저닝 (Sprint 14, Phase 2 활성화) ─────────────────
+  # true: JDK 21 Virtual Thread로 최대 68개 기관에 동시 HTTP POST 발행
+  # ⚠️  F-22 dry-run=true 상태로 먼저 2주 관찰 후 운영 전환 권장
+  provisioning:
+    enabled:              ${IDO_PROVISIONING_ENABLED:false}       # F-20: Phase 2↑
+    dry-run:              ${IDO_PROVISIONING_DRY_RUN:true}        # F-22: Phase 2-A=true, 2-B=false
+    relay-enabled:        ${IDO_PROVISIONING_RELAY_ENABLED:false} # F-21: Phase 2-B↑
+    relay-interval-ms:    ${IDO_PROVISIONING_RELAY_INTERVAL_MS:30000}
+    relay-batch-size:     ${IDO_PROVISIONING_RELAY_BATCH_SIZE:50}
+    timeout-ms:           ${IDO_PROVISIONING_TIMEOUT_MS:0}
+    max-parallel-agencies: ${IDO_PROVISIONING_MAX_PARALLEL:100}
+
+  # ── F-23/F-24: Agency Gateway API (Sprint 15, Phase 3 활성화) ────────────
+  # F-23: 기관 → OnePass 인바운드 이벤트 수신 (POST /inbound/event)
+  # F-24: OnePass → 기관 아웃바운드 발송 (PATCH /outbound/notify)
+  # F-25: Redis 멱등성 중복 방어 (항상 true 권장)
+  # F-26: HMAC-SHA256 서명 필수화 (Sprint 17, Phase 4↑, 현재 false)
+  # F-27: Agency Key 인증 감사 로그 (항상 true)
+  gateway:
+    inbound-enabled:        ${IDO_GATEWAY_INBOUND_ENABLED:false}    # F-23: Phase 3-A↑
+    outbound-enabled:       ${IDO_GATEWAY_OUTBOUND_ENABLED:false}   # F-24: Phase 3-B↑
+    idempotency-enabled:    ${IDO_GATEWAY_IDEMPOTENCY_ENABLED:true} # F-25: 항상 ON
+    hmac-sig-required:      ${IDO_HMAC_SIG_REQUIRED:false}          # F-26: Phase 4↑ (Sprint 17)
+    agency-key-audit-log:   ${IDO_AGENCY_KEY_AUDIT_LOG:true}        # F-27: 항상 ON
+
   # ── AES 키 로테이션 스케줄러 ────────────────────────────────────────────
   crypto:
     rotation-enabled:      ${IDO_CRYPTO_ROTATION_ENABLED:true}

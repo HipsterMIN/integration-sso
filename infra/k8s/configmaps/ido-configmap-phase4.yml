@@ -127,9 +127,9 @@ data:
   # Phase 1: false (현재)
   # Phase 2-A: true + IDO_PROVISIONING_DRY_RUN=true (2주 관찰)
   # Phase 2-B: true + IDO_PROVISIONING_DRY_RUN=false (실제 발행)
-  IDO_PROVISIONING_ENABLED: "false"         # F-20: Phase 2↑ (현재: OFF)
-  IDO_PROVISIONING_DRY_RUN: "true"          # F-22: Phase 2-A=true, 2-B=false
-  IDO_PROVISIONING_RELAY_ENABLED: "false"   # F-21: Phase 2-B↑ (현재: OFF)
+  IDO_PROVISIONING_ENABLED: "true"         # F-20: Phase 2↑ (현재: OFF)
+  IDO_PROVISIONING_DRY_RUN: "false"          # F-22: Phase 2-A=true, 2-B=false
+  IDO_PROVISIONING_RELAY_ENABLED: "true"   # F-21: Phase 2-B↑ (현재: OFF)
   IDO_PROVISIONING_RELAY_INTERVAL_MS: "30000"
   IDO_PROVISIONING_RELAY_BATCH_SIZE: "50"
   IDO_PROVISIONING_TIMEOUT_MS: "10000"
@@ -139,10 +139,10 @@ data:
   # Phase 1~2: false (현재)
   # Phase 3-A: IDO_GATEWAY_INBOUND_ENABLED=true (인바운드 먼저)
   # Phase 3-B: IDO_GATEWAY_OUTBOUND_ENABLED=true (아웃바운드 추가)
-  IDO_GATEWAY_INBOUND_ENABLED: "false"      # F-23: Phase 3-A↑ (현재: OFF)
-  IDO_GATEWAY_OUTBOUND_ENABLED: "false"     # F-24: Phase 3-B↑ (현재: OFF)
+  IDO_GATEWAY_INBOUND_ENABLED: "true"      # F-23: Phase 3-A↑ (현재: OFF)
+  IDO_GATEWAY_OUTBOUND_ENABLED: "true"     # F-24: Phase 3-B↑ (현재: OFF)
   IDO_GATEWAY_IDEMPOTENCY_ENABLED: "true"   # F-25: 항상 ON (보안 필수)
-  IDO_HMAC_SIG_REQUIRED: "false"            # F-26: Phase 4↑ Sprint 17 (현재: OFF)
+  IDO_HMAC_SIG_REQUIRED: "true"            # F-26: Phase 4↑ Sprint 17 (현재: OFF)
   IDO_AGENCY_KEY_AUDIT_LOG: "true"          # F-27: 항상 ON (감사 필수)
 
   # ── 플랫폼 버전 ───────────────────────────────────────────────────────────

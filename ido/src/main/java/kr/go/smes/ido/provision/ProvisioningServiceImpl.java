@@ -58,9 +58,22 @@ public class ProvisioningServiceImpl implements ProvisioningService {
     private final RestTemplate                     restTemplate;
     private final ObjectMapper                     objectMapper;
 
-    /** 프로비저닝 기능 On/Off (IDO_PROVISIONING_ENABLED, 기본 true) */
-    @Value("${ido.provisioning.enabled:${IDO_PROVISIONING_ENABLED:true}}")
+    /**
+     * F-20: 프로비저닝 기능 On/Off.
+     * Phase 1 기본값: false. Phase 2 이후 true로 전환.
+     * @see docs/features/F-20-provisioning.md
+     */
+    @Value("${ido.provisioning.enabled:${IDO_PROVISIONING_ENABLED:false}}")
     private boolean provisioningEnabled;
+
+    /**
+     * F-22: 프로비저닝 dry-run 모드.
+     * true: 페이로드 생성 + 로그만, HTTP 미발행 (Phase 2-A 관찰 기간).
+     * false: 실제 기관 HTTP POST 발행 (Phase 2-B 이후).
+     * @see docs/features/F-20-provisioning.md
+     */
+    @Value("${ido.provisioning.dry-run:${IDO_PROVISIONING_DRY_RUN:true}}")
+    private boolean provisioningDryRun;
 
     /** 단일 기관 HTTP 요청 타임아웃 오버라이드 (0이면 기관별 설정 사용) */
     @Value("${ido.provisioning.timeout-ms:0}")
@@ -77,10 +90,15 @@ public class ProvisioningServiceImpl implements ProvisioningService {
     @Override
     public void triggerProvisioning(String qimUserId, String eventType,
                                     String sourceEventId, String correlationId) {
-        // ① Feature Flag 가드
+        // ① Feature Flag 가드 (F-20)
         if (!provisioningEnabled) {
             log.info("[Provisioning] DISABLED (IDO_PROVISIONING_ENABLED=false). 스킵: qimUserId={}", qimUserId);
             return;
+        }
+
+        // dry-run 모드 안내 (F-22)
+        if (provisioningDryRun) {
+            log.info("[Provisioning] DRY-RUN 모드 (IDO_PROVISIONING_DRY_RUN=true): 페이로드 생성 후 HTTP 미발행. qimUserId={}", qimUserId);
         }
 
         // ② 중복 트리거 방어 — 동일 sourceEventId로 이미 프로비저닝 레코드가 있으면 스킵
@@ -104,6 +122,18 @@ public class ProvisioningServiceImpl implements ProvisioningService {
 
         log.info("[Provisioning] 프로비저닝 시작: qimUserId={} eventType={} 기관수={} idempotencyKey={}",
                 qimUserId, eventType, endpoints.size(), baseIdempotencyKey);
+
+        // ⑤ dry-run 시 여기서 종료 (HTTP 발행 없이 관찰만)
+        if (provisioningDryRun) {
+            log.info("[Provisioning] DRY-RUN 완료: 대상 기관={}개, qimUserId={}, eventType={}. " +
+                     "실제 발행 없음. IDO_PROVISIONING_DRY_RUN=false 로 변경 시 발행 시작.",
+                     endpoints.size(), qimUserId, eventType);
+            for (AgencyEndpointRecord ep : endpoints) {
+                log.debug("[Provisioning] DRY-RUN 대상: agencyCode={} url={}",
+                          ep.getAgencyCode(), ep.getEndpointUrl());
+            }
+            return;
+        }
 
         // ⑤ Virtual Thread 병렬 HTTP 발행
         List<AgencyEndpointRecord> targetEndpoints =

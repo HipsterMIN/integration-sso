@@ -127,9 +127,9 @@ data:
   # Phase 1: false (현재)
   # Phase 2-A: true + IDO_PROVISIONING_DRY_RUN=true (2주 관찰)
   # Phase 2-B: true + IDO_PROVISIONING_DRY_RUN=false (실제 발행)
-  IDO_PROVISIONING_ENABLED: "false"         # F-20: Phase 2↑ (현재: OFF)
-  IDO_PROVISIONING_DRY_RUN: "true"          # F-22: Phase 2-A=true, 2-B=false
-  IDO_PROVISIONING_RELAY_ENABLED: "false"   # F-21: Phase 2-B↑ (현재: OFF)
+  IDO_PROVISIONING_ENABLED: "true"         # F-20: Phase 2↑ (현재: OFF)
+  IDO_PROVISIONING_DRY_RUN: "false"          # F-22: Phase 2-A=true, 2-B=false
+  IDO_PROVISIONING_RELAY_ENABLED: "true"   # F-21: Phase 2-B↑ (현재: OFF)
   IDO_PROVISIONING_RELAY_INTERVAL_MS: "30000"
   IDO_PROVISIONING_RELAY_BATCH_SIZE: "50"
   IDO_PROVISIONING_TIMEOUT_MS: "10000"
