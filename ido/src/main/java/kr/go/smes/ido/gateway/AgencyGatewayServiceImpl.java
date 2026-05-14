@@ -24,6 +24,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
@@ -63,6 +64,8 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
     private final ProvisioningOutboxRepository     provisioningOutboxRepository;
     private final RestTemplate                     restTemplate;
     private final ObjectMapper                     objectMapper;
+    /** Sprint 17: 기관별 HMAC 키 조회 (아웃바운드 서명 발송) */
+    private final AgencyHmacKeyStore               hmacKeyStore;
 
     // ─────────────────────────────────────────────────────────────────────
     // 인바운드 수신
@@ -159,10 +162,19 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
             if (correlationId != null) headers.set("X-Correlation-ID", correlationId);
             headers.set("X-Outbound-Source", "onepass-ido");
 
-            // HMAC 서명 (auth_type=HMAC인 경우)
-            if ("HMAC".equals(endpoint.getAuthType()) && request.getPayloadJson() != null) {
-                // TODO (Sprint 17): K8s Secret에서 실제 HMAC 키 조회
-                headers.set("X-Internal-Sig", "HMAC_PLACEHOLDER_" + agencyCode);
+            // HMAC 서명 아웃바운드 발송 (Sprint 17 — AgencyHmacKeyStore 실제 키 사용)
+            // 서명 페이로드: "{agencyCode}:{idempotencyKey}:{epochSeconds}"
+            // auth_type=HMAC 인 기관에만 X-Internal-Sig 헤더 첨부
+            if ("HMAC".equals(endpoint.getAuthType())) {
+                String outboundSig = buildOutboundHmacSig(agencyCode, idempotencyKey);
+                if (outboundSig != null) {
+                    headers.set("X-Internal-Sig", outboundSig);
+                    log.debug("[GatewayOutbound] HMAC 서명 첨부: agencyCode={} idempotencyKey={}",
+                              agencyCode, idempotencyKey);
+                } else {
+                    log.warn("[GatewayOutbound] HMAC 키 미등록 — X-Internal-Sig 헤더 생략: agencyCode={}",
+                             agencyCode);
+                }
             }
 
             HttpEntity<String> entity = new HttpEntity<>(request.getPayloadJson(), headers);
@@ -276,5 +288,47 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
     private String truncate(String value, int maxLen) {
         if (value == null) return null;
         return value.length() > maxLen ? value.substring(0, maxLen) : value;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Sprint 17: 아웃바운드 HMAC 서명 생성
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * 아웃바운드 발송용 X-Internal-Sig 서명 생성 (Sprint 17).
+     *
+     * <p>서명 페이로드: {@code "{agencyCode}:{idempotencyKey}:{epochSeconds}"}
+     * (HmacSignatureFilter의 인바운드 검증과 동일한 페이로드 규칙 사용)
+     *
+     * <p>기관이 서명을 검증하는 방법:
+     * <ol>
+     *   <li>X-Internal-Sig 헤더 추출</li>
+     *   <li>자신의 HMAC 키로 "{agencyCode}:{idempotencyKey}:{epochSeconds}"를 HMAC-SHA256 계산</li>
+     *   <li>±60초 범위의 epochSeconds 후보를 전수 검사하여 일치 여부 확인</li>
+     * </ol>
+     *
+     * @param agencyCode     대상 기관코드
+     * @param idempotencyKey 발송 멱등성 키
+     * @return HMAC-SHA256 Hex 서명 문자열, 키 미등록 시 {@code null}
+     */
+    private String buildOutboundHmacSig(String agencyCode, String idempotencyKey) {
+        String secret = hmacKeyStore.findSecret(agencyCode);
+        if (secret == null || secret.isBlank()) {
+            return null; // 키 없음 — 호출부에서 경고 로그 처리
+        }
+        try {
+            long epochSeconds = Instant.now().getEpochSecond();
+            String safeKey    = (idempotencyKey != null) ? idempotencyKey : "";
+            String payload    = agencyCode + ":" + safeKey + ":" + epochSeconds;
+
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(rawHmac);
+        } catch (Exception e) {
+            log.error("[GatewayOutbound] 아웃바운드 HMAC 서명 생성 실패: agencyCode={} err={}",
+                      agencyCode, e.getMessage());
+            return null;
+        }
     }
 }

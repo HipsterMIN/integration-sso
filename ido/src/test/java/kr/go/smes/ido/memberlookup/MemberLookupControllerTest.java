@@ -6,6 +6,7 @@ import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.ido.audit.AuditLogPublisher;
 import kr.go.smes.ido.config.HandoffAgencyKeyInterceptor;
 import kr.go.smes.ido.fe.config.IdoWebMvcConfig;
+import kr.go.smes.ido.gateway.HmacSignatureFilter;
 import kr.go.smes.ido.ratelimit.AuthRateLimitInterceptor;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -69,6 +70,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 @ComponentScan.Filter(
                         type = FilterType.ASSIGNABLE_TYPE,
                         classes = AuthRateLimitInterceptor.class
+                ),
+                // [Sprint 17 추가] HmacSignatureFilter는 AgencyHmacKeyStore 의존성을 가지므로
+                // @WebMvcTest 슬라이스에서 제외 처리
+                @ComponentScan.Filter(
+                        type = FilterType.ASSIGNABLE_TYPE,
+                        classes = HmacSignatureFilter.class
                 )
         }
 )
