@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outbox 패턴 — 물리 아키텍처 & 데이터 흐름</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── 헤더 ── */
+  .header {
+    background: linear-gradient(135deg, #1a1f2e 0%, #0f1117 100%);
+    border-bottom: 1px solid #2d3748;
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-icon { font-size: 28px; }
+  .header h1 { font-size: 18px; font-weight: 700; color: #f0f4ff; }
+  .header p  { font-size: 12px; color: #718096; margin-top: 2px; }
+
+  /* ── 탭 ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 16px 32px 0;
+    border-bottom: 1px solid #2d3748;
+    background: #0f1117;
+    overflow-x: auto;
+  }
+  .tab-btn {
+    padding: 8px 18px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    background: transparent;
+    color: #718096;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .2s;
+  }
+  .tab-btn:hover { color: #a0aec0; background: #1a1f2e; }
+  .tab-btn.active {
+    background: #1a2035;
+    color: #63b3ed;
+    border-color: #2d3748;
+    font-weight: 600;
+  }
+
+  /* ── 캔버스 래퍼 ── */
+  .canvas-wrap {
+    display: none;
+    padding: 24px 32px 40px;
+  }
+  .canvas-wrap.active { display: block; }
+
+  /* ── SVG 컨테이너 ── */
+  .diagram-container {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid #2d3748;
+    background: #111827;
+  }
+  svg { display: block; }
+
+  /* ── 범례 ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 14px 20px;
+    background: #1a1f2e;
+    border-radius: 8px;
+    border: 1px solid #2d3748;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a0aec0; }
+  .legend-dot {
+    width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+  }
+
+  /* ── 흐름 설명 카드 ── */
+  .flow-cards {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+  }
+  .flow-card {
+    background: #1a1f2e;
+    border: 1px solid #2d3748;
+    border-radius: 10px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: all .25s;
+    border-left: 4px solid transparent;
+  }
+  .flow-card:hover { border-color: #4a5568; transform: translateY(-1px); }
+  .flow-card.active { border-left-color: #63b3ed; background: #1e2a3e; }
+  .flow-card h4 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .flow-card ol { padding-left: 16px; }
+  .flow-card li { font-size: 12px; color: #a0aec0; line-height: 1.7; }
+  .flow-card li span { color: #68d391; font-weight: 600; }
+  .flow-card li em   { color: #f6ad55; font-style: normal; }
+
+  /* ── 노트 박스 ── */
+  .note-box {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #1a2035;
+    border-left: 3px solid #f6ad55;
+    border-radius: 0 8px 8px 0;
+    font-size: 12px;
+    color: #a0aec0;
+    line-height: 1.7;
+  }
+  .note-box strong { color: #f6ad55; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-icon">🗄️</span>
+  <div>
+    <h1>Outbox 패턴 — 물리 아키텍처 &amp; 데이터 흐름</h1>
+    <p>각 서비스 내부의 Outbox 테이블 위치 · Kafka 토픽 · Consumer 전체 구조</p>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('physical')">🏗️ 물리 서버 배치도</button>
+  <button class="tab-btn" onclick="switchTab('flow1')">① 인증 흐름 (Q-Sign / IdO → Kafka)</button>
+  <button class="tab-btn" onclick="switchTab('flow2')">② 사용자 변경 흐름 (Q-IM → Q-Sign)</button>
+  <button class="tab-btn" onclick="switchTab('flow3')">③ Handoff + Webhook 흐름</button>
+  <button class="tab-btn" onclick="switchTab('flow4')">④ 프로비저닝 흐름</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TAB 1: 물리 서버 배치도
+═══════════════════════════════════════════════ -->
+<div id="tab-physical" class="canvas-wrap active">
+  <div class="diagram-container">
+    <svg viewBox="0 0 1400 820" width="1400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#63b3ed"/>
+        </marker>
+        <marker id="arr-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#68d391"/>
+        </marker>
+        <marker id="arr-orange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#f6ad55"/>
+        </marker>
+        <marker id="arr-purple" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#b794f4"/>
+        </marker>
+        <marker id="arr-red" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#fc8181"/>
+        </marker>
+        <filter id="shadow">
+          <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity=".5"/>
+        </filter>
+        <linearGradient id="grad-ido" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1a3a5c"/>
+          <stop offset="100%" stop-color="#0f2a45"/>
+        </linearGradient>
+        <linearGradient id="grad-qsign" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1a3a2a"/>
+          <stop offset="100%" stop-color="#0f2a1e"/>
+        </linearGradient>
+        <linearGradient id="grad-qim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3a2a1a"/>
+          <stop offset="100%" stop-color="#2a1a0f"/>
+        </linearGradient>
+        <linearGradient id="grad-kafka" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2a1a3a"/>
+          <stop offset="100%" stop-color="#1a0f2a"/>
+        </linearGradient>
+      </defs>
+
+      <!-- 배경 그리드 -->
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e2535" stroke-width=".5"/>
+      </pattern>
+      <rect width="1400" height="820" fill="url(#grid)"/>
+
+      <!-- ══════════════════════════════════
+           IdO 서버 박스 (포트 8080)
+      ══════════════════════════════════ -->
+      <rect x="20" y="30" width="420" height="560" rx="14" fill="url(#grad-ido)" stroke="#3182ce" stroke-width="1.5" filter="url(#shadow)"/>
+      <text x="230" y="58" text-anchor="middle" fill="#90cdf4" font-size="15" font-weight="700">🖥️ IdO 서버 (포트 8080)</text>
+      <text x="230" y="76" text-anchor="middle" fill="#4a7fa5" font-size="11">PostgreSQL · ido 스키마</text>
+
+      <!-- IdO: 비즈니스 로직 -->
+      <rect x="36" y="90" width="388" height="50" rx="8" fill="#1e3a5f" stroke="#2c5282" stroke-width="1"/>
+      <text x="230" y="111" text-anchor="middle" fill="#bee3f8" font-size="12" font-weight="600">KeycloakOidcService / NonOidcAuthService</text>
+      <text x="230" y="127" text-anchor="middle" fill="#4a7fa5" font-size="11">handleCallback() · @Transactional</text>
+
+      <!-- IdO: ido.outbox -->
+      <rect x="36" y="158" width="180" height="72" rx="8" fill="#0d2137" stroke="#2b6cb0" stroke-width="1.5"/>
+      <text x="126" y="178" text-anchor="middle" fill="#63b3ed" font-size="13" font-weight="700">📦 ido.outbox</text>
+      <text x="126" y="195" text-anchor="middle" fill="#4a7fa5" font-size="10">PostgreSQL JSONB</text>
+      <text x="126" y="211" text-anchor="middle" fill="#4a7fa5" font-size="10">PENDING / PUBLISHED / FAILED</text>
+      <text x="126" y="225" text-anchor="middle" fill="#4a7fa5" font-size="10">→ IdoOutboxRelay (500ms)</text>
+
+      <!-- IdO: IdoOutboxRelay -->
+      <rect x="232" y="158" width="192" height="72" rx="8" fill="#1a2f4a" stroke="#2c5282" stroke-width="1"/>
+      <text x="328" y="178" text-anchor="middle" fill="#90cdf4" font-size="12" font-weight="600">IdoOutboxRelay</text>
+      <text x="328" y="195" text-anchor="middle" fill="#4a7fa5" font-size="10">@Scheduled fixedDelay=500ms</text>
+      <text x="328" y="211" text-anchor="middle" fill="#4a7fa5" font-size="10">findPendingBatch(FOR UPDATE</text>
+      <text x="328" y="225" text-anchor="middle" fill="#4a7fa5" font-size="10">SKIP LOCKED)</text>
+
+      <!-- outbox → relay 내부 화살표 -->
+      <line x1="216" y1="194" x2="228" y2="194" stroke="#63b3ed" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- IdO: HandoffServiceImpl (직접 발행) -->
+      <rect x="36" y="248" width="388" height="50" rx="8" fill="#1e3a5f" stroke="#2c5282" stroke-width="1"/>
+      <text x="230" y="269" text-anchor="middle" fill="#bee3f8" font-size="12" font-weight="600">HandoffServiceImpl</text>
+      <text x="230" y="285" text-anchor="middle" fill="#f6ad55" font-size="11">⚡ Outbox 미사용 — kafkaTemplate.send() 직접 발행</text>
+
+      <!-- IdO: WebhookDispatcherService -->
+      <rect x="36" y="316" width="388" height="50" rx="8" fill="#1e3a5f" stroke="#2c5282" stroke-width="1"/>
+      <text x="230" y="337" text-anchor="middle" fill="#bee3f8" font-size="12" font-weight="600">WebhookDispatcherService</text>
+      <text x="230" y="353" text-anchor="middle" fill="#4a7fa5" font-size="11">insertOutbox() · ON CONFLICT DO NOTHING</text>
+
+      <!-- IdO: webhook_dispatch_outbox -->
+      <rect x="36" y="382" width="180" height="72" rx="8" fill="#0d2137" stroke="#2b6cb0" stroke-width="1.5"/>
+      <text x="126" y="400" text-anchor="middle" fill="#63b3ed" font-size="11" font-weight="700">📦 webhook_dispatch_outbox</text>
+      <text x="126" y="417" text-anchor="middle" fill="#4a7fa5" font-size="10">PostgreSQL JSONB</text>
+      <text x="126" y="433" text-anchor="middle" fill="#4a7fa5" font-size="10">PENDING/DISPATCHED/FAILED</text>
+      <text x="126" y="449" text-anchor="middle" fill="#4a7fa5" font-size="10">지수백오프 2^(n+1)초</text>
+
+      <!-- IdO: WebhookDispatchOutboxRelay -->
+      <rect x="232" y="382" width="192" height="72" rx="8" fill="#1a2f4a" stroke="#2c5282" stroke-width="1"/>
+      <text x="328" y="400" text-anchor="middle" fill="#90cdf4" font-size="11" font-weight="600">WebhookDispatchOutboxRelay</text>
+      <text x="328" y="417" text-anchor="middle" fill="#4a7fa5" font-size="10">@Scheduled 500ms</text>
+      <text x="328" y="433" text-anchor="middle" fill="#4a7fa5" font-size="10">HMAC-SHA256 서명</text>
+      <text x="328" y="449" text-anchor="middle" fill="#4a7fa5" font-size="10">HTTPS POST → 기관</text>
+      <line x1="216" y1="418" x2="228" y2="418" stroke="#63b3ed" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- IdO: ProvisioningServiceImpl -->
+      <rect x="36" y="470" width="388" height="36" rx="8" fill="#1e3a5f" stroke="#2c5282" stroke-width="1"/>
+      <text x="230" y="487" text-anchor="middle" fill="#bee3f8" font-size="12" font-weight="600">ProvisioningServiceImpl</text>
+      <text x="230" y="500" text-anchor="middle" fill="#4a7fa5" font-size="11">최대 68건 INSERT · ON CONFLICT DO NOTHING</text>
+
+      <!-- IdO: provisioning_outbox -->
+      <rect x="36" y="520" width="180" height="58" rx="8" fill="#0d2137" stroke="#2b6cb0" stroke-width="1.5"/>
+      <text x="126" y="539" text-anchor="middle" fill="#63b3ed" font-size="11" font-weight="700">📦 provisioning_outbox</text>
+      <text x="126" y="556" text-anchor="middle" fill="#4a7fa5" font-size="10">PENDING/COMPLETED</text>
+      <text x="126" y="571" text-anchor="middle" fill="#4a7fa5" font-size="10">DEAD_LETTER</text>
+
+      <!-- IdO: ProvisioningOutboxRelay -->
+      <rect x="232" y="520" width="192" height="58" rx="8" fill="#1a2f4a" stroke="#2c5282" stroke-width="1"/>
+      <text x="328" y="539" text-anchor="middle" fill="#90cdf4" font-size="11" font-weight="600">ProvisioningOutboxRelay</text>
+      <text x="328" y="556" text-anchor="middle" fill="#4a7fa5" font-size="10">@Scheduled 30초</text>
+      <text x="328" y="571" text-anchor="middle" fill="#4a7fa5" font-size="10">HTTPS POST → 기관</text>
+      <line x1="216" y1="549" x2="228" y2="549" stroke="#63b3ed" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- IdO Consumers -->
+      <rect x="36" y="598" width="388" height="60" rx="8" fill="#1a2a40" stroke="#2c5282" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="230" y="618" text-anchor="middle" fill="#90cdf4" font-size="12" font-weight="600">Kafka Consumers (IdO 내부)</text>
+      <text x="230" y="635" text-anchor="middle" fill="#4a7fa5" font-size="10">QsignAuthEventConsumer — qsign.auth.events 구독</text>
+      <text x="230" y="650" text-anchor="middle" fill="#4a7fa5" font-size="10">HandoffEventConsumer — ido.handoff.events 구독</text>
+
+      <!-- ══════════════════════════════════
+           Q-Sign 서버 박스 (포트 8082)
+      ══════════════════════════════════ -->
+      <rect x="460" y="30" width="360" height="400" rx="14" fill="url(#grad-qsign)" stroke="#38a169" stroke-width="1.5" filter="url(#shadow)"/>
+      <text x="640" y="58" text-anchor="middle" fill="#9ae6b4" font-size="15" font-weight="700">🖥️ Q-Sign 서버 (포트 8082)</text>
+      <text x="640" y="76" text-anchor="middle" fill="#2f855a" font-size="11">PostgreSQL · qsign 스키마</text>
+
+      <!-- Q-Sign: AuthServiceImpl -->
+      <rect x="476" y="90" width="328" height="50" rx="8" fill="#1a3a2a" stroke="#276749" stroke-width="1"/>
+      <text x="640" y="111" text-anchor="middle" fill="#c6f6d5" font-size="12" font-weight="600">AuthServiceImpl</text>
+      <text x="640" y="127" text-anchor="middle" fill="#2f855a" font-size="11">processAuthentication() · @Transactional</text>
+
+      <!-- Q-Sign: qsign.outbox -->
+      <rect x="476" y="158" width="148" height="72" rx="8" fill="#0d2a1a" stroke="#276749" stroke-width="1.5"/>
+      <text x="550" y="178" text-anchor="middle" fill="#68d391" font-size="13" font-weight="700">📦 qsign.outbox</text>
+      <text x="550" y="195" text-anchor="middle" fill="#2f855a" font-size="10">PostgreSQL JSONB</text>
+      <text x="550" y="211" text-anchor="middle" fill="#2f855a" font-size="10">PENDING/PUBLISHED</text>
+      <text x="550" y="225" text-anchor="middle" fill="#2f855a" font-size="10">FAILED (maxRetry=3)</text>
+
+      <!-- Q-Sign: OutboxRelay -->
+      <rect x="636" y="158" width="168" height="72" rx="8" fill="#142a1e" stroke="#276749" stroke-width="1"/>
+      <text x="720" y="178" text-anchor="middle" fill="#9ae6b4" font-size="12" font-weight="600">OutboxRelay</text>
+      <text x="720" y="195" text-anchor="middle" fill="#2f855a" font-size="10">@Scheduled 500ms</text>
+      <text x="720" y="211" text-anchor="middle" fill="#2f855a" font-size="10">@Transactional</text>
+      <text x="720" y="225" text-anchor="middle" fill="#2f855a" font-size="10">partitionKey=identifierHash</text>
+      <line x1="624" y1="194" x2="632" y2="194" stroke="#68d391" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+      <!-- Q-Sign: processed_event -->
+      <rect x="476" y="248" width="328" height="42" rx="8" fill="#0d2a1a" stroke="#276749" stroke-width="1.5"/>
+      <text x="640" y="267" text-anchor="middle" fill="#68d391" font-size="11" font-weight="700">📦 qsign.processed_event + last_event_version</text>
+      <text x="640" y="282" text-anchor="middle" fill="#2f855a" font-size="10">멱등성 테이블 (event_id + consumer_group) · 버전 역전 방지</text>
+
+      <!-- Q-Sign: QimUserEventConsumer -->
+      <rect x="476" y="306" width="328" height="60" rx="8" fill="#142a1e" stroke="#276749" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="640" y="326" text-anchor="middle" fill="#9ae6b4" font-size="12" font-weight="600">QimUserEventConsumer</text>
+      <text x="640" y="343" text-anchor="middle" fill="#2f855a" font-size="10">qim.user.events 구독 · group: q-sign-qim-consumer</text>
+      <text x="640" y="358" text-anchor="middle" fill="#2f855a" font-size="10">USER_SUSPENDED/WITHDRAWN → auth_lock 강제 잠금</text>
+
+      <!-- Q-Sign: auth_result + auth_lock -->
+      <rect x="476" y="382" width="328" height="36" rx="8" fill="#0d2a1a" stroke="#276749" stroke-width="1.5"/>
+      <text x="640" y="401" text-anchor="middle" fill="#68d391" font-size="11" font-weight="700">📦 qsign.auth_result · qsign.auth_lock</text>
+      <text x="640" y="415" text-anchor="middle" fill="#2f855a" font-size="10">인증 결과 저장 · 계정 잠금 상태 관리</text>
+
+      <!-- ══════════════════════════════════
+           Q-IM 서버 박스 (포트 8081)
+      ══════════════════════════════════ -->
+      <rect x="460" y="450" width="360" height="300" rx="14" fill="url(#grad-qim)" stroke="#d69e2e" stroke-width="1.5" filter="url(#shadow)"/>
+      <text x="640" y="478" text-anchor="middle" fill="#f6e05e" font-size="15" font-weight="700">🖥️ Q-IM 서버 (포트 8081)</text>
+      <text x="640" y="496" text-anchor="middle" fill="#975a16" font-size="11">MariaDB · qim 스키마</text>
+
+      <!-- Q-IM: UserRegService / UserMgmtService -->
+      <rect x="476" y="510" width="328" height="50" rx="8" fill="#3a2a1a" stroke="#975a16" stroke-width="1"/>
+      <text x="640" y="531" text-anchor="middle" fill="#fefcbf" font-size="12" font-weight="600">UserRegService / UserMgmtService</text>
+      <text x="640" y="547" text-anchor="middle" fill="#975a16" font-size="11">OutboxService.publishInTx() · @Transactional</text>
+
+      <!-- Q-IM: qim.outbox -->
+      <rect x="476" y="576" width="148" height="80" rx="8" fill="#2a1a0a" stroke="#975a16" stroke-width="1.5"/>
+      <text x="550" y="596" text-anchor="middle" fill="#f6ad55" font-size="13" font-weight="700">📦 qim.outbox</text>
+      <text x="550" y="613" text-anchor="middle" fill="#975a16" font-size="10">MariaDB JSON</text>
+      <text x="550" y="629" text-anchor="middle" fill="#975a16" font-size="10">PENDING/PUBLISHED</text>
+      <text x="550" y="645" text-anchor="middle" fill="#975a16" font-size="10">FAILED (maxRetry=5)</text>
+      <text x="550" y="649" text-anchor="middle" fill="#975a16" font-size="9">partitionKey=qimUserId</text>
+
+      <!-- Q-IM: OutboxServiceImpl -->
+      <rect x="636" y="576" width="168" height="80" rx="8" fill="#2a200f" stroke="#975a16" stroke-width="1"/>
+      <text x="720" y="596" text-anchor="middle" fill="#fbd38d" font-size="11" font-weight="600">OutboxServiceImpl</text>
+      <text x="720" y="613" text-anchor="middle" fill="#975a16" font-size="10">relayPendingEvents 500ms</text>
+      <text x="720" y="629" text-anchor="middle" fill="#975a16" font-size="10">relayFailedEvents 30초</text>
+      <text x="720" y="645" text-anchor="middle" fill="#975a16" font-size="10">triggerSnapshot(10개마다)</text>
+      <line x1="624" y1="616" x2="632" y2="616" stroke="#f6ad55" stroke-width="1.5" marker-end="url(#arr-orange)"/>
+
+      <!-- Q-IM: qim.user -->
+      <rect x="476" y="672" width="328" height="36" rx="8" fill="#2a1a0a" stroke="#975a16" stroke-width="1.5"/>
+      <text x="640" y="691" text-anchor="middle" fill="#f6ad55" font-size="11" font-weight="700">📦 qim.user · qim.outbox (MariaDB)</text>
+      <text x="640" y="707" text-anchor="middle" fill="#975a16" font-size="10">eventVersion 단조 증가 · 회원 상태 관리</text>
+
+      <!-- ══════════════════════════════════
+           Kafka 클러스터 (중앙)
+      ══════════════════════════════════ -->
+      <rect x="840" y="100" width="300" height="500" rx="14" fill="url(#grad-kafka)" stroke="#805ad5" stroke-width="1.5" filter="url(#shadow)"/>
+      <text x="990" y="128" text-anchor="middle" fill="#d6bcfa" font-size="15" font-weight="700">⚡ Kafka 클러스터</text>
+      <text x="990" y="146" text-anchor="middle" fill="#553c9a" font-size="11">메시지 브로커 (공유 인프라)</text>
+
+      <!-- Kafka Topics -->
+      <!-- qsign.auth.events -->
+      <rect x="856" y="164" width="268" height="56" rx="8" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="990" y="185" text-anchor="middle" fill="#b794f4" font-size="12" font-weight="700">qsign.auth.events</text>
+      <text x="990" y="202" text-anchor="middle" fill="#553c9a" font-size="10">보존: 1시간 · 파티션: 6</text>
+      <text x="990" y="213" text-anchor="middle" fill="#553c9a" font-size="9">partitionKey: identifierHash (SHA-256)</text>
+
+      <!-- ido.handoff.events -->
+      <rect x="856" y="234" width="268" height="56" rx="8" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="990" y="255" text-anchor="middle" fill="#b794f4" font-size="12" font-weight="700">ido.handoff.events</text>
+      <text x="990" y="272" text-anchor="middle" fill="#553c9a" font-size="10">보존: 1년 · direct 발행 (Outbox 미사용)</text>
+      <text x="990" y="283" text-anchor="middle" fill="#553c9a" font-size="9">partitionKey: correlationId</text>
+
+      <!-- qim.user.events -->
+      <rect x="856" y="304" width="268" height="56" rx="8" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="990" y="325" text-anchor="middle" fill="#b794f4" font-size="12" font-weight="700">qim.user.events</text>
+      <text x="990" y="342" text-anchor="middle" fill="#553c9a" font-size="10">compact · 파티션: 12</text>
+      <text x="990" y="353" text-anchor="middle" fill="#553c9a" font-size="9">partitionKey: qimUserId</text>
+
+      <!-- qim.user.snapshot -->
+      <rect x="856" y="374" width="268" height="44" rx="8" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="990" y="394" text-anchor="middle" fill="#b794f4" font-size="11" font-weight="700">qim.user.snapshot</text>
+      <text x="990" y="410" text-anchor="middle" fill="#553c9a" font-size="10">compact · 10MB · 10개 이벤트마다 발행</text>
+
+      <!-- platform.session.advisory -->
+      <rect x="856" y="432" width="268" height="44" rx="8" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="990" y="452" text-anchor="middle" fill="#b794f4" font-size="11" font-weight="700">platform.session.advisory</text>
+      <text x="990" y="468" text-anchor="middle" fill="#553c9a" font-size="10">보존: 24시간 · AUTH_LOCKED → 세션 종료</text>
+
+      <!-- platform.audit.log -->
+      <rect x="856" y="490" width="268" height="44" rx="8" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="990" y="510" text-anchor="middle" fill="#b794f4" font-size="11" font-weight="700">platform.audit.log</text>
+      <text x="990" y="526" text-anchor="middle" fill="#553c9a" font-size="10">보존: 2년 · 감사 로그 (PII 원본 금지)</text>
+
+      <!-- qim.sp.member.events -->
+      <rect x="856" y="548" width="268" height="44" rx="8" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="990" y="568" text-anchor="middle" fill="#b794f4" font-size="11" font-weight="700">qim.sp.member.events</text>
+      <text x="990" y="584" text-anchor="middle" fill="#553c9a" font-size="10">보존: 30일</text>
+
+      <!-- ══════════════════════════════════
+           외부 기관 + Redis
+      ══════════════════════════════════ -->
+      <!-- Redis -->
+      <rect x="1160" y="100" width="210" height="80" rx="12" fill="#1a0f0f" stroke="#fc8181" stroke-width="1.5" filter="url(#shadow)"/>
+      <text x="1265" y="128" text-anchor="middle" fill="#fc8181" font-size="14" font-weight="700">⚡ Redis</text>
+      <text x="1265" y="147" text-anchor="middle" fill="#742a2a" font-size="11">Session · Pre-warming Cache</text>
+      <text x="1265" y="163" text-anchor="middle" fill="#742a2a" font-size="10">AUTH_COMPLETED → 60,000명 Pre-warm</text>
+
+      <!-- 외부 기관 -->
+      <rect x="1160" y="220" width="210" height="200" rx="12" fill="#1a1a0f" stroke="#f6ad55" stroke-width="1.5" filter="url(#shadow)"/>
+      <text x="1265" y="248" text-anchor="middle" fill="#f6ad55" font-size="14" font-weight="700">🏢 외부 기관</text>
+      <text x="1265" y="267" text-anchor="middle" fill="#7b5800" font-size="10">(최대 68개)</text>
+
+      <rect x="1172" y="278" width="186" height="40" rx="6" fill="#1a1500" stroke="#b7791f" stroke-width="1"/>
+      <text x="1265" y="296" text-anchor="middle" fill="#f6ad55" font-size="11" font-weight="600">Option A (권장)</text>
+      <text x="1265" y="311" text-anchor="middle" fill="#7b5800" font-size="10">WebhookInboundController</text>
+
+      <rect x="1172" y="328" width="186" height="40" rx="6" fill="#1a1500" stroke="#b7791f" stroke-width="1"/>
+      <text x="1265" y="346" text-anchor="middle" fill="#f6ad55" font-size="11" font-weight="600">Option B (대안)</text>
+      <text x="1265" y="361" text-anchor="middle" fill="#7b5800" font-size="10">GET /api/v1/events/poll 폴링</text>
+
+      <rect x="1172" y="378" width="186" height="36" rx="6" fill="#2a1500" stroke="#744210" stroke-width="1" stroke-dasharray="4,2"/>
+      <text x="1265" y="396" text-anchor="middle" fill="#744210" font-size="10">⚠️ PoC: agency-stub만</text>
+      <text x="1265" y="408" text-anchor="middle" fill="#744210" font-size="9">Kafka 직접 구독 (운영 불가)</text>
+
+      <!-- ══════════════════════════════════
+           데이터 흐름 화살표들
+      ══════════════════════════════════ -->
+
+      <!-- IdO → Kafka qsign.auth.events (IdoOutboxRelay) -->
+      <path d="M 424 194 Q 630 194 840 192" fill="none" stroke="#63b3ed" stroke-width="2" marker-end="url(#arr)" stroke-dasharray="6,3"/>
+      <text x="625" y="185" text-anchor="middle" fill="#4a90c9" font-size="10">qsign.auth.events</text>
+
+      <!-- Q-Sign → Kafka qsign.auth.events (OutboxRelay) -->
+      <path d="M 804 194 Q 820 194 840 192" fill="none" stroke="#68d391" stroke-width="2" marker-end="url(#arr-green)"/>
+
+      <!-- Q-IM → Kafka qim.user.events (OutboxServiceImpl) -->
+      <path d="M 804 616 Q 820 616 840 325" fill="none" stroke="#f6ad55" stroke-width="2" marker-end="url(#arr-orange)" stroke-dasharray="6,3"/>
+      <text x="830" y="500" text-anchor="start" fill="#c07b2a" font-size="10">qim.user.events</text>
+
+      <!-- HandoffServiceImpl → Kafka ido.handoff.events (직접) -->
+      <path d="M 440 270 Q 640 270 840 255" fill="none" stroke="#f6ad55" stroke-width="2.5" marker-end="url(#arr-orange)"/>
+      <text x="640" y="262" text-anchor="middle" fill="#c07b2a" font-size="10" font-weight="700">⚡ 직접 발행</text>
+
+      <!-- Kafka qsign.auth.events → IdO QsignAuthEventConsumer -->
+      <path d="M 840 185 Q 750 185 440 625" fill="none" stroke="#b794f4" stroke-width="1.5" marker-end="url(#arr-purple)" stroke-dasharray="4,3"/>
+
+      <!-- Kafka qim.user.events → Q-Sign QimUserEventConsumer -->
+      <path d="M 840 325 Q 820 325 804 335" fill="none" stroke="#b794f4" stroke-width="1.5" marker-end="url(#arr-purple)" stroke-dasharray="4,3"/>
+
+      <!-- Kafka ido.handoff.events → IdO HandoffEventConsumer -->
+      <path d="M 840 255 Q 750 255 440 640" fill="none" stroke="#b794f4" stroke-width="1.5" marker-end="url(#arr-purple)" stroke-dasharray="4,3"/>
+
+      <!-- IdO WebhookRelay → 외부 기관 -->
+      <path d="M 424 418 Q 1090 418 1155 330" fill="none" stroke="#f6ad55" stroke-width="2" marker-end="url(#arr-orange)" stroke-dasharray="8,4"/>
+      <text x="810" y="410" text-anchor="middle" fill="#c07b2a" font-size="10">HTTPS POST</text>
+
+      <!-- IdO ProvisioningRelay → 외부 기관 -->
+      <path d="M 424 549 Q 1090 549 1155 370" fill="none" stroke="#f6ad55" stroke-width="1.5" marker-end="url(#arr-orange)" stroke-dasharray="8,4"/>
+
+      <!-- IdO QsignAuthEventConsumer → Redis -->
+      <path d="M 440 625 Q 1090 625 1155 165" fill="none" stroke="#fc8181" stroke-width="1.5" marker-end="url(#arr-red)" stroke-dasharray="5,3"/>
+      <text x="1100" y="400" text-anchor="middle" fill="#9b2c2c" font-size="10">Pre-warming</text>
+
+      <!-- 범례 텍스트 -->
+      <text x="20" y="700" fill="#4a5568" font-size="11">📌 각 서버 내부에 Outbox 테이블이 위치합니다.</text>
+      <text x="20" y="716" fill="#4a5568" font-size="11">   같은 트랜잭션 내 비즈니스 DB + Outbox DB INSERT → Relay가 Kafka 발행</text>
+      <text x="20" y="732" fill="#4a5568" font-size="11">   점선(---): 이미 발행된 메시지의 구독 경로</text>
+    </svg>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3182ce"></div>IdO 서버 (PostgreSQL)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#38a169"></div>Q-Sign 서버 (PostgreSQL)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#d69e2e"></div>Q-IM 서버 (MariaDB)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#805ad5"></div>Kafka 클러스터</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#63b3ed"></div>IdO Outbox → Kafka</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#68d391"></div>Q-Sign Outbox → Kafka</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f6ad55"></div>Q-IM Outbox → Kafka / HTTP</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#b794f4"></div>Kafka → Consumer (구독)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fc8181"></div>Redis Pre-warming</div>
+  </div>
+
+  <div class="note-box">
+    <strong>📌 핵심 원칙</strong>: 각 Outbox 테이블은 <strong>해당 서비스의 DB 안에 존재</strong>합니다. 비즈니스 데이터 INSERT와 Outbox INSERT는 <strong>반드시 같은 @Transactional 안에서 원자적으로</strong> 처리됩니다. Relay가 Outbox를 읽어 Kafka / HTTPS로 발행하며, FOR UPDATE SKIP LOCKED로 다중 인스턴스 중복 처리를 방지합니다.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TAB 2: 인증 흐름
+═══════════════════════════════════════════════ -->
+<div id="tab-flow1" class="canvas-wrap">
+  <div class="diagram-container">
+    <svg viewBox="0 0 1300 600" width="1300" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="a1" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#63b3ed"/></marker>
+        <marker id="a2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#68d391"/></marker>
+        <marker id="a3" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#f6ad55"/></marker>
+        <marker id="a4" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#b794f4"/></marker>
+        <marker id="a5" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#fc8181"/></marker>
+      </defs>
+      <rect width="1300" height="600" fill="#111827"/>
+      <pattern id="g2" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e2535" stroke-width=".5"/>
+      </pattern>
+      <rect width="1300" height="600" fill="url(#g2)"/>
+
+      <!-- 스텝 번호 배지 -->
+      <g id="badge-style">
+        <circle cx="0" cy="0" r="14" fill="#2d3748" stroke="#4a5568" stroke-width="1"/>
+      </g>
+
+      <!-- ── 열(Lane) 배경 ── -->
+      <!-- 사용자 -->
+      <rect x="10" y="60" width="130" height="500" rx="8" fill="#0d1117" stroke="#2d3748" stroke-width="1"/>
+      <text x="75" y="88" text-anchor="middle" fill="#718096" font-size="12" font-weight="600">👤 사용자</text>
+      <!-- Q-Sign -->
+      <rect x="155" y="60" width="240" height="500" rx="8" fill="#0a1f14" stroke="#276749" stroke-width="1"/>
+      <text x="275" y="88" text-anchor="middle" fill="#2f855a" font-size="12" font-weight="600">🖥️ Q-Sign (8082)</text>
+      <!-- IdO -->
+      <rect x="410" y="60" width="240" height="500" rx="8" fill="#0a1428" stroke="#2c5282" stroke-width="1"/>
+      <text x="530" y="88" text-anchor="middle" fill="#2b6cb0" font-size="12" font-weight="600">🖥️ IdO (8080)</text>
+      <!-- Kafka -->
+      <rect x="665" y="60" width="220" height="500" rx="8" fill="#130a28" stroke="#6b46c1" stroke-width="1"/>
+      <text x="775" y="88" text-anchor="middle" fill="#553c9a" font-size="12" font-weight="600">⚡ Kafka</text>
+      <!-- IdO Consumer -->
+      <rect x="900" y="60" width="200" height="500" rx="8" fill="#0a1428" stroke="#2c5282" stroke-width="1"/>
+      <text x="1000" y="88" text-anchor="middle" fill="#2b6cb0" font-size="12" font-weight="600">🖥️ IdO Consumer</text>
+      <!-- Redis -->
+      <rect x="1115" y="60" width="165" height="500" rx="8" fill="#1a0f0f" stroke="#fc8181" stroke-width="1"/>
+      <text x="1198" y="88" text-anchor="middle" fill="#742a2a" font-size="12" font-weight="600">⚡ Redis</text>
+
+      <!-- ── 흐름선 ── -->
+      <!-- 1. 인증 요청 -->
+      <line x1="140" y1="140" x2="152" y2="140" stroke="#63b3ed" stroke-width="2" marker-end="url(#a1)"/>
+      <circle cx="60" cy="140" r="13" fill="#2d3748" stroke="#4a5568" stroke-width="1"/>
+      <text x="60" y="145" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="700">1</text>
+      <rect x="157" y="126" width="226" height="28" rx="5" fill="#1a3a2a" stroke="#276749"/>
+      <text x="270" y="145" text-anchor="middle" fill="#9ae6b4" font-size="11">HTTP POST /auth/verify</text>
+
+      <!-- 2. auth_result + outbox INSERT (같은 TX) -->
+      <rect x="157" y="170" width="226" height="44" rx="5" fill="#0d2a1a" stroke="#276749" stroke-width="1.5"/>
+      <text x="270" y="188" text-anchor="middle" fill="#68d391" font-size="11" font-weight="600">qsign.auth_result INSERT</text>
+      <text x="270" y="205" text-anchor="middle" fill="#68d391" font-size="11" font-weight="600">+ qsign.outbox INSERT</text>
+      <circle cx="165" cy="192" r="13" fill="#276749" stroke="#38a169" stroke-width="1"/>
+      <text x="165" y="197" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">2</text>
+      <text x="270" y="227" text-anchor="middle" fill="#2f855a" font-size="10">⬆ 같은 @Transactional 커밋</text>
+
+      <!-- 3. OutboxRelay (500ms) -->
+      <rect x="157" y="244" width="226" height="36" rx="5" fill="#1a3a2a" stroke="#276749"/>
+      <text x="270" y="258" text-anchor="middle" fill="#9ae6b4" font-size="11">OutboxRelay @Scheduled 500ms</text>
+      <text x="270" y="272" text-anchor="middle" fill="#2f855a" font-size="10">findPendingBatch (SKIP LOCKED)</text>
+      <circle cx="165" cy="262" r="13" fill="#276749" stroke="#38a169" stroke-width="1"/>
+      <text x="165" y="267" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">3</text>
+
+      <!-- 4. Kafka 발행 -->
+      <line x1="383" y1="262" x2="660" y2="220" stroke="#68d391" stroke-width="2" marker-end="url(#a2)"/>
+      <text x="520" y="238" text-anchor="middle" fill="#2f855a" font-size="10">send(qsign.auth.events)</text>
+      <circle cx="395" cy="262" r="13" fill="#276749" stroke="#38a169" stroke-width="1"/>
+      <text x="395" y="267" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">4</text>
+
+      <!-- Kafka: qsign.auth.events -->
+      <rect x="672" y="200" width="200" height="40" rx="6" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="772" y="218" text-anchor="middle" fill="#b794f4" font-size="12" font-weight="600">qsign.auth.events</text>
+      <text x="772" y="232" text-anchor="middle" fill="#553c9a" font-size="10">partitionKey: identifierHash</text>
+
+      <!-- 5. markPublished -->
+      <line x1="672" y1="230" x2="390" y2="310" stroke="#68d391" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#a2)"/>
+      <rect x="157" y="296" width="226" height="28" rx="5" fill="#0d2a1a" stroke="#276749"/>
+      <text x="270" y="315" text-anchor="middle" fill="#68d391" font-size="11">outbox UPDATE → PUBLISHED</text>
+      <circle cx="165" cy="310" r="13" fill="#276749" stroke="#38a169" stroke-width="1"/>
+      <text x="165" y="315" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">5</text>
+
+      <!-- IdO 경로 (Keycloak 콜백) -->
+      <rect x="412" y="126" width="226" height="28" rx="5" fill="#1e3a5f" stroke="#2c5282"/>
+      <text x="525" y="145" text-anchor="middle" fill="#90cdf4" font-size="11">GET /callback (Keycloak OIDC)</text>
+      <line x1="140" y1="140" x2="408" y2="140" stroke="#63b3ed" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="275" y="133" text-anchor="middle" fill="#4a90c9" font-size="9">또는</text>
+
+      <rect x="412" y="166" width="226" height="44" rx="5" fill="#0d2137" stroke="#2b6cb0" stroke-width="1.5"/>
+      <text x="525" y="183" text-anchor="middle" fill="#63b3ed" font-size="11" font-weight="600">ido.auth_result INSERT</text>
+      <text x="525" y="200" text-anchor="middle" fill="#63b3ed" font-size="11" font-weight="600">+ ido.outbox INSERT</text>
+      <text x="525" y="218" text-anchor="middle" fill="#4a90c9" font-size="10">saveOutboxEvent() ?::jsonb</text>
+
+      <rect x="412" y="226" width="226" height="36" rx="5" fill="#1a2f4a" stroke="#2c5282"/>
+      <text x="525" y="241" text-anchor="middle" fill="#90cdf4" font-size="11">IdoOutboxRelay @Scheduled 500ms</text>
+      <text x="525" y="256" text-anchor="middle" fill="#4a90c9" font-size="10">Feature Flag: IDO_OUTBOX_RELAY_ENABLED</text>
+
+      <line x1="638" y1="244" x2="660" y2="225" stroke="#63b3ed" stroke-width="2" marker-end="url(#a1)"/>
+      <text x="650" y="237" text-anchor="middle" fill="#4a90c9" font-size="9">send</text>
+
+      <!-- 6. Consumer 수신 -->
+      <line x1="872" y1="220" x2="896" y2="250" stroke="#b794f4" stroke-width="2" marker-end="url(#a4)"/>
+      <rect x="900" y="238" width="186" height="48" rx="5" fill="#1a2f4a" stroke="#2c5282"/>
+      <text x="993" y="255" text-anchor="middle" fill="#90cdf4" font-size="11" font-weight="600">QsignAuthEventConsumer</text>
+      <text x="993" y="270" text-anchor="middle" fill="#4a90c9" font-size="10">isAlreadyProcessed() 확인</text>
+      <text x="993" y="282" text-anchor="middle" fill="#4a90c9" font-size="10">AUTH_COMPLETED → processEvent</text>
+      <circle cx="910" cy="262" r="13" fill="#2c5282" stroke="#3182ce" stroke-width="1"/>
+      <text x="910" y="267" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">6</text>
+
+      <!-- 7. Redis Pre-warming -->
+      <line x1="1086" y1="262" x2="1112" y2="262" stroke="#fc8181" stroke-width="2" marker-end="url(#a5)"/>
+      <rect x="1118" y="246" width="150" height="40" rx="5" fill="#1a0f0f" stroke="#fc8181"/>
+      <text x="1193" y="264" text-anchor="middle" fill="#fc8181" font-size="11" font-weight="600">Redis Pre-warming</text>
+      <text x="1193" y="278" text-anchor="middle" fill="#742a2a" font-size="10">60,000명 캐시 (DB폭발 방지)</text>
+      <circle cx="1120" cy="262" r="13" fill="#742a2a" stroke="#fc8181" stroke-width="1"/>
+      <text x="1120" y="267" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">7</text>
+
+      <!-- AUTH_LOCKED → session.advisory -->
+      <rect x="900" y="310" width="186" height="36" rx="5" fill="#1a0f2a" stroke="#6b46c1"/>
+      <text x="993" y="326" text-anchor="middle" fill="#b794f4" font-size="11">AUTH_LOCKED 시</text>
+      <text x="993" y="340" text-anchor="middle" fill="#553c9a" font-size="10">→ platform.session.advisory 발행</text>
+
+      <!-- 흐름 레이블 -->
+      <text x="650" y="50" text-anchor="middle" fill="#4a5568" font-size="12" font-weight="600">── 인증 완료 이벤트 발행 흐름 (Q-Sign 경로 또는 IdO-Keycloak 경로) ──</text>
+    </svg>
+  </div>
+
+  <div class="flow-cards">
+    <div class="flow-card active">
+      <h4 style="color:#68d391">🟢 Q-Sign 인증 흐름</h4>
+      <ol>
+        <li><span>① 요청</span> 사용자 → Q-Sign POST /auth/verify</li>
+        <li><span>② TX</span> auth_result + <em>qsign.outbox</em> 동시 INSERT (같은 @Transactional)</li>
+        <li><span>③ Relay</span> OutboxRelay 500ms 폴링 → findPendingBatch SKIP LOCKED</li>
+        <li><span>④ 발행</span> KafkaTemplate → <em>qsign.auth.events</em></li>
+        <li><span>⑤ 갱신</span> whenComplete 성공 콜백 → outbox PUBLISHED</li>
+        <li><span>⑥ 수신</span> IdO QsignAuthEventConsumer 구독</li>
+        <li><span>⑦ 캐시</span> Redis Pre-warming (60,000명 대비)</li>
+      </ol>
+    </div>
+    <div class="flow-card">
+      <h4 style="color:#63b3ed">🔵 IdO-Keycloak 인증 흐름</h4>
+      <ol>
+        <li><span>① 콜백</span> Keycloak → IdO GET /callback?code=&state=</li>
+        <li><span>② TX</span> ido.auth_result + <em>ido.outbox</em> 동시 INSERT (?::jsonb)</li>
+        <li><span>③ Relay</span> IdoOutboxRelay 500ms (IDO_OUTBOX_RELAY_ENABLED 확인)</li>
+        <li><span>④ 발행</span> KafkaTemplate → <em>qsign.auth.events</em></li>
+        <li><span>⑤ 수신</span> 동일하게 IdO QsignAuthEventConsumer 처리</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TAB 3: 사용자 변경 흐름
+═══════════════════════════════════════════════ -->
+<div id="tab-flow2" class="canvas-wrap">
+  <div class="diagram-container">
+    <svg viewBox="0 0 1100 520" width="1100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="b1" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#f6ad55"/></marker>
+        <marker id="b2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#b794f4"/></marker>
+        <marker id="b3" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#68d391"/></marker>
+      </defs>
+      <rect width="1100" height="520" fill="#111827"/>
+      <pattern id="g3" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e2535" stroke-width=".5"/>
+      </pattern>
+      <rect width="1100" height="520" fill="url(#g3)"/>
+
+      <!-- Lane 배경 -->
+      <rect x="10" y="50" width="230" height="440" rx="8" fill="#1a0f0f" stroke="#975a16" stroke-width="1"/>
+      <text x="125" y="76" text-anchor="middle" fill="#975a16" font-size="12" font-weight="600">🖥️ Q-IM 서버 (8081)</text>
+      <text x="125" y="92" text-anchor="middle" fill="#744210" font-size="10">MariaDB · qim 스키마</text>
+
+      <rect x="255" y="50" width="210" height="440" rx="8" fill="#130a28" stroke="#6b46c1" stroke-width="1"/>
+      <text x="360" y="76" text-anchor="middle" fill="#553c9a" font-size="12" font-weight="600">⚡ Kafka</text>
+
+      <rect x="480" y="50" width="250" height="440" rx="8" fill="#0a1f14" stroke="#276749" stroke-width="1"/>
+      <text x="605" y="76" text-anchor="middle" fill="#2f855a" font-size="12" font-weight="600">🖥️ Q-Sign 서버 (8082)</text>
+
+      <rect x="745" y="50" width="335" height="440" rx="8" fill="#0a1428" stroke="#2c5282" stroke-width="1"/>
+      <text x="912" y="76" text-anchor="middle" fill="#2b6cb0" font-size="12" font-weight="600">🖥️ IdO 서버 (8080)</text>
+
+      <!-- Step 1: 회원 변경 -->
+      <rect x="18" y="110" width="214" height="36" rx="5" fill="#3a2a1a" stroke="#975a16"/>
+      <text x="125" y="126" text-anchor="middle" fill="#fefcbf" font-size="12" font-weight="600">UserMgmtService</text>
+      <text x="125" y="140" text-anchor="middle" fill="#975a16" font-size="10">회원 정보 변경 API 수신</text>
+      <circle cx="26" cy="128" r="11" fill="#975a16" stroke="#d69e2e"/><text x="26" y="133" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">1</text>
+
+      <!-- Step 2: qim.user + qim.outbox INSERT -->
+      <rect x="18" y="162" width="214" height="48" rx="5" fill="#2a1a0a" stroke="#975a16" stroke-width="1.5"/>
+      <text x="125" y="179" text-anchor="middle" fill="#f6ad55" font-size="11" font-weight="600">qim.user UPDATE</text>
+      <text x="125" y="194" text-anchor="middle" fill="#f6ad55" font-size="11" font-weight="600">+ qim.outbox INSERT</text>
+      <text x="125" y="207" text-anchor="middle" fill="#975a16" font-size="9">eventVersion+1 · 같은 @Transactional</text>
+      <circle cx="26" cy="186" r="11" fill="#975a16" stroke="#d69e2e"/><text x="26" y="191" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">2</text>
+
+      <!-- Step 3: OutboxServiceImpl Relay -->
+      <rect x="18" y="226" width="214" height="36" rx="5" fill="#3a2a1a" stroke="#975a16"/>
+      <text x="125" y="241" text-anchor="middle" fill="#fefcbf" font-size="11">relayPendingEvents (500ms)</text>
+      <text x="125" y="255" text-anchor="middle" fill="#975a16" font-size="10">findPending · SKIP LOCKED (MariaDB)</text>
+      <circle cx="26" cy="244" r="11" fill="#975a16" stroke="#d69e2e"/><text x="26" y="249" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">3</text>
+
+      <!-- Step 4: Kafka 발행 -->
+      <line x1="232" y1="248" x2="252" y2="248" stroke="#f6ad55" stroke-width="2" marker-end="url(#b1)"/>
+      <rect x="262" y="228" width="194" height="40" rx="6" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="359" y="246" text-anchor="middle" fill="#b794f4" font-size="12" font-weight="600">qim.user.events</text>
+      <text x="359" y="260" text-anchor="middle" fill="#553c9a" font-size="10">partitionKey: qimUserId · compact</text>
+      <circle cx="264" cy="248" r="11" fill="#6b46c1" stroke="#805ad5"/><text x="264" y="253" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">4</text>
+
+      <!-- Step 5: PUBLISHED -->
+      <line x1="264" y1="268" x2="232" y2="298" stroke="#f6ad55" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#b1)"/>
+      <rect x="18" y="286" width="214" height="28" rx="5" fill="#2a1a0a" stroke="#975a16"/>
+      <text x="125" y="305" text-anchor="middle" fill="#f6ad55" font-size="11">outbox UPDATE → PUBLISHED</text>
+      <circle cx="26" cy="300" r="11" fill="#975a16" stroke="#d69e2e"/><text x="26" y="305" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">5</text>
+
+      <!-- FAILED → relayFailedEvents -->
+      <rect x="18" y="330" width="214" height="36" rx="5" fill="#2a0a0a" stroke="#744210"/>
+      <text x="125" y="346" text-anchor="middle" fill="#fc8181" font-size="11">발행 실패 시</text>
+      <text x="125" y="360" text-anchor="middle" fill="#744210" font-size="10">relayFailedEvents 30초 후 PENDING 복구</text>
+
+      <!-- Step 6a: Q-Sign QimUserEventConsumer -->
+      <line x1="456" y1="248" x2="476" y2="248" stroke="#b794f4" stroke-width="2" marker-end="url(#b2)"/>
+      <rect x="488" y="130" width="230" height="60" rx="5" fill="#1a3a2a" stroke="#276749"/>
+      <text x="603" y="150" text-anchor="middle" fill="#9ae6b4" font-size="11" font-weight="600">QimUserEventConsumer</text>
+      <text x="603" y="165" text-anchor="middle" fill="#2f855a" font-size="10">group: q-sign-qim-consumer</text>
+      <text x="603" y="178" text-anchor="middle" fill="#2f855a" font-size="10">isAlreadyProcessed + isVersionOutdated</text>
+      <circle cx="496" cy="155" r="11" fill="#276749" stroke="#38a169"/><text x="496" y="160" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">6a</text>
+
+      <rect x="488" y="204" width="230" height="36" rx="5" fill="#0d2a1a" stroke="#276749" stroke-width="1.5"/>
+      <text x="603" y="220" text-anchor="middle" fill="#68d391" font-size="11">USER_SUSPENDED/WITHDRAWN</text>
+      <text x="603" y="233" text-anchor="middle" fill="#2f855a" font-size="10">→ auth_lock 강제 잠금</text>
+
+      <rect x="488" y="252" width="230" height="28" rx="5" fill="#0d2a1a" stroke="#276749"/>
+      <text x="603" y="271" text-anchor="middle" fill="#68d391" font-size="11">processed_event INSERT + last_version UPSERT</text>
+
+      <!-- Step 6b: IdO QimSpMemberEventConsumer -->
+      <line x1="456" y1="248" x2="742" y2="200" stroke="#b794f4" stroke-width="2" marker-end="url(#b2)" stroke-dasharray="5,3"/>
+      <rect x="753" y="130" width="318" height="60" rx="5" fill="#1e3a5f" stroke="#2c5282"/>
+      <text x="912" y="150" text-anchor="middle" fill="#90cdf4" font-size="11" font-weight="600">QimSpMemberEventConsumer</text>
+      <text x="912" y="165" text-anchor="middle" fill="#4a90c9" font-size="10">group: ido-qim-sp-consumer</text>
+      <text x="912" y="178" text-anchor="middle" fill="#4a90c9" font-size="10">회원 변경 → 기관 Webhook 전파</text>
+      <circle cx="761" cy="155" r="11" fill="#2c5282" stroke="#3182ce"/><text x="761" y="160" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">6b</text>
+
+      <!-- Snapshot -->
+      <rect x="18" y="390" width="214" height="36" rx="5" fill="#2a1a0a" stroke="#975a16" stroke-dasharray="5,3"/>
+      <text x="125" y="406" text-anchor="middle" fill="#f6ad55" font-size="11">triggerSnapshotIfNeeded</text>
+      <text x="125" y="420" text-anchor="middle" fill="#975a16" font-size="10">10개 이벤트마다 → qim.user.snapshot 발행</text>
+
+      <line x1="232" y1="408" x2="252" y2="380" stroke="#f6ad55" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#b1)"/>
+      <rect x="262" y="362" width="194" height="32" rx="6" fill="#1a0f2a" stroke="#6b46c1" stroke-dasharray="4,3"/>
+      <text x="359" y="376" text-anchor="middle" fill="#b794f4" font-size="11">qim.user.snapshot</text>
+      <text x="359" y="389" text-anchor="middle" fill="#553c9a" font-size="10">Compacted Topic · 전체 상태</text>
+
+      <text x="550" y="40" text-anchor="middle" fill="#4a5568" font-size="12" font-weight="600">── 사용자 변경 이벤트 흐름 (Q-IM → Q-Sign / IdO) ──</text>
+    </svg>
+  </div>
+
+  <div class="flow-cards">
+    <div class="flow-card active">
+      <h4 style="color:#f6ad55">🟡 Q-IM 사용자 변경 흐름</h4>
+      <ol>
+        <li><span>①</span> UserMgmtService — 회원 정보 변경 API</li>
+        <li><span>②</span> <em>qim.user</em> UPDATE + <em>qim.outbox</em> INSERT (eventVersion+1, 같은 TX)</li>
+        <li><span>③</span> OutboxServiceImpl.relayPendingEvents (500ms)</li>
+        <li><span>④</span> Kafka <em>qim.user.events</em> 발행 (partitionKey=qimUserId)</li>
+        <li><span>⑤</span> 성공 콜백 → outbox PUBLISHED / 실패 시 30초 후 재시도</li>
+        <li><span>⑥a</span> Q-Sign QimUserEventConsumer → <em>auth_lock 잠금</em></li>
+        <li><span>⑥b</span> IdO QimSpMemberEventConsumer → <em>기관 Webhook 전파</em></li>
+      </ol>
+    </div>
+    <div class="flow-card">
+      <h4 style="color:#68d391">🟢 Q-Sign 중복 방어</h4>
+      <ol>
+        <li><span>중복 체크</span> <em>isAlreadyProcessed()</em> → processed_event 조회</li>
+        <li><span>버전 역전</span> <em>isVersionOutdated()</em> → last_event_version 조회</li>
+        <li><span>처리</span> USER_SUSPENDED → auth_lock 잠금</li>
+        <li><span>완료</span> markProcessed() + updateLastVersion()</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TAB 4: Handoff + Webhook 흐름
+═══════════════════════════════════════════════ -->
+<div id="tab-flow3" class="canvas-wrap">
+  <div class="diagram-container">
+    <svg viewBox="0 0 1200 580" width="1200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="c1" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#63b3ed"/></marker>
+        <marker id="c2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#b794f4"/></marker>
+        <marker id="c3" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#f6ad55"/></marker>
+        <marker id="c4" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#fc8181"/></marker>
+      </defs>
+      <rect width="1200" height="580" fill="#111827"/>
+      <pattern id="g4" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e2535" stroke-width=".5"/></pattern>
+      <rect width="1200" height="580" fill="url(#g4)"/>
+
+      <!-- Lanes -->
+      <rect x="10" y="50" width="130" height="500" rx="8" fill="#0d1117" stroke="#2d3748"/><text x="75" y="76" text-anchor="middle" fill="#718096" font-size="11" font-weight="600">👤 사용자</text>
+      <rect x="155" y="50" width="260" height="500" rx="8" fill="#0a1428" stroke="#2c5282"/><text x="285" y="76" text-anchor="middle" fill="#2b6cb0" font-size="12" font-weight="600">🖥️ IdO 서버 (8080)</text>
+      <rect x="430" y="50" width="180" height="500" rx="8" fill="#130a28" stroke="#6b46c1"/><text x="520" y="76" text-anchor="middle" fill="#553c9a" font-size="12" font-weight="600">⚡ Kafka</text>
+      <rect x="625" y="50" width="260" height="500" rx="8" fill="#0a1428" stroke="#2c5282"/><text x="755" y="76" text-anchor="middle" fill="#2b6cb0" font-size="12" font-weight="600">🖥️ IdO Consumer</text>
+      <rect x="900" y="50" width="280" height="500" rx="8" fill="#1a1a0f" stroke="#d69e2e"/><text x="1040" y="76" text-anchor="middle" fill="#975a16" font-size="12" font-weight="600">🏢 외부 기관</text>
+
+      <!-- 1. 인증 완료 후 Handoff 요청 -->
+      <line x1="140" y1="130" x2="152" y2="130" stroke="#63b3ed" stroke-width="2" marker-end="url(#c1)"/>
+      <rect x="158" y="114" width="244" height="32" rx="5" fill="#1e3a5f" stroke="#2c5282"/>
+      <text x="280" y="132" text-anchor="middle" fill="#90cdf4" font-size="11">POST /handoff/issue</text>
+      <circle cx="166" cy="130" r="11" fill="#2c5282" stroke="#3182ce"/><text x="166" y="135" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">1</text>
+
+      <!-- 2. HandoffServiceImpl — 직접 발행! -->
+      <rect x="158" y="160" width="244" height="44" rx="5" fill="#0d2137" stroke="#2b6cb0" stroke-width="1.5"/>
+      <text x="280" y="178" text-anchor="middle" fill="#63b3ed" font-size="11" font-weight="600">HandoffServiceImpl</text>
+      <text x="280" y="193" text-anchor="middle" fill="#f6ad55" font-size="10">⚡ Outbox 미사용! kafkaTemplate.send() 직접</text>
+      <text x="280" y="205" text-anchor="middle" fill="#4a90c9" font-size="9">ido.handoff_ticket INSERT + Kafka 직접 발행 (1 TX)</text>
+      <circle cx="166" cy="182" r="11" fill="#2c5282" stroke="#3182ce"/><text x="166" y="187" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">2</text>
+
+      <!-- 3. Kafka ido.handoff.events -->
+      <line x1="402" y1="182" x2="426" y2="220" stroke="#63b3ed" stroke-width="2" marker-end="url(#c1)"/>
+      <rect x="438" y="200" width="162" height="40" rx="6" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="519" y="218" text-anchor="middle" fill="#b794f4" font-size="11" font-weight="600">ido.handoff.events</text>
+      <text x="519" y="232" text-anchor="middle" fill="#553c9a" font-size="10">보존: 1년</text>
+      <circle cx="438" cy="220" r="11" fill="#6b46c1" stroke="#805ad5"/><text x="438" y="225" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">3</text>
+
+      <!-- 4. HandoffEventConsumer (IdO) -->
+      <line x1="600" y1="220" x2="622" y2="220" stroke="#b794f4" stroke-width="2" marker-end="url(#c2)"/>
+      <rect x="630" y="200" width="244" height="48" rx="5" fill="#1e3a5f" stroke="#2c5282"/>
+      <text x="752" y="218" text-anchor="middle" fill="#90cdf4" font-size="11" font-weight="600">HandoffEventConsumer (IdO)</text>
+      <text x="752" y="233" text-anchor="middle" fill="#4a90c9" font-size="10">HANDOFF_ISSUED → Webhook 큐 등록</text>
+      <text x="752" y="245" text-anchor="middle" fill="#4a90c9" font-size="9">idempotentEventStore.isAlreadyProcessed()</text>
+      <circle cx="638" cy="224" r="11" fill="#2c5282" stroke="#3182ce"/><text x="638" y="229" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">4</text>
+
+      <!-- 5. WebhookDispatcherService.insertOutbox() -->
+      <line x1="752" y1="248" x2="560" y2="290" stroke="#63b3ed" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#c1)"/>
+      <rect x="158" y="280" width="244" height="48" rx="5" fill="#0d2137" stroke="#2b6cb0" stroke-width="1.5"/>
+      <text x="280" y="298" text-anchor="middle" fill="#63b3ed" font-size="11" font-weight="600">WebhookDispatcherService</text>
+      <text x="280" y="313" text-anchor="middle" fill="#4a90c9" font-size="10">insertOutbox() 기관별 1건씩</text>
+      <text x="280" y="324" text-anchor="middle" fill="#4a90c9" font-size="9">ON CONFLICT (source_event_id, agency_code) DO NOTHING</text>
+      <circle cx="166" cy="304" r="11" fill="#2c5282" stroke="#3182ce"/><text x="166" y="309" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">5</text>
+
+      <!-- 6. webhook_dispatch_outbox INSERT -->
+      <rect x="158" y="346" width="244" height="40" rx="5" fill="#0d1f38" stroke="#2b6cb0" stroke-width="1.5"/>
+      <text x="280" y="364" text-anchor="middle" fill="#63b3ed" font-size="11" font-weight="600">📦 webhook_dispatch_outbox</text>
+      <text x="280" y="378" text-anchor="middle" fill="#4a90c9" font-size="10">status=PENDING · max_retry=3</text>
+      <circle cx="166" cy="366" r="11" fill="#2c5282" stroke="#3182ce"/><text x="166" y="371" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">6</text>
+
+      <!-- 7. WebhookDispatchOutboxRelay -->
+      <rect x="158" y="404" width="244" height="44" rx="5" fill="#1a2f4a" stroke="#2c5282"/>
+      <text x="280" y="421" text-anchor="middle" fill="#90cdf4" font-size="11" font-weight="600">WebhookDispatchOutboxRelay</text>
+      <text x="280" y="436" text-anchor="middle" fill="#4a90c9" font-size="10">@Scheduled 500ms · HMAC-SHA256 서명</text>
+      <text x="280" y="448" text-anchor="middle" fill="#4a90c9" font-size="9">지수백오프 2^(n+1)초</text>
+      <circle cx="166" cy="426" r="11" fill="#2c5282" stroke="#3182ce"/><text x="166" y="431" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">7</text>
+
+      <!-- 8. HTTPS POST → 기관 -->
+      <line x1="402" y1="428" x2="896" y2="310" stroke="#f6ad55" stroke-width="2.5" marker-end="url(#c3)"/>
+      <text x="650" y="360" text-anchor="middle" fill="#c07b2a" font-size="11" font-weight="700">HTTPS POST (X-Webhook-Signature)</text>
+      <circle cx="898" cy="310" r="11" fill="#975a16" stroke="#d69e2e"/><text x="898" y="315" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">8</text>
+
+      <!-- 기관 Option A -->
+      <rect x="910" y="285" width="252" height="36" rx="5" fill="#2a2000" stroke="#b7791f" stroke-width="1.5"/>
+      <text x="1036" y="302" text-anchor="middle" fill="#f6ad55" font-size="11" font-weight="600">Option A (권장): WebhookInboundController</text>
+      <text x="1036" y="315" text-anchor="middle" fill="#7b5800" font-size="10">2xx 응답 → DISPATCHED</text>
+
+      <!-- 기관 Option B -->
+      <rect x="910" y="332" width="252" height="36" rx="5" fill="#1a1a00" stroke="#744210"/>
+      <text x="1036" y="349" text-anchor="middle" fill="#f6ad55" font-size="11" font-weight="600">Option B (대안): 폴링 API</text>
+      <text x="1036" y="363" text-anchor="middle" fill="#7b5800" font-size="10">GET /api/v1/events/poll</text>
+
+      <!-- 9. DISPATCHED -->
+      <line x1="910" y1="303" x2="640" y2="460" stroke="#f6ad55" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#c3)"/>
+      <rect x="158" y="462" width="244" height="28" rx="5" fill="#0d1f38" stroke="#2b6cb0"/>
+      <text x="280" y="481" text-anchor="middle" fill="#63b3ed" font-size="11">webhook_dispatch_outbox → DISPATCHED</text>
+      <circle cx="166" cy="476" r="11" fill="#2c5282" stroke="#3182ce"/><text x="166" y="481" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">9</text>
+
+      <!-- HANDOFF_CONSUMED 경로 -->
+      <rect x="630" y="268" width="244" height="80" rx="5" fill="#1a1f38" stroke="#4a5568" stroke-dasharray="5,3"/>
+      <text x="752" y="286" text-anchor="middle" fill="#718096" font-size="10" font-weight="600">기타 이벤트 처리 (HandoffEventConsumer)</text>
+      <text x="752" y="302" text-anchor="middle" fill="#4a5568" font-size="10">HANDOFF_CONSUMED → Redis 캐시 무효화</text>
+      <text x="752" y="318" text-anchor="middle" fill="#4a5568" font-size="10">HANDOFF_EXPIRED → 감사 로그</text>
+      <text x="752" y="334" text-anchor="middle" fill="#fc8181" font-size="10">HANDOFF_REVOKED → 즉시 보안 처리</text>
+
+      <text x="600" y="40" text-anchor="middle" fill="#4a5568" font-size="12" font-weight="600">── Handoff 발급 + Webhook 발송 흐름 ──</text>
+    </svg>
+  </div>
+
+  <div class="flow-cards">
+    <div class="flow-card active">
+      <h4 style="color:#63b3ed">🔵 Handoff + Webhook 흐름</h4>
+      <ol>
+        <li><span>①</span> 사용자 → POST /handoff/issue</li>
+        <li><span>②</span> HandoffServiceImpl — Outbox 없이 <em>kafkaTemplate 직접 발행</em></li>
+        <li><span>③</span> Kafka <em>ido.handoff.events</em> 토픽</li>
+        <li><span>④</span> IdO HandoffEventConsumer 수신 → HANDOFF_ISSUED 처리</li>
+        <li><span>⑤</span> WebhookDispatcherService.insertOutbox() 기관별 호출</li>
+        <li><span>⑥</span> <em>webhook_dispatch_outbox</em> PENDING INSERT (ON CONFLICT DO NOTHING)</li>
+        <li><span>⑦</span> WebhookDispatchOutboxRelay 500ms 폴링</li>
+        <li><span>⑧</span> HTTPS POST → 기관 (HMAC-SHA256, 지수백오프)</li>
+        <li><span>⑨</span> 2xx → DISPATCHED / 실패 → 재시도</li>
+      </ol>
+    </div>
+    <div class="flow-card">
+      <h4 style="color:#f6ad55">⚠️ 핵심 설계 포인트</h4>
+      <ol>
+        <li><span>멱등성</span> ON CONFLICT (source_event_id, agency_code) DO NOTHING</li>
+        <li><span>PII 보호</span> Webhook payload에 qimUserId/CI 원본 포함 금지</li>
+        <li><span>지수백오프</span> 2초 → 4초 → 8초 → … 최대 FAILED</li>
+        <li><span>기관 격리</span> 각 기관별 독립 레코드 → 한 기관 장애가 타 기관에 영향 없음</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TAB 5: 프로비저닝 흐름
+═══════════════════════════════════════════════ -->
+<div id="tab-flow4" class="canvas-wrap">
+  <div class="diagram-container">
+    <svg viewBox="0 0 1150 500" width="1150" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="d1" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#f6ad55"/></marker>
+        <marker id="d2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#b794f4"/></marker>
+        <marker id="d3" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#68d391"/></marker>
+        <marker id="d4" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#63b3ed"/></marker>
+      </defs>
+      <rect width="1150" height="500" fill="#111827"/>
+      <pattern id="g5" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e2535" stroke-width=".5"/></pattern>
+      <rect width="1150" height="500" fill="url(#g5)"/>
+
+      <!-- Lanes -->
+      <rect x="10" y="50" width="200" height="420" rx="8" fill="#1a0f0f" stroke="#975a16"/><text x="110" y="76" text-anchor="middle" fill="#975a16" font-size="11" font-weight="600">🖥️ Q-IM (8081)</text>
+      <rect x="225" y="50" width="160" height="420" rx="8" fill="#130a28" stroke="#6b46c1"/><text x="305" y="76" text-anchor="middle" fill="#553c9a" font-size="11" font-weight="600">⚡ Kafka</text>
+      <rect x="400" y="50" width="320" height="420" rx="8" fill="#0a1428" stroke="#2c5282"/><text x="560" y="76" text-anchor="middle" fill="#2b6cb0" font-size="12" font-weight="600">🖥️ IdO 서버 (8080)</text>
+      <rect x="736" y="50" width="390" height="420" rx="8" fill="#1a1a0f" stroke="#d69e2e"/><text x="931" y="76" text-anchor="middle" fill="#975a16" font-size="12" font-weight="600">🏢 외부 기관 (최대 68개)</text>
+
+      <!-- 1. Q-IM USER_REGISTERED 발행 -->
+      <rect x="18" y="110" width="184" height="36" rx="5" fill="#2a1a0a" stroke="#975a16" stroke-width="1.5"/>
+      <text x="110" y="127" text-anchor="middle" fill="#f6ad55" font-size="11" font-weight="600">qim.outbox → USER_REGISTERED</text>
+      <text x="110" y="140" text-anchor="middle" fill="#975a16" font-size="9">OutboxServiceImpl 발행</text>
+      <circle cx="26" cy="128" r="11" fill="#975a16" stroke="#d69e2e"/><text x="26" y="133" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">1</text>
+
+      <line x1="202" y1="128" x2="222" y2="175" stroke="#f6ad55" stroke-width="2" marker-end="url(#d1)"/>
+      <rect x="232" y="158" width="144" height="36" rx="6" fill="#1a0f2a" stroke="#6b46c1" stroke-width="1.5"/>
+      <text x="304" y="176" text-anchor="middle" fill="#b794f4" font-size="11" font-weight="600">qim.user.events</text>
+      <text x="304" y="188" text-anchor="middle" fill="#553c9a" font-size="9">USER_REGISTERED</text>
+
+      <!-- 2. IdO Consumer 수신 -->
+      <line x1="376" y1="176" x2="396" y2="176" stroke="#b794f4" stroke-width="2" marker-end="url(#d2)"/>
+      <rect x="408" y="158" width="300" height="36" rx="5" fill="#1e3a5f" stroke="#2c5282"/>
+      <text x="558" y="175" text-anchor="middle" fill="#90cdf4" font-size="11" font-weight="600">QimSpMemberEventConsumer</text>
+      <text x="558" y="188" text-anchor="middle" fill="#4a90c9" font-size="10">USER_REGISTERED → provisionToAllAgencies() 호출</text>
+      <circle cx="416" cy="176" r="11" fill="#2c5282" stroke="#3182ce"/><text x="416" y="181" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">2</text>
+
+      <!-- 3. ProvisioningServiceImpl — 최대 68건 INSERT -->
+      <rect x="408" y="212" width="300" height="56" rx="5" fill="#0d2137" stroke="#2b6cb0" stroke-width="1.5"/>
+      <text x="558" y="230" text-anchor="middle" fill="#63b3ed" font-size="11" font-weight="600">ProvisioningServiceImpl.provisionToAllAgencies()</text>
+      <text x="558" y="245" text-anchor="middle" fill="#4a90c9" font-size="10">최대 68건 INSERT (기관별 1건) · 같은 @Transactional</text>
+      <text x="558" y="258" text-anchor="middle" fill="#4a90c9" font-size="9">ON CONFLICT (idempotency_key, agency_code) DO NOTHING</text>
+      <circle cx="416" cy="240" r="11" fill="#2c5282" stroke="#3182ce"/><text x="416" y="245" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">3</text>
+
+      <!-- 4. provisioning_outbox INSERT -->
+      <rect x="408" y="286" width="300" height="40" rx="5" fill="#0d1f38" stroke="#2b6cb0" stroke-width="1.5"/>
+      <text x="558" y="304" text-anchor="middle" fill="#63b3ed" font-size="11" font-weight="600">📦 ido.provisioning_outbox</text>
+      <text x="558" y="318" text-anchor="middle" fill="#4a90c9" font-size="10">status=PENDING · max_retry=3 · idempotency_key</text>
+      <circle cx="416" cy="306" r="11" fill="#2c5282" stroke="#3182ce"/><text x="416" y="311" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">4</text>
+
+      <!-- 5. ProvisioningOutboxRelay -->
+      <rect x="408" y="344" width="300" height="44" rx="5" fill="#1a2f4a" stroke="#2c5282"/>
+      <text x="558" y="362" text-anchor="middle" fill="#90cdf4" font-size="11" font-weight="600">ProvisioningOutboxRelay</text>
+      <text x="558" y="377" text-anchor="middle" fill="#4a90c9" font-size="10">@Scheduled 30초 · IDO_PROVISIONING_RELAY_ENABLED</text>
+      <text x="558" y="388" text-anchor="middle" fill="#4a90c9" font-size="9">백오프: 1분 → 5분 → 30분 (CASE WHEN)</text>
+      <circle cx="416" cy="366" r="11" fill="#2c5282" stroke="#3182ce"/><text x="416" y="371" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">5</text>
+
+      <!-- 6. HTTPS POST → 기관들 (3개 표시) -->
+      <line x1="708" y1="366" x2="732" y2="200" stroke="#68d391" stroke-width="2" marker-end="url(#d3)"/>
+      <line x1="708" y1="366" x2="732" y2="300" stroke="#68d391" stroke-width="2" marker-end="url(#d3)"/>
+      <line x1="708" y1="366" x2="732" y2="380" stroke="#68d391" stroke-width="2" marker-end="url(#d3)"/>
+      <text x="720" y="290" text-anchor="middle" fill="#2f855a" font-size="10">HTTPS POST</text>
+      <circle cx="730" cy="290" r="11" fill="#276749" stroke="#38a169"/><text x="730" y="295" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">6</text>
+
+      <!-- 기관 박스들 -->
+      <rect x="748" y="170" width="360" height="36" rx="5" fill="#2a2000" stroke="#b7791f" stroke-width="1.5"/>
+      <text x="928" y="191" text-anchor="middle" fill="#f6ad55" font-size="11">기관 001 (HTTPS POST /provisioning)</text>
+
+      <rect x="748" y="270" width="360" height="36" rx="5" fill="#2a2000" stroke="#b7791f"/>
+      <text x="928" y="291" text-anchor="middle" fill="#f6ad55" font-size="11">기관 002</text>
+
+      <rect x="748" y="355" width="360" height="36" rx="5" fill="#2a2000" stroke="#b7791f"/>
+      <text x="928" y="375" text-anchor="middle" fill="#f6ad55" font-size="11">기관 003 ~ 068</text>
+
+      <!-- 성공/실패 -->
+      <rect x="408" y="406" width="300" height="50" rx="5" fill="#0a1428" stroke="#4a5568" stroke-dasharray="5,3"/>
+      <text x="558" y="423" text-anchor="middle" fill="#68d391" font-size="11">2xx → status=COMPLETED</text>
+      <text x="558" y="438" text-anchor="middle" fill="#fc8181" font-size="11">실패 → 백오프 재시도 → DEAD_LETTER</text>
+      <text x="558" y="452" text-anchor="middle" fill="#4a5568" font-size="10">기관별 독립 — 한 기관 실패가 타 기관에 영향 없음</text>
+
+      <text x="575" y="40" text-anchor="middle" fill="#4a5568" font-size="12" font-weight="600">── 프로비저닝 흐름 (회원 가입 시 최대 68개 기관 등록) ──</text>
+    </svg>
+  </div>
+
+  <div class="flow-cards">
+    <div class="flow-card active">
+      <h4 style="color:#63b3ed">🔵 프로비저닝 흐름</h4>
+      <ol>
+        <li><span>①</span> Q-IM OutboxServiceImpl → Kafka <em>qim.user.events</em> USER_REGISTERED 발행</li>
+        <li><span>②</span> IdO QimSpMemberEventConsumer 수신</li>
+        <li><span>③</span> ProvisioningServiceImpl — 기관 목록 조회, 최대 <em>68건 INSERT</em></li>
+        <li><span>④</span> <em>provisioning_outbox</em> 기관별 1건 (ON CONFLICT DO NOTHING)</li>
+        <li><span>⑤</span> ProvisioningOutboxRelay <em>30초</em> 폴링</li>
+        <li><span>⑥</span> 각 기관 HTTPS POST → COMPLETED 또는 백오프 재시도</li>
+      </ol>
+    </div>
+    <div class="flow-card">
+      <h4 style="color:#f6ad55">⏱️ 백오프 전략</h4>
+      <ol>
+        <li><span>1회 실패</span> 1분 후 재시도</li>
+        <li><span>2회 실패</span> 5분 후 재시도</li>
+        <li><span>3회 실패</span> 30분 후 재시도</li>
+        <li><span>maxRetry 초과</span> <em>DEAD_LETTER</em> → 수동 복구 또는 알람</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.canvas-wrap').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
