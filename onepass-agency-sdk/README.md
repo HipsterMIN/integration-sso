@@ -14,7 +14,8 @@
 ## 목차
 
 1. [특징](#1-특징)
-2. [요구사항](#2-요구사항)
+2. [요구사항 및 아키텍처 이해](#2-요구사항-및-아키텍처-이해)
+   - [baseUrl — 어디를 가리켜야 하는가](#21-baseurl--어디를-가리켜야-하는가)
 3. [빠른 시작 (Quick Start)](#3-빠른-시작-quick-start)
 4. [의존성 추가](#4-의존성-추가)
 5. [API 레퍼런스](#5-api-레퍼런스)
@@ -51,14 +52,76 @@
 
 ---
 
-## 2. 요구사항
+## 2. 요구사항 및 아키텍처 이해
 
 | 항목 | 최소 요건 |
 |------|-----------|
 | **JDK** | Java 8 이상 (Java 21 빌드, Java 8 바이트코드 출력) |
 | **빌드 도구** | Gradle 7.x+ 또는 Maven 3.6+ |
-| **네트워크** | OnePass Gateway API 서버 접근 가능 |
+| **네트워크** | IdO(Identity Orchestration) 서버 접근 가능 |
 | **API 키** | OnePass 관리자로부터 발급받은 `X-Api-Key` |
+
+### 2.1 `baseUrl` — 어디를 가리켜야 하는가
+
+> ⚠️ **가장 중요한 설정 항목입니다. 반드시 정확히 이해하고 설정하세요.**
+
+이 SDK는 **IdO(Identity Orchestration) 서버**에 직접 HTTP 요청을 보냅니다.
+`baseUrl`은 **IdO 서버의 주소**를 설정해야 합니다.
+
+#### OnePass 시스템 구성 요약
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      OnePass 시스템                              │
+│                                                                  │
+│  ┌──────────────┐    ┌──────────────────────────────────────┐   │
+│  │  onepass-fe  │    │  ido (IdO 서버, 포트 8083)           │   │
+│  │  (브라우저    │    │                                      │   │
+│  │   로그인 UI) │    │  AgencyGatewayController             │   │
+│  │              │    │  POST /api/v1/agency/gateway/        │   │
+│  │  ← 사용자    │    │        inbound/event                 │   │
+│  │    브라우저가 │    │  PATCH /api/v1/agency/gateway/       │   │
+│  │    접속하는  │    │        outbound/notify               │   │
+│  │    UI 서버   │    │  GET  /api/v1/agency/gateway/        │   │
+│  │  (SDK와 무관)│    │        status/{agencyCode}           │   │
+│  └──────────────┘    └──────────────────────────────────────┘   │
+│                                    ↑                             │
+└────────────────────────────────────│─────────────────────────────┘
+                                     │ HTTP 요청 (이 SDK가 호출)
+                              ┌──────────────┐
+                              │  기관 시스템  │
+                              │  (agency-stub│
+                              │   또는 실제  │
+                              │   기관 서버) │
+                              └──────────────┘
+```
+
+#### `baseUrl` 올바른 설정값
+
+| 환경 | `baseUrl` | 비고 |
+|------|-----------|------|
+| **로컬 개발** | `http://localhost:8083` | IdO 서버 기본 포트 |
+| **Docker Compose** | `http://ido:8083` | 서비스명으로 접근 |
+| **쿠버네티스(내부)** | `http://ido-service:8083` | k8s Service 이름 |
+| **운영(내부망)** | 운영 IdO 서버 URL (관리자 확인) | 예: `http://ido.internal.smes.go.kr:8083` |
+
+#### ❌ `baseUrl`에 넣으면 안 되는 것
+
+| 잘못된 값 | 이유 |
+|-----------|------|
+| `onepass-fe` URL | 브라우저 로그인 UI 서버 — SDK API 엔드포인트 없음 |
+| 외부 시연 URL | Q-Sign/Q-IM을 직접 통신하는 **별개 시스템** — 이 SDK와 무관 |
+
+> **참고 — `agency-stub/src/main/resources/application.yml`:**
+> ```yaml
+> agency-stub:
+>   code: AGENCY_STUB_001
+>   ido:
+>     base-url: ${IDO_BASE_URL:http://localhost:8083}  # ← SDK의 baseUrl은 이것
+>     api-key: ${AGENCY_API_KEY:stub-api-key-dev}
+> ```
+> agency-stub이 IdO 서버(`ido` 모듈, 포트 8083)를 직접 호출하는 것과 동일하게,
+> 이 SDK도 IdO 서버를 직접 호출합니다.
 
 ---
 
@@ -74,16 +137,16 @@ import kr.go.smes.sdk.agency.model.InboundEvent;
 
 // 1. 클라이언트 생성 (애플리케이션 시작 시 1회 — 싱글턴으로 관리 권장)
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("https://onepass.go.kr")          // OnePass 서버 URL
-        .apiKey("your-x-api-key-here")              // 발급받은 API 키
-        .agencyCode("MOIS")                         // 기관 코드
+        .baseUrl("http://localhost:8083")           // IdO 서버 URL (로컬 개발)
+        .apiKey("stub-api-key-dev")                 // agency-stub.ido.api-key 값
+        .agencyCode("AGENCY_STUB_001")              // agency-stub.code 값
         .build();
 
 // 2. 인바운드 이벤트 전송 (기관 → OnePass)
 InboundEvent event = InboundEvent.builder()
         .eventType("USER_REGISTERED")
-        .agencyCode("MOIS")
-        .idempotencyKey(IdempotencyKeyGenerator.generateWithPrefix("MOIS"))
+        .agencyCode("AGENCY_STUB_001")
+        .idempotencyKey(IdempotencyKeyGenerator.generateWithPrefix("AGENCY_STUB_001"))
         .payloadJson("{\"userId\":\"user-123\",\"action\":\"sync\"}")
         .build();
 
@@ -102,7 +165,7 @@ if (response.isSuccess()) {
 import kr.go.smes.sdk.agency.model.OutboundNotifyRequest;
 
 OutboundNotifyRequest notify = OutboundNotifyRequest.builder()
-        .agencyCode("MOIS")
+        .agencyCode("AGENCY_STUB_001")
         .eventType("USER_PROVISIONED")
         .payload("{\"status\":\"ok\",\"onepassId\":\"op-abc-123\"}")
         .idempotencyKey(IdempotencyKeyGenerator.generate())
@@ -115,8 +178,9 @@ System.out.println("Webhook 트리거 완료: " + notifyResp.isSuccess());
 ### 3.3 기관 연동 상태 조회
 
 ```java
-GatewayResponse status = client.getStatus("MOIS");
-System.out.println("연동 상태: " + status.getBody()); // {"agencyCode":"MOIS","active":true,...}
+GatewayResponse status = client.getStatus("AGENCY_STUB_001");
+System.out.println("연동 상태: " + status.getBody());
+// 예: {"agencyCode":"AGENCY_STUB_001","active":true,...}
 ```
 
 ---
@@ -197,9 +261,9 @@ dependencies {
 
 | 메서드 | 필수 | 기본값 | 설명 |
 |--------|------|--------|------|
-| `baseUrl(String)` | ✅ | — | OnePass 서버 URL (예: `https://onepass.go.kr`) |
-| `apiKey(String)` | ✅ | — | 발급받은 X-Api-Key |
-| `agencyCode(String)` | — | `null` | 기관 코드. 설정 시 모든 요청에 `X-Agency-Code` 헤더 자동 추가 |
+| `baseUrl(String)` | ✅ | — | **IdO 서버** URL (예: `http://localhost:8083`) |
+| `apiKey(String)` | ✅ | — | 발급받은 X-Api-Key (`agency-stub.ido.api-key` 참고) |
+| `agencyCode(String)` | — | `null` | 기관 코드 (예: `AGENCY_STUB_001`). 설정 시 모든 요청에 `X-Agency-Code` 헤더 자동 추가 |
 | `httpAdapter(AgencyHttpAdapter)` | — | `HttpUrlConnectionAdapter` | HTTP 구현체 교체 |
 | `hmacSecret(String)` | — | `null` | HMAC 공유 비밀키 (`signRequests=true` 시 필요) |
 | `signRequests(boolean)` | — | `false` | `true` 설정 시 `X-Internal-Sig` 헤더 자동 추가 |
@@ -227,11 +291,11 @@ GatewayResponse getStatus(String agencyCode)
 
 ```java
 InboundEvent event = InboundEvent.builder()
-        .eventType("USER_REGISTERED")             // [필수] 이벤트 타입
-        .agencyCode("MOIS")                       // [필수] 기관 코드
-        .idempotencyKey("MOIS-20260514-0001")     // [필수] 멱등성 키
-        .payloadJson("{\"userId\":\"u-123\"}")     // [선택] JSON 페이로드 (raw JSON 문자열)
-        .correlationId("corr-abc-123")            // [선택] 요청 추적 ID
+        .eventType("USER_REGISTERED")                        // [필수] 이벤트 타입
+        .agencyCode("AGENCY_STUB_001")                       // [필수] 기관 코드
+        .idempotencyKey("AGENCY_STUB_001-20260514-0001")     // [필수] 멱등성 키
+        .payloadJson("{\"userId\":\"u-123\"}")                // [선택] JSON 페이로드 (raw JSON 문자열)
+        .correlationId("corr-abc-123")                       // [선택] 요청 추적 ID
         .build();
 
 // JSON 직렬화 (외부 라이브러리 불필요)
@@ -242,8 +306,8 @@ String json = event.toJsonString();
 ```json
 {
   "event_type": "USER_REGISTERED",
-  "agency_code": "MOIS",
-  "idempotency_key": "MOIS-20260514-0001",
+  "agency_code": "AGENCY_STUB_001",
+  "idempotency_key": "AGENCY_STUB_001-20260514-0001",
   "payload": {"userId": "u-123"},
   "correlation_id": "corr-abc-123"
 }
@@ -257,11 +321,11 @@ OnePass → 기관 Webhook 트리거 요청 모델. **불변(Immutable)** 객체
 
 ```java
 OutboundNotifyRequest request = OutboundNotifyRequest.builder()
-        .agencyCode("MOIS")                           // [필수] 기관 코드
-        .eventType("USER_PROVISIONED")                // [필수] 이벤트 타입
-        .payload("{\"onepassId\":\"op-abc\"}")        // [선택] JSON 페이로드
-        .idempotencyKey(IdempotencyKeyGenerator.generate()) // [선택] 멱등성 키
-        .correlationId("corr-xyz")                    // [선택] 요청 추적 ID
+        .agencyCode("AGENCY_STUB_001")                       // [필수] 기관 코드
+        .eventType("USER_PROVISIONED")                       // [필수] 이벤트 타입
+        .payload("{\"onepassId\":\"op-abc\"}")               // [선택] JSON 페이로드
+        .idempotencyKey(IdempotencyKeyGenerator.generate())  // [선택] 멱등성 키
+        .correlationId("corr-xyz")                           // [선택] 요청 추적 ID
         .build();
 ```
 
@@ -274,12 +338,12 @@ OutboundNotifyRequest request = OutboundNotifyRequest.builder()
 ```java
 GatewayResponse response = client.sendInbound(event);
 
-int    status       = response.getHttpStatus();       // HTTP 상태 코드 (202 등)
-String body         = response.getBody();             // raw JSON 응답 본문
-String correlationId = response.getCorrelationId();  // X-Correlation-Id 헤더값
-String requestId    = response.getRequestId();        // X-Request-Id 헤더값
-boolean success     = response.isSuccess();           // 2xx 여부
-boolean conflict    = response.isIdempotencyConflict(); // 409 여부
+int    status        = response.getHttpStatus();        // HTTP 상태 코드 (202 등)
+String body          = response.getBody();              // raw JSON 응답 본문
+String correlationId = response.getCorrelationId();    // X-Correlation-Id 헤더값
+String requestId     = response.getRequestId();         // X-Request-Id 헤더값
+boolean success      = response.isSuccess();            // 2xx 여부
+boolean conflict     = response.isIdempotencyConflict(); // 409 여부
 ```
 
 ---
@@ -294,12 +358,12 @@ String key1 = IdempotencyKeyGenerator.generate();
 // 예: "550e8400-e29b-41d4-a716-446655440000"
 
 // 전략 2: 접두사 + UUID (기관 코드 포함, 디버그 용이)
-String key2 = IdempotencyKeyGenerator.generateWithPrefix("MOIS");
-// 예: "MOIS-550e8400-e29b-41d4-a716-446655440000"
+String key2 = IdempotencyKeyGenerator.generateWithPrefix("AGENCY_STUB_001");
+// 예: "AGENCY_STUB_001-550e8400-e29b-41d4-a716-446655440000"
 
 // 전략 3: 시퀀스 기반 (순서 추적 가능, 동시성 안전)
-String key3 = IdempotencyKeyGenerator.generateSequential("NTS");
-// 예: "NTS-1715641234567-0000000042"
+String key3 = IdempotencyKeyGenerator.generateSequential("AGENCY_STUB_001");
+// 예: "AGENCY_STUB_001-1715641234567-0000000042"
 
 // 상수시간 비교 (타이밍 공격 방지)
 boolean equal = IdempotencyKeyGenerator.constantTimeEquals(key1, key2);
@@ -341,10 +405,11 @@ SDK는 `AgencyHttpAdapter` 인터페이스 기반으로 HTTP 구현체를 완전
 ```java
 // 기본값 (별도 설정 불필요)
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("https://onepass.go.kr")
-        .apiKey("your-api-key")
-        .connectTimeoutMs(5_000)    // 연결 타임아웃 (기본 5초)
-        .readTimeoutMs(30_000)      // 읽기 타임아웃 (기본 30초)
+        .baseUrl("http://localhost:8083")           // IdO 서버 URL
+        .apiKey("stub-api-key-dev")
+        .agencyCode("AGENCY_STUB_001")
+        .connectTimeoutMs(5_000)                    // 연결 타임아웃 (기본 5초)
+        .readTimeoutMs(30_000)                      // 읽기 타임아웃 (기본 30초)
         .build();
 ```
 
@@ -369,8 +434,9 @@ OkHttpClient okHttp = new OkHttpClient.Builder()
         .build();
 
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("https://onepass.go.kr")
-        .apiKey("your-api-key")
+        .baseUrl("http://localhost:8083")           // IdO 서버 URL
+        .apiKey("stub-api-key-dev")
+        .agencyCode("AGENCY_STUB_001")
         .httpAdapter(new OkHttpAgencyAdapter(okHttp))
         .build();
 ```
@@ -405,8 +471,9 @@ CloseableHttpClient apacheClient = HttpClients.custom()
 ApacheHttpAgencyAdapter adapter = new ApacheHttpAgencyAdapter(apacheClient);
 
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("https://onepass.go.kr")
-        .apiKey("your-api-key")
+        .baseUrl("http://localhost:8083")           // IdO 서버 URL
+        .apiKey("stub-api-key-dev")
+        .agencyCode("AGENCY_STUB_001")
         .httpAdapter(adapter)
         .build();
 
@@ -425,11 +492,11 @@ AgencyHttpAdapter restTemplateAdapter = (method, url, headers, body) -> {
     RestTemplate restTemplate = new RestTemplate();
     HttpHeaders httpHeaders = new HttpHeaders();
     headers.forEach(httpHeaders::set);
-    
+
     HttpEntity<String> entity = new HttpEntity<>(body, httpHeaders);
     ResponseEntity<String> resp = restTemplate.exchange(
             url, HttpMethod.valueOf(method), entity, String.class);
-    
+
     return GatewayResponse.of(
             resp.getStatusCode().value(),
             resp.getBody(),
@@ -439,8 +506,9 @@ AgencyHttpAdapter restTemplateAdapter = (method, url, headers, body) -> {
 };
 
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("https://onepass.go.kr")
-        .apiKey("your-api-key")
+        .baseUrl("http://localhost:8083")           // IdO 서버 URL
+        .apiKey("stub-api-key-dev")
+        .agencyCode("AGENCY_STUB_001")
         .httpAdapter(restTemplateAdapter)
         .build();
 ```
@@ -456,11 +524,11 @@ SDK에서 서명을 자동 생성하려면 다음과 같이 설정한다.
 
 ```java
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("https://onepass.go.kr")
-        .apiKey("your-api-key")
-        .agencyCode("MOIS")
-        .hmacSecret("onepass-mois-shared-secret-2026")  // OnePass 관리자로부터 수령
-        .signRequests(true)                              // 서명 활성화
+        .baseUrl("http://localhost:8083")                    // IdO 서버 URL
+        .apiKey("stub-api-key-dev")
+        .agencyCode("AGENCY_STUB_001")
+        .hmacSecret("onepass-agency-shared-secret-2026")    // OnePass 관리자로부터 수령
+        .signRequests(true)                                  // 서명 활성화
         .build();
 ```
 
@@ -522,9 +590,9 @@ try {
 
 } catch (AgencyHttpException e) {
     // HTTP 레벨 오류 (4xx / 5xx 또는 네트워크 장애)
-    int status = e.getHttpStatus();           // -1 = 네트워크 오류
-    String body = e.getResponseBody();        // 서버 응답 본문 (null = 네트워크 오류)
-    String code = e.getErrorCode();           // "SDK_HTTP_ERROR" | "SDK_HTTP_IO_ERROR"
+    int    status = e.getHttpStatus();           // -1 = 네트워크 오류
+    String body   = e.getResponseBody();         // 서버 응답 본문 (null = 네트워크 오류)
+    String code   = e.getErrorCode();            // "SDK_HTTP_ERROR" | "SDK_HTTP_IO_ERROR"
 
     if (e.isClientError()) {
         // 4xx: 요청 내용 문제 (API 키 오류, 유효성 검사 실패 등)
@@ -576,8 +644,8 @@ OnePass Gateway는 **멱등성 키(X-Idempotency-Key)**로 중복 요청을 감�
 | 전략 | 메서드 | 형식 | 적합한 경우 |
 |------|--------|------|------------|
 | UUID v4 | `generate()` | `550e8400-e29b-41d4-a716-446655440000` | 일반 단발성 요청 |
-| 접두사 + UUID | `generateWithPrefix("MOIS")` | `MOIS-550e8400-...` | 기관 코드 포함 추적 필요 |
-| 시퀀스 기반 | `generateSequential("NTS")` | `NTS-1715641234567-0000000042` | 순서 보장, 감사 로그 |
+| 접두사 + UUID | `generateWithPrefix("AGENCY_STUB_001")` | `AGENCY_STUB_001-550e8400-...` | 기관 코드 포함 추적 필요 |
+| 시퀀스 기반 | `generateSequential("AGENCY_STUB_001")` | `AGENCY_STUB_001-1715641234567-0000000042` | 순서 보장, 감사 로그 |
 
 **Transactional Outbox 패턴 권장 구현:**
 
@@ -590,7 +658,7 @@ public void processAndEmit(UserRegisteredEvent domainEvent) {
 
     // 2. Outbox 테이블에 SDK 요청 정보 저장
     //    (멱등성 키는 도메인 이벤트 ID 기반으로 고정 생성 → 재시도 시 동일 키 재사용)
-    String idempotencyKey = "MOIS-" + domainEvent.getEventId();
+    String idempotencyKey = "AGENCY_STUB_001-" + domainEvent.getEventId();
     outboxRepository.save(OutboxRecord.builder()
             .idempotencyKey(idempotencyKey)
             .eventType("USER_REGISTERED")
@@ -602,7 +670,7 @@ public void processAndEmit(UserRegisteredEvent domainEvent) {
 public void relay(OutboxRecord record) {
     InboundEvent event = InboundEvent.builder()
             .eventType(record.getEventType())
-            .agencyCode("MOIS")
+            .agencyCode("AGENCY_STUB_001")
             .idempotencyKey(record.getIdempotencyKey())  // 고정 키로 멱등성 보장
             .payloadJson(record.getPayloadJson())
             .build();
@@ -637,6 +705,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OnePassSdkConfig {
 
+    // application.yml: onepass.gateway.base-url = IdO 서버 URL
     @Value("${onepass.gateway.base-url}")
     private String baseUrl;
 
@@ -675,11 +744,16 @@ public class OnePassSdkConfig {
 ```yaml
 onepass:
   gateway:
-    base-url: https://onepass.go.kr
-    api-key: ${ONEPASS_API_KEY}          # 환경변수에서 주입
-    agency-code: MOIS
-    hmac-secret: ${ONEPASS_HMAC_SECRET:} # Sprint 17 이후 필수
-    sign-requests: true
+    # IdO 서버 URL — onepass-fe(UI 서버)가 아님에 주의
+    # 로컬:       http://localhost:8083
+    # Docker:     http://ido:8083
+    # k8s 내부:   http://ido-service:8083
+    # 운영:       http://ido.internal.smes.go.kr:8083  (관리자 확인)
+    base-url: ${IDO_BASE_URL:http://localhost:8083}
+    api-key: ${AGENCY_API_KEY:stub-api-key-dev}
+    agency-code: ${AGENCY_CODE:AGENCY_STUB_001}
+    hmac-secret: ${ONEPASS_HMAC_SECRET:}    # Sprint 17 이후 필수
+    sign-requests: ${ONEPASS_SIGN_REQUESTS:false}
 ```
 
 ### 10.3 Service 클래스에서 사용
@@ -694,11 +768,11 @@ public class UserSyncService {
 
     @Transactional
     public void syncUser(User user) {
-        String idempotencyKey = IdempotencyKeyGenerator.generateWithPrefix("MOIS");
+        String idempotencyKey = IdempotencyKeyGenerator.generateWithPrefix("AGENCY_STUB_001");
 
         InboundEvent event = InboundEvent.builder()
                 .eventType("USER_REGISTERED")
-                .agencyCode("MOIS")
+                .agencyCode("AGENCY_STUB_001")
                 .idempotencyKey(idempotencyKey)
                 .payloadJson(user.toJson())
                 .build();
@@ -732,7 +806,7 @@ Maven Central 배포는 **Sonatype OSSRH** 계정과 **GPG 서명 키**가 필�
    # GPG 키 생성
    gpg --gen-key
    # 권장: RSA 4096bit, 유효기간 2년
-   
+
    # 공개키 서버에 배포 (Maven Central에서 검증)
    gpg --keyserver keyserver.ubuntu.com --send-keys YOUR_KEY_ID
    gpg --keyserver keys.openpgp.org --send-keys YOUR_KEY_ID
@@ -900,10 +974,12 @@ repositories {
       ./gradlew :onepass-agency-sdk:generatePomFileForMavenJavaPublication --no-daemon
       → build/publications/mavenJava/pom-default.xml 내용 확인
         (name, description, url, license, developer, scm 필드 누락 없음)
+        (dependencyManagement 블록 없음 — Spring BOM 전이 차단 확인)
 
 □ 5. 로컬 설치 후 연동 테스트
       SKIP_SIGNING=true ./gradlew :onepass-agency-sdk:publishToMavenLocal --no-daemon
       → 연동 대상 프로젝트에서 mavenLocal() 저장소로 의존성 추가 후 동작 확인
+        (baseUrl = IdO 서버 URL로 설정하여 테스트)
 
 □ 6. Git 태그 생성
       git tag -a sdk-v0.1.0 -m "onepass-agency-sdk 0.1.0 release"
@@ -960,6 +1036,7 @@ open onepass-agency-sdk/build/reports/tests/test/index.html
 | S16-T8 | `HttpUrlConnectionAdapter` 실제 HTTP 왕복 (MockWebServer) |
 | HmacSigner | sign + verifySignature 상수시간 비교 정확성 |
 | Builder | `baseUrl` 미설정 → `AgencySdkException` |
+| Builder | `apiKey` 미설정 → `AgencySdkException` |
 | InboundEvent | 필수 필드 미설정 → `IllegalArgumentException` |
 | InboundEvent | `toJsonString()` payload embed 정확성 |
 | IdempotencyKeyGenerator | 3가지 전략 + 상수시간 비교 |

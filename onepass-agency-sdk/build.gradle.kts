@@ -119,9 +119,13 @@ dependencies {
     // AssertJ — 명시적 버전
     testImplementation("org.assertj:assertj-core:$assertjVersion")
 
-    // OkHttp MockWebServer (HttpUrlConnectionAdapter 실제 HTTP 왕복 테스트용)
+    // OkHttp MockWebServer (HttpUrlConnectionAdapter/OkHttp 실제 HTTP 왕복 테스트용)
     testImplementation("com.squareup.okhttp3:mockwebserver:$okhttpVersion")
     testImplementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
+
+    // Apache HC5 테스트 의존성 (P1: ApacheHttpAgencyAdapter 테스트용)
+    // compileOnly는 테스트 classpath에 포함되지 않으므로 별도 선언 필요
+    testImplementation("org.apache.httpcomponents.client5:httpclient5:5.3.1")
 }
 
 // ── BootJar: SDK 모듈은 Spring Boot 플러그인이 없으므로 설정 불필요 ─────────────

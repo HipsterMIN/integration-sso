@@ -30,29 +30,29 @@ import java.util.Map;
  * // 1. 클라이언트 생성 (기본 HttpURLConnection 사용)
  * AgencyGatewayClient client = AgencyGatewayClient.builder()
  *     .baseUrl("https://onepass.go.kr")
- *     .apiKey("your-x-api-key")
- *     .agencyCode("MOIS")
+ *     .apiKey("stub-api-key-dev")       // X-Agency-Key 헤더로 전송됨
+ *     .agencyCode("AGENCY_STUB_001")
  *     .build();
  *
  * // 2. 인바운드 이벤트 전송 (기관 → OnePass)
  * InboundEvent event = InboundEvent.builder()
  *     .eventType("USER_REGISTERED")
- *     .agencyCode("MOIS")
- *     .idempotencyKey(IdempotencyKeyGenerator.generateWithPrefix("MOIS"))
+ *     .agencyCode("AGENCY_STUB_001")
+ *     .idempotencyKey(IdempotencyKeyGenerator.generateWithPrefix("AGENCY_STUB_001"))
  *     .payloadJson("{\"action\":\"sync\"}")
  *     .build();
  * GatewayResponse response = client.sendInbound(event);
  *
  * // 3. 아웃바운드 알림 요청 (OnePass → 기관 Webhook 트리거)
  * OutboundNotifyRequest notify = OutboundNotifyRequest.builder()
- *     .agencyCode("MOIS")
+ *     .agencyCode("AGENCY_STUB_001")
  *     .eventType("USER_PROVISIONED")
  *     .payload("{\"status\":\"ok\"}")
  *     .build();
  * GatewayResponse notifyResp = client.triggerOutbound(notify);
  *
  * // 4. 기관 연동 상태 조회
- * GatewayResponse status = client.getStatus("MOIS");
+ * GatewayResponse status = client.getStatus("AGENCY_STUB_001");
  * }</pre>
  *
  * <h3>OkHttp3 교체 예시</h3>
@@ -63,8 +63,8 @@ import java.util.Map;
  *     .build();
  *
  * AgencyGatewayClient client = AgencyGatewayClient.builder()
- *     .baseUrl("https://onepass.go.kr")
- *     .apiKey("your-api-key")
+ *     .baseUrl("http://localhost:8083")   // IdO 서버 URL
+ *     .apiKey("stub-api-key-dev")          // X-Agency-Key 헤더로 전송됨
  *     .httpAdapter(new OkHttpAgencyAdapter(okHttp))
  *     .build();
  * }</pre>
@@ -81,7 +81,7 @@ public final class AgencyGatewayClient {
     // ── 헤더 이름 상수 ─────────────────────────────────────────────────────────
     private static final String HDR_CONTENT_TYPE   = "Content-Type";
     private static final String HDR_ACCEPT         = "Accept";
-    private static final String HDR_API_KEY        = "X-Api-Key";
+    private static final String HDR_API_KEY        = "X-Agency-Key";
     private static final String HDR_AGENCY_CODE    = "X-Agency-Code";
     private static final String HDR_IDEMPOTENCY    = "X-Idempotency-Key";
     private static final String HDR_CORRELATION_ID = "X-Correlation-Id";
@@ -193,7 +193,7 @@ public final class AgencyGatewayClient {
      * <ul>
      *   <li>{@code Content-Type: application/json;charset=UTF-8}</li>
      *   <li>{@code Accept: application/json}</li>
-     *   <li>{@code X-Api-Key}: API 키 (SHA-256 검증은 서버에서 수행)</li>
+     *   <li>{@code X-Agency-Key}: API 키 — HandoffAgencyKeyInterceptor SHA-256 검증</li>
      *   <li>{@code X-Agency-Code}: 기관 코드</li>
      *   <li>{@code X-Idempotency-Key}: 멱등성 키 (있는 경우)</li>
      *   <li>{@code X-Correlation-Id}: 요청 추적 ID</li>
@@ -284,9 +284,15 @@ public final class AgencyGatewayClient {
         private Builder() {}
 
         /**
-         * OnePass 서버 베이스 URL (필수)
+         * IdO 서버 베이스 URL (필수)
          *
-         * @param baseUrl 예: {@code "https://onepass.go.kr"} (트레일링 슬래시 불필요)
+         * <p>이 SDK는 {@code ido} 모듈(기본 포트 8083)의 Gateway API를 직접 호출한다.
+         * {@code onepass-fe}(UI 서버)나 외부 시연 URL이 아님에 주의.
+         *
+         * @param baseUrl 예: {@code "http://localhost:8083"} (로컬),
+         *                    {@code "http://ido:8083"} (Docker Compose),
+         *                    {@code "http://ido-service:8083"} (k8s 내부)
+         *                    — 트레일링 슬래시 불필요
          */
         public Builder baseUrl(String baseUrl) {
             if (baseUrl == null || baseUrl.isEmpty()) {
@@ -297,10 +303,12 @@ public final class AgencyGatewayClient {
         }
 
         /**
-         * X-Api-Key 인증 키 (필수)
+         * X-Agency-Key 인증 키 (필수)
          *
          * <p>OnePass 관리자가 기관에 발급한 API 키.
-         * SHA-256 해시 검증은 서버에서 수행하므로 평문 전송.
+         * IdO {@code HandoffAgencyKeyInterceptor}가 SHA-256(rawKey)를
+         * {@code ido.agency_meta.api_key_hash}와 상수시간 비교하여 검증한다.
+         * 평문을 그대로 전송하면 서버가 해싱하여 비교.
          */
         public Builder apiKey(String apiKey) {
             this.apiKey = apiKey;
@@ -384,7 +392,7 @@ public final class AgencyGatewayClient {
                 throw new AgencySdkException("SDK_CONFIG_ERROR", "baseUrl은 필수입니다.");
             }
             if (apiKey == null || apiKey.isEmpty()) {
-                throw new AgencySdkException("SDK_CONFIG_ERROR", "apiKey는 필수입니다. OnePass 관리자로부터 발급받은 X-Api-Key를 설정하세요.");
+                throw new AgencySdkException("SDK_CONFIG_ERROR", "apiKey는 필수입니다. OnePass 관리자로부터 발급받은 X-Agency-Key를 설정하세요.");
             }
             if (signRequests && (hmacSecret == null || hmacSecret.isEmpty())) {
                 throw new AgencySdkException("SDK_CONFIG_ERROR",
