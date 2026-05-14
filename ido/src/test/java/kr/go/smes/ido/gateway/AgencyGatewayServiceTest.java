@@ -57,6 +57,7 @@ class AgencyGatewayServiceTest {
     @Mock private AgencyMetaRepository             agencyMetaRepository;
     @Mock private ProvisioningOutboxRepository     provisioningOutboxRepository;
     @Mock private RestTemplate                     restTemplate;
+    @Mock private AgencyHmacKeyStore               hmacKeyStore;
 
     private AgencyGatewayServiceImpl sut;
     private final ObjectMapper objectMapper =
@@ -72,7 +73,7 @@ class AgencyGatewayServiceTest {
         sut = new AgencyGatewayServiceImpl(
                 idempotencyStore, inboundRepository, outboundRepository,
                 endpointRegistry, agencyMetaRepository, provisioningOutboxRepository,
-                restTemplate, objectMapper);
+                restTemplate, objectMapper, hmacKeyStore);
     }
 
     // ─────────────────────────────────────────────────────────────────────
