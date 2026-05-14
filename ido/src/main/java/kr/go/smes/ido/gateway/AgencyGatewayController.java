@@ -5,12 +5,14 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import kr.go.smes.common.util.CorrelationIdHolder;
+import kr.go.smes.ido.config.FeatureFlags;
 import kr.go.smes.ido.config.HandoffAgencyKeyInterceptor;
 import kr.go.smes.ido.gateway.dto.GatewayStatusResponse;
 import kr.go.smes.ido.gateway.dto.InboundGatewayEvent;
 import kr.go.smes.ido.gateway.dto.OutboundNotifyRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,6 +54,7 @@ public class AgencyGatewayController {
     private static final String HEADER_INTERNAL_SIG    = "X-Internal-Sig";
 
     private final AgencyGatewayService gatewayService;
+    private final FeatureFlags featureFlags;
 
     // ═════════════════════════════════════════════════════════════════════
     // 1. 인바운드 이벤트 수신  POST /api/v1/agency/gateway/inbound/event
@@ -81,6 +84,17 @@ public class AgencyGatewayController {
     public ResponseEntity<Map<String, String>> receiveInbound(
             @RequestBody String payloadJson,
             HttpServletRequest httpRequest) {
+
+        // F-23: 인바운드 API 열림 여부 확인 (Phase-Gate)
+        if (!featureFlags.isGatewayInbound()) {
+            log.info("[GatewayController] 인바운드 API DISABLED (IDO_GATEWAY_INBOUND_ENABLED=false). Phase 3 이전에는 비활성화 상태입니다.");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of(
+                        "error",   "FEATURE_DISABLED",
+                        "message", "Gateway 인바운드 API가 현재 비활성화 상태입니다. (IDO_GATEWAY_INBOUND_ENABLED=false)",
+                        "phase",   "Phase 3-A 진입 후 활성화 예정"
+                    ));
+        }
 
         // ① 헤더 추출 (X-Agency-Code는 인터셉터가 검증 후 Attribute에 저장)
         String agencyCode     = resolveAgencyCode(httpRequest);
@@ -154,6 +168,17 @@ public class AgencyGatewayController {
     public ResponseEntity<Map<String, Object>> sendOutbound(
             @RequestBody @Valid OutboundNotifyRequestBody body,
             HttpServletRequest httpRequest) {
+
+        // F-24: 아웃바운드 API 열림 여부 확인 (Phase-Gate)
+        if (!featureFlags.isGatewayOutbound()) {
+            log.info("[GatewayController] 아웃바운드 API DISABLED (IDO_GATEWAY_OUTBOUND_ENABLED=false). Phase 3-B 이전에는 비활성화 상태입니다.");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of(
+                        "error",   "FEATURE_DISABLED",
+                        "message", "Gateway 아웃바운드 API가 현재 비활성화 상태입니다. (IDO_GATEWAY_OUTBOUND_ENABLED=false)",
+                        "phase",   "Phase 3-B 진입 후 활성화 예정"
+                    ));
+        }
 
         String correlationId = resolveCorrelationId(httpRequest);
 
