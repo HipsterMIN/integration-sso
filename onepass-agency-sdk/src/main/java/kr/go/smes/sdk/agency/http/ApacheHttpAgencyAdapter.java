@@ -13,7 +13,9 @@ import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.HttpClientResponseHandler;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 
@@ -88,32 +90,50 @@ public class ApacheHttpAgencyAdapter implements AgencyHttpAdapter {
             }
         }
 
-        try (ClassicHttpResponse response = httpClient.executeOpen(null, request, null)) {
-            int httpStatus = response.getCode();
-            String responseBody;
-            try {
-                responseBody = (response.getEntity() != null)
-                        ? EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8)
-                        : "";
-            } catch (ParseException e) {
-                responseBody = "";
-            }
+        // ResponseHandler 패턴: response entity + headers를 안전하게 소비하고 연결 반환
+        // httpStatus를 final 배열에 캡처하여 catch (IOException) 블록에서도 보존
+        final int[] capturedStatus = {-1};
+        try {
+            return httpClient.execute(request, new HttpClientResponseHandler<GatewayResponse>() {
+                @Override
+                public GatewayResponse handleResponse(ClassicHttpResponse response) throws IOException {
+                    int httpStatus = response.getCode();
+                    capturedStatus[0] = httpStatus;   // IOException 발생 시 보존용
 
-            // 응답 헤더 추출
-            Header correlationHeader = response.getFirstHeader("X-Correlation-Id");
-            Header requestIdHeader   = response.getFirstHeader("X-Request-Id");
-            String correlationId     = correlationHeader != null ? correlationHeader.getValue() : null;
-            String requestId         = requestIdHeader   != null ? requestIdHeader.getValue()   : null;
+                    String responseBody;
+                    HttpEntity entity = response.getEntity();
+                    try {
+                        responseBody = entity != null
+                                ? EntityUtils.toString(entity, StandardCharsets.UTF_8)
+                                : "";
+                    } catch (ParseException e) {
+                        responseBody = "";
+                    } finally {
+                        EntityUtils.consume(entity);  // 반드시 소비 → 연결 풀 반환 보장
+                    }
 
-            if (httpStatus >= 400) {
-                throw new AgencyHttpException(httpStatus, responseBody);
-            }
+                    // 응답 헤더 추출
+                    Header correlationHeader = response.getFirstHeader("X-Correlation-Id");
+                    Header requestIdHeader   = response.getFirstHeader("X-Request-Id");
+                    String correlationId     = correlationHeader != null ? correlationHeader.getValue() : null;
+                    String requestId         = requestIdHeader   != null ? requestIdHeader.getValue()   : null;
 
-            return GatewayResponse.of(httpStatus, responseBody, correlationId, requestId);
-
+                    if (httpStatus >= 400) {
+                        throw new ApacheStatusException(httpStatus, responseBody);
+                    }
+                    return GatewayResponse.of(httpStatus, responseBody, correlationId, requestId);
+                }
+            });
+        } catch (ApacheStatusException e) {
+            throw new AgencyHttpException(e.status, e.body);
         } catch (AgencyHttpException e) {
             throw e;
         } catch (IOException e) {
+            // executeOpen 자체 실패 또는 handleResponse 내 IO 오류
+            // capturedStatus[0] >= 400이면 HTTP 오류 응답에서 발생한 IO 오류
+            if (capturedStatus[0] >= 400) {
+                throw new AgencyHttpException(capturedStatus[0], e.getMessage());
+            }
             throw new AgencyHttpException(
                     "Apache HttpClient 네트워크 오류 [" + method + " " + url + "]: " + e.getMessage(), e);
         } catch (Exception e) {
@@ -164,6 +184,21 @@ public class ApacheHttpAgencyAdapter implements AgencyHttpAdapter {
     public void close() throws IOException {
         if (ownsClient) {
             httpClient.close();
+        }
+    }
+
+    /**
+     * ResponseHandler 내부에서 4xx/5xx 상태를 IOException이 아닌 checked exception으로 전파.
+     * Apache HC5의 execute()는 IOException만 checked이므로, RuntimeException 서브클래스 사용.
+     */
+    private static final class ApacheStatusException extends RuntimeException {
+        final int    status;
+        final String body;
+
+        ApacheStatusException(int status, String body) {
+            super("HTTP " + status);
+            this.status = status;
+            this.body   = body;
         }
     }
 }

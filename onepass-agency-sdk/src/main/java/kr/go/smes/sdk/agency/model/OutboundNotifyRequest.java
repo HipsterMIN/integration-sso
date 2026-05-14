@@ -34,7 +34,7 @@ public final class OutboundNotifyRequest {
         }
         this.agencyCode     = builder.agencyCode;
         this.eventType      = builder.eventType;
-        this.payload        = builder.payload != null ? builder.payload : "{}";
+        this.payload        = InboundEvent.validateJson(builder.payload != null ? builder.payload : "{}");
         this.idempotencyKey = builder.idempotencyKey;
         this.correlationId  = builder.correlationId;
     }

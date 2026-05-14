@@ -42,7 +42,7 @@ public final class InboundEvent {
         this.eventType      = builder.eventType;
         this.idempotencyKey = builder.idempotencyKey;
         this.agencyCode     = builder.agencyCode;
-        this.payloadJson    = builder.payloadJson != null ? builder.payloadJson : "{}";
+        this.payloadJson    = validateJson(builder.payloadJson != null ? builder.payloadJson : "{}");
         this.correlationId  = builder.correlationId;
     }
 
@@ -55,8 +55,10 @@ public final class InboundEvent {
     /**
      * JSON 직렬화 (외부 라이브러리 없이 순수 JDK로 처리).
      *
-     * <p>payloadJson은 이미 JSON 문자열이므로 그대로 embed.
+     * <p>payloadJson은 이미 유효한 JSON 문자열이므로 그대로 embed.
      * 단순 필드는 manual escape 적용.
+     *
+     * @throws IllegalArgumentException payloadJson이 유효한 JSON 객체/배열이 아닐 시
      */
     public String toJsonString() {
         StringBuilder sb = new StringBuilder("{");
@@ -83,6 +85,43 @@ public final class InboundEvent {
                            .replace("\n", "\\n")
                            .replace("\r", "\\r")
                            .replace("\t", "\\t") + "\"";
+    }
+
+    /**
+     * payloadJson 유효성 검증.
+     *
+     * <p>JSON 객체({...}) 또는 배열([...]) 형식만 허용.
+     * 최소한의 bracket 균형 검사로 invalid JSON이 전체 JSON을 깨뜨리는 것을 방지.
+     *
+     * @param json 검증할 JSON 문자열
+     * @return 유효한 경우 json 그대로 반환
+     * @throws IllegalArgumentException JSON 객체/배열이 아닐 시
+     */
+    static String validateJson(String json) {
+        if (json == null || json.isBlank()) return "{}";
+        String trimmed = json.trim();
+        if ((!trimmed.startsWith("{") || !trimmed.endsWith("}"))
+                && (!trimmed.startsWith("[") || !trimmed.endsWith("]"))) {
+            throw new IllegalArgumentException(
+                    "payloadJson must be a valid JSON object or array, got: "
+                    + (trimmed.length() > 40 ? trimmed.substring(0, 40) + "..." : trimmed));
+        }
+        // bracket 균형 검사 (depth 검사)
+        int depth = 0;
+        boolean inString = false;
+        for (int i = 0; i < trimmed.length(); i++) {
+            char c = trimmed.charAt(i);
+            if (c == '\\' && inString) { i++; continue; }  // escape
+            if (c == '"') { inString = !inString; continue; }
+            if (inString) continue;
+            if (c == '{' || c == '[') depth++;
+            else if (c == '}' || c == ']') depth--;
+            if (depth < 0) throw new IllegalArgumentException(
+                    "payloadJson has unbalanced brackets: " + trimmed.substring(0, Math.min(40, trimmed.length())));
+        }
+        if (depth != 0) throw new IllegalArgumentException(
+                "payloadJson has unclosed brackets (depth=" + depth + ")");
+        return trimmed;
     }
 
     @Override
