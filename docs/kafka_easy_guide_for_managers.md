@@ -110,16 +110,20 @@ OnePass는 같은 사용자에 대한 메모는 반드시 **동일한 번호표(
 
 ### 4.2 Q-IM (회원정보 담당) — 메모 작성자
 
-**회원 가입, 상태 변경(정지/정상), 탈퇴** 등 회원 신상에 변화가 생겼을 때,
+**회원 가입, 기업 전환, 계정 정지, 탈퇴** 등 회원 신상에 변화가 생겼을 때,
 그 사실을 게시판에 메모로 남깁니다.
 
 | 상황 | 게시판에 남기는 메모 |
 |------|---------------------|
 | 회원 가입 | "새 회원 OOO이 가입했습니다 (USER_REGISTERED)" |
 | 기업 전환 | "OOO 사용자가 기업 회원으로 전환되었습니다 (BIZ_CONVERTED)" |
-| 상태 변경 | "OOO 사용자 상태가 변경되었습니다 (USER_STATUS_CHANGED)" |
+| 회원 정보 수정 | "OOO 사용자 정보가 변경되었습니다 (USER_UPDATED)" |
+| 계정 정지 | "OOO 사용자 계정이 정지되었습니다 (USER_SUSPENDED)" |
+| 회원 탈퇴 | "OOO 사용자가 탈퇴하였습니다 (USER_WITHDRAWN)" |
 
-> **이 메모를 읽는 시스템**: IdO, Q-Sign
+> **이 메모를 읽는 시스템**: IdO와 Q-Sign **둘 다** 이 게시판을 읽습니다.
+> - **IdO**: 회원 가입·기업 전환 메모를 받으면 68개 기관에 회원 정보를 전달합니다. 나머지 메모는 내부 캐시를 최신 상태로 갱신합니다.
+> - **Q-Sign(인증 시스템)**: 계정 정지·탈퇴 메모를 받으면 해당 사용자의 신규 인증 시도를 즉시 차단합니다.
 
 ---
 
@@ -130,12 +134,12 @@ IdO는 가장 복잡한 역할을 맡습니다. **다른 시스템의 메모를 
 #### ① 읽는 메모 (Consumer)
 
 | 읽는 메모 출처 | 수신하는 상황 | IdO가 하는 일 |
-|--------------|-------------|--------------|
+|--------------|-------------|--------------| 
 | **Q-Sign** | 인증 성공 (AUTH_COMPLETED) | 해당 인증 결과를 고속 캐시(Redis)에 미리 저장 → 기관 이동(Handoff) 요청 즉시 처리 준비 |
-| **Q-Sign** | 계정 잠금 (AUTH_LOCKED) | 해당 사용자의 FE 세션을 즉시 강제 종료 + 기관에 보안 알림 |
+| **Q-Sign** | 계정 잠금 (AUTH_LOCKED) | 해당 사용자의 웹 화면(FE) 세션을 즉시 강제 종료 |
 | **Q-Sign** | 인증 실패 (AUTH_FAILED) | 실패 기록 저장 (감사 로그) |
-| **Q-IM** | 회원 가입/전환 | 연동된 68개 기관 모두에 회원 정보 전달 (프로비저닝) |
-| **Q-IM** | 상태 변경 | 캐시 무효화 → 다음 요청 시 최신 정보 재조회 |
+| **Q-IM** | 회원 가입 (USER_REGISTERED) / 기업 전환 (BIZ_CONVERTED) | 연동된 68개 기관 모두에 회원 정보 전달 (프로비저닝) |
+| **Q-IM** | 정보 수정 (USER_UPDATED) / 계정 정지 (USER_SUSPENDED) / 탈퇴 (USER_WITHDRAWN) | 내부 캐시 무효화 → 다음 요청 시 최신 정보 재조회 |
 | **IdO 내부** | Handoff 티켓 발급됨 | 기관 서버에 "사용자가 이동 중입니다" 알림(Webhook) 발송 준비 |
 
 #### ② 새로 작성하는 메모 (Producer)
@@ -148,7 +152,7 @@ IdO는 자신의 업무를 처리한 뒤, 그 결과를 다시 게시판에 남�
 | FE 세션 강제 종료 명령 | `platform.session.advisory` | FE가 즉시 해당 사용자 세션 무효화 |
 | 플랫폼 전역 감사 로그 | `platform.audit.log` | 법적 감사 추적 (5년 보존) |
 
-> **핵심 설명**: 기관들은 OnePass 내부 게시판(Kafka)에 직접 접속할 수 없습니다. 따라서 IdO가 게시판에서 메모를 읽은 후, **HTTPS 방식의 "알림 전화(Webhook)"**를 각 기관 서버에 직접 걸어 알려주는 방식으로 연동합니다.
+> **핵심 설명**: 기관들은 OnePass 내부 게시판(Kafka)에 직접 접속할 수 없습니다. 따라서 IdO가 게시판에서 메모를 읽은 후, **HTTPS 방식의 "알림 전화(Webhook)"**를 각 기관 서버에 직접 걸어 알려주는 방식으로 연동합니다. 이 기관 알림은 **Handoff 티켓 발급/취소** 상황에서만 발송됩니다. 계정 잠금(AUTH_LOCKED)은 기관 Webhook 없이 내부 FE 세션 처리로만 종결됩니다.
 
 ---
 
@@ -179,6 +183,8 @@ sequenceDiagram
 
 ### 시나리오 B: 비밀번호 5회 오류로 계정이 잠기는 경우
 
+계정 잠금은 **FE 세션 강제 종료**로 처리됩니다. 기관 Webhook 발송은 이루어지지 않습니다.
+
 ```mermaid
 sequenceDiagram
     actor 사용자
@@ -186,15 +192,14 @@ sequenceDiagram
     participant KAFKA as 게시판 (Kafka)
     participant IDO as IdO (중재자)
     participant FE as OnePass FE (화면)
-    participant 기관 as 유관기관 서버
     
     사용자->>QS: 비밀번호 5회 오류 → 계정 잠금
-    QS->>KAFKA: "계정 잠금" 메모 게시
+    QS->>KAFKA: "계정 잠금" 메모 게시 (AUTH_LOCKED)
     KAFKA-->>IDO: 메모 수신
-    IDO->>KAFKA: "세션 강제 종료 명령" 메모 게시
+    IDO->>KAFKA: "FE 세션 강제 종료 명령" 메모 게시
     KAFKA-->>FE: 메모 수신
     FE->>FE: 해당 사용자 세션 즉시 무효화
-    IDO->>기관: "보안 사유로 사용자 세션 종료" Webhook 알림
+    note right of FE: 기관 Webhook 발송 없음.<br/>계정 잠금은 FE 세션 처리로 종결.
 ```
 
 ### 시나리오 C: 신규 회원 가입 시 68개 기관 전파
@@ -208,10 +213,27 @@ sequenceDiagram
     participant 기관들 as 68개 유관기관
 
     국민->>QIM: 회원 가입
-    QIM->>KAFKA: "신규 회원 가입" 메모 게시
+    QIM->>KAFKA: "신규 회원 가입" 메모 게시 (USER_REGISTERED)
     KAFKA-->>IDO: 메모 수신
     IDO->>기관들: 68개 기관에 동시에 회원 정보 전달 (프로비저닝)
     note right of IDO: 장애 기관은 자동 재시도<br/>데이터 유실 없음
+```
+
+### 시나리오 D: 계정 정지 또는 탈퇴 시 인증 차단
+
+계정 정지(USER_SUSPENDED)·탈퇴(USER_WITHDRAWN)는 **Q-Sign이 신규 인증을 즉시 차단**합니다.
+
+```mermaid
+sequenceDiagram
+    participant QIM as Q-IM (회원)
+    participant KAFKA as 게시판 (Kafka)
+    participant IDO as IdO (중재자)
+    participant QS as Q-Sign (인증)
+
+    QIM->>KAFKA: "계정 정지" 메모 게시 (USER_SUSPENDED)
+    KAFKA-->>IDO: 메모 수신 → 사용자 상태 캐시 무효화 (내부 갱신)
+    KAFKA-->>QS: 메모 수신 → 해당 사용자 인증 잠금 처리
+    note right of QS: 이후 해당 사용자의<br/>신규 로그인 시도 자동 차단
 ```
 
 ---
@@ -219,8 +241,8 @@ sequenceDiagram
 ## 6. 결론: "시스템은 각자의 전문 역할에만 집중합니다"
 
 | 시스템 | 핵심 역할 | Kafka에서 하는 일 |
-|--------|----------|-----------------|
-| **Q-Sign** | 국민 인증 | 인증 결과만 게시판에 알림 |
+|--------|----------|-----------------| 
+| **Q-Sign** | 국민 인증 | 인증 결과만 게시판에 알림. 계정 정지·탈퇴 메모를 받으면 신규 인증 차단 |
 | **Q-IM** | 회원 정보 관리 | 회원 변경 사실만 게시판에 알림 |
 | **IdO** | 기관 연동·조율 | 알림을 읽고 적절한 후속 조치 실행, 필요 시 새 알림 작성 |
 

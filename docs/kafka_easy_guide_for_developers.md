@@ -78,9 +78,9 @@ public void registerUser(UserDto dto) {
 
 - **역할**: **Producer (생산자)**
 - **언제?**: **회원 가입, 기업 전환, 상태 변경(정지/정상화), 탈퇴** 등 사용자 신상에 변화가 생겼을 때.
-- **무엇을?**: `USER_REGISTERED`, `BIZ_CONVERTED`, `USER_STATUS_CHANGED` 등의 이벤트를 Outbox를 통해 발행합니다.
+- **무엇을?**: `USER_REGISTERED`, `BIZ_CONVERTED`, `USER_UPDATED`, `USER_SUSPENDED`, `USER_WITHDRAWN`, `USER_MERGED` 이벤트를 Outbox를 통해 발행합니다.
 - **어디로?**: `qim.user.events` 토픽으로.
-- **누가 듣나?**: `IdO`와 `q-sign`이 이 이벤트를 수신합니다.
+- **누가 듣나?**: `IdO`와 `q-sign` **둘 다** 이 이벤트를 수신합니다. 단, 각자가 관심 갖는 이벤트 타입이 서로 다릅니다 (아래 §3.3 참조).
 
 > **q-im 개발팀이 할 일**: `@Transactional` 어노테이션이 붙은 서비스 메소드 안에서, 비즈니스 로직(DB 저장)과 함께 `outboxService.publishInTx()`를 호출하는 것. 이것이 전부입니다.
 
@@ -90,22 +90,28 @@ public void registerUser(UserDto dto) {
 
 IdO는 단순한 Consumer가 아닙니다. **여러 토픽을 동시에 소비(Consumer)하면서, 자신의 처리 결과를 새 토픽에 발행(Producer)하는 오케스트레이터**입니다.
 
-#### Consumer 역할 — 읽는 토픽 4개
+#### Consumer 역할 — 읽는 토픽 5개
 
-| 구독 토픽 | 담당 Consumer 클래스 | 처리 내용 |
-|---------|---------------------|---------|
-| `qsign.auth.events` | `QsignAuthEventConsumer` | **AUTH_COMPLETED**: 인증 결과를 Redis에 Pre-warming (Handoff 즉시 처리 준비)<br>**AUTH_FAILED**: 실패 감사 로그 기록<br>**AUTH_LOCKED**: 세션 강제 종료 Advisory 발행 |
-| `qim.user.events` | `QimEventConsumer` | 사용자 캐시 무효화 + Selective Pull(최신 정보 재조회)<br>**USER_REGISTERED / BIZ_CONVERTED**: 68개 기관에 프로비저닝 트리거 |
-| `ido.handoff.events` | `HandoffEventConsumer` | **HANDOFF_ISSUED**: 기관 Webhook 발송 Outbox에 적재<br>**HANDOFF_CONSUMED**: 인증 결과 캐시 무효화<br>**HANDOFF_REVOKED**: 기관에 보안 취소 즉시 통보 |
-| `platform.session.advisory` | `FeAdvisoryConsumer` | **MANDATORY**: FE 세션 즉시 일괄 무효화<br>**ADVISORY**: 다음 요청 시 로그아웃 안내 플래그 설정 |
+| 구독 토픽 | 담당 Consumer 클래스 | 처리하는 이벤트 타입 및 행동 |
+|---------|---------------------|--------------------------|
+| `qsign.auth.events` | `QsignAuthEventConsumer` | **AUTH_COMPLETED**: 인증 결과를 Redis에 Pre-warming (Handoff 즉시 처리 준비)<br>**AUTH_FAILED**: 실패 감사 로그 기록<br>**AUTH_LOCKED**: 인증 결과 캐시 무효화 + 세션 강제 종료 Advisory 발행 |
+| `qim.user.events` | `QimEventConsumer` | **모든 타입**: 사용자 상태 캐시 무효화 + Selective Pull (최신 정보 재조회)<br>**USER_REGISTERED / BIZ_CONVERTED만**: 68개 기관에 프로비저닝 트리거<br>*(USER_SUSPENDED·USER_WITHDRAWN·USER_UPDATED·USER_MERGED: 캐시 무효화만, 프로비저닝 미트리거)* |
+| `ido.handoff.events` | `HandoffEventConsumer` | **HANDOFF_ISSUED**: 기관 Webhook 발송 Outbox에 적재<br>**HANDOFF_CONSUMED**: 인증 결과 캐시 무효화 + 기관 Webhook 통보<br>**HANDOFF_EXPIRED**: 캐시 정리 + 감사 로그<br>**HANDOFF_REVOKED**: 기관에 보안 취소 즉시 통보 |
+| `platform.session.advisory` | `FeAdvisoryConsumer` | **MANDATORY_SECURITY_TERMINATE**: FE 세션 즉시 일괄 무효화<br>**SESSION_LOGOUT_HINT**: 다음 요청 시 로그아웃 안내 플래그 설정 |
 | `qim.sp.member.events` | `QimSpMemberEventConsumer` | SP 수신 회원 가입/탈퇴 처리 → 기관 Webhook 트리거 |
 
-#### Producer 역할 — 직접 발행하는 토픽 3개
+> **⚠️ `qim.user.events` 동시 소비 주의**: `IdO(QimEventConsumer)`와 `Q-Sign(QimUserEventConsumer)`은 동일한 토픽을 **서로 다른 컨슈머 그룹**으로 독립적으로 구독합니다. 관심 이벤트 타입도 다릅니다.
+> - `QimEventConsumer` (group: `ido-qim-consumer`): `USER_REGISTERED`/`BIZ_CONVERTED` → 프로비저닝. 나머지 → 캐시 무효화.
+> - `QimUserEventConsumer` (group: `q-sign-qim-consumer`): `USER_SUSPENDED`/`USER_WITHDRAWN` → Q-Sign auth_lock 강제 잠금. `USER_UPDATED(needsSync=true)` → 잠금 해제.
+
+> **⚠️ `publishLogoutHint()` 현황 (미구현)**: `SessionAdvisoryPublisher`에는 비강제 상황(예: USER_SUSPENDED 수신)을 위한 `publishLogoutHint()` 메서드가 정의되어 있으나, **현재 어디서도 호출되지 않습니다.** Q-IM의 `USER_SUSPENDED` 이벤트를 수신했을 때 IdO가 Advisory를 발행하는 경로는 아직 구현되지 않은 상태입니다. Q-Sign 쪽에서 `USER_SUSPENDED` 수신 시 auth_lock을 강제 잠금하는 방식으로 보안이 유지됩니다.
+
+#### Producer 역할 — 직접 발행하는 토픽 4개
 
 | 발행 토픽 | 발행 클래스 | 언제 발행하나 |
 |---------|------------|-------------|
 | `ido.handoff.events` | `HandoffServiceImpl` | Handoff 티켓 발급/소비/만료/취소 시 |
-| `platform.session.advisory` | `SessionAdvisoryPublisher` | AUTH_LOCKED 수신 → 세션 강제 종료 명령 |
+| `platform.session.advisory` | `SessionAdvisoryPublisher` | AUTH_LOCKED 수신 → `publishAuthLocked()` → MANDATORY_SECURITY_TERMINATE 발행 |
 | `platform.audit.log` | `AuditLogPublisher` | 모든 주요 이벤트의 감사 로그 기록 |
 | `qsign.auth.events` | `KeycloakOidcService` | *(Keycloak 전용)* OIDC 콜백 수신 후 인증 이벤트 발행 |
 
@@ -158,6 +164,8 @@ Handoff 티켓 발급은 **별도의 HTTP API 호출**로 이루어집니다:
                                           → FE 세션 즉시 일괄 무효화
 ```
 
+> **Webhook 발송과 무관**: `platform.session.advisory` 토픽은 FE 세션 무효화 전용입니다. 기관 Webhook 발송은 별도의 `ido.handoff.events` → `HandoffEventConsumer` → `WebhookDispatcherService` 경로로만 처리됩니다.
+
 ---
 
 ### 4.3 USER_REGISTERED / BIZ_CONVERTED 수신 — "68개 기관 프로비저닝"
@@ -176,11 +184,35 @@ Q-IM에서 신규 회원 가입 또는 기업 전환 이벤트를 수신하면, 
                                    → ProvisioningOutboxRelay 재시도
 ```
 
+> **USER_WITHDRAWN / USER_SUSPENDED는 프로비저닝 미트리거**: `ProvisioningEventType` enum에 `USER_WITHDRAWN`이 정의되어 있으나, `QimEventConsumer`는 `USER_REGISTERED`와 `BIZ_CONVERTED`에 대해서만 `triggerProvisioning()`을 호출합니다. `USER_SUSPENDED`/`USER_WITHDRAWN` 수신 시 IdO는 캐시 무효화와 Selective Pull만 수행하며, auth_lock 강제 잠금은 **Q-Sign의 `QimUserEventConsumer`**가 별도로 처리합니다.
+
 > **F-22 Dry-Run 모드**: `IDO_PROVISIONING_DRY_RUN=true`이면 실제 HTTP 발송 없이 로그만 출력. Phase 2-A 관찰 기간에 사용.
 
 ---
 
-### 4.4 HANDOFF_ISSUED → 기관 Webhook 체인
+### 4.4 USER_SUSPENDED / USER_WITHDRAWN 수신 — "Q-Sign이 인증 잠금 처리"
+
+Q-IM에서 계정 정지 또는 탈퇴 이벤트가 발행되면, **Q-Sign**이 직접 auth_lock 처리를 수행합니다. IdO는 캐시 무효화만 담당합니다.
+
+```
+[Q-IM] USER_SUSPENDED 또는 USER_WITHDRAWN 발행
+    │
+    ├─► [IdO QimEventConsumer] 수신 (group: ido-qim-consumer)
+    │       ├─ UserStatusCache.invalidate(qimUserId) → 사용자 상태 캐시 무효화
+    │       └─ QimClient.getUserById() → Selective Pull (최신 상태 재조회)
+    │           ※ 프로비저닝 트리거 없음
+    │
+    └─► [Q-Sign QimUserEventConsumer] 수신 (group: q-sign-qim-consumer)
+            └─ lockAllByQimUserId(qimUserId, reason)
+                   → auth_lock 레코드 강제 잠금
+                   → 해당 사용자의 신규 인증 시도 완전 차단
+```
+
+> **왜 IdO가 직접 세션 강제 종료를 하지 않나?** `SessionAdvisoryPublisher.publishLogoutHint()`는 이러한 비강제 상황에서의 Advisory 발행을 위해 설계되었으나, **현재 미구현 상태(데드코드)** 입니다. Q-Sign이 auth_lock을 잠금하면 해당 사용자는 신규 인증이 불가능해지고, 기존 FE 세션은 유효 기간 내에는 유지됩니다 (로그아웃 권고 없이 자연 만료 대기).
+
+---
+
+### 4.5 HANDOFF_ISSUED → 기관 Webhook 체인
 
 기관들은 내부망 Kafka에 직접 접속할 수 없습니다. 따라서 IdO가 **HTTPS Webhook**으로 기관에 알립니다.
 
@@ -201,7 +233,7 @@ Q-IM에서 신규 회원 가입 또는 기업 전환 이벤트를 수신하면, 
 - **Kafka Connect / Debezium**: **우리 프로젝트는 사용하지 않습니다.** 클라우드 Managed DB 환경의 제약으로 인해, 우리는 애플리케이션이 직접 폴링하는 더 단순하고 유연한 방식을 채택했습니다.
 - **Kafka 서버 장애**: **Outbox 패턴이 완벽하게 막아줍니다.** Kafka가 다운되어도 이벤트는 각 서비스의 `outbox` 테이블에 `PENDING` 상태로 남습니다. 복구되면 Relay가 자동으로 재발행합니다.
 - **메시지 순서 보장**: 동일 사용자에 대한 이벤트는 `qimUserId`를 파티션 키로 사용하여, **항상 동일한 파티션에 순서대로 쌓입니다.** `QimEventConsumer`는 추가로 `eventVersion` 기반 순서 검증도 수행합니다.
-- **메시지 중복 처리**: 모든 Consumer(`QimEventConsumer`, `QsignAuthEventConsumer`, `HandoffEventConsumer` 등)는 `IdempotentEventStore`를 통해 **이벤트 ID 기준으로 중복 처리를 방어**합니다.
+- **메시지 중복 처리**: 모든 Consumer(`QimEventConsumer`, `QsignAuthEventConsumer`, `HandoffEventConsumer`, `QimUserEventConsumer` 등)는 `IdempotentEventStore`를 통해 **이벤트 ID 기준으로 중복 처리를 방어**합니다.
 - **DLQ(Dead Letter Queue)**: 재시도 임계치 초과 시 각 토픽의 `.dlq` 토픽으로 이동. 운영팀이 수동으로 검토 후 재처리 가능.
 
 ---
@@ -209,9 +241,9 @@ Q-IM에서 신규 회원 가입 또는 기업 전환 이벤트를 수신하면, 
 ## 6. 토픽 전체 목록 및 파티션 설계
 
 | 토픽 | 파티션 수 | Retention | Producer | Consumer | 파티션 키 |
-|------|---------|----------|---------|---------|---------|
-| `qsign.auth.events` | 12 | 1시간 | Q-Sign Outbox Relay<br>*IdO (Keycloak 전용)* | IdO QsignAuthEventConsumer | identifierHash |
-| `qim.user.events` | 12 | 설정값 | Q-IM Outbox Relay | IdO QimEventConsumer<br>Q-Sign QimUserEventConsumer | qimUserId |
+|------|---------|----------|---------|---------|---------| 
+| `qsign.auth.events` | 12 | 1시간 | Q-Sign Outbox Relay<br>*IdO KeycloakOidcService (Keycloak 전용)* | IdO QsignAuthEventConsumer | identifierHash |
+| `qim.user.events` | 12 | 설정값 | Q-IM Outbox Relay | **IdO QimEventConsumer** (USER_REGISTERED/BIZ_CONVERTED → 프로비저닝; 나머지 → 캐시 무효화)<br>**Q-Sign QimUserEventConsumer** (USER_SUSPENDED/WITHDRAWN → auth_lock 잠금; USER_UPDATED(needsSync) → 잠금 해제) | qimUserId |
 | `ido.handoff.events` | 12 | 1년 | IdO HandoffServiceImpl | IdO HandoffEventConsumer | correlationId |
 | `platform.session.advisory` | 12 | 24시간 | IdO SessionAdvisoryPublisher | IdO FeAdvisoryConsumer | qimUserId |
 | `platform.audit.log` | 12 | 2년 | IdO AuditLogPublisher | SIEM 외부 시스템 | agencyCode |
@@ -225,9 +257,10 @@ Q-IM에서 신규 회원 가입 또는 기업 전환 이벤트를 수신하면, 
 
 - **Kafka**: 대용량 메시지를 실시간으로 처리하기 위한 분산 메시징 시스템. 우리 프로젝트에서는 "사내 게시판" 역할.
 - **Producer (생산자)**: Kafka 토픽에 메시지를 게시하는 주체. (`q-sign`, `q-im`, **`ido` 일부 역할**)
-- **Consumer (소비자)**: Kafka 토픽을 구독하여 새로운 메시지를 읽어가는 주체. (**`ido`가 주요 Consumer**)
+- **Consumer (소비자)**: Kafka 토픽을 구독하여 새로운 메시지를 읽어가는 주체. (**`ido`가 주요 Consumer, `q-sign`도 `qim.user.events` 구독**)
 - **Topic (토픽)**: 메시지를 구분하기 위한 카테고리. (예: `qim.user.events`는 '회원 소식' 게시판)
 - **Partition (파티션)**: 하나의 토픽을 여러 개로 나눈 것. 동일한 파티션 내에서는 메시지 순서가 보장됨.
+- **Consumer Group**: 동일 토픽을 독립적으로 구독하는 Consumer 묶음. 같은 토픽이라도 그룹이 다르면 메시지를 중복 수신하여 각자 처리함. (예: `ido-qim-consumer` vs `q-sign-qim-consumer` 모두 `qim.user.events` 구독)
 - **Transactional Outbox Pattern**: DB 업데이트와 이벤트 발행을 하나의 트랜잭션으로 묶어 데이터 정합성을 보장하는 아키텍처 패턴.
 - **Outbox Relay**: `outbox` 테이블을 주기적으로 읽어 Kafka에 메시지를 대신 전달해주는 스케줄러. IdO는 `IdoOutboxRelay`, Q-IM은 자체 Relay 보유.
 - **Pre-warming**: 인증 완료 직후 Redis에 인증 결과를 미리 적재하여, 이후 Handoff 요청 시 DB 조회 없이 즉시 응답하는 기법. 6만 명 동시 처리의 핵심.
@@ -235,3 +268,4 @@ Q-IM에서 신규 회원 가입 또는 기업 전환 이벤트를 수신하면, 
 - **DLQ (Dead Letter Queue)**: 재시도 임계치를 초과한 메시지를 보관하는 별도 토픽. 운영팀 수동 처리 대상.
 - **Selective Pull**: Consumer가 이벤트를 수신한 후 필요 시 Producer API를 호출하여 최신 전체 정보를 조회하는 패턴. 이벤트 페이로드를 최소화하면서 정합성 유지.
 - **Webhook**: 기관 서버에 대한 HTTPS POST 알림. 기관들은 내부 Kafka에 직접 접속 불가하므로, IdO가 Webhook으로 변환하여 전달.
+- **Dead Code (미구현)**: 코드에 정의는 되어 있으나 실제로 호출되지 않는 코드. `SessionAdvisoryPublisher.publishLogoutHint()`가 대표적 예시. 향후 기능 확장 시 활성화 예정.
