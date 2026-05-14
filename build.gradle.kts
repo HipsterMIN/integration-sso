@@ -119,6 +119,15 @@ project(":platform-common") {
     tasks.withType<Jar>     { enabled = true  }
 }
 
+// ── onepass-agency-sdk: Java 8 호환 라이브러리 — Spring Boot 플러그인/BOM 제외 ─
+// SDK는 JDK 버전 프리 설계: Spring 의존성 전이 없음, 자체 build.gradle.kts에서 타겟 설정
+project(":onepass-agency-sdk") {
+    // Spring Boot 플러그인이 없으므로 BootJar 태스크가 존재하지 않음 — Jar만 활성화
+    tasks.withType<Jar> { enabled = true }
+    // Spring BOM 버전 관리는 테스트 의존성에만 적용 (junit-jupiter 버전 등)
+    // 코어 런타임에는 Spring 의존성 없음
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // P3-04: OWASP Dependency-Check 설정
 // ══════════════════════════════════════════════════════════════════════════════
