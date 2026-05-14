@@ -635,7 +635,7 @@
       </div>
       <div class="tl-row" onclick="showPhase(3)">
         <div class="tl-phase-badge" style="background:#1a3020;color:var(--green);">3</div>
-        <div class="tl-label">③-4 @Transactional { authResultRepo.save() + outboxRepo.save() } qsign.outbox</div>
+        <div class="tl-label">③-4 @Transactional handleCallback() { authResultRepo.save() + outboxRepo.save() } qsign.outbox</div>
         <span class="tl-actor">Q-Sign DB</span>
         <span class="tl-tag tag-db">DB TX</span>
       </div>
@@ -1126,7 +1126,7 @@
       <div class="phase-icon" style="background:#1a3020;">✅</div>
       <div>
         <h2>Phase 3 — Q-Sign KeycloakCallbackService 처리 (11단계)</h2>
-        <p>가장 복잡한 단계. CSRF→토큰교환→JWKS검증→DB저장→IdO통보까지 @Transactional 내부 처리.</p>
+        <p>가장 복잡한 단계. CSRF→토큰교환→JWKS검증→DB저장→IdO통보까지. @Transactional은 <strong>public handleCallback()</strong>에 선언, private issueAuthResult()는 동일 TX 참여.</p>
       </div>
     </div>
 
@@ -1279,7 +1279,7 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
     <div class="step-card">
       <div class="step-header" onclick="toggleStep(this)">
         <div class="step-num" style="background:#1a3020;color:var(--green);">4</div>
-        <div class="step-title">@Transactional — authResultRepo.save() + outboxRepo.save()</div>
+        <div class="step-title">@Transactional handleCallback() — authResultRepo.save() + outboxRepo.save()</div>
         <div class="step-meta"><span class="tag tag-db">DB TX</span><span class="tag tag-async">Outbox</span></div>
         <span class="step-arrow">▶</span>
       </div>
@@ -1289,9 +1289,37 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
           이것이 <strong>Transactional Outbox Pattern</strong>의 핵심입니다.
           DB 커밋이 성공해야만 Kafka 이벤트 발행이 보장됩니다.
         </p>
+        <div class="info-box yellow">
+          <strong>⚠️ @Transactional 경계 주의:</strong>
+          <code>@Transactional</code>은 <strong><code>public handleCallback()</code> 메서드</strong>에 선언되어 있습니다.
+          Spring AOP proxy 기반 트랜잭션은 <code>private</code> 메서드에 적용 불가하기 때문입니다.
+          내부적으로 호출되는 <code>issueAuthResult()</code>는 별도의 어노테이션 없이 <strong>동일 트랜잭션에 참여</strong>합니다.
+          Step 1(state 소비)부터 Step 5(IdO 통보 전)까지 <code>handleCallback()</code>의 TX 범위 안에 있음을 주의하십시오.
+        </div>
         <div class="code-wrap">
-          <div class="code-label">KeycloakCallbackService.java — @Transactional 저장 <span>Q-Sign</span></div>
-          <pre><span class="ann">@Transactional</span>
+          <div class="code-label">KeycloakCallbackService.java — @Transactional 경계 <span>Q-Sign</span></div>
+          <pre><span class="cmt">// ★ @Transactional은 public 메서드에만 동작 (Spring AOP proxy 제약)</span>
+<span class="cmt">// handleCallback() 전체가 하나의 TX — state 소비 후 DB 저장까지 원자적</span>
+<span class="ann">@Transactional</span>
+<span class="kw">public</span> <span class="typ">String</span> <span class="fn">handleCallback</span>(<span class="typ">String</span> code, <span class="typ">String</span> state) {
+
+    <span class="cmt">// ① state 소비 (Redis — TX 범위 밖, 선행 작업)</span>
+    <span class="typ">OidcStateEntry</span> <span class="var">stateEntry</span> = stateStore.<span class="fn">consumeAndValidate</span>(state);
+
+    <span class="cmt">// ② ~ ⑦ 토큰 교환, JWKS 검증, lockCheck ...</span>
+
+    <span class="cmt">// ③ authResult + outbox 저장 (동일 TX 내 private 호출)</span>
+    <span class="typ">AuthResult</span> <span class="var">authResult</span> = <span class="fn">issueAuthResult</span>(identifierHash, providerCode,
+            stateEntry.<span class="fn">getNonce</span>(), authLevel, correlationId);
+
+    <span class="cmt">// ④ IdO에 통보 — TX 커밋 전 HTTP 호출</span>
+    <span class="cmt">// (OidcCompleteController는 qsign DB를 직접 읽지 않으므로 실제 문제 없음)</span>
+    <span class="typ">String</span> <span class="var">redirectUrl</span> = <span class="fn">notifyIdoAndGetRedirect</span>(authResult, stateEntry);
+
+    <span class="kw">return</span> redirectUrl;  <span class="cmt">// → 브라우저 302</span>
+}
+
+<span class="cmt">// private 메서드 — @Transactional 없어도 handleCallback() TX에 참여</span>
 <span class="kw">private</span> <span class="typ">AuthResult</span> <span class="fn">issueAuthResult</span>(<span class="typ">String</span> identifierHash,
         <span class="typ">String</span> providerCode, <span class="typ">String</span> nonce,
         <span class="typ">AuthResult.AuthLevel</span> authLevel, <span class="typ">String</span> correlationId) {
@@ -1494,8 +1522,8 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
     <div class="step-card">
       <div class="step-header" onclick="toggleStep(this)">
         <div class="step-num" style="background:#2a1f10;color:var(--orange);">3</div>
-        <div class="step-title">feSessionId HttpOnly 쿠키 Set-Cookie + 302 → returnUrl</div>
-        <div class="step-meta"><span class="tag tag-security">P1 보안</span><span class="tag tag-http">Cookie</span></div>
+        <div class="step-title">feSessionId HttpOnly 쿠키 Set-Cookie (server-to-server) → Q-Sign이 브라우저로 relay</div>
+        <div class="step-meta"><span class="tag tag-security">P1 보안</span><span class="tag tag-http">Cookie Relay</span></div>
         <span class="step-arrow">▶</span>
       </div>
       <div class="step-body">
@@ -1505,9 +1533,21 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
           이전 버전에서는 <code>qimUserId</code>를 FE 요청 body에 포함시켰으나,
           이는 클라이언트 측에서 위조 가능한 치명적 취약점이었습니다.
         </p>
+        <div class="info-box red">
+          <strong>⚠️ 중요: server-to-server 응답의 Set-Cookie relay 메커니즘</strong><br>
+          <code>OidcCompleteController</code>의 응답은 <strong>브라우저가 직접 받는 것이 아닙니다.</strong>
+          이 API는 Q-Sign 서버가 서버측에서 호출하는 <strong>내부 server-to-server 호출</strong>입니다.<br><br>
+          따라서 <code>Set-Cookie: Fe-Session-Id=...</code> 헤더를 브라우저에 전달하려면,
+          <strong>Q-Sign 서버가 이 응답의 <code>Set-Cookie</code> 헤더를 브라우저로의 302 Redirect 응답에 포함(relay)해야 합니다.</strong><br><br>
+          흐름: <code>IdO → (Set-Cookie + redirectUrl) → Q-Sign</code> → Q-Sign이
+          <code>302 Location: returnUrl</code> + <code>Set-Cookie: Fe-Session-Id=...</code>를 브라우저에 전달 →
+          브라우저가 <code>ido.onepass.kr</code> 도메인으로 쿠키 저장
+        </div>
         <div class="code-wrap">
-          <div class="code-label">OidcCompleteController.java — 쿠키 발급 <span>IdO</span></div>
-          <pre"><span class="cmt">// feSessionId: HttpOnly=true, SameSite=Lax, Secure=true</span>
+          <div class="code-label">OidcCompleteController.java — 쿠키 발급 (IdO → Q-Sign server-to-server) <span>IdO</span></div>
+          <pre><span class="cmt">// ★ 이 응답은 Q-Sign 서버가 수신 (브라우저 직접 수신 아님)</span>
+<span class="cmt">// feSessionId: HttpOnly=true, SameSite=Lax, Secure=true</span>
+<span class="cmt">// domain=ido.onepass.kr 으로 발급 → 브라우저는 ido 도메인으로 쿠키 저장</span>
 <span class="typ">ResponseCookie</span> <span class="var">cookie</span> = ResponseCookie
         .<span class="fn">from</span>(<span class="str">"Fe-Session-Id"</span>, session.<span class="fn">getFeSessionId</span>())
         .<span class="fn">httpOnly</span>(<span class="kw">true</span>)    <span class="cmt">// JS 접근 불가 — XSS 방어</span>
@@ -1522,6 +1562,21 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
         .<span class="fn">body</span>(<span class="typ">OidcCompleteResponse</span>.<span class="fn">builder</span>()
                 .<span class="fn">redirectUrl</span>(returnUrl)   <span class="cmt">// 기관 returnUrl</span>
                 .<span class="fn">build</span>());</pre>
+        </div>
+        <div class="code-wrap">
+          <div class="code-label">Q-Sign — Set-Cookie relay + 브라우저 302 Redirect <span>Q-Sign → Browser</span></div>
+          <pre"><span class="cmt">// Q-Sign의 handleCallback() 최종 단계</span>
+<span class="cmt">// IdO 서버에서 받은 Set-Cookie 헤더를 브라우저 응답에 포함(relay)</span>
+<span class="typ">OidcCompleteResponse</span> <span class="var">idoResp</span> = <span class="fn">notifyIdoAndGetRedirect</span>(authResult, stateEntry);
+<span class="cmt">// idoResp.redirectUrl  = 기관 returnUrl</span>
+<span class="cmt">// idoResp.setCookieHeader = "Fe-Session-Id=xxx; HttpOnly; Secure; SameSite=Lax"</span>
+
+<span class="cmt">// 브라우저로 302 + Set-Cookie relay</span>
+<span class="kw">return</span> ResponseEntity.<span class="fn">status</span>(HttpStatus.FOUND)
+        .<span class="fn">header</span>(HttpHeaders.LOCATION,   idoResp.<span class="fn">getRedirectUrl</span>())
+        .<span class="fn">header</span>(HttpHeaders.SET_COOKIE,  idoResp.<span class="fn">getSetCookieHeader</span>())  <span class="cmt">// relay!</span>
+        .<span class="fn">build</span>();
+<span class="cmt">// 결과: 브라우저가 302로 returnUrl로 이동하면서 Fe-Session-Id 쿠키 저장</span></pre>
         </div>
         <div class="info-box red">
           <strong>P1 보안 수정 (Before → After):</strong><br>
@@ -1685,41 +1740,68 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
           또한 <code>X-Idempotency-Key</code>로 중복 요청을 Redis 캐시로 차단합니다.
         </p>
         <div class="code-wrap">
-          <div class="code-label">HandoffController.java — P1 보안 수정 <span>IdO</span></div>
-          <pre"><span class="ann">@PostMapping</span>(<span class="str">"/api/v1/handoff/issue"</span>)
-<span class="kw">public</span> <span class="typ">ResponseEntity</span>&lt;<span class="typ">HandoffIssueResponse</span>&gt; <span class="fn">issue</span>(
-        <span class="ann">@CookieValue</span>(<span class="str">"Fe-Session-Id"</span>) <span class="typ">String</span> feSessionId,
-        <span class="ann">@RequestHeader</span>(<span class="str">"X-Idempotency-Key"</span>) <span class="typ">String</span> idempotencyKey,
-        <span class="ann">@RequestHeader</span>(<span class="str">"X-Agency-Code"</span>) <span class="typ">String</span> agencyCode,
-        <span class="ann">@RequestBody</span> <span class="typ">HandoffIssueRequest</span> req) {
+          <div class="code-label">HandoffController.java — P1 보안 수정 (실제 소스 기준) <span>IdO</span></div>
+          <pre"><span class="ann">@PostMapping</span>(<span class="str">"/issue"</span>)
+<span class="kw">public</span> <span class="typ">ResponseEntity</span>&lt;<span class="typ">HandoffTicket</span>&gt; <span class="fn">issue</span>(
+        <span class="ann">@RequestHeader</span>(<span class="kw">value</span> = <span class="str">"X-Correlation-Id"</span>, <span class="kw">required</span> = <span class="kw">false</span>) <span class="typ">String</span> correlationId,
+        <span class="ann">@RequestHeader</span>(<span class="kw">value</span> = <span class="str">"Idempotency-Key"</span>,  <span class="kw">required</span> = <span class="kw">false</span>) <span class="typ">String</span> idempotencyKey,
+        <span class="ann">@Valid @RequestBody</span> <span class="typ">HandoffIssueRequest</span> req,
+        <span class="typ">HttpServletRequest</span> httpRequest) {
 
-    <span class="cmt">// ① Fe-Session-Id 쿠키 → Redis 조회 → qimUserId 서버측 추출 (P1 보안)</span>
+    <span class="cmt">// ① Fe-Session-Id 쿠키 파싱 (HttpServletRequest.getCookies())</span>
+    <span class="cmt">// — @CookieValue 대신 수동 추출: 쿠키 없을 때 400 대신 PlatformException 처리용</span>
+    <span class="typ">String</span> <span class="var">feSessionId</span> = <span class="fn">extractCookieValue</span>(httpRequest, <span class="str">"Fe-Session-Id"</span>);
+    <span class="kw">if</span> (feSessionId == <span class="kw">null</span>) <span class="kw">throw new</span> <span class="typ">PlatformException</span>(IDO_SESSION_NOT_FOUND);
+
+    <span class="cmt">// ② Redis 조회 → qimUserId 서버측 추출 (P1 보안 핵심)</span>
     <span class="typ">FeSession</span> <span class="var">feSession</span> = feSessionService.<span class="fn">findById</span>(feSessionId)
-            .<span class="fn">orElseThrow</span>(() -&gt; <span class="kw">new</span> <span class="typ">UnauthorizedException</span>(<span class="str">"FE 세션 없음 또는 만료"</span>));
+            .<span class="fn">orElseThrow</span>(() -&gt; <span class="kw">new</span> <span class="typ">PlatformException</span>(IDO_SESSION_NOT_FOUND));
     <span class="typ">String</span> <span class="var">qimUserId</span> = feSession.<span class="fn">getQimUserId</span>();  <span class="cmt">// 서버 신뢰 데이터</span>
 
-    <span class="cmt">// ② Idempotency-Key Redis 캐시 확인</span>
-    <span class="typ">String</span> <span class="var">cacheKey</span> = <span class="str">"ido:idempotency:handoff:"</span> + idempotencyKey;
-    <span class="typ">Object</span> <span class="var">cached</span> = redisTemplate.<span class="fn">opsForValue</span>().<span class="fn">get</span>(cacheKey);
-    <span class="kw">if</span> (cached != <span class="kw">null</span>)
-        <span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>((<span class="typ">HandoffIssueResponse</span>) cached);  <span class="cmt">// 캐시 응답</span>
+    <span class="cmt">// ③ Idempotency-Key 멱등 처리</span>
+    <span class="cmt">// Redis에는 ticketId(String)만 저장 — Object 직접 캐스팅 없음</span>
+    <span class="kw">if</span> (idempotencyKey != <span class="kw">null</span>) {
+        <span class="typ">String</span> <span class="var">redisKey</span> = <span class="str">"ido:idempotency:handoff:"</span> + idempotencyKey;
+        <span class="typ">Object</span> <span class="var">cachedTicketId</span> = redisTemplate.<span class="fn">opsForValue</span>().<span class="fn">get</span>(redisKey);
+        <span class="kw">if</span> (cachedTicketId != <span class="kw">null</span>) {
+            <span class="cmt">// ticketId로 HandoffTicket 원본 재조회 (TTL/상태 재확인)</span>
+            <span class="typ">Optional</span>&lt;<span class="typ">HandoffTicket</span>&gt; <span class="var">existing</span> = ticketRepository.<span class="fn">findById</span>(cachedTicketId.<span class="fn">toString</span>());
+            <span class="kw">if</span> (existing.<span class="fn">isPresent</span>())
+                <span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>()
+                        .<span class="fn">header</span>(<span class="str">"X-Idempotency-Replayed"</span>, <span class="str">"true"</span>)
+                        .<span class="fn">body</span>(existing.<span class="fn">get</span>());
+            <span class="cmt">// 티켓 만료/소비됨 → 재발급</span>
+        }
+    }
 
     <span class="typ">HandoffIssueCommand</span> <span class="var">cmd</span> = <span class="typ">HandoffIssueCommand</span>.<span class="fn">builder</span>()
-            .<span class="fn">qimUserId</span>(qimUserId)        <span class="cmt">// 서버측 추출값</span>
-            .<span class="fn">agencyCode</span>(agencyCode)
+            .<span class="fn">correlationId</span>(cid)
+            .<span class="fn">agencyCode</span>(req.<span class="fn">getAgencyCode</span>())
+            .<span class="fn">qimUserId</span>(qimUserId)              <span class="cmt">// P1: feSession에서 서버측 추출</span>
             .<span class="fn">authResultId</span>(req.<span class="fn">getAuthResultId</span>())
-            .<span class="fn">authLevel</span>(req.<span class="fn">getAuthLevel</span>())
-            .<span class="fn">correlationId</span>(req.<span class="fn">getCorrelationId</span>())
+            .<span class="fn">authLevel</span>(AuthResult.AuthLevel.<span class="fn">valueOf</span>(req.<span class="fn">getAuthLevel</span>()))
+            .<span class="fn">providerCode</span>(req.<span class="fn">getProviderCode</span>())
+            .<span class="fn">callbackUrl</span>(req.<span class="fn">getCallbackUrl</span>())   <span class="cmt">// request body 필드</span>
+            .<span class="fn">redirectUri</span>(req.<span class="fn">getCallbackUrl</span>())   <span class="cmt">// CallbackUrlValidator 검증용 (동일값)</span>
             .<span class="fn">build</span>();
 
     <span class="typ">HandoffTicket</span> <span class="var">ticket</span> = handoffService.<span class="fn">issue</span>(cmd);
 
-    <span class="cmt">// 결과 Redis 캐시 (TTL 1일)</span>
-    redisTemplate.<span class="fn">opsForValue</span>().<span class="fn">set</span>(cacheKey,
-            <span class="fn">toResponse</span>(ticket), Duration.<span class="fn">ofDays</span>(<span class="num">1</span>));
+    <span class="cmt">// Idempotency-Key: ticketId(String)만 TTL 1일로 저장</span>
+    <span class="kw">if</span> (idempotencyKey != <span class="kw">null</span>)
+        redisTemplate.<span class="fn">opsForValue</span>().<span class="fn">set</span>(
+                <span class="str">"ido:idempotency:handoff:"</span> + idempotencyKey,
+                ticket.<span class="fn">getTicketId</span>(), IDEMPOTENCY_TTL);
 
-    <span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>(<span class="fn">toResponse</span>(ticket));
+    <span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>(ticket);
 }</pre>
+        </div>
+        <div class="info-box yellow">
+          <strong>⚠️ Idempotency 캐시 설계 핵심:</strong>
+          Redis에는 <code>ticketId(String)</code>만 저장합니다. 조회 시 ticketId로 <code>ticketRepository.findById()</code>를
+          재호출하여 원본 <code>HandoffTicket</code>을 가져옵니다.
+          이 방식은 <code>Object</code> 직접 캐스팅(<code>ClassCastException</code> 위험)을 피하고,
+          티켓 만료·소비 여부를 재확인할 수 있는 장점이 있습니다.
         </div>
       </div>
     </div>
@@ -1751,8 +1833,11 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
     rateLimiter.<span class="fn">checkAndIncrement</span>(cmd.<span class="fn">getAgencyCode</span>());  <span class="cmt">// 초과 시 429</span>
 
     <span class="cmt">// ③ CallbackUrl 화이트리스트 검증</span>
-    <span class="kw">if</span> (!agency.<span class="fn">isCallbackUrlAllowed</span>(cmd.<span class="fn">getCallbackUrl</span>()))
-        <span class="kw">throw new</span> <span class="typ">CallbackUrlNotAllowedException</span>();
+    <span class="cmt">// cmd.getRedirectUri() = HandoffIssueRequest.callbackUrl (기관이 request body로 전달)</span>
+    <span class="cmt">// agency.getCallbackWhitelist() = agency_meta 테이블에 사전 등록된 허용 URL 목록</span>
+    callbackUrlValidator.<span class="fn">validate</span>(cmd.<span class="fn">getRedirectUri</span>(),
+            agency.<span class="fn">getCallbackWhitelist</span>(), cmd.<span class="fn">getCorrelationId</span>());
+    <span class="cmt">// 검증 실패 시 → CallbackUrlNotAllowedException (400)</span>
 
     <span class="cmt">// ④ 점검 시간 차단 (시스템 점검 중이면 503)</span>
     maintenanceChecker.<span class="fn">assertNotInMaintenance</span>();
@@ -1784,7 +1869,10 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
 
     ticketRepository.<span class="fn">save</span>(ticket);   <span class="cmt">// ido.handoff_ticket 저장</span>
 
-    <span class="cmt">// Kafka HANDOFF_ISSUED 이벤트 발행 (Transactional Outbox)</span>
+    <span class="cmt">// Kafka HANDOFF_ISSUED 이벤트 발행</span>
+    <span class="cmt">// ★ kafkaTemplate.send() 직접 호출 — @Transactional 내부에서 실행</span>
+    <span class="cmt">// Spring Kafka TX가 활성화된 경우 DB TX와 Kafka TX를 ChainedTransactionManager로 묶을 수 있음</span>
+    <span class="cmt">// 단, Spring Kafka TX 미사용 시 DB 커밋 성공 → Kafka 발행 실패 가능 (at-least-once 아님)</span>
     <span class="fn">publishHandoffEvent</span>(<span class="typ">HandoffEvent</span>.TYPE_HANDOFF_ISSUED, ticket, <span class="kw">null</span>);
 
     <span class="cmt">// ⑧ Strategy Pattern: DIRECT/BRIDGE/INTERNAL_SSO/APACHE_GATE</span>
@@ -1822,6 +1910,27 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
             </span>
           </li>
         </ul>
+        <div class="info-box blue">
+          <strong>callbackUrl 출처 명확화:</strong><br>
+          <code>callbackUrl</code>은 <strong>기관이 <code>HandoffIssueRequest</code> body에 포함하여 전달</strong>합니다
+          (요청 body 필드: <code>{ "callbackUrl": "https://agency.go.kr/...", ... }</code>).<br>
+          <code>HandoffController</code>는 이 값을 <code>HandoffIssueCommand.redirectUri</code>에 복사하고,
+          <code>HandoffServiceImpl</code>의 ③번 검증에서 <strong><code>agency_meta</code> 테이블에 사전 등록된
+          화이트리스트</strong>(<code>agency.getCallbackWhitelist()</code>)와 비교합니다.<br>
+          즉, callbackUrl은 기관이 자유롭게 지정하는 것이 아니라 <strong>사전 등록된 URL만 허용</strong>됩니다.
+        </div>
+        <div class="info-box orange">
+          <strong>⚠️ 시뮬레이터(AgencySimulatorController) vs 실제 운영 흐름 차이:</strong><br>
+          <strong>실제 운영:</strong> <code>POST /api/v1/handoff/issue</code> 요청 시
+          <code>qimUserId</code>를 body에 포함하지 않습니다.
+          <code>HandoffController</code>가 <code>Fe-Session-Id</code> HttpOnly 쿠키에서 서버측으로 추출합니다 (P1 보안).<br><br>
+          <strong>시뮬레이터(<code>AgencySimulatorController.runFullFlow()</code>):</strong>
+          테스트 목적으로 <code>idoTicketClient.issue(req.getQimUserId(), ...)</code>와 같이
+          <code>qimUserId</code>를 파라미터로 직접 전달하는 코드가 있습니다.
+          이 값은 실제 <code>HandoffController</code>에서 <strong>무시되며</strong>,
+          서버는 항상 쿠키에서 추출한 값을 사용합니다.<br>
+          시뮬레이터는 테스트 하네스 역할이므로, 실제 프로덕션 흐름과 동일하게 취급하면 안 됩니다.
+        </div>
       </div>
     </div>
 
@@ -2304,7 +2413,10 @@ jdbcTemplate.<span class="fn">update</span>(<span class="str">"""
         <p class="desc">
           <code>verify()</code>는 <strong>@Transactional</strong> 내에서 티켓의 상태를 검증하고
           <code>CONSUMED</code>로 변경합니다. 이로써 1회성이 보장됩니다.
-          동시에 Kafka로 <code>HANDOFF_CONSUMED</code> 이벤트를 발행하여 Redis 캐시 무효화를 트리거합니다.
+          동시에 <code>kafkaTemplate.send()</code>로 <code>HANDOFF_CONSUMED</code> 이벤트를 직접 발행하여
+          Redis 캐시 무효화를 트리거합니다.
+          <strong>주의:</strong> <code>issue()</code>/<code>verify()</code>의 Kafka 발행은 <em>직접 kafkaTemplate 호출</em>이며,
+          Q-Sign의 AUTH_COMPLETED와 달리 Transactional Outbox 패턴을 사용하지 않습니다.
         </p>
         <div class="code-wrap">
           <div class="code-label">HandoffServiceImpl.java — verify() <span>IdO</span></div>
@@ -2334,7 +2446,9 @@ jdbcTemplate.<span class="fn">update</span>(<span class="str">"""
     <span class="cmt">// 티켓 소비 처리 (1회성 보장)</span>
     ticketRepository.<span class="fn">consume</span>(ticketId);  <span class="cmt">// status=CONSUMED, consumedAt=NOW()</span>
 
-    <span class="cmt">// Kafka HANDOFF_CONSUMED → Redis 캐시 무효화 트리거</span>
+    <span class="cmt">// Kafka HANDOFF_CONSUMED 이벤트 발행</span>
+    <span class="cmt">// ★ kafkaTemplate.send() 직접 호출 (@Transactional 내부)</span>
+    <span class="cmt">// issue()와 동일한 방식: DB TX 내 Kafka 직접 발행</span>
     <span class="fn">publishHandoffEvent</span>(<span class="typ">HandoffEvent</span>.TYPE_HANDOFF_CONSUMED, ticket, <span class="kw">null</span>);
 
     <span class="cmt">// HandoffPayload 구성 (agencySubjectId, authLevel, authContext 등)</span>
@@ -2347,6 +2461,14 @@ jdbcTemplate.<span class="fn">update</span>(<span class="str">"""
           <code>authResultCacheService.invalidate(correlationId)</code><br>
           → Redis에서 <code>ido:auth_result:{correlationId}</code>, <code>ido:auth_level:{correlationId}</code> 즉시 삭제<br>
           보안 원칙: 1회 사용된 인증 결과의 재사용 표면을 즉시 제거
+        </div>
+        <div class="info-box yellow">
+          <strong>⚠️ Kafka 발행 vs DB TX 커밋 순서:</strong><br>
+          <code>verify()</code>는 <code>@Transactional</code> 범위 내에서 <code>kafkaTemplate.send()</code>를 호출합니다.
+          <strong>Kafka 메시지 전송은 DB TX 커밋 전에 실행</strong>되지만, Kafka 자체가 별도 TX를 가지므로
+          Spring Kafka의 <code>KafkaTransactionManager</code>를 함께 사용하지 않으면
+          DB TX 커밋 실패 시 Kafka 메시지가 이미 발행된 상태가 될 수 있습니다.
+          Kafka Consumer에서의 멱등 처리(<code>IdempotentEventStore</code>)가 이 경우의 안전망 역할을 합니다.
         </div>
       </div>
     </div>
