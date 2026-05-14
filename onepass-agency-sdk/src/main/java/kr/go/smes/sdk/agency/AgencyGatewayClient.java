@@ -383,6 +383,13 @@ public final class AgencyGatewayClient {
             if (baseUrl == null || baseUrl.isEmpty()) {
                 throw new AgencySdkException("SDK_CONFIG_ERROR", "baseUrl은 필수입니다.");
             }
+            if (apiKey == null || apiKey.isEmpty()) {
+                throw new AgencySdkException("SDK_CONFIG_ERROR", "apiKey는 필수입니다. OnePass 관리자로부터 발급받은 X-Api-Key를 설정하세요.");
+            }
+            if (signRequests && (hmacSecret == null || hmacSecret.isEmpty())) {
+                throw new AgencySdkException("SDK_CONFIG_ERROR",
+                        "signRequests=true 설정 시 hmacSecret이 필요합니다.");
+            }
             return new AgencyGatewayClient(this);
         }
     }
