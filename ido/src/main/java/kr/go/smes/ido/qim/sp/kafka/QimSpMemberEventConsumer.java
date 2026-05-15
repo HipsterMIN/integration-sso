@@ -46,7 +46,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class QimSpMemberEventConsumer {
 
-    private static final String CONSUMER_GROUP = "ido-qim-sp-member-consumer";
+    // QIM-OUTBOX-SPEC-001: qim.user.events 전환 후 신규 그룹 ID 사용
+    private static final String CONSUMER_GROUP = "ido-qim-member-consumer";
 
     // ── 이벤트 타입 상수 (QIM-OUTBOX-SPEC-001 기준) ─────────────────────────
     static final String EVENT_BIZ_MEMBER_CONVERTED       = "BIZ_MEMBER_CONVERTED";
@@ -81,7 +82,7 @@ public class QimSpMemberEventConsumer {
     @KafkaListener(
             topics           = "${ido.kafka.topic-qim-user-events:qim.user.events}",
             groupId          = "${ido.kafka.consumer-group-qim-member:ido-qim-member-consumer}",
-            containerFactory = "qimSpMemberListenerContainerFactory"
+            containerFactory = "qimMemberListenerContainerFactory"
     )
     public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {
 
