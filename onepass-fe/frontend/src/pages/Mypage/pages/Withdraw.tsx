@@ -1,9 +1,8 @@
-import Modal from 'components/KrdsModal';
 import MypageContent from 'components/MypageContent';
 import { useMypageType } from 'components/MypageLayout';
 import IMAGES from 'constants/images';
 import history from 'lib/history';
-import { FormEvent, useState } from 'react';
+import { FormEvent } from 'react';
 
 import { getMypageRoute } from './routes';
 import { useInfoStore } from './useInfoStore';
@@ -14,11 +13,10 @@ function Withdraw(): JSX.Element {
 	const memberType = useMypageType();
 	const isBusiness = memberType === 'business';
 	const { business } = useInfoStore();
-	// TODO: API 배포 후 복원 — goNext 로 다음 단계 이동
-	// const nextRoute = getMypageRoute(memberType, 'WITHDRAW_STEP2');
+	const nextRoute = getMypageRoute(memberType, 'WITHDRAW_STEP2');
 	const infoRoute = getMypageRoute(memberType, 'INFORMATION');
-	const [devNoticeModal, setDevNoticeModal] = useState(false);
 	const goPrev = (): void => history.push(infoRoute);
+	const goNext = (): void => history.push(nextRoute);
 
 	return (
 		<MypageContent>
@@ -137,30 +135,12 @@ function Withdraw(): JSX.Element {
 						<span>이전</span>
 						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
 					</button>
-					<button type="button" className="btn point" onClick={(): void => setDevNoticeModal(true)}>
+					<button type="button" className="btn point" onClick={goNext}>
 						<span>다음</span>
 						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
 					</button>
 				</div>
 			</form>
-			<Modal
-				id="modal_withdraw_dev_notice"
-				isOpen={devNoticeModal}
-				onClose={(): void => setDevNoticeModal(false)}
-				topText="안내"
-				title="서비스 준비 중"
-				size="small"
-				buttons={[
-					{
-						label: '확인',
-						variant: 'primary',
-						onClick: (): void => setDevNoticeModal(false),
-					},
-				]}
-			>
-				<p>현재 개발 중인 기능입니다.</p>
-				<p>빠른 시일 내에 서비스를 제공할 예정입니다.</p>
-			</Modal>
 		</MypageContent>
 	);
 }

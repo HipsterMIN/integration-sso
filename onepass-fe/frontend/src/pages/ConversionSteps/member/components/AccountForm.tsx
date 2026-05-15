@@ -1,7 +1,7 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import checkDuplicate from 'api/ext/checkDuplicate';
 import getBusinessStatus from 'api/ext/businessStatus';
-import businessValidate from 'api/ext/businessValidate';
+import businessValidate from 'api/ext/businessValidate'; // ⚠️ [REQUIRES_MANUAL] Sprint 17: 실 국세청 API 연동 확인 필요
 import { useConversion } from 'providers/Conversion/ConversionContext';
 
 interface AccountFormProps {
@@ -63,19 +63,20 @@ function AccountForm({ isBusiness = false, onVerificationChange }: AccountFormPr
 	// 기업: 진위확인 → 중복확인 순차 호출 / 개인: 중복확인만
 	const handleCheckDuplicate = async (): Promise<void> => {
 		if (isBusiness) {
-			// 필수값 체크 (설립일은 기업인증 미구현으로 임시 제외)
+			// 필수값 체크 (회사명, 대표자명, 사업자번호, 설립일 모두 필수)
+			// ⚠️ [REQUIRES_MANUAL] startDt(설립일)는 UI에 입력 필드 존재 — businessValidate API 스펙 확인 후 필수 여부 재검토
 			if (!data.bzmnNm || !data.rprsvNm || !data.brno) {
 				setValidateStatus('fail');
 				setValidateMessage('회사명, 대표자명을 모두 입력한 후 확인해 주세요.');
 				return;
 			}
+			if (!data.startDt) {
+				setValidateStatus('fail');
+				setValidateMessage('설립일을 입력한 후 확인해 주세요. (YYYY-MM-DD)');
+				return;
+			}
 
-			// TODO: 기업인증 구현 후 진위확인 API 호출 활성화
-			// ① 진위확인 — 임시 스킵 (기업인증 미구현으로 설립일 미확보)
-			setValidateStatus('ok');
-			setValidateMessage('진위확인 생략 (기업인증 미구현)');
-			setDuplicateStatus('idle');
-			/*
+			// ① 진위확인 — 국세청 API 호출 (businessValidate)
 			setValidateStatus('checking');
 			setDuplicateStatus('idle');
 			const valResponse = await businessValidate({
@@ -101,7 +102,6 @@ function AccountForm({ isBusiness = false, onVerificationChange }: AccountFormPr
 				setValidateMessage(valResponse.message || '진위확인 요청에 실패하였습니다.');
 				return;
 			}
-			*/
 
 			// ② 중복확인
 			setDuplicateStatus('checking');

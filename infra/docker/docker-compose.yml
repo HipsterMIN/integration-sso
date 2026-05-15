@@ -1,7 +1,7 @@
 version: "3.9"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 통합인증 플랫폼 PoC — 로컬 인프라
+# 통합인증 플랫폼 — 로컬/스테이징 인프라
 # 서비스: PostgreSQL 16 / MariaDB 11 / Redis 7.2 / Kafka (Confluent 7.6.1) / Monitoring UI
 #
 # [DB 분리 구조]
@@ -13,6 +13,28 @@ version: "3.9"
 # [아키텍처 변경] onepass-fe Spring Boot BFF 제거
 #   - onepass-fe : 순수 React SPA (Nginx 서빙)
 #   - BFF 역할   : ido(port 8083) 가 /api/v1/fe-session/** 담당
+#
+# ══════════════════════════════════════════════════════════════════════════════
+# ⚠️  운영 배포 전 필수 .env 파일 생성
+# ──────────────────────────────────────────────────────────────────────────────
+# 아래 변수들은 반드시 .env 파일 또는 K8s Secret으로 주입해야 합니다.
+# 기본값(:-) 이 있는 항목은 PoC 전용이며, 운영에서 사용하면 보안 사고가 발생합니다.
+#
+# 생성 예시 (infra/docker/.env):
+#   POSTGRES_PASSWORD=$(openssl rand -base64 32)
+#   MARIADB_ROOT_PASSWORD=$(openssl rand -base64 32)
+#   MARIADB_PASSWORD=$(openssl rand -base64 32)
+#   IDO_HANDOFF_AES_KEY=$(openssl rand -base64 32)
+#   IDO_HANDOFF_HMAC_KEY=$(openssl rand -base64 32)
+#   QIM_CI_AES_KEY_V1=$(openssl rand -base64 32)
+#   IDO_WEBHOOK_SIGNING_SECRET=$(openssl rand -hex 32)
+#   IDO_INTERNAL_SIG_SECRET=$(openssl rand -hex 32)
+#   QSIGN_KEYCLOAK_CLIENT_SECRET=<Keycloak Admin Console에서 발급>
+#   KEYCLOAK_IDO_CLIENT_SECRET=<Keycloak Admin Console에서 발급>
+#   IDO_AGENCY_SUBJECT_SECRET=$(openssl rand -hex 32)
+#
+# ⛔ 아래 변수가 .env 에 없으면 기동을 중단하십시오:
+#   IDO_HANDOFF_AES_KEY, IDO_HANDOFF_HMAC_KEY, QIM_CI_AES_KEY_V1
 # ══════════════════════════════════════════════════════════════════════════════
 
 networks:
@@ -47,10 +69,12 @@ services:
     container_name: onepass-mariadb
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: rootpass
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootpass}
       MARIADB_DATABASE: qim
       MARIADB_USER: qim
-      MARIADB_PASSWORD: qim
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-qim}
       TZ: UTC
     ports:
       - "3306:3306"
@@ -87,7 +111,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: onepass
-      POSTGRES_PASSWORD: onepass
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-onepass}
       POSTGRES_DB: onepass
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
       TZ: UTC
@@ -491,11 +516,13 @@ services:
       DB_PORT:               "5432"
       DB_NAME:               onepass
       DB_USERNAME:           onepass
-      DB_PASSWORD:           onepass
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
+      DB_PASSWORD:           ${POSTGRES_PASSWORD:-onepass}
       REDIS_HOST:            redis
       REDIS_PORT:            "6379"
       KAFKA_SERVERS:         kafka:29092
       IDO_BASE_URL:          http://onepass-ido:8083
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
       IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-padding-secret}
       # Keycloak 어댑터 설정
       KEYCLOAK_URL:          http://keycloak:8080
@@ -548,11 +575,17 @@ services:
       QIM_DB_PORT:       "3306"
       QIM_DB_NAME:       qim
       QIM_DB_USERNAME:   qim
-      QIM_DB_PASSWORD:   qim
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
+      QIM_DB_PASSWORD:   ${MARIADB_PASSWORD:-qim}
       QIM_DB_SSL:        "false"     # PoC: SSL 미사용 / 운영: true
       REDIS_HOST:        redis
       REDIS_PORT:        "6379"
       KAFKA_SERVERS:     kafka:29092
+      # ── CI 암호화 키 (B-2) ─────────────────────────────────
+      # ⛔ [REQUIRES_MANUAL] 운영 필수 — 미주입 시 CI(연계정보) 암호화 무력화 (PII 규정 위반)
+      # 생성: openssl rand -base64 32
+      QIM_CI_AES_KEY_V1: ${QIM_CI_AES_KEY_V1:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      QIM_CI_AES_KEY_V2: ${QIM_CI_AES_KEY_V2:-}
     ports:
       - "8082:8082"
     networks:
@@ -628,7 +661,8 @@ services:
       DB_PORT:               "5432"
       DB_NAME:               onepass
       DB_USERNAME:           onepass
-      DB_PASSWORD:           onepass
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
+      DB_PASSWORD:           ${POSTGRES_PASSWORD:-onepass}
       REDIS_HOST:            redis
       REDIS_PORT:            "6379"
       KAFKA_SERVERS:         kafka:29092
@@ -642,8 +676,22 @@ services:
       KEYCLOAK_BASE_URL:     http://keycloak:8080
       KEYCLOAK_REALM:        onepass
       KEYCLOAK_CLIENT_ID:    ido-client
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_IDO_CLIENT_SECRET:-}  # B-6: 반드시 환경변수로 주입 (change-me 제거)
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 주입 (B-6)
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_IDO_CLIENT_SECRET:-}
       KEYCLOAK_REDIRECT_URI: http://localhost:8083/api/v1/broker/callback
+      # ── Handoff 암호화 키 (B-1) ────────────────────────────
+      # ⛔ [REQUIRES_MANUAL] 운영 필수 — 미주입 시 Handoff 암호화 무력화 (전체 0바이트)
+      # 생성: openssl rand -base64 32
+      IDO_HANDOFF_AES_KEY:  ${IDO_HANDOFF_AES_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      IDO_HANDOFF_HMAC_KEY: ${IDO_HANDOFF_HMAC_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      # ── Webhook 서명 시크릿 (B-3) ──────────────────────────
+      # ⛔ [REQUIRES_MANUAL] 운영 필수 — 미주입 시 기관이 webhook 위조 가능
+      # 생성: openssl rand -hex 32
+      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
+      # ── 정책 엔진 HMAC 시크릿 ──────────────────────────────
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 교체
+      # 생성: openssl rand -hex 32
+      IDO_AGENCY_SUBJECT_SECRET: ${IDO_AGENCY_SUBJECT_SECRET:-default-poc-secret-change-in-production}
     ports:
       - "8083:8083"
     networks:
@@ -745,7 +793,9 @@ services:
       REDIS_PORT:            "6379"
       KAFKA_SERVERS:         kafka:29092
       IDO_BASE_URL:          http://onepass-ido:8083
+      # ⚠️  [REQUIRES_MANUAL] PoC 전용 — 운영 시 실 기관 API Key로 교체
       AGENCY_API_KEY:        ${AGENCY_API_KEY:-stub-api-key-dev-001}
+      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 교체 (B-3)
       IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
     ports:
       - "8084:8084"
