@@ -1,0 +1,283 @@
+# 산출물 마스터 인덱스 — OnePass 통합인증 플랫폼
+
+| 항목 | 내용 |
+|------|------|
+| **프로젝트** | OnePass 통합인증 플랫폼 (integration-sso) |
+| **버전** | v0.8.8 |
+| **최종 갱신** | 2026-05-15 |
+| **관리 브랜치** | `genspark_ai_developer` |
+| **위키 PR** | #107 (문서화 작업) |
+
+---
+
+## 목차
+
+1. [산출물 현황 요약](#1-산출물-현황-요약)
+2. [아키텍처 문서](#2-아키텍처-문서)
+3. [ADR (Architecture Decision Record)](#3-adr-architecture-decision-record)
+4. [서비스별 상세 설계서](#4-서비스별-상세-설계서)
+5. [워크스루 문서](#5-워크스루-문서)
+6. [DB 마이그레이션 이력](#6-db-마이그레이션-이력)
+7. [코드 변경 이력](#7-코드-변경-이력)
+8. [형식별 산출물 목록](#8-형식별-산출물-목록)
+9. [산출물 완성도 체크리스트](#9-산출물-완성도-체크리스트)
+
+---
+
+## 1. 산출물 현황 요약
+
+| 분류 | 총 문서 수 | 완료 | 진행 중 | 미착수 |
+|------|:---:|:---:|:---:|:---:|
+| 아키텍처 문서 | 1 | 1 | 0 | 0 |
+| ADR | 12 | 12 | 0 | 0 |
+| 서비스 상세 설계서 | 4 | 4 | 0 | 0 |
+| 워크스루 | 5 | 5 | 0 | 0 |
+| DB 마이그레이션 | 18 (V1~V18) | 18 | 0 | 0 |
+| **합계** | **40+** | **40+** | **0** | **0** |
+
+---
+
+## 2. 아키텍처 문서
+
+| 문서명 | 경로 | 형식 | 설명 |
+|--------|------|------|------|
+| 위키 마스터 인덱스 | `wiki/INDEX.md` | Markdown | 전체 위키 구조, ADR/설계서 표, 시스템 개요 다이어그램, 용어 정의 |
+| EDA 마스터 아키텍처 설계서 | `통합인증_플랫폼_EDA_마스터_아키텍처_설계서_v0.8.8.docx` | DOCX | Kafka EDA 전체 아키텍처, 토픽 설계, 이벤트 흐름 |
+
+### 시스템 아키텍처 개요
+
+```
+[외부 IdP]           [OnePass 플랫폼]              [기관 시스템 × 68]
+  NICE ────────────►
+  OACX ────────────► Q-Sign(:8081) ──► IdO(:8083) ──► 기관_001
+  EzAuth ──────────►     │               │  │          기관_002
+  Keycloak ────────►     │          Q-IM(:8082)  ►  ...
+                         │               │          기관_068
+                    Kafka (qim.user.events, qsign.auth.events)
+                    PostgreSQL (qsign, qim, ido 스키마)
+                    Redis (세션, 캐시, 분산락)
+```
+
+---
+
+## 3. ADR (Architecture Decision Record)
+
+| ADR | 제목 | 상태 | 결정일 | 경로 |
+|-----|------|------|--------|------|
+| ADR-001 | IdO 마이크로서비스 아키텍처 | ✅ Accepted | 2025 Q3 | `wiki/adr/ADR-001-ido-microservice-architecture.md` |
+| ADR-002 | JDK 21 + Virtual Threads | ✅ Accepted | 2025 Q4 | `wiki/adr/ADR-002-jdk21-virtual-threads.md` |
+| ADR-003 | Spring Boot 3.2 | ✅ Accepted | 2025 Q4 | `wiki/adr/ADR-003-spring-boot-3.md` |
+| ADR-004 | Apache Kafka EDA | ✅ Accepted | 2025 Q3 | `wiki/adr/ADR-004-kafka-eda.md` |
+| ADR-005 | PostgreSQL 주 데이터 저장소 | ✅ Accepted | 2025 Q3 | `wiki/adr/ADR-005-postgresql-primary-store.md` |
+| ADR-006 | Redis 세션·캐시·분산락 | ✅ Accepted | 2025 Q3 | `wiki/adr/ADR-006-redis-session-cache.md` |
+| ADR-007 | Flyway 스키마 버전 관리 | ✅ Accepted | 2025 Q3 | `wiki/adr/ADR-007-flyway-db-migration.md` |
+| ADR-008 | Transactional Outbox 패턴 | ✅ Accepted | 2025 Q4 | `wiki/adr/ADR-008-transactional-outbox-pattern.md` |
+| ADR-009 | QIM-OUTBOX-SPEC-001 이벤트 정합화 | ✅ Accepted | 2026 (Sprint 14) | `wiki/adr/ADR-009-qim-outbox-spec-001.md` |
+| ADR-010 | CAST Token Ed25519 Cross-Agency SSO | ✅ Accepted | 2026 (Sprint 12) | `wiki/adr/ADR-010-cast-token-cross-agency-sso.md` |
+| ADR-011 | HMAC-SHA256 Gateway 인증 | ✅ Accepted | 2025 Q4 | `wiki/adr/ADR-011-hmac-sha256-gateway-auth.md` |
+| ADR-012 | React FE 이중 Axios 인스턴스 | ✅ Accepted | 2026 (Sprint 11) | `wiki/adr/ADR-012-react-fe-dual-instance.md` |
+
+### ADR 결정 타임라인
+
+```
+2025 Q3  ─── ADR-001 (마이크로서비스)
+         ─── ADR-004 (Kafka EDA)
+         ─── ADR-005 (PostgreSQL)
+         ─── ADR-006 (Redis)
+         ─── ADR-007 (Flyway)
+
+2025 Q4  ─── ADR-002 (JDK 21)
+         ─── ADR-003 (Spring Boot 3)
+         ─── ADR-008 (Outbox 패턴)
+         ─── ADR-011 (HMAC-SHA256)
+
+2026     ─── ADR-009 (QIM-OUTBOX-SPEC-001)
+         ─── ADR-010 (CAST Token)
+         ─── ADR-012 (FE 이중 인스턴스)
+```
+
+---
+
+## 4. 서비스별 상세 설계서
+
+| 서비스 | 포트 | 문서 경로 | 형식 | 핵심 내용 |
+|--------|------|-----------|------|-----------|
+| IdO (Identity Orchestrator) | 8083 | `wiki/design/01-ido-service-design.md` | Markdown | 패키지 구조, 인증 오케스트레이션, HmacSignatureFilter, ProvisioningServiceImpl, Handoff 4전략, DB 18테이블 |
+| Q-IM (Query & Identity Manager) | 8082 | `wiki/design/02-qim-service-design.md` | Markdown | 회원 등록/전환, 2×2 이벤트 결정표, CI 암호화, Outbox 발행, DB 스키마 |
+| Q-Sign (Auth Gateway) | 8081 | `wiki/design/03-qsign-service-design.md` | Markdown | 인증 세션 5단계, Keycloak OIDC, PKCE S256, AuthMetrics, DB 스키마 |
+| Agency-Stub (PoC 스텁) | 8090 | `wiki/design/04-agency-stub-design.md` | Markdown | 기관 연동 시뮬레이터, 4종 Handoff 수신, 이벤트 폴링 |
+
+### 서비스 간 의존성
+
+```
+onepass-fe ──────────► IdO(:8083)  ◄──── Kafka ────► Q-IM(:8082)
+                            │                              │
+                            ▼                              ▼
+                       Q-Sign(:8081)               PostgreSQL (qim)
+                            │                       Redis
+                       Keycloak(OIDC)
+                            │
+                       PostgreSQL (ido, qsign)
+                       Redis
+                       Kafka
+                       Agency Systems × 68
+```
+
+---
+
+## 5. 워크스루 문서
+
+| 문서 | 경로 | 설명 |
+|------|------|------|
+| WT-001: 로그인 전체 흐름 | `wiki/walkthrough/01-login-walkthrough.md` | NICE·OACX·EzAuth·Keycloak 4개 경로, CI 보안 처리, FE 이중 인스턴스 |
+| WT-002: 신규 회원 가입 | `wiki/walkthrough/02-member-register-walkthrough.md` | 개인·기업 가입, Outbox 발행, CI 데이터 경계, 멱등성 |
+| WT-003: 기관 계정 전환 | `wiki/walkthrough/03-member-conversion-walkthrough.md` | PERSONAL/BIZ_CONVERTED 이벤트, 분산락, 세션 갱신 |
+| WT-004: 프로비저닝 흐름 | `wiki/walkthrough/04-provisioning-walkthrough.md` | QimEventConsumer 필터, Virtual Thread 68기관 병렬, 지수 백오프, Thundering Herd 방지 |
+| WT-005: Handoff SSO | `wiki/walkthrough/05-handoff-sso-walkthrough.md` | CAST Token, Ed25519 서명, 4가지 Handoff 전략, 키 로테이션 |
+
+---
+
+## 6. DB 마이그레이션 이력
+
+### IdO 마이그레이션 (V1~V18)
+
+| 버전 | 파일명 | 내용 | 상태 |
+|------|--------|------|------|
+| V1 | `V1__create_initial_schema.sql` | ido 스키마 초기 생성 | ✅ |
+| V2 | `V2__add_auth_session.sql` | auth_session 테이블 | ✅ |
+| V3 | `V3__add_agency_config.sql` | agency_config 테이블 | ✅ |
+| V4~V9 | _(생략)_ | 점진적 스키마 확장 | ✅ |
+| V10 | → V17로 rename (PR #106) | 충돌 해결 | ✅ |
+| V11~V14 | _(생략)_ | 기능별 스키마 추가 | ✅ |
+| V15 | `V15__add_provisioning_outbox_and_agency_endpoint.sql` | provisioning_outbox, agency_endpoint 생성 | ✅ |
+| V16 | `V16__add_gateway_inbound_audit.sql` | gateway_inbound_audit 생성 | ✅ |
+| V17 | `V17__add_outbox_thundering_herd_prevention.sql` | FOR UPDATE SKIP LOCKED 인덱스 추가 | ✅ |
+| V18 | `V18__update_event_type_constraints.sql` | QIM-OUTBOX-SPEC-001 CHECK 제약 갱신 | ✅ |
+
+**V10 충돌 교훈** (ADR-007):
+- V10이 두 개 존재하는 브랜치 병합 충돌 → V10 rename to V17
+- 교훈: Flyway 번호는 merge 전 항상 slack/PR 사전 협의
+
+---
+
+## 7. 코드 변경 이력
+
+### PR 이력 (주요)
+
+| PR | 제목 | 포함 변경 | 상태 |
+|----|------|-----------|------|
+| #106 | fix(flyway): V10 충돌 해결 + ProvisioningEventType 정합화 | V10→V17 rename, ProvisioningEventType 신규 5종 추가 | ✅ Merged |
+| #107 | fix(provisioning)+docs(fe): V18 CHECK 제약 + Javadoc + ciCheck.ts | V18 SQL, ProvisioningService Javadoc, ProvisioningOutboxRecord Javadoc, ciCheck.ts TODO | ✅ Open |
+
+### 파일 수정 이력 (v0.8.8 기준)
+
+| 파일 | 수정 내용 | PR |
+|------|-----------|-----|
+| `ido/.../ProvisioningService.java` | QIM-OUTBOX-SPEC-001 Javadoc 갱신, 데이터 흐름 다이어그램 추가 | #107 |
+| `ido/.../ProvisioningOutboxRecord.java` | eventType Javadoc 구 4종 → 신규 5종 갱신 | #107 |
+| `ido/.../V18__update_event_type_constraints.sql` | provisioning_outbox + gateway_inbound_audit CHECK 제약 재정의 | #107 |
+| `onepass-fe/.../ciCheck.ts` | 미연결 상태 TODO 주석 문서화 | #107 |
+
+---
+
+## 8. 형식별 산출물 목록
+
+### Markdown 산출물 (위키 업로드용)
+
+```
+wiki/
+├── INDEX.md                              ← 위키 마스터 인덱스
+├── adr/
+│   ├── ADR-001-ido-microservice-architecture.md
+│   ├── ADR-002-jdk21-virtual-threads.md
+│   ├── ADR-003-spring-boot-3.md
+│   ├── ADR-004-kafka-eda.md
+│   ├── ADR-005-postgresql-primary-store.md
+│   ├── ADR-006-redis-session-cache.md
+│   ├── ADR-007-flyway-db-migration.md
+│   ├── ADR-008-transactional-outbox-pattern.md
+│   ├── ADR-009-qim-outbox-spec-001.md
+│   ├── ADR-010-cast-token-cross-agency-sso.md
+│   ├── ADR-011-hmac-sha256-gateway-auth.md
+│   └── ADR-012-react-fe-dual-instance.md
+├── design/
+│   ├── 01-ido-service-design.md
+│   ├── 02-qim-service-design.md
+│   ├── 03-qsign-service-design.md
+│   └── 04-agency-stub-design.md
+├── walkthrough/
+│   ├── 01-login-walkthrough.md
+│   ├── 02-member-register-walkthrough.md
+│   ├── 03-member-conversion-walkthrough.md
+│   ├── 04-provisioning-walkthrough.md
+│   └── 05-handoff-sso-walkthrough.md
+└── deliverables/
+    └── DELIVERABLES.md                   ← 이 문서
+```
+
+**총 Markdown 파일**: 19개  
+**총 추정 분량**: 약 600~700 페이지 (A4 기준)
+
+---
+
+### DOCX 산출물 (공식 문서 배포용)
+
+| 파일명 | 소스 | 대상 독자 | 우선순위 |
+|--------|------|-----------|----------|
+| `통합인증_플랫폼_EDA_마스터_아키텍처_설계서_v0.8.8.docx` | 기존 생성 완료 | 아키텍처 위원회, PM | ✅ 완료 |
+| `IdO_서비스_상세_설계서_v0.8.8.docx` | `design/01-ido-service-design.md` | 개발팀, 보안 팀 | 🔜 변환 예정 |
+| `QIM_서비스_상세_설계서_v0.8.8.docx` | `design/02-qim-service-design.md` | 개발팀 | 🔜 변환 예정 |
+| `QSign_서비스_상세_설계서_v0.8.8.docx` | `design/03-qsign-service-design.md` | 개발팀 | 🔜 변환 예정 |
+| `프로비저닝_워크스루_v0.8.8.docx` | `walkthrough/04-provisioning-walkthrough.md` | 운영팀, 기관 담당자 | 🔜 변환 예정 |
+| `HandoffSSO_워크스루_v0.8.8.docx` | `walkthrough/05-handoff-sso-walkthrough.md` | 보안팀, 기관 담당자 | 🔜 변환 예정 |
+
+---
+
+### 기타 산출물
+
+| 파일명 | 형식 | 설명 |
+|--------|------|------|
+| `OnePass_qim_outbox_해이브명세_20260514.xlsx` | Excel | QIM Outbox 이벤트 명세서 (기존 생성) |
+| `member-flow.html` | HTML | 회원 흐름 다이어그램 (시각화용) |
+
+---
+
+## 9. 산출물 완성도 체크리스트
+
+### 문서화
+
+- [x] 위키 마스터 인덱스 (`wiki/INDEX.md`)
+- [x] ADR-001 ~ ADR-012 (12개 완료)
+- [x] 서비스 상세 설계서 4개 (IdO, Q-IM, Q-Sign, Agency-Stub)
+- [x] 워크스루 5개 (로그인, 가입, 전환, 프로비저닝, Handoff SSO)
+- [x] 산출물 마스터 인덱스 (이 문서)
+- [ ] DOCX 변환 (상세 설계서 4개 + 워크스루 2개)
+
+### 코드 품질
+
+- [x] V18 DB 마이그레이션 (QIM-OUTBOX-SPEC-001 CHECK 제약)
+- [x] ProvisioningService.java Javadoc 갱신
+- [x] ProvisioningOutboxRecord.java Javadoc 갱신
+- [x] ciCheck.ts 미연결 TODO 문서화
+- [ ] ci-check FE 연결 (별도 Sprint, Q2=B PoC 완료 후)
+
+### 운영 준비
+
+- [x] Flyway V1~V18 마이그레이션 스크립트
+- [x] provisioning_outbox CHECK 제약 (V18)
+- [ ] 운영 모니터링 대시보드 설정 (Grafana)
+- [ ] DLQ 알림 설정 (Slack/PagerDuty)
+- [ ] CAST Token 키 로테이션 절차서
+
+---
+
+## 관련 링크
+
+| 항목 | 링크 |
+|------|------|
+| GitHub 저장소 | https://github.com/HipsterMIN/integration-sso |
+| PR #107 (문서화) | https://github.com/HipsterMIN/integration-sso/pull/107 |
+| 위키 인덱스 | `wiki/INDEX.md` |
+| ADR 디렉토리 | `wiki/adr/` |
+| 설계서 디렉토리 | `wiki/design/` |
+| 워크스루 디렉토리 | `wiki/walkthrough/` |
