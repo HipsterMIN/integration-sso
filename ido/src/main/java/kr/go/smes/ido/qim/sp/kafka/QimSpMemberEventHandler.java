@@ -40,11 +40,13 @@ import java.util.Map;
  *                         → WebhookDispatchOutboxRelay → HTTPS POST 기관
  * </pre>
  *
- * <p><b>책임 경계</b>:
+ * <p><b>책임 경계 (QIM-OUTBOX-SPEC-001 신규 명칭 기준)</b>:
  * <ul>
- *   <li>QIM_MEMBER_REGISTERED: 기관 webhook 발송 + 감사 로그</li>
- *   <li>QIM_MEMBER_TRANSFERRED: 기관 webhook 발송 + 감사 로그</li>
- *   <li>QIM_MEMBER_WITHDRAWN: 기관 webhook 발송 + 개인정보 파기 스케줄 (Phase 3)</li>
+ *   <li>BIZ_MEMBER_CONVERTED:      기업회원 전환 — 기관 webhook + 감사 로그</li>
+ *   <li>BIZ_MEMBER_REGISTERED:     기업회원 신규 — 기관 webhook + 감사 로그</li>
+ *   <li>PERSONAL_MEMBER_CONVERTED: 개인회원 전환 — 기관 webhook + 감사 로그</li>
+ *   <li>PERSONAL_MEMBER_REGISTERED:개인회원 신규 — 기관 webhook + 감사 로그</li>
+ *   <li>MEMBER_WITHDRAWN:          탈퇴 — 기관 webhook + 개인정보 파기 스케줄 (Phase 3)</li>
  * </ul>
  *
  * @see <a href="docs/qim-ido-integration-architecture.md">§10 EDA 기반 내부 전파 설계</a>
@@ -62,43 +64,92 @@ public class QimSpMemberEventHandler {
     private final WebhookDispatcherService   webhookDispatcherService;
     private final AuditLogPublisher          auditLogPublisher;
 
-    // ── 회원 등록 (NEW) ──────────────────────────────────────────────────────
+    // ── 기업회원 전환 ──────────────────────────────────────────────────────────
 
     /**
-     * QIM_MEMBER_REGISTERED 처리
+     * BIZ_MEMBER_CONVERTED 처리 — 기업회원 전환
      *
-     * <p>처리 흐름:
-     * <ol>
-     *   <li>instMbrId 매핑 DB 확인</li>
-     *   <li>기관 webhook 발송 Outbox 적재 (notifyAgencies)</li>
-     *   <li>감사 로그 기록</li>
-     * </ol>
-     *
-     * <p>webhook payload에는 instMbrId만 포함.
-     * CI/DN 원본값 절대 포함 금지.
-     *
-     * @param payload      이벤트 페이로드 (instMbrId, mbrUuid, regMode, memberType, identifierHash)
-     * @param correlationId 추적 ID
+     * <p>다른 SP에서 이 SP로 전환 완료된 기업회원.
+     * 이전 SP 탈퇴 이벤트는 Q-IM이 별도 발행.
      */
     @Transactional
-    public void onMemberRegistered(Map<String, Object> payload, String correlationId) {
-        String instMbrId       = extractString(payload, "instMbrId");
-        String mbrUuid         = extractString(payload, "mbrUuid");
-        String memberType      = extractString(payload, "memberType");
-        String identifierHash  = extractString(payload, "identifierHash");
-        String agencyCode      = extractString(payload, "agencyCode");
+    public void onBizMemberConverted(Map<String, Object> payload, String correlationId) {
+        handleMemberProvision(payload, correlationId,
+                "BIZ_MEMBER_CONVERTED", "BIZ_MEMBER_CONVERTED_PROCESSED",
+                "webhook enqueued for BIZ_MEMBER_CONVERTED");
+    }
 
-        log.info("[QimSpEventHandler] REGISTERED 처리 시작: instMbrId={} memberType={} correlationId={}",
-                instMbrId, memberType, correlationId);
+    // ── 기업회원 신규 ──────────────────────────────────────────────────────────
+
+    /**
+     * BIZ_MEMBER_REGISTERED 처리 — 기업회원 신규 등록
+     *
+     * <p>webhook payload에는 instMbrId만 포함. CI/DN 원본값 절대 포함 금지.
+     */
+    @Transactional
+    public void onBizMemberRegistered(Map<String, Object> payload, String correlationId) {
+        handleMemberProvision(payload, correlationId,
+                "BIZ_MEMBER_REGISTERED", "BIZ_MEMBER_REGISTERED_PROCESSED",
+                "webhook enqueued for BIZ_MEMBER_REGISTERED");
+    }
+
+    // ── 개인회원 전환 ──────────────────────────────────────────────────────────
+
+    /**
+     * PERSONAL_MEMBER_CONVERTED 처리 — 개인회원 전환
+     */
+    @Transactional
+    public void onPersonalMemberConverted(Map<String, Object> payload, String correlationId) {
+        handleMemberProvision(payload, correlationId,
+                "PERSONAL_MEMBER_CONVERTED", "PERSONAL_MEMBER_CONVERTED_PROCESSED",
+                "webhook enqueued for PERSONAL_MEMBER_CONVERTED");
+    }
+
+    // ── 개인회원 신규 ──────────────────────────────────────────────────────────
+
+    /**
+     * PERSONAL_MEMBER_REGISTERED 처리 — 개인회원 신규 등록
+     */
+    @Transactional
+    public void onPersonalMemberRegistered(Map<String, Object> payload, String correlationId) {
+        handleMemberProvision(payload, correlationId,
+                "PERSONAL_MEMBER_REGISTERED", "PERSONAL_MEMBER_REGISTERED_PROCESSED",
+                "webhook enqueued for PERSONAL_MEMBER_REGISTERED");
+    }
+
+    // ── 통합 등록/전환 핸들러 (기업·개인 공통 로직) ────────────────────────────
+
+    /**
+     * BIZ/PERSONAL REGISTERED/CONVERTED 4종 이벤트의 공통 로직
+     *
+     * <p>오직 감사 로그의 eventAction과 outcomeDetail만 다르고
+     * 매핑 확인 → 기관 webhook Outbox 적재 → 감사 로그 흐름은 동일하다.
+     *
+     * @param payload       이벤트 페이로드
+     * @param correlationId 추적 ID
+     * @param logTag        로그용 이벤트 타입 레이블
+     * @param auditAction   감사 로그 eventAction
+     * @param auditDetail   감사 로그 outcomeDetail
+     */
+    private void handleMemberProvision(Map<String, Object> payload, String correlationId,
+                                        String logTag, String auditAction, String auditDetail) {
+        String instMbrId      = extractString(payload, "instMbrId");
+        String mbrUuid        = extractString(payload, "mbrUuid");
+        String memberType     = extractString(payload, "memberType");
+        String identifierHash = extractString(payload, "identifierHash");
+        String agencyCode     = extractString(payload, "agencyCode");
+
+        log.info("[QimSpEventHandler] {} 처리 시작: instMbrId={} memberType={} correlationId={}",
+                logTag, instMbrId, memberType, correlationId);
 
         // ① 매핑 존재 확인
         if (instMbrId != null && mappingRepository.findByInstMbrId(instMbrId).isEmpty()) {
-            log.warn("[QimSpEventHandler] REGISTERED — 매핑 없음 instMbrId={} (선행 트랜잭션 미완료 가능성)",
-                    instMbrId);
+            log.warn("[QimSpEventHandler] {} — 매핑 없음 instMbrId={} (선행 TX 미완료 가능성)",
+                    logTag, instMbrId);
             return;
         }
 
-        // ② 기관 webhook 발송 (notifyAgencies 구현 완료)
+        // ② 기관 webhook 발송 Outbox 적재
         notifyAgenciesForMemberRegistered(instMbrId, mbrUuid, identifierHash, agencyCode, correlationId);
 
         // ③ 감사 로그
@@ -107,7 +158,7 @@ public class QimSpMemberEventHandler {
         auditLogPublisher.publish(
                 AuditLogPublisher.AuditEntry.builder()
                         .eventCategory(AuditLogEvent.CATEGORY_MEMBER)
-                        .eventAction("MEMBER_REGISTERED_PROCESSED")
+                        .eventAction(auditAction)
                         .actorType(AuditLogEvent.ACTOR_SYSTEM)
                         .actorId(SOURCE_SYSTEM)
                         .resourceType("MEMBER")
@@ -115,72 +166,22 @@ public class QimSpMemberEventHandler {
                         .agencyCode(agencyCode)
                         .correlationId(correlationId)
                         .outcome(AuditLogEvent.OUTCOME_SUCCESS)
-                        .outcomeDetail("webhook enqueued for MEMBER_REGISTERED")
+                        .outcomeDetail(auditDetail)
                         .metadata(Map.of(
+                                "eventType",      nullToEmpty(logTag),
                                 "memberType",     nullToEmpty(memberType),
                                 "identifierHash", nullToEmpty(identifierHash)
                         ))
                         .build()
         );
 
-        log.info("[QimSpEventHandler] REGISTERED 처리 완료: instMbrId={}", instMbrId);
-    }
-
-    // ── 회원 전환 (TRANSFER) ─────────────────────────────────────────────────
-
-    /**
-     * QIM_MEMBER_TRANSFERRED 처리
-     *
-     * <p>다른 SP에서 이 SP로 이전한 경우.
-     * 이전 SP 탈퇴 이벤트는 Q-IM에서 별도 발행.
-     *
-     * @param payload      이벤트 페이로드
-     * @param correlationId 추적 ID
-     */
-    @Transactional
-    public void onMemberTransferred(Map<String, Object> payload, String correlationId) {
-        String instMbrId      = extractString(payload, "instMbrId");
-        String mbrUuid        = extractString(payload, "mbrUuid");
-        String agencyCode     = extractString(payload, "agencyCode");
-        String identifierHash = extractString(payload, "identifierHash");
-
-        log.info("[QimSpEventHandler] TRANSFERRED 처리 시작: instMbrId={} correlationId={}",
-                instMbrId, correlationId);
-
-        // ① 매핑 확인
-        if (instMbrId != null && mappingRepository.findByInstMbrId(instMbrId).isEmpty()) {
-            log.warn("[QimSpEventHandler] TRANSFERRED — 매핑 없음 instMbrId={}", instMbrId);
-            return;
-        }
-
-        // ② 기관 webhook 발송 (MEMBER_TRANSFERRED)
-        notifyAgenciesForMemberRegistered(instMbrId, mbrUuid, identifierHash, agencyCode, correlationId);
-
-        // ③ 감사 로그
-        insertReceiverLog("REGISTER", instMbrId, null, correlationId, 200, false, null);
-
-        auditLogPublisher.publish(
-                AuditLogPublisher.AuditEntry.builder()
-                        .eventCategory(AuditLogEvent.CATEGORY_MEMBER)
-                        .eventAction("MEMBER_TRANSFERRED_PROCESSED")
-                        .actorType(AuditLogEvent.ACTOR_SYSTEM)
-                        .actorId(SOURCE_SYSTEM)
-                        .resourceType("MEMBER")
-                        .resourceId(instMbrId)
-                        .agencyCode(agencyCode)
-                        .correlationId(correlationId)
-                        .outcome(AuditLogEvent.OUTCOME_SUCCESS)
-                        .outcomeDetail("webhook enqueued for MEMBER_TRANSFERRED")
-                        .build()
-        );
-
-        log.info("[QimSpEventHandler] TRANSFERRED 처리 완료: instMbrId={}", instMbrId);
+        log.info("[QimSpEventHandler] {} 처리 완료: instMbrId={}", logTag, instMbrId);
     }
 
     // ── 회원 탈퇴 ───────────────────────────────────────────────────────────
 
     /**
-     * QIM_MEMBER_WITHDRAWN 처리
+     * MEMBER_WITHDRAWN 처리
      *
      * <p>탈퇴 시 세션 무효화는 QimSpReceiverService.handleMemberWithdraw()에서
      * 동기적으로 처리됨. 본 핸들러는 비동기 후처리 담당:
@@ -242,7 +243,7 @@ public class QimSpMemberEventHandler {
 
         // ④ [Phase 3 TODO] 개인정보 파기 스케줄링 (보존 기간 정책 엔진 연동)
         //    retentionPolicyEngine.schedule(instMbrId, withdrawalReason);
-        log.info("[QimSpEventHandler] WITHDRAWN 처리 완료: instMbrId={} — 개인정보 파기 Phase 3 예정",
+        log.info("[QimSpEventHandler] MEMBER_WITHDRAWN 처리 완료: instMbrId={} — 개인정보 파기 Phase 3 예정",
                 instMbrId);
     }
 

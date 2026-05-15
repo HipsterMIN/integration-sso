@@ -466,7 +466,60 @@ public class WebhookDispatcherService {
     private String buildMemberWithdrawnPayload(String instMbrId,
                                                 String correlationId) throws JsonProcessingException {
         Map<String, Object> payload = new LinkedHashMap<>();
+        // QIM-OUTBOX-SPEC-001: MEMBER_WITHDRAWN (명칭 동일, 접두사 QIM_ 제거)
         payload.put("eventType",     "MEMBER_WITHDRAWN");
+        payload.put("instMbrId",     instMbrId);
+        payload.put("correlationId", correlationId);
+        payload.put("occurredAt",    Instant.now().toString());
+        return objectMapper.writeValueAsString(payload);
+    }
+
+    /**
+     * 회원 등록/전환 이벤트를 기관 webhook으로 통보하는 Outbox 적재
+     *
+     * <p>QIM-OUTBOX-SPEC-001 4종 이벤트(BIZ_MEMBER_CONVERTED 등)에 의해
+     * {@link kr.go.smes.ido.qim.sp.kafka.QimSpMemberEventHandler}에서 호출된다.
+     * webhook payload의 eventType은 발신 이벤트 타입 그대로 전달하여
+     * 기관이 BIZ/PERSONAL 여부를 직접 구분할 수 있도록 한다.
+     *
+     * @param instMbrId     기관 회원 ID
+     * @param qimUserId     Q-IM 사용자 ID
+     * @param eventType     BIZ_MEMBER_CONVERTED | BIZ_MEMBER_REGISTERED
+     *                      | PERSONAL_MEMBER_CONVERTED | PERSONAL_MEMBER_REGISTERED
+     * @param correlationId 추적 ID
+     */
+    @Transactional
+    public void enqueueForMemberProvisioned(String instMbrId, String qimUserId,
+                                             String eventType, String correlationId) {
+        // webhook_config의 event_type_filter에 신규 이벤트 타입 등록 필요
+        List<AgencyWebhookConfig> targets = findWebhookTargets(eventType, null);
+        if (targets.isEmpty()) {
+            log.info("[WebhookDispatcher] {} webhook 대상 없음: instMbrId={}", eventType, instMbrId);
+            return;
+        }
+
+        String sourceEventId = UuidV7.generate();
+        int enqueued = 0;
+        for (AgencyWebhookConfig config : targets) {
+            try {
+                String payload = buildMemberProvisionedPayload(instMbrId, eventType, correlationId);
+                boolean inserted = insertOutbox(config, sourceEventId, eventType,
+                        "qim.user.events", payload, correlationId);
+                if (inserted) enqueued++;
+            } catch (Exception e) {
+                log.error("[WebhookDispatcher] {} Outbox 실패: agencyCode={} error={}",
+                        eventType, config.agencyCode(), e.getMessage());
+            }
+        }
+        log.info("[WebhookDispatcher] {} Outbox 적재 완료: instMbrId={} targets={} enqueued={}",
+                eventType, instMbrId, targets.size(), enqueued);
+    }
+
+    private String buildMemberProvisionedPayload(String instMbrId,
+                                                  String eventType,
+                                                  String correlationId) throws JsonProcessingException {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("eventType",     eventType);
         payload.put("instMbrId",     instMbrId);
         payload.put("correlationId", correlationId);
         payload.put("occurredAt",    Instant.now().toString());

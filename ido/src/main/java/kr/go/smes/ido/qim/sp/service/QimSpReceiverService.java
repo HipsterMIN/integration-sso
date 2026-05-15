@@ -41,12 +41,19 @@ import kr.go.smes.common.util.UuidV7;
 @RequiredArgsConstructor
 public class QimSpReceiverService {
 
-    private static final String TOPIC_QIM_SP_MEMBER_EVENTS = "qim.sp.member.events";
+    private static final String TOPIC_QIM_USER_EVENTS = "qim.user.events";
 
-    // Event types
-    private static final String EVENT_QIM_MEMBER_REGISTERED   = "QIM_MEMBER_REGISTERED";
-    private static final String EVENT_QIM_MEMBER_TRANSFERRED  = "QIM_MEMBER_TRANSFERRED";
-    private static final String EVENT_QIM_MEMBER_WITHDRAWN    = "QIM_MEMBER_WITHDRAWN";
+    // ── 이벤트 타입 (qim_outbox 명세서 QIM-OUTBOX-SPEC-001 기준) ─────────────
+    // 기업회원 전환 (구 QIM_MEMBER_TRANSFERRED + CORPORATE)
+    static final String EVENT_BIZ_MEMBER_CONVERTED      = "BIZ_MEMBER_CONVERTED";
+    // 기업회원 신규 등록 (구 QIM_MEMBER_REGISTERED + CORPORATE)
+    static final String EVENT_BIZ_MEMBER_REGISTERED     = "BIZ_MEMBER_REGISTERED";
+    // 개인회원 전환 (구 QIM_MEMBER_TRANSFERRED + PERSONAL)
+    static final String EVENT_PERSONAL_MEMBER_CONVERTED = "PERSONAL_MEMBER_CONVERTED";
+    // 개인회원 신규 등록 (구 QIM_MEMBER_REGISTERED + PERSONAL)
+    static final String EVENT_PERSONAL_MEMBER_REGISTERED = "PERSONAL_MEMBER_REGISTERED";
+    // 회원 탈퇴 (명칭 동일, 접두사만 제거)
+    static final String EVENT_MEMBER_WITHDRAWN          = "MEMBER_WITHDRAWN";
 
     // Endpoint codes (멱등성 테이블 구분용)
     private static final String ENDPOINT_QUERY    = "QUERY";
@@ -120,8 +127,16 @@ public class QimSpReceiverService {
     // ── MEMBER_REGISTER ──────────────────────────────────────────────────────
 
     /**
-     * 회원 등록 수신 처리 (MEMBER_REGISTER)
+     * 회원 등록/전환 수신 처리 (MEMBER_REGISTER)
      * Q-IM이 회원을 저장한 후 SP(=IdO)에 통보한다.
+     *
+     * <p><b>이벤트 타입 결정 규칙 (QIM-OUTBOX-SPEC-001)</b>:
+     * <pre>
+     *   isTransfer=true  + isCorporate=true  → BIZ_MEMBER_CONVERTED
+     *   isTransfer=false + isCorporate=true  → BIZ_MEMBER_REGISTERED
+     *   isTransfer=true  + isCorporate=false → PERSONAL_MEMBER_CONVERTED
+     *   isTransfer=false + isCorporate=false → PERSONAL_MEMBER_REGISTERED
+     * </pre>
      */
     @Transactional
     public QimSpResponse<QimSpResponse.RegisterData> handleMemberRegister(
@@ -190,11 +205,13 @@ public class QimSpReceiverService {
                     instMbrId, regMode, correlationId);
         }
 
-        // 4. Outbox 발행 (비동기 — qim.sp.member.events)
-        String eventType = request.isTransfer()
-                ? EVENT_QIM_MEMBER_TRANSFERRED : EVENT_QIM_MEMBER_REGISTERED;
+        // 4. Outbox 발행 (비동기 — qim.user.events)
+        // 이벤트 타입: isTransfer × isCorporate 조합으로 4종 분기 (QIM-OUTBOX-SPEC-001)
+        String eventType = resolveRegisterEventType(request.isTransfer(), request.isCorporate());
         publishToOutbox(instMbrId, instMbrId, eventType,
                 buildRegisterPayload(instMbrId, request, identifierHash), correlationId);
+        log.info("[QIM-SP] REGISTER Outbox 발행 instMbrId={} eventType={} correlationId={}",
+                instMbrId, eventType, correlationId);
 
         // 5. 응답 + 멱등성 저장
         QimSpResponse<QimSpResponse.RegisterData> response = QimSpResponse.ok(
@@ -259,8 +276,8 @@ public class QimSpReceiverService {
                         mapping.getQimUserId(), e.getMessage());
             }
 
-            // 5. Outbox 발행
-            publishToOutbox(instMbrId, mapping.getQimUserId(), EVENT_QIM_MEMBER_WITHDRAWN,
+            // 5. Outbox 발행 — MEMBER_WITHDRAWN (QIM-OUTBOX-SPEC-001)
+            publishToOutbox(instMbrId, mapping.getQimUserId(), EVENT_MEMBER_WITHDRAWN,
                     buildWithdrawPayload(instMbrId, request), correlationId);
 
             log.info("[QIM-SP] WITHDRAW 처리 완료 instMbrId={} correlationId={}",
@@ -327,6 +344,18 @@ public class QimSpReceiverService {
         }
     }
 
+    /**
+     * isTransfer × isCorporate 조합 → 4종 이벤트 타입 결정
+     *
+     * <p>QIM-OUTBOX-SPEC-001 §1 이벤트 & 토픽 매핑 테이블 기준.
+     */
+    static String resolveRegisterEventType(boolean isTransfer, boolean isCorporate) {
+        if (isTransfer && isCorporate)   return EVENT_BIZ_MEMBER_CONVERTED;
+        if (!isTransfer && isCorporate)  return EVENT_BIZ_MEMBER_REGISTERED;
+        if (isTransfer)                  return EVENT_PERSONAL_MEMBER_CONVERTED;
+        return EVENT_PERSONAL_MEMBER_REGISTERED;
+    }
+
     private void publishToOutbox(String instMbrId, String qimUserId,
                                   String eventType, Map<String, Object> payloadMap,
                                   String correlationId) {
@@ -340,7 +369,7 @@ public class QimSpReceiverService {
                     + " payload, topic, status, retry_count, created_at) "
                     + "VALUES (?, ?, ?, ?, 1, ?::jsonb, ?, 'PENDING', 0, NOW())",
                     eventId, eventType, qimUserId, instMbrId,
-                    payloadJson, TOPIC_QIM_SP_MEMBER_EVENTS);
+                    payloadJson, TOPIC_QIM_USER_EVENTS);
 
         } catch (JsonProcessingException e) {
             log.error("[QIM-SP] Outbox 직렬화 실패 eventType={} cause={}", eventType, e.getMessage());
@@ -353,11 +382,12 @@ public class QimSpReceiverService {
     private Map<String, Object> buildRegisterPayload(String instMbrId,
                                                        QimSpMemberRegisterRequest req,
                                                        String identifierHash) {
+        // memberType: BIZ | PERSONAL (QIM-OUTBOX-SPEC-001 페이로드 스펙 기준)
+        String memberType = req.isCorporate() ? "BIZ" : "PERSONAL";
         return Map.of(
-                "instMbrId", instMbrId,
-                "mbrUuid", req.getEffectiveMbrUuid() != null ? req.getEffectiveMbrUuid() : "",
-                "regMode", req.getRegMode() != null ? req.getRegMode() : "NEW",
-                "memberType", req.isCorporate() ? "CORPORATE" : "PERSONAL",
+                "instMbrId",      instMbrId,
+                "mbrUuid",        req.getEffectiveMbrUuid() != null ? req.getEffectiveMbrUuid() : "",
+                "memberType",     memberType,
                 "identifierHash", identifierHash != null ? identifierHash : ""
         );
     }
