@@ -77,8 +77,9 @@ jobs:
           DOCKER_UNAVAILABLE: 'true'    # Testcontainers(Docker 필요) 자동 스킵
         run: |
           ./gradlew test --no-daemon --continue \
-            -x :q-im:test \
             --tests "kr.go.smes.**"
+          # NOTE: q-im:test가 복원되었습니다.
+          # q-im 모듈 테스트 통과가 CI 성공 조건입니다.
 
       - name: 테스트 결과 업로드
         uses: actions/upload-artifact@v4
@@ -180,8 +181,9 @@ jobs:
         run: |
           ./gradlew dependencyCheckAnalyze --no-daemon \
             -Pdependency.check.failBuildOnCVSS=7 \
-            -Pdependency.check.formats=HTML,JSON,SARIF \
-            || true    # CVSS 임계값 초과해도 워크플로우 계속 (리포트 업로드 목적)
+            -Pdependency.check.formats=HTML,JSON,SARIF
+          # SECURITY: CVSS 7.0 이상 취약점 발견 시 빌드 실패 (보안 게이트 활성화)
+          # '|| true' 제거 — CVE 발견 시 반드시 검토 후 suppression 처리할 것
 
       - name: 취약점 리포트 업로드
         uses: actions/upload-artifact@v4

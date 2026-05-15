@@ -252,23 +252,50 @@ public class ProvisioningServiceImpl implements ProvisioningService {
     /**
      * 기관 인증 방식에 따른 HTTP 헤더 추가
      *
-     * <p>운영: auth_credential_ref → K8s Secret 조회 (Phase 2 구현 예정)
-     * 현재: auth_type 기반 헤더 구조만 설정, 실제 자격증명은 TODO
+     * <p><b>현재 구현 상태 (v0.8.8)</b>:
+     * auth_type 분기 구조는 완성되어 있으나, 실제 자격증명 조회 로직은
+     * 아래 각 케이스의 {@code [REQUIRES_MANUAL]} 주석을 참고하여 구현해야 한다.
+     *
+     * <p><b>운영 구현 시 필요 작업 (Sprint 17)</b>:
+     * <ol>
+     *   <li>K8s Secret 또는 Vault에서 {@code auth_credential_ref} 기반으로 자격증명 조회</li>
+     *   <li>API_KEY: 조회한 키를 {@code X-Api-Key} 헤더에 설정</li>
+     *   <li>HMAC: 요청 바디 + 타임스탬프 기반 HMAC-SHA256 서명 생성</li>
+     *   <li>MTLS: RestTemplate에 클라이언트 인증서(KeyStore) 설정</li>
+     * </ol>
+     *
+     * @see <a href="docs/internal/development/2026-05-13_production_deployment_plan.md">Sprint 17 계획</a>
      */
     private void addAuthHeader(HttpHeaders headers, AgencyEndpointRecord endpoint) {
         if (endpoint.getAuthCredentialRef() == null) return;
         switch (endpoint.getAuthType()) {
-            case "API_KEY" ->
-                // TODO (Sprint 17): K8s Secret에서 실제 API 키 조회
-                headers.set("X-Api-Key", "PLACEHOLDER_" + endpoint.getAgencyCode());
-            case "HMAC" ->
-                // TODO (Sprint 17): HMAC-SHA256 서명 생성
-                headers.set("X-Signature", "HMAC_PLACEHOLDER");
-            case "MTLS" ->
-                // mTLS: RestTemplate에 클라이언트 인증서 설정 필요 (Sprint 17)
-                log.debug("[Provisioning] mTLS 인증: agencyCode={} (Sprint 17 구현 예정)", endpoint.getAgencyCode());
+            case "API_KEY" -> {
+                // ⚠️ [REQUIRES_MANUAL] Sprint 17: K8s Secret에서 auth_credential_ref로 실제 API 키 조회 후 설정
+                // 현재: 운영 불가 상태 — PLACEHOLDER 값은 기관 API 인증 실패를 유발함
+                // 구현 위치: SecretManagerClient.getSecret(endpoint.getAuthCredentialRef())
+                log.error("[Provisioning] ⚠️ API_KEY 인증 미구현 — agencyCode={} authCredentialRef={}. " +
+                          "Sprint 17 완료 전까지 API_KEY 인증 기관에 프로비저닝 불가.",
+                        endpoint.getAgencyCode(), endpoint.getAuthCredentialRef());
+                // PLACEHOLDER 헤더 전송 (기관이 거부할 것 — Outbox PENDING으로 재시도됨)
+                headers.set("X-Api-Key", "REQUIRES_MANUAL_" + endpoint.getAgencyCode());
+            }
+            case "HMAC" -> {
+                // ⚠️ [REQUIRES_MANUAL] Sprint 17: HMAC-SHA256 서명 생성
+                // 구현: HmacSHA256(requestBody + ":" + epochSeconds, secretKey)
+                // secretKey는 K8s Secret의 auth_credential_ref 값으로 조회
+                log.error("[Provisioning] ⚠️ HMAC 인증 미구현 — agencyCode={}. Sprint 17 완료 전까지 불가.",
+                        endpoint.getAgencyCode());
+                headers.set("X-Signature", "REQUIRES_MANUAL");
+            }
+            case "MTLS" -> {
+                // ⚠️ [REQUIRES_MANUAL] Sprint 17: mTLS 클라이언트 인증서 설정
+                // 구현: SSLContext에 클라이언트 KeyStore 로드 후 RestTemplate에 적용
+                // 인증서 경로는 K8s Secret의 auth_credential_ref 값으로 조회
+                log.error("[Provisioning] ⚠️ mTLS 인증 미구현 — agencyCode={}. Sprint 17 완료 전까지 불가.",
+                        endpoint.getAgencyCode());
+            }
             default -> {
-                // NONE — 추가 헤더 없음
+                // NONE — 추가 헤더 없음 (인증 불필요 기관)
             }
         }
     }

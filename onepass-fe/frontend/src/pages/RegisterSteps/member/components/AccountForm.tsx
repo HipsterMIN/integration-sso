@@ -1,6 +1,7 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import checkDuplicate from 'api/ext/checkDuplicate';
 import getBusinessStatus from 'api/ext/businessStatus';
+import businessValidate from 'api/ext/businessValidate'; // ⚠️ [REQUIRES_MANUAL] Sprint 17: 실 국세청 API 연동 확인 필요
 import { useRegister } from 'providers/Register/RegisterContext';
 
 interface AccountFormProps {
@@ -71,20 +72,48 @@ function AccountForm({
 		}
 	};
 
-	// 기업: 진위확인(스킵) → 사업자 중복확인
+	// 기업: 진위확인 → 사업자 중복확인 순차 호출
+	// ⚠️ [REQUIRES_MANUAL] Sprint 17: businessValidate API 실 연동 확인 필요
 	const handleBrnoDuplicate = async (): Promise<void> => {
 		if (!data.bzmnNm || !data.rprsvNm || !data.brno) {
 			setValidateStatus('fail');
 			setValidateMessage('회사명, 대표자명을 모두 입력한 후 확인해 주세요.');
 			return;
 		}
+		if (!data.startDt) {
+			setValidateStatus('fail');
+			setValidateMessage('설립일을 입력한 후 확인해 주세요. (YYYY-MM-DD)');
+			return;
+		}
 
-		// 진위확인 — 임시 스킵 (기업인증 미구현)
-		setValidateStatus('ok');
-		setValidateMessage('진위확인 생략 (기업인증 미구현)');
+		// ① 진위확인 — 국세청 API 호출 (businessValidate)
+		setValidateStatus('checking');
 		setDuplicateStatus('idle');
+		const valResponse = await businessValidate({
+			bNo: data.brno,
+			startDt: data.startDt,
+			representativeName: data.rprsvNm,
+			companyName: data.bzmnNm,
+		});
 
-		// 중복확인
+		if (valResponse.statusCode === 200 && valResponse.payload) {
+			const valData = (valResponse.payload as { data?: { valid?: boolean; validMsg?: string | null; bStt?: string } }).data
+				?? (valResponse.payload as { valid?: boolean; validMsg?: string | null; bStt?: string });
+			if (valData.valid) {
+				setValidateStatus('ok');
+				setValidateMessage(valData.bStt ? `진위확인 완료 (${valData.bStt})` : '진위확인 완료');
+			} else {
+				setValidateStatus('fail');
+				setValidateMessage(valData.validMsg || '사업자 진위확인에 실패하였습니다.');
+				return;
+			}
+		} else {
+			setValidateStatus('error');
+			setValidateMessage(valResponse.message || '진위확인 요청에 실패하였습니다.');
+			return;
+		}
+
+		// ② 중복확인
 		setDuplicateStatus('checking');
 		const dupResponse = await checkDuplicate({ type: 'ENT', value: data.brno });
 
