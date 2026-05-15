@@ -27,7 +27,23 @@ public class ProvisioningOutboxRecord {
 
     /**
      * 이벤트 타입 (provisioning_outbox.event_type 컬럼)
-     * USER_REGISTERED / BIZ_CONVERTED / USER_UPDATED / USER_WITHDRAWN
+     *
+     * <p><b>QIM-OUTBOX-SPEC-001 신규 5종 (V18 CHECK 제약 우선 허용)</b>:
+     * <ul>
+     *   <li>{@code PERSONAL_MEMBER_REGISTERED} — 개인 신규 가입 (isTransfer=false, isCorporate=false)</li>
+     *   <li>{@code PERSONAL_MEMBER_CONVERTED}  — 개인 전환     (isTransfer=true,  isCorporate=false)</li>
+     *   <li>{@code BIZ_MEMBER_REGISTERED}      — 기업 신규 가입 (isTransfer=false, isCorporate=true)</li>
+     *   <li>{@code BIZ_MEMBER_CONVERTED}       — 기업 전환     (isTransfer=true,  isCorporate=true)</li>
+     *   <li>{@code MEMBER_WITHDRAWN}           — 회원 탈퇴</li>
+     * </ul>
+     *
+     * <p><b>@Deprecated 구 타입 (V18 하위 호환, forRemoval=true)</b>:
+     * {@code USER_REGISTERED} / {@code BIZ_CONVERTED} / {@code USER_UPDATED} / {@code USER_WITHDRAWN}
+     *
+     * <p><b>데이터 흐름</b>: QimEventConsumer → triggerProvisioning() → insertOutbox() →
+     * provisioning_outbox.event_type (V18 CHECK 제약 적용)
+     *
+     * @see ProvisioningEventType
      */
     String eventType;
 
