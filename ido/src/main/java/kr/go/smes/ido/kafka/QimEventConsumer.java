@@ -38,7 +38,7 @@ public class QimEventConsumer {
     private final UserStatusCache       userStatusCache;
     private final IdempotentEventStore  idempotentEventStore;
     private final QimClient             qimClient;
-    /** Sprint 14: 전 기관 프로비저닝 트리거 (USER_REGISTERED / BIZ_CONVERTED) */
+    /** Sprint 14: 전 기관 프로비저닝 트리거 (QIM-OUTBOX-SPEC-001 신규 4종 이벤트 대응) */
     private final ProvisioningService   provisioningService;
     // consumer group 전용 버전 저장 → 단순 qimUserId 기반 LastEventVersionStore 래핑
     // (consumerGroup prefix 는 key 에 포함하여 구분)
@@ -130,11 +130,11 @@ public class QimEventConsumer {
             lastEventVersionStore.put(versionKey, version);
             idempotentEventStore.markProcessed(eventId, CONSUMER_GROUP, event.getEventType(), "OK");
 
-            // ⑥ Sprint 14: 전 기관 프로비저닝 트리거
-            //    USER_REGISTERED(회원가입) / BIZ_CONVERTED(기업 전환) 시 68개 기관 병렬 알림
+            // ⑥ Sprint 14: 전 기관 프로비저닝 트리거 (QIM-OUTBOX-SPEC-001 신규 4종 명칭 적용)
+            //    등록/전환 4종 이벤트 모두 프로비저닝 트리거 대상
             //    provisioningService 내부에서 Feature Flag + 중복 sourceEventId 방어 처리
             String evtType = event.getEventType();
-            if ("USER_REGISTERED".equals(evtType) || "BIZ_CONVERTED".equals(evtType)) {
+            if (isProvisioningTriggerEvent(evtType)) {
                 try {
                     provisioningService.triggerProvisioning(
                             qimUserId,
@@ -162,5 +162,28 @@ public class QimEventConsumer {
         } finally {
             ack.acknowledge();
         }
+    }
+
+    /**
+     * 프로비저닝 트리거 대상 이벤트인지 판별
+     *
+     * <p>QIM-OUTBOX-SPEC-001 기준 등록/전환 4종 이벤트가
+     * 프로비저닝(68개 기관 병렬 알림) 트리거 대상이다.
+     *
+     * <ul>
+     *   <li>BIZ_MEMBER_CONVERTED      — 기업회원 전환</li>
+     *   <li>BIZ_MEMBER_REGISTERED     — 기업회원 신규</li>
+     *   <li>PERSONAL_MEMBER_CONVERTED — 개인회원 전환</li>
+     *   <li>PERSONAL_MEMBER_REGISTERED— 개인회원 신규</li>
+     * </ul>
+     *
+     * @param eventType Kafka 메시지의 eventType 필드
+     * @return 프로비저닝 트리거 대상이면 true
+     */
+    private static boolean isProvisioningTriggerEvent(String eventType) {
+        return "BIZ_MEMBER_CONVERTED".equals(eventType)
+            || "BIZ_MEMBER_REGISTERED".equals(eventType)
+            || "PERSONAL_MEMBER_CONVERTED".equals(eventType)
+            || "PERSONAL_MEMBER_REGISTERED".equals(eventType);
     }
 }

@@ -14,17 +14,19 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * IdO ← qim.sp.member.events Kafka 컨슈머
+ * IdO ← qim.user.events Kafka 컨슈머 (회원 등록/전환/탈퇴 이벤트)
  *
- * Q-IM SP 수신 API (MEMBER_REGISTER / MEMBER_WITHDRAW) 처리 결과를
- * IdO 내부 컴포넌트(유관기관 어댑터, 정책 엔진 등)에 전파한다.
+ * Q-IM이 회원 등록 · 전환 · 탈퇴 처리 후 qim.user.events로 발행한 이벤트를
+ * 소비하여 IdO 내부 컴포넌트(유관기관 어댑터, 정책 엔진 등)에 전파한다.
  *
- * <p><b>토픽</b>: {@code qim.sp.member.events}
- * <p><b>이벤트 타입</b>:
+ * <p><b>토픽</b>: {@code qim.user.events}
+ * <p><b>이벤트 타입 (QIM-OUTBOX-SPEC-001 기준)</b>:
  * <ul>
- *   <li>{@code QIM_MEMBER_REGISTERED}  — 신규 회원 등록 완료</li>
- *   <li>{@code QIM_MEMBER_TRANSFERRED} — 전환(TRANSFER) 등록 완료</li>
- *   <li>{@code QIM_MEMBER_WITHDRAWN}   — 회원 탈퇴 처리 완료</li>
+ *   <li>{@code BIZ_MEMBER_CONVERTED}      — 기업회원 전환 (구 QIM_MEMBER_TRANSFERRED + CORPORATE)</li>
+ *   <li>{@code BIZ_MEMBER_REGISTERED}     — 기업회원 신규 등록 (구 QIM_MEMBER_REGISTERED + CORPORATE)</li>
+ *   <li>{@code PERSONAL_MEMBER_CONVERTED} — 개인회원 전환 (구 QIM_MEMBER_TRANSFERRED + PERSONAL)</li>
+ *   <li>{@code PERSONAL_MEMBER_REGISTERED}— 개인회원 신규 등록 (구 QIM_MEMBER_REGISTERED + PERSONAL)</li>
+ *   <li>{@code MEMBER_WITHDRAWN}          — 회원 탈퇴 (구 QIM_MEMBER_WITHDRAWN)</li>
  * </ul>
  *
  * <p><b>처리 원칙</b>:
@@ -46,36 +48,39 @@ public class QimSpMemberEventConsumer {
 
     private static final String CONSUMER_GROUP = "ido-qim-sp-member-consumer";
 
-    // 이벤트 타입 상수
-    static final String EVENT_QIM_MEMBER_REGISTERED  = "QIM_MEMBER_REGISTERED";
-    static final String EVENT_QIM_MEMBER_TRANSFERRED = "QIM_MEMBER_TRANSFERRED";
-    static final String EVENT_QIM_MEMBER_WITHDRAWN   = "QIM_MEMBER_WITHDRAWN";
+    // ── 이벤트 타입 상수 (QIM-OUTBOX-SPEC-001 기준) ─────────────────────────
+    static final String EVENT_BIZ_MEMBER_CONVERTED       = "BIZ_MEMBER_CONVERTED";
+    static final String EVENT_BIZ_MEMBER_REGISTERED      = "BIZ_MEMBER_REGISTERED";
+    static final String EVENT_PERSONAL_MEMBER_CONVERTED  = "PERSONAL_MEMBER_CONVERTED";
+    static final String EVENT_PERSONAL_MEMBER_REGISTERED = "PERSONAL_MEMBER_REGISTERED";
+    static final String EVENT_MEMBER_WITHDRAWN           = "MEMBER_WITHDRAWN";
 
     private final IdempotentEventStore idempotentEventStore;
     private final QimSpMemberEventHandler eventHandler;
     private final ObjectMapper objectMapper;
 
     /**
-     * qim.sp.member.events 구독
+     * qim.user.events 구독 (회원 등록/전환/탈퇴)
      *
-     * <p>메시지 형식 (Outbox 발행 payload):
+     * <p>메시지 형식 (qim_outbox payload 기준 QIM-OUTBOX-SPEC-001 §5):
      * <pre>
      * {
      *   "eventId":        "UUID",
-     *   "eventType":      "QIM_MEMBER_REGISTERED | QIM_MEMBER_TRANSFERRED | QIM_MEMBER_WITHDRAWN",
+     *   "eventType":      "BIZ_MEMBER_CONVERTED | BIZ_MEMBER_REGISTERED
+     *                      | PERSONAL_MEMBER_CONVERTED | PERSONAL_MEMBER_REGISTERED
+     *                      | MEMBER_WITHDRAWN",
      *   "instMbrId":      "UUID",
      *   "mbrUuid":        "Q-IM 발행 mbrUuid",
-     *   "regMode":        "NEW | TRANSFER",        // REGISTER 이벤트만
-     *   "memberType":     "PERSONAL | CORPORATE",  // REGISTER 이벤트만
-     *   "identifierHash": "SHA-256(CI)",           // REGISTER 이벤트만
-     *   "withdrawalReason": "...",                  // WITHDRAW 이벤트만
+     *   "memberType":     "BIZ | PERSONAL",      // 등록/전환 이벤트만
+     *   "identifierHash": "SHA-256(CI)",          // 등록/전환 이벤트만
+     *   "withdrawalReason": "...",                 // MEMBER_WITHDRAWN만
      *   "correlationId":  "UUID"
      * }
      * </pre>
      */
     @KafkaListener(
-            topics           = "${ido.kafka.topic-qim-sp-member-events:qim.sp.member.events}",
-            groupId          = "${ido.kafka.consumer-group-qim-sp-member:ido-qim-sp-member-consumer}",
+            topics           = "${ido.kafka.topic-qim-user-events:qim.user.events}",
+            groupId          = "${ido.kafka.consumer-group-qim-member:ido-qim-member-consumer}",
             containerFactory = "qimSpMemberListenerContainerFactory"
     )
     public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {
@@ -147,20 +152,32 @@ public class QimSpMemberEventConsumer {
             return "SKIP_NO_TYPE";
         }
         return switch (eventType) {
-            case EVENT_QIM_MEMBER_REGISTERED  -> {
-                eventHandler.onMemberRegistered(payload, correlationId);
-                yield "OK_REGISTERED";
+            // ── 기업회원 ──────────────────────────────────────────────────────────
+            case EVENT_BIZ_MEMBER_CONVERTED -> {
+                eventHandler.onBizMemberConverted(payload, correlationId);
+                yield "OK_BIZ_CONVERTED";
             }
-            case EVENT_QIM_MEMBER_TRANSFERRED -> {
-                eventHandler.onMemberTransferred(payload, correlationId);
-                yield "OK_TRANSFERRED";
+            case EVENT_BIZ_MEMBER_REGISTERED -> {
+                eventHandler.onBizMemberRegistered(payload, correlationId);
+                yield "OK_BIZ_REGISTERED";
             }
-            case EVENT_QIM_MEMBER_WITHDRAWN   -> {
+            // ── 개인회원 ──────────────────────────────────────────────────────────
+            case EVENT_PERSONAL_MEMBER_CONVERTED -> {
+                eventHandler.onPersonalMemberConverted(payload, correlationId);
+                yield "OK_PERSONAL_CONVERTED";
+            }
+            case EVENT_PERSONAL_MEMBER_REGISTERED -> {
+                eventHandler.onPersonalMemberRegistered(payload, correlationId);
+                yield "OK_PERSONAL_REGISTERED";
+            }
+            // ── 탈퇴 ──────────────────────────────────────────────────────────────
+            case EVENT_MEMBER_WITHDRAWN -> {
                 eventHandler.onMemberWithdrawn(payload, correlationId);
                 yield "OK_WITHDRAWN";
             }
             default -> {
-                log.warn("[QimSpMemberEventConsumer] 알 수 없는 eventType={} — SKIP", eventType);
+                // 미지원 타입은 WARN 로그 + ACK 처리 (재시도/DLQ 진입 방지)
+                log.warn("[QimSpMemberEventConsumer] 미지원 eventType={} — SKIP", eventType);
                 yield "SKIP_UNKNOWN_TYPE";
             }
         };
