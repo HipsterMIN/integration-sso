@@ -290,7 +290,13 @@ ido:
     consumer-group-qim: ido-qim-consumer               # qim.user.events 구독
     consumer-group-qsign: ido-qsign-consumer            # qsign.auth.events 구독
     consumer-group-fe-advisory: ido-fe-advisory-consumer  # platform.session.advisory 구독 (FE 세션)
-    # Q-IM SP 수신 API 내부 전파 컨슈머 (QimSpMemberEventConsumer)
+    # Q-IM SP 수신 API 내부 전파 컨슈머 (QimSpMemberEventConsumer) — QIM-OUTBOX-SPEC-001
+    # topic-qim-user-events: qim.user.events 로 전환 (KafkaTopicConfig에 신규 빈 추가)
+    topic-qim-user-events: ${QIM_USER_EVENTS_TOPIC:qim.user.events}
+    consumer-group-qim-member: ido-qim-member-consumer
+    # qim.agency.events (기관 이벤트, 파티션 3, 보존 365일)
+    topic-qim-agency-events: ${QIM_AGENCY_EVENTS_TOPIC:qim.agency.events}
+    # ── Deprecated (QIM-OUTBOX-SPEC-001 마이그레이션 완료 후 제거 예정) ──────
     topic-qim-sp-member-events: ${QIM_SP_MEMBER_TOPIC:qim.sp.member.events}
     consumer-group-qim-sp-member: ido-qim-sp-member-consumer
     # Handoff 이벤트 컨슈머 (HandoffEventConsumer → WebhookDispatcherService)
@@ -565,11 +571,22 @@ ido:
 
   # ── F-13: IdO Outbox Relay On/Off ────────────────────────────────────────
   # false → PENDING 폴링 없음 (Kafka 없는 환경 500ms 오류 방지)
+  # 처리 대상: qsign.auth.events (qim.user.events 는 qim-outbox 릴레이가 전담)
   outbox:
     relay-enabled: ${IDO_OUTBOX_RELAY_ENABLED:true}
     relay-interval-ms: 500
     batch-size: 100
     max-retry: 3
+
+  # ── F-30: Q-IM 회원 이벤트 Outbox Relay (QIM-OUTBOX-SPEC-001) ─────────────
+  # Q-IM / Q-Sign 이 ido.outbox에 INSERT한 qim.user.events PENDING 레코드 발행
+  # false → Q-IM SP 수신 후 Kafka 발행 없음 (Q-IM 통합 전 개발 단계)
+  # true  → 1000ms 주기로 qim.user.events PENDING 레코드 폴링 후 Kafka 발행
+  qim-outbox:
+    relay-enabled: ${IDO_QIM_OUTBOX_RELAY_ENABLED:true}
+    relay-interval-ms: ${IDO_QIM_OUTBOX_RELAY_INTERVAL_MS:1000}
+    batch-size: ${IDO_QIM_OUTBOX_BATCH_SIZE:50}
+    max-retry: ${IDO_QIM_OUTBOX_MAX_RETRY:5}
 
   # ── F-14: Webhook Outbox Relay On/Off ────────────────────────────────────
   # false → 기관 webhook 발송 없음 (PENDING은 DB 유지 → 재활성 시 처리)
