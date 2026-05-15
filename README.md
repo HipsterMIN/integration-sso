@@ -3,10 +3,10 @@
 **중소벤처기업부 중기원패스(OnePass) 통합인증 SSO 및 아이덴티티 관리 시스템** PoC/프리프로덕션 구현체.  
 **4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) 기반 EDA 아키텍처.
 
-> **현재 버전: v3.1.0** — P3 운영 버그 수정 8종 완료 (GDPR V6 컬럼 · 입력 검증 · 중복 방지 · correlationId 버그 · @Modifying · 통합 테스트 S8/S9)  
+> **현재 버전: v0.8.8** — QIM-OUTBOX-SPEC-001 이벤트 정합화 + V18 DB 제약 + 전체 문서화 완료  
 > **빌드 상태**: `DOCKER_UNAVAILABLE=true ./gradlew :q-im:clean :q-im:test --no-daemon` → **BUILD SUCCESSFUL**  
 > **테스트**: `./gradlew :q-im:test` → **219개 통과, 30개 skipped** (q-im 기준; 전체 백엔드 단위 테스트 포함)  
-> **PR**: [#85 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/85) — P3 운영 버그 수정 8종 + V6 E2E 통합 테스트
+> **최신 PR**: [#109 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/109) — wiki/adr README 목차 | [#108 Merged](https://github.com/HipsterMIN/integration-sso/pull/108) — wiki 전체 문서화
 
 ---
 
@@ -35,6 +35,7 @@
 21. [팀별 개발 가이드](#팀별-개발-가이드)
 22. [코딩 컨벤션](#코딩-컨벤션)
 23. [문서 디렉토리](#문서-디렉토리)
+24. [Wiki 문서 목차](#wiki-문서-목차)
 
 ---
 
@@ -42,6 +43,7 @@
 
 | 버전 | PR | 주요 내용 |
 |------|----|---------|
+| **v0.8.8** | [#109](https://github.com/HipsterMIN/integration-sso/pull/109) / [#108](https://github.com/HipsterMIN/integration-sso/pull/108) / [#107](https://github.com/HipsterMIN/integration-sso/pull/107) | **QIM-OUTBOX-SPEC-001 정합화 + 전체 문서화** — V18 CHECK 제약(provisioning_outbox·gateway_inbound_audit), ProvisioningService Javadoc 갱신, wiki/ 전체 생성(ADR 12개·설계서 4개·워크스루 5개·DOCX 6개) |
 | **v3.0.0** | [#82](https://github.com/HipsterMIN/integration-sso/pull/82) | **SSO 운영 보안 패치 P1~P3** — `V4__fix_social_sso.sql` UNIQUE 복합 키, `InternalApiKeyInterceptor` 구현, `HandoffController` redirectUri null 수정 |
 | **v2.4.0** | [#81](https://github.com/HipsterMIN/integration-sso/pull/81) | **유관기관 SSO 완성** — Q-IM 소셜 계정 API(`find-by-social-sub` / `register-social`), GUEST 정책, HMAC fallback 완전 제거 |
 | **v2.3.1** | [#80](https://github.com/HipsterMIN/integration-sso/pull/80) | **Keycloak identifierHash 수정** — SHA-256(sub) 올바른 계산, `KeycloakOidcService` P1/P2 보안 패치 |
@@ -911,5 +913,56 @@ docs/
 
 ---
 
-> **문서 최종 수정**: 2026-05-13 | **버전**: v3.1.0 | **담당**: GenSpark AI Developer  
-> 문의/기여: `shipster` 브랜치 → PR #85 → main 병합 워크플로우 준수
+---
+
+## Wiki 문서 목차
+
+> 위키 전체 문서는 [`wiki/`](./wiki/) 디렉토리에 위치합니다.  
+> 위키 마스터 인덱스: [`wiki/INDEX.md`](./wiki/INDEX.md)
+
+### ADR (Architecture Decision Records)
+
+> ADR 전체 목차: [`wiki/adr/README.md`](./wiki/adr/README.md)
+
+| ADR | 제목 | 카테고리 |
+|-----|------|:--------:|
+| [ADR-001](./wiki/adr/ADR-001-ido-microservice-architecture.md) | IdO 마이크로서비스 아키텍처 채택 | 아키텍처 |
+| [ADR-002](./wiki/adr/ADR-002-jdk21-virtual-threads.md) | JDK 21 LTS + Virtual Threads 채택 | 런타임 |
+| [ADR-003](./wiki/adr/ADR-003-spring-boot-3.md) | Spring Boot 3.2 / Spring Framework 6 채택 | 프레임워크 |
+| [ADR-004](./wiki/adr/ADR-004-kafka-eda.md) | Apache Kafka 기반 EDA 채택 | 메시징 |
+| [ADR-005](./wiki/adr/ADR-005-postgresql-primary-store.md) | PostgreSQL 주 데이터 저장소 채택 | 데이터베이스 |
+| [ADR-006](./wiki/adr/ADR-006-redis-session-cache.md) | Redis 세션·캐시·분산락 채택 | 인프라 |
+| [ADR-007](./wiki/adr/ADR-007-flyway-db-migration.md) | Flyway DB 스키마 버전 관리 채택 | 데이터베이스 |
+| [ADR-008](./wiki/adr/ADR-008-transactional-outbox-pattern.md) | Transactional Outbox 패턴 채택 | 패턴 |
+| [ADR-009](./wiki/adr/ADR-009-qim-outbox-spec-001.md) | QIM-OUTBOX-SPEC-001 이벤트 타입 정합화 | 이벤트 |
+| [ADR-010](./wiki/adr/ADR-010-cast-token-cross-agency-sso.md) | Ed25519 CAST Token Cross-Agency SSO | 보안 |
+| [ADR-011](./wiki/adr/ADR-011-hmac-sha256-gateway-auth.md) | HMAC-SHA256 Agency Gateway 인증 | 보안 |
+| [ADR-012](./wiki/adr/ADR-012-react-fe-dual-instance.md) | React FE 이중 Axios 인스턴스 분리 | 프론트엔드 |
+
+### 서비스별 상세 설계서
+
+| 서비스 | 포트 | 문서 |
+|--------|:----:|------|
+| IdO (Identity Orchestrator) | 8083 | [01-ido-service-design.md](./wiki/design/01-ido-service-design.md) |
+| Q-IM (Query & Identity Manager) | 8082 | [02-qim-service-design.md](./wiki/design/02-qim-service-design.md) |
+| Q-Sign (Auth Gateway) | 8081 | [03-qsign-service-design.md](./wiki/design/03-qsign-service-design.md) |
+| Agency-Stub (PoC 시뮬레이터) | 8090 | [04-agency-stub-design.md](./wiki/design/04-agency-stub-design.md) |
+
+### 워크스루 (전체 흐름 문서)
+
+| 문서 | 설명 |
+|------|------|
+| [WT-001: 로그인](./wiki/walkthrough/01-login-walkthrough.md) | NICE·OACX·EzAuth·Keycloak 4경로, CI 보안, FE 이중 인스턴스 |
+| [WT-002: 신규 가입](./wiki/walkthrough/02-member-register-walkthrough.md) | 개인·기업 가입, Outbox 발행, CI 데이터 경계, 멱등성 |
+| [WT-003: 기관 전환](./wiki/walkthrough/03-member-conversion-walkthrough.md) | PERSONAL/BIZ_CONVERTED 이벤트, 분산락, 세션 갱신 |
+| [WT-004: 프로비저닝](./wiki/walkthrough/04-provisioning-walkthrough.md) | QimEventConsumer 5종 필터, Virtual Thread 68기관 병렬, 지수 백오프 |
+| [WT-005: Handoff SSO](./wiki/walkthrough/05-handoff-sso-walkthrough.md) | CAST Token, Ed25519, Handoff 4전략, 키 로테이션 |
+
+### 산출물 인덱스
+
+- [DELIVERABLES.md](./wiki/deliverables/DELIVERABLES.md) — 전체 산출물 현황, PR 이력, DOCX 목록
+
+---
+
+> **문서 최종 수정**: 2026-05-15 | **버전**: v0.8.8 | **담당**: GenSpark AI Developer  
+> 문의/기여: `genspark_ai_developer` 브랜치 → PR → main 병합 워크플로우 준수
