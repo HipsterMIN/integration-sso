@@ -5,7 +5,8 @@
 > **작성자**: genspark_ai_developer  
 > **분석 대상**: `중기원패스_EDA_아키텍처_제안_20260515(폰트포함).pptx` (11슬라이드)  
 > **분류**: 아키텍처 검토 / 내부 참조  
-> **관련 문서**: ADR-2026-004, ANALYSIS-2026-0516-001, `docs/internal/통합인증_플랫폼_EDA_마스터_아키텍처_설계서_v0.8.7.docx`
+> **관련 문서**: ADR-2026-004, ADR-2026-005, ANALYSIS-2026-0516-001, `docs/internal/통합인증_플랫폼_EDA_마스터_아키텍처_설계서_v0.8.7.docx`  
+> **개정 이력**: v1.1 (2026-05-16) — §2.1 Outbox Relay 분산 구조 문제 추가, §3.3 갭 항목 보완, §8 outbox-scheduler 신규 모듈 권고 추가
 
 ---
 
@@ -62,20 +63,58 @@
 
 ### 2.1 Transactional Outbox 패턴
 
-**구현 상태**: ✅ **완전 구현됨**
+**구현 상태**: ⚠️ **INSERT는 구현됨, Relay 분리는 미완료**
+
+#### 2.1.1 제안서가 말하는 핵심 의도
+
+제안서의 Outbox 패턴에서 실질적으로 가장 중요한 아이디어는 성능 수치(13.6초→300ms)가 아니라 다음이다:
+
+> **각 서비스(Q-IM, Q-Sign, IdO)는 Outbox 테이블에 INSERT만 하면 되고,  
+> 별도 Scheduler 서비스가 Kafka 발행을 전담한다.  
+> 각 개발팀은 Kafka를 전혀 신경 쓰지 않아도 된다.**
+
+#### 2.1.2 제안서가 의도한 구조
 
 ```
-UserServiceImpl.java
-  → outboxService.publishInTx(buildUserEvent(..., needsSync=true))
-  → DB 저장 + Outbox INSERT 단일 트랜잭션 (제안서 설계와 동일)
+[Q-IM]    비즈니스 로직 + outbox INSERT ──┐
+[Q-Sign]  비즈니스 로직 + outbox INSERT ──┼──► [outbox-scheduler] ──► Kafka
+[IdO]     비즈니스 로직 + outbox INSERT ──┘     (별도 독립 서비스)
 
-q-im/../KafkaTopicConfig.java
-  → qim.user.events: 6파티션 (설계서 기준), lz4, 30일 보존, DELETE 정책
-  → qim.user.snapshot: IdO 초기 로딩용 (compact)
+각 서비스:
+  - Kafka 라이브러리 의존성 없음
+  - KafkaTemplate 없음
+  - @Scheduled Relay 없음
+  - Kafka 브로커 설정 없음
+  → DB outbox INSERT 한 줄로 이벤트 발행 완료
 ```
 
-> **제안서와 차이**: 토픽명이 `member.converted`가 아닌 `qim.user.events`이며,  
-> 이벤트 타입이 `BIZ_MEMBER_CONVERTED` / `PERSONAL_MEMBER_CONVERTED` 등 세분화되어 있음.
+#### 2.1.3 현재 실제 구현 구조 (코드 확인)
+
+```
+[Q-IM]
+  OutboxServiceImpl.java  ← @Scheduled(500ms) Relay 자체 보유
+  KafkaProducerConfig.java ← KafkaTemplate 직접 의존
+  → spring-kafka 라이브러리 직접 의존 (build.gradle.kts)
+
+[Q-Sign]
+  OutboxRelay.java        ← @Scheduled(500ms) Relay 자체 보유
+  KafkaProducerConfig.java ← KafkaTemplate 직접 의존
+  → spring-kafka 라이브러리 직접 의존
+
+[IdO]
+  IdoOutboxRelay.java     ← @Scheduled(500ms) IdO 자체 이벤트 Relay
+  QimOutboxRelay.java     ← @Scheduled(1000ms) Q-IM 이벤트까지 대신 발행 (혼재)
+  ProvisioningOutboxRelay.java ← @Scheduled 기관 HTTP 재시도
+  WebhookDispatchOutboxRelay.java ← @Scheduled Webhook 재시도
+  → spring-kafka 라이브러리 직접 의존
+```
+
+**결론**: 각 서비스가 Relay를 자체 내장한 분산 구조. 제안서 의도와 **반대** 방향.
+
+> **참고**: `QimOutboxRelay` javadoc에 "Q-IM / Q-Sign 은 Kafka Producer 로직을 직접 구현하기  
+> 어려운 상황에서 Outbox 테이블에 INSERT만 수행하고, IdO 측 폴링 스케줄러가 대신 Kafka 발행을  
+> 담당하는 방식을 채택하였다"고 명시되어 있으나, 실제로는 Q-IM과 Q-Sign 모두 자체 Relay를  
+> 보유하고 있어 이 문서와 코드 사이에 불일치가 존재한다.
 
 ### 2.2 Kafka Consumer 레이어
 
@@ -182,7 +221,9 @@ Q-IM → Kafka(qim.user.events) ─┬→ QimEventConsumer (캐시 무효화 + P
 
 | 항목 | 제안서 | 현재 | 갭 심각도 |
 |------|--------|------|---------|
+| **Relay 분리 구조** | 별도 Scheduler 서비스가 전담 | 각 서비스 내 @Scheduled 분산 (6개) | 🔴 HIGH |
 | F-20 Feature Flag | 즉시 활성화 전제 | `IDO_PROVISIONING_ENABLED=false` | 🔴 BLOCKER (운영 전 활성화 필수) |
+| Kafka 의존성 격리 | 각 서비스 Kafka 미의존 | q-im/q-sign/ido 모두 spring-kafka 직접 의존 | 🟠 HIGH |
 | 기관 API 인증 | 명시 없음 | API_KEY/HMAC/mTLS 미구현 (`REQUIRES_MANUAL`) | 🔴 BLOCKER (Sprint 17) |
 | Kafka 페이로드 암호화 | ISMS-P 필수 강조 | **미구현** (CI는 AES-256-GCM 암호화, but Kafka 페이로드 자체는 평문) | 🟠 HIGH |
 | Redis jobId 전환 진행율 | 6단계 상태 추적 | 별도 전용 구현 미확인 | 🟡 MEDIUM |
@@ -204,7 +245,47 @@ Q-IM → Kafka(qim.user.events) ─┬→ QimEventConsumer (캐시 무효화 + P
 7. **202 즉시 반환 패턴** — 아키텍처 구조상 지원 (Kafka 발행 후 즉시 응답)
 8. **Consumer Group 분리** — `ido-qim-consumer` + `ido-qim-member-consumer` 독립 운영
 
-### 4.2 제안서 대비 현재 구현의 **개선점**
+### 4.2 Relay 분산 구조의 운영 문제점
+
+현재 6개 Relay가 3개 서비스에 분산되어 있어 다음 문제가 발생한다.
+
+**문제 1 — 장애 추적 복잡도**
+```
+"Kafka 이벤트가 안 나간다" 신고 수신 시 확인 대상:
+  q-im:   OutboxServiceImpl (@Scheduled 500ms)
+  q-sign: OutboxRelay       (@Scheduled 500ms)
+  ido:    IdoOutboxRelay    (@Scheduled 500ms)  ← qsign.auth.events
+          QimOutboxRelay    (@Scheduled 1000ms) ← qim.user.events
+          ProvisioningOutboxRelay (@Scheduled)  ← 기관 HTTP
+          WebhookDispatchOutboxRelay (@Scheduled) ← Webhook
+  → 6곳 중 어디가 문제인지 분산 로그에서 추적 필요
+```
+
+**문제 2 — Q-IM 이벤트 발행 주체 이중화**
+```
+qim.user.events 발행 경로가 두 개 존재:
+  경로 A: Q-IM OutboxServiceImpl → Kafka 직접 발행
+  경로 B: QimOutboxRelay (IdO 내) → ido.outbox 폴링 → Kafka 발행
+→ 동일 이벤트 중복 발행 가능성, 책임 소재 불명확
+```
+
+**문제 3 — 서비스 장애 시 Relay 동반 중단**
+```
+Q-IM Pod 전체 장애 → OutboxServiceImpl @Scheduled 중단
+  → qim.outbox PENDING 레코드 무한 누적
+  → Q-IM 복구까지 이벤트 발행 불가
+
+별도 outbox-scheduler 서비스였다면:
+  → Q-IM Pod 장애와 무관하게 DB의 PENDING 레코드 계속 발행 가능
+```
+
+**문제 4 — 각 서비스 팀의 Kafka 의존성 불가피**
+```
+현재: Q-IM 팀이 KafkaProducerConfig, KafkaTemplate, @Scheduled, 재시도 로직 관리 책임
+의도: Q-IM 팀은 outboxRepository.save(record) 한 줄만 작성하면 끝
+```
+
+### 4.3 제안서 대비 현재 구현의 **개선점**
 
 제안서는 단일 "BFF Consumer" 구조를 제안하였으나, 현재 구현은 더 나은 설계를 채택하였다.
 
@@ -215,7 +296,9 @@ Q-IM → Kafka(qim.user.events) ─┬→ QimEventConsumer (캐시 무효화 + P
 | 기관 연결 방식 | 단순 HTTP POST | DIRECT/BRIDGE/APACHE_GATE/INTERNAL_SSO 4패턴 지원 |
 | 인증 방식 | 명시 없음 | API_KEY/HMAC/mTLS 3종 분기 구조 (구현 예정) |
 
-### 4.3 설계 일관성 위험 — AgencyEventController Pull vs Push 이중화
+### 4.4 설계 일관성 위험 — AgencyEventController Pull vs Push 이중화
+
+
 
 ```
 현재: 기관은 두 가지 방법으로 이벤트를 수신 가능
@@ -382,6 +465,35 @@ qim.user.events 12파티션 × Consumer concurrency 6 = 초당 ~900건 처리
 
 ## 8. 권고 사항
 
+### 8.0 [신규 — 최우선] outbox-scheduler 독립 모듈 신설 (🔴 HIGH)
+
+#### 권고-00: `outbox-scheduler` 신규 Gradle 서브모듈 신설
+
+제안서의 핵심 의도를 실현하기 위해 **모든 서비스의 Relay 스케줄러를 단일 독립 서비스로 분리**한다.  
+상세 설계: `docs/internal/architecture/ADR-2026-005-outbox-scheduler-module.md` 참조.
+
+**목표 구조**:
+```
+[Q-IM]    outbox INSERT만  ─────────────────┐
+[Q-Sign]  outbox INSERT만  ─────────────────┤
+[IdO]     outbox INSERT만  ─────────────────┤
+                                            ▼
+                               [outbox-scheduler 서비스]
+                                 - 모든 outbox 테이블 폴링
+                                 - Kafka 발행 전담
+                                 - 재시도/DLQ 중앙 관리
+                                 - 각 서비스와 DB 공유
+```
+
+**각 서비스 팀에서 제거 가능한 것들**:
+```
+Q-IM:   OutboxServiceImpl @Scheduled 메서드 제거, KafkaTemplate 의존성 제거
+Q-Sign: OutboxRelay.java 전체 제거, KafkaTemplate 의존성 제거
+IdO:    IdoOutboxRelay, QimOutboxRelay 제거 (ProvisioningOutboxRelay는 HTTP 재시도라 유지)
+```
+
+**Sprint 반영**: Sprint 17 설계 확정 → Sprint 18 구현
+
 ### 8.1 즉시 채택 권고 (이미 구현됨, 활성화만 필요)
 
 #### 권고-01: F-20 Feature Flag 활성화 로드맵 수립 (🔴 BLOCKER)
@@ -496,8 +608,9 @@ spring.kafka.properties:
 
 | 제안 항목 | 판정 | 사유 |
 |----------|------|------|
-| Transactional Outbox 패턴 | ✅ **이미 구현** | `UserServiceImpl` + `OutboxRelay` 완전 구현 |
-| Kafka 비동기 이벤트 발행 | ✅ **이미 구현** | `qim.user.events` 토픽 운영 중 |
+| Transactional Outbox INSERT | ✅ **이미 구현** | `UserServiceImpl.publishInTx()` 등 모든 서비스 구현 |
+| Relay 독립 서비스 분리 | ❌ **미구현** | 각 서비스에 @Scheduled Relay 분산 내장 — 제안서 핵심 의도와 반대 |
+| Kafka 비동기 이벤트 발행 | ⚠️ **부분 구현** | 토픽/발행 자체는 동작하나 Relay가 서비스 내 분산 |
 | Consumer Group 분리 | ✅ **이미 구현 (개선됨)** | 제안보다 더 세밀한 역할 분리 |
 | Virtual Thread 병렬 기관 호출 | ✅ **이미 구현 (비활성)** | F-20 Flag 활성화 필요 |
 | DLQ + 재처리 | ✅ **이미 구현** | `ProvisioningOutboxRelay` + DLQ 토픽 |
@@ -515,6 +628,7 @@ spring.kafka.properties:
 
 | 우선순위 | 항목 | 스프린트 | 담당 |
 |---------|------|---------|------|
+| 🔴 P0 | **`outbox-scheduler` 독립 모듈 신설** | Sprint 17 설계 / Sprint 18 구현 | Arch팀 + BE팀 |
 | 🔴 P0 | 기관 API 인증 구현 (`addAuthHeader`) | Sprint 17 | BE팀 |
 | 🔴 P0 | `qim.user.events` 파티션 12 증설 | Sprint 17 | Infra팀 |
 | 🔴 P0 | Kafka RF=3 운영 환경 설정 | Sprint 17 | Infra팀 |
