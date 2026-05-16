@@ -33,8 +33,8 @@
 | 서비스 상세 설계서 | 4 | 4 | 0 | 0 |
 | 워크스루 | 5 | 5 | 0 | 0 |
 | DB 마이그레이션 | 18 (V1~V18) | 18 | 0 | 0 |
-| **유관기관 연동 가이드** | **4** | **4** | **0** | **0** |
-| **합계** | **44+** | **44+** | **0** | **0** |
+| **유관기관 연동 가이드** | **5** | **5** | **0** | **0** |
+| **합계** | **45+** | **45+** | **0** | **0** |
 
 ---
 
@@ -171,6 +171,7 @@ onepass-fe ──────────► IdO(:8083)  ◄──── Kafka �
 | #107 | fix(provisioning)+docs(fe): V18 CHECK 제약 + Javadoc + ciCheck.ts | V18 SQL, ProvisioningService Javadoc, ProvisioningOutboxRecord Javadoc, ciCheck.ts TODO | ✅ Merged |
 | **#115** | feat(provision): Sprint 17 — `addAuthHeader()` API_KEY/HMAC/mTLS 구현 (BLOCKER 해소) | `AgencyProvisioningClient.addAuthHeader()` 3-mode 지원, 인증 분기 로직 | **✅ Merged** |
 | **#116** | feat(conversion): 유관기관 전환 URL 보안 강화 + 버그 수정 + 가이드 문서 | B-1/B-2 뺄그 수정, JWT Signed Request ConversionInit API, PlatformErrorCode E-CONV-601~603, GUIDE-001~004 | **현재 OPEN** |
+| **#117** | docs(dreamsecurity): 드림시큐리티 SSO 연동 종합 가이드 + 운영 심층 분석 | README.md v0.8.9, DELIVERABLES/INDEX 갱신, GUIDE-005 드림시큐리티 SSO 연동 가이드 신규 | **현재 OPEN** |
 
 ### 파일 수정 이력 (v0.8.9 기준)
 
@@ -193,6 +194,8 @@ onepass-fe ──────────► IdO(:8083)  ◄──── Kafka �
 | **`wiki/guide/03-conversion-launch-sample.md`** | 신규 생성 — Node.js/Java/Python 기관 오픈 URL 샘플 + 체크리스트 | #116 |
 | **`wiki/guide/04-conversion-data-flow-diagram.md`** | 신규 생성 — ①~㉪ 순번 시퀀스 다이어그램 + ConversionContext 상태 추적 | #116 |
 | **`wiki/INDEX.md`** | 수정 — `guide/` 섹션 추가, 알려진 버그 B-1/B-2 목록 등재 | #116 |
+| **`wiki/guide/05-dreamsecurity-sso-integration.md`** | **신규** — 드림시큐리티 SSO 연동 종합 가이드: 갭 분석 7항목, INTERNAL_SSO 어댑터, 식별자 매핑, SLO 동기화, 회원 전환 정책, 도입 매트릭스 | #117 |
+| **`wiki/deliverables/DELIVERABLES.md`** | 수정 — v0.8.9 갱신, PR #117, GUIDE-005 등재, 산출물 45+ | #117 |
 
 ---
 
@@ -231,13 +234,14 @@ wiki/
 │   ├── 01-agency-conversion-url-flow.md
 │   ├── 02-conversion-param-security.md
 │   ├── 03-conversion-launch-sample.md
-│   └── 04-conversion-data-flow-diagram.md
+│   ├── 04-conversion-data-flow-diagram.md
+│   └── 05-dreamsecurity-sso-integration.md  ← ★★ Turn 6 신규
 └── deliverables/
     └── DELIVERABLES.md                   ← 이 문서
 ```
 
-**총 Markdown 파일**: 23개 (v0.8.9 기준, guide/ 4편 추가)  
-**총 추정 분량**: 약 700~800 페이지 (A4 기준)
+**총 Markdown 파일**: 24개 (v0.8.9 기준, guide/ 5편 포함)  
+**총 추정 분량**: 약 750~850 페이지 (A4 기준)
 
 ---
 
@@ -272,7 +276,8 @@ wiki/
 - [x] ADR-001 ~ ADR-012 (12개 완료)
 - [x] 서비스 상세 설계서 4개 (IdO, Q-IM, Q-Sign, Agency-Stub)
 - [x] 워크스루 5개 (로그인, 가입, 전환, 프로비저닝, Handoff SSO)
-- [x] **유관기관 연동 가이드 4편** (GUIDE-001~004) ★ v0.8.9 신규
+- [x] **유관기관 연동 가이드 5편** (GUIDE-001~005) ★ v0.8.9 신규
+  - GUIDE-005: 드림시큐리티 SSO 연동 종합 가이드 (갭 분석 7항목 + 4가지 대책)
 - [x] 산출물 마스터 인덱스 (이 문서)
 - [ ] DOCX 변환 (상세 설계서 4개 + 워크스루 2개 + 유관기관 가이드 1개)
 
@@ -312,6 +317,7 @@ wiki/
 | PR #107 (문서화) | https://github.com/HipsterMIN/integration-sso/pull/107 |
 | PR #115 (Sprint 17 addAuthHeader) | https://github.com/HipsterMIN/integration-sso/pull/115 |
 | PR #116 (유관기관 전환 보안) | https://github.com/HipsterMIN/integration-sso/pull/116 |
+| PR #117 (드림시큐리티 SSO + 운영 심층 분석) | https://github.com/HipsterMIN/integration-sso/pull/117 |
 | 위키 인덱스 | `wiki/INDEX.md` |
 | ADR 디렉토리 | `wiki/adr/` |
 | 설계서 디렉토리 | `wiki/design/` |
