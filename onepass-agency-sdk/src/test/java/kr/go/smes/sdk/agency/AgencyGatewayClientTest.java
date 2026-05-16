@@ -111,7 +111,7 @@ class AgencyGatewayClientTest {
     // ════════════════════════════════════════════════════════════════════════
 
     @Test
-    @DisplayName("S16-T2: 요청 헤더에 X-Agency-Key, X-Idempotency-Key, X-Agency-Code 포함 검증")
+    @DisplayName("S16-T2: 요청 헤더에 X-Agency-Key, X-Idempotency-Key, X-Agency-Code, X-Event-Type 포함 검증")
     void s16T2_headers_containRequiredKeys() {
         // given
         ArgumentCaptor<Map<String, String>> headersCaptor = ArgumentCaptor.forClass(Map.class);
@@ -141,6 +141,8 @@ class AgencyGatewayClientTest {
         assertThat(capturedHeaders).containsEntry("X-Idempotency-Key", IDEMPOTENCY_KEY);
         assertThat(capturedHeaders).containsKey("Content-Type");
         assertThat(capturedHeaders.get("Content-Type")).contains("application/json");
+        // X-Event-Type: 서버 AgencyGatewayController.receiveInbound()가 이 헤더로 eventType 라우팅
+        assertThat(capturedHeaders).containsEntry("X-Event-Type", "BIZ_CONVERTED");
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -179,11 +181,12 @@ class AgencyGatewayClientTest {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // S16-T4: HMAC-SHA256 서명 활성화 시 X-Internal-Sig, X-Timestamp 헤더 포함
+    // S16-T4: HMAC-SHA256 서명 활성화 시 X-Internal-Sig 헤더 포함
+    //         (서버 HmacSignatureFilter 페이로드: {agencyCode}:{idempotencyKey}:{epochSeconds})
     // ════════════════════════════════════════════════════════════════════════
 
     @Test
-    @DisplayName("S16-T4: HMAC 서명 활성화 → X-Internal-Sig, X-Timestamp 헤더 포함 검증")
+    @DisplayName("S16-T4: HMAC 서명 활성화 → X-Internal-Sig 헤더 포함, X-Timestamp는 미포함 (서버 미사용)")
     void s16T4_hmacSigningEnabled_includesSignatureHeaders() {
         // given
         ArgumentCaptor<Map<String, String>> headersCaptor = ArgumentCaptor.forClass(Map.class);
@@ -210,12 +213,26 @@ class AgencyGatewayClientTest {
 
         // then
         Map<String, String> capturedHeaders = headersCaptor.getValue();
+        // X-Internal-Sig: HMAC-SHA256 서명값 (64자 소문자 HEX)
         assertThat(capturedHeaders).containsKey("X-Internal-Sig");
-        assertThat(capturedHeaders).containsKey("X-Timestamp");
-        // HMAC-SHA256는 64자 HEX 문자열
-        assertThat(capturedHeaders.get("X-Internal-Sig")).hasSize(64);
-        // 타임스탬프는 숫자 문자열
-        assertThat(capturedHeaders.get("X-Timestamp")).matches("\\d+");
+        assertThat(capturedHeaders.get("X-Internal-Sig")).hasSize(64)
+                .matches("[0-9a-f]{64}");
+        // X-Timestamp: 서버 HmacSignatureFilter가 사용하지 않으므로 포함하지 않음
+        assertThat(capturedHeaders).doesNotContainKey("X-Timestamp");
+        // 서명 페이로드 검증: {AGENCY_CODE}:{IDEMPOTENCY_KEY}:{epochSeconds}
+        HmacSigner signer = new HmacSigner(HMAC_SECRET);
+        long epochSeconds = System.currentTimeMillis() / 1000L;
+        // ±2초 내의 epochSeconds 후보 중 하나가 일치해야 함 (시계 지연 허용)
+        String capturedSig = capturedHeaders.get("X-Internal-Sig");
+        boolean verified = false;
+        for (long delta = -2; delta <= 2; delta++) {
+            String expected = signer.sign(AGENCY_CODE, IDEMPOTENCY_KEY, epochSeconds + delta);
+            if (signer.verifySignature(capturedSig, expected)) {
+                verified = true;
+                break;
+            }
+        }
+        assertThat(verified).as("HMAC 서명이 서버 알고리즘({agencyCode}:{idempotencyKey}:{epochSeconds})과 일치해야 함").isTrue();
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -373,6 +390,10 @@ class AgencyGatewayClientTest {
         assertThat(recorded.getHeader("X-Agency-Key")).isEqualTo(API_KEY);
         assertThat(recorded.getHeader("X-Idempotency-Key")).isEqualTo(IDEMPOTENCY_KEY);
         assertThat(recorded.getHeader("X-Agency-Code")).isEqualTo(AGENCY_CODE);
+        // X-Event-Type: 서버 eventType 라우팅 헤더 (GAP-3 수정 검증)
+        assertThat(recorded.getHeader("X-Event-Type")).isEqualTo("USER_REGISTERED");
+        // X-Timestamp: 서버가 사용하지 않으므로 전송하지 않음 (GAP-1 수정 검증)
+        assertThat(recorded.getHeader("X-Timestamp")).isNull();
         assertThat(recorded.getBody().readUtf8()).contains("USER_REGISTERED");
     }
 
@@ -381,23 +402,53 @@ class AgencyGatewayClientTest {
     // ════════════════════════════════════════════════════════════════════════
 
     @Test
-    @DisplayName("HmacSigner: sign + verifySignature 상수시간 비교 정확성 검증")
+    @DisplayName("HmacSigner: sign(agencyCode, idempotencyKey, epochSeconds) + verifySignature 정확성 검증")
     void hmacSigner_signAndVerify_consistent() {
         // given
         HmacSigner signer = new HmacSigner(HMAC_SECRET);
-        long ts = System.currentTimeMillis();
+        long epochSeconds = System.currentTimeMillis() / 1000L;
 
-        // when
-        String sig1 = signer.sign("POST", "/api/v1/test", ts, "{\"key\":\"val\"}");
-        String sig2 = signer.sign("POST", "/api/v1/test", ts, "{\"key\":\"val\"}");
-        String sig3 = signer.sign("POST", "/api/v1/test", ts, "{\"key\":\"different\"}");
+        // when — 서버 HmacSignatureFilter와 동일한 알고리즘
+        // 페이로드: "{agencyCode}:{idempotencyKey}:{epochSeconds}"
+        String sig1 = signer.sign(AGENCY_CODE, IDEMPOTENCY_KEY, epochSeconds);
+        String sig2 = signer.sign(AGENCY_CODE, IDEMPOTENCY_KEY, epochSeconds);
+        // 다른 입력 → 다른 서명
+        String sig3 = signer.sign("OTHER_CODE", IDEMPOTENCY_KEY, epochSeconds);
+        String sig4 = signer.sign(AGENCY_CODE, "other-key", epochSeconds);
 
         // then — 동일 입력은 동일 서명
         assertThat(signer.verifySignature(sig1, sig2)).isTrue();
-        // 본문 달라지면 서명 달라짐
+        // 입력 달라지면 서명 달라짐
         assertThat(signer.verifySignature(sig1, sig3)).isFalse();
-        // 64자 HEX
+        assertThat(signer.verifySignature(sig1, sig4)).isFalse();
+        // 64자 소문자 HEX
         assertThat(sig1).hasSize(64).matches("[0-9a-f]{64}");
+    }
+
+    @Test
+    @DisplayName("HmacSigner: 서버 알고리즘과 동일한 서명 생성 검증 (서버 HmacSignatureFilter 재현)")
+    void hmacSigner_matchesServerAlgorithm() throws Exception {
+        // 서버 HmacSignatureFilter.computeHmac()를 직접 재현하여 SDK와 비교
+        // payload = "{agencyCode}:{idempotencyKey}:{epochSeconds}"
+        long   epochSeconds   = 1715641234L;   // 고정값으로 재현성 보장
+        String secret         = HMAC_SECRET;
+
+        // SDK 서명 생성
+        HmacSigner signer = new HmacSigner(secret);
+        String sdkSig     = signer.sign(AGENCY_CODE, IDEMPOTENCY_KEY, epochSeconds);
+
+        // 서버 결과 직접 계산 (서버 코드와 동일 로직)
+        String payload = AGENCY_CODE + ":" + IDEMPOTENCY_KEY + ":" + epochSeconds;
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(
+                secret.getBytes(java.nio.charset.Charset.forName("UTF-8")), "HmacSHA256"));
+        byte[] rawHmac = mac.doFinal(payload.getBytes(java.nio.charset.Charset.forName("UTF-8")));
+        StringBuilder sb = new StringBuilder();
+        for (byte b : rawHmac) sb.append(String.format("%02x", b & 0xFF));
+        String serverExpectedSig = sb.toString();
+
+        // SDK가 생성한 서명이 서버가 검증할 값과 정확히 일치해야 함
+        assertThat(sdkSig).isEqualTo(serverExpectedSig);
     }
 
     @Test

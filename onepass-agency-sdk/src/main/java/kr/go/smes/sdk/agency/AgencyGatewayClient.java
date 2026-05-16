@@ -25,12 +25,28 @@ import java.util.Map;
  *   <li>OkHttp3 / Apache HttpClient 5.x 어댑터 선택적 교체 가능</li>
  * </ul>
  *
+ * <h3>인바운드 요청 헤더</h3>
+ * <ul>
+ *   <li>{@code X-Agency-Key}     — API Key (서버 SHA-256 해시 검증)</li>
+ *   <li>{@code X-Agency-Code}    — 기관 코드</li>
+ *   <li>{@code X-Idempotency-Key} — 멱등성 키 (24h TTL)</li>
+ *   <li>{@code X-Event-Type}     — 이벤트 타입 (서버 라우팅에 사용)</li>
+ *   <li>{@code X-Correlation-ID} — 요청 추적 ID</li>
+ *   <li>{@code X-Internal-Sig}   — HMAC-SHA256 서명 (signRequests=true 시)</li>
+ * </ul>
+ *
+ * <h3>HMAC 서명 알고리즘 (Sprint 17 Phase 4 강제화)</h3>
+ * <pre>
+ * 서명 페이로드  = "{agencyCode}:{idempotencyKey}:{epochSeconds}"
+ * X-Internal-Sig = HEX( HMAC-SHA256(hmacSecret, 서명페이로드) )
+ * </pre>
+ *
  * <h3>기본 사용 예시 (JDK 8+)</h3>
  * <pre>{@code
  * // 1. 클라이언트 생성 (기본 HttpURLConnection 사용)
  * AgencyGatewayClient client = AgencyGatewayClient.builder()
- *     .baseUrl("https://onepass.go.kr")
- *     .apiKey("stub-api-key-dev")       // X-Agency-Key 헤더로 전송됨
+ *     .baseUrl("http://localhost:8083")   // IdO 서버 URL (포트 8083)
+ *     .apiKey("stub-api-key-dev")         // X-Agency-Key 헤더로 전송됨
  *     .agencyCode("AGENCY_STUB_001")
  *     .build();
  *
@@ -55,17 +71,14 @@ import java.util.Map;
  * GatewayResponse status = client.getStatus("AGENCY_STUB_001");
  * }</pre>
  *
- * <h3>OkHttp3 교체 예시</h3>
+ * <h3>HMAC 서명 활성화 예시 (Sprint 17 Phase 4 대비)</h3>
  * <pre>{@code
- * OkHttpClient okHttp = new OkHttpClient.Builder()
- *     .connectTimeout(5, TimeUnit.SECONDS)
- *     .readTimeout(30, TimeUnit.SECONDS)
- *     .build();
- *
  * AgencyGatewayClient client = AgencyGatewayClient.builder()
- *     .baseUrl("http://localhost:8083")   // IdO 서버 URL
- *     .apiKey("stub-api-key-dev")          // X-Agency-Key 헤더로 전송됨
- *     .httpAdapter(new OkHttpAgencyAdapter(okHttp))
+ *     .baseUrl("http://localhost:8083")
+ *     .apiKey("stub-api-key-dev")
+ *     .agencyCode("AGENCY_STUB_001")
+ *     .hmacSecret("agency-hmac-shared-secret")   // 기관별 독립 HMAC 키 (API Key와 별개)
+ *     .signRequests(true)
  *     .build();
  * }</pre>
  *
@@ -84,9 +97,9 @@ public final class AgencyGatewayClient {
     private static final String HDR_API_KEY        = "X-Agency-Key";
     private static final String HDR_AGENCY_CODE    = "X-Agency-Code";
     private static final String HDR_IDEMPOTENCY    = "X-Idempotency-Key";
-    private static final String HDR_CORRELATION_ID = "X-Correlation-Id";
+    private static final String HDR_CORRELATION_ID = "X-Correlation-ID";  // 서버 AgencyGatewayController와 일치
     private static final String HDR_INTERNAL_SIG   = "X-Internal-Sig";
-    private static final String HDR_TIMESTAMP      = "X-Timestamp";
+    private static final String HDR_EVENT_TYPE     = "X-Event-Type";      // 서버 eventType 라우팅용
 
     // ── 설정 필드 ──────────────────────────────────────────────────────────────
     private final String            baseUrl;
@@ -122,6 +135,10 @@ public final class AgencyGatewayClient {
      *
      * <p>{@code POST /api/v1/agency/gateway/inbound/event}
      *
+     * <p>이벤트 타입({@link InboundEvent#getEventType()})은 JSON body의
+     * {@code "event_type"} 필드와 {@code X-Event-Type} 헤더 양쪽에 전송된다.
+     * 서버는 {@code X-Event-Type} 헤더를 이벤트 라우팅에 사용한다.
+     *
      * <p>idempotencyKey가 지정되지 않으면 자동으로 UUID v4를 생성한다.
      *
      * @param event 전송할 인바운드 이벤트
@@ -134,8 +151,10 @@ public final class AgencyGatewayClient {
         String idempotencyKey  = resolveIdempotencyKey(event.getIdempotencyKey());
         String correlationId   = resolveCorrelationId(event.getCorrelationId());
         String url             = baseUrl + PATH_INBOUND;
-        Map<String, String> headers = buildHeaders("POST", PATH_INBOUND, body,
-                                                    idempotencyKey, correlationId);
+        Map<String, String> headers = buildInboundHeaders(
+                idempotencyKey, correlationId, event.getEventType());
+        // HMAC 서명: agencyCode + idempotencyKey + epochSeconds
+        addHmacSignatureIfEnabled(headers, resolveAgencyCode(event.getAgencyCode()), idempotencyKey);
         return httpAdapter.execute("POST", url, headers, body);
     }
 
@@ -156,8 +175,7 @@ public final class AgencyGatewayClient {
         String idempotencyKey = resolveIdempotencyKey(request.getIdempotencyKey());
         String correlationId  = resolveCorrelationId(request.getCorrelationId());
         String url            = baseUrl + PATH_OUTBOUND;
-        Map<String, String> headers = buildHeaders("PATCH", PATH_OUTBOUND, body,
-                                                    idempotencyKey, correlationId);
+        Map<String, String> headers = buildBaseHeaders(idempotencyKey, correlationId);
         return httpAdapter.execute("PATCH", url, headers, body);
     }
 
@@ -177,8 +195,7 @@ public final class AgencyGatewayClient {
             throw new AgencySdkException("SDK_MISSING_AGENCY", "agencyCode가 지정되지 않았습니다.");
         }
         String url  = baseUrl + PATH_STATUS + code;
-        Map<String, String> headers = buildHeaders("GET", PATH_STATUS + code, null,
-                                                    null, null);
+        Map<String, String> headers = buildBaseHeaders(null, null);
         return httpAdapter.execute("GET", url, headers, null);
     }
 
@@ -187,22 +204,39 @@ public final class AgencyGatewayClient {
     // ════════════════════════════════════════════════════════════════════════
 
     /**
-     * 공통 요청 헤더 구성
+     * 인바운드 전용 요청 헤더 구성 (X-Event-Type 포함)
      *
      * <p>헤더 목록:
      * <ul>
      *   <li>{@code Content-Type: application/json;charset=UTF-8}</li>
      *   <li>{@code Accept: application/json}</li>
-     *   <li>{@code X-Agency-Key}: API 키 — HandoffAgencyKeyInterceptor SHA-256 검증</li>
-     *   <li>{@code X-Agency-Code}: 기관 코드</li>
-     *   <li>{@code X-Idempotency-Key}: 멱등성 키 (있는 경우)</li>
-     *   <li>{@code X-Correlation-Id}: 요청 추적 ID</li>
-     *   <li>{@code X-Internal-Sig}: HMAC-SHA256 서명 (signRequests=true 시)</li>
-     *   <li>{@code X-Timestamp}: 서명 타임스탬프 epoch ms (서명 활성화 시)</li>
+     *   <li>{@code X-Agency-Key} — HandoffAgencyKeyInterceptor SHA-256 검증</li>
+     *   <li>{@code X-Agency-Code} — 기관 코드</li>
+     *   <li>{@code X-Idempotency-Key} — 멱등성 키</li>
+     *   <li>{@code X-Correlation-ID} — 요청 추적 ID (서버와 동일 헤더명)</li>
+     *   <li>{@code X-Event-Type} — 이벤트 타입 (서버 라우팅 필수)</li>
      * </ul>
      */
-    private Map<String, String> buildHeaders(String method, String path, String body,
-                                              String idempotencyKey, String correlationId) {
+    private Map<String, String> buildInboundHeaders(String idempotencyKey,
+                                                     String correlationId,
+                                                     String eventType) {
+        Map<String, String> headers = buildBaseHeaders(idempotencyKey, correlationId);
+        // X-Event-Type: 서버 AgencyGatewayController.receiveInbound()가 이 헤더로 eventType을 읽음
+        // null이면 서버 기본값 "CUSTOM"으로 처리됨 — 명시적으로 설정 권장
+        if (eventType != null && !eventType.isEmpty()) {
+            headers.put(HDR_EVENT_TYPE, eventType);
+        }
+        return headers;
+    }
+
+    /**
+     * 공통 기본 요청 헤더 구성
+     *
+     * @param idempotencyKey 멱등성 키 (null 허용)
+     * @param correlationId  요청 추적 ID (null 허용)
+     * @return 헤더 맵 (LinkedHashMap — 삽입 순서 유지)
+     */
+    private Map<String, String> buildBaseHeaders(String idempotencyKey, String correlationId) {
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put(HDR_CONTENT_TYPE, "application/json;charset=UTF-8");
         headers.put(HDR_ACCEPT,       "application/json");
@@ -219,16 +253,34 @@ public final class AgencyGatewayClient {
         if (correlationId != null) {
             headers.put(HDR_CORRELATION_ID, correlationId);
         }
-
-        // HMAC-SHA256 서명 (Sprint 17 강제화 대비)
-        if (signRequests && hmacSigner != null) {
-            long timestampMs = System.currentTimeMillis();
-            String sig       = hmacSigner.sign(method, path, timestampMs, body);
-            headers.put(HDR_INTERNAL_SIG, sig);
-            headers.put(HDR_TIMESTAMP,    String.valueOf(timestampMs));
-        }
-
         return headers;
+    }
+
+    /**
+     * HMAC-SHA256 서명 헤더 추가 (signRequests=true 시)
+     *
+     * <p>서명 알고리즘: {@code HmacSigner#sign(agencyCode, idempotencyKey, epochSeconds)}
+     * <pre>
+     * 페이로드       = "{agencyCode}:{idempotencyKey}:{epochSeconds}"
+     * X-Internal-Sig = HEX( HMAC-SHA256(hmacSecret, 페이로드) )
+     * </pre>
+     *
+     * <p>서버({@code HmacSignatureFilter})는 ±60초 범위의 epochSeconds를 전수 검사한다.
+     * {@code X-Timestamp} 헤더는 서버가 사용하지 않으므로 전송하지 않는다.
+     *
+     * @param headers        추가 대상 헤더 맵
+     * @param agencyCode     서명에 포함할 기관 코드
+     * @param idempotencyKey 서명에 포함할 멱등성 키
+     */
+    private void addHmacSignatureIfEnabled(Map<String, String> headers,
+                                            String agencyCode,
+                                            String idempotencyKey) {
+        if (signRequests && hmacSigner != null) {
+            // epochSeconds: 서버 HmacSignatureFilter와 동일한 단위 (초)
+            long epochSeconds = System.currentTimeMillis() / 1000L;
+            String sig = hmacSigner.sign(agencyCode, idempotencyKey, epochSeconds);
+            headers.put(HDR_INTERNAL_SIG, sig);
+        }
     }
 
     /** idempotencyKey가 null/빈 문자열이면 UUID v4 자동 생성 */
@@ -241,6 +293,15 @@ public final class AgencyGatewayClient {
         return (correlationId != null && !correlationId.isEmpty())
                ? correlationId
                : defaultCorrelationIdPrefix + "-" + IdempotencyKeyGenerator.generate();
+    }
+
+    /**
+     * 인바운드 이벤트의 agencyCode 결정 — 이벤트 값 우선, 없으면 클라이언트 설정값
+     */
+    private String resolveAgencyCode(String eventAgencyCode) {
+        return (eventAgencyCode != null && !eventAgencyCode.isEmpty())
+               ? eventAgencyCode
+               : this.agencyCode;
     }
 
     private static void validateNotNull(Object value, String name) {
@@ -319,7 +380,7 @@ public final class AgencyGatewayClient {
          * 기관 코드 (X-Agency-Code 헤더 자동 설정)
          *
          * <p>지정 시 모든 요청에 {@code X-Agency-Code} 헤더가 추가된다.
-         * 기관 인증서버 사이드 필터링에 사용.
+         * HMAC 서명 활성화 시 서명 페이로드에도 사용된다.
          */
         public Builder agencyCode(String agencyCode) {
             this.agencyCode = agencyCode;
@@ -343,11 +404,15 @@ public final class AgencyGatewayClient {
         }
 
         /**
-         * HMAC-SHA256 서명 비밀키 설정 (Sprint 17 강제화 대비)
+         * HMAC-SHA256 서명 비밀키 설정 (Sprint 17 Phase 4 강제화 대비)
          *
-         * <p>설정하면 {@link #signRequests(boolean)}을 {@code true}로 변경해야 서명이 활성화된다.
+         * <p><b>중요:</b> 이 키는 {@code X-Agency-Key}(API Key)와 <b>별개의 비밀키</b>이다.
+         * 서버의 {@code AgencyHmacKeyStore}에 agencyCode별로 등록된 HMAC 전용 키를
+         * OnePass 관리자로부터 수령하여 설정한다.
          *
-         * @param hmacSecret OnePass 서버와 사전 합의한 공유 비밀키
+         * <p>설정 후 {@link #signRequests(boolean)}을 {@code true}로 변경해야 서명이 활성화된다.
+         *
+         * @param hmacSecret 기관별 HMAC 공유 비밀키 (UTF-8 문자열, 길이 제한 없음)
          */
         public Builder hmacSecret(String hmacSecret) {
             this.hmacSecret = hmacSecret;
@@ -355,10 +420,17 @@ public final class AgencyGatewayClient {
         }
 
         /**
-         * HMAC-SHA256 서명 활성화 여부 (기본: false)
+         * HMAC-SHA256 서명 활성화 여부 (기본: {@code false})
          *
-         * <p>{@code true}로 설정하면 모든 요청에 {@code X-Internal-Sig} 헤더가 추가된다.
+         * <p>{@code true}로 설정하면 모든 인바운드 요청에 {@code X-Internal-Sig} 헤더가 추가된다.
          * {@link #hmacSecret(String)} 설정이 선행되어야 한다.
+         *
+         * <p><b>⚠️ Sprint 17 Phase 4 전환 시 필수화:</b><br>
+         * {@code IDO_HMAC_SIG_REQUIRED=true} 설정 후에는 X-Internal-Sig 헤더가 없으면
+         * 모든 인바운드 요청이 401로 거부된다. Phase 4 진입 전에 반드시 서명을 활성화하고
+         * Staging 환경에서 검증해야 한다.
+         *
+         * @see HmacSigner
          */
         public Builder signRequests(boolean signRequests) {
             this.signRequests = signRequests;
@@ -392,11 +464,13 @@ public final class AgencyGatewayClient {
                 throw new AgencySdkException("SDK_CONFIG_ERROR", "baseUrl은 필수입니다.");
             }
             if (apiKey == null || apiKey.isEmpty()) {
-                throw new AgencySdkException("SDK_CONFIG_ERROR", "apiKey는 필수입니다. OnePass 관리자로부터 발급받은 X-Agency-Key를 설정하세요.");
+                throw new AgencySdkException("SDK_CONFIG_ERROR",
+                        "apiKey는 필수입니다. OnePass 관리자로부터 발급받은 X-Agency-Key를 설정하세요.");
             }
             if (signRequests && (hmacSecret == null || hmacSecret.isEmpty())) {
                 throw new AgencySdkException("SDK_CONFIG_ERROR",
-                        "signRequests=true 설정 시 hmacSecret이 필요합니다.");
+                        "signRequests=true 설정 시 hmacSecret이 필요합니다." +
+                        " OnePass 관리자로부터 기관별 HMAC 비밀키를 수령하여 설정하세요.");
             }
             return new AgencyGatewayClient(this);
         }
