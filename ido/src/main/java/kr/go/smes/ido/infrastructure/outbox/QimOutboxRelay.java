@@ -73,6 +73,12 @@ import java.util.concurrent.CompletableFuture;
  *   <li>{@code ido.qim-outbox.batch-size}        — 배치 크기 (기본 50)</li>
  *   <li>{@code ido.qim-outbox.max-retry}         — 최대 재시도 횟수 (기본 5)</li>
  * </ul>
+ *
+ * <p><b>⚠️ 운영 전환 안내 — outbox-relay-batch 서비스 배포 시</b>:
+ * {@code outbox-relay-batch} 모듈 배포 후에는 아래 환경변수로 이 릴레이를 비활성화하십시오.
+ * <pre>
+ * IDO_QIM_OUTBOX_RELAY_ENABLED=false
+ * </pre>
  */
 @Slf4j
 @Component
