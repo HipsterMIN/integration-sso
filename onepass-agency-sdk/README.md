@@ -517,64 +517,73 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 
 ## 7. HMAC 서명 설정 가이드
 
-Sprint 17 이후 OnePass Gateway는 `X-Internal-Sig` 헤더 검증을 강제화한다.
-SDK에서 서명을 자동 생성하려면 다음과 같이 설정한다.
+Sprint 17 Phase 4 이후 OnePass Gateway는 `X-Internal-Sig` 헤더 검증을 강제화한다
+(`IDO_HMAC_SIG_REQUIRED=true`). Phase 4 전환 전에 서명을 활성화하고 Staging 환경에서
+48시간 이상 검증을 완료해야 한다.
 
 ### 7.1 서명 활성화
 
 ```java
 AgencyGatewayClient client = AgencyGatewayClient.builder()
         .baseUrl("http://localhost:8083")                    // IdO 서버 URL
-        .apiKey("stub-api-key-dev")
+        .apiKey("stub-api-key-dev")                         // X-Agency-Key (API 인증용)
         .agencyCode("AGENCY_STUB_001")
-        .hmacSecret("onepass-agency-shared-secret-2026")    // OnePass 관리자로부터 수령
+        .hmacSecret("agency-hmac-shared-secret-2026")       // HMAC 전용 키 (API Key와 별개)
         .signRequests(true)                                  // 서명 활성화
         .build();
 ```
 
-모든 요청에 다음 헤더가 자동으로 추가된다:
-- `X-Internal-Sig`: HMAC-SHA256 서명 (64자 HEX)
-- `X-Timestamp`: 서명 생성 시각 (epoch milliseconds)
+> **⚠️ 중요**: `hmacSecret`은 `apiKey`(X-Agency-Key)와 **별개의 비밀키**이다.
+> 서버의 `AgencyHmacKeyStore`에 기관별로 등록된 HMAC 전용 키를 OnePass 관리자로부터 수령한다.
 
-### 7.2 서명 알고리즘 (OnePass 설계서 §17.2)
+인바운드 요청(`POST /inbound/event`)에 다음 헤더가 자동으로 추가된다:
+- `X-Internal-Sig`: HMAC-SHA256 서명 (64자 소문자 HEX)
+
+### 7.2 서명 알고리즘 (서버 `HmacSignatureFilter` 기준)
 
 ```
-서명 대상 = "{HTTP_METHOD}\n{PATH}\n{TIMESTAMP_EPOCH_MS}\n{SHA256(BODY)}"
-X-Internal-Sig = HEX( HMAC-SHA256(sharedSecret, 서명대상) )
+서명 페이로드  = "{agencyCode}:{idempotencyKey}:{epochSeconds}"
+X-Internal-Sig = HEX( HMAC-SHA256(hmacSecret, 서명페이로드) )
 ```
+
+- `epochSeconds` = `System.currentTimeMillis() / 1000` (초 단위, 밀리초 아님)
+- 서버는 ±60초 범위의 epochSeconds를 전수 검사하여 시계 편차를 허용한다
+- `X-Timestamp` 헤더는 서버가 사용하지 않으므로 전송하지 않는다
 
 예시:
 ```
-POST
-/api/v1/agency/gateway/inbound/event
-1715641234567
-a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3
+agencyCode     = "AGENCY_STUB_001"
+idempotencyKey = "AGENCY_STUB_001-1715641234567-0000000001"
+epochSeconds   = 1715641234
 
-→ HMAC-SHA256(secret, 위 문자열) → X-Internal-Sig
+페이로드 = "AGENCY_STUB_001:AGENCY_STUB_001-1715641234567-0000000001:1715641234"
+→ HMAC-SHA256(hmacSecret, 페이로드) → X-Internal-Sig (64자 HEX)
 ```
 
-### 7.3 서버 측 검증 (수신 Webhook 검증)
+### 7.3 서버 측 검증 (수신 Webhook 서명 검증)
 
 ```java
-// 수신된 Webhook 요청의 서명 검증
-HmacSigner signer = new HmacSigner(sharedSecret);
+// 수신된 요청의 서명 검증
+HmacSigner signer = new HmacSigner(hmacSecret);
 
-String receivedSig = request.getHeader("X-Internal-Sig");
-long   timestamp   = Long.parseLong(request.getHeader("X-Timestamp"));
-String body        = readRequestBody(request);
+String receivedSig   = request.getHeader("X-Internal-Sig");
+String agencyCode    = request.getHeader("X-Agency-Code");
+String idempotencyKey = request.getHeader("X-Idempotency-Key");
 
-// 직접 서명 계산 후 비교 (상수시간 비교 — 타이밍 공격 방지)
-String computed = signer.sign(request.getMethod(), request.getRequestURI(), timestamp, body);
+// 현재 시각의 epochSeconds로 서명 계산 (서버는 ±60초 전수 검사)
+long epochSeconds = System.currentTimeMillis() / 1000L;
+String computed = signer.sign(agencyCode, idempotencyKey, epochSeconds);
+
+// 상수시간 비교 (타이밍 공격 방지)
 if (!signer.verifySignature(receivedSig, computed)) {
     throw new SecurityException("HMAC 서명 검증 실패 — 위변조 의심");
 }
-
-// 타임스탬프 허용 범위 검증 (재전송 공격 방지)
-long now = System.currentTimeMillis();
-if (Math.abs(now - timestamp) > 300_000L) { // ±5분
-    throw new SecurityException("요청 타임스탬프 만료 — 재전송 공격 의심");
-}
 ```
+
+> **참고**: 서버(`HmacSignatureFilter`)는 `±TTL_SECONDS(60초)` 범위의 epochSeconds를
+> 전수 검사하므로, 클라이언트가 요청을 보낸 시각과 서버가 수신한 시각의 차이가
+> 60초 이내이면 검증이 통과된다. SDK는 `System.currentTimeMillis() / 1000`을
+> epochSeconds로 사용한다.
 
 ---
 

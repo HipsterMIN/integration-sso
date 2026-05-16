@@ -7,8 +7,43 @@
 
 ## [Unreleased]
 
+### Fixed (갭 분석 기반 수정 — 서버 정합성 확보)
+
+#### GAP-1 (P0) BREAKING: HMAC 서명 알고리즘 서버와 정합성 맞춤
+- **수정 전** (`HmacSigner.sign`): `"{METHOD}\n{PATH}\n{TIMESTAMP_MS}\n{SHA256(BODY)}"` — 서버 미사용 알고리즘
+- **수정 후** (`HmacSigner.sign`): `"{agencyCode}:{idempotencyKey}:{epochSeconds}"` — 서버 `HmacSignatureFilter.computeHmac()`와 완전 일치
+- `AgencyGatewayClient`에서 `X-Timestamp` 헤더 전송 제거 (서버 `HmacSignatureFilter`가 읽지 않음)
+- HMAC 서명 타임스탬프 단위: 밀리초(`ms`) → 초(`epochSeconds`)로 변경
+- `HmacSigner.sign()` 메서드 시그니처 변경: `(method, path, timestampMs, body)` → `(agencyCode, idempotencyKey, epochSeconds)`
+
+#### GAP-3 (P0): X-Event-Type 헤더 전송 추가
+- `AgencyGatewayClient.sendInbound()`가 `X-Event-Type` 헤더를 누락하여 서버가 항상 `eventType="CUSTOM"` 처리하던 버그 수정
+- `InboundEvent.eventType`을 JSON body의 `"event_type"` 필드와 `X-Event-Type` 헤더 **양쪽에** 전송
+- 서버 `AgencyGatewayController.receiveInbound()`는 `X-Event-Type` 헤더로 이벤트 라우팅
+
+#### GAP-4 (P1): X-Correlation-Id → X-Correlation-ID 헤더명 통일
+- 서버 `AgencyGatewayController`의 `HEADER_CORRELATION_ID = "X-Correlation-ID"` (대문자 D)와 일치하도록 수정
+- HTTP/1.1은 헤더 이름이 대소문자 불감이지만 코드 일관성 확보
+
+#### GAP-7 (P2): Sprint 17 Phase 4 Breaking Change 경고 강화
+- `Builder.signRequests()` Javadoc에 Phase 4 전환 시 영향 및 대응 방법 명시
+- `IDO_HMAC_SIG_REQUIRED=true` 전환 시 X-Internal-Sig 없는 요청이 401로 거부됨을 안내
+
 ### Changed
-- 내부 개선 및 문서화 작업 진행 중
+
+#### README §7 HMAC 서명 가이드 전면 수정
+- 서명 알고리즘 설명을 서버 실제 알고리즘(`{agencyCode}:{idempotencyKey}:{epochSeconds}`)으로 교체
+- `hmacSecret`이 `apiKey`와 별개의 비밀키임을 명시
+- `X-Timestamp` 헤더 관련 잘못된 안내 제거
+- 서버 측 검증 예시 코드를 실제 서버 로직에 맞게 수정
+
+### Tests
+
+- `S16-T2`: `X-Event-Type` 헤더 포함 검증 추가 (GAP-3)
+- `S16-T4`: `X-Timestamp` 헤더 미포함 검증 + HMAC 서명 알고리즘 검증 강화 (GAP-1)
+- `S16-T8` (MockWebServer): `X-Event-Type` 헤더 전송 + `X-Timestamp` 미전송 검증 추가
+- `HmacSigner`: `sign()` 시그니처 변경에 따른 테스트 수정
+- `hmacSigner_matchesServerAlgorithm` (신규): 서버 `HmacSignatureFilter.computeHmac()`와 동일한 결과 생성 검증
 
 ---
 
