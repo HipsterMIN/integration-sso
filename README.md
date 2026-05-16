@@ -43,6 +43,7 @@
 
 | 버전 | PR | 주요 내용 |
 |------|----|---------|
+| **v0.8.9** | [#116](https://github.com/HipsterMIN/integration-sso/pull/116) / [#115](https://github.com/HipsterMIN/integration-sso/pull/115) | **Sprint 17 + 유관기관 전환 보안 강화** — ❌B-1 수정(`Step8 isSafeRedirectUri` 환경변수 기반) + ❌B-2 수정(`application.yml` 더미 URL → 환경변수 구조) + JWT Signed Request `POST /api/v1/conversion/init` + `PlatformErrorCode` E-CONV-601~603 신규 + GUIDE-001~004(가이드 문서 4편) + Sprint 17 `addAuthHeader()` API_KEY/HMAC/mTLS 구현 |
 | **v0.8.8** | [#109](https://github.com/HipsterMIN/integration-sso/pull/109) / [#108](https://github.com/HipsterMIN/integration-sso/pull/108) / [#107](https://github.com/HipsterMIN/integration-sso/pull/107) | **QIM-OUTBOX-SPEC-001 정합화 + 전체 문서화** — V18 CHECK 제약(provisioning_outbox·gateway_inbound_audit), ProvisioningService Javadoc 갱신, wiki/ 전체 생성(ADR 12개·설계서 4개·워크스루 5개·DOCX 6개) |
 | **v3.0.0** | [#82](https://github.com/HipsterMIN/integration-sso/pull/82) | **SSO 운영 보안 패치 P1~P3** — `V4__fix_social_sso.sql` UNIQUE 복합 키, `InternalApiKeyInterceptor` 구현, `HandoffController` redirectUri null 수정 |
 | **v2.4.0** | [#81](https://github.com/HipsterMIN/integration-sso/pull/81) | **유관기관 SSO 완성** — Q-IM 소셜 계정 API(`find-by-social-sub` / `register-social`), GUEST 정책, HMAC fallback 완전 제거 |
@@ -62,23 +63,23 @@
 
 ## 전체 구현 진행률
 
-> **기준일**: 2026-05-13 | **총 테스트**: 219개 통과 + 30개 skipped (q-im 기준; 전체 모듈 포함 시 ido 202 + platform-common 59 + q-sign 23) | v3.1.0 반영
+> **기준일**: 2026-05-16 | **총 테스트**: 219개 통과 + 30개 skipped (q-im 기준; 전체 모듈 포함 시 ido 202 + platform-common 59 + q-sign 23) | v0.8.9 반영
 
 ### 모듈별 구현 완성도
 
 ```
-platform-common  ████████████████████ 100%  (도메인·이벤트·에러코드 완비, UUID v7, HandoffPayload.GUEST)
+platform-common  ████████████████████ 100%  (도메인·이벤트·에러코드 완비, UUID v7, HandoffPayload.GUEST, E-CONV-601~603 ★신규)
 Q-Sign           ████████████████████  97%  (InternalSig 수신 검증 완료, SLO 완료)
 Q-IM             ████████████████████  98%  (소셜 SSO API, CI 암호화 v{n}, 파기 스케줄러, InternalApiKeyInterceptor)
-IdO              ████████████████████  93%  (Keycloak OIDC 브로커, SSO 소셜 계정 연동, AES 키 로테이션, NICE/OACX BFF)
+IdO              ████████████████████  95%  (Keycloak OIDC 브로커, SSO 소셜 계정 연동, AES 키 로테이션, NICE/OACX BFF, ConversionInit API ★신규, addAuthHeader() ★신규)
 agency-stub      ████████████████████  90%  (E2E 시뮬레이터, GUEST 정책 처리 완비)
-onepass-fe       █████████████████░░░  85%  (SLO 연동·useAuthState·ErrorBoundary·회원정보수정 완료)
+onepass-fe       █████████████████░░░  87%  (SLO 연동·useAuthState·ErrorBoundary·회원정보수정·Step8 isSafeRedirectUri B-1수정 ★신규)
 인프라/Docker    ████████████████████ 100%  (모니터링 스택 완비, Feature Flag K8s ConfigMap 완료)
 보안             ████████████████████  99%  (InternalApiKeyInterceptor, redirectUri 검증, UNIQUE 복합 키)
 테스트 커버리지  █████████████░░░░░░░  65%  (q-im 219개 통과+30 skipped, S8/S9 V6 E2E 통합 10종)
 ```
 
-**전체 완성도**: 약 **95%** — 운영 배포 환경변수 설정 후 즉시 가동 가능
+**전체 완성도**: 약 **96%** — 운영 배포 환경변수 설정 후 즉시 가동 가능 (v0.8.9 유관기관 전환 보안 강화 반영)
 
 ### Sprint별 완료 현황
 
@@ -96,6 +97,8 @@ onepass-fe       █████████████████░░░  8
 | **Sprint 9 FF** | Feature Flag | ✅ **완료** | 18개 Feature Flag, K8s ConfigMap 14개 환경변수 |
 | **Sprint 10** | SLO FE + 회원정보 | ✅ **완료** | SLO FE 연동, useAuthState 훅, ErrorBoundary, InformationStep3 실 API |
 | **Sprint 11** | **유관기관 SSO** | ✅ **완료** | Keycloak OIDC 브로커, 소셜 계정 식별, GUEST 정책, P1~P3 보안 패치 |
+| **Sprint 17** | **프로비저닝 addAuthHeader()** | ✅ **완료** | `addAuthHeader()` API_KEY/HMAC/mTLS 3-mode 지원 — BLOCKER 해소 |
+| **Sprint 17+** | **유관기관 전환 보안** | ✅ **완료** | B-1/B-2 버그 수정, JWT Signed Request ConversionInit API, E-CONV 에러코드, GUIDE 4편 |
 
 ---
 
@@ -293,6 +296,76 @@ KEYCLOAK_REDIRECT_URI=https://ido.example.com/api/v1/broker/callback
 ```
 
 > **키 생성 방법**: `openssl rand -hex 32`
+
+---
+
+## 유관기관 회원 전환 (v0.8.9 신규)
+
+> **Sprint 17+ 완료** — 유관기관이 자체 로그인 후 OnePass 회원 전환 플로우로 연결하는 전체 보안 인프라 구현.  
+> 68개 유관기관 대상 범용 설계 (단일 기관 하드코딩 제거).
+
+### 버그 수정 이력
+
+| 분류 | 버그 ID | 증상 | 수정 내용 |
+|------|---------|------|-----------|
+| **❌ 틀린 것** | **B-1** | `Step8.tsx isSafeRedirectUri()` — `*.smes.go.kr` 하드코딩으로 68개 기관 중 smes.go.kr 외 도메인 전부 차단 | 환경변수 `REACT_APP_REDIRECT_ALLOWED_ORIGINS` 기반 + 와일드카드 지원으로 교체 |
+| **❌ 틀린 것** | **B-2** | `application.yml allowed-return-urls` — PoC 더미 URL만 존재, 실제 기관 URL 전무 → returnUrl 검증 전부 실패 | `${ALLOWED_URL_SMES:...}` 환경변수 구조로 변경, 68개 기관 주입 가능 |
+
+### JWT Signed Request 보안 인프라 (신규)
+
+```
+기관 서버 (외부망)
+    │  signed_request = JWT HS256 { sub, mbrId, redirectUri, returnClient, userType, iat, exp, jti }
+    │  기관 API Key 로 서명
+    │
+    │ 302 redirect → https://onepass.smes.go.kr/conversion/step1?signed_request=...&agencyCode=BIZINFO_001
+    ▼
+FE Step1.tsx
+    │  POST /api/v1/conversion/init { signedRequest, agencyCode }
+    ▼
+IdO ConversionInitController
+    │  ① agency_meta 조회 + active 체크  → AGENCY_NOT_FOUND(E-AGENCY-307)
+    │  ② K8s Secret → API Key 조회       → AGENCY_KEY_INVALID(E-AGENCY-303)
+    │  ③ JWT HS256 서명 검증 + sub=agencyCode 확인  → CONVERSION_SIGNATURE_INVALID(E-CONV-601)
+    │  ④ JWT exp 검증 (5분 이내)          → CONVERSION_REQUEST_EXPIRED(E-CONV-602)
+    │  ⑤ redirectUri → callback_whitelist DB 검증  → AGENCY_CALLBACK_BLOCKED(E-AGENCY-306)
+    │  ⑥ ConversionSession → Redis TTL 30분 저장
+    ▼
+FE → 200 { conversion_session_id, user_type, expires_at }
+    │  이후 step2~8: conversionSessionId 참조 (mbrId, redirectUri FE URL 미노출)
+```
+
+### Open Redirect 방어 3-레이어
+
+| 레이어 | 위치 | 검증 방법 |
+|--------|------|-----------|
+| **L1** | FE `Step8.tsx isSafeRedirectUri()` | `REACT_APP_REDIRECT_ALLOWED_ORIGINS` 환경변수 와일드카드 매칭 |
+| **L2** | BE `FeSessionServiceImpl.isValidReturnUrl()` | `allowed-return-urls` YAML 목록 (환경변수 `${ALLOWED_URL_*}`) |
+| **L3** | BE `CallbackUrlValidator.validate()` | `agency_meta.callback_whitelist` DB JSONB — 완전일치/와일드카드/접두사 3단계 |
+
+### 운영 배포 필수 환경변수 (유관기관 전환)
+
+```bash
+# FE (.env.production)
+REACT_APP_REDIRECT_ALLOWED_ORIGINS=https://www.bizinfo.go.kr,https://www.sbiz.or.kr,...  # 68개 기관 URL
+
+# IdO 서버 (K8s ConfigMap/Secret)
+ALLOWED_URL_SMES=https://www.smes.go.kr
+ALLOWED_URL_BIZINFO=https://www.bizinfo.go.kr
+ALLOWED_URL_MSS=https://www.mss.go.kr
+ALLOWED_URL_SBIZ=https://www.sbiz.or.kr
+# ... 나머지 기관 (IDO_FE_ALLOWED_RETURN_URLS_EXTRA 로 추가 주입 가능)
+
+# 기관별 API Key (K8s Secret)
+SECRETS_AGENCY_BIZINFO_001_API_KEY=<기관별 HS256 서명 키, openssl rand -hex 32>
+SECRETS_AGENCY_SMBA_001_API_KEY=<...>
+# ... 나머지 기관
+```
+
+> **가이드 문서**: [`wiki/guide/01-agency-conversion-url-flow.md`](./wiki/guide/01-agency-conversion-url-flow.md)  
+> **보안 대안 상세**: [`wiki/guide/02-conversion-param-security.md`](./wiki/guide/02-conversion-param-security.md)  
+> **기관 오픈 샘플**: [`wiki/guide/03-conversion-launch-sample.md`](./wiki/guide/03-conversion-launch-sample.md)  
+> **데이터 흐름 다이어그램**: [`wiki/guide/04-conversion-data-flow-diagram.md`](./wiki/guide/04-conversion-data-flow-diagram.md)
 
 ---
 
@@ -596,6 +669,11 @@ integration-sso/
 | **GuardianConsent 입력 검증** | `@Valid @NotBlank` + `MethodArgumentNotValidException` E-IM-400 (Fix 3) | ✅ **v3.1.0** |
 | **기업회원 중복 전환 방지** | `existsById()` + `existsByBizRegNo()` 선행 체크 (Fix 4) | ✅ **v3.1.0** |
 | **correlationId 추적 정확성** | `getStatus()` 시그니처 수정 — qimUserId 혼용 버그 제거 (Fix 5) | ✅ **v3.1.0** |
+| **Open Redirect 방어 3-레이어 (B-1 수정)** | `Step8 isSafeRedirectUri()` 환경변수 기반 + 와일드카드 — `*.smes.go.kr` 하드코딩 제거 | ✅ **v0.8.9** |
+| **returnUrl 화이트리스트 정비 (B-2 수정)** | `allowed-return-urls` 더미 URL → `${ALLOWED_URL_*}` 환경변수 구조 — 68개 기관 지원 | ✅ **v0.8.9** |
+| **JWT Signed Request (전환 보안)** | `POST /api/v1/conversion/init` — HMAC-SHA256 서명 검증 + ConversionSession Redis 보관 | ✅ **v0.8.9** |
+| **E-CONV 에러코드** | `CONVERSION_SIGNATURE_INVALID(E-CONV-601)`, `CONVERSION_REQUEST_EXPIRED(E-CONV-602)`, `CONVERSION_SESSION_NOT_FOUND(E-CONV-603)` | ✅ **v0.8.9** |
+| **addAuthHeader() 3-mode** | API_KEY / HMAC-SHA256 / mTLS 조건부 헤더 주입 — Sprint 17 BLOCKER 해소 | ✅ **v0.8.9** |
 
 ---
 
@@ -786,12 +864,56 @@ Annotation Processors: 활성화 (Lombok)
 |---------|------|------|------|
 | **P1** | SSO 단위/통합 테스트 작성 | IdO/Q-IM BE | `KeycloakOidcService`, `QimClientImpl` 소셜 경로 |
 | **P1** | 통합 테스트 (Spring Boot Test + Testcontainers) | 전 팀 | 현재 0개 |
+| **P1** | ConversionInit JTI 재사용 방지 (Redis 블랙리스트) | IdO BE | JWT replay attack 방어 — 단기 보안 과제 |
+| **P1** | `agency_meta.callback_whitelist` DB 등록 | 운영/DevOps | 68개 기관 callback URL 등록 |
+| **P2** | `REACT_APP_REDIRECT_ALLOWED_ORIGINS` FE 환경변수 설정 | 운영/FE | 68개 기관 URL 설정 (B-1 수정 후 필수) |
+| **P2** | K8s ConfigMap `ALLOWED_URL_*` 실제 기관 URL 주입 | 운영/DevOps | B-2 수정 후 필수 |
+| **P2** | K8s Secret `SECRETS_AGENCY_{CODE}_API_KEY` 기관별 등록 | 운영/DevOps | JWT Signed Request 인증 키 |
 | **P2** | Keycloak realm 구성 문서화 | DevOps | social IDP 설정, ACR mapper |
 | **P2** | agency-stub Kafka 직접 구독 → 공개 API 전환 | IdO BE | 망 분리 원칙 |
 | **P2** | CSR(관리자 UI) 미구현 기관 관리 화면 | FE | — |
 | **P2** | DLQ 전략 구현 (`KafkaConsumerConfig`) | IdO BE | GAP-IDO-09 |
 | **P3** | FE E2E 테스트 (Cypress/Playwright) | FE | — |
-| **P3** | k6 부하 테스트 고도화 | DevOps | SSO 경로 포함 |
+| **P3** | k6 부하 테스트 고도화 | DevOps | SSO 경로 + 전환 플로우 포함 |
+
+---
+
+## 운영 배포 전 필수 확인사항
+
+> **v0.8.9 기준 체크리스트** — 아래 항목 완료 후 운영 배포 가능.  
+> 🔴 = 운영 배포 **불가** 차단 항목 | 🟡 = 배포 후 기능 제한 | ✅ = 코드 완료 (환경설정만 남음)
+
+### 코드 완료 항목 (환경변수/DB 설정만 필요)
+
+| # | 항목 | 비고 |
+|---|------|------|
+| ✅1 | B-1 수정: `Step8 isSafeRedirectUri()` 환경변수 기반 | `REACT_APP_REDIRECT_ALLOWED_ORIGINS` 미설정 시 FE에서 모든 redirect 차단됨 |
+| ✅2 | B-2 수정: `allowed-return-urls` 환경변수 구조 | `ALLOWED_URL_*` 미설정 시 각 기관 returnUrl 검증 실패 → 전환 완료 불가 |
+| ✅3 | `POST /api/v1/conversion/init` ConversionInit API | 기관별 K8s Secret API Key 미등록 시 전환 시작 불가 |
+| ✅4 | `addAuthHeader()` 3-mode 구현 | 프로비저닝 연동 정상 |
+
+### 운영 수동 작업 필수 항목
+
+| # | 항목 | 담당 | 위험도 |
+|---|------|------|--------|
+| 🔴1 | **FE `.env.production`**: `REACT_APP_REDIRECT_ALLOWED_ORIGINS` 68개 기관 URL | FE/DevOps | 미설정 시 전환 완료 차단 |
+| 🔴2 | **K8s ConfigMap**: `ALLOWED_URL_SMES`, `ALLOWED_URL_BIZINFO` 등 실제 기관 URL | DevOps | 미설정 시 returnUrl 검증 실패 |
+| 🔴3 | **K8s Secret**: `SECRETS_AGENCY_{CODE}_API_KEY` 기관별 등록 | DevOps/보안 | 미설정 시 JWT 서명 검증 불가 |
+| 🔴4 | **DB**: `agency_meta.callback_whitelist` 기관별 콜백 URL 등록 | DevOps/DB | 미등록 시 redirectUri 3-레이어 검증 실패 |
+| 🟡5 | application.yml 로컬 개발 URL 운영 환경변수 격리 | DevOps | `AGENCY_STUB_URL`, `REACT_DEV_URL` 기본값이 localhost → 운영 환경변수 덮어쓰기 필수 |
+
+### 보수적 심층 분석 결과 (2026-05-16)
+
+| 항목 | 판정 | 근거 |
+|------|------|------|
+| `Instant.EPOCH` fallback (iat=null) | ✅ **안전** | EPOCH + 5분 ≪ now() → 항상 CONVERSION_REQUEST_EXPIRED 발생 |
+| `RedisConfig` JavaTimeModule | ✅ **정상** | `Instant` 직렬화 지원 확인 — `ConversionSession` Redis 저장/조회 정상 |
+| apiKey 로그 노출 | ✅ **없음** | `credentialRef` 경로만 로그, apiKey 원문 미출력 |
+| ConversionSession Redis 키 충돌 | ✅ **극미** | UUID v4 랜덤 — 운영 수준 안전 |
+| userType null claim | ✅ **허용 설계** | 기관이 지정 안 하면 null → FE 사용자 선택 (ConversionSession null 허용) |
+| JTI 재사용 방지 | ⚠️ **미구현** | JWT replay attack 가능 — 단기 P1 과제로 등재 |
+| localhost URL 운영 혼입 | ⚠️ **주의** | `AGENCY_STUB_URL`, `REACT_DEV_URL` 환경변수 미설정 시 localhost 기본값 → 운영 환경변수 주입 필수 |
+| ConversionInitController 경로 충돌 | ✅ **없음** | `/api/v1/conversion` 신규 경로, 기존 경로와 중복 없음 |
 
 ---
 
@@ -958,11 +1080,20 @@ docs/
 | [WT-004: 프로비저닝](./wiki/walkthrough/04-provisioning-walkthrough.md) | QimEventConsumer 5종 필터, Virtual Thread 68기관 병렬, 지수 백오프 |
 | [WT-005: Handoff SSO](./wiki/walkthrough/05-handoff-sso-walkthrough.md) | CAST Token, Ed25519, Handoff 4전략, 키 로테이션 |
 
+### 유관기관 연동 가이드 (v0.8.9 신규)
+
+| 문서 | 설명 |
+|------|------|
+| [GUIDE-001: URL 플로우 분석](./wiki/guide/01-agency-conversion-url-flow.md) | 유관기관 전환 URL 시퀀스 + 3레이어 검증 + ❌틀린것/⚠다른것/✅올바른것 |
+| [GUIDE-002: 파라미터 보안](./wiki/guide/02-conversion-param-security.md) | JWT HS256 Signed Request 보안 대안 + FE/BE 구현 코드 + 개선 로드맵 |
+| [GUIDE-003: 기관 오픈 샘플](./wiki/guide/03-conversion-launch-sample.md) | Node.js/Java/Python URL 생성 코드 샘플 + 기관 오픈 체크리스트 |
+| [GUIDE-004: 데이터 흐름 다이어그램](./wiki/guide/04-conversion-data-flow-diagram.md) | ①~㉪ 순번 시퀀스 다이어그램 + ConversionContext 상태 추적 + Handoff 확대도 |
+
 ### 산출물 인덱스
 
 - [DELIVERABLES.md](./wiki/deliverables/DELIVERABLES.md) — 전체 산출물 현황, PR 이력, DOCX 목록
 
 ---
 
-> **문서 최종 수정**: 2026-05-15 | **버전**: v0.8.8 | **담당**: GenSpark AI Developer  
+> **문서 최종 수정**: 2026-05-16 | **버전**: v0.8.9 | **담당**: GenSpark AI Developer  
 > 문의/기여: `genspark_ai_developer` 브랜치 → PR → main 병합 워크플로우 준수
