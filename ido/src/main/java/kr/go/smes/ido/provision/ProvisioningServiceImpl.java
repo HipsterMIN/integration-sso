@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.ido.infrastructure.AgencyEndpointRecord;
 import kr.go.smes.ido.infrastructure.AgencyEndpointRegistryRepository;
 import kr.go.smes.ido.provision.dto.ProvisioningRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -15,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -48,15 +50,43 @@ import java.util.concurrent.Future;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ProvisioningServiceImpl implements ProvisioningService {
 
     private static final String ENDPOINT_TYPE_PROVISIONING = "PROVISIONING";
 
     private final AgencyEndpointRegistryRepository endpointRegistry;
     private final ProvisioningOutboxRepository     outboxRepository;
-    private final RestTemplate                     restTemplate;
     private final ObjectMapper                     objectMapper;
+    private final AgencyCredentialStore            credentialStore;
+
+    /** 일반 기관 HTTP 통신 (API_KEY / HMAC / NONE) */
+    private final RestTemplate restTemplate;
+
+    /**
+     * mTLS 전용 RestTemplate — 클라이언트 인증서(PKCS12) 장착.
+     * {@link kr.go.smes.ido.config.IdoWebConfig#mtlsProvisioningRestTemplate()} 빈.
+     */
+    private final RestTemplate mtlsRestTemplate;
+
+    /**
+     * @Qualifier("mtlsProvisioningRestTemplate")를 명시적 생성자로 처리.
+     * Lombok @RequiredArgsConstructor는 필드 @Qualifier를 생성자로 전달하지 않으므로
+     * 명시적 생성자를 사용한다.
+     */
+    public ProvisioningServiceImpl(
+            AgencyEndpointRegistryRepository endpointRegistry,
+            ProvisioningOutboxRepository outboxRepository,
+            ObjectMapper objectMapper,
+            AgencyCredentialStore credentialStore,
+            RestTemplate restTemplate,
+            @Qualifier("mtlsProvisioningRestTemplate") RestTemplate mtlsRestTemplate) {
+        this.endpointRegistry = endpointRegistry;
+        this.outboxRepository  = outboxRepository;
+        this.objectMapper      = objectMapper;
+        this.credentialStore   = credentialStore;
+        this.restTemplate      = restTemplate;
+        this.mtlsRestTemplate  = mtlsRestTemplate;
+    }
 
     /**
      * F-20: 프로비저닝 기능 On/Off.
@@ -230,13 +260,15 @@ public class ProvisioningServiceImpl implements ProvisioningService {
                 headers.set("X-Correlation-ID", correlationId);
             }
             headers.set("X-Provisioning-Source", "onepass-ido");
-            // 인증 헤더 — auth_type별 처리 (API_KEY: X-Api-Key, HMAC: X-Signature, MTLS: 클라이언트 인증서)
-            addAuthHeader(headers, endpoint);
-
             String payloadJson = objectMapper.writeValueAsString(request);
+
+            // 인증 헤더 — auth_type별 처리 (API_KEY: X-Api-Key, HMAC: X-Signature, MTLS: 클라이언트 인증서)
+            // HMAC 서명에 idempotencyKey를 포함하므로 payloadJson 직렬화 후에 호출
+            addAuthHeader(headers, endpoint, request.getIdempotencyKey());
+
             HttpEntity<String> entity = new HttpEntity<>(payloadJson, headers);
 
-            ResponseEntity<String> response = restTemplate.postForEntity(
+            ResponseEntity<String> response = selectRestTemplate(endpoint).postForEntity(
                     endpoint.getEndpointUrl(), entity, String.class);
 
             boolean success = response.getStatusCode().is2xxSuccessful();
@@ -250,54 +282,104 @@ public class ProvisioningServiceImpl implements ProvisioningService {
     }
 
     /**
-     * 기관 인증 방식에 따른 HTTP 헤더 추가
+     * 기관 인증 방식에 따른 HTTP 헤더 추가 (Sprint 17 구현 완료)
      *
-     * <p><b>현재 구현 상태 (v0.8.8)</b>:
-     * auth_type 분기 구조는 완성되어 있으나, 실제 자격증명 조회 로직은
-     * 아래 각 케이스의 {@code [REQUIRES_MANUAL]} 주석을 참고하여 구현해야 한다.
+     * <p>지원 auth_type:
+     * <ul>
+     *   <li>{@code API_KEY}: K8s Secret에서 API 키를 조회하여 {@code X-Api-Key} 헤더 설정</li>
+     *   <li>{@code HMAC}: HMAC-SHA256(idempotencyKey + ":" + epochSeconds, secret) 서명 생성
+     *       → {@code X-Signature} + {@code X-Timestamp} 헤더 설정</li>
+     *   <li>{@code MTLS}: 헤더 없음 — {@link #selectRestTemplate(AgencyEndpointRecord)}에서
+     *       {@code mtlsRestTemplate}(클라이언트 인증서 장착) 빈을 선택하여 TLS 핸드셰이크로 인증</li>
+     *   <li>{@code NONE}: 추가 헤더 없음</li>
+     * </ul>
      *
-     * <p><b>운영 구현 시 필요 작업 (Sprint 17)</b>:
-     * <ol>
-     *   <li>K8s Secret 또는 Vault에서 {@code auth_credential_ref} 기반으로 자격증명 조회</li>
-     *   <li>API_KEY: 조회한 키를 {@code X-Api-Key} 헤더에 설정</li>
-     *   <li>HMAC: 요청 바디 + 타임스탬프 기반 HMAC-SHA256 서명 생성</li>
-     *   <li>MTLS: RestTemplate에 클라이언트 인증서(KeyStore) 설정</li>
-     * </ol>
+     * <p>자격증명 조회 실패(K8s Secret 미등록) 시:
+     * PLACEHOLDER 값 없이 빈 헤더 없이 진행 → 기관이 401 반환 → Outbox PENDING 재시도.
+     * 이전처럼 의미 없는 PLACEHOLDER를 전송하지 않는다.
      *
-     * @see <a href="docs/internal/development/2026-05-13_production_deployment_plan.md">Sprint 17 계획</a>
+     * @param headers  설정 대상 HttpHeaders
+     * @param endpoint 대상 기관 엔드포인트 정보
+     * @param idempotencyKey HMAC 서명 페이로드에 포함될 멱등성 키
      */
-    private void addAuthHeader(HttpHeaders headers, AgencyEndpointRecord endpoint) {
-        if (endpoint.getAuthCredentialRef() == null) return;
+    private void addAuthHeader(HttpHeaders headers, AgencyEndpointRecord endpoint,
+                               String idempotencyKey) {
+        String ref = endpoint.getAuthCredentialRef();
+        if (ref == null || ref.isBlank()) return; // authType=NONE 또는 ref 미설정 기관
+
         switch (endpoint.getAuthType()) {
+
             case "API_KEY" -> {
-                // ⚠️ [REQUIRES_MANUAL] Sprint 17: K8s Secret에서 auth_credential_ref로 실제 API 키 조회 후 설정
-                // 현재: 운영 불가 상태 — PLACEHOLDER 값은 기관 API 인증 실패를 유발함
-                // 구현 위치: SecretManagerClient.getSecret(endpoint.getAuthCredentialRef())
-                log.error("[Provisioning] ⚠️ API_KEY 인증 미구현 — agencyCode={} authCredentialRef={}. " +
-                          "Sprint 17 완료 전까지 API_KEY 인증 기관에 프로비저닝 불가.",
-                        endpoint.getAgencyCode(), endpoint.getAuthCredentialRef());
-                // PLACEHOLDER 헤더 전송 (기관이 거부할 것 — Outbox PENDING으로 재시도됨)
-                headers.set("X-Api-Key", "REQUIRES_MANUAL_" + endpoint.getAgencyCode());
+                // ── API_KEY: K8s Secret 환경변수에서 API 키 조회 후 X-Api-Key 헤더 설정 ──
+                String apiKey = credentialStore.findSecret(ref);
+                if (apiKey == null || apiKey.isBlank()) {
+                    log.error("[Provisioning] API_KEY 자격증명 미등록 — agencyCode={} ref={} " +
+                              "→ K8s Secret 등록 전까지 해당 기관 프로비저닝 실패(401). " +
+                              "등록 방법: kubectl secret에 {} 키 추가.",
+                            endpoint.getAgencyCode(), ref,
+                            AgencyCredentialStore.toEnvVarName(ref));
+                    // 헤더 없이 진행 — 기관이 401/403 반환 → Outbox PENDING 재시도
+                    return;
+                }
+                headers.set("X-Api-Key", apiKey);
+                log.debug("[Provisioning] API_KEY 헤더 설정 완료: agencyCode={}", endpoint.getAgencyCode());
             }
+
             case "HMAC" -> {
-                // ⚠️ [REQUIRES_MANUAL] Sprint 17: HMAC-SHA256 서명 생성
-                // 구현: HmacSHA256(requestBody + ":" + epochSeconds, secretKey)
-                // secretKey는 K8s Secret의 auth_credential_ref 값으로 조회
-                log.error("[Provisioning] ⚠️ HMAC 인증 미구현 — agencyCode={}. Sprint 17 완료 전까지 불가.",
-                        endpoint.getAgencyCode());
-                headers.set("X-Signature", "REQUIRES_MANUAL");
+                // ── HMAC: HMAC-SHA256(idempotencyKey + ":" + epochSeconds, secret) 서명 생성 ──
+                // 페이로드 형식은 인바운드 HmacSignatureFilter와 대칭 구조
+                // 단, 아웃바운드는 agencyCode 대신 idempotencyKey 기반으로 서명:
+                //   payload = idempotencyKey + ":" + epochSeconds
+                String hmacSecret = credentialStore.findSecret(ref);
+                if (hmacSecret == null || hmacSecret.isBlank()) {
+                    log.error("[Provisioning] HMAC 자격증명 미등록 — agencyCode={} ref={} " +
+                              "→ K8s Secret 등록 전까지 해당 기관 프로비저닝 실패.",
+                            endpoint.getAgencyCode(), ref);
+                    return;
+                }
+                try {
+                    long epochSeconds = Instant.now().getEpochSecond();
+                    String signature  = computeOutboundHmac(idempotencyKey, epochSeconds, hmacSecret);
+                    headers.set("X-Signature", signature);
+                    headers.set("X-Timestamp",  String.valueOf(epochSeconds));
+                    log.debug("[Provisioning] HMAC 서명 헤더 설정 완료: agencyCode={} epoch={}",
+                              endpoint.getAgencyCode(), epochSeconds);
+                } catch (Exception e) {
+                    log.error("[Provisioning] HMAC 서명 계산 실패 — agencyCode={} error={}. " +
+                              "헤더 없이 진행(기관 거부 예상 → PENDING 재시도).",
+                            endpoint.getAgencyCode(), e.getMessage());
+                }
             }
+
             case "MTLS" -> {
-                // ⚠️ [REQUIRES_MANUAL] Sprint 17: mTLS 클라이언트 인증서 설정
-                // 구현: SSLContext에 클라이언트 KeyStore 로드 후 RestTemplate에 적용
-                // 인증서 경로는 K8s Secret의 auth_credential_ref 값으로 조회
-                log.error("[Provisioning] ⚠️ mTLS 인증 미구현 — agencyCode={}. Sprint 17 완료 전까지 불가.",
-                        endpoint.getAgencyCode());
+                // ── MTLS: 헤더 추가 없음 — TLS 핸드셰이크에서 클라이언트 인증서로 인증 ──
+                // 실제 인증은 selectRestTemplate()에서 mtlsRestTemplate(클라이언트 인증서 장착) 선택.
+                // 인증서 로딩은 IdoWebConfig#mtlsProvisioningRestTemplate()에서 수행.
+                log.debug("[Provisioning] MTLS 기관 — 헤더 설정 불필요 (클라이언트 인증서 TLS): agencyCode={}",
+                          endpoint.getAgencyCode());
             }
+
             default -> {
                 // NONE — 추가 헤더 없음 (인증 불필요 기관)
+                log.debug("[Provisioning] 인증 불필요 기관 (authType=NONE): agencyCode={}",
+                          endpoint.getAgencyCode());
             }
         }
+    }
+
+    /**
+     * 기관 authType에 따라 적절한 RestTemplate 선택.
+     *
+     * <ul>
+     *   <li>{@code MTLS}: {@link #mtlsRestTemplate} — 클라이언트 인증서(PKCS12) 장착된 빈</li>
+     *   <li>나머지 ({@code API_KEY} / {@code HMAC} / {@code NONE}): 일반 {@link #restTemplate}</li>
+     * </ul>
+     *
+     * @param endpoint 대상 기관 엔드포인트
+     * @return 사용할 RestTemplate 인스턴스
+     */
+    private RestTemplate selectRestTemplate(AgencyEndpointRecord endpoint) {
+        return "MTLS".equals(endpoint.getAuthType()) ? mtlsRestTemplate : restTemplate;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -351,6 +433,33 @@ public class ProvisioningServiceImpl implements ProvisioningService {
             log.error("[Provisioning] SHA-256 사용 불가 (JVM 오류): {}", e.getMessage());
             return "sha256:unavailable";
         }
+    }
+
+    /**
+     * 아웃바운드 HMAC-SHA256 서명 계산.
+     *
+     * <p>페이로드 형식: {@code "{idempotencyKey}:{epochSeconds}"}
+     *
+     * <p>인바운드 검증({@code HmacSignatureFilter})의 페이로드 형식은
+     * {@code "{agencyCode}:{idempotencyKey}:{epochSeconds}"} 이지만,
+     * 아웃바운드는 기관별 API 명세에 따라 {@code idempotencyKey:epoch} 형식을 사용한다.
+     * 기관 연동 명세에서 다른 형식을 요구하는 경우 {@code AgencyEndpointRecord}에
+     * {@code hmacPayloadTemplate} 필드를 추가하여 확장하면 된다.
+     *
+     * @param idempotencyKey 멱등성 키
+     * @param epochSeconds   현재 유닉스 타임스탬프(초)
+     * @param secret         HMAC 비밀키
+     * @return 소문자 Hex 서명 문자열
+     * @throws Exception Mac 초기화/계산 오류 (JVM 필수 알고리즘이므로 실제 발생 거의 없음)
+     */
+    private String computeOutboundHmac(String idempotencyKey,
+                                        long   epochSeconds,
+                                        String secret) throws Exception {
+        String payload = idempotencyKey + ":" + epochSeconds;
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+        return HexFormat.of().formatHex(rawHmac);
     }
 
     private String request2Json(ProvisioningRequest request) {

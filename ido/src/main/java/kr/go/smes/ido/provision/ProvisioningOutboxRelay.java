@@ -2,8 +2,8 @@ package kr.go.smes.ido.provision;
 
 import kr.go.smes.ido.infrastructure.AgencyEndpointRecord;
 import kr.go.smes.ido.infrastructure.AgencyEndpointRegistryRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -14,6 +14,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,14 +45,35 @@ import java.util.Optional;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ProvisioningOutboxRelay {
 
     private static final String ENDPOINT_TYPE_PROVISIONING = "PROVISIONING";
 
     private final ProvisioningOutboxRepository     outboxRepository;
     private final AgencyEndpointRegistryRepository endpointRegistry;
-    private final RestTemplate                     restTemplate;
+    private final AgencyCredentialStore            credentialStore;
+
+    /** 일반 기관 HTTP 통신 (API_KEY / HMAC / NONE) */
+    private final RestTemplate restTemplate;
+
+    /** mTLS 전용 RestTemplate — 클라이언트 인증서(PKCS12) 장착 빈 */
+    private final RestTemplate mtlsRestTemplate;
+
+    /**
+     * @Qualifier("mtlsProvisioningRestTemplate")를 명시적 생성자로 처리.
+     */
+    public ProvisioningOutboxRelay(
+            ProvisioningOutboxRepository outboxRepository,
+            AgencyEndpointRegistryRepository endpointRegistry,
+            AgencyCredentialStore credentialStore,
+            RestTemplate restTemplate,
+            @Qualifier("mtlsProvisioningRestTemplate") RestTemplate mtlsRestTemplate) {
+        this.outboxRepository  = outboxRepository;
+        this.endpointRegistry  = endpointRegistry;
+        this.credentialStore   = credentialStore;
+        this.restTemplate      = restTemplate;
+        this.mtlsRestTemplate  = mtlsRestTemplate;
+    }
 
     /**
      * Feature Flag: IDO_PROVISIONING_RELAY_ENABLED
@@ -147,9 +173,11 @@ public class ProvisioningOutboxRelay {
             headers.set("X-Provisioning-Source", "onepass-ido");
             headers.set("X-Idempotency-Key", record.getIdempotencyKey());
             headers.set("X-Retry-Count", String.valueOf(record.getRetryCount()));
+            // 인증 헤더 — auth_type별 처리 (API_KEY / HMAC / MTLS)
+            addAuthHeader(headers, endpoint, record.getIdempotencyKey());
 
             HttpEntity<String> entity = new HttpEntity<>(record.getPayloadJson(), headers);
-            ResponseEntity<String> response = restTemplate.postForEntity(
+            ResponseEntity<String> response = selectRestTemplate(endpoint).postForEntity(
                     endpoint.getEndpointUrl(), entity, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
@@ -197,6 +225,86 @@ public class ProvisioningOutboxRelay {
         RETRY,
         /** maxRetry 초과 → DEAD_LETTER */
         DEAD_LETTER
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // private: 인증 헤더 (ProvisioningServiceImpl과 동일 로직 — 공통 유틸 추후 추출 가능)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * 기관 auth_type에 따른 아웃바운드 인증 헤더 추가.
+     *
+     * @param headers        설정 대상 HttpHeaders
+     * @param endpoint       대상 기관 엔드포인트 정보
+     * @param idempotencyKey HMAC 서명 페이로드에 포함될 멱등성 키
+     */
+    private void addAuthHeader(HttpHeaders headers, AgencyEndpointRecord endpoint,
+                               String idempotencyKey) {
+        String ref = endpoint.getAuthCredentialRef();
+        if (ref == null || ref.isBlank()) return;
+
+        switch (endpoint.getAuthType()) {
+
+            case "API_KEY" -> {
+                String apiKey = credentialStore.findSecret(ref);
+                if (apiKey == null || apiKey.isBlank()) {
+                    log.error("[ProvisioningRelay] API_KEY 자격증명 미등록 — agencyCode={} ref={} " +
+                              "→ K8s Secret에 {} 키 등록 필요.",
+                            endpoint.getAgencyCode(), ref,
+                            AgencyCredentialStore.toEnvVarName(ref));
+                    return;
+                }
+                headers.set("X-Api-Key", apiKey);
+            }
+
+            case "HMAC" -> {
+                String hmacSecret = credentialStore.findSecret(ref);
+                if (hmacSecret == null || hmacSecret.isBlank()) {
+                    log.error("[ProvisioningRelay] HMAC 자격증명 미등록 — agencyCode={} ref={}",
+                            endpoint.getAgencyCode(), ref);
+                    return;
+                }
+                try {
+                    long epochSeconds = Instant.now().getEpochSecond();
+                    String signature  = computeOutboundHmac(idempotencyKey, epochSeconds, hmacSecret);
+                    headers.set("X-Signature", signature);
+                    headers.set("X-Timestamp",  String.valueOf(epochSeconds));
+                } catch (Exception e) {
+                    log.error("[ProvisioningRelay] HMAC 서명 계산 실패 — agencyCode={} error={}",
+                            endpoint.getAgencyCode(), e.getMessage());
+                }
+            }
+
+            case "MTLS" -> {
+                // 헤더 불필요 — selectRestTemplate()에서 mtlsRestTemplate 선택
+                log.debug("[ProvisioningRelay] MTLS 기관 — 클라이언트 인증서 TLS: agencyCode={}",
+                          endpoint.getAgencyCode());
+            }
+
+            default -> { /* NONE — 추가 헤더 없음 */ }
+        }
+    }
+
+    /**
+     * authType에 따라 적절한 RestTemplate 선택.
+     * MTLS 기관은 클라이언트 인증서 장착 빈, 그 외는 일반 빈 사용.
+     */
+    private RestTemplate selectRestTemplate(AgencyEndpointRecord endpoint) {
+        return "MTLS".equals(endpoint.getAuthType()) ? mtlsRestTemplate : restTemplate;
+    }
+
+    /**
+     * 아웃바운드 HMAC-SHA256 서명 계산.
+     * 페이로드: {@code "{idempotencyKey}:{epochSeconds}"}
+     */
+    private String computeOutboundHmac(String idempotencyKey,
+                                        long   epochSeconds,
+                                        String secret) throws Exception {
+        String payload = idempotencyKey + ":"+  epochSeconds;
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+        return HexFormat.of().formatHex(rawHmac);
     }
 
     private String truncate(String value, int maxLen) {
