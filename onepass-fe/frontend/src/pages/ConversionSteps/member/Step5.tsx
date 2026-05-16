@@ -152,7 +152,9 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 			return false;
 		}
 
-		// clients 조립 (Step4에서 선택된 서비스)
+		// [기획안 변경 2026-05-15] 기관 선택 폐기 — Step4에서 selectedClients는 항상 빈 배열
+		// memberClients는 빈 배열로 조립됨 → IdO/Q-IM이 CI(연계정보) 기반으로 기관 연결 자동 처리
+		// clients: [] → BE에서 "기관 연결 없이 계정만 생성 후 CI 기반 자동 매핑" 처리 예정 (Sprint 확인 필요)
 		const memberClients = data.selectedClients.map((ssoClientId, idx) => ({
 			clientId: ssoClientId,
 			mbrId: data.loginId,

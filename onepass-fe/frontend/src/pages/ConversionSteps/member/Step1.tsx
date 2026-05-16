@@ -18,7 +18,8 @@ function ConversionStep1(): JSX.Element {
 		const params = new URLSearchParams(window.location.search);
 		const redirectUri = params.get('redirect_uri');
 		const mbrId = params.get('mbrId');
-		const clientId = params.get('client_id') || '';
+		// return_client: IdO HandoffController 발급 시 사용하는 파라미터명 (client_id는 잘못된 명칭)
+		const clientId = params.get('return_client') || '';
 		const rawUserType = params.get('userType');
 		const ut = rawUserType === 'ENT' || rawUserType === 'IND' ? rawUserType : null;
 		setUserType(ut);
@@ -31,7 +32,8 @@ function ConversionStep1(): JSX.Element {
 			updateData({ memberType: 'member' });
 		}
 
-		if (redirectUri && mbrId) {
+		// clientId 필수 검증 추가: return_client 없이 전환 시작 불가
+		if (redirectUri && mbrId && clientId) {
 			updateData({ redirectUri, mbrId, initialClientId: clientId });
 		} else {
 			setMissingParams(true);
