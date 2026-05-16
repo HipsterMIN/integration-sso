@@ -218,3 +218,96 @@ GET /internal/slo/metrics
 | `GET /actuator/prometheus` | Prometheus 스크레이핑 |
 | `GET /internal/slo/metrics` | SLO 지표 (내부용) |
 | `GET /internal/features` | Feature Flag 상태 |
+
+---
+
+## 7. 유관기관 회원 전환 API (v0.8.9 신규)
+
+> **Sprint 17+ 구현** — 유관기관 자체 로그인 완료 후 OnePass 회원 전환 플로우 진입을 위한 JWT Signed Request 기반 보안 인프라.
+
+### 7.1 ConversionInit API
+
+| 항목 | 내용 |
+|------|------|
+| **엔드포인트** | `POST /api/v1/conversion/init` |
+| **인증** | 불필요 (JWT signed_request 내에 기관 서명 포함) |
+| **컨트롤러** | `ConversionInitController` |
+| **서비스** | `ConversionInitService` |
+
+#### 요청 (Request Body)
+
+```json
+{
+  "signedRequest": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJCSVpJTkZPXzAwMSIsIm1icklkIjoiQklaX1VTRVJfMDAxIiwicmVkaXJlY3RVcmkiOiJodHRwczovL3d3dy5iaXppbmZvLmdvLmtyL2NhbGxiYWNrIiwicmV0dXJuQ2xpZW50Ijoic3AtYml6aW5mbyIsInVzZXJUeXBlIjoiSU5EIiwiaWF0IjoxNzE2MTIzNDU2LCJleHAiOjE3MTYxMjM3NTZ9.xxxsignature",
+  "agencyCode": "BIZINFO_001"
+}
+```
+
+#### JWT 페이로드 구조
+
+```json
+{
+  "sub":         "BIZINFO_001",                           // 기관 코드 (agencyCode와 일치 필수)
+  "mbrId":       "BIZ_USER_001",                         // 기관 회원 ID (서버 측 보관)
+  "redirectUri": "https://www.bizinfo.go.kr/callback",   // 전환 완료 후 복귀 URL (서버 측 보관)
+  "returnClient":"sp-bizinfo",                            // OnePass client_id
+  "userType":    "IND",                                   // "ENT" | "IND" | null(사용자 선택)
+  "iat":         1716123456,                              // 발급 시각 (epoch seconds)
+  "exp":         1716123756,                              // 만료 (발급 후 5분 이내)
+  "jti":         "uuid-v4"                                // 재사용 방지 nonce (선택, 단기 P1 과제)
+}
+```
+
+#### 응답 (200 OK)
+
+```json
+{
+  "conversion_session_id": "a1b2c3d4-e5f6-...",   // Redis TTL 30분
+  "user_type": "IND",
+  "expires_at": "2026-05-16T10:30:00Z"
+}
+```
+
+#### 에러 코드
+
+| 에러 코드 | HTTP | 원인 |
+|-----------|------|------|
+| `E-AGENCY-307` | 404 | agencyCode에 해당하는 기관 없음 또는 비활성 |
+| `E-AGENCY-303` | 401 | 기관 API Key 미등록 (K8s Secret 미설정) |
+| `E-CONV-601` | 401 | JWT HMAC-SHA256 서명 검증 실패 또는 sub ≠ agencyCode |
+| `E-CONV-602` | 410 | JWT exp 만료 (발급 후 5분 초과) |
+| `E-AGENCY-306` | 403 | redirectUri가 agency_meta.callback_whitelist에 없음 |
+
+### 7.2 검증 처리 순서 (ConversionInitService)
+
+```
+① agencyMetaRepository.findByCode(agencyCode).filter(active)   → E-AGENCY-307
+② credentialStore.findSecret("secrets/agency/{CODE}/api-key")   → E-AGENCY-303
+③ JWT 서명 검증 (HMAC-SHA256, jjwt 0.12.6) + sub = agencyCode  → E-CONV-601
+④ JWT iat + 5분 > now()                                         → E-CONV-602
+⑤ callbackUrlValidator.validate(redirectUri, whitelist)         → E-AGENCY-306
+⑥ ConversionSession → Redis TTL 30분 저장
+```
+
+### 7.3 ConversionSession (Redis 저장 객체)
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `sessionId` | UUID | Redis 키 접미사: `conversion:session:{sessionId}` |
+| `agencyCode` | String | 기관 코드 |
+| `mbrId` | String | **서버 측 보관 — FE URL 미노출** |
+| `redirectUri` | String | **서버 측 보관 — FE URL 미노출** |
+| `returnClient` | String | Handoff client_id |
+| `userType` | String | `"IND"` / `"ENT"` / `null` |
+| `createdAt` | Instant | 세션 생성 시각 |
+| `expiresAt` | Instant | 세션 만료 시각 (createdAt + 30분) |
+
+### 7.4 Open Redirect 방어 3-레이어
+
+| 레이어 | 위치 | 구현 |
+|--------|------|------|
+| **L1 (FE)** | `Step8.tsx isSafeRedirectUri()` | `REACT_APP_REDIRECT_ALLOWED_ORIGINS` 환경변수 기반 와일드카드 매칭 |
+| **L2 (BE)** | `FeSessionServiceImpl.isValidReturnUrl()` | `ido.fe.allowed-return-urls` YAML (환경변수 `${ALLOWED_URL_*}`) |
+| **L3 (BE)** | `CallbackUrlValidator.validate()` | `agency_meta.callback_whitelist` PostgreSQL JSONB — 완전일치/와일드카드/접두사 |
+
+> **참조**: GUIDE-001~004 상세 가이드 → `wiki/guide/` 디렉토리

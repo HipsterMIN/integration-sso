@@ -3,10 +3,10 @@
 | 항목 | 내용 |
 |------|------|
 | **프로젝트** | OnePass 통합인증 플랫폼 (integration-sso) |
-| **버전** | v0.8.8 |
-| **최종 갱신** | 2026-05-15 |
+| **버전** | v0.8.9 |
+| **최종 갱신** | 2026-05-16 |
 | **관리 브랜치** | `genspark_ai_developer` |
-| **위키 PR** | #107 (문서화 작업) |
+| **위키 PR** | #116 (Sprint 17 + 유관기관 전환 보안 강화) |
 
 ---
 
@@ -33,7 +33,8 @@
 | 서비스 상세 설계서 | 4 | 4 | 0 | 0 |
 | 워크스루 | 5 | 5 | 0 | 0 |
 | DB 마이그레이션 | 18 (V1~V18) | 18 | 0 | 0 |
-| **합계** | **40+** | **40+** | **0** | **0** |
+| **유관기관 연동 가이드** | **4** | **4** | **0** | **0** |
+| **합계** | **44+** | **44+** | **0** | **0** |
 
 ---
 
@@ -167,9 +168,11 @@ onepass-fe ──────────► IdO(:8083)  ◄──── Kafka �
 | PR | 제목 | 포함 변경 | 상태 |
 |----|------|-----------|------|
 | #106 | fix(flyway): V10 충돌 해결 + ProvisioningEventType 정합화 | V10→V17 rename, ProvisioningEventType 신규 5종 추가 | ✅ Merged |
-| #107 | fix(provisioning)+docs(fe): V18 CHECK 제약 + Javadoc + ciCheck.ts | V18 SQL, ProvisioningService Javadoc, ProvisioningOutboxRecord Javadoc, ciCheck.ts TODO | ✅ Open |
+| #107 | fix(provisioning)+docs(fe): V18 CHECK 제약 + Javadoc + ciCheck.ts | V18 SQL, ProvisioningService Javadoc, ProvisioningOutboxRecord Javadoc, ciCheck.ts TODO | ✅ Merged |
+| **#115** | feat(provision): Sprint 17 — `addAuthHeader()` API_KEY/HMAC/mTLS 구현 (BLOCKER 해소) | `AgencyProvisioningClient.addAuthHeader()` 3-mode 지원, 인증 분기 로직 | **✅ Merged** |
+| **#116** | feat(conversion): 유관기관 전환 URL 보안 강화 + 버그 수정 + 가이드 문서 | B-1/B-2 뺄그 수정, JWT Signed Request ConversionInit API, PlatformErrorCode E-CONV-601~603, GUIDE-001~004 | **현재 OPEN** |
 
-### 파일 수정 이력 (v0.8.8 기준)
+### 파일 수정 이력 (v0.8.9 기준)
 
 | 파일 | 수정 내용 | PR |
 |------|-----------|-----|
@@ -177,6 +180,19 @@ onepass-fe ──────────► IdO(:8083)  ◄──── Kafka �
 | `ido/.../ProvisioningOutboxRecord.java` | eventType Javadoc 구 4종 → 신규 5종 갱신 | #107 |
 | `ido/.../V18__update_event_type_constraints.sql` | provisioning_outbox + gateway_inbound_audit CHECK 제약 재정의 | #107 |
 | `onepass-fe/.../ciCheck.ts` | 미연결 상태 TODO 주석 문서화 | #107 |
+| **`onepass-fe/.../ConversionSteps/member/Step8.tsx`** | **B-1 버그 수정** — `isSafeRedirectUri()` `*.smes.go.kr` 하드코딩 → `REACT_APP_REDIRECT_ALLOWED_ORIGINS` 환경변수 + 와일드카드 | #116 |
+| **`ido/.../resources/application.yml`** | **B-2 버그 수정** — `allowed-return-urls` PoC 더미 URL → `${ALLOWED_URL_*}` 환경변수 구조 + `ido.conversion.*` 설정 추가 | #116 |
+| **`platform-common/.../PlatformErrorCode.java`** | 신규 에러코드 4개 추가: `AGENCY_NOT_FOUND(E-AGENCY-307)`, `CONVERSION_SIGNATURE_INVALID(E-CONV-601)`, `CONVERSION_REQUEST_EXPIRED(E-CONV-602)`, `CONVERSION_SESSION_NOT_FOUND(E-CONV-603)` | #116 |
+| **`ido/.../conversion/ConversionInitController.java`** | 신규 생성 — `POST /api/v1/conversion/init` 엔드포인트 | #116 |
+| **`ido/.../conversion/ConversionInitService.java`** | 신규 생성 — JWT 서명 검증 + Redis 세션 | #116 |
+| **`ido/.../conversion/ConversionSession.java`** | 신규 생성 — Redis 저장 도메인 객체 (TTL 30분) | #116 |
+| **`ido/.../conversion/dto/ConversionInitRequest.java`** | 신규 생성 — `signedRequest` + `agencyCode` DTO | #116 |
+| **`ido/.../conversion/dto/ConversionInitResponse.java`** | 신규 생성 — `conversionSessionId` + `userType` + `expiresAt` DTO | #116 |
+| **`wiki/guide/01-agency-conversion-url-flow.md`** | 신규 생성 — URL 플로우 분석 + 3레이어 검증 + ❌틀린것/⚠다른것/✅올바른것 분류 | #116 |
+| **`wiki/guide/02-conversion-param-security.md`** | 신규 생성 — JWT Signed Request 상세 구현 + 로드맵 | #116 |
+| **`wiki/guide/03-conversion-launch-sample.md`** | 신규 생성 — Node.js/Java/Python 기관 오픈 URL 샘플 + 체크리스트 | #116 |
+| **`wiki/guide/04-conversion-data-flow-diagram.md`** | 신규 생성 — ①~㉪ 순번 시퀀스 다이어그램 + ConversionContext 상태 추적 | #116 |
+| **`wiki/INDEX.md`** | 수정 — `guide/` 섹션 추가, 알려진 버그 B-1/B-2 목록 등재 | #116 |
 
 ---
 
@@ -211,12 +227,17 @@ wiki/
 │   ├── 03-member-conversion-walkthrough.md
 │   ├── 04-provisioning-walkthrough.md
 │   └── 05-handoff-sso-walkthrough.md
+├── guide/                                ← ★ v0.8.9 신규 — 유관기관 연동 가이드
+│   ├── 01-agency-conversion-url-flow.md
+│   ├── 02-conversion-param-security.md
+│   ├── 03-conversion-launch-sample.md
+│   └── 04-conversion-data-flow-diagram.md
 └── deliverables/
     └── DELIVERABLES.md                   ← 이 문서
 ```
 
-**총 Markdown 파일**: 19개  
-**총 추정 분량**: 약 600~700 페이지 (A4 기준)
+**총 Markdown 파일**: 23개 (v0.8.9 기준, guide/ 4편 추가)  
+**총 추정 분량**: 약 700~800 페이지 (A4 기준)
 
 ---
 
@@ -225,11 +246,12 @@ wiki/
 | 파일명 | 소스 | 대상 독자 | 우선순위 |
 |--------|------|-----------|----------|
 | `통합인증_플랫폼_EDA_마스터_아키텍처_설계서_v0.8.8.docx` | 기존 생성 완료 | 아키텍처 위원회, PM | ✅ 완료 |
-| `IdO_서비스_상세_설계서_v0.8.8.docx` | `design/01-ido-service-design.md` | 개발팀, 보안 팀 | 🔜 변환 예정 |
+| `IdO_서비스_상세_설계서_v0.8.9.docx` | `design/01-ido-service-design.md` | 개발팀, 보안 팀 | 🔜 변환 예정 |
 | `QIM_서비스_상세_설계서_v0.8.8.docx` | `design/02-qim-service-design.md` | 개발팀 | 🔜 변환 예정 |
 | `QSign_서비스_상세_설계서_v0.8.8.docx` | `design/03-qsign-service-design.md` | 개발팀 | 🔜 변환 예정 |
 | `프로비저닝_워크스루_v0.8.8.docx` | `walkthrough/04-provisioning-walkthrough.md` | 운영팀, 기관 담당자 | 🔜 변환 예정 |
 | `HandoffSSO_워크스루_v0.8.8.docx` | `walkthrough/05-handoff-sso-walkthrough.md` | 보안팀, 기관 담당자 | 🔜 변환 예정 |
+| `유관기관_전환가이드_v0.8.9.docx` | `guide/01~04` 종합 | 기관 개발팀, 운영팀 | 🔜 변환 예정 |
 
 ---
 
@@ -250,8 +272,9 @@ wiki/
 - [x] ADR-001 ~ ADR-012 (12개 완료)
 - [x] 서비스 상세 설계서 4개 (IdO, Q-IM, Q-Sign, Agency-Stub)
 - [x] 워크스루 5개 (로그인, 가입, 전환, 프로비저닝, Handoff SSO)
+- [x] **유관기관 연동 가이드 4편** (GUIDE-001~004) ★ v0.8.9 신규
 - [x] 산출물 마스터 인덱스 (이 문서)
-- [ ] DOCX 변환 (상세 설계서 4개 + 워크스루 2개)
+- [ ] DOCX 변환 (상세 설계서 4개 + 워크스루 2개 + 유관기관 가이드 1개)
 
 ### 코드 품질
 
@@ -259,12 +282,22 @@ wiki/
 - [x] ProvisioningService.java Javadoc 갱신
 - [x] ProvisioningOutboxRecord.java Javadoc 갱신
 - [x] ciCheck.ts 미연결 TODO 문서화
+- [x] **B-1 수정**: `Step8 isSafeRedirectUri()` 환경변수 기반 ★ v0.8.9
+- [x] **B-2 수정**: `application.yml allowed-return-urls` 환경변수 구조 ★ v0.8.9
+- [x] **JWT Signed Request**: `ConversionInit` API 구현 (`POST /api/v1/conversion/init`) ★ v0.8.9
+- [x] **E-CONV 에러코드**: `PlatformErrorCode` 4개 추가 ★ v0.8.9
+- [x] **Sprint 17 addAuthHeader()**: API_KEY/HMAC/mTLS 3-mode 구현 ★ v0.8.9
+- [ ] **JTI 재사용 방지**: JWT replay attack 방어 Redis 블랙리스트 (단기 P1)
 - [ ] ci-check FE 연결 (별도 Sprint, Q2=B PoC 완료 후)
 
 ### 운영 준비
 
 - [x] Flyway V1~V18 마이그레이션 스크립트
 - [x] provisioning_outbox CHECK 제약 (V18)
+- [ ] **`REACT_APP_REDIRECT_ALLOWED_ORIGINS`** FE .env.production 설정 (68개 기관 URL) ⚠ **운영 배포 필수**
+- [ ] **K8s ConfigMap** `ALLOWED_URL_*` 실제 기관 URL 주입 ⚠ **운영 배포 필수**
+- [ ] **K8s Secret** `SECRETS_AGENCY_{CODE}_API_KEY` 기관별 등록 ⚠ **운영 배포 필수**
+- [ ] **DB** `agency_meta.callback_whitelist` 기관별 콜백 URL 등록 ⚠ **운영 배포 필수**
 - [ ] 운영 모니터링 대시보드 설정 (Grafana)
 - [ ] DLQ 알림 설정 (Slack/PagerDuty)
 - [ ] CAST Token 키 로테이션 절차서
@@ -277,6 +310,8 @@ wiki/
 |------|------|
 | GitHub 저장소 | https://github.com/HipsterMIN/integration-sso |
 | PR #107 (문서화) | https://github.com/HipsterMIN/integration-sso/pull/107 |
+| PR #115 (Sprint 17 addAuthHeader) | https://github.com/HipsterMIN/integration-sso/pull/115 |
+| PR #116 (유관기관 전환 보안) | https://github.com/HipsterMIN/integration-sso/pull/116 |
 | 위키 인덱스 | `wiki/INDEX.md` |
 | ADR 디렉토리 | `wiki/adr/` |
 | 설계서 디렉토리 | `wiki/design/` |
