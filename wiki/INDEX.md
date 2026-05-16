@@ -27,6 +27,11 @@ wiki/
 │   ├── 02-qim-service-design.md
 │   ├── 03-qsign-service-design.md
 │   └── 04-agency-stub-design.md
+├── guide/                          ← 연동 가이드 (2026-05-16 신규)
+│   ├── 01-agency-conversion-url-flow.md     ← URL 플로우 분석 + 버그 명시
+│   ├── 02-conversion-param-security.md      ← 파라미터 암호화 대안 (JWT HS256)
+│   ├── 03-conversion-launch-sample.md       ← 기관 오픈 URL 샘플 (Node/Java/Python)
+│   └── 04-conversion-data-flow-diagram.md   ← 순번 데이터 흐름 다이어그램
 ├── walkthrough/                    ← 전체 흐름 워크스루
 │   ├── 01-login-walkthrough.md
 │   ├── 02-member-register-walkthrough.md
@@ -66,6 +71,19 @@ wiki/
 | [Q-IM](design/02-qim-service-design.md) | 회원 정보 관리 (Identity Manager) | 8082 |
 | [Q-Sign](design/03-qsign-service-design.md) | 인증 세션 관리 (Auth Session) | 8081 |
 | [Agency-Stub](design/04-agency-stub-design.md) | 기관 시스템 PoC 스텁 | 8090 |
+
+### 연동 가이드 (유관기관 개발팀 대상) — 2026-05-16 신규
+
+| # | 제목 | 핵심 내용 |
+|---|------|---------|
+| [GUIDE-001](guide/01-agency-conversion-url-flow.md) | URL 플로우 분석 | 진입 URL 구조 · 검증 3-레이어 · **버그 명시** |
+| [GUIDE-002](guide/02-conversion-param-security.md) | 파라미터 보안 | JWT Signed Request 방식 · FE/BE 수정 구현 |
+| [GUIDE-003](guide/03-conversion-launch-sample.md) | 기관 오픈 URL 샘플 | Node.js/Java/Python 코드 예시 · 체크리스트 |
+| [GUIDE-004](guide/04-conversion-data-flow-diagram.md) | 데이터 흐름 다이어그램 | ①~㊶ 순번 시퀀스 · 레이어별 검증 흐름 |
+
+> **알려진 버그 (2026-05-16 기준)**  
+> - **B-1** `Step8.tsx isSafeRedirectUri()` — `*.smes.go.kr` 하드코딩으로 68개 기관 대부분 차단 → **수정 완료**  
+> - **B-2** `application.yml allowed-return-urls` — PoC 더미 URL만 등록, 실제 기관 URL 없음 → **환경변수 기반으로 개선 완료**
 
 ### 워크스루 (서비스 흐름)
 

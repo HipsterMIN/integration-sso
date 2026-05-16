@@ -274,12 +274,29 @@ ido:
       sliding-ttl-minutes: 30            # §12.4 Sliding TTL
       absolute-timeout-minutes: 480      # §12.4 절대 만료 (8h)
     # returnUrl 화이트리스트 (§12.6 — 기관 callback_whitelist 보조)
+    # [버그 수정 2026-05-16] B-2: PoC 더미 URL 제거, 실제 기관 URL로 교체
+    # 운영 배포 시: 환경변수 IDO_FE_ALLOWED_RETURN_URLS 또는 ConfigMap으로 주입
+    # ※ 기관 추가/변경 시 이 목록과 agency_meta.callback_whitelist DB 모두 갱신 필요
     allowed-return-urls:
-      - https://agency-a.example.com
-      - https://agency-b.example.com
-      - http://localhost:8084            # agency-stub (PoC)
-      - http://localhost:3000            # React dev server (개발)
-      - http://localhost:3001            # Nginx React (Option B 프로덕션)
+      # ── 중소벤처기업부 직속 서비스 ──────────────────────────────────
+      - ${ALLOWED_URL_SMES:https://www.smes.go.kr}
+      - ${ALLOWED_URL_BIZINFO:https://www.bizinfo.go.kr}
+      - ${ALLOWED_URL_MSS:https://www.mss.go.kr}
+      # ── 산하기관 ─────────────────────────────────────────────────
+      - ${ALLOWED_URL_SBIZ:https://www.sbiz.or.kr}
+      - ${ALLOWED_URL_FANFAN:https://www.fanfan.or.kr}
+      - ${ALLOWED_URL_KOSMES:https://www.kosmes.or.kr}
+      # ── 나머지 기관 (환경변수로 추가 주입 — 운영팀 등록 필요) ──────
+      # IDO_FE_ALLOWED_RETURN_URLS_EXTRA=https://기관1.go.kr,https://기관2.or.kr
+      # ── 개발/스테이징 (운영 배포 시 제거 또는 환경변수로 분리) ───────
+      - ${AGENCY_STUB_URL:http://localhost:8084}
+      - ${REACT_DEV_URL:http://localhost:3000}
+      - ${REACT_PROD_URL:http://localhost:3001}
+
+  # ── 회원 전환 세션 설정 (ConversionInitService) ─────────────────────────
+  conversion:
+    session-ttl-minutes: 30              # ConversionSession Redis TTL (GUIDE-002)
+    signed-request-max-age-minutes: 5    # JWT exp 허용 시간 (기관 signed_request 만료)
 
   # Kafka 토픽
   kafka:
