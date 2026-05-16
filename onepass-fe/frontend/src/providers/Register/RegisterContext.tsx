@@ -58,6 +58,15 @@ export interface RegisterData {
 
 	// Step5 (NotificationSettings)
 	notifications: Record<string, boolean>;
+
+	// 만14세 미만 회원가입 — 법정대리인 동의 플로우 (정보통신망법 제31조)
+	isMinor: boolean;                // 만14세 미만 여부 (Step3 본인인증 birthDate 기반 판정)
+	guardianConsentDone: boolean;    // 법정대리인 동의 완료 여부
+	guardianCiToken: string;         // 법정대리인 CI 기반 JWT 토큰 (Step4 보호자 인증 후 발급)
+	guardianName: string;            // 법정대리인 성명
+	guardianBirthDate: string;       // 법정대리인 생년월일 (YYYYMMDD)
+	guardianPhone: string;           // 법정대리인 휴대폰번호
+	guardianConsentEventId: number;  // 법정대리인 동의 이벤트 ID (Q-IM 약관 서버 발급)
 }
 
 const INITIAL_DATA: RegisterData = {
@@ -90,6 +99,14 @@ const INITIAL_DATA: RegisterData = {
 	selectedClients: [],
 	availableClients: [],
 	notifications: {},
+	// 만14세 미만 법정대리인 동의 필드 초기값
+	isMinor: false,
+	guardianConsentDone: false,
+	guardianCiToken: '',
+	guardianName: '',
+	guardianBirthDate: '',
+	guardianPhone: '',
+	guardianConsentEventId: 0,
 };
 
 interface RegisterContextValue {

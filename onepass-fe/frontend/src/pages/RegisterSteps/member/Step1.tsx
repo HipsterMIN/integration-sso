@@ -1,6 +1,8 @@
 import RegisterLayout from 'components/RegisterLayout';
 import type { MemberType } from 'components/StepIndicator';
 import IMAGES from 'constants/images';
+import ROUTES from 'constants/routes';
+import history from 'lib/history';
 import { useRegister } from 'providers/Register/RegisterContext';
 import { useEffect, useState } from 'react';
 
@@ -83,8 +85,17 @@ function RegisterStep1(): JSX.Element {
 					</div>
 				</label>
 			</div>
+			{/*
+			 * 정보통신망법 제31조: 만14세 미만 아동의 개인정보 수집 시 법정대리인 동의 필수
+			 * 클릭 시 법정대리인 동의 안내 페이지(REGISTER_MINOR_STEP1)로 이동
+			 */}
 			<div className="text-align-right">
-				<button type="button" className="btn text medium age-14-btn">
+				<button
+					type="button"
+					className="btn text medium age-14-btn"
+					onClick={(): void => history.push(ROUTES.REGISTER_MINOR_STEP1)}
+					aria-label="만 14세 미만 회원가입 — 법정대리인 동의 절차로 이동"
+				>
 					<i className="icon ico-arrow-forward small" aria-hidden="true" />
 					<p>14세 미만만 회원가입</p>
 				</button>
