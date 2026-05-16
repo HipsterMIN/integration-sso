@@ -1,6 +1,6 @@
 # 통합인증 플랫폼 (OnePass) — Wiki 인덱스
 
-> **버전**: v0.8.8 | **최종 갱신**: 2026-05-15 | **브랜치**: genspark_ai_developer
+> **버전**: v0.8.9 | **최종 갱신**: 2026-05-16 | **브랜치**: genspark_ai_developer
 
 ---
 
@@ -31,7 +31,8 @@ wiki/
 │   ├── 01-agency-conversion-url-flow.md     ← URL 플로우 분석 + 버그 명시
 │   ├── 02-conversion-param-security.md      ← 파라미터 암호화 대안 (JWT HS256)
 │   ├── 03-conversion-launch-sample.md       ← 기관 오픈 URL 샘플 (Node/Java/Python)
-│   └── 04-conversion-data-flow-diagram.md   ← 순번 데이터 흐름 다이어그램
+│   ├── 04-conversion-data-flow-diagram.md   ← 순번 데이터 흐름 다이어그램
+│   └── 05-dreamsecurity-sso-integration.md  ← ★ 드림시큐리티 SSO 연동 가이드 (Turn 6 신규)
 ├── walkthrough/                    ← 전체 흐름 워크스루
 │   ├── 01-login-walkthrough.md
 │   ├── 02-member-register-walkthrough.md
@@ -80,6 +81,7 @@ wiki/
 | [GUIDE-002](guide/02-conversion-param-security.md) | 파라미터 보안 | JWT Signed Request 방식 · FE/BE 수정 구현 |
 | [GUIDE-003](guide/03-conversion-launch-sample.md) | 기관 오픈 URL 샘플 | Node.js/Java/Python 코드 예시 · 체크리스트 |
 | [GUIDE-004](guide/04-conversion-data-flow-diagram.md) | 데이터 흐름 다이어그램 | ①~㊶ 순번 시퀀스 · 레이어별 검증 흐름 |
+| [GUIDE-005](guide/05-dreamsecurity-sso-integration.md) | **드림시큐리티 SSO 연동** ★ | 갭 분석 7항목 · INTERNAL_SSO 어댑터 · 식별자 매핑 · SLO 동기화 · 회원 전환 정책 |
 
 > **알려진 버그 (2026-05-16 기준)**  
 > - **B-1** `Step8.tsx isSafeRedirectUri()` — `*.smes.go.kr` 하드코딩으로 68개 기관 대부분 차단 → **수정 완료**  
