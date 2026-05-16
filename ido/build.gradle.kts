@@ -107,6 +107,11 @@ dependencies {
     implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
 
+    // Apache HttpClient 5 — mTLS 클라이언트 인증서 장착 RestTemplate (Sprint 17)
+    // Spring Boot 3.x 기본 SimpleClientHttpRequestFactory는 mTLS 미지원
+    // HttpComponentsClientHttpRequestFactory + PoolingConnectionManager 조합으로 mTLS 구현
+    implementation("org.apache.httpcomponents.client5:httpclient5")
+
     // OACX SDK (전자서명 중계모듈) — Maven Central 미등록 → 로컬 libs/ 디렉토리
     // 버전: v1.3.2 (onepass-be/libs/OACX-SDK-v1.3.2.jar 에서 복사)
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
