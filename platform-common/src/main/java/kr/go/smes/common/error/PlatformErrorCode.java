@@ -69,6 +69,12 @@ public enum PlatformErrorCode {
     AGENCY_CALLBACK_BLOCKED("E-AGENCY-304", HttpStatus.FORBIDDEN,  "허용되지 않은 콜백 URL."),
     AGENCY_MAINTENANCE    ("E-AGENCY-305", HttpStatus.SERVICE_UNAVAILABLE, "기관 점검 시간입니다."),
     AGENCY_RATE_LIMIT_EXCEEDED("E-AGENCY-306", HttpStatus.TOO_MANY_REQUESTS, "요청 한도를 초과했습니다."),
+    AGENCY_NOT_FOUND      ("E-AGENCY-307", HttpStatus.NOT_FOUND,   "기관을 찾을 수 없거나 비활성 상태입니다."),
+
+    // ── 전환(Conversion) 오류 (E-CONV-6xx) — GUIDE-002 signed_request 방식 ────
+    CONVERSION_SIGNATURE_INVALID("E-CONV-601", HttpStatus.UNAUTHORIZED,  "전환 요청 JWT 서명 검증 실패 — 기관 API Key 불일치."),
+    CONVERSION_REQUEST_EXPIRED  ("E-CONV-602", HttpStatus.GONE,          "전환 요청이 만료되었습니다 (5분 초과). 기관 시스템에서 재시도하세요."),
+    CONVERSION_SESSION_NOT_FOUND("E-CONV-603", HttpStatus.NOT_FOUND,     "전환 세션을 찾을 수 없거나 만료되었습니다."),
 
     // ── Cross-Agency SSO — CAST 토큰 오류 (E-SSO-CAST-4xx) ──────────────────
     // Sprint 13 신규: 기관 간 SSO 1회성 토큰 검증 오류 (§13.3)
