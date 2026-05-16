@@ -46,7 +46,20 @@ export function useSectionAnimation(): void {
 }
 
 /**
- * return_uri에서 origin + 첫 번째 경로 세그먼트까지 추출
+ * return_uri 도메인 허용 검증 (Open Redirect 방어)
+ * OWASP A10: Unvalidated Redirects and Forwards 대응.
+ * 허용 도메인: https://*.smes.go.kr 또는 https://smes.go.kr
+ */
+function isAllowedReturnDomain(url: URL): boolean {
+	return (
+		url.protocol === 'https:' &&
+		(url.hostname.endsWith('.smes.go.kr') || url.hostname === 'smes.go.kr')
+	);
+}
+
+/**
+ * return_uri에서 origin + 첫 번째 경로 세그먼트까지 추출.
+ * 허용 도메인(*.smes.go.kr)이 아닌 경우 null 반환.
  * 예: https://www.smes.go.kr/mna-iam/iam/oauth/loginCallback.do
  *   → https://www.smes.go.kr/mna-iam/
  */
@@ -54,6 +67,10 @@ function extractHomeUrl(returnUri: string | null): string | null {
 	if (!returnUri) return null;
 	try {
 		const url = new URL(returnUri);
+		// 허용되지 않은 도메인 → null 반환 (Open Redirect 차단)
+		if (!isAllowedReturnDomain(url)) {
+			return null;
+		}
 		const firstSegment = url.pathname.split('/').filter(Boolean)[0];
 		return firstSegment ? `${url.origin}/${firstSegment}/` : url.origin;
 	} catch {

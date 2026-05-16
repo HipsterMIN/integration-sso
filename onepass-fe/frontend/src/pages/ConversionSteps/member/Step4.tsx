@@ -1,6 +1,5 @@
 import getClients from 'api/ext/clients';
 import ConversionLayout from 'components/ConversionLayout';
-import Modal from 'components/KrdsModal';
 import Spinner from 'components/Spinner';
 import type { MemberType } from 'components/StepIndicator';
 import IMAGES from 'constants/images';
@@ -14,21 +13,35 @@ interface Step4Props {
 	memberType?: MemberType;
 }
 
+/**
+ * ConversionStep4 — 전환 대상 기관 안내 (기관 선택 폐기)
+ *
+ * [기획안 변경 — 2026-05-15 장관 지시]
+ * "SSO인데 왜 기관을 선택하나?" → 기관 선택 절차 폐기
+ *
+ * 변경 전: 유관기관 목록을 체크박스로 표시 → 사용자가 직접 선택
+ * 변경 후: 전환 후 연결될 기관 목록을 읽기 전용으로 안내
+ *          실제 연결은 CI(연계정보) 기반으로 IdO/Q-IM이 자동 처리
+ *
+ * selectedClients는 빈 배열로 유지 → Step5 provisioning 시
+ * clients 파라미터를 undefined로 전달하여 BE(IdO)가 CI 기반 자동 연결 처리
+ */
 function ConversionStep4({ memberType = 'member' }: Step4Props): JSX.Element {
 	const { data, updateData } = useConversion();
-	const [infoModal, setInfoModal] = useState(false);
-	const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState(false);
-	const isBusiness = memberType === 'business';
+	const [clients, setClients] = useState<Client[]>([]);
 
-	// GAP-05: 하드코딩된 SYSTEMS 배열 제거 → getClients() API 실 연동
 	useEffect(() => {
 		(async (): Promise<void> => {
 			try {
 				const res = await getClients();
 				if (res.statusCode === 200 && res.payload?.data?.clients) {
-					updateData({ availableClients: res.payload.data.clients });
+					const fetchedClients = res.payload.data.clients;
+					setClients(fetchedClients);
+					// 기관 선택 폐기: availableClients만 저장, selectedClients는 건드리지 않음
+					// Step5 provisioning 시 clients=undefined → IdO가 CI 기반 자동 연결 처리
+					updateData({ availableClients: fetchedClients });
 				} else {
 					setLoadError(true);
 				}
@@ -41,40 +54,33 @@ function ConversionStep4({ memberType = 'member' }: Step4Props): JSX.Element {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const handleCheck = (clientId: string): void => {
-		const next = data.selectedClients.includes(clientId)
-			? data.selectedClients.filter((id) => id !== clientId)
-			: [...data.selectedClients, clientId];
-		updateData({ selectedClients: next });
-	};
-
-	const handleInfoOpen = (client: Client): void => {
-		setSelectedClient(client);
-		setInfoModal(true);
-	};
-
 	if (loading) {
-		return <Spinner tip="유관기관 목록을 불러오는 중..." />;
+		return <Spinner tip="기관 정보를 불러오는 중..." />;
 	}
 
 	return (
 		<ConversionLayout
 			currentStep={4}
-			skipRoute={getConversionRoute(5, memberType)}
+			prevRoute={getConversionRoute(3, memberType)}
 			nextRoute={getConversionRoute(5, memberType)}
 			memberType={memberType}
 		>
+			{/* 안내 문구 */}
 			<div className="text-info-wrap point">
 				<ul className="text-list-wrap check" aria-label="안내 사항">
-					<li><p>유관시스템 서비스를 하나의 통합 ID로 연결합니다</p></li>
 					<li>
 						<p>
-							등록을 원하지 않으실 경우 '건너뛰기'를 선택하여 가입을 완료하실 수 있습니다.
+							중기원패스 전환 완료 후 아래 유관기관 서비스를 하나의 통합 ID로 이용하실 수 있습니다.
 						</p>
 					</li>
 					<li>
 						<p>
-							추후 ( 마이페이지 &gt; 유관기관 서비스 관리 )에서 언제든지 추가 등록, 탈퇴할 수 있습니다
+							기존 계정은 본인인증(CI) 정보를 기준으로 자동으로 연결됩니다.
+						</p>
+					</li>
+					<li>
+						<p>
+							연결 현황은 전환 완료 후 ( 마이페이지 &gt; 유관기관 안내 )에서 확인하실 수 있습니다.
 						</p>
 					</li>
 				</ul>
@@ -83,155 +89,47 @@ function ConversionStep4({ memberType = 'member' }: Step4Props): JSX.Element {
 				</figure>
 			</div>
 
+			{/* 전환 대상 기관 목록 (읽기 전용) */}
 			{loadError ? (
 				<p className="text" style={{ color: '#c00', padding: '16px' }}>
-					유관기관 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+					기관 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
 				</p>
 			) : (
-				<div className="check-box-wrap" role="group" aria-label="가입현황 시스템 선택">
-					{data.availableClients.map((client) => (
-						<div
-							key={client.ssoClientId}
-							className="check-box style3"
-							onClick={(): void => handleInfoOpen(client)}
-							role="button"
-							tabIndex={0}
-							onKeyDown={(e): void => {
-								if (e.key === 'Enter' || e.key === ' ') handleInfoOpen(client);
-							}}
-						>
-							<label
-								htmlFor={client.ssoClientId}
-								onClick={(e): void => e.stopPropagation()}
+				<div
+					className="agency-info-list"
+					role="list"
+					aria-label="전환 후 연결되는 유관기관 목록"
+				>
+					{clients.length === 0 ? (
+						<p className="text" style={{ padding: '16px', color: '#666' }}>
+							연결 가능한 유관기관 정보를 불러오고 있습니다.
+						</p>
+					) : (
+						clients.map((client) => (
+							<div
+								key={client.ssoClientId}
+								className="agency-info-item"
+								role="listitem"
 							>
-								<input
-									type="checkbox"
-									id={client.ssoClientId}
-									name="check"
-									checked={data.selectedClients.includes(client.ssoClientId)}
-									onChange={(): void => handleCheck(client.ssoClientId)}
-									aria-label={client.clientNm}
-								/>
-							</label>
-							<div className="text-box">
-								<strong className="tit">{client.clientNm}</strong>
-								{client.description && (
-									<p className="text">{client.description}</p>
-								)}
+								<div className="text-box">
+									<strong className="tit">{client.clientNm}</strong>
+									{client.description && (
+										<p className="text">{client.description}</p>
+									)}
+								</div>
 							</div>
-						</div>
-					))}
+						))
+					)}
 				</div>
 			)}
 
-			<Modal
-				id="modal_member_information"
-				isOpen={infoModal}
-				onClose={(): void => setInfoModal(false)}
-				topText="계정 가입 현황"
-				title={selectedClient?.clientNm ?? '유관기관 정보'}
-				buttons={[{ label: '적용', variant: 'primary' }]}
-				contentsClassName="form-wrap"
-			>
-				{isBusiness ? (
-					<>
-						<div className="input-wrap">
-							<label htmlFor="modal_company_name">회사명</label>
-							<div className="input-box">
-								<input
-									id="modal_company_name"
-									type="text"
-									defaultValue={data.bzmnNm}
-									disabled
-								/>
-							</div>
-						</div>
-						<div className="input-wrap">
-							<label htmlFor="modal_business_num">사업자등록번호</label>
-							<div className="input-box">
-								<input
-									id="modal_business_num"
-									type="text"
-									defaultValue={data.brno}
-									disabled
-								/>
-							</div>
-						</div>
-						<div className="input-wrap">
-							<label htmlFor="modal_rep_name">대표자명</label>
-							<div className="input-box">
-								<input
-									id="modal_rep_name"
-									type="text"
-									defaultValue={data.rprsvNm}
-									disabled
-								/>
-							</div>
-						</div>
-					</>
-				) : (
-					<>
-						<div className="input-wrap">
-							<label htmlFor="modal_name">이름</label>
-							<div className="input-box">
-								<input
-									id="modal_name"
-									type="text"
-									defaultValue={data.name}
-									disabled
-								/>
-							</div>
-						</div>
-						<div className="input-wrap">
-							<label htmlFor="modal_phone1">휴대전화</label>
-							<div className="input-flex-box">
-								<div className="input-box">
-									<input
-										id="modal_phone1"
-										type="text"
-										defaultValue={data.phonePrefix}
-										disabled
-										aria-label="휴대전화 앞자리"
-									/>
-								</div>
-								<div className="input-box">
-									<input
-										id="modal_phone2"
-										type="text"
-										defaultValue={data.phoneSuffix}
-										disabled
-										aria-label="휴대전화 뒷자리"
-									/>
-								</div>
-							</div>
-						</div>
-						<div className="input-wrap">
-							<label htmlFor="modal_email1">이메일</label>
-							<div className="input-flex-box">
-								<div className="input-box">
-									<input
-										id="modal_email1"
-										type="text"
-										defaultValue={data.emailId}
-										disabled
-										aria-label="이메일 아이디"
-									/>
-								</div>
-								<span>@</span>
-								<div className="input-box">
-									<input
-										id="modal_email2"
-										type="text"
-										defaultValue={data.emailDomain}
-										disabled
-										aria-label="이메일 도메인"
-									/>
-								</div>
-							</div>
-						</div>
-					</>
-				)}
-			</Modal>
+			{/* 마이페이지 유관기관 안내 문구 */}
+			<div className="text-info-wrap" style={{ marginTop: '24px' }}>
+				<p className="text" style={{ color: '#666', fontSize: '13px' }}>
+					<strong>※ 유관기관 안내</strong>
+					{' '}마이페이지에서 전환된 유관기관 연결 현황을 확인하고 관리하실 수 있습니다.
+				</p>
+			</div>
 		</ConversionLayout>
 	);
 }
