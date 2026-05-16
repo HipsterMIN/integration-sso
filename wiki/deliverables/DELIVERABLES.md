@@ -313,11 +313,6 @@ wiki/
 
 | 항목 | 링크 |
 |------|------|
-| GitHub 저장소 | https://github.com/HipsterMIN/integration-sso |
-| PR #107 (문서화) | https://github.com/HipsterMIN/integration-sso/pull/107 |
-| PR #115 (Sprint 17 addAuthHeader) | https://github.com/HipsterMIN/integration-sso/pull/115 |
-| PR #116 (유관기관 전환 보안) | https://github.com/HipsterMIN/integration-sso/pull/116 |
-| PR #117 (드림시큐리티 SSO + 운영 심층 분석) | https://github.com/HipsterMIN/integration-sso/pull/117 |
 | 위키 인덱스 | `wiki/INDEX.md` |
 | ADR 디렉토리 | `wiki/adr/` |
 | 설계서 디렉토리 | `wiki/design/` |
