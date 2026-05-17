@@ -5,6 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import kr.go.smes.common.error.PlatformErrorCode;
 import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.qim.infrastructure.jpa.entity.ConversionSessionJpaEntity;
+import kr.go.smes.qim.infrastructure.jpa.repository.AuthMeanMappingJpaRepository;
 import kr.go.smes.qim.infrastructure.jpa.repository.ConversionSessionJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -57,6 +58,10 @@ class ConversionSessionServiceImplTest {
     @Mock
     private AgencyMemberLookupService agencyMemberLookupService;
 
+    /** M-02: AuthMeanMappingJpaRepository Mock — 기본적으로 empty 반환(Fallback 동작 확인) */
+    @Mock
+    private AuthMeanMappingJpaRepository authMeanMappingRepository;
+
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -67,6 +72,13 @@ class ConversionSessionServiceImplTest {
     private static final String QIM_USER_ID    = "user-conv-001";
     private static final String SESSION_ID     = "session-001";
     private static final String CORRELATION_ID = "corr-conv-001";
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        // M-02: identifierHash DB 조회 Fallback 시 오류 없도록 empty 반환 설정
+        given(authMeanMappingRepository.findActivePassCiHash(anyString()))
+                .willReturn(Optional.empty());
+    }
 
     private ConversionSessionJpaEntity session(String status) {
         ConversionSessionJpaEntity e = new ConversionSessionJpaEntity();
