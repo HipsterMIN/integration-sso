@@ -25,11 +25,39 @@ allprojects {
     }
 }
 
+// ── Mockito Agent 전용 Configuration (ADR-013 방법 B) ────────────────────────
+// JDK 24에서 Dynamic Agent Loading 완전 차단 예정 (JEP 451/472).
+// 방법 A(-XX:+EnableDynamicAgentLoading)는 임시 억제이고, 이 설정이 근본 해결책임.
+// byte-buddy-agent JAR을 -javaagent로 명시하면 런타임 동적 로딩 없이 Agent가 동작.
+//
+// ※ mockitoAgent 설정은 루트에서 subprojects {} 블록 전에 정의해야
+//    아래 tasks.withType<Test> 블록에서 configurations["mockitoAgent"]를 참조할 수 있음.
+val mockitoAgentVersion = "1.17.8"  // mockito-core가 전이하는 byte-buddy-agent 버전과 동기화
+
 // ── 서브프로젝트 공통 설정 ─────────────────────────────────────────────────────
 subprojects {
     apply(plugin = "java")
     apply(plugin = "io.spring.dependency-management")
     apply(plugin = "jacoco")
+
+    // ADR-013 방법 B: Mockito Agent 전용 Configuration
+    // -javaagent로 byte-buddy-agent를 명시 주입 → JDK 24 Dynamic Agent Loading 금지 대비.
+    //
+    // ※ onepass-agency-sdk는 자체 build.gradle.kts에서 configurations.all { resolutionStrategy }를
+    //   사용하므로, mockitoAgent를 생성한 뒤 resolutionStrategy 변경이 충돌함.
+    //   SDK는 Spring 테스트 스택 없이 JUnit 5 + Mockito 직접 버전 명시 모듈이므로
+    //   여기서는 SDK를 제외하고, SDK 자체 build.gradle.kts에서 별도 처리함.
+    if (project.name != "onepass-agency-sdk") {
+        val mockitoAgent by configurations.creating {
+            isCanBeResolved = true
+            isCanBeConsumed = false
+        }
+        dependencies {
+            // byte-buddy-agent: Mockito inline-mock-maker가 사용하는 ByteBuddy JVM Agent
+            // transitive = false: byte-buddy-agent는 독립 JAR이므로 전이 의존성 불필요
+            mockitoAgent("net.bytebuddy:byte-buddy-agent:$mockitoAgentVersion") { isTransitive = false }
+        }
+    }
 
     // Java 21 toolchain
     configure<JavaPluginExtension> {
@@ -71,6 +99,22 @@ subprojects {
         useJUnitPlatform()
         // JaCoCo 커버리지 데이터 생성 활성화
         finalizedBy(tasks.named("jacocoTestReport"))
+        // ADR-013 방법 B: byte-buddy-agent를 -javaagent로 명시 주입 (근본 해결)
+        // JDK 21+의 동적 Agent 로딩 경고를 JVM 레벨에서 원천 차단.
+        // JEP 451(JDK 21 준비) / JEP 472(JDK 24 차단)에 대응.
+        //
+        // onepass-agency-sdk는 configurations.all { resolutionStrategy } 충돌로
+        // mockitoAgent configuration 미생성 → 방법 A 플래그만 적용.
+        // SDK 자체 build.gradle.kts에서 jvmArgs 직접 처리.
+        val args = mutableListOf(
+            "-XX:+EnableDynamicAgentLoading",  // 방법 A: JDK 버전 교차 환경 대응
+            "-Djdk.instrument.traceUsage=false"
+        )
+        if (project.name != "onepass-agency-sdk") {
+            // 방법 B: -javaagent 명시 (mockitoAgent configuration이 있는 모듈만)
+            args.add(0, "-javaagent:${configurations["mockitoAgent"].asPath}")
+        }
+        jvmArgs(args)
     }
 
     tasks.withType<JavaCompile> {

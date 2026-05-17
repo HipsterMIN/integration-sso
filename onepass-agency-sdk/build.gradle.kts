@@ -155,9 +155,26 @@ tasks.withType<Javadoc>().configureEach {
     }
 }
 
-// ── 테스트 태스크: JUnit 5 플랫폼 명시 ────────────────────────────────────────
+// ── 테스트 태스크: JUnit 5 플랫폼 명시 + Mockito Agent (ADR-013 방법 B) ──────────
+// SDK는 루트 subprojects {} 블록의 configurations.all { resolutionStrategy } 충돌로
+// mockitoAgent configuration을 루트에서 생성할 수 없어 여기서 직접 처리.
+val sdkMockitoAgentConf by configurations.creating {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+dependencies {
+    // mockitoVersion과 일치하는 byte-buddy-agent 버전 사용
+    // Mockito 5.12.0은 byte-buddy-agent 1.15.x 이상과 호환 → 루트 공통 버전 사용
+    sdkMockitoAgentConf("net.bytebuddy:byte-buddy-agent:1.17.8") { isTransitive = false }
+}
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // ADR-013 방법 B: -javaagent 명시 주입 (JDK 24 Dynamic Agent Loading 금지 대비)
+    jvmArgs(
+        "-javaagent:${sdkMockitoAgentConf.asPath}",
+        "-XX:+EnableDynamicAgentLoading",
+        "-Djdk.instrument.traceUsage=false"
+    )
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

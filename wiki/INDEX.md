@@ -1,6 +1,7 @@
 # 통합인증 플랫폼 (OnePass) — Wiki 인덱스
 
-> **버전**: v0.9.0 | **최종 갱신**: 2026-05-17 | **브랜치**: shipster
+> **버전**: v0.9.2 | **최종 갱신**: 2026-05-17 | **브랜치**: shipster  
+> **테스트**: ✅ 1017 tests PASS (0 failures) | **빌드**: ✅ compileJava SUCCESS (경고 0)
 
 ---
 
@@ -21,7 +22,8 @@ wiki/
 │   ├── ADR-009-qim-outbox-spec-001.md
 │   ├── ADR-010-cast-token-cross-agency-sso.md
 │   ├── ADR-011-hmac-sha256-gateway-auth.md
-│   └── ADR-012-react-fe-dual-instance.md
+│   ├── ADR-012-react-fe-dual-instance.md
+│   └── ADR-013-java-agent-migration.md    ← ★ JDK 24 대비 Agent 전환 (Sprint 18 방법B 적용)
 ├── design/                         ← 서비스별 상세 설계서
 │   ├── 01-ido-service-design.md
 │   ├── 02-qim-service-design.md
@@ -32,7 +34,8 @@ wiki/
 │   ├── 02-conversion-param-security.md      ← 파라미터 암호화 대안 (JWT HS256)
 │   ├── 03-conversion-launch-sample.md       ← 기관 오픈 URL 샘플 (Node/Java/Python)
 │   ├── 04-conversion-data-flow-diagram.md   ← 순번 데이터 흐름 다이어그램
-│   └── 05-dreamsecurity-sso-integration.md  ← ★ 드림시큐리티 SSO 연동 가이드 (Turn 6 신규)
+│   ├── 05-dreamsecurity-sso-integration.md  ← ★ 드림시큐리티 SSO 연동 가이드 (Turn 6 신규)
+│   └── 06-agency-sso-integration-strategy.md ← ★ SDK 탄력적 아키텍처 + 자체 SSO 통합 (Sprint 17)
 ├── walkthrough/                    ← 전체 흐름 워크스루
 │   ├── 01-login-walkthrough.md
 │   ├── 02-member-register-walkthrough.md
@@ -40,7 +43,9 @@ wiki/
 │   ├── 04-provisioning-walkthrough.md
 │   └── 05-handoff-sso-walkthrough.md
 ├── ops/                            ← 운영 가이드 (2026-05-17 신규)
-│   └── 01-production-deployment-guide.md  ← ★ 운영 배포 주의사항 체크리스트
+│   ├── 01-production-deployment-guide.md  ← ★ 운영 배포 주의사항 체크리스트
+│   ├── 02-project-completion-status.md    ← ★ 프로젝트 완성도 분석 (939 tests GREEN)
+│   └── 03-agency-support-runbook.md       ← ★ 유관기관 민원 대응 Runbook
 └── deliverables/
     └── DELIVERABLES.md             ← 산출물 마스터 인덱스
 ```
@@ -65,6 +70,7 @@ wiki/
 | [ADR-010](adr/ADR-010-cast-token-cross-agency-sso.md) | CAST Token (Ed25519) Cross-Agency SSO | ✅ Accepted | Sprint 12 |
 | [ADR-011](adr/ADR-011-hmac-sha256-gateway-auth.md) | HMAC-SHA256 Agency Gateway 인증 | ✅ Accepted | Sprint 13 |
 | [ADR-012](adr/ADR-012-react-fe-dual-instance.md) | React FE 이중 인스턴스 (beInstance/extInstance) | ✅ Accepted | Sprint 15 |
+| [ADR-013](adr/ADR-013-java-agent-migration.md) | Java Agent 기반 전환 기술 제언 (JDK 24 대비) | ✅ **방법 B 적용** (Sprint 18) | Sprint 18 |
 
 ### 서비스별 상세 설계서
 
@@ -84,6 +90,7 @@ wiki/
 | [GUIDE-003](guide/03-conversion-launch-sample.md) | 기관 오픈 URL 샘플 | Node.js/Java/Python 코드 예시 · 체크리스트 |
 | [GUIDE-004](guide/04-conversion-data-flow-diagram.md) | 데이터 흐름 다이어그램 | ①~㊶ 순번 시퀀스 · 레이어별 검증 흐름 |
 | [GUIDE-005](guide/05-dreamsecurity-sso-integration.md) | **드림시큐리티 SSO 연동** ★ | 갭 분석 7항목 · INTERNAL_SSO 어댑터 · 식별자 매핑 · SLO 동기화 · 회원 전환 정책 |
+| [GUIDE-006](guide/06-agency-sso-integration-strategy.md) | **SDK 탄력적 아키텍처 + 자체 SSO 통합** ★ | SDK 확장포인트 · CAST Token 브릿지/페더레이션/Account Linking · OIDC RFC 8693 · 보안 체크리스트 |
 
 > **알려진 버그 (2026-05-16 기준)**  
 > - **B-1** `Step8.tsx isSafeRedirectUri()` — `*.smes.go.kr` 하드코딩으로 68개 기관 대부분 차단 → **수정 완료**  
@@ -104,6 +111,8 @@ wiki/
 | # | 제목 | 핵심 내용 |
 |---|------|---------|
 | [OPS-001](ops/01-production-deployment-guide.md) | **운영 배포 주의사항 및 체크리스트** ★ | 배포 순서 · 환경변수 체크리스트 · Flyway 마이그레이션 · Kafka 토픽 · ShedLock 이관 · mTLS 인증서 · K8s Secret · Feature Flag · 헬스체크 · Prometheus 알림 · 롤백 절차 · 장애 대응 |
+| [OPS-002](ops/02-project-completion-status.md) | **프로젝트 완성도 분석** ★ | **1017 tests GREEN** · 모듈별 완성도 · 미구현 기능 목록 · 보안 표준 준수 · 운영 위험도 · Phase 로드맵 · 기술 부채 |
+| [OPS-003](ops/03-agency-support-runbook.md) | **유관기관 민원 대응 Runbook** ★ | P1~P4 민원 분류 · 시나리오별 진단(인증/프로비저닝/Gateway/데이터) · 공통 진단 명령 · 에스컬레이션 경로 |
 
 ### 산출물 인덱스
 

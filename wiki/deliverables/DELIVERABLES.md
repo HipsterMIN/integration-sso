@@ -3,10 +3,11 @@
 | 항목 | 내용 |
 |------|------|
 | **프로젝트** | OnePass 통합인증 플랫폼 (integration-sso) |
-| **버전** | v0.8.9 |
-| **최종 갱신** | 2026-05-16 |
-| **관리 브랜치** | `genspark_ai_developer` |
-| **위키 PR** | #116 (Sprint 17 + 유관기관 전환 보안 강화) |
+| **버전** | v0.9.1 |
+| **최종 갱신** | 2026-05-17 |
+| **관리 브랜치** | `shipster` |
+| **위키 PR** | #122 (shipster → main: mTLS + 문서 전면 업데이트) |
+| **테스트 상태** | ✅ 939 tests PASS (0 failures, 0 errors, 0 skipped) |
 
 ---
 
@@ -29,12 +30,13 @@
 | 분류 | 총 문서 수 | 완료 | 진행 중 | 미착수 |
 |------|:---:|:---:|:---:|:---:|
 | 아키텍처 문서 | 1 | 1 | 0 | 0 |
-| ADR | 12 | 12 | 0 | 0 |
+| ADR | 13 (ADR-013 신규) | 12 | 1 | 0 |
 | 서비스 상세 설계서 | 4 | 4 | 0 | 0 |
 | 워크스루 | 5 | 5 | 0 | 0 |
-| DB 마이그레이션 | 18 (V1~V18) | 18 | 0 | 0 |
-| **유관기관 연동 가이드** | **5** | **5** | **0** | **0** |
-| **합계** | **45+** | **45+** | **0** | **0** |
+| DB 마이그레이션 | 19 (V1~V19) | 19 | 0 | 0 |
+| **유관기관 연동 가이드** | **6** | **6** | **0** | **0** |
+| **운영 가이드 (ops/)** | **3** | **3** | **0** | **0** |
+| **합계** | **51+** | **50+** | **1** | **0** |
 
 ---
 
@@ -172,6 +174,21 @@ onepass-fe ──────────► IdO(:8083)  ◄──── Kafka �
 | **#115** | feat(provision): Sprint 17 — `addAuthHeader()` API_KEY/HMAC/mTLS 구현 (BLOCKER 해소) | `AgencyProvisioningClient.addAuthHeader()` 3-mode 지원, 인증 분기 로직 | **✅ Merged** |
 | **#116** | feat(conversion): 유관기관 전환 URL 보안 강화 + 버그 수정 + 가이드 문서 | B-1/B-2 뺄그 수정, JWT Signed Request ConversionInit API, PlatformErrorCode E-CONV-601~603, GUIDE-001~004 | **현재 OPEN** |
 | **#117** | docs(dreamsecurity): 드림시큐리티 SSO 연동 종합 가이드 + 운영 심층 분석 | README.md v0.8.9, DELIVERABLES/INDEX 갱신, GUIDE-005 드림시큐리티 SSO 연동 가이드 신규 | **현재 OPEN** |
+| **#122** | feat(outbox-relay-batch): mTLS RestTemplate 완성 + 운영 배포 주의사항 문서 | BatchRestTemplateConfig mTLS, ProvisioningRelayJob mTLS 선택, OPS-001, INDEX v0.9.0 | ✅ Merged |
+| **#123** | feat(shipster): 심층 분석 + 전체 테스트 수정 + wiki 전면 업데이트 | ProvisioningServiceTest 6파라미터, HandoffControllerTest deprecated 수정, 939→1017 tests, ADR-013, GUIDE-006, OPS-002~003 | **현재 OPEN** |
+
+### 파일 수정 이력 (v0.9.2 Sprint 18 기준)
+
+| 파일 | 수정 내용 | PR |
+|------|-----------|-----|
+| **`build.gradle.kts`** | ADR-013 방법 B: `mockitoAgent` Configuration + `-javaagent` 명시 (JDK 24 대비 근본 해결) | #123 |
+| **`onepass-agency-sdk/build.gradle.kts`** | `sdkMockitoAgentConf` + SDK 전용 `-javaagent` 설정 (루트 충돌 회피) | #123 |
+| **`ido/.../auth/service/AuthService.java`** | TODO(S7-T6) Javadoc 정리 — 구현 완료 상태 명시 | #123 |
+| **`outbox-relay-batch/.../ProvisioningRelayJobTest.java`** | **신규** — 13개 단위 테스트 (B-01~13: enabled/empty/인증방식/오류처리/백오프) | #123 |
+| **`outbox-relay-batch/.../BatchRestTemplateConfigTest.java`** | **신규** — 7개 단위 테스트 (C-01~07: mTLS fallback/정상생성/타임아웃) | #123 |
+| **`wiki/adr/ADR-013-java-agent-migration.md`** | 상태 🔶 Proposed → ✅ 방법 B 적용 완료 | #123 |
+| **`wiki/INDEX.md`** | v0.9.2, 1017 tests, ADR-013 상태 갱신, ops/ 디렉토리 트리 추가 | #123 |
+| **`wiki/deliverables/DELIVERABLES.md`** | v0.9.2, 1017 tests, ADR-013 등재, PR #122/#123, 53+ 산출물 | #123 |
 
 ### 파일 수정 이력 (v0.8.9 기준)
 
@@ -235,13 +252,18 @@ wiki/
 │   ├── 02-conversion-param-security.md
 │   ├── 03-conversion-launch-sample.md
 │   ├── 04-conversion-data-flow-diagram.md
-│   └── 05-dreamsecurity-sso-integration.md  ← ★★ Turn 6 신규
+│   ├── 05-dreamsecurity-sso-integration.md  ← ★★ Turn 6 신규
+│   └── 06-agency-sso-integration-strategy.md ← ★★ Sprint 17 신규
+├── ops/                                  ← ★★ Sprint 17 신규
+│   ├── 01-production-deployment-guide.md
+│   ├── 02-project-completion-status.md
+│   └── 03-agency-support-runbook.md
 └── deliverables/
     └── DELIVERABLES.md                   ← 이 문서
 ```
 
-**총 Markdown 파일**: 24개 (v0.8.9 기준, guide/ 5편 포함)  
-**총 추정 분량**: 약 750~850 페이지 (A4 기준)
+**총 Markdown 파일**: 27개 (v0.9.2 기준, guide/ 6편 + ops/ 3편 + ADR-013 포함)  
+**총 추정 분량**: 약 900~1,000 페이지 (A4 기준)
 
 ---
 

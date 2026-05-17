@@ -25,7 +25,7 @@ import java.util.Map;
  *     headers.forEach(httpHeaders::add);
  *     HttpEntity<String> entity = new HttpEntity<>(body, httpHeaders);
  *     ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.resolve(method), entity, String.class);
- *     return GatewayResponse.of(resp.getStatusCodeValue(), resp.getBody(), null, null);
+ *     return GatewayResponse.of(resp.getStatusCode().value(), resp.getBody(), null, null);
  * };
  * }</pre>
  *
