@@ -57,6 +57,18 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>{@code @EnableScheduling}은 {@code IdoApplication} + {@code IdoWebConfig}에
  * 이미 선언되어 있어 별도 설정 불필요.
+ *
+ * <p><b>⚠️ 운영 전환 안내 — outbox-relay-batch 서비스 배포 시</b>:
+ * {@code outbox-relay-batch} 모듈이 운영 배포되면 이 인-프로세스 릴레이는
+ * Feature Flag으로 비활성화해야 이중 실행을 방지할 수 있습니다.
+ * <pre>
+ * # 비활성화 환경변수 (K8s ConfigMap 또는 .env 수정)
+ * IDO_OUTBOX_RELAY_ENABLED=false
+ * </pre>
+ * 단, {@code outbox-relay-batch} 서비스 중단 시 즉각 재활성화하여
+ * PENDING 레코드 처리 공백을 방지하십시오.
+ * 두 방식은 {@code FOR UPDATE SKIP LOCKED}로 동시 실행 시 안전하지만,
+ * 중복 락 경쟁 최소화를 위해 하나만 활성화를 권장합니다.
  */
 @Slf4j
 @Component

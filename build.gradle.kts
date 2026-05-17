@@ -119,6 +119,12 @@ project(":platform-common") {
     tasks.withType<Jar>     { enabled = true  }
 }
 
+// ── outbox-relay-batch: 실행 JAR 생성 (Spring Boot 플러그인 적용) ─────────────
+// ShedLock 분산 릴레이 배치 서비스 — 독립 배포 아티팩트
+project(":outbox-relay-batch") {
+    tasks.withType<Jar>     { enabled = true  }
+}
+
 // ── onepass-agency-sdk: Java 8 호환 라이브러리 — Spring Boot 플러그인/BOM 제외 ─
 // SDK는 JDK 버전 프리 설계: Spring 의존성 전이 없음, 자체 build.gradle.kts에서 타겟 설정
 project(":onepass-agency-sdk") {

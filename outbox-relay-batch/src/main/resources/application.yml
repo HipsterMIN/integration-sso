@@ -1,0 +1,208 @@
+server:
+  port: 8090
+  shutdown: graceful
+
+spring:
+  application:
+    name: outbox-relay-batch
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s   # 진행 중 Job 완료 대기
+
+  # ── Spring Boot 자동 DataSource/Flyway 비활성 ──────────────────────────────
+  # BatchDataSourceConfig / BatchFlywayConfig에서 수동 설정
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+
+  # ── Redis (ShedLock Primary Provider) ──────────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 5
+          max-idle: 3
+          min-idle: 1
+          max-wait: 1000ms
+
+  # ── Kafka Producer ──────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    properties:
+      security.protocol: PLAINTEXT
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 배치 서비스 전용 설정
+# ═══════════════════════════════════════════════════════════════════════════════
+
+batch:
+
+  # ── 멀티 DataSource ─────────────────────────────────────────────────────────
+  datasource:
+
+    # ── ido PostgreSQL (Primary) ───────────────────────────────────────────────
+    # 대상: ido.outbox, ido.provisioning_outbox, ido.webhook_dispatch_outbox, ido.shedlock
+    ido:
+      jdbc-url: jdbc:postgresql://${IDO_DB_HOST:localhost}:${IDO_DB_PORT:5432}/${IDO_DB_NAME:onepass}?currentSchema=ido
+      username: ${IDO_DB_USERNAME:onepass}
+      password: ${IDO_DB_PASSWORD:onepass}
+      driver-class-name: org.postgresql.Driver
+      # 배치는 순차 폴링 — 풀 크기 작게 유지
+      maximum-pool-size: 5
+      minimum-idle: 2
+      idle-timeout: 300000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+
+    # ── q-im MariaDB ────────────────────────────────────────────────────────────
+    # 대상: qim.outbox
+    qim:
+      jdbc-url: jdbc:mariadb://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:3306}/${QIM_DB_NAME:qim}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+      username: ${QIM_DB_USERNAME:qim}
+      password: ${QIM_DB_PASSWORD:qim}
+      driver-class-name: org.mariadb.jdbc.Driver
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 300000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+
+    # ── q-sign PostgreSQL ───────────────────────────────────────────────────────
+    # 대상: qsign.outbox
+    qsign:
+      jdbc-url: jdbc:postgresql://${QSIGN_DB_HOST:localhost}:${QSIGN_DB_PORT:5432}/${QSIGN_DB_NAME:onepass}?currentSchema=qsign
+      username: ${QSIGN_DB_USERNAME:onepass}
+      password: ${QSIGN_DB_PASSWORD:onepass}
+      driver-class-name: org.postgresql.Driver
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 300000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+
+  # ── HTTP 클라이언트 ─────────────────────────────────────────────────────────
+  http:
+    connect-timeout-ms: 3000
+    read-timeout-ms: 8000
+    max-connections-total: 100
+    max-connections-per-route: 20
+
+  # ── 릴레이 Job 설정 ─────────────────────────────────────────────────────────
+  relay:
+
+    # ── ido → Kafka (qsign.auth.events, 기타 토픽) ─────────────────────────────
+    ido:
+      kafka:
+        enabled: ${BATCH_IDO_KAFKA_RELAY_ENABLED:true}
+        interval-ms: ${BATCH_IDO_KAFKA_INTERVAL_MS:500}
+        batch-size: ${BATCH_IDO_KAFKA_BATCH_SIZE:100}
+        max-retry: ${BATCH_IDO_KAFKA_MAX_RETRY:3}
+        lock-at-most: ${BATCH_IDO_KAFKA_LOCK_MOST:10s}
+        lock-at-least: ${BATCH_IDO_KAFKA_LOCK_LEAST:400ms}
+
+      # ── ido → qim.user.events ──────────────────────────────────────────────
+      qim:
+        enabled: ${BATCH_IDO_QIM_RELAY_ENABLED:true}
+        interval-ms: ${BATCH_IDO_QIM_INTERVAL_MS:1000}
+        batch-size: ${BATCH_IDO_QIM_BATCH_SIZE:50}
+        max-retry: ${BATCH_IDO_QIM_MAX_RETRY:5}
+        lock-at-most: ${BATCH_IDO_QIM_LOCK_MOST:15s}
+        lock-at-least: ${BATCH_IDO_QIM_LOCK_LEAST:800ms}
+
+    # ── q-im → Kafka (qim.user.events) ─────────────────────────────────────────
+    qim:
+      kafka:
+        enabled: ${BATCH_QIM_KAFKA_RELAY_ENABLED:true}
+        interval-ms: ${BATCH_QIM_KAFKA_INTERVAL_MS:500}
+        batch-size: ${BATCH_QIM_KAFKA_BATCH_SIZE:100}
+        max-retry: ${BATCH_QIM_KAFKA_MAX_RETRY:5}
+        lock-at-most: ${BATCH_QIM_KAFKA_LOCK_MOST:10s}
+        lock-at-least: ${BATCH_QIM_KAFKA_LOCK_LEAST:400ms}
+        retry-interval-ms: ${BATCH_QIM_KAFKA_RETRY_INTERVAL_MS:30000}
+
+    # ── q-sign → Kafka (qsign.auth.events) ─────────────────────────────────────
+    qsign:
+      kafka:
+        enabled: ${BATCH_QSIGN_KAFKA_RELAY_ENABLED:true}
+        interval-ms: ${BATCH_QSIGN_KAFKA_INTERVAL_MS:500}
+        batch-size: ${BATCH_QSIGN_KAFKA_BATCH_SIZE:100}
+        max-retry: ${BATCH_QSIGN_KAFKA_MAX_RETRY:3}
+        topic: ${QSIGN_AUTH_EVENTS_TOPIC:qsign.auth.events}
+        lock-at-most: ${BATCH_QSIGN_KAFKA_LOCK_MOST:10s}
+        lock-at-least: ${BATCH_QSIGN_KAFKA_LOCK_LEAST:400ms}
+
+    # ── 프로비저닝 HTTP POST 릴레이 ────────────────────────────────────────────
+    provisioning:
+      enabled: ${BATCH_PROVISIONING_RELAY_ENABLED:true}
+      interval-ms: ${BATCH_PROVISIONING_INTERVAL_MS:30000}
+      batch-size: ${BATCH_PROVISIONING_BATCH_SIZE:50}
+      lock-at-most: ${BATCH_PROVISIONING_LOCK_MOST:120s}
+      lock-at-least: ${BATCH_PROVISIONING_LOCK_LEAST:25s}
+
+    # ── Webhook HTTPS POST 릴레이 ──────────────────────────────────────────────
+    webhook:
+      enabled: ${BATCH_WEBHOOK_RELAY_ENABLED:true}
+      interval-ms: ${BATCH_WEBHOOK_INTERVAL_MS:500}
+      batch-size: ${BATCH_WEBHOOK_BATCH_SIZE:50}
+      max-retry: ${BATCH_WEBHOOK_MAX_RETRY:3}
+      signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:}
+      lock-at-most: ${BATCH_WEBHOOK_LOCK_MOST:10s}
+      lock-at-least: ${BATCH_WEBHOOK_LOCK_LEAST:400ms}
+
+# ── Flyway (ido DataSource 전용 — V19 shedlock 테이블) ──────────────────────
+# BatchFlywayConfig에서 수동 설정. 자동 설정은 autoconfigure.exclude로 비활성.
+spring:
+  flyway:
+    enabled: false   # BatchFlywayConfig에서 수동 Bean으로 제어
+
+# ── ido 플랫폼 설정 (Webhook 헤더용) ────────────────────────────────────────
+ido:
+  platform-version: ${IDO_PLATFORM_VERSION:1.0}
+
+# ── Actuator ─────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true   # K8s liveness/readiness probe
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ── 로깅 ─────────────────────────────────────────────────────────────────────
+logging:
+  level:
+    kr.go.smes.batch: INFO
+    net.javacrumbs.shedlock: INFO
+    org.springframework.kafka: WARN
+    org.springframework.jdbc: WARN
+    org.flywaydb: INFO
+
+---
+# ── 로컬 개발 프로파일 ────────────────────────────────────────────────────────
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  # 로컬: Redis 없는 환경 — JDBC LockProvider로 전환 (ShedLockConfig Bean 순서 변경 불필요)
+  # BATCH_IDO_KAFKA_RELAY_ENABLED=false 등으로 특정 Job만 활성화 가능
+
+logging:
+  level:
+    kr.go.smes.batch: DEBUG
+    net.javacrumbs.shedlock: DEBUG
