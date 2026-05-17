@@ -277,6 +277,132 @@ com.tmax.jeus.util.engine.ServiceEngine                  → JEUS 4/5
 
 ---
 
+## 5-A. 전체 WAS 기술 매트릭스 (27개 WasType)
+
+> **이전 섹션 5는 JEUS 중심 매트릭스이며, 이 섹션은 27개 전체 WasType을 망라합니다.**
+
+### 5-A.1 WasType 전체 목록
+
+| WasType | displayName | JDK 요구 | Servlet | EE 표준 | 위빙 엔진 |
+|---------|------------|---------|---------|---------|----------|
+| `JEUS_LEGACY` | JEUS 4/5 (Legacy, JDK 1.4~1.5) | 1.4~1.5 | 2.3~2.4 | J2EE 1.3~1.4 | Javassist |
+| `JEUS_6` | JEUS 6 (JDK 1.5~1.7) | 1.5~1.7 | 2.5 | Java EE 5 | Javassist |
+| `JEUS_7` | JEUS 7 (JDK 1.6~1.8) | 1.6~1.8 | 3.0 | Java EE 6 | JDK 분기 |
+| `JEUS_8` | JEUS 8 (JDK 1.7~1.8) | 1.7~1.8 | 3.1 | Java EE 7 | JDK 분기 |
+| `JEUS_8_5` | JEUS 8.5 (JDK 8/11) | 8/11 | 4.0 | Java EE 8 | byte-buddy |
+| `JEUS_9_PLUS` | JEUS 9/21 (JDK 11+, Jakarta EE) | 11+ | 5.0~6.0 | Jakarta EE 9~10 | byte-buddy+jakarta |
+| `TOMCAT_LEGACY` | Tomcat 5.x/6.x (JDK 5~6, Servlet 2.4~2.5) | 5~6 | 2.4~2.5 | J2EE 1.4~Java EE 5 | Javassist |
+| `TOMCAT_7` | Tomcat 7.x (JDK 7+, Servlet 3.0) | 7+ | 3.0 | Java EE 6 | JDK 분기 |
+| `TOMCAT_8` | Tomcat 8.x/8.5 (JDK 8, Servlet 3.1) | 8 | 3.1 | Java EE 7 | byte-buddy |
+| `TOMCAT_9` | Tomcat 9.x (JDK 8+, Servlet 4.0) | 8+ | 4.0 | Java EE 8 | byte-buddy |
+| `TOMCAT_10_PLUS` | Tomcat 10+/11 (JDK 11+, jakarta.servlet) | 11+ | 5.0~6.1 | Jakarta EE 9~11 | byte-buddy+jakarta |
+| `TOMCAT` | Tomcat (버전 미감지, 기본) | 8+ | 3.x~5.x | — | byte-buddy |
+| `JBOSS_LEGACY` | JBoss AS 5/6 (JDK 6~7, Legacy) | 6~7 | 2.x~3.0 | J2EE~Java EE 6 | Javassist |
+| `JBOSS` | JBoss EAP 6/7 (JDK 8+) | 8+ | 3.x~4.x | Java EE 7~8 | byte-buddy |
+| `WILDFLY` | WildFly 27+ (JDK 11+, Jakarta EE) | 11+ | 5.0~6.0 | Jakarta EE 10 | byte-buddy+jakarta |
+| `WEBLOGIC_LEGACY` | WebLogic 10.x/11g/12c-early (JDK 6~7) | 6~7 | 2.x~3.0 | Java EE 5~6 | Javassist |
+| `WEBLOGIC` | WebLogic 12c(후기)/14c (JDK 8+) | 8+ | 3.x~4.x | Java EE 7~8 | byte-buddy |
+| `WEBSPHERE_LEGACY` | WebSphere 7.x/8.x (JDK 6~7) | 6~7 | 2.x~3.0 | Java EE 5~6 | Javassist |
+| `WEBSPHERE` | WebSphere Liberty / Open Liberty (JDK 8+) | 8+ | 3.1~6.0 | Java EE 7~Jakarta EE 10 | byte-buddy |
+| `GLASSFISH` | GlassFish 3/4 / Payara (JDK 7~8+) | 7~8+ | 3.0~4.0 | Java EE 6~7 | byte-buddy |
+| `GLASSFISH_JAKARTA` | GlassFish 6+/Payara 6+ (JDK 11+, Jakarta EE) | 11+ | 5.0~6.0 | Jakarta EE 9~10 | byte-buddy+jakarta |
+| `RESIN` | Caucho Resin (JDK 6+) | 6+ | 2.4~3.1 | Java EE 5~7 | byte-buddy |
+| `JETTY_LEGACY` | Jetty 7/8 (JDK 7, Servlet 3.0) | 7 | 3.0 | Java EE 6 | Javassist |
+| `JETTY` | Jetty 9~11 (JDK 8~11) | 8~11 | 3.1~4.0 | Java EE 7~8 | byte-buddy |
+| `JETTY_JAKARTA` | Jetty 12+ (JDK 17+, Jakarta EE 10) | 17+ | 6.0+ | Jakarta EE 10 | byte-buddy+jakarta |
+| `UNDERTOW` | Undertow Standalone | 8+ | 3.x~5.x | Java EE 7~Jakarta EE 9 | byte-buddy |
+| `UNKNOWN` | Unknown (Generic Fallback) | 8+ | — | — | byte-buddy (javax+jakarta) |
+
+### 5-A.2 WasType 유틸리티 메서드 매트릭스
+
+| WasType | isTomcat() | isJeus() | isJBoss() | isWebLogic() | isWebSphere() | isGlassFish() | isJetty() | isJakartaOnly() | isLegacyJavassist() | needsDualNamespace() |
+|---------|:-----------:|:--------:|:---------:|:------------:|:-------------:|:-------------:|:---------:|:---------------:|:--------------------:|:-------------------:|
+| `JEUS_LEGACY` | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| `JEUS_6` | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| `JEUS_7` | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `JEUS_8` | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `JEUS_8_5` | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `JEUS_9_PLUS` | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| `TOMCAT_LEGACY` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| `TOMCAT_7` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `TOMCAT_8` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `TOMCAT_9` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `TOMCAT_10_PLUS` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| `TOMCAT` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `JBOSS_LEGACY` | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| `JBOSS` | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `WILDFLY` | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| `WEBLOGIC_LEGACY` | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| `WEBLOGIC` | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `WEBSPHERE_LEGACY` | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| `WEBSPHERE` | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `GLASSFISH` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `GLASSFISH_JAKARTA` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `RESIN` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `JETTY_LEGACY` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ | ❌ |
+| `JETTY` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `JETTY_JAKARTA` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| `UNDERTOW` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `UNKNOWN` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+### 5-A.3 위빙 전략 매핑 테이블
+
+```
+WasType               → WeavingStrategy 구현체              → 위빙 엔진
+────────────────────────────────────────────────────────────────────────────────
+JEUS_LEGACY           → JeusLegacyWeavingStrategy            → Javassist
+JEUS_6                → Jeus6WeavingStrategy                  → Javassist
+JEUS_7, JEUS_8        → Jeus7PlusWeavingStrategy              → JDK 7: Javassist / JDK 8+: byte-buddy
+JEUS_8_5, JEUS_9_PLUS → Jeus8_5PlusWeavingStrategy            → byte-buddy (javax+jakarta)
+TOMCAT_LEGACY         → TomcatVersionedWeavingStrategy        → Javassist (ApplicationFilterChain)
+TOMCAT_7              → TomcatVersionedWeavingStrategy        → JDK7: Javassist / JDK8+: byte-buddy
+TOMCAT_8, TOMCAT_9    → TomcatVersionedWeavingStrategy        → byte-buddy (Valve + javax.Filter)
+TOMCAT_10_PLUS        → TomcatVersionedWeavingStrategy        → byte-buddy (jakarta.Filter 전용)
+TOMCAT                → TomcatVersionedWeavingStrategy        → byte-buddy (Valve + 이중 Filter)
+JBOSS_LEGACY          → LegacyJavassistWeavingStrategy        → Javassist (javax.Filter)
+WEBLOGIC_LEGACY       → LegacyJavassistWeavingStrategy        → Javassist (javax.Filter)
+WEBSPHERE_LEGACY      → LegacyJavassistWeavingStrategy        → Javassist (javax.Filter)
+JETTY_LEGACY          → LegacyJavassistWeavingStrategy        → Javassist (javax.Filter)
+RESIN                 → LegacyJavassistWeavingStrategy        → Javassist (javax.Filter)
+JBOSS, WILDFLY        → GenericFilterWeavingStrategy          → byte-buddy (javax+jakarta)
+WEBLOGIC              → GenericFilterWeavingStrategy          → byte-buddy (javax+jakarta)
+WEBSPHERE             → GenericFilterWeavingStrategy          → byte-buddy (javax+jakarta)
+GLASSFISH             → GenericFilterWeavingStrategy          → byte-buddy (javax.Filter)
+GLASSFISH_JAKARTA     → GenericFilterWeavingStrategy          → byte-buddy (jakarta.Filter)
+JETTY                 → GenericFilterWeavingStrategy          → byte-buddy (javax+jakarta)
+JETTY_JAKARTA         → GenericFilterWeavingStrategy          → byte-buddy (jakarta.Filter)
+UNDERTOW              → GenericFilterWeavingStrategy          → byte-buddy (javax+jakarta)
+UNKNOWN               → GenericFilterWeavingStrategy          → byte-buddy (Fallback)
+```
+
+### 5-A.4 javax ↔ jakarta 네임스페이스 전환점
+
+```
+Servlet 버전  5.0 (Jakarta EE 9) 이후부터 javax.servlet.* → jakarta.servlet.* 전환
+
+javax.servlet.* 마지막 버전:
+  JEUS 8.5       (Servlet 4.0)
+  Tomcat 9.x     (Servlet 4.0)
+  JBoss EAP 7.4  (Servlet 4.0)
+  WebLogic 14c   (Servlet 4.0)
+  Jetty 10.x     (Servlet 4.0)
+
+jakarta.servlet.* 시작 버전:
+  JEUS 9/21      (Servlet 5.0+)
+  Tomcat 10.x+   (Servlet 5.0+)
+  WildFly 27+    (Servlet 6.0)
+  GlassFish 6+   (Servlet 5.0+)
+  Jetty 11~12    (Servlet 5.0~6.0)
+
+이중 지원 (needsDualNamespace=true):
+  JEUS 8.5       - Servlet 4.0 이지만 Jakarta EE 8 호환 레이어 포함
+  JEUS 9_PLUS    - jakarta 기본, javax 호환 레이어
+  TOMCAT_10_PLUS - jakarta 전용 (javax 없음, 단 needsDualNamespace로 표시)
+  WEBSPHERE      - Liberty는 javax/jakarta 모두 지원
+```
+
+---
+
 ## 6. 컴포넌트 설계
 
 ### 6.1 패키지 구조

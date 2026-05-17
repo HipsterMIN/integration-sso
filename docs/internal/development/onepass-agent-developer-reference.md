@@ -314,6 +314,212 @@ void createForWebSphere_returnsWebSphereStrategy() {
 
 ---
 
+## 4-A. LegacyJavassistWeavingStrategy 패턴 가이드
+
+> **대상 WAS**: JBoss AS 5/6, WebLogic 10.x/11g/12c 초기, WebSphere 7/8, Jetty 7/8, Resin  
+> **공통점**: JDK 6~7 환경에서 byte-buddy 불가 → Javassist로 `javax.servlet.Filter#doFilter()` 위빙
+
+### 4-A.1 패턴 개요
+
+`LegacyJavassistWeavingStrategy`는 레거시 WAS(JDK 6~7) 공통 위빙 전략입니다.  
+WAS 종류에 무관하게 `javax.servlet.Filter#doFilter()`를 단일 위빙 포인트로 사용합니다.
+
+```java
+// 사용 패턴 (WeavingStrategyFactory)
+case JBOSS_LEGACY:
+case WEBLOGIC_LEGACY:
+case WEBSPHERE_LEGACY:
+case JETTY_LEGACY:
+case RESIN:
+    strategy = new LegacyJavassistWeavingStrategy(wasType, config, log);
+    break;
+```
+
+### 4-A.2 핵심 구현 구조
+
+```java
+public final class LegacyJavassistWeavingStrategy implements WeavingStrategy {
+
+    private static final String FILTER_JAVAX = "javax.servlet.Filter";
+    private static final String DO_FILTER    = "doFilter";
+
+    @Override
+    public void install(Instrumentation inst) {
+        // 1. System Property Bridge (JDK 1.4 호환 방식으로 설정 공유)
+        System.setProperty("onepass.agent.endpoint", config.endpoint());
+        System.setProperty("onepass.agent.api-key",  config.apiKey());
+        System.setProperty("onepass.agent.enabled",  String.valueOf(config.isEnabled()));
+        System.setProperty("onepass.was.type.detected", wasType.name());
+
+        // 2. Javassist 소스코드 문자열 생성 (JDK 1.4 호환 문법)
+        String beforeCode = buildFilterBeforeCode();
+
+        // 3. JavassistWeavingEngine 생성 및 설치
+        JavassistWeavingEngine engine = new JavassistWeavingEngine(log);
+        final String capturedBeforeCode = beforeCode;
+        
+        try {
+            engine.install(inst,
+                    new JavassistWeavingEngine.JavassistClassFileTransformer(log) {
+                        @Override
+                        public String targetClassName() { return FILTER_JAVAX; }
+
+                        @Override
+                        public String targetMethodName() { return DO_FILTER; }
+
+                        @Override
+                        public String buildInsertBeforeSource(
+                                String targetClassName, String targetMethodName) {
+                            return capturedBeforeCode;
+                        }
+                    });
+        } catch (Exception e) {
+            // Fail-Open: 위빙 실패 시 GenericFilterWeavingStrategy(byte-buddy) 폴백 시도
+            new GenericFilterWeavingStrategy(config, log).install(inst);
+        }
+    }
+}
+```
+
+### 4-A.3 Fail-Open 폴백 흐름
+
+```
+LegacyJavassistWeavingStrategy.install()
+    │
+    ├── Javassist 위빙 성공 → javax.servlet.Filter.doFilter() 위빙 완료
+    │
+    └── Javassist 위빙 실패 (예외 발생)
+            │
+            └── GenericFilterWeavingStrategy.install() 시도 (byte-buddy)
+                    │
+                    ├── byte-buddy 성공 → javax+jakarta 이중 위빙
+                    │
+                    └── byte-buddy도 실패 → 로그 출력 후 Agent 비활성 (WAS 기동 계속)
+```
+
+### 4-A.4 WAS별 특이사항 대응
+
+**JBoss AS 5/6 — 복잡한 클래스로더 계층**:
+```java
+// JBoss는 내부 Tomcat(jboss-web)을 사용하므로
+// javax.servlet.Filter가 jboss-web ClassLoader에 속함
+// ClassPool에 로더를 추가하는 JavassistClassFileTransformer가 자동 처리
+```
+
+**WebLogic — FilteringClassLoader**:
+```java
+// 위빙 성공해도 WAS 애플리케이션에서 Agent 클래스가 안 보일 수 있음
+// weblogic.xml에 prefer-application-packages 설정 필요 (운영 가이드 참고)
+```
+
+**WebSphere — IBM J9 JVM**:
+```java
+// IBM J9는 JVM TI 동작이 HotSpot과 다름
+// Javassist는 J9에서도 정상 동작 (byte-buddy는 불안정)
+// -Donepass.was.type=WEBSPHERE_LEGACY로 강제 지정 가능
+```
+
+---
+
+## 4-B. TomcatVersionedWeavingStrategy 내부 구조 가이드
+
+> **대상**: Tomcat 버전별(LEGACY/7/8/9/10+) 분기 위빙 전략
+
+### 4-B.1 버전별 분기 구조
+
+```java
+public void install(Instrumentation inst) {
+    int jdkMajor = WasDetector.getRuntimeJdkMajor();
+
+    switch (tomcatVersion) {
+        case TOMCAT_LEGACY:
+            installLegacyJavassist(inst, jdkMajor);  // Javassist → ApplicationFilterChain
+            break;
+        case TOMCAT_7:
+            installTomcat7(inst, jdkMajor);           // JDK 분기: Javassist or byte-buddy
+            break;
+        case TOMCAT_8:
+        case TOMCAT_9:
+            installTomcat8And9(inst);                 // byte-buddy: Valve + javax.Filter
+            break;
+        case TOMCAT_10_PLUS:
+            installTomcat10Plus(inst);                // byte-buddy: jakarta.Filter 전용
+            break;
+        default:
+            installTomcatDefault(inst);               // byte-buddy: Valve + 이중 Filter
+    }
+}
+```
+
+### 4-B.2 위빙 엔진 선택 기준
+
+| Tomcat 버전 | JDK | 위빙 엔진 | 위빙 포인트 | 이중 위빙 |
+|------------|-----|---------|-----------|---------|
+| 5.x/6.x | 5~6 | Javassist | `ApplicationFilterChain.internalDoFilter()` | ❌ |
+| 7.x | 7 | Javassist | `StandardContextValve.invoke()` | ❌ |
+| 7.x | 8+ | byte-buddy | Catalina Valve | ❌ |
+| 8.x/8.5 | 8 | byte-buddy | Catalina Valve + javax.Filter | ✅ |
+| 9.x | 8+ | byte-buddy | Catalina Valve + javax.Filter | ✅ |
+| 10.x/11 | 11+ | byte-buddy | jakarta.Filter 전용 | ❌ |
+| (미감지) | 8+ | byte-buddy | Catalina Valve + javax.Filter + jakarta.Filter | ✅✅ |
+
+### 4-B.3 System Property Bridge 패턴
+
+Javassist로 삽입된 코드는 Agent 클래스를 직접 참조할 수 없으므로,  
+`System.setProperty()`로 설정을 공유하고 삽입 코드에서 `System.getProperty()`로 읽습니다.
+
+```java
+// Agent 쪽 (JDK 8+에서 실행)
+System.setProperty("onepass.agent.endpoint", config.endpoint());
+System.setProperty("onepass.agent.api-key",  config.apiKey());
+System.setProperty("onepass.agent.enabled",  String.valueOf(config.isEnabled()));
+
+// Javassist 삽입 코드 (WAS JDK 환경에서 실행)
+String beforeCode =
+    "String _endpoint = System.getProperty(\"onepass.agent.endpoint\", \"\");" +
+    "String _apiKey   = System.getProperty(\"onepass.agent.api-key\", \"\");" +
+    "String _enabled  = System.getProperty(\"onepass.agent.enabled\", \"false\");";
+```
+
+### 4-B.4 Advice 공유 상태 관리
+
+byte-buddy Advice 클래스는 static 필드로 공유 상태를 관리합니다:
+
+```java
+// TomcatVersionedWeavingStrategy 내부
+static volatile OnePassHttpClient sharedHttpClient;  // volatile → 가시성 보장
+static volatile AgentConfig       sharedConfig;
+static volatile PrintStream        sharedLog;
+
+// install() 시점에 초기화
+public void install(Instrumentation inst) {
+    sharedHttpClient = new OnePassHttpClient(config);
+    sharedConfig     = config;
+    sharedLog        = log;
+    // ...
+}
+
+// Advice 클래스에서 참조
+public static class TomcatValveAdvice {
+    @Advice.OnMethodEnter(suppress = Throwable.class)
+    public static void onEnter(
+            @Advice.Argument(0) Object request,
+            @Advice.Argument(1) Object response) {
+        AgentConfig cfg = TomcatVersionedWeavingStrategy.sharedConfig;
+        if (cfg == null || !cfg.isEnabled()) return;
+        // ...
+    }
+}
+```
+
+> **⚠️ 주의**: `suppress = Throwable.class`로 Advice 예외를 자동 억제합니다.  
+> Advice에서 예외가 발생해도 WAS 요청 처리는 계속됩니다(Fail-Open).
+
+---
+
+
+---
+
 ## 5. 새 JEUS 버전 지원 추가
 
 JEUS 22 (가상)처럼 새 버전이 나올 때 대응하는 방법:

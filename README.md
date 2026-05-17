@@ -1,12 +1,12 @@
 # OnePass 통합인증 플랫폼 (Integration-SSO)
 
 **중소벤처기업부 중기원패스(OnePass) 통합인증 SSO 및 아이덴티티 관리 시스템** PoC/프리프로덕션 구현체.  
-**4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) 기반 EDA 아키텍처.
+**4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) + **OnePass Agency Java Agent** 기반 EDA 아키텍처.
 
-> **현재 버전: v0.8.8** — QIM-OUTBOX-SPEC-001 이벤트 정합화 + V18 DB 제약 + 전체 문서화 완료  
-> **빌드 상태**: `DOCKER_UNAVAILABLE=true ./gradlew :q-im:clean :q-im:test --no-daemon` → **BUILD SUCCESSFUL**  
-> **테스트**: `./gradlew :q-im:test` → **219개 통과, 30개 skipped** (q-im 기준; 전체 백엔드 단위 테스트 포함)  
-> **최신 PR**: [#109 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/109) — wiki/adr README 목차 | [#108 Merged](https://github.com/HipsterMIN/integration-sso/pull/108) — wiki 전체 문서화
+> **현재 버전: v0.8.9+Agent** — OnePass Agency Java Agent(27개 WAS 지원) + 멀티 WAS 테스트베드 추가  
+> **빌드 상태**: `./gradlew :onepass-agent:agentJar` → **BUILD SUCCESSFUL** (`onepass-agent-0.1.0-SNAPSHOT-all.jar`, ~10MB)  
+> **테스트**: `./gradlew :onepass-agent:test` → **131개 통과, 0 failures** (WasDetector, Config, HTTP, Weaving)  
+> **최신 PR**: [#127 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/127) — feat(agent): 멀티 WAS 지원 강화 + 문서화 + onepass-agent-testbed
 
 ---
 
@@ -22,20 +22,22 @@
 8. [Sprint 10: SLO FE 완성 + FE 기반](#sprint-10-slo-fe-완성--fe-기반)
 9. [S7-T2: NICE/OACX 본인인증 통합](#s7-t2-niceoacx-본인인증-통합)
 10. [Feature Flag 체계](#feature-flag-체계)
-11. [데이터베이스 구성](#데이터베이스-구성)
-12. [Kafka 토픽](#kafka-토픽)
-13. [보안 체계](#보안-체계)
-14. [Flyway 마이그레이션 현황](#flyway-마이그레이션-현황)
-15. [테스트 현황](#테스트-현황)
-16. [모니터링 인프라](#모니터링-인프라)
-17. [빠른 시작](#빠른-시작)
-18. [접속 URL](#접속-url)
-19. [개발 환경 설정](#개발-환경-설정)
-20. [전체 로드맵 & 개발 플랜](#전체-로드맵--개발-플랜)
-21. [팀별 개발 가이드](#팀별-개발-가이드)
-22. [코딩 컨벤션](#코딩-컨벤션)
-23. [문서 디렉토리](#문서-디렉토리)
-24. [Wiki 문서 목차](#wiki-문서-목차)
+11. [🆕 OnePass Agency Java Agent](#-onepass-agency-java-agent)
+12. [🆕 멀티 WAS 테스트베드](#-멀티-was-테스트베드)
+13. [데이터베이스 구성](#데이터베이스-구성)
+14. [Kafka 토픽](#kafka-토픽)
+15. [보안 체계](#보안-체계)
+16. [Flyway 마이그레이션 현황](#flyway-마이그레이션-현황)
+17. [테스트 현황](#테스트-현황)
+18. [모니터링 인프라](#모니터링-인프라)
+19. [빠른 시작](#빠른-시작)
+20. [접속 URL](#접속-url)
+21. [개발 환경 설정](#개발-환경-설정)
+22. [전체 로드맵 & 개발 플랜](#전체-로드맵--개발-플랜)
+23. [팀별 개발 가이드](#팀별-개발-가이드)
+24. [코딩 컨벤션](#코딩-컨벤션)
+25. [문서 디렉토리](#문서-디렉토리)
+26. [Wiki 문서 목차](#wiki-문서-목차)
 
 ---
 
@@ -593,6 +595,38 @@ integration-sso/
 │       │   └── MypageSideNav/    # 로그아웃 버튼
 │       └── pages/Mypage/pages/InformationStep3.tsx
 │
+├── onepass-agent/                # 🆕 OnePass Agency Java Agent (독립 fat-JAR)
+│   └── src/main/java/kr/go/smes/agent/
+│       ├── core/OnePassAgentMain.java      # JVM 진입점 (premain/agentmain)
+│       ├── config/AgentConfig.java         # 외부 설정 로더/검증기
+│       ├── was/
+│       │   ├── WasType.java               # 27개 WAS 유형 enum
+│       │   └── WasDetector.java           # 6단계 WAS 자동 감지
+│       ├── weaving/
+│       │   ├── WeavingStrategyFactory.java # WasType → 전략 팩토리
+│       │   ├── TomcatVersionedWeavingStrategy.java  # Tomcat 5~11 버전별
+│       │   ├── LegacyJavassistWeavingStrategy.java  # JBoss/WebLogic/WebSphere 레거시
+│       │   ├── GenericFilterWeavingStrategy.java    # Fallback (javax+jakarta)
+│       │   ├── engine/JavassistWeavingEngine.java   # JDK 1.3+ 호환 위빙 엔진
+│       │   └── jeus/                       # JEUS 버전별 전용 전략 4개
+│       └── http/OnePassHttpClient.java     # 순수 JDK HttpURLConnection
+│
+├── onepass-agent-testbed/        # 🆕 멀티 WAS Docker Compose 테스트베드
+│   ├── docker/
+│   │   ├── docker-compose.yml             # 7개 WAS 컨테이너 정의
+│   │   ├── Dockerfile.tomcat8/9/10        # Tomcat 버전별
+│   │   ├── Dockerfile.wildfly             # WildFly (jakarta)
+│   │   ├── Dockerfile.jetty               # Jetty
+│   │   └── Dockerfile.undertow/springboot
+│   ├── apps/
+│   │   ├── mock-onepass-server/           # 순수 JDK Mock SSO 서버
+│   │   └── sample-webapp/                 # 테스트 서블릿 (HealthServlet, ProtectedServlet)
+│   ├── config/onepass-agent.properties    # Agent 설정 템플릿
+│   ├── scripts/
+│   │   ├── run-all-tests.sh               # 7개 WAS 자동화 검증
+│   │   └── replace-agent.sh              # Agent JAR 교체 헬퍼
+│   └── README.md                          # 테스트베드 사용 가이드
+│
 └── infra/
     ├── docker/
     │   ├── docker-compose.yml
@@ -606,6 +640,157 @@ integration-sso/
     │   ├── loki/
     │   └── promtail/
     └── k6/                          # 부하 테스트
+```
+
+---
+
+## 🆕 OnePass Agency Java Agent
+
+> **모듈**: `onepass-agent/` | **아티팩트**: `onepass-agent-{version}-all.jar` (~10MB fat-JAR)  
+> **목적**: 유관기관 WAS에 **소스 코드 수정 없이** OnePass SSO를 적용하는 자바 에이전트  
+> **JDK 지원**: JDK 1.5(JEUS 4/5) ~ JDK 21+(Tomcat 11, WildFly 28+)  
+> **참고 문서**: [통합 가이드](./docs/onepass-agent-integration-guide.md) | [아키텍처](./docs/internal/architecture/onepass-agent-architecture.md) | [개발자 레퍼런스](./docs/internal/development/onepass-agent-developer-reference.md)
+
+### Agent 핵심 특징
+
+| 특징 | 설명 |
+|------|------|
+| **코드 수정 없음** | `-javaagent:` JVM 옵션만으로 SSO 적용 |
+| **27개 WAS 지원** | JEUS 4~21, Tomcat 5~11, JBoss, WildFly, WebLogic, WebSphere, GlassFish, Resin, Jetty, Undertow |
+| **이중 위빙 엔진** | JDK 1.5~7: Javassist 3.x / JDK 8+: byte-buddy 1.17.8 자동 선택 |
+| **6단계 WAS 감지** | 클래스패스→시스템프로퍼티→환경변수→JVM인수→파일시스템→오버라이드 |
+| **Fail-Open 정책** | 위빙 실패 시 WAS 기동 계속 (서비스 가용성 우선) |
+| **javax/jakarta 이중** | Servlet 5.0 전환 WAS(Tomcat 10+, WildFly 27+)에서 자동 분기 |
+
+### 빠른 설치 (Tomcat 9 예시)
+
+```bash
+# 1. Agent JAR 빌드
+./gradlew :onepass-agent:agentJar
+# → onepass-agent/build/libs/onepass-agent-0.1.0-SNAPSHOT-all.jar
+
+# 2. 설정 파일 작성
+cat > /opt/onepass/onepass-agent.properties << 'EOF'
+onepass.agent.endpoint=https://onepass.go.kr
+onepass.agent.api-key=<행정안전부 발급 API Key>
+onepass.agent.enabled=true
+EOF
+
+# 3. Tomcat JVM 옵션 추가 (catalina.sh 또는 setenv.sh)
+JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/onepass-agent-0.1.0-SNAPSHOT-all.jar=config=/opt/onepass/onepass-agent.properties"
+
+# 4. Tomcat 재시작 → 로그 확인
+# [OnePassAgent] WAS 유형 감지: Tomcat 9.x (JDK 8+, Servlet 4.0)
+# [OnePassAgent] 위빙 설치 완료: TomcatVersionedWeaving (TOMCAT_9)
+```
+
+### WAS별 지원 매트릭스
+
+| WAS | 버전 | JDK | Servlet | 위빙 엔진 | WasType |
+|-----|------|-----|---------|----------|---------|
+| **JEUS** | 4/5 | 1.4~1.5 | 2.3~2.4 | Javassist | `JEUS_LEGACY` |
+| **JEUS** | 6 | 1.5~1.7 | 2.5 | Javassist | `JEUS_6` |
+| **JEUS** | 7/8 | 1.6~1.8 | 3.0~3.1 | JDK 분기 | `JEUS_7`, `JEUS_8` |
+| **JEUS** | 8.5 | 8/11 | 4.0 | byte-buddy | `JEUS_8_5` |
+| **JEUS** | 9/21 | 11+ | 5.0+ | byte-buddy+jakarta | `JEUS_9_PLUS` |
+| **Tomcat** | 5.x/6.x | 5~6 | 2.4~2.5 | Javassist | `TOMCAT_LEGACY` |
+| **Tomcat** | 7.x | 7 | 3.0 | Javassist/BB | `TOMCAT_7` |
+| **Tomcat** | 8.x/8.5 | 8 | 3.1 | byte-buddy | `TOMCAT_8` |
+| **Tomcat** | 9.x | 8+ | 4.0 | byte-buddy | `TOMCAT_9` |
+| **Tomcat** | 10+/11 | 11+ | 5.0+ | byte-buddy+jakarta | `TOMCAT_10_PLUS` |
+| **JBoss** | EAP 5/6 | 6~7 | 2.x~3.0 | Javassist | `JBOSS_LEGACY` |
+| **JBoss** | EAP 7 | 8+ | 3.1 | byte-buddy | `JBOSS` |
+| **WildFly** | 27+ | 11+ | 5.0+ | byte-buddy+jakarta | `WILDFLY` |
+| **WebLogic** | 10.x/11g | 6~7 | 2.5~3.0 | Javassist | `WEBLOGIC_LEGACY` |
+| **WebLogic** | 12c/14c | 8+ | 3.1~4.0 | byte-buddy | `WEBLOGIC` |
+| **WebSphere** | 7/8 | 6~7 | 2.5~3.0 | Javassist | `WEBSPHERE_LEGACY` |
+| **WebSphere** | Liberty | 8+ | 3.1~6.0 | byte-buddy | `WEBSPHERE` |
+| **GlassFish** | 3/4/Payara | 7~8 | 3.0~3.1 | byte-buddy | `GLASSFISH` |
+| **GlassFish** | 6+/Payara 6+ | 11+ | 5.0+ | byte-buddy+jakarta | `GLASSFISH_JAKARTA` |
+| **Resin** | 3/4 | 6+ | 2.4~3.1 | byte-buddy | `RESIN` |
+| **Jetty** | 7/8 | 7 | 3.0 | Javassist | `JETTY_LEGACY` |
+| **Jetty** | 9~11 | 8~11 | 3.1~4.0 | byte-buddy | `JETTY` |
+| **Jetty** | 12+ | 17+ | 6.0+ | byte-buddy+jakarta | `JETTY_JAKARTA` |
+| **Undertow** | Standalone | 8+ | 3.x~5.x | byte-buddy | `UNDERTOW` |
+| **기타** | — | 8+ | — | byte-buddy (Fallback) | `UNKNOWN` |
+
+### WAS 수동 지정
+
+WAS 자동 감지가 실패하는 경우:
+```bash
+# JVM 옵션에 추가
+-Donepass.was.type=TOMCAT_9
+
+# 지원 값: JEUS_LEGACY, JEUS_6, JEUS_7, JEUS_8, JEUS_8_5, JEUS_9_PLUS
+#          TOMCAT_LEGACY, TOMCAT_7, TOMCAT_8, TOMCAT_9, TOMCAT_10_PLUS
+#          JBOSS_LEGACY, JBOSS, WILDFLY, WEBLOGIC_LEGACY, WEBLOGIC
+#          WEBSPHERE_LEGACY, WEBSPHERE, GLASSFISH, GLASSFISH_JAKARTA
+#          RESIN, JETTY_LEGACY, JETTY, JETTY_JAKARTA, UNDERTOW, UNKNOWN
+```
+
+### Agent 관련 문서
+
+| 문서 | 경로 | 설명 |
+|------|------|------|
+| 통합 가이드 | [`docs/onepass-agent-integration-guide.md`](./docs/onepass-agent-integration-guide.md) | 유관기관 개발자/관리자용 설치 가이드 |
+| 워크스루 | [`docs/onepass-agent-walkthrough.md`](./docs/onepass-agent-walkthrough.md) | 단계별 설치·검증 워크스루 |
+| 트러블슈팅 | [`docs/onepass-agent-troubleshooting.md`](./docs/onepass-agent-troubleshooting.md) | 문제 증상별 진단·해결 |
+| 문서 인덱스 | [`docs/onepass-agent-index.md`](./docs/onepass-agent-index.md) | Agent 전체 문서 목차 |
+| 아키텍처 설계서 | [`docs/internal/architecture/onepass-agent-architecture.md`](./docs/internal/architecture/onepass-agent-architecture.md) | 내부 아키텍처, 위빙 설계, 클래스로더 격리 |
+| 개발자 레퍼런스 | [`docs/internal/development/onepass-agent-developer-reference.md`](./docs/internal/development/onepass-agent-developer-reference.md) | 새 WAS 추가, Javassist/byte-buddy 코딩 가이드 |
+
+---
+
+## 🆕 멀티 WAS 테스트베드
+
+> **위치**: `onepass-agent-testbed/` | **목적**: Docker Compose로 7개 WAS에 Agent 동시 검증  
+> **참고**: [테스트베드 README](./onepass-agent-testbed/README.md)
+
+### 테스트베드 구성
+
+```
+onepass-agent-testbed/
+├── docker/docker-compose.yml    ← 7개 WAS + Mock OnePass Server
+├── apps/
+│   ├── mock-onepass-server/     ← 순수 JDK HttpServer 기반 Mock SSO
+│   └── sample-webapp/           ← 테스트 서블릿 (Health, Protected, Public)
+├── config/onepass-agent.properties
+└── scripts/
+    ├── run-all-tests.sh         ← 7개 WAS 자동화 검증 (기동확인/위빙/인증/차단)
+    └── replace-agent.sh         ← Agent JAR 핫 교체
+```
+
+### WAS 컨테이너 포트 매핑
+
+| WAS | 포트 | JDK | Servlet | WasType |
+|-----|------|-----|---------|---------|
+| Tomcat 8 | 8081 | JDK 8 | 3.1 | `TOMCAT_8` |
+| Tomcat 9 | 8082 | JDK 11 | 4.0 | `TOMCAT_9` |
+| Tomcat 10 | 8083 | JDK 17 | 5.0 | `TOMCAT_10_PLUS` |
+| WildFly 27 | 8084 | JDK 17 | 6.0 | `WILDFLY` |
+| Jetty 11 | 8085 | JDK 11 | 4.0 | `JETTY` |
+| Spring Boot (Undertow) | 8086 | JDK 17 | 5.0 | `UNDERTOW` |
+| Spring Boot (Tomcat) | 8087 | JDK 17 | 5.0 | `TOMCAT_10_PLUS` |
+| Mock OnePass Server | 9090 | JDK 11 | — | — |
+
+### 빠른 시작
+
+```bash
+# 1. Agent JAR 빌드 및 테스트베드에 복사
+./gradlew :onepass-agent:agentJar
+cd onepass-agent-testbed && ./scripts/replace-agent.sh
+
+# 2. 전체 WAS 기동
+cd docker && docker compose up -d
+
+# 3. 자동화 테스트 실행
+cd .. && ./scripts/run-all-tests.sh
+
+# 4. 특정 WAS만 테스트
+./scripts/run-all-tests.sh --only tomcat9
+
+# 5. 테스트 후 정리
+cd docker && docker compose down
 ```
 
 ---

@@ -581,6 +581,307 @@ echo "지원 정보가 수집됐습니다: $OUTPUT"
 echo "이 파일을 지원팀에 전달해 주세요."
 ```
 
+
+---
+
+## TS-11: IBM WebSphere IBM J9 JVM 관련 이슈
+
+### 증상
+
+```
+[WARN] [LegacyJavassist] WEBSPHERE_LEGACY Javassist 위빙 실패: ...
+또는
+byte-buddy AgentBuilder에서 ClassDefinitionException 발생
+```
+
+### 원인
+
+IBM WebSphere Application Server(특히 7.x/8.x)는 IBM J9 JVM을 사용합니다.  
+IBM J9 JVM은 Oracle HotSpot JVM과 JVM TI(Tool Interface) 구현이 다르므로 byte-buddy 동작에 차이가 있습니다.
+
+### 진단
+
+```bash
+# JVM 종류 확인
+java -version
+# IBM J9 출력 예시:
+# java version "1.8.0_391"
+# IBM J9 VM (build 2.9, JRE 1.8.0 AIX amd64-64 Compressed References ...)
+
+# JVM 타입 식별
+java -XshowSettings:all 2>&1 | grep -i "vm.name"
+```
+
+### 해결 방법
+
+**Step 1: WebSphere Legacy(Javassist) 위빙 강제 지정**
+
+```bash
+# JVM 옵션에 추가
+-Donepass.was.type=WEBSPHERE_LEGACY
+
+# WebSphere Liberty인 경우:
+# $WLP_HOME/usr/servers/<server-name>/jvm.options에 추가
+-Donepass.was.type=WEBSPHERE_LEGACY
+-javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties
+```
+
+기동 로그 확인:
+```
+[LegacyJavassist] WEBSPHERE_LEGACY Javassist 위빙 시작
+[LegacyJavassist] 위빙 포인트: javax.servlet.Filter#doFilter
+[LegacyJavassist] WEBSPHERE_LEGACY 위빙 설치 완료
+```
+
+**Step 2: OSGi 번들 ClassLoader 이슈 (WebSphere Liberty)**
+
+WebSphere Liberty는 OSGi 기반으로 각 번들마다 독립 ClassLoader를 사용합니다.  
+Agent가 특정 번들의 클래스를 찾지 못할 수 있습니다.
+
+```bash
+# server.xml에 패키지 가시성 설정 추가
+```
+
+```xml
+<!-- $WLP_HOME/usr/servers/<server-name>/server.xml -->
+<server>
+  <!-- OnePass Agent 클래스 번들 간 공유 -->
+  <classloading apiTypeVisibility="spec,ibm-api,api,third-party"/>
+  
+  <webApplication location="your-app.war">
+    <classloader delegation="parentFirst"/>
+  </webApplication>
+</server>
+```
+
+**Step 3: IBM J9 JVM에서 -Xshareclasses 비활성화**
+
+```bash
+# JVM 옵션에 추가 (공유 클래스 캐시가 Agent와 충돌하는 경우)
+-Xshareclasses:none
+```
+
+### 추가 참고
+
+| WebSphere 유형 | WasType | 위빙 엔진 | 권장 조치 |
+|---------------|---------|----------|---------|
+| WAS 7.x/8.x (IBM J9) | `WEBSPHERE_LEGACY` | Javassist | 자동 (또는 `-Donepass.was.type=WEBSPHERE_LEGACY`) |
+| Liberty (HotSpot) | `WEBSPHERE` | byte-buddy | 자동 적용 |
+| Liberty (IBM J9) | `WEBSPHERE` | byte-buddy | 문제 시 `WEBSPHERE_LEGACY` 강제 |
+| Open Liberty (JDK 17+) | `WEBSPHERE` | byte-buddy | 자동 적용 |
+
+---
+
+## TS-12: Oracle WebLogic FilteringClassLoader 이슈
+
+### 증상
+
+```
+[WARN] [GenericFilterAdvice] 토큰 검증 중 예외: ClassNotFoundException: kr.go.smes.agent.*
+또는
+Agent 클래스가 WAS 애플리케이션에서 보이지 않는 현상
+```
+
+### 원인
+
+Oracle WebLogic Server는 `FilteringClassLoader`를 사용하여 특정 패키지를 애플리케이션으로부터 격리합니다.  
+이로 인해 Agent 클래스(`kr.go.smes.agent.*`)나 byte-buddy 클래스(`net.bytebuddy.*`)가  
+WAS 애플리케이션 ClassLoader에서 보이지 않을 수 있습니다.
+
+### 진단
+
+```bash
+# WebLogic 버전 확인
+grep "WebLogic" $WL_HOME/server/lib/weblogic.jar 2>/dev/null || echo "WL_HOME 확인 필요"
+
+# 웹로직 로그에서 ClassLoader 오류 확인
+grep -i "ClassNotFoundException\|NoClassDefFoundError\|FilteringClassLoader" $DOMAIN_HOME/servers/*/logs/*.log
+```
+
+### 해결 방법
+
+**Step 1: weblogic.xml에 패키지 필터 설정**
+
+```xml
+<!-- WEB-INF/weblogic.xml -->
+<weblogic-web-app xmlns="http://xmlns.oracle.com/weblogic/weblogic-web-app">
+  <container-descriptor>
+    <!-- OnePass Agent 클래스가 앱에서 보이도록 허용 -->
+    <prefer-application-packages>
+      <package-name>kr.go.smes.agent.*</package-name>
+      <package-name>net.bytebuddy.*</package-name>
+      <package-name>javassist.*</package-name>
+    </prefer-application-packages>
+  </container-descriptor>
+</weblogic-web-app>
+```
+
+**Step 2: weblogic-application.xml 전역 설정**
+
+EAR 배포 시:
+```xml
+<!-- META-INF/weblogic-application.xml -->
+<weblogic-application xmlns="http://xmlns.oracle.com/weblogic/weblogic-application">
+  <prefer-application-packages>
+    <package-name>kr.go.smes.agent.*</package-name>
+    <package-name>net.bytebuddy.*</package-name>
+  </prefer-application-packages>
+</weblogic-application>
+```
+
+**Step 3: WebLogic 버전 강제 지정**
+
+WAS 감지가 잘못된 경우:
+```bash
+# JVM 옵션에 추가
+-Donepass.was.type=WEBLOGIC         # 12c 후기/14c (JDK 8+)
+-Donepass.was.type=WEBLOGIC_LEGACY  # 10.x/11g/12c 초기 (JDK 6~7)
+```
+
+**Step 4: WebLogic 12c에서 JDK 버전 혼용 주의**
+
+WebLogic 12.1.x는 JDK 7 기반이지만 일부 환경에서 JDK 8로 실행됩니다.  
+이 경우 Agent는 `WEBLOGIC_LEGACY`(Javassist)를 선택하지만, JDK 8에서는 `WEBLOGIC`(byte-buddy)도 가능합니다.
+
+```bash
+# JDK 8 + WebLogic 12c 초기 조합에서 강제 byte-buddy 사용
+-Donepass.was.type=WEBLOGIC
+```
+
+### WebLogic FilteringClassLoader 동작 원리
+
+```
+[WebLogic ClassLoader 계층]
+
+Bootstrap ClassLoader
+    └── System ClassLoader
+            └── WebLogic Boot ClassLoader
+                    └── WebLogic Domain ClassLoader (서버 레벨)
+                            └── Application ClassLoader ← 애플리케이션 코드
+                                    └── Web Application ClassLoader ← WAR 내부
+
+FilteringClassLoader: 상위 → 하위 로딩 시 특정 패키지를 필터링
+OnePass Agent JAR는 System ClassLoader 레벨에 있어야 함
+```
+
+**Agent JAR 배치 권장 위치**:
+```bash
+# WebLogic 서버 공유 라이브러리에 추가
+cp onepass-agent-all.jar $WL_HOME/server/lib/
+
+# 또는 DOMAIN_HOME/lib/에 추가 (도메인 레벨 공유)
+cp onepass-agent-all.jar $DOMAIN_HOME/lib/
+```
+
+---
+
+## TS-13: WasDetector 6단계 디버깅 가이드
+
+### WAS 감지 단계별 디버그 방법
+
+Agent가 WAS를 잘못 감지하거나 `UNKNOWN`을 반환하는 경우, 각 단계별로 디버그할 수 있습니다.
+
+**Step 1: 시스템 프로퍼티 오버라이드 확인**
+
+```bash
+# 로그에서 1단계 오버라이드 메시지 확인
+grep "오버라이드 적용" <WAS_LOG_FILE>
+# 예: [WasDetector] 오버라이드 적용: -Donepass.was.type=TOMCAT_9 → Tomcat 9.x
+```
+
+**Step 2: 클래스패스 탐색 결과 확인**
+
+```bash
+# 로그에서 2단계 클래스패스 감지 메시지 확인
+grep "클래스 감지\|공통 클래스 감지" <WAS_LOG_FILE>
+# 예: [WasDetector] Tomcat 9 감지 (javax.servlet.http.HttpServletMapping - Servlet 4.0)
+```
+
+**클래스패스에 WAS 클래스가 없는 경우** (임베디드 서버 등):
+```bash
+# JVM 클래스패스 출력
+java -verbose:class -cp . TestClass 2>&1 | grep "jeus\|catalina\|weblogic\|jboss" | head -20
+```
+
+**Step 3: 시스템 프로퍼티 확인**
+
+```bash
+# 현재 JVM 시스템 프로퍼티 확인
+# WAS 기동 스크립트에 임시 추가:
+-XshowSettings:properties
+
+# 주요 감지 키:
+# jeus.home, jeus.version, catalina.home, catalina.base
+# weblogic.Name, jboss.home.dir, jboss.server.base.dir
+# was.install.root, resin.home, com.sun.aas.instanceRoot
+```
+
+**Step 4: 환경 변수 확인**
+
+```bash
+# WAS 관련 환경 변수 확인
+env | grep -E "JEUS_HOME|CATALINA_HOME|JBOSS_HOME|WL_HOME|WAS_HOME|RESIN_HOME"
+```
+
+**Step 5: JVM 인수 / 클래스패스 문자열 스캔**
+
+WasDetector 5단계: `sun.java.command`와 `java.class.path` 패턴 분석.
+
+```bash
+# WAS 프로세스 정보에서 클래스패스 확인
+ps aux | grep java | grep -E "catalina|jeus|weblogic|jboss"
+```
+
+**Step 6: 파일시스템 힌트**
+
+```bash
+# WasDetector 6단계: /opt, /usr/local 내 WAS 홈 디렉토리 탐색
+ls /opt/tomcat* /opt/jeus* /opt/jboss* /usr/local/tomcat* 2>/dev/null
+```
+
+### 강제 오버라이드 정리
+
+```bash
+# WAS별 권장 WasType 값
+# JEUS 계열
+-Donepass.was.type=JEUS_LEGACY      # JEUS 4/5 (JDK 1.5)
+-Donepass.was.type=JEUS_6           # JEUS 6
+-Donepass.was.type=JEUS_7           # JEUS 7
+-Donepass.was.type=JEUS_8           # JEUS 8
+-Donepass.was.type=JEUS_8_5         # JEUS 8.5
+-Donepass.was.type=JEUS_9_PLUS      # JEUS 9/21
+
+# Tomcat 계열
+-Donepass.was.type=TOMCAT_LEGACY    # Tomcat 5/6
+-Donepass.was.type=TOMCAT_7         # Tomcat 7
+-Donepass.was.type=TOMCAT_8         # Tomcat 8/8.5
+-Donepass.was.type=TOMCAT_9         # Tomcat 9
+-Donepass.was.type=TOMCAT_10_PLUS   # Tomcat 10/10.1/11
+
+# JBoss/WildFly
+-Donepass.was.type=JBOSS_LEGACY     # JBoss AS 5/6
+-Donepass.was.type=JBOSS            # JBoss EAP 7
+-Donepass.was.type=WILDFLY          # WildFly 27+
+
+# WebLogic
+-Donepass.was.type=WEBLOGIC_LEGACY  # 10.x/11g/12c 초기
+-Donepass.was.type=WEBLOGIC         # 12c 후기/14c
+
+# WebSphere
+-Donepass.was.type=WEBSPHERE_LEGACY # 7.x/8.x (IBM J9)
+-Donepass.was.type=WEBSPHERE        # Liberty/Open Liberty
+
+# 기타
+-Donepass.was.type=GLASSFISH        # GlassFish 3/4, Payara 5
+-Donepass.was.type=GLASSFISH_JAKARTA # GlassFish 6+, Payara 6+
+-Donepass.was.type=RESIN            # Caucho Resin
+-Donepass.was.type=JETTY_LEGACY     # Jetty 7/8
+-Donepass.was.type=JETTY            # Jetty 9~11
+-Donepass.was.type=JETTY_JAKARTA    # Jetty 12+
+-Donepass.was.type=UNDERTOW         # Undertow Standalone
+-Donepass.was.type=UNKNOWN          # Generic Fallback (모든 Servlet WAS)
+```
+
 ---
 
 ## 오류 코드 참조표

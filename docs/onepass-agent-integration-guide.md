@@ -1,8 +1,9 @@
 # OnePass Agency Java Agent — 유관기관 개발자 통합 가이드
 
 > **문서 번호**: AGENT-GUIDE-001  
-> **문서 버전**: v1.0.0  
+> **문서 버전**: v1.1.0  
 > **작성일**: 2026-05-17  
+> **최종 수정**: 2026-05-17 — Tomcat 버전별 상세 가이드, WebSphere/WebLogic 설치 가이드 추가  
 > **대상 독자**: 유관기관 개발자 / 시스템 관리자 / 기술 담당자  
 > **사전 조건**: OnePass 행정안전부 담당자로부터 API Key를 발급받은 상태
 
@@ -19,14 +20,23 @@
    - 4.3 [JEUS 7/8 (JDK 1.6~1.8)](#43-jeus-78-jdk-16-18)
    - 4.4 [JEUS 8.5 (JDK 8/11)](#44-jeus-85-jdk-811)
    - 4.5 [JEUS 9/21 (JDK 11+, Jakarta EE)](#45-jeus-921-jdk-11-jakarta-ee)
-5. [Tomcat 설치 가이드](#5-tomcat-설치-가이드)
-6. [설정 파일 전체 옵션](#6-설정-파일-전체-옵션)
-7. [동작 검증 방법](#7-동작-검증-방법)
-8. [SSO 흐름 이해](#8-sso-흐름-이해)
-9. [보안 요구사항](#9-보안-요구사항)
-10. [운영 중 설정 변경](#10-운영-중-설정-변경)
-11. [제거(Uninstall)](#11-제거uninstall)
-12. [FAQ](#12-faq)
+5. [Tomcat 버전별 설치 가이드](#5-tomcat-버전별-설치-가이드)
+   - 5.1 [Tomcat 5.x/6.x (JDK 5~6, 레거시)](#51-tomcat-5x6x-jdk-5~6-레거시)
+   - 5.2 [Tomcat 7.x (JDK 7, Servlet 3.0)](#52-tomcat-7x-jdk-7-servlet-30)
+   - 5.3 [Tomcat 8.x/8.5 (JDK 8, Servlet 3.1)](#53-tomcat-8x85-jdk-8-servlet-31)
+   - 5.4 [Tomcat 9.x (JDK 8+, Servlet 4.0)](#54-tomcat-9x-jdk-8-servlet-40)
+   - 5.5 [Tomcat 10+/11 (JDK 11+, Jakarta EE)](#55-tomcat-1011-jdk-11-jakarta-ee)
+   - 5.6 [Spring Boot Embedded Tomcat](#56-spring-boot-embedded-tomcat)
+6. [JBoss/WildFly 설치 가이드](#6-jbosswildfly-설치-가이드)
+7. [Oracle WebLogic 설치 가이드](#7-oracle-weblogic-설치-가이드)
+8. [IBM WebSphere 설치 가이드](#8-ibm-websphere-설치-가이드)
+9. [설정 파일 전체 옵션](#9-설정-파일-전체-옵션)
+10. [동작 검증 방법](#10-동작-검증-방법)
+11. [SSO 흐름 이해](#11-sso-흐름-이해)
+12. [보안 요구사항](#12-보안-요구사항)
+13. [운영 중 설정 변경](#13-운영-중-설정-변경)
+14. [제거(Uninstall)](#14-제거uninstall)
+15. [FAQ](#15-faq)
 
 ---
 
@@ -80,15 +90,39 @@
 | JEUS 9 | JDK 11+ | 5.0 | ✅ **지원** | byte-buddy (Jakarta) |
 | JEUS 21 | JDK 21+ | 6.0 | ✅ **지원** | byte-buddy (Jakarta) |
 
-### 2.2 기타 WAS 지원 현황
+### 2.2 Tomcat 버전별 지원 현황
 
-| WAS | JDK 요구 | 지원 여부 |
-|-----|---------|---------|
-| Apache Tomcat 8.x+ | JDK 8+ | ✅ 지원 |
-| Apache Tomcat (Spring Boot Embedded) | JDK 8+ | ✅ 지원 |
-| JBoss EAP / WildFly | JDK 8+ | ✅ 지원 |
-| Oracle WebLogic 12c+ | JDK 8+ | ✅ 지원 |
-| Undertow | JDK 8+ | ✅ 지원 |
+| Tomcat 버전 | JDK 요구 | Servlet | 위빙 방식 | 위빙 포인트 |
+|------------|---------|---------|----------|-----------|
+| Tomcat 5.x | JDK 5~6 | 2.4 | Javassist | `ApplicationFilterChain.internalDoFilter()` |
+| Tomcat 6.x | JDK 5~6 | 2.5 | Javassist | `ApplicationFilterChain.internalDoFilter()` |
+| Tomcat 7.x | JDK 7+ | 3.0 | JDK 7: Javassist / JDK 8+: byte-buddy | `StandardContextValve.invoke()` |
+| Tomcat 8.x/8.5 | JDK 8+ | 3.1 | byte-buddy | `StandardHostValve.invoke()` + javax.Filter |
+| Tomcat 9.x | JDK 8+ | 4.0 | byte-buddy | `StandardHostValve.invoke()` + javax.Filter |
+| Tomcat 10.x | JDK 11+ | 5.0 | byte-buddy | `jakarta.servlet.Filter.doFilter()` |
+| Tomcat 10.1+ | JDK 11+ | 6.0 | byte-buddy | `jakarta.servlet.Filter.doFilter()` |
+| Tomcat 11 | JDK 21+ | 6.1 | byte-buddy | `jakarta.servlet.Filter.doFilter()` |
+
+> **⚠️ Tomcat 10+ 주의사항**: `javax.servlet.*`이 완전히 제거됩니다. Agent가 `jakarta.servlet.Filter`만 위빙합니다. 이전 Tomcat 9용 설정을 그대로 사용해도 Agent 자체는 자동 감지로 올바른 위빙을 적용합니다.
+
+### 2.3 기타 WAS 지원 현황
+
+| WAS | 버전 | JDK 요구 | 위빙 방식 | 특이사항 |
+|-----|------|---------|----------|---------|
+| JBoss AS | 5/6 (레거시) | JDK 6~7 | Javassist | `jboss-web` 클래스로더 계층 주의 |
+| JBoss EAP | 7.x | JDK 8+ | byte-buddy | Undertow 내장 |
+| WildFly | 27+ | JDK 11+ | byte-buddy (jakarta) | Jakarta EE 10 |
+| WebLogic | 10.x/11g/12c 초기 | JDK 6~7 | Javassist | FilteringClassLoader 주의 |
+| WebLogic | 12c(후기)/14c | JDK 8+ | byte-buddy | FilteringClassLoader 주의 |
+| WebSphere | 7.x/8.x | JDK 6~7 | Javassist | IBM J9 JVM 특화 주의 |
+| WebSphere Liberty | Liberty/Open | JDK 8+ | byte-buddy | OSGi 번들 ClassLoader |
+| GlassFish | 3/4, Payara 5 | JDK 7~8+ | byte-buddy | Grizzly NIO 기반 |
+| GlassFish | 6+, Payara 6+ | JDK 11+ | byte-buddy (jakarta) | — |
+| Resin | 3/4 | JDK 6+ | byte-buddy | 공공기관 간혹 사용 |
+| Jetty | 7/8 | JDK 7 | Javassist | `org.mortbay.jetty` 패키지 |
+| Jetty | 9~11 | JDK 8~11 | byte-buddy | — |
+| Jetty | 12+ | JDK 17+ | byte-buddy (jakarta) | — |
+| Undertow | Standalone | JDK 8+ | byte-buddy | JBoss/WildFly 내장과 구분 |
 
 ### 2.3 JEUS 4/5 (JDK 1.5) 제약사항
 
@@ -413,46 +447,311 @@ onepass.agent.log-level=INFO
 
 ---
 
-## 5. Tomcat 설치 가이드
+## 5. Tomcat 버전별 설치 가이드
 
-### Step 1: 설정 파일 생성
+### 5.1 Tomcat 5.x/6.x (JDK 5~6, 레거시)
 
-```properties
-# /opt/onepass/conf/onepass-agent.properties
-onepass.agent.endpoint=https://onepass.go.kr
-onepass.agent.api-key=op-agency-YOUR_AGENCY_CODE-YOUR_KEY
-onepass.agent.hmac-secret=YOUR_HMAC_SECRET
-```
-
-### Step 2: catalina.sh 또는 setenv.sh 수정
+> **위빙 방식**: Javassist / **위빙 포인트**: `ApplicationFilterChain.internalDoFilter()`
 
 ```bash
 # $CATALINA_HOME/bin/setenv.sh (없으면 생성)
 export CATALINA_OPTS="$CATALINA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+
+# ⚠️ 동적 어태치(agentmain) 불가 — 반드시 정적 어태치(-javaagent)만 사용
+# WAS 재시작 필수
 ```
 
-**Spring Boot Embedded Tomcat**:
-```bash
-# 기동 스크립트 또는 서비스 파일
-java \
-  -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties \
-  -jar your-application.jar
+**기동 로그 확인**:
+```
+[OnePassAgent] WAS 유형 감지: Tomcat 5.x/6.x (JDK 5~6, Servlet 2.4~2.5)
+[OnePassAgent] 위빙 설치 완료: TomcatVersionedWeaving (TOMCAT_LEGACY)
+[TomcatWeaving] Tomcat 5/6 Javassist 위빙 시작 (JDK 5)
 ```
 
-### Step 3: 재시작 및 확인
+**주의사항**:
+- `APR(Apache Portable Runtime)` 커넥터 사용 시 AJP 요청이 Filter 체인을 우회할 수 있음
+- JDK 5~6 환경이므로 byte-buddy 사용 불가, Javassist 위빙 자동 적용
+
+---
+
+### 5.2 Tomcat 7.x (JDK 7, Servlet 3.0)
+
+> **위빙 방식**: JDK 7 → Javassist / JDK 8+ → byte-buddy  
+> **위빙 포인트**: `StandardContextValve.invoke()` (JDK 7) / Catalina Valve (JDK 8+)
 
 ```bash
-$CATALINA_HOME/bin/shutdown.sh && $CATALINA_HOME/bin/startup.sh
-grep "OnePassAgent" $CATALINA_HOME/logs/catalina.out
-# 기대 출력:
-# [OnePassAgent] WAS 유형 감지: Tomcat
-# [OnePassAgent] 위빙 설치 완료: TomcatValveWeaving
+# $CATALINA_HOME/bin/setenv.sh
+export CATALINA_OPTS="$CATALINA_OPTS \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+```
+
+**JDK 버전 확인**:
+```bash
+java -version
+# JDK 7: Javassist 위빙 → StandardContextValve.invoke() 대상
+# JDK 8+: byte-buddy 위빙 → Catalina Valve 대상
+```
+
+**기동 로그**:
+```
+# JDK 7 환경:
+[TomcatWeaving] Tomcat 7 + JDK 7 → Javassist StandardContextValve 위빙
+# JDK 8 환경:
+[TomcatWeaving] Tomcat 7 + JDK 8+ → byte-buddy Catalina Valve 위빙
 ```
 
 ---
 
-## 6. 설정 파일 전체 옵션
+### 5.3 Tomcat 8.x/8.5 (JDK 8, Servlet 3.1)
+
+> **위빙 방식**: byte-buddy (Catalina Valve + javax.servlet.Filter 이중)  
+> **위빙 포인트**: `StandardHostValve.invoke()` + `javax.servlet.Filter.doFilter()`
+
+```bash
+# $CATALINA_HOME/bin/setenv.sh
+export CATALINA_OPTS="$CATALINA_OPTS \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+```
+
+**기동 로그**:
+```
+[OnePassAgent] WAS 유형 감지: Tomcat 8.x/8.5 (JDK 8, Servlet 3.1)
+[TomcatWeaving] Tomcat 8/9 byte-buddy 위빙 (Valve + javax.servlet.Filter)
+[TomcatWeaving] Catalina Valve 위빙 완료
+[TomcatWeaving] javax.servlet.Filter 위빙 완료
+```
+
+**Spring Boot 1.x/2.x Embedded Tomcat (Tomcat 8.5 기반)**:
+```bash
+java \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties \
+  -jar your-spring-boot-app.jar
+```
+
+---
+
+### 5.4 Tomcat 9.x (JDK 8+, Servlet 4.0)
+
+> **위빙 방식**: byte-buddy (Catalina Valve + javax.servlet.Filter 이중)  
+> **javax 네임스페이스 마지막 버전** — Tomcat 9가 `javax.servlet.*` 최종 지원
+
+```bash
+# $CATALINA_HOME/bin/setenv.sh
+export CATALINA_OPTS="$CATALINA_OPTS \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+```
+
+**기동 로그**:
+```
+[OnePassAgent] WAS 유형 감지: Tomcat 9.x (JDK 8+, Servlet 4.0)
+[TomcatWeaving] Tomcat 8/9 byte-buddy 위빙 (Valve + javax.servlet.Filter)
+[OnePassAgent] 위빙 설치 완료: TomcatVersionedWeaving (TOMCAT_9)
+```
+
+---
+
+### 5.5 Tomcat 10+/11 (JDK 11+, Jakarta EE)
+
+> **⚠️ 중요**: Tomcat 10부터 `javax.servlet.*`이 **완전히 제거**됩니다.  
+> Agent가 `jakarta.servlet.Filter`**만** 위빙합니다. javax 위빙 시도 불필요.
+
+**버전별 JDK 요구사항**:
+```
+Tomcat 10.0/10.1: JDK 11+
+Tomcat 11:        JDK 21+
+```
+
+```bash
+# $CATALINA_HOME/bin/setenv.sh
+export CATALINA_OPTS="$CATALINA_OPTS \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+```
+
+**기동 로그**:
+```
+[OnePassAgent] WAS 유형 감지: Tomcat 10+/11 (JDK 11+, jakarta.servlet)
+[TomcatWeaving] Tomcat 10+ byte-buddy 위빙 (jakarta.servlet.Filter 전용)
+[TomcatWeaving] Tomcat 10+ jakarta.servlet.Filter 위빙 완료
+```
+
+**업그레이드 주의사항**:
+```
+Tomcat 9 → Tomcat 10 업그레이드 시:
+- 업무 코드의 import javax.servlet.* → import jakarta.servlet.* 변경 필요
+- Agent 설정 파일은 변경 없음 (자동 감지)
+```
+
+---
+
+### 5.6 Spring Boot Embedded Tomcat
+
+Spring Boot 버전에 따라 내장 Tomcat 버전이 다릅니다:
+
+| Spring Boot | 내장 Tomcat | Servlet | WasType |
+|-------------|-----------|---------|---------|
+| 1.x | 8.5.x | 3.1 | `TOMCAT_8` |
+| 2.x | 9.0.x | 4.0 | `TOMCAT_9` |
+| 3.x | 10.1.x | 6.0 | `TOMCAT_10_PLUS` |
+
+```bash
+# JAR 실행 시
+java \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties \
+  -jar your-spring-boot-app.jar
+
+# systemd 서비스 파일 예시
+[Service]
+Environment=JAVA_OPTS="-javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/app/app.jar
+```
+
+---
+
+## 6. JBoss/WildFly 설치 가이드
+
+### 6.1 JBoss EAP 7.x (JDK 8+)
+
+```bash
+# $JBOSS_HOME/bin/standalone.conf (또는 domain.conf)
+JAVA_OPTS="$JAVA_OPTS \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+
+# 또는 domain.xml의 JVM 설정에 추가
+```
+
+**기동 로그**:
+```
+[OnePassAgent] WAS 유형 감지: JBoss EAP 6/7 (JDK 8+)
+[OnePassAgent] 위빙 설치 완료: GenericServletFilterWeaving
+```
+
+### 6.2 WildFly 27+ (JDK 11+, Jakarta EE)
+
+```bash
+# $WILDFLY_HOME/bin/standalone.conf
+JAVA_OPTS="$JAVA_OPTS \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+```
+
+**기동 로그**:
+```
+[OnePassAgent] WAS 유형 감지: WildFly 27+ (JDK 11+, Jakarta EE)
+[OnePassAgent] 위빙 설치 완료: GenericServletFilterWeaving (javax + jakarta 이중 지원)
+```
+
+---
+
+## 7. Oracle WebLogic 설치 가이드
+
+> **⚠️ WebLogic Filtering ClassLoader 주의**: WebLogic은 특정 패키지를 필터링하는 클래스로더를 사용합니다. Agent 클래스와 WAS 클래스 간 가시성 이슈가 발생할 수 있습니다.
+
+### 7.1 WebLogic 12c(후기)/14c (JDK 8+)
+
+```bash
+# $DOMAIN_HOME/bin/setDomainEnv.sh
+JAVA_OPTIONS="${JAVA_OPTIONS} \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+```
+
+**WebLogic 클래스로더 설정** (`weblogic.xml` 추가):
+```xml
+<weblogic-web-app>
+  <container-descriptor>
+    <!-- OnePass Agent 클래스가 WAS 내부에서 보이도록 필터 제외 -->
+    <prefer-application-packages>
+      <package-name>kr.go.smes.agent.*</package-name>
+    </prefer-application-packages>
+  </container-descriptor>
+</weblogic-web-app>
+```
+
+**기동 로그**:
+```
+[OnePassAgent] WAS 유형 감지: WebLogic 12c(후기)/14c (JDK 8+)
+[OnePassAgent] 위빙 설치 완료: GenericServletFilterWeaving
+```
+
+### 7.2 WebLogic 10.x/11g/12c 초기 (JDK 6~7, 레거시)
+
+```bash
+# $DOMAIN_HOME/bin/setDomainEnv.sh
+JAVA_OPTIONS="${JAVA_OPTIONS} \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+```
+
+**기동 로그**:
+```
+[OnePassAgent] WAS 유형 감지: WebLogic 10.x/11g/12c-early (JDK 6~7)
+[LegacyJavassist] WEBLOGIC_LEGACY Javassist 위빙 시작
+```
+
+**문제 발생 시 수동 지정**:
+```bash
+# JVM 옵션에 추가
+-Donepass.was.type=WEBLOGIC         # 12c 후기/14c
+-Donepass.was.type=WEBLOGIC_LEGACY  # 10.x/11g/12c 초기
+```
+
+---
+
+## 8. IBM WebSphere 설치 가이드
+
+> **⚠️ IBM J9 JVM 특화 주의**: IBM WebSphere는 기본적으로 Oracle HotSpot이 아닌 IBM J9 JVM을 사용합니다. JVM TI(Tool Interface) 동작이 HotSpot과 다를 수 있습니다.
+
+### 8.1 WebSphere Liberty / Open Liberty (JDK 8+)
+
+```bash
+# server.xml의 jvmOptions 또는 jvm.options 파일에 추가
+# $WLP_HOME/usr/servers/<server-name>/jvm.options
+-javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties
+```
+
+**또는 server.env 파일**:
+```bash
+# $WLP_HOME/usr/servers/<server-name>/server.env
+JVM_ARGS=-javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties
+```
+
+**기동 로그**:
+```
+[OnePassAgent] WAS 유형 감지: WebSphere Liberty / Open Liberty (JDK 8+)
+[OnePassAgent] 위빙 설치 완료: GenericServletFilterWeaving (javax + jakarta 이중 지원)
+```
+
+### 8.2 WebSphere Application Server 7/8 (JDK 6~7, 레거시)
+
+```bash
+# WebSphere 관리 콘솔 → 서버 → JVM 설정 → 일반 JVM 인수 추가:
+-javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties
+```
+
+**또는 startServer.sh 스크립트 수정**:
+```bash
+# $WAS_HOME/bin/startServer.sh
+JAVA_OPTS="$JAVA_OPTS \
+  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+```
+
+**기동 로그**:
+```
+[OnePassAgent] WAS 유형 감지: WebSphere 7.x/8.x (JDK 6~7)
+[LegacyJavassist] WEBSPHERE_LEGACY Javassist 위빙 시작
+[LegacyJavassist] 위빙 포인트: javax.servlet.Filter#doFilter
+```
+
+**IBM J9 JVM 특이사항**:
+```
+IBM J9 JVM에서 byte-buddy 1.17.x는 JVM TI 인터페이스 차이로 인해
+동작이 다를 수 있습니다. WebSphere Legacy(7/8)는 Javassist가 적용되므로
+이 문제를 우회합니다.
+WebSphere Liberty(JDK 8+)에서 byte-buddy 사용 시 문제가 발생하면:
+-Donepass.was.type=WEBSPHERE_LEGACY 로 Javassist fallback을 강제 지정합니다.
+```
+
+---
+
+## 9. 설정 파일 전체 옵션
 
 ```properties
 # ============================================================
@@ -495,7 +794,7 @@ onepass.agent.log-level=INFO
 
 ---
 
-## 7. 동작 검증 방법
+## 10. 동작 검증 방법
 
 ### 7.1 기동 로그 확인 (가장 기본)
 
@@ -545,7 +844,7 @@ Agent는 WAS 기동 30초 후 OnePass 서버 연결을 확인합니다:
 
 ---
 
-## 8. SSO 흐름 이해
+## 11. SSO 흐름 이해
 
 ### 8.1 전체 SSO 흐름
 
@@ -588,7 +887,7 @@ Agent는 WAS 기동 30초 후 OnePass 서버 연결을 확인합니다:
 
 ---
 
-## 9. 보안 요구사항
+## 12. 보안 요구사항
 
 ### 9.1 필수 보안 조치
 
@@ -623,7 +922,7 @@ Agent는 WAS 기동 30초 후 OnePass 서버 연결을 확인합니다:
 
 ---
 
-## 10. 운영 중 설정 변경
+## 13. 운영 중 설정 변경
 
 > **주의**: 설정 변경은 WAS 재시작 후 적용됩니다.
 
@@ -654,7 +953,7 @@ onepass.agent.max-retry=3
 
 ---
 
-## 11. 제거(Uninstall)
+## 14. 제거(Uninstall)
 
 ### Step 1: JVM 옵션에서 -javaagent 제거
 
@@ -677,7 +976,7 @@ rm -rf /opt/onepass/
 
 ---
 
-## 12. FAQ
+## 15. FAQ
 
 **Q1. JEUS 4를 사용하고 있는데 JDK 1.5입니다. SSO Agent가 정말 동작하나요?**
 

@@ -725,3 +725,253 @@ WAS 설정
 [ ] 유효 토큰 요청 → 200 확인
 [ ] 헬스체크 로그 확인
 ```
+---
+
+## WK-12: 멀티 WAS Docker 테스트베드 워크스루
+
+> **목적**: 실제 운영 배포 전, Docker Compose로 7개 WAS에 Agent를 동시에 검증합니다.  
+> **위치**: 프로젝트 루트의 `onepass-agent-testbed/` 디렉토리  
+> **사전 조건**: Docker, Docker Compose 설치됨
+
+### 12-1. 테스트베드 준비
+
+```bash
+# 프로젝트 루트에서 실행
+
+# 1. Agent JAR 최신 빌드
+./gradlew :onepass-agent:agentJar
+
+# 빌드 결과 확인
+ls -la onepass-agent/build/libs/
+# onepass-agent-0.1.0-SNAPSHOT-all.jar  (~10MB)
+
+# 2. Agent JAR을 테스트베드에 복사
+cd onepass-agent-testbed
+./scripts/replace-agent.sh
+
+# 기대 출력:
+# [replace-agent] Agent JAR 탐색 중...
+# [replace-agent] 발견: ../onepass-agent/build/libs/onepass-agent-0.1.0-SNAPSHOT-all.jar
+# [replace-agent] agent/ 디렉토리에 복사 완료
+# [replace-agent] 심볼릭 링크 갱신: onepass-agent-current.jar
+```
+
+### 12-2. Mock OnePass Server 확인
+
+```bash
+# docker-compose.yml이 있는 디렉토리에서 실행
+cd docker
+
+# Mock 서버만 먼저 기동하여 동작 확인
+docker compose up -d mock-onepass-server
+
+# 기동 대기 (약 10초)
+sleep 10
+
+# Mock 서버 헬스체크
+curl http://localhost:9090/health
+# 기대: {"status":"UP","service":"MockOnePassServer","version":"1.0.0"}
+
+# Mock 서버 통계 확인
+curl http://localhost:9090/admin/stats
+# 기대: {"totalRequests":0,"successCount":0,"failCount":0,...}
+
+# 유효 토큰 테스트
+curl -X POST http://localhost:9090/api/agent/verify \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: test-api-key" \
+  -d '{"token":"valid-test-token"}'
+# 기대: HTTP 200
+
+# 무효 토큰 테스트
+curl -X POST http://localhost:9090/api/agent/verify \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: test-api-key" \
+  -d '{"token":"invalid-token"}' -o /dev/null -w "%{http_code}"
+# 기대: 401
+```
+
+### 12-3. 전체 WAS 기동
+
+```bash
+# docker/ 디렉토리에서 실행
+cd docker
+
+# 전체 WAS 기동 (7개 WAS + Mock 서버)
+docker compose up -d
+
+# 기동 상태 확인 (모두 healthy 상태 대기)
+docker compose ps
+
+# 예시 출력:
+# NAME              STATUS              PORTS
+# mock-onepass      running (healthy)   0.0.0.0:9090->9090/tcp
+# tomcat8           running (healthy)   0.0.0.0:8081->8080/tcp
+# tomcat9           running (healthy)   0.0.0.0:8082->8080/tcp
+# tomcat10          running (healthy)   0.0.0.0:8083->8080/tcp
+# wildfly27         running (healthy)   0.0.0.0:8084->8080/tcp
+# jetty11           running (healthy)   0.0.0.0:8085->8080/tcp
+# springboot-u      running (healthy)   0.0.0.0:8086->8080/tcp
+# springboot-t      running (healthy)   0.0.0.0:8087->8080/tcp
+```
+
+### 12-4. WAS별 Agent 기동 로그 확인
+
+```bash
+# Tomcat 9 Agent 로그 확인
+docker compose logs tomcat9 | grep -E "OnePassAgent|WasDetector|TomcatWeaving"
+
+# 기대 출력:
+# [OnePassAgent] ╔══════════════════════════════╗
+# [OnePassAgent] ║  OnePass Agency Java Agent   ║
+# [OnePassAgent] 초기화 시작
+# [WasDetector] Tomcat 공통 클래스 감지 → 버전 판별 시작
+# [WasDetector] Tomcat 9 감지 (javax.servlet.http.HttpServletMapping - Servlet 4.0)
+# [OnePassAgent] WAS 유형 감지: Tomcat 9.x (JDK 8+, Servlet 4.0)
+# [WeavingFactory] WAS=Tomcat 9.x → 전략=TomcatVersionedWeaving (TOMCAT_9)
+# [TomcatWeaving] Tomcat 8/9 byte-buddy 위빙 (Valve + javax.servlet.Filter)
+# [OnePassAgent] 위빙 설치 완료: TomcatVersionedWeaving (TOMCAT_9)
+# [OnePassAgent] 초기화 완료. WAS=Tomcat 9.x / 전략=TomcatVersionedWeaving
+
+# Tomcat 10 (jakarta) 로그 확인
+docker compose logs tomcat10 | grep -E "OnePassAgent|WasDetector|TomcatWeaving"
+# [WasDetector] Tomcat 10+ 감지 (jakarta.servlet 전용)
+# [TomcatWeaving] Tomcat 10+ byte-buddy 위빙 (jakarta.servlet.Filter 전용)
+
+# WildFly 27 로그 확인
+docker compose logs wildfly27 | grep -E "OnePassAgent|WasDetector"
+# [WasDetector] WildFly 감지: org.wildfly.extension.undertow.UndertowService
+# [OnePassAgent] WAS 유형 감지: WildFly 27+ (JDK 11+, Jakarta EE)
+```
+
+### 12-5. 자동화 테스트 실행
+
+```bash
+# onepass-agent-testbed/ 루트에서 실행
+
+# 전체 WAS 자동화 테스트
+./scripts/run-all-tests.sh
+
+# 테스트 진행 상황 예시:
+# ===== Tomcat 8 테스트 =====
+# [PASS] 기동 확인: HTTP 200 (port 8081)
+# [PASS] Agent 로그: 위빙 완료 확인
+# [PASS] 위빙 전략: TomcatVersionedWeaving (TOMCAT_8)
+# [PASS] 미인증 차단: 토큰 없는 요청 → 401
+# [PASS] 유효 토큰: valid-test-token → 200
+# [PASS] 무효 토큰: invalid-token → 401
+# [PASS] Mock 서버 통계: verifyCount=3
+# Tomcat 8: 7/7 PASS
+
+# 특정 WAS만 테스트
+./scripts/run-all-tests.sh --only tomcat9
+
+# 특정 WAS 제외
+./scripts/run-all-tests.sh --skip wildfly27
+
+# 테스트 리포트 저장
+./scripts/run-all-tests.sh --report /tmp/agent-test-report.txt
+
+# 타임아웃 조정 (기본 120초)
+./scripts/run-all-tests.sh --timeout 180
+```
+
+### 12-6. 수동 검증 (curl)
+
+```bash
+# Tomcat 9 (포트 8082) 수동 검증
+BASE=http://localhost:8082
+
+# 1. 헬스체크 (인증 제외 경로)
+curl $BASE/health
+# 기대: HTTP 200
+
+# 2. 공개 경로 (인증 제외)
+curl $BASE/public/info
+# 기대: HTTP 200
+
+# 3. 보호 경로 - 토큰 없음 (차단)
+curl $BASE/protected -o /dev/null -w "%{http_code}"
+# 기대: 401
+
+# 4. 보호 경로 - 유효 토큰
+curl $BASE/protected -H "Authorization: Bearer valid-test-token"
+# 기대: HTTP 200 {"authenticated":true,...}
+
+# 5. 보호 경로 - 무효 토큰
+curl $BASE/protected -H "Authorization: Bearer invalid-token" -o /dev/null -w "%{http_code}"
+# 기대: 401
+```
+
+### 12-7. Agent JAR 교체 후 재검증
+
+새 버전의 Agent JAR을 빌드하고 실행 중인 WAS에 적용합니다:
+
+```bash
+# 1. 새 버전 빌드
+./gradlew :onepass-agent:agentJar
+
+# 2. 테스트베드에 교체
+cd onepass-agent-testbed
+./scripts/replace-agent.sh
+
+# 특정 컨테이너만 재시작하여 교체
+./scripts/replace-agent.sh --restart tomcat9
+# [replace-agent] 컨테이너 'tomcat9' 재시작 중...
+# [replace-agent] 재시작 완료 (약 10초 대기)
+
+# 3. 재시작 후 검증
+docker compose logs tomcat9 --since 30s | grep OnePassAgent
+
+# 4. 전체 테스트 재실행
+./scripts/run-all-tests.sh
+```
+
+### 12-8. 테스트베드 정리
+
+```bash
+cd onepass-agent-testbed/docker
+
+# 컨테이너 중지 및 삭제
+docker compose down
+
+# 이미지까지 삭제 (완전 초기화)
+docker compose down --rmi all --volumes
+
+# 특정 WAS만 중지
+docker compose stop tomcat8 tomcat9
+```
+
+---
+
+## 워크스루 완료 체크리스트 (최신)
+
+```
+설치 완료 체크리스트:
+
+환경 확인
+[ ] JDK 버전 확인
+[ ] WAS 버전 확인 (JEUS/Tomcat/WebLogic 등)
+[ ] 네트워크 연결 확인 (OnePass 서버 접근)
+
+파일 배포
+[ ] onepass-agent-{version}-all.jar 배포
+[ ] onepass-agent.properties 생성
+[ ] 설정 파일 권한 600 설정
+
+WAS 설정
+[ ] JVM 옵션에 -javaagent: 추가
+[ ] WAS 재시작 완료
+
+검증 (기본)
+[ ] 기동 로그에 "초기화 완료" 확인
+[ ] 토큰 없는 요청 → 401 확인
+[ ] 유효 토큰 요청 → 200 확인
+[ ] 헬스체크 로그 확인
+
+검증 (테스트베드 선택사항)
+[ ] Docker Compose 테스트베드 기동
+[ ] run-all-tests.sh 전체 통과
+[ ] Mock 서버 통계 확인
+[ ] WAS별 Agent 기동 로그 확인
+```
