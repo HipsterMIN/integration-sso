@@ -21,12 +21,12 @@ import java.security.ProtectionDomain;
  *   <li>{@code onIgnored}: 출력 안 함 — 노이즈 방지</li>
  * </ul>
  */
-final class WeavingListener extends AgentBuilder.Listener.Adapter {
+public final class WeavingListener extends AgentBuilder.Listener.Adapter {
 
     private final PrintStream log;
     private final String      strategyName;
 
-    WeavingListener(PrintStream log, String strategyName) {
+    public WeavingListener(PrintStream log, String strategyName) {
         this.log          = log;
         this.strategyName = strategyName;
     }

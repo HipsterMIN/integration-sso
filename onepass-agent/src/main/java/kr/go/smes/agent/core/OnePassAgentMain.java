@@ -3,6 +3,7 @@ package kr.go.smes.agent.core;
 import kr.go.smes.agent.config.AgentConfig;
 import kr.go.smes.agent.was.WasDetector;
 import kr.go.smes.agent.was.WasType;
+import kr.go.smes.agent.weaving.WeavingInstallException;
 import kr.go.smes.agent.weaving.WeavingStrategy;
 import kr.go.smes.agent.weaving.WeavingStrategyFactory;
 
@@ -144,7 +145,7 @@ public final class OnePassAgentMain {
         try {
             strategy.install(inst);
             log.println("[OnePassAgent] 위빙 설치 완료: " + strategy.name());
-        } catch (WeavingStrategy.WeavingInstallException e) {
+        } catch (WeavingInstallException e) {
             log.println("[ERROR] [OnePassAgent] 위빙 설치 실패 (비치명적) — "
                     + strategy.name() + ": " + e.getMessage());
             // 위빙 실패해도 WAS 기동 중단하지 않음

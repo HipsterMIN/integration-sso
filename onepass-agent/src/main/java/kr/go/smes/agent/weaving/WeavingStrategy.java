@@ -46,17 +46,4 @@ public interface WeavingStrategy {
      */
     String name();
 
-    /**
-     * 위빙 설치 실패 시 던지는 RuntimeException.
-     * premain 단계에서 이 예외가 잡히지 않으면 JVM 기동이 중단될 수 있으므로
-     * {@link kr.go.smes.agent.core.OnePassAgentMain}에서 적절히 처리해야 한다.
-     */
-    final class WeavingInstallException extends RuntimeException {
-        public WeavingInstallException(String message, Throwable cause) {
-            super(message, cause);
-        }
-        public WeavingInstallException(String message) {
-            super(message);
-        }
-    }
 }
