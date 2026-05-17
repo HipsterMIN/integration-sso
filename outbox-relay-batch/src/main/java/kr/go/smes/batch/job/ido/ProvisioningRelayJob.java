@@ -39,36 +39,47 @@ import java.util.Map;
  * lockAtLeastFor = "25s" : 배치 주기 30s 기준 거의 한 주기를 채움
  * </pre>
  *
- * <h2>기관별 인증 방식</h2>
+ * <h2>기관별 인증 방식 및 RestTemplate 선택</h2>
  * <ul>
- *   <li>API_KEY: {@code X-Api-Key} 헤더</li>
- *   <li>HMAC: {@code X-Signature} + {@code X-Timestamp} 헤더</li>
- *   <li>MTLS: 클라이언트 인증서 (별도 RestTemplate 빈 필요 — 현재 TODO)</li>
- *   <li>NONE: 추가 헤더 없음</li>
+ *   <li>API_KEY: {@code X-Api-Key} 헤더 → {@code provisioningRestTemplate} (일반 TLS)</li>
+ *   <li>HMAC:    {@code X-Signature} + {@code X-Timestamp} 헤더 → {@code provisioningRestTemplate}</li>
+ *   <li>MTLS:    클라이언트 인증서 TLS 핸드셰이크 → {@code mtlsProvisioningRestTemplate}</li>
+ *   <li>NONE:    추가 헤더 없음 → {@code provisioningRestTemplate}</li>
  * </ul>
+ *
+ * <h2>mTLS 동작 원리</h2>
+ * {@code mtlsProvisioningRestTemplate}은 PKCS12 KeyStore가 장착된 SSLContext로
+ * {@link BatchRestTemplateConfig}에서 초기화됨. MTLS 기관 요청 시 TLS 핸드셰이크 중
+ * 서버 → 클라이언트 인증서 요청에 자동 응답.
  *
  * <h2>지수 백오프</h2>
  * DB의 next_retry_at 컬럼 기반: 1분 → 5분 → 30분 (provisioning_outbox 기존 정책).
  * 실제 백오프 계산은 ProvisioningOutboxRepositoryImpl과 동일한 로직 인라인 적용.
  *
  * <h2>자격증명 조회</h2>
- * 기관 자격증명은 ido.agency_credential_config 또는 환경변수에서 조회.
- * 배치 서비스는 ido DataSource를 통해 DB에서 직접 조회 (AgencyCredentialStore 인라인).
- *
- * <h2>TODO — MTLS 지원</h2>
- * 현재 MTLS 기관은 일반 RestTemplate으로 처리 시 TLS 핸드셰이크 실패.
- * 향후 mTLS 클라이언트 인증서 장착 RestTemplate Bean 추가 필요.
- * (ido 서비스의 mtlsProvisioningRestTemplate 설정 참조)
+ * 기관 자격증명은 환경변수 우선 → DB(ido.agency_credential_config) Fallback.
+ * 환경변수명 변환 규칙: authCredentialRef 비알파벳/숫자 → '_' 치환 후 대문자화.
+ * (예: {@code "secrets/agency/AGENCY_001/api-key"} → {@code SECRETS_AGENCY_AGENCY_001_API_KEY})
  */
 @Slf4j
 @Component
 public class ProvisioningRelayJob {
 
     private static final String ENDPOINT_TYPE_PROVISIONING = "PROVISIONING";
-    private static final int[] BACKOFF_MINUTES = {1, 5, 30};  // provisioning 전용 백오프
+
+    /**
+     * 프로비저닝 백오프 정책 (분 단위)
+     * retry_count=0 → 1분, retry_count=1 → 5분, retry_count≥2 → 30분
+     */
+    private static final int[] BACKOFF_MINUTES = {1, 5, 30};
 
     private final JdbcTemplate idoJdbcTemplate;
+
+    /** API_KEY / HMAC / NONE 기관 전용 (일반 TLS) */
     private final RestTemplate restTemplate;
+
+    /** MTLS 기관 전용 — 클라이언트 인증서(PKCS12) 장착 SSLContext */
+    private final RestTemplate mtlsRestTemplate;
 
     private final Counter successCounter;
     private final Counter retryCounter;
@@ -81,14 +92,16 @@ public class ProvisioningRelayJob {
     private boolean enabled;
 
     public ProvisioningRelayJob(
-            @Qualifier("idoJdbcTemplate") JdbcTemplate idoJdbcTemplate,
-            @Qualifier("provisioningRestTemplate") RestTemplate restTemplate,
+            @Qualifier("idoJdbcTemplate")              JdbcTemplate idoJdbcTemplate,
+            @Qualifier("provisioningRestTemplate")     RestTemplate restTemplate,
+            @Qualifier("mtlsProvisioningRestTemplate") RestTemplate mtlsRestTemplate,
             MeterRegistry meterRegistry) {
-        this.idoJdbcTemplate   = idoJdbcTemplate;
-        this.restTemplate      = restTemplate;
-        this.successCounter    = meterRegistry.counter("batch.relay.provisioning.success");
-        this.retryCounter      = meterRegistry.counter("batch.relay.provisioning.retry");
-        this.deadLetterCounter = meterRegistry.counter("batch.relay.provisioning.dead_letter");
+        this.idoJdbcTemplate  = idoJdbcTemplate;
+        this.restTemplate     = restTemplate;
+        this.mtlsRestTemplate = mtlsRestTemplate;
+        this.successCounter   = meterRegistry.counter("batch.relay.provisioning.success");
+        this.retryCounter     = meterRegistry.counter("batch.relay.provisioning.retry");
+        this.deadLetterCounter= meterRegistry.counter("batch.relay.provisioning.dead_letter");
     }
 
     /**
@@ -110,7 +123,7 @@ public class ProvisioningRelayJob {
         List<ProvisioningRow> pending = fetchPending();
         if (pending.isEmpty()) return;
 
-        log.info("[ProvisioningRelayJob] PENDING {} 건 재시도 시작", pending.size());
+        log.info("[ProvisioningRelayJob] PENDING {} 건 처리 시작", pending.size());
 
         int success = 0;
         int retry   = 0;
@@ -132,68 +145,176 @@ public class ProvisioningRelayJob {
         log.info("[ProvisioningRelayJob] 완료: success={} retry={} dead={}", success, retry, dead);
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // 릴레이 핵심 로직
+    // ─────────────────────────────────────────────────────────────────────────
+
     private RelayResult retryRecord(ProvisioningRow row) {
         // ① 기관 엔드포인트 조회
         EndpointInfo endpoint = findEndpoint(row.agencyCode());
         if (endpoint == null) {
-            return escalateOrDead(row, "Endpoint not found: " + row.agencyCode());
+            return escalateOrDead(row, "endpoint_not_found:" + row.agencyCode());
         }
 
-        // ② HTTP POST
+        // ② 인증 방식에 따른 RestTemplate 선택
+        RestTemplate selectedTemplate = selectRestTemplate(endpoint);
+
+        // ③ HTTP 헤더 구성
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Idempotency-Key",       row.idempotencyKey());
+        headers.set("X-Provisioning-Source",   "onepass-batch");
+        headers.set("X-Retry-Count",           String.valueOf(row.retryCount()));
+        if (row.correlationId() != null) {
+            headers.set("X-Correlation-ID", row.correlationId());
+        }
+
+        // ④ 인증 헤더 추가 (MTLS는 헤더 불필요 — TLS 핸드셰이크로 처리)
+        if (!addAuthHeader(headers, endpoint, row.idempotencyKey())) {
+            // 자격증명 조회 실패 — 재시도 예약 (dead letter 아님, 운영자가 K8s Secret 등록 후 재시도)
+            return escalateOrDead(row, "credential_not_found:ref=" + endpoint.authCredentialRef());
+        }
+
+        // ⑤ HTTP POST
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Idempotency-Key", row.idempotencyKey());
-            headers.set("X-Provisioning-Source", "onepass-batch");
-            headers.set("X-Retry-Count", String.valueOf(row.retryCount()));
-            if (row.correlationId() != null) headers.set("X-Correlation-ID", row.correlationId());
-
-            addAuthHeader(headers, endpoint, row.idempotencyKey());
-
-            ResponseEntity<String> response = restTemplate.postForEntity(
+            ResponseEntity<String> response = selectedTemplate.postForEntity(
                     endpoint.url(),
                     new HttpEntity<>(row.payloadJson(), headers),
                     String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 markCompleted(row.id());
-                log.info("[ProvisioningRelayJob] 성공: agency={} id={}", row.agencyCode(), row.id());
+                log.info("[ProvisioningRelayJob] ✅ 성공: agency={} id={} authType={}",
+                        row.agencyCode(), row.id(), endpoint.authType());
                 return RelayResult.SUCCESS;
             }
-            return escalateOrDead(row, "HTTP " + response.getStatusCode().value());
+
+            return escalateOrDead(row, "http_" + response.getStatusCode().value());
 
         } catch (HttpClientErrorException e) {
             int code = e.getStatusCode().value();
             if (code == 404 || code == 410) {
-                markDeadLetter(row.id(), "endpoint not found: " + code);
+                // 엔드포인트 영구 소멸 — dead letter 즉시 처리
+                markDeadLetter(row.id(), "endpoint_gone:" + code);
+                log.error("[ProvisioningRelayJob] ☠️ DEAD_LETTER(endpoint gone): agency={} id={} status={}",
+                        row.agencyCode(), row.id(), code);
                 return RelayResult.DEAD_LETTER;
             }
-            return escalateOrDead(row, "4xx: " + truncate(e.getMessage(), 200));
+            return escalateOrDead(row, "4xx:" + code + ":" + truncate(e.getMessage(), 150));
+
         } catch (HttpServerErrorException e) {
-            return escalateOrDead(row, "5xx: " + truncate(e.getMessage(), 200));
+            return escalateOrDead(row, "5xx:" + e.getStatusCode().value() + ":" + truncate(e.getMessage(), 150));
+
         } catch (ResourceAccessException e) {
-            return escalateOrDead(row, "network: " + truncate(e.getMessage(), 200));
+            // 연결 거부, 타임아웃, TLS 핸드셰이크 실패 등
+            String msg = truncate(e.getMessage(), 200);
+            log.warn("[ProvisioningRelayJob] 네트워크 오류: agency={} id={} error={}",
+                    row.agencyCode(), row.id(), msg);
+            return escalateOrDead(row, "network:" + msg);
+
         } catch (Exception e) {
-            log.error("[ProvisioningRelayJob] 예외: agency={} id={} error={}", row.agencyCode(), row.id(), e.getMessage());
-            return escalateOrDead(row, "error: " + truncate(e.getMessage(), 200));
+            log.error("[ProvisioningRelayJob] 예기치 않은 오류: agency={} id={} error={}",
+                    row.agencyCode(), row.id(), e.getMessage(), e);
+            return escalateOrDead(row, "error:" + truncate(e.getMessage(), 150));
         }
     }
 
+    /**
+     * 재시도 횟수에 따라 DEAD_LETTER 전환 또는 재시도 예약
+     */
     private RelayResult escalateOrDead(ProvisioningRow row, String error) {
         int nextRetry = row.retryCount() + 1;
         if (nextRetry >= row.maxRetry()) {
             markDeadLetter(row.id(), error);
-            log.error("[ProvisioningRelayJob] DEAD_LETTER: agency={} id={} retry={}/{} error={}",
+            log.error("[ProvisioningRelayJob] ☠️ DEAD_LETTER: agency={} id={} retry={}/{} error={}",
                     row.agencyCode(), row.id(), nextRetry, row.maxRetry(), error);
             return RelayResult.DEAD_LETTER;
         }
-        scheduleRetry(row.id(), error);
+        scheduleRetry(row.id(), error, row.retryCount());
+        log.warn("[ProvisioningRelayJob] ⚠️ RETRY 예약: agency={} id={} retry={}/{} error={}",
+                row.agencyCode(), row.id(), nextRetry, row.maxRetry(), error);
         return RelayResult.RETRY;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // 인증 / RestTemplate 선택
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * authType에 따른 RestTemplate 선택
+     *
+     * <ul>
+     *   <li>MTLS → {@code mtlsProvisioningRestTemplate} (클라이언트 인증서 TLS)</li>
+     *   <li>그 외 → {@code provisioningRestTemplate} (일반 TLS)</li>
+     * </ul>
+     */
+    private RestTemplate selectRestTemplate(EndpointInfo endpoint) {
+        boolean isMtls = "MTLS".equalsIgnoreCase(endpoint.authType());
+        if (isMtls) {
+            log.debug("[ProvisioningRelayJob] MTLS RestTemplate 선택: agency={}", endpoint.agencyCode());
+        }
+        return isMtls ? mtlsRestTemplate : restTemplate;
+    }
+
+    /**
+     * 인증 방식별 HTTP 헤더 추가
+     *
+     * @return true: 성공(헤더 추가 완료 또는 MTLS/NONE은 헤더 불필요), false: 자격증명 조회 실패
+     */
+    private boolean addAuthHeader(HttpHeaders headers, EndpointInfo endpoint, String idempotencyKey) {
+        String ref = endpoint.authCredentialRef();
+
+        switch (endpoint.authType() == null ? "NONE" : endpoint.authType().toUpperCase()) {
+
+            case "API_KEY" -> {
+                String apiKey = findSecret(ref);
+                if (apiKey == null || apiKey.isBlank()) {
+                    log.error("[ProvisioningRelayJob] ❌ API_KEY 자격증명 미등록: agency={} ref={} " +
+                              "→ K8s Secret에 {} 키 등록 필요.",
+                            endpoint.agencyCode(), ref,
+                            ref == null ? "N/A" : ref.toUpperCase().replaceAll("[^A-Z0-9]", "_"));
+                    return false;
+                }
+                headers.set("X-Api-Key", apiKey);
+            }
+
+            case "HMAC" -> {
+                String secret = findSecret(ref);
+                if (secret == null || secret.isBlank()) {
+                    log.error("[ProvisioningRelayJob] ❌ HMAC 자격증명 미등록: agency={} ref={}",
+                            endpoint.agencyCode(), ref);
+                    return false;
+                }
+                try {
+                    long   epochSec = Instant.now().getEpochSecond();
+                    String sig      = computeHmac(idempotencyKey + ":" + epochSec, secret);
+                    headers.set("X-Signature", sig);
+                    headers.set("X-Timestamp",  String.valueOf(epochSec));
+                } catch (Exception e) {
+                    log.error("[ProvisioningRelayJob] ❌ HMAC 서명 계산 실패: agency={} error={}",
+                            endpoint.agencyCode(), e.getMessage());
+                    return false;
+                }
+            }
+
+            case "MTLS" -> {
+                // mTLS는 TLS 핸드셰이크에서 클라이언트 인증서로 인증 — 별도 헤더 불필요
+                // RestTemplate 선택은 selectRestTemplate()에서 처리됨
+                log.debug("[ProvisioningRelayJob] MTLS 기관 — 인증 헤더 없음 (TLS 핸드셰이크): agency={}",
+                        endpoint.agencyCode());
+            }
+
+            case "NONE" -> { /* 인증 없음 */ }
+
+            default -> log.warn("[ProvisioningRelayJob] 알 수 없는 authType: {} agency={}",
+                    endpoint.authType(), endpoint.agencyCode());
+        }
+        return true;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // DB 조작
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     private List<ProvisioningRow> fetchPending() {
         List<ProvisioningRow> rows = new ArrayList<>();
@@ -224,7 +345,7 @@ public class ProvisioningRelayJob {
                 ));
             }, batchSize);
         } catch (Exception e) {
-            log.warn("[ProvisioningRelayJob] PENDING 조회 실패: {}", e.getMessage());
+            log.error("[ProvisioningRelayJob] PENDING 조회 실패: {}", e.getMessage(), e);
         }
         return rows;
     }
@@ -233,11 +354,13 @@ public class ProvisioningRelayJob {
         try {
             idoJdbcTemplate.update("""
                     UPDATE ido.provisioning_outbox
-                    SET status = 'COMPLETED', completed_at = NOW(), last_attempted_at = NOW()
+                    SET status           = 'COMPLETED',
+                        completed_at     = NOW(),
+                        last_attempted_at = NOW()
                     WHERE id = ?
                     """, id);
         } catch (Exception e) {
-            log.error("[ProvisioningRelayJob] COMPLETED 갱신 실패: id={}", id);
+            log.error("[ProvisioningRelayJob] COMPLETED 갱신 실패: id={} error={}", id, e.getMessage());
         }
     }
 
@@ -245,50 +368,58 @@ public class ProvisioningRelayJob {
         try {
             idoJdbcTemplate.update("""
                     UPDATE ido.provisioning_outbox
-                    SET status = 'DEAD_LETTER',
-                        error_message = ?,
-                        retry_count = retry_count + 1,
+                    SET status            = 'DEAD_LETTER',
+                        error_message     = ?,
+                        retry_count       = retry_count + 1,
                         last_attempted_at = NOW()
                     WHERE id = ?
                     """, truncate(error, 500), id);
         } catch (Exception e) {
-            log.error("[ProvisioningRelayJob] DEAD_LETTER 갱신 실패: id={}", id);
+            log.error("[ProvisioningRelayJob] DEAD_LETTER 갱신 실패: id={} error={}", id, e.getMessage());
         }
     }
 
-    private void scheduleRetry(String id, String error) {
+    /**
+     * 재시도 예약 — provisioning 전용 지수 백오프
+     *
+     * <pre>
+     * retry_count=0 → next_retry_at = NOW() + 1분
+     * retry_count=1 → next_retry_at = NOW() + 5분
+     * retry_count≥2 → next_retry_at = NOW() + 30분
+     * </pre>
+     *
+     * @param id         레코드 PK
+     * @param error      에러 메시지
+     * @param retryCount 현재 retry_count (DB 갱신 전)
+     */
+    private void scheduleRetry(String id, String error, int retryCount) {
         try {
-            // 지수 백오프: 현재 retry_count 기반으로 BACKOFF_MINUTES 인덱스 참조
-            // DB에서 retry_count를 직접 읽어 계산
+            int backoffMinutes = BACKOFF_MINUTES[Math.min(retryCount, BACKOFF_MINUTES.length - 1)];
             idoJdbcTemplate.update("""
                     UPDATE ido.provisioning_outbox
-                    SET retry_count = retry_count + 1,
-                        error_message = ?,
+                    SET retry_count       = retry_count + 1,
+                        error_message     = ?,
                         last_attempted_at = NOW(),
-                        next_retry_at = CASE
-                            WHEN retry_count = 0 THEN NOW() + INTERVAL '1 minute'
-                            WHEN retry_count = 1 THEN NOW() + INTERVAL '5 minutes'
-                            ELSE NOW() + INTERVAL '30 minutes'
-                        END
+                        next_retry_at     = NOW() + (? * INTERVAL '1 minute')
                     WHERE id = ?
-                    """, truncate(error, 500), id);
+                    """, truncate(error, 500), backoffMinutes, id);
         } catch (Exception e) {
-            log.error("[ProvisioningRelayJob] 재시도 예약 실패: id={}", id);
+            log.error("[ProvisioningRelayJob] 재시도 예약 실패: id={} error={}", id, e.getMessage());
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 기관 엔드포인트 / 인증
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // 기관 엔드포인트 / 자격증명 조회
+    // ─────────────────────────────────────────────────────────────────────────
 
     private EndpointInfo findEndpoint(String agencyCode) {
         try {
             return idoJdbcTemplate.queryForObject("""
                     SELECT r.endpoint_url, r.auth_type, r.auth_credential_ref
                     FROM ido.agency_endpoint_registry r
-                    WHERE r.agency_code = ?
+                    WHERE r.agency_code    = ?
                       AND r.endpoint_type = ?
-                      AND r.active = TRUE
+                      AND r.active        = TRUE
                     LIMIT 1
                     """, (rs, rowNum) -> new EndpointInfo(
                     rs.getString("endpoint_url"),
@@ -296,61 +427,42 @@ public class ProvisioningRelayJob {
                     rs.getString("auth_credential_ref"),
                     agencyCode
             ), agencyCode, ENDPOINT_TYPE_PROVISIONING);
+
         } catch (Exception e) {
-            log.warn("[ProvisioningRelayJob] 엔드포인트 조회 실패: agency={} error={}", agencyCode, e.getMessage());
+            log.warn("[ProvisioningRelayJob] 엔드포인트 조회 실패: agency={} error={}",
+                    agencyCode, e.getMessage());
             return null;
         }
     }
 
-    private void addAuthHeader(HttpHeaders headers, EndpointInfo endpoint, String idempotencyKey) {
-        if (endpoint.authCredentialRef() == null || endpoint.authCredentialRef().isBlank()) return;
-
-        switch (endpoint.authType()) {
-            case "API_KEY" -> {
-                String apiKey = findSecret(endpoint.authCredentialRef());
-                if (apiKey != null && !apiKey.isBlank()) headers.set("X-Api-Key", apiKey);
-            }
-            case "HMAC" -> {
-                String secret = findSecret(endpoint.authCredentialRef());
-                if (secret != null && !secret.isBlank()) {
-                    try {
-                        long epochSec = Instant.now().getEpochSecond();
-                        String sig    = computeHmac(idempotencyKey + ":" + epochSec, secret);
-                        headers.set("X-Signature", sig);
-                        headers.set("X-Timestamp",  String.valueOf(epochSec));
-                    } catch (Exception e) {
-                        log.error("[ProvisioningRelayJob] HMAC 서명 실패: agency={}", endpoint.agencyCode());
-                    }
-                }
-            }
-            case "MTLS" -> {
-                // TODO: mTLS RestTemplate 적용 (ido.config.ProvisioningRestTemplateConfig 참조)
-                log.debug("[ProvisioningRelayJob] MTLS 기관 — 현재 일반 RestTemplate 사용");
-            }
-        }
-    }
-
     /**
-     * 기관 자격증명 조회 — ido.agency_credential_config 또는 환경변수
+     * 기관 자격증명 조회 — 환경변수 우선 → DB Fallback
      *
-     * <p>AgencyCredentialStore와 동일한 로직:
-     * 환경변수명 = ref를 대문자로 변환 후 특수문자를 '_'로 교체.
+     * <p>환경변수명 변환 규칙: ref의 비알파벳/숫자 → '_' 대문자화
+     * <ul>
+     *   <li>{@code "secrets/agency/AGENCY_001/api-key"} → {@code SECRETS_AGENCY_AGENCY_001_API_KEY}</li>
+     *   <li>{@code "secrets/agency/AGENCY_003/hmac-secret"} → {@code SECRETS_AGENCY_AGENCY_003_HMAC_SECRET}</li>
+     * </ul>
      */
     private String findSecret(String ref) {
         if (ref == null || ref.isBlank()) return null;
-        // 환경변수에서 조회 (K8s Secret mount)
-        String envVarName = ref.toUpperCase().replaceAll("[^A-Z0-9]", "_");
-        String secret     = System.getenv(envVarName);
-        if (secret != null && !secret.isBlank()) return secret;
 
-        // DB fallback (agency_credential_config 테이블)
+        // ① 환경변수 조회 (K8s Secret envFrom 마운트)
+        String envVarName = ref.toUpperCase().replaceAll("[^A-Z0-9]", "_");
+        String envValue   = System.getenv(envVarName);
+        if (envValue != null && !envValue.isBlank()) return envValue;
+
+        // ② DB fallback (ido.agency_credential_config 테이블)
         try {
             return idoJdbcTemplate.queryForObject("""
-                    SELECT credential_value FROM ido.agency_credential_config
-                    WHERE credential_ref = ? AND active = TRUE LIMIT 1
+                    SELECT credential_value
+                    FROM ido.agency_credential_config
+                    WHERE credential_ref = ? AND active = TRUE
+                    LIMIT 1
                     """, String.class, ref);
         } catch (Exception e) {
-            log.warn("[ProvisioningRelayJob] 자격증명 조회 실패: ref={}", ref);
+            log.warn("[ProvisioningRelayJob] 자격증명 조회 실패: ref={} → 환경변수 {} 등록 필요",
+                    ref, envVarName);
             return null;
         }
     }
@@ -366,9 +478,9 @@ public class ProvisioningRelayJob {
         return s.length() > maxLen ? s.substring(0, maxLen) : s;
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // Inner types
-    // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     private record ProvisioningRow(
             String id, String qimUserId, String agencyCode, String eventType,
