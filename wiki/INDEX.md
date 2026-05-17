@@ -1,6 +1,6 @@
 # 통합인증 플랫폼 (OnePass) — Wiki 인덱스
 
-> **버전**: v0.8.9 | **최종 갱신**: 2026-05-16 | **브랜치**: genspark_ai_developer
+> **버전**: v0.9.0 | **최종 갱신**: 2026-05-17 | **브랜치**: shipster
 
 ---
 
@@ -39,6 +39,8 @@ wiki/
 │   ├── 03-member-conversion-walkthrough.md
 │   ├── 04-provisioning-walkthrough.md
 │   └── 05-handoff-sso-walkthrough.md
+├── ops/                            ← 운영 가이드 (2026-05-17 신규)
+│   └── 01-production-deployment-guide.md  ← ★ 운영 배포 주의사항 체크리스트
 └── deliverables/
     └── DELIVERABLES.md             ← 산출물 마스터 인덱스
 ```
@@ -96,6 +98,12 @@ wiki/
 | [WK-03](walkthrough/03-member-conversion-walkthrough.md) | 회원 전환 (기존 기관 계정 → OnePass) | Q-IM → ConversionSession |
 | [WK-04](walkthrough/04-provisioning-walkthrough.md) | 전 기관 프로비저닝 (QIM-OUTBOX-SPEC-001) | IdO → provisioning_outbox → 68 기관 |
 | [WK-05](walkthrough/05-handoff-sso-walkthrough.md) | Handoff SSO (CAST Token 기반 기관 이동) | IdO → Agency-Stub |
+
+### 운영 가이드 (Ops) — 2026-05-17 신규
+
+| # | 제목 | 핵심 내용 |
+|---|------|---------|
+| [OPS-001](ops/01-production-deployment-guide.md) | **운영 배포 주의사항 및 체크리스트** ★ | 배포 순서 · 환경변수 체크리스트 · Flyway 마이그레이션 · Kafka 토픽 · ShedLock 이관 · mTLS 인증서 · K8s Secret · Feature Flag · 헬스체크 · Prometheus 알림 · 롤백 절차 · 장애 대응 |
 
 ### 산출물 인덱스
 

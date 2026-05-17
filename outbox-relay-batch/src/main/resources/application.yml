@@ -96,6 +96,22 @@ batch:
     max-connections-total: 100
     max-connections-per-route: 20
 
+    # ── mTLS 클라이언트 인증서 설정 ─────────────────────────────────────────────
+    # MTLS 인증 방식 기관과의 통신에 필요한 클라이언트 인증서(PKCS12) 설정.
+    # K8s Secret envFrom으로 주입 권장.
+    #
+    # 등록 방법:
+    #   kubectl create secret generic batch-mtls-cert \
+    #     --from-literal=BATCH_MTLS_KEYSTORE_BASE64=$(base64 -w0 /path/to/client.p12) \
+    #     --from-literal=BATCH_MTLS_KEYSTORE_PASS=<keystore-password> \
+    #     -n production
+    #
+    # 미설정 시: mtlsProvisioningRestTemplate 이 일반 TLS로 Fallback (WARN 로그 발생)
+    mtls:
+      keystore-base64: ${BATCH_MTLS_KEYSTORE_BASE64:}
+      keystore-password: ${BATCH_MTLS_KEYSTORE_PASS:}
+      keystore-type: ${BATCH_MTLS_KEYSTORE_TYPE:PKCS12}
+
   # ── 릴레이 Job 설정 ─────────────────────────────────────────────────────────
   relay:
 
