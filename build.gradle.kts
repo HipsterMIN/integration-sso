@@ -47,7 +47,9 @@ subprojects {
     //   사용하므로, mockitoAgent를 생성한 뒤 resolutionStrategy 변경이 충돌함.
     //   SDK는 Spring 테스트 스택 없이 JUnit 5 + Mockito 직접 버전 명시 모듈이므로
     //   여기서는 SDK를 제외하고, SDK 자체 build.gradle.kts에서 별도 처리함.
-    if (project.name != "onepass-agency-sdk") {
+    // onepass-agent: 완전 독립 모듈 — Spring/Lombok/Testcontainers 비의존
+    //               자체 byte-buddy shading(relocated) 사용하므로 mockitoAgent 제외
+    if (project.name != "onepass-agency-sdk" && project.name != "onepass-agent") {
         val mockitoAgent by configurations.creating {
             isCanBeResolved = true
             isCanBeConsumed = false
@@ -75,24 +77,28 @@ subprojects {
 
     val testcontainersVersion = "1.20.4"
 
-    dependencies {
-        // Lombok
-        "compileOnly"("org.projectlombok:lombok")
-        "annotationProcessor"("org.projectlombok:lombok")
-        "testCompileOnly"("org.projectlombok:lombok")
-        "testAnnotationProcessor"("org.projectlombok:lombok")
+    // onepass-agent는 Spring/Lombok/Testcontainers 비의존 완전 독립 모듈
+    // 자체 build.gradle.kts에서 JUnit 5 직접 버전 명시로 처리
+    if (project.name != "onepass-agent") {
+        dependencies {
+            // Lombok
+            "compileOnly"("org.projectlombok:lombok")
+            "annotationProcessor"("org.projectlombok:lombok")
+            "testCompileOnly"("org.projectlombok:lombok")
+            "testAnnotationProcessor"("org.projectlombok:lombok")
 
-        // Test
-        "testImplementation"("org.springframework.boot:spring-boot-starter-test")
-        "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+            // Test
+            "testImplementation"("org.springframework.boot:spring-boot-starter-test")
+            "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
 
-        // Testcontainers BOM + 모듈
-        "testImplementation"(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
-        "testImplementation"("org.testcontainers:junit-jupiter")
-        "testImplementation"("org.testcontainers:postgresql")
-        "testImplementation"("org.testcontainers:mariadb")
-        "testImplementation"("org.testcontainers:kafka")
-        "testImplementation"("org.springframework.boot:spring-boot-testcontainers")
+            // Testcontainers BOM + 모듈
+            "testImplementation"(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
+            "testImplementation"("org.testcontainers:junit-jupiter")
+            "testImplementation"("org.testcontainers:postgresql")
+            "testImplementation"("org.testcontainers:mariadb")
+            "testImplementation"("org.testcontainers:kafka")
+            "testImplementation"("org.springframework.boot:spring-boot-testcontainers")
+        }
     }
 
     tasks.withType<Test> {
@@ -110,7 +116,7 @@ subprojects {
             "-XX:+EnableDynamicAgentLoading",  // 방법 A: JDK 버전 교차 환경 대응
             "-Djdk.instrument.traceUsage=false"
         )
-        if (project.name != "onepass-agency-sdk") {
+        if (project.name != "onepass-agency-sdk" && project.name != "onepass-agent") {
             // 방법 B: -javaagent 명시 (mockitoAgent configuration이 있는 모듈만)
             args.add(0, "-javaagent:${configurations["mockitoAgent"].asPath}")
         }
