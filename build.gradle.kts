@@ -71,6 +71,9 @@ subprojects {
         useJUnitPlatform()
         // JaCoCo 커버리지 데이터 생성 활성화
         finalizedBy(tasks.named("jacocoTestReport"))
+        // JDK 21+ Mockito Dynamic Agent 경고 억제 (ADR-013)
+        // JDK 24에서 동적 Agent 로딩 금지 예정 → Sprint 18에서 -javaagent 방식으로 전환 예정
+        jvmArgs("-XX:+EnableDynamicAgentLoading", "-Djdk.instrument.traceUsage=false")
     }
 
     tasks.withType<JavaCompile> {

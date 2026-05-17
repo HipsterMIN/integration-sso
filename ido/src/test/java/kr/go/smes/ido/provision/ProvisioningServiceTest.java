@@ -13,6 +13,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,15 +42,33 @@ import static org.mockito.Mockito.lenient;
  *   <li>S14-T5: 활성 엔드포인트 없으면 즉시 리턴</li>
  *   <li>S14-T6: ProvisioningOutboxRelay — COMPLETED 전환 확인</li>
  * </ul>
+ *
+ * <p>Sprint 17 생성자 변경 반영:
+ * ProvisioningServiceImpl 생성자에 AgencyCredentialStore, mtlsRestTemplate 파라미터 추가됨.
+ * 테스트 엔드포인트는 모두 authType=NONE 이므로 credentialStore 및 mtlsRestTemplate은
+ * 실제 호출되지 않음 — lenient Mock으로 주입하여 스터빙 불필요.
  */
 @Tag("unit")
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("Sprint 14: ProvisioningService 단위 테스트")
 class ProvisioningServiceTest {
 
     @Mock private AgencyEndpointRegistryRepository endpointRegistry;
     @Mock private ProvisioningOutboxRepository      outboxRepository;
     @Mock private RestTemplate                      restTemplate;
+    /**
+     * Sprint 17 추가 — MTLS 전용 RestTemplate.
+     * 테스트 엔드포인트는 authType=NONE 이므로 이 mock은 호출되지 않음.
+     * lenient 모드(@MockitoSettings)로 불필요 스터빙 경고 없이 주입 가능.
+     */
+    @Mock private RestTemplate                      mtlsRestTemplate;
+    /**
+     * Sprint 17 추가 — 기관 자격증명 저장소.
+     * authType=NONE 엔드포인트 테스트이므로 실제 호출 없음.
+     * lenient 모드로 주입.
+     */
+    @Mock private AgencyCredentialStore             credentialStore;
 
     private ProvisioningServiceImpl sut;
     // JavaTimeModule 등록 — Instant 직렬화 지원
@@ -61,9 +81,22 @@ class ProvisioningServiceTest {
 
     @BeforeEach
     void setUp() {
-        sut = new ProvisioningServiceImpl(endpointRegistry, outboxRepository, restTemplate, objectMapper);
-        // Feature Flag: 기본값 true (enabled)
+        // Sprint 17 생성자 서명:
+        // ProvisioningServiceImpl(
+        //   AgencyEndpointRegistryRepository, ProvisioningOutboxRepository,
+        //   ObjectMapper, AgencyCredentialStore,
+        //   RestTemplate restTemplate, RestTemplate mtlsRestTemplate)
+        sut = new ProvisioningServiceImpl(
+                endpointRegistry,
+                outboxRepository,
+                objectMapper,
+                credentialStore,
+                restTemplate,
+                mtlsRestTemplate
+        );
+        // Feature Flag: 기본값 true (enabled), dry-run: false (실제 발행 테스트)
         ReflectionTestUtils.setField(sut, "provisioningEnabled", true);
+        ReflectionTestUtils.setField(sut, "provisioningDryRun",  false);
         ReflectionTestUtils.setField(sut, "globalTimeoutMs", 0);
         ReflectionTestUtils.setField(sut, "maxParallelAgencies", 100);
     }
@@ -163,6 +196,8 @@ class ProvisioningServiceTest {
         verifyNoInteractions(endpointRegistry);
         verifyNoInteractions(outboxRepository);
         verifyNoInteractions(restTemplate);
+        verifyNoInteractions(mtlsRestTemplate);
+        verifyNoInteractions(credentialStore);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -212,6 +247,28 @@ class ProvisioningServiceTest {
         assertThat(captor.getValue().getQimUserId()).isEqualTo(QIM_USER_ID);
         assertThat(captor.getValue().getAgencyCode()).isEqualTo("AGENCY_C");
         assertThat(captor.getValue().getSourceEventId()).isEqualTo(SOURCE_EVENT_ID);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // S14-T7: dry-run 모드 → HTTP 미호출
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("S14-T7: dry-run 모드 활성화 → HTTP 미호출, outbox INSERT 없음")
+    void s14_t7_dryRunMode_noHttpCall() {
+        // given: dry-run = true (운영 전 관찰 기간)
+        ReflectionTestUtils.setField(sut, "provisioningDryRun", true);
+        AgencyEndpointRecord endpoint = buildEndpoint("AGENCY_D", "http://agency-d.test/provisioning");
+        when(outboxRepository.countBySourceEventId(SOURCE_EVENT_ID)).thenReturn(0);
+        when(endpointRegistry.findAllActiveByType("PROVISIONING")).thenReturn(List.of(endpoint));
+
+        // when
+        sut.triggerProvisioning(QIM_USER_ID, "USER_REGISTERED", SOURCE_EVENT_ID, CORRELATION_ID);
+
+        // then: dry-run 시 실제 HTTP 호출 없어야 함
+        verify(restTemplate, never()).postForEntity(anyString(), any(), any());
+        verify(mtlsRestTemplate, never()).postForEntity(anyString(), any(), any());
+        verify(outboxRepository, never()).insert(any());
     }
 
     // ─────────────────────────────────────────────────────────────────────

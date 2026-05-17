@@ -171,7 +171,7 @@ class HandoffControllerTest {
                     controller.issue(null, idempotencyKey, makeIssueRequest(), withFeSessionCookie());
 
             // then
-            assertThat(response.getStatusCodeValue()).isEqualTo(200);
+            assertThat(response.getStatusCode().value()).isEqualTo(200);
             assertThat(response.getBody()).isEqualTo(newTicket);
             assertThat(response.getHeaders().getFirst("X-Idempotency-Replayed")).isNull();
 
@@ -197,7 +197,7 @@ class HandoffControllerTest {
                     controller.issue(null, idempotencyKey, makeIssueRequest(), withFeSessionCookie());
 
             // then
-            assertThat(response.getStatusCodeValue()).isEqualTo(200);
+            assertThat(response.getStatusCode().value()).isEqualTo(200);
             assertThat(response.getBody()).isEqualTo(existingTicket);
             // X-Idempotency-Replayed 헤더 확인 (GAP-API-02 캐시 히트 표시)
             assertThat(response.getHeaders().getFirst("X-Idempotency-Replayed")).isEqualTo("true");
@@ -226,7 +226,7 @@ class HandoffControllerTest {
                     controller.issue(null, idempotencyKey, makeIssueRequest(), withFeSessionCookie());
 
             // then: 만료된 경우 재발급
-            assertThat(response.getStatusCodeValue()).isEqualTo(200);
+            assertThat(response.getStatusCode().value()).isEqualTo(200);
             assertThat(response.getBody()).isEqualTo(reissuedTicket);
             assertThat(response.getHeaders().getFirst("X-Idempotency-Replayed")).isNull();
 
@@ -246,7 +246,7 @@ class HandoffControllerTest {
                     controller.issue(null, null, makeIssueRequest(), withFeSessionCookie());
 
             // then
-            assertThat(response.getStatusCodeValue()).isEqualTo(200);
+            assertThat(response.getStatusCode().value()).isEqualTo(200);
             assertThat(response.getBody()).isEqualTo(ticket);
 
             // Redis 조회/저장 미호출 확인
@@ -266,7 +266,7 @@ class HandoffControllerTest {
                     controller.issue(null, "   ", makeIssueRequest(), withFeSessionCookie());
 
             // then
-            assertThat(response.getStatusCodeValue()).isEqualTo(200);
+            assertThat(response.getStatusCode().value()).isEqualTo(200);
             verify(valueOps, never()).get(anyString());
             verify(valueOps, never()).set(anyString(), any(), any());
         }
