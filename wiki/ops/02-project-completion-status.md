@@ -1,7 +1,7 @@
 # 프로젝트 완성도 분석 및 TODO 정리
 
 > **버전**: v0.9.0 | **작성일**: 2026-05-17 | **브랜치**: `shipster`  
-> **테스트 상태**: ✅ 939 tests PASS (0 failures, 0 errors, 0 skipped)  
+> **테스트 상태**: ✅ 1017 tests PASS (0 failures, 0 errors, 0 skipped)  
 > **빌드 상태**: ✅ compileJava SUCCESS (경고 0)
 
 ---
@@ -233,10 +233,10 @@ Q-IM 회원 등록 → outbox INSERT (같은 트랜잭션)
 
 | ID | 내용 | 참고 |
 |----|------|------|
-| **D-01** | Mockito inline agent 경고 해결 (JVM -javaagent 설정) | 테스트 경고 메시지 |
+| ~~**D-01**~~ | ~~Mockito inline agent 경고 해결 (JVM -javaagent 설정)~~ | ✅ **Sprint 18 완료** — `build.gradle.kts` ADR-013 방법B 적용, `onepass-agency-sdk/build.gradle.kts` 독립 설정 |
 | **D-02** | `AgencyAdminService` catch-all Exception 처리 세분화 | 보안 섹션 참조 |
 | **D-03** | `ProvisioningServiceImpl` @Value 중복 (`FeatureFlags` 빈과 이중화) | 단일 FeatureFlags 빈으로 통합 권장 |
-| **D-04** | outbox-relay-batch 테스트 모듈 신규 작성 필요 | 현재 0개 테스트 |
+| ~~**D-04**~~ | ~~outbox-relay-batch 테스트 모듈 신규 작성 필요~~ | ✅ **Sprint 18 완료** — 20개 테스트 PASS (ProvisioningRelayJobTest 13개 + BatchRestTemplateConfigTest 7개) |
 
 ---
 
@@ -336,7 +336,7 @@ Phase 2-B:       IDO_PROVISIONING_ENABLED=true + IDO_PROVISIONING_DRY_RUN=false
 
 ### Phase 1 (현재 — shipster 브랜치)
 - ✅ 모든 핵심 기능 구현 완료
-- ✅ 939개 단위 테스트 GREEN
+- ✅ 1017개 단위 테스트 GREEN (outbox-relay-batch 20개 신규)
 - ✅ mTLS RestTemplate (HC5 5.5.x, deprecated API 0)
 - ✅ ShedLock 6.6.1 분산 배치
 - ⬜ 기관별 K8s Secret 실제 등록 (운영팀 작업)
@@ -365,10 +365,10 @@ Phase 2-B:       IDO_PROVISIONING_ENABLED=true + IDO_PROVISIONING_DRY_RUN=false
 
 | ID | 구분 | 내용 | 발견 위치 | 해결 Sprint |
 |----|------|------|----------|------------|
-| D-01 | 테스트 | Mockito Dynamic Agent 경고 → `-javaagent` 명시 설정 | build.gradle | Sprint 18 |
+| ~~D-01~~ | 테스트 | ~~Mockito Dynamic Agent 경고 → `-javaagent` 명시 설정~~ | ✅ 2026-05-17 완료 |
 | D-02 | 보안 | AgencyAdminService 광범위 catch(Exception) | AgencyAdminService.java | Sprint 18 |
 | D-03 | 설계 | FeatureFlags 빈과 ProvisioningServiceImpl 간 @Value 이중화 | FeatureFlags.java, ProvisioningServiceImpl.java | Sprint 19 |
-| D-04 | 테스트 | outbox-relay-batch 모듈 테스트 0개 | outbox-relay-batch/test | Sprint 18 |
+| ~~D-04~~ | 테스트 | ~~outbox-relay-batch 모듈 테스트 0개~~ | ✅ 2026-05-17 완료 (20 tests) |
 | D-05 | 설계 | AgencyRegistry stub URL 하드코딩 (운영 전환 미완) | AgencyRegistry.java | Phase 2 |
 | D-06 | 운영 | outbox DEAD_LETTER 알림 채널 미구현 (Slack/PagerDuty 연동) | ProvisioningRelayJob | Sprint 18 |
 
@@ -384,7 +384,7 @@ Phase 2-B:       IDO_PROVISIONING_ENABLED=true + IDO_PROVISIONING_DRY_RUN=false
 | q-im | 189 | 0 | 회원 라이프사이클 전체 |
 | onepass-agency-sdk | 25 | 0 | HTTP 어댑터 + HMAC |
 | agency-stub | 74 | 0 | 패턴별 통합 시나리오 |
-| outbox-relay-batch | **0** | — | ⚠️ **테스트 없음 — D-04** |
+| outbox-relay-batch | **20** | ProvisioningRelayJobTest, BatchRestTemplateConfigTest | ✅ Sprint 18 완료 |
 | **합계** | **939** | **0** | |
 
 > **통합 테스트 제외**: `QimLifecycleIntegrationTest`, `OutboxIntegrationTest`,  

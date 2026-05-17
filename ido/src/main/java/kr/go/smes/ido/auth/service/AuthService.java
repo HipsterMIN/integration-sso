@@ -227,7 +227,9 @@ public class AuthService {
      *   <li>PASS (통신3사): {@code userNm}, {@code phoneNo}</li>
      * </ul>
      *
-     * <p><b>TODO(S7-T6):</b> IM API 연동 후 복호화된 CI를 IM API에 등록하는 로직 추가.
+     * <p><b>S7-T6 구현 완료:</b> 복호화된 CI를 {@link kr.go.smes.ido.auth.port.ImApiOutPort#register}를
+     * 통해 Q-IM에 등록. CI 등록 실패 시 인증 플로우 중단(resultCode=5010) — CI 미등록 상태로의
+     * 진행은 데이터 정합성 위반이므로 허용하지 않음.
      *
      * @param request OACX SDK 콜백 데이터 (fn, status, res 포함)
      * @return OACX 인증 결과 응답 (name, birthday, phone — CI 제외)
