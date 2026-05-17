@@ -45,12 +45,21 @@ java {
 }
 
 // ── 의존성 ──────────────────────────────────────────────────────────────────
-val byteBuddyVersion = "1.17.8"
+val byteBuddyVersion  = "1.17.8"
+// Javassist 3.29.x: JDK 1.3+ 호환 — JDK 1.5 레거시 JEUS (4/5/6) 위빙에 사용
+// byte-buddy가 JDK 8 런타임을 요구하는 것과 달리, Javassist는 JDK 1.3+에서 동작.
+// agentJar fat-JAR에 함께 번들링되어 런타임에 동적으로 선택된다.
+val javassistVersion  = "3.30.2-GA"
 
 dependencies {
-    // byte-buddy: 바이트코드 위빙 핵심 엔진
+    // byte-buddy: JDK 8+ 환경 바이트코드 위빙 핵심 엔진 (JEUS 7+, Tomcat, JBoss 등)
     implementation("net.bytebuddy:byte-buddy:$byteBuddyVersion")
     implementation("net.bytebuddy:byte-buddy-agent:$byteBuddyVersion")
+
+    // Javassist: JDK 1.3~1.7 레거시 환경 바이트코드 위빙 엔진 (JEUS 4/5/6)
+    // - JDK 1.5 premain(JSR-163) 환경에서 byte-buddy 대신 사용
+    // - fat-JAR에 번들링하여 유관기관 WAS 클래스패스와 충돌 방지
+    implementation("org.javassist:javassist:$javassistVersion")
 
     // JUnit 5 직접 버전 명시 (Spring BOM 없으므로)
     // junit-jupiter 5.12.x → junit-platform 1.12.x 필요 (버전 동기화)
@@ -97,11 +106,13 @@ val agentJar by tasks.registering(Jar::class) {
     // ── Agent 자체 클래스 + 리소스 ──────────────────────────────────────────
     from(sourceSets["main"].output)
 
-    // ── byte-buddy JAR 언팩 포함 ─────────────────────────────────────────────
-    // runtimeClasspath에서 byte-buddy 관련 JAR만 필터링하여 클래스 파일 포함
+    // ── byte-buddy + Javassist JAR 언팩 포함 ────────────────────────────────
+    // runtimeClasspath에서 byte-buddy / javassist 관련 JAR을 필터링하여 클래스 파일 포함.
+    // - byte-buddy:  JDK 8+ WAS (JEUS 7+, Tomcat, JBoss 등) 위빙 엔진
+    // - javassist:   JDK 1.5 레거시 WAS (JEUS 4/5/6) 위빙 엔진
     from({
         configurations["runtimeClasspath"]
-            .filter { f -> f.name.contains("byte-buddy") }
+            .filter { f -> f.name.contains("byte-buddy") || f.name.contains("javassist") }
             .map    { f -> zipTree(f) }
     }) {
         // 서명 파일 + 모듈 정보 제거
