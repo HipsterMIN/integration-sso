@@ -2,6 +2,7 @@ package kr.go.smes.batch.job.ido;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import kr.go.smes.batch.alert.DeadLetterNotifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -69,10 +70,12 @@ class ProvisioningRelayJobTest {
     private static final String ROW_ID          = "row-uuid-001";
 
     // ── Mock ─────────────────────────────────────────────────────────────────
-    @Mock private JdbcTemplate idoJdbcTemplate;
-    @Mock private RestTemplate restTemplate;
-    @Mock private RestTemplate mtlsRestTemplate;
-    @Mock private ResultSet    mockResultSet;
+    @Mock private JdbcTemplate       idoJdbcTemplate;
+    @Mock private RestTemplate       restTemplate;
+    @Mock private RestTemplate       mtlsRestTemplate;
+    @Mock private ResultSet          mockResultSet;
+    /** D-06: DEAD_LETTER 알림 스템 — 테스트에서는 실제 웹훁 호출 없도록 Lenient Mock */
+    @Mock private DeadLetterNotifier deadLetterNotifier;
 
     // ── SUT ──────────────────────────────────────────────────────────────────
     private ProvisioningRelayJob sut;
@@ -81,7 +84,8 @@ class ProvisioningRelayJobTest {
     @BeforeEach
     void setUp() throws Exception {
         meterRegistry = new SimpleMeterRegistry();
-        sut = new ProvisioningRelayJob(idoJdbcTemplate, restTemplate, mtlsRestTemplate, meterRegistry);
+        sut = new ProvisioningRelayJob(idoJdbcTemplate, restTemplate, mtlsRestTemplate,
+                meterRegistry, deadLetterNotifier);
         ReflectionTestUtils.setField(sut, "batchSize", 50);
         ReflectionTestUtils.setField(sut, "enabled",   true);
 

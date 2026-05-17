@@ -174,6 +174,27 @@ batch:
       lock-at-most: ${BATCH_WEBHOOK_LOCK_MOST:10s}
       lock-at-least: ${BATCH_WEBHOOK_LOCK_LEAST:400ms}
 
+  # ── DEAD_LETTER 알림 채널 (D-06) ────────────────────────────────────────────
+  # provisioning_outbox DEAD_LETTER 전환 시 Slack/PagerDuty 알림 발송.
+  # 두 채널은 독립적으로 활성화 가능 — 하나 실패해도 나머지 발송 시도.
+  #
+  # Slack 설정:
+  #   kubectl create secret generic batch-alert-slack \
+  #     --from-literal=BATCH_ALERT_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../... \
+  #     -n production
+  #
+  # PagerDuty 설정 (Events API v2 Routing Key):
+  #   kubectl create secret generic batch-alert-pagerduty \
+  #     --from-literal=BATCH_ALERT_PAGERDUTY_ROUTING_KEY=<integration-key> \
+  #     -n production
+  alert:
+    slack:
+      enabled: ${BATCH_ALERT_SLACK_ENABLED:false}
+      webhook-url: ${BATCH_ALERT_SLACK_WEBHOOK_URL:}
+    pagerduty:
+      enabled: ${BATCH_ALERT_PAGERDUTY_ENABLED:false}
+      routing-key: ${BATCH_ALERT_PAGERDUTY_ROUTING_KEY:}
+
 # ── Flyway (ido DataSource 전용 — V19 shedlock 테이블) ──────────────────────
 # BatchFlywayConfig에서 수동 설정. 자동 설정은 autoconfigure.exclude로 비활성.
 spring:

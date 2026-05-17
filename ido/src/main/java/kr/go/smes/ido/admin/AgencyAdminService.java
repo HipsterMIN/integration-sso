@@ -1,5 +1,6 @@
 package kr.go.smes.ido.admin;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.common.event.AuditLogEvent;
 import kr.go.smes.ido.admin.dto.AgencyCreateRequest;
@@ -10,11 +11,14 @@ import kr.go.smes.ido.infrastructure.jpa.repository.AgencyMetaJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
@@ -205,7 +209,8 @@ public class AgencyAdminService {
                       AND issued_at >= NOW() - INTERVAL '24 hours'
                     """, agencyCode);
             stats.put("last24h", ticketStats);
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
+            log.warn("[Admin] ticketStats 조회 실패 (비치명적): agencyCode={} error={}", agencyCode, e.getMessage());
             stats.put("last24h", Map.of("error", e.getMessage()));
         }
 
@@ -222,7 +227,8 @@ public class AgencyAdminService {
                       AND created_at >= NOW() - INTERVAL '24 hours'
                     """, agencyCode);
             stats.put("webhook24h", webhookStats);
-        } catch (Exception e) {
+        } catch (DataAccessException e) {
+            log.warn("[Admin] webhookStats 조회 실패 (비치명적): agencyCode={} error={}", agencyCode, e.getMessage());
             stats.put("webhook24h", Map.of("note", "webhook_dispatch_outbox 조회 불가"));
         }
 
@@ -247,8 +253,8 @@ public class AgencyAdminService {
                             active = EXCLUDED.active,
                             updated_at = NOW()
                     """, agencyCode, endpoint, enabled);
-        } catch (Exception e) {
-            log.warn("[Admin] webhook config 저장 실패 (비치명적): {}", e.getMessage());
+        } catch (DataAccessException e) {
+            log.warn("[Admin] webhook config 저장 실패 (비치명적): agencyCode={} error={}", agencyCode, e.getMessage());
         }
     }
 
@@ -257,7 +263,11 @@ public class AgencyAdminService {
             return jdbcTemplate.queryForObject(
                     "SELECT endpoint_url FROM ido.agency_webhook_config WHERE agency_code = ?",
                     String.class, agencyCode);
-        } catch (Exception e) {
+        } catch (EmptyResultDataAccessException e) {
+            // 정상 케이스 — webhook 미설정 기관
+            return null;
+        } catch (DataAccessException e) {
+            log.warn("[Admin] webhookEndpoint 조회 실패 (비치명적): agencyCode={} error={}", agencyCode, e.getMessage());
             return null;
         }
     }
@@ -275,8 +285,8 @@ public class AgencyAdminService {
                     .agencyCode(agencyCode)
                     .outcome(outcome)
                     .build());
-        } catch (Exception e) {
-            log.warn("[Admin] 감사 로그 실패 (비치명적): {}", e.getMessage());
+        } catch (RuntimeException e) {
+            log.warn("[Admin] 감사 로그 실패 (비치명적): action={} error={}", action, e.getMessage());
         }
     }
 
@@ -287,15 +297,19 @@ public class AgencyAdminService {
             StringBuilder sb = new StringBuilder();
             for (byte b : hash) sb.append(String.format("%02x", b));
             return sb.toString();
-        } catch (Exception e) {
-            throw new RuntimeException("SHA-256 실패", e);
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256은 Java 명세상 항상 지원 — 발생 불가하나 checked exception 명시
+            throw new IllegalStateException("SHA-256 알고리즘 지원 안 됨 (JVM 환경 이상)", e);
         }
     }
 
     private String toJson(Object obj) {
         if (obj == null) return null;
         try { return objectMapper.writeValueAsString(obj); }
-        catch (Exception e) { return null; }
+        catch (JsonProcessingException e) {
+            log.warn("[Admin] JSON 직렬화 실패: type={} error={}", obj.getClass().getSimpleName(), e.getMessage());
+            return null;
+        }
     }
 
     private AgencyResponse toResponse(AgencyMetaJpaEntity e,
@@ -322,6 +336,9 @@ public class AgencyAdminService {
     private List<String> parseJsonList(String json) {
         if (json == null || json.isBlank()) return List.of();
         try { return objectMapper.readValue(json, List.class); }
-        catch (Exception e) { return List.of(); }
+        catch (JsonProcessingException e) {
+            log.warn("[Admin] JSON 역직렬화 실패: json={} error={}", json, e.getMessage());
+            return List.of();
+        }
     }
 }

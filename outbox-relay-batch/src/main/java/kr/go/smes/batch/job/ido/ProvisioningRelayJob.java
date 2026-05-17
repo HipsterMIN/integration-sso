@@ -2,6 +2,7 @@ package kr.go.smes.batch.job.ido;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import kr.go.smes.batch.alert.DeadLetterNotifier;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -85,6 +86,9 @@ public class ProvisioningRelayJob {
     private final Counter retryCounter;
     private final Counter deadLetterCounter;
 
+    /** DEAD_LETTER 전환 시 Slack/PagerDuty 알림 발송 */
+    private final DeadLetterNotifier deadLetterNotifier;
+
     @Value("${batch.relay.provisioning.batch-size:50}")
     private int batchSize;
 
@@ -95,13 +99,15 @@ public class ProvisioningRelayJob {
             @Qualifier("idoJdbcTemplate")              JdbcTemplate idoJdbcTemplate,
             @Qualifier("provisioningRestTemplate")     RestTemplate restTemplate,
             @Qualifier("mtlsProvisioningRestTemplate") RestTemplate mtlsRestTemplate,
-            MeterRegistry meterRegistry) {
-        this.idoJdbcTemplate  = idoJdbcTemplate;
-        this.restTemplate     = restTemplate;
-        this.mtlsRestTemplate = mtlsRestTemplate;
-        this.successCounter   = meterRegistry.counter("batch.relay.provisioning.success");
-        this.retryCounter     = meterRegistry.counter("batch.relay.provisioning.retry");
-        this.deadLetterCounter= meterRegistry.counter("batch.relay.provisioning.dead_letter");
+            MeterRegistry meterRegistry,
+            DeadLetterNotifier deadLetterNotifier) {
+        this.idoJdbcTemplate     = idoJdbcTemplate;
+        this.restTemplate        = restTemplate;
+        this.mtlsRestTemplate    = mtlsRestTemplate;
+        this.successCounter      = meterRegistry.counter("batch.relay.provisioning.success");
+        this.retryCounter        = meterRegistry.counter("batch.relay.provisioning.retry");
+        this.deadLetterCounter   = meterRegistry.counter("batch.relay.provisioning.dead_letter");
+        this.deadLetterNotifier  = deadLetterNotifier;
     }
 
     /**
@@ -228,6 +234,9 @@ public class ProvisioningRelayJob {
             markDeadLetter(row.id(), error);
             log.error("[ProvisioningRelayJob] ☠️ DEAD_LETTER: agency={} id={} retry={}/{} error={}",
                     row.agencyCode(), row.id(), nextRetry, row.maxRetry(), error);
+            // D-06: DEAD_LETTER 전환 시 Slack/PagerDuty 알림 (비치명적 — 실패해도 흐름 유지)
+            deadLetterNotifier.notifyDeadLetter(
+                    row.agencyCode(), row.id(), error, nextRetry);
             return RelayResult.DEAD_LETTER;
         }
         scheduleRetry(row.id(), error, row.retryCount());

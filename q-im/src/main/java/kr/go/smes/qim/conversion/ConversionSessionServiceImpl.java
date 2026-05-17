@@ -7,6 +7,7 @@ import kr.go.smes.common.error.PlatformErrorCode;
 import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.util.UuidV7;
 import kr.go.smes.qim.infrastructure.jpa.entity.ConversionSessionJpaEntity;
+import kr.go.smes.qim.infrastructure.jpa.repository.AuthMeanMappingJpaRepository;
 import kr.go.smes.qim.infrastructure.jpa.repository.ConversionSessionJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,10 +42,12 @@ public class ConversionSessionServiceImpl implements ConversionSessionService {
 
     private static final int DEFAULT_TTL_MINUTES = 30;
 
-    private final ConversionSessionJpaRepository sessionRepository;
-    private final ObjectMapper                    objectMapper;
+    private final ConversionSessionJpaRepository  sessionRepository;
+    private final ObjectMapper                     objectMapper;
     /** 68개 기관 CI 기반 회원 조회/연결 서비스 */
-    private final AgencyMemberLookupService       agencyMemberLookupService;
+    private final AgencyMemberLookupService        agencyMemberLookupService;
+    /** PASS/CI 계열 identifierHash DB 조회 (M-02) */
+    private final AuthMeanMappingJpaRepository     authMeanMappingRepository;
 
     // ── 퍼블릭 API ────────────────────────────────────────────────────────────
 
@@ -176,22 +179,34 @@ public class ConversionSessionServiceImpl implements ConversionSessionService {
     // ── 헬퍼 — identifierHash 해석 ───────────────────────────────────────────
 
     /**
-     * qimUserId → identifierHash 해석
+     * qimUserId → identifierHash 해석 (M-02 구현 완료)
      *
-     * <p>실제 운영에서는 Q-IM이 최초 본인인증 시 저장한 ACTIVE auth_mean_mapping 의
-     * identifierHash(= SHA-256(CI)) 를 사용해야 한다.
-     * PoC 단계에서는 qimUserId 자체를 해시 입력으로 사용하여 흐름을 검증한다.
+     * <p><b>운영 로직</b>: {@code qim.auth_mean_mapping} 테이블에서 PASS/CI 계열
+     * ({@code PASS}, {@code KICA}, {@code NICE}, {@code KCB}) ACTIVE 매핑의
+     * {@code identifierHash}(= SHA-256(CI))를 우선순위 순으로 조회한다.
      *
-     * TODO(운영): AuthMeanMappingJpaRepository 에서 PASS/CI 계열 매핑의 identifierHash 로드
+     * <p><b>Fallback</b>: DB 매핑 미존재 시(최초 인증 전 세션, 테스트 환경 등)
+     * qimUserId SHA-256 해시를 임시 식별자로 사용하며 WARN 로그를 남긴다.
+     * 이 Fallback이 운영 트래픽에서 반복 발생하면 {@code auth_mean_mapping} 등록 누락을 의미한다.
      */
     private String resolveIdentifierHash(String qimUserId) {
+        // ① 운영 DB에서 PASS/CI 계열 identifierHash 조회
+        var dbHash = authMeanMappingRepository.findActivePassCiHash(qimUserId);
+        if (dbHash.isPresent()) {
+            log.debug("[Conversion] identifierHash DB 조회 성공: qimUserId={}", qimUserId);
+            return dbHash.get();
+        }
+
+        // ② Fallback — PASS/CI 매핑 미등록 (최초 인증 전 / 테스트 환경)
+        log.warn("[Conversion] PASS/CI identifierHash 미등록 — qimUserId SHA-256 Fallback 사용: qimUserId={} "
+                + "→ auth_mean_mapping 등록 여부 확인 필요", qimUserId);
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] bytes = md.digest(qimUserId.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(bytes);
-        } catch (Exception e) {
-            log.warn("[Conversion] identifierHash 생성 실패, qimUserId 사용: {}", e.getMessage());
-            return qimUserId;
+        } catch (java.security.NoSuchAlgorithmException e) {
+            // SHA-256은 Java 명세상 항상 지원 — 발생 불가
+            throw new IllegalStateException("SHA-256 알고리즘 지원 안 됨 (JVM 환경 이상)", e);
         }
     }
 
