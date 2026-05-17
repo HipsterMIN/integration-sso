@@ -1,0 +1,282 @@
+##############################################################################
+# OnePass Agent 멀티 WAS 테스트베드 — Docker Compose
+#
+# 목적: 유관기관 운영 배포 전 onepass-agent를 다양한 WAS/JDK 조합에서 검증
+#
+# 아키텍처:
+#   mock-onepass-server  ← Agent가 SSO 검증을 위해 호출하는 가짜 OnePass API
+#   tomcat-9             ← Tomcat 9 + JDK 11 (Servlet 4.0, javax)
+#   tomcat-10            ← Tomcat 10.1 + JDK 17 (Servlet 6.0, jakarta)
+#   tomcat-8             ← Tomcat 8.5 + JDK 8 (Servlet 3.1)
+#   wildfly              ← WildFly 27 + JDK 17 (Jakarta EE 10)
+#   jetty                ← Jetty 11 + JDK 11 (Servlet 5.0)
+#   springboot-embedded  ← Spring Boot 3.x + Embedded Tomcat 10
+#
+# 사용법:
+#   # 전체 환경 기동
+#   docker-compose up -d
+#
+#   # 특정 WAS만 기동
+#   docker-compose up -d mock-onepass-server tomcat-9
+#
+#   # 로그 확인
+#   docker-compose logs -f tomcat-9
+#
+#   # Agent 교체 후 재시작
+#   ./scripts/replace-agent.sh tomcat-9
+#   docker-compose restart tomcat-9
+#
+#   # 전체 종료
+#   docker-compose down
+#
+# 사전 조건:
+#   - onepass-agent-xxx-all.jar 빌드 완료:
+#     cd /home/user/webapp && ./gradlew :onepass-agent:agentJar
+#   - ./config/onepass-agent.properties 설정 완료
+##############################################################################
+
+version: "3.8"
+
+networks:
+  testbed-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+volumes:
+  agent-jar:
+    driver: local
+
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Mock OnePass Server — Agent가 토큰 검증을 위해 호출하는 가짜 API 서버
+  # ──────────────────────────────────────────────────────────────────────────────
+  mock-onepass-server:
+    build:
+      context: ../apps/mock-onepass-server
+      dockerfile: Dockerfile
+    container_name: mock-onepass-server
+    ports:
+      - "18080:8080"
+    networks:
+      testbed-net:
+        ipv4_address: 172.20.0.10
+    environment:
+      - SERVER_PORT=8080
+      # 유효한 토큰 목록 (콤마 구분)
+      - VALID_TOKENS=test-token-001,test-token-002,admin-token
+      # 검증 지연 시뮬레이션 (ms)
+      - RESPONSE_DELAY_MS=50
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Tomcat 9 + JDK 11 (Servlet 4.0, javax — 가장 일반적인 공공기관 환경)
+  # ──────────────────────────────────────────────────────────────────────────────
+  tomcat-9:
+    build:
+      context: ../docker
+      dockerfile: Dockerfile.tomcat9
+    container_name: testbed-tomcat9
+    ports:
+      - "18090:8080"
+      - "18443:8443"
+    networks:
+      testbed-net:
+        ipv4_address: 172.20.0.20
+    volumes:
+      - ../../onepass-agent/build/libs:/agent:ro
+      - ../config:/agent-config:ro
+      - ../apps/sample-webapp/build/libs:/webapps:ro
+    environment:
+      - JAVA_OPTS=-javaagent:/agent/onepass-agent-all.jar=/agent-config/onepass-agent.properties
+        -Donepass.was.type=TOMCAT_9
+        -Xms256m -Xmx512m
+      - CATALINA_HOME=/usr/local/tomcat
+    depends_on:
+      mock-onepass-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/sample/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Tomcat 10.1 + JDK 17 (Servlet 6.0, jakarta — Spring Boot 3.x 환경)
+  # ──────────────────────────────────────────────────────────────────────────────
+  tomcat-10:
+    build:
+      context: ../docker
+      dockerfile: Dockerfile.tomcat10
+    container_name: testbed-tomcat10
+    ports:
+      - "18091:8080"
+    networks:
+      testbed-net:
+        ipv4_address: 172.20.0.21
+    volumes:
+      - ../../onepass-agent/build/libs:/agent:ro
+      - ../config:/agent-config:ro
+      - ../apps/sample-webapp/build/libs:/webapps:ro
+    environment:
+      - JAVA_OPTS=-javaagent:/agent/onepass-agent-all.jar=/agent-config/onepass-agent.properties
+        -Donepass.was.type=TOMCAT_10_PLUS
+        -Xms256m -Xmx512m
+    depends_on:
+      mock-onepass-server:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Tomcat 8.5 + JDK 8 (Servlet 3.1 — JDK 8 최소 환경)
+  # ──────────────────────────────────────────────────────────────────────────────
+  tomcat-8:
+    build:
+      context: ../docker
+      dockerfile: Dockerfile.tomcat8
+    container_name: testbed-tomcat8
+    ports:
+      - "18092:8080"
+    networks:
+      testbed-net:
+        ipv4_address: 172.20.0.22
+    volumes:
+      - ../../onepass-agent/build/libs:/agent:ro
+      - ../config:/agent-config:ro
+      - ../apps/sample-webapp/build/libs:/webapps:ro
+    environment:
+      - JAVA_OPTS=-javaagent:/agent/onepass-agent-all.jar=/agent-config/onepass-agent.properties
+        -Donepass.was.type=TOMCAT_8
+        -Xms256m -Xmx512m
+    depends_on:
+      mock-onepass-server:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # WildFly 27 + JDK 17 (Jakarta EE 10 — 최신 JBoss 계열)
+  # ──────────────────────────────────────────────────────────────────────────────
+  wildfly:
+    build:
+      context: ../docker
+      dockerfile: Dockerfile.wildfly
+    container_name: testbed-wildfly
+    ports:
+      - "18093:8080"
+      - "19990:9990"   # WildFly Management Console
+    networks:
+      testbed-net:
+        ipv4_address: 172.20.0.30
+    volumes:
+      - ../../onepass-agent/build/libs:/agent:ro
+      - ../config:/agent-config:ro
+      - ../apps/sample-webapp/build/libs:/deployments:ro
+    environment:
+      - JAVA_OPTS=-javaagent:/agent/onepass-agent-all.jar=/agent-config/onepass-agent.properties
+        -Donepass.was.type=WILDFLY
+        -Xms256m -Xmx512m
+      - WILDFLY_PASS=admin123
+    depends_on:
+      mock-onepass-server:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Jetty 11 + JDK 11 (Servlet 5.0, jakarta)
+  # ──────────────────────────────────────────────────────────────────────────────
+  jetty:
+    build:
+      context: ../docker
+      dockerfile: Dockerfile.jetty
+    container_name: testbed-jetty
+    ports:
+      - "18094:8080"
+    networks:
+      testbed-net:
+        ipv4_address: 172.20.0.40
+    volumes:
+      - ../../onepass-agent/build/libs:/agent:ro
+      - ../config:/agent-config:ro
+      - ../apps/sample-webapp/build/libs:/webapps:ro
+    environment:
+      - JAVA_OPTIONS=-javaagent:/agent/onepass-agent-all.jar=/agent-config/onepass-agent.properties
+        -Donepass.was.type=JETTY
+        -Xms256m -Xmx512m
+    depends_on:
+      mock-onepass-server:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Spring Boot 3.x Embedded Tomcat (JAR 실행, 실제 유관기관 최신 환경)
+  # ──────────────────────────────────────────────────────────────────────────────
+  springboot-embedded:
+    build:
+      context: ../docker
+      dockerfile: Dockerfile.springboot
+    container_name: testbed-springboot
+    ports:
+      - "18095:8080"
+    networks:
+      testbed-net:
+        ipv4_address: 172.20.0.50
+    volumes:
+      - ../../onepass-agent/build/libs:/agent:ro
+      - ../config:/agent-config:ro
+    environment:
+      - JAVA_OPTS=-javaagent:/agent/onepass-agent-all.jar=/agent-config/onepass-agent.properties
+        -Donepass.was.type=TOMCAT_10_PLUS
+        -Xms256m -Xmx512m
+    depends_on:
+      mock-onepass-server:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Unknown WAS 시뮬레이터 — GenericFilter Fallback 검증
+  # Undertow Standalone으로 시뮬레이션 (WasDetector에서 UNKNOWN 유도)
+  # ──────────────────────────────────────────────────────────────────────────────
+  unknown-fallback:
+    build:
+      context: ../docker
+      dockerfile: Dockerfile.undertow
+    container_name: testbed-unknown-fallback
+    ports:
+      - "18096:8080"
+    networks:
+      testbed-net:
+        ipv4_address: 172.20.0.60
+    volumes:
+      - ../../onepass-agent/build/libs:/agent:ro
+      - ../config:/agent-config:ro
+    environment:
+      # UNKNOWN 강제 → GenericFilter Fallback 동작 검증
+      - JAVA_OPTS=-javaagent:/agent/onepass-agent-all.jar=/agent-config/onepass-agent.properties
+        -Donepass.was.type=UNKNOWN
+        -Xms128m -Xmx256m
+    depends_on:
+      mock-onepass-server:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # 테스트 실행기 — 모든 WAS에 대한 자동화 검증 수행
+  # ──────────────────────────────────────────────────────────────────────────────
+  test-runner:
+    image: curlimages/curl:8.6.0
+    container_name: testbed-runner
+    networks:
+      - testbed-net
+    volumes:
+      - ../scripts:/scripts:ro
+    depends_on:
+      - tomcat-9
+      - tomcat-10
+      - tomcat-8
+      - wildfly
+      - jetty
+      - springboot-embedded
+      - unknown-fallback
+    entrypoint: ["/bin/sh", "/scripts/run-all-tests.sh"]
+    profiles:
+      - test  # docker-compose --profile test up test-runner 으로만 실행

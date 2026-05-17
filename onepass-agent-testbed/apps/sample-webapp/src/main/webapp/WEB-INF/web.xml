@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  sample-webapp — OnePass Agent 테스트베드용 샘플 서블릿 앱
+  Servlet 3.1 호환 (Tomcat 8.5/9), jakarta.servlet 불필요
+-->
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee
+                             http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
+         version="3.1">
+
+    <display-name>OnePass Agent Sample WebApp</display-name>
+    <description>Agent 위빙 검증용 테스트 서블릿 앱</description>
+
+    <!-- ─── 헬스체크 (인증 제외 대상) ────────────────────────── -->
+    <servlet>
+        <servlet-name>HealthServlet</servlet-name>
+        <servlet-class>kr.go.smes.testbed.servlet.HealthServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>HealthServlet</servlet-name>
+        <url-pattern>/health</url-pattern>
+    </servlet-mapping>
+
+    <!-- ─── 공개 엔드포인트 (인증 제외 대상) ─────────────────── -->
+    <servlet>
+        <servlet-name>PublicServlet</servlet-name>
+        <servlet-class>kr.go.smes.testbed.servlet.PublicServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PublicServlet</servlet-name>
+        <url-pattern>/public/*</url-pattern>
+    </servlet-mapping>
+
+    <!-- ─── 보호된 엔드포인트 (Agent 인증 필요) ──────────────── -->
+    <servlet>
+        <servlet-name>ProtectedServlet</servlet-name>
+        <servlet-class>kr.go.smes.testbed.servlet.ProtectedServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProtectedServlet</servlet-name>
+        <url-pattern>/protected</url-pattern>
+        <url-pattern>/protected/*</url-pattern>
+        <url-pattern>/api/*</url-pattern>
+    </servlet-mapping>
+
+    <!-- ─── 세션 설정 ────────────────────────────────────────── -->
+    <session-config>
+        <session-timeout>30</session-timeout>
+    </session-config>
+
+    <!-- ─── 에러 페이지 ──────────────────────────────────────── -->
+    <error-page>
+        <error-code>401</error-code>
+        <location>/error/401.html</location>
+    </error-page>
+    <error-page>
+        <error-code>404</error-code>
+        <location>/error/404.html</location>
+    </error-page>
+
+</web-app>

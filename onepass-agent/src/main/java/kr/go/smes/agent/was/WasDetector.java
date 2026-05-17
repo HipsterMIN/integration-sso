@@ -1,50 +1,27 @@
 package kr.go.smes.agent.was;
 
+import java.io.File;
 import java.io.PrintStream;
+import java.net.URL;
 
 /**
- * WAS 런타임 유형 자동 감지기.
+ * WAS 런타임 유형 자동 감지기 — 강화 버전.
  *
  * <h2>감지 전략 (우선순위 순)</h2>
  * <ol>
  *   <li><b>시스템 프로퍼티 오버라이드</b>: {@code onepass.was.type} 명시적 지정</li>
- *   <li><b>클래스패스 탐색</b>: WAS 고유 클래스의 {@link Class#forName(String)} 성공 여부
- *       — JEUS의 경우 버전별 고유 클래스를 역순(신→구)으로 탐색</li>
- *   <li><b>시스템 프로퍼티 패턴</b>: {@code jeus.home}, {@code jeus.server.name},
- *       {@code weblogic.Name}, {@code jboss.home.dir} 등</li>
+ *   <li><b>클래스패스 탐색 (고정밀)</b>: WAS 버전별 고유 클래스 {@link Class#forName(String)} 성공 여부
+ *       — JEUS(버전 역순), Tomcat(버전 역순), JBoss/WildFly, WebLogic, WebSphere, GlassFish, Resin, Jetty, Undertow</li>
+ *   <li><b>시스템 프로퍼티 패턴</b>: {@code jeus.home}, {@code catalina.home}, {@code weblogic.Name} 등</li>
  *   <li><b>환경 변수</b>: {@code JEUS_HOME}, {@code CATALINA_HOME}, {@code JBOSS_HOME} 등</li>
+ *   <li><b>JVM 인수 스캔</b>: {@code sun.java.command}, {@code java.class.path} 패턴 분석</li>
+ *   <li><b>파일시스템 힌트</b>: WAS 홈 디렉토리 내 고유 파일/디렉토리 존재 여부</li>
  *   <li><b>Fallback</b>: 위 모든 수단 실패 시 {@link WasType#UNKNOWN}</li>
  * </ol>
  *
- * <h2>JEUS 버전 판별 상세</h2>
- * <p>JEUS는 버전에 따라 JDK 요구사항과 위빙 전략이 크게 달라지므로 정밀 버전 판별이 필요하다.
- *
- * <pre>
- *  판별 단서                         JEUS 버전  이유
- *  ─────────────────────────────────────────────────────────────────────────────
- *  com.tmaxsoft.jeus.web.servlet.Jeus9Servlet   JEUS 9+    신규 클래스 (JEUS 9 도입)
- *  com.tmaxsoft.jeus.web.servlet.JeusServlet8_5 JEUS 8.5   JEUS 8.5 도입 클래스
- *  com.tmaxsoft.jeus.web.servlet.JeusFilter8    JEUS 8     JEUS 8 고유
- *  com.tmaxsoft.jeus.web.servlet.JeusFilter7    JEUS 7     JEUS 7 고유
- *  com.tmaxsoft.jeus.web.servlet.JeusFilter     JEUS 6     com.tmaxsoft 최초 도입
- *  com.tmaxsoft.jeus.web.JeusWebContainer       JEUS 6+    신 패키지 식별자
- *  jeus.servlet.JeusServletEngine               JEUS 4~6   공통 내부 클래스
- *  com.tmax.jeus.web.servlet.HttpServletWrapper JEUS 4/5   구 패키지 (com.tmax.jeus)
- *  jeus.home 시스템 프로퍼티                    JEUS 전 버전
- *  jeus.server.name 시스템 프로퍼티             JEUS 전 버전
- *  JEUS_HOME 환경변수                           JEUS 전 버전 (설치 경로)
- * </pre>
- *
- * <p><b>중요</b>: 실제 운영 환경에서 JEUS 고유 클래스는 WAS 클래스로더에 의해 로드된다.
- * Agent의 premain 단계에서는 WAS가 아직 완전히 초기화되지 않았을 수 있으므로,
- * 시스템 프로퍼티/환경변수 방식이 더 신뢰성 높은 경우가 많다.
- * 두 단계를 모두 수행하고 최고 신뢰도 결과를 선택한다.
- *
- * <h2>JDK 버전 기반 위빙 엔진 분기</h2>
- * <p>JEUS 버전이 결정된 후, 실제 위빙 엔진(byte-buddy vs Javassist)은
- * 런타임 JDK 버전으로 최종 결정한다. WasType은 WAS 계열을 나타내며,
- * {@link kr.go.smes.agent.weaving.jeus.JeusWeavingEngineSelector}가
- * 런타임 JDK 버전을 합산하여 최적 엔진을 선택한다.
+ * <h2>감지 불가 WAS 대응 (Fail-Open)</h2>
+ * <p>UNKNOWN 반환 시 GenericFilterWeavingStrategy(javax/jakarta 이중 위빙)가 Fallback으로 동작.
+ * 대부분의 Servlet API 기반 WAS는 이 방식으로 SSO 처리 가능.
  *
  * <h2>스레드 안전성</h2>
  * 멱등(idempotent) 조회이며 결과를 캐싱하지 않는다.
@@ -55,106 +32,147 @@ public final class WasDetector {
     // ── 시스템 프로퍼티 오버라이드 키 ───────────────────────────────────────────
     private static final String OVERRIDE_PROP = "onepass.was.type";
 
-    // ── JEUS 버전 판별 — 클래스패스 탐색 (신→구 순서, 버전 특화 클래스 우선) ──
+    // ─────────────────────────────────────────────────────────────────────────────
+    // JEUS 버전 판별 클래스 상수 (신→구 순)
+    // ─────────────────────────────────────────────────────────────────────────────
+    private static final String CLS_JEUS9_SERVLET_ENGINE  = "com.tmaxsoft.jeus.web.servlet.engine.JeusServletEngine9";
+    private static final String CLS_JAKARTA_SERVLET       = "jakarta.servlet.ServletRequest";
+    private static final String CLS_JEUS8_5_CONTAINER     = "com.tmaxsoft.jeus.web.servlet.JeusServlet4Container";
+    private static final String CLS_JEUS8_5_HTTP2         = "com.tmaxsoft.jeus.web.http2.JeusHttp2Handler";
+    private static final String CLS_JEUS8_CONNECTOR       = "com.tmaxsoft.jeus.web.connector.JeusConnector8";
+    private static final String CLS_JEUS8_WEBSOCKET       = "com.tmaxsoft.jeus.web.websocket.JeusWebSocketHandler";
+    private static final String CLS_JEUS7_DEPLOYER        = "com.tmaxsoft.jeus.web.deployer.JeusWebDeployer7";
+    private static final String CLS_JEUS7_ASYNC           = "com.tmaxsoft.jeus.web.async.JeusAsyncContext";
+    private static final String CLS_JEUS6_WEBCONTAINER    = "com.tmaxsoft.jeus.web.JeusWebContainer";
+    private static final String CLS_JEUS6_SERVLET_HANDLER = "com.tmaxsoft.jeus.web.servlet.JeusServletHandler";
+    private static final String CLS_JEUS45_HTTP_WRAPPER   = "com.tmax.jeus.web.servlet.HttpServletWrapper";
+    private static final String CLS_JEUS45_ENGINE         = "com.tmax.jeus.util.engine.ServiceEngine";
+    private static final String CLS_JEUS45_MAIN           = "com.tmax.jeus.server.JeusMain";
+    private static final String CLS_JEUS_SERVLET_ENGINE   = "jeus.servlet.JeusServletEngine";
+    private static final String CLS_JEUS_WEB_UTILS        = "jeus.util.JeusWebUtils";
 
-    // JEUS 9+ (Jakarta EE): jakarta.servlet 패키지 + 새 JEUS 내부 클래스
-    // JEUS 9의 고유 내부 서블릿 엔진 클래스 (JEUS 8.5 이하에는 없음)
-    private static final String CLS_JEUS9_SERVLET_ENGINE =
-            "com.tmaxsoft.jeus.web.servlet.engine.JeusServletEngine9";
-    // Jakarta Servlet — JEUS 9+에서 javax.servlet 대체 (Tomcat 10+도 해당이나, JEUS 프로퍼티와 병행 확인)
-    private static final String CLS_JAKARTA_SERVLET_REQUEST =
-            "jakarta.servlet.ServletRequest";
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Tomcat 버전 판별 클래스 상수 (신→구 순)
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Tomcat 10+ (jakarta.servlet)
+    private static final String CLS_TOMCAT10_CONTEXT      = "org.apache.catalina.core.StandardContext";
+    private static final String CLS_TOMCAT10_NIO2         = "org.apache.tomcat.util.net.Nio2Endpoint";
+    private static final String CLS_TOMCAT10_HTTP2        = "org.apache.coyote.http2.Http2Protocol";
+    // Tomcat 9 특화 (javax.servlet, Servlet 4.0)
+    private static final String CLS_TOMCAT9_EMBEDDED      = "org.apache.catalina.startup.Tomcat";
+    private static final String CLS_TOMCAT9_SERVLET40     = "javax.servlet.http.HttpServletMapping";
+    // Tomcat 8.5 특화 (HTTP/2, ALPN 지원 시작)
+    private static final String CLS_TOMCAT85_ALPN         = "org.apache.tomcat.util.net.SSLUtil";
+    private static final String CLS_TOMCAT85_UPGRADETOKEN = "org.apache.coyote.UpgradeToken";
+    // Tomcat 8.0/8.x 특화 (Servlet 3.1, NIO2 기본)
+    private static final String CLS_TOMCAT8_NIO2HANDLER   = "org.apache.tomcat.util.net.Nio2Channel";
+    // Tomcat 7.x 특화 (Servlet 3.0 AsyncContext)
+    private static final String CLS_TOMCAT7_ASYNC         = "org.apache.catalina.core.AsyncContextImpl";
+    private static final String CLS_TOMCAT7_WSOCKET       = "org.apache.catalina.websocket.WebSocketServlet";
+    // Tomcat 5/6 (구형)
+    private static final String CLS_TOMCAT6_LEGACY        = "org.apache.catalina.util.RequestUtil";
+    private static final String CLS_TOMCAT6_DEPLOY        = "org.apache.catalina.startup.HostConfig";
+    // Tomcat 공통
+    private static final String CLS_TOMCAT_CATALINA       = "org.apache.catalina.startup.Catalina";
+    private static final String CLS_TOMCAT_VALVE          = "org.apache.catalina.Valve";
+    private static final String CLS_TOMCAT_CONNECTOR      = "org.apache.catalina.connector.Connector";
 
-    // JEUS 8.5: JDK 8/11, Servlet 4.0
-    private static final String CLS_JEUS8_5_CONTAINER =
-            "com.tmaxsoft.jeus.web.servlet.JeusServlet4Container";
-    // JEUS 8.5 도입된 HTTP/2 지원 클래스
-    private static final String CLS_JEUS8_5_HTTP2 =
-            "com.tmaxsoft.jeus.web.http2.JeusHttp2Handler";
+    // ─────────────────────────────────────────────────────────────────────────────
+    // JBoss / WildFly 클래스 상수
+    // ─────────────────────────────────────────────────────────────────────────────
+    private static final String CLS_WILDFLY_UNDERTOW      = "org.wildfly.extension.undertow.UndertowService";
+    private static final String CLS_WILDFLY_BOOT          = "org.wildfly.security.WildFlySecurityManager";
+    private static final String CLS_JBOSS_EAP7_BOOT      = "org.jboss.as.server.Bootstrap";
+    private static final String CLS_JBOSS_EAP7_UNDERTOW  = "org.jboss.as.undertow.UndertowService";
+    private static final String CLS_JBOSS_LEGACY_DEPLOY   = "org.jboss.web.tomcat.service.TomcatDeployer";
+    private static final String CLS_JBOSS_LEGACY_MICRO    = "org.jboss.kernel.Kernel";
 
-    // JEUS 8: JDK 1.7~1.8, Servlet 3.1
-    private static final String CLS_JEUS8_CONNECTOR =
-            "com.tmaxsoft.jeus.web.connector.JeusConnector8";
-    // JEUS 8 도입된 WebSocket 지원 핸들러
-    private static final String CLS_JEUS8_WEBSOCKET =
-            "com.tmaxsoft.jeus.web.websocket.JeusWebSocketHandler";
+    // ─────────────────────────────────────────────────────────────────────────────
+    // WebLogic 클래스 상수
+    // ─────────────────────────────────────────────────────────────────────────────
+    private static final String CLS_WEBLOGIC_T3SVR        = "weblogic.t3.srvr.T3Srvr";
+    private static final String CLS_WEBLOGIC_SERVER       = "weblogic.Server";
+    private static final String CLS_WEBLOGIC_FILTERCHAIN  = "weblogic.servlet.internal.FilterChainImpl";
+    private static final String CLS_WEBLOGIC14_STARTUP    = "weblogic.server.ServerLifecycleListener";
+    private static final String CLS_WEBLOGIC_LEGACY_BOOT  = "weblogic.management.runtime.ServerRuntimeMBean";
 
-    // JEUS 7: JDK 1.6~1.8, Servlet 3.0
-    private static final String CLS_JEUS7_DEPLOYER =
-            "com.tmaxsoft.jeus.web.deployer.JeusWebDeployer7";
-    // JEUS 7에서 도입된 Servlet 3.0 Async 지원 클래스
-    private static final String CLS_JEUS7_ASYNC =
-            "com.tmaxsoft.jeus.web.async.JeusAsyncContext";
+    // ─────────────────────────────────────────────────────────────────────────────
+    // WebSphere 클래스 상수
+    // ─────────────────────────────────────────────────────────────────────────────
+    private static final String CLS_WAS_WEBCONTAINER      = "com.ibm.ws.webcontainer.WebContainer";
+    private static final String CLS_WAS_FILTER_MGR        = "com.ibm.ws.webcontainer.filter.WebAppFilterManager";
+    private static final String CLS_WAS_LIBERTY           = "com.ibm.ws.kernel.boot.Launcher";
+    private static final String CLS_WAS_LEGACY_SERVER     = "com.ibm.websphere.management.AdminService";
 
-    // JEUS 6: JDK 1.5~1.7, com.tmaxsoft.jeus.* (신 패키지 최초 도입)
-    // 구 패키지(com.tmax)에서 신 패키지(com.tmaxsoft)로 전환된 버전
-    private static final String CLS_JEUS6_WEBCONTAINER =
-            "com.tmaxsoft.jeus.web.JeusWebContainer";
-    private static final String CLS_JEUS6_SERVLET_HANDLER =
-            "com.tmaxsoft.jeus.web.servlet.JeusServletHandler";
+    // ─────────────────────────────────────────────────────────────────────────────
+    // GlassFish / Payara 클래스 상수
+    // ─────────────────────────────────────────────────────────────────────────────
+    private static final String CLS_GF_WEBCONTAINER       = "com.sun.enterprise.web.WebContainer";
+    private static final String CLS_GF_GRIZZLY            = "org.glassfish.grizzly.http.server.HttpServer";
+    private static final String CLS_GF_JAKARTA_LOG        = "org.glassfish.main.jul.handler.GlassFishLogHandler";
+    private static final String CLS_PAYARA_EXECUTOR       = "fish.payara.micro.PayaraMicro";
 
-    // JEUS 4/5 공통: com.tmax.jeus.* (구 패키지)
-    // 패키지 루트가 com.tmax.jeus 인 경우 JEUS 4 또는 5
-    private static final String CLS_JEUS45_HTTP_WRAPPER =
-            "com.tmax.jeus.web.servlet.HttpServletWrapper";
-    private static final String CLS_JEUS45_ENGINE =
-            "com.tmax.jeus.util.engine.ServiceEngine";
-    private static final String CLS_JEUS45_MAIN =
-            "com.tmax.jeus.server.JeusMain";
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Resin 클래스 상수
+    // ─────────────────────────────────────────────────────────────────────────────
+    private static final String CLS_RESIN_HTTP            = "com.caucho.server.http.HttpRequest";
+    private static final String CLS_RESIN_SERVER          = "com.caucho.server.resin.Resin";
+    private static final String CLS_RESIN_DISPATCH        = "com.caucho.server.dispatch.ServletInvocation";
 
-    // JEUS 공통 내부 클래스 (버전 무관 — 존재 시 JEUS 계열 확인용)
-    private static final String CLS_JEUS_SERVLET_ENGINE =
-            "jeus.servlet.JeusServletEngine";
-    // JEUS 6+ 공통 프로퍼티 기반 웹컨테이너 초기화 클래스
-    private static final String CLS_JEUS_WEB_UTILS =
-            "jeus.util.JeusWebUtils";
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Undertow 클래스 상수
+    // ─────────────────────────────────────────────────────────────────────────────
+    private static final String CLS_UNDERTOW              = "io.undertow.Undertow";
+    private static final String CLS_UNDERTOW_SERVLET      = "io.undertow.servlet.api.DeploymentManager";
 
-    // ── JEUS 시스템 프로퍼티 단서 ───────────────────────────────────────────────
-    /** JEUS 설치 홈 디렉토리 — 모든 JEUS 버전에서 설정됨 */
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Jetty 클래스 상수
+    // ─────────────────────────────────────────────────────────────────────────────
+    private static final String CLS_JETTY12_EE10          = "org.eclipse.jetty.ee10.servlet.ServletHandler";
+    private static final String CLS_JETTY11_EE9           = "org.eclipse.jetty.ee9.servlet.ServletHandler";
+    private static final String CLS_JETTY_SERVER          = "org.eclipse.jetty.server.Server";
+    private static final String CLS_JETTY_HANDLER         = "org.eclipse.jetty.servlet.ServletHandler";
+    private static final String CLS_JETTY_LEGACY          = "org.mortbay.jetty.Server";
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 시스템 프로퍼티 키
+    // ─────────────────────────────────────────────────────────────────────────────
     private static final String PROP_JEUS_HOME        = "jeus.home";
-    /** JEUS 서버 이름 — 부팅 시 JVM 인수로 전달 */
     private static final String PROP_JEUS_SERVER_NAME = "jeus.server.name";
-    /** JEUS 엔진 이름 (JEUS 6+ 멀티 엔진 아키텍처) */
     private static final String PROP_JEUS_ENGINE_NAME = "jeus.engine.name";
-    /** JEUS 버전 정보 프로퍼티 (JEUS 7+ 에서 간혹 설정됨) */
     private static final String PROP_JEUS_VERSION     = "jeus.version";
-
-    // ── 기타 WAS 시스템 프로퍼티 단서 ──────────────────────────────────────────
+    private static final String PROP_CATALINA_HOME    = "catalina.home";
+    private static final String PROP_CATALINA_BASE    = "catalina.base";
     private static final String PROP_WEBLOGIC_NAME    = "weblogic.Name";
+    private static final String PROP_WEBLOGIC_HOME    = "weblogic.home";
     private static final String PROP_JBOSS_HOME       = "jboss.home.dir";
     private static final String PROP_WILDFLY_HOME     = "jboss.server.base.dir";
-    private static final String PROP_CATALINA_HOME    = "catalina.home";
+    private static final String PROP_WAS_INSTALL      = "was.install.root";
+    private static final String PROP_WAS_USER_DIR     = "user.install.root";
+    private static final String PROP_RESIN_HOME       = "resin.home";
+    private static final String PROP_GLASSFISH_HOME   = "com.sun.aas.instanceRoot";
+    private static final String PROP_JAVA_COMMAND     = "sun.java.command";
 
-    // ── WAS 고유 클래스 (클래스패스 탐색용, 기타 WAS) ──────────────────────────
-    private static final String CLS_TOMCAT_CATALINA  = "org.apache.catalina.startup.Catalina";
-    private static final String CLS_TOMCAT_VALVE     = "org.apache.catalina.Valve";
-    private static final String CLS_JBOSS_BOOTSTRAP  = "org.jboss.as.server.Bootstrap";
-    private static final String CLS_WILDFLY_UNDERTOW = "org.wildfly.extension.undertow.UndertowService";
-    private static final String CLS_WEBLOGIC_SERVER  = "weblogic.t3.srvr.T3Srvr";
-    private static final String CLS_WEBLOGIC_MAIN    = "weblogic.Server";
-    private static final String CLS_UNDERTOW         = "io.undertow.Undertow";
-    private static final String CLS_UNDERTOW_SERVLET = "io.undertow.servlet.api.DeploymentManager";
-    private static final String CLS_JETTY_SERVER     = "org.eclipse.jetty.server.Server";
-    private static final String CLS_JETTY_LEGACY     = "org.mortbay.jetty.Server";
-
-    // ── 환경 변수 단서 ──────────────────────────────────────────────────────────
-    /** JEUS 설치 경로 환경변수 — 관리자 스크립트(jeusadmin, startDomainAdminServer) 등에서 설정 */
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 환경 변수 키
+    // ─────────────────────────────────────────────────────────────────────────────
     private static final String ENV_JEUS_HOME        = "JEUS_HOME";
     private static final String ENV_CATALINA_HOME    = "CATALINA_HOME";
     private static final String ENV_JBOSS_HOME       = "JBOSS_HOME";
     private static final String ENV_WEBLOGIC_HOME    = "WL_HOME";
+    private static final String ENV_WAS_HOME         = "WAS_HOME";
+    private static final String ENV_RESIN_HOME       = "RESIN_HOME";
+    private static final String ENV_GLASSFISH_HOME   = "AS_DEF_DOMAINS_PATH";
+    private static final String ENV_PAYARA_HOME      = "PAYARA_HOME";
 
-    private WasDetector() {
-        // 유틸리티 클래스 — 인스턴스화 금지
-    }
+    private WasDetector() {}
 
     /**
      * WAS 런타임 유형을 감지해 반환한다.
      *
      * <p>감지 실패 시 {@link WasType#UNKNOWN}을 반환하며 예외를 던지지 않는다.
-     * Agent의 premain 단계에서 JVM이 종료되면 안 되므로 방어적으로 설계됐다.
      *
-     * @param log 감지 과정 출력에 사용할 PrintStream (null 허용 — null이면 로깅 생략)
+     * @param log 감지 과정 출력에 사용할 PrintStream (null 허용)
      * @return 감지된 {@link WasType} — 절대 {@code null}이 아님
      */
     public static WasType detect(PrintStream log) {
@@ -164,384 +182,698 @@ public final class WasDetector {
         if (override != null && !override.isEmpty()) {
             WasType overridden = parseOverride(override);
             if (overridden != null) {
-                logInfo(log, "[WasDetector] 오버라이드 적용: -D" + OVERRIDE_PROP
-                        + "=" + override + " → " + overridden);
+                logInfo(log, "[WasDetector] 오버라이드 적용: -D" + OVERRIDE_PROP + "=" + override + " → " + overridden);
                 return overridden;
             }
-            logWarn(log, "[WasDetector] 알 수 없는 WAS 유형 오버라이드: " + override
-                    + " — 자동 감지로 전환");
+            logWarn(log, "[WasDetector] 알 수 없는 WAS 유형 오버라이드: " + override + " — 자동 감지로 전환");
         }
 
-        // ── 2단계: 클래스패스 탐색 (신뢰도 최고) ────────────────────────────
-        //  NOTE: JEUS를 가장 먼저, 버전 높은 것부터 탐색한다.
-        //        한국 공공기관 특화 Agent이므로 JEUS 감지 우선순위를 최상위로.
+        // ── 2단계: 클래스패스 탐색 ──────────────────────────────────────────
+        // JEUS 최우선 (한국 공공기관 특화)
         WasType jeusType = detectJeusByClasspath(log);
-        if (jeusType != null) {
-            return jeusType;
+        if (jeusType != null) return jeusType;
+
+        // Tomcat 버전별 감지
+        WasType tomcatType = detectTomcatByClasspath(log);
+        if (tomcatType != null) return tomcatType;
+
+        // WildFly (JBoss 이전에 - 더 새로운 버전)
+        WasType wildflyType = detectWildFlyByClasspath(log);
+        if (wildflyType != null) return wildflyType;
+
+        // JBoss
+        WasType jbossType = detectJBossByClasspath(log);
+        if (jbossType != null) return jbossType;
+
+        // WebLogic 버전별
+        WasType weblogicType = detectWebLogicByClasspath(log);
+        if (weblogicType != null) return weblogicType;
+
+        // WebSphere
+        WasType websphereType = detectWebSphereByClasspath(log);
+        if (websphereType != null) return websphereType;
+
+        // GlassFish / Payara
+        WasType glassfishType = detectGlassFishByClasspath(log);
+        if (glassfishType != null) return glassfishType;
+
+        // Resin
+        if (isClassPresent(CLS_RESIN_SERVER) || isClassPresent(CLS_RESIN_HTTP) || isClassPresent(CLS_RESIN_DISPATCH)) {
+            logInfo(log, "[WasDetector] Resin 클래스 감지: " + CLS_RESIN_SERVER);
+            return WasType.RESIN;
         }
 
-        if (isClassPresent(CLS_WEBLOGIC_SERVER) || isClassPresent(CLS_WEBLOGIC_MAIN)) {
-            logInfo(log, "[WasDetector] WebLogic 클래스 감지: " + CLS_WEBLOGIC_SERVER);
-            return WasType.WEBLOGIC;
-        }
-
-        if (isClassPresent(CLS_JBOSS_BOOTSTRAP) || isClassPresent(CLS_WILDFLY_UNDERTOW)) {
-            logInfo(log, "[WasDetector] JBoss/WildFly 클래스 감지");
-            return WasType.JBOSS;
-        }
-
-        if (isClassPresent(CLS_TOMCAT_CATALINA) || isClassPresent(CLS_TOMCAT_VALVE)) {
-            logInfo(log, "[WasDetector] Tomcat 클래스 감지: " + CLS_TOMCAT_CATALINA);
-            return WasType.TOMCAT;
-        }
-
+        // Undertow (standalone)
         if (isClassPresent(CLS_UNDERTOW) || isClassPresent(CLS_UNDERTOW_SERVLET)) {
             logInfo(log, "[WasDetector] Undertow 클래스 감지");
             return WasType.UNDERTOW;
         }
 
-        if (isClassPresent(CLS_JETTY_SERVER) || isClassPresent(CLS_JETTY_LEGACY)) {
-            logInfo(log, "[WasDetector] Jetty 클래스 감지");
-            return WasType.JETTY;
-        }
+        // Jetty 버전별
+        WasType jettyType = detectJettyByClasspath(log);
+        if (jettyType != null) return jettyType;
 
-        // ── 3단계: 시스템 프로퍼티 패턴 ─────────────────────────────────────
-        //  NOTE: JEUS 시스템 프로퍼티를 가장 먼저 확인
+        // ── 3단계: 시스템 프로퍼티 패턴 ────────────────────────────────────
         WasType jeusByProp = detectJeusBySystemProperty(log);
-        if (jeusByProp != null) {
-            return jeusByProp;
-        }
+        if (jeusByProp != null) return jeusByProp;
 
-        if (System.getProperty(PROP_WEBLOGIC_NAME) != null) {
-            logInfo(log, "[WasDetector] 시스템 프로퍼티 감지: -D" + PROP_WEBLOGIC_NAME);
-            return WasType.WEBLOGIC;
+        if (System.getProperty(PROP_CATALINA_HOME) != null || System.getProperty(PROP_CATALINA_BASE) != null) {
+            logInfo(log, "[WasDetector] 시스템 프로퍼티 감지: catalina.home/base");
+            return detectTomcatVersionByProperties(log);
         }
-        if (System.getProperty(PROP_JBOSS_HOME) != null
-                || System.getProperty(PROP_WILDFLY_HOME) != null) {
+        if (System.getProperty(PROP_WEBLOGIC_NAME) != null || System.getProperty(PROP_WEBLOGIC_HOME) != null) {
+            logInfo(log, "[WasDetector] 시스템 프로퍼티 감지: weblogic");
+            return detectWebLogicVersionByProperties(log);
+        }
+        if (System.getProperty(PROP_JBOSS_HOME) != null || System.getProperty(PROP_WILDFLY_HOME) != null) {
             logInfo(log, "[WasDetector] 시스템 프로퍼티 감지: JBoss/WildFly home");
-            return WasType.JBOSS;
+            return detectJBossVersionByProperties(log);
         }
-        if (System.getProperty(PROP_CATALINA_HOME) != null) {
-            logInfo(log, "[WasDetector] 시스템 프로퍼티 감지: -D" + PROP_CATALINA_HOME);
-            return WasType.TOMCAT;
+        if (System.getProperty(PROP_WAS_INSTALL) != null || System.getProperty(PROP_WAS_USER_DIR) != null) {
+            logInfo(log, "[WasDetector] 시스템 프로퍼티 감지: IBM WebSphere");
+            return detectWebSphereVersionByProperties(log);
+        }
+        if (System.getProperty(PROP_RESIN_HOME) != null) {
+            logInfo(log, "[WasDetector] 시스템 프로퍼티 감지: resin.home");
+            return WasType.RESIN;
+        }
+        if (System.getProperty(PROP_GLASSFISH_HOME) != null) {
+            logInfo(log, "[WasDetector] 시스템 프로퍼티 감지: GlassFish instanceRoot");
+            return detectGlassFishVersionByProperties(log);
         }
 
-        // ── 4단계: 환경 변수 ──────────────────────────────────────────────────
+        // ── 4단계: 환경 변수 ─────────────────────────────────────────────────
         WasType jeusByEnv = detectJeusByEnvironment(log);
-        if (jeusByEnv != null) {
-            return jeusByEnv;
-        }
+        if (jeusByEnv != null) return jeusByEnv;
 
+        if (getEnv(ENV_CATALINA_HOME) != null) {
+            logInfo(log, "[WasDetector] 환경변수 감지: CATALINA_HOME=" + getEnv(ENV_CATALINA_HOME));
+            return detectTomcatVersionFromPath(getEnv(ENV_CATALINA_HOME), log);
+        }
         if (getEnv(ENV_WEBLOGIC_HOME) != null) {
-            logInfo(log, "[WasDetector] 환경 변수 감지: " + ENV_WEBLOGIC_HOME);
-            return WasType.WEBLOGIC;
+            logInfo(log, "[WasDetector] 환경변수 감지: WL_HOME=" + getEnv(ENV_WEBLOGIC_HOME));
+            return detectWebLogicVersionFromPath(getEnv(ENV_WEBLOGIC_HOME), log);
         }
         if (getEnv(ENV_JBOSS_HOME) != null) {
-            logInfo(log, "[WasDetector] 환경 변수 감지: " + ENV_JBOSS_HOME);
-            return WasType.JBOSS;
+            logInfo(log, "[WasDetector] 환경변수 감지: JBOSS_HOME=" + getEnv(ENV_JBOSS_HOME));
+            return detectJBossVersionFromPath(getEnv(ENV_JBOSS_HOME), log);
         }
-        if (getEnv(ENV_CATALINA_HOME) != null) {
-            logInfo(log, "[WasDetector] 환경 변수 감지: " + ENV_CATALINA_HOME);
-            return WasType.TOMCAT;
+        if (getEnv(ENV_WAS_HOME) != null) {
+            logInfo(log, "[WasDetector] 환경변수 감지: WAS_HOME=" + getEnv(ENV_WAS_HOME));
+            return detectWebSphereVersionFromPath(getEnv(ENV_WAS_HOME), log);
+        }
+        if (getEnv(ENV_RESIN_HOME) != null) {
+            logInfo(log, "[WasDetector] 환경변수 감지: RESIN_HOME");
+            return WasType.RESIN;
+        }
+        if (getEnv(ENV_GLASSFISH_HOME) != null || getEnv(ENV_PAYARA_HOME) != null) {
+            logInfo(log, "[WasDetector] 환경변수 감지: GlassFish/Payara");
+            return WasType.GLASSFISH;
         }
 
-        // ── 5단계: Fallback ────────────────────────────────────────────────────
+        // ── 5단계: JVM 인수 / 클래스패스 문자열 스캔 ────────────────────────
+        WasType byJvmArgs = detectByJvmArgs(log);
+        if (byJvmArgs != null) return byJvmArgs;
+
+        // ── 6단계: 파일시스템 힌트 ──────────────────────────────────────────
+        WasType byFilesystem = detectByFilesystem(log);
+        if (byFilesystem != null) return byFilesystem;
+
+        // ── Fallback ─────────────────────────────────────────────────────────
         logWarn(log, "[WasDetector] WAS 자동 감지 실패 — UNKNOWN (Generic Servlet Filter Fallback)");
+        logWarn(log, "[WasDetector] WAS를 수동 지정하려면: -Donepass.was.type=<WAS_TYPE>");
+        logWarn(log, "[WasDetector] 지원 WAS_TYPE: JEUS_7, JEUS_8, JEUS_9_PLUS, TOMCAT_8, TOMCAT_9, TOMCAT_10_PLUS,");
+        logWarn(log, "[WasDetector]               JBOSS, WILDFLY, WEBLOGIC, WEBSPHERE, GLASSFISH, RESIN, JETTY, UNDERTOW");
         return WasType.UNKNOWN;
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // JEUS 전용 감지 메서드
+    // JEUS 전용 감지 메서드 (기존 유지 + 개선)
     // ─────────────────────────────────────────────────────────────────────────────
 
-    /**
-     * JEUS 버전을 클래스패스 탐색으로 판별한다.
-     *
-     * <p>탐색 순서: JEUS 9+ → JEUS 8.5 → JEUS 8 → JEUS 7 → JEUS 6 → JEUS 4/5
-     * 상위 버전 클래스가 없으면 하위 버전으로 폴백한다.
-     *
-     * <p>JEUS 고유 클래스는 WAS 클래스로더 영역에 있어서 premain 초기 단계에
-     * 탐색되지 않을 수 있다. 이 경우 3단계(시스템 프로퍼티)가 보완한다.
-     *
-     * @return 감지된 JEUS {@link WasType}, 감지 실패 시 null
-     */
     private static WasType detectJeusByClasspath(PrintStream log) {
-
-        // JEUS 9+: Jakarta EE → com.tmaxsoft.jeus + jakarta.servlet 공존
-        // jakarta.servlet.ServletRequest 단독으로는 Tomcat 10+/WildFly 27+와 구분 안 됨
-        // JEUS 9 고유 내부 클래스와 jakarta.servlet 병행 확인
         if (isClassPresent(CLS_JEUS9_SERVLET_ENGINE)) {
             logInfo(log, "[WasDetector] JEUS 9+ 클래스 감지: " + CLS_JEUS9_SERVLET_ENGINE);
             return WasType.JEUS_9_PLUS;
         }
-        // 대체 판별: jakarta.servlet + JEUS 공통 클래스 동시 존재
-        if (isClassPresent(CLS_JAKARTA_SERVLET_REQUEST)
+        if (isClassPresent(CLS_JAKARTA_SERVLET)
                 && (isClassPresent(CLS_JEUS_SERVLET_ENGINE) || isClassPresent(CLS_JEUS_WEB_UTILS))) {
             logInfo(log, "[WasDetector] JEUS 9+ 감지 (jakarta.servlet + JEUS 공통 클래스 병행)");
             return WasType.JEUS_9_PLUS;
         }
-
-        // JEUS 8.5: Servlet 4.0, JDK 8/11, HTTP/2 지원
         if (isClassPresent(CLS_JEUS8_5_CONTAINER) || isClassPresent(CLS_JEUS8_5_HTTP2)) {
             logInfo(log, "[WasDetector] JEUS 8.5 클래스 감지");
             return WasType.JEUS_8_5;
         }
-
-        // JEUS 8: Servlet 3.1, JDK 1.7~1.8, WebSocket 지원
         if (isClassPresent(CLS_JEUS8_CONNECTOR) || isClassPresent(CLS_JEUS8_WEBSOCKET)) {
             logInfo(log, "[WasDetector] JEUS 8 클래스 감지");
             return WasType.JEUS_8;
         }
-
-        // JEUS 7: Servlet 3.0, JDK 1.6~1.8, Async 지원
         if (isClassPresent(CLS_JEUS7_DEPLOYER) || isClassPresent(CLS_JEUS7_ASYNC)) {
             logInfo(log, "[WasDetector] JEUS 7 클래스 감지");
             return WasType.JEUS_7;
         }
-
-        // JEUS 6: com.tmaxsoft.jeus.* 최초 패키지, Servlet 2.5
         if (isClassPresent(CLS_JEUS6_WEBCONTAINER) || isClassPresent(CLS_JEUS6_SERVLET_HANDLER)) {
-            logInfo(log, "[WasDetector] JEUS 6 클래스 감지: " + CLS_JEUS6_WEBCONTAINER);
+            logInfo(log, "[WasDetector] JEUS 6 클래스 감지");
             return WasType.JEUS_6;
         }
-
-        // JEUS 4/5: com.tmax.jeus.* 구 패키지
-        if (isClassPresent(CLS_JEUS45_HTTP_WRAPPER)
-                || isClassPresent(CLS_JEUS45_ENGINE)
-                || isClassPresent(CLS_JEUS45_MAIN)) {
+        if (isClassPresent(CLS_JEUS45_HTTP_WRAPPER) || isClassPresent(CLS_JEUS45_ENGINE) || isClassPresent(CLS_JEUS45_MAIN)) {
             logInfo(log, "[WasDetector] JEUS 4/5 (Legacy) 클래스 감지: com.tmax.jeus.*");
             return WasType.JEUS_LEGACY;
         }
-
-        // JEUS 공통 클래스만 존재 (버전 특화 클래스 없음) → jeus.version 프로퍼티로 분기
         if (isClassPresent(CLS_JEUS_SERVLET_ENGINE) || isClassPresent(CLS_JEUS_WEB_UTILS)) {
             logInfo(log, "[WasDetector] JEUS 공통 클래스 감지 (버전 특화 클래스 없음) — 버전 프로퍼티로 분기");
             return resolveJeusVersionFromProperty(log);
         }
+        return null;
+    }
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Tomcat 버전별 감지 메서드 (신규 구현)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Tomcat 버전을 클래스패스 탐색으로 판별한다.
+     *
+     * <p>탐색 순서: Tomcat 10+ → 9 → 8.5 → 8 → 7 → 6(Legacy) → 공통
+     *
+     * <h3>Tomcat 버전별 핵심 판별 포인트</h3>
+     * <ul>
+     *   <li>Tomcat 10+: {@code jakarta.servlet.*} 존재 + Tomcat Catalina 클래스 병행</li>
+     *   <li>Tomcat 9: {@code javax.servlet.http.HttpServletMapping} 존재 (Servlet 4.0 고유)</li>
+     *   <li>Tomcat 8.5: {@code org.apache.coyote.UpgradeToken} (HTTP 업그레이드 핸들러)</li>
+     *   <li>Tomcat 8: {@code org.apache.tomcat.util.net.Nio2Channel} (NIO2 기본 커넥터)</li>
+     *   <li>Tomcat 7: {@code org.apache.catalina.core.AsyncContextImpl} (Servlet 3.0 Async)</li>
+     *   <li>Tomcat 6: {@code org.apache.catalina.util.RequestUtil} (구형 유틸, 7+에서 제거)</li>
+     * </ul>
+     */
+    private static WasType detectTomcatByClasspath(PrintStream log) {
+        // Tomcat 존재 여부 먼저 확인
+        boolean isTomcat = isClassPresent(CLS_TOMCAT_CATALINA)
+                || isClassPresent(CLS_TOMCAT_VALVE)
+                || isClassPresent(CLS_TOMCAT_CONNECTOR);
+        if (!isTomcat) return null;
+
+        logInfo(log, "[WasDetector] Tomcat 공통 클래스 감지 → 버전 판별 시작");
+
+        // Tomcat 10+ (jakarta.servlet 전환, javax.servlet 없음)
+        if (isClassPresent(CLS_JAKARTA_SERVLET) && !isClassPresent("javax.servlet.http.HttpServletRequest")) {
+            // jakarta만 있고 javax가 없으면 Tomcat 10+
+            logInfo(log, "[WasDetector] Tomcat 10+ 감지 (jakarta.servlet 전용)");
+            return WasType.TOMCAT_10_PLUS;
+        }
+
+        // Tomcat 10+: HTTP/2 + NIO2 + Jakarta 병행 확인
+        if (isClassPresent(CLS_TOMCAT10_HTTP2) && isClassPresent(CLS_JAKARTA_SERVLET)) {
+            logInfo(log, "[WasDetector] Tomcat 10+ 감지 (HTTP/2 + jakarta.servlet)");
+            return WasType.TOMCAT_10_PLUS;
+        }
+
+        // Tomcat 9: Servlet 4.0 HttpServletMapping (Servlet 4.0 고유 API)
+        if (isClassPresent(CLS_TOMCAT9_SERVLET40)) {
+            logInfo(log, "[WasDetector] Tomcat 9 감지 (javax.servlet.http.HttpServletMapping - Servlet 4.0)");
+            return WasType.TOMCAT_9;
+        }
+
+        // Tomcat 8.5: UpgradeToken (ALPN/HTTP2 핸들러, 8.0에는 없음)
+        if (isClassPresent(CLS_TOMCAT85_UPGRADETOKEN)) {
+            logInfo(log, "[WasDetector] Tomcat 8.5 감지 (UpgradeToken - ALPN 지원)");
+            return WasType.TOMCAT_8;
+        }
+
+        // Tomcat 8: NIO2Channel (Tomcat 8에서 NIO2 기본 커넥터 도입)
+        if (isClassPresent(CLS_TOMCAT8_NIO2HANDLER)) {
+            logInfo(log, "[WasDetector] Tomcat 8 감지 (Nio2Channel - NIO2 기본)");
+            return WasType.TOMCAT_8;
+        }
+
+        // Tomcat 7: AsyncContextImpl (Servlet 3.0 Async 지원)
+        if (isClassPresent(CLS_TOMCAT7_ASYNC)) {
+            logInfo(log, "[WasDetector] Tomcat 7 감지 (AsyncContextImpl - Servlet 3.0)");
+            return WasType.TOMCAT_7;
+        }
+
+        // Tomcat 6: RequestUtil (7+에서 제거된 레거시 유틸)
+        if (isClassPresent(CLS_TOMCAT6_LEGACY)) {
+            logInfo(log, "[WasDetector] Tomcat 5.x/6.x (Legacy) 감지 (RequestUtil)");
+            return WasType.TOMCAT_LEGACY;
+        }
+
+        // Tomcat 공통 클래스만 감지 → JDK 버전으로 추정
+        int jdkMajor = getRuntimeJdkMajor();
+        logInfo(log, "[WasDetector] Tomcat 버전 특화 클래스 없음 — JDK " + jdkMajor + " 기반 추정");
+        return estimateTomcatVersionByJdk(jdkMajor, log);
+    }
+
+    private static WasType estimateTomcatVersionByJdk(int jdkMajor, PrintStream log) {
+        if (jdkMajor >= 11) {
+            // JDK 11+: Tomcat 10+ (jakarta) 또는 Tomcat 9 (javax)
+            // jakarta 클래스 존재 여부로 최종 분기
+            if (isClassPresent(CLS_JAKARTA_SERVLET)) {
+                logInfo(log, "[WasDetector] JDK 11+ + jakarta.servlet → Tomcat 10+ 추정");
+                return WasType.TOMCAT_10_PLUS;
+            }
+            logInfo(log, "[WasDetector] JDK 11+ (javax.servlet) → Tomcat 9 추정");
+            return WasType.TOMCAT_9;
+        }
+        if (jdkMajor >= 8) {
+            logInfo(log, "[WasDetector] JDK 8 → Tomcat 9 추정");
+            return WasType.TOMCAT_9;
+        }
+        if (jdkMajor == 7) {
+            logInfo(log, "[WasDetector] JDK 7 → Tomcat 7 추정");
+            return WasType.TOMCAT_7;
+        }
+        logInfo(log, "[WasDetector] JDK " + jdkMajor + " → Tomcat Legacy 추정");
+        return WasType.TOMCAT_LEGACY;
+    }
+
+    private static WasType detectTomcatVersionByProperties(PrintStream log) {
+        String catalinaHome = System.getProperty(PROP_CATALINA_HOME);
+        if (catalinaHome != null) {
+            return detectTomcatVersionFromPath(catalinaHome, log);
+        }
+        return estimateTomcatVersionByJdk(getRuntimeJdkMajor(), log);
+    }
+
+    /** CATALINA_HOME 경로 문자열로 버전 추정 */
+    private static WasType detectTomcatVersionFromPath(String path, PrintStream log) {
+        if (path == null) return WasType.TOMCAT;
+        String p = path.toLowerCase();
+        if (p.contains("tomcat-11") || p.contains("tomcat11")) return pathHint(log, path, WasType.TOMCAT_10_PLUS);
+        if (p.contains("tomcat-10") || p.contains("tomcat10")) return pathHint(log, path, WasType.TOMCAT_10_PLUS);
+        if (p.contains("tomcat-9") || p.contains("tomcat9"))   return pathHint(log, path, WasType.TOMCAT_9);
+        if (p.contains("tomcat-8") || p.contains("tomcat8"))   return pathHint(log, path, WasType.TOMCAT_8);
+        if (p.contains("tomcat-7") || p.contains("tomcat7"))   return pathHint(log, path, WasType.TOMCAT_7);
+        if (p.contains("tomcat-6") || p.contains("tomcat6"))   return pathHint(log, path, WasType.TOMCAT_LEGACY);
+        // 경로에서 버전 추정 불가 → JDK 버전 기반 추정
+        return estimateTomcatVersionByJdk(getRuntimeJdkMajor(), log);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // WildFly 감지 (JBoss보다 먼저)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    private static WasType detectWildFlyByClasspath(PrintStream log) {
+        if (isClassPresent(CLS_WILDFLY_BOOT) || isClassPresent(CLS_WILDFLY_UNDERTOW)) {
+            logInfo(log, "[WasDetector] WildFly 27+ 감지 (Jakarta EE 계열)");
+            return WasType.WILDFLY;
+        }
+        return null;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // JBoss 버전별 감지
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    private static WasType detectJBossByClasspath(PrintStream log) {
+        // JBoss EAP 7+ (Undertow 기반)
+        if (isClassPresent(CLS_JBOSS_EAP7_BOOT) || isClassPresent(CLS_JBOSS_EAP7_UNDERTOW)) {
+            logInfo(log, "[WasDetector] JBoss EAP 7+ 감지");
+            return WasType.JBOSS;
+        }
+        // JBoss AS 5/6 (레거시, Microcontainer 기반)
+        if (isClassPresent(CLS_JBOSS_LEGACY_MICRO) || isClassPresent(CLS_JBOSS_LEGACY_DEPLOY)) {
+            logInfo(log, "[WasDetector] JBoss AS 5/6 (Legacy) 감지");
+            return WasType.JBOSS_LEGACY;
+        }
+        return null;
+    }
+
+    private static WasType detectJBossVersionByProperties(PrintStream log) {
+        String jbossHome = System.getProperty(PROP_JBOSS_HOME);
+        if (jbossHome == null) jbossHome = System.getProperty(PROP_WILDFLY_HOME);
+        return detectJBossVersionFromPath(jbossHome, log);
+    }
+
+    private static WasType detectJBossVersionFromPath(String path, PrintStream log) {
+        if (path == null) return WasType.JBOSS;
+        String p = path.toLowerCase();
+        if (p.contains("wildfly"))     return pathHint(log, path, WasType.WILDFLY);
+        if (p.contains("jboss-eap-7") || p.contains("eap7")) return pathHint(log, path, WasType.JBOSS);
+        if (p.contains("jboss-eap-6") || p.contains("eap6")) return pathHint(log, path, WasType.JBOSS);
+        if (p.contains("jboss-5") || p.contains("jboss-6"))  return pathHint(log, path, WasType.JBOSS_LEGACY);
+        return WasType.JBOSS;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // WebLogic 버전별 감지
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    private static WasType detectWebLogicByClasspath(PrintStream log) {
+        // WebLogic 14c (최신): ServerLifecycleListener 존재
+        if (isClassPresent(CLS_WEBLOGIC14_STARTUP)) {
+            int jdkMajor = getRuntimeJdkMajor();
+            if (jdkMajor >= 8) {
+                logInfo(log, "[WasDetector] WebLogic 12c(후기)/14c 감지");
+                return WasType.WEBLOGIC;
+            }
+        }
+        // WebLogic 공통 (T3Srvr)
+        if (isClassPresent(CLS_WEBLOGIC_T3SVR) || isClassPresent(CLS_WEBLOGIC_SERVER)) {
+            int jdkMajor = getRuntimeJdkMajor();
+            if (jdkMajor >= 8) {
+                logInfo(log, "[WasDetector] WebLogic 12c+ 감지 (T3Srvr + JDK 8+)");
+                return WasType.WEBLOGIC;
+            } else {
+                logInfo(log, "[WasDetector] WebLogic 10.x/11g/12c(초기) 감지 (T3Srvr + JDK 6~7)");
+                return WasType.WEBLOGIC_LEGACY;
+            }
+        }
+        // WebLogic FilterChainImpl (내부 서블릿 필터 체인)
+        if (isClassPresent(CLS_WEBLOGIC_FILTERCHAIN)) {
+            logInfo(log, "[WasDetector] WebLogic 감지 (FilterChainImpl)");
+            return WasType.WEBLOGIC;
+        }
+        return null;
+    }
+
+    private static WasType detectWebLogicVersionByProperties(PrintStream log) {
+        String wlHome = System.getProperty(PROP_WEBLOGIC_HOME);
+        return detectWebLogicVersionFromPath(wlHome, log);
+    }
+
+    private static WasType detectWebLogicVersionFromPath(String path, PrintStream log) {
+        if (path == null) return WasType.WEBLOGIC;
+        String p = path.toLowerCase();
+        if (p.contains("wls14") || p.contains("weblogic14")) return pathHint(log, path, WasType.WEBLOGIC);
+        if (p.contains("wls12") || p.contains("weblogic12")) {
+            int jdkMajor = getRuntimeJdkMajor();
+            return jdkMajor >= 8 ? pathHint(log, path, WasType.WEBLOGIC) : pathHint(log, path, WasType.WEBLOGIC_LEGACY);
+        }
+        if (p.contains("wls10") || p.contains("wls11") || p.contains("weblogic10") || p.contains("weblogic11")) {
+            return pathHint(log, path, WasType.WEBLOGIC_LEGACY);
+        }
+        return WasType.WEBLOGIC;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // WebSphere 버전별 감지
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    private static WasType detectWebSphereByClasspath(PrintStream log) {
+        // WebSphere Liberty / Open Liberty (경량 프로파일)
+        if (isClassPresent(CLS_WAS_LIBERTY)) {
+            logInfo(log, "[WasDetector] WebSphere Liberty / Open Liberty 감지");
+            return WasType.WEBSPHERE;
+        }
+        // WebSphere Traditional (전통적 WAS)
+        if (isClassPresent(CLS_WAS_WEBCONTAINER) || isClassPresent(CLS_WAS_FILTER_MGR)) {
+            int jdkMajor = getRuntimeJdkMajor();
+            if (jdkMajor >= 8) {
+                logInfo(log, "[WasDetector] WebSphere (Liberty 계열) 감지");
+                return WasType.WEBSPHERE;
+            } else {
+                logInfo(log, "[WasDetector] WebSphere 7/8 (Legacy) 감지");
+                return WasType.WEBSPHERE_LEGACY;
+            }
+        }
+        if (isClassPresent(CLS_WAS_LEGACY_SERVER)) {
+            logInfo(log, "[WasDetector] IBM WebSphere (Legacy AdminService) 감지");
+            return WasType.WEBSPHERE_LEGACY;
+        }
+        return null;
+    }
+
+    private static WasType detectWebSphereVersionByProperties(PrintStream log) {
+        String wasInstall = System.getProperty(PROP_WAS_INSTALL);
+        return detectWebSphereVersionFromPath(wasInstall, log);
+    }
+
+    private static WasType detectWebSphereVersionFromPath(String path, PrintStream log) {
+        if (path == null) return WasType.WEBSPHERE;
+        String p = path.toLowerCase();
+        if (p.contains("liberty") || p.contains("open_liberty")) return pathHint(log, path, WasType.WEBSPHERE);
+        if (p.contains("websphere") || p.contains("appserver")) {
+            int jdkMajor = getRuntimeJdkMajor();
+            return jdkMajor >= 8 ? pathHint(log, path, WasType.WEBSPHERE) : pathHint(log, path, WasType.WEBSPHERE_LEGACY);
+        }
+        return WasType.WEBSPHERE;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // GlassFish / Payara 감지
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    private static WasType detectGlassFishByClasspath(PrintStream log) {
+        // Payara Micro
+        if (isClassPresent(CLS_PAYARA_EXECUTOR)) {
+            logInfo(log, "[WasDetector] Payara Micro 감지");
+            return WasType.GLASSFISH;
+        }
+        // GlassFish 7+ (Jakarta EE) - GlassFish 특화 로그 핸들러
+        if (isClassPresent(CLS_GF_JAKARTA_LOG)) {
+            logInfo(log, "[WasDetector] GlassFish 6+/7+ (Jakarta EE) 감지");
+            return WasType.GLASSFISH_JAKARTA;
+        }
+        // GlassFish 공통 (WebContainer, Grizzly)
+        if (isClassPresent(CLS_GF_WEBCONTAINER) || isClassPresent(CLS_GF_GRIZZLY)) {
+            int jdkMajor = getRuntimeJdkMajor();
+            if (jdkMajor >= 11 && isClassPresent(CLS_JAKARTA_SERVLET)) {
+                logInfo(log, "[WasDetector] GlassFish 6+ (Jakarta EE) 감지");
+                return WasType.GLASSFISH_JAKARTA;
+            }
+            logInfo(log, "[WasDetector] GlassFish 3/4 / Payara 5 감지");
+            return WasType.GLASSFISH;
+        }
+        return null;
+    }
+
+    private static WasType detectGlassFishVersionByProperties(PrintStream log) {
+        int jdkMajor = getRuntimeJdkMajor();
+        if (jdkMajor >= 11 && isClassPresent(CLS_JAKARTA_SERVLET)) {
+            return WasType.GLASSFISH_JAKARTA;
+        }
+        return WasType.GLASSFISH;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Jetty 버전별 감지
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    private static WasType detectJettyByClasspath(PrintStream log) {
+        // Jetty 12 (Jakarta EE 10, ee10 패키지)
+        if (isClassPresent(CLS_JETTY12_EE10)) {
+            logInfo(log, "[WasDetector] Jetty 12+ (Jakarta EE 10) 감지");
+            return WasType.JETTY_JAKARTA;
+        }
+        // Jetty 11 (ee9 패키지)
+        if (isClassPresent(CLS_JETTY11_EE9)) {
+            logInfo(log, "[WasDetector] Jetty 11 (Jakarta EE 9) 감지");
+            return WasType.JETTY;
+        }
+        // Jetty 9~10 (eclipse.jetty 패키지, Servlet 3.1~4.0)
+        if (isClassPresent(CLS_JETTY_SERVER) || isClassPresent(CLS_JETTY_HANDLER)) {
+            logInfo(log, "[WasDetector] Jetty 9~10 감지");
+            return WasType.JETTY;
+        }
+        // Jetty 구형 (mortbay 패키지)
+        if (isClassPresent(CLS_JETTY_LEGACY)) {
+            logInfo(log, "[WasDetector] Jetty 7/8 (Legacy, org.mortbay) 감지");
+            return WasType.JETTY_LEGACY;
+        }
+        return null;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // JVM 인수 / 클래스패스 문자열 스캔 (5단계)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * sun.java.command, java.class.path 시스템 프로퍼티를 분석하여 WAS를 추론한다.
+     *
+     * <p>일부 WAS는 시작 스크립트에서 WAS 홈 경로를 클래스패스에 포함시키므로,
+     * 경로 문자열에서 WAS 이름과 버전 힌트를 탐색한다.
+     */
+    private static WasType detectByJvmArgs(PrintStream log) {
+        String[] props = {PROP_JAVA_COMMAND, "java.class.path", "java.library.path"};
+        for (String prop : props) {
+            String value = System.getProperty(prop);
+            if (value == null) continue;
+
+            String v = value.toLowerCase();
+
+            // JEUS 추가 힌트
+            if (v.contains("jeus")) {
+                logInfo(log, "[WasDetector] JVM 인수에서 JEUS 힌트 발견: " + prop);
+                return resolveJeusVersionFromProperty(log);
+            }
+            // Tomcat 힌트
+            if (v.contains("catalina") || v.contains("tomcat")) {
+                logInfo(log, "[WasDetector] JVM 인수에서 Tomcat 힌트 발견: " + prop);
+                return estimateTomcatVersionByJdk(getRuntimeJdkMajor(), log);
+            }
+            // JBoss/WildFly 힌트
+            if (v.contains("jboss") || v.contains("wildfly")) {
+                logInfo(log, "[WasDetector] JVM 인수에서 JBoss/WildFly 힌트 발견: " + prop);
+                return detectJBossVersionFromPath(value, log);
+            }
+            // WebLogic 힌트
+            if (v.contains("weblogic") || v.contains("wlserver")) {
+                logInfo(log, "[WasDetector] JVM 인수에서 WebLogic 힌트 발견: " + prop);
+                return WasType.WEBLOGIC;
+            }
+            // WebSphere 힌트
+            if (v.contains("websphere") || v.contains("liberty") || v.contains("ibm/java")) {
+                logInfo(log, "[WasDetector] JVM 인수에서 WebSphere 힌트 발견: " + prop);
+                return WasType.WEBSPHERE;
+            }
+            // GlassFish 힌트
+            if (v.contains("glassfish") || v.contains("payara") || v.contains("com.sun.enterprise")) {
+                logInfo(log, "[WasDetector] JVM 인수에서 GlassFish/Payara 힌트 발견: " + prop);
+                return WasType.GLASSFISH;
+            }
+            // Resin 힌트
+            if (v.contains("resin") || v.contains("caucho")) {
+                logInfo(log, "[WasDetector] JVM 인수에서 Resin 힌트 발견: " + prop);
+                return WasType.RESIN;
+            }
+            // Jetty 힌트
+            if (v.contains("jetty") || v.contains("mortbay")) {
+                logInfo(log, "[WasDetector] JVM 인수에서 Jetty 힌트 발견: " + prop);
+                return detectJettyByClasspath(log) != null ? detectJettyByClasspath(log) : WasType.JETTY;
+            }
+        }
         return null;
     }
 
     /**
-     * JEUS 버전을 시스템 프로퍼티로 판별한다.
+     * 파일시스템 힌트로 WAS를 탐지한다.
      *
-     * <p>JEUS가 설치된 환경에서는 JVM 기동 스크립트에 의해 다음 프로퍼티가 설정된다:
-     * <ul>
-     *   <li>{@code jeus.home}: JEUS 설치 경로 (예: /jeus8)</li>
-     *   <li>{@code jeus.server.name}: JEUS 서버 이름 (예: MyServer)</li>
-     *   <li>{@code jeus.engine.name}: JEUS 6+ 엔진 이름</li>
-     *   <li>{@code jeus.version}: JEUS 버전 문자열 (항상 존재하지 않음)</li>
-     * </ul>
+     * <p>WAS 설치 디렉토리 내 고유 파일(descriptor, 시작 스크립트 등)의 존재로
+     * WAS 유형을 추론한다. 클래스패스나 시스템 프로퍼티로 감지 못한 WAS가 대상.
      *
-     * <p>프로퍼티로 JEUS임을 확인한 후, {@code jeus.version} 값이 있으면 파싱하고
-     * 없으면 {@link #resolveJeusVersionFromProperty(PrintStream)}로 추가 판별한다.
-     *
-     * @return 감지된 JEUS {@link WasType}, JEUS가 아니면 null
+     * <p>탐색 대상 디렉토리: /opt, /usr/local, /home, C:\, D:\, E:\
      */
+    private static WasType detectByFilesystem(PrintStream log) {
+        // 한국 공공기관 일반적인 설치 경로 패턴
+        String[] searchRoots = {"/opt", "/usr/local", "/home", "/jeus", "C:\\", "D:\\"};
+
+        for (String root : searchRoots) {
+            File rootDir = new File(root);
+            if (!rootDir.exists() || !rootDir.isDirectory()) continue;
+
+            String[] children;
+            try {
+                children = rootDir.list();
+            } catch (SecurityException e) {
+                continue;
+            }
+            if (children == null) continue;
+
+            for (String child : children) {
+                String lower = child.toLowerCase();
+
+                // JEUS 설치 경로
+                if (lower.startsWith("jeus")) {
+                    File jeusBin = new File(rootDir, child + "/bin/jeusadmin");
+                    if (jeusBin.exists()) {
+                        logInfo(log, "[WasDetector] 파일시스템 JEUS 감지: " + jeusBin.getAbsolutePath());
+                        return parseJeusVersionFromPath(root + "/" + child, log);
+                    }
+                }
+                // Tomcat 설치 경로
+                if (lower.startsWith("tomcat") || lower.startsWith("apache-tomcat")) {
+                    File catalinaShell = new File(rootDir, child + "/bin/catalina.sh");
+                    File catalinaBat = new File(rootDir, child + "/bin/catalina.bat");
+                    if (catalinaShell.exists() || catalinaBat.exists()) {
+                        logInfo(log, "[WasDetector] 파일시스템 Tomcat 감지: " + new File(rootDir, child));
+                        return detectTomcatVersionFromPath(new File(rootDir, child).getAbsolutePath(), log);
+                    }
+                }
+                // JBoss / WildFly
+                if (lower.startsWith("jboss") || lower.startsWith("wildfly")) {
+                    File jbossBin = new File(rootDir, child + "/bin/standalone.sh");
+                    if (jbossBin.exists()) {
+                        logInfo(log, "[WasDetector] 파일시스템 JBoss/WildFly 감지");
+                        return lower.startsWith("wildfly") ? WasType.WILDFLY : WasType.JBOSS;
+                    }
+                }
+                // WebLogic
+                if (lower.contains("weblogic") || lower.contains("wlserver")) {
+                    logInfo(log, "[WasDetector] 파일시스템 WebLogic 감지: " + child);
+                    return WasType.WEBLOGIC;
+                }
+            }
+        }
+        return null;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // JEUS 전용 헬퍼 (기존 유지)
+    // ─────────────────────────────────────────────────────────────────────────────
+
     private static WasType detectJeusBySystemProperty(PrintStream log) {
         String jeusHome   = System.getProperty(PROP_JEUS_HOME);
         String jeusServer = System.getProperty(PROP_JEUS_SERVER_NAME);
         String jeusEngine = System.getProperty(PROP_JEUS_ENGINE_NAME);
         String jeusVer    = System.getProperty(PROP_JEUS_VERSION);
 
-        if (jeusHome == null && jeusServer == null && jeusEngine == null) {
-            return null; // JEUS 프로퍼티 없음
-        }
+        if (jeusHome == null && jeusServer == null && jeusEngine == null) return null;
 
         logInfo(log, "[WasDetector] JEUS 시스템 프로퍼티 감지: "
-                + "jeus.home=" + jeusHome
-                + ", jeus.server.name=" + jeusServer
-                + ", jeus.version=" + jeusVer);
+                + "jeus.home=" + jeusHome + ", jeus.version=" + jeusVer);
 
-        // jeus.version 프로퍼티가 명시적으로 있으면 우선 파싱
         if (jeusVer != null && !jeusVer.isEmpty()) {
             WasType fromVer = parseJeusVersionString(jeusVer, log);
             if (fromVer != null) return fromVer;
         }
-
-        // jeus.home 경로에 버전 힌트 포함 여부 탐색 (예: /jeus8, C:\jeus7)
         if (jeusHome != null) {
             WasType fromPath = parseJeusVersionFromPath(jeusHome, log);
             if (fromPath != null) return fromPath;
         }
-
-        // 버전 판별 불가 → 추가 단서 활용 후 안전 기본값 반환
         return resolveJeusVersionFromProperty(log);
     }
 
-    /**
-     * JEUS 버전을 환경 변수로 판별한다.
-     *
-     * <p>{@code JEUS_HOME} 환경변수는 관리자가 직접 설정하는 경우가 많으며
-     * 경로에 버전 힌트를 포함하는 경우가 흔하다 (예: {@code /opt/jeus8.5}).
-     * 경로 파싱으로 버전을 추정하고, 불가 시 안전 기본값을 반환한다.
-     *
-     * @return 감지된 JEUS {@link WasType}, JEUS_HOME 없으면 null
-     */
     private static WasType detectJeusByEnvironment(PrintStream log) {
         String jeusHome = getEnv(ENV_JEUS_HOME);
         if (jeusHome == null) return null;
-
         logInfo(log, "[WasDetector] 환경변수 JEUS_HOME=" + jeusHome);
-
         WasType fromPath = parseJeusVersionFromPath(jeusHome, log);
         if (fromPath != null) return fromPath;
-
-        // 경로에 버전 힌트 없음 → 안전 기본값 (JEUS 7로 간주 — 가장 많이 사용)
-        logWarn(log, "[WasDetector] JEUS_HOME 경로에서 버전 추정 불가 → JEUS_7(기본값) 적용"
-                + " (정확한 버전 지정: -D" + OVERRIDE_PROP + "=JEUS_7 등)");
+        logWarn(log, "[WasDetector] JEUS_HOME 경로 버전 추정 불가 → JEUS_7(기본값)");
         return WasType.JEUS_7;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // JEUS 버전 파싱 헬퍼
-    // ─────────────────────────────────────────────────────────────────────────────
-
-    /**
-     * {@code jeus.version} 문자열을 파싱하여 WasType을 결정한다.
-     *
-     * <p>예상 형식: "JEUS 8.5 Fix1", "8.5.0.1", "9.0", "21.0.0" 등.
-     * 파싱에 실패하면 null을 반환하고 상위 로직이 대안 경로를 사용한다.
-     *
-     * @param version jeus.version 프로퍼티 값
-     * @param log     로그 스트림
-     * @return 매핑된 {@link WasType} 또는 null
-     */
     public static WasType parseJeusVersionString(String version, PrintStream log) {
         if (version == null || version.isEmpty()) return null;
-
         String v = version.trim().toLowerCase();
-
-        // "21" 또는 "21.x" — JEUS 21
-        if (v.startsWith("21") || v.contains("jeus 21") || v.contains("jeus21")) {
-            logInfo(log, "[WasDetector] jeus.version 파싱 → JEUS 21: " + version);
-            return WasType.JEUS_9_PLUS; // JEUS 21도 JEUS_9_PLUS 계열
-        }
-        // "9" 또는 "9.x" — JEUS 9
-        if (v.startsWith("9") || v.contains("jeus 9") || v.contains("jeus9")) {
-            logInfo(log, "[WasDetector] jeus.version 파싱 → JEUS 9: " + version);
-            return WasType.JEUS_9_PLUS;
-        }
-        // "8.5" — JEUS 8.5
-        if (v.startsWith("8.5") || v.contains("jeus 8.5") || v.contains("jeus8.5")) {
-            logInfo(log, "[WasDetector] jeus.version 파싱 → JEUS 8.5: " + version);
-            return WasType.JEUS_8_5;
-        }
-        // "8" — JEUS 8
-        if (v.startsWith("8") || v.contains("jeus 8") || v.contains("jeus8")) {
-            logInfo(log, "[WasDetector] jeus.version 파싱 → JEUS 8: " + version);
-            return WasType.JEUS_8;
-        }
-        // "7" — JEUS 7
-        if (v.startsWith("7") || v.contains("jeus 7") || v.contains("jeus7")) {
-            logInfo(log, "[WasDetector] jeus.version 파싱 → JEUS 7: " + version);
-            return WasType.JEUS_7;
-        }
-        // "6" — JEUS 6
-        if (v.startsWith("6") || v.contains("jeus 6") || v.contains("jeus6")) {
-            logInfo(log, "[WasDetector] jeus.version 파싱 → JEUS 6: " + version);
-            return WasType.JEUS_6;
-        }
-        // "5" — JEUS 5
-        if (v.startsWith("5") || v.contains("jeus 5") || v.contains("jeus5")) {
-            logInfo(log, "[WasDetector] jeus.version 파싱 → JEUS 5 (Legacy): " + version);
-            return WasType.JEUS_LEGACY;
-        }
-        // "4" — JEUS 4
-        if (v.startsWith("4") || v.contains("jeus 4") || v.contains("jeus4")) {
-            logInfo(log, "[WasDetector] jeus.version 파싱 → JEUS 4 (Legacy): " + version);
-            return WasType.JEUS_LEGACY;
-        }
-
+        if (v.startsWith("21") || v.contains("jeus 21") || v.contains("jeus21")) return WasType.JEUS_9_PLUS;
+        if (v.startsWith("9")  || v.contains("jeus 9")  || v.contains("jeus9"))  return WasType.JEUS_9_PLUS;
+        if (v.startsWith("8.5") || v.contains("jeus 8.5") || v.contains("jeus8.5")) return WasType.JEUS_8_5;
+        if (v.startsWith("8")  || v.contains("jeus 8")  || v.contains("jeus8"))  return WasType.JEUS_8;
+        if (v.startsWith("7")  || v.contains("jeus 7")  || v.contains("jeus7"))  return WasType.JEUS_7;
+        if (v.startsWith("6")  || v.contains("jeus 6")  || v.contains("jeus6"))  return WasType.JEUS_6;
+        if (v.startsWith("5")  || v.contains("jeus 5")  || v.contains("jeus5"))  return WasType.JEUS_LEGACY;
+        if (v.startsWith("4")  || v.contains("jeus 4")  || v.contains("jeus4"))  return WasType.JEUS_LEGACY;
         logWarn(log, "[WasDetector] jeus.version 파싱 실패: " + version);
         return null;
     }
 
-    /**
-     * JEUS 설치 경로 문자열에서 버전을 추정한다.
-     *
-     * <p>예: {@code /opt/jeus8.5} → JEUS_8_5, {@code C:\jeus7} → JEUS_7
-     * 한국 공공기관 표준 설치 경로 규칙에 따름.
-     *
-     * @param path JEUS 설치 경로 문자열
-     * @param log  로그 스트림
-     * @return 추정된 {@link WasType} 또는 null
-     */
     public static WasType parseJeusVersionFromPath(String path, PrintStream log) {
         if (path == null) return null;
-
         String p = path.toLowerCase();
-
-        // 경로 내 버전 힌트: jeus21, jeus9, jeus8.5, jeus8, jeus7, jeus6, jeus5, jeus4
-        if (p.contains("jeus21"))  return hint(log, path, WasType.JEUS_9_PLUS);
-        if (p.contains("jeus9"))   return hint(log, path, WasType.JEUS_9_PLUS);
-        if (p.contains("jeus8.5")) return hint(log, path, WasType.JEUS_8_5);
-        if (p.contains("jeus8"))   return hint(log, path, WasType.JEUS_8);
-        if (p.contains("jeus7"))   return hint(log, path, WasType.JEUS_7);
-        if (p.contains("jeus6"))   return hint(log, path, WasType.JEUS_6);
-        if (p.contains("jeus5"))   return hint(log, path, WasType.JEUS_LEGACY);
-        if (p.contains("jeus4"))   return hint(log, path, WasType.JEUS_LEGACY);
-
+        if (p.contains("jeus21"))  return pathHint(log, path, WasType.JEUS_9_PLUS);
+        if (p.contains("jeus9"))   return pathHint(log, path, WasType.JEUS_9_PLUS);
+        if (p.contains("jeus8.5")) return pathHint(log, path, WasType.JEUS_8_5);
+        if (p.contains("jeus8"))   return pathHint(log, path, WasType.JEUS_8);
+        if (p.contains("jeus7"))   return pathHint(log, path, WasType.JEUS_7);
+        if (p.contains("jeus6"))   return pathHint(log, path, WasType.JEUS_6);
+        if (p.contains("jeus5"))   return pathHint(log, path, WasType.JEUS_LEGACY);
+        if (p.contains("jeus4"))   return pathHint(log, path, WasType.JEUS_LEGACY);
         return null;
     }
 
-    private static WasType hint(PrintStream log, String path, WasType type) {
-        logInfo(log, "[WasDetector] JEUS 경로 버전 힌트: " + path + " → " + type);
-        return type;
-    }
-
-    /**
-     * JEUS임은 확인됐으나 버전을 특정하기 어려울 때 추가 단서로 버전을 추정한다.
-     *
-     * <p>추정 우선순위:
-     * <ol>
-     *   <li>런타임 JDK 버전으로 상한 추정
-     *       (JDK 11+ → 최소 JEUS_8_5, JDK 8 → JEUS_8, JDK 7 → JEUS_7, 이하 → JEUS_LEGACY)</li>
-     *   <li>javax.servlet.http.HttpServletRequest 버전 클래스 존재 여부</li>
-     *   <li>판별 불가 → 가장 보수적 버전(JEUS_7) 반환 + 경고</li>
-     * </ol>
-     *
-     * <p>이 메서드는 과대 감지(높은 버전으로 오판) 시 위빙 실패 위험보다
-     * 과소 감지(낮은 버전으로 오판) 시 동작 중단 위험이 더 크다고 판단하여
-     * 약간 높은 버전으로 오판하는 방향으로 설계됐다.
-     * 운영자는 {@code -Donepass.was.type=JEUS_6} 등으로 명시적 오버라이드 가능.
-     *
-     * @return 추정된 {@link WasType} (null 반환 없음)
-     */
     private static WasType resolveJeusVersionFromProperty(PrintStream log) {
         int jdkMajor = getRuntimeJdkMajor();
-
         logInfo(log, "[WasDetector] JEUS 버전 추정 — 런타임 JDK major=" + jdkMajor);
-
         if (jdkMajor >= 11) {
-            // JDK 11+ → JEUS 8.5 또는 9+
-            // jakarta.servlet 존재 여부로 추가 분기
-            if (isClassPresent(CLS_JAKARTA_SERVLET_REQUEST)) {
-                logInfo(log, "[WasDetector] JDK 11+ + jakarta.servlet → JEUS 9+ 추정");
-                return WasType.JEUS_9_PLUS;
-            }
-            logInfo(log, "[WasDetector] JDK 11+ (javax.servlet) → JEUS 8.5 추정");
+            if (isClassPresent(CLS_JAKARTA_SERVLET)) return WasType.JEUS_9_PLUS;
             return WasType.JEUS_8_5;
         }
-        if (jdkMajor == 8) {
-            // JDK 8 → JEUS 7 Fix5 이상 또는 JEUS 8/8.5
-            // 더 정확한 판별 불가 → JEUS_8로 추정 (byte-buddy 사용 가능)
-            logInfo(log, "[WasDetector] JDK 8 → JEUS 8 추정");
-            return WasType.JEUS_8;
-        }
-        if (jdkMajor == 7) {
-            // JDK 7 → JEUS 6 Fix9 ~ JEUS 7 Fix4
-            logInfo(log, "[WasDetector] JDK 7 → JEUS 7 추정");
-            return WasType.JEUS_7;
-        }
-        if (jdkMajor == 6) {
-            // JDK 6 → JEUS 6 Fix1~8 또는 JEUS 7 Fix1~4
-            logInfo(log, "[WasDetector] JDK 6 → JEUS 6 추정");
-            return WasType.JEUS_6;
-        }
-        // JDK 5 이하 → JEUS 4 또는 5 (레거시)
-        logWarn(log, "[WasDetector] JDK " + jdkMajor + " → JEUS 4/5 (Legacy) 추정"
-                + " (Javassist 위빙 경로 사용)");
+        if (jdkMajor == 8) return WasType.JEUS_8;
+        if (jdkMajor == 7) return WasType.JEUS_7;
+        if (jdkMajor == 6) return WasType.JEUS_6;
         return WasType.JEUS_LEGACY;
     }
 
@@ -549,13 +881,11 @@ public final class WasDetector {
     // 공용 내부 헬퍼
     // ─────────────────────────────────────────────────────────────────────────────
 
-    /**
-     * 지정 클래스가 현재 클래스로더(또는 부트스트랩 클래스로더)에서 로드 가능한지 확인.
-     *
-     * <p>Agent는 부트스트랩 클래스로더 위에서 동작하므로, WAS 클래스를 직접 참조하지 않고
-     * {@link Class#forName(String)} 성공 여부만으로 존재를 확인한다.
-     * Thread ContextClassLoader → 시스템 ClassLoader 순으로 탐색.
-     */
+    private static WasType pathHint(PrintStream log, String path, WasType type) {
+        logInfo(log, "[WasDetector] 경로 버전 힌트: " + path + " → " + type);
+        return type;
+    }
+
     private static boolean isClassPresent(String className) {
         try {
             ClassLoader cl = Thread.currentThread().getContextClassLoader();
@@ -570,12 +900,6 @@ public final class WasDetector {
         }
     }
 
-    /**
-     * WAS 유형 오버라이드 문자열을 파싱한다 (대소문자 무시).
-     *
-     * <p>오버라이드 예: {@code -Donepass.was.type=JEUS_7},
-     * {@code -Donepass.was.type=jeus_legacy} (소문자도 허용)
-     */
     private static WasType parseOverride(String value) {
         try {
             return WasType.valueOf(value.trim().toUpperCase());
@@ -584,12 +908,6 @@ public final class WasDetector {
         }
     }
 
-    /**
-     * 환경 변수 읽기 (SecurityManager 예외 방어).
-     *
-     * <p>레거시 JDK 환경에서 SecurityManager가 환경변수 읽기를 제한할 수 있으므로
-     * SecurityException을 잡아 null을 반환한다.
-     */
     private static String getEnv(String name) {
         try {
             return System.getenv(name);
@@ -598,35 +916,18 @@ public final class WasDetector {
         }
     }
 
-    /**
-     * 현재 JVM의 주요 Java 버전 번호를 반환한다.
-     *
-     * <p>JDK 8: {@code java.version} = "1.8.0_xxx" → major=8<br>
-     * JDK 11: {@code java.version} = "11.0.x" → major=11<br>
-     * JDK 21: {@code java.version} = "21.0.x" → major=21
-     *
-     * <p>레거시(1.x) 형식과 모던(x.y) 형식 모두 처리한다.
-     *
-     * @return JDK major 버전 번호. 파싱 실패 시 8(보수적 기본값)
-     */
     public static int getRuntimeJdkMajor() {
         String version = System.getProperty("java.version", "1.8");
         try {
             if (version.startsWith("1.")) {
-                // 레거시: "1.5.0_22" → major=5
                 String[] parts = version.split("\\.");
-                if (parts.length >= 2) {
-                    return Integer.parseInt(parts[1]);
-                }
+                if (parts.length >= 2) return Integer.parseInt(parts[1]);
             } else {
-                // 모던: "11.0.18" → major=11
                 int dot = version.indexOf('.');
                 String majorStr = (dot < 0) ? version : version.substring(0, dot);
                 return Integer.parseInt(majorStr);
             }
-        } catch (NumberFormatException ignored) {
-            // 파싱 실패 → 보수적 기본값
-        }
+        } catch (NumberFormatException ignored) {}
         return 8;
     }
 

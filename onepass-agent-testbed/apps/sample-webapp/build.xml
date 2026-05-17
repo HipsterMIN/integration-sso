@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  sample-webapp Ant 빌드 스크립트
+  javax.servlet-api 3.1 기반 (provided scope)
+  결과물: sample-webapp.war
+-->
+<project name="sample-webapp" default="war" basedir=".">
+
+    <property name="src.dir"       value="src/main/java"/>
+    <property name="web.dir"       value="src/main/webapp"/>
+    <property name="build.dir"     value="build"/>
+    <property name="classes.dir"   value="${build.dir}/classes"/>
+    <property name="war.name"      value="sample-webapp.war"/>
+    <property name="servlet.jar"   value="/usr/local/tomcat/lib/servlet-api.jar"/>
+
+    <!-- 클래스 컴파일 -->
+    <target name="compile">
+        <mkdir dir="${classes.dir}"/>
+        <javac srcdir="${src.dir}"
+               destdir="${classes.dir}"
+               source="8" target="8"
+               encoding="UTF-8"
+               includeantruntime="false">
+            <classpath>
+                <pathelement location="${servlet.jar}"/>
+            </classpath>
+        </javac>
+    </target>
+
+    <!-- WAR 패키징 -->
+    <target name="war" depends="compile">
+        <war destfile="${build.dir}/${war.name}" webxml="${web.dir}/WEB-INF/web.xml">
+            <fileset dir="${web.dir}" excludes="WEB-INF/web.xml"/>
+            <classes dir="${classes.dir}"/>
+        </war>
+        <echo message="WAR 생성 완료: ${build.dir}/${war.name}"/>
+    </target>
+
+    <target name="clean">
+        <delete dir="${build.dir}"/>
+    </target>
+
+</project>
