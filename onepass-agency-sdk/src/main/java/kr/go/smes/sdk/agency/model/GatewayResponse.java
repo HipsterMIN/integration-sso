@@ -74,6 +74,74 @@ public final class GatewayResponse {
         return httpStatus == 409;
     }
 
+    // ── GAP-2: JSON 응답 파싱 헬퍼 ────────────────────────────────────────────
+
+    /**
+     * 응답 본문 JSON에서 최상위 문자열/숫자 필드 값 추출 (외부 라이브러리 없음).
+     *
+     * <p>서버 응답 예시:
+     * <pre>
+     * {"status":"accepted","requestId":"abc-123","code":202}
+     * </pre>
+     *
+     * <p>사용 예시:
+     * <pre>{@code
+     * GatewayResponse resp = client.sendInbound(event);
+     * String status    = resp.getBodyField("status");     // "accepted"
+     * String requestId = resp.getBodyField("requestId");  // "abc-123"
+     * String code      = resp.getBodyField("code");       // "202"
+     * String missing   = resp.getBodyField("no_such");    // null
+     * }</pre>
+     *
+     * <p><b>제약:</b> 최상위(depth=1) 문자열/숫자 스칼라 필드만 추출 가능.
+     * 중첩 객체({...}), 배열([...]) 값은 null 반환.
+     * JSON 파서 없이 순수 정규표현식 기반으로 구현 (JDK 8+, Android 호환).
+     *
+     * @param key JSON 최상위 필드명 (대소문자 구분)
+     * @return 필드 값 문자열 (따옴표 제외), 필드 없거나 body가 null이면 {@code null}
+     */
+    public String getBodyField(String key) {
+        if (body == null || body.isEmpty() || key == null) return null;
+        String trimmed = body.trim();
+        if (!trimmed.startsWith("{")) return null;
+
+        // 문자열 값: "key":"value" 패턴
+        // 패턴: "key"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"
+        String quotedPattern = "\"" + escapeRegex(key) + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"";
+        java.util.regex.Matcher stringMatcher =
+                java.util.regex.Pattern.compile(quotedPattern).matcher(trimmed);
+        if (stringMatcher.find()) {
+            // 이스케이프 시퀀스 복원 (\\n → \n 등)
+            return unescapeJson(stringMatcher.group(1));
+        }
+
+        // 숫자/불리언/null 값: "key":value 패턴
+        String scalarPattern = "\"" + escapeRegex(key) + "\"\\s*:\\s*([0-9a-zA-Z.+\\-]+)";
+        java.util.regex.Matcher scalarMatcher =
+                java.util.regex.Pattern.compile(scalarPattern).matcher(trimmed);
+        if (scalarMatcher.find()) {
+            String raw = scalarMatcher.group(1).trim();
+            // 뒤에 붙은 불필요한 문자 제거 (콤마, 괄호 등)
+            return raw.replaceAll("[,}\\]\\s]+$", "");
+        }
+
+        return null;
+    }
+
+    /** 정규표현식 특수문자 이스케이프 (키 이름에 점, 괄호 등 포함될 경우 대비) */
+    private static String escapeRegex(String s) {
+        return s.replaceAll("([\\[\\]{}()*+?.^$|\\\\])", "\\\\$1");
+    }
+
+    /** JSON 이스케이프 시퀀스 복원 (\\n, \\t, \\", \\\\ 등) */
+    private static String unescapeJson(String s) {
+        return s.replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+                .replace("\\n",  "\n")
+                .replace("\\r",  "\r")
+                .replace("\\t",  "\t");
+    }
+
     @Override
     public String toString() {
         return "GatewayResponse{httpStatus=" + httpStatus

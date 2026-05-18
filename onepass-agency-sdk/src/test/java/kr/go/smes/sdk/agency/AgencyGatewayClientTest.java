@@ -240,7 +240,7 @@ class AgencyGatewayClientTest {
     // ════════════════════════════════════════════════════════════════════════
 
     @Test
-    @DisplayName("S16-T5: idempotencyKey 미지정 → UUID v4 자동 생성하여 헤더 포함")
+    @DisplayName("S16-T5: idempotencyKey 미지정 → UUID v4 자동 생성하여 헤더 포함 (GAP-4 반영)")
     void s16T5_noIdempotencyKey_autoGeneratesUuid() {
         // given
         ArgumentCaptor<Map<String, String>> headersCaptor = ArgumentCaptor.forClass(Map.class);
@@ -253,23 +253,25 @@ class AgencyGatewayClientTest {
                 .httpAdapter(mockAdapter)
                 .build();
 
-        // idempotencyKey 미지정
+        // GAP-4: idempotencyKey 완전 생략 (기존에는 IllegalArgumentException 발생했지만 이제 UUID 자동 생성)
         InboundEvent event = InboundEvent.builder()
                 .eventType("USER_REGISTERED")
                 .agencyCode(AGENCY_CODE)
-                .idempotencyKey("auto")     // 빌더 검증 통과용 임시 값; 아래에서 자동 생성 확인
+                // .idempotencyKey() 생략 — SDK가 UUID v4 자동 생성
                 .build();
 
         // when
         client.sendInbound(event);
 
         // then — X-Idempotency-Key 헤더가 UUID v4 형식인지 확인
-        // (InboundEvent에 직접 idempotencyKey를 넣었으므로 그대로 전달됨)
-        assertThat(headersCaptor.getValue()).containsKey("X-Idempotency-Key");
-
-        // 직접 null 키 생성 API 검증
-        String autoKey = IdempotencyKeyGenerator.generate();
+        Map<String, String> captured = headersCaptor.getValue();
+        assertThat(captured).containsKey("X-Idempotency-Key");
+        String autoKey = captured.get("X-Idempotency-Key");
         assertThat(autoKey).matches("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}");
+
+        // IdempotencyKeyGenerator 직접 검증
+        String generatedKey = IdempotencyKeyGenerator.generate();
+        assertThat(generatedKey).matches("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}");
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -484,23 +486,28 @@ class AgencyGatewayClientTest {
     }
 
     @Test
-    @DisplayName("InboundEvent: 필수 필드 미설정 시 IllegalArgumentException 발생")
+    @DisplayName("InboundEvent: 필수 필드(eventType, agencyCode) 미설정 시 IllegalArgumentException 발생 — idempotencyKey는 GAP-4로 선택")
     void inboundEvent_missingRequiredField_throwsException() {
-        // eventType 없음
+        // eventType 없음 → 필수
         assertThatThrownBy(() -> InboundEvent.builder()
                 .agencyCode(AGENCY_CODE)
-                .idempotencyKey(IDEMPOTENCY_KEY)
                 .build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("eventType");
 
-        // agencyCode 없음
+        // agencyCode 없음 → 필수
         assertThatThrownBy(() -> InboundEvent.builder()
                 .eventType("USER_REGISTERED")
-                .idempotencyKey(IDEMPOTENCY_KEY)
                 .build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("agencyCode");
+
+        // GAP-4: idempotencyKey 생략 → UUID 자동 생성, 예외 없음
+        assertThatCode(() -> InboundEvent.builder()
+                .eventType("USER_REGISTERED")
+                .agencyCode(AGENCY_CODE)
+                .build())
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -818,5 +825,294 @@ class AgencyGatewayClientTest {
                 .build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("payloadJson");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GAP-2: GatewayResponse.getBodyField() 파싱 헬퍼 테스트
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("GAP-2: getBodyField() — 문자열/숫자/불리언 필드 추출, 없는 필드는 null")
+    void gap2_gatewayResponse_getBodyField_parsesScalarFields() {
+        // given — 서버 응답과 유사한 JSON 구조
+        GatewayResponse resp = GatewayResponse.of(202,
+                "{\"status\":\"accepted\",\"requestId\":\"abc-123\",\"code\":202,\"active\":true}",
+                "corr-001", "req-001");
+
+        // when & then — 문자열 값
+        assertThat(resp.getBodyField("status")).isEqualTo("accepted");
+        assertThat(resp.getBodyField("requestId")).isEqualTo("abc-123");
+
+        // 숫자 값 (문자열로 반환)
+        assertThat(resp.getBodyField("code")).isEqualTo("202");
+
+        // 불리언 값
+        assertThat(resp.getBodyField("active")).isEqualTo("true");
+
+        // 존재하지 않는 필드 → null
+        assertThat(resp.getBodyField("missing")).isNull();
+        assertThat(resp.getBodyField(null)).isNull();
+    }
+
+    @Test
+    @DisplayName("GAP-2: getBodyField() — body가 null/빈값이면 null 반환")
+    void gap2_getBodyField_nullOrEmptyBody_returnsNull() {
+        GatewayResponse nullBody  = GatewayResponse.of(200, null, null, null);
+        GatewayResponse emptyBody = GatewayResponse.of(200, "",   null, null);
+        GatewayResponse arrayBody = GatewayResponse.of(200, "[1,2,3]", null, null);
+
+        assertThat(nullBody.getBodyField("status")).isNull();
+        assertThat(emptyBody.getBodyField("status")).isNull();
+        // 배열 응답은 객체 파싱 불가 → null
+        assertThat(arrayBody.getBodyField("status")).isNull();
+    }
+
+    @Test
+    @DisplayName("GAP-2: getBodyField() — 이스케이프 포함 문자열 값 정상 복원")
+    void gap2_getBodyField_unescapesStringValue() {
+        GatewayResponse resp = GatewayResponse.of(200,
+                "{\"message\":\"hello\\nworld\",\"path\":\"/api/v1\"}",
+                null, null);
+
+        assertThat(resp.getBodyField("message")).isEqualTo("hello\nworld");
+        assertThat(resp.getBodyField("path")).isEqualTo("/api/v1");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GAP-3: HttpUrlConnectionAdapter 재시도 로직 테스트
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("GAP-3: 5xx 응답 → 재시도 후 성공 (MockWebServer 실제 HTTP)")
+    void gap3_retryOn5xx_succeedsOnSecondAttempt() throws Exception {
+        // given — 첫 번째 503, 두 번째 202
+        mockWebServer.enqueue(new MockResponse().setResponseCode(503).setBody("{\"error\":\"unavailable\"}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(202)
+                .setHeader("X-Correlation-Id", "retry-corr-001")
+                .setBody("{\"status\":\"accepted\"}"));
+
+        String baseUrl = mockWebServer.url("/").toString().replaceAll("/$", "");
+
+        // baseDelayMs=1ms로 테스트 속도 확보
+        kr.go.smes.sdk.agency.http.HttpUrlConnectionAdapter adapter =
+                new kr.go.smes.sdk.agency.http.HttpUrlConnectionAdapter(3_000, 5_000, 3, 1L);
+
+        AgencyGatewayClient client = AgencyGatewayClient.builder()
+                .baseUrl(baseUrl)
+                .apiKey(API_KEY)
+                .agencyCode(AGENCY_CODE)
+                .httpAdapter(adapter)
+                .build();
+
+        InboundEvent event = InboundEvent.builder()
+                .eventType("USER_REGISTERED")
+                .agencyCode(AGENCY_CODE)
+                .idempotencyKey(IDEMPOTENCY_KEY)
+                .build();
+
+        // when
+        GatewayResponse response = client.sendInbound(event);
+
+        // then — 재시도 후 202 성공
+        assertThat(response.getHttpStatus()).isEqualTo(202);
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getCorrelationId()).isEqualTo("retry-corr-001");
+
+        // 총 2번 요청이 왔는지 확인
+        assertThat(mockWebServer.getRequestCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("GAP-3: 5xx 응답 maxRetries 소진 → AgencyHttpException 발생 (마지막 5xx 상태코드)")
+    void gap3_retryExhausted_throwsLastException() {
+        // given — 모든 응답 502
+        mockWebServer.enqueue(new MockResponse().setResponseCode(502).setBody("{\"error\":\"bad-gateway\"}"));
+        mockWebServer.enqueue(new MockResponse().setResponseCode(502).setBody("{\"error\":\"bad-gateway\"}"));
+
+        String baseUrl = mockWebServer.url("/").toString().replaceAll("/$", "");
+
+        // maxRetries=1 (총 2회 시도), baseDelay=1ms
+        kr.go.smes.sdk.agency.http.HttpUrlConnectionAdapter adapter =
+                new kr.go.smes.sdk.agency.http.HttpUrlConnectionAdapter(3_000, 5_000, 1, 1L);
+
+        AgencyGatewayClient client = AgencyGatewayClient.builder()
+                .baseUrl(baseUrl)
+                .apiKey(API_KEY)
+                .agencyCode(AGENCY_CODE)
+                .httpAdapter(adapter)
+                .build();
+
+        InboundEvent event = InboundEvent.builder()
+                .eventType("USER_REGISTERED")
+                .agencyCode(AGENCY_CODE)
+                .idempotencyKey(IDEMPOTENCY_KEY)
+                .build();
+
+        // when & then — 재시도 소진 후 AgencyHttpException 발생
+        assertThatThrownBy(() -> client.sendInbound(event))
+                .isInstanceOf(AgencyHttpException.class)
+                .satisfies(ex -> {
+                    AgencyHttpException httpEx = (AgencyHttpException) ex;
+                    assertThat(httpEx.getHttpStatus()).isEqualTo(502);
+                    assertThat(httpEx.isServerError()).isTrue();
+                });
+
+        // 총 2번 요청 확인 (1 + 1회 재시도)
+        assertThat(mockWebServer.getRequestCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("GAP-3: 4xx 응답 → 재시도 없이 즉시 AgencyHttpException 발생")
+    void gap3_noRetryOn4xx_immediateException() {
+        // given — 400 응답 (재시도 없어야 함)
+        mockWebServer.enqueue(new MockResponse().setResponseCode(400).setBody("{\"error\":\"bad-request\"}"));
+
+        String baseUrl = mockWebServer.url("/").toString().replaceAll("/$", "");
+        kr.go.smes.sdk.agency.http.HttpUrlConnectionAdapter adapter =
+                new kr.go.smes.sdk.agency.http.HttpUrlConnectionAdapter(3_000, 5_000, 3, 1L);
+
+        AgencyGatewayClient client = AgencyGatewayClient.builder()
+                .baseUrl(baseUrl)
+                .apiKey(API_KEY)
+                .agencyCode(AGENCY_CODE)
+                .httpAdapter(adapter)
+                .build();
+
+        InboundEvent event = InboundEvent.builder()
+                .eventType("USER_REGISTERED")
+                .agencyCode(AGENCY_CODE)
+                .idempotencyKey(IDEMPOTENCY_KEY)
+                .build();
+
+        // when & then — 4xx는 즉시 예외, 재시도 없음
+        assertThatThrownBy(() -> client.sendInbound(event))
+                .isInstanceOf(AgencyHttpException.class)
+                .satisfies(ex -> {
+                    AgencyHttpException httpEx = (AgencyHttpException) ex;
+                    assertThat(httpEx.getHttpStatus()).isEqualTo(400);
+                    assertThat(httpEx.isClientError()).isTrue();
+                });
+
+        // 재시도 없이 딱 1번만 요청
+        assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GAP-4: InboundEvent.idempotencyKey optional 전환 테스트
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("GAP-4: idempotencyKey 미설정 시 UUID v4 자동 생성 — 빌드 예외 없음")
+    void gap4_idempotencyKey_omitted_autoGeneratesUuid() {
+        // given — idempotencyKey 없이 빌드 (기존에는 IllegalArgumentException 발생)
+        InboundEvent event = InboundEvent.builder()
+                .eventType("USER_REGISTERED")
+                .agencyCode(AGENCY_CODE)
+                // .idempotencyKey() 생략
+                .build();
+
+        // then — 자동 생성된 UUID v4 확인
+        String autoKey = event.getIdempotencyKey();
+        assertThat(autoKey).isNotNull().isNotEmpty();
+        assertThat(autoKey).matches("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}");
+    }
+
+    @Test
+    @DisplayName("GAP-4: 두 번 빌드하면 서로 다른 idempotencyKey 자동 생성")
+    void gap4_idempotencyKey_eachBuild_generatesDistinctKey() {
+        InboundEvent event1 = InboundEvent.builder()
+                .eventType("EVT").agencyCode(AGENCY_CODE).build();
+        InboundEvent event2 = InboundEvent.builder()
+                .eventType("EVT").agencyCode(AGENCY_CODE).build();
+
+        // UUID가 매번 다르게 생성되는지 확인
+        assertThat(event1.getIdempotencyKey()).isNotEqualTo(event2.getIdempotencyKey());
+    }
+
+    @Test
+    @DisplayName("GAP-4: 명시적 idempotencyKey는 자동 생성보다 우선 적용")
+    void gap4_idempotencyKey_explicit_overridesAutoGeneration() {
+        InboundEvent event = InboundEvent.builder()
+                .eventType("EVT")
+                .agencyCode(AGENCY_CODE)
+                .idempotencyKey("my-fixed-key-001")
+                .build();
+
+        assertThat(event.getIdempotencyKey()).isEqualTo("my-fixed-key-001");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GAP-5: validateJson() {}garbage 차단 강화 테스트
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("GAP-5: validateJson() 트레일링 garbage 차단 — 다양한 패턴 검증")
+    void gap5_validateJson_trailingGarbage_isRejected() {
+        // 케이스 A: {}garbage — {로 시작하나 e로 끝남 → 1차 필터(start/end 불일치)에서 차단
+        assertThatThrownBy(() -> InboundEvent.builder()
+                .eventType("EVT").agencyCode("AG")
+                .payloadJson("{}garbage")
+                .build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("payloadJson must be a valid JSON object or array");
+
+        // 케이스 B: {}[] — {로 시작하나 ]로 끝남 → 1차 필터에서 차단
+        assertThatThrownBy(() -> InboundEvent.builder()
+                .eventType("EVT").agencyCode("AG")
+                .payloadJson("{}[]")
+                .build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("payloadJson must be a valid JSON object or array");
+
+        // 케이스 C: {"a":1}{"b":2} — {로 시작 }로 끝나지만 첫 depth=0 이후 { 문자 등장 → trailing content 차단
+        // GAP-5 핵심 수정으로 차단되는 케이스 (기존에는 통과됐음)
+        assertThatThrownBy(() -> InboundEvent.builder()
+                .eventType("EVT").agencyCode("AG")
+                .payloadJson("{\"a\":1}{\"b\":2}")
+                .build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("trailing content");
+
+        // 케이스 D: {"key":"val"}  {"extra":"obj"} — 첫 닫힘 후 공백+추가 객체 → trailing content 차단
+        assertThatThrownBy(() -> InboundEvent.builder()
+                .eventType("EVT").agencyCode("AG")
+                .payloadJson("{\"key\":\"val\"} {\"extra\":\"obj\"}")
+                .build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("trailing content");
+    }
+
+    @Test
+    @DisplayName("GAP-5: validateJson() 정상 케이스 — 중첩 객체/배열/문자열 내 특수문자 허용")
+    void gap5_validateJson_validCases_pass() {
+        // 단순 객체
+        assertThatCode(() -> InboundEvent.builder()
+                .eventType("EVT").agencyCode("AG")
+                .payloadJson("{\"key\":\"value\"}")
+                .build()).doesNotThrowAnyException();
+
+        // 중첩 객체
+        assertThatCode(() -> InboundEvent.builder()
+                .eventType("EVT").agencyCode("AG")
+                .payloadJson("{\"outer\":{\"inner\":\"val\"}}")
+                .build()).doesNotThrowAnyException();
+
+        // 문자열 내 중괄호 포함 (이스케이프 아닌 경우)
+        assertThatCode(() -> InboundEvent.builder()
+                .eventType("EVT").agencyCode("AG")
+                .payloadJson("{\"msg\":\"hello {world}\"}")
+                .build()).doesNotThrowAnyException();
+
+        // 빈 배열
+        assertThatCode(() -> InboundEvent.builder()
+                .eventType("EVT").agencyCode("AG")
+                .payloadJson("[]")
+                .build()).doesNotThrowAnyException();
+
+        // 후행 공백은 허용 (trim 이후 처리)
+        assertThatCode(() -> InboundEvent.builder()
+                .eventType("EVT").agencyCode("AG")
+                .payloadJson("{\"k\":\"v\"}   ")
+                .build()).doesNotThrowAnyException();
     }
 }
