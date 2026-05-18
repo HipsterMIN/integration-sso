@@ -59,15 +59,8 @@ import java.util.Map;
  *     .build();
  * GatewayResponse response = client.sendInbound(event);
  *
- * // 3. 아웃바운드 알림 요청 (OnePass → 기관 Webhook 트리거)
- * OutboundNotifyRequest notify = OutboundNotifyRequest.builder()
- *     .agencyCode("AGENCY_STUB_001")
- *     .eventType("USER_PROVISIONED")
- *     .payload("{\"status\":\"ok\"}")
- *     .build();
- * GatewayResponse notifyResp = client.triggerOutbound(notify);
- *
- * // 4. 기관 연동 상태 조회
+ * // 3. 기관 연동 상태 조회
+ * // ⚠️ triggerOutbound()는 내부 운영자 전용 — 기관 개발자는 sendInbound() 만 사용할 것
  * GatewayResponse status = client.getStatus("AGENCY_STUB_001");
  * }</pre>
  *
@@ -159,16 +152,32 @@ public final class AgencyGatewayClient {
     }
 
     /**
-     * 아웃바운드 알림 발송 요청 (OnePass → 기관 Webhook 트리거)
+     * [내부 운영자 전용] 아웃바운드 알림 트리거
      *
-     * <p>{@code PATCH /api/v1/agency/gateway/outbound/notify}
+     * <p><b>⚠️ 기관 개발자는 이 메서드를 사용하지 마십시오.</b>
      *
-     * <p>이 메서드는 OnePass 서버에게 기관 Webhook을 발송하도록 <b>지시</b>한다.
-     * 실제 기관 Webhook 호출은 OnePass 서버가 내부적으로 처리한다.
+     * <p>{@code PATCH /api/v1/agency/gateway/outbound/notify} 엔드포인트는
+     * OnePass <b>내부 운영자 대시보드 및 배치 작업 전용</b>으로 설계된 경로입니다.
+     * Kubernetes IngressRule에 의해 외부 트래픽이 차단되어 있으므로,
+     * 기관 시스템에서 이 메서드를 호출하면 네트워크 레이어에서 거부됩니다.
+     *
+     * <p>기관 시스템이 OnePass로 이벤트를 전송할 때는
+     * {@link #sendInbound(InboundEvent)} 를 사용하십시오.
+     *
+     * <pre>{@code
+     * // ❌ 기관 개발자는 사용 금지
+     * // client.triggerOutbound(request);
+     *
+     * // ✅ 기관 이벤트 전송은 sendInbound() 사용
+     * GatewayResponse response = client.sendInbound(event);
+     * }</pre>
      *
      * @param request 아웃바운드 알림 요청 정보
-     * @return {@link GatewayResponse} (성공 시 200 OK)
+     * @return {@link GatewayResponse} (내부망에서는 200 OK, 외부망에서는 네트워크 차단)
+     * @deprecated 이 엔드포인트는 OnePass 내부 운영자 전용입니다.
+     *             기관 시스템 연동에는 {@link #sendInbound(InboundEvent)} 를 사용하세요.
      */
+    @Deprecated
     public GatewayResponse triggerOutbound(OutboundNotifyRequest request) {
         validateNotNull(request, "request");
         String body           = request.toJsonString();
