@@ -1,7 +1,7 @@
 # integration-sso 문서 디렉토리 안내
 
-> **최종 정리일**: 2026-05-11  
-> **전체 문서 수**: 64개 파일 (MD 57 + DOCX 7)
+> **최종 정리일**: 2026-05-18  
+> **전체 문서 수**: 66개 파일 (MD 59 + DOCX 7) — v0.8.10 SDK 가이드, v0.8.11 분석 보고서 신규 추가
 
 ---
 
@@ -56,6 +56,7 @@ integration-sso 프로젝트 팀 내부에서 사용하는 문서입니다.
 | `member-conversion-implementation-plan.md` | 중기원패스 회원 전환 구현 플랜 |
 | `onepass-be-integration-plan.md` | onepass-be → integration-sso 통합 플랜 |
 | `2026-05-08_production_development_plan.md` | 실제 개발 전환 계획서 (2026-05-08) |
+| **`onepass-agency-sdk-usage-guide.md`** | **★NEW (v0.8.10)** 유관기관 개발자 SDK 사용 가이드 — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동, 배포 절차 (757줄) |
 | `2026-05-09_v194_gap_implementation_plan.md` | v1.9.4 기준 미반영 항목 종합 개발 플랜 |
 | `handoff-note.md` | integration-sso 인수인계 노트 (v1.9.0) |
 | `README.md` | development 시리즈 문서 색인 |
@@ -83,6 +84,7 @@ integration-sso 프로젝트 팀 내부에서 사용하는 문서입니다.
 | `gap-analysis-v0.8.3-vs-project.md` | EDA 설계서 v0.8.3 vs 프로젝트 코드 Gap 분석 |
 | `operational-readiness-analysis-v2.md` | Operational Readiness Analysis v2.2 |
 | `2026-05-08_unimplemented_analysis.md` | PoC 미구현 상세 분석 보고서 (2026-05-08) |
+| **`onepass-release-analysis.md`** | **★NEW (v0.8.11)** onepass-be-release / onepass-release 심층 분석 보고서 — BE 9건 + FE 7건 이슈, 보안취약점 8건, Q-Sign/Q-IM 연동 현황, 운영 배포 시나리오 (494줄) |
 
 ---
 
@@ -138,3 +140,5 @@ zip -r smep-handover-package-$(date +%Y%m%d).zip smep-handover/*.docx
 |------|---------|
 | 2026-05-11 | 초기 디렉토리 구조화 — `internal/`, `smep-handover/`, `proposal/` 분류 체계 수립 |
 | 2026-05-11 | docs 루트 전체 정리 완료 — 기존 루트 산재 파일 전량 하위 디렉토리로 이동, 총 64개 파일 분류 완료 |
+| 2026-05-16 | **v0.8.10** — `docs/onepass-agency-sdk-usage-guide.md` 신규 생성 (유관기관 개발자 SDK 사용 가이드, 757줄, PR #130 MERGED) |
+| 2026-05-16 | **v0.8.11** — `docs/internal/analysis/onepass-release-analysis.md` 신규 생성 (onepass-be-release/onepass-release 심층 분석 보고서, 494줄, PR #131 OPEN) |

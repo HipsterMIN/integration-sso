@@ -3,10 +3,11 @@
 **중소벤처기업부 중기원패스(OnePass) 통합인증 SSO 및 아이덴티티 관리 시스템** PoC/프리프로덕션 구현체.  
 **4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) + **OnePass Agency Java Agent** 기반 EDA 아키텍처.
 
-> **현재 버전: v0.8.9+Agent** — OnePass Agency Java Agent(27개 WAS 지원) + 멀티 WAS 테스트베드 추가  
+> **현재 버전: v0.8.11** — SDK GAP-1~5 수정 + 유관기관 개발자 가이드 + onepass-be-release / onepass-release 심층 분석 보고서  
 > **빌드 상태**: `./gradlew :onepass-agent:agentJar` → **BUILD SUCCESSFUL** (`onepass-agent-0.1.0-SNAPSHOT-all.jar`, ~10MB)  
 > **테스트**: `./gradlew :onepass-agent:test` → **131개 통과, 0 failures** (WasDetector, Config, HTTP, Weaving)  
-> **최신 PR**: [#127 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/127) — feat(agent): 멀티 WAS 지원 강화 + 문서화 + onepass-agent-testbed
+> **SDK 테스트**: `./gradlew :onepass-agency-sdk:test` → **36개 통과, 0 failures** (GAP-1~5 수정 포함)  
+> **최신 PR**: [#131 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/131) — docs(analysis): onepass-be-release / onepass-release 심층 분석 보고서 작성
 
 ---
 
@@ -45,6 +46,8 @@
 
 | 버전 | PR | 주요 내용 |
 |------|----|---------|
+| **v0.8.11** | [#131 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/131) | **onepass-be-release / onepass-release 심층 분석 보고서** — BE 9건 + FE 7건 이슈 식별, 보안취약점 8건, 운영 배포 T+0~T+3 장애 시나리오, Q-Sign/Q-IM 연동 현황 상세 분석 (494줄) |
+| **v0.8.10** | [#129 (MERGED)](https://github.com/HipsterMIN/integration-sso/pull/129) / [#130 (MERGED)](https://github.com/HipsterMIN/integration-sso/pull/130) | **SDK GAP-1~5 수정 + 유관기관 개발자 가이드** — GAP-1(HMAC 알고리즘 서버 정합성), GAP-2(triggerOutbound @Deprecated), GAP-3(X-Event-Type 헤더), GAP-4(X-Correlation-ID 대문자 D), GAP-5(getBodyField 헬퍼 + validateJson 강화) + 36개 테스트 통과 + 유관기관 개발자 사용 가이드(757줄) |
 | **v0.8.9** | [#116](https://github.com/HipsterMIN/integration-sso/pull/116) / [#115](https://github.com/HipsterMIN/integration-sso/pull/115) | **Sprint 17 + 유관기관 전환 보안 강화** — ❌B-1 수정(`Step8 isSafeRedirectUri` 환경변수 기반) + ❌B-2 수정(`application.yml` 더미 URL → 환경변수 구조) + JWT Signed Request `POST /api/v1/conversion/init` + `PlatformErrorCode` E-CONV-601~603 신규 + GUIDE-001~004(가이드 문서 4편) + Sprint 17 `addAuthHeader()` API_KEY/HMAC/mTLS 구현 |
 | **v0.8.8** | [#109](https://github.com/HipsterMIN/integration-sso/pull/109) / [#108](https://github.com/HipsterMIN/integration-sso/pull/108) / [#107](https://github.com/HipsterMIN/integration-sso/pull/107) | **QIM-OUTBOX-SPEC-001 정합화 + 전체 문서화** — V18 CHECK 제약(provisioning_outbox·gateway_inbound_audit), ProvisioningService Javadoc 갱신, wiki/ 전체 생성(ADR 12개·설계서 4개·워크스루 5개·DOCX 6개) |
 | **v3.0.0** | [#82](https://github.com/HipsterMIN/integration-sso/pull/82) | **SSO 운영 보안 패치 P1~P3** — `V4__fix_social_sso.sql` UNIQUE 복합 키, `InternalApiKeyInterceptor` 구현, `HandoffController` redirectUri null 수정 |
@@ -65,7 +68,7 @@
 
 ## 전체 구현 진행률
 
-> **기준일**: 2026-05-16 | **총 테스트**: 219개 통과 + 30개 skipped (q-im 기준; 전체 모듈 포함 시 ido 202 + platform-common 59 + q-sign 23) | v0.8.9 반영
+> **기준일**: 2026-05-18 | **총 테스트**: 219개 통과 + 30개 skipped (q-im 기준; 전체 모듈 포함 시 ido 202 + platform-common 59 + q-sign 23 + **onepass-agency-sdk 36**) | v0.8.11 반영
 
 ### 모듈별 구현 완성도
 
@@ -81,7 +84,7 @@ onepass-fe       █████████████████░░░  8
 테스트 커버리지  █████████████░░░░░░░  65%  (q-im 219개 통과+30 skipped, S8/S9 V6 E2E 통합 10종)
 ```
 
-**전체 완성도**: 약 **96%** — 운영 배포 환경변수 설정 후 즉시 가동 가능 (v0.8.9 유관기관 전환 보안 강화 반영)
+**전체 완성도**: 약 **96%** — 운영 배포 환경변수 설정 후 즉시 가동 가능 (v0.8.11 반영 — SDK GAP-1~5 수정, 분석 보고서 추가)
 
 ### Sprint별 완료 현황
 
@@ -887,7 +890,8 @@ cd docker && docker compose down
 | `platform-common` | **59개** | UUID v7 27개 |
 | `q-sign` | **23개** | SLO + PKCE |
 | `q-im` | **219개** (+ 30 skipped) | **Sprint 12**: isMinor 3종(Fix 7) + S8 4종 + S9 6종 통합(Fix 8) |
-| **합계** | **503개 + 30 skipped** | — |
+| **`onepass-agency-sdk`** | **36개** | **v0.8.10** SDK GAP-1~5 수정 (HMAC 알고리즘, X-Event-Type, X-Correlation-ID, getBodyField, validateJson) |
+| **합계** | **539개 + 30 skipped** | — |
 
 ### Q-IM 테스트 상세 (v3.1.0)
 
@@ -1201,6 +1205,7 @@ docs/
 ├── agency-external-arch-supplement.md  # 기관 외부망 격리 원칙
 ├── eda-master-arch-gap-analysis-v0.8.md # EDA 아키텍처 GAP 분석
 ├── gap-analysis-v0.8.3-vs-project.md   # v0.8.3 설계서 GAP 분석
+├── onepass-agency-sdk-usage-guide.md   # ★NEW (v0.8.10) 유관기관 개발자 SDK 사용 가이드 (757줄)
 ├── spec/                               # 아키텍처 명세서
 │   ├── 00-index.md
 │   ├── 01-system-overview.md
@@ -1216,6 +1221,9 @@ docs/
     ├── guide-frontend.md               # FE 팀 가이드
     ├── guide-infra.md                  # 인프라/DevOps 팀 가이드
     └── (기존 01~13 개발 문서)
+└── internal/
+    └── analysis/
+        └── onepass-release-analysis.md # ★NEW (v0.8.11) onepass-be-release / onepass-release 심층 분석 보고서 (494줄)
 ```
 
 ---
@@ -1280,5 +1288,5 @@ docs/
 
 ---
 
-> **문서 최종 수정**: 2026-05-16 | **버전**: v0.8.9 | **담당**: GenSpark AI Developer  
+> **문서 최종 수정**: 2026-05-18 | **버전**: v0.8.11 | **담당**: GenSpark AI Developer  
 > 문의/기여: `genspark_ai_developer` 브랜치 → PR → main 병합 워크플로우 준수

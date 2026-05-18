@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+_(다음 릴리즈 예정 변경사항 없음)_
+
+---
+
+## [0.1.0-GAP-PATCH] — 2026-05-16 (통합 버전: v0.8.10 / PR #129 MERGED)
+
+> **GAP-1~5 서버 정합성 수정 완료** — 36개 테스트 전체 통과 (0 failures)  
+> **유관기관 개발자 사용 가이드** 신규 작성 (757줄, PR #130 MERGED) — [`docs/onepass-agency-sdk-usage-guide.md`](../../docs/onepass-agency-sdk-usage-guide.md)
+
 ### Fixed (갭 분석 기반 수정 — 서버 정합성 확보)
 
 #### GAP-1 (P0) BREAKING: HMAC 서명 알고리즘 서버와 정합성 맞춤
@@ -15,6 +24,12 @@
 - `AgencyGatewayClient`에서 `X-Timestamp` 헤더 전송 제거 (서버 `HmacSignatureFilter`가 읽지 않음)
 - HMAC 서명 타임스탬프 단위: 밀리초(`ms`) → 초(`epochSeconds`)로 변경
 - `HmacSigner.sign()` 메서드 시그니처 변경: `(method, path, timestampMs, body)` → `(agencyCode, idempotencyKey, epochSeconds)`
+
+#### GAP-2 (P1): `triggerOutbound()` @Deprecated 처리
+- `AgencyGatewayClient.triggerOutbound()` 메서드에 `@Deprecated` 어노테이션 추가
+- 서버가 이벤트 수신 후 내부적으로 Webhook을 자동 발송하므로, 기관 측에서 직접 호출할 필요 없음
+- 하위 호환성을 위해 메서드는 유지하되, 다음 Major 버전에서 제거 예정
+- `README.md` §3.2, §5(API 메서드 섹션)에 Deprecated 경고 추가
 
 #### GAP-3 (P0): X-Event-Type 헤더 전송 추가
 - `AgencyGatewayClient.sendInbound()`가 `X-Event-Type` 헤더를 누락하여 서버가 항상 `eventType="CUSTOM"` 처리하던 버그 수정
@@ -25,11 +40,25 @@
 - 서버 `AgencyGatewayController`의 `HEADER_CORRELATION_ID = "X-Correlation-ID"` (대문자 D)와 일치하도록 수정
 - HTTP/1.1은 헤더 이름이 대소문자 불감이지만 코드 일관성 확보
 
+#### GAP-5 (P2): `GatewayResponse` 헬퍼 메서드 추가
+- `GatewayResponse.getBodyField(String fieldName)` 신규 추가 — JSON 응답 본문에서 외부 라이브러리 없이 필드 값 추출
+  - `fieldName`이 없거나 본문이 null이면 `null` 반환 (안전한 null-safe 처리)
+  - 예: `response.getBodyField("agencyCode")` → `"AGENCY_STUB_001"`
+- `GatewayResponse.isValidJson()` 신규 추가 — JSON 응답 본문 유효성 검사
+  - 본문이 `{...}` 형태의 유효한 JSON 객체인지 검사 (외부 라이브러리 불필요)
+
 #### GAP-7 (P2): Sprint 17 Phase 4 Breaking Change 경고 강화
 - `Builder.signRequests()` Javadoc에 Phase 4 전환 시 영향 및 대응 방법 명시
 - `IDO_HMAC_SIG_REQUIRED=true` 전환 시 X-Internal-Sig 없는 요청이 401로 거부됨을 안내
 
 ### Changed
+
+#### README §3.2, §5 triggerOutbound @Deprecated 경고 추가 (GAP-2)
+- §3.2 예시 코드에 `@Deprecated` 주석 및 Blockquote 경고 추가
+- §5 API 메서드 목록에 Deprecated 표시 추가
+
+#### README §5 API 레퍼런스 `getBodyField()`, `isValidJson()` 추가 (GAP-5)
+- 새로운 헬퍼 메서드 사용 예시 코드 추가
 
 #### README §7 HMAC 서명 가이드 전면 수정
 - 서명 알고리즘 설명을 서버 실제 알고리즘(`{agencyCode}:{idempotencyKey}:{epochSeconds}`)으로 교체
@@ -41,9 +70,14 @@
 
 - `S16-T2`: `X-Event-Type` 헤더 포함 검증 추가 (GAP-3)
 - `S16-T4`: `X-Timestamp` 헤더 미포함 검증 + HMAC 서명 알고리즘 검증 강화 (GAP-1)
+- `S16-T5`: `idempotencyKey` 미지정 시 UUID v4 자동 생성 검증 (기존 유지)
 - `S16-T8` (MockWebServer): `X-Event-Type` 헤더 전송 + `X-Timestamp` 미전송 검증 추가
 - `HmacSigner`: `sign()` 시그니처 변경에 따른 테스트 수정
 - `hmacSigner_matchesServerAlgorithm` (신규): 서버 `HmacSignatureFilter.computeHmac()`와 동일한 결과 생성 검증
+- `triggerOutbound_deprecated` (신규): `@Deprecated` 어노테이션 존재 확인 (GAP-2)
+- `getBodyField_extractsValue` (신규): JSON 응답에서 필드 추출 정확성 검증 (GAP-5)
+- `isValidJson_detectsValidAndInvalid` (신규): 유효/무효 JSON 본문 판별 검증 (GAP-5)
+- **총 36개 테스트 통과** (0 failures, 0 errors)
 
 ---
 
@@ -164,5 +198,6 @@
 
 ---
 
-[Unreleased]: https://github.com/HipsterMIN/integration-sso/compare/sdk-v0.1.0...HEAD
+[Unreleased]: https://github.com/HipsterMIN/integration-sso/compare/sdk-v0.1.0-gap-patch...HEAD
+[0.1.0-GAP-PATCH]: https://github.com/HipsterMIN/integration-sso/compare/sdk-v0.1.0-snapshot...sdk-v0.1.0-gap-patch
 [0.1.0-SNAPSHOT]: https://github.com/HipsterMIN/integration-sso/releases/tag/sdk-v0.1.0-snapshot
