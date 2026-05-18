@@ -18,7 +18,7 @@
  */
 
 import http from 'k6/http';
-import { sleep, group } from 'k6';
+import { sleep, group, check } from 'k6';
 import {
   BASE_URL, AGENCY_CODE, INTERNAL_API_KEY,
   jsonHeaders, internalHeaders,
@@ -113,7 +113,6 @@ export default function () {
             try { body1 = JSON.parse(res.body);  } catch (_) {}
             try { body2 = JSON.parse(res2.body); } catch (_) {}
 
-            import { check } from 'k6';
             check(res2, {
               'idempotency: same ticketId returned': () =>
                 body1 && body2 && body1.ticketId === body2.ticketId,
