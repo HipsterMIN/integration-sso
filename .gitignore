@@ -38,3 +38,5 @@ infra/k8s/secrets/*-values.yml
 onepass-fe/frontend/src_backup_*/
 onepass-fe/frontend/public_backup_*/
 onepass-fe/frontend/*.backup_*
+k6/reports/*.json
+k6/mock-server/node_modules/
