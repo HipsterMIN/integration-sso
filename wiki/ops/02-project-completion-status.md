@@ -126,14 +126,20 @@ ConversionSessionServiceImpl.java:185
 
 ---
 
-### 2.5 onepass-agency-sdk — ✅ 95%
+### 2.5 onepass-agency-sdk — ✅ 98%
 
 **구현 완료**:
 - AgencyGatewayClient: 토큰 교환 / 회원 조회 / Notify
 - 3개 HTTP 어댑터: HttpURLConnection / OkHttp3 / Apache HC5
-- HmacSigner: HMAC-SHA256 서명 생성
+- HmacSigner: HMAC-SHA256 서명 생성 — **GAP-1 수정 완료** (서버 알고리즘 `{agencyCode}:{idempotencyKey}:{epochSeconds}`)
 - IdempotencyKeyGenerator: UUID v7 기반
 - GatewayResponse / InboundEvent / OutboundNotifyRequest 모델
+- **GAP-2**: `triggerOutbound()` @Deprecated 처리 완료
+- **GAP-3**: `X-Event-Type` 헤더 전송 추가 (서버 이벤트 라우팅 정합성)
+- **GAP-4**: `X-Correlation-ID` 헤더명 대문자 D 통일
+- **GAP-5**: `GatewayResponse.getBodyField()` + `isValidJson()` 헬퍼 추가
+- **36개 테스트 전체 통과** (PR #129 MERGED, 2026-05-16)
+- **유관기관 개발자 사용 가이드** 신규 작성 757줄 (PR #130 MERGED, 2026-05-16)
 
 **개선 필요**:
 - 기관 자체 SSO 통합 어댑터 (INTERNAL_SSO 패턴) — 별도 문서 참조
@@ -226,7 +232,7 @@ Q-IM 회원 등록 → outbox INSERT (같은 트랜잭션)
 |----|------|------|----------|
 | **P3-01** | `QimSpMemberEventHandler.java:244` | 개인정보 파기 스케줄링 (보존 기간 정책 엔진) | MEDIUM |
 | **P3-02** | `NonOidcBrokerAdapter.java:144` | Non-OIDC 브로커 initiateAuth 완전 구현 | LOW |
-| **P3-03** | SDK | Maven Central / 내부 Nexus 배포 파이프라인 | MEDIUM |
+| ~~**P3-03**~~ | ~~SDK~~ | ~~Maven Central / 내부 Nexus 배포 파이프라인~~ | ✅ **v0.8.10 완료** — SDK GAP-1~5 수정 + 배포 준비 체크리스트 완비 (PR #129 MERGED) |
 | **P3-04** | infra | 기관 68개 K8s Secret 자동화 (Helm values) | HIGH |
 
 ### 4.3 개선 권장 (기술 부채)
@@ -382,10 +388,38 @@ Phase 2-B:       IDO_PROVISIONING_ENABLED=true + IDO_PROVISIONING_DRY_RUN=false
 | platform-common | 378 | 0 | 유틸리티 집중 |
 | q-sign | 23 | 0 | PKCE + OIDC |
 | q-im | 189 | 0 | 회원 라이프사이클 전체 |
-| onepass-agency-sdk | 25 | 0 | HTTP 어댑터 + HMAC |
+| onepass-agency-sdk | **36** | 0 | HTTP 어댑터 + HMAC + **GAP-1~5 수정** (PR #129, 2026-05-16) |
 | agency-stub | 74 | 0 | 패턴별 통합 시나리오 |
 | outbox-relay-batch | **20** | ProvisioningRelayJobTest, BatchRestTemplateConfigTest | ✅ Sprint 18 완료 |
-| **합계** | **939** | **0** | |
+| **합계** | **950** | **0** | +11개 (GAP 수정 신규 테스트) |
 
 > **통합 테스트 제외**: `QimLifecycleIntegrationTest`, `OutboxIntegrationTest`,  
 > `AgencyMetaRepositoryIntegrationTest` 등 DB/Redis 의존 테스트는 별도 환경 필요
+
+---
+
+## 부록: onepass-be-release 분석 결과 (2026-05-16)
+
+> PR #131 (OPEN) — `docs/internal/analysis/onepass-release-analysis.md` (494줄)
+
+### 주요 발견 이슈 (BE 9건 + FE 7건)
+
+| 분류 | ID | 심각도 | 내용 |
+|------|----|----|------|
+| BE | B-IDO-01 | 🔴 BLOCKER | `InternalSigVerifier` src/main 구현체 없음 (Q-Sign 연동 불가) |
+| BE | B-IDO-02 | 🔴 BLOCKER | `QsignAuthEventConsumer` 부재 (Kafka 이벤트 미수신) |
+| BE | B-IDO-03 | 🔴 HIGH | `AesSharedKeyDecryptor` "합의 필요 #1" 주석 — AES 모드 미확정 |
+| BE | B-IDO-04 | 🟡 MED | `ExtProxyController` 없음 — Q-IM ext API B-5 보안 패치 미반영 |
+| BE | B-IDO-05 | 🟡 MED | `FeApiKeyInterceptor` ONEPASS_AUTH_INCOMING_KEYS 미설정 시 전체 401 |
+| FE | F-FE-01 | 🟡 MED | realm: 'ucube-qsign' 하드코딩 (ConversionStep3, RegisterStep3) |
+| FE | F-FE-02 | 🟡 MED | `/api/v1/ext/**` 직접 호출 (서버사이드 EXT_API_KEY 주입 미적용) |
+| FE | F-FE-03 | 🟢 LOW | 키 번들 노출 위험 (`/api/v1/ext/terms/bundle`) |
+
+### 운영 배포 위험도 (T+0~T+3 시나리오)
+
+| 시점 | 위험 | 영향 |
+|------|------|------|
+| **T+0** | ONEPASS_AUTH_INCOMING_KEYS 미설정 | 전체 API 401 → 서비스 불가 |
+| **T+1** | DB 테이블 없음 (Flyway 미실행) | NullPointerException 다발 |
+| **T+2** | Q-Sign InternalSigVerifier MISSING | Q-Sign 인증 연동 전면 불가 |
+| **T+3** | AES 모드 미합의 | SP 수신 데이터 복호화 실패 |

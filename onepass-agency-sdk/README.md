@@ -6,7 +6,7 @@
 좌표(Coordinates):
   groupId:    kr.go.smes
   artifactId: onepass-agency-sdk
-  version:    0.1.0-SNAPSHOT  (현재 개발 버전)
+  version:    0.1.0-SNAPSHOT  (현재 개발 버전 — GAP-1~5 수정 완료)
 ```
 
 ---
@@ -46,7 +46,7 @@
 | **Java 8+ 호환** | Android, Spring Boot 2.x/3.x, JDK 8~21 모두 지원 |
 | **런타임 의존성 ZERO** | JDK 내장 `HttpURLConnection` 기본 구현 — 추가 라이브러리 불필요 |
 | **어댑터 교체** | OkHttp3, Apache HttpClient 5.x, Spring RestTemplate 등 교체 가능 |
-| **HMAC-SHA256 서명** | `X-Internal-Sig` 헤더 자동 생성, 타이밍 공격 방지 상수시간 검증 |
+| **HMAC-SHA256 서명** | `X-Internal-Sig` 헤더 자동 생성, 서명 알고리즘 `{agencyCode}:{idempotencyKey}:{epochSeconds}` (GAP-1 수정 완료) |
 | **멱등성 키 3전략** | UUID v4, 접두사+UUID, 시퀀스 기반 중 선택 |
 | **Builder 패턴** | 불변(Immutable) 클라이언트, 스레드 안전 |
 
@@ -161,9 +161,14 @@ if (response.isSuccess()) {
 
 ### 3.2 아웃바운드 알림 요청 (OnePass → 기관 Webhook 트리거)
 
+> ⚠️ **`triggerOutbound()`는 GAP-2 수정에 따라 `@Deprecated` 처리되었습니다.**  
+> 서버가 내부적으로 Webhook을 자동 발송하므로, 기관 측에서 직접 호출할 필요가 없습니다.  
+> 이 메서드는 하위 호환성을 위해 남겨두었으나 다음 Major 버전에서 제거될 예정입니다.
+
 ```java
 import kr.go.smes.sdk.agency.model.OutboundNotifyRequest;
 
+// ⚠️ @Deprecated — GAP-2: 서버 자동 Webhook 발송으로 인해 기관 측 직접 호출 불필요
 OutboundNotifyRequest notify = OutboundNotifyRequest.builder()
         .agencyCode("AGENCY_STUB_001")
         .eventType("USER_PROVISIONED")
@@ -277,10 +282,24 @@ dependencies {
 GatewayResponse sendInbound(InboundEvent event)
 
 // 아웃바운드 Webhook 트리거: PATCH /api/v1/agency/gateway/outbound/notify
+// ⚠️ @Deprecated (GAP-2): 서버 자동 Webhook 발송으로 직접 호출 불필요
+@Deprecated
 GatewayResponse triggerOutbound(OutboundNotifyRequest request)
 
 // 기관 연동 상태 조회: GET /api/v1/agency/gateway/status/{agencyCode}
 GatewayResponse getStatus(String agencyCode)
+```
+
+**응답 헬퍼 메서드 (GAP-5 신규)**:
+
+```java
+// JSON 응답 본문에서 특정 필드 값 추출 (외부 JSON 라이브러리 불필요)
+String value = response.getBodyField("agencyCode");    // "AGENCY_STUB_001"
+String active = response.getBodyField("active");       // "true"
+String missing = response.getBodyField("notExist");    // null (필드 없으면 null)
+
+// JSON 응답 본문 유효성 검사 (GAP-5)
+boolean valid = response.isValidJson();                // true/false
 ```
 
 ---
@@ -539,7 +558,14 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 인바운드 요청(`POST /inbound/event`)에 다음 헤더가 자동으로 추가된다:
 - `X-Internal-Sig`: HMAC-SHA256 서명 (64자 소문자 HEX)
 
-### 7.2 서명 알고리즘 (서버 `HmacSignatureFilter` 기준)
+### 7.2 서명 알고리즘 (서버 `HmacSignatureFilter` 기준) — GAP-1 수정
+
+> **⚠️ GAP-1 수정 (Breaking Change)**: v0.8.10 이전 SDK는 `"{METHOD}
+{PATH}
+{TIMESTAMP_MS}
+{SHA256(BODY)}"` 형식을 사용했으나,  
+> 서버 `HmacSignatureFilter.computeHmac()`와 불일치하여 모든 HMAC 검증이 실패했습니다.  
+> v0.8.10(현재)부터 서버 실제 알고리즘으로 통일되었습니다.
 
 ```
 서명 페이로드  = "{agencyCode}:{idempotencyKey}:{epochSeconds}"
@@ -548,7 +574,8 @@ X-Internal-Sig = HEX( HMAC-SHA256(hmacSecret, 서명페이로드) )
 
 - `epochSeconds` = `System.currentTimeMillis() / 1000` (초 단위, 밀리초 아님)
 - 서버는 ±60초 범위의 epochSeconds를 전수 검사하여 시계 편차를 허용한다
-- `X-Timestamp` 헤더는 서버가 사용하지 않으므로 전송하지 않는다
+- `X-Timestamp` 헤더는 **전송하지 않는다** (GAP-1 수정 — 서버 미사용 확인)
+- `hmacSecret`은 `apiKey`(X-Agency-Key)와 **별개의 비밀키**임을 반드시 확인한다
 
 예시:
 ```
@@ -1036,9 +1063,9 @@ open onepass-agency-sdk/build/reports/tests/test/index.html
 | 테스트 ID | 설명 |
 |-----------|------|
 | S16-T1 | `sendInbound` 정상 호출 → HTTP 202 Accepted |
-| S16-T2 | 요청 헤더 `X-Api-Key`, `X-Idempotency-Key`, `X-Agency-Code` 포함 검증 |
+| S16-T2 | 요청 헤더 `X-Api-Key`, `X-Idempotency-Key`, `X-Agency-Code`, **`X-Event-Type`** 포함 검증 (GAP-3) |
 | S16-T3 | 서버 409 응답 → `AgencyHttpException` 발생 확인 |
-| S16-T4 | HMAC 서명 활성화 → `X-Internal-Sig`, `X-Timestamp` 헤더 포함 검증 |
+| S16-T4 | HMAC 서명 활성화 → `X-Internal-Sig` 헤더 포함 + `X-Timestamp` **미포함** 검증 (GAP-1) |
 | S16-T5 | `idempotencyKey` 미지정 → UUID v4 자동 생성 |
 | S16-T6 | `triggerOutbound` → PATCH `/outbound/notify`, HTTP 200 |
 | S16-T7 | `getStatus` → GET `/status/{agencyCode}` 경로 검증 |
@@ -1062,6 +1089,14 @@ open onepass-agency-sdk/build/docs/javadoc/index.html
 ## 13. 변경 이력
 
 [CHANGELOG.md](CHANGELOG.md) 참고.
+
+> **최신 변경 요약 (v0.8.10 — PR #129 MERGED)**:
+> - **GAP-1 (P0 BREAKING)**: HMAC 서명 알고리즘을 서버 `HmacSignatureFilter.computeHmac()`와 일치하도록 수정
+> - **GAP-2**: `triggerOutbound()` `@Deprecated` 처리 (서버 자동 Webhook 발송)
+> - **GAP-3 (P0)**: `X-Event-Type` 헤더 전송 추가 (누락 시 서버가 항상 `eventType="CUSTOM"` 처리)
+> - **GAP-4 (P1)**: `X-Correlation-Id` → `X-Correlation-ID` (대문자 D) 헤더명 통일
+> - **GAP-5 (P2)**: `GatewayResponse.getBodyField()` 헬퍼 + `isValidJson()` 검증 추가
+> - **테스트**: 36개 전체 통과 (0 failures)
 
 ---
 
