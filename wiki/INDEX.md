@@ -50,7 +50,8 @@ wiki/
 │   ├── 04-fin-cert.md              ← 금융인증서 (KFTC 클라우드, 자동로그인)
 │   ├── 05-ci-dn-brokering.md       ← CI/DN 브로커링 심층 분석 + 저장 전략
 │   ├── 06-install-type-integration.md ← 설치형 연동 전체 개발 가이드
-│   └── 07-sso-session.md           ← SSO 세션·등급 관리 + SLO
+│   ├── 07-sso-session.md           ← SSO 세션·등급 관리 + SLO
+│   └── 08-kr-auth-providers-guide.md ← ★ 국내 인증 수단 종합 가이드 (공공·민간·소셜 전체)
 ├── ops/                            ← 운영 가이드 (2026-05-17 신규)
 │   ├── 01-production-deployment-guide.md  ← ★ 운영 배포 주의사항 체크리스트
 │   ├── 02-project-completion-status.md    ← ★ 프로젝트 완성도 분석 (939 tests GREEN)
@@ -129,6 +130,7 @@ Any-ID(행정안전부 정부 통합인증)의 인증수단별 상세 문서 및
 | [IAM-05](iam/05-ci-dn-brokering.md) | **CI/DN 브로커링** | 아키텍트/개발자 | CI 정의, 획득 경로, 암호화 저장, 법적 요건 |
 | [IAM-06](iam/06-install-type-integration.md) | **설치형 연동 가이드** | 개발자/PM | 등록 절차, OIDC RP 구현, Spring Boot 코드, 회원 매핑 |
 | [IAM-07](iam/07-sso-session.md) | **SSO 세션·등급 관리** | 개발자/운영 | On/Off 토글, 세션 만료, SLO, 등급별 정책 |
+| [IAM-08](iam/08-kr-auth-providers-guide.md) | **국내 인증 수단 종합 가이드** ★ | 개발자/아키텍트 | 공공PKI·민간인증서·소셜OIDC 전체 14종, 법적 근거, 등록 절차, Java 코드 구현, 보안 고려사항 |
 
 ---
 
