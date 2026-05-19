@@ -168,13 +168,6 @@ ido:
     # FE extInstance → beApiInstance 전환 후 이 환경변수로 API Key 관리
     # 운영: K8s Secret / Vault → IDO_QIM_EXT_API_KEY 환경변수로 주입
     ext-api-key: ${IDO_QIM_EXT_API_KEY:}
-
-  # ── FE AES-GCM 복호화 키 (CI 토큰 교환 전용) ───────────────────────────
-  # FE의 aesGcm.ts에서 CI 암호화에 사용하는 AES-GCM 키 (서버사이드 복호화용)
-  # FE webpack DefinePlugin AES_GCM_KEY와 동일한 값이어야 함
-  # 운영: K8s Secret / Vault → FE_AES_GCM_KEY 환경변수로 주입
-  # ⚠️ 미설정 시 POST /api/v1/auth/ci-token 엔드포인트에서 CI 복호화 불가
-  fe-aes-gcm-key: ${FE_AES_GCM_KEY:}
     # ── Q-IM → IdO 아웃바운드 수신 API (SP 역할) ─────────────────────────
     # Q-IM 관리 콘솔에서 발급한 API Key PBKDF2 해시
     # 포맷: pbkdf2:{iterations}:{saltBase64}:{hashBase64}
@@ -193,6 +186,13 @@ ido:
     idempotency-ttl-days: 7
     # SP 수신 감사 로그 활성화 (운영: true 권장)
     receiver-audit-enabled: ${QIM_RECEIVER_AUDIT:true}
+
+  # ── FE AES-GCM 복호화 키 (CI 토큰 교환 전용) ───────────────────────────
+  # FE의 aesGcm.ts에서 CI 암호화에 사용하는 AES-GCM 키 (서버사이드 복호화용)
+  # FE webpack DefinePlugin AES_GCM_KEY와 동일한 값이어야 함
+  # 운영: K8s Secret / Vault → FE_AES_GCM_KEY 환경변수로 주입
+  # ⚠️ 미설정 시 POST /api/v1/auth/ci-token 엔드포인트에서 CI 복호화 불가
+  fe-aes-gcm-key: ${FE_AES_GCM_KEY:}
 
   # §11.8 Q-Sign 연동 — X-Internal-Sig
   qsign:
