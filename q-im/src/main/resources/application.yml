@@ -122,6 +122,22 @@ qim:
     topic-snapshot: qim.user.snapshot        # Compacted Snapshot Topic
   # Redis 캐시 TTL (IdO 가 pull 시 기준)
   cache:
+
+  # ── CI 암호화 키 설정 ───────────────────────────────────────────────────────
+  crypto:
+    ci:
+      key-v1:         ${QIM_CI_AES_KEY_V1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      key-v2:         ${QIM_CI_AES_KEY_V2:}
+      current-version: ${QIM_CI_CURRENT_VERSION:v1}
+    di:
+      secret:         ${QIM_DI_SECRET:default-di-secret-change-in-production}
+
+  # ── 내부 API 보안 (P2 보안 수정) ─────────────────────────────────────────────
+  # IdO → Q-IM 내부 호출 시 X-Internal-Api-Key 헤더 검증
+  # 운영 환경에서 반드시 QIM_INTERNAL_API_KEY 환경변수를 설정하십시오.
+  # (32자 이상 랜덤 문자열 권장 — openssl rand -hex 32)
+  security:
+    internal-api-key: ${QIM_INTERNAL_API_KEY:}
     user-ttl-seconds: 300                    # ≤5분 (설계서 §11.3)
 
 # ── Actuator ──────────────────────────────────────────────────
@@ -145,19 +161,3 @@ logging:
     org.springframework.kafka: WARN
     org.flywaydb: INFO
 
-# ── CI 암호화 키 설정 ───────────────────────────────────────────────────────
-qim:
-  crypto:
-    ci:
-      key-v1:         ${QIM_CI_AES_KEY_V1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
-      key-v2:         ${QIM_CI_AES_KEY_V2:}
-      current-version: ${QIM_CI_CURRENT_VERSION:v1}
-    di:
-      secret:         ${QIM_DI_SECRET:default-di-secret-change-in-production}
-
-  # ── 내부 API 보안 (P2 보안 수정) ─────────────────────────────────────────────
-  # IdO → Q-IM 내부 호출 시 X-Internal-Api-Key 헤더 검증
-  # 운영 환경에서 반드시 QIM_INTERNAL_API_KEY 환경변수를 설정하십시오.
-  # (32자 이상 랜덤 문자열 권장 — openssl rand -hex 32)
-  security:
-    internal-api-key: ${QIM_INTERNAL_API_KEY:}

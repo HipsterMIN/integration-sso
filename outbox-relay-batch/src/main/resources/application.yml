@@ -37,6 +37,11 @@ spring:
     properties:
       security.protocol: PLAINTEXT
 
+
+  # ── Flyway (ido DataSource 전용 — V19 shedlock 테이블) ──────────────────────
+  # BatchFlywayConfig에서 수동 설정. 자동 설정은 autoconfigure.exclude로 비활성.
+  flyway:
+    enabled: false   # BatchFlywayConfig에서 수동 Bean으로 제어
 # ═══════════════════════════════════════════════════════════════════════════════
 # 배치 서비스 전용 설정
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -194,12 +199,6 @@ batch:
     pagerduty:
       enabled: ${BATCH_ALERT_PAGERDUTY_ENABLED:false}
       routing-key: ${BATCH_ALERT_PAGERDUTY_ROUTING_KEY:}
-
-# ── Flyway (ido DataSource 전용 — V19 shedlock 테이블) ──────────────────────
-# BatchFlywayConfig에서 수동 설정. 자동 설정은 autoconfigure.exclude로 비활성.
-spring:
-  flyway:
-    enabled: false   # BatchFlywayConfig에서 수동 Bean으로 제어
 
 # ── ido 플랫폼 설정 (Webhook 헤더용) ────────────────────────────────────────
 ido:
