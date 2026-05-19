@@ -459,141 +459,7 @@ ido:
       - ${CORS_ORIGIN_DEV:http://localhost:3000}    # React dev server (개발)
       - ${CORS_ORIGIN_PROD:http://localhost:3001}   # Nginx React (Option B 프로덕션)
 
-# ── Resilience4j (S9-T2: NICE/OACX/통합인증 CB+Retry 추가) ───────────────
-resilience4j:
-  circuitbreaker:
-    instances:
-      qim-client:
-        register-health-indicator: true
-        sliding-window-type: COUNT_BASED
-        sliding-window-size: 10
-        failure-rate-threshold: 60
-        slow-call-rate-threshold: 80
-        slow-call-duration-threshold: 3s
-        wait-duration-in-open-state: 15s
-        permitted-number-of-calls-in-half-open-state: 3
-        minimum-number-of-calls: 5
-      # P2 수정: qsign-client → keycloak-client (Keycloak HTTP 호출 보호)
-      keycloak-client:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        slow-call-rate-threshold: 80
-        slow-call-duration-threshold: 3s
-        wait-duration-in-open-state: 30s
-        permitted-number-of-calls-in-half-open-state: 5
-        minimum-number-of-calls: 5
-      # ── S9-T2 신규: NICE API 클라이언트 CB ────────────────────────────────
-      # NICE 서버 장애 시 빠른 Open 전환으로 불필요한 블로킹 방지
-      # Half-Open: 3건 탐침 → 실패율 50% 이하이면 Closed 복귀
-      nice-api-client:
-        register-health-indicator: true
-        sliding-window-type: COUNT_BASED
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        slow-call-rate-threshold: 80
-        slow-call-duration-threshold: 8s          # NICE API 평균 응답 ~1s, SLA 기준 8s
-        wait-duration-in-open-state: 30s
-        permitted-number-of-calls-in-half-open-state: 3
-        minimum-number-of-calls: 5
-        record-exceptions:
-          - java.lang.IllegalStateException
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
-      # ── S9-T2 신규: 통합인증 서버 CB ─────────────────────────────────────
-      # 기업 간편인증 콜백 처리 시 통합인증 서버 장애 격리
-      integration-auth-client:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        slow-call-duration-threshold: 8s
-        wait-duration-in-open-state: 60s           # 통합인증 서버 장애 복구에 더 긴 대기
-        permitted-number-of-calls-in-half-open-state: 3
-        minimum-number-of-calls: 5
-        record-exceptions:
-          - java.lang.IllegalStateException
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
-  retry:
-    instances:
-      qim-client:
-        max-attempts: 3
-        wait-duration: 300ms
-        retry-exceptions:
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
-      # P2 수정: qsign-client → keycloak-client
-      keycloak-client:
-        max-attempts: 3
-        wait-duration: 500ms
-        retry-exceptions:
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
-      # ── S9-T2 신규: NICE API Retry ────────────────────────────────────────
-      # 최대 2회 재시도 (총 3회 시도): NICE 서버 간헐적 5xx 대응
-      # Exponential Backoff: 500ms → 1000ms (jitter 포함)
-      nice-api-client:
-        max-attempts: 2
-        wait-duration: 500ms
-        enable-exponential-backoff: true
-        exponential-backoff-multiplier: 2.0
-        retry-exceptions:
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
-        ignore-exceptions:
-          - java.lang.IllegalArgumentException   # 클라이언트 입력 오류는 재시도 불필요
-      # ── S9-T2 신규: 통합인증 서버 Retry ──────────────────────────────────
-      integration-auth-client:
-        max-attempts: 2
-        wait-duration: 500ms
-        enable-exponential-backoff: true
-        exponential-backoff-multiplier: 2.0
-        retry-exceptions:
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
-  timelimiter:
-    instances:
-      qim-client:
-        timeout-duration: 5s
-      # P2 수정: qsign-client → keycloak-client
-      keycloak-client:
-        timeout-duration: 5s
-      # ── S9-T2 신규: NICE/통합인증 TimeLimiter ─────────────────────────────
-      # WebClient는 자체 타임아웃이 있으나 Resilience4j TimeLimiter도 추가하여
-      # 반응형 파이프라인 외부에서도 시간 제한 보장
-      nice-api-client:
-        timeout-duration: 12s    # WebClient 타임아웃(10s) + 여유 2s
-      integration-auth-client:
-        timeout-duration: 12s
-
-# ── Actuator (S9-T4: OTel 추적 설정 포함) ─────────────────────
-management:
-  endpoints:
-    web:
-      exposure:
-        # features: 현재 기능 플래그 On/Off 상태 조회 (/actuator/features)
-        include: health,info,metrics,prometheus,flyway,features
-  endpoint:
-    health:
-      show-details: when-authorized
-      probes:
-        enabled: true
-  metrics:
-    tags:
-      application: ${spring.application.name}
-  # ── Micrometer Tracing (S9-T4) ──────────────────────────────────
-  # Spring Boot Actuator 자동 설정: Micrometer Tracing Bridge → OTel SDK → OTLP Exporter
-  tracing:
-    sampling:
-      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}   # 운영: 0.1~0.3 권장 (10%~30% 샘플링)
-    # W3C TraceContext 전파 (traceparent 헤더)
-    propagation:
-      type: W3C
-  otlp:
-    tracing:
-      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
-      timeout: 5s
-
-# ── Async Executor 설정 ───────────────────────────────────────────────────
-ido:
+  # ── Async Executor 설정 ───────────────────────────────────────────────────
   async:
     audit:
       core-pool-size: ${IDO_AUDIT_EXECUTOR_CORE:4}
@@ -612,18 +478,7 @@ ido:
     db-save-enabled: ${IDO_AUDIT_DB_ENABLED:true}
     retry-interval-ms: 600000   # 10분마다 Kafka 미발행 감사 로그 재처리
 
-logging:
-  level:
-    kr.go.smes.ido: INFO
-    kr.go.smes.ido.fe: INFO
-    kr.go.smes.ido.webhook: INFO
-    kr.go.smes.ido.burst: INFO
-    kr.go.smes.ido.audit: INFO
-    org.springframework.kafka: WARN
-    org.flywaydb: INFO
-
-# ── Rate Limiting (Redis 기반 기관별 TPS/Daily 제한) ──────────────────────
-ido:
+  # ── Rate Limiting (Redis 기반 기관별 TPS/Daily 제한) ──────────────────────
   rate-limit:
     enabled:              ${IDO_RATE_LIMIT_ENABLED:true}
     default-tps:          ${IDO_RATE_LIMIT_DEFAULT_TPS:200}
@@ -771,4 +626,148 @@ ido:
       # secret 모드 전용: aes/hmac-key-id와 다른 keyId를 사용하는 경우만 설정
       # aes-secret-id: ${NHN_SKM_AES_SECRET_ID:}
       # hmac-secret-id: ${NHN_SKM_HMAC_SECRET_ID:}
+
+# ── Resilience4j (S9-T2: NICE/OACX/통합인증 CB+Retry 추가) ───────────────
+resilience4j:
+  circuitbreaker:
+    instances:
+      qim-client:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 60
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3s
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+      # P2 수정: qsign-client → keycloak-client (Keycloak HTTP 호출 보호)
+      keycloak-client:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 3s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 5
+        minimum-number-of-calls: 5
+      # ── S9-T2 신규: NICE API 클라이언트 CB ────────────────────────────────
+      # NICE 서버 장애 시 빠른 Open 전환으로 불필요한 블로킹 방지
+      # Half-Open: 3건 탐침 → 실패율 50% 이하이면 Closed 복귀
+      nice-api-client:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 8s          # NICE API 평균 응답 ~1s, SLA 기준 8s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        record-exceptions:
+          - java.lang.IllegalStateException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+      # ── S9-T2 신규: 통합인증 서버 CB ─────────────────────────────────────
+      # 기업 간편인증 콜백 처리 시 통합인증 서버 장애 격리
+      integration-auth-client:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 8s
+        wait-duration-in-open-state: 60s           # 통합인증 서버 장애 복구에 더 긴 대기
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        record-exceptions:
+          - java.lang.IllegalStateException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  retry:
+    instances:
+      qim-client:
+        max-attempts: 3
+        wait-duration: 300ms
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+      # P2 수정: qsign-client → keycloak-client
+      keycloak-client:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+      # ── S9-T2 신규: NICE API Retry ────────────────────────────────────────
+      # 최대 2회 재시도 (총 3회 시도): NICE 서버 간헐적 5xx 대응
+      # Exponential Backoff: 500ms → 1000ms (jitter 포함)
+      nice-api-client:
+        max-attempts: 2
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2.0
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException   # 클라이언트 입력 오류는 재시도 불필요
+      # ── S9-T2 신규: 통합인증 서버 Retry ──────────────────────────────────
+      integration-auth-client:
+        max-attempts: 2
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2.0
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  timelimiter:
+    instances:
+      qim-client:
+        timeout-duration: 5s
+      # P2 수정: qsign-client → keycloak-client
+      keycloak-client:
+        timeout-duration: 5s
+      # ── S9-T2 신규: NICE/통합인증 TimeLimiter ─────────────────────────────
+      # WebClient는 자체 타임아웃이 있으나 Resilience4j TimeLimiter도 추가하여
+      # 반응형 파이프라인 외부에서도 시간 제한 보장
+      nice-api-client:
+        timeout-duration: 12s    # WebClient 타임아웃(10s) + 여유 2s
+      integration-auth-client:
+        timeout-duration: 12s
+
+# ── Actuator (S9-T4: OTel 추적 설정 포함) ─────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        # features: 현재 기능 플래그 On/Off 상태 조회 (/actuator/features)
+        include: health,info,metrics,prometheus,flyway,features
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  # ── Micrometer Tracing (S9-T4) ──────────────────────────────────
+  # Spring Boot Actuator 자동 설정: Micrometer Tracing Bridge → OTel SDK → OTLP Exporter
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}   # 운영: 0.1~0.3 권장 (10%~30% 샘플링)
+    # W3C TraceContext 전파 (traceparent 헤더)
+    propagation:
+      type: W3C
+  otlp:
+    tracing:
+      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+      timeout: 5s
+
+
+logging:
+  level:
+    kr.go.smes.ido: INFO
+    kr.go.smes.ido.fe: INFO
+    kr.go.smes.ido.webhook: INFO
+    kr.go.smes.ido.burst: INFO
+    kr.go.smes.ido.audit: INFO
+    org.springframework.kafka: WARN
+    org.flywaydb: INFO
 
