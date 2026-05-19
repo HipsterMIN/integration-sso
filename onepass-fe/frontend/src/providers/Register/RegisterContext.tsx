@@ -1,4 +1,5 @@
 import type { MemberType } from 'components/StepIndicator';
+import { MOCK_BUSINESS, MOCK_MEMBER } from 'constants/mockData';
 import {
 	createContext,
 	ReactNode,
@@ -58,15 +59,6 @@ export interface RegisterData {
 
 	// Step5 (NotificationSettings)
 	notifications: Record<string, boolean>;
-
-	// 만14세 미만 회원가입 — 법정대리인 동의 플로우 (정보통신망법 제31조)
-	isMinor: boolean;                // 만14세 미만 여부 (Step3 본인인증 birthDate 기반 판정)
-	guardianConsentDone: boolean;    // 법정대리인 동의 완료 여부
-	guardianCiToken: string;         // 법정대리인 CI 기반 JWT 토큰 (Step4 보호자 인증 후 발급)
-	guardianName: string;            // 법정대리인 성명
-	guardianBirthDate: string;       // 법정대리인 생년월일 (YYYYMMDD)
-	guardianPhone: string;           // 법정대리인 휴대폰번호
-	guardianConsentEventId: number;  // 법정대리인 동의 이벤트 ID (Q-IM 약관 서버 발급)
 }
 
 const INITIAL_DATA: RegisterData = {
@@ -78,35 +70,27 @@ const INITIAL_DATA: RegisterData = {
 	mbrUuid: '',
 	birthDate: '',
 	loginId: '',
-	email: '',
-	emailDomain: '',
+	email: MOCK_MEMBER.emailId,
+	emailDomain: MOCK_MEMBER.emailDomain,
 	phone: '',
 	telPrefix: '',
 	telSuffix: '',
-	bzmnNm: '',
-	rprsvNm: '',
+	bzmnNm: MOCK_BUSINESS.companyName,
+	rprsvNm: MOCK_BUSINESS.repName,
 	startDt: '',
 	password: '',
 	mbrId: '',
 	entMbrNo: '',
 	mbrNo: '',
 	provisioningToken: '',
-	name: '',
-	phonePrefix: '010',
-	phoneSuffix: '',
-	emailId: '',
+	name: MOCK_MEMBER.name,
+	phonePrefix: MOCK_MEMBER.phonePrefix,
+	phoneSuffix: MOCK_MEMBER.phoneSuffix,
+	emailId: MOCK_MEMBER.emailId,
 	consentEventId: 0,
 	selectedClients: [],
 	availableClients: [],
 	notifications: {},
-	// 만14세 미만 법정대리인 동의 필드 초기값
-	isMinor: false,
-	guardianConsentDone: false,
-	guardianCiToken: '',
-	guardianName: '',
-	guardianBirthDate: '',
-	guardianPhone: '',
-	guardianConsentEventId: 0,
 };
 
 interface RegisterContextValue {

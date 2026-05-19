@@ -71,6 +71,7 @@ const plugins = [
 			EASYSIGN_URL: process.env.EASYSIGN_URL,
 			EASYSIGN_ORIGIN: process.env.EASYSIGN_ORIGIN,
 			AES_GCM_KEY: process.env.AES_GCM_KEY,
+			APP_ENV: process.env.APP_ENV,
 		}),
 	}),
 	new MiniCssExtractPlugin(),

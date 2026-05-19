@@ -64,7 +64,7 @@ function PrivateRoute({ children }: PrivateRouteProps): JSX.Element {
 				isUserFetching: false,
 			},
 		});
-		if (!isLoggedIn) {
+		if (!isLoggedIn && process.env.SKIP_AUTH !== 'true') {
 			history.push(ROUTES.LOGIN, { from: pathname });
 		}
 	};
@@ -106,6 +106,16 @@ function PrivateRoute({ children }: PrivateRouteProps): JSX.Element {
 	const handlePrivateRoutes = async (
 		key: keyof typeof ROUTES,
 	): Promise<void> => {
+		if (process.env.SKIP_AUTH === 'true') {
+			dispatch({
+				type: UPDATE_USER_IS_FETCH,
+				payload: {
+					isUserFetching: false,
+				},
+			});
+			return;
+		}
+
 		if (
 			localStorageUserAuthToken &&
 			localStorageUserAuthToken.refreshJwt &&
@@ -117,10 +127,22 @@ function PrivateRoute({ children }: PrivateRouteProps): JSX.Element {
 		}
 	};
 
+	const skipAuth = process.env.SKIP_AUTH === 'true';
+
 	// eslint-disable-next-line sonarjs/cognitive-complexity
 	useEffect(() => {
 		(async (): Promise<void> => {
 			try {
+				if (skipAuth) {
+					dispatch({
+						type: UPDATE_USER_IS_FETCH,
+						payload: {
+							isUserFetching: false,
+						},
+					});
+					return;
+				}
+
 				if (currentRoute) {
 					const { isPrivate, key } = currentRoute;
 
@@ -153,11 +175,11 @@ function PrivateRoute({ children }: PrivateRouteProps): JSX.Element {
 		})();
 	}, [dispatch, isLoggedInState, currentRoute]);
 
-	if (isUserFetchingError) {
+	if (!skipAuth && isUserFetchingError) {
 		return <Redirect to={ROUTES.SOMETHING_WENT_WRONG} />;
 	}
 
-	if (isUserFetching) {
+	if (!skipAuth && isUserFetching) {
 		return <Spinner tip="Loading..." />;
 	}
 

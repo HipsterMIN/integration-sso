@@ -1,7 +1,6 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import checkDuplicate from 'api/ext/checkDuplicate';
 import getBusinessStatus from 'api/ext/businessStatus';
-import businessValidate from 'api/ext/businessValidate'; // ⚠️ [REQUIRES_MANUAL] Sprint 17: 실 국세청 API 연동 확인 필요
 import { useRegister } from 'providers/Register/RegisterContext';
 
 interface AccountFormProps {
@@ -72,48 +71,20 @@ function AccountForm({
 		}
 	};
 
-	// 기업: 진위확인 → 사업자 중복확인 순차 호출
-	// ⚠️ [REQUIRES_MANUAL] Sprint 17: businessValidate API 실 연동 확인 필요
+	// 기업: 진위확인(스킵) → 사업자 중복확인
 	const handleBrnoDuplicate = async (): Promise<void> => {
 		if (!data.bzmnNm || !data.rprsvNm || !data.brno) {
 			setValidateStatus('fail');
 			setValidateMessage('회사명, 대표자명을 모두 입력한 후 확인해 주세요.');
 			return;
 		}
-		if (!data.startDt) {
-			setValidateStatus('fail');
-			setValidateMessage('설립일을 입력한 후 확인해 주세요. (YYYY-MM-DD)');
-			return;
-		}
 
-		// ① 진위확인 — 국세청 API 호출 (businessValidate)
-		setValidateStatus('checking');
+		// 진위확인 — 임시 스킵 (기업인증 미구현)
+		setValidateStatus('ok');
+		setValidateMessage('진위확인 생략 (기업인증 미구현)');
 		setDuplicateStatus('idle');
-		const valResponse = await businessValidate({
-			bNo: data.brno,
-			startDt: data.startDt,
-			representativeName: data.rprsvNm,
-			companyName: data.bzmnNm,
-		});
 
-		if (valResponse.statusCode === 200 && valResponse.payload) {
-			const valData = (valResponse.payload as { data?: { valid?: boolean; validMsg?: string | null; bStt?: string } }).data
-				?? (valResponse.payload as { valid?: boolean; validMsg?: string | null; bStt?: string });
-			if (valData.valid) {
-				setValidateStatus('ok');
-				setValidateMessage(valData.bStt ? `진위확인 완료 (${valData.bStt})` : '진위확인 완료');
-			} else {
-				setValidateStatus('fail');
-				setValidateMessage(valData.validMsg || '사업자 진위확인에 실패하였습니다.');
-				return;
-			}
-		} else {
-			setValidateStatus('error');
-			setValidateMessage(valResponse.message || '진위확인 요청에 실패하였습니다.');
-			return;
-		}
-
-		// ② 중복확인
+		// 중복확인
 		setDuplicateStatus('checking');
 		const dupResponse = await checkDuplicate({ type: 'ENT', value: data.brno });
 
@@ -281,7 +252,7 @@ function AccountForm({
 								<p className="information" id="id_hint">중복 확인 중...</p>
 							)}
 							{duplicateStatus === 'ok' && (
-								<p className="information" id="id_hint" style={{ color: '#0b7b3e' }}>{duplicateMessage}</p>
+								<p className="information" id="id_hint" style={{ color: 'var(--krds-light-color-text-information)' }}>{duplicateMessage}</p>
 							)}
 							{duplicateStatus === 'duplicate' && (
 								<p className="invalid" id="id_error">{duplicateMessage}</p>
@@ -345,7 +316,7 @@ function AccountForm({
 								<span className="information" style={{ marginLeft: '8px', fontWeight: 'normal' }}>사업자 상태 확인 중...</span>
 							)}
 							{!bizStatusLoading && bizStatus && (
-								<span className="information" style={{ color: bizStatus.active ? '#0b7b3e' : '#e74c3c', marginLeft: '8px', fontWeight: 'normal' }}>
+								<span className="information" style={{ color: bizStatus.active ? 'var(--krds-light-color-text-information)' : '#e74c3c', marginLeft: '8px', fontWeight: 'normal' }}>
 									사업자 상태: {bizStatus.bStt}{bizStatus.taxType ? ` (${bizStatus.taxType})` : ''}
 								</span>
 							)}
@@ -379,25 +350,25 @@ function AccountForm({
 						)}
 						{validateStatus === 'ok' && duplicateStatus === 'checking' && (
 							<div className="input-hint-box">
-								<p className="information" style={{ color: '#0b7b3e' }}>{validateMessage}</p>
+								<p className="information" style={{ color: 'var(--krds-light-color-text-information)' }}>{validateMessage}</p>
 								<p className="information">등록 중복확인 중...</p>
 							</div>
 						)}
 						{validateStatus === 'ok' && duplicateStatus === 'ok' && (
 							<div className="input-hint-box">
-								<p className="information" style={{ color: '#0b7b3e' }}>{validateMessage}</p>
+								<p className="information" style={{ color: 'var(--krds-light-color-text-information)' }}>{validateMessage}</p>
 								<p className="information" style={{ color: '#256EF4' }}>{duplicateMessage}</p>
 							</div>
 						)}
 						{validateStatus === 'ok' && duplicateStatus === 'duplicate' && (
 							<div className="input-hint-box">
-								<p className="information" style={{ color: '#0b7b3e' }}>{validateMessage}</p>
+								<p className="information" style={{ color: 'var(--krds-light-color-text-information)' }}>{validateMessage}</p>
 								<p className="invalid">{duplicateMessage}</p>
 							</div>
 						)}
 						{validateStatus === 'ok' && duplicateStatus === 'error' && (
 							<div className="input-hint-box">
-								<p className="information" style={{ color: '#0b7b3e' }}>{validateMessage}</p>
+								<p className="information" style={{ color: 'var(--krds-light-color-text-information)' }}>{validateMessage}</p>
 								<p className="invalid">{duplicateMessage}</p>
 							</div>
 						)}
@@ -441,7 +412,7 @@ function AccountForm({
 								<p className="information" id="login_id_hint">중복 확인 중...</p>
 							)}
 							{loginIdDupStatus === 'ok' && (
-								<p className="information" id="login_id_hint" style={{ color: '#0b7b3e' }}>{loginIdDupMessage}</p>
+								<p className="information" id="login_id_hint" style={{ color: 'var(--krds-light-color-text-information)' }}>{loginIdDupMessage}</p>
 							)}
 							{loginIdDupStatus === 'duplicate' && (
 								<p className="invalid" id="login_id_hint">{loginIdDupMessage}</p>

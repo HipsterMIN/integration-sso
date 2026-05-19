@@ -126,8 +126,11 @@ function usePersonalEasyAuth(
 		if (busy) return;
 		setBusy(true);
 
-		const features =
-			'toolbar=no,scrollbars=no,location=no,resizable=no,status=no,menubar=no,width=838,height=611';
+		const width = 838;
+		const height = 611;
+		const left = window.screenX + (window.outerWidth - width) / 2;
+		const top = window.screenY + (window.outerHeight - height) / 2;
+		const features = `toolbar=no,scrollbars=no,location=no,resizable=no,status=no,menubar=no,width=${width},height=${height},left=${left},top=${top}`;
 		const popup = window.open(EASYSIGN_URL, 'simpleAuth', features);
 		if (!popup) {
 			callbacksRef.current.onError('팝업이 차단되었습니다');

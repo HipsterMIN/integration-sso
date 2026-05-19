@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BusinessType, Client, ClientGroup } from 'types/api/ext/clients';
 
 import { getRegisterRoute } from '../routes';
-import ServiceListModal, { isCheckable } from './components/ServiceListModal';
+import ServiceListModal from './components/ServiceListModal';
 
 interface Step4Props {
 	memberType?: MemberType;
@@ -69,10 +69,22 @@ function RegisterStep4({
 
 	const isMember = memberType === 'member';
 
+	// memberType에 따라 사업유형 필터링된 클라이언트 목록
+	const bizTypeClients = useMemo(() => {
+		const fixedBizType = memberType === 'member'
+			? businessTypes.find((bt) => bt.key !== 'ALL' && bt.name.includes('개인'))?.key
+				|| businessTypes.find((bt) => bt.key === 'INDIVIDUAL')?.key || ''
+			: businessTypes.find((bt) => bt.key !== 'ALL' && bt.name.includes('기업'))?.key
+				|| businessTypes.find((bt) => bt.key === 'CORPORATE')?.key || '';
+		if (!fixedBizType || fixedBizType === 'ALL') return clients;
+		return clients.filter(
+			(c) => c.businessTypes != null && (c.businessTypes === fixedBizType || c.businessTypes === 'ALL'),
+		);
+	}, [clients, memberType, businessTypes]);
+
 	const selectedCount = data.selectedClients.length;
-	const checkableClients = useMemo(() => clients.filter(isCheckable), [clients]);
 	const allSelected =
-		checkableClients.length > 0 && selectedCount === checkableClients.length;
+		bizTypeClients.length > 0 && selectedCount === bizTypeClients.length;
 
 	const { initialClientId } = data;
 
@@ -97,7 +109,6 @@ function RegisterStep4({
 				// initialClientId가 있으면 매칭되는 서비스를 기본 선택
 				if (initialClientId) {
 					const matchingClient = result.clientList
-						.filter(isCheckable)
 						.find((c) => c.ssoClientId === initialClientId);
 					if (matchingClient) {
 						updateData({ selectedClients: [matchingClient.ssoClientId] });
@@ -118,10 +129,10 @@ function RegisterStep4({
 			updateData({ selectedClients: [] });
 		} else {
 			updateData({
-				selectedClients: checkableClients.map((c) => c.ssoClientId),
+				selectedClients: bizTypeClients.map((c) => c.ssoClientId),
 			});
 		}
-	}, [allSelected, checkableClients, updateData]);
+	}, [allSelected, bizTypeClients, updateData]);
 
 	return (
 		<RegisterLayout
@@ -179,7 +190,7 @@ function RegisterStep4({
 									<div className="title">
 										<strong>통합회원 유관시스템 서비스 목록</strong>
 										<span className="badge point">
-											+ {selectedCount > 0 ? selectedCount : checkableClients.length}
+											{selectedCount}/{bizTypeClients.length}
 										</span>
 									</div>
 									<button
@@ -202,6 +213,7 @@ function RegisterStep4({
 						clients={clients}
 						groupMap={groupMap}
 						businessTypes={businessTypes}
+						memberType={memberType}
 					/>
 				</>
 			)}

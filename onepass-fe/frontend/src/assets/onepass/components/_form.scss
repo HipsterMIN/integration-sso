@@ -392,7 +392,7 @@ span.select { color: var(--krds-light-color-text-subtle); margin-right: 4px; }
 
 		.information {
 			color: var(--krds-form-group--message-information-text-color);
-			&::before { background-image: url(/images/onepass/ico_information_fill.svg); }
+			&::before { background-image: url(/images/onepass/ico_check_fill.svg); }
 		}
 
 		.invalid {
@@ -885,6 +885,10 @@ span.select { color: var(--krds-light-color-text-subtle); margin-right: 4px; }
 		.text-box {
 			gap: .2rem;
 			line-height: 1.55;
+			// flex item이 컨텐츠 intrinsic min-width 보다 작아질 수 있도록 허용.
+			// (전역 word-break: keep-all 로 한글 어절이 안 끊기면 .tit/.text 가 카드 너비를 밀어
+			// 모바일에서 가로 overflow 가 발생.)
+			min-width: 0;
 
 			.tit {
 				display: flex;
@@ -893,6 +897,8 @@ span.select { color: var(--krds-light-color-text-subtle); margin-right: 4px; }
 				flex-wrap: wrap;
 				font-size: var(--krds-pc-font-size-heading-xsmall);
 				color: var(--krds-light-color-text-primary);   // 퍼블 page.css:149
+				// 매우 긴 영문 토큰/URL 안전망 — keep-all 일 때 마지막 보루로 줄바꿈 허용.
+				overflow-wrap: anywhere;
 			}
 
 			.text {
@@ -901,6 +907,7 @@ span.select { color: var(--krds-light-color-text-subtle); margin-right: 4px; }
 				display: -webkit-box;
 				-webkit-line-clamp: 1;
 				-webkit-box-orient: vertical;
+				overflow-wrap: anywhere;
 			}
 		}
 	}

@@ -451,7 +451,12 @@
 #modal_failed_account .modal-dialog { width: 56rem; }
 
 // 퍼블 page.css:122 — `.check-box.style1.all` (모두 선택 행) 베이스 정렬
-.check-box.style1.all { align-items: center; }
+// width: fit-content — `<label>` 의 display:flex 가 부모 너비를 다 차지해
+// 라벨 행 전체가 클릭 영역이 되던 것을 input+small 콘텐츠 너비로 제한
+.check-box.style1.all {
+	align-items: center;
+	width: fit-content;
+}
 
 #modal_service_list .input-flex-box { gap: 1.2rem; }
 #modal_service_list .input-flex-box .input-box * { font-size: var(--krds-pc-font-size-label-medium); }

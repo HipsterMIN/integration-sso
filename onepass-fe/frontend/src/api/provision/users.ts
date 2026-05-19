@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import extInstance from 'api/extInstance';
+import beInstance from 'api/beInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import type {
@@ -15,7 +15,7 @@ const provisionUser = async (
 	props: ProvisionUserRequest,
 ): Promise<SuccessResponse<ProvisionUserPayload> | ErrorResponse> => {
 	try {
-		const response = await extInstance.post('/api/ext/provision/users', props);
+		const response = await beInstance.post('/api/v1/ext/provision/users', props);
 		return {
 			statusCode: 200,
 			error: null,

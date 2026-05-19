@@ -141,6 +141,20 @@ html {
 	-ms-text-size-adjust: none;
 }
 
+// iOS Safari는 focus 시 computed font-size < 16px 이면 화면을 강제 확대한다.
+// 모바일 구간(<768px)에서 html base font-size가 9~9.2px로 축소되며
+// rem 기반 input/select font-size(1.5~1.7rem ≈ 13.5~15.6px)가 임계값 아래로 떨어진다.
+// 모바일에서만 폼 컨트롤 font-size를 16px로 강제해 auto-zoom을 차단한다.
+// !important는 ID 셀렉터 등 더 높은 특이성 규칙(#modal_service_list ...)을 덮기 위함이며,
+// viewport maximum-scale 차단은 핀치 줌을 막아 접근성에 반하므로 사용하지 않는다.
+@include mobile-down {
+	input:not([type="checkbox"]):not([type="radio"]),
+	select,
+	textarea {
+		font-size: 16px !important;
+	}
+}
+
 // =============================================
 // Base
 // =============================================

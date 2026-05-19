@@ -18,6 +18,12 @@ export interface Props {
 	bzmnNm: string;
 	rprsvNm: string;
 	mbrId?: string;
+	/** 설립일 (yyyy-MM-dd) */
+	estbDt: string;
+	/** 대표전화 */
+	rprsTelno?: string;
+	/** 대표 이메일 */
+	rprsEmlAddr: string;
 	newPic: NewPic;
 	clients?: ClientLink[];
 }
@@ -38,4 +44,6 @@ export interface ProvisionResponseData {
 export interface PayloadProps {
 	success: boolean;
 	data: ProvisionResponseData;
+	message?: string;
+	errorCode?: string;
 }

@@ -11,6 +11,7 @@ import { FormEvent, useCallback, useState } from 'react';
 
 import { getMypageRoute } from './routes';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 	const [devNoticeModal, setDevNoticeModal] = useState(false);
 	const [failedModal, setFailedModal] = useState(false);
@@ -203,9 +204,9 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 	);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
-	// ⚠️ [REQUIRES_MANUAL] 기업 인증 API 연동 완료 후 아래 버튼 onClick을 실제 인증 로직으로 교체 필요
-	// 현재: 개발 중 안내 모달만 표시 (기업인증 API 미구현)
+	// TODO: API 배포 후 복원 — goNext 로 다음 단계 이동
 	const [devNoticeModal, setDevNoticeModal] = useState(false);
 
 	return (

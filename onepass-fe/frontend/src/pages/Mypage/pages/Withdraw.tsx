@@ -1,22 +1,17 @@
+import Modal from 'components/KrdsModal';
 import MypageContent from 'components/MypageContent';
 import { useMypageType } from 'components/MypageLayout';
 import IMAGES from 'constants/images';
-import history from 'lib/history';
-import { FormEvent } from 'react';
+import { FormEvent, useState } from 'react';
 
-import { getMypageRoute } from './routes';
 import { useInfoStore } from './useInfoStore';
 
-// 통합회원 탈퇴 — step1 (URL: /withdraw): 회원 정보 + 보관 안내 + 이전/다음 버튼
-// 다음 클릭 시 step2 (인증 카드) 로 이동. InformationStep3 와 동일 패턴.
+// 통합회원 탈퇴 — step1 (URL: /withdraw): 회원 정보 + 보관 안내 + 통합회원 탈퇴 버튼
 function Withdraw(): JSX.Element {
 	const memberType = useMypageType();
 	const isBusiness = memberType === 'business';
 	const { business } = useInfoStore();
-	const nextRoute = getMypageRoute(memberType, 'WITHDRAW_STEP2');
-	const infoRoute = getMypageRoute(memberType, 'INFORMATION');
-	const goPrev = (): void => history.push(infoRoute);
-	const goNext = (): void => history.push(nextRoute);
+	const [devNoticeModal, setDevNoticeModal] = useState(false);
 
 	return (
 		<MypageContent>
@@ -131,16 +126,30 @@ function Withdraw(): JSX.Element {
 					</div>
 				</div>
 				<div className="btn-box" role="group" aria-label="페이지 이동">
-					<button type="button" className="btn white prev" onClick={goPrev}>
-						<span>이전</span>
-						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
-					</button>
-					<button type="button" className="btn point" onClick={goNext}>
-						<span>다음</span>
+					<button type="button" className="btn point" onClick={(): void => setDevNoticeModal(true)}>
+						<span>통합회원 탈퇴</span>
 						<i className="icon ico-arrow-forward-ios small" aria-hidden="true" />
 					</button>
 				</div>
 			</form>
+			<Modal
+				id="modal_withdraw_dev_notice"
+				isOpen={devNoticeModal}
+				onClose={(): void => setDevNoticeModal(false)}
+				topText="안내"
+				title="서비스 준비 중"
+				size="small"
+				buttons={[
+					{
+						label: '확인',
+						variant: 'primary',
+						onClick: (): void => setDevNoticeModal(false),
+					},
+				]}
+			>
+				<p>현재 개발 중인 기능입니다.</p>
+				<p>빠른 시일 내에 서비스를 제공할 예정입니다.</p>
+			</Modal>
 		</MypageContent>
 	);
 }

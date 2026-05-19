@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import extInstance from 'api/extInstance';
+import beInstance from 'api/beInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 
@@ -9,8 +9,8 @@ export const addAffiliation = async (
 	clientIds: string[],
 ): Promise<SuccessResponse<unknown> | ErrorResponse> => {
 	try {
-		const response = await extInstance.post(
-			`/api/ext/provision/enterprises/${uuid}/affiliations/add`,
+		const response = await beInstance.post(
+			`/api/v1/ext/provision/enterprises/${uuid}/affiliations/add`,
 			{ addClientIds: clientIds },
 		);
 		return { statusCode: 200, error: null, message: 'success', payload: response.data };
@@ -25,8 +25,8 @@ export const addMemberAffiliation = async (
 	clientIds: string[],
 ): Promise<SuccessResponse<unknown> | ErrorResponse> => {
 	try {
-		const response = await extInstance.post(
-			`/api/ext/provision/users/${mbrUuid}/affiliations/add`,
+		const response = await beInstance.post(
+			`/api/v1/ext/provision/users/${mbrUuid}/affiliations/add`,
 			{ mbrUuid, addClientIds: clientIds },
 		);
 		return { statusCode: 200, error: null, message: 'success', payload: response.data };
@@ -41,8 +41,8 @@ export const withdrawAffiliation = async (
 	clientIds: string[],
 ): Promise<SuccessResponse<unknown> | ErrorResponse> => {
 	try {
-		const response = await extInstance.post(
-			`/api/ext/provision/enterprises/${uuid}/affiliations/withdraw`,
+		const response = await beInstance.post(
+			`/api/v1/ext/provision/enterprises/${uuid}/affiliations/withdraw`,
 			{ targetClientIds: clientIds },
 		);
 		return { statusCode: 200, error: null, message: 'success', payload: response.data };
@@ -59,8 +59,8 @@ export const withdrawMemberAffiliation = async (
 	withdrawalReason?: string,
 ): Promise<SuccessResponse<unknown> | ErrorResponse> => {
 	try {
-		const response = await extInstance.post(
-			`/api/ext/provision/users/${mbrUuid}/affiliations/withdraw`,
+		const response = await beInstance.post(
+			`/api/v1/ext/provision/users/${mbrUuid}/affiliations/withdraw`,
 			{
 				mbrUuid,
 				ciToken,

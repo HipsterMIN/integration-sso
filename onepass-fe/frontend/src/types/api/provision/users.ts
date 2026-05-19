@@ -52,6 +52,9 @@ export interface ProvisionUserPayload {
 	resultCode: string;
 	resultMsg: string;
 	data: ProvisionUserResponseData;
+	success?: boolean;
+	message?: string;
+	errorCode?: string;
 }
 
 /** CI 토큰 발급 요청 (Q-IM /api/ext/ci/token) */
@@ -63,12 +66,7 @@ export interface CiTokenRequest {
 	/** SP Client ID */
 	clientId: string;
 	/** 플로우 컨텍스트 */
-	flowContext:
-		| 'PROVISION_USER'
-		| 'CHECK_CONVERSION'
-		| 'USER_WITHDRAW'
-		/** 만14세 미만 법정대리인 본인인증 (정보통신망법 제31조) */
-		| 'GUARDIAN_CONSENT';
+	flowContext: 'PROVISION_USER' | 'CHECK_CONVERSION' | 'USER_WITHDRAW';
 	/** 기존 Q-IM mbrUuid (CHECK_CONVERSION/USER_WITHDRAW 시 필수) */
 	mbrUuid?: string;
 	/** KC user UUID (선택, 감사 보조) */
@@ -90,6 +88,8 @@ export interface CiTokenResponseData {
 export interface CiTokenResponse {
 	success: boolean;
 	data: CiTokenResponseData;
+	message?: string;
+	errorCode?: string;
 }
 
 /** check-conversion 요청 (Q-IM /api/ext/provision/users/check-conversion) */

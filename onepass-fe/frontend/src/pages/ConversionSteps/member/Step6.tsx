@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BusinessType, Client, ClientGroup } from 'types/api/ext/clients';
 
 import { getConversionRoute } from '../routes';
-import ServiceListModal, { isCheckable } from './components/ServiceListModal';
+import ServiceListModal from './components/ServiceListModal';
 
 interface Step6Props {
 	memberType?: MemberType;
@@ -68,12 +68,24 @@ function ConversionStep6({
 	const [serviceModal, setServiceModal] = useState(false);
 	const [loading, setLoading] = useState(true);
 
-	const selectedCount = data.selectedClients.length;
-	const checkableClients = useMemo(() => clients.filter(isCheckable), [clients]);
-	const allSelected =
-		checkableClients.length > 0 && selectedCount === checkableClients.length;
-
 	const isMember = memberType === 'member';
+
+	// memberType에 따라 사업유형 필터링된 클라이언트 목록
+	const bizTypeClients = useMemo(() => {
+		const fixedBizType = memberType === 'member'
+			? businessTypes.find((bt) => bt.key !== 'ALL' && bt.name.includes('개인'))?.key
+				|| businessTypes.find((bt) => bt.key === 'INDIVIDUAL')?.key || ''
+			: businessTypes.find((bt) => bt.key !== 'ALL' && bt.name.includes('기업'))?.key
+				|| businessTypes.find((bt) => bt.key === 'CORPORATE')?.key || '';
+		if (!fixedBizType || fixedBizType === 'ALL') return clients;
+		return clients.filter(
+			(c) => c.businessTypes != null && (c.businessTypes === fixedBizType || c.businessTypes === 'ALL'),
+		);
+	}, [clients, memberType, businessTypes]);
+
+	const selectedCount = data.selectedClients.length;
+	const allSelected =
+		bizTypeClients.length > 0 && selectedCount === bizTypeClients.length;
 	const { initialClientId } = data;
 
 	// 페이지 진입 시 클라이언트 목록 조회
@@ -99,7 +111,6 @@ function ConversionStep6({
 				// initialClientId가 있으면 매칭되는 서비스를 기본 선택
 				if (initialClientId) {
 					const matchingClient = result.clientList
-						.filter(isCheckable)
 						.find((c) => c.ssoClientId === initialClientId);
 					if (matchingClient) {
 						updateData({ selectedClients: [matchingClient.ssoClientId] });
@@ -120,10 +131,10 @@ function ConversionStep6({
 			updateData({ selectedClients: [] });
 		} else {
 			updateData({
-				selectedClients: checkableClients.map((c) => c.ssoClientId),
+				selectedClients: bizTypeClients.map((c) => c.ssoClientId),
 			});
 		}
-	}, [allSelected, checkableClients, updateData]);
+	}, [allSelected, bizTypeClients, updateData]);
 
 	return (
 		<ConversionLayout
@@ -184,7 +195,7 @@ function ConversionStep6({
 									<div className="title">
 										<strong>통합회원 유관시스템 서비스 목록</strong>
 										<span className="badge point">
-											+ {selectedCount > 0 ? selectedCount : checkableClients.length}
+											{selectedCount}/{bizTypeClients.length}
 										</span>
 									</div>
 									<button
@@ -207,6 +218,7 @@ function ConversionStep6({
 						clients={clients}
 						groupMap={groupMap}
 						businessTypes={businessTypes}
+						memberType={memberType}
 					/>
 				</>
 			)}

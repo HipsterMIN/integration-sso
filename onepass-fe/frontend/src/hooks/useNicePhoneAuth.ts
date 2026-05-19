@@ -166,8 +166,13 @@ function useNicePhoneAuth(
 
 			requestNoRef.current = data.requestNo;
 
-			const features =
-				'toolbar=no,scrollbars=no,location=no,resizable=no,status=no,menubar=no,width=500,height=700';
+			const width = 500;
+			const height = 700;
+			const left =
+				window.screenX + (window.outerWidth - width) / 2;
+			const top =
+				window.screenY + (window.outerHeight - height) / 2;
+			const features = `toolbar=no,scrollbars=no,location=no,resizable=no,status=no,menubar=no,width=${width},height=${height},left=${left},top=${top}`;
 			const popup = window.open(data.authUrl, 'niceAuth', features);
 			if (!popup) {
 				callbacksRef.current.onError('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');

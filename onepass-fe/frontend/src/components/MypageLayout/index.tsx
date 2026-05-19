@@ -144,6 +144,7 @@ function MypageLayout({
 	const [business, setBusiness] = useState<BusinessInfo>(stored.business);
 	const [loading, setLoading] = useState(false);
 	const [notFound, setNotFound] = useState(false);
+	const [missingParams, setMissingParams] = useState(false);
 
 	const updateMember = useCallback(
 		(data: Partial<MemberInfo>) =>
@@ -170,8 +171,16 @@ function MypageLayout({
 		const mbrNo = params.get('mbrNo');
 		const entMbrNo = params.get('entMbrNo');
 		const uuid = params.get('uuid');
+		// const redirectUri = params.get('redirect_uri');
+		// const clientId = params.get('client_id');
 
 		setNotFound(false);
+
+		// redirect_uri, client_id, uuid 중 하나라도 없으면 잘못된 접근 — 일시 비활성화
+		// if (!redirectUri || !clientId || !uuid) {
+		// 	setMissingParams(true);
+		// 	return;
+		// }
 
 		if (memberType === 'member') {
 			const id = mbrNo || uuid || loadUserId('member') || stored.member.mbrNo;
@@ -187,6 +196,11 @@ function MypageLayout({
 		() => ({ member, business, updateMember, updateBusiness }),
 		[member, business, updateMember, updateBusiness],
 	);
+
+	const handleMissingParamsClose = useCallback((): void => {
+		setMissingParams(false);
+		window.history.back();
+	}, []);
 
 	const handleNotFoundConfirm = useCallback((): void => {
 		setNotFound(false);
@@ -251,6 +265,25 @@ function MypageLayout({
 					</p>
 				</KrdsModal>
 			</MypageContext.Provider>
+			<KrdsModal
+				id="modal_missing_params"
+				isOpen={missingParams}
+				onClose={handleMissingParamsClose}
+				topText="접근 오류"
+				title="잘못된 접근입니다."
+				size="small"
+				buttons={[
+					{
+						label: '확인',
+						variant: 'primary',
+						onClick: handleMissingParamsClose,
+					},
+				]}
+			>
+				<p>
+					마이페이지는 대상 시스템을 통해 접근해주세요.
+				</p>
+			</KrdsModal>
 		</InfoStoreContext.Provider>
 	);
 }

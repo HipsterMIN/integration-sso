@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import extInstance from 'api/extInstance';
+import beInstance from 'api/beInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import type { TermsBundleResponse } from 'types/api/ext/termsBundle';
@@ -10,7 +10,7 @@ const getTermsBundle = async (
 	lang = 'ko',
 ): Promise<SuccessResponse<TermsBundleResponse> | ErrorResponse> => {
 	try {
-		const response = await extInstance.get('/api/ext/terms/bundle', {
+		const response = await beInstance.get('/api/v1/ext/terms/bundle', {
 			params: { realm, client, lang },
 		});
 		return { statusCode: 200, error: null, message: 'success', payload: response.data };

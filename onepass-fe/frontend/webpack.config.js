@@ -49,19 +49,20 @@ const plugins = [
 			SENTRY_DSN: process.env.SENTRY_DSN,
 			TUNNEL_URL: process.env.TUNNEL_URL,
 			TUNNEL_DOMAIN: process.env.TUNNEL_DOMAIN,
+			SKIP_AUTH: process.env.SKIP_AUTH,
 			FARO_COLLECTOR_URL: process.env.FARO_COLLECTOR_URL,
 			FARO_TENANT_ID: process.env.FARO_TENANT_ID,
 			QSIGN_BASE_URL: process.env.QSIGN_BASE_URL,
 			QSIGN_REALM: process.env.QSIGN_REALM,
 			QSIGN_CLIENT_ID: process.env.QSIGN_CLIENT_ID,
+			EXT_API_KEY: process.env.EXT_API_KEY,
+			EXT_API_ENDPOINT: process.env.EXT_API_ENDPOINT,
 			BE_API_KEY: process.env.BE_API_KEY,
 			BE_API_ENDPOINT: process.env.BE_API_ENDPOINT,
 			EASYSIGN_URL: process.env.EASYSIGN_URL,
 			EASYSIGN_ORIGIN: process.env.EASYSIGN_ORIGIN,
-			// Any-ID 설치형 SDK 설정
-			IDO_BASE_URL: process.env.IDO_BASE_URL,
-			ANYID_BYPASS: process.env.ANYID_BYPASS,
-			ANYID_AUTH_LEVEL: process.env.ANYID_AUTH_LEVEL,
+			AES_GCM_KEY: process.env.AES_GCM_KEY,
+			APP_ENV: process.env.APP_ENV,
 		}),
 	}),
 	sentryWebpackPlugin({
@@ -99,24 +100,7 @@ const config = {
 		allowedHosts: 'all',
 		// API 엔드포인트가 설정되어 있을 때만 proxy 활성화
 		proxy: {
-			'/api/ext': {
-				// B-5: EXT_API_KEY FE 번들 노출 제거 — ido(8083)가 서버사이드 X-Ext-Api-Key 주입
-				target: process.env.IDO_BASE_URL || 'http://localhost:8083',
-				changeOrigin: true,
-				secure: false,
-			},
-			// Any-ID SDK 정적 파일 서빙 (anyid/css, anyid/js → ido 8083)
-			'/anyid': {
-				target: process.env.IDO_BASE_URL || 'http://localhost:8083',
-				changeOrigin: true,
-				secure: false,
-			},
-			// Any-ID config.anyidc.json 서빙 (→ ido 8083/config/...)
-			'/config': {
-				target: process.env.IDO_BASE_URL || 'http://localhost:8083',
-				changeOrigin: true,
-				secure: false,
-			},
+			// IDO Backend API
 			'/api': {
 				target: process.env.BE_API_TARGET || 'http://localhost:9292',
 				changeOrigin: true,
@@ -129,6 +113,7 @@ const config = {
 				target: 'https://www.smes.go.kr',
 				changeOrigin: true,
 				secure: false,
+				pathRewrite: { '^/bizezauth-api-dev': '/bizezauth-api-dev' },
 				onProxyReq(proxyReq) {
 					proxyReq.removeHeader('origin');
 					proxyReq.removeHeader('referer');

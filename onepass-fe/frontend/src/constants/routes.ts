@@ -26,14 +26,6 @@ const ROUTES = {
 	REGISTER_BUSINESS_STEP4: '/register-business/step4',
 	REGISTER_BUSINESS_STEP5: '/register-business/step5',
 	REGISTER_BUSINESS_STEP6: '/register-business/step6',
-	// 만14세 미만 회원가입 — 법정대리인 동의 플로우
-	// 정보통신망법 제31조: 만14세 미만 아동 개인정보 수집 시 법정대리인 동의 필수
-	REGISTER_MINOR_STEP1: '/register-minor/step1', // 안내 (법정대리인 동의 필요 안내)
-	REGISTER_MINOR_STEP2: '/register-minor/step2', // 약관 동의 (본인 + 보호자)
-	REGISTER_MINOR_STEP3: '/register-minor/step3', // 본인(아동) 본인인증
-	REGISTER_MINOR_STEP4: '/register-minor/step4', // 법정대리인 본인인증
-	REGISTER_MINOR_STEP5: '/register-minor/step5', // 계정 정보 입력
-	REGISTER_MINOR_STEP6: '/register-minor/step6', // 가입 완료
 	MYPAGE_MEMBER: '/mypage-member',
 	MYPAGE_MEMBER_INFORMATION: '/mypage-member/information',
 	MYPAGE_MEMBER_INFORMATION_STEP2: '/mypage-member/information/step2',
