@@ -72,12 +72,55 @@ ido:
   crypto:
     rotation-enabled: false
 
-  # P4 [MODERATE]: broker.mode 명시 — 미설정 시 qsign 모드가 기본값이어서
-  # Keycloak SSO 경로가 전혀 활성화되지 않는 문제 방지.
-  # 로컬에서 SSO 흐름 테스트 시: broker.mode=keycloak 으로 변경
-  # (기본값 qsign 유지 — Keycloak 없는 기본 로컬 환경을 깨지 않음)
+  # ⚠️  IDO_BROKER_MODE는 "표준 OIDC(카카오·네이버)" 처리 백엔드만 결정한다.
+  # Any-ID 인증수단(모바일신분증·간편인증 등)은 이 값과 무관하게 AnyIdBrokerAdapter가 처리.
+  #
+  # qsign    : [표준 OIDC] q-sign 위임 (기본)
+  # keycloak : [표준 OIDC] Keycloak 직접 연동 → IDO_BROKER_MODE=keycloak 환경변수 설정
   broker:
-    mode: ${IDO_BROKER_MODE:qsign}    # SSO 테스트: IDO_BROKER_MODE=keycloak 환경변수 설정
+    mode: ${IDO_BROKER_MODE:qsign}
+
+  # ── Any-ID 설치형 연동 — 로컬 개발 개발키 (기관 #311) ──────────────────
+  # 행안부 발급 개발키 직접 주입 (별첨2. 개발KEY 311_중소기업기술정보진흥원)
+  # 운영 배포 시: 환경변수 또는 K8s Secret으로 분리 (아래 주석 참조)
+  anyid:
+    srvc-no: "1000001157"
+    agency-code: "1000001157"
+    agency-name: "중소벤처24기업마당"
+
+    portal:
+      domain: "https://www.anyid.dev"
+      port: 1451
+
+    auth:
+      domain: "https://www.anyid.dev"
+      port: 1443
+
+    sso:
+      domain: "https://sso.anyid.dev"
+      port: 1452
+      # 개발키 — 운영: ANYID_SSO_SECRET_CODE K8s Secret 주입
+      secret-code: "WDtDc2ek56S0kLKttE8Ux7BomxcOyTPpe0CfzdxSobI="
+      adaptor-conf: "classpath:sso-adaptor-conf-local.properties"
+
+    kms:
+      server-host: "https://www.anyid.dev:8119/"
+      enc-alg: "ARIA-CBC-256"
+      cversion: 1
+      kdist-config: "classpath:config/anyid/kdist-local.json"
+      # 개발키 — 운영: ANYID_KMS_APP_KEY / ANYID_KMS_CLIENT_INFO K8s Secret 주입
+      app-key: "ouO39zrElZW/RnQ0RVvzi0bv8tQDh0OcxzP5WcyNrG1n5NVJ/7OLNzcDYTqCl1EY+t3DiWI4tT4I00QbaqMtz1jxsjUC6d96XVxjc570xCVQFANYUX/5+eOvozm5BPQn"
+      client-info: "ExWK0pJDBEcK6Q8be7XN4D0sQyvnay5xiGSIi1HDZdTYUsIlybPbW8UjnDQpIz7Yf4mdz/Yig3XK0o/E5bM1Gsnt0J9w5rU1r4+qIOaYbOrH2PoZJZTsRb4GF4pf0Ev"
+
+    pid:
+      api-config: "classpath:config/anyid/pid_api.json"
+      provider-url: "https://www.anyid.dev:1443/pid/auth.do"
+      # 개발키 — 운영: ANYID_PID_CLIENT_ID / CLIENT_SECRET / CLIENT_API_KEY K8s Secret 주입
+      client-id:      "0yK6MOzAV1rXug3Dpz0TR33SB3g="
+      client-secret:  "iPBd8PB8H3cRSBGbJH0XB8KS3To="
+      client-api-key: "emV2R+F1L4sVazCFk7IT31qh3qrNBgRRt+fWh9RYB3U=.3jaXKJtFgrP8J+dMeHugXQ=="
+
+    config-file: "classpath:config/anyid/config.anyidc.json"
 
   # F-13: IdO Outbox Relay OFF → Kafka 없는 환경 500ms 폴링 오류 없음
   outbox:
