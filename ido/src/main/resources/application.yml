@@ -206,11 +206,98 @@ ido:
     # 생성 예: openssl rand -hex 32
     internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:}
 
-  # ── 브로커 모드 설정 (문서 §6) ──────────────────────────────────────────
-  # qsign    : 기존 방식 — ido → q-sign으로 URL 발급 위임 (현재 기본값)
-  # keycloak : 신규 방식 — ido가 직접 Keycloak Authorization URL 생성
+  # ── 브로커 모드 설정 (표준 OIDC 처리 백엔드 선택 — 문서 §6) ────────────
+  #
+  # ⚠️  이 설정은 "표준 OIDC(카카오·네이버 등)"의 처리 백엔드만 결정한다.
+  #     비표준 OIDC(Any-ID 인증수단, PASS 등)는 이 값과 무관하게 ido가 직접 처리한다.
+  #
+  # qsign    : [표준 OIDC] q-sign에 URL 발급 위임 (기본값)
+  # keycloak : [표준 OIDC] ido가 직접 Keycloak Authorization URL 생성
+  #
+  # [비표준 OIDC] — IDO_BROKER_MODE 값과 무관하게 항상 ido 직접 처리:
+  #   MOBILE_ID / EASY_SIGN / JOINT_CERT / FINANCIAL_CERT / PRIVATE_ID
+  #   → AnyIdBrokerAdapter (anyid.dev:1443 직접 연동)
+  #   PASS 등 기타 비표준 → NonOidcBrokerAdapter
   broker:
     mode: ${IDO_BROKER_MODE:qsign}
+
+  # ── Any-ID 설치형 연동 설정 (기관 #311, srvc_No=1000001157) ────────────
+  # 참조: wiki/iam/06-install-type-integration.md
+  # 행안부 Any-ID 사업단 발급 개발키 적용 (별첨2. 개발KEY 311_중소기업기술정보진흥원)
+  anyid:
+    # ── 기관 식별자 ──────────────────────────────────────────────────────
+    # 모든 API 호출 시 srvc_no 파라미터로 전달
+    srvc-no: ${ANYID_SRVC_NO:1000001157}
+    agency-code: ${ANYID_AGENCY_CODE:1000001157}
+    agency-name: ${ANYID_AGENCY_NAME:중소벤처24기업마당}
+
+    # ── Any-ID 포털 (관리/프로비저닝 API) ────────────────────────────────
+    # 개발: https://www.anyid.dev:1451 / 운영: https://www.anyid.go.kr:443
+    portal:
+      domain: ${ANYID_PORTAL_DOMAIN:https://www.anyid.dev}
+      port:   ${ANYID_PORTAL_PORT:1451}
+      base-url: ${ANYID_PORTAL_DOMAIN:https://www.anyid.dev}:${ANYID_PORTAL_PORT:1451}
+
+    # ── Any-ID 인증 서버 (L1~L3 인증 API) ────────────────────────────────
+    # 개발: https://www.anyid.dev:1443 / 운영: https://www.anyid.go.kr:443
+    auth:
+      domain: ${ANYID_AUTH_DOMAIN:https://www.anyid.dev}
+      port:   ${ANYID_AUTH_PORT:1443}
+      base-url: ${ANYID_AUTH_DOMAIN:https://www.anyid.dev}:${ANYID_AUTH_PORT:1443}
+
+    # ── Any-ID SSO 서버 ───────────────────────────────────────────────────
+    # 개발: https://sso.anyid.dev:1452 / 운영: https://sso.anyid.go.kr:443
+    sso:
+      domain: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}
+      port:   ${ANYID_SSO_PORT:1452}
+      base-url: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}:${ANYID_SSO_PORT:1452}
+      # SSO HMAC-SHA256 서명 검증 시크릿 (Base64, 행안부 발급)
+      # 운영: K8s Secret ANYID_SSO_SECRET_CODE로 주입 (평문 설정 금지)
+      secret-code: ${ANYID_SSO_SECRET_CODE:}
+      # SSO 어댑터 설정 파일 경로 (classpath 기준)
+      adaptor-conf: ${ANYID_SSO_ADAPTOR_CONF:classpath:sso-adaptor-conf-local.properties}
+      # SSO 세션 토큰 TTL (초)
+      session-ttl-seconds: 3600
+      verify-url: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}:${ANYID_SSO_PORT:1452}/sso/api/v1/verify
+      logout-url:  ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}:${ANYID_SSO_PORT:1452}/sso/api/v1/logout
+
+    # ── Any-ID KMS (ARIA-CBC-256) ─────────────────────────────────────────
+    # 개발: https://www.anyid.dev:8119 / 운영: https://www.anyid.go.kr:8119
+    # NHN SKM(AES-256)과 독립적으로 운영. AnyIdKmsClient가 전담.
+    kms:
+      server-host: ${ANYID_KMS_HOST:https://www.anyid.dev:8119/}
+      enc-alg:     ${ANYID_KMS_ENC_ALG:ARIA-CBC-256}
+      cversion:    ${ANYID_KMS_CVERSION:1}
+      # kdist 설정 파일 경로 (classpath 기준, 프로파일별 교체)
+      kdist-config: ${ANYID_KMS_KDIST_CONFIG:classpath:config/anyid/kdist-local.json}
+      # KMS app_key (Base64, 행안부 발급) — 운영: K8s Secret ANYID_KMS_APP_KEY로 주입
+      app-key: ${ANYID_KMS_APP_KEY:}
+      # KMS client_info (Base64, 행안부 발급) — 운영: K8s Secret ANYID_KMS_CLIENT_INFO로 주입
+      client-info: ${ANYID_KMS_CLIENT_INFO:}
+      connect-timeout-ms: 3000
+      read-timeout-ms:    5000
+
+    # ── 민간ID(소셜) 설정 ─────────────────────────────────────────────────
+    # social-relay 경유 소셜 로그인 (카카오·네이버 등, L1)
+    pid:
+      # pid_api.json 위치
+      api-config: ${ANYID_PID_API_CONFIG:classpath:config/anyid/pid_api.json}
+      # 민간ID 인증 시작 URL (social-relay)
+      provider-url: ${ANYID_PID_PROVIDER_URL:https://www.anyid.dev:1443/pid/auth.do}
+      # ido 수신 콜백 경로
+      callback-path: /api/v1/anyid/pid/callback
+      # pid API 키 (행안부 발급 — 운영: K8s Secret으로 주입)
+      client-id:      ${ANYID_PID_CLIENT_ID:}
+      client-secret:  ${ANYID_PID_CLIENT_SECRET:}
+      client-api-key: ${ANYID_PID_CLIENT_API_KEY:}
+
+    # ── config.anyidc.json 위치 ────────────────────────────────────────────
+    config-file: ${ANYID_CONFIG_FILE:classpath:config/anyid/config.anyidc.json}
+
+    # ── HTTP 클라이언트 공통 타임아웃 ─────────────────────────────────────
+    http:
+      connect-timeout-ms: ${ANYID_HTTP_CONNECT_TIMEOUT_MS:3000}
+      read-timeout-ms:    ${ANYID_HTTP_READ_TIMEOUT_MS:5000}
 
   # ── Keycloak OIDC 브로커 설정 (문서 §7, §10) ──────────────────────────
   # ido.broker.mode=keycloak 전환 시 아래 설정 활성화
