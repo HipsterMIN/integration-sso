@@ -1,6 +1,6 @@
 # 통합인증 플랫폼 (OnePass) — Wiki 인덱스
 
-> **버전**: v0.9.2 | **최종 갱신**: 2026-05-17 | **브랜치**: shipster  
+> **버전**: v0.9.3 | **최종 갱신**: 2026-05-19 | **브랜치**: shipster  
 > **테스트**: ✅ 1017 tests PASS (0 failures) | **빌드**: ✅ compileJava SUCCESS (경고 0)
 
 ---
@@ -42,6 +42,15 @@ wiki/
 │   ├── 03-member-conversion-walkthrough.md
 │   ├── 04-provisioning-walkthrough.md
 │   └── 05-handoff-sso-walkthrough.md
+├── iam/                            ← ★ Any-ID 정부통합인증 IAM 문서 (2026-05-19 신규)
+│   ├── 00-overview.md              ← 전체 개요 + 아키텍처 + 등급 체계
+│   ├── 01-mobile-id.md             ← 모바일 신분증 (VRS v2.1, PUSH/QR, 1등급)
+│   ├── 02-easy-sign.md             ← 간편인증 (민간인증서 11종, 브로커링)
+│   ├── 03-joint-cert.md            ← 공동인증서 (MagicLine4Web v2.2, DN 파싱)
+│   ├── 04-fin-cert.md              ← 금융인증서 (KFTC 클라우드, 자동로그인)
+│   ├── 05-ci-dn-brokering.md       ← CI/DN 브로커링 심층 분석 + 저장 전략
+│   ├── 06-install-type-integration.md ← 설치형 연동 전체 개발 가이드
+│   └── 07-sso-session.md           ← SSO 세션·등급 관리 + SLO
 ├── ops/                            ← 운영 가이드 (2026-05-17 신규)
 │   ├── 01-production-deployment-guide.md  ← ★ 운영 배포 주의사항 체크리스트
 │   ├── 02-project-completion-status.md    ← ★ 프로젝트 완성도 분석 (939 tests GREEN)
@@ -105,6 +114,23 @@ wiki/
 | [WK-03](walkthrough/03-member-conversion-walkthrough.md) | 회원 전환 (기존 기관 계정 → OnePass) | Q-IM → ConversionSession |
 | [WK-04](walkthrough/04-provisioning-walkthrough.md) | 전 기관 프로비저닝 (QIM-OUTBOX-SPEC-001) | IdO → provisioning_outbox → 68 기관 |
 | [WK-05](walkthrough/05-handoff-sso-walkthrough.md) | Handoff SSO (CAST Token 기반 기관 이동) | IdO → Agency-Stub |
+
+### IAM — Any-ID 정부 통합인증 (2026-05-19 신규) ★
+
+Any-ID(행정안전부 정부 통합인증)의 인증수단별 상세 문서 및 설치형 연동 가이드.
+
+| # | 제목 | 대상 독자 | 핵심 내용 |
+|---|------|---------|---------|
+| [IAM-00](iam/00-overview.md) | **Any-ID 전체 개요** | 전체 | 아키텍처, URL 구조, 등급 체계, OIDC 흐름 요약 |
+| [IAM-01](iam/01-mobile-id.md) | **모바일 신분증** | 개발자 | VRS v2.1, PUSH/QR, 지원 앱 7개, 1등급 |
+| [IAM-02](iam/02-easy-sign.md) | **간편인증** | 개발자 | 민간인증서 11종, 브로커링 구조, 동의 항목 |
+| [IAM-03](iam/03-joint-cert.md) | **공동인증서** | 개발자 | MagicLine4Web v2.2, Subject DN 파싱, OID별 CI 추출 |
+| [IAM-04](iam/04-fin-cert.md) | **금융인증서** | 개발자 | KFTC 클라우드, fincert v2.2, 자동로그인 30일 |
+| [IAM-05](iam/05-ci-dn-brokering.md) | **CI/DN 브로커링** | 아키텍트/개발자 | CI 정의, 획득 경로, 암호화 저장, 법적 요건 |
+| [IAM-06](iam/06-install-type-integration.md) | **설치형 연동 가이드** | 개발자/PM | 등록 절차, OIDC RP 구현, Spring Boot 코드, 회원 매핑 |
+| [IAM-07](iam/07-sso-session.md) | **SSO 세션·등급 관리** | 개발자/운영 | On/Off 토글, 세션 만료, SLO, 등급별 정책 |
+
+---
 
 ### 운영 가이드 (Ops) — 2026-05-17 신규
 
