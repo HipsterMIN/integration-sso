@@ -1,10 +1,12 @@
 import './Login.styles.scss';
 
+import AnyIdLoginModal from 'components/AnyIdLoginModal';
 import Modal from 'components/KrdsModal';
 import IMAGES from 'constants/images';
 import ROUTES from 'constants/routes';
 import type { EzAuthBizResult } from 'hooks/useEzAuth';
 import useEzAuth from 'hooks/useEzAuth';
+import useAnyIdAuth, { AnyIdAuthResult } from 'hooks/useAnyIdAuth';
 import useNicePhoneAuth, { NicePhoneAuthResult } from 'hooks/useNicePhoneAuth';
 import usePersonalEasyAuth, { EasysignResult } from 'hooks/usePersonalEasyAuth';
 import history from 'lib/history';
@@ -101,6 +103,43 @@ function Login(): JSX.Element {
 		handleBizEzAuthSuccess,
 		handleBizEzAuthError,
 	);
+
+	// Any-ID 정부 통합인증 훅
+	const handleAnyIdSuccess = useCallback(
+		(result: AnyIdAuthResult): void => {
+			if (result.resultCode === '2000' && result.ci) {
+				setEncCi(result.ci);
+			} else {
+				setErrorTopText('Any-ID 인증 오류');
+				setErrorTitle('인증에 실패하였습니다');
+				setErrorMessage(result.resultMsg ?? 'Any-ID 인증 오류가 발생했습니다.');
+				setErrorModal(true);
+			}
+		},
+		[],
+	);
+
+	const handleAnyIdError = useCallback(
+		(message: string): void => {
+			setErrorTopText('Any-ID 인증 오류');
+			setErrorTitle('인증에 실패하였습니다');
+			setErrorMessage(message);
+			setErrorModal(true);
+		},
+		[],
+	);
+
+	const {
+		busy: anyIdBusy,
+		showModal: anyIdModalOpen,
+		startAuth: startAnyIdAuth,
+		closeModal: closeAnyIdModal,
+		initSdk: initAnyIdSdk,
+	} = useAnyIdAuth(handleAnyIdSuccess, handleAnyIdError, {
+		actionUrl,
+		authLevel: 2,
+		bypass: 0,
+	});
 
 	// NICE 휴대폰 인증 훅
 	const { busy: phoneAuthBusy, startAuth: startPhoneAuth } = useNicePhoneAuth(
@@ -293,6 +332,13 @@ function Login(): JSX.Element {
 					를 이용해 주세요.
 				</p>
 			</Modal>
+
+			{/* Any-ID 정부 통합로그인 모달 */}
+			<AnyIdLoginModal
+				isOpen={anyIdModalOpen}
+				onClose={closeAnyIdModal}
+				onInit={initAnyIdSdk}
+			/>
 
 			<div className="container main">
 				<div className="inner">
@@ -581,8 +627,10 @@ function Login(): JSX.Element {
 												<button
 													type="button"
 													className="btn"
-													aria-label="Any-ID로 로그인"
-													onClick={(): void => setDevNoticeModal(true)}
+													aria-label="Any-ID 정부 통합로그인"
+													onClick={startAnyIdAuth}
+													disabled={anyIdBusy}
+													aria-busy={anyIdBusy}
 												>
 													<div className="text-box">
 														<figure className="img">

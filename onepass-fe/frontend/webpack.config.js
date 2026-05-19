@@ -58,6 +58,10 @@ const plugins = [
 			BE_API_ENDPOINT: process.env.BE_API_ENDPOINT,
 			EASYSIGN_URL: process.env.EASYSIGN_URL,
 			EASYSIGN_ORIGIN: process.env.EASYSIGN_ORIGIN,
+			// Any-ID 설치형 SDK 설정
+			IDO_BASE_URL: process.env.IDO_BASE_URL,
+			ANYID_BYPASS: process.env.ANYID_BYPASS,
+			ANYID_AUTH_LEVEL: process.env.ANYID_AUTH_LEVEL,
 		}),
 	}),
 	sentryWebpackPlugin({
@@ -97,6 +101,18 @@ const config = {
 		proxy: {
 			'/api/ext': {
 				// B-5: EXT_API_KEY FE 번들 노출 제거 — ido(8083)가 서버사이드 X-Ext-Api-Key 주입
+				target: process.env.IDO_BASE_URL || 'http://localhost:8083',
+				changeOrigin: true,
+				secure: false,
+			},
+			// Any-ID SDK 정적 파일 서빙 (anyid/css, anyid/js → ido 8083)
+			'/anyid': {
+				target: process.env.IDO_BASE_URL || 'http://localhost:8083',
+				changeOrigin: true,
+				secure: false,
+			},
+			// Any-ID config.anyidc.json 서빙 (→ ido 8083/config/...)
+			'/config': {
 				target: process.env.IDO_BASE_URL || 'http://localhost:8083',
 				changeOrigin: true,
 				secure: false,

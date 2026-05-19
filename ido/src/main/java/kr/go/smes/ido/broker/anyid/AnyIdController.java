@@ -19,8 +19,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Any-ID 설치형 연동 전용 컨트롤러
@@ -33,6 +37,9 @@ import java.util.Map;
  *   <li>GET {@code /api/v1/anyid/{provider}/initiate}  — 인증 시작 → Any-ID UI 리다이렉트</li>
  *   <li>GET {@code /api/v1/anyid/{provider}/callback}  — Any-ID 콜백 수신 → ssob/verify 처리</li>
  *   <li>POST {@code /api/v1/anyid/{provider}/ssob}     — FE 인증 결과(ssob) 수신 → 복호화 처리</li>
+ *   <li>POST {@code /api/v1/anyid/txId}                — 거래 ID 발급 (FE SDK 초기화용)</li>
+ *   <li>POST {@code /api/v1/anyid/ssob}                — provider 없는 통합 ssob 처리 (FE 호환 응답)</li>
+ *   <li>GET {@code /api/v1/anyid/oidc/ssoLogin}        — SSO 로그인 처리</li>
  *   <li>GET {@code /api/v1/anyid/config}               — config.anyidc.json 조회 (FE용)</li>
  * </ul>
  *
@@ -408,6 +415,146 @@ public class AnyIdController {
     }
 
     // ──────────────────────────────────────────────────────────────────────
+    // txId 발급 — FE SDK 초기화용 거래 ID 생성
+    // ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Any-ID SDK 거래 ID(txId) 발급
+     *
+     * <p>FE의 {@code useAnyIdAuth.ts}에서 {@code AnyidC.LOAD_MODULE()} 호출 전에 먼저 이 엔드포인트를
+     * 통해 서버 측 거래 ID를 발급받는다. 서버 장애 시 FE에서 클라이언트 생성 ID로 fallback한다.
+     *
+     * <pre>
+     * POST /api/v1/anyid/txId
+     * → 200 OK { "txId": "20260519143022-a1b2c3d4" }
+     * </pre>
+     *
+     * @return {@code { "txId": "yyyyMMddHHmmss-{uuid8}" }}
+     */
+    @PostMapping("/txId")
+    public ResponseEntity<Map<String, String>> issueTxId() {
+        String datePart = LocalDateTime.now()
+                .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        String uuidPart = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        String txId = datePart + "-" + uuidPart;
+
+        log.debug("[AnyIdController] txId 발급: {}", txId);
+        return ResponseEntity.ok(Map.of("txId", txId));
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // ssob 통합 처리 — provider 없는 FE 호환 엔드포인트
+    // ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Any-ID ssob 통합 처리 (provider 없는 FE 호환 엔드포인트)
+     *
+     * <p>FE {@code useAnyIdAuth.ts}의 {@code handleOrgLogin}에서 호출:
+     * <pre>
+     * POST /api/v1/anyid/ssob
+     * Body: { "ssob": "...", "tag": "...", "txId": "..." }
+     * </pre>
+     *
+     * <p>기존 {@code /{provider}/ssob}와 달리 FE가 기대하는 응답 형식을 반환한다:
+     * <pre>
+     * 성공: { "resultCode": "2000", "ci": "{authResultId}", "resultMsg": "인증 완료", "authLevel": "L2" }
+     * 실패: { "resultCode": "5000", "resultMsg": "...", "errorCode": "..." }
+     * </pre>
+     *
+     * <p>내부적으로 {@code /{provider}/ssob}와 동일한 복호화·처리 로직을 사용하되,
+     * provider는 {@code "EASY_SIGN"}(기본값)으로 고정한다.
+     * FE에서 전달하는 {@code userSeCd} 또는 별도 파라미터로 provider를 구분할 수 있다.
+     *
+     * @param body          요청 본문 {@code { ssob, tag, txId, userSeCd? }}
+     * @param correlationId 흐름 추적 ID
+     * @return FE 호환 응답 {@code { resultCode, ci, resultMsg, authLevel }}
+     */
+    @PostMapping("/ssob")
+    public ResponseEntity<Map<String, Object>> processSsobUnified(
+            @RequestBody Map<String, String> body,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
+
+        String cid     = resolveCorrelationId(correlationId);
+        String ssobStr = body.get("ssob");
+        String tag     = body.get("tag");
+        String txId    = body.getOrDefault("txId", tag);
+        // userSeCd 기반 provider 추론 (없으면 기본값 EASY_SIGN)
+        String userSeCd = body.getOrDefault("userSeCd", "");
+        String provider = resolveProviderFromUserSeCd(userSeCd);
+
+        log.info("[AnyIdController] ssob 통합 처리: provider={} txId={} cid={}", provider, txId, cid);
+
+        if (ssobStr == null || ssobStr.isBlank()) {
+            Map<String, Object> err = new LinkedHashMap<>();
+            err.put("resultCode", "5001");
+            err.put("resultMsg",  "ssob 파라미터가 없습니다");
+            err.put("errorCode",  "MISSING_SSOB");
+            return ResponseEntity.badRequest().body(err);
+        }
+
+        try {
+            // 1. SDK로 ssob 복호화 (AnyidCertRef.decryptSsob)
+            Map<String, Object> ssob = anyIdSsobService.decryptSsob(ssobStr, tag, null);
+
+            // 2. CI / authLevel / name 추출
+            String ci        = anyIdSsobService.extractCi(ssob, cid);
+            String authLevel = anyIdSsobService.extractAuthLevel(ssob);
+            String name      = (String) ssob.getOrDefault("name", "");
+
+            log.info("[AnyIdController] ssob 복호화 완료: authLevel={} cid={}", authLevel, cid);
+
+            // 3. NonOidcAuthService로 AuthResult 저장 + Kafka Outbox 발행
+            NonOidcAuthCommand command = NonOidcAuthCommand.builder()
+                    .correlationId(cid)
+                    .providerCode(normalizeProviderCode(provider))
+                    .providerTxId(txId)
+                    .rawIdentifier(ci)
+                    .requestedLevel(authLevel)
+                    .providerVerified(true)
+                    .build();
+
+            String authResultId = nonOidcAuthService.processAuth(command);
+            log.info("[AnyIdController] AuthResult 저장: authResultId={} cid={}", authResultId, cid);
+
+            // 4. FeSession 생성
+            String feSessionId = createFeSession(authResultId, authResultId, authLevel, null, cid);
+
+            // 5. FE 호환 응답 반환 (resultCode:"2000", ci:authResultId)
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.add(HttpHeaders.SET_COOKIE,
+                    buildSessionCookie(feSessionId, anyIdProperties.getSso().getSessionTtlSeconds()));
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("resultCode", "2000");
+            response.put("ci",         authResultId);   // authResultId를 CI lookup token으로 사용
+            response.put("resultMsg",  "인증 완료");
+            response.put("authLevel",  authLevel);
+            response.put("name",       name);
+
+            log.info("[AnyIdController] 통합 인증 완료: authLevel={} cid={}", authLevel, cid);
+            return ResponseEntity.ok().headers(headers).body(response);
+
+        } catch (PlatformException e) {
+            log.error("[AnyIdController] ssob 통합 처리 PlatformException: cid={} code={} msg={}",
+                    cid, e.getErrorCode(), e.getMessage());
+            Map<String, Object> err = new LinkedHashMap<>();
+            err.put("resultCode", "5000");
+            err.put("resultMsg",  e.getMessage());
+            err.put("errorCode",  e.getErrorCode() != null ? e.getErrorCode().name() : "ANYID_ERROR");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+
+        } catch (Exception e) {
+            log.error("[AnyIdController] ssob 통합 처리 예외: cid={} err={}", cid, e.getMessage(), e);
+            Map<String, Object> err = new LinkedHashMap<>();
+            err.put("resultCode", "5000");
+            err.put("resultMsg",  "ssob 처리 중 서버 오류: " + e.getMessage());
+            err.put("errorCode",  "ANYID_SSOB_ERROR");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
     // 헬스 체크
     // ──────────────────────────────────────────────────────────────────────
 
@@ -488,6 +635,31 @@ public class AnyIdController {
             case "financial_cert", "fincert"     -> "FINANCIAL_CERT";
             case "pid", "private_id"             -> "PRIVATE_ID";
             default -> provider.toUpperCase().replace("-", "_");
+        };
+    }
+
+    /**
+     * userSeCd → provider 추론
+     * Any-ID SDK의 userSeCd 필드를 기반으로 인증 수단을 구분한다.
+     * userSeCd가 없으면 기본값 "easy-sign"을 반환한다.
+     *
+     * <ul>
+     *   <li>"01" — 모바일 신분증</li>
+     *   <li>"02" — 간편인증</li>
+     *   <li>"03" — 공동인증서</li>
+     *   <li>"04" — 금융인증서</li>
+     *   <li>"05" — 민간ID</li>
+     * </ul>
+     */
+    private String resolveProviderFromUserSeCd(String userSeCd) {
+        if (userSeCd == null || userSeCd.isBlank()) return "easy-sign";
+        return switch (userSeCd.trim()) {
+            case "01" -> "mobile-id";
+            case "02" -> "easy-sign";
+            case "03" -> "joint-cert";
+            case "04" -> "financial-cert";
+            case "05" -> "pid";
+            default   -> "easy-sign";
         };
     }
 

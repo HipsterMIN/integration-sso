@@ -1,0 +1,166 @@
+// =============================================
+// AnyIdLoginModal — Any-ID 정부 통합로그인 모달
+// =============================================
+// SDK(#anyidc, #anyidtoggle)가 렌더링하는 내부 요소는
+// 이 SCSS로 제어할 수 없으므로, SDK CSS(/anyid/css/app.css)가 로드돼야 함.
+// 이 파일은 모달 래퍼 및 레이아웃만 담당한다.
+
+$z-modal-backdrop: 1010;
+$z-modal-dialog: 1020;
+
+.anyid-modal__backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: $z-modal-backdrop;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: rgba(0, 0, 0, 0.5);
+	// KrdsModal과 동일한 transition 계열
+	animation: anyidFadeIn 0.15s ease-out both;
+}
+
+@keyframes anyidFadeIn {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+
+.anyid-modal__dialog {
+	position: relative;
+	z-index: $z-modal-dialog;
+	width: 100%;
+	max-width: 68rem;
+	max-height: 90vh;
+	overflow-y: auto;
+	background-color: var(--krds-light-color-surface-white-subtler, #fff);
+	border-radius: var(--krds-radius-xlarge1, 1.6rem);
+	box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+	outline: none; // tabIndex=-1 포커스링 제거
+
+	// 모바일
+	@media (max-width: 768px) {
+		max-width: 100%;
+		max-height: 100dvh;
+		border-radius: 1.6rem 1.6rem 0 0;
+		// 모바일에서 하단 시트처럼 표시
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+	}
+}
+
+// ── 헤더 ────────────────────────────────────────────────────────────────────
+
+.anyid-modal__header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	padding: 2.8rem 2.8rem 0;
+
+	@media (max-width: 768px) {
+		padding: 2rem 2rem 0;
+	}
+}
+
+.anyid-modal__header-text {
+	flex: 1;
+	padding-right: 1.6rem;
+}
+
+.anyid-modal__top-label {
+	font-size: var(--krds-pc-font-size-label-small, 1.2rem);
+	font-weight: 600;
+	color: var(--krds-light-color-text-blue-normal, #1346b0);
+	margin-bottom: 0.4rem;
+	letter-spacing: 0.02em;
+}
+
+.anyid-modal__title {
+	font-size: var(--krds-pc-font-size-heading-xlarge1, 2rem);
+	font-weight: 700;
+	color: var(--krds-light-color-text-normal, #1a1a1a);
+	margin-bottom: 0.8rem;
+	line-height: 1.4;
+
+	@media (max-width: 768px) {
+		font-size: 1.6rem;
+	}
+}
+
+.anyid-modal__desc {
+	font-size: var(--krds-pc-font-size-body-medium, 1.4rem);
+	color: var(--krds-light-color-text-subtle, #666);
+	line-height: 1.6;
+}
+
+.anyid-modal__close-btn {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 3.2rem;
+	height: 3.2rem;
+	background: none;
+	border: none;
+	border-radius: 50%;
+	cursor: pointer;
+	font-size: 1.6rem;
+	color: var(--krds-light-color-text-subtle, #666);
+	transition: background-color 0.15s;
+
+	&:hover {
+		background-color: var(--krds-light-color-surface-gray-subtler, #f5f5f5);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--krds-light-color-border-blue-normal, #1346b0);
+		outline-offset: 2px;
+	}
+}
+
+// ── SDK 렌더링 영역 ──────────────────────────────────────────────────────────
+
+.anyid-modal__body {
+	padding: 1.6rem 2.8rem 2.8rem;
+
+	@media (max-width: 768px) {
+		padding: 1.2rem 2rem 2rem;
+	}
+}
+
+.anyid-modal__toggle-wrap {
+	margin-bottom: 1.2rem;
+	// SDK가 채우는 토글 버튼 영역
+	// 비어있으면 collapse됨
+	&:empty {
+		display: none;
+	}
+}
+
+.anyid-modal__module-wrap {
+	// SDK가 #anyidc 에 카드 목록을 삽입함
+	// min-height로 초기 로딩 중 레이아웃 점프 방지
+	min-height: 24rem;
+
+	// SDK 카드 목록이 없으면 로딩 표시
+	&:empty::after {
+		content: '';
+		display: block;
+		width: 3.2rem;
+		height: 3.2rem;
+		margin: 6rem auto;
+		border: 3px solid var(--krds-light-color-border-gray-light, #e0e0e0);
+		border-top-color: var(--krds-light-color-border-blue-normal, #1346b0);
+		border-radius: 50%;
+		animation: anyidSpin 0.8s linear infinite;
+	}
+
+	@media (max-width: 768px) {
+		min-height: 20rem;
+	}
+}
+
+@keyframes anyidSpin {
+	to { transform: rotate(360deg); }
+}
