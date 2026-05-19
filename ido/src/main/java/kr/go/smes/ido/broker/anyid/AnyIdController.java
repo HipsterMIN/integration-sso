@@ -159,7 +159,7 @@ public class AnyIdController {
      * @param correlationId 흐름 추적 ID
      */
     @GetMapping("/{provider}/callback")
-    public ResponseEntity<Object> callback(
+    public ResponseEntity<Void> callback(
             @PathVariable String provider,
             @RequestParam(required = false) String txId,
             @RequestParam(required = false) String code,
@@ -207,6 +207,7 @@ public class AnyIdController {
             return redirectToError("ANYID_CALLBACK_ERROR", e.getMessage());
         }
     }
+
 
     // ──────────────────────────────────────────────────────────────────────
     // ssob 수신 처리 — SDK 복호화 핵심 엔드포인트
