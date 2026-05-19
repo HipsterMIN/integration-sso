@@ -52,7 +52,8 @@ wiki/
 │   ├── 06-install-type-integration.md ← 설치형 연동 전체 개발 가이드
 │   ├── 07-sso-session.md           ← SSO 세션·등급 관리 + SLO
 │   ├── 08-kr-auth-providers-guide.md ← ★ 국내 인증 수단 종합 가이드 (공공·민간·소셜 전체)
-│   └── 09-anyid-sdk-integration.md   ← ★ Any-ID 설치형 SDK 통합 가이드 (JAR 설치·ssob 복호화·Spring 변환)
+│   ├── 09-anyid-sdk-integration.md   ← ★ Any-ID 설치형 SDK 통합 가이드 (JAR 설치·ssob 복호화·Spring 변환)
+│   └── 10-anyid-fe-login-integration.md ← ★ Any-ID FE 로그인 연동 가이드 (useAnyIdAuth 훅·AnyIdLoginModal·Login.tsx 연결)
 ├── ops/                            ← 운영 가이드 (2026-05-17 신규)
 │   ├── 01-production-deployment-guide.md  ← ★ 운영 배포 주의사항 체크리스트
 │   ├── 02-project-completion-status.md    ← ★ 프로젝트 완성도 분석 (939 tests GREEN)
@@ -133,6 +134,7 @@ Any-ID(행정안전부 정부 통합인증)의 인증수단별 상세 문서 및
 | [IAM-07](iam/07-sso-session.md) | **SSO 세션·등급 관리** | 개발자/운영 | On/Off 토글, 세션 만료, SLO, 등급별 정책 |
 | [IAM-08](iam/08-kr-auth-providers-guide.md) | **국내 인증 수단 종합 가이드** ★ | 개발자/아키텍트 | 공공PKI·민간인증서·소셜OIDC 전체 14종, 법적 근거, 등록 절차, Java 코드 구현, 보안 고려사항 |
 | [IAM-09](iam/09-anyid-sdk-integration.md) | **Any-ID 설치형 SDK 통합 가이드** ★ | 백엔드 개발자/인프라 | JAR 설치(13개)·BouncyCastle 충돌 해결·config.anyidc.json·AnyidC.LOAD_MODULE()·ssob 복호화·extract→Spring 변환·NonOidcAuthService 연동·FeSession 발급 |
+| [IAM-10](iam/10-anyid-fe-login-integration.md) | **Any-ID FE 로그인 연동 가이드** ★ | 프론트엔드 개발자 | Login.tsx Any-ID 버튼 실제 구현·useAnyIdAuth 훅·AnyIdLoginModal 컴포넌트·SDK 정적 파일 배치·orgLogin/ssoLogin 분기·webpack proxy·환경별 체크리스트 |
 
 ---
 
