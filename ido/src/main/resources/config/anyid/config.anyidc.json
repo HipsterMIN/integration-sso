@@ -1,73 +1,97 @@
 {
-  "_comment": "Any-ID 설치형 연동 UI/Script/URL 설정 (기관번호 #311, srvc_No=1000001157)",
-  "_doc": "wiki/iam/06-install-type-integration.md §3.1 config.anyidc.json 구조 참조",
-  "_version": "1.0.0",
+  "_comment": "Any-ID 설치형 연동 설정 (기관번호 #311, srvc_No=1000001157)",
+  "_doc": "wiki/iam/09-anyid-sdk-integration.md §3 config.anyidc.json 구조 참조",
+  "_version": "2.0.0",
+  "_sdk_ref": "AuthResourceInstall/webapp/config/config.anyidc.json — SDK 샘플과 동일한 list 기반 구조",
 
-  "mobile_id": {
-    "_comment": "모바일 신분증 (행안부 DID, L2)",
-    "script_url": "https://www.anyid.dev:1443/mid/script/anyid-mid.js",
-    "css_url":    "https://www.anyid.dev:1443/mid/css/anyid-mid.css",
-    "init_url":   "https://www.anyid.dev:1443/mid/api/v1/init",
-    "verify_url": "https://www.anyid.dev:1443/mid/api/v1/verify",
-    "ui_path":    "/anyid/mid/popup.html",
-    "srvc_no":    "1000001157"
+  "list": [
+    {
+      "_comment": "모바일 신분증 (행안부 DID, L2) — mip-install 모듈",
+      "name":  "mip-install",
+      "level": 2,
+      "urls": {
+        "config":  "/api/v1/anyid/mip/config",
+        "extract": "/api/v1/anyid/mobile-id/ssob"
+      }
+    },
+    {
+      "_comment": "금융인증서 (금결원 yeskey, L3) — fincert-install 모듈",
+      "name":  "fincert-install",
+      "level": 2,
+      "urls": {
+        "accInfo": "/api/v1/anyid/financial-cert/accInfo",
+        "extract": "/api/v1/anyid/financial-cert/ssob"
+      }
+    },
+    {
+      "_comment": "공동인증서 (구 공인인증서, NPKI, L3) — anysignlite-install 모듈",
+      "name":  "anysignlite-install",
+      "level": 2,
+      "urls": {
+        "accInfo": "/api/v1/anyid/joint-cert/accInfo",
+        "extract": "/api/v1/anyid/joint-cert/ssob"
+      }
+    },
+    {
+      "_comment": "간편인증 (카카오·네이버·PASS, L1~L2) — esign-install 모듈",
+      "name":  "esign-install",
+      "level": 2,
+      "urls": {
+        "config":  "/api/v1/anyid/easy-sign/esign-config",
+        "extract": "/api/v1/anyid/easy-sign/ssob"
+      }
+    },
+    {
+      "_comment": "민간ID (소셜 간접 — social-relay, L1) — social-relay 모듈",
+      "name":  "social-relay",
+      "level": 3,
+      "urls": {
+        "provider": "https://www.anyid.dev:1443/pid/auth.do",
+        "extract":  "/api/v1/anyid/pid/ssob"
+      }
+    }
+  ],
+
+  "organization": {
+    "_comment":   "기관 식별자 — 행안부 발급 개발키 기준",
+    "srvcNo":     "1000001157",
+    "agencyCode": "1000001157",
+    "agencyName": "중소벤처24기업마당",
+    "env":        "dev"
   },
 
-  "easy_sign": {
-    "_comment": "간편인증 (카카오·네이버·PASS 등 민간 간편인증, L1~L2)",
-    "script_url": "https://www.anyid.dev:1443/easy/script/anyid-easy.js",
-    "css_url":    "https://www.anyid.dev:1443/easy/css/anyid-easy.css",
-    "init_url":   "https://www.anyid.dev:1443/easy/api/v1/init",
-    "auth_url":   "https://www.anyid.dev:1443/easy/api/v1/auth",
-    "result_url": "https://www.anyid.dev:1443/easy/api/v1/result",
-    "ui_path":    "/anyid/easy/popup.html",
-    "srvc_no":    "1000001157"
-  },
-
-  "joint_cert": {
-    "_comment": "공동인증서 (구 공인인증서, NPKI, L3)",
-    "script_url": "https://www.anyid.dev:1443/cert/script/anyid-cert.js",
-    "css_url":    "https://www.anyid.dev:1443/cert/css/anyid-cert.css",
-    "init_url":   "https://www.anyid.dev:1443/cert/api/v1/init",
-    "sign_url":   "https://www.anyid.dev:1443/cert/api/v1/sign",
-    "verify_url": "https://www.anyid.dev:1443/cert/api/v1/verify",
-    "ui_path":    "/anyid/cert/popup.html",
-    "srvc_no":    "1000001157"
-  },
-
-  "financial_cert": {
-    "_comment": "금융인증서 (금결원 yeskey, L3)",
-    "script_url": "https://t-4user.yeskey.or.kr/v1/fincert.js",
-    "css_url":    "https://www.anyid.dev:1443/fcert/css/anyid-fcert.css",
-    "init_url":   "https://www.anyid.dev:1443/fcert/api/v1/init",
-    "sign_url":   "https://www.anyid.dev:1443/fcert/api/v1/sign",
-    "verify_url": "https://www.anyid.dev:1443/fcert/api/v1/verify",
-    "ui_path":    "/anyid/fcert/popup.html",
-    "srvc_no":    "1000001157",
-    "_note_cdn":  "개발: t-4user.yeskey.or.kr, 운영: 4user.yeskey.or.kr"
-  },
-
-  "private_id": {
-    "_comment": "민간ID — social-relay 경유 소셜 로그인 (카카오·네이버·구글 등, L1)",
-    "provider_url":   "https://www.anyid.dev:1443/pid/auth.do",
-    "callback_url":   "/api/v1/anyid/pid/callback",
-    "token_url":      "https://www.anyid.dev:1443/pid/token.do",
-    "userinfo_url":   "https://www.anyid.dev:1443/pid/userinfo.do",
-    "pid_api_config": "classpath:config/anyid/pid_api.json",
-    "srvc_no":        "1000001157",
-    "_note":          "social-relay 모드: provider_url 로 302 → 소셜 IdP → pid callback"
-  },
-
-  "portal": {
-    "_comment": "Any-ID 포털 공통 설정 (개발 환경)",
-    "base_url":     "https://www.anyid.dev",
-    "port":          1443,
-    "sso_base_url": "https://sso.anyid.dev",
-    "sso_port":      1452,
-    "mgmt_port":     1451,
-    "kms_port":      8119,
-    "srvc_no":       "1000001157",
-    "agency_code":   "1000001157",
-    "env":           "dev"
+  "_legacy": {
+    "_comment": "하위 호환용 레거시 키 (FE 직접 URL 로드 시 사용, config.anyidc.json v1.0.0 호환)",
+    "mobile_id": {
+      "script_url": "https://www.anyid.dev:1443/mid/script/anyid-mid.js",
+      "css_url":    "https://www.anyid.dev:1443/mid/css/anyid-mid.css",
+      "init_url":   "https://www.anyid.dev:1443/mid/api/v1/init",
+      "verify_url": "https://www.anyid.dev:1443/mid/api/v1/verify",
+      "srvc_no":    "1000001157"
+    },
+    "easy_sign": {
+      "script_url": "https://www.anyid.dev:1443/easy/script/anyid-easy.js",
+      "css_url":    "https://www.anyid.dev:1443/easy/css/anyid-easy.css",
+      "init_url":   "https://www.anyid.dev:1443/easy/api/v1/init",
+      "srvc_no":    "1000001157"
+    },
+    "joint_cert": {
+      "script_url": "https://www.anyid.dev:1443/cert/script/anyid-cert.js",
+      "css_url":    "https://www.anyid.dev:1443/cert/css/anyid-cert.css",
+      "init_url":   "https://www.anyid.dev:1443/cert/api/v1/init",
+      "srvc_no":    "1000001157"
+    },
+    "financial_cert": {
+      "script_url": "https://t-4user.yeskey.or.kr/v1/fincert.js",
+      "css_url":    "https://www.anyid.dev:1443/fcert/css/anyid-fcert.css",
+      "init_url":   "https://www.anyid.dev:1443/fcert/api/v1/init",
+      "srvc_no":    "1000001157"
+    },
+    "private_id": {
+      "provider_url":   "https://www.anyid.dev:1443/pid/auth.do",
+      "callback_url":   "/api/v1/anyid/pid/callback",
+      "token_url":      "https://www.anyid.dev:1443/pid/token.do",
+      "srvc_no":        "1000001157"
+    }
   }
 }
