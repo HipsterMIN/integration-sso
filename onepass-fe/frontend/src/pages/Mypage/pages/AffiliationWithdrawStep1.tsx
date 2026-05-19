@@ -159,8 +159,8 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 			const encrypted = await encryptCi(ci);
 			const tokenRes = await exchangeCiToken({
 				encryptedCi: encrypted,
-				realm: process.env.QSIGN_REALM || 'ucube-qsign',
-				clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
+				realm: 'ucube-qsign',
+				clientId: 'onepassCli',
 				flowContext: 'USER_WITHDRAW',
 				mbrUuid,
 			});

@@ -4,6 +4,11 @@
 .modal-wrap {
 	--krds-modal--wrap-radius: var(--krds-radius-xlarge1);
 	--krds-modal--wrap-color-surface: var(--krds-light-color-surface-white-subtler);
+
+	// Renewal — 모달 액션 버튼(primary) base/hover/pressed 를 point-color 로 통일
+	--krds-light-color-button-primary-fill: var(--point-color);
+	--krds-light-color-button-primary-fill-hover: var(--point-color);
+	--krds-light-color-button-primary-fill-pressed: var(--point-color);
 	display: none;
 	position: fixed;
 	top: 0;

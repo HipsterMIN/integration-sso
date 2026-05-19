@@ -9,23 +9,6 @@ interface Step6Props {
 	currentStep?: number;
 }
 
-/**
- * Open Redirect 방어: returnUri가 허용된 도메인인지 검증한다.
- * OWASP A10: Unvalidated Redirects and Forwards 대응.
- * 허용 도메인: https://*.smes.go.kr
- */
-function isSafeReturnUri(uri: string): boolean {
-	try {
-		const url = new URL(uri);
-		return url.protocol === 'https:' && (
-			url.hostname.endsWith('.smes.go.kr') ||
-			url.hostname === 'smes.go.kr'
-		);
-	} catch {
-		return false;
-	}
-}
-
 function RegisterStep6({
 	memberType = 'member',
 	currentStep = 6,
@@ -33,7 +16,7 @@ function RegisterStep6({
 	const { data } = useRegister();
 
 	const handleLogin = (): void => {
-		if (data.returnUri && isSafeReturnUri(data.returnUri)) {
+		if (data.returnUri) {
 			window.location.href = data.returnUri;
 		} else {
 			window.location.href = ROUTES.LOGIN;

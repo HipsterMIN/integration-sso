@@ -81,28 +81,57 @@ function RegisterStep5({
 								const client = data.availableClients.find(
 									(c) => c.ssoClientId === ssoClientId,
 								);
-								return client ? { clientId: client.ssoClientId } : null;
+								if (!client) return null;
+								return {
+									clientId: client.ssoClientId,
+									mbrId: '',
+									rprsInstYn:
+										client.ssoClientId === data.initialClientId
+											? ('Y' as const)
+											: ('N' as const),
+								};
 							})
-							.filter((c): c is { clientId: string } => c !== null)
+							.filter(
+								(c): c is { clientId: string; mbrId: string; rprsInstYn: 'Y' | 'N' } =>
+									c !== null,
+							)
 					: undefined;
+
+			const rprsEmlAddr = data.email && data.emailDomain
+				? `${data.email}@${data.emailDomain}`
+				: '';
+			const rprsTelno = data.telPrefix && data.telSuffix
+				? `${data.telPrefix}-${data.telSuffix}`
+				: undefined;
 
 			const provResponse = await provisionEnterprise({
 				bzmnTypeCd: 'C',
 				brno: data.brno,
 				bzmnNm: data.bzmnNm,
 				rprsvNm: data.rprsvNm,
+				estbDt: data.startDt,
+				rprsTelno,
+				rprsEmlAddr,
 				newPic: {
 					memberName: data.rprsvNm,
 					loginId: data.loginId,
 					initialPassword: data.password,
-					email: data.email ? `${data.email}@${data.emailDomain}` : '',
-					phone: `${data.telPrefix}${data.telSuffix}`,
+					email: rprsEmlAddr,
+					phone: rprsTelno || '',
 				},
 				clients,
 			});
 
-			if (provResponse.statusCode !== 200 || !provResponse.payload?.data) {
-				setErrorMessage(provResponse.message || '기업 등록에 실패하였습니다.');
+			if (
+				provResponse.statusCode !== 200
+				|| !provResponse.payload?.data
+				|| provResponse.payload?.success === false
+			) {
+				setErrorMessage(
+					provResponse.payload?.message
+					|| provResponse.message
+					|| '기업 등록에 실패하였습니다.',
+				);
 				setFailedModal(true);
 				return false;
 			}
@@ -139,11 +168,11 @@ function RegisterStep5({
 			return false;
 		}
 
-		// clients 조립 (Step4에서 선택된 서비스)
-		const memberClients = data.selectedClients.map((ssoClientId, idx) => ({
+		// clients 조립 (Step4에서 선택된 서비스) — fromClientId(initialClientId)와 일치하면 대표기관(Y)
+		const memberClients = data.selectedClients.map((ssoClientId) => ({
 			clientId: ssoClientId,
-			mbrId: data.loginId,
-			...(idx === 0 ? { rprsInstYn: 'Y' as const } : {}),
+			mbrId: '',
+			rprsInstYn: ssoClientId === data.initialClientId ? 'Y' as const : 'N' as const,
 		}));
 
 		// 이메일 조합
@@ -155,7 +184,7 @@ function RegisterStep5({
 		// 일반전화 조합
 		const telno =
 			data.telPrefix && data.telSuffix
-				? `${data.telPrefix}${data.telSuffix}`
+				? `${data.telPrefix}-${data.telSuffix}`
 				: undefined;
 
 		const provResponse = await provisionUser({
@@ -175,8 +204,16 @@ function RegisterStep5({
 			},
 		});
 
-		if (provResponse.statusCode !== 200 || !provResponse.payload?.data) {
-			setErrorMessage(provResponse.message || '개인회원 등록에 실패하였습니다.');
+		if (
+			provResponse.statusCode !== 200
+			|| !provResponse.payload?.data
+			|| provResponse.payload?.success === false
+		) {
+			setErrorMessage(
+				provResponse.payload?.message
+				|| provResponse.message
+				|| '개인회원 등록에 실패하였습니다.',
+			);
 			setFailedModal(true);
 			return false;
 		}

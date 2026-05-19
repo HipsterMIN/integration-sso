@@ -27,6 +27,7 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 	>('');
 	const [noAccountModal, setNoAccountModal] = useState(false);
 	const [failedModal, setFailedModal] = useState(false);
+	const [failedMessage, setFailedMessage] = useState('');
 	const [showAlert, setShowAlert] = useState(false);
 	const [devNoticeModal, setDevNoticeModal] = useState(false);
 	const [authRequiredModal, setAuthRequiredModal] = useState(false);
@@ -49,14 +50,16 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					result.ci = undefined; // CI 평문 즉시 폐기
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: process.env.QSIGN_REALM || 'ucube-qsign',
-						clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
+						realm: 'ucube-qsign',
+						clientId: 'onepassCli',
 						flowContext: 'PROVISION_USER',
 					});
-					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.data) {
+					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.success !== false && tokenResponse.payload?.data) {
 						ciToken = tokenResponse.payload.data.ciToken;
 						mbrUuid = tokenResponse.payload.data.mbrUuid;
 					} else {
+						const msg = tokenResponse.payload?.message || tokenResponse.message || '';
+						setFailedMessage(msg);
 						setFailedModal(true);
 						return;
 					}
@@ -75,6 +78,7 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 				history.push(getConversionRoute(4, memberType));
 			})().catch((err) => {
 				console.error("[Step3] 간편인증 ciToken 발급 실패:", err);
+				setFailedMessage('');
 				setFailedModal(true);
 			});
 		},
@@ -108,14 +112,16 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					result.ci = undefined; // CI 평문 즉시 폐기
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: process.env.QSIGN_REALM || 'ucube-qsign',
-						clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
+						realm: 'ucube-qsign',
+						clientId: 'onepassCli',
 						flowContext: 'PROVISION_USER',
 					});
-					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.data) {
+					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.success !== false && tokenResponse.payload?.data) {
 						ciToken = tokenResponse.payload.data.ciToken;
 						mbrUuid = tokenResponse.payload.data.mbrUuid;
 					} else {
+						const msg = tokenResponse.payload?.message || tokenResponse.message || '';
+						setFailedMessage(msg);
 						setFailedModal(true);
 						return;
 					}
@@ -134,6 +140,7 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 				history.push(getConversionRoute(4, memberType));
 			})().catch((err) => {
 				console.error("[Step3] 휴대폰인증 ciToken 발급 실패:", err);
+				setFailedMessage('');
 				setFailedModal(true);
 			});
 		},
@@ -388,10 +395,11 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 				<Modal
 					id="modal_failed_account"
 					isOpen={failedModal}
-					onClose={(): void => setFailedModal(false)}
+					onClose={(): void => { setFailedModal(false); setFailedMessage(''); }}
 					topText="회원 가입 안내"
 					title={
-						isBusiness ? '기업 인증이 실패하였습니다' : '본인 인증이 실패하였습니다'
+						failedMessage
+							|| (isBusiness ? '기업 인증이 실패하였습니다' : '본인 인증이 실패하였습니다')
 					}
 					buttons={
 						isBusiness
@@ -406,7 +414,9 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					}
 				>
 					<p className="text">
-						{isBusiness ? (
+						{failedMessage ? (
+							failedMessage
+						) : isBusiness ? (
 							<>
 								해당 정보로 기업인증이 실패하였습니다. <br />
 								다른 방식으로 기업인증을 진행해 주시기 바랍니다.

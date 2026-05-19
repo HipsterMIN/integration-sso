@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import extInstance from 'api/extInstance';
+import beInstance from 'api/beInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import { PayloadProps, Props } from 'types/api/provision/enterprises';
@@ -8,8 +8,8 @@ const provisionEnterprise = async (
 	props: Props,
 ): Promise<SuccessResponse<PayloadProps> | ErrorResponse> => {
 	try {
-		const response = await extInstance.post(
-			'/api/ext/provision/enterprises',
+		const response = await beInstance.post(
+			'/api/v1/ext/provision/enterprises',
 			props,
 		);
 		return {

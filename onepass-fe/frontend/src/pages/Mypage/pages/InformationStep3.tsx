@@ -39,34 +39,6 @@ function isValidEmail(email1: string, email2: string): boolean {
 	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(full);
 }
 
-interface DateInputProps {
-	id: string;
-	name: string;
-	defaultValue: string;
-	placeholder?: string;
-}
-
-function DateInput({ id, name, defaultValue, placeholder }: DateInputProps): JSX.Element {
-	const [value, setValue] = useState(formatDateInput(defaultValue));
-
-	const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
-		const formatted = formatDateInput(e.target.value);
-		setValue(formatted);
-	};
-
-	return (
-		<input
-			id={id}
-			type="text"
-			name={name}
-			value={value}
-			onChange={handleChange}
-			placeholder={placeholder || 'YYYY-MM-DD'}
-			maxLength={10}
-		/>
-	);
-}
-
 interface EmailFieldProps {
 	defaultEmail1: string;
 	defaultEmail2: string;
@@ -218,11 +190,13 @@ function BusinessForm({ formRef, onSubmit }: FormProps): JSX.Element {
 								설립일<span className="essential">필수</span>
 							</label>
 							<div className="input-box">
-								<DateInput
+								<input
 									id="founded_date"
+									type="text"
 									name="founded_date"
-									defaultValue={business.estbDt || ''}
-									placeholder="YYYY-MM-DD"
+									defaultValue={formatDateInput(business.estbDt || '')}
+									disabled
+									readOnly
 								/>
 							</div>
 						</div>
@@ -476,6 +450,7 @@ function MemberForm({ formRef, onSubmit }: FormProps): JSX.Element {
 function InformationStep3(): JSX.Element {
 	const memberType = useMypageType();
 	const isBusiness = memberType === 'business';
+	const { business } = useInfoStore();
 	const [resultModal, setResultModal] = useState<{ title: string; message: string; success?: boolean } | null>(null);
 	const [loading, setLoading] = useState(false);
 	const formRef = useRef<HTMLFormElement>(null);
@@ -498,7 +473,8 @@ function InformationStep3(): JSX.Element {
 		}
 
 		// 필수값 검증: 설립일, 이메일
-		const estbDt = (fd.get('founded_date') as string || '').trim();
+		// 설립일은 disabled 인풋이라 FormData에 포함되지 않으므로 store 값에서 직접 사용.
+		const estbDt = (business.estbDt || '').trim();
 		const email1 = (fd.get('email1') as string || '').trim();
 		const email2 = (fd.get('email2') as string || '').trim();
 

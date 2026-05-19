@@ -12,6 +12,14 @@ import type { BusinessType, Client, ClientGroup } from 'types/api/ext/clients';
 import { getMypageRoute } from './routes';
 import { loadUserId, useInfoStore } from './useInfoStore';
 
+function getBizTypeLabel(clientBizType: string | null, bizTypeList: BusinessType[]): string {
+	if (!clientBizType) return '';
+	if (clientBizType === 'ALL') {
+		return bizTypeList.filter((bt) => bt.key !== 'ALL').map((bt) => bt.name).join(', ');
+	}
+	return bizTypeList.find((bt) => bt.key === clientBizType)?.name ?? '';
+}
+
 function AffiliationAddStep2(): JSX.Element {
 	const memberType = useMypageType();
 	const isBusiness = memberType === 'business';
@@ -327,7 +335,7 @@ function AffiliationAddStep2(): JSX.Element {
 								/>
 								<div className="text-box">
 									<strong className="tit">{c.clientNm}</strong>
-									<p className="text">{c.description ?? ''}</p>
+									<p className="text">{getBizTypeLabel(c.businessTypes, bizTypes)}</p>
 								</div>
 							</label>
 						);

@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import extInstance from 'api/extInstance';
+import beInstance from 'api/beInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import { RegisterIndividualRequest, RegisterResponse } from 'types/api/provision/register';
@@ -8,8 +8,8 @@ const registerIndividual = async (
 	props: RegisterIndividualRequest,
 ): Promise<SuccessResponse<RegisterResponse> | ErrorResponse> => {
 	try {
-		const response = await extInstance.post(
-			'/api/ext/register/individual',
+		const response = await beInstance.post(
+			'/api/v1/ext/register/individual',
 			props,
 		);
 		return {

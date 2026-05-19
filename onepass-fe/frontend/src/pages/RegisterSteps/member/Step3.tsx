@@ -3,7 +3,6 @@ import Modal from 'components/KrdsModal';
 import RegisterLayout from 'components/RegisterLayout';
 import type { MemberType } from 'components/StepIndicator';
 import IMAGES from 'constants/images';
-import ROUTES from 'constants/routes';
 import type { EzAuthBizResult } from 'hooks/useEzAuth';
 import useEzAuth from 'hooks/useEzAuth';
 import type { NicePhoneAuthResult } from 'hooks/useNicePhoneAuth';
@@ -15,7 +14,6 @@ import { ChangeEvent, useCallback, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { useRegister } from 'providers/Register/RegisterContext';
 import { encryptCi } from 'utils/crypto/aesGcm';
-import { isMinorByBirthDate } from '../minor/utils';
 
 import { getRegisterRoute } from '../routes';
 
@@ -36,11 +34,10 @@ function RegisterStep3({
 	>('');
 	const [noAccountModal, setNoAccountModal] = useState(false);
 	const [failedModal, setFailedModal] = useState(false);
+	const [failedMessage, setFailedMessage] = useState('');
 	const [devNoticeModal, setDevNoticeModal] = useState(false);
 	const [authRequiredModal, setAuthRequiredModal] = useState(false);
 	const [showAlert, setShowAlert] = useState(false);
-	// 만14세 미만 안전망(fallback): 일반 회원가입 Step3에서 미성년자로 판정된 경우 안내 모달
-	const [minorDetectedModal, setMinorDetectedModal] = useState(false);
 
 	// 개인 간편인증 콜백
 	const handleEasyAuthSuccess = useCallback(
@@ -51,18 +48,6 @@ function RegisterStep3({
 			}
 
 			(async (): Promise<void> => {
-				const birthDate = result.birthday || '';
-
-				// ──────────────────────────────────────────────────────────────
-				// 만14세 미만 안전망(fallback): 일반 회원가입 Step3에서 미성년자 판정 시
-				// 미성년자 전용 플로우(REGISTER_MINOR_STEP1)로 안내한다.
-				// 정보통신망법 제31조 — 법정대리인 동의 없이 개인정보 수집 방지
-				// ──────────────────────────────────────────────────────────────
-				if (!isBusiness && isMinorByBirthDate(birthDate)) {
-					setMinorDetectedModal(true);
-					return;
-				}
-
 				let ciToken = '';
 				let mbrUuid = '';
 				if (result.ci) {
@@ -71,14 +56,16 @@ function RegisterStep3({
 					result.ci = undefined;
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: process.env.QSIGN_REALM || 'ucube-qsign',
-						clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
+						realm: 'ucube-qsign',
+						clientId: 'onepassCli',
 						flowContext: 'PROVISION_USER',
 					});
-					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.data) {
+					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.success !== false && tokenResponse.payload?.data) {
 						ciToken = tokenResponse.payload.data.ciToken;
 						mbrUuid = tokenResponse.payload.data.mbrUuid;
 					} else {
+						const msg = tokenResponse.payload?.message || tokenResponse.message || '';
+						setFailedMessage(msg);
 						setFailedModal(true);
 						return;
 					}
@@ -91,14 +78,15 @@ function RegisterStep3({
 					phoneSuffix: phone.slice(3),
 					ciToken,
 					mbrUuid,
-					birthDate,
+					birthDate: result.birthday || '',
 				});
 				history.push(getRegisterRoute(currentStep + 1, memberType));
 			})().catch(() => {
+				setFailedMessage('');
 				setFailedModal(true);
 			});
 		},
-		[updateData, currentStep, memberType, isBusiness],
+		[updateData, currentStep, memberType],
 	);
 
 	const handleEasyAuthError = useCallback((): void => {
@@ -119,18 +107,6 @@ function RegisterStep3({
 			}
 
 			(async (): Promise<void> => {
-				const birthDate = result.birthdate || '';
-
-				// ──────────────────────────────────────────────────────────────
-				// 만14세 미만 안전망(fallback): 일반 회원가입 Step3에서 미성년자 판정 시
-				// 미성년자 전용 플로우(REGISTER_MINOR_STEP1)로 안내한다.
-				// 정보통신망법 제31조 — 법정대리인 동의 없이 개인정보 수집 방지
-				// ──────────────────────────────────────────────────────────────
-				if (!isBusiness && isMinorByBirthDate(birthDate)) {
-					setMinorDetectedModal(true);
-					return;
-				}
-
 				let ciToken = '';
 				let mbrUuid = '';
 				if (result.ci) {
@@ -139,14 +115,16 @@ function RegisterStep3({
 					result.ci = undefined;
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: process.env.QSIGN_REALM || 'ucube-qsign',
-						clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
+						realm: 'ucube-qsign',
+						clientId: 'onepassCli',
 						flowContext: 'PROVISION_USER',
 					});
-					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.data) {
+					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.success !== false && tokenResponse.payload?.data) {
 						ciToken = tokenResponse.payload.data.ciToken;
 						mbrUuid = tokenResponse.payload.data.mbrUuid;
 					} else {
+						const msg = tokenResponse.payload?.message || tokenResponse.message || '';
+						setFailedMessage(msg);
 						setFailedModal(true);
 						return;
 					}
@@ -159,14 +137,15 @@ function RegisterStep3({
 					phoneSuffix: phone.slice(3),
 					ciToken,
 					mbrUuid,
-					birthDate,
+					birthDate: result.birthdate || '',
 				});
 				history.push(getRegisterRoute(currentStep + 1, memberType));
 			})().catch(() => {
+				setFailedMessage('');
 				setFailedModal(true);
 			});
 		},
-		[updateData, currentStep, memberType, isBusiness],
+		[updateData, currentStep, memberType],
 	);
 
 	const handlePhoneAuthError = useCallback((): void => {
@@ -469,10 +448,11 @@ function RegisterStep3({
 				<Modal
 					id="modal_failed_account"
 					isOpen={failedModal}
-					onClose={(): void => setFailedModal(false)}
+					onClose={(): void => { setFailedModal(false); setFailedMessage(''); }}
 					topText="회원 가입 안내"
 					title={
-						isBusiness ? '기업 인증이 실패하였습니다' : '본인 인증이 실패하였습니다'
+						failedMessage
+							|| (isBusiness ? '기업 인증이 실패하였습니다' : '본인 인증이 실패하였습니다')
 					}
 					buttons={[
 						{ label: '닫기', variant: 'tertiary' as const },
@@ -480,7 +460,9 @@ function RegisterStep3({
 					]}
 				>
 					<p className="text">
-						{isBusiness ? (
+						{failedMessage ? (
+							failedMessage
+						) : isBusiness ? (
 							<>
 								해당 정보로 기업인증이 실패하였습니다. <br />
 								다른 방식으로 기업인증을 진행해 주시기 바랍니다.
@@ -534,38 +516,6 @@ function RegisterStep3({
 				<p>
 					<strong>{isBusiness ? '사업자 간편인증서' : '개인 간편인증서'}</strong>를
 					이용해 주세요.
-				</p>
-			</Modal>
-			{/*
-			 * 만14세 미만 안전망 모달 (정보통신망법 제31조)
-			 * 일반 회원가입 Step3에서 birthDate 검증 결과 만14세 미만으로 확인된 경우
-			 * 법정대리인 동의 전용 플로우로 안내한다.
-			 */}
-			<Modal
-				id="modal_minor_detected"
-				isOpen={minorDetectedModal}
-				onClose={(): void => setMinorDetectedModal(false)}
-				topText="안내"
-				title="만 14세 미만 가입 안내"
-				size="small"
-				buttons={[
-					{
-						label: '법정대리인 동의 가입으로 이동',
-						variant: 'primary',
-						onClick: (): void => history.push(ROUTES.REGISTER_MINOR_STEP1),
-					},
-					{
-						label: '취소',
-						variant: 'tertiary',
-						onClick: (): void => setMinorDetectedModal(false),
-					},
-				]}
-			>
-				<p className="text">
-					인증 결과 <strong>만 14세 미만</strong>으로 확인되었습니다. <br />
-					정보통신망법 제31조에 따라 만 14세 미만의 경우 법정대리인(친권자 또는 후견인)의
-					동의가 필요합니다. <br /><br />
-					법정대리인 동의 가입 절차로 이동합니다.
 				</p>
 			</Modal>
 			{isBusiness && (

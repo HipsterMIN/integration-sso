@@ -1,54 +1,8 @@
 import Modal from 'components/KrdsModal';
 import { useRegister } from 'providers/Register/RegisterContext';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { BusinessType, Client, PerAgency } from 'types/api/ext/clients';
+import type { BusinessType, Client } from 'types/api/ext/clients';
 
-/* ── 서비스 상태 헬퍼 ── */
-
-/** 체크(선택) 가능 여부: READY/STUB + 미가입 항목만 true */
-export function isCheckable(client: Client): boolean {
-	const available = ['READY', 'STUB'].includes(client.serviceStatus);
-	const registered =
-		'registered' in client && (client as PerAgency).registered === true;
-	return available && !registered;
-}
-
-/** 상태 칩 정보. 정상(READY/STUB + 미가입 + 조회성공/미등록)이면 null 반환 */
-function getStatusChip(
-	client: Client,
-): { label: string; className: string } | null {
-	// 1단계: registered — 기등록
-	if ('registered' in client && (client as PerAgency).registered) {
-		return { label: '계정연결', className: 'badge linked' };
-	}
-	// 2단계: serviceStatus — 송신 불가
-	switch (client.serviceStatus) {
-		case 'DOWN':
-			return { label: '서비스중단', className: 'badge down' };
-		case 'CB_OPEN':
-			return { label: '일시중단', className: 'badge cb-open' };
-		case 'EP_NOT_CONFIGURED':
-			return { label: '미연동', className: 'badge not-configured' };
-		default:
-			break;
-	}
-	// 3단계: queryStatus — "알 수 없음" 안내 (체크 가능 항목에 한해)
-	if ('queryStatus' in client) {
-		const qs = (client as PerAgency).queryStatus;
-		switch (qs) {
-			case 'ERROR':
-				return { label: '조회실패', className: 'badge query-error' };
-			case 'TIMEOUT':
-				return { label: '응답지연', className: 'badge query-timeout' };
-			case 'CB_BLOCKED':
-				return { label: '일시중단', className: 'badge cb-open' };
-			default:
-				// FOUND, NOT_FOUND → 칩 없음
-				return null;
-		}
-	}
-	return null;
-}
 
 interface ServiceListModalProps {
 	isOpen: boolean;
@@ -56,6 +10,7 @@ interface ServiceListModalProps {
 	clients: Client[];
 	groupMap: Map<string, string>;
 	businessTypes: BusinessType[];
+	memberType: 'member' | 'business';
 }
 
 function ServiceListModal({
@@ -64,13 +19,24 @@ function ServiceListModal({
 	clients,
 	groupMap,
 	businessTypes,
+	memberType,
 }: ServiceListModalProps): JSX.Element {
 	const { data, updateData } = useRegister();
 	const [checked, setChecked] = useState<Record<string, boolean>>({});
 	const [allChecked, setAllChecked] = useState(false);
 	const [filterInst, setFilterInst] = useState('');
-	const [filterBizType, setFilterBizType] = useState('');
 	const [searchKeyword, setSearchKeyword] = useState('');
+
+	// memberType에 따라 사업유형 필터 고정
+	const fixedBizType = useMemo(() => {
+		if (memberType === 'member') {
+			const found = businessTypes.find((bt) => bt.key !== 'ALL' && bt.name.includes('개인'));
+			return found?.key || businessTypes.find((bt) => bt.key === 'INDIVIDUAL')?.key || '';
+		}
+		const found = businessTypes.find((bt) => bt.key !== 'ALL' && bt.name.includes('기업'));
+		return found?.key || businessTypes.find((bt) => bt.key === 'CORPORATE')?.key || '';
+	}, [memberType, businessTypes]);
+	const [filterBizType, setFilterBizType] = useState('');
 
 	// 방어 — API 응답 shape 가 예상과 달라 array 가 아닐 경우 빈 배열로 폴백
 	const safeClients = useMemo(() => (Array.isArray(clients) ? clients : []), [
@@ -98,11 +64,11 @@ function ServiceListModal({
 				(c) => c.groups && groupMap.get(c.groups) === filterInst,
 			);
 		}
-		if (filterBizType && filterBizType !== 'ALL') {
+		if (fixedBizType && fixedBizType !== 'ALL') {
 			result = result.filter(
 				(c) =>
 					c.businessTypes != null &&
-					(c.businessTypes === filterBizType || c.businessTypes === 'ALL'),
+					(c.businessTypes === fixedBizType || c.businessTypes === 'ALL'),
 			);
 		}
 		if (searchKeyword.trim()) {
@@ -114,13 +80,17 @@ function ServiceListModal({
 			);
 		}
 		return result;
-	}, [safeClients, filterInst, filterBizType, searchKeyword, groupMap]);
+	}, [safeClients, filterInst, fixedBizType, searchKeyword, groupMap]);
 
-	// 필터 결과 중 체크 가능한 항목만
-	const checkableFiltered = useMemo(
-		() => filteredClients.filter(isCheckable),
-		[filteredClients],
-	);
+	// 사업유형 필터 기준 클라이언트 목록 (전체선택 기준 — 검색어 무관)
+	const bizTypeClients = useMemo(() => {
+		if (!fixedBizType || fixedBizType === 'ALL') return safeClients;
+		return safeClients.filter(
+			(c) =>
+				c.businessTypes != null &&
+				(c.businessTypes === fixedBizType || c.businessTypes === 'ALL'),
+		);
+	}, [safeClients, fixedBizType]);
 
 	// 모달 열릴 때 Context에서 선택 상태 복원 + 필터 초기화
 	useEffect(() => {
@@ -131,50 +101,48 @@ function ServiceListModal({
 		});
 		setChecked(restored);
 		setAllChecked(
-			checkableFiltered.length > 0 &&
-				checkableFiltered.every((c) => restored[c.ssoClientId]),
+			bizTypeClients.length > 0 &&
+				bizTypeClients.every((c) => restored[c.ssoClientId]),
 		);
 		setFilterInst('');
-		setFilterBizType('');
+		setFilterBizType(fixedBizType);
 		setSearchKeyword('');
-	}, [isOpen, data.selectedClients, safeClients]);
+	}, [isOpen, data.selectedClients, safeClients, fixedBizType, bizTypeClients]);
 
-	// 필터된 목록 기준 전체 선택 상태 갱신 (체크 가능 항목만)
+	// 사업유형 필터 기준 전체 선택 상태 갱신 (검색어 무관)
 	useEffect(() => {
-		if (checkableFiltered.length === 0) {
+		if (bizTypeClients.length === 0) {
 			setAllChecked(false);
 		} else {
-			setAllChecked(checkableFiltered.every((c) => checked[c.ssoClientId]));
+			setAllChecked(bizTypeClients.every((c) => checked[c.ssoClientId]));
 		}
-	}, [checkableFiltered, checked]);
+	}, [bizTypeClients, checked]);
 
 	const handleCheck = useCallback(
 		(ssoClientId: string) => {
-			const target = safeClients.find((c) => c.ssoClientId === ssoClientId);
-			if (target && !isCheckable(target)) return;
 			setChecked((prev) => ({ ...prev, [ssoClientId]: !prev[ssoClientId] }));
 		},
-		[safeClients],
+		[],
 	);
 
 	const handleAllCheck = useCallback(() => {
 		const next = !allChecked;
 		setChecked((prev) => {
 			const updated = { ...prev };
-			checkableFiltered.forEach((c) => {
+			bizTypeClients.forEach((c) => {
 				updated[c.ssoClientId] = next;
 			});
 			return updated;
 		});
-	}, [allChecked, checkableFiltered]);
+	}, [allChecked, bizTypeClients]);
 
 	const handleReset = useCallback(() => {
 		setChecked({});
 		setAllChecked(false);
 		setFilterInst('');
-		setFilterBizType('');
+		setFilterBizType(fixedBizType);
 		setSearchKeyword('');
-	}, []);
+	}, [fixedBizType]);
 
 	const handleApply = useCallback(() => {
 		const selectedIds = Object.entries(checked)
@@ -235,6 +203,7 @@ function ServiceListModal({
 						value={filterBizType}
 						onChange={(e): void => setFilterBizType(e.target.value)}
 						aria-label="사업유형 선택"
+						disabled
 					>
 						<option value="">사업유형</option>
 						{businessTypes.map((bt) => (
@@ -268,26 +237,21 @@ function ServiceListModal({
 					<p className="empty-result">검색 결과가 없습니다.</p>
 				)}
 				{filteredClients.map((client) => {
-					const checkable = isCheckable(client);
-					const chip = getStatusChip(client);
-
 					return (
 						<label
 							key={client.ssoClientId}
-							className={`check-box style3${checkable ? '' : ' disabled'}`}
+							className="check-box style3"
 						>
 							<input
 								type="checkbox"
 								id={`modal_client_${client.ssoClientId}`}
 								name="check"
 								checked={!!checked[client.ssoClientId]}
-								disabled={!checkable}
 								onChange={(): void => handleCheck(client.ssoClientId)}
 							/>
 							<div className="text-box">
 								<strong className="tit">
 									{client.clientNm}
-									{chip && <span className={chip.className}>{chip.label}</span>}
 								</strong>
 								<p className="text">{client.description}</p>
 								<p
@@ -309,12 +273,7 @@ function ServiceListModal({
 					checked={allChecked}
 					onChange={handleAllCheck}
 				/>
-				<small>
-					모두 선택합니다.{' '}
-					<span style={{ fontSize: '12px', color: '#888' }}>
-						(연동 가능 항목만 선택)
-					</span>
-				</small>
+				<small>모두 선택합니다.</small>
 			</label>
 		</Modal>
 	);

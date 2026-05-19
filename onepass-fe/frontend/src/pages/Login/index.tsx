@@ -1,12 +1,10 @@
 import './Login.styles.scss';
 
-import AnyIdLoginModal from 'components/AnyIdLoginModal';
 import Modal from 'components/KrdsModal';
 import IMAGES from 'constants/images';
 import ROUTES from 'constants/routes';
 import type { EzAuthBizResult } from 'hooks/useEzAuth';
 import useEzAuth from 'hooks/useEzAuth';
-import useAnyIdAuth, { AnyIdAuthResult } from 'hooks/useAnyIdAuth';
 import useNicePhoneAuth, { NicePhoneAuthResult } from 'hooks/useNicePhoneAuth';
 import usePersonalEasyAuth, { EasysignResult } from 'hooks/usePersonalEasyAuth';
 import history from 'lib/history';
@@ -70,7 +68,8 @@ function Login(): JSX.Element {
 				);
 				return;
 			}
-			if (!actionUrl) {
+			const skipAuth = process.env.SKIP_AUTH === 'true';
+			if (!actionUrl && !skipAuth) {
 				showError(
 					'접근 오류',
 					'비정상적인 접근입니다',
@@ -80,9 +79,11 @@ function Login(): JSX.Element {
 			}
 			setBizNo(data.businessNumber);
 			// setState 후 즉시 submit하면 값이 반영 안되므로 setTimeout 사용
-			setTimeout(() => {
-				bizFormRef.current?.submit();
-			}, 0);
+			if (actionUrl) {
+				setTimeout(() => {
+					bizFormRef.current?.submit();
+				}, 0);
+			}
 		},
 		[actionUrl],
 	);
@@ -103,43 +104,6 @@ function Login(): JSX.Element {
 		handleBizEzAuthSuccess,
 		handleBizEzAuthError,
 	);
-
-	// Any-ID 정부 통합인증 훅
-	const handleAnyIdSuccess = useCallback(
-		(result: AnyIdAuthResult): void => {
-			if (result.resultCode === '2000' && result.ci) {
-				setEncCi(result.ci);
-			} else {
-				setErrorTopText('Any-ID 인증 오류');
-				setErrorTitle('인증에 실패하였습니다');
-				setErrorMessage(result.resultMsg ?? 'Any-ID 인증 오류가 발생했습니다.');
-				setErrorModal(true);
-			}
-		},
-		[],
-	);
-
-	const handleAnyIdError = useCallback(
-		(message: string): void => {
-			setErrorTopText('Any-ID 인증 오류');
-			setErrorTitle('인증에 실패하였습니다');
-			setErrorMessage(message);
-			setErrorModal(true);
-		},
-		[],
-	);
-
-	const {
-		busy: anyIdBusy,
-		showModal: anyIdModalOpen,
-		startAuth: startAnyIdAuth,
-		closeModal: closeAnyIdModal,
-		initSdk: initAnyIdSdk,
-	} = useAnyIdAuth(handleAnyIdSuccess, handleAnyIdError, {
-		actionUrl,
-		authLevel: 2,
-		bypass: 0,
-	});
 
 	// NICE 휴대폰 인증 훅
 	const { busy: phoneAuthBusy, startAuth: startPhoneAuth } = useNicePhoneAuth(
@@ -171,8 +135,10 @@ function Login(): JSX.Element {
 	useSectionAnimation();
 
 	// action_url 이 없는 경우 모달 표시
+	// SKIP_AUTH=true(로컬 개발) 환경에서는 action_url 없이도 정상 접근 허용
 	useEffect(() => {
-		if (!actionUrl) {
+		const skipAuth = process.env.SKIP_AUTH === 'true';
+		if (!actionUrl && !skipAuth) {
 			if (error && code) {
 				// Q-Sign 에러로 돌아온 경우
 				const message =
@@ -239,7 +205,8 @@ function Login(): JSX.Element {
 			);
 			return;
 		}
-		if (!actionUrl) {
+		const skipAuth = process.env.SKIP_AUTH === 'true';
+		if (!actionUrl && !skipAuth) {
 			showError(
 				'접근 오류',
 				'비정상적인 접근입니다',
@@ -249,8 +216,10 @@ function Login(): JSX.Element {
 		}
 
 		setIsLoading(true);
-		// hidden form으로 POST 전송
-		memberFormRef.current?.submit();
+		// hidden form으로 POST 전송 (SKIP_AUTH 환경에서는 action이 빈 값이므로 미전송)
+		if (actionUrl) {
+			memberFormRef.current?.submit();
+		}
 	};
 
 	/** 기업 회원 로그인 - form POST 전송 */
@@ -272,7 +241,8 @@ function Login(): JSX.Element {
 			);
 			return;
 		}
-		if (!actionUrl) {
+		const skipAuth = process.env.SKIP_AUTH === 'true';
+		if (!actionUrl && !skipAuth) {
 			showError(
 				'접근 오류',
 				'비정상적인 접근입니다',
@@ -282,13 +252,17 @@ function Login(): JSX.Element {
 		}
 
 		setIsLoading(true);
-		bizFormRef.current?.submit();
+		// hidden form으로 POST 전송 (SKIP_AUTH 환경에서는 action이 빈 값이므로 미전송)
+		if (actionUrl) {
+			bizFormRef.current?.submit();
+		}
 	};
 
 	const handleErrorModalClose = (): void => {
 		setErrorModal(false);
-		// action_url 없이 에러만 온 경우 메인으로 이동
-		if (!actionUrl) {
+		// action_url 없이 에러만 온 경우 메인으로 이동 (단, 개발 환경 제외)
+		const skipAuth = process.env.SKIP_AUTH === 'true';
+		if (!actionUrl && !skipAuth) {
 			window.location.href = '/';
 		}
 	};
@@ -332,13 +306,6 @@ function Login(): JSX.Element {
 					를 이용해 주세요.
 				</p>
 			</Modal>
-
-			{/* Any-ID 정부 통합로그인 모달 */}
-			<AnyIdLoginModal
-				isOpen={anyIdModalOpen}
-				onClose={closeAnyIdModal}
-				onInit={initAnyIdSdk}
-			/>
 
 			<div className="container main">
 				<div className="inner">
@@ -627,10 +594,8 @@ function Login(): JSX.Element {
 												<button
 													type="button"
 													className="btn"
-													aria-label="Any-ID 정부 통합로그인"
-													onClick={startAnyIdAuth}
-													disabled={anyIdBusy}
-													aria-busy={anyIdBusy}
+													aria-label="Any-ID로 로그인"
+													onClick={(): void => setDevNoticeModal(true)}
 												>
 													<div className="text-box">
 														<figure className="img">

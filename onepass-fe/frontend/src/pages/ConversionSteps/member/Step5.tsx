@@ -1,4 +1,3 @@
-import { beApiInstance } from 'api/beInstance';
 import provisionEnterprise from 'api/provision/enterprises';
 import provisionUser from 'api/provision/users';
 import ConversionLayout from 'components/ConversionLayout';
@@ -27,11 +26,12 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 	const [verificationStatus, setVerificationStatus] = useState({
 		validateOk: false,
 		duplicateOk: false,
+		loginIdDupOk: false,
 		formValid: false,
 	});
 
 	const handleVerificationChange = useCallback(
-		(status: { validateOk: boolean; duplicateOk: boolean; formValid: boolean }) => {
+		(status: { validateOk: boolean; duplicateOk: boolean; loginIdDupOk: boolean; formValid: boolean }) => {
 			setVerificationStatus(status);
 		},
 		[],
@@ -51,7 +51,9 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 				!data.brno ||
 				data.brno.length !== 10 ||
 				!data.email ||
-				!data.emailDomain
+				!data.emailDomain ||
+				!data.loginId ||
+				!data.password
 			) {
 				setAlertMessage('(필수) 항목을 모두 입력한 후 다음으로 진행해 주세요.');
 				setShowAlert(true);
@@ -69,23 +71,14 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 				setShowAlert(true);
 				return false;
 			}
-
-			const loginId = data.mbrId;
-			// B-4: Math.random() PRNG 제거 — 서버에서 CSPRNG 기반 임시 비밀번호 발급
-			let password = data.password;
-			if (!password) {
-				try {
-					const pwRes = await beApiInstance.get<{ tempPassword: string }>(
-						'/api/v1/auth/provision/temp-password',
-					);
-					password = pwRes.data.tempPassword;
-				} catch {
-					setErrorMessage('임시 비밀번호 생성에 실패하였습니다. 다시 시도해 주세요.');
-					setFailedModal(true);
-					return false;
-				}
+			if (!verificationStatus.loginIdDupOk) {
+				setAlertMessage('아이디 중복확인을 완료해 주세요.');
+				setShowAlert(true);
+				return false;
 			}
 
+			const loginId = data.loginId || data.mbrId;
+			const password = data.password;
 
 			const clients =
 				data.selectedClients.length > 0
@@ -94,28 +87,57 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 								const client = data.availableClients.find(
 									(c) => c.ssoClientId === ssoClientId,
 								);
-								return client ? { clientId: client.ssoClientId } : null;
+								if (!client) return null;
+								return {
+									clientId: client.ssoClientId,
+									mbrId: '',
+									rprsInstYn:
+										client.ssoClientId === data.initialClientId
+											? ('Y' as const)
+											: ('N' as const),
+								};
 							})
-							.filter((c): c is { clientId: string } => c !== null)
+							.filter(
+								(c): c is { clientId: string; mbrId: string; rprsInstYn: 'Y' | 'N' } =>
+									c !== null,
+							)
 					: undefined;
+
+			const rprsEmlAddr = data.email && data.emailDomain
+				? `${data.email}@${data.emailDomain}`
+				: '';
+			const rprsTelno = data.telPrefix && data.telSuffix
+				? `${data.telPrefix}-${data.telSuffix}`
+				: undefined;
 
 			const provResponse = await provisionEnterprise({
 				bzmnTypeCd: 'C',
 				brno: data.brno,
 				bzmnNm: data.bzmnNm,
 				rprsvNm: data.rprsvNm,
+				estbDt: data.startDt,
+				rprsTelno,
+				rprsEmlAddr,
 				newPic: {
 					memberName: data.rprsvNm,
 					loginId,
 					initialPassword: password,
-					email: data.email ? `${data.email}@${data.emailDomain}` : '',
-					phone: data.phone,
+					email: rprsEmlAddr,
+					phone: rprsTelno || '',
 				},
 				clients,
 			});
 
-			if (provResponse.statusCode !== 200 || !provResponse.payload?.data) {
-				setErrorMessage(provResponse.message || '기업 등록에 실패하였습니다.');
+			if (
+				provResponse.statusCode !== 200
+				|| !provResponse.payload?.data
+				|| provResponse.payload?.success === false
+			) {
+				setErrorMessage(
+					provResponse.message
+					|| provResponse.payload?.message
+					|| '기업 등록에 실패하였습니다.',
+				);
 				setFailedModal(true);
 				return false;
 			}
@@ -146,19 +168,17 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 			return false;
 		}
 
-		if (!verificationStatus.duplicateOk) {
+		if (!verificationStatus.loginIdDupOk) {
 			setAlertMessage('아이디 중복확인을 완료해 주세요.');
 			setShowAlert(true);
 			return false;
 		}
 
-		// [기획안 변경 2026-05-15] 기관 선택 폐기 — Step4에서 selectedClients는 항상 빈 배열
-		// memberClients는 빈 배열로 조립됨 → IdO/Q-IM이 CI(연계정보) 기반으로 기관 연결 자동 처리
-		// clients: [] → BE에서 "기관 연결 없이 계정만 생성 후 CI 기반 자동 매핑" 처리 예정 (Sprint 확인 필요)
-		const memberClients = data.selectedClients.map((ssoClientId, idx) => ({
+		// clients 조립 (Step4에서 선택된 서비스) — fromClientId(initialClientId)와 일치하면 대표기관(Y)
+		const memberClients = data.selectedClients.map((ssoClientId) => ({
 			clientId: ssoClientId,
-			mbrId: data.loginId,
-			...(idx === 0 ? { rprsInstYn: 'Y' as const } : {}),
+			mbrId: '',
+			rprsInstYn: ssoClientId === data.initialClientId ? 'Y' as const : 'N' as const,
 		}));
 
 		// 이메일 조합
@@ -170,7 +190,7 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 		// 일반전화 조합
 		const telno =
 			data.telPrefix && data.telSuffix
-				? `${data.telPrefix}${data.telSuffix}`
+				? `${data.telPrefix}-${data.telSuffix}`
 				: undefined;
 
 		const provResponse = await provisionUser({
@@ -190,8 +210,16 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 			},
 		});
 
-		if (provResponse.statusCode !== 200 || !provResponse.payload?.data) {
-			setErrorMessage(provResponse.message || '개인회원 등록에 실패하였습니다.');
+		if (
+			provResponse.statusCode !== 200
+			|| !provResponse.payload?.data
+			|| provResponse.payload?.success === false
+		) {
+			setErrorMessage(
+				provResponse.message
+				|| provResponse.payload?.message
+				|| '개인회원 등록에 실패하였습니다.',
+			);
 			setFailedModal(true);
 			return false;
 		}
@@ -233,18 +261,15 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 						</figure>
 					</div>
 					{isBusiness ? (
-						<AccountForm isBusiness onVerificationChange={handleVerificationChange} />
+						<AccountForm isBusiness isConversion onVerificationChange={handleVerificationChange} />
 					) : (
-						<div className="form-cols">
-							<div className="col">
-								<AccountForm
-									isBusiness={false}
-									onVerificationChange={handleVerificationChange}
-								/>
-							</div>
-							<div className="col">
-								<MemberInfoForm isBusiness={false} />
-							</div>
+						<div className="form-wrap">
+							<AccountForm
+								isBusiness={false}
+								flat
+								onVerificationChange={handleVerificationChange}
+							/>
+							<MemberInfoForm isBusiness={false} flat />
 						</div>
 					)}
 				</div>

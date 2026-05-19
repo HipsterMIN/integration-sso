@@ -154,44 +154,6 @@ export const RegisterMemberStep6 = Loadable(
 		),
 );
 
-// 만14세 미만 회원가입 — 법정대리인 동의 플로우 (정보통신망법 제31조)
-export const RegisterMinorStep1 = Loadable(
-	() =>
-		import(
-			/* webpackChunkName: "RegisterMinorStep1" */ 'pages/RegisterSteps/minor/Step1'
-		),
-);
-export const RegisterMinorStep2 = Loadable(
-	() =>
-		import(
-			/* webpackChunkName: "RegisterMinorStep2" */ 'pages/RegisterSteps/minor/Step2'
-		),
-);
-export const RegisterMinorStep3 = Loadable(
-	() =>
-		import(
-			/* webpackChunkName: "RegisterMinorStep3" */ 'pages/RegisterSteps/minor/Step3'
-		),
-);
-export const RegisterMinorStep4 = Loadable(
-	() =>
-		import(
-			/* webpackChunkName: "RegisterMinorStep4" */ 'pages/RegisterSteps/minor/Step4'
-		),
-);
-export const RegisterMinorStep5 = Loadable(
-	() =>
-		import(
-			/* webpackChunkName: "RegisterMinorStep5" */ 'pages/RegisterSteps/minor/Step5'
-		),
-);
-export const RegisterMinorStep6 = Loadable(
-	() =>
-		import(
-			/* webpackChunkName: "RegisterMinorStep6" */ 'pages/RegisterSteps/minor/Step6'
-		),
-);
-
 // Register business steps
 export const RegisterBusinessStep2 = Loadable(
 	() =>
