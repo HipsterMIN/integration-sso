@@ -52,10 +52,10 @@ CREATE TABLE IF NOT EXISTS ido.broker_audit_log (
         CHECK (auth_level IS NULL OR auth_level IN ('L1','L2','L3'))
 );
 
-CREATE INDEX idx_broker_audit_correlation ON ido.broker_audit_log (correlation_id);
-CREATE INDEX idx_broker_audit_provider    ON ido.broker_audit_log (provider_code, created_at DESC);
-CREATE INDEX idx_broker_audit_created     ON ido.broker_audit_log (created_at DESC);
-CREATE INDEX idx_broker_audit_error       ON ido.broker_audit_log (error_code, created_at DESC)
+CREATE INDEX IF NOT EXISTS idx_broker_audit_correlation ON ido.broker_audit_log (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_broker_audit_provider    ON ido.broker_audit_log (provider_code, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_broker_audit_created     ON ido.broker_audit_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_broker_audit_error       ON ido.broker_audit_log (error_code, created_at DESC)
     WHERE error_code IS NOT NULL;
 
 COMMENT ON TABLE  ido.broker_audit_log                IS '§18.5.5 브로커 구간 전 주기 감사 로그';

@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS ido.agency_endpoint_registry (
         CHECK (auth_type IN ('API_KEY','MTLS','HMAC','NONE'))
 );
 
-CREATE INDEX idx_aer_active_type
+CREATE INDEX IF NOT EXISTS idx_aer_active_type
     ON ido.agency_endpoint_registry(endpoint_type, is_active)
     WHERE is_active = TRUE;
 
@@ -77,21 +77,21 @@ CREATE TABLE IF NOT EXISTS ido.provisioning_outbox (
 
 -- 인덱스: 재시도 스케줄러가 사용하는 핵심 인덱스
 --   PENDING 상태이고 next_retry_at이 현재 시각 이전인 레코드를 효율적으로 조회
-CREATE INDEX idx_prov_outbox_pending
+CREATE INDEX IF NOT EXISTS idx_prov_outbox_pending
     ON ido.provisioning_outbox(next_retry_at ASC, agency_code)
     WHERE status = 'PENDING';
 
 -- 인덱스: 사용자별 프로비저닝 이력 조회
-CREATE INDEX idx_prov_outbox_qim_user_id
+CREATE INDEX IF NOT EXISTS idx_prov_outbox_qim_user_id
     ON ido.provisioning_outbox(qim_user_id, created_at DESC);
 
 -- 인덱스: 기관별 DEAD_LETTER 모니터링
-CREATE INDEX idx_prov_outbox_dead_letter
+CREATE INDEX IF NOT EXISTS idx_prov_outbox_dead_letter
     ON ido.provisioning_outbox(agency_code, created_at DESC)
     WHERE status = 'DEAD_LETTER';
 
 -- 인덱스: 소스 이벤트 기반 중복 체크
-CREATE INDEX idx_prov_outbox_source_event
+CREATE INDEX IF NOT EXISTS idx_prov_outbox_source_event
     ON ido.provisioning_outbox(source_event_id)
     WHERE source_event_id IS NOT NULL;
 
