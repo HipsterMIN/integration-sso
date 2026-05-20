@@ -8,7 +8,7 @@
 --    Keycloak/비OIDC 모드에서 IdO가 직접 생성하는 인증 결과 SoR.
 --    기존 qsign.auth_result와 동일한 구조 — 공통 이벤트 버스(qsign.auth.events)로 발행.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.auth_result (
+CREATE TABLE IF NOT EXISTS ido.auth_result (
     auth_result_id      VARCHAR(36)   NOT NULL,
     correlation_id      VARCHAR(36)   NOT NULL,
     auth_level          VARCHAR(10)   NOT NULL,       -- L1 / L2 / L3
@@ -43,7 +43,7 @@ COMMENT ON COLUMN ido.auth_result.provider_tx_id     IS 'Keycloak sub 또는 외
 --    연속 실패 시 잠금 상태 관리.
 --    설계서 §10.3 lock-attempts=5, lock-duration=30분 기준.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.auth_lock (
+CREATE TABLE IF NOT EXISTS ido.auth_lock (
     lock_id             VARCHAR(36)   NOT NULL,
     identifier_hash     VARCHAR(64)   NOT NULL,
     provider_code       VARCHAR(50)   NOT NULL,
@@ -68,7 +68,7 @@ COMMENT ON COLUMN ido.auth_lock.locked_until IS 'NULL이면 잠금 해제 상태
 --    Keycloak 브로커링 과정에서의 OIDC 세션 감사 이력.
 --    q-sign의 qsign.oidc_session_log에 해당하는 ido 측 로그.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.oidc_session_log (
+CREATE TABLE IF NOT EXISTS ido.oidc_session_log (
     log_id              VARCHAR(36)   NOT NULL,
     correlation_id      VARCHAR(36)   NOT NULL,
     provider_code       VARCHAR(50)   NOT NULL,       -- KAKAO_OIDC / NAVER_OIDC
@@ -93,7 +93,7 @@ COMMENT ON COLUMN ido.oidc_session_log.provider_subject IS 'Keycloak sub — PII
 --    id_token replay attack 방지 — 이미 사용된 nonce 기록.
 --    Redis state/nonce store의 1회 소비 보완용 영속 기록.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.oidc_nonce_used (
+CREATE TABLE IF NOT EXISTS ido.oidc_nonce_used (
     nonce               VARCHAR(64)   NOT NULL,
     correlation_id      VARCHAR(36)   NOT NULL,
     provider_code       VARCHAR(50)   NOT NULL,
@@ -109,7 +109,7 @@ COMMENT ON TABLE ido.oidc_nonce_used IS 'OIDC nonce 사용 이력 — replay att
 -- 5. 인증 수단별 설정 캐시 (ido.provider_config)
 --    provider별 AuthLevel, 활성화 여부, 브로커 모드 관리.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.provider_config (
+CREATE TABLE IF NOT EXISTS ido.provider_config (
     provider_code       VARCHAR(50)   NOT NULL,
     display_name        VARCHAR(100)  NOT NULL,
     auth_level          VARCHAR(10)   NOT NULL DEFAULT 'L1',
