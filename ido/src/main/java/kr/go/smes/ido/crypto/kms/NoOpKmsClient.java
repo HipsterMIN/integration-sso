@@ -1,6 +1,7 @@
 package kr.go.smes.ido.crypto.kms;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +26,7 @@ import java.util.Base64;
  */
 @Slf4j
 @Component
+@Primary
 @Profile("!prod")
 public class NoOpKmsClient implements KmsClient {
 

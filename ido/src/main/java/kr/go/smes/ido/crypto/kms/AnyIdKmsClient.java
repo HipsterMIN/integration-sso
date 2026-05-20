@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.go.smes.ido.broker.anyid.AnyIdProperties;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -64,6 +65,7 @@ import java.util.Base64;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "ido.anyid.kms", name = "app-key", matchIfMissing = false)
 public class AnyIdKmsClient implements KmsClient {
 
     private static final String PROVIDER_NAME = "anyid-kms";
