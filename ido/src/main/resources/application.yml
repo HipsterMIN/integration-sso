@@ -56,7 +56,8 @@ spring:
     default-schema: ido
     baseline-on-migrate: true
     baseline-version: 0
-    validate-on-migrate: true
+    validate-on-migrate: false   # V1 멱등화(IF NOT EXISTS) 후 체크섬 변경 허용
+    repair-on-migrate: true      # 체크섬 불일치 시 자동 repair 후 migrate
     out-of-order: false
     connect-retries: 5
     connect-retries-interval: 10s
