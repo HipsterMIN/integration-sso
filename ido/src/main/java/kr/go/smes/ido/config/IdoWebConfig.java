@@ -22,6 +22,7 @@ import org.springframework.web.client.RestTemplate;
 import javax.net.ssl.SSLContext;
 import java.io.ByteArrayInputStream;
 import java.security.KeyStore;
+import java.time.Duration;
 import java.util.Base64;
 
 /**
@@ -91,8 +92,8 @@ public class IdoWebConfig {
     @Bean
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(connectTimeoutMs);
-        factory.setReadTimeout(readTimeoutMs);
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        factory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
         return new RestTemplate(factory);
     }
 
@@ -102,8 +103,8 @@ public class IdoWebConfig {
     @Bean
     public RestTemplate qimRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(qimConnectTimeoutMs);
-        factory.setReadTimeout(qimReadTimeoutMs);
+        factory.setConnectTimeout(Duration.ofMillis(qimConnectTimeoutMs));
+        factory.setReadTimeout(Duration.ofMillis(qimReadTimeoutMs));
         return new RestTemplate(factory);
     }
 
@@ -122,8 +123,8 @@ public class IdoWebConfig {
     @Bean("webhookRestTemplate")
     public RestTemplate webhookRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(webhookConnectTimeoutMs);
-        factory.setReadTimeout(webhookReadTimeoutMs);
+        factory.setConnectTimeout(Duration.ofMillis(webhookConnectTimeoutMs));
+        factory.setReadTimeout(Duration.ofMillis(webhookReadTimeoutMs));
         return new RestTemplate(factory);
     }
 
@@ -172,8 +173,8 @@ public class IdoWebConfig {
                      "SECRETS_AGENCY_COMMON_MTLS_KEYSTORE_BASE64 를 등록하세요.",
                      mtlsKeystoreCredentialRef);
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(mtlsConnectTimeoutMs);
-            factory.setReadTimeout(mtlsReadTimeoutMs);
+            factory.setConnectTimeout(Duration.ofMillis(mtlsConnectTimeoutMs));
+            factory.setReadTimeout(Duration.ofMillis(mtlsReadTimeoutMs));
             return new RestTemplate(factory);
         }
 
@@ -202,8 +203,8 @@ public class IdoWebConfig {
 
             HttpComponentsClientHttpRequestFactory factory =
                     new HttpComponentsClientHttpRequestFactory(httpClient);
-            factory.setConnectTimeout(mtlsConnectTimeoutMs);
-            factory.setConnectionRequestTimeout(mtlsConnectTimeoutMs);
+            factory.setConnectTimeout(Duration.ofMillis(mtlsConnectTimeoutMs));
+            factory.setConnectionRequestTimeout(Duration.ofMillis(mtlsConnectTimeoutMs));
 
             log.info("[IdoWebConfig] mTLS RestTemplate 초기화 완료 — 클라이언트 인증서 장착. " +
                      "connectTimeout={}ms readTimeout={}ms",
@@ -215,8 +216,8 @@ public class IdoWebConfig {
             log.error("[IdoWebConfig] mTLS KeyStore 파싱 실패 — 기본 TLS RestTemplate 폴백. error={}. " +
                       "PKCS12 형식과 Base64 인코딩을 확인하세요.", e.getMessage());
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(mtlsConnectTimeoutMs);
-            factory.setReadTimeout(mtlsReadTimeoutMs);
+            factory.setConnectTimeout(Duration.ofMillis(mtlsConnectTimeoutMs));
+            factory.setReadTimeout(Duration.ofMillis(mtlsReadTimeoutMs));
             return new RestTemplate(factory);
         }
     }
