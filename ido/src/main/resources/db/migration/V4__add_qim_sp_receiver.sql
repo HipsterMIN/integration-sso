@@ -30,12 +30,12 @@ CREATE TABLE ido.inst_mbr_id_mapping (
         CHECK (status IN ('ACTIVE','WITHDRAWN','SUSPENDED'))
 );
 
-CREATE INDEX idx_inst_mbr_qim_user_id    ON ido.inst_mbr_id_mapping (qim_user_id);
-CREATE INDEX idx_inst_mbr_identifier     ON ido.inst_mbr_id_mapping (identifier_hash)
+CREATE INDEX IF NOT EXISTS idx_inst_mbr_qim_user_id    ON ido.inst_mbr_id_mapping (qim_user_id);
+CREATE INDEX IF NOT EXISTS idx_inst_mbr_identifier     ON ido.inst_mbr_id_mapping (identifier_hash)
     WHERE identifier_hash IS NOT NULL;
-CREATE INDEX idx_inst_mbr_mbr_uuid       ON ido.inst_mbr_id_mapping (mbr_uuid)
+CREATE INDEX IF NOT EXISTS idx_inst_mbr_mbr_uuid       ON ido.inst_mbr_id_mapping (mbr_uuid)
     WHERE mbr_uuid IS NOT NULL;
-CREATE INDEX idx_inst_mbr_status         ON ido.inst_mbr_id_mapping (status, registered_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inst_mbr_status         ON ido.inst_mbr_id_mapping (status, registered_at DESC);
 
 COMMENT ON TABLE  ido.inst_mbr_id_mapping              IS 'Q-IM SP 연동 — instMbrId(=qimUserId) 매핑 SoR';
 COMMENT ON COLUMN ido.inst_mbr_id_mapping.inst_mbr_id  IS 'Q-IM에 반환하는 SP 내부 식별자 (= qimUserId UUID)';
@@ -61,7 +61,7 @@ CREATE TABLE ido.sp_receiver_idempotency (
         CHECK (endpoint IN ('QUERY','REGISTER','WITHDRAW'))
 );
 
-CREATE INDEX idx_sp_idempotency_expires ON ido.sp_receiver_idempotency (expires_at);  -- 일반 인덱스 (partial index WHERE NOW() 는 IMMUTABLE 제약으로 불가)
+CREATE INDEX IF NOT EXISTS idx_sp_idempotency_expires ON ido.sp_receiver_idempotency (expires_at);  -- 일반 인덱스 (partial index WHERE NOW() 는 IMMUTABLE 제약으로 불가)
 
 COMMENT ON TABLE  ido.sp_receiver_idempotency               IS 'Q-IM SP 수신 API 멱등성 저장소 (TTL=7일)';
 COMMENT ON COLUMN ido.sp_receiver_idempotency.response_json IS '재호출 시 그대로 반환할 응답 JSON 문자열';
@@ -86,10 +86,10 @@ CREATE TABLE ido.qim_sp_receiver_log (
     CONSTRAINT pk_qim_sp_receiver_log PRIMARY KEY (log_id)
 );
 
-CREATE INDEX idx_sp_receiver_log_user    ON ido.qim_sp_receiver_log (qim_user_id, received_at DESC)
+CREATE INDEX IF NOT EXISTS idx_sp_receiver_log_user    ON ido.qim_sp_receiver_log (qim_user_id, received_at DESC)
     WHERE qim_user_id IS NOT NULL;
-CREATE INDEX idx_sp_receiver_log_at      ON ido.qim_sp_receiver_log (received_at DESC);
-CREATE INDEX idx_sp_receiver_log_idem    ON ido.qim_sp_receiver_log (idempotency_key)
+CREATE INDEX IF NOT EXISTS idx_sp_receiver_log_at      ON ido.qim_sp_receiver_log (received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sp_receiver_log_idem    ON ido.qim_sp_receiver_log (idempotency_key)
     WHERE idempotency_key IS NOT NULL;
 
 COMMENT ON TABLE ido.qim_sp_receiver_log IS 'Q-IM → IdO 아웃바운드 수신 전수 감사 로그';

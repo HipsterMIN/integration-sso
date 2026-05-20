@@ -29,9 +29,9 @@ CREATE TABLE ido.auth_result (
         CHECK (source_system IN ('ido-keycloak','ido-nonoidc','ido-adapter'))
 );
 
-CREATE INDEX idx_ido_auth_result_correlation  ON ido.auth_result (correlation_id);
-CREATE INDEX idx_ido_auth_result_identifier   ON ido.auth_result (identifier_hash, authenticated_at DESC);
-CREATE INDEX idx_ido_auth_result_provider     ON ido.auth_result (provider_code, authenticated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ido_auth_result_correlation  ON ido.auth_result (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_ido_auth_result_identifier   ON ido.auth_result (identifier_hash, authenticated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ido_auth_result_provider     ON ido.auth_result (provider_code, authenticated_at DESC);
 
 COMMENT ON TABLE  ido.auth_result                    IS '§8.3 Strategy B — Keycloak/비OIDC 모드 인증 결과 SoR';
 COMMENT ON COLUMN ido.auth_result.identifier_hash    IS 'SHA-256(sub | rawIdentifier) — Q-IM 조회 키';
@@ -56,8 +56,8 @@ CREATE TABLE ido.auth_lock (
     CONSTRAINT uq_ido_auth_lock_key     UNIQUE (identifier_hash, provider_code)
 );
 
-CREATE INDEX idx_ido_auth_lock_hash     ON ido.auth_lock (identifier_hash);
-CREATE INDEX idx_ido_auth_lock_locked   ON ido.auth_lock (locked_until)
+CREATE INDEX IF NOT EXISTS idx_ido_auth_lock_hash     ON ido.auth_lock (identifier_hash);
+CREATE INDEX IF NOT EXISTS idx_ido_auth_lock_locked   ON ido.auth_lock (locked_until)
     WHERE locked_until IS NOT NULL;
 
 COMMENT ON TABLE  ido.auth_lock              IS '§10.3 인증 연속 실패 잠금 — 5회 실패 시 30분 잠금';
@@ -82,8 +82,8 @@ CREATE TABLE ido.oidc_session_log (
         CHECK (broker_mode IN ('keycloak','qsign'))
 );
 
-CREATE INDEX idx_ido_oidc_log_correlation ON ido.oidc_session_log (correlation_id);
-CREATE INDEX idx_ido_oidc_log_hash        ON ido.oidc_session_log (identifier_hash, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ido_oidc_log_correlation ON ido.oidc_session_log (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_ido_oidc_log_hash        ON ido.oidc_session_log (identifier_hash, created_at DESC);
 
 COMMENT ON TABLE  ido.oidc_session_log                 IS 'Keycloak OIDC 세션 감사 이력';
 COMMENT ON COLUMN ido.oidc_session_log.provider_subject IS 'Keycloak sub — PII, 운영 환경에서는 암호화 저장 권고';
@@ -101,7 +101,7 @@ CREATE TABLE ido.oidc_nonce_used (
     CONSTRAINT pk_ido_oidc_nonce_used PRIMARY KEY (nonce)
 );
 
-CREATE INDEX idx_ido_nonce_used_at ON ido.oidc_nonce_used (used_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ido_nonce_used_at ON ido.oidc_nonce_used (used_at DESC);
 
 COMMENT ON TABLE ido.oidc_nonce_used IS 'OIDC nonce 사용 이력 — replay attack 방지 보조';
 

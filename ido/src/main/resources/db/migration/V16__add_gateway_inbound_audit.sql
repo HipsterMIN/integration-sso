@@ -44,11 +44,11 @@ CREATE TABLE IF NOT EXISTS ido.gateway_inbound_audit (
 );
 
 -- 인덱스: 기관별 이벤트 이력 조회
-CREATE INDEX idx_gateway_inbound_agency_code
+CREATE INDEX IF NOT EXISTS idx_gateway_inbound_agency_code
     ON ido.gateway_inbound_audit(agency_code, received_at DESC);
 
 -- 인덱스: RECEIVED 상태 미처리 이벤트 조회 (모니터링/재처리용)
-CREATE INDEX idx_gateway_inbound_pending
+CREATE INDEX IF NOT EXISTS idx_gateway_inbound_pending
     ON ido.gateway_inbound_audit(received_at ASC)
     WHERE status = 'RECEIVED';
 
@@ -83,11 +83,11 @@ CREATE TABLE IF NOT EXISTS ido.gateway_outbound_audit (
 );
 
 -- 인덱스: 기관별 아웃바운드 이력
-CREATE INDEX idx_gateway_outbound_agency_code
+CREATE INDEX IF NOT EXISTS idx_gateway_outbound_agency_code
     ON ido.gateway_outbound_audit(agency_code, sent_at DESC);
 
 -- 인덱스: FAILED 발송 모니터링
-CREATE INDEX idx_gateway_outbound_failed
+CREATE INDEX IF NOT EXISTS idx_gateway_outbound_failed
     ON ido.gateway_outbound_audit(sent_at DESC)
     WHERE status = 'FAILED';
 

@@ -31,9 +31,9 @@ CREATE TABLE ido.fe_session_audit (
         CHECK (auth_level IN ('L1','L2','L3'))
 );
 
-CREATE INDEX idx_fe_session_audit_user
+CREATE INDEX IF NOT EXISTS idx_fe_session_audit_user
     ON ido.fe_session_audit (qim_user_id, created_at DESC);
-CREATE INDEX idx_fe_session_audit_event
+CREATE INDEX IF NOT EXISTS idx_fe_session_audit_event
     ON ido.fe_session_audit (event_type, created_at DESC);
 
 COMMENT ON TABLE  ido.fe_session_audit               IS '§12.5 FE 세션 감사 이력 (BFF→IdO 이관)';
@@ -55,7 +55,7 @@ CREATE TABLE ido.fe_return_url_whitelist (
     CONSTRAINT uq_fe_return_url_prefix UNIQUE (url_prefix)
 );
 
-CREATE INDEX idx_fe_return_url_active
+CREATE INDEX IF NOT EXISTS idx_fe_return_url_active
     ON ido.fe_return_url_whitelist (active, url_prefix);
 
 COMMENT ON TABLE ido.fe_return_url_whitelist IS '§12.6 FE returnUrl 화이트리스트 SoR';

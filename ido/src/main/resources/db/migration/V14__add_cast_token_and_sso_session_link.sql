@@ -24,14 +24,14 @@ CREATE TABLE IF NOT EXISTS ido.cast_token_audit (
 );
 
 -- 인덱스: 사용자별 CAST 토큰 조회 (GDPR 파기 시 userId 기준 삭제)
-CREATE INDEX idx_cast_audit_qim_user_id ON ido.cast_token_audit(qim_user_id);
+CREATE INDEX IF NOT EXISTS idx_cast_audit_qim_user_id ON ido.cast_token_audit(qim_user_id);
 
 -- 인덱스: 만료 배치 처리 (expired_at < NOW() AND status = 'ISSUED')
-CREATE INDEX idx_cast_audit_expires_at ON ido.cast_token_audit(expires_at) WHERE status = 'ISSUED';
+CREATE INDEX IF NOT EXISTS idx_cast_audit_expires_at ON ido.cast_token_audit(expires_at) WHERE status = 'ISSUED';
 
 -- 인덱스: 기관별 CAST 토큰 통계
-CREATE INDEX idx_cast_audit_source_agency ON ido.cast_token_audit(source_agency, issued_at DESC);
-CREATE INDEX idx_cast_audit_target_agency ON ido.cast_token_audit(target_agency, issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cast_audit_source_agency ON ido.cast_token_audit(source_agency, issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cast_audit_target_agency ON ido.cast_token_audit(target_agency, issued_at DESC);
 
 COMMENT ON TABLE  ido.cast_token_audit                IS 'Cross-Agency SSO CAST 토큰 감사 이력';
 COMMENT ON COLUMN ido.cast_token_audit.jti            IS 'JWT ID (UUID v7) — Redis 1회 소비 키와 동일';
@@ -58,13 +58,13 @@ CREATE TABLE IF NOT EXISTS ido.sso_session_link (
 );
 
 -- 인덱스: 사용자별 SSO 연결 이력
-CREATE INDEX idx_sso_link_qim_user_id ON ido.sso_session_link(qim_user_id, linked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sso_link_qim_user_id ON ido.sso_session_link(qim_user_id, linked_at DESC);
 
 -- 인덱스: CAST JTI로 연결 이력 조회
-CREATE INDEX idx_sso_link_cast_jti ON ido.sso_session_link(cast_jti);
+CREATE INDEX IF NOT EXISTS idx_sso_link_cast_jti ON ido.sso_session_link(cast_jti);
 
 -- 인덱스: 기관 A→B 통계
-CREATE INDEX idx_sso_link_agencies ON ido.sso_session_link(source_agency, target_agency, linked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sso_link_agencies ON ido.sso_session_link(source_agency, target_agency, linked_at DESC);
 
 COMMENT ON TABLE  ido.sso_session_link                 IS 'Cross-Agency SSO 성공 연결 이력';
 COMMENT ON COLUMN ido.sso_session_link.cast_jti        IS '소비된 CAST 토큰 JTI — cast_token_audit 참조';
