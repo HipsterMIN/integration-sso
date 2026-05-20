@@ -14,7 +14,7 @@
 --    §12.5 세션 생성/만료/무효화 감사.
 --    Redis 가 주 저장소이며 이 테이블은 감사/알림 전용.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.fe_session_audit (
+CREATE TABLE IF NOT EXISTS ido.fe_session_audit (
     fe_session_id       VARCHAR(64)   NOT NULL,       -- SecureRandom Base64URL (43자)
     qim_user_id         VARCHAR(36)   NOT NULL,
     auth_result_id      VARCHAR(36)   NOT NULL,
@@ -45,7 +45,7 @@ COMMENT ON COLUMN ido.fe_session_audit.event_type    IS 'CREATED / EXPIRED / INV
 --    §12.6 returnUrl 검증 SoR.
 --    application.yml ido.fe.allowed-return-urls 와 병행 사용.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.fe_return_url_whitelist (
+CREATE TABLE IF NOT EXISTS ido.fe_return_url_whitelist (
     id                  SERIAL        NOT NULL,
     url_prefix          VARCHAR(500)  NOT NULL,       -- e.g. https://agency-a.example.com
     description         VARCHAR(200),

@@ -10,7 +10,7 @@
 --    설계 원칙: instMbrId = qimUserId (1:1 UUID 매핑)
 --    Q-IM은 이 값을 이후 모든 송수신에서 매핑 기준으로 사용
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.inst_mbr_id_mapping (
+CREATE TABLE IF NOT EXISTS ido.inst_mbr_id_mapping (
     inst_mbr_id          VARCHAR(36)   NOT NULL,          -- SP 내부 식별자 (= qimUserId)
     qim_user_id          VARCHAR(36)   NOT NULL,          -- Q-IM UUID (= inst_mbr_id)
     mbr_uuid             VARCHAR(36),                     -- Q-IM 발행 mbrUuid (등록 수신 시 저장)
@@ -48,7 +48,7 @@ COMMENT ON COLUMN ido.inst_mbr_id_mapping.member_type  IS 'PERSONAL(개인회원
 --    저장소: DB (Redis TTL 기반으로 전환 가능)
 --    보관 기간: 7일 (expires_at 기준 배치 삭제)
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.sp_receiver_idempotency (
+CREATE TABLE IF NOT EXISTS ido.sp_receiver_idempotency (
     idempotency_key      VARCHAR(200)  NOT NULL,
     endpoint             VARCHAR(20)   NOT NULL,          -- QUERY | REGISTER | WITHDRAW
     http_status          SMALLINT      NOT NULL DEFAULT 200,
@@ -72,7 +72,7 @@ COMMENT ON COLUMN ido.sp_receiver_idempotency.expires_at    IS '만료 후 배�
 --    모든 수신 호출의 전수 감사 기록
 --    멱등 재호출도 기록 (is_replay=true)
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.qim_sp_receiver_log (
+CREATE TABLE IF NOT EXISTS ido.qim_sp_receiver_log (
     log_id               VARCHAR(36)   NOT NULL,
     idempotency_key      VARCHAR(200),
     endpoint             VARCHAR(20)   NOT NULL,
