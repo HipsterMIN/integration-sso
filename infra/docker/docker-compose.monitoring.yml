@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ══════════════════════════════════════════════════════════════════════════════
 # OnePass 통합인증 플랫폼 — 모니터링 스택 (Sprint 5)
 #
@@ -13,11 +11,14 @@ version: "3.9"
 #   postgres-exporter(9187)  — PostgreSQL 메트릭 → Prometheus
 #
 # 사용법:
-#   # 기본 인프라(docker-compose.yml) 기동 후:
-#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+#   [권장] 기본 인프라와 함께 기동 (redis/kafka/postgres exporter가 해당 서비스에 접근 가능):
+#     docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
 #
-#   # 모니터링만 별도 기동:
-#   docker compose -f docker-compose.monitoring.yml up -d
+#   [단독] 모니터링만 기동 (네트워크·볼륨을 자체 생성):
+#     docker compose -f docker-compose.monitoring.yml up -d
+#     ※ exporter들은 docker-compose.yml의 redis/kafka/postgres 컨테이너에
+#        접근하기 위해 동일 네트워크(onepass-net)가 이미 존재해야 합니다.
+#        존재하지 않을 경우 exporter 기동은 성공하나 스크레이핑은 실패합니다.
 #
 # 접속 정보:
 #   Grafana    → http://localhost:3000  (admin / onepass-admin)
@@ -36,18 +37,17 @@ version: "3.9"
 
 networks:
   onepass-net:
-    external: true          # docker-compose.yml에서 생성한 네트워크 재사용
+    # docker-compose.yml이 먼저 기동된 경우 해당 네트워크를 재사용.
+    # 단독 기동 시에는 새로 생성 (external 제거).
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
 
 volumes:
   prometheus-data:
-    name: infra_prometheus-data
-    external: true          # docker-compose.yml 볼륨 공유
   grafana-data:
-    name: infra_grafana-data
-    external: true
   loki-data:
-    name: infra_loki-data
-    external: true
 
 x-logging: &default-logging
   driver: json-file
