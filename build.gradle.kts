@@ -161,6 +161,29 @@ subprojects {
             }
         }
     }
+
+    // ── Windows 환경 clean 오류 대응 ──────────────────────────────────────────
+    // Windows에서 Gradle clean 실행 시 파일 잠금(lock)으로 삭제 실패하는 경우를 해결.
+    // forceCleanBuildDir: cmd /c rmdir /s /q 로 강제 삭제 (플랫폼 분기).
+    // clean 태스크가 forceCleanBuildDir에 위임하므로 Delete 태스크의 기본 삭제 동작은 비활성화.
+    tasks.register<Exec>("forceCleanBuildDir") {
+        val buildDirPath = layout.buildDirectory.get().asFile.absolutePath
+        val osName = System.getProperty("os.name").lowercase()
+
+        if (osName.contains("windows")) {
+            commandLine("cmd", "/c", "if exist \"$buildDirPath\" rmdir /s /q \"$buildDirPath\"")
+        } else {
+            commandLine("rm", "-rf", buildDirPath)
+        }
+        isIgnoreExitValue = true
+        description = "Deletes the build directory forcefully (cross-platform)."
+    }
+
+    tasks.named("clean") {
+        dependsOn("forceCleanBuildDir")
+        // forceCleanBuildDir에 위임 — Delete 태스크의 기본 삭제 동작 비활성화
+        (this as? Delete)?.delete?.clear()
+    }
 }
 
 // ── platform-common: 실행 JAR 불필요, plain JAR만 생성 ───────────────────────
