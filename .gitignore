@@ -40,3 +40,22 @@ onepass-fe/frontend/public_backup_*/
 onepass-fe/frontend/*.backup_*
 k6/reports/*.json
 k6/mock-server/node_modules/
+
+# ── 임시/개발 산출물 (2026-05-20) ─────────────────────────────────────────────
+# .bak 백업 파일 (날짜 접미사 포함)
+*.bak_*
+# FE 빌드 캐시
+onepass-fe/frontend/.temp_cache/
+# i18n 해시 캐시 (빌드 시 자동 생성)
+onepass-fe/frontend/i18n-translations-hash.json
+# javac 컴파일 args 파일
+javac.*.args
+# SMEP 런북 docx (smep-* 레포 관리, 이 레포에 불필요)
+docs/runbooks/
+# 작업 산출물 — 필요 시 별도 레포/드라이브에 보관
+member-flow.html
+build_excel.py
+# 분석 산출물 (Excel/Word — 문서 드라이브 또는 Wiki에 보관)
+*.xlsx
+통합인증_*.docx
+OnePass_*.xlsx
