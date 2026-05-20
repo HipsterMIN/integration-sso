@@ -362,7 +362,8 @@ ON CONFLICT (agency_code) DO UPDATE
 -- 7. Rate Limit 설정 등록 (V9 생성 테이블)
 --    기관별 TPS·일일 쿼터 차별화
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO ido.agency_rate_limit_config (agency_code, tps_limit, daily_limit, active)
+-- agency_rate_limit_config 실제 컬럼명: enabled (active 아님 — V9 테이블 정의 기준)
+INSERT INTO ido.agency_rate_limit_config (agency_code, tps_limit, daily_limit, enabled)
 VALUES
     ('AGENCY_BRIDGE_001',     50,  100000, TRUE),
     ('AGENCY_APACHEGATE_001', 30,   50000, TRUE),   -- 레거시: 낮은 TPS
@@ -372,6 +373,7 @@ VALUES
 ON CONFLICT (agency_code) DO UPDATE
     SET tps_limit   = EXCLUDED.tps_limit,
         daily_limit = EXCLUDED.daily_limit,
+        enabled     = EXCLUDED.enabled,
         updated_at  = NOW();
 
 
