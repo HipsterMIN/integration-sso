@@ -5,6 +5,8 @@
 -- [멱등성] 모든 DDL에 IF NOT EXISTS 적용
 --   이유: postgres 볼륨 재사용 시 Flyway schema_history 없이
 --         V1 재실행 시도 → 42P07 relation already exists 오류 방지
+-- [하위 호환] 테이블이 이미 존재할 경우 누락 컬럼을 ADD COLUMN IF NOT EXISTS로 보완
+--   이유: 볼륨의 agency_meta가 integration_type 등 컬럼 없이 생성된 이전 버전일 수 있음
 -- ============================================================
 
 CREATE SCHEMA IF NOT EXISTS ido;
@@ -35,6 +37,28 @@ CREATE TABLE IF NOT EXISTS ido.agency_meta (
     CONSTRAINT chk_integration_type
         CHECK (integration_type IN ('DIRECT','APACHE_GATE','BRIDGE','INTERNAL_SSO'))
 );
+
+-- 하위 호환: 테이블이 이전 버전으로 생성된 경우 누락 컬럼 보완
+ALTER TABLE ido.agency_meta
+    ADD COLUMN IF NOT EXISTS maintenance_windows JSONB,
+    ADD COLUMN IF NOT EXISTS integration_type    VARCHAR(20) NOT NULL DEFAULT 'DIRECT',
+    ADD COLUMN IF NOT EXISTS bridge_endpoint     VARCHAR(500),
+    ADD COLUMN IF NOT EXISTS sso_domain          VARCHAR(200);
+
+-- integration_type CHECK 제약이 없을 경우에만 추가
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'chk_integration_type'
+          AND conrelid = 'ido.agency_meta'::regclass
+    ) THEN
+        ALTER TABLE ido.agency_meta
+            ADD CONSTRAINT chk_integration_type
+            CHECK (integration_type IN ('DIRECT','APACHE_GATE','BRIDGE','INTERNAL_SSO'));
+    END IF;
+END
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_agency_meta_active ON ido.agency_meta (active);
 
