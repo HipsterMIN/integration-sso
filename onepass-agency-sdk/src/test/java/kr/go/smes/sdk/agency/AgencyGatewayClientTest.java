@@ -28,6 +28,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -1114,5 +1116,168 @@ class AgencyGatewayClientTest {
                 .eventType("EVT").agencyCode("AG")
                 .payloadJson("{\"k\":\"v\"}   ")
                 .build()).doesNotThrowAnyException();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // S17: OkHttpAgencyAdapter 재시도 + shouldRetryOn 테스트
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * S17-T1: 5xx 응답 후 재시도하여 202 성공
+     *
+     * <p>첫 번째 시도 503 → 두 번째 시도 202.
+     * baseDelayMs=1ms로 테스트 속도 확보.
+     */
+    @Test
+    @DisplayName("S17-T1: OkHttpAgencyAdapter — 5xx 응답 후 재시도 성공 (MockWebServer)")
+    void s17T1_okHttp_retryOn5xx_succeedsOnSecondAttempt() throws Exception {
+        // given — 첫 번째 503, 두 번째 202
+        mockWebServer.enqueue(new MockResponse()
+                .setResponseCode(503)
+                .setBody("{\"error\":\"unavailable\"}"));
+        mockWebServer.enqueue(new MockResponse()
+                .setResponseCode(202)
+                .setHeader("X-Correlation-Id", "okhttp-retry-corr-001")
+                .setBody("{\"status\":\"accepted\"}"));
+
+        String baseUrl = mockWebServer.url("/").toString().replaceAll("/$", "");
+
+        OkHttpClient fastClient = new OkHttpClient.Builder()
+                .connectTimeout(3, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
+                .build();
+        // maxRetries=3, baseDelayMs=1ms (테스트 속도용)
+        OkHttpAgencyAdapter adapter = new OkHttpAgencyAdapter(fastClient, 3, 1L);
+
+        AgencyGatewayClient client = AgencyGatewayClient.builder()
+                .baseUrl(baseUrl)
+                .apiKey(API_KEY)
+                .agencyCode(AGENCY_CODE)
+                .httpAdapter(adapter)
+                .build();
+
+        // when
+        GatewayResponse response = client.sendInbound(InboundEvent.builder()
+                .eventType("USER_REGISTERED")
+                .agencyCode(AGENCY_CODE)
+                .idempotencyKey(IDEMPOTENCY_KEY)
+                .build());
+
+        // then — 재시도 후 202 성공
+        assertThat(response.getHttpStatus()).isEqualTo(202);
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getCorrelationId()).isEqualTo("okhttp-retry-corr-001");
+        // 총 2번 요청 (1회 실패 + 1회 성공)
+        assertThat(mockWebServer.getRequestCount()).isEqualTo(2);
+    }
+
+    /**
+     * S17-T2: maxRetries 소진 → 마지막 5xx 상태코드로 AgencyHttpException
+     *
+     * <p>maxRetries=1 → 총 2번 시도, 모두 502.
+     */
+    @Test
+    @DisplayName("S17-T2: OkHttpAgencyAdapter — 5xx maxRetries 소진 → AgencyHttpException(502)")
+    void s17T2_okHttp_retryExhausted_throwsLastException() {
+        // given — 모두 502
+        mockWebServer.enqueue(new MockResponse()
+                .setResponseCode(502)
+                .setBody("{\"error\":\"bad-gateway\"}"));
+        mockWebServer.enqueue(new MockResponse()
+                .setResponseCode(502)
+                .setBody("{\"error\":\"bad-gateway\"}"));
+
+        String baseUrl = mockWebServer.url("/").toString().replaceAll("/$", "");
+        // maxRetries=1 (총 2회), baseDelayMs=1ms
+        OkHttpAgencyAdapter adapter = new OkHttpAgencyAdapter(new OkHttpClient(), 1, 1L);
+
+        AgencyGatewayClient client = AgencyGatewayClient.builder()
+                .baseUrl(baseUrl)
+                .apiKey(API_KEY)
+                .agencyCode(AGENCY_CODE)
+                .httpAdapter(adapter)
+                .build();
+
+        // when & then
+        assertThatThrownBy(() -> client.sendInbound(InboundEvent.builder()
+                .eventType("USER_REGISTERED")
+                .agencyCode(AGENCY_CODE)
+                .idempotencyKey(IDEMPOTENCY_KEY)
+                .build()))
+                .isInstanceOf(AgencyHttpException.class)
+                .satisfies(ex -> {
+                    AgencyHttpException httpEx = (AgencyHttpException) ex;
+                    assertThat(httpEx.getHttpStatus()).isEqualTo(502);
+                    assertThat(httpEx.isServerError()).isTrue();
+                });
+
+        // 총 2번 요청 (1 + 1회 재시도)
+        assertThat(mockWebServer.getRequestCount()).isEqualTo(2);
+    }
+
+    /**
+     * S17-T3: 4xx 응답 → 재시도 없이 즉시 AgencyHttpException
+     *
+     * <p>400은 클라이언트 오류이므로 재시도해선 안 된다.
+     */
+    @Test
+    @DisplayName("S17-T3: OkHttpAgencyAdapter — 4xx 응답은 재시도 없이 즉시 예외")
+    void s17T3_okHttp_noRetryOn4xx_immediateException() {
+        // given — 400 한 번만 등록
+        mockWebServer.enqueue(new MockResponse()
+                .setResponseCode(400)
+                .setBody("{\"error\":\"bad-request\"}"));
+
+        String baseUrl = mockWebServer.url("/").toString().replaceAll("/$", "");
+        // maxRetries=3이지만 4xx는 재시도해선 안 됨
+        OkHttpAgencyAdapter adapter = new OkHttpAgencyAdapter(new OkHttpClient(), 3, 1L);
+
+        AgencyGatewayClient client = AgencyGatewayClient.builder()
+                .baseUrl(baseUrl)
+                .apiKey(API_KEY)
+                .httpAdapter(adapter)
+                .build();
+
+        // when & then
+        assertThatThrownBy(() -> client.sendInbound(InboundEvent.builder()
+                .eventType("EVT").agencyCode(AGENCY_CODE).idempotencyKey(IDEMPOTENCY_KEY).build()))
+                .isInstanceOf(AgencyHttpException.class)
+                .satisfies(ex -> {
+                    AgencyHttpException httpEx = (AgencyHttpException) ex;
+                    assertThat(httpEx.getHttpStatus()).isEqualTo(400);
+                    assertThat(httpEx.isClientError()).isTrue();
+                });
+
+        // 재시도 없이 딱 1번만 요청
+        assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
+    }
+
+    /**
+     * S17-T4: {@code shouldRetryOn()} 분류 정확성 단위 테스트
+     *
+     * <p>타임아웃/인터럽트는 재시도 불가, 그 외 IOException은 재시도 가능.
+     */
+    @Test
+    @DisplayName("S17-T4: OkHttpAgencyAdapter.shouldRetryOn() — 타임아웃·인터럽트는 false, 나머지는 true")
+    void s17T4_shouldRetryOn_classifiesCorrectly() {
+        // 타임아웃 → InterruptedIOException 서브클래스 → false
+        assertThat(OkHttpAgencyAdapter.shouldRetryOn(new SocketTimeoutException("read timeout")))
+                .as("SocketTimeoutException은 재시도 불가").isFalse();
+
+        // InterruptedIOException 직접 → false
+        assertThat(OkHttpAgencyAdapter.shouldRetryOn(new InterruptedIOException("interrupted")))
+                .as("InterruptedIOException은 재시도 불가").isFalse();
+
+        // 일반 연결 오류 → true
+        assertThat(OkHttpAgencyAdapter.shouldRetryOn(new java.net.ConnectException("Connection refused")))
+                .as("ConnectException은 재시도 가능").isTrue();
+
+        // DNS 오류 → true
+        assertThat(OkHttpAgencyAdapter.shouldRetryOn(new java.net.UnknownHostException("unknown host")))
+                .as("UnknownHostException은 재시도 가능").isTrue();
+
+        // 일반 IOException → true
+        assertThat(OkHttpAgencyAdapter.shouldRetryOn(new IOException("connection reset by peer")))
+                .as("일반 IOException은 재시도 가능").isTrue();
     }
 }
