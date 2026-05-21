@@ -16,6 +16,15 @@ import { saveCiToken } from './affiliationServices';
 import { getMypageRoute } from './routes';
 import { loadUserId } from './useInfoStore';
 
+/** 성별 값을 M/F로 정규화 */
+const normalizeGender = (raw?: string): 'M' | 'F' | undefined => {
+	if (!raw) return undefined;
+	const v = raw.trim();
+	if (['남', 'M', 'm', '1'].includes(v)) return 'M';
+	if (['여', 'F', 'f', '2'].includes(v)) return 'F';
+	return undefined;
+};
+
 // PUB260507 mypage_affiliation_withdraw_step1.html — 기업 인증 카드 2개
 function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
 	const [devNoticeModal, setDevNoticeModal] = useState(false);
@@ -154,7 +163,7 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 
 	/** CI 암호화 → ciToken 발급 → sessionStorage 저장 → Step2 이동 */
 	const processCiToken = useCallback(
-		async (ci: string): Promise<void> => {
+		async (ci: string, authInfo?: { name?: string; birthDate?: string; gender?: 'M' | 'F'; phone?: string }): Promise<void> => {
 			const mbrUuid = loadUserId('member') || '';
 			const encrypted = await encryptCi(ci);
 			const tokenRes = await exchangeCiToken({
@@ -163,6 +172,7 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 				clientId: 'onepassCli',
 				flowContext: 'USER_WITHDRAW',
 				mbrUuid,
+				...authInfo,
 			});
 			if (tokenRes.statusCode === 200 && tokenRes.payload?.data) {
 				saveCiToken(tokenRes.payload.data.ciToken);
@@ -184,7 +194,11 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 				const ci = result.ci;
 				// eslint-disable-next-line no-param-reassign
 				result.ci = undefined; // CI 평문 즉시 폐기
-				processCiToken(ci).catch(() => setFailedModal(true));
+				processCiToken(ci, {
+					name: result.name?.normalize('NFC').trim(),
+					birthDate: (result.birthday || '').replace(/\D/g, ''),
+					phone: (result.phone || '').replace(/\D/g, ''),
+				}).catch(() => setFailedModal(true));
 			} else {
 				setFailedModal(true);
 			}
@@ -202,7 +216,12 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 				const ci = result.ci;
 				// eslint-disable-next-line no-param-reassign
 				result.ci = undefined; // CI 평문 즉시 폐기
-				processCiToken(ci).catch(() => setFailedModal(true));
+				processCiToken(ci, {
+					name: result.name?.normalize('NFC').trim(),
+					birthDate: (result.birthdate || '').replace(/\D/g, ''),
+					gender: normalizeGender(result.gender),
+					phone: (result.phone || '').replace(/\D/g, ''),
+				}).catch(() => setFailedModal(true));
 			} else {
 				setFailedModal(true);
 			}

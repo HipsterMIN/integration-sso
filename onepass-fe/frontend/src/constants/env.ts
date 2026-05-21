@@ -5,9 +5,3 @@ export const ENVIRONMENT = {
 		'',
 	wsURL: process?.env?.WEBSOCKET_API_ENDPOINT || '',
 };
-
-export const QSIGN = {
-	baseURL: process?.env?.QSIGN_BASE_URL || '',
-	realm: process?.env?.QSIGN_REALM || '',
-	clientId: process?.env?.QSIGN_CLIENT_ID || '',
-};

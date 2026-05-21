@@ -134,7 +134,10 @@ function MemberInfoForm({ isBusiness, flat = false }: MemberInfoFormProps): JSX.
 									type="number"
 									name="tel2"
 									value={data.telSuffix}
-									onChange={handleChange('telSuffix')}
+									onChange={(e) => {
+										console.log('[MemberInfoForm] telSuffix onChange:', JSON.stringify(e.target.value), 'type:', e.target.type);
+										handleChange('telSuffix')(e);
+									}}
 									aria-label="유선전화 뒷자리"
 								/>
 							</div>

@@ -14,10 +14,15 @@ import NotificationSettings from './components/NotificationSettings';
 
 interface Step5Props {
 	memberType?: MemberType;
+	currentStep?: number;
 }
 
-function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
+function ConversionStep5({ memberType = 'member', currentStep = 4 }: Step5Props): JSX.Element {
 	const { data, updateData } = useConversion();
+
+	// Step3 인증 시 개인: userCheckConversion, 기업: enterpriseCheckConversion으로
+	// 이미 context(availableClients, selectedClients)에 저장됨
+
 	const isBusiness = memberType === 'business';
 	const [showAlert, setShowAlert] = useState(false);
 	const [alertMessage, setAlertMessage] = useState('');
@@ -88,6 +93,9 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 									(c) => c.ssoClientId === ssoClientId,
 								);
 								if (!client) return null;
+								if (client.businessTypes !== 'ENT' && client.businessTypes !== 'ALL') {
+									return null;
+								}
 								return {
 									clientId: client.ssoClientId,
 									mbrId: '',
@@ -148,6 +156,9 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 		}
 
 		// --- 개인회원 ---
+		console.log('[ConversionStep5] telPrefix:', JSON.stringify(data.telPrefix), 'telSuffix:', JSON.stringify(data.telSuffix));
+		console.log('[ConversionStep5] phonePrefix:', JSON.stringify(data.phonePrefix), 'phoneSuffix:', JSON.stringify(data.phoneSuffix));
+		console.log('[ConversionStep5] email:', JSON.stringify(data.email), 'emailDomain:', JSON.stringify(data.emailDomain));
 		if (!data.loginId || !data.password) {
 			setAlertMessage('(필수) 항목을 모두 입력한 후 다음으로 진행해 주세요.');
 			setShowAlert(true);
@@ -175,11 +186,25 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 		}
 
 		// clients 조립 (Step4에서 선택된 서비스) — fromClientId(initialClientId)와 일치하면 대표기관(Y)
-		const memberClients = data.selectedClients.map((ssoClientId) => ({
-			clientId: ssoClientId,
-			mbrId: '',
-			rprsInstYn: ssoClientId === data.initialClientId ? 'Y' as const : 'N' as const,
-		}));
+		// businessTypes 가 IND | ALL 인 클라이언트만 포함
+		const memberClients = data.selectedClients
+			.map((ssoClientId) => {
+				const client = data.availableClients.find(
+					(c) => c.ssoClientId === ssoClientId,
+				);
+				if (!client) return null;
+				if (client.businessTypes !== 'IND' && client.businessTypes !== 'ALL') {
+					return null;
+				}
+				return {
+					clientId: ssoClientId,
+					mbrId: '',
+					rprsInstYn: ssoClientId === data.initialClientId ? ('Y' as const) : ('N' as const),
+				};
+			})
+			.filter(
+				(c): c is { clientId: string; mbrId: string; rprsInstYn: 'Y' | 'N' } => c !== null,
+			);
 
 		// 이메일 조합
 		const indvEmlAddr =
@@ -193,13 +218,20 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 				? `${data.telPrefix}-${data.telSuffix}`
 				: undefined;
 
+		// 휴대폰 포맷: 010-XXXX-XXXX (suffix 8자리일 때 4+4 분리)
+		const phoneFormatted = data.phoneSuffix && data.phoneSuffix.length === 8
+			? `${data.phonePrefix || '010'}-${data.phoneSuffix.slice(0, 4)}-${data.phoneSuffix.slice(4)}`
+			: `${data.phonePrefix || '010'}${data.phoneSuffix || ''}`;
+
 		const provResponse = await provisionUser({
 			ciToken: data.ciToken,
 			memberName: data.name,
 			loginId: data.loginId,
 			initialPassword: data.password,
 			clients: memberClients,
-			indvMblTelno: `${data.phonePrefix || '010'}${data.phoneSuffix || ''}`,
+			email: indvEmlAddr,
+			phone: phoneFormatted,
+			indvMblTelno: phoneFormatted,
 			indvEmlAddr,
 			telno,
 			birthDate: data.birthDate || undefined,
@@ -232,9 +264,9 @@ function ConversionStep5({ memberType = 'member' }: Step5Props): JSX.Element {
 	return (
 		<>
 			<ConversionLayout
-				currentStep={5}
-				prevRoute={getConversionRoute(4, memberType)}
-				nextRoute={getConversionRoute(6, memberType)}
+				currentStep={currentStep}
+				prevRoute={getConversionRoute(currentStep - 1, memberType)}
+				nextRoute={getConversionRoute(currentStep + 1, memberType)}
 				memberType={memberType}
 				noWrap
 				onNext={handleNext}

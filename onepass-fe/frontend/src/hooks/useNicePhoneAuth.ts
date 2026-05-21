@@ -17,6 +17,7 @@ export interface NicePhoneAuthResult {
 	name?: string;
 	birthdate?: string;
 	phone?: string;
+	gender?: string;
 }
 
 interface NiceAuthUrlResponse {
@@ -105,6 +106,7 @@ function useNicePhoneAuth(
 						name: result.resultData.name,
 						birthdate: result.resultData.birthdate,
 						phone: result.resultData.mobileNo,
+						gender: result.resultData.gender,
 					});
 				} else {
 					callbacksRef.current.onSuccess({
