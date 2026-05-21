@@ -27,6 +27,11 @@ import java.util.concurrent.CompletableFuture;
  * Q-Sign 서비스(PostgreSQL)의 qsign.outbox 테이블 PENDING 레코드.
  * 기존 {@code OutboxRelay#relay()}를 대체.
  *
+ * <h2>토픽 설정</h2>
+ * 토픽명은 {@code batch.relay.qsign.kafka.topic} 프로퍼티(기본값: {@code qsign.auth.events})로
+ * 외부화되어 있으며, 하드코딩 상수를 사용하지 않습니다.
+ * 환경변수 {@code QSIGN_AUTH_EVENTS_TOPIC}로 오버라이드 가능.
+ *
  * <h2>payload 처리</h2>
  * 기존 {@code OutboxRelay}는 payload를 {@code AuthEvent}로 역직렬화했으나,
  * 배치 서비스는 도메인 의존성을 최소화하기 위해 {@code Map<String, Object>}로 처리.
@@ -40,8 +45,6 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Component
 public class QSignKafkaRelayJob {
-
-    private static final String AUTH_EVENTS_TOPIC = "qsign.auth.events";
 
     private final JdbcTemplate                  qsignJdbcTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;

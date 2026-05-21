@@ -179,8 +179,8 @@ create_topic "ido.handoff.events" "$PARTITIONS_MAIN" "$RF" \
 
 alter_partitions_if_needed "ido.handoff.events" "$PARTITIONS_MAIN"
 
-# Handoff DLQ
-create_topic "ido.handoff.events.dlq" "$PARTITIONS_DLQ" "$RF" \
+# Handoff DLT (Dead Letter Topic — Spring Kafka ErrorHandler .dlt 규칙 준수)
+create_topic "ido.handoff.events.dlt" "$PARTITIONS_DLQ" "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=604800000"
 
@@ -204,8 +204,8 @@ create_topic "platform.session.advisory" "$PARTITIONS_MAIN" "$RF" \
 
 alter_partitions_if_needed "platform.session.advisory" "$PARTITIONS_MAIN"
 
-# Advisory DLQ
-create_topic "platform.session.advisory.dlq" "$PARTITIONS_DLQ" "$RF" \
+# Advisory DLT (Dead Letter Topic — Spring Kafka ErrorHandler .dlt 규칙 준수)
+create_topic "platform.session.advisory.dlt" "$PARTITIONS_DLQ" "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=604800000"
 
