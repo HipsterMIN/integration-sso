@@ -17,7 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -199,8 +199,8 @@ class BizMemberConversionServiceImplTest {
         e.setBizRegNo(BIZ_REG_NO);
         e.setCompanyName(COMPANY_NAME);
         e.setBizStatus("ACTIVE");
-        e.setConvertedAt(LocalDateTime.now());
-        e.setUpdatedAt(LocalDateTime.now());
+        e.setConvertedAt(Instant.now());
+        e.setUpdatedAt(Instant.now());
         return e;
     }
 }

@@ -3,11 +3,24 @@ package kr.go.smes.qim.infrastructure.jpa.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * 기업회원 JPA 엔터티 — MariaDB qim.biz_member 테이블 매핑
  * 설계서 §P3-06 기업회원 전환 참조
+ *
+ * <p><b>시간 컬럼 정책</b>:<br>
+ * 모든 시각은 {@link Instant}(UTC epoch)로 관리한다.
+ * DB 컬럼 타입은 {@code DATETIME(6)}이지만, JDBC {@code serverTimezone=UTC} 설정과
+ * Hibernate {@code hibernate.jdbc.time_zone=UTC} 설정에 의해 드라이버가
+ * Instant 값을 UTC 숫자로 변환하여 저장한다.
+ * MariaDB {@code DATETIME}은 TZ 변환을 수행하지 않으므로
+ * UTC 숫자가 그대로 저장/조회된다.
+ *
+ * <p>이전에 {@code LocalDateTime.now()}를 사용했을 때 JVM TZ(UTC) 값이 저장됐다면
+ * 저장된 숫자 자체는 동일하므로 데이터 마이그레이션 없이 정상 동작한다.
+ * 단, JVM TZ가 KST였던 환경에서 저장된 레코드는 9시간 편차가 발생하므로
+ * V7 마이그레이션 주석을 참고한다.
  */
 @Entity
 @Table(name = "biz_member")
@@ -49,20 +62,27 @@ public class BizMemberJpaEntity {
     @Column(name = "biz_status", length = 20, nullable = false)
     private String bizStatus;
 
-    /** 사업자등록번호 인증 완료 시각 */
+    /**
+     * 사업자등록번호 인증 완료 시각 (UTC).
+     * null 허용 — 미인증 상태.
+     */
     @Column(name = "verified_at")
-    private LocalDateTime verifiedAt;
+    private Instant verifiedAt;
 
-    /** 기업회원 전환 시각 */
+    /**
+     * 기업회원 전환 시각 (UTC).
+     * {@code @PrePersist}에서 자동 설정.
+     */
     @Column(name = "converted_at", nullable = false)
-    private LocalDateTime convertedAt;
+    private Instant convertedAt;
 
+    /** 최종 수정 시각 (UTC). */
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();   // UTC epoch — JVM/DB TZ 무관
         if (convertedAt == null) convertedAt = now;
         updatedAt = now;
         if (bizStatus == null) bizStatus = "ACTIVE";
@@ -70,6 +90,6 @@ public class BizMemberJpaEntity {
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Instant.now();     // UTC epoch — JVM/DB TZ 무관
     }
 }

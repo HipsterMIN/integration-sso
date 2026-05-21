@@ -8,6 +8,21 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
+  # ── Jackson 직렬화 ──────────────────────────────────────────
+  # Instant/OffsetDateTime 등 java.time 타입을 ISO-8601 UTC 문자열로 직렬화.
+  # write-dates-as-timestamps: false → "2025-06-01T06:30:00Z" 형태 보장
+  # time-zone: UTC → 직렬화 기준 타임존 명시 (JVM TZ 의존 차단)
+  #
+  # [배경] 운영 MariaDB system_time_zone=KST / JDBC serverTimezone=UTC 환경에서
+  # LocalDateTime.now() 사용 시 JVM(UTC) 값이 저장되어 고객이 9시간 차이 경험.
+  # Java 타입 전면 Instant 교체 + 이 설정으로 API 응답도 UTC ISO-8601 통일.
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false   # Instant → "2025-06-01T06:30:00Z" (epoch 숫자 아님)
+    time-zone: UTC                        # 직렬화 기준 TZ 명시 (LocalDateTime 잔존분 방어)
+    deserialization:
+      fail-on-unknown-properties: false   # API 클라이언트 호환성 유지
+
   # ── DataSource ──────────────────────────────────────────────
   # [변경] PostgreSQL → MariaDB
   # 운영: NHN Cloud RDS for MariaDB (${QIM_DB_HOST})

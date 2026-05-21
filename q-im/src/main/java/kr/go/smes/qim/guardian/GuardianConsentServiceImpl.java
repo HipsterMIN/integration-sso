@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * 14세 미만 회원 보호자 동의 서비스 구현체
@@ -76,7 +76,10 @@ public class GuardianConsentServiceImpl implements GuardianConsentService {
         }
 
         // 6. 보호자 동의 완료 처리
-        LocalDateTime consentAt = LocalDateTime.now();
+        // Instant.now()는 JVM/DB 타임존에 무관하게 UTC epoch를 반환한다.
+        // JDBC serverTimezone=UTC 설정과 결합하여 DB의 DATETIME(6) 컬럼에
+        // UTC 값 그대로 저장되므로 고객이 보는 시각과 DB 저장값이 일치한다.
+        Instant consentAt = Instant.now();
         int updated = profileRepository.updateGuardianConsent(minorQimUserId, guardianQimUserId, consentAt);
         if (updated == 0) {
             log.error("[Guardian] 보호자 동의 업데이트 실패 (0 rows): qimUserId={}", minorQimUserId);
