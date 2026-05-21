@@ -1,0 +1,83 @@
+# ============================================================
+# Outbox Relay Batch — K8s Deployment
+#
+# 설계:
+#  - ShedLock 분산 락 → 다중 Pod 중 단일 인스턴스만 Job 실행
+#  - replicaCount=2 권장 (HA 페일오버) — 단일 인스턴스에서도 동작
+#  - RollingUpdate maxUnavailable=0 → 무중단 배포
+#  - terminationGracePeriodSeconds=45 → 진행 중 Job 완료 대기
+#    (application.yml: spring.lifecycle.timeout-per-shutdown-phase=30s)
+#  - 외부 노출 없음 → ClusterIP Service만 (Prometheus scrape용)
+# ============================================================
+{{- if .Values.batch.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onepass-batch
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: batch
+  annotations:
+    # Secret/ConfigMap 변경 시 Pod 재시작 트리거
+    checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+    checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+spec:
+  replicas: {{ .Values.batch.replicaCount }}
+  selector:
+    matchLabels:
+      app: onepass-batch
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: onepass-batch
+        {{- include "onepass.labels" . | nindent 8 }}
+        app.kubernetes.io/component: batch
+      {{- with .Values.batch.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      # 진행 중 Job 완료 대기 + Spring graceful shutdown 30s 여유분
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: batch
+          image: {{ include "onepass.image" .Values.batch.image }}
+          imagePullPolicy: {{ .Values.batch.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8090
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: onepass-batch-config
+            - configMapRef:
+                name: onepass-common-config
+            - secretRef:
+                name: {{ .Values.batch.secretRef.name }}
+          livenessProbe:
+            {{- toYaml .Values.batch.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.batch.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.batch.resources | nindent 12 }}
+      # Pod Anti-Affinity — ShedLock HA 시 서로 다른 노드 우선 배치
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: onepass-batch
+                topologyKey: kubernetes.io/hostname
+{{- end }}

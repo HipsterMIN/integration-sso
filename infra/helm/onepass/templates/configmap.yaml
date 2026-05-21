@@ -91,3 +91,37 @@ data:
   IDO_KAFKA_PARTITION_COUNT_DLQ: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_DLQ | quote }}
   IDO_KAFKA_REPLICATION_FACTOR: {{ .Values.ido.config.IDO_KAFKA_REPLICATION_FACTOR | quote }}
   IDO_KAFKA_MIN_INSYNC_REPLICAS: {{ .Values.ido.config.IDO_KAFKA_MIN_INSYNC_REPLICAS | quote }}
+---
+# ── Outbox Relay Batch ConfigMap ───────────────────────────────────
+{{- if .Values.batch.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: onepass-batch-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: batch
+data:
+  SPRING_PROFILES_ACTIVE:           {{ .Values.batch.config.SPRING_PROFILES_ACTIVE | quote }}
+  # ── DataSource Endpoints (드라이버/포트/DB명만 — 호스트/계정은 Secret) ─────
+  IDO_DB_PORT:                      {{ .Values.batch.config.IDO_DB_PORT | quote }}
+  IDO_DB_NAME:                      {{ .Values.batch.config.IDO_DB_NAME | quote }}
+  QIM_DB_PORT:                      {{ .Values.batch.config.QIM_DB_PORT | quote }}
+  QIM_DB_NAME:                      {{ .Values.batch.config.QIM_DB_NAME | quote }}
+  QSIGN_DB_PORT:                    {{ .Values.batch.config.QSIGN_DB_PORT | quote }}
+  QSIGN_DB_NAME:                    {{ .Values.batch.config.QSIGN_DB_NAME | quote }}
+  REDIS_PORT:                       {{ .Values.batch.config.REDIS_PORT | quote }}
+  # ── Webhook 헤더용 ─────────────────────────────────────────────────
+  IDO_PLATFORM_VERSION:             {{ .Values.batch.config.IDO_PLATFORM_VERSION | quote }}
+  # ── 릴레이 Job Feature Flag ────────────────────────────────────────
+  BATCH_IDO_KAFKA_RELAY_ENABLED:    {{ .Values.batch.config.BATCH_IDO_KAFKA_RELAY_ENABLED | quote }}
+  BATCH_IDO_QIM_RELAY_ENABLED:      {{ .Values.batch.config.BATCH_IDO_QIM_RELAY_ENABLED | quote }}
+  BATCH_QIM_KAFKA_RELAY_ENABLED:    {{ .Values.batch.config.BATCH_QIM_KAFKA_RELAY_ENABLED | quote }}
+  BATCH_QSIGN_KAFKA_RELAY_ENABLED:  {{ .Values.batch.config.BATCH_QSIGN_KAFKA_RELAY_ENABLED | quote }}
+  BATCH_PROVISIONING_RELAY_ENABLED: {{ .Values.batch.config.BATCH_PROVISIONING_RELAY_ENABLED | quote }}
+  BATCH_WEBHOOK_RELAY_ENABLED:      {{ .Values.batch.config.BATCH_WEBHOOK_RELAY_ENABLED | quote }}
+  # ── 알림 채널 ON/OFF (Webhook URL/Routing Key는 Secret) ──────────
+  BATCH_ALERT_SLACK_ENABLED:        {{ .Values.batch.config.BATCH_ALERT_SLACK_ENABLED | quote }}
+  BATCH_ALERT_PAGERDUTY_ENABLED:    {{ .Values.batch.config.BATCH_ALERT_PAGERDUTY_ENABLED | quote }}
+{{- end }}
