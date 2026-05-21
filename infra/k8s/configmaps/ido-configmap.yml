@@ -39,7 +39,7 @@ data:
   QIM_AES_IV_LENGTH: "12"
   QIM_AES_TRANSFORMATION: "AES/GCM/NoPadding"
   QIM_RECEIVER_AUDIT: "true"
-  QIM_SP_MEMBER_TOPIC: "platform.qim.sp-member"
+  QIM_SP_MEMBER_TOPIC: "qim.sp.member.events"
 
   # ── 통합인증 서버 연동 ────────────────────────────────────────────────────
   INTEGRATION_AUTH_BASE_URL: "https://auth.smes.go.kr"
@@ -58,12 +58,16 @@ data:
   OTLP_ENDPOINT: "http://otel-collector:4318/v1/traces"
   TRACING_SAMPLING_PROBABILITY: "0.1"    # 운영: 10% 샘플링
   IDO_TRACING_AUTH_ASPECT_ENABLED: "true" # F-05: 인증 흐름 분산 추적 Aspect
+  IDO_AUTH_TRACING_ENABLED: "true"        # application.yml alias (IDO_TRACING_AUTH_ASPECT_ENABLED 동의어)
 
   # ── Rate Limiting (S9-T7) ─────────────────────────────────────────────────
   IDO_RATE_LIMIT_ENABLED: "true"           # F-02: 기관별 API Rate Limit (Bucket4j)
   IDO_RATE_LIMIT_DEFAULT_TPS: "20"
   IDO_RATE_LIMIT_DEFAULT_DAILY: "1000"
   IDO_AUTH_RL_ENABLED: "true"              # F-01: IP 기반 Auth 엔드포인트 Rate Limit (독립)
+  IDO_AUTH_RL_TPS: "10"                    # F-01: Auth 엔드포인트 TPS 한도 (기본 10/s)
+  IDO_AUTH_RL_PER_MIN: "200"               # F-01: Auth 엔드포인트 분당 한도
+  IDO_AUTH_RL_DAILY: "5000"               # F-01: Auth 엔드포인트 일일 한도
 
   # ── 감사 로그 설정 (S9-T5) ───────────────────────────────────────────────
   IDO_AUDIT_KAFKA_ENABLED: "true"          # F-03: 감사 로그 Kafka 발행
@@ -73,11 +77,14 @@ data:
   IDO_AUDIT_EXECUTOR_QUEUE: "200"
 
   # ── Kafka 토픽 설정 ───────────────────────────────────────────────────────
-  IDO_KAFKA_TOPIC_AUTH_EVENTS: "platform.auth.events"
+  IDO_KAFKA_TOPIC_AUTH_EVENTS: "qsign.auth.events"
   IDO_KAFKA_PARTITION_COUNT_MAIN: "6"
   IDO_KAFKA_PARTITION_COUNT_DLQ: "3"
   IDO_KAFKA_REPLICATION_FACTOR: "3"
   IDO_KAFKA_MIN_INSYNC_REPLICAS: "2"
+  # Kafka 토픽 오버라이드 (미설정 시 application.yml 기본값 사용)
+  QIM_USER_EVENTS_TOPIC: "qim.user.events"         # qim.kafka.topic-user-events
+  QIM_AGENCY_EVENTS_TOPIC: "qim.agency.events"     # ido.kafka.topic-qim-agency-events
 
   # ── Webhook 실행기 설정 ───────────────────────────────────────────────────
   IDO_WEBHOOK_EXECUTOR_CORE: "2"
@@ -104,6 +111,7 @@ data:
   IDO_RETENTION_ENABLED: "true"           # F-11: 개인정보 파기 스케줄러 활성화
   IDO_RETENTION_DRY_RUN: "true"          # F-11b: 파기 시뮬레이션 (false여야 실제 삭제)
   IDO_RETENTION_PERSONAL_DATA_DAYS: "1825" # 5년 = 1825일
+  IDO_RETENTION_DAYS: "1825"              # application.yml alias (IDO_RETENTION_PERSONAL_DATA_DAYS 동의어)
   IDO_RETENTION_BATCH_SIZE: "100"
 
   # ── Transactional Outbox Relay (F-13 / F-14) ──────────────────────────────

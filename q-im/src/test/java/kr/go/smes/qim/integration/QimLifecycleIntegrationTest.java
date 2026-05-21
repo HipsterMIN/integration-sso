@@ -34,7 +34,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -469,7 +468,7 @@ class QimLifecycleIntegrationTest {
         assertThat(minorProfile.getGuardianConsentAt())
                 .as("guardian_consent_at이 설정되어야 합니다.")
                 .isNotNull()
-                .isBeforeOrEqualTo(LocalDateTime.now());
+                .isBeforeOrEqualTo(Instant.now());
 
         // 서비스 레이어 조회로도 확인
         GuardianConsentStatus afterStatus = guardianConsentService.getStatus(minorId, CORR);

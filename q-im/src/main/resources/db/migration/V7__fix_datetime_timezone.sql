@@ -1,0 +1,76 @@
+-- ============================================================
+-- V7: KST/UTC 불일치 수정 — Java 타입 Instant 전환 정책 기록
+-- 적용 배경: 설계서 §타임존 정합성 / 고객 민원 대응
+-- ============================================================
+--
+-- ■ 문제 요약
+--   - 운영 MariaDB: system_time_zone=KST (+09:00)
+--   - JDBC 연결:    serverTimezone=UTC
+--   - 기존 Java 코드: LocalDateTime.now() → JVM TZ(UTC) 숫자 저장
+--
+--   DATETIME(6) 컬럼은 타임존 변환 없이 숫자를 그대로 저장한다.
+--   따라서 KST 15:00 에 입력한 값이 06:00 으로 저장되어
+--   고객이 "테스트 시간과 DB에 들어간 시간이 다름(9시간 차이)" 현상을 경험.
+--
+-- ■ Java 레이어 수정 (이 마이그레이션과 동시 배포)
+--   - LocalDateTime → Instant 전면 교체 (UTC epoch, JVM/DB TZ 무관)
+--   - spring.jackson.serialization.write-dates-as-timestamps=false 추가
+--     → API 응답: ISO-8601 UTC 문자열 ("2025-06-01T06:30:00Z")
+--   - 영향 파일:
+--       BizMemberJpaEntity    (verifiedAt, convertedAt, updatedAt)
+--       BizMemberResult       (verifiedAt, convertedAt)
+--       UserProfileJpaEntity  (guardianConsentAt)
+--       UserProfile           (guardianConsentAt)
+--       GuardianConsentStatus (guardianConsentAt)
+--       GuardianConsentServiceImpl (Instant.now() 사용)
+--       UserProfileJpaRepository   (@Param consentAt Instant)
+--
+-- ■ DDL 변경 정책 — DATETIME(6) 컬럼 타입 유지
+--   TIMESTAMP(6)로 변환하지 않는 이유:
+--     1. TIMESTAMP(6)는 저장 시 current_time_zone→UTC, 조회 시 UTC→current_time_zone
+--        자동 변환을 수행하므로 Java Instant + serverTimezone=UTC 환경에서 이중 변환 발생 위험.
+--     2. TIMESTAMP(6) 범위 제한: '1970-01-01 00:00:01' UTC ~ '2038-01-19 03:14:07' UTC
+--        → 2038년 문제, 과거 데이터 보관 서비스에서 범위 초과 가능.
+--     3. DDL 변경은 운영 락(lock) 위험이 있으므로 최소화.
+--   결론: Java 레이어에서 Instant + serverTimezone=UTC 로 통일하는 것으로 충분.
+--
+-- ■ 기존 데이터 정합성 안내
+--   이 마이그레이션 배포 이전에 LocalDateTime.now()로 저장된 레코드는
+--   "UTC 기준 숫자"가 저장되어 있다. 예:
+--     KST 15:00 입력 → UTC 06:00 으로 저장됨 (정상 동작, UTC로 저장)
+--   단, 배포 이전 환경(serverTimezone=KST 또는 JVM TZ=KST 설정)이 혼재했다면
+--   해당 레코드는 별도 데이터 정합성 패치 필요.
+--
+--   운영 팀 확인 항목:
+--     SELECT qim_user_id, guardian_consent_at
+--     FROM   user_profile
+--     WHERE  guardian_consent_at IS NOT NULL
+--     ORDER  BY guardian_consent_at DESC
+--     LIMIT  20;
+--     → 저장값이 UTC 기준인지 KST 기준인지 실제 이벤트 로그와 교차 검증 필요.
+--
+-- ■ DB 레벨 방어: MariaDB 서버 TZ 확인 뷰 생성 (옵션, 운영 모니터링용)
+-- ============================================================
+
+-- 정책 기록: 이 마이그레이션은 DDL 변경 없이 Java 레이어 수정을 Flyway 이력에 등록한다.
+-- 아래 SELECT는 현재 DB 타임존 설정을 검증하기 위한 주석용 쿼리이다 (실행 시 적용 안 됨).
+--
+-- 검증 쿼리 (운영 배포 후 DBA 실행):
+--   SELECT @@global.time_zone        AS global_tz,    -- 기대값: SYSTEM 또는 +00:00
+--          @@session.time_zone       AS session_tz,   -- 기대값: +00:00 (JDBC serverTimezone=UTC)
+--          @@global.system_time_zone AS system_tz,    -- 현재 OS TZ (운영: KST 확인됨)
+--          NOW()                     AS db_now_local,
+--          UTC_TIMESTAMP()           AS db_now_utc;
+--
+-- 기대 결과 (정상):
+--   global_tz  : SYSTEM  (또는 +00:00으로 명시 권장)
+--   session_tz : +00:00  (JDBC serverTimezone=UTC 에 의해 세션 오버라이드됨)
+--   system_tz  : KST
+--   → session_tz=+00:00 이면 JDBC-Java 레이어는 UTC 기준으로 동작하므로 정상.
+--   → global_tz=SYSTEM/KST 이더라도 JDBC serverTimezone=UTC가 세션을 오버라이드.
+
+-- ============================================================
+-- 실제 DDL/DML 없음 — 이 파일은 정책 변경 이력만 기록
+-- Flyway checksum 기록을 위해 의도적으로 빈 실행문 없이 작성
+-- ============================================================
+SELECT 1;   -- Flyway가 빈 파일을 오류 처리하지 않도록 최소 실행문 포함

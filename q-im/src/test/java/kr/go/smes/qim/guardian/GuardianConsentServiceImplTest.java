@@ -12,7 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,7 +62,7 @@ class GuardianConsentServiceImplTest {
 
             // then
             then(profileRepository).should().updateGuardianConsent(
-                    eq(MINOR_ID), eq(GUARDIAN_ID), any(LocalDateTime.class));
+                    eq(MINOR_ID), eq(GUARDIAN_ID), any(Instant.class));
         }
 
         @Test
@@ -189,7 +189,7 @@ class GuardianConsentServiceImplTest {
         e.setIsMinor(true);
         if (consentDone) {
             e.setGuardianQimUserId(GUARDIAN_ID);
-            e.setGuardianConsentAt(LocalDateTime.now().minusDays(1));
+            e.setGuardianConsentAt(Instant.now().minusSeconds(86400)); // 1일 전 UTC
         }
         return e;
     }

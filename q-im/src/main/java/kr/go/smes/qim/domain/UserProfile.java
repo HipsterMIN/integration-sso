@@ -3,7 +3,7 @@ package kr.go.smes.qim.domain;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * 사용자 속성 (Q-IM 정본 — 기관에는 허용 속성만 Projection)
@@ -42,9 +42,12 @@ public class UserProfile {
     private final String guardianQimUserId;
 
     /**
-     * 보호자 동의 완료 시각 — null이면 아직 미동의.
+     * 보호자 동의 완료 시각 (UTC) — null이면 아직 미동의.
+     * Jackson {@code spring.jackson.serialization.write-dates-as-timestamps=false} 설정에 의해
+     * ISO-8601 UTC 문자열({@code "2025-06-01T06:30:00Z"})로 직렬화됨.
+     * FE에서 KST 표시가 필요하면 {@code toZonedDateTime(ZoneId.of("Asia/Seoul"))} 변환 사용.
      */
-    private final LocalDateTime guardianConsentAt;
+    private final Instant guardianConsentAt;
 
     /** 보호자 동의가 완료됐는지 여부 */
     public boolean isGuardianConsentDone() {

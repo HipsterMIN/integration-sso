@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * 사용자 프로필 Spring Data JPA Repository
@@ -21,6 +21,10 @@ public interface UserProfileJpaRepository extends JpaRepository<UserProfileJpaEn
      * <p>{@code clearAutomatically = true}: JPQL UPDATE 실행 후 JPA 1차 캐시(영속성 컨텍스트)를
      * 강제로 초기화하여 이후 조회 시 DB 최신 상태를 반환하도록 보장합니다.
      * {@code flushAutomatically = true}: UPDATE 실행 전 미플러시 변경사항을 먼저 DB에 반영합니다.
+     *
+     * <p>{@code consentAt}은 {@link Instant}(UTC epoch)로 전달한다.
+     * Hibernate가 JDBC {@code serverTimezone=UTC}와 결합하여 DB의 {@code DATETIME(6)} 컬럼에
+     * UTC 값을 그대로 기록하므로 JVM/DB 타임존 차이로 인한 9시간 왜곡이 발생하지 않는다.
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
@@ -32,5 +36,5 @@ public interface UserProfileJpaRepository extends JpaRepository<UserProfileJpaEn
         """)
     int updateGuardianConsent(@Param("qimUserId")         String qimUserId,
                               @Param("guardianQimUserId") String guardianQimUserId,
-                              @Param("consentAt")         LocalDateTime consentAt);
+                              @Param("consentAt")         Instant consentAt);
 }

@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 /**
  * 사용자 프로필 JPA 엔터티 — MariaDB qim.user_profile 테이블 매핑
@@ -82,10 +81,11 @@ public class UserProfileJpaEntity {
     private String guardianQimUserId;
 
     /**
-     * 보호자 동의 완료 시각 — null이면 아직 미동의
+     * 보호자 동의 완료 시각 (UTC) — null이면 아직 미동의.
+     * DB 컬럼: {@code DATETIME(6)}, JDBC serverTimezone=UTC 설정으로 UTC 숫자 그대로 저장.
      */
     @Column(name = "guardian_consent_at")
-    private LocalDateTime guardianConsentAt;
+    private Instant guardianConsentAt;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;

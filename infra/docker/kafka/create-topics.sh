@@ -179,8 +179,8 @@ create_topic "ido.handoff.events" "$PARTITIONS_MAIN" "$RF" \
 
 alter_partitions_if_needed "ido.handoff.events" "$PARTITIONS_MAIN"
 
-# Handoff DLQ
-create_topic "ido.handoff.events.dlq" "$PARTITIONS_DLQ" "$RF" \
+# Handoff DLT (Dead Letter Topic — Spring Kafka ErrorHandler .dlt 규칙 준수)
+create_topic "ido.handoff.events.dlt" "$PARTITIONS_DLQ" "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=604800000"
 
@@ -204,8 +204,8 @@ create_topic "platform.session.advisory" "$PARTITIONS_MAIN" "$RF" \
 
 alter_partitions_if_needed "platform.session.advisory" "$PARTITIONS_MAIN"
 
-# Advisory DLQ
-create_topic "platform.session.advisory.dlq" "$PARTITIONS_DLQ" "$RF" \
+# Advisory DLT (Dead Letter Topic — Spring Kafka ErrorHandler .dlt 규칙 준수)
+create_topic "platform.session.advisory.dlt" "$PARTITIONS_DLQ" "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=604800000"
 
@@ -273,8 +273,8 @@ echo "✅ Kafka 토픽 초기화 완료"
 echo ""
 echo "── 아키텍처 요약 ────────────────────────────────────────"
 echo " qsign.auth.events ($PARTITIONS_MAIN p): Q-Sign → IdO Pre-warming (60k DB 폭발 방지)"
-echo " ido.handoff.events ($PARTITIONS_MAIN p): IdO → 기관 webhook 트리거"
-echo " platform.session.advisory ($PARTITIONS_MAIN p): AUTH_LOCKED → FE 세션 강제 종료"
+echo " ido.handoff.events ($PARTITIONS_MAIN p): IdO → 기관 webhook 트리거 | DLT: ido.handoff.events.dlt"
+echo " platform.session.advisory ($PARTITIONS_MAIN p): AUTH_LOCKED → FE 세션 강제 종료 | DLT: platform.session.advisory.dlt"
 echo " platform.audit.log ($PARTITIONS_MAIN p): 전역 감사 (2년 보존)"
 echo " qim.sp.member.events (6p): SP 회원 연동 → 기관 webhook"
 echo ""

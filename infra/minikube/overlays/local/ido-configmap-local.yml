@@ -43,6 +43,7 @@ data:
   OTLP_ENDPOINT: ""
   TRACING_SAMPLING_PROBABILITY: "0.0"
   IDO_TRACING_AUTH_ASPECT_ENABLED: "false"
+  IDO_AUTH_TRACING_ENABLED: "false"       # application.yml alias
 
   # ── NICE API (로컬: 더미 처리) ────────────────────────────────────────────
   NICE_RETURN_URL: "http://localhost:8083/auth/nice/callback"
@@ -53,6 +54,9 @@ data:
   IDO_RATE_LIMIT_DEFAULT_TPS: "1000"
   IDO_RATE_LIMIT_DEFAULT_DAILY: "999999"
   IDO_AUTH_RL_ENABLED: "false"
+  IDO_AUTH_RL_TPS: "1000"
+  IDO_AUTH_RL_PER_MIN: "999999"
+  IDO_AUTH_RL_DAILY: "999999"
 
   # ── 감사 로그 ─────────────────────────────────────────────────────────────
   IDO_AUDIT_KAFKA_ENABLED: "true"
@@ -62,11 +66,13 @@ data:
   IDO_AUDIT_EXECUTOR_QUEUE: "50"
 
   # ── Kafka 토픽 설정 ───────────────────────────────────────────────────────
-  IDO_KAFKA_TOPIC_AUTH_EVENTS: "platform.auth.events"
+  IDO_KAFKA_TOPIC_AUTH_EVENTS: "qsign.auth.events"
   IDO_KAFKA_PARTITION_COUNT_MAIN: "6"
   IDO_KAFKA_PARTITION_COUNT_DLQ: "3"
   IDO_KAFKA_REPLICATION_FACTOR: "1"       # 로컬: 단일 브로커
   IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"      # 로컬: 단일 브로커
+  QIM_USER_EVENTS_TOPIC: "qim.user.events"
+  QIM_AGENCY_EVENTS_TOPIC: "qim.agency.events"
 
   # ── Webhook ───────────────────────────────────────────────────────────────
   IDO_WEBHOOK_EXECUTOR_CORE: "1"
@@ -89,6 +95,7 @@ data:
   IDO_RETENTION_ENABLED: "true"
   IDO_RETENTION_DRY_RUN: "true"           # 로컬: 반드시 true 유지
   IDO_RETENTION_PERSONAL_DATA_DAYS: "1825"
+  IDO_RETENTION_DAYS: "1825"              # application.yml alias
   IDO_RETENTION_BATCH_SIZE: "10"
 
   # ── Outbox Relay ──────────────────────────────────────────────────────────

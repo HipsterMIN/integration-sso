@@ -38,9 +38,9 @@ import org.springframework.kafka.config.TopicBuilder;
  * <pre>
  * qsign.auth.events          : Q-Sign 인증 결과 (Pre-warming 소비)
  * ido.handoff.events         : Handoff 이벤트 (기관 webhook 트리거)
- * ido.handoff.events.dlq     : Handoff DLQ
+ * ido.handoff.events.dlt     : Handoff DLT (Dead Letter Topic)
  * platform.session.advisory  : 세션 종료 Advisory
- * platform.session.advisory.dlq : Advisory DLQ
+ * platform.session.advisory.dlt : Advisory DLT (Dead Letter Topic)
  * platform.audit.log         : 플랫폼 전역 감사 로그
  * ido.webhook.dispatch.requests : webhook 발송 내부 이벤트 (미래 확장용)
  * </pre>
@@ -144,7 +144,7 @@ public class KafkaTopicConfig {
     /** Handoff DLQ */
     @Bean
     public NewTopic idoHandoffEventsDlqTopic() {
-        return TopicBuilder.name(handoffEventsTopic + ".dlq")
+        return TopicBuilder.name(handoffEventsTopic + ".dlt")
                 .partitions(dlqPartitions)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
@@ -183,7 +183,7 @@ public class KafkaTopicConfig {
     /** Advisory DLQ */
     @Bean
     public NewTopic platformSessionAdvisoryDlqTopic() {
-        return TopicBuilder.name(sessionAdvisoryTopic + ".dlq")
+        return TopicBuilder.name(sessionAdvisoryTopic + ".dlt")
                 .partitions(dlqPartitions)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
@@ -255,7 +255,7 @@ public class KafkaTopicConfig {
     /** Q-IM 회원 이벤트 DLQ */
     @Bean
     public NewTopic qimUserEventsDlqTopic() {
-        return TopicBuilder.name("qim.user.events.dlq")
+        return TopicBuilder.name("qim.user.events.dlt")
                 .partitions(3)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
@@ -293,7 +293,7 @@ public class KafkaTopicConfig {
     /** Q-IM 기관 이벤트 DLQ */
     @Bean
     public NewTopic qimAgencyEventsDlqTopic() {
-        return TopicBuilder.name("qim.agency.events.dlq")
+        return TopicBuilder.name("qim.agency.events.dlt")
                 .partitions(2)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)

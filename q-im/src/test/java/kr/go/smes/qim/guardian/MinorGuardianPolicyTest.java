@@ -6,7 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.Year;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,7 +78,7 @@ class MinorGuardianPolicyTest {
             UserProfile profile = UserProfile.builder()
                     .isMinor(true)
                     .guardianQimUserId("guardian-uuid")
-                    .guardianConsentAt(LocalDateTime.now().minusDays(1))
+                    .guardianConsentAt(Instant.now().minusSeconds(86400))
                     .build();
             assertThat(MinorGuardianPolicy.requiresGuardianConsent(profile)).isFalse();
         }
@@ -111,7 +111,7 @@ class MinorGuardianPolicyTest {
         void consentDone() {
             UserProfile profile = UserProfile.builder()
                     .isMinor(true)
-                    .guardianConsentAt(LocalDateTime.now())
+                    .guardianConsentAt(Instant.now())
                     .build();
             assertThat(profile.isGuardianConsentDone()).isTrue();
         }
@@ -131,7 +131,7 @@ class MinorGuardianPolicyTest {
         void adultWithConsentTimestamp_false() {
             UserProfile profile = UserProfile.builder()
                     .isMinor(false)
-                    .guardianConsentAt(LocalDateTime.now())
+                    .guardianConsentAt(Instant.now())
                     .build();
             assertThat(profile.isGuardianConsentDone()).isFalse();
         }

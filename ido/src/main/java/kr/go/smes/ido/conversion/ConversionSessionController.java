@@ -47,7 +47,7 @@ public class ConversionSessionController {
 
         if (session == null) {
             log.warn("[ConversionSession] 세션 없음 sessionId={}", sessionId);
-            throw new PlatformException(PlatformErrorCode.CONVERSION_SESSION_NOT_FOUND);
+            throw new PlatformException(PlatformErrorCode.CONVERSION_SESSION_NOT_FOUND, sessionId);
         }
 
         log.info("[ConversionSession] 세션 조회 sessionId={} agencyCode={}",

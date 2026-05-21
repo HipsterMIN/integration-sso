@@ -584,42 +584,85 @@ ido:
     handoff-hmac-key:      ${IDO_HANDOFF_HMAC_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
 
   # ── KMS 연동 설정 (S9-T8) ─────────────────────────────────────────────────
-  # NHN Cloud Secure Key Manager(SKM)를 이용한 키 재료 보호
-  # Spring Profile: dev/local/test → NoOpKmsClient (Base64 패스스루)
-  #                 prod           → NhnKmsClient  (NHN SKM REST API)
   #
-  # API 문서: https://docs.nhncloud.com/ko/Security/Secure Key Manager/ko/api-guide-v1.0/
-  # 엔드포인트: https://api-keymanager.nhncloudservice.com
+  # ┌─────────────────────────────────────────────────────────────────────┐
+  # │  KMS On/Off 및 Provider 선택                                         │
+  # │                                                                     │
+  # │  enabled=false → LocalKmsClient  (Base64 패스스루, 개발·로컬)        │
+  # │  enabled=true  → provider 값으로 구현체 자동 선택                    │
+  # │    provider=vault → VaultKmsClient  ★ 기본 표준 (HashiCorp Vault)   │
+  # │    provider=nhn   → NhnKmsClient   (NHN Cloud SKM, 레거시)          │
+  # │    provider=noop  → NoOpKmsClient  (Base64 패스스루, 명시적 테스트)  │
+  # └─────────────────────────────────────────────────────────────────────┘
+  #
+  # [환경별 권장 설정]
+  #   local/CI   : IDO_KMS_ENABLED=false
+  #   dev 서버   : IDO_KMS_ENABLED=true  / IDO_KMS_PROVIDER=vault
+  #   stage/prod : IDO_KMS_ENABLED=true  / IDO_KMS_PROVIDER=vault
+  #   NHN 유지   : IDO_KMS_ENABLED=true  / IDO_KMS_PROVIDER=nhn  (레거시)
   kms:
-    # ── 연결 타임아웃 ────────────────────────────────────────────────────────
-    connection-timeout-ms: 3000
-    request-timeout-ms:    5000
+    # ── On/Off 스위치 ────────────────────────────────────────────────────
+    # false(기본): LocalKmsClient 활성화 — KMS 서버 없이 개발 가능
+    # true:        provider 값에 따라 실제 KMS 클라이언트 활성화
+    enabled:  ${IDO_KMS_ENABLED:false}
 
-    # ── NHN Cloud Secure Key Manager 설정 ────────────────────────────────────
+    # ── Provider 선택 (enabled=true 시에만 유효) ─────────────────────────
+    # vault : HashiCorp Vault Transit Engine (★ 운영 표준)
+    # nhn   : NHN Cloud Secure Key Manager  (레거시, 기존 운영 환경 유지용)
+    # noop  : Base64 패스스루 — enabled=true이지만 실제 암호화 없음 (테스트)
+    provider: ${IDO_KMS_PROVIDER:vault}
+
+    # ── 공통 타임아웃 ────────────────────────────────────────────────────
+    connection-timeout-ms: ${IDO_KMS_CONN_TIMEOUT_MS:3000}
+    request-timeout-ms:    ${IDO_KMS_REQ_TIMEOUT_MS:5000}
+
+    # ── HashiCorp Vault Transit Engine (provider=vault) ──────────────────
+    # 업계 표준 KMS. 온프레미스·클라우드·하이브리드 환경 모두 지원.
+    # Transit Engine: 키 재료는 Vault 내부에만 존재, 앱은 ciphertext만 보관.
+    #
+    # [Vault 빠른 시작 — docker-compose 개발 환경]
+    #   VAULT_ADDR=http://localhost:8200
+    #   VAULT_TOKEN=dev-root-token
+    #   vault secrets enable transit
+    #   vault write -f transit/keys/ido-handoff-key
+    #
+    # [K8s 운영 — Kubernetes Auth 권장]
+    #   VAULT_AUTH_METHOD=kubernetes
+    #   VAULT_K8S_ROLE=ido
+    vault:
+      # Vault 서버 주소 — 환경변수 VAULT_ADDR 우선
+      address:      ${VAULT_ADDR:http://vault:8200}
+
+      # Transit 시크릿 엔진 마운트 경로 (vault secrets enable -path=transit transit)
+      transit-path: ${VAULT_TRANSIT_PATH:transit}
+
+      # Transit 키 이름 (vault write -f transit/keys/ido-handoff-key)
+      key-name:     ${VAULT_TRANSIT_KEY:ido-handoff-key}
+
+      # 인증 방식: token | approle | kubernetes
+      # 환경변수 VAULT_AUTH_METHOD로 오버라이드 가능
+      auth-method:  ${VAULT_AUTH_METHOD:token}
+
+      # Token 인증 전용 (auth-method=token, 개발용)
+      # 운영: 절대 소스 코드에 직접 기재 금지 — K8s Secret VAULT_TOKEN으로 주입
+      token:        ${VAULT_TOKEN:}
+
+      # HCP Vault Dedicated 전용 Namespace (자체 호스팅 Vault는 비워둠)
+      namespace:    ${VAULT_NAMESPACE:}
+
+    # ── NHN Cloud Secure Key Manager (provider=nhn, 레거시) ─────────────
+    # 기존 NHN Cloud 운영 환경 유지를 위한 레거시 옵션.
+    # 신규 환경은 provider=vault 사용 권장.
+    # API: https://docs.nhncloud.com/ko/Security/Secure Key Manager/ko/api-guide-v1.0/
     nhn:
-      # SKM API 엔드포인트 (기본: Global)
-      endpoint: ${NHN_SKM_ENDPOINT:https://api-keymanager.nhncloudservice.com}
-
-      # NHN Cloud 프로젝트 Appkey — 운영: K8s Secret NHN_SKM_APPKEY로 주입
-      # NHN Cloud 콘솔 > 프로젝트 > API 보안 설정 > Appkey 확인
-      appkey: ${NHN_SKM_APPKEY:}
-
-      # 운영 모드: secret(권장) | envelope
-      # secret:   SKM에 키 재료를 기밀 데이터로 저장, keyId를 DB에 보관
-      # envelope: SKM 대칭 키로 DEK를 암/복호화, 암호문을 DB에 보관
-      mode: ${NHN_SKM_MODE:secret}
-
-      # SKM 키 저장소의 AES 대칭 키 ID (Handoff AES 키용)
-      # secret 모드: 기밀 데이터 keyId (UUID 형식)
-      # envelope 모드: 대칭 키 keyId (UUID 형식)
-      aes-key-id: ${NHN_SKM_AES_KEY_ID:}
-
-      # SKM 키 저장소의 HMAC 대칭 키 ID (Handoff HMAC 키용)
+      endpoint:    ${NHN_SKM_ENDPOINT:https://api-keymanager.nhncloudservice.com}
+      appkey:      ${NHN_SKM_APPKEY:}
+      # mode: secret(기본) | envelope
+      # secret:   SKM 기밀 데이터에서 키 재료 직접 조회 (keyId를 DB에 보관)
+      # envelope: SKM 대칭 키로 DEK 암/복호화 (ciphertext를 DB에 보관)
+      mode:        ${NHN_SKM_MODE:secret}
+      aes-key-id:  ${NHN_SKM_AES_KEY_ID:}
       hmac-key-id: ${NHN_SKM_HMAC_KEY_ID:}
-
-      # secret 모드 전용: aes/hmac-key-id와 다른 keyId를 사용하는 경우만 설정
-      # aes-secret-id: ${NHN_SKM_AES_SECRET_ID:}
-      # hmac-secret-id: ${NHN_SKM_HMAC_SECRET_ID:}
 
 # ── Resilience4j (S9-T2: NICE/OACX/통합인증 CB+Retry 추가) ───────────────
 resilience4j:

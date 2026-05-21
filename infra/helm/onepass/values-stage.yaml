@@ -1,0 +1,47 @@
+# ============================================================
+# values-stage.yaml — 스테이징 환경
+# 적용: helm upgrade --install onepass ./infra/helm/onepass \
+#         -f infra/helm/onepass/values.yaml \
+#         -f infra/helm/onepass/values-stage.yaml \
+#         --namespace onepass-stage
+# ============================================================
+global:
+  namespace: onepass-stage
+  env: stage
+
+qsign:
+  replicaCount: 2
+  config:
+    QSIGN_INTERNAL_SIG_STRICT: "true"
+
+qim:
+  replicaCount: 2
+
+ido:
+  replicaCount: 2
+  config:
+    IDO_BROKER_MODE: qsign
+    IDO_RATE_LIMIT_ENABLED: "true"
+    IDO_RATE_LIMIT_DEFAULT_TPS: "100"    # 스테이징: 운영보다 낮은 TPS
+    IDO_KAFKA_REPLICATION_FACTOR: "1"   # 스테이징: 단일 브로커
+    IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"
+
+agencyStub:
+  replicaCount: 1
+
+networkPolicy:
+  enabled: true
+
+ingress:
+  enabled: true
+  hosts:
+    - host: onepass-stage.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: ido
+          port: 8083
+  tls:
+    - secretName: onepass-stage-tls
+      hosts:
+        - onepass-stage.example.com

@@ -1,0 +1,64 @@
+{{- if .Values.ido.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onepass-ido
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ido
+  annotations:
+    checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+spec:
+  replicas: {{ .Values.ido.replicaCount }}
+  selector:
+    matchLabels:
+      app: onepass-ido
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: onepass-ido
+        {{- include "onepass.labels" . | nindent 8 }}
+        app.kubernetes.io/component: ido
+    spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: ido
+          image: {{ include "onepass.image" .Values.ido.image }}
+          imagePullPolicy: {{ .Values.ido.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8083
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: onepass-ido-config
+            - configMapRef:
+                name: onepass-common-config
+            - secretRef:
+                name: {{ .Values.ido.secretRef.name }}
+          livenessProbe:
+            {{- toYaml .Values.ido.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.ido.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.ido.resources | nindent 12 }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: onepass-ido
+                topologyKey: kubernetes.io/hostname
+{{- end }}

@@ -1,0 +1,83 @@
+# ── Q-Sign Service ─────────────────────────────────────────────────
+{{- if .Values.qsign.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: onepass-qsign
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-sign
+spec:
+  type: {{ .Values.qsign.service.type }}
+  selector:
+    app: onepass-qsign
+  ports:
+    - name: http
+      port: {{ .Values.qsign.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}
+---
+# ── Q-IM Service ───────────────────────────────────────────────────
+{{- if .Values.qim.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: onepass-qim
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-im
+spec:
+  type: {{ .Values.qim.service.type }}
+  selector:
+    app: onepass-qim
+  ports:
+    - name: http
+      port: {{ .Values.qim.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}
+---
+# ── IdO Service ────────────────────────────────────────────────────
+{{- if .Values.ido.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: onepass-ido
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ido
+spec:
+  type: {{ .Values.ido.service.type }}
+  selector:
+    app: onepass-ido
+  ports:
+    - name: http
+      port: {{ .Values.ido.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}
+---
+# ── Agency-Stub Service (PoC 전용) ────────────────────────────────
+{{- if .Values.agencyStub.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: onepass-agency-stub
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agency-stub
+spec:
+  type: {{ .Values.agencyStub.service.type }}
+  selector:
+    app: onepass-agency-stub
+  ports:
+    - name: http
+      port: {{ .Values.agencyStub.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}

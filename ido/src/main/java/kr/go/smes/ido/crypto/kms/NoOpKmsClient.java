@@ -1,8 +1,7 @@
 package kr.go.smes.ido.crypto.kms;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Primary;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Base64;
@@ -16,18 +15,26 @@ import java.util.Base64;
  *   <li>{@code encrypt(bytes)} → Base64 인코딩만 수행</li>
  * </ul>
  *
- * <p><b>적용 환경</b>: Spring Profile {@code !prod} (dev, local, test)
+ * <p><b>적용 환경</b>: {@code ido.kms.enabled=true AND ido.kms.provider=noop}
+ * (provider를 명시적으로 noop으로 설정한 경우만 활성화)
+ * 테스트에서는 관련 테스트 코드에서 직접 인스턴스화하여 사용하면 된다.
+ * KMS 자체를 비활성화하려면 {@code enabled=false}로
+ * 설정하여 {@link LocalKmsClient}를 사용하라.
  *
  * <p><b>보안 주의</b>:
  * 이 구현체는 키 재료를 암호화하지 않으므로
- * 운영 환경에서 절대 사용 금지. {@code @Profile("!prod")} 로 제한됨.
+ * 운영 환경에서 절대 사용 금지.
  *
- * @see AwsKmsClient
+ * @see LocalKmsClient  (KMS Off 모드 — enabled=false, 동일한 Base64 패스스루)
+ * @see VaultKmsClient  (운영 표준 — provider=vault)
  */
 @Slf4j
 @Component
-@Primary
-@Profile("!prod")
+@ConditionalOnProperty(
+    prefix      = "ido.kms",
+    name        = {"enabled", "provider"},
+    havingValue = "true,noop"
+)
 public class NoOpKmsClient implements KmsClient {
 
     @Override
