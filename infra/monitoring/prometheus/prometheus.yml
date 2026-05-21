@@ -14,7 +14,19 @@ alerting:
         - targets: []   # 운영: alertmanager:9093
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Scrape Configs — Spring Boot Actuator /actuator/prometheus 엔드포인트
+# Scrape Configs
+#
+# [환경별 타겟 전략]
+#   Docker Compose (profile=app):
+#     - 앱 서비스들이 onepass-net 브리지 네트워크 내 컨테이너명으로 접근 가능
+#     - Prometheus 컨테이너도 동일 네트워크(172.20.0.50) → 컨테이너명 직접 사용
+#     - extra_hosts: host.docker.internal:host-gateway 로 호스트 접근도 가능
+#
+#   로컬 IDE 직접 실행 (Compose 앱 미사용):
+#     - 앱이 localhost:{port}에서 기동
+#     - host.docker.internal:{port} 로 접근
+#
+# [현재 설정] Docker Compose app 프로파일 기준 컨테이너명 타겟
 # ──────────────────────────────────────────────────────────────────────────────
 scrape_configs:
 
@@ -23,62 +35,84 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Q-Sign (port 8081)
+  # Q-Sign (Docker Compose: onepass-qsign:8081 / 로컬 IDE: host.docker.internal:8081)
   - job_name: 'q-sign'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['host.docker.internal:8081']
-    labels:
-      service: 'q-sign'
-      module:  'auth'
+      - targets:
+          - 'onepass-qsign:8081'    # Docker Compose app 프로파일
+    relabel_configs:
+      - target_label: service
+        replacement: 'q-sign'
+      - target_label: module
+        replacement: 'auth'
 
-  # Q-IM (port 8082)
+  # Q-IM (Docker Compose: onepass-qim:8082 / 로컬 IDE: host.docker.internal:8082)
   - job_name: 'q-im'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['host.docker.internal:8082']
-    labels:
-      service: 'q-im'
-      module:  'identity'
+      - targets:
+          - 'onepass-qim:8082'
+    relabel_configs:
+      - target_label: service
+        replacement: 'q-im'
+      - target_label: module
+        replacement: 'identity'
 
-  # IdO (port 8083)
+  # IdO (Docker Compose: onepass-ido:8083 / 로컬 IDE: host.docker.internal:8083)
   - job_name: 'ido'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['host.docker.internal:8083']
-    labels:
-      service: 'ido'
-      module:  'handoff'
+      - targets:
+          - 'onepass-ido:8083'
+    relabel_configs:
+      - target_label: service
+        replacement: 'ido'
+      - target_label: module
+        replacement: 'handoff'
 
-  # Agency-Stub (port 8084)
+  # Agency-Stub (Docker Compose: onepass-agency-stub:8084)
   - job_name: 'agency-stub'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['host.docker.internal:8084']
-    labels:
-      service: 'agency-stub'
-      module:  'simulation'
+      - targets:
+          - 'onepass-agency-stub:8084'
+    relabel_configs:
+      - target_label: service
+        replacement: 'agency-stub'
+      - target_label: module
+        replacement: 'simulation'
 
-  # Redis Exporter (port 9121)
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis-exporter:9121']
-    labels:
-      service: 'redis'
-      module:  'infra'
+  # ── 로컬 IDE 직접 실행 시 아래 주석 해제하고 위 컨테이너명 타겟 주석 처리 ──
+  # - job_name: 'q-sign-local'
+  #   metrics_path: '/actuator/prometheus'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:8081']
+  # - job_name: 'q-im-local'
+  #   metrics_path: '/actuator/prometheus'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:8082']
+  # - job_name: 'ido-local'
+  #   metrics_path: '/actuator/prometheus'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:8083']
+  # - job_name: 'agency-stub-local'
+  #   metrics_path: '/actuator/prometheus'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:8084']
 
-  # Kafka Exporter (port 9308)
-  - job_name: 'kafka'
-    static_configs:
-      - targets: ['kafka-exporter:9308']
-    labels:
-      service: 'kafka'
-      module:  'infra'
+  # ── 인프라 Exporter (운영 추가 권장) ─────────────────────────────────────
+  # Redis Exporter (별도 컨테이너 필요)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
 
-  # PostgreSQL Exporter (port 9187)
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['postgres-exporter:9187']
-    labels:
-      service: 'postgres'
-      module:  'infra'
+  # Kafka Exporter (별도 컨테이너 필요)
+  # - job_name: 'kafka'
+  #   static_configs:
+  #     - targets: ['kafka-exporter:9308']
+
+  # PostgreSQL Exporter (별도 컨테이너 필요)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']

@@ -1,0 +1,116 @@
+# ============================================================
+# values-prod.yaml — 운영 환경
+# 적용: helm upgrade --install onepass ./infra/helm/onepass \
+#         -f infra/helm/onepass/values.yaml \
+#         -f infra/helm/onepass/values-prod.yaml \
+#         --namespace onepass \
+#         --create-namespace
+#
+# [운영 배포 전 필수 확인]
+#   1. Secret이 모두 생성되어 있는지 확인
+#      kubectl get secret -n onepass
+#   2. 이미지 태그가 운영 버전으로 설정되어 있는지 확인
+#   3. DB/Redis/Kafka 엔드포인트가 운영 주소로 설정되어 있는지 확인
+#   4. TLS 인증서 Secret이 생성되어 있는지 확인
+# ============================================================
+global:
+  namespace: onepass
+  env: prod
+  # 운영: 고객사 사설 레지스트리로 교체
+  imageRegistry: ""
+
+infra:
+  postgres:
+    host: rds-postgres.prod.svc.cluster.local  # 운영: 고객사 RDS 엔드포인트
+    port: 5432
+    database: onepass
+    existingSecret: onepass-db-secret
+  mariadb:
+    host: rds-mariadb.prod.svc.cluster.local   # 운영: NHN Cloud RDS for MariaDB
+    port: 3306
+    database: qim
+    existingSecret: onepass-mariadb-secret
+  redis:
+    host: redis-cluster.prod.svc.cluster.local  # 운영: ElastiCache 또는 Redis Cluster
+    port: 6379
+    existingSecret: onepass-redis-secret
+  kafka:
+    bootstrapServers: kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092
+
+qsign:
+  replicaCount: 3
+  image:
+    tag: "1.0.0"  # 운영: 고정 버전 태그 사용 (latest 금지)
+  config:
+    QSIGN_INTERNAL_SIG_STRICT: "true"   # 운영: strict 모드 필수
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+qim:
+  replicaCount: 3
+  image:
+    tag: "1.0.0"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+ido:
+  replicaCount: 3
+  image:
+    tag: "1.0.0"
+  config:
+    IDO_BROKER_MODE: qsign
+    IDO_RATE_LIMIT_ENABLED: "true"
+    IDO_RATE_LIMIT_DEFAULT_TPS: "200"
+    IDO_RATE_LIMIT_DEFAULT_DAILY: "1000000"
+    IDO_KAFKA_REPLICATION_FACTOR: "3"     # 운영 3-broker
+    IDO_KAFKA_MIN_INSYNC_REPLICAS: "2"
+    IDO_KAFKA_PARTITION_COUNT_MAIN: "12"
+    IDO_KAFKA_PARTITION_COUNT_DLQ: "6"
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 4Gi
+
+agencyStub:
+  # 운영에서는 실제 기관 서비스로 대체 (agency-stub은 PoC 전용)
+  enabled: false
+
+networkPolicy:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+  hosts:
+    - host: onepass.example.com    # 운영: 고객사 도메인으로 교체
+      paths:
+        - path: /
+          pathType: Prefix
+          service: ido
+          port: 8083
+  tls:
+    - secretName: onepass-tls
+      hosts:
+        - onepass.example.com
+
+kafka:
+  topics:
+    # 운영 3-broker 파티션 설정
+    authEvents: qsign.auth.events

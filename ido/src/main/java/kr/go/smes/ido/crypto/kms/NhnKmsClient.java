@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -46,10 +46,11 @@ import java.util.Base64;
  * Global: https://api-keymanager.nhncloudservice.com
  * </pre>
  *
- * <p><b>운영 설정 예시 ({@code application-prod.yml})</b>:
+ * <p><b>운영 설정 예시 ({@code application.yml})</b>:
  * <pre>
  * ido:
  *   kms:
+ *     enabled:  true
  *     provider: nhn
  *     nhn:
  *       appkey: ${NHN_SKM_APPKEY}         # NHN Cloud 프로젝트 Appkey
@@ -81,7 +82,11 @@ import java.util.Base64;
  */
 @Slf4j
 @Component
-@Profile("prod")
+@ConditionalOnProperty(
+    prefix      = "ido.kms",
+    name        = {"enabled", "provider"},
+    havingValue = "true,nhn"
+)
 public class NhnKmsClient implements KmsClient {
 
     /** NHN SKM API 기본 엔드포인트 (Global) */

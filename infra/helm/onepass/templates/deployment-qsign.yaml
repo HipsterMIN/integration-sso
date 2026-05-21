@@ -1,0 +1,68 @@
+{{- if .Values.qsign.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onepass-qsign
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-sign
+  annotations:
+    # Secret 변경 시 자동 rollout 트리거
+    checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+spec:
+  replicas: {{ .Values.qsign.replicaCount }}
+  selector:
+    matchLabels:
+      app: onepass-qsign
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: onepass-qsign
+        {{- include "onepass.labels" . | nindent 8 }}
+        app.kubernetes.io/component: q-sign
+    spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: q-sign
+          image: {{ include "onepass.image" .Values.qsign.image }}
+          imagePullPolicy: {{ .Values.qsign.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          # ConfigMap (비민감 설정)
+          envFrom:
+            - configMapRef:
+                name: onepass-qsign-config
+            - configMapRef:
+                name: onepass-common-config
+          # Secret (민감 설정)
+          envFrom:
+            - secretRef:
+                name: {{ .Values.qsign.secretRef.name }}
+          livenessProbe:
+            {{- toYaml .Values.qsign.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.qsign.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.qsign.resources | nindent 12 }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: onepass-qsign
+                topologyKey: kubernetes.io/hostname
+{{- end }}

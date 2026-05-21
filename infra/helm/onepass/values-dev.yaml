@@ -1,0 +1,68 @@
+# ============================================================
+# values-dev.yaml — 개발 환경 (Minikube / 내부 QA)
+# 적용: helm upgrade --install onepass ./infra/helm/onepass \
+#         -f infra/helm/onepass/values.yaml \
+#         -f infra/helm/onepass/values-dev.yaml \
+#         --namespace onepass-dev
+# ============================================================
+global:
+  namespace: onepass-dev
+  env: dev
+
+qsign:
+  replicaCount: 1
+  config:
+    QSIGN_INTERNAL_SIG_STRICT: "false"   # 개발: 서명 검증 느슨하게
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+qim:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+ido:
+  replicaCount: 1
+  config:
+    IDO_BROKER_MODE: qsign
+    IDO_RATE_LIMIT_ENABLED: "false"     # 개발: rate limit 비활성
+    IDO_KAFKA_REPLICATION_FACTOR: "1"
+    IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+agencyStub:
+  replicaCount: 1
+
+kafka:
+  topics:
+    # 개발 환경: 기본 토픽 이름 동일
+    authEvents: qsign.auth.events
+
+networkPolicy:
+  enabled: false
+
+ingress:
+  enabled: true
+  hosts:
+    - host: onepass.dev.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: ido
+          port: 8083
