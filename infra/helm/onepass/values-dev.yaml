@@ -38,6 +38,8 @@ ido:
     IDO_RATE_LIMIT_ENABLED: "false"     # 개발: rate limit 비활성
     IDO_KAFKA_REPLICATION_FACTOR: "1"
     IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"
+    # ── KMS Off (개발: LocalKmsClient 사용 — Vault 의존성 없음) ──────
+    IDO_KMS_ENABLED: "false"
   resources:
     requests:
       cpu: 200m

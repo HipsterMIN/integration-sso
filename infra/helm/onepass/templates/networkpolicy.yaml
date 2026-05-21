@@ -199,6 +199,12 @@ spec:
     - to: []
       ports:
         - port: 443
+    # HashiCorp Vault (Transit Engine — KMS)
+    #  - 자체 호스팅 Vault: 동일 클러스터 내 vault 네임스페이스
+    #  - HCP Vault Dedicated/외부 Vault: 외부 라우팅 필요 (port 8200 또는 443)
+    - to: []
+      ports:
+        - port: 8200
     # DNS
     - to: []
       ports:

@@ -76,6 +76,21 @@ ido:
     IDO_KAFKA_MIN_INSYNC_REPLICAS: "2"
     IDO_KAFKA_PARTITION_COUNT_MAIN: "12"
     IDO_KAFKA_PARTITION_COUNT_DLQ: "6"
+    # ── KMS On (운영: Kubernetes Auth 권장 — SA JWT 기반 자동 인증) ──
+    # 사전 작업:
+    #   1. Vault Transit 엔진 + ido-handoff-key 생성 (infra/scripts/vault-init.sh)
+    #   2. Vault Kubernetes Auth 설정:
+    #        vault write auth/kubernetes/role/ido \
+    #          bound_service_account_names=onepass-ido \
+    #          bound_service_account_namespaces=onepass \
+    #          policies=ido-kms-policy ttl=1h
+    IDO_KMS_ENABLED: "true"
+    IDO_KMS_PROVIDER: "vault"
+    VAULT_ADDR: "http://vault.vault.svc.cluster.local:8200"
+    VAULT_AUTH_METHOD: "kubernetes"
+    VAULT_K8S_ROLE: "ido"
+    VAULT_TRANSIT_PATH: "transit"
+    VAULT_TRANSIT_KEY: "ido-handoff-key"
   resources:
     requests:
       cpu: 1000m
