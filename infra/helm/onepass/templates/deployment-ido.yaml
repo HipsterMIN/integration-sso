@@ -53,6 +53,10 @@ spec:
                 name: onepass-common-config
             - secretRef:
                 name: {{ .Values.ido.secretRef.name }}
+          {{- if .Values.ido.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.ido.startupProbe | nindent 12 }}
+          {{- end }}
           livenessProbe:
             {{- toYaml .Values.ido.livenessProbe | nindent 12 }}
           readinessProbe:

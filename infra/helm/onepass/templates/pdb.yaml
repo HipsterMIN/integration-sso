@@ -1,0 +1,81 @@
+# ============================================================
+# PodDisruptionBudget — 노드 드레인/업그레이드 시 가용성 보장
+#
+# 정책:
+#   - policy/v1 (안정 API, K8s 1.21+)
+#   - 기본값(values.yaml): minAvailable=1 — 최소 1 Pod 유지
+#   - 운영(values-prod.yaml): minAvailable=2 — 가용성 우선
+#
+# ⚠️ PDB는 자발적(voluntary) 중단만 막음:
+#   - kubectl drain, 노드 업그레이드 → 막음
+#   - Pod 자체 OOM, 노드 장애 → 못 막음 (이건 livenessProbe + replicaCount로 대응)
+# ============================================================
+
+# ── Q-Sign PDB ────────────────────────────────────────────────
+{{- if and .Values.qsign.enabled .Values.qsign.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-qsign
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-sign
+spec:
+  minAvailable: {{ .Values.qsign.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: onepass-qsign
+{{- end }}
+---
+# ── Q-IM PDB ──────────────────────────────────────────────────
+{{- if and .Values.qim.enabled .Values.qim.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-qim
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-im
+spec:
+  minAvailable: {{ .Values.qim.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: onepass-qim
+{{- end }}
+---
+# ── IdO PDB ───────────────────────────────────────────────────
+{{- if and .Values.ido.enabled .Values.ido.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-ido
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ido
+spec:
+  minAvailable: {{ .Values.ido.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: onepass-ido
+{{- end }}
+---
+# ── Outbox Relay Batch PDB ────────────────────────────────────
+# HPA는 무의미하지만 PDB는 필요 — 노드 드레인 시 ShedLock 페일오버 보장
+{{- if and .Values.batch.enabled .Values.batch.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-batch
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: batch
+spec:
+  minAvailable: {{ .Values.batch.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: onepass-batch
+{{- end }}
