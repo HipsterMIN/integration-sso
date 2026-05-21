@@ -781,6 +781,16 @@ management:
       show-details: when-authorized
       probes:
         enabled: true
+      # ── Health Group 매핑 (PR-A4) ────────────────────────────────────────
+      # liveness  : Pod 재시작이 도움이 되는 자체 결함만 (KMS는 외부 의존성이므로 제외)
+      # readiness : 트래픽을 받기 위해 필요한 모든 외부 의존성 (KMS 포함)
+      # 운영자가 readinessOnlyIndicators를 통해 어느 indicator가 readiness DOWN을
+      # 유발했는지 즉시 식별 가능
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis,kms
   metrics:
     tags:
       application: ${spring.application.name}
