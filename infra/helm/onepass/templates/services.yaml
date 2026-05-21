@@ -61,6 +61,32 @@ spec:
       protocol: TCP
 {{- end }}
 ---
+# ── Outbox Relay Batch Service (Prometheus scrape용) ──────────────
+{{- if .Values.batch.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: onepass-batch
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: batch
+  annotations:
+    # Prometheus annotation-based discovery
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8090"
+    prometheus.io/path: "/actuator/prometheus"
+spec:
+  type: {{ .Values.batch.service.type }}
+  selector:
+    app: onepass-batch
+  ports:
+    - name: http
+      port: {{ .Values.batch.service.port }}
+      targetPort: http
+      protocol: TCP
+{{- end }}
+---
 # ── Agency-Stub Service (PoC 전용) ────────────────────────────────
 {{- if .Values.agencyStub.enabled }}
 apiVersion: v1

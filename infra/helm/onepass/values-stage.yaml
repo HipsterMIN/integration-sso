@@ -26,6 +26,24 @@ ido:
     IDO_KAFKA_REPLICATION_FACTOR: "1"   # 스테이징: 단일 브로커
     IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"
 
+batch:
+  replicaCount: 2
+  config:
+    SPRING_PROFILES_ACTIVE: k8s
+    # 스테이징: 모든 릴레이 활성 (운영과 동일 시나리오 테스트)
+    BATCH_PROVISIONING_RELAY_ENABLED: "true"
+    BATCH_WEBHOOK_RELAY_ENABLED: "true"
+    # 스테이징은 외부 알림 채널 비활성
+    BATCH_ALERT_SLACK_ENABLED: "false"
+    BATCH_ALERT_PAGERDUTY_ENABLED: "false"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
 agencyStub:
   replicaCount: 1
 

@@ -84,6 +84,31 @@ ido:
       cpu: 4000m
       memory: 4Gi
 
+batch:
+  # 운영: HA 페일오버 확보 — ShedLock이 단일 실행 보장
+  replicaCount: 2
+  image:
+    tag: "1.0.0"  # 운영: 고정 버전 태그
+  config:
+    SPRING_PROFILES_ACTIVE: k8s
+    # 운영: 모든 릴레이 활성
+    BATCH_IDO_KAFKA_RELAY_ENABLED: "true"
+    BATCH_IDO_QIM_RELAY_ENABLED: "true"
+    BATCH_QIM_KAFKA_RELAY_ENABLED: "true"
+    BATCH_QSIGN_KAFKA_RELAY_ENABLED: "true"
+    BATCH_PROVISIONING_RELAY_ENABLED: "true"
+    BATCH_WEBHOOK_RELAY_ENABLED: "true"
+    # 운영: DEAD_LETTER 알림 채널 활성 (Secret으로 URL/Routing Key 주입)
+    BATCH_ALERT_SLACK_ENABLED: "true"
+    BATCH_ALERT_PAGERDUTY_ENABLED: "true"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
 agencyStub:
   # 운영에서는 실제 기관 서비스로 대체 (agency-stub은 PoC 전용)
   enabled: false
