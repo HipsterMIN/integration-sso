@@ -1,39 +1,47 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# 통합인증 플랫폼 — 로컬/스테이징 인프라
-# 서비스: PostgreSQL 16 / MariaDB 11 / Redis 7.2 / Kafka (Confluent 7.6.1) / Monitoring UI
+# 통합인증 플랫폼 — 로컬/개발 인프라 (Docker Compose)
 #
 # [DB 분리 구조]
 #   PostgreSQL 16 (port 5432) : Q-Sign / IdO / agency-stub / Keycloak
 #   MariaDB 11    (port 3306) : Q-IM 전용
 #     → 운영: NHN Cloud RDS for MariaDB
-#     → PoC:  self-hosted MariaDB 컨테이너 (172.20.0.21)
+#     → 로컬: self-hosted MariaDB 컨테이너 (172.20.0.21)
 #
-# [아키텍처 변경] onepass-fe Spring Boot BFF 제거
-#   - onepass-fe : 순수 React SPA (Nginx 서빙)
-#   - BFF 역할   : ido(port 8083) 가 /api/v1/fe-session/** 담당
+# [프로파일 구성]
+#   기본(프로파일 없음) : 인프라만 (DB / Redis / Kafka / Kafka-UI / Redis-Insight)
+#   app               : + Q-Sign / Q-IM / IdO / Agency-Stub
+#   keycloak          : + Keycloak OIDC 브로커
+#   optionB           : + React SPA (Nginx)
+#   tools             : + pgAdmin / Adminer
+#   monitoring        : + Prometheus / Grafana / Loki / Promtail
 #
+# [환경변수 관리]
+#   로컬 개발: infra/docker/.env 파일 (git-ignored) 또는 환경변수 export
+#   운영 배포: K8s Secret / Helm values-prod.yaml
+#
+# [사용 예]
+#   infra 기동  : docker compose -f infra/docker/docker-compose.yml up -d
+#   앱 포함     : docker compose -f infra/docker/docker-compose.yml --profile app up -d
+#   전체        : docker compose -f infra/docker/docker-compose.yml \
+#                   --profile app --profile keycloak --profile monitoring up -d
 # ══════════════════════════════════════════════════════════════════════════════
-# ⚠️  운영 배포 전 필수 .env 파일 생성
-# ──────────────────────────────────────────────────────────────────────────────
-# 아래 변수들은 반드시 .env 파일 또는 K8s Secret으로 주입해야 합니다.
-# 기본값(:-) 이 있는 항목은 PoC 전용이며, 운영에서 사용하면 보안 사고가 발생합니다.
-#
-# 생성 예시 (infra/docker/.env):
-#   POSTGRES_PASSWORD=$(openssl rand -base64 32)
-#   MARIADB_ROOT_PASSWORD=$(openssl rand -base64 32)
-#   MARIADB_PASSWORD=$(openssl rand -base64 32)
-#   IDO_HANDOFF_AES_KEY=$(openssl rand -base64 32)
-#   IDO_HANDOFF_HMAC_KEY=$(openssl rand -base64 32)
-#   QIM_CI_AES_KEY_V1=$(openssl rand -base64 32)
-#   IDO_WEBHOOK_SIGNING_SECRET=$(openssl rand -hex 32)
-#   IDO_INTERNAL_SIG_SECRET=$(openssl rand -hex 32)
-#   QSIGN_KEYCLOAK_CLIENT_SECRET=<Keycloak Admin Console에서 발급>
-#   KEYCLOAK_IDO_CLIENT_SECRET=<Keycloak Admin Console에서 발급>
-#   IDO_AGENCY_SUBJECT_SECRET=$(openssl rand -hex 32)
-#
-# ⛔ 아래 변수가 .env 에 없으면 기동을 중단하십시오:
-#   IDO_HANDOFF_AES_KEY, IDO_HANDOFF_HMAC_KEY, QIM_CI_AES_KEY_V1
-# ══════════════════════════════════════════════════════════════════════════════
+
+# ── 기본값 정의 (YAML 앵커) ─────────────────────────────────────────────────
+x-log-defaults: &log-defaults
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-log-small: &log-small
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Promtail 로그 수집 대상 레이블
+x-promtail-label: &promtail-label
+  logging: "promtail"
 
 networks:
   onepass-net:
@@ -58,21 +66,19 @@ services:
 
   # ════════════════════════════════════════════════════════════
   # MariaDB 11 — Q-IM 전용
-  # 운영: NHN Cloud RDS for MariaDB
-  # PoC:  self-hosted (172.20.0.21:3306)
-  # http://localhost:3306  (adminer: localhost:8091)
+  # 운영: NHN Cloud RDS for MariaDB (system_time_zone KST 주의)
+  # 로컬: self-hosted (172.20.0.21:3306), TZ=UTC 설정
+  # Adminer: http://localhost:8091
   # ════════════════════════════════════════════════════════════
   mariadb:
     image: mariadb:11.4
     container_name: onepass-mariadb
     restart: unless-stopped
     environment:
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootpass}
-      MARIADB_DATABASE: qim
-      MARIADB_USER: qim
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-qim}
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE:  qim
+      MARIADB_USER:      qim
+      MARIADB_PASSWORD:  qim
       TZ: UTC
     ports:
       - "3306:3306"
@@ -94,11 +100,7 @@ services:
           memory: 1g
         reservations:
           memory: 512m
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
+    logging: *log-defaults
 
   # ════════════════════════════════════════════════════════════
   # PostgreSQL 16 — Q-Sign / IdO / agency-stub / Keycloak
@@ -108,12 +110,11 @@ services:
     container_name: onepass-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: onepass
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-onepass}
-      POSTGRES_DB: onepass
+      POSTGRES_USER:     onepass
+      POSTGRES_PASSWORD: onepass
+      POSTGRES_DB:       onepass
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
-      TZ: UTC
+      TZ:   UTC
       PGTZ: UTC
     ports:
       - "5432:5432"
@@ -141,11 +142,7 @@ services:
           memory: 1g
         reservations:
           memory: 512m
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
+    logging: *log-defaults
 
   # ════════════════════════════════════════════════════════════
   # Redis 7.2
@@ -175,11 +172,7 @@ services:
           memory: 768m
         reservations:
           memory: 256m
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *log-small
 
   # ════════════════════════════════════════════════════════════
   # Zookeeper
@@ -211,11 +204,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *log-small
 
   # ════════════════════════════════════════════════════════════
   # Kafka Broker
@@ -231,7 +220,7 @@ services:
       # ── 브로커 기본 ──────────────────────────────────────────
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # ── 리스너 설정 ──────────────────────────────────────────
+      # ── 리스너 ───────────────────────────────────────────────
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
@@ -251,7 +240,7 @@ services:
       KAFKA_LOG_RETENTION_HOURS: 168
       KAFKA_LOG_SEGMENT_BYTES: 1073741824
       KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
-      # ── Compacted 토픽용 Log Cleaner ─────────────────────────
+      # ── Log Cleaner (Compacted 토픽용) ───────────────────────
       KAFKA_LOG_CLEANER_ENABLE: "true"
       KAFKA_LOG_CLEANER_THREADS: 2
       KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE: 134217728
@@ -262,9 +251,8 @@ services:
       KAFKA_SOCKET_SEND_BUFFER_BYTES: 102400
       KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 102400
       KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
-      # ── 그룹 리밸런스 ────────────────────────────────────────
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
-      # ── JMX (Kafka UI 메트릭) ────────────────────────────────
+      # ── JMX ──────────────────────────────────────────────────
       KAFKA_JMX_PORT: 9999
       KAFKA_JMX_HOSTNAME: kafka
       KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
@@ -290,14 +278,10 @@ services:
           memory: 1g
         reservations:
           memory: 512m
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
+    logging: *log-defaults
 
   # ════════════════════════════════════════════════════════════
-  # Kafka 토픽 초기화
+  # Kafka 토픽 초기화 (create-topics.sh)
   # ════════════════════════════════════════════════════════════
   kafka-init:
     image: confluentinc/cp-kafka:7.6.1
@@ -313,7 +297,7 @@ services:
     restart: on-failure
 
   # ════════════════════════════════════════════════════════════
-  # Schema Registry (Avro 스키마 관리 — 선택적 활성화)
+  # Schema Registry (선택 — profile: schema)
   # ════════════════════════════════════════════════════════════
   schema-registry:
     image: confluentinc/cp-schema-registry:7.6.1
@@ -339,16 +323,11 @@ services:
       retries: 5
       start_period: 30s
     profiles:
-      - schema          # docker compose --profile schema up 으로 선택 기동
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - schema
+    logging: *log-small
 
   # ════════════════════════════════════════════════════════════
-  # Kafka UI (provectuslabs)
-  # http://localhost:8090
+  # Kafka UI — http://localhost:8090  (admin/admin)
   # ════════════════════════════════════════════════════════════
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -377,15 +356,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *log-small
 
   # ════════════════════════════════════════════════════════════
-  # Redis Insight
-  # http://localhost:5540
+  # Redis Insight — http://localhost:5540
   # ════════════════════════════════════════════════════════════
   redis-insight:
     image: redis/redisinsight:latest
@@ -399,15 +373,11 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *log-small
 
   # ════════════════════════════════════════════════════════════
-  # pgAdmin 4
-  # http://localhost:5050 (admin@onepass.local / admin)
+  # pgAdmin 4 — http://localhost:5050  (admin@onepass.local / admin)
+  # profile: tools
   # ════════════════════════════════════════════════════════════
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -429,191 +399,12 @@ services:
       postgres:
         condition: service_healthy
     profiles:
-      - tools           # docker compose --profile tools up 으로 선택 기동
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - tools
+    logging: *log-small
 
   # ════════════════════════════════════════════════════════════
-  # Keycloak 24.0 — OIDC 브로커 (문서 §10)
-  # http://localhost:8088
-  #
-  # 역할: KAKAO_OIDC / NAVER_OIDC 등 Social IdP 브로커링
-  #   - Realm       : onepass
-  #   - Client      : ido-client (confidential)
-  #   - IdP alias   : social-kakao, social-naver
-  #   - Redirect URI: http://localhost:8083/api/v1/broker/callback
-  #
-  # 초기 설정: http://localhost:8088 → Admin Console (admin/admin)
-  # ════════════════════════════════════════════════════════════
-  keycloak:
-    image: quay.io/keycloak/keycloak:24.0
-    container_name: onepass-keycloak
-    restart: unless-stopped
-    # --import-realm: 컨테이너 최초 기동 시 realm-export.json 을 자동 임포트
-    command: start-dev --http-port=8080 --import-realm
-    environment:
-      KEYCLOAK_ADMIN:          admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      # DB 설정 — PostgreSQL keycloak 스키마 사용
-      KC_DB:              postgres
-      KC_DB_URL:          jdbc:postgresql://postgres:5432/onepass?currentSchema=keycloak
-      KC_DB_USERNAME:     onepass
-      KC_DB_PASSWORD:     onepass
-      KC_DB_SCHEMA:       keycloak
-      # 호스트 설정
-      KC_HOSTNAME_STRICT:         "false"
-      KC_HOSTNAME_STRICT_HTTPS:   "false"
-      KC_HTTP_ENABLED:            "true"
-      KC_PROXY:                   edge
-      KC_LOG_LEVEL:               INFO
-    ports:
-      - "8088:8080"
-    volumes:
-      - keycloak-data:/opt/keycloak/data
-      # realm-export.json 자동 임포트 (--import-realm 옵션과 함께)
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-    networks:
-      onepass-net:
-        ipv4_address: 172.20.0.18
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-      start_period: 90s
-    profiles:
-      - keycloak             # docker compose --profile keycloak up 으로 선택 기동
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
-
-  # ════════════════════════════════════════════════════════════
-  # ★ Q-Sign (인증 결과 SoR + Keycloak 어댑터)
-  # http://localhost:8081
-  #
-  # DB: PostgreSQL (onepass-postgres:5432/onepass, schema=qsign)
-  # 빌드: ./gradlew :q-sign:bootJar -x test
-  #       docker build -f q-sign/Dockerfile -t onepass-qsign:latest .
-  # ════════════════════════════════════════════════════════════
-  onepass-qsign:
-    image: onepass-qsign:latest
-    container_name: onepass-qsign
-    restart: unless-stopped
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      # ── PostgreSQL (Q-Sign 전용) ────────────────────────────
-      DB_HOST:               postgres
-      DB_PORT:               "5432"
-      DB_NAME:               onepass
-      DB_USERNAME:           onepass
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
-      DB_PASSWORD:           ${POSTGRES_PASSWORD:-onepass}
-      REDIS_HOST:            redis
-      REDIS_PORT:            "6379"
-      KAFKA_SERVERS:         kafka:29092
-      IDO_BASE_URL:          http://onepass-ido:8083
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
-      IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-padding-secret}
-      # Keycloak 어댑터 설정
-      KEYCLOAK_URL:          http://keycloak:8080
-      KEYCLOAK_REALM:        onepass
-      QSIGN_KEYCLOAK_CLIENT_ID:     q-sign-client
-      QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET:-}  # B-6: 반드시 환경변수로 주입
-      QSIGN_KEYCLOAK_REDIRECT_URI:  http://localhost:8081/api/v1/oidc/keycloak/callback
-    ports:
-      - "8081:8081"
-    networks:
-      onepass-net:
-        ipv4_address: 172.20.0.24
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
-    profiles:
-      - app
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
-
-  # ════════════════════════════════════════════════════════════
-  # ★ Q-IM (식별·매핑 SoR)
-  # http://localhost:8082
-  #
-  # DB: MariaDB (onepass-mariadb:3306/qim)
-  # 빌드: ./gradlew :q-im:bootJar -x test
-  #       docker build -f q-im/Dockerfile -t onepass-qim:latest .
-  # ════════════════════════════════════════════════════════════
-  onepass-qim:
-    image: onepass-qim:latest
-    container_name: onepass-qim
-    restart: unless-stopped
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      # ── MariaDB (Q-IM 전용) ─────────────────────────────────
-      QIM_DB_HOST:       mariadb
-      QIM_DB_PORT:       "3306"
-      QIM_DB_NAME:       qim
-      QIM_DB_USERNAME:   qim
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
-      QIM_DB_PASSWORD:   ${MARIADB_PASSWORD:-qim}
-      QIM_DB_SSL:        "false"     # PoC: SSL 미사용 / 운영: true
-      REDIS_HOST:        redis
-      REDIS_PORT:        "6379"
-      KAFKA_SERVERS:     kafka:29092
-      # ── CI 암호화 키 (B-2) ─────────────────────────────────
-      # ⛔ [REQUIRES_MANUAL] 운영 필수 — 미주입 시 CI(연계정보) 암호화 무력화 (PII 규정 위반)
-      # 생성: openssl rand -base64 32
-      QIM_CI_AES_KEY_V1: ${QIM_CI_AES_KEY_V1:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
-      QIM_CI_AES_KEY_V2: ${QIM_CI_AES_KEY_V2:-}
-    ports:
-      - "8082:8082"
-    networks:
-      onepass-net:
-        ipv4_address: 172.20.0.22
-    depends_on:
-      mariadb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    profiles:
-      - app
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
-
-  # ════════════════════════════════════════════════════════════
-  # Adminer — MariaDB 관리 UI
-  # http://localhost:8091
-  #   서버: mariadb  /  사용자: qim  /  암호: qim  /  DB: qim
+  # Adminer — MariaDB 관리 UI — http://localhost:8091
+  # profile: tools
   # ════════════════════════════════════════════════════════════
   adminer:
     image: adminer:latest
@@ -629,171 +420,279 @@ services:
         condition: service_healthy
     profiles:
       - tools
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *log-small
 
   # ════════════════════════════════════════════════════════════
-  # ★ IdO (정책 오케스트레이터 + FE BFF)
-  # http://localhost:8083
+  # Keycloak 24.0 — OIDC 브로커 — http://localhost:8088
+  # profile: keycloak
   #
-  # [변경] BFF 책임 이관: onepass-fe BFF → ido
-  #   /api/v1/fe-session/**  — FE 세션 발급/확인/로그아웃
-  #   /api/v1/handoff/**     — Handoff Ticket 발급/검증
-  #   CORS 허용 Origin       — onepass-react(3001), React dev(3000)
-  #
-  # DB: PostgreSQL (onepass-postgres:5432/onepass, schema=ido)
-  # 빌드: ./gradlew :ido:bootJar -x test
-  #       docker build -f ido/Dockerfile -t onepass-ido:latest .
+  # Client secrets: realm-export.json과 반드시 일치해야 함
+  #   q-sign-client → QSIGN_KEYCLOAK_CLIENT_SECRET
+  #   ido-client    → KEYCLOAK_CLIENT_SECRET
+  # 초기 기본값은 .env 파일의 change-me 값과 realm-export.json이 동일해야 함
   # ════════════════════════════════════════════════════════════
-  onepass-ido:
-    image: onepass-ido:latest
-    container_name: onepass-ido
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: onepass-keycloak
     restart: unless-stopped
+    command: start-dev --http-port=8080 --import-realm
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      # ── PostgreSQL (IdO 전용) ───────────────────────────────
-      DB_HOST:               postgres
-      DB_PORT:               "5432"
-      DB_NAME:               onepass
-      DB_USERNAME:           onepass
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 강력한 랜덤값으로 교체
-      DB_PASSWORD:           ${POSTGRES_PASSWORD:-onepass}
-      REDIS_HOST:            redis
-      REDIS_PORT:            "6379"
-      KAFKA_SERVERS:         kafka:29092
-      QIM_BASE_URL:          http://onepass-qim:8082
-      QSIGN_BASE_URL:        http://onepass-qsign:8081
-      # CORS: React SPA Origin 허용
-      CORS_ORIGIN_DEV:       http://localhost:3000
-      CORS_ORIGIN_PROD:      http://localhost:3001
-      # Keycloak 브로커 설정 (ido.broker.mode=keycloak 전환 시 활성화)
-      IDO_BROKER_MODE:       qsign        # 전환 시: keycloak
-      KEYCLOAK_BASE_URL:     http://keycloak:8080
-      KEYCLOAK_REALM:        onepass
-      KEYCLOAK_CLIENT_ID:    ido-client
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 주입 (B-6)
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_IDO_CLIENT_SECRET:-}
-      KEYCLOAK_REDIRECT_URI: http://localhost:8083/api/v1/broker/callback
-      # ── Handoff 암호화 키 (B-1) ────────────────────────────
-      # ⛔ [REQUIRES_MANUAL] 운영 필수 — 미주입 시 Handoff 암호화 무력화 (전체 0바이트)
-      # 생성: openssl rand -base64 32
-      IDO_HANDOFF_AES_KEY:  ${IDO_HANDOFF_AES_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
-      IDO_HANDOFF_HMAC_KEY: ${IDO_HANDOFF_HMAC_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
-      # ── Webhook 서명 시크릿 (B-3) ──────────────────────────
-      # ⛔ [REQUIRES_MANUAL] 운영 필수 — 미주입 시 기관이 webhook 위조 가능
-      # 생성: openssl rand -hex 32
-      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
-      # ── 정책 엔진 HMAC 시크릿 ──────────────────────────────
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 교체
-      # 생성: openssl rand -hex 32
-      IDO_AGENCY_SUBJECT_SECRET: ${IDO_AGENCY_SUBJECT_SECRET:-default-poc-secret-change-in-production}
+      KEYCLOAK_ADMIN:          admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB:              postgres
+      KC_DB_URL:          jdbc:postgresql://postgres:5432/onepass?currentSchema=keycloak
+      KC_DB_USERNAME:     onepass
+      KC_DB_PASSWORD:     onepass
+      KC_DB_SCHEMA:       keycloak
+      KC_HOSTNAME_STRICT:       "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED:          "true"
+      KC_PROXY:                 edge
+      KC_LOG_LEVEL:             INFO
     ports:
-      - "8083:8083"
+      - "8088:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     networks:
       onepass-net:
-        ipv4_address: 172.20.0.19
+        ipv4_address: 172.20.0.18
     depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    profiles:
+      - keycloak
+    logging: *log-defaults
+
+  # ════════════════════════════════════════════════════════════
+  # ★ Q-Sign — 인증 결과 SoR — http://localhost:8081
+  # profile: app
+  #
+  # 빌드:
+  #   ./gradlew :q-sign:bootJar -x test
+  #   docker build -f q-sign/Dockerfile -t onepass-qsign:latest .
+  # ════════════════════════════════════════════════════════════
+  onepass-qsign:
+    image: onepass-qsign:latest
+    container_name: onepass-qsign
+    restart: unless-stopped
+    labels:
+      <<: *promtail-label
+      com.docker.compose.service: onepass-qsign
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # ── PostgreSQL ──────────────────────────────────────────
+      DB_HOST:     postgres
+      DB_PORT:     "5432"
+      DB_NAME:     onepass
+      DB_USERNAME: onepass
+      DB_PASSWORD: onepass
+      # ── Redis / Kafka ───────────────────────────────────────
+      REDIS_HOST:    redis
+      REDIS_PORT:    "6379"
+      KAFKA_SERVERS: kafka:29092
+      # ── IdO 내부 통신 ───────────────────────────────────────
+      IDO_BASE_URL:             http://onepass-ido:8083
+      IDO_INTERNAL_SIG_SECRET:  ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
+      # ── Keycloak 어댑터 ─────────────────────────────────────
+      KEYCLOAK_URL:                  http://keycloak:8080
+      KEYCLOAK_REALM:                onepass
+      QSIGN_KEYCLOAK_CLIENT_ID:      q-sign-client
+      QSIGN_KEYCLOAK_CLIENT_SECRET:  ${QSIGN_KEYCLOAK_CLIENT_SECRET:-change-me}
+      QSIGN_KEYCLOAK_REDIRECT_URI:   http://localhost:8081/api/v1/oidc/keycloak/callback
+      QSIGN_INTERNAL_SIG_STRICT:     "false"
+    ports:
+      - "8081:8081"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.24
+    depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    profiles:
+      - app
+    logging: *log-defaults
+
+  # ════════════════════════════════════════════════════════════
+  # ★ Q-IM — 식별·매핑 SoR — http://localhost:8082
+  # profile: app
+  #
+  # 빌드:
+  #   ./gradlew :q-im:bootJar -x test
+  #   docker build -f q-im/Dockerfile -t onepass-qim:latest .
+  # ════════════════════════════════════════════════════════════
+  onepass-qim:
+    image: onepass-qim:latest
+    container_name: onepass-qim
+    restart: unless-stopped
+    labels:
+      <<: *promtail-label
+      com.docker.compose.service: onepass-qim
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # ── MariaDB ─────────────────────────────────────────────
+      QIM_DB_HOST:     mariadb
+      QIM_DB_PORT:     "3306"
+      QIM_DB_NAME:     qim
+      QIM_DB_USERNAME: qim
+      QIM_DB_PASSWORD: qim
+      QIM_DB_SSL:      "false"
+      # ── Redis / Kafka ───────────────────────────────────────
+      REDIS_HOST:    redis
+      REDIS_PORT:    "6379"
+      KAFKA_SERVERS: kafka:29092
+      # ── 내부 API 보안 (IdO → Q-IM 호출용 X-Internal-Api-Key) ──
+      # 운영: 최소 32자 무작위 문자열, .env 또는 K8s Secret으로 주입
+      QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
+    ports:
+      - "8082:8082"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.22
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
     profiles:
       - app
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
+    logging: *log-defaults
 
   # ════════════════════════════════════════════════════════════
-  # ★ React SPA (Nginx)  — onepass-fe 순수 프론트엔드
-  # http://localhost:3001
+  # ★ IdO — 정책 오케스트레이터 + FE BFF — http://localhost:8083
+  # profile: app
   #
-  # [변경] onepass-fe는 순수 React SPA 모듈.
-  #   Nginx가 /api/**, /actuator/** → ido:8083 역방향 프록시
-  #   Spring Boot BFF 는 완전 제거됨.
-  #
-  # 빌드: cd onepass-fe && docker build -f Dockerfile.optionB \
-  #             -t onepass-react:latest .
-  # 또는 개발:  cd onepass-fe/frontend && yarn dev  (port 3000)
+  # 빌드:
+  #   ./gradlew :ido:bootJar -x test
+  #   docker build -f ido/Dockerfile -t onepass-ido:latest .
   # ════════════════════════════════════════════════════════════
-  onepass-react:
-    build:
-      context: ../../onepass-fe
-      dockerfile: Dockerfile.optionB
-      target: react-nginx
-    image: onepass-react:latest
-    container_name: onepass-react
+  onepass-ido:
+    image: onepass-ido:latest
+    container_name: onepass-ido
     restart: unless-stopped
+    labels:
+      <<: *promtail-label
+      com.docker.compose.service: onepass-ido
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # ── PostgreSQL ──────────────────────────────────────────
+      DB_HOST:     postgres
+      DB_PORT:     "5432"
+      DB_NAME:     onepass
+      DB_USERNAME: onepass
+      DB_PASSWORD: onepass
+      # ── Redis / Kafka ───────────────────────────────────────
+      REDIS_HOST:    redis
+      REDIS_PORT:    "6379"
+      KAFKA_SERVERS: kafka:29092
+      # ── 백엔드 서비스 URL ───────────────────────────────────
+      QIM_BASE_URL:   http://onepass-qim:8082
+      QSIGN_BASE_URL: http://onepass-qsign:8081
+      # ── Q-IM 내부 API 호출 키 (IdO → Q-IM X-Internal-Api-Key) ──
+      # Q-IM의 QIM_INTERNAL_API_KEY와 반드시 동일해야 함
+      IDO_QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
+      # ── Q-Sign 내부 서명 비밀키 ─────────────────────────────
+      IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
+      # ── CORS ─────────────────────────────────────────────────
+      CORS_ORIGIN_DEV:  http://localhost:3000
+      CORS_ORIGIN_PROD: http://localhost:3001
+      # ── 브로커 모드 (qsign 또는 keycloak) ───────────────────
+      IDO_BROKER_MODE: ${IDO_BROKER_MODE:-qsign}
+      # ── Keycloak OIDC 브로커 (mode=keycloak 전환 시 활성화) ──
+      KEYCLOAK_BASE_URL:      http://keycloak:8080
+      KEYCLOAK_REALM:         onepass
+      KEYCLOAK_CLIENT_ID:     ido-client
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change-me}
+      KEYCLOAK_REDIRECT_URI:  http://localhost:8083/api/v1/broker/callback
+      # ── Webhook ──────────────────────────────────────────────
+      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
+      # ── Handoff 암호화 키 (PoC 기본값 — 운영: Vault/KMS 주입) ──
+      IDO_HANDOFF_AES_KEY:  ${IDO_HANDOFF_AES_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      IDO_HANDOFF_HMAC_KEY: ${IDO_HANDOFF_HMAC_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
     ports:
-      - "3001:80"       # Nginx 서빙 — http://localhost:3001
+      - "8083:8083"
     networks:
       onepass-net:
-        ipv4_address: 172.20.0.20
+        ipv4_address: 172.20.0.19
     depends_on:
-      - onepass-ido     # BFF(ido) 먼저 기동되어야 프록시 가능
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      onepass-qim:
+        condition: service_healthy
+      onepass-qsign:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]
-      interval: 10s
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 45s
     profiles:
-      - optionB         # docker compose --profile optionB up 으로 선택 기동
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - app
+    logging: *log-defaults
 
   # ════════════════════════════════════════════════════════════
   # ★ Agency-Stub — 유관기관 OIDC 클라이언트 시뮬레이터
   # http://localhost:8084
+  # profile: app
   #
-  # 역할 (설계서 §14~16장):
-  #   - POST /agency/entry           → IdO Handoff Verify → 기관 세션 생성
-  #   - GET  /agency/entry/session   → 세션 유효성 확인 (Sliding Window)
-  #   - DELETE /agency/entry/session → 기관 로그아웃
-  #   - POST /api/v1/webhook/inbound → IdO Webhook 수신 (HMAC-SHA256 검증)
-  #   - GET  /api/v1/events/poll     → 이벤트 폴링 (Option B)
-  #
-  # ⚠️ 네트워크 격리 원칙 (docs/agency-external-arch-supplement.md §2):
-  #   - IdO 공개 API(HTTPS)를 통해서만 통신 (Kafka 직접 구독 = PoC 전용)
-  #   - 운영 배포: 별도 외부망 브리지 네트워크 사용 권장
-  #
-  # DB: PostgreSQL schema=agency_stub
-  # 빌드: ./gradlew :agency-stub:bootJar -x test
-  #       docker build -f agency-stub/Dockerfile -t onepass-agency-stub:latest .
+  # 빌드:
+  #   ./gradlew :agency-stub:bootJar -x test
+  #   docker build -f agency-stub/Dockerfile -t onepass-agency-stub:latest .
   # ════════════════════════════════════════════════════════════
   onepass-agency-stub:
     image: onepass-agency-stub:latest
     container_name: onepass-agency-stub
     restart: unless-stopped
+    labels:
+      <<: *promtail-label
+      com.docker.compose.service: onepass-agency-stub
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_HOST:               postgres
-      DB_PORT:               "5432"
-      DB_NAME:               onepass
-      DB_USERNAME:           onepass
-      DB_PASSWORD:           onepass
-      REDIS_HOST:            redis
-      REDIS_PORT:            "6379"
-      KAFKA_SERVERS:         kafka:29092
-      IDO_BASE_URL:          http://onepass-ido:8083
-      # ⚠️  [REQUIRES_MANUAL] PoC 전용 — 운영 시 실 기관 API Key로 교체
-      AGENCY_API_KEY:        ${AGENCY_API_KEY:-stub-api-key-dev-001}
-      # ⚠️  [REQUIRES_MANUAL] 운영 배포 전 .env 에서 반드시 교체 (B-3)
+      DB_HOST:     postgres
+      DB_PORT:     "5432"
+      DB_NAME:     onepass
+      DB_USERNAME: onepass
+      DB_PASSWORD: onepass
+      REDIS_HOST:    redis
+      REDIS_PORT:    "6379"
+      KAFKA_SERVERS: kafka:29092
+      IDO_BASE_URL:  http://onepass-ido:8083
+      AGENCY_API_KEY:             ${AGENCY_API_KEY:-stub-api-key-dev-001}
       IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
     ports:
       - "8084:8084"
@@ -807,6 +706,10 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      onepass-ido:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health || exit 1"]
       interval: 15s
@@ -815,23 +718,49 @@ services:
       start_period: 60s
     profiles:
       - app
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *log-defaults
 
   # ════════════════════════════════════════════════════════════
-  # ★ Monitoring Stack — Prometheus + Grafana + Loki + Promtail
-  # Sprint 5 Production 모니터링 구성 (설계서 §22)
+  # ★ React SPA (Nginx) — onepass-fe — http://localhost:3001
+  # profile: optionB
   #
-  # Prometheus : http://localhost:9090
-  # Grafana    : http://localhost:3002  (admin/admin)
-  # Loki       : http://localhost:3100  (Grafana datasource)
-  #
-  # 활성화: docker compose --profile monitoring up
+  # build context: 프로젝트 루트 (nginx.conf 참조 가능)
+  # Dockerfile.optionB는 context 내부 상대경로 사용
   # ════════════════════════════════════════════════════════════
+  onepass-react:
+    build:
+      # context를 프로젝트 루트로 설정 → infra/docker/nginx/nginx.conf COPY 가능
+      context: ../..
+      dockerfile: onepass-fe/Dockerfile.optionB
+      target: react-nginx
+    image: onepass-react:latest
+    container_name: onepass-react
+    restart: unless-stopped
+    labels:
+      <<: *promtail-label
+      com.docker.compose.service: onepass-react
+    ports:
+      - "3001:80"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.20
+    depends_on:
+      onepass-ido:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    profiles:
+      - optionB
+    logging: *log-small
 
+  # ════════════════════════════════════════════════════════════
+  # Prometheus — http://localhost:9090
+  # profile: monitoring
+  # ════════════════════════════════════════════════════════════
   prometheus:
     image: prom/prometheus:v2.51.2
     container_name: onepass-prometheus
@@ -856,16 +785,16 @@ services:
       - "host.docker.internal:host-gateway"
     profiles:
       - monitoring
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "3"
+    logging: *log-small
     deploy:
       resources:
         limits:
           memory: 512m
 
+  # ════════════════════════════════════════════════════════════
+  # Grafana — http://localhost:3002  (admin/admin)
+  # profile: monitoring
+  # ════════════════════════════════════════════════════════════
   grafana:
     image: grafana/grafana:10.4.2
     container_name: onepass-grafana
@@ -875,13 +804,14 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP:     "false"
       GF_SERVER_ROOT_URL:         "http://localhost:3002"
-      GF_INSTALL_PLUGINS:         grafana-clock-panel,grafana-simple-json-datasource
+      GF_INSTALL_PLUGINS:         "grafana-clock-panel"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/onepass-overview.json
     ports:
       - "3002:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      # dashboards 실제 경로: infra/monitoring/dashboards/
       - ../monitoring/dashboards:/var/lib/grafana/dashboards:ro
     networks:
       onepass-net:
@@ -890,16 +820,16 @@ services:
       - prometheus
     profiles:
       - monitoring
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *log-small
     deploy:
       resources:
         limits:
           memory: 256m
 
+  # ════════════════════════════════════════════════════════════
+  # Loki — http://localhost:3100
+  # profile: monitoring
+  # ════════════════════════════════════════════════════════════
   loki:
     image: grafana/loki:3.0.0
     container_name: onepass-loki
@@ -915,16 +845,18 @@ services:
         ipv4_address: 172.20.0.52
     profiles:
       - monitoring
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *log-small
     deploy:
       resources:
         limits:
           memory: 256m
 
+  # ════════════════════════════════════════════════════════════
+  # Promtail — 컨테이너 로그 수집 → Loki
+  # profile: monitoring
+  #
+  # 수집 대상: labels.logging=promtail 이 설정된 컨테이너
+  # ════════════════════════════════════════════════════════════
   promtail:
     image: grafana/promtail:3.0.0
     container_name: onepass-promtail
@@ -941,9 +873,4 @@ services:
       - loki
     profiles:
       - monitoring
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
+    logging: *log-small
