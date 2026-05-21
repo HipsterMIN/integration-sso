@@ -3,6 +3,7 @@ package kr.go.smes.ido.crypto;
 import kr.go.smes.common.event.AuditLogEvent;
 import kr.go.smes.ido.audit.AuditLogPublisher;
 import kr.go.smes.ido.crypto.KeyVersionRegistry;
+import kr.go.smes.ido.crypto.kms.KmsClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,6 +54,7 @@ public class HandoffKeyRotationScheduler {
     private final JdbcTemplate                  jdbcTemplate;
     private final AuditLogPublisher             auditLogPublisher;
     private final KeyVersionRegistry            keyVersionRegistry;
+    private final KmsClient                     kmsClient;
 
     @Value("${ido.ticket.key-rotation-days:90}")
     private int keyRotationDays;
@@ -139,28 +141,35 @@ public class HandoffKeyRotationScheduler {
 
     private Map<String, Object> performRotation(String adminId, String reason) {
         try {
-            // 1. 새 키 생성 (운영: Vault API 호출로 대체)
-            byte[] newKeyBytes = new byte[32]; // AES-256 = 32 bytes
+            // 1. 새 키 생성 (AES-256 = 32 bytes, SecureRandom)
+            byte[] newKeyBytes = new byte[32];
             new SecureRandom().nextBytes(newKeyBytes);
-            String newKeyBase64 = Base64.getEncoder().encodeToString(newKeyBytes);
 
-            // 2. 현재 버전 조회 + 다음 버전 계산
+            // 2. KMS로 DEK 암호화 — provider에 따라 자동 선택
+            //    Vault:  "vault:v1:AABB..." (Transit ciphertext)
+            //    Local:  Base64 평문 (KMS Off 모드, 개발 전용)
+            //    NHN:    NHN SKM ENVELOPE 모드 ciphertext
+            String encryptedKeyMaterial = kmsClient.encrypt(newKeyBytes);
+            log.info("[KeyRotation] KMS 암호화 완료: provider={} reason={}",
+                     kmsClient.providerName(), reason);
+
+            // 3. 현재 버전 조회 + 다음 버전 계산
             String currentVersion = queryCurrentVersionFromDb();
             int    currentNum     = Integer.parseInt(currentVersion.replaceAll("[^0-9]", ""));
             String newVersion     = "v" + (currentNum + 1);
 
-            // 3. DB에 신규 키 버전 기록 (ido.crypto_key_registry)
-            saveKeyVersion(newVersion, newKeyBase64, adminId, reason);
+            // 4. DB에 신규 키 버전 기록 (ido.crypto_key_registry)
+            saveKeyVersion(newVersion, encryptedKeyMaterial, adminId, reason);
 
-            // 4. 활성 버전 갱신
+            // 5. 활성 버전 갱신
             updateCurrentVersion(newVersion);
 
-            // 5. Redis 캐시 무효화 + 인메모리 캐시 초기화
+            // 6. Redis 캐시 무효화 + 인메모리 캐시 초기화
             redisTemplate.delete(CURRENT_VERSION_KEY);
             redisTemplate.opsForValue().set(CURRENT_VERSION_KEY, newVersion, Duration.ofHours(1));
             keyVersionRegistry.evictCache();
 
-            // 6. 감사 로그
+            // 7. 감사 로그
             auditLogPublisher.publish(AuditLogPublisher.AuditEntry.builder()
                     .eventCategory(AuditLogEvent.CATEGORY_SYSTEM)
                     .eventAction("AES_KEY_ROTATED")
@@ -212,20 +221,21 @@ public class HandoffKeyRotationScheduler {
         }
     }
 
-    private void saveKeyVersion(String version, String keyBase64, String adminId, String reason) {
+    private void saveKeyVersion(String version, String encryptedKeyMaterial, String adminId, String reason) {
         // 이전 활성 키를 INACTIVE 처리 (Grace Period 동안은 복호화 가능)
         jdbcTemplate.update(
                 "UPDATE ido.crypto_key_registry SET active = FALSE, grace_until = ? " +
                 "WHERE key_type = 'HANDOFF_AES' AND active = TRUE",
                 Instant.now().plus(Duration.ofHours(keyGracePeriodHours)));
 
-        // 신규 키 등록
+        // 신규 키 등록 — encryptedKeyMaterial은 KmsClient.encrypt()가 반환한 값
+        // Vault: "vault:v1:AABB...", Local(Off): Base64 평문, NHN: SKM ciphertext
         jdbcTemplate.update(
                 "INSERT INTO ido.crypto_key_registry " +
                 "(key_type, key_version, key_material_encrypted, active, created_by, rotation_reason, created_at) " +
                 "VALUES ('HANDOFF_AES', ?, ?, TRUE, ?, ?, NOW())",
                 version,
-                "[ENCRYPTED_BY_KMS:" + keyBase64.substring(0, 8) + "...]", // 실제: KMS 암호화값 저장
+                encryptedKeyMaterial,
                 adminId,
                 reason);
     }
