@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import beInstance from 'api/beInstance';
+import { beApiInstance } from 'api/beInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import type {
@@ -15,7 +15,7 @@ const exchangeCiToken = async (
 	params: CiTokenRequest,
 ): Promise<SuccessResponse<CiTokenResponse> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post('/api/v1/ext/ci/token', params);
+		const response = await beApiInstance.post('/api/v1/auth/ci-token', params);
 		return {
 			statusCode: 200,
 			error: null,

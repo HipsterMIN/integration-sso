@@ -9,7 +9,7 @@ interface Step8Props {
 	currentStep?: number;
 }
 
-function ConversionStep8({ memberType = 'member', currentStep = 6 }: Step8Props): JSX.Element {
+function ConversionStep8({ memberType = 'member', currentStep = 5 }: Step8Props): JSX.Element {
 	const { data } = useConversion();
 	const isBusiness = memberType === 'business';
 

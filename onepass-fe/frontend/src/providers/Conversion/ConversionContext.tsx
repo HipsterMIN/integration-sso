@@ -1,5 +1,4 @@
 import type { MemberType } from 'components/StepIndicator';
-import { MOCK_BUSINESS, MOCK_MEMBER } from 'constants/mockData';
 import {
 	createContext,
 	ReactNode,
@@ -11,6 +10,9 @@ import {
 import type { Client } from 'types/api/ext/clients';
 
 export interface ConversionData {
+	// 전환 세션 ID (BE 발급)
+	conversionSessionId: string;
+
 	// Step1
 	memberType: MemberType;
 	initialClientId: string;
@@ -67,25 +69,26 @@ export interface ConversionData {
 }
 
 const INITIAL_DATA: ConversionData = {
+	conversionSessionId: '',
 	memberType: 'member',
 	initialClientId: '',
 	brno: '',
 	ciToken: '',
 	birthDate: '',
 	loginId: '',
-	email: MOCK_MEMBER.emailId,
-	emailDomain: MOCK_MEMBER.emailDomain,
+	email: '',
+	emailDomain: '',
 	phone: '',
 	telPrefix: '',
 	telSuffix: '',
-	bzmnNm: MOCK_BUSINESS.companyName,
-	rprsvNm: MOCK_BUSINESS.repName,
+	bzmnNm: '',
+	rprsvNm: '',
 	startDt: '',
 	password: '',
-	name: MOCK_MEMBER.name,
-	phonePrefix: MOCK_MEMBER.phonePrefix,
-	phoneSuffix: MOCK_MEMBER.phoneSuffix,
-	emailId: MOCK_MEMBER.emailId,
+	name: '',
+	phonePrefix: '',
+	phoneSuffix: '',
+	emailId: '',
 	consentEventId: undefined,
 	redirectUri: '',
 	selectedClients: [],

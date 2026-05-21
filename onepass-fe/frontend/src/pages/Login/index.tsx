@@ -1,12 +1,10 @@
 import './Login.styles.scss';
 
-import AnyIdLoginModal from 'components/AnyIdLoginModal';
 import Modal from 'components/KrdsModal';
 import IMAGES from 'constants/images';
 import ROUTES from 'constants/routes';
 import type { EzAuthBizResult } from 'hooks/useEzAuth';
 import useEzAuth from 'hooks/useEzAuth';
-import useAnyIdAuth, { AnyIdAuthResult } from 'hooks/useAnyIdAuth';
 import useNicePhoneAuth, { NicePhoneAuthResult } from 'hooks/useNicePhoneAuth';
 import usePersonalEasyAuth, { EasysignResult } from 'hooks/usePersonalEasyAuth';
 import history from 'lib/history';
@@ -28,7 +26,6 @@ function Login(): JSX.Element {
 	const [errorTitle, setErrorTitle] = useState('');
 	const [errorMessage, setErrorMessage] = useState('');
 	const [devNoticeModal, setDevNoticeModal] = useState(false);
-	const [anyIdModal, setAnyIdModal] = useState(false);
 
 	const [encCi, setEncCi] = useState('');
 
@@ -39,30 +36,6 @@ function Login(): JSX.Element {
 	const easyAuthFormRef = useRef<HTMLFormElement>(null);
 
 	const { actionUrl, error, code, returnUri, returnClient } = useKeycloakParams();
-
-	// Any-ID 정부 통합인증 훅
-	const {
-		showModal: anyIdSdkModal,
-		startAuth: startAnyIdAuth,
-		closeModal: closeAnyIdModal,
-		initSdk: initAnyIdSdk,
-	} = useAnyIdAuth(
-		useCallback((_result: AnyIdAuthResult) => {
-			// Any-ID 성공 시 SDK가 직접 /api/v1/anyid/oidc/ssoLogin로 리다이렉트하므로
-			// 여기서 추가 후속 조치가 필요하면 수행
-			setAnyIdModal(false);
-		}, []),
-		useCallback((message: string) => {
-			setAnyIdModal(false);
-			showError('Any-ID 인증 오류', 'Any-ID 인증에 실패하였습니다', message);
-		}, []),
-		{ actionUrl: actionUrl ?? null },
-	);
-
-	// SDK의 showModal 상태를 로친 anyIdModal과 동기화
-	useEffect(() => {
-		setAnyIdModal(anyIdSdkModal);
-	}, [anyIdSdkModal]);
 
 	// 개인 간편인증 훅
 	const { busy: easyAuthBusy, startAuth: startEasyAuth } = usePersonalEasyAuth(
@@ -95,8 +68,7 @@ function Login(): JSX.Element {
 				);
 				return;
 			}
-			const skipAuth = process.env.SKIP_AUTH === 'true';
-			if (!actionUrl && !skipAuth) {
+			if (!actionUrl) {
 				showError(
 					'접근 오류',
 					'비정상적인 접근입니다',
@@ -106,11 +78,9 @@ function Login(): JSX.Element {
 			}
 			setBizNo(data.businessNumber);
 			// setState 후 즉시 submit하면 값이 반영 안되므로 setTimeout 사용
-			if (actionUrl) {
-				setTimeout(() => {
-					bizFormRef.current?.submit();
-				}, 0);
-			}
+			setTimeout(() => {
+				bizFormRef.current?.submit();
+			}, 0);
 		},
 		[actionUrl],
 	);
@@ -162,10 +132,8 @@ function Login(): JSX.Element {
 	useSectionAnimation();
 
 	// action_url 이 없는 경우 모달 표시
-	// SKIP_AUTH=true(로컬 개발) 환경에서는 action_url 없이도 정상 접근 허용
 	useEffect(() => {
-		const skipAuth = process.env.SKIP_AUTH === 'true';
-		if (!actionUrl && !skipAuth) {
+		if (!actionUrl) {
 			if (error && code) {
 				// Q-Sign 에러로 돌아온 경우
 				const message =
@@ -232,8 +200,7 @@ function Login(): JSX.Element {
 			);
 			return;
 		}
-		const skipAuth = process.env.SKIP_AUTH === 'true';
-		if (!actionUrl && !skipAuth) {
+		if (!actionUrl) {
 			showError(
 				'접근 오류',
 				'비정상적인 접근입니다',
@@ -243,10 +210,8 @@ function Login(): JSX.Element {
 		}
 
 		setIsLoading(true);
-		// hidden form으로 POST 전송 (SKIP_AUTH 환경에서는 action이 빈 값이므로 미전송)
-		if (actionUrl) {
-			memberFormRef.current?.submit();
-		}
+		// hidden form으로 POST 전송
+		memberFormRef.current?.submit();
 	};
 
 	/** 기업 회원 로그인 - form POST 전송 */
@@ -268,8 +233,7 @@ function Login(): JSX.Element {
 			);
 			return;
 		}
-		const skipAuth = process.env.SKIP_AUTH === 'true';
-		if (!actionUrl && !skipAuth) {
+		if (!actionUrl) {
 			showError(
 				'접근 오류',
 				'비정상적인 접근입니다',
@@ -279,17 +243,13 @@ function Login(): JSX.Element {
 		}
 
 		setIsLoading(true);
-		// hidden form으로 POST 전송 (SKIP_AUTH 환경에서는 action이 빈 값이므로 미전송)
-		if (actionUrl) {
-			bizFormRef.current?.submit();
-		}
+		bizFormRef.current?.submit();
 	};
 
 	const handleErrorModalClose = (): void => {
 		setErrorModal(false);
-		// action_url 없이 에러만 온 경우 메인으로 이동 (단, 개발 환경 제외)
-		const skipAuth = process.env.SKIP_AUTH === 'true';
-		if (!actionUrl && !skipAuth) {
+		// action_url 없이 에러만 온 경우 메인으로 이동
+		if (!actionUrl) {
 			window.location.href = '/';
 		}
 	};
@@ -333,12 +293,6 @@ function Login(): JSX.Element {
 					를 이용해 주세요.
 				</p>
 			</Modal>
-
-			<AnyIdLoginModal
-				isOpen={anyIdModal}
-				onClose={(): void => { closeAnyIdModal(); setAnyIdModal(false); }}
-				onInit={initAnyIdSdk}
-			/>
 
 			<div className="container main">
 				<div className="inner">
@@ -628,7 +582,7 @@ function Login(): JSX.Element {
 													type="button"
 													className="btn"
 													aria-label="Any-ID로 로그인"
-													onClick={(): void => { void startAnyIdAuth(); }}
+													onClick={(): void => setDevNoticeModal(true)}
 												>
 													<div className="text-box">
 														<figure className="img">

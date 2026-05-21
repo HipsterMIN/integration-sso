@@ -15,6 +15,10 @@ export interface ProvisionUserRequest {
 	initialPassword: string;
 	/** 전달 대상 클라이언트 목록 (필수, NotEmpty) */
 	clients: ProvisionUserClientLink[];
+	/** 이메일 (계정/연락용 루트 필드) */
+	email?: string;
+	/** 휴대폰 (계정/연락용 루트 필드, dash 포함) */
+	phone?: string;
 	/** 개인 휴대폰 */
 	indvMblTelno?: string;
 	/** 개인 이메일 */
@@ -55,6 +59,18 @@ export interface ProvisionUserPayload {
 	success?: boolean;
 	message?: string;
 	errorCode?: string;
+}
+
+/** CI 토큰 발급 응답 (Q-IM /api/ext/ci/token) — NICE 인증 결과 원본 보존 */
+export interface NiceAuthResultExtra {
+	/** 이름 (NFC 정규화 + trim) */
+	name?: string;
+	/** 생년월일 (숫자만, 예: "19900101") */
+	birthDate?: string;
+	/** 성별 (M | F) */
+	gender?: 'M' | 'F';
+	/** 휴대폰번호 (숫자만, 예: "01012345678") */
+	phone?: string;
 }
 
 /** CI 토큰 발급 요청 (Q-IM /api/ext/ci/token) */
