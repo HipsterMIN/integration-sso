@@ -220,18 +220,101 @@ public class KafkaTopicConfig {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // qim.sp.member.events — Q-IM SP 회원 이벤트 (IdO 내부 전파)
+    // qim.user.events — Q-IM 회원 이벤트 (QIM-OUTBOX-SPEC-001 신규 토픽)
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Q-IM SP 회원 이벤트 토픽 (IdO 내부 전파용)
+     * Q-IM 회원 이벤트 토픽 (QIM-OUTBOX-SPEC-001 §2 기준)
      *
-     * <p>QimSpReceiverService Outbox가 발행,
-     * QimSpMemberEventConsumer가 소비 → QimSpMemberEventHandler → 기관 webhook.
+     * <p>Q-IM Outbox Relay가 발행,
+     * QimSpMemberEventConsumer(ido-qim-member-consumer)가 소비.
      *
-     * <p>파티션 키: instMbrId
-     * <p>retention: 30일
+     * <p>파티션 수 결정 근거 (QIM-OUTBOX-SPEC-001 §2):
+     * <ul>
+     *   <li>처리량 목표: 150 TPS</li>
+     *   <li>설계 처리량: 6파티션 × concurrency 150 = 900건/초 (6× 여유)</li>
+     *   <li>확장 전략: 12파티션 → 1,800건/초 (무중단 증설)</li>
+     * </ul>
+     *
+     * <p>파티션 키: qimUserId (동일 사용자 이벤트 순서 보장)
+     * <p>retention: 운영 정책 (최소 30일)
      */
+    @Bean
+    public NewTopic qimUserEventsTopic() {
+        return TopicBuilder.name("qim.user.events")
+                .partitions(6)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG,
+                        String.valueOf(30L * 24 * 60 * 60 * 1000))  // 최소 30일
+                .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4")
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, minInsyncReplicas)
+                .build();
+    }
+
+    /** Q-IM 회원 이벤트 DLQ */
+    @Bean
+    public NewTopic qimUserEventsDlqTopic() {
+        return TopicBuilder.name("qim.user.events.dlq")
+                .partitions(3)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG,
+                        String.valueOf(7L * 24 * 60 * 60 * 1000))  // 7일
+                .build();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // qim.agency.events — Q-IM 기관 이벤트 (QIM-OUTBOX-SPEC-001 신규 토픽)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Q-IM 기관 이벤트 토픽 (QIM-OUTBOX-SPEC-001 §2 기준)
+     *
+     * <p>AGENCY_ADDED / AGENCY_DELETED 이벤트 처리.
+     * <p>파티션 수 결정 근거: 저빈도(일 수 건) → 파티션 3개로 충분.
+     *
+     * <p>파티션 키: agencyCode
+     * <p>retention: 365일 (기관 변경 이력 장기 보관)
+     */
+    @Bean
+    public NewTopic qimAgencyEventsTopic() {
+        return TopicBuilder.name("qim.agency.events")
+                .partitions(3)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG,
+                        String.valueOf(365L * 24 * 60 * 60 * 1000))  // 365일
+                .config(TopicConfig.COMPRESSION_TYPE_CONFIG, "lz4")
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, minInsyncReplicas)
+                .build();
+    }
+
+    /** Q-IM 기관 이벤트 DLQ */
+    @Bean
+    public NewTopic qimAgencyEventsDlqTopic() {
+        return TopicBuilder.name("qim.agency.events.dlq")
+                .partitions(2)
+                .replicas(replicationFactor)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG,
+                        String.valueOf(30L * 24 * 60 * 60 * 1000))  // 30일
+                .build();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // qim.sp.member.events — Q-IM SP 회원 이벤트 (기존 내부 전파용, 유지)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Q-IM SP 회원 이벤트 토픽 (기존 토픽 — 마이그레이션 완료 후 폐기 예정)
+     *
+     * <p>기존 QimSpReceiverService → QimSpMemberEventConsumer 경로에서 사용.
+     * qim.user.events로 완전 전환 후 이 토픽은 폐기한다.
+     *
+     * @deprecated qim.user.events로 대체됨 (QIM-OUTBOX-SPEC-001)
+     */
+    @Deprecated(since = "QIM-OUTBOX-SPEC-001", forRemoval = true)
     @Bean
     public NewTopic qimSpMemberEventsTopic() {
         return TopicBuilder.name("qim.sp.member.events")
@@ -246,6 +329,7 @@ public class KafkaTopicConfig {
     }
 
     /** Q-IM SP 회원 이벤트 DLQ */
+    @Deprecated(since = "QIM-OUTBOX-SPEC-001", forRemoval = true)
     @Bean
     public NewTopic qimSpMemberEventsDlqTopic() {
         return TopicBuilder.name("qim.sp.member.events.dlt")

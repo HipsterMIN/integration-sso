@@ -1,6 +1,7 @@
 package kr.go.smes.ido.fe.config;
 
 import kr.go.smes.ido.config.HandoffAgencyKeyInterceptor;
+import kr.go.smes.ido.ratelimit.AuthRateLimitInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -19,12 +20,19 @@ import java.util.List;
  *
  * <p>운영 환경에서는 Nginx 리버스 프록시를 통해 same-origin 으로
  * 서빙하므로 CORS 불필요 (ido.cors.enabled=false).
+ *
+ * <p><b>S7-T2 추가 (NICE/OACX 본인인증):</b>
+ * {@code /api/v1/auth/**} CORS 매핑 추가.
+ * Q1=B 결정: API Key 인터셉터 없음 — Nginx same-origin으로 보안 처리.
+ * 개발환경: webpack proxy (FE port 3000 → ido port 8083) 통해 same-origin 처리.
+ * 운영환경: Nginx가 FE와 ido를 같은 origin으로 묶음.
  */
 @Configuration
 @RequiredArgsConstructor
 public class IdoWebMvcConfig implements WebMvcConfigurer {
 
     private final HandoffAgencyKeyInterceptor handoffAgencyKeyInterceptor;
+    private final AuthRateLimitInterceptor authRateLimitInterceptor;
 
     @Value("${ido.cors.enabled:true}")
     private boolean corsEnabled;
@@ -54,6 +62,12 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
                         // P1-06: 기관 이벤트 폴링 API — X-Agency-Key 검증 필수
                         "/api/v1/agency/**"
                 );
+
+        // S9-T7: auth 엔드포인트 IP 기반 Rate Limiting
+        // - /api/v1/auth/** 경로 전체 적용
+        // - OPTIONS(CORS preflight)는 인터셉터 내부에서 제외 처리
+        registry.addInterceptor(authRateLimitInterceptor)
+                .addPathPatterns("/api/v1/auth/**");
     }
 
     @Override
@@ -86,6 +100,22 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "POST", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(false)   // 기관 서버 간 통신 — 쿠키 불필요
+                .maxAge(3600);
+
+        // ── S7-T2: NICE/OACX 본인인증 API ─────────────────────────────────────
+        // /api/v1/auth/**: 본인인증 API (NICE 휴대폰, OACX 간편서명, 기업인증 콜백)
+        //
+        // Q1=B 결정: API Key 인터셉터 없음
+        // - 운영: Nginx same-origin 프록시로 보안 처리
+        // - 개발: webpack proxy (port 3000 → 8083)로 same-origin 처리
+        //
+        // allowCredentials=true: feSessionId 쿠키 포함 (세션 연동 가능성 대비)
+        // 향후 NICE/OACX 결과를 FE 세션과 연결할 경우 쿠키 공유 필요
+        registry.addMapping("/api/v1/auth/**")
+                .allowedOrigins(origins)
+                .allowedMethods("GET", "POST", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true)
                 .maxAge(3600);
 
         // /actuator/**: 헬스체크 (읽기 전용)

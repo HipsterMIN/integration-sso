@@ -181,6 +181,103 @@ class UserRegistrationServiceImplTest {
 
             assertThat(captor.getValue().getStatus()).isEqualTo("ACTIVE");
         }
+
+        @Test
+        @DisplayName("birthYear 기준 13세(현재연도-13) → isMinor=true로 프로필 저장 (P3-05)")
+        void registerOrGet_minorBirthYear_isMinorTrue() {
+            // 현재 연도 기준 13세: 14세 미만이므로 isMinor=true 기대
+            short minorBirthYear = (short) (java.time.Year.now().getValue() - 13);
+
+            given(userRepository.findByIdentifierHash(HASH)).willReturn(Optional.empty());
+            given(ciCryptoService.encrypt(any())).willReturn(ENC_CI);
+            given(piiMaskingService.maskName(any())).willReturn(MASKED_NAME);
+            given(piiMaskingService.maskMobile(any())).willReturn(MASKED_MOBILE);
+
+            ArgumentCaptor<QimUserJpaEntity> captor = ArgumentCaptor.forClass(QimUserJpaEntity.class);
+            given(userRepository.save(captor.capture())).willAnswer(inv -> inv.getArgument(0));
+
+            UserRegisterRequest minorReq = UserRegisterRequest.builder()
+                    .identifierHash(HASH)
+                    .providerCode(PROVIDER_CODE)
+                    .rawCi(RAW_CI)
+                    .rawName("홍길동")
+                    .rawMobile("01012345678")
+                    .nationalityType("DOMESTIC")
+                    .birthYear(minorBirthYear)
+                    .gender("MALE")
+                    .correlationId("cid-minor-001")
+                    .build();
+
+            service.registerOrGet(minorReq);
+
+            QimUserJpaEntity saved = captor.getValue();
+            assertThat(saved.getProfile()).isNotNull();
+            assertThat(saved.getProfile().getIsMinor())
+                    .as("14세 미만 사용자는 isMinor=true로 저장되어야 합니다.")
+                    .isTrue();
+        }
+
+        @Test
+        @DisplayName("birthYear 기준 성인(현재연도-20) → isMinor=false로 프로필 저장")
+        void registerOrGet_adultBirthYear_isMinorFalse() {
+            short adultBirthYear = (short) (java.time.Year.now().getValue() - 20);
+
+            given(userRepository.findByIdentifierHash(HASH)).willReturn(Optional.empty());
+            given(ciCryptoService.encrypt(any())).willReturn(ENC_CI);
+            given(piiMaskingService.maskName(any())).willReturn(MASKED_NAME);
+            given(piiMaskingService.maskMobile(any())).willReturn(MASKED_MOBILE);
+
+            ArgumentCaptor<QimUserJpaEntity> captor = ArgumentCaptor.forClass(QimUserJpaEntity.class);
+            given(userRepository.save(captor.capture())).willAnswer(inv -> inv.getArgument(0));
+
+            UserRegisterRequest adultReq = UserRegisterRequest.builder()
+                    .identifierHash(HASH)
+                    .providerCode(PROVIDER_CODE)
+                    .rawCi(RAW_CI)
+                    .rawName("홍길동")
+                    .rawMobile("01012345678")
+                    .nationalityType("DOMESTIC")
+                    .birthYear(adultBirthYear)
+                    .gender("MALE")
+                    .correlationId("cid-adult-001")
+                    .build();
+
+            service.registerOrGet(adultReq);
+
+            QimUserJpaEntity saved = captor.getValue();
+            assertThat(saved.getProfile()).isNotNull();
+            assertThat(saved.getProfile().getIsMinor())
+                    .as("성인 사용자는 isMinor=false로 저장되어야 합니다.")
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("birthYear null → isMinor=false로 처리 (MinorGuardianPolicy.isMinor 기본값)")
+        void registerOrGet_nullBirthYear_isMinorFalse() {
+            given(userRepository.findByIdentifierHash(HASH)).willReturn(Optional.empty());
+            given(piiMaskingService.maskName(any())).willReturn(MASKED_NAME);
+            given(piiMaskingService.maskMobile(any())).willReturn(MASKED_MOBILE);
+
+            ArgumentCaptor<QimUserJpaEntity> captor = ArgumentCaptor.forClass(QimUserJpaEntity.class);
+            given(userRepository.save(captor.capture())).willAnswer(inv -> inv.getArgument(0));
+
+            UserRegisterRequest nullBirthReq = UserRegisterRequest.builder()
+                    .identifierHash(HASH)
+                    .providerCode(PROVIDER_CODE)
+                    .rawName("홍길동")
+                    .rawMobile("01012345678")
+                    .nationalityType("DOMESTIC")
+                    .correlationId("cid-null-birth-001")
+                    .build();
+
+            service.registerOrGet(nullBirthReq);
+
+            QimUserJpaEntity saved = captor.getValue();
+            assertThat(saved.getProfile()).isNotNull();
+            assertThat(saved.getProfile().getIsMinor())
+                    .as("birthYear null이면 isMinor=false(기본값)이어야 합니다.")
+                    .isFalse();
+        }
     }
 
     // ── withdraw() ────────────────────────────────────────────────────────────

@@ -25,11 +25,41 @@ allprojects {
     }
 }
 
+// ── Mockito Agent 전용 Configuration (ADR-013 방법 B) ────────────────────────
+// JDK 24에서 Dynamic Agent Loading 완전 차단 예정 (JEP 451/472).
+// 방법 A(-XX:+EnableDynamicAgentLoading)는 임시 억제이고, 이 설정이 근본 해결책임.
+// byte-buddy-agent JAR을 -javaagent로 명시하면 런타임 동적 로딩 없이 Agent가 동작.
+//
+// ※ mockitoAgent 설정은 루트에서 subprojects {} 블록 전에 정의해야
+//    아래 tasks.withType<Test> 블록에서 configurations["mockitoAgent"]를 참조할 수 있음.
+val mockitoAgentVersion = "1.17.8"  // mockito-core가 전이하는 byte-buddy-agent 버전과 동기화
+
 // ── 서브프로젝트 공통 설정 ─────────────────────────────────────────────────────
 subprojects {
     apply(plugin = "java")
     apply(plugin = "io.spring.dependency-management")
     apply(plugin = "jacoco")
+
+    // ADR-013 방법 B: Mockito Agent 전용 Configuration
+    // -javaagent로 byte-buddy-agent를 명시 주입 → JDK 24 Dynamic Agent Loading 금지 대비.
+    //
+    // ※ onepass-agency-sdk는 자체 build.gradle.kts에서 configurations.all { resolutionStrategy }를
+    //   사용하므로, mockitoAgent를 생성한 뒤 resolutionStrategy 변경이 충돌함.
+    //   SDK는 Spring 테스트 스택 없이 JUnit 5 + Mockito 직접 버전 명시 모듈이므로
+    //   여기서는 SDK를 제외하고, SDK 자체 build.gradle.kts에서 별도 처리함.
+    // onepass-agent: 완전 독립 모듈 — Spring/Lombok/Testcontainers 비의존
+    //               자체 byte-buddy shading(relocated) 사용하므로 mockitoAgent 제외
+    if (project.name != "onepass-agency-sdk" && project.name != "onepass-agent") {
+        val mockitoAgent by configurations.creating {
+            isCanBeResolved = true
+            isCanBeConsumed = false
+        }
+        dependencies {
+            // byte-buddy-agent: Mockito inline-mock-maker가 사용하는 ByteBuddy JVM Agent
+            // transitive = false: byte-buddy-agent는 독립 JAR이므로 전이 의존성 불필요
+            mockitoAgent("net.bytebuddy:byte-buddy-agent:$mockitoAgentVersion") { isTransitive = false }
+        }
+    }
 
     // Java 21 toolchain
     configure<JavaPluginExtension> {
@@ -47,30 +77,50 @@ subprojects {
 
     val testcontainersVersion = "1.20.4"
 
-    dependencies {
-        // Lombok
-        "compileOnly"("org.projectlombok:lombok")
-        "annotationProcessor"("org.projectlombok:lombok")
-        "testCompileOnly"("org.projectlombok:lombok")
-        "testAnnotationProcessor"("org.projectlombok:lombok")
+    // onepass-agent는 Spring/Lombok/Testcontainers 비의존 완전 독립 모듈
+    // 자체 build.gradle.kts에서 JUnit 5 직접 버전 명시로 처리
+    if (project.name != "onepass-agent") {
+        dependencies {
+            // Lombok
+            "compileOnly"("org.projectlombok:lombok")
+            "annotationProcessor"("org.projectlombok:lombok")
+            "testCompileOnly"("org.projectlombok:lombok")
+            "testAnnotationProcessor"("org.projectlombok:lombok")
 
-        // Test
-        "testImplementation"("org.springframework.boot:spring-boot-starter-test")
-        "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+            // Test
+            "testImplementation"("org.springframework.boot:spring-boot-starter-test")
+            "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
 
-        // Testcontainers BOM + 모듈
-        "testImplementation"(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
-        "testImplementation"("org.testcontainers:junit-jupiter")
-        "testImplementation"("org.testcontainers:postgresql")
-        "testImplementation"("org.testcontainers:mariadb")
-        "testImplementation"("org.testcontainers:kafka")
-        "testImplementation"("org.springframework.boot:spring-boot-testcontainers")
+            // Testcontainers BOM + 모듈
+            "testImplementation"(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
+            "testImplementation"("org.testcontainers:junit-jupiter")
+            "testImplementation"("org.testcontainers:postgresql")
+            "testImplementation"("org.testcontainers:mariadb")
+            "testImplementation"("org.testcontainers:kafka")
+            "testImplementation"("org.springframework.boot:spring-boot-testcontainers")
+        }
     }
 
     tasks.withType<Test> {
         useJUnitPlatform()
         // JaCoCo 커버리지 데이터 생성 활성화
         finalizedBy(tasks.named("jacocoTestReport"))
+        // ADR-013 방법 B: byte-buddy-agent를 -javaagent로 명시 주입 (근본 해결)
+        // JDK 21+의 동적 Agent 로딩 경고를 JVM 레벨에서 원천 차단.
+        // JEP 451(JDK 21 준비) / JEP 472(JDK 24 차단)에 대응.
+        //
+        // onepass-agency-sdk는 configurations.all { resolutionStrategy } 충돌로
+        // mockitoAgent configuration 미생성 → 방법 A 플래그만 적용.
+        // SDK 자체 build.gradle.kts에서 jvmArgs 직접 처리.
+        val args = mutableListOf(
+            "-XX:+EnableDynamicAgentLoading",  // 방법 A: JDK 버전 교차 환경 대응
+            "-Djdk.instrument.traceUsage=false"
+        )
+        if (project.name != "onepass-agency-sdk" && project.name != "onepass-agent") {
+            // 방법 B: -javaagent 명시 (mockitoAgent configuration이 있는 모듈만)
+            args.add(0, "-javaagent:${configurations["mockitoAgent"].asPath}")
+        }
+        jvmArgs(args)
     }
 
     tasks.withType<JavaCompile> {
@@ -111,12 +161,50 @@ subprojects {
             }
         }
     }
+
+    // ── Windows 환경 clean 오류 대응 ──────────────────────────────────────────
+    // Windows에서 Gradle clean 실행 시 파일 잠금(lock)으로 삭제 실패하는 경우를 해결.
+    // forceCleanBuildDir: cmd /c rmdir /s /q 로 강제 삭제 (플랫폼 분기).
+    // clean 태스크가 forceCleanBuildDir에 위임하므로 Delete 태스크의 기본 삭제 동작은 비활성화.
+    tasks.register<Exec>("forceCleanBuildDir") {
+        val buildDirPath = layout.buildDirectory.get().asFile.absolutePath
+        val osName = System.getProperty("os.name").lowercase()
+
+        if (osName.contains("windows")) {
+            commandLine("cmd", "/c", "if exist \"$buildDirPath\" rmdir /s /q \"$buildDirPath\"")
+        } else {
+            commandLine("rm", "-rf", buildDirPath)
+        }
+        isIgnoreExitValue = true
+        description = "Deletes the build directory forcefully (cross-platform)."
+    }
+
+    tasks.named("clean") {
+        dependsOn("forceCleanBuildDir")
+        // forceCleanBuildDir에 위임 — Delete 태스크의 기본 삭제 동작 비활성화
+        (this as? Delete)?.delete?.clear()
+    }
 }
 
 // ── platform-common: 실행 JAR 불필요, plain JAR만 생성 ───────────────────────
 project(":platform-common") {
     tasks.withType<BootJar> { enabled = false }
     tasks.withType<Jar>     { enabled = true  }
+}
+
+// ── outbox-relay-batch: 실행 JAR 생성 (Spring Boot 플러그인 적용) ─────────────
+// ShedLock 분산 릴레이 배치 서비스 — 독립 배포 아티팩트
+project(":outbox-relay-batch") {
+    tasks.withType<Jar>     { enabled = true  }
+}
+
+// ── onepass-agency-sdk: Java 8 호환 라이브러리 — Spring Boot 플러그인/BOM 제외 ─
+// SDK는 JDK 버전 프리 설계: Spring 의존성 전이 없음, 자체 build.gradle.kts에서 타겟 설정
+project(":onepass-agency-sdk") {
+    // Spring Boot 플러그인이 없으므로 BootJar 태스크가 존재하지 않음 — Jar만 활성화
+    tasks.withType<Jar> { enabled = true }
+    // Spring BOM 버전 관리는 테스트 의존성에만 적용 (junit-jupiter 버전 등)
+    // 코어 런타임에는 Spring 의존성 없음
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

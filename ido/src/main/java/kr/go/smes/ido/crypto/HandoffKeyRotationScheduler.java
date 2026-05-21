@@ -2,6 +2,7 @@ package kr.go.smes.ido.crypto;
 
 import kr.go.smes.common.event.AuditLogEvent;
 import kr.go.smes.ido.audit.AuditLogPublisher;
+import kr.go.smes.ido.crypto.KeyVersionRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,6 +52,7 @@ public class HandoffKeyRotationScheduler {
     private final RedisTemplate<String, Object> redisTemplate;
     private final JdbcTemplate                  jdbcTemplate;
     private final AuditLogPublisher             auditLogPublisher;
+    private final KeyVersionRegistry            keyVersionRegistry;
 
     @Value("${ido.ticket.key-rotation-days:90}")
     private int keyRotationDays;
@@ -153,9 +155,10 @@ public class HandoffKeyRotationScheduler {
             // 4. 활성 버전 갱신
             updateCurrentVersion(newVersion);
 
-            // 5. Redis 캐시 무효화
+            // 5. Redis 캐시 무효화 + 인메모리 캐시 초기화
             redisTemplate.delete(CURRENT_VERSION_KEY);
             redisTemplate.opsForValue().set(CURRENT_VERSION_KEY, newVersion, Duration.ofHours(1));
+            keyVersionRegistry.evictCache();
 
             // 6. 감사 로그
             auditLogPublisher.publish(AuditLogPublisher.AuditEntry.builder()

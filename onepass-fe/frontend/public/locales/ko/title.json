@@ -1,0 +1,16 @@
+{
+	"Dashboard": "대시보드",
+	"APM": "APM",
+	"Service": "서비스",
+	"Infrastructure": "인프라",
+	"Logs": "로그",
+	"Alerts": "알람",
+	"Host-map": "호스트맵",
+	"Host": "호스트",
+	"Network-devices": "네트워크 장비",
+	"Kubernetes": "쿠버네티스",
+	"Exceptions": "예외",
+	"Settings": "설정",
+	"Management": "관리",
+	"My-settings": "마이페이지"
+}

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ido-service
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "ido.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "ido.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+  type: {{ .Values.service.type }}

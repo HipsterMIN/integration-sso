@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="10" height="10" viewBox="0 0 10 10">
+  <defs>
+    <clipPath id="clip-ico_select_arrow">
+      <rect width="10" height="10"/>
+    </clipPath>
+  </defs>
+  <g id="ico_select_arrow" clip-path="url(#clip-ico_select_arrow)">
+    <g id="그룹_162695" data-name="그룹 162695">
+      <g id="그룹_162694" data-name="그룹 162694" transform="translate(-2624.023 -9557.255) rotate(-45)">
+        <rect id="사각형_4133" data-name="사각형 4133" width="6" height="1" transform="translate(-4905 8622)"/>
+        <rect id="사각형_4136" data-name="사각형 4136" width="6" height="1" transform="translate(-4905 8623) rotate(-90)"/>
+      </g>
+      <rect id="사각형_147866" data-name="사각형 147866" width="10" height="10" fill="none"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,9 @@
+// =============================================
+// Components aggregator
+// 각 partial은 components/ 하위에 위치.
+// _modal.scss 끝에 Desktop Hover States가 있어 다른 룰 뒤에 와야 하므로 마지막에 둠.
+// =============================================
+@import 'components/layout';
+@import 'components/form';
+@import 'components/ui';
+@import 'components/modal';

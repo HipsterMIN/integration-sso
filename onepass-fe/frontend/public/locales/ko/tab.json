@@ -1,0 +1,12 @@
+{
+	"Explorer": "탐색",
+	"Pipelines": "파이프라인",
+	"Views": "조회",
+	"Triggered Alerts": "실행된 알람",
+	"Alert Rules": "알람",
+	"Configuration": "구성",
+	"organization_settings": "조직 설정",
+	"alert_channels": "알람 채널",
+	"general": "종합",
+	"All Errors": "모든 예외"
+}

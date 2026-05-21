@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS ido.crypto_key_registry (
     CONSTRAINT uq_crypto_key_type_version UNIQUE (key_type, key_version)
 );
 
-CREATE INDEX idx_crypto_key_active ON ido.crypto_key_registry (key_type, active, created_at DESC);
-CREATE INDEX idx_crypto_key_current ON ido.crypto_key_registry (key_type, current_flag) WHERE current_flag = TRUE;
+CREATE INDEX IF NOT EXISTS idx_crypto_key_active ON ido.crypto_key_registry (key_type, active, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_crypto_key_current ON ido.crypto_key_registry (key_type, current_flag) WHERE current_flag = TRUE;
 
 COMMENT ON TABLE ido.crypto_key_registry IS 'Handoff Ticket AES/HMAC 키 버전 메타데이터 (실제 키는 Vault/KMS)';
 COMMENT ON COLUMN ido.crypto_key_registry.grace_until IS 'active=FALSE 후 이 시간까지 복호화에 사용 가능';
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS ido.agency_rate_limit_config (
         ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE INDEX idx_agency_rate_limit_enabled ON ido.agency_rate_limit_config (agency_code, enabled);
+CREATE INDEX IF NOT EXISTS idx_agency_rate_limit_enabled ON ido.agency_rate_limit_config (agency_code, enabled);
 
 COMMENT ON TABLE ido.agency_rate_limit_config IS '기관별 Rate Limit 설정 (AgencyRateLimiter 참조)';
 
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS ido.agency_meta_history (
     CONSTRAINT pk_agency_meta_history PRIMARY KEY (history_id)
 );
 
-CREATE INDEX idx_agency_history_code ON ido.agency_meta_history (agency_code, changed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agency_history_code ON ido.agency_meta_history (agency_code, changed_at DESC);
 
 COMMENT ON TABLE ido.agency_meta_history IS '기관 설정 변경 이력 (AgencyAdminService.getHistory)';
 
@@ -114,8 +114,8 @@ CREATE TABLE IF NOT EXISTS ido.member_lookup_log (
     CONSTRAINT pk_member_lookup_log PRIMARY KEY (log_id)
 );
 
-CREATE INDEX idx_member_lookup_agency ON ido.member_lookup_log (agency_code, occurred_at DESC);
-CREATE INDEX idx_member_lookup_user ON ido.member_lookup_log (qim_user_id, occurred_at DESC) WHERE qim_user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_member_lookup_agency ON ido.member_lookup_log (agency_code, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_member_lookup_user ON ido.member_lookup_log (qim_user_id, occurred_at DESC) WHERE qim_user_id IS NOT NULL;
 
 COMMENT ON TABLE ido.member_lookup_log IS 'CI/Hash 기반 회원 조회 감사 로그 (GDPR §15 준수)';
 

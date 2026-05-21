@@ -5,9 +5,13 @@ import jakarta.validation.Valid;
 import kr.go.smes.common.error.PlatformErrorCode;
 import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.common.util.CorrelationIdHolder;
+import kr.go.smes.ido.auth.dto.AuthResult;
+import kr.go.smes.ido.auth.dto.im.QimMemberInfo;
+import kr.go.smes.ido.auth.dto.im.QimRegisterResponse;
 import kr.go.smes.ido.broker.dto.OidcCompleteRequest;
 import kr.go.smes.ido.fe.session.FeSession;
 import kr.go.smes.ido.fe.session.FeSessionService;
+import kr.go.smes.ido.infrastructure.QimClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * q-sign → ido 내부 콜백 컨트롤러 (q-sign 모드 전용)
@@ -31,7 +36,7 @@ import java.util.Map;
  * <pre>
  *   카카오 콜백 → q-sign (state 검증/token 교환/AuthResult 저장/Kafka 발행)
  *       → POST /api/internal/v1/oidc/complete
- *       → ido (FE 세션 발급 + feSessionId 쿠키 + redirectUrl 반환)
+ *       → ido (Q-IM CI 조회 → qimUserId 획득 → FE 세션 발급 + feSessionId 쿠키 + redirectUrl 반환)
  *       → q-sign → 302 → returnUrl
  * </pre>
  *
@@ -41,11 +46,15 @@ import java.util.Map;
  * <p>보안:
  * <ul>
  *   <li>X-Internal-Caller: q-sign — 내부 서비스 식별</li>
- *   <li>X-Internal-Sig: HMAC-SHA256 서명 (PoC: 간단한 서명)</li>
+ *   <li>X-Internal-Sig: HMAC-SHA256 서명 검증 (§9.4)</li>
  *   <li>운영에서는 mTLS로 추가 보호</li>
  * </ul>
  *
  * <p>엔드포인트: POST /api/internal/v1/oidc/complete
+ *
+ * <p><b>P0 수정 (v0.8.7)</b>: {@code identifierHash} 를 {@code qimUserId} 대용으로 사용하던
+ * PoC 코드를 제거. 이제 {@code QimClient.findByCi()} 로 실제 {@code qimUserId} 를 조회하며,
+ * 미등록 사용자인 경우 {@code QimClient.registerUser()} 로 Q-IM 등록 후 {@code qimUserId} 획득.
  */
 @Slf4j
 @RestController
@@ -53,10 +62,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OidcCompleteController {
 
-    private static final String COOKIE_NAME = "feSessionId";
+    private static final String COOKIE_NAME      = "feSessionId";
+    private static final String DEFAULT_MEMBER_TYPE = "INDIVIDUAL";
 
     private final FeSessionService     feSessionService;
     private final InternalSigVerifier  internalSigVerifier;
+    private final QimClient            qimClient;
 
     @Value("${ido.broker.mode:qsign}")
     private String brokerMode;
@@ -125,11 +136,15 @@ public class OidcCompleteController {
                     .body(Map.of("redirectUrl", "/error?code=INVALID_RETURN_URL"));
         }
 
+        // ── [P0] Q-IM 실제 qimUserId 조회 ────────────────────────────────
+        // CI(연계정보)로 Q-IM에서 영구 사용자 식별자(qimUserId)를 조회.
+        // CI가 없으면(소셜 로그인 전용) identifierHash 기반 임시 식별자로 폴백하고
+        // 감사 로그에 경고를 남긴다.
+        String qimUserId = resolveQimUserId(req, cid);
+
         // ── FE 세션 생성 ──────────────────────────────────────────────────
-        // PoC: identifierHash를 qimUserId 대용으로 사용
-        // 실운영: Q-IM 조회 후 실제 qimUserId 획득 필요
         FeSession session = feSessionService.create(
-                req.getIdentifierHash(),
+                qimUserId,
                 req.getAuthResultId(),
                 req.getAuthLevel(),
                 returnUrl
@@ -148,13 +163,83 @@ public class OidcCompleteController {
         String redirectUrl = (returnUrl != null && !returnUrl.isBlank())
                 ? returnUrl : "/conversion/complete";
 
-        log.info("[OidcComplete] FE 세션 발급 완료: feSessionId={}... redirectUrl={} correlationId={}",
+        log.info("[OidcComplete] FE 세션 발급 완료: feSessionId={}... qimUserId={}... redirectUrl={} correlationId={}",
                 session.getFeSessionId().substring(0, Math.min(8, session.getFeSessionId().length())),
+                qimUserId.substring(0, Math.min(8, qimUserId.length())),
                 redirectUrl, cid);
 
         return ResponseEntity.ok(Map.of(
                 "redirectUrl", redirectUrl,
                 "feSessionId", session.getFeSessionId()   // q-sign 로깅용
         ));
+    }
+
+    // ── 내부 헬퍼 ────────────────────────────────────────────────────────
+
+    /**
+     * [P0] CI → 실제 qimUserId 해석
+     *
+     * <p><b>흐름</b>:
+     * <ol>
+     *   <li>req.ci 가 있으면 → {@code QimClient.findByCi()} 로 Q-IM 조회</li>
+     *   <li>기존 사용자 → {@code qimUserId} 반환</li>
+     *   <li>미등록 사용자 → {@code QimClient.registerUser()} 로 Q-IM 자동 등록 후 {@code qimUserId} 반환</li>
+     *   <li>CI 없음 → {@code identifierHash} 기반 임시 식별자로 폴백 + 경고 로그
+     *       (소셜 로그인 전용 PoC 경로 — 운영 배포 전 CI 연동 완료 필수)</li>
+     * </ol>
+     *
+     * @param req 요청 DTO (ci, memberType, identifierHash 포함)
+     * @param cid correlationId (감사 로그)
+     * @return 실제 qimUserId (또는 임시 identifierHash 폴백)
+     */
+    private String resolveQimUserId(OidcCompleteRequest req, String cid) {
+        String ci = req.getCi();
+
+        if (ci == null || ci.isBlank()) {
+            // CI 없음: 소셜 로그인 전용 경로 또는 PoC 환경
+            // 운영 배포 전 NICE/OACX 본인인증 연동으로 CI 확보 필수
+            log.warn("[OidcComplete][P0-FALLBACK] CI 미포함 요청 — identifierHash를 임시 qimUserId로 사용. " +
+                     "운영 배포 전 반드시 CI 연동 완료 필요. " +
+                     "authResultId={} correlationId={}", req.getAuthResultId(), cid);
+            return req.getIdentifierHash();
+        }
+
+        String memberType = (req.getMemberType() != null && !req.getMemberType().isBlank())
+                ? req.getMemberType()
+                : DEFAULT_MEMBER_TYPE;
+
+        // Q-IM CI 조회 시도
+        Optional<QimMemberInfo> memberOpt = qimClient.findByCi(ci, memberType, cid);
+
+        if (memberOpt.isPresent()) {
+            // 기존 사용자
+            String qimUserId = memberOpt.get().getQimUserId();
+            log.info("[OidcComplete] Q-IM 기존 사용자 확인 완료: qimUserId={}... correlationId={}",
+                     qimUserId.substring(0, Math.min(8, qimUserId.length())), cid);
+            return qimUserId;
+        }
+
+        // 미등록 사용자 → Q-IM 자동 등록
+        log.info("[OidcComplete] Q-IM 미등록 사용자 — 자동 등록 진행: correlationId={}", cid);
+        QimRegisterResponse registered =
+                qimClient.registerUser(buildAuthResultForRegistration(req), cid);
+        String newQimUserId = registered.getQimUserId();
+        log.info("[OidcComplete] Q-IM 신규 등록 완료: qimUserId={}... isNew={} correlationId={}",
+                 newQimUserId.substring(0, Math.min(8, newQimUserId.length())),
+                 registered.getIsNew(), cid);
+        return newQimUserId;
+    }
+
+    /**
+     * Q-IM 신규 등록용 AuthResult 최소 구성 (CI 필드만 필수)
+     *
+     * <p>Q-Sign 모드에서 OidcCompleteRequest는 CI만 포함하므로,
+     * 나머지 필드(name, birthday 등)는 Q-IM이 본인인증 원문으로 보완한다.
+     * (Q-IM이 CI 등록 API에서 CI 외 필드는 선택사항으로 처리)
+     */
+    private AuthResult buildAuthResultForRegistration(OidcCompleteRequest req) {
+        return AuthResult.builder()
+                .ci(req.getCi())
+                .build();
     }
 }

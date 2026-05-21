@@ -30,29 +30,53 @@ import kr.go.smes.common.util.UuidV7;
  *   <li>auth_result 테이블의 해당 qimUserId 관련 PII 컬럼 NULL 처리</li>
  * </ul>
  *
- * <p><b>정책</b>:
- * <ul>
- *   <li>매일 새벽 02:00 (Asia/Seoul) 실행</li>
- *   <li>보존 기간: {@code ido.retention.personal-data-days} (기본 365일)</li>
- *   <li>파기 단위: 한 트랜잭션 내 최대 100건 (부하 분산)</li>
- *   <li>파기 실패 시 개별 건 오류 로그만 기록 — 전체 중단 없음</li>
- * </ul>
+ * <p><b>F-11 On/Off 제어 (이중 안전장치)</b>:
+ * <pre>
+ * IDO_RETENTION_ENABLED=false (기본) → @Scheduled 실행되어도 즉시 return (데이터 변경 없음)
+ * IDO_RETENTION_ENABLED=true          → 실행 허용
+ *
+ * IDO_RETENTION_DRY_RUN=true (기본)   → 대상 조회·로그만, 실제 DELETE/UPDATE 없음
+ * IDO_RETENTION_DRY_RUN=false         → 실제 파기 실행 (영구 삭제 — 복구 불가)
+ * </pre>
+ *
+ * <p><b>🔴 운영 적용 체크리스트</b>:
+ * <ol>
+ *   <li>법무팀 보존 기간 확정 후 {@code IDO_RETENTION_DAYS} 설정</li>
+ *   <li>스테이징에서 {@code IDO_RETENTION_DRY_RUN=true}로 대상 확인</li>
+ *   <li>운영 적용 시 {@code IDO_RETENTION_ENABLED=true, IDO_RETENTION_DRY_RUN=false}</li>
+ * </ol>
  *
  * <p><b>법적 주의사항</b>:
- * 보존 기간 365일은 임시값. 법무팀 검토 후 {@code ido.retention.personal-data-days} 설정값 확정 필요.
- * 파기 대상 선정 기준(withdrawn_at 기준 또는 updated_at 기준)도 법무팀 지침에 따라 조정.
+ * 보존 기간 365일은 임시값. 법무팀 검토 후 확정 필요.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class PersonalDataRetentionScheduler {
 
+    // ── F-11 On/Off 플래그 (이중 안전장치) ──────────────────────────────────
+
+    /**
+     * 파기 스케줄러 활성 여부.
+     * 기본 false — 명시적으로 true 설정 시에만 실행 (개발 DB 실수 삭제 방지).
+     */
+    @Value("${ido.retention.enabled:${IDO_RETENTION_ENABLED:false}}")
+    private boolean retentionEnabled;
+
+    /**
+     * Dry-run 모드.
+     * true(기본): 대상 조회 및 로그만, 실제 DELETE/UPDATE 없음.
+     * false: 실제 파기 실행 (운영에서만 false 설정).
+     */
+    @Value("${ido.retention.dry-run:${IDO_RETENTION_DRY_RUN:true}}")
+    private boolean dryRun;
+
     /** 보존 기간 (일). 기본 365일 = 1년. 법무팀 확정 전 임시값. */
-    @Value("${ido.retention.personal-data-days:365}")
+    @Value("${ido.retention.personal-data-days:${IDO_RETENTION_DAYS:365}}")
     private int retentionDays;
 
     /** 회당 처리 건수 한도 (DB 부하 분산) */
-    @Value("${ido.retention.batch-size:100}")
+    @Value("${ido.retention.batch-size:${IDO_RETENTION_BATCH_SIZE:100}}")
     private int batchSize;
 
     private final JdbcTemplate        jdbcTemplate;
@@ -65,11 +89,39 @@ public class PersonalDataRetentionScheduler {
      * 매일 02:00 개인정보 파기 실행 (Asia/Seoul)
      *
      * <p>cron = "0 0 2 * * *" — 매일 새벽 2시
-     * 파기 대상: WITHDRAWN 상태 + withdrawn_at < (현재 - retentionDays)
+     *
+     * <p><b>실행 조건</b>:
+     * {@code IDO_RETENTION_ENABLED=true} AND (@{code @Scheduled} 트리거)
+     * → {@code IDO_RETENTION_DRY_RUN=true}면 조회·로그만
+     * → {@code IDO_RETENTION_DRY_RUN=false}면 실제 파기
      */
     @Scheduled(cron = "0 0 2 * * *", zone = "Asia/Seoul")
     public void executeRetentionPolicy() {
+
+        // ── F-11 Guard: enabled 체크 ─────────────────────────────────────
+        if (!retentionEnabled) {
+            log.debug("[RetentionScheduler] DISABLED — 개인정보 파기 비활성 (IDO_RETENTION_ENABLED=false)");
+            return;
+        }
+
         Instant retentionCutoff = Instant.now().minus(retentionDays, ChronoUnit.DAYS);
+
+        if (dryRun) {
+            log.info("[RetentionScheduler][DRY-RUN] 개인정보 파기 시뮬레이션 시작: " +
+                     "retentionDays={} cutoff={} — 실제 삭제 없음 (IDO_RETENTION_DRY_RUN=true)",
+                    retentionDays, retentionCutoff);
+            List<String> candidates = findExpiredWithdrawnMembers(retentionCutoff);
+            log.info("[RetentionScheduler][DRY-RUN] 파기 대상 {}건 (실제 삭제 없음). " +
+                     "운영 적용 시 IDO_RETENTION_DRY_RUN=false 설정 필요.",
+                    candidates.size());
+            if (!candidates.isEmpty()) {
+                log.info("[RetentionScheduler][DRY-RUN] 대상 instMbrId 샘플 (최대 5개): {}",
+                        candidates.stream().limit(5).toList());
+            }
+            return;
+        }
+
+        // ── 실제 파기 실행 (dry-run=false) ──────────────────────────────
         log.info("[RetentionScheduler] 개인정보 파기 스케줄 시작: retentionDays={} cutoff={}",
                 retentionDays, retentionCutoff);
 
@@ -101,7 +153,6 @@ public class PersonalDataRetentionScheduler {
         log.info("[RetentionScheduler] 개인정보 파기 완료: 성공={} 실패={} 총={}",
                 successCount, failCount, expiredInstMbrIds.size());
 
-        // 감사 로그 (전체 처리 결과)
         publishRetentionAuditLog(successCount, failCount, retentionCutoff);
     }
 
@@ -109,9 +160,6 @@ public class PersonalDataRetentionScheduler {
 
     /**
      * 보존 기간 만료된 탈퇴 회원 instMbrId 목록 조회
-     *
-     * <p>status = 'WITHDRAWN' AND withdrawn_at &lt; :cutoff
-     * ORDER BY withdrawn_at ASC LIMIT :batchSize (선입선출)
      */
     private List<String> findExpiredWithdrawnMembers(Instant retentionCutoff) {
         String sql = """
@@ -129,19 +177,9 @@ public class PersonalDataRetentionScheduler {
 
     /**
      * 개별 회원 개인정보 파기 (단일 트랜잭션)
-     *
-     * <p>파기 항목:
-     * <ol>
-     *   <li>inst_mbr_id_mapping — identifier_hash, mbr_uuid NULL 처리 (역추적 차단)</li>
-     *   <li>auth_result — qimUserId 관련 레코드 삭제 (PoC 한정; 운영 시 legal hold 확인 필요)</li>
-     * </ol>
-     *
-     * <p>inst_mbr_id 자체는 감사 추적을 위해 유지 (삭제 안 함).
-     * 단, PII/CI 원본을 복원할 수 있는 필드만 NULL 처리.
      */
     @Transactional
     public void purgePersonalData(String instMbrId) {
-        // ① inst_mbr_id_mapping — PII 역추적 필드 NULL 처리
         int updatedMapping = jdbcTemplate.update("""
                 UPDATE ido.inst_mbr_id_mapping
                 SET identifier_hash = NULL,
@@ -156,8 +194,6 @@ public class PersonalDataRetentionScheduler {
                      " (이미 파기 또는 상태 불일치)", instMbrId);
         }
 
-        // ② auth_result — 해당 회원 레코드 삭제
-        //    (법무팀 지침에 따라 soft-delete 또는 anonymize로 변경 가능)
         String qimUserIdSql = "SELECT qim_user_id FROM ido.inst_mbr_id_mapping WHERE inst_mbr_id = ?";
         List<String> qimUserIds = jdbcTemplate.queryForList(qimUserIdSql, String.class, instMbrId);
 
@@ -172,8 +208,6 @@ public class PersonalDataRetentionScheduler {
         log.info("[RetentionScheduler] 파기 완료: instMbrId={} mappingUpdated={} authResultDeleted={}",
                 instMbrId, updatedMapping, deletedAuthResults);
     }
-
-    // ── 감사 로그 ─────────────────────────────────────────────────────────────
 
     private void publishRetentionAuditLog(int successCount, int failCount, Instant cutoff) {
         try {
@@ -191,9 +225,10 @@ public class PersonalDataRetentionScheduler {
                                     : AuditLogEvent.OUTCOME_PARTIAL)
                             .outcomeDetail("success=" + successCount + " fail=" + failCount)
                             .metadata(Map.of(
-                                    "cutoff",      cutoff.toString(),
+                                    "cutoff",       cutoff.toString(),
                                     "successCount", String.valueOf(successCount),
-                                    "failCount",   String.valueOf(failCount)
+                                    "failCount",    String.valueOf(failCount),
+                                    "dryRun",       String.valueOf(dryRun)
                             ))
                             .build());
         } catch (Exception e) {

@@ -40,16 +40,16 @@ import java.util.Map;
  *   <li>{@code ido-qsign-consumer}        — qsign.auth.events 구독 (인증 결과 Pre-warming)</li>
  *   <li>{@code ido-handoff-consumer}      — ido.handoff.events 구독 (기관 webhook 트리거)</li>
  *   <li>{@code ido-fe-advisory-consumer}  — platform.session.advisory 구독 (FE 세션 처리)</li>
- *   <li>{@code ido-qim-sp-member-consumer}— qim.sp.member.events 구독 (SP 회원 이벤트)</li>
+ *   <li>{@code ido-qim-member-consumer}  — qim.user.events 구독 (QIM-OUTBOX-SPEC-001 회원 등록/전환/탈퇴)</li>
  * </ul>
  *
  * <p><b>60,000명 부하 대응 Concurrency 설계</b>:
  * <pre>
  * qsign.auth.events   → concurrency=6 (파티션 12개 기준 절반, pre-warming 병렬도)
  * ido.handoff.events  → concurrency=6 (파티션 12개 기준 절반, webhook 큐잉 병렬도)
- * qim.user.events     → concurrency=3 (캐시 갱신, 순서 중요)
+ * qim.user.events     → concurrency=3 (캐시 갱신, 순서 중요) — ido-qim-consumer
+ * qim.user.events     → concurrency=2 (등록/전환/탈퇴 처리) — ido-qim-member-consumer
  * platform.advisory   → concurrency=3 (FE 세션 처리)
- * qim.sp.member.events→ concurrency=2 (SP 회원 이벤트, 낮은 빈도)
  * </pre>
  */
 @Configuration
@@ -70,6 +70,12 @@ public class KafkaConsumerConfig {
     @Value("${ido.kafka.consumer-group-fe-advisory:ido-fe-advisory-consumer}")
     private String feAdvisoryConsumerGroup;
 
+    // QIM-OUTBOX-SPEC-001: qim.user.events 구독 (BIZ/PERSONAL REGISTERED/CONVERTED/WITHDRAWN)
+    @Value("${ido.kafka.consumer-group-qim-member:ido-qim-member-consumer}")
+    private String qimMemberConsumerGroup;
+
+    // 기존 qim.sp.member.events 컨슈머 그룹 (폐기 예정 토픽 마이그레이션 완료 시 제거)
+    @Deprecated(since = "QIM-OUTBOX-SPEC-001", forRemoval = true)
     @Value("${ido.kafka.consumer-group-qim-sp-member:ido-qim-sp-member-consumer}")
     private String qimSpMemberConsumerGroup;
 
@@ -174,7 +180,42 @@ public class KafkaConsumerConfig {
         return factory;
     }
 
+    // ── Q-IM 회원 이벤트 컨슈머 팩토리 (qim.user.events / QIM-OUTBOX-SPEC-001) ──
+    //    QimSpMemberEventConsumer 가 BIZ/PERSONAL_MEMBER_CONVERTED/REGISTERED/WITHDRAWN 처리
+    //    payload 는 QimSpReceiverService 가 Map<String,Object> 구조로 INSERT했으므로
+    //    String → 컨슈머 내에서 ObjectMapper 역직렬화 (JsonDeserializer 타입 불일치 방지)
+
+    @Bean("qimMemberConsumerFactory")
+    public ConsumerFactory<String, String> qimMemberConsumerFactory() {
+        return new DefaultKafkaConsumerFactory<>(
+                consumerProps(qimMemberConsumerGroup),
+                new StringDeserializer(),
+                new StringDeserializer()
+        );
+    }
+
+    /**
+     * QIM-OUTBOX-SPEC-001: qim.user.events 회원 등록/전환/탈퇴 이벤트 컨슈머 팩토리
+     *
+     * <p>concurrency=2: qim.user.events 파티션 6개 기준 적정 병렬도.
+     * 회원 이벤트는 실시간성 요구가 낮고 순서 중요도가 높으므로 낮은 concurrency 설정.
+     */
+    @Bean("qimMemberListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<String, String>
+    qimMemberListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(qimMemberConsumerFactory());
+        factory.setConcurrency(2);
+        factory.getContainerProperties()
+               .setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        factory.setCommonErrorHandler(defaultErrorHandler());
+        factory.getContainerProperties().setObservationEnabled(true);
+        return factory;
+    }
+
     // ── Q-IM SP 회원 이벤트 컨슈머 팩토리 (qim.sp.member.events) ─────────
+    // @Deprecated QIM-OUTBOX-SPEC-001: qim.sp.member.events → qim.user.events 전환 완료 후 제거
 
     @Bean("qimSpMemberConsumerFactory")
     public ConsumerFactory<String, String> qimSpMemberConsumerFactory() {

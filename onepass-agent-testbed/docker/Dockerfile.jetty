@@ -1,0 +1,38 @@
+##############################################################################
+# Jetty 11 + JDK 11 테스트베드
+# Servlet 5.0 (Jakarta EE 9 — jakarta.servlet 전환 버전)
+##############################################################################
+FROM eclipse-temurin:11-jre-jammy
+
+LABEL description="OnePass Agent Testbed - Jetty 11 + JDK 11"
+
+ENV JETTY_VERSION=11.0.20
+ENV JETTY_HOME=/opt/jetty
+ENV JETTY_BASE=/var/lib/jetty
+
+RUN apt-get update && apt-get install -y curl wget && rm -rf /var/lib/apt/lists/*
+
+RUN wget -q https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-home/${JETTY_VERSION}/jetty-home-${JETTY_VERSION}.tar.gz \
+    -O /tmp/jetty.tar.gz \
+    && mkdir -p ${JETTY_HOME} \
+    && tar -xzf /tmp/jetty.tar.gz -C ${JETTY_HOME} --strip-components=1 \
+    && rm /tmp/jetty.tar.gz
+
+# Jetty base 초기화 (deploy, http 모듈 활성화)
+RUN mkdir -p ${JETTY_BASE} \
+    && cd ${JETTY_BASE} \
+    && java -jar ${JETTY_HOME}/start.jar --create-startd --add-module=deploy,http,ext,resources
+
+VOLUME ["/agent", "/agent-config"]
+
+ENV JAVA_OPTIONS="-javaagent:/agent/onepass-agent-all.jar=/agent-config/onepass-agent.properties \
+    -Donepass.was.type=JETTY \
+    -Xms256m -Xmx512m"
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/ || exit 1
+
+WORKDIR ${JETTY_BASE}
+CMD ["java", "-jar", "/opt/jetty/start.jar"]

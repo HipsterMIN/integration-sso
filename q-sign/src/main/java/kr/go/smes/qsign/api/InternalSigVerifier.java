@@ -31,10 +31,10 @@ import java.util.HexFormat;
  *   <li>모두 불일치 → 거부 (false)</li>
  * </ol>
  *
- * <p>PoC에서 IdO {@code BrokerService.buildInternalSig()} 는 단순 접두어 방식이므로,
- * q-sign 모드(PoC)에서는 서명 검증을 건너뛸 수 있도록 {@code strict-mode} 설정을 제공한다.
- * Keycloak 모드(운영)에서는 {@code KeycloakCallbackService}가 정식 HMAC 서명을 생성하므로
- * 검증이 항상 수행된다.
+ * <p><b>운영 정책</b>: 서명 검증은 항상 strict 모드로 동작합니다.
+ * PoC용 non-strict 코드 경로는 운영 이관 전 완전히 제거되었습니다.
+ * IDO_INTERNAL_SIG_SECRET 환경변수를 반드시 설정하세요.
+ * ⚠️ [REQUIRES_MANUAL] IDO_INTERNAL_SIG_SECRET: openssl rand -hex 32
  */
 @Slf4j
 @Component
@@ -55,18 +55,23 @@ public class InternalSigVerifier {
 
     /**
      * 기동 시 내부 서명 비밀키 보안 검증
+     *
+     * <p>서명 검증은 항상 strict 모드로 동작합니다. non-strict 경로는 제거되었습니다.
+     * IDO_INTERNAL_SIG_SECRET 미설정 시 모든 내부 API 호출이 거부됩니다.
      */
     @PostConstruct
     void validateSigSecret() {
         if (sigSecret == null || sigSecret.isBlank()) {
-            log.error("[QSign-InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 환경변수 미설정. " +
-                      "내부 서명 검증이 모든 요청에 대해 실패합니다. 즉시 설정하세요.");
+            log.error("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET 환경변수 미설정. " +
+                      "⚠️ [REQUIRES_MANUAL] 모든 내부 서명 검증이 실패합니다. 즉시 설정하세요: openssl rand -hex 32");
         } else if (INSECURE_DEFAULT.equals(sigSecret)) {
-            log.error("[QSign-InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
+            log.error("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
                       "운영 환경에서는 반드시 최소 32자 이상의 무작위 비밀값으로 교체하세요.");
         } else if (sigSecret.length() < MIN_SECRET_LENGTH) {
-            log.warn("[QSign-InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 길이 부족: 현재={}자, 권장={}자 이상.",
+            log.warn("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET 길이 부족: 현재={}자, 권장={}자 이상.",
                      sigSecret.length(), MIN_SECRET_LENGTH);
+        } else {
+            log.info("[QSign-InternalSigVerifier] strict 모드 — X-Internal-Sig HMAC-SHA256 검증 활성화됨.");
         }
     }
 
@@ -76,13 +81,8 @@ public class InternalSigVerifier {
     @Value("${qsign.ido.internal-sig-ttl-seconds:60}")
     private int ttlSeconds;
 
-    /**
-     * strict-mode=false 이면 서명 검증을 경고 로그로만 처리하고 통과시킨다.
-     * PoC 환경(broker.mode=qsign)에서 IdO가 단순 접두어 서명을 보내는 경우 허용.
-     * 운영 환경에서는 반드시 true 로 설정해야 한다.
-     */
-    @Value("${qsign.ido.internal-sig-strict-mode:true}")
-    private boolean strictMode;
+    // NOTE: strict-mode 설정 항목 제거됨 — 서명 검증은 항상 strict 모드로 동작
+    // PoC용 qsign.ido.internal-sig-strict-mode 설정이 application.yml에 존재하는 경우 제거 가능
 
     /**
      * X-Internal-Sig 서명 검증
@@ -92,15 +92,16 @@ public class InternalSigVerifier {
      * @return true = 서명 유효 또는 non-strict-mode / false = 서명 거부
      */
     public boolean verify(String receivedSig, String correlationId) {
+        // strict 모드: 서명 없음 → 즉시 거부
         if (receivedSig == null || receivedSig.isBlank()) {
-            log.warn("[QSign-InternalSigVerifier] X-Internal-Sig 헤더 없음 correlationId={}", correlationId);
-            return !strictMode; // strict=false → PoC 허용, strict=true → 거부
+            log.warn("[QSign-InternalSigVerifier] X-Internal-Sig 헤더 없음 — 거부 correlationId={}", correlationId);
+            return false;
         }
         if (correlationId == null || correlationId.isBlank()) {
-            log.warn("[QSign-InternalSigVerifier] correlationId 없음 — 서명 검증 불가");
-            return !strictMode;
+            log.warn("[QSign-InternalSigVerifier] correlationId 없음 — 서명 검증 불가 → 거부");
+            return false;
         }
-        // 비밀키 미설정 시 즉시 거부 (strict 여부 무관)
+        // 비밀키 미설정 시 즉시 거부
         if (sigSecret == null || sigSecret.isBlank()) {
             log.error("[QSign-InternalSigVerifier] sigSecret 미설정 — 모든 내부 서명 검증 거부");
             return false;
@@ -127,16 +128,10 @@ public class InternalSigVerifier {
             }
         }
 
-        if (strictMode) {
-            log.warn("[QSign-InternalSigVerifier] X-Internal-Sig 서명 불일치 — ±{}초 범위 검증 실패 correlationId={}",
-                    ttlSeconds, correlationId);
-            return false;
-        } else {
-            // non-strict 모드: PoC에서 단순 접두어 서명 허용 (경고만 출력)
-            log.warn("[QSign-InternalSigVerifier] X-Internal-Sig 불일치이나 non-strict 모드로 통과 correlationId={}",
-                    correlationId);
-            return true;
-        }
+        // strict 모드: 불일치 → 거부 (non-strict 경로 제거됨)
+        log.warn("[QSign-InternalSigVerifier] X-Internal-Sig 서명 불일치 — ±{}초 범위 검증 실패 → 거부 correlationId={}",
+                ttlSeconds, correlationId);
+        return false;
     }
 
     /**

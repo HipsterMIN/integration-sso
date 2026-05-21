@@ -1,0 +1,157 @@
+// =============================================
+// CSS Custom Properties (Design Token)
+// =============================================
+:root {
+	// Layout
+	--min-width: 360px;
+	// 화면 폭과 동일한 너비 (스크롤바 보정 5px). footer 풀폭 라인 등에 사용.
+	// 이전 `clamp(1920px, ...)`은 min이 viewport보다 커서 1915px 고정 → 가로 overflow 유발.
+	--100vw: calc(clamp(var(--min-width), 100vw, 100vw) - 5px);
+	--font-size: 10px;
+	--inner: 1280px;
+	--inner2: 800px;
+	--header-inner: 1660px;
+	--inner-padding: 30px;
+
+	// Color
+	--color-primary: #1A6BC7;
+	--color-primary-button-bg: #2563EB;
+	--color-secondary-button: #FFFFFF;
+	--color-icon-bg: #EAF2FB;
+	--color-body-text: var(--krds-light-color-text-basic);
+	--color-sub-text: #555F6E;
+	--color-overlay: rgba(0, 0, 0, 0.6);
+	--color-border: #E0E4EA;
+	--blue-color: #003764;
+
+	// Brand Blue Scale (project-specific, 미파일 KRDS 외)
+	--blue-color-deep: #003a94;       // Mypage sub-nav, active 강조
+	--blue-color-surface: #EBF1FE;    // active 배경(연한 블루)
+	--blue-color-surface-soft: #f4f8ff; // hover 배경(더 연한 블루)
+
+	// Renewal (PUB260506) Point Colors
+	--point-color: #4E6AC5;           // 리뉴얼 포인트 — 로그아웃 버튼, hover 강조
+	--point-color2: #003764;          // 리뉴얼 풋터 다크 네이비
+	--point-color-box-shadow: #4e6ac530;
+
+	// Typography
+	--font-family: 'Pretendard GOV', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+	--font-title: 700 1.25rem/1.4 var(--font-family);       // 20px Bold
+	--font-subtitle: 700 1.375rem/1.4 var(--font-family);   // 22px Bold
+	--font-body: 400 0.875rem/1.5 var(--font-family);       // 14px Regular
+	--font-button: 600 0.9375rem/1.4 var(--font-family);    // 15px SemiBold
+
+	// Popup
+	--popup-width: 480px;
+	--popup-padding: 32px;
+	--popup-radius: 16px;
+
+	// KRDS Icon Sizes
+	--krds-icon--size-xsmall: var(--krds-size-height-2);
+	--krds-icon--size-small: var(--krds-size-height-2);
+	--krds-icon--size-medium: var(--krds-size-height-3);
+	--krds-icon--size-large: var(--krds-size-height-4);
+	--krds-icon--size-xlarge: var(--krds-size-height-4);
+
+	// KRDS Button - xsmall
+	--krds-button--size-height-xsmall: var(--krds-size-height-5);
+	--krds-button--padding-x-xsmall: var(--krds-padding-4);
+	--krds-button--padding-y-xsmall: 0;
+	--krds-button--gap-xsmall: var(--krds-gap-1);
+	--krds-button--radius-xsmall: var(--krds-radius-small3);
+	--krds-button--pc-font-size-xsmall: var(--krds-pc-font-size-label-small);
+	--krds-button--mobile-font-size-xsmall: var(--krds-mobile-font-size-label-small);
+	--krds-button--font-weight-xsmall: var(--krds-font-weight-regular);
+
+	// KRDS Button - small
+	--krds-button--size-height-small: var(--krds-size-height-6);
+	--krds-button--padding-x-small: var(--krds-padding-5);
+	--krds-button--padding-y-small: 0;
+	--krds-button--gap-small: var(--krds-gap-1);
+	--krds-button--radius-small: var(--krds-radius-medium1);
+	--krds-button--pc-font-size-small: var(--krds-pc-font-size-label-small);
+	--krds-button--mobile-font-size-small: var(--krds-mobile-font-size-label-small);
+	--krds-button--font-weight-small: var(--krds-font-weight-regular);
+
+	// KRDS Button - medium
+	--krds-button--size-height-medium: var(--krds-size-height-7);
+	--krds-button--padding-x-medium: var(--krds-padding-6);
+	--krds-button--padding-y-medium: 0;
+	--krds-button--gap-medium: var(--krds-gap-2);
+	--krds-button--radius-medium: var(--krds-radius-medium2);
+	--krds-button--pc-font-size-medium: var(--krds-pc-font-size-label-medium);
+	--krds-button--mobile-font-size-medium: var(--krds-mobile-font-size-label-medium);
+	--krds-button--font-weight-medium: var(--krds-font-weight-regular);
+
+	// KRDS Button - large
+	--krds-button--size-height-large: var(--krds-size-height-8);
+	--krds-button--padding-x-large: var(--krds-padding-7);
+	--krds-button--padding-y-large: 0;
+	--krds-button--gap-large: var(--krds-gap-2);
+	--krds-button--radius-large: var(--krds-radius-medium3);
+	--krds-button--pc-font-size-large: var(--krds-pc-font-size-label-large);
+	--krds-button--mobile-font-size-large: var(--krds-mobile-font-size-label-large);
+	--krds-button--font-weight-large: var(--krds-font-weight-regular);
+
+	// KRDS Button - xlarge
+	--krds-button--size-height-xlarge: var(--krds-size-height-9);
+	--krds-button--padding-x-xlarge: var(--krds-padding-8);
+	--krds-button--padding-y-xlarge: 0;
+	--krds-button--gap-xlarge: var(--krds-gap-2);
+	--krds-button--radius-xlarge: var(--krds-radius-medium4);
+	--krds-button--pc-font-size-xlarge: var(--krds-pc-font-size-label-large);
+	--krds-button--mobile-font-size-xlarge: var(--krds-mobile-font-size-label-large);
+	--krds-button--font-weight-xlarge: var(--krds-font-weight-regular);
+}
+
+// =============================================
+// Breakpoints
+// =============================================
+$bp-desktop: 1025px;
+$bp-tablet: 768px;
+$bp-mobile-sm: 360px;
+
+// =============================================
+// Responsive Mixins
+// - desktop-up        : ≥ 1025px (hover 활성·데스크톱 전용 강화)
+// - mobile-down       : <  768px (모바일 다운그레이드)
+// - small-mobile-down : <  360px (소형 모바일 다운그레이드)
+// 사용 예: .popup { @include mobile-down { padding: 1.6rem; } }
+// =============================================
+@mixin desktop-up {
+	@media screen and (min-width: #{$bp-desktop}) { @content; }
+}
+
+@mixin mobile-down {
+	@media screen and (max-width: #{$bp-tablet - 1}) { @content; }
+}
+
+@mixin small-mobile-down {
+	@media screen and (max-width: #{$bp-mobile-sm - 1}) { @content; }
+}
+
+// =============================================
+// Responsive 대응 기준 (디자인 가이드)
+// ---------------------------------------------
+// 컴포넌트·페이지 작업 시 아래 기준을 따라 반응형을 추가한다.
+// 적용은 "공유 컴포넌트는 components/_*.scss, 페이지 한정은 pages/_*.scss" 원칙.
+//
+// ┌─────────────────────────┬───────────────────────────────┬──────────────────────────────────┐
+// │ Breakpoint              │ Mixin                         │ 주요 변경 사항                   │
+// ├─────────────────────────┼───────────────────────────────┼──────────────────────────────────┤
+// │ ≥ 768px (데스크톱/태블릿)│ (mixin 미적용 = 기본 셀렉터)  │ 기본 규격 그대로 적용            │
+// │ < 768px (모바일)        │ @include mobile-down          │ 좌우 margin 16px / padding 24px  │
+// │ < 360px (소형 모바일)   │ @include small-mobile-down    │ padding 16px / 버튼 height 44px  │
+// └─────────────────────────┴───────────────────────────────┴──────────────────────────────────┘
+//
+// 비고
+//  - 768~1024px (태블릿)은 별도 분기 없음 → 데스크톱 룩 그대로 표시
+//  - 가이드의 좌우 margin / padding 값은 .inner / popup 등 레이아웃 토큰에 우선 반영
+//  - 컴포넌트별 세부 수치는 해당 컴포넌트/페이지 작업 시점에 반영
+// =============================================
+
+// =============================================
+// Layout Dimensions
+// =============================================
+$sidebar-width: 44px;
+$sidebar-docked-width: 200px;

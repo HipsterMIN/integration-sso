@@ -1,0 +1,338 @@
+.dateTimeForm {
+	justify-content: flex-end;
+}
+
+.dateTimeTypography {
+	text-align: right;
+}
+
+.dateTimeFormItem {
+	margin: 0;
+}
+
+.dateTimeRefreshText {
+	padding-right: 8px;
+}
+
+.dateTimeFormContainer {
+	display: flex;
+}
+
+.date-time-selector {
+	display: flex;
+	align-items: center;
+	height: 47px;			// 수정주의
+	// time-radio-button-type
+	// 수정주의(추가)
+	.divide {
+		position: relative;
+		display: flex;
+		align-items: center;
+		height: 48px;
+		padding: 0 8px;
+		border-right: 0;
+		&:last-of-type {
+			padding-right: 0;
+		}
+	}
+	.radio-time-quick-picker {
+		background-color: #343434;
+		border-radius: 4px 0 0 4px;
+		white-space: nowrap;
+		.ant-radio-button-wrapper {
+			min-width: 55px;
+			height: 32px;
+			background-color: transparent;
+			border: 0;
+			text-align: center;
+			font-size: 14px;
+			color: #ffffff;
+			border-radius: 0px;
+			font-weight: 400;
+			&:hover {
+				background-color: #404757;
+				color: #ffffff;
+			}
+			&.ant-radio-button-wrapper-checked {
+				background-color: /*원래색상 : #4e74f8*/#2bd8ff;
+				color: #fff;
+				font-weight: 700;
+			}
+			&:not(:first-child)::before {
+				content: none;
+			}
+			&:first-of-type {
+				border-radius: 4px 0 0 4px;
+			}
+			&:last-of-type {
+				// border-right: 0;
+			}
+		}
+	}
+	.icon-clock {
+		display: inline-flex;
+		align-items: center;
+		margin-right: 5px;
+		color: #404757;
+		&.active {
+			color: /*원래색상 : #4e74f8*/#2bd8ff;
+		}
+	}
+	// END 수정주의(추가)
+
+	.date-time-input-element {
+		display: flex;
+		align-items: center;
+		border-radius: 2px;
+		border: 1px solid var(--bg-slate-400);
+		box-shadow: none !important;
+		background: var(--bg-ink-300);
+		display: flex;
+		min-width: 192px;
+		height: 34px;
+		padding: 6px 6px 6px 8px;
+		flex-shrink: 0;
+		text-align: start;
+		margin-right: 8px;
+		justify-content: space-between;
+		align-items: center;
+
+		.date-time-input-content {
+			display: flex;
+			align-items: center;
+		}
+		.time-btn {
+			margin-right: 8px;
+		}
+		.down-arrow {
+			margin-left: 6px;
+		}
+	}
+
+	.realtime-btn {		// 수정주의(추가)
+		display: flex;
+		// flex-direction: row-reverse;
+		align-items: center;
+		justify-content: center;
+		gap: 4px;
+		width: 96px;
+		height: 32px;
+		background-color: #343434;
+		border: none;
+		box-shadow: none;
+		font-size: 14px;
+		font-weight: 400;
+		color: #ffffff;
+		border-radius: 4px;
+		.ant-btn-icon {
+			margin-right: 0 !important;
+		}
+		&:hover {
+			background-color: #404757;
+			color: #ffffff!important;
+		}
+		&.is-active {
+			background-color: /*원래색상 : #4e74f8*/#2bd8ff;
+			color: #ffffff;
+		}
+	}
+
+	.refresh-actions {
+		display: flex;
+		flex-direction: row;
+		border-radius: 2px;
+		border: 1px solid var(--bg-slate-400);
+		background: var(--bg-ink-300);
+		margin-left: 8px;
+
+		.refresh-btn {
+			border-right: 1px solid var(--bg-slate-400);
+		}
+		.ant-btn {
+			display: flex;
+			padding: 4px 8px;
+			align-items: center;
+			box-shadow: none;
+			border: none;
+
+			&.active-tab {
+				background-color: #1d212d;
+			}
+		}
+	}
+
+	.share-link-btn {
+		height: 34px;
+	}
+
+	.shareable-link-popover {
+		margin-left: 8px;
+	}
+}
+
+.share-modal-content {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 16px;
+	width: 420px;
+
+	.absolute-relative-time-toggler-container {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+	}
+
+	.absolute-relative-time-toggler {
+		display: flex;
+		gap: 4px;
+		align-items: center;
+	}
+
+	.absolute-relative-time-error {
+		font-size: 12px;
+		color: var(--bg-amber-600);
+	}
+
+	.share-link {
+		display: flex;
+		align-items: center;
+
+		.share-url {
+			flex: 1;
+			border: 1px solid var(--bg-slate-400);
+			border-radius: 2px;
+			background: var(--bg-ink-300);
+			height: 32px;
+			padding: 6px 8px;
+		}
+
+		.copy-url-btn {
+			width: 32px;
+		}
+	}
+}
+
+.date-time-root,
+.shareable-link-popover-root {
+	.ant-popover-inner {
+		border-radius: 0;		// 수정주의
+		// border: 1px solid var(--bg-slate-400);	// 수정주의
+		box-shadow: 0 10px 16px 2px rgba(0, 0, 0, 0.1);	// 수정주의
+		padding: 0px !important;
+		// background: linear-gradient(	// 수정주의
+		// 	139deg,
+		// 	rgba(18, 19, 23, 0.8) 0%,
+		// 	rgba(18, 19, 23, 0.9) 98.68%
+		// ) !important;
+		background-color: #222326;		// 수정주의
+		backdrop-filter: blur(20px);
+		z-index: 11;			// 수정주의
+	}
+	.ant-popover-arrow {
+		display: none;
+	}
+}
+
+.date-time-popover {
+	display: flex;
+
+	.date-time-options {
+		display: flex;
+		width: 224px;
+		flex-direction: column;
+		border-right: 1px solid #1d212d;
+
+		.data-time-live {
+			border-bottom: 1px solid #1d212d;
+			text-align: start;
+			padding: 13.5px 14px;
+			height: 44px;
+			color: var(--bg-vanilla-400, #c0c1c3);
+			font-size: 14px;
+			font-style: normal;
+			font-weight: 400;
+			line-height: normal;
+			letter-spacing: 0.14px;
+			border-bottom: 1px solid var(--bg-slate-400, #1d212d);
+		}
+
+		.active {
+			background-color: rgba(171, 189, 255, 0.04) !important;
+		}
+
+		.data-time-live:hover {
+			&.ant-btn-text {
+				background-color: rgba(171, 189, 255, 0.04) !important;
+			}
+		}
+
+		.date-time-options-btn {
+			text-align: start;
+			padding: 8px 13px;
+			height: 37px;
+			color: var(--bg-vanilla-400, #c0c1c3);
+			font-size: 14px;
+			font-style: normal;
+			font-weight: 400;
+			line-height: normal;
+			letter-spacing: 0.14px;
+		}
+		.date-time-options-btn:hover {
+			&.ant-btn-text {
+				background-color: rgba(171, 189, 255, 0.04) !important;
+			}
+		}
+	}
+
+	.relative-date-time {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;							// 수정주의
+		padding: 20px;						// 수정주의
+		&.relative-times {
+			width: 630px;					// 수정주의
+			height: 254px;					// 수정주의
+		}
+		&.date-picker {
+			width: 634px;					// 수정주의
+			height: 465px;					// 수정주의
+			.relative-times-container {
+				display: none;				// 수정주의
+			}
+		}
+		.relative-date-time-section {
+			display: flex;
+			gap: 5px;					// 수정주의
+			flex-flow: wrap;
+		}
+		.time-heading {
+			text-align: left;
+			color: #fff;			// 수정주의
+			font-size: 14px;		// 수정주의
+			font-weight: 700;		// 수정주의
+			line-height: 20px;		// 수정주의
+			margin: 0 0 8px;		// 수정주의
+		}
+		.time-btns {
+			display: flex;				// 수정주의
+			align-items: center;		// 수정주의
+			justify-content: center;	// 수정주의
+			width: 114px;				// 수정주의
+			height: 32px;				// 수정주의
+			background-color: #33373f;		// 수정주의
+			border-radius: 16px;		// 수정주의
+			border: 0;				// 수정주의
+			color: #cecfd4;		// 수정주의
+			font-size: 14px;
+			&.is-active {
+				background-color: /*원래색상 : #4e74f8*/#2bd8ff;		// 수정주의
+				color: #fff;			// 수정주의
+			}
+			&:hover {
+				background-color: #404757;		// 수정주의
+				color: #CECFD4;		// 수정주의
+			}
+		}
+	}
+}

@@ -1,0 +1,52 @@
+# ── 기본: 텍스트 파일은 LF로 정규화 ─────────────────────────────────────
+* text=auto eol=lf
+
+# ── 바이너리: CRLF 변환 절대 금지 ───────────────────────────────────────
+*.jar        binary
+*.war        binary
+*.ear        binary
+*.zip        binary
+*.tar        binary
+*.gz         binary
+*.class      binary
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.gif        binary
+*.ico        binary
+*.svg        text eol=lf
+*.woff       binary
+*.woff2      binary
+*.ttf        binary
+*.eot        binary
+*.pdf        binary
+*.xlsx       binary
+*.docx       binary
+
+# ── Gradle wrapper — 반드시 바이너리 처리 ───────────────────────────────
+gradle/wrapper/gradle-wrapper.jar binary
+gradlew                            text eol=lf
+gradlew.bat                        text eol=crlf
+
+# ── 소스 코드 (LF) ───────────────────────────────────────────────────────
+*.java       text eol=lf
+*.kt         text eol=lf
+*.kts        text eol=lf
+*.groovy     text eol=lf
+*.gradle     text eol=lf
+*.ts         text eol=lf
+*.tsx        text eol=lf
+*.js         text eol=lf
+*.jsx        text eol=lf
+*.css        text eol=lf
+*.scss       text eol=lf
+*.html       text eol=lf
+*.ejs        text eol=lf
+*.json       text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.xml        text eol=lf
+*.md         text eol=lf
+*.sh         text eol=lf
+*.sql        text eol=lf
+*.properties text eol=lf

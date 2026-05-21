@@ -1,0 +1,15 @@
+{
+    "url": {
+        "server": {
+            "baseUrl": "/",
+            "contextPath": "bizezauth-api/"
+        },
+        "authCheckServer": {
+            "baseUrl": "https://onepass-ido.smes.go.kr/",
+            "contextPath": ""
+        },
+        "api": {
+            "authCheck": "api/v1/auth/callback"
+        }
+    }
+}

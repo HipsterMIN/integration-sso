@@ -1,0 +1,93 @@
+# ============================================================
+# ConfigMap — 비민감 설정 (URL, topic명, feature flag 등)
+# 민감 정보(패스워드, 키)는 반드시 Secret으로 관리한다.
+# ============================================================
+
+# ── 플랫폼 공통 ConfigMap ──────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: onepass-common-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+data:
+  # ── Kafka Topic 이름 (모든 서비스가 참조) ─────────────────────────
+  KAFKA_TOPIC_AUTH_EVENTS:        {{ .Values.kafka.topics.authEvents | quote }}
+  KAFKA_TOPIC_HANDOFF_EVENTS:     {{ .Values.kafka.topics.handoffEvents | quote }}
+  KAFKA_TOPIC_SESSION_ADVISORY:   {{ .Values.kafka.topics.sessionAdvisory | quote }}
+  KAFKA_TOPIC_AUDIT_LOG:          {{ .Values.kafka.topics.auditLog | quote }}
+  KAFKA_TOPIC_QIM_USER_EVENTS:    {{ .Values.kafka.topics.qimUserEvents | quote }}
+  KAFKA_TOPIC_QIM_USER_SNAPSHOT:  {{ .Values.kafka.topics.qimUserSnapshot | quote }}
+  KAFKA_TOPIC_QIM_SP_MEMBER:      {{ .Values.kafka.topics.qimSpMemberEvents | quote }}
+  # DLT
+  KAFKA_TOPIC_AUTH_EVENTS_DLT:        {{ .Values.kafka.topics.authEventsDlt | quote }}
+  KAFKA_TOPIC_HANDOFF_EVENTS_DLT:     {{ .Values.kafka.topics.handoffEventsDlt | quote }}
+  KAFKA_TOPIC_SESSION_ADVISORY_DLT:   {{ .Values.kafka.topics.sessionAdvisoryDlt | quote }}
+  KAFKA_TOPIC_QIM_USER_EVENTS_DLT:    {{ .Values.kafka.topics.qimUserEventsDlt | quote }}
+  KAFKA_TOPIC_QIM_SP_MEMBER_DLT:      {{ .Values.kafka.topics.qimSpMemberEventsDlt | quote }}
+---
+# ── Q-Sign ConfigMap ───────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: onepass-qsign-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-sign
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.qsign.config.SPRING_PROFILES_ACTIVE | quote }}
+  DB_PORT: {{ .Values.qsign.config.DB_PORT | quote }}
+  DB_NAME: {{ .Values.qsign.config.DB_NAME | quote }}
+  REDIS_PORT: {{ .Values.qsign.config.REDIS_PORT | quote }}
+  KEYCLOAK_REALM: {{ .Values.qsign.config.KEYCLOAK_REALM | quote }}
+  QSIGN_KEYCLOAK_CLIENT_ID: {{ .Values.qsign.config.QSIGN_KEYCLOAK_CLIENT_ID | quote }}
+  QSIGN_PKCE_ENABLED: {{ .Values.qsign.config.QSIGN_PKCE_ENABLED | quote }}
+  QSIGN_PKCE_TTL: {{ .Values.qsign.config.QSIGN_PKCE_TTL | quote }}
+  QSIGN_INTERNAL_SIG_STRICT: {{ .Values.qsign.config.QSIGN_INTERNAL_SIG_STRICT | quote }}
+---
+# ── Q-IM ConfigMap ─────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: onepass-qim-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-im
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.qim.config.SPRING_PROFILES_ACTIVE | quote }}
+  QIM_DB_PORT: {{ .Values.qim.config.QIM_DB_PORT | quote }}
+  QIM_DB_NAME: {{ .Values.qim.config.QIM_DB_NAME | quote }}
+  QIM_DB_SSL: {{ .Values.qim.config.QIM_DB_SSL | quote }}
+  REDIS_PORT: {{ .Values.qim.config.REDIS_PORT | quote }}
+  QIM_CI_CURRENT_VERSION: {{ .Values.qim.config.QIM_CI_CURRENT_VERSION | quote }}
+  QIM_RECEIVER_AUDIT: {{ .Values.qim.config.QIM_RECEIVER_AUDIT | quote }}
+---
+# ── IdO ConfigMap ──────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: onepass-ido-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ido
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.ido.config.SPRING_PROFILES_ACTIVE | quote }}
+  DB_PORT: {{ .Values.ido.config.DB_PORT | quote }}
+  DB_NAME: {{ .Values.ido.config.DB_NAME | quote }}
+  REDIS_PORT: {{ .Values.ido.config.REDIS_PORT | quote }}
+  IDO_BROKER_MODE: {{ .Values.ido.config.IDO_BROKER_MODE | quote }}
+  KEYCLOAK_REALM: {{ .Values.ido.config.KEYCLOAK_REALM | quote }}
+  KEYCLOAK_CLIENT_ID: {{ .Values.ido.config.KEYCLOAK_CLIENT_ID | quote }}
+  IDO_PLATFORM_VERSION: {{ .Values.ido.config.IDO_PLATFORM_VERSION | quote }}
+  IDO_RATE_LIMIT_ENABLED: {{ .Values.ido.config.IDO_RATE_LIMIT_ENABLED | quote }}
+  IDO_RATE_LIMIT_DEFAULT_TPS: {{ .Values.ido.config.IDO_RATE_LIMIT_DEFAULT_TPS | quote }}
+  IDO_RATE_LIMIT_DEFAULT_DAILY: {{ .Values.ido.config.IDO_RATE_LIMIT_DEFAULT_DAILY | quote }}
+  IDO_AUDIT_KAFKA_ENABLED: {{ .Values.ido.config.IDO_AUDIT_KAFKA_ENABLED | quote }}
+  IDO_KAFKA_PARTITION_COUNT_MAIN: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_MAIN | quote }}
+  IDO_KAFKA_PARTITION_COUNT_DLQ: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_DLQ | quote }}
+  IDO_KAFKA_REPLICATION_FACTOR: {{ .Values.ido.config.IDO_KAFKA_REPLICATION_FACTOR | quote }}
+  IDO_KAFKA_MIN_INSYNC_REPLICAS: {{ .Values.ido.config.IDO_KAFKA_MIN_INSYNC_REPLICAS | quote }}

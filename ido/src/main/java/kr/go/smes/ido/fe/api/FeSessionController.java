@@ -1,16 +1,20 @@
 package kr.go.smes.ido.fe.api;
 
+import jakarta.validation.Valid;
 import kr.go.smes.common.util.CorrelationIdHolder;
 import kr.go.smes.ido.fe.session.FeSession;
 import kr.go.smes.ido.fe.session.FeSessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Duration;
 import java.util.Map;
 
 /**
@@ -30,7 +34,11 @@ public class FeSessionController {
 
     private static final String COOKIE_NAME = "feSessionId";
 
+    private static final String PROV_TOKEN_KEY_PREFIX = "prov:token:used:";
+    private static final Duration PROV_TOKEN_TTL = Duration.ofMinutes(30);
+
     private final FeSessionService feSessionService;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     // ── GET /api/v1/fe-session/check ──────────────────────────────────────
 
@@ -143,6 +151,66 @@ public class FeSessionController {
 
         log.info("[FeSession] 세션 발급 qimUserId={} caller={}",
                 session.getQimUserId(), caller);
+
+        return ResponseEntity.ok(Map.of(
+                "feSessionId", session.getFeSessionId(),
+                "returnUrl",   session.getReturnUrl() != null ? session.getReturnUrl() : ""));
+    }
+
+    // ── POST /api/v1/fe-session/conversion (회원전환 완료 후 세션 발급) ──
+
+    /**
+     * 회원전환 완료 후 FE 세션 발급
+     *
+     * <p>Step5(provisioning) 완료 후 FE가 호출하여 feSessionId 쿠키를 발급받는다.
+     * provisioningToken Redis SETNX 검증으로 일회성 사용을 보장한다.
+     */
+    @PostMapping("/conversion")
+    public ResponseEntity<Map<String, String>> createConversionSession(
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @Valid @RequestBody FeSessionConversionRequest req,
+            HttpServletResponse response) {
+
+        setupCorrelation(correlationId);
+
+        // provisioningToken 일회성 검증 (Redis SETNX)
+        String tokenKey = PROV_TOKEN_KEY_PREFIX + req.getProvisioningToken();
+        Boolean isNew = redisTemplate.opsForValue()
+                .setIfAbsent(tokenKey, "used", PROV_TOKEN_TTL);
+        if (!Boolean.TRUE.equals(isNew)) {
+            log.warn("[FeSession/conversion] provisioningToken 재사용 시도 token={}",
+                    req.getProvisioningToken().substring(0, Math.min(8, req.getProvisioningToken().length())));
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("code", "TOKEN_ALREADY_USED",
+                                 "message", "이미 사용된 provisioningToken입니다."));
+        }
+
+        // qimUserId 결정: 개인(mbrUuid) 또는 기업(entMbrNo)
+        String qimUserId = req.getMbrUuid() != null ? req.getMbrUuid() : req.getEntMbrNo();
+        if (qimUserId == null || qimUserId.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("code", "MISSING_USER_ID",
+                                 "message", "mbrUuid 또는 entMbrNo 중 하나는 필수입니다."));
+        }
+
+        // returnUrl 화이트리스트 검증
+        if (req.getReturnUrl() != null && !feSessionService.isValidReturnUrl(req.getReturnUrl())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", "INVALID_RETURN_URL",
+                    "message", "허용되지 않은 returnUrl"));
+        }
+
+        FeSession session = feSessionService.create(qimUserId, null, "CONV", req.getReturnUrl());
+
+        ResponseCookie cookie = ResponseCookie.from(COOKIE_NAME, session.getFeSessionId())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Lax")
+                .path("/")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        log.info("[FeSession/conversion] 세션 발급 qimUserId={}", qimUserId);
 
         return ResponseEntity.ok(Map.of(
                 "feSessionId", session.getFeSessionId(),

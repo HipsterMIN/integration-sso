@@ -1,0 +1,36 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Not Found page test should render Not Found page without errors 1`] = `
+<DocumentFragment>
+  <div
+    class="notFoundContainer"
+  >
+    <img
+      alt="not-found"
+      src="/Images/notFound404.png"
+      style="max-height: 480px; max-width: 480px;"
+    />
+    <div
+      class="notFoundTextContainer"
+    >
+      <p
+        class="notFoundText"
+      >
+        Ah, seems like we reached a dead end!
+      </p>
+      <p
+        class="notFoundText"
+      >
+        Page Not Found
+      </p>
+    </div>
+    <a
+      class="notFoundButton"
+      href="/"
+      tabindex="0"
+    >
+      Return To Services Page
+    </a>
+  </div>
+</DocumentFragment>
+`;

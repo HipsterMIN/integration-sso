@@ -1,14 +1,22 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// onepass-fe — 순수 React SPA 모듈
+// onepass-fe — 순수 React SPA 모듈 (v2.0.0, 2026-05-10 통합)
 //
 // Spring Boot BFF 책임은 ido 모듈로 이관.
 // 이 모듈은 React(TypeScript) + Webpack5 + Ant Design 프론트엔드만 담당.
 //
 // 개발 (Option B):  ./gradlew :onepass-fe:frontendDev
-//   → webpack-dev-server port 3000, /api/** proxy → ido:8083
+//   → webpack-dev-server port 3301, proxy:
+//     /api/ext/** → Q-IM (EXT_API_ENDPOINT or https://onepass-dev.smes.go.kr/im)
+//     /api/**     → ido:8083 (BE_API_TARGET)
 //
 // 빌드 (Option A):  ./gradlew :onepass-fe:build
-//   → dist/ 산출물. Nginx 혹은 ido 정적 리소스로 서빙
+//   → frontend/dist/ 산출물. Nginx 혹은 ido 정적 리소스로 서빙
+//
+// 소스 구성:
+//   - src/pages/      : Login, ConversionSteps, RegisterSteps, Mypage, OacxTest
+//   - src/api/        : beInstance (ido:8083), extInstance (Q-IM)
+//   - src/providers/  : AppProvider, ConversionProvider, RegisterProvider
+//   - src/hooks/      : useEzAuth, useNicePhoneAuth, usePersonalEasyAuth 등
 // ══════════════════════════════════════════════════════════════════════════════
 plugins {
     id("com.github.node-gradle.node") version "7.1.0"
@@ -56,9 +64,9 @@ tasks.named("build") {
     dependsOn(yarnBuild)
 }
 
-/** Option B: React 개발서버 기동 (port 3000, /api/** → ido:8083) */
+/** Option B: React 개발서버 기동 (port 3301, /api/** → ido:8083) */
 tasks.register<com.github.gradle.node.yarn.task.YarnTask>("frontendDev") {
-    description = "Start React dev server on port 3000 (proxy /api → ido:8083)"
+    description = "Start React dev server on port 3301 (proxy /api/ext → Q-IM, /api → ido:8083)"
     group       = "frontend"
     dependsOn(yarnInstall)
     args        = listOf("dev")

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <clipPath id="clip-ico_arrow">
+      <rect width="16" height="16"/>
+    </clipPath>
+  </defs>
+  <g id="ico_arrow" clip-path="url(#clip-ico_arrow)">
+    <path id="다각형_1" data-name="다각형 1" d="M8,0l8,16H0Z" transform="translate(16) rotate(90)" fill="#333"/>
+  </g>
+</svg>

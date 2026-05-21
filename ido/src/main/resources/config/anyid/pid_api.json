@@ -1,0 +1,25 @@
+{
+  "_comment": "민간ID(소셜) API 키 설정 (기관번호 #311, srvc_No=1000001157)",
+  "_doc": "wiki/iam/06-install-type-integration.md §5.2 pid_api.json 구조 참조",
+  "_version": "1.0.0",
+  "_security": "이 파일은 소스코드 저장소에 포함되지 않아야 합니다 (운영 환경). 개발키 전용 파일.",
+  "_env": "dev — 행안부 Any-ID 사업단 발급 개발키 (2024년 발급, 유효기간 별도 확인)",
+
+  "srvc_no":       "1000001157",
+  "agency_code":   "1000001157",
+  "agency_name":   "중소벤처24기업마당",
+  "org_name":      "중소기업기술정보진흥원",
+
+  "clientId":      "0yK6MOzAV1rXug3Dpz0TR33SB3g=",
+  "clientSecret":  "iPBd8PB8H3cRSBGbJH0XB8KS3To=",
+  "clientApiKey":  "emV2R+F1L4sVazCFk7IT31qh3qrNBgRRt+fWh9RYB3U=.3jaXKJtFgrP8J+dMeHugXQ==",
+
+  "providers": {
+    "_comment": "지원 민간ID 목록 — social-relay 경유 시 provider 파라미터 값",
+    "kakao":   { "enabled": true,  "level": "L1", "hint": "kakao"  },
+    "naver":   { "enabled": true,  "level": "L1", "hint": "naver"  },
+    "google":  { "enabled": false, "level": "L1", "hint": "google" },
+    "payco":   { "enabled": false, "level": "L1", "hint": "payco"  },
+    "samsung": { "enabled": false, "level": "L1", "hint": "samsung"}
+  }
+}

@@ -1,0 +1,286 @@
+// =============================================
+// Completed
+// =============================================
+.completed-box {
+	border-radius: 8px;
+	background: var(--krds-light-color-surface-secondary-subtler);
+	padding: 3.2rem;
+	display: flex;
+	flex-direction: column;
+	gap: .8rem;
+	text-align: center;
+	align-items: center;
+
+	.completed-title { font-size: var(--krds-pc-font-size-heading-medium); font-weight: 700; }
+	.completed-text { font-size: var(--krds-pc-font-size-body-medium); color: var(--krds-light-color-text-subtle); line-height: 1.5; }
+}
+
+// =============================================
+// Text List
+// =============================================
+.text-list-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 1.6rem;
+
+	&.num { gap: .3rem; }
+
+	&.dots li {
+		padding-left: 3.2rem;
+		position: relative;
+		line-height: 1.5;
+		color: var(--krds-light-color-text-subtle);
+
+		&:before {
+			content: "";
+			width: .6rem;
+			height: .6rem;
+			border-radius: 50%;
+			background: var(--krds-light-color-icon-gray-light);
+			position: absolute;
+			top: 1rem;
+			left: .9rem;
+		}
+	}
+
+	// Renewal (PUB260506) — 체크 서클 아이콘 변형 (page.css:286-287)
+	&.check {
+		gap: 1.2rem;
+
+		li {
+			display: flex;
+			gap: .6rem;
+			align-items: center;
+			line-height: 1.5;
+			font-size: 1.6rem;
+			font-weight: 600;
+
+			&:before {
+				content: "";
+				width: 2rem;
+				height: 2rem;
+				flex: none;
+				display: block;
+				-webkit-mask-repeat: no-repeat;
+				-webkit-mask-position: center center;
+				-webkit-mask-size: contain;
+				mask-repeat: no-repeat;
+				mask-position: center center;
+				mask-size: contain;
+				-webkit-mask-image: url(/images/onepass/renewal/ico_check_circle.svg);
+				mask-image: url(/images/onepass/renewal/ico_check_circle.svg);
+				background-color: var(--krds-light-color-icon-gray);
+			}
+
+			// 모바일 — 텍스트가 여러 줄로 줄바꿈 되면 center 정렬 시 아이콘이 본문 중앙에 떠 보이므로
+			// 첫 줄 line-box 와 정렬되도록 상단 정렬로 전환.
+			// `margin-top` 으로 폰트 ascent 만큼 아이콘을 미세 보정 — 첫 줄 글자 시각 중앙과 정렬
+			@include mobile-down {
+				align-items: flex-start;
+
+				&:before { margin-top: 0.2rem; }
+			}
+		}
+	}
+}
+
+// =============================================
+// Text Info Wrap (PUB260506 — page.css:291-296)
+// 정보 박스 컨테이너 — point 변형은 옅은 보라 배경 + 보라 텍스트
+// =============================================
+.text-info-wrap {
+	border-radius: 1.6rem;
+	padding: 2.4rem;
+	position: relative;
+
+	&.point {
+		background: #F3F3FF;
+
+		.text-list-wrap li { color: #5858CF; }
+		.text-list-wrap.check li:before { background-color: #5858CF; }
+	}
+
+	// 우측 상단 일러스트 — text-list 영역에 텍스트가 가리지 않도록 우측 패딩 확보
+	&:has(.img) .text-list-wrap { padding-right: 20%; }
+
+	> .img {
+		position: absolute;
+		right: 1rem;
+		top: -1.3rem;
+		max-width: 20%;
+
+		img { width: 100%; height: auto; }
+	}
+
+	// 모바일 — 일러스트 작게, text 영역 풀폭
+	@include mobile-down {
+		&:has(.img) .text-list-wrap { padding-right: 0; }
+
+		> .img {
+			top: auto;
+			bottom: 88%;
+			max-width: 15%;
+			min-width: 7rem;
+		}
+	}
+}
+
+// =============================================
+// Privacy Policy / UseTerms
+// =============================================
+.privacy_policy_list {
+	display: flex;
+	flex-direction: column;
+	gap: 3rem;
+	padding-top: 1rem;
+	word-break: keep-all;
+
+	> li {
+		line-height: 1.4;
+		font-size: 1.6rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+
+		h2 {
+			font-size: var(--krds-pc-font-size-body-large);
+			font-weight: 700;
+			padding-bottom: 1rem;
+			border-bottom: 1px solid var(--krds-light-color-border-gray);
+			color: var(--krds-light-color-text-primary);
+		}
+
+		h3 { font-size: var(--krds-pc-font-size-body-medium); font-weight: 700; }
+
+		> ol {
+			display: flex;
+			flex-direction: column;
+			gap: 1.5rem;
+
+			> li { display: flex; flex-direction: column; gap: .5rem; }
+		}
+	}
+
+	.table-box { margin: .5rem 0; }
+	.table-box table tr > * { font-size: var(--krds-pc-font-size-label-small); }
+
+	// 모바일 — 본문/헤딩/표 폰트 한 단계 컴팩트
+	@include mobile-down {
+		gap: 2.4rem;
+
+		> li {
+			font-size: 1.4rem;
+			gap: .8rem;
+
+			h2 { font-size: 1.6rem; padding-bottom: .8rem; }
+			h3 { font-size: 1.5rem; }
+		}
+
+		.table-box table tr > * { font-size: 1.2rem; }
+	}
+}
+
+.useTerms .privacy_policy_list, .sub.privacy .privacy_policy_list { animation: fade_up 1s ease both; }
+
+.sub.privacy .privacy_policy_list {
+	gap: 4rem;
+
+	> li { gap: 1.6rem; }
+}
+
+.privacy_policy_list a {
+	display: inline;
+	color: var(--krds-light-color-text-primary);
+	position: relative;
+
+	&:after {
+		content: "";
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		background: var(--krds-light-color-element-primary-lighter);
+		border-radius: 4px;
+		padding: 2px 4px;
+		opacity: 0;
+		z-index: -1;
+		transition: .5s ease;
+	}
+}
+
+// =============================================
+// Text List Variants
+// =============================================
+.text-list-wrap.line li p:before { content: "-"; display: inline; margin-right: .3rem; }
+.text-list-wrap.num { gap: .3rem; }
+
+// =============================================
+// Step3 Business
+// =============================================
+.sub.conversion.step3.business .sub-body .cont-box .form-wrap {
+	padding: 3.2rem 0;
+	border-top: 1px solid var(--krds-light-color-divider-gray-light);
+	border-bottom: 1px solid var(--krds-light-color-divider-gray-light);
+}
+
+// =============================================
+// Certifi List
+// =============================================
+.certifi-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.6rem;
+
+	&.row { flex-direction: column; }
+	&:not(.row) li { width: calc(50% - 1.6rem / 2); }
+
+	li .btn {
+		height: 6rem;
+		padding: 1rem 1.6rem;
+		gap: 1.6rem;
+		border: 2px solid var(--krds-light-color-border-gray-light);
+		box-sizing: border-box;
+
+		.check-box.style1 span {
+			display: inline-block;
+			position: relative;
+			flex: none;
+			width: var(--krds-form-check--button-size-medium);
+			height: var(--krds-form-check--button-size-medium);
+			border-radius: var(--krds-form-check--checkbox-button-radius-medium);
+			background-color: var(--krds-form-check--button-color-element);
+			border: 1px solid var(--krds-form-check--button-color-border);
+			box-sizing: border-box;
+			transition: .5s ease;
+
+			&:after {
+				content: "";
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				display: inline-flex;
+				width: var(--krds-form-check--checkbox-check-size-medium);
+				height: var(--krds-form-check--checkbox-check-size-medium);
+				background-color: var(--krds-form-check--checkbox-check-color-element-checked);
+				-webkit-mask: url(/images/onepass/ico_checkbox_checked.svg) no-repeat center / contain;
+				mask: url(/images/onepass/ico_checkbox_checked.svg) no-repeat center / contain;
+				opacity: 0;
+				transition: .5s ease;
+			}
+		}
+
+		.check-box.style1.checked span {
+			background-color: var(--krds-form-check--checkbox-button-color-element-checked);
+			border-color: var(--krds-form-check--button-color-border-checked);
+
+			&:after { opacity: 1; }
+		}
+
+		.img { width: 3rem; height: 3rem; flex: none; }
+		strong { flex: 1; font-size: var(--krds-pc-font-size-heading-xsmall); text-align: left; transition: .5s ease; }
+	}
+}
+

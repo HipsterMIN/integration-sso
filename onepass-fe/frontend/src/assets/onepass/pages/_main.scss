@@ -1,0 +1,507 @@
+// =============================================
+// Container (PUB260506 renewal)
+// =============================================
+.container .inner {
+	padding-top: 4.8rem;
+	padding-bottom: 7.2rem;
+	display: flex;
+	flex-direction: column;
+	gap: 4.8rem;   // 모바일에서도 동일 — tab-list 음수 margin(-8.4rem)과 시각 균형 위해 유지
+
+	@include mobile-down {
+		padding-top: 3.2rem;
+		padding-bottom: 4.8rem;
+		// gap은 줄이지 않음 — 줄이면 page-title-wrap과 white-wrap 사이 시각 gap이 0이 됨
+	}
+}
+
+// =============================================
+// Page Title Wrap (퍼블 .page-title-wrap)
+// =============================================
+.page-title-wrap {
+	position: relative;
+	border-radius: 2.4rem;
+	padding: clamp(2rem, 4vw, 4.8rem);
+	padding-right: 20%;
+	background: var(--point-color);
+	color: #ffffff;
+	line-height: 1.05;
+	animation: fade_in 2s ease both;
+
+	.page-title-text-box {
+		display: flex;
+		flex-direction: column;
+		gap: 1.6rem;
+
+		.page-title { font-size: 2.8rem; font-weight: 800; }
+		.page-text { font-size: 1.8rem; font-weight: 500; line-height: 1.4; }
+
+		// 모바일 — 한 단계 컴팩트
+		@include mobile-down {
+			gap: 1.2rem;
+			.page-title { font-size: 2.2rem; }
+			.page-text { font-size: 1.5rem; }
+		}
+	}
+
+	.img-box {
+		position: absolute;
+		right: 0;
+		top: -1.5rem;
+		max-width: 20%;
+		animation: zoom_in 1s ease both;
+
+		img { width: 100%; height: auto; }
+	}
+}
+
+// =============================================
+// White Wrap — 카드 컨테이너
+// =============================================
+.white-wrap {
+	padding: 3.2rem clamp(2rem, 3vw, 3.2rem);
+	border-radius: 2.4rem;
+	background: #ffffff;
+	box-shadow: 0 0 16px rgba(0, 0, 0, 0.05);
+	display: flex;
+	flex-direction: column;
+	gap: 2.4rem;
+	box-sizing: border-box;
+}
+
+// =============================================
+// Main Page (로그인)
+// =============================================
+.main {
+	> *:not(.show) { opacity: 0; }
+
+	.tab-wrap {
+		.tab-list {
+			margin: 0 auto;
+			margin-bottom: calc(-1 * 3.2rem - 5.2rem);
+			max-width: 720px;
+			width: 100%;
+			padding: 0 var(--inner-padding);
+			box-sizing: border-box;
+			position: relative;
+			z-index: 1;
+			animation: fade_up 1s ease both;
+
+			// _form.scss의 KRDS 버튼그룹 스타일 리셋 (퍼블 밑줄형 탭으로 복귀)
+			&.style1 ul {
+				border: none;
+				border-radius: 0;
+				overflow: visible;
+
+				li {
+					&:not(:last-child) { border-right: none; }
+
+					a:before { display: none; }
+				}
+			}
+		}
+
+		.tab-cont > div {
+			display: flex;
+			flex-direction: column;
+			gap: 2.4rem;
+		}
+
+		.white-wrap {
+			max-width: 720px;
+			width: 100%;
+			margin: 0 auto;
+		}
+
+		// 첫 번째 white-wrap (= form-wrap)에 탭 오버랩만큼 padding-top 추가.
+		// React에서 hidden POST form이 .cont 첫 자식이라 :first-child 사용 불가 →
+		// .form-wrap.white-wrap으로 직접 타겟.
+		.form-wrap.white-wrap {
+			padding-top: calc(5.4rem + 3.2rem + 3.2rem);
+		}
+
+		.white-wrap .login-btn {
+			max-width: none;
+			border-radius: 2.4rem;                       // 퍼블 매칭 (KRDS 8px → 24px)
+			height: clamp(6.6rem, 14vw, 8rem);           // 66~80px clamp
+			font-size: 2rem;
+			font-weight: 600;
+			gap: 1.6rem;
+
+			@include mobile-down { font-size: 1.8rem; }
+		}
+
+		.white-wrap .find-btn {
+			display: flex;
+			gap: 1.2rem;
+			justify-content: center;
+
+			li:not(:last-child):after {
+				content: "";
+				width: 1px;
+				height: 1.2rem;
+				background: #DDDDDD;
+				margin-left: 1.2rem;
+				display: inline-block;
+			}
+		}
+
+		.white-wrap .find-wrap {
+			display: flex;
+			justify-content: space-between;
+
+			.homepage-btn {
+				color: #999999;
+				font-size: 1.4rem;
+				gap: 5px;
+
+				.icon { background-color: #999; }
+			}
+
+			@include desktop-up {
+				.homepage-btn:hover {
+					color: var(--point-color);
+					.icon { background-color: var(--point-color); }
+				}
+			}
+
+			// 퍼블(PUB260509) 기준: <=400px에서 세로 스택
+			@media screen and (max-width: 400px) {
+				flex-direction: column;
+				align-items: center;
+				gap: 1rem;
+			}
+		}
+
+		.white-wrap .join-box {
+			background: #F3F3FF;
+			border-radius: 1.6rem;
+			padding: 2.4rem;
+			gap: 1rem;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			color: #333333;
+			line-height: 1.3;
+			flex-wrap: wrap;
+			max-width: none;
+			box-sizing: border-box;   // padding이 width 안에 포함 → 부모 overflow 방지
+			overflow: hidden;         // border-radius 안전 clip + 자식 음수 마진 격리
+
+			strong {
+				flex: 1;
+				min-width: 0;
+				font-weight: 700;
+			}
+
+			.btn {
+				color: #5858CF;
+				font-weight: 800;
+				margin-left: auto;
+				flex: none;
+			}
+
+			// 모바일 — 가로 1줄에 안 맞으므로 세로 스택 + 패딩 축소
+			@include mobile-down {
+				flex-direction: column;
+				align-items: flex-start;
+				gap: 1.2rem;
+				padding: 1.6rem;
+
+				strong {
+					flex: none;
+					width: 100%;
+					font-size: 1.4rem;
+				}
+
+				.btn {
+					margin-left: 0;
+					align-self: flex-end;   // 통합회원가입 버튼은 우측 정렬
+				}
+			}
+		}
+
+		.white-wrap.certi-wrap .title-box {
+			display: flex;
+			flex-direction: column;
+			gap: 1.6rem;
+
+			.h3-title {
+				color: #333333;
+				font-size: 2rem;        // 퍼블 매칭 (KRDS heading-xsmall 1.7rem → 2rem)
+				font-weight: 700;
+			}
+
+			.text {
+				color: #999999;
+				font-size: 1.6rem;      // 퍼블 매칭 (KRDS body-xsmall 1.3rem → 1.6rem)
+			}
+
+			@include mobile-down {
+				gap: 1.2rem;
+				.h3-title { font-size: 1.8rem; }
+				.text { font-size: 1.4rem; }
+			}
+		}
+
+		// form-wrap 내부 라벨 (퍼블 매칭: 500 / 14px / 1.2)
+		.form-wrap .input-wrap > label:first-child,
+		.form-wrap .input-wrap > *:first-child {
+			font-weight: 500;
+			line-height: 1.2;
+			font-size: 1.4rem;
+
+			// 모바일 — --font-size 축소 보정 (12.6→13.5px 가독성 확보)
+			@include mobile-down { font-size: 1.5rem; }
+		}
+
+		// input-box 퍼블 스타일 매칭 (스코프 한정)
+		.input-box {
+			border-radius: 1.6rem;
+			border: 1px solid #D6DBEE;
+			height: 5.6rem;
+			overflow: hidden;
+			transition: all .5s ease;
+
+			input, select {
+				font-size: 1.6rem;
+				padding: 0 1.6rem;
+				background: transparent;
+
+				// iOS Safari 자동 확대 방지 — 모바일에서 최소 16px 보장
+				// 모바일 --font-size 9.2/9px 환경에서도 input은 절대 16px 유지
+				@include mobile-down {
+					font-size: 16px;
+					padding: 0 1.4rem;   // 모바일에서 좌우 패딩 약간 축소
+				}
+			}
+
+			&:has(input:focus) {
+				border-color: var(--point-color);
+				border-width: 1px;
+				outline: none;
+				box-shadow: none;
+			}
+
+			// 모바일 — 보더 라운드 약간 축소
+			@include mobile-down {
+				border-radius: 1.2rem;
+			}
+		}
+
+		// check-box.style1 퍼블 스타일 매칭 (체크 시 point-color)
+		.check-box.style1 {
+			display: flex;
+			gap: .8rem;
+
+			input:checked {
+				background-color: var(--point-color);
+				border-color: var(--point-color);
+			}
+		}
+
+		// btn.text 호버 배경 색상을 point-color 투명도로 매칭
+		.btn.text:not(.icon):after {
+			background: var(--point-color-box-shadow);
+		}
+	}
+
+	// sec02 animations (탭 콘텐츠 진입)
+	.sec02.show,
+	.tab-wrap.show {
+		.tab-list { animation: fade_up 1s ease both; }
+		.tab-cont > div.active > * { animation: fade_up 1s ease both; }
+	}
+}
+
+// =============================================
+// Tab List style1 (퍼블)
+// =============================================
+.tab-list {
+	ul { display: flex; position: relative; }
+	ul li a { width: 100%; height: 100%; }
+
+	&.style1 ul li {
+		width: 100%;
+
+		a {
+			position: relative;
+			height: 5.2rem;
+			font-size: 2rem;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-weight: 700;
+			color: #999999;
+			border-bottom: 2px solid transparent;
+
+			@include mobile-down { font-size: 1.8rem; }
+		}
+
+		&.active a {
+			color: var(--point-color);
+			border-bottom-color: var(--point-color);
+		}
+
+		// 데스크톱 hover (퍼블 page.css:414)
+		@include desktop-up {
+			a:hover { color: var(--point-color); }
+		}
+	}
+}
+
+.tab-wrap .tab-cont > div[class*="cont"]:not(.active) { display: none; }
+.tab-wrap .tab-cont > div[class*="cont"].active { animation: fade_up 1s ease both; }
+
+// =============================================
+// h3-title (PUB260506 — page.css:326) — 카드 섹션 타이틀
+// =============================================
+.h3-title {
+	color: #333333;
+	font-size: 2rem;
+	font-weight: 700;
+}
+
+// PUB260507 page.css:340-341 — h3-title 우측에 보조 버튼(추가/액션) 배치
+.h3-title-box {
+	display: flex;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 1rem;
+	align-items: center;
+
+	.btn { margin-left: auto; }
+}
+
+// =============================================
+// Title Box (white-wrap 내부 타이틀)
+// =============================================
+.white-wrap .title-box {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+
+	.h3-title {
+		font-size: var(--krds-pc-font-size-heading-xsmall);
+		font-weight: 700;
+	}
+
+	.text {
+		color: var(--krds-light-color-text-primary);
+		font-size: var(--krds-pc-font-size-body-xsmall);
+	}
+}
+
+// =============================================
+// Certifi List (인증서 로그인 리스트) — 로그인 한정 스코프
+// _content.scss의 동명 룰이 cascade에서 늦게 와서 충돌하므로
+// .main .tab-wrap 으로 specificity 상향 (0,0,4,1)
+// =============================================
+.main .tab-wrap .certifi-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.6rem;
+
+	> li {
+		width: calc(50% - 1.6rem / 2);
+
+		&:last-child:nth-child(odd) { width: 100%; }
+
+		.btn {
+			max-width: none;
+			height: auto;
+			padding: 2.4rem;
+			border: 1px solid #D6DBEE;
+			border-radius: 2.4rem;          // 퍼블 매칭 (KRDS 8px → 24px)
+			box-sizing: border-box;
+			justify-content: space-between;
+			align-items: center;
+			font-weight: 600;               // 퍼블 .btn:not(.text,.icon) 기본 600
+
+			.text-box {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				gap: 1.2rem;
+
+				.img { width: 3.2rem; height: 3.2rem; flex: none; }
+
+				strong {
+					flex: 1;
+					font-size: 1.8rem;
+					font-weight: 600;
+					text-align: left;
+					transition: .5s ease;
+				}
+			}
+
+			.icon {
+				width: 1.6rem;
+				height: 1.6rem;
+				flex: none;
+				background-color: #333333;
+			}
+
+			// 모바일 — 카드 패딩·폰트 컴팩트
+			@include mobile-down {
+				padding: 1.6rem;
+
+				.text-box {
+					gap: 1rem;
+					.img { width: 2.8rem; height: 2.8rem; }
+					strong { font-size: 1.6rem; }
+				}
+			}
+		}
+	}
+
+	// 데스크톱 hover (퍼블 page.css:422-423)
+	@include desktop-up {
+		> li .btn:hover {
+			border-color: var(--point-color);
+			box-shadow: 0 0 10px var(--point-color-box-shadow);
+
+			strong { color: var(--point-color); }
+		}
+	}
+}
+
+// =============================================
+// Join Box (회원가입 안내)
+// =============================================
+.join-box {
+	display: flex;
+	max-width: 660px;
+	width: 100%;
+	justify-content: center;
+	gap: .8rem;
+	align-items: center;
+
+	strong { font-weight: 500; }
+
+	.btn {
+		height: 3.2rem;
+		&:after { height: 100%; }
+	}
+}
+
+// =============================================
+// Mobile responsive (퍼블 패턴)
+// ---------------------------------------------
+// PAGE-TITLE-WRAP / TAB-WRAP / WHITE-WRAP / CERTI-WRAP 자체에는 별도 모바일 룰 없음.
+// reset.scss의 --font-size 점진 축소 + clamp 패딩만으로 자연 비례 축소.
+//
+// - 768px 이하: form-wrap 내부 width50 input 풀폭 전환
+// - 480px 이하: certifi-list 1단 정렬 (퍼블 동일 분기점)
+// =============================================
+@media screen and (max-width: 768px) {
+	.form-wrap .input-wrap.width50 { width: 100%; }
+}
+
+@media screen and (max-width: 480px) {
+	.main .tab-wrap .certifi-list {
+		flex-direction: column;
+
+		> li { width: 100%; }
+	}
+}

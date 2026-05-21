@@ -1,0 +1,1524 @@
+/* ===============================================================================================
+
+Name : EzauthChild.css
+
+Description :
+	EZ Auth ���� child ȭ�� ������ ���� css
+
+Remarks :
+	
+=============================================================================================== */
+html,
+body {
+    width: 100%;
+    height: 100%;
+    font-family: "Pretendard";
+}
+#EzauthContainer {
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.3);
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+}
+
+#EzauthContainer > .encase {
+    width: 844px;
+    min-width: 844px;
+    height: 648px;
+    background: #f6f9fc 0% 0% no-repeat padding-box;
+    /* border-radius: 10px; */
+    overflow: hidden;
+}
+#EzauthContainer header {
+    width: 100%;
+    padding: 0 !important;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: flex-start;
+    -moz-align-items: flex-start;
+    -ms-flex-align: flex-start;
+    align-items: flex-start;
+    -webkit-box-pack: flex-start;
+    -moz-justify-content: flex-start;
+    -ms-flex-pack: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+    background-color: transparent !important;
+    box-sizing: border-box !important;
+}
+#EzauthContainer header .header_logo_area {
+    height: 64px;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    box-sizing: border-box;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: space-between;
+    -moz-justify-content: space-between;
+    -ms-flex-pack: space-between;
+    justify-content: space-between;
+    background-color: #182a4c;
+}
+#EzauthContainer header .header_logo_area > div {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: flex-start;
+    -moz-justify-content: flex-start;
+    -ms-flex-pack: flex-start;
+    justify-content: flex-start;
+    gap: 0.5rem;
+}
+#EzauthContainer header .header_logo_area .logo_24 {
+}
+#EzauthContainer header .header_logo_area p {
+    font-size: 1.1rem;
+}
+#EzauthContainer header .close img {
+    cursor: pointer;
+}
+#EzauthContainer .body .buttons.sign_type_buttons {
+    display: block;
+    padding: 0 1rem;
+    margin-top: 1rem;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0 1rem;
+}
+#EzauthContainer .body .buttons.sign_type_buttons > div {
+    border-bottom: 1px solid #828282;
+    width: 100%;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: flex-end;
+    -moz-justify-content: flex-end;
+    -ms-flex-pack: flex-end;
+    justify-content: flex-end;
+}
+#EzauthContainer .body .step1 .user-info .buttons.sign_type_buttons > div > .button-show {
+    width: auto;
+    padding: 0.5rem 1.5rem;
+    background-color: #e5e5e5;
+    color: #222222;
+    font-weight: 400;
+    font-size: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+#EzauthContainer .body .step1 .user-info .buttons.sign_type_buttons > div > .button-show.on {
+    background-color: #009dce !important;
+    color: #fff !important;
+}
+#EzauthContainer header .left {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    margin-left: 20px;
+}
+#EzauthContainer header .left .customer-logo-image {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+}
+#EzauthContainer header .left img {
+    height: 40px;
+}
+#EzauthContainer header .left .title {
+    text-align: left;
+    font: normal normal bold 1.125rem/1.25rem Pretendard;
+    letter-spacing: 0px;
+    color: #ffffff;
+    margin-left: 30px;
+}
+#EzauthContainer header .right {
+    margin-right: 20px;
+}
+#EzauthContainer header .right .close img {
+    width: 32px;
+    height: 32px;
+}
+#EzauthContainer .body {
+    /* border-radius: 0px 0px 10px 10px; */
+    overflow: hidden;
+    background: #f6f9fc 0% 0% no-repeat padding-box;
+    height: 100%;
+}
+#EzauthContainer .body > section {
+    height: 100%;
+    display: none;
+}
+/*  */
+#EzauthContainer .body .left_title-area {
+    height: auto;
+    width: 100%;
+    /* padding: 0 2rem; */
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+}
+#EzauthContainer .body .left_title-area .left_title {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    border-bottom: 1px solid #d1d1d1;
+    padding-top: 4px;
+    padding-bottom: 0.5rem;
+    box-sizing: border-box;
+}
+#EzauthContainer .body .left_title-area .left_title img {
+    display: block;
+    width: 30px;
+    height: 26px;
+}
+#EzauthContainer .body .left_title-area .left_title p {
+    padding-left: 0.75rem;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+#EzauthContainer .body .step1 {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+}
+#EzauthContainer .body .step1 .loading-center {
+    display: none;
+    position: absolute;
+    top: 0; /* 부모 전체 덮기 */
+    left: 0;
+    width: 100%;
+    height: 100%;
+    justify-content: center; /* Flex 중앙 정렬 */
+    align-items: center;
+    z-index: 999;
+    pointer-events: all; /* 클릭 차단 */
+}
+
+#EzauthContainer .body .step1 .loading-center .loading-img {
+    width: 80px;
+    height: 80px;
+    animation: spin 3s linear infinite;
+    pointer-events: none; /* 이미지 자체는 클릭 안됨 */
+}
+#EzauthContainer .body .step1 .left {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -moz-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    /* background: #0080ff0d 0% 0% no-repeat padding-box; */
+    background: #ffffff 0% 0% no-repeat padding-box;
+    width: 340px;
+    height: 100%;
+    padding: 1.5rem 2rem;
+    box-sizing: border-box;
+}
+#EzauthContainer .body .step1 .provider-list {
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex-grow: 1;
+    width: 100%;
+    margin-top: 1.5rem;
+}
+#EzauthContainer .body .step1 .provider-list header {
+    display: none;
+}
+#EzauthContainer .body .step1 .provider-list ul.body {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -moz-flex-direction: row;
+    -ms-flex-direction: row;
+    flex-direction: row;
+    -webkit-box-lines: multiple;
+    -moz-flex-wrap: wrap;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+    -webkit-box-pack: start;
+    -moz-box-justify-content: flex-start;
+    -ms-flex-pack: start;
+    justify-content: flex-start;
+    /* padding: 2rem; */
+    overflow: auto;
+    background-color: transparent;
+    border-radius: 0;
+    height: auto;
+}
+#EzauthContainer .body .step1 .provider-list li {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -moz-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    cursor: pointer;
+    max-width: calc(100% / 3);
+    flex: 1;
+    padding: 9px 0;
+}
+#EzauthContainer .body .step1 .provider-list li img {
+    border: 1px solid #d1d1d1;
+    border-radius: 1rem;
+    width: 52px;
+    height: 52px;
+    transition: 0.25s box-shadow;
+}
+#EzauthContainer .body .step1 .provider-list li.on img {
+    border: 1px solid #1890ff;
+    box-shadow: 0 0 2px 3px #1890ff;
+}
+#EzauthContainer .body .step1 .provider-list li.on img[title="KB인증"],
+#EzauthContainer .body .step1 .provider-list li.on img[title="국민인증"],
+#EzauthContainer .body .step1 .provider-list li.on img[title="국민인증서"],
+#EzauthContainer .body .step1 .provider-list li.on img[title="국민은행"],
+#EzauthContainer .body .step1 .provider-list li.on img.cp_kbbank {
+    background-color: #7c7366;
+}
+
+#EzauthContainer .body .step1 .provider-list li p {
+    font: normal normal normal 0.875rem/1rem Pretendard;
+    letter-spacing: 0px;
+    color: #393939;
+    padding: 8px 0;
+    white-space: nowrap;
+}
+#EzauthContainer .body .step1 .provider-list li.on p {
+    font-weight: bold;
+}
+.provider-list li button{
+    background: none; border: none; padding: 0; cursor: pointer;
+    position: relative;
+}
+.provider-list li button .badge{
+    width: 25px;
+    height: 24px;
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+    font-size: 0.625rem;
+    line-height: 0;
+    color: #fff;
+    background-color: #1890ff;
+    border-radius: 50%;
+    top: 0;
+    left: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    aspect-ratio: 1 / 1;
+    transform: translate(-40%, -30%);
+}
+
+#EzauthContainer .body .step1 .ezauth-info {
+    width: 100%;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: justify;
+    -moz-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+}
+#EzauthContainer .body .step1 .ezauth-info header {
+    display: none;
+}
+#EzauthContainer .body .step1 .ezauth-info .body {
+    padding: 10px 0;
+    width: 100%;
+    height: auto;
+    border-radius: 0;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: justify;
+    -moz-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    background-color: transparent;
+}
+#EzauthContainer .body .step1 .ezauth-info .version {
+    font: normal normal 500 0.625rem/0.75rem Pretendard;
+    letter-spacing: 0px;
+    /* color: #171616; */
+    color: transparent;
+    padding: 0 8px;
+    margin-left: 20px;
+}
+#EzauthContainer .body .step1 .ezauth-info .guide {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: justify;
+    -moz-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    background: #567696 0% 0% no-repeat padding-box;
+    border-radius: 6px;
+    font: normal normal normal 0.875rem/1rem Pretendard;
+    letter-spacing: 0px;
+    color: #ffffff;
+    padding: 5px 20px;
+    margin-right: 20px;
+    cursor: pointer;
+}
+#EzauthContainer .body .step1 .ezauth-info .guide img {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+}
+#EzauthContainer .body .step1 .right {
+    flex: 1;
+    max-width: calc(100% - 340px);
+    height: 100%;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -moz-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    background-color: rgb(248, 248, 248);
+    position: relative;
+}
+#EzauthContainer .body .step1 .right .area_dimmed {
+    position: absolute;
+    top: 9%;
+    left: 0;
+    width: 100%;
+    height: 82.4%;
+    background-color: rgba(0, 0, 0, 0.3);
+    display: none;
+}
+#EzauthContainer .body .step1 .right .area_dimmed.active {
+    display: block;
+}
+#EzauthContainer .body .step1 .user-info {
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex-grow: 1;
+    width: 100%;
+}
+#EzauthContainer .body .step1 .user-info header {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: start;
+    -moz-box-justify-content: flex-start;
+    -ms-flex-pack: start;
+    justify-content: flex-start;
+    /* background-color: #182a4c !important; */
+    /* height: 64px; */
+    width: 100% !important;
+    padding: 0.4rem 1rem;
+    box-sizing: border-box;
+}
+#EzauthContainer .body .step1 .user-info header img {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+}
+#EzauthContainer .body .step1 .user-info header .logo_24 {
+    width: 72px;
+    height: 26px;
+    border: none;
+}
+#EzauthContainer .body .step1 .user-info header p {
+    color: #fff !important;
+    font-weight: bold;
+}
+#EzauthContainer .body .step1 .user-info header .text {
+    margin-left: 10px;
+    font: normal normal 500 1rem/1.125rem Pretendard;
+    letter-spacing: 0px;
+    color: #3c3c3c;
+}
+#EzauthContainer .body .content_title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: block;
+    border-bottom: 1px solid #828282;
+    padding-bottom: 0.5rem;
+}
+#EzauthContainer .body .content_title.on {
+    display: block;
+}
+#EzauthContainer .body .step1 .user-info .push-info {
+    padding: 1rem;
+}
+#EzauthContainer .body .step1 .user-info ul.body {
+    border-radius: 0;
+    overflow: auto;
+    background-color: transparent;
+    height: auto;
+}
+#EzauthContainer .body .step1 .user-info li {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: start;
+    -moz-box-justify-content: space-between;
+    -ms-flex-pack: start;
+    justify-content: space-between;
+    gap: 0.5rem;
+    height: 60px;
+    box-sizing: border-box;
+    background-color: transparent;
+    border-bottom: 1px solid #ddd;
+}
+#EzauthContainer .body .step1 .user-info li.ssn {
+    display: none;
+}
+#EzauthContainer .body .step1 .user-info li.biz-registration-number {
+    display: none;
+}
+#EzauthContainer .body .step1 .user-info li.biz-registration-number {
+    display: none;
+}
+#EzauthContainer .body .step1 .user-info li .label {
+    text-align: right;
+    padding: 0 1rem;
+    font: normal normal 500 1rem/1.125rem Pretendard;
+    letter-spacing: 0px;
+    color: #222222;
+    white-space: nowrap;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: flex-start;
+    -moz-justify-content: flex-start;
+    -ms-flex-pack: flex-start;
+    justify-content: flex-start;
+    flex: 1;
+    max-width: 140px;
+    min-width: 140px;
+    background-color: rgb(242, 242, 242);
+    color: rgb(34, 34, 34);
+    height: 100%;
+    box-sizing: border-box;
+}
+#EzauthContainer .body .step1 .user-info li .wrap {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: justify;
+    -moz-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex: 1;
+    width: 100%;
+    gap: 0.25rem;
+    padding-right: 0.5rem;
+}
+
+#EzauthContainer .body .step1 .user-info li input {
+    background: #ffffff 0% 0% no-repeat padding-box;
+    border: 1px solid #d3d3d3;
+    /* width: 316px; */
+    height: 2.5rem;
+    padding-left: 0.75rem;
+    flex: 1;
+    width: 0 !important;
+    font-size: 1rem;
+    /* max-width: calc(100% - 135px - 30px); */
+}
+#EzauthContainer .body .step1 .user-info li input::placeholder {
+    font: normal normal normal 1rem/1rem Pretendard;
+    letter-spacing: 0px;
+    color: #595959;
+}
+#EzauthContainer .body .step1 .user-info li .telco,
+#EzauthContainer .body .step1 .user-info li .sel_telnum {
+    display: block;
+    border: 1px solid #d3d3d3;
+    flex: 0 0 80px !important;
+    width: 80px !important;
+    height: 2.5rem;
+    padding-left: 0.75rem;
+    font: normal normal normal 1rem/1.125rem Pretendard;
+    letter-spacing: 0px;
+}
+#EzauthContainer .body .step1 .user-info li .telnum_start::selection {
+    background-color: transparent !important;
+}
+/*#EzauthContainer .body .step1 .user-info li .telco option:not(:first-child),
+#EzauthContainer .body .step1 .user-info li .sel_telnum option:not(:first-child) {
+    color: #000;
+}*/
+/* qr */
+#EzauthContainer .body .step1 .user-info .qr-info .qr-code-section {
+    padding: 1rem;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    height: 400px;
+    position: relative;
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qr-timer {
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+#EzauthContainer .body .step1 .user-info .qr-info .qr-timer-text {
+    font-size: 1.25rem;
+    color: #009dce;
+    font-weight: bold;
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qr-code-container {
+    position: relative;
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qr-code-container .qr-dimmed {
+    position: absolute;
+    display: none;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background: rgba(255, 255, 255, 0.6);
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qr-code-container .qr-dimmed.on {
+    display: block;
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qrRequestButton,
+#EzauthContainer .body .step1 .user-info .qr-info .qrRetryButton {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 0.5rem 1rem;
+    display: none;
+    gap: 0.5rem;
+    font-size: 1rem;
+    color: #fff;
+    background-color: #009dce;
+    border-radius: 1.5rem;
+    cursor: pointer;
+    justify-content: center;
+    align-items: center;
+    border: none;
+    box-sizing: border-box;
+    min-width: 120px;
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qrRequestButton img,
+#EzauthContainer .body .step1 .user-info .qr-info .qrRetryButton img {
+    width: 16px;
+    height: 16px;
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qrRequestButton.on,
+#EzauthContainer .body .step1 .user-info .qr-info .qrRetryButton.on {
+    display: flex;
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qr-guide {
+    font-size: 1.125rem;
+    font-weight: bold;
+    color: #222;
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qr-guide.alert {
+    color: #ce0000;
+}
+#EzauthContainer .body .step1 .user-info .qr-info .qr-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgb(248, 248, 248);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    font-size: 16px;
+}
+
+#EzauthContainer .body .step1 .user-info .qr-info .qr-loading .loading-content {
+    text-align: center;
+    color: gray;
+}
+
+#EzauthContainer .body .step1 .user-info .qr-info .loading-img {
+    width: 50px;
+    height: 50px;
+    margin-bottom: 10px;
+
+    animation: spin 3s linear infinite;
+}
+
+.cloud-info {
+    width: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+    height: 400px;
+    display: none;
+    position: relative;
+}
+
+.cloud-info .cloud-innner-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+.cloud-info .cloud-innner-wrap .cloud-guide-wrap {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+}
+.cloud-info .cloud-innner-wrap > p {
+    font-size: 0.875rem;
+    color: #222222;
+    font-weight: bold;
+}
+.cloud-guide-wrap .cloud-guide-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: center;
+    justify-self: center;
+}
+.cloud-guide-wrap .cloud-guide-item p {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #656565;
+}
+.cloud-guide-wrap .cloud-guide-item strong {
+    font-size: 0.875rem;
+    color: #3b3b3b;
+}
+.cloud-guide-wrap .cloud-guide-item .cloud-img-wrap {
+    width: 120px;
+    height: 96px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #e1e1e1;
+    background-color: #fff;
+    border-radius: 3rem;
+}
+.cloud-guide-wrap .cloud-guide-arrow {
+    margin-top: 3rem;
+    width: 16px;
+    height: 16px;
+    padding: 4px;
+}
+#EzauthContainer .body .step1 .policys {
+    padding: 0 1rem 1.5rem;
+}
+#EzauthContainer .body .step1 .policys > .encase {
+    /* border-radius: 0.75rem;
+    background: rgba(0, 0, 0, 0.03) 0% 0% no-repeat padding-box; */
+}
+
+#EzauthContainer .body .step1 .policys > .encase .agree-wrap {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    cursor: pointer;
+}
+#EzauthContainer .body .step1 .right footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 15px 10px 0;
+}
+.btn_show_manual {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.25rem;
+    border: none;
+    cursor: pointer;
+    background-color: transparent;
+    text-decoration: none;
+    color: inherit;
+}
+.btn_show_manual:hover {
+    text-decoration: none;
+}
+.btn_show_manual:visited {
+    color: inherit;
+}
+.btn_show_manual img {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+.btn_show_manual span {
+    font: normal normal 700 1rem/1rem Pretendard;
+    color: #1c5984;
+}
+#EzauthContainer .body .step1 .policys img.checkbox {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    cursor: pointer;
+}
+#EzauthContainer .body .step1 .policys header {
+    width: 100%;
+    height: auto;
+    padding: 15px 0;
+    background-color: transparent;
+}
+#EzauthContainer .body .step1 .policys header .policy-title {
+    width: 100%;
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: justify;
+    -moz-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    font: normal normal bold 0.875rem/1rem Pretendard;
+    letter-spacing: 0px;
+    color: #343434;
+}
+#EzauthContainer .body .step1 .policys header .policy-title .title {
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex-grow: 1;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+#EzauthContainer .body .step1 .policys header .policy-title .all-agree {
+    cursor: pointer;
+    font-size: 1rem;
+}
+#EzauthContainer .body .step1 .policys ul.body {
+    background-color: transparent;
+    height: auto;
+    margin-top: 1rem;
+    border: 1px solid #d8d8d8;
+}
+#EzauthContainer .body .step1 .policys li {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: justify;
+    -moz-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    padding: 0.57rem 0.5rem;
+}
+#EzauthContainer .body .step1 .policys li:not(:first-child) {
+    border-top: 1px solid #d8d8d8;
+}
+#EzauthContainer .body .step1 .policys li .text {
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex-grow: 1;
+    margin-left: 5px;
+    text-align: left;
+    font: normal normal normal 1rem/0.875rem Pretendard;
+    letter-spacing: 0px;
+    color: #343434;
+}
+#EzauthContainer .body .step1 .user-info header .button-show {
+    width: 40px;
+    margin-right: 5px;
+    background: #567696 0% 0% no-repeat padding-box;
+    font: normal normal 500 0.75rem/0.875rem Pretendard;
+    letter-spacing: 0px;
+    color: #ffffff;
+    text-align: center;
+    line-height: 22px;
+    cursor: pointer;
+}
+#EzauthContainer .body .step1 .policys li .button-show {
+    padding: 0.25rem;
+    background: transparent 0% 0% no-repeat padding-box;
+    border: 1px solid #444444;
+    font: normal normal 500 0.875rem/1rem Pretendard;
+    letter-spacing: 0px;
+    color: #222222;
+    text-align: center;
+    cursor: pointer;
+}
+#EzauthContainer .body .step1 .buttons {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+}
+#EzauthContainer .body .step1 .buttons .button {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    height: 56px;
+    cursor: pointer;
+}
+#EzauthContainer .body .step1 .buttons .button.close {
+    background: #ffffff 0% 0% no-repeat padding-box;
+    font: normal normal bold 1rem/1.125rem Pretendard;
+    letter-spacing: 0px;
+    color: #343434;
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex-grow: 1;
+    cursor: pointer;
+    border-left: 1px solid #f8f8f8;
+}
+/* #EzauthContainer .body .step1 .buttons .button.close:hover {
+    background: #c5cedc 0% 0% no-repeat padding-box;
+    opacity: 1;
+} */
+
+#EzauthContainer .body .step1 .buttons .button.req-auth,
+#EzauthContainer .body .step1 .buttons .button.complete-auth {
+    background: #009dce 0% 0% no-repeat padding-box;
+    font: normal normal bold 1rem/1.125rem Pretendard;
+    letter-spacing: 0px;
+    color: #ffffff;
+    width: 340px;
+}
+.icon_auth_loading {
+    margin-left: 0.5rem;
+    width: 16px;
+    height: 16px;
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+.icon_auth_loading img {
+    width: 100%;
+    height: 100%;
+
+    /* 여기에 애니메이션을 적용합니다. */
+    animation-name: spin; /* 위에서 정의한 @keyframes 이름 */
+    animation-duration: 3s; /* 한 바퀴 도는 데 걸리는 시간 (3초) */
+    animation-timing-function: linear; /* 일정한 속도로 회전 */
+    animation-iteration-count: infinite; /* 무한 반복 */
+}
+/* #EzauthContainer .body .step1 .buttons .button.req-auth:hover,
+#EzauthContainer .body .step1 .buttons .button.complete-auth:hover {
+    background: #284978 0% 0% no-repeat padding-box;
+    opacity: 1;
+} */
+
+#EzauthContainer .body .tabs {
+    border-bottom: 1px solid #828282;
+    margin: 0.5rem 1rem 0;
+    justify-content: flex-end;
+}
+#EzauthContainer .body .tabs .button-show {
+    padding: 0.5rem 1rem;
+    border-bottom: 4px solid transparent;
+}
+#EzauthContainer .body .tabs .button-show.on {
+    border-bottom: 4px solid #111;
+}
+#EzauthContainer .body .step2 {
+    background-color: #fff;
+}
+#EzauthContainer .body .step2 .main {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+#EzauthContainer .body .step2 .main .header {
+    height: 64px;
+    background-color: #182a4c;
+    position: relative;
+}
+#EzauthContainer .body .step2 .main .header .center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    gap: 0.5rem;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+#EzauthContainer .body .step2 .main .header .center .step2_logo {
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+}
+#EzauthContainer .body .step2 .main .header .left {
+    position: absolute;
+    top: 50%;
+    left: 1rem;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+}
+#EzauthContainer .body .step2 .main .header .left img {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+}
+#EzauthContainer .body .step2 .main .header .left .step2_provider_name {
+    color: white;
+    font-weight: bold;
+    padding-left: 0.5rem;
+}
+#EzauthContainer .body .step2 .main .header .center .step2_name {
+    font-size: 1.1rem;
+    color: #fff;
+    font-weight: bold;
+}
+#EzauthContainer .body .step2 .main .header .right {
+    position: absolute;
+    top: 50%;
+    right: 1rem;
+    transform: translateY(-50%);
+}
+#EzauthContainer .body .step2 .main section {
+    margin: 2rem auto 0;
+    width: 100%;
+    max-width: 740px;
+}
+#EzauthContainer .body .step2 .main .top {
+}
+#EzauthContainer .body .step2 .main .top .title {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+}
+#EzauthContainer .body .step2 .main .top .title .text {
+    text-align: left;
+    font: normal normal bold 1.1rem/1.25rem Pretendard;
+    letter-spacing: 0px;
+    color: #343434;
+    opacity: 1;
+    padding: 0 0 0.5rem;
+}
+#EzauthContainer .body .step2 .main .top .text-detail {
+    text-align: center;
+    font: normal normal normal 1rem/1.125rem Pretendard;
+    letter-spacing: 0px;
+    color: #343434;
+    opacity: 1;
+}
+#EzauthContainer .body .step2 .main .middle {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+#EzauthContainer .body .step2 .main .middle .step-image {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: justify;
+    -moz-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    width: 100%;
+}
+#EzauthContainer .body .step2 .main .middle .step-info {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: justify;
+    -moz-justify-content: space-between;
+    -ms-flex-pack: justify;
+    justify-content: space-between;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+}
+#EzauthContainer .body .step2 .main .middle .step-info div {
+    text-align: left;
+    font: normal normal normal 0.875rem/1.25rem Pretendard;
+    letter-spacing: 0px;
+    color: #343434;
+    opacity: 1;
+    line-height: 16px;
+    width: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.25rem;
+    text-align: center;
+}
+#EzauthContainer .body .step2 .main .middle .step-image .StepImg {
+    width: 180px;
+}
+#EzauthContainer .body .step2 .main .middle .step-image .step01img {
+    position: relative;
+}
+#EzauthContainer .body .step2 .main .middle .step-image .provider {
+    position: absolute;
+    width: 32px;
+    left: 48px;
+    top: 72px;
+    background: #ffe300 0% 0% no-repeat padding-box;
+    border: 1px solid #d1d1d1;
+    border-radius: 6px;
+    opacity: 1;
+}
+#EzauthContainer .body .step2 .main .middle .step-image .arrow {
+    width: 16px;
+    height: 16px;
+    opacity: 1;
+}
+#EzauthContainer .body .step2 .main .bottom {
+    width: 740px;
+}
+#EzauthContainer .body .step2 .main .bottom .infomation {
+    width: 740px;
+    min-height: 130px;
+    background-color: #f8f8f8;
+    border: 1px solid #d8d8d8;
+    padding: 0.75rem 2rem;
+    box-sizing: border-box;
+}
+#EzauthContainer .body .step2 .main .bottom .infomation .question {
+    text-align: left;
+    font: normal normal normal 0.875rem/1rem Pretendard;
+    letter-spacing: 0px;
+    color: #666;
+    opacity: 1;
+    padding-bottom: 13px;
+}
+#EzauthContainer .body .step2 .main .bottom .infomation .question-info {
+    text-align: left;
+    font: normal normal normal 0.875rem/22px Pretendard;
+    letter-spacing: 0px;
+    color: #666;
+}
+#EzauthContainer .body .step2 .main .bottom .infomation .question-info .num-text {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: baseline;
+    -moz-align-items: baseline;
+    -ms-flex-align: baseline;
+    align-items: baseline;
+    -webkit-box-pack: start;
+    -moz-box-justify-content: flex-start;
+    -ms-flex-pack: start;
+    justify-content: flex-start;
+    padding-top: 3px;
+}
+#EzauthContainer .body .step2 .main .bottom .infomation .question-info .num {
+    width: 17px;
+    height: 17px;
+    min-width: 17px;
+    background: #d3e0ed 0% 0% no-repeat padding-box;
+    opacity: 1;
+    display: inline-block;
+    border-radius: 10px;
+    text-align: center;
+    vertical-align: middle;
+    margin-right: 6px;
+    line-height: 17px;
+}
+#EzauthContainer .body .step2 .main .bottom .infomation .question-info .deco {
+    font-weight: bold;
+    text-decoration: underline;
+}
+#EzauthContainer .body .step2 .main .buttons {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+}
+#EzauthContainer .body .step2 .main .buttons .button {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -moz-box-justify-content: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    height: 56px;
+    cursor: pointer;
+}
+#EzauthContainer .body .step2 .main .buttons .button.close {
+    background: #e3e9f2 0% 0% no-repeat padding-box;
+    font: normal normal bold 1rem/1.125rem Pretendard;
+    letter-spacing: 0px;
+    color: #343434;
+    cursor: pointer;
+    width: 260px;
+}
+/* #EzauthContainer .body .step2 .main .buttons .button.close:hover {
+    background: #c5cedc 0% 0% no-repeat padding-box;
+    opacity: 1;
+} */
+#EzauthContainer .body .step2 .main .buttons .button.complete-auth {
+    background: #009dce 0% 0% no-repeat padding-box;
+    font: normal normal bold 1rem/1.125rem Pretendard;
+    letter-spacing: 0px;
+    color: #ffffff;
+    width: 580px;
+    flex: 1;
+}
+/* #EzauthContainer .body .step2 .main .buttons .button.complete-auth:hover {
+    background: #284978 0% 0% no-repeat padding-box;
+    opacity: 1;
+} */
+
+/* 기본(회색) */
+.body .step1 .user-info .buttons .button-show {
+    color: #4b5563;
+    background: #f3f4f6;
+    transition: background-color 0.2s ease-in-out;
+}
+/* 활성(초록) */
+.body .step1 .user-info .buttons .button-show.on {
+    background: #10b981 !important;
+    color: #fff !important;
+    font-weight: 600;
+}
+
+/* 공통 버튼 기본값(필요하면 전역 공통으로 유지) */
+.button-show {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.65rem;
+    /* border-radius: 0.25rem; */
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* ===== [사용자정보 영역의 3버튼 전용 스타일] ===== */
+#EzauthContainer .body .step1 .user-info .buttons .button-show {
+    color: #4b5563;
+    background-color: #f3f4f6;
+}
+
+/* hover (특이성 맞춰서 지정) */
+/* #EzauthContainer .body .step1 .user-info .buttons .button-show:hover {
+    background-color: #d1d5db;
+} */
+
+/* 활성 상태 */
+#EzauthContainer .body .step1 .user-info .buttons .button-show.on {
+    background-color: #10b981;
+    color: #fff;
+    font-weight: 600;
+}
+
+/*  */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    } /* 0도에서 시작 */
+    to {
+        transform: rotate(-360deg);
+    } /* 360도(한 바퀴)까지 회전 */
+}
+
+@media (max-width: 850px) {
+    #EzauthContainer {
+        display: block;
+        position: relative;
+        overflow: auto;
+    }
+    #EzauthContainer > .encase {
+        margin: 0 auto;
+        position: absolute;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+    }
+}
+.guide-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;  /* 완전 투명 */
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;  /* 배경 클릭 방지 */
+}
+
+.guide-content {
+    position: relative;
+    max-width: 400px;
+    margin: 0 20px;
+    pointer-events: auto;  /* 메시지 박스는 클릭 가능 */
+}
+
+.guide-message {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    text-align: center;
+    position: relative;
+}
+
+.guide-message h3 {
+    color: #0066cc;
+    margin-bottom: 15px;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.guide-message p {
+    color: #333;
+    line-height: 1.6;
+    font-size: 16px;
+    margin: 0;
+}
+
+
+/* 프로바이더 리스트 "최근" 뱃지 관련 테스트 css */
+#EzauthContainer .body .step1 .provider-list-test {
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex-grow: 1;
+    width: 100%;
+    margin-top: 1.5rem;
+}
+#EzauthContainer .body .step1 .provider-list-test header {
+    display: none;
+}
+#EzauthContainer .body .step1 .provider-list-test ul.body {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -moz-flex-direction: row;
+    -ms-flex-direction: row;
+    flex-direction: row;
+    -webkit-box-lines: multiple;
+    -moz-flex-wrap: wrap;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+    -webkit-box-pack: start;
+    -moz-box-justify-content: flex-start;
+    -ms-flex-pack: start;
+    justify-content: flex-start;
+    /* padding: 2rem; */
+    overflow: visible;
+    background-color: transparent;
+    border-radius: 0;
+    height: auto;
+}
+#EzauthContainer .body .step1 .provider-list-test li {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -moz-flex-direction: column;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-align: center;
+    -moz-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    cursor: pointer;
+    max-width: calc(100% / 3);
+    flex: 1;
+    padding: 4px 0;
+}
+#EzauthContainer .body .step1 .provider-list-test li img {
+    border: 1px solid #d1d1d1;
+    border-radius: 1rem;
+    width: 52px;
+    height: 52px;
+    transition: 0.25s box-shadow;
+}
+#EzauthContainer .body .step1 .provider-list-test li.on img {
+    border: 1px solid #ccc;
+    box-shadow: 0 0 2px 3px #1890ff;
+}
+#EzauthContainer .body .step1 .provider-list-test li.on img[title="KB인증"],
+#EzauthContainer .body .step1 .provider-list-test li.on img[title="국민인증"],
+#EzauthContainer .body .step1 .provider-list-test li.on img[title="국민인증서"],
+#EzauthContainer .body .step1 .provider-list-test li.on img[title="국민은행"],
+#EzauthContainer .body .step1 .provider-list-test li.on img.cp_kbbank {
+    background-color: #7c7366;
+}
+
+#EzauthContainer .body .step1 .provider-list-test li p {
+    font: normal normal normal 0.875rem/1rem Pretendard;
+    letter-spacing: 0px;
+    color: #393939;
+    padding: 8px 0;
+    white-space: nowrap;
+}
+#EzauthContainer .body .step1 .provider-list-test li.on p {
+    font-weight: bold;
+}
+
+.provider-list-test li button{
+    background: none; border: none; padding: 0; cursor: pointer;
+    position: relative;
+}

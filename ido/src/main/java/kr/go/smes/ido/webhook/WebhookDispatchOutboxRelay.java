@@ -84,6 +84,12 @@ public class WebhookDispatchOutboxRelay {
     private final WebhookDispatcherService webhookDispatcherService;
     private final AuditLogPublisher     auditLogPublisher;
 
+    // F-14: Webhook Relay On/Off (IDO_WEBHOOK_RELAY_ENABLED)
+    // false → @Scheduled 실행되어도 즉시 return, 기관 webhook 발송 없음
+    // PENDING 레코드는 DB에 유지 → 다시 ON 시 순서 처리 (데이터 유실 없음)
+    @Value("${ido.webhook.relay-enabled:${IDO_WEBHOOK_RELAY_ENABLED:true}}")
+    private boolean relayEnabled;
+
     @Value("${ido.webhook.relay-interval-ms:500}")
     private long relayIntervalMs;
 
@@ -116,6 +122,11 @@ public class WebhookDispatchOutboxRelay {
      */
     @Scheduled(fixedDelayString = "${ido.webhook.relay-interval-ms:500}")
     public void relay() {
+        // F-14 Guard
+        if (!relayEnabled) {
+            log.trace("[WebhookRelay] DISABLED (IDO_WEBHOOK_RELAY_ENABLED=false)");
+            return;
+        }
         List<Map<String, Object>> pending = fetchPendingBatch();
         if (pending.isEmpty()) return;
 

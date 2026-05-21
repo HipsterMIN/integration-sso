@@ -1,0 +1,94 @@
+// =============================================
+// Spinner — KRDS v04 component_07_02 (indeterminate)
+// 패스(20% point-color) + 식별자(solid point-color) 의 회전형 링.
+// 컨테이너는 가로/세로 가운데 정렬 + tip 스택.
+// =============================================
+.spinnerContainer {
+	z-index: 999;
+	margin: auto;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	gap: 1.6rem;
+	height: 100vh;
+	overflow: visible;
+}
+
+.spinner {
+	display: inline-block;
+	border-radius: 50%;
+	border-style: solid;
+
+	// path — 20% point-color (KRDS 3:1 contrast 가이드)
+	border-color: rgba(78, 106, 197, 0.2);
+
+	// identifier — solid point-color
+	border-top-color: var(--point-color);
+
+	animation: spinner-rotate 0.8s linear infinite;
+
+	// default — 일반 페이지 폴백 영역
+	width: 3.2rem;
+	height: 3.2rem;
+	border-width: .3rem;
+
+	// 작은 공간(버튼/메뉴/인풋 안)
+	&--small {
+		width: 1.6rem;
+		height: 1.6rem;
+		border-width: .2rem;
+	}
+
+	// 풀 페이지 컨텍스트 변경
+	&--large {
+		width: 4.8rem;
+		height: 4.8rem;
+		border-width: .4rem;
+	}
+
+	// 모바일 — 한 단계 컴팩트
+	@media screen and (max-width: 767px) {
+		width: 2.4rem;
+		height: 2.4rem;
+		border-width: .25rem;
+
+		&--small {
+			width: 1.4rem;
+			height: 1.4rem;
+			border-width: .2rem;
+		}
+
+		&--large {
+			width: 3.6rem;
+			height: 3.6rem;
+			border-width: .3rem;
+		}
+	}
+}
+
+.spinner-tip {
+	color: var(--krds-light-color-text-subtle);
+	font-size: var(--krds-pc-font-size-label-small);   // 1.5rem (15px)
+	font-weight: 500;
+	line-height: 1.4;
+
+	@media screen and (max-width: 767px) {
+		font-size: var(--krds-pc-font-size-label-xsmall);   // 1.3rem (13px)
+	}
+}
+
+.spinnerContainer {
+	@media screen and (max-width: 767px) {
+		gap: 1.2rem;
+	}
+}
+
+@keyframes spinner-rotate {
+	to { transform: rotate(360deg); }
+}
+
+// 모션 민감 사용자 — 회전을 유지하되 속도 늦춤 (KRDS 접근성 가이드)
+@media (prefers-reduced-motion: reduce) {
+	.spinner { animation-duration: 1.5s; }
+}

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="52" height="52" viewBox="0 0 52 52">
+  <defs>
+    <clipPath id="clip-cp_cacao">
+      <rect width="52" height="52"/>
+    </clipPath>
+  </defs>
+  <g id="cp_cacao" clip-path="url(#clip-cp_cacao)">
+    <rect id="사각형_4110" data-name="사각형 4110" width="52" height="52" fill="none"/>
+    <path id="패스_83146" data-name="패스 83146" d="M20.492,25.148H18.385V13.963h2.107ZM26,19.556A6.692,6.692,0,0,0,22.321,7.272H11.1a.386.386,0,0,0-.387.387V31.453a.387.387,0,0,0,.387.389H22.321A6.693,6.693,0,0,0,26,19.556" transform="translate(6.135 6.443)" fill="#1c1c1c"/>
+  </g>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="18" height="18" viewBox="0 0 18 18">
+  <defs>
+    <clipPath id="clip-ico_chk_nor">
+      <rect width="18" height="18"/>
+    </clipPath>
+  </defs>
+  <g id="ico_chk_nor" clip-path="url(#clip-ico_chk_nor)">
+    <g id="타원_9380" data-name="타원 9380" fill="none" stroke="#767775" stroke-width="2">
+      <circle cx="9" cy="9" r="9" stroke="none"/>
+      <circle cx="9" cy="9" r="8" fill="none"/>
+    </g>
+  </g>
+</svg>

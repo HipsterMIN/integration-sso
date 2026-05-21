@@ -1,0 +1,105 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Grafana Unified Alerting — Notification Policies
+# S8-T7: 알림 라우팅 정책 (severity 기반 채널 분기)
+#
+# 파일 위치: infra/monitoring/grafana/provisioning/alerting/notification-policies.yml
+#
+# 라우팅 규칙:
+#   severity=critical  → Slack critical + 이메일 critical (즉시 발송)
+#   severity=warning   → Slack warning + 이메일 warning (5분 그룹핑)
+#   service=ido        → ido 전용 채널 우선 분기
+#   나머지             → default-receiver
+# ══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    # ── Root Policy ──────────────────────────────────────────────────────────
+    receiver: default-receiver
+    group_by:
+      - alertname
+      - service
+      - severity
+    group_wait:      30s   # 동일 그룹 첫 알림 대기 시간 (중복 발송 방지)
+    group_interval:  5m    # 동일 그룹 후속 알림 간격
+    repeat_interval: 4h    # 해결 안 된 알림 재발송 주기
+
+    routes:
+
+      # ──────────────────────────────────────────────────────────────────────
+      # CRITICAL: 즉시 발송 (Slack + 이메일 동시)
+      # 해당 알림: IdoHandoffErrorRateHigh, QimServiceDown, IdoServiceDown 등
+      # ──────────────────────────────────────────────────────────────────────
+      - receiver: slack-critical
+        matchers:
+          - severity = critical
+        group_by:
+          - alertname
+          - service
+        group_wait:       0s    # 즉시 발송 (대기 없음)
+        group_interval:   1m    # 후속 알림 1분 간격 (긴급)
+        repeat_interval:  30m   # 30분마다 재발송
+        continue: true    # 아래 이메일 라우팅도 계속 처리
+
+      - receiver: email-critical
+        matchers:
+          - severity = critical
+        group_by:
+          - alertname
+          - service
+        group_wait:       10s   # Slack 발송 후 10초 지연
+        group_interval:   5m
+        repeat_interval:  1h
+        continue: false   # 더 이상 아래 라우팅 처리 안 함
+
+      # ──────────────────────────────────────────────────────────────────────
+      # WARNING: 그룹핑 후 발송 (Slack + 이메일)
+      # 해당 알림: IdoApiLatencyHigh, RateLimitExceeded 등
+      # ──────────────────────────────────────────────────────────────────────
+      - receiver: slack-warning
+        matchers:
+          - severity = warning
+        group_by:
+          - alertname
+          - service
+        group_wait:      1m    # 1분 대기 후 발송 (그룹핑)
+        group_interval:  10m   # 10분 간격
+        repeat_interval: 2h    # 2시간마다 재발송
+        continue: true
+
+      - receiver: email-warning
+        matchers:
+          - severity = warning
+        group_by:
+          - alertname
+        group_wait:      2m
+        group_interval:  30m
+        repeat_interval: 6h
+        continue: false
+
+      # ──────────────────────────────────────────────────────────────────────
+      # ido 서비스 전용 — Critical/Warning 외 ido 알림
+      # ──────────────────────────────────────────────────────────────────────
+      - receiver: slack-warning
+        matchers:
+          - service = ido
+        group_by:
+          - alertname
+        group_wait:      30s
+        group_interval:  5m
+        repeat_interval: 2h
+        continue: false
+
+      # ──────────────────────────────────────────────────────────────────────
+      # q-im 서비스 전용
+      # ──────────────────────────────────────────────────────────────────────
+      - receiver: slack-warning
+        matchers:
+          - service = q-im
+        group_by:
+          - alertname
+        group_wait:      30s
+        group_interval:  5m
+        repeat_interval: 2h
+        continue: false

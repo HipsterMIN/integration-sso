@@ -2,6 +2,12 @@
 -- IdO Schema : 정책 오케스트레이터 SoR
 -- 설계서 §11 IdO 책임 범위 기반
 -- ============================================================
+-- [멱등성] 모든 DDL에 IF NOT EXISTS 적용
+--   이유: postgres 볼륨 재사용 시 Flyway schema_history 없이
+--         V1 재실행 시도 → 42P07 relation already exists 오류 방지
+-- [하위 호환] 테이블이 이미 존재할 경우 누락 컬럼을 ADD COLUMN IF NOT EXISTS로 보완
+--   이유: 볼륨의 agency_meta가 integration_type 등 컬럼 없이 생성된 이전 버전일 수 있음
+-- ============================================================
 
 CREATE SCHEMA IF NOT EXISTS ido;
 
@@ -10,7 +16,7 @@ CREATE SCHEMA IF NOT EXISTS ido;
 --    §11.3 기관 정책 캐시 SoR. TTL ≤60분 Redis 캐시의 원본.
 --    기관 코드별 최소 인증 수준·허용 속성·callback whitelist 관리.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.agency_meta (
+CREATE TABLE IF NOT EXISTS ido.agency_meta (
     agency_code             VARCHAR(50)   NOT NULL,
     official_name           VARCHAR(200)  NOT NULL,
     min_auth_level          VARCHAR(10)   NOT NULL DEFAULT 'L1',
@@ -32,7 +38,29 @@ CREATE TABLE ido.agency_meta (
         CHECK (integration_type IN ('DIRECT','APACHE_GATE','BRIDGE','INTERNAL_SSO'))
 );
 
-CREATE INDEX idx_agency_meta_active ON ido.agency_meta (active);
+-- 하위 호환: 테이블이 이전 버전으로 생성된 경우 누락 컬럼 보완
+ALTER TABLE ido.agency_meta
+    ADD COLUMN IF NOT EXISTS maintenance_windows JSONB,
+    ADD COLUMN IF NOT EXISTS integration_type    VARCHAR(20) NOT NULL DEFAULT 'DIRECT',
+    ADD COLUMN IF NOT EXISTS bridge_endpoint     VARCHAR(500),
+    ADD COLUMN IF NOT EXISTS sso_domain          VARCHAR(200);
+
+-- integration_type CHECK 제약이 없을 경우에만 추가
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'chk_integration_type'
+          AND conrelid = 'ido.agency_meta'::regclass
+    ) THEN
+        ALTER TABLE ido.agency_meta
+            ADD CONSTRAINT chk_integration_type
+            CHECK (integration_type IN ('DIRECT','APACHE_GATE','BRIDGE','INTERNAL_SSO'));
+    END IF;
+END
+$$;
+
+CREATE INDEX IF NOT EXISTS idx_agency_meta_active ON ido.agency_meta (active);
 
 COMMENT ON TABLE  ido.agency_meta                    IS '§11.3 기관 정책 SoR – Redis 캐시(TTL≤60분)의 원본';
 COMMENT ON COLUMN ido.agency_meta.api_key_hash       IS 'PBKDF2(apiKey, salt, 310000) – 평문 저장 금지';
@@ -44,7 +72,7 @@ COMMENT ON COLUMN ido.agency_meta.integration_type   IS '§13 연동 패턴: DIR
 -- 2. 기관 메타 이력 (AgencyMetaHistory)
 --    정책 변경 감사 이력. policy_version 증가 시 스냅샷 저장.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.agency_meta_history (
+CREATE TABLE IF NOT EXISTS ido.agency_meta_history (
     history_id              VARCHAR(36)   NOT NULL,
     agency_code             VARCHAR(50)   NOT NULL,
     policy_version          VARCHAR(20)   NOT NULL,
@@ -55,7 +83,7 @@ CREATE TABLE ido.agency_meta_history (
     CONSTRAINT pk_agency_meta_history PRIMARY KEY (history_id)
 );
 
-CREATE INDEX idx_agency_meta_history_code ON ido.agency_meta_history (agency_code, changed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agency_meta_history_code ON ido.agency_meta_history (agency_code, changed_at DESC);
 
 COMMENT ON TABLE ido.agency_meta_history IS '기관 정책 변경 감사 이력 – DELETE/UPDATE 금지';
 
@@ -64,7 +92,7 @@ COMMENT ON TABLE ido.agency_meta_history IS '기관 정책 변경 감사 이력 
 --    §16.4 Handoff Issue / Verify 전 주기 감사.
 --    Redis 가 TTL 기반 주 저장소, DB 는 소비 이력 감사용.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.handoff_audit (
+CREATE TABLE IF NOT EXISTS ido.handoff_audit (
     ticket_id               VARCHAR(36)   NOT NULL,       -- UUIDv4, Redis key 와 동일
     correlation_id          VARCHAR(36)   NOT NULL,
     agency_code             VARCHAR(50)   NOT NULL,
@@ -85,10 +113,10 @@ CREATE TABLE ido.handoff_audit (
         CHECK (auth_level IN ('L1','L2','L3'))
 );
 
-CREATE INDEX idx_handoff_audit_agency      ON ido.handoff_audit (agency_code, issued_at DESC);
-CREATE INDEX idx_handoff_audit_qim_user    ON ido.handoff_audit (qim_user_id, issued_at DESC);
-CREATE INDEX idx_handoff_audit_correlation ON ido.handoff_audit (correlation_id);
-CREATE INDEX idx_handoff_audit_state       ON ido.handoff_audit (state, expires_at)
+CREATE INDEX IF NOT EXISTS idx_handoff_audit_agency      ON ido.handoff_audit (agency_code, issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_handoff_audit_qim_user    ON ido.handoff_audit (qim_user_id, issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_handoff_audit_correlation ON ido.handoff_audit (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_handoff_audit_state       ON ido.handoff_audit (state, expires_at)
     WHERE state IN ('ISSUED','EXPIRED');
 
 COMMENT ON TABLE  ido.handoff_audit              IS '§16.4 Handoff Ticket 전 주기 감사 이력';
@@ -99,7 +127,7 @@ COMMENT ON COLUMN ido.handoff_audit.state        IS 'ISSUED → CONSUMED(정상)
 -- 4. 정책 충돌 해결 이력 (PolicyConflictLog)
 --    §11.6 정책 충돌(기관 정책 vs 플랫폼 기본 정책) 해결 이력.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.policy_conflict_log (
+CREATE TABLE IF NOT EXISTS ido.policy_conflict_log (
     conflict_id             VARCHAR(36)   NOT NULL,
     correlation_id          VARCHAR(36)   NOT NULL,
     agency_code             VARCHAR(50)   NOT NULL,
@@ -112,8 +140,8 @@ CREATE TABLE ido.policy_conflict_log (
     CONSTRAINT pk_policy_conflict_log PRIMARY KEY (conflict_id)
 );
 
-CREATE INDEX idx_policy_conflict_agency ON ido.policy_conflict_log (agency_code, occurred_at DESC);
-CREATE INDEX idx_policy_conflict_type   ON ido.policy_conflict_log (conflict_type, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_policy_conflict_agency ON ido.policy_conflict_log (agency_code, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_policy_conflict_type   ON ido.policy_conflict_log (conflict_type, occurred_at DESC);
 
 COMMENT ON TABLE ido.policy_conflict_log IS '§11.6 정책 충돌 해결 감사 이력';
 
@@ -121,7 +149,7 @@ COMMENT ON TABLE ido.policy_conflict_log IS '§11.6 정책 충돌 해결 감사 
 -- 5. 멱등 컨슈머 (ProcessedEvent)
 --    §16.3 IdO Kafka 컨슈머 중복 처리 방지.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.processed_event (
+CREATE TABLE IF NOT EXISTS ido.processed_event (
     event_id                VARCHAR(36)   NOT NULL,
     consumer_group          VARCHAR(100)  NOT NULL,
     event_type              VARCHAR(80),
@@ -130,7 +158,7 @@ CREATE TABLE ido.processed_event (
     CONSTRAINT pk_ido_processed_event PRIMARY KEY (event_id, consumer_group)
 );
 
-CREATE INDEX idx_ido_processed_event_group ON ido.processed_event (consumer_group, processed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ido_processed_event_group ON ido.processed_event (consumer_group, processed_at DESC);
 
 COMMENT ON TABLE ido.processed_event IS '§16.3 IdO 멱등 컨슈머 – at-least-once 중복 처리 방지';
 
@@ -138,7 +166,7 @@ COMMENT ON TABLE ido.processed_event IS '§16.3 IdO 멱등 컨슈머 – at-leas
 -- 6. 이벤트 버전 추적 (LastEventVersion)
 --    §11.5.5 Q-IM 이벤트 수신 시 버전 기반 순서 보장.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.last_event_version (
+CREATE TABLE IF NOT EXISTS ido.last_event_version (
     consumer_group          VARCHAR(100)  NOT NULL,
     aggregate_id            VARCHAR(36)   NOT NULL,       -- qimUserId
     last_version            BIGINT        NOT NULL,
@@ -153,7 +181,7 @@ COMMENT ON TABLE ido.last_event_version IS '§11.5.5 Q-IM 이벤트 버전 추�
 -- 7. Transactional Outbox (IdO → Kafka)
 --    ido.handoff.events / platform.session.advisory 발행.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.outbox (
+CREATE TABLE IF NOT EXISTS ido.outbox (
     event_id                VARCHAR(36)   NOT NULL,
     event_type              VARCHAR(80)   NOT NULL,       -- HANDOFF_ISSUED / HANDOFF_CONSUMED / HANDOFF_EXPIRED / SESSION_ADVISORY
     partition_key           VARCHAR(36)   NOT NULL,       -- correlationId or qimUserId
@@ -171,9 +199,9 @@ CREATE TABLE ido.outbox (
         CHECK (status IN ('PENDING','PUBLISHED','FAILED'))
 );
 
-CREATE INDEX idx_ido_outbox_pending   ON ido.outbox (status, created_at)
+CREATE INDEX IF NOT EXISTS idx_ido_outbox_pending   ON ido.outbox (status, created_at)
     WHERE status = 'PENDING';
-CREATE INDEX idx_ido_outbox_aggregate ON ido.outbox (aggregate_id);
+CREATE INDEX IF NOT EXISTS idx_ido_outbox_aggregate ON ido.outbox (aggregate_id);
 
 COMMENT ON TABLE ido.outbox IS 'IdO Transactional Outbox – handoff/session advisory 이벤트 발행';
 

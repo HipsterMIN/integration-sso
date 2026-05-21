@@ -18,7 +18,7 @@ spring:
 
   # ── DataSource ──────────────────────────────────────────────
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:onepass}?currentSchema=ido
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:onepass}?currentSchema=ido&sslmode=disable
     username: ${DB_USERNAME:onepass}
     password: ${DB_PASSWORD:onepass}
     driver-class-name: org.postgresql.Driver
@@ -56,7 +56,8 @@ spring:
     default-schema: ido
     baseline-on-migrate: true
     baseline-version: 0
-    validate-on-migrate: true
+    validate-on-migrate: false   # V1 멱등화(IF NOT EXISTS) 후 체크섬 변경 허용
+    repair-on-migrate: true      # 체크섬 불일치 시 자동 repair 후 migrate
     out-of-order: false
     connect-retries: 5
     connect-retries-interval: 10s
@@ -111,6 +112,63 @@ spring:
 
 # ── IdO 도메인 설정 ────────────────────────────────────────────
 ido:
+
+  # ── S7-T2: NICE/OACX 본인인증 연동 (AuthProperties 바인딩) ──────────────
+  # 설계 결정: Q1=B(API Key 없음), Q2=B(callback 추가), Q3=B(CI FE 미반환), Q4=A(WebClient)
+  auth:
+    # ── NICE 휴대폰 본인인증 ───────────────────────────────────────────────
+    # NICE IDO 인증 서버: https://auth.niceid.co.kr
+    # NICE 계약 후 발급받은 clientId/clientSecret 필수
+    nice:
+      # NICE 클라이언트 ID — 운영: NICE_CLIENT_ID 환경변수 필수 설정
+      client-id: ${NICE_CLIENT_ID:}
+      # NICE 클라이언트 시크릿 — 운영: NICE_CLIENT_SECRET 환경변수 필수 설정 (절대 코드에 하드코딩 금지)
+      client-secret: ${NICE_CLIENT_SECRET:}
+      # NICE 인증 완료 후 리다이렉트 URL (FE 팝업 결과 수신 페이지)
+      # 개발: http://localhost:3000/otp/auth-result (React dev-server)
+      # 운영: https://www.smes.go.kr/otp/auth-result (실제 도메인)
+      return-url: ${NICE_RETURN_URL:http://localhost:3000/otp/auth-result}
+      # NICE API 응답 타임아웃 (초) — 기본 10초
+      timeout-seconds: ${NICE_TIMEOUT_SECONDS:10}
+
+    # ── OACX 전자서명 중계모듈 ───────────────────────────────────────────
+    # OACX SDK(v1.3.2)를 통한 간편서명 기능 제공
+    # OACX-SDK-v1.3.2.jar: ido/libs/ 디렉토리에 배치 필요
+    oacx:
+      # OACX provider key JSON 파일 절대 경로
+      # OACX 운영사에서 발급한 파일 — 운영: OACX_PROVIDER_KEY_PATH 환경변수 필수 설정
+      # 예: /app/config/oacx-provider-key.json
+      provider-key-path: ${OACX_PROVIDER_KEY_PATH:}
+      # OACX SDK 디버그 모드 — 개발/검증: true, 운영: 반드시 false
+      debug-mode: ${OACX_DEBUG_MODE:false}
+
+    # ── 통합인증 서버 연동 (기업 간편인증 콜백, Q2=B) ──────────────────────
+    # 기업인증 콜백(POST /api/v1/auth/callback) 처리 시 auth-check 요청
+    # 현재 FE 미호출 상태 — 향후 FE 기업인증 구현 시 활성화
+    integration:
+      # 통합인증 서버 기본 URL — 운영: INTEGRATION_AUTH_BASE_URL 환경변수 필수 설정
+      # 예: https://intg-auth.smes.go.kr
+      base-url: ${INTEGRATION_AUTH_BASE_URL:}
+      # 통합인증 서버 응답 타임아웃 (초) — 기본 10초
+      timeout-seconds: ${INTEGRATION_AUTH_TIMEOUT_SECONDS:10}
+
+    # ── Auth 엔드포인트 IP 기반 Rate Limiting (S9-T7) ─────────────────────────
+    # /api/v1/auth/** 경로 전용 제한 (NICE/OACX 인증 API 남용 방지)
+    # 기관별 Rate Limit(AgencyRateLimiter)과 독립적으로 동작 (AND 조건)
+    # ⚠️ F-01 독립 환경변수: IDO_AUTH_RL_ENABLED (F-02의 IDO_RATE_LIMIT_ENABLED와 분리)
+    rate-limit:
+      enabled:    ${IDO_AUTH_RL_ENABLED:true}
+      # TPS: 초당 최대 요청 수 (IP 단위)
+      # 기본 20 req/s — 정상 사용자는 버튼 1회 클릭 시 1~3 req 발생
+      # NICE 인증 flow: URL 발급(1) + 결과 조회(1) = 2 req
+      tps:        ${IDO_AUTH_RL_TPS:20}
+      # 분당 최대 요청 수 (IP 단위)
+      # 기본 100 req/min — 연속 재시도 허용 범위
+      per-minute: ${IDO_AUTH_RL_PER_MIN:100}
+      # 일별 최대 요청 수 (IP 단위)
+      # 기본 1000 req/day — 하루 인증 시도 횟수 제한
+      daily:      ${IDO_AUTH_RL_DAILY:1000}
+
   # §11.5 Q-IM 연동
   qim:
     base-url: ${QIM_BASE_URL:http://localhost:8082}
@@ -118,6 +176,16 @@ ido:
     agency-meta-ttl-seconds: 3600    # ≤60분 (기관 메타·정책 캐시)
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
+    # [P2 수정] Q-IM 내부 API 호출 키 — 환경변수 주입 (하드코딩 'ido-internal' 제거)
+    # 운영: K8s Secret / Vault → IDO_QIM_INTERNAL_API_KEY 환경변수로 주입
+    # 로컬 개발: docker-compose.yml에서 IDO_QIM_INTERNAL_API_KEY=ido-internal 설정
+    # ⚠️ 미설정 시 Q-IM API 호출 시 X-Internal-Api-Key 헤더 누락 → Q-IM 서버 401 응답
+    internal-api-key: ${IDO_QIM_INTERNAL_API_KEY:}
+    # Q-IM 외부 API 키 — ExtProxyController가 FE 대신 X-Ext-Api-Key 헤더로 주입 (Q3=B)
+    # FE webpack DefinePlugin EXT_API_KEY 번들 노출 문제 해결:
+    # FE extInstance → beApiInstance 전환 후 이 환경변수로 API Key 관리
+    # 운영: K8s Secret / Vault → IDO_QIM_EXT_API_KEY 환경변수로 주입
+    ext-api-key: ${IDO_QIM_EXT_API_KEY:}
     # ── Q-IM → IdO 아웃바운드 수신 API (SP 역할) ─────────────────────────
     # Q-IM 관리 콘솔에서 발급한 API Key PBKDF2 해시
     # 포맷: pbkdf2:{iterations}:{saltBase64}:{hashBase64}
@@ -137,6 +205,13 @@ ido:
     # SP 수신 감사 로그 활성화 (운영: true 권장)
     receiver-audit-enabled: ${QIM_RECEIVER_AUDIT:true}
 
+  # ── FE AES-GCM 복호화 키 (CI 토큰 교환 전용) ───────────────────────────
+  # FE의 aesGcm.ts에서 CI 암호화에 사용하는 AES-GCM 키 (서버사이드 복호화용)
+  # FE webpack DefinePlugin AES_GCM_KEY와 동일한 값이어야 함
+  # 운영: K8s Secret / Vault → FE_AES_GCM_KEY 환경변수로 주입
+  # ⚠️ 미설정 시 POST /api/v1/auth/ci-token 엔드포인트에서 CI 복호화 불가
+  fe-aes-gcm-key: ${FE_AES_GCM_KEY:}
+
   # §11.8 Q-Sign 연동 — X-Internal-Sig
   qsign:
     base-url: ${QSIGN_BASE_URL:http://localhost:8081}
@@ -149,11 +224,98 @@ ido:
     # 생성 예: openssl rand -hex 32
     internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:}
 
-  # ── 브로커 모드 설정 (문서 §6) ──────────────────────────────────────────
-  # qsign    : 기존 방식 — ido → q-sign으로 URL 발급 위임 (현재 기본값)
-  # keycloak : 신규 방식 — ido가 직접 Keycloak Authorization URL 생성
+  # ── 브로커 모드 설정 (표준 OIDC 처리 백엔드 선택 — 문서 §6) ────────────
+  #
+  # ⚠️  이 설정은 "표준 OIDC(카카오·네이버 등)"의 처리 백엔드만 결정한다.
+  #     비표준 OIDC(Any-ID 인증수단, PASS 등)는 이 값과 무관하게 ido가 직접 처리한다.
+  #
+  # qsign    : [표준 OIDC] q-sign에 URL 발급 위임 (기본값)
+  # keycloak : [표준 OIDC] ido가 직접 Keycloak Authorization URL 생성
+  #
+  # [비표준 OIDC] — IDO_BROKER_MODE 값과 무관하게 항상 ido 직접 처리:
+  #   MOBILE_ID / EASY_SIGN / JOINT_CERT / FINANCIAL_CERT / PRIVATE_ID
+  #   → AnyIdBrokerAdapter (anyid.dev:1443 직접 연동)
+  #   PASS 등 기타 비표준 → NonOidcBrokerAdapter
   broker:
     mode: ${IDO_BROKER_MODE:qsign}
+
+  # ── Any-ID 설치형 연동 설정 (기관 #311, srvc_No=1000001157) ────────────
+  # 참조: wiki/iam/06-install-type-integration.md
+  # 행안부 Any-ID 사업단 발급 개발키 적용 (별첨2. 개발KEY 311_중소기업기술정보진흥원)
+  anyid:
+    # ── 기관 식별자 ──────────────────────────────────────────────────────
+    # 모든 API 호출 시 srvc_no 파라미터로 전달
+    srvc-no: ${ANYID_SRVC_NO:1000001157}
+    agency-code: ${ANYID_AGENCY_CODE:1000001157}
+    agency-name: ${ANYID_AGENCY_NAME:중소벤처24기업마당}
+
+    # ── Any-ID 포털 (관리/프로비저닝 API) ────────────────────────────────
+    # 개발: https://www.anyid.dev:1451 / 운영: https://www.anyid.go.kr:443
+    portal:
+      domain: ${ANYID_PORTAL_DOMAIN:https://www.anyid.dev}
+      port:   ${ANYID_PORTAL_PORT:1451}
+      base-url: ${ANYID_PORTAL_DOMAIN:https://www.anyid.dev}:${ANYID_PORTAL_PORT:1451}
+
+    # ── Any-ID 인증 서버 (L1~L3 인증 API) ────────────────────────────────
+    # 개발: https://www.anyid.dev:1443 / 운영: https://www.anyid.go.kr:443
+    auth:
+      domain: ${ANYID_AUTH_DOMAIN:https://www.anyid.dev}
+      port:   ${ANYID_AUTH_PORT:1443}
+      base-url: ${ANYID_AUTH_DOMAIN:https://www.anyid.dev}:${ANYID_AUTH_PORT:1443}
+
+    # ── Any-ID SSO 서버 ───────────────────────────────────────────────────
+    # 개발: https://sso.anyid.dev:1452 / 운영: https://sso.anyid.go.kr:443
+    sso:
+      domain: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}
+      port:   ${ANYID_SSO_PORT:1452}
+      base-url: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}:${ANYID_SSO_PORT:1452}
+      # SSO HMAC-SHA256 서명 검증 시크릿 (Base64, 행안부 발급)
+      # 운영: K8s Secret ANYID_SSO_SECRET_CODE로 주입 (평문 설정 금지)
+      secret-code: ${ANYID_SSO_SECRET_CODE:}
+      # SSO 어댑터 설정 파일 경로 (classpath 기준)
+      adaptor-conf: ${ANYID_SSO_ADAPTOR_CONF:classpath:sso-adaptor-conf-local.properties}
+      # SSO 세션 토큰 TTL (초)
+      session-ttl-seconds: 3600
+      verify-url: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}:${ANYID_SSO_PORT:1452}/sso/api/v1/verify
+      logout-url:  ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}:${ANYID_SSO_PORT:1452}/sso/api/v1/logout
+
+    # ── Any-ID KMS (ARIA-CBC-256) ─────────────────────────────────────────
+    # 개발: https://www.anyid.dev:8119 / 운영: https://www.anyid.go.kr:8119
+    # NHN SKM(AES-256)과 독립적으로 운영. AnyIdKmsClient가 전담.
+    kms:
+      server-host: ${ANYID_KMS_HOST:https://www.anyid.dev:8119/}
+      enc-alg:     ${ANYID_KMS_ENC_ALG:ARIA-CBC-256}
+      cversion:    ${ANYID_KMS_CVERSION:1}
+      # kdist 설정 파일 경로 (classpath 기준, 프로파일별 교체)
+      kdist-config: ${ANYID_KMS_KDIST_CONFIG:classpath:config/anyid/kdist-local.json}
+      # KMS app_key (Base64, 행안부 발급) — 운영: K8s Secret ANYID_KMS_APP_KEY로 주입
+      app-key: ${ANYID_KMS_APP_KEY:}
+      # KMS client_info (Base64, 행안부 발급) — 운영: K8s Secret ANYID_KMS_CLIENT_INFO로 주입
+      client-info: ${ANYID_KMS_CLIENT_INFO:}
+      connect-timeout-ms: 3000
+      read-timeout-ms:    5000
+
+    # ── 민간ID(소셜) 설정 ─────────────────────────────────────────────────
+    # social-relay 경유 소셜 로그인 (카카오·네이버 등, L1)
+    pid:
+      # pid_api.json 위치
+      api-config: ${ANYID_PID_API_CONFIG:classpath:config/anyid/pid_api.json}
+      # 민간ID 인증 시작 URL (social-relay)
+      provider-url: ${ANYID_PID_PROVIDER_URL:https://www.anyid.dev:1443/pid/auth.do}
+      # ido 수신 콜백 경로
+      callback-path: /api/v1/anyid/pid/callback
+      # pid API 키 (행안부 발급 — 운영: K8s Secret으로 주입)
+      client-id:      ${ANYID_PID_CLIENT_ID:}
+      client-secret:  ${ANYID_PID_CLIENT_SECRET:}
+      client-api-key: ${ANYID_PID_CLIENT_API_KEY:}
+
+    # ── config.anyidc.json 위치 ────────────────────────────────────────────
+    config-file: ${ANYID_CONFIG_FILE:classpath:config/anyid/config.anyidc.json}
+
+    # ── HTTP 클라이언트 공통 타임아웃 ─────────────────────────────────────
+    http:
+      connect-timeout-ms: ${ANYID_HTTP_CONNECT_TIMEOUT_MS:3000}
+      read-timeout-ms:    ${ANYID_HTTP_READ_TIMEOUT_MS:5000}
 
   # ── Keycloak OIDC 브로커 설정 (문서 §7, §10) ──────────────────────────
   # ido.broker.mode=keycloak 전환 시 아래 설정 활성화
@@ -217,12 +379,29 @@ ido:
       sliding-ttl-minutes: 30            # §12.4 Sliding TTL
       absolute-timeout-minutes: 480      # §12.4 절대 만료 (8h)
     # returnUrl 화이트리스트 (§12.6 — 기관 callback_whitelist 보조)
+    # [버그 수정 2026-05-16] B-2: PoC 더미 URL 제거, 실제 기관 URL로 교체
+    # 운영 배포 시: 환경변수 IDO_FE_ALLOWED_RETURN_URLS 또는 ConfigMap으로 주입
+    # ※ 기관 추가/변경 시 이 목록과 agency_meta.callback_whitelist DB 모두 갱신 필요
     allowed-return-urls:
-      - https://agency-a.example.com
-      - https://agency-b.example.com
-      - http://localhost:8084            # agency-stub (PoC)
-      - http://localhost:3000            # React dev server (개발)
-      - http://localhost:3001            # Nginx React (Option B 프로덕션)
+      # ── 중소벤처기업부 직속 서비스 ──────────────────────────────────
+      - ${ALLOWED_URL_SMES:https://www.smes.go.kr}
+      - ${ALLOWED_URL_BIZINFO:https://www.bizinfo.go.kr}
+      - ${ALLOWED_URL_MSS:https://www.mss.go.kr}
+      # ── 산하기관 ─────────────────────────────────────────────────
+      - ${ALLOWED_URL_SBIZ:https://www.sbiz.or.kr}
+      - ${ALLOWED_URL_FANFAN:https://www.fanfan.or.kr}
+      - ${ALLOWED_URL_KOSMES:https://www.kosmes.or.kr}
+      # ── 나머지 기관 (환경변수로 추가 주입 — 운영팀 등록 필요) ──────
+      # IDO_FE_ALLOWED_RETURN_URLS_EXTRA=https://기관1.go.kr,https://기관2.or.kr
+      # ── 개발/스테이징 (운영 배포 시 제거 또는 환경변수로 분리) ───────
+      - ${AGENCY_STUB_URL:http://localhost:8084}
+      - ${REACT_DEV_URL:http://localhost:3000}
+      - ${REACT_PROD_URL:http://localhost:3001}
+
+  # ── 회원 전환 세션 설정 (ConversionInitService) ─────────────────────────
+  conversion:
+    session-ttl-minutes: 30              # ConversionSession Redis TTL (GUIDE-002)
+    signed-request-max-age-minutes: 5    # JWT exp 허용 시간 (기관 signed_request 만료)
 
   # Kafka 토픽
   kafka:
@@ -233,7 +412,13 @@ ido:
     consumer-group-qim: ido-qim-consumer               # qim.user.events 구독
     consumer-group-qsign: ido-qsign-consumer            # qsign.auth.events 구독
     consumer-group-fe-advisory: ido-fe-advisory-consumer  # platform.session.advisory 구독 (FE 세션)
-    # Q-IM SP 수신 API 내부 전파 컨슈머 (QimSpMemberEventConsumer)
+    # Q-IM SP 수신 API 내부 전파 컨슈머 (QimSpMemberEventConsumer) — QIM-OUTBOX-SPEC-001
+    # topic-qim-user-events: qim.user.events 로 전환 (KafkaTopicConfig에 신규 빈 추가)
+    topic-qim-user-events: ${QIM_USER_EVENTS_TOPIC:qim.user.events}
+    consumer-group-qim-member: ido-qim-member-consumer
+    # qim.agency.events (기관 이벤트, 파티션 3, 보존 365일)
+    topic-qim-agency-events: ${QIM_AGENCY_EVENTS_TOPIC:qim.agency.events}
+    # ── Deprecated (QIM-OUTBOX-SPEC-001 마이그레이션 완료 후 제거 예정) ──────
     topic-qim-sp-member-events: ${QIM_SP_MEMBER_TOPIC:qim.sp.member.events}
     consumer-group-qim-sp-member: ido-qim-sp-member-consumer
     # Handoff 이벤트 컨슈머 (HandoffEventConsumer → WebhookDispatcherService)
@@ -245,12 +430,6 @@ ido:
     partition-count-dlq:  ${IDO_KAFKA_PARTITION_COUNT_DLQ:6}
     replication-factor:   ${IDO_KAFKA_REPLICATION_FACTOR:1}
     min-insync-replicas:  ${IDO_KAFKA_MIN_INSYNC_REPLICAS:1}
-
-  # Outbox Relay (ido.outbox 테이블 — Session Advisory 폴백)
-  outbox:
-    relay-interval-ms: 500
-    batch-size: 100
-    max-retry: 3
 
   # ── Webhook Dispatcher 설정 ────────────────────────────────────────────
   # 기관 외부 HTTPS webhook 발송 Outbox Relay 설정
@@ -292,7 +471,157 @@ ido:
       - ${CORS_ORIGIN_DEV:http://localhost:3000}    # React dev server (개발)
       - ${CORS_ORIGIN_PROD:http://localhost:3001}   # Nginx React (Option B 프로덕션)
 
-# ── Resilience4j ──────────────────────────────────────────────
+  # ── Async Executor 설정 ───────────────────────────────────────────────────
+  async:
+    audit:
+      core-pool-size: ${IDO_AUDIT_EXECUTOR_CORE:4}
+      max-pool-size:  ${IDO_AUDIT_EXECUTOR_MAX:16}
+      queue-capacity: ${IDO_AUDIT_EXECUTOR_QUEUE:10000}
+      keep-alive-seconds: 60
+    webhook:
+      core-pool-size: ${IDO_WEBHOOK_EXECUTOR_CORE:4}
+      max-pool-size:  ${IDO_WEBHOOK_EXECUTOR_MAX:20}
+      queue-capacity: ${IDO_WEBHOOK_EXECUTOR_QUEUE:5000}
+
+  audit:
+    # F-03: Kafka 감사 발행 On/Off (IDO_AUDIT_KAFKA_ENABLED) — Kafka 없는 환경 false 권장
+    kafka-publish-enabled: ${IDO_AUDIT_KAFKA_ENABLED:true}
+    # F-04: DB 감사 저장 On/Off (IDO_AUDIT_DB_ENABLED) — ⚠️ 운영에서 false 금지
+    db-save-enabled: ${IDO_AUDIT_DB_ENABLED:true}
+    retry-interval-ms: 600000   # 10분마다 Kafka 미발행 감사 로그 재처리
+
+  # ── Rate Limiting (Redis 기반 기관별 TPS/Daily 제한) ──────────────────────
+  rate-limit:
+    enabled:              ${IDO_RATE_LIMIT_ENABLED:true}
+    default-tps:          ${IDO_RATE_LIMIT_DEFAULT_TPS:200}
+    default-daily-limit:  ${IDO_RATE_LIMIT_DEFAULT_DAILY:1000000}
+
+  # ── F-08: Redisson 분산 락 On/Off ──────────────────────────────────────────
+  # false → NoOpRedissonConfig 사용 (Redis 없는 환경 앱 기동 가능)
+  # ⚠️ K8s 다중 Pod 환경에서는 반드시 true
+  redisson:
+    enabled: ${IDO_REDISSON_ENABLED:true}
+
+  # ── F-10: 보안 응답 헤더 On/Off ──────────────────────────────────────────
+  # false → SecurityHeadersFilter 빈 미등록 (FE 개발 환경 CSP 오류 방지)
+  security-headers:
+    enabled: ${IDO_SECURITY_HEADERS_ENABLED:true}
+
+  # ── F-05: OTel 분산 추적 AOP On/Off ──────────────────────────────────────
+  # false → AuthTracingAspect 빈 미등록 (Jaeger/Tempo 없는 환경)
+  tracing:
+    auth-aspect-enabled: ${IDO_AUTH_TRACING_ENABLED:true}
+
+  # ── F-11: 개인정보 파기 스케줄러 (이중 안전장치) ───────────────────────────
+  # enabled 기본 false — 명시적 true 설정 시에만 실행
+  # dry-run 기본 true  — 실제 삭제 전 반드시 dry-run 검증
+  # ⚠️ 법무팀 보존 기간 확정 후 IDO_RETENTION_DAYS 설정 필수
+  retention:
+    enabled: ${IDO_RETENTION_ENABLED:false}
+    dry-run: ${IDO_RETENTION_DRY_RUN:true}
+    personal-data-days: ${IDO_RETENTION_DAYS:365}
+    batch-size: ${IDO_RETENTION_BATCH_SIZE:100}
+
+  # ── F-13: IdO Outbox Relay On/Off ────────────────────────────────────────
+  # false → PENDING 폴링 없음 (Kafka 없는 환경 500ms 오류 방지)
+  # 처리 대상: qsign.auth.events (qim.user.events 는 qim-outbox 릴레이가 전담)
+  outbox:
+    relay-enabled: ${IDO_OUTBOX_RELAY_ENABLED:true}
+    relay-interval-ms: 500
+    batch-size: 100
+    max-retry: 3
+
+  # ── F-30: Q-IM 회원 이벤트 Outbox Relay (QIM-OUTBOX-SPEC-001) ─────────────
+  # Q-IM / Q-Sign 이 ido.outbox에 INSERT한 qim.user.events PENDING 레코드 발행
+  # false → Q-IM SP 수신 후 Kafka 발행 없음 (Q-IM 통합 전 개발 단계)
+  # true  → 1000ms 주기로 qim.user.events PENDING 레코드 폴링 후 Kafka 발행
+  qim-outbox:
+    relay-enabled: ${IDO_QIM_OUTBOX_RELAY_ENABLED:true}
+    relay-interval-ms: ${IDO_QIM_OUTBOX_RELAY_INTERVAL_MS:1000}
+    batch-size: ${IDO_QIM_OUTBOX_BATCH_SIZE:50}
+    max-retry: ${IDO_QIM_OUTBOX_MAX_RETRY:5}
+
+  # ── F-14: Webhook Outbox Relay On/Off ────────────────────────────────────
+  # false → 기관 webhook 발송 없음 (PENDING은 DB 유지 → 재활성 시 처리)
+
+  # ════════════════════════════════════════════════════════════════════════
+  # Sprint 14~16 신규 기능 — Phase-Gate Feature Flags
+  # 📖 docs/phased-rollout-strategy.md 참조
+  # ⚠️  Phase 1: 아래 모든 신규 기능 기본값 false (안전)
+  # ════════════════════════════════════════════════════════════════════════
+
+  # ── F-20: 전 기관 프로비저닝 (Sprint 14, Phase 2 활성화) ─────────────────
+  # true: JDK 21 Virtual Thread로 최대 68개 기관에 동시 HTTP POST 발행
+  # ⚠️  F-22 dry-run=true 상태로 먼저 2주 관찰 후 운영 전환 권장
+  provisioning:
+    enabled:              ${IDO_PROVISIONING_ENABLED:false}       # F-20: Phase 2↑
+    dry-run:              ${IDO_PROVISIONING_DRY_RUN:true}        # F-22: Phase 2-A=true, 2-B=false
+    relay-enabled:        ${IDO_PROVISIONING_RELAY_ENABLED:false} # F-21: Phase 2-B↑
+    relay-interval-ms:    ${IDO_PROVISIONING_RELAY_INTERVAL_MS:30000}
+    relay-batch-size:     ${IDO_PROVISIONING_RELAY_BATCH_SIZE:50}
+    timeout-ms:           ${IDO_PROVISIONING_TIMEOUT_MS:0}
+    max-parallel-agencies: ${IDO_PROVISIONING_MAX_PARALLEL:100}
+
+  # ── F-23/F-24: Agency Gateway API (Sprint 15, Phase 3 활성화) ────────────
+  # F-23: 기관 → OnePass 인바운드 이벤트 수신 (POST /inbound/event)
+  # F-24: OnePass → 기관 아웃바운드 발송 (PATCH /outbound/notify)
+  # F-25: Redis 멱등성 중복 방어 (항상 true 권장)
+  # F-26: HMAC-SHA256 서명 필수화 (Sprint 17, Phase 4↑, 현재 false)
+  # F-27: Agency Key 인증 감사 로그 (항상 true)
+  gateway:
+    inbound-enabled:        ${IDO_GATEWAY_INBOUND_ENABLED:false}    # F-23: Phase 3-A↑
+    outbound-enabled:       ${IDO_GATEWAY_OUTBOUND_ENABLED:false}   # F-24: Phase 3-B↑
+    idempotency-enabled:    ${IDO_GATEWAY_IDEMPOTENCY_ENABLED:true} # F-25: 항상 ON
+    hmac-sig-required:      ${IDO_HMAC_SIG_REQUIRED:false}          # F-26: Phase 4↑ (Sprint 17)
+    agency-key-audit-log:   ${IDO_AGENCY_KEY_AUDIT_LOG:true}        # F-27: 항상 ON
+
+  # ── AES 키 로테이션 스케줄러 ────────────────────────────────────────────
+  crypto:
+    rotation-enabled:      ${IDO_CRYPTO_ROTATION_ENABLED:true}
+    rotation-check-cron:   "0 0 * * * *"    # 매 시간 정각
+    # 실제 운영 키는 Vault/KMS에서 주입 — 아래는 PoC 기본값
+    handoff-aes-key:       ${IDO_HANDOFF_AES_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+    handoff-hmac-key:      ${IDO_HANDOFF_HMAC_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+
+  # ── KMS 연동 설정 (S9-T8) ─────────────────────────────────────────────────
+  # NHN Cloud Secure Key Manager(SKM)를 이용한 키 재료 보호
+  # Spring Profile: dev/local/test → NoOpKmsClient (Base64 패스스루)
+  #                 prod           → NhnKmsClient  (NHN SKM REST API)
+  #
+  # API 문서: https://docs.nhncloud.com/ko/Security/Secure Key Manager/ko/api-guide-v1.0/
+  # 엔드포인트: https://api-keymanager.nhncloudservice.com
+  kms:
+    # ── 연결 타임아웃 ────────────────────────────────────────────────────────
+    connection-timeout-ms: 3000
+    request-timeout-ms:    5000
+
+    # ── NHN Cloud Secure Key Manager 설정 ────────────────────────────────────
+    nhn:
+      # SKM API 엔드포인트 (기본: Global)
+      endpoint: ${NHN_SKM_ENDPOINT:https://api-keymanager.nhncloudservice.com}
+
+      # NHN Cloud 프로젝트 Appkey — 운영: K8s Secret NHN_SKM_APPKEY로 주입
+      # NHN Cloud 콘솔 > 프로젝트 > API 보안 설정 > Appkey 확인
+      appkey: ${NHN_SKM_APPKEY:}
+
+      # 운영 모드: secret(권장) | envelope
+      # secret:   SKM에 키 재료를 기밀 데이터로 저장, keyId를 DB에 보관
+      # envelope: SKM 대칭 키로 DEK를 암/복호화, 암호문을 DB에 보관
+      mode: ${NHN_SKM_MODE:secret}
+
+      # SKM 키 저장소의 AES 대칭 키 ID (Handoff AES 키용)
+      # secret 모드: 기밀 데이터 keyId (UUID 형식)
+      # envelope 모드: 대칭 키 keyId (UUID 형식)
+      aes-key-id: ${NHN_SKM_AES_KEY_ID:}
+
+      # SKM 키 저장소의 HMAC 대칭 키 ID (Handoff HMAC 키용)
+      hmac-key-id: ${NHN_SKM_HMAC_KEY_ID:}
+
+      # secret 모드 전용: aes/hmac-key-id와 다른 keyId를 사용하는 경우만 설정
+      # aes-secret-id: ${NHN_SKM_AES_SECRET_ID:}
+      # hmac-secret-id: ${NHN_SKM_HMAC_SECRET_ID:}
+
+# ── Resilience4j (S9-T2: NICE/OACX/통합인증 CB+Retry 추가) ───────────────
 resilience4j:
   circuitbreaker:
     instances:
@@ -315,6 +644,36 @@ resilience4j:
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 5
         minimum-number-of-calls: 5
+      # ── S9-T2 신규: NICE API 클라이언트 CB ────────────────────────────────
+      # NICE 서버 장애 시 빠른 Open 전환으로 불필요한 블로킹 방지
+      # Half-Open: 3건 탐침 → 실패율 50% 이하이면 Closed 복귀
+      nice-api-client:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 8s          # NICE API 평균 응답 ~1s, SLA 기준 8s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        record-exceptions:
+          - java.lang.IllegalStateException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+      # ── S9-T2 신규: 통합인증 서버 CB ─────────────────────────────────────
+      # 기업 간편인증 콜백 처리 시 통합인증 서버 장애 격리
+      integration-auth-client:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 8s
+        wait-duration-in-open-state: 60s           # 통합인증 서버 장애 복구에 더 긴 대기
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        record-exceptions:
+          - java.lang.IllegalStateException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
   retry:
     instances:
       qim-client:
@@ -330,6 +689,28 @@ resilience4j:
         retry-exceptions:
           - java.io.IOException
           - java.util.concurrent.TimeoutException
+      # ── S9-T2 신규: NICE API Retry ────────────────────────────────────────
+      # 최대 2회 재시도 (총 3회 시도): NICE 서버 간헐적 5xx 대응
+      # Exponential Backoff: 500ms → 1000ms (jitter 포함)
+      nice-api-client:
+        max-attempts: 2
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2.0
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException   # 클라이언트 입력 오류는 재시도 불필요
+      # ── S9-T2 신규: 통합인증 서버 Retry ──────────────────────────────────
+      integration-auth-client:
+        max-attempts: 2
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2.0
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
   timelimiter:
     instances:
       qim-client:
@@ -337,13 +718,21 @@ resilience4j:
       # P2 수정: qsign-client → keycloak-client
       keycloak-client:
         timeout-duration: 5s
+      # ── S9-T2 신규: NICE/통합인증 TimeLimiter ─────────────────────────────
+      # WebClient는 자체 타임아웃이 있으나 Resilience4j TimeLimiter도 추가하여
+      # 반응형 파이프라인 외부에서도 시간 제한 보장
+      nice-api-client:
+        timeout-duration: 12s    # WebClient 타임아웃(10s) + 여유 2s
+      integration-auth-client:
+        timeout-duration: 12s
 
-# ── Actuator ──────────────────────────────────────────────────
+# ── Actuator (S9-T4: OTel 추적 설정 포함) ─────────────────────
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,flyway
+        # features: 현재 기능 플래그 On/Off 상태 조회 (/actuator/features)
+        include: health,info,metrics,prometheus,flyway,features
   endpoint:
     health:
       show-details: when-authorized
@@ -352,23 +741,19 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  # ── Micrometer Tracing (S9-T4) ──────────────────────────────────
+  # Spring Boot Actuator 자동 설정: Micrometer Tracing Bridge → OTel SDK → OTLP Exporter
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}   # 운영: 0.1~0.3 권장 (10%~30% 샘플링)
+    # W3C TraceContext 전파 (traceparent 헤더)
+    propagation:
+      type: W3C
+  otlp:
+    tracing:
+      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+      timeout: 5s
 
-# ── Async Executor 설정 ───────────────────────────────────────────────────
-ido:
-  async:
-    audit:
-      core-pool-size: ${IDO_AUDIT_EXECUTOR_CORE:4}
-      max-pool-size:  ${IDO_AUDIT_EXECUTOR_MAX:16}
-      queue-capacity: ${IDO_AUDIT_EXECUTOR_QUEUE:10000}
-      keep-alive-seconds: 60
-    webhook:
-      core-pool-size: ${IDO_WEBHOOK_EXECUTOR_CORE:4}
-      max-pool-size:  ${IDO_WEBHOOK_EXECUTOR_MAX:20}
-      queue-capacity: ${IDO_WEBHOOK_EXECUTOR_QUEUE:5000}
-
-  audit:
-    kafka-publish-enabled: ${IDO_AUDIT_KAFKA_ENABLED:true}
-    retry-interval-ms: 600000   # 10분마다 Kafka 미발행 감사 로그 재처리
 
 logging:
   level:
@@ -380,17 +765,3 @@ logging:
     org.springframework.kafka: WARN
     org.flywaydb: INFO
 
-# ── Rate Limiting (Redis 기반 기관별 TPS/Daily 제한) ──────────────────────
-ido:
-  rate-limit:
-    enabled:              ${IDO_RATE_LIMIT_ENABLED:true}
-    default-tps:          ${IDO_RATE_LIMIT_DEFAULT_TPS:200}
-    default-daily-limit:  ${IDO_RATE_LIMIT_DEFAULT_DAILY:1000000}
-
-  # ── AES 키 로테이션 스케줄러 ────────────────────────────────────────────
-  crypto:
-    rotation-enabled:      ${IDO_CRYPTO_ROTATION_ENABLED:true}
-    rotation-check-cron:   "0 0 * * * *"    # 매 시간 정각
-    # 실제 운영 키는 Vault/KMS에서 주입 — 아래는 PoC 기본값
-    handoff-aes-key:       ${IDO_HANDOFF_AES_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
-    handoff-hmac-key:      ${IDO_HANDOFF_HMAC_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}

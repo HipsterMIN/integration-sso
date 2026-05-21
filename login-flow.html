@@ -1,0 +1,2645 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OnePass 로그인 전체 흐름 — 유관기관 콜백까지</title>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #21262d;
+    --border:    #30363d;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --accent:    #58a6ff;
+    --green:     #3fb950;
+    --yellow:    #d29922;
+    --red:       #f85149;
+    --purple:    #bc8cff;
+    --orange:    #ffa657;
+    --teal:      #39d353;
+    --pink:      #ff7b72;
+    --cyan:      #79c0ff;
+    --indent:    20px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, #0d1117 0%, #1a1f2e 50%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 32px 24px 24px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.3px;
+  }
+  header .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  header .badge-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .badge.blue   { border-color: var(--accent);  color: var(--accent); }
+  .badge.green  { border-color: var(--green);   color: var(--green); }
+  .badge.purple { border-color: var(--purple);  color: var(--purple); }
+  .badge.orange { border-color: var(--orange);  color: var(--orange); }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1140px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  /* ── PHASE NAVIGATOR ── */
+  .phase-nav {
+    display: flex;
+    gap: 0;
+    margin-bottom: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    flex-wrap: wrap;
+  }
+  .phase-nav-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px 6px;
+    background: none;
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
+  }
+  .phase-nav-btn:last-child { border-right: none; }
+  .phase-nav-btn:hover { background: var(--surface2); color: var(--text); }
+  .phase-nav-btn.active { background: var(--accent); color: #000; }
+  .phase-nav-btn .num {
+    display: block;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 2px;
+  }
+
+  /* ── PHASE SECTION ── */
+  .phase {
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .phase.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+
+  /* ── SECTION HEADER ── */
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .phase-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .phase-header h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .phase-header p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  /* ── STEP CARD ── */
+  .step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .step-header:hover { background: var(--surface2); }
+  .step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .step-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .tag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .tag-http   { background: #1f3a5f; color: var(--accent); }
+  .tag-kafka  { background: #2a1f3f; color: var(--purple); }
+  .tag-redis  { background: #3f1f1f; color: var(--red); }
+  .tag-db     { background: #1f2f1f; color: var(--green); }
+  .tag-async  { background: #2f2a1f; color: var(--orange); }
+  .tag-security { background: #3f2020; color: #ff9090; }
+  .step-arrow {
+    color: var(--muted);
+    font-size: 12px;
+    transition: transform 0.2s;
+  }
+  .step-card.open .step-arrow { transform: rotate(90deg); }
+
+  .step-body {
+    display: none;
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+  }
+  .step-card.open .step-body { display: block; }
+
+  /* ── FLOW ARROW BETWEEN CARDS ── */
+  .flow-arrow {
+    text-align: center;
+    color: var(--border);
+    font-size: 20px;
+    margin: -4px 0;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+  }
+  .flow-arrow.async {
+    color: var(--orange);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* ── DESCRIPTION ── */
+  .desc {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 12px 0 4px;
+  }
+  .desc strong { color: var(--text); }
+  .desc code {
+    background: var(--surface2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    color: var(--cyan);
+    border: 1px solid var(--border);
+  }
+
+  /* ── SUB STEPS (numbered list) ── */
+  .sub-steps {
+    list-style: none;
+    padding: 8px 0;
+  }
+  .sub-steps li {
+    display: flex;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid #1c2129;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .sub-steps li:last-child { border-bottom: none; }
+  .sub-steps .sn {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 1px;
+  }
+  .sub-steps .sc { flex: 1; }
+  .sub-steps .sc strong { color: var(--text); }
+  .sub-steps .sc code {
+    background: var(--surface2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    border: 1px solid var(--border);
+  }
+  .sub-steps .sc .note {
+    display: block;
+    font-size: 11px;
+    color: #6e7681;
+    margin-top: 2px;
+    font-style: italic;
+  }
+
+  /* ── CODE BLOCK ── */
+  .code-wrap {
+    margin: 10px 0 4px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .code-label {
+    background: var(--surface2);
+    padding: 5px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .code-label span { color: var(--accent); }
+  pre {
+    background: #0a0e14;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.65;
+    color: #abb2bf;
+    tab-size: 2;
+  }
+  .kw  { color: #c678dd; }
+  .fn  { color: #61afef; }
+  .str { color: #98c379; }
+  .cmt { color: #5c6370; font-style: italic; }
+  .num { color: #d19a66; }
+  .ann { color: #e5c07b; }
+  .typ { color: #e5c07b; }
+  .var { color: #e06c75; }
+  .op  { color: #56b6c2; }
+
+  /* ── INFO BOXES ── */
+  .info-box {
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 10px 0;
+    font-size: 12.5px;
+    line-height: 1.65;
+    border-left: 3px solid;
+  }
+  .info-box.blue   { background: #0d1f33; border-color: var(--accent);  color: #8dc6ff; }
+  .info-box.green  { background: #0d2010; border-color: var(--green);   color: #7ee09a; }
+  .info-box.yellow { background: #2a2000; border-color: var(--yellow);  color: #d9b34a; }
+  .info-box.red    { background: #2a0d0d; border-color: var(--red);     color: #ff9999; }
+  .info-box.purple { background: #1a1030; border-color: var(--purple);  color: #d0a8ff; }
+  .info-box.orange { background: #2a1800; border-color: var(--orange);  color: #ffb870; }
+  .info-box strong { color: inherit; }
+  .info-box code {
+    background: rgba(255,255,255,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+  }
+
+  /* ── DATA FLOW TABLE ── */
+  .df-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 10px 0;
+  }
+  .df-table th {
+    background: var(--surface2);
+    padding: 7px 10px;
+    text-align: left;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .df-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #1c2129;
+    color: var(--muted);
+    vertical-align: top;
+  }
+  .df-table td:first-child { color: var(--text); font-weight: 600; }
+  .df-table tr:last-child td { border-bottom: none; }
+  .df-table code {
+    background: var(--surface2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    border: 1px solid var(--border);
+  }
+
+  /* ── TIMELINE OVERVIEW (All Phases) ── */
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 0;
+  }
+  .tl-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border: 1px solid var(--border);
+  }
+  .tl-row:hover { background: #2a3040; }
+  .tl-phase-badge {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .tl-label {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .tl-actor {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .tl-tag {
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* ── SCROLL TOP ── */
+  #scroll-top {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(88,166,255,0.4);
+    z-index: 200;
+    transition: opacity 0.2s;
+  }
+  #scroll-top.show { display: flex; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--accent);
+    z-index: 999;
+    transition: width 0.1s;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    header { padding: 20px 16px 16px; }
+    header h1 { font-size: 17px; }
+    .phase-nav-btn { font-size: 10px; padding: 8px 4px; }
+    .phase-nav-btn .num { font-size: 13px; }
+    .phase-icon { width: 36px; height: 36px; font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress-bar"></div>
+
+<header>
+  <h1>🔐 OnePass 로그인 전체 흐름</h1>
+  <p class="subtitle">유관기관(Agency-Stub) → SDK → OnePass 플랫폼 → Kafka → Outbox → Redis → Webhook 콜백까지 극도로 상세한 이벤트 흐름</p>
+  <div class="badge-row">
+    <span class="badge blue">AgencyGatewayClient SDK</span>
+    <span class="badge purple">Q-Sign OIDC</span>
+    <span class="badge green">Keycloak + 카카오 OAuth2</span>
+    <span class="badge orange">Transactional Outbox</span>
+    <span class="badge">Kafka at-least-once</span>
+    <span class="badge">Redis Pre-warming</span>
+    <span class="badge">HMAC-SHA256 Webhook</span>
+    <span class="badge">P1 보안 수정</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE NAVIGATOR                                             -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <nav class="phase-nav" role="tablist">
+    <button class="phase-nav-btn active" onclick="showPhase(0)" role="tab">
+      <span class="num">📋</span>전체 개요
+    </button>
+    <button class="phase-nav-btn" onclick="showPhase(1)" role="tab">
+      <span class="num">①</span>기관 로그인 요청
+    </button>
+    <button class="phase-nav-btn" onclick="showPhase(2)" role="tab">
+      <span class="num">②</span>OIDC 인증
+    </button>
+    <button class="phase-nav-btn" onclick="showPhase(3)" role="tab">
+      <span class="num">③</span>Q-Sign 콜백
+    </button>
+    <button class="phase-nav-btn" onclick="showPhase(4)" role="tab">
+      <span class="num">④</span>IdO 세션 처리
+    </button>
+    <button class="phase-nav-btn" onclick="showPhase(5)" role="tab">
+      <span class="num">⑤</span>Handoff 발급
+    </button>
+    <button class="phase-nav-btn" onclick="showPhase(6)" role="tab">
+      <span class="num">⑥</span>Kafka → Outbox
+    </button>
+    <button class="phase-nav-btn" onclick="showPhase(7)" role="tab">
+      <span class="num">⑦</span>Webhook 발송
+    </button>
+    <button class="phase-nav-btn" onclick="showPhase(8)" role="tab">
+      <span class="num">⑧</span>기관 콜백 수신
+    </button>
+    <button class="phase-nav-btn" onclick="showPhase(9)" role="tab">
+      <span class="num">⑨</span>Ticket 검증 &amp; 세션
+    </button>
+  </nav>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 0: 전체 개요                                           -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase active" id="phase-0">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#1a2035;">📋</div>
+      <div>
+        <h2>전체 로그인 흐름 개요</h2>
+        <p>유관기관 브라우저에서 세션 생성 완료까지 — 9개 페이즈, 35개 핵심 이벤트</p>
+      </div>
+    </div>
+
+    <div class="info-box blue">
+      <strong>읽는 방법:</strong> 각 페이즈 버튼을 클릭하면 해당 단계의 상세 소스 코드와 이벤트 흐름을 볼 수 있습니다.
+      아래 타임라인을 클릭하면 해당 페이즈로 바로 이동합니다.
+    </div>
+
+    <div class="timeline">
+
+      <div class="tl-row" onclick="showPhase(1)">
+        <div class="tl-phase-badge" style="background:#1a2035;color:var(--accent);">1</div>
+        <div class="tl-label">①-1 기관 브라우저 → GET /api/v1/broker/{provider}/authorize</div>
+        <span class="tl-actor">agency-stub → IdO</span>
+        <span class="tl-tag tag-http">HTTP</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(1)">
+        <div class="tl-phase-badge" style="background:#1a2035;color:var(--accent);">1</div>
+        <div class="tl-label">①-2 BrokerService.buildAuthorizationUrl() [qsign or keycloak mode]</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-http">Logic</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(1)">
+        <div class="tl-phase-badge" style="background:#1a2035;color:var(--accent);">1</div>
+        <div class="tl-label">①-3 302 Redirect → Keycloak Authorization URL (kc_idp_hint=social-kakao)</div>
+        <span class="tl-actor">IdO → Browser</span>
+        <span class="tl-tag tag-http">Redirect</span>
+      </div>
+
+      <div class="tl-row" onclick="showPhase(2)">
+        <div class="tl-phase-badge" style="background:#1a2030;color:var(--purple);">2</div>
+        <div class="tl-label">②-1 Keycloak → kc_idp_hint 처리 → 카카오 OAuth2 Authorization 요청</div>
+        <span class="tl-actor">Keycloak → 카카오</span>
+        <span class="tl-tag tag-http">OAuth2</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(2)">
+        <div class="tl-phase-badge" style="background:#1a2030;color:var(--purple);">2</div>
+        <div class="tl-label">②-2 사용자 카카오 로그인 → 카카오 → Keycloak 콜백</div>
+        <span class="tl-actor">사용자 → 카카오 → Keycloak</span>
+        <span class="tl-tag tag-http">OAuth2</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(2)">
+        <div class="tl-phase-badge" style="background:#1a2030;color:var(--purple);">2</div>
+        <div class="tl-label">②-3 Keycloak → Q-Sign Callback URL 302 (code + state)</div>
+        <span class="tl-actor">Keycloak → Q-Sign</span>
+        <span class="tl-tag tag-http">OIDC</span>
+      </div>
+
+      <div class="tl-row" onclick="showPhase(3)">
+        <div class="tl-phase-badge" style="background:#1a3020;color:var(--green);">3</div>
+        <div class="tl-label">③-1 KeycloakCallbackService.handleCallback() — state 소비 (CSRF 검증)</div>
+        <span class="tl-actor">Q-Sign</span>
+        <span class="tl-tag tag-db">Redis</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(3)">
+        <div class="tl-phase-badge" style="background:#1a3020;color:var(--green);">3</div>
+        <div class="tl-label">③-2 POST Keycloak Token EP → authorization_code 교환 → id_token</div>
+        <span class="tl-actor">Q-Sign → Keycloak</span>
+        <span class="tl-tag tag-http">OIDC</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(3)">
+        <div class="tl-phase-badge" style="background:#1a3020;color:var(--green);">3</div>
+        <div class="tl-label">③-3 JWKS RS256 검증 → nonce/aud/exp 검증 → SHA-256(sub)=identifierHash</div>
+        <span class="tl-actor">Q-Sign</span>
+        <span class="tl-tag tag-security">Security</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(3)">
+        <div class="tl-phase-badge" style="background:#1a3020;color:var(--green);">3</div>
+        <div class="tl-label">③-4 @Transactional handleCallback() { authResultRepo.save() + outboxRepo.save() } qsign.outbox</div>
+        <span class="tl-actor">Q-Sign DB</span>
+        <span class="tl-tag tag-db">DB TX</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(3)">
+        <div class="tl-phase-badge" style="background:#1a3020;color:var(--green);">3</div>
+        <div class="tl-label">③-5 POST /api/internal/v1/oidc/complete → IdO 통보 (X-Internal-Sig HMAC)</div>
+        <span class="tl-actor">Q-Sign → IdO</span>
+        <span class="tl-tag tag-http">Internal</span>
+      </div>
+
+      <div class="tl-row" onclick="showPhase(4)">
+        <div class="tl-phase-badge" style="background:#2a1f10;color:var(--orange);">4</div>
+        <div class="tl-label">④-1 OidcCompleteController — X-Internal-Sig 검증 → CI로 QIM 조회/등록</div>
+        <span class="tl-actor">IdO → Q-IM</span>
+        <span class="tl-tag tag-http">HTTP</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(4)">
+        <div class="tl-phase-badge" style="background:#2a1f10;color:var(--orange);">4</div>
+        <div class="tl-label">④-2 FeSessionServiceImpl.create() → Redis fe:session:{id} (sliding TTL 30m)</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-redis">Redis</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(4)">
+        <div class="tl-phase-badge" style="background:#2a1f10;color:var(--orange);">4</div>
+        <div class="tl-label">④-3 feSessionId HttpOnly 쿠키 Set-Cookie + redirectUrl 반환 → 302</div>
+        <span class="tl-actor">IdO → Browser</span>
+        <span class="tl-tag tag-http">Cookie</span>
+      </div>
+
+      <div class="tl-row" onclick="showPhase(4)" style="padding-left:30px;">
+        <div class="tl-phase-badge" style="background:#2a1510;color:var(--orange);font-size:9px;">4A</div>
+        <div class="tl-label" style="color:var(--orange);">[비동기] Q-Sign OutboxRelay → Kafka qsign.auth.events → QsignAuthEventConsumer</div>
+        <span class="tl-actor">Q-Sign Outbox</span>
+        <span class="tl-tag tag-async">Async</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(4)" style="padding-left:30px;">
+        <div class="tl-phase-badge" style="background:#2a1510;color:var(--orange);font-size:9px;">4A</div>
+        <div class="tl-label" style="color:var(--orange);">[비동기] AuthResultCacheService.preWarm() → ido:auth_result:{correlationId} TTL 300s</div>
+        <span class="tl-actor">IdO Redis</span>
+        <span class="tl-tag tag-redis">Redis</span>
+      </div>
+
+      <div class="tl-row" onclick="showPhase(5)">
+        <div class="tl-phase-badge" style="background:#1a2035;color:var(--accent);">5</div>
+        <div class="tl-label">⑤-1 기관 → SDK AgencyGatewayClient → POST /api/v1/handoff/issue</div>
+        <span class="tl-actor">agency-stub → IdO</span>
+        <span class="tl-tag tag-http">SDK</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(5)">
+        <div class="tl-phase-badge" style="background:#1a2035;color:var(--accent);">5</div>
+        <div class="tl-label">⑤-2 HandoffController — Fe-Session-Id 쿠키에서 qimUserId 추출 [P1 보안]</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-security">P1</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(5)">
+        <div class="tl-phase-badge" style="background:#1a2035;color:var(--accent);">5</div>
+        <div class="tl-label">⑤-3 HandoffServiceImpl.issue() — 7단계 검증 후 ticketId(UUIDv7) 발급</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-db">DB TX</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(5)">
+        <div class="tl-phase-badge" style="background:#1a2035;color:var(--accent);">5</div>
+        <div class="tl-label">⑤-4 @Transactional { ticketRepo.save() + Kafka HANDOFF_ISSUED }</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-kafka">Kafka</span>
+      </div>
+
+      <div class="tl-row" onclick="showPhase(6)">
+        <div class="tl-phase-badge" style="background:#2a1f30;color:var(--purple);">6</div>
+        <div class="tl-label">⑥-1 HandoffEventConsumer.consume() — ido.handoff.events 수신 + 멱등 처리</div>
+        <span class="tl-actor">IdO Kafka Consumer</span>
+        <span class="tl-tag tag-kafka">Kafka</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(6)">
+        <div class="tl-phase-badge" style="background:#2a1f30;color:var(--purple);">6</div>
+        <div class="tl-label">⑥-2 WebhookDispatcherService.enqueueForHandoffEvent() → webhook_dispatch_outbox INSERT</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-db">DB TX</span>
+      </div>
+
+      <div class="tl-row" onclick="showPhase(7)">
+        <div class="tl-phase-badge" style="background:#1a3020;color:var(--teal);">7</div>
+        <div class="tl-label">⑦-1 WebhookDispatchOutboxRelay @Scheduled 500ms — fetchPendingBatch() SKIP LOCKED</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-async">Sched</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(7)">
+        <div class="tl-phase-badge" style="background:#1a3020;color:var(--teal);">7</div>
+        <div class="tl-label">⑦-2 dispatchOne() — HMAC-SHA256 서명 생성 + HTTPS POST 기관 endpoint</div>
+        <span class="tl-actor">IdO → agency-stub</span>
+        <span class="tl-tag tag-http">HTTPS</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(7)">
+        <div class="tl-phase-badge" style="background:#1a3020;color:var(--teal);">7</div>
+        <div class="tl-label">⑦-3 2xx → DISPATCHED / 4xx~5xx → 지수 백오프 재시도 (2s→4s→8s→FAILED)</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-db">DB</span>
+      </div>
+
+      <div class="tl-row" onclick="showPhase(8)">
+        <div class="tl-phase-badge" style="background:#2a2010;color:var(--yellow);">8</div>
+        <div class="tl-label">⑧-1 WebhookInboundController — X-Webhook-Timestamp ±5분 검증</div>
+        <span class="tl-actor">agency-stub</span>
+        <span class="tl-tag tag-security">Security</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(8)">
+        <div class="tl-phase-badge" style="background:#2a2010;color:var(--yellow);">8</div>
+        <div class="tl-label">⑧-2 HMAC-SHA256 서명 검증 (sha256=HEX) → webhook_inbound 중복 체크</div>
+        <span class="tl-actor">agency-stub</span>
+        <span class="tl-tag tag-security">HMAC</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(8)">
+        <div class="tl-phase-badge" style="background:#2a2010;color:var(--yellow);">8</div>
+        <div class="tl-label">⑧-3 이벤트 타입별 처리 → agency_event_queue INSERT (priority=3)</div>
+        <span class="tl-actor">agency-stub</span>
+        <span class="tl-tag tag-db">DB</span>
+      </div>
+
+      <div class="tl-row" onclick="showPhase(9)">
+        <div class="tl-phase-badge" style="background:#2a1a10;color:var(--pink);">9</div>
+        <div class="tl-label">⑨-1 기관 event queue 소비 → IdoVerifyClient.verify() → POST /api/v1/handoff/verify</div>
+        <span class="tl-actor">agency-stub → IdO</span>
+        <span class="tl-tag tag-http">SDK</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(9)">
+        <div class="tl-phase-badge" style="background:#2a1a10;color:var(--pink);">9</div>
+        <div class="tl-label">⑨-2 HandoffServiceImpl.verify() — CONSUMED/REVOKED/EXPIRED/AGENCY_MISMATCH 검증</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-db">DB TX</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(9)">
+        <div class="tl-phase-badge" style="background:#2a1a10;color:var(--pink);">9</div>
+        <div class="tl-label">⑨-3 ticketRepo.consume() + Kafka HANDOFF_CONSUMED + AuthResult 캐시 무효화</div>
+        <span class="tl-actor">IdO</span>
+        <span class="tl-tag tag-kafka">Kafka</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(9)">
+        <div class="tl-phase-badge" style="background:#2a1a10;color:var(--pink);">9</div>
+        <div class="tl-label">⑨-4 policyEngine.buildHandoffPayload() → agencySubjectId + authLevel 반환</div>
+        <span class="tl-actor">IdO → agency-stub</span>
+        <span class="tl-tag tag-http">HTTP</span>
+      </div>
+      <div class="tl-row" onclick="showPhase(9)">
+        <div class="tl-phase-badge" style="background:#2a1a10;color:var(--pink);">9</div>
+        <div class="tl-label">⑨-5 agencySessionService.createSession() → AGSID 쿠키 발급 → 로그인 완료 🎉</div>
+        <span class="tl-actor">agency-stub</span>
+        <span class="tl-tag tag-db">Session</span>
+      </div>
+    </div>
+
+    <div class="info-box purple" style="margin-top:16px;">
+      <strong>핵심 설계 철학:</strong><br>
+      1. <strong>기관은 Kafka에 직접 접근 불가</strong> — 내부망(172.20.0.x)만 노출, ACL 오용 시 개인정보법 위반 가능.<br>
+      HTTPS Webhook으로 표준 HTTP 연동 대체.<br>
+      2. <strong>P1 보안 수정</strong> — <code>qimUserId</code>를 FE request body가 아닌 <code>Fe-Session-Id</code> HttpOnly 쿠키에서 서버측 추출.<br>
+      3. <strong>60,000명 급증 대응</strong> — AuthResult Redis Pre-warming(TTL 300s)으로 DB I/O 폭발 차단.<br>
+      4. <strong>at-least-once 보장</strong> — Transactional Outbox + Kafka + Webhook SKIP LOCKED 폴링.
+    </div>
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 1: 기관 로그인 요청                                     -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase" id="phase-1">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#1a2035;">🏛️</div>
+      <div>
+        <h2>Phase 1 — 기관 로그인 요청 (Agency → IdO BrokerController)</h2>
+        <p>유관기관 브라우저가 OnePass 인증을 시작하는 진입점. SDK 인바운드 이벤트 전송 포함.</p>
+      </div>
+    </div>
+
+    <!-- STEP 1-1 -->
+    <div class="step-card open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a2035;color:var(--accent);">1</div>
+        <div class="step-title">기관 브라우저 → SDK 준비 및 correlationId 생성</div>
+        <div class="step-meta">
+          <span class="tag tag-http">Agency-Stub</span>
+        </div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          유관기관 서버는 <strong>AgencyGatewayClient SDK</strong>를 사용해 OnePass 플랫폼과 통신합니다.
+          SDK는 <code>Builder</code> 패턴으로 초기화되며, 모든 요청에 <code>X-Agency-Key</code>, <code>X-Agency-Code</code>,
+          <code>X-Idempotency-Key</code>, <code>X-Internal-Sig</code>(HMAC-SHA256) 헤더를 자동 첨부합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">AgencyGatewayClient.java — SDK 초기화 <span>agency-stub</span></div>
+          <pre><span class="cmt">// SDK Builder 패턴 초기화 (Spring Bean으로 등록)</span>
+<span class="ann">@Bean</span>
+<span class="kw">public</span> <span class="typ">AgencyGatewayClient</span> <span class="fn">agencyGatewayClient</span>() {
+    <span class="kw">return</span> AgencyGatewayClient.<span class="fn">builder</span>()
+        .<span class="fn">baseUrl</span>(<span class="str">"https://ido.onepass.kr"</span>)
+        .<span class="fn">agencyCode</span>(<span class="str">"AGENCY_STUB_001"</span>)
+        .<span class="fn">agencyApiKey</span>(agencyApiKey)       <span class="cmt">// X-Agency-Key</span>
+        .<span class="fn">hmacSecret</span>(hmacSecret)           <span class="cmt">// HMAC-SHA256 서명 키</span>
+        .<span class="fn">connectTimeoutMs</span>(<span class="num">3000</span>)
+        .<span class="fn">readTimeoutMs</span>(<span class="num">8000</span>)
+        .<span class="fn">build</span>();
+}
+
+<span class="cmt">// ── SDK 3대 핵심 메서드 ───────────────────────────────────────</span>
+<span class="cmt">// sendInbound()    : 기관 → OnePass 인바운드 이벤트 전송 (사용자 인증 요청 등)</span>
+<span class="cmt">// triggerOutbound(): OnePass → 기관 아웃바운드 알림 트리거 요청</span>
+<span class="cmt">// getStatus()      : 특정 correlationId의 처리 상태 조회</span>
+
+<span class="cmt">// 내부적으로 buildHeaders()가 매 요청마다 자동 호출</span>
+<span class="kw">private</span> <span class="typ">HttpHeaders</span> <span class="fn">buildHeaders</span>(<span class="typ">String</span> method, <span class="typ">String</span> path,
+                                     <span class="typ">String</span> body, <span class="typ">String</span> idempotencyKey) {
+    <span class="kw">long</span> <span class="var">ts</span> = System.<span class="fn">currentTimeMillis</span>();
+    <span class="typ">String</span> <span class="var">sig</span> = hmacSigner.<span class="fn">sign</span>(method, path, ts, body);
+    <span class="typ">HttpHeaders</span> <span class="var">h</span> = <span class="kw">new</span> <span class="typ">HttpHeaders</span>();
+    h.<span class="fn">set</span>(<span class="str">"X-Agency-Key"</span>,        agencyApiKey);
+    h.<span class="fn">set</span>(<span class="str">"X-Agency-Code"</span>,       agencyCode);
+    h.<span class="fn">set</span>(<span class="str">"X-Idempotency-Key"</span>,   idempotencyKey);
+    h.<span class="fn">set</span>(<span class="str">"X-Correlation-Id"</span>,    correlationId);
+    h.<span class="fn">set</span>(<span class="str">"X-Internal-Sig"</span>,      sig);
+    h.<span class="fn">set</span>(<span class="str">"X-Timestamp"</span>,          <span class="typ">String</span>.<span class="fn">valueOf</span>(ts));
+    <span class="kw">return</span> h;
+}</pre>
+        </div>
+        <div class="code-wrap">
+          <div class="code-label">HmacSigner.java — HMAC-SHA256 서명 <span>SDK</span></div>
+          <pre><span class="cmt">// 서명 대상 문자열 구성</span>
+<span class="cmt">// "METHOD\nPATH\nTIMESTAMP_EPOCH_MS\nSHA256(body)"</span>
+<span class="kw">public</span> <span class="typ">String</span> <span class="fn">sign</span>(<span class="typ">String</span> httpMethod, <span class="typ">String</span> path,
+                    <span class="kw">long</span> timestampMs, <span class="typ">String</span> requestBody) {
+    <span class="typ">String</span> <span class="var">bodyHash</span> = <span class="fn">sha256Hex</span>(requestBody != <span class="kw">null</span> ? requestBody : <span class="str">""</span>);
+    <span class="typ">String</span> <span class="var">signingString</span> = httpMethod + <span class="str">"\n"</span> + path
+                            + <span class="str">"\n"</span> + timestampMs
+                            + <span class="str">"\n"</span> + bodyHash;
+    <span class="kw">return</span> <span class="fn">hmacSha256Hex</span>(signingString);
+}
+
+<span class="cmt">// 서명 검증 — 상수시간 비교로 timing attack 방지</span>
+<span class="kw">public</span> <span class="kw">boolean</span> <span class="fn">verifySignature</span>(<span class="typ">String</span> received, <span class="typ">String</span> expected) {
+    <span class="kw">return</span> MessageDigest.<span class="fn">isEqual</span>(
+        received.<span class="fn">getBytes</span>(StandardCharsets.UTF_8),
+        expected.<span class="fn">getBytes</span>(StandardCharsets.UTF_8)
+    );
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <!-- STEP 1-2 -->
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a2035;color:var(--accent);">2</div>
+        <div class="step-title">GET /api/v1/broker/{provider}/authorize → BrokerController</div>
+        <div class="step-meta">
+          <span class="tag tag-http">HTTP GET</span>
+        </div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          기관 브라우저가 <code>window.location.href</code>로 IdO의 <strong>BrokerController</strong>에 접속합니다.
+          <code>provider</code> 파라미터로 소셜 로그인 제공자를 지정하고 (<code>kakao</code>, <code>naver</code> 등),
+          <code>returnUrl</code>로 인증 완료 후 돌아올 기관 페이지 URL을 전달합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">BrokerController.java — 진입점 <span>IdO</span></div>
+          <pre><span class="ann">@GetMapping</span>(<span class="str">"/api/v1/broker/{provider}/authorize"</span>)
+<span class="kw">public</span> <span class="typ">ResponseEntity</span>&lt;<span class="typ">Void</span>&gt; <span class="fn">authorize</span>(
+        <span class="ann">@PathVariable</span> <span class="typ">String</span> provider,
+        <span class="ann">@RequestParam</span> <span class="typ">String</span> returnUrl,
+        <span class="ann">@RequestParam</span>(<span class="kw">required</span> = <span class="kw">false</span>) <span class="typ">String</span> correlationId,
+        <span class="ann">@RequestParam</span>(<span class="kw">required</span> = <span class="kw">false</span>) <span class="typ">String</span> agencyCode) {
+
+    <span class="typ">String</span> <span class="var">authUrl</span> = brokerService.<span class="fn">buildAuthorizationUrl</span>(
+            provider, returnUrl, correlationId, agencyCode);
+
+    <span class="kw">return</span> ResponseEntity.<span class="fn">status</span>(HttpStatus.FOUND)
+            .<span class="fn">header</span>(HttpHeaders.LOCATION, authUrl)
+            .<span class="fn">build</span>();  <span class="cmt">// 302 Redirect</span>
+}</pre>
+        </div>
+        <table class="df-table">
+          <tr><th>파라미터</th><th>예시값</th><th>설명</th></tr>
+          <tr><td>provider</td><td><code>kakao</code></td><td>소셜 로그인 제공자 (kakao/naver/pass)</td></tr>
+          <tr><td>returnUrl</td><td><code>https://agency.go.kr/login/callback</code></td><td>인증 완료 후 리다이렉트 URL (화이트리스트 검증)</td></tr>
+          <tr><td>correlationId</td><td><code>01J8X3...</code></td><td>UUIDv7 기반 end-to-end 추적 ID</td></tr>
+          <tr><td>agencyCode</td><td><code>AGENCY_STUB_001</code></td><td>요청 기관 코드</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <!-- STEP 1-3 -->
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a2035;color:var(--accent);">3</div>
+        <div class="step-title">BrokerService.buildAuthorizationUrl() — qsign / keycloak 모드 분기</div>
+        <div class="step-meta">
+          <span class="tag tag-http">Logic</span>
+        </div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>brokerMode</code> 설정에 따라 두 가지 경로로 분기됩니다.
+          <strong>qsign 모드</strong>는 Q-Sign 서비스에 URL 생성을 위임하고,
+          <strong>keycloak 모드</strong>는 IdO가 직접 Keycloak URL을 생성합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">BrokerService.java — 모드 분기 <span>IdO</span></div>
+          <pre><span class="kw">public</span> <span class="typ">String</span> <span class="fn">buildAuthorizationUrl</span>(<span class="typ">String</span> provider,
+        <span class="typ">String</span> returnUrl, <span class="typ">String</span> correlationId, <span class="typ">String</span> agencyCode) {
+
+    <span class="kw">return switch</span> (brokerMode) {
+        <span class="kw">case</span> <span class="str">"qsign"</span> -&gt; <span class="fn">buildViaQSign</span>(provider, returnUrl, correlationId);
+        <span class="kw">case</span> <span class="str">"keycloak"</span> -&gt; <span class="fn">buildDirectKeycloakUrl</span>(provider, returnUrl, correlationId);
+        <span class="kw">default</span> -&gt; <span class="kw">throw new</span> <span class="typ">IllegalStateException</span>(<span class="str">"Unknown brokerMode: "</span> + brokerMode);
+    };
+}
+
+<span class="cmt">// ── qsign 모드: Q-Sign에 URL 생성 위임 ─────────────────────</span>
+<span class="kw">private</span> <span class="typ">String</span> <span class="fn">buildViaQSign</span>(<span class="typ">String</span> provider,
+        <span class="typ">String</span> returnUrl, <span class="typ">String</span> correlationId) {
+    <span class="typ">String</span> <span class="var">ts</span> = <span class="typ">String</span>.<span class="fn">valueOf</span>(Instant.<span class="fn">now</span>().<span class="fn">getEpochSecond</span>());
+    <span class="typ">String</span> <span class="var">sig</span> = <span class="fn">computeInternalSig</span>(correlationId, ts);  <span class="cmt">// HMAC-SHA256</span>
+
+    <span class="cmt">// POST q-sign/api/v1/oidc/{provider}/auth-url</span>
+    <span class="kw">return</span> qSignClient.<span class="fn">getAuthorizationUrl</span>(provider, returnUrl,
+            correlationId, sig, ts);
+}
+
+<span class="cmt">// ── keycloak 모드: IdO가 직접 URL 생성 ──────────────────────</span>
+<span class="kw">private</span> <span class="typ">String</span> <span class="fn">buildDirectKeycloakUrl</span>(<span class="typ">String</span> provider,
+        <span class="typ">String</span> returnUrl, <span class="typ">String</span> correlationId) {
+    <span class="typ">String</span> <span class="var">state</span> = <span class="fn">generateState</span>(correlationId);   <span class="cmt">// CSRF 방지용</span>
+    <span class="typ">String</span> <span class="var">nonce</span> = <span class="fn">generateNonce</span>();                <span class="cmt">// 재사용 방지</span>
+    <span class="cmt">// Redis에 state, nonce, returnUrl 저장 (TTL 10분)</span>
+    idoOidcStateStore.<span class="fn">create</span>(state, nonce, returnUrl, correlationId);
+
+    <span class="kw">return</span> UriComponentsBuilder
+            .<span class="fn">fromHttpUrl</span>(keycloakAuthEndpoint)
+            .<span class="fn">queryParam</span>(<span class="str">"client_id"</span>,     kcClientId)
+            .<span class="fn">queryParam</span>(<span class="str">"response_type"</span>, <span class="str">"code"</span>)
+            .<span class="fn">queryParam</span>(<span class="str">"scope"</span>,         <span class="str">"openid profile"</span>)
+            .<span class="fn">queryParam</span>(<span class="str">"state"</span>,         state)
+            .<span class="fn">queryParam</span>(<span class="str">"nonce"</span>,         nonce)
+            .<span class="fn">queryParam</span>(<span class="str">"kc_idp_hint"</span>,  <span class="str">"social-kakao"</span>)  <span class="cmt">// IdP 직접 지정</span>
+            .<span class="fn">queryParam</span>(<span class="str">"redirect_uri"</span>,  qSignCallbackUrl)
+            .<span class="fn">toUriString</span>();
+}
+
+<span class="cmt">// X-Internal-Sig: HMAC-SHA256(correlationId + ":" + epochSeconds, secret)</span>
+<span class="kw">private</span> <span class="typ">String</span> <span class="fn">computeInternalSig</span>(<span class="typ">String</span> correlationId, <span class="typ">String</span> ts) {
+    <span class="kw">return</span> <span class="fn">hmacSha256Hex</span>(correlationId + <span class="str">":"</span> + ts, internalSigningSecret);
+}</pre>
+        </div>
+        <div class="info-box blue">
+          <strong>kc_idp_hint 역할:</strong> Keycloak 로그인 선택 화면을 건너뛰고 지정된 소셜 IdP
+          (<code>social-kakao</code>)로 직행시킵니다. 사용자 UX 개선 핵심 파라미터.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼ 302 Redirect → Keycloak Authorization URL</div>
+
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 2: OIDC 인증 (Keycloak + 카카오)                       -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase" id="phase-2">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#1a2030;">🔑</div>
+      <div>
+        <h2>Phase 2 — Keycloak OIDC + 카카오 OAuth2 인증</h2>
+        <p>브라우저가 Keycloak → 카카오 → 사용자 인증 → Q-Sign 콜백까지 도달하는 과정.</p>
+      </div>
+    </div>
+
+    <div class="step-card open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a2030;color:var(--purple);">1</div>
+        <div class="step-title">Keycloak Authorization Endpoint 처리</div>
+        <div class="step-meta"><span class="tag tag-http">Keycloak</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          브라우저가 Keycloak Authorization Endpoint에 도달합니다.
+          <code>kc_idp_hint=social-kakao</code>가 있으므로 로그인 선택 화면을 건너뛰고
+          카카오 IdP Federation으로 즉시 리다이렉트합니다.
+        </p>
+        <ul class="sub-steps">
+          <li>
+            <span class="sn">1</span>
+            <span class="sc">
+              <strong>파라미터 파싱:</strong> <code>state</code>, <code>nonce</code>, <code>redirect_uri</code>, <code>kc_idp_hint</code> 추출
+              <span class="note">kc_idp_hint = "social-kakao" → Keycloak 내부 IdP 별칭</span>
+            </span>
+          </li>
+          <li>
+            <span class="sn">2</span>
+            <span class="sc">
+              <strong>세션 생성:</strong> Keycloak 내부 auth session 생성 (state → Keycloak 세션 매핑)
+            </span>
+          </li>
+          <li>
+            <span class="sn">3</span>
+            <span class="sc">
+              <strong>카카오 OAuth2 요청 생성:</strong> scope=openid profile email, Keycloak 자체 state 생성
+              <span class="note">원본 state(IdO/Q-Sign state)와 카카오용 state를 Keycloak이 내부 매핑 관리</span>
+            </span>
+          </li>
+          <li>
+            <span class="sn">4</span>
+            <span class="sc">
+              <strong>302 → 카카오 Authorization URL:</strong> <code>https://kauth.kakao.com/oauth/authorize?client_id=...&state=...&redirect_uri=https://keycloak.../auth/realms/.../broker/social-kakao/endpoint</code>
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a2030;color:var(--purple);">2</div>
+        <div class="step-title">사용자 카카오 로그인 → 카카오 → Keycloak 콜백</div>
+        <div class="step-meta"><span class="tag tag-http">사용자 인증</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          사용자가 카카오 로그인 페이지에서 인증합니다. 카카오는 Keycloak의 콜백 URL로
+          <code>code</code>와 <code>state</code>를 전달합니다.
+          Keycloak은 카카오 Token API로 <code>code</code>를 교환하고, 카카오 사용자 정보를 조회하여
+          Keycloak 내부 사용자 계정에 연결(federated identity)합니다.
+        </p>
+        <ul class="sub-steps">
+          <li>
+            <span class="sn">1</span>
+            <span class="sc">
+              <strong>카카오 → Keycloak 콜백:</strong> <code>GET /auth/realms/.../broker/social-kakao/endpoint?code=xxx&state=yyy</code>
+            </span>
+          </li>
+          <li>
+            <span class="sn">2</span>
+            <span class="sc">
+              <strong>Keycloak 내부:</strong> <code>POST https://kapi.kakao.com/oauth/token</code> → <code>access_token</code> 교환
+            </span>
+          </li>
+          <li>
+            <span class="sn">3</span>
+            <span class="sc">
+              <strong>카카오 사용자 정보 조회:</strong> <code>GET https://kapi.kakao.com/v2/user/me</code> → <code>sub</code>(카카오 고유 ID) 획득
+            </span>
+          </li>
+          <li>
+            <span class="sn">4</span>
+            <span class="sc">
+              <strong>Keycloak 사용자 연결:</strong> federated identity 매핑. 최초 로그인이면 Keycloak 사용자 생성(또는 기존 계정 연결).
+              <code>sub</code> = 카카오 고유 ID가 Keycloak identity provider link의 <code>userId</code>로 저장됨
+            </span>
+          </li>
+          <li>
+            <span class="sn">5</span>
+            <span class="sc">
+              <strong>OIDC id_token 발급:</strong> Keycloak이 원래 OAuth2 요청(<code>redirect_uri</code>=Q-Sign)으로
+              <code>code</code> + <code>state</code> 담아 302 → Q-Sign 콜백
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼ 302 → Q-Sign KeycloakCallbackController?code=xxx&state=yyy</div>
+
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 3: Q-Sign 콜백 처리                                    -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase" id="phase-3">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#1a3020;">✅</div>
+      <div>
+        <h2>Phase 3 — Q-Sign KeycloakCallbackService 처리 (11단계)</h2>
+        <p>가장 복잡한 단계. CSRF→토큰교환→JWKS검증→DB저장→IdO통보까지. @Transactional은 <strong>public handleCallback()</strong>에 선언, private issueAuthResult()는 동일 TX 참여.</p>
+      </div>
+    </div>
+
+    <div class="step-card open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a3020;color:var(--green);">1</div>
+        <div class="step-title">handleCallback() — state 소비 (CSRF 원샷 검증)</div>
+        <div class="step-meta"><span class="tag tag-db">Redis</span><span class="tag tag-security">CSRF</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>state</code> 파라미터는 <strong>1회성 토큰</strong>입니다.
+          Redis에서 <code>consumeAndValidate(state)</code>를 호출하여 존재 여부를 확인하고 즉시 삭제합니다.
+          이로써 CSRF(Cross-Site Request Forgery) 공격과 콜백 재사용 공격을 모두 차단합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">KeycloakCallbackService.java — state 소비 <span>Q-Sign</span></div>
+          <pre><span class="kw">public</span> <span class="typ">String</span> <span class="fn">handleCallback</span>(<span class="typ">String</span> code, <span class="typ">String</span> state) {
+
+    <span class="cmt">// ① state 소비 (Redis DEL + 존재 확인) — CSRF 방지</span>
+    <span class="typ">OidcStateEntry</span> <span class="var">stateEntry</span> = stateStore.<span class="fn">consumeAndValidate</span>(state);
+    <span class="cmt">// stateEntry에 nonce, returnUrl, correlationId 포함</span>
+    <span class="cmt">// state가 없거나 이미 소비된 경우 → InvalidStateException 발생</span>
+
+    <span class="typ">String</span> <span class="var">correlationId</span> = stateEntry.<span class="fn">getCorrelationId</span>();
+    <span class="typ">String</span> <span class="var">returnUrl</span>    = stateEntry.<span class="fn">getReturnUrl</span>();
+    <span class="cmt">// ...</span>
+}</pre>
+        </div>
+        <div class="info-box red">
+          <strong>보안 포인트:</strong> <code>stateStore.consumeAndValidate()</code>는
+          Redis <code>GET</code> + <code>DEL</code>을 Lua 스크립트로 원자적으로 실행합니다.
+          분산 환경에서도 두 인스턴스가 동시에 같은 state를 처리하는 경쟁 조건이 발생하지 않습니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a3020;color:var(--green);">2</div>
+        <div class="step-title">Keycloak Token Endpoint — authorization_code 교환</div>
+        <div class="step-meta"><span class="tag tag-http">POST Keycloak</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          Q-Sign이 Keycloak Token Endpoint로 <code>authorization_code</code>를 교환합니다.
+          응답으로 <code>id_token</code>(JWT), <code>access_token</code>, <code>refresh_token</code>을 받습니다.
+          이 과정은 기관 브라우저를 거치지 않고 <strong>Q-Sign 서버 ↔ Keycloak 서버 간 직접 통신</strong>입니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">Keycloak Token 교환 <span>Q-Sign → Keycloak</span></div>
+          <pre><span class="cmt">// POST {keycloak-base}/realms/{realm}/protocol/openid-connect/token</span>
+<span class="typ">MultiValueMap</span>&lt;<span class="typ">String</span>, <span class="typ">String</span>&gt; <span class="var">params</span> = <span class="kw">new</span> <span class="typ">LinkedMultiValueMap</span>&lt;&gt;();
+params.<span class="fn">add</span>(<span class="str">"grant_type"</span>,    <span class="str">"authorization_code"</span>);
+params.<span class="fn">add</span>(<span class="str">"client_id"</span>,     kcClientId);
+params.<span class="fn">add</span>(<span class="str">"client_secret"</span>, kcClientSecret);
+params.<span class="fn">add</span>(<span class="str">"code"</span>,          code);
+params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  callbackUrl);
+
+<span class="cmt">// 응답: { id_token: "eyJ...", access_token: "...", refresh_token: "..." }</span>
+<span class="typ">TokenResponse</span> <span class="var">tokens</span> = keycloakClient.<span class="fn">exchangeCode</span>(params);</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a3020;color:var(--green);">3</div>
+        <div class="step-title">JWKS RS256 검증 → nonce / aud / exp → SHA-256(sub)</div>
+        <div class="step-meta"><span class="tag tag-security">Security</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          수신한 <code>id_token</code>을 5단계로 철저히 검증합니다.
+          Keycloak의 JWKS 엔드포인트에서 공개키를 조회하여 서명을 검증하고,
+          모든 클레임이 유효한지 확인합니다.
+        </p>
+        <ul class="sub-steps">
+          <li>
+            <span class="sn">①</span>
+            <span class="sc">
+              <strong>JWKS 공개키 조회:</strong> <code>GET {keycloak}/.well-known/jwks.json</code>
+              → <code>kid</code> 매칭 → RS256 공개키 로드 (로컬 캐시, 5분 TTL)
+            </span>
+          </li>
+          <li>
+            <span class="sn">②</span>
+            <span class="sc">
+              <strong>서명 검증:</strong> JWT Header + Payload를 공개키로 RS256 서명 검증.
+              위조된 id_token 즉시 거부.
+            </span>
+          </li>
+          <li>
+            <span class="sn">③</span>
+            <span class="sc">
+              <strong>nonce 검증:</strong> <code>id_token.nonce</code> == <code>stateEntry.nonce</code> 일치 확인.
+              재사용 공격 방지.
+              <span class="note">nonce도 Redis에 1회성으로 저장되어 있으며, 이미 state 소비 시 함께 읽힘</span>
+            </span>
+          </li>
+          <li>
+            <span class="sn">④</span>
+            <span class="sc">
+              <strong>aud 검증:</strong> <code>id_token.aud</code> == <code>kcClientId</code> 확인.
+              타 클라이언트 토큰 재사용 방지.
+            </span>
+          </li>
+          <li>
+            <span class="sn">⑤</span>
+            <span class="sc">
+              <strong>exp 검증:</strong> 토큰 만료 시각 > 현재 시각. 만료 토큰 거부.
+            </span>
+          </li>
+          <li>
+            <span class="sn">⑥</span>
+            <span class="sc">
+              <strong>SHA-256(sub) = identifierHash:</strong>
+              <code>sub</code>는 Keycloak 내부 사용자 UUID. SHA-256 해시로 저장 → 원본 <code>sub</code> 비노출 보호.
+              <code>identifierHash</code>가 Q-IM의 CI(개인연계정보)에 해당하는 식별자.
+            </span>
+          </li>
+          <li>
+            <span class="sn">⑦</span>
+            <span class="sc">
+              <strong>providerCode 역매핑:</strong>
+              Keycloak IdP 별칭 <code>social-kakao</code> → 내부 코드 <code>KAKAO_OIDC</code>
+              (provider_code_mapping 테이블 조회)
+            </span>
+          </li>
+          <li>
+            <span class="sn">⑧</span>
+            <span class="sc">
+              <strong>lockRepository.isLocked(identifierHash):</strong>
+              해당 사용자가 보안상 Lock 상태인지 확인. Lock이면 AUTH_LOCKED 처리.
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a3020;color:var(--green);">4</div>
+        <div class="step-title">@Transactional handleCallback() — authResultRepo.save() + outboxRepo.save()</div>
+        <div class="step-meta"><span class="tag tag-db">DB TX</span><span class="tag tag-async">Outbox</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          검증이 완료되면 <strong>하나의 트랜잭션</strong> 내에서 인증 결과와 Outbox 레코드를 동시에 저장합니다.
+          이것이 <strong>Transactional Outbox Pattern</strong>의 핵심입니다.
+          DB 커밋이 성공해야만 Kafka 이벤트 발행이 보장됩니다.
+        </p>
+        <div class="info-box yellow">
+          <strong>⚠️ @Transactional 경계 주의:</strong>
+          <code>@Transactional</code>은 <strong><code>public handleCallback()</code> 메서드</strong>에 선언되어 있습니다.
+          Spring AOP proxy 기반 트랜잭션은 <code>private</code> 메서드에 적용 불가하기 때문입니다.
+          내부적으로 호출되는 <code>issueAuthResult()</code>는 별도의 어노테이션 없이 <strong>동일 트랜잭션에 참여</strong>합니다.
+          Step 1(state 소비)부터 Step 5(IdO 통보 전)까지 <code>handleCallback()</code>의 TX 범위 안에 있음을 주의하십시오.
+        </div>
+        <div class="code-wrap">
+          <div class="code-label">KeycloakCallbackService.java — @Transactional 경계 <span>Q-Sign</span></div>
+          <pre><span class="cmt">// ★ @Transactional은 public 메서드에만 동작 (Spring AOP proxy 제약)</span>
+<span class="cmt">// handleCallback() 전체가 하나의 TX — state 소비 후 DB 저장까지 원자적</span>
+<span class="ann">@Transactional</span>
+<span class="kw">public</span> <span class="typ">String</span> <span class="fn">handleCallback</span>(<span class="typ">String</span> code, <span class="typ">String</span> state) {
+
+    <span class="cmt">// ① state 소비 (Redis — TX 범위 밖, 선행 작업)</span>
+    <span class="typ">OidcStateEntry</span> <span class="var">stateEntry</span> = stateStore.<span class="fn">consumeAndValidate</span>(state);
+
+    <span class="cmt">// ② ~ ⑦ 토큰 교환, JWKS 검증, lockCheck ...</span>
+
+    <span class="cmt">// ③ authResult + outbox 저장 (동일 TX 내 private 호출)</span>
+    <span class="typ">AuthResult</span> <span class="var">authResult</span> = <span class="fn">issueAuthResult</span>(identifierHash, providerCode,
+            stateEntry.<span class="fn">getNonce</span>(), authLevel, correlationId);
+
+    <span class="cmt">// ④ IdO에 통보 — TX 커밋 전 HTTP 호출</span>
+    <span class="cmt">// (OidcCompleteController는 qsign DB를 직접 읽지 않으므로 실제 문제 없음)</span>
+    <span class="typ">String</span> <span class="var">redirectUrl</span> = <span class="fn">notifyIdoAndGetRedirect</span>(authResult, stateEntry);
+
+    <span class="kw">return</span> redirectUrl;  <span class="cmt">// → 브라우저 302</span>
+}
+
+<span class="cmt">// private 메서드 — @Transactional 없어도 handleCallback() TX에 참여</span>
+<span class="kw">private</span> <span class="typ">AuthResult</span> <span class="fn">issueAuthResult</span>(<span class="typ">String</span> identifierHash,
+        <span class="typ">String</span> providerCode, <span class="typ">String</span> nonce,
+        <span class="typ">AuthResult.AuthLevel</span> authLevel, <span class="typ">String</span> correlationId) {
+
+    <span class="cmt">// ① AuthResult 저장 → qsign.auth_result 테이블</span>
+    <span class="typ">AuthResult</span> <span class="var">result</span> = <span class="typ">AuthResult</span>.<span class="fn">builder</span>()
+            .<span class="fn">authResultId</span>(UuidV7.<span class="fn">generate</span>())
+            .<span class="fn">identifierHash</span>(identifierHash)  <span class="cmt">// SHA-256(sub)</span>
+            .<span class="fn">providerCode</span>(providerCode)       <span class="cmt">// KAKAO_OIDC</span>
+            .<span class="fn">authLevel</span>(authLevel)             <span class="cmt">// L1/L2/L3</span>
+            .<span class="fn">correlationId</span>(correlationId)
+            .<span class="fn">issuedAt</span>(Instant.<span class="fn">now</span>())
+            .<span class="fn">build</span>();
+    authResultRepository.<span class="fn">save</span>(result);   <span class="cmt">// → qsign.auth_result</span>
+
+    <span class="cmt">// ② Outbox 레코드 저장 → qsign.outbox (status=PENDING)</span>
+    <span class="cmt">// 이 트랜잭션이 커밋되어야 Relay가 Kafka에 발행</span>
+    <span class="typ">QSignOutboxRecord</span> <span class="var">outbox</span> = <span class="typ">QSignOutboxRecord</span>.<span class="fn">builder</span>()
+            .<span class="fn">eventId</span>(UuidV7.<span class="fn">generate</span>())
+            .<span class="fn">eventType</span>(<span class="str">"AUTH_COMPLETED"</span>)
+            .<span class="fn">authResultId</span>(result.<span class="fn">getAuthResultId</span>())
+            .<span class="fn">correlationId</span>(correlationId)
+            .<span class="fn">status</span>(<span class="str">"PENDING"</span>)
+            .<span class="fn">build</span>();
+    outboxRepository.<span class="fn">save</span>(outbox);       <span class="cmt">// → qsign.outbox</span>
+
+    <span class="kw">return</span> result;
+}</pre>
+        </div>
+        <div class="info-box green">
+          <strong>왜 트랜잭션 내에서 둘 다 저장해야 하는가?</strong><br>
+          만약 <code>authResultRepository.save()</code> 후 <code>outboxRepository.save()</code> 전에 프로세스가 죽으면,
+          인증은 완료됐지만 Kafka 이벤트가 발행되지 않아 IdO가 세션을 생성하지 못합니다.
+          둘을 같은 트랜잭션에 묶으면 <strong>원자성</strong>이 보장됩니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a3020;color:var(--green);">5</div>
+        <div class="step-title">POST /api/internal/v1/oidc/complete → IdO 통보</div>
+        <div class="step-meta"><span class="tag tag-http">Internal API</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          AuthResult 저장 후 Q-Sign이 IdO의 <code>OidcCompleteController</code>에 동기적으로 통보합니다.
+          이 호출은 <strong>X-Internal-Sig</strong> HMAC으로 인증됩니다 (내부망 서비스간 신뢰).
+          이 동기 호출의 응답으로 <code>redirectUrl</code>을 받아 최종 302 리다이렉트를 수행합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">Q-Sign → IdO 내부 통보 <span>Q-Sign</span></div>
+          <pre><span class="cmt">// POST ido/api/internal/v1/oidc/complete</span>
+<span class="typ">OidcCompleteRequest</span> <span class="var">req</span> = <span class="typ">OidcCompleteRequest</span>.<span class="fn">builder</span>()
+        .<span class="fn">authResultId</span>(authResult.<span class="fn">getAuthResultId</span>())
+        .<span class="fn">identifierHash</span>(authResult.<span class="fn">getIdentifierHash</span>()) <span class="cmt">// CI 해시</span>
+        .<span class="fn">providerCode</span>(authResult.<span class="fn">getProviderCode</span>())
+        .<span class="fn">authLevel</span>(authResult.<span class="fn">getAuthLevel</span>().<span class="fn">name</span>())
+        .<span class="fn">correlationId</span>(correlationId)
+        .<span class="fn">returnUrl</span>(returnUrl)
+        .<span class="fn">build</span>();
+
+<span class="typ">String</span> <span class="var">ts</span>  = <span class="typ">String</span>.<span class="fn">valueOf</span>(Instant.<span class="fn">now</span>().<span class="fn">getEpochSecond</span>());
+<span class="typ">String</span> <span class="var">sig</span> = <span class="fn">hmacSha256Hex</span>(correlationId + <span class="str">":"</span> + ts, internalSecret);
+
+<span class="cmt">// X-Internal-Sig: 내부망 서비스간 인증 (외부 노출 없음)</span>
+<span class="typ">OidcCompleteResponse</span> <span class="var">resp</span> = idoInternalClient.<span class="fn">complete</span>(req,
+        sig, ts, correlationId);
+
+<span class="kw">return</span> resp.<span class="fn">getRedirectUrl</span>();  <span class="cmt">// → 기관 returnUrl (302 Location)</span></pre>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 4: IdO 세션 처리 + 비동기 Redis Pre-warming            -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase" id="phase-4">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#2a1f10;">⚡</div>
+      <div>
+        <h2>Phase 4 — IdO OidcCompleteController + FeSession + Redis Pre-warming</h2>
+        <p>CI→QIM 조회/등록, FeSession 발급, 60,000명 급증 대응 Redis Pre-warming 동시 진행.</p>
+      </div>
+    </div>
+
+    <div class="step-card open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1f10;color:var(--orange);">1</div>
+        <div class="step-title">OidcCompleteController — X-Internal-Sig 검증 + CI로 Q-IM 조회/등록</div>
+        <div class="step-meta"><span class="tag tag-security">HMAC 검증</span><span class="tag tag-http">Q-IM</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>POST /api/internal/v1/oidc/complete</code>를 수신한 IdO는
+          먼저 <code>X-Internal-Sig</code>로 발신자(Q-Sign)를 검증합니다.
+          그 후 <code>identifierHash</code>(CI 해시)로 Q-IM에서 사용자를 조회하거나,
+          미등록 시 자동으로 신규 등록합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">OidcCompleteController.java <span>IdO</span></div>
+          <pre><span class="ann">@PostMapping</span>(<span class="str">"/api/internal/v1/oidc/complete"</span>)
+<span class="kw">public</span> <span class="typ">ResponseEntity</span>&lt;<span class="typ">OidcCompleteResponse</span>&gt; <span class="fn">complete</span>(
+        <span class="ann">@RequestBody</span> <span class="typ">OidcCompleteRequest</span> req,
+        <span class="ann">@RequestHeader</span>(<span class="str">"X-Internal-Sig"</span>) <span class="typ">String</span> sig,
+        <span class="ann">@RequestHeader</span>(<span class="str">"X-Timestamp"</span>) <span class="typ">String</span> ts,
+        <span class="ann">@RequestHeader</span>(<span class="str">"X-Correlation-Id"</span>) <span class="typ">String</span> correlationId) {
+
+    <span class="cmt">// ① X-Internal-Sig 검증 (상수시간 비교)</span>
+    <span class="typ">String</span> <span class="var">expected</span> = <span class="fn">hmacSha256Hex</span>(correlationId + <span class="str">":"</span> + ts, internalSecret);
+    <span class="kw">if</span> (!MessageDigest.<span class="fn">isEqual</span>(sig.<span class="fn">getBytes</span>(), expected.<span class="fn">getBytes</span>()))
+        <span class="kw">throw new</span> <span class="typ">UnauthorizedException</span>(<span class="str">"X-Internal-Sig mismatch"</span>);
+
+    <span class="cmt">// ② returnUrl 화이트리스트 검증</span>
+    <span class="kw">if</span> (!feSessionService.<span class="fn">isValidReturnUrl</span>(req.<span class="fn">getReturnUrl</span>()))
+        <span class="kw">throw new</span> <span class="typ">BadRequestException</span>(<span class="str">"returnUrl not in whitelist"</span>);
+
+    <span class="cmt">// ③ CI(identifierHash)로 Q-IM 사용자 조회</span>
+    <span class="typ">String</span> <span class="var">qimUserId</span>;
+    <span class="kw">try</span> {
+        qimUserId = qimClient.<span class="fn">findByCi</span>(req.<span class="fn">getIdentifierHash</span>());
+    } <span class="kw">catch</span> (<span class="typ">UserNotFoundException</span> e) {
+        <span class="cmt">// ④ 미등록 사용자 → 자동 등록 (최초 로그인 시 1회)</span>
+        qimUserId = qimClient.<span class="fn">registerUser</span>(<span class="typ">RegisterUserRequest</span>.<span class="fn">builder</span>()
+                .<span class="fn">identifierHash</span>(req.<span class="fn">getIdentifierHash</span>())
+                .<span class="fn">providerCode</span>(req.<span class="fn">getProviderCode</span>())
+                .<span class="fn">authLevel</span>(req.<span class="fn">getAuthLevel</span>())
+                .<span class="fn">correlationId</span>(correlationId)
+                .<span class="fn">build</span>());
+    }
+    <span class="cmt">// ...</span>
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1f10;color:var(--orange);">2</div>
+        <div class="step-title">FeSessionServiceImpl.create() — Redis에 FE 세션 저장</div>
+        <div class="step-meta"><span class="tag tag-redis">Redis</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>qimUserId</code>가 확보되면 <strong>FE 세션</strong>을 Redis에 생성합니다.
+          세션 ID는 <code>SecureRandom</code> 256-bit로 생성되며, HttpOnly 쿠키로만 전달됩니다.
+          Sliding TTL(30분)과 Absolute Timeout(8시간)을 함께 적용합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">FeSessionServiceImpl.java — 세션 생성 <span>IdO</span></div>
+          <pre><span class="kw">public</span> <span class="typ">FeSession</span> <span class="fn">create</span>(<span class="typ">String</span> qimUserId, <span class="typ">String</span> authResultId,
+                           <span class="typ">String</span> authLevel, <span class="typ">String</span> returnUrl) {
+
+    <span class="cmt">// 256-bit 난수 → URL-safe Base64 (세션 ID)</span>
+    <span class="typ">String</span> <span class="var">sessionId</span> = <span class="fn">generateSessionId</span>();
+    <span class="typ">Instant</span> <span class="var">now</span> = Instant.<span class="fn">now</span>();
+
+    <span class="typ">FeSession</span> <span class="var">session</span> = <span class="typ">FeSession</span>.<span class="fn">builder</span>()
+            .<span class="fn">feSessionId</span>(sessionId)
+            .<span class="fn">qimUserId</span>(qimUserId)
+            .<span class="fn">authResultId</span>(authResultId)
+            .<span class="fn">authLevel</span>(authLevel)
+            .<span class="fn">createdAt</span>(now)
+            .<span class="fn">lastActivityAt</span>(now)
+            .<span class="fn">absoluteExpiresAt</span>(now.<span class="fn">plus</span>(Duration.<span class="fn">ofMinutes</span>(absoluteTimeoutMinutes)))  <span class="cmt">// 8시간</span>
+            .<span class="fn">returnUrl</span>(returnUrl)
+            .<span class="fn">advisoryFlag</span>(<span class="kw">false</span>)
+            .<span class="fn">build</span>();
+
+    <span class="cmt">// Redis: fe:session:{sessionId} → FeSession (TTL 30분, Sliding)</span>
+    redisTemplate.<span class="fn">opsForValue</span>().<span class="fn">set</span>(
+            <span class="str">"fe:session:"</span> + sessionId, session, Duration.<span class="fn">ofMinutes</span>(slidingTtlMinutes));
+
+    <span class="cmt">// 역인덱스: fe:user-sessions:{qimUserId} → Set{sessionId}</span>
+    <span class="cmt">// invalidateByQimUserId() 지원용 (보안 강제 무효화 시 사용)</span>
+    redisTemplate.<span class="fn">opsForSet</span>().<span class="fn">add</span>(<span class="str">"fe:user-sessions:"</span> + qimUserId, sessionId);
+
+    <span class="kw">return</span> session;
+}</pre>
+        </div>
+        <table class="df-table">
+          <tr><th>Redis 키</th><th>값</th><th>TTL</th></tr>
+          <tr><td><code>fe:session:{sessionId}</code></td><td>FeSession 객체 (qimUserId 포함)</td><td>30분 (Sliding)</td></tr>
+          <tr><td><code>fe:user-sessions:{qimUserId}</code></td><td>Set of sessionId</td><td>8시간 (Absolute)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1f10;color:var(--orange);">3</div>
+        <div class="step-title">feSessionId HttpOnly 쿠키 Set-Cookie (server-to-server) → Q-Sign이 브라우저로 relay</div>
+        <div class="step-meta"><span class="tag tag-security">P1 보안</span><span class="tag tag-http">Cookie Relay</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>feSessionId</code>를 <strong>HttpOnly 쿠키</strong>로 설정합니다.
+          이것이 <strong>P1 보안 수정</strong>의 핵심입니다.
+          이전 버전에서는 <code>qimUserId</code>를 FE 요청 body에 포함시켰으나,
+          이는 클라이언트 측에서 위조 가능한 치명적 취약점이었습니다.
+        </p>
+        <div class="info-box red">
+          <strong>⚠️ 중요: server-to-server 응답의 Set-Cookie relay 메커니즘</strong><br>
+          <code>OidcCompleteController</code>의 응답은 <strong>브라우저가 직접 받는 것이 아닙니다.</strong>
+          이 API는 Q-Sign 서버가 서버측에서 호출하는 <strong>내부 server-to-server 호출</strong>입니다.<br><br>
+          따라서 <code>Set-Cookie: Fe-Session-Id=...</code> 헤더를 브라우저에 전달하려면,
+          <strong>Q-Sign 서버가 이 응답의 <code>Set-Cookie</code> 헤더를 브라우저로의 302 Redirect 응답에 포함(relay)해야 합니다.</strong><br><br>
+          흐름: <code>IdO → (Set-Cookie + redirectUrl) → Q-Sign</code> → Q-Sign이
+          <code>302 Location: returnUrl</code> + <code>Set-Cookie: Fe-Session-Id=...</code>를 브라우저에 전달 →
+          브라우저가 <code>ido.onepass.kr</code> 도메인으로 쿠키 저장
+        </div>
+        <div class="code-wrap">
+          <div class="code-label">OidcCompleteController.java — 쿠키 발급 (IdO → Q-Sign server-to-server) <span>IdO</span></div>
+          <pre><span class="cmt">// ★ 이 응답은 Q-Sign 서버가 수신 (브라우저 직접 수신 아님)</span>
+<span class="cmt">// feSessionId: HttpOnly=true, SameSite=Lax, Secure=true</span>
+<span class="cmt">// domain=ido.onepass.kr 으로 발급 → 브라우저는 ido 도메인으로 쿠키 저장</span>
+<span class="typ">ResponseCookie</span> <span class="var">cookie</span> = ResponseCookie
+        .<span class="fn">from</span>(<span class="str">"Fe-Session-Id"</span>, session.<span class="fn">getFeSessionId</span>())
+        .<span class="fn">httpOnly</span>(<span class="kw">true</span>)    <span class="cmt">// JS 접근 불가 — XSS 방어</span>
+        .<span class="fn">secure</span>(<span class="kw">true</span>)      <span class="cmt">// HTTPS only</span>
+        .<span class="fn">sameSite</span>(<span class="str">"Lax"</span>)  <span class="cmt">// CSRF 방어</span>
+        .<span class="fn">path</span>(<span class="str">"/"</span>)
+        .<span class="fn">maxAge</span>(Duration.<span class="fn">ofMinutes</span>(<span class="num">30</span>))
+        .<span class="fn">build</span>();
+
+<span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>()
+        .<span class="fn">header</span>(HttpHeaders.SET_COOKIE, cookie.<span class="fn">toString</span>())
+        .<span class="fn">body</span>(<span class="typ">OidcCompleteResponse</span>.<span class="fn">builder</span>()
+                .<span class="fn">redirectUrl</span>(returnUrl)   <span class="cmt">// 기관 returnUrl</span>
+                .<span class="fn">build</span>());</pre>
+        </div>
+        <div class="code-wrap">
+          <div class="code-label">Q-Sign — Set-Cookie relay + 브라우저 302 Redirect <span>Q-Sign → Browser</span></div>
+          <pre"><span class="cmt">// Q-Sign의 handleCallback() 최종 단계</span>
+<span class="cmt">// IdO 서버에서 받은 Set-Cookie 헤더를 브라우저 응답에 포함(relay)</span>
+<span class="typ">OidcCompleteResponse</span> <span class="var">idoResp</span> = <span class="fn">notifyIdoAndGetRedirect</span>(authResult, stateEntry);
+<span class="cmt">// idoResp.redirectUrl  = 기관 returnUrl</span>
+<span class="cmt">// idoResp.setCookieHeader = "Fe-Session-Id=xxx; HttpOnly; Secure; SameSite=Lax"</span>
+
+<span class="cmt">// 브라우저로 302 + Set-Cookie relay</span>
+<span class="kw">return</span> ResponseEntity.<span class="fn">status</span>(HttpStatus.FOUND)
+        .<span class="fn">header</span>(HttpHeaders.LOCATION,   idoResp.<span class="fn">getRedirectUrl</span>())
+        .<span class="fn">header</span>(HttpHeaders.SET_COOKIE,  idoResp.<span class="fn">getSetCookieHeader</span>())  <span class="cmt">// relay!</span>
+        .<span class="fn">build</span>();
+<span class="cmt">// 결과: 브라우저가 302로 returnUrl로 이동하면서 Fe-Session-Id 쿠키 저장</span></pre>
+        </div>
+        <div class="info-box red">
+          <strong>P1 보안 수정 (Before → After):</strong><br>
+          <strong>Before (취약):</strong> FE가 <code>POST /api/v1/handoff/issue</code> body에 <code>qimUserId: "user-123"</code> 포함
+          → 공격자가 다른 사용자의 <code>qimUserId</code>를 body에 넣어 impersonation 가능<br><br>
+          <strong>After (수정):</strong> <code>HandoffController</code>가 <code>Fe-Session-Id</code> 쿠키를 읽어 서버에서 직접
+          <code>feSessionService.findById(feSessionId).getQimUserId()</code> 추출
+          → 클라이언트는 세션 ID만 가지고 있고, <code>qimUserId</code>는 서버만 알 수 있음
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow async">⟳ [동시 진행 — 비동기 Outbox Relay]</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1510;color:var(--orange);">A</div>
+        <div class="step-title">[비동기] Q-Sign OutboxRelay → Kafka → Redis Pre-warming</div>
+        <div class="step-meta"><span class="tag tag-async">비동기</span><span class="tag tag-kafka">Kafka</span><span class="tag tag-redis">Redis</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          Phase 3-Step 4에서 <code>qsign.outbox</code>에 저장된 <code>AUTH_COMPLETED</code> 레코드를
+          <strong>QSignOutboxRelay</strong>가 500ms마다 폴링하여 Kafka에 발행합니다.
+          IdO의 <strong>QsignAuthEventConsumer</strong>가 이를 수신하여 Redis에 Pre-warming합니다.
+          이 경로가 60,000명 동시 접속 시 DB I/O 폭발을 막는 핵심 메커니즘입니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">QsignAuthEventConsumer.java — AUTH_COMPLETED 처리 <span>IdO</span></div>
+          <pre"><span class="ann">@KafkaListener</span>(topics = <span class="str">"${ido.kafka.topic-auth-events:qsign.auth.events}"</span>,
+               groupId = <span class="str">"${ido.kafka.consumer-group-auth:ido-auth-consumer}"</span>)
+<span class="kw">public void</span> <span class="fn">consume</span>(<span class="typ">ConsumerRecord</span>&lt;<span class="typ">String</span>, <span class="typ">String</span>&gt; record, <span class="typ">Acknowledgment</span> ack) {
+    <span class="typ">AuthEvent</span> <span class="var">event</span> = <span class="fn">deserialize</span>(record.<span class="fn">value</span>());
+
+    <span class="kw">switch</span> (event.<span class="fn">getEventType</span>()) {
+        <span class="kw">case</span> <span class="str">"AUTH_COMPLETED"</span> -&gt; <span class="fn">handleAuthCompleted</span>(event);
+        <span class="kw">case</span> <span class="str">"AUTH_LOCKED"</span>    -&gt; <span class="fn">handleAuthLocked</span>(event);
+    }
+    ack.<span class="fn">acknowledge</span>();  <span class="cmt">// 수동 커밋 — 처리 완료 후</span>
+}
+
+<span class="kw">private void</span> <span class="fn">handleAuthCompleted</span>(<span class="typ">AuthEvent</span> event) {
+    <span class="cmt">// Redis Pre-warming: DB 없이 즉시 인증 결과 조회 가능</span>
+    authResultCacheService.<span class="fn">preWarm</span>(event);
+    <span class="cmt">// → ido:auth_result:{correlationId} TTL 300s</span>
+    <span class="cmt">// → ido:auth_level:{correlationId}  TTL 300s</span>
+}</pre>
+        </div>
+        <div class="code-wrap">
+          <div class="code-label">AuthResultCacheService.java — Pre-warming <span>IdO</span></div>
+          <pre><span class="kw">public void</span> <span class="fn">preWarm</span>(<span class="typ">AuthEvent</span> event) {
+    <span class="typ">String</span> <span class="var">correlationId</span> = event.<span class="fn">getCorrelationId</span>();
+
+    <span class="typ">Map</span>&lt;<span class="typ">String</span>, <span class="typ">Object</span>&gt; <span class="var">cacheValue</span> = Map.<span class="fn">of</span>(
+        <span class="str">"correlationId"</span>, correlationId,
+        <span class="str">"authResultId"</span>,  event.<span class="fn">getAuthResultId</span>(),
+        <span class="str">"qimUserId"</span>,     event.<span class="fn">getQimUserId</span>(),
+        <span class="str">"authLevel"</span>,     event.<span class="fn">getAuthLevel</span>().<span class="fn">name</span>(),
+        <span class="str">"providerCode"</span>,  event.<span class="fn">getProviderCode</span>(),
+        <span class="str">"cachedAt"</span>,      System.<span class="fn">currentTimeMillis</span>()
+    );
+
+    <span class="cmt">// ido:auth_result:{correlationId} TTL=300s</span>
+    redisTemplate.<span class="fn">opsForValue</span>().<span class="fn">set</span>(
+            <span class="str">"ido:auth_result:"</span> + correlationId,
+            cacheValue,
+            Duration.<span class="fn">ofSeconds</span>(<span class="num">300</span>)   <span class="cmt">// 5분 — Handoff TTL(60s)의 5배</span>
+    );
+
+    <span class="cmt">// authLevel 별도 키 (Handoff 정책 체크 고속화)</span>
+    redisTemplate.<span class="fn">opsForValue</span>().<span class="fn">set</span>(
+            <span class="str">"ido:auth_level:"</span> + correlationId,
+            event.<span class="fn">getAuthLevel</span>().<span class="fn">name</span>(),
+            Duration.<span class="fn">ofSeconds</span>(<span class="num">300</span>)
+    );
+    <span class="cmt">// 60,000건 × ~512 bytes = ~30 MB — Redis 메모리 충분</span>
+}</pre>
+        </div>
+        <div class="info-box orange">
+          <strong>60,000명 급증 시나리오:</strong><br>
+          Pre-warming 없이: 60,000명 동시 Handoff 요청 → 60,000 DB 쿼리 → DB I/O 폭발 → 지연/장애<br>
+          Pre-warming 있음: 인증 완료 시점에 Redis 적재 → Handoff 요청 시 DB 없이 Redis Hit (목표 99%) → DB 부하 차단
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 5: Handoff 발급                                        -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase" id="phase-5">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#1a2035;">🎫</div>
+      <div>
+        <h2>Phase 5 — Handoff 티켓 발급 (SDK → HandoffServiceImpl)</h2>
+        <p>기관이 SDK를 통해 티켓을 요청하는 과정. P1 보안 수정 + 7단계 검증 + @Transactional 저장.</p>
+      </div>
+    </div>
+
+    <div class="step-card open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a2035;color:var(--accent);">1</div>
+        <div class="step-title">기관 → SDK AgencyGatewayClient → POST /api/v1/handoff/issue</div>
+        <div class="step-meta"><span class="tag tag-http">SDK</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          기관 브라우저가 <code>returnUrl</code>로 돌아오면, 기관 서버는 SDK를 이용해
+          <code>POST /api/v1/handoff/issue</code>를 호출합니다.
+          이때 Resilience4j <strong>CircuitBreaker</strong>와 <strong>Retry</strong>가 자동으로 적용됩니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">IdoTicketClient.java — Resilience4j 적용 SDK 호출 <span>agency-stub</span></div>
+          <pre"><span class="ann">@CircuitBreaker</span>(name = <span class="str">"ido-ticket"</span>, fallbackMethod = <span class="str">"fallback"</span>)
+<span class="ann">@Retry</span>(name = <span class="str">"ido-ticket"</span>)
+<span class="kw">public</span> <span class="typ">TicketResult</span> <span class="fn">issue</span>(<span class="typ">String</span> qimUserId, <span class="typ">String</span> authResultId,
+                           <span class="typ">String</span> authLevel, <span class="typ">String</span> providerCode,
+                           <span class="typ">String</span> correlationId) {
+
+    <span class="typ">String</span> <span class="var">idempotencyKey</span> = UuidV7.<span class="fn">generate</span>();  <span class="cmt">// 중복 발급 방지</span>
+
+    <span class="cmt">// SDK가 X-Agency-Key, X-Agency-Code, X-Internal-Sig, X-Idempotency-Key 자동 첨부</span>
+    <span class="kw">return</span> agencyGatewayClient.<span class="fn">post</span>(
+            PATH_HANDOFF_ISSUE,
+            <span class="typ">HandoffIssueRequest</span>.<span class="fn">builder</span>()
+                .<span class="fn">authResultId</span>(authResultId)
+                .<span class="fn">authLevel</span>(authLevel)
+                .<span class="fn">providerCode</span>(providerCode)
+                .<span class="fn">correlationId</span>(correlationId)
+                .<span class="fn">build</span>(),
+            idempotencyKey,
+            <span class="typ">TicketResult</span>.<span class="kw">class</span>
+    );
+}
+
+<span class="cmt">// CircuitBreaker OPEN 시 폴백</span>
+<span class="kw">private</span> <span class="typ">TicketResult</span> <span class="fn">fallback</span>(<span class="typ">Exception</span> e) {
+    <span class="kw">throw new</span> <span class="typ">IdoTicketIssuanceException</span>(<span class="str">"CIRCUIT_OPEN"</span>,
+            <span class="str">"IdO 일시적 불가 — 잠시 후 재시도하세요"</span>, e);
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a2035;color:var(--accent);">2</div>
+        <div class="step-title">HandoffController — Fe-Session-Id 쿠키에서 qimUserId 추출 [P1 보안]</div>
+        <div class="step-meta"><span class="tag tag-security">P1</span><span class="tag tag-redis">Redis</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>HandoffController</code>는 요청 body에서 <code>qimUserId</code>를 받지 않습니다.
+          대신 <code>Fe-Session-Id</code> HttpOnly 쿠키를 읽어 서버측에서 Redis로부터 <code>qimUserId</code>를 추출합니다.
+          또한 <code>X-Idempotency-Key</code>로 중복 요청을 Redis 캐시로 차단합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">HandoffController.java — P1 보안 수정 (실제 소스 기준) <span>IdO</span></div>
+          <pre"><span class="ann">@PostMapping</span>(<span class="str">"/issue"</span>)
+<span class="kw">public</span> <span class="typ">ResponseEntity</span>&lt;<span class="typ">HandoffTicket</span>&gt; <span class="fn">issue</span>(
+        <span class="ann">@RequestHeader</span>(<span class="kw">value</span> = <span class="str">"X-Correlation-Id"</span>, <span class="kw">required</span> = <span class="kw">false</span>) <span class="typ">String</span> correlationId,
+        <span class="ann">@RequestHeader</span>(<span class="kw">value</span> = <span class="str">"Idempotency-Key"</span>,  <span class="kw">required</span> = <span class="kw">false</span>) <span class="typ">String</span> idempotencyKey,
+        <span class="ann">@Valid @RequestBody</span> <span class="typ">HandoffIssueRequest</span> req,
+        <span class="typ">HttpServletRequest</span> httpRequest) {
+
+    <span class="cmt">// ① Fe-Session-Id 쿠키 파싱 (HttpServletRequest.getCookies())</span>
+    <span class="cmt">// — @CookieValue 대신 수동 추출: 쿠키 없을 때 400 대신 PlatformException 처리용</span>
+    <span class="typ">String</span> <span class="var">feSessionId</span> = <span class="fn">extractCookieValue</span>(httpRequest, <span class="str">"Fe-Session-Id"</span>);
+    <span class="kw">if</span> (feSessionId == <span class="kw">null</span>) <span class="kw">throw new</span> <span class="typ">PlatformException</span>(IDO_SESSION_NOT_FOUND);
+
+    <span class="cmt">// ② Redis 조회 → qimUserId 서버측 추출 (P1 보안 핵심)</span>
+    <span class="typ">FeSession</span> <span class="var">feSession</span> = feSessionService.<span class="fn">findById</span>(feSessionId)
+            .<span class="fn">orElseThrow</span>(() -&gt; <span class="kw">new</span> <span class="typ">PlatformException</span>(IDO_SESSION_NOT_FOUND));
+    <span class="typ">String</span> <span class="var">qimUserId</span> = feSession.<span class="fn">getQimUserId</span>();  <span class="cmt">// 서버 신뢰 데이터</span>
+
+    <span class="cmt">// ③ Idempotency-Key 멱등 처리</span>
+    <span class="cmt">// Redis에는 ticketId(String)만 저장 — Object 직접 캐스팅 없음</span>
+    <span class="kw">if</span> (idempotencyKey != <span class="kw">null</span>) {
+        <span class="typ">String</span> <span class="var">redisKey</span> = <span class="str">"ido:idempotency:handoff:"</span> + idempotencyKey;
+        <span class="typ">Object</span> <span class="var">cachedTicketId</span> = redisTemplate.<span class="fn">opsForValue</span>().<span class="fn">get</span>(redisKey);
+        <span class="kw">if</span> (cachedTicketId != <span class="kw">null</span>) {
+            <span class="cmt">// ticketId로 HandoffTicket 원본 재조회 (TTL/상태 재확인)</span>
+            <span class="typ">Optional</span>&lt;<span class="typ">HandoffTicket</span>&gt; <span class="var">existing</span> = ticketRepository.<span class="fn">findById</span>(cachedTicketId.<span class="fn">toString</span>());
+            <span class="kw">if</span> (existing.<span class="fn">isPresent</span>())
+                <span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>()
+                        .<span class="fn">header</span>(<span class="str">"X-Idempotency-Replayed"</span>, <span class="str">"true"</span>)
+                        .<span class="fn">body</span>(existing.<span class="fn">get</span>());
+            <span class="cmt">// 티켓 만료/소비됨 → 재발급</span>
+        }
+    }
+
+    <span class="typ">HandoffIssueCommand</span> <span class="var">cmd</span> = <span class="typ">HandoffIssueCommand</span>.<span class="fn">builder</span>()
+            .<span class="fn">correlationId</span>(cid)
+            .<span class="fn">agencyCode</span>(req.<span class="fn">getAgencyCode</span>())
+            .<span class="fn">qimUserId</span>(qimUserId)              <span class="cmt">// P1: feSession에서 서버측 추출</span>
+            .<span class="fn">authResultId</span>(req.<span class="fn">getAuthResultId</span>())
+            .<span class="fn">authLevel</span>(AuthResult.AuthLevel.<span class="fn">valueOf</span>(req.<span class="fn">getAuthLevel</span>()))
+            .<span class="fn">providerCode</span>(req.<span class="fn">getProviderCode</span>())
+            .<span class="fn">callbackUrl</span>(req.<span class="fn">getCallbackUrl</span>())   <span class="cmt">// request body 필드</span>
+            .<span class="fn">redirectUri</span>(req.<span class="fn">getCallbackUrl</span>())   <span class="cmt">// CallbackUrlValidator 검증용 (동일값)</span>
+            .<span class="fn">build</span>();
+
+    <span class="typ">HandoffTicket</span> <span class="var">ticket</span> = handoffService.<span class="fn">issue</span>(cmd);
+
+    <span class="cmt">// Idempotency-Key: ticketId(String)만 TTL 1일로 저장</span>
+    <span class="kw">if</span> (idempotencyKey != <span class="kw">null</span>)
+        redisTemplate.<span class="fn">opsForValue</span>().<span class="fn">set</span>(
+                <span class="str">"ido:idempotency:handoff:"</span> + idempotencyKey,
+                ticket.<span class="fn">getTicketId</span>(), IDEMPOTENCY_TTL);
+
+    <span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>(ticket);
+}</pre>
+        </div>
+        <div class="info-box yellow">
+          <strong>⚠️ Idempotency 캐시 설계 핵심:</strong>
+          Redis에는 <code>ticketId(String)</code>만 저장합니다. 조회 시 ticketId로 <code>ticketRepository.findById()</code>를
+          재호출하여 원본 <code>HandoffTicket</code>을 가져옵니다.
+          이 방식은 <code>Object</code> 직접 캐스팅(<code>ClassCastException</code> 위험)을 피하고,
+          티켓 만료·소비 여부를 재확인할 수 있는 장점이 있습니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a2035;color:var(--accent);">3</div>
+        <div class="step-title">HandoffServiceImpl.issue() — 7단계 검증 + @Transactional 저장</div>
+        <div class="step-meta"><span class="tag tag-db">DB TX</span><span class="tag tag-kafka">Kafka</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>HandoffServiceImpl.issue()</code>는 7단계 검증 후 <strong>@Transactional</strong>로
+          티켓 저장과 Kafka 이벤트 발행을 원자적으로 수행합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">HandoffServiceImpl.java — issue() 핵심 로직 <span>IdO</span></div>
+          <pre"><span class="ann">@Transactional</span>
+<span class="kw">public</span> <span class="typ">HandoffTicket</span> <span class="fn">issue</span>(<span class="typ">HandoffIssueCommand</span> cmd) {
+
+    <span class="cmt">// ① 기관 존재 + 활성 상태 검증</span>
+    <span class="typ">AgencyMeta</span> <span class="var">agency</span> = agencyMetaRepo.<span class="fn">findByCodeAndActive</span>(cmd.<span class="fn">getAgencyCode</span>())
+            .<span class="fn">orElseThrow</span>(() -&gt; <span class="kw">new</span> <span class="typ">AgencyNotFoundException</span>());
+
+    <span class="cmt">// ② Rate Limiting (기관별 TPS + 일별 한도)</span>
+    rateLimiter.<span class="fn">checkAndIncrement</span>(cmd.<span class="fn">getAgencyCode</span>());  <span class="cmt">// 초과 시 429</span>
+
+    <span class="cmt">// ③ CallbackUrl 화이트리스트 검증</span>
+    <span class="cmt">// cmd.getRedirectUri() = HandoffIssueRequest.callbackUrl (기관이 request body로 전달)</span>
+    <span class="cmt">// agency.getCallbackWhitelist() = agency_meta 테이블에 사전 등록된 허용 URL 목록</span>
+    callbackUrlValidator.<span class="fn">validate</span>(cmd.<span class="fn">getRedirectUri</span>(),
+            agency.<span class="fn">getCallbackWhitelist</span>(), cmd.<span class="fn">getCorrelationId</span>());
+    <span class="cmt">// 검증 실패 시 → CallbackUrlNotAllowedException (400)</span>
+
+    <span class="cmt">// ④ 점검 시간 차단 (시스템 점검 중이면 503)</span>
+    maintenanceChecker.<span class="fn">assertNotInMaintenance</span>();
+
+    <span class="cmt">// ⑤ authLevel 충족 검증 (기관 요구 수준 ≤ 실제 인증 수준)</span>
+    <span class="fn">assertAuthLevelSatisfied</span>(agency, cmd.<span class="fn">getAuthLevel</span>());
+
+    <span class="cmt">// ⑥ UserStatus 확인 (SUSPENDED / WITHDRAWN → 거부)</span>
+    <span class="typ">QimUserStatus</span> <span class="var">status</span> = qimClient.<span class="fn">getUserStatus</span>(cmd.<span class="fn">getQimUserId</span>());
+    <span class="kw">if</span> (status == SUSPENDED || status == WITHDRAWN)
+        <span class="kw">throw new</span> <span class="typ">UserStatusException</span>(status);
+
+    <span class="cmt">// ⑦ ticketId(UUIDv7) 생성 + 암호화 + HMAC 서명</span>
+    <span class="typ">String</span> <span class="var">ticketId</span> = UuidV7.<span class="fn">generate</span>();    <span class="cmt">// 시간순 정렬 가능한 UUID</span>
+    <span class="typ">String</span> <span class="var">encTicket</span> = ticketEncryptor.<span class="fn">encrypt</span>(ticketId);
+    <span class="typ">String</span> <span class="var">ticketSig</span>  = ticketSigner.<span class="fn">sign</span>(ticketId);
+
+    <span class="typ">HandoffTicket</span> <span class="var">ticket</span> = <span class="typ">HandoffTicket</span>.<span class="fn">builder</span>()
+            .<span class="fn">ticketId</span>(ticketId)
+            .<span class="fn">qimUserId</span>(cmd.<span class="fn">getQimUserId</span>())
+            .<span class="fn">agencyCode</span>(cmd.<span class="fn">getAgencyCode</span>())
+            .<span class="fn">authLevel</span>(cmd.<span class="fn">getAuthLevel</span>())
+            .<span class="fn">authResultId</span>(cmd.<span class="fn">getAuthResultId</span>())
+            .<span class="fn">status</span>(<span class="typ">HandoffTicketStatus</span>.ISSUED)
+            .<span class="fn">expiresAt</span>(Instant.<span class="fn">now</span>().<span class="fn">plus</span>(Duration.<span class="fn">ofSeconds</span>(<span class="num">60</span>)))  <span class="cmt">// TTL 60초</span>
+            .<span class="fn">encryptedTicket</span>(encTicket)
+            .<span class="fn">signature</span>(ticketSig)
+            .<span class="fn">build</span>();
+
+    ticketRepository.<span class="fn">save</span>(ticket);   <span class="cmt">// ido.handoff_ticket 저장</span>
+
+    <span class="cmt">// Kafka HANDOFF_ISSUED 이벤트 발행</span>
+    <span class="cmt">// ★ kafkaTemplate.send() 직접 호출 — @Transactional 내부에서 실행</span>
+    <span class="cmt">// Spring Kafka TX가 활성화된 경우 DB TX와 Kafka TX를 ChainedTransactionManager로 묶을 수 있음</span>
+    <span class="cmt">// 단, Spring Kafka TX 미사용 시 DB 커밋 성공 → Kafka 발행 실패 가능 (at-least-once 아님)</span>
+    <span class="fn">publishHandoffEvent</span>(<span class="typ">HandoffEvent</span>.TYPE_HANDOFF_ISSUED, ticket, <span class="kw">null</span>);
+
+    <span class="cmt">// ⑧ Strategy Pattern: DIRECT/BRIDGE/INTERNAL_SSO/APACHE_GATE</span>
+    strategy.<span class="fn">postIssue</span>(ticket, agency);
+
+    <span class="cmt">// ⑨ 감사 로그</span>
+    auditLogPublisher.<span class="fn">publish</span>(...);
+
+    <span class="kw">return</span> ticket;
+}</pre>
+        </div>
+        <ul class="sub-steps">
+          <li>
+            <span class="sn">DIRECT</span>
+            <span class="sc">
+              <strong>DIRECT 전략:</strong> ticketId를 기관에 직접 반환. 기관이 즉시 verify 호출 가능.
+            </span>
+          </li>
+          <li>
+            <span class="sn">BRIDGE</span>
+            <span class="sc">
+              <strong>BRIDGE 전략:</strong> 폐쇄망 기관용. 중계 브릿지 서버를 통해 티켓 전달.
+            </span>
+          </li>
+          <li>
+            <span class="sn">SSO</span>
+            <span class="sc">
+              <strong>INTERNAL_SSO 전략:</strong> 기관 내부 SSO 시스템과 연계하여 토큰 교환.
+            </span>
+          </li>
+          <li>
+            <span class="sn">GATE</span>
+            <span class="sc">
+              <strong>APACHE_GATE 전략:</strong> 레거시 Apache/mod_auth 연동. 쿠키 기반 SSO.
+            </span>
+          </li>
+        </ul>
+        <div class="info-box blue">
+          <strong>callbackUrl 출처 명확화:</strong><br>
+          <code>callbackUrl</code>은 <strong>기관이 <code>HandoffIssueRequest</code> body에 포함하여 전달</strong>합니다
+          (요청 body 필드: <code>{ "callbackUrl": "https://agency.go.kr/...", ... }</code>).<br>
+          <code>HandoffController</code>는 이 값을 <code>HandoffIssueCommand.redirectUri</code>에 복사하고,
+          <code>HandoffServiceImpl</code>의 ③번 검증에서 <strong><code>agency_meta</code> 테이블에 사전 등록된
+          화이트리스트</strong>(<code>agency.getCallbackWhitelist()</code>)와 비교합니다.<br>
+          즉, callbackUrl은 기관이 자유롭게 지정하는 것이 아니라 <strong>사전 등록된 URL만 허용</strong>됩니다.
+        </div>
+        <div class="info-box orange">
+          <strong>⚠️ 시뮬레이터(AgencySimulatorController) vs 실제 운영 흐름 차이:</strong><br>
+          <strong>실제 운영:</strong> <code>POST /api/v1/handoff/issue</code> 요청 시
+          <code>qimUserId</code>를 body에 포함하지 않습니다.
+          <code>HandoffController</code>가 <code>Fe-Session-Id</code> HttpOnly 쿠키에서 서버측으로 추출합니다 (P1 보안).<br><br>
+          <strong>시뮬레이터(<code>AgencySimulatorController.runFullFlow()</code>):</strong>
+          테스트 목적으로 <code>idoTicketClient.issue(req.getQimUserId(), ...)</code>와 같이
+          <code>qimUserId</code>를 파라미터로 직접 전달하는 코드가 있습니다.
+          이 값은 실제 <code>HandoffController</code>에서 <strong>무시되며</strong>,
+          서버는 항상 쿠키에서 추출한 값을 사용합니다.<br>
+          시뮬레이터는 테스트 하네스 역할이므로, 실제 프로덕션 흐름과 동일하게 취급하면 안 됩니다.
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 6: Kafka → Outbox Relay                               -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase" id="phase-6">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#2a1f30;">📨</div>
+      <div>
+        <h2>Phase 6 — Kafka HandoffEventConsumer → WebhookDispatcherService</h2>
+        <p>ido.handoff.events 수신 → 멱등 처리 → webhook_dispatch_outbox INSERT.</p>
+      </div>
+    </div>
+
+    <div class="step-card open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1f30;color:var(--purple);">1</div>
+        <div class="step-title">HandoffEventConsumer.consume() — 수신 + 멱등 처리</div>
+        <div class="step-meta"><span class="tag tag-kafka">Kafka</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>ido.handoff.events</code> 토픽을 소비합니다.
+          <strong>IdempotentEventStore</strong>로 중복 이벤트를 차단하고,
+          이벤트 타입에 따라 처리를 분기합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">HandoffEventConsumer.java — 핵심 처리 흐름 <span>IdO</span></div>
+          <pre"><span class="ann">@KafkaListener</span>(
+    topics           = <span class="str">"${ido.kafka.topic-handoff-events:ido.handoff.events}"</span>,
+    groupId          = <span class="str">"${ido.kafka.consumer-group-handoff:ido-handoff-consumer}"</span>,
+    containerFactory = <span class="str">"handoffListenerContainerFactory"</span>
+)
+<span class="kw">public void</span> <span class="fn">consume</span>(<span class="typ">ConsumerRecord</span>&lt;<span class="typ">String</span>, <span class="typ">String</span>&gt; record, <span class="typ">Acknowledgment</span> ack) {
+    <span class="typ">HandoffEvent</span> <span class="var">event</span> = <span class="fn">deserialize</span>(record.<span class="fn">value</span>());
+
+    <span class="cmt">// ① 멱등 처리 — 동일 eventId를 중복 처리하지 않음</span>
+    <span class="kw">if</span> (idempotentEventStore.<span class="fn">isAlreadyProcessed</span>(
+            event.<span class="fn">getEventId</span>(), CONSUMER_GROUP)) {
+        ack.<span class="fn">acknowledge</span>();
+        <span class="kw">return</span>;
+    }
+
+    <span class="cmt">// ② 이벤트 타입별 처리</span>
+    <span class="kw">switch</span> (event.<span class="fn">getEventType</span>()) {
+        <span class="kw">case</span> TYPE_HANDOFF_ISSUED   -&gt; <span class="fn">handleHandoffIssued</span>(event);
+        <span class="kw">case</span> TYPE_HANDOFF_CONSUMED -&gt; <span class="fn">handleHandoffConsumed</span>(event); <span class="cmt">// 캐시 무효화</span>
+        <span class="kw">case</span> TYPE_HANDOFF_EXPIRED  -&gt; <span class="fn">handleHandoffExpired</span>(event);  <span class="cmt">// 감사 로그만</span>
+        <span class="kw">case</span> TYPE_HANDOFF_REVOKED  -&gt; <span class="fn">handleHandoffRevoked</span>(event);  <span class="cmt">// 즉시 webhook</span>
+    }
+
+    <span class="cmt">// ③ 처리 완료 마킹 → 다음에 같은 eventId 오면 스킵</span>
+    idempotentEventStore.<span class="fn">markProcessed</span>(
+            event.<span class="fn">getEventId</span>(), CONSUMER_GROUP, event.<span class="fn">getEventType</span>(), <span class="str">"OK"</span>);
+
+    ack.<span class="fn">acknowledge</span>();  <span class="cmt">// Kafka 수동 커밋</span>
+}</pre>
+        </div>
+        <div class="info-box purple">
+          <strong>이벤트 타입별 동작 차이:</strong><br>
+          <code>HANDOFF_ISSUED</code>: 기관에 즉시 webhook (ticket 정보 사전 통보)<br>
+          <code>HANDOFF_CONSUMED</code>: webhook 통보 + Redis Auth Result 캐시 무효화<br>
+          <code>HANDOFF_EXPIRED</code>: 기관 통보 없음, 감사 로그 + 캐시 정리만<br>
+          <code>HANDOFF_REVOKED</code>: 보안 필수 — 즉시 webhook 최고 우선순위 통보
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1f30;color:var(--purple);">2</div>
+        <div class="step-title">WebhookDispatcherService.enqueueForHandoffEvent() — Outbox INSERT</div>
+        <div class="step-meta"><span class="tag tag-db">DB TX</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          기관의 webhook 설정을 조회하여 이벤트 타입 필터를 적용한 후,
+          <code>ido.webhook_dispatch_outbox</code>에 레코드를 INSERT합니다.
+          <strong>개인정보 보호 원칙:</strong> payload에 <code>qimUserId</code> 원본, CI/DN 원본값은 절대 포함하지 않습니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">WebhookDispatcherService.java — Outbox INSERT <span>IdO</span></div>
+          <pre"><span class="ann">@Transactional</span>
+<span class="kw">public void</span> <span class="fn">enqueueForHandoffEvent</span>(<span class="typ">HandoffEvent</span> event, <span class="typ">String</span> correlationId) {
+
+    <span class="cmt">// ① 대상 기관 조회 (webhook_enabled + event_type_filter 매칭)</span>
+    <span class="typ">List</span>&lt;<span class="typ">AgencyWebhookConfig</span>&gt; <span class="var">targets</span> = <span class="fn">findWebhookTargets</span>(
+            event.<span class="fn">getEventType</span>(), event.<span class="fn">getAgencyCode</span>());
+
+    <span class="kw">for</span> (<span class="typ">AgencyWebhookConfig</span> config : targets) {
+        <span class="cmt">// ② 개인정보 마스킹된 Webhook Payload 구성</span>
+        <span class="typ">String</span> <span class="var">payload</span> = <span class="fn">buildHandoffWebhookPayload</span>(event, config, correlationId);
+        <span class="cmt">// payload 포함: eventId, eventType, agencyCode, ticketId, correlationId, occurredAt</span>
+        <span class="cmt">// payload 제외: qimUserId 원본, CI/DN 원본값 (개인정보 보호)</span>
+
+        <span class="cmt">// ③ ON CONFLICT DO NOTHING → 멱등 INSERT</span>
+        jdbcTemplate.<span class="fn">update</span>(<span class="str">"""
+            INSERT INTO ido.webhook_dispatch_outbox (
+                dispatch_id, agency_code, endpoint_url,
+                source_event_id, source_event_type, payload, status,
+                retry_count, max_retry, next_retry_at, created_at
+            ) VALUES (?,?,?,?,?,?::jsonb,'PENDING',0,?,NOW(),NOW())
+            ON CONFLICT (source_event_id, agency_code) DO NOTHING
+            """</span>,
+                UuidV7.<span class="fn">generate</span>(),
+                config.<span class="fn">agencyCode</span>(),
+                config.<span class="fn">endpointUrl</span>(),
+                event.<span class="fn">getEventId</span>(), event.<span class="fn">getEventType</span>(),
+                payload,
+                config.<span class="fn">maxRetry</span>()
+        );
+    }
+}</pre>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 7: Webhook 발송 (OutboxRelay)                          -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase" id="phase-7">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#1a3020;">📡</div>
+      <div>
+        <h2>Phase 7 — WebhookDispatchOutboxRelay — HTTPS POST 발송</h2>
+        <p>500ms @Scheduled 폴링 → SKIP LOCKED → HMAC 서명 → HTTPS POST → 지수 백오프 재시도.</p>
+      </div>
+    </div>
+
+    <div class="step-card open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a3020;color:var(--teal);">1</div>
+        <div class="step-title">relay() @Scheduled 500ms — fetchPendingBatch() FOR UPDATE SKIP LOCKED</div>
+        <div class="step-meta"><span class="tag tag-async">@Scheduled</span><span class="tag tag-db">SKIP LOCKED</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          500ms 고정 지연으로 실행되는 스케줄러가 PENDING 레코드를 조회합니다.
+          <code>FOR UPDATE SKIP LOCKED</code>로 다중 IdO 인스턴스가 동시에 실행되어도
+          동일 레코드를 중복 발송하지 않습니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">WebhookDispatchOutboxRelay.java — 폴링 + SQL <span>IdO</span></div>
+          <pre"><span class="ann">@Scheduled</span>(fixedDelayString = <span class="str">"${ido.webhook.relay-interval-ms:500}"</span>)
+<span class="kw">public void</span> <span class="fn">relay</span>() {
+    <span class="kw">if</span> (!relayEnabled) <span class="kw">return</span>;  <span class="cmt">// F-14: 긴급 ON/OFF 스위치</span>
+
+    <span class="typ">List</span>&lt;<span class="typ">Map</span>&lt;<span class="typ">String</span>, <span class="typ">Object</span>&gt;&gt; <span class="var">pending</span> = <span class="fn">fetchPendingBatch</span>();
+    <span class="kw">for</span> (<span class="typ">Map</span>&lt;<span class="typ">String</span>, <span class="typ">Object</span>&gt; row : pending) {
+        <span class="fn">dispatchOne</span>(row);
+    }
+}
+
+<span class="kw">private</span> <span class="typ">List</span>&lt;<span class="typ">Map</span>&lt;<span class="typ">String</span>, <span class="typ">Object</span>&gt;&gt; <span class="fn">fetchPendingBatch</span>() {
+    <span class="kw">return</span> jdbcTemplate.<span class="fn">queryForList</span>(<span class="str">"""
+        SELECT w.dispatch_id, w.agency_code, w.endpoint_url,
+               w.payload::text AS payload, w.retry_count, w.max_retry,
+               w.source_event_id, w.source_event_type, w.correlation_id,
+               c.signing_secret_hash
+        FROM   ido.webhook_dispatch_outbox w
+        LEFT JOIN ido.agency_webhook_config c
+               ON c.agency_code = w.agency_code AND c.active = TRUE
+        WHERE  w.status = 'PENDING'
+          AND  (w.next_retry_at IS NULL OR w.next_retry_at &lt;= NOW())
+        ORDER BY w.created_at ASC
+        LIMIT  ?
+        FOR UPDATE OF w SKIP LOCKED
+        """</span>, relayBatchSize);  <span class="cmt">// 기본 50건/배치</span>
+}</pre>
+        </div>
+        <div class="info-box green">
+          <strong>FOR UPDATE SKIP LOCKED 효과:</strong><br>
+          인스턴스 A가 dispatch_id=1 레코드를 Lock하면, 동시에 실행된 인스턴스 B는 해당 레코드를 건너뛰고
+          다음 레코드를 처리합니다. 중복 발송 없이 수평 확장 가능.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a3020;color:var(--teal);">2</div>
+        <div class="step-title">dispatchOne() — HMAC 서명 생성 + HTTPS POST 실행</div>
+        <div class="step-meta"><span class="tag tag-security">HMAC</span><span class="tag tag-http">HTTPS</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          각 레코드에 대해 HMAC-SHA256 서명을 생성하고 기관 endpoint로 HTTPS POST를 실행합니다.
+          기관은 <code>X-Webhook-Signature</code>와 <code>X-Webhook-Timestamp</code>로 서명을 검증합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">WebhookDispatchOutboxRelay.java — dispatchOne() <span>IdO</span></div>
+          <pre"><span class="kw">private</span> <span class="typ">DispatchResult</span> <span class="fn">dispatchOne</span>(<span class="typ">Map</span>&lt;<span class="typ">String</span>, <span class="typ">Object</span>&gt; row) {
+    <span class="typ">String</span> <span class="var">payloadJson</span>   = (<span class="typ">String</span>) row.<span class="fn">get</span>(<span class="str">"payload"</span>);
+    <span class="typ">String</span> <span class="var">endpointUrl</span>   = (<span class="typ">String</span>) row.<span class="fn">get</span>(<span class="str">"endpoint_url"</span>);
+    <span class="typ">String</span> <span class="var">signingSecret</span> = (<span class="typ">String</span>) row.<span class="fn">get</span>(<span class="str">"signing_secret_hash"</span>);
+
+    <span class="cmt">// ① HMAC-SHA256 서명: signTarget = epochSeconds + "." + body</span>
+    <span class="typ">String</span> <span class="var">timestamp</span>  = <span class="typ">String</span>.<span class="fn">valueOf</span>(Instant.<span class="fn">now</span>().<span class="fn">getEpochSecond</span>());
+    <span class="typ">String</span> <span class="var">signTarget</span> = timestamp + <span class="str">"."</span> + payloadJson;
+    <span class="typ">String</span> <span class="var">signature</span>  = webhookDispatcherService
+            .<span class="fn">computeHmacSignature</span>(signTarget, signingSecret);
+    <span class="cmt">// signature = "sha256=" + HEX(HmacSHA256(signTarget, secret))</span>
+
+    <span class="cmt">// ② HTTP 헤더 구성</span>
+    <span class="typ">HttpHeaders</span> <span class="var">headers</span> = <span class="kw">new</span> <span class="typ">HttpHeaders</span>();
+    headers.<span class="fn">setContentType</span>(MediaType.APPLICATION_JSON);
+    headers.<span class="fn">set</span>(<span class="str">"X-Webhook-Signature"</span>, signature);  <span class="cmt">// sha256=HEX...</span>
+    headers.<span class="fn">set</span>(<span class="str">"X-Webhook-Timestamp"</span>,  timestamp);   <span class="cmt">// epoch seconds</span>
+    headers.<span class="fn">set</span>(<span class="str">"X-Source-System"</span>,      <span class="str">"ido"</span>);
+    headers.<span class="fn">set</span>(<span class="str">"X-Correlation-Id"</span>,    correlationId);
+
+    <span class="cmt">// ③ HTTPS POST 실행</span>
+    <span class="typ">ResponseEntity</span>&lt;<span class="typ">String</span>&gt; <span class="var">response</span> = restTemplate.<span class="fn">exchange</span>(
+            endpointUrl, HttpMethod.POST,
+            <span class="kw">new</span> <span class="typ">HttpEntity</span>&lt;&gt;(payloadJson, headers),
+            <span class="typ">String</span>.<span class="kw">class</span>);
+
+    <span class="kw">if</span> (response.<span class="fn">getStatusCode</span>().<span class="fn">value</span>() &lt; <span class="num">300</span>) {
+        <span class="fn">markDispatched</span>(dispatchId);        <span class="cmt">// status=DISPATCHED</span>
+        <span class="kw">return</span> DispatchResult.SUCCESS;
+    }
+    <span class="kw">return</span> <span class="fn">handleRetryOrFail</span>(...);         <span class="cmt">// 지수 백오프</span>
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#1a3020;color:var(--teal);">3</div>
+        <div class="step-title">지수 백오프 재시도 정책 및 최종 실패 처리</div>
+        <div class="step-meta"><span class="tag tag-async">Retry</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <table class="df-table">
+          <tr><th>상태코드</th><th>처리</th><th>다음 시도</th></tr>
+          <tr><td>2xx</td><td>✅ DISPATCHED</td><td>—</td></tr>
+          <tr><td>404 / 410</td><td>❌ 즉시 FAILED (endpoint 없음)</td><td>—</td></tr>
+          <tr><td>4xx (기타)</td><td>⏳ retry_count++</td><td>NOW() + 2^retry 초</td></tr>
+          <tr><td>5xx</td><td>⏳ retry_count++</td><td>NOW() + 2^retry 초</td></tr>
+          <tr><td>네트워크 오류</td><td>⏳ retry_count++</td><td>NOW() + 2^retry 초</td></tr>
+          <tr><td>retry &gt;= maxRetry(3)</td><td>❌ FAILED (DLQ)</td><td>—</td></tr>
+        </table>
+        <div class="code-wrap">
+          <div class="code-label">지수 백오프 계산 <span>WebhookDispatchOutboxRelay</span></div>
+          <pre"><span class="cmt">// backoffSec = 2^(retryCount+1)</span>
+<span class="cmt">// retry 0→1: 2s, retry 1→2: 4s, retry 2→3: 8s</span>
+<span class="kw">long</span> <span class="var">backoffSec</span> = (<span class="kw">long</span>) Math.<span class="fn">pow</span>(BACKOFF_BASE_SEC, retryCount + <span class="num">1</span>);
+jdbcTemplate.<span class="fn">update</span>(<span class="str">"""
+    UPDATE ido.webhook_dispatch_outbox
+    SET    retry_count = ?,
+           next_retry_at = NOW() + (? || ' seconds')::interval
+    WHERE  dispatch_id = ?
+    """</span>, newRetryCount, backoffSec, dispatchId);</pre>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 8: 기관 Webhook 수신 (WebhookInboundController)        -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase" id="phase-8">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#2a2010;">📬</div>
+      <div>
+        <h2>Phase 8 — 기관 WebhookInboundController 수신 처리</h2>
+        <p>타임스탬프 검증 → HMAC 검증 → 중복 체크 → agency_event_queue 적재.</p>
+      </div>
+    </div>
+
+    <div class="step-card open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a2010;color:var(--yellow);">1</div>
+        <div class="step-title">POST /api/v1/webhook/inbound — 타임스탬프 ±5분 검증</div>
+        <div class="step-meta"><span class="tag tag-security">Replay 방어</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          기관의 <code>WebhookInboundController</code>가 IdO로부터 HTTPS POST를 수신합니다.
+          첫 번째 방어선은 <strong>타임스탬프 검증</strong>입니다. <code>X-Webhook-Timestamp</code>가
+          현재 시각에서 ±5분을 벗어나면 즉시 거부합니다.
+          이는 서명이 탈취되어도 5분 이후에는 재사용 불가능하게 만드는 <strong>Replay Attack 방지</strong>입니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">WebhookInboundController.java — 타임스탬프 검증 <span>agency-stub</span></div>
+          <pre"><span class="ann">@PostMapping</span>(<span class="str">"/api/v1/webhook/inbound"</span>)
+<span class="kw">public</span> <span class="typ">ResponseEntity</span>&lt;<span class="typ">Void</span>&gt; <span class="fn">inbound</span>(
+        <span class="ann">@RequestHeader</span>(<span class="str">"X-Webhook-Signature"</span>) <span class="typ">String</span> signature,
+        <span class="ann">@RequestHeader</span>(<span class="str">"X-Webhook-Timestamp"</span>)  <span class="typ">String</span> timestampStr,
+        <span class="ann">@RequestHeader</span>(<span class="str">"X-Correlation-Id"</span>)     <span class="typ">String</span> correlationId,
+        <span class="ann">@RequestBody</span> <span class="typ">String</span> body) {
+
+    <span class="cmt">// ① 타임스탬프 파싱 + ±5분 검증</span>
+    <span class="kw">long</span> <span class="var">tsEpoch</span>    = <span class="typ">Long</span>.<span class="fn">parseLong</span>(timestampStr);
+    <span class="kw">long</span> <span class="var">now</span>        = Instant.<span class="fn">now</span>().<span class="fn">getEpochSecond</span>();
+    <span class="kw">long</span> <span class="var">diff</span>       = Math.<span class="fn">abs</span>(now - tsEpoch);
+    <span class="kw">if</span> (diff &gt; <span class="num">300</span>) {  <span class="cmt">// ±5분 (300초)</span>
+        log.<span class="fn">warn</span>(<span class="str">"타임스탬프 ±5분 초과: diff={}s correlationId={}"</span>, diff, correlationId);
+        <span class="kw">return</span> ResponseEntity.<span class="fn">status</span>(HttpStatus.UNAUTHORIZED).<span class="fn">build</span>();
+    }
+    <span class="cmt">// ...</span>
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a2010;color:var(--yellow);">2</div>
+        <div class="step-title">HMAC-SHA256 서명 검증 + 중복 이벤트 차단</div>
+        <div class="step-meta"><span class="tag tag-security">HMAC</span><span class="tag tag-db">Idempotent</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          타임스탬프 검증 통과 후 <strong>HMAC-SHA256 서명</strong>을 검증합니다.
+          서명 대상은 <code>timestamp + "." + body</code> 전체입니다.
+          검증 성공 후 <code>webhook_inbound</code> 테이블의 <code>unique(source_event_id, agency_code)</code>로
+          중복 수신을 방지합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">WebhookInboundController.java — HMAC + 중복 체크 <span>agency-stub</span></div>
+          <pre"><span class="cmt">// ② HMAC-SHA256 검증</span>
+<span class="cmt">// signTarget = X-Webhook-Timestamp + "." + requestBody</span>
+<span class="typ">String</span> <span class="var">signTarget</span>  = timestampStr + <span class="str">"."</span> + body;
+<span class="typ">String</span> <span class="var">expected</span>   = <span class="str">"sha256="</span> + <span class="fn">hmacSha256Hex</span>(signTarget, webhookSecret);
+<span class="kw">if</span> (!MessageDigest.<span class="fn">isEqual</span>(
+        signature.<span class="fn">getBytes</span>(StandardCharsets.UTF_8),
+        expected.<span class="fn">getBytes</span>(StandardCharsets.UTF_8))) {
+    log.<span class="fn">warn</span>(<span class="str">"HMAC 검증 실패: correlationId={}"</span>, correlationId);
+    <span class="kw">return</span> ResponseEntity.<span class="fn">status</span>(<span class="num">401</span>).<span class="fn">build</span>();
+}
+
+<span class="cmt">// ③ 중복 체크: webhook_inbound UNIQUE(source_event_id, agency_code)</span>
+<span class="typ">String</span> <span class="var">sourceEventId</span> = payload.<span class="fn">get</span>(<span class="str">"eventId"</span>).<span class="fn">asText</span>();
+<span class="kw">try</span> {
+    jdbcTemplate.<span class="fn">update</span>(
+        <span class="str">"INSERT INTO agency_stub.webhook_inbound (source_event_id, agency_code, ...) VALUES (?,?,...)"</span>,
+        sourceEventId, agencyCode, ...);
+} <span class="kw">catch</span> (<span class="typ">DuplicateKeyException</span> e) {
+    log.<span class="fn">debug</span>(<span class="str">"중복 webhook 수신 스킵: sourceEventId={}"</span>, sourceEventId);
+    <span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>().<span class="fn">build</span>();  <span class="cmt">// 멱등 응답 — 200 반환</span>
+}</pre>
+        </div>
+        <div class="info-box yellow">
+          <strong>중복 수신 처리 원칙:</strong> IdO의 at-least-once 발송 정책으로 동일 이벤트가 2번 이상 도달할 수 있습니다.
+          기관은 <code>webhook_inbound</code> 테이블의 UNIQUE 제약으로 멱등하게 처리합니다.
+          이미 처리된 이벤트도 <code>200 OK</code>를 반환하여 IdO가 불필요한 재시도를 하지 않게 합니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a2010;color:var(--yellow);">3</div>
+        <div class="step-title">이벤트 타입별 처리 → agency_event_queue INSERT</div>
+        <div class="step-meta"><span class="tag tag-db">DB</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          이벤트 타입에 따라 <code>agency_event_queue</code>에 다른 우선순위로 적재합니다.
+          <code>HANDOFF_ISSUED</code>는 priority=3 (높음)으로 즉시 처리됩니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">WebhookInboundController.java — 이벤트 큐 적재 <span>agency-stub</span></div>
+          <pre"><span class="kw">switch</span> (eventType) {
+    <span class="kw">case</span> <span class="str">"HANDOFF_ISSUED"</span>:
+        <span class="fn">enqueueAgencyEvent</span>(sourceEventId, eventType, payload,
+                agencyCode, correlationId, <span class="num">3</span>);  <span class="cmt">// priority=3 (최고)</span>
+        <span class="kw">break</span>;
+    <span class="kw">case</span> <span class="str">"HANDOFF_REVOKED"</span>:
+        <span class="fn">enqueueAgencyEvent</span>(sourceEventId, eventType, payload,
+                agencyCode, correlationId, <span class="num">1</span>);  <span class="cmt">// priority=1 (긴급)</span>
+        <span class="kw">break</span>;
+    <span class="kw">case</span> <span class="str">"SESSION_ADVISORY"</span>:
+        <span class="fn">handleSessionAdvisory</span>(payload, correlationId);
+        <span class="kw">break</span>;
+    <span class="kw">case</span> <span class="str">"MEMBER_REGISTERED"</span>:
+    <span class="kw">case</span> <span class="str">"MEMBER_WITHDRAWN"</span>:
+        <span class="fn">enqueueAgencyEvent</span>(sourceEventId, eventType, payload,
+                agencyCode, correlationId, <span class="num">2</span>);
+        <span class="kw">break</span>;
+}
+<span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>().<span class="fn">build</span>();  <span class="cmt">// 200 응답 → IdO DISPATCHED 처리</span></pre>
+        </div>
+        <table class="df-table">
+          <tr><th>이벤트 타입</th><th>Priority</th><th>기관 처리 동작</th></tr>
+          <tr><td><code>HANDOFF_ISSUED</code></td><td>3 (최고)</td><td>ticketId 확보 → verify 즉시 호출</td></tr>
+          <tr><td><code>HANDOFF_REVOKED</code></td><td>1 (긴급)</td><td>진행 중인 handoff 즉시 중단</td></tr>
+          <tr><td><code>SESSION_ADVISORY</code></td><td>—</td><td>세션 강제 종료 또는 재인증 유도</td></tr>
+          <tr><td><code>MEMBER_REGISTERED</code></td><td>2</td><td>신규 회원 정보 동기화</td></tr>
+          <tr><td><code>MEMBER_WITHDRAWN</code></td><td>2</td><td>탈퇴 회원 비활성화</td></tr>
+        </table>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <!-- PHASE 9: Ticket 검증 & 기관 세션 생성                        -->
+  <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+  <section class="phase" id="phase-9">
+    <div class="phase-header">
+      <div class="phase-icon" style="background:#2a1a10;">🏁</div>
+      <div>
+        <h2>Phase 9 — Ticket 검증 + 기관 세션 생성 (로그인 완료)</h2>
+        <p>verify() 4단계 검증 → CONSUMED → HandoffPayload → AGSID 쿠키 발급 → 로그인 완료.</p>
+      </div>
+    </div>
+
+    <div class="step-card open">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1a10;color:var(--pink);">1</div>
+        <div class="step-title">기관 event queue 소비 → IdoVerifyClient → POST /api/v1/handoff/verify</div>
+        <div class="step-meta"><span class="tag tag-http">SDK</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          기관 서버가 <code>agency_event_queue</code>에서 <code>HANDOFF_ISSUED</code> 이벤트를 꺼내어
+          <code>ticketId</code>를 추출합니다. SDK의 <code>IdoVerifyClient</code>를 통해
+          <code>POST /api/v1/handoff/verify</code>를 호출합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">AgencySimulatorController.java — E2E verify 흐름 <span>agency-stub</span></div>
+          <pre"><span class="cmt">// STEP 2: Ticket 검증 (시나리오별 변형 가능)</span>
+<span class="typ">String</span> <span class="var">ticketIdToVerify</span> = ticket.<span class="fn">ticketId</span>();
+
+<span class="cmt">// REPLAY_ATTACK 시나리오: 동일 ticketId 2회 verify → 409 확인</span>
+<span class="cmt">// EXPIRED_TICKET 시나리오: 존재하지 않는 ticketId → 404/410</span>
+<span class="cmt">// WRONG_AGENCY 시나리오: 가짜 ticketId → AGENCY_MISMATCH</span>
+
+<span class="typ">HandoffPayload</span> <span class="var">payload</span> = idoVerifyClient.<span class="fn">verify</span>(ticketIdToVerify, correlationId);
+
+<span class="cmt">// HandoffPayload.state 확인</span>
+<span class="kw">switch</span> (payload.<span class="fn">getState</span>()) {
+    <span class="kw">case</span> APPROVED     -&gt; { <span class="cmt">/* ✅ 세션 생성 진행 */</span> }
+    <span class="kw">case</span> HOLD         -&gt; { <span class="kw">throw</span> <span class="typ">ServiceUnavailableException</span>(); }
+    <span class="kw">case</span> REJECTED     -&gt; { <span class="kw">throw</span> <span class="typ">ForbiddenException</span>(); }
+    <span class="kw">case</span> MANUAL_REVIEW -&gt; { <span class="kw">throw</span> <span class="typ">ForbiddenException</span>(); }
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1a10;color:var(--pink);">2</div>
+        <div class="step-title">HandoffServiceImpl.verify() — 4단계 검증 + ticketId 소비</div>
+        <div class="step-meta"><span class="tag tag-db">DB TX</span><span class="tag tag-kafka">Kafka</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>verify()</code>는 <strong>@Transactional</strong> 내에서 티켓의 상태를 검증하고
+          <code>CONSUMED</code>로 변경합니다. 이로써 1회성이 보장됩니다.
+          동시에 <code>kafkaTemplate.send()</code>로 <code>HANDOFF_CONSUMED</code> 이벤트를 직접 발행하여
+          Redis 캐시 무효화를 트리거합니다.
+          <strong>주의:</strong> <code>issue()</code>/<code>verify()</code>의 Kafka 발행은 <em>직접 kafkaTemplate 호출</em>이며,
+          Q-Sign의 AUTH_COMPLETED와 달리 Transactional Outbox 패턴을 사용하지 않습니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">HandoffServiceImpl.java — verify() <span>IdO</span></div>
+          <pre"><span class="ann">@Transactional</span>
+<span class="kw">public</span> <span class="typ">HandoffPayload</span> <span class="fn">verify</span>(<span class="typ">String</span> ticketId, <span class="typ">String</span> agencyCode,
+                               <span class="typ">String</span> correlationId) {
+
+    <span class="typ">HandoffTicket</span> <span class="var">ticket</span> = ticketRepository.<span class="fn">findById</span>(ticketId)
+            .<span class="fn">orElseThrow</span>(() -&gt; <span class="kw">new</span> <span class="typ">TicketNotFoundException</span>(<span class="str">"404"</span>));
+
+    <span class="cmt">// ① 이미 소비된 티켓 → 409 ALREADY_CONSUMED (Replay Attack 방지)</span>
+    <span class="kw">if</span> (ticket.<span class="fn">getStatus</span>() == CONSUMED)
+        <span class="kw">throw new</span> <span class="typ">TicketAlreadyConsumedException</span>();
+
+    <span class="cmt">// ② 취소된 티켓 → 403 REVOKED</span>
+    <span class="kw">if</span> (ticket.<span class="fn">getStatus</span>() == REVOKED)
+        <span class="kw">throw new</span> <span class="typ">TicketRevokedException</span>();
+
+    <span class="cmt">// ③ 만료된 티켓 → 410 EXPIRED</span>
+    <span class="kw">if</span> (Instant.<span class="fn">now</span>().<span class="fn">isAfter</span>(ticket.<span class="fn">getExpiresAt</span>()))
+        <span class="kw">throw new</span> <span class="typ">TicketExpiredException</span>();
+
+    <span class="cmt">// ④ 기관 코드 불일치 → 403 AGENCY_MISMATCH</span>
+    <span class="kw">if</span> (!ticket.<span class="fn">getAgencyCode</span>().<span class="fn">equals</span>(agencyCode))
+        <span class="kw">throw new</span> <span class="typ">AgencyMismatchException</span>();
+
+    <span class="cmt">// 티켓 소비 처리 (1회성 보장)</span>
+    ticketRepository.<span class="fn">consume</span>(ticketId);  <span class="cmt">// status=CONSUMED, consumedAt=NOW()</span>
+
+    <span class="cmt">// Kafka HANDOFF_CONSUMED 이벤트 발행</span>
+    <span class="cmt">// ★ kafkaTemplate.send() 직접 호출 (@Transactional 내부)</span>
+    <span class="cmt">// issue()와 동일한 방식: DB TX 내 Kafka 직접 발행</span>
+    <span class="fn">publishHandoffEvent</span>(<span class="typ">HandoffEvent</span>.TYPE_HANDOFF_CONSUMED, ticket, <span class="kw">null</span>);
+
+    <span class="cmt">// HandoffPayload 구성 (agencySubjectId, authLevel, authContext 등)</span>
+    <span class="kw">return</span> policyEngine.<span class="fn">buildHandoffPayload</span>(ticket, correlationId);
+}</pre>
+        </div>
+        <div class="info-box red">
+          <strong>HANDOFF_CONSUMED 이벤트 이후:</strong><br>
+          <code>HandoffEventConsumer.handleHandoffConsumed()</code> →
+          <code>authResultCacheService.invalidate(correlationId)</code><br>
+          → Redis에서 <code>ido:auth_result:{correlationId}</code>, <code>ido:auth_level:{correlationId}</code> 즉시 삭제<br>
+          보안 원칙: 1회 사용된 인증 결과의 재사용 표면을 즉시 제거
+        </div>
+        <div class="info-box yellow">
+          <strong>⚠️ Kafka 발행 vs DB TX 커밋 순서:</strong><br>
+          <code>verify()</code>는 <code>@Transactional</code> 범위 내에서 <code>kafkaTemplate.send()</code>를 호출합니다.
+          <strong>Kafka 메시지 전송은 DB TX 커밋 전에 실행</strong>되지만, Kafka 자체가 별도 TX를 가지므로
+          Spring Kafka의 <code>KafkaTransactionManager</code>를 함께 사용하지 않으면
+          DB TX 커밋 실패 시 Kafka 메시지가 이미 발행된 상태가 될 수 있습니다.
+          Kafka Consumer에서의 멱등 처리(<code>IdempotentEventStore</code>)가 이 경우의 안전망 역할을 합니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1a10;color:var(--pink);">3</div>
+        <div class="step-title">policyEngine.buildHandoffPayload() → HandoffPayload 구성</div>
+        <div class="step-meta"><span class="tag tag-http">Logic</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>policyEngine</code>이 기관 정책(authLevel 요구사항, 식별자 변환 규칙 등)을 적용하여
+          최종 <code>HandoffPayload</code>를 구성합니다.
+          <code>qimUserId</code> 원본 대신 기관별로 서로 다른 <strong>agencySubjectId</strong>를 계산하여 제공합니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">HandoffPayload 구조 <span>공통</span></div>
+          <pre"><span class="typ">HandoffPayload</span> {
+    <span class="var">state</span>: APPROVED,                <span class="cmt">// APPROVED / REJECTED / HOLD / MANUAL_REVIEW</span>
+
+    <span class="var">subject</span>: {
+        <span class="var">agencySubjectId</span>: <span class="str">"sha256(qimUserId+agencyCode+salt)"</span>,
+        <span class="cmt">// qimUserId 원본 제공 안 함 — 기관간 사용자 추적 방지</span>
+        <span class="cmt">// 각 기관마다 서로 다른 agencySubjectId → 기관간 연계 불가</span>
+    },
+
+    <span class="var">authContext</span>: {
+        <span class="var">authLevel</span>:   <span class="str">"L2"</span>,           <span class="cmt">// 실제 인증 수준</span>
+        <span class="var">providerCode</span>: <span class="str">"KAKAO_OIDC"</span>, <span class="cmt">// 인증 수단</span>
+        <span class="var">authenticatedAt</span>: <span class="str">"2026-05-14T..."</span>
+    },
+
+    <span class="var">ticketId</span>:      <span class="str">"01J8X3..."</span>,      <span class="cmt">// UUIDv7</span>
+    <span class="var">correlationId</span>: <span class="str">"01J8X3..."</span>,
+    <span class="var">issuedAt</span>:      <span class="str">"2026-05-14T..."</span>
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-arrow">▼</div>
+
+    <div class="step-card">
+      <div class="step-header" onclick="toggleStep(this)">
+        <div class="step-num" style="background:#2a1a10;color:var(--pink);">4</div>
+        <div class="step-title">agencySessionService.createSession() → AGSID 쿠키 발급 🎉</div>
+        <div class="step-meta"><span class="tag tag-db">Session</span></div>
+        <span class="step-arrow">▶</span>
+      </div>
+      <div class="step-body">
+        <p class="desc">
+          <code>HandoffPayload</code>를 기반으로 기관 자체 세션을 생성합니다.
+          기존 <code>AGSID</code> 쿠키가 있으면 <strong>Session Fixation 방지</strong>를 위해 먼저 무효화합니다.
+          새 <code>AGSID</code> HttpOnly 쿠키를 발급하고, 로그인이 완료됩니다.
+        </p>
+        <div class="code-wrap">
+          <div class="code-label">AgencySimulatorController.java — STEP 3 세션 생성 <span>agency-stub</span></div>
+          <pre"><span class="cmt">// ① Session Fixation 방지: 기존 AGSID 쿠키 무효화</span>
+<span class="typ">String</span> <span class="var">existingAgsid</span> = <span class="fn">extractCookieValue</span>(httpReq, <span class="str">"AGSID"</span>);
+<span class="kw">if</span> (existingAgsid != <span class="kw">null</span>) {
+    agencySessionService.<span class="fn">invalidateByAgsid</span>(existingAgsid,
+            <span class="str">"SESSION_FIXATION_PREVENTION"</span>, correlationId);
+    <span class="fn">clearCookie</span>(<span class="str">"AGSID"</span>, httpResp);
+}
+
+<span class="cmt">// ② 신규 기관 세션 생성 (agencySubjectId 기반)</span>
+<span class="typ">SessionCreateResult</span> <span class="var">session</span> = agencySessionService
+        .<span class="fn">createSession</span>(payload, ticket.<span class="fn">ticketId</span>(), correlationId, ip, ua);
+<span class="cmt">// agency_local_session, agency_user 테이블에 저장</span>
+
+<span class="cmt">// ③ AGSID HttpOnly 쿠키 발급 (30분 Idle Timeout)</span>
+<span class="typ">ResponseCookie</span> <span class="var">agsidCookie</span> = ResponseCookie
+        .<span class="fn">from</span>(<span class="str">"AGSID"</span>, session.<span class="fn">rawAgsid</span>())
+        .<span class="fn">httpOnly</span>(<span class="kw">true</span>)
+        .<span class="fn">secure</span>(<span class="kw">true</span>)
+        .<span class="fn">sameSite</span>(<span class="str">"Lax"</span>)
+        .<span class="fn">path</span>(<span class="str">"/"</span>)
+        .<span class="fn">maxAge</span>(Duration.<span class="fn">ofMinutes</span>(<span class="num">30</span>))
+        .<span class="fn">build</span>();
+httpResp.<span class="fn">addHeader</span>(HttpHeaders.SET_COOKIE, agsidCookie.<span class="fn">toString</span>());
+
+<span class="cmt">// ✅ 로그인 완료!</span>
+<span class="kw">return</span> ResponseEntity.<span class="fn">ok</span>(result.<span class="fn">success</span>(session));</pre>
+        </div>
+        <div class="info-box green">
+          <strong>🎉 로그인 완료!</strong><br>
+          <code>AGSID</code> HttpOnly 쿠키가 기관 브라우저에 설정되었습니다.<br>
+          이후 기관 페이지 요청마다 <code>AGSID</code> 쿠키로 <code>agency_local_session</code>을 조회하여 사용자를 식별합니다.<br><br>
+          <strong>세션 정보:</strong> <code>sessionId</code>, <code>agencyUserId</code>, <code>agencySubjectId</code>, <code>authLevel</code>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <div class="info-box purple">
+            <strong>전체 흐름 완료 요약:</strong><br>
+            유관기관 브라우저 → BrokerController → Keycloak → 카카오 → Q-Sign 콜백 → JWKS 검증 →
+            @Transactional(AuthResult + QSignOutbox) → OidcComplete → FeSession(Redis) →
+            [비동기] QSignOutboxRelay → Kafka qsign.auth.events → QsignAuthEventConsumer →
+            AuthResultCacheService.preWarm(Redis TTL 300s) →<br>
+            기관 SDK → HandoffController(Fe-Session-Id 쿠키 P1 보안) → HandoffServiceImpl.issue() →
+            @Transactional(HandoffTicket + Kafka HANDOFF_ISSUED) → HandoffEventConsumer →
+            WebhookDispatcherService(OutboxInsert) → WebhookDispatchOutboxRelay(500ms SKIP LOCKED) →
+            HMAC 서명 → HTTPS POST 기관 → WebhookInboundController(타임스탬프+HMAC+중복체크) →
+            agency_event_queue → IdoVerifyClient.verify() → HandoffServiceImpl.verify()
+            @Transactional(CONSUMED + Kafka HANDOFF_CONSUMED) → Redis 캐시 무효화 →
+            policyEngine.buildHandoffPayload() → agencySessionService.createSession() →
+            AGSID 쿠키 → <strong>로그인 완료</strong> 🎉
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+</div><!-- /.container -->
+
+<button id="scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+// ── Phase Navigation ──────────────────────────────────────────────
+function showPhase(n) {
+  document.querySelectorAll('.phase').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.phase-nav-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('phase-' + n).classList.add('active');
+  document.querySelectorAll('.phase-nav-btn')[n].classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Step Toggle ───────────────────────────────────────────────────
+function toggleStep(header) {
+  var card = header.closest('.step-card');
+  card.classList.toggle('open');
+}
+
+// ── Scroll Top Button ─────────────────────────────────────────────
+var scrollTopBtn = document.getElementById('scroll-top');
+window.addEventListener('scroll', function() {
+  if (window.scrollY > 300) {
+    scrollTopBtn.classList.add('show');
+  } else {
+    scrollTopBtn.classList.remove('show');
+  }
+  // Progress bar
+  var h  = document.documentElement;
+  var st = window.scrollY;
+  var sh = h.scrollHeight - h.clientHeight;
+  var progress = sh > 0 ? (st / sh * 100) : 0;
+  document.getElementById('progress-bar').style.width = progress + '%';
+});
+
+// ── Open All Steps on Phase Entry ─────────────────────────────────
+document.querySelectorAll('.phase-nav-btn').forEach(function(btn, idx) {
+  btn.addEventListener('click', function() {
+    setTimeout(function() {
+      document.querySelectorAll('#phase-' + idx + ' .step-card:first-of-type').forEach(function(c) {
+        c.classList.add('open');
+      });
+    }, 100);
+  });
+});
+
+// ── Keyboard Navigation ───────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  var btns  = document.querySelectorAll('.phase-nav-btn');
+  var active = Array.from(btns).findIndex(function(b) { return b.classList.contains('active'); });
+  if (e.key === 'ArrowRight' && active < btns.length - 1) showPhase(active + 1);
+  if (e.key === 'ArrowLeft'  && active > 0)               showPhase(active - 1);
+});
+</script>
+</body>
+</html>

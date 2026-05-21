@@ -10,7 +10,7 @@
 --    설계 원칙: instMbrId = qimUserId (1:1 UUID 매핑)
 --    Q-IM은 이 값을 이후 모든 송수신에서 매핑 기준으로 사용
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.inst_mbr_id_mapping (
+CREATE TABLE IF NOT EXISTS ido.inst_mbr_id_mapping (
     inst_mbr_id          VARCHAR(36)   NOT NULL,          -- SP 내부 식별자 (= qimUserId)
     qim_user_id          VARCHAR(36)   NOT NULL,          -- Q-IM UUID (= inst_mbr_id)
     mbr_uuid             VARCHAR(36),                     -- Q-IM 발행 mbrUuid (등록 수신 시 저장)
@@ -30,12 +30,12 @@ CREATE TABLE ido.inst_mbr_id_mapping (
         CHECK (status IN ('ACTIVE','WITHDRAWN','SUSPENDED'))
 );
 
-CREATE INDEX idx_inst_mbr_qim_user_id    ON ido.inst_mbr_id_mapping (qim_user_id);
-CREATE INDEX idx_inst_mbr_identifier     ON ido.inst_mbr_id_mapping (identifier_hash)
+CREATE INDEX IF NOT EXISTS idx_inst_mbr_qim_user_id    ON ido.inst_mbr_id_mapping (qim_user_id);
+CREATE INDEX IF NOT EXISTS idx_inst_mbr_identifier     ON ido.inst_mbr_id_mapping (identifier_hash)
     WHERE identifier_hash IS NOT NULL;
-CREATE INDEX idx_inst_mbr_mbr_uuid       ON ido.inst_mbr_id_mapping (mbr_uuid)
+CREATE INDEX IF NOT EXISTS idx_inst_mbr_mbr_uuid       ON ido.inst_mbr_id_mapping (mbr_uuid)
     WHERE mbr_uuid IS NOT NULL;
-CREATE INDEX idx_inst_mbr_status         ON ido.inst_mbr_id_mapping (status, registered_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inst_mbr_status         ON ido.inst_mbr_id_mapping (status, registered_at DESC);
 
 COMMENT ON TABLE  ido.inst_mbr_id_mapping              IS 'Q-IM SP 연동 — instMbrId(=qimUserId) 매핑 SoR';
 COMMENT ON COLUMN ido.inst_mbr_id_mapping.inst_mbr_id  IS 'Q-IM에 반환하는 SP 내부 식별자 (= qimUserId UUID)';
@@ -48,7 +48,7 @@ COMMENT ON COLUMN ido.inst_mbr_id_mapping.member_type  IS 'PERSONAL(개인회원
 --    저장소: DB (Redis TTL 기반으로 전환 가능)
 --    보관 기간: 7일 (expires_at 기준 배치 삭제)
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.sp_receiver_idempotency (
+CREATE TABLE IF NOT EXISTS ido.sp_receiver_idempotency (
     idempotency_key      VARCHAR(200)  NOT NULL,
     endpoint             VARCHAR(20)   NOT NULL,          -- QUERY | REGISTER | WITHDRAW
     http_status          SMALLINT      NOT NULL DEFAULT 200,
@@ -61,7 +61,7 @@ CREATE TABLE ido.sp_receiver_idempotency (
         CHECK (endpoint IN ('QUERY','REGISTER','WITHDRAW'))
 );
 
-CREATE INDEX idx_sp_idempotency_expires ON ido.sp_receiver_idempotency (expires_at);  -- 일반 인덱스 (partial index WHERE NOW() 는 IMMUTABLE 제약으로 불가)
+CREATE INDEX IF NOT EXISTS idx_sp_idempotency_expires ON ido.sp_receiver_idempotency (expires_at);  -- 일반 인덱스 (partial index WHERE NOW() 는 IMMUTABLE 제약으로 불가)
 
 COMMENT ON TABLE  ido.sp_receiver_idempotency               IS 'Q-IM SP 수신 API 멱등성 저장소 (TTL=7일)';
 COMMENT ON COLUMN ido.sp_receiver_idempotency.response_json IS '재호출 시 그대로 반환할 응답 JSON 문자열';
@@ -72,7 +72,7 @@ COMMENT ON COLUMN ido.sp_receiver_idempotency.expires_at    IS '만료 후 배�
 --    모든 수신 호출의 전수 감사 기록
 --    멱등 재호출도 기록 (is_replay=true)
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE ido.qim_sp_receiver_log (
+CREATE TABLE IF NOT EXISTS ido.qim_sp_receiver_log (
     log_id               VARCHAR(36)   NOT NULL,
     idempotency_key      VARCHAR(200),
     endpoint             VARCHAR(20)   NOT NULL,
@@ -86,10 +86,10 @@ CREATE TABLE ido.qim_sp_receiver_log (
     CONSTRAINT pk_qim_sp_receiver_log PRIMARY KEY (log_id)
 );
 
-CREATE INDEX idx_sp_receiver_log_user    ON ido.qim_sp_receiver_log (qim_user_id, received_at DESC)
+CREATE INDEX IF NOT EXISTS idx_sp_receiver_log_user    ON ido.qim_sp_receiver_log (qim_user_id, received_at DESC)
     WHERE qim_user_id IS NOT NULL;
-CREATE INDEX idx_sp_receiver_log_at      ON ido.qim_sp_receiver_log (received_at DESC);
-CREATE INDEX idx_sp_receiver_log_idem    ON ido.qim_sp_receiver_log (idempotency_key)
+CREATE INDEX IF NOT EXISTS idx_sp_receiver_log_at      ON ido.qim_sp_receiver_log (received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sp_receiver_log_idem    ON ido.qim_sp_receiver_log (idempotency_key)
     WHERE idempotency_key IS NOT NULL;
 
 COMMENT ON TABLE ido.qim_sp_receiver_log IS 'Q-IM → IdO 아웃바운드 수신 전수 감사 로그';

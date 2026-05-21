@@ -5,6 +5,7 @@ import kr.go.smes.qim.api.dto.UserRegisterRequest;
 import kr.go.smes.qim.api.dto.UserResponse;
 import kr.go.smes.qim.crypto.CiCryptoService;
 import kr.go.smes.qim.crypto.PiiMaskingService;
+import kr.go.smes.qim.domain.MinorGuardianPolicy;
 import kr.go.smes.qim.identity.DiGenerationService;
 import kr.go.smes.qim.infrastructure.jpa.entity.AuthMeanMappingJpaEntity;
 import kr.go.smes.qim.infrastructure.jpa.entity.QimUserJpaEntity;
@@ -144,6 +145,13 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
                 .updatedAt(now)
                 .build();
 
+        // 14세 미만 여부 자동 판정 (P3-05)
+        boolean isMinor = MinorGuardianPolicy.isMinor(req.getBirthYear());
+        if (isMinor) {
+            log.info("[UserReg] 14세 미만 미성년자 감지: qimUserId={} birthYear={} — 보호자 동의 필요",
+                    qimUserId, req.getBirthYear());
+        }
+
         // 프로필 생성
         UserProfileJpaEntity profileEntity = UserProfileJpaEntity.builder()
                 .qimUserId(qimUserId)
@@ -154,6 +162,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
                 .ci(encryptedCi)
                 .birthYear(req.getBirthYear())
                 .gender(req.getGender() != null ? req.getGender() : "UNKNOWN")
+                .isMinor(isMinor)
                 .updatedAt(now)
                 .build();
 
@@ -191,15 +200,17 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
     }
 
     private void deletePii(String qimUserId) {
-        // GDPR Right to be Forgotten: PII 컬럼 NULL 처리
+        // GDPR §17 Right to be Forgotten — V6 컬럼(guardian_qim_user_id, guardian_consent_at) 포함
         jdbcTemplate.update("""
                 UPDATE user_profile
-                SET name_masked = NULL,
-                    mobile_masked = NULL,
-                    ci = NULL,
-                    di_map = NULL,
-                    extra_attributes = NULL,
-                    updated_at = NOW(6)
+                SET name_masked           = NULL,
+                    mobile_masked         = NULL,
+                    ci                    = NULL,
+                    di_map                = NULL,
+                    extra_attributes      = NULL,
+                    guardian_qim_user_id  = NULL,
+                    guardian_consent_at   = NULL,
+                    updated_at            = NOW(6)
                 WHERE qim_user_id = ?
                 """, qimUserId);
         log.info("[UserReg] PII 삭제 완료 (탈퇴): qimUserId={}", qimUserId);

@@ -1,0 +1,53 @@
+import { QueryObserverBaseResult } from 'react-query';
+import { FeatureFlagProps as FeatureFlagPayload } from 'types/api/features/getFeaturesFlags';
+import { PayloadProps as OrgPayload } from 'types/api/user/getOrganization';
+import { PayloadProps as UserPayload } from 'types/api/user/getUser';
+import { UserFlags } from 'types/api/user/setFlags';
+import { ROLES } from 'types/roles';
+
+export interface User {
+	accessJwt: string;
+	refreshJwt: string;
+	userId: string;
+	email: UserPayload['email'];
+	name: UserPayload['name'];
+	profilePictureURL: UserPayload['profilePictureURL'];
+}
+
+export interface OrgPreference {
+	key: string;
+	name: string;
+	description: string;
+	valueType: string;
+	defaultValue: boolean;
+	allowedValues: any[];
+	isDiscreteValues: boolean;
+	allowedScopes: string[];
+	value: boolean;
+}
+
+export default interface AppReducer {
+	isLoggedIn: boolean;
+	isSideBarCollapsed: boolean;
+	isSideBarHided: boolean;
+	isTopMenuPopup: boolean;
+	currentVersion: string;
+	latestVersion: string;
+	isCurrentVersionError: boolean;
+	isLatestVersionError: boolean;
+	user: null | User;
+	isUserFetching: boolean;
+	isUserFetchingError: boolean;
+	role: ROLES | null;
+	org: OrgPayload | null;
+	configs: Record<string, any>;
+	userFlags: null | UserFlags;
+	ee: 'Y' | 'N';
+	setupCompleted: boolean;
+	orgPreferences: OrgPreference[] | null;
+	isFetchingOrgPreferences: boolean;
+	featureResponse: {
+		data: FeatureFlagPayload[] | null;
+		refetch: QueryObserverBaseResult['refetch'];
+	};
+}

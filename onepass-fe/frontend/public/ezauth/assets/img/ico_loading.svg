@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="22" height="22" viewBox="0 0 22 22">
+  <defs>
+    <clipPath id="clip-ico_loading">
+      <rect width="22" height="22"/>
+    </clipPath>
+  </defs>
+  <g id="ico_loading" clip-path="url(#clip-ico_loading)">
+    <g id="그룹_160589" data-name="그룹 160589">
+      <line id="선_266" data-name="선 266" y2="4" transform="translate(11 1)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+      <line id="선_267" data-name="선 267" y2="4" transform="translate(11 17)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.6"/>
+      <line id="선_268" data-name="선 268" x2="2.83" y2="2.83" transform="translate(3.93 3.93)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.3"/>
+      <line id="선_269" data-name="선 269" x2="2.83" y2="2.83" transform="translate(15.24 15.24)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.7"/>
+      <line id="선_270" data-name="선 270" x2="4" transform="translate(1 11)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.4"/>
+      <line id="선_271" data-name="선 271" x2="4" transform="translate(17 11)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.8"/>
+      <line id="선_272" data-name="선 272" y1="2.83" x2="2.83" transform="translate(3.93 15.24)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.5"/>
+      <line id="선_273" data-name="선 273" y1="2.83" x2="2.83" transform="translate(15.24 3.93)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" opacity="0.9"/>
+    </g>
+  </g>
+</svg>

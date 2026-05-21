@@ -1,0 +1,218 @@
+.app-content {
+	.top-navigation {
+		position: fixed;
+		top: 0;
+		left: 200px;
+		right: 0;
+		padding: 0 30px;
+		background-color: #121215;
+		// border-bottom: 1px solid #18191a;
+		z-index: 100;
+		height: 65px;
+	}
+	
+	.btn-select {
+		display: inline-flex;
+		flex-direction: row-reverse;
+		align-items: center;
+		height: 34px;
+		padding-left: 0;
+		background-color: transparent;
+		border: 0;
+		box-shadow: none;
+		color: #ffffff;
+		font-size: 24px;
+		font-weight: 700;
+		.ant-btn-icon {
+			margin: 0 0 0 10px;
+			color: #868794;
+		}
+		&:not(:disabled):not(.ant-btn-disabled):hover,
+		&:not(:disabled):not(.ant-btn-disabled):active {
+			color: #CECFD4;
+		}
+	}
+	.service-selection-popover {
+		position: absolute;
+		top: -48px;
+		left: 0;
+		right: 0;
+		background-color: #222326;
+		box-shadow: 0 10px 16px 0 rgba(0, 0, 0, 0.1);
+		z-index: 11;
+		.info-box {
+			margin-top: 0;
+			padding: 20px 40px 0 40px;
+		}
+	}
+	.page-title {
+		line-height: 1;
+		font-size: 22px;
+		font-weight: 700;
+		color: #ffffff;
+		margin: 0;
+	}
+
+	.page-info-container {
+		position: fixed;
+		top: 48px;
+		left: 200px;
+		right: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		height: 48px;
+		padding: 0 40px;
+		background-color: #2B2D32;
+		z-index: 9;
+		// box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.1);
+		h2, .page-title {
+			font-size: 18px;
+			font-weight: 700;
+			line-height: 48px;
+			color: /*원래색상 : #4e74f8*/#2bd8ff;
+			margin: 0;
+		}
+		
+		.ucube-breadcrumb.ant-breadcrumb {
+			font-size: 14px;
+			&:only-child{
+				width: 100%;
+				ol {
+					justify-content: flex-end;
+				}
+			}
+			ol {
+				align-items: center;
+				height: 48px;
+			}
+			li {
+				color: #868794;
+				// font-weight: 500;
+				font-size: 13px;
+				&.ant-breadcrumb-separator {
+					height: 24px;
+					margin: 0;
+				}
+				a:hover {
+					background-color: transparent;
+				}
+			}
+		}
+	}
+	&.hided {
+		.top-navigation {
+			left: 0;
+			padding-left: 44px;
+		}
+		.page-info-container {
+			left: 0;
+			padding-left: 40px;
+		}
+	}
+}
+
+.topNavContainer {
+	margin-top: 1rem;
+}
+
+.custom-date-picker {
+	display: flex;
+	width: 100%;
+	.ant-picker-range {
+		width: 100%;
+		height: 32px;
+		padding: 0 12px 0 0;
+		background-color: #18191A;
+		font-size: 14px;
+		border: 0;
+		&.ant-picker-focused {
+			box-shadow: none;
+			border: 1px solid /*원래색상 : #4e74f8*/#2bd8ff;
+		}
+		.ant-picker-input {
+			padding: 6px 12px;
+			border-radius: 2px;
+			> input {
+				border: 0;
+				color: #fff;
+				font-size: 14px;
+				line-height: 20px;
+			}
+		}
+		.ant-picker-range-separator {
+			color: #3B404B;
+		}
+		.ant-picker-suffix {
+			color: /*원래색상 : #4e74f8*/#2bd8ff;
+		}
+		.ant-picker-active-bar {
+			display: none;
+		}
+	}
+}
+
+
+.top-nav-picker > .ant-picker-range-wrapper {
+	min-width: auto !important;
+}
+
+.ant-select.select-service {
+	// width: 200px;
+	height: 32px;
+	.ant-select-selector {
+		border: 0;
+		padding: 0;
+		font-size: 14px;
+		font-weight: bold;
+		background-color: transparent;
+	}
+	.ant-select-arrow {
+		color: #868794;
+		right: -10px;
+	}
+	.ant-select-selection-item{
+		color: /*원래색상 : #4e74f8*/#2bd8ff;
+		font-size: 18px;
+		font-weight: bold;
+	}
+	&:hover,
+	&:focus,
+	&:active,
+	&.ant-select-open {
+		.ant-select-selector {
+			background-color: transparent;
+			border: none;
+		}
+	}
+}
+.ant-select-dropdown.select-service-popup {
+	width: 280px;
+	background-color: #3B404B;
+	padding: 8px 0;
+	border-radius: 8px;
+	box-shadow: 0 0 16px 0 rgba(0,0,0,0.1);
+	.ant-select-item-group {
+		min-height: 26px;
+		font-size: 14px;
+		font-weight: bold;
+		color: #868794;
+		line-height: 26px;
+		padding: 0 16px;
+	}
+	.ant-select-item-option {
+		font-size: 16px;
+		color: #CECFD4;
+		font-weight: 500;
+		padding: 10px 16px 10px 16px;
+		line-height: 1.2;
+		height: 40px;
+		border-radius: 0;
+		&.ant-select-item-option-active {
+			background-color: /*원래색상 : #4e74f8*/#2bd8ff;
+			color: #fff;
+			font-weight: 500;
+		}
+	}
+}
+

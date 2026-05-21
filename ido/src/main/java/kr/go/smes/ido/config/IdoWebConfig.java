@@ -4,13 +4,28 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import kr.go.smes.ido.provision.AgencyCredentialStore;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.apache.hc.core5.util.Timeout;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.client.RestTemplate;
+
+import javax.net.ssl.SSLContext;
+import java.io.ByteArrayInputStream;
+import java.security.KeyStore;
+import java.time.Duration;
+import java.util.Base64;
 
 /**
  * IdO Web / HTTP 클라이언트 + 캐시 설정 (문서 §7.4)
@@ -30,6 +45,7 @@ import org.springframework.web.client.RestTemplate;
  * 60,000명 급증 시 webhook 발송 지연이 생겨도 내부 서비스 영향 최소화.
  * WebhookDispatchOutboxRelay가 이 빈을 {@code @Qualifier("webhookRestTemplate")}로 주입받아 사용.
  */
+@Slf4j
 @Configuration
 @EnableScheduling
 public class IdoWebConfig {
@@ -52,6 +68,24 @@ public class IdoWebConfig {
     @Value("${ido.webhook.read-timeout-ms:8000}")
     private int webhookReadTimeoutMs;
 
+    // mTLS 프로비저닝 RestTemplate 설정
+    @Value("${ido.provisioning.mtls.connect-timeout-ms:5000}")
+    private int mtlsConnectTimeoutMs;
+
+    @Value("${ido.provisioning.mtls.read-timeout-ms:10000}")
+    private int mtlsReadTimeoutMs;
+
+    /**
+     * mTLS 기관 authCredentialRef 접두사.
+     * 기관 엔드포인트의 {@code authCredentialRef} 시작 패턴으로 KeyStore 조회.
+     * 기본값: {@code "secrets/agency"} — 모든 기관 mTLS 인증서를 공통 ClientKeyStore에서 관리하는 경우.
+     *
+     * <p>기관별 독립 인증서 지원이 필요한 경우 {@code selectRestTemplate()} 패턴을
+     * 기관코드별로 확장하여 복수 mTLS 빈을 등록하면 된다.
+     */
+    @Value("${ido.provisioning.mtls.keystore-credential-ref:secrets/agency/common/mtls-keystore}")
+    private String mtlsKeystoreCredentialRef;
+
     // ── HTTP 클라이언트 ────────────────────────────────────────────────────
 
     /**
@@ -60,8 +94,8 @@ public class IdoWebConfig {
     @Bean
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(connectTimeoutMs);
-        factory.setReadTimeout(readTimeoutMs);
+        factory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+        factory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
         return new RestTemplate(factory);
     }
 
@@ -71,8 +105,8 @@ public class IdoWebConfig {
     @Bean
     public RestTemplate qimRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(qimConnectTimeoutMs);
-        factory.setReadTimeout(qimReadTimeoutMs);
+        factory.setConnectTimeout(Duration.ofMillis(qimConnectTimeoutMs));
+        factory.setReadTimeout(Duration.ofMillis(qimReadTimeoutMs));
         return new RestTemplate(factory);
     }
 
@@ -91,9 +125,110 @@ public class IdoWebConfig {
     @Bean("webhookRestTemplate")
     public RestTemplate webhookRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(webhookConnectTimeoutMs);
-        factory.setReadTimeout(webhookReadTimeoutMs);
+        factory.setConnectTimeout(Duration.ofMillis(webhookConnectTimeoutMs));
+        factory.setReadTimeout(Duration.ofMillis(webhookReadTimeoutMs));
         return new RestTemplate(factory);
+    }
+
+    /**
+     * mTLS 프로비저닝 전용 RestTemplate (Sprint 17)
+     *
+     * <p>MTLS authType 기관에 HTTP POST 시 이 빈을 사용하여 TLS 핸드셰이크에서
+     * 클라이언트 인증서를 제시한다.
+     *
+     * <h3>동작 원리</h3>
+     * <ol>
+     *   <li>{@link AgencyCredentialStore#findMtlsKeystoreBase64(String)}로 Base64 PKCS12 KeyStore 조회</li>
+     *   <li>KeyStore 파싱 → {@link SSLContext} 생성 (Apache HttpClient 5)</li>
+     *   <li>KeyStore 미등록 시 클라이언트 인증서 없는 일반 TLS RestTemplate 반환 (운영 중 오류 방지)</li>
+     * </ol>
+     *
+     * <h3>K8s Secret 등록 예시</h3>
+     * <pre>
+     * kubectl create secret generic ido-agency-credentials \
+     *   --from-literal=SECRETS_AGENCY_COMMON_MTLS_KEYSTORE_BASE64=$(base64 -w0 client.p12) \
+     *   --from-literal=SECRETS_AGENCY_COMMON_MTLS_KEYSTORE_PASS=changeit \
+     *   -n production
+     * </pre>
+     *
+     * <h3>의존 라이브러리</h3>
+     * <pre>
+     * // build.gradle에 추가 필요 (Apache HttpClient 5 — Spring Boot 3.x 기본 미포함)
+     * implementation 'org.apache.httpcomponents.client5:httpclient5'
+     * </pre>
+     *
+     * @param credentialStore 기관 자격증명 저장소 (K8s Secret 환경변수 조회)
+     * @return mTLS 클라이언트 인증서 장착 RestTemplate
+     */
+    @Bean("mtlsProvisioningRestTemplate")
+    public RestTemplate mtlsProvisioningRestTemplate(AgencyCredentialStore credentialStore) {
+        String keystoreBase64 = credentialStore.findMtlsKeystoreBase64(mtlsKeystoreCredentialRef);
+        String keystorePass   = credentialStore.findMtlsKeystorePassword(mtlsKeystoreCredentialRef);
+
+        if (keystoreBase64 == null || keystoreBase64.isBlank()) {
+            // ── 개발 환경 / KeyStore 미등록 ───────────────────────────────────
+            // 클라이언트 인증서 없이 기본 TLS 연결 (MTLS 기관은 실제 연결 시 서버가 거부)
+            // F-20=false이므로 운영 전에 등록하면 되며, 기동 자체는 허용
+            log.warn("[IdoWebConfig] mTLS KeyStore 미등록 (authCredentialRef={}). " +
+                     "클라이언트 인증서 없이 기본 TLS RestTemplate 사용. " +
+                     "F-20 활성화 전에 K8s Secret 'ido-agency-credentials'에 " +
+                     "SECRETS_AGENCY_COMMON_MTLS_KEYSTORE_BASE64 를 등록하세요.",
+                     mtlsKeystoreCredentialRef);
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(Duration.ofMillis(mtlsConnectTimeoutMs));
+            factory.setReadTimeout(Duration.ofMillis(mtlsReadTimeoutMs));
+            return new RestTemplate(factory);
+        }
+
+        try {
+            // ── PKCS12 KeyStore 로드 ──────────────────────────────────────────
+            byte[]    keystoreBytes = Base64.getDecoder().decode(keystoreBase64.trim());
+            KeyStore  keyStore      = KeyStore.getInstance("PKCS12");
+            char[]    passChars     = keystorePass.toCharArray();
+            keyStore.load(new ByteArrayInputStream(keystoreBytes), passChars);
+
+            // ── SSLContext 생성 (클라이언트 인증서 + 기본 TrustStore) ──────────
+            SSLContext sslContext = SSLContextBuilder.create()
+                    .loadKeyMaterial(keyStore, passChars)
+                    .build();
+
+            // ── Apache HttpClient 5 + PoolingConnectionManager ───────────────
+            // timeout은 HttpClient RequestConfig에서 직접 설정
+            // (HttpComponentsClientHttpRequestFactory.setConnectTimeout(Duration)은
+            //  Spring 6.2에서 deprecated(forRemoval=true) 처리됨)
+            var requestConfig = RequestConfig.custom()
+                    .setConnectTimeout(Timeout.ofMilliseconds(mtlsConnectTimeoutMs))
+                    .setConnectionRequestTimeout(Timeout.ofMilliseconds(mtlsConnectTimeoutMs))
+                    .setResponseTimeout(Timeout.ofMilliseconds(mtlsReadTimeoutMs))
+                    .build();
+            var sslSocketFactory = SSLConnectionSocketFactoryBuilder.create()
+                    .setSslContext(sslContext)
+                    .build();
+            var connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                    .setSSLSocketFactory(sslSocketFactory)
+                    .build();
+            var httpClient = HttpClients.custom()
+                    .setConnectionManager(connectionManager)
+                    .setDefaultRequestConfig(requestConfig)
+                    .build();
+
+            HttpComponentsClientHttpRequestFactory factory =
+                    new HttpComponentsClientHttpRequestFactory(httpClient);
+
+            log.info("[IdoWebConfig] mTLS RestTemplate 초기화 완료 — 클라이언트 인증서 장착. " +
+                     "connectTimeout={}ms readTimeout={}ms",
+                     mtlsConnectTimeoutMs, mtlsReadTimeoutMs);
+            return new RestTemplate(factory);
+
+        } catch (Exception e) {
+            // KeyStore 파싱 실패 시 기본 TLS 폴백 (운영 기동 차단 방지)
+            log.error("[IdoWebConfig] mTLS KeyStore 파싱 실패 — 기본 TLS RestTemplate 폴백. error={}. " +
+                      "PKCS12 형식과 Base64 인코딩을 확인하세요.", e.getMessage());
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(Duration.ofMillis(mtlsConnectTimeoutMs));
+            factory.setReadTimeout(Duration.ofMillis(mtlsReadTimeoutMs));
+            return new RestTemplate(factory);
+        }
     }
 
     // ── JSON 직렬화 ───────────────────────────────────────────────────────
