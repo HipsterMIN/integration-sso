@@ -175,6 +175,43 @@ services:
     logging: *log-small
 
   # ════════════════════════════════════════════════════════════
+  # HashiCorp Vault — KMS (Key Management Service)
+  # IDO_KMS_ENABLED=true / IDO_KMS_PROVIDER=vault 시 사용
+  # 개발 환경: Dev 모드(인메모리, 재시작 시 초기화)
+  # 운영 환경: -dev 플래그 제거 + Raft 스토리지 + TLS 적용
+  # ════════════════════════════════════════════════════════════
+  vault:
+    image: hashicorp/vault:1.17
+    container_name: onepass-vault
+    restart: unless-stopped
+    ports:
+      - "8200:8200"
+    environment:
+      # Dev 모드: 인메모리 스토리지, 재시작 시 초기화됨
+      # 운영 전환 시 이 두 줄을 제거하고 vault.hcl 마운트
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-dev-root-token}
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    command: server -dev
+    cap_add:
+      - IPC_LOCK  # mlock() 허용 — 메모리 스왑 방지 (운영 보안 필수)
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.20
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+    logging: *log-small
+
+  # ════════════════════════════════════════════════════════════
   # Zookeeper
   # ════════════════════════════════════════════════════════════
   zookeeper:
