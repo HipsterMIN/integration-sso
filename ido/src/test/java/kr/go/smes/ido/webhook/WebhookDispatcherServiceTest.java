@@ -58,6 +58,9 @@ class WebhookDispatcherServiceTest {
         sut = new WebhookDispatcherService(jdbcTemplate, new ObjectMapper(), auditLogPublisher);
         ReflectionTestUtils.setField(sut, "defaultMaxRetry",     3);
         ReflectionTestUtils.setField(sut, "defaultSigningSecret", DEFAULT_SECRET);
+        // Sprint α-3 / F4.3 — 기본 테스트는 default secret이 주입된 상태이므로 escape hatch 비활성.
+        // 단, "rawSecret 누락 시 default fallback" 시나리오(별도 nested class)는 ON 으로 전환.
+        ReflectionTestUtils.setField(sut, "allowEmptySecret",   false);
         ReflectionTestUtils.setField(sut, "platformVersion",     "1.0");
         willDoNothing().given(auditLogPublisher).publish(any());
     }
@@ -109,23 +112,30 @@ class WebhookDispatcherServiceTest {
         }
 
         @Test
-        @DisplayName("rawSecret이 null이면 defaultSigningSecret 사용")
-        void signature_usesDefaultSecretWhenRawSecretIsNull() throws Exception {
-            String payload = "test-payload";
-
-            // defaultSigningSecret으로 직접 계산
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(DEFAULT_SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] digest   = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            String expected = "sha256=" + HexFormat.of().formatHex(digest);
-
-            String actual = sut.computeHmacSignature(payload, null);
-            assertThat(actual).isEqualTo(expected);
+        @DisplayName("[F4.3] rawSecret이 null이고 allow-empty-secret=false면 IllegalArgumentException")
+        void signature_throwsWhenRawSecretIsNullAndStrictMode() {
+            // 운영 모드(allow-empty-secret=false)에서는 fallback 금지
+            ReflectionTestUtils.setField(sut, "allowEmptySecret", false);
+            assertThatThrownBy(() -> sut.computeHmacSignature("test-payload", null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("F4.3 Guard")
+                    .hasMessageContaining("rawSecret 누락");
         }
 
         @Test
-        @DisplayName("rawSecret이 blank이면 defaultSigningSecret 사용")
-        void signature_usesDefaultSecretWhenRawSecretIsBlank() throws Exception {
+        @DisplayName("[F4.3] rawSecret이 blank이고 allow-empty-secret=false면 IllegalArgumentException")
+        void signature_throwsWhenRawSecretIsBlankAndStrictMode() {
+            ReflectionTestUtils.setField(sut, "allowEmptySecret", false);
+            assertThatThrownBy(() -> sut.computeHmacSignature("test-payload", "   "))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("F4.3 Guard");
+        }
+
+        @Test
+        @DisplayName("[F4.3] allow-empty-secret=true 모드에서는 rawSecret 누락 시 default fallback 허용 (테스트 전용)")
+        void signature_usesDefaultSecretWhenAllowEmptyMode() throws Exception {
+            // 테스트 전용 escape hatch ON
+            ReflectionTestUtils.setField(sut, "allowEmptySecret", true);
             String payload = "test-payload";
 
             Mac mac = Mac.getInstance("HmacSHA256");
@@ -133,6 +143,7 @@ class WebhookDispatcherServiceTest {
             byte[] digest   = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
             String expected = "sha256=" + HexFormat.of().formatHex(digest);
 
+            assertThat(sut.computeHmacSignature(payload, null)).isEqualTo(expected);
             assertThat(sut.computeHmacSignature(payload, "   ")).isEqualTo(expected);
         }
 
@@ -150,6 +161,69 @@ class WebhookDispatcherServiceTest {
             String sig1 = sut.computeHmacSignature("same-payload", "secret-A");
             String sig2 = sut.computeHmacSignature("same-payload", "secret-B");
             assertThat(sig1).isNotEqualTo(sig2);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Sprint α-3 / F4.3 — validateSigningSecret() 부팅 검증
+    // ════════════════════════════════════════════════════════════════════════
+    @Nested
+    @DisplayName("[F4.3] validateSigningSecret() — 부팅 시점 시크릿 강제 검증")
+    class ValidateSigningSecretTests {
+
+        private WebhookDispatcherService freshSut() {
+            return new WebhookDispatcherService(jdbcTemplate, new ObjectMapper(), auditLogPublisher);
+        }
+
+        @Test
+        @DisplayName("[F4.3] signing-secret 비어 있고 allow-empty-secret=false → IllegalStateException")
+        void validate_throws_whenSecretBlankAndStrictMode() {
+            WebhookDispatcherService bean = freshSut();
+            ReflectionTestUtils.setField(bean, "defaultSigningSecret", "");
+            ReflectionTestUtils.setField(bean, "allowEmptySecret",   false);
+
+            assertThatThrownBy(() ->
+                    ReflectionTestUtils.invokeMethod(bean, "validateSigningSecret"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("F4.3 Guard")
+                    .hasMessageContaining("ido.webhook.signing-secret");
+        }
+
+        @Test
+        @DisplayName("[F4.3] signing-secret이 null이고 allow-empty-secret=false → IllegalStateException")
+        void validate_throws_whenSecretNullAndStrictMode() {
+            WebhookDispatcherService bean = freshSut();
+            ReflectionTestUtils.setField(bean, "defaultSigningSecret", null);
+            ReflectionTestUtils.setField(bean, "allowEmptySecret",   false);
+
+            assertThatThrownBy(() ->
+                    ReflectionTestUtils.invokeMethod(bean, "validateSigningSecret"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("F4.3 Guard");
+        }
+
+        @Test
+        @DisplayName("[F4.3] signing-secret 정상 주입 시 부팅 성공")
+        void validate_passes_whenSecretInjected() {
+            WebhookDispatcherService bean = freshSut();
+            ReflectionTestUtils.setField(bean, "defaultSigningSecret", "real-secret-from-vault");
+            ReflectionTestUtils.setField(bean, "allowEmptySecret",   false);
+
+            assertThatCode(() ->
+                    ReflectionTestUtils.invokeMethod(bean, "validateSigningSecret"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("[F4.3] allow-empty-secret=true (escape hatch) — secret 비어 있어도 부팅 성공 (테스트 전용)")
+        void validate_passes_whenEscapeHatchEnabled() {
+            WebhookDispatcherService bean = freshSut();
+            ReflectionTestUtils.setField(bean, "defaultSigningSecret", "");
+            ReflectionTestUtils.setField(bean, "allowEmptySecret",   true);
+
+            assertThatCode(() ->
+                    ReflectionTestUtils.invokeMethod(bean, "validateSigningSecret"))
+                    .doesNotThrowAnyException();
         }
     }
 

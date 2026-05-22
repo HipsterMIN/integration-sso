@@ -185,7 +185,26 @@ public class PolicyEngineImpl implements PolicyEngine {
      * Q-IM DI 조회 시도.
      *
      * <p>DI가 있으면 반환 (= 기관 매핑 있음 → APPROVED).
-     * DI가 없거나 조회 실패면 {@code null} 반환 (= 기관 매핑 없음 → GUEST).
+     * DI가 없으면 {@code null} 반환 (= 기관 매핑 없음 → GUEST).
+     *
+     * <p><b>Sprint α-3 / F4.6 변경</b> — Q-IM 일시 장애와 영구 미매핑 구분:
+     * <ul>
+     *   <li>{@code null} 반환 (정당한 GUEST) — Q-IM이 명시적으로 "DI 없음"을 응답한 경우:
+     *       <ul>
+     *         <li>{@link QimClient#getDi} 가 {@code null} 반환 (DI 필드 없음 또는 404)</li>
+     *       </ul>
+     *   </li>
+     *   <li>{@link PlatformException} 재전파 (안전 우선 거부) — Q-IM 호출 자체가 실패한 경우:
+     *       <ul>
+     *         <li>{@link PlatformErrorCode#IDO_QIM_UNREACHABLE} (5xx / 네트워크 / 타임아웃)</li>
+     *         <li>→ {@link #buildHandoffPayload} 가 예외를 그대로 전파 → 클라이언트 503 응답 → 재시도 유도</li>
+     *       </ul>
+     *   </li>
+     * </ul>
+     *
+     * <p>이전 구현({@code catch (Exception e) { return null; }})은 Q-IM 장애를 정상 미매핑으로
+     * 오인하여 모든 사용자가 GUEST로 떨어지는 데이터 무결성 위험이 있었음
+     * (분석: 04_handoff_flow.md F4.6).
      *
      * <p>이전 HMAC fallback({@code generateAgencySubjectId}) 완전 제거:
      * <ul>
@@ -194,7 +213,8 @@ public class PolicyEngineImpl implements PolicyEngine {
      *   <li>매핑 없으면 GUEST를 반환하여 기관이 직접 처리하도록 위임</li>
      * </ul>
      *
-     * @return DI 문자열 (기관 매핑 있음), 또는 null (기관 매핑 없음)
+     * @return DI 문자열 (기관 매핑 있음), 또는 null (기관 매핑 없음 — 정당한 GUEST)
+     * @throws PlatformException Q-IM 일시 장애 (IDO_QIM_UNREACHABLE) — 안전 우선 거부
      */
     private String tryResolveDi(String qimUserId, String agencyCode, String correlationId) {
         try {
@@ -203,12 +223,20 @@ public class PolicyEngineImpl implements PolicyEngine {
                 log.debug("[PolicyEngine] agencySubjectId = Q-IM DI: agency={}", agencyCode);
                 return di;
             }
-            // getDi()가 null/blank 반환 = 기관 DI 없음 → GUEST
-            log.info("[PolicyEngine] Q-IM DI 없음(null/blank) — GUEST 대상: qimUserId={} agency={}", qimUserId, agencyCode);
+            // getDi()가 null/blank 반환 = 기관 DI 없음 → GUEST (정당)
+            log.info("[PolicyEngine][F4.6] Q-IM DI 없음 — GUEST 정당: qimUserId={} agency={}", qimUserId, agencyCode);
             return null;
+        } catch (PlatformException e) {
+            // F4.6: Q-IM 일시 장애 (IDO_QIM_UNREACHABLE 등) — GUEST로 swallow 금지.
+            // 그대로 전파하여 호출자(IdO 컨트롤러)가 503 응답 → 클라이언트가 재시도하도록 유도.
+            log.error("[PolicyEngine][F4.6] Q-IM 일시 장애 → 안전 우선 거부: agency={} code={} err={}",
+                    agencyCode, e.getErrorCode().getCode(), e.getMessage());
+            throw e;
         } catch (Exception e) {
-            log.warn("[PolicyEngine] Q-IM DI 조회 실패 — GUEST 대상: agency={} err={}", agencyCode, e.getMessage());
-            return null;
+            // 예상 외 예외 — 안전 우선 거부로 변환 (NPE 등으로 GUEST가 새는 사고 방지)
+            log.error("[PolicyEngine][F4.6] Q-IM DI 조회 예상 외 예외 → 안전 우선 거부: agency={} err={}",
+                    agencyCode, e.getMessage(), e);
+            throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
         }
     }
 

@@ -26,6 +26,9 @@ ido:
   cors:
     enabled: false
     allowed-origins: http://localhost:3000
+  # Sprint α-3 / F4.3 — 슬라이스 테스트에서는 signing-secret 미주입 허용
+  webhook:
+    allow-empty-secret: true
 
 resilience4j:
   circuitbreaker:

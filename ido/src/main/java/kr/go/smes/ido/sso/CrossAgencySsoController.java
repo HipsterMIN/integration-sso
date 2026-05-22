@@ -64,11 +64,29 @@ public class CrossAgencySsoController {
 
     // ── DTO 내부 클래스 ────────────────────────────────────────────────────
 
-    /** CAST 토큰 발급 응답 */
+    /**
+     * CAST 토큰 발급 응답
+     *
+     * <p><b>Sprint α-3 / F4.4 변경</b>:
+     * <ul>
+     *   <li>{@code redirectUrl} — 기관 B의 SSO 진입점 URL <b>only</b> (castToken 미포함). Referer/브라우저 히스토리/Access-Log 유출 차단.</li>
+     *   <li>{@code formHtml} — 신규. 클라이언트가 즉시 렌더하면 자동으로 castToken을 POST로 제출하는 자동 폼 HTML.
+     *       (input[type=hidden]에만 castToken 포함; URL 라인엔 절대 노출되지 않음.)</li>
+     *   <li>{@code ssoEntryUrl} — 신규. {@code redirectUrl}과 동일하지만 의미를 명확히 한 alias (deprecation 단계).</li>
+     * </ul>
+     *
+     * <p>프론트엔드 사용 권장 패턴:
+     * <pre>
+     *   const res = await fetch('/api/v1/agency/cast/issue', ...);
+     *   document.open(); document.write(res.formHtml); document.close();  // 자동 POST 제출
+     * </pre>
+     */
     public record CastIssueResponse(
             String jti,
             String targetAgency,
-            String redirectUrl,
+            String redirectUrl,    // F4.4: castToken 미포함. 기관 B의 SSO 진입점 URL only.
+            String ssoEntryUrl,    // F4.4 신규: redirectUrl과 동일 (의미 명확화)
+            String formHtml,       // F4.4 신규: castToken을 hidden field로 POST 제출하는 자동 폼
             String castToken,
             long   expiresInSeconds
     ) {}
@@ -120,18 +138,26 @@ public class CrossAgencySsoController {
         // CAST 토큰 발급
         CastToken castToken = castTokenService.issue(feSessionId, targetAgency, cid);
 
-        // 기관 B 리디렉션 URL 구성 (기관 B의 SSO 진입점 + onepass_sso 파라미터)
-        String redirectUrl = buildRedirectUrl(targetAgency, castToken.token());
+        // ── Sprint α-3 / F4.4 — castToken을 URL 쿼리에 싣지 않는다 ────────────
+        // 이전: redirectUrl = "https://x.agency.go.kr/sso-entry?onepass_sso=<JWT>"
+        //       → Referer 헤더/브라우저 히스토리/HTTPS access-log에 JWT가 누설.
+        // 현재:
+        //   • redirectUrl/ssoEntryUrl = 기관 B 진입점 URL only (castToken 미포함)
+        //   • formHtml = castToken을 hidden field로 담아 자동 POST 제출하는 HTML
+        String ssoEntryUrl = buildSsoEntryUrl(targetAgency);
+        String formHtml    = buildAutoSubmitForm(ssoEntryUrl, castToken.token(), castToken.jti());
 
         CastIssueResponse response = new CastIssueResponse(
                 castToken.jti(),
                 castToken.targetAgency(),
-                redirectUrl,
+                ssoEntryUrl,          // redirectUrl (legacy 호환 alias) — JWT 미포함
+                ssoEntryUrl,          // ssoEntryUrl — JWT 미포함
+                formHtml,             // formHtml — castToken은 hidden field에만 존재
                 castToken.token(),
                 CastToken.TTL_SECONDS
         );
 
-        log.info("[CrossAgencySSO] CAST 발급 완료 jti={} targetAgency={} cid={}",
+        log.info("[CrossAgencySSO] CAST 발급 완료 jti={} targetAgency={} cid={} (F4.4: URL에 JWT 미포함)",
                 castToken.jti(), targetAgency, cid);
         return ResponseEntity.ok(response);
     }
@@ -242,12 +268,62 @@ public class CrossAgencySsoController {
         return handoffService.issue(cmd);
     }
 
-    private String buildRedirectUrl(String targetAgency, String castJwt) {
-        // 실제 운영에서는 agency_endpoint_registry에서 기관의 SSO 진입점 URL을 조회
-        // Sprint 14에서 agency_endpoint_registry 구현 후 연동 예정
-        // 현재는 플레이스홀더 형식 반환
-        return String.format("https://%s.agency.go.kr/sso-entry?onepass_sso=%s",
-                targetAgency.toLowerCase().replace("_", "-"), castJwt);
+    /**
+     * Sprint α-3 / F4.4 — 기관 B의 SSO 진입점 URL 생성 (castToken 미포함).
+     *
+     * <p>실제 운영에서는 agency_endpoint_registry에서 기관의 SSO 진입점 URL을 조회.
+     * Sprint 14에서 registry 구현 후 연동 예정. 현재는 플레이스홀더 형식 반환.
+     *
+     * <p><b>주의</b>: 절대 castToken/JWT을 쿼리 스트링에 포함하지 말 것 (F4.4).
+     */
+    private String buildSsoEntryUrl(String targetAgency) {
+        return String.format("https://%s.agency.go.kr/sso-entry",
+                targetAgency.toLowerCase().replace("_", "-"));
+    }
+
+    /**
+     * Sprint α-3 / F4.4 — castToken 자동 POST 제출 HTML 폼 생성.
+     *
+     * <p>프론트엔드가 응답의 {@code formHtml}을 그대로 페이지에 렌더(예: document.write)하면
+     * 브라우저가 즉시 form.submit()을 실행하여 castToken을 <b>POST body</b>로 기관 B에 전송한다.
+     *
+     * <p><b>보안 효과</b>:
+     * <ul>
+     *   <li>URL 쿼리/Referer/access-log/브라우저 히스토리에 castToken 미노출</li>
+     *   <li>JS 비활성 환경에서는 사용자가 "계속" 버튼을 직접 눌러야 진행 (XSS·자동제출 콤보 완화)</li>
+     *   <li>제출 후 브라우저 표시 URL은 기관 B 진입점만 남음</li>
+     * </ul>
+     *
+     * <p>HTML 인코딩 주의: castToken/url은 모두 HTML entity escape 처리하여
+     * 폼 HTML이 의도치 않게 깨지거나 주입(injection)되지 않도록 한다.
+     */
+    private String buildAutoSubmitForm(String ssoEntryUrl, String castJwt, String jti) {
+        String escapedUrl   = htmlEscape(ssoEntryUrl);
+        String escapedToken = htmlEscape(castJwt);
+        String escapedJti   = htmlEscape(jti);
+        return "<!DOCTYPE html>\n" +
+               "<html lang=\"ko\"><head><meta charset=\"UTF-8\">" +
+               "<title>OnePass SSO 진입</title></head>" +
+               "<body onload=\"document.forms[0].submit()\">" +
+               "<noscript><p>JavaScript가 비활성화되어 있습니다. 아래 버튼을 눌러 진행하세요.</p></noscript>" +
+               "<form method=\"POST\" action=\"" + escapedUrl + "\" autocomplete=\"off\">" +
+               "<input type=\"hidden\" name=\"onepass_sso\" value=\"" + escapedToken + "\"/>" +
+               "<input type=\"hidden\" name=\"jti\" value=\"" + escapedJti + "\"/>" +
+               "<noscript><button type=\"submit\">계속</button></noscript>" +
+               "</form></body></html>";
+    }
+
+    /**
+     * 최소한의 HTML escape — buildAutoSubmitForm 전용.
+     * castToken/URL은 영숫자·일부 기호로 구성되지만 안전을 위해 5종 entity 변환.
+     */
+    private String htmlEscape(String s) {
+        if (s == null) return "";
+        return s.replace("&",  "&amp;")
+                .replace("<",  "&lt;")
+                .replace(">",  "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'",  "&#39;");
     }
 
     private String resolveCorrelationId(String headerValue) {

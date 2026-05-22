@@ -3,6 +3,7 @@ package kr.go.smes.ido.webhook;
 import kr.go.smes.common.util.UuidV7;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import kr.go.smes.common.event.AuditLogEvent;
 import kr.go.smes.common.event.HandoffEvent;
 import kr.go.smes.ido.audit.AuditLogPublisher;
@@ -64,12 +65,61 @@ public class WebhookDispatcherService {
     @Value("${ido.webhook.default-max-retry:3}")
     private int defaultMaxRetry;
 
-    @Value("${ido.webhook.signing-secret:poc-webhook-secret-change-in-production}")
-    private String defaultSigningSecret;   // PoC 기본값; 운영: Vault/KMS 주입
+    /**
+     * Sprint α-3 / F4.3 — Webhook 기본 서명 시크릿 (운영 환경에서 강제 주입)
+     *
+     * <p><b>변경 이력</b>:
+     * <ul>
+     *   <li>이전: 기본값 {@code "poc-webhook-secret-change-in-production"} 하드코딩 → 운영에 PoC 시크릿이 그대로 흘러갈 위험</li>
+     *   <li>현재: 기본값 제거 → 미설정 시 {@link #validateSigningSecret()}가 부팅 단계에서 fail-fast</li>
+     * </ul>
+     *
+     * <p>운영 배포 시 반드시 환경변수/Vault에서 {@code IDO_WEBHOOK_SIGNING_SECRET} 주입.
+     * 테스트/로컬 등 fallback 시크릿이 정당하게 필요한 환경에서는
+     * {@code ido.webhook.allow-empty-secret=true}를 설정하면 부팅 검증을 우회한다.
+     */
+    @Value("${ido.webhook.signing-secret:}")
+    private String defaultSigningSecret;
+
+    /**
+     * Sprint α-3 / F4.3 — Webhook signing secret 비어 있는 상태 허용 여부 (escape hatch).
+     *
+     * <p>기본 {@code false} — 운영/스테이징 부팅 시 비어 있으면 즉시 실패.
+     * 테스트 컨텍스트({@code application-integration-test.yml})에서만 {@code true}로 활성화.
+     */
+    @Value("${ido.webhook.allow-empty-secret:false}")
+    private boolean allowEmptySecret;
 
     /** 플랫폼 API 버전 헤더값 (하드코딩 "1.0" 제거) */
     @Value("${ido.platform-version:1.0}")
     private String platformVersion;
+
+    /**
+     * Sprint α-3 / F4.3 — 부팅 시 webhook signing secret 강제 검증.
+     *
+     * <p>{@code ido.webhook.signing-secret} 미설정 + escape hatch 비활성 시
+     * Spring 컨텍스트 초기화 단계에서 {@link IllegalStateException}을 던져
+     * PoC 기본 시크릿이 운영에 누설되는 사고를 사전 차단한다.
+     *
+     * <p>분석 문서: docs/analysis/sso-im-readiness/04_handoff_flow.md (F4.3)
+     */
+    @PostConstruct
+    void validateSigningSecret() {
+        boolean blank = (defaultSigningSecret == null || defaultSigningSecret.isBlank());
+        if (blank && !allowEmptySecret) {
+            throw new IllegalStateException(
+                "[F4.3 Guard] ido.webhook.signing-secret 미설정 — 운영 환경 부팅 차단. " +
+                "환경변수 IDO_WEBHOOK_SIGNING_SECRET 또는 Vault 주입 필수. " +
+                "테스트 컨텍스트에서만 ido.webhook.allow-empty-secret=true 허용."
+            );
+        }
+        if (blank) {
+            log.warn("[WebhookDispatcher][F4.3] signing-secret 비어 있음 — allow-empty-secret=true 활성. " +
+                     "이 모드는 테스트 전용이며 운영 배포 금지.");
+        } else {
+            log.info("[WebhookDispatcher][F4.3] signing-secret 주입 확인 완료 (len={})", defaultSigningSecret.length());
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // 공개 API
@@ -258,13 +308,28 @@ public class WebhookDispatcherService {
      * @return "sha256=" + HEX(HMAC-SHA256)
      */
     public String computeHmacSignature(String payload, String rawSecret) {
+        // Sprint α-3 / F4.3 — fallback to defaultSigningSecret 제거.
+        // 호출측(WebhookDispatchOutboxRelay 등)이 반드시 기관별 raw secret을 전달해야 한다.
+        // rawSecret이 비어 있으면 fail-fast하여 "PoC 기본 시크릿으로 서명되는 사고"를 봉쇄.
+        if (rawSecret == null || rawSecret.isBlank()) {
+            // allow-empty-secret 모드(테스트 전용)인 경우에 한해 defaultSigningSecret로 우회 허용
+            if (allowEmptySecret && defaultSigningSecret != null && !defaultSigningSecret.isBlank()) {
+                log.warn("[WebhookDispatcher][F4.3] rawSecret 누락 → allow-empty-secret 모드에서 default fallback 사용 (테스트 전용).");
+                rawSecret = defaultSigningSecret;
+            } else {
+                throw new IllegalArgumentException(
+                    "[F4.3 Guard] webhook rawSecret 누락 — 기관별 signing_secret 미설정. " +
+                    "agency_webhook_config.signing_secret_hash 컬럼 확인 필요."
+                );
+            }
+        }
         try {
-            String secret = (rawSecret != null && !rawSecret.isBlank())
-                    ? rawSecret : defaultSigningSecret;
             Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            mac.init(new SecretKeySpec(rawSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] digest = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
             return "sha256=" + bytesToHex(digest);
+        } catch (IllegalArgumentException e) {
+            throw e;   // F4.3 가드는 그대로 전파
         } catch (Exception e) {
             log.error("[WebhookDispatcher] HMAC 서명 생성 실패: {}", e.getMessage());
             return "sha256=error";
