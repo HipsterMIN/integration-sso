@@ -135,8 +135,18 @@ public class QimClientImpl implements QimClient {
      * 기관별 DI 조회/생성
      * GET /api/v1/internal/users/{qimUserId}/di?agencyCode={agencyCode}
      *
-     * <p>실패 시 null 반환 → {@link kr.go.smes.ido.policy.PolicyEngineImpl}이
-     * {@code HandoffState.GUEST} 반환 (v3.0 — HMAC fallback 제거)
+     * <p><b>Sprint α-3 / F4.6 변경</b> — 예외 구분:
+     * <ul>
+     *   <li>2xx + di 존재 → DI 반환 (= 기관 매핑 있음 → APPROVED)</li>
+     *   <li>404 / 2xx + di 없음 → {@code null} 반환 (= 영구 미매핑 → 정상 GUEST)</li>
+     *   <li>5xx / 4xx(404 제외) / 네트워크 오류 / 타임아웃 →
+     *       {@link PlatformException}({@link PlatformErrorCode#IDO_QIM_UNREACHABLE}) throw
+     *       (= 일시 장애 → 호출자가 503으로 응답하여 클라이언트 재시도 유도)</li>
+     * </ul>
+     *
+     * <p>이전 구현은 모든 예외를 swallow하고 null을 반환했기 때문에
+     * Q-IM 장애 상황에서도 영구 미매핑(=정상 GUEST)으로 오인되어
+     * 데이터 무결성 위험이 있었음 (분석: 04_handoff_flow.md F4.6).
      */
     @Override
     public String getDi(String qimUserId, String agencyCode, String correlationId) {
@@ -148,12 +158,30 @@ public class QimClientImpl implements QimClient {
                     url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return (String) response.getBody().get("di");
+                Object di = response.getBody().get("di");
+                return (di instanceof String s && !s.isBlank()) ? s : null;
             }
+            // 2xx 외 응답 (실질적으로 도달 안 함 — Spring이 4xx/5xx를 예외로 변환)
+            log.warn("[QimClient][F4.6] DI 조회 비정상 응답: status={} qimUserId={} agency={}",
+                    response.getStatusCode(), qimUserId, agencyCode);
             return null;
+        } catch (HttpClientErrorException.NotFound e) {
+            // 404: 영구 미매핑 — 정상 케이스 (GUEST)
+            log.info("[QimClient][F4.6] DI 미매핑(404) — GUEST 정당: qimUserId={} agency={}", qimUserId, agencyCode);
+            return null;
+        } catch (PlatformException e) {
+            // 상위 PlatformException은 그대로 전파
+            throw e;
+        } catch (RestClientException e) {
+            // 5xx / 4xx(404 제외) / 네트워크 오류 / 타임아웃 — 일시 장애
+            log.error("[QimClient][F4.6] DI 조회 일시 장애 — IDO_QIM_UNREACHABLE: agency={} err={}",
+                    agencyCode, e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
         } catch (Exception e) {
-            log.warn("[QimClient] DI 조회 실패 — GUEST 반환 대상: agencyCode={} err={}", agencyCode, e.getMessage());
-            return null;
+            // 예상 외 예외도 안전 우선 거부 (= 장애로 간주)
+            log.error("[QimClient][F4.6] DI 조회 예외(unexpected) — IDO_QIM_UNREACHABLE: agency={} err={}",
+                    agencyCode, e.getMessage(), e);
+            throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
         }
     }
 

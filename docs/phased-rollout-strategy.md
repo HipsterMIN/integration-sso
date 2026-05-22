@@ -595,6 +595,6 @@ kubectl rollout status deployment/ido -n smes
 > **문서 관리**: 이 문서는 각 Phase 전환 시 업데이트됩니다.  
 > **담당자**: 개발팀 리드  
 > **관련 문서**:  
-> - [배포 가이드](deployment-guide.md)  
+> - [배포 가이드](_archive/2026-05-22/deployment-guide.md)  
 > - [기능 문서 목록](features/)  
 > - [Feature Flag 코드](../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)

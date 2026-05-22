@@ -3,7 +3,7 @@
 **문서 번호**: ARCH-SUPP-001  
 **작성일**: 2026-05-08  
 **대상 버전**: v1.4.2+  
-**관련 문서**: README.md, operational-readiness-analysis-v2.md, eda-master-arch-gap-analysis-v0.8.md  
+**관련 문서**: README.md, _archive/2026-05-22/internal/analysis/operational-readiness-analysis-v2.md, _archive/2026-05-22/internal/analysis/eda-master-arch-gap-analysis-v0.8.md  
 **작성 배경**: README.md 아키텍처 구성도에서 `agency-stub`이 내부망(`onepass-net`)으로 잘못 표현된 것을 발견, 전체 설계 재검토 및 보완
 
 ---

@@ -169,12 +169,35 @@ public class HandoffServiceImpl implements HandoffService {
 
     // ── verify ─────────────────────────────────────────────────────────────
 
+    /**
+     * Handoff Ticket 검증 + 소비 (Sprint α-2 / F4.1 + F4.5 적용)
+     *
+     * <p><b>단계 순서 (F4.5)</b> — 재시도 가능성 보장:
+     * <ol>
+     *   <li>Ticket 조회 + 상태/만료/기관 일치 검증</li>
+     *   <li>HMAC-SHA256 서명 검증 + AAD 바인딩 검증 (F4.1)
+     *       — encryptedPayload 와 ticketId AAD 가 발급 시점과 동일한지 확인</li>
+     *   <li>{@code policyEngine.buildHandoffPayload()} — Q-IM HTTP 호출 가능 (실패 시 ticket 유지)</li>
+     *   <li>{@code ticketRepository.consume()} — atomic CAS (F4.2) 로 ISSUED→CONSUMED</li>
+     *   <li>Kafka {@code HANDOFF_CONSUMED} 이벤트 발행</li>
+     * </ol>
+     *
+     * <p><b>F4.5 (비-원자 다단계) 해결</b>: 기존에는 consume → publish → buildPayload 순서였기에
+     * Q-IM HTTP 실패 시 ticket 이 영구 CONSUMED 상태로 남아 사용자가 차단되었음.
+     * 이제 buildPayload 가 먼저 실행되므로, Q-IM 실패 시 ticket 은 ISSUED 그대로 → 재시도 가능.
+     * buildPayload ↔ consume 사이의 race window 는 F4.2 의 atomic CAS 가 차단.
+     *
+     * <p><b>F4.1 (dead code) 해결</b>: 기존 코드는 {@code cryptoService.verify()} 를 호출하지 않아
+     * Redis 침해 또는 직렬화 오류로 변조된 payload 가 그대로 기관에 전달될 수 있었음.
+     * 이제 buildPayload 직전에 서명을 검증하여 변조 차단.
+     */
     @Override
     @Transactional
     public HandoffPayload verify(String ticketId, String agencyCode, String correlationId) {
         log.info("[IdO] Handoff Verify 요청 ticketId={} agency={}", ticketId, agencyCode);
 
         try {
+            // ── ① Ticket 조회 + 사전 상태 검증 ──────────────────────────────────
             HandoffTicket ticket = ticketRepository.findById(ticketId)
                     .orElseThrow(() -> new PlatformException(PlatformErrorCode.IDO_TICKET_EXPIRED, correlationId));
 
@@ -196,12 +219,35 @@ public class HandoffServiceImpl implements HandoffService {
                 throw new PlatformException(PlatformErrorCode.AGENCY_CODE_MISMATCH, correlationId);
             }
 
-            ticketRepository.consume(ticketId);
-            publishHandoffEvent(HandoffEvent.TYPE_HANDOFF_CONSUMED, ticket, null);
+            // ── ② HMAC 서명 검증 (F4.1) ─────────────────────────────────────────
+            // - encryptedPayload 또는 signature 가 null 인 경우도 검증 실패로 처리
+            //   (Issue 시 항상 set 되므로 정상 ticket 은 통과)
+            if (ticket.getEncryptedPayload() == null || ticket.getSignature() == null
+                    || !handoffCryptoService.verify(
+                            ticketId, agencyCode,
+                            ticket.getEncryptedPayload(), ticket.getSignature())) {
+                publishSignatureInvalidEvent(ticket, correlationId);
+                auditVerify(ticketId, agencyCode, correlationId,
+                        AuditLogEvent.OUTCOME_FAILURE, "SIGNATURE_INVALID");
+                log.error("[IdO] Handoff Verify 서명 검증 실패 ticketId={} agency={} corr={}",
+                        ticketId, agencyCode, correlationId);
+                throw new PlatformException(PlatformErrorCode.IDO_TICKET_SIGNATURE_INVALID, correlationId);
+            }
 
+            // ── ③ Payload 빌드 — Q-IM HTTP 호출 가능 (F4.5: consume 보다 먼저) ───
+            // - 여기서 예외가 발생하면 ticket 은 ISSUED 그대로 → 사용자 재시도 가능
+            //   (기존 코드는 이미 consume 후라서 영구 차단 발생)
             HandoffPayload payload = policyEngine.buildHandoffPayload(ticket, correlationId);
 
-            // 감사 로그 — 검증 성공
+            // ── ④ Atomic consume (F4.2) ───────────────────────────────────────
+            // - ISSUED → CONSUMED CAS. 동시 verify 시 한쪽만 성공.
+            // - 실패 시 PlatformException(IDO_TICKET_CONSUMED/EXPIRED/...) throw.
+            ticketRepository.consume(ticketId);
+
+            // ── ⑤ Kafka HANDOFF_CONSUMED 이벤트 ────────────────────────────────
+            publishHandoffEvent(HandoffEvent.TYPE_HANDOFF_CONSUMED, ticket, null);
+
+            // ── ⑥ 감사 로그 — 검증 성공 ────────────────────────────────────────
             auditVerify(ticketId, agencyCode, correlationId, AuditLogEvent.OUTCOME_SUCCESS, null);
             log.info("[IdO] Handoff Verify 성공 ticketId={} agency={}", ticketId, agencyCode);
             return payload;
@@ -314,5 +360,23 @@ public class HandoffServiceImpl implements HandoffService {
                 ticket.getTicketId(), ticket.getAgencyCode(),
                 ticket.getAuthResultId(), "REUSE_ATTEMPT", null);
         kafkaTemplate.send(TOPIC_HANDOFF, ticket.getQimUserId(), event);
+    }
+
+    /**
+     * Sprint α-2 / F4.1 — Handoff verify 시 서명 검증 실패 이벤트 발행.
+     * 감사 + 운영 알람 연계용 (SIEM 에서 다회 발생 시 기관 차단/조사 트리거).
+     */
+    private void publishSignatureInvalidEvent(HandoffTicket ticket, String correlationId) {
+        try {
+            HandoffEvent event = new HandoffEvent(
+                    HandoffEvent.TYPE_SIGNATURE_INVALID, SOURCE_SYSTEM,
+                    correlationId, ticket.getQimUserId(), 1L,
+                    ticket.getTicketId(), ticket.getAgencyCode(),
+                    ticket.getAuthResultId(), "SIGNATURE_INVALID", null);
+            kafkaTemplate.send(TOPIC_HANDOFF, ticket.getQimUserId(), event);
+        } catch (Exception e) {
+            // Kafka 실패는 검증 결과(401) 자체를 막지 않음 — 감사 로그로 fallback
+            log.warn("[HandoffSvc] SIGNATURE_INVALID 이벤트 발행 실패 (비치명적): {}", e.getMessage());
+        }
     }
 }

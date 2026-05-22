@@ -33,6 +33,9 @@ ido:
     default-daily-limit: 1000000
   policy:
     default-version: "1.0"
+  # Sprint α-3 / F4.3 — 통합 테스트에서는 signing-secret 미주입 허용
+  webhook:
+    allow-empty-secret: true
 
 resilience4j:
   circuitbreaker:

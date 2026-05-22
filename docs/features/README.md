@@ -86,7 +86,7 @@ helm upgrade ido infra/helm/ido --set phase=4
 
 ## 관련 문서
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)
-- [배포 가이드](../deployment-guide.md)
+- [배포 가이드](../_archive/2026-05-22/deployment-guide.md)
 - [FeatureFlags 소스 코드](../../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)
 - [K8s ConfigMap](../../infra/k8s/configmaps/)
 - [Helm Chart](../../infra/helm/ido/)

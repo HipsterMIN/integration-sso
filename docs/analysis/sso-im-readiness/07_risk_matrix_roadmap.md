@@ -117,8 +117,8 @@
 | α-3 | F3.4 DiGenerationService default secret 제거 + startup validation | 0.5d | Q-IM | ⏳ 대기 | — |
 | **α-4** | **F5.1 LocalKmsClient `matchIfMissing=false` + 운영 프로파일 fail-fast** | 0.5d | IdO | ✅ **완료** | **#TBD** |
 | **α-4b** | **F5.2 VaultKmsClient 토큰 미획득 시 startup 차단 (β-6에서 조기 진행)** | 0.5d | IdO | ✅ **완료** | **#TBD** |
-| α-5 | F4.3 Webhook default secret 제거 + KMS 암호화 마이그레이션 | 2d | IdO | ⏳ 대기 | — |
-| α-6 | F4.6 PolicyEngine tryResolveDi 예외 타입 구분 (장애 vs 미매핑) | 1d | IdO | ⏳ 대기 | — |
+| **α-5** | **F4.3 Webhook default secret 제거 + @PostConstruct 부팅 검증 + escape hatch** | 2d | IdO | ✅ **완료** | **shipster (Sprint α-3)** |
+| **α-6** | **F4.6 PolicyEngine tryResolveDi 예외 타입 구분 (장애 vs 미매핑) + QimClient.getDi() 동반 수정** | 1d | IdO | ✅ **완료** | **shipster (Sprint α-3)** |
 | α-7 | F2.1 Keycloak callback default secret 제거 | 0.5d | Q-Sign | ⏳ 대기 | — |
 | α-8 | F3.2 findByIdentifierHash 명확화 (provider 별 조회로 변경) | 1d | Q-IM | ⏳ 대기 | — |
 | α-9 | 환경변수 startup validation 통합 (모든 default 금지) | 1d | 전체 | ⏳ 대기 | — |
@@ -136,19 +136,40 @@
 #### **Sprint β (2주, 운영 진입 직전)**
 **목표**: Handoff 보안 핵심 결함 + KMS 안정화
 
-| Task | 결함 | 소요 | 책임 모듈 |
-|------|------|------|----------|
-| β-1 | F4.1 HandoffServiceImpl.verify() 에 handoffCryptoService.verify() 호출 추가 | 0.5d | IdO |
-| β-2 | F4.2 TicketRepositoryImpl.consume() Lua atomic CAS 구현 | 2d | IdO |
-| β-3 | F4.5 verify 순서 변경 (payload 먼저, consume 나중) + 통합 테스트 | 1.5d | IdO |
-| β-4 | F4.4 CAST JWT URL leak 제거 (POST body 또는 opaque ID) | 2d | IdO |
-| β-5 | F4.8 FeSessionController 인증 강화 + NetworkPolicy | 1d | IdO |
-| β-6 | F5.2 Vault 토큰 미획득 시 startup 차단 | 0.5d | IdO |
-| β-7 | F5.3 Vault 토큰 백그라운드 갱신 (renew-self) | 2d | IdO |
-| β-8 | F5.4 Audit log qimUserId hash 화 | 1d | IdO |
-| β-9 | β-1~β-8 통합 테스트 + 보안 침투 테스트 (Redis 변조, race condition) | 3d | QA |
+| Task | 결함 | 소요 | 책임 모듈 | 상태 | PR |
+|------|------|------|----------|------|-----|
+| **β-1** | **F4.1 HandoffServiceImpl.verify() 에 handoffCryptoService.verify() 호출 추가** | 0.5d | IdO | ✅ **완료** | **#177 (shipster)** |
+| **β-2** | **F4.2 TicketRepositoryImpl.consume() Lua atomic CAS 구현** | 2d | IdO | ✅ **완료** | **#177 (shipster)** |
+| **β-3** | **F4.5 verify 순서 변경 (payload 먼저, consume 나중) + 통합 테스트** | 1.5d | IdO | ✅ **완료 (단위)** / ⏳ Testcontainers 통합테스트 잔여 | **#177 (shipster)** |
+| **β-4** | **F4.4 CAST JWT URL leak 제거 (POST 자동 제출 폼 + HTML escape)** | 2d | IdO | ✅ **완료** | **shipster (Sprint α-3)** |
+| β-5 | F4.8 FeSessionController 인증 강화 + NetworkPolicy | 1d | IdO | ⏳ 대기 | — |
+| β-6 | F5.2 Vault 토큰 미획득 시 startup 차단 | 0.5d | IdO | ✅ 완료 (Sprint α-1 으로 조기 진행) | #176 (merged) |
+| β-7 | F5.3 Vault 토큰 백그라운드 갱신 (renew-self) | 2d | IdO | ⏳ 대기 | — |
+| β-8 | F5.4 Audit log qimUserId hash 화 | 1d | IdO | ⏳ 대기 | — |
+| β-9 | β-1~β-8 통합 테스트 + 보안 침투 테스트 (Redis 변조, race condition) | 3d | QA | ⏳ 대기 (β-3 Testcontainers 포함) | — |
 
 **소요**: ~14 man-day. 2명 1.5주 + QA 0.5주.
+
+**진행 노트** (Sprint α-2 — Handoff 무결성, 2026-05-22):
+- β-1 (F4.1), β-2 (F4.2), β-3 (F4.5) 를 한 묶음으로 처리. 세 결함은 verify 경로에서 연쇄적으로 작용하므로 분리 처리 시 회귀 위험.
+- 신규 에러 코드 `IDO_TICKET_SIGNATURE_INVALID` (E-IDO-108, HTTP 401) 추가.
+- 신규 Kafka 이벤트 타입 `SIGNATURE_INVALID` 추가 (`ido.handoff.events` 토픽, SIEM 연계용).
+- 회귀 테스트 15건 신규 + 1건 보정 (`HandoffServiceImplTest$SignatureVerification` 3 + `HandoffServiceImplTest$VerifyOrdering` 3 + `TicketRepositoryImplTest$CasBranchHandling` 9 + 기존 verify 정상경로 mock 보정).
+- 호환성: 정상 issue→verify 경로는 응답 동일. 변조 시도 / Q-IM 장애 / 동시 verify race 시에만 새로 차단 응답 반환.
+- 잔여: 실 Redis 기반 Lua atomic 성 통합 테스트(Testcontainers) 는 별도 PR 로 진행.
+- 상세 문서: `09_sprint_alpha2_handoff_integrity.md`
+- 통합 PR: shipster→main `#177` 머지 (squash → `aa18aa8`).
+
+**진행 노트** (Sprint α-3 — 경계 영역 보안 강화, 2026-05-22):
+- α-5 (F4.3 Webhook default secret), α-6 (F4.6 PolicyEngine 예외 구분), β-4 (F4.4 CAST URL leak) 세 결함을 한 묶음으로 처리. 모두 "fail-safe 기본값 위반" 패턴이므로 동일 회귀 가드 전략 적용.
+- **F4.3**: `@Value("${ido.webhook.signing-secret:}")` 기본값 제거 + `@PostConstruct validateSigningSecret()` 부팅 검증 + `ido.webhook.allow-empty-secret` escape hatch (테스트 전용). `application.yml` / `application-local.yml` / 테스트 yml 4개 모두 갱신.
+- **F4.4**: `CastIssueResponse` 에 `ssoEntryUrl`(JWT 미포함) + `formHtml`(POST 자동 제출 HTML) 신규 필드 추가. `buildRedirectUrl()` 제거 → `buildSsoEntryUrl()` + `buildAutoSubmitForm()` + `htmlEscape()` 신규. 기존 `redirectUrl` 필드는 legacy 호환 alias로 유지(JWT 미포함).
+- **F4.6**: 신규 에러 코드 추가 없이 기존 `IDO_QIM_UNREACHABLE (E-IDO-106, 503)` 재사용. `QimClientImpl.getDi()` 가 404→null / 5xx·네트워크→`PlatformException` 으로 분기. `PolicyEngineImpl.tryResolveDi()` 는 `PlatformException` 전파 + 예상 외 예외는 안전 우선 거부로 변환.
+- 회귀 테스트 27건 신규 (`ValidateSigningSecretTests` 4 + 갱신된 HMAC 3 + `CrossAgencySsoControllerTest` 전체 9 + `PolicyEngineImplTest` 전체 6 + `QimClientGetDiTest` 전체 8).
+- 호환성: 운영 환경은 `IDO_WEBHOOK_SIGNING_SECRET` 환경변수 주입 의무화 (CrashLoopBackOff 발생 가능 — 사전 공지 필요). 프론트엔드는 `redirectUrl` 대신 `formHtml` 사용 필요 (마이그레이션 노트 §7.2).
+- SLO 영향: Q-IM 장애 시 200 OK + GUEST 응답이 503 응답으로 바뀜 → 기존엔 숨겨져 있던 장애가 가시화됨.
+- 상세 문서: `10_sprint_alpha3_perimeter_hardening.md`
+- 통합 PR: shipster 누적 → 신규 release PR 생성 예정.
 
 ---
 

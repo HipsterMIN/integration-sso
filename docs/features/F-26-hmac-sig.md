@@ -294,6 +294,6 @@ ORDER BY hmac_fail DESC;
 - [F-23 인바운드 API](F-23-gateway-inbound.md)
 - [F-25 멱등성 방어](F-25-gateway-idempotency.md)
 - [phased-rollout-strategy.md](../phased-rollout-strategy.md) — Phase 4 진입 기준
-- [deployment-guide.md §7 보안](../deployment-guide.md)
+- [deployment-guide.md §7 보안](../_archive/2026-05-22/deployment-guide.md)
 - SDK 서명 구현: `onepass-agency-sdk/.../HmacSigner.java`
 - k6 HMAC 부하 테스트: `test/load/k6-hmac-verification.js`

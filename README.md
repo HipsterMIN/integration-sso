@@ -3,11 +3,13 @@
 **중소벤처기업부 중기원패스(OnePass) 통합인증 SSO 및 아이덴티티 관리 시스템** PoC/프리프로덕션 구현체.  
 **4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) + **OnePass Agency Java Agent** 기반 EDA 아키텍처.
 
-> **현재 버전: v0.8.11** — SDK GAP-1~5 수정 + 유관기관 개발자 가이드 + onepass-be-release / onepass-release 심층 분석 보고서  
-> **빌드 상태**: `./gradlew :onepass-agent:agentJar` → **BUILD SUCCESSFUL** (`onepass-agent-0.1.0-SNAPSHOT-all.jar`, ~10MB)  
-> **테스트**: `./gradlew :onepass-agent:test` → **131개 통과, 0 failures** (WasDetector, Config, HTTP, Weaving)  
-> **SDK 테스트**: `./gradlew :onepass-agency-sdk:test` → **36개 통과, 0 failures** (GAP-1~5 수정 포함)  
-> **최신 PR**: [#131 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/131) — docs(analysis): onepass-be-release / onepass-release 심층 분석 보고서 작성
+> **최신 상태 (2026-05-22)** — 옵션 1(점진 수정/안전) 로드맵 Sprint α-1/α-2/α-3 완료 + `onepass-support` 모듈 신규 + 문서 정리 1차
+> **현재 버전**: v0.8.11 + Sprint α 누적 (KMS 안전망 · Handoff 무결성 · 경계 영역 보안)
+> **빌드 상태**: `./gradlew :onepass-agent:agentJar` → **BUILD SUCCESSFUL** (`onepass-agent-0.1.0-SNAPSHOT-all.jar`, ~10MB)
+> **테스트 (참고)**: `./gradlew :onepass-agent:test` 131개, `:onepass-agency-sdk:test` 36개. Sprint α-1~α-3 신규 회귀 테스트 합산은 별도 검증 필요.
+> **최근 머지**: [#177](https://github.com/HipsterMIN/integration-sso/pull/177) (α-1+α-2 release) → [#178](https://github.com/HipsterMIN/integration-sso/pull/178) (α-3 release) → [#179](https://github.com/HipsterMIN/integration-sso/pull/179) (onepass-support 모듈 뼈대)
+> **최신 분석/로드맵**: [`docs/analysis/sso-im-readiness/00_INDEX.md`](docs/analysis/sso-im-readiness/00_INDEX.md)
+> **문서 안내**: [`docs/README.md`](docs/README.md) — 2026-05-22 정리 결과 반영
 
 ---
 
@@ -46,7 +48,9 @@
 
 | 버전 | PR | 주요 내용 |
 |------|----|---------|
-| **v0.8.11** | [#131 (OPEN)](https://github.com/HipsterMIN/integration-sso/pull/131) | **onepass-be-release / onepass-release 심층 분석 보고서** — BE 9건 + FE 7건 이슈 식별, 보안취약점 8건, 운영 배포 T+0~T+3 장애 시나리오, Q-Sign/Q-IM 연동 현황 상세 분석 (494줄) |
+| **α-3 + onepass-support** | [#178](https://github.com/HipsterMIN/integration-sso/pull/178) (α-3) + [#179](https://github.com/HipsterMIN/integration-sso/pull/179) | **경계 영역 보안 강화 + 모듈 뼈대** — F4.3 Webhook 기본 시크릿 제거(`@PostConstruct` 부팅 가드 + `allow-empty-secret` escape hatch), F4.4 CAST URL 누출 방지(POST 자동 제출 form, 토큰 hidden field), F4.6 Q-IM 예외 구분(404→null·5xx→`IDO_QIM_UNREACHABLE`). 회귀 테스트 27건 신규. `onepass-support` 모듈 뼈대 추가. |
+| **α-1 + α-2** | [#176](https://github.com/HipsterMIN/integration-sso/pull/176) → [#177](https://github.com/HipsterMIN/integration-sso/pull/177) | **KMS 안전망 + Handoff 무결성** — F5.1/F5.2 KMS 5-provider 부팅 검증 + AnyID PID 격리, F4.1/F4.5/F4.2 Handoff 무결성 (서명 검증·재생 방지·만료 정확화). |
+| **v0.8.11** | [#131](https://github.com/HipsterMIN/integration-sso/pull/131) | **onepass-be-release / onepass-release 심층 분석 보고서** — BE 9건 + FE 7건 이슈 식별, 보안취약점 8건, 운영 배포 T+0~T+3 장애 시나리오, Q-Sign/Q-IM 연동 현황 상세 분석 (494줄) |
 | **v0.8.10** | [#129 (MERGED)](https://github.com/HipsterMIN/integration-sso/pull/129) / [#130 (MERGED)](https://github.com/HipsterMIN/integration-sso/pull/130) | **SDK GAP-1~5 수정 + 유관기관 개발자 가이드** — GAP-1(HMAC 알고리즘 서버 정합성), GAP-2(triggerOutbound @Deprecated), GAP-3(X-Event-Type 헤더), GAP-4(X-Correlation-ID 대문자 D), GAP-5(getBodyField 헬퍼 + validateJson 강화) + 36개 테스트 통과 + 유관기관 개발자 사용 가이드(757줄) |
 | **v0.8.9** | [#116](https://github.com/HipsterMIN/integration-sso/pull/116) / [#115](https://github.com/HipsterMIN/integration-sso/pull/115) | **Sprint 17 + 유관기관 전환 보안 강화** — ❌B-1 수정(`Step8 isSafeRedirectUri` 환경변수 기반) + ❌B-2 수정(`application.yml` 더미 URL → 환경변수 구조) + JWT Signed Request `POST /api/v1/conversion/init` + `PlatformErrorCode` E-CONV-601~603 신규 + GUIDE-001~004(가이드 문서 4편) + Sprint 17 `addAuthHeader()` API_KEY/HMAC/mTLS 구현 |
 | **v0.8.8** | [#109](https://github.com/HipsterMIN/integration-sso/pull/109) / [#108](https://github.com/HipsterMIN/integration-sso/pull/108) / [#107](https://github.com/HipsterMIN/integration-sso/pull/107) | **QIM-OUTBOX-SPEC-001 정합화 + 전체 문서화** — V18 CHECK 제약(provisioning_outbox·gateway_inbound_audit), ProvisioningService Javadoc 갱신, wiki/ 전체 생성(ADR 12개·설계서 4개·워크스루 5개·DOCX 6개) |
@@ -1112,10 +1116,10 @@ Annotation Processors: 활성화 (Lombok)
 
 | 팀 | 가이드 문서 | 내용 요약 |
 |----|-----------|---------|
-| **IdO 백엔드** | [`docs/development/guide-backend-ido.md`](docs/development/guide-backend-ido.md) | Feature Flag 운영, SSO 브로커 설정, SLO API, NICE/OACX BFF, AES 키 로테이션 |
-| **Q-IM 백엔드** | [`docs/development/guide-backend-qim.md`](docs/development/guide-backend-qim.md) | CI 암호화, 소셜 SSO API, InternalApiKeyInterceptor, 회원 원장 API, 파기 스케줄러 |
-| **프론트엔드** | [`docs/development/guide-frontend.md`](docs/development/guide-frontend.md) | SLO 연동, useAuthState 훅, ErrorBoundary, 회원정보 수정, API 클라이언트 패턴 |
-| **인프라/DevOps** | [`docs/development/guide-infra.md`](docs/development/guide-infra.md) | Docker Compose, K8s ConfigMap, Keycloak realm 구성, Feature Flag 운영 |
+| **IdO 백엔드** | [`docs/internal/development/guide-backend-ido-2026-05-12.md`](docs/internal/development/guide-backend-ido-2026-05-12.md) | (v3.0.0) Feature Flag 운영, SSO 브로커 설정, SLO API, NICE/OACX BFF, AES 키 로테이션 |
+| **Q-IM 백엔드** | [`docs/internal/development/guide-backend-qim-2026-05-12.md`](docs/internal/development/guide-backend-qim-2026-05-12.md) | (v3.0.0) CI 암호화, 소셜 SSO API, InternalApiKeyInterceptor, 회원 원장 API, 파기 스케줄러 |
+| **프론트엔드** | [`docs/internal/development/guide-frontend-2026-05-12.md`](docs/internal/development/guide-frontend-2026-05-12.md) | (v3.0.0) SLO 연동, useAuthState 훅, ErrorBoundary, 회원정보 수정, API 클라이언트 패턴 |
+| **인프라/DevOps** | [`docs/internal/development/guide-infra-2026-05-12.md`](docs/internal/development/guide-infra-2026-05-12.md) | (v3.0.0) Docker Compose, K8s ConfigMap, Keycloak realm 구성, Feature Flag 운영 |
 | **Q-IM 상세** | [`docs/qim-development-guide.md`](docs/qim-development-guide.md) | Q-IM 전체 아키텍처 + 운영 피드백 |
 
 ---
@@ -1193,38 +1197,62 @@ const { isLoggedIn, user, logout } = useAuthState();
 
 ## 문서 디렉토리
 
+> 전체 문서 카탈로그: [`docs/README.md`](docs/README.md) (2026-05-22 정리)
+
 ```
 docs/
-├── FEATURE_FLAGS.md                    # 18개 Feature Flag 완전 가이드
-├── api-auth-spec.md                    # NICE/OACX API 명세 (FE 타입 포함)
-├── local-dev-guide.md                  # 로컬 개발 환경 설정
-├── qim-development-guide.md            # Q-IM 개발 가이드 v1.1.0
-├── qim-ido-integration-architecture.md # Q-IM ↔ IdO 연동 아키텍처
-├── handoff-note.md                     # Handoff 프로토콜 상세
-├── oidc-brokering-design.md            # OIDC 브로커링 설계
-├── agency-external-arch-supplement.md  # 기관 외부망 격리 원칙
-├── eda-master-arch-gap-analysis-v0.8.md # EDA 아키텍처 GAP 분석
-├── gap-analysis-v0.8.3-vs-project.md   # v0.8.3 설계서 GAP 분석
-├── onepass-agency-sdk-usage-guide.md   # ★NEW (v0.8.10) 유관기관 개발자 SDK 사용 가이드 (757줄)
-├── spec/                               # 아키텍처 명세서
-│   ├── 00-index.md
-│   ├── 01-system-overview.md
-│   ├── 02-architecture.md
-│   ├── 04-api-reference.md
-│   ├── 05-database-schema.md
-│   ├── 06-kafka-event-catalog.md
-│   ├── 07-security.md
-│   └── 09-gap-and-roadmap.md
-└── development/                        # 팀별 개발 가이드
-    ├── guide-backend-ido.md            # IdO 백엔드 팀 가이드
-    ├── guide-backend-qim.md            # Q-IM 백엔드 팀 가이드
-    ├── guide-frontend.md               # FE 팀 가이드
-    ├── guide-infra.md                  # 인프라/DevOps 팀 가이드
-    └── (기존 01~13 개발 문서)
-└── internal/
-    └── analysis/
-        └── onepass-release-analysis.md # ★NEW (v0.8.11) onepass-be-release / onepass-release 심층 분석 보고서 (494줄)
+├── README.md                       # 문서 디렉토리 안내 (이 README와 함께 갱신)
+│
+├── analysis/sso-im-readiness/      # ★최신 — Phase 1-7 심층 분석 + Sprint α-1/α-2/α-3 결과
+│   ├── 00_INDEX.md                 #   전체 색인
+│   ├── 01_architecture_recon.md   ─ 07_risk_matrix_roadmap.md
+│   ├── 08_sprint_alpha1_kms_safety.md
+│   ├── 09_sprint_alpha2_handoff_integrity.md
+│   └── 10_sprint_alpha3_perimeter_hardening.md
+│
+├── deployment/README.md            # ★최신 운영 배포 가이드 (2026-05-21)
+├── OPERATION_INVENTORY.md          # 운영 관리 포인트 인벤토리
+├── RUNBOOK_SSO_METRICS.md          # SSO/IM 본질 메트릭 RUNBOOK
+├── SPRINT_B_PLAN.md                # Sprint B 축소 계획
+├── phased-rollout-strategy.md      # 단계적 배포 전략 (Phase-Gate Rollout)
+│
+├── onepass-agency-sdk-usage-guide.md   # 현행 SDK 사용 가이드 (메인)
+├── onepass-agent-*.md                  # Agency Java Agent 가이드 시리즈
+├── sso-agency-*.md                     # 자체 SSO 보유 기관 가이드 (개발자/담당자/운영)
+├── ext_api_proxy_guide.md              # /api/ext/** 프록시 가이드
+├── kafka_easy_guide_for_*.md           # Kafka 가이드 (개발자/관리자)
+│
+├── features/                       # 기능 명세 (F-01 ~ F-27)
+│
+├── internal/                       # 내부 개발 문서
+│   ├── architecture/               #   설계·아키텍처·ADR
+│   ├── dataflow/                   #   로그인/회원전환/Handoff 등 흐름도
+│   ├── development/                #   개발 가이드 (★현행: *-2026-05-12.md v3.0.0)
+│   │   ├── guide-backend-ido-2026-05-12.md   # IdO 백엔드 가이드 v3.0.0
+│   │   ├── guide-backend-qim-2026-05-12.md   # Q-IM 백엔드 가이드 v3.0.0
+│   │   ├── guide-frontend-2026-05-12.md      # FE 가이드 v3.0.0
+│   │   ├── guide-infra-2026-05-12.md         # 인프라/DevOps 가이드 v3.0.0
+│   │   └── ... (api-reference / qim-development-guide / local-dev-guide 등)
+│   └── spec/                       #   기술 명세서
+│       └── api-reference-2026-05-12.md       # ★현행 전체 API 레퍼런스 v3.0.0
+│
+├── proposal/                       # 경영진·외부 제안서 (PROP-2026-001 시리즈)
+├── smep-handover/                  # SMEP 팀 전달용 (MIG/PRP/IMPL 시리즈)
+│
+└── _archive/2026-05-22/            # 보관 — 시점 산출물·구버전 23건
+    └── README.md                   #   카테고리 A~E 매니페스트
 ```
+
+### 최신 분석 / 로드맵
+
+- **[Sprint α-1: KMS 안전망](docs/analysis/sso-im-readiness/08_sprint_alpha1_kms_safety.md)** — F5.1/F5.2
+- **[Sprint α-2: Handoff 무결성](docs/analysis/sso-im-readiness/09_sprint_alpha2_handoff_integrity.md)** — F4.1/F4.5/F4.2
+- **[Sprint α-3: 경계 영역 보안 강화](docs/analysis/sso-im-readiness/10_sprint_alpha3_perimeter_hardening.md)** — F4.3/F4.4/F4.6
+- **[위험 매트릭스 · 로드맵](docs/analysis/sso-im-readiness/07_risk_matrix_roadmap.md)** — α/β 진행 상태
+
+### 보관 안내
+
+2026-05-22 정리분 23건은 `docs/_archive/2026-05-22/`로 이동되었습니다(이력은 `git mv`로 보존). 대상·이유는 [`docs/_archive/2026-05-22/README.md`](docs/_archive/2026-05-22/README.md) 참조.
 
 ---
 
@@ -1288,5 +1316,6 @@ docs/
 
 ---
 
-> **문서 최종 수정**: 2026-05-18 | **버전**: v0.8.11 | **담당**: GenSpark AI Developer  
-> 문의/기여: `genspark_ai_developer` 브랜치 → PR → main 병합 워크플로우 준수
+> **문서 최종 수정**: 2026-05-22 (Sprint α-3 머지 + 문서 정리 1차) | **버전**: v0.8.11 + Sprint α 누적 | **담당**: GenSpark AI Developer
+> **개발 워크플로우**: `shipster` 브랜치에서 작업 → 누적 후 `shipster → main` release PR (squash merge) → 머지 직후 shipster를 origin/main에 reset + force-push로 동기화
+> 문서 카탈로그: [`docs/README.md`](docs/README.md) · 위키: [`wiki/INDEX.md`](wiki/INDEX.md)

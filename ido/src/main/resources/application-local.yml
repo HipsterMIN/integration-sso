@@ -142,6 +142,8 @@ management:
   # F-14: Webhook Relay OFF → 기관 endpoint 없는 로컬 환경 오류 없음
   webhook:
     relay-enabled: false
+    # Sprint α-3 / F4.3 — 로컬은 signing-secret 미설정 허용 (운영은 application.yml에서 강제)
+    allow-empty-secret: true
 
   # F-18: SP 수신 감사 로그 OFF
   qim:
