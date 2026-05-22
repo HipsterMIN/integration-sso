@@ -31,6 +31,9 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
       {{- end }}
+      {{- if and .Values.qsign.serviceAccount .Values.qsign.serviceAccount.create }}
+      serviceAccountName: {{ .Values.qsign.serviceAccount.name | default "onepass-qsign" }}
+      {{- end }}
       terminationGracePeriodSeconds: 30
       containers:
         - name: q-sign
@@ -40,16 +43,19 @@ spec:
             - name: http
               containerPort: 8081
               protocol: TCP
-          # ConfigMap (비민감 설정)
+          # envFrom: ConfigMap + Secret 통합 (이전 분리된 두 envFrom 블록이 YAML 스펙상
+          # 두 번째가 첫 번째를 덮어쓰는 잠재 버그 → 단일 envFrom으로 통합)
           envFrom:
             - configMapRef:
                 name: onepass-qsign-config
             - configMapRef:
                 name: onepass-common-config
-          # Secret (민감 설정)
-          envFrom:
             - secretRef:
                 name: {{ .Values.qsign.secretRef.name }}
+          {{- if .Values.qsign.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.qsign.startupProbe | nindent 12 }}
+          {{- end }}
           livenessProbe:
             {{- toYaml .Values.qsign.livenessProbe | nindent 12 }}
           readinessProbe:

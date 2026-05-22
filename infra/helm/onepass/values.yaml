@@ -98,6 +98,29 @@ qsign:
   # Pod 재시작 트리거 (Secret 변경 감지용 checksum annotation)
   podAnnotations:
     checksum/secret: ""   # Helm 렌더링 시 자동 계산
+  # ── startupProbe: 초기 부팅 느림 대응 (Spring Boot 30~60s) ───────
+  startupProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8081
+    failureThreshold: 30
+    periodSeconds: 5
+  # ── HPA: CPU/Memory 기반 오토스케일링 ──────────────────────────
+  hpa:
+    enabled: false                     # 기본은 비활성 — 운영(prod)에서 true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  # ── PDB: 노드 드레인/업그레이드 시 가용성 보장 ────────────────
+  pdb:
+    enabled: true
+    minAvailable: 1
+  # ── ServiceAccount ────────────────────────────────────────────
+  serviceAccount:
+    create: true
+    name: onepass-qsign
+    annotations: {}
 
 # ── Q-IM ────────────────────────────────────────────────────────────
 qim:
@@ -141,6 +164,25 @@ qim:
     initialDelaySeconds: 20
     periodSeconds: 10
     failureThreshold: 3
+  startupProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8082
+    failureThreshold: 30
+    periodSeconds: 5
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  pdb:
+    enabled: true
+    minAvailable: 1
+  serviceAccount:
+    create: true
+    name: onepass-qim
+    annotations: {}
 
 # ── IdO ─────────────────────────────────────────────────────────────
 ido:
@@ -177,6 +219,33 @@ ido:
     IDO_KAFKA_PARTITION_COUNT_DLQ: "6"
     IDO_KAFKA_REPLICATION_FACTOR: "1"
     IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"
+    # ── KMS / Vault Transit Engine ────────────────────────────────────
+    # 기본값(values.yaml): KMS Off — LocalKmsClient(Base64 패스스루) 사용
+    # 운영(values-prod.yaml): IDO_KMS_ENABLED=true, IDO_KMS_PROVIDER=vault
+    IDO_KMS_ENABLED: "false"
+    IDO_KMS_PROVIDER: "vault"
+    IDO_KMS_CONN_TIMEOUT_MS: "3000"
+    IDO_KMS_REQ_TIMEOUT_MS: "5000"
+    # Vault 접속 정보 (provider=vault 시)
+    VAULT_ADDR: "http://vault:8200"
+    VAULT_TRANSIT_PATH: "transit"
+    VAULT_TRANSIT_KEY: "ido-handoff-key"
+    # 인증 방식: token(개발) | approle(CI/CD) | kubernetes(운영 권장)
+    VAULT_AUTH_METHOD: "token"
+    # K8s Auth 사용 시 — Vault에 등록된 role 이름
+    VAULT_K8S_ROLE: "ido"
+    # HCP Vault Dedicated 전용 Namespace (자체 호스팅 시 빈 값)
+    VAULT_NAMESPACE: ""
+  # ── ServiceAccount (Vault Kubernetes Auth 사용 시 필요) ────────────
+  # auth-method=kubernetes 일 때 Vault가 K8s API로 검증할 SA.
+  # vault write auth/kubernetes/role/ido \
+  #   bound_service_account_names=onepass-ido \
+  #   bound_service_account_namespaces=onepass \
+  #   policies=ido-kms-policy
+  serviceAccount:
+    create: true
+    name: onepass-ido
+    annotations: {}
   secretRef:
     name: onepass-ido-secret
   livenessProbe:
@@ -193,6 +262,23 @@ ido:
     initialDelaySeconds: 45
     periodSeconds: 10
     failureThreshold: 3
+  # ── startupProbe: KMS 부팅(Vault 토큰 획득) 포함하여 더 긴 대기 ──
+  # failureThreshold * periodSeconds = 30 * 5s = 150s (KMS 통신 실패 재시도 대비)
+  startupProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8083
+    failureThreshold: 30
+    periodSeconds: 5
+  hpa:
+    enabled: false                     # 운영(prod)에서 true
+    minReplicas: 3
+    maxReplicas: 12
+    targetCPUUtilizationPercentage: 65    # ido는 SLO p95 < 2s 보장 → 보수적
+    targetMemoryUtilizationPercentage: 80
+  pdb:
+    enabled: true
+    minAvailable: 2                     # ido는 최소 2개 유지 (rate limiter 일관성)
 
 # ── Outbox Relay Batch ──────────────────────────────────────────────
 # Transactional Outbox 분산 릴레이 배치 서비스
@@ -260,6 +346,24 @@ batch:
     initialDelaySeconds: 45
     periodSeconds: 10
     failureThreshold: 3
+  # ── startupProbe: 멀티 DataSource(PG/MariaDB/PG) + Flyway V19 마이그레이션 ─
+  # failureThreshold * periodSeconds = 60 * 5s = 300s (가장 보수적)
+  startupProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8090
+    failureThreshold: 60
+    periodSeconds: 5
+  # ── PDB: 노드 드레인 시 최소 1개 Pod 유지 (ShedLock 페일오버 보장) ──
+  # ⚠️ HPA는 ShedLock 특성상 무의미 → 의도적으로 미설정
+  pdb:
+    enabled: true
+    minAvailable: 1
+  # ── ServiceAccount ────────────────────────────────────────────
+  serviceAccount:
+    create: true
+    name: onepass-batch
+    annotations: {}
   podAnnotations:
     # Prometheus scrape (annotation 기반 디스커버리 사용 시)
     prometheus.io/scrape: "true"

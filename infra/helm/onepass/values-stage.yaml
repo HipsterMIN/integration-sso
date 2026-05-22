@@ -25,6 +25,11 @@ ido:
     IDO_RATE_LIMIT_DEFAULT_TPS: "100"    # 스테이징: 운영보다 낮은 TPS
     IDO_KAFKA_REPLICATION_FACTOR: "1"   # 스테이징: 단일 브로커
     IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"
+    # ── KMS On (스테이징: AppRole 인증으로 운영 시나리오 검증) ───────
+    IDO_KMS_ENABLED: "true"
+    IDO_KMS_PROVIDER: "vault"
+    VAULT_ADDR: "http://vault.vault.svc.cluster.local:8200"
+    VAULT_AUTH_METHOD: "approle"
 
 batch:
   replicaCount: 2

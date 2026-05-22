@@ -50,6 +50,16 @@ qsign:
     limits:
       cpu: 2000m
       memory: 2Gi
+  # 운영: HPA 활성화 — CPU 부하 시 자동 확장
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  # 운영: 노드 드레인 시 최소 2개 Pod 유지 (가용성 우선)
+  pdb:
+    enabled: true
+    minAvailable: 2
 
 qim:
   replicaCount: 3
@@ -62,6 +72,14 @@ qim:
     limits:
       cpu: 2000m
       memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    enabled: true
+    minAvailable: 2
 
 ido:
   replicaCount: 3
@@ -76,6 +94,21 @@ ido:
     IDO_KAFKA_MIN_INSYNC_REPLICAS: "2"
     IDO_KAFKA_PARTITION_COUNT_MAIN: "12"
     IDO_KAFKA_PARTITION_COUNT_DLQ: "6"
+    # ── KMS On (운영: Kubernetes Auth 권장 — SA JWT 기반 자동 인증) ──
+    # 사전 작업:
+    #   1. Vault Transit 엔진 + ido-handoff-key 생성 (infra/scripts/vault-init.sh)
+    #   2. Vault Kubernetes Auth 설정:
+    #        vault write auth/kubernetes/role/ido \
+    #          bound_service_account_names=onepass-ido \
+    #          bound_service_account_namespaces=onepass \
+    #          policies=ido-kms-policy ttl=1h
+    IDO_KMS_ENABLED: "true"
+    IDO_KMS_PROVIDER: "vault"
+    VAULT_ADDR: "http://vault.vault.svc.cluster.local:8200"
+    VAULT_AUTH_METHOD: "kubernetes"
+    VAULT_K8S_ROLE: "ido"
+    VAULT_TRANSIT_PATH: "transit"
+    VAULT_TRANSIT_KEY: "ido-handoff-key"
   resources:
     requests:
       cpu: 1000m
@@ -83,6 +116,15 @@ ido:
     limits:
       cpu: 4000m
       memory: 4Gi
+  # 운영: HPA 활성화 — Handoff SLO p95 < 2s 보장 위해 보수적 임계값
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 12
+    targetCPUUtilizationPercentage: 65
+  pdb:
+    enabled: true
+    minAvailable: 2
 
 batch:
   # 운영: HA 페일오버 확보 — ShedLock이 단일 실행 보장

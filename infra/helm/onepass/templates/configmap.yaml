@@ -91,6 +91,18 @@ data:
   IDO_KAFKA_PARTITION_COUNT_DLQ: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_DLQ | quote }}
   IDO_KAFKA_REPLICATION_FACTOR: {{ .Values.ido.config.IDO_KAFKA_REPLICATION_FACTOR | quote }}
   IDO_KAFKA_MIN_INSYNC_REPLICAS: {{ .Values.ido.config.IDO_KAFKA_MIN_INSYNC_REPLICAS | quote }}
+  # ── KMS / Vault Transit 비민감 설정 ───────────────────────────────
+  # 민감 키(VAULT_TOKEN/ROLE_ID/SECRET_ID)는 Secret 참조 — 여기엔 절대 넣지 말 것
+  IDO_KMS_ENABLED:          {{ .Values.ido.config.IDO_KMS_ENABLED | quote }}
+  IDO_KMS_PROVIDER:         {{ .Values.ido.config.IDO_KMS_PROVIDER | quote }}
+  IDO_KMS_CONN_TIMEOUT_MS:  {{ .Values.ido.config.IDO_KMS_CONN_TIMEOUT_MS | quote }}
+  IDO_KMS_REQ_TIMEOUT_MS:   {{ .Values.ido.config.IDO_KMS_REQ_TIMEOUT_MS | quote }}
+  VAULT_ADDR:               {{ .Values.ido.config.VAULT_ADDR | quote }}
+  VAULT_TRANSIT_PATH:       {{ .Values.ido.config.VAULT_TRANSIT_PATH | quote }}
+  VAULT_TRANSIT_KEY:        {{ .Values.ido.config.VAULT_TRANSIT_KEY | quote }}
+  VAULT_AUTH_METHOD:        {{ .Values.ido.config.VAULT_AUTH_METHOD | quote }}
+  VAULT_K8S_ROLE:           {{ .Values.ido.config.VAULT_K8S_ROLE | quote }}
+  VAULT_NAMESPACE:          {{ .Values.ido.config.VAULT_NAMESPACE | quote }}
 ---
 # ── Outbox Relay Batch ConfigMap ───────────────────────────────────
 {{- if .Values.batch.enabled }}

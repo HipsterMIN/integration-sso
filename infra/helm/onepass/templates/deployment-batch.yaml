@@ -47,6 +47,9 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
       {{- end }}
+      {{- if and .Values.batch.serviceAccount .Values.batch.serviceAccount.create }}
+      serviceAccountName: {{ .Values.batch.serviceAccount.name | default "onepass-batch" }}
+      {{- end }}
       # 진행 중 Job 완료 대기 + Spring graceful shutdown 30s 여유분
       terminationGracePeriodSeconds: 45
       containers:
@@ -64,6 +67,10 @@ spec:
                 name: onepass-common-config
             - secretRef:
                 name: {{ .Values.batch.secretRef.name }}
+          {{- if .Values.batch.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.batch.startupProbe | nindent 12 }}
+          {{- end }}
           livenessProbe:
             {{- toYaml .Values.batch.livenessProbe | nindent 12 }}
           readinessProbe:

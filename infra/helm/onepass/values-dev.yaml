@@ -33,11 +33,17 @@ qim:
 
 ido:
   replicaCount: 1
+  hpa:
+    enabled: false
+  pdb:
+    enabled: false
   config:
     IDO_BROKER_MODE: qsign
     IDO_RATE_LIMIT_ENABLED: "false"     # 개발: rate limit 비활성
     IDO_KAFKA_REPLICATION_FACTOR: "1"
     IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"
+    # ── KMS Off (개발: LocalKmsClient 사용 — Vault 의존성 없음) ──────
+    IDO_KMS_ENABLED: "false"
   resources:
     requests:
       cpu: 200m
@@ -46,7 +52,22 @@ ido:
       cpu: 1000m
       memory: 1Gi
 
+# 개발 환경: HPA/PDB 모두 비활성 (리소스 최소화)
+qsign:
+  hpa:
+    enabled: false
+  pdb:
+    enabled: false
+
+qim:
+  hpa:
+    enabled: false
+  pdb:
+    enabled: false
+
 batch:
+  pdb:
+    enabled: false
   # 개발: 단일 인스턴스로 운영 (ShedLock 분산락 불필요)
   replicaCount: 1
   config:
