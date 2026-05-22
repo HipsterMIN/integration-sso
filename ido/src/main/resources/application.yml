@@ -169,6 +169,21 @@ ido:
       # 기본 1000 req/day — 하루 인증 시도 횟수 제한
       daily:      ${IDO_AUTH_RL_DAILY:1000}
 
+  # ── F4.8 (Sprint β-2) 내부 호출자 인증 ─────────────────────────────────
+  # /api/v1/fe-session (POST), /api/v1/fe-session/conversion (POST) 호출 시
+  # X-Internal-Caller + X-Internal-Api-Key 헤더 검증.
+  #
+  # 운영: 각 호출 서비스(q-sign, outbox-relay 등)별로 강력한 무작위 키(≥32자)를
+  # K8s Secret / Vault → 환경변수로 주입한다.
+  #   IDO_INTERNAL_API_KEY_QSIGN=<openssl rand -hex 32>
+  #
+  # ⚠️ allow-empty-callers=false 운영 시 callers 가 비면 부팅 실패 (F4.3 패턴 재사용).
+  internal:
+    callers:
+      q-sign:       ${IDO_INTERNAL_API_KEY_QSIGN:}
+      outbox-relay: ${IDO_INTERNAL_API_KEY_OUTBOX:}
+    allow-empty-callers: ${IDO_INTERNAL_ALLOW_EMPTY_CALLERS:false}
+
   # §11.5 Q-IM 연동
   qim:
     base-url: ${QIM_BASE_URL:http://localhost:8082}

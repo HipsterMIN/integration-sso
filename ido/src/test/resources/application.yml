@@ -29,6 +29,9 @@ ido:
   # Sprint α-3 / F4.3 — 슬라이스 테스트에서는 signing-secret 미주입 허용
   webhook:
     allow-empty-secret: true
+  # Sprint β-2 / F4.8 — 슬라이스 테스트에서는 internal caller 등록 없이 컨텍스트 기동 허용
+  internal:
+    allow-empty-callers: true
 
 resilience4j:
   circuitbreaker:

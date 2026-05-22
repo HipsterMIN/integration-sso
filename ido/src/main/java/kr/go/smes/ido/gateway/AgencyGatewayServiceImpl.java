@@ -19,8 +19,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -317,14 +315,11 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
             return null; // 키 없음 — 호출부에서 경고 로그 처리
         }
         try {
+            // F4.9 (Sprint β-3): 공통 SignaturePayloadBuilder 위임.
+            // 기존 인라인 계산을 제거하여 인바운드/아웃바운드/프로비저닝 모두 동일 규칙 사용.
             long epochSeconds = Instant.now().getEpochSecond();
-            String safeKey    = (idempotencyKey != null) ? idempotencyKey : "";
-            String payload    = agencyCode + ":" + safeKey + ":" + epochSeconds;
-
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(rawHmac);
+            return SignaturePayloadBuilder.computeSignature(
+                    agencyCode, idempotencyKey, epochSeconds, secret);
         } catch (Exception e) {
             log.error("[GatewayOutbound] 아웃바운드 HMAC 서명 생성 실패: agencyCode={} err={}",
                       agencyCode, e.getMessage());
