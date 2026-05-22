@@ -181,6 +181,16 @@ public class VaultKmsClient implements KmsClient {
     @Value("${ido.kms.request-timeout-ms:5000}")
     private int requestTimeoutMs;
 
+    /**
+     * F5.2 Escape Hatch — 토큰 획득 실패 시 startup을 차단하지 않고 진행할지 여부.
+     *
+     * <p><b>기본: false</b> (startup 차단) — 운영 안전.
+     * <p>테스트·일시 격리 등 특수 상황에서만 {@code true}로 설정. 운영 환경 절대 사용 금지.
+     * 환경변수: {@code IDO_KMS_VAULT_ALLOW_EMPTY_TOKEN}
+     */
+    @Value("${ido.kms.vault.allow-empty-token:false}")
+    private boolean allowEmptyToken;
+
     private final ObjectMapper objectMapper;
     private RestTemplate       restTemplate;
 
@@ -195,6 +205,25 @@ public class VaultKmsClient implements KmsClient {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Vault KMS 초기화 — 토큰 획득 실패 시 <b>startup 차단</b> (F5.2, Sprint α-1 강화).
+     *
+     * <p><b>F5.2 결함 이력</b>: 이전에는 토큰 획득 실패 시 {@code log.error()}만 출력하고
+     * startup이 계속 진행되어, 컨테이너는 LIVE 상태이지만 첫 encrypt/decrypt 호출에서
+     * NullPointerException으로 사용자 요청이 거부되는 silent failure 모드였음.
+     *
+     * <p><b>수정 후 동작</b>:
+     * <ul>
+     *   <li>토큰 획득 실패 → {@link IllegalStateException} → Spring ApplicationContext 기동 실패
+     *       → 컨테이너 재시작 → Liveness Probe 실패 → 트래픽 차단</li>
+     *   <li>이로써 {@code half-up} 상태(LIVE이지만 실제 요청은 실패)를 원천 차단</li>
+     * </ul>
+     *
+     * <p><b>Escape hatch</b>: {@code ido.kms.vault.allow-empty-token=true} 설정 시
+     * 경고만 출력하고 진행. 테스트·일시 격리 전용. 운영 금지.
+     *
+     * @throws IllegalStateException 토큰 획득 실패 + escape hatch 비활성 시
+     */
     @PostConstruct
     void init() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -202,16 +231,44 @@ public class VaultKmsClient implements KmsClient {
         factory.setReadTimeout(requestTimeoutMs);
         this.restTemplate = new RestTemplate(factory);
 
-        this.clientToken = acquireToken();
+        try {
+            this.clientToken = acquireToken();
+        } catch (Exception e) {
+            handleTokenAcquisitionFailure(
+                "[KMS-Vault] 토큰 획득 중 예외 발생: " + e.getMessage(), e);
+            return;
+        }
 
         if (clientToken == null || clientToken.isBlank()) {
-            log.error("[KMS-Vault] 토큰 획득 실패. auth-method={} 설정을 확인하세요. " +
-                      "VAULT_TOKEN / VAULT_ROLE_ID+SECRET_ID / Kubernetes SA 토큰 중 하나가 필요합니다.",
-                      authMethod);
-        } else {
-            log.info("[KMS-Vault] 초기화 완료: address={} transitPath={}/{} authMethod={}",
-                     vaultAddress, transitPath, keyName, authMethod);
+            handleTokenAcquisitionFailure(
+                "[KMS-Vault] 토큰 획득 실패. auth-method=" + authMethod + " 설정을 확인하세요. " +
+                "VAULT_TOKEN / VAULT_ROLE_ID+SECRET_ID / Kubernetes SA 토큰 중 하나가 필요합니다.",
+                null);
+            return;
         }
+
+        log.info("[KMS-Vault] 초기화 완료: address={} transitPath={}/{} authMethod={}",
+                 vaultAddress, transitPath, keyName, authMethod);
+    }
+
+    /**
+     * 토큰 획득 실패 처리 — escape hatch 활성 시 경고, 비활성 시 fail-fast.
+     *
+     * @param reason 실패 사유 (예외 메시지 포함)
+     * @param cause  원인 예외 (없으면 null)
+     */
+    private void handleTokenAcquisitionFailure(String reason, Throwable cause) {
+        if (allowEmptyToken) {
+            log.error("[KMS-Vault][F5.2 Escape] {} — ido.kms.vault.allow-empty-token=true 로 " +
+                      "startup 차단을 우회함. 이 상태에서는 모든 encrypt/decrypt 호출이 실패합니다. " +
+                      "운영 환경 절대 사용 금지.", reason, cause);
+            this.clientToken = null;
+            return;
+        }
+        if (cause != null) {
+            throw new IllegalStateException(reason + " [Startup blocked by F5.2 Guard]", cause);
+        }
+        throw new IllegalStateException(reason + " [Startup blocked by F5.2 Guard]");
     }
 
     // ══════════════════════════════════════════════════════════════════════

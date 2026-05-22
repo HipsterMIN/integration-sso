@@ -110,20 +110,26 @@
 #### **Sprint α (1주, 운영 진입 전 필수)**
 **목표**: 운영 진입 즉시 발현 가능한 결함 차단
 
-| Task | 결함 | 소요 (estimate) | 책임 모듈 |
-|------|------|----------------|----------|
-| α-1 | F3.1 SHA-256 인코딩 통일 (hex 또는 Base64URL 중 택일, 전체 일관) | 1d | Q-IM |
-| α-2 | F3.3 CiCryptoServiceImpl default key 제거 + startup validation | 0.5d | Q-IM |
-| α-3 | F3.4 DiGenerationService default secret 제거 + startup validation | 0.5d | Q-IM |
-| α-4 | F5.1 LocalKmsClient `matchIfMissing=false` + 운영 프로파일 fail-fast | 0.5d | IdO |
-| α-5 | F4.3 Webhook default secret 제거 + KMS 암호화 마이그레이션 | 2d | IdO |
-| α-6 | F4.6 PolicyEngine tryResolveDi 예외 타입 구분 (장애 vs 미매핑) | 1d | IdO |
-| α-7 | F2.1 Keycloak callback default secret 제거 | 0.5d | Q-Sign |
-| α-8 | F3.2 findByIdentifierHash 명확화 (provider 별 조회로 변경) | 1d | Q-IM |
-| α-9 | 환경변수 startup validation 통합 (모든 default 금지) | 1d | 전체 |
-| α-10 | α-1~α-9 통합 테스트 (Testcontainers) + smoke test | 2d | QA |
+| Task | 결함 | 소요 (estimate) | 책임 모듈 | 상태 | PR |
+|------|------|----------------|----------|------|-----|
+| α-1 | F3.1 SHA-256 인코딩 통일 (hex 또는 Base64URL 중 택일, 전체 일관) | 1d | Q-IM | ⏳ 대기 | — |
+| α-2 | F3.3 CiCryptoServiceImpl default key 제거 + startup validation | 0.5d | Q-IM | ⏳ 대기 | — |
+| α-3 | F3.4 DiGenerationService default secret 제거 + startup validation | 0.5d | Q-IM | ⏳ 대기 | — |
+| **α-4** | **F5.1 LocalKmsClient `matchIfMissing=false` + 운영 프로파일 fail-fast** | 0.5d | IdO | ✅ **완료** | **#TBD** |
+| **α-4b** | **F5.2 VaultKmsClient 토큰 미획득 시 startup 차단 (β-6에서 조기 진행)** | 0.5d | IdO | ✅ **완료** | **#TBD** |
+| α-5 | F4.3 Webhook default secret 제거 + KMS 암호화 마이그레이션 | 2d | IdO | ⏳ 대기 | — |
+| α-6 | F4.6 PolicyEngine tryResolveDi 예외 타입 구분 (장애 vs 미매핑) | 1d | IdO | ⏳ 대기 | — |
+| α-7 | F2.1 Keycloak callback default secret 제거 | 0.5d | Q-Sign | ⏳ 대기 | — |
+| α-8 | F3.2 findByIdentifierHash 명확화 (provider 별 조회로 변경) | 1d | Q-IM | ⏳ 대기 | — |
+| α-9 | 환경변수 startup validation 통합 (모든 default 금지) | 1d | 전체 | ⏳ 대기 | — |
+| α-10 | α-1~α-9 통합 테스트 (Testcontainers) + smoke test | 2d | QA | ⏳ 대기 | — |
 
 **소요**: ~10 man-day. 2명 1주 가능.
+
+**진행 노트** (Sprint α-1 — KMS 안전망, 2026-05-22):
+- F5.1, F5.2 우선 처리. KMS는 다른 결함의 의존성 (β-6 → β-7)이며, 평문 키 모드가 prod 진입 절대 차단 사항이므로 가장 먼저 격리.
+- 회귀 테스트 추가: `LocalKmsClientTest$ProdGuard` 8건 + `VaultKmsClientTest$StartupGuard` 4건.
+- 호환성: 기존 dev/local/test 환경은 `IDO_KMS_ENABLED:false` 기본값으로 동일하게 작동.
 
 ---
 
