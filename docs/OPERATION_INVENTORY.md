@@ -130,15 +130,24 @@
 
 ### 기존 (운영 중)
 - `batch.relay.{ido,qim,qsign}.kafka.{success,failure,dead_letter}` — Counter (per shard)
-- Spring Boot 기본 메트릭 (`http_server_requests`, `jvm_*`, `process_*`)
+- `auth.success.total{provider, auth_level}` — Counter (q-sign AuthMetrics)
+- `auth.failure.total{provider, reason}` — Counter (q-sign AuthMetrics)
+- `auth.locked.total{provider}` — Counter (q-sign AuthMetrics)
+- `auth.duration.seconds{provider, auth_level}` — Timer (q-sign AuthMetrics)
+- `slo.{initiate,keycloak.success,keycloak.failure,webhook.enqueued}.total` — Counter (q-sign)
+- Spring Boot 기본 메트릭 (`http_server_requests_seconds`, `jvm_*`, `process_*`)
 
 ### PR-A5 신규
-- `onepass.outbox.pending.total{shard}` — Gauge
-- `onepass.outbox.failed.total{shard}` — Gauge
+- `onepass.outbox.pending.total{shard}` — Gauge (batch)
+- `onepass.outbox.failed.total{shard}` — Gauge (batch)
 
-### Sprint B 후보 (축소 검토 대상)
-- ~~HandoffMetrics / KmsMetrics / ProvisioningMetrics / GatewayMetrics~~
-- → 실제 필요한 것은 **인증 성공률 / 핸드오프 지연 / KMS 가용성** 3개로 충분
+### PR-B1-new 신규 (SSO 본질 메트릭 3종)
+- `onepass.kms.healthy` — Gauge 1개 (ido) — `VaultKmsHealthIndicator` 재사용으로 Vault 호출 0회 추가
+- (auth.success.rate / handoff.latency.p95는 **신규 코드 없이** 위 기존 메트릭 + Spring Boot 자동 메트릭으로 충족 — `docs/RUNBOOK_SSO_METRICS.md` 참조)
+
+### 운영 가시화
+- **운영자가 매일 보는 3 메트릭**: 인증 성공률(PromQL) / Handoff p95(Spring 자동) / KMS Healthy(Gauge 1개)
+- 상세 PromQL 및 알람 임계값: `docs/RUNBOOK_SSO_METRICS.md`
 
 ---
 
@@ -177,3 +186,4 @@
 |------|----|----|
 | 2026-05-21 | PR-A5 | 최초 작성 — Sprint A 회고 결과 반영. Kafka/Outbox HealthIndicator 강등 |
 | 2026-05-22 | PR-B4 | `application-prod.yml` 분리 (4개 모듈) — 로그 레벨/Tracing 샘플링/Actuator 노출/Health Group 운영 강제. Helm `SPRING_PROFILES_ACTIVE: k8s → prod` 갱신 |
+| 2026-05-22 | PR-B1-new | SSO 본질 메트릭 3종 — KMS Gauge 1개 신규 + 운영 가이드(`RUNBOOK_SSO_METRICS.md`). auth/handoff는 기존 메트릭으로 충족 (코드 0줄 추가) |
