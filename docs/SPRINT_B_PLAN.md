@@ -84,7 +84,7 @@
 
 ---
 
-### PR-B4: application-prod.yml 분리 (P1 — 보안 위생) ⭐ 유지
+### PR-B4: application-prod.yml 분리 (P1 — 보안 위생) ✅ **완료 (2026-05-22)**
 
 **범위**: 운영 환경 전용 설정을 별도 파일로 분리하여 dev/stage 설정과 격리.
 
@@ -93,10 +93,15 @@
 **격리 대상**:
 - 로그 레벨 (운영은 INFO/WARN, 개발은 DEBUG)
 - 트레이싱 샘플링 비율 (운영 0.1, 개발 1.0)
-- 보안 헤더 강제 (운영 한정 HSTS, CSP)
-- Actuator 노출 범위 (운영은 health/info/metrics/prometheus만, 개발은 추가)
+- 보안 헤더 강제 (운영 한정 HSTS, CSP) — ido만 해당 (`ido.security-headers.enabled: true`)
+- Actuator 노출 범위 (운영은 health/info/metrics/prometheus만, flyway/features 제외)
+- Actuator health show-details: never (의존성 상세 비공개)
+- Health Group 동결 (PR-A5 정책 — db/redis [+kms in ido])
 
-**예상 작업량**: 4개 yml × ~30줄 = ~120 LOC
+**실제 작업량**: 4개 yml = 약 195 LOC (ido 76 / batch 56 / qsign 47 / qim 38)
+
+**Helm 변경**: `values-prod.yaml`의 `SPRING_PROFILES_ACTIVE: k8s → prod` (4개 모듈)
+— 기존 `k8s` 프로파일은 `application-k8s.yml` 파일이 부재한 빈 이름이었으므로 정리.
 
 ---
 
@@ -148,3 +153,4 @@ PR-B3-new (Slack 단일 채널) — 필요 시에만 진행
 | 일자 | PR | 변경 |
 |------|----|----|
 | 2026-05-21 | PR-A5 | 최초 작성. 기존 Sprint B 안 폐기, 축소 안으로 대체 |
+| 2026-05-22 | PR-B4 | 완료 — `application-prod.yml` 4개 + Helm `SPRING_PROFILES_ACTIVE: prod` |

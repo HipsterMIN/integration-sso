@@ -1,0 +1,62 @@
+# ============================================================
+# Outbox Relay Batch prod 프로파일 — 운영 환경 강제 설정 (PR-B4)
+#
+# 활성화: SPRING_PROFILES_ACTIVE=prod (Helm values-prod.yaml에서 주입)
+#
+# 본 파일의 목적은 batch 모듈의 운영 환경 안전 기본값을 박는 것이다.
+# DB/Redis/Kafka endpoint는 환경변수(Helm Secret)로 주입한다.
+#
+# 정책 근거: docs/SPRINT_B_PLAN.md PR-B4, docs/OPERATION_INVENTORY.md §5
+# ============================================================
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+# ── 1. 로그 레벨 — 운영 강제 (INFO/WARN, DEBUG 금지) ──────────────────────────
+# batch는 1초 폴링이 많아 DEBUG 시 로그 양이 polynomially 증가.
+logging:
+  level:
+    root: WARN
+    kr.go.smes.batch: INFO
+    net.javacrumbs.shedlock: WARN     # ShedLock은 운영 중 조용해야 정상
+    org.springframework: WARN
+    org.springframework.kafka: WARN
+    org.springframework.jdbc: WARN
+    org.flywaydb: INFO
+    org.hibernate: WARN
+
+# ── 2. Actuator 노출 범위 — 운영 최소화 ──────────────────────────────────────
+# batch는 외부 트래픽을 받지 않으므로 endpoint 노출이 더 보수적이어야 한다.
+# health(K8s probe) + metrics/prometheus(관찰성) + info만 노출.
+#
+# 3. Readiness 그룹 — PR-A5 정책 동결 (db, redis만)
+# Kafka/Outbox는 메트릭으로 관찰 (OutboxBacklogMetrics).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never               # 운영: 의존성 상세 비공개
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ── 4. Outbox 메트릭 갱신 주기 — 운영 보수적 ─────────────────────────────────
+# 30초 기본값이 적정하지만 prod에서는 query timeout을 더 짧게 박아
+# DB 부하 시에도 메트릭 수집이 다른 잡을 방해하지 않도록 한다.
+batch:
+  metrics:
+    outbox:
+      refresh-interval-ms: ${BATCH_METRICS_OUTBOX_REFRESH_INTERVAL_MS:30000}
+      query-timeout-sec: 2              # 운영: 3 → 2초로 단축

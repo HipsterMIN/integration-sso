@@ -1,0 +1,78 @@
+# ============================================================
+# IdO prod 프로파일 — 운영 환경 강제 설정 (PR-B4)
+#
+# 활성화: SPRING_PROFILES_ACTIVE=prod (Helm values-prod.yaml에서 주입)
+#
+# 본 파일의 원칙:
+#   본 파일에는 **운영에서만 안전하게 강제되어야 하고 변경 가능성이 낮은
+#   설정**만 둔다. 기능 플래그(audit/redisson/outbox 등)는 application.yml의
+#   환경변수 기본값이 이미 운영 안전값이므로 본 파일에서 중복으로 박지 않는다.
+#   (중복 강제는 관리 포인트만 늘리고 운영 변경의 유연성을 해친다.)
+#
+# 격리 대상 (SPRINT_B_PLAN.md PR-B4):
+#   1. 로그 레벨 — 운영 강제 (DEBUG 금지)
+#   2. Tracing 샘플링 — 운영 강제 (10%)
+#   3. Actuator 노출 범위 — 운영 강제 (flyway/features 제외)
+#   4. 보안 — show-details:never, security-headers:true 강제
+#
+# DB/Redis/Kafka endpoint, Vault 인증 등 외부 연결 정보는 본 파일에 두지 않는다.
+# (Helm Secret + 환경변수로 주입 — 본 파일에 두면 시크릿 평문 노출 위험)
+#
+# 정책 근거: docs/SPRINT_B_PLAN.md PR-B4, docs/OPERATION_INVENTORY.md §5
+# ============================================================
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+# ── 1. 로그 레벨 — 운영 강제 (INFO/WARN, DEBUG 금지) ──────────────────────────
+# 운영 중 DEBUG 로깅은 (1) 성능 저하 (2) 개인정보 로그 노출 위험 (3) 디스크 폭주
+# 위험이 있다. application.yml 기본값도 INFO이지만 dev 환경에서 변경된 채로
+# 실수로 prod에 노출되는 시나리오를 방지하기 위해 본 파일이 안전 기본값을 박는다.
+logging:
+  level:
+    root: WARN
+    kr.go.smes.ido: INFO
+    kr.go.smes.ido.fe: INFO
+    kr.go.smes.ido.webhook: INFO
+    kr.go.smes.ido.burst: INFO
+    kr.go.smes.ido.audit: INFO        # 감사 로그는 INFO — 적재 추적 필요
+    kr.go.smes.ido.auth: INFO         # 인증 흐름 — DEBUG는 PII 노출 위험
+    kr.go.smes.ido.crypto: WARN       # 암호화 — 키/IV 로그 차단
+    org.springframework: WARN
+    org.springframework.kafka: WARN
+    org.flywaydb: INFO
+    org.hibernate: WARN
+
+# ── 2-4. 관찰성 / 보안 — 운영 강제 ───────────────────────────────────────────
+# 2. Tracing 샘플링: application.yml 기본값 1.0 → 운영 부하/비용 위험
+#                   prod에서 10% 샘플링 강제 (환경변수로 override는 가능)
+# 3. Actuator 노출: flyway(마이그레이션 상태)/features(플래그 상태) 노출 차단
+# 4. show-details:never: /actuator/health에서 의존성 상세(URL/유저명 등) 비공개
+# 4. Health Group: PR-A5 정책 동결 (db/redis/kms)
+management:
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus     # flyway, features 제외
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis,kms
+
+# ── 5. 보안 헤더 — 운영 강제 ON (HSTS/CSP) ───────────────────────────────────
+# application.yml 기본값도 true이지만 보안 헤더는 prod 환경의 핵심 위생이라
+# 환경변수가 어떤 값이어도 prod에서는 강제 ON을 박는다.
+ido:
+  security-headers:
+    enabled: true
