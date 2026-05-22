@@ -276,4 +276,184 @@ class CiCryptoServiceImplTest {
                     .isInstanceOf(Exception.class);
         }
     }
+
+    // ── 부팅 검증 (Sprint γ-2 / F3.3) ─────────────────────────────────────────
+
+    /**
+     * {@code @PostConstruct validateKeyV1()} 회귀 가드.
+     *
+     * <p>핵심 정책:
+     * <ul>
+     *   <li>현재 버전(v1 기본)의 AES 키가 비어있거나 placeholder 이면 부팅 차단</li>
+     *   <li>특히 legacy default {@code "AAAA...="} (32바이트 0x00) 명시적 거부</li>
+     *   <li>Base64 디코드 후 정확히 32바이트(AES-256) 이어야 함</li>
+     *   <li>{@code allowEmptyKey=true} escape hatch 가 있을 때만 빈 값 허용</li>
+     * </ul>
+     *
+     * <p>부모 클래스의 {@code @BeforeEach setUp()} 이 reflection 으로 키를 주입하기 때문에
+     * 여기 Nested 클래스에서는 {@code new CiCryptoServiceImpl()} 로 별도 인스턴스를 만들어
+     * {@code validateKeyV1()} 만 격리 호출한다.
+     */
+    @Nested
+    @DisplayName("부팅 검증 (@PostConstruct validateKeyV1)")
+    class StartupGuard {
+
+        /** AES-256 무작위 키 (32바이트 → Base64 44자) — 테스트용 정상 값 */
+        private static final String VALID_32B_KEY = Base64.getEncoder()
+                .encodeToString("validKey32Bytes_AAAAAAAAAAAAAAAA".getBytes()); // 길이 32
+
+        private CiCryptoServiceImpl freshInstance(String keyV1, String keyV2, String version, boolean allowEmpty) {
+            CiCryptoServiceImpl svc = new CiCryptoServiceImpl();
+            ReflectionTestUtils.setField(svc, "aesKeyV1Base64", keyV1);
+            ReflectionTestUtils.setField(svc, "aesKeyV2Base64", keyV2);
+            ReflectionTestUtils.setField(svc, "currentVersion", version);
+            ReflectionTestUtils.setField(svc, "allowEmptyKey", allowEmpty);
+            return svc;
+        }
+
+        // ── Reject ────────────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("null 키 + allow-empty=false → IllegalStateException")
+        void nullKey_blockBoot() {
+            CiCryptoServiceImpl svc = freshInstance(null, "", "v1", false);
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("qim.crypto.ci.key-v1")
+                    .hasMessageContaining("QIM_CI_AES_KEY_V1");
+        }
+
+        @Test
+        @DisplayName("blank 키 + allow-empty=false → IllegalStateException")
+        void blankKey_blockBoot() {
+            CiCryptoServiceImpl svc = freshInstance("   ", "", "v1", false);
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("QIM_CI_AES_KEY_V1");
+        }
+
+        @Test
+        @DisplayName("legacy placeholder 'AAAA...=' (32바이트 0x00) → IllegalStateException")
+        void legacyZeroKeyPlaceholder_blockBoot() {
+            // 과거 application.yml line 144 에 박혀있던 default 값
+            String legacyDefault = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            CiCryptoServiceImpl svc = freshInstance(legacyDefault, "", "v1", false);
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("placeholder");
+        }
+
+        @Test
+        @DisplayName("placeholder 'change-me' → IllegalStateException")
+        void changeMePlaceholder_blockBoot() {
+            CiCryptoServiceImpl svc = freshInstance("change-me", "", "v1", false);
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("placeholder");
+        }
+
+        @Test
+        @DisplayName("Base64 디코드 불가 키 → IllegalStateException")
+        void invalidBase64_blockBoot() {
+            CiCryptoServiceImpl svc = freshInstance("not!valid@base64#", "", "v1", false);
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Base64");
+        }
+
+        @Test
+        @DisplayName("16바이트(AES-128) 키 → IllegalStateException (AES-256 32바이트 강제)")
+        void shortKey16Bytes_blockBoot() {
+            String aes128Key = Base64.getEncoder()
+                    .encodeToString("0123456789abcdef".getBytes()); // 16바이트
+            CiCryptoServiceImpl svc = freshInstance(aes128Key, "", "v1", false);
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("32바이트");
+        }
+
+        @Test
+        @DisplayName("48바이트 키 → IllegalStateException (AES-256 32바이트 강제)")
+        void longKey48Bytes_blockBoot() {
+            String tooLongKey = Base64.getEncoder()
+                    .encodeToString("0123456789abcdef0123456789abcdef0123456789abcdef".getBytes()); // 48바이트
+            CiCryptoServiceImpl svc = freshInstance(tooLongKey, "", "v1", false);
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("32바이트");
+        }
+
+        @Test
+        @DisplayName("currentVersion=v2 인데 key-v2 가 비어있으면 v2 슬롯 검증으로 차단")
+        void v2Current_butV2KeyEmpty_blockBoot() {
+            CiCryptoServiceImpl svc = freshInstance(VALID_32B_KEY, "", "v2", false);
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("qim.crypto.ci.key-v2");
+        }
+
+        // ── Accept ────────────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("정상 32바이트 AES-256 키 → 검증 통과")
+        void validAes256Key_passes() {
+            CiCryptoServiceImpl svc = freshInstance(VALID_32B_KEY, "", "v1", false);
+            assertThatCode(svc::validateKeyV1).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("Base64URL(-/_) 형식 32바이트 키도 정상 허용")
+        void validBase64UrlKey_passes() {
+            // 32바이트 키를 Base64URL 로 인코딩 ('+' 와 '/' 가 포함되도록 충분히 무작위)
+            byte[] raw = new byte[32];
+            for (int i = 0; i < 32; i++) raw[i] = (byte)(0xF0 + i); // 의도적으로 '+', '/' 유도
+            String b64url = Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
+            CiCryptoServiceImpl svc = freshInstance(b64url, "", "v1", false);
+            assertThatCode(svc::validateKeyV1).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("currentVersion=v2 + 유효한 v2 키 → 검증 통과 (v1 슬롯 무관)")
+        void v2Current_withValidV2Key_passes() {
+            String validV2 = Base64.getEncoder()
+                    .encodeToString("validV2Key32Bytes_BBBBBBBBBBBBBBBB".substring(0, 32).getBytes());
+            CiCryptoServiceImpl svc = freshInstance("", validV2, "v2", false);
+            assertThatCode(svc::validateKeyV1).doesNotThrowAnyException();
+        }
+
+        // ── Escape Hatch ──────────────────────────────────────────────────
+
+        @Test
+        @DisplayName("allow-empty-key=true 면 빈 키도 통과 (로컬/테스트 escape hatch)")
+        void allowEmptyKey_bypassesEmptyCheck() {
+            CiCryptoServiceImpl svc = freshInstance("", "", "v1", true);
+            assertThatCode(svc::validateKeyV1).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("allow-empty-key=true 라도 placeholder 키는 여전히 차단")
+        void allowEmptyKey_doesNotBypassPlaceholder() {
+            String legacyDefault = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            CiCryptoServiceImpl svc = freshInstance(legacyDefault, "", "v1", true);
+            // 빈 값이 아니므로 escape hatch 가 적용되지 않고 placeholder 검사로 진입 → 차단
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("placeholder");
+        }
+
+        // ── 회귀 가드 (yml default 재실수 방지) ──────────────────────────────
+
+        @Test
+        @DisplayName("FORBIDDEN_PLACEHOLDERS 에 legacy default 32바이트 0x00 키가 포함되어 있어야 함")
+        void forbiddenPlaceholders_includesLegacyZeroKey() {
+            // 만약 누군가 application.yml line 144 에 default 를 다시 복구해도
+            // 이 검증이 차단해야 한다 (대소문자 무시).
+            CiCryptoServiceImpl svc = freshInstance(
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=", // 소문자 변형
+                    "", "v1", false);
+            assertThatThrownBy(svc::validateKeyV1)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("placeholder");
+        }
+    }
 }
