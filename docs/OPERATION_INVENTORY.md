@@ -151,17 +151,38 @@
 
 ---
 
-## 7. Prometheus 알람 규칙 (16개 → 축소 대상)
+## 7. Prometheus 알람 규칙 (PR-B2-new 축소 완료: 16개 → 8개)
 
-| 카테고리 | 현재 개수 | PR-B에서 제안 |
-|---------|---------|-------------|
-| 인프라 (Pod 재시작, OOM, DB) | ~8 | 5개로 통합 |
-| Kafka/Outbox | ~4 | 2개 (pending/failed 임계값) |
-| 비즈니스 (인증 실패율 등) | ~4 | 3개 유지 |
+### 7.1 현재 알람 구성 (8개)
 
-**축소 원칙**:
+**Critical 5개 (새벽 호출 1티어 — SSO/IM 본질)**
+| 알람 | 본질 매핑 | 메트릭 |
+|------|----------|--------|
+| `IdoServiceDown` | 핸드오프 | `up{job="ido"}` (Actuator 자동) |
+| `QSignServiceDown` | 인증 | `up{job="q-sign"}` |
+| `QimServiceDown` | 식별·매핑 | `up{job="q-im"}` |
+| `AuthSuccessRateLow` | 인증 성공률 < 90% | `auth_success_total` / `auth_failure_total` (q-sign AuthMetrics) |
+| `KmsUnavailable` | KMS healthy=0 | `onepass_kms_healthy` (PR-B1-new) |
+
+**Warning 3개 (Slack 채널만)**
+| 알람 | 메트릭 |
+|------|--------|
+| `HandoffLatencyHigh` (p95 > 2s) | `http_server_requests_seconds_bucket{uri="/api/v1/handoff/issue"}` |
+| `IdoHandoffErrorRateHigh` (5xx > 5%) | `http_server_requests_seconds_count{uri=~".*/handoff/issue.*",status=~"5.."}` |
+| `RateLimitExceeded` (429 > 100/min) | `http_server_requests_seconds_count{status="429"}` |
+
+### 7.2 폐기 사유 회고 (8개)
+
+- **유령 알람 5개 (Redis/Kafka/Postgres exporter 5종)**: `prometheus.yml` 스크레이프 설정이 주석 처리되어 메트릭 수집 자체가 안 되는 상태에서 알람만 존재 → 영원히 발화되지 않으면서 "감시되고 있다"는 잘못된 안심 유발. **운영 배포 직전에 가장 위험한 패턴**. 별도 PR(B5-infra-exporter)에서 패키지로 부활.
+- **중복 알람 1개 (`IdoHighErrorRate`)**: `IdoHandoffErrorRateHigh`와 본질 동일 → 통합
+- **노이즈 알람 2개 (`*ApiLatencyHigh` 전체 endpoint p95, `WebhookDispatchFailureHigh`, `JvmHeapUsageHigh`)**: 본질에서 멀고 새벽 호출 정당성 없음 → 대시보드로 격하
+
+### 7.3 축소 원칙
 - "알람 피로(Alert Fatigue)" 방지 — 새벽 호출은 critical 1티어만
-- warning은 Slack 채널 알림으로 격하
+- warning은 Slack 채널 알림으로 격하 (전화/페이지 없음)
+- **메트릭 출처가 실제 수집되는 알람만 유지** — 유령 알람 금지
+- PR-B1-new 본질 메트릭 3종은 반드시 알람과 1:1 매핑
+- 자세한 PromQL/임계값: `docs/RUNBOOK_SSO_METRICS.md §3`
 
 ---
 
@@ -187,3 +208,4 @@
 | 2026-05-21 | PR-A5 | 최초 작성 — Sprint A 회고 결과 반영. Kafka/Outbox HealthIndicator 강등 |
 | 2026-05-22 | PR-B4 | `application-prod.yml` 분리 (4개 모듈) — 로그 레벨/Tracing 샘플링/Actuator 노출/Health Group 운영 강제. Helm `SPRING_PROFILES_ACTIVE: k8s → prod` 갱신 |
 | 2026-05-22 | PR-B1-new | SSO 본질 메트릭 3종 — KMS Gauge 1개 신규 + 운영 가이드(`RUNBOOK_SSO_METRICS.md`). auth/handoff는 기존 메트릭으로 충족 (코드 0줄 추가) |
+| 2026-05-22 | PR-B2-new | Prometheus 알람 16개 → 8개 축소. critical 5개(본질 정렬) + warning 3개. 유령 알람 5종(Redis/Kafka/Postgres exporter 미배포) 제거, 중복/노이즈 3종 폐기. 신규 코드 0줄 |

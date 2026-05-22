@@ -16,7 +16,7 @@
 | 원안 PR | 원안 범위 | 재평가 |
 |--------|---------|------|
 | ~~PR-B1: 4종 메트릭 클래스~~ | HandoffMetrics / KmsMetrics / ProvisioningMetrics / GatewayMetrics | ❌ **폐기** — 본질 3개 메트릭(B1-new)으로 통합 |
-| ~~PR-B2: Prometheus 알람 확장~~ | 기존 16개 → 25개+ | ❌ **폐기** — 16개를 5~8개로 **축소**(B2-new) |
+| ~~PR-B2: Prometheus 알람 확장~~ | 기존 16개 → 25개+ | ✅ **B2-new로 대체 완료** — 16개를 8개로 축소 (2026-05-22) |
 | ~~PR-B3: Slack/PagerDuty 활성화~~ | 모든 알람 자동 전송 | ⚠️ **보류** — 알람 노이즈 줄인 후 (B2-new 완료 후 재검토) |
 | **PR-B4: application-prod.yml 분리** | 운영 전용 설정 격리 | ✅ **유지** — 보안 위생, 필수 |
 
@@ -49,34 +49,45 @@
 
 ---
 
-### PR-B2-new: 알람 룰 축소 + 5~8개로 통합 (P1)
+### PR-B2-new: 알람 룰 축소 16개 → 8개 (P1) ✅ **완료 (2026-05-22)**
 
-**범위**: 기존 `infra/monitoring/prometheus/alert_rules.yml`의 16개 알람을 운영
-관점에서 재분류하여 핵심만 남긴다.
+**범위**: `infra/monitoring/prometheus/alert_rules.yml`을 본질 메트릭(PR-B1-new) 정렬 + 유령 알람 제거 관점에서 재작성. **신규 코드 0줄, 알람 정의만 재구성**.
 
-#### Critical (새벽 호출 1티어 — 5개 이내)
-| 알람 | 조건 | 대응 |
-|------|------|------|
-| `AuthSuccessRateLow` | 인증 성공률 < 95% for 5m | 즉시 |
-| `DbConnectionLost` | DB up=0 for 1m | 즉시 |
-| `KmsUnavailable` | KMS healthy=0 for 2m | 즉시 |
-| `PodCrashLoop` | 재시작 > 3회/시간 | 즉시 |
-| `OutboxBacklogCritical` | pending > 10000 for 5m | 즉시 |
+#### 실제 적용된 Critical 5개 (새벽 호출 1티어)
+| 알람 | 조건 | for | 본질 매핑 |
+|------|------|-----|----------|
+| `IdoServiceDown` | `up{job="ido"}==0` | **2m** (롤링 노이즈 방지) | 핸드오프 |
+| `QSignServiceDown` | `up{job="q-sign"}==0` | 2m | 인증 |
+| `QimServiceDown` | `up{job="q-im"}==0` | 2m | 식별·매핑 |
+| `AuthSuccessRateLow` | 인증 성공률 < 90% | 5m | **PR-B1-new §1.1** |
+| `KmsUnavailable` | `onepass_kms_healthy==0` | 2m | **PR-B1-new §1.3** |
 
-#### Warning (Slack 채널 알림 — 3개 이내)
+#### 실제 적용된 Warning 3개 (Slack 채널만)
 | 알람 | 조건 |
 |------|------|
-| `OutboxBacklogWarning` | pending > 1000 for 10m |
-| `HandoffLatencyHigh` | p95 > 2s for 10m |
-| `HpaScaleHigh` | HPA replicas = max for 30m (용량 검토 필요) |
+| `HandoffLatencyHigh` | handoff issue p95 > 2s for 10m (**PR-B1-new §1.2**) |
+| `IdoHandoffErrorRateHigh` | handoff 5xx > 5% for 5m (critical → warning 강등, AuthSuccessRateLow가 본질 커버) |
+| `RateLimitExceeded` | 분당 429 > 100건 for 1m (보안 신호) |
 
-#### 폐기/제거 후보
-- 단순 disk usage, memory 등 — K8s 기본 메트릭 + Grafana 대시보드로 대체
-- 노드별 세분화 알람 — 클러스터 레벨로 통합
+#### 폐기된 알람 8개
+**유령 알람 5개 (가장 위험)** — `prometheus.yml`에 exporter scrape 미설정 상태로 알람만 존재
+- `RedisDown`, `RedisMemoryHigh` (redis-exporter 미배포)
+- `KafkaDown`, `KafkaConsumerLagHigh` (kafka-exporter 미배포)
+- `PostgresDown` (postgres-exporter 미배포)
 
-**의도적 제외**:
-- 비즈니스 KPI 알람 (DAU 감소 등) — 데이터팀이 별도로 관리
-- 마이크로 알람 (특정 endpoint 5xx 등) — 대시보드로 충분
+**중복/노이즈 알람 3개**
+- `IdoHighErrorRate` → `IdoHandoffErrorRateHigh`와 중복
+- `IdoApiLatencyHigh`, `QimApiLatencyHigh` → 전체 endpoint p95는 의미 약함 (handoff 한정으로 재정의)
+- `QimHighErrorRate`, `WebhookDispatchFailureHigh`, `JvmHeapUsageHigh` → 대시보드/ServiceDown으로 충분
+
+**작업량**: `alert_rules.yml` 247 LOC → 169 LOC (-78), 문서 3개 갱신, 신규 코드 0줄
+
+**산출물**:
+- `infra/monitoring/prometheus/alert_rules.yml` — 8개 알람으로 재작성
+- `docs/RUNBOOK_SSO_METRICS.md` §3 (예고 → 확정)
+- `docs/OPERATION_INVENTORY.md` §7 갱신 (유령 알람 회고)
+
+**후속 작업**: 인프라 가시성은 별도 PR(`B5-infra-exporter`)에서 exporter 배포 + scrape 활성화 + 알람 재도입을 패키지로 진행. 본 PR에서 분리한 것은 회고 정책 §8 ("새 외부 시스템 의존성을 추가하는가?")에 정합.
 
 ---
 
@@ -118,9 +129,9 @@ PR-B4 (application-prod.yml 분리)              ← 가장 먼저 (보안 위�
   ↓
 PR-B1-new (SSO 본질 메트릭 3종)                ← SSO 본질에 직접 기여
   ↓
-PR-B2-new (알람 룰 16개 → 8개 축소)            ← B1 메트릭과 통합
+PR-B2-new (알람 룰 16개 → 8개 축소) ✅완료     ← B1 메트릭과 통합
   ↓
-[1주일 운영 관찰] — 알람 노이즈 측정
+[1주일 운영 관찰] — 알람 노이즈 측정 (← 현재 단계)
   ↓
 PR-B3-new (Slack 단일 채널) — 필요 시에만 진행
 ```
@@ -161,3 +172,4 @@ PR-B3-new (Slack 단일 채널) — 필요 시에만 진행
 | 2026-05-21 | PR-A5 | 최초 작성. 기존 Sprint B 안 폐기, 축소 안으로 대체 |
 | 2026-05-22 | PR-B4 | 완료 — `application-prod.yml` 4개 + Helm `SPRING_PROFILES_ACTIVE: prod` |
 | 2026-05-22 | PR-B1-new | 완료 — KMS Gauge 1개 + 운영 가이드. auth/handoff는 기존 메트릭 재활용 (코드 0줄) |
+| 2026-05-22 | PR-B2-new | 완료 — 알람 16개 → 8개. 본질 메트릭 정렬 + 유령 알람 5종 제거 + 중복/노이즈 3종 폐기 (신규 코드 0줄) |

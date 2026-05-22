@@ -1,50 +1,135 @@
 groups:
   # ══════════════════════════════════════════════════════════════════════════
-  # [1] 서비스 가용성 — 가장 중요한 알람
+  # OnePass Platform — Prometheus 알람 룰 (PR-B2-new 축소판: 16 → 8)
+  #
+  # 설계 원칙 (회고 정책 PR-A5 + PR-B1-new 본질 메트릭 정렬):
+  #   1. 새벽 3시 호출(critical)은 SSO/IM 본질이 깨졌을 때만 (5개 이내)
+  #   2. warning은 Slack 채널만 — 페이지/전화 없음 (3개 이내)
+  #   3. 메트릭 출처가 명확한 알람만 — 유령 알람 금지
+  #   4. PR-B1-new 본질 메트릭 3종(인증 성공률 / Handoff p95 / KMS Healthy) 정렬
+  #
+  # 폐기된 알람 (8개):
+  #   - IdoApiLatencyHigh, QimApiLatencyHigh : 전체 endpoint 평균 → handoff 한정으로 재정의
+  #   - IdoHighErrorRate                     : IdoHandoffErrorRateHigh와 중복
+  #   - QimHighErrorRate                     : ServiceDown으로 본질 커버, 대시보드로 충분
+  #   - WebhookDispatchFailureHigh           : 비핵심 → 대시보드
+  #   - JvmHeapUsageHigh                     : OOM kill 시 ServiceDown으로 발화됨
+  #   - RedisDown/RedisMemoryHigh            : 유령 알람 (redis-exporter 미스크레이프)
+  #   - KafkaDown/KafkaConsumerLagHigh       : 유령 알람 (kafka-exporter 미스크레이프)
+  #   - PostgresDown                         : 유령 알람 (postgres-exporter 미스크레이프)
+  #
+  # 인프라 알람 부활 시점: 별도 PR(B5-infra-exporter)에서 exporter scrape 활성화 후
   # ══════════════════════════════════════════════════════════════════════════
-  - name: onepass_service_availability
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # [CRITICAL] 5개 — 새벽 호출 1티어 (SSO/IM 본질이 깨졌을 때)
+  # ──────────────────────────────────────────────────────────────────────────
+  - name: onepass_critical
     interval: 15s
     rules:
 
+      # ── 1. IdO 다운 (핸드오프 오케스트레이터 정지) ─────────────────────────
+      # for: 30s → 2m 로 완화 (롤링 업데이트 시 거짓경보 방지)
       - alert: IdoServiceDown
         expr: up{job="ido"} == 0
-        for: 30s
+        for: 2m
         labels:
           severity: critical
           service:  ido
+          essence:  handoff
         annotations:
           summary:     "IdO 서비스 다운"
-          description: "IdO(핸드오프 오케스트레이터)가 30초 이상 응답하지 않습니다. Handoff 발급 불가."
+          description: "IdO(핸드오프 오케스트레이터)가 2분 이상 응답하지 않습니다. 기관 연계 전면 중단."
+          runbook:     "docs/RUNBOOK_SSO_METRICS.md §1.2"
 
-      - alert: QimServiceDown
-        expr: up{job="q-im"} == 0
-        for: 30s
-        labels:
-          severity: critical
-          service:  q-im
-        annotations:
-          summary:     "Q-IM 서비스 다운"
-          description: "Q-IM(식별·매핑 SoR)이 30초 이상 응답하지 않습니다. IdO 핸드오프 불가."
-
+      # ── 2. Q-Sign 다운 (인증 SoR 정지) ───────────────────────────────────
       - alert: QSignServiceDown
         expr: up{job="q-sign"} == 0
-        for: 30s
+        for: 2m
         labels:
           severity: critical
           service:  q-sign
+          essence:  authentication
         annotations:
           summary:     "Q-Sign 서비스 다운"
-          description: "Q-Sign(인증 SoR)이 30초 이상 응답하지 않습니다. 신규 인증 불가."
+          description: "Q-Sign(인증 SoR)이 2분 이상 응답하지 않습니다. 신규 인증 불가."
+          runbook:     "docs/RUNBOOK_SSO_METRICS.md §1.1"
 
-  # ══════════════════════════════════════════════════════════════════════════
-  # [2] API 오류율 / 응답 지연 — divide-by-zero 방어 적용
-  # ══════════════════════════════════════════════════════════════════════════
-  - name: onepass_platform_alerts
+      # ── 3. Q-IM 다운 (식별·매핑 SoR 정지) ────────────────────────────────
+      - alert: QimServiceDown
+        expr: up{job="q-im"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service:  q-im
+          essence:  identity
+        annotations:
+          summary:     "Q-IM 서비스 다운"
+          description: "Q-IM(식별·매핑 SoR)이 2분 이상 응답하지 않습니다. IdO 핸드오프 식별 불가."
+
+      # ── 4. 인증 성공률 저하 (PR-B1-new 본질 메트릭 §1.1) ─────────────────
+      # divide-by-zero 방어: 분모 > 0 조건 추가 (트래픽 없을 때 거짓경보 방지)
+      - alert: AuthSuccessRateLow
+        expr: |
+          (
+            sum(rate(auth_success_total[5m]))
+            /
+            ( sum(rate(auth_success_total[5m])) + sum(rate(auth_failure_total[5m])) )
+          ) < 0.90
+          and
+          ( sum(rate(auth_success_total[5m])) + sum(rate(auth_failure_total[5m])) ) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service:  q-sign
+          essence:  authentication
+        annotations:
+          summary:     "인증 성공률 저하 (< 90%)"
+          description: "5분 평균 인증 성공률 {{ $value | humanizePercentage }} (임계값: 90%). IdP/Provider 장애 가능성."
+          runbook:     "docs/RUNBOOK_SSO_METRICS.md §1.1"
+
+      # ── 5. KMS 가용 불가 (PR-B1-new 본질 메트릭 §1.3) ────────────────────
+      # onepass_kms_healthy = 0 (DOWN) 상태가 2분 지속 시
+      - alert: KmsUnavailable
+        expr: onepass_kms_healthy == 0
+        for: 2m
+        labels:
+          severity: critical
+          service:  ido
+          essence:  privacy
+        annotations:
+          summary:     "KMS(Vault Transit) 가용 불가"
+          description: "ID 핸드오프 암호화 불가 상태가 2분 이상 지속. Vault/KMS 즉시 점검 필요."
+          runbook:     "docs/RUNBOOK_SSO_METRICS.md §1.3"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # [WARNING] 3개 — Slack 채널만 (전화/페이지 없음)
+  # ──────────────────────────────────────────────────────────────────────────
+  - name: onepass_warning
     interval: 30s
     rules:
 
-      # ── IdO Handoff 발급 오류율 (5분 윈도우 > 5%) ─────────────────────────
-      # divide-by-zero 방어: 분모 > 0 조건 추가
+      # ── 6. Handoff 발급 지연 (PR-B1-new 본질 메트릭 §1.2) ────────────────
+      # SLO: p95 < 2s. 5분 이상 위반 시 warning (10분 지속 시 발화)
+      - alert: HandoffLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (
+              rate(http_server_requests_seconds_bucket{job="ido",uri="/api/v1/handoff/issue"}[5m])
+            )
+          ) > 2.0
+        for: 10m
+        labels:
+          severity: warning
+          service:  ido
+          essence:  handoff
+        annotations:
+          summary:     "Handoff 발급 p95 지연 (> 2s)"
+          description: "Handoff Issue p95 응답시간 {{ $value | humanizeDuration }} (SLO: 2s). KMS/DB/Redis 응답성 확인."
+          runbook:     "docs/RUNBOOK_SSO_METRICS.md §1.2"
+
+      # ── 7. Handoff 발급 5xx 오류율 (보조 신호 — Critical AuthSuccessRate가
+      #     인증 본질을 커버하므로 이 알람은 warning으로 격하) ──────────────
       - alert: IdoHandoffErrorRateHigh
         expr: |
           (
@@ -54,194 +139,23 @@ groups:
           ) > 0.05
           and
           rate(http_server_requests_seconds_count{job="ido",uri=~".*/handoff/issue.*"}[5m]) > 0
-        for: 2m
-        labels:
-          severity: critical
-          service:  ido
-        annotations:
-          summary:     "IdO Handoff 발급 오류율 급증"
-          description: "Handoff 발급 5xx 오류율 {{ $value | humanizePercentage }} (임계값: 5%)"
-
-      # ── IdO API 응답 지연 (P95 > 500ms) ─────────────────────────────────
-      # histogram_quantile: sum by (le) 집계 적용
-      - alert: IdoApiLatencyHigh
-        expr: |
-          histogram_quantile(0.95,
-            sum by (le, job) (
-              rate(http_server_requests_seconds_bucket{job="ido"}[5m])
-            )
-          ) > 0.5
-        for: 3m
+        for: 5m
         labels:
           severity: warning
           service:  ido
+          essence:  handoff
         annotations:
-          summary:     "IdO API P95 응답 지연"
-          description: "IdO P95 응답시간 {{ $value | humanizeDuration }} (임계값: 500ms)"
+          summary:     "Handoff 발급 5xx 오류율 상승 (> 5%)"
+          description: "Handoff 발급 5xx 오류율 {{ $value | humanizePercentage }} (임계값: 5%). KmsUnavailable/ServiceDown 동시 확인."
 
-      # ── Q-IM API 응답 지연 (P95 > 300ms) ────────────────────────────────
-      - alert: QimApiLatencyHigh
-        expr: |
-          histogram_quantile(0.95,
-            sum by (le, job) (
-              rate(http_server_requests_seconds_bucket{job="q-im"}[5m])
-            )
-          ) > 0.3
-        for: 3m
-        labels:
-          severity: warning
-          service:  q-im
-        annotations:
-          summary:     "Q-IM API P95 응답 지연"
-          description: "Q-IM P95 응답시간 {{ $value | humanizeDuration }} (임계값: 300ms)"
-
-      # ── Rate Limit 초과 급증 (분당 100회 이상) ───────────────────────────
+      # ── 8. Rate Limit 초과 급증 (보안 신호 — DDoS/기관 오동작) ────────────
       - alert: RateLimitExceeded
-        expr: |
-          increase(http_server_requests_seconds_count{job="ido",status="429"}[1m]) > 100
+        expr: increase(http_server_requests_seconds_count{job="ido",status="429"}[1m]) > 100
         for: 1m
         labels:
           severity: warning
           service:  ido
+          essence:  security
         annotations:
           summary:     "Rate Limit 초과 급증"
-          description: "분당 429 응답 {{ $value }}회 — 기관 DDoS 또는 오동작 의심"
-
-      # ── IdO 전체 5xx 오류율 (5분 윈도우 > 1%) ────────────────────────────
-      - alert: IdoHighErrorRate
-        expr: |
-          (
-            rate(http_server_requests_seconds_count{job="ido",status=~"5.."}[5m])
-            /
-            rate(http_server_requests_seconds_count{job="ido"}[5m])
-          ) > 0.01
-          and
-          rate(http_server_requests_seconds_count{job="ido"}[5m]) > 0
-        for: 3m
-        labels:
-          severity: warning
-          service:  ido
-        annotations:
-          summary:     "IdO 전체 5xx 오류율 상승"
-          description: "IdO 5xx 오류율 {{ $value | humanizePercentage }} (임계값: 1%)"
-
-      # ── Q-IM 5xx 오류율 (5분 윈도우 > 1%) ───────────────────────────────
-      - alert: QimHighErrorRate
-        expr: |
-          (
-            rate(http_server_requests_seconds_count{job="q-im",status=~"5.."}[5m])
-            /
-            rate(http_server_requests_seconds_count{job="q-im"}[5m])
-          ) > 0.01
-          and
-          rate(http_server_requests_seconds_count{job="q-im"}[5m]) > 0
-        for: 3m
-        labels:
-          severity: warning
-          service:  q-im
-        annotations:
-          summary:     "Q-IM 5xx 오류율 상승"
-          description: "Q-IM 5xx 오류율 {{ $value | humanizePercentage }} (임계값: 1%)"
-
-  # ══════════════════════════════════════════════════════════════════════════
-  # [3] 인프라 — Redis / Kafka
-  # ══════════════════════════════════════════════════════════════════════════
-  - name: onepass_infra_alerts
-    interval: 30s
-    rules:
-
-      # ── Redis 메모리 사용률 > 80% ─────────────────────────────────────────
-      # redis_memory_max_bytes가 0인 경우(maxmemory 미설정) divide-by-zero 방어
-      - alert: RedisMemoryHigh
-        expr: |
-          (redis_memory_used_bytes / redis_memory_max_bytes > 0.8)
-          and
-          redis_memory_max_bytes > 0
-        for: 5m
-        labels:
-          severity: warning
-          service:  redis
-        annotations:
-          summary:     "Redis 메모리 사용률 높음"
-          description: "Redis 메모리 사용률 {{ $value | humanizePercentage }} (임계값: 80%)"
-
-      # ── Redis 다운 ───────────────────────────────────────────────────────
-      - alert: RedisDown
-        expr: up{job="redis"} == 0
-        for: 30s
-        labels:
-          severity: critical
-          service:  redis
-        annotations:
-          summary:     "Redis 다운"
-          description: "Redis가 30초 이상 응답하지 않습니다. 세션/캐시/Rate Limit 불가."
-
-      # ── Kafka Consumer Lag 급증 (ido-handoff-consumer > 10000) ───────────
-      - alert: KafkaConsumerLagHigh
-        expr: |
-          kafka_consumergroup_lag{consumergroup="ido-handoff-consumer"} > 10000
-        for: 2m
-        labels:
-          severity: warning
-          service:  kafka
-        annotations:
-          summary:     "Kafka Consumer Lag 급증"
-          description: "ido-handoff-consumer Lag: {{ $value }} (임계값: 10000)"
-
-      # ── Kafka 브로커 다운 ─────────────────────────────────────────────────
-      - alert: KafkaDown
-        expr: up{job="kafka"} == 0
-        for: 30s
-        labels:
-          severity: critical
-          service:  kafka
-        annotations:
-          summary:     "Kafka 브로커 다운"
-          description: "Kafka가 30초 이상 응답하지 않습니다. 이벤트 발행/소비 불가."
-
-      # ── PostgreSQL 다운 ───────────────────────────────────────────────────
-      - alert: PostgresDown
-        expr: up{job="postgres"} == 0
-        for: 30s
-        labels:
-          severity: critical
-          service:  postgres
-        annotations:
-          summary:     "PostgreSQL 다운"
-          description: "PostgreSQL이 30초 이상 응답하지 않습니다. Q-Sign/IdO DB 불가."
-
-  # ══════════════════════════════════════════════════════════════════════════
-  # [4] 비즈니스 이상 징후
-  # ══════════════════════════════════════════════════════════════════════════
-  - name: onepass_business_alerts
-    interval: 60s
-    rules:
-
-      # ── Webhook 발송 실패 누적 (10분 > 50건) ─────────────────────────────
-      - alert: WebhookDispatchFailureHigh
-        expr: |
-          increase(http_server_requests_seconds_count{job="ido",uri=~".*webhook.*",status=~"5.."}[10m]) > 50
-        for: 5m
-        labels:
-          severity: warning
-          service:  ido
-        annotations:
-          summary:     "Webhook 발송 실패 급증"
-          description: "10분간 Webhook 5xx 오류 {{ $value }}건"
-
-      # ── JVM 힙 사용률 > 90% (GC 압박 징후) ──────────────────────────────
-      - alert: JvmHeapUsageHigh
-        expr: |
-          (
-            jvm_memory_used_bytes{area="heap"}
-            /
-            jvm_memory_max_bytes{area="heap"}
-          ) > 0.9
-          and
-          jvm_memory_max_bytes{area="heap"} > 0
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary:     "JVM 힙 사용률 높음"
-          description: "{{ $labels.job }} 힙 사용률 {{ $value | humanizePercentage }} (임계값: 90%)"
+          description: "분당 429 응답 {{ $value }}회 — 기관 DDoS 또는 클라이언트 오동작 의심."

@@ -151,17 +151,55 @@ onepass_kms_healthy
 
 ---
 
-## 3. 알람 규칙 통합 (PR-B2-new 예고)
+## 3. 알람 규칙 통합 (PR-B2-new 확정)
 
-본 3개 메트릭으로 알람 룰을 통합하면 `infra/monitoring/prometheus/alert_rules.yml`의 16개 알람 중 다음을 폐기/통합 가능:
+본 3개 메트릭과 정렬하여 `infra/monitoring/prometheus/alert_rules.yml`을 **16개 → 8개**로 축소했다. (PR-B2-new, 2026-05-22)
 
-| 폐기 대상 (예고) | 사유 |
-|----------------|------|
-| `IdoHighErrorRate` (개별 endpoint) | 1.1 (auth.success.rate)로 통합 |
-| `HandoffSlowResponse` (별도 지연 알람) | 1.2 (handoff p95)로 통합 |
-| `VaultUnreachable` / `KmsDown` (중복) | 1.3 (kms.healthy)로 통합 |
+### 3.1 Critical 5개 (새벽 호출 1티어)
 
-PR-B2-new에서 알람 16개 → 8개 축소 시 본 문서 §1의 임계값을 참조한다.
+| 알람 | 조건 | for | 본질 매핑 |
+|------|------|-----|----------|
+| `IdoServiceDown` | `up{job="ido"}==0` | 2m | §1.2 핸드오프 |
+| `QSignServiceDown` | `up{job="q-sign"}==0` | 2m | §1.1 인증 |
+| `QimServiceDown` | `up{job="q-im"}==0` | 2m | §1 식별·매핑 |
+| `AuthSuccessRateLow` | 인증 성공률 < 90% | 5m | **§1.1** (PR-B1-new) |
+| `KmsUnavailable` | `onepass_kms_healthy==0` | 2m | **§1.3** (PR-B1-new) |
+
+> **for=30s → 2m 완화 사유**: K8s 롤링 업데이트 / HPA 스케일 시 Pod 일시 다운으로 인한 거짓경보 방지
+
+### 3.2 Warning 3개 (Slack 채널만)
+
+| 알람 | 조건 | for | 본질 매핑 |
+|------|------|-----|----------|
+| `HandoffLatencyHigh` | handoff issue p95 > 2s | 10m | **§1.2** (PR-B1-new) |
+| `IdoHandoffErrorRateHigh` | handoff 5xx > 5% | 5m | §1.2 보조 신호 |
+| `RateLimitExceeded` | 분당 429 > 100건 | 1m | 보안 (DDoS/기관 오동작) |
+
+### 3.3 폐기된 알람 8개
+
+| 폐기 알람 | 폐기 사유 |
+|---------|----------|
+| `IdoApiLatencyHigh` (전체 endpoint p95) | `HandoffLatencyHigh`로 본질만 한정 — 전체 endpoint 평균은 `/actuator/health` 등에 가려져 의미 약함 |
+| `QimApiLatencyHigh` | 대시보드로 충분 — 새벽 호출 정당성 없음 |
+| `IdoHighErrorRate` (전체 5xx 1%) | `IdoHandoffErrorRateHigh`와 중복 |
+| `QimHighErrorRate` | `QimServiceDown`이 본질 커버, 세부는 대시보드 |
+| `WebhookDispatchFailureHigh` | 비핵심 비즈니스 — 대시보드 |
+| `JvmHeapUsageHigh` | OOM 발생 시 `*ServiceDown`이 발화됨 — 중복 |
+| `RedisDown` / `RedisMemoryHigh` | **유령 알람** — `prometheus.yml`에서 `redis-exporter` 스크레이프 미설정 (line 106 주석) → 영원히 발화 불가 |
+| `KafkaDown` / `KafkaConsumerLagHigh` | **유령 알람** — `kafka-exporter` 스크레이프 미설정 (line 111 주석) |
+| `PostgresDown` | **유령 알람** — `postgres-exporter` 스크레이프 미설정 (line 116 주석) |
+
+> **유령 알람 5개 제거**는 PR-B2-new의 가장 중대한 결정이다. 운영자에게 "Redis/Kafka/Postgres가 감시되고 있다"는 잘못된 안심을 주는 거짓 신호를 차단한다. 인프라 가시성은 별도 PR(`B5-infra-exporter`)에서 exporter 배포 + scrape 활성화 + 알람 재도입을 패키지로 진행한다.
+
+### 3.4 메트릭 → 알람 매핑 검증
+
+| PR-B1-new 본질 메트릭 | 알람 1티어(critical) | 알람 2티어(warning) |
+|---|---|---|
+| `auth.success.rate` (§1.1) | `AuthSuccessRateLow` ✅ | — |
+| `handoff.latency.p95` (§1.2) | — | `HandoffLatencyHigh` ✅ |
+| `onepass_kms_healthy` (§1.3) | `KmsUnavailable` ✅ | — |
+
+→ **본질 메트릭 3종 전부 알람 연결 완료**. PR-B1-new에서 만든 메트릭이 PR-B2-new에서 운영 신호로 완성됨.
 
 ---
 
