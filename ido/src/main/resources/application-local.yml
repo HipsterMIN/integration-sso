@@ -151,6 +151,12 @@ management:
   internal:
     allow-empty-callers: true
 
+  # Sprint γ-1 / F2.1 — 로컬은 keycloak.client-secret 미주입 허용
+  # (IDO_BROKER_MODE=qsign 인 경우 실제 사용 안 함. keycloak 모드에서는 실제 secret 필요)
+  # 운영은 application.yml 에서 강제 (KEYCLOAK_CLIENT_SECRET 환경변수 필수).
+  keycloak:
+    allow-empty-client-secret: true
+
   # F-18: SP 수신 감사 로그 OFF
   qim:
     aes-shared-key: bG9jYWwtdGVzdC1zZWNyZXQtMzJieXRlcy1wYWRkZWQ=
