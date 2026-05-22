@@ -4,7 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.env.MockEnvironment;
 
+import java.lang.reflect.Field;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -28,7 +30,11 @@ class LocalKmsClientTest {
 
     @BeforeEach
     void setUp() {
-        client = new LocalKmsClient();
+        // 비-prod 프로파일 환경에서 LocalKmsClient 생성 (Sprint α-1 F5.1)
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("test");
+        client = new LocalKmsClient(env);
+        // allowInProd 기본값 false 보장 (단위 테스트는 부팅 가드 별도 검증)
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -160,5 +166,110 @@ class LocalKmsClientTest {
     @DisplayName("isHealthy = true (항상)")
     void isHealthy() {
         assertThat(client.isHealthy()).isTrue();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // F5.1 — 부팅 가드 (failFastIfProdLike) 회귀 테스트
+    // ══════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("F5.1 부팅 가드 — 운영 프로파일에서 활성화 거부")
+    class ProdGuard {
+
+        private LocalKmsClient buildClient(String[] activeProfiles, boolean allowInProd) throws Exception {
+            MockEnvironment env = new MockEnvironment();
+            env.setActiveProfiles(activeProfiles);
+            LocalKmsClient c = new LocalKmsClient(env);
+            // @Value 주입을 시뮬레이션 (단위 테스트)
+            Field f = LocalKmsClient.class.getDeclaredField("allowInProd");
+            f.setAccessible(true);
+            f.setBoolean(c, allowInProd);
+            return c;
+        }
+
+        @Test
+        @DisplayName("active=prod → IllegalStateException으로 startup 차단")
+        void prodProfile_rejected() throws Exception {
+            LocalKmsClient c = buildClient(new String[]{"prod"}, false);
+
+            assertThatThrownBy(c::failFastIfProdLike)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("운영 의심 프로파일")
+                .hasMessageContaining("prod")
+                .hasMessageContaining("F5.1 Guard");
+        }
+
+        @Test
+        @DisplayName("active=stage → IllegalStateException으로 startup 차단")
+        void stageProfile_rejected() throws Exception {
+            LocalKmsClient c = buildClient(new String[]{"stage"}, false);
+
+            assertThatThrownBy(c::failFastIfProdLike)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("stage")
+                .hasMessageContaining("F5.1 Guard");
+        }
+
+        @Test
+        @DisplayName("active=production (대소문자/별칭) → 차단")
+        void productionAlias_rejected() throws Exception {
+            LocalKmsClient c = buildClient(new String[]{"PRODUCTION"}, false);
+
+            assertThatThrownBy(c::failFastIfProdLike)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("F5.1 Guard");
+        }
+
+        @Test
+        @DisplayName("active=prod + allow-in-prod=true → 경고만 출력, 통과 (escape hatch)")
+        void prodProfile_allowedExplicitly() throws Exception {
+            LocalKmsClient c = buildClient(new String[]{"prod"}, true);
+
+            assertThatCode(c::failFastIfProdLike)
+                .describedAs("escape hatch 활성 시 startup 진행")
+                .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("active=local → 통과")
+        void localProfile_passes() throws Exception {
+            LocalKmsClient c = buildClient(new String[]{"local"}, false);
+
+            assertThatCode(c::failFastIfProdLike).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("active=dev → 통과")
+        void devProfile_passes() throws Exception {
+            LocalKmsClient c = buildClient(new String[]{"dev"}, false);
+
+            assertThatCode(c::failFastIfProdLike).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("active=test → 통과 (CI 단위테스트)")
+        void testProfile_passes() throws Exception {
+            LocalKmsClient c = buildClient(new String[]{"test"}, false);
+
+            assertThatCode(c::failFastIfProdLike).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("active 비어있음 → 통과 (default profile)")
+        void noActiveProfile_passes() throws Exception {
+            LocalKmsClient c = buildClient(new String[]{}, false);
+
+            assertThatCode(c::failFastIfProdLike).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("active=prod,custom 다중 프로파일 → 차단 (prod 포함)")
+        void multiProfileWithProd_rejected() throws Exception {
+            LocalKmsClient c = buildClient(new String[]{"custom", "prod", "extra"}, false);
+
+            assertThatThrownBy(c::failFastIfProdLike)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("F5.1 Guard");
+        }
     }
 }
