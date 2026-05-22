@@ -112,6 +112,10 @@
 - `kafka` (batch): Kafka 단절 시 retry로 자체 복구. 트래픽 차단은 부적절.
 - `outboxBacklog` (batch): Health → Metric으로 강등. 백로그 차단은 악순환.
 
+**프로파일별 Health Group 동결** (PR-B4):
+- `application.yml`의 health group은 dev/local에서 변경 실험이 가능하지만,
+  `application-prod.yml`에 위 정책이 **명시 박힘** — 운영 환경은 dev 실험으로부터 격리됨.
+
 ### HealthIndicator 클래스 (운영 코드)
 
 | 클래스 | 모듈 | Bean 이름 | 운영 가치 |
@@ -172,3 +176,4 @@
 | 일자 | PR | 변경 내용 |
 |------|----|----|
 | 2026-05-21 | PR-A5 | 최초 작성 — Sprint A 회고 결과 반영. Kafka/Outbox HealthIndicator 강등 |
+| 2026-05-22 | PR-B4 | `application-prod.yml` 분리 (4개 모듈) — 로그 레벨/Tracing 샘플링/Actuator 노출/Health Group 운영 강제. Helm `SPRING_PROFILES_ACTIVE: k8s → prod` 갱신 |

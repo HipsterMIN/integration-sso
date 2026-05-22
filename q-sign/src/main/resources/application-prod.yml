@@ -1,0 +1,50 @@
+# ============================================================
+# Q-Sign prod 프로파일 — 운영 환경 강제 설정 (PR-B4)
+#
+# 활성화: SPRING_PROFILES_ACTIVE=prod (Helm values-prod.yaml에서 주입)
+#
+# 정책 근거: docs/SPRINT_B_PLAN.md PR-B4, docs/OPERATION_INVENTORY.md §5
+# ============================================================
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+# ── 1. 로그 레벨 — 운영 강제 (INFO/WARN, DEBUG 금지) ──────────────────────────
+logging:
+  level:
+    root: WARN
+    kr.go.smes.qsign: INFO
+    org.springframework: WARN
+    org.springframework.kafka: WARN
+    org.flywaydb: INFO
+    org.hibernate: WARN
+
+# ── 2. Actuator 노출 범위 — 운영 최소화 ──────────────────────────────────────
+# /actuator/flyway 노출은 마이그레이션 상태 공개 위험 → 제외.
+# K8s probe + Prometheus 수집에 필요한 4개만 노출.
+#
+# 3. show-details: 의존성 상세 비공개 (보안)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState
+
+# ── 4. 내부 서명 strict 모드 — 운영 강제 ─────────────────────────────────────
+# X-Internal-Sig HMAC 검증 strict 모드를 환경변수와 무관하게 prod에서 강제.
+# 기본값(application.yml)도 이미 true이지만 운영 의도를 본 파일에 명시한다.
+qsign:
+  ido:
+    internal-sig-strict-mode: true

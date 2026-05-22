@@ -42,6 +42,7 @@ qsign:
   image:
     tag: "1.0.0"  # 운영: 고정 버전 태그 사용 (latest 금지)
   config:
+    SPRING_PROFILES_ACTIVE: prod          # PR-B4: application-prod.yml 활성화
     QSIGN_INTERNAL_SIG_STRICT: "true"   # 운영: strict 모드 필수
   resources:
     requests:
@@ -65,6 +66,8 @@ qim:
   replicaCount: 3
   image:
     tag: "1.0.0"
+  config:
+    SPRING_PROFILES_ACTIVE: prod          # PR-B4: application-prod.yml 활성화
   resources:
     requests:
       cpu: 500m
@@ -86,6 +89,7 @@ ido:
   image:
     tag: "1.0.0"
   config:
+    SPRING_PROFILES_ACTIVE: prod          # PR-B4: application-prod.yml 활성화
     IDO_BROKER_MODE: qsign
     IDO_RATE_LIMIT_ENABLED: "true"
     IDO_RATE_LIMIT_DEFAULT_TPS: "200"
@@ -132,7 +136,7 @@ batch:
   image:
     tag: "1.0.0"  # 운영: 고정 버전 태그
   config:
-    SPRING_PROFILES_ACTIVE: k8s
+    SPRING_PROFILES_ACTIVE: prod          # PR-B4: application-prod.yml 활성화
     # 운영: 모든 릴레이 활성
     BATCH_IDO_KAFKA_RELAY_ENABLED: "true"
     BATCH_IDO_QIM_RELAY_ENABLED: "true"
