@@ -443,8 +443,12 @@ ido:
     # webhook 요청 타임아웃
     connect-timeout-ms: 3000
     read-timeout-ms: 8000
-    # HMAC-SHA256 기본 서명 비밀키 (운영: Vault/KMS 주입 필수)
-    signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-change-in-production}
+    # ── Sprint α-3 / F4.3 — HMAC-SHA256 기본 서명 비밀키 ─────────────────
+    # 운영: 환경변수 IDO_WEBHOOK_SIGNING_SECRET (또는 Vault) 강제 주입.
+    # 미설정 시 WebhookDispatcherService.validateSigningSecret() 가 부팅 단계에서 fail-fast.
+    # 테스트/로컬 컨텍스트에서만 allow-empty-secret=true 로 우회 (application-local.yml / test yml에서 활성).
+    signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:}
+    allow-empty-secret: ${IDO_WEBHOOK_ALLOW_EMPTY_SECRET:false}
 
   # ── 60k 급증 대응 — Redis Pre-warming (Burst Absorption) ──────────────
   burst:
