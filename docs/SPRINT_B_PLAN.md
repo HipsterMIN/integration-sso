@@ -24,22 +24,28 @@
 
 ## 새 Sprint B 계획 (확정)
 
-### PR-B1-new: SSO 본질 메트릭 3종 (P1)
+### PR-B1-new: SSO 본질 메트릭 3종 (P1) ✅ **완료 (2026-05-22)**
 
 **범위**: 운영자가 매일 보는 단 3개의 메트릭으로 SSO/IM 건강 상태를 가시화.
 
-| 메트릭 | 종류 | 정의 | 모듈 |
-|--------|------|------|------|
-| `onepass.auth.success.rate` | Gauge | 5분 윈도우 인증 성공률 | q-sign |
-| `onepass.handoff.latency.p95` | Timer | ID 핸드오프 종단 지연 p95 | ido (handoff) |
-| `onepass.kms.healthy` | Gauge | KMS 가용성 (0/1) | ido (crypto/kms) — VaultKmsHealthIndicator 재사용 |
+| 메트릭 | 종류 | 정의 | 실현 방법 |
+|--------|------|------|----------|
+| 인증 성공률 (5분 윈도우) | PromQL 계산 | `rate(auth.success.total) / (rate(success) + rate(failure))` | **신규 코드 0줄** — 기존 `q-sign/.../AuthMetrics.java` 재활용 |
+| Handoff 지연 p95 | Spring Boot 자동 | `http_server_requests_seconds{uri="/api/v1/handoff/issue"}` | **신규 코드 0줄** — Spring Boot Actuator 자동 메트릭 (Prometheus exposure에 포함됨) |
+| `onepass.kms.healthy` | Gauge (UP=1/DOWN=0) | KMS 가용성 (Vault Transit) | `ido/.../metrics/KmsHealthMetrics.java` 신규 — `VaultKmsHealthIndicator` 재사용 (Vault 호출 0회 추가) |
 
 **의도적 제외**:
 - 개별 API endpoint 메트릭 (Spring Boot 기본 `http_server_requests`로 충분)
-- Provisioning/Webhook 별도 메트릭 (기존 batch.relay.* Counter로 충분)
+- Provisioning/Webhook 별도 메트릭 (기존 `batch.relay.*` Counter로 충분)
 - Gateway 메트릭 (Spring Cloud Gateway 기본 메트릭으로 충분)
+- `auth.success.rate` Gauge 신규 (회고 정책 §8 자문 체크리스트 통과: 기존 변수와 통합 가능)
+- `handoff.latency.p95` Timer 신규 (Spring Boot 자동 메트릭으로 충족)
 
-**예상 작업량**: 3개 클래스 × ~50줄 = ~150 LOC
+**실제 작업량**: 1개 클래스 (~80 LOC) + 가이드 문서 (`docs/RUNBOOK_SSO_METRICS.md` ~190 LOC)
+
+**산출물**:
+- `ido/.../metrics/KmsHealthMetrics.java` — Gauge 1개
+- `docs/RUNBOOK_SSO_METRICS.md` — PromQL 예시 + 알람 임계값 + Grafana 대시보드 구성
 
 ---
 
@@ -154,3 +160,4 @@ PR-B3-new (Slack 단일 채널) — 필요 시에만 진행
 |------|----|----|
 | 2026-05-21 | PR-A5 | 최초 작성. 기존 Sprint B 안 폐기, 축소 안으로 대체 |
 | 2026-05-22 | PR-B4 | 완료 — `application-prod.yml` 4개 + Helm `SPRING_PROFILES_ACTIVE: prod` |
+| 2026-05-22 | PR-B1-new | 완료 — KMS Gauge 1개 + 운영 가이드. auth/handoff는 기존 메트릭 재활용 (코드 0줄) |
