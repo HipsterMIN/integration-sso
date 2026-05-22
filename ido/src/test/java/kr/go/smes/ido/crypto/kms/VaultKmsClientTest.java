@@ -288,6 +288,111 @@ class VaultKmsClientTest {
         assertThat(client.providerName()).isEqualTo("vault");
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    // F5.2 — 부팅 가드 (init / handleTokenAcquisitionFailure)
+    // ══════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("F5.2 부팅 가드 — 토큰 획득 실패 시 startup 차단")
+    class StartupGuard {
+
+        /**
+         * F5.2 검증의 본질: 토큰이 비어있는 상태에서 init() 호출 시 IllegalStateException 발생.
+         * authMethod=token + staticToken="" 으로 설정하면 acquireToken()이 빈 문자열을 반환.
+         */
+        private VaultKmsClient buildClientWithEmptyToken(boolean allowEmptyToken) {
+            VaultKmsClient c = new VaultKmsClient(new ObjectMapper());
+            ReflectionTestUtils.setField(c, "vaultAddress",    VAULT_ADDR);
+            ReflectionTestUtils.setField(c, "transitPath",     TRANSIT_PATH);
+            ReflectionTestUtils.setField(c, "keyName",         KEY_NAME);
+            ReflectionTestUtils.setField(c, "authMethod",      "token");
+            ReflectionTestUtils.setField(c, "staticToken",     "");          // ← 빈 토큰
+            ReflectionTestUtils.setField(c, "roleId",          "");
+            ReflectionTestUtils.setField(c, "secretId",        "");
+            ReflectionTestUtils.setField(c, "k8sRole",         "ido");
+            ReflectionTestUtils.setField(c, "k8sSaTokenPath",  "/nonexistent/sa/token");
+            ReflectionTestUtils.setField(c, "vaultNamespace",  "");
+            ReflectionTestUtils.setField(c, "connectionTimeoutMs", 3000);
+            ReflectionTestUtils.setField(c, "requestTimeoutMs",    5000);
+            ReflectionTestUtils.setField(c, "allowEmptyToken", allowEmptyToken);
+            return c;
+        }
+
+        @Test
+        @DisplayName("authMethod=token + 빈 token + allow-empty-token=false → IllegalStateException")
+        void emptyTokenWithoutEscape_throwsStartupBlock() {
+            VaultKmsClient c = buildClientWithEmptyToken(false);
+
+            assertThatThrownBy(c::init)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Startup blocked by F5.2 Guard")
+                .hasMessageContaining("토큰 획득 실패");
+        }
+
+        @Test
+        @DisplayName("authMethod=token + 빈 token + allow-empty-token=true → 경고 후 진행 (escape)")
+        void emptyTokenWithEscape_passes() {
+            VaultKmsClient c = buildClientWithEmptyToken(true);
+
+            assertThatCode(c::init)
+                .describedAs("escape hatch 활성 시 startup 진행")
+                .doesNotThrowAnyException();
+            assertThat((String) ReflectionTestUtils.getField(c, "clientToken"))
+                .describedAs("escape hatch 모드에서 clientToken은 null로 남음")
+                .isNull();
+        }
+
+        @Test
+        @DisplayName("authMethod=approle + 빈 ROLE_ID/SECRET_ID → IllegalStateException")
+        void appRoleEmptyCreds_throwsStartupBlock() {
+            VaultKmsClient c = new VaultKmsClient(new ObjectMapper());
+            ReflectionTestUtils.setField(c, "vaultAddress",    VAULT_ADDR);
+            ReflectionTestUtils.setField(c, "transitPath",     TRANSIT_PATH);
+            ReflectionTestUtils.setField(c, "keyName",         KEY_NAME);
+            ReflectionTestUtils.setField(c, "authMethod",      "approle");
+            ReflectionTestUtils.setField(c, "staticToken",     "");
+            ReflectionTestUtils.setField(c, "roleId",          "");          // ← 빈 ROLE_ID
+            ReflectionTestUtils.setField(c, "secretId",        "");          // ← 빈 SECRET_ID
+            ReflectionTestUtils.setField(c, "k8sRole",         "ido");
+            ReflectionTestUtils.setField(c, "k8sSaTokenPath",  "/nonexistent/sa/token");
+            ReflectionTestUtils.setField(c, "vaultNamespace",  "");
+            ReflectionTestUtils.setField(c, "connectionTimeoutMs", 3000);
+            ReflectionTestUtils.setField(c, "requestTimeoutMs",    5000);
+            ReflectionTestUtils.setField(c, "allowEmptyToken", false);
+
+            assertThatThrownBy(c::init)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("F5.2 Guard");
+        }
+
+        @Test
+        @DisplayName("authMethod=kubernetes + SA 토큰 파일 없음 → IllegalStateException")
+        void k8sMissingSaToken_throwsStartupBlock() {
+            VaultKmsClient c = new VaultKmsClient(new ObjectMapper());
+            ReflectionTestUtils.setField(c, "vaultAddress",    VAULT_ADDR);
+            ReflectionTestUtils.setField(c, "transitPath",     TRANSIT_PATH);
+            ReflectionTestUtils.setField(c, "keyName",         KEY_NAME);
+            ReflectionTestUtils.setField(c, "authMethod",      "kubernetes");
+            ReflectionTestUtils.setField(c, "staticToken",     "");
+            ReflectionTestUtils.setField(c, "roleId",          "");
+            ReflectionTestUtils.setField(c, "secretId",        "");
+            ReflectionTestUtils.setField(c, "k8sRole",         "ido");
+            ReflectionTestUtils.setField(c, "k8sSaTokenPath",  "/definitely/does/not/exist/sa/token");
+            ReflectionTestUtils.setField(c, "vaultNamespace",  "");
+            ReflectionTestUtils.setField(c, "connectionTimeoutMs", 3000);
+            ReflectionTestUtils.setField(c, "requestTimeoutMs",    5000);
+            ReflectionTestUtils.setField(c, "allowEmptyToken", false);
+
+            assertThatThrownBy(c::init)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("F5.2 Guard");
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // 메타데이터
+    // ══════════════════════════════════════════════════════════════════════
+
     @Test
     @DisplayName("X-Vault-Token 헤더가 모든 Transit 요청에 포함되어야 함")
     void vaultTokenHeaderIncluded() {

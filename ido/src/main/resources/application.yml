@@ -650,6 +650,21 @@ ido:
       # HCP Vault Dedicated 전용 Namespace (자체 호스팅 Vault는 비워둠)
       namespace:    ${VAULT_NAMESPACE:}
 
+      # ── F5.2 Escape Hatch (Sprint α-1) ─────────────────────────────────
+      # 토큰 획득 실패 시 startup을 차단할지 여부.
+      #   false (기본): 토큰 획득 실패 시 IllegalStateException → startup 차단 → Pod 재시작
+      #   true        : 경고만 출력하고 startup 진행 (테스트·일시 격리 전용, 운영 금지)
+      # 환경변수: IDO_KMS_VAULT_ALLOW_EMPTY_TOKEN
+      allow-empty-token: ${IDO_KMS_VAULT_ALLOW_EMPTY_TOKEN:false}
+
+    # ── LocalKmsClient F5.1 Escape Hatch (Sprint α-1) ─────────────────────
+    # @Profile("!prod & !stage") 어노테이션 + matchIfMissing=false 로 1차 가드.
+    # @PostConstruct 부팅 가드가 활성 프로파일에 prod/stage 포함 시 fail-fast.
+    # 이 escape hatch는 부팅 가드를 우회하지만 평문 키 모드는 그대로이므로
+    # 운영 환경 절대 사용 금지.
+    local:
+      allow-in-prod: ${IDO_KMS_LOCAL_ALLOW_IN_PROD:false}
+
     # ── NHN Cloud Secure Key Manager (provider=nhn, 레거시) ─────────────
     # 기존 NHN Cloud 운영 환경 유지를 위한 레거시 옵션.
     # 신규 환경은 provider=vault 사용 권장.
