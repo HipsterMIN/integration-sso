@@ -142,7 +142,7 @@
 | **β-2** | **F4.2 TicketRepositoryImpl.consume() Lua atomic CAS 구현** | 2d | IdO | ✅ **완료** | **#177 (shipster)** |
 | **β-3** | **F4.5 verify 순서 변경 (payload 먼저, consume 나중) + 통합 테스트** | 1.5d | IdO | ✅ **완료 (단위)** / ⏳ Testcontainers 통합테스트 잔여 | **#177 (shipster)** |
 | **β-4** | **F4.4 CAST JWT URL leak 제거 (POST 자동 제출 폼 + HTML escape)** | 2d | IdO | ✅ **완료** | **shipster (Sprint α-3)** |
-| β-5 | F4.8 FeSessionController 인증 강화 + NetworkPolicy | 1d | IdO | ⏳ 대기 | — |
+| β-5 | F4.8 FeSessionController 인증 강화 + NetworkPolicy | 1d | IdO | ✅ **완료 (인터셉터 + 부팅 가드)** / ⏳ NetworkPolicy 별도 | **shipster (Sprint β-1~3)** |
 | β-6 | F5.2 Vault 토큰 미획득 시 startup 차단 | 0.5d | IdO | ✅ 완료 (Sprint α-1 으로 조기 진행) | #176 (merged) |
 | β-7 | F5.3 Vault 토큰 백그라운드 갱신 (renew-self) | 2d | IdO | ⏳ 대기 | — |
 | β-8 | F5.4 Audit log qimUserId hash 화 | 1d | IdO | ⏳ 대기 | — |
@@ -170,6 +170,21 @@
 - SLO 영향: Q-IM 장애 시 200 OK + GUEST 응답이 503 응답으로 바뀜 → 기존엔 숨겨져 있던 장애가 가시화됨.
 - 상세 문서: `10_sprint_alpha3_perimeter_hardening.md`
 - 통합 PR: shipster 누적 → 신규 release PR 생성 예정.
+
+**진행 노트** (Sprint β-1~3 — 경계 영역 가시화 + 내부 인증 + HMAC 통일, 2026-05-22):
+- 본 묶음은 04_handoff_flow.md 의 **F4.7 / F4.8 / F4.9** 세 결함을 한 PR 로 처리한다.
+  (07 로드맵의 β-1~β-3 번호는 이미 #177 에서 사용됨 — 본 묶음은 β-5 + F4.7/F4.9 잔여 처리에 해당)
+- **F4.7 (HMAC soft-mode 가시화)**: `HmacSignatureFilter` 가 soft mode(F-26=false)에서 missing/invalid 시그니처를 무성공 통과시키던 동작을 카운터로 가시화. 신규 `InboundHmacMetrics`(메트릭 `ido_inbound_hmac_total{result=valid|missing|invalid_signature|missing_agency|key_not_found|compute_error}`) + missing 시 INFO 로그(agencyCode/idempotencyKey 동반). soft→strict 전환 기준점을 운영자가 측정 가능.
+- **F4.8 (내부 호출자 인증)**: 신규 `InternalCallerAuthInterceptor` + `ido.internal.callers.{name}` properties. `POST /api/v1/fe-session` 및 `POST /api/v1/fe-session/conversion` 에 `X-Internal-Caller` + `X-Internal-Api-Key` 헤더 강제. `@PostConstruct` 부팅 검증 + `ido.internal.allow-empty-callers` escape hatch (α-3 F4.3 패턴). `/check`, `/logout` 은 명시적 제외(최종 사용자 직접 호출). 운영: K8s Secret → 환경변수 (`IDO_INTERNAL_API_KEY_QSIGN`, `IDO_INTERNAL_API_KEY_OUTBOX`).
+- **F4.9 (HMAC payload 통일)**: 신규 `SignaturePayloadBuilder` 공통 유틸. 인바운드(`HmacSignatureFilter`) / 게이트웨이 아웃바운드(`AgencyGatewayServiceImpl`) / 프로비저닝(`ProvisioningServiceImpl`, `ProvisioningOutboxRelay`) 네 호출부를 단일 페이로드 규칙 `{agencyCode}:{idempotencyKey}:{epochSeconds}` 로 통일. 기존 프로비저닝 측 `{idempotencyKey}:{epochSeconds}` 가 cross-agency replay 노출 + 기관 SDK 양방향 코드 재사용 불가 → 본 PR 에서 제거. 프로비저닝 아웃바운드 헤더에 `X-Agency-Code` 동반(기관 측 검증 가능).
+- 회귀 테스트 신규 3 파일 24+건: `HmacSignatureFilterMetricsTest` 7건 + `InternalCallerAuthInterceptorTest` (preHandle 6 + StartupGuard 4) + `SignaturePayloadBuilderTest` (buildPayload 4 + computeSignature 5 + Symmetry 2).
+- **호환성 영향**:
+  - F4.7: 무영향(통과 동작 동일, 카운터/로그만 추가).
+  - F4.8: 현재 코드 내 `POST /api/v1/fe-session` 호출자 없음(k6 부하 테스트는 `/check` 만 사용). Q-Sign 이 추후 직접 호출 시 새 헤더 필요. **로컬/테스트 yml 은 `allow-empty-callers=true` 로 자동 통과**, 운영은 env 주입 의무.
+  - F4.9: 프로비저닝 아웃바운드 페이로드가 바뀌므로 **기관 SDK 측 검증 코드 동시 갱신 필요**(마이그레이션 노트 추가 예정). 단, 현재 게이트웨이 아웃바운드(`AgencyGatewayServiceImpl`)와 인바운드(`HmacSignatureFilter`)는 이미 표준 페이로드를 사용 중이므로 영향 없음.
+- 잔여: NetworkPolicy(β-5), 마이그레이션 가이드 SDK 측, 통합 테스트(Testcontainers). 본 묶음 PR 후 별도 진행.
+- 상세 문서: 11_sprint_beta_perimeter_audit.md (후속 작성 예정).
+- 통합 PR: shipster→main, 본 PR 로 묶음.
 
 ---
 
