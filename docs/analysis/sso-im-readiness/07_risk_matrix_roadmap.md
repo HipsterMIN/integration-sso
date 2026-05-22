@@ -136,19 +136,28 @@
 #### **Sprint β (2주, 운영 진입 직전)**
 **목표**: Handoff 보안 핵심 결함 + KMS 안정화
 
-| Task | 결함 | 소요 | 책임 모듈 |
-|------|------|------|----------|
-| β-1 | F4.1 HandoffServiceImpl.verify() 에 handoffCryptoService.verify() 호출 추가 | 0.5d | IdO |
-| β-2 | F4.2 TicketRepositoryImpl.consume() Lua atomic CAS 구현 | 2d | IdO |
-| β-3 | F4.5 verify 순서 변경 (payload 먼저, consume 나중) + 통합 테스트 | 1.5d | IdO |
-| β-4 | F4.4 CAST JWT URL leak 제거 (POST body 또는 opaque ID) | 2d | IdO |
-| β-5 | F4.8 FeSessionController 인증 강화 + NetworkPolicy | 1d | IdO |
-| β-6 | F5.2 Vault 토큰 미획득 시 startup 차단 | 0.5d | IdO |
-| β-7 | F5.3 Vault 토큰 백그라운드 갱신 (renew-self) | 2d | IdO |
-| β-8 | F5.4 Audit log qimUserId hash 화 | 1d | IdO |
-| β-9 | β-1~β-8 통합 테스트 + 보안 침투 테스트 (Redis 변조, race condition) | 3d | QA |
+| Task | 결함 | 소요 | 책임 모듈 | 상태 | PR |
+|------|------|------|----------|------|-----|
+| **β-1** | **F4.1 HandoffServiceImpl.verify() 에 handoffCryptoService.verify() 호출 추가** | 0.5d | IdO | ✅ **완료** | **#177 (shipster)** |
+| **β-2** | **F4.2 TicketRepositoryImpl.consume() Lua atomic CAS 구현** | 2d | IdO | ✅ **완료** | **#177 (shipster)** |
+| **β-3** | **F4.5 verify 순서 변경 (payload 먼저, consume 나중) + 통합 테스트** | 1.5d | IdO | ✅ **완료 (단위)** / ⏳ Testcontainers 통합테스트 잔여 | **#177 (shipster)** |
+| β-4 | F4.4 CAST JWT URL leak 제거 (POST body 또는 opaque ID) | 2d | IdO | ⏳ 대기 | — |
+| β-5 | F4.8 FeSessionController 인증 강화 + NetworkPolicy | 1d | IdO | ⏳ 대기 | — |
+| β-6 | F5.2 Vault 토큰 미획득 시 startup 차단 | 0.5d | IdO | ✅ 완료 (Sprint α-1 으로 조기 진행) | #176 (merged) |
+| β-7 | F5.3 Vault 토큰 백그라운드 갱신 (renew-self) | 2d | IdO | ⏳ 대기 | — |
+| β-8 | F5.4 Audit log qimUserId hash 화 | 1d | IdO | ⏳ 대기 | — |
+| β-9 | β-1~β-8 통합 테스트 + 보안 침투 테스트 (Redis 변조, race condition) | 3d | QA | ⏳ 대기 (β-3 Testcontainers 포함) | — |
 
 **소요**: ~14 man-day. 2명 1.5주 + QA 0.5주.
+
+**진행 노트** (Sprint α-2 — Handoff 무결성, 2026-05-22):
+- β-1 (F4.1), β-2 (F4.2), β-3 (F4.5) 를 한 묶음으로 처리. 세 결함은 verify 경로에서 연쇄적으로 작용하므로 분리 처리 시 회귀 위험.
+- 신규 에러 코드 `IDO_TICKET_SIGNATURE_INVALID` (E-IDO-108, HTTP 401) 추가.
+- 신규 Kafka 이벤트 타입 `SIGNATURE_INVALID` 추가 (`ido.handoff.events` 토픽, SIEM 연계용).
+- 회귀 테스트 15건 신규 + 1건 보정 (`HandoffServiceImplTest$SignatureVerification` 3 + `HandoffServiceImplTest$VerifyOrdering` 3 + `TicketRepositoryImplTest$CasBranchHandling` 9 + 기존 verify 정상경로 mock 보정).
+- 호환성: 정상 issue→verify 경로는 응답 동일. 변조 시도 / Q-IM 장애 / 동시 verify race 시에만 새로 차단 응답 반환.
+- 잔여: 실 Redis 기반 Lua atomic 성 통합 테스트(Testcontainers) 는 별도 PR 로 진행.
+- 상세 문서: `09_sprint_alpha2_handoff_integrity.md`
 
 ---
 

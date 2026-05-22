@@ -17,6 +17,8 @@ public class HandoffEvent extends DomainEvent {
     public static final String TYPE_HANDOFF_EXPIRED  = "HANDOFF_EXPIRED";
     public static final String TYPE_HANDOFF_REVOKED  = "HANDOFF_REVOKED";
     public static final String TYPE_REUSE_ATTEMPT    = "REUSE_ATTEMPT";
+    /** Sprint α-2 / F4.1 — Handoff verify 시 HMAC 서명 검증 실패 (변조 의심 / Redis 침해 시그널) */
+    public static final String TYPE_SIGNATURE_INVALID = "SIGNATURE_INVALID";
 
     private final String ticketId;
     private final String agencyCode;
