@@ -781,11 +781,16 @@ management:
       show-details: when-authorized
       probes:
         enabled: true
-      # ── Health Group 매핑 (PR-A4) ────────────────────────────────────────
-      # liveness  : Pod 재시작이 도움이 되는 자체 결함만 (KMS는 외부 의존성이므로 제외)
-      # readiness : 트래픽을 받기 위해 필요한 모든 외부 의존성 (KMS 포함)
-      # 운영자가 readinessOnlyIndicators를 통해 어느 indicator가 readiness DOWN을
-      # 유발했는지 즉시 식별 가능
+      # ── Health Group 매핑 (PR-A5: 운영 단순화) ───────────────────────────
+      # liveness  : 자체 결함만 (Pod 재시작이 의미 있는 항목)
+      # readiness : 핵심 의존성만 — db / redis / kms
+      #
+      # KMS는 readiness에 포함: KMS 다운 시 ID 핸드오프 암호화 자체가 불가능하므로
+      # 트래픽 차단이 정당하다. (VaultKmsHealthIndicator → @Component("kms"))
+      #
+      # ※ 이외의 모든 비-핵심 지표(Kafka 연결, Outbox 백로그 등)는 readiness에서
+      #   제외하고 Prometheus Metric으로 처리한다. 자세한 정책은
+      #   docs/OPERATION_INVENTORY.md 참조.
       group:
         liveness:
           include: livenessState
