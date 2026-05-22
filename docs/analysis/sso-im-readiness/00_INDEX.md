@@ -36,6 +36,8 @@ OnePass는 4개의 본질 책임을 갖는다 (`docs/OPERATION_INVENTORY.md §1`
 | 5 | 개인정보 보호 — KMS/감사/PII | `05_privacy_kms_audit.md` | ✅ 완료 | 16개 발견 + 시나리오 M-P |
 | 6 | End-to-End 시나리오 — Agency 연계 시뮬레이션 | `06_e2e_scenarios.md` | ✅ 완료 | 19개 시나리오 + 결함 매트릭스 |
 | 7 | 종합 리스크 매트릭스 + 우선순위 + 실행 로드맵 | `07_risk_matrix_roadmap.md` | ✅ 완료 | Sprint α/β/γ/δ 로드맵 + 3개 결정 옵션 |
+| α-1 | Sprint α-1 진행 보고: KMS 안전망 | `08_sprint_alpha1_kms_safety.md` | ✅ 완료 | F5.1 + F5.2 해결, 회귀 테스트 13건 추가 |
+| α-2 | Sprint α-2 진행 보고: Handoff 무결성 | `09_sprint_alpha2_handoff_integrity.md` | ✅ 완료 | F4.1 + F4.5 + F4.2 해결, 회귀 테스트 16건 추가, E-IDO-108 신규 |
 
 ### 분석 통계 (최종)
 
@@ -90,6 +92,8 @@ OnePass는 4개의 본질 책임을 갖는다 (`docs/OPERATION_INVENTORY.md §1`
 | 2026-05-22 | Phase 6 완료 — E2E 시나리오 19개 + 결함 매트릭스 |
 | 2026-05-22 | Phase 7 완료 — 리스크 매트릭스, Sprint α/β/γ/δ 로드맵, 3개 결정 옵션 제시 |
 | 2026-05-22 | 인덱스 최종화 — 모든 Phase 완료 표기 및 통계 요약 추가 |
+| 2026-05-22 | Sprint α-1 진행 — KMS 안전망 (F5.1 + F5.2) 완료, 회귀 테스트 13건 추가 |
+| 2026-05-22 | Sprint α-2 진행 — Handoff 무결성 (F4.1 + F4.5 + F4.2) 완료. 신규 에러 `IDO_TICKET_SIGNATURE_INVALID` + Kafka 이벤트 `SIGNATURE_INVALID` 도입. 회귀 테스트 16건 추가 |
 
 ---
 

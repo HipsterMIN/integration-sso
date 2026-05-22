@@ -36,6 +36,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.inOrder;
 
 /**
  * HandoffServiceImpl 단위 테스트
@@ -298,6 +299,9 @@ class HandoffServiceImplTest {
                     .build();
 
             willDoNothing().given(auditLogPublisher).publish(any());
+            // Sprint α-2 / F4.1 — verify() 가 cryptoService.verify() 를 호출하므로
+            // 정상 경로 테스트에서는 true 를 반환해야 함 (LENIENT 모드라 미사용 stub 도 무방)
+            given(handoffCryptoService.verify(any(), any(), any(), any())).willReturn(true);
         }
 
         @Test
@@ -318,6 +322,9 @@ class HandoffServiceImplTest {
             assertThat(result).isEqualTo(expectedPayload);
             then(ticketRepository).should(times(1)).consume(TICKET_ID);
             then(kafkaTemplate).should(times(1)).send(eq("ido.handoff.events"), any(), any());
+            // F4.1 — 서명 검증이 1회 호출되어야 함
+            then(handoffCryptoService).should(times(1))
+                    .verify(eq(TICKET_ID), eq(AGENCY_CODE), eq("encrypted"), eq("sig"));
         }
 
         @Test
@@ -400,6 +407,188 @@ class HandoffServiceImplTest {
 
             // consume()은 호출되어선 안 됨
             then(ticketRepository).should(never()).consume(any());
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Sprint α-2 / F4.1 — Signature Verification Tests
+    // ════════════════════════════════════════════════════════════════════════
+    @Nested
+    @DisplayName("Sprint α-2 / F4.1 — Handoff verify() 서명 검증")
+    class SignatureVerification {
+
+        private HandoffTicket issuedTicket;
+
+        @BeforeEach
+        void setUpTicket() {
+            issuedTicket = HandoffTicket.builder()
+                    .ticketId(TICKET_ID)
+                    .correlationId(CORRELATION_ID)
+                    .agencyCode(AGENCY_CODE)
+                    .qimUserId(QIM_USER_ID)
+                    .authResultId(AUTH_RESULT_ID)
+                    .authLevel(AuthResult.AuthLevel.L2)
+                    .state(HandoffTicket.TicketState.ISSUED)
+                    .issuedAt(Instant.now().minusSeconds(5))
+                    .expiresAt(Instant.now().plusSeconds(55))
+                    .encryptedPayload("tampered-cipher")
+                    .signature("forged-sig")
+                    .build();
+
+            willDoNothing().given(auditLogPublisher).publish(any());
+            given(ticketRepository.findById(TICKET_ID)).willReturn(Optional.of(issuedTicket));
+        }
+
+        @Test
+        @DisplayName("서명 불일치 — IDO_TICKET_SIGNATURE_INVALID + SIGNATURE_INVALID 이벤트 + consume 미호출")
+        void signatureMismatch_throwsSignatureInvalidAndDoesNotConsume() {
+            given(handoffCryptoService.verify(eq(TICKET_ID), eq(AGENCY_CODE),
+                    eq("tampered-cipher"), eq("forged-sig"))).willReturn(false);
+
+            assertThatThrownBy(() -> sut.verify(TICKET_ID, AGENCY_CODE, CORRELATION_ID))
+                    .isInstanceOf(PlatformException.class)
+                    .extracting(e -> ((PlatformException) e).getErrorCode())
+                    .isEqualTo(PlatformErrorCode.IDO_TICKET_SIGNATURE_INVALID);
+
+            // F4.1 + F4.5 — 서명 실패 시 consume 호출 금지 + Q-IM 호출 금지
+            then(ticketRepository).should(never()).consume(any());
+            then(policyEngine).should(never()).buildHandoffPayload(any(), any());
+            // SIGNATURE_INVALID Kafka 이벤트 발행 확인 (REUSE_ATTEMPT 와 동일 토픽)
+            then(kafkaTemplate).should(times(1)).send(eq("ido.handoff.events"), any(), any());
+        }
+
+        @Test
+        @DisplayName("encryptedPayload null — 서명 검증 실패로 간주, 401")
+        void nullEncryptedPayload_throwsSignatureInvalid() {
+            HandoffTicket nullPayloadTicket = HandoffTicket.builder()
+                    .ticketId(TICKET_ID).agencyCode(AGENCY_CODE).qimUserId(QIM_USER_ID)
+                    .authResultId(AUTH_RESULT_ID).authLevel(AuthResult.AuthLevel.L2)
+                    .state(HandoffTicket.TicketState.ISSUED)
+                    .issuedAt(Instant.now().minusSeconds(5))
+                    .expiresAt(Instant.now().plusSeconds(55))
+                    .encryptedPayload(null)
+                    .signature("sig")
+                    .build();
+            given(ticketRepository.findById(TICKET_ID)).willReturn(Optional.of(nullPayloadTicket));
+
+            assertThatThrownBy(() -> sut.verify(TICKET_ID, AGENCY_CODE, CORRELATION_ID))
+                    .isInstanceOf(PlatformException.class)
+                    .extracting(e -> ((PlatformException) e).getErrorCode())
+                    .isEqualTo(PlatformErrorCode.IDO_TICKET_SIGNATURE_INVALID);
+
+            // 서명 검증 메서드는 short-circuit 으로 호출 안 됨
+            then(handoffCryptoService).should(never()).verify(any(), any(), any(), any());
+            then(ticketRepository).should(never()).consume(any());
+        }
+
+        @Test
+        @DisplayName("signature null — 서명 검증 실패로 간주, 401")
+        void nullSignature_throwsSignatureInvalid() {
+            HandoffTicket nullSigTicket = HandoffTicket.builder()
+                    .ticketId(TICKET_ID).agencyCode(AGENCY_CODE).qimUserId(QIM_USER_ID)
+                    .authResultId(AUTH_RESULT_ID).authLevel(AuthResult.AuthLevel.L2)
+                    .state(HandoffTicket.TicketState.ISSUED)
+                    .issuedAt(Instant.now().minusSeconds(5))
+                    .expiresAt(Instant.now().plusSeconds(55))
+                    .encryptedPayload("cipher")
+                    .signature(null)
+                    .build();
+            given(ticketRepository.findById(TICKET_ID)).willReturn(Optional.of(nullSigTicket));
+
+            assertThatThrownBy(() -> sut.verify(TICKET_ID, AGENCY_CODE, CORRELATION_ID))
+                    .isInstanceOf(PlatformException.class)
+                    .extracting(e -> ((PlatformException) e).getErrorCode())
+                    .isEqualTo(PlatformErrorCode.IDO_TICKET_SIGNATURE_INVALID);
+
+            then(ticketRepository).should(never()).consume(any());
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Sprint α-2 / F4.5 — Verify Ordering Tests (consume 은 buildPayload 성공 후)
+    // ════════════════════════════════════════════════════════════════════════
+    @Nested
+    @DisplayName("Sprint α-2 / F4.5 — verify() 단계 순서: buildPayload → consume")
+    class VerifyOrdering {
+
+        private HandoffTicket issuedTicket;
+
+        @BeforeEach
+        void setUpTicket() {
+            issuedTicket = HandoffTicket.builder()
+                    .ticketId(TICKET_ID)
+                    .correlationId(CORRELATION_ID)
+                    .agencyCode(AGENCY_CODE)
+                    .qimUserId(QIM_USER_ID)
+                    .authResultId(AUTH_RESULT_ID)
+                    .authLevel(AuthResult.AuthLevel.L2)
+                    .state(HandoffTicket.TicketState.ISSUED)
+                    .issuedAt(Instant.now().minusSeconds(5))
+                    .expiresAt(Instant.now().plusSeconds(55))
+                    .encryptedPayload("cipher")
+                    .signature("sig")
+                    .build();
+
+            willDoNothing().given(auditLogPublisher).publish(any());
+            given(ticketRepository.findById(TICKET_ID)).willReturn(Optional.of(issuedTicket));
+            given(handoffCryptoService.verify(any(), any(), any(), any())).willReturn(true);
+        }
+
+        @Test
+        @DisplayName("buildPayload 가 Q-IM 장애로 실패 — ticket 은 ISSUED 유지(consume 미호출, 재시도 가능)")
+        void buildPayloadFails_doesNotConsumeTicket() {
+            // policyEngine 이 Q-IM 장애로 예외 던짐
+            willThrow(new RuntimeException("Q-IM timeout"))
+                    .given(policyEngine).buildHandoffPayload(any(), any());
+
+            assertThatThrownBy(() -> sut.verify(TICKET_ID, AGENCY_CODE, CORRELATION_ID))
+                    .isInstanceOf(RuntimeException.class);
+
+            // 핵심: consume 이 호출되지 않아야 ticket 이 ISSUED 그대로 → 재시도 가능
+            then(ticketRepository).should(never()).consume(any());
+            // HANDOFF_CONSUMED Kafka 이벤트도 발행되지 않아야 함
+            // (다른 이벤트는 없으므로 0회)
+            then(kafkaTemplate).should(never()).send(any(String.class), any(), any());
+        }
+
+        @Test
+        @DisplayName("정상 경로 — buildPayload 성공 → consume → publish 순서")
+        void successPath_buildPayloadBeforeConsume() {
+            HandoffPayload expectedPayload = HandoffPayload.builder()
+                    .subject(HandoffPayload.SubjectIdentifier.builder()
+                            .agencySubjectId("subject-001").build())
+                    .build();
+            given(policyEngine.buildHandoffPayload(any(), any())).willReturn(expectedPayload);
+            willDoNothing().given(ticketRepository).consume(TICKET_ID);
+
+            HandoffPayload result = sut.verify(TICKET_ID, AGENCY_CODE, CORRELATION_ID);
+
+            assertThat(result).isEqualTo(expectedPayload);
+
+            // Mockito InOrder 로 호출 순서 검증
+            var inOrder = inOrder(handoffCryptoService, policyEngine, ticketRepository, kafkaTemplate);
+            inOrder.verify(handoffCryptoService).verify(any(), any(), any(), any());
+            inOrder.verify(policyEngine).buildHandoffPayload(any(), any());
+            inOrder.verify(ticketRepository).consume(TICKET_ID);
+            inOrder.verify(kafkaTemplate).send(eq("ido.handoff.events"), any(), any());
+        }
+
+        @Test
+        @DisplayName("consume 단계에서 IDO_TICKET_CONSUMED 예외 — 동시 verify race winner 패배자")
+        void consumeRaceMismatch_propagatesPlatformException() {
+            HandoffPayload payload = HandoffPayload.builder().build();
+            given(policyEngine.buildHandoffPayload(any(), any())).willReturn(payload);
+            // Lua CAS 가 mismatch 로 IDO_TICKET_CONSUMED 던짐
+            willThrow(new PlatformException(PlatformErrorCode.IDO_TICKET_CONSUMED, CORRELATION_ID))
+                    .given(ticketRepository).consume(TICKET_ID);
+
+            assertThatThrownBy(() -> sut.verify(TICKET_ID, AGENCY_CODE, CORRELATION_ID))
+                    .isInstanceOf(PlatformException.class)
+                    .extracting(e -> ((PlatformException) e).getErrorCode())
+                    .isEqualTo(PlatformErrorCode.IDO_TICKET_CONSUMED);
+
+            // HANDOFF_CONSUMED Kafka 이벤트는 발행되지 않아야 함
+            then(kafkaTemplate).should(never()).send(any(String.class), any(), any());
         }
     }
 
