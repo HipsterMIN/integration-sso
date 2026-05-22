@@ -145,7 +145,12 @@ qim:
       key-v2:         ${QIM_CI_AES_KEY_V2:}
       current-version: ${QIM_CI_CURRENT_VERSION:v1}
     di:
-      secret:         ${QIM_DI_SECRET:default-di-secret-change-in-production}
+      # DI HMAC-SHA256 공유 비밀키 (Sprint γ-1 / F3.4)
+      # 환경변수: QIM_DI_SECRET — 운영에서 반드시 주입 필수 (32자 이상 권장: openssl rand -hex 32).
+      # default("default-di-secret-change-in-production") 제거 →
+      # 미설정 시 DiGenerationService.validateDiSecret() 가 부팅을 차단.
+      # 테스트/로컬은 qim.crypto.di.allow-empty-secret=true 로 우회.
+      secret:         ${QIM_DI_SECRET:}
 
   # ── 내부 API 보안 (P2 보안 수정) ─────────────────────────────────────────────
   # IdO → Q-IM 내부 호출 시 X-Internal-Api-Key 헤더 검증

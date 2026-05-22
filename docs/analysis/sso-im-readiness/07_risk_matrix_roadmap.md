@@ -112,14 +112,14 @@
 
 | Task | 결함 | 소요 (estimate) | 책임 모듈 | 상태 | PR |
 |------|------|----------------|----------|------|-----|
-| α-1 | F3.1 SHA-256 인코딩 통일 (hex 또는 Base64URL 중 택일, 전체 일관) | 1d | Q-IM | ⏳ 대기 | — |
+| **α-1** | **F3.1 SHA-256 인코딩 통일 (hex 64자, 전체 일관)** | 1d | Q-IM | ✅ **완료 (MemberLookupController.sha256 hex 통일)** | **shipster (Sprint γ-1)** |
 | α-2 | F3.3 CiCryptoServiceImpl default key 제거 + startup validation | 0.5d | Q-IM | ⏳ 대기 | — |
-| α-3 | F3.4 DiGenerationService default secret 제거 + startup validation | 0.5d | Q-IM | ⏳ 대기 | — |
+| **α-3** | **F3.4 DiGenerationService default secret 제거 + startup validation** | 0.5d | Q-IM | ✅ **완료** | **shipster (Sprint γ-1)** |
 | **α-4** | **F5.1 LocalKmsClient `matchIfMissing=false` + 운영 프로파일 fail-fast** | 0.5d | IdO | ✅ **완료** | **#TBD** |
 | **α-4b** | **F5.2 VaultKmsClient 토큰 미획득 시 startup 차단 (β-6에서 조기 진행)** | 0.5d | IdO | ✅ **완료** | **#TBD** |
 | **α-5** | **F4.3 Webhook default secret 제거 + @PostConstruct 부팅 검증 + escape hatch** | 2d | IdO | ✅ **완료** | **shipster (Sprint α-3)** |
 | **α-6** | **F4.6 PolicyEngine tryResolveDi 예외 타입 구분 (장애 vs 미매핑) + QimClient.getDi() 동반 수정** | 1d | IdO | ✅ **완료** | **shipster (Sprint α-3)** |
-| α-7 | F2.1 Keycloak callback default secret 제거 | 0.5d | Q-Sign | ⏳ 대기 | — |
+| **α-7** | **F2.1 Keycloak callback default secret 제거 (q-sign + ido 모듈 양쪽)** | 0.5d | Q-Sign / IdO | ✅ **완료** | **shipster (Sprint γ-1)** |
 | α-8 | F3.2 findByIdentifierHash 명확화 (provider 별 조회로 변경) | 1d | Q-IM | ⏳ 대기 | — |
 | α-9 | 환경변수 startup validation 통합 (모든 default 금지) | 1d | 전체 | ⏳ 대기 | — |
 | α-10 | α-1~α-9 통합 테스트 (Testcontainers) + smoke test | 2d | QA | ⏳ 대기 | — |
@@ -184,6 +184,22 @@
   - F4.9: 프로비저닝 아웃바운드 페이로드가 바뀌므로 **기관 SDK 측 검증 코드 동시 갱신 필요**(마이그레이션 노트 추가 예정). 단, 현재 게이트웨이 아웃바운드(`AgencyGatewayServiceImpl`)와 인바운드(`HmacSignatureFilter`)는 이미 표준 페이로드를 사용 중이므로 영향 없음.
 - 잔여: NetworkPolicy(β-5), 마이그레이션 가이드 SDK 측, 통합 테스트(Testcontainers). 본 묶음 PR 후 별도 진행.
 - 상세 문서: 11_sprint_beta_perimeter_audit.md (후속 작성 예정).
+- 통합 PR: shipster→main, 본 PR 로 묶음.
+
+**진행 노트** (Sprint γ-1 — 인증 본체 안전화, 2026-05-22):
+- 본 묶음은 α 잔여 P0 중 인증 본체 (Phase 2/3) 결함 3건을 한 PR 로 처리한다: **F2.1 + F3.4 + F3.1**. β 가 경계 영역을 막았지만 본체 평문 default 가 운영에 그대로 노출되는 더 본질적 위험을 차단.
+- **F2.1 (α-7, Keycloak client-secret)**: q-sign 측 `KeycloakProperties` 와 **ido 측 `KeycloakProperties` 두 곳 모두** `change-me` default 제거. 부팅 시 `@PostConstruct validateClientSecret()` 가 null/blank/placeholder/8자 미만 거부. `qsign.keycloak.allow-empty-client-secret` / `ido.keycloak.allow-empty-client-secret` escape hatch (테스트 한정). ido test/local/integration-test yml 3개 갱신. α-3 F4.3 패턴 재사용.
+- **F3.4 (α-3, DI HMAC secret)**: q-im `DiGenerationService` 의 `default-di-secret-change-in-production` default 제거. `@PostConstruct validateDiSecret()` 가 null/blank/placeholder/16자 미만 거부 (HMAC-SHA256 최소 보안 강도 요구). `qim.crypto.di.allow-empty-secret` escape hatch. placeholder 목록에 과거 default 문자열 포함 → 재실수 차단.
+- **F3.1 (α-1, identifierHash 인코딩 통일)**: `MemberLookupController.sha256()` 가 단독으로 Base64URL(43자) 을 반환하던 결함을 hex(64자) 로 통일. 플랫폼 내 다른 7곳(ido KeycloakOidcService / NonOidcAuthService / NonOidcBrokerController / AesSharedKeyDecryptor, q-sign KeycloakCallbackService / AuthServiceImpl, q-im UserController.computeSha256Hex) 과 정확히 일치 → `/api/v1/internal/member/lookup-by-ci` 경로가 비로소 회원을 찾을 수 있게 됨 (기존엔 영구 실패였음).
+- 회귀 테스트 신규 4 파일 약 27건:
+  - `KeycloakPropertiesStartupGuardTest` (q-sign, Reject 6 + Accept 4 + default 확인 1 = 11건)
+  - `DiGenerationServiceTest$StartupGuard` (Nested 9건 신규, 기존 23건 보존)
+  - `KeycloakPropertiesStartupGuardTest` (ido, Reject 4 + Accept 2 + default 확인 1 = 7건)
+  - `MemberLookupControllerHashConsistencyTest` (출력 형식 3 + 플랫폼 일관성 6 = 9건, NIST 벡터 2건 포함)
+- **호환성 영향 (중요)**: 운영 환경변수 의무화 — `QSIGN_KEYCLOAK_CLIENT_SECRET`, `KEYCLOAK_CLIENT_SECRET` (ido), `QIM_DI_SECRET`. 미설정 또는 placeholder 주입 시 컨테이너 **CrashLoopBackOff** 발생 → 운영자가 즉시 인지 가능 (의도된 동작). 테스트/로컬 환경은 escape hatch 로 자동 통과.
+  - **F3.1 추가 호환성**: 이전에 `MemberLookupController.lookup-by-ci` 를 호출하던 모든 클라이언트는 사실상 404 만 받고 있었으므로, 이번 수정으로 처음으로 정상 응답이 가능. 동작 변화는 "버그 → 정상" 이므로 회귀 위험 없음.
+- 잔여 인증 본체 P0: F3.3 (CI AES key default), F3.2 (findByIdentifierHash provider 별 조회). 별도 PR 예정.
+- 상세 문서: 본 PR 본문 + 07 표/노트로 갈음 (12_sprint_gamma1_auth_core_hardening.md 작성은 선택적).
 - 통합 PR: shipster→main, 본 PR 로 묶음.
 
 ---

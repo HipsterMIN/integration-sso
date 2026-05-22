@@ -342,7 +342,10 @@ ido:
     # ido-client 클라이언트 ID (§10-2 confidential client)
     client-id: ${KEYCLOAK_CLIENT_ID:ido-client}
     # ido-client 클라이언트 시크릿 (§10-2 — Keycloak Admin Console에서 생성)
-    client-secret: ${KEYCLOAK_CLIENT_SECRET:change-me}
+    # [Sprint γ-1 / F2.1] default("change-me") 제거 → 미설정 시
+    # KeycloakProperties.validateClientSecret() 가 부팅을 차단.
+    # 테스트/로컬은 ido.keycloak.allow-empty-client-secret=true 로 우회.
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:}
     # Keycloak 콜백 redirect_uri (§10-2 Valid Redirect URIs에 등록 필수)
     redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:8083/api/v1/broker/callback}
     # state/nonce Redis TTL (초) — CSRF 방어
