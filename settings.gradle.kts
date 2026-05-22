@@ -5,6 +5,7 @@ include(
     "q-sign",
     "q-im",
     "ido",
+    "onepass-support",
     "onepass-fe",
     "agency-stub",
     "onepass-agency-sdk",
