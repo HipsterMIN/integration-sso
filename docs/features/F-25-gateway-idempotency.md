@@ -114,4 +114,4 @@ A: Redis TTL이 만료되어 같은 키로 다시 요청이 가능해집니다. 
 ## 연관 문서
 - [F-23 인바운드 API](F-23-gateway-inbound.md)
 - [F-24 아웃바운드 API](F-24-gateway-outbound.md)
-- [배포 가이드 §6 멱등성 처리 가이드](../deployment-guide.md)
+- [배포 가이드 §6 멱등성 처리 가이드](../_archive/2026-05-22/deployment-guide.md)

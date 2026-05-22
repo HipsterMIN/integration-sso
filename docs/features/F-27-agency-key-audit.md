@@ -64,5 +64,5 @@ kubectl logs -n smes deployment/ido \
 ---
 
 ## 연관 문서
-- [배포 가이드 §8.3 API Key 인증 실패](../deployment-guide.md)
+- [배포 가이드 §8.3 API Key 인증 실패](../_archive/2026-05-22/deployment-guide.md)
 - [HandoffAgencyKeyInterceptor 소스](../../ido/src/main/java/kr/go/smes/ido/config/HandoffAgencyKeyInterceptor.java)

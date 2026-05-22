@@ -400,7 +400,7 @@ Phase 2-B:       IDO_PROVISIONING_ENABLED=true + IDO_PROVISIONING_DRY_RUN=false
 
 ## 부록: onepass-be-release 분석 결과 (2026-05-16)
 
-> PR #131 (OPEN) — `docs/internal/analysis/onepass-release-analysis.md` (494줄)
+> PR #131 (OPEN) — `docs/_archive/2026-05-22/internal/analysis/onepass-release-analysis.md` (494줄)
 
 ### 주요 발견 이슈 (BE 9건 + FE 7건)
 

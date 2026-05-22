@@ -231,4 +231,4 @@ WHERE endpoint_type = 'PROVISIONING';
 ## 연관 문서
 - [F-21 Provisioning Relay](F-21-provisioning-relay.md)
 - [Phase-Gate 전략](../phased-rollout-strategy.md)
-- [배포 가이드 §8.1 프로비저닝 실패 시나리오](../deployment-guide.md)
+- [배포 가이드 §8.1 프로비저닝 실패 시나리오](../_archive/2026-05-22/deployment-guide.md)

@@ -70,11 +70,11 @@ QSIGN_KEYCLOAK_CLIENT_SECRET=<Keycloak 발급값>
 |------|------|
 | [docs/handoff-note.md](../handoff-note.md) | v1.9.0 최종 인수인계 패키지 |
 | [docs/local-dev-guide.md](../local-dev-guide.md) | 로컬 개발 환경 가이드 (v1.2.0) |
-| [docs/2026-05-08_unimplemented_analysis.md](../2026-05-08_unimplemented_analysis.md) | v1.7.0 기준 미구현 분석 보고서 |
-| [docs/2026-05-08_production_development_plan.md](../2026-05-08_production_development_plan.md) | 실제 개발 전환 계획서 (Sprint 1~6) |
-| [docs/gap-analysis-v0.8.3-vs-project.md](../gap-analysis-v0.8.3-vs-project.md) | EDA 마스터 아키텍처 v0.8.3 vs 코드 GAP 분석 |
+| [docs/2026-05-08_unimplemented_analysis.md](../_archive/2026-05-22/internal/analysis/2026-05-08_unimplemented_analysis.md) | v1.7.0 기준 미구현 분석 보고서 |
+| [docs/2026-05-08_production_development_plan.md](../_archive/2026-05-22/internal/development/2026-05-08_production_development_plan.md) | 실제 개발 전환 계획서 (Sprint 1~6) |
+| [docs/gap-analysis-v0.8.3-vs-project.md](../_archive/2026-05-22/internal/analysis/gap-analysis-v0.8.3-vs-project.md) | EDA 마스터 아키텍처 v0.8.3 vs 코드 GAP 분석 |
 | [docs/qim-ido-integration-architecture.md](../qim-ido-integration-architecture.md) | Q-IM ↔ IdO 연동 아키텍처 설계서 |
 | [docs/qim-sp-receiver-api-spec.md](../qim-sp-receiver-api-spec.md) | Q-IM SP 수신 API 명세서 (v1.52 기준) |
 | [docs/agency-external-arch-supplement.md](../agency-external-arch-supplement.md) | 유관기관 외부망 배치 설계 보완서 |
-| [docs/operational-readiness-analysis-v2.md](../operational-readiness-analysis-v2.md) | 운영 준비 분석 v2.2 |
+| [docs/operational-readiness-analysis-v2.md](../_archive/2026-05-22/internal/analysis/operational-readiness-analysis-v2.md) | 운영 준비 분석 v2.2 |
 | [docs/member-conversion-implementation-plan.md](../member-conversion-implementation-plan.md) | 회원 전환 구현 플랜 v1.2.0 |

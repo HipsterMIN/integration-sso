@@ -19,7 +19,7 @@
 | **03-C** | [03c-module-qim.md](03c-module-qim.md) | Q-IM 식별 SoR — 회원원장, CI암호화, Snapshot | Q-IM 담당 |
 | **03-D** | [03d-module-ido.md](03d-module-ido.md) | IdO 정책 오케스트레이터 — 전 기능 상세 | IdO 담당 |
 | **03-E** | [03e-module-agency-stub.md](03e-module-agency-stub.md) | agency-stub PoC 시뮬레이터 | 연동 개발자 |
-| **04** | [04-api-reference.md](04-api-reference.md) | 전체 REST API 명세 (모듈별) | 프론트·연동팀 |
+| **04** | [04-api-reference.md](../../_archive/2026-05-22/internal/spec/04-api-reference.md) | 전체 REST API 명세 (모듈별) | 프론트·연동팀 |
 | **05** | [05-database-schema.md](05-database-schema.md) | DB 스키마 전체 (Flyway V1~최신) | DBA·백엔드 |
 | **06** | [06-kafka-event-catalog.md](06-kafka-event-catalog.md) | Kafka 토픽·이벤트 구조·컨슈머 그룹 | 백엔드·인프라 |
 | **07** | [07-security.md](07-security.md) | 보안 구현 상세 — 암호화·인증·Rate Limit | 보안 검토자 |
