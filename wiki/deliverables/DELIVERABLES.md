@@ -178,7 +178,7 @@ onepass-fe ──────────► IdO(:8083)  ◄──── Kafka �
 | **#123** | feat(shipster): 심층 분석 + 전체 테스트 수정 + wiki 전면 업데이트 | ProvisioningServiceTest 6파라미터, HandoffControllerTest deprecated 수정, 939→1017 tests, ADR-013, GUIDE-006, OPS-002~003 | **현재 OPEN** |
 | **#129** | feat(sdk): onepass-agency-sdk GAP-1~5 수정 + 36개 테스트 통과 | GAP-1(HMAC 알고리즘), GAP-2(@Deprecated), GAP-3(X-Event-Type), GAP-4(X-Correlation-ID), GAP-5(getBodyField+validateJson) | ✅ **MERGED** |
 | **#130** | docs(sdk-guide): 유관기관 개발자 SDK 사용 가이드 작성 | `docs/onepass-agency-sdk-usage-guide.md` 신규 757줄 — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동, 배포 절차 | ✅ **MERGED** |
-| **#131** | docs(analysis): onepass-be-release / onepass-release 심층 분석 보고서 | `docs/internal/analysis/onepass-release-analysis.md` 신규 494줄 — BE 9건 + FE 7건 이슈, 보안취약점 8건, Q-Sign/Q-IM 연동 현황 | **현재 OPEN** |
+| **#131** | docs(analysis): onepass-be-release / onepass-release 심층 분석 보고서 | `docs/_archive/2026-05-22/internal/analysis/onepass-release-analysis.md` 신규 494줄 — BE 9건 + FE 7건 이슈, 보안취약점 8건, Q-Sign/Q-IM 연동 현황 | **현재 OPEN** |
 
 ### 파일 수정 이력 (v0.9.2 Sprint 18 기준)
 
@@ -198,7 +198,7 @@ onepass-fe ──────────► IdO(:8083)  ◄──── Kafka �
 | 파일 | 수정 내용 | PR |
 |------|-----------|-----|
 | **`docs/onepass-agency-sdk-usage-guide.md`** | **신규 생성** — 유관기관 개발자 SDK 사용 가이드 (757줄): Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동, 배포 절차 | #130 |
-| **`docs/internal/analysis/onepass-release-analysis.md`** | **신규 생성** — onepass-be-release / onepass-release 심층 분석 보고서 (494줄): BE 9건 + FE 7건 이슈 식별, 보안취약점 8건, Q-Sign/Q-IM 연동 현황 | #131 |
+| **`docs/_archive/2026-05-22/internal/analysis/onepass-release-analysis.md`** | **신규 생성** — onepass-be-release / onepass-release 심층 분석 보고서 (494줄): BE 9건 + FE 7건 이슈 식별, 보안취약점 8건, Q-Sign/Q-IM 연동 현황 | #131 |
 | **`onepass-agency-sdk/src/.../HmacSigner.java`** | GAP-1: 서명 알고리즘 `{agencyCode}:{idempotencyKey}:{epochSeconds}`로 서버 정합성 수정 | #129 |
 | **`onepass-agency-sdk/src/.../AgencyGatewayClient.java`** | GAP-2: `triggerOutbound()` @Deprecated 추가, GAP-3: X-Event-Type 헤더 전송, GAP-4: X-Correlation-ID 대문자 D | #129 |
 | **`onepass-agency-sdk/src/.../GatewayResponse.java`** | GAP-5: `getBodyField(String)` + `isValidJson()` 헬퍼 메서드 추가 | #129 |
@@ -317,7 +317,7 @@ wiki/
 - [x] **onepass-agency-sdk 유관기관 개발자 사용 가이드** ★ v0.8.10 신규 (PR #130 MERGED)
   - `docs/onepass-agency-sdk-usage-guide.md` — 757줄, Quick Start + 전체 API + Spring Boot 연동
 - [x] **onepass-be-release / onepass-release 심층 분석 보고서** ★ v0.8.11 (PR #131 OPEN)
-  - `docs/internal/analysis/onepass-release-analysis.md` — 494줄, BE 9건 + FE 7건 이슈 + 보안취약점 8건
+  - `docs/_archive/2026-05-22/internal/analysis/onepass-release-analysis.md` — 494줄, BE 9건 + FE 7건 이슈 + 보안취약점 8건
 - [x] 산출물 마스터 인덱스 (이 문서)
 - [ ] DOCX 변환 (상세 설계서 4개 + 워크스루 2개 + 유관기관 가이드 1개)
 

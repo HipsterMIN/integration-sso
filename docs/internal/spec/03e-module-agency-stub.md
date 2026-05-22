@@ -198,4 +198,4 @@ public class AgencyDataInitializer implements CommandLineRunner {
 
 ---
 
-*다음 문서: [04-api-reference.md](04-api-reference.md)*
+*다음 문서: [04-api-reference.md](../../_archive/2026-05-22/internal/spec/04-api-reference.md)*

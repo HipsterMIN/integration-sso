@@ -2,7 +2,7 @@
 
 > **문서 버전**: v3.1.0  
 > **최종 수정**: 2026-05-13  
-> **기준 분석 문서**: `docs/2026-05-08_unimplemented_analysis.md`, `docs/gap-analysis-v0.8.3-vs-project.md`  
+> **기준 분석 문서**: `docs/_archive/2026-05-22/internal/analysis/2026-05-08_unimplemented_analysis.md`, `docs/_archive/2026-05-22/internal/analysis/gap-analysis-v0.8.3-vs-project.md`  
 > **v1.9.2 변경**: P2 GAP 항목 전체 구현 완료 (HandoffStrategy 완성, GAP-QS-03, GAP-QIM-05)  
 > **v1.9.3 변경**: P1-06 구현 완료 — IdO `GET /api/v1/agency/events` 기관 이벤트 폴링 API  
 > **v2.0.0 변경**: P2 회원 생명주기 완성 — 탈퇴 4종 · 개인정보 동의 · ConversionSession 상태 기계 구현  

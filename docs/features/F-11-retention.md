@@ -51,4 +51,4 @@ Phase-Gate 전략의 F-20~F-27과는 별개입니다.
 ---
 
 ## 연관 문서
-- [배포 가이드 §11 환경변수 목록](../deployment-guide.md)
+- [배포 가이드 §11 환경변수 목록](../_archive/2026-05-22/deployment-guide.md)

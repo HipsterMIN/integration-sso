@@ -193,4 +193,4 @@ GatewayResponse response = client.sendInbound(event);
 - [F-24 아웃바운드](F-24-gateway-outbound.md)
 - [F-25 멱등성 방어](F-25-gateway-idempotency.md)
 - [F-26 HMAC 서명](F-26-hmac-sig.md)
-- [배포 가이드 §4 유관기관 연동](../deployment-guide.md)
+- [배포 가이드 §4 유관기관 연동](../_archive/2026-05-22/deployment-guide.md)

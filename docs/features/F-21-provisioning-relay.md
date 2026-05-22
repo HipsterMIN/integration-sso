@@ -139,4 +139,4 @@ ORDER BY pending_count DESC;
 
 ## 연관 문서
 - [F-20 프로비저닝](F-20-provisioning.md)
-- [배포 가이드 §8.1, §8.8](../deployment-guide.md)
+- [배포 가이드 §8.1, §8.8](../_archive/2026-05-22/deployment-guide.md)
