@@ -33,6 +33,18 @@ import io.swagger.v3.oas.models.servers.Server;
         in = SecuritySchemeIn.HEADER,
         paramName = "X-User-Role"
 )
+@SecurityScheme(
+        name = "supportCsAgent",
+        type = SecuritySchemeType.APIKEY,
+        in = SecuritySchemeIn.HEADER,
+        paramName = "X-CS-Agent-Id"
+)
+@SecurityScheme(
+        name = "supportCsRole",
+        type = SecuritySchemeType.APIKEY,
+        in = SecuritySchemeIn.HEADER,
+        paramName = "X-CS-Agent-Role"
+)
 public class OpenApiConfig {
 
     @Bean
@@ -40,4 +52,3 @@ public class OpenApiConfig {
         return new OpenAPI().addServersItem(new Server().url("/"));
     }
 }
-

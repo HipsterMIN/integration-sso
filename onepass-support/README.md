@@ -38,6 +38,13 @@ POST   /api/v1/support/qna
 
 GET    /api/v1/admin/support/qna
 POST   /api/v1/admin/support/qna/{id}/answer
+
+GET    /api/v1/admin/support/tickets
+GET    /api/v1/admin/support/tickets/{id}
+POST   /api/v1/admin/support/phone-consultations
+POST   /api/v1/admin/support/tickets/{id}/internal-notes
+PATCH  /api/v1/admin/support/tickets/{id}/assignment
+PATCH  /api/v1/admin/support/tickets/{id}/status
 ```
 
 ## OpenAPI
@@ -45,7 +52,14 @@ POST   /api/v1/admin/support/qna/{id}/answer
 - JSON: `/api-docs`
 - Swagger UI: `/swagger-ui.html`
 
-권한 헤더(현재):
+공개 Q&A 사용자 헤더:
 
 - `X-User-Id`: 로그인 사용자 식별자
-- `X-User-Role`: `ADMIN` 포함 시 관리자 권한
+- `X-User-Role`: 사용자 역할 참고값
+
+CS 백오피스 헤더:
+
+- `X-CS-Agent-Id`: CS 상담원 식별자
+- `X-CS-Agent-Role`: `CS_AGENT`, `CS_LEAD`, `SUPPORT_ADMIN`, `AUDITOR`
+
+`onepass-support`의 CS 백오피스는 SSO/IM 사용자 로그인과 분리된 운영 영역으로 진행합니다. 현재 Phase 1은 전용 CS 헤더로 경계를 분리했으며, 운영 전환 시 별도 Keycloak client/realm 또는 내부 IAM 연동으로 대체하는 것을 목표로 합니다.
