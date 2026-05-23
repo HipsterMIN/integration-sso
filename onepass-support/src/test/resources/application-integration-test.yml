@@ -1,0 +1,25 @@
+# Testcontainers 통합 테스트 전용 설정
+# - 데이터소스 / Flyway URL/계정은 SupportIntegrationTestBase 의 @DynamicPropertySource 가 주입
+# - 본 파일은 동적 주입 외의 정적 설정만 담는다.
+
+spring:
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+
+  jpa:
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+
+logging:
+  level:
+    kr.go.smes.support: INFO
+    org.flywaydb: INFO
+    org.testcontainers: WARN
+    com.github.dockerjava: WARN
