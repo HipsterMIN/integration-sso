@@ -5,19 +5,12 @@ import java.util.UUID;
 
 public record FaqResponse(
     UUID id,
-    String category,
+    String groupCode,
+    String groupName,
     String question,
     String answer,
+    int sortOrder,
     Instant updatedAt
 ) {
-
-    public static FaqResponse placeholder(UUID id) {
-        return new FaqResponse(
-            id,
-            "general",
-            "FAQ skeleton endpoint",
-            "FAQ persistence will be implemented in the next iteration.",
-            Instant.now()
-        );
-    }
 }
+
