@@ -21,6 +21,11 @@ spring:
 qim:
   outbox:
     relay-interval-ms: 3600000     # 1시간 = 사실상 비활성
+  # CI 암호화 키 부팅 검증 우회 (Sprint γ-2 / F3.3)
+  # 로컬 샌드박스에서는 QIM_CI_AES_KEY_V1 미주입을 허용. 운영에서는 절대 사용 금지.
+  crypto:
+    ci:
+      allow-empty-key: true
 
 logging:
   level:

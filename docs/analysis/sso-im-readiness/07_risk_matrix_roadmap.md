@@ -113,7 +113,7 @@
 | Task | 결함 | 소요 (estimate) | 책임 모듈 | 상태 | PR |
 |------|------|----------------|----------|------|-----|
 | **α-1** | **F3.1 SHA-256 인코딩 통일 (hex 64자, 전체 일관)** | 1d | Q-IM | ✅ **완료 (MemberLookupController.sha256 hex 통일)** | **shipster (Sprint γ-1)** |
-| α-2 | F3.3 CiCryptoServiceImpl default key 제거 + startup validation | 0.5d | Q-IM | ⏳ 대기 | — |
+| **α-2** | **F3.3 CiCryptoServiceImpl default key 제거 + startup validation** | 0.5d | Q-IM | ✅ **완료 (`@PostConstruct validateKeyV1`, AES-256 32바이트 강제)** | **shipster (Sprint γ-2)** |
 | **α-3** | **F3.4 DiGenerationService default secret 제거 + startup validation** | 0.5d | Q-IM | ✅ **완료** | **shipster (Sprint γ-1)** |
 | **α-4** | **F5.1 LocalKmsClient `matchIfMissing=false` + 운영 프로파일 fail-fast** | 0.5d | IdO | ✅ **완료** | **#TBD** |
 | **α-4b** | **F5.2 VaultKmsClient 토큰 미획득 시 startup 차단 (β-6에서 조기 진행)** | 0.5d | IdO | ✅ **완료** | **#TBD** |
@@ -200,6 +200,20 @@
   - **F3.1 추가 호환성**: 이전에 `MemberLookupController.lookup-by-ci` 를 호출하던 모든 클라이언트는 사실상 404 만 받고 있었으므로, 이번 수정으로 처음으로 정상 응답이 가능. 동작 변화는 "버그 → 정상" 이므로 회귀 위험 없음.
 - 잔여 인증 본체 P0: F3.3 (CI AES key default), F3.2 (findByIdentifierHash provider 별 조회). 별도 PR 예정.
 - 상세 문서: 본 PR 본문 + 07 표/노트로 갈음 (12_sprint_gamma1_auth_core_hardening.md 작성은 선택적).
+- 통합 PR: shipster→main, 본 PR 로 묶음.
+
+**진행 노트** (Sprint γ-2 — CI AES 키 default 제거, 2026-05-22):
+- γ-1 직후 후속 묶음으로 **F3.3 단독 PR** 진행. F3.2 는 호출부 11곳 시맨틱 변경이 필요해 회귀 위험이 크므로 γ-3 로 분리.
+- **F3.3 (α-2, CI AES key default)**: `CiCryptoServiceImpl` 의 `key-v1` default `AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=` (32바이트 0x00 의 Base64 인코딩) 제거. `@PostConstruct validateKeyV1()` 가 부팅 시 현재 버전(`currentVersion`, v1 기본) 의 AES 키를 4단계로 검증:
+  1. null/blank 거부 (`allow-empty-key=true` 일 때만 우회)
+  2. `FORBIDDEN_PLACEHOLDERS` (`change-me`, `default`, `secret`, `test`, 그리고 **legacy 32바이트 0x00 키 `aaaa...=`** 소문자 변형 명시 포함) 거부
+  3. Base64 디코드 가능성 (표준 Base64 / Base64URL 모두 허용 — 기존 `normalizeBase64` 재사용)
+  4. 디코드 결과 **정확히 32바이트** (AES-256) 검증
+- `qim.crypto.ci.allow-empty-key` escape hatch — 단위 테스트는 `@BeforeEach` 의 reflection 주입으로 컨테이너 외부에서 인스턴스를 만들므로 영향 없음. `application-local.yml` 에 `allow-empty-key: true` 추가 (로컬 샌드박스 한정).
+- 회귀 테스트: 기존 `CiCryptoServiceImplTest` 의 23건 보존 + `StartupGuard` Nested 14건 추가 (Reject 8 / Accept 3 / Escape Hatch 2 / 회귀 가드 1). 특히 legacy `AAAA...=` placeholder 의 소문자 변형도 차단되는지 확인 (대소문자 무시 비교 검증).
+- **호환성 영향 (중요)**: 운영 환경변수 `QIM_CI_AES_KEY_V1` 의무화. 32바이트 무작위 Base64 키 (생성: `openssl rand -base64 32`). 미주입 시 `IllegalStateException` 으로 ApplicationContext 초기화 차단 → 컨테이너 CrashLoopBackOff. 기존 운영 환경에 이미 키가 주입되어 있다면 영향 없음. 만약 default 값에 의존하던 dev/stage 환경이 있다면 즉시 키 주입 필요.
+- **별도 보고**: γ-2 정적 검증 중 ido 측에도 동일 패턴의 placeholder default 가 발견됨 — `ido/src/main/java/kr/go/smes/ido/crypto/KeyVersionRegistry.java` line 62/65 (ticket aes/hmac key) + `ido/src/main/resources/application.yml` line 605/606 (handoff aes/hmac key) + `infra/docker/docker-compose.yml` line 675/676. 이들은 α-3 (Handoff KMS) 영역 후속 정리 대상으로, 별도 PR (γ-3 후보) 로 분리 처리 권장.
+- 잔여 인증 본체 P0: F3.2 (findByIdentifierHash provider 별 조회). γ-3 단독 PR 예정.
 - 통합 PR: shipster→main, 본 PR 로 묶음.
 
 ---
