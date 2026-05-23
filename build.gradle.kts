@@ -34,6 +34,35 @@ allprojects {
 //    아래 tasks.withType<Test> 블록에서 configurations["mockitoAgent"]를 참조할 수 있음.
 val mockitoAgentVersion = "1.17.8"  // mockito-core가 전이하는 byte-buddy-agent 버전과 동기화
 
+// ── Windows/Linux 공통 강제 clean 설정 (루트 + 서브모듈) ───────────────────────
+fun Project.configureForceCleanBuildDir() {
+    tasks.register<Exec>("forceCleanBuildDir") {
+        val buildDirPath = layout.buildDirectory.get().asFile.absolutePath
+        val osName = System.getProperty("os.name").lowercase()
+
+        if (osName.contains("windows")) {
+            // Windows 파일 잠금(lock) 타이밍 이슈 완화를 위해 1회 재시도
+            commandLine(
+                "cmd", "/c",
+                "if exist \"$buildDirPath\" (rmdir /s /q \"$buildDirPath\" & if exist \"$buildDirPath\" timeout /t 1 /nobreak >nul & if exist \"$buildDirPath\" rmdir /s /q \"$buildDirPath\")"
+            )
+        } else {
+            commandLine("rm", "-rf", buildDirPath)
+        }
+        isIgnoreExitValue = true
+        description = "Deletes the build directory forcefully (cross-platform)."
+    }
+
+    tasks.named("clean") {
+        dependsOn("forceCleanBuildDir")
+        // forceCleanBuildDir에 위임 — Delete 태스크의 기본 삭제 동작 비활성화
+        (this as? Delete)?.delete?.clear()
+    }
+}
+
+// 루트 프로젝트 clean도 동일 정책 적용 (기존 실패 지점: :clean)
+configureForceCleanBuildDir()
+
 // ── 서브프로젝트 공통 설정 ─────────────────────────────────────────────────────
 subprojects {
     apply(plugin = "java")
@@ -162,28 +191,8 @@ subprojects {
         }
     }
 
-    // ── Windows 환경 clean 오류 대응 ──────────────────────────────────────────
-    // Windows에서 Gradle clean 실행 시 파일 잠금(lock)으로 삭제 실패하는 경우를 해결.
-    // forceCleanBuildDir: cmd /c rmdir /s /q 로 강제 삭제 (플랫폼 분기).
-    // clean 태스크가 forceCleanBuildDir에 위임하므로 Delete 태스크의 기본 삭제 동작은 비활성화.
-    tasks.register<Exec>("forceCleanBuildDir") {
-        val buildDirPath = layout.buildDirectory.get().asFile.absolutePath
-        val osName = System.getProperty("os.name").lowercase()
-
-        if (osName.contains("windows")) {
-            commandLine("cmd", "/c", "if exist \"$buildDirPath\" rmdir /s /q \"$buildDirPath\"")
-        } else {
-            commandLine("rm", "-rf", buildDirPath)
-        }
-        isIgnoreExitValue = true
-        description = "Deletes the build directory forcefully (cross-platform)."
-    }
-
-    tasks.named("clean") {
-        dependsOn("forceCleanBuildDir")
-        // forceCleanBuildDir에 위임 — Delete 태스크의 기본 삭제 동작 비활성화
-        (this as? Delete)?.delete?.clear()
-    }
+    // 루트와 동일한 강제 clean 정책 적용
+    configureForceCleanBuildDir()
 }
 
 // ── platform-common: 실행 JAR 불필요, plain JAR만 생성 ───────────────────────
