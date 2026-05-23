@@ -1,0 +1,146 @@
+# =============================================================================
+# IdO NetworkPolicy — 내부 인증 트래픽 egress 허용 + 외부 차단
+# =============================================================================
+# 목적:
+#   - IdO 가 같은 'smes' 네임스페이스 안에서 q-sign / q-im 로 내부 호출을 허용
+#   - PostgreSQL / Redis / Kafka egress 허용 (운영 의존성)
+#   - 그 외 외부 egress 는 명시적 허용 룰만 통과 (default deny)
+#   - 라벨 컨벤션을 'app: ido' (k8s overlay 표준) 로 통일
+#     ※ Helm 차트(infra/helm/onepass/templates/networkpolicy.yaml) 의
+#       netpol-ido 와 동등한 정책을 k8s raw manifest 로 미러링한 것.
+#       다만 selector 라벨은 'app: onepass-ido'(Helm) → 'app: ido'(k8s) 로
+#       일관화하여 ido-deployment.yml 의 selector.matchLabels 와 정확히 일치.
+#
+# 출시 게이트:
+#   γ-게이트 #4 — IdO Pod 가 q-sign 모드로 기동된 후 NetworkPolicy 부재로
+#   내부 egress 가 클러스터 정책에 의해 차단될 위험 차단.
+#
+# k8s overlay 라벨 표준 (본 파일이 강제):
+#   app: ido           — kr.go.smes.ido (auth gateway, port 8083)
+#   app: qsign         — onepass-qsign  (sign service,  port 8081)
+#   app: qim           — onepass-qim    (IM service,    port 8082)
+#   app: agency-stub   — PoC 스텁                       (port 8083 client)
+#   app: prometheus    — 메트릭 수집기 (scrape)
+#   namespace: smes    — k8s overlay 표준 네임스페이스
+#
+#   ※ Helm 차트는 별도 컨벤션('app: onepass-*') 을 유지하며, 본 manifest 는
+#     k8s overlay 채널 안의 일관성만 책임진다. 두 채널은 동시 적용되지 않음
+#     (Helm 또는 k8s overlay 중 한 쪽만 선택 배포).
+#
+# 작성일: 2026-05-23
+# =============================================================================
+
+# ── Ingress 정책: IdO 로 들어오는 트래픽 ─────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: netpol-ido
+  namespace: smes
+  labels:
+    app: ido
+    version: "2.2.0"
+    component: auth
+spec:
+  podSelector:
+    matchLabels:
+      app: ido
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # ── Ingress: IdO 가 받는 트래픽 ────────────────────────────────────────────
+  ingress:
+    # ingress-nginx 컨트롤러 → IdO (외부 진입점)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8083
+          protocol: TCP
+
+    # Agency-Stub → IdO (PoC 내부 테스트)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: agency-stub
+      ports:
+        - port: 8083
+          protocol: TCP
+
+    # Prometheus scrape (actuator/prometheus)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - port: 8083
+          protocol: TCP
+
+  # ── Egress: IdO 가 내보내는 트래픽 ─────────────────────────────────────────
+  egress:
+    # q-sign (동기 인증 호출 — IDO_BROKER_MODE=qsign 의 핵심 경로)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: qsign
+      ports:
+        - port: 8081
+          protocol: TCP
+
+    # q-im (회원 조회 / 등록)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: qim
+      ports:
+        - port: 8082
+          protocol: TCP
+
+    # PostgreSQL (IdO 의 메인 RDB — handoff, audit, ratelimit)
+    - to: []
+      ports:
+        - port: 5432
+          protocol: TCP
+
+    # Redis (rate limit / handoff TTL / ShedLock)
+    - to: []
+      ports:
+        - port: 6379
+          protocol: TCP
+
+    # Kafka (감사 로그 / outbox)
+    - to: []
+      ports:
+        - port: 9092
+          protocol: TCP
+        - port: 29092
+          protocol: TCP
+
+    # Keycloak (mode=keycloak 전환 시 OIDC 토큰 검증)
+    - to: []
+      ports:
+        - port: 8080
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+
+    # 기관 외부 Webhook (HTTPS) — provisioning 콜백
+    - to: []
+      ports:
+        - port: 443
+          protocol: TCP
+
+    # HashiCorp Vault Transit Engine (KMS) — handoff 암호화 키 위임
+    - to: []
+      ports:
+        - port: 8200
+          protocol: TCP
+
+    # DNS (kube-dns / CoreDNS)
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP

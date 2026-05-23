@@ -42,8 +42,18 @@ COPY gradlew .
 COPY gradle/ gradle/
 COPY settings.gradle.kts .
 COPY build.gradle.kts .
+# settings.gradle.kts include() 한 모든 모듈의 빌드 스크립트 — Gradle 설정 평가에 필요.
+# (목표 모듈 외의 src 는 Stage 2 에서 복사하지 않으므로 컨텍스트 크기는 최소화됨.)
 COPY platform-common/build.gradle.kts platform-common/
+COPY q-sign/build.gradle.kts          q-sign/
+COPY q-im/build.gradle.kts            q-im/
+COPY ido/build.gradle.kts             ido/
+COPY onepass-support/build.gradle.kts onepass-support/
+COPY onepass-fe/build.gradle.kts      onepass-fe/
+COPY agency-stub/build.gradle.kts     agency-stub/
+COPY onepass-agency-sdk/build.gradle.kts onepass-agency-sdk/
 COPY outbox-relay-batch/build.gradle.kts outbox-relay-batch/
+COPY onepass-agent/build.gradle.kts   onepass-agent/
 
 # Gradle Wrapper 실행 권한 + 의존성 사전 다운로드
 RUN --mount=type=cache,target=/root/.gradle \

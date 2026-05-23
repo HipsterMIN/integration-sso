@@ -18,11 +18,19 @@ COPY gradle/ gradle/
 COPY settings.gradle.kts .
 COPY build.gradle.kts .
 
-# 서브모듈 빌드 파일
+# settings.gradle.kts include() 한 모든 모듈의 빌드 스크립트 — Gradle 설정 평가에 필요.
 COPY platform-common/build.gradle.kts platform-common/
-COPY agency-stub/build.gradle.kts agency-stub/
+COPY q-sign/build.gradle.kts          q-sign/
+COPY q-im/build.gradle.kts            q-im/
+COPY ido/build.gradle.kts             ido/
+COPY onepass-support/build.gradle.kts onepass-support/
+COPY onepass-fe/build.gradle.kts      onepass-fe/
+COPY agency-stub/build.gradle.kts     agency-stub/
+COPY onepass-agency-sdk/build.gradle.kts onepass-agency-sdk/
+COPY outbox-relay-batch/build.gradle.kts outbox-relay-batch/
+COPY onepass-agent/build.gradle.kts   onepass-agent/
 
-# 소스 복사
+# 소스 복사 (목표 모듈 + 의존 platform-common 만)
 COPY platform-common/src/ platform-common/src/
 COPY agency-stub/src/ agency-stub/src/
 
