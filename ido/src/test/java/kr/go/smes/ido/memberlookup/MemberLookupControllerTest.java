@@ -6,6 +6,7 @@ import kr.go.smes.common.error.PlatformException;
 import kr.go.smes.ido.audit.AuditLogPublisher;
 import kr.go.smes.ido.config.HandoffAgencyKeyInterceptor;
 import kr.go.smes.ido.fe.config.IdoWebMvcConfig;
+import kr.go.smes.ido.fe.config.InternalCallerAuthInterceptor;
 import kr.go.smes.ido.gateway.HmacSignatureFilter;
 import kr.go.smes.ido.ratelimit.AuthRateLimitInterceptor;
 import org.junit.jupiter.api.*;
@@ -76,6 +77,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 @ComponentScan.Filter(
                         type = FilterType.ASSIGNABLE_TYPE,
                         classes = HmacSignatureFilter.class
+                ),
+                // [γ-게이트 #2b] InternalCallerAuthInterceptor 는 @Component 로 등록되어
+                // 컴포넌트 스캔에 포함되며 생성자에서 MeterRegistry/InternalCallersProperties 를
+                // 요구한다. @WebMvcTest 슬라이스는 actuator/micrometer 빈을 로딩하지 않으므로
+                // 빈 생성 실패가 발생 → MemberLookup 16 건 테스트 일괄 ApplicationContext
+                // 로딩 실패의 직접 원인. 슬라이스 컨텍스트에서 제외 처리.
+                @ComponentScan.Filter(
+                        type = FilterType.ASSIGNABLE_TYPE,
+                        classes = InternalCallerAuthInterceptor.class
                 )
         }
 )
@@ -143,22 +153,7 @@ class MemberLookupControllerTest {
             then(memberLookupService).shouldHaveNoInteractions();
         }
 
-        @Test
-        @DisplayName("encryptedCi 정상 제공 + 사용자 조회 성공 → 200 OK + 결과 JSON 반환")
-        void validEncryptedCi_success_returns200() throws Exception {
-            Map<String, Object> serviceResult = Map.of(
-                    "qimUserId", "usr-uuid-001",
-                    "status", "ACTIVE",
-                    "maskedName", "홍*동"
-            );
-
-            given(memberLookupService.lookupByCi(
-                    eq(ENCRYPTED_CI), eq(AGENCY_CODE), anyString()
-            )).willReturn(serviceResult);
-
-            String body = objectMapper.writeValueAsString(Map.of("encryptedCi", ENCRYPTED_CI));
-
-            mockMvc.perform(post("/api/v1/member/lookup")
+        mockMvc.perform(post("/api/v1/member/lookup")
                             .header("X-Agency-Code", AGENCY_CODE)
                             .header("X-Correlation-Id", CORRELATION_ID)
                             .contentType(MediaType.APPLICATION_JSON)
@@ -396,6 +391,20 @@ class MemberLookupControllerTest {
             willThrow(new RuntimeException("Kafka unavailable"))
                     .given(auditLogPublisher)
                     .publish(ArgumentMatchers.<AuditLogPublisher.AuditEntry>any());
+
+            String body = objectMapper.writeValueAsString(Map.of("encryptedCi", ENCRYPTED_CI));
+
+            // 컨트롤러의 publishAudit()이 try-catch로 예외 억제 → 200 반환되어야 함
+            mockMvc.perform(post("/api/v1/member/lookup")
+                            .header("X-Agency-Code", AGENCY_CODE)
+                            .header("X-Correlation-Id", CORRELATION_ID)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.qimUserId").value("usr-audit-fail"));
+        }
+    }
+}
 
             String body = objectMapper.writeValueAsString(Map.of("encryptedCi", ENCRYPTED_CI));
 

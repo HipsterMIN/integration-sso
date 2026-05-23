@@ -1,5 +1,6 @@
 package kr.go.smes.common.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;
@@ -38,10 +39,12 @@ public class HandoffTicket {
         REVOKED
     }
 
+    @JsonIgnore
     public boolean isExpired() {
         return Instant.now().isAfter(expiresAt);
     }
 
+    @JsonIgnore
     public boolean isUsable() {
         return state == TicketState.ISSUED && !isExpired();
     }

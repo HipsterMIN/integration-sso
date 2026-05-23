@@ -83,7 +83,7 @@ data:
   IDO_CRYPTO_ROTATION_ENABLED: "false"    # 로컬: 키 로테이션 비활성
   IDO_DEFAULT_POLICY_VERSION: "v1"
   IDO_PROVIDER_CIRCUIT_CACHE_TTL: "300"
-  IDO_BROKER_MODE: "KAFKA"
+  IDO_BROKER_MODE: "qsign"
 
   # ── Redisson (로컬 단일 Pod — 분산 락 활성) ──────────────────────────────
   IDO_REDISSON_ENABLED: "true"
