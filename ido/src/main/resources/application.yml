@@ -387,6 +387,15 @@ ido:
     key-rotation-days: 90
     key-grace-period-hours: 24
     reuse-block-threshold: 3
+    # ── Handoff Ticket 폴백 키 (Sprint γ-3 / F3.3 후속) ────────────────────
+    # KeyVersionRegistry 가 읽는 폴백 키. Redis/DB(KMS) 경로 실패 시 사용된다.
+    # 환경변수 IDO_HANDOFF_AES_KEY / IDO_HANDOFF_HMAC_KEY 로 주입 — 운영 의무.
+    # default("AAAA...=" 32바이트 0x00) 제거 →
+    #   미설정 시 KeyVersionRegistry.validateFallbackKeys() 가 부팅 차단(CrashLoopBackOff).
+    # 32바이트 무작위 키 생성: openssl rand -base64 32
+    # 테스트/로컬은 ido.ticket.allow-empty-fallback-keys=true 로 우회.
+    aes-key:  ${IDO_HANDOFF_AES_KEY:}
+    hmac-key: ${IDO_HANDOFF_HMAC_KEY:}
 
   # §16.4.1 Clock Skew 허용
   clock-skew-tolerance-minutes: 5
@@ -601,9 +610,11 @@ ido:
   crypto:
     rotation-enabled:      ${IDO_CRYPTO_ROTATION_ENABLED:true}
     rotation-check-cron:   "0 0 * * * *"    # 매 시간 정각
-    # 실제 운영 키는 Vault/KMS에서 주입 — 아래는 PoC 기본값
-    handoff-aes-key:       ${IDO_HANDOFF_AES_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
-    handoff-hmac-key:      ${IDO_HANDOFF_HMAC_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+    # Sprint γ-3 / F3.3 후속:
+    # [DEPRECATED] ido.crypto.handoff-aes-key / handoff-hmac-key 는 어떤 Java 코드도
+    # 읽지 않는 dead config 였다 (γ-2 정적 검증에서 발견). 실제 폴백 키는
+    # ido.ticket.aes-key / ido.ticket.hmac-key 에서 처리한다 (KeyVersionRegistry).
+    # IDO_HANDOFF_AES_KEY / IDO_HANDOFF_HMAC_KEY 환경변수는 ido.ticket.* 로 매핑된다.
 
   # ── KMS 연동 설정 (S9-T8) ─────────────────────────────────────────────────
   #

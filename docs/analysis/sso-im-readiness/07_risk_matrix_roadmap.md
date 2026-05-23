@@ -216,6 +216,22 @@
 - 잔여 인증 본체 P0: F3.2 (findByIdentifierHash provider 별 조회). γ-3 단독 PR 예정.
 - 통합 PR: shipster→main, 본 PR 로 묶음.
 
+**진행 노트** (Sprint γ-3 — Handoff KMS 폴백 키 placeholder 제거, 2026-05-23):
+- γ-2 PR(#184) 본문에서 보고한 잔여 위험을 즉시 후속 처리. F3.3 패턴을 ido 측에 그대로 적용.
+- **F3.3 후속 (ido KeyVersionRegistry 폴백 키)**: `KeyVersionRegistry` 의 `fallbackAesKeyBase64` / `fallbackHmacKeyBase64` default `AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=` 제거. 기존 `@PostConstruct init()` 메서드 첫 줄에 `validateFallbackKeys()` 호출 추가. 검증 항목 AES/HMAC 각각 4단계:
+  1. null/blank 거부 (`allow-empty-fallback-keys=true` 일 때만 우회)
+  2. `FORBIDDEN_PLACEHOLDERS` 거부 (legacy `aaaa...=` 명시 포함)
+  3. Base64 디코드 가능성 (기존 `decodeBase64` 재사용)
+  4. 디코드 결과 **정확히 32바이트** (AES-256 / HMAC-SHA256)
+- **이름 불일치 버그 동시 수정**: 정적 검증 중 `ido/application.yml` 의 `ido.crypto.handoff-aes-key` / `handoff-hmac-key` 는 어떤 Java 코드도 읽지 않는 dead config 였고, 실제 `KeyVersionRegistry` 는 yml 에 정의되지 않은 `ido.ticket.aes-key` / `ido.ticket.hmac-key` 를 읽고 있었다. 즉 환경변수 `IDO_HANDOFF_AES_KEY` 가 주입되어도 매핑되지 않아 `@Value` default `AAAA...=` 가 운영에서 그대로 사용 — F3.3 가 차단하려던 위험 시나리오 자체. yml 의 `ido.ticket:` 블록에 `aes-key: ${IDO_HANDOFF_AES_KEY:}` / `hmac-key: ${IDO_HANDOFF_HMAC_KEY:}` 추가로 환경변수 매핑 복원. `ido.crypto.handoff-*-key` 는 deprecation 주석 처리.
+- escape hatch: `ido.ticket.allow-empty-fallback-keys` — 테스트/통합테스트 yml 2곳에 `true` 적용.
+- **docker-compose 후속 정리**: γ-1/γ-2 에서 누락된 docker-compose.yml 의 placeholder default 4곳 정리 (`KEYCLOAK_CLIENT_SECRET:change-me`, `IDO_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-…`, `IDO_HANDOFF_AES_KEY:AAAA…=`, `IDO_HANDOFF_HMAC_KEY:AAAA…=`, `QSIGN_KEYCLOAK_CLIENT_SECRET:change-me`). compose 의 `${VAR:?msg}` 문법으로 미주입 시 즉시 오류 종료 + 안내 메시지.
+- 회귀 테스트: 신규 `KeyVersionRegistryStartupGuardTest` 16건 (Reject 8 / Accept 2 / Escape Hatch 3 / 회귀 가드 2 + 추가 1). 기존 `HandoffCryptoServiceTest` 는 `@Mock KeyVersionRegistry` 사용 → 영향 없음.
+- **호환성 영향 (중요)**: 운영 환경변수 의무화 — `IDO_HANDOFF_AES_KEY`, `IDO_HANDOFF_HMAC_KEY` (둘 다 32바이트 Base64, `openssl rand -base64 32`). 미주입 시 컨테이너 **CrashLoopBackOff**. **이름 불일치 수정의 부수효과로 기존 운영 환경에 이미 `IDO_HANDOFF_AES_KEY` 가 주입되어 있다면 이번 PR 이후 비로소 진짜 폴백 키로 동작**. 만약 기존에 placeholder `AAAA...=` 로 암호화된 Handoff Ticket 잔존분이 Redis/DB 어딘가에 남아있다면 새 키로 복호화 실패 → TTL 60초 한정이므로 운영 영향 미미. 단, 회복 시나리오 운영 노트에 명시 권장.
+- 잔여 인증 본체 P0: F3.2 (findByIdentifierHash provider 별 조회) → γ-4 단독 PR 예정.
+- 잔여 docker-compose placeholder (β-2 영역): `IDO_INTERNAL_SIG_SECRET:change-me-…` (2곳), `QIM_INTERNAL_API_KEY:dev-…-change-me` (2곳) → β 후속 정리 후보로 별도 추적.
+- 통합 PR: shipster→main, 본 PR 로 묶음.
+
 ---
 
 #### **Sprint γ (2주, 운영 진입 + 1개월 내)**
