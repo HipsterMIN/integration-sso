@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class QnaService {
 
     private final QnaPostRepository qnaPostRepository;
+    private final SupportTicketService supportTicketService;
 
     @Transactional(readOnly = true)
     public List<QnaSummaryResponse> listForUser(
@@ -83,23 +84,24 @@ public class QnaService {
                 .lastUpdusrId(anonymous ? "ANONYMOUS" : requester.userId())
                 .build();
         qnaPostRepository.save(entity);
+        supportTicketService.createFromQna(entity, anonymous ? "ANONYMOUS" : requester.userId());
         return toDetailResponse(entity, requester, false);
     }
 
     @Transactional(readOnly = true)
     public List<QnaSummaryResponse> listForAdmin(
-            SupportRequester requester,
+            CsRequester requester,
             String tenantId,
             String agencyId
     ) {
-        assertAdmin(requester);
+        assertCsStaff(requester);
         return qnaPostRepository.findAllForAdmin(blankToNull(tenantId), blankToNull(agencyId)).stream()
                 .map(entity -> new QnaSummaryResponse(
                         entity.getQnaId(),
                         entity.getQnaTitle(),
                         entity.getQnaStatusCode(),
                         Yn.isYes(entity.getSecretYn()),
-                        requester.authenticated() && requester.userId().equals(entity.getWriterUserId()),
+                        false,
                         Yn.isYes(entity.getAnonymousYn()),
                         entity.getFrstRegistPnttm()
                 ))
@@ -108,11 +110,11 @@ public class QnaService {
 
     @Transactional
     public QnaDetailResponse answerByAdmin(
-            SupportRequester requester,
+            CsRequester requester,
             UUID qnaId,
             AnswerQnaRequest request
     ) {
-        assertAdmin(requester);
+        assertCsWritable(requester);
         QnaPostEntity post = getQnaPost(qnaId);
         if (Yn.isYes(post.getAnonymousYn()) && request.secret()) {
             throw new SupportApiException(
@@ -128,19 +130,20 @@ public class QnaService {
                 .qnaPost(post)
                 .answerContent(request.content().trim())
                 .secretYn(Yn.fromBoolean(secretAnswer))
-                .answeredByUserId(requester.userId())
+                .answeredByUserId(requester.agentId())
                 .useYn(Yn.YES)
                 .frstRegistPnttm(now)
-                .frstRegisterId(requester.userId())
+                .frstRegisterId(requester.agentId())
                 .lastUpdtPnttm(now)
-                .lastUpdusrId(requester.userId())
+                .lastUpdusrId(requester.agentId())
                 .build();
         post.getAnswers().add(answer);
         post.setQnaStatusCode("ANSWERED");
         post.setLastUpdtPnttm(now);
-        post.setLastUpdusrId(requester.userId());
+        post.setLastUpdusrId(requester.agentId());
         qnaPostRepository.save(post);
-        return toDetailResponse(post, requester, true);
+        supportTicketService.recordQnaAnswer(post.getQnaId(), requester.agentId(), request.content().trim());
+        return toDetailResponse(post, SupportRequester.of(requester.agentId(), "ADMIN"), true);
     }
 
     private void validateCreateRule(SupportRequester requester, CreateQnaRequest request) {
@@ -225,9 +228,15 @@ public class QnaService {
         );
     }
 
-    private void assertAdmin(SupportRequester requester) {
-        if (!requester.admin()) {
-            throw new SupportApiException("E-SUPPORT-AUTH-403", "관리자 권한이 필요합니다.", HttpStatus.FORBIDDEN);
+    private void assertCsStaff(CsRequester requester) {
+        if (!requester.staff()) {
+            throw new SupportApiException("E-SUPPORT-CS-403", "CS 백오피스 권한이 필요합니다.", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private void assertCsWritable(CsRequester requester) {
+        if (!requester.writable()) {
+            throw new SupportApiException("E-SUPPORT-CS-WRITE-403", "CS 처리 권한이 필요합니다.", HttpStatus.FORBIDDEN);
         }
     }
 
@@ -239,4 +248,3 @@ public class QnaService {
         return trimmed.isBlank() ? null : trimmed;
     }
 }
-
