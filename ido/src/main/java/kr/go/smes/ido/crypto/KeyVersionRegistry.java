@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -54,19 +55,50 @@ public class KeyVersionRegistry {
     // ── 인메모리 캐시 TTL ─────────────────────────────────────────────────
     private static final Duration LOCAL_CACHE_TTL = Duration.ofMinutes(5);
 
+    /** AES-256 / HMAC-SHA256 키 모두 32바이트(256-bit) 키 재료를 요구 */
+    private static final int REQUIRED_KEY_BYTES = 32;
+
+    /**
+     * 부팅을 차단해야 하는 폴백 키 placeholder 목록 (Sprint γ-3 / F3.3 후속).
+     *
+     * <p>특히 {@code "AAAA...="} (32바이트 0x00 키 Base64) 는 γ-2 이전까지
+     * {@code application.yml} 의 {@code ido.ticket.aes-key} / {@code ido.ticket.hmac-key}
+     * default 로 박혀있던 값이다. Redis/DB 폴백 경로가 모두 실패해 폴백 프로퍼티가
+     * 사용되는 순간(운영에서도 발생 가능), 이 값이 실제 암호화/서명 키로 동작하면
+     * Handoff Ticket 전체가 사실상 평문이 된다.
+     *
+     * <p>대소문자·공백 무시 비교. γ-3 PR 이후 재실수를 영구 차단.
+     */
+    private static final Set<String> FORBIDDEN_PLACEHOLDERS = Set.of(
+            "change-me",
+            "changeme",
+            "default",
+            "secret",
+            "test",
+            // 32바이트 0x00 키 (legacy default — γ-3 이전 application.yml line 605/606)
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa="
+    );
+
     private final RedisTemplate<String, Object> redisTemplate;
     private final JdbcTemplate                  jdbcTemplate;
     private final KmsClient                     kmsClient;
 
     // ── 폴백 프로퍼티 (개발/테스트 환경) ─────────────────────────────────
-    @Value("${ido.ticket.aes-key:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}")
+    @Value("${ido.ticket.aes-key:}")
     private String fallbackAesKeyBase64;
 
-    @Value("${ido.ticket.hmac-key:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}")
+    @Value("${ido.ticket.hmac-key:}")
     private String fallbackHmacKeyBase64;
 
     @Value("${ido.crypto.current-version:v1}")
     private String configuredVersion;
+
+    /**
+     * 로컬·테스트 전용 escape hatch (Sprint γ-3 / F3.3 후속).
+     * <p>{@code true} 일 때만 폴백 키 누락 / 빈 값이 허용된다. 운영에서는 절대 사용 금지.
+     */
+    @Value("${ido.ticket.allow-empty-fallback-keys:false}")
+    private boolean allowEmptyFallbackKeys;
 
     // ── 인메모리 캐시 ────────────────────────────────────────────────────
     private final Map<String, CachedKey> aesKeyCache  = new ConcurrentHashMap<>();
@@ -139,10 +171,21 @@ public class KeyVersionRegistry {
     // ── 초기화 ────────────────────────────────────────────────────────────
 
     /**
-     * 애플리케이션 시작 시 현재 버전 Warm-up (Redis 캐시 확인)
+     * 애플리케이션 시작 시:
+     * <ol>
+     *   <li><b>폴백 키 안전성 검증</b> (Sprint γ-3 / F3.3 후속) — 운영에서 Redis/DB 가
+     *       일시 장애일 때 폴백 프로퍼티가 진짜 키로 사용되므로, 빈 값 또는 placeholder
+     *       (예: 과거 default {@code "AAAA...="}) 가 주입되면 부팅을 차단한다.</li>
+     *   <li>현재 버전 Warm-up (Redis 캐시 확인) — 기존 동작 유지, 실패해도 로그 경고만</li>
+     * </ol>
+     *
+     * <p>{@code ido.ticket.allow-empty-fallback-keys=true} 가 명시되면 폴백 키 검증을 건너뛴다
+     * (로컬/단위·통합 테스트 한정).
      */
     @PostConstruct
     void init() {
+        validateFallbackKeys();
+
         try {
             String aesVer  = resolveCurrentVersion(KeyType.AES);
             String hmacVer = resolveCurrentVersion(KeyType.HMAC);
@@ -150,6 +193,71 @@ public class KeyVersionRegistry {
         } catch (Exception e) {
             log.warn("[KeyVersionRegistry] 초기화 경고 (폴백 사용): {}", e.getMessage());
         }
+    }
+
+    /**
+     * Spring 부팅 시 폴백 키({@code ido.ticket.aes-key} / {@code ido.ticket.hmac-key}) 안전성 검증.
+     *
+     * <p>검증 항목 (AES / HMAC 각각):
+     * <ol>
+     *   <li>null/blank 거부 (escape hatch 시 우회)</li>
+     *   <li>{@link #FORBIDDEN_PLACEHOLDERS} 포함 거부 (escape hatch 와 무관하게 항상 차단)</li>
+     *   <li>Base64 디코드 가능성</li>
+     *   <li>디코드 결과 정확히 32바이트(AES-256 / HMAC-SHA256) 검증</li>
+     * </ol>
+     *
+     * <p>검증 실패 시 {@link IllegalStateException} → ApplicationContext 초기화 중단
+     * → 컨테이너 CrashLoopBackOff 로 즉시 인지.
+     *
+     * <p>주의: 이 검증은 <b>폴백 경로의 안전성</b> 만 보장한다. Redis/DB/KMS 경로는
+     * 별도 단계에서 검증되며, 본 메서드 실패와 무관하게 동작한다.
+     */
+    void validateFallbackKeys() {
+        validateOneFallbackKey("ido.ticket.aes-key",  fallbackAesKeyBase64,  "AES",  "IDO_HANDOFF_AES_KEY");
+        validateOneFallbackKey("ido.ticket.hmac-key", fallbackHmacKeyBase64, "HMAC", "IDO_HANDOFF_HMAC_KEY");
+    }
+
+    private void validateOneFallbackKey(String propertyKey, String keyB64, String keyKind, String envVar) {
+        if (keyB64 == null || keyB64.isBlank()) {
+            if (allowEmptyFallbackKeys) {
+                log.warn("[KeyVersionRegistry] {} 폴백 키가 비어있지만 allow-empty-fallback-keys=true 로 우회 "
+                        + "(로컬/테스트 전용). 운영 환경에서는 절대 허용 금지.", propertyKey);
+                return;
+            }
+            throw new IllegalStateException(
+                    "[KeyVersionRegistry] " + propertyKey + " 폴백 " + keyKind + " 키가 설정되지 않았습니다. "
+                            + "환경변수 " + envVar + " 를 32바이트 Base64 키로 주입하십시오 "
+                            + "(생성: openssl rand -base64 32). "
+                            + "로컬·테스트에서만 ido.ticket.allow-empty-fallback-keys=true 로 우회 가능합니다.");
+        }
+
+        String normalized = keyB64.trim().toLowerCase();
+        if (FORBIDDEN_PLACEHOLDERS.contains(normalized)) {
+            throw new IllegalStateException(
+                    "[KeyVersionRegistry] " + propertyKey + " 에 placeholder 값('" + keyB64 + "')이 설정되어 있습니다. "
+                            + "이 값은 과거 default 또는 더미 키로 운영에 사용해서는 안 됩니다. "
+                            + "Redis/DB 폴백 경로가 실패하면 이 값이 실제 " + keyKind + " 키로 사용되어 "
+                            + "Handoff Ticket 전체가 평문이 됩니다. "
+                            + "openssl rand -base64 32 로 생성한 32바이트 무작위 키를 주입하십시오.");
+        }
+
+        byte[] decoded;
+        try {
+            decoded = decodeBase64(keyB64.trim());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException(
+                    "[KeyVersionRegistry] " + propertyKey + " 가 유효한 Base64 가 아닙니다. "
+                            + "표준 Base64 또는 Base64URL 형식의 32바이트 키를 주입하십시오.", e);
+        }
+
+        if (decoded.length != REQUIRED_KEY_BYTES) {
+            throw new IllegalStateException(
+                    "[KeyVersionRegistry] " + propertyKey + " 디코드 결과가 " + decoded.length + " 바이트입니다. "
+                            + keyKind + " (AES-256 / HMAC-SHA256) 은 정확히 " + REQUIRED_KEY_BYTES + "바이트 키를 요구합니다. "
+                            + "openssl rand -base64 32 로 32바이트 키를 생성하여 주입하십시오.");
+        }
+
+        log.info("[KeyVersionRegistry] 폴백 {} 키 부팅 검증 통과 — 길이={}바이트", keyKind, decoded.length);
     }
 
     // ── 내부 구현 ─────────────────────────────────────────────────────────

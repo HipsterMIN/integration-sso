@@ -42,6 +42,9 @@ ido:
   # Sprint γ-1 / F2.1 — 통합 테스트에서는 keycloak.client-secret 미주입 허용
   keycloak:
     allow-empty-client-secret: true
+  # Sprint γ-3 / F3.3 후속 — 통합 테스트에서는 Handoff 폴백 키 미주입 허용
+  ticket:
+    allow-empty-fallback-keys: true
 
 resilience4j:
   circuitbreaker:

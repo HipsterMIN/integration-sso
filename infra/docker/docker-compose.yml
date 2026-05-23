@@ -541,7 +541,8 @@ services:
       KEYCLOAK_URL:                  http://keycloak:8080
       KEYCLOAK_REALM:                onepass
       QSIGN_KEYCLOAK_CLIENT_ID:      q-sign-client
-      QSIGN_KEYCLOAK_CLIENT_SECRET:  ${QSIGN_KEYCLOAK_CLIENT_SECRET:-change-me}
+      # Sprint γ-1 / F2.1 후속: docker-compose 에서도 placeholder default 제거.
+      QSIGN_KEYCLOAK_CLIENT_SECRET:  ${QSIGN_KEYCLOAK_CLIENT_SECRET:?QSIGN_KEYCLOAK_CLIENT_SECRET 환경변수가 설정되지 않았습니다. 호스트 .env 또는 셸에서 주입하십시오.}
       QSIGN_KEYCLOAK_REDIRECT_URI:   http://localhost:8081/api/v1/oidc/keycloak/callback
       QSIGN_INTERNAL_SIG_STRICT:     "false"
     ports:
@@ -667,13 +668,17 @@ services:
       KEYCLOAK_BASE_URL:      http://keycloak:8080
       KEYCLOAK_REALM:         onepass
       KEYCLOAK_CLIENT_ID:     ido-client
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-change-me}
+      # Sprint γ-1 / γ-3 후속: docker-compose 에서도 placeholder default 제거.
+      # 호스트 .env 또는 셸에서 환경변수 주입 필수. 미주입 시 컨테이너가
+      # CrashLoopBackOff 로 빠져 운영자가 즉시 인지 가능 (의도된 동작).
+      # 32바이트 키 생성: openssl rand -base64 32
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET 환경변수가 설정되지 않았습니다. 호스트 .env 또는 셸에서 주입하십시오.}
       KEYCLOAK_REDIRECT_URI:  http://localhost:8083/api/v1/broker/callback
       # ── Webhook ──────────────────────────────────────────────
-      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
-      # ── Handoff 암호화 키 (PoC 기본값 — 운영: Vault/KMS 주입) ──
-      IDO_HANDOFF_AES_KEY:  ${IDO_HANDOFF_AES_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
-      IDO_HANDOFF_HMAC_KEY: ${IDO_HANDOFF_HMAC_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:?IDO_WEBHOOK_SIGNING_SECRET 환경변수가 설정되지 않았습니다. openssl rand -hex 32 로 생성하여 주입하십시오.}
+      # ── Handoff 암호화 키 (운영: Vault/KMS 주입, 로컬: 무작위 32바이트 키) ──
+      IDO_HANDOFF_AES_KEY:  ${IDO_HANDOFF_AES_KEY:?IDO_HANDOFF_AES_KEY 환경변수가 설정되지 않았습니다. openssl rand -base64 32 로 생성하여 주입하십시오.}
+      IDO_HANDOFF_HMAC_KEY: ${IDO_HANDOFF_HMAC_KEY:?IDO_HANDOFF_HMAC_KEY 환경변수가 설정되지 않았습니다. openssl rand -base64 32 로 생성하여 주입하십시오.}
     ports:
       - "8083:8083"
     networks:
