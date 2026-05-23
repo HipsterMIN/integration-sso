@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 public record AnswerQnaRequest(
     @NotBlank
     @Size(max = 10000)
-    String content
+    String content,
+    boolean secret
 ) {
 }

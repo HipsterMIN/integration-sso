@@ -1,5 +1,6 @@
 package kr.go.smes.support.api.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -16,6 +17,15 @@ public record CreateQnaRequest(
     String tenantId,
 
     @Size(max = 64)
-    String agencyId
+    String agencyId,
+
+    boolean secret,
+
+    @Size(max = 80)
+    String anonymousDisplayName,
+
+    @Email
+    @Size(max = 120)
+    String anonymousContactEmail
 ) {
 }
