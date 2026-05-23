@@ -95,7 +95,7 @@ data:
   IDO_CRYPTO_ROTATION_ENABLED: "true"     # F-06: 암호화 키 자동 로테이션
   IDO_DEFAULT_POLICY_VERSION: "v1"
   IDO_PROVIDER_CIRCUIT_CACHE_TTL: "300"
-  IDO_BROKER_MODE: "KAFKA"
+  IDO_BROKER_MODE: "qsign"
 
   # ── Redisson 분산 락 (F-08) ───────────────────────────────────────────────
   # false 시 NoOpRedissonConfig 활성화 → JVM synchronized 폴백 (단일 Pod 환경용)

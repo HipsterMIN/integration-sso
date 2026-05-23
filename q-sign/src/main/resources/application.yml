@@ -155,9 +155,12 @@ qsign:
     realm: ${KEYCLOAK_REALM:onepass}
     # q-sign 용 Keycloak Client ID
     client-id: ${QSIGN_KEYCLOAK_CLIENT_ID:q-sign-client}
-    # q-sign 용 Keycloak Client Secret
-    # 환경변수: QSIGN_KEYCLOAK_CLIENT_SECRET
-    client-secret: ${QSIGN_KEYCLOAK_CLIENT_SECRET:change-me}
+    # q-sign 용 Keycloak Client Secret (Sprint γ-1 / F2.1)
+    # 환경변수: QSIGN_KEYCLOAK_CLIENT_SECRET — 운영에서 반드시 주입 필수.
+    # default("change-me") 제거 → 미설정 시 KeycloakProperties.validateClientSecret()
+    # 가 부팅을 차단하여 운영자가 즉시 인지 가능.
+    # 테스트/로컬은 qsign.keycloak.allow-empty-client-secret=true 로 우회.
+    client-secret: ${QSIGN_KEYCLOAK_CLIENT_SECRET:}
     # Keycloak 이 인증 완료 후 리다이렉트할 q-sign Callback URI
     # Keycloak Admin Console > Clients > q-sign-client > Valid Redirect URIs 에 등록 필요
     redirect-uri: ${QSIGN_KEYCLOAK_REDIRECT_URI:http://localhost:8081/api/v1/oidc/keycloak/callback}

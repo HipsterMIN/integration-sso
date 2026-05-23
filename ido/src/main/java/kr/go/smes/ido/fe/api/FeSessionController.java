@@ -13,7 +13,9 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import kr.go.smes.ido.fe.config.InternalCallerAuthInterceptor;
 import java.time.Duration;
 import java.util.Map;
 
@@ -117,15 +119,22 @@ public class FeSessionController {
     /**
      * FE 세션 발급 (Q-Sign 인증 완료 후 내부 호출)
      * Q-Sign → IdO 콜백 경로에서 호출되어 feSessionId 쿠키 설정.
+     *
+     * <p><b>F4.8 (Sprint β-2)</b>: 본 엔드포인트는 {@link InternalCallerAuthInterceptor}
+     * 가 선검증한다. 호출자는 {@code X-Internal-Caller} + {@code X-Internal-Api-Key}
+     * 헤더를 동반해야 한다. 컨트롤러에서는 검증된 caller 식별자를 Request Attribute
+     * ({@code validatedInternalCaller}) 에서 조회한다.
      */
     @PostMapping
     public ResponseEntity<Map<String, String>> createSession(
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
-            @RequestHeader(value = "X-Internal-Caller", required = false) String caller,
             @RequestBody FeSessionCreateRequest req,
+            HttpServletRequest request,
             HttpServletResponse response) {
 
         setupCorrelation(correlationId);
+        String caller = (String) request.getAttribute(
+                InternalCallerAuthInterceptor.ATTR_VALIDATED_CALLER);
 
         // returnUrl 화이트리스트 검증
         if (req.getReturnUrl() != null && !feSessionService.isValidReturnUrl(req.getReturnUrl())) {
@@ -169,9 +178,13 @@ public class FeSessionController {
     public ResponseEntity<Map<String, String>> createConversionSession(
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @Valid @RequestBody FeSessionConversionRequest req,
+            HttpServletRequest request,
             HttpServletResponse response) {
 
         setupCorrelation(correlationId);
+        // F4.8: 인터셉터가 검증한 caller 식별자 (감사 로그용)
+        String caller = (String) request.getAttribute(
+                InternalCallerAuthInterceptor.ATTR_VALIDATED_CALLER);
 
         // provisioningToken 일회성 검증 (Redis SETNX)
         String tokenKey = PROV_TOKEN_KEY_PREFIX + req.getProvisioningToken();
@@ -210,7 +223,7 @@ public class FeSessionController {
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-        log.info("[FeSession/conversion] 세션 발급 qimUserId={}", qimUserId);
+        log.info("[FeSession/conversion] 세션 발급 qimUserId={} caller={}", qimUserId, caller);
 
         return ResponseEntity.ok(Map.of(
                 "feSessionId", session.getFeSessionId(),

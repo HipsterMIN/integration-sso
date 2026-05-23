@@ -33,6 +33,7 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
 
     private final HandoffAgencyKeyInterceptor handoffAgencyKeyInterceptor;
     private final AuthRateLimitInterceptor authRateLimitInterceptor;
+    private final InternalCallerAuthInterceptor internalCallerAuthInterceptor;
 
     @Value("${ido.cors.enabled:true}")
     private boolean corsEnabled;
@@ -68,6 +69,26 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
         // - OPTIONS(CORS preflight)는 인터셉터 내부에서 제외 처리
         registry.addInterceptor(authRateLimitInterceptor)
                 .addPathPatterns("/api/v1/auth/**");
+
+        // ────────────────────────────────────────────────────────────────
+        // F4.8 (Sprint β-2) — 내부 호출자 인증
+        //
+        // /api/v1/fe-session (POST) 및 /api/v1/fe-session/conversion (POST) 은
+        // Q-Sign 등 내부 서비스에서만 호출되어야 한다. 본 인터셉터로
+        // X-Internal-Caller + X-Internal-Api-Key 헤더 검증을 강제한다.
+        //
+        // 단, /check (GET) 와 /logout (POST) 은 최종 사용자(쿠키 보유자)가 직접
+        // 호출하므로 본 인터셉터 대상이 아니다 — 명시적으로 excludePathPatterns 적용.
+        registry.addInterceptor(internalCallerAuthInterceptor)
+                .addPathPatterns(
+                        "/api/v1/fe-session",
+                        "/api/v1/fe-session/",
+                        "/api/v1/fe-session/conversion"
+                )
+                .excludePathPatterns(
+                        "/api/v1/fe-session/check",
+                        "/api/v1/fe-session/logout"
+                );
     }
 
     @Override

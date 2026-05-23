@@ -14,11 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
+
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -265,10 +262,14 @@ public class ProvisioningOutboxRelay {
                     return;
                 }
                 try {
+                    // F4.9 (Sprint β-3): 공통 SignaturePayloadBuilder 위임.
+                    // payload = {agencyCode}:{idempotencyKey}:{epochSeconds} — 인바운드와 통일.
                     long epochSeconds = Instant.now().getEpochSecond();
-                    String signature  = computeOutboundHmac(idempotencyKey, epochSeconds, hmacSecret);
+                    String signature  = kr.go.smes.ido.gateway.SignaturePayloadBuilder.computeSignature(
+                            endpoint.getAgencyCode(), idempotencyKey, epochSeconds, hmacSecret);
                     headers.set("X-Signature", signature);
                     headers.set("X-Timestamp",  String.valueOf(epochSeconds));
+                    headers.set("X-Agency-Code", endpoint.getAgencyCode());
                 } catch (Exception e) {
                     log.error("[ProvisioningRelay] HMAC 서명 계산 실패 — agencyCode={} error={}",
                             endpoint.getAgencyCode(), e.getMessage());
@@ -291,20 +292,6 @@ public class ProvisioningOutboxRelay {
      */
     private RestTemplate selectRestTemplate(AgencyEndpointRecord endpoint) {
         return "MTLS".equals(endpoint.getAuthType()) ? mtlsRestTemplate : restTemplate;
-    }
-
-    /**
-     * 아웃바운드 HMAC-SHA256 서명 계산.
-     * 페이로드: {@code "{idempotencyKey}:{epochSeconds}"}
-     */
-    private String computeOutboundHmac(String idempotencyKey,
-                                        long   epochSeconds,
-                                        String secret) throws Exception {
-        String payload = idempotencyKey + ":"+  epochSeconds;
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-        return HexFormat.of().formatHex(rawHmac);
     }
 
     private String truncate(String value, int maxLen) {

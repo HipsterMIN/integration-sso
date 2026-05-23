@@ -14,6 +14,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -138,11 +141,24 @@ public class MemberLookupController {
         return result;
     }
 
+    /**
+     * SHA-256(input) → lowercase hex 문자열 (Sprint γ-1 / F3.1 통일).
+     *
+     * <p><b>F3.1 결함 수정</b>: 과거 이 메서드는 Base64URL 인코딩(43자)을 반환했으나,
+     * 플랫폼 내 다른 모든 identifierHash 생성 지점은 hex(64자) 를 사용하므로
+     * {@code lookup-by-ci} 경로에서 회원 조회가 영구 실패했다.
+     * (참조: ido KeycloakOidcService / NonOidcAuthService / AesSharedKeyDecryptor,
+     *  q-sign KeycloakCallbackService / AuthServiceImpl,
+     *  q-im UserController.computeSha256Hex — 모두 hex)
+     *
+     * <p>본 수정으로 lookup-by-ci 와 lookup-by-hash 가 동일한 hex 64자 표현을 사용하며,
+     * DB 의 {@code identifier_hash} 컬럼과 정확히 매칭된다.
+     */
     private String sha256(String input) {
         try {
-            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
         } catch (Exception e) {
             throw new RuntimeException("SHA-256 계산 실패", e);
         }

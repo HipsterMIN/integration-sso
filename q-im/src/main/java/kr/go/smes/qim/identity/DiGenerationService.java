@@ -2,6 +2,7 @@ package kr.go.smes.qim.identity;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * DI(중복가입확인정보) 생성 서비스
@@ -36,10 +38,84 @@ public class DiGenerationService {
 
     private static final String HMAC_ALGORITHM = "HmacSHA256";
 
-    @Value("${qim.crypto.di.secret:default-di-secret-change-in-production}")
+    /**
+     * 절대 통과 금지 placeholder 목록 (Sprint γ-1 / F3.4).
+     * 과거 default 값을 운영에 그대로 주입했을 때 즉시 차단한다.
+     */
+    private static final Set<String> FORBIDDEN_PLACEHOLDERS = Set.of(
+            "default-di-secret-change-in-production",
+            "change-me",
+            "changeme",
+            "default",
+            "secret",
+            "di-secret",
+            "test"
+    );
+
+    /**
+     * DI HMAC-SHA256 공유 비밀키.
+     * 환경변수: {@code QIM_DI_SECRET} — 운영 환경 필수.
+     *
+     * <p>[Sprint γ-1 / F3.4] 기본값 "default-di-secret-change-in-production" 제거.
+     * 부팅 시 {@link #validateDiSecret()} 가 placeholder 또는 비어있을 경우 즉시 실패.
+     */
+    @Value("${qim.crypto.di.secret:}")
     private String diSecret;
 
+    /**
+     * 부팅 검증 우회 escape hatch — 테스트/로컬 한정.
+     * 운영 환경에서는 절대 true 설정 금지.
+     * <p>활성화 방법(테스트 한정): {@code qim.crypto.di.allow-empty-secret=true}
+     */
+    @Value("${qim.crypto.di.allow-empty-secret:false}")
+    private boolean allowEmptyDiSecret;
+
     private final ObjectMapper objectMapper;
+
+    // ── 부팅 시 안전 검증 (Sprint γ-1 / F3.4) ─────────────────────────────────
+
+    /**
+     * 부팅 시 DI 비밀키 안전성 검증.
+     *
+     * <p>실패 조건:
+     * <ul>
+     *   <li>{@code diSecret} 이 null/blank 인데 {@code allow-empty-secret} 미설정</li>
+     *   <li>{@code diSecret} 이 알려진 placeholder</li>
+     *   <li>{@code diSecret} 이 16자 미만 (HMAC-SHA256 최소 보안 강도 미달)</li>
+     * </ul>
+     *
+     * <p>실패 시 {@link IllegalStateException} 으로 컨텍스트 기동 자체를 중단한다.
+     * 이는 의도된 동작 — 평문 placeholder 가 운영에 그대로 주입되어
+     * 모든 기관의 DI 가 예측 가능한 값으로 생성되는 사고를 막기 위함.
+     */
+    @PostConstruct
+    void validateDiSecret() {
+        if (diSecret == null || diSecret.isBlank()) {
+            if (allowEmptyDiSecret) {
+                log.warn("[DiGenerationService] qim.crypto.di.secret 미설정 — "
+                        + "allow-empty-secret=true 로 우회 (테스트/로컬 한정)");
+                return;
+            }
+            throw new IllegalStateException(
+                    "qim.crypto.di.secret 환경변수 QIM_DI_SECRET 가 설정되지 않았습니다. "
+                            + "운영에서는 반드시 32자 이상의 무작위 비밀키를 주입하십시오 "
+                            + "(예: openssl rand -hex 32). "
+                            + "테스트/로컬에서만 qim.crypto.di.allow-empty-secret=true 로 우회 가능.");
+        }
+        String normalized = diSecret.trim().toLowerCase();
+        if (FORBIDDEN_PLACEHOLDERS.contains(normalized)) {
+            throw new IllegalStateException(
+                    "qim.crypto.di.secret 가 안전하지 않은 placeholder('" + diSecret + "') 입니다. "
+                            + "운영용 비밀키를 주입하십시오. "
+                            + "(이 값으로 운영하면 모든 기관의 DI 가 공개 사전 공격에 노출됩니다.)");
+        }
+        if (diSecret.length() < 16) {
+            throw new IllegalStateException(
+                    "qim.crypto.di.secret 가 너무 짧습니다 (length=" + diSecret.length() + "). "
+                            + "HMAC-SHA256 보안 강도를 위해 최소 16자 (권장 32자) 이상으로 주입하십시오.");
+        }
+        log.info("[DiGenerationService] DI secret 검증 통과 (length={})", diSecret.length());
+    }
 
     /**
      * 기관별 DI 조회 또는 신규 생성

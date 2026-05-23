@@ -2,6 +2,7 @@ package kr.go.smes.ido.provision;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.go.smes.ido.gateway.SignaturePayloadBuilder;
 import kr.go.smes.ido.infrastructure.AgencyEndpointRecord;
 import kr.go.smes.ido.infrastructure.AgencyEndpointRegistryRepository;
 import kr.go.smes.ido.provision.dto.ProvisioningRequest;
@@ -15,8 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -326,10 +325,14 @@ public class ProvisioningServiceImpl implements ProvisioningService {
             }
 
             case "HMAC" -> {
-                // ── HMAC: HMAC-SHA256(idempotencyKey + ":" + epochSeconds, secret) 서명 생성 ──
-                // 페이로드 형식은 인바운드 HmacSignatureFilter와 대칭 구조
-                // 단, 아웃바운드는 agencyCode 대신 idempotencyKey 기반으로 서명:
-                //   payload = idempotencyKey + ":" + epochSeconds
+                // ── HMAC: HMAC-SHA256("{agencyCode}:{idempotencyKey}:{epochSeconds}", secret) ──
+                //
+                // F4.9 (Sprint β-3): 페이로드를 인바운드 HmacSignatureFilter / 아웃바운드
+                // AgencyGatewayServiceImpl 과 완전히 동일한 규칙으로 통일.
+                // 이전: payload = idempotencyKey + ":" + epoch  ← cross-agency replay 위험
+                // 현재: payload = agencyCode + ":" + idempotencyKey + ":" + epoch  ← 통일
+                //
+                // 기관 SDK 는 양방향(인바운드 서명 + 아웃바운드 검증)을 동일 코드로 처리한다.
                 String hmacSecret = credentialStore.findSecret(ref);
                 if (hmacSecret == null || hmacSecret.isBlank()) {
                     log.error("[Provisioning] HMAC 자격증명 미등록 — agencyCode={} ref={} " +
@@ -339,9 +342,11 @@ public class ProvisioningServiceImpl implements ProvisioningService {
                 }
                 try {
                     long epochSeconds = Instant.now().getEpochSecond();
-                    String signature  = computeOutboundHmac(idempotencyKey, epochSeconds, hmacSecret);
+                    String signature  = SignaturePayloadBuilder.computeSignature(
+                            endpoint.getAgencyCode(), idempotencyKey, epochSeconds, hmacSecret);
                     headers.set("X-Signature", signature);
                     headers.set("X-Timestamp",  String.valueOf(epochSeconds));
+                    headers.set("X-Agency-Code", endpoint.getAgencyCode());
                     log.debug("[Provisioning] HMAC 서명 헤더 설정 완료: agencyCode={} epoch={}",
                               endpoint.getAgencyCode(), epochSeconds);
                 } catch (Exception e) {
@@ -433,33 +438,6 @@ public class ProvisioningServiceImpl implements ProvisioningService {
             log.error("[Provisioning] SHA-256 사용 불가 (JVM 오류): {}", e.getMessage());
             return "sha256:unavailable";
         }
-    }
-
-    /**
-     * 아웃바운드 HMAC-SHA256 서명 계산.
-     *
-     * <p>페이로드 형식: {@code "{idempotencyKey}:{epochSeconds}"}
-     *
-     * <p>인바운드 검증({@code HmacSignatureFilter})의 페이로드 형식은
-     * {@code "{agencyCode}:{idempotencyKey}:{epochSeconds}"} 이지만,
-     * 아웃바운드는 기관별 API 명세에 따라 {@code idempotencyKey:epoch} 형식을 사용한다.
-     * 기관 연동 명세에서 다른 형식을 요구하는 경우 {@code AgencyEndpointRecord}에
-     * {@code hmacPayloadTemplate} 필드를 추가하여 확장하면 된다.
-     *
-     * @param idempotencyKey 멱등성 키
-     * @param epochSeconds   현재 유닉스 타임스탬프(초)
-     * @param secret         HMAC 비밀키
-     * @return 소문자 Hex 서명 문자열
-     * @throws Exception Mac 초기화/계산 오류 (JVM 필수 알고리즘이므로 실제 발생 거의 없음)
-     */
-    private String computeOutboundHmac(String idempotencyKey,
-                                        long   epochSeconds,
-                                        String secret) throws Exception {
-        String payload = idempotencyKey + ":" + epochSeconds;
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-        return HexFormat.of().formatHex(rawHmac);
     }
 
     private String request2Json(ProvisioningRequest request) {

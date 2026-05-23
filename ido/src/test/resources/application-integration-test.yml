@@ -36,6 +36,15 @@ ido:
   # Sprint α-3 / F4.3 — 통합 테스트에서는 signing-secret 미주입 허용
   webhook:
     allow-empty-secret: true
+  # Sprint β-2 / F4.8 — 통합 테스트에서는 internal caller 등록 없이 컨텍스트 기동 허용
+  internal:
+    allow-empty-callers: true
+  # Sprint γ-1 / F2.1 — 통합 테스트에서는 keycloak.client-secret 미주입 허용
+  keycloak:
+    allow-empty-client-secret: true
+  # Sprint γ-3 / F3.3 후속 — 통합 테스트에서는 Handoff 폴백 키 미주입 허용
+  ticket:
+    allow-empty-fallback-keys: true
 
 resilience4j:
   circuitbreaker:

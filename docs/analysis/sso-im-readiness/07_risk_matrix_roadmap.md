@@ -112,14 +112,14 @@
 
 | Task | 결함 | 소요 (estimate) | 책임 모듈 | 상태 | PR |
 |------|------|----------------|----------|------|-----|
-| α-1 | F3.1 SHA-256 인코딩 통일 (hex 또는 Base64URL 중 택일, 전체 일관) | 1d | Q-IM | ⏳ 대기 | — |
-| α-2 | F3.3 CiCryptoServiceImpl default key 제거 + startup validation | 0.5d | Q-IM | ⏳ 대기 | — |
-| α-3 | F3.4 DiGenerationService default secret 제거 + startup validation | 0.5d | Q-IM | ⏳ 대기 | — |
+| **α-1** | **F3.1 SHA-256 인코딩 통일 (hex 64자, 전체 일관)** | 1d | Q-IM | ✅ **완료 (MemberLookupController.sha256 hex 통일)** | **shipster (Sprint γ-1)** |
+| **α-2** | **F3.3 CiCryptoServiceImpl default key 제거 + startup validation** | 0.5d | Q-IM | ✅ **완료 (`@PostConstruct validateKeyV1`, AES-256 32바이트 강제)** | **shipster (Sprint γ-2)** |
+| **α-3** | **F3.4 DiGenerationService default secret 제거 + startup validation** | 0.5d | Q-IM | ✅ **완료** | **shipster (Sprint γ-1)** |
 | **α-4** | **F5.1 LocalKmsClient `matchIfMissing=false` + 운영 프로파일 fail-fast** | 0.5d | IdO | ✅ **완료** | **#TBD** |
 | **α-4b** | **F5.2 VaultKmsClient 토큰 미획득 시 startup 차단 (β-6에서 조기 진행)** | 0.5d | IdO | ✅ **완료** | **#TBD** |
 | **α-5** | **F4.3 Webhook default secret 제거 + @PostConstruct 부팅 검증 + escape hatch** | 2d | IdO | ✅ **완료** | **shipster (Sprint α-3)** |
 | **α-6** | **F4.6 PolicyEngine tryResolveDi 예외 타입 구분 (장애 vs 미매핑) + QimClient.getDi() 동반 수정** | 1d | IdO | ✅ **완료** | **shipster (Sprint α-3)** |
-| α-7 | F2.1 Keycloak callback default secret 제거 | 0.5d | Q-Sign | ⏳ 대기 | — |
+| **α-7** | **F2.1 Keycloak callback default secret 제거 (q-sign + ido 모듈 양쪽)** | 0.5d | Q-Sign / IdO | ✅ **완료** | **shipster (Sprint γ-1)** |
 | α-8 | F3.2 findByIdentifierHash 명확화 (provider 별 조회로 변경) | 1d | Q-IM | ⏳ 대기 | — |
 | α-9 | 환경변수 startup validation 통합 (모든 default 금지) | 1d | 전체 | ⏳ 대기 | — |
 | α-10 | α-1~α-9 통합 테스트 (Testcontainers) + smoke test | 2d | QA | ⏳ 대기 | — |
@@ -142,7 +142,7 @@
 | **β-2** | **F4.2 TicketRepositoryImpl.consume() Lua atomic CAS 구현** | 2d | IdO | ✅ **완료** | **#177 (shipster)** |
 | **β-3** | **F4.5 verify 순서 변경 (payload 먼저, consume 나중) + 통합 테스트** | 1.5d | IdO | ✅ **완료 (단위)** / ⏳ Testcontainers 통합테스트 잔여 | **#177 (shipster)** |
 | **β-4** | **F4.4 CAST JWT URL leak 제거 (POST 자동 제출 폼 + HTML escape)** | 2d | IdO | ✅ **완료** | **shipster (Sprint α-3)** |
-| β-5 | F4.8 FeSessionController 인증 강화 + NetworkPolicy | 1d | IdO | ⏳ 대기 | — |
+| β-5 | F4.8 FeSessionController 인증 강화 + NetworkPolicy | 1d | IdO | ✅ **완료 (인터셉터 + 부팅 가드)** / ⏳ NetworkPolicy 별도 | **shipster (Sprint β-1~3)** |
 | β-6 | F5.2 Vault 토큰 미획득 시 startup 차단 | 0.5d | IdO | ✅ 완료 (Sprint α-1 으로 조기 진행) | #176 (merged) |
 | β-7 | F5.3 Vault 토큰 백그라운드 갱신 (renew-self) | 2d | IdO | ⏳ 대기 | — |
 | β-8 | F5.4 Audit log qimUserId hash 화 | 1d | IdO | ⏳ 대기 | — |
@@ -170,6 +170,67 @@
 - SLO 영향: Q-IM 장애 시 200 OK + GUEST 응답이 503 응답으로 바뀜 → 기존엔 숨겨져 있던 장애가 가시화됨.
 - 상세 문서: `10_sprint_alpha3_perimeter_hardening.md`
 - 통합 PR: shipster 누적 → 신규 release PR 생성 예정.
+
+**진행 노트** (Sprint β-1~3 — 경계 영역 가시화 + 내부 인증 + HMAC 통일, 2026-05-22):
+- 본 묶음은 04_handoff_flow.md 의 **F4.7 / F4.8 / F4.9** 세 결함을 한 PR 로 처리한다.
+  (07 로드맵의 β-1~β-3 번호는 이미 #177 에서 사용됨 — 본 묶음은 β-5 + F4.7/F4.9 잔여 처리에 해당)
+- **F4.7 (HMAC soft-mode 가시화)**: `HmacSignatureFilter` 가 soft mode(F-26=false)에서 missing/invalid 시그니처를 무성공 통과시키던 동작을 카운터로 가시화. 신규 `InboundHmacMetrics`(메트릭 `ido_inbound_hmac_total{result=valid|missing|invalid_signature|missing_agency|key_not_found|compute_error}`) + missing 시 INFO 로그(agencyCode/idempotencyKey 동반). soft→strict 전환 기준점을 운영자가 측정 가능.
+- **F4.8 (내부 호출자 인증)**: 신규 `InternalCallerAuthInterceptor` + `ido.internal.callers.{name}` properties. `POST /api/v1/fe-session` 및 `POST /api/v1/fe-session/conversion` 에 `X-Internal-Caller` + `X-Internal-Api-Key` 헤더 강제. `@PostConstruct` 부팅 검증 + `ido.internal.allow-empty-callers` escape hatch (α-3 F4.3 패턴). `/check`, `/logout` 은 명시적 제외(최종 사용자 직접 호출). 운영: K8s Secret → 환경변수 (`IDO_INTERNAL_API_KEY_QSIGN`, `IDO_INTERNAL_API_KEY_OUTBOX`).
+- **F4.9 (HMAC payload 통일)**: 신규 `SignaturePayloadBuilder` 공통 유틸. 인바운드(`HmacSignatureFilter`) / 게이트웨이 아웃바운드(`AgencyGatewayServiceImpl`) / 프로비저닝(`ProvisioningServiceImpl`, `ProvisioningOutboxRelay`) 네 호출부를 단일 페이로드 규칙 `{agencyCode}:{idempotencyKey}:{epochSeconds}` 로 통일. 기존 프로비저닝 측 `{idempotencyKey}:{epochSeconds}` 가 cross-agency replay 노출 + 기관 SDK 양방향 코드 재사용 불가 → 본 PR 에서 제거. 프로비저닝 아웃바운드 헤더에 `X-Agency-Code` 동반(기관 측 검증 가능).
+- 회귀 테스트 신규 3 파일 24+건: `HmacSignatureFilterMetricsTest` 7건 + `InternalCallerAuthInterceptorTest` (preHandle 6 + StartupGuard 4) + `SignaturePayloadBuilderTest` (buildPayload 4 + computeSignature 5 + Symmetry 2).
+- **호환성 영향**:
+  - F4.7: 무영향(통과 동작 동일, 카운터/로그만 추가).
+  - F4.8: 현재 코드 내 `POST /api/v1/fe-session` 호출자 없음(k6 부하 테스트는 `/check` 만 사용). Q-Sign 이 추후 직접 호출 시 새 헤더 필요. **로컬/테스트 yml 은 `allow-empty-callers=true` 로 자동 통과**, 운영은 env 주입 의무.
+  - F4.9: 프로비저닝 아웃바운드 페이로드가 바뀌므로 **기관 SDK 측 검증 코드 동시 갱신 필요**(마이그레이션 노트 추가 예정). 단, 현재 게이트웨이 아웃바운드(`AgencyGatewayServiceImpl`)와 인바운드(`HmacSignatureFilter`)는 이미 표준 페이로드를 사용 중이므로 영향 없음.
+- 잔여: NetworkPolicy(β-5), 마이그레이션 가이드 SDK 측, 통합 테스트(Testcontainers). 본 묶음 PR 후 별도 진행.
+- 상세 문서: 11_sprint_beta_perimeter_audit.md (후속 작성 예정).
+- 통합 PR: shipster→main, 본 PR 로 묶음.
+
+**진행 노트** (Sprint γ-1 — 인증 본체 안전화, 2026-05-22):
+- 본 묶음은 α 잔여 P0 중 인증 본체 (Phase 2/3) 결함 3건을 한 PR 로 처리한다: **F2.1 + F3.4 + F3.1**. β 가 경계 영역을 막았지만 본체 평문 default 가 운영에 그대로 노출되는 더 본질적 위험을 차단.
+- **F2.1 (α-7, Keycloak client-secret)**: q-sign 측 `KeycloakProperties` 와 **ido 측 `KeycloakProperties` 두 곳 모두** `change-me` default 제거. 부팅 시 `@PostConstruct validateClientSecret()` 가 null/blank/placeholder/8자 미만 거부. `qsign.keycloak.allow-empty-client-secret` / `ido.keycloak.allow-empty-client-secret` escape hatch (테스트 한정). ido test/local/integration-test yml 3개 갱신. α-3 F4.3 패턴 재사용.
+- **F3.4 (α-3, DI HMAC secret)**: q-im `DiGenerationService` 의 `default-di-secret-change-in-production` default 제거. `@PostConstruct validateDiSecret()` 가 null/blank/placeholder/16자 미만 거부 (HMAC-SHA256 최소 보안 강도 요구). `qim.crypto.di.allow-empty-secret` escape hatch. placeholder 목록에 과거 default 문자열 포함 → 재실수 차단.
+- **F3.1 (α-1, identifierHash 인코딩 통일)**: `MemberLookupController.sha256()` 가 단독으로 Base64URL(43자) 을 반환하던 결함을 hex(64자) 로 통일. 플랫폼 내 다른 7곳(ido KeycloakOidcService / NonOidcAuthService / NonOidcBrokerController / AesSharedKeyDecryptor, q-sign KeycloakCallbackService / AuthServiceImpl, q-im UserController.computeSha256Hex) 과 정확히 일치 → `/api/v1/internal/member/lookup-by-ci` 경로가 비로소 회원을 찾을 수 있게 됨 (기존엔 영구 실패였음).
+- 회귀 테스트 신규 4 파일 약 27건:
+  - `KeycloakPropertiesStartupGuardTest` (q-sign, Reject 6 + Accept 4 + default 확인 1 = 11건)
+  - `DiGenerationServiceTest$StartupGuard` (Nested 9건 신규, 기존 23건 보존)
+  - `KeycloakPropertiesStartupGuardTest` (ido, Reject 4 + Accept 2 + default 확인 1 = 7건)
+  - `MemberLookupControllerHashConsistencyTest` (출력 형식 3 + 플랫폼 일관성 6 = 9건, NIST 벡터 2건 포함)
+- **호환성 영향 (중요)**: 운영 환경변수 의무화 — `QSIGN_KEYCLOAK_CLIENT_SECRET`, `KEYCLOAK_CLIENT_SECRET` (ido), `QIM_DI_SECRET`. 미설정 또는 placeholder 주입 시 컨테이너 **CrashLoopBackOff** 발생 → 운영자가 즉시 인지 가능 (의도된 동작). 테스트/로컬 환경은 escape hatch 로 자동 통과.
+  - **F3.1 추가 호환성**: 이전에 `MemberLookupController.lookup-by-ci` 를 호출하던 모든 클라이언트는 사실상 404 만 받고 있었으므로, 이번 수정으로 처음으로 정상 응답이 가능. 동작 변화는 "버그 → 정상" 이므로 회귀 위험 없음.
+- 잔여 인증 본체 P0: F3.3 (CI AES key default), F3.2 (findByIdentifierHash provider 별 조회). 별도 PR 예정.
+- 상세 문서: 본 PR 본문 + 07 표/노트로 갈음 (12_sprint_gamma1_auth_core_hardening.md 작성은 선택적).
+- 통합 PR: shipster→main, 본 PR 로 묶음.
+
+**진행 노트** (Sprint γ-2 — CI AES 키 default 제거, 2026-05-22):
+- γ-1 직후 후속 묶음으로 **F3.3 단독 PR** 진행. F3.2 는 호출부 11곳 시맨틱 변경이 필요해 회귀 위험이 크므로 γ-3 로 분리.
+- **F3.3 (α-2, CI AES key default)**: `CiCryptoServiceImpl` 의 `key-v1` default `AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=` (32바이트 0x00 의 Base64 인코딩) 제거. `@PostConstruct validateKeyV1()` 가 부팅 시 현재 버전(`currentVersion`, v1 기본) 의 AES 키를 4단계로 검증:
+  1. null/blank 거부 (`allow-empty-key=true` 일 때만 우회)
+  2. `FORBIDDEN_PLACEHOLDERS` (`change-me`, `default`, `secret`, `test`, 그리고 **legacy 32바이트 0x00 키 `aaaa...=`** 소문자 변형 명시 포함) 거부
+  3. Base64 디코드 가능성 (표준 Base64 / Base64URL 모두 허용 — 기존 `normalizeBase64` 재사용)
+  4. 디코드 결과 **정확히 32바이트** (AES-256) 검증
+- `qim.crypto.ci.allow-empty-key` escape hatch — 단위 테스트는 `@BeforeEach` 의 reflection 주입으로 컨테이너 외부에서 인스턴스를 만들므로 영향 없음. `application-local.yml` 에 `allow-empty-key: true` 추가 (로컬 샌드박스 한정).
+- 회귀 테스트: 기존 `CiCryptoServiceImplTest` 의 23건 보존 + `StartupGuard` Nested 14건 추가 (Reject 8 / Accept 3 / Escape Hatch 2 / 회귀 가드 1). 특히 legacy `AAAA...=` placeholder 의 소문자 변형도 차단되는지 확인 (대소문자 무시 비교 검증).
+- **호환성 영향 (중요)**: 운영 환경변수 `QIM_CI_AES_KEY_V1` 의무화. 32바이트 무작위 Base64 키 (생성: `openssl rand -base64 32`). 미주입 시 `IllegalStateException` 으로 ApplicationContext 초기화 차단 → 컨테이너 CrashLoopBackOff. 기존 운영 환경에 이미 키가 주입되어 있다면 영향 없음. 만약 default 값에 의존하던 dev/stage 환경이 있다면 즉시 키 주입 필요.
+- **별도 보고**: γ-2 정적 검증 중 ido 측에도 동일 패턴의 placeholder default 가 발견됨 — `ido/src/main/java/kr/go/smes/ido/crypto/KeyVersionRegistry.java` line 62/65 (ticket aes/hmac key) + `ido/src/main/resources/application.yml` line 605/606 (handoff aes/hmac key) + `infra/docker/docker-compose.yml` line 675/676. 이들은 α-3 (Handoff KMS) 영역 후속 정리 대상으로, 별도 PR (γ-3 후보) 로 분리 처리 권장.
+- 잔여 인증 본체 P0: F3.2 (findByIdentifierHash provider 별 조회). γ-3 단독 PR 예정.
+- 통합 PR: shipster→main, 본 PR 로 묶음.
+
+**진행 노트** (Sprint γ-3 — Handoff KMS 폴백 키 placeholder 제거, 2026-05-23):
+- γ-2 PR(#184) 본문에서 보고한 잔여 위험을 즉시 후속 처리. F3.3 패턴을 ido 측에 그대로 적용.
+- **F3.3 후속 (ido KeyVersionRegistry 폴백 키)**: `KeyVersionRegistry` 의 `fallbackAesKeyBase64` / `fallbackHmacKeyBase64` default `AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=` 제거. 기존 `@PostConstruct init()` 메서드 첫 줄에 `validateFallbackKeys()` 호출 추가. 검증 항목 AES/HMAC 각각 4단계:
+  1. null/blank 거부 (`allow-empty-fallback-keys=true` 일 때만 우회)
+  2. `FORBIDDEN_PLACEHOLDERS` 거부 (legacy `aaaa...=` 명시 포함)
+  3. Base64 디코드 가능성 (기존 `decodeBase64` 재사용)
+  4. 디코드 결과 **정확히 32바이트** (AES-256 / HMAC-SHA256)
+- **이름 불일치 버그 동시 수정**: 정적 검증 중 `ido/application.yml` 의 `ido.crypto.handoff-aes-key` / `handoff-hmac-key` 는 어떤 Java 코드도 읽지 않는 dead config 였고, 실제 `KeyVersionRegistry` 는 yml 에 정의되지 않은 `ido.ticket.aes-key` / `ido.ticket.hmac-key` 를 읽고 있었다. 즉 환경변수 `IDO_HANDOFF_AES_KEY` 가 주입되어도 매핑되지 않아 `@Value` default `AAAA...=` 가 운영에서 그대로 사용 — F3.3 가 차단하려던 위험 시나리오 자체. yml 의 `ido.ticket:` 블록에 `aes-key: ${IDO_HANDOFF_AES_KEY:}` / `hmac-key: ${IDO_HANDOFF_HMAC_KEY:}` 추가로 환경변수 매핑 복원. `ido.crypto.handoff-*-key` 는 deprecation 주석 처리.
+- escape hatch: `ido.ticket.allow-empty-fallback-keys` — 테스트/통합테스트 yml 2곳에 `true` 적용.
+- **docker-compose 후속 정리**: γ-1/γ-2 에서 누락된 docker-compose.yml 의 placeholder default 4곳 정리 (`KEYCLOAK_CLIENT_SECRET:change-me`, `IDO_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-…`, `IDO_HANDOFF_AES_KEY:AAAA…=`, `IDO_HANDOFF_HMAC_KEY:AAAA…=`, `QSIGN_KEYCLOAK_CLIENT_SECRET:change-me`). compose 의 `${VAR:?msg}` 문법으로 미주입 시 즉시 오류 종료 + 안내 메시지.
+- 회귀 테스트: 신규 `KeyVersionRegistryStartupGuardTest` 16건 (Reject 8 / Accept 2 / Escape Hatch 3 / 회귀 가드 2 + 추가 1). 기존 `HandoffCryptoServiceTest` 는 `@Mock KeyVersionRegistry` 사용 → 영향 없음.
+- **호환성 영향 (중요)**: 운영 환경변수 의무화 — `IDO_HANDOFF_AES_KEY`, `IDO_HANDOFF_HMAC_KEY` (둘 다 32바이트 Base64, `openssl rand -base64 32`). 미주입 시 컨테이너 **CrashLoopBackOff**. **이름 불일치 수정의 부수효과로 기존 운영 환경에 이미 `IDO_HANDOFF_AES_KEY` 가 주입되어 있다면 이번 PR 이후 비로소 진짜 폴백 키로 동작**. 만약 기존에 placeholder `AAAA...=` 로 암호화된 Handoff Ticket 잔존분이 Redis/DB 어딘가에 남아있다면 새 키로 복호화 실패 → TTL 60초 한정이므로 운영 영향 미미. 단, 회복 시나리오 운영 노트에 명시 권장.
+- 잔여 인증 본체 P0: F3.2 (findByIdentifierHash provider 별 조회) → γ-4 단독 PR 예정.
+- 잔여 docker-compose placeholder (β-2 영역): `IDO_INTERNAL_SIG_SECRET:change-me-…` (2곳), `QIM_INTERNAL_API_KEY:dev-…-change-me` (2곳) → β 후속 정리 후보로 별도 추적.
+- 통합 PR: shipster→main, 본 PR 로 묶음.
 
 ---
 

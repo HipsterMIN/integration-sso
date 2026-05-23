@@ -43,28 +43,23 @@ VALUES
 ON DUPLICATE KEY UPDATE active = active;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2. 사용자 상태 변경 이력 테이블
---    UserRegistrationServiceImpl.insertStatusHistory()의 대상 테이블
---    GDPR §17 Right to be Forgotten: 탈퇴(WITHDRAWN) 이력은 영구 보존
+-- 2. 사용자 상태 변경 이력 테이블 — V1 에서 이미 생성된 user_status_history 재사용
+--    UserRegistrationServiceImpl.insertStatusHistory() 대상 테이블.
+--    GDPR §17 Right to be Forgotten: 탈퇴(WITHDRAWN) 이력은 영구 보존.
+--
+--    [γ-게이트 수정] V1 (history_id VARCHAR(36), status_before NOT NULL,
+--    correlation_id VARCHAR(36) 포함) 정의를 정답(source of truth)으로 채택.
+--    이전 V3 에서 동일 테이블을 BIGINT AUTO_INCREMENT 스키마로 재정의 + 동일
+--    인덱스(idx_status_history_user) 를 중복 생성하여 Flyway 가 "Duplicate key
+--    name" 으로 실패하던 문제를 제거함. MariaDB/MySQL 의 CREATE INDEX 는
+--    IF NOT EXISTS 미지원 (10.5.x 이상은 지원하나 호환성 위해 사용하지 않음).
+--    V3 의 진짜 신규 추가물은 idx_status_history_after 만 보존한다.
 -- ─────────────────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS user_status_history (
-    history_id      BIGINT       NOT NULL AUTO_INCREMENT,
-    qim_user_id     VARCHAR(36)  NOT NULL,
-    status_before   VARCHAR(20)           COMMENT 'ACTIVE / SUSPENDED / WITHDRAWN',
-    status_after    VARCHAR(20)  NOT NULL,
-    changed_by      VARCHAR(100) NOT NULL COMMENT 'SYSTEM / ADMIN_ID / USER',
-    change_reason   VARCHAR(500),
-    occurred_at     DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    CONSTRAINT pk_user_status_history PRIMARY KEY (history_id),
-    CONSTRAINT fk_status_history_user FOREIGN KEY (qim_user_id)
-        REFERENCES qim_user (qim_user_id)
-        ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB
-  DEFAULT CHARSET=utf8mb4
-  COLLATE=utf8mb4_unicode_ci
-  COMMENT='사용자 상태 변경 감사 이력 (GDPR 준수)';
+-- V1 가 이미 생성한 테이블이므로 CREATE TABLE 자체를 다시 호출하지 않는다.
+-- (CREATE TABLE IF NOT EXISTS 라도 컬럼 시그니처가 다르면 운영 검증 단계에서
+--  혼선이 발생하므로 V3 에서 별도 정의를 두지 않는다.)
 
-CREATE INDEX idx_status_history_user ON user_status_history (qim_user_id, occurred_at DESC);
+-- status_after 기반 통계/검색 가속 인덱스 — V3 의 신규 추가물
 CREATE INDEX idx_status_history_after ON user_status_history (status_after, occurred_at DESC);
 
 -- ─────────────────────────────────────────────────────────────────────────────

@@ -10,6 +10,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * DiGenerationService 단위 테스트 — DI 생성/조회/직렬화 검증
@@ -249,6 +251,111 @@ class DiGenerationServiceTest {
         void parseDiMap_emptyJsonObject_returnsEmptyMap() {
             Map<String, String> result = diService.parseDiMap("{}");
             assertThat(result).isNotNull().isEmpty();
+        }
+    }
+
+    // ── 부팅 가드 (Sprint γ-1 / F3.4) ─────────────────────────────────────────
+
+    /**
+     * {@code @PostConstruct validateDiSecret()} 가 다음을 거부하는지 검증:
+     * <ul>
+     *   <li>secret null/blank + escape hatch 미설정</li>
+     *   <li>secret 이 알려진 placeholder ({@code default-di-secret-change-in-production} 등)</li>
+     *   <li>secret 길이 16자 미만</li>
+     * </ul>
+     * 그리고 통과시키는지 검증:
+     * <ul>
+     *   <li>allow-empty-secret=true + 빈 secret (테스트/로컬)</li>
+     *   <li>32자 운영 수준 secret</li>
+     * </ul>
+     */
+    @Nested
+    @DisplayName("StartupGuard — validateDiSecret() (Sprint γ-1 / F3.4)")
+    class StartupGuard {
+
+        private DiGenerationService newService(String secret, boolean allowEmpty) {
+            DiGenerationService svc = new DiGenerationService(new ObjectMapper());
+            ReflectionTestUtils.setField(svc, "diSecret", secret);
+            ReflectionTestUtils.setField(svc, "allowEmptyDiSecret", allowEmpty);
+            return svc;
+        }
+
+        @Test
+        @DisplayName("secret null + allow-empty=false → IllegalStateException")
+        void nullSecret_throws() {
+            DiGenerationService svc = newService(null, false);
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("QIM_DI_SECRET");
+        }
+
+        @Test
+        @DisplayName("secret 빈 문자열 + allow-empty=false → IllegalStateException")
+        void blankSecret_throws() {
+            DiGenerationService svc = newService("   ", false);
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("QIM_DI_SECRET");
+        }
+
+        @Test
+        @DisplayName("secret = 과거 default 'default-di-secret-change-in-production' → placeholder 차단")
+        void placeholderLegacyDefault_throws() {
+            DiGenerationService svc = newService("default-di-secret-change-in-production", false);
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("placeholder");
+        }
+
+        @Test
+        @DisplayName("secret = 'change-me' → placeholder 차단")
+        void placeholderChangeMe_throws() {
+            DiGenerationService svc = newService("change-me", false);
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("placeholder");
+        }
+
+        @Test
+        @DisplayName("secret 15자 (16자 미만) → 길이 미달 차단")
+        void tooShort_throws() {
+            DiGenerationService svc = newService("abcdefghij12345", false);
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("짧습니다");
+        }
+
+        @Test
+        @DisplayName("escape hatch + 빈 secret → 통과 (테스트/로컬 한정)")
+        void escapeHatch_passes() {
+            DiGenerationService svc = newService("", true);
+            assertThatCode(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("escape hatch + null secret → 통과")
+        void escapeHatchNull_passes() {
+            DiGenerationService svc = newService(null, true);
+            assertThatCode(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("운영 수준 secret (32자 hex) → 통과")
+        void productionGradeSecret_passes() {
+            // openssl rand -hex 16 = 32자 hex
+            DiGenerationService svc = newService("a1b2c3d4e5f60718a9b0c1d2e3f40516", false);
+            assertThatCode(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("정확히 16자 boundary + placeholder 아님 → 통과")
+        void exactlySixteenChars_passes() {
+            DiGenerationService svc = newService("xY9!aB3zQrSt7uVw", false);
+            assertThatCode(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
+                    .doesNotThrowAnyException();
         }
     }
 }
