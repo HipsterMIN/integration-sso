@@ -73,6 +73,19 @@ export interface NiceAuthResultExtra {
 	phone?: string;
 }
 
+/**
+ * 플로우 컨텍스트
+ * - PROVISION_USER: 신규 회원 프로비저닝
+ * - CHECK_CONVERSION: 기존 회원 → SSO 전환 검사
+ * - USER_WITHDRAW: 회원 탈퇴
+ * - GUARDIAN_CONSENT: 미성년자 가입 시 보호자 동의 인증
+ */
+export type CiTokenFlowContext =
+	| 'PROVISION_USER'
+	| 'CHECK_CONVERSION'
+	| 'USER_WITHDRAW'
+	| 'GUARDIAN_CONSENT';
+
 /** CI 토큰 발급 요청 (Q-IM /api/ext/ci/token) */
 export interface CiTokenRequest {
 	/** AES-256-GCM 암호화된 CI: base64(IV(12B) || ciphertext || tag(16B)) */
@@ -82,11 +95,24 @@ export interface CiTokenRequest {
 	/** SP Client ID */
 	clientId: string;
 	/** 플로우 컨텍스트 */
-	flowContext: 'PROVISION_USER' | 'CHECK_CONVERSION' | 'USER_WITHDRAW';
+	flowContext: CiTokenFlowContext;
 	/** 기존 Q-IM mbrUuid (CHECK_CONVERSION/USER_WITHDRAW 시 필수) */
 	mbrUuid?: string;
 	/** KC user UUID (선택, 감사 보조) */
 	kcUserId?: string;
+	/**
+	 * NICE 인증 결과 부가 데이터 (선택, PROVISION_USER/GUARDIAN_CONSENT 시 권장)
+	 * 서버측 감사 로그 및 사용자 표시명 캐시용으로 함께 전달.
+	 * @see NiceAuthResultExtra
+	 */
+	/** 성명 (NFC 정규화 + trim 권장) */
+	name?: string;
+	/** 생년월일 (숫자만, 예: "19900101") */
+	birthDate?: string;
+	/** 휴대폰번호 (숫자만, 예: "01012345678") */
+	phone?: string;
+	/** 성별 (M | F) */
+	gender?: 'M' | 'F';
 }
 
 /** CI 토큰 발급 응답 (Q-IM /api/ext/ci/token) */
