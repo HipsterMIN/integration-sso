@@ -1,0 +1,15 @@
+# OnePass local compose base.
+#
+# Keep this file intentionally small. Service-specific files compose on top of it:
+# - compose.support.yml: onepass-support isolated stack
+# - compose.sso-im.yml: SSO/IM stack
+# - compose.tools.yml: optional admin tools
+# - compose.monitoring.yml: optional observability
+
+networks:
+  onepass-net:
+    name: docker_onepass-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

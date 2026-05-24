@@ -1,0 +1,331 @@
+# OnePass SSO/IM stack.
+#
+# Default services are shared SSO/IM infrastructure only:
+#   postgres, mariadb, redis, vault, zookeeper, kafka, kafka-init
+#
+# Optional profiles:
+#   keycloak : Keycloak broker
+#   schema   : Schema Registry
+#
+# SSO/IM application containers live in compose.sso-im-apps.yml so infrastructure
+# checks do not require application secrets such as KEYCLOAK_CLIENT_SECRET.
+
+x-log-defaults: &log-defaults
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-log-small: &log-small
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+volumes:
+  pg-data:
+  mariadb-data:
+  redis-data:
+  kafka-data:
+  zookeeper-data:
+  zookeeper-log:
+  keycloak-data:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: onepass-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: onepass
+      POSTGRES_PASSWORD: onepass
+      POSTGRES_DB: onepass
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/00-init-db.sql:ro
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    command: >
+      postgres
+        -c config_file=/etc/postgresql/postgresql.conf
+        -c hba_file=/etc/postgresql/pg_hba.conf
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.10
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onepass -d onepass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 512m
+    logging: *log-defaults
+
+  mariadb:
+    image: mariadb:11.4
+    container_name: onepass-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: qim
+      MARIADB_USER: qim
+      MARIADB_PASSWORD: qim
+      TZ: UTC
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./mariadb/mariadb.cnf:/etc/mysql/conf.d/mariadb.cnf:ro
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.21
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 512m
+    logging: *log-defaults
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: onepass-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.11
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+        reservations:
+          memory: 256m
+    logging: *log-small
+
+  vault:
+    image: hashicorp/vault:1.17
+    container_name: onepass-vault
+    restart: unless-stopped
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-dev-root-token}
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    command: server -dev
+    cap_add:
+      - IPC_LOCK
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.20
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+    logging: *log-small
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: onepass-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_MAX_CLIENT_CNXNS: 60
+      ZOOKEEPER_AUTOPURGE_SNAP_RETAIN_COUNT: 3
+      ZOOKEEPER_AUTOPURGE_PURGE_INTERVAL: 24
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok,stat,mntr,conf"
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.12
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    logging: *log-small
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: onepass-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_NUM_PARTITIONS: 50
+      KAFKA_TRANSACTIONAL_ID_EXPIRATION_MS: 604800000
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      KAFKA_LOG_CLEANER_ENABLE: "true"
+      KAFKA_LOG_CLEANER_THREADS: 2
+      KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE: 134217728
+      KAFKA_LOG_CLEANER_MIN_CLEANABLE_RATIO: "0.5"
+      KAFKA_NUM_NETWORK_THREADS: 3
+      KAFKA_NUM_IO_THREADS: 8
+      KAFKA_SOCKET_SEND_BUFFER_BYTES: 102400
+      KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 102400
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms256m"
+    ports:
+      - "9092:9092"
+      - "9999:9999"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.13
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1"
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 512m
+    logging: *log-defaults
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: onepass-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - onepass-net
+    volumes:
+      - ./kafka/create-topics.sh:/create-topics.sh:ro
+    entrypoint: ["/bin/bash", "/create-topics.sh"]
+    restart: on-failure
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.1
+    container_name: onepass-schema-registry
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "8085:8081"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.14
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/subjects || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - schema
+    logging: *log-small
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: onepass-keycloak
+    restart: unless-stopped
+    command: start-dev --http-port=8080 --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/onepass?currentSchema=keycloak
+      KC_DB_USERNAME: onepass
+      KC_DB_PASSWORD: onepass
+      KC_DB_SCHEMA: keycloak
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: edge
+      KC_LOG_LEVEL: INFO
+    ports:
+      - "8088:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.18
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+    profiles:
+      - keycloak
+    logging: *log-defaults

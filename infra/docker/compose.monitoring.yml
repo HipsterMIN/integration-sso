@@ -1,0 +1,190 @@
+# Optional observability stack.
+#
+# Core monitoring:
+#   docker compose -f compose.base.yml -f compose.monitoring.yml up -d
+#
+# SSO/IM exporters:
+#   docker compose -f compose.base.yml -f compose.sso-im.yml -f compose.monitoring.yml --profile sso-im-exporters up -d
+#
+# Support DB exporter:
+#   docker compose -f compose.base.yml -f compose.support.yml -f compose.monitoring.yml --profile support-exporters up -d
+
+x-log-small: &log-small
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: onepass-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.50
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging: *log-small
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: onepass-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: http://localhost:3002
+      GF_INSTALL_PLUGINS: grafana-clock-panel
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/onepass-overview.json
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.51
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    logging: *log-small
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: onepass-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ../monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/tmp/loki
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.52
+    profiles:
+      - logs
+    logging: *log-small
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: onepass-promtail
+    restart: unless-stopped
+    volumes:
+      - ../monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+    command: -config.file=/etc/promtail/promtail-config.yml
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.53
+    depends_on:
+      - loki
+    profiles:
+      - logs
+    logging: *log-small
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.59.0-alpine
+    container_name: onepass-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    ports:
+      - "9121:9121"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.54
+    profiles:
+      - sso-im-exporters
+    logging: *log-small
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: onepass-kafka-exporter
+    restart: unless-stopped
+    command:
+      - "--kafka.server=kafka:29092"
+      - "--kafka.version=3.6.1"
+      - "--log.level=info"
+      - "--topic.filter=.*"
+      - "--group.filter=.*"
+      - "--offset.show-all=true"
+    ports:
+      - "9308:9308"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.55
+    profiles:
+      - sso-im-exporters
+    logging: *log-small
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: onepass-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://onepass:onepass@postgres:5432/onepass?sslmode=disable"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+    ports:
+      - "9187:9187"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.56
+    profiles:
+      - sso-im-exporters
+    logging: *log-small
+
+  support-postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: onepass-support-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${SUPPORT_POSTGRES_USER:-onepass_support}:${SUPPORT_POSTGRES_PASSWORD:-onepass_support}@support-postgres:5432/${SUPPORT_POSTGRES_DB:-onepass_support}?sslmode=disable"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "false"
+    ports:
+      - "9188:9187"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.57
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+    profiles:
+      - support-exporters
+    logging: *log-small

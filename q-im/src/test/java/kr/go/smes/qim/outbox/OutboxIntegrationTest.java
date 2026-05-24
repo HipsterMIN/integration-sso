@@ -10,6 +10,7 @@ import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -92,9 +93,26 @@ class OutboxIntegrationTest {
     @Autowired
     private OutboxJpaRepository jpaRepository;
 
+    /**
+     * {@code @Modifying @Query} 로 직접 UPDATE 하는 markPublished / markFailed /
+     * markPending 후, 영속성 컨텍스트의 stale 캐시를 비우기 위해 사용한다.
+     * 운영 환경에서는 Outbox Relay 가 별도 트랜잭션으로 polling 하므로 캐시 문제가
+     * 발생하지 않지만, 테스트 환경의 단일 트랜잭션에서는 수동 flush/clear 가 필요.
+     */
+    @Autowired
+    private TestEntityManager em;
+
+    /** @Modifying UPDATE 후 1차 캐시를 비워 후속 findById 가 DB 의 실제 상태를 읽도록 한다. */
+    private void syncFromDb() {
+        em.flush();
+        em.clear();
+    }
+
     @BeforeEach
     void cleanUp() {
         jpaRepository.deleteAll();
+        em.flush();
+        em.clear();
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -123,6 +141,7 @@ class OutboxIntegrationTest {
             OutboxRecord record = buildRecord("USER_REGISTERED", 1L);
             outboxRepository.save(record);
             outboxRepository.markPublished(record.getEventId());
+            syncFromDb();
 
             List<OutboxRecord> pending = outboxRepository.findPending(10);
             assertThat(pending).isEmpty();
@@ -134,6 +153,7 @@ class OutboxIntegrationTest {
             OutboxRecord record = buildRecord("USER_REGISTERED", 1L);
             outboxRepository.save(record);
             outboxRepository.markFailed(record.getEventId(), "Kafka timeout");
+            syncFromDb();
 
             List<OutboxRecord> pending = outboxRepository.findPending(10);
             assertThat(pending).isEmpty();
@@ -179,6 +199,7 @@ class OutboxIntegrationTest {
             outboxRepository.save(record);
 
             outboxRepository.markPublished(record.getEventId());
+            syncFromDb();
 
             OutboxJpaEntity entity = jpaRepository.findById(record.getEventId()).orElseThrow();
             assertThat(entity.getStatus()).isEqualTo("PUBLISHED");
@@ -201,6 +222,7 @@ class OutboxIntegrationTest {
             outboxRepository.save(record);
 
             outboxRepository.markFailed(record.getEventId(), "Connection refused");
+            syncFromDb();
 
             OutboxJpaEntity entity = jpaRepository.findById(record.getEventId()).orElseThrow();
             assertThat(entity.getStatus()).isEqualTo("FAILED");
@@ -215,7 +237,9 @@ class OutboxIntegrationTest {
             outboxRepository.save(record);
 
             outboxRepository.markFailed(record.getEventId(), "err-1");
+            syncFromDb();
             outboxRepository.markFailed(record.getEventId(), "err-2");
+            syncFromDb();
 
             OutboxJpaEntity entity = jpaRepository.findById(record.getEventId()).orElseThrow();
             assertThat(entity.getRetryCount()).isEqualTo((short) 2);
@@ -237,8 +261,10 @@ class OutboxIntegrationTest {
             OutboxRecord record = buildRecord("USER_REGISTERED", 1L);
             outboxRepository.save(record);
             outboxRepository.markFailed(record.getEventId(), "Kafka down");
+            syncFromDb();
 
             outboxRepository.markPending(record.getEventId());
+            syncFromDb();
 
             OutboxJpaEntity entity = jpaRepository.findById(record.getEventId()).orElseThrow();
             assertThat(entity.getStatus()).isEqualTo("PENDING");
@@ -251,7 +277,9 @@ class OutboxIntegrationTest {
             OutboxRecord record = buildRecord("USER_REGISTERED", 1L);
             outboxRepository.save(record);
             outboxRepository.markFailed(record.getEventId(), "error");
+            syncFromDb();
             outboxRepository.markPending(record.getEventId());
+            syncFromDb();
 
             List<OutboxRecord> pending = outboxRepository.findPending(10);
             assertThat(pending).hasSize(1);
@@ -274,12 +302,14 @@ class OutboxIntegrationTest {
             OutboxRecord eligible = buildRecord("USER_REGISTERED", 1L);
             outboxRepository.save(eligible);
             outboxRepository.markFailed(eligible.getEventId(), "err");
+            syncFromDb();
 
             // retryCount=5 (maxRetry=5 도달) → 영구 FAILED
             OutboxRecord exhausted = buildRecord("MAPPING_ADDED", 2L);
             outboxRepository.save(exhausted);
             for (int i = 0; i < 5; i++) {
                 outboxRepository.markFailed(exhausted.getEventId(), "err-" + i);
+                syncFromDb();
             }
 
             List<OutboxRecord> retryable = outboxRepository.findRetryable((short) 5, 10);
@@ -296,6 +326,7 @@ class OutboxIntegrationTest {
             outboxRepository.save(pending);
             outboxRepository.save(published);
             outboxRepository.markPublished(published.getEventId());
+            syncFromDb();
 
             List<OutboxRecord> retryable = outboxRepository.findRetryable((short) 5, 10);
             assertThat(retryable).isEmpty();
@@ -315,8 +346,14 @@ class OutboxIntegrationTest {
         void duplicateEventIdThrowsException() {
             OutboxRecord record = buildRecord("USER_REGISTERED", 1L);
             outboxRepository.save(record);
+            // 첫 INSERT 를 DB 에 즉시 반영해야 두 번째 save() 가 진짜 PK 위반에 부딪힌다.
+            // (JPA 의 save() 만으로는 영속성 컨텍스트 등록일 뿐 INSERT 가 지연됨)
+            syncFromDb();
 
-            assertThatThrownBy(() -> outboxRepository.save(record))
+            assertThatThrownBy(() -> {
+                        outboxRepository.save(record);
+                        em.flush();   // PK 위반 예외는 flush 시점에 발생
+                    })
                     .isInstanceOf(Exception.class)
                     .as("동일 eventId 중복 저장은 PK 위반으로 거부되어야 함");
         }

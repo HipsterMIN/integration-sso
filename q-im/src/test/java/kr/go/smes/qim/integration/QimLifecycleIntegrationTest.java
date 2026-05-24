@@ -18,7 +18,6 @@ import kr.go.smes.qim.infrastructure.jpa.repository.*;
 import kr.go.smes.qim.outbox.OutboxRepository;
 import kr.go.smes.qim.outbox.OutboxRepositoryImpl;
 import kr.go.smes.qim.outbox.OutboxService;
-import kr.go.smes.qim.outbox.OutboxServiceImpl;
 import kr.go.smes.qim.withdrawal.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
@@ -29,6 +28,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -68,13 +68,16 @@ import static org.assertj.core.api.Assertions.*;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({
-        // Withdrawal
+        // Withdrawal — OutboxServiceImpl 은 KafkaTemplate/SnapshotService 의존성을
+        // 가지므로 @DataJpaTest 슬라이스에 포함하지 않고, 인터페이스 OutboxService 를
+        // @MockitoBean 으로 격리한다 (publishInTx 호출 부수효과는 본 테스트의 검증
+        // 대상이 아님 — Outbox 자체 검증은 OutboxIntegrationTest 가 담당).
         WithdrawalServiceImpl.class,
         OutboxRepositoryImpl.class,
-        OutboxServiceImpl.class,
         // Consent
         ConsentServiceImpl.class,
-        // Conversion
+        // Conversion — AgencyMemberLookupService 는 외부 IdO HTTP 호출을 수행하므로
+        // 본 테스트 슬라이스에서는 @MockitoBean 으로 격리한다.
         ConversionSessionServiceImpl.class,
         // Guardian (P3-05 V6)
         GuardianConsentServiceImpl.class,
@@ -106,6 +109,18 @@ class QimLifecycleIntegrationTest {
         registry.add("spring.flyway.user",         MARIA_DB::getUsername);
         registry.add("spring.flyway.password",     MARIA_DB::getPassword);
     }
+
+    // ── 외부 의존 빈 격리 (Kafka / IdO HTTP) ──────────────────────────────────
+    // OutboxService 는 WithdrawalServiceImpl 이 publishInTx 로 호출하지만, 본 테스트는
+    // qim_user 상태 전이만 검증하므로 부수효과를 모킹으로 흡수한다.
+    @MockitoBean
+    OutboxService outboxService;
+
+    // AgencyMemberLookupService 는 ConversionSessionServiceImpl 이 호출하지만,
+    // S6(전환 세션 상태 기계) 검증은 sessionRepository 직접 조회로 수행하므로
+    // 빈 응답을 반환하는 mock 으로 격리한다.
+    @MockitoBean
+    kr.go.smes.qim.conversion.AgencyMemberLookupService agencyMemberLookupService;
 
     // ── Spring 빈 주입 ────────────────────────────────────────────────────────
 
