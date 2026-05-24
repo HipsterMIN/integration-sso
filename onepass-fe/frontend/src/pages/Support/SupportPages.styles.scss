@@ -1,0 +1,149 @@
+.support-main {
+	.support-page-title-wrap {
+		position: relative;
+		border-radius: 2.4rem;
+		padding: 2.4rem;
+		background: #0f6b7f;
+		color: #ffffff;
+		display: flex;
+		flex-direction: column;
+		gap: 1.6rem;
+
+		.page-title {
+			font-size: 2.4rem;
+			font-weight: 700;
+		}
+
+		.page-text {
+			font-size: 1.5rem;
+			line-height: 1.5;
+			opacity: 0.95;
+		}
+	}
+
+	.support-nav {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.8rem;
+
+		.btn {
+			border: 1px solid rgba(255, 255, 255, 0.45);
+			border-radius: 0.8rem;
+			background: rgba(255, 255, 255, 0.08);
+			color: #ffffff;
+			padding: 0.6rem 1.2rem;
+		}
+	}
+
+	.support-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1.6rem;
+	}
+
+	.support-card {
+		background: #ffffff;
+		border: 1px solid #dce7ea;
+		border-radius: 1.6rem;
+		padding: 1.8rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.2rem;
+	}
+
+	.support-card-title {
+		font-size: 1.8rem;
+		font-weight: 700;
+		color: #20333a;
+	}
+
+	.support-label {
+		font-size: 1.3rem;
+		font-weight: 600;
+		color: #4d636b;
+	}
+
+	.support-input,
+	.support-textarea,
+	.support-select {
+		width: 100%;
+		border: 1px solid #cedce0;
+		border-radius: 0.8rem;
+		padding: 0.9rem 1rem;
+		font-size: 1.4rem;
+		background: #ffffff;
+		box-sizing: border-box;
+	}
+
+	.support-textarea {
+		min-height: 8.8rem;
+		resize: vertical;
+	}
+
+	.support-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.8rem;
+	}
+
+	.support-list-item {
+		border: 1px solid #e2ecf0;
+		border-radius: 0.8rem;
+		padding: 1rem 1.2rem;
+		display: flex;
+		justify-content: space-between;
+		gap: 0.8rem;
+		background: #fbfdfe;
+	}
+
+	.support-list-text {
+		font-size: 1.4rem;
+		color: #1f3239;
+		line-height: 1.45;
+	}
+
+	.support-list-meta {
+		font-size: 1.2rem;
+		color: #5f7780;
+		white-space: nowrap;
+	}
+
+	.support-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.8rem;
+	}
+
+	.support-button {
+		border: none;
+		border-radius: 0.8rem;
+		padding: 0.8rem 1.2rem;
+		background: #0f6b7f;
+		color: #ffffff;
+		font-size: 1.4rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.support-button.secondary {
+		background: #edf5f7;
+		color: #1f3239;
+	}
+
+	.support-tag {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.2rem 0.7rem;
+		border-radius: 999px;
+		background: #ecf7fa;
+		color: #136e83;
+		font-size: 1.2rem;
+		font-weight: 600;
+	}
+
+	@media screen and (max-width: 900px) {
+		.support-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+}

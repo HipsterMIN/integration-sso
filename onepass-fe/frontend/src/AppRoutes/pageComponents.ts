@@ -77,6 +77,22 @@ export const OacxTest = Loadable(
 	() => import(/* webpackChunkName: "OacxTest" */ 'pages/OacxTest'),
 );
 
+export const SupportMain = Loadable(
+	() => import(/* webpackChunkName: "SupportMain" */ 'pages/Support/Main'),
+);
+
+export const SupportQna = Loadable(
+	() => import(/* webpackChunkName: "SupportQna" */ 'pages/Support/Qna'),
+);
+
+export const SupportFaq = Loadable(
+	() => import(/* webpackChunkName: "SupportFaq" */ 'pages/Support/Faq'),
+);
+
+export const SupportAdmin = Loadable(
+	() => import(/* webpackChunkName: "SupportAdmin" */ 'pages/Support/Admin'),
+);
+
 // Conversion business steps
 // STEP4(/step4) → 정보입력(business/Step5.tsx), STEP5(/step5) → 완료(business/Step6.tsx)
 export const ConversionBusinessStep2 = Loadable(

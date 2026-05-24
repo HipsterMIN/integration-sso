@@ -60,6 +60,10 @@ const ROUTES = {
 	USE_TERMS: '/use-terms',
 	PRIVACY: '/privacy',
 	OACX_TEST: '/auth-test',
+	SUPPORT_MAIN: '/support',
+	SUPPORT_QNA: '/support/qna',
+	SUPPORT_FAQ: '/support/faq',
+	SUPPORT_ADMIN: '/support/admin',
 } as const;
 
 export default ROUTES;

@@ -302,6 +302,15 @@ function Login(): JSX.Element {
 							<p className="page-text">
 								하나의 아이디로 중소벤처기업부 유관기관의 서비스를 모두 이용해보세요!
 							</p>
+							<div>
+								<button
+									type="button"
+									className="btn text medium"
+									onClick={(): void => history.push(ROUTES.SUPPORT_MAIN)}
+								>
+									<span>Support 센터 이동</span>
+								</button>
+							</div>
 						</div>
 						<figure className="img-box">
 							<img
