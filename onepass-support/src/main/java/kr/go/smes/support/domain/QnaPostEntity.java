@@ -12,6 +12,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -47,10 +49,12 @@ public class QnaPostEntity {
     @Column(name = "qna_stts_cd", nullable = false, length = 20)
     private String qnaStatusCode;
 
-    @Column(name = "secret_yn", nullable = false, length = 1)
+    @Column(name = "secret_yn", nullable = false, length = 1, columnDefinition = "char(1)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String secretYn;
 
-    @Column(name = "anonymous_yn", nullable = false, length = 1)
+    @Column(name = "anonymous_yn", nullable = false, length = 1, columnDefinition = "char(1)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String anonymousYn;
 
     @Column(name = "writer_user_id", length = 64)
@@ -62,7 +66,8 @@ public class QnaPostEntity {
     @Column(name = "anonymous_contact_email", length = 120)
     private String anonymousContactEmail;
 
-    @Column(name = "use_yn", nullable = false, length = 1)
+    @Column(name = "use_yn", nullable = false, length = 1, columnDefinition = "char(1)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String useYn;
 
     @Column(name = "frst_regist_pnttm", nullable = false)

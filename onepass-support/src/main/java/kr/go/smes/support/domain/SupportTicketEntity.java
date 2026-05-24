@@ -12,6 +12,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -68,7 +70,8 @@ public class SupportTicketEntity {
     @Column(name = "linked_qna_id")
     private UUID linkedQnaId;
 
-    @Column(name = "callback_required_yn", nullable = false, length = 1)
+    @Column(name = "callback_required_yn", nullable = false, length = 1, columnDefinition = "char(1)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String callbackRequiredYn;
 
     @Column(name = "callback_due_at")
@@ -83,7 +86,8 @@ public class SupportTicketEntity {
     @Column(name = "closed_at")
     private Instant closedAt;
 
-    @Column(name = "use_yn", nullable = false, length = 1)
+    @Column(name = "use_yn", nullable = false, length = 1, columnDefinition = "char(1)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String useYn;
 
     @Column(name = "frst_regist_pnttm", nullable = false)

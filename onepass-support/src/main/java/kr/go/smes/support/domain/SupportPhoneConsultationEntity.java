@@ -7,6 +7,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -42,7 +44,8 @@ public class SupportPhoneConsultationEntity {
     @Column(name = "caller_phone", length = 120)
     private String callerPhone;
 
-    @Column(name = "identity_verified_yn", nullable = false, length = 1)
+    @Column(name = "identity_verified_yn", nullable = false, length = 1, columnDefinition = "char(1)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String identityVerifiedYn;
 
     @Column(name = "call_summary_cn", nullable = false, length = 1000)
@@ -54,7 +57,8 @@ public class SupportPhoneConsultationEntity {
     @Column(name = "requested_action_cn", length = 1000)
     private String requestedAction;
 
-    @Column(name = "callback_required_yn", nullable = false, length = 1)
+    @Column(name = "callback_required_yn", nullable = false, length = 1, columnDefinition = "char(1)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String callbackRequiredYn;
 
     @Column(name = "callback_due_at")

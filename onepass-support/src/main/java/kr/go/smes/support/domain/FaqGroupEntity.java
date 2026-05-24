@@ -7,6 +7,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -42,7 +44,8 @@ public class FaqGroupEntity {
     @Column(name = "sort_sn", nullable = false)
     private Integer sortSn;
 
-    @Column(name = "use_yn", nullable = false, length = 1)
+    @Column(name = "use_yn", nullable = false, length = 1, columnDefinition = "char(1)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String useYn;
 
     @Column(name = "frst_regist_pnttm", nullable = false)
@@ -57,4 +60,3 @@ public class FaqGroupEntity {
     @Column(name = "last_updusr_id", nullable = false, length = 64)
     private String lastUpdusrId;
 }
-
