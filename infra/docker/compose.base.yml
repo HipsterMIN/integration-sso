@@ -8,7 +8,7 @@
 
 networks:
   onepass-net:
-    name: onepass-net
+    name: docker_onepass-net
     driver: bridge
     ipam:
       config:
