@@ -1,0 +1,121 @@
+# ════════════════════════════════════════════════════════════════════
+# agency-stub e2e 통합 테스트 프로파일
+# ════════════════════════════════════════════════════════════════════
+# - DataSource / Redis URL 은 E2EIntegrationTestBase 의 @DynamicPropertySource 가 주입
+# - Kafka 는 비활성화 (e2e 범위 외)
+# - Resilience4j 임계값을 e2e 시나리오에 맞게 짧게 조정
+# - agency-stub.ido.base-url 도 @DynamicPropertySource 에서 self port 로 주입
+
+spring:
+  application:
+    name: agency-stub-e2e-test
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: agency_stub
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: agency_stub
+    default-schema: agency_stub
+    baseline-on-migrate: true
+    baseline-version: 0
+
+  # Kafka 자동 부팅은 켜두되 리스너 컨테이너만 비활성화 (메타데이터 조회 시도 차단)
+  # → KafkaAutoConfiguration 자체를 끄면 @KafkaListener 빈이 ClassNotFound 가 됨
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer:
+      group-id: agency-stub-e2e-test-consumer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "kr.go.smes.*"
+    listener:
+      auto-startup: false
+      missing-topics-fatal: false
+      ack-mode: MANUAL_IMMEDIATE
+      concurrency: 1
+
+agency-stub:
+  code: AGENCY_STUB_001
+  ido:
+    # @DynamicPropertySource 에서 self port 로 오버라이드 → 내장 MockIdoVerifyController 가 응답
+    base-url: http://localhost:0
+    api-key: e2e-test-agency-key
+    connect-timeout-ms: 2000
+    read-timeout-ms: 3000
+  session:
+    cookie-name: AGSID
+    idle-timeout-minutes: 30
+    absolute-timeout-minutes: 480
+    same-site: Strict
+    secure: false      # 테스트 환경 — RestTemplate 가 https 가 아님
+    http-only: true
+  min-auth-level: L1
+  webhook:
+    signing-secret: e2e-test-webhook-secret
+    enabled: true
+  kafka:
+    consumer-group: agency-stub-e2e-test-consumer
+    topic-handoff-events: ido.handoff.events
+    topic-session-advisory: platform.session.advisory
+
+# Resilience4j — e2e 시나리오에서 짧게 fail-fast
+resilience4j:
+  circuitbreaker:
+    instances:
+      ido-verify:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 4
+        minimum-number-of-calls: 4
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 1s
+        permitted-number-of-calls-in-half-open-state: 2
+        record-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+        register-health-indicator: false
+  retry:
+    instances:
+      ido-verify:
+        # e2e: 1회 시도만 (재시도 폭주로 테스트 느려짐 방지)
+        max-attempts: 1
+        wait-duration: 100ms
+        retry-exceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    kr.go.smes.agency: INFO
+    org.flywaydb: WARN
+    org.testcontainers: WARN
+    com.github.dockerjava: WARN
+    root: WARN
