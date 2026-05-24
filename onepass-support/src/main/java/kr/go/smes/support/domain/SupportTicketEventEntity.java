@@ -10,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,7 +48,8 @@ public class SupportTicketEventEntity {
     @Column(name = "actor_id", nullable = false, length = 64)
     private String actorId;
 
-    @Column(name = "use_yn", nullable = false, length = 1)
+    @Column(name = "use_yn", nullable = false, length = 1, columnDefinition = "char(1)")
+    @JdbcTypeCode(SqlTypes.CHAR)
     private String useYn;
 
     @Column(name = "frst_regist_pnttm", nullable = false)
