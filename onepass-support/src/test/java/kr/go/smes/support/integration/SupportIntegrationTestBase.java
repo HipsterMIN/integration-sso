@@ -9,8 +9,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -41,13 +39,11 @@ import org.testcontainers.utility.DockerImageName;
 @Tag("integration")
 @SpringBootTest
 @ActiveProfiles("integration-test")
-@Testcontainers
 @ExtendWith(SpringExtension.class)
 public abstract class SupportIntegrationTestBase {
 
     // ── PostgreSQL 컨테이너 (V1/V2/V3 Flyway 마이그레이션 자동 실행) ──────────
     // - support 스키마는 init script 로 생성 (Flyway 가 default-schema: support 로 마이그레이션)
-    @Container
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
                     .withDatabaseName("onepass_support")
@@ -55,6 +51,15 @@ public abstract class SupportIntegrationTestBase {
                     .withPassword("onepass")
                     .withInitScript("integration/support-init.sql")
                     .waitingFor(Wait.forListeningPort());
+
+    static {
+        // IMPORTANT:
+        // Use a JVM-wide singleton container lifecycle for Spring integration tests.
+        // If @Testcontainers/@Container manages lifecycle per test class, Spring may
+        // reuse an ApplicationContext that still points to a now-stopped host port,
+        // causing intermittent "Connection refused" failures across classes.
+        POSTGRES.start();
+    }
 
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {
