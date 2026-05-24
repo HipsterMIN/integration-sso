@@ -19,8 +19,9 @@
 name: CI
 
 on:
+  workflow_dispatch:           # 수동 실행 (Actions UI → Run workflow) 지원 추가
   push:
-    branches: [ main, develop, genspark_ai_developer ]
+    branches: [ main, develop, genspark_ai_developer, shipster ]
   pull_request:
     branches: [ main, develop ]
 
@@ -356,8 +357,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: build-and-test    # 빌드/테스트 통과 후 실행
-    # SONAR_TOKEN 시크릿이 설정된 경우에만 실행
-    if: ${{ secrets.SONAR_TOKEN != '' }}
+    # NOTE: GitHub Actions 는 job-level `if:` 에서 secrets/env 컨텍스트 접근을 금지함.
+    #       대신 step-level `if:` 에서 env 비교가 허용됨 (아래 SonarQube 스캔 step 참고).
+    #       SONAR_TOKEN 미설정 시 모든 step 이 자동 스킵되어 job 은 success 로 종료.
 
     steps:
       - name: 소스 체크아웃
@@ -381,15 +383,17 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.kts') }}
 
       - name: SonarQube 스캔
+        # SONAR_TOKEN 미설정 시 자동 스킵 (env 노출 후 step-level if 에서 비교)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+        if: ${{ env.SONAR_TOKEN != '' }}
         run: |
           ./gradlew sonarqube --no-daemon \
             -Dsonar.projectKey=HipsterMIN_integration-sso \
             -Dsonar.organization=hipstermin \
-            -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+            -Dsonar.host.url=${SONAR_HOST_URL} \
             -Dsonar.coverage.jacoco.xmlReportPaths=**/build/reports/jacoco/**/*.xml \
             -Dsonar.exclusions=**/generated/**,**/*.sql \
             || true
