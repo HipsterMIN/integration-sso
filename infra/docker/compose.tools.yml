@@ -1,0 +1,121 @@
+# Optional local admin tools.
+#
+# Compose this file with the stack that owns the target services.
+# SSO/IM tools:
+#   docker compose -f compose.base.yml -f compose.sso-im.yml -f compose.tools.yml --profile sso-im-tools up -d
+# Support pgAdmin only:
+#   docker compose -f compose.base.yml -f compose.support.yml -f compose.tools.yml --profile support-tools up -d support-pgadmin
+
+x-log-small: &log-small
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: onepass-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: onepass-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_JMXPORT: 9999
+      DYNAMIC_CONFIG_ENABLED: "true"
+      AUTH_TYPE: LOGIN_FORM
+      SPRING_SECURITY_USER_NAME: admin
+      SPRING_SECURITY_USER_PASSWORD: admin
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.15
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - sso-im-tools
+    logging: *log-small
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: onepass-redis-insight
+    restart: unless-stopped
+    ports:
+      - "5540:5540"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.16
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - sso-im-tools
+    logging: *log-small
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: onepass-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@onepass.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - ./postgres/pgadmin-servers.json:/pgadmin4/servers.json:ro
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.17
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - sso-im-tools
+    logging: *log-small
+
+  support-pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: onepass-support-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@onepass.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5051:80"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.32
+    depends_on:
+      support-postgres:
+        condition: service_healthy
+    profiles:
+      - support-tools
+    logging: *log-small
+
+  adminer:
+    image: adminer:latest
+    container_name: onepass-adminer
+    restart: unless-stopped
+    ports:
+      - "8091:8080"
+    networks:
+      onepass-net:
+        ipv4_address: 172.20.0.23
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    profiles:
+      - sso-im-tools
+    logging: *log-small
