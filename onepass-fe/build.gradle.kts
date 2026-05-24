@@ -23,8 +23,12 @@ plugins {
 }
 
 // ── Node / Yarn 버전 고정 ──────────────────────────────────────────────────
+// [출시 NO-GO 조치 — 2026-05-24] Node 20.19.0 으로 상향
+// 사유: yarn install 시 transitive 의존 `sass@1.100.0` 이 Node `>=20.19.0` 요구.
+// 기존 20.14.0 은 engine mismatch 로 :onepass-fe:yarnInstall 실패.
+// 향후 sass major 업데이트 시 다시 확인 필요.
 node {
-    version        = "20.14.0"
+    version        = "20.19.0"
     yarnVersion    = "1.22.22"
     download       = true
     nodeProjectDir = file("${projectDir}/frontend")

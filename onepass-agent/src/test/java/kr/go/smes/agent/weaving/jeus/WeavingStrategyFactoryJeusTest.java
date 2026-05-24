@@ -3,7 +3,7 @@ package kr.go.smes.agent.weaving.jeus;
 import kr.go.smes.agent.config.AgentConfig;
 import kr.go.smes.agent.was.WasType;
 import kr.go.smes.agent.weaving.GenericFilterWeavingStrategy;
-import kr.go.smes.agent.weaving.TomcatWeavingStrategy;
+import kr.go.smes.agent.weaving.TomcatVersionedWeavingStrategy;
 import kr.go.smes.agent.weaving.WeavingStrategy;
 import kr.go.smes.agent.weaving.WeavingStrategyFactory;
 
@@ -121,11 +121,15 @@ class WeavingStrategyFactoryJeusTest {
     // ────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("TOMCAT → TomcatWeavingStrategy (회귀)")
+    @DisplayName("TOMCAT → TomcatVersionedWeavingStrategy (회귀)")
     void tomcatMapsToTomcatStrategy() {
+        // [정책 변경 — Sprint 17] TOMCAT 계열(LEGACY/7/8/9/10+/TOMCAT)은 모두
+        // TomcatVersionedWeavingStrategy 로 라우팅되며, 내부에서 wasType 에 따라
+        // Javassist/byte-buddy/javax/jakarta 분기를 처리한다.
+        // 단일 TomcatWeavingStrategy 는 더 이상 사용되지 않음.
         WeavingStrategy strategy = WeavingStrategyFactory.create(
                 WasType.TOMCAT, config, log);
-        assertInstanceOf(TomcatWeavingStrategy.class, strategy);
+        assertInstanceOf(TomcatVersionedWeavingStrategy.class, strategy);
     }
 
     @ParameterizedTest

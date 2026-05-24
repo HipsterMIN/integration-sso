@@ -153,7 +153,20 @@ class MemberLookupControllerTest {
             then(memberLookupService).shouldHaveNoInteractions();
         }
 
-        mockMvc.perform(post("/api/v1/member/lookup")
+        @Test
+        @DisplayName("encryptedCi 정상 + 서비스 응답 → 200 OK + 결과 JSON 반환")
+        void validEncryptedCi_returnsOk() throws Exception {
+            Map<String, Object> serviceResult = Map.of(
+                    "qimUserId",  "usr-uuid-001",
+                    "status",     "ACTIVE",
+                    "maskedName", "홍*동"
+            );
+            given(memberLookupService.lookupByCi(anyString(), anyString(), anyString()))
+                    .willReturn(serviceResult);
+
+            String body = objectMapper.writeValueAsString(Map.of("encryptedCi", ENCRYPTED_CI));
+
+            mockMvc.perform(post("/api/v1/member/lookup")
                             .header("X-Agency-Code", AGENCY_CODE)
                             .header("X-Correlation-Id", CORRELATION_ID)
                             .contentType(MediaType.APPLICATION_JSON)
@@ -391,20 +404,6 @@ class MemberLookupControllerTest {
             willThrow(new RuntimeException("Kafka unavailable"))
                     .given(auditLogPublisher)
                     .publish(ArgumentMatchers.<AuditLogPublisher.AuditEntry>any());
-
-            String body = objectMapper.writeValueAsString(Map.of("encryptedCi", ENCRYPTED_CI));
-
-            // 컨트롤러의 publishAudit()이 try-catch로 예외 억제 → 200 반환되어야 함
-            mockMvc.perform(post("/api/v1/member/lookup")
-                            .header("X-Agency-Code", AGENCY_CODE)
-                            .header("X-Correlation-Id", CORRELATION_ID)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(body))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.qimUserId").value("usr-audit-fail"));
-        }
-    }
-}
 
             String body = objectMapper.writeValueAsString(Map.of("encryptedCi", ENCRYPTED_CI));
 
