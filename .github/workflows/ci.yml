@@ -131,18 +131,14 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: TypeScript 컴파일 검사
-        # NOTE(2026-05-24): 기존 main 부채 마스킹 — 2026-05-10 onepass-develop.zip 통합 시
-        #   페이지 컴포넌트 추가에 비해 타입 정의(RegisterData/CiTokenRequest/RouteName 등)가
-        #   동반 갱신되지 않아 14개의 tsc 에러가 잠재. yarn.lock 동기화(ab48d8d) 로 비로소 노출.
-        #   별도 follow-up PR 에서 타입 정의 정리 후 continue-on-error 제거 예정.
-        run: yarn tsc --noEmit
-        continue-on-error: true
+        # i18n hash 자동 생성을 포함한 typecheck 스크립트 사용 (package.json scripts 참조)
+        # 2026-05-24 PR #196 에서 14건 TS 부채 해소 완료 → continue-on-error 제거
+        run: yarn typecheck
 
       - name: Webpack 빌드
         env:
           NODE_ENV: production
         run: yarn build
-        continue-on-error: true     # tsc 부채 해소 전까지 동반 마스킹
 
   # ── Job 3: OWASP Dependency-Check ────────────────────────────────────────────
   security-scan:
