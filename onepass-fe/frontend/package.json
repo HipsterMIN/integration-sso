@@ -6,6 +6,7 @@
 	"main": "webpack.config.js",
 	"scripts": {
 		"i18n:generate-hash": "node ./i18-generate-hash.js",
+		"typecheck": "yarn i18n:generate-hash && tsc --noEmit",
 		"copy:ezauth-config": "node -e \"const fs=require('fs'),env=process.env.APP_ENV||'local';fs.copyFileSync('public/ezauth/site/portal/authBiz.'+env+'.json','public/ezauth/site/portal/authBiz.json');\"",
 		"dev": "yarn i18n:generate-hash && cross-env APP_ENV=local yarn copy:ezauth-config && cross-env NODE_ENV=development APP_ENV=local webpack serve --progress",
 		"build": "yarn i18n:generate-hash && yarn copy:ezauth-config && webpack --config=webpack.config.prod.js --progress",
