@@ -6,6 +6,8 @@
 > **포트**: 8082  
 > **DB**: MariaDB 11 (`qim` 스키마, V1~V3)  
 > **완성도**: 92%
+>
+> 📜 **함께 읽기**: [03c-qim-responsibility-charter.md](03c-qim-responsibility-charter.md) — Q-IM 책임 헌장 (DO / DO NOT, 인접 모듈과의 계약). 본 문서가 "어떻게 구현됐는지"를 다룬다면 헌장은 "무엇을 책임지고 무엇을 책임지지 않는지"의 정본이다.
 
 ---
 

@@ -17,6 +17,7 @@
 | **03-A** | [03a-module-platform-common.md](03a-module-platform-common.md) | 공통 도메인·이벤트·에러코드 | 전 모듈 개발자 |
 | **03-B** | [03b-module-qsign.md](03b-module-qsign.md) | Q-Sign 인증 SoR — OIDC, PKCE, Outbox | Q-Sign 담당 |
 | **03-C** | [03c-module-qim.md](03c-module-qim.md) | Q-IM 식별 SoR — 회원원장, CI암호화, Snapshot | Q-IM 담당 |
+| **03-C-Charter** | [03c-qim-responsibility-charter.md](03c-qim-responsibility-charter.md) | Q-IM 책임 헌장 — DO / DO NOT, 인접 모듈과의 계약 (정본) | 전 모듈 오너 |
 | **03-D** | [03d-module-ido.md](03d-module-ido.md) | IdO 정책 오케스트레이터 — 전 기능 상세 | IdO 담당 |
 | **03-E** | [03e-module-agency-stub.md](03e-module-agency-stub.md) | agency-stub PoC 시뮬레이터 | 연동 개발자 |
 | **04** | [04-api-reference.md](../../_archive/2026-05-22/internal/spec/04-api-reference.md) | 전체 REST API 명세 (모듈별) | 프론트·연동팀 |
