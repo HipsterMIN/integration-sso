@@ -5,6 +5,7 @@ import { useMypageType } from 'components/MypageLayout';
 import IMAGES from 'constants/images';
 import history from 'lib/history';
 import { FormEvent, useMemo, useState } from 'react';
+import { Redirect } from 'react-router-dom';
 
 import { clearCiToken, loadCiToken, loadSelectedServices } from './affiliationServices';
 import { getMypageRoute } from './routes';
@@ -16,15 +17,23 @@ function AffiliationWithdrawStep2(): JSX.Element {
 	const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const affiliationRoute = getMypageRoute(memberType, 'AFFILIATION');
+	const step1Route = getMypageRoute(memberType, 'AFFILIATION_WITHDRAW_STEP1');
 	const isBusiness = memberType === 'business';
 	const { member, business } = useInfoStore();
 	const clients = isBusiness ? business.clients : member.clients;
 
 	const selectedIds = useMemo(() => loadSelectedServices(), []);
+	const ciToken = useMemo(() => (isBusiness ? '' : loadCiToken()), [isBusiness]);
 	const selectedServices = useMemo(
 		() => clients.filter((c) => selectedIds.includes(c.clientId ?? c.clientNm)),
 		[selectedIds, clients],
 	);
+
+	// step1 인증 단계를 거치지 않고 직접 진입 시 차단
+	// - 선택된 서비스 없음 → 유관기관 관리 목록으로
+	// - 개인회원인데 ciToken 없음 → step1(인증) 페이지로
+	if (selectedIds.length === 0) return <Redirect to={affiliationRoute} />;
+	if (!isBusiness && !ciToken) return <Redirect to={step1Route} />;
 
 	const handleWithdraw = async (): Promise<void> => {
 		const uuid = loadUserId(isBusiness ? 'business' : 'member');

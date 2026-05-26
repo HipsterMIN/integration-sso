@@ -33,6 +33,9 @@ function RegisterStep5({
 		formValid: false,
 	});
 
+	// Step3 인증 시 개인: userCheckConversion, 기업: enterpriseCheckConversion으로
+	// 이미 context(availableClients, selectedClients)에 저장됨
+
 	const handleVerificationChange = useCallback(
 		(status: { validateOk: boolean; duplicateOk: boolean; formValid: boolean }) => {
 			setVerificationStatus(status);
@@ -74,6 +77,9 @@ function RegisterStep5({
 				return false;
 			}
 
+			console.log('[RegisterStep5] 기업 selectedClients:', JSON.stringify(data.selectedClients));
+			console.log('[RegisterStep5] 기업 availableClients:', JSON.stringify(data.availableClients.map((c) => ({ ssoClientId: c.ssoClientId, businessTypes: c.businessTypes }))));
+
 			const clients =
 				data.selectedClients.length > 0
 					? data.selectedClients
@@ -96,6 +102,8 @@ function RegisterStep5({
 									c !== null,
 							)
 					: undefined;
+
+			console.log('[RegisterStep5] 기업 최종 clients:', JSON.stringify(clients));
 
 			const rprsEmlAddr = data.email && data.emailDomain
 				? `${data.email}@${data.emailDomain}`
@@ -129,6 +137,7 @@ function RegisterStep5({
 			) {
 				setErrorMessage(
 					provResponse.payload?.message
+					|| provResponse.error
 					|| provResponse.message
 					|| '기업 등록에 실패하였습니다.',
 				);
@@ -142,6 +151,9 @@ function RegisterStep5({
 		}
 
 		// --- 개인회원 ---
+		console.log('[RegisterStep5] telPrefix:', JSON.stringify(data.telPrefix), 'telSuffix:', JSON.stringify(data.telSuffix));
+		console.log('[RegisterStep5] phonePrefix:', JSON.stringify(data.phonePrefix), 'phoneSuffix:', JSON.stringify(data.phoneSuffix));
+		console.log('[RegisterStep5] email:', JSON.stringify(data.email), 'emailDomain:', JSON.stringify(data.emailDomain));
 		if (!data.loginId || !data.password) {
 			setAlertMessage('(필수) 항목을 모두 입력한 후 다음으로 진행해 주세요.');
 			setShowAlert(true);
@@ -169,11 +181,26 @@ function RegisterStep5({
 		}
 
 		// clients 조립 (Step4에서 선택된 서비스) — fromClientId(initialClientId)와 일치하면 대표기관(Y)
-		const memberClients = data.selectedClients.map((ssoClientId) => ({
-			clientId: ssoClientId,
-			mbrId: '',
-			rprsInstYn: ssoClientId === data.initialClientId ? 'Y' as const : 'N' as const,
-		}));
+		console.log('[RegisterStep5] 개인 selectedClients:', JSON.stringify(data.selectedClients));
+		console.log('[RegisterStep5] 개인 availableClients:', JSON.stringify(data.availableClients.map((c) => ({ ssoClientId: c.ssoClientId, businessTypes: c.businessTypes }))));
+
+		const memberClients = data.selectedClients
+			.map((ssoClientId) => {
+				const client = data.availableClients.find(
+					(c) => c.ssoClientId === ssoClientId,
+				);
+				if (!client) return null;
+				return {
+					clientId: ssoClientId,
+					mbrId: '',
+					rprsInstYn: ssoClientId === data.initialClientId ? ('Y' as const) : ('N' as const),
+				};
+			})
+			.filter(
+				(c): c is { clientId: string; mbrId: string; rprsInstYn: 'Y' | 'N' } => c !== null,
+			);
+
+		console.log('[RegisterStep5] 개인 최종 memberClients:', JSON.stringify(memberClients));
 
 		// 이메일 조합
 		const indvEmlAddr =
@@ -187,13 +214,20 @@ function RegisterStep5({
 				? `${data.telPrefix}-${data.telSuffix}`
 				: undefined;
 
+		// 휴대폰 포맷: 010-XXXX-XXXX (suffix 8자리일 때 4+4 분리)
+		const phoneFormatted = data.phoneSuffix && data.phoneSuffix.length === 8
+			? `${data.phonePrefix || '010'}-${data.phoneSuffix.slice(0, 4)}-${data.phoneSuffix.slice(4)}`
+			: `${data.phonePrefix || '010'}${data.phoneSuffix || ''}`;
+
 		const provResponse = await provisionUser({
 			ciToken: data.ciToken,
 			memberName: data.name,
 			loginId: data.loginId,
 			initialPassword: data.password,
 			clients: memberClients,
-			indvMblTelno: `${data.phonePrefix || '010'}${data.phoneSuffix || ''}`,
+			email: indvEmlAddr,
+			phone: phoneFormatted,
+			indvMblTelno: phoneFormatted,
 			indvEmlAddr,
 			telno,
 			birthDate: data.birthDate || undefined,
@@ -211,6 +245,7 @@ function RegisterStep5({
 		) {
 			setErrorMessage(
 				provResponse.payload?.message
+				|| provResponse.error
 				|| provResponse.message
 				|| '개인회원 등록에 실패하였습니다.',
 			);
@@ -310,16 +345,14 @@ function RegisterStep5({
 				isOpen={failedModal}
 				onClose={(): void => setFailedModal(false)}
 				topText={isBusiness ? '기업 등록 오류' : '개인회원 등록 오류'}
-				title={errorMessage}
+				title={isBusiness ? '기업 등록 실패' : '개인회원 등록 실패'}
 				size="small"
 				buttons={[
 					{ label: '확인', variant: 'primary', onClick: (): void => setFailedModal(false) },
 				]}
 			>
 				<p className="text">
-					{isBusiness ? '기업' : '개인회원'} 등록 처리 중 오류가 발생하였습니다.
-					<br />
-					입력 정보를 확인하신 후 다시 시도해 주세요.
+					{errorMessage}
 				</p>
 			</Modal>
 		</>

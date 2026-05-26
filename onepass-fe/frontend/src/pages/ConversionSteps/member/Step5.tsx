@@ -17,7 +17,7 @@ interface Step5Props {
 	currentStep?: number;
 }
 
-function ConversionStep5({ memberType = 'member', currentStep = 4 }: Step5Props): JSX.Element {
+function ConversionStep5({ memberType = 'member', currentStep = 5 }: Step5Props): JSX.Element {
 	const { data, updateData } = useConversion();
 
 	// Step3 인증 시 개인: userCheckConversion, 기업: enterpriseCheckConversion으로
@@ -93,9 +93,6 @@ function ConversionStep5({ memberType = 'member', currentStep = 4 }: Step5Props)
 									(c) => c.ssoClientId === ssoClientId,
 								);
 								if (!client) return null;
-								if (client.businessTypes !== 'ENT' && client.businessTypes !== 'ALL') {
-									return null;
-								}
 								return {
 									clientId: client.ssoClientId,
 									mbrId: '',
@@ -142,8 +139,9 @@ function ConversionStep5({ memberType = 'member', currentStep = 4 }: Step5Props)
 				|| provResponse.payload?.success === false
 			) {
 				setErrorMessage(
-					provResponse.message
-					|| provResponse.payload?.message
+					provResponse.payload?.message
+					|| provResponse.error
+					|| provResponse.message
 					|| '기업 등록에 실패하였습니다.',
 				);
 				setFailedModal(true);
@@ -186,16 +184,12 @@ function ConversionStep5({ memberType = 'member', currentStep = 4 }: Step5Props)
 		}
 
 		// clients 조립 (Step4에서 선택된 서비스) — fromClientId(initialClientId)와 일치하면 대표기관(Y)
-		// businessTypes 가 IND | ALL 인 클라이언트만 포함
 		const memberClients = data.selectedClients
 			.map((ssoClientId) => {
 				const client = data.availableClients.find(
 					(c) => c.ssoClientId === ssoClientId,
 				);
 				if (!client) return null;
-				if (client.businessTypes !== 'IND' && client.businessTypes !== 'ALL') {
-					return null;
-				}
 				return {
 					clientId: ssoClientId,
 					mbrId: '',
@@ -248,8 +242,9 @@ function ConversionStep5({ memberType = 'member', currentStep = 4 }: Step5Props)
 			|| provResponse.payload?.success === false
 		) {
 			setErrorMessage(
-				provResponse.message
-				|| provResponse.payload?.message
+				provResponse.payload?.message
+				|| provResponse.error
+				|| provResponse.message
 				|| '개인회원 등록에 실패하였습니다.',
 			);
 			setFailedModal(true);
@@ -352,17 +347,15 @@ function ConversionStep5({ memberType = 'member', currentStep = 4 }: Step5Props)
 				isOpen={failedModal}
 				onClose={(): void => setFailedModal(false)}
 				topText={isBusiness ? '기업 등록 오류' : '개인회원 등록 오류'}
-				title={errorMessage}
+				title={isBusiness ? '기업 등록 실패' : '개인회원 등록 실패'}
 				size="small"
 				buttons={[
-					{ label: '닫기', variant: 'tertiary' },
-					{ label: '확인', variant: 'primary' },
+					{ label: '닫기', variant: 'tertiary', onClick: (): void => setFailedModal(false) },
+					{ label: '확인', variant: 'primary', onClick: (): void => setFailedModal(false) },
 				]}
 			>
 				<p className="text">
-					{isBusiness ? '기업' : '개인회원'} 등록 처리 중 오류가 발생하였습니다.{' '}
-					<br />
-					입력 정보를 확인하신 후 다시 시도해 주세요.
+					{errorMessage}
 				</p>
 			</Modal>
 		</>

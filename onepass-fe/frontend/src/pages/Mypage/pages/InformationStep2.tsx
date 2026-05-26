@@ -9,6 +9,7 @@ import type { EasysignResult } from 'hooks/usePersonalEasyAuth';
 import usePersonalEasyAuth from 'hooks/usePersonalEasyAuth';
 import history from 'lib/history';
 import { FormEvent, useCallback, useState } from 'react';
+import { Redirect } from 'react-router-dom';
 
 import { getMypageRoute } from './routes';
 
@@ -24,6 +25,7 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 				setFailedModal(true);
 				return;
 			}
+			sessionStorage.setItem('mypage_information_step2_passed', '1');
 			history.push(onNext);
 		},
 		[onNext],
@@ -35,6 +37,7 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 				setFailedModal(true);
 				return;
 			}
+			sessionStorage.setItem('mypage_information_step2_passed', '1');
 			history.push(onNext);
 		},
 		[onNext],
@@ -57,9 +60,6 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 	return (
 		<>
 			<div className="title-top-box">
-				<div className="cont-title-box">
-					<h3 className="tit">회원유형</h3>
-				</div>
 				<div className="text-info-wrap point">
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
@@ -213,6 +213,7 @@ function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
 
 	const handleEzAuthSuccess = useCallback(
 		(): void => {
+			sessionStorage.setItem('mypage_information_step2_passed', '1');
 			history.push(onNext);
 		},
 		[onNext],
@@ -227,9 +228,6 @@ function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
 	return (
 		<>
 			<div className="title-top-box">
-				<div className="cont-title-box">
-					<h3 className="tit">회원유형</h3>
-				</div>
 				<div className="text-info-wrap point">
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
@@ -342,6 +340,13 @@ function InformationStep2(): JSX.Element {
 	const memberType = useMypageType();
 	const isBusiness = memberType === 'business';
 	const nextRoute = getMypageRoute(memberType, 'INFORMATION_STEP3');
+	const step1Route = getMypageRoute(memberType, 'INFORMATION');
+
+	// /information 에서 "정보변경" 버튼을 거치지 않고 직접 진입 시 차단
+	// 기업회원은 임시 비활성화 — 재활성화 시 !isBusiness 조건 제거
+	if (!isBusiness && sessionStorage.getItem('mypage_information_step1_passed') !== '1') {
+		return <Redirect to={step1Route} />;
+	}
 
 	return (
 		<MypageContent>

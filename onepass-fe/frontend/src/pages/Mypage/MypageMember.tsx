@@ -16,9 +16,11 @@ const AffiliationWithdrawStep2 = lazy(
 	() => import('./pages/AffiliationWithdrawStep2'),
 );
 const PasswordStep1 = lazy(() => import('./pages/PasswordStep1'));
+const PasswordStep2 = lazy(() => import('./pages/PasswordStep2'));
 const Withdraw = lazy(() => import('./pages/Withdraw'));
 const WithdrawStep2 = lazy(() => import('./pages/WithdrawStep2'));
 const WithdrawComplete = lazy(() => import('./pages/WithdrawComplete'));
+const WithdrawFail = lazy(() => import('./pages/WithdrawFail'));
 
 function MypageMember(): JSX.Element {
 	const { path } = useRouteMatch();
@@ -66,12 +68,22 @@ function MypageMember(): JSX.Element {
 					/>
 					<Route
 						exact
+						path={`${path}/withdraw/fail`}
+						component={WithdrawFail}
+					/>
+					<Route
+						exact
 						path={`${path}/withdraw/step2`}
 						component={WithdrawStep2}
 					/>
 					<Route exact path={`${path}/withdraw`} component={Withdraw} />
 					<Route exact path={`${path}/password`} component={PasswordStep1} />
-					<Route exact path={path}>
+					<Route
+						exact
+						path={`${path}/password/step2`}
+						component={PasswordStep2}
+					/>
+					<Route>
 						<Redirect to={`${path}/information`} />
 					</Route>
 				</Switch>

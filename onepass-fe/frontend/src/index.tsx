@@ -17,15 +17,16 @@ import { TracingInstrumentation } from '@grafana/faro-web-tracing';
 
  
 const appEnv = process.env.APP_ENV || 'local';
+const faroAppEnv = process.env.FARO_APP_ENV || appEnv;
 
 // 로컬 환경에서는 Faro 수집 비활성화
-const faro = appEnv !== 'local'
+const faro = faroAppEnv !== 'local'
   ? initializeFaro({
       url: process.env.FARO_COLLECTOR_URL || '',
       app: {
-        name: `onepass-ui-${appEnv}`,
+        name: `onepass-fe-${faroAppEnv}`,
         version: '1.0.0',
-        environment: appEnv,
+        environment: faroAppEnv,
       },
       globalObjectKey: 'faro',
       user: {
@@ -49,12 +50,8 @@ const faro = appEnv !== 'local'
           instrumentationOptions: {
             propagateTraceHeaderCorsUrls: [
               /\/api\/.*/,
-              /\/im\/api\/.*/,
               ...(process.env.BE_API_ENDPOINT
                 ? [new RegExp(process.env.BE_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
-                : []),
-              ...(process.env.EXT_API_ENDPOINT
-                ? [new RegExp(process.env.EXT_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
                 : []),
             ],
           },

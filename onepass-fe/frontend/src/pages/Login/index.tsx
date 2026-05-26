@@ -8,6 +8,7 @@ import useEzAuth from 'hooks/useEzAuth';
 import useNicePhoneAuth, { NicePhoneAuthResult } from 'hooks/useNicePhoneAuth';
 import usePersonalEasyAuth, { EasysignResult } from 'hooks/usePersonalEasyAuth';
 import history from 'lib/history';
+import { saveLoginReturnSearch } from 'pages/FindId/services';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { ERROR_MESSAGES } from './constants';
@@ -464,6 +465,12 @@ function Login(): JSX.Element {
 														type="button"
 														className="btn text id"
 														aria-label="아이디 찾기"
+														onClick={(): void => {
+															// 진입 시점의 Keycloak 컨텍스트(action_url, return_uri 등)를
+															// 보존해 두었다가 result → login 복귀 시 재부착
+															saveLoginReturnSearch(window.location.search);
+															history.push(ROUTES.FIND_ID);
+														}}
 													>
 														<span>아이디 찾기</span>
 													</button>
@@ -472,9 +479,14 @@ function Login(): JSX.Element {
 													<button
 														type="button"
 														className="btn text password"
-														aria-label="비밀번호 찾기"
+														aria-label="비밀번호 재설정"
+														onClick={(): void => {
+															// find-id 와 동일 — Keycloak 컨텍스트 보존 후 복귀에 사용
+															saveLoginReturnSearch(window.location.search);
+															history.push(ROUTES.FIND_PASSWORD);
+														}}
 													>
-														<span>비밀번호 찾기</span>
+														<span>비밀번호 재설정</span>
 													</button>
 												</li>
 											</ul>
