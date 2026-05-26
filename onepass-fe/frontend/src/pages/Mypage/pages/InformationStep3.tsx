@@ -5,6 +5,7 @@ import { useMypageType } from 'components/MypageLayout';
 import IMAGES from 'constants/images';
 import history from 'lib/history';
 import { ChangeEvent, FormEvent, useRef, useState } from 'react';
+import { Redirect } from 'react-router-dom';
 
 import { getMypageRoute } from './routes';
 import { loadUserId, useInfoStore } from './useInfoStore';
@@ -128,9 +129,6 @@ function BusinessForm({ formRef, onSubmit }: FormProps): JSX.Element {
 	return (
 		<>
 			<div className="title-top-box">
-				<div className="cont-title-box">
-					<h3 className="tit">회원유형</h3>
-				</div>
 				<div className="text-info-wrap point">
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
@@ -306,9 +304,6 @@ function MemberForm({ formRef, onSubmit }: FormProps): JSX.Element {
 	return (
 		<>
 			<div className="title-top-box">
-				<div className="cont-title-box">
-					<h3 className="tit">회원유형</h3>
-				</div>
 				<div className="text-info-wrap point">
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
@@ -455,6 +450,13 @@ function InformationStep3(): JSX.Element {
 	const [loading, setLoading] = useState(false);
 	const formRef = useRef<HTMLFormElement>(null);
 	const informationRoute = getMypageRoute(memberType, 'INFORMATION');
+	const step2Route = getMypageRoute(memberType, 'INFORMATION_STEP2');
+
+	// step2(인증)을 거치지 않고 직접 진입 시 차단
+	// 기업회원은 임시 비활성화 — 재활성화 시 !isBusiness 조건 제거
+	if (!isBusiness && sessionStorage.getItem('mypage_information_step2_passed') !== '1') {
+		return <Redirect to={step2Route} />;
+	}
 
 	const handleResultConfirm = (): void => {
 		const isSuccess = resultModal?.success;
@@ -560,7 +562,7 @@ function InformationStep3(): JSX.Element {
 			mbrUuid,
 			memberName: memberName || undefined,
 			indvMblTelno: indvMblTelno || undefined,
-			emlAddr: `${email1}@${email2}`,
+			indvEmlAddr: `${email1}@${email2}`,
 		});
 		setLoading(false);
 

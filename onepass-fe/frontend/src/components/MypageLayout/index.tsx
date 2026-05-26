@@ -8,10 +8,12 @@ import {
 	BusinessInfo,
 	InfoStoreContext,
 	loadFromStorage,
+	loadRedirectUri,
 	loadUserId,
 	mapEnterpriseResponse,
 	mapMemberResponse,
 	MemberInfo,
+	saveRedirectUri,
 	saveToStorage,
 	saveUserId,
 } from 'pages/Mypage/pages/useInfoStore';
@@ -171,8 +173,12 @@ function MypageLayout({
 		const mbrNo = params.get('mbrNo');
 		const entMbrNo = params.get('entMbrNo');
 		const uuid = params.get('uuid');
-		// const redirectUri = params.get('redirect_uri');
+		const redirectUri = params.get('redirect_uri');
 		// const clientId = params.get('client_id');
+
+		// redirect_uri 는 초입에만 URL 에 실려오므로 진입 시 localStorage 에 저장
+		// (이후 sub-route 이동 시 URL 에서 사라져도 헤더/홈 버튼이 참조 가능)
+		if (redirectUri) saveRedirectUri(redirectUri);
 
 		setNotFound(false);
 
@@ -204,7 +210,8 @@ function MypageLayout({
 
 	const handleNotFoundConfirm = useCallback((): void => {
 		setNotFound(false);
-		const redirectUri = new URLSearchParams(search).get('redirect_uri');
+		const redirectUri =
+			new URLSearchParams(search).get('redirect_uri') || loadRedirectUri();
 		if (redirectUri) {
 			try {
 				const { origin } = new URL(redirectUri);

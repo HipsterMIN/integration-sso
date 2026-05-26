@@ -1,4 +1,3 @@
-import userCheckConversion, { enterpriseCheckConversion } from 'api/ext/checkConversion';
 import exchangeCiToken from 'api/provision/ciToken';
 import ConversionLayout from 'components/ConversionLayout';
 import Modal from 'components/KrdsModal';
@@ -18,12 +17,12 @@ import { encryptCi } from 'utils/crypto/aesGcm';
 import { getConversionRoute } from '../routes';
 
 /** 성별 값을 M/F로 정규화 */
-const normalizeGender = (raw?: string): 'M' | 'F' | undefined => {
-	if (!raw) return undefined;
+const normalizeGender = (raw?: string): 'M' | 'F' | '' => {
+	if (!raw) return '';
 	const v = raw.trim();
 	if (['남', 'M', 'm', '1'].includes(v)) return 'M';
 	if (['여', 'F', 'f', '2'].includes(v)) return 'F';
-	return undefined;
+	return '';
 };
 
 interface Step3Props {
@@ -65,6 +64,7 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 						flowContext: 'PROVISION_USER',
 						name: result.name?.normalize('NFC').trim(),
 						birthDate: (result.birthday || '').replace(/\D/g, ''),
+						gender: normalizeGender(undefined),
 						phone: (result.phone || '').replace(/\D/g, ''),
 					});
 					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.success !== false && tokenResponse.payload?.data) {
@@ -75,21 +75,6 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 						setFailedMessage(msg);
 						setFailedModal(true);
 						return;
-					}
-				}
-
-				// 전환 가능 여부 체크 및 클라이언트 목록 조회
-				if (data.mbrId && ciToken) {
-					const convResult = await userCheckConversion({ mbrId: data.mbrId, ci: ciToken });
-					if (convResult.statusCode === 200 && convResult.payload?.data) {
-						const convData = convResult.payload.data;
-						const eligibleClients = convData.perAgency.filter(
-							(c) => c.businessTypes === 'IND' || c.businessTypes === 'ALL',
-						);
-						updateData({
-							availableClients: convData.perAgency,
-							selectedClients: eligibleClients.map((c) => c.ssoClientId),
-						});
 					}
 				}
 
@@ -160,21 +145,6 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					}
 				}
 
-				// 전환 가능 여부 체크 및 클라이언트 목록 조회
-				if (data.mbrId && ciToken) {
-					const convResult = await userCheckConversion({ mbrId: data.mbrId, ci: ciToken });
-					if (convResult.statusCode === 200 && convResult.payload?.data) {
-						const convData = convResult.payload.data;
-						const eligibleClients = convData.perAgency.filter(
-							(c) => c.businessTypes === 'IND' || c.businessTypes === 'ALL',
-						);
-						updateData({
-							availableClients: convData.perAgency,
-							selectedClients: eligibleClients.map((c) => c.ssoClientId),
-						});
-					}
-				}
-
 				const phone = result.phone || '';
 				updateData({
 					name: result.name,
@@ -219,26 +189,7 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 				brno,
 			});
 
-			// 기업 전환 가능 여부 체크 및 클라이언트 목록 조회
-			(async (): Promise<void> => {
-				if (brno) {
-					const convResult = await enterpriseCheckConversion({ brno });
-					if (convResult.statusCode === 200 && convResult.payload?.data) {
-						const convData = convResult.payload.data;
-						const eligibleClients = convData.perAgency.filter(
-							(c) => c.businessTypes === 'ENT' || c.businessTypes === 'ALL',
-						);
-						updateData({
-							availableClients: convData.perAgency,
-							selectedClients: eligibleClients.map((c) => c.ssoClientId),
-						});
-					}
-				}
-				history.push(getConversionRoute(4, memberType));
-			})().catch(() => {
-				// 실패해도 다음 단계로 진행
-				history.push(getConversionRoute(4, memberType));
-			});
+			history.push(getConversionRoute(4, memberType));
 		},
 		[updateData, memberType, data.brno],
 	);
@@ -269,21 +220,6 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 			return false;
 		}
 
-		// 기업회원: 사업자 인증 미완료 시 입력값으로 클라이언트 목록 조회
-		if (isBusiness && data.availableClients.length === 0 && data.brno) {
-			const convResult = await enterpriseCheckConversion({ brno: data.brno });
-			if (convResult.statusCode === 200 && convResult.payload?.data) {
-				const convData = convResult.payload.data;
-				const eligibleClients = convData.perAgency.filter(
-					(c) => c.businessTypes === 'ENT' || c.businessTypes === 'ALL',
-				);
-				updateData({
-					availableClients: convData.perAgency,
-					selectedClients: eligibleClients.map((c) => c.ssoClientId),
-				});
-			}
-		}
-
 		return true;
 	};
 
@@ -303,12 +239,6 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 							<ul className="text-list-wrap check" aria-label="안내 사항">
 								<li>
 									<p>유관시스템 서비스를 하나의 통합 ID로 연결합니다</p>
-								</li>
-								<li>
-									<p>
-										등록을 원하지 않으실 경우 '건너뛰기'를 선택하여 가입을 완료하실 수
-										있습니다.
-									</p>
 								</li>
 								<li>
 									<p>

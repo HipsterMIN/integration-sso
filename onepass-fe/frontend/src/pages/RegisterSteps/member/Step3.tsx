@@ -9,13 +9,21 @@ import type { NicePhoneAuthResult } from 'hooks/useNicePhoneAuth';
 import useNicePhoneAuth from 'hooks/useNicePhoneAuth';
 import type { EasysignResult } from 'hooks/usePersonalEasyAuth';
 import usePersonalEasyAuth from 'hooks/usePersonalEasyAuth';
-import history from 'lib/history';
 import { ChangeEvent, useCallback, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { useRegister } from 'providers/Register/RegisterContext';
 import { encryptCi } from 'utils/crypto/aesGcm';
 
 import { getRegisterRoute } from '../routes';
+
+/** 성별 값을 M/F로 정규화 */
+const normalizeGender = (raw?: string): 'M' | 'F' | '' => {
+	if (!raw) return '';
+	const v = raw.trim();
+	if (['남', 'M', 'm', '1'].includes(v)) return 'M';
+	if (['여', 'F', 'f', '2'].includes(v)) return 'F';
+	return '';
+};
 
 interface Step3Props {
 	memberType?: MemberType;
@@ -59,6 +67,10 @@ function RegisterStep3({
 						realm: 'ucube-qsign',
 						clientId: 'onepassCli',
 						flowContext: 'PROVISION_USER',
+						name: result.name?.normalize('NFC').trim(),
+						birthDate: (result.birthday || '').replace(/\D/g, ''),
+						gender: normalizeGender(undefined),
+						phone: (result.phone || '').replace(/\D/g, ''),
 					});
 					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.success !== false && tokenResponse.payload?.data) {
 						ciToken = tokenResponse.payload.data.ciToken;
@@ -70,6 +82,7 @@ function RegisterStep3({
 						return;
 					}
 				}
+
 				const phone = result.phone || '';
 				updateData({
 					name: result.name,
@@ -118,6 +131,10 @@ function RegisterStep3({
 						realm: 'ucube-qsign',
 						clientId: 'onepassCli',
 						flowContext: 'PROVISION_USER',
+						name: result.name?.normalize('NFC').trim(),
+						birthDate: (result.birthdate || '').replace(/\D/g, ''),
+						gender: normalizeGender(result.gender),
+						phone: (result.phone || '').replace(/\D/g, ''),
 					});
 					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.success !== false && tokenResponse.payload?.data) {
 						ciToken = tokenResponse.payload.data.ciToken;
@@ -129,6 +146,7 @@ function RegisterStep3({
 						return;
 					}
 				}
+
 				const phone = result.phone || '';
 				updateData({
 					name: result.name,
@@ -164,11 +182,13 @@ function RegisterStep3({
 				setFailedModal(true);
 				return;
 			}
+			const brno = resultData.businessNumber || data.brno;
 			updateData({
 				bzmnNm: resultData.name,
 				rprsvNm: resultData.name,
-				brno: resultData.businessNumber || data.brno,
+				brno,
 			});
+
 			history.push(getRegisterRoute(currentStep + 1, memberType));
 		},
 		[updateData, data.brno, history, currentStep, memberType],
@@ -189,7 +209,7 @@ function RegisterStep3({
 		updateData({ brno: value });
 	};
 
-	const handleNext = (): boolean => {
+	const handleNext = async (): Promise<boolean> => {
 		if (isBusiness && data.brno.length !== 10) {
 			setShowAlert(true);
 			return false;
@@ -217,11 +237,6 @@ function RegisterStep3({
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
 							<p>유관시스템 서비스를 하나의 통합 ID로 연결합니다</p>
-						</li>
-						<li>
-							<p>
-								등록을 원하지 않으실 경우 '건너뛰기'를 선택하여 가입을 완료하실 수 있습니다.
-							</p>
 						</li>
 						<li>
 							<p>

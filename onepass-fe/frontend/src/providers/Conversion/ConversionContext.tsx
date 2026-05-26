@@ -1,4 +1,5 @@
 import type { MemberType } from 'components/StepIndicator';
+import { MOCK_BUSINESS, MOCK_MEMBER } from 'constants/mockData';
 import {
 	createContext,
 	ReactNode,
@@ -10,9 +11,6 @@ import {
 import type { Client } from 'types/api/ext/clients';
 
 export interface ConversionData {
-	// 전환 세션 ID (BE 발급)
-	conversionSessionId: string;
-
 	// Step1
 	memberType: MemberType;
 	initialClientId: string;
@@ -66,29 +64,32 @@ export interface ConversionData {
 	mbrNo: string;
 	mbrUuid: string;
 	provisioningToken: string;
+
+	// Step1 (PR #196) — signed_request JWT 처리 후 onepass-be로부터 발급되는 세션 ID.
+	// 이후 단계에서 conversion-init 컨텍스트를 다시 참조할 때 사용한다.
+	conversionSessionId?: string;
 }
 
 const INITIAL_DATA: ConversionData = {
-	conversionSessionId: '',
 	memberType: 'member',
 	initialClientId: '',
 	brno: '',
 	ciToken: '',
 	birthDate: '',
 	loginId: '',
-	email: '',
-	emailDomain: '',
+	email: MOCK_MEMBER.emailId,
+	emailDomain: MOCK_MEMBER.emailDomain,
 	phone: '',
 	telPrefix: '',
 	telSuffix: '',
-	bzmnNm: '',
-	rprsvNm: '',
+	bzmnNm: MOCK_BUSINESS.companyName,
+	rprsvNm: MOCK_BUSINESS.repName,
 	startDt: '',
 	password: '',
-	name: '',
-	phonePrefix: '',
-	phoneSuffix: '',
-	emailId: '',
+	name: MOCK_MEMBER.name,
+	phonePrefix: MOCK_MEMBER.phonePrefix,
+	phoneSuffix: MOCK_MEMBER.phoneSuffix,
+	emailId: MOCK_MEMBER.emailId,
 	consentEventId: undefined,
 	redirectUri: '',
 	selectedClients: [],

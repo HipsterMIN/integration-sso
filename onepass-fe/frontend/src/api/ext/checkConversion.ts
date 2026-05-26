@@ -7,6 +7,7 @@ import { CheckConversionResponse } from 'types/api/ext/clients';
 const userCheckConversion = async (params: {
 	mbrId?: string;
 	ci?: string;
+	targetClientId?: string[];
 }): Promise<SuccessResponse<CheckConversionResponse> | ErrorResponse> => {
 	try {
 		const response = await beInstance.post(
@@ -26,6 +27,7 @@ const userCheckConversion = async (params: {
 
 export const enterpriseCheckConversion = async (params: {
 	brno: string;
+	targetClientId?: string[];
 }): Promise<SuccessResponse<CheckConversionResponse> | ErrorResponse> => {
 	try {
 		const response = await beInstance.post(

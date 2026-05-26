@@ -17,12 +17,12 @@ import { getMypageRoute } from './routes';
 import { loadUserId } from './useInfoStore';
 
 /** 성별 값을 M/F로 정규화 */
-const normalizeGender = (raw?: string): 'M' | 'F' | undefined => {
-	if (!raw) return undefined;
+const normalizeGender = (raw?: string): 'M' | 'F' | '' => {
+	if (!raw) return '';
 	const v = raw.trim();
 	if (['남', 'M', 'm', '1'].includes(v)) return 'M';
 	if (['여', 'F', 'f', '2'].includes(v)) return 'F';
-	return undefined;
+	return '';
 };
 
 // PUB260507 mypage_affiliation_withdraw_step1.html — 기업 인증 카드 2개
@@ -163,7 +163,7 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 
 	/** CI 암호화 → ciToken 발급 → sessionStorage 저장 → Step2 이동 */
 	const processCiToken = useCallback(
-		async (ci: string, authInfo?: { name?: string; birthDate?: string; gender?: 'M' | 'F'; phone?: string }): Promise<void> => {
+		async (ci: string, authInfo?: { name?: string; birthDate?: string; gender?: 'M' | 'F' | ''; phone?: string }): Promise<void> => {
 			const mbrUuid = loadUserId('member') || '';
 			const encrypted = await encryptCi(ci);
 			const tokenRes = await exchangeCiToken({
@@ -198,6 +198,7 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 					name: result.name?.normalize('NFC').trim(),
 					birthDate: (result.birthday || '').replace(/\D/g, ''),
 					phone: (result.phone || '').replace(/\D/g, ''),
+					gender: normalizeGender(undefined),
 				}).catch(() => setFailedModal(true));
 			} else {
 				setFailedModal(true);
