@@ -4,6 +4,37 @@ export const Login = Loadable(
 	() => import(/* webpackChunkName: "Login" */ 'pages/Login'),
 );
 
+export const FindId = Loadable(
+	() => import(/* webpackChunkName: "FindId" */ 'pages/FindId'),
+);
+
+export const FindIdResult = Loadable(
+	() => import(/* webpackChunkName: "FindIdResult" */ 'pages/FindId/Result'),
+);
+
+export const FindIdNotFound = Loadable(
+	() =>
+		import(/* webpackChunkName: "FindIdNotFound" */ 'pages/FindId/NoAccount'),
+);
+
+export const FindPassword = Loadable(
+	() => import(/* webpackChunkName: "FindPassword" */ 'pages/FindPassword'),
+);
+
+export const FindPasswordNew = Loadable(
+	() =>
+		import(
+			/* webpackChunkName: "FindPasswordNew" */ 'pages/FindPassword/NewPassword'
+		),
+);
+
+export const FindPasswordResult = Loadable(
+	() =>
+		import(
+			/* webpackChunkName: "FindPasswordResult" */ 'pages/FindPassword/Result'
+		),
+);
+
 export const SomethingWentWrong = Loadable(
 	() =>
 		import(
@@ -24,7 +55,6 @@ export const ConversionStep1 = Loadable(
 );
 
 // Conversion member steps
-// STEP4(/step4) → 정보입력(member/Step5.tsx), STEP5(/step5) → 완료(member/Step8.tsx)
 export const ConversionMemberStep2 = Loadable(
 	() =>
 		import(
@@ -40,13 +70,19 @@ export const ConversionMemberStep3 = Loadable(
 export const ConversionMemberStep4 = Loadable(
 	() =>
 		import(
-			/* webpackChunkName: "ConversionMemberStep4" */ 'pages/ConversionSteps/member/Step5'
+			/* webpackChunkName: "ConversionMemberStep4" */ 'pages/ConversionSteps/member/Step6'
 		),
 );
 export const ConversionMemberStep5 = Loadable(
 	() =>
 		import(
-			/* webpackChunkName: "ConversionMemberStep5" */ 'pages/ConversionSteps/member/Step8'
+			/* webpackChunkName: "ConversionMemberStep5" */ 'pages/ConversionSteps/member/Step5'
+		),
+);
+export const ConversionMemberStep6 = Loadable(
+	() =>
+		import(
+			/* webpackChunkName: "ConversionMemberStep6" */ 'pages/ConversionSteps/member/Step8'
 		),
 );
 
@@ -78,7 +114,6 @@ export const OacxTest = Loadable(
 );
 
 // Conversion business steps
-// STEP4(/step4) → 정보입력(business/Step5.tsx), STEP5(/step5) → 완료(business/Step6.tsx)
 export const ConversionBusinessStep2 = Loadable(
 	() =>
 		import(
@@ -94,13 +129,19 @@ export const ConversionBusinessStep3 = Loadable(
 export const ConversionBusinessStep4 = Loadable(
 	() =>
 		import(
-			/* webpackChunkName: "ConversionBusinessStep4" */ 'pages/ConversionSteps/business/Step5'
+			/* webpackChunkName: "ConversionBusinessStep4" */ 'pages/ConversionSteps/business/Step4'
 		),
 );
 export const ConversionBusinessStep5 = Loadable(
 	() =>
 		import(
-			/* webpackChunkName: "ConversionBusinessStep5" */ 'pages/ConversionSteps/business/Step6'
+			/* webpackChunkName: "ConversionBusinessStep5" */ 'pages/ConversionSteps/business/Step5'
+		),
+);
+export const ConversionBusinessStep6 = Loadable(
+	() =>
+		import(
+			/* webpackChunkName: "ConversionBusinessStep6" */ 'pages/ConversionSteps/business/Step6'
 		),
 );
 
@@ -113,7 +154,6 @@ export const RegisterStep1 = Loadable(
 );
 
 // Register member steps
-// STEP4(/step4) → 정보입력(member/Step5.tsx), STEP5(/step5) → 완료(member/Step6.tsx)
 export const RegisterMemberStep2 = Loadable(
 	() =>
 		import(
@@ -129,18 +169,23 @@ export const RegisterMemberStep3 = Loadable(
 export const RegisterMemberStep4 = Loadable(
 	() =>
 		import(
-			/* webpackChunkName: "RegisterMemberStep4" */ 'pages/RegisterSteps/member/Step5'
+			/* webpackChunkName: "RegisterMemberStep4" */ 'pages/RegisterSteps/member/Step4'
 		),
 );
 export const RegisterMemberStep5 = Loadable(
 	() =>
 		import(
-			/* webpackChunkName: "RegisterMemberStep5" */ 'pages/RegisterSteps/member/Step6'
+			/* webpackChunkName: "RegisterMemberStep5" */ 'pages/RegisterSteps/member/Step5'
+		),
+);
+export const RegisterMemberStep6 = Loadable(
+	() =>
+		import(
+			/* webpackChunkName: "RegisterMemberStep6" */ 'pages/RegisterSteps/member/Step6'
 		),
 );
 
 // Register business steps
-// STEP4(/step4) → 정보입력(business/Step5.tsx), STEP5(/step5) → 완료(business/Step6.tsx)
 export const RegisterBusinessStep2 = Loadable(
 	() =>
 		import(
@@ -156,12 +201,18 @@ export const RegisterBusinessStep3 = Loadable(
 export const RegisterBusinessStep4 = Loadable(
 	() =>
 		import(
-			/* webpackChunkName: "RegisterBusinessStep4" */ 'pages/RegisterSteps/business/Step5'
+			/* webpackChunkName: "RegisterBusinessStep4" */ 'pages/RegisterSteps/business/Step4'
 		),
 );
 export const RegisterBusinessStep5 = Loadable(
 	() =>
 		import(
-			/* webpackChunkName: "RegisterBusinessStep5" */ 'pages/RegisterSteps/business/Step6'
+			/* webpackChunkName: "RegisterBusinessStep5" */ 'pages/RegisterSteps/business/Step5'
+		),
+);
+export const RegisterBusinessStep6 = Loadable(
+	() =>
+		import(
+			/* webpackChunkName: "RegisterBusinessStep6" */ 'pages/RegisterSteps/business/Step6'
 		),
 );

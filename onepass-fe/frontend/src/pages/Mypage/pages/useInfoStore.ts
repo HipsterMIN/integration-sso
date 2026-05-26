@@ -69,10 +69,20 @@ export const BUSINESS_DEFAULT: BusinessInfo = {
 	clients: [],
 };
 
-/** 전화번호 문자열 → phone1/phone2/phone3 파싱 ("010-1234-5678" → ["010","1234","5678"]) */
+/** 전화번호 문자열 → phone1/phone2/phone3 파싱 ("010-1234-5678" 또는 "01012345678" 모두 지원) */
 function parsePhone(phone: string): [string, string, string] {
-	const parts = phone.replace(/[^0-9-]/g, '').split('-');
-	return [parts[0] || '', parts[1] || '', parts[2] || ''];
+	if (phone.includes('-')) {
+		const parts = phone.replace(/[^0-9-]/g, '').split('-');
+		return [parts[0] || '', parts[1] || '', parts[2] || ''];
+	}
+	const digits = phone.replace(/\D/g, '');
+	if (digits.length === 11) {
+		return [digits.slice(0, 3), digits.slice(3, 7), digits.slice(7)];
+	}
+	if (digits.length === 10) {
+		return [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6)];
+	}
+	return [digits, '', ''];
 }
 
 /** 이메일 문자열 → email1/email2 분리 ("hong@example.com" → ["hong","example.com"]) */
@@ -84,10 +94,12 @@ function parseEmail(email: string): [string, string] {
 
 /** 개인회원 조회 API 응답 → MemberInfo 매핑 */
 export function mapMemberResponse(data: MemberData): Partial<MemberInfo> {
-	const [phone1, phone2, phone3] = data.phone
-		? parsePhone(data.phone)
+	const phoneRaw = data.indvMblTelno || data.phone;
+	const [phone1, phone2, phone3] = phoneRaw
+		? parsePhone(phoneRaw)
 		: ['', '', ''];
-	const [email1, email2] = data.email ? parseEmail(data.email) : ['', ''];
+	const emailRaw = data.indvEmlAddr || data.email;
+	const [email1, email2] = emailRaw ? parseEmail(emailRaw) : ['', ''];
 	return {
 		id: data.loginId,
 		name: data.memberName,
@@ -133,6 +145,23 @@ export function mapEnterpriseResponse(
 
 const STORAGE_KEY = 'mypage_info';
 const USER_ID_KEY = 'mypage_user_id';
+const REDIRECT_URI_KEY = 'mypage_redirect_uri';
+
+export function saveRedirectUri(uri: string): void {
+	try {
+		localStorage.setItem(REDIRECT_URI_KEY, uri);
+	} catch {
+		// ignore
+	}
+}
+
+export function loadRedirectUri(): string | undefined {
+	try {
+		return localStorage.getItem(REDIRECT_URI_KEY) || undefined;
+	} catch {
+		return undefined;
+	}
+}
 
 interface StoredData {
 	member: MemberInfo;

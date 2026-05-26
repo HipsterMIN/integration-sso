@@ -36,9 +36,7 @@ function MypageSideNav({
 	const affiliationRoute = isBusiness
 		? ROUTES.MYPAGE_BUSINESS_AFFILIATION
 		: ROUTES.MYPAGE_MEMBER_AFFILIATION;
-	const passwordRoute = isBusiness
-		? ROUTES.MYPAGE_BUSINESS_PASSWORD
-		: ROUTES.MYPAGE_MEMBER_PASSWORD;
+	const passwordRoute = ROUTES.MYPAGE_MEMBER_PASSWORD;
 	const withdrawRoute = isBusiness
 		? ROUTES.MYPAGE_BUSINESS_WITHDRAW
 		: ROUTES.MYPAGE_MEMBER_WITHDRAW;
@@ -81,12 +79,14 @@ function MypageSideNav({
 							<span>유관기관 서비스 관리</span>
 						</a>
 					</li>
-					<li className={section === 'password' ? 'active' : ''}>
-						<a href={passwordRoute} onClick={navigate(passwordRoute)}>
-							<i className="icon key" aria-hidden="true" />
-							<span>비밀번호 수정</span>
-						</a>
-					</li>
+					{!isBusiness && (
+						<li className={section === 'password' ? 'active' : ''}>
+							<a href={passwordRoute} onClick={navigate(passwordRoute)}>
+								<i className="icon key" aria-hidden="true" />
+								<span>비밀번호 수정</span>
+							</a>
+						</li>
+					)}
 					<li className={section === 'withdraw' ? 'active' : ''}>
 						<a href={withdrawRoute} onClick={navigate(withdrawRoute)}>
 							<i className="icon person_check" aria-hidden="true" />

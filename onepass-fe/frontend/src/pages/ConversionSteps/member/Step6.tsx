@@ -1,5 +1,5 @@
+import userCheckConversion, { enterpriseCheckConversion } from 'api/ext/checkConversion';
 import getClients from 'api/ext/clients';
-import checkConversionProxy from 'api/provision/checkConversion';
 import ConversionLayout from 'components/ConversionLayout';
 import Spinner from 'components/Spinner';
 import type { MemberType } from 'components/StepIndicator';
@@ -22,29 +22,7 @@ interface FetchResult {
 	bizTypes: BusinessType[];
 }
 
-async function fetchForMember(
-	mbrId: string,
-	ciToken?: string,
-	mbrUuid?: string,
-): Promise<FetchResult | null> {
-	if (!ciToken) return null;
-	const response = await checkConversionProxy({
-		ciToken,
-		mbrId,
-		mbrUuid,
-	});
-	if (response.statusCode === 200 && response.payload) {
-		const raw = response.payload.data;
-		return {
-			clientList: raw?.perAgency ?? [],
-			groups: raw?.groups ?? [],
-			bizTypes: raw?.businessTypes ?? [],
-		};
-	}
-	return null;
-}
-
-async function fetchForBusiness(): Promise<FetchResult | null> {
+async function fetchClientList(): Promise<FetchResult | null> {
 	const response = await getClients();
 	if (response.statusCode === 200 && response.payload) {
 		const raw = response.payload.data;
@@ -67,8 +45,6 @@ function ConversionStep6({
 	const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([]);
 	const [serviceModal, setServiceModal] = useState(false);
 	const [loading, setLoading] = useState(true);
-
-	const isMember = memberType === 'member';
 
 	// memberType에 따라 사업유형 필터링된 클라이언트 목록
 	const bizTypeClients = useMemo(() => {
@@ -93,25 +69,18 @@ function ConversionStep6({
 		let cancelled = false;
 		const fetchData = async (): Promise<void> => {
 			setLoading(true);
-			const result =
-				isMember && data.mbrId
-					? await fetchForMember(
-							data.mbrId,
-							data.ciToken || undefined,
-							data.mbrUuid || undefined,
-					  )
-					: await fetchForBusiness();
+			const result = await fetchClientList();
 			if (cancelled) return;
 			if (result) {
 				setClients(result.clientList);
 				updateData({ availableClients: result.clientList });
-				setGroupMap(new Map(result.groups.map((g) => [g.key, g.name])));
+				setGroupMap(new Map(result.groups.map((g: ClientGroup) => [g.key, g.name])));
 				setBusinessTypes(result.bizTypes);
 
 				// initialClientId가 있으면 매칭되는 서비스를 기본 선택
 				if (initialClientId) {
 					const matchingClient = result.clientList
-						.find((c) => c.ssoClientId === initialClientId);
+						.find((c: Client) => c.ssoClientId === initialClientId);
 					if (matchingClient) {
 						updateData({ selectedClients: [matchingClient.ssoClientId] });
 					}
@@ -123,7 +92,7 @@ function ConversionStep6({
 		return (): void => {
 			cancelled = true;
 		};
-	}, [isMember, data.mbrId, data.ciToken, data.mbrUuid, initialClientId]);
+	}, [initialClientId]);
 
 	// "모두 선택합니다" → 체크 가능 항목만 전체 선택/해제
 	const handleSelectAll = useCallback(() => {
@@ -136,6 +105,25 @@ function ConversionStep6({
 		}
 	}, [allSelected, bizTypeClients, updateData]);
 
+	// "다음" 클릭 시 check-conversion 호출 (availableClients는 getClients 값 유지)
+	const handleNext = useCallback(async (): Promise<boolean> => {
+		if (data.selectedClients.length > 0) {
+			if (memberType === 'member') {
+				await userCheckConversion({
+					mbrId: data.mbrId || undefined,
+					ci: data.ciToken || undefined,
+					targetClientId: data.selectedClients,
+				});
+			} else {
+				await enterpriseCheckConversion({
+					brno: data.brno,
+					targetClientId: data.selectedClients,
+				});
+			}
+		}
+		return true;
+	}, [memberType, data.selectedClients, data.mbrId, data.ciToken, data.brno]);
+
 	return (
 		<ConversionLayout
 			currentStep={currentStep}
@@ -143,6 +131,7 @@ function ConversionStep6({
 			nextRoute={getConversionRoute(currentStep + 1, memberType)}
 			nextLabel="연결하기"
 			memberType={memberType}
+			onNext={handleNext}
 		>
 			{loading ? (
 				<Spinner tip="서비스 목록을 불러오고 있습니다..." height="300px" />

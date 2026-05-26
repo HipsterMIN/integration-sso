@@ -9,6 +9,8 @@ export interface MemberData {
 	ssoLastLoginDt: string;
 	phone?: string;
 	email?: string;
+	indvMblTelno?: string;
+	indvEmlAddr?: string;
 	enabled: boolean;
 	clients: MemberClient[];
 }
@@ -91,7 +93,7 @@ export interface MemberModifyRequest {
 	mbrUuid: string;
 	memberName?: string;
 	indvMblTelno?: string;
-	emlAddr?: string;
+	indvEmlAddr?: string;
 	addr?: string;
 	daddr?: string;
 	notiPrefs?: {

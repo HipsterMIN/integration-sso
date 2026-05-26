@@ -55,6 +55,7 @@ const IMAGES = {
 	RENEWAL_TEXT_LIST_IMG: `${RENEWAL_BASE}/text_list_img.png`,
 	RENEWAL_TEXT_LIST_IMG_RECEIVE_NOTIFICATIONS: `${RENEWAL_BASE}/text_list_img_receive_notifications.png`,
 	RENEWAL_WRITE_COMPLETED_IMG: `${RENEWAL_BASE}/write_completed_img.png`,
+	RENEWAL_WRITE_COMPLETED_IMG_2: `${RENEWAL_BASE}/write_completed_img-2.png`,
 	RENEWAL_WRITE_COMPLETED_IMG_MODAL: `${RENEWAL_BASE}/write_completed_img_modal.png`,
 	RENEWAL_LIST_COMPLETED_IMG_MODAL: `${RENEWAL_BASE}/list_completed_img_modal.png`,
 	RENEWAL_MYPAGE_NAV_BG: `${RENEWAL_BASE}/mypage_nav_bg.png`,

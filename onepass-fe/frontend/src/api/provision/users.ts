@@ -5,6 +5,8 @@ import { ErrorResponse, SuccessResponse } from 'types/api';
 import type {
 	ProvisionUserPayload,
 	ProvisionUserRequest,
+	WithdrawUserPayload,
+	WithdrawUserRequest,
 } from 'types/api/provision/users';
 
 /**
@@ -16,6 +18,29 @@ const provisionUser = async (
 ): Promise<SuccessResponse<ProvisionUserPayload> | ErrorResponse> => {
 	try {
 		const response = await beInstance.post('/api/v1/ext/provision/users', props);
+		return {
+			statusCode: 200,
+			error: null,
+			message: 'success',
+			payload: response.data,
+		};
+	} catch (error) {
+		return ErrorResponseHandler(error as AxiosError);
+	}
+};
+
+/**
+ * 개인 회원 탈퇴 (Q-IM /api/ext/provision/users/withdraw)
+ * ciToken 은 jti 1회 consume — withdrawalReason 은 audit 보존 (PIPA §28).
+ */
+export const withdrawUser = async (
+	props: WithdrawUserRequest,
+): Promise<SuccessResponse<WithdrawUserPayload> | ErrorResponse> => {
+	try {
+		const response = await beInstance.post(
+			'/api/v1/ext/provision/users/withdraw',
+			{ ...props, withdrawalReason: props.withdrawalReason || '서비스 미이용' },
+		);
 		return {
 			statusCode: 200,
 			error: null,
