@@ -59,6 +59,34 @@ export interface RegisterData {
 
 	// Step5 (NotificationSettings)
 	notifications: Record<string, boolean>;
+
+	// ────────────────────────────────────────────────────────────────────
+	// 미성년자 가입 플로우 (RegisterSteps/minor/Step2~6)
+	// 일반 회원가입에서는 모두 미사용 — INITIAL_DATA 에서 빈 값/false 로 초기화.
+	// 추가 배경: 2026-05-10 onepass-develop.zip 통합으로 페이지 컴포넌트는 들어왔으나
+	// 본 타입 정의가 동반 갱신되지 않아 tsc 14건 에러로 표면화됨 (PR #195 참조).
+	// ────────────────────────────────────────────────────────────────────
+
+	/** 미성년자 여부 (Step3 에서 본인인증 후 만 14세 미만이면 true) */
+	isMinor: boolean;
+
+	/** 미성년자 약관 동의 이벤트 ID (Step2 미성년자 분기에서 별도 저장) */
+	guardianConsentEventId: number;
+
+	/** 보호자 본인인증 CI 토큰 (Step4) */
+	guardianCiToken: string;
+
+	/** 보호자 성명 */
+	guardianName: string;
+
+	/** 보호자 생년월일 (YYYYMMDD) */
+	guardianBirthDate: string;
+
+	/** 보호자 휴대폰번호 */
+	guardianPhone: string;
+
+	/** 보호자 동의 완료 플래그 (Step4 완료 후 true) */
+	guardianConsentDone: boolean;
 }
 
 const INITIAL_DATA: RegisterData = {
@@ -91,6 +119,14 @@ const INITIAL_DATA: RegisterData = {
 	selectedClients: [],
 	availableClients: [],
 	notifications: {},
+	// 미성년자 가입 플로우 초기값
+	isMinor: false,
+	guardianConsentEventId: 0,
+	guardianCiToken: '',
+	guardianName: '',
+	guardianBirthDate: '',
+	guardianPhone: '',
+	guardianConsentDone: false,
 };
 
 interface RegisterContextValue {

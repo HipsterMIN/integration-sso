@@ -131,7 +131,9 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: TypeScript 컴파일 검사
-        run: yarn tsc --noEmit
+        # i18n hash 자동 생성을 포함한 typecheck 스크립트 사용 (package.json scripts 참조)
+        # 2026-05-24 PR #196 에서 14건 TS 부채 해소 완료 → continue-on-error 제거
+        run: yarn typecheck
 
       - name: Webpack 빌드
         env:
