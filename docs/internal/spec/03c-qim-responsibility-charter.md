@@ -19,7 +19,7 @@
 | **API 표면** | `/api/v1/internal/**` (서비스 메쉬 내부) + `/api/v1/users/{id}` 한 건만 외부 노출 | 공개 인터넷 / FE 직접 호출 / agency 직접 호출 (모두 IdO 경유) |
 | **트랜잭션** | DB ⇄ Outbox 같은 트랜잭션, At-Least-Once 발행 보장 | At-Most-Once / 분산 트랜잭션 / 2PC |
 | **인증·인가** | 자기 API 호출자 식별 (호출자=IdO 만 허용) | 사용자 비밀번호/로그인 검증, OIDC 토큰 발급, RBAC 결정 |
-| **UI** | 없음 — 백엔드 전용 | onepass-fe, onepass-support 어드민 화면 |
+| **UI** | **영구히 없음** — Q-IM은 어떠한 사람-대상 화면도 갖지 않는다 (§6.5 절대 금지선) | Q-IM 관리자 페이지·어드민 콘솔·운영 대시보드·"한 번만" 임시 화면 (전부 ❌) |
 | **운영 데이터 노출** | `processed_event`, `outbox_record.status`, `snapshot_meta` 등 자기 메트릭 | 다른 모듈의 운영 메트릭 통합 대시보드 |
 
 > **황금 규칙 (Golden Rule)**
@@ -274,6 +274,117 @@ q-im/src/main/java/kr/go/smes/qim/conversion/AgencyMemberLookupServiceImpl.java
 
 ---
 
+## 6.5 절대 금지선 — Q-IM 관리자 페이지·UI·콘솔 금지 🚫
+
+> **본 섹션은 협상 불가(non-negotiable) 정책이다.**
+> 위반 시도가 발견되면 어떤 사유에서든 PR 즉시 reject 한다.
+> 본 섹션의 결론을 뒤집으려면 **헌장 폐기 + 신규 헌장 + 전 모듈 오너 합의**가 필요하다.
+
+### 6.5.1 금지의 한 줄
+
+**Q-IM 은 영구히, 어떠한 사람-대상(UI) 표면도 갖지 않는다.**
+
+여기서 "사람-대상 UI" 란:
+- 관리자 페이지 / 어드민 콘솔 / 백오피스
+- 운영 대시보드 / 모니터링 화면 (헬스/메트릭 *수집 엔드포인트*는 OK, *렌더링 화면*은 ❌)
+- 디버그 페이지 / 개발자 도구 / DB 조회 화면
+- "한 번만 임시로" 만드는 내부 페이지
+- Swagger UI / Actuator HTML view / H2 Console
+- 운영자가 "버튼" 으로 회원 데이터를 조작할 수 있는 모든 표면
+
+### 6.5.2 왜 절대 금지인가 — 7가지 논증
+
+| # | 논증 | 핵심 한 줄 |
+|---|------|---------|
+| **1** | SoR 원칙 파괴 | UI ↔ DB 직접 수정 경로 발생 → Outbox 우회 → 정합성 붕괴 |
+| **2** | 암호 자산 노출 폭탄 | CI 평문 복호화 능력 + DI 생성 + 전 회원 PII 가 화면에 표시될 가능성 |
+| **3** | 감사 추적성 분기 | IdO `platform.audit.log` 와 Q-IM 자체 UI 로그 두 갈래 → 사고 조사 시 양쪽 어긋남 |
+| **4** | 위협 모델 전면 변경 | CORS·세션·CSRF·XSS — 현재 모두 무관한데 UI 가 생기면 4개 다시 작업 |
+| **5** | 단순성 파괴 | "IdO 만 ✅, 나머지 ❌" 매트릭스(§3.2) 가 깨지고 호출자 종류·인증 수단 폭증 |
+| **6** | 인접 모듈 책임 경계 붕괴 | §7.4 가 무너지고 onepass-support → IdO 어드민 API 경로가 우회됨 |
+| **7** | 운영 비용 폭증 | 새 코드베이스·CI·배포·RBAC·운영팀 모두 추가 — Q-IM이 *"식별의 진실"* 한 가지에만 집중 못 함 |
+
+### 6.5.3 자주 시도되는 우회로와 차단
+
+| 시도 | 그럴듯한 이유 | 차단 근거 |
+|------|----------|---------|
+| "운영자가 빠르게 회원 조회해야 해서 페이지 하나만" | 운영 편의 | onepass-support 가 IdO 어드민 API 호출하는 화면을 만들면 됨. §7.4 |
+| "Swagger UI 만 띄우자, 개발자만 봄" | 개발 편의 | OpenAPI **스펙(.yaml/.json)** 은 OK, **렌더링 UI** 는 ❌. 스펙은 IdO/외부 도구로 import |
+| "Actuator HTML 뷰만 켜자" | 운영 진단 | `/actuator/health`, `/actuator/prometheus` JSON 만 허용. `management.endpoints.web.exposure` 에서 UI 관련 엔드포인트 명시 차단 |
+| "H2 Console (로컬 개발만)" | 디버그 | 운영 build profile 에서 자동 제외 강제. 로컬에서도 default OFF |
+| "Spring Boot Admin 등록" | 모니터링 통합 | Q-IM 은 등록되지 않는다. 메트릭은 Prometheus scrape → 외부 Grafana |
+| "에러 페이지 커스터마이즈" | UX | JSON 에러 응답만. HTML 에러 페이지 (`error.html`, Whitelabel) 비활성 |
+| "GraphQL Playground / GraphiQL" | API 탐색 | GraphQL 자체를 도입 안 함. REST 만. |
+| "비상시 한 번만 임시 UI" | 사고 대응 | 헌장 §6.5.4 비상 대응 매트릭스 참조 — UI 없이도 해결 가능 |
+
+### 6.5.4 인정되는 비-UI 운영 표면 (정의된 것만 허용)
+
+GUI 가 없으면 운영자가 손도 못 댄다는 우려를 차단하기 위해, **다음 4가지 비-UI 형태만** 운영 인터페이스로 허용한다:
+
+| 도구 | 허용 형태 | 금지 형태 |
+|------|---------|---------|
+| **헬스 체크** | `GET /actuator/health` (JSON) | `/actuator/*` 의 HTML view, Admin UI |
+| **메트릭 수집** | `GET /actuator/prometheus` (수집 endpoint) → 외부 Grafana | Q-IM 내장 차트·대시보드 |
+| **비상 운영 명령** | `kubectl exec` + 사전 정의된 read-only 스크립트 (`scripts/ops/*.sh`) | `psql/mariadb` GUI 클라이언트 운영 DB 접속, phpMyAdmin |
+| **민감 조작 API** | `POST /api/v1/internal/admin/*` + 2인 승인 헤더 (`X-Approver-A`, `X-Approver-B`) + audit 강제 | 같은 기능의 "버튼" 이 있는 화면 |
+
+**핵심 원칙**:
+> **"사람이 클릭할 수 있는 표면을 Q-IM 위에 만들지 않는다."**
+>
+> 모든 운영 행위는 (a) **명시적 API 호출** 또는 (b) **승인된 스크립트 실행** 으로 한다.
+> 행위의 흔적은 audit log 와 git history 양쪽에 남아야 한다.
+
+### 6.5.5 enforcement 체크리스트
+
+본 §6.5 가 코드 수준에서 위반되지 않도록 다음을 강제한다 (SEC-QIM-07 신규 백로그):
+
+```yaml
+# application.yml — 운영 build profile 기본값으로 강제
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus      # info 도 제외 권장
+        exclude: heapdump, env, beans, mappings, configprops
+  endpoint:
+    health:
+      show-details: never                 # PII 누설 방지
+
+spring:
+  h2:
+    console:
+      enabled: false                      # 어떤 profile 에서도 false 가 기본
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+springdoc:                                # Swagger 관련 라이브러리 자체를 의존성에서 제외
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+```
+
+추가 enforcement:
+- `q-im/build.gradle.kts` 에 `springdoc-openapi`, `spring-boot-admin-*`, `h2`, `spring-boot-starter-thymeleaf`, `spring-boot-starter-freemarker`, `spring-boot-starter-mustache` 의존성 **추가 금지** — CI 에서 dependency-check 로 검사
+- `q-im/src/main/resources/static/` 디렉토리 생성 금지 (CI 검사)
+- `q-im/src/main/resources/templates/` 디렉토리 생성 금지 (CI 검사)
+- `@Controller`(View 반환용) 어노테이션 금지 — `@RestController` 만 허용 (정적 코드 분석 또는 ArchUnit 테스트로 강제)
+
+### 6.5.6 본 정책의 폐기 절차
+
+본 §6.5 는 **헌장의 다른 어떤 조항보다 강한 효력**을 가진다. 이를 폐기 또는 약화하려면:
+
+1. 신규 RFC/ADR 작성 — *"왜 §6.5 를 폐기해야 하는가"* 의 7가지 논증(§6.5.2) 각각에 대한 반박
+2. 전 모듈 오너(IdO / Q-Sign / onepass-fe / onepass-support / onepass-agent / 보안팀) 의 **만장일치 합의** (다수결 불가)
+3. 폐기 후 발생할 위협 모델 변화 분석 + 신규 시정 PR 목록
+4. 폐기 발효일로부터 **최소 30일 cooldown** (그 동안 추가 의견 수렴)
+5. 헌장 신규 버전 발행 + git tag `qim-charter-v2`
+
+**단순한 PR 로는 §6.5 를 변경할 수 없다.**
+
+---
+
 ## 7. 인접 모듈과의 계약 — Contracts
 
 ### 7.1 IdO ↔ Q-IM
@@ -344,9 +455,14 @@ q-im/src/main/java/kr/go/smes/qim/conversion/AgencyMemberLookupServiceImpl.java
 | "감사 로그를 platform.audit.log 가 아니라 따로 받고 싶어" | ⚠️ 거절은 아니지만 IdO 와 협의 | IdO 의 감사 토픽 구독, 필터링은 컨슈머 측 책임 |
 | "기관 X 호출 좀 추가해줘 (직접 Q-IM 에서)" | ⚠️ §3.4 가드레일 통과 시만 | 가능하면 IdO 에 추가. Q-IM 의 agency 직접 호출은 전환 세션 한정 |
 | "onepass-support 에 Q-IM 데이터 노출 필요" | ❌ §7.4 | IdO 에 어드민 API 추가 요청 |
-| "Q-IM 에 UI 한 페이지만…" | ❌ §0 | onepass-support 가 IdO 어드민 API 호출하는 화면 |
+| "Q-IM 에 UI 한 페이지만…" | 🚫 **절대 금지 §6.5** (헌장 개정 없이는 영구 불가) | onepass-support 가 IdO 어드민 API 호출하는 화면 |
+| "Q-IM 관리자 콘솔·어드민 대시보드 하나만 열어줘" | 🚫 **절대 금지 §6.5** | onepass-support / 별도 운영 모듈에서 IdO 경유로 구현 |
+| "운영 편의용 임시 화면 — 딱 한 번만, 곧 지울게" | 🚫 **절대 금지 §6.5.3** (한 번 열리면 영구화됨) | `kubectl exec` + `scripts/ops/*.sh` (2인 승인) |
+| "Swagger UI / H2 Console / Spring Boot Admin 만이라도 켜두자" | 🚫 **절대 금지 §6.5.3** (bypass 시도로 간주) | OpenAPI **JSON** (`/v3/api-docs`)을 IdO·문서 사이트가 소비 |
 | "JWT 검증 좀 Q-IM 이 해주면 안 돼?" | ❌ Q-Sign / IdO 책임 | Q-IM 은 자기 INTERNAL API 호출자 인증만 (§6.2) |
 | "이번 한 번만 qim DB 에서 데이터 추출해 줘" | ⚠️ 감사 로그 남기고 진행. 정기화 시도 ❌ | 정기 통계는 별도 read-only replica + 분석 시스템 |
+
+> **§6.5 관련 행 처리 원칙**: 🚫 표시 항목은 **거절 사유 회신에 본 문서 링크 + §6.5 앵커를 반드시 포함**할 것. 헌장 개정(§6.5.6) 없이는 어떠한 우회·예외·"한 번만"도 받지 않는다.
 
 ---
 
@@ -359,6 +475,7 @@ q-im/src/main/java/kr/go/smes/qim/conversion/AgencyMemberLookupServiceImpl.java
 3. **새 스키마 마이그레이션 (V8+)** → §5.1 추적, `05-database-schema.md` 동시 갱신
 4. **외부 시스템 직접 호출 추가** → §3.4 가드레일 통과 + ADR 작성
 5. **보안 갭 시정 (PR-QIM-SEC-*)** → §6.1 표에서 상태 갱신
+6. **§6.5 절대 금지선 변경 (UI/관리자 페이지 도입)** → §6.5.6 의 RFC + 전 오너 만장일치 + 30일 쿨다운 + `qim-charter-v2` 태그 절차를 따라야 함 (일반 PR 로는 변경 불가)
 
 ---
 
