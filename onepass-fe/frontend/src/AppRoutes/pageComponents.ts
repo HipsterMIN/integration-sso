@@ -54,7 +54,7 @@ export const ConversionStep1 = Loadable(
 		),
 );
 
-// Conversion member steps
+// Member steps
 export const ConversionMemberStep2 = Loadable(
 	() =>
 		import(
@@ -70,7 +70,7 @@ export const ConversionMemberStep3 = Loadable(
 export const ConversionMemberStep4 = Loadable(
 	() =>
 		import(
-			/* webpackChunkName: "ConversionMemberStep4" */ 'pages/ConversionSteps/member/Step6'
+			/* webpackChunkName: "ConversionMemberStep4" */ 'pages/ConversionSteps/member/Step4'
 		),
 );
 export const ConversionMemberStep5 = Loadable(

@@ -53,8 +53,8 @@ function getSection(pathname: string): MypageSection {
 
 const SECTION_TITLE: Record<MypageSection, string> = {
 	information: '나의 정보',
-	affiliation: '유관기관 서비스 관리',
-	password: '비밀번호 수정',
+	affiliation: '유관기관 목록',
+	password: '비밀번호 재설정',
 	withdraw: '회원 탈퇴',
 };
 

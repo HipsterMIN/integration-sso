@@ -133,6 +133,7 @@ function Login(): JSX.Element {
 	useSectionAnimation();
 
 	// action_url 이 없는 경우 모달 표시
+	// 단, 전환/가입에서 넘어온 경우(return_uri 또는 return_client 존재)는 제외
 	useEffect(() => {
 		if (!actionUrl) {
 			if (error && code) {
@@ -140,17 +141,18 @@ function Login(): JSX.Element {
 				const message =
 					ERROR_MESSAGES[code] || `로그인 오류가 발생했습니다. (${code})`;
 				setErrorTopText('로그인 오류');
-				setErrorTitle('인증 서비스 연동에 실패하였습니다');
-				setErrorMessage(message);
-			} else {
-				// 비정상 접근
+				setErrorTitle(message);
+				// setErrorMessage(message);
+				setErrorModal(true);
+			} else if (!returnUri && !returnClient) {
+				// 비정상 접근 (전환/가입에서 넘어온 경우가 아닐 때만)
 				setErrorTopText('접근 오류');
 				setErrorTitle('비정상적인 접근입니다');
 				setErrorMessage('정상적인 경로를 통해 다시 시도해주세요.');
+				setErrorModal(true);
 			}
-			setErrorModal(true);
 		}
-	}, [actionUrl, error, code]);
+	}, [actionUrl, error, code, returnUri, returnClient]);
 
 	// Q-Sign 에러이지만 action_url이 있는 경우 (재로그인 가능)
 	useEffect(() => {
@@ -158,8 +160,8 @@ function Login(): JSX.Element {
 			const message =
 				ERROR_MESSAGES[code] || `로그인 오류가 발생했습니다. (${code})`;
 			setErrorTopText('로그인 오류');
-			setErrorTitle('인증 서비스 연동에 실패하였습니다');
-			setErrorMessage(message);
+			setErrorTitle(message);
+			// setErrorMessage(message);
 			setErrorModal(true);
 		}
 	}, [actionUrl, error, code]);
@@ -299,20 +301,11 @@ function Login(): JSX.Element {
 				<div className="inner">
 					<div className="page-title-wrap">
 						<div className="page-title-text-box">
-							<h2 className="page-title">중기원패스 회원 전환</h2>
+							<h2 className="page-title">중기 통합회원 전환</h2>
 							<p className="page-text">
 								하나의 아이디로 중소벤처기업부 유관기관의 서비스를 모두 이용해보세요!
 							</p>
-							<div>
-								<button
-									type="button"
-									className="btn text medium"
-									onClick={(): void => history.push(ROUTES.SUPPORT_MAIN)}
-								>
-									<span>Support 센터 이동</span>
-								</button>
-							</div>
-						</div>
+					</div>
 						<figure className="img-box">
 							<img
 								src={IMAGES.RENEWAL_PAGE_TITLE_IMG}
@@ -511,7 +504,7 @@ function Login(): JSX.Element {
 
 										<div className="join-box">
 											<strong>
-												중기원패스 하나로 중기부 유관서비스를 편리하게 이용하세요
+												중기 통합회원 하나로 중기부 유관서비스를 편리하게 이용하세요
 											</strong>
 											<button
 												type="button"
@@ -792,7 +785,7 @@ function Login(): JSX.Element {
 
 										<div className="join-box">
 											<strong>
-												중기원패스 하나로 중기부 유관서비스를 편리하게 이용하세요
+												중기 통합회원 하나로 중기부 유관서비스를 편리하게 이용하세요
 											</strong>
 											<button
 												type="button"

@@ -11,11 +11,18 @@ import { clearCiToken, loadCiToken, loadSelectedServices } from './affiliationSe
 import { getMypageRoute } from './routes';
 import { loadUserId, useInfoStore } from './useInfoStore';
 
+interface WithdrawAgencyResult {
+	instCd?: string;
+	instNm?: string;
+	resultCode?: string;
+}
+
 function AffiliationWithdrawStep2(): JSX.Element {
 	const memberType = useMypageType();
 	const [isCompletedModalOpen, setIsCompletedModalOpen] = useState(false);
 	const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
+	const [perAgency, setPerAgency] = useState<WithdrawAgencyResult[]>([]);
 	const affiliationRoute = getMypageRoute(memberType, 'AFFILIATION');
 	const step1Route = getMypageRoute(memberType, 'AFFILIATION_WITHDRAW_STEP1');
 	const isBusiness = memberType === 'business';
@@ -54,10 +61,25 @@ function AffiliationWithdrawStep2(): JSX.Element {
 		setSubmitting(false);
 
 		if (res.statusCode === 200) {
+			const payload = res.payload as {
+				data?: { perAgency?: WithdrawAgencyResult[] };
+			} | null;
+			setPerAgency(payload?.data?.perAgency ?? []);
 			setIsCompletedModalOpen(true);
 		} else {
 			setIsErrorModalOpen(true);
 		}
+	};
+
+	// 항목별 resultCode 가 'SUCCESS' 가 아니면 실패로 표기 (instCd 또는 instNm 으로 매칭)
+	const isAgencyFailed = (clientId: string | undefined, clientNm: string): boolean => {
+		const matched = perAgency.find(
+			(a) =>
+				(clientId && a.instCd === clientId)
+				|| a.instCd === clientNm
+				|| a.instNm === clientNm,
+		);
+		return !!matched && matched.resultCode !== 'SUCCESS';
 	};
 
 	return (
@@ -67,7 +89,7 @@ function AffiliationWithdrawStep2(): JSX.Element {
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
 							<p>
-								추가하기 버튼을 클릭하시면 중기원패스 통합회원을 이용하실 수
+								추가하기 버튼을 클릭하시면 중기 통합회원을 이용하실 수
 								있는 유관기관 항목을 보실 수 있습니다.
 							</p>
 						</li>
@@ -181,7 +203,7 @@ function AffiliationWithdrawStep2(): JSX.Element {
 				isOpen={isCompletedModalOpen}
 				onClose={(): void => history.push(affiliationRoute)}
 				topText=""
-				title="유관기관 서비스 관리"
+				title="유관기관 목록"
 				buttons={[
 					{
 						label: '확인',
@@ -200,15 +222,29 @@ function AffiliationWithdrawStep2(): JSX.Element {
 							aria-hidden="true"
 						/>
 					</figure>
-					<p className="completed-title">
-						선택하신 유관기관 서비스가 정상적으로 탈퇴되었습니다
-					</p>
+					<p className="completed-title">선택하신 유관기관 계정 탈퇴</p>
 					<ul className="text-list-wrap dots">
-						{selectedServices.map((svc) => (
-							<li key={svc.clientId ?? svc.clientNm}>
-								<p>{svc.clientNm}</p>
-							</li>
-						))}
+						{selectedServices.map((svc) => {
+							const failed = isAgencyFailed(svc.clientId, svc.clientNm);
+							return (
+								<li key={svc.clientId ?? svc.clientNm}>
+									<p>
+										{svc.clientNm}
+										<span
+											className={
+												failed ? 'agency-fail-tag' : 'agency-success-tag'
+											}
+											style={{
+												color: failed ? '#FE5D48' : '#22A06B',
+												marginLeft: '.4rem',
+											}}
+										>
+											{failed ? '(실패)' : '(성공)'}
+										</span>
+									</p>
+								</li>
+							);
+						})}
 					</ul>
 				</div>
 			</Modal>

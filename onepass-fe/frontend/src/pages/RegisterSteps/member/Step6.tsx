@@ -37,7 +37,7 @@ function RegisterStep6({
 						aria-hidden="true"
 					/>
 				</figure>
-				<h4 className="completed-tit">중기원패스 회원가입이 완료되었습니다</h4>
+				<h4 className="completed-tit">중기 통합회원 가입이 완료되었습니다</h4>
 				<p className="completed-txt">
 					모든 중소벤처기업부의 유관기관 서비스를 <br />
 					한곳에서 편리하게 이용해 보세요!

@@ -20,7 +20,6 @@ import { saveCiToken } from './affiliationServices';
 import { getMypageRoute } from './routes';
 import { loadUserId, useInfoStore } from './useInfoStore';
 
-/** 성별 값을 M/F로 정규화 */
 const normalizeGender = (raw?: string): 'M' | 'F' | '' => {
 	if (!raw) return '';
 	const v = raw.trim();
@@ -120,7 +119,7 @@ function BusinessAuth({
 				<div className="text-info-wrap point">
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
-							<p>중기원패스를 이용해 주신 회원님께 진심으로 감사드립니다.</p>
+							<p>중기 통합회원을 이용해 주신 회원님께 진심으로 감사드립니다.</p>
 						</li>
 						<li>
 							<p>
@@ -261,13 +260,16 @@ function MemberAuth({
 			try {
 				const mbrUuid = loadUserId('member') || '';
 				const encrypted = await encryptCi(ci);
+				const encryptedAuthData = authInfo
+					? await encryptCi(JSON.stringify(authInfo))
+					: undefined;
 				const tokenRes = await exchangeCiToken({
 					encryptedCi: encrypted,
+					encryptedAuthData,
 					realm: 'ucube-qsign',
 					clientId: 'onepassCli',
 					flowContext: 'USER_WITHDRAW',
 					mbrUuid,
-					...authInfo,
 				});
 				if (tokenRes.statusCode !== 200 || !tokenRes.payload?.data) {
 					setFailedModal(true);
@@ -314,7 +316,7 @@ function MemberAuth({
 				processCiToken(ci, {
 					name: result.name?.normalize('NFC').trim(),
 					birthDate: (result.birthday || '').replace(/\D/g, ''),
-					gender: normalizeGender(undefined),
+					gender: '',
 					phone: (result.phone || '').replace(/\D/g, ''),
 				}).catch(() => setFailedModal(true));
 			} else {
@@ -337,7 +339,7 @@ function MemberAuth({
 				processCiToken(ci, {
 					name: result.name?.normalize('NFC').trim(),
 					birthDate: (result.birthdate || '').replace(/\D/g, ''),
-					gender: normalizeGender(result.gender),
+					gender: normalizeGender((result as unknown as { gender?: string }).gender),
 					phone: (result.phone || '').replace(/\D/g, ''),
 				}).catch(() => setFailedModal(true));
 			} else {
@@ -367,7 +369,7 @@ function MemberAuth({
 				<div className="text-info-wrap point">
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
-							<p>중기원패스를 이용해 주신 회원님께 진심으로 감사드립니다.</p>
+							<p>중기 통합회원을 이용해 주신 회원님께 진심으로 감사드립니다.</p>
 						</li>
 						<li>
 							<p>

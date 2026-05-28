@@ -3,6 +3,7 @@ import ConversionLayout from 'components/ConversionLayout';
 import Modal from 'components/KrdsModal';
 import type { MemberType } from 'components/StepIndicator';
 import IMAGES from 'constants/images';
+import ROUTES from 'constants/routes';
 import type { EzAuthBizResult } from 'hooks/useEzAuth';
 import useEzAuth from 'hooks/useEzAuth';
 import type { NicePhoneAuthResult } from 'hooks/useNicePhoneAuth';
@@ -57,15 +58,19 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					const encrypted = await encryptCi(result.ci);
 					// eslint-disable-next-line no-param-reassign
 					result.ci = undefined; // CI 평문 즉시 폐기
+					const authData = {
+						name: result.name?.normalize('NFC').trim(),
+						birthDate: (result.birthday || '').replace(/\D/g, ''),
+						gender: '',
+						phone: (result.phone || '').replace(/\D/g, ''),
+					};
+					const encryptedAuthData = await encryptCi(JSON.stringify(authData));
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
+						encryptedAuthData,
 						realm: 'ucube-qsign',
 						clientId: 'onepassCli',
 						flowContext: 'PROVISION_USER',
-						name: result.name?.normalize('NFC').trim(),
-						birthDate: (result.birthday || '').replace(/\D/g, ''),
-						gender: normalizeGender(undefined),
-						phone: (result.phone || '').replace(/\D/g, ''),
 					});
 					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.success !== false && tokenResponse.payload?.data) {
 						ciToken = tokenResponse.payload.data.ciToken;
@@ -77,7 +82,6 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 						return;
 					}
 				}
-
 				const phone = result.phone || '';
 				updateData({
 					name: result.name,
@@ -124,15 +128,19 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					const encrypted = await encryptCi(result.ci);
 					// eslint-disable-next-line no-param-reassign
 					result.ci = undefined; // CI 평문 즉시 폐기
-					const tokenResponse = await exchangeCiToken({
-						encryptedCi: encrypted,
-						realm: 'ucube-qsign',
-						clientId: 'onepassCli',
-						flowContext: 'PROVISION_USER',
+					const authData = {
 						name: result.name?.normalize('NFC').trim(),
 						birthDate: (result.birthdate || '').replace(/\D/g, ''),
 						gender: normalizeGender(result.gender),
 						phone: (result.phone || '').replace(/\D/g, ''),
+					};
+					const encryptedAuthData = await encryptCi(JSON.stringify(authData));
+					const tokenResponse = await exchangeCiToken({
+						encryptedCi: encrypted,
+						encryptedAuthData,
+						realm: 'ucube-qsign',
+						clientId: 'onepassCli',
+						flowContext: 'PROVISION_USER',
 					});
 					if (tokenResponse.statusCode === 200 && tokenResponse.payload?.success !== false && tokenResponse.payload?.data) {
 						ciToken = tokenResponse.payload.data.ciToken;
@@ -144,7 +152,6 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 						return;
 					}
 				}
-
 				const phone = result.phone || '';
 				updateData({
 					name: result.name,
@@ -182,13 +189,11 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 				setFailedModal(true);
 				return;
 			}
-			const brno = resultData.businessNumber || data.brno;
 			updateData({
 				bzmnNm: resultData.name,
 				rprsvNm: resultData.name,
-				brno,
+				brno: resultData.businessNumber || data.brno,
 			});
-
 			history.push(getConversionRoute(4, memberType));
 		},
 		[updateData, memberType, data.brno],
@@ -209,7 +214,7 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 		updateData({ brno: value });
 	};
 
-	const handleNext = async (): Promise<boolean> => {
+	const handleNext = (): boolean => {
 		if (isBusiness && data.brno.length !== 10) {
 			setShowAlert(true);
 			return false;
@@ -402,7 +407,7 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 				>
 					<p className="text">
 						해당 정보로 인증 시 조회된 계정이 없습니다. <br />
-						중기원패스 통합로그인을 이용하시기 위해서는 <br />
+						중기 통합회원을 이용하시기 위해서는 <br />
 						회원가입 후 사용해 주세요.
 					</p>
 				</Modal>
@@ -410,22 +415,49 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 				<Modal
 					id="modal_failed_account"
 					isOpen={failedModal}
-					onClose={(): void => { setFailedModal(false); setFailedMessage(''); }}
+					onClose={(): void => {
+						if (failedMessage.includes('가입된 계정')) {
+							const p = new URLSearchParams();
+							if (data.redirectUri) p.set('return_uri', data.redirectUri);
+							if (data.mbrId) p.set('mbrId', data.mbrId);
+							if (data.initialClientId) p.set('return_client', data.initialClientId);
+							const qs = p.toString();
+							history.push(ROUTES.LOGIN + (qs ? `?${qs}` : ''));
+						} else {
+							setFailedModal(false);
+							setFailedMessage('');
+						}
+					}}
 					topText="회원 가입 안내"
 					title={
 						failedMessage
 							|| (isBusiness ? '기업 인증이 실패하였습니다' : '본인 인증이 실패하였습니다')
 					}
 					buttons={
-						isBusiness
+						failedMessage.includes('가입된 계정')
 							? [
-									{ label: '아이디 찾기', variant: 'tertiary' as const },
-									{ label: '로그인하기', variant: 'primary' as const },
+									{
+										label: '확인',
+										variant: 'primary' as const,
+										onClick: (): void => {
+											const p = new URLSearchParams();
+											if (data.redirectUri) p.set('return_uri', data.redirectUri);
+											if (data.mbrId) p.set('mbrId', data.mbrId);
+											if (data.initialClientId) p.set('return_client', data.initialClientId);
+											const qs = p.toString();
+											history.push(ROUTES.LOGIN + (qs ? `?${qs}` : ''));
+										},
+									},
 							  ]
-							: [
-									{ label: '닫기', variant: 'tertiary' as const },
-									{ label: '확인', variant: 'primary' as const },
-							  ]
+							: isBusiness
+								? [
+										{ label: '아이디 찾기', variant: 'tertiary' as const },
+										{ label: '로그인하기', variant: 'primary' as const },
+								  ]
+								: [
+										{ label: '닫기', variant: 'tertiary' as const },
+										{ label: '확인', variant: 'primary' as const },
+								  ]
 					}
 				>
 					<p className="text">

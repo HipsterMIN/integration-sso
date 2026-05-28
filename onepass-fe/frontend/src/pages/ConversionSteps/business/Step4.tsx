@@ -1,4 +1,4 @@
-import Step from '../member/Step6';
+import Step from '../member/Step4';
 
 function ConversionBusinessStep4(): JSX.Element {
 	return <Step memberType="business" currentStep={4} />;

@@ -36,7 +36,7 @@ function WithdrawComplete(): JSX.Element {
 				<div className="text-info-wrap point">
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
-							<p>중기원패스를 이용해 주셔서 감사합니다.</p>
+							<p>중기 통합회원을 이용해 주셔서 감사합니다.</p>
 						</li>
 						<li>
 							<p>
@@ -60,7 +60,7 @@ function WithdrawComplete(): JSX.Element {
 						/>
 					</figure>
 					<h4 className="completed-tit">
-						중기원패스 {isBusiness ? '기업회원' : '통합회원'} 탈퇴가
+						중기 통합회원({isBusiness ? '기업' : '개인'}) 탈퇴가
 						완료되었습니다
 					</h4>
 					<p className="completed-txt gray">

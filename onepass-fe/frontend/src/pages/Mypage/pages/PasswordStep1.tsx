@@ -32,14 +32,17 @@ function MemberAuth(): JSX.Element {
 		clearAll();
 	}, []);
 
-	const issueCiToken = useCallback(async (ci: string, authInfo?: { name?: string; birthDate?: string; gender?: 'M' | 'F' | ''; phone?: string }): Promise<void> => {
+	const issueCiToken = useCallback(async (ci: string, authInfo?: { name?: string; birthDate?: string; gender?: 'M' | 'F'; phone?: string }): Promise<void> => {
 		const encrypted = await encryptCi(ci);
+		const encryptedAuthData = authInfo
+			? await encryptCi(JSON.stringify(authInfo))
+			: undefined;
 		const tokenResponse = await exchangeCiToken({
 			encryptedCi: encrypted,
+			encryptedAuthData,
 			realm: 'ucube-qsign',
 			clientId: 'onepassCli',
 			flowContext: 'CHECK_CONVERSION',
-			...authInfo,
 		});
 		if (
 			tokenResponse.statusCode !== 200 ||
@@ -69,7 +72,7 @@ function MemberAuth(): JSX.Element {
 			issueCiToken(ci, {
 				name: result.name?.normalize('NFC').trim(),
 				birthDate: (result.birthday || '').replace(/\D/g, ''),
-				gender: normalizeGender(undefined),
+				gender: '',
 				phone: (result.phone || '').replace(/\D/g, ''),
 			}).catch((err) => {
 				console.error('[MypagePassword] 간편인증 ciToken 발급 실패:', err);

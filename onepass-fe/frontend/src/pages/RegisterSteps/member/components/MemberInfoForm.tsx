@@ -130,10 +130,7 @@ function MemberInfoForm({
 									name="tel2"
 									placeholder="숫자만 입력해주세요"
 									value={data.telSuffix}
-									onChange={(e) => {
-										console.log('[RegisterMemberInfoForm] telSuffix onChange:', JSON.stringify(e.target.value), 'type:', e.target.type);
-										handleChange('telSuffix')(e);
-									}}
+									onChange={handleChange('telSuffix')}
 									aria-label="유선전화 뒷자리"
 								/>
 							</div>

@@ -116,7 +116,7 @@ function ConversionLayout({
 			<div className="sub-body inner">
 				<div className="page-title-wrap">
 					<div className="page-title-text-box">
-						<h2 className="page-title">중기원패스 회원 전환</h2>
+						<h2 className="page-title">중기 통합회원 전환</h2>
 						<p className="page-text">
 							하나의 아이디로 중소벤처기업부 유관기관의 서비스를 모두 이용해보세요!
 						</p>
@@ -132,7 +132,7 @@ function ConversionLayout({
 				<form
 					className="form-container"
 					onSubmit={(e: FormEvent): void => e.preventDefault()}
-					aria-label={`중기원패스 전환 ${currentStep}단계: ${stepName}`}
+					aria-label={`중기 통합회원 전환 ${currentStep}단계: ${stepName}`}
 				>
 					<div className="cont-title-box">
 						<h3 className="tit">{stepName}</h3>

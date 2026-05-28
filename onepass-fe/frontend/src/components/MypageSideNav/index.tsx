@@ -12,8 +12,8 @@ interface MypageSideNavProps {
 
 const SECTION_LABEL: Record<MypageSection, string> = {
 	information: '나의 정보',
-	affiliation: '유관기관 서비스 관리',
-	password: '비밀번호 수정',
+	affiliation: '유관기관 목록',
+	password: '비밀번호 재설정',
 	withdraw: '통합회원 탈퇴',
 };
 
@@ -76,14 +76,14 @@ function MypageSideNav({
 					<li className={section === 'affiliation' ? 'active' : ''}>
 						<a href={affiliationRoute} onClick={navigate(affiliationRoute)}>
 							<i className="icon settings" aria-hidden="true" />
-							<span>유관기관 서비스 관리</span>
+							<span>유관기관 목록</span>
 						</a>
 					</li>
 					{!isBusiness && (
 						<li className={section === 'password' ? 'active' : ''}>
 							<a href={passwordRoute} onClick={navigate(passwordRoute)}>
 								<i className="icon key" aria-hidden="true" />
-								<span>비밀번호 수정</span>
+								<span>비밀번호 재설정</span>
 							</a>
 						</li>
 					)}

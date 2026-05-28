@@ -86,7 +86,7 @@ function RegisterStep1(): JSX.Element {
 			<div className="text-align-right">
 				<button type="button" className="btn text medium age-14-btn">
 					<i className="icon ico-arrow-forward small" aria-hidden="true" />
-					<p>14세 미만만 회원가입</p>
+					<p>만14세 미만 회원가입</p>
 				</button>
 			</div>
 		</RegisterLayout>

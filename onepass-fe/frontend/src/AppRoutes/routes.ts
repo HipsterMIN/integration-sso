@@ -266,14 +266,14 @@ const routes: AppRoutes[] = [
 		path: ROUTES.MYPAGE_MEMBER,
 		exact: false,
 		component: MypageMember,
-		isPrivate: false,
+		isPrivate: true,
 		key: 'MYPAGE_MEMBER',
 	},
 	{
 		path: ROUTES.MYPAGE_BUSINESS,
 		exact: false,
 		component: MypageBusiness,
-		isPrivate: false,
+		isPrivate: true,
 		key: 'MYPAGE_BUSINESS',
 	},
 	{

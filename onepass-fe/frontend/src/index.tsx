@@ -24,7 +24,7 @@ const faro = faroAppEnv !== 'local'
   ? initializeFaro({
       url: process.env.FARO_COLLECTOR_URL || '',
       app: {
-        name: `onepass-fe-${faroAppEnv}`,
+        name: `onepass-ui-${faroAppEnv}`,
         version: '1.0.0',
         environment: faroAppEnv,
       },
@@ -50,8 +50,12 @@ const faro = faroAppEnv !== 'local'
           instrumentationOptions: {
             propagateTraceHeaderCorsUrls: [
               /\/api\/.*/,
+              /\/im\/api\/.*/,
               ...(process.env.BE_API_ENDPOINT
                 ? [new RegExp(process.env.BE_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
+                : []),
+              ...(process.env.EXT_API_ENDPOINT
+                ? [new RegExp(process.env.EXT_API_ENDPOINT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*')]
                 : []),
             ],
           },

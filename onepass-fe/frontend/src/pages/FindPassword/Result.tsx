@@ -27,7 +27,7 @@ function FindPasswordResult(): JSX.Element {
 			<div className="sub-body inner">
 				<div className="page-title-wrap">
 					<div className="page-title-text-box">
-						<h2 className="page-title">중기원패스 회원 전환</h2>
+						<h2 className="page-title">중기 통합회원 전환</h2>
 						<p className="page-text">
 							하나의 아이디로 중소벤처기업부 유관기관의 서비스를 모두 이용해보세요!
 						</p>

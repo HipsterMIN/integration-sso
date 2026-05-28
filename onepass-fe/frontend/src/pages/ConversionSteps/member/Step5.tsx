@@ -1,119 +1,167 @@
+import getClients from 'api/ext/clients';
+import checkConversionProxy from 'api/provision/checkConversion';
+import checkConversionEnterprise from 'api/provision/checkConversionEnterprise';
 import provisionEnterprise from 'api/provision/enterprises';
 import provisionUser from 'api/provision/users';
 import ConversionLayout from 'components/ConversionLayout';
 import Modal from 'components/KrdsModal';
+import Spinner from 'components/Spinner';
 import type { MemberType } from 'components/StepIndicator';
 import IMAGES from 'constants/images';
 import { useConversion } from 'providers/Conversion/ConversionContext';
-import { useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
+import Slider from 'react-slick';
+import type { Client } from 'types/api/ext/clients';
 
 import { getConversionRoute } from '../routes';
-import AccountForm from './components/AccountForm';
-import MemberInfoForm from './components/MemberInfoForm';
-import NotificationSettings from './components/NotificationSettings';
+
+const SLIDER_SETTINGS = {
+	rows: 2,
+	slidesPerRow: 5,
+	slidesToShow: 1,
+	slidesToScroll: 1,
+	dots: true,
+	arrows: false,
+	infinite: false,
+	responsive: [
+		{ breakpoint: 1024, settings: { rows: 2, slidesPerRow: 3 } },
+		{ breakpoint: 768, settings: { rows: 2, slidesPerRow: 2 } },
+	],
+};
 
 interface Step5Props {
 	memberType?: MemberType;
 	currentStep?: number;
 }
 
-function ConversionStep5({ memberType = 'member', currentStep = 5 }: Step5Props): JSX.Element {
+/**
+ * 유관기관 계정 연결 + 가입 처리 단계 (이전엔 4단계였으나 단계 swap 으로 5단계로 이동).
+ * 새 4단계(정보입력)에서 입력된 폼 데이터(context)와 유관기관 선택 결과를 합쳐
+ * provisionUser/provisionEnterprise 호출.
+ *
+ * 데이터: 진입 시 check-conversion (개인=프록시 / 기업=enterprise) 호출하여
+ * perAgency 를 availableClients 에 저장하고 전체 디폴트 선택.
+ */
+function ConversionStep5({
+	memberType = 'member',
+	currentStep = 5,
+}: Step5Props): JSX.Element {
 	const { data, updateData } = useConversion();
-
-	// Step3 인증 시 개인: userCheckConversion, 기업: enterpriseCheckConversion으로
-	// 이미 context(availableClients, selectedClients)에 저장됨
-
 	const isBusiness = memberType === 'business';
-	const [showAlert, setShowAlert] = useState(false);
-	const [alertMessage, setAlertMessage] = useState('');
 	const [failedModal, setFailedModal] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
-	const [verificationStatus, setVerificationStatus] = useState({
-		validateOk: false,
-		duplicateOk: false,
-		loginIdDupOk: false,
-		formValid: false,
-	});
+	const [loading, setLoading] = useState(true);
+	const [preparingClients, setPreparingClients] = useState<Client[]>([]);
 
-	const handleVerificationChange = useCallback(
-		(status: { validateOk: boolean; duplicateOk: boolean; loginIdDupOk: boolean; formValid: boolean }) => {
-			setVerificationStatus(status);
-		},
-		[],
-	);
+	// 진입 시 유관기관 서비스 목록 + 준비중 목록 + check-conversion 병렬 fetch
+	useEffect(() => {
+		let cancelled = false;
+		(async (): Promise<void> => {
+			setLoading(true);
 
-	const toggleNotification = (key: string): void => {
-		const updated = { ...data.notifications, [key]: !data.notifications[key] };
-		updateData({ notifications: updated });
+			// check-conversion 호출 (개인: proxy, 기업: enterprise)
+			const checkConversionPromise = isBusiness
+				? (data.brno ? checkConversionEnterprise({ brno: data.brno }) : Promise.resolve(null))
+				: (data.ciToken ? checkConversionProxy({ ciToken: data.ciToken, mbrId: data.mbrId || '', mbrUuid: data.mbrUuid || '' }) : Promise.resolve(null));
+
+			const [res, reverseRes, conversionRes] = await Promise.all([
+				getClients(),
+				getClients({ reverseYN: 'Y' }),
+				checkConversionPromise,
+			]);
+			if (cancelled) return;
+
+			// check-conversion perAgency → instMbrId 매핑 (clientId → instMbrId)
+			const instMbrIdMap = new Map<string, string>();
+			if (conversionRes && 'statusCode' in conversionRes && conversionRes.statusCode === 200 && conversionRes.payload?.data?.perAgency) {
+				for (const agency of conversionRes.payload.data.perAgency) {
+					if (agency.ssoClientId && agency.instMbrId) {
+						instMbrIdMap.set(agency.ssoClientId, agency.instMbrId);
+					}
+				}
+			}
+
+			// memberType 에 따른 사업유형 필터 — business: ALL/ENT, member: ALL/IND
+			const fixedBizType = isBusiness ? 'ENT' : 'IND';
+			const filterByMemberType = (list: Client[]): Client[] =>
+				list.filter(
+					(c) =>
+						c.businessTypes != null
+						&& (c.businessTypes === fixedBizType || c.businessTypes === 'ALL'),
+				);
+
+			if (res.statusCode === 200 && res.payload) {
+				const raw = res.payload.data;
+				const list: Client[] = Array.isArray(raw) ? raw : raw?.clients ?? [];
+				// instMbrId 매칭
+				const merged = list.map((c) => ({
+					...c,
+					instMbrId: instMbrIdMap.get(c.ssoClientId) || c.instMbrId || '',
+				}));
+				const filtered = filterByMemberType(merged);
+				updateData({
+					availableClients: filtered,
+					selectedClients: filtered.map((c) => c.ssoClientId),
+				});
+			}
+			if (reverseRes.statusCode === 200 && reverseRes.payload) {
+				const raw = reverseRes.payload.data;
+				const list: Client[] = Array.isArray(raw) ? raw : raw?.clients ?? [];
+				setPreparingClients(filterByMemberType(list));
+			}
+			setLoading(false);
+		})();
+		return (): void => {
+			cancelled = true;
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	const toggleClient = (ssoClientId: string): void => {
+		const set = new Set(data.selectedClients);
+		if (set.has(ssoClientId)) set.delete(ssoClientId);
+		else set.add(ssoClientId);
+		updateData({ selectedClients: Array.from(set) });
 	};
 
+	const buildClients = ():
+		| Array<{
+				clientId: string;
+				mbrId: string;
+				rprsInstYn: 'Y' | 'N';
+		  }>
+		| undefined => {
+		if (data.selectedClients.length === 0) return undefined;
+		return data.selectedClients
+			.map((ssoClientId) => {
+				const client = data.availableClients.find(
+					(c) => c.ssoClientId === ssoClientId,
+				);
+				if (!client) return null;
+				return {
+					clientId: client.ssoClientId,
+					mbrId: client.instMbrId || '',
+					rprsInstYn:
+						client.ssoClientId === data.initialClientId
+							? ('Y' as const)
+							: ('N' as const),
+				};
+			})
+			.filter(
+				(c): c is { clientId: string; mbrId: string; rprsInstYn: 'Y' | 'N' } =>
+					c !== null,
+			);
+	};
+
+	// eslint-disable-next-line sonarjs/cognitive-complexity
 	const handleNext = async (): Promise<boolean> => {
 		if (isBusiness) {
-			// TODO: 기업인증 구현 후 !data.startDt 조건 복원
-			if (
-				!data.bzmnNm ||
-				!data.rprsvNm ||
-				!data.brno ||
-				data.brno.length !== 10 ||
-				!data.email ||
-				!data.emailDomain ||
-				!data.loginId ||
-				!data.password
-			) {
-				setAlertMessage('(필수) 항목을 모두 입력한 후 다음으로 진행해 주세요.');
-				setShowAlert(true);
-				return false;
-			}
-
-			if (!verificationStatus.validateOk) {
-				setAlertMessage('국세청 진위확인을 완료해 주세요.');
-				setShowAlert(true);
-				return false;
-			}
-
-			if (!verificationStatus.duplicateOk) {
-				setAlertMessage('사업자등록번호 중복확인을 완료해 주세요.');
-				setShowAlert(true);
-				return false;
-			}
-			if (!verificationStatus.loginIdDupOk) {
-				setAlertMessage('아이디 중복확인을 완료해 주세요.');
-				setShowAlert(true);
-				return false;
-			}
-
-			const loginId = data.loginId || data.mbrId;
-			const password = data.password;
-
-			const clients =
-				data.selectedClients.length > 0
-					? data.selectedClients
-							.map((ssoClientId) => {
-								const client = data.availableClients.find(
-									(c) => c.ssoClientId === ssoClientId,
-								);
-								if (!client) return null;
-								return {
-									clientId: client.ssoClientId,
-									mbrId: '',
-									rprsInstYn:
-										client.ssoClientId === data.initialClientId
-											? ('Y' as const)
-											: ('N' as const),
-								};
-							})
-							.filter(
-								(c): c is { clientId: string; mbrId: string; rprsInstYn: 'Y' | 'N' } =>
-									c !== null,
-							)
+			const rprsEmlAddr =
+				data.email && data.emailDomain ? `${data.email}@${data.emailDomain}` : '';
+			const rprsTelno =
+				data.telPrefix && data.telSuffix
+					? `${data.telPrefix}-${data.telSuffix}`
 					: undefined;
-
-			const rprsEmlAddr = data.email && data.emailDomain
-				? `${data.email}@${data.emailDomain}`
-				: '';
-			const rprsTelno = data.telPrefix && data.telSuffix
-				? `${data.telPrefix}-${data.telSuffix}`
-				: undefined;
 
 			const provResponse = await provisionEnterprise({
 				bzmnTypeCd: 'C',
@@ -125,97 +173,49 @@ function ConversionStep5({ memberType = 'member', currentStep = 5 }: Step5Props)
 				rprsEmlAddr,
 				newPic: {
 					memberName: data.rprsvNm,
-					loginId,
-					initialPassword: password,
+					loginId: data.loginId || data.mbrId,
+					initialPassword: data.password,
 					email: rprsEmlAddr,
 					phone: rprsTelno || '',
 				},
-				clients,
+				clients: buildClients(),
 			});
 
-			if (
-				provResponse.statusCode !== 200
-				|| !provResponse.payload?.data
-				|| provResponse.payload?.success === false
-			) {
-				setErrorMessage(
-					provResponse.payload?.message
-					|| provResponse.error
-					|| provResponse.message
-					|| '기업 등록에 실패하였습니다.',
-				);
-				setFailedModal(true);
-				return false;
-			}
+			// TODO: API 실패 시 에러 모달 처리 임시 주석 — 실패해도 다음 단계로 진행
+			// if (
+			// 	provResponse.statusCode !== 200
+			// 	|| !provResponse.payload?.data
+			// 	|| provResponse.payload?.success === false
+			// ) {
+			// 	setErrorMessage(
+			// 		provResponse.payload?.message
+			// 			|| provResponse.error
+			// 			|| provResponse.message
+			// 			|| '기업 등록에 실패하였습니다.',
+			// 	);
+			// 	setFailedModal(true);
+			// 	return false;
+			// }
 
-			const { entMbrNo, provisioningToken } = provResponse.payload.data;
+			const { entMbrNo, provisioningToken } = provResponse.payload?.data ?? {};
 			updateData({ entMbrNo, provisioningToken });
 			return true;
 		}
 
 		// --- 개인회원 ---
-		console.log('[ConversionStep5] telPrefix:', JSON.stringify(data.telPrefix), 'telSuffix:', JSON.stringify(data.telSuffix));
-		console.log('[ConversionStep5] phonePrefix:', JSON.stringify(data.phonePrefix), 'phoneSuffix:', JSON.stringify(data.phoneSuffix));
-		console.log('[ConversionStep5] email:', JSON.stringify(data.email), 'emailDomain:', JSON.stringify(data.emailDomain));
-		if (!data.loginId || !data.password) {
-			setAlertMessage('(필수) 항목을 모두 입력한 후 다음으로 진행해 주세요.');
-			setShowAlert(true);
-			return false;
-		}
-
-		if (!verificationStatus.formValid) {
-			setAlertMessage('아이디 또는 비밀번호 형식을 확인해 주세요.');
-			setShowAlert(true);
-			return false;
-		}
-
-		if (!data.ciToken) {
-			setAlertMessage(
-				'본인인증이 완료되지 않았습니다. 이전 단계를 확인해 주세요.',
-			);
-			setShowAlert(true);
-			return false;
-		}
-
-		if (!verificationStatus.loginIdDupOk) {
-			setAlertMessage('아이디 중복확인을 완료해 주세요.');
-			setShowAlert(true);
-			return false;
-		}
-
-		// clients 조립 (Step4에서 선택된 서비스) — fromClientId(initialClientId)와 일치하면 대표기관(Y)
-		const memberClients = data.selectedClients
-			.map((ssoClientId) => {
-				const client = data.availableClients.find(
-					(c) => c.ssoClientId === ssoClientId,
-				);
-				if (!client) return null;
-				return {
-					clientId: ssoClientId,
-					mbrId: '',
-					rprsInstYn: ssoClientId === data.initialClientId ? ('Y' as const) : ('N' as const),
-				};
-			})
-			.filter(
-				(c): c is { clientId: string; mbrId: string; rprsInstYn: 'Y' | 'N' } => c !== null,
-			);
-
-		// 이메일 조합
+		const memberClients = buildClients() ?? [];
 		const indvEmlAddr =
 			data.email && data.emailDomain
 				? `${data.email}@${data.emailDomain}`
 				: undefined;
-
-		// 일반전화 조합
 		const telno =
 			data.telPrefix && data.telSuffix
 				? `${data.telPrefix}-${data.telSuffix}`
 				: undefined;
-
-		// 휴대폰 포맷: 010-XXXX-XXXX (suffix 8자리일 때 4+4 분리)
-		const phoneFormatted = data.phoneSuffix && data.phoneSuffix.length === 8
-			? `${data.phonePrefix || '010'}-${data.phoneSuffix.slice(0, 4)}-${data.phoneSuffix.slice(4)}`
-			: `${data.phonePrefix || '010'}${data.phoneSuffix || ''}`;
+		const phoneFormatted =
+			data.phoneSuffix && data.phoneSuffix.length === 8
+				? `${data.phonePrefix || '010'}-${data.phoneSuffix.slice(0, 4)}-${data.phoneSuffix.slice(4)}`
+				: `${data.phonePrefix || '010'}${data.phoneSuffix || ''}`;
 
 		const provResponse = await provisionUser({
 			ciToken: data.ciToken,
@@ -236,25 +236,28 @@ function ConversionStep5({ memberType = 'member', currentStep = 5 }: Step5Props)
 			},
 		});
 
-		if (
-			provResponse.statusCode !== 200
-			|| !provResponse.payload?.data
-			|| provResponse.payload?.success === false
-		) {
-			setErrorMessage(
-				provResponse.payload?.message
-				|| provResponse.error
-				|| provResponse.message
-				|| '개인회원 등록에 실패하였습니다.',
-			);
-			setFailedModal(true);
-			return false;
-		}
+		// TODO: API 실패 시 에러 모달 처리 임시 주석 — 실패해도 다음 단계로 진행
+		// if (
+		// 	provResponse.statusCode !== 200
+		// 	|| !provResponse.payload?.data
+		// 	|| provResponse.payload?.success === false
+		// ) {
+		// 	setErrorMessage(
+		// 		provResponse.payload?.message
+		// 			|| provResponse.error
+		// 			|| provResponse.message
+		// 			|| '개인회원 등록에 실패하였습니다.',
+		// 	);
+		// 	setFailedModal(true);
+		// 	return false;
+		// }
 
-		const { mbrNo, mbrUuid, provisioningToken } = provResponse.payload.data;
+		const { mbrNo, mbrUuid, provisioningToken } = provResponse.payload?.data ?? {};
 		updateData({ mbrNo, mbrUuid, provisioningToken });
 		return true;
 	};
+
+	const checkedSet = new Set(data.selectedClients);
 
 	return (
 		<>
@@ -263,85 +266,117 @@ function ConversionStep5({ memberType = 'member', currentStep = 5 }: Step5Props)
 				prevRoute={getConversionRoute(currentStep - 1, memberType)}
 				nextRoute={getConversionRoute(currentStep + 1, memberType)}
 				memberType={memberType}
-				noWrap
 				onNext={handleNext}
 			>
-				<div className="white-wrap">
-					<h3 className="h3-title">{isBusiness ? '기본 정보' : '기본/회원 정보'}</h3>
-					<div className="text-info-wrap point">
-						<ul className="text-list-wrap check" aria-label="안내 사항">
-							<li>
-								<p>
-									회원정보는 정책지원 및 맞춤형 서비스를 제공하는데 사용되므로 정확한
-									정보를 입력해 주세요.
-								</p>
-							</li>
-							<li>
-								<p>
-									<span className="essential">필수</span>항목은 반드시 기입해 주시기
-									바랍니다.
-								</p>
-							</li>
-						</ul>
-						<figure className="img">
-							<img src={IMAGES.RENEWAL_TEXT_LIST_IMG} alt="" aria-hidden="true" />
-						</figure>
-					</div>
-					{isBusiness ? (
-						<AccountForm isBusiness isConversion onVerificationChange={handleVerificationChange} />
-					) : (
-						<div className="form-wrap">
-							<AccountForm
-								isBusiness={false}
-								flat
-								onVerificationChange={handleVerificationChange}
-							/>
-							<MemberInfoForm isBusiness={false} flat />
-						</div>
-					)}
+				{loading ? (
+					<Spinner tip="서비스 목록을 불러오고 있습니다..." height="300px" />
+				) : (
+					<>
+				<div className="text-info-wrap point">
+					<ul className="text-list-wrap check" aria-label="안내 사항">
+						<li>
+							<p>유관시스템 서비스를 하나의 통합 ID로 연결합니다</p>
+						</li>
+						<li>
+							<p>
+								추후 ( 마이페이지 &gt; 유관기관 목록 )에서 언제든지 계정 연결 해제를
+								할 수 있습니다
+							</p>
+						</li>
+					</ul>
+					<figure className="img">
+						<img src={IMAGES.RENEWAL_TEXT_LIST_IMG} alt="" aria-hidden="true" />
+					</figure>
 				</div>
-				{/* <div className="white-wrap">
-					<h3 className="h3-title">알림 수신</h3>
-					<div className="text-info-wrap point">
-						<ul className="text-list-wrap check" aria-label="안내 사항">
-							<li>
-								<p>
-									중소벤처24의 알림은 이메일과 SNS 또는 알림톡으로 발송되며, 정책자금
-									상담, Q&amp;A, 민원 등의 처리현황 정보가 발송됩니다.
-								</p>
-							</li>
-						</ul>
-						<figure className="img">
-							<img
-								src={IMAGES.RENEWAL_TEXT_LIST_IMG_RECEIVE_NOTIFICATIONS}
-								alt=""
-								aria-hidden="true"
-							/>
-						</figure>
+				<div className="affiliation-container">
+					<h3 className="h3-title">
+						<i className="icon ico-new-window" aria-hidden="true" />
+						<p>계정 연결 된 유관기관 서비스</p>
+					</h3>
+					<div className="affiliation-slide-wrap">
+						<Slider {...SLIDER_SETTINGS} className="slide-wrap">
+							{data.availableClients.map((client) => {
+								const isChecked = checkedSet.has(client.ssoClientId);
+								const inputId = `affiliation_${client.ssoClientId}`;
+								return (
+									<div key={client.ssoClientId} className="slide">
+										<label htmlFor={inputId}>
+											<div className="top-box">
+												{client.logo && (
+													<figure className="img">
+														<img src={client.logo} alt={client.clientNm} />
+													</figure>
+												)}
+												<div className="text-box">
+													<p className="title">{client.clientNm}</p>
+													<p className="detail">{client.description ?? ''}</p>
+												</div>
+											</div>
+											<div className="bot-box">
+												<span className="check-box style1">
+													<input
+														type="checkbox"
+														id={inputId}
+														name="affiliation_check"
+														checked={isChecked}
+														onChange={(): void => toggleClient(client.ssoClientId)}
+														aria-label={`${client.clientNm} 선택`}
+													/>
+												</span>
+											</div>
+										</label>
+									</div>
+								);
+							})}
+						</Slider>
 					</div>
-					<NotificationSettings
-						notifications={data.notifications}
-						onToggle={toggleNotification}
-					/>
-				</div> */}
+				</div>
+				<div className="affiliation-container waiting">
+					<h3 className="h3-title">
+						<i className="icon ico-new-window" aria-hidden="true" />
+						<p>준비중인 유관기관 서비스</p>
+					</h3>
+					<div className="affiliation-slide-wrap">
+						<Slider {...SLIDER_SETTINGS} className="slide-wrap">
+							{preparingClients.map((client) => {
+								const inputId = `affiliation_preparing_${client.ssoClientId}`;
+								return (
+									<div key={client.ssoClientId} className="slide">
+										<label htmlFor={inputId}>
+											<div className="top-box">
+												{client.logo && (
+													<figure className="img">
+														<img src={client.logo} alt={client.clientNm} />
+													</figure>
+												)}
+												<div className="text-box">
+													<p className="title">{client.clientNm}</p>
+													<p className="detail">{client.description ?? ''}</p>
+												</div>
+											</div>
+											<div className="bot-box">
+												<span className="check-box style1">
+													<input
+														type="checkbox"
+														id={inputId}
+														name="preparing_check"
+														checked
+														disabled
+														readOnly
+														aria-label={`${client.clientNm} (준비중)`}
+													/>
+												</span>
+											</div>
+										</label>
+									</div>
+								);
+							})}
+						</Slider>
+					</div>
+				</div>
+					</>
+				)}
 			</ConversionLayout>
-			<Modal
-				id="validation-alert"
-				isOpen={showAlert}
-				onClose={(): void => setShowAlert(false)}
-				topText="알림"
-				title="입력 정보를 확인해 주세요."
-				size="small"
-				buttons={[
-					{
-						label: '확인',
-						variant: 'primary',
-						onClick: (): void => setShowAlert(false),
-					},
-				]}
-			>
-				<p>{alertMessage}</p>
-			</Modal>
 			<Modal
 				id="modal_failed_provisioning"
 				isOpen={failedModal}
@@ -350,13 +385,19 @@ function ConversionStep5({ memberType = 'member', currentStep = 5 }: Step5Props)
 				title={isBusiness ? '기업 등록 실패' : '개인회원 등록 실패'}
 				size="small"
 				buttons={[
-					{ label: '닫기', variant: 'tertiary', onClick: (): void => setFailedModal(false) },
-					{ label: '확인', variant: 'primary', onClick: (): void => setFailedModal(false) },
+					{
+						label: '닫기',
+						variant: 'tertiary',
+						onClick: (): void => setFailedModal(false),
+					},
+					{
+						label: '확인',
+						variant: 'primary',
+						onClick: (): void => setFailedModal(false),
+					},
 				]}
 			>
-				<p className="text">
-					{errorMessage}
-				</p>
+				<p className="text">{errorMessage}</p>
 			</Modal>
 		</>
 	);

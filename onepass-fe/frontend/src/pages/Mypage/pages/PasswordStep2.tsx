@@ -16,7 +16,7 @@ import {
 import { useInfoStore } from './useInfoStore';
 
 const PASSWORD_HINT =
-	'영문자(대·소문자), 숫자, 특수문자 중 두 가지를 조합하여 8자~20자 이내';
+	'영문 대문자, 소문자, 숫자, 특수문자를 모두 포함하여 8자~20자 이내';
 const FAIL_TITLE = '비밀번호 변경에 실패했습니다';
 const RETRY_LATER_MSG = '잠시 후 다시 시도해 주세요.';
 const TOKEN_GONE_TITLE = '본인인증 정보가 만료되었습니다';
@@ -48,10 +48,11 @@ const RESTART_PROMPTS: Record<
 
 function getPasswordStrength(pw: string): { valid: boolean } {
 	let typeCount = 0;
-	if (/[A-Za-z]/.test(pw)) typeCount += 1;
+	if (/[A-Z]/.test(pw)) typeCount += 1;
+	if (/[a-z]/.test(pw)) typeCount += 1;
 	if (/[0-9]/.test(pw)) typeCount += 1;
 	if (/[!@#$%^&*()\-=_+]/.test(pw)) typeCount += 1;
-	return { valid: pw.length >= 8 && pw.length <= 20 && typeCount >= 2 };
+	return { valid: pw.length >= 8 && pw.length <= 20 && typeCount >= 4 };
 }
 
 function renderPasswordHint(

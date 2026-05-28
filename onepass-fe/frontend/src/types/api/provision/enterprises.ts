@@ -1,3 +1,22 @@
+/** 기업 회원 조회 요청 (Q-IM /api/v1/ext/provision/enterprises/check-conversion) */
+export interface CheckConversionEnterpriseRequest {
+	/** 사업자등록번호 (10자리, dash 없음) */
+	brno: string;
+}
+
+/** 기업 회원 조회 응답 페이로드 */
+export interface CheckConversionEnterprisePayload {
+	success: boolean;
+	data: {
+		perAgency: import('types/api/ext/clients').PerAgency[];
+		overlapCount?: number;
+		convertible: boolean;
+		groups: import('types/api/ext/clients').ClientGroup[];
+		businessTypes: import('types/api/ext/clients').BusinessType[];
+	};
+	message?: string;
+}
+
 export interface NewPic {
 	memberName: string;
 	loginId: string;
@@ -8,7 +27,7 @@ export interface NewPic {
 
 export interface ClientLink {
 	clientId: string;
-	mbrId?: string;
+	instMbrId?: string;
 	rprsInstYn?: string;
 }
 

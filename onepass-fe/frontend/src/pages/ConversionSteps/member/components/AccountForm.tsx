@@ -25,7 +25,7 @@ function getPasswordStrength(pw: string): { valid: boolean; typeCount: number } 
 	if (/[a-z]/.test(pw)) typeCount += 1;
 	if (/[0-9]/.test(pw)) typeCount += 1;
 	if (/[!@#$%^&*()\-_+]/.test(pw)) typeCount += 1;
-	return { valid: pw.length >= 8 && pw.length <= 20 && typeCount >= 2, typeCount };
+	return { valid: pw.length >= 8 && pw.length <= 20 && typeCount >= 4, typeCount };
 }
 
 function AccountForm({ isBusiness = false, flat = false, isConversion = false, onVerificationChange }: AccountFormProps): JSX.Element {
@@ -217,7 +217,7 @@ function AccountForm({ isBusiness = false, flat = false, isConversion = false, o
 		if (!data.password) return null;
 		if (data.password.length < 8) return { type: 'invalid' as const, msg: '비밀번호는 8자 이상 입력해 주세요.' };
 		const { typeCount } = getPasswordStrength(data.password);
-		if (typeCount < 2) return { type: 'invalid' as const, msg: '영문자, 숫자, 특수문자 중 두 가지 이상 조합해 주세요.' };
+		if (typeCount < 4) return { type: 'invalid' as const, msg: '영문 대문자, 소문자, 숫자, 특수문자를 모두 포함해 주세요.' };
 		return null;
 	})();
 
@@ -472,7 +472,7 @@ function AccountForm({ isBusiness = false, flat = false, isConversion = false, o
 									<label htmlFor="conv_password">
 										비밀번호<span className="essential">필수</span>
 										<small className="info-text">
-											영문자(대·소문자), 숫자, 특수문자 중 두 가지를 조합하여 8자~20자 이내
+											영문 대문자, 소문자, 숫자, 특수문자를 모두 포함하여 8자~20자 이내
 										</small>
 									</label>
 									<div className="input-box">
@@ -632,7 +632,7 @@ function AccountForm({ isBusiness = false, flat = false, isConversion = false, o
 							<label htmlFor="password">
 								비밀번호<span className="essential">필수</span>
 								<small className="info-text">
-									영문자(대·소문자), 숫자, 특수문자 중 두 가지를 조합하여 8자~20자 이내
+									영문 대문자, 소문자, 숫자, 특수문자를 모두 포함하여 8자~20자 이내
 								</small>
 							</label>
 							<div className="input-box">

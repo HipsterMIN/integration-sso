@@ -74,4 +74,8 @@ export const routePermission: Record<keyof typeof ROUTES, ROLES[]> = {
 	USE_TERMS: ['ADMIN', 'EDITOR', 'VIEWER'],
 	PRIVACY: ['ADMIN', 'EDITOR', 'VIEWER'],
 	OACX_TEST: ['ADMIN', 'EDITOR', 'VIEWER'],
+	SUPPORT_MAIN: ['ADMIN', 'EDITOR', 'VIEWER'],
+	SUPPORT_QNA: ['ADMIN', 'EDITOR', 'VIEWER'],
+	SUPPORT_FAQ: ['ADMIN', 'EDITOR', 'VIEWER'],
+	SUPPORT_ADMIN: ['ADMIN', 'EDITOR', 'VIEWER'],
 };

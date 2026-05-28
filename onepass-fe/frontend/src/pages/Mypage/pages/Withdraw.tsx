@@ -20,7 +20,7 @@ function Withdraw(): JSX.Element {
 				<div className="text-info-wrap point">
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
-							<p>중기원패스를 이용해 주신 회원님께 진심으로 감사드립니다.</p>
+							<p>중기 통합회원을 이용해 주신 회원님께 진심으로 감사드립니다.</p>
 						</li>
 						<li>
 							<p>
@@ -136,21 +136,6 @@ function Withdraw(): JSX.Element {
 												readOnly
 												aria-label="이메일 도메인"
 											/>
-										</div>
-										<div className="input-box small">
-											<select id="emailSelect" disabled aria-label="이메일 도메인 선택">
-												<option value="direct">직접 입력</option>
-												<option value="naver.com">naver.com</option>
-												<option value="gmail.com">gmail.com</option>
-											</select>
-											<button
-												type="button"
-												className="btn large icon arrow-bottom"
-												disabled
-											>
-												<span className="hidden">선택창 열기</span>
-												<i className="icon arrow-bottom" aria-hidden="true" />
-											</button>
 										</div>
 									</div>
 								</div>
@@ -302,21 +287,6 @@ function Withdraw(): JSX.Element {
 												readOnly
 												aria-label="이메일 도메인"
 											/>
-										</div>
-										<div className="input-box small">
-											<select id="emailSelect" disabled aria-label="이메일 도메인 선택">
-												<option value="direct">직접 입력</option>
-												<option value="naver.com">naver.com</option>
-												<option value="gmail.com">gmail.com</option>
-											</select>
-											<button
-												type="button"
-												className="btn large icon arrow-bottom"
-												disabled
-											>
-												<span className="hidden">선택창 열기</span>
-												<i className="icon arrow-bottom" aria-hidden="true" />
-											</button>
 										</div>
 									</div>
 								</div>

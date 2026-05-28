@@ -1,3 +1,4 @@
+import exchangeCiToken from 'api/provision/ciToken';
 import Modal from 'components/KrdsModal';
 import MypageContent from 'components/MypageContent';
 import { useMypageType } from 'components/MypageLayout';
@@ -9,8 +10,11 @@ import type { EasysignResult } from 'hooks/usePersonalEasyAuth';
 import usePersonalEasyAuth from 'hooks/usePersonalEasyAuth';
 import history from 'lib/history';
 import { FormEvent, useCallback, useState } from 'react';
+import { encryptCi } from 'utils/crypto/aesGcm';
 
+import { saveCiToken } from './affiliationServices';
 import { getMypageRoute } from './routes';
+import { loadUserId } from './useInfoStore';
 
 // PUB260507 mypage_affiliation_step2.html — 기업 인증 카드 2개
 function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
@@ -34,7 +38,7 @@ function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
 							<p>
-								추가하기 버튼을 클릭하시면 중기원패스 통합회원을 이용하실 수
+								추가하기 버튼을 클릭하시면 중기 통합회원을 이용하실 수
 								있는 유관기관 항목을 보실 수 있습니다.
 							</p>
 						</li>
@@ -143,10 +147,32 @@ function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
 	);
 }
 
-// 개인 인증 카드 4개 — InformationStep2 MemberAuth 와 동일 패턴
+// 개인 인증 카드 4개 — 간편인증/휴대폰인증 시 CI→ciToken 발급 → Step2(서비스 목록 조회) 이동
 function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 	const [devNoticeModal, setDevNoticeModal] = useState(false);
 	const [failedModal, setFailedModal] = useState(false);
+
+	/** CI 암호화 → ciToken 발급 → sessionStorage 저장 → Step2 이동 */
+	const processCiToken = useCallback(
+		async (ci: string): Promise<void> => {
+			const mbrUuid = loadUserId('member') || '';
+			const encrypted = await encryptCi(ci);
+			const tokenRes = await exchangeCiToken({
+				encryptedCi: encrypted,
+				realm: 'ucube-qsign',
+				clientId: 'onepassCli',
+				flowContext: 'CHECK_CONVERSION',
+				mbrUuid,
+			});
+			if (tokenRes.statusCode === 200 && tokenRes.payload?.data) {
+				saveCiToken(tokenRes.payload.data.ciToken);
+				history.push(onNext);
+			} else {
+				setFailedModal(true);
+			}
+		},
+		[onNext],
+	);
 
 	const handleEasyAuthSuccess = useCallback(
 		(result: EasysignResult): void => {
@@ -154,9 +180,16 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 				setFailedModal(true);
 				return;
 			}
-			history.push(onNext);
+			if (result.ci) {
+				const ci = result.ci;
+				// eslint-disable-next-line no-param-reassign
+				result.ci = undefined; // CI 평문 즉시 폐기
+				processCiToken(ci).catch(() => setFailedModal(true));
+			} else {
+				setFailedModal(true);
+			}
 		},
-		[onNext],
+		[processCiToken],
 	);
 
 	const handlePhoneAuthSuccess = useCallback(
@@ -165,9 +198,16 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 				setFailedModal(true);
 				return;
 			}
-			history.push(onNext);
+			if (result.ci) {
+				const ci = result.ci;
+				// eslint-disable-next-line no-param-reassign
+				result.ci = undefined; // CI 평문 즉시 폐기
+				processCiToken(ci).catch(() => setFailedModal(true));
+			} else {
+				setFailedModal(true);
+			}
 		},
-		[onNext],
+		[processCiToken],
 	);
 
 	const handleAuthError = useCallback((): void => {
@@ -191,7 +231,7 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
 							<p>
-								추가하기 버튼을 클릭하시면 중기원패스 통합회원을 이용하실 수
+								추가하기 버튼을 클릭하시면 중기 통합회원을 이용하실 수
 								있는 유관기관 항목을 보실 수 있습니다.
 							</p>
 						</li>

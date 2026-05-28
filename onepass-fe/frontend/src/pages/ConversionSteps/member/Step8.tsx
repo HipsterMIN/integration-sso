@@ -36,7 +36,7 @@ function ConversionStep8({ memberType = 'member', currentStep = 6 }: Step8Props)
 					/>
 				</figure>
 				<h4 className="completed-tit">
-					중기원패스 회원({isBusiness ? '기업' : '개인'}) 전환을 완료하였습니다.
+					중기 통합회원({isBusiness ? '기업' : '개인'}) 전환을 완료하였습니다.
 				</h4>
 				<p className="completed-txt">
 					모든 중소벤처기업부의 유관기관 서비스를 <br />

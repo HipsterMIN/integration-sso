@@ -64,7 +64,7 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
 							<p>
-								중기원패스 통합회원의 회원정보는 개인정보처리방침에 따라
+								중기 통합회원의 회원정보는 개인정보처리방침에 따라
 								안전하게 보호되며, 회원님의 명백한 동의 없이 제 3자에게
 								제공되지 않습니다.
 							</p>
@@ -232,7 +232,7 @@ function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
 							<p>
-								중기원패스 통합회원의 회원정보는 개인정보처리방침에 따라
+								중기 통합회원의 회원정보는 개인정보처리방침에 따라
 								안전하게 보호되며, 회원님의 명백한 동의 없이 제 3자에게
 								제공되지 않습니다.
 							</p>

@@ -27,14 +27,17 @@ function FindId(): JSX.Element {
 	const [failedModal, setFailedModal] = useState(false);
 	const [failedMessage, setFailedMessage] = useState('');
 
-	const lookupLoginId = useCallback(async (ci: string, authInfo?: { name?: string; birthDate?: string; gender?: 'M' | 'F' | ''; phone?: string }): Promise<void> => {
+	const lookupLoginId = useCallback(async (ci: string, authInfo?: { name?: string; birthDate?: string; gender?: 'M' | 'F'; phone?: string }): Promise<void> => {
 		const encrypted = await encryptCi(ci);
+		const encryptedAuthData = authInfo
+			? await encryptCi(JSON.stringify(authInfo))
+			: undefined;
 		const tokenResponse = await exchangeCiToken({
 			encryptedCi: encrypted,
+			encryptedAuthData,
 			realm: 'ucube-qsign',
 			clientId: 'onepassCli',
 			flowContext: 'CHECK_CONVERSION',
-			...authInfo,
 		});
 		if (
 			tokenResponse.statusCode !== 200 ||
@@ -83,7 +86,7 @@ function FindId(): JSX.Element {
 			lookupLoginId(ci, {
 				name: result.name?.normalize('NFC').trim(),
 				birthDate: (result.birthday || '').replace(/\D/g, ''),
-				gender: normalizeGender(undefined),
+				gender: '',
 				phone: (result.phone || '').replace(/\D/g, ''),
 			}).catch((err) => {
 				console.error('[FindId] 간편인증 아이디 조회 실패:', err);
@@ -136,7 +139,7 @@ function FindId(): JSX.Element {
 				<div className="sub-body inner">
 					<div className="page-title-wrap">
 						<div className="page-title-text-box">
-							<h2 className="page-title">중기원패스 회원 전환</h2>
+							<h2 className="page-title">중기 통합회원 전환</h2>
 							<p className="page-text">
 								하나의 아이디로 중소벤처기업부 유관기관의 서비스를 모두 이용해보세요!
 							</p>

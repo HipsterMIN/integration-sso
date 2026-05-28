@@ -1,155 +1,133 @@
-import userCheckConversion, { enterpriseCheckConversion } from 'api/ext/checkConversion';
-import getClients from 'api/ext/clients';
+import Modal from 'components/KrdsModal';
 import RegisterLayout from 'components/RegisterLayout';
-import Spinner from 'components/Spinner';
 import type { MemberType } from 'components/StepIndicator';
 import IMAGES from 'constants/images';
 import { useRegister } from 'providers/Register/RegisterContext';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { BusinessType, Client, ClientGroup } from 'types/api/ext/clients';
+import { useCallback, useState } from 'react';
 
 import { getRegisterRoute } from '../routes';
-import ServiceListModal from './components/ServiceListModal';
+import AccountForm from './components/AccountForm';
+import MemberInfoForm from './components/MemberInfoForm';
 
 interface Step4Props {
 	memberType?: MemberType;
 	currentStep?: number;
 }
 
-interface FetchResult {
-	clientList: Client[];
-	groups: ClientGroup[];
-	bizTypes: BusinessType[];
-}
-
-async function fetchClientList(): Promise<FetchResult | null> {
-	const response = await getClients();
-	if (response.statusCode === 200 && response.payload) {
-		const raw = response.payload.data;
-		return {
-			clientList: Array.isArray(raw) ? raw : raw?.clients ?? [],
-			groups: raw?.groups ?? [],
-			bizTypes: raw?.businessTypes ?? [],
-		};
-	}
-	return null;
-}
-
+/**
+ * 정보입력 단계 (이전엔 5단계였으나 단계 swap 으로 4단계로 이동).
+ * 폼 검증만 수행하고 데이터는 context.updateData 로 저장된 채로 다음 단계(유관기관)로 진행.
+ * provisionUser/provisionEnterprise 호출은 새 5단계(유관기관 + 가입 처리) 에서 수행.
+ */
 function RegisterStep4({
 	memberType = 'member',
 	currentStep = 4,
 }: Step4Props): JSX.Element {
-	const { data, updateData } = useRegister();
-	const [clients, setClients] = useState<Client[]>([]);
-	const [groupMap, setGroupMap] = useState<Map<string, string>>(new Map());
-	const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([]);
-	const [serviceModal, setServiceModal] = useState(false);
-	const [loading, setLoading] = useState(true);
+	const { data } = useRegister();
+	const isBusiness = memberType === 'business';
+	const [showAlert, setShowAlert] = useState(false);
+	const [alertMessage, setAlertMessage] = useState('');
+	const [verificationStatus, setVerificationStatus] = useState({
+		validateOk: false,
+		duplicateOk: false,
+		formValid: false,
+	});
 
-	// memberType에 따라 사업유형 필터링된 클라이언트 목록
-	const bizTypeClients = useMemo(() => {
-		const fixedBizType = memberType === 'member'
-			? businessTypes.find((bt) => bt.key !== 'ALL' && bt.name.includes('개인'))?.key
-				|| businessTypes.find((bt) => bt.key === 'INDIVIDUAL')?.key || ''
-			: businessTypes.find((bt) => bt.key !== 'ALL' && bt.name.includes('기업'))?.key
-				|| businessTypes.find((bt) => bt.key === 'CORPORATE')?.key || '';
-		if (!fixedBizType || fixedBizType === 'ALL') return clients;
-		return clients.filter(
-			(c) => c.businessTypes != null && (c.businessTypes === fixedBizType || c.businessTypes === 'ALL'),
-		);
-	}, [clients, memberType, businessTypes]);
+	const handleVerificationChange = useCallback(
+		(status: {
+			validateOk: boolean;
+			duplicateOk: boolean;
+			formValid: boolean;
+		}) => {
+			setVerificationStatus(status);
+		},
+		[],
+	);
 
-	const selectedCount = data.selectedClients.length;
-	const allSelected =
-		bizTypeClients.length > 0 && selectedCount === bizTypeClients.length;
-
-	const { initialClientId } = data;
-
-	// 페이지 진입 시 클라이언트 목록 조회
-	useEffect(() => {
-		let cancelled = false;
-		const fetchData = async (): Promise<void> => {
-			setLoading(true);
-			const result = await fetchClientList();
-			if (cancelled) return;
-			if (result) {
-				setClients(result.clientList);
-				updateData({ availableClients: result.clientList });
-				setGroupMap(new Map(result.groups.map((g: ClientGroup) => [g.key, g.name])));
-				setBusinessTypes(result.bizTypes);
-
-				// initialClientId가 있으면 매칭되는 서비스를 기본 선택
-				if (initialClientId) {
-					const matchingClient = result.clientList
-						.find((c: Client) => c.ssoClientId === initialClientId);
-					if (matchingClient) {
-						updateData({ selectedClients: [matchingClient.ssoClientId] });
-					}
-				}
+	const handleNext = async (): Promise<boolean> => {
+		if (isBusiness) {
+			if (
+				!data.bzmnNm ||
+				!data.rprsvNm ||
+				!data.brno ||
+				data.brno.length !== 10 ||
+				!data.loginId ||
+				!data.password ||
+				!data.email ||
+				!data.emailDomain
+			) {
+				setAlertMessage('(필수) 항목을 모두 입력한 후 다음으로 진행해 주세요.');
+				setShowAlert(true);
+				return false;
 			}
-			setLoading(false);
-		};
-		fetchData();
-		return (): void => {
-			cancelled = true;
-		};
-	}, [initialClientId]);
-
-	// "모두 선택합니다" → 체크 가능 항목만 전체 선택/해제
-	const handleSelectAll = useCallback(() => {
-		if (allSelected) {
-			updateData({ selectedClients: [] });
-		} else {
-			updateData({
-				selectedClients: bizTypeClients.map((c) => c.ssoClientId),
-			});
+			if (!verificationStatus.validateOk) {
+				setAlertMessage('국세청 진위확인을 완료해 주세요.');
+				setShowAlert(true);
+				return false;
+			}
+			if (!verificationStatus.duplicateOk) {
+				setAlertMessage('사업자등록번호 중복확인을 완료해 주세요.');
+				setShowAlert(true);
+				return false;
+			}
+			if (!verificationStatus.formValid) {
+				setAlertMessage('아이디 또는 비밀번호 형식을 확인해 주세요.');
+				setShowAlert(true);
+				return false;
+			}
+			return true;
 		}
-	}, [allSelected, bizTypeClients, updateData]);
 
-	// "다음" 클릭 시 check-conversion 호출 (availableClients는 getClients 값 유지)
-	const handleNext = useCallback(async (): Promise<boolean> => {
-		if (data.selectedClients.length > 0) {
-			if (memberType === 'member') {
-				await userCheckConversion({
-					mbrId: data.mbrId || undefined,
-					ci: data.ciToken || undefined,
-					targetClientId: data.selectedClients,
-				});
-			} else {
-				await enterpriseCheckConversion({
-					brno: data.brno,
-					targetClientId: data.selectedClients,
-				});
-			}
+		// --- 개인회원 ---
+		if (!data.loginId || !data.password) {
+			setAlertMessage('(필수) 항목을 모두 입력한 후 다음으로 진행해 주세요.');
+			setShowAlert(true);
+			return false;
+		}
+		if (!verificationStatus.formValid) {
+			setAlertMessage('아이디 또는 비밀번호 형식을 확인해 주세요.');
+			setShowAlert(true);
+			return false;
+		}
+		if (!data.ciToken) {
+			setAlertMessage(
+				'본인인증이 완료되지 않았습니다. 이전 단계를 확인해 주세요.',
+			);
+			setShowAlert(true);
+			return false;
+		}
+		if (!verificationStatus.duplicateOk) {
+			setAlertMessage('아이디 중복확인을 완료해 주세요.');
+			setShowAlert(true);
+			return false;
 		}
 		return true;
-	}, [memberType, data.selectedClients, data.mbrId, data.ciToken, data.brno]);
+	};
 
 	return (
-		<RegisterLayout
-			currentStep={currentStep}
-			skipRoute={getRegisterRoute(currentStep + 1, memberType)}
-			nextRoute={getRegisterRoute(currentStep + 1, memberType)}
-			memberType={memberType}
-			onNext={handleNext}
-		>
-			{loading ? (
-				<Spinner tip="서비스 목록을 불러오고 있습니다..." height="300px" />
-			) : (
-				<>
+		<>
+			<RegisterLayout
+				currentStep={currentStep}
+				prevRoute={getRegisterRoute(currentStep - 1, memberType)}
+				nextRoute={getRegisterRoute(currentStep + 1, memberType)}
+				memberType={memberType}
+				noWrap
+				onNext={handleNext}
+			>
+				<div className="white-wrap">
+					<h3 className="h3-title">{isBusiness ? '기본 정보' : '기본/회원 정보'}</h3>
 					<div className="text-info-wrap point">
 						<ul className="text-list-wrap check" aria-label="안내 사항">
 							<li>
-								<p>유관시스템 서비스를 하나의 통합 ID로 연결합니다</p>
-							</li>
-							<li>
 								<p>
-									등록을 원하지 않으실 경우 '건너뛰기'를 선택하여 가입을 완료하실 수 있습니다.
+									회원정보는 정책지원 및 맞춤형 서비스를 제공하는데 사용되므로 정확한
+									정보를 입력해 주세요.
 								</p>
 							</li>
 							<li>
 								<p>
-									추후 ( 마이페이지 &gt; 유과기관 서비스 관리 )에서 언제든지 추가 등록, 탈퇴할 수 있습니다
+									<span className="essential">필수</span>항목은 반드시 기입해 주시기
+									바랍니다.
 								</p>
 							</li>
 						</ul>
@@ -157,59 +135,38 @@ function RegisterStep4({
 							<img src={IMAGES.RENEWAL_TEXT_LIST_IMG} alt="" aria-hidden="true" />
 						</figure>
 					</div>
-					<div
-						className="all-agree-wrap"
-						role="group"
-						aria-label="유관시스템 서비스 선택"
-					>
-						<div className="all-box">
-							<label className="check-box style1 medium">
-								<input
-									type="checkbox"
-									id="agree_all"
-									name="agree_all"
-									checked={allSelected}
-									onChange={handleSelectAll}
-								/>
-								<small>
-									<strong>모두 선택합니다.</strong>
-								</small>
-							</label>
+					{isBusiness ? (
+						<AccountForm isBusiness onVerificationChange={handleVerificationChange} />
+					) : (
+						<div className="form-wrap">
+							<AccountForm
+								isBusiness={false}
+								flat
+								onVerificationChange={handleVerificationChange}
+							/>
+							<MemberInfoForm isBusiness={false} flat />
 						</div>
-						<ul className="agree-box">
-							<li>
-								<div className="agree-title-box">
-									<div className="title">
-										<strong>통합회원 유관시스템 서비스 목록</strong>
-										<span className="badge point">
-											{selectedCount}/{bizTypeClients.length}
-										</span>
-									</div>
-									<button
-										type="button"
-										className="arrow-btn btn large icon"
-										onClick={(): void => setServiceModal(true)}
-										aria-label="통합회원 유관시스템 서비스 목록 보기"
-									>
-										<i className="icon arrow-right" aria-hidden="true" />
-										<span className="hidden">목록 보기</span>
-									</button>
-								</div>
-							</li>
-						</ul>
-					</div>
-
-					<ServiceListModal
-						isOpen={serviceModal}
-						onClose={(): void => setServiceModal(false)}
-						clients={clients}
-						groupMap={groupMap}
-						businessTypes={businessTypes}
-						memberType={memberType}
-					/>
-				</>
-			)}
-		</RegisterLayout>
+					)}
+				</div>
+			</RegisterLayout>
+			<Modal
+				id="validation-alert"
+				isOpen={showAlert}
+				onClose={(): void => setShowAlert(false)}
+				topText="알림"
+				title="입력 정보를 확인해 주세요."
+				size="small"
+				buttons={[
+					{
+						label: '확인',
+						variant: 'primary',
+						onClick: (): void => setShowAlert(false),
+					},
+				]}
+			>
+				<p>{alertMessage}</p>
+			</Modal>
+		</>
 	);
 }
 

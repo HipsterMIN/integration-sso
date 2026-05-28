@@ -12,12 +12,8 @@ function Header(): JSX.Element {
 		const redirectUri =
 			new URLSearchParams(search).get('redirect_uri') || loadRedirectUri();
 		if (!redirectUri) return;
-		try {
-			const { origin } = new URL(redirectUri);
-			window.location.href = `${origin}/`;
-		} catch {
-			// invalid URL — ignore
-		}
+		// SP 에서 전달된 redirect_uri 를 그대로 이동
+		window.location.href = redirectUri;
 	};
 
 	return (
@@ -29,10 +25,10 @@ function Header(): JSX.Element {
 				<h1>
 					<a
 						href="#"
-						aria-label="중기원패스"
+						aria-label="중기 통합회원"
 						onClick={(e): void => e.preventDefault()}
 					>
-						<img src={IMAGES.RENEWAL_LOGO} alt="중기원패스 통합로그인" />
+						<img src={IMAGES.RENEWAL_LOGO} alt="중기 통합회원" />
 					</a>
 				</h1>
 				{isMypage && (

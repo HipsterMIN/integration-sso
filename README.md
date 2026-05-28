@@ -1,46 +1,32 @@
-# OnePass 통합인증 플랫폼 (Integration-SSO)
+# OnePass 통합인증 플랫폼 (integration-sso)
 
-**중소벤처기업부 중기원패스(OnePass) 통합인증 SSO 및 아이덴티티 관리 시스템** PoC/프리프로덕션 구현체.  
-**4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) + **OnePass Agency Java Agent** 기반 EDA 아키텍처.
+**중소벤처기업부 OnePass 통합인증 SSO 및 아이덴티티 관리 시스템** 프로젝트입니다. Spring Boot와 MSA 기반으로 견고한 인증 인프라를 구축하며, 유관기관 시스템의 SSO 연동을 위한 Java Agent와 SDK를 포함합니다.
 
-> **최신 상태 (2026-05-22)** — 옵션 1(점진 수정/안전) 로드맵 Sprint α-1/α-2/α-3 완료 + `onepass-support` 모듈 신규 + 문서 정리 1차
-> **현재 버전**: v0.8.11 + Sprint α 누적 (KMS 안전망 · Handoff 무결성 · 경계 영역 보안)
-> **빌드 상태**: `./gradlew :onepass-agent:agentJar` → **BUILD SUCCESSFUL** (`onepass-agent-0.1.0-SNAPSHOT-all.jar`, ~10MB)
-> **테스트 (참고)**: `./gradlew :onepass-agent:test` 131개, `:onepass-agency-sdk:test` 36개. Sprint α-1~α-3 신규 회귀 테스트 합산은 별도 검증 필요.
-> **최근 머지**: [#177](https://github.com/HipsterMIN/integration-sso/pull/177) (α-1+α-2 release) → [#178](https://github.com/HipsterMIN/integration-sso/pull/178) (α-3 release) → [#179](https://github.com/HipsterMIN/integration-sso/pull/179) (onepass-support 모듈 뼈대)
-> **최신 분석/로드맵**: [`docs/analysis/sso-im-readiness/00_INDEX.md`](docs/analysis/sso-im-readiness/00_INDEX.md)
-> **문서 안내**: [`docs/README.md`](docs/README.md) — 2026-05-22 정리 결과 반영
+> **현재 버전**: v0.8.11
+> **최신 업데이트 (2026-05-27)**:
+> - **`onepass-support` 모듈 추가**: 사용자 Q&A 및 CS 통합 티켓 관리 시스템 API 추가.
+> - **보안 강화**: 유관기관 전환 플로우에 JWT Signed Request 기반 보안 인프라 적용 완료.
+> - **문서 최신화**: 프로젝트 구조 및 모듈별 책임 상세 분석 후 README 업데이트.
+>
+> **문서 인덱스**: [`docs/README.md`](docs/README.md)
+> **상세 아키텍처 분석**: [`docs/analysis/sso-im-readiness/00_INDEX.md`](docs/analysis/sso-im-readiness/00_INDEX.md)
 
 ---
 
 ## 목차
-
-1. [버전 히스토리](#버전-히스토리)
-2. [전체 구현 진행률](#전체-구현-진행률)
-3. [아키텍처 개요](#아키텍처-개요)
-4. [모듈 책임 분리](#모듈-책임-분리)
-5. [기술 스택](#기술-스택)
-6. [모듈 구성](#모듈-구성)
-7. [유관기관 SSO (v3.0)](#유관기관-sso-v30)
-8. [Sprint 10: SLO FE 완성 + FE 기반](#sprint-10-slo-fe-완성--fe-기반)
-9. [S7-T2: NICE/OACX 본인인증 통합](#s7-t2-niceoacx-본인인증-통합)
-10. [Feature Flag 체계](#feature-flag-체계)
-11. [🆕 OnePass Agency Java Agent](#-onepass-agency-java-agent)
-12. [🆕 멀티 WAS 테스트베드](#-멀티-was-테스트베드)
-13. [데이터베이스 구성](#데이터베이스-구성)
-14. [Kafka 토픽](#kafka-토픽)
-15. [보안 체계](#보안-체계)
-16. [Flyway 마이그레이션 현황](#flyway-마이그레이션-현황)
-17. [테스트 현황](#테스트-현황)
-18. [모니터링 인프라](#모니터링-인프라)
-19. [빠른 시작](#빠른-시작)
-20. [접속 URL](#접속-url)
-21. [개발 환경 설정](#개발-환경-설정)
-22. [전체 로드맵 & 개발 플랜](#전체-로드맵--개발-플랜)
-23. [팀별 개발 가이드](#팀별-개발-가이드)
-24. [코딩 컨벤션](#코딩-컨벤션)
-25. [문서 디렉토리](#문서-디렉토리)
-26. [Wiki 문서 목차](#wiki-문서-목차)
+1. [아키텍처 개요](#아키텍처-개요)
+2. [모듈 구성 및 역할](#모듈-구성-및-역할)
+3. [주요 기능 및 아키텍처 심층 분석](#주요-기능-및-아키텍처-심층-분석)
+    - [유관기관 SSO (v3.0)](#유관기관-sso-v30)
+    - [유관기관 회원 전환](#유관기관-회원-전환)
+    - [OnePass Agency Java Agent](#onepass-agency-java-agent)
+    - [멀티 WAS 테스트베드](#멀티-was-테스트베드)
+    - [Feature Flag 체계](#feature-flag-체계)
+4. [기술 스택](#기술-스택)
+5. [데이터베이스 및 Kafka](#데이터베이스-및-kafka)
+6. [빠른 시작](#빠른-시작)
+7. [버전 히스토리](#버전-히스토리)
+8. [Wiki 및 상세 문서](#wiki-및-상세-문서)
 
 ---
 
@@ -68,46 +54,7 @@
 | v1.9.3 | [#32](https://github.com/HipsterMIN/integration-sso/pull/32) | SLO 완전 구현 + 개인정보 파기 스케줄러 + FE 인증 기반 |
 | v1.9.2 | [#31](https://github.com/HipsterMIN/integration-sso/pull/31) | P0 보안 결함 완전 제거 + 테스트 기반 구축 |
 
----
 
-## 전체 구현 진행률
-
-> **기준일**: 2026-05-18 | **총 테스트**: 219개 통과 + 30개 skipped (q-im 기준; 전체 모듈 포함 시 ido 202 + platform-common 59 + q-sign 23 + **onepass-agency-sdk 36**) | v0.8.11 반영
-
-### 모듈별 구현 완성도
-
-```
-platform-common  ████████████████████ 100%  (도메인·이벤트·에러코드 완비, UUID v7, HandoffPayload.GUEST, E-CONV-601~603 ★신규)
-Q-Sign           ████████████████████  97%  (InternalSig 수신 검증 완료, SLO 완료)
-Q-IM             ████████████████████  98%  (소셜 SSO API, CI 암호화 v{n}, 파기 스케줄러, InternalApiKeyInterceptor)
-IdO              ████████████████████  95%  (Keycloak OIDC 브로커, SSO 소셜 계정 연동, AES 키 로테이션, NICE/OACX BFF, ConversionInit API ★신규, addAuthHeader() ★신규)
-agency-stub      ████████████████████  90%  (E2E 시뮬레이터, GUEST 정책 처리 완비)
-onepass-fe       █████████████████░░░  87%  (SLO 연동·useAuthState·ErrorBoundary·회원정보수정·Step8 isSafeRedirectUri B-1수정 ★신규)
-인프라/Docker    ████████████████████ 100%  (모니터링 스택 완비, Feature Flag K8s ConfigMap 완료)
-보안             ████████████████████  99%  (InternalApiKeyInterceptor, redirectUri 검증, UNIQUE 복합 키)
-테스트 커버리지  █████████████░░░░░░░  65%  (q-im 219개 통과+30 skipped, S8/S9 V6 E2E 통합 10종)
-```
-
-**전체 완성도**: 약 **96%** — 운영 배포 환경변수 설정 후 즉시 가동 가능 (v0.8.11 반영 — SDK GAP-1~5 수정, 분석 보고서 추가)
-
-### Sprint별 완료 현황
-
-| Sprint | 목표 | 상태 | 완료 항목 |
-|--------|------|------|-----------|
-| **Sprint 1** | P0 보안 결함 | ✅ **완료** | API Key PBKDF2, 기본 시크릿 제거, X-Internal-Sig |
-| **Sprint 2** | P1 SLO + 개인정보 | ✅ **완료** | SLO Keycloak 전파, SP 로그아웃 Webhook, 파기 스케줄러 |
-| **Sprint 3** | P2 운영 고도화 | ✅ **완료** | UUID v7, Micrometer 기초, 구조화 로깅, FE 상태관리 |
-| **Sprint 4** | 테스트 기반 | ✅ **완료** | HandoffServiceImpl 18개, Webhook 33개, UuidV7 27개 |
-| **Sprint 5** | 암호화 + 모니터링 | ✅ **완료** | AES 키 로테이션, Prometheus/Grafana/Loki |
-| **Sprint 6** | 잔여 테스트 | ✅ **완료** | agency-stub 테스트, 유관기관 패턴 Stub |
-| **Sprint 7** | 본인인증 BFF | ✅ **완료** | S7-T2 NICE/OACX 이식, S7-T6 CI→Q-IM (ImApiOutPort) |
-| **Sprint 8** | CI/CD + 부하테스트 | ✅ **완료** | GitHub Actions, k6 부하테스트, OWASP ZAP, Grafana 알림 |
-| **Sprint 9** | 프로덕션 강화 | ✅ **완료** | Redisson 분산 락, Resilience4j, Bean Validation, OTel AOP, 감사 로그, K8s |
-| **Sprint 9 FF** | Feature Flag | ✅ **완료** | 18개 Feature Flag, K8s ConfigMap 14개 환경변수 |
-| **Sprint 10** | SLO FE + 회원정보 | ✅ **완료** | SLO FE 연동, useAuthState 훅, ErrorBoundary, InformationStep3 실 API |
-| **Sprint 11** | **유관기관 SSO** | ✅ **완료** | Keycloak OIDC 브로커, 소셜 계정 식별, GUEST 정책, P1~P3 보안 패치 |
-| **Sprint 17** | **프로비저닝 addAuthHeader()** | ✅ **완료** | `addAuthHeader()` API_KEY/HMAC/mTLS 3-mode 지원 — BLOCKER 해소 |
-| **Sprint 17+** | **유관기관 전환 보안** | ✅ **완료** | B-1/B-2 버그 수정, JWT Signed Request ConversionInit API, E-CONV 에러코드, GUIDE 4편 |
 
 ---
 
@@ -458,16 +405,23 @@ export const Logout = (): void => {
 
 ---
 
-## 모듈 책임 분리
+## 모듈 구성 및 역할
 
-| 모듈 | SoR 역할 | 포트 | 핵심 책임 |
-|------|---------|------|----------|
-| `platform-common` | — | — | 공통 도메인·이벤트·에러코드·UUID v7 유틸, `HandoffPayload.GUEST` |
-| `q-sign` | **인증 SoR** | 8081 | OIDC 브로커링, JWT 검증, PKCE, SLO Keycloak 전파 |
-| `q-im` | **식별 SoR** | 8082 | qimUserId, CI AES-256-GCM v{n}, DI HMAC, 회원 원장, 소셜 계정 SSO API, InternalApiKeyInterceptor |
-| `ido` | **정책 오케스트레이터 + FE BFF** | 8083 | Handoff 발급/검증, Keycloak OIDC 브로커, Policy+GUEST, Webhook, NICE/OACX BFF, AES 키 로테이션, SLO |
-| `agency-stub` | — (PoC 전용) | 8084 | 유관기관 연동 E2E 시뮬레이터 (APPROVED/GUEST 분기 처리) |
-| `onepass-fe` | — | 3000/3001 | React 18 SPA — SLO 연동, 회원정보 수정 실연동 |
+OnePass 플랫폼은 명확한 책임 분리 원칙에 따라 여러 마이크로서비스 및 라이브러리 모듈로 구성됩니다.
+
+| 모듈 | 포트 | 주요 역할 및 책임 |
+| :--- | :--- | :--- |
+| **`platform-common`** | - | 공통 도메인, 이벤트, 에러 코드, 유틸리티 등 프로젝트 전반에서 사용되는 핵심 공통 라이브러리. |
+| **`q-sign`** | 8081 | **인증 SoR(Source of Record)**. Keycloak을 이용한 OIDC 브로커링, JWT 검증, SLO 전파 등 인증의 핵심 상태를 관리. |
+| **`q-im`** | 8082 | **식별 SoR(Source of Record)**. 사용자 식별 정보(CI/DI), 회원 원장, 소셜 계정 매핑 등 식별 정보의 상태를 관리. |
+| **`ido`** | 8083 | **정책 오케스트레이터 및 BFF(Backend for Frontend)**. Handoff 발급/검증, 기관별 정책 적용, Webhook 전송, 본인인증 처리 등 복합 비즈니스 로직을 조정. |
+| **`onepass-support`** | - | **고객 지원 도메인 API**. 사용자 대상 FAQ/Q&A 기능과 CS 상담원용 통합 티켓 관리 백오피스 시스템을 제공. |
+| **`onepass-fe`** | 3000 | **프론트엔드**. React 기반의 사용자 인터페이스(SPA). |
+| **`agency-stub`** | 8084 | **유관기관 시뮬레이터**. SSO 연동 개발 및 E2E 테스트를 위한 유관기관 시스템의 Mock 서버. |
+| **`onepass-agency-sdk`**| - | **유관기관 연동 SDK**. 유관기관이 OnePass SSO를 쉽게 연동할 수 있도록 제공하는 Java 클라이언트 라이브러리. |
+| **`onepass-agent`** | - | **OnePass Java Agent**. 소스 코드 수정 없이 JVM 옵션만으로 SSO를 적용할 수 있는 독립 fat-JAR 에이전트. |
+| **`onepass-agent-testbed`**| - | **멀티 WAS 테스트베드**. Docker Compose를 사용하여 7개 이상의 WAS 환경에서 Java Agent의 동시 검증을 자동화. |
+| **`infra`** | - | Docker, Kubernetes, 모니터링 스택(Prometheus, Grafana, Loki) 등 인프라 구성 관리. |
 
 ---
 
@@ -809,6 +763,7 @@ cd docker && docker compose down
 | Q-Sign | PostgreSQL 16 | `qsign` | **V5** — auth_method 컬럼 |
 | IdO | PostgreSQL 16 | `ido` | **V13** — agency pattern scenarios seed |
 | Q-IM | MariaDB 11.4 | `qim` | **V4** — 소셜 SSO UNIQUE 복합 키 (`★신규`) |
+| **onepass-support** | PostgreSQL 16 | `support` | **V3** (CS 티켓 스키마) |
 | agency-stub | PostgreSQL 16 | `agency_stub` | **V2** — webhook + api_key |
 
 ---

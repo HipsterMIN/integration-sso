@@ -47,7 +47,7 @@ function BusinessAuth({ onNext }: { onNext: string }): JSX.Element {
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
 							<p>
-								추가하기 버튼을 클릭하시면 중기원패스 통합회원을 이용하실 수
+								추가하기 버튼을 클릭하시면 중기 통합회원을 이용하실 수
 								있는 유관기관 항목을 보실 수 있습니다.
 							</p>
 						</li>
@@ -163,16 +163,19 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 
 	/** CI 암호화 → ciToken 발급 → sessionStorage 저장 → Step2 이동 */
 	const processCiToken = useCallback(
-		async (ci: string, authInfo?: { name?: string; birthDate?: string; gender?: 'M' | 'F' | ''; phone?: string }): Promise<void> => {
+		async (ci: string, authInfo?: { name?: string; birthDate?: string; gender?: 'M' | 'F'; phone?: string }): Promise<void> => {
 			const mbrUuid = loadUserId('member') || '';
 			const encrypted = await encryptCi(ci);
+			const encryptedAuthData = authInfo
+				? await encryptCi(JSON.stringify(authInfo))
+				: undefined;
 			const tokenRes = await exchangeCiToken({
 				encryptedCi: encrypted,
+				encryptedAuthData,
 				realm: 'ucube-qsign',
 				clientId: 'onepassCli',
 				flowContext: 'USER_WITHDRAW',
 				mbrUuid,
-				...authInfo,
 			});
 			if (tokenRes.statusCode === 200 && tokenRes.payload?.data) {
 				saveCiToken(tokenRes.payload.data.ciToken);
@@ -197,8 +200,8 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 				processCiToken(ci, {
 					name: result.name?.normalize('NFC').trim(),
 					birthDate: (result.birthday || '').replace(/\D/g, ''),
+					gender: '',
 					phone: (result.phone || '').replace(/\D/g, ''),
-					gender: normalizeGender(undefined),
 				}).catch(() => setFailedModal(true));
 			} else {
 				setFailedModal(true);
@@ -247,7 +250,7 @@ function MemberAuth({ onNext }: { onNext: string }): JSX.Element {
 					<ul className="text-list-wrap check" aria-label="안내 사항">
 						<li>
 							<p>
-								추가하기 버튼을 클릭하시면 중기원패스 통합회원을 이용하실 수
+								추가하기 버튼을 클릭하시면 중기 통합회원을 이용하실 수
 								있는 유관기관 항목을 보실 수 있습니다.
 							</p>
 						</li>
