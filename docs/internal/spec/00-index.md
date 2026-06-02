@@ -20,6 +20,7 @@
 | **03-C-Charter** | [03c-qim-responsibility-charter.md](03c-qim-responsibility-charter.md) | Q-IM 책임 헌장 — DO / DO NOT, 인접 모듈과의 계약 (정본) | 전 모듈 오너 |
 | **03-D** | [03d-module-ido.md](03d-module-ido.md) | IdO 정책 오케스트레이터 — 전 기능 상세 | IdO 담당 |
 | **03-E** | [03e-module-agency-stub.md](03e-module-agency-stub.md) | agency-stub PoC 시뮬레이터 | 연동 개발자 |
+| **03-F** | [03f-module-onepass-fe.md](03f-module-onepass-fe.md) | onepass-fe 데이터 흐름 정본 — 진입/상태/송신 4계층, CI 처리 경로 | 프론트·연동·보안 검토자 |
 | **04** | [04-api-reference.md](../../_archive/2026-05-22/internal/spec/04-api-reference.md) | 전체 REST API 명세 (모듈별) | 프론트·연동팀 |
 | **05** | [05-database-schema.md](05-database-schema.md) | DB 스키마 전체 (Flyway V1~최신) | DBA·백엔드 |
 | **06** | [06-kafka-event-catalog.md](06-kafka-event-catalog.md) | Kafka 토픽·이벤트 구조·컨슈머 그룹 | 백엔드·인프라 |
