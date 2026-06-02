@@ -1,7 +1,12 @@
 # OnePass FE (onepass-fe) — 프론트엔드 개발 가이드
 
-> **버전**: 1.0.0 | **작성일**: 2026-05-10 | **대상**: OnePass FE 개발팀  
+> **버전**: 1.1.0 | **최종 갱신**: 2026-06-02 | **대상**: OnePass FE 개발팀  
 > **브랜치**: `genspark_ai_developer` → main
+
+> 📘 **함께 읽기 (정본 문서)**  
+> 본 문서가 **"어떻게 개발/실행하는가"** 를 다룬다면, 데이터 흐름의 정본은 별도 문서입니다:
+> - **[docs/internal/spec/03f-module-onepass-fe.md](../docs/internal/spec/03f-module-onepass-fe.md)** — onepass-fe 진입(Inbound) / 상태(State 4계층) / 송신(Outbound) 표면, CI 평문 처리 경로, BE 엔드포인트 인벤토리, 위험 표면 (FE-RISK-01~07)
+> - **[docs/internal/spec/03c-qim-responsibility-charter.md](../docs/internal/spec/03c-qim-responsibility-charter.md)** §6.5 — Q-IM 의 사람-대상 UI 영구 금지선. **모든 사람-대상 화면은 onepass-fe(또는 onepass-support) 가 유일한 호스트**.
 
 ---
 

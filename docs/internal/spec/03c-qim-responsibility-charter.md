@@ -334,6 +334,8 @@ GUI 가 없으면 운영자가 손도 못 댄다는 우려를 차단하기 위�
 > 모든 운영 행위는 (a) **명시적 API 호출** 또는 (b) **승인된 스크립트 실행** 으로 한다.
 > 행위의 흔적은 audit log 와 git history 양쪽에 남아야 한다.
 
+> **사람-대상 화면(end-user UI)의 정본 호스트**: Q-IM 이 갖지 않는 모든 사람-대상 화면은 [`03f-module-onepass-fe.md`](03f-module-onepass-fe.md) 가 정의하는 onepass-fe 가 유일한 호스트다 (지원팀 화면은 `onepass-support`). onepass-fe → BE 의 데이터 흐름 정본은 03f 를 참조한다.
+
 ### 6.5.5 enforcement 체크리스트
 
 본 §6.5 가 코드 수준에서 위반되지 않도록 다음을 강제한다 (SEC-QIM-07 신규 백로그):
