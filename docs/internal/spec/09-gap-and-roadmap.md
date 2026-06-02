@@ -127,21 +127,32 @@ onepass-fe       ████████████░░░░░░░░  6
 
 > **컨텍스트**: [`02-architecture.md`](02-architecture.md) **ADR-008** 이 "FE 군 ↔ IdO 단일 채널" 을 헌법화함에 따라, 코드·환경 변수·운영 측 정리를 다음 백로그로 분리한다. **본 백로그는 설계 변경이 아니라 명명·도구·정책의 정합화** 이다 (실체 통신 경로는 이미 ADR-008 을 따르고 있음).
 
-### 6.A.1 Phase 2 — 명명 정합화 (FE 코드 rename)
+### 6.A.1 Phase 2 — 명명 정합화 (FE 코드 rename) — ✅ **완료 (PR #203 / `a7065ae`)**
 
 **목표**: FE 코드와 환경변수에서 `BE_*` 일반어를 `IDO_*` 로 교체하여, 변수명만 보고도 "이 호출은 IdO 게이트웨이로 간다" 가 자명하도록 한다.
 
-| ID | 항목 | 변경 대상 | 비고 |
-|----|------|---------|------|
-| SEC-IDO-01 | env 변수 rename: `BE_API_TARGET` → `IDO_API_TARGET` | `onepass-fe/frontend/.env*`, `webpack.config.js`, CI/CD 시크릿 | 운영 배포 시점 동기 전환 필요 |
-| SEC-IDO-02 | env 변수 rename: `BE_API_ENDPOINT` → `IDO_API_ENDPOINT` | `onepass-fe/frontend/api/beInstance.ts` 등 | 빌드 시 번들에 박힘 |
-| SEC-IDO-03 | env 변수 rename: `BE_API_KEY` → `IDO_API_KEY` | 동상 | API 키 자체 회전과 동시 수행 권장 |
-| SEC-IDO-04 | 헤더명 rename: `X-BE-API-Key` → `X-IDO-API-Key` | FE axios 인스턴스 + IdO 측 헤더 수신 코드 | 양측 동시 배포 (호환 기간 1주 운영 후 단방향 전환) |
-| SEC-IDO-05 | axios 인스턴스 식별자 rename: `beInstance` / `beApiInstance` → `idoInstance` | `onepass-fe/frontend/api/*.ts` | import 경로 일괄 치환 |
-| SEC-IDO-06 | `extInstance` 코드 레벨 제거 (현재 `@deprecated` re-export) | `onepass-fe/frontend/api/extInstance.ts` | grep 으로 사용처 0 확인 후 삭제 |
-| SEC-IDO-07 | 문서 cross-ref 갱신 — 03f / DEVELOPMENT.md 의 `BE_*` 흔적 일소 | docs/internal/spec/03f-* 등 | rename PR 과 동일 PR 에서 |
+**진행 상태**:
+- **SEC-IDO-01..06**: PR #203 (`chore/sec-ido-rename-fe` → main, 커밋 `a7065ae`) 에서 완료.
+- **SEC-IDO-07**: PR #204 (본 문서 정합화) 에서 완료 (별도 doc-only PR).
+- IdO 측 grep: `X-BE-API-Key` 수신/검증 코드 = 0건 확인 → FE 단방향 헤더 rename 으로 충분 (양측 동시 배포 불필요).
 
-**완료 정의(DoD)**: `grep -ri "BE_API" onepass-fe/` 결과 0건, FE 빌드/E2E 그린, IdO 측 양 헤더 호환 기간 종료.
+| ID | 항목 | 변경 대상 | 상태 |
+|----|------|---------|------|
+| SEC-IDO-01 | env 변수 rename: `BE_API_TARGET` → `IDO_API_TARGET` | `onepass-fe/frontend/.env*`, `webpack.config.js` (dev proxy), CI/CD 시크릿 | ✅ PR #203 |
+| SEC-IDO-02 | env 변수 rename: `BE_API_ENDPOINT` → `IDO_API_ENDPOINT` | `onepass-fe/frontend/src/api/idoInstance.ts`, webpack DefinePlugin (dev/prod) | ✅ PR #203 |
+| SEC-IDO-03 | env 변수 rename: `BE_API_KEY` → `IDO_API_KEY` | 동상 | ✅ PR #203 (API 키 자체 회전은 별도 운영 작업) |
+| SEC-IDO-04 | 헤더명 rename: `X-BE-API-Key` → `X-IDO-API-Key` | FE axios 인스턴스 + webpack dev proxy header injection | ✅ PR #203 (IdO 측 수신 코드 0건 → 단방향 전환 안전) |
+| SEC-IDO-05 | axios 인스턴스 식별자 rename: `beInstance` / `beApiInstance` → `idoInstance` / `idoApiInstance` | `src/api/idoInstance.ts` 신설 + 25 파일 일괄 식별자 치환 | ✅ PR #203 |
+| SEC-IDO-06 | 잔존 셸 제거: `api/beInstance.ts` + `api/extInstance.ts` | grep 으로 사용처 0 확인 후 파일 자체 삭제 | ✅ PR #203 |
+| SEC-IDO-07 | 문서 cross-ref 갱신 — 03f / DEVELOPMENT.md / 09 의 `BE_*` 흔적 정정 | `docs/internal/spec/03f-module-onepass-fe.md`, `onepass-fe/DEVELOPMENT.md`, `09-gap-and-roadmap.md §6.A.1` | ✅ PR #204 (본 문서) |
+
+**완료 정의(DoD)** — 모두 충족:
+- ✅ `grep -rn "\bbeInstance\b\|\bbeApiInstance\b" onepass-fe/frontend/src/` = 1 (코드 내 의도된 회고 주석 한 줄)
+- ✅ `grep -rn "from 'api/beInstance'\|from 'api/extInstance'" onepass-fe/frontend/src/` = 0 (import 흔적 0)
+- ✅ 코드 차원 `BE_API_*` / `X-BE-API-Key` 자체 사용 0건. `process.env.BE_API_*` 는 한 페이즈 호환 fallback 으로 의도적 잔존 (런타임 우선순위는 `IDO_API_*`).
+- ✅ IdO 측 양 헤더 호환 기간 불필요 (`X-BE-API-Key` 수신 코드 자체 부재).
+
+**후속 (별도 PR — 본 백로그 範圍 외)**: 다음 페이즈에 `process.env.BE_API_*` fallback 라인 및 `webpack.config.*` 의 BE_API_* DefinePlugin alias 까지 제거하여 fallback 흔적 0 달성.
 
 ### 6.A.2 Phase 3 — `onepass-admin` 도입 준비 (IdO 측 선행 작업)
 
