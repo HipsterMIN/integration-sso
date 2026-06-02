@@ -6,7 +6,7 @@
  * 2. EasySign 팝업 오픈 → postMessage로 accKey/accToken 전달
  * 3. 인증 완료 시 easysign API 호출 → 결과 수신
  */
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const EASYSIGN_URL = process.env.EASYSIGN_URL || '';
@@ -109,7 +109,7 @@ function PersonalAuthTab(): JSX.Element {
 			if (data.status === 'success' && data.fn === 'authComplete') {
 				addLog('인증 완료, easysign 호출 중...');
 				try {
-					const res = await beInstance.post('/api/v1/auth/oacx/easysign', event.data);
+					const res = await idoInstance.post('/api/v1/auth/oacx/easysign', event.data);
 					const result = res.data as EasysignResponse;
 					setEasysignResult(result);
 					addLog(`easysign 결과: ${result.resultCode}`);
@@ -147,7 +147,7 @@ function PersonalAuthTab(): JSX.Element {
 
 		try {
 			addLog('access-info 호출 중...');
-			const res = await beInstance.post('/api/v1/auth/oacx/access-info', 'simpleAuth');
+			const res = await idoInstance.post('/api/v1/auth/oacx/access-info', 'simpleAuth');
 			const data = res.data as AccessInfoResponse;
 			setAccessResult(data);
 

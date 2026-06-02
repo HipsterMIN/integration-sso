@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import type {
@@ -17,7 +17,7 @@ const provisionUser = async (
 	props: ProvisionUserRequest,
 ): Promise<SuccessResponse<ProvisionUserPayload> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post('/api/v1/ext/provision/users', props);
+		const response = await idoInstance.post('/api/v1/ext/provision/users', props);
 		return {
 			statusCode: 200,
 			error: null,
@@ -37,7 +37,7 @@ export const withdrawUser = async (
 	props: WithdrawUserRequest,
 ): Promise<SuccessResponse<WithdrawUserPayload> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			'/api/v1/ext/provision/users/withdraw',
 			{ ...props, withdrawalReason: props.withdrawalReason || '서비스 미이용' },
 		);

@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import type { AffiliationsResponse, EnterpriseModifyRequest, EnterpriseResponse, MemberModifyRequest, MemberResponse } from 'types/api/ext/members';
@@ -9,7 +9,7 @@ export const getMember = async (
 	mbrNo: string,
 ): Promise<SuccessResponse<MemberResponse> | ErrorResponse> => {
 	try {
-		const response = await beInstance.get(`/api/v1/ext/members/${mbrNo}`);
+		const response = await idoInstance.get(`/api/v1/ext/members/${mbrNo}`);
 		return {
 			statusCode: 200,
 			error: null,
@@ -26,7 +26,7 @@ export const getMemberAffiliations = async (
 	mbrUuid: string,
 ): Promise<SuccessResponse<AffiliationsResponse> | ErrorResponse> => {
 	try {
-		const response = await beInstance.get(`/api/v1/ext/members/${mbrUuid}/affiliations`);
+		const response = await idoInstance.get(`/api/v1/ext/members/${mbrUuid}/affiliations`);
 		return {
 			statusCode: 200,
 			error: null,
@@ -43,7 +43,7 @@ export const getEnterpriseAffiliations = async (
 	mbrUuid: string,
 ): Promise<SuccessResponse<AffiliationsResponse> | ErrorResponse> => {
 	try {
-		const response = await beInstance.get(`/api/v1/ext/enterprises/${mbrUuid}/affiliations`);
+		const response = await idoInstance.get(`/api/v1/ext/enterprises/${mbrUuid}/affiliations`);
 		return {
 			statusCode: 200,
 			error: null,
@@ -60,7 +60,7 @@ export const getEnterprise = async (
 	entMbrNo: string,
 ): Promise<SuccessResponse<EnterpriseResponse> | ErrorResponse> => {
 	try {
-		const response = await beInstance.get(`/api/v1/ext/enterprises/${entMbrNo}`);
+		const response = await idoInstance.get(`/api/v1/ext/enterprises/${entMbrNo}`);
 		return {
 			statusCode: 200,
 			error: null,
@@ -77,7 +77,7 @@ export const modifyEnterprise = async (
 	body: EnterpriseModifyRequest,
 ): Promise<SuccessResponse<EnterpriseResponse> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			'/api/v1/ext/provision/enterprises/modify_local',
 			body,
 		);
@@ -97,7 +97,7 @@ export const modifyMember = async (
 	body: MemberModifyRequest,
 ): Promise<SuccessResponse<MemberResponse> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			'/api/v1/ext/provision/users/modify_local',
 			body,
 		);

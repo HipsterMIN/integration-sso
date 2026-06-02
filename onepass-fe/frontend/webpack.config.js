@@ -57,8 +57,13 @@ const plugins = [
 			QSIGN_CLIENT_ID: process.env.QSIGN_CLIENT_ID,
 			EXT_API_KEY: process.env.EXT_API_KEY,
 			EXT_API_ENDPOINT: process.env.EXT_API_ENDPOINT,
-			BE_API_KEY: process.env.BE_API_KEY,
-			BE_API_ENDPOINT: process.env.BE_API_ENDPOINT,
+			// IdO API (Phase 2 / SEC-IDO-01..03: BE_API_* → IDO_API_* rename, ADR-008)
+			// IDO_API_* 우선, 없으면 구 BE_API_* fallback (호환 기간 유지)
+			IDO_API_KEY: process.env.IDO_API_KEY || process.env.BE_API_KEY,
+			IDO_API_ENDPOINT: process.env.IDO_API_ENDPOINT || process.env.BE_API_ENDPOINT,
+			// 하위호환: 외부 (혹시 잔존하는) BE_API_* 참조용 — Phase 2 후속 PR 에서 제거 예정
+			BE_API_KEY: process.env.IDO_API_KEY || process.env.BE_API_KEY,
+			BE_API_ENDPOINT: process.env.IDO_API_ENDPOINT || process.env.BE_API_ENDPOINT,
 			EASYSIGN_URL: process.env.EASYSIGN_URL,
 			EASYSIGN_ORIGIN: process.env.EASYSIGN_ORIGIN,
 			AES_GCM_KEY: process.env.AES_GCM_KEY,
@@ -100,13 +105,22 @@ const config = {
 		allowedHosts: 'all',
 		// API 엔드포인트가 설정되어 있을 때만 proxy 활성화
 		proxy: {
-			// IDO Backend API
+			// IdO 게이트웨이 단일 채널 (ADR-008)
+			// Phase 2 / SEC-IDO-01..04: IDO_API_* 우선, 없으면 구 BE_API_* fallback.
 			'/api': {
-				target: process.env.BE_API_TARGET || 'http://localhost:9292',
+				target:
+					process.env.IDO_API_TARGET ||
+					process.env.BE_API_TARGET ||
+					'http://localhost:9292',
 				changeOrigin: true,
 				secure: false,
 				onProxyReq(proxyReq) {
-					proxyReq.setHeader('X-BE-API-Key', process.env.BE_API_KEY || '');
+					// SEC-IDO-04: 신규 헤더명 X-IDO-API-Key 송신.
+					// IdO 가 아직 헤더 검증 코드를 갖지 않으므로 단방향 rename 안전.
+					proxyReq.setHeader(
+						'X-IDO-API-Key',
+						process.env.IDO_API_KEY || process.env.BE_API_KEY || '',
+					);
 				},
 			},
 			'/bizezauth-api-dev': {

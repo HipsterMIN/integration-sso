@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import type {
@@ -15,7 +15,7 @@ const checkConversionProxy = async (
 	params: CheckConversionRequest,
 ): Promise<SuccessResponse<CheckConversionPayload> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			'/api/v1/ext/provision/users/check-conversion',
 			params,
 		);

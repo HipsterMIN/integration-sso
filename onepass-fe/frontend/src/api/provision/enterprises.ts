@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import {
@@ -13,7 +13,7 @@ const provisionEnterprise = async (
 	props: Props,
 ): Promise<SuccessResponse<PayloadProps> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			'/api/v1/ext/provision/enterprises',
 			props,
 		);
@@ -37,7 +37,7 @@ export const withdrawEnterprise = async (
 	props: WithdrawEnterpriseRequest,
 ): Promise<SuccessResponse<WithdrawEnterprisePayload> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			'/api/v1/ext/provision/enterprises/withdraw',
 			{ ...props, withdrawalReason: props.withdrawalReason || '서비스 미이용' },
 		);

@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import { beApiInstance } from 'api/beInstance';
+import { idoApiInstance } from 'api/idoInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 
@@ -32,7 +32,7 @@ const conversionInit = async (
 	params: ConversionInitRequest,
 ): Promise<SuccessResponse<ConversionInitResponse> | ErrorResponse> => {
 	try {
-		const response = await beApiInstance.post('/api/v1/conversion/init', params);
+		const response = await idoApiInstance.post('/api/v1/conversion/init', params);
 		return {
 			statusCode: 200,
 			error: null,

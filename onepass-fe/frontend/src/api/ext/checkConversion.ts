@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 import { CheckConversionResponse } from 'types/api/ext/clients';
@@ -10,7 +10,7 @@ const userCheckConversion = async (params: {
 	targetClientId?: string[];
 }): Promise<SuccessResponse<CheckConversionResponse> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			'/api/v1/ext/provision/users/check-conversion',
 			params,
 		);
@@ -30,7 +30,7 @@ export const enterpriseCheckConversion = async (params: {
 	targetClientId?: string[];
 }): Promise<SuccessResponse<CheckConversionResponse> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			'/api/v1/ext/provision/enterprises/check-conversion',
 			params,
 		);

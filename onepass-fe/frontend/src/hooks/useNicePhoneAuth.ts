@@ -7,7 +7,7 @@
  * 3. 인증 완료 후 nice-callback.html로 리다이렉트 → postMessage로 web_transaction_id 전달
  * 4. 백엔드에 결과 조회 요청 → 복호화된 인증 결과 수신
  */
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface NicePhoneAuthResult {
@@ -92,7 +92,7 @@ function useNicePhoneAuth(
 		async (webTransactionId: string, requestNo?: string): Promise<void> => {
 			resultHandledRef.current = true;
 			try {
-				const res = await beInstance.post('/api/v1/auth/nice/phone/result', {
+				const res = await idoInstance.post('/api/v1/auth/nice/phone/result', {
 					web_transaction_id: webTransactionId,
 					request_no: requestNo,
 				});
@@ -155,7 +155,7 @@ function useNicePhoneAuth(
 
 		try {
 			const returnUrl = `${window.location.origin}/nice-callback.html`;
-			const res = await beInstance.get('/api/v1/auth/nice/phone/url', {
+			const res = await idoInstance.get('/api/v1/auth/nice/phone/url', {
 				params: { returnUrl },
 			});
 			const data = res.data as NiceAuthUrlResponse;
