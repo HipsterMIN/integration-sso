@@ -235,6 +235,109 @@ APACHE_GATE:  POST {apacheGateEndpoint} — mod_auth_openidc 헤더 사전 주�
 - **이유**: 처리 실패 이벤트 유실 방지, 운영 재처리 경로 확보
 - **구현**: `KafkaTopicConfig.defaultErrorHandler()` + `DeadLetterPublishingRecoverer`
 
+### ADR-008: FE 군(群) ↔ IdO 단일 채널 원칙
+
+> **본 ADR은 ADR-002 의 확장본이다.**
+> ADR-002 가 "BFF 역할을 IdO 가 흡수한다" 를 선언했다면,
+> ADR-008 은 "BFF 뿐 아니라 게이트웨이까지 IdO 가 단일하게 전담한다" 와
+> "프론트엔드는 1 개로 한정되지 않고 군(群) 으로 확장될 수 있다" 를 함께 헌법화한다.
+
+#### 3단 명제 (전제)
+
+본 아키텍처의 모듈 책임 분해는 다음 3 단으로 읽는다.
+
+1. **책임의 종류** — 시스템에는 두 종류의 "사용자-대상 화면" 책임이 존재한다.
+   - (a) **end-user 화면**: 일반 신청자/대표자/실무자가 사용하는 발급·열람·동의 화면
+   - (b) **운영·관리 화면**: 운영자·고객지원·감사 담당이 사용하는 모니터링·정책·심사 화면
+   - (단, Q-IM 자체의 관리 콘솔은 03-C §6.5 에 따라 **영구 금지** 됨 — 본 ADR 의 (b) 는
+     Q-IM 외부에서, IdO 가 부여한 권한 등급 하에 별도 FE 가 호스트한다.)
+2. **모듈 군(群)** — 위 책임은 단일 모듈이 아닌 **프론트엔드 군(group)** 으로 구현된다.
+   - 현재: `onepass-fe` (end-user 화면 담당)
+   - 향후 도입 가능: `onepass-admin`, `onepass-support`, `onepass-audit` 등
+   - (※ "현재 onepass-fe 가 유일한 FE 다" 는 **현시점 사실**일 뿐, **설계상 제약이 아니다**.
+     설계는 처음부터 N 개 FE 를 전제로 한다.)
+3. **단일 게이트웨이** — 군에 속한 모든 FE 는 **IdO 단일 채널** 로만 백엔드와 통신한다.
+   - IdO 가 BFF + Gateway + Orchestrator 역할을 통합 수행한다.
+   - Q-IM / Q-Sign / agency-stub 은 **어떤 FE 에서도 직접 호출 불가**.
+
+#### 결정 (Decision)
+
+- **결정**: 모든 프론트엔드 모듈(현재 `onepass-fe`, 향후 도입될 `onepass-admin` 등 일체)은
+  **IdO 단일 채널** 을 통해서만 백엔드(Q-IM / Q-Sign / agency-stub / Keycloak 등)와 통신한다.
+  FE 에서 Q-IM 등 백엔드를 직접 호출하는 어떠한 경로도 허용하지 않는다.
+- **단일성의 정의**:
+  - FE 의 HTTP 클라이언트(예: axios) `baseURL` 인스턴스는 **정확히 1 개** (IdO) 만 존재한다.
+  - 구 `extInstance` (Q-IM 직접 호출) 는 `@deprecated` 처리되어 있으며,
+    Phase 2 에서 코드 레벨 제거 + 환경 변수 rename(`BE_API_*` → `IDO_API_*`) 수행 예정.
+
+#### 이유 (Rationale)
+
+- **(a) Q-IM 책임 헌장 정합성**: 03-C §6 (사용자-대상 화면 제거) 과 §6.5 (관리자 페이지 영구 금지)
+  를 시스템 경계 차원에서 강제하는 유일한 방법은 "FE 가 Q-IM 을 직접 호출하지 않는" 구조이다.
+- **(b) 단일 정책 적용점**: 인증·인가·감사 로그·rate limit·CORS·CSRF·세션 관리·외부키 보호 등
+  보안·정책 통제를 **1 개 모듈(IdO)** 에서 일관되게 적용 가능. N 개 FE 가 N 개 백엔드를 직접
+  호출한다면 정책 적용점이 N×M 개로 폭발한다.
+- **(c) BE 보호 불변식 (Invariant under N-FE expansion)**: FE 가 1 개에서 N 개로 늘어나도
+  Q-IM·Q-Sign 의 노출 표면은 변하지 않는다. 신규 FE 도입은 IdO 에 "Origin 추가 + API 키 발급 +
+  쿠키 도메인 정책" 만 적용하면 되고, BE 코드는 무영향.
+- **(d) 보안 키 누출 방지**: Q-IM 의 `X-Ext-Api-Key` 등 외부 호출 키는 IdO 가 서버 측에서
+  주입(`ExtProxyController`)하며, FE 번들에는 절대 노출되지 않는다.
+
+#### 영향 (Impact)
+
+- **FE 측 제약**:
+  - axios baseURL = 1 개 (IdO) — 다중 baseURL 금지.
+  - `EXT_API_*` / `Q_IM_*` / `Q_SIGN_*` 등 BE 모듈을 직접 가리키는 환경변수 FE 에 두지 않음.
+  - 모든 외부 호출은 `/api/**` (IdO) → 필요 시 `/api/ext/**` (IdO 의 forward proxy) 경유.
+- **IdO 측 책임 확장**:
+  - **BFF**: `feSessionId` 쿠키 발급/검증, returnUrl 화이트리스트 (`FeSessionController`).
+  - **Gateway**: `/api/ext/**` → Q-IM forward proxy, 서버측 `X-Ext-Api-Key` 주입,
+    Q3=B 컴플라이언스(`/api/ext/ci/**` 차단) (`ExtProxyController`).
+  - **Orchestrator**: 다단 흐름(`q-sign-init → quick-status → cert-status → handoff`)을
+    IdO 가 일괄 지휘 (03-D 참조).
+- **운영 측 효과**:
+  - 신규 FE 추가 비용: BE 변경 0, IdO 에 CORS Origin 1 줄 + API 키 1 개 추가만으로 가능.
+  - 모니터링 단일점: 모든 FE 트래픽이 IdO 를 거치므로 access log·감사 로그가 일원화.
+
+#### 인증 모델 — Option A (현재 기본) / Option B (확장 경로)
+
+| 항목 | Option A: feSession + API Key 단일 모델 (현재) | Option B: 인증 등급 분리 (향후 onepass-admin 도입 시) |
+|------|-----------------------------------------------|---------------------------------------------------|
+| 대상 FE | onepass-fe (end-user) | onepass-fe + onepass-admin (+ ...) |
+| FE→IdO 인증 | `feSessionId` 쿠키 + `X-BE-API-Key` | (end-user) feSession 유지 / (admin) Keycloak admin-realm OIDC + mTLS + step-up MFA |
+| API 키 스코프 | 단일 키 | FE 별 분리 키, 스코프(read/write/admin) 차등 |
+| 경로 분리 | `/api/v1/**` | `/api/v1/**` (end-user) ↔ `/api/admin/v1/**` (admin) |
+| 감사 로그 등급 | 표준 | admin 호출은 상시 100% 감사 + 알람 임계치 별도 |
+| 이행 트리거 | — | `onepass-admin` 모듈 첫 도입 PR 의 선행 조건 |
+
+> Option A → Option B 전환은 **IdO 내부 정책 추가**만으로 가능하며, **FE 군 단일 채널 원칙은 불변**.
+> 즉 본 ADR 은 인증 정책의 진화에 대해 **forward-compatible** 하다.
+
+#### onepass-admin (또는 임의 신규 FE) 도입 시 체크리스트
+
+향후 운영·관리 FE 가 도입될 때, **IdO 측** 에 다음을 사전 적용해야 한다.
+(BE 측 변경은 원칙적으로 없음 — 본 ADR 의 "BE 보호 불변식" 효과)
+
+1. **API 키 스코핑** — onepass-fe 와 분리된 별도 API 키 발급, 스코프(`admin:*`) 차등 부여.
+2. **CORS N-origin** — IdO `cors.allowed-origins` 에 신규 FE Origin 추가
+   (`onepass-admin.smes.go.kr` 등). 와일드카드 금지.
+3. **쿠키 도메인 정책** — admin 쿠키는 `Domain=admin.smes.go.kr; Path=/; SameSite=Strict`
+   로 end-user 쿠키와 **물리적 격리**. 공유 도메인 금지.
+4. **admin path prefix 분리** — IdO 내 `/api/admin/v1/**` 컨트롤러군 신설.
+   end-user 경로와 동일 컨트롤러 재사용 금지(권한 등급 혼선 방지).
+5. **인증 등급 분리** — Option B 채택. Keycloak `admin-realm` + step-up MFA + (선택) mTLS.
+6. **감사 로그 강화** — admin 경로 호출은 100% 감사 + 비정상 패턴 실시간 알람.
+   (현재 표본 감사로 충분한 end-user 와 별도 정책)
+
+#### 연계 ADR / 참조
+
+- **ADR-002 (onepass-fe 순수 React SPA)** — 본 ADR 의 직접 선조. 본 ADR 은 ADR-002 를
+  "BFF 흡수" 에서 "BFF + Gateway 흡수, 그리고 FE 의 N 개화" 로 확장한다.
+- **03-C §6, §6.5 (Q-IM 책임 헌장 / 관리자 페이지 영구 금지)** — 본 ADR 이 시스템 경계로
+  강제하는 대상.
+- **03-F (onepass-fe 데이터 흐름 정본)** — 본 ADR 의 onepass-fe 측 구현 단면.
+- **`ExtProxyController` / `FeSessionController`** — 본 ADR 의 IdO 측 구현 단면.
+
 ---
 
 ## 5. 네트워크 구성
