@@ -11,9 +11,11 @@
 
 ## 0. 한 줄 정리
 
-> **onepass-fe = "유관기관 ↔ Q-IM(BE) 사이의 React SPA + Nginx 정적 호스트"**  
-> URL 쿼리 / 외부 SDK 콜백 / Keycloak form-POST 를 입력으로 받아, **React Context + Redux + LocalStorage + 짧은 메모리** 4계층 상태에 보관하면서, **단일 베이스 URL(`BE_API_ENDPOINT`)로 만든 axios 인스턴스 군**을 통해 BE로 내보낸다.  
+> **onepass-fe = "유관기관 ↔ IdO(게이트웨이) 사이의 React SPA + Nginx 정적 호스트"**  
+> URL 쿼리 / 외부 SDK 콜백 / Keycloak form-POST 를 입력으로 받아, **React Context + Redux + LocalStorage + 짧은 메모리** 4계층 상태에 보관하면서, **단일 베이스 URL(IdO 게이트웨이) 로 만든 axios 인스턴스 군**을 통해 IdO 로 내보낸다.  
 > **CI 평문은 절대 영속 저장하지 않는다** (`ciToken` JWT 참조 토큰만 메모리에 둠).
+>
+> **🔒 단일 채널 헌법 (ADR-008)**: onepass-fe 는 **Q-IM / Q-Sign / agency-stub 등 어떤 백엔드도 직접 호출하지 않는다**. 모든 외부 호출은 IdO 게이트웨이 단일 채널을 거친다. (현행 코드의 환경변수명 `BE_API_*` 의 `BE` 는 실체적으로 **IdO** 를 가리킨다 — Phase 2 에서 `IDO_API_*` 로 rename 예정. 02-architecture.md ADR-008 / 09-gap-and-roadmap.md 백로그 참조.)
 
 ---
 
@@ -30,10 +32,10 @@
 | SPA fallback | `try_files $uri $uri/ /index.html` — 모든 미매칭 URL → React Router로 위임 |
 | Body limit | `client_max_body_size 24M` |
 | Header buffer | `large_client_header_buffers 8 128k` (대형 쿼리 대비) |
-| **BE reverse proxy** | **없음** — Nginx는 순수 정적 서빙만 |
+| **IdO reverse proxy** | **없음** — Nginx는 순수 정적 서빙만 (dev 시 webpack-dev-server 가 `/api → IdO` 프록시 담당) |
 | OpenTelemetry `/v1/traces` 프록시 | **현재 주석 처리됨** (FE 트레이스 미수집 상태) |
 
-> **핵심**: onepass-fe Nginx 는 BE를 프록시하지 않는다. 모든 BE 호출은 **브라우저 → BE(별도 호스트)** 로 CORS 직접 요청.
+> **핵심**: onepass-fe Nginx 는 IdO 를 프록시하지 않는다 (prod). 모든 IdO 호출은 **브라우저 → IdO 게이트웨이(별도 호스트)** 로 CORS 직접 요청. Q-IM / Q-Sign 으로의 직접 호출은 **존재하지 않는다** (ADR-008).
 
 ### 1.2 URL 쿼리 파라미터 — 유관기관 진입의 1차 인터페이스
 
@@ -162,21 +164,25 @@ interface ConversionData {
 
 ## 3. 송신(Outbound) 표면 — 외부로 내보내는 것
 
-### 3.1 BE 호출 — axios 인스턴스
+> **단일 채널 원칙**: 본 절의 모든 axios 인스턴스의 baseURL 은 **정확히 1 개 호스트 (IdO 게이트웨이)** 를 가리킨다. 현행 코드의 변수명은 `BE_API_*` 로 되어 있으나, 그 실체는 **IdO** 이다 (`.env` 의 `BE_API_TARGET=https://onepass-ido-dev.smes.go.kr` 로 직접 확인 가능). 명명 정합은 Phase 2 rename PR 에서 정리.
+
+### 3.1 IdO 호출 — axios 인스턴스
 
 #### (A) `beInstance` / `beApiInstance` — `api/beInstance.ts`
 
 ```typescript
-const BE_BASE_URL = process.env.BE_API_ENDPOINT || '';
+const BE_BASE_URL = process.env.BE_API_ENDPOINT || '';  // 실체: IdO endpoint
 
 const beInstance = axios.create({
-  baseURL: BE_BASE_URL,
+  baseURL: BE_BASE_URL,                                  // ← IdO 게이트웨이
   headers: {
     'Content-Type': 'application/json',
-    'X-BE-API-Key': process.env.BE_API_KEY || '',   // ← 빌드 시 번들에 박힘
+    'X-BE-API-Key': process.env.BE_API_KEY || '',        // ← IdO 가 검증하는 FE 식별 키
   },
 });
 ```
+
+> ⚠️ 변수명 `BE_*` 는 "백엔드" 의 일반어 잔재이며, 실제 통신 대상은 IdO 단 한 곳이다. Phase 2 에서 `IDO_API_ENDPOINT` / `X-IDO-API-Key` 로 rename 예정 (ADR-008, 09-gap-and-roadmap.md SEC-IDO-* 참조).
 
 #### (B) `extInstance` — **deprecated** (B-5 보안 패치)
 
@@ -186,6 +192,8 @@ const beInstance = axios.create({
 > *변경: ido(8083) /api/ext/** forward proxy 경유, 서버사이드에서 X-Ext-Api-Key 주입 (FE 번들 미포함)*
 
 → 현재는 `beApiInstance` 의 단순 re-export. 신규 코드는 `beApiInstance` 를 직접 쓸 것.
+
+> **B-5 패치의 의의**: 이 패치는 본 문서의 단일 채널 원칙(ADR-008) 을 **코드에 강제** 하는 사건이었다. 이전에는 FE 가 Q-IM 을 직접 호출하는 경로가 존재했으나, B-5 이후 모든 `/api/ext/**` 트래픽이 IdO `ExtProxyController` 를 경유하도록 전환되었다.
 
 #### (C) `instance` (default) + V2/V3/V4/Gateway — `api/index.ts`
 
@@ -229,7 +237,9 @@ const beInstance = axios.create({
 | 다수 | `{baseURL}/api/v1/user/*`, `org/*`, `invite/*`, `roles/*` | 인증 후 사용 |
 | 다수 | `findLoginId`, `passwordChange`, `resetPassword` | 계정 복구 |
 
-### 3.3 BE 외 외부 호스트로의 송신
+### 3.3 IdO 외 외부 호스트로의 송신
+
+> 아래 경로는 **API 호출이 아닌 브라우저 차원의 form-POST / location 이동 / SDK 자체 통신** 으로, axios 단일 채널 원칙(ADR-008) 의 적용 대상이 아니다. 그러나 그 결과 데이터(예: SDK 콜백) 의 **API 송신은 반드시 IdO 단일 채널** 을 거친다.
 
 | 대상 | 트리거 | 데이터 |
 |------|-------|-------|
@@ -241,11 +251,11 @@ const beInstance = axios.create({
 
 | 변수 | 용도 | 비고 |
 |------|-----|------|
-| `BE_API_ENDPOINT` | beInstance baseURL | 필수 |
-| `BE_API_KEY` | `X-BE-API-Key` 헤더 값 | ⚠️ **FE 번들에 노출됨** — DevTools로 추출 가능. BE의 origin/CORS/Rate-Limit가 실질 방어선 |
-| `FRONTEND_API_ENDPOINT` | `ENVIRONMENT.baseURL` (axios `instance`) | |
+| `BE_API_ENDPOINT` / `BE_API_TARGET` | beInstance baseURL | 필수. **실체는 IdO endpoint** (예: `https://onepass-ido-dev.smes.go.kr`). Phase 2 에서 `IDO_API_ENDPOINT` 로 rename 예정 |
+| `BE_API_KEY` | `X-BE-API-Key` 헤더 값 | ⚠️ **FE 번들에 노출됨** — DevTools로 추출 가능. **IdO** 의 origin/CORS/Rate-Limit/API 키 화이트리스트가 실질 방어선. Phase 2 에서 `X-IDO-API-Key` 로 rename 예정 |
+| `FRONTEND_API_ENDPOINT` | `ENVIRONMENT.baseURL` (axios `instance`) | IdO 의 또 다른 별칭 — Phase 2 정리 대상 |
 | `WEBSOCKET_API_ENDPOINT` | (WebSocket용, 현재 사용 미확인) | |
-| `AES_GCM_KEY` | `utils/crypto/aesGcm.ts` 가 사용하는 **CI 암호화 키 (base64)** | ⚠️ **FE 번들에 박힘** — 클라이언트가 키를 들고 암호화 후 BE에 송신. BE에서 같은 키로 복호화. 키 노출 위협 큼 — 별도 보안 검토 필요 |
+| `AES_GCM_KEY` | `utils/crypto/aesGcm.ts` 가 사용하는 **CI 암호화 키 (base64)** | ⚠️ **FE 번들에 박힘** — 클라이언트가 키를 들고 암호화 후 IdO → Q-IM 으로 송신. Q-IM 에서 같은 키로 복호화. 키 노출 위협 큼 — 별도 보안 검토 필요 |
 | `SKIP_AUTH` | Private route 우회 (개발용) | ⛔ prod에서 절대 `true` 금지 |
 | `NODE_ENV` | `loginPrecheck` 등 dev 폴백 분기 | |
 
@@ -262,18 +272,28 @@ const beInstance = axios.create({
     │    https://onepass.smes.go.kr/conversion/step1?signed_request=<JWT>
     │    (또는 레거시: ?redirect_uri=&mbrId=&return_client=&userType=)
     ▼
-[Nginx :8080]
+[Nginx :8080  ← onepass-fe 정적 호스트]
     │ 2. try_files 미스 → /index.html 반환 (React SPA 부트)
     ▼
 [React Router → ConversionStep1]
     │ 3. URLSearchParams.get('signed_request')
-    │    POST {BE_API_ENDPOINT}/api/v1/conversion/init  { signed_request }
-    │    Headers: Content-Type:application/json, X-BE-API-Key:<env>
+    │    POST {IdO}/api/v1/conversion/init  { signed_request }      ┐
+    │    Headers: Content-Type:application/json, X-BE-API-Key:<env> │  모든 호출은
+    │                                                                │  IdO 게이트웨이
+    ▼                                                                │  단일 채널
+┌──────────────────────────────────────────────────────────────────┐│  (ADR-008)
+│  IdO 게이트웨이 (BFF + Gateway + Orchestrator)                    │┘
+│   ├─ FeSessionController        feSessionId 발급/검증            │
+│   ├─ ExtProxyController         /api/ext/** → Q-IM forward proxy │
+│   │                              (서버측 X-Ext-Api-Key 주입,      │
+│   │                              /api/ext/ci/** Q3=B 차단)        │
+│   └─ Orchestrator               q-sign-init → quick-status → ... │
+└──────────────────────────────────────────────────────────────────┘
     │ ◀── { conversion_session_id, user_type, expires_at }
     │ 4. updateData({ conversionSessionId, memberType }) → Context 저장
     │    (레거시 흐름이면 redirectUri / mbrId / initialClientId 도 함께)
     ▼
-[Step2: 약관]
+[Step2: 약관]   ※ 아래 모든 /api/v1/** 는 IdO 단일 채널 호출
     │ GET  /api/v1/ext/terms/bundle?realm=qim&client=sp-smeg&lang=ko
     │ POST /api/v1/ext/consent/token  { ... }
     │ POST /api/v1/ext/consent        { ... }
@@ -341,16 +361,23 @@ const beInstance = axios.create({
 
 | 비책임 | 위임처 |
 |--------|--------|
-| ❌ CI 복호화·DI 생성·HMAC | **Q-IM** (encryptedCi 를 받아 처리) |
-| ❌ JWT (`signed_request`, `ciToken`) 서명 검증 | onepass-be / IdO / Q-IM |
-| ❌ Keycloak 토큰 발급 / 세션 관리 | **Keycloak + Q-Sign** |
-| ❌ 유관기관 SSO 클라이언트 메타데이터 마스터 | **Q-IM** (`/api/v1/ext/clients` 응답이 정본) |
-| ❌ 약관 본문·버전 관리 | **Q-IM** (`/api/v1/ext/terms/bundle`) |
-| ❌ 사용자 DB 영속 / 중복 판정 | **Q-IM** (`check-duplicate`, `check-conversion`) |
-| ❌ 감사 로그 적재 | BE 측 미들웨어 (`platform.audit.log`) |
-| ❌ Nginx BE 프록시 | 현재 없음 — 브라우저가 BE에 CORS 직접 호출 |
+| ❌ **Q-IM / Q-Sign / agency-stub 직접 호출** | **IdO 단일 채널** (ADR-008) — 모든 외부 호출은 IdO `/api/**` 경유 |
+| ❌ CI 복호화·DI 생성·HMAC | **Q-IM** (IdO 가 encryptedCi 를 Q-IM 으로 forward) |
+| ❌ JWT (`signed_request`, `ciToken`) 서명 검증 | IdO / Q-IM |
+| ❌ Keycloak 토큰 발급 / 세션 관리 | **Keycloak + Q-Sign** (FE 는 form-POST 만 수행) |
+| ❌ 유관기관 SSO 클라이언트 메타데이터 마스터 | **Q-IM** (`/api/v1/ext/clients` 응답이 정본, IdO 가 proxy) |
+| ❌ 약관 본문·버전 관리 | **Q-IM** (`/api/v1/ext/terms/bundle`, IdO 가 proxy) |
+| ❌ 사용자 DB 영속 / 중복 판정 | **Q-IM** (`check-duplicate`, `check-conversion`, IdO 가 proxy) |
+| ❌ 감사 로그 적재 | IdO 측 미들웨어 + BE 측 (`platform.audit.log`) |
+| ❌ Nginx 가 IdO/Q-IM 을 프록시 (prod) | 현재 없음 — 브라우저가 IdO 에 CORS 직접 호출 |
+| ❌ API 키 (`X-Ext-Api-Key` 등 외부 키) 보유 | **IdO** 가 서버측 주입 (FE 번들에 절대 미포함) — `ExtProxyController` |
 
-> **Q-IM 책임 헌장**(`03c-qim-responsibility-charter.md` §6.5)에 따라, onepass-fe 는 **Q-IM 의 어떠한 화면도 호스팅하지 않는다**. Q-IM 은 사람-대상 UI 면을 영구히 갖지 않으며, 모든 사람-대상 화면은 onepass-fe(또는 onepass-support) 에 위치한다.
+> **🔒 단일 채널 헌법 (ADR-008)**:
+> onepass-fe 는 **Q-IM / Q-Sign / agency-stub 등 어떤 백엔드도 직접 호출하지 않는다**.
+> 모든 외부 호출은 **IdO 게이트웨이 단일 채널** 을 거친다.
+> 향후 도입될 `onepass-admin` 등 신규 FE 도 동일 원칙을 따르며, FE 가 1 개에서 N 개로 늘어나도 BE 노출 표면은 불변이다 (IdO 의 "BE 보호 불변식").
+>
+> **Q-IM 책임 헌장 정합**: `03c-qim-responsibility-charter.md` §6 / §6.5 에 따라, Q-IM 은 사람-대상 UI 면을 영구히 갖지 않으며, 운영자 콘솔도 영구히 금지된다. 사람-대상 화면은 **FE 군(현재 `onepass-fe`, 향후 `onepass-admin` 등)** 이 호스트하고, 그 FE 군은 **IdO 단일 채널** 을 통해서만 백엔드와 통신한다. 본 문서는 그 중 `onepass-fe` 측 단면이다.
 
 ---
 
@@ -393,12 +420,13 @@ const beInstance = axios.create({
 │                                                                          │
 │  ┌──────────────┐   ┌─────────────────┐   ┌──────────────────────────┐  │
 │  │ URL params   │   │ window.EzAuth   │   │ form.submit(actionUrl)   │  │
-│  │ signed_req…  │   │ NICE / EasySign │   │ → Keycloak              │  │
+│  │ signed_req…  │   │ NICE / EasySign │   │ → Keycloak               │  │
 │  └──────┬───────┘   └────────┬────────┘   └────────────▲─────────────┘  │
 │         │ inbound            │ callback                │ outbound       │
 │         ▼                    ▼                         │                │
 │  ┌─────────────────────────────────────────────────────┴─────────────┐  │
 │  │             onepass-fe React SPA (Nginx :8080)                    │  │
+│  │             (FE 군 멤버 — 향후 onepass-admin 등 추가 가능)        │  │
 │  │                                                                    │  │
 │  │  STATE LAYERS                                                      │  │
 │  │  ├─ React useState           → CI 평문(수 ms), password            │  │
@@ -416,18 +444,34 @@ const beInstance = axios.create({
 │  │  │ then: result.ci = undefined  ← 평문 즉시 폐기          │        │  │
 │  │  └────────────────────────────────────────────────────────┘        │  │
 │  │                                                                    │  │
-│  │  HTTP CLIENTS (BE_API_ENDPOINT)                                    │  │
-│  │  ├─ beInstance        + X-BE-API-Key 헤더                          │  │
+│  │  HTTP CLIENTS  (baseURL = IdO 단일 채널; ADR-008)                  │  │
+│  │  ├─ beInstance        + X-BE-API-Key 헤더 (→ X-IDO-API-Key, P2)    │  │
 │  │  ├─ instance (api/)   + Authorization: Bearer <accessJwt>          │  │
 │  │  │                    + 401 시 refresh 후 재시도                    │  │
 │  │  └─ extInstance       @deprecated → beApiInstance 로 위임          │  │
 │  └──────────────────────────────┬─────────────────────────────────────┘  │
-│                                 │ axios → CORS direct                    │
+│                                 │ axios → CORS direct (IdO Origin only)  │
 └─────────────────────────────────┼────────────────────────────────────────┘
                                   ▼
-                  ┌──────────────────────────────────┐
-                  │  onepass-be / IdO  (별도 호스트) │  ← onepass-fe 는 여기까지만
-                  └──────────────────────────────────┘    관여. 그 너머는 블랙박스
+              ┌───────────────────────────────────────────────────┐
+              │  IdO (게이트웨이 + BFF + Orchestrator)            │
+              │  ─────────────────────────────────────────────    │
+              │  · FeSessionController   feSessionId 발급/검증    │
+              │  · ExtProxyController    /api/ext/** → Q-IM 프록시│
+              │                          (X-Ext-Api-Key 서버 주입,│
+              │                           /api/ext/ci/** 차단)    │
+              │  · Orchestrator          다단 흐름 일괄 지휘      │
+              │  · 18 controllers — 전부 @RestController          │
+              │    (static/anyid/* 은 SDK 자산만, HTML 없음)      │
+              └────────┬──────────────────────────────────┬───────┘
+                       │ 서버↔서버 (FE 비관여)            │
+                       ▼                                  ▼
+               ┌──────────────┐                  ┌──────────────┐
+               │  Q-IM (8082) │                  │ Q-Sign / KC  │
+               └──────────────┘                  └──────────────┘
+               ↑ onepass-fe 는 IdO 까지만 관여. 그 너머는 블랙박스.
+               ↑ FE 가 N 개로 늘어도(BE 보호 불변식) 이 그림의 IdO↓
+                  부분은 변하지 않는다.
 ```
 
 ---
@@ -447,10 +491,14 @@ const beInstance = axios.create({
 
 ## 11. 함께 읽기
 
+- [`02-architecture.md`](02-architecture.md) **ADR-008** — **FE 군 ↔ IdO 단일 채널 헌법**. 본 문서의 모든 "단일 채널" 서술의 출처. 3 단 명제(책임 종류 → 모듈군 → 단일 게이트웨이), Option A/B 인증 모델, onepass-admin 도입 체크리스트 포함
+- [`02-architecture.md`](02-architecture.md) **ADR-002** — onepass-fe 순수 React SPA 전환. ADR-008 의 직접 선조
+- [`03c-qim-responsibility-charter.md`](03c-qim-responsibility-charter.md) §6 / §6.5 — Q-IM 의 UI 영구 금지선. FE 군이 사람-대상 화면을 호스트하는 이유
+- [`03d-module-ido.md`](03d-module-ido.md) — onepass-fe 가 호출하는 IdO 엔드포인트의 BE 측 구현
+- [`09-gap-and-roadmap.md`](09-gap-and-roadmap.md) **SEC-IDO-*** — Phase 2 (rename `BE_*` → `IDO_*`) + Phase 3 (`onepass-admin` 준비 체크리스트) 백로그
 - [`onepass-fe/DEVELOPMENT.md`](../../../onepass-fe/DEVELOPMENT.md) — 본 문서가 "데이터 흐름의 정본"이라면, DEVELOPMENT.md 는 "개발자 온보딩 & 운영 가이드"
-- [`03c-qim-responsibility-charter.md`](03c-qim-responsibility-charter.md) §6.5 — Q-IM 의 UI 영구 금지선. onepass-fe 가 모든 사람-대상 화면의 유일한 호스트인 이유
-- [`03d-module-ido.md`](03d-module-ido.md) — onepass-fe 가 직접 호출하는 일부 ext 엔드포인트의 BE 측 구현
 - [`07-security.md`](07-security.md) — 전 모듈 보안 정책 (FE 위험 표면 참조)
+- 코드 증빙: `ido/.../ExtProxyController.java`, `ido/.../FeSessionController.java`, `onepass-fe/frontend/.env` (`BE_API_TARGET=onepass-ido-*`), `onepass-fe/frontend/webpack.config.js` (dev proxy `/api → IdO`)
 
 ---
 

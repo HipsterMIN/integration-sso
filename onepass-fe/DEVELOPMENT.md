@@ -4,9 +4,10 @@
 > **브랜치**: `genspark_ai_developer` → main
 
 > 📘 **함께 읽기 (정본 문서)**  
-> 본 문서가 **"어떻게 개발/실행하는가"** 를 다룬다면, 데이터 흐름의 정본은 별도 문서입니다:
-> - **[docs/internal/spec/03f-module-onepass-fe.md](../docs/internal/spec/03f-module-onepass-fe.md)** — onepass-fe 진입(Inbound) / 상태(State 4계층) / 송신(Outbound) 표면, CI 평문 처리 경로, BE 엔드포인트 인벤토리, 위험 표면 (FE-RISK-01~07)
-> - **[docs/internal/spec/03c-qim-responsibility-charter.md](../docs/internal/spec/03c-qim-responsibility-charter.md)** §6.5 — Q-IM 의 사람-대상 UI 영구 금지선. **모든 사람-대상 화면은 onepass-fe(또는 onepass-support) 가 유일한 호스트**.
+> 본 문서가 **"어떻게 개발/실행하는가"** 를 다룬다면, 데이터 흐름·아키텍처의 정본은 별도 문서입니다:
+> - **[docs/internal/spec/02-architecture.md](../docs/internal/spec/02-architecture.md) ADR-008** — **FE 군(群) ↔ IdO 단일 채널 헌법**. onepass-fe 는 Q-IM / Q-Sign 등 BE 모듈을 **직접 호출하지 않는다**. 모든 외부 호출은 IdO 게이트웨이 단일 채널 경유. (현행 코드의 `BE_API_*` 환경변수는 실체적으로 IdO 를 가리키며, Phase 2 에서 `IDO_API_*` 로 rename 예정 — [docs/internal/spec/09-gap-and-roadmap.md](../docs/internal/spec/09-gap-and-roadmap.md) SEC-IDO-* 참조)
+> - **[docs/internal/spec/03f-module-onepass-fe.md](../docs/internal/spec/03f-module-onepass-fe.md)** — onepass-fe 진입(Inbound) / 상태(State 4계층) / 송신(Outbound) 표면, CI 평문 처리 경로, IdO 엔드포인트 인벤토리, 위험 표면 (FE-RISK-01~07)
+> - **[docs/internal/spec/03c-qim-responsibility-charter.md](../docs/internal/spec/03c-qim-responsibility-charter.md)** §6 / §6.5 — Q-IM 의 사람-대상 UI 영구 금지선. **모든 사람-대상 화면은 FE 군(현재 `onepass-fe`, 향후 `onepass-admin` 등) 이 호스트하며, FE 군은 IdO 단일 채널로만 통신**.
 
 ---
 

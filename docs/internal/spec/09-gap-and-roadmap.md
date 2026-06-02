@@ -123,6 +123,51 @@ onepass-fe       ████████████░░░░░░░░  6
 
 ---
 
+## 6.A FE 군 / IdO 단일 채널 후속 작업 (ADR-008 파생)
+
+> **컨텍스트**: [`02-architecture.md`](02-architecture.md) **ADR-008** 이 "FE 군 ↔ IdO 단일 채널" 을 헌법화함에 따라, 코드·환경 변수·운영 측 정리를 다음 백로그로 분리한다. **본 백로그는 설계 변경이 아니라 명명·도구·정책의 정합화** 이다 (실체 통신 경로는 이미 ADR-008 을 따르고 있음).
+
+### 6.A.1 Phase 2 — 명명 정합화 (FE 코드 rename)
+
+**목표**: FE 코드와 환경변수에서 `BE_*` 일반어를 `IDO_*` 로 교체하여, 변수명만 보고도 "이 호출은 IdO 게이트웨이로 간다" 가 자명하도록 한다.
+
+| ID | 항목 | 변경 대상 | 비고 |
+|----|------|---------|------|
+| SEC-IDO-01 | env 변수 rename: `BE_API_TARGET` → `IDO_API_TARGET` | `onepass-fe/frontend/.env*`, `webpack.config.js`, CI/CD 시크릿 | 운영 배포 시점 동기 전환 필요 |
+| SEC-IDO-02 | env 변수 rename: `BE_API_ENDPOINT` → `IDO_API_ENDPOINT` | `onepass-fe/frontend/api/beInstance.ts` 등 | 빌드 시 번들에 박힘 |
+| SEC-IDO-03 | env 변수 rename: `BE_API_KEY` → `IDO_API_KEY` | 동상 | API 키 자체 회전과 동시 수행 권장 |
+| SEC-IDO-04 | 헤더명 rename: `X-BE-API-Key` → `X-IDO-API-Key` | FE axios 인스턴스 + IdO 측 헤더 수신 코드 | 양측 동시 배포 (호환 기간 1주 운영 후 단방향 전환) |
+| SEC-IDO-05 | axios 인스턴스 식별자 rename: `beInstance` / `beApiInstance` → `idoInstance` | `onepass-fe/frontend/api/*.ts` | import 경로 일괄 치환 |
+| SEC-IDO-06 | `extInstance` 코드 레벨 제거 (현재 `@deprecated` re-export) | `onepass-fe/frontend/api/extInstance.ts` | grep 으로 사용처 0 확인 후 삭제 |
+| SEC-IDO-07 | 문서 cross-ref 갱신 — 03f / DEVELOPMENT.md 의 `BE_*` 흔적 일소 | docs/internal/spec/03f-* 등 | rename PR 과 동일 PR 에서 |
+
+**완료 정의(DoD)**: `grep -ri "BE_API" onepass-fe/` 결과 0건, FE 빌드/E2E 그린, IdO 측 양 헤더 호환 기간 종료.
+
+### 6.A.2 Phase 3 — `onepass-admin` 도입 준비 (IdO 측 선행 작업)
+
+**목표**: 향후 운영·관리 FE (`onepass-admin`, `onepass-support`, `onepass-audit` 등) 이 도입될 때, **BE 코드 변경 0** 으로 수용 가능하도록 IdO 측 정책 슬롯을 사전 마련한다 (ADR-008 의 "BE 보호 불변식" 실현).
+
+| ID | 항목 | 위치 | 비고 |
+|----|------|------|------|
+| SEC-IDO-10 | **API 키 스코핑** — 단일 키 → FE 별 분리 키 + 스코프(`read` / `write` / `admin:*`) | IdO `ExtProxyController` + 신규 `ApiKeyRegistry` | onepass-admin 첫 도입의 선행 조건 |
+| SEC-IDO-11 | **CORS N-origin** — `cors.allowed-origins` 다중 Origin 지원 + 와일드카드 금지 검증 | IdO `WebSecurityConfig` / `application.yml` | end-user FE 와 admin FE 분리 |
+| SEC-IDO-12 | **쿠키 도메인 격리** — admin 쿠키는 `Domain=admin.smes.go.kr; SameSite=Strict; Path=/` | IdO `FeSessionController` | end-user 쿠키와 물리적 격리 |
+| SEC-IDO-13 | **admin path prefix 분리** — `/api/admin/v1/**` 컨트롤러군 신설 | IdO 신규 패키지 `ido.admin.*` | end-user 컨트롤러 재사용 금지 |
+| SEC-IDO-14 | **인증 등급 분리 (Option B)** — Keycloak `admin-realm` + step-up MFA + (선택) mTLS | IdO `SecurityFilterChain` 다중 체인 | onepass-admin 첫 PR 의 선행 조건 |
+| SEC-IDO-15 | **감사 로그 강화** — admin 경로 100% 감사 + 비정상 패턴 실시간 알람 | IdO `AuditInterceptor` + Prometheus alert rule | end-user 표본 감사와 별도 |
+
+**완료 정의(DoD)**: 위 6 항목이 IdO 코드에 *enabled 가능* 상태로 존재 (`onepass-admin.enabled: false` 기본). 실제 `onepass-admin` 모듈 첫 PR 에서 해당 플래그만 `true` 로 켜면 동작.
+
+### 6.A.3 정합성 검증 (지속)
+
+| ID | 항목 | 강제 수단 |
+|----|------|----------|
+| SEC-IDO-20 | FE 번들에서 `Q_IM` / `Q_SIGN` 등 BE 모듈 직접 가리키는 env 변수 0 확인 | CI grep + ArchUnit 유사 검증 |
+| SEC-IDO-21 | FE 의 axios `baseURL` 인스턴스 = 1 개 (IdO) 유지 | 코드 리뷰 체크리스트 + lint 룰 |
+| SEC-IDO-22 | `static/` 디렉터리에 `*.html` 0 유지 (IdO 는 HTML 호스트 아님) | CI 가드 (`find ido/src/main/resources/static -name "*.html"` = 0) |
+
+---
+
 ## 7. Sprint 계획 (PoC → 운영 전환)
 
 ```

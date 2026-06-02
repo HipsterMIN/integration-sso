@@ -334,7 +334,14 @@ GUI 가 없으면 운영자가 손도 못 댄다는 우려를 차단하기 위�
 > 모든 운영 행위는 (a) **명시적 API 호출** 또는 (b) **승인된 스크립트 실행** 으로 한다.
 > 행위의 흔적은 audit log 와 git history 양쪽에 남아야 한다.
 
-> **사람-대상 화면(end-user UI)의 정본 호스트**: Q-IM 이 갖지 않는 모든 사람-대상 화면은 [`03f-module-onepass-fe.md`](03f-module-onepass-fe.md) 가 정의하는 onepass-fe 가 유일한 호스트다 (지원팀 화면은 `onepass-support`). onepass-fe → BE 의 데이터 흐름 정본은 03f 를 참조한다.
+> **사람-대상 화면의 정본 호스트 — FE 군 ↔ IdO 단일 채널 (ADR-008)**:
+>
+> Q-IM 이 갖지 않는 모든 사람-대상 화면은 **프론트엔드 군(group)** 이 호스트한다.
+> 현재 군 구성: [`03f-module-onepass-fe.md`](03f-module-onepass-fe.md) 가 정의하는 **`onepass-fe`** (일반 신청자·대표자·실무자 화면). 향후 도입 가능한 군 구성원: **`onepass-admin`** (운영·관리 화면), **`onepass-support`** (지원팀 화면), 기타 역할별 FE.
+>
+> **단, FE 가 1 개든 N 개든** 이들 FE 군은 모두 **IdO 게이트웨이 단일 채널** 로만 백엔드(Q-IM / Q-Sign / agency-stub / Keycloak) 와 통신한다. Q-IM 을 비롯한 어떠한 BE 모듈도 FE 가 직접 호출할 수 없다. 이는 본 헌장 §6 (사람-대상 화면 위임) / §6.5 (관리자 페이지 영구 금지) 를 **시스템 경계 차원에서 강제**하는 메커니즘이다.
+>
+> 자세한 헌법화는 [`02-architecture.md`](02-architecture.md) **ADR-008** 참조. onepass-fe 측 데이터 흐름 정본은 [`03f-module-onepass-fe.md`](03f-module-onepass-fe.md) 참조.
 
 ### 6.5.5 enforcement 체크리스트
 
