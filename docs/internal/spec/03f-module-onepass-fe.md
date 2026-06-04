@@ -15,7 +15,7 @@
 > URL 쿼리 / 외부 SDK 콜백 / Keycloak form-POST 를 입력으로 받아, **React Context + Redux + LocalStorage + 짧은 메모리** 4계층 상태에 보관하면서, **단일 베이스 URL(IdO 게이트웨이) 로 만든 axios 인스턴스 군**을 통해 IdO 로 내보낸다.  
 > **CI 평문은 절대 영속 저장하지 않는다** (`ciToken` JWT 참조 토큰만 메모리에 둠).
 >
-> **🔒 단일 채널 헌법 (ADR-008)**: onepass-fe 는 **Q-IM / Q-Sign / agency-stub 등 어떤 백엔드도 직접 호출하지 않는다**. 모든 외부 호출은 IdO 게이트웨이 단일 채널을 거친다. (현행 코드의 환경변수명 `BE_API_*` 의 `BE` 는 실체적으로 **IdO** 를 가리킨다 — Phase 2 에서 `IDO_API_*` 로 rename 예정. 02-architecture.md ADR-008 / 09-gap-and-roadmap.md 백로그 참조.)
+> **🔒 단일 채널 헌법 (ADR-008)**: onepass-fe 는 **Q-IM / Q-Sign / agency-stub 등 어떤 백엔드도 직접 호출하지 않는다**. 모든 외부 호출은 IdO 게이트웨이 단일 채널을 거친다. (코드 측 명명 정합화 — `BE_API_*` → `IDO_API_*` — 는 **Phase 2 에서 완료**: PR #203, 커밋 `a7065ae`. 한 페이즈 동안 구 명칭 fallback 유지. 02-architecture.md ADR-008 / 09-gap-and-roadmap.md §6.A.1 참조.)
 
 ---
 
@@ -164,36 +164,38 @@ interface ConversionData {
 
 ## 3. 송신(Outbound) 표면 — 외부로 내보내는 것
 
-> **단일 채널 원칙**: 본 절의 모든 axios 인스턴스의 baseURL 은 **정확히 1 개 호스트 (IdO 게이트웨이)** 를 가리킨다. 현행 코드의 변수명은 `BE_API_*` 로 되어 있으나, 그 실체는 **IdO** 이다 (`.env` 의 `BE_API_TARGET=https://onepass-ido-dev.smes.go.kr` 로 직접 확인 가능). 명명 정합은 Phase 2 rename PR 에서 정리.
+> **단일 채널 원칙**: 본 절의 모든 axios 인스턴스의 baseURL 은 **정확히 1 개 호스트 (IdO 게이트웨이)** 를 가리킨다. 명명도 코드 레벨에서 정합화됨 (Phase 2 완료, PR #203 / `a7065ae`): 변수 `IDO_API_*`, axios 식별자 `idoInstance` / `idoApiInstance`, 헤더 `X-IDO-API-Key`. `.env` 의 `IDO_API_TARGET=https://onepass-ido-dev.smes.go.kr` 로 단일 호스트 직접 확인 가능. 구 명칭 (`BE_API_*` / `X-BE-API-Key` / `beInstance` / `extInstance`) 은 코드에서 제거되었으며, 환경변수 차원에서만 한 페이즈 동안 fallback 유지 (`process.env.IDO_API_* || process.env.BE_API_*`).
 
 ### 3.1 IdO 호출 — axios 인스턴스
 
-#### (A) `beInstance` / `beApiInstance` — `api/beInstance.ts`
+#### (A) `idoInstance` / `idoApiInstance` — `api/idoInstance.ts`
 
 ```typescript
-const BE_BASE_URL = process.env.BE_API_ENDPOINT || '';  // 실체: IdO endpoint
+const IDO_BASE_URL: string =
+  process.env.IDO_API_ENDPOINT || process.env.BE_API_ENDPOINT || '';
+const IDO_API_KEY: string =
+  process.env.IDO_API_KEY || process.env.BE_API_KEY || '';
 
-const beInstance = axios.create({
-  baseURL: BE_BASE_URL,                                  // ← IdO 게이트웨이
+const idoInstance = axios.create({
+  baseURL: IDO_BASE_URL,                                 // ← IdO 게이트웨이
   headers: {
     'Content-Type': 'application/json',
-    'X-BE-API-Key': process.env.BE_API_KEY || '',        // ← IdO 가 검증하는 FE 식별 키
+    'X-IDO-API-Key': IDO_API_KEY,                        // ← IdO 가 검증하는 FE 식별 키
   },
 });
+export default idoInstance;
+export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 ```
 
-> ⚠️ 변수명 `BE_*` 는 "백엔드" 의 일반어 잔재이며, 실제 통신 대상은 IdO 단 한 곳이다. Phase 2 에서 `IDO_API_ENDPOINT` / `X-IDO-API-Key` 로 rename 예정 (ADR-008, 09-gap-and-roadmap.md SEC-IDO-* 참조).
+> **명명 정합 완료 (Phase 2, PR #203 / `a7065ae`)**: 구 식별자 `beInstance` / `beApiInstance` / 구 환경변수 `BE_API_*` / 구 헤더 `X-BE-API-Key` 는 코드에서 모두 제거됨. 환경변수만 한 페이즈 동안 fallback 유지 (위 코드의 `||` 라인). 단일 채널 헌법 ADR-008 / 09-gap-and-roadmap.md §6.A.1 참조.
 
-#### (B) `extInstance` — **deprecated** (B-5 보안 패치)
+#### (B) ~~`extInstance`~~ — **제거됨** (Phase 2, SEC-IDO-06)
 
-`api/extInstance.ts` 헤더 코멘트:
+과거 `api/extInstance.ts` 는 B-5 보안 패치 이후 `beApiInstance` 의 단순 re-export 셸이었으며, grep 으로 사용처 0건 확인 후 **Phase 2 에서 파일 자체 삭제** (PR #203 / `a7065ae`). 신규 코드는 `idoApiInstance` 를 직접 import 한다.
 
-> *기존: EXT_API_ENDPOINT(Q-IM 직접) + EXT_API_KEY FE 번들 노출*  
-> *변경: ido(8083) /api/ext/** forward proxy 경유, 서버사이드에서 X-Ext-Api-Key 주입 (FE 번들 미포함)*
+> **참고 — B-5 보안 패치의 잔향**: 패치 이전에는 FE 가 Q-IM 을 직접 호출하는 `extInstance` 경로가 존재했고, 패치 이후 `beApiInstance` 의 re-export 셸로 축약되었으며, 최종적으로 Phase 2 에서 코드 자체가 삭제되었다. 즉 "FE → Q-IM 직접" 의 흔적은 코드 차원에서 완전히 사라진 상태.
 
-→ 현재는 `beApiInstance` 의 단순 re-export. 신규 코드는 `beApiInstance` 를 직접 쓸 것.
-
-> **B-5 패치의 의의**: 이 패치는 본 문서의 단일 채널 원칙(ADR-008) 을 **코드에 강제** 하는 사건이었다. 이전에는 FE 가 Q-IM 을 직접 호출하는 경로가 존재했으나, B-5 이후 모든 `/api/ext/**` 트래픽이 IdO `ExtProxyController` 를 경유하도록 전환되었다.
+> **B-5 패치의 의의**: 이 패치는 본 문서의 단일 채널 원칙(ADR-008) 을 **코드에 강제** 하는 사건이었다. 이전에는 FE 가 Q-IM 을 직접 호출하는 경로가 존재했으나, B-5 이후 모든 `/api/ext/**` 트래픽이 IdO `ExtProxyController` 를 경유하도록 전환되었고, Phase 2 (PR #203) 에서 셸 잔재까지 제거되어 코드 레벨에서도 단일 채널이 강제된다.
 
 #### (C) `instance` (default) + V2/V3/V4/Gateway — `api/index.ts`
 
@@ -251,9 +253,9 @@ const beInstance = axios.create({
 
 | 변수 | 용도 | 비고 |
 |------|-----|------|
-| `BE_API_ENDPOINT` / `BE_API_TARGET` | beInstance baseURL | 필수. **실체는 IdO endpoint** (예: `https://onepass-ido-dev.smes.go.kr`). Phase 2 에서 `IDO_API_ENDPOINT` 로 rename 예정 |
-| `BE_API_KEY` | `X-BE-API-Key` 헤더 값 | ⚠️ **FE 번들에 노출됨** — DevTools로 추출 가능. **IdO** 의 origin/CORS/Rate-Limit/API 키 화이트리스트가 실질 방어선. Phase 2 에서 `X-IDO-API-Key` 로 rename 예정 |
-| `FRONTEND_API_ENDPOINT` | `ENVIRONMENT.baseURL` (axios `instance`) | IdO 의 또 다른 별칭 — Phase 2 정리 대상 |
+| `IDO_API_ENDPOINT` / `IDO_API_TARGET` | `idoInstance` baseURL / dev proxy 타겟 | 필수. IdO 게이트웨이 endpoint (예: `https://onepass-ido-dev.smes.go.kr`). **Phase 2 (PR #203) 에서 `BE_API_*` 로부터 rename 완료.** 구 명칭은 webpack DefinePlugin + 런타임 코드에서 한 페이즈 동안 fallback 으로만 인식 |
+| `IDO_API_KEY` | `X-IDO-API-Key` 헤더 값 | ⚠️ **FE 번들에 노출됨** — DevTools로 추출 가능. **IdO** 의 origin/CORS/Rate-Limit/API 키 화이트리스트가 실질 방어선. **Phase 2 (PR #203) 에서 `BE_API_KEY` 로부터 rename 완료.** 구 명칭 fallback 동일 |
+| `FRONTEND_API_ENDPOINT` | `ENVIRONMENT.baseURL` (axios `instance`) | IdO 의 또 다른 별칭. Phase 2 範圍 외 (별도 후속 정리 대상) |
 | `WEBSOCKET_API_ENDPOINT` | (WebSocket용, 현재 사용 미확인) | |
 | `AES_GCM_KEY` | `utils/crypto/aesGcm.ts` 가 사용하는 **CI 암호화 키 (base64)** | ⚠️ **FE 번들에 박힘** — 클라이언트가 키를 들고 암호화 후 IdO → Q-IM 으로 송신. Q-IM 에서 같은 키로 복호화. 키 노출 위협 큼 — 별도 보안 검토 필요 |
 | `SKIP_AUTH` | Private route 우회 (개발용) | ⛔ prod에서 절대 `true` 금지 |
@@ -278,7 +280,7 @@ const beInstance = axios.create({
 [React Router → ConversionStep1]
     │ 3. URLSearchParams.get('signed_request')
     │    POST {IdO}/api/v1/conversion/init  { signed_request }      ┐
-    │    Headers: Content-Type:application/json, X-BE-API-Key:<env> │  모든 호출은
+    │    Headers: Content-Type:application/json, X-IDO-API-Key:<env> │  모든 호출은
     │                                                                │  IdO 게이트웨이
     ▼                                                                │  단일 채널
 ┌──────────────────────────────────────────────────────────────────┐│  (ADR-008)
@@ -353,7 +355,7 @@ const beInstance = axios.create({
 | ✅ 외부 SDK(EzAuth / NICE / EasySign) 통합 및 콜백 결과 정규화 | `hooks/useEzAuth.ts`, `useNicePhoneAuth.ts`, `usePersonalEasyAuth.ts`, `public/ezauth/*` | |
 | ✅ **CI 평문 즉시 폐기 + AES-GCM 암호화** | `utils/crypto/aesGcm.ts`, `Step3.tsx` | 평문은 메모리에 ms 단위 |
 | ✅ Keycloak 로그인 form-POST 빌드 (`action_url` 사용) | `Login/index.tsx` (form.current.submit) | |
-| ✅ axios 인스턴스 표준화 + 일관 에러 핸들링 | `api/beInstance.ts`, `api/index.ts`, `api/ErrorResponseHandler.ts` | |
+| ✅ axios 인스턴스 표준화 + 일관 에러 핸들링 | `api/idoInstance.ts`, `api/index.ts`, `api/ErrorResponseHandler.ts` | |
 | ✅ 다국어 (i18n) | `public/locales/{ko,en,jp}` | |
 | ✅ 최종 redirect (`window.location.href = data.redirectUri`) | `Step8.tsx` | 유관기관 복귀의 유일한 출구 |
 
@@ -385,7 +387,7 @@ const beInstance = axios.create({
 
 | ID | 표면 | 위치 | 영향 | 권고 |
 |----|------|------|------|------|
-| FE-RISK-01 | `X-BE-API-Key`, `AES_GCM_KEY` 가 **JS 번들에 평문** | `beInstance.ts`, `utils/crypto/aesGcm.ts` | DevTools 로 누구나 추출 가능 | BE 의 origin / CORS / Rate-Limit 가 실질 방어. 키 회전 절차 정립 |
+| FE-RISK-01 | `X-IDO-API-Key`, `AES_GCM_KEY` 가 **JS 번들에 평문** | `idoInstance.ts`, `utils/crypto/aesGcm.ts` | DevTools 로 누구나 추출 가능 | IdO 의 origin / CORS / Rate-Limit 가 실질 방어. 키 회전 절차 정립 |
 | FE-RISK-02 | LocalStorage 에 `accessJwt`, `refreshJwt` 평문 저장 | `api/utils.ts > Logout` 키 목록 | XSS 1회 → 토큰 탈취 | httpOnly Cookie 전환 검토 |
 | FE-RISK-03 | 401 자동 재시도 — race 시 무한 루프 가능성 | `api/index.ts > interceptorRejected` | DoS-like | 재시도 카운터 + circuit breaker |
 | FE-RISK-04 | `SKIP_AUTH=true` 환경변수가 Private route 우회 | `AppRoutes/Private.tsx` | 인증 우회 | prod 빌드에서 정의 자체 차단 |
@@ -445,10 +447,10 @@ const beInstance = axios.create({
 │  │  └────────────────────────────────────────────────────────┘        │  │
 │  │                                                                    │  │
 │  │  HTTP CLIENTS  (baseURL = IdO 단일 채널; ADR-008)                  │  │
-│  │  ├─ beInstance        + X-BE-API-Key 헤더 (→ X-IDO-API-Key, P2)    │  │
+│  │  ├─ idoInstance       + X-IDO-API-Key 헤더 (Phase 2, PR #203 완료)     │  │
 │  │  ├─ instance (api/)   + Authorization: Bearer <accessJwt>          │  │
 │  │  │                    + 401 시 refresh 후 재시도                    │  │
-│  │  └─ extInstance       @deprecated → beApiInstance 로 위임          │  │
+│  │  └─ ~~extInstance~~    Phase 2 (SEC-IDO-06) 에서 파일 자체 삭제      │  │
 │  └──────────────────────────────┬─────────────────────────────────────┘  │
 │                                 │ axios → CORS direct (IdO Origin only)  │
 └─────────────────────────────────┼────────────────────────────────────────┘
@@ -495,10 +497,10 @@ const beInstance = axios.create({
 - [`02-architecture.md`](02-architecture.md) **ADR-002** — onepass-fe 순수 React SPA 전환. ADR-008 의 직접 선조
 - [`03c-qim-responsibility-charter.md`](03c-qim-responsibility-charter.md) §6 / §6.5 — Q-IM 의 UI 영구 금지선. FE 군이 사람-대상 화면을 호스트하는 이유
 - [`03d-module-ido.md`](03d-module-ido.md) — onepass-fe 가 호출하는 IdO 엔드포인트의 BE 측 구현
-- [`09-gap-and-roadmap.md`](09-gap-and-roadmap.md) **SEC-IDO-*** — Phase 2 (rename `BE_*` → `IDO_*`) + Phase 3 (`onepass-admin` 준비 체크리스트) 백로그
+- [`09-gap-and-roadmap.md`](09-gap-and-roadmap.md) **SEC-IDO-*** — Phase 2 (rename `BE_*` → `IDO_*`, **PR #203 완료**) + Phase 3 (`onepass-admin` 준비 체크리스트) 백로그
 - [`onepass-fe/DEVELOPMENT.md`](../../../onepass-fe/DEVELOPMENT.md) — 본 문서가 "데이터 흐름의 정본"이라면, DEVELOPMENT.md 는 "개발자 온보딩 & 운영 가이드"
 - [`07-security.md`](07-security.md) — 전 모듈 보안 정책 (FE 위험 표면 참조)
-- 코드 증빙: `ido/.../ExtProxyController.java`, `ido/.../FeSessionController.java`, `onepass-fe/frontend/.env` (`BE_API_TARGET=onepass-ido-*`), `onepass-fe/frontend/webpack.config.js` (dev proxy `/api → IdO`)
+- 코드 증빙: `ido/.../ExtProxyController.java`, `ido/.../FeSessionController.java`, `onepass-fe/frontend/.env` (`IDO_API_TARGET=onepass-ido-*`), `onepass-fe/frontend/webpack.config.js` (dev proxy `/api → IdO`), `onepass-fe/frontend/src/api/idoInstance.ts` (Phase 2 신설)
 
 ---
 

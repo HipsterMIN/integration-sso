@@ -5,7 +5,7 @@
 
 > 📘 **함께 읽기 (정본 문서)**  
 > 본 문서가 **"어떻게 개발/실행하는가"** 를 다룬다면, 데이터 흐름·아키텍처의 정본은 별도 문서입니다:
-> - **[docs/internal/spec/02-architecture.md](../docs/internal/spec/02-architecture.md) ADR-008** — **FE 군(群) ↔ IdO 단일 채널 헌법**. onepass-fe 는 Q-IM / Q-Sign 등 BE 모듈을 **직접 호출하지 않는다**. 모든 외부 호출은 IdO 게이트웨이 단일 채널 경유. (현행 코드의 `BE_API_*` 환경변수는 실체적으로 IdO 를 가리키며, Phase 2 에서 `IDO_API_*` 로 rename 예정 — [docs/internal/spec/09-gap-and-roadmap.md](../docs/internal/spec/09-gap-and-roadmap.md) SEC-IDO-* 참조)
+> - **[docs/internal/spec/02-architecture.md](../docs/internal/spec/02-architecture.md) ADR-008** — **FE 군(群) ↔ IdO 단일 채널 헌법**. onepass-fe 는 Q-IM / Q-Sign 등 BE 모듈을 **직접 호출하지 않는다**. 모든 외부 호출은 IdO 게이트웨이 단일 채널 경유. (코드 측 명명 정합화는 **Phase 2 에서 완료** — PR #203, 커밋 `a7065ae`: `BE_API_*` → `IDO_API_*`, `beInstance` → `idoInstance`, `X-BE-API-Key` → `X-IDO-API-Key`. 한 페이즈 동안 환경변수만 fallback 유지. [docs/internal/spec/09-gap-and-roadmap.md](../docs/internal/spec/09-gap-and-roadmap.md) §6.A.1 SEC-IDO-* 참조)
 > - **[docs/internal/spec/03f-module-onepass-fe.md](../docs/internal/spec/03f-module-onepass-fe.md)** — onepass-fe 진입(Inbound) / 상태(State 4계층) / 송신(Outbound) 표면, CI 평문 처리 경로, IdO 엔드포인트 인벤토리, 위험 표면 (FE-RISK-01~07)
 > - **[docs/internal/spec/03c-qim-responsibility-charter.md](../docs/internal/spec/03c-qim-responsibility-charter.md)** §6 / §6.5 — Q-IM 의 사람-대상 UI 영구 금지선. **모든 사람-대상 화면은 FE 군(현재 `onepass-fe`, 향후 `onepass-admin` 등) 이 호스트하며, FE 군은 IdO 단일 채널로만 통신**.
 
@@ -280,33 +280,36 @@ FE-S3-T4: 성능 최적화 (번들 분석, Code Splitting)
 ┌─────────────────────────────────────────────────────────┐
 │                    FE (3301포트)                         │
 │                                                         │
-│  beInstance (X-BE-API-Key)  →  /api   → ido:8083       │
+│  idoInstance (X-IDO-API-Key)  →  /api  → ido:8083      │
+│  (ADR-008 단일 채널 — Phase 2, PR #203 정합 완료)        │
 │                                                         │
-│  extInstance (X-API-Key)    →  /api/ext → Q-IM EXT    │
-│                              (devProxy → onepass-dev)   │
+│  ※ 과거 extInstance (FE → Q-IM 직접) 는 B-5 보안 패치   │
+│     로 IdO forward proxy 경유로 전환된 뒤,              │
+│     Phase 2 (SEC-IDO-06) 에서 파일 자체 삭제됨.         │
 └─────────────────────────────────────────────────────────┘
 ```
 
-**beInstance** — `src/api/beInstance.ts`
-- 대상: `ido` 백엔드 (포트 8083)
-- 헤더: `X-BE-API-Key: ${BE_API_KEY}`
-- 용도: NICE 인증 URL/결과, OACX EasySign access-info/result
+**idoInstance** — `src/api/idoInstance.ts` (Phase 2, PR #203 / `a7065ae`)
+- 대상: IdO 게이트웨이 (로컬 dev proxy: `ido:8083`, 운영: `https://onepass-ido-*.smes.go.kr`)
+- 헤더: `X-IDO-API-Key: ${IDO_API_KEY}`
+- 용도: 모든 IdO 호출 — NICE 인증, OACX EasySign, ext/* (구 Q-IM forward proxy), provision/*, conversion/* 등 단일 채널
+- 호환: `process.env.IDO_API_KEY || process.env.BE_API_KEY` — 한 페이즈 동안 구 명칭 환경변수 fallback 유지
 
-**extInstance** — `src/api/extInstance.ts`
-- 대상: Q-IM EXT API (`EXT_API_ENDPOINT`)
-- 헤더: `X-API-Key: ${EXT_API_KEY}`
-- 용도: 회원 provision, register, clients 목록, consent, 중복확인
+**~~extInstance~~** — Phase 2 (SEC-IDO-06) 에서 파일 삭제됨.
+- 과거 `src/api/extInstance.ts` 는 B-5 보안 패치 이후 `beApiInstance` 의 단순 re-export 셸이었으며, grep 으로 사용처 0건 확인 후 삭제.
+- 신규 코드는 `idoApiInstance` 를 직접 import 한다.
 
 ### 5.3 Webpack Proxy 3-레벨
 
 ```javascript
-// webpack.config.js
+// webpack.config.js (Phase 2, PR #203 정합 완료)
 proxy: {
-  '/api/ext': { target: EXT_API_ENDPOINT },  // Q-IM EXT API
-  '/api':     { target: BE_API_TARGET },      // ido 백엔드
-  '/bizezauth-api-dev': { target: 'https://www.smes.go.kr' },  // EzAuth
-  '/faro':    { target: 'https://faro.smes-tipa.go.kr' },      // Grafana Faro
+  '/api': { target: IDO_API_TARGET || BE_API_TARGET || 'http://localhost:9292' },
+          // ↑ ADR-008 단일 채널 — IdO 게이트웨이 단일 호스트
+  '/bizezauth-api-dev': { target: 'https://www.smes.go.kr' },  // EzAuth (브라우저 차원 form-POST 보조)
+  '/faro':    { target: 'https://faro.smes-tipa.go.kr' },      // Grafana Faro 텔레메트리
 }
+// ※ 과거 '/api/ext' → Q-IM 직접 proxy 라인은 B-5 패치로 제거됨 — /api/ext/** 도 IdO 단일 채널 경유.
 ```
 
 ### 5.4 Provider 계층 구조
@@ -339,14 +342,15 @@ AppProvider
 > **보안 주의**: `.env` 파일은 `.gitignore`에 포함됩니다. `.env.example`을 참조하세요.
 
 ```env
-# ─── 백엔드 (ido) 연동 ───────────────────────────────
-BE_API_TARGET=http://localhost:8083    # ido 백엔드 주소 (로컬: 8083, 운영: 내부 URL)
-BE_API_ENDPOINT=                       # beInstance baseURL (없으면 빈값 = 상대경로)
-BE_API_KEY=bek-xxxxxxxxxxxxxxxx        # X-BE-API-Key 헤더값
+# ─── IdO 게이트웨이 (ADR-008 단일 채널) — Phase 2, PR #203 정합 완료 ──
+IDO_API_TARGET=http://localhost:8083    # IdO 게이트웨이 주소 (로컬: 8083, 운영: https://onepass-ido-*.smes.go.kr)
+IDO_API_ENDPOINT=                       # idoInstance baseURL (없으면 빈값 = 상대경로 → dev proxy 경유)
+IDO_API_KEY=bek-xxxxxxxxxxxxxxxx        # X-IDO-API-Key 헤더값
 
-# ─── Q-IM EXT API 연동 ──────────────────────────────
-EXT_API_ENDPOINT=https://onepass-dev.smes.go.kr/im  # 외부 Q-IM URL
-EXT_API_KEY=imk-xxxxxxxxxxxxxxxx       # X-API-Key 헤더값
+# (구 명칭 BE_API_TARGET / BE_API_ENDPOINT / BE_API_KEY 는 한 페이즈 동안만
+#  fallback 으로 인식됨. 다음 페이즈에서 제거 예정.)
+# ※ 과거 EXT_API_ENDPOINT / EXT_API_KEY (Q-IM 직접) 는 B-5 패치로 IdO forward proxy 경유로 전환,
+#   Phase 2 에서 코드 자체 삭제. .env 항목도 더 이상 필요 없음.
 
 # ─── 인증 관련 ─────────────────────────────────────
 SKIP_AUTH=true                         # 개발 시 true → 로그인 없이 접근 가능
@@ -392,7 +396,7 @@ yarn install   # 또는 npm install
 
 # 3. 환경 변수 복사
 cp .env.example .env
-# .env 편집: BE_API_TARGET, EXT_API_ENDPOINT 설정
+# .env 편집: IDO_API_TARGET / IDO_API_ENDPOINT / IDO_API_KEY 설정 (Phase 2, PR #203)
 ```
 
 ### 7.2 개발 서버 실행
@@ -428,17 +432,18 @@ SKIP_AUTH=true
 # 루트 디렉토리에서
 ./gradlew :onepass-fe:frontendDev
 # → Webpack dev server 포트 3301에서 실행
-# → Proxy를 통해 BE_API_TARGET(8083) 자동 연결
+# → Proxy를 통해 IDO_API_TARGET(8083, IdO 게이트웨이) 자동 연결
 ```
 
 ---
 
 ## 8. API 연동 계약
 
-### 8.1 beInstance API (ido 백엔드)
+### 8.1 idoInstance API (IdO 게이트웨이 — ADR-008 단일 채널)
 
-> Base URL: `BE_API_TARGET` (로컬: `http://localhost:8083`)  
-> 헤더: `X-BE-API-Key: ${BE_API_KEY}`
+> Base URL: `IDO_API_TARGET` (로컬: `http://localhost:8083`, 운영: `https://onepass-ido-*.smes.go.kr`)  
+> 헤더: `X-IDO-API-Key: ${IDO_API_KEY}`  
+> Phase 2 (PR #203 / `a7065ae`) 명명 정합 완료. 구 명칭 `BE_API_*` / `X-BE-API-Key` / `beInstance` 는 코드에서 제거됨.
 
 #### NICE 휴대폰 인증
 
@@ -502,11 +507,13 @@ interface EasysignResult {
 
 ---
 
-### 8.2 extInstance API (Q-IM EXT)
+### 8.2 IdO `/api/ext/**` API (구 Q-IM EXT — IdO forward proxy 경유)
 
-> Base URL: `EXT_API_ENDPOINT`  
-> Webpack Proxy: `/api/ext` → `EXT_API_ENDPOINT`  
-> 헤더: `X-API-Key: ${EXT_API_KEY}`
+> Base URL: `IDO_API_TARGET` (§8.1 과 동일 단일 채널)  
+> Webpack Proxy: `/api` → IdO (`/api/ext/**` 포함, 별도 proxy 없음)  
+> 헤더: `X-IDO-API-Key: ${IDO_API_KEY}` (FE → IdO)  
+> IdO 측에서 `ExtProxyController` 가 서버사이드 `X-Ext-Api-Key` 를 주입하여 Q-IM 으로 forward — FE 번들에 Q-IM 키 노출 0  
+> **Phase 2 (PR #203 / `a7065ae`)**: 과거 `extInstance` / `EXT_API_*` 별도 채널은 **제거되었고**, 본 절의 모든 호출은 `idoInstance` 단일 채널로 통합됨.
 
 #### CI 토큰 발급
 
@@ -836,11 +843,10 @@ grep -rn "setDevNoticeModal" src/ | wc -l
 ```
 src/
 ├── api/           # API 호출 함수 (파일명 = 기능명, camelCase)
-│   ├── beInstance.ts   # ido 백엔드 axios 인스턴스
-│   ├── extInstance.ts  # Q-IM EXT axios 인스턴스
-│   ├── ext/            # extInstance 사용 API
-│   ├── provision/      # 회원 provision API
-│   └── nice/           # NICE 인증 API (beInstance)
+│   ├── idoInstance.ts  # IdO 게이트웨이 axios 인스턴스 (ADR-008 단일 채널 — Phase 2, PR #203)
+│   ├── ext/            # idoInstance 사용 API — IdO forward proxy 경유 (구 Q-IM EXT)
+│   ├── provision/      # 회원 provision API (idoInstance)
+│   └── nice/           # NICE 인증 API (idoInstance)
 ├── components/    # 재사용 컴포넌트
 ├── constants/     # 상수 (images, mockData 등)
 ├── hooks/         # 커스텀 훅 (use* 접두사)
@@ -913,8 +919,8 @@ yarn test --coverage      # 커버리지 리포트
 import { renderHook, act } from '@testing-library/react-hooks';
 import useNicePhoneAuth from 'hooks/useNicePhoneAuth';
 
-// beInstance.get/post 모킹 필요
-jest.mock('api/beInstance', () => ({
+// idoInstance.get/post 모킹 필요 (Phase 2, PR #203)
+jest.mock('api/idoInstance', () => ({
   get: jest.fn(),
   post: jest.fn(),
 }));
