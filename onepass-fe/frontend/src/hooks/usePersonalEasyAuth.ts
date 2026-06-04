@@ -6,7 +6,7 @@
  * 2. EasySign 팝업 오픈 → postMessage로 accKey/accToken 전달
  * 3. 인증 완료 시 easysign API 호출 → 결과 콜백
  */
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const EASYSIGN_URL = process.env.EASYSIGN_URL || '';
@@ -105,7 +105,7 @@ function usePersonalEasyAuth(
 			// 인증 완료 신호
 			if (data.status === 'success' && data.fn === 'authComplete') {
 				try {
-					const res = await beInstance.post('/api/v1/auth/oacx/easysign', event.data);
+					const res = await idoInstance.post('/api/v1/auth/oacx/easysign', event.data);
 					const result = res.data as EasysignResult;
 					callbacksRef.current.onSuccess(result);
 				} catch (e) {
@@ -140,7 +140,7 @@ function usePersonalEasyAuth(
 		popupRef.current = popup;
 
 		try {
-			const res = await beInstance.post('/api/v1/auth/oacx/access-info', 'simpleAuth');
+			const res = await idoInstance.post('/api/v1/auth/oacx/access-info', 'simpleAuth');
 			const data = res.data as AccessInfoResponse;
 
 			if (data.resultCode !== '2000' || !data.accKey || !data.accToken) {

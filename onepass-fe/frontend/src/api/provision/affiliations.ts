@@ -1,5 +1,5 @@
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
 
@@ -9,7 +9,7 @@ export const addAffiliation = async (
 	clientIds: string[],
 ): Promise<SuccessResponse<unknown> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			`/api/v1/ext/provision/enterprises/${uuid}/affiliations/add`,
 			{ addClientIds: clientIds },
 		);
@@ -25,7 +25,7 @@ export const addMemberAffiliation = async (
 	clientIds: string[],
 ): Promise<SuccessResponse<unknown> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			`/api/v1/ext/provision/users/${mbrUuid}/affiliations/add`,
 			{ mbrUuid, addClientIds: clientIds },
 		);
@@ -41,7 +41,7 @@ export const withdrawAffiliation = async (
 	clientIds: string[],
 ): Promise<SuccessResponse<unknown> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			`/api/v1/ext/provision/enterprises/${uuid}/affiliations/withdraw`,
 			{ targetClientIds: clientIds },
 		);
@@ -59,7 +59,7 @@ export const withdrawMemberAffiliation = async (
 	withdrawalReason?: string,
 ): Promise<SuccessResponse<unknown> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			`/api/v1/ext/provision/users/${mbrUuid}/affiliations/withdraw`,
 			{
 				mbrUuid,

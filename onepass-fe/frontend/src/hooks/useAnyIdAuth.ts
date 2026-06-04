@@ -14,7 +14,7 @@
  * @see AnyIdController (ido 모듈)
  */
 
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ export interface UseAnyIdAuthReturn {
  */
 async function fetchTxId(): Promise<string> {
 	try {
-		const res = await beInstance.post<{ txId: string }>('/api/v1/anyid/txId');
+		const res = await idoInstance.post<{ txId: string }>('/api/v1/anyid/txId');
 		if (res.data?.txId) return res.data.txId;
 	} catch {
 		// BE 미구현 또는 네트워크 오류 → 클라이언트 생성
@@ -160,7 +160,7 @@ function useAnyIdAuth(
 	const handleOrgLogin = useCallback(
 		async (data: AnyidSuccessData): Promise<void> => {
 			try {
-				const res = await beInstance.post<AnyIdAuthResult>('/api/v1/anyid/ssob', {
+				const res = await idoInstance.post<AnyIdAuthResult>('/api/v1/anyid/ssob', {
 					ssob: data.ssob,
 					tag: data.tag || txIdRef.current,
 					txId: data.txId || txIdRef.current,

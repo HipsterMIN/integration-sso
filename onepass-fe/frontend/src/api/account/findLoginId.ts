@@ -1,4 +1,4 @@
-import beInstance from 'api/beInstance';
+import idoInstance from 'api/idoInstance';
 import { ErrorResponseHandler } from 'api/ErrorResponseHandler';
 import { AxiosError } from 'axios';
 import { ErrorResponse, SuccessResponse } from 'types/api';
@@ -15,7 +15,7 @@ const findLoginId = async (
 	params: FindLoginIdRequest,
 ): Promise<SuccessResponse<FindLoginIdPayload> | ErrorResponse> => {
 	try {
-		const response = await beInstance.post(
+		const response = await idoInstance.post(
 			'/api/v1/ext/account/users/find-login-id',
 			params,
 		);
