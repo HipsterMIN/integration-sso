@@ -7,6 +7,7 @@ import kr.go.smes.ido.domain.AgencyMeta;
 import kr.go.smes.ido.fe.session.FeSession;
 import kr.go.smes.ido.fe.session.FeSessionService;
 import kr.go.smes.ido.infrastructure.AgencyMetaRepository;
+import kr.go.smes.ido.infrastructure.QAuthzClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,7 @@ class CastTokenServiceTest {
     @Mock private RedisTemplate<String, Object> redisTemplate;
     @Mock private ValueOperations<String, Object> valueOps;
     @Mock private JdbcTemplate               jdbcTemplate;
+    @Mock private QAuthzClient               qAuthzClient;
 
     /** Ed25519 키페어 (테스트용 인메모리 생성) */
     private KeyPair testKeyPair;
@@ -60,11 +62,14 @@ class CastTokenServiceTest {
 
         castTokenService = new CastTokenServiceImpl(
                 feSessionService, agencyMetaRepository,
-                redisTemplate, jdbcTemplate, testKeyPair
+                redisTemplate, jdbcTemplate, qAuthzClient, testKeyPair
         );
 
         // Redis mock 공통 설정 — lenient: 일부 테스트에서 미사용 허용
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        // 연합 인가 — 기본 빈 역할(개별 테스트에서 필요 시 재정의)
+        lenient().when(qAuthzClient.getEffectiveRoles(anyString(), anyString(), any()))
+                .thenReturn(java.util.List.of());
     }
 
     // ── issue() 성공 케이스 ───────────────────────────────────────────────
@@ -198,6 +203,44 @@ class CastTokenServiceTest {
                 eq("CONSUMED"),
                 any()
         );
+    }
+
+    // ── 연합 인가: roles 클레임 임베드 + verify 추출 라운드트립 ────────────
+
+    @Test
+    @DisplayName("issue+verify: q-authz 역할이 CAST roles 클레임으로 왕복 전달")
+    void rolesEmbeddedAndExtracted() {
+        // Given
+        FeSession session = FeSession.builder()
+                .feSessionId("fe-session-roles")
+                .qimUserId(QIM_USER_ID)
+                .authLevel("MEDIUM")
+                .authResultId("auth-roles")
+                .createdAt(Instant.now())
+                .lastActivityAt(Instant.now())
+                .absoluteExpiresAt(Instant.now().plusSeconds(3600))
+                .build();
+        AgencyMeta agency = mock(AgencyMeta.class);
+        when(agency.isActive()).thenReturn(true);
+        when(feSessionService.findById("fe-session-roles")).thenReturn(Optional.of(session));
+        when(agencyMetaRepository.findByCode(TARGET_AGENCY)).thenReturn(Optional.of(agency));
+        when(valueOps.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
+        // q-authz가 역할 2개 반환
+        when(qAuthzClient.getEffectiveRoles(QIM_USER_ID, TARGET_AGENCY, "issue-cid-roles"))
+                .thenReturn(java.util.List.of("MANAGER", "REVIEWER"));
+
+        // When: 발급 → roles가 토큰 도메인 객체에 반영
+        CastToken issued = castTokenService.issue("fe-session-roles", TARGET_AGENCY, "issue-cid-roles");
+        assertThat(issued.roles()).containsExactly("MANAGER", "REVIEWER");
+
+        // verify Mock: ISSUED 상태
+        when(valueOps.get(argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX))))
+                .thenReturn("ISSUED");
+        when(redisTemplate.getExpire(anyString())).thenReturn(250L);
+
+        // Then: verify가 JWT roles 클레임을 그대로 추출 (q-authz 재호출 없음)
+        CastToken verified = castTokenService.verify(issued.token(), TARGET_AGENCY, "1.2.3.4", "verify-cid-roles");
+        assertThat(verified.roles()).containsExactly("MANAGER", "REVIEWER");
     }
 
     // ── verify() 실패: 이미 소비 ─────────────────────────────────────────

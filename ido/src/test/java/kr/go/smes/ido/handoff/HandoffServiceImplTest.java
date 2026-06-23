@@ -14,6 +14,7 @@ import kr.go.smes.ido.handoff.strategy.HandoffStrategy;
 import kr.go.smes.ido.handoff.strategy.HandoffStrategyFactory;
 import kr.go.smes.ido.handoff.validate.CallbackUrlValidator;
 import kr.go.smes.ido.infrastructure.AgencyMetaRepository;
+import kr.go.smes.ido.infrastructure.QAuthzClient;
 import kr.go.smes.ido.infrastructure.TicketRepository;
 import kr.go.smes.ido.policy.PolicyEngine;
 import kr.go.smes.ido.ratelimit.AgencyRateLimiter;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -64,6 +66,7 @@ class HandoffServiceImplTest {
     @Mock HandoffStrategyFactory  strategyFactory;
     @Mock AgencyRateLimiter       rateLimiter;
     @Mock KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock QAuthzClient            qAuthzClient;
 
     @InjectMocks
     HandoffServiceImpl sut;
@@ -85,7 +88,8 @@ class HandoffServiceImplTest {
         sut = new HandoffServiceImpl(
                 agencyMetaRepository, ticketRepository, policyEngine,
                 handoffCryptoService, auditLogPublisher, callbackUrlValidator,
-                strategyFactory, rateLimiter, new ObjectMapper(), kafkaTemplate
+                strategyFactory, rateLimiter, new ObjectMapper(), kafkaTemplate,
+                qAuthzClient
         );
 
         activeAgency = AgencyMeta.builder()
@@ -152,6 +156,23 @@ class HandoffServiceImplTest {
             then(ticketRepository).should(times(1)).save(any(HandoffTicket.class));
             // Kafka 이벤트 발행
             then(kafkaTemplate).should(times(1)).send(eq("ido.handoff.events"), any(), any());
+        }
+
+        @Test
+        @DisplayName("연합 인가 — q-authz 역할이 Handoff 평문 페이로드 roles에 임베드")
+        void issue_embedsRolesFromQAuthz() {
+            // given: q-authz가 역할 반환
+            given(qAuthzClient.getEffectiveRoles(eq(QIM_USER_ID), eq(AGENCY_CODE), any()))
+                    .willReturn(List.of("MANAGER", "REVIEWER"));
+            ArgumentCaptor<String> plainCaptor = ArgumentCaptor.forClass(String.class);
+
+            // when
+            sut.issue(validCommand);
+
+            // then: encrypt()에 전달된 평문 JSON에 roles가 포함됨
+            then(handoffCryptoService).should().encrypt(plainCaptor.capture(), any());
+            assertThat(plainCaptor.getValue())
+                    .contains("\"roles\"").contains("MANAGER").contains("REVIEWER");
         }
 
         @Test

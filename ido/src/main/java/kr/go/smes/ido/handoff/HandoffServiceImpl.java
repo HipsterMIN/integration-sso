@@ -14,6 +14,7 @@ import kr.go.smes.ido.handoff.crypto.HandoffCryptoService;
 import kr.go.smes.ido.handoff.strategy.HandoffStrategyFactory;
 import kr.go.smes.ido.handoff.validate.CallbackUrlValidator;
 import kr.go.smes.ido.infrastructure.AgencyMetaRepository;
+import kr.go.smes.ido.infrastructure.QAuthzClient;
 import kr.go.smes.ido.infrastructure.TicketRepository;
 import kr.go.smes.ido.policy.PolicyEngine;
 import kr.go.smes.ido.ratelimit.AgencyRateLimiter;
@@ -56,6 +57,8 @@ public class HandoffServiceImpl implements HandoffService {
     private final AgencyRateLimiter       rateLimiter;
     private final ObjectMapper            objectMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    /** 연합 인가 — 기관 스코프 역할 조회(fail-open) */
+    private final QAuthzClient            qAuthzClient;
 
     // ── issue ──────────────────────────────────────────────────────────────
 
@@ -337,6 +340,10 @@ public class HandoffServiceImpl implements HandoffService {
             payload.put("authResultId", cmd.getAuthResultId());
             payload.put("authLevel",    cmd.getAuthLevel().name());
             payload.put("providerCode", cmd.getProviderCode());
+            // 연합 인가: 기관 스코프 유효 역할(fail-open — 장애 시 빈 역할).
+            // 플랫폼은 굵은 RBAC 역할만 배송, 세밀한 집행은 기관 PEP가 수행.
+            payload.put("roles",        qAuthzClient.getEffectiveRoles(
+                    cmd.getQimUserId(), cmd.getAgencyCode(), cmd.getCorrelationId()));
             payload.put("issuedAt",     Instant.now().toString());
             return objectMapper.writeValueAsString(payload);
         } catch (Exception e) {

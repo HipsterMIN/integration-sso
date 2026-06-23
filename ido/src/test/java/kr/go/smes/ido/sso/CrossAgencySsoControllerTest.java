@@ -56,7 +56,7 @@ class CrossAgencySsoControllerTest {
         Instant now = Instant.now();
         return new CastToken(
                 JTI, "qim-user-001", "AGENCY_A", TARGET_AGENCY, "MEDIUM",
-                now, now.plusSeconds(300), jwt
+                now, now.plusSeconds(300), jwt, java.util.List.of()
         );
     }
 
