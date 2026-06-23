@@ -1,6 +1,7 @@
 package kr.go.smes.common.domain;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Cross-Agency SSO Token (CAST) — 불변 도메인 객체
@@ -42,16 +43,20 @@ import java.time.Instant;
  * @param issuedAt      발행 시각
  * @param expiresAt     만료 시각 (issuedAt + 5분)
  * @param token         서명된 JWT 문자열 (Base64url 인코딩)
+ * @param roles         대상 기관에서의 사용자 역할 코드 목록 (연합 인가 — q-authz에서 해석).
+ *                      플랫폼은 굵은 RBAC 역할만 배송하고, 세밀한 권한 해석은 기관이 수행한다.
+ *                      미부여(L0)·인가 서비스 장애 시 빈 리스트.
  */
 public record CastToken(
-        String  jti,
-        String  qimUserId,
-        String  sourceAgency,
-        String  targetAgency,
-        String  authLevel,
-        Instant issuedAt,
-        Instant expiresAt,
-        String  token
+        String       jti,
+        String       qimUserId,
+        String       sourceAgency,
+        String       targetAgency,
+        String       authLevel,
+        Instant      issuedAt,
+        Instant      expiresAt,
+        String       token,
+        List<String> roles
 ) {
     /** JWT 헤더 typ 값 */
     public static final String TOKEN_TYPE = "CAST+JWT";
@@ -64,6 +69,9 @@ public record CastToken(
 
     /** JWT 클레임 키 — 인증 수준 */
     public static final String CLAIM_AUTH_LEVEL = "auth_level";
+
+    /** JWT 클레임 키 — 연합 인가 역할 목록 (대상 기관 스코프) */
+    public static final String CLAIM_ROLES = "roles";
 
     /** Redis 1회 소비 키 접두사 */
     public static final String REDIS_CONSUMED_PREFIX = "cast:consumed:";

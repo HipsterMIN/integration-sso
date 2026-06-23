@@ -227,6 +227,18 @@ ido:
   # ⚠️ 미설정 시 POST /api/v1/auth/ci-token 엔드포인트에서 CI 복호화 불가
   fe-aes-gcm-key: ${FE_AES_GCM_KEY:}
 
+  # 연합 인가(Federated Authorization) — Q-Authz 연동
+  # 토큰(CAST/Handoff) 발급 시 사용자×대상기관 유효 역할 조회 → roles[] 클레임 임베드.
+  # GET /api/v1/internal/authz/users/{qimUserId}/effective-roles?agencyCode=...
+  # ⚠️ 장애·미설정 시 QAuthzClient가 fail-open(빈 역할) — SSO/Handoff 발급은 계속됨.
+  q-authz:
+    base-url: ${QAUTHZ_BASE_URL:http://localhost:8086}
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
+    # 운영: K8s Secret / Vault → IDO_QAUTHZ_INTERNAL_API_KEY 환경변수 주입
+    # 미설정 시 q-authz가 401 → 빈 역할 fail-open(경고 로그)
+    internal-api-key: ${IDO_QAUTHZ_INTERNAL_API_KEY:}
+
   # §11.8 Q-Sign 연동 — X-Internal-Sig
   qsign:
     base-url: ${QSIGN_BASE_URL:http://localhost:8081}

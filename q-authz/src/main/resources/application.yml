@@ -1,0 +1,94 @@
+server:
+  port: 8086
+  shutdown: graceful
+
+spring:
+  application:
+    name: q-authz
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+    deserialization:
+      fail-on-unknown-properties: false
+
+  datasource:
+    url: jdbc:postgresql://${AUTHZ_DB_HOST:${DB_HOST:localhost}}:${AUTHZ_DB_PORT:${DB_PORT:5432}}/${AUTHZ_DB_NAME:${DB_NAME:onepass}}?currentSchema=authz&sslmode=${AUTHZ_DB_SSLMODE:disable}
+    username: ${AUTHZ_DB_USERNAME:${DB_USERNAME:onepass}}
+    password: ${AUTHZ_DB_PASSWORD:${DB_PASSWORD:onepass}}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: authz-hikari
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      keepalive-time: 60000
+      connection-test-query: SELECT 1
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: authz
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: authz
+    default-schema: authz
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+    out-of-order: false
+    connect-retries: 5
+    connect-retries-interval: 10s
+
+# ── 내부 전용 API 보안 ────────────────────────────────────────────────────────
+# /api/v1/internal/** 는 ido(플랫폼 PEP/Claim Issuer)만 호출 가능.
+# 키 미설정 시 모든 내부 요청을 401로 거부(fail-closed) — InternalApiKeyInterceptor 참조.
+authz:
+  security:
+    internal-api-key: ${AUTHZ_INTERNAL_API_KEY:}
+  # 한시 권한(JIT) 만료 전이 스케줄러 — expires_at 경과 ACTIVE → EXPIRED
+  # 다중 인스턴스 운영 시 ShedLock 도입 권장(현재 단일 리더 가정).
+  expiry:
+    enabled: ${AUTHZ_EXPIRY_ENABLED:true}
+    scan-interval-ms: ${AUTHZ_EXPIRY_SCAN_INTERVAL_MS:60000}
+    initial-delay-ms: ${AUTHZ_EXPIRY_INITIAL_DELAY_MS:30000}
+    batch-size: ${AUTHZ_EXPIRY_BATCH_SIZE:500}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,flyway
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    kr.go.smes.authz: INFO
+    org.flywaydb: INFO
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html

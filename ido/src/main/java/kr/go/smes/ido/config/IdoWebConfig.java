@@ -68,6 +68,12 @@ public class IdoWebConfig {
     @Value("${ido.webhook.read-timeout-ms:8000}")
     private int webhookReadTimeoutMs;
 
+    @Value("${ido.q-authz.connect-timeout-ms:3000}")
+    private int qAuthzConnectTimeoutMs;
+
+    @Value("${ido.q-authz.read-timeout-ms:5000}")
+    private int qAuthzReadTimeoutMs;
+
     // mTLS 프로비저닝 RestTemplate 설정
     @Value("${ido.provisioning.mtls.connect-timeout-ms:5000}")
     private int mtlsConnectTimeoutMs;
@@ -107,6 +113,20 @@ public class IdoWebConfig {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofMillis(qimConnectTimeoutMs));
         factory.setReadTimeout(Duration.ofMillis(qimReadTimeoutMs));
+        return new RestTemplate(factory);
+    }
+
+    /**
+     * Q-Authz 전용 RestTemplate (연합 인가 역할 조회 — QAuthzClient 의존)
+     *
+     * <p>토큰 발급 핫패스에서 호출되므로 짧은 타임아웃(3s/5s). 장애 시 QAuthzClient가
+     * fail-open(빈 역할)으로 처리하여 SSO/Handoff 발급을 막지 않는다.
+     */
+    @Bean("qAuthzRestTemplate")
+    public RestTemplate qAuthzRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofMillis(qAuthzConnectTimeoutMs));
+        factory.setReadTimeout(Duration.ofMillis(qAuthzReadTimeoutMs));
         return new RestTemplate(factory);
     }
 

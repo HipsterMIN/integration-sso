@@ -4,6 +4,7 @@ include(
     "platform-common",
     "q-sign",
     "q-im",
+    "q-authz",             // 연합 인가(Federated Authorization) — 기관별 역할/권한 부여 SoR (L1 코어)
     "ido",
     "onepass-support",
     "onepass-fe",

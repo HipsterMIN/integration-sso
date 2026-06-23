@@ -1,6 +1,10 @@
 package kr.go.smes.ido.ext;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import kr.go.smes.ido.fe.session.FeSession;
+import kr.go.smes.ido.fe.session.FeSessionService;
+import kr.go.smes.ido.infrastructure.QAuthzClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +19,7 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -65,6 +70,35 @@ public class ExtProxyController {
     /** Q-IM 외부 API 경로를 forward할 RestTemplate (커넥션 풀 전용) */
     private final RestTemplate qimRestTemplate;
 
+    /** FE 세션 → qimUserId 해석 (인가 속성 전파용) */
+    private final FeSessionService feSessionService;
+
+    /** 연합 인가 — 플랫폼 스코프 역할 조회 (fail-open) */
+    private final QAuthzClient qAuthzClient;
+
+    /** FE 세션 쿠키명 ({@code FeSessionController.COOKIE_NAME}와 동일) */
+    private static final String FE_SESSION_COOKIE = "feSessionId";
+
+    /**
+     * 인가 속성 전파 스코프. /api/ext/** 는 플랫폼 백엔드(Q-IM) 대상이므로
+     * 기관 스코프가 아닌 플랫폼 전역 역할({@code agency_code='PLATFORM'})을 전파한다.
+     * (기관 스코프 역할은 CAST/Handoff 토큰으로 별도 배송됨)
+     */
+    private static final String AUTHZ_SCOPE = "PLATFORM";
+
+    /** 다운스트림(Q-IM)으로 전파하는 인가 헤더 — ido가 신뢰 경계에서 주입 */
+    private static final String HEADER_AUTHZ_USER  = "X-Authz-User";
+    private static final String HEADER_AUTHZ_ROLES = "X-Authz-Roles";
+    private static final String HEADER_AUTHZ_SCOPE = "X-Authz-Scope";
+
+    /**
+     * FE가 위조 주입할 수 있는 인가 헤더 — forward 전 반드시 제거(anti-spoofing).
+     * ido가 FE 세션 기반으로 서버사이드에서 재주입한다.
+     */
+    private static final Set<String> SPOOFABLE_AUTHZ_HEADERS = Set.of(
+            "x-authz-user", "x-authz-roles", "x-authz-scope"
+    );
+
     /** Q-IM 서버 Base URL (환경변수: QIM_BASE_URL, 기본: http://localhost:8082) */
     @Value("${ido.qim.base-url:http://localhost:8082}")
     private String qimBaseUrl;
@@ -111,8 +145,12 @@ public class ExtProxyController {
             "proxy-authenticate"
     );
 
-    public ExtProxyController(@Qualifier("qimRestTemplate") RestTemplate qimRestTemplate) {
+    public ExtProxyController(@Qualifier("qimRestTemplate") RestTemplate qimRestTemplate,
+                              FeSessionService feSessionService,
+                              QAuthzClient qAuthzClient) {
         this.qimRestTemplate = qimRestTemplate;
+        this.feSessionService = feSessionService;
+        this.qAuthzClient = qAuthzClient;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -285,6 +323,10 @@ public class ExtProxyController {
                 if ("x-ext-api-key".equals(headerName)) {
                     continue;
                 }
+                // anti-spoofing: FE가 위조 주입한 인가 헤더 제거 (서버사이드 재주입)
+                if (SPOOFABLE_AUTHZ_HEADERS.contains(headerName)) {
+                    continue;
+                }
                 List<String> values = Collections.list(request.getHeaders(headerName));
                 headers.addAll(headerName, values);
             }
@@ -297,7 +339,59 @@ public class ExtProxyController {
             log.debug("[EXT-PROXY] IDO_QIM_EXT_API_KEY 미설정 — X-Ext-Api-Key 헤더 미주입");
         }
 
+        // 연합 인가 속성 전파 (강제 아님 — Q-IM/기관 PEP가 집행)
+        injectAuthzHeaders(request, headers);
+
         return headers;
+    }
+
+    /**
+     * FE 세션에서 사용자를 해석해 플랫폼 스코프 역할을 다운스트림(Q-IM) 헤더로 전파한다.
+     *
+     * <p><b>속성 전파만</b> — 게이트웨이는 경로별 인가를 <i>강제하지 않는다</i>.
+     * 전파된 {@code X-Authz-*} 헤더로 Q-IM(또는 기관 PEP)이 세밀한 결정을 내린다.
+     * 설계 원칙: 부여/배송은 플랫폼, 해석/집행은 지역.
+     *
+     * <p>best-effort — 세션 없음/q-authz 장애 시 헤더를 주입하지 않고 조용히 통과시켜
+     * 프록시 기능을 막지 않는다(fail-open).
+     */
+    private void injectAuthzHeaders(HttpServletRequest request, HttpHeaders headers) {
+        try {
+            String feSessionId = extractFeSessionId(request);
+            if (feSessionId == null) {
+                return; // 비인증 ext 호출 — 전파 없음
+            }
+            Optional<FeSession> session = feSessionService.findById(feSessionId);
+            if (session.isEmpty() || session.get().getQimUserId() == null) {
+                return;
+            }
+            String qimUserId = session.get().getQimUserId();
+            String correlationId = request.getHeader("X-Correlation-Id");
+            List<String> roles = qAuthzClient.getEffectiveRoles(qimUserId, AUTHZ_SCOPE, correlationId);
+
+            headers.set(HEADER_AUTHZ_USER, qimUserId);
+            headers.set(HEADER_AUTHZ_SCOPE, AUTHZ_SCOPE);
+            headers.set(HEADER_AUTHZ_ROLES, String.join(",", roles)); // 빈 문자열 = L0(역할 없음)
+            log.debug("[EXT-PROXY] 인가 속성 전파 user={} scope={} roles={}",
+                    qimUserId, AUTHZ_SCOPE, roles.size());
+        } catch (Exception e) {
+            // 전파 실패는 비치명적 — 프록시는 계속 (fail-open)
+            log.warn("[EXT-PROXY] 인가 속성 전파 실패(비치명적): {}", e.getMessage());
+        }
+    }
+
+    /** 요청 쿠키에서 FE 세션 ID 추출 (없으면 null). */
+    private String extractFeSessionId(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+        for (Cookie c : cookies) {
+            if (FE_SESSION_COOKIE.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) {
+                return c.getValue();
+            }
+        }
+        return null;
     }
 
     /**

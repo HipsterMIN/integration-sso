@@ -11,6 +11,7 @@ import kr.go.smes.common.util.UuidV7;
 import kr.go.smes.ido.fe.session.FeSession;
 import kr.go.smes.ido.fe.session.FeSessionService;
 import kr.go.smes.ido.infrastructure.AgencyMetaRepository;
+import kr.go.smes.ido.infrastructure.QAuthzClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,6 +23,7 @@ import java.security.KeyPair;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Cross-Agency SSO Token (CAST) 서비스 구현체
@@ -63,6 +65,8 @@ public class CastTokenServiceImpl implements CastTokenService {
     private final AgencyMetaRepository       agencyMetaRepository;
     private final RedisTemplate<String, Object> redisTemplate;
     private final JdbcTemplate               jdbcTemplate;
+    /** 연합 인가 — 대상 기관 스코프 역할 조회(fail-open) */
+    private final QAuthzClient               qAuthzClient;
 
     /** CastKeyConfig 에서 주입된 Ed25519 KeyPair */
     @Qualifier("castKeyPair")
@@ -99,6 +103,10 @@ public class CastTokenServiceImpl implements CastTokenService {
         // sourceAgency: FE 세션에 저장된 기관 코드 (없으면 ONEPASS)
         String  sourceAgency  = "ONEPASS";
 
+        // 연합 인가: 대상 기관 스코프 유효 역할 조회(fail-open — 장애 시 빈 역할).
+        // 플랫폼은 굵은 RBAC 역할만 배송하고, 세밀한 집행은 기관 PEP가 수행한다.
+        List<String> roles = qAuthzClient.getEffectiveRoles(qimUserId, targetAgencyCode, correlationId);
+
         String jwt;
         try {
             jwt = Jwts.builder()
@@ -109,6 +117,7 @@ public class CastTokenServiceImpl implements CastTokenService {
                     .claim(CastToken.CLAIM_TARGET_AGENCY, targetAgencyCode)
                     .claim(CastToken.CLAIM_SOURCE_AGENCY, sourceAgency)
                     .claim(CastToken.CLAIM_AUTH_LEVEL,    authLevel)
+                    .claim(CastToken.CLAIM_ROLES,         roles)
                     .signWith(castKeyPair.getPrivate(), Jwts.SIG.EdDSA)
                     .header().add("typ", CastToken.TOKEN_TYPE).and()
                     .compact();
@@ -146,10 +155,10 @@ public class CastTokenServiceImpl implements CastTokenService {
 
         CastToken castToken = new CastToken(
                 jti, qimUserId, sourceAgency, targetAgencyCode, authLevel,
-                issuedAt, expiresAt, jwt);
+                issuedAt, expiresAt, jwt, roles);
 
-        log.info("[CastToken] 발급 완료 jti={} targetAgency={} expires={} cid={}",
-                jti, targetAgencyCode, expiresAt, correlationId);
+        log.info("[CastToken] 발급 완료 jti={} targetAgency={} roles={} expires={} cid={}",
+                jti, targetAgencyCode, roles.size(), expiresAt, correlationId);
         return castToken;
     }
 
@@ -183,6 +192,7 @@ public class CastTokenServiceImpl implements CastTokenService {
         String  tgtAgency    = claims.get(CastToken.CLAIM_TARGET_AGENCY, String.class);
         String  srcAgency    = claims.get(CastToken.CLAIM_SOURCE_AGENCY, String.class);
         String  authLevel    = claims.get(CastToken.CLAIM_AUTH_LEVEL,    String.class);
+        List<String> roles   = extractRoles(claims);
         Instant issuedAt     = claims.getIssuedAt().toInstant();
         Instant expiresAt    = claims.getExpiration().toInstant();
 
@@ -255,6 +265,17 @@ public class CastTokenServiceImpl implements CastTokenService {
         log.info("[CastToken] 검증 성공 jti={} qimUserId={} sourceAgency={} targetAgency={} cid={}",
                 jti, qimUserId, srcAgency, tgtAgency, correlationId);
 
-        return new CastToken(jti, qimUserId, srcAgency, tgtAgency, authLevel, issuedAt, expiresAt, castJwt);
+        return new CastToken(jti, qimUserId, srcAgency, tgtAgency, authLevel, issuedAt, expiresAt, castJwt, roles);
+    }
+
+    /** JWT {@code roles} 클레임을 안전하게 List&lt;String&gt;로 추출(없으면 빈 리스트). */
+    @SuppressWarnings("unchecked")
+    private static List<String> extractRoles(Claims claims) {
+        Object raw = claims.get(CastToken.CLAIM_ROLES);
+        if (raw instanceof List<?> list) {
+            return list.stream().filter(String.class::isInstance)
+                    .map(String.class::cast).toList();
+        }
+        return List.of();
     }
 }
