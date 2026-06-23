@@ -28,6 +28,8 @@ import javax.sql.DataSource;
  * │ qimDataSource       │ MariaDB  │ qim.outbox                           │
  * ├─────────────────────┼──────────┼─────────────────────────────────────┤
  * │ qsignDataSource     │ PgSQL    │ qsign.outbox                         │
+ * ├─────────────────────┼──────────┼─────────────────────────────────────┤
+ * │ authzDataSource     │ PgSQL    │ authz.authz_outbox                   │
  * └─────────────────────┴──────────┴─────────────────────────────────────┘
  * </pre>
  *
@@ -129,6 +131,34 @@ public class BatchDataSourceConfig {
 
     @Bean(name = "qsignJdbcTemplate")
     public JdbcTemplate qsignJdbcTemplate(@Qualifier("qsignDataSource") DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // q-authz DataSource (PostgreSQL)
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Bean
+    @ConfigurationProperties(prefix = "batch.datasource.authz")
+    public HikariConfig authzHikariConfig() {
+        return new HikariConfig();
+    }
+
+    /**
+     * q-authz PostgreSQL DataSource
+     *
+     * <p>authz.authz_outbox 테이블 접근 전용 — 인가 부여/회수/만료 이벤트 릴레이.
+     */
+    @Bean(name = "authzDataSource", destroyMethod = "close")
+    public HikariDataSource authzDataSource(@Qualifier("authzHikariConfig") HikariConfig config) {
+        config.setPoolName("batch-authz-hikari");
+        HikariDataSource ds = new HikariDataSource(config);
+        log.info("[BatchDS] q-authz DataSource 초기화: jdbcUrl={}", config.getJdbcUrl());
+        return ds;
+    }
+
+    @Bean(name = "authzJdbcTemplate")
+    public JdbcTemplate authzJdbcTemplate(@Qualifier("authzDataSource") DataSource dataSource) {
         return new JdbcTemplate(dataSource);
     }
 }

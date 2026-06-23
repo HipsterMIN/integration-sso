@@ -94,6 +94,20 @@ batch:
       max-lifetime: 1800000
       connection-test-query: SELECT 1
 
+    # ── q-authz PostgreSQL ──────────────────────────────────────────────────────
+    # 대상: authz.authz_outbox (인가 부여/회수/만료 이벤트)
+    authz:
+      jdbc-url: jdbc:postgresql://${AUTHZ_DB_HOST:localhost}:${AUTHZ_DB_PORT:5432}/${AUTHZ_DB_NAME:onepass}?currentSchema=authz
+      username: ${AUTHZ_DB_USERNAME:onepass}
+      password: ${AUTHZ_DB_PASSWORD:onepass}
+      driver-class-name: org.postgresql.Driver
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 300000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+
   # ── HTTP 클라이언트 ─────────────────────────────────────────────────────────
   http:
     connect-timeout-ms: 3000
@@ -160,6 +174,18 @@ batch:
         topic: ${QSIGN_AUTH_EVENTS_TOPIC:qsign.auth.events}
         lock-at-most: ${BATCH_QSIGN_KAFKA_LOCK_MOST:10s}
         lock-at-least: ${BATCH_QSIGN_KAFKA_LOCK_LEAST:400ms}
+
+    # ── q-authz → Kafka (authz.assignment.events) ─────────────────────────────
+    authz:
+      kafka:
+        enabled: ${BATCH_AUTHZ_KAFKA_RELAY_ENABLED:true}
+        interval-ms: ${BATCH_AUTHZ_KAFKA_INTERVAL_MS:500}
+        batch-size: ${BATCH_AUTHZ_KAFKA_BATCH_SIZE:100}
+        max-retry: ${BATCH_AUTHZ_KAFKA_MAX_RETRY:5}
+        topic: ${AUTHZ_ASSIGNMENT_EVENTS_TOPIC:authz.assignment.events}
+        lock-at-most: ${BATCH_AUTHZ_KAFKA_LOCK_MOST:10s}
+        lock-at-least: ${BATCH_AUTHZ_KAFKA_LOCK_LEAST:400ms}
+        retry-interval-ms: ${BATCH_AUTHZ_KAFKA_RETRY_INTERVAL_MS:30000}
 
     # ── 프로비저닝 HTTP POST 릴레이 ────────────────────────────────────────────
     provisioning:
