@@ -18,7 +18,8 @@ public class AuthzWebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(internalApiKeyInterceptor)
-                .addPathPatterns("/api/v1/internal/**")
+                // 내부 인가 API + SCIM 2.0 프로비저닝(기관 동기화) 모두 키 보호
+                .addPathPatterns("/api/v1/internal/**", "/scim/v2/**")
                 .excludePathPatterns("/actuator/**", "/api-docs/**", "/swagger-ui/**", "/swagger-ui.html");
     }
 }
