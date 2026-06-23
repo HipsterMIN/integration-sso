@@ -165,6 +165,31 @@ public class AuthzService {
                 .toList();
     }
 
+    // ── 만료 전이 ───────────────────────────────────────────────────────────
+
+    /**
+     * 만료 경과 부여를 ACTIVE → EXPIRED로 전이하고 EXPIRE 감사를 남긴다.
+     * 스케줄러가 한 페이지(batchSize)씩 호출한다(대량 만료 시 폭주 방지).
+     *
+     * @return 이번 호출에서 만료 처리한 건수
+     */
+    @Transactional
+    public int expireOverdue(Instant now, int batchSize) {
+        var page = userRoleRepository.findByStatusAndExpiresAtNotNullAndExpiresAtBefore(
+                AssignmentStatus.ACTIVE, now, org.springframework.data.domain.PageRequest.of(0, batchSize));
+        for (AuthzUserRoleEntity e : page.getContent()) {
+            e.setStatus(AssignmentStatus.EXPIRED);
+            userRoleRepository.save(e);
+            auditService.record(AuditEvent.EXPIRE, e.getQimUserId(), e.getAgencyCode(), e.getRoleCode(),
+                    "SYSTEM", null, "expires_at 경과 자동 만료", null);
+        }
+        if (!page.isEmpty()) {
+            log.info("[q-authz] 만료 전이 {}건 처리 (잔여 추정 hasNext={})",
+                    page.getNumberOfElements(), page.hasNext());
+        }
+        return page.getNumberOfElements();
+    }
+
     // ── private ───────────────────────────────────────────────────────────────
 
     private GrantSource parseSource(String raw) {

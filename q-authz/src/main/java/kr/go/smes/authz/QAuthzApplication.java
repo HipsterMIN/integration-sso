@@ -2,6 +2,7 @@ package kr.go.smes.authz;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Q-Authz — 연합 인가(Federated Authorization) 서비스.
@@ -21,6 +22,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * 토큰 클레임 주입(Handoff/CAST {@code roles[]})·PEP 강제는 ido 측 후속 증분에서 본 서비스를 호출한다.
  */
 @SpringBootApplication
+@EnableScheduling
 public class QAuthzApplication {
 
     public static void main(String[] args) {

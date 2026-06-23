@@ -2,8 +2,11 @@ package kr.go.smes.authz.infrastructure;
 
 import kr.go.smes.authz.domain.AssignmentStatus;
 import kr.go.smes.authz.domain.AuthzUserRoleEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,4 +23,11 @@ public interface AuthzUserRoleRepository extends JpaRepository<AuthzUserRoleEnti
     /** 기관 스코프: 특정 역할 보유자 목록. */
     List<AuthzUserRoleEntity> findByAgencyCodeAndRoleCodeAndStatus(
             String agencyCode, String roleCode, AssignmentStatus status);
+
+    /**
+     * 만료 대상 스캔 — 지정 상태이면서 expires_at이 기준 시각 이전인 부여.
+     * 만료 전이 스케줄러가 페이지 단위로 처리한다.
+     */
+    Page<AuthzUserRoleEntity> findByStatusAndExpiresAtNotNullAndExpiresAtBefore(
+            AssignmentStatus status, Instant cutoff, Pageable pageable);
 }

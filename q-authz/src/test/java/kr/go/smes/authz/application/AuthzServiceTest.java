@@ -146,6 +146,40 @@ class AuthzServiceTest {
     }
 
     @Test
+    void expireOverdue_transitionsActiveToExpired_andAudits() {
+        AuthzUserRoleEntity overdue = AuthzUserRoleEntity.builder()
+                .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).roleCode("TEMP")
+                .status(AssignmentStatus.ACTIVE)
+                .expiresAt(Instant.now().minus(1, ChronoUnit.HOURS)).build();
+        when(userRoleRepository.findByStatusAndExpiresAtNotNullAndExpiresAtBefore(
+                eq(AssignmentStatus.ACTIVE), any(Instant.class), any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(overdue)));
+
+        int count = service.expireOverdue(Instant.now(), 500);
+
+        assertThat(count).isEqualTo(1);
+        ArgumentCaptor<AuthzUserRoleEntity> cap = ArgumentCaptor.forClass(AuthzUserRoleEntity.class);
+        verify(userRoleRepository).save(cap.capture());
+        assertThat(cap.getValue().getStatus()).isEqualTo(AssignmentStatus.EXPIRED);
+        verify(auditService).record(eq(kr.go.smes.authz.domain.AuditEvent.EXPIRE),
+                eq(USER), eq(AGENCY), eq("TEMP"), eq("SYSTEM"), any(), any(), any());
+    }
+
+    @Test
+    void expireOverdue_noneOverdue_returnsZero_noAudit() {
+        when(userRoleRepository.findByStatusAndExpiresAtNotNullAndExpiresAtBefore(
+                eq(AssignmentStatus.ACTIVE), any(Instant.class), any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of()));
+
+        int count = service.expireOverdue(Instant.now(), 500);
+
+        assertThat(count).isZero();
+        verify(userRoleRepository, never()).save(any());
+        verify(auditService, never()).record(eq(kr.go.smes.authz.domain.AuditEvent.EXPIRE),
+                any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void effectiveRoleCodes_excludesExpired_andSorts() {
         AuthzUserRoleEntity active = AuthzUserRoleEntity.builder()
                 .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).roleCode("MANAGER")
