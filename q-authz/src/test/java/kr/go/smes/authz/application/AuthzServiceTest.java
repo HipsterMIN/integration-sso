@@ -37,6 +37,7 @@ class AuthzServiceTest {
     @Mock AuthzRoleRepository roleRepository;
     @Mock AuthzUserRoleRepository userRoleRepository;
     @Mock AuthzAuditService auditService;
+    @Mock AuthzOutboxService outboxService;
 
     @InjectMocks AuthzService service;
 
@@ -71,6 +72,31 @@ class AuthzServiceTest {
         assertThat(result.getRoleCode()).isEqualTo(ROLE);
         verify(auditService).record(eq(kr.go.smes.authz.domain.AuditEvent.GRANT),
                 eq(USER), eq(AGENCY), eq(ROLE), any(), any(), any(), any());
+        // 회수 전파: GRANTED 이벤트 아웃박스 발행
+        ArgumentCaptor<kr.go.smes.common.event.AuthorizationEvent> ev =
+                ArgumentCaptor.forClass(kr.go.smes.common.event.AuthorizationEvent.class);
+        verify(outboxService).publishInTx(ev.capture());
+        assertThat(ev.getValue().getEventType())
+                .isEqualTo(kr.go.smes.common.event.AuthorizationEvent.TYPE_GRANTED);
+        assertThat(ev.getValue().getQimUserId()).isEqualTo(USER);
+        assertThat(ev.getValue().getRoleCode()).isEqualTo(ROLE);
+    }
+
+    @Test
+    void grant_alreadyActive_isIdempotent_noEvent() {
+        AuthzUserRoleEntity existing = AuthzUserRoleEntity.builder()
+                .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).roleCode(ROLE)
+                .status(AssignmentStatus.ACTIVE).grantedAt(Instant.now()).grantedBy("admin")
+                .source(kr.go.smes.authz.domain.GrantSource.API).build();
+        when(roleRepository.findById(new AuthzRoleId(AGENCY, ROLE)))
+                .thenReturn(Optional.of(assignableRole));
+        when(userRoleRepository.findByQimUserIdAndAgencyCodeAndRoleCode(USER, AGENCY, ROLE))
+                .thenReturn(Optional.of(existing));
+        when(userRoleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.grantRole(grantReq(null), "1.2.3.4", "cid");
+
+        verify(outboxService, never()).publishInTx(any());
     }
 
     @Test
@@ -132,6 +158,11 @@ class AuthzServiceTest {
         assertThat(cap.getValue().getRevokedAt()).isNotNull();
         verify(auditService).record(eq(kr.go.smes.authz.domain.AuditEvent.REVOKE),
                 eq(USER), eq(AGENCY), eq(ROLE), any(), any(), any(), any());
+        ArgumentCaptor<kr.go.smes.common.event.AuthorizationEvent> ev =
+                ArgumentCaptor.forClass(kr.go.smes.common.event.AuthorizationEvent.class);
+        verify(outboxService).publishInTx(ev.capture());
+        assertThat(ev.getValue().getEventType())
+                .isEqualTo(kr.go.smes.common.event.AuthorizationEvent.TYPE_REVOKED);
     }
 
     @Test
@@ -163,6 +194,11 @@ class AuthzServiceTest {
         assertThat(cap.getValue().getStatus()).isEqualTo(AssignmentStatus.EXPIRED);
         verify(auditService).record(eq(kr.go.smes.authz.domain.AuditEvent.EXPIRE),
                 eq(USER), eq(AGENCY), eq("TEMP"), eq("SYSTEM"), any(), any(), any());
+        ArgumentCaptor<kr.go.smes.common.event.AuthorizationEvent> ev =
+                ArgumentCaptor.forClass(kr.go.smes.common.event.AuthorizationEvent.class);
+        verify(outboxService).publishInTx(ev.capture());
+        assertThat(ev.getValue().getEventType())
+                .isEqualTo(kr.go.smes.common.event.AuthorizationEvent.TYPE_EXPIRED);
     }
 
     @Test

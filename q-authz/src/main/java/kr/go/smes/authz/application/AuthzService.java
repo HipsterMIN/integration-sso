@@ -12,6 +12,7 @@ import kr.go.smes.authz.domain.AuthzUserRoleEntity;
 import kr.go.smes.authz.domain.GrantSource;
 import kr.go.smes.authz.infrastructure.AuthzRoleRepository;
 import kr.go.smes.authz.infrastructure.AuthzUserRoleRepository;
+import kr.go.smes.common.event.AuthorizationEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,7 @@ public class AuthzService {
     private final AuthzRoleRepository     roleRepository;
     private final AuthzUserRoleRepository userRoleRepository;
     private final AuthzAuditService       auditService;
+    private final AuthzOutboxService      outboxService;
 
     // ── 역할 카탈로그 ──────────────────────────────────────────────────────────
 
@@ -119,6 +121,10 @@ public class AuthzService {
 
         auditService.record(AuditEvent.GRANT, req.qimUserId(), req.agencyCode(), req.roleCode(),
                 req.grantedBy(), actorIp, req.reason(), correlationId);
+        // 회수 전파 기반: 부여 이벤트를 같은 TX로 아웃박스 적재
+        outboxService.publishInTx(AuthorizationEvent.granted(
+                req.qimUserId(), req.agencyCode(), req.roleCode(),
+                req.grantedBy(), req.expiresAt(), source.name(), req.reason(), correlationId));
         return entity;
     }
 
@@ -135,6 +141,9 @@ public class AuthzService {
             entity.setRevokedAt(Instant.now());
             entity.setRevokedBy(revokedBy);
             userRoleRepository.save(entity);
+            // 실제 전이 시에만 회수 이벤트 발행(반복 호출 시 중복 방지)
+            outboxService.publishInTx(AuthorizationEvent.revoked(
+                    qimUserId, agencyCode, roleCode, revokedBy, reason, correlationId));
         }
         auditService.record(AuditEvent.REVOKE, qimUserId, agencyCode, roleCode,
                 revokedBy, actorIp, reason, correlationId);
@@ -182,6 +191,8 @@ public class AuthzService {
             userRoleRepository.save(e);
             auditService.record(AuditEvent.EXPIRE, e.getQimUserId(), e.getAgencyCode(), e.getRoleCode(),
                     "SYSTEM", null, "expires_at 경과 자동 만료", null);
+            outboxService.publishInTx(AuthorizationEvent.expired(
+                    e.getQimUserId(), e.getAgencyCode(), e.getRoleCode(), "expires_at 경과 자동 만료"));
         }
         if (!page.isEmpty()) {
             log.info("[q-authz] 만료 전이 {}건 처리 (잔여 추정 hasNext={})",
