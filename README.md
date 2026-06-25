@@ -252,6 +252,40 @@ onepass-fe       █████████████████░░░  8
 
 > **보안** — `InternalApiKeyInterceptor`가 `X-Internal-Api-Key`를 `MessageDigest.isEqual` 상수시간 비교로 검증. 서버 키(`authz.security.internal-api-key`) 미설정/공백 시 모든 보호 요청 **401 fail-closed**. 적용 경로: `/api/v1/internal/**`, `/scim/v2/**`(actuator/api-docs/swagger 제외). RLS는 심층 방어로 `app.current_agency` GUC 기반.
 
+**요청/응답 예시** (모든 내부 API는 `X-Internal-Api-Key` 필수)
+
+```bash
+# ① 역할 카탈로그 생성
+curl -sS -X POST http://q-authz:8086/api/v1/internal/authz/roles \
+  -H "X-Internal-Api-Key: $AUTHZ_INTERNAL_API_KEY" -H "X-Actor: admin@onepass" \
+  -H "Content-Type: application/json" \
+  -d '{"agencyCode":"GOV_SMES","roleCode":"MANAGER","name":"기관 관리자","description":"승인 권한"}'
+
+# ② 사용자 역할 부여(멱등) — expiresAt 지정 시 한시(JIT) 부여
+curl -sS -X POST http://q-authz:8086/api/v1/internal/authz/grants \
+  -H "X-Internal-Api-Key: $AUTHZ_INTERNAL_API_KEY" -H "X-Correlation-Id: cid-abc" \
+  -H "Content-Type: application/json" \
+  -d '{"qimUserId":"u-1024","agencyCode":"GOV_SMES","roleCode":"MANAGER","grantedBy":"admin@onepass","expiresAt":"2026-12-31T23:59:59Z","source":"API","reason":"분기 승인"}'
+
+# ③ 유효 역할 조회 — ido가 토큰 roles[] 클레임 발급 시 호출
+curl -sS "http://q-authz:8086/api/v1/internal/authz/users/u-1024/effective-roles?agencyCode=GOV_SMES" \
+  -H "X-Internal-Api-Key: $AUTHZ_INTERNAL_API_KEY"
+
+# ④ 역할 회수 → authz.assignment.events 회수 이벤트 발행
+curl -sS -X DELETE "http://q-authz:8086/api/v1/internal/authz/grants?qimUserId=u-1024&agencyCode=GOV_SMES&roleCode=MANAGER&revokedBy=admin@onepass&reason=offboarding" \
+  -H "X-Internal-Api-Key: $AUTHZ_INTERNAL_API_KEY"
+```
+
+```json
+// POST /grants → 201 (UserRoleResponse)
+{ "id": "01997f3a-...-uuid", "qimUserId": "u-1024", "agencyCode": "GOV_SMES",
+  "roleCode": "MANAGER", "status": "ACTIVE", "grantedAt": "2026-06-25T01:02:03Z",
+  "grantedBy": "admin@onepass", "expiresAt": "2026-12-31T23:59:59Z", "source": "API" }
+
+// GET .../effective-roles → 200 (EffectiveRolesResponse) — 만료 미경과 ACTIVE 역할만, 정렬
+{ "qimUserId": "u-1024", "agencyCode": "GOV_SMES", "roles": ["MANAGER", "VIEWER"] }
+```
+
 ### 토큰 역할 클레임 전파
 
 부여된 유효 역할은 **토큰 발급 시점에** `q-authz`에서 조회되어 토큰 내부에 실린다 — 검증 시 재조회 없음.
@@ -286,6 +320,25 @@ onepass-fe       █████████████████░░░  8
 
 > 인증은 내부 API와 동일하게 `X-Internal-Api-Key` 인터셉터(`/scim/v2/**`) 적용. 실제 grant/revoke는 `AuthzService`에 위임(출처 `SCIM`)되어 감사·멱등 일관 적용.
 
+**SCIM 요청/응답 예시**
+
+```json
+// GET /scim/v2/Groups/GOV_SMES:MANAGER → 200
+{ "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+  "id": "GOV_SMES:MANAGER", "displayName": "GOV_SMES:MANAGER",
+  "members": [ { "value": "u-1024" }, { "value": "u-2048" } ] }
+
+// PUT /scim/v2/Groups/GOV_SMES:MANAGER  (멤버 전체 교체 = reconcile)
+{ "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+  "members": [ { "value": "u-1024" }, { "value": "u-3072" } ] }
+
+// PATCH /scim/v2/Groups/GOV_SMES:MANAGER  (멤버 추가/제거)
+{ "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+  "Operations": [ { "op": "add", "path": "members", "value": [ { "value": "u-9000" } ] } ] }
+```
+
+> `PUT`은 현재 멤버 집합과 목표 집합의 차집합을 계산해 누락분은 grant, 초과분은 revoke(reconcile). 각 멤버 변경은 내부 `AuthzService.grantRole/revokeRole`로 위임되어 동일한 감사·아웃박스 이벤트 경로를 탄다. `PATCH remove`는 `members[value eq "u-9000"]` 경로 필터도 지원.
+
 ### 한시 권한 만료 + 이벤트 전파
 
 **만료 스케줄러** (`AuthzExpiryScheduler`) — `expires_at`이 지난 `ACTIVE` 부여를 `EXPIRED`로 전이. 사이클당 `batch-size`까지 처리. `@Scheduled(fixedDelay=scan-interval-ms:60000, initialDelay=30000)`, `@ConditionalOnProperty(authz.expiry.enabled, matchIfMissing=true)`. 예외는 흡수되어 다음 사이클 차단 안 함. (다중 인스턴스 동시 스캔 시 EXPIRE 감사 중복 가능 — ShedLock 권장, 현재 단일 리더 가정.)
@@ -311,6 +364,66 @@ Kafka  authz.assignment.events
         ▼
 downstream (기관 게이트웨이 · 세션 캐시 · ido) → 역할 무효화 (토큰 만료 전 회수 전파)
 ```
+
+**이벤트 페이로드** (`AuthorizationEvent`, `@JsonInclude(NON_NULL)` — null 필드 생략)
+
+```json
+// authz.assignment.events — REVOKED 예시 (Kafka partition key = qimUserId)
+{ "eventId": "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+  "eventType": "AUTHZ_REVOKED", "sourceSystem": "q-authz",
+  "correlationId": "cid-abc", "qimUserId": "u-1024",
+  "occurredAt": "2026-06-25T01:05:00Z",
+  "agencyCode": "GOV_SMES", "roleCode": "MANAGER",
+  "actor": "admin@onepass", "reason": "offboarding" }
+```
+
+> `GRANTED` 이벤트는 `expiresAt`·`source`를 추가 포함하고, `EXPIRED`는 `actor="SYSTEM"`. `eventVersion`은 authz 부여에 optimistic-lock 버전이 없어 항상 생략된다.
+
+### 전체 시퀀스 (부여 → 토큰 → 집행 → 회수)
+
+```text
+[부여]   onepass-admin/SCIM ──▶ q-authz POST /grants ──▶ authz_user_role(ACTIVE) + authz_outbox(GRANTED)
+[발급]   사용자 SSO ──▶ ido ──GET effective-roles──▶ q-authz
+                          └─▶ CAST/Handoff 토큰에 roles[] 클레임 임베드 (fail-open: q-authz 다운 시 빈 역할)
+[프록시] FE ──▶ ido /api/ext ──(X-Authz-User/Scope/Roles, anti-spoofing)──▶ Q-IM/기관 PEP가 집행
+[만료]   AuthzExpiryScheduler ──ACTIVE & expires_at<now──▶ EXPIRED + authz_outbox(EXPIRED)
+[회수]   q-authz DELETE /grants ──▶ REVOKED + authz_outbox(REVOKED)
+                          └─▶ outbox-relay-batch ──▶ Kafka authz.assignment.events ──▶ 다운스트림 무효화
+```
+
+> 토큰은 짧은 TTL(CAST 300s)로 발급되고, 회수 이벤트가 다운스트림 캐시를 능동 무효화하여 **TTL 만료 이전 회수 전파**를 달성한다(다운스트림 컨슈머는 후속 과제 — 잔여 작업 참조).
+
+### 데이터 모델: `authz_user_role` (부여 SoR)
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `id` | UUID (PK) | 부여 식별자 |
+| `qim_user_id` | varchar | 대상 사용자 (unique 키 1) |
+| `agency_code` | varchar | 테넌트 (unique 키 2, RLS 기준) |
+| `role_code` | varchar | 역할 (unique 키 3, 기관 불투명) |
+| `status` | varchar | `ACTIVE`/`REVOKED`/`EXPIRED` (CHECK) |
+| `granted_at` / `granted_by` | timestamptz / varchar | 부여 시각·행위자 |
+| `expires_at` | timestamptz (nullable) | 한시/JIT 만료 — NULL=영구 |
+| `revoked_at` / `revoked_by` | timestamptz / varchar | 회수 시각·행위자 |
+| `source` | varchar | `CONSOLE`/`SCIM`/`API`/`AGENCY_PUSH` |
+
+> 유효 역할 = `status==ACTIVE && (expires_at == null || expires_at > now)`. unique `(qim_user_id, agency_code, role_code)`로 멱등 부여 보장.
+
+### 새로 구현된 파일 목록
+
+| 모듈 | 파일 | 증분 |
+|------|------|------|
+| `q-authz` | `domain/{AuthzRoleEntity,AuthzUserRoleEntity,AuthzGrantAuditEntity,AssignmentStatus,GrantSource,AuditEvent}` | 1 |
+| `q-authz` | `application/AuthzService` · `application/AuthzAuditService` | 1 |
+| `q-authz` | `api/AuthzInternalController` + `api/dto/*` · `config/InternalApiKeyInterceptor` | 1 |
+| `q-authz` | `db/migration/V1__create_authz_schema.sql` (역할/부여/감사 + RLS) | 1 |
+| `ido` | `infrastructure/QAuthzClient` (fail-open) · CAST/Handoff `roles[]` 클레임 주입 | 2 |
+| `ido` | `ExtProxyController` (`/api/ext` PEP 속성 전파 + anti-spoofing) | 2b |
+| `q-authz` | `application/AuthzExpiryScheduler` (만료 전이) | 3 |
+| `q-authz` | `api/scim/{ScimGroupController,ScimGroup,ScimMember,ScimListResponse,ScimPatchOp,ScimGroupId}` · `application/ScimGroupService` | 4 |
+| `platform-common` | `event/AuthorizationEvent` | 5A |
+| `q-authz` | `infrastructure/{AuthzOutboxEntity,AuthzOutboxRepository}` · `application/AuthzOutboxService` · `db/migration/V2__create_authz_outbox.sql` | 5A |
+| `outbox-relay-batch` | `job/authz/AuthzKafkaRelayJob` · `config/BatchDataSourceConfig`(authz DS) · `config/BatchTransactionConfig`(authzTxMgr) | 5B |
 
 ### 운영 배포 필수 환경변수 (연합 인가)
 
