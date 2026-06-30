@@ -79,3 +79,20 @@ spec:
     matchLabels:
       app: onepass-batch
 {{- end }}
+---
+# ── Q-AuthZ PDB ───────────────────────────────────────────────
+{{- if and .Values.authz.enabled .Values.authz.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-authz
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-authz
+spec:
+  minAvailable: {{ .Values.authz.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: onepass-authz
+{{- end }}
