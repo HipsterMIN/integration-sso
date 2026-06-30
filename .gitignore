@@ -62,3 +62,4 @@ build_excel.py
 *.xlsx
 통합인증_*.docx
 OnePass_*.xlsx
+http/*.env.json
