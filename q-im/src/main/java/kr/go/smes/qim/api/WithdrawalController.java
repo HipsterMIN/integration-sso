@@ -100,7 +100,7 @@ public class WithdrawalController {
      * <p>type=SCHEDULED 로 등록된 예약을 유예기간 내에 취소한다.
      * 취소 성공 시 status가 ACTIVE로 복원된다.
      *
-     * @return 200 + resultStatus=WITHDRAWAL_CANCELLED
+     * @return 200 + resultStatus=ACTIVE (취소 후 활성 복원 — resultStatus는 새 상태)
      */
     @DeleteMapping("/schedule")
     public ResponseEntity<WithdrawalResponse> cancelSchedule(

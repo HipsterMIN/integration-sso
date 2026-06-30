@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OutboxRepositoryImpl implements OutboxRepository {
 
+    private final OutboxJpaRepository jpaRepository;
     private final jakarta.persistence.EntityManager entityManager;
 
     @Override

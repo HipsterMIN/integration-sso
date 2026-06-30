@@ -30,7 +30,7 @@ public interface WithdrawalService {
      *
      * @param qimUserId     취소 대상 사용자 ID
      * @param correlationId 흐름 추적 ID
-     * @return 취소 처리 결과 (resultStatus=WITHDRAWAL_CANCELLED)
+     * @return 취소 처리 결과 (resultStatus=ACTIVE — 취소 후 활성 복원)
      */
     WithdrawalResponse cancelScheduledWithdrawal(String qimUserId, String correlationId);
 

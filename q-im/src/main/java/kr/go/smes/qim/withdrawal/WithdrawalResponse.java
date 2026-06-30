@@ -24,7 +24,7 @@ public class WithdrawalResponse {
      * 처리 결과 상태
      * WITHDRAWN: 즉시 탈퇴 완료
      * WITHDRAWAL_SCHEDULED: 예약 탈퇴 등록 완료
-     * WITHDRAWAL_CANCELLED: 예약 취소 완료
+     * ACTIVE: 예약 취소 완료(활성 복원) — resultStatus는 처리 후 사용자의 새 상태를 반환
      */
     private final String resultStatus;
 

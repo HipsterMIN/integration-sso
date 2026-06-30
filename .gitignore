@@ -28,6 +28,9 @@ Thumbs.db
 .env.*
 !.env.example
 !.env.monitoring.example
+# JetBrains/IDE HTTP Client private env — 실제 API 키 보관 파일, 커밋 금지
+*.private.env.json
+http-client.private.env.json
 # K8s Secrets — 실제 값이 채워진 파일은 커밋 금지 (template만 허용)
 infra/k8s/secrets/*-sealed.yml
 infra/k8s/secrets/*-actual.yml
