@@ -1,0 +1,44 @@
+# ============================================================
+# Q-AuthZ prod 프로파일 — 운영 환경 강제 설정
+#
+# 활성화: SPRING_PROFILES_ACTIVE=prod (Helm values-prod.yaml에서 주입)
+# 정책 근거: q-sign/q-im/ido application-prod.yml 동일 패턴
+#
+# 필수 운영 환경변수(미설정 시 기동 차단/인가 401):
+#   AUTHZ_INTERNAL_API_KEY, AUTHZ_DB_HOST/PORT/NAME, (선택) AUTHZ_DB_SSLMODE=require
+#   AUTHZ_EXPIRY_* (만료 스케줄러), 다중 인스턴스 시 ShedLock(후속)
+# ============================================================
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+# ── 1. 로그 레벨 — 운영 강제 (INFO/WARN, DEBUG 금지) ──────────────────────────
+logging:
+  level:
+    root: WARN
+    kr.go.smes.authz: INFO
+    org.springframework: WARN
+    org.flywaydb: INFO
+    org.hibernate: WARN
+
+# ── 2. Actuator 노출 범위 — 운영 최소화 ──────────────────────────────────────
+# /actuator/flyway 등 민감 엔드포인트 비노출. K8s probe + Prometheus 수집용 4개만.
+# show-details: never — 의존성 상세(URL 등) 비공개.
+# readiness 그룹에 db 포함 — JPA 서비스이므로 DB 가용성으로 트래픽 게이팅.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db

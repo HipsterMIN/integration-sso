@@ -170,21 +170,3 @@ services:
       - sso-im-exporters
     logging: *log-small
 
-  support-postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:v0.15.0
-    container_name: onepass-support-postgres-exporter
-    restart: unless-stopped
-    environment:
-      DATA_SOURCE_NAME: "postgresql://${SUPPORT_POSTGRES_USER:-onepass_support}:${SUPPORT_POSTGRES_PASSWORD:-onepass_support}@support-postgres:5432/${SUPPORT_POSTGRES_DB:-onepass_support}?sslmode=disable"
-      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "false"
-    ports:
-      - "9188:9187"
-    networks:
-      onepass-net:
-        ipv4_address: 172.20.0.57
-    depends_on:
-      support-postgres:
-        condition: service_healthy
-    profiles:
-      - support-exporters
-    logging: *log-small
