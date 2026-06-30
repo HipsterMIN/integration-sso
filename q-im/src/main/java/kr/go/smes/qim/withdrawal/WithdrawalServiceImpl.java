@@ -92,7 +92,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         return WithdrawalResponse.builder()
                 .qimUserId(qimUserId)
                 .type(WithdrawalType.SCHEDULED)
-                .resultStatus("WITHDRAWAL_CANCELLED")
+                .resultStatus("ACTIVE")   // 취소 후 사용자의 새 상태 반환 (컨벤션: resultStatus = 신규 상태)
                 .processedAt(Instant.now())
                 .build();
     }

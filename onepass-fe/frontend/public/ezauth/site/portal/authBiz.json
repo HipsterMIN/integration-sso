@@ -2,10 +2,10 @@
     "url": {
         "server": {
             "baseUrl": "/",
-            "contextPath": "bizezauth-api-dev/"
+            "contextPath": "bizezauth-api/"
         },
         "authCheckServer": {
-            "baseUrl": "http://localhost:9292/",
+            "baseUrl": "https://onepass-ido.smes.go.kr/",
             "contextPath": ""
         },
         "api": {

@@ -1,0 +1,11 @@
+@env=codex.env.json
+
+### Codex 코드 생성 테스트
+POST http://localhost:20128/v1/responses
+Authorization: Bearer {{NINEROUTER_API_KEY}}
+Content-Type: application/json
+
+{
+  "model": "gpt-5.3-codex-xhigh",
+  "input": "자바로 문자열 뒤집는 함수와 테스트 코드를 작성해줘."
+}
