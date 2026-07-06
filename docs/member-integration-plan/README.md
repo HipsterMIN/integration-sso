@@ -68,6 +68,10 @@
 | **G5** | **SHA-256 인코딩 불일치(추정)** — 일부 hex / 일부 Base64URL | `docs/analysis/sso-im-readiness/03_identity_mapping.md`(Critical), `UserController.computeSha256Hex`=hex | CI 기반 조회 실패 가능 → **선검증 필수** |
 | **G6** | **감사 로그 평문 식별자** — `actor_id=qimUserId` 평문 | `05_privacy_kms_audit.md` | 가명정보 위험(PIPA) |
 | **G7** | **운영 기관 seed 부재** — `AGENCY_STUB_001`만 등록 | agency_meta seed | 68개 기관 온보딩 선행 필요 |
+| **G8** | **기관→플랫폼 인바운드가 log-only** — 게이트웨이 인바운드가 수신·감사·멱등까지 되나 라우팅이 로그만 남기고 **원장 미반영** | `AgencyGatewayServiceImpl.java:248-270` | 기관발 회원 변경이 통합원장에 반영 안 됨 → 데이터 루프 반쪽([01 §2.3]) |
+| **G9** | **프로비저닝 `identity_hash` 신호가치 0** — 페이로드 매칭키가 **자기참조 해시**라 기관 원장과 매칭 불가 | `01-agency-heterogeneity-and-operability.md §2.3` | 기관이 수신해도 자기 회원과 연결 불가 → 재설계 필요 |
+
+> **G8·G9는 `01-agency-heterogeneity-and-operability.md`(§2.3 회원 데이터 루프)에서 도출**했으며, 본 마스터 플랜 **Phase 3(기관 회원 대량 통합)의 선행 조건**이다 — [01번 문서](./01-agency-heterogeneity-and-operability.md) §2.3·§6.1 Track B 참조.
 
 ---
 
@@ -159,12 +163,13 @@
 - **P2-3 `USER_MERGED` 발행**: 아웃박스로 발행(파티션 키: `from` + dual-emit `into`). 다운스트림 재이행 트리거.
 - **P2-4 표준 ADR**: `QIM-OUTBOX-SPEC-002`(병합 이벤트 계약) 제정.
 
-### Phase 3 — 기관 회원 대량 통합 (Bulk) [G4,G7]
+### Phase 3 — 기관 회원 대량 통합 (Bulk) [G4,G7,G8,G9]
 **목표**: 67개 기관 회원원장을 마스터에 연결(존재하는 회원들의 일괄 통합).
+- **P3-0 선행 격차 해소 [G8,G9]**: **인바운드 라우팅 원장반영**(현재 log-only, `AgencyGatewayServiceImpl` 라우팅부) + **`identity_hash` 재설계**(자기참조 → 기관 매칭 가능 키). 두 격차는 [01번 문서](./01-agency-heterogeneity-and-operability.md) §2.3 Track B에서 상세. **P3 착수의 선결.**
 - **P3-1 기관 온보딩**: `agency_meta` + `agency_endpoint_registry` 적재, API Key/엔드포인트 등록(파일럿 10개 → 전체).
 - **P3-2 회원 데이터 수신**: 기관별 회원 키(우선순위: CI 또는 CI 해시 > 국가표준 DI > 기관 회원ID+속성). 채널: `gateway_inbound_audit` 실시간 또는 일괄 파일/배치.
 - **P3-3 매칭·연결 배치**: `MemberConsolidationBackfillJob`(아웃박스/relay 패턴 재사용, `SKIP LOCKED`+ShedLock, DRY_RUN). 결정론 매칭→`inst_mbr_id_mapping` 적재 + 필요 시 마스터 생성/병합. 비매칭→검토 큐/게스트.
-- **P3-4 역방향 프로비저닝**: 통합 결과를 `provisioning_outbox`로 기관에 통지(멱등, 재시도/DLQ).
+- **P3-4 역방향 프로비저닝**: 통합 결과를 `provisioning_outbox`로 기관에 통지(멱등, 재시도/DLQ). **[G9] 재설계된 매칭키 사용.**
 - **순서**: 기관 위험도·규모 순 웨이브(파일럿→소규모→대규모), 각 웨이브 DRY_RUN→검증→실행.
 
 ### Phase 4 — 정합성·운영 (Reconcile & Operate)
