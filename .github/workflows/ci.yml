@@ -181,6 +181,10 @@ jobs:
             owasp-nvd-
 
       - name: OWASP Dependency-Check 실행
+        env:
+          # NVD API 키 (secrets.NVD_API_KEY) — 미설정 시에도 동작하나 NVD rate limit로 20~40분 소요.
+          # build.gradle.kts dependencyCheck.nvd.apiKey 가 이 환경변수를 읽는다.
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           ./gradlew dependencyCheckAnalyze --no-daemon \
             -Pdependency.check.failBuildOnCVSS=7 \
