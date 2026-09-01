@@ -296,6 +296,14 @@ jobs:
             ./gradlew :ido:bootJar -x test --no-daemon
             IDO_JAR=$(find ido/build/libs -name "ido-*.jar" | head -1)
           fi
+          # 부팅 시크릿 가드(F3.3/F4.3/F4.8/Keycloak) 통과용 1회용 랜덤 시크릿
+          # — escape hatch(allow-empty-*) 대신 실키 주입으로 운영 경로 그대로 검증
+          export IDO_HANDOFF_AES_KEY=$(openssl rand -base64 32)
+          export IDO_HANDOFF_HMAC_KEY=$(openssl rand -base64 32)
+          export IDO_WEBHOOK_SIGNING_SECRET=$(openssl rand -hex 32)
+          export KEYCLOAK_CLIENT_SECRET=$(openssl rand -hex 32)
+          export IDO_INTERNAL_API_KEY_QSIGN=$(openssl rand -hex 32)
+          export IDO_INTERNAL_API_KEY_OUTBOX=$(openssl rand -hex 32)
           echo "Starting ido server: $IDO_JAR"
           java -jar "$IDO_JAR" \
             --server.port=8083 \
