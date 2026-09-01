@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -59,6 +60,7 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@Primary   // 일반 KMS(NoOp/Local/Nhn/Vault)는 상호배타 활성 — AnyIdKmsClient(보조, ido.anyid.kms 전담)와 공존 시 단일 KmsClient 주입의 정본
 @Profile("!prod & !stage")
 @ConditionalOnProperty(
     prefix      = "ido.kms",
