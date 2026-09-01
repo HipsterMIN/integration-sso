@@ -240,6 +240,19 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
+      # ido KafkaAdmin 토픽 구성이 브로커 부재 시 기동을 지연시키므로 실브로커 제공
+      # (apache/kafka 단일 노드 KRaft — 기본 listener PLAINTEXT://localhost:9092,
+      #  앱 기본값 KAFKA_SERVERS=localhost:9092 / replication-factor=1 과 정합)
+      kafka:
+        image: apache/kafka:3.9.1
+        ports:
+          - 9092:9092
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 20
+
     steps:
       - name: 소스 체크아웃
         uses: actions/checkout@v4
@@ -316,15 +329,15 @@ jobs:
             > /tmp/ido-server.log 2>&1 &
           echo "IDO_PID=$!" >> $GITHUB_ENV
 
-      - name: ido 서버 헬스체크 대기 (최대 60초)
+      - name: ido 서버 헬스체크 대기 (최대 120초)
         run: |
           echo "Waiting for ido server to start..."
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             if curl -sf http://localhost:8083/actuator/health > /dev/null 2>&1; then
               echo "✅ ido server is UP (attempt $i)"
               break
             fi
-            if [ $i -eq 30 ]; then
+            if [ $i -eq 60 ]; then
               echo "❌ ido server failed to start"
               cat /tmp/ido-server.log
               exit 1
