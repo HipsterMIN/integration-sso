@@ -2,7 +2,7 @@ import org.springframework.boot.gradle.tasks.bundling.BootJar
 import io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension
 
 // ── 플러그인 버전 상수 ─────────────────────────────────────────────────────────
-val owaspVersion   = "10.0.4"   // OWASP Dependency-Check
+val owaspVersion   = "12.1.3"   // OWASP Dependency-Check
 val sonarVersion   = "5.1.0.4882"  // SonarQube/SonarCloud
 
 plugins {
@@ -10,7 +10,7 @@ plugins {
     id("org.springframework.boot")            version "3.5.9"       apply false
     id("io.spring.dependency-management")     version "1.1.7"       apply false
     // ── P3-04: 보안 스캔 & 코드 품질 플러그인 (루트 전용) ──────────────────────
-    id("org.owasp.dependencycheck")           version "10.0.4"      apply true
+    id("org.owasp.dependencycheck")           version "12.1.3"      apply true
     id("org.sonarqube")                       version "5.1.0.4882"  apply true
     jacoco
 }
