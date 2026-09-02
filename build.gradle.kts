@@ -246,8 +246,11 @@ dependencyCheck {
 
     // ── NVD API 키 (환경변수에서 읽음) ──────────────────────────────────────
     nvd {
-        apiKey = System.getenv("NVD_API_KEY") ?: ""
-        delay  = 4000    // API 키 없을 때 rate limit 대응 (ms)
+        val nvdApiKey = System.getenv("NVD_API_KEY") ?: ""
+        apiKey = nvdApiKey
+        // 키 보유 시 NVD 허용량은 50req/30s(≈600ms 간격). 무조건 4s를 걸면 ~190페이지 전체 동기화에
+        // 지연만 13분+가 들어 키의 이점이 사라지고 30분 타임아웃을 유발한다(2026-09-02 야간 스캔 실측).
+        delay  = if (nvdApiKey.isNotBlank()) 1000 else 4000
         maxRetryCount = 3
     }
 
