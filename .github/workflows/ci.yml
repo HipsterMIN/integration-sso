@@ -20,6 +20,8 @@ name: CI
 
 on:
   workflow_dispatch:           # 수동 실행 (Actions UI → Run workflow) 지원 추가
+  schedule:
+    - cron: '30 15 * * *'      # 매일 00:30 KST — OWASP 심층 스캔 전용 (main 기준)
   push:
     branches: [ main, develop, genspark_ai_developer, shipster ]
   pull_request:
@@ -140,16 +142,15 @@ jobs:
           NODE_ENV: production
         run: yarn build
 
-  # ── Job 3: OWASP Dependency-Check ────────────────────────────────────────────
+  # ── Job 3: OWASP Dependency-Check (야간 심층 스캔) ────────────────────────────
+  # PR 게이트에서 제외한 이유: NVD API가 키가 있어도 상습적으로 저하/장애 상태라
+  # (2026-09 NvdCveClient NPE 사례) PR을 20~40분씩 막았음. 빠른 PR 게이트는
+  # trivy-pr-scan(Job 3b)이 담당하고, 본 잡은 매일 야간 cron + 수동 실행 전용.
   security-scan:
     name: OWASP Dependency-Check
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # main / develop 브랜치 push 및 PR 대상 main 시에만 실행
-    if: |
-      github.event_name == 'pull_request' ||
-      github.ref == 'refs/heads/main' ||
-      github.ref == 'refs/heads/develop'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: 소스 체크아웃
@@ -207,6 +208,48 @@ jobs:
         with:
           sarif_file: build/reports/dependency-check/dependency-check-report.sarif
         continue-on-error: true    # SARIF 없을 때 실패 방지
+
+  # ── Job 3b: Trivy 의존성 스캔 (빠른 PR 게이트) ───────────────────────────────
+  # OWASP(야간)를 대신해 PR에서 수 분 내 도는 경량 스캔. Trivy 자체 DB(GHSA/OSV/NVD
+  # 통합 미러)를 통으로 받아 NVD API 실시간 호출이 없어 외부 장애에 강함.
+  # 우선 리포트 전용(exit-code 0)으로 도입 — 기존 취약점 트리아지 후 차단 전환 검토.
+  trivy-pr-scan:
+    name: Trivy 의존성 스캔 (PR)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Trivy 저장소 스캔 (의존성·시크릿·설정)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: '0'          # 리포트 전용 — 차단 전환은 트리아지 후 결정
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Trivy SARIF 생성
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+        continue-on-error: true
+
+      - name: SARIF 결과를 GitHub Security에 업로드
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+        continue-on-error: true
 
   # ── Job 5: k6 스모크 테스트 (배포 직후 핵심 엔드포인트 검증) ─────────────────
   smoke-test:
