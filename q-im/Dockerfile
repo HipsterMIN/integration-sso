@@ -36,7 +36,6 @@ COPY platform-common/build.gradle.kts platform-common/
 COPY q-sign/build.gradle.kts          q-sign/
 COPY q-im/build.gradle.kts            q-im/
 COPY ido/build.gradle.kts             ido/
-COPY onepass-support/build.gradle.kts onepass-support/
 COPY onepass-fe/build.gradle.kts      onepass-fe/
 COPY agency-stub/build.gradle.kts     agency-stub/
 COPY onepass-agency-sdk/build.gradle.kts onepass-agency-sdk/

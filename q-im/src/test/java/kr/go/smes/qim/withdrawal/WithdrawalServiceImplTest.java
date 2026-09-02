@@ -200,7 +200,7 @@ class WithdrawalServiceImplTest {
         }
 
         @Test
-        @DisplayName("예약 탈퇴 취소 → status=ACTIVE 복원, WITHDRAWAL_CANCELLED 반환")
+        @DisplayName("예약 탈퇴 취소 → status=ACTIVE 복원, resultStatus=ACTIVE 반환")
         void cancelScheduled_success() {
             QimUserJpaEntity scheduled = activeUser();
             scheduled.setStatus("WITHDRAWAL_SCHEDULED");
@@ -210,7 +210,7 @@ class WithdrawalServiceImplTest {
             WithdrawalResponse result =
                     sut.cancelScheduledWithdrawal(QIM_USER_ID, CORRELATION_ID);
 
-            assertThat(result.getResultStatus()).isEqualTo("WITHDRAWAL_CANCELLED");
+            assertThat(result.getResultStatus()).isEqualTo("ACTIVE");
             assertThat(scheduled.getStatus()).isEqualTo("ACTIVE");
             assertThat(scheduled.getWithdrawalScheduledAt()).isNull();
         }

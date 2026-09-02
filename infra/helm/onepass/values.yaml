@@ -122,6 +122,68 @@ qsign:
     name: onepass-qsign
     annotations: {}
 
+# ── Q-AuthZ (연합 인가 — 역할 부여 SoR / SCIM) ──────────────────────
+authz:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: onepass-q-authz
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8086
+  resources:
+    requests:
+      cpu: 200m
+      memory: 384Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  config:
+    SPRING_PROFILES_ACTIVE: k8s
+    AUTHZ_DB_PORT: "5432"
+    AUTHZ_DB_NAME: onepass
+    AUTHZ_DB_SSLMODE: disable
+    AUTHZ_EXPIRY_ENABLED: "true"
+    AUTHZ_EXPIRY_SCAN_INTERVAL_MS: "60000"
+    AUTHZ_EXPIRY_BATCH_SIZE: "500"
+  secretRef:
+    name: onepass-authz-secret
+  livenessProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8086
+    initialDelaySeconds: 45
+    periodSeconds: 15
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /actuator/health/readiness
+      port: 8086
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    failureThreshold: 3
+  startupProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8086
+    failureThreshold: 30
+    periodSeconds: 5
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  pdb:
+    enabled: true
+    minAvailable: 1
+  serviceAccount:
+    create: true
+    name: onepass-authz
+    annotations: {}
+
 # ── Q-IM ────────────────────────────────────────────────────────────
 qim:
   enabled: true

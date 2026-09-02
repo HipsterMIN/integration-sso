@@ -136,6 +136,7 @@ class QimLifecycleIntegrationTest {
     @Autowired GuardianConsentService        guardianConsentService;
     @Autowired BizMemberConversionService    bizMemberConversionService;
     @Autowired JdbcTemplate                  jdbcTemplate;
+    @Autowired jakarta.persistence.EntityManager entityManager;  // 1차 캐시 명시 초기화용
 
     // ── 픽스처 ────────────────────────────────────────────────────────────────
 
@@ -175,6 +176,11 @@ class QimLifecycleIntegrationTest {
         bizMemberRepository.deleteAll();
         profileRepository.deleteAll();
         userRepository.deleteAll();
+        // @MapsId + CascadeType.ALL + orphanRemoval 조합에서 deleteAll() 이후
+        // JPA 1차 캐시가 REMOVED 상태 엔티티를 보유하면 다음 saveAndFlush()가
+        // StaleObjectStateException을 발생시킨다. 명시적 clear()로 방지.
+        entityManager.flush();
+        entityManager.clear();
     }
 
     /**

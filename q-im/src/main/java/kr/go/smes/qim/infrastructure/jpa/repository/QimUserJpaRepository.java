@@ -64,7 +64,7 @@ public interface QimUserJpaRepository extends JpaRepository<QimUserJpaEntity, St
     /**
      * 사용자 상태 즉시 갱신 (탈퇴 처리용 — JPA flush 없이 직접 UPDATE)
      */
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE QimUserJpaEntity u
         SET u.status            = :status,

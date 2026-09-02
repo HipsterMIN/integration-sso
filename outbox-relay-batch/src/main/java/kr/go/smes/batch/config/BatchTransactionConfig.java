@@ -17,6 +17,7 @@ import javax.sql.DataSource;
  * idoTransactionManager   → ido PostgreSQL (Primary)
  * qimTransactionManager   → q-im MariaDB
  * qsignTransactionManager → q-sign PostgreSQL
+ * authzTransactionManager → q-authz PostgreSQL
  * </pre>
  *
  * <h2>사용 방법</h2>
@@ -57,5 +58,14 @@ public class BatchTransactionConfig {
     public PlatformTransactionManager qsignTransactionManager(
             @Qualifier("qsignDataSource") DataSource qsignDataSource) {
         return new DataSourceTransactionManager(qsignDataSource);
+    }
+
+    /**
+     * q-authz PostgreSQL TransactionManager
+     */
+    @Bean(name = "authzTransactionManager")
+    public PlatformTransactionManager authzTransactionManager(
+            @Qualifier("authzDataSource") DataSource authzDataSource) {
+        return new DataSourceTransactionManager(authzDataSource);
     }
 }

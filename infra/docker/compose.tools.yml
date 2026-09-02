@@ -83,26 +83,6 @@ services:
       - sso-im-tools
     logging: *log-small
 
-  support-pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: onepass-support-pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@onepass.local
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-    ports:
-      - "5051:80"
-    networks:
-      onepass-net:
-        ipv4_address: 172.20.0.32
-    depends_on:
-      support-postgres:
-        condition: service_healthy
-    profiles:
-      - support-tools
-    logging: *log-small
 
   adminer:
     image: adminer:latest

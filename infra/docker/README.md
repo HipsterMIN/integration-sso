@@ -8,7 +8,6 @@
 | 파일 | 목적 |
 | --- | --- |
 | `compose.base.yml` | 공통 네트워크만 정의한다. 모든 조합의 첫 번째 파일로 사용한다. |
-| `compose.support.yml` | `onepass-support` 전용 PostgreSQL과 support 앱을 정의한다. |
 | `compose.sso-im.yml` | SSO/IM 인프라와 Keycloak/Schema Registry를 정의한다. 앱 secret이 없어도 config 검증 가능하다. |
 | `compose.sso-im-apps.yml` | q-sign, q-im, ido, agency-stub, onepass-fe 컨테이너를 정의한다. 앱 secret이 필요하다. |
 | `compose.tools.yml` | pgAdmin, Adminer, Kafka UI, Redis Insight 등 도구를 필요할 때만 붙인다. |
@@ -22,11 +21,8 @@ Support는 SSO/IM 데이터베이스와 분리된 PostgreSQL을 사용한다.
 ```powershell
 docker compose `
   -f infra/docker/compose.base.yml `
-  -f infra/docker/compose.support.yml `
-  up -d support-postgres
 ```
 
-호스트에서 `onepass-support`를 직접 실행할 때:
 
 ```powershell
 $env:SUPPORT_DB_HOST='localhost'
@@ -34,7 +30,6 @@ $env:SUPPORT_DB_PORT='5433'
 $env:SUPPORT_DB_NAME='onepass_support'
 $env:SUPPORT_DB_USERNAME='onepass_support'
 $env:SUPPORT_DB_PASSWORD='onepass_support'
-.\gradlew.bat :onepass-support:bootRun
 ```
 
 Support 앱까지 컨테이너로 실행할 때:
@@ -42,7 +37,6 @@ Support 앱까지 컨테이너로 실행할 때:
 ```powershell
 docker compose `
   -f infra/docker/compose.base.yml `
-  -f infra/docker/compose.support.yml `
   --profile support-app `
   up -d
 ```
@@ -92,14 +86,12 @@ docker compose `
   -f infra/docker/compose.base.yml `
   -f infra/docker/compose.sso-im.yml `
   -f infra/docker/compose.sso-im-apps.yml `
-  -f infra/docker/compose.support.yml `
   --profile app `
   --profile keycloak `
   --profile support-app `
   up -d
 ```
 
-이 조합에서도 Support DB는 `onepass-support-postgres`, SSO/IM DB는 `onepass-postgres`로 분리된다.
 
 ## 도구와 모니터링
 
@@ -119,10 +111,8 @@ Support DB용 pgAdmin:
 ```powershell
 docker compose `
   -f infra/docker/compose.base.yml `
-  -f infra/docker/compose.support.yml `
   -f infra/docker/compose.tools.yml `
   --profile support-tools `
-  up -d support-pgadmin
 ```
 
 기본 모니터링:
@@ -139,7 +129,6 @@ Support PostgreSQL exporter까지 포함:
 ```powershell
 docker compose `
   -f infra/docker/compose.base.yml `
-  -f infra/docker/compose.support.yml `
   -f infra/docker/compose.monitoring.yml `
   --profile support-exporters `
   up -d
@@ -151,7 +140,6 @@ docker compose `
 | --- | --- |
 | SSO/IM PostgreSQL | `localhost:5432` |
 | Support PostgreSQL | `localhost:5433` |
-| onepass-support | `localhost:8085` |
 | q-sign | `localhost:8081` |
 | q-im | `localhost:8082` |
 | ido | `localhost:8083` |
@@ -165,7 +153,5 @@ docker compose `
 ## 검증 명령
 
 ```powershell
-docker compose -f infra/docker/compose.base.yml -f infra/docker/compose.support.yml config
 docker compose -f infra/docker/compose.base.yml -f infra/docker/compose.sso-im.yml config
-docker compose -f infra/docker/compose.base.yml -f infra/docker/compose.sso-im.yml -f infra/docker/compose.sso-im-apps.yml -f infra/docker/compose.support.yml --profile app --profile keycloak --profile support-app config
 ```

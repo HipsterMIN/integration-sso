@@ -1,9 +1,9 @@
 # OnePass Agency Java Agent — 유관기관 개발자 통합 가이드
 
 > **문서 번호**: AGENT-GUIDE-001  
-> **문서 버전**: v1.1.0  
+> **문서 버전**: v1.2.0  
 > **작성일**: 2026-05-17  
-> **최종 수정**: 2026-05-17 — Tomcat 버전별 상세 가이드, WebSphere/WebLogic 설치 가이드 추가  
+> **최종 수정**: 2026-07-06 — **지원 범위 정정(D-AGENT-01)**: JDK ≤7 레거시(JEUS 4/5/6·Tomcat 5/6·JBoss 5/6·WebLogic 10/11g·WebSphere 7/8·Jetty 7/8 등)를 "✅ 지원"에서 "❌ 미지원(로드 불가)"으로 정정, 지원 3단계 재분류(§2.0). 레거시는 Edge Gateway 경로 안내  
 > **대상 독자**: 유관기관 개발자 / 시스템 관리자 / 기술 담당자  
 > **사전 조건**: OnePass 행정안전부 담당자로부터 API Key를 발급받은 상태
 
@@ -68,8 +68,8 @@
 | 특징 | 설명 |
 |------|------|
 | **코드 수정 없음** | 유관기관 업무 코드 수정 불필요 |
-| **JDK 1.5부터 지원** | JEUS 4/5 레거시 환경에서도 SSO 가능 |
-| **단일 JAR** | JEUS 4~21 전 버전 + Tomcat 등 하나의 JAR로 지원 |
+| **JDK 8+ 지원** | JEUS 7(JDK 8)~21, Tomcat 8+ 등 **JDK 8 이상** WAS. **JDK ≤7(JEUS 4/5/6·Tomcat 5/6 등)은 미지원** — 아래 정정 안내(§2.0)·§4.1 참조 |
+| **단일 JAR** | JDK 8+ WAS(JEUS 7~21, Tomcat 8+ 등)를 하나의 JAR로 지원 |
 | **즉시 비활성화** | `onepass.agent.enabled=false` 설정 → 재시작 시 즉시 비활성화 |
 | **서비스 안전** | Agent 오류 발생 시 WAS 기동을 막지 않음 |
 
@@ -77,65 +77,79 @@
 
 ## 2. 지원 환경 및 호환성 매트릭스
 
+### 2.0 ⚠️ 지원 범위 정정 안내 (D-AGENT-01)
+
+> **본 매트릭스는 v1.1.0까지 JDK ≤7 레거시 환경을 "✅ 지원"으로 잘못 표기했습니다. 아래와 같이 정정합니다.**
+>
+> **정정 근거(코드 검증)**: 에이전트 산출물은 `--release 8`(`sourceCompatibility/targetCompatibility = VERSION_1_8`, `onepass-agent/build.gradle.kts:43-44,146`)로 컴파일되어 **에이전트 자신의 premain·위빙 클래스가 Java 8 바이트코드(class version 52)** 입니다. JDK ≤7 JVM은 이 클래스를 **로드하는 즉시 `UnsupportedClassVersionError`** 로 실패합니다 — 번들 Javassist가 구형 JVM을 지원하는지와 **무관**합니다(에이전트 진입 클래스 자체가 로드 불가). 추가로 JDK ≤6은 **TLS 1.2 미지원**이라 플랫폼과의 아웃바운드 HTTPS도 성립하지 않습니다.
+>
+> **지원 등급(3단계)**
+> - ✅ **지원** — 위빙 경로 구현 + JDK 8+ 로드 가능. *기관 실환경 파일럿 검증 권장*.
+> - 🟡 **조건부/미검증** — JDK 8 런타임 한정 성립하나 해당 WAS 실환경 검증 미완, 또는 표에 명시된 조건에서만.
+> - ❌ **미지원** — 구조적 로드 불가(JDK ≤7). 에이전트 direct 연동 불가.
+>
+> **JDK ≤7 레거시 기관의 대안**: 에이전트 direct 방식이 아니라 **기관 JVM 밖의 게이트웨이**(OnePass Edge Gateway)로 해소합니다 — [`member-integration-plan/01-agency-heterogeneity-and-operability.md`](member-integration-plan/01-agency-heterogeneity-and-operability.md) §4·§5.3 참조.
+
 ### 2.1 JEUS 버전별 지원 현황
 
 | JEUS 버전 | JDK 버전 | Servlet | 지원 여부 | 위빙 방식 |
 |-----------|---------|---------|---------|---------|
-| JEUS 4 | JDK 1.4~1.5 | 2.3 | ✅ **지원** | Javassist (정적 어태치만 가능) |
-| JEUS 5 | JDK 1.4~1.5 | 2.4 | ✅ **지원** | Javassist (정적 어태치만 가능) |
-| JEUS 6 | JDK 1.5~1.7 | 2.5 | ✅ **지원** | Javassist |
-| JEUS 7 | JDK 1.6~1.8 | 3.0 | ✅ **지원** | JDK 버전 자동 선택 |
-| JEUS 8 | JDK 1.7~1.8 | 3.1 | ✅ **지원** | JDK 버전 자동 선택 |
+| JEUS 4 | JDK 1.4~1.5 | 2.3 | ❌ **미지원** (D-AGENT-01: 로드 불가·TLS1.2 불가) | — (Edge Gateway로 대체) |
+| JEUS 5 | JDK 1.4~1.5 | 2.4 | ❌ **미지원** (D-AGENT-01) | — (Edge Gateway로 대체) |
+| JEUS 6 | JDK 1.5~1.7 | 2.5 | ❌ **미지원** (JDK ≤7 로드 불가) | — (Edge Gateway로 대체) |
+| JEUS 7 | JDK 1.6~1.8 | 3.0 | 🟡 **JDK 8 한정** (JDK 1.6/1.7 미지원) | byte-buddy (JDK 8 런타임) |
+| JEUS 8 | JDK 1.7~1.8 | 3.1 | 🟡 **JDK 8 한정** (JDK 1.7 미지원) | byte-buddy (JDK 8 런타임) |
 | JEUS 8.5 | JDK 8 / 11 | 4.0 | ✅ **지원** | byte-buddy |
 | JEUS 9 | JDK 11+ | 5.0 | ✅ **지원** | byte-buddy (Jakarta) |
 | JEUS 21 | JDK 21+ | 6.0 | ✅ **지원** | byte-buddy (Jakarta) |
 
 ### 2.2 Tomcat 버전별 지원 현황
 
-| Tomcat 버전 | JDK 요구 | Servlet | 위빙 방식 | 위빙 포인트 |
-|------------|---------|---------|----------|-----------|
-| Tomcat 5.x | JDK 5~6 | 2.4 | Javassist | `ApplicationFilterChain.internalDoFilter()` |
-| Tomcat 6.x | JDK 5~6 | 2.5 | Javassist | `ApplicationFilterChain.internalDoFilter()` |
-| Tomcat 7.x | JDK 7+ | 3.0 | JDK 7: Javassist / JDK 8+: byte-buddy | `StandardContextValve.invoke()` |
-| Tomcat 8.x/8.5 | JDK 8+ | 3.1 | byte-buddy | `StandardHostValve.invoke()` + javax.Filter |
-| Tomcat 9.x | JDK 8+ | 4.0 | byte-buddy | `StandardHostValve.invoke()` + javax.Filter |
-| Tomcat 10.x | JDK 11+ | 5.0 | byte-buddy | `jakarta.servlet.Filter.doFilter()` |
-| Tomcat 10.1+ | JDK 11+ | 6.0 | byte-buddy | `jakarta.servlet.Filter.doFilter()` |
-| Tomcat 11 | JDK 21+ | 6.1 | byte-buddy | `jakarta.servlet.Filter.doFilter()` |
+| Tomcat 버전 | JDK 요구 | Servlet | 지원 여부 | 위빙 방식 | 위빙 포인트 |
+|------------|---------|---------|---------|----------|-----------|
+| Tomcat 5.x | JDK 5~6 | 2.4 | ❌ **미지원** (D-AGENT-01) | — | (Edge Gateway로 대체) |
+| Tomcat 6.x | JDK 5~6 | 2.5 | ❌ **미지원** (D-AGENT-01) | — | (Edge Gateway로 대체) |
+| Tomcat 7.x | JDK 7+ | 3.0 | 🟡 **JDK 8+ 한정** (JDK 7 미지원) | byte-buddy | `StandardContextValve.invoke()` |
+| Tomcat 8.x/8.5 | JDK 8+ | 3.1 | ✅ **지원** | byte-buddy | `StandardHostValve.invoke()` + javax.Filter |
+| Tomcat 9.x | JDK 8+ | 4.0 | ✅ **지원** | byte-buddy | `StandardHostValve.invoke()` + javax.Filter |
+| Tomcat 10.x | JDK 11+ | 5.0 | ✅ **지원** | byte-buddy | `jakarta.servlet.Filter.doFilter()` |
+| Tomcat 10.1+ | JDK 11+ | 6.0 | ✅ **지원** | byte-buddy | `jakarta.servlet.Filter.doFilter()` |
+| Tomcat 11 | JDK 21+ | 6.1 | ✅ **지원** | byte-buddy | `jakarta.servlet.Filter.doFilter()` |
 
 > **⚠️ Tomcat 10+ 주의사항**: `javax.servlet.*`이 완전히 제거됩니다. Agent가 `jakarta.servlet.Filter`만 위빙합니다. 이전 Tomcat 9용 설정을 그대로 사용해도 Agent 자체는 자동 감지로 올바른 위빙을 적용합니다.
 
 ### 2.3 기타 WAS 지원 현황
 
-| WAS | 버전 | JDK 요구 | 위빙 방식 | 특이사항 |
-|-----|------|---------|----------|---------|
-| JBoss AS | 5/6 (레거시) | JDK 6~7 | Javassist | `jboss-web` 클래스로더 계층 주의 |
-| JBoss EAP | 7.x | JDK 8+ | byte-buddy | Undertow 내장 |
-| WildFly | 27+ | JDK 11+ | byte-buddy (jakarta) | Jakarta EE 10 |
-| WebLogic | 10.x/11g/12c 초기 | JDK 6~7 | Javassist | FilteringClassLoader 주의 |
-| WebLogic | 12c(후기)/14c | JDK 8+ | byte-buddy | FilteringClassLoader 주의 |
-| WebSphere | 7.x/8.x | JDK 6~7 | Javassist | IBM J9 JVM 특화 주의 |
-| WebSphere Liberty | Liberty/Open | JDK 8+ | byte-buddy | OSGi 번들 ClassLoader |
-| GlassFish | 3/4, Payara 5 | JDK 7~8+ | byte-buddy | Grizzly NIO 기반 |
-| GlassFish | 6+, Payara 6+ | JDK 11+ | byte-buddy (jakarta) | — |
-| Resin | 3/4 | JDK 6+ | byte-buddy | 공공기관 간혹 사용 |
-| Jetty | 7/8 | JDK 7 | Javassist | `org.mortbay.jetty` 패키지 |
-| Jetty | 9~11 | JDK 8~11 | byte-buddy | — |
-| Jetty | 12+ | JDK 17+ | byte-buddy (jakarta) | — |
-| Undertow | Standalone | JDK 8+ | byte-buddy | JBoss/WildFly 내장과 구분 |
+| WAS | 버전 | JDK 요구 | 지원 여부 | 위빙 방식 | 특이사항 |
+|-----|------|---------|---------|----------|---------|
+| JBoss AS | 5/6 (레거시) | JDK 6~7 | ❌ **미지원** (D-AGENT-01) | — | `jboss-web` 클래스로더 계층 주의 |
+| JBoss EAP | 7.x | JDK 8+ | ✅ 지원 | byte-buddy | Undertow 내장 |
+| WildFly | 27+ | JDK 11+ | ✅ 지원 | byte-buddy (jakarta) | Jakarta EE 10 |
+| WebLogic | 10.x/11g/12c 초기 | JDK 6~7 | ❌ **미지원** (D-AGENT-01) | — | FilteringClassLoader 주의 |
+| WebLogic | 12c(후기)/14c | JDK 8+ | ✅ 지원 | byte-buddy | FilteringClassLoader 주의 |
+| WebSphere | 7.x/8.x | JDK 6~7 | ❌ **미지원** (D-AGENT-01) | — | IBM J9 JVM 특화 주의 |
+| WebSphere Liberty | Liberty/Open | JDK 8+ | ✅ 지원 | byte-buddy | OSGi 번들 ClassLoader |
+| GlassFish | 3/4, Payara 5 | JDK 7~8+ | 🟡 **JDK 8+ 한정** (JDK 7 미지원) | byte-buddy | Grizzly NIO 기반 |
+| GlassFish | 6+, Payara 6+ | JDK 11+ | ✅ 지원 | byte-buddy (jakarta) | — |
+| Resin | 3/4 | JDK 6+ | 🟡 **JDK 8+ 한정** (JDK 6/7 미지원) | byte-buddy | 공공기관 간혹 사용 |
+| Jetty | 7/8 | JDK 7 | ❌ **미지원** (D-AGENT-01) | — | `org.mortbay.jetty` 패키지 |
+| Jetty | 9~11 | JDK 8~11 | ✅ 지원 | byte-buddy | — |
+| Jetty | 12+ | JDK 17+ | ✅ 지원 | byte-buddy (jakarta) | — |
+| Undertow | Standalone | JDK 8+ | ✅ 지원 | byte-buddy | JBoss/WildFly 내장과 구분 |
 
-### 2.3 JEUS 4/5 (JDK 1.5) 제약사항
+### 2.4 JEUS 4/5 (JDK 1.5) — ❌ 미지원 (정정)
 
-> **중요**: JEUS 4/5를 사용하는 JDK 1.5 환경에서는 아래 제약이 있습니다.
+> **정정(D-AGENT-01)**: 이전 버전은 "JDK 1.5에서도 정적 어태치로 가능"이라 안내했으나, **에이전트 자신의 클래스가 Java 8 바이트코드**로 컴파일되어 JDK 1.5 JVM이 premain 클래스를 로드하지 못하고 `UnsupportedClassVersionError`로 즉시 실패합니다. 아래 개별 기능(Javassist·HttpURLConnection 등)이 JDK 1.5와 호환되더라도 **에이전트 진입점 자체가 로드되지 않으므로 실행에 도달하지 못합니다.**
 
-| 기능 | 가능 여부 | 이유 |
-|------|---------|------|
-| `-javaagent:` 정적 어태치 | ✅ 가능 | JSR-163, JDK 1.5 도입 |
-| 동적 어태치 (운영 중 주입) | ❌ 불가 | Attach API는 JDK 1.6+ |
-| byte-buddy 위빙 엔진 | ❌ 불가 | byte-buddy는 JDK 8+ 필요 |
-| Javassist 위빙 엔진 | ✅ 가능 | JDK 1.3+ 호환 |
-| HTTP 통신 (검증 API) | ✅ 가능 | HttpURLConnection (JDK 1.1+) |
-| HMAC-SHA256 서명 | ✅ 가능 | javax.crypto.Mac (JDK 1.4+) |
+| 요소 | JDK 1.5 성립 | 결정적 사유 |
+|------|:---:|------|
+| **에이전트 premain·위빙 클래스 로드** | ❌ **불가** | `--release 8` → class version 52, JDK 1.5는 version 49까지만 로드 → `UnsupportedClassVersionError` (**이 한 항목으로 전체 차단**) |
+| 플랫폼 아웃바운드 TLS 1.2 | ❌ 불가 (JDK ≤6) | JDK 1.5/1.6은 TLS 1.2 미지원 → HTTPS 검증 호출 실패 |
+| `-javaagent:` 정적 어태치 (JVM 기능) | ✅ (JVM은 지원) | JSR-163, 단 위 로드 실패로 무의미 |
+| Javassist 라이브러리 | ✅ (라이브러리 자체) | JDK 1.3+ 호환이나 에이전트 클래스가 먼저 로드 실패 |
+| HTTP·HMAC API | ✅ (API 자체) | 실행에 도달하지 못함 |
+
+> **대안**: JDK ≤7 기관은 §2.0 안내대로 **OnePass Edge Gateway**(기관 JVM 밖 게이트웨이)로 연동합니다. 아래 §4.1 설치 절차는 **JDK 8+ 런타임에서 구동되는 JEUS에 한해** 유효합니다.
 
 ---
 
@@ -180,10 +194,10 @@ cp onepass-agent-1.0.0-all.jar /opt/onepass/
 
 ## 4. JEUS 버전별 설치 가이드
 
-### 4.1 JEUS 4/5 (JDK 1.5 레거시 환경)
+### 4.1 JEUS 4/5 (JDK 1.5 레거시 환경) — ❌ 에이전트 direct 미지원
 
-> **⚠️ 중요**: JEUS 4/5는 JDK 1.5 환경입니다. **반드시 정적 어태치** (`-javaagent:` 플래그)만 사용하세요.  
-> 동적 어태치(운영 중 주입)는 JDK 1.6+에서만 가능합니다.
+> **⚠️ 정정(D-AGENT-01)**: **JEUS 4/5를 JDK 1.5로 구동하는 환경에는 본 에이전트를 적용할 수 없습니다.** 에이전트 클래스가 Java 8 바이트코드라 JDK 1.5 JVM 로드 단계에서 `UnsupportedClassVersionError`로 실패합니다(§2.4). 아래 절차는 참고용 이력이며, **JDK ≤7 기관은 §2.0의 OnePass Edge Gateway 경로로 연동하십시오.**
+> (JEUS 4/5라도 JDK 8+ 런타임으로 구동 가능한 극히 예외적 구성에서만 아래가 유효할 수 있으나, 실환경 검증 전 지원으로 간주하지 않습니다.)
 
 #### Step 1: 설정 파일 생성
 
@@ -276,7 +290,9 @@ grep -i "OnePassAgent" $JEUS_HOME/logs/JeusServer.log
 
 ---
 
-### 4.2 JEUS 6 (JDK 1.5~1.7)
+### 4.2 JEUS 6 (JDK 1.5~1.7) — ❌ 에이전트 direct 미지원
+
+> **⚠️ 정정(D-AGENT-01)**: JEUS 6의 JDK 1.5~1.7 런타임은 에이전트 클래스(Java 8 바이트코드)를 로드하지 못합니다(§2.4). **JDK 8+ 런타임으로 구동하는 JEUS 6에 한해** 아래 절차가 유효하며, 그 외에는 §2.0 Edge Gateway 경로를 사용하십시오.
 
 #### Step 1: 설정 파일 생성
 
@@ -449,8 +465,10 @@ onepass.agent.log-level=INFO
 
 ## 5. Tomcat 버전별 설치 가이드
 
-### 5.1 Tomcat 5.x/6.x (JDK 5~6, 레거시)
+### 5.1 Tomcat 5.x/6.x (JDK 5~6, 레거시) — ❌ 에이전트 direct 미지원
 
+> **⚠️ 정정(D-AGENT-01)**: Tomcat 5.x/6.x가 구동되는 JDK 5~6 런타임은 에이전트 클래스(Java 8 바이트코드)를 로드하지 못하며, JDK ≤6은 TLS 1.2도 불가합니다(§2.4). **이 환경은 §2.0 OnePass Edge Gateway로 연동하십시오.** 아래는 참고용 이력입니다.
+>
 > **위빙 방식**: Javassist / **위빙 포인트**: `ApplicationFilterChain.internalDoFilter()`
 
 ```bash

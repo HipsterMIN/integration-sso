@@ -23,11 +23,15 @@ import java.util.stream.Collectors;
 public class OutboxRepositoryImpl implements OutboxRepository {
 
     private final OutboxJpaRepository jpaRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     public void save(OutboxRecord record) {
         OutboxJpaEntity entity = toEntity(record);
-        jpaRepository.save(entity);
+        // persist() 를 사용해야 중복 eventId 에 대해 PK 위반 예외를 발생시킨다.
+        // Spring Data JPA의 save()는 non-null ID 엔티티에 merge()를 호출하여
+        // 중복 INSERT 없이 UPDATE만 수행하므로 멱등성 보장이 되지 않는다.
+        entityManager.persist(entity);
     }
 
     @Override

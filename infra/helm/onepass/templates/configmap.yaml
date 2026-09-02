@@ -137,3 +137,23 @@ data:
   BATCH_ALERT_SLACK_ENABLED:        {{ .Values.batch.config.BATCH_ALERT_SLACK_ENABLED | quote }}
   BATCH_ALERT_PAGERDUTY_ENABLED:    {{ .Values.batch.config.BATCH_ALERT_PAGERDUTY_ENABLED | quote }}
 {{- end }}
+---
+# ── Q-AuthZ ConfigMap (연합 인가) ──────────────────────────────────
+{{- if .Values.authz.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: onepass-authz-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-authz
+data:
+  SPRING_PROFILES_ACTIVE:        {{ .Values.authz.config.SPRING_PROFILES_ACTIVE | quote }}
+  AUTHZ_DB_PORT:                 {{ .Values.authz.config.AUTHZ_DB_PORT | quote }}
+  AUTHZ_DB_NAME:                 {{ .Values.authz.config.AUTHZ_DB_NAME | quote }}
+  AUTHZ_DB_SSLMODE:              {{ .Values.authz.config.AUTHZ_DB_SSLMODE | quote }}
+  AUTHZ_EXPIRY_ENABLED:          {{ .Values.authz.config.AUTHZ_EXPIRY_ENABLED | quote }}
+  AUTHZ_EXPIRY_SCAN_INTERVAL_MS: {{ .Values.authz.config.AUTHZ_EXPIRY_SCAN_INTERVAL_MS | quote }}
+  AUTHZ_EXPIRY_BATCH_SIZE:       {{ .Values.authz.config.AUTHZ_EXPIRY_BATCH_SIZE | quote }}
+{{- end }}

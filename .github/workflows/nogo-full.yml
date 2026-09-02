@@ -16,7 +16,7 @@
 #
 # 검증 매트릭스:
 #   Phase 1 (병렬):
-#     - module-tests:  ido / q-im / onepass-agent / onepass-support / agency-stub
+#     - module-tests:  ido / q-im / onepass-agent / agency-stub
 #                      (각 모듈 별도 runner — Testcontainers Docker 가용)
 #     - frontend:      onepass-fe 단독
 #   Phase 2 (Phase 1 후):
@@ -87,7 +87,6 @@ jobs:
           - ido
           - q-im
           - onepass-agent
-          - onepass-support
           - agency-stub
           - platform-common
           - q-sign

@@ -55,7 +55,7 @@ public interface ConsentRecordJpaRepository
     /**
      * 동의 철회 처리 — consentStatus=WITHDRAWN, withdrawnAt 설정
      */
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE ConsentRecordJpaEntity r
         SET r.consentStatus   = 'WITHDRAWN',
