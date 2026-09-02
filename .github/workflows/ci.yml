@@ -196,6 +196,15 @@ jobs:
           # SECURITY: CVSS 7.0 이상 취약점 발견 시 빌드 실패 (보안 게이트 활성화)
           # '|| true' 제거 — CVE 발견 시 반드시 검토 후 suppression 처리할 것
 
+      # 타임아웃/취소 직후에는 Gradle 데몬(JVM)이 아직 H2 DB(odc.mv.db)를 쓰고 있어
+      # tar가 "file changed as we read it"로 실패한다(run 33595730174 실측) → 저장 전 종료.
+      - name: OWASP 프로세스 정리 (캐시 저장 전 DB 쓰기 중단)
+        if: always()
+        run: |
+          pkill -f 'org.gradle' 2>/dev/null || true
+          pkill -f 'dependency-check' 2>/dev/null || true
+          sleep 5
+
       - name: OWASP NVD 캐시 저장 (실패/타임아웃 시에도 진행분 보존)
         uses: actions/cache/save@v4
         if: always()
