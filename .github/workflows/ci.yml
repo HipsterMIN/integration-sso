@@ -87,12 +87,13 @@ jobs:
       - name: 테스트 결과 업로드
         uses: actions/upload-artifact@v4
         if: always()    # 테스트 실패해도 결과 업로드
+        continue-on-error: true   # 아티팩트 저장 용량 초과(quota)가 빌드 게이트를 막지 않도록
         with:
           name: test-results
           path: |
             **/build/reports/tests/
             **/build/test-results/
-          retention-days: 7
+          retention-days: 3
 
       - name: JaCoCo 커버리지 리포트 생성
         if: success()
@@ -101,13 +102,16 @@ jobs:
       - name: 빌드 산출물 업로드 (bootJar)
         uses: actions/upload-artifact@v4
         if: success()
+        # 소비처는 k6 스모크 잡의 ido 기동뿐(IDO_JAR=find ./artifacts -name "ido-*.jar")이고 q-sign/q-im jar는
+        # 아무도 내려받지 않는데도 run당 300MB를 차지해 프라이빗 저장소 아티팩트 한도(500MB)를 초과시켰다
+        # (2026-09-04 "Artifact storage quota has been hit"). ido bootJar 1개·1일 보관으로 축소.
+        continue-on-error: true   # 업로드 실패 시 k6 잡은 소스 빌드로 대체(fallback 존재)
         with:
           name: build-artifacts-${{ github.run_number }}
           path: |
-            ido/build/libs/*.jar
-            q-sign/build/libs/*.jar
-            q-im/build/libs/*.jar
-          retention-days: 3
+            ido/build/libs/ido-*.jar
+            !ido/build/libs/*-plain.jar
+          retention-days: 1
 
   # ── Job 2: FE 빌드 검증 ───────────────────────────────────────────────────────
   frontend-check:
@@ -215,11 +219,12 @@ jobs:
       - name: 취약점 리포트 업로드
         uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: dependency-check-report-${{ github.run_number }}
           path: |
             **/build/reports/dependency-check/
-          retention-days: 14
+          retention-days: 7
 
       - name: SARIF 결과를 GitHub Security에 업로드
         uses: github/codeql-action/upload-sarif@v3
@@ -343,6 +348,7 @@ jobs:
       # 빌드 산출물 재사용 (build-and-test에서 업로드)
       - name: 빌드 산출물 다운로드
         uses: actions/download-artifact@v4
+        continue-on-error: true   # 아티팩트가 없으면(업로드 quota 실패) 아래 "ido 서버 시작"이 소스 빌드로 대체
         with:
           name: build-artifacts-${{ github.run_number }}
           path: ./artifacts
@@ -428,10 +434,11 @@ jobs:
       - name: k6 스모크 결과 업로드
         uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: k6-smoke-result-${{ github.run_number }}
           path: /tmp/smoke-result.json
-          retention-days: 7
+          retention-days: 3
 
       - name: ido 서버 종료
         if: always()
