@@ -1,7 +1,7 @@
 {
   "Servers": {
     "1": {
-      "Name": "onepass-postgres",
+      "Name": "idem-postgres",
       "Group": "OnePass PoC",
       "Host": "postgres",
       "Port": 5432,

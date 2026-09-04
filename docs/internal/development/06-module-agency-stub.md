@@ -2,7 +2,7 @@
 
 > **문서 버전**: v1.9.0  
 > **최종 수정**: 2026-05-09  
-> **모듈 경로**: `agency-stub/`  
+> **모듈 경로**: `idem-tenant-sample/`  
 > **포트**: 8084  
 > **목적**: PoC 데모 및 유관기관 시뮬레이터
 
@@ -21,7 +21,7 @@ agency-stub은 **유관기관 정보시스템 시뮬레이터**로, 실제 유�
 ## 2. 패키지 구조
 
 ```
-agency-stub/src/main/java/kr/go/smes/agency/
+idem-tenant-sample/src/main/java/kr/go/smes/agency/
 ├── AgencyStubApplication.java
 ├── api/                           # 기관 공개 API
 │   ├── AgencyEntryController.java     # 기관 진입점 (ticketId 수신 → Verify 호출)

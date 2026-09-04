@@ -34,7 +34,7 @@ volumes:
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: onepass-postgres
+    container_name: idem-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: onepass
@@ -55,7 +55,7 @@ services:
         -c config_file=/etc/postgresql/postgresql.conf
         -c hba_file=/etc/postgresql/pg_hba.conf
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.10
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U onepass -d onepass"]
@@ -73,7 +73,7 @@ services:
 
   mariadb:
     image: mariadb:11.4
-    container_name: onepass-mariadb
+    container_name: idem-mariadb
     restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: rootpass
@@ -87,7 +87,7 @@ services:
       - mariadb-data:/var/lib/mysql
       - ./mariadb/mariadb.cnf:/etc/mysql/conf.d/mariadb.cnf:ro
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.21
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -105,7 +105,7 @@ services:
 
   redis:
     image: redis:7.2-alpine
-    container_name: onepass-redis
+    container_name: idem-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -114,7 +114,7 @@ services:
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     command: redis-server /usr/local/etc/redis/redis.conf
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.11
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -132,7 +132,7 @@ services:
 
   vault:
     image: hashicorp/vault:1.17
-    container_name: onepass-vault
+    container_name: idem-vault
     restart: unless-stopped
     ports:
       - "8200:8200"
@@ -143,7 +143,7 @@ services:
     cap_add:
       - IPC_LOCK
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.20
     healthcheck:
       test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
@@ -161,7 +161,7 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
-    container_name: onepass-zookeeper
+    container_name: idem-zookeeper
     restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -178,7 +178,7 @@ services:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-log:/var/lib/zookeeper/log
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.12
     healthcheck:
       test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok"]
@@ -190,7 +190,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    container_name: onepass-kafka
+    container_name: idem-kafka
     restart: unless-stopped
     depends_on:
       zookeeper:
@@ -233,7 +233,7 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.13
     healthcheck:
       test:
@@ -253,12 +253,12 @@ services:
 
   kafka-init:
     image: confluentinc/cp-kafka:7.6.1
-    container_name: onepass-kafka-init
+    container_name: idem-kafka-init
     depends_on:
       kafka:
         condition: service_healthy
     networks:
-      - onepass-net
+      - idem-net
     volumes:
       - ./kafka/create-topics.sh:/create-topics.sh:ro
     entrypoint: ["/bin/bash", "/create-topics.sh"]
@@ -266,7 +266,7 @@ services:
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.6.1
-    container_name: onepass-schema-registry
+    container_name: idem-schema-registry
     restart: unless-stopped
     depends_on:
       kafka:
@@ -279,7 +279,7 @@ services:
     ports:
       - "8085:8081"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.14
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8081/subjects || exit 1"]
@@ -293,7 +293,7 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
-    container_name: onepass-keycloak
+    container_name: idem-keycloak
     restart: unless-stopped
     command: start-dev --http-port=8080 --import-realm
     environment:
@@ -315,7 +315,7 @@ services:
       - keycloak-data:/opt/keycloak/data
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.18
     depends_on:
       postgres:

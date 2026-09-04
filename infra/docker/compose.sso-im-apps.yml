@@ -20,13 +20,13 @@ x-promtail-label: &promtail-label
   logging: "promtail"
 
 services:
-  onepass-qsign:
-    image: onepass-qsign:latest
-    container_name: onepass-qsign
+  idem-gate:
+    image: idem-gate:latest
+    container_name: idem-gate
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-qsign
+      com.docker.compose.service: idem-gate
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
@@ -37,7 +37,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
-      IDO_BASE_URL: http://onepass-ido:8083
+      IDO_BASE_URL: http://idem-hub:8083
       IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: onepass
@@ -48,7 +48,7 @@ services:
     ports:
       - "8081:8081"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.24
     depends_on:
       postgres:
@@ -69,13 +69,13 @@ services:
       - app
     logging: *log-defaults
 
-  onepass-qim:
-    image: onepass-qim:latest
-    container_name: onepass-qim
+  idem-registry:
+    image: idem-registry:latest
+    container_name: idem-registry
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-qim
+      com.docker.compose.service: idem-registry
     environment:
       SPRING_PROFILES_ACTIVE: docker
       QIM_DB_HOST: mariadb
@@ -91,7 +91,7 @@ services:
     ports:
       - "8082:8082"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.22
     depends_on:
       mariadb:
@@ -112,13 +112,13 @@ services:
       - app
     logging: *log-defaults
 
-  onepass-ido:
-    image: onepass-ido:latest
-    container_name: onepass-ido
+  idem-hub:
+    image: idem-hub:latest
+    container_name: idem-hub
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-ido
+      com.docker.compose.service: idem-hub
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
@@ -129,8 +129,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
-      QIM_BASE_URL: http://onepass-qim:8082
-      QSIGN_BASE_URL: http://onepass-qsign:8081
+      QIM_BASE_URL: http://idem-registry:8082
+      QSIGN_BASE_URL: http://idem-gate:8081
       IDO_QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
       IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
       CORS_ORIGIN_DEV: http://localhost:3000
@@ -147,7 +147,7 @@ services:
     ports:
       - "8083:8083"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.19
     depends_on:
       postgres:
@@ -158,9 +158,9 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      onepass-qim:
+      idem-registry:
         condition: service_healthy
-      onepass-qsign:
+      idem-gate:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
@@ -172,13 +172,13 @@ services:
       - app
     logging: *log-defaults
 
-  onepass-agency-stub:
-    image: onepass-agency-stub:latest
-    container_name: onepass-agency-stub
+  idem-tenant-sample:
+    image: idem-tenant-sample:latest
+    container_name: idem-tenant-sample
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-agency-stub
+      com.docker.compose.service: idem-tenant-sample
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
@@ -189,13 +189,13 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
-      IDO_BASE_URL: http://onepass-ido:8083
+      IDO_BASE_URL: http://idem-hub:8083
       AGENCY_API_KEY: ${AGENCY_API_KEY:-stub-api-key-dev-001}
       IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
     ports:
       - "8084:8084"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.25
     depends_on:
       postgres:
@@ -206,7 +206,7 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      onepass-ido:
+      idem-hub:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health || exit 1"]
@@ -218,24 +218,24 @@ services:
       - app
     logging: *log-defaults
 
-  onepass-react:
+  idem-console:
     build:
       context: ../..
-      dockerfile: onepass-fe/Dockerfile.optionB
+      dockerfile: idem-console/Dockerfile.optionB
       target: react-nginx
-    image: onepass-react:latest
-    container_name: onepass-react
+    image: idem-console:latest
+    container_name: idem-console
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-react
+      com.docker.compose.service: idem-console
     ports:
       - "3001:80"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.26
     depends_on:
-      onepass-ido:
+      idem-hub:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]

@@ -434,7 +434,7 @@ use_yn / 메타 4컬럼
 
 ### 3.3 프론트엔드
 
-- **`onepass-fe/frontend/src/` 트리에 support / faq / inquiry / qna / board / customer 디렉토리 0개**
+- **`idem-console/frontend/src/` 트리에 support / faq / inquiry / qna / board / customer 디렉토리 0개**
 - 라우트 상수(`src/constants/routes.ts`)에 SUPPORT/FAQ/QNA 키 0건
 - API 클라이언트, 컨테이너, 페이지 컴포넌트 **전부 미구현**
 - ✅ **단, JWT 인프라는 이미 존재** — `src/api/index.ts` axios request interceptor가 `store.app.user.accessJwt` 또는 `localStorage[AUTH_TOKEN]` 의 토큰을 모든 요청 헤더에 자동 주입함. → **support 추가 작업 시 별도 인증 코드 불필요, 그대로 재사용.**
@@ -814,7 +814,7 @@ export function useCurrentUser() {
 - [ ] **B-11**: README 정책 갱신 (로그인 의존 제거)
 - [ ] **B-12**: 단위 + 통합 테스트 (`QnaServiceIntegrationTest` 확장: 비밀번호 검증 happy/fail/lockout, 페이지/검색)
 
-#### Frontend (`onepass-fe/frontend`)
+#### Frontend (`idem-console/frontend`)
 - [ ] **F-01**: 라우트 6개 추가 + 권한 매핑(공개)
 - [ ] **F-02**: `SupportLayout` 공통 컨테이너 (사이드/안내/푸터)
 - [ ] **F-03**: 사이드 메뉴 `고객 센터 > 문의하기/자주묻는 질문` 추가
@@ -975,8 +975,8 @@ PR을 작게 쪼개야 리뷰가 빠릅니다.
 - 현재 API: `onepass-support/README.md`
 - 기존 CS 백오피스 plan: `docs/onepass-support-cs-backoffice-plan.md`
 - 외부 유관기관 OIDC 브로커링(차별화 비교용): `docs/internal/architecture/ADR-2026-004-internal-sso-integration-pattern.md`
-- JWKS 검증 패턴 참조: `ido/src/main/java/kr/go/smes/ido/broker/keycloak/KeycloakJwksVerifier.java`
-- 프론트 JWT 인터셉터: `onepass-fe/frontend/src/api/index.ts`
+- JWKS 검증 패턴 참조: `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/keycloak/KeycloakJwksVerifier.java`
+- 프론트 JWT 인터셉터: `idem-console/frontend/src/api/index.ts`
 - KRDS(공공기관 표준 디자인 시스템): https://www.krds.go.kr (참고)
 - BCrypt: Spring Security `BCryptPasswordEncoder`
 - Spring Security Resource Server: https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html

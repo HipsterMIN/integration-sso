@@ -144,7 +144,7 @@ flowchart TD
 
 ### 2.2 idpHintMapping (Keycloak IDP 매핑)
 
-`q-sign/src/main/java/kr/go/smes/qsign/keycloak/KeycloakProperties.java`:
+`idem-gate/src/main/java/kr/go/smes/qsign/keycloak/KeycloakProperties.java`:
 
 ```
 kakao   → "social-kakao"   (Keycloak Social Identity Provider)
@@ -155,7 +155,7 @@ gpki    → "gpki"           (미구현, idpHint만 설정)
 
 ### 2.3 인증 레벨 정책 (AuthLevel)
 
-`platform-common/.../AuthResult.java`:
+`idem-common/.../AuthResult.java`:
 
 | AuthLevel | 설명 | 해당 인증수단 |
 |-----------|------|-------------|
@@ -170,7 +170,7 @@ gpki    → "gpki"           (미구현, idpHint만 설정)
 ### 3.1 OACX 간편인증서 (개인)
 
 **providerCode**: `OACX`  
-**처리 서비스**: `ido/auth/service/AuthService.java` + `OacxClient.java`  
+**처리 서비스**: `idem-hub/auth/service/AuthService.java` + `OacxClient.java`  
 **FE 훅**: `hooks/usePersonalEasyAuth.ts`  
 **실제 사용 위치**: Login 페이지 "개인 간편인증서" 버튼
 
@@ -274,7 +274,7 @@ initSentRef: 전송 중복 방지 플래그 (한 번만 전송 보장)
 ### 3.2 NICE 휴대폰 본인인증
 
 **providerCode**: `NICE`  
-**처리 서비스**: `ido/auth/service/NiceAuthService.java` + `NiceApiClient.java`  
+**처리 서비스**: `idem-hub/auth/service/NiceAuthService.java` + `NiceApiClient.java`  
 **FE 훅**: `hooks/useNicePhoneAuth.ts`  
 **실제 사용 위치**: Login 페이지 "휴대폰 인증" 버튼
 
@@ -887,7 +887,7 @@ onBizSubmit → bizFormRef.current?.submit()
 
 ### 7.2 P0 — HMAC 타이밍 공격 취약점 수정
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/auth/util/NiceCryptoUtil.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/util/NiceCryptoUtil.java`
 
 ```java
 // 현재 코드 (취약)
@@ -950,7 +950,7 @@ public EzAuthCallbackResponse processEzAuthCallback(AuthCallbackRequest request)
 **`AuthCallbackRequest` 기존 DTO 재활용**:
 
 ```java
-// ido/auth/dto/AuthCallbackRequest.java (기존)
+// idem-hub/auth/dto/AuthCallbackRequest.java (기존)
 public class AuthCallbackRequest {
     String siteInfo;    // 사이트 정보
     String txId;        // 거래 ID

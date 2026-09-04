@@ -6,9 +6,9 @@
 #   - PostgreSQL / Redis / Kafka egress 허용 (운영 의존성)
 #   - 그 외 외부 egress 는 명시적 허용 룰만 통과 (default deny)
 #   - 라벨 컨벤션을 'app: ido' (k8s overlay 표준) 로 통일
-#     ※ Helm 차트(infra/helm/onepass/templates/networkpolicy.yaml) 의
+#     ※ Helm 차트(infra/helm/idem/templates/networkpolicy.yaml) 의
 #       netpol-ido 와 동등한 정책을 k8s raw manifest 로 미러링한 것.
-#       다만 selector 라벨은 'app: onepass-ido'(Helm) → 'app: ido'(k8s) 로
+#       다만 selector 라벨은 'app: idem-hub'(Helm) → 'app: ido'(k8s) 로
 #       일관화하여 ido-deployment.yml 의 selector.matchLabels 와 정확히 일치.
 #
 # 출시 게이트:
@@ -17,8 +17,8 @@
 #
 # k8s overlay 라벨 표준 (본 파일이 강제):
 #   app: ido           — kr.go.smes.ido (auth gateway, port 8083)
-#   app: qsign         — onepass-qsign  (sign service,  port 8081)
-#   app: qim           — onepass-qim    (IM service,    port 8082)
+#   app: qsign         — idem-gate  (sign service,  port 8081)
+#   app: qim           — idem-registry    (IM service,    port 8082)
 #   app: agency-stub   — PoC 스텁                       (port 8083 client)
 #   app: prometheus    — 메트릭 수집기 (scrape)
 #   namespace: smes    — k8s overlay 표준 네임스페이스

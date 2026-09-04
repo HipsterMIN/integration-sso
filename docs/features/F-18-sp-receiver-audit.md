@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_QIM_RECEIVER_AUDIT`  
 > **기본값**: `true`  
 > **Spring 프로퍼티**: `ido.qim.receiver-audit-enabled`  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/qim/SpReceiverAuditInterceptor.java`
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/qim/SpReceiverAuditInterceptor.java`
 
 ---
 
@@ -126,5 +126,5 @@ ORDER BY created_at;
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
 - [Q-IM SP 연동 가이드](../qim-sp-integration-guide.md)

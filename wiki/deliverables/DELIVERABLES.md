@@ -185,10 +185,10 @@ onepass-fe ──────────► IdO(:8083)  ◄──── Kafka �
 | 파일 | 수정 내용 | PR |
 |------|-----------|-----|
 | **`build.gradle.kts`** | ADR-013 방법 B: `mockitoAgent` Configuration + `-javaagent` 명시 (JDK 24 대비 근본 해결) | #123 |
-| **`onepass-agency-sdk/build.gradle.kts`** | `sdkMockitoAgentConf` + SDK 전용 `-javaagent` 설정 (루트 충돌 회피) | #123 |
-| **`ido/.../auth/service/AuthService.java`** | TODO(S7-T6) Javadoc 정리 — 구현 완료 상태 명시 | #123 |
-| **`outbox-relay-batch/.../ProvisioningRelayJobTest.java`** | **신규** — 13개 단위 테스트 (B-01~13: enabled/empty/인증방식/오류처리/백오프) | #123 |
-| **`outbox-relay-batch/.../BatchRestTemplateConfigTest.java`** | **신규** — 7개 단위 테스트 (C-01~07: mTLS fallback/정상생성/타임아웃) | #123 |
+| **`idem-sdk-java/build.gradle.kts`** | `sdkMockitoAgentConf` + SDK 전용 `-javaagent` 설정 (루트 충돌 회피) | #123 |
+| **`idem-hub/.../auth/service/AuthService.java`** | TODO(S7-T6) Javadoc 정리 — 구현 완료 상태 명시 | #123 |
+| **`idem-relay/.../ProvisioningRelayJobTest.java`** | **신규** — 13개 단위 테스트 (B-01~13: enabled/empty/인증방식/오류처리/백오프) | #123 |
+| **`idem-relay/.../BatchRestTemplateConfigTest.java`** | **신규** — 7개 단위 테스트 (C-01~07: mTLS fallback/정상생성/타임아웃) | #123 |
 | **`wiki/adr/ADR-013-java-agent-migration.md`** | 상태 🔶 Proposed → ✅ 방법 B 적용 완료 | #123 |
 | **`wiki/INDEX.md`** | v0.9.2, 1017 tests, ADR-013 상태 갱신, ops/ 디렉토리 트리 추가 | #123 |
 | **`wiki/deliverables/DELIVERABLES.md`** | v0.9.2, 1017 tests, ADR-013 등재, PR #122/#123, 53+ 산출물 | #123 |
@@ -199,27 +199,27 @@ onepass-fe ──────────► IdO(:8083)  ◄──── Kafka �
 |------|-----------|-----|
 | **`docs/onepass-agency-sdk-usage-guide.md`** | **신규 생성** — 유관기관 개발자 SDK 사용 가이드 (757줄): Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동, 배포 절차 | #130 |
 | **`docs/_archive/2026-05-22/internal/analysis/onepass-release-analysis.md`** | **신규 생성** — onepass-be-release / onepass-release 심층 분석 보고서 (494줄): BE 9건 + FE 7건 이슈 식별, 보안취약점 8건, Q-Sign/Q-IM 연동 현황 | #131 |
-| **`onepass-agency-sdk/src/.../HmacSigner.java`** | GAP-1: 서명 알고리즘 `{agencyCode}:{idempotencyKey}:{epochSeconds}`로 서버 정합성 수정 | #129 |
-| **`onepass-agency-sdk/src/.../AgencyGatewayClient.java`** | GAP-2: `triggerOutbound()` @Deprecated 추가, GAP-3: X-Event-Type 헤더 전송, GAP-4: X-Correlation-ID 대문자 D | #129 |
-| **`onepass-agency-sdk/src/.../GatewayResponse.java`** | GAP-5: `getBodyField(String)` + `isValidJson()` 헬퍼 메서드 추가 | #129 |
-| **`onepass-agency-sdk/CHANGELOG.md`** | GAP-1~5 수정 이력 반영, [0.1.0-GAP-PATCH] 버전 섹션 생성 | #129 |
+| **`idem-sdk-java/src/.../HmacSigner.java`** | GAP-1: 서명 알고리즘 `{agencyCode}:{idempotencyKey}:{epochSeconds}`로 서버 정합성 수정 | #129 |
+| **`idem-sdk-java/src/.../AgencyGatewayClient.java`** | GAP-2: `triggerOutbound()` @Deprecated 추가, GAP-3: X-Event-Type 헤더 전송, GAP-4: X-Correlation-ID 대문자 D | #129 |
+| **`idem-sdk-java/src/.../GatewayResponse.java`** | GAP-5: `getBodyField(String)` + `isValidJson()` 헬퍼 메서드 추가 | #129 |
+| **`idem-sdk-java/CHANGELOG.md`** | GAP-1~5 수정 이력 반영, [0.1.0-GAP-PATCH] 버전 섹션 생성 | #129 |
 
 ### 파일 수정 이력 (v0.8.9 기준)
 
 | 파일 | 수정 내용 | PR |
 |------|-----------|-----|
-| `ido/.../ProvisioningService.java` | QIM-OUTBOX-SPEC-001 Javadoc 갱신, 데이터 흐름 다이어그램 추가 | #107 |
-| `ido/.../ProvisioningOutboxRecord.java` | eventType Javadoc 구 4종 → 신규 5종 갱신 | #107 |
-| `ido/.../V18__update_event_type_constraints.sql` | provisioning_outbox + gateway_inbound_audit CHECK 제약 재정의 | #107 |
-| `onepass-fe/.../ciCheck.ts` | 미연결 상태 TODO 주석 문서화 | #107 |
-| **`onepass-fe/.../ConversionSteps/member/Step8.tsx`** | **B-1 버그 수정** — `isSafeRedirectUri()` `*.smes.go.kr` 하드코딩 → `REACT_APP_REDIRECT_ALLOWED_ORIGINS` 환경변수 + 와일드카드 | #116 |
-| **`ido/.../resources/application.yml`** | **B-2 버그 수정** — `allowed-return-urls` PoC 더미 URL → `${ALLOWED_URL_*}` 환경변수 구조 + `ido.conversion.*` 설정 추가 | #116 |
-| **`platform-common/.../PlatformErrorCode.java`** | 신규 에러코드 4개 추가: `AGENCY_NOT_FOUND(E-AGENCY-307)`, `CONVERSION_SIGNATURE_INVALID(E-CONV-601)`, `CONVERSION_REQUEST_EXPIRED(E-CONV-602)`, `CONVERSION_SESSION_NOT_FOUND(E-CONV-603)` | #116 |
-| **`ido/.../conversion/ConversionInitController.java`** | 신규 생성 — `POST /api/v1/conversion/init` 엔드포인트 | #116 |
-| **`ido/.../conversion/ConversionInitService.java`** | 신규 생성 — JWT 서명 검증 + Redis 세션 | #116 |
-| **`ido/.../conversion/ConversionSession.java`** | 신규 생성 — Redis 저장 도메인 객체 (TTL 30분) | #116 |
-| **`ido/.../conversion/dto/ConversionInitRequest.java`** | 신규 생성 — `signedRequest` + `agencyCode` DTO | #116 |
-| **`ido/.../conversion/dto/ConversionInitResponse.java`** | 신규 생성 — `conversionSessionId` + `userType` + `expiresAt` DTO | #116 |
+| `idem-hub/.../ProvisioningService.java` | QIM-OUTBOX-SPEC-001 Javadoc 갱신, 데이터 흐름 다이어그램 추가 | #107 |
+| `idem-hub/.../ProvisioningOutboxRecord.java` | eventType Javadoc 구 4종 → 신규 5종 갱신 | #107 |
+| `idem-hub/.../V18__update_event_type_constraints.sql` | provisioning_outbox + gateway_inbound_audit CHECK 제약 재정의 | #107 |
+| `idem-console/.../ciCheck.ts` | 미연결 상태 TODO 주석 문서화 | #107 |
+| **`idem-console/.../ConversionSteps/member/Step8.tsx`** | **B-1 버그 수정** — `isSafeRedirectUri()` `*.smes.go.kr` 하드코딩 → `REACT_APP_REDIRECT_ALLOWED_ORIGINS` 환경변수 + 와일드카드 | #116 |
+| **`idem-hub/.../resources/application.yml`** | **B-2 버그 수정** — `allowed-return-urls` PoC 더미 URL → `${ALLOWED_URL_*}` 환경변수 구조 + `ido.conversion.*` 설정 추가 | #116 |
+| **`idem-common/.../PlatformErrorCode.java`** | 신규 에러코드 4개 추가: `AGENCY_NOT_FOUND(E-AGENCY-307)`, `CONVERSION_SIGNATURE_INVALID(E-CONV-601)`, `CONVERSION_REQUEST_EXPIRED(E-CONV-602)`, `CONVERSION_SESSION_NOT_FOUND(E-CONV-603)` | #116 |
+| **`idem-hub/.../conversion/ConversionInitController.java`** | 신규 생성 — `POST /api/v1/conversion/init` 엔드포인트 | #116 |
+| **`idem-hub/.../conversion/ConversionInitService.java`** | 신규 생성 — JWT 서명 검증 + Redis 세션 | #116 |
+| **`idem-hub/.../conversion/ConversionSession.java`** | 신규 생성 — Redis 저장 도메인 객체 (TTL 30분) | #116 |
+| **`idem-hub/.../conversion/dto/ConversionInitRequest.java`** | 신규 생성 — `signedRequest` + `agencyCode` DTO | #116 |
+| **`idem-hub/.../conversion/dto/ConversionInitResponse.java`** | 신규 생성 — `conversionSessionId` + `userType` + `expiresAt` DTO | #116 |
 | **`wiki/guide/01-agency-conversion-url-flow.md`** | 신규 생성 — URL 플로우 분석 + 3레이어 검증 + ❌틀린것/⚠다른것/✅올바른것 분류 | #116 |
 | **`wiki/guide/02-conversion-param-security.md`** | 신규 생성 — JWT Signed Request 상세 구현 + 로드맵 | #116 |
 | **`wiki/guide/03-conversion-launch-sample.md`** | 신규 생성 — Node.js/Java/Python 기관 오픈 URL 샘플 + 체크리스트 | #116 |

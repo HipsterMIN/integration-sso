@@ -30,9 +30,9 @@
 
 | 메트릭 | 종류 | 정의 | 실현 방법 |
 |--------|------|------|----------|
-| 인증 성공률 (5분 윈도우) | PromQL 계산 | `rate(auth.success.total) / (rate(success) + rate(failure))` | **신규 코드 0줄** — 기존 `q-sign/.../AuthMetrics.java` 재활용 |
+| 인증 성공률 (5분 윈도우) | PromQL 계산 | `rate(auth.success.total) / (rate(success) + rate(failure))` | **신규 코드 0줄** — 기존 `idem-gate/.../AuthMetrics.java` 재활용 |
 | Handoff 지연 p95 | Spring Boot 자동 | `http_server_requests_seconds{uri="/api/v1/handoff/issue"}` | **신규 코드 0줄** — Spring Boot Actuator 자동 메트릭 (Prometheus exposure에 포함됨) |
-| `onepass.kms.healthy` | Gauge (UP=1/DOWN=0) | KMS 가용성 (Vault Transit) | `ido/.../metrics/KmsHealthMetrics.java` 신규 — `VaultKmsHealthIndicator` 재사용 (Vault 호출 0회 추가) |
+| `onepass.kms.healthy` | Gauge (UP=1/DOWN=0) | KMS 가용성 (Vault Transit) | `idem-hub/.../metrics/KmsHealthMetrics.java` 신규 — `VaultKmsHealthIndicator` 재사용 (Vault 호출 0회 추가) |
 
 **의도적 제외**:
 - 개별 API endpoint 메트릭 (Spring Boot 기본 `http_server_requests`로 충분)
@@ -44,7 +44,7 @@
 **실제 작업량**: 1개 클래스 (~80 LOC) + 가이드 문서 (`docs/RUNBOOK_SSO_METRICS.md` ~190 LOC)
 
 **산출물**:
-- `ido/.../metrics/KmsHealthMetrics.java` — Gauge 1개
+- `idem-hub/.../metrics/KmsHealthMetrics.java` — Gauge 1개
 - `docs/RUNBOOK_SSO_METRICS.md` — PromQL 예시 + 알람 임계값 + Grafana 대시보드 구성
 
 ---

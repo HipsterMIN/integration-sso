@@ -567,7 +567,7 @@ GET /api/v1/users/{qimUserId}
   → 외부에는 instMbrId(= qimUserId)만 IdO를 통해 간접 노출
 
 □ Q-IM이 유관기관 또는 IdO에 동기 HTTP 호출하는 코드가 없는지 확인
-  → grep -rn "RestTemplate\|WebClient\|HttpClient\|FeignClient" q-im/src/
+  → grep -rn "RestTemplate\|WebClient\|HttpClient\|FeignClient" idem-registry/src/
   → 검색 결과 0건이어야 정상 ✅
 ```
 

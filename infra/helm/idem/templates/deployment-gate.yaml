@@ -1,0 +1,74 @@
+{{- if .Values.qsign.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idem-gate
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-sign
+  annotations:
+    # Secret 변경 시 자동 rollout 트리거
+    checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+spec:
+  replicas: {{ .Values.qsign.replicaCount }}
+  selector:
+    matchLabels:
+      app: idem-gate
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: idem-gate
+        {{- include "onepass.labels" . | nindent 8 }}
+        app.kubernetes.io/component: q-sign
+    spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      {{- if and .Values.qsign.serviceAccount .Values.qsign.serviceAccount.create }}
+      serviceAccountName: {{ .Values.qsign.serviceAccount.name | default "idem-gate" }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: q-sign
+          image: {{ include "onepass.image" .Values.qsign.image }}
+          imagePullPolicy: {{ .Values.qsign.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          # envFrom: ConfigMap + Secret 통합 (이전 분리된 두 envFrom 블록이 YAML 스펙상
+          # 두 번째가 첫 번째를 덮어쓰는 잠재 버그 → 단일 envFrom으로 통합)
+          envFrom:
+            - configMapRef:
+                name: idem-gate-config
+            - configMapRef:
+                name: idem-common-config
+            - secretRef:
+                name: {{ .Values.qsign.secretRef.name }}
+          {{- if .Values.qsign.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.qsign.startupProbe | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.qsign.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.qsign.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.qsign.resources | nindent 12 }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: idem-gate
+                topologyKey: kubernetes.io/hostname
+{{- end }}

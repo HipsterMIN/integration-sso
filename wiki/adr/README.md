@@ -69,7 +69,7 @@ try (ExecutorService vt = Executors.newVirtualThreadPerTaskExecutor()) {
 ```
 
 **선택 이유**: Platform Thread 대비 메모리 136배 절감 (68 스레드 기준 ~136MB → ~1MB)  
-**관련 파일**: `ido/provision/ProvisioningServiceImpl.java`, `ido/build.gradle`
+**관련 파일**: `idem-hub/provision/ProvisioningServiceImpl.java`, `idem-hub/build.gradle`
 
 ---
 
@@ -110,7 +110,7 @@ Spring Boot 3.2 / Spring Framework 6 을 채택하여 Jakarta EE 네임스페이
 | _(+3 DLQ)_ | — | — | 서비스별 DLQ |
 
 **선택 이유**: at-least-once 보장, Compacted Topic, Consumer Group 분리  
-**관련 파일**: `q-sign/config/KafkaTopicConfig.java`, `ido/kafka/QimEventConsumer.java`
+**관련 파일**: `idem-gate/config/KafkaTopicConfig.java`, `idem-hub/kafka/QimEventConsumer.java`
 
 ---
 
@@ -152,7 +152,7 @@ Redis를 세션 저장소·캐시·분산 락의 단일 인메모리 레이어�
 | 분산 락 | `lock:member:convert:{id}` | 30s |
 
 **NoOp 모드**: Redis 다운 시 분산락 없이 단일 인스턴스 동작 (개발 환경)  
-**관련 파일**: `ido/config/RedisConfig.java`, `ido/auth/store/NiceAuthSessionStore.java`
+**관련 파일**: `idem-hub/config/RedisConfig.java`, `idem-hub/auth/store/NiceAuthSessionStore.java`
 
 ---
 
@@ -198,7 +198,7 @@ IdO  ─── ido.outbox ──────────────► Kafka: q
 
 **재시도**: 지수 백오프 `MIN(2^n × 5s, 300s)`, 최대 5회 후 DLQ  
 **Thundering Herd 방지** (V17): `FOR UPDATE SKIP LOCKED`  
-**관련 파일**: `ido/provision/ProvisioningOutboxRelay.java`, `q-im/outbox/OutboxServiceImpl.java`
+**관련 파일**: `idem-hub/provision/ProvisioningOutboxRelay.java`, `idem-registry/outbox/OutboxServiceImpl.java`
 
 ---
 
@@ -244,7 +244,7 @@ IdO  ─── ido.outbox ──────────────► Kafka: q
 | 키 식별 | `kid` 헤더 | 무중단 키 로테이션 |
 
 **4가지 Handoff 전략**: `REDIRECT`, `POST_FORM`, `IFRAME`, `API_CALLBACK`  
-**관련 파일**: `ido/sso/CastTokenServiceImpl.java`, `ido/sso/CrossAgencySsoController.java`
+**관련 파일**: `idem-hub/sso/CastTokenServiceImpl.java`, `idem-hub/sso/CrossAgencySsoController.java`
 
 ---
 
@@ -269,7 +269,7 @@ boolean valid = MessageDigest.isEqual(expected, received);  // 상수 시간 비
 ```
 
 **Nonce 저장**: Redis TTL 300s (리플레이 방지)  
-**관련 파일**: `ido/gateway/HmacSignatureFilter.java`, `ido/gateway/AgencyHmacKeyStore.java`
+**관련 파일**: `idem-hub/gateway/HmacSignatureFilter.java`, `idem-hub/gateway/AgencyHmacKeyStore.java`
 
 ---
 
@@ -290,8 +290,8 @@ FE Axios 인스턴스를 `beInstance`(내부 API)와 `extInstance`(외부 CI API
 **ExtProxyController**: FE에서 API Key 제거, 서버에서 주입 후 외부 전달  
 `/api/ext/ci/**` 직접 외부 호출 → **403 차단**
 
-**관련 파일**: `onepass-fe/src/api/beInstance.ts`, `onepass-fe/src/api/extInstance.ts`,  
-`ido/ext/ExtProxyController.java`
+**관련 파일**: `idem-console/src/api/beInstance.ts`, `idem-console/src/api/extInstance.ts`,  
+`idem-hub/ext/ExtProxyController.java`
 
 ---
 

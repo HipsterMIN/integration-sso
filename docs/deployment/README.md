@@ -235,11 +235,11 @@ cp infra/docker/.env.example infra/docker/.env
 # 필요한 경우 .env 파일 수정
 
 # 2. 앱 이미지 빌드 (프로젝트 루트에서)
-./gradlew :q-sign:bootJar :q-im:bootJar :ido:bootJar :agency-stub:bootJar -x test
-docker build -f q-sign/Dockerfile -t onepass-qsign:latest .
-docker build -f q-im/Dockerfile -t onepass-qim:latest .
-docker build -f ido/Dockerfile -t onepass-ido:latest .
-docker build -f agency-stub/Dockerfile -t onepass-agency-stub:latest .
+./gradlew :idem-gate:bootJar :idem-registry:bootJar :idem-hub:bootJar :idem-tenant-sample:bootJar -x test
+docker build -f idem-gate/Dockerfile -t onepass-qsign:latest .
+docker build -f idem-registry/Dockerfile -t onepass-qim:latest .
+docker build -f idem-hub/Dockerfile -t onepass-ido:latest .
+docker build -f idem-tenant-sample/Dockerfile -t onepass-agency-stub:latest .
 ```
 
 ### 7.2 인프라만 기동 (DB/Redis/Kafka)
@@ -338,24 +338,24 @@ kubectl create secret generic onepass-qsign-secret \
   --from-literal=REDIS_PASSWORD="<REDIS_PASSWORD>" \
   --from-literal=KAFKA_SERVERS="<KAFKA_BOOTSTRAP>"
 
-# (나머지 Secret은 infra/helm/onepass/templates/secrets.yaml 참조)
+# (나머지 Secret은 infra/helm/idem/templates/secrets.yaml 참조)
 ```
 
 ### 9.2 Helm 배포
 
 ```bash
 # 스테이징
-helm upgrade --install onepass ./infra/helm/onepass \
-  -f infra/helm/onepass/values.yaml \
-  -f infra/helm/onepass/values-stage.yaml \
+helm upgrade --install onepass ./infra/helm/idem \
+  -f infra/helm/idem/values.yaml \
+  -f infra/helm/idem/values-stage.yaml \
   --namespace onepass-stage \
   --create-namespace \
   --wait --timeout=10m
 
 # 운영
-helm upgrade --install onepass ./infra/helm/onepass \
-  -f infra/helm/onepass/values.yaml \
-  -f infra/helm/onepass/values-prod.yaml \
+helm upgrade --install onepass ./infra/helm/idem \
+  -f infra/helm/idem/values.yaml \
+  -f infra/helm/idem/values-prod.yaml \
   --namespace onepass \
   --create-namespace \
   --atomic \    # 실패 시 자동 롤백
@@ -365,18 +365,18 @@ helm upgrade --install onepass ./infra/helm/onepass \
 ### 9.3 Helm 렌더링 검증 (dry-run)
 
 ```bash
-helm template onepass ./infra/helm/onepass \
-  -f infra/helm/onepass/values.yaml \
-  -f infra/helm/onepass/values-prod.yaml \
+helm template onepass ./infra/helm/idem \
+  -f infra/helm/idem/values.yaml \
+  -f infra/helm/idem/values-prod.yaml \
   --validate > /dev/null && echo "OK"
 ```
 
 ### 9.4 K8s manifest dry-run
 
 ```bash
-helm template onepass ./infra/helm/onepass \
-  -f infra/helm/onepass/values.yaml \
-  -f infra/helm/onepass/values-stage.yaml \
+helm template onepass ./infra/helm/idem \
+  -f infra/helm/idem/values.yaml \
+  -f infra/helm/idem/values-stage.yaml \
   | kubectl apply --dry-run=server -f -
 ```
 

@@ -20,10 +20,10 @@
 
 | 영역 | 명령 | 결과 | 비고 |
 | --- | --- | --- | --- |
-| Agency E2E (핵심 흐름) | `.\gradlew.bat :agency-stub:test --tests "*AgencyHandoffE2EIntegrationTest*" --no-daemon --max-workers=1` | PASS | 실제 테스트 재실행 확인(UP-TO-DATE 아님) |
-| IdO | `.\gradlew.bat :ido:test --no-daemon --max-workers=1` | PASS | 실제 테스트 재실행 확인 |
-| Q-Sign | `.\gradlew.bat :q-sign:test --no-daemon --max-workers=1` | PASS | 실제 테스트 재실행 확인 |
-| Q-IM | `.\gradlew.bat :q-im:test --no-daemon --max-workers=1` | **FAIL** | `251 tests completed, 12 failed` |
+| Agency E2E (핵심 흐름) | `.\gradlew.bat :idem-tenant-sample:test --tests "*AgencyHandoffE2EIntegrationTest*" --no-daemon --max-workers=1` | PASS | 실제 테스트 재실행 확인(UP-TO-DATE 아님) |
+| IdO | `.\gradlew.bat :idem-hub:test --no-daemon --max-workers=1` | PASS | 실제 테스트 재실행 확인 |
+| Q-Sign | `.\gradlew.bat :idem-gate:test --no-daemon --max-workers=1` | PASS | 실제 테스트 재실행 확인 |
+| Q-IM | `.\gradlew.bat :idem-registry:test --no-daemon --max-workers=1` | **FAIL** | `251 tests completed, 12 failed` |
 
 참고: Windows 파일 잠금 이슈(`Unable to delete ... test-results/test/binary`, `...build/classes...`)가 간헐적으로 발생해 잠금 디렉터리 정리 후 재실행했다.
 

@@ -39,8 +39,8 @@
 ### 2.2 작업 목록
 
 #### [QIM-01] CI 암호화/복호화 서비스 구현
-- **파일 신규**: `q-im/src/main/java/kr/go/smes/qim/crypto/CiCryptoService.java`
-- **파일 신규**: `q-im/src/main/java/kr/go/smes/qim/crypto/CiCryptoServiceImpl.java`
+- **파일 신규**: `idem-registry/src/main/java/kr/go/smes/qim/crypto/CiCryptoService.java`
+- **파일 신규**: `idem-registry/src/main/java/kr/go/smes/qim/crypto/CiCryptoServiceImpl.java`
 - **구현 내용**:
   - AES-256-GCM 암호화 (키: 환경변수 `QIM_CI_AES_KEY`)
   - 암호화 시 IV 랜덤 생성, Base64URL 저장 포맷: `{iv}.{ciphertext}`
@@ -59,7 +59,7 @@ public interface CiCryptoService {
 ```
 
 #### [QIM-02] PII 마스킹 서비스 구현
-- **파일 신규**: `q-im/src/main/java/kr/go/smes/qim/crypto/PiiMaskingService.java`
+- **파일 신규**: `idem-registry/src/main/java/kr/go/smes/qim/crypto/PiiMaskingService.java`
 - **구현 내용**:
   - 이름 마스킹: `홍길동` → `홍*동`, 외국인명 `John Doe` → `J*** D**`
   - 전화번호 마스킹: `01012345678` → `010-****-5678`
@@ -69,7 +69,7 @@ public interface CiCryptoService {
 - **테스트**: 각 마스킹 유형별 경계값 테스트
 
 #### [QIM-03] DI(Duplicate Identity) 생성 서비스 구현
-- **파일 신규**: `q-im/src/main/java/kr/go/smes/qim/identity/DiGenerationService.java`
+- **파일 신규**: `idem-registry/src/main/java/kr/go/smes/qim/identity/DiGenerationService.java`
 - **구현 내용**:
   - DI = HMAC-SHA256(`{siteCode}:{qimUserId}:{serviceSecret}`)
   - 기관별 DI 독립 생성 (기관 코드를 siteCode로 사용)
@@ -79,7 +79,7 @@ public interface CiCryptoService {
 - **테스트**: 동일 기관 동일 사용자 DI 일치, 다른 기관 DI 불일치
 
 #### [IDO-01] allowedAttributes 필터링 구현
-- **파일 수정**: `ido/src/main/java/kr/go/smes/ido/policy/PolicyEngineImpl.java`
+- **파일 수정**: `idem-hub/src/main/java/kr/go/smes/idem-hub/policy/PolicyEngineImpl.java`
 - **구현 내용**:
   - `buildHandoffPayload` 내 TODO 주석 제거 후 실구현
   - `AgencyMeta.allowedAttributes` 목록 기준으로 `HandoffPayload.attributes` Map 필터링
@@ -98,7 +98,7 @@ Map<String, String> filteredAttributes = rawAttributes.entrySet().stream()
 
 #### Q-IM V3 마이그레이션 추가
 ```sql
--- q-im/src/main/resources/db/migration/V3__add_ci_crypto_version.sql
+-- idem-registry/src/main/resources/db/migration/V3__add_ci_crypto_version.sql
 ALTER TABLE qim.user_profile
     ADD COLUMN ci_key_version VARCHAR(10) DEFAULT 'v1' NOT NULL COMMENT 'CI 암호화 키 버전';
 
@@ -125,8 +125,8 @@ ALTER TABLE qim.user_profile
 ### 3.2 작업 목록
 
 #### [QS-01] PKCE (RFC 7636) 구현
-- **파일 수정**: `q-sign/src/main/java/kr/go/smes/qsign/keycloak/KeycloakAuthUrlController.java`
-- **파일 신규**: `q-sign/src/main/java/kr/go/smes/qsign/pkce/PkceService.java`
+- **파일 수정**: `idem-gate/src/main/java/kr/go/smes/qsign/keycloak/KeycloakAuthUrlController.java`
+- **파일 신규**: `idem-gate/src/main/java/kr/go/smes/qsign/pkce/PkceService.java`
 - **구현 내용**:
   - `code_verifier` 생성: 43~128자 랜덤 문자열 (Base64URL)
   - `code_challenge` = BASE64URL(SHA256(ASCII(code_verifier)))
@@ -137,8 +137,8 @@ ALTER TABLE qim.user_profile
 - **테스트**: code_challenge 생성 정확성, 잘못된 verifier 거부
 
 #### [IDO-02] Callback URL 화이트리스트 검증 구현
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/handoff/CallbackUrlValidator.java`
-- **파일 수정**: `ido/src/main/java/kr/go/smes/ido/api/HandoffController.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/CallbackUrlValidator.java`
+- **파일 수정**: `idem-hub/src/main/java/kr/go/smes/idem-hub/api/HandoffController.java`
 - **구현 내용**:
   - `HandoffIssueRequest`에 `redirectUri` 필드 추가 (선택적)
   - `AgencyMeta.callbackWhitelist` 목록과 요청 URL 비교
@@ -154,8 +154,8 @@ public interface CallbackUrlValidator {
 ```
 
 #### [IDO-03] agencySubjectId ↔ Q-IM DI 연계
-- **파일 수정**: `ido/src/main/java/kr/go/smes/ido/policy/PolicyEngineImpl.java`
-- **파일 수정**: `ido/src/main/java/kr/go/smes/ido/infrastructure/QimClientImpl.java`
+- **파일 수정**: `idem-hub/src/main/java/kr/go/smes/idem-hub/policy/PolicyEngineImpl.java`
+- **파일 수정**: `idem-hub/src/main/java/kr/go/smes/idem-hub/infrastructure/QimClientImpl.java`
 - **구현 내용**:
   - Q-IM에 DI 조회 API 추가 (`GET /api/v1/internal/users/{qimUserId}/di?agencyCode=`)
   - `QimClient` 인터페이스에 `getDi(qimUserId, agencyCode)` 메서드 추가
@@ -164,7 +164,7 @@ public interface CallbackUrlValidator {
 - **테스트**: DI 조회 성공, DI 없을 때 자동 생성, Q-IM 장애 시 Fallback
 
 #### [SEC-07] Callback URL 화이트리스트 — agency_meta 데이터 보강
-- **파일 신규**: `ido/src/main/resources/db/migration/V9__add_callback_validation_flag.sql`
+- **파일 신규**: `idem-hub/src/main/resources/db/migration/V9__add_callback_validation_flag.sql`
 ```sql
 ALTER TABLE ido.agency_meta
     ADD COLUMN callback_validation_enabled BOOLEAN DEFAULT TRUE NOT NULL;
@@ -190,8 +190,8 @@ COMMENT ON COLUMN ido.agency_meta.callback_validation_enabled
 ### 4.2 작업 목록
 
 #### [QIM-04] 사용자 등록 서비스
-- **파일 신규**: `q-im/src/main/java/kr/go/smes/qim/user/UserRegistrationService.java`
-- **파일 신규**: `q-im/src/main/java/kr/go/smes/qim/api/UserRegistrationController.java`
+- **파일 신규**: `idem-registry/src/main/java/kr/go/smes/qim/user/UserRegistrationService.java`
+- **파일 신규**: `idem-registry/src/main/java/kr/go/smes/qim/api/UserRegistrationController.java`
 - **구현 내용**:
   - `POST /api/v1/internal/users` — 인증 결과로부터 사용자 자동 생성
   - 요청: `authResultId`, `identifierHash`, `rawCi` (암호화 후 저장), `maskedName`, `maskedMobile`
@@ -201,7 +201,7 @@ COMMENT ON COLUMN ido.agency_meta.callback_validation_enabled
 - **DB 마이그레이션**: V3 (위 Sprint 1 포함)
 
 #### [QIM-05] 사용자 조회 API
-- **파일 신규**: `q-im/src/main/java/kr/go/smes/qim/api/UserQueryController.java`
+- **파일 신규**: `idem-registry/src/main/java/kr/go/smes/qim/api/UserQueryController.java`
 - **구현 내용**:
   - `GET /api/v1/internal/users/{qimUserId}` — 사용자 상세 조회
   - `GET /api/v1/internal/users/by-hash?identifierHash=` — 해시 기반 조회
@@ -210,7 +210,7 @@ COMMENT ON COLUMN ido.agency_meta.callback_validation_enabled
   - 내부 API 키 인증 (`X-Internal-Api-Key` 헤더)
 
 #### [QIM-07] 사용자 상태 전이 서비스
-- **파일 신규**: `q-im/src/main/java/kr/go/smes/qim/user/UserStatusService.java`
+- **파일 신규**: `idem-registry/src/main/java/kr/go/smes/qim/user/UserStatusService.java`
 - **구현 내용**:
   - `ACTIVE` → `SUSPENDED` → `WITHDRAWN` 단방향 상태 전이
   - 탈퇴(`WITHDRAWN`) 시 `user_profile` PII 즉시 삭제 (Right to be forgotten)
@@ -218,8 +218,8 @@ COMMENT ON COLUMN ido.agency_meta.callback_validation_enabled
   - 상태 변경 이벤트 Kafka 발행 (`UserEvent.USER_STATUS_CHANGED`)
 
 #### [IDO-04] member_lookup 서비스 구현
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/memberlookup/MemberLookupService.java`
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/memberlookup/MemberLookupController.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/memberlookup/MemberLookupService.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/memberlookup/MemberLookupController.java`
 - **구현 내용**:
   - `POST /api/v1/member-lookup` — 기관이 CI/DI로 회원 조회 요청
   - `member_lookup_request` 테이블에 요청 기록
@@ -254,10 +254,10 @@ ALTER TABLE ido.agency_meta
 ### 5.2 작업 목록
 
 #### [IDO-05] integration_type 분기 처리
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/handoff/strategy/HandoffStrategy.java` (인터페이스)
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/handoff/strategy/DirectHandoffStrategy.java`
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/handoff/strategy/BridgeHandoffStrategy.java`
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/handoff/strategy/InternalSsoHandoffStrategy.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/strategy/HandoffStrategy.java` (인터페이스)
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/strategy/DirectHandoffStrategy.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/strategy/BridgeHandoffStrategy.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/strategy/InternalSsoHandoffStrategy.java`
 - **구현 내용**:
   - Strategy 패턴으로 `integration_type`별 발급/검증 로직 분리
   - `DIRECT`: 현재 구현 유지
@@ -267,8 +267,8 @@ ALTER TABLE ido.agency_meta
 - **파일 수정**: `HandoffServiceImpl` → Strategy 패턴 위임
 
 #### [IDO-06] 기관 Admin API
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/admin/AgencyAdminController.java`
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/admin/AgencyAdminService.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/admin/AgencyAdminController.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/admin/AgencyAdminService.java`
 - **엔드포인트 목록**:
 
 | Method | Path | 설명 |
@@ -287,8 +287,8 @@ ALTER TABLE ido.agency_meta
 - **감사**: 모든 Admin API 호출 `audit_log` 기록 필수
 
 #### [IDO-07] Webhook Dispatcher 서비스
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/webhook/WebhookDispatchService.java`
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/webhook/WebhookDispatchScheduler.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/webhook/WebhookDispatchService.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/webhook/WebhookDispatchScheduler.java`
 - **구현 내용**:
   - `@Scheduled(fixedDelay = 500ms)` 폴링 방식 (`webhook_dispatch_outbox` PENDING 건 처리)
   - HMAC-SHA256 서명 헤더 `X-Webhook-Signature` 포함
@@ -335,7 +335,7 @@ ALTER TABLE ido.webhook_dispatch_outbox
 ### 6.2 작업 목록
 
 #### [IDO-09] AES 키 로테이션
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/crypto/KeyVersionRegistry.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/KeyVersionRegistry.java`
 - **파일 수정**: `HandoffCryptoService`
 - **구현 내용**:
   - 키 버전 접두사: 암호화 결과 = `v{n}.{base64url(iv)}.{base64url(ciphertext)}`
@@ -347,7 +347,7 @@ ALTER TABLE ido.webhook_dispatch_outbox
 
 #### [IDO-12] Rate Limiting (기관별)
 - **의존성 추가**: `resilience4j-ratelimiter` (이미 Resilience4j 도입됨)
-- **파일 신규**: `ido/src/main/java/kr/go/smes/ido/config/AgencyRateLimiterConfig.java`
+- **파일 신규**: `idem-hub/src/main/java/kr/go/smes/idem-hub/config/AgencyRateLimiterConfig.java`
 - **구현 내용**:
   - `agency_meta.daily_lookup_limit` 기반 동적 Rate Limiter 생성
   - `HandoffAgencyKeyInterceptor` 또는 별도 Filter에서 적용
@@ -420,8 +420,8 @@ IDO_ADMIN_ALLOWED_IPS=127.0.0.1,10.0.0.0/8
 ### 7.2 작업 목록
 
 #### [QS-03] 카카오 OIDC 연동
-- **파일 신규**: `q-sign/src/main/java/kr/go/smes/qsign/idp/kakao/KakaoOidcService.java`
-- **파일 신규**: `q-sign/src/main/java/kr/go/smes/qsign/idp/kakao/KakaoProperties.java`
+- **파일 신규**: `idem-gate/src/main/java/kr/go/smes/qsign/idp/kakao/KakaoOidcService.java`
+- **파일 신규**: `idem-gate/src/main/java/kr/go/smes/qsign/idp/kakao/KakaoProperties.java`
 - **구현 내용**:
   - 카카오 Authorization URL 생성 (PKCE 포함)
   - 카카오 Token Endpoint 호출
@@ -431,7 +431,7 @@ IDO_ADMIN_ALLOWED_IPS=127.0.0.1,10.0.0.0/8
 
 #### [QS-03] 네이버 OIDC 연동
 - 카카오와 동일 패턴, 네이버 API 스펙 차이점 처리
-- **파일 신규**: `q-sign/src/main/java/kr/go/smes/qsign/idp/naver/NaverOidcService.java`
+- **파일 신규**: `idem-gate/src/main/java/kr/go/smes/qsign/idp/naver/NaverOidcService.java`
 
 #### E2E 자동화 테스트
 - **파일 신규**: `tests/e2e/` 디렉토리 (Playwright 또는 RestAssured)
@@ -582,7 +582,7 @@ infra/monitoring/
 ### 11.1 로컬 개발 (현재 유지)
 ```bash
 docker compose -f infra/docker/docker-compose.yml up -d
-./gradlew :q-sign:bootRun :q-im:bootRun :ido:bootRun :agency-stub:bootRun
+./gradlew :idem-gate:bootRun :idem-registry:bootRun :idem-hub:bootRun :idem-tenant-sample:bootRun
 ```
 
 ### 11.2 개발 서버 (Sprint 5 이후)

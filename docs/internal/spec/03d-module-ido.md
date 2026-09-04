@@ -2,7 +2,7 @@
 
 > **기준 버전**: v1.9.3 / 커밋 `46b1fe9`  
 > **최종 갱신**: 2026-05-09  
-> **모듈 경로**: `ido/`  
+> **모듈 경로**: `idem-hub/`  
 > **포트**: 8083  
 > **DB**: PostgreSQL (`ido` 스키마, V1~V10)  
 > **완성도**: 99%
@@ -33,7 +33,7 @@ IdO(Identity Orchestrator)는 통합인증 플랫폼의 **정책 오케스트레
 ## 2. 패키지 구조 (전체)
 
 ```
-ido/src/main/java/kr/go/smes/ido/
+idem-hub/src/main/java/kr/go/smes/idem-hub/
 ├── IdoApplication.java
 ├── admin/                              # 기관 Admin API
 │   ├── AgencyAdminController.java      # /api/v1/admin/agencies/**

@@ -178,7 +178,7 @@ Sprint 6    통합 테스트 + PoC 검증                    (1주)
 #### 4.1.1 `AgencyMemberLookupResult` (유관시스템 회원 조회 결과)
 
 ```java
-// q-im/src/main/java/kr/go/smes/qim/domain/AgencyMemberLookupResult.java
+// idem-registry/src/main/java/kr/go/smes/qim/domain/AgencyMemberLookupResult.java
 @Getter @Builder
 public class AgencyMemberLookupResult {
     private final String  agencyCode;       // 유관시스템 코드
@@ -193,7 +193,7 @@ public class AgencyMemberLookupResult {
 #### 4.1.2 `ConversionSession` (전환 세션 — Redis 임시 저장)
 
 ```java
-// q-im/src/main/java/kr/go/smes/qim/domain/ConversionSession.java
+// idem-registry/src/main/java/kr/go/smes/qim/domain/ConversionSession.java
 @Getter @Builder
 public class ConversionSession {
     private final String sessionId;           // UUID
@@ -218,7 +218,7 @@ public class ConversionSession {
 #### 4.1.3 `ConsentRecord` (개인정보 동의 기록)
 
 ```java
-// q-im/src/main/java/kr/go/smes/qim/domain/ConsentRecord.java
+// idem-registry/src/main/java/kr/go/smes/qim/domain/ConsentRecord.java
 @Getter @Builder
 public class ConsentRecord {
     private final String  consentId;       // UUID
@@ -242,7 +242,7 @@ public class ConsentRecord {
   - 조회 실패한 기관은 스킵 (부분 성공 허용)
   - 결과를 ConversionSession에 저장
 
-구현 위치: q-im/src/main/java/kr/go/smes/qim/agency/AgencyMemberLookupService.java
+구현 위치: idem-registry/src/main/java/kr/go/smes/qim/agency/AgencyMemberLookupService.java
 의존성: AgencyStub REST API (확장 가능하도록 인터페이스 분리)
 
 주요 메서드:
@@ -264,7 +264,7 @@ public class ConsentRecord {
   - 통합계정 UUID 생성 (registerUser 호출)
   - 완료 후 ConversionSession 삭제
 
-구현 위치: q-im/src/main/java/kr/go/smes/qim/conversion/MemberConversionService.java
+구현 위치: idem-registry/src/main/java/kr/go/smes/qim/conversion/MemberConversionService.java
 
 주요 메서드:
   ConversionSession initiateConversion(InitiateConversionCommand cmd)
@@ -281,7 +281,7 @@ public class ConsentRecord {
   - 보호자 CI 획득 분기 처리
   - 보호자 ConversionSession 연결
 
-구현 위치: q-im/src/main/java/kr/go/smes/qim/conversion/MinorGuardianService.java
+구현 위치: idem-registry/src/main/java/kr/go/smes/qim/conversion/MinorGuardianService.java
 ```
 
 ### 4.3 `addAuthMeanMapping` 실제 구현 완성
@@ -499,7 +499,7 @@ q-im.user_profile에 business_reg_no, company_name, ceo_name 컬럼 추가
 #### 6.1.2 삭제 불가 시 논리적 삭제 (PPTX 3.5)
 
 ```java
-// q-im/src/main/java/kr/go/smes/qim/domain/RetentionPolicy.java
+// idem-registry/src/main/java/kr/go/smes/qim/domain/RetentionPolicy.java
 @Getter @Builder
 public class RetentionPolicy {
     private final String agencyCode;
@@ -524,7 +524,7 @@ DB 마이그레이션 필요:
 #### 6.1.3 부분 탈퇴 (PPTX 3.6 — 일부 유관시스템만)
 
 ```java
-// q-im/src/main/java/kr/go/smes/qim/application/UserService.java에 추가
+// idem-registry/src/main/java/kr/go/smes/qim/application/UserService.java에 추가
 /**
  * 특정 유관시스템에 대한 인증수단 매핑 해제 (부분 탈퇴)
  * PPTX 3.6: 탈퇴 대상 시스템 선택 → 영향도 고지 → 본인인증 → 해제
@@ -561,7 +561,7 @@ QimUser revokeAuthMeanMapping(String qimUserId, List<String> agencyCodes,
 ### 6.2 탈퇴 제한 조건 체크 서비스
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/policy/WithdrawalPolicyEngine.java
+// idem-hub/src/main/java/kr/go/smes/idem-hub/policy/WithdrawalPolicyEngine.java
 public interface WithdrawalPolicyEngine {
     /**
      * 탈퇴 가능 여부 판단
@@ -599,7 +599,7 @@ public interface WithdrawalPolicyEngine {
 ```
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/broker/BrokerController.java 수정
+// idem-hub/src/main/java/kr/go/smes/idem-hub/broker/BrokerController.java 수정
 
 @GetMapping("/{provider}/authorize")
 public ResponseEntity<?> authorize(...) {
@@ -640,7 +640,7 @@ DB 마이그레이션:
 ```
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/policy/PolicyEngineImpl.java 수정
+// idem-hub/src/main/java/kr/go/smes/idem-hub/policy/PolicyEngineImpl.java 수정
 
 @Override
 public UserStatus resolveUserStatus(String qimUserId, String correlationId) {
@@ -802,7 +802,7 @@ CREATE TABLE ido.privacy_portal_withdrawal (
 ### 9.4 에러 코드 신규 추가
 
 ```java
-// platform-common/src/main/java/kr/go/smes/common/error/PlatformErrorCode.java 추가
+// idem-common/src/main/java/kr/go/smes/common/error/PlatformErrorCode.java 추가
 
 // ── 회원 전환 오류 (E-CONV-5xx) ──────────────────────────────────────────
 CONV_SESSION_EXPIRED      ("E-CONV-501", HttpStatus.GONE,          "전환 세션이 만료되었습니다."),
@@ -937,7 +937,7 @@ WDRL_MINOR_NOT_ALLOWED    ("E-WDRL-603", HttpStatus.FORBIDDEN,     "미성년자
 | **P0** | `AgencyMemberLookupService` (목 기반) | q-im | 1 | 1일 |
 | **P0** | 회원 전환 API 4종 (initiate→complete) | ido | 2 | 3일 |
 | **P0** | 개인정보 동의 기록 | q-im | 1 | 1일 |
-| **P0** | 기본 탈퇴 완성 (이벤트 전파 포함) | q-im/ido | 3 | 2일 |
+| **P0** | 기본 탈퇴 완성 (이벤트 전파 포함) | idem-registry/ido | 3 | 2일 |
 | **P1** | 기업회원 전환 (사업자번호 기반) | q-im | 1 | 2일 |
 | **P1** | 논리적 삭제 + 보존정책 | q-im | 3 | 1.5일 |
 | **P1** | Circuit Breaker Fallback (PPTX 4.1) | ido | 4 | 1일 |
@@ -945,7 +945,7 @@ WDRL_MINOR_NOT_ALLOWED    ("E-WDRL-603", HttpStatus.FORBIDDEN,     "미성년자
 | **P2** | 14세 미만 보호자 인증 분기 | q-im | 1 | 1일 |
 | **P2** | ID/PW 찾기 (개인/기업) | q-im | 2 | 1.5일 |
 | **P2** | 개인정보포털 탈퇴 (PPTX 3.7) | ido | 3 | 2일 |
-| **P2** | 회원정보 수정 + 유관시스템 동기화 | q-im/ido | 2 | 2일 |
+| **P2** | 회원정보 수정 + 유관시스템 동기화 | idem-registry/ido | 2 | 2일 |
 | **P3** | 부분 탈퇴 (일부 유관시스템) | q-im | 3 | 1.5일 |
 | **P3** | 보존기간 만료 영구파기 스케줄러 | q-im | 3 | 1일 |
 

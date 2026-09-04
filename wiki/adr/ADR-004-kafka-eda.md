@@ -7,7 +7,7 @@
 | **상태** | ✅ Accepted |
 | **결정일** | 2025-Q4 (Sprint 2) |
 | **결정자** | 아키텍처 위원회 |
-| **관련 파일** | `q-sign/config/KafkaTopicConfig.java`, `ido/config/KafkaConsumerConfig.java`, `ido/kafka/QimEventConsumer.java` |
+| **관련 파일** | `idem-gate/config/KafkaTopicConfig.java`, `idem-hub/config/KafkaConsumerConfig.java`, `idem-hub/kafka/QimEventConsumer.java` |
 
 ---
 

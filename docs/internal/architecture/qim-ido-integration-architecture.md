@@ -634,12 +634,12 @@ Q-IM 완전 장애 시 IdO 동작:
 
 | 기존 자산 | 위치 | Phase 1 활용 방법 |
 |----------|------|-----------------|
-| `IdoOutboxRelay` | ido/infrastructure/outbox | SP 수신 후 `qim.sp.member.events` 발행 |
-| `AgencyMetaRepository` | ido/infrastructure | `api_key_hash` 컬럼으로 Q-IM API Key 검증 |
-| `IdempotentEventStore` | ido/kafka | SP 수신 멱등성 기반 참고 |
-| `FeSessionServiceImpl` | ido/fe/session | 회원 등록 후 FeSession 발급 |
-| `PolicyEngineImpl` | ido/policy | instMbrId 매핑 정책 위임 |
-| `NonOidcAuthService` | ido/broker/nonoidc | CI 획득 후 identifierHash 생성 패턴 재사용 |
+| `IdoOutboxRelay` | idem-hub/infrastructure/outbox | SP 수신 후 `qim.sp.member.events` 발행 |
+| `AgencyMetaRepository` | idem-hub/infrastructure | `api_key_hash` 컬럼으로 Q-IM API Key 검증 |
+| `IdempotentEventStore` | idem-hub/kafka | SP 수신 멱등성 기반 참고 |
+| `FeSessionServiceImpl` | idem-hub/fe/session | 회원 등록 후 FeSession 발급 |
+| `PolicyEngineImpl` | idem-hub/policy | instMbrId 매핑 정책 위임 |
+| `NonOidcAuthService` | idem-hub/broker/nonoidc | CI 획득 후 identifierHash 생성 패턴 재사용 |
 
 ## 부록 B. Q-IM SP 수신 API 응답 봉투 (v1.52 표준)
 

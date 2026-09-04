@@ -6,8 +6,8 @@
 # - compose.monitoring.yml: optional observability
 
 networks:
-  onepass-net:
-    name: docker_onepass-net
+  idem-net:
+    name: docker_idem-net
     driver: bridge
     ipam:
       config:

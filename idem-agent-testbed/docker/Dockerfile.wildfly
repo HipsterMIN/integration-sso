@@ -1,0 +1,35 @@
+##############################################################################
+# WildFly 27 + JDK 17 테스트베드
+# Jakarta EE 10 (jakarta.servlet 전용)
+# JBoss EAP 7.4 계열 공공기관 환경
+##############################################################################
+FROM quay.io/wildfly/wildfly:27.0.1.Final-jdk17
+
+LABEL description="OnePass Agent Testbed - WildFly 27 + JDK 17 (Jakarta EE 10)"
+
+USER root
+RUN microdnf install -y curl && microdnf clean all
+
+# Agent 디렉토리 생성
+RUN mkdir -p /agent /agent-config
+
+VOLUME ["/agent", "/agent-config"]
+
+# WildFly standalone 모드 JVM 옵션
+ENV JAVA_OPTS="-javaagent:/agent/idem-agent-all.jar=/agent-config/onepass-agent.properties \
+    -Donepass.was.type=WILDFLY \
+    -Xms256m -Xmx512m \
+    -XX:+UseG1GC \
+    -XX:MetaspaceSize=96m \
+    -XX:MaxMetaspaceSize=256m"
+
+# WildFly 관리 콘솔 접근 허용 (테스트용)
+RUN /opt/jboss/wildfly/bin/add-user.sh admin admin123 --silent
+
+EXPOSE 8080 9990
+
+HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=5 \
+    CMD curl -f http://localhost:8080/ || exit 1
+
+# standalone.sh 실행 (모든 인터페이스 바인딩)
+CMD ["/opt/jboss/wildfly/bin/standalone.sh", "-b", "0.0.0.0", "-bmanagement", "0.0.0.0"]

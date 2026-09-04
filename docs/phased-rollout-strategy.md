@@ -545,7 +545,7 @@ kubectl rollout status deployment/ido -n smes
   → ProvisioningOutboxRelay.relay() 분석
 
 3단계 (Day 6~7): 테스트 실행
-  → ./gradlew :ido:test --tests "*ProvisioningServiceTest*"
+  → ./gradlew :idem-hub:test --tests "*ProvisioningServiceTest*"
   → 각 테스트가 무엇을 검증하는지 확인
   → dry-run 모드로 로컬 실행 후 로그 관찰
 
@@ -597,4 +597,4 @@ kubectl rollout status deployment/ido -n smes
 > **관련 문서**:  
 > - [배포 가이드](_archive/2026-05-22/deployment-guide.md)  
 > - [기능 문서 목록](features/)  
-> - [Feature Flag 코드](../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)
+> - [Feature Flag 코드](../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)

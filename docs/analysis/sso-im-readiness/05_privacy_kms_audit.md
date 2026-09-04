@@ -10,17 +10,17 @@
 
 | # | 파일 | 라인 | 책임 |
 |---|------|------|------|
-| 1 | `ido/.../crypto/kms/KmsClient.java` | 104 | KMS 인터페이스 (decrypt/encrypt/isHealthy/providerName) |
-| 2 | `ido/.../crypto/kms/VaultKmsClient.java` | 502 | HashiCorp Vault Transit 실제 연동 |
-| 3 | `ido/.../crypto/kms/LocalKmsClient.java` | 80+ | KMS off — Base64 패스스루 (matchIfMissing=true) |
-| 4 | `ido/.../crypto/kms/NoOpKmsClient.java` | 70 | provider=noop 명시적 KMS off |
-| 5 | `ido/.../crypto/kms/NhnKmsClient.java` | (확인 필요) | NHN Cloud SKM 연동 (레거시) |
-| 6 | `ido/.../crypto/kms/AnyIdKmsClient.java` | (확인 필요) | AnyID KMS |
-| 7 | `ido/.../infrastructure/health/VaultKmsHealthIndicator.java` | (확인 필요) | Vault 헬스 체크 |
-| 8 | `ido/.../metrics/KmsHealthMetrics.java` | (확인 필요) | KMS Gauge 메트릭 (PR-B1) |
-| 9 | `ido/.../handoff/crypto/HandoffCryptoService.java` | 262 | AES-256-GCM + HMAC-SHA256 + KeyVersionRegistry |
-| 10 | `ido/.../audit/AuditLogPublisher.java` | 318 | DB 우선 + Kafka 비동기 감사 로그 |
-| 11 | `q-im/.../crypto/CiCryptoServiceImpl.java` | 145 | Q-IM CI 암호화 (Phase 3 에서 분석) |
+| 1 | `idem-hub/.../crypto/kms/KmsClient.java` | 104 | KMS 인터페이스 (decrypt/encrypt/isHealthy/providerName) |
+| 2 | `idem-hub/.../crypto/kms/VaultKmsClient.java` | 502 | HashiCorp Vault Transit 실제 연동 |
+| 3 | `idem-hub/.../crypto/kms/LocalKmsClient.java` | 80+ | KMS off — Base64 패스스루 (matchIfMissing=true) |
+| 4 | `idem-hub/.../crypto/kms/NoOpKmsClient.java` | 70 | provider=noop 명시적 KMS off |
+| 5 | `idem-hub/.../crypto/kms/NhnKmsClient.java` | (확인 필요) | NHN Cloud SKM 연동 (레거시) |
+| 6 | `idem-hub/.../crypto/kms/AnyIdKmsClient.java` | (확인 필요) | AnyID KMS |
+| 7 | `idem-hub/.../infrastructure/health/VaultKmsHealthIndicator.java` | (확인 필요) | Vault 헬스 체크 |
+| 8 | `idem-hub/.../metrics/KmsHealthMetrics.java` | (확인 필요) | KMS Gauge 메트릭 (PR-B1) |
+| 9 | `idem-hub/.../handoff/crypto/HandoffCryptoService.java` | 262 | AES-256-GCM + HMAC-SHA256 + KeyVersionRegistry |
+| 10 | `idem-hub/.../audit/AuditLogPublisher.java` | 318 | DB 우선 + Kafka 비동기 감사 로그 |
+| 11 | `idem-registry/.../crypto/CiCryptoServiceImpl.java` | 145 | Q-IM CI 암호화 (Phase 3 에서 분석) |
 
 ---
 

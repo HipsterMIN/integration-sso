@@ -1,0 +1,159 @@
+# ============================================================
+# ConfigMap — 비민감 설정 (URL, topic명, feature flag 등)
+# 민감 정보(패스워드, 키)는 반드시 Secret으로 관리한다.
+# ============================================================
+
+# ── 플랫폼 공통 ConfigMap ──────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idem-common-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+data:
+  # ── Kafka Topic 이름 (모든 서비스가 참조) ─────────────────────────
+  KAFKA_TOPIC_AUTH_EVENTS:        {{ .Values.kafka.topics.authEvents | quote }}
+  KAFKA_TOPIC_HANDOFF_EVENTS:     {{ .Values.kafka.topics.handoffEvents | quote }}
+  KAFKA_TOPIC_SESSION_ADVISORY:   {{ .Values.kafka.topics.sessionAdvisory | quote }}
+  KAFKA_TOPIC_AUDIT_LOG:          {{ .Values.kafka.topics.auditLog | quote }}
+  KAFKA_TOPIC_QIM_USER_EVENTS:    {{ .Values.kafka.topics.qimUserEvents | quote }}
+  KAFKA_TOPIC_QIM_USER_SNAPSHOT:  {{ .Values.kafka.topics.qimUserSnapshot | quote }}
+  KAFKA_TOPIC_QIM_SP_MEMBER:      {{ .Values.kafka.topics.qimSpMemberEvents | quote }}
+  # DLT
+  KAFKA_TOPIC_AUTH_EVENTS_DLT:        {{ .Values.kafka.topics.authEventsDlt | quote }}
+  KAFKA_TOPIC_HANDOFF_EVENTS_DLT:     {{ .Values.kafka.topics.handoffEventsDlt | quote }}
+  KAFKA_TOPIC_SESSION_ADVISORY_DLT:   {{ .Values.kafka.topics.sessionAdvisoryDlt | quote }}
+  KAFKA_TOPIC_QIM_USER_EVENTS_DLT:    {{ .Values.kafka.topics.qimUserEventsDlt | quote }}
+  KAFKA_TOPIC_QIM_SP_MEMBER_DLT:      {{ .Values.kafka.topics.qimSpMemberEventsDlt | quote }}
+---
+# ── Q-Sign ConfigMap ───────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idem-gate-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-sign
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.qsign.config.SPRING_PROFILES_ACTIVE | quote }}
+  DB_PORT: {{ .Values.qsign.config.DB_PORT | quote }}
+  DB_NAME: {{ .Values.qsign.config.DB_NAME | quote }}
+  REDIS_PORT: {{ .Values.qsign.config.REDIS_PORT | quote }}
+  KEYCLOAK_REALM: {{ .Values.qsign.config.KEYCLOAK_REALM | quote }}
+  QSIGN_KEYCLOAK_CLIENT_ID: {{ .Values.qsign.config.QSIGN_KEYCLOAK_CLIENT_ID | quote }}
+  QSIGN_PKCE_ENABLED: {{ .Values.qsign.config.QSIGN_PKCE_ENABLED | quote }}
+  QSIGN_PKCE_TTL: {{ .Values.qsign.config.QSIGN_PKCE_TTL | quote }}
+  QSIGN_INTERNAL_SIG_STRICT: {{ .Values.qsign.config.QSIGN_INTERNAL_SIG_STRICT | quote }}
+---
+# ── Q-IM ConfigMap ─────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idem-registry-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-im
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.qim.config.SPRING_PROFILES_ACTIVE | quote }}
+  QIM_DB_PORT: {{ .Values.qim.config.QIM_DB_PORT | quote }}
+  QIM_DB_NAME: {{ .Values.qim.config.QIM_DB_NAME | quote }}
+  QIM_DB_SSL: {{ .Values.qim.config.QIM_DB_SSL | quote }}
+  REDIS_PORT: {{ .Values.qim.config.REDIS_PORT | quote }}
+  QIM_CI_CURRENT_VERSION: {{ .Values.qim.config.QIM_CI_CURRENT_VERSION | quote }}
+  QIM_RECEIVER_AUDIT: {{ .Values.qim.config.QIM_RECEIVER_AUDIT | quote }}
+---
+# ── IdO ConfigMap ──────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idem-hub-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ido
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.ido.config.SPRING_PROFILES_ACTIVE | quote }}
+  DB_PORT: {{ .Values.ido.config.DB_PORT | quote }}
+  DB_NAME: {{ .Values.ido.config.DB_NAME | quote }}
+  REDIS_PORT: {{ .Values.ido.config.REDIS_PORT | quote }}
+  IDO_BROKER_MODE: {{ .Values.ido.config.IDO_BROKER_MODE | quote }}
+  KEYCLOAK_REALM: {{ .Values.ido.config.KEYCLOAK_REALM | quote }}
+  KEYCLOAK_CLIENT_ID: {{ .Values.ido.config.KEYCLOAK_CLIENT_ID | quote }}
+  IDO_PLATFORM_VERSION: {{ .Values.ido.config.IDO_PLATFORM_VERSION | quote }}
+  IDO_RATE_LIMIT_ENABLED: {{ .Values.ido.config.IDO_RATE_LIMIT_ENABLED | quote }}
+  IDO_RATE_LIMIT_DEFAULT_TPS: {{ .Values.ido.config.IDO_RATE_LIMIT_DEFAULT_TPS | quote }}
+  IDO_RATE_LIMIT_DEFAULT_DAILY: {{ .Values.ido.config.IDO_RATE_LIMIT_DEFAULT_DAILY | quote }}
+  IDO_AUDIT_KAFKA_ENABLED: {{ .Values.ido.config.IDO_AUDIT_KAFKA_ENABLED | quote }}
+  IDO_KAFKA_PARTITION_COUNT_MAIN: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_MAIN | quote }}
+  IDO_KAFKA_PARTITION_COUNT_DLQ: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_DLQ | quote }}
+  IDO_KAFKA_REPLICATION_FACTOR: {{ .Values.ido.config.IDO_KAFKA_REPLICATION_FACTOR | quote }}
+  IDO_KAFKA_MIN_INSYNC_REPLICAS: {{ .Values.ido.config.IDO_KAFKA_MIN_INSYNC_REPLICAS | quote }}
+  # ── KMS / Vault Transit 비민감 설정 ───────────────────────────────
+  # 민감 키(VAULT_TOKEN/ROLE_ID/SECRET_ID)는 Secret 참조 — 여기엔 절대 넣지 말 것
+  IDO_KMS_ENABLED:          {{ .Values.ido.config.IDO_KMS_ENABLED | quote }}
+  IDO_KMS_PROVIDER:         {{ .Values.ido.config.IDO_KMS_PROVIDER | quote }}
+  IDO_KMS_CONN_TIMEOUT_MS:  {{ .Values.ido.config.IDO_KMS_CONN_TIMEOUT_MS | quote }}
+  IDO_KMS_REQ_TIMEOUT_MS:   {{ .Values.ido.config.IDO_KMS_REQ_TIMEOUT_MS | quote }}
+  VAULT_ADDR:               {{ .Values.ido.config.VAULT_ADDR | quote }}
+  VAULT_TRANSIT_PATH:       {{ .Values.ido.config.VAULT_TRANSIT_PATH | quote }}
+  VAULT_TRANSIT_KEY:        {{ .Values.ido.config.VAULT_TRANSIT_KEY | quote }}
+  VAULT_AUTH_METHOD:        {{ .Values.ido.config.VAULT_AUTH_METHOD | quote }}
+  VAULT_K8S_ROLE:           {{ .Values.ido.config.VAULT_K8S_ROLE | quote }}
+  VAULT_NAMESPACE:          {{ .Values.ido.config.VAULT_NAMESPACE | quote }}
+---
+# ── Outbox Relay Batch ConfigMap ───────────────────────────────────
+{{- if .Values.batch.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idem-relay-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: batch
+data:
+  SPRING_PROFILES_ACTIVE:           {{ .Values.batch.config.SPRING_PROFILES_ACTIVE | quote }}
+  # ── DataSource Endpoints (드라이버/포트/DB명만 — 호스트/계정은 Secret) ─────
+  IDO_DB_PORT:                      {{ .Values.batch.config.IDO_DB_PORT | quote }}
+  IDO_DB_NAME:                      {{ .Values.batch.config.IDO_DB_NAME | quote }}
+  QIM_DB_PORT:                      {{ .Values.batch.config.QIM_DB_PORT | quote }}
+  QIM_DB_NAME:                      {{ .Values.batch.config.QIM_DB_NAME | quote }}
+  QSIGN_DB_PORT:                    {{ .Values.batch.config.QSIGN_DB_PORT | quote }}
+  QSIGN_DB_NAME:                    {{ .Values.batch.config.QSIGN_DB_NAME | quote }}
+  REDIS_PORT:                       {{ .Values.batch.config.REDIS_PORT | quote }}
+  # ── Webhook 헤더용 ─────────────────────────────────────────────────
+  IDO_PLATFORM_VERSION:             {{ .Values.batch.config.IDO_PLATFORM_VERSION | quote }}
+  # ── 릴레이 Job Feature Flag ────────────────────────────────────────
+  BATCH_IDO_KAFKA_RELAY_ENABLED:    {{ .Values.batch.config.BATCH_IDO_KAFKA_RELAY_ENABLED | quote }}
+  BATCH_IDO_QIM_RELAY_ENABLED:      {{ .Values.batch.config.BATCH_IDO_QIM_RELAY_ENABLED | quote }}
+  BATCH_QIM_KAFKA_RELAY_ENABLED:    {{ .Values.batch.config.BATCH_QIM_KAFKA_RELAY_ENABLED | quote }}
+  BATCH_QSIGN_KAFKA_RELAY_ENABLED:  {{ .Values.batch.config.BATCH_QSIGN_KAFKA_RELAY_ENABLED | quote }}
+  BATCH_PROVISIONING_RELAY_ENABLED: {{ .Values.batch.config.BATCH_PROVISIONING_RELAY_ENABLED | quote }}
+  BATCH_WEBHOOK_RELAY_ENABLED:      {{ .Values.batch.config.BATCH_WEBHOOK_RELAY_ENABLED | quote }}
+  # ── 알림 채널 ON/OFF (Webhook URL/Routing Key는 Secret) ──────────
+  BATCH_ALERT_SLACK_ENABLED:        {{ .Values.batch.config.BATCH_ALERT_SLACK_ENABLED | quote }}
+  BATCH_ALERT_PAGERDUTY_ENABLED:    {{ .Values.batch.config.BATCH_ALERT_PAGERDUTY_ENABLED | quote }}
+{{- end }}
+---
+# ── Q-AuthZ ConfigMap (연합 인가) ──────────────────────────────────
+{{- if .Values.authz.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idem-authz-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-authz
+data:
+  SPRING_PROFILES_ACTIVE:        {{ .Values.authz.config.SPRING_PROFILES_ACTIVE | quote }}
+  AUTHZ_DB_PORT:                 {{ .Values.authz.config.AUTHZ_DB_PORT | quote }}
+  AUTHZ_DB_NAME:                 {{ .Values.authz.config.AUTHZ_DB_NAME | quote }}
+  AUTHZ_DB_SSLMODE:              {{ .Values.authz.config.AUTHZ_DB_SSLMODE | quote }}
+  AUTHZ_EXPIRY_ENABLED:          {{ .Values.authz.config.AUTHZ_EXPIRY_ENABLED | quote }}
+  AUTHZ_EXPIRY_SCAN_INTERVAL_MS: {{ .Values.authz.config.AUTHZ_EXPIRY_SCAN_INTERVAL_MS | quote }}
+  AUTHZ_EXPIRY_BATCH_SIZE:       {{ .Values.authz.config.AUTHZ_EXPIRY_BATCH_SIZE | quote }}
+{{- end }}

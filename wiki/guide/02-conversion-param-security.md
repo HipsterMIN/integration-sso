@@ -102,7 +102,7 @@ https://onepass.smes.go.kr/conversion/step1
 ## 3. 구현 — BE: ConversionInitController (신규)
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/conversion/ConversionInitController.java
+// idem-hub/src/main/java/kr/go/smes/idem-hub/conversion/ConversionInitController.java
 
 @Slf4j
 @RestController
@@ -141,7 +141,7 @@ public class ConversionInitController {
 ```
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/conversion/ConversionInitService.java
+// idem-hub/src/main/java/kr/go/smes/idem-hub/conversion/ConversionInitService.java
 
 @Slf4j
 @Service

@@ -540,7 +540,7 @@ WHEN m.mbr_nm ~ '[+/=]' THEN DEC_B64('KEY1', m.mbr_nm)
 
 ```bash
 # grep 결과: 0건
-grep -r "smep" /home/user/webapp/ido/src/ 2>/dev/null | wc -l  # = 0
+grep -r "smep" /home/user/webapp/idem-hub/src/ 2>/dev/null | wc -l  # = 0
 grep -r "smep-adapter" /home/user/webapp/ 2>/dev/null | wc -l   # = 0
 ```
 
@@ -676,7 +676,7 @@ public HandoffTicketClaims decodeTicket(String ticket) {
 #### 8.3.1 SMEP Agency Adapter 신규 구현 (integration-sso ido 모듈)
 
 ```
-위치: /ido/src/main/java/…/agency/smep/SmepAgencyAdapter.java
+위치: /idem-hub/src/main/java/…/agency/smep/SmepAgencyAdapter.java
 
 구현 인터페이스:
   AgencyAdapter.query(QimMemberQueryRequest) → QimApiResult
@@ -809,8 +809,8 @@ Response 401:
 
 | # | 작업 항목 | 위치 | 예상 공수 |
 |---|-----------|------|-----------|
-| I-P0-1 | SMEP Agency Adapter 신규 구현 | `ido/…/agency/smep/` | 5일 |
-| I-P0-2 | Q-IM → IdO → SMEP 라우팅 설정 | `ido/…/config/AgencyRoutingConfig.java` | 2일 |
+| I-P0-1 | SMEP Agency Adapter 신규 구현 | `idem-hub/…/agency/smep/` | 5일 |
+| I-P0-2 | Q-IM → IdO → SMEP 라우팅 설정 | `idem-hub/…/config/AgencyRoutingConfig.java` | 2일 |
 | I-P0-3 | SMEP용 X-API-Key 설정 관리 | `application.yml` / ConfigMap | 1일 |
 | I-P0-4 | Handoff Ticket 발급 시 SMEP 클레임 포함 확인 | `QimSpReceiverService.java` | 1일 |
 
@@ -851,7 +851,7 @@ public class SmepAgencyAdapter implements AgencyAdapter {
 | # | 작업 항목 | 위치 | 예상 공수 |
 |---|-----------|------|-----------|
 | I-P1-1 | SMEP Handoff Ticket 검증 공유 키 배포 | 인프라 | 1일 |
-| I-P1-2 | SMEP Adapter 통합 테스트 작성 | `ido/…/agency/smep/SmepAdapterTest.java` | 2일 |
+| I-P1-2 | SMEP Adapter 통합 테스트 작성 | `idem-hub/…/agency/smep/SmepAdapterTest.java` | 2일 |
 | I-P1-3 | encCi 평문 변환 후 SMEP 전달 검증 | `QimSpReceiverService` 수정 | 1일 |
 
 ### 9.3 인프라/운영팀 작업 항목

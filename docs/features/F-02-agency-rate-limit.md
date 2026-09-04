@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_RATE_LIMIT_ENABLED`  
 > **기본값**: `true` (운영 필수)  
 > **Spring 프로퍼티**: `ido.rate-limit.enabled`  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/gateway/AgencyRateLimiter.java`
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/gateway/AgencyRateLimiter.java`
 
 ---
 
@@ -77,7 +77,7 @@ ido:
 **부하 테스트** 또는 **긴급 장애 대응** 시에만 일시적으로 false 허용:
 ```bash
 # Helm 운영 오버라이드
-helm upgrade ido infra/helm/ido \
+helm upgrade ido infra/helm/idem-hub \
   --set env.IDO_RATE_LIMIT_ENABLED=false  # ⚠️ 일시적, 반드시 복구
 ```
 
@@ -156,5 +156,5 @@ ORDER BY rate_limited DESC;
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)

@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# OnePass Platform CI/CD Pipeline
+# Idem Platform CI/CD Pipeline
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # 트리거:
@@ -81,8 +81,8 @@ jobs:
         run: |
           ./gradlew test --no-daemon --continue \
             --tests "kr.go.smes.**"
-          # NOTE: q-im:test가 복원되었습니다.
-          # q-im 모듈 테스트 통과가 CI 성공 조건입니다.
+          # NOTE: idem-registry:test가 복원되었습니다.
+          # idem-registry 모듈 테스트 통과가 CI 성공 조건입니다.
 
       - name: 테스트 결과 업로드
         uses: actions/upload-artifact@v4
@@ -102,15 +102,15 @@ jobs:
       - name: 빌드 산출물 업로드 (bootJar)
         uses: actions/upload-artifact@v4
         if: success()
-        # 소비처는 k6 스모크 잡의 ido 기동뿐(IDO_JAR=find ./artifacts -name "ido-*.jar")이고 q-sign/q-im jar는
+        # 소비처는 k6 스모크 잡의 idem-hub 기동뿐(IDO_JAR=find ./artifacts -name "idem-hub-*.jar")이고 idem-gate/idem-registry jar는
         # 아무도 내려받지 않는데도 run당 300MB를 차지해 프라이빗 저장소 아티팩트 한도(500MB)를 초과시켰다
-        # (2026-09-04 "Artifact storage quota has been hit"). ido bootJar 1개·1일 보관으로 축소.
+        # (2026-09-04 "Artifact storage quota has been hit"). idem-hub bootJar 1개·1일 보관으로 축소.
         continue-on-error: true   # 업로드 실패 시 k6 잡은 소스 빌드로 대체(fallback 존재)
         with:
           name: build-artifacts-${{ github.run_number }}
           path: |
-            ido/build/libs/ido-*.jar
-            !ido/build/libs/*-plain.jar
+            idem-hub/build/libs/idem-hub-*.jar
+            !idem-hub/build/libs/*-plain.jar
           retention-days: 1
 
   # ── Job 2: FE 빌드 검증 ───────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: onepass-fe/frontend
+        working-directory: idem-console/frontend
 
     steps:
       - name: 소스 체크아웃
@@ -131,7 +131,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'yarn'
-          cache-dependency-path: onepass-fe/frontend/yarn.lock
+          cache-dependency-path: idem-console/frontend/yarn.lock
 
       - name: 의존성 설치
         run: yarn install --frozen-lockfile
@@ -285,7 +285,7 @@ jobs:
     if: github.event_name == 'push'
 
     services:
-      # ido 서버가 의존하는 Redis (Rate Limiter, Session)
+      # idem-hub 서버가 의존하는 Redis (Rate Limiter, Session)
       redis:
         image: redis:7-alpine
         ports:
@@ -296,7 +296,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
-      # ido 서버가 의존하는 PostgreSQL
+      # idem-hub 서버가 의존하는 PostgreSQL
       postgres:
         image: postgres:15-alpine
         ports:
@@ -311,7 +311,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
-      # ido KafkaAdmin 토픽 구성이 브로커 부재 시 기동을 지연시키므로 실브로커 제공
+      # idem-hub KafkaAdmin 토픽 구성이 브로커 부재 시 기동을 지연시키므로 실브로커 제공
       # (apache/kafka 단일 노드 KRaft — 기본 listener PLAINTEXT://localhost:9092,
       #  앱 기본값 KAFKA_SERVERS=localhost:9092 / replication-factor=1 과 정합)
       kafka:
@@ -348,7 +348,7 @@ jobs:
       # 빌드 산출물 재사용 (build-and-test에서 업로드)
       - name: 빌드 산출물 다운로드
         uses: actions/download-artifact@v4
-        continue-on-error: true   # 아티팩트가 없으면(업로드 quota 실패) 아래 "ido 서버 시작"이 소스 빌드로 대체
+        continue-on-error: true   # 아티팩트가 없으면(업로드 quota 실패) 아래 "idem-hub 서버 시작"이 소스 빌드로 대체
         with:
           name: build-artifacts-${{ github.run_number }}
           path: ./artifacts
@@ -365,7 +365,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y k6
           k6 version
 
-      - name: ido 서버 시작
+      - name: idem-hub 서버 시작
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/onepass
           SPRING_DATASOURCE_USERNAME: onepass
@@ -375,11 +375,11 @@ jobs:
           SPRING_PROFILES_ACTIVE: test
         run: |
           # 빌드된 JAR로 서버 시작 (백그라운드)
-          IDO_JAR=$(find ./artifacts -name "ido-*.jar" | head -1)
+          IDO_JAR=$(find ./artifacts -name "idem-hub-*.jar" | head -1)
           if [ -z "$IDO_JAR" ]; then
-            echo "⚠️  ido JAR not found in artifacts, building from source..."
-            ./gradlew :ido:bootJar -x test --no-daemon
-            IDO_JAR=$(find ido/build/libs -name "ido-*.jar" | head -1)
+            echo "⚠️  idem-hub JAR not found in artifacts, building from source..."
+            ./gradlew :idem-hub:bootJar -x test --no-daemon
+            IDO_JAR=$(find idem-hub/build/libs -name "idem-hub-*.jar" | head -1)
           fi
           # 부팅 시크릿 가드(F3.3/F4.3/F4.8/Keycloak) 통과용 1회용 랜덤 시크릿
           # — escape hatch(allow-empty-*) 대신 실키 주입으로 운영 경로 그대로 검증
@@ -389,7 +389,7 @@ jobs:
           export KEYCLOAK_CLIENT_SECRET=$(openssl rand -hex 32)
           export IDO_INTERNAL_API_KEY_QSIGN=$(openssl rand -hex 32)
           export IDO_INTERNAL_API_KEY_OUTBOX=$(openssl rand -hex 32)
-          echo "Starting ido server: $IDO_JAR"
+          echo "Starting idem-hub server: $IDO_JAR"
           java -jar "$IDO_JAR" \
             --server.port=8083 \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/onepass \
@@ -401,16 +401,16 @@ jobs:
             > /tmp/ido-server.log 2>&1 &
           echo "IDO_PID=$!" >> $GITHUB_ENV
 
-      - name: ido 서버 헬스체크 대기 (최대 120초)
+      - name: idem-hub 서버 헬스체크 대기 (최대 120초)
         run: |
-          echo "Waiting for ido server to start..."
+          echo "Waiting for idem-hub server to start..."
           for i in $(seq 1 60); do
             if curl -sf http://localhost:8083/actuator/health > /dev/null 2>&1; then
-              echo "✅ ido server is UP (attempt $i)"
+              echo "✅ idem-hub server is UP (attempt $i)"
               break
             fi
             if [ $i -eq 60 ]; then
-              echo "❌ ido server failed to start"
+              echo "❌ idem-hub server failed to start"
               cat /tmp/ido-server.log
               exit 1
             fi
@@ -427,7 +427,7 @@ jobs:
             --out json=/tmp/smoke-result.json
         continue-on-error: false    # 스모크 테스트 실패 시 워크플로우 중단
 
-      - name: ido 서버 로그 출력 (실패 시)
+      - name: idem-hub 서버 로그 출력 (실패 시)
         if: failure()
         run: cat /tmp/ido-server.log || true
 
@@ -440,7 +440,7 @@ jobs:
           path: /tmp/smoke-result.json
           retention-days: 3
 
-      - name: ido 서버 종료
+      - name: idem-hub 서버 종료
         if: always()
         run: |
           if [ -n "$IDO_PID" ]; then
@@ -512,23 +512,23 @@ jobs:
     strategy:
       matrix:
         module:
-          - name: ido
-            dockerfile: ido/Dockerfile
+          - name: idem-hub
+            dockerfile: idem-hub/Dockerfile
             port: 8083
-          - name: q-im
-            dockerfile: q-im/Dockerfile
+          - name: idem-registry
+            dockerfile: idem-registry/Dockerfile
             port: 8082
-          - name: q-sign
-            dockerfile: q-sign/Dockerfile
+          - name: idem-gate
+            dockerfile: idem-gate/Dockerfile
             port: 8081
-          - name: q-authz
-            dockerfile: q-authz/Dockerfile
+          - name: idem-authz
+            dockerfile: idem-authz/Dockerfile
             port: 8086
-          - name: outbox-relay-batch
-            dockerfile: outbox-relay-batch/Dockerfile
+          - name: idem-relay
+            dockerfile: idem-relay/Dockerfile
             port: 8090
-          - name: agency-stub
-            dockerfile: agency-stub/Dockerfile
+          - name: idem-tenant-sample
+            dockerfile: idem-tenant-sample/Dockerfile
             port: 8084
       fail-fast: false    # 하나 실패해도 나머지 빌드 계속
 
@@ -570,8 +570,8 @@ jobs:
           file: ${{ matrix.module.dockerfile }}
           push: true    # GHCR로 push (이 잡은 보호 브랜치 push 이벤트에서만 실행)
           tags: |
-            ${{ env.IMAGE_REPO }}/onepass-${{ matrix.module.name }}:${{ github.sha }}
-            ${{ env.IMAGE_REPO }}/onepass-${{ matrix.module.name }}:latest
+            ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:${{ github.sha }}
+            ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:latest
           build-args: |
             APP_VERSION=${{ github.sha }}
             GIT_SHA=${{ github.sha }}
@@ -591,12 +591,12 @@ jobs:
         run: |
           echo "=== ${{ matrix.module.name }} 이미지(GHCR) ==="
           docker buildx imagetools inspect \
-            ${{ env.IMAGE_REPO }}/onepass-${{ matrix.module.name }}:latest || true
+            ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:latest || true
 
       - name: Trivy 보안 스캔 (취약점 검사)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: onepass/${{ matrix.module.name }}:latest
+          image-ref: idem/${{ matrix.module.name }}:latest
           format: table
           exit-code: '0'         # CRITICAL 취약점도 빌드 중단 안함 (리포트만)
           ignore-unfixed: true

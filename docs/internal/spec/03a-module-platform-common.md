@@ -2,21 +2,21 @@
 
 > **기준 버전**: v1.9.3 / 커밋 `46b1fe9`  
 > **최종 갱신**: 2026-05-09  
-> **모듈 경로**: `platform-common/`  
+> **모듈 경로**: `idem-common/`  
 > **완성도**: 100%
 
 ---
 
 ## 1. 모듈 역할
 
-`platform-common`은 전 모듈이 공유하는 **도메인 모델·이벤트 정의·에러 코드·유틸리티**를 제공하는 의존성 전용 라이브러리다. Spring Boot 애플리케이션을 직접 실행하지 않으며, 각 서비스 모듈에서 `implementation project(':platform-common')`으로 참조한다.
+`platform-common`은 전 모듈이 공유하는 **도메인 모델·이벤트 정의·에러 코드·유틸리티**를 제공하는 의존성 전용 라이브러리다. Spring Boot 애플리케이션을 직접 실행하지 않으며, 각 서비스 모듈에서 `implementation project(':idem-common')`으로 참조한다.
 
 ---
 
 ## 2. 패키지 구조
 
 ```
-platform-common/src/main/java/kr/go/smes/common/
+idem-common/src/main/java/kr/go/smes/common/
 ├── domain/
 │   ├── AuthResult.java          # 인증 결과 핵심 도메인
 │   └── HandoffPayload.java      # Handoff 페이로드 전체 정의

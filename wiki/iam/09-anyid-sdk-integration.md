@@ -152,7 +152,7 @@ AuthResourceInstall/
 ANYID_LIB=/home/user/anyid-sdk/AuthResourceInstall/webapp/WEB-INF/lib
 
 # 대상 경로 (기존 fileTree("libs") 의존성 선언됨)
-IDO_LIB=/home/user/webapp/ido/libs
+IDO_LIB=/home/user/webapp/idem-hub/libs
 
 # BouncyCastle 본체(bcprov-jdk15to18-1.68, bcpkix-jdk15to18-1.68)는
 # 기존 bcprov-jdk18on:1.78.1 / bcpkix-jdk18on:1.78.1 로 대체 — 복사 제외
@@ -180,7 +180,7 @@ done
 
 ### 3.2 build.gradle.kts 확인
 
-`ido/build.gradle.kts`에 이미 `fileTree("libs")` 의존성이 선언되어 있어 **별도 수정 불필요**:
+`idem-hub/build.gradle.kts`에 이미 `fileTree("libs")` 의존성이 선언되어 있어 **별도 수정 불필요**:
 
 ```kotlin
 // ── 로컬 libs 디렉토리 (OACX SDK, BouncyCastle 등 Maven Central 미등록 JAR) ──
@@ -290,7 +290,7 @@ JSP 환경에서는 `request.getServletContext().getRealPath("") + "/WEB-INF/con
 void init() {
     File file = resourceLoader.getResource("classpath:config/anyid/kdist-local.json").getFile();
     kdistAbsPath = file.getAbsolutePath();
-    // → /home/user/webapp/ido/build/resources/main/config/anyid/kdist-local.json
+    // → /home/user/webapp/idem-hub/build/resources/main/config/anyid/kdist-local.json
 }
 ```
 
@@ -316,7 +316,7 @@ void init() {
 SDK 패키지의 `webapp/anyid/` 디렉토리를 정적 리소스로 제공한다.
 
 ```
-ido/src/main/resources/static/anyid/
+idem-hub/src/main/resources/static/anyid/
 ├── js/
 │   ├── manifest.js   ← 로드 순서 1순위
 │   ├── vendor.js     ← 로드 순서 2순위
@@ -336,7 +336,7 @@ ido/src/main/resources/static/anyid/
 ```bash
 # SDK 정적 파일 복사 명령
 cp -r /home/user/anyid-sdk/AuthResourceInstall/webapp/anyid/ \
-      /home/user/webapp/ido/src/main/resources/static/anyid/
+      /home/user/webapp/idem-hub/src/main/resources/static/anyid/
 ```
 
 ### 5.2 로그인 페이지 HTML 구조
@@ -909,7 +909,7 @@ implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")  // 기존 유지
 
 ```bash
 # JAR 내 BouncyCastle 클래스 중복 확인
-jar tf ido/libs/anyid-bc-ref-1.0.2.jar | grep "BouncyCastle"
+jar tf idem-hub/libs/anyid-bc-ref-1.0.2.jar | grep "BouncyCastle"
 # → 래퍼 클래스만 존재, 암호화 구현체 없음 → 충돌 없음
 ```
 
@@ -924,10 +924,10 @@ jar tf ido/libs/anyid-bc-ref-1.0.2.jar | grep "BouncyCastle"
 **해결**:
 ```bash
 # 1. kdist-api.json 파일 존재 확인
-ls -la ido/src/main/resources/config/anyid/kdist-local.json
+ls -la idem-hub/src/main/resources/config/anyid/kdist-local.json
 
 # 2. 빌드 후 경로 확인
-ls -la ido/build/resources/main/config/anyid/kdist-local.json
+ls -la idem-hub/build/resources/main/config/anyid/kdist-local.json
 
 # 3. AnyIdSsobService 로그 확인
 grep "kdist-api.json 경로" application.log
@@ -1011,13 +1011,13 @@ xhr.setRequestHeader("hashed", computedHash);  // SDK가 자동 계산
 | 문서 | 경로 |
 |------|------|
 | 국내 인증 수단 종합 가이드 | `wiki/iam/08-kr-auth-providers-guide.md` |
-| Any-ID DB migration V19 | `ido/src/main/resources/db/migration/V19__anyid_provider_config.sql` |
-| AnyIdSsobService | `ido/src/main/java/kr/go/smes/ido/broker/anyid/AnyIdSsobService.java` |
-| AnyIdController | `ido/src/main/java/kr/go/smes/ido/broker/anyid/AnyIdController.java` |
-| AnyIdBrokerAdapter | `ido/src/main/java/kr/go/smes/ido/broker/anyid/AnyIdBrokerAdapter.java` |
-| AnyIdProperties | `ido/src/main/java/kr/go/smes/ido/broker/anyid/AnyIdProperties.java` |
-| config.anyidc.json | `ido/src/main/resources/config/anyid/config.anyidc.json` |
-| kdist-local.json | `ido/src/main/resources/config/anyid/kdist-local.json` |
+| Any-ID DB migration V19 | `idem-hub/src/main/resources/db/migration/V19__anyid_provider_config.sql` |
+| AnyIdSsobService | `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdSsobService.java` |
+| AnyIdController | `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdController.java` |
+| AnyIdBrokerAdapter | `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdBrokerAdapter.java` |
+| AnyIdProperties | `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdProperties.java` |
+| config.anyidc.json | `idem-hub/src/main/resources/config/anyid/config.anyidc.json` |
+| kdist-local.json | `idem-hub/src/main/resources/config/anyid/kdist-local.json` |
 | SDK 샘플 login.jsp | `AuthResourceInstall/webapp/sample/login.jsp` |
 | SDK 샘플 anyidAdaptor.js | `AuthResourceInstall/webapp/sample/이용기관 자체 로그인 샘플_anyidAdaptor.jsp` |
 | SDK 샘플 orgLogin.jsp | `AuthResourceInstall/webapp/sample/orgLogin.jsp` |

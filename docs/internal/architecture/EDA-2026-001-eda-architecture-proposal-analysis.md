@@ -122,7 +122,7 @@
 
 #### Consumer A — `QimEventConsumer` (ido-qim-consumer 그룹)
 ```java
-// ido/src/main/java/kr/go/smes/ido/kafka/QimEventConsumer.java
+// idem-hub/src/main/java/kr/go/smes/idem-hub/kafka/QimEventConsumer.java
 // 역할: UserEvent 소비 → Redis 캐시 무효화 + needsSync시 Q-IM API pull
 //       + ProvisioningService.triggerProvisioning() 호출
 @KafkaListener(topics = "qim.user.events", groupId = "ido-qim-consumer")
@@ -130,7 +130,7 @@
 
 #### Consumer B — `QimSpMemberEventConsumer` (ido-qim-member-consumer 그룹)
 ```java
-// ido/src/main/java/kr/go/smes/ido/qim/sp/kafka/QimSpMemberEventConsumer.java
+// idem-hub/src/main/java/kr/go/smes/idem-hub/qim/sp/kafka/QimSpMemberEventConsumer.java
 // 역할: BIZ/PERSONAL_MEMBER_CONVERTED/REGISTERED/WITHDRAWN 처리
 //       → QimSpMemberEventHandler → WebhookDispatcherService → 기관 webhook Outbox
 @KafkaListener(topics = "qim.user.events", groupId = "ido-qim-member-consumer")
@@ -141,7 +141,7 @@
 **구현 상태**: ✅ **Virtual Thread 기반 병렬 구현 완료** (단, Feature Flag = OFF)
 
 ```java
-// ido/.../provision/ProvisioningServiceImpl.java
+// idem-hub/.../provision/ProvisioningServiceImpl.java
 // JDK 21 Virtual Thread 병렬 HTTP — 제안서 핵심 설계와 동일
 try (ExecutorService vThreadPool = Executors.newVirtualThreadPerTaskExecutor()) {
     // 최대 68개 기관 동시 HTTP POST
@@ -169,7 +169,7 @@ private boolean provisioningDryRun;   // ← 현재 true (HTTP 미발행 관찰 
 **구현 상태**: ✅ **`AgencyEventController` HTTP 폴링 API 구현됨**
 
 ```java
-// ido/.../api/AgencyEventController.java
+// idem-hub/.../api/AgencyEventController.java
 // GET  /api/v1/agency/events        — 이벤트 폴링 (30~60초 주기 권장)
 // POST /api/v1/agency/events/{id}/read — 읽음 처리
 // 데이터 소스: ido.webhook_dispatch_outbox
@@ -223,7 +223,7 @@ Q-IM → Kafka(qim.user.events) ─┬→ QimEventConsumer (캐시 무효화 + P
 |------|--------|------|---------|
 | **Relay 분리 구조** | 별도 Scheduler 서비스가 전담 | 각 서비스 내 @Scheduled 분산 (6개) | 🔴 HIGH |
 | F-20 Feature Flag | 즉시 활성화 전제 | `IDO_PROVISIONING_ENABLED=false` | 🔴 BLOCKER (운영 전 활성화 필수) |
-| Kafka 의존성 격리 | 각 서비스 Kafka 미의존 | q-im/q-sign/ido 모두 spring-kafka 직접 의존 | 🟠 HIGH |
+| Kafka 의존성 격리 | 각 서비스 Kafka 미의존 | idem-registry/idem-gate/ido 모두 spring-kafka 직접 의존 | 🟠 HIGH |
 | 기관 API 인증 | 명시 없음 | API_KEY/HMAC/mTLS 미구현 (`REQUIRES_MANUAL`) | 🔴 BLOCKER (Sprint 17) |
 | Kafka 페이로드 암호화 | ISMS-P 필수 강조 | **미구현** (CI는 AES-256-GCM 암호화, but Kafka 페이로드 자체는 평문) | 🟠 HIGH |
 | Redis jobId 전환 진행율 | 6단계 상태 추적 | 별도 전용 구현 미확인 | 🟡 MEDIUM |
@@ -646,14 +646,14 @@ spring.kafka.properties:
 
 | 파일 | 역할 |
 |------|------|
-| `q-im/.../UserServiceImpl.java` | Outbox 발행 진입점 |
-| `q-im/.../KafkaTopicConfig.java` | `qim.user.events` 토픽 정의 |
-| `platform-common/.../UserEvent.java` | Kafka 이벤트 스키마 |
-| `ido/.../QimEventConsumer.java` | Consumer A — 캐시 무효화 + Provisioning 트리거 |
-| `ido/.../qim/sp/kafka/QimSpMemberEventConsumer.java` | Consumer B — 기관 Webhook 적재 |
-| `ido/.../provision/ProvisioningServiceImpl.java` | Virtual Thread 병렬 기관 HTTP 발행 |
-| `ido/.../api/AgencyEventController.java` | 기관 HTTP 폴링 API |
-| `ido/.../config/KafkaTopicConfig.java` | IdO 토픽 정의 (handoff, session, audit) |
+| `idem-registry/.../UserServiceImpl.java` | Outbox 발행 진입점 |
+| `idem-registry/.../KafkaTopicConfig.java` | `qim.user.events` 토픽 정의 |
+| `idem-common/.../UserEvent.java` | Kafka 이벤트 스키마 |
+| `idem-hub/.../QimEventConsumer.java` | Consumer A — 캐시 무효화 + Provisioning 트리거 |
+| `idem-hub/.../qim/sp/kafka/QimSpMemberEventConsumer.java` | Consumer B — 기관 Webhook 적재 |
+| `idem-hub/.../provision/ProvisioningServiceImpl.java` | Virtual Thread 병렬 기관 HTTP 발행 |
+| `idem-hub/.../api/AgencyEventController.java` | 기관 HTTP 폴링 API |
+| `idem-hub/.../config/KafkaTopicConfig.java` | IdO 토픽 정의 (handoff, session, audit) |
 | `docs/internal/architecture/ADR-2026-004-*.md` | INTERNAL_SSO 패턴 결정 |
 
 ---

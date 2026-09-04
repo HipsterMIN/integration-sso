@@ -29,7 +29,7 @@
 **재검증 결과**: ⚠️ **부분 정확 — Keycloak 모드에서는 여전히 identifierHash 사용 중**
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/broker/keycloak/KeycloakOidcService.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/broker/keycloak/KeycloakOidcService.java
 라인 144: identifierHash,   // 소셜 로그인 경로: CI 없음 → identifierHash 사용 (Q-IM 팀 협의 필요)
 라인 352: identifierHash,   // 소셜 로그인: CI 없음 → identifierHash 사용 (Q-IM 팀 협의 필요)
 ```
@@ -52,7 +52,7 @@
 **재검증 결과**: ✅ **정확, 단 위험 경로를 추가 발견**
 
 ```
-파일: q-sign/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java
+파일: idem-gate/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java
 라인 115: return !strictMode; // strict=false → PoC 허용, strict=true → 거부
 라인 119: return !strictMode;
 ```
@@ -79,7 +79,7 @@ q-sign 측 (라인 102-157): strict-mode 있음 → non-strict 우회 경로 존
 **재검증 결과**: ❌ **보고서가 완전히 틀렸다**
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/ratelimit/AgencyRateLimiter.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/ratelimit/AgencyRateLimiter.java
 라인 41-70: Redis Lua 스크립트 기반 분산 카운터
 라인 37: TPS_KEY_PREFIX = "ido:rl:tps:"  ← Redis 키
 라인 38: DAILY_KEY_PREFIX = "ido:rl:daily:"  ← Redis 키
@@ -108,7 +108,7 @@ Redis 장애 시 Rate Limit이 완전히 우회된다. 이것이 진짜 위험�
 **재검증 결과**: ⚠️ **사실이나 실질 위험 과장**
 
 ```
-q-sign/src/main/resources/application.yml
+idem-gate/src/main/resources/application.yml
 라인 167: jwks-cache-ttl-seconds: 3600
 ```
 
@@ -218,7 +218,7 @@ KeycloakOidcService.java 라인 144:
 **심각도**: **Medium**
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/auth/dto/CiCheckResponse.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/auth/dto/CiCheckResponse.java
 라인 62-63:
   // TODO(S7-T6): IM API 연동 후 실제 CI 매칭 로직 구현 필요.
   // 현재는 파라미터 검증 후 성공(true)만 반환.
@@ -248,10 +248,10 @@ if (ciForInternalUse != null && !ciForInternalUse.isBlank()) {
 **심각도**: **Low-Medium**
 
 ```
-파일: q-sign/src/main/java/kr/go/smes/qsign/api/OidcDiscoveryController.java
+파일: idem-gate/src/main/java/kr/go/smes/qsign/api/OidcDiscoveryController.java
 라인 141: metadata.put("code_challenge_methods_supported", List.of("plain", "S256"));
 
-파일: q-sign/src/main/java/kr/go/smes/qsign/pkce/PkceService.java
+파일: idem-gate/src/main/java/kr/go/smes/qsign/pkce/PkceService.java
 라인 111: // plain 방식은 보안상 권장하지 않음 (RFC 7636 §4.2)
 라인 158: // plain: code_verifier == code_challenge
 ```
@@ -267,12 +267,12 @@ Discovery 문서에 `plain`을 지원 method로 공표하고, 실제로 `plain`�
 **심각도**: **Medium**
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/ratelimit/AgencyRateLimiter.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/ratelimit/AgencyRateLimiter.java
 라인 152-154:
   log.error("Redis 오류 — 허용 처리 (fail-open): agencyCode={}")
   return true; // fail-open: Redis 장애 시 허용
 
-파일: ido/src/main/java/kr/go/smes/ido/ratelimit/AuthRateLimitInterceptor.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/ratelimit/AuthRateLimitInterceptor.java
 라인 164-165:
   log.error("Redis 오류 — fail-open 허용: key={}")
   return 0; // fail-open: 장애 시 허용

@@ -55,26 +55,26 @@ f141009  feat(v1.5.0): 유관기관 외부망 Webhook 연동 전체 스택 구�
 P3-05(14세 미만 보호자 인증)/P3-06(기업회원 전환) 구현 후 운영 투입 관점에서 심층 코드 리뷰를 진행.  
 GDPR §17 위반, JPA 1차 캐시 오염, correlationId 혼용 버그, 입력 검증 누락 등 8종 결함 식별 및 수정.
 
-**빌드 결과**: `DOCKER_UNAVAILABLE=true ./gradlew :q-im:clean :q-im:test --no-daemon`
+**빌드 결과**: `DOCKER_UNAVAILABLE=true ./gradlew :idem-registry:clean :idem-registry:test --no-daemon`
 - Total: **219 tests**, Failures: 0, Errors: 0, Skipped: **30**
 
 **수정 파일 목록**:
 
 | 파일 | 유형 | Fix | 내용 |
 |------|------|-----|------|
-| `q-im/.../agency/AgencyMemberLookupServiceImpl.java` | **수정** | Fix 1 | Virtual Thread Executor `try-finally shutdown()` + 30s 절대 데드라인 |
-| `q-im/.../withdrawal/WithdrawalServiceImpl.java` | **수정** | Fix 2 | `deletePii()` — `guardian_qim_user_id`, `guardian_consent_at` NULL 처리 추가 |
-| `q-im/.../user/UserRegistrationServiceImpl.java` | **수정** | Fix 2 | 동일 GDPR V6 컬럼 NULL 처리 추가 |
-| `q-im/.../api/GuardianConsentController.java` | **수정** | Fix 3/5 | `@Valid @RequestBody`, `X-Correlation-Id` 헤더 추출 + `getStatus()` 호출 수정 |
-| `q-im/.../api/BizMemberConversionController.java` | **수정** | Fix 3/4 | `@Valid @RequestBody`, `HttpStatus.CREATED` 반환 |
-| `q-im/.../api/GlobalExceptionHandler.java` | **수정** | Fix 3 | `MethodArgumentNotValidException` 핸들러 추가 (E-IM-400) |
-| `q-im/.../biz/BizMemberConversionServiceImpl.java` | **수정** | Fix 4 | `existsById(qimUserId)` + `existsByBizRegNo()` 중복 전환 방지 체크 |
-| `q-im/.../guardian/GuardianConsentService.java` | **수정** | Fix 5 | `getStatus()` 시그니처 변경: `(qimUserId)` → `(qimUserId, correlationId)` |
-| `q-im/.../guardian/GuardianConsentServiceImpl.java` | **수정** | Fix 5 | `PlatformException` 인수 순서 수정 (qimUserId → correlationId) |
-| `q-im/.../jpa/repository/UserProfileJpaRepository.java` | **수정** | Fix 6 | `@Modifying(clearAutomatically=true, flushAutomatically=true)` 추가 |
-| `q-im/.../guardian/GuardianConsentServiceImplTest.java` | **수정** | Fix 5 | `getStatus()` 호출 4곳 CID 파라미터 추가 |
-| `q-im/.../user/UserRegistrationServiceImplTest.java` | **수정** | Fix 7 | isMinor 저장 검증 테스트 3종 추가 (동적 연도 계산) |
-| `q-im/.../integration/QimLifecycleIntegrationTest.java` | **수정** | Fix 8 | S8(보호자 동의 4종) + S9(기업회원 전환 6종) E2E 시나리오 추가 |
+| `idem-registry/.../agency/AgencyMemberLookupServiceImpl.java` | **수정** | Fix 1 | Virtual Thread Executor `try-finally shutdown()` + 30s 절대 데드라인 |
+| `idem-registry/.../withdrawal/WithdrawalServiceImpl.java` | **수정** | Fix 2 | `deletePii()` — `guardian_qim_user_id`, `guardian_consent_at` NULL 처리 추가 |
+| `idem-registry/.../user/UserRegistrationServiceImpl.java` | **수정** | Fix 2 | 동일 GDPR V6 컬럼 NULL 처리 추가 |
+| `idem-registry/.../api/GuardianConsentController.java` | **수정** | Fix 3/5 | `@Valid @RequestBody`, `X-Correlation-Id` 헤더 추출 + `getStatus()` 호출 수정 |
+| `idem-registry/.../api/BizMemberConversionController.java` | **수정** | Fix 3/4 | `@Valid @RequestBody`, `HttpStatus.CREATED` 반환 |
+| `idem-registry/.../api/GlobalExceptionHandler.java` | **수정** | Fix 3 | `MethodArgumentNotValidException` 핸들러 추가 (E-IM-400) |
+| `idem-registry/.../biz/BizMemberConversionServiceImpl.java` | **수정** | Fix 4 | `existsById(qimUserId)` + `existsByBizRegNo()` 중복 전환 방지 체크 |
+| `idem-registry/.../guardian/GuardianConsentService.java` | **수정** | Fix 5 | `getStatus()` 시그니처 변경: `(qimUserId)` → `(qimUserId, correlationId)` |
+| `idem-registry/.../guardian/GuardianConsentServiceImpl.java` | **수정** | Fix 5 | `PlatformException` 인수 순서 수정 (qimUserId → correlationId) |
+| `idem-registry/.../jpa/repository/UserProfileJpaRepository.java` | **수정** | Fix 6 | `@Modifying(clearAutomatically=true, flushAutomatically=true)` 추가 |
+| `idem-registry/.../guardian/GuardianConsentServiceImplTest.java` | **수정** | Fix 5 | `getStatus()` 호출 4곳 CID 파라미터 추가 |
+| `idem-registry/.../user/UserRegistrationServiceImplTest.java` | **수정** | Fix 7 | isMinor 저장 검증 테스트 3종 추가 (동적 연도 계산) |
+| `idem-registry/.../integration/QimLifecycleIntegrationTest.java` | **수정** | Fix 8 | S8(보호자 동의 4종) + S9(기업회원 전환 6종) E2E 시나리오 추가 |
 
 **Fix별 상세**:
 
@@ -123,11 +123,11 @@ GDPR §17 위반, JPA 1차 캐시 오염, correlationId 혼용 버그, 입력 �
 
 | 파일 | 내용 |
 |------|------|
-| `q-im/.../api/UserController.java` | `find-by-social-sub` + `register-social` 엔드포인트 |
-| `ido/.../broker/keycloak/KeycloakOidcService.java` | OIDC 콜백 처리, SHA-256(sub) identifierHash |
-| `ido/.../policy/PolicyEngineImpl.java` | HMAC fallback 제거, GUEST 정책 |
-| `platform-common/.../HandoffPayload.java` | `HandoffState.GUEST` 추가 |
-| `agency-stub/.../api/AgencyEntryController.java` | `case GUEST` 분기 처리 |
+| `idem-registry/.../api/UserController.java` | `find-by-social-sub` + `register-social` 엔드포인트 |
+| `idem-hub/.../broker/keycloak/KeycloakOidcService.java` | OIDC 콜백 처리, SHA-256(sub) identifierHash |
+| `idem-hub/.../policy/PolicyEngineImpl.java` | HMAC fallback 제거, GUEST 정책 |
+| `idem-common/.../HandoffPayload.java` | `HandoffState.GUEST` 추가 |
+| `idem-tenant-sample/.../api/AgencyEntryController.java` | `case GUEST` 분기 처리 |
 
 ---
 
@@ -144,12 +144,12 @@ GDPR §17 위반, JPA 1차 캐시 오염, correlationId 혼용 버그, 입력 �
 
 | 파일 | 유형 | 설명 |
 |------|------|------|
-| `ido/.../api/dto/AgencyEventResponse.java` | **신규** | 이벤트 단건 DTO — `dispatchId`, `eventType`, `payload`, `status`, `createdAt`, `dispatchedAt` |
-| `ido/.../api/dto/AgencyEventListResponse.java` | **신규** | 폴링 목록 래퍼 — `events[]`, `count`, `hasMore`, `polledAt`, `queryInfo` |
-| `ido/.../webhook/AgencyEventQueryService.java` | **신규** | 폴링 서비스 인터페이스 — `queryEvents()`, `markAsRead()` |
-| `ido/.../webhook/AgencyEventQueryServiceImpl.java` | **신규** | `webhook_dispatch_outbox` JdbcTemplate 동적 SQL 조회, JSONB payload 역직렬화, PENDING→DISPATCHED mark |
-| `ido/.../api/AgencyEventController.java` | **신규** | `GET /api/v1/agency/events` + `POST /{dispatchId}/read` — since 커서·eventType 필터·limit 검증 |
-| `ido/.../fe/config/IdoWebMvcConfig.java` | **수정** | `/api/v1/agency/**` 인터셉터(X-Agency-Key) + CORS 등록 |
+| `idem-hub/.../api/dto/AgencyEventResponse.java` | **신규** | 이벤트 단건 DTO — `dispatchId`, `eventType`, `payload`, `status`, `createdAt`, `dispatchedAt` |
+| `idem-hub/.../api/dto/AgencyEventListResponse.java` | **신규** | 폴링 목록 래퍼 — `events[]`, `count`, `hasMore`, `polledAt`, `queryInfo` |
+| `idem-hub/.../webhook/AgencyEventQueryService.java` | **신규** | 폴링 서비스 인터페이스 — `queryEvents()`, `markAsRead()` |
+| `idem-hub/.../webhook/AgencyEventQueryServiceImpl.java` | **신규** | `webhook_dispatch_outbox` JdbcTemplate 동적 SQL 조회, JSONB payload 역직렬화, PENDING→DISPATCHED mark |
+| `idem-hub/.../api/AgencyEventController.java` | **신규** | `GET /api/v1/agency/events` + `POST /{dispatchId}/read` — since 커서·eventType 필터·limit 검증 |
+| `idem-hub/.../fe/config/IdoWebMvcConfig.java` | **수정** | `/api/v1/agency/**` 인터셉터(X-Agency-Key) + CORS 등록 |
 
 **API 설계**:
 ```
@@ -185,23 +185,23 @@ POST /api/v1/agency/events/{dispatchId}/read
 
 | 파일 | 설명 |
 |------|------|
-| `ido/.../handoff/strategy/InternalSsoHandoffStrategy.java` | INTERNAL_SSO 전략 — `POST {ssoDomain}/internal/sso-session` SSO 세션 사전 등록 |
-| `ido/.../handoff/strategy/ApacheGateHandoffStrategy.java` | APACHE_GATE 전략 — Apache mod_auth_openidc 호환 헤더 (`X-Remote-User`, `X-Auth-Level`, `X-Handoff-Token`, `X-Session-Expiry`) 사전 Push |
-| `q-sign/.../kafka/IdempotentEventStore.java` | Q-Sign 멱등 이벤트 저장소 — `qsign.processed_event` ON CONFLICT DO NOTHING + `qsign.last_event_version` 버전 추적 |
-| `q-sign/.../kafka/QimUserEventConsumer.java` | Q-Sign Q-IM 이벤트 컨슈머 — `@KafkaListener(qim.user.events)` + 6단계 멱등 처리 + USER_SUSPENDED/WITHDRAWN → auth_lock 강제 잠금 |
-| `q-im/.../entity/SnapshotMetaJpaEntity.java` | `snapshot_meta` 테이블 JPA 엔터티 (PUBLISHED/FAILED 상태) |
-| `q-im/.../repository/SnapshotMetaJpaRepository.java` | 최신 스냅샷 조회, 중복 발행 방지 쿼리 |
-| `q-im/.../outbox/SnapshotService.java` | 스냅샷 발행 서비스 인터페이스 |
-| `q-im/.../outbox/SnapshotServiceImpl.java` | 스냅샷 발행 구현체 — N개 이벤트마다 `qim.user.snapshot` Compacted Topic 발행 |
+| `idem-hub/.../handoff/strategy/InternalSsoHandoffStrategy.java` | INTERNAL_SSO 전략 — `POST {ssoDomain}/internal/sso-session` SSO 세션 사전 등록 |
+| `idem-hub/.../handoff/strategy/ApacheGateHandoffStrategy.java` | APACHE_GATE 전략 — Apache mod_auth_openidc 호환 헤더 (`X-Remote-User`, `X-Auth-Level`, `X-Handoff-Token`, `X-Session-Expiry`) 사전 Push |
+| `idem-gate/.../kafka/IdempotentEventStore.java` | Q-Sign 멱등 이벤트 저장소 — `qsign.processed_event` ON CONFLICT DO NOTHING + `qsign.last_event_version` 버전 추적 |
+| `idem-gate/.../kafka/QimUserEventConsumer.java` | Q-Sign Q-IM 이벤트 컨슈머 — `@KafkaListener(qim.user.events)` + 6단계 멱등 처리 + USER_SUSPENDED/WITHDRAWN → auth_lock 강제 잠금 |
+| `idem-registry/.../entity/SnapshotMetaJpaEntity.java` | `snapshot_meta` 테이블 JPA 엔터티 (PUBLISHED/FAILED 상태) |
+| `idem-registry/.../repository/SnapshotMetaJpaRepository.java` | 최신 스냅샷 조회, 중복 발행 방지 쿼리 |
+| `idem-registry/.../outbox/SnapshotService.java` | 스냅샷 발행 서비스 인터페이스 |
+| `idem-registry/.../outbox/SnapshotServiceImpl.java` | 스냅샷 발행 구현체 — N개 이벤트마다 `qim.user.snapshot` Compacted Topic 발행 |
 
 #### 수정된 파일
 
 | 파일 | 변경 내용 |
 |------|---------|
-| `ido/.../handoff/HandoffServiceImpl.java` | Ticket 발급 후 `strategyFactory.getStrategy(integrationType).postIssue()` 호출 블록 추가 (7단계) |
-| `ido/.../domain/AgencyMeta.java` | `ssoDomain`, `apacheGateEndpoint` 필드 추가 |
-| `ido/.../infrastructure/AgencyMetaRepositoryImpl.java` | `toDomain()` integrationType/ssoDomain/apacheGateEndpoint 매핑 수정; `toEntity()` bridgeEndpoint 분기 수정 |
-| `q-im/.../outbox/OutboxServiceImpl.java` | `SnapshotService` 주입 + `triggerSnapshotIfNeeded()` — 이벤트 발행 성공 후 스냅샷 트리거 |
+| `idem-hub/.../handoff/HandoffServiceImpl.java` | Ticket 발급 후 `strategyFactory.getStrategy(integrationType).postIssue()` 호출 블록 추가 (7단계) |
+| `idem-hub/.../domain/AgencyMeta.java` | `ssoDomain`, `apacheGateEndpoint` 필드 추가 |
+| `idem-hub/.../infrastructure/AgencyMetaRepositoryImpl.java` | `toDomain()` integrationType/ssoDomain/apacheGateEndpoint 매핑 수정; `toEntity()` bridgeEndpoint 분기 수정 |
+| `idem-registry/.../outbox/OutboxServiceImpl.java` | `SnapshotService` 주입 + `triggerSnapshotIfNeeded()` — 이벤트 발행 성공 후 스냅샷 트리거 |
 | `docs/development/12-implementation-gaps.md` | v1.9.2 완성도 업데이트, P2 완료 항목 반영 |
 | `docs/development/13-development-history.md` | v1.9.2 이력 추가 |
 
@@ -248,12 +248,12 @@ POST /api/v1/agency/events/{dispatchId}/read
 
 | 파일 | 설명 |
 |------|------|
-| `ido/src/main/resources/db/migration/V10__extend_auth_result_and_provider_routing.sql` | auth_result 4개 컬럼 추가 + provider_circuit_config 테이블 + broker_audit_log 인덱스 |
-| `ido/src/main/java/kr/go/smes/ido/broker/BrokerAuditLogService.java` | broker_audit_log 비동기 INSERT 서비스 (REDIRECT/CALLBACK/COMPLETE/FAIL/TIMEOUT) |
-| `ido/src/main/java/kr/go/smes/ido/broker/provider/ProviderConfig.java` | STANDARD_OIDC/SEMI_STANDARD_OIDC/NON_STANDARD 도메인 모델 |
-| `ido/src/main/java/kr/go/smes/ido/broker/provider/ProviderConfigRepository.java` | provider_config DB 조회 + Redis @Cacheable (TTL 60분) |
-| `ido/src/main/java/kr/go/smes/ido/broker/provider/ProviderRouter.java` | provider_type → KEYCLOAK_RELAY/DIRECT_BROKER 런타임 라우팅 |
-| `ido/src/main/java/kr/go/smes/ido/broker/provider/ProviderCircuitBreakerConfig.java` | provider_code 단위 Resilience4j CB 동적 생성 |
+| `idem-hub/src/main/resources/db/migration/V10__extend_auth_result_and_provider_routing.sql` | auth_result 4개 컬럼 추가 + provider_circuit_config 테이블 + broker_audit_log 인덱스 |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/BrokerAuditLogService.java` | broker_audit_log 비동기 INSERT 서비스 (REDIRECT/CALLBACK/COMPLETE/FAIL/TIMEOUT) |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/provider/ProviderConfig.java` | STANDARD_OIDC/SEMI_STANDARD_OIDC/NON_STANDARD 도메인 모델 |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/provider/ProviderConfigRepository.java` | provider_config DB 조회 + Redis @Cacheable (TTL 60분) |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/provider/ProviderRouter.java` | provider_type → KEYCLOAK_RELAY/DIRECT_BROKER 런타임 라우팅 |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/provider/ProviderCircuitBreakerConfig.java` | provider_code 단위 Resilience4j CB 동적 생성 |
 | `docs/handoff-note.md` | v1.9.0 최종 인수인계 패키지 |
 
 #### 수정된 파일

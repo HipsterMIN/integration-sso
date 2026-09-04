@@ -44,7 +44,7 @@ x-promtail-label: &promtail-label
   logging: "promtail"
 
 networks:
-  onepass-net:
+  idem-net:
     driver: bridge
     ipam:
       config:
@@ -72,7 +72,7 @@ services:
   # ════════════════════════════════════════════════════════════
   mariadb:
     image: mariadb:11.4
-    container_name: onepass-mariadb
+    container_name: idem-mariadb
     restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: rootpass
@@ -86,7 +86,7 @@ services:
       - mariadb-data:/var/lib/mysql
       - ./mariadb/mariadb.cnf:/etc/mysql/conf.d/mariadb.cnf:ro
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.21
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -107,7 +107,7 @@ services:
   # ════════════════════════════════════════════════════════════
   postgres:
     image: postgres:16-alpine
-    container_name: onepass-postgres
+    container_name: idem-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER:     onepass
@@ -128,7 +128,7 @@ services:
         -c config_file=/etc/postgresql/postgresql.conf
         -c hba_file=/etc/postgresql/pg_hba.conf
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.10
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U onepass -d onepass"]
@@ -149,7 +149,7 @@ services:
   # ════════════════════════════════════════════════════════════
   redis:
     image: redis:7.2-alpine
-    container_name: onepass-redis
+    container_name: idem-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -158,7 +158,7 @@ services:
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     command: redis-server /usr/local/etc/redis/redis.conf
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.11
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -182,7 +182,7 @@ services:
   # ════════════════════════════════════════════════════════════
   vault:
     image: hashicorp/vault:1.17
-    container_name: onepass-vault
+    container_name: idem-vault
     restart: unless-stopped
     ports:
       - "8200:8200"
@@ -195,7 +195,7 @@ services:
     cap_add:
       - IPC_LOCK  # mlock() 허용 — 메모리 스왑 방지 (운영 보안 필수)
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.20
     healthcheck:
       test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
@@ -216,7 +216,7 @@ services:
   # ════════════════════════════════════════════════════════════
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
-    container_name: onepass-zookeeper
+    container_name: idem-zookeeper
     restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -233,7 +233,7 @@ services:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-log:/var/lib/zookeeper/log
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.12
     healthcheck:
       test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok"]
@@ -248,7 +248,7 @@ services:
   # ════════════════════════════════════════════════════════════
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    container_name: onepass-kafka
+    container_name: idem-kafka
     restart: unless-stopped
     depends_on:
       zookeeper:
@@ -299,7 +299,7 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.13
     healthcheck:
       test:
@@ -322,12 +322,12 @@ services:
   # ════════════════════════════════════════════════════════════
   kafka-init:
     image: confluentinc/cp-kafka:7.6.1
-    container_name: onepass-kafka-init
+    container_name: idem-kafka-init
     depends_on:
       kafka:
         condition: service_healthy
     networks:
-      - onepass-net
+      - idem-net
     volumes:
       - ./kafka/create-topics.sh:/create-topics.sh:ro
     entrypoint: ["/bin/bash", "/create-topics.sh"]
@@ -338,7 +338,7 @@ services:
   # ════════════════════════════════════════════════════════════
   schema-registry:
     image: confluentinc/cp-schema-registry:7.6.1
-    container_name: onepass-schema-registry
+    container_name: idem-schema-registry
     restart: unless-stopped
     depends_on:
       kafka:
@@ -351,7 +351,7 @@ services:
     ports:
       - "8085:8081"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.14
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8081/subjects || exit 1"]
@@ -368,7 +368,7 @@ services:
   # ════════════════════════════════════════════════════════════
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    container_name: onepass-kafka-ui
+    container_name: idem-kafka-ui
     restart: unless-stopped
     depends_on:
       kafka:
@@ -376,7 +376,7 @@ services:
     ports:
       - "8090:8080"
     environment:
-      KAFKA_CLUSTERS_0_NAME: onepass-local
+      KAFKA_CLUSTERS_0_NAME: idem-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
       KAFKA_CLUSTERS_0_JMXPORT: 9999
@@ -385,7 +385,7 @@ services:
       SPRING_SECURITY_USER_NAME: admin
       SPRING_SECURITY_USER_PASSWORD: admin
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.15
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
@@ -400,12 +400,12 @@ services:
   # ════════════════════════════════════════════════════════════
   redis-insight:
     image: redis/redisinsight:latest
-    container_name: onepass-redis-insight
+    container_name: idem-redis-insight
     restart: unless-stopped
     ports:
       - "5540:5540"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.16
     depends_on:
       redis:
@@ -418,7 +418,7 @@ services:
   # ════════════════════════════════════════════════════════════
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: onepass-pgadmin
+    container_name: idem-pgadmin
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@onepass.local
@@ -430,7 +430,7 @@ services:
     volumes:
       - ./postgres/pgadmin-servers.json:/pgadmin4/servers.json:ro
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.17
     depends_on:
       postgres:
@@ -450,7 +450,7 @@ services:
     ports:
       - "8091:8080"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.23
     depends_on:
       mariadb:
@@ -470,7 +470,7 @@ services:
   # ════════════════════════════════════════════════════════════
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
-    container_name: onepass-keycloak
+    container_name: idem-keycloak
     restart: unless-stopped
     command: start-dev --http-port=8080 --import-realm
     environment:
@@ -492,7 +492,7 @@ services:
       - keycloak-data:/opt/keycloak/data
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.18
     depends_on:
       postgres:
@@ -512,16 +512,16 @@ services:
   # profile: app
   #
   # 빌드:
-  #   ./gradlew :q-sign:bootJar -x test
-  #   docker build -f q-sign/Dockerfile -t onepass-qsign:latest .
+  #   ./gradlew :idem-gate:bootJar -x test
+  #   docker build -f idem-gate/Dockerfile -t idem-gate:latest .
   # ════════════════════════════════════════════════════════════
-  onepass-qsign:
-    image: onepass-qsign:latest
-    container_name: onepass-qsign
+  idem-gate:
+    image: idem-gate:latest
+    container_name: idem-gate
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-qsign
+      com.docker.compose.service: idem-gate
     environment:
       SPRING_PROFILES_ACTIVE: docker
       # ── PostgreSQL ──────────────────────────────────────────
@@ -535,7 +535,7 @@ services:
       REDIS_PORT:    "6379"
       KAFKA_SERVERS: kafka:29092
       # ── IdO 내부 통신 ───────────────────────────────────────
-      IDO_BASE_URL:             http://onepass-ido:8083
+      IDO_BASE_URL:             http://idem-hub:8083
       IDO_INTERNAL_SIG_SECRET:  ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
       # ── Keycloak 어댑터 ─────────────────────────────────────
       KEYCLOAK_URL:                  http://keycloak:8080
@@ -548,7 +548,7 @@ services:
     ports:
       - "8081:8081"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.24
     depends_on:
       postgres:
@@ -574,16 +574,16 @@ services:
   # profile: app
   #
   # 빌드:
-  #   ./gradlew :q-im:bootJar -x test
-  #   docker build -f q-im/Dockerfile -t onepass-qim:latest .
+  #   ./gradlew :idem-registry:bootJar -x test
+  #   docker build -f idem-registry/Dockerfile -t idem-registry:latest .
   # ════════════════════════════════════════════════════════════
-  onepass-qim:
-    image: onepass-qim:latest
-    container_name: onepass-qim
+  idem-registry:
+    image: idem-registry:latest
+    container_name: idem-registry
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-qim
+      com.docker.compose.service: idem-registry
     environment:
       SPRING_PROFILES_ACTIVE: docker
       # ── MariaDB ─────────────────────────────────────────────
@@ -603,7 +603,7 @@ services:
     ports:
       - "8082:8082"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.22
     depends_on:
       mariadb:
@@ -629,16 +629,16 @@ services:
   # profile: app
   #
   # 빌드:
-  #   ./gradlew :ido:bootJar -x test
-  #   docker build -f ido/Dockerfile -t onepass-ido:latest .
+  #   ./gradlew :idem-hub:bootJar -x test
+  #   docker build -f idem-hub/Dockerfile -t idem-hub:latest .
   # ════════════════════════════════════════════════════════════
-  onepass-ido:
-    image: onepass-ido:latest
-    container_name: onepass-ido
+  idem-hub:
+    image: idem-hub:latest
+    container_name: idem-hub
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-ido
+      com.docker.compose.service: idem-hub
     environment:
       SPRING_PROFILES_ACTIVE: docker
       # ── PostgreSQL ──────────────────────────────────────────
@@ -652,8 +652,8 @@ services:
       REDIS_PORT:    "6379"
       KAFKA_SERVERS: kafka:29092
       # ── 백엔드 서비스 URL ───────────────────────────────────
-      QIM_BASE_URL:   http://onepass-qim:8082
-      QSIGN_BASE_URL: http://onepass-qsign:8081
+      QIM_BASE_URL:   http://idem-registry:8082
+      QSIGN_BASE_URL: http://idem-gate:8081
       # ── Q-IM 내부 API 호출 키 (IdO → Q-IM X-Internal-Api-Key) ──
       # Q-IM의 QIM_INTERNAL_API_KEY와 반드시 동일해야 함
       IDO_QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
@@ -682,7 +682,7 @@ services:
     ports:
       - "8083:8083"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.19
     depends_on:
       postgres:
@@ -693,9 +693,9 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      onepass-qim:
+      idem-registry:
         condition: service_healthy
-      onepass-qsign:
+      idem-gate:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
@@ -713,16 +713,16 @@ services:
   # profile: app
   #
   # 빌드:
-  #   ./gradlew :agency-stub:bootJar -x test
-  #   docker build -f agency-stub/Dockerfile -t onepass-agency-stub:latest .
+  #   ./gradlew :idem-tenant-sample:bootJar -x test
+  #   docker build -f idem-tenant-sample/Dockerfile -t idem-tenant-sample:latest .
   # ════════════════════════════════════════════════════════════
-  onepass-agency-stub:
-    image: onepass-agency-stub:latest
-    container_name: onepass-agency-stub
+  idem-tenant-sample:
+    image: idem-tenant-sample:latest
+    container_name: idem-tenant-sample
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-agency-stub
+      com.docker.compose.service: idem-tenant-sample
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST:     postgres
@@ -733,13 +733,13 @@ services:
       REDIS_HOST:    redis
       REDIS_PORT:    "6379"
       KAFKA_SERVERS: kafka:29092
-      IDO_BASE_URL:  http://onepass-ido:8083
+      IDO_BASE_URL:  http://idem-hub:8083
       AGENCY_API_KEY:             ${AGENCY_API_KEY:-stub-api-key-dev-001}
       IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
     ports:
       - "8084:8084"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.25
     depends_on:
       postgres:
@@ -750,7 +750,7 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      onepass-ido:
+      idem-hub:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health || exit 1"]
@@ -763,31 +763,31 @@ services:
     logging: *log-defaults
 
   # ════════════════════════════════════════════════════════════
-  # ★ React SPA (Nginx) — onepass-fe — http://localhost:3001
+  # ★ React SPA (Nginx) — idem-console — http://localhost:3001
   # profile: optionB
   #
   # build context: 프로젝트 루트 (nginx.conf 참조 가능)
   # Dockerfile.optionB는 context 내부 상대경로 사용
   # ════════════════════════════════════════════════════════════
-  onepass-react:
+  idem-console:
     build:
       # context를 프로젝트 루트로 설정 → infra/docker/nginx/nginx.conf COPY 가능
       context: ../..
-      dockerfile: onepass-fe/Dockerfile.optionB
+      dockerfile: idem-console/Dockerfile.optionB
       target: react-nginx
-    image: onepass-react:latest
-    container_name: onepass-react
+    image: idem-console:latest
+    container_name: idem-console
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: onepass-react
+      com.docker.compose.service: idem-console
     ports:
       - "3001:80"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.20
     depends_on:
-      onepass-ido:
+      idem-hub:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]
@@ -805,7 +805,7 @@ services:
   # ════════════════════════════════════════════════════════════
   prometheus:
     image: prom/prometheus:v2.51.2
-    container_name: onepass-prometheus
+    container_name: idem-prometheus
     restart: unless-stopped
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -821,7 +821,7 @@ services:
       - ../monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
       - prometheus-data:/prometheus
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.50
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -839,7 +839,7 @@ services:
   # ════════════════════════════════════════════════════════════
   grafana:
     image: grafana/grafana:10.4.2
-    container_name: onepass-grafana
+    container_name: idem-grafana
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER:     admin
@@ -847,7 +847,7 @@ services:
       GF_USERS_ALLOW_SIGN_UP:     "false"
       GF_SERVER_ROOT_URL:         "http://localhost:3002"
       GF_INSTALL_PLUGINS:         "grafana-clock-panel"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/onepass-overview.json
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/idem-overview.json
     ports:
       - "3002:3000"
     volumes:
@@ -856,7 +856,7 @@ services:
       # dashboards 실제 경로: infra/monitoring/dashboards/
       - ../monitoring/dashboards:/var/lib/grafana/dashboards:ro
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.51
     depends_on:
       - prometheus
@@ -874,7 +874,7 @@ services:
   # ════════════════════════════════════════════════════════════
   loki:
     image: grafana/loki:3.0.0
-    container_name: onepass-loki
+    container_name: idem-loki
     restart: unless-stopped
     ports:
       - "3100:3100"
@@ -883,7 +883,7 @@ services:
       - ../monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/tmp/loki
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.52
     profiles:
       - monitoring
@@ -901,7 +901,7 @@ services:
   # ════════════════════════════════════════════════════════════
   promtail:
     image: grafana/promtail:3.0.0
-    container_name: onepass-promtail
+    container_name: idem-promtail
     restart: unless-stopped
     volumes:
       - ../monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
@@ -909,7 +909,7 @@ services:
       - /var/log:/var/log:ro
     command: -config.file=/etc/promtail/promtail-config.yml
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.53
     depends_on:
       - loki

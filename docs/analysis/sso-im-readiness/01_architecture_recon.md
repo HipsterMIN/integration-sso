@@ -121,7 +121,7 @@ policy, provision, qim, ratelimit, retention, slo, sso, webhook
 |------|--------|------|
 | q-sign | `QimUserEventConsumer` | q-im → q-sign 사용자 변경 |
 | q-im | `KafkaConsumerConfig` (별도 Listener) | (TBD) |
-| ido | `HandoffEventConsumer`, `QimEventConsumer`, `QsignAuthEventConsumer`, `QimSpMemberEventConsumer`, `FeAdvisoryConsumer` | 핸드오프/q-im/q-sign/qim-sp/FE Advisory |
+| ido | `HandoffEventConsumer`, `QimEventConsumer`, `QsignAuthEventConsumer`, `QimSpMemberEventConsumer`, `FeAdvisoryConsumer` | 핸드오프/idem-registry/idem-gate/qim-sp/FE Advisory |
 
 ### 핵심 관찰
 
@@ -145,11 +145,11 @@ policy, provision, qim, ratelimit, retention, slo, sso, webhook
 | 2 | MariaDB | `application.yml`, JPA Repository | q-im | **회원 조회 불가 → 인증 중단** |
 | 3 | Redis | `RedisConfig` | 모든 모듈 | 세션/Rate Limit/ShedLock 영향 |
 | 4 | Kafka | `KafkaProducerConfig`, `KafkaConsumerConfig` | 모든 모듈 | 이벤트 지연 (Outbox로 데이터 손실은 막힘) |
-| 5 | Vault (KMS) | `ido/crypto/kms`, `VaultKmsHealthIndicator` | ido | **신규 암호화 불가** (검증은 가능) |
-| 6 | Keycloak | `q-sign/keycloak/*`, `ido/broker/keycloak/*` | q-sign, ido | Keycloak Broker만 영향 |
-| 7 | NICE CI | `ido/auth/adapter` (NICE) | ido | 본인확인 흐름 중단 |
-| 8 | OACX | `ido/auth/controller/AuthController` | ido | 간편인증 일부 |
-| 9 | AnyId | `ido/broker/anyid` (7 endpoints) | ido | AnyId 인증만 |
+| 5 | Vault (KMS) | `idem-hub/crypto/kms`, `VaultKmsHealthIndicator` | ido | **신규 암호화 불가** (검증은 가능) |
+| 6 | Keycloak | `idem-gate/keycloak/*`, `idem-hub/broker/keycloak/*` | q-sign, ido | Keycloak Broker만 영향 |
+| 7 | NICE CI | `idem-hub/auth/adapter` (NICE) | ido | 본인확인 흐름 중단 |
+| 8 | OACX | `idem-hub/auth/controller/AuthController` | ido | 간편인증 일부 |
+| 9 | AnyId | `idem-hub/broker/anyid` (7 endpoints) | ido | AnyId 인증만 |
 | 10 | OTLP Collector | tracing config | 모든 모듈 | 트레이스만 손실 (비핵심) |
 
 → **회고 문서(§2)에서 누락된 의존성**: AnyId(9번)와 OACX(8번)가 별도 외부 의존인데 §2에는 명시 없음. **OPERATION_INVENTORY.md §2 보강 필요** (별도 작업 후보).

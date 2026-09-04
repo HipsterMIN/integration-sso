@@ -52,7 +52,7 @@ OnePass 플랫폼의 인증 아키텍처(ADR-001)는 **IdO 완전 중재 패턴*
   ido:8083   ← 유일한 BFF(Backend for Frontend)
      │
      ├── NICE IDO API 서버  (https://auth.niceid.co.kr)
-     │     └── POST /ido/intc/v1.0/auth/{token|url|result}
+     │     └── POST /idem-hub/intc/v1.0/auth/{token|url|result}
      │
      └── OACX SDK (로컬 JAR)
            └── OacxUtil.getAccessInfo() / jwtDecryptResult()
@@ -334,7 +334,7 @@ Content-Type: application/json
 
 ## 4. NICE 암호화 복호화 알고리즘
 
-**구현체**: `ido/src/main/java/kr/go/smes/ido/auth/util/NiceCryptoUtil.java`
+**구현체**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/util/NiceCryptoUtil.java`
 
 ### 4.1 전체 복호화 프로세스
 
@@ -751,7 +751,7 @@ sequenceDiagram
 
 ## 10. FE 훅 — useNicePhoneAuth
 
-**파일**: `onepass-fe/frontend/src/hooks/useNicePhoneAuth.ts`
+**파일**: `idem-console/frontend/src/hooks/useNicePhoneAuth.ts`
 
 ### 10.1 훅 상태 관리
 
@@ -819,7 +819,7 @@ window.addEventListener('message', async (event: MessageEvent) => {
 
 ## 11. FE — OACX PersonalAuthTab
 
-**파일**: `onepass-fe/frontend/src/pages/OacxTest/PersonalAuthTab.tsx`
+**파일**: `idem-console/frontend/src/pages/OacxTest/PersonalAuthTab.tsx`
 
 > 주의: 이 컴포넌트는 **테스트/개발 전용** (`/oacx-test` 라우트). 실제 로그인 페이지에서는 별도 훅 사용 예정.
 

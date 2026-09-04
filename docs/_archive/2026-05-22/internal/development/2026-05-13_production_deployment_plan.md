@@ -273,13 +273,13 @@ public record CastToken(
 
 | 파일 | 유형 | 내용 |
 |------|------|------|
-| `ido/sso/CastTokenService.java` | 신규 | CAST 토큰 발급/검증 서비스 인터페이스 |
-| `ido/sso/CastTokenServiceImpl.java` | 신규 | EdDSA 서명, Redis 1회 소비, 5분 TTL |
-| `ido/sso/CastTokenProperties.java` | 신규 | `ido.sso.cast.*` 설정 바인딩 (privateKeyPem, publicKeyPem, ttlSeconds) |
-| `ido/api/CrossAgencySsoController.java` | 신규 | `POST /api/v1/sso/cast-issue`, `GET /api/v1/sso/cross-verify` |
-| `ido/api/dto/CastIssueResponse.java` | 신규 | `{ castToken, expiresAt }` |
-| `ido/api/dto/CrossVerifyResponse.java` | 신규 | `{ ticketId, agencyCode, expiresAt, qimUserId }` |
-| `ido/config/CastKeyConfig.java` | 신규 | Ed25519 KeyPair Bean 등록 (PEM → KeyFactory) |
+| `idem-hub/sso/CastTokenService.java` | 신규 | CAST 토큰 발급/검증 서비스 인터페이스 |
+| `idem-hub/sso/CastTokenServiceImpl.java` | 신규 | EdDSA 서명, Redis 1회 소비, 5분 TTL |
+| `idem-hub/sso/CastTokenProperties.java` | 신규 | `ido.sso.cast.*` 설정 바인딩 (privateKeyPem, publicKeyPem, ttlSeconds) |
+| `idem-hub/api/CrossAgencySsoController.java` | 신규 | `POST /api/v1/sso/cast-issue`, `GET /api/v1/sso/cross-verify` |
+| `idem-hub/api/dto/CastIssueResponse.java` | 신규 | `{ castToken, expiresAt }` |
+| `idem-hub/api/dto/CrossVerifyResponse.java` | 신규 | `{ ticketId, agencyCode, expiresAt, qimUserId }` |
+| `idem-hub/config/CastKeyConfig.java` | 신규 | Ed25519 KeyPair Bean 등록 (PEM → KeyFactory) |
 
 #### agency-stub 모듈 (SSO 수신 구현)
 
@@ -492,19 +492,19 @@ CREATE INDEX idx_prov_outbox_user ON ido.provisioning_outbox (qim_user_id, creat
 
 | 파일 | 유형 | 내용 |
 |------|------|------|
-| `ido/provision/ProvisioningService.java` | 신규 | 프로비저닝 서비스 인터페이스 |
-| `ido/provision/ProvisioningServiceImpl.java` | 신규 | 68개 기관 병렬 프로비저닝 (VThread) + Outbox 적재 |
-| `ido/provision/ProvisioningOutboxRelay.java` | 신규 | PENDING/FAILED Outbox 재시도 스케줄러 (지수 백오프) |
-| `ido/provision/AgencyProvisioningClient.java` | 신규 | 기관별 HTTP 클라이언트 (RestTemplate + CB + Retry) |
-| `ido/provision/ProvisioningRequest.java` | 신규 | 프로비저닝 요청 DTO |
-| `ido/provision/dto/UserProvisionPayload.java` | 신규 | 사용자 프로비저닝 페이로드 (속성 포함) |
-| `ido/admin/AgencyEndpointAdminController.java` | 신규 | 기관 엔드포인트 등록/수정/삭제 관리 API |
-| `ido/admin/dto/AgencyEndpointRequest.java` | 신규 | 엔드포인트 등록 요청 DTO |
-| `ido/kafka/QimUserEventConsumer.java` | 수정 | USER_REGISTERED 이벤트 → ProvisioningService 호출 추가 |
-| `ido/infrastructure/jpa/entity/AgencyEndpointJpaEntity.java` | 신규 | agency_endpoint_registry 엔티티 |
-| `ido/infrastructure/jpa/entity/ProvisioningOutboxJpaEntity.java` | 신규 | provisioning_outbox 엔티티 |
-| `ido/infrastructure/jpa/repository/AgencyEndpointJpaRepository.java` | 신규 | 엔드포인트 JPA |
-| `ido/infrastructure/jpa/repository/ProvisioningOutboxJpaRepository.java` | 신규 | Outbox JPA |
+| `idem-hub/provision/ProvisioningService.java` | 신규 | 프로비저닝 서비스 인터페이스 |
+| `idem-hub/provision/ProvisioningServiceImpl.java` | 신규 | 68개 기관 병렬 프로비저닝 (VThread) + Outbox 적재 |
+| `idem-hub/provision/ProvisioningOutboxRelay.java` | 신규 | PENDING/FAILED Outbox 재시도 스케줄러 (지수 백오프) |
+| `idem-hub/provision/AgencyProvisioningClient.java` | 신규 | 기관별 HTTP 클라이언트 (RestTemplate + CB + Retry) |
+| `idem-hub/provision/ProvisioningRequest.java` | 신규 | 프로비저닝 요청 DTO |
+| `idem-hub/provision/dto/UserProvisionPayload.java` | 신규 | 사용자 프로비저닝 페이로드 (속성 포함) |
+| `idem-hub/admin/AgencyEndpointAdminController.java` | 신규 | 기관 엔드포인트 등록/수정/삭제 관리 API |
+| `idem-hub/admin/dto/AgencyEndpointRequest.java` | 신규 | 엔드포인트 등록 요청 DTO |
+| `idem-hub/kafka/QimUserEventConsumer.java` | 수정 | USER_REGISTERED 이벤트 → ProvisioningService 호출 추가 |
+| `idem-hub/infrastructure/jpa/entity/AgencyEndpointJpaEntity.java` | 신규 | agency_endpoint_registry 엔티티 |
+| `idem-hub/infrastructure/jpa/entity/ProvisioningOutboxJpaEntity.java` | 신규 | provisioning_outbox 엔티티 |
+| `idem-hub/infrastructure/jpa/repository/AgencyEndpointJpaRepository.java` | 신규 | 엔드포인트 JPA |
+| `idem-hub/infrastructure/jpa/repository/ProvisioningOutboxJpaRepository.java` | 신규 | Outbox JPA |
 
 #### q-im 모듈 (V7 마이그레이션)
 
@@ -673,7 +673,7 @@ Response 200: { "registered": 2, "endpoints": [...] }
 #### 6.2.1 사용자 속성 동기화 (OnePass → 기관)
 
 ```java
-// ido/provision/OutboundSyncService.java (Sprint 15 신규)
+// idem-hub/provision/OutboundSyncService.java (Sprint 15 신규)
 public interface OutboundSyncService {
     // 단일 사용자 속성 동기화
     void syncUserAttributes(String qimUserId, String agencyCode, Map<String,Object> attrs);
@@ -711,14 +711,14 @@ Content-Type: application/json
 
 | 파일 | 유형 | 내용 |
 |------|------|------|
-| `ido/api/AgencyGatewayController.java` | 신규 | 기관 → OnePass 인바운드 통합 API |
-| `ido/api/dto/gateway/AttributeUpdateRequest.java` | 신규 | 속성 변경 요청 DTO |
-| `ido/api/dto/gateway/AgencyEventRequest.java` | 신규 | 기관 이벤트 보고 DTO |
-| `ido/api/dto/gateway/EndpointRegistrationRequest.java` | 신규 | 엔드포인트 자가 등록 DTO |
-| `ido/gateway/AgencyGatewayService.java` | 신규 | 인바운드 처리 서비스 인터페이스 |
-| `ido/gateway/AgencyGatewayServiceImpl.java` | 신규 | 속성 변경 수신, 이벤트 Kafka 발행 |
-| `ido/provision/OutboundSyncService.java` | 신규 | 아웃바운드 동기화 서비스 |
-| `ido/provision/OutboundSyncServiceImpl.java` | 신규 | 속성 변경 Push + 긴급 차단 |
+| `idem-hub/api/AgencyGatewayController.java` | 신규 | 기관 → OnePass 인바운드 통합 API |
+| `idem-hub/api/dto/gateway/AttributeUpdateRequest.java` | 신규 | 속성 변경 요청 DTO |
+| `idem-hub/api/dto/gateway/AgencyEventRequest.java` | 신규 | 기관 이벤트 보고 DTO |
+| `idem-hub/api/dto/gateway/EndpointRegistrationRequest.java` | 신규 | 엔드포인트 자가 등록 DTO |
+| `idem-hub/gateway/AgencyGatewayService.java` | 신규 | 인바운드 처리 서비스 인터페이스 |
+| `idem-hub/gateway/AgencyGatewayServiceImpl.java` | 신규 | 속성 변경 수신, 이벤트 Kafka 발행 |
+| `idem-hub/provision/OutboundSyncService.java` | 신규 | 아웃바운드 동기화 서비스 |
+| `idem-hub/provision/OutboundSyncServiceImpl.java` | 신규 | 속성 변경 Push + 긴급 차단 |
 
 ---
 
@@ -731,7 +731,7 @@ Content-Type: application/json
 ### 7.1 SDK 아키텍처 설계
 
 ```
-onepass-agency-sdk/
+idem-sdk-java/
 ├── java/                        # Java SDK (Spring Boot 기관 대상)
 │   ├── pom.xml                  # Maven 중앙 저장소 배포
 │   └── src/
@@ -892,9 +892,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build JAR
-        run: cd onepass-agency-sdk/java && ./gradlew build
+        run: cd idem-sdk-java/java && ./gradlew build
       - name: Publish to Maven Central
-        run: cd onepass-agency-sdk/java && ./gradlew publishToMavenCentral
+        run: cd idem-sdk-java/java && ./gradlew publishToMavenCentral
         env:
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
@@ -904,7 +904,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build and publish to PyPI
-        run: cd onepass-agency-sdk/python && python -m build && twine upload dist/*
+        run: cd idem-sdk-java/python && python -m build && twine upload dist/*
         env:
           TWINE_API_KEY: ${{ secrets.PYPI_API_KEY }}
 
@@ -912,7 +912,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build and publish to npm
-        run: cd onepass-agency-sdk/js && npm run build && npm publish
+        run: cd idem-sdk-java/js && npm run build && npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
@@ -920,7 +920,7 @@ jobs:
 ### 7.4 SDK 문서화 (기관 연동 가이드)
 
 ```
-onepass-agency-sdk/
+idem-sdk-java/
 └── docs/
     ├── getting-started.md       # 5분 연동 가이드
     ├── java-integration.md      # Java 상세 가이드
@@ -949,7 +949,7 @@ onepass-agency-sdk/
 #### 8.1.1 X-Internal-Sig 수신 검증 (P1-03 — 오랜 미해결 GAP)
 
 ```java
-// ido/config/InternalSigVerifyInterceptor.java (신규)
+// idem-hub/config/InternalSigVerifyInterceptor.java (신규)
 @Component
 public class InternalSigVerifyInterceptor implements HandlerInterceptor {
     
@@ -978,7 +978,7 @@ public class InternalSigVerifyInterceptor implements HandlerInterceptor {
 #### 8.1.2 Kafka DLQ 완전 구현
 
 ```java
-// ido/kafka/config/KafkaConsumerConfig.java (수정)
+// idem-hub/kafka/config/KafkaConsumerConfig.java (수정)
 @Bean
 public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> kafkaTemplate) {
     DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
@@ -1027,15 +1027,15 @@ helm/
 │   ├── values-prod.yaml         # 운영 오버라이드
 │   └── templates/
 │       ├── _helpers.tpl
-│       ├── ido/
+│       ├── idem-hub/
 │       │   ├── deployment.yaml  # 3 replicas, podAntiAffinity
 │       │   ├── service.yaml
 │       │   ├── hpa.yaml         # CPU 70% 기준 2~10 replicas
 │       │   ├── pdb.yaml         # maxUnavailable: 1
 │       │   └── ingress.yaml     # TLS + rate limiting
-│       ├── q-im/
-│       ├── q-sign/
-│       ├── agency-stub/         # PoC 환경에서만 배포
+│       ├── idem-registry/
+│       ├── idem-gate/
+│       ├── idem-tenant-sample/         # PoC 환경에서만 배포
 │       ├── kafka/
 │       ├── redis/
 │       └── secrets/
@@ -1046,7 +1046,7 @@ helm/
 #### 8.2.2 HPA 설정 (자동 스케일링)
 
 ```yaml
-# helm/onepass/templates/ido/hpa.yaml
+# helm/onepass/templates/idem-hub/hpa.yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

@@ -2,7 +2,7 @@
 
 > **기준 버전**: v1.9.3 / 커밋 `46b1fe9`  
 > **최종 갱신**: 2026-05-09  
-> **모듈 경로**: `q-sign/`  
+> **모듈 경로**: `idem-gate/`  
 > **포트**: 8081  
 > **DB**: PostgreSQL (`qsign` 스키마, V1~V5)  
 > **완성도**: 95%
@@ -28,7 +28,7 @@ Q-Sign은 **인증(Authentication) Source of Record**다. 외부 IdP(Keycloak, �
 ## 2. 패키지 구조
 
 ```
-q-sign/src/main/java/kr/go/smes/qsign/
+idem-gate/src/main/java/kr/go/smes/qsign/
 ├── QSignApplication.java
 ├── auth/
 │   ├── AuthController.java              # POST /api/v1/auth/complete (내부)

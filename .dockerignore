@@ -53,12 +53,12 @@ infra/docker/
 k6/
 
 # ── FE 소스 ──────────────────────────────────────────────────────────────────
-# onepass-fe/ 전체를 제외하면 안 된다: settings.gradle.kts가 onepass-fe를 모듈로 include하므로
-# 각 서비스 Dockerfile의 deps 스테이지가 onepass-fe/build.gradle.kts를 COPY해야 Gradle 설정이
-# 성립한다(제외 시 "onepass-fe/build.gradle.kts: not found"로 6개 이미지 빌드 전부 실패).
+# idem-console/ 전체를 제외하면 안 된다: settings.gradle.kts가 idem-console를 모듈로 include하므로
+# 각 서비스 Dockerfile의 deps 스테이지가 idem-console/build.gradle.kts를 COPY해야 Gradle 설정이
+# 성립한다(제외 시 "idem-console/build.gradle.kts: not found"로 6개 이미지 빌드 전부 실패).
 # build.gradle.kts는 frontend/ 파일을 태스크 입력(lazy)으로만 참조하므로 설정 단계에 frontend/가
 # 없어도 되고, 서버 이미지는 FE 산출물을 쓰지 않는다 → 19MB인 frontend/만 제외.
-onepass-fe/frontend/
+idem-console/frontend/
 
 # ── Node.js 의존성 ────────────────────────────────────────────────────────────
 node_modules/

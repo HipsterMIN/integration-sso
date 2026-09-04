@@ -3,7 +3,7 @@
 > **기준 버전**: v1.9.3+  
 > **기준 커밋**: `50954de` (main)  
 > **최종 갱신**: 2026-06-02  
-> **모듈 경로**: `onepass-fe/frontend/`  
+> **모듈 경로**: `idem-console/frontend/`  
 > **런타임**: Node 18+ (빌드) / Nginx 1.25 (런타임, 포트 **8080**)  
 > **분석 범위**: `onepass-fe`만 — Q-IM / Q-Sign / IdO 내부 처리는 의도적 블랙박스
 
@@ -23,7 +23,7 @@
 
 ### 1.1 정적 자산 서빙 (Nginx)
 
-`onepass-fe/frontend/conf/default.conf`:
+`idem-console/frontend/conf/default.conf`:
 
 | 항목 | 값 |
 |------|-----|
@@ -498,9 +498,9 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 - [`03c-qim-responsibility-charter.md`](03c-qim-responsibility-charter.md) §6 / §6.5 — Q-IM 의 UI 영구 금지선. FE 군이 사람-대상 화면을 호스트하는 이유
 - [`03d-module-ido.md`](03d-module-ido.md) — onepass-fe 가 호출하는 IdO 엔드포인트의 BE 측 구현
 - [`09-gap-and-roadmap.md`](09-gap-and-roadmap.md) **SEC-IDO-*** — Phase 2 (rename `BE_*` → `IDO_*`, **PR #203 완료**) + Phase 3 (`onepass-admin` 준비 체크리스트) 백로그
-- [`onepass-fe/DEVELOPMENT.md`](../../../onepass-fe/DEVELOPMENT.md) — 본 문서가 "데이터 흐름의 정본"이라면, DEVELOPMENT.md 는 "개발자 온보딩 & 운영 가이드"
+- [`idem-console/DEVELOPMENT.md`](../../../idem-console/DEVELOPMENT.md) — 본 문서가 "데이터 흐름의 정본"이라면, DEVELOPMENT.md 는 "개발자 온보딩 & 운영 가이드"
 - [`07-security.md`](07-security.md) — 전 모듈 보안 정책 (FE 위험 표면 참조)
-- 코드 증빙: `ido/.../ExtProxyController.java`, `ido/.../FeSessionController.java`, `onepass-fe/frontend/.env` (`IDO_API_TARGET=onepass-ido-*`), `onepass-fe/frontend/webpack.config.js` (dev proxy `/api → IdO`), `onepass-fe/frontend/src/api/idoInstance.ts` (Phase 2 신설)
+- 코드 증빙: `idem-hub/.../ExtProxyController.java`, `idem-hub/.../FeSessionController.java`, `idem-console/frontend/.env` (`IDO_API_TARGET=onepass-ido-*`), `idem-console/frontend/webpack.config.js` (dev proxy `/api → IdO`), `idem-console/frontend/src/api/idoInstance.ts` (Phase 2 신설)
 
 ---
 

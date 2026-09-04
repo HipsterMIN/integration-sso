@@ -14,18 +14,18 @@
 | T-4a | `ConversionSteps/member/components/AccountForm.tsx` | 기업 진위확인 API 주석 해제 (`businessValidate` 호출 복원, `startDt` 필수값 체크 복원) | HIGH |
 | T-4b | `RegisterSteps/member/components/AccountForm.tsx` | 동일 패턴 — `handleBrnoDuplicate` 내 진위확인 스킵 코드 제거, `businessValidate` 호출 복원, `startDt` 필수값 체크 추가 | HIGH |
 | T-5 | `.github/workflows/ci.yml` | OWASP Dependency-Check `\|\| true` 제거 → CVSS 7.0+ 발견 시 빌드 실패 (보안 게이트 활성화) | BLOCKER |
-| T-6 | `.github/workflows/ci.yml` | `-x :q-im:test` 제거 → Q-IM 모듈 테스트 CI 포함 | HIGH |
-| T-7 | `q-sign/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java` | non-strict 코드 경로 완전 삭제; `strictMode` 필드 제거; `verify()` 메서드 strict-only 로직으로 재작성 | BLOCKER |
-| T-8b | `q-im/src/main/java/kr/go/smes/qim/config/KafkaConsumerConfig.java` | `DeadLetterPublishingRecoverer` 연결; 지수 백오프 3회(1s→2s→4s) 후 `{topic}.dlt` 전송; DLQ 헤더 6종 보존 | HIGH |
+| T-6 | `.github/workflows/ci.yml` | `-x :idem-registry:test` 제거 → Q-IM 모듈 테스트 CI 포함 | HIGH |
+| T-7 | `idem-gate/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java` | non-strict 코드 경로 완전 삭제; `strictMode` 필드 제거; `verify()` 메서드 strict-only 로직으로 재작성 | BLOCKER |
+| T-8b | `idem-registry/src/main/java/kr/go/smes/qim/config/KafkaConsumerConfig.java` | `DeadLetterPublishingRecoverer` 연결; 지수 백오프 3회(1s→2s→4s) 후 `{topic}.dlt` 전송; DLQ 헤더 6종 보존 | HIGH |
 
 ### 1.2 이전 세션(2026-05-13~14)에서 완료된 항목
 
 | Task | 파일 | 수정 내용 | 분류 |
 |------|------|-----------|------|
 | T-1 | `infra/docker/docker-compose.yml` | `IDO_HANDOFF_AES_KEY`, `IDO_HANDOFF_HMAC_KEY`, `QIM_CI_AES_KEY_V1/V2`, `IDO_WEBHOOK_SIGNING_SECRET`, `IDO_AGENCY_SUBJECT_SECRET` 환경변수 블록 추가; `MARIADB_PASSWORD`, `POSTGRES_PASSWORD` 환경변수화; `.env` 생성 안내 추가 | BLOCKER×4 |
-| T-2 | `ido/src/main/java/kr/go/smes/ido/provision/ProvisioningServiceImpl.java` | `PLACEHOLDER_` 인증 헤더 → `ERROR` 로그 + `REQUIRES_MANUAL_` 헤더로 교체 | BLOCKER |
-| T-3a | `onepass-fe/frontend/src/pages/Mypage/pages/PasswordStep1.tsx` | `handleEasyAuthSuccess`, `handlePhoneAuthSuccess` — `history.push(onNext)` 복원; `useCallback` 의존성 배열 수정 | HIGH |
-| T-3b | `onepass-fe/frontend/src/pages/Mypage/pages/Withdraw.tsx` | `goNext` 함수 추가; "다음" 버튼 `onClick` 복원; devNoticeModal 관련 코드 제거 | HIGH |
+| T-2 | `idem-hub/src/main/java/kr/go/smes/idem-hub/provision/ProvisioningServiceImpl.java` | `PLACEHOLDER_` 인증 헤더 → `ERROR` 로그 + `REQUIRES_MANUAL_` 헤더로 교체 | BLOCKER |
+| T-3a | `idem-console/frontend/src/pages/Mypage/pages/PasswordStep1.tsx` | `handleEasyAuthSuccess`, `handlePhoneAuthSuccess` — `history.push(onNext)` 복원; `useCallback` 의존성 배열 수정 | HIGH |
+| T-3b | `idem-console/frontend/src/pages/Mypage/pages/Withdraw.tsx` | `goNext` 함수 추가; "다음" 버튼 `onClick` 복원; devNoticeModal 관련 코드 제거 | HIGH |
 
 ---
 
@@ -51,7 +51,7 @@
 
 | ID | 항목 | 상태 | 비고 |
 |----|------|------|------|
-| H-1 | Q-IM 테스트 CI 제외 | ✅ **완료** | `-x :q-im:test` 제거 |
+| H-1 | Q-IM 테스트 CI 제외 | ✅ **완료** | `-x :idem-registry:test` 제거 |
 | H-2 | Kafka DLQ 미연결 | ✅ **완료** | IdO, Q-Sign: 이미 구현됨 확인; Q-IM: 이번 세션 구현 |
 | H-3 | Mypage 비밀번호 변경 플로우 단절 | ✅ **완료** | `history.push(onNext)` 복원 |
 | H-4 | 탈퇴 플로우 단절 | ✅ **완료** | `goNext` 함수 복원 |
@@ -84,14 +84,14 @@
 | 파일 경로 | 수정 유형 | 핵심 변경 |
 |-----------|-----------|-----------|
 | `infra/docker/docker-compose.yml` | MODIFIED | 암호화 키 환경변수 블록 추가; DB 비밀번호 환경변수화 |
-| `ido/.../ProvisioningServiceImpl.java` | MODIFIED | PLACEHOLDER_ → REQUIRES_MANUAL_ + ERROR 로그 |
-| `onepass-fe/.../Mypage/PasswordStep1.tsx` | MODIFIED | history.push(onNext) 복원; useCallback 의존성 수정 |
-| `onepass-fe/.../Mypage/Withdraw.tsx` | MODIFIED | goNext 복원; devNoticeModal 제거 |
-| `onepass-fe/.../ConversionSteps/.../AccountForm.tsx` | MODIFIED | businessValidate 호출 복원; startDt 필수값 체크 복원 |
-| `onepass-fe/.../RegisterSteps/.../AccountForm.tsx` | MODIFIED | businessValidate 호출 복원; startDt 필수값 체크 복원 |
-| `.github/workflows/ci.yml` | MODIFIED | OWASP `\|\| true` 제거; `-x :q-im:test` 제거 |
-| `q-sign/.../InternalSigVerifier.java` | MODIFIED | non-strict 코드 경로 삭제; strictMode 필드 제거 |
-| `q-im/.../KafkaConsumerConfig.java` | MODIFIED | DLQ DeadLetterPublishingRecoverer 연결 |
+| `idem-hub/.../ProvisioningServiceImpl.java` | MODIFIED | PLACEHOLDER_ → REQUIRES_MANUAL_ + ERROR 로그 |
+| `idem-console/.../Mypage/PasswordStep1.tsx` | MODIFIED | history.push(onNext) 복원; useCallback 의존성 수정 |
+| `idem-console/.../Mypage/Withdraw.tsx` | MODIFIED | goNext 복원; devNoticeModal 제거 |
+| `idem-console/.../ConversionSteps/.../AccountForm.tsx` | MODIFIED | businessValidate 호출 복원; startDt 필수값 체크 복원 |
+| `idem-console/.../RegisterSteps/.../AccountForm.tsx` | MODIFIED | businessValidate 호출 복원; startDt 필수값 체크 복원 |
+| `.github/workflows/ci.yml` | MODIFIED | OWASP `\|\| true` 제거; `-x :idem-registry:test` 제거 |
+| `idem-gate/.../InternalSigVerifier.java` | MODIFIED | non-strict 코드 경로 삭제; strictMode 필드 제거 |
+| `idem-registry/.../KafkaConsumerConfig.java` | MODIFIED | DLQ DeadLetterPublishingRecoverer 연결 |
 
 ---
 

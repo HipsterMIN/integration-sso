@@ -24,11 +24,11 @@
 
 | 모듈 | 경로 | 분석 대상 |
 |------|------|-----------|
-| platform-common | `platform-common/` | 공통 도메인·이벤트·오류코드 |
-| Q-Sign | `q-sign/` | 인증 SoR, Keycloak 어댑터, Outbox |
-| Q-IM | `q-im/` | 식별·매핑 SoR, JPA 구현, Outbox |
-| IdO | `ido/` | 오케스트레이션, Handoff, 정책, 브로커 |
-| agency-stub | `agency-stub/` | 기관 스텁 |
+| platform-common | `idem-common/` | 공통 도메인·이벤트·오류코드 |
+| Q-Sign | `idem-gate/` | 인증 SoR, Keycloak 어댑터, Outbox |
+| Q-IM | `idem-registry/` | 식별·매핑 SoR, JPA 구현, Outbox |
+| IdO | `idem-hub/` | 오케스트레이션, Handoff, 정책, 브로커 |
+| agency-stub | `idem-tenant-sample/` | 기관 스텁 |
 | infra | `infra/docker/` | Docker Compose, DB 초기화 |
 | docs | `docs/` | 기존 문서 |
 
@@ -249,7 +249,7 @@
 - **수정 필요**: 설계서 §9.1 / §9.3에 "Keycloak 브로커 모드에서는 IdO가 AuthResult를 직접 생성" 조건 명시
 
 #### [GAP-CODE-02] 🟣 `onepass-fe` BFF Spring Boot 제거 → FE Advisory Consumer IdO 이관
-- **코드 현황**: `ido/config/KafkaConsumerConfig.java`에 `feAdvisoryConsumerFactory` 포함. FE Advisory 처리가 IdO로 이관됨
+- **코드 현황**: `idem-hub/config/KafkaConsumerConfig.java`에 `feAdvisoryConsumerFactory` 포함. FE Advisory 처리가 IdO로 이관됨
 - **설계서 현황**: §12 Onepass FE 절에서 BFF 이관 여부 미언급
 - **수정 필요**: 설계서 §12에 BFF 제거 사유 및 FE Advisory → IdO 이관 사실 명시
 
@@ -447,7 +447,7 @@
 
 **작업 목록**:
 ```
-ido/src/main/java/kr/go/smes/ido/infrastructure/
+idem-hub/src/main/java/kr/go/smes/idem-hub/infrastructure/
 ├── QimClientImpl.java             # RestTemplate + CircuitBreaker + Retry
 ├── UserStatusCacheImpl.java       # Redis TTL ≤5분 (RedisTemplate)
 ├── LastEventVersionStoreImpl.java # Redis Hash 구조
@@ -456,13 +456,13 @@ ido/src/main/java/kr/go/smes/ido/infrastructure/
     ├── AgencyMetaJpaRepository.java
     └── AgencyMetaRepositoryImpl.java
 
-ido/src/main/java/kr/go/smes/ido/handoff/
+idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/
 └── TicketRepositoryImpl.java      # Redis 주 저장 + DB 감사 이력
 ```
 
 #### 7.1.2 IdO `processed_event` migration 추가
 
-**파일**: `ido/src/main/resources/db/migration/V5__add_processed_event.sql`
+**파일**: `idem-hub/src/main/resources/db/migration/V5__add_processed_event.sql`
 ```sql
 CREATE TABLE ido.processed_event (
     event_id       VARCHAR(36)  NOT NULL,
@@ -482,32 +482,32 @@ CREATE INDEX idx_ido_processed_event_at
 
 #### 7.2.1 `AuthResult`에 `authMethod` 필드 추가
 
-**파일**: `platform-common/src/main/java/kr/go/smes/common/domain/AuthResult.java`
+**파일**: `idem-common/src/main/java/kr/go/smes/common/domain/AuthResult.java`
 - `authMethod` 필드 추가 (`STANDARD_OIDC_KAKAO`, `NON_STANDARD_PASS` 등)
 - `AuthServiceImpl`, `KeycloakOidcService`, `NonOidcAuthService`에서 규칙 적용
 
 #### 7.2.2 Handoff 암호화·서명 구현
 
-**파일**: 신규 `ido/src/main/java/kr/go/smes/ido/handoff/crypto/HandoffCryptoService.java`
+**파일**: 신규 `idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/crypto/HandoffCryptoService.java`
 - AES-256-GCM 암호화 (`javax.crypto.Cipher`)
 - HMAC-SHA256 서명 (`javax.crypto.Mac`)
 - `HandoffServiceImpl.issue()`에서 호출
 
 #### 7.2.3 `agencySubjectId` HMAC 구현
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/policy/PolicyEngineImpl.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/policy/PolicyEngineImpl.java`
 - `generateAgencySubjectId()` → `HMAC-SHA256(qimUserId + ":" + agencyCode, secretKey)` → Base64URL
 
 #### 7.2.4 DLQ 설정 추가
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/config/KafkaConsumerConfig.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/config/KafkaConsumerConfig.java`
 - `defaultErrorHandler()`에 `DeadLetterPublishingRecoverer` 연결
 - DLQ 토픽: `{원본토픽}.dlt`
 - 헤더 보존: `originalTopic`, `failureReason`, `failureCount`, `correlationId`, `eventId`
 
 #### 7.2.5 `E-OPS-901` 추가
 
-**파일**: `platform-common/src/main/java/kr/go/smes/common/error/PlatformErrorCode.java`
+**파일**: `idem-common/src/main/java/kr/go/smes/common/error/PlatformErrorCode.java`
 ```java
 OPS_EXTERNAL_PROVIDER_DOWN("E-OPS-901", HttpStatus.SERVICE_UNAVAILABLE, "외부 사업자 장애.")
 ```
@@ -518,12 +518,12 @@ OPS_EXTERNAL_PROVIDER_DOWN("E-OPS-901", HttpStatus.SERVICE_UNAVAILABLE, "외부 
 
 #### 7.3.1 `GlobalExceptionHandler` Retry-After 추가
 
-**파일**: `q-im/src/main/java/kr/go/smes/qim/api/GlobalExceptionHandler.java`
+**파일**: `idem-registry/src/main/java/kr/go/smes/qim/api/GlobalExceptionHandler.java`
 - `E-OPS-901` 응답 시 `Retry-After` 헤더 추가
 
 #### 7.3.2 `HandoffController` Idempotency-Key 처리
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/api/HandoffController.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/api/HandoffController.java`
 - `@RequestHeader(value="Idempotency-Key", required=false)` 파라미터 추가
 - 중복 요청 감지 후 캐시된 응답 반환
 
@@ -533,7 +533,7 @@ OPS_EXTERNAL_PROVIDER_DOWN("E-OPS-901", HttpStatus.SERVICE_UNAVAILABLE, "외부 
 
 #### 7.4.1 `ido.broker_audit_log` migration 추가
 
-**파일**: `ido/src/main/resources/db/migration/V6__add_broker_audit_log.sql`
+**파일**: `idem-hub/src/main/resources/db/migration/V6__add_broker_audit_log.sql`
 - 필수 필드: `correlation_id`, `provider_code`, `provider_tx_id`, `error_code`
 
 #### 7.4.2 `ido.provider_config` `provider_type` 컬럼 추가
@@ -547,12 +547,12 @@ ALTER TABLE ido.provider_config
 
 #### 7.4.3 Q-IM `addAuthMeanMapping` 실제 구현
 
-**파일**: `q-im/src/main/java/kr/go/smes/qim/application/UserServiceImpl.java`
+**파일**: `idem-registry/src/main/java/kr/go/smes/qim/application/UserServiceImpl.java`
 - `addAuthMeanMapping()` 메서드에 실제 JPA 저장 로직 완성
 
 #### 7.4.4 Q-IM Outbox `markFailed` + `retry_count` 구현
 
-**파일**: `q-im/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java`
+**파일**: `idem-registry/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java`
 - 발행 실패 시 `retry_count` 증가
 - 최대 재시도 초과 시 `markFailed()` 호출
 

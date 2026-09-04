@@ -124,17 +124,17 @@ Docker 없이 JAR 직접 실행 (DB/Redis/Kafka만 Docker로 실행):
 
 ```bash
 # 백엔드 빌드 (Docker unavailable 환경)
-DOCKER_UNAVAILABLE=true ./gradlew :ido:bootRun \
+DOCKER_UNAVAILABLE=true ./gradlew :idem-hub:bootRun \
   --args='--spring.profiles.active=local' &
 
-DOCKER_UNAVAILABLE=true ./gradlew :q-im:bootRun \
+DOCKER_UNAVAILABLE=true ./gradlew :idem-registry:bootRun \
   --args='--spring.profiles.active=local' &
 
-DOCKER_UNAVAILABLE=true ./gradlew :q-sign:bootRun \
+DOCKER_UNAVAILABLE=true ./gradlew :idem-gate:bootRun \
   --args='--spring.profiles.active=local' &
 
 # 프론트엔드
-cd onepass-fe/frontend && npm run dev &
+cd idem-console/frontend && npm run dev &
 ```
 
 ### 2.4 헬스체크 스크립트
@@ -170,12 +170,12 @@ done
 모든 Spring Boot 서비스는 **멀티스테이지 빌드 + non-root 사용자** 패턴을 적용합니다.
 
 ```dockerfile
-# ido/Dockerfile
+# idem-hub/Dockerfile
 # ── Stage 1: Build ──────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /build
 COPY . .
-RUN ./gradlew :ido:bootJar -x test --no-daemon
+RUN ./gradlew :idem-hub:bootJar -x test --no-daemon
 
 # ── Stage 2: Runtime ────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre-alpine
@@ -187,7 +187,7 @@ RUN addgroup -S ido && adduser -S ido -G ido
 USER ido
 
 WORKDIR /app
-COPY --from=builder /build/ido/build/libs/ido-*.jar app.jar
+COPY --from=builder /build/idem-hub/build/libs/idem-hub-*.jar app.jar
 
 # JVM 최적화
 ENV JAVA_OPTS="-XX:+UseContainerSupport \
@@ -203,12 +203,12 @@ ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
 
 ```bash
 # 1. Gradle 빌드 (JAR 생성)
-./gradlew :q-sign:bootJar :ido:bootJar :q-im:bootJar -x test --no-daemon
+./gradlew :idem-gate:bootJar :idem-hub:bootJar :idem-registry:bootJar -x test --no-daemon
 
 # 2. Docker 이미지 빌드 (멀티스테이지)
-docker build -f q-sign/Dockerfile -t onepass-qsign:2.3.0 -t onepass-qsign:latest .
-docker build -f ido/Dockerfile     -t onepass-ido:2.3.0   -t onepass-ido:latest .
-docker build -f q-im/Dockerfile    -t onepass-qim:2.3.0   -t onepass-qim:latest .
+docker build -f idem-gate/Dockerfile -t onepass-qsign:2.3.0 -t onepass-qsign:latest .
+docker build -f idem-hub/Dockerfile     -t onepass-ido:2.3.0   -t onepass-ido:latest .
+docker build -f idem-registry/Dockerfile    -t onepass-qim:2.3.0   -t onepass-qim:latest .
 
 # FE 이미지
 cd onepass-fe
@@ -682,17 +682,17 @@ redis-cli exists "fe-session:{sessionId}"
 
 ```bash
 # 마이그레이션 현황 확인 (로컬)
-./gradlew :q-im:flywayInfo --args='--spring.profiles.active=local'
-./gradlew :q-sign:flywayInfo --args='--spring.profiles.active=local'
+./gradlew :idem-registry:flywayInfo --args='--spring.profiles.active=local'
+./gradlew :idem-gate:flywayInfo --args='--spring.profiles.active=local'
 
 # 마이그레이션 실행 (자동 — Spring Boot 시작 시)
 # spring.flyway.enabled=true (기본값)
 
 # 운영 환경 체크섬 검증
-./gradlew :q-im:flywayValidate --args='--spring.profiles.active=prod'
+./gradlew :idem-registry:flywayValidate --args='--spring.profiles.active=prod'
 
 # ⚠️ 체크섬 오류 발생 시 (로컬만)
-./gradlew :q-im:flywayRepair --args='--spring.profiles.active=local'
+./gradlew :idem-registry:flywayRepair --args='--spring.profiles.active=local'
 # 운영에서는 절대 사용 금지!
 ```
 
@@ -866,7 +866,7 @@ groups:
 ```bash
 # 1. 이미지 빌드 & 푸시 (CI/CD에서 자동화)
 VERSION="2.3.0"
-docker build -f ido/Dockerfile -t onepass-ido:${VERSION} .
+docker build -f idem-hub/Dockerfile -t onepass-ido:${VERSION} .
 docker push registry.smes.go.kr/onepass/ido:${VERSION}
 
 # 2. Deployment 이미지 업데이트

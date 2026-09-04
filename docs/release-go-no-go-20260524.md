@@ -19,15 +19,15 @@ OnePass Support의 전용 PostgreSQL compose 구성은 보완 후 정상 확인�
 | --- | --- | --- | --- |
 | 전체 Gradle 테스트 | `.\gradlew.bat test` | `agency-stub:test` 실패로 중단 | FAIL |
 | 전체 Gradle 테스트 계속 실행 | `.\gradlew.bat test --continue` | 6개 task 실패 | FAIL |
-| Q-Sign | `.\gradlew.bat :q-sign:test --no-daemon --max-workers=1` | stale binary 삭제 후 성공 | PASS |
-| Q-IM | `.\gradlew.bat :q-im:test --no-daemon --max-workers=1` | 251 tests, 21 failed | FAIL |
-| IdO | `:ido:compileTestJava` | `MemberLookupControllerTest.java` 컴파일 오류 8건 | FAIL |
-| Agency Stub | `:agency-stub:test` | E2E 6건 실패, 기대 200/403 대신 503 | FAIL |
-| OnePass Agent | `:onepass-agent:test` | 250 tests, 1 failed | FAIL |
-| SDK | `:onepass-agency-sdk:test` | up-to-date, 이전 실행 성공 상태 | PASS |
-| Outbox Relay Batch | `:outbox-relay-batch:test` | up-to-date, 이전 실행 성공 상태 | PASS |
-| Platform Common | `:platform-common:test` | up-to-date, 이전 실행 성공 상태 | PASS |
-| OnePass FE | `.\gradlew.bat :onepass-fe:build` | `sass@1.100.0` Node engine 불일치 | FAIL |
+| Q-Sign | `.\gradlew.bat :idem-gate:test --no-daemon --max-workers=1` | stale binary 삭제 후 성공 | PASS |
+| Q-IM | `.\gradlew.bat :idem-registry:test --no-daemon --max-workers=1` | 251 tests, 21 failed | FAIL |
+| IdO | `:idem-hub:compileTestJava` | `MemberLookupControllerTest.java` 컴파일 오류 8건 | FAIL |
+| Agency Stub | `:idem-tenant-sample:test` | E2E 6건 실패, 기대 200/403 대신 503 | FAIL |
+| OnePass Agent | `:idem-agent:test` | 250 tests, 1 failed | FAIL |
+| SDK | `:idem-sdk-java:test` | up-to-date, 이전 실행 성공 상태 | PASS |
+| Outbox Relay Batch | `:idem-relay:test` | up-to-date, 이전 실행 성공 상태 | PASS |
+| Platform Common | `:idem-common:test` | up-to-date, 이전 실행 성공 상태 | PASS |
+| OnePass FE | `.\gradlew.bat :idem-console:build` | `sass@1.100.0` Node engine 불일치 | FAIL |
 | Support DB compose | `docker compose -f compose.base.yml -f compose.support.yml up -d support-postgres` | 최초 네트워크 충돌 후 수정, DB healthy | PASS |
 | Support 앱 DB 기동 | support jar + `localhost:5433` | `/actuator/health` UP | PASS |
 | Compose config | support / sso-im / support-monitoring / full 조합 | config 통과 | PASS |
@@ -36,12 +36,12 @@ OnePass Support의 전용 PostgreSQL compose 구성은 보완 후 정상 확인�
 
 ### 1. IdO 테스트 소스 컴파일 실패
 
-- 파일: `ido/src/test/java/kr/go/smes/ido/memberlookup/MemberLookupControllerTest.java`
+- 파일: `idem-hub/src/test/java/kr/go/smes/idem-hub/memberlookup/MemberLookupControllerTest.java`
 - 증상:
   - 156행 부근에서 메서드/블록 구조가 깨져 `<identifier> expected`
   - 407행 이후 클래스 닫힘 뒤 중복 코드가 남아 `class, interface, enum, or record expected`
 - 영향:
-  - `:ido:compileTestJava` 자체가 실패하므로 IdO 테스트 스위트가 실행되지 못한다.
+  - `:idem-hub:compileTestJava` 자체가 실패하므로 IdO 테스트 스위트가 실행되지 못한다.
   - 인증 오케스트레이션, handoff, member lookup 관련 출시 신뢰성을 확보할 수 없다.
 - 판정:
   - 출시 차단.
@@ -66,7 +66,7 @@ OnePass Support의 전용 PostgreSQL compose 구성은 보완 후 정상 확인�
 
 ### 3. Q-IM 테스트 실패
 
-- 명령: `.\gradlew.bat :q-im:test --no-daemon --max-workers=1`
+- 명령: `.\gradlew.bat :idem-registry:test --no-daemon --max-workers=1`
 - 결과: `251 tests completed, 21 failed`
 - 주요 실패:
   - `QimLifecycleIntegrationTest`: 17건 실패
@@ -97,8 +97,8 @@ OnePass Support의 전용 PostgreSQL compose 구성은 보완 후 정상 확인�
 
 ### 5. Frontend 빌드 실패
 
-- 명령: `.\gradlew.bat :onepass-fe:build --no-daemon --max-workers=1`
-- 실패 위치: `:onepass-fe:yarnInstall`
+- 명령: `.\gradlew.bat :idem-console:build --no-daemon --max-workers=1`
+- 실패 위치: `:idem-console:yarnInstall`
 - 원인:
   - Gradle Node plugin 고정 Node 버전: `20.14.0`
   - 설치 대상 `sass@1.100.0` 요구 Node: `>=20.19.0`
@@ -194,7 +194,7 @@ docker compose -f infra/docker/compose.base.yml -f infra/docker/compose.sso-im.y
 
 출시 전 최소 조치:
 
-1. `MemberLookupControllerTest.java` 문법 오류를 수정해 `:ido:compileTestJava`를 통과시킨다.
+1. `MemberLookupControllerTest.java` 문법 오류를 수정해 `:idem-hub:compileTestJava`를 통과시킨다.
 2. Agency Stub E2E의 `503 SERVICE_UNAVAILABLE` 원인을 추적한다.
    - Kafka `localhost:19092` 설정과 Testcontainers/compose broker 포트 설정을 우선 확인한다.
 3. Q-IM `QimLifecycleIntegrationTest` ApplicationContext 빈 누락을 해결한다.
@@ -205,7 +205,7 @@ docker compose -f infra/docker/compose.base.yml -f infra/docker/compose.sso-im.y
 
 ```powershell
 .\gradlew.bat test --continue
-.\gradlew.bat :onepass-fe:build
+.\gradlew.bat :idem-console:build
 docker compose -f infra/docker/compose.base.yml -f infra/docker/compose.sso-im.yml -f infra/docker/compose.sso-im-apps.yml -f infra/docker/compose.support.yml --profile app --profile keycloak --profile support-app config
 ```
 

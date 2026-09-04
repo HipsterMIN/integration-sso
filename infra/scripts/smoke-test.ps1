@@ -378,7 +378,7 @@ if ($feStatus -eq 200) {
     Write-Skip "Frontend(Nginx) 미기동 — optionB 프로파일 포함 여부 확인"
 } else {
     Write-Fail "Frontend(Nginx) 접근" `
-        "HTTP $feStatus | onepass-react 컨테이너 상태 및 Dockerfile.optionB 빌드 확인"
+        "HTTP $feStatus | idem-console 컨테이너 상태 및 Dockerfile.optionB 빌드 확인"
 }
 
 # ── [7] Prometheus/Grafana ────────────────────────────────────

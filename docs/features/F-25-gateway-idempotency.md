@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_GATEWAY_IDEMPOTENCY_ENABLED`  
 > **Phase**: 항상 ON (보안 필수)  
 > **기본값**: `true`  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/gateway/GatewayIdempotencyStore.java`
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/gateway/GatewayIdempotencyStore.java`
 
 ---
 

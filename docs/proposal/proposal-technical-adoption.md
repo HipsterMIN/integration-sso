@@ -319,7 +319,7 @@ SMEP → IdO → Q-IM (응답 역방향 전달)
 채택 후 **즉시 착수**가 필요한 신규 구현:
 
 ```java
-// 구현 위치: ido/.../agency/smep/SmepAgencyAdapter.java
+// 구현 위치: idem-hub/.../agency/smep/SmepAgencyAdapter.java
 
 public class SmepAgencyAdapter implements AgencyAdapter {
 
@@ -381,9 +381,9 @@ Step 1: integration-sso 로컬 기동 확인
   → IdO :8083, Q-Sign :8081, Q-IM :8082 기동 확인
 
 Step 2: agency-stub 코드 참조
-  → agency-stub/src/.../AgencyEntryController.java  (Ticket 수신 처리)
-  → agency-stub/src/.../IdoVerifyClient.java        (Verify API 호출)
-  → agency-stub/src/.../AgencySessionService.java   (AGSID 세션 관리)
+  → idem-tenant-sample/src/.../AgencyEntryController.java  (Ticket 수신 처리)
+  → idem-tenant-sample/src/.../IdoVerifyClient.java        (Verify API 호출)
+  → idem-tenant-sample/src/.../AgencySessionService.java   (AGSID 세션 관리)
 
 Step 3: SMEP 자체 구현
   → POST /api/v1/handoff/verify 호출 구현
@@ -480,10 +480,10 @@ cd ../..
 ./gradlew build -x test
 
 # 4. 각 서비스 기동
-./gradlew :q-sign:bootRun &   # :8081
-./gradlew :q-im:bootRun &     # :8082
-./gradlew :ido:bootRun &      # :8083
-./gradlew :agency-stub:bootRun &  # :8084
+./gradlew :idem-gate:bootRun &   # :8081
+./gradlew :idem-registry:bootRun &     # :8082
+./gradlew :idem-hub:bootRun &      # :8083
+./gradlew :idem-tenant-sample:bootRun &  # :8084
 
 # 5. 프론트엔드 기동 (별도 터미널)
 cd onepass-fe

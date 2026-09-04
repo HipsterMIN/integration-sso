@@ -80,20 +80,20 @@ IdO(Identity Orchestrator)는 **정책 오케스트레이터 + FE BFF** 역할�
 export DOCKER_UNAVAILABLE=true
 
 # 컴파일 검증
-./gradlew :ido:compileJava --no-daemon -q
+./gradlew :idem-hub:compileJava --no-daemon -q
 
 # 빌드 + 테스트 검증
-./gradlew :ido:compileJava :q-sign:compileJava --no-daemon
-./gradlew :ido:test :q-sign:test --no-daemon
+./gradlew :idem-hub:compileJava :idem-gate:compileJava --no-daemon
+./gradlew :idem-hub:test :idem-gate:test --no-daemon
 
 # 로컬 프로파일 실행
-./gradlew :ido:bootRun --args='--spring.profiles.active=local'
+./gradlew :idem-hub:bootRun --args='--spring.profiles.active=local'
 ```
 
 ### 2.2 application-local.yml 최소 설정
 
 ```yaml
-# ido/src/main/resources/application-local.yml
+# idem-hub/src/main/resources/application-local.yml
 ido:
   nice:
     client-id: test-client-id
@@ -127,7 +127,7 @@ cd infra/docker
 docker compose up -d postgres redis kafka keycloak
 
 # 애플리케이션은 IDE 또는 Gradle로 실행
-./gradlew :ido:bootRun --args='--spring.profiles.active=local'
+./gradlew :idem-hub:bootRun --args='--spring.profiles.active=local'
 ```
 
 ---
@@ -424,7 +424,7 @@ const tempPassword = pwRes.data.tempPassword;  // 필드명 일치 확인
 ## 10. 패키지 구조 및 설계 원칙
 
 ```
-ido/src/main/java/kr/go/smes/ido/
+idem-hub/src/main/java/kr/go/smes/idem-hub/
 ├── auth/
 │   ├── controller/
 │   │   └── AuthController.java     # /api/v1/auth/** — BFF 진입점
@@ -460,16 +460,16 @@ ido/src/main/java/kr/go/smes/ido/
 
 ```bash
 # 컴파일 검증
-./gradlew :ido:compileJava :q-sign:compileJava --no-daemon
+./gradlew :idem-hub:compileJava :idem-gate:compileJava --no-daemon
 
 # 테스트 실행
-./gradlew :ido:test :q-sign:test --no-daemon
+./gradlew :idem-hub:test :idem-gate:test --no-daemon
 
 # 전체 빌드
-./gradlew :ido:build --no-daemon
+./gradlew :idem-hub:build --no-daemon
 
 # 특정 테스트 클래스만 실행
-./gradlew :ido:test --tests "kr.go.smes.ido.auth.*" --no-daemon
+./gradlew :idem-hub:test --tests "kr.go.smes.ido.auth.*" --no-daemon
 ```
 
 ### 테스트 작성 주의사항
@@ -511,7 +511,7 @@ void generateTempPassword_returnsMapWithTempPasswordKey() {
 [ ] DB_* / REDIS_* / KAFKA_SERVERS 운영 값 설정
 [ ] CORS_ORIGIN_PROD — 운영 FE 도메인 설정
 [ ] OACX_DEBUG_MODE=false — 운영 환경 반드시 false
-[ ] ./gradlew :ido:build → Docker 이미지 빌드 → 배포
+[ ] ./gradlew :idem-hub:build → Docker 이미지 빌드 → 배포
 ```
 
 ---

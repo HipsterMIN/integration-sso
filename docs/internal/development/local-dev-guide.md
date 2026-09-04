@@ -449,13 +449,13 @@ integration-sso/                      ← 프로젝트 루트
 ├── build.gradle.kts                  ← 루트 Gradle 빌드 설정
 ├── settings.gradle.kts               ← 멀티프로젝트 모듈 등록
 │
-├── platform-common/                  ← 공통 도메인·이벤트·에러코드 (JAR)
-├── q-sign/                           ← 인증 SoR (port 8081)
-├── q-im/                             ← 식별 SoR (port 8082)
-├── ido/                              ← 정책 오케스트레이터 + FE BFF (port 8083)
-├── agency-stub/                      ← 기관 로컬 세션 시뮬레이터 (port 8084)
+├── idem-common/                  ← 공통 도메인·이벤트·에러코드 (JAR)
+├── idem-gate/                           ← 인증 SoR (port 8081)
+├── idem-registry/                             ← 식별 SoR (port 8082)
+├── idem-hub/                              ← 정책 오케스트레이터 + FE BFF (port 8083)
+├── idem-tenant-sample/                      ← 기관 로컬 세션 시뮬레이터 (port 8084)
 │
-├── onepass-fe/                       ← 순수 React SPA (Node.js 모듈)
+├── idem-console/                       ← 순수 React SPA (Node.js 모듈)
 │   ├── build.gradle.kts
 │   └── frontend/
 │       ├── package.json
@@ -479,7 +479,7 @@ integration-sso/                      ← 프로젝트 루트
 │   │       └── redis.conf
 │   └── monitoring/                   ← ★ v1.1.0 신규 — Monitoring 설정
 │       ├── prometheus/
-│       │   ├── prometheus.yml        ← scrape 설정 (ido/qim/qsign/agency-stub)
+│       │   ├── prometheus.yml        ← scrape 설정 (idem-hub/qim/qsign/agency-stub)
 │       │   └── alert_rules.yml       ← 알림 규칙 (오류율/응답시간/Rate Limit)
 │       ├── grafana/
 │       │   └── provisioning/
@@ -777,29 +777,29 @@ curl -s 'http://localhost:9090/api/v1/targets' | python3 -m json.tool | grep '"h
 ```bash
 # 프로젝트 루트에서 실행
 # 테스트 제외 빌드 (권장 — 로컬 개발 시)
-./gradlew :platform-common:build \
-          :q-sign:build \
-          :q-im:build \
-          :ido:build \
-          :agency-stub:build \
+./gradlew :idem-common:build \
+          :idem-gate:build \
+          :idem-registry:build \
+          :idem-hub:build \
+          :idem-tenant-sample:build \
           -x test
 ```
 
 #### Windows (PowerShell)
 
 ```powershell
-.\gradlew.bat :platform-common:build `
-              :q-sign:build `
-              :q-im:build `
-              :ido:build `
-              :agency-stub:build `
+.\gradlew.bat :idem-common:build `
+              :idem-gate:build `
+              :idem-registry:build `
+              :idem-hub:build `
+              :idem-tenant-sample:build `
               -x test
 ```
 
 #### Windows (CMD)
 
 ```cmd
-gradlew.bat :platform-common:build :q-sign:build :q-im:build :ido:build :agency-stub:build -x test
+gradlew.bat :idem-common:build :idem-gate:build :idem-registry:build :idem-hub:build :idem-tenant-sample:build -x test
 ```
 
 ### 5.2 빌드 결과 확인
@@ -807,19 +807,19 @@ gradlew.bat :platform-common:build :q-sign:build :q-im:build :ido:build :agency-
 성공 시 각 모듈의 `build/libs/` 폴더에 JAR 파일이 생성됩니다:
 
 ```bash
-ls -la q-sign/build/libs/
-ls -la q-im/build/libs/
-ls -la ido/build/libs/
-ls -la agency-stub/build/libs/
+ls -la idem-gate/build/libs/
+ls -la idem-registry/build/libs/
+ls -la idem-hub/build/libs/
+ls -la idem-tenant-sample/build/libs/
 ```
 
 **예상 출력:**
 
 ```
-q-sign/build/libs/q-sign-0.1.0-SNAPSHOT.jar
-q-im/build/libs/q-im-0.1.0-SNAPSHOT.jar
-ido/build/libs/ido-0.1.0-SNAPSHOT.jar
-agency-stub/build/libs/agency-stub-0.1.0-SNAPSHOT.jar
+idem-gate/build/libs/q-sign-0.1.0-SNAPSHOT.jar
+idem-registry/build/libs/q-im-0.1.0-SNAPSHOT.jar
+idem-hub/build/libs/ido-0.1.0-SNAPSHOT.jar
+idem-tenant-sample/build/libs/agency-stub-0.1.0-SNAPSHOT.jar
 ```
 
 ### 5.3 빌드 시 주의사항
@@ -832,10 +832,10 @@ agency-stub/build/libs/agency-stub-0.1.0-SNAPSHOT.jar
 ./gradlew clean build -x test
 
 # 특정 모듈만 빌드:
-./gradlew :ido:build -x test
+./gradlew :idem-hub:build -x test
 
 # 빌드 디버그 출력 (오류 상세 확인):
-./gradlew :ido:build -x test --stacktrace
+./gradlew :idem-hub:build -x test --stacktrace
 ```
 
 ---
@@ -859,13 +859,13 @@ agency-stub/build/libs/agency-stub-0.1.0-SNAPSHOT.jar
 
 ```bash
 # 프로젝트 루트에서
-./gradlew :q-sign:bootRun
+./gradlew :idem-gate:bootRun
 ```
 
 #### Windows PowerShell
 
 ```powershell
-.\gradlew.bat :q-sign:bootRun
+.\gradlew.bat :idem-gate:bootRun
 ```
 
 **정상 기동 로그:**
@@ -889,7 +889,7 @@ curl http://localhost:8081/actuator/health
 #### Linux / macOS / Git Bash
 
 ```bash
-./gradlew :q-im:bootRun
+./gradlew :idem-registry:bootRun
 ```
 
 > ⚠️ q-im은 **MariaDB** (`localhost:3306/qim`)에 연결합니다.  
@@ -898,7 +898,7 @@ curl http://localhost:8081/actuator/health
 #### Windows PowerShell
 
 ```powershell
-.\gradlew.bat :q-im:bootRun
+.\gradlew.bat :idem-registry:bootRun
 ```
 
 **기동 확인:**
@@ -913,13 +913,13 @@ curl http://localhost:8082/actuator/health
 #### Linux / macOS / Git Bash
 
 ```bash
-./gradlew :ido:bootRun
+./gradlew :idem-hub:bootRun
 ```
 
 #### Windows PowerShell
 
 ```powershell
-.\gradlew.bat :ido:bootRun
+.\gradlew.bat :idem-hub:bootRun
 ```
 
 **기동 확인:**
@@ -934,13 +934,13 @@ curl http://localhost:8083/actuator/health
 #### Linux / macOS / Git Bash
 
 ```bash
-./gradlew :agency-stub:bootRun
+./gradlew :idem-tenant-sample:bootRun
 ```
 
 #### Windows PowerShell
 
 ```powershell
-.\gradlew.bat :agency-stub:bootRun
+.\gradlew.bat :idem-tenant-sample:bootRun
 ```
 
 **기동 확인:**
@@ -962,7 +962,7 @@ curl http://localhost:8084/actuator/health
 REDIS_HOST=localhost \
 DB_HOST=localhost \
 KAFKA_SERVERS=localhost:9092 \
-./gradlew :ido:bootRun
+./gradlew :idem-hub:bootRun
 
 # Q-IM 환경변수 재정의 예시 (MariaDB 전용 — QIM_DB_* 네임스페이스)
 QIM_DB_HOST=localhost \
@@ -972,7 +972,7 @@ QIM_DB_USERNAME=qim \
 QIM_DB_PASSWORD=qim \
 REDIS_HOST=localhost \
 KAFKA_SERVERS=localhost:9092 \
-./gradlew :q-im:bootRun
+./gradlew :idem-registry:bootRun
 ```
 
 #### Windows PowerShell
@@ -982,7 +982,7 @@ KAFKA_SERVERS=localhost:9092 \
 $env:REDIS_HOST="localhost"
 $env:DB_HOST="localhost"
 $env:KAFKA_SERVERS="localhost:9092"
-.\gradlew.bat :ido:bootRun
+.\gradlew.bat :idem-hub:bootRun
 
 # Q-IM (MariaDB 전용)
 $env:QIM_DB_HOST="localhost"
@@ -990,16 +990,16 @@ $env:QIM_DB_PORT="3306"
 $env:QIM_DB_NAME="qim"
 $env:QIM_DB_USERNAME="qim"
 $env:QIM_DB_PASSWORD="qim"
-.\gradlew.bat :q-im:bootRun
+.\gradlew.bat :idem-registry:bootRun
 ```
 
 #### Windows Git Bash
 
 ```bash
 # IdO
-REDIS_HOST=localhost DB_HOST=localhost ./gradlew :ido:bootRun
+REDIS_HOST=localhost DB_HOST=localhost ./gradlew :idem-hub:bootRun
 # Q-IM
-QIM_DB_HOST=localhost QIM_DB_PORT=3306 QIM_DB_NAME=qim QIM_DB_USERNAME=qim QIM_DB_PASSWORD=qim ./gradlew :q-im:bootRun
+QIM_DB_HOST=localhost QIM_DB_PORT=3306 QIM_DB_NAME=qim QIM_DB_USERNAME=qim QIM_DB_PASSWORD=qim ./gradlew :idem-registry:bootRun
 ```
 
 ### 6.6 Spring Boot 브로커 모드 설정 (ido)
@@ -1008,7 +1008,7 @@ QIM_DB_HOST=localhost QIM_DB_PORT=3306 QIM_DB_NAME=qim QIM_DB_USERNAME=qim QIM_D
 
 ```bash
 # Keycloak 모드 (Keycloak 컨테이너 별도 기동 필요)
-IDO_BROKER_MODE=keycloak ./gradlew :ido:bootRun
+IDO_BROKER_MODE=keycloak ./gradlew :idem-hub:bootRun
 ```
 
 ---
@@ -1023,8 +1023,8 @@ React 개발 서버는 `port 3000`으로 실행되며, `/api/**` 요청을 자�
 **터미널 5 (새 터미널)**에서 실행합니다.
 
 ```bash
-# onepass-fe/frontend 디렉토리로 이동
-cd onepass-fe/frontend
+# idem-console/frontend 디렉토리로 이동
+cd idem-console/frontend
 
 # 의존성 설치 (최초 1회 또는 package.json 변경 시)
 yarn install
@@ -1058,7 +1058,7 @@ webpack compiled successfully
 
 ```bash
 # 의존성 설치 + 개발 서버 기동 (한 번에)
-./gradlew :onepass-fe:frontendDev
+./gradlew :idem-console:frontendDev
 ```
 
 > 💡 `frontendDev` 태스크는 내부적으로 `yarn install` → `yarn dev`를 순서대로 실행합니다.
@@ -1066,7 +1066,7 @@ webpack compiled successfully
 ### 7.3 프론트엔드 프로덕션 빌드 (선택)
 
 ```bash
-cd onepass-fe/frontend
+cd idem-console/frontend
 yarn build:prod
 # dist/ 폴더에 빌드 산출물 생성
 ```
@@ -1195,7 +1195,7 @@ docker exec -it onepass-postgres psql -U onepass -d onepass \
 
 ```bash
 # PKCE가 활성화되어 있는지 application.yml 확인
-grep -A 3 "pkce" q-sign/src/main/resources/application.yml
+grep -A 3 "pkce" idem-gate/src/main/resources/application.yml
 # qsign.pkce.enabled: true 이어야 함
 
 # Redis에서 PKCE challenge 키 확인 (인증 흐름 진행 중일 때)
@@ -1398,7 +1398,7 @@ DB명: qim
 └── snapshot_meta       — Compacted Snapshot 발행 이력 (§11.5.6)
 ```
 
-> ℹ️ Q-IM 테이블은 Flyway(`q-im/src/main/resources/db/migration/`)가 자동 생성합니다.  
+> ℹ️ Q-IM 테이블은 Flyway(`idem-registry/src/main/resources/db/migration/`)가 자동 생성합니다.  
 > PostgreSQL `init-db.sql`에 Q-IM 스키마는 포함되지 않습니다.
 
 ---
@@ -1652,7 +1652,7 @@ docker compose -f infra/docker/docker-compose.yml logs mariadb
 docker compose -f infra/docker/docker-compose.yml restart mariadb
 
 # 준비 완료까지 대기 후 Q-IM 재기동
-./gradlew :q-im:bootRun
+./gradlew :idem-registry:bootRun
 ```
 
 ---
@@ -1725,7 +1725,7 @@ docker compose -f infra/docker/docker-compose.yml logs postgres
 docker compose -f infra/docker/docker-compose.yml restart postgres
 
 # 준비 완료까지 대기 후 Spring Boot 재기동
-./gradlew :ido:bootRun
+./gradlew :idem-hub:bootRun
 ```
 
 ---
@@ -1817,7 +1817,7 @@ docker compose -f infra/docker/docker-compose.yml ps kafka
 # "Up (healthy)" 인지 확인
 
 # Kafka 기동까지 30~60초 대기 후 Spring Boot 재기동
-./gradlew :ido:bootRun
+./gradlew :idem-hub:bootRun
 
 # Kafka 브로커 직접 연결 테스트
 docker exec -it onepass-kafka \
@@ -1922,7 +1922,7 @@ Error: Could not find or load main class kr.go.smes.ido.IdoApplication
 ```bash
 # 클린 빌드
 ./gradlew clean
-./gradlew :ido:build -x test
+./gradlew :idem-hub:build -x test
 
 # Java 버전 확인 (반드시 21이어야 함)
 java -version
@@ -1964,21 +1964,21 @@ echo $env:JAVA_HOME
 
 **증상:**
 ```
-> Task :ido:compileJava FAILED
+> Task :idem-hub:compileJava FAILED
 error: cannot find symbol
 ```
 
 **해결:**
 ```bash
 # 1. platform-common을 먼저 빌드 (다른 모듈의 의존성)
-./gradlew :platform-common:build
+./gradlew :idem-common:build
 
 # 2. 클린 후 전체 재빌드
 ./gradlew clean
-./gradlew :platform-common:build :q-sign:build :q-im:build :ido:build :agency-stub:build -x test
+./gradlew :idem-common:build :idem-gate:build :idem-registry:build :idem-hub:build :idem-tenant-sample:build -x test
 
 # 3. 자세한 오류 출력
-./gradlew :ido:build -x test --info 2>&1 | grep -A 5 "error:"
+./gradlew :idem-hub:build -x test --info 2>&1 | grep -A 5 "error:"
 ```
 
 ---
@@ -2002,7 +2002,7 @@ rm -rf ~/.gradle/caches/
 Remove-Item -Recurse -Force "$env:USERPROFILE\.gradle\caches"
 
 # 재시도
-./gradlew :ido:build -x test
+./gradlew :idem-hub:build -x test
 
 # 프록시 환경인 경우 gradle.properties에 프록시 설정 추가
 # ~/.gradle/gradle.properties 파일에:
@@ -2101,7 +2101,7 @@ docker exec -it onepass-kafka \
   kafka-broker-api-versions --bootstrap-server localhost:9092
 
 # 4. 모두 정상이면 Spring Boot 재기동
-./gradlew :ido:bootRun
+./gradlew :idem-hub:bootRun
 ```
 
 ---
@@ -2254,7 +2254,7 @@ npm install -g yarn
 **해결:**
 ```bash
 # node_modules 삭제 후 재설치
-cd onepass-fe/frontend
+cd idem-console/frontend
 rm -rf node_modules
 yarn install
 
@@ -2276,7 +2276,7 @@ yarn install
 curl http://localhost:8083/actuator/health
 
 # ido 서버 기동 (별도 터미널)
-./gradlew :ido:bootRun
+./gradlew :idem-hub:bootRun
 ```
 
 ---
@@ -2359,11 +2359,11 @@ docker compose -f infra/docker/docker-compose.yml --profile keycloak up -d
 **해결:**
 ```bash
 # 1. 클린 빌드 후 재기동
-./gradlew :q-sign:clean :q-sign:build -x test
-./gradlew :q-sign:bootRun
+./gradlew :idem-gate:clean :idem-gate:build -x test
+./gradlew :idem-gate:bootRun
 
 # 2. q-sign application.yml에 Keycloak 설정 확인
-grep -A 10 "keycloak:" q-sign/src/main/resources/application.yml
+grep -A 10 "keycloak:" idem-gate/src/main/resources/application.yml
 # qsign.keycloak.base-url 항목이 있어야 함
 
 # 3. 환경변수 확인 (로컬 기동 시)
@@ -2385,7 +2385,7 @@ PlatformException: IDP_SIGNATURE_MISMATCH — state 검증 실패 (만료 또는
 1. **state TTL 만료** (기본 300초): 인증 페이지를 5분 이상 방치 후 로그인 시도
    ```bash
    # state TTL 확인 (application.yml)
-   grep "state-ttl-seconds" q-sign/src/main/resources/application.yml
+   grep "state-ttl-seconds" idem-gate/src/main/resources/application.yml
    # 기본값: 300 (5분). 개발 시 600으로 늘릴 수 있음
    ```
 2. **Redis 연결 끊김**: state가 저장되지 않은 경우
@@ -2418,7 +2418,7 @@ curl -s http://localhost:8081/realms/onepass/protocol/openid-connect/certs \
 
 # 2. keycloakJwks 캐시 만료 강제 (Spring Boot 재시작으로 캐시 초기화)
 # q-sign 재시작 시 캐시가 초기화됨
-./gradlew :q-sign:bootRun
+./gradlew :idem-gate:bootRun
 
 # 3. Keycloak 로그에서 오류 확인
 docker compose -f infra/docker/docker-compose.yml logs keycloak | tail -50
@@ -2444,11 +2444,11 @@ docker compose -f infra/docker/docker-compose.yml logs keycloak | tail -50
 
 # 2. 환경변수로 설정 (Linux/macOS)
 export QSIGN_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
-./gradlew :q-sign:bootRun
+./gradlew :idem-gate:bootRun
 
 # Windows PowerShell
 $env:QSIGN_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
-.\gradlew.bat :q-sign:bootRun
+.\gradlew.bat :idem-gate:bootRun
 
 # 3. application.yml에 직접 설정 (로컬 개발 전용 — 운영 사용 금지)
 # qsign.keycloak.client-secret: "직접-값-입력"
@@ -2465,7 +2465,7 @@ $env:QSIGN_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
 **해결:**
 ```bash
 # application.yml 매핑 확인
-grep -A 10 "idp-hint-mapping" q-sign/src/main/resources/application.yml
+grep -A 10 "idp-hint-mapping" idem-gate/src/main/resources/application.yml
 # 출력 예시:
 #   idp-hint-mapping:
 #     kakao: social-kakao
@@ -2474,7 +2474,7 @@ grep -A 10 "idp-hint-mapping" q-sign/src/main/resources/application.yml
 #     gpki: social-gpki
 
 # 매핑이 없으면 추가 후 재기동
-./gradlew :q-sign:bootRun
+./gradlew :idem-gate:bootRun
 ```
 
 ---
@@ -2499,7 +2499,7 @@ q-sign이 `bootRun`으로 실행 중이면 Keycloak 컨테이너와 포트가 �
 # 임시 해결: Keycloak 포트를 8088로 변경
 # infra/docker/docker-compose.yml 내 keycloak 서비스:
 #   ports: "8088:8080"  (8081→8088 변경)
-# q-sign/src/main/resources/application.yml:
+# idem-gate/src/main/resources/application.yml:
 #   qsign.keycloak.base-url: http://localhost:8088
 ```
 
@@ -2584,10 +2584,10 @@ echo $env:JAVA_HOME
 **해결:**
 ```cmd
 REM CMD에서는 경로에 .\ 불필요
-gradlew.bat :ido:bootRun
+gradlew.bat :idem-hub:bootRun
 
 REM PowerShell에서는 .\ 필요
-.\gradlew.bat :ido:bootRun
+.\gradlew.bat :idem-hub:bootRun
 ```
 
 ---
@@ -2685,7 +2685,7 @@ docker exec -it onepass-redis redis-cli \
 # 1000000 이상이면 일별 한도 초과
 
 # 3. 로컬 개발 시 Rate Limit 일시 비활성화 방법
-# ido/src/main/resources/application.yml에서:
+# idem-hub/src/main/resources/application.yml에서:
 # ido.rate-limit.default-tps: 10000
 # ido.rate-limit.daily-limit: 100000000
 
@@ -2721,7 +2721,7 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
 1. **PKCE challenge TTL 만료** (기본 300초)
    ```bash
    # application.yml에서 TTL 확인
-   grep -A 5 "pkce" q-sign/src/main/resources/application.yml
+   grep -A 5 "pkce" idem-gate/src/main/resources/application.yml
    # qsign.pkce.challenge-ttl-seconds: 300
    # 개발 시 600으로 늘릴 수 있음
    ```
@@ -2737,7 +2737,7 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
 
 3. **PKCE 비활성화** (로컬 테스트용)
    ```yaml
-   # q-sign/src/main/resources/application.yml
+   # idem-gate/src/main/resources/application.yml
    qsign:
      pkce:
        enabled: false   # 로컬 테스트 전용 — 운영 사용 금지
@@ -2805,7 +2805,7 @@ ERROR CiCryptoServiceImpl - CI 복호화 실패: AES-256-GCM tag mismatch
    curl http://localhost:8082/actuator/health
    # {"status":"UP"} 이어야 함
    # 기동되지 않았으면:
-   ./gradlew :q-im:bootRun
+   ./gradlew :idem-registry:bootRun
    ```
 
 2. **CI 암호화 키 버전 불일치** — IdO와 Q-IM의 키가 다른 경우
@@ -2815,14 +2815,14 @@ ERROR CiCryptoServiceImpl - CI 복호화 실패: AES-256-GCM tag mismatch
      -e "SELECT key_type, key_version, active FROM crypto_key_version;"
    
    # IdO application.yml의 CI 암호화 키 버전 확인
-   grep -A 5 "ci-encryption" ido/src/main/resources/application.yml
+   grep -A 5 "ci-encryption" idem-hub/src/main/resources/application.yml
    # q-im.ci-encryption.current-version 항목 확인
    ```
 
 3. **Q-IM Base URL 설정 오류**
    ```bash
    # ido application.yml에서 Q-IM URL 확인
-   grep "qim" ido/src/main/resources/application.yml
+   grep "qim" idem-hub/src/main/resources/application.yml
    # ido.qim.base-url: http://localhost:8082  (로컬 기동 시)
    ```
 
@@ -2873,7 +2873,7 @@ ERROR HandoffKeyRotationScheduler - 로테이션 중 오류 발생
 
 3. **로컬 환경에서 스케줄러 비활성화 (선택)**
    ```yaml
-   # ido/src/main/resources/application.yml
+   # idem-hub/src/main/resources/application.yml
    ido:
      ticket:
        key-rotation-days: 36500  # 사실상 비활성화 (100년)
@@ -2887,19 +2887,19 @@ ERROR HandoffKeyRotationScheduler - 로테이션 중 오류 발생
 
 ```bash
 # 특정 모듈만 빌드 (빠름)
-./gradlew :ido:build -x test
+./gradlew :idem-hub:build -x test
 
 # 변경된 모듈만 빌드 (Gradle incremental build)
-./gradlew :ido:bootRun   # 변경 감지 자동
+./gradlew :idem-hub:bootRun   # 변경 감지 자동
 
 # 전체 클린 빌드
 ./gradlew clean build -x test
 
 # 의존성 트리 확인
-./gradlew :ido:dependencies
+./gradlew :idem-hub:dependencies
 
 # 사용 가능한 태스크 목록
-./gradlew :ido:tasks
+./gradlew :idem-hub:tasks
 
 # Gradle 데몬 중지 (메모리 해제)
 ./gradlew --stop
@@ -3154,13 +3154,13 @@ docker compose -f infra/docker/docker-compose.yml up -d
 docker compose -f infra/docker/docker-compose.yml ps
 
 # 4. Spring Boot 서비스 순서대로 재기동
-./gradlew :q-sign:bootRun   # 터미널 1
-./gradlew :q-im:bootRun     # 터미널 2
-./gradlew :ido:bootRun      # 터미널 3
-./gradlew :agency-stub:bootRun  # 터미널 4
+./gradlew :idem-gate:bootRun   # 터미널 1
+./gradlew :idem-registry:bootRun     # 터미널 2
+./gradlew :idem-hub:bootRun      # 터미널 3
+./gradlew :idem-tenant-sample:bootRun  # 터미널 4
 
 # 5. 프론트엔드 재기동
-cd onepass-fe/frontend && yarn dev  # 터미널 5
+cd idem-console/frontend && yarn dev  # 터미널 5
 ```
 
 ---
@@ -3189,17 +3189,17 @@ Step 2 — 인프라 확인
 □ Redis AES 키 초기화 확인: GET ido:crypto:aes:current-version → "v1"
 
 Step 3 — 백엔드 빌드
-□ ./gradlew :platform-common:build :q-sign:build :q-im:build :ido:build :agency-stub:build -x test
+□ ./gradlew :idem-common:build :idem-gate:build :idem-registry:build :idem-hub:build :idem-tenant-sample:build -x test
 □ BUILD SUCCESSFUL 확인 (빌드 오류 시 → §11.6)
 
 Step 4 — 백엔드 기동 (4개 터미널)
-□ 터미널 1: ./gradlew :q-sign:bootRun → http://localhost:8081/actuator/health {"status":"UP"}
-□ 터미널 2: ./gradlew :q-im:bootRun   → http://localhost:8082/actuator/health {"status":"UP"}
-□ 터미널 3: ./gradlew :ido:bootRun    → http://localhost:8083/actuator/health {"status":"UP"}
-□ 터미널 4: ./gradlew :agency-stub:bootRun → http://localhost:8084/actuator/health {"status":"UP"}
+□ 터미널 1: ./gradlew :idem-gate:bootRun → http://localhost:8081/actuator/health {"status":"UP"}
+□ 터미널 2: ./gradlew :idem-registry:bootRun   → http://localhost:8082/actuator/health {"status":"UP"}
+□ 터미널 3: ./gradlew :idem-hub:bootRun    → http://localhost:8083/actuator/health {"status":"UP"}
+□ 터미널 4: ./gradlew :idem-tenant-sample:bootRun → http://localhost:8084/actuator/health {"status":"UP"}
 
 Step 5 — 프론트엔드 기동 (1개 터미널)
-□ 터미널 5: cd onepass-fe/frontend && yarn install && yarn dev
+□ 터미널 5: cd idem-console/frontend && yarn install && yarn dev
 □ http://localhost:3000 접속 확인
 
 기본 모니터링 확인 (기본 기동 시)
@@ -3212,7 +3212,7 @@ Step 5 — 프론트엔드 기동 (1개 터미널)
 □ Grafana 정상: http://localhost:3002 (admin/admin)
 □ Admin API 동작 확인: curl -H "X-Admin-Id: local-admin" http://localhost:8083/api/v1/admin/agencies
 □ Rate Limiter Redis 키 확인: KEYS ido:rl:*
-□ PKCE 활성화 확인: grep pkce q-sign/src/main/resources/application.yml
+□ PKCE 활성화 확인: grep pkce idem-gate/src/main/resources/application.yml
 □ AES 키 버전 확인: GET ido:crypto:aes:current-version
 ```
 
@@ -3264,5 +3264,5 @@ Step 5 — 프론트엔드 기동 (1개 터미널)
 # 로컬에서 환경변수로 override 예시
 export QIM_DI_SECRET="local-dev-secret-not-for-production"
 export QIM_CI_KEY_V1="bG9jYWwtZGV2LWtleS1ub3QtZm9yLXByb2Q="  # Base64
-./gradlew :q-im:bootRun
+./gradlew :idem-registry:bootRun
 ```

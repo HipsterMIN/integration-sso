@@ -81,7 +81,7 @@
 
 > **본 매트릭스는 v1.1.0까지 JDK ≤7 레거시 환경을 "✅ 지원"으로 잘못 표기했습니다. 아래와 같이 정정합니다.**
 >
-> **정정 근거(코드 검증)**: 에이전트 산출물은 `--release 8`(`sourceCompatibility/targetCompatibility = VERSION_1_8`, `onepass-agent/build.gradle.kts:43-44,146`)로 컴파일되어 **에이전트 자신의 premain·위빙 클래스가 Java 8 바이트코드(class version 52)** 입니다. JDK ≤7 JVM은 이 클래스를 **로드하는 즉시 `UnsupportedClassVersionError`** 로 실패합니다 — 번들 Javassist가 구형 JVM을 지원하는지와 **무관**합니다(에이전트 진입 클래스 자체가 로드 불가). 추가로 JDK ≤6은 **TLS 1.2 미지원**이라 플랫폼과의 아웃바운드 HTTPS도 성립하지 않습니다.
+> **정정 근거(코드 검증)**: 에이전트 산출물은 `--release 8`(`sourceCompatibility/targetCompatibility = VERSION_1_8`, `idem-agent/build.gradle.kts:43-44,146`)로 컴파일되어 **에이전트 자신의 premain·위빙 클래스가 Java 8 바이트코드(class version 52)** 입니다. JDK ≤7 JVM은 이 클래스를 **로드하는 즉시 `UnsupportedClassVersionError`** 로 실패합니다 — 번들 Javassist가 구형 JVM을 지원하는지와 **무관**합니다(에이전트 진입 클래스 자체가 로드 불가). 추가로 JDK ≤6은 **TLS 1.2 미지원**이라 플랫폼과의 아웃바운드 HTTPS도 성립하지 않습니다.
 >
 > **지원 등급(3단계)**
 > - ✅ **지원** — 위빙 경로 구현 + JDK 8+ 로드 가능. *기관 실환경 파일럿 검증 권장*.
@@ -180,12 +180,12 @@ OnePass 행정안전부 담당자로부터 다음 정보를 사전에 발급받�
 
 ```bash
 # 파일명 확인
-ls -la onepass-agent-1.0.0-all.jar
+ls -la idem-agent-1.0.0-all.jar
 # 예상 크기: ~9.7MB
 
 # 배포 디렉토리 생성 및 배치
 mkdir -p /opt/onepass/conf
-cp onepass-agent-1.0.0-all.jar /opt/onepass/
+cp idem-agent-1.0.0-all.jar /opt/onepass/
 
 # 설정 파일 생성 (아래 4절 참조)
 ```
@@ -235,7 +235,7 @@ JEUS 4/5는 버전에 따라 기동 스크립트 위치가 다릅니다.
 **방법 A: `DAS_OPTS` 환경변수 사용 (권장)**
 ```bash
 # /etc/profile.d/jeus-agent.sh 또는 jeus 기동 스크립트 상단에 추가
-export DAS_OPTS="$DAS_OPTS -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
+export DAS_OPTS="$DAS_OPTS -javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
 ```
 
 **방법 B: JEUS 도메인 설정 파일 수정**
@@ -245,7 +245,7 @@ export DAS_OPTS="$DAS_OPTS -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=c
   <server-group>
     <server-config>
       <jvm-config>
-        <jvm-option>-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
+        <jvm-option>-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
         <!-- JEUS 4/5가 WAS 유형으로 자동 감지 안 될 경우 명시적 지정 -->
         <jvm-option>-Donepass.was.type=JEUS_LEGACY</jvm-option>
       </jvm-config>
@@ -256,7 +256,7 @@ export DAS_OPTS="$DAS_OPTS -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=c
 
 **방법 C: jeusadmin CLI**
 ```
-jeusadmin> modify JeusServer -jvmopts "-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
+jeusadmin> modify JeusServer -jvmopts "-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
 ```
 
 #### Step 3: JEUS 재시작
@@ -316,7 +316,7 @@ JEUS 6은 도메인 구조를 사용합니다. `domain.xml`에서 JVM 옵션을 
       <name>server1</name>
       <jvm-config>
         <jvm-option>
-          -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties
+          -javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties
         </jvm-option>
       </jvm-config>
     </server>
@@ -370,7 +370,7 @@ onepass.agent.max-retry=2
     <server>
       <name>server1</name>
       <jvm-config>
-        <jvm-option>-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
+        <jvm-option>-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
         <!-- JDK 1.7 환경에서 byte-buddy 오류 시 강제 Javassist 지정 -->
         <!-- <jvm-option>-Donepass.was.type=JEUS_7</jvm-option> -->
       </jvm-config>
@@ -416,7 +416,7 @@ onepass.agent.hmac-secret=YOUR_HMAC_SECRET
 
 ```xml
 <jvm-config>
-  <jvm-option>-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
+  <jvm-option>-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
   <!-- JDK 11에서 동적 에이전트 로딩 경고 억제 -->
   <jvm-option>-XX:+EnableDynamicAgentLoading</jvm-option>
 </jvm-config>
@@ -445,7 +445,7 @@ onepass.agent.log-level=INFO
 
 ```xml
 <jvm-config>
-  <jvm-option>-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
+  <jvm-option>-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
   <!-- JDK 17+ JPMS(모듈 시스템) 열기 -->
   <jvm-option>--add-opens=java.base/java.lang=ALL-UNNAMED</jvm-option>
   <jvm-option>--add-opens=java.base/java.util=ALL-UNNAMED</jvm-option>
@@ -915,7 +915,7 @@ Agent는 WAS 기동 30초 후 OnePass 서버 연결을 확인합니다:
    → 소유자(WAS 구동 계정)만 읽기 가능
 
 ✅ Agent JAR 무결성 확인
-   sha256sum onepass-agent-1.0.0-all.jar
+   sha256sum idem-agent-1.0.0-all.jar
    → OnePass 담당자로부터 제공된 체크섬과 일치해야 함
 
 ✅ 내부망 전용 통신
@@ -977,7 +977,7 @@ onepass.agent.max-retry=3
 
 ```xml
 <!-- domain.xml에서 아래 라인 제거 -->
-<jvm-option>-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=...</jvm-option>
+<jvm-option>-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=...</jvm-option>
 ```
 
 ### Step 2: WAS 재시작

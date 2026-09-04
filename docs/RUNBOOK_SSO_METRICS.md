@@ -18,7 +18,7 @@
 |------|-----|
 | 모듈 | q-sign |
 | 원천 메트릭 | `auth_success_total{provider, auth_level}`, `auth_failure_total{provider, reason}` |
-| 구현 | **신규 코드 없음** — `q-sign/.../metrics/AuthMetrics.java` 기존 자산 재활용 |
+| 구현 | **신규 코드 없음** — `idem-gate/.../metrics/AuthMetrics.java` 기존 자산 재활용 |
 | 본질 매핑 | "사용자가 로그인할 수 있는가" |
 
 **PromQL — 5분 윈도우 전체 인증 성공률**:
@@ -102,7 +102,7 @@ management:
 |------|-----|
 | 모듈 | ido (`infrastructure/health/VaultKmsHealthIndicator` 재활용) |
 | 원천 메트릭 | `onepass_kms_healthy` (Gauge: UP=1, DOWN/UNKNOWN=0) |
-| 구현 | `ido/.../metrics/KmsHealthMetrics.java` (신규 — 약 80 LOC) |
+| 구현 | `idem-hub/.../metrics/KmsHealthMetrics.java` (신규 — 약 80 LOC) |
 | 본질 매핑 | "개인정보가 안전한가" |
 
 **구현 원리**:

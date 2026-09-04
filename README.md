@@ -1,12 +1,25 @@
-# OnePass 통합인증 플랫폼 (Integration-SSO)
+# Idem — 회원통합·연합인가 플랫폼 (integration-sso)
 
-**중소벤처기업부 중기원패스(OnePass) 통합인증 SSO 및 아이덴티티 관리 시스템** PoC/프리프로덕션 구현체.  
-**4+1 축 책임 모델** (Q-Sign · Q-IM · IdO · onepass-fe · agency-stub) + **OnePass Agency Java Agent** 기반 EDA 아키텍처.
+**Idem(아이뎀)** 은 이기종 회원원장을 가진 여러 기관(테넌트)의 회원을 동일인 기준으로 하나로 묶고, 기관에는 가명 ID만 전달하며, 연합 인가(역할·권한)와 세션 핸드오프를 제공하는 **IdP 위에 얹는 회원통합·연합인가 계층**입니다.
+첫 적용 사례는 중소벤처기업부 유관기관 통합회원(중기원패스, OnePass)이며, 저장소는 2026-09-04 **Idem** 으로 개명되었습니다 — 개명 범위·매핑·미변경 항목은 [`docs/naming.md`](docs/naming.md) 참조.
 
-> **최신 상태 (2026-06-25)** — **연합 인가(Federated Authorization) 평면 신설** — `q-authz` 모듈(역할 부여 SoR, L1+L2) + 토큰 `roles[]` 클레임(CAST·Handoff) + `/api/ext` 게이트웨이 PEP 속성 전파 + SCIM 2.0 Groups + 한시 권한 만료 스케줄러 + 회수 이벤트 전파(`authz.assignment.events`)
+| 모듈 | 역할 | 포트 |
+|---|---|---|
+| `idem-gate` | 인증 관문 — 로그인 프론트, OIDC 파사드(Keycloak 프록시), PKCE | 8081 |
+| `idem-registry` | 회원 원장 — 골든 레코드, 가명 ID(DI), 탈퇴 | 8082 |
+| `idem-hub` | 오케스트레이션 — 세션 핸드오프, 프로비저닝, 웹훅, KMS, 본인인증 브로커 | 8083 |
+| `idem-authz` | 연합 인가 — 역할 원장(SoR), SCIM 2.0 Groups, 만료·회수 전파 | 8086 |
+| `idem-relay` | Transactional Outbox 분산 릴레이 배치 (ShedLock) | 8090 |
+| `idem-console` | 관리·사용자 웹 (React SPA) | 3001 |
+| `idem-sdk-java` | 테넌트(기관)측 Java 8+ SDK — 핸드오프 티켓 검증, HMAC | — |
+| `idem-agent` | 레거시 WAS용 Java Agent (`-javaagent`) | — |
+| `idem-tenant-sample` | 참조 테넌트 앱 (PoC·E2E용) | 8084 |
+| `idem-common` | 공통 라이브러리 | — |
+
+> **최신 상태 (2026-06-25)** — **연합 인가(Federated Authorization) 평면 신설** — `idem-authz` 모듈(역할 부여 SoR, L1+L2) + 토큰 `roles[]` 클레임(CAST·Handoff) + `/api/ext` 게이트웨이 PEP 속성 전파 + SCIM 2.0 Groups + 한시 권한 만료 스케줄러 + 회수 이벤트 전파(`authz.assignment.events`)
 > **현재 버전**: v0.8.11 + 연합 인가 (authz-1 / authz-2) + Sprint α 누적
-> **빌드 상태**: `./gradlew :onepass-agent:agentJar` → **BUILD SUCCESSFUL** (`onepass-agent-0.1.0-SNAPSHOT-all.jar`, ~10MB)
-> **테스트 (참고)**: `./gradlew :onepass-agent:test` 131개, `:onepass-agency-sdk:test` 36개. Sprint α-1~α-3 신규 회귀 테스트 합산은 별도 검증 필요.
+> **빌드 상태**: `./gradlew :idem-agent:agentJar` → **BUILD SUCCESSFUL** (`idem-agent-0.1.0-SNAPSHOT-all.jar`, ~10MB)
+> **테스트 (참고)**: `./gradlew :idem-agent:test` 131개, `:idem-sdk-java:test` 36개. Sprint α-1~α-3 신규 회귀 테스트 합산은 별도 검증 필요.
 > **최근 머지**: [#205](https://github.com/HipsterMIN/integration-sso/pull/205) (연합 인가 L1~L4 — q-authz·roles 클레임·PEP·만료·SCIM) → [#206](https://github.com/HipsterMIN/integration-sso/pull/206) (회수 이벤트 전파 — `main` 병합 대기)
 > **최신 분석/로드맵**: [`docs/analysis/sso-im-readiness/00_INDEX.md`](docs/analysis/sso-im-readiness/00_INDEX.md)
 > **문서 안내**: [`docs/README.md`](docs/README.md) — 2026-05-22 정리 결과 반영
@@ -533,19 +546,19 @@ agency-stub (AgencyEntryController)
 
 | 파일 | 구분 | 내용 |
 |------|------|------|
-| `q-im/.../api/UserController.java` | 수정 | `find-by-social-sub` + `register-social` 엔드포인트 추가 |
-| `q-im/.../api/dto/SocialRegisterRequest.java` | 신규 | 소셜 등록 요청 DTO |
-| `q-im/.../repository/QimUserJpaRepository.java` | 수정 | `findByIdentifierHashAndProviderCode()` JPQL 쿼리 추가 |
-| `q-im/.../config/InternalApiKeyInterceptor.java` | **신규** | `X-Internal-Api-Key` 상수 시간 비교 검증 인터셉터 (P2) |
-| `q-im/.../config/QimWebMvcConfig.java` | **신규** | `/api/v1/internal/**` 인터셉터 등록 (P2) |
-| `q-im/.../db/migration/V4__fix_social_sso.sql` | **신규** | `uq_identifier_hash` DROP → 복합 UNIQUE 추가 (P1) |
-| `q-im/.../resources/application.yml` | 수정 | `qim.security.internal-api-key` 설정 추가 (P2) |
-| `ido/.../infrastructure/QimClientImpl.java` | 수정 | `findBySocialSub()` + `registerSocialUser()` HTTP 클라이언트 |
-| `ido/.../broker/keycloak/KeycloakOidcService.java` | 수정 | `resolveQimUserIdFromSub()` — Q-IM 소셜 API 연동 |
-| `ido/.../api/HandoffController.java` | 수정 | `.redirectUri(req.getCallbackUrl())` 누락 수정 (P3) |
-| `ido/.../policy/PolicyEngineImpl.java` | 수정 | HMAC fallback 완전 제거, `tryResolveDi()` + GUEST 정책 |
-| `platform-common/.../HandoffPayload.java` | 수정 | `HandoffState.GUEST` 추가 |
-| `agency-stub/.../api/AgencyEntryController.java` | 수정 | `case GUEST` 분기 처리 추가 |
+| `idem-registry/.../api/UserController.java` | 수정 | `find-by-social-sub` + `register-social` 엔드포인트 추가 |
+| `idem-registry/.../api/dto/SocialRegisterRequest.java` | 신규 | 소셜 등록 요청 DTO |
+| `idem-registry/.../repository/QimUserJpaRepository.java` | 수정 | `findByIdentifierHashAndProviderCode()` JPQL 쿼리 추가 |
+| `idem-registry/.../config/InternalApiKeyInterceptor.java` | **신규** | `X-Internal-Api-Key` 상수 시간 비교 검증 인터셉터 (P2) |
+| `idem-registry/.../config/QimWebMvcConfig.java` | **신규** | `/api/v1/internal/**` 인터셉터 등록 (P2) |
+| `idem-registry/.../db/migration/V4__fix_social_sso.sql` | **신규** | `uq_identifier_hash` DROP → 복합 UNIQUE 추가 (P1) |
+| `idem-registry/.../resources/application.yml` | 수정 | `qim.security.internal-api-key` 설정 추가 (P2) |
+| `idem-hub/.../infrastructure/QimClientImpl.java` | 수정 | `findBySocialSub()` + `registerSocialUser()` HTTP 클라이언트 |
+| `idem-hub/.../broker/keycloak/KeycloakOidcService.java` | 수정 | `resolveQimUserIdFromSub()` — Q-IM 소셜 API 연동 |
+| `idem-hub/.../api/HandoffController.java` | 수정 | `.redirectUri(req.getCallbackUrl())` 누락 수정 (P3) |
+| `idem-hub/.../policy/PolicyEngineImpl.java` | 수정 | HMAC fallback 완전 제거, `tryResolveDi()` + GUEST 정책 |
+| `idem-common/.../HandoffPayload.java` | 수정 | `HandoffState.GUEST` 추가 |
+| `idem-tenant-sample/.../api/AgencyEntryController.java` | 수정 | `case GUEST` 분기 처리 추가 |
 
 ### 운영 배포 필수 환경변수
 
@@ -754,7 +767,7 @@ export const Logout = (): void => {
 | OACX SDK | **v1.3.2** | OACX 전자서명 중계모듈 (로컬 libs/ JAR) |
 | JUnit 5 + Mockito | BOM 관리 | 단위 테스트 (q-im 219개 통과 + 30 skipped) |
 
-### 프론트엔드 (`onepass-fe/frontend/`)
+### 프론트엔드 (`idem-console/frontend/`)
 
 | 기술 | 버전 | 비고 |
 |------|------|------|
@@ -786,21 +799,21 @@ export const Logout = (): void => {
 
 ```
 integration-sso/
-├── platform-common/
+├── idem-common/
 │   └── src/main/java/kr/go/smes/common/
 │       ├── domain/           # AuthResult, HandoffPayload(+GUEST), HandoffTicket
 │       ├── error/            # PlatformErrorCode
 │       ├── event/            # AuthEvent, HandoffEvent, AuditLogEvent
 │       └── util/             # UuidV7, ApiKeyHashValidator
 │
-├── q-sign/                   # 인증 SoR (포트 8081)
+├── idem-gate/                   # 인증 SoR (포트 8081)
 │   └── src/main/java/kr/go/smes/qsign/
 │       ├── broker/           # Keycloak OIDC 브로커
 │       ├── kafka/            # Outbox + 멱등 컨슈머
 │       ├── pkce/             # RFC 7636 PKCE
 │       └── slo/              # SLO Keycloak end_session 전파
 │
-├── q-im/                     # 식별 SoR (포트 8082, MariaDB)
+├── idem-registry/                     # 식별 SoR (포트 8082, MariaDB)
 │   └── src/main/java/kr/go/smes/qim/
 │       ├── api/
 │       │   ├── UserController.java          # ★SSO: find-by-social-sub, register-social
@@ -821,10 +834,10 @@ integration-sso/
 │       ├── V3__add_ci_encryption_and_status_history.sql
 │       └── V4__fix_social_sso.sql            # ★P1: UNIQUE 복합 키 수정
 │
-├── ido/                      # 정책 오케스트레이터 + FE BFF (포트 8083)
+├── idem-hub/                      # 정책 오케스트레이터 + FE BFF (포트 8083)
 │   ├── libs/
 │   │   └── OACX-SDK-v1.3.2.jar
-│   └── src/main/java/kr/go/smes/ido/
+│   └── src/main/java/kr/go/smes/idem-hub/
 │       ├── auth/             # NICE/OACX 본인인증 BFF (S7-T2)
 │       ├── broker/
 │       │   └── keycloak/
@@ -848,7 +861,7 @@ integration-sso/
 │       ├── ratelimit/        # Redis Lua 슬라이딩 윈도우
 │       └── webhook/          # Webhook Push + Outbox Relay
 │
-├── q-authz/                  # 🆕 연합 인가(Federated Authorization) — 역할 부여 SoR (포트 8086, PostgreSQL authz)
+├── idem-authz/                  # 🆕 연합 인가(Federated Authorization) — 역할 부여 SoR (포트 8086, PostgreSQL authz)
 │   └── src/main/java/kr/go/smes/authz/
 │       ├── QAuthzApplication.java          # @SpringBootApplication + @EnableScheduling
 │       ├── api/
@@ -866,13 +879,13 @@ integration-sso/
 │   └── src/main/resources/db/migration/
 │       ├── V1__create_authz_schema.sql      # authz 스키마 + 역할/부여/감사 + RLS
 │       └── V2__create_authz_outbox.sql      # 🆕 authz_outbox (회수 전파 아웃박스)
-│   # NOTE: authz.assignment.events Kafka 릴레이는 outbox-relay-batch/job/authz/AuthzKafkaRelayJob
+│   # NOTE: authz.assignment.events Kafka 릴레이는 idem-relay/job/authz/AuthzKafkaRelayJob
 │
-├── agency-stub/              # 기관 시뮬레이터 (포트 8084)
+├── idem-tenant-sample/              # 기관 시뮬레이터 (포트 8084)
 │   └── src/main/java/kr/go/smes/agency/
 │       └── api/AgencyEntryController.java   # ★SSO: GUEST case 분기 추가
 │
-├── onepass-fe/               # React SPA
+├── idem-console/               # React SPA
 │   └── frontend/src/
 │       ├── api/
 │       │   ├── feSession.ts      # SLO API 클라이언트
@@ -884,7 +897,7 @@ integration-sso/
 │       │   └── MypageSideNav/    # 로그아웃 버튼
 │       └── pages/Mypage/pages/InformationStep3.tsx
 │
-├── onepass-agent/                # 🆕 OnePass Agency Java Agent (독립 fat-JAR)
+├── idem-agent/                # 🆕 OnePass Agency Java Agent (독립 fat-JAR)
 │   └── src/main/java/kr/go/smes/agent/
 │       ├── core/OnePassAgentMain.java      # JVM 진입점 (premain/agentmain)
 │       ├── config/AgentConfig.java         # 외부 설정 로더/검증기
@@ -900,7 +913,7 @@ integration-sso/
 │       │   └── jeus/                       # JEUS 버전별 전용 전략 4개
 │       └── http/OnePassHttpClient.java     # 순수 JDK HttpURLConnection
 │
-├── onepass-agent-testbed/        # 🆕 멀티 WAS Docker Compose 테스트베드
+├── idem-agent-testbed/        # 🆕 멀티 WAS Docker Compose 테스트베드
 │   ├── docker/
 │   │   ├── docker-compose.yml             # 7개 WAS 컨테이너 정의
 │   │   ├── Dockerfile.tomcat8/9/10        # Tomcat 버전별
@@ -935,7 +948,7 @@ integration-sso/
 
 ## 🆕 OnePass Agency Java Agent
 
-> **모듈**: `onepass-agent/` | **아티팩트**: `onepass-agent-{version}-all.jar` (~10MB fat-JAR)  
+> **모듈**: `idem-agent/` | **아티팩트**: `onepass-agent-{version}-all.jar` (~10MB fat-JAR)  
 > **목적**: 유관기관 WAS에 **소스 코드 수정 없이** OnePass SSO를 적용하는 자바 에이전트  
 > **JDK 지원**: JDK 1.5(JEUS 4/5) ~ JDK 21+(Tomcat 11, WildFly 28+)  
 > **참고 문서**: [통합 가이드](./docs/onepass-agent-integration-guide.md) | [아키텍처](./docs/internal/architecture/onepass-agent-architecture.md) | [개발자 레퍼런스](./docs/internal/development/onepass-agent-developer-reference.md)
@@ -955,8 +968,8 @@ integration-sso/
 
 ```bash
 # 1. Agent JAR 빌드
-./gradlew :onepass-agent:agentJar
-# → onepass-agent/build/libs/onepass-agent-0.1.0-SNAPSHOT-all.jar
+./gradlew :idem-agent:agentJar
+# → idem-agent/build/libs/onepass-agent-0.1.0-SNAPSHOT-all.jar
 
 # 2. 설정 파일 작성
 cat > /opt/onepass/onepass-agent.properties << 'EOF'
@@ -1032,13 +1045,13 @@ WAS 자동 감지가 실패하는 경우:
 
 ## 🆕 멀티 WAS 테스트베드
 
-> **위치**: `onepass-agent-testbed/` | **목적**: Docker Compose로 7개 WAS에 Agent 동시 검증  
-> **참고**: [테스트베드 README](./onepass-agent-testbed/README.md)
+> **위치**: `idem-agent-testbed/` | **목적**: Docker Compose로 7개 WAS에 Agent 동시 검증  
+> **참고**: [테스트베드 README](./idem-agent-testbed/README.md)
 
 ### 테스트베드 구성
 
 ```
-onepass-agent-testbed/
+idem-agent-testbed/
 ├── docker/docker-compose.yml    ← 7개 WAS + Mock OnePass Server
 ├── apps/
 │   ├── mock-onepass-server/     ← 순수 JDK HttpServer 기반 Mock SSO
@@ -1066,7 +1079,7 @@ onepass-agent-testbed/
 
 ```bash
 # 1. Agent JAR 빌드 및 테스트베드에 복사
-./gradlew :onepass-agent:agentJar
+./gradlew :idem-agent:agentJar
 cd onepass-agent-testbed && ./scripts/replace-agent.sh
 
 # 2. 전체 WAS 기동
@@ -1187,7 +1200,7 @@ cd docker && docker compose down
 | **`outbox-relay-batch`** | **23개** (`🆕`) | **연합 인가**: `authz.authz_outbox` → `authz.assignment.events` 릴레이 (FOR UPDATE SKIP LOCKED + ShedLock) |
 | **합계** | **591개 + 30 skipped** | — |
 
-> **※ 집계 기준**: `q-authz` 29 · `outbox-relay-batch` 23은 **현재 빌드 기준**(`./gradlew :q-authz:test :outbox-relay-batch:test`, 0 실패). 상단 기존 모듈 행(`ido`·`platform-common`·`q-sign`·`q-im`)은 직전 스냅샷이며 현 빌드와 차이가 있을 수 있음 — 참고로 현재 빌드 기준 `platform-common`은 378, `ido`는 417로 증가(연합 인가 외 누적 반영). 합계 591은 표의 행 값 합.
+> **※ 집계 기준**: `q-authz` 29 · `outbox-relay-batch` 23은 **현재 빌드 기준**(`./gradlew :idem-authz:test :idem-relay:test`, 0 실패). 상단 기존 모듈 행(`ido`·`platform-common`·`q-sign`·`q-im`)은 직전 스냅샷이며 현 빌드와 차이가 있을 수 있음 — 참고로 현재 빌드 기준 `platform-common`은 378, `ido`는 417로 증가(연합 인가 외 누적 반영). 합계 591은 표의 행 값 합.
 
 ### Q-IM 테스트 상세 (v3.1.0)
 
@@ -1246,16 +1259,16 @@ docker compose -f infra/docker/docker-compose.monitoring.yml up -d
 export DOCKER_UNAVAILABLE=true
 
 # 모듈별 실행
-./gradlew :q-im:bootRun       # 식별 서비스 :8082
-./gradlew :q-sign:bootRun     # 인증 서비스 :8081
-./gradlew :ido:bootRun        # 정책 오케스트레이터 :8083
-./gradlew :agency-stub:bootRun # 기관 시뮬레이터 :8084
+./gradlew :idem-registry:bootRun       # 식별 서비스 :8082
+./gradlew :idem-gate:bootRun     # 인증 서비스 :8081
+./gradlew :idem-hub:bootRun        # 정책 오케스트레이터 :8083
+./gradlew :idem-tenant-sample:bootRun # 기관 시뮬레이터 :8084
 ```
 
 ### 3. 프론트엔드 실행
 
 ```bash
-cd onepass-fe/frontend
+cd idem-console/frontend
 npm install
 npm run dev    # :3000 (webpack proxy → ido:8083)
 ```
@@ -1263,7 +1276,7 @@ npm run dev    # :3000 (webpack proxy → ido:8083)
 ### 4. 로컬 환경변수
 
 ```yaml
-# ido/src/main/resources/application-local.yml
+# idem-hub/src/main/resources/application-local.yml
 ido:
   broker:
     mode: keycloak             # ★SSO 활성화 (기본값 qsign)
@@ -1335,7 +1348,7 @@ Annotation Processors: 활성화 (Lombok)
 {
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.formatOnSave": true,
-  "eslint.workingDirectories": ["onepass-fe/frontend"]
+  "eslint.workingDirectories": ["idem-console/frontend"]
 }
 ```
 

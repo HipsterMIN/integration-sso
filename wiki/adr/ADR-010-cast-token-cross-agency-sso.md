@@ -7,7 +7,7 @@
 | **상태** | ✅ Accepted |
 | **결정일** | 2026 (Sprint 12) |
 | **결정자** | 보안 위원회 + 아키텍처 위원회 |
-| **관련 파일** | `ido/sso/CastTokenService.java`, `ido/sso/CastTokenServiceImpl.java`, `ido/sso/CastKeyConfig.java`, `ido/sso/CrossAgencySsoController.java` |
+| **관련 파일** | `idem-hub/sso/CastTokenService.java`, `idem-hub/sso/CastTokenServiceImpl.java`, `idem-hub/sso/CastKeyConfig.java`, `idem-hub/sso/CrossAgencySsoController.java` |
 
 ---
 

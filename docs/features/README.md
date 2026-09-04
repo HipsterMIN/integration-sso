@@ -67,19 +67,19 @@ curl -s http://localhost:8083/actuator/features | jq '
 
 ```bash
 # Phase 2-A: 프로비저닝 Dry-Run 시작
-helm upgrade ido infra/helm/ido --set phase=2a
+helm upgrade ido infra/helm/idem-hub --set phase=2a
 
 # Phase 2-B: 프로비저닝 실제 발행
-helm upgrade ido infra/helm/ido --set phase=2b
+helm upgrade ido infra/helm/idem-hub --set phase=2b
 
 # Phase 3-A: Gateway 인바운드 활성화
-helm upgrade ido infra/helm/ido --set phase=3a
+helm upgrade ido infra/helm/idem-hub --set phase=3a
 
 # Phase 3-B: Gateway 아웃바운드 활성화
-helm upgrade ido infra/helm/ido --set phase=3b
+helm upgrade ido infra/helm/idem-hub --set phase=3b
 
 # Phase 4: HMAC 서명 필수화 (Sprint 17)
-helm upgrade ido infra/helm/ido --set phase=4
+helm upgrade ido infra/helm/idem-hub --set phase=4
 ```
 
 ---
@@ -87,6 +87,6 @@ helm upgrade ido infra/helm/ido --set phase=4
 ## 관련 문서
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)
 - [배포 가이드](../_archive/2026-05-22/deployment-guide.md)
-- [FeatureFlags 소스 코드](../../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)
+- [FeatureFlags 소스 코드](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
 - [K8s ConfigMap](../../infra/k8s/configmaps/)
-- [Helm Chart](../../infra/helm/ido/)
+- [Helm Chart](../../infra/helm/idem-hub/)

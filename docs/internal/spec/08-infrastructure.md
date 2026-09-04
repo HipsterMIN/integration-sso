@@ -123,16 +123,16 @@ docker compose -f infra/docker/docker-compose.yml ps
 docker exec -it onepass-kafka kafka-topics --bootstrap-server localhost:9092 --list
 
 # 5. 백엔드 빌드
-./gradlew :platform-common:build :q-sign:build :q-im:build :ido:build :agency-stub:build -x test
+./gradlew :idem-common:build :idem-gate:build :idem-registry:build :idem-hub:build :idem-tenant-sample:build -x test
 
 # 6. 각 서비스 기동 (터미널 4개 사용)
-./gradlew :q-sign:bootRun          # 포트 8081
-./gradlew :q-im:bootRun            # 포트 8082
-./gradlew :ido:bootRun             # 포트 8083
-./gradlew :agency-stub:bootRun     # 포트 8084
+./gradlew :idem-gate:bootRun          # 포트 8081
+./gradlew :idem-registry:bootRun            # 포트 8082
+./gradlew :idem-hub:bootRun             # 포트 8083
+./gradlew :idem-tenant-sample:bootRun     # 포트 8084
 
 # 7. 프론트엔드 기동 (별도 터미널)
-cd onepass-fe/frontend
+cd idem-console/frontend
 yarn install
 yarn dev                           # 포트 3000
 ```
@@ -218,19 +218,19 @@ docker exec -it onepass-redis redis-cli KEYS "fe:session:*" | head -5
 
 ```bash
 # 특정 모듈 빌드
-./gradlew :ido:build -x test
+./gradlew :idem-hub:build -x test
 
 # 특정 모듈 실행
-./gradlew :ido:bootRun
+./gradlew :idem-hub:bootRun
 
 # 전체 클린 빌드
 ./gradlew clean build -x test
 
 # 컴파일 오류만 확인
-./gradlew :platform-common:compileJava :ido:compileJava
+./gradlew :idem-common:compileJava :idem-hub:compileJava
 
 # 의존성 트리
-./gradlew :ido:dependencies
+./gradlew :idem-hub:dependencies
 
 # Gradle 데몬 종료
 ./gradlew --stop
@@ -287,7 +287,7 @@ docker exec -it onepass-postgres psql -U onepass -c \
   "SELECT version, description, success FROM ido.flyway_schema_history ORDER BY installed_rank;"
 
 # 마이그레이션 재실행 (checksum 오류 시)
-./gradlew :ido:bootRun -Dspring.flyway.repair=true
+./gradlew :idem-hub:bootRun -Dspring.flyway.repair=true
 ```
 
 ### 7.5 Apple Silicon (M1/M2)
@@ -312,7 +312,7 @@ sed -i 's/\r//' gradlew
 git config core.longpaths true
 
 # Gradle 실행
-gradlew.bat :ido:bootRun
+gradlew.bat :idem-hub:bootRun
 ```
 
 ---

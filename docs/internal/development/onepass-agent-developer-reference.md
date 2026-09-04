@@ -47,14 +47,14 @@ git clone https://github.com/HipsterMIN/integration-sso.git
 cd integration-sso
 
 # 빌드 확인
-./gradlew :onepass-agent:build
+./gradlew :idem-agent:build
 
 # 테스트 실행
-./gradlew :onepass-agent:test
+./gradlew :idem-agent:test
 
 # fat-JAR 빌드
-./gradlew :onepass-agent:agentJar
-ls -la onepass-agent/build/libs/onepass-agent-*-all.jar
+./gradlew :idem-agent:agentJar
+ls -la idem-agent/build/libs/idem-agent-*-all.jar
 ```
 
 ### 1.3 IntelliJ 설정
@@ -66,8 +66,8 @@ File > Project Structure > Modules
     > Dependencies: JDK 17 (SDK)
 
 Run/Debug Configuration:
-  VM options: -javaagent:onepass-agent/build/libs/onepass-agent-1.0.0-all.jar
-              =config=onepass-agent/src/test/resources/onepass-agent.properties
+  VM options: -javaagent:idem-agent/build/libs/idem-agent-1.0.0-all.jar
+              =config=idem-agent/src/test/resources/onepass-agent.properties
 ```
 
 ---
@@ -81,7 +81,7 @@ integration-sso/
 ├── build.gradle.kts           ← 루트 빌드 (Spring BOM 포함)
 ├── settings.gradle.kts        ← 모듈 등록
 │
-├── onepass-agent/             ← ⭐ 이 모듈 (완전 독립)
+├── idem-agent/             ← ⭐ 이 모듈 (완전 독립)
 │   ├── build.gradle.kts       ← 스프링 없음, JDK 8 타겟
 │   └── src/
 │       ├── main/java/kr/go/smes/agent/
@@ -131,25 +131,25 @@ val agentJar by tasks.registering(Jar::class) {
 
 ```bash
 # 컴파일만
-./gradlew :onepass-agent:compileJava
+./gradlew :idem-agent:compileJava
 
 # 테스트 실행 (재실행 강제)
-./gradlew :onepass-agent:test --rerun-tasks
+./gradlew :idem-agent:test --rerun-tasks
 
 # fat-JAR 빌드
-./gradlew :onepass-agent:agentJar
+./gradlew :idem-agent:agentJar
 
 # MANIFEST 확인
-jar tf onepass-agent/build/libs/onepass-agent-1.0.0-all.jar | grep MANIFEST
-jar xf onepass-agent/build/libs/onepass-agent-1.0.0-all.jar META-INF/MANIFEST.MF
+jar tf idem-agent/build/libs/idem-agent-1.0.0-all.jar | grep MANIFEST
+jar xf idem-agent/build/libs/idem-agent-1.0.0-all.jar META-INF/MANIFEST.MF
 cat META-INF/MANIFEST.MF
 
 # byte-buddy 포함 확인
-jar tf onepass-agent/build/libs/onepass-agent-1.0.0-all.jar | grep "bytebuddy" | wc -l
+jar tf idem-agent/build/libs/idem-agent-1.0.0-all.jar | grep "bytebuddy" | wc -l
 # 수백 개 출력되어야 정상
 
 # Javassist 포함 확인
-jar tf onepass-agent/build/libs/onepass-agent-1.0.0-all.jar | grep "javassist" | wc -l
+jar tf idem-agent/build/libs/idem-agent-1.0.0-all.jar | grep "javassist" | wc -l
 ```
 
 ---
@@ -767,7 +767,7 @@ builder.installOn(inst);
 ### 8.1 테스트 파일 위치 규칙
 
 ```
-onepass-agent/src/test/java/kr/go/smes/agent/
+idem-agent/src/test/java/kr/go/smes/agent/
 ├── config/
 │   └── AgentConfigTest.java          ← AgentConfig 단위 테스트
 ├── core/
@@ -862,7 +862,7 @@ test/resources/
 ```java
 // 테스트용 AgentConfig 로드 패턴
 AgentConfig config = AgentConfig.load(
-    "config=onepass-agent/src/test/resources/onepass-agent.properties",
+    "config=idem-agent/src/test/resources/onepass-agent.properties",
     System.err
 );
 ```
@@ -874,17 +874,17 @@ AgentConfig config = AgentConfig.load(
 ### 9.1 빌드 명령
 
 ```bash
-./gradlew :onepass-agent:agentJar
+./gradlew :idem-agent:agentJar
 
 # 출력 파일
-ls -lh onepass-agent/build/libs/
-# onepass-agent-1.0.0-all.jar (약 9.7MB)
+ls -lh idem-agent/build/libs/
+# idem-agent-1.0.0-all.jar (약 9.7MB)
 ```
 
 ### 9.2 빌드 검증 체크리스트
 
 ```bash
-JAR_FILE="onepass-agent/build/libs/onepass-agent-1.0.0-all.jar"
+JAR_FILE="idem-agent/build/libs/idem-agent-1.0.0-all.jar"
 
 # 1. MANIFEST 필수 항목
 jar xf "$JAR_FILE" META-INF/MANIFEST.MF -C /tmp/
@@ -1033,9 +1033,9 @@ version = "1.0.1"  // 버전 업데이트
 ### 12.3 fat-JAR 체크섬 생성
 
 ```bash
-./gradlew :onepass-agent:agentJar
+./gradlew :idem-agent:agentJar
 
-JAR="onepass-agent/build/libs/onepass-agent-$(./gradlew properties -q | grep "version:" | awk '{print $2}')-all.jar"
+JAR="idem-agent/build/libs/onepass-agent-$(./gradlew properties -q | grep "version:" | awk '{print $2}')-all.jar"
 sha256sum "$JAR" > "${JAR}.sha256"
 cat "${JAR}.sha256"
 ```

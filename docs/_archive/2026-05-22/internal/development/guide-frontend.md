@@ -67,7 +67,7 @@ IdO :8083  ─→  Q-IM :8082  (내부 통신)
 ### 2.1 초기 설치
 
 ```bash
-cd onepass-fe/frontend
+cd idem-console/frontend
 
 # Node.js 20+ 필요 (nvm 권장)
 node --version  # v20.x.x
@@ -90,7 +90,7 @@ VITE_APP_ENV=development
 ### 2.3 개발 서버 실행
 
 ```bash
-cd onepass-fe/frontend
+cd idem-console/frontend
 
 # Vite dev server (HMR 지원)
 npm run dev
@@ -123,7 +123,7 @@ npm run preview  # 빌드 결과 미리보기
 ### 3.1 전체 구조
 
 ```
-onepass-fe/frontend/src/
+idem-console/frontend/src/
 ├── api/                        # API 클라이언트
 │   ├── ErrorResponseHandler.ts # 에러 응답 정규화
 │   ├── beInstance.ts           # 내부 axios 인스턴스
@@ -1089,7 +1089,7 @@ const SECTION_LABEL: Record<MypageSection, string> = {
 ### 14.1 검증 방법
 
 ```bash
-cd onepass-fe/frontend
+cd idem-console/frontend
 
 # 전체 타입 검사 (빌드 없이)
 npx tsc --noEmit

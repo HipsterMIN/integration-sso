@@ -151,10 +151,10 @@ settings.gradle.kts 에 추가:
 
 ```
 onepass-platform/
-├── platform-common/
-├── q-sign/
-├── q-im/
-├── ido/
+├── idem-common/
+├── idem-gate/
+├── idem-registry/
+├── idem-hub/
 ├── outbox-scheduler/          ← 신규
 │   ├── build.gradle.kts
 │   └── src/main/java/kr/go/smes/scheduler/
@@ -279,7 +279,7 @@ public class OutboxHealthIndicator implements HealthIndicator {
 ```kotlin
 // outbox-scheduler/build.gradle.kts
 dependencies {
-    implementation(project(":platform-common"))  // DomainEvent 등 공통 타입
+    implementation(project(":idem-common"))  // DomainEvent 등 공통 타입
 
     // Kafka — 이제 이 모듈만 Kafka 의존성을 가짐
     implementation("org.springframework.kafka:spring-kafka")
@@ -309,18 +309,18 @@ dependencies {
 
 ```
 제거:
-  q-im/build.gradle.kts
+  idem-registry/build.gradle.kts
     - implementation("org.springframework.kafka:spring-kafka")  ← 삭제
-  q-im/.../KafkaProducerConfig.java                            ← 삭제
-  q-im/.../outbox/OutboxServiceImpl.java
+  idem-registry/.../KafkaProducerConfig.java                            ← 삭제
+  idem-registry/.../outbox/OutboxServiceImpl.java
     - relayPendingEvents() 메서드 제거 (publishInTx는 유지)
     - relayFailedEvents() 메서드 제거
     - KafkaTemplate 의존성 제거
   
 유지:
-  q-im/.../outbox/OutboxService.java
+  idem-registry/.../outbox/OutboxService.java
     - publishInTx() 인터페이스 유지
-  q-im/.../outbox/OutboxServiceImpl.java
+  idem-registry/.../outbox/OutboxServiceImpl.java
     - publishInTx() 구현 유지 (DB INSERT 로직)
     - OutboxRepository 의존성 유지
 ```
@@ -361,26 +361,26 @@ public class OutboxServiceImpl implements OutboxService {
 
 ```
 제거:
-  q-sign/build.gradle.kts
+  idem-gate/build.gradle.kts
     - implementation("org.springframework.kafka:spring-kafka")  ← 삭제
-  q-sign/.../KafkaProducerConfig.java                          ← 삭제
-  q-sign/.../outbox/OutboxRelay.java                           ← 전체 삭제
+  idem-gate/.../KafkaProducerConfig.java                          ← 삭제
+  idem-gate/.../outbox/OutboxRelay.java                           ← 전체 삭제
 
 유지:
-  q-sign/.../outbox/QSignOutboxRepository.java   (INSERT 로직)
-  q-sign/.../outbox/QSignOutboxRecord.java
+  idem-gate/.../outbox/QSignOutboxRepository.java   (INSERT 로직)
+  idem-gate/.../outbox/QSignOutboxRecord.java
 ```
 
 ### 5.3 IdO — 일부 제거, 일부 유지
 
 ```
 제거 (Kafka 발행 Relay):
-  ido/.../infrastructure/outbox/IdoOutboxRelay.java    ← 삭제
-  ido/.../infrastructure/outbox/QimOutboxRelay.java    ← 삭제
+  idem-hub/.../infrastructure/outbox/IdoOutboxRelay.java    ← 삭제
+  idem-hub/.../infrastructure/outbox/QimOutboxRelay.java    ← 삭제
 
 유지 (HTTP 발행 Relay — outbox-scheduler 범위 아님):
-  ido/.../provision/ProvisioningOutboxRelay.java       ← 유지 (기관 HTTP POST 재시도)
-  ido/.../webhook/WebhookDispatchOutboxRelay.java      ← 유지 (Webhook HTTP POST 재시도)
+  idem-hub/.../provision/ProvisioningOutboxRelay.java       ← 유지 (기관 HTTP POST 재시도)
+  idem-hub/.../webhook/WebhookDispatchOutboxRelay.java      ← 유지 (Webhook HTTP POST 재시도)
 
 이유: ProvisioningOutboxRelay와 WebhookDispatchOutboxRelay는
      Kafka 발행이 아닌 기관 HTTP POST 재시도이므로

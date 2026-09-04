@@ -225,7 +225,7 @@ GROUP BY provider_code;
 ./gradlew build -x test
 
 # ido 모듈만 빌드
-./gradlew :ido:build -x test
+./gradlew :idem-hub:build -x test
 
 # 기본 인프라 시작 (PostgreSQL, Redis, Kafka, Keycloak)
 docker-compose --profile tools --profile keycloak up -d

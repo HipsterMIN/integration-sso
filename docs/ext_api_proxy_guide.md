@@ -247,7 +247,7 @@ flowchart TD
 ### 4.3 실제 구현 코드 (핵심 부분)
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/ext/ExtProxyController.java
+// idem-hub/src/main/java/kr/go/smes/idem-hub/ext/ExtProxyController.java
 
 @RestController
 @RequestMapping("/api/ext")
@@ -324,7 +324,7 @@ public class ExtProxyController {
 ### 5.1 `extInstance`의 현재 상태
 
 ```typescript
-// onepass-fe/frontend/src/api/extInstance.ts
+// idem-console/frontend/src/api/extInstance.ts
 // ★ B-5 보안 패치 이후 — extInstance는 beApiInstance의 별칭(re-export)
 
 /**
@@ -340,7 +340,7 @@ export { beApiInstance as default };
 ### 5.2 API 인스턴스 선택 기준
 
 ```typescript
-// onepass-fe/frontend/src/api/beInstance.ts
+// idem-console/frontend/src/api/beInstance.ts
 // beApiInstance: IdO 경유 — 모든 /api/** 요청에 사용
 const beApiInstance = axios.create({
     baseURL: process.env.BE_API_ENDPOINT || '', // Nginx 주소 (IdO가 아님)

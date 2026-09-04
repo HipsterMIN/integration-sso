@@ -4,7 +4,7 @@
 **작성일**: 2026-05-16  
 **작성자**: Integration SSO 아키텍처 팀  
 **결정자**: PM, 아키텍트  
-**관련 코드**: `ido/src/main/java/kr/go/smes/ido/domain/AgencyMeta.java` (integrationType: INTERNAL_SSO)
+**관련 코드**: `idem-hub/src/main/java/kr/go/smes/idem-hub/domain/AgencyMeta.java` (integrationType: INTERNAL_SSO)
 
 ---
 
@@ -281,5 +281,5 @@ ALTER TABLE ido.agency_meta
 - RFC 8414: OAuth 2.0 Authorization Server Metadata
 - OpenID Connect Back-Channel Logout 1.0
 - Keycloak Identity Brokering 공식 문서
-- `ido/src/main/java/kr/go/smes/ido/domain/AgencyMeta.java` (integrationType 필드)
+- `idem-hub/src/main/java/kr/go/smes/idem-hub/domain/AgencyMeta.java` (integrationType 필드)
 - `docs/internal/architecture/oidc-brokering-design.md`

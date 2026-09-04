@@ -472,8 +472,8 @@ A: {
         처리 순서: ① state 검증(Redis 1회 소비, CSRF 방어) → ② Keycloak에서 id_token 교환 → ③ JWKS RS256 서명 검증 → ④ nonce/audience/exp 검증 → ⑤ SHA-256(sub) → identifierHash → ⑥ 잠금 상태 확인 → ⑦ AuthResult + Outbox 저장
       `,
       code: {
-        lang: 'java', label: 'q-sign/…/keycloak/KeycloakCallbackService.java',
-        content: `<span class="hl-comment">// 파일: q-sign/src/main/java/kr/go/smes/qsign/keycloak/KeycloakCallbackService.java</span>
+        lang: 'java', label: 'idem-gate/…/keycloak/KeycloakCallbackService.java',
+        content: `<span class="hl-comment">// 파일: idem-gate/src/main/java/kr/go/smes/qsign/keycloak/KeycloakCallbackService.java</span>
 <span class="hl-comment">// 실행 위치: Q-Sign 서버 (포트 8082)</span>
 <span class="hl-comment">// 진입 시점: Keycloak이 인증 완료 후 /keycloak/callback?code=...&amp;state=... 리다이렉트</span>
 
@@ -531,7 +531,7 @@ A: {
         이 두 저장은 <strong>반드시 함께 성공하거나 함께 실패</strong>합니다. "auth_result는 저장됐는데 outbox가 안 저장"되는 상황은 절대 불가능합니다. 이것이 Outbox 패턴의 원자성 보장입니다.
       `,
       code: {
-        lang: 'java', label: 'q-sign/…/keycloak/KeycloakCallbackService.java (issueAuthResult + saveOutboxEvent)',
+        lang: 'java', label: 'idem-gate/…/keycloak/KeycloakCallbackService.java (issueAuthResult + saveOutboxEvent)',
         content: `<span class="hl-comment">// KeycloakCallbackService.java — 실제 저장 로직</span>
 
 <span class="hl-kw">private</span> AuthResult <span class="hl-method">issueAuthResult</span>(String correlationId, String identifierHash,
@@ -623,8 +623,8 @@ A: {
         조회된 레코드들은 Kafka로 비동기 발행되며, 성공하면 <code>markPublished()</code>, 실패하면 <code>incrementRetry()</code> 또는 <code>markFailed()</code>가 호출됩니다.
       `,
       code: {
-        lang: 'java', label: 'q-sign/…/outbox/OutboxRelay.java',
-        content: `<span class="hl-comment">// 파일: q-sign/src/main/java/kr/go/smes/qsign/outbox/OutboxRelay.java</span>
+        lang: 'java', label: 'idem-gate/…/outbox/OutboxRelay.java',
+        content: `<span class="hl-comment">// 파일: idem-gate/src/main/java/kr/go/smes/qsign/outbox/OutboxRelay.java</span>
 <span class="hl-comment">// 실행 위치: Q-Sign 서버 (포트 8082) — 별도 스케줄러 스레드</span>
 <span class="hl-comment">// 실행 시점: 이전 실행 완료 후 500ms 대기 → 다시 실행 (fixedDelay)</span>
 
@@ -693,7 +693,7 @@ A: {
         실패 시: <code>handleFailure()</code> → <code>retry_count</code>가 <code>maxRetry(기본 3)</code> 미만이면 <code>incrementRetry()</code>, 초과하면 <code>markFailed()</code>를 호출합니다. 다음 Relay 실행(500ms 후)에서 재시도됩니다.
       `,
       code: {
-        lang: 'java', label: 'q-sign/…/outbox/OutboxRelay.java (handleSuccess / handleFailure)',
+        lang: 'java', label: 'idem-gate/…/outbox/OutboxRelay.java (handleSuccess / handleFailure)',
         content: `<span class="hl-comment">// Kafka 발행 성공 콜백</span>
 <span class="hl-kw">private void</span> <span class="hl-method">handleSuccess</span>(QSignOutboxRecord record, SendResult&lt;String, Object&gt; result) {
     <span class="hl-highlight">    outboxRepository.<span class="hl-method">markPublished</span>(record.<span class="hl-method">getEventId</span>());</span>
@@ -755,8 +755,8 @@ A: {
         이벤트 타입에 따라 분기됩니다: <code>AUTH_COMPLETED</code> → <code>handleAuthCompleted()</code> → Redis Pre-warming, <code>AUTH_LOCKED</code> → 세션 강제 종료 Advisory 발행.
       `,
       code: {
-        lang: 'java', label: 'ido/…/kafka/QsignAuthEventConsumer.java',
-        content: `<span class="hl-comment">// 파일: ido/src/main/java/kr/go/smes/ido/kafka/QsignAuthEventConsumer.java</span>
+        lang: 'java', label: 'idem-hub/…/kafka/QsignAuthEventConsumer.java',
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/kafka/QsignAuthEventConsumer.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080) — Kafka Consumer 스레드</span>
 <span class="hl-comment">// 구독 토픽: qsign.auth.events (컨슈머 그룹: ido-qsign-consumer)</span>
 
@@ -812,8 +812,8 @@ A: {
         Redis 실패는 <strong>비치명적</strong>으로 처리됩니다. 실패해도 Handoff 요청 시 DB에서 직접 조회합니다.
       `,
       code: {
-        lang: 'java', label: 'ido/…/burst/AuthResultCacheService.java (preWarm)',
-        content: `<span class="hl-comment">// 파일: ido/src/main/java/kr/go/smes/ido/burst/AuthResultCacheService.java</span>
+        lang: 'java', label: 'idem-hub/…/burst/AuthResultCacheService.java (preWarm)',
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/burst/AuthResultCacheService.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080) — QsignAuthEventConsumer 스레드에서 동기 호출</span>
 <span class="hl-comment">// 실행 시점: AUTH_COMPLETED 이벤트 수신 직후</span>
 
@@ -895,8 +895,8 @@ B: {
         이 메서드에는 <strong>@Transactional</strong>이 붙어 있어, PII 삭제 + 상태 갱신 + Outbox 저장이 하나로 묶입니다.
       `,
       code: {
-        lang: 'java', label: 'q-im/…/withdrawal/WithdrawalServiceImpl.java',
-        content: `<span class="hl-comment">// 파일: q-im/src/main/java/kr/go/smes/qim/withdrawal/WithdrawalServiceImpl.java</span>
+        lang: 'java', label: 'idem-registry/…/withdrawal/WithdrawalServiceImpl.java',
+        content: `<span class="hl-comment">// 파일: idem-registry/src/main/java/kr/go/smes/qim/withdrawal/WithdrawalServiceImpl.java</span>
 <span class="hl-comment">// 실행 위치: Q-IM 서버 (포트 8081)</span>
 <span class="hl-comment">// 진입 시점: WithdrawalController → WithdrawalService.withdraw() 호출</span>
 
@@ -936,7 +936,7 @@ B: {
         <strong>③ Outbox INSERT</strong> — <code>outboxService.publishInTx()</code>가 <code>qim.outbox</code>에 레코드를 삽입합니다. 이것이 Q-Sign에게 보낼 메시지 예약입니다.
       `,
       code: {
-        lang: 'java', label: 'q-im/…/withdrawal/WithdrawalServiceImpl.java (executeImmediateWithdrawal)',
+        lang: 'java', label: 'idem-registry/…/withdrawal/WithdrawalServiceImpl.java (executeImmediateWithdrawal)',
         content: `<span class="hl-comment">// WithdrawalServiceImpl.executeImmediateWithdrawal() — 핵심 원자적 처리</span>
 
 <span class="hl-kw">private void</span> <span class="hl-method">executeImmediateWithdrawal</span>(QimUserJpaEntity user, String reason,
@@ -1010,8 +1010,8 @@ B: {
         또한 발행 성공 후 <strong>Snapshot 발행 여부</strong>를 판단합니다. 10건마다 사용자 스냅샷을 <code>qim.user.snapshot</code> Compacted Topic에 발행합니다.
       `,
       code: {
-        lang: 'java', label: 'q-im/…/outbox/OutboxServiceImpl.java (relayPendingEvents + sendToKafka)',
-        content: `<span class="hl-comment">// 파일: q-im/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java</span>
+        lang: 'java', label: 'idem-registry/…/outbox/OutboxServiceImpl.java (relayPendingEvents + sendToKafka)',
+        content: `<span class="hl-comment">// 파일: idem-registry/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java</span>
 <span class="hl-comment">// 실행 위치: Q-IM 서버 (포트 8081) — 스케줄러 스레드</span>
 
 <span class="hl-anno">@Scheduled</span>(fixedDelayString = <span class="hl-str">"\${qim.outbox.relay-interval-ms:500}"</span>)
@@ -1061,8 +1061,8 @@ B: {
         이후 해당 사용자가 인증을 시도하면 Q-Sign이 잠금 상태를 감지하여 <code>QS_AUTH_LOCKED</code> 오류를 반환합니다.
       `,
       code: {
-        lang: 'java', label: 'q-sign/…/kafka/QimUserEventConsumer.java',
-        content: `<span class="hl-comment">// 파일: q-sign/src/main/java/kr/go/smes/qsign/kafka/QimUserEventConsumer.java</span>
+        lang: 'java', label: 'idem-gate/…/kafka/QimUserEventConsumer.java',
+        content: `<span class="hl-comment">// 파일: idem-gate/src/main/java/kr/go/smes/qsign/kafka/QimUserEventConsumer.java</span>
 <span class="hl-comment">// 실행 위치: Q-Sign 서버 (포트 8082) — Kafka Consumer 스레드</span>
 <span class="hl-comment">// 구독 토픽: qim.user.events (컨슈머 그룹: q-sign-qim-consumer)</span>
 
@@ -1122,7 +1122,7 @@ B: {
         이로써 REST API 직접 호출, DB 공유, 동기 통신 없이 <strong>완전히 이벤트 기반</strong>으로 인증 잠금이 전파됩니다.
       `,
       code: {
-        lang: 'java', label: 'q-sign/…/keycloak/KeycloakCallbackService.java (잠금 확인 부분)',
+        lang: 'java', label: 'idem-gate/…/keycloak/KeycloakCallbackService.java (잠금 확인 부분)',
         content: `<span class="hl-comment">// KeycloakCallbackService.handleCallback() — 잠금 상태 확인 부분</span>
 
 <span class="hl-comment">// ⑨ 잠금 상태 확인 (identifierHash 계산 직후)</span>
@@ -1185,8 +1185,8 @@ C: {
         <strong>이 경로는 Outbox를 사용하지 않습니다.</strong> Kafka 트랜잭션으로 원자성을 보장합니다. (단, Handoff 이벤트 → Webhook Outbox는 다음 단계에서 사용합니다)
       `,
       code: {
-        lang: 'java', label: 'ido/…/handoff/HandoffServiceImpl.java (issue)',
-        content: `<span class="hl-comment">// 파일: ido/src/main/java/kr/go/smes/ido/handoff/HandoffServiceImpl.java</span>
+        lang: 'java', label: 'idem-hub/…/handoff/HandoffServiceImpl.java (issue)',
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/handoff/HandoffServiceImpl.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080)</span>
 <span class="hl-comment">// 진입 시점: HandoffController → HandoffService.issue() 호출</span>
 
@@ -1234,8 +1234,8 @@ C: {
         <strong>왜 기관에게 Kafka를 직접 주지 않나요?</strong> Kafka 브로커는 내부망에만 노출되며, 기관별 ACL 관리는 운영 지옥입니다. ACL 실수 시 기관 A가 기관 B의 이벤트를 볼 수 있어 개인정보법 위반이 됩니다. 따라서 <strong>HTTPS Webhook</strong>으로 전환하는 것이 이 클래스의 핵심 역할입니다.
       `,
       code: {
-        lang: 'java', label: 'ido/…/kafka/HandoffEventConsumer.java (handleHandoffIssued)',
-        content: `<span class="hl-comment">// 파일: ido/src/main/java/kr/go/smes/ido/kafka/HandoffEventConsumer.java</span>
+        lang: 'java', label: 'idem-hub/…/kafka/HandoffEventConsumer.java (handleHandoffIssued)',
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/kafka/HandoffEventConsumer.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080) — Kafka Consumer 스레드</span>
 <span class="hl-comment">// 구독 토픽: ido.handoff.events (컨슈머 그룹: ido-handoff-consumer)</span>
 
@@ -1310,8 +1310,8 @@ C: {
         retry 0→1: NOW() + 2s / retry 1→2: NOW() + 4s / retry 2→3: NOW() + 8s / retry 3+: FAILED
       `,
       code: {
-        lang: 'java', label: 'ido/…/webhook/WebhookDispatchOutboxRelay.java (relay + dispatchOne)',
-        content: `<span class="hl-comment">// 파일: ido/src/main/java/kr/go/smes/ido/webhook/WebhookDispatchOutboxRelay.java</span>
+        lang: 'java', label: 'idem-hub/…/webhook/WebhookDispatchOutboxRelay.java (relay + dispatchOne)',
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/webhook/WebhookDispatchOutboxRelay.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080) — 스케줄러 스레드</span>
 <span class="hl-comment">// 실행 시점: fixedDelay=500ms 마다 (IDO_WEBHOOK_RELAY_ENABLED=true 일 때)</span>
 

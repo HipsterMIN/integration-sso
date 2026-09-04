@@ -194,7 +194,7 @@ KAFKA_SERVERS: <Kafka 브로커 주소>
 ### 3.2 V19 마이그레이션 내용 (`ido.shedlock`)
 
 ```sql
--- outbox-relay-batch/src/main/resources/db/migration/V19__add_shedlock_table.sql
+-- idem-relay/src/main/resources/db/migration/V19__add_shedlock_table.sql
 CREATE TABLE IF NOT EXISTS ido.shedlock (
     name       VARCHAR(64)                  NOT NULL,
     lock_until TIMESTAMP(3) WITH TIME ZONE  NOT NULL,
@@ -212,7 +212,7 @@ CREATE INDEX IF NOT EXISTS idx_shedlock_lock_until ON ido.shedlock (lock_until);
 
 ```bash
 # Flyway 상태 확인
-./gradlew :ido:flywayInfo --no-daemon
+./gradlew :idem-hub:flywayInfo --no-daemon
 
 # 실패한 마이그레이션 확인 후 수동 수정
 psql -h $IDO_DB_HOST -U $IDO_DB_USERNAME -d $IDO_DB_NAME -c \
@@ -227,7 +227,7 @@ psql -h $IDO_DB_HOST -U $IDO_DB_USERNAME -d $IDO_DB_NAME -c \
 
 ```bash
 # 운영 배포 전 Staging 환경에서 반드시 검증
-./gradlew :outbox-relay-batch:flywayInfo --no-daemon \
+./gradlew :idem-relay:flywayInfo --no-daemon \
   -Pbatch.datasource.ido.jdbc-url="jdbc:postgresql://$IDO_DB_HOST:5432/onepass"
 ```
 
@@ -346,7 +346,7 @@ q-sign Pod  → @Scheduled: OutboxRelay (500ms 주기)
 
 [이관 후]
 outbox-relay-batch Pod  → ShedLock 기반 분산 릴레이 (모든 릴레이 통합)
-ido/q-im/q-sign Pod     → Feature Flag false (릴레이 비활성)
+idem-hub/idem-registry/q-sign Pod     → Feature Flag false (릴레이 비활성)
 ```
 
 ### 6.2 이관 단계별 절차
@@ -644,7 +644,7 @@ readinessProbe:
 ### 11.3 헬스체크 컴포넌트
 
 Spring Boot Actuator 헬스체크는 다음 컴포넌트를 자동 포함:
-- `db` — ido/qim/qsign DataSource 커넥션 확인
+- `db` — idem-hub/qim/qsign DataSource 커넥션 확인
 - `redis` — Lettuce 커넥션 확인
 - `diskSpace` — 디스크 공간 확인
 

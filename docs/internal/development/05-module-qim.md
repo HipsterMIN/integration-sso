@@ -2,7 +2,7 @@
 
 > **문서 버전**: v1.9.0  
 > **최종 수정**: 2026-05-09  
-> **모듈 경로**: `q-im/`  
+> **모듈 경로**: `idem-registry/`  
 > **포트**: 8082  
 > **DB**: MariaDB (`qim` 스키마, V1~V3)
 
@@ -15,7 +15,7 @@ Q-IM(Q-Identity Management)은 **식별 SoR(Source of Record)**으로, 통합 �
 ### 1.1 패키지 구조
 
 ```
-q-im/src/main/java/kr/go/smes/qim/
+idem-registry/src/main/java/kr/go/smes/qim/
 ├── QImApplication.java
 ├── api/                           # 외부/내부 API
 │   ├── GlobalExceptionHandler.java

@@ -31,15 +31,15 @@
 
 - **프로젝트명**: OnePass 통합 인증 플랫폼
 - **현재 버전**: v0.8.11
-- **주요 모듈**: `onepass-be/`, `onepass-fe/`, `onepass-agency-sdk/`, `onepass-release/`, `onepass-be-release/`
+- **주요 모듈**: `onepass-be/`, `idem-console/`, `idem-sdk-java/`, `onepass-release/`, `onepass-be-release/`
 
 ## 문서 구조
 
 ```
 README.md                          # 루트 개요
 docs/README.md                     # 문서 인덱스
-onepass-agency-sdk/README.md       # SDK 사용 가이드
-onepass-agency-sdk/CHANGELOG.md    # SDK 변경 이력
+idem-sdk-java/README.md       # SDK 사용 가이드
+idem-sdk-java/CHANGELOG.md    # SDK 변경 이력
 wiki/ops/                          # 운영 문서
 wiki/deliverables/                 # 산출물 목록
 ```

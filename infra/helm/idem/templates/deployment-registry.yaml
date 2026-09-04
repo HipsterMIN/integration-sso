@@ -1,0 +1,71 @@
+{{- if .Values.qim.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idem-registry
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "onepass.labels" . | nindent 4 }}
+    app.kubernetes.io/component: q-im
+  annotations:
+    checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+spec:
+  replicas: {{ .Values.qim.replicaCount }}
+  selector:
+    matchLabels:
+      app: idem-registry
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: idem-registry
+        {{- include "onepass.labels" . | nindent 8 }}
+        app.kubernetes.io/component: q-im
+    spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      {{- if and .Values.qim.serviceAccount .Values.qim.serviceAccount.create }}
+      serviceAccountName: {{ .Values.qim.serviceAccount.name | default "idem-registry" }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: q-im
+          image: {{ include "onepass.image" .Values.qim.image }}
+          imagePullPolicy: {{ .Values.qim.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8082
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: idem-registry-config
+            - configMapRef:
+                name: idem-common-config
+            - secretRef:
+                name: {{ .Values.qim.secretRef.name }}
+          {{- if .Values.qim.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.qim.startupProbe | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.qim.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.qim.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.qim.resources | nindent 12 }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: idem-registry
+                topologyKey: kubernetes.io/hostname
+{{- end }}

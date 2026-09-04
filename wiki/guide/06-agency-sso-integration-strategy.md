@@ -33,7 +33,7 @@ OnePass Agency SDK는 다음 원칙으로 설계되었습니다:
 ### 1.2 현재 SDK 구조
 
 ```
-onepass-agency-sdk/
+idem-sdk-java/
 ├── AgencyGatewayClient          ← 진입점 (Builder 패턴, thread-safe)
 ├── http/
 │   ├── AgencyHttpAdapter        ← 핵심 SPI 인터페이스

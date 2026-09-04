@@ -107,10 +107,10 @@ allow-empty-secret: ${IDO_WEBHOOK_ALLOW_EMPTY_SECRET:false}
 
 | 컨텍스트 | 파일 | allow-empty-secret |
 |---------|------|-------------------|
-| 운영/스테이징 | `ido/src/main/resources/application.yml` | `false` (기본) |
-| 로컬 개발 | `ido/src/main/resources/application-local.yml` | `true` |
-| 통합 테스트 | `ido/src/test/resources/application-integration-test.yml` | `true` |
-| 슬라이스 테스트 | `ido/src/test/resources/application.yml` | `true` |
+| 운영/스테이징 | `idem-hub/src/main/resources/application.yml` | `false` (기본) |
+| 로컬 개발 | `idem-hub/src/main/resources/application-local.yml` | `true` |
+| 통합 테스트 | `idem-hub/src/test/resources/application-integration-test.yml` | `true` |
+| 슬라이스 테스트 | `idem-hub/src/test/resources/application.yml` | `true` |
 
 ---
 
@@ -318,18 +318,18 @@ private String tryResolveDi(String qimUserId, String agencyCode, String correlat
 
 | 파일 | 종류 | 변경 |
 |------|-----|------|
-| `ido/.../webhook/WebhookDispatcherService.java` | 수정 | F4.3 — `@PostConstruct validateSigningSecret()` + `allowEmptySecret` + `computeHmacSignature()` 가드 |
-| `ido/src/main/resources/application.yml` | 수정 | F4.3 — `signing-secret:${...:}` 기본값 제거 + `allow-empty-secret` 신규 |
-| `ido/src/main/resources/application-local.yml` | 수정 | F4.3 — `allow-empty-secret: true` 추가 (로컬 escape hatch) |
-| `ido/src/test/resources/application-integration-test.yml` | 수정 | F4.3 — escape hatch 추가 |
-| `ido/src/test/resources/application.yml` | 수정 | F4.3 — escape hatch 추가 |
-| `ido/.../sso/CrossAgencySsoController.java` | 수정 | F4.4 — `buildSsoEntryUrl()` + `buildAutoSubmitForm()` + `htmlEscape()` + `CastIssueResponse` 확장 |
-| `ido/.../policy/PolicyEngineImpl.java` | 수정 | F4.6 — `tryResolveDi()` 예외 구분 (PlatformException 전파) |
-| `ido/.../infrastructure/QimClientImpl.java` | 수정 | F4.6 — `getDi()` 예외 구분 (404 null / 5xx throw) |
-| `ido/.../webhook/WebhookDispatcherServiceTest.java` | 수정 | F4.3 회귀 테스트 — `ValidateSigningSecretTests` (4) + HMAC 테스트 갱신 (3) |
-| `ido/.../sso/CrossAgencySsoControllerTest.java` | 신규 | F4.4 회귀 테스트 — `UrlDoesNotLeakToken` (3) + `FormHtmlAutoSubmit` (4) + `CastTokenFieldExposure` (2) |
-| `ido/.../policy/PolicyEngineImplTest.java` | 신규 | F4.6 회귀 테스트 — `DiResolutionSuccess` (1) + `DiPermanentlyNotMappedReturnsGuest` (2) + `QimTransientFailurePropagates` (3) |
-| `ido/.../infrastructure/QimClientGetDiTest.java` | 신규 | F4.6 회귀 테스트 — `HappyPath` (3) + `NotFoundIsNullNotException` (1) + `TransientFailureThrows` (4) |
+| `idem-hub/.../webhook/WebhookDispatcherService.java` | 수정 | F4.3 — `@PostConstruct validateSigningSecret()` + `allowEmptySecret` + `computeHmacSignature()` 가드 |
+| `idem-hub/src/main/resources/application.yml` | 수정 | F4.3 — `signing-secret:${...:}` 기본값 제거 + `allow-empty-secret` 신규 |
+| `idem-hub/src/main/resources/application-local.yml` | 수정 | F4.3 — `allow-empty-secret: true` 추가 (로컬 escape hatch) |
+| `idem-hub/src/test/resources/application-integration-test.yml` | 수정 | F4.3 — escape hatch 추가 |
+| `idem-hub/src/test/resources/application.yml` | 수정 | F4.3 — escape hatch 추가 |
+| `idem-hub/.../sso/CrossAgencySsoController.java` | 수정 | F4.4 — `buildSsoEntryUrl()` + `buildAutoSubmitForm()` + `htmlEscape()` + `CastIssueResponse` 확장 |
+| `idem-hub/.../policy/PolicyEngineImpl.java` | 수정 | F4.6 — `tryResolveDi()` 예외 구분 (PlatformException 전파) |
+| `idem-hub/.../infrastructure/QimClientImpl.java` | 수정 | F4.6 — `getDi()` 예외 구분 (404 null / 5xx throw) |
+| `idem-hub/.../webhook/WebhookDispatcherServiceTest.java` | 수정 | F4.3 회귀 테스트 — `ValidateSigningSecretTests` (4) + HMAC 테스트 갱신 (3) |
+| `idem-hub/.../sso/CrossAgencySsoControllerTest.java` | 신규 | F4.4 회귀 테스트 — `UrlDoesNotLeakToken` (3) + `FormHtmlAutoSubmit` (4) + `CastTokenFieldExposure` (2) |
+| `idem-hub/.../policy/PolicyEngineImplTest.java` | 신규 | F4.6 회귀 테스트 — `DiResolutionSuccess` (1) + `DiPermanentlyNotMappedReturnsGuest` (2) + `QimTransientFailurePropagates` (3) |
+| `idem-hub/.../infrastructure/QimClientGetDiTest.java` | 신규 | F4.6 회귀 테스트 — `HappyPath` (3) + `NotFoundIsNullNotException` (1) + `TransientFailureThrows` (4) |
 
 ### 5.2 신규 테스트 — 총 27건
 
@@ -359,8 +359,8 @@ private String tryResolveDi(String qimUserId, String agencyCode, String correlat
 ### 6.2 빌드/단위 테스트 (예정 — sandbox에 Java/Gradle 부재)
 
 ```bash
-./gradlew :ido:compileJava :ido:compileTestJava
-./gradlew :ido:test --tests 'kr.go.smes.ido.webhook.WebhookDispatcherServiceTest' \
+./gradlew :idem-hub:compileJava :idem-hub:compileTestJava
+./gradlew :idem-hub:test --tests 'kr.go.smes.ido.webhook.WebhookDispatcherServiceTest' \
                   --tests 'kr.go.smes.ido.sso.CrossAgencySsoControllerTest' \
                   --tests 'kr.go.smes.ido.policy.PolicyEngineImplTest' \
                   --tests 'kr.go.smes.ido.infrastructure.QimClientGetDiTest'
@@ -371,12 +371,12 @@ private String tryResolveDi(String qimUserId, String agencyCode, String correlat
 ```bash
 # 1. F4.3 가드 검증 — secret 미주입 시 부팅 실패
 unset IDO_WEBHOOK_SIGNING_SECRET
-./gradlew :ido:bootRun -Dspring.profiles.active=prod
+./gradlew :idem-hub:bootRun -Dspring.profiles.active=prod
 # → IllegalStateException: [F4.3 Guard] ido.webhook.signing-secret 미설정 ... 발생 확인
 
 # 2. F4.3 정상 부팅
 export IDO_WEBHOOK_SIGNING_SECRET="$(openssl rand -hex 32)"
-./gradlew :ido:bootRun -Dspring.profiles.active=prod
+./gradlew :idem-hub:bootRun -Dspring.profiles.active=prod
 # → 정상 부팅 + "signing-secret 주입 확인 완료 (len=64)" 로그
 ```
 

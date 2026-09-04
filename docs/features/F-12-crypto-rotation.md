@@ -3,8 +3,8 @@
 > **환경변수**: `IDO_CRYPTO_ROTATION_ENABLED`  
 > **기본값**: `true`  
 > **Spring 프로퍼티**: `ido.crypto.rotation-enabled`  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/crypto/CastKeyRotationScheduler.java`  
-> **연관 설정**: `ido/src/main/java/kr/go/smes/ido/crypto/CastKeyConfig.java`
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/CastKeyRotationScheduler.java`  
+> **연관 설정**: `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/CastKeyConfig.java`
 
 ---
 
@@ -151,5 +151,5 @@ curl http://localhost:8083/actuator/crypto/status | jq '{
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)

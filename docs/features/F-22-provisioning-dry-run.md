@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_PROVISIONING_DRY_RUN`  
 > **기본값**: `true` (안전 — 실제 HTTP 미발행)  
 > **Spring 프로퍼티**: `ido.provisioning.dry-run`  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/provisioning/ProvisioningService.java`  
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/provisioning/ProvisioningService.java`  
 > **상위 플래그**: [F-20 전 기관 프로비저닝](F-20-provisioning.md)
 
 ---
@@ -41,14 +41,14 @@ Phase 2-B: F-20=true + F-22=false
 
 ```bash
 # Phase 2-A: Dry-Run 관찰 모드
-helm upgrade ido infra/helm/ido --set phase=2a
+helm upgrade ido infra/helm/idem-hub --set phase=2a
 # 또는
 kubectl set env deployment/ido-gateway \
   IDO_PROVISIONING_ENABLED=true \
   IDO_PROVISIONING_DRY_RUN=true
 
 # Phase 2-B: 실제 발행 전환 (2주 관찰 후)
-helm upgrade ido infra/helm/ido --set phase=2b
+helm upgrade ido infra/helm/idem-hub --set phase=2b
 # 또는
 kubectl set env deployment/ido-gateway \
   IDO_PROVISIONING_ENABLED=true \
@@ -146,6 +146,6 @@ F-20=true + F-21=false + F-22=false 조합 시:
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)
-- [Helm Phase 프리셋]( ../../infra/helm/ido/templates/_helpers.tpl)
+- [Helm Phase 프리셋]( ../../infra/helm/idem-hub/templates/_helpers.tpl)

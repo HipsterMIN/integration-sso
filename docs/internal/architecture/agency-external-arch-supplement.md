@@ -251,7 +251,7 @@ public class HandoffEventConsumer {
 ### 4.3 application.yml 수정 사항
 
 ```yaml
-# PoC에서 agency-stub/src/main/resources/application.yml에
+# PoC에서 idem-tenant-sample/src/main/resources/application.yml에
 # 다음 주석 추가 필요:
 
 spring:
@@ -342,13 +342,13 @@ IdO WebhookDispatcher → 기관 Webhook URL (HTTPS) ← 외부
 | 기관 API Key 검증 | ⚠️ 미구현 (TODO) | X-Agency-Key 헤더 검증 | P1 | `HandoffController` 인터셉터 |
 | Ticket 서명 검증 (기관 측) | ⚠️ 미구현 | HMAC-SHA256 검증 | P1 | `AgencyEntryController` |
 | agency-stub Kafka 직접 구독 | ⚠️ PoC 편의 코드 | 운영 시 제거 | P2 | `HandoffEventConsumer.java` |
-| **Webhook 디스패처** | ✅ **구현 완료** (v1.5.0) | IdO 내부 컴포넌트 | P1 | `ido/webhook/` 패키지 |
+| **Webhook 디스패처** | ✅ **구현 완료** (v1.5.0) | IdO 내부 컴포넌트 | P1 | `idem-hub/webhook/` 패키지 |
 | **Webhook Outbox Relay** | ✅ **구현 완료** (v1.5.0) | 지수 백오프 재시도 | P1 | `WebhookDispatchOutboxRelay` |
 | **Handoff 이벤트 → Webhook** | ✅ **구현 완료** (v1.5.0) | Kafka→HTTPS 브리지 | P1 | `HandoffEventConsumer` |
 | **Redis Pre-warming** | ✅ **구현 완료** (v1.5.0) | 60k 부하 흡수 | P1 | `AuthResultCacheService` |
 | **감사 로그 (Audit)** | ✅ **구현 완료** (v1.5.0) | DB + Kafka 이중 기록 | P1 | `AuditLogPublisher` |
 | **DB 마이그레이션 V7** | ✅ **구현 완료** (v1.5.0) | 4개 신규 테이블 | P1 | `V7__add_webhook_and_audit.sql` |
-| 이벤트 폴링 API | ❌ 미구현 | GET `/api/v1/agency/events` | P2 | `ido/api/AgencyEventController` |
+| 이벤트 폴링 API | ❌ 미구현 | GET `/api/v1/agency/events` | P2 | `idem-hub/api/AgencyEventController` |
 | agency-stub Docker 격리 | ❌ onepass-net 포함 | 별도 네트워크 또는 host | P2 | `docker-compose.yml` |
 | mTLS 기관 인증 | ❌ 미구현 (API Key 대체) | 클라이언트 인증서 검증 | P3 | Nginx/Gateway 레벨 |
 
@@ -455,8 +455,8 @@ v1.5.0에서 다음 코드 주석 보완이 완료되었습니다:
 3. `QsignAuthEventConsumer.java` — Redis Pre-warming 60k 시나리오 설계 주석 추가 ✅
 
 **미완료 (다음 PR 대상)**:
-- `agency-stub/HandoffEventConsumer.java` — PoC 한정 Javadoc (클래스 레벨) 추가
-- `agency-stub/application.yml` — Kafka 설정 블록 경고 주석
+- `idem-tenant-sample/HandoffEventConsumer.java` — PoC 한정 Javadoc (클래스 레벨) 추가
+- `idem-tenant-sample/application.yml` — Kafka 설정 블록 경고 주석
 
 ---
 

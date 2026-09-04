@@ -145,7 +145,7 @@ JEUS_8.5+   (JDK 8+)      → 항상 byte-buddy
 │                        유관기관 JVM 프로세스                                 │
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  OnePass Agency Java Agent (onepass-agent-1.0.0-all.jar)           │   │
+│  │  OnePass Agency Java Agent (idem-agent-1.0.0-all.jar)           │   │
 │  │                                                                     │   │
 │  │  OnePassAgentMain.premain()                                         │   │
 │  │       │                                                             │   │
@@ -753,7 +753,7 @@ OnePass 서버 연결 실패       WARN 로그 (비동기) + 요청 단계에서
 ### 12.1 fat-JAR 구조
 
 ```
-onepass-agent-1.0.0-all.jar
+idem-agent-1.0.0-all.jar
 ├── META-INF/MANIFEST.MF
 │   ├── Premain-Class: kr.go.smes.agent.core.OnePassAgentMain
 │   ├── Agent-Class:   kr.go.smes.agent.core.OnePassAgentMain
@@ -771,7 +771,7 @@ onepass-agent-1.0.0-all.jar
 
 ```
 /opt/onepass/
-├── onepass-agent-1.0.0-all.jar    ← Agent JAR
+├── idem-agent-1.0.0-all.jar    ← Agent JAR
 └── conf/
     └── onepass-agent.properties   ← 설정 파일 (권한 600)
 ```
@@ -780,12 +780,12 @@ onepass-agent-1.0.0-all.jar
 
 **JEUS 4/5 (jeusadmin / jeusboot.properties)**:
 ```
-JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
+JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
 ```
 
 **Tomcat (catalina.sh / setenv.sh)**:
 ```bash
-CATALINA_OPTS="$CATALINA_OPTS -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
+CATALINA_OPTS="$CATALINA_OPTS -javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
 ```
 
 ---

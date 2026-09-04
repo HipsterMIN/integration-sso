@@ -52,7 +52,7 @@
 | **JJWT** | 0.12.6 | JWT 서명 검증 (Keycloak 콜백) |
 | **Lombok** | 최신 안정 | 전 모듈 |
 
-### 2.2 프론트엔드 (`onepass-fe/frontend/`)
+### 2.2 프론트엔드 (`idem-console/frontend/`)
 
 | 기술 | 버전 |
 |------|------|

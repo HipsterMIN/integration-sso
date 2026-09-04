@@ -71,7 +71,7 @@ sequenceDiagram
     end
 ```
 
-**API 파일**: `onepass-fe/frontend/src/api/feSession.ts`
+**API 파일**: `idem-console/frontend/src/api/feSession.ts`
 
 ---
 
@@ -198,7 +198,7 @@ sequenceDiagram
 
 ### 3.3 향후 구현 시 탈퇴 처리 상세 (Q-IM 기준)
 
-**파일**: `q-im/src/main/java/kr/go/smes/qim/user/UserRegistrationServiceImpl.java`
+**파일**: `idem-registry/src/main/java/kr/go/smes/qim/user/UserRegistrationServiceImpl.java`
 
 ```java
 @Transactional
@@ -259,7 +259,7 @@ public void withdraw(String qimUserId, String reason) {
 
 ## 4. 비밀번호 변경 흐름 (A→Z)
 
-**파일**: `onepass-fe/frontend/src/pages/Mypage/pages/PasswordStep1.tsx`
+**파일**: `idem-console/frontend/src/pages/Mypage/pages/PasswordStep1.tsx`
 
 ### 4.1 비밀번호 변경 시퀀스
 

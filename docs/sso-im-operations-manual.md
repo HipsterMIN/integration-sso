@@ -8,10 +8,10 @@
 본 메뉴얼은 별도 설계 문서나 위키를 참고하지 않고, 저장소의 다음 소스에서 직접
 사실관계를 추출하여 작성되었습니다.
 
-- `q-im/src/main/**` — Q-IM (식별·매핑 SoR)
-- `ido/src/main/**` — IdO (정책 오케스트레이터 + FE BFF)
-- `q-sign/src/main/**` — Q-Sign (인증 결과 SoR)
-- `outbox-relay-batch/src/main/**` — Outbox 릴레이 배치
+- `idem-registry/src/main/**` — Q-IM (식별·매핑 SoR)
+- `idem-hub/src/main/**` — IdO (정책 오케스트레이터 + FE BFF)
+- `idem-gate/src/main/**` — Q-Sign (인증 결과 SoR)
+- `idem-relay/src/main/**` — Outbox 릴레이 배치
 - `infra/docker/**` — 로컬·개발 인프라 정의
 - `infra/monitoring/**`, `infra/k8s/**`, `infra/helm/**` — 모니터링·배포 자산
 
@@ -23,11 +23,11 @@ OnePass는 다음 5개 서비스로 구성된다(`infra/docker/docker-compose.ym
 
 | 서비스 | 모듈 | 포트 | DB | 비고 |
 |---|---|---|---|---|
-| Q-Sign | `q-sign/` | 8081 | PostgreSQL `onepass` (schema: `qsign`) | 인증 결과 SoR, Keycloak OIDC 클라이언트 |
-| Q-IM | `q-im/` | 8082 | MariaDB 11 `qim` | 식별·매핑 SoR (회원·동의·전환·후견·CI) |
-| IdO | `ido/` | 8083 | PostgreSQL `onepass` (schema: `ido`) | 정책 오케스트레이터 + FE BFF + Webhook Dispatcher |
-| Agency-Stub | `agency-stub/` | 8084 | PostgreSQL `onepass` | 유관기관 OIDC 클라이언트 시뮬레이터 |
-| React SPA | `onepass-fe/` | 3001 (Nginx) | — | `Dockerfile.optionB` 사용 |
+| Q-Sign | `idem-gate/` | 8081 | PostgreSQL `onepass` (schema: `qsign`) | 인증 결과 SoR, Keycloak OIDC 클라이언트 |
+| Q-IM | `idem-registry/` | 8082 | MariaDB 11 `qim` | 식별·매핑 SoR (회원·동의·전환·후견·CI) |
+| IdO | `idem-hub/` | 8083 | PostgreSQL `onepass` (schema: `ido`) | 정책 오케스트레이터 + FE BFF + Webhook Dispatcher |
+| Agency-Stub | `idem-tenant-sample/` | 8084 | PostgreSQL `onepass` | 유관기관 OIDC 클라이언트 시뮬레이터 |
+| React SPA | `idem-console/` | 3001 (Nginx) | — | `Dockerfile.optionB` 사용 |
 
 공통 인프라(`docker-compose.yml`):
 
@@ -107,7 +107,7 @@ K8s 환경에서는 `terminationGracePeriodSeconds ≥ 30s` 권장.
 코드상 default 가 비어 있거나 `?:` 로 fail-fast 처리되어 있으면 운영에서
 **반드시 환경변수로 주입**해야 한다. 미주입 시 부팅 단계에서 차단된다.
 
-### 3.1 Q-IM (`q-im/src/main/resources/application.yml`)
+### 3.1 Q-IM (`idem-registry/src/main/resources/application.yml`)
 
 | 환경변수 | 용도 | 부팅 차단 여부 |
 |---|---|---|
@@ -128,7 +128,7 @@ openssl rand -base64 32   # QIM_CI_AES_KEY_V1 / V2 (32바이트)
 openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 ```
 
-### 3.2 IdO (`ido/src/main/resources/application.yml`)
+### 3.2 IdO (`idem-hub/src/main/resources/application.yml`)
 
 | 환경변수 | 용도 | 부팅 차단 여부 |
 |---|---|---|
@@ -175,7 +175,7 @@ openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 
 ### 4.1 Q-IM (MariaDB, DB=`qim`)
 
-마이그레이션 위치: `q-im/src/main/resources/db/migration/`
+마이그레이션 위치: `idem-registry/src/main/resources/db/migration/`
 
 | 버전 | 파일 | 변경 요약 |
 |---|---|---|
@@ -198,7 +198,7 @@ Flyway 설정: `baseline-on-migrate=true`, `validate-on-migrate=true`,
 
 ### 4.2 IdO (PostgreSQL, schema=`ido`)
 
-마이그레이션 위치: `ido/src/main/resources/db/migration/`
+마이그레이션 위치: `idem-hub/src/main/resources/db/migration/`
 
 | 버전 | 파일 |
 |---|---|
@@ -247,11 +247,11 @@ curl -s http://localhost:8083/actuator/flyway | jq .
 
 ### 5.1 토픽 목록 (코드 참조)
 
-Q-IM (`q-im/src/main/resources/application.yml`):
+Q-IM (`idem-registry/src/main/resources/application.yml`):
 - `qim.user.events` — `cleanup.policy=compact`
 - `qim.user.snapshot` — Compacted snapshot
 
-IdO (`ido/src/main/resources/application.yml`):
+IdO (`idem-hub/src/main/resources/application.yml`):
 - `ido.handoff.events` — Handoff Ticket 이벤트
 - `platform.session.advisory` — FE 세션 어드바이저리
 - `qsign.auth.events` — 인증 이벤트 (default; `IDO_KAFKA_TOPIC_AUTH_EVENTS` 로 변경)
@@ -309,7 +309,7 @@ Kafka-UI(8090) → `Topics → 토픽명 → Config` 에서 `cleanup.policy=comp
 
 ### 6.1 Q-IM Outbox
 
-코드: `q-im/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java`
+코드: `idem-registry/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java`
 
 설정(`qim.outbox.*`):
 - `relay-interval-ms: 500` — PENDING 폴링 주기
@@ -375,7 +375,7 @@ WHERE event_id IN (...);
 ## 7. Feature Flag 운영
 
 IdO는 단계적 롤아웃을 위해 다수의 Feature Flag를 가진다. 모두 환경변수
-오버라이드 가능. (`ido/src/main/resources/application.yml` 참조)
+오버라이드 가능. (`idem-hub/src/main/resources/application.yml` 참조)
 
 | Flag (env) | 기본값 | 역할 |
 |---|---|---|
@@ -466,7 +466,7 @@ CB 상태 메트릭:
 
 ## 10. 기관(Agency) 운영
 
-엔드포인트: `ido/src/main/java/kr/go/smes/ido/admin/AgencyAdminController.java`
+엔드포인트: `idem-hub/src/main/java/kr/go/smes/idem-hub/admin/AgencyAdminController.java`
 
 | Method | Path | 설명 |
 |---|---|---|
@@ -491,7 +491,7 @@ CB 상태 메트릭:
 ## 11. Q-IM API 운영 진단
 
 운영자가 데이터 정합성을 확인할 때 사용하는 주요 엔드포인트
-(`q-im/src/main/java/kr/go/smes/qim/api/`):
+(`idem-registry/src/main/java/kr/go/smes/qim/api/`):
 
 | Controller | Method | Path | 용도 |
 |---|---|---|---|
@@ -522,7 +522,7 @@ CB 상태 메트릭:
 
 ## 12. 개인정보 파기 (Retention)
 
-스케줄러: `ido/src/main/java/kr/go/smes/ido/retention/PersonalDataRetentionScheduler.java`
+스케줄러: `idem-hub/src/main/java/kr/go/smes/idem-hub/retention/PersonalDataRetentionScheduler.java`
 
 기본 동작:
 1. `executeRetentionPolicy()` 가 주기적으로 실행 (cron은 클래스 내 어노테이션 확인).
@@ -700,7 +700,7 @@ readiness probe FAIL 로 K8s가 자동으로 endpoint에서 제외한다. 단,
 - [ ] Kafka 토픽별 lag 점검(특히 `ido-handoff-consumer`)
 - [ ] Vault Transit 키 사용량 / 에러 로그
 - [ ] `retention_audit_log` (dry-run 단계) 결과 리뷰
-- [ ] 마이그레이션 추가 여부 (`git log --oneline q-im/src/main/resources/db ido/src/main/resources/db`)
+- [ ] 마이그레이션 추가 여부 (`git log --oneline idem-registry/src/main/resources/db idem-hub/src/main/resources/db`)
 
 ### 월간
 - [ ] AES/HMAC 키 회전 일정 점검 (90일)
@@ -728,7 +728,7 @@ readiness probe FAIL 로 K8s가 자동으로 endpoint에서 제외한다. 단,
 | Grafana | 3002 | `admin/admin` |
 | Loki | 3100 | |
 | React SPA | 3001 | profile=optionB |
-| React Dev (mount) | 3000 | onepass-fe/frontend |
+| React Dev (mount) | 3000 | idem-console/frontend |
 | pgAdmin | 5050 | profile=tools |
 | Redis Insight | 5540 | |
 | PostgreSQL | 5432 | |
@@ -757,20 +757,20 @@ readiness probe FAIL 로 K8s가 자동으로 endpoint에서 제외한다. 단,
 ## 부록 C. 참고 코드 위치
 
 - 부팅 가드:
-  - `q-im/src/main/java/kr/go/smes/qim/crypto/CiCryptoServiceImpl.java`
-  - `q-im/src/main/java/kr/go/smes/qim/identity/DiGenerationService.java` (위치는 패키지 검색)
-  - `ido/src/main/java/kr/go/smes/ido/crypto/KeyVersionRegistry.java`
-  - `ido/src/main/java/kr/go/smes/ido/webhook/WebhookDispatcherService.java`
+  - `idem-registry/src/main/java/kr/go/smes/qim/crypto/CiCryptoServiceImpl.java`
+  - `idem-registry/src/main/java/kr/go/smes/qim/identity/DiGenerationService.java` (위치는 패키지 검색)
+  - `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/KeyVersionRegistry.java`
+  - `idem-hub/src/main/java/kr/go/smes/idem-hub/webhook/WebhookDispatcherService.java`
 - Outbox:
-  - `q-im/.../qim/outbox/OutboxServiceImpl.java`, `SnapshotServiceImpl.java`
-  - `ido/.../ido/webhook/` (Webhook Outbox Relay)
+  - `idem-registry/.../qim/outbox/OutboxServiceImpl.java`, `SnapshotServiceImpl.java`
+  - `idem-hub/.../idem-hub/webhook/` (Webhook Outbox Relay)
 - Admin:
-  - `ido/.../ido/admin/AgencyAdminController.java`
-  - `ido/.../ido/admin/AgencyAdminService.java`
+  - `idem-hub/.../idem-hub/admin/AgencyAdminController.java`
+  - `idem-hub/.../idem-hub/admin/AgencyAdminService.java`
 - Retention:
-  - `ido/.../ido/retention/PersonalDataRetentionScheduler.java`
+  - `idem-hub/.../idem-hub/retention/PersonalDataRetentionScheduler.java`
 - Health 그룹:
-  - `ido/src/main/resources/application.yml` (라인 ~842, `management.endpoint.health.group`)
+  - `idem-hub/src/main/resources/application.yml` (라인 ~842, `management.endpoint.health.group`)
 
 > 본 메뉴얼은 코드 변경 시 함께 갱신되어야 한다. 환경변수·토픽·마이그레이션
 > 버전을 변경한 PR 은 본 문서 동기화를 체크리스트에 포함하라.

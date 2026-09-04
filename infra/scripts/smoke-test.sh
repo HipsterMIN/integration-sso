@@ -414,7 +414,7 @@ elif [[ "$FE_STATUS" == "000" ]]; then
   skip "Frontend(Nginx) 접근 불가 — optionB 프로파일 미기동일 수 있음"
 else
   fail "Frontend(Nginx) 접근" \
-    "HTTP $FE_STATUS | onepass-react 컨테이너 상태, Dockerfile.optionB 빌드 확인"
+    "HTTP $FE_STATUS | idem-console 컨테이너 상태, Dockerfile.optionB 빌드 확인"
 fi
 
 # Nginx health 엔드포인트 (nginx.conf에 /nginx-health 설정된 경우)
@@ -460,7 +460,7 @@ print(jobs[0]['health'] if jobs else 'unknown')
         fi
       else
         fail "Prometheus scrape target 없음: $job" \
-          "prometheus.yml의 scrape_configs 타겟 및 onepass-net 네트워크 확인"
+          "prometheus.yml의 scrape_configs 타겟 및 idem-net 네트워크 확인"
       fi
     done
   elif [[ "$PROM_STATUS" == "000" ]]; then

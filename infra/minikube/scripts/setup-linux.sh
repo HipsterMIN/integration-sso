@@ -320,7 +320,7 @@ build_ido_image() {
     log_info "Gradle bootJar 빌드 중..."
     if [[ -f "./gradlew" ]]; then
         chmod +x ./gradlew
-        ./gradlew :ido:bootJar -x test --quiet
+        ./gradlew :idem-hub:bootJar -x test --quiet
     else
         log_error "gradlew를 찾을 수 없습니다"
         exit 1
@@ -328,7 +328,7 @@ build_ido_image() {
 
     log_info "Docker 이미지 빌드 중: ${IDO_IMAGE}:${IDO_TAG}"
     docker build \
-        -f ido/Dockerfile \
+        -f idem-hub/Dockerfile \
         -t "${IDO_IMAGE}:${IDO_TAG}" \
         --build-arg SPRING_PROFILES_ACTIVE=local \
         .
@@ -419,7 +419,7 @@ setup_port_forward() {
     log_info "ido 포트 포워딩: localhost:8083 → ido-service:8083"
     kubectl port-forward service/ido-service 8083:8083 \
         -n "${NAMESPACE}" &>/dev/null &
-    echo $! > /tmp/onepass-pf-ido.pid
+    echo $! > /tmp/idem-pf-hub.pid
 
     sleep 2
 
@@ -478,8 +478,8 @@ stream_logs() {
 teardown() {
     log_step "전체 환경 정리"
 
-    [[ -f /tmp/onepass-pf-ido.pid ]] && kill "$(cat /tmp/onepass-pf-ido.pid)" 2>/dev/null || true
-    rm -f /tmp/onepass-pf-ido.pid
+    [[ -f /tmp/idem-pf-hub.pid ]] && kill "$(cat /tmp/idem-pf-hub.pid)" 2>/dev/null || true
+    rm -f /tmp/idem-pf-hub.pid
 
     helm uninstall ido -n "${NAMESPACE}" 2>/dev/null && log_success "Helm 릴리스 삭제" || true
     kubectl delete namespace "${NAMESPACE}" --ignore-not-found=true

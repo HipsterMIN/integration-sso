@@ -43,7 +43,7 @@
 **코드베이스 분석 범위**:
 
 ```
-ido/src/main/java/kr/go/smes/ido/         ← IdO 전체 Java 소스 (약 60개 파일)
+idem-hub/src/main/java/kr/go/smes/idem-hub/         ← IdO 전체 Java 소스 (약 60개 파일)
   ├─ api/              HandoffController, BrokerController, OidcCompleteController 등
   ├─ broker/           IdpBrokerService, NonOidcBrokerAdapter 등
   ├─ config/           KafkaConsumerConfig, IdoWebConfig 등
@@ -54,16 +54,16 @@ ido/src/main/java/kr/go/smes/ido/         ← IdO 전체 Java 소스 (약 60개 
   ├─ policy/           PolicyEngine, PolicyEngineImpl
   └─ qim/              QimSpReceiverController, QimSpReceiverService 등
 
-ido/src/main/resources/
+idem-hub/src/main/resources/
   ├─ application.yml                       ← 런타임 설정 전체
   └─ db/migration/V1~V4__*.sql            ← Flyway DB 마이그레이션
 
-platform-common/src/main/java/kr/go/smes/common/
+idem-common/src/main/java/kr/go/smes/common/
   ├─ domain/           HandoffPayload, HandoffTicket, AuthResult, IdOAuthInput 등
   ├─ error/            PlatformErrorCode, PlatformException
   └─ event/            UserEvent, AuthEvent, HandoffEvent, SessionAdvisoryEvent
 
-q-im/src/main/java/kr/go/smes/qim/       ← Q-IM 서비스 (MariaDB 기반 독립 서비스)
+idem-registry/src/main/java/kr/go/smes/qim/       ← Q-IM 서비스 (MariaDB 기반 독립 서비스)
   ├─ api/              UserController 등
   ├─ application/      UserService, UserServiceImpl
   ├─ config/           KafkaProducerConfig, KafkaTopicConfig
@@ -71,11 +71,11 @@ q-im/src/main/java/kr/go/smes/qim/       ← Q-IM 서비스 (MariaDB 기반 독�
   ├─ infrastructure/   UserRepository
   └─ outbox/           OutboxRecord, OutboxService, OutboxServiceImpl
 
-q-im/src/main/resources/
+idem-registry/src/main/resources/
   ├─ application.yml                       ← MariaDB datasource (jdbc:mariadb, MariaDBDialect)
   └─ db/migration/V1~V2__*.sql            ← MariaDB 전용 Flyway 마이그레이션
 
-q-im/build.gradle.kts
+idem-registry/build.gradle.kts
   ├─ org.mariadb.jdbc:mariadb-java-client  ← MariaDB JDBC 드라이버
   └─ org.flywaydb:flyway-mysql             ← Flyway MariaDB 플러그인
 
@@ -83,7 +83,7 @@ infra/docker/
   ├─ docker-compose.yml                   ← MariaDB 11.4 (onepass-mariadb, 172.20.0.21:3306)
   └─ mariadb/mariadb.cnf                  ← MariaDB PoC 튜닝 설정 (utf8mb4, UTC, InnoDB)
 
-agency-stub/                              ← 기관 스텁
+idem-tenant-sample/                              ← 기관 스텁
 
 docs/
   ├─ qim-ido-integration-architecture.md  (v1.0.0)
@@ -122,24 +122,24 @@ docs/
 
 | 구분 | 구현 내용 | 근거 파일 |
 |------|-----------|-----------|
-| OIDC 브로커 | Keycloak OIDC 어댑터 (`KeycloakOidcService`) | `ido/broker/` |
-| 비OIDC 브로커 | `NonOidcBrokerAdapter`, `NonOidcAuthService` | `ido/broker/nonoidc/` |
+| OIDC 브로커 | Keycloak OIDC 어댑터 (`KeycloakOidcService`) | `idem-hub/broker/` |
+| 비OIDC 브로커 | `NonOidcBrokerAdapter`, `NonOidcAuthService` | `idem-hub/broker/nonoidc/` |
 | FE 세션 | Redis 슬라이딩 TTL 30분 / 절대 만료 8시간 | `application.yml` |
-| Handoff Issue/Verify | `HandoffServiceImpl` — 1회성, TTL 60초, consumeOnce | `ido/handoff/` |
-| Handoff 구조체 | `HandoffPayload` — policyVersion, SubjectIdentifier, AuthContext | `platform-common/domain/` |
-| Q-IM 캐시 무효화 | `QimEventConsumer` — Ordered Consumer, 버전 검증, Selective Pull | `ido/kafka/` |
-| Transactional Outbox | `IdoOutboxRelay` — 500ms 릴레이, 배치 100 | `ido/infrastructure/` |
-| Q-IM SP 수신 API | 완전 중재 패턴 3종 (QUERY/REGISTER/WITHDRAW) | `ido/qim/sp/` |
+| Handoff Issue/Verify | `HandoffServiceImpl` — 1회성, TTL 60초, consumeOnce | `idem-hub/handoff/` |
+| Handoff 구조체 | `HandoffPayload` — policyVersion, SubjectIdentifier, AuthContext | `idem-common/domain/` |
+| Q-IM 캐시 무효화 | `QimEventConsumer` — Ordered Consumer, 버전 검증, Selective Pull | `idem-hub/kafka/` |
+| Transactional Outbox | `IdoOutboxRelay` — 500ms 릴레이, 배치 100 | `idem-hub/infrastructure/` |
+| Q-IM SP 수신 API | 완전 중재 패턴 3종 (QUERY/REGISTER/WITHDRAW) | `idem-hub/qim/sp/` |
 | Kafka EDA 구조 | 4개 토픽, 4개 컨슈머 그룹, MANUAL_IMMEDIATE ACK | `KafkaConsumerConfig` |
 | 지수 백오프 재시도 | DefaultErrorHandler, 최대 3회 재시도 | `KafkaConsumerConfig` |
-| DB 스키마 (IdO) | V1~V4 마이그레이션 (agency_meta, handoff_audit, fe_session, auth_result, qim_sp 관련 3종) | `ido/db/migration/` |
-| **Q-IM DB — MariaDB 전환** | **`build.gradle.kts` MariaDB 드라이버·flyway-mysql 적용, `application.yml` MariaDB datasource·Dialect 완전 전환, V1~V2 마이그레이션 MariaDB 문법 전면 재작성** | **`q-im/`** |
+| DB 스키마 (IdO) | V1~V4 마이그레이션 (agency_meta, handoff_audit, fe_session, auth_result, qim_sp 관련 3종) | `idem-hub/db/migration/` |
+| **Q-IM DB — MariaDB 전환** | **`build.gradle.kts` MariaDB 드라이버·flyway-mysql 적용, `application.yml` MariaDB datasource·Dialect 완전 전환, V1~V2 마이그레이션 MariaDB 문법 전면 재작성** | **`idem-registry/`** |
 | **인프라 — MariaDB 컨테이너** | **`docker-compose.yml` MariaDB 11.4 서비스(`onepass-mariadb`) 추가, `mariadb/mariadb.cnf` 튜닝 설정 작성, `init-db.sql`에서 Q-IM 섹션 제거** | **`infra/docker/`** |
-| **Q-IM JPA 구현 레이어** | **JPA 엔터티 4종(`QimUserJpaEntity`, `AuthMeanMappingJpaEntity`, `UserProfileJpaEntity`, `OutboxJpaEntity`), Spring Data Repository 2종, 구현체 2종(`UserRepositoryImpl`, `OutboxRepositoryImpl`)** | **`q-im/infrastructure/jpa/`** |
-| **Q-IM 설정 클래스** | **`KafkaConsumerConfig`(MANUAL_IMMEDIATE, concurrency 3), `RedisConfig`(캐시 TTL 300s), `GlobalExceptionHandler` 신규 작성** | **`q-im/config/`, `q-im/api/`** |
+| **Q-IM JPA 구현 레이어** | **JPA 엔터티 4종(`QimUserJpaEntity`, `AuthMeanMappingJpaEntity`, `UserProfileJpaEntity`, `OutboxJpaEntity`), Spring Data Repository 2종, 구현체 2종(`UserRepositoryImpl`, `OutboxRepositoryImpl`)** | **`idem-registry/infrastructure/jpa/`** |
+| **Q-IM 설정 클래스** | **`KafkaConsumerConfig`(MANUAL_IMMEDIATE, concurrency 3), `RedisConfig`(캐시 TTL 300s), `GlobalExceptionHandler` 신규 작성** | **`idem-registry/config/`, `idem-registry/api/`** |
 | 오류 코드 | E-QS-xxx, E-IDP-4xx, E-IM-2xx, E-IDO-1xx, E-AGENCY-3xx | `PlatformErrorCode.java` |
 | Circuit Breaker | qim-client, keycloak-client (Resilience4j) | `application.yml` |
-| 멱등 처리 | `idempotentEventStore` — 모든 이벤트 컨슈머 적용 | `ido/kafka/` |
+| 멱등 처리 | `idempotentEventStore` — 모든 이벤트 컨슈머 적용 | `idem-hub/kafka/` |
 
 ### 2.2 부분 구현 ⚠️
 
@@ -601,7 +601,7 @@ return "AGENCY_SUBJ_" + qimUserId.substring(0, 8) + "_" + agencyCode;
 
 **문제 요약**: E-AUTH-002 누락, E-AGENCY-302 의미 혼용, E-IDP-402/403/404 의미론 불일치, E-OPS-901 누락
 
-**수정 방안 — `platform-common/src/main/java/kr/go/smes/common/error/PlatformErrorCode.java` 수정**:
+**수정 방안 — `idem-common/src/main/java/kr/go/smes/common/error/PlatformErrorCode.java` 수정**:
 
 ```java
 // ── 인증 잠금 (신규 추가) ──────────────────────────────────────────────────
@@ -688,7 +688,7 @@ VALUES
 **연계 Java 신규 클래스**:
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/domain/ProviderRegistry.java (신규)
+// idem-hub/src/main/java/kr/go/smes/idem-hub/domain/ProviderRegistry.java (신규)
 @Entity @Table(name = "provider_registry", schema = "ido")
 public class ProviderRegistry {
     @Id private String providerCode;
@@ -702,7 +702,7 @@ public class ProviderRegistry {
     public enum CircuitState  { CLOSED, OPEN, HALF_OPEN }
 }
 
-// ido/src/main/java/kr/go/smes/ido/infrastructure/ProviderRegistryRepository.java (신규)
+// idem-hub/src/main/java/kr/go/smes/idem-hub/infrastructure/ProviderRegistryRepository.java (신규)
 public interface ProviderRegistryRepository extends JpaRepository<ProviderRegistry, String> {
     Optional<ProviderRegistry> findByProviderCodeAndIsActiveTrue(String providerCode);
 }
@@ -741,7 +741,7 @@ COMMENT ON COLUMN ido.auth_result.raw_id_token IS '표준 OIDC 경로의 원본 
 **수정 방안 — `IdpBrokerService` 팩토리 패턴 도입**:
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/broker/IdpBrokerFactory.java (신규)
+// idem-hub/src/main/java/kr/go/smes/idem-hub/broker/IdpBrokerFactory.java (신규)
 @Component
 @RequiredArgsConstructor
 public class IdpBrokerFactory {
@@ -773,7 +773,7 @@ public class IdpBrokerFactory {
 **수정 방안 — `TicketCryptoService` 신규 구현**:
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/handoff/TicketCryptoService.java (신규)
+// idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/TicketCryptoService.java (신규)
 @Component
 public class TicketCryptoService {
 
@@ -846,7 +846,7 @@ HandoffTicket ticket = HandoffTicket.builder()
 
 ### GAP-006: `HandoffPayload` 필드 보완 [P1]
 
-**수정 방안 — `platform-common/src/main/java/kr/go/smes/common/domain/HandoffPayload.java` 수정**:
+**수정 방안 — `idem-common/src/main/java/kr/go/smes/common/domain/HandoffPayload.java` 수정**:
 
 ```java
 @Getter @Builder
@@ -924,7 +924,7 @@ public class HandoffPayload {
 **수정 방안 — `KafkaTopicConfig.java` 신규 생성 또는 `KafkaConsumerConfig.java` 수정**:
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/kafka/KafkaTopicConfig.java (신규)
+// idem-hub/src/main/java/kr/go/smes/idem-hub/kafka/KafkaTopicConfig.java (신규)
 @Configuration
 public class KafkaTopicConfig {
 
@@ -1088,7 +1088,7 @@ resilience4j:
 **수정 방안 — `HandoffController.verify()` 검증 로직 추가**:
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/security/GateSignatureVerifier.java (신규)
+// idem-hub/src/main/java/kr/go/smes/idem-hub/security/GateSignatureVerifier.java (신규)
 @Component
 public class GateSignatureVerifier {
 
@@ -1135,7 +1135,7 @@ public class GateSignatureVerifier {
 **수정 방안 — 필터 추가**:
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/config/TraceContextFilter.java (신규)
+// idem-hub/src/main/java/kr/go/smes/idem-hub/config/TraceContextFilter.java (신규)
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class TraceContextFilter implements Filter {
@@ -1422,10 +1422,10 @@ PoC 시연 환경에서는 동일한 MariaDB를 **Docker self-hosted MariaDB 11.
 
 | 파일 | 변경 내용 |
 |------|-----------|
-| `q-im/build.gradle.kts` | `org.postgresql:postgresql`, `flyway-database-postgresql` 제거 → `org.mariadb.jdbc:mariadb-java-client`, `flyway-mysql` 추가 |
-| `q-im/src/main/resources/application.yml` | `jdbc:postgresql` → `jdbc:mariadb`, `PostgreSQLDialect` → `MariaDBDialect`, Flyway `schemas` 제거, 환경변수 `QIM_DB_*` 분리 |
-| `q-im/src/main/resources/db/migration/V1__create_schema.sql` | PostgreSQL 문법 → MariaDB 문법 전면 재작성 |
-| `q-im/src/main/resources/db/migration/V2__add_idempotent_consumer.sql` | PostgreSQL 문법 → MariaDB 문법 전면 재작성 |
+| `idem-registry/build.gradle.kts` | `org.postgresql:postgresql`, `flyway-database-postgresql` 제거 → `org.mariadb.jdbc:mariadb-java-client`, `flyway-mysql` 추가 |
+| `idem-registry/src/main/resources/application.yml` | `jdbc:postgresql` → `jdbc:mariadb`, `PostgreSQLDialect` → `MariaDBDialect`, Flyway `schemas` 제거, 환경변수 `QIM_DB_*` 분리 |
+| `idem-registry/src/main/resources/db/migration/V1__create_schema.sql` | PostgreSQL 문법 → MariaDB 문법 전면 재작성 |
+| `idem-registry/src/main/resources/db/migration/V2__add_idempotent_consumer.sql` | PostgreSQL 문법 → MariaDB 문법 전면 재작성 |
 | `infra/docker/docker-compose.yml` | MariaDB 11.4 컨테이너(`onepass-mariadb`, 172.20.0.21) 추가, `onepass-qim` 서비스 추가, Adminer UI(`8091`) 추가 |
 | `infra/docker/init-db.sql` | Q-IM 스키마/테이블 항목 제거 (MariaDB로 이관) |
 | `infra/docker/mariadb/mariadb.cnf` | MariaDB PoC 튜닝 설정 신규 작성 |
@@ -1504,10 +1504,10 @@ docker compose -f infra/docker/docker-compose.yml --profile tools up -d adminer
 |------|------|--------|-----------|
 | v1.0.0 | 2026-05-07 | AI-assisted | 초안 작성 — 기본 갭 식별 (GAP-001~017 초기 목록) |
 | v2.0.0 | 2026-05-07 | AI-assisted | 완성본 — 코드베이스 정밀 대조 분석 완료, 현행 구현 상태 확정, 각 GAP별 코드 수준 수정 방안 완성, E-IDP 의미론 재정렬, QimEventConsumer 설정 키 오류 추가 발견 |
-| v2.1.0 | 2026-05-07 | AI-assisted | **Q-IM DB MariaDB 전환 반영** — `q-im/build.gradle.kts`, `application.yml`, DB 마이그레이션 V1~V2, `docker-compose.yml`, `init-db.sql`, `mariadb/mariadb.cnf` 수정 완료. §8 MariaDB 전환 상세 추가 |
-| v2.2.0 | 2026-05-07 | AI-assisted | **문서 정합성 보완** — 목차에 §8 링크·§9 변경이력 항목 추가, §1.1 코드베이스 범위에 `q-im/` 서비스 파일 목록 및 `infra/docker/mariadb/` 추가, §1.2 신규/변경 사항 테이블에 MariaDB 전환 결정 행 추가, §2.1 구현 완료 항목에 Q-IM MariaDB 전환 완료 행 및 인프라 MariaDB 컨테이너 추가, §8 제목 앵커 목차 일치 수정 |
-| v2.3.0 | 2026-05-07 | AI-assisted | **코드베이스 전수 검증 및 보완** — `q-im/build/resources/main/` 3개 파일(application.yml, V1 SQL, V2 SQL) PostgreSQL→MariaDB 구버전 캐시 교체. `docs/local-dev-guide.md` 전면 MariaDB 반영: 기동 순서·컨테이너 목록(`onepass-mariadb`)·정상 상태 예시·§4.2 MariaDB 연결 확인 신규 추가·PostgreSQL 스키마 구조에서 `qim.*` 제거·서비스 포트표에 MariaDB(3306)·Adminer(8091) 추가·§6.5 `QIM_DB_*` 환경변수 예시 추가·§9 DB 엔진별 스키마 구조 분리·§11.2 MariaDB 트러블슈팅 섹션 신규 추가·§11.x 번호 전체 재정렬·부록 B 환경변수표 `QIM_DB_*` 행 추가 |
-| v2.4.0 | 2026-05-07 | AI-assisted | **Q-IM JPA 구현 레이어 전면 신규 작성** — JPA 엔터티 4종(`QimUserJpaEntity`·`AuthMeanMappingJpaEntity`·`UserProfileJpaEntity`·`OutboxJpaEntity`), Spring Data JPA Repository 2종(`QimUserJpaRepository`·`OutboxJpaRepository`), 도메인 구현체 2종(`UserRepositoryImpl`·`OutboxRepositoryImpl`), 설정 클래스 3종(`KafkaConsumerConfig`·`RedisConfig`·`GlobalExceptionHandler`) 신규 작성. `OutboxServiceImpl` `@Qualifier("qimKafkaTemplate")` 의존성 명시 수정. `./gradlew :q-im:build -x test` 빌드 성공 확인. §2.1 구현 완료 항목 2행 추가 |
+| v2.1.0 | 2026-05-07 | AI-assisted | **Q-IM DB MariaDB 전환 반영** — `idem-registry/build.gradle.kts`, `application.yml`, DB 마이그레이션 V1~V2, `docker-compose.yml`, `init-db.sql`, `mariadb/mariadb.cnf` 수정 완료. §8 MariaDB 전환 상세 추가 |
+| v2.2.0 | 2026-05-07 | AI-assisted | **문서 정합성 보완** — 목차에 §8 링크·§9 변경이력 항목 추가, §1.1 코드베이스 범위에 `idem-registry/` 서비스 파일 목록 및 `infra/docker/mariadb/` 추가, §1.2 신규/변경 사항 테이블에 MariaDB 전환 결정 행 추가, §2.1 구현 완료 항목에 Q-IM MariaDB 전환 완료 행 및 인프라 MariaDB 컨테이너 추가, §8 제목 앵커 목차 일치 수정 |
+| v2.3.0 | 2026-05-07 | AI-assisted | **코드베이스 전수 검증 및 보완** — `idem-registry/build/resources/main/` 3개 파일(application.yml, V1 SQL, V2 SQL) PostgreSQL→MariaDB 구버전 캐시 교체. `docs/local-dev-guide.md` 전면 MariaDB 반영: 기동 순서·컨테이너 목록(`onepass-mariadb`)·정상 상태 예시·§4.2 MariaDB 연결 확인 신규 추가·PostgreSQL 스키마 구조에서 `qim.*` 제거·서비스 포트표에 MariaDB(3306)·Adminer(8091) 추가·§6.5 `QIM_DB_*` 환경변수 예시 추가·§9 DB 엔진별 스키마 구조 분리·§11.2 MariaDB 트러블슈팅 섹션 신규 추가·§11.x 번호 전체 재정렬·부록 B 환경변수표 `QIM_DB_*` 행 추가 |
+| v2.4.0 | 2026-05-07 | AI-assisted | **Q-IM JPA 구현 레이어 전면 신규 작성** — JPA 엔터티 4종(`QimUserJpaEntity`·`AuthMeanMappingJpaEntity`·`UserProfileJpaEntity`·`OutboxJpaEntity`), Spring Data JPA Repository 2종(`QimUserJpaRepository`·`OutboxJpaRepository`), 도메인 구현체 2종(`UserRepositoryImpl`·`OutboxRepositoryImpl`), 설정 클래스 3종(`KafkaConsumerConfig`·`RedisConfig`·`GlobalExceptionHandler`) 신규 작성. `OutboxServiceImpl` `@Qualifier("qimKafkaTemplate")` 의존성 명시 수정. `./gradlew :idem-registry:build -x test` 빌드 성공 확인. §2.1 구현 완료 항목 2행 추가 |
 
 ---
 

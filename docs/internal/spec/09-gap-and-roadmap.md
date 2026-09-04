@@ -138,17 +138,17 @@ onepass-fe       ████████████░░░░░░░░  6
 
 | ID | 항목 | 변경 대상 | 상태 |
 |----|------|---------|------|
-| SEC-IDO-01 | env 변수 rename: `BE_API_TARGET` → `IDO_API_TARGET` | `onepass-fe/frontend/.env*`, `webpack.config.js` (dev proxy), CI/CD 시크릿 | ✅ PR #203 |
-| SEC-IDO-02 | env 변수 rename: `BE_API_ENDPOINT` → `IDO_API_ENDPOINT` | `onepass-fe/frontend/src/api/idoInstance.ts`, webpack DefinePlugin (dev/prod) | ✅ PR #203 |
+| SEC-IDO-01 | env 변수 rename: `BE_API_TARGET` → `IDO_API_TARGET` | `idem-console/frontend/.env*`, `webpack.config.js` (dev proxy), CI/CD 시크릿 | ✅ PR #203 |
+| SEC-IDO-02 | env 변수 rename: `BE_API_ENDPOINT` → `IDO_API_ENDPOINT` | `idem-console/frontend/src/api/idoInstance.ts`, webpack DefinePlugin (dev/prod) | ✅ PR #203 |
 | SEC-IDO-03 | env 변수 rename: `BE_API_KEY` → `IDO_API_KEY` | 동상 | ✅ PR #203 (API 키 자체 회전은 별도 운영 작업) |
 | SEC-IDO-04 | 헤더명 rename: `X-BE-API-Key` → `X-IDO-API-Key` | FE axios 인스턴스 + webpack dev proxy header injection | ✅ PR #203 (IdO 측 수신 코드 0건 → 단방향 전환 안전) |
 | SEC-IDO-05 | axios 인스턴스 식별자 rename: `beInstance` / `beApiInstance` → `idoInstance` / `idoApiInstance` | `src/api/idoInstance.ts` 신설 + 25 파일 일괄 식별자 치환 | ✅ PR #203 |
 | SEC-IDO-06 | 잔존 셸 제거: `api/beInstance.ts` + `api/extInstance.ts` | grep 으로 사용처 0 확인 후 파일 자체 삭제 | ✅ PR #203 |
-| SEC-IDO-07 | 문서 cross-ref 갱신 — 03f / DEVELOPMENT.md / 09 의 `BE_*` 흔적 정정 | `docs/internal/spec/03f-module-onepass-fe.md`, `onepass-fe/DEVELOPMENT.md`, `09-gap-and-roadmap.md §6.A.1` | ✅ PR #204 (본 문서) |
+| SEC-IDO-07 | 문서 cross-ref 갱신 — 03f / DEVELOPMENT.md / 09 의 `BE_*` 흔적 정정 | `docs/internal/spec/03f-module-onepass-fe.md`, `idem-console/DEVELOPMENT.md`, `09-gap-and-roadmap.md §6.A.1` | ✅ PR #204 (본 문서) |
 
 **완료 정의(DoD)** — 모두 충족:
-- ✅ `grep -rn "\bbeInstance\b\|\bbeApiInstance\b" onepass-fe/frontend/src/` = 1 (코드 내 의도된 회고 주석 한 줄)
-- ✅ `grep -rn "from 'api/beInstance'\|from 'api/extInstance'" onepass-fe/frontend/src/` = 0 (import 흔적 0)
+- ✅ `grep -rn "\bbeInstance\b\|\bbeApiInstance\b" idem-console/frontend/src/` = 1 (코드 내 의도된 회고 주석 한 줄)
+- ✅ `grep -rn "from 'api/beInstance'\|from 'api/extInstance'" idem-console/frontend/src/` = 0 (import 흔적 0)
 - ✅ 코드 차원 `BE_API_*` / `X-BE-API-Key` 자체 사용 0건. `process.env.BE_API_*` 는 한 페이즈 호환 fallback 으로 의도적 잔존 (런타임 우선순위는 `IDO_API_*`).
 - ✅ IdO 측 양 헤더 호환 기간 불필요 (`X-BE-API-Key` 수신 코드 자체 부재).
 
@@ -175,7 +175,7 @@ onepass-fe       ████████████░░░░░░░░  6
 |----|------|----------|
 | SEC-IDO-20 | FE 번들에서 `Q_IM` / `Q_SIGN` 등 BE 모듈 직접 가리키는 env 변수 0 확인 | CI grep + ArchUnit 유사 검증 |
 | SEC-IDO-21 | FE 의 axios `baseURL` 인스턴스 = 1 개 (IdO) 유지 | 코드 리뷰 체크리스트 + lint 룰 |
-| SEC-IDO-22 | `static/` 디렉터리에 `*.html` 0 유지 (IdO 는 HTML 호스트 아님) | CI 가드 (`find ido/src/main/resources/static -name "*.html"` = 0) |
+| SEC-IDO-22 | `static/` 디렉터리에 `*.html` 0 유지 (IdO 는 HTML 호스트 아님) | CI 가드 (`find idem-hub/src/main/resources/static -name "*.html"` = 0) |
 
 ---
 
