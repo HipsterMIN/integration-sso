@@ -31,7 +31,7 @@
 
 ### 1.1 현재 onepass-fe Login.tsx 상태
 
-`onepass-fe/frontend/src/pages/Login/index.tsx`의 인증수단 목록을 보면:
+`idem-console/frontend/src/pages/Login/index.tsx`의 인증수단 목록을 보면:
 
 ```tsx
 // ✅ 실제 동작 — NICE 휴대폰 인증
@@ -296,32 +296,32 @@ AuthResourceInstall/
 **파일 복사**:
 ```bash
 # integration-sso/ido 모듈 기준
-mkdir -p ido/src/main/resources/static/anyid/css
-mkdir -p ido/src/main/resources/static/anyid/js
+mkdir -p idem-hub/src/main/resources/static/anyid/css
+mkdir -p idem-hub/src/main/resources/static/anyid/js
 
 # AuthResourceInstall에서 복사
 cp /home/user/anyid-sdk/AuthResourceInstall/webapp/anyid/css/app.css \
-   ido/src/main/resources/static/anyid/css/
+   idem-hub/src/main/resources/static/anyid/css/
 
 cp /home/user/anyid-sdk/AuthResourceInstall/webapp/anyid/js/manifest.js \
    /home/user/anyid-sdk/AuthResourceInstall/webapp/anyid/js/vendor.js \
    /home/user/anyid-sdk/AuthResourceInstall/webapp/anyid/js/app.js \
-   ido/src/main/resources/static/anyid/js/
+   idem-hub/src/main/resources/static/anyid/js/
 ```
 
 ### 5.3 config.anyidc.json 서빙 확인
 
-`ido/src/main/resources/static/config/config.anyidc.json`을 만들거나,  
-`ido/src/main/resources/config/anyid/config.anyidc.json`을 Spring MVC 컨트롤러로 노출한다.
+`idem-hub/src/main/resources/static/config/config.anyidc.json`을 만들거나,  
+`idem-hub/src/main/resources/config/anyid/config.anyidc.json`을 Spring MVC 컨트롤러로 노출한다.
 
 > **이미 완료**: IAM-09 작업에서 `AnyIdController`에 config 조회 엔드포인트가 구현되어 있으므로  
 > `cfg: "/api/v1/anyid/config"` 경로로 사용하거나, 정적 파일로 직접 서빙한다.
 
 **정적 서빙 방식 (간단)**:
 ```bash
-mkdir -p ido/src/main/resources/static/config
-cp ido/src/main/resources/config/anyid/config.anyidc.json \
-   ido/src/main/resources/static/config/config.anyidc.json
+mkdir -p idem-hub/src/main/resources/static/config
+cp idem-hub/src/main/resources/config/anyid/config.anyidc.json \
+   idem-hub/src/main/resources/static/config/config.anyidc.json
 ```
 
 이렇게 하면 `GET /config/config.anyidc.json` 요청에 자동 응답한다.
@@ -330,7 +330,7 @@ cp ido/src/main/resources/config/anyid/config.anyidc.json \
 
 개발 환경에서 `/anyid/**` 경로를 ido(8083)로 프록시:
 
-**파일**: `onepass-fe/frontend/webpack.config.js`
+**파일**: `idem-console/frontend/webpack.config.js`
 
 ```javascript
 // 기존 proxy 설정에 추가
@@ -361,7 +361,7 @@ proxy: {
 
 ### 5.5 index.html에 SDK 스크립트 태그 추가
 
-`onepass-fe/frontend/public/index.html` (또는 `index.ejs`):
+`idem-console/frontend/public/index.html` (또는 `index.ejs`):
 
 ```html
 <head>
@@ -389,7 +389,7 @@ proxy: {
 
 다른 인증수단(`usePersonalEasyAuth`, `useNicePhoneAuth`)과 동일한 패턴으로 훅을 만든다.
 
-**파일**: `onepass-fe/frontend/src/hooks/useAnyIdAuth.ts`
+**파일**: `idem-console/frontend/src/hooks/useAnyIdAuth.ts`
 
 ```typescript
 /**
@@ -627,7 +627,7 @@ export default useAnyIdAuth;
 
 ## 7. Step 3: AnyIdLoginModal 컴포넌트 신규 생성
 
-**파일**: `onepass-fe/frontend/src/components/AnyIdLoginModal/index.tsx`
+**파일**: `idem-console/frontend/src/components/AnyIdLoginModal/index.tsx`
 
 ```tsx
 /**
@@ -701,7 +701,7 @@ function AnyIdLoginModal({ isOpen, onClose, onInit }: AnyIdLoginModalProps): JSX
 export default AnyIdLoginModal;
 ```
 
-**파일**: `onepass-fe/frontend/src/components/AnyIdLoginModal/AnyIdLoginModal.styles.scss`
+**파일**: `idem-console/frontend/src/components/AnyIdLoginModal/AnyIdLoginModal.styles.scss`
 
 ```scss
 // Any-ID 로그인 모달 스타일
@@ -871,7 +871,7 @@ const { busy: anyIdBusy, showModal: anyIdModal, startAuth: startAnyIdAuth, close
 ### 8.2 완전한 Login.tsx 수정 코드 (diff 형식)
 
 ```diff
-// 파일: onepass-fe/frontend/src/pages/Login/index.tsx
+// 파일: idem-console/frontend/src/pages/Login/index.tsx
 
   import './Login.styles.scss';
   
@@ -947,7 +947,7 @@ const { busy: anyIdBusy, showModal: anyIdModal, startAuth: startAnyIdAuth, close
 
 ### 9.1 .env 파일 추가 항목
 
-**파일**: `onepass-fe/frontend/.env` (또는 `.env.local`)
+**파일**: `idem-console/frontend/.env` (또는 `.env.local`)
 
 ```bash
 # 기존 환경변수
@@ -970,7 +970,7 @@ ANYID_AUTH_LEVEL=2
 ### 9.2 webpack.config.js 수정
 
 ```javascript
-// onepass-fe/frontend/webpack.config.js
+// idem-console/frontend/webpack.config.js
 // DefinePlugin에 환경변수 추가
 
 plugins: [
@@ -1032,7 +1032,7 @@ public ResponseEntity<?> handleSsob(
 
 ### 10.2 BE에 통합 ssob 엔드포인트 추가
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/broker/anyid/AnyIdController.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdController.java`
 
 기존 `@PostMapping("/{provider}/ssob")` 외에 다음 추가:
 
@@ -1247,13 +1247,13 @@ public ResponseEntity<Map<String, String>> issueTxId() {
 
 ```bash
 # ✅ 1. SDK 정적 파일 배치 확인
-ls ido/src/main/resources/static/anyid/js/
+ls idem-hub/src/main/resources/static/anyid/js/
 # → manifest.js  vendor.js  app.js
 
-ls ido/src/main/resources/static/anyid/css/
+ls idem-hub/src/main/resources/static/anyid/css/
 # → app.css
 
-ls ido/src/main/resources/static/config/
+ls idem-hub/src/main/resources/static/config/
 # → config.anyidc.json
 
 # ✅ 2. ido 서버 기동 확인
@@ -1387,7 +1387,7 @@ curl http://localhost:8083/config/config.anyidc.json
 **확인**:
 ```bash
 # ido 서버 로그에서:
-grep "kdistAbsPath" ido/logs/*.log
+grep "kdistAbsPath" idem-hub/logs/*.log
 # → 경로가 출력되는지, 해당 파일이 존재하는지 확인
 ```
 
@@ -1395,8 +1395,8 @@ grep "kdistAbsPath" ido/logs/*.log
 
 **확인**:
 ```bash
-# ido/libs/에 bcprov-jdk15to18 JAR가 없는지 확인 (있으면 제거)
-ls ido/libs/ | grep bc
+# idem-hub/libs/에 bcprov-jdk15to18 JAR가 없는지 확인 (있으면 제거)
+ls idem-hub/libs/ | grep bc
 # → anyid-bc-ref-1.0.2.jar 만 있어야 함
 ```
 
@@ -1477,19 +1477,19 @@ window.anyidAdaptor = {
 
 | 파일 | 변경 유형 | 주요 내용 |
 |------|----------|----------|
-| `ido/src/main/resources/static/anyid/css/app.css` | **신규** | SDK CSS 정적 파일 |
-| `ido/src/main/resources/static/anyid/js/manifest.js` | **신규** | SDK JS 파일 |
-| `ido/src/main/resources/static/anyid/js/vendor.js` | **신규** | SDK JS 파일 |
-| `ido/src/main/resources/static/anyid/js/app.js` | **신규** | SDK 코어 (`AnyidC` 전역 객체) |
-| `ido/src/main/resources/static/config/config.anyidc.json` | **신규** | 인증수단 목록 정적 서빙 |
-| `ido/src/main/java/.../AnyIdController.java` | **수정** | `POST /ssob` (provider 무관) 엔드포인트 추가, `POST /txId` 추가 |
-| `onepass-fe/frontend/public/index.html` | **수정** | SDK CSS/JS 태그 추가 (`defer`) |
-| `onepass-fe/frontend/webpack.config.js` | **수정** | `/anyid`, `/config` proxy 추가 |
-| `onepass-fe/frontend/.env` | **수정** | `ANYID_BYPASS`, `ANYID_AUTH_LEVEL` 추가 |
-| `onepass-fe/frontend/src/hooks/useAnyIdAuth.ts` | **신규** | Any-ID 인증 커스텀 훅 |
-| `onepass-fe/frontend/src/components/AnyIdLoginModal/index.tsx` | **신규** | SDK 렌더링 모달 컴포넌트 |
-| `onepass-fe/frontend/src/components/AnyIdLoginModal/AnyIdLoginModal.styles.scss` | **신규** | 모달 스타일 |
-| `onepass-fe/frontend/src/pages/Login/index.tsx` | **수정** | Any-ID 버튼 실제 연결, 훅/모달 추가 |
+| `idem-hub/src/main/resources/static/anyid/css/app.css` | **신규** | SDK CSS 정적 파일 |
+| `idem-hub/src/main/resources/static/anyid/js/manifest.js` | **신규** | SDK JS 파일 |
+| `idem-hub/src/main/resources/static/anyid/js/vendor.js` | **신규** | SDK JS 파일 |
+| `idem-hub/src/main/resources/static/anyid/js/app.js` | **신규** | SDK 코어 (`AnyidC` 전역 객체) |
+| `idem-hub/src/main/resources/static/config/config.anyidc.json` | **신규** | 인증수단 목록 정적 서빙 |
+| `idem-hub/src/main/java/.../AnyIdController.java` | **수정** | `POST /ssob` (provider 무관) 엔드포인트 추가, `POST /txId` 추가 |
+| `idem-console/frontend/public/index.html` | **수정** | SDK CSS/JS 태그 추가 (`defer`) |
+| `idem-console/frontend/webpack.config.js` | **수정** | `/anyid`, `/config` proxy 추가 |
+| `idem-console/frontend/.env` | **수정** | `ANYID_BYPASS`, `ANYID_AUTH_LEVEL` 추가 |
+| `idem-console/frontend/src/hooks/useAnyIdAuth.ts` | **신규** | Any-ID 인증 커스텀 훅 |
+| `idem-console/frontend/src/components/AnyIdLoginModal/index.tsx` | **신규** | SDK 렌더링 모달 컴포넌트 |
+| `idem-console/frontend/src/components/AnyIdLoginModal/AnyIdLoginModal.styles.scss` | **신규** | 모달 스타일 |
+| `idem-console/frontend/src/pages/Login/index.tsx` | **수정** | Any-ID 버튼 실제 연결, 훅/모달 추가 |
 
 ---
 

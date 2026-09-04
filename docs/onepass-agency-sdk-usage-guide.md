@@ -51,14 +51,14 @@ SDK를 받아서 → 클라이언트를 만들고 → 이벤트를 보내고 →
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("kr.go.smes:onepass-agency-sdk:0.1.0-SNAPSHOT")
+    implementation("kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT")
 }
 ```
 
 ```groovy
 // build.gradle
 dependencies {
-    implementation 'kr.go.smes:onepass-agency-sdk:0.1.0-SNAPSHOT'
+    implementation 'kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT'
 }
 ```
 
@@ -421,7 +421,7 @@ try {
 ```kotlin
 // build.gradle.kts — 의존성 추가
 dependencies {
-    implementation("kr.go.smes:onepass-agency-sdk:0.1.0-SNAPSHOT")
+    implementation("kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 ```
@@ -451,7 +451,7 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 ```kotlin
 // build.gradle.kts — 의존성 추가
 dependencies {
-    implementation("kr.go.smes:onepass-agency-sdk:0.1.0-SNAPSHOT")
+    implementation("kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT")
     implementation("org.apache.httpcomponents.client5:httpclient5:5.3.1")
 }
 ```

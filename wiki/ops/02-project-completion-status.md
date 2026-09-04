@@ -239,7 +239,7 @@ Q-IM 회원 등록 → outbox INSERT (같은 트랜잭션)
 
 | ID | 내용 | 참고 |
 |----|------|------|
-| ~~**D-01**~~ | ~~Mockito inline agent 경고 해결 (JVM -javaagent 설정)~~ | ✅ **Sprint 18 완료** — `build.gradle.kts` ADR-013 방법B 적용, `onepass-agency-sdk/build.gradle.kts` 독립 설정 |
+| ~~**D-01**~~ | ~~Mockito inline agent 경고 해결 (JVM -javaagent 설정)~~ | ✅ **Sprint 18 완료** — `build.gradle.kts` ADR-013 방법B 적용, `idem-sdk-java/build.gradle.kts` 독립 설정 |
 | **D-02** | `AgencyAdminService` catch-all Exception 처리 세분화 | 보안 섹션 참조 |
 | **D-03** | `ProvisioningServiceImpl` @Value 중복 (`FeatureFlags` 빈과 이중화) | 단일 FeatureFlags 빈으로 통합 권장 |
 | ~~**D-04**~~ | ~~outbox-relay-batch 테스트 모듈 신규 작성 필요~~ | ✅ **Sprint 18 완료** — 20개 테스트 PASS (ProvisioningRelayJobTest 13개 + BatchRestTemplateConfigTest 7개) |

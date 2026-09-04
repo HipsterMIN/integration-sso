@@ -194,15 +194,15 @@ epochSeconds를 알 수 없습니다. 따라서 ±60초 범위의 모든 후보�
 
 ```bash
 # Phase 4 전환 (HMAC 서명 필수화)
-helm upgrade ido ./infra/helm/ido \
+helm upgrade ido ./infra/helm/idem-hub \
   -n production \
-  -f infra/helm/ido/values-prod.yaml \
+  -f infra/helm/idem-hub/values-prod.yaml \
   --set phase=4
 
 # 또는 개별 플래그 지정
-helm upgrade ido ./infra/helm/ido \
+helm upgrade ido ./infra/helm/idem-hub \
   -n production \
-  -f infra/helm/ido/values-prod.yaml \
+  -f infra/helm/idem-hub/values-prod.yaml \
   --set featureFlags.hmacSigRequired=true
 
 # 전환 후 5분 이내 401 급증 여부 모니터링
@@ -238,8 +238,8 @@ kubectl set env deployment/ido -n production IDO_HMAC_SIG_REQUIRED=false
 # → Pod 재시작 없이 약 30초 내 적용
 
 # Helm 롤백
-helm upgrade ido ./infra/helm/ido -n production \
-  -f infra/helm/ido/values-prod.yaml \
+helm upgrade ido ./infra/helm/idem-hub -n production \
+  -f infra/helm/idem-hub/values-prod.yaml \
   --set featureFlags.hmacSigRequired=false
 
 # 이전 Helm 릴리스로 전체 롤백
@@ -295,5 +295,5 @@ ORDER BY hmac_fail DESC;
 - [F-25 멱등성 방어](F-25-gateway-idempotency.md)
 - [phased-rollout-strategy.md](../phased-rollout-strategy.md) — Phase 4 진입 기준
 - [deployment-guide.md §7 보안](../_archive/2026-05-22/deployment-guide.md)
-- SDK 서명 구현: `onepass-agency-sdk/.../HmacSigner.java`
+- SDK 서명 구현: `idem-sdk-java/.../HmacSigner.java`
 - k6 HMAC 부하 테스트: `test/load/k6-hmac-verification.js`

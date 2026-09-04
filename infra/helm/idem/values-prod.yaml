@@ -1,0 +1,211 @@
+# ============================================================
+# values-prod.yaml — 운영 환경
+# 적용: helm upgrade --install onepass ./infra/helm/idem \
+#         -f infra/helm/idem/values.yaml \
+#         -f infra/helm/idem/values-prod.yaml \
+#         --namespace onepass \
+#         --create-namespace
+#
+# [운영 배포 전 필수 확인]
+#   1. Secret이 모두 생성되어 있는지 확인
+#      kubectl get secret -n onepass
+#   2. 이미지 태그가 운영 버전으로 설정되어 있는지 확인
+#   3. DB/Redis/Kafka 엔드포인트가 운영 주소로 설정되어 있는지 확인
+#   4. TLS 인증서 Secret이 생성되어 있는지 확인
+# ============================================================
+global:
+  namespace: onepass
+  env: prod
+  # 운영: 고객사 사설 레지스트리로 교체
+  imageRegistry: ""
+
+infra:
+  postgres:
+    host: rds-postgres.prod.svc.cluster.local  # 운영: 고객사 RDS 엔드포인트
+    port: 5432
+    database: onepass
+    existingSecret: idem-db-secret
+  mariadb:
+    host: rds-mariadb.prod.svc.cluster.local   # 운영: NHN Cloud RDS for MariaDB
+    port: 3306
+    database: qim
+    existingSecret: idem-mariadb-secret
+  redis:
+    host: redis-cluster.prod.svc.cluster.local  # 운영: ElastiCache 또는 Redis Cluster
+    port: 6379
+    existingSecret: idem-redis-secret
+  kafka:
+    bootstrapServers: kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092
+
+qsign:
+  replicaCount: 3
+  image:
+    tag: "1.0.0"  # 운영: 고정 버전 태그 사용 (latest 금지)
+  config:
+    SPRING_PROFILES_ACTIVE: prod          # PR-B4: application-prod.yml 활성화
+    QSIGN_INTERNAL_SIG_STRICT: "true"   # 운영: strict 모드 필수
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  # 운영: HPA 활성화 — CPU 부하 시 자동 확장
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  # 운영: 노드 드레인 시 최소 2개 Pod 유지 (가용성 우선)
+  pdb:
+    enabled: true
+    minAvailable: 2
+
+qim:
+  replicaCount: 3
+  image:
+    tag: "1.0.0"
+  config:
+    SPRING_PROFILES_ACTIVE: prod          # PR-B4: application-prod.yml 활성화
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    enabled: true
+    minAvailable: 2
+
+ido:
+  replicaCount: 3
+  image:
+    tag: "1.0.0"
+  config:
+    SPRING_PROFILES_ACTIVE: prod          # PR-B4: application-prod.yml 활성화
+    IDO_BROKER_MODE: qsign
+    IDO_RATE_LIMIT_ENABLED: "true"
+    IDO_RATE_LIMIT_DEFAULT_TPS: "200"
+    IDO_RATE_LIMIT_DEFAULT_DAILY: "1000000"
+    IDO_KAFKA_REPLICATION_FACTOR: "3"     # 운영 3-broker
+    IDO_KAFKA_MIN_INSYNC_REPLICAS: "2"
+    IDO_KAFKA_PARTITION_COUNT_MAIN: "12"
+    IDO_KAFKA_PARTITION_COUNT_DLQ: "6"
+    # ── KMS On (운영: Kubernetes Auth 권장 — SA JWT 기반 자동 인증) ──
+    # 사전 작업:
+    #   1. Vault Transit 엔진 + ido-handoff-key 생성 (infra/scripts/vault-init.sh)
+    #   2. Vault Kubernetes Auth 설정:
+    #        vault write auth/kubernetes/role/ido \
+    #          bound_service_account_names=idem-hub \
+    #          bound_service_account_namespaces=onepass \
+    #          policies=ido-kms-policy ttl=1h
+    IDO_KMS_ENABLED: "true"
+    IDO_KMS_PROVIDER: "vault"
+    VAULT_ADDR: "http://vault.vault.svc.cluster.local:8200"
+    VAULT_AUTH_METHOD: "kubernetes"
+    VAULT_K8S_ROLE: "ido"
+    VAULT_TRANSIT_PATH: "transit"
+    VAULT_TRANSIT_KEY: "ido-handoff-key"
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 4Gi
+  # 운영: HPA 활성화 — Handoff SLO p95 < 2s 보장 위해 보수적 임계값
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 12
+    targetCPUUtilizationPercentage: 65
+  pdb:
+    enabled: true
+    minAvailable: 2
+
+batch:
+  # 운영: HA 페일오버 확보 — ShedLock이 단일 실행 보장
+  replicaCount: 2
+  image:
+    tag: "1.0.0"  # 운영: 고정 버전 태그
+  config:
+    SPRING_PROFILES_ACTIVE: prod          # PR-B4: application-prod.yml 활성화
+    # 운영: 모든 릴레이 활성
+    BATCH_IDO_KAFKA_RELAY_ENABLED: "true"
+    BATCH_IDO_QIM_RELAY_ENABLED: "true"
+    BATCH_QIM_KAFKA_RELAY_ENABLED: "true"
+    BATCH_QSIGN_KAFKA_RELAY_ENABLED: "true"
+    BATCH_PROVISIONING_RELAY_ENABLED: "true"
+    BATCH_WEBHOOK_RELAY_ENABLED: "true"
+    # 운영: DEAD_LETTER 알림 채널 활성 (Secret으로 URL/Routing Key 주입)
+    BATCH_ALERT_SLACK_ENABLED: "true"
+    BATCH_ALERT_PAGERDUTY_ENABLED: "true"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+agencyStub:
+  # 운영에서는 실제 기관 서비스로 대체 (agency-stub은 PoC 전용)
+  enabled: false
+
+networkPolicy:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+  hosts:
+    - host: onepass.example.com    # 운영: 고객사 도메인으로 교체
+      paths:
+        - path: /
+          pathType: Prefix
+          service: ido
+          port: 8083
+  tls:
+    - secretName: idem-tls
+      hosts:
+        - onepass.example.com
+
+kafka:
+  topics:
+    # 운영 3-broker 파티션 설정
+    authEvents: qsign.auth.events
+
+# ── Q-AuthZ (연합 인가) 운영 오버라이드 ─────────────────────────────
+authz:
+  replicaCount: 3
+  image:
+    tag: "1.0.0"          # 운영: 고정 버전 태그
+  config:
+    SPRING_PROFILES_ACTIVE: prod    # application-prod.yml 활성화
+    AUTHZ_DB_SSLMODE: require        # 운영: TLS 강제
+  resources:
+    requests:
+      cpu: 300m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1Gi
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    enabled: true
+    minAvailable: 2

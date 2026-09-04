@@ -31,7 +31,7 @@
 | **하드코딩 Default Secret** | `ido-internal-secret` 기본값 위험 | `@Value("${ido.qsign.internal-sig-secret:ido-internal-secret}")` 3곳 이상 존재 | ⚠️ **부분 구현** |
 | **QIM AES Key 기본값** | `CHANGEME_32BYTES_BASE64_PLACEHOLDER=` | `@Value("${ido.qim.aes-shared-key:CHANGEME_32BYTES_BASE64_PLACEHOLDER=}")` — 32바이트 경고 로그만 출력 | ⚠️ **부분 구현** |
 | **CI 암호화 AES-256-GCM** | q-im 내 CI 저장 시 암호화 | `CiCryptoService` 별도 구현되어 있음 (V3 마이그레이션 적용) | ✅ **완료** |
-| **HMAC-SHA256 내부 서명 검증** | X-Internal-Sig 전수 검증 | `InternalSigVerifier` — ±60s timestamp 검증 포함, q-sign/ido 양쪽 구현 완료 | ✅ **완료** |
+| **HMAC-SHA256 내부 서명 검증** | X-Internal-Sig 전수 검증 | `InternalSigVerifier` — ±60s timestamp 검증 포함, idem-gate/ido 양쪽 구현 완료 | ✅ **완료** |
 | **PKCE S256** | q-sign에서 code_challenge 검증 | `PkceService` 구현 완료 | ✅ **완료** |
 | **HandoffTicket AES-256-GCM** | Handoff Ticket 암호화 | `HandoffCryptoService` — AES-GCM 구현 완료 | ✅ **완료** |
 
@@ -105,41 +105,41 @@
 
 | ID | 항목 | 영향 | 파일 위치 |
 |----|------|------|---------|
-| **P0-01** | `QimSpReceiverService.isValidApiKey()` — PBKDF2/BCrypt 검증 미적용, CHANGEME 완전 우회 | SP 연동 API 무인증 접근 가능 | `ido/.../qim/sp/service/QimSpReceiverService.java` |
-| **P0-02** | `AesSharedKeyDecryptor.TRANSFORMATION` — Q-IM 팀과 미합의 상태 (`AES/CBC/PKCS5Padding` 임시) | 운영 시 CI 복호화 전면 실패 | `ido/.../qim/crypto/AesSharedKeyDecryptor.java` |
-| **P0-03** | `ido-internal-secret` 기본값 — 환경변수 미설정 시 노출 | X-Internal-Sig 완전 우회 가능 | `ido/.../broker/InternalSigVerifier.java`, `q-sign/.../api/InternalSigVerifier.java` |
-| **P0-04** | `CHANGEME_32BYTES_BASE64_PLACEHOLDER=` AES Key 기본값 — 암호화 동작 불가 | CI 데이터 암호화/복호화 실패 | `ido/src/main/resources/application.yml` |
+| **P0-01** | `QimSpReceiverService.isValidApiKey()` — PBKDF2/BCrypt 검증 미적용, CHANGEME 완전 우회 | SP 연동 API 무인증 접근 가능 | `idem-hub/.../qim/sp/service/QimSpReceiverService.java` |
+| **P0-02** | `AesSharedKeyDecryptor.TRANSFORMATION` — Q-IM 팀과 미합의 상태 (`AES/CBC/PKCS5Padding` 임시) | 운영 시 CI 복호화 전면 실패 | `idem-hub/.../qim/crypto/AesSharedKeyDecryptor.java` |
+| **P0-03** | `ido-internal-secret` 기본값 — 환경변수 미설정 시 노출 | X-Internal-Sig 완전 우회 가능 | `idem-hub/.../broker/InternalSigVerifier.java`, `idem-gate/.../api/InternalSigVerifier.java` |
+| **P0-04** | `CHANGEME_32BYTES_BASE64_PLACEHOLDER=` AES Key 기본값 — 암호화 동작 불가 | CI 데이터 암호화/복호화 실패 | `idem-hub/src/main/resources/application.yml` |
 | **P0-05** | 테스트 코드 0% — 모든 모듈 `src/test/java` 파일 없음 | 회귀 버그 즉각 감지 불가 | 전 모듈 |
 
 ### 🟠 P1 — 핵심 SSO 기능 미구현 (서비스 기본 동작 미완)
 
 | ID | 항목 | 영향 | 파일 위치 |
 |----|------|------|---------|
-| **P1-01** | **SLO — Keycloak 세션 종료 전파** 미구현 | 사용자 로그아웃 후 Keycloak 세션 잔존 | `q-sign/.../AuthServiceImpl.java` (신규 구현) |
-| **P1-02** | **SLO — 기관(SP) 로그아웃 Webhook** 미구현 | 연계 기관 세션이 계속 유효하게 남음 | `ido/.../webhook/WebhookDispatcherService.java` (확장) |
-| **P1-03** | **SLO — ido 오케스트레이션 엔드포인트** 미구현 | 완전한 SLO 흐름 트리거 불가 | `ido/.../fe/api/` (신규 Controller) |
-| **P1-04** | **개인정보 파기 스케줄러** Phase 3 TODO | 개인정보보호법 위반 소지 (탈퇴 후 미삭제) | `ido/.../qim/sp/kafka/QimSpMemberEventHandler.java` |
-| **P1-05** | **FE 전역 상태 관리 (Zustand)** 미구현 | 로그인 상태 전역 관리 불가, UX 불완전 | `onepass-fe/frontend/src/store/` (신규) |
-| **P1-06** | **FE 로그아웃 UI 컴포넌트** 미구현 | 사용자가 로그아웃 불가 | `onepass-fe/frontend/src/` (신규 컴포넌트) |
+| **P1-01** | **SLO — Keycloak 세션 종료 전파** 미구현 | 사용자 로그아웃 후 Keycloak 세션 잔존 | `idem-gate/.../AuthServiceImpl.java` (신규 구현) |
+| **P1-02** | **SLO — 기관(SP) 로그아웃 Webhook** 미구현 | 연계 기관 세션이 계속 유효하게 남음 | `idem-hub/.../webhook/WebhookDispatcherService.java` (확장) |
+| **P1-03** | **SLO — ido 오케스트레이션 엔드포인트** 미구현 | 완전한 SLO 흐름 트리거 불가 | `idem-hub/.../fe/api/` (신규 Controller) |
+| **P1-04** | **개인정보 파기 스케줄러** Phase 3 TODO | 개인정보보호법 위반 소지 (탈퇴 후 미삭제) | `idem-hub/.../qim/sp/kafka/QimSpMemberEventHandler.java` |
+| **P1-05** | **FE 전역 상태 관리 (Zustand)** 미구현 | 로그인 상태 전역 관리 불가, UX 불완전 | `idem-console/frontend/src/store/` (신규) |
+| **P1-06** | **FE 로그아웃 UI 컴포넌트** 미구현 | 사용자가 로그아웃 불가 | `idem-console/frontend/src/` (신규 컴포넌트) |
 
 ### 🟡 P2 — 운영 고도화 (안정 운영에 필요)
 
 | ID | 항목 | 영향 | 파일 위치 |
 |----|------|------|---------|
 | **P2-01** | **Micrometer 비즈니스 메트릭** 미구현 | 로그인 성공/실패율, IdP 응답시간 불가시화 | 각 모듈 Service 클래스 |
-| **P2-02** | **Outbox Max Retry 초과 알림** 미구현 | Outbox 장애 시 운영자 무감지 | `q-im/.../outbox/OutboxServiceImpl.java` |
+| **P2-02** | **Outbox Max Retry 초과 알림** 미구현 | Outbox 장애 시 운영자 무감지 | `idem-registry/.../outbox/OutboxServiceImpl.java` |
 | **P2-03** | **MFA/AAL 스키마 확장 포인트** 미설계 | 향후 FIDO/OTP 도입 시 스키마 변경 필요 | Flyway V11 (신규) |
-| **P2-04** | **FE ErrorBoundary** 미구현 | React 컴포넌트 크래시 시 전체 화면 빈 화면 | `onepass-fe/frontend/src/` |
+| **P2-04** | **FE ErrorBoundary** 미구현 | React 컴포넌트 크래시 시 전체 화면 빈 화면 | `idem-console/frontend/src/` |
 | **P2-05** | **FE CSP 헤더** 미구현 | XSS 공격 방어 체계 부재 | Nginx/Spring Boot 설정 |
 | **P2-06** | **BrokerAuditLog JSON 구조화 로깅** | ELK/Loki 연동 준비 부재 | `logback-spring.xml` 설정 |
-| **P2-07** | **관리자 API (Provider/기관 관리)** 미구현 | 운영 중 설정 변경 시 재배포 필요 | `ido/.../admin/` (신규) |
+| **P2-07** | **관리자 API (Provider/기관 관리)** 미구현 | 운영 중 설정 변경 시 재배포 필요 | `idem-hub/.../admin/` (신규) |
 
 ### 🟢 P3 — 배포 준비 (운영 환경 Go-Live 전)
 
 | ID | 항목 | 영향 | 파일 위치 |
 |----|------|------|---------|
 | **P3-01** | **GitHub Actions CI/CD** 미구현 | 수동 배포 의존, 품질 게이트 없음 | `.github/workflows/` (신규) |
-| **P3-02** | **MariaDB q-im 실제 연결 검증** | 운영 DB 마이그레이션 신뢰성 | `q-im/src/main/resources/application.yml` |
+| **P3-02** | **MariaDB q-im 실제 연결 검증** | 운영 DB 마이그레이션 신뢰성 | `idem-registry/src/main/resources/application.yml` |
 | **P3-03** | **부하 테스트 스크립트 (k6)** | Rate Limiter 실효성 검증 불가 | `infra/k6/` (신규) |
 | **P3-04** | **OWASP Dependency-Check + SonarQube** | 의존성 취약점 미스캔 | `build.gradle.kts` 플러그인 추가 |
 
@@ -151,7 +151,7 @@
 
 #### [P0-01] QimSpReceiverService API Key 해시 검증 강화
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/qim/sp/service/QimSpReceiverService.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/qim/sp/service/QimSpReceiverService.java`
 
 **현재 코드** (문제):
 ```java
@@ -176,12 +176,12 @@ public boolean isValidApiKey(String apiKey) {
 }
 ```
 
-**추가 파일**: `platform-common/.../util/ApiKeyHashValidator.java`
+**추가 파일**: `idem-common/.../util/ApiKeyHashValidator.java`
 - PBKDF2-HMAC-SHA256 (iterations=310000, salt=16bytes, hash=32bytes)
 - 상수 시간 비교(`MessageDigest.isEqual`)로 타이밍 공격 방지
 
 **설정 변경**:
-- `ido/src/main/resources/application.yml`: `QIM_INBOUND_API_KEY_HASH` — PBKDF2 해시값으로 변경 (`CHANGEME` 기본값 제거)
+- `idem-hub/src/main/resources/application.yml`: `QIM_INBOUND_API_KEY_HASH` — PBKDF2 해시값으로 변경 (`CHANGEME` 기본값 제거)
 - 운영 키 생성 스크립트: `scripts/generate-api-key-hash.sh`
 
 **예상 공수**: 0.5일
@@ -190,7 +190,7 @@ public boolean isValidApiKey(String apiKey) {
 
 #### [P0-02] AesSharedKeyDecryptor Transformation 확정
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/qim/crypto/AesSharedKeyDecryptor.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/qim/crypto/AesSharedKeyDecryptor.java`
 
 **현재 코드** (문제):
 ```java
@@ -204,7 +204,7 @@ private static final String TRANSFORMATION = "AES/CBC/PKCS5Padding";
 3. 스펙 확정 후: TODO 제거 + 환경변수로 주입 가능하도록 구조화
 
 ```yaml
-# ido/src/main/resources/application.yml
+# idem-hub/src/main/resources/application.yml
 ido:
   qim:
     aes-transformation: ${QIM_AES_TRANSFORMATION:AES/CBC/PKCS5Padding}
@@ -218,8 +218,8 @@ ido:
 #### [P0-03] 하드코딩 기본 Secret 제거
 
 **영향 파일**:
-- `q-sign/src/main/resources/application.yml`: `internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:ido-internal-secret}`
-- `ido/src/main/resources/application.yml`: `internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:ido-internal-secret}`
+- `idem-gate/src/main/resources/application.yml`: `internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:ido-internal-secret}`
+- `idem-hub/src/main/resources/application.yml`: `internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:ido-internal-secret}`
 
 **해결 방법**:
 ```yaml
@@ -299,11 +299,11 @@ FE: 전역 상태 초기화 → /login 리다이렉트
 
 | 파일 | 역할 |
 |------|------|
-| `ido/src/main/java/kr/go/smes/ido/slo/SloController.java` | `POST /api/v1/slo/initiate` 엔드포인트 |
-| `ido/src/main/java/kr/go/smes/ido/slo/SloService.java` | SLO 오케스트레이션 서비스 인터페이스 |
-| `ido/src/main/java/kr/go/smes/ido/slo/SloServiceImpl.java` | 세션 만료 + Q-Sign 전파 + Webhook 발송 |
-| `q-sign/src/main/java/kr/go/smes/qsign/api/InternalSessionController.java` | `POST /api/v1/internal/session/logout` |
-| `q-sign/src/main/java/kr/go/smes/qsign/keycloak/KeycloakLogoutService.java` | Keycloak Admin API end_session |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/slo/SloController.java` | `POST /api/v1/slo/initiate` 엔드포인트 |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/slo/SloService.java` | SLO 오케스트레이션 서비스 인터페이스 |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/slo/SloServiceImpl.java` | 세션 만료 + Q-Sign 전파 + Webhook 발송 |
+| `idem-gate/src/main/java/kr/go/smes/qsign/api/InternalSessionController.java` | `POST /api/v1/internal/session/logout` |
+| `idem-gate/src/main/java/kr/go/smes/qsign/keycloak/KeycloakLogoutService.java` | Keycloak Admin API end_session |
 
 **`SloController.java` 핵심 구현**:
 ```java
@@ -368,7 +368,7 @@ public void executeSlo(FeSession session, String correlationId) {
 }
 ```
 
-**DB 마이그레이션** — `ido/src/main/resources/db/migration/V11__add_slo_support.sql`:
+**DB 마이그레이션** — `idem-hub/src/main/resources/db/migration/V11__add_slo_support.sql`:
 ```sql
 -- webhook_event_type에 USER_LOGOUT 추가
 ALTER TABLE ido.webhook_dispatch_outbox 
@@ -386,7 +386,7 @@ CREATE INDEX IF NOT EXISTS idx_broker_audit_log_slo
 
 #### [P1-04] 개인정보 파기 스케줄러 구현
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/qim/sp/schedule/PersonalDataRetentionScheduler.java` (신규)
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/qim/sp/schedule/PersonalDataRetentionScheduler.java` (신규)
 
 **구현 방법** (Spring `@Scheduled` 기반):
 ```java
@@ -462,7 +462,7 @@ ALTER TABLE ido.inst_mbr_id_mapping
 
 **파일 신규 목록**:
 
-**`onepass-fe/frontend/src/store/authStore.ts`**:
+**`idem-console/frontend/src/store/authStore.ts`**:
 ```typescript
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -491,7 +491,7 @@ export const useAuthStore = create<AuthState>()(
 );
 ```
 
-**`onepass-fe/frontend/src/hooks/useAuth.ts`**:
+**`idem-console/frontend/src/hooks/useAuth.ts`**:
 ```typescript
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -529,7 +529,7 @@ export const useAuth = () => {
 };
 ```
 
-**`onepass-fe/frontend/src/components/LogoutButton.tsx`**:
+**`idem-console/frontend/src/components/LogoutButton.tsx`**:
 ```typescript
 import React from 'react';
 import { Button } from 'antd';
@@ -546,7 +546,7 @@ export const LogoutButton: React.FC = () => {
 };
 ```
 
-**`onepass-fe/frontend/src/components/ErrorBoundary.tsx`**:
+**`idem-console/frontend/src/components/ErrorBoundary.tsx`**:
 ```typescript
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Result, Button } from 'antd';
@@ -600,7 +600,7 @@ export class ErrorBoundary extends Component<Props, State> {
 | `sso.webhook.dispatch.latency` | Timer | `WebhookDispatcherService` |
 | `sso.circuit_breaker.state` (tags: provider) | Gauge | `ProviderCircuitBreakerConfig` |
 
-**Prometheus 설정** (`ido/src/main/resources/application.yml`):
+**Prometheus 설정** (`idem-hub/src/main/resources/application.yml`):
 ```yaml
 management:
   endpoints:
@@ -622,7 +622,7 @@ management:
 
 #### [P2-02] Outbox Max Retry 초과 알림
 
-**파일 수정**: `q-im/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java`
+**파일 수정**: `idem-registry/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java`
 
 ```java
 private static final int ALERT_THRESHOLD = 5;
@@ -647,7 +647,7 @@ private void checkAndAlert(OutboxRecord record) {
 
 #### [P2-03] MFA/AAL 스키마 확장 포인트
 
-**DB 마이그레이션** — `ido/src/main/resources/db/migration/V12__add_mfa_aal_schema.sql`:
+**DB 마이그레이션** — `idem-hub/src/main/resources/db/migration/V12__add_mfa_aal_schema.sql`:
 ```sql
 -- =========================================================
 -- IdO V12: MFA / AAL 확장 포인트 스키마
@@ -690,7 +690,7 @@ const App: React.FC = () => (
 );
 ```
 
-**CSP 설정** (`ido/src/main/java/kr/go/smes/ido/config/SecurityHeadersConfig.java`):
+**CSP 설정** (`idem-hub/src/main/java/kr/go/smes/idem-hub/config/SecurityHeadersConfig.java`):
 ```java
 @Bean
 public FilterRegistrationBean<OncePerRequestFilter> securityHeadersFilter() {

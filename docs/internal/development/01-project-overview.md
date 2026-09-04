@@ -84,12 +84,12 @@
 
 ```
 integration-sso/
-├── platform-common/          # 공통 도메인·이벤트·에러 코드 (공유 라이브러리)
-├── q-sign/                   # Q-Sign: 인증 SoR (port 8081)
-├── q-im/                     # Q-IM: 식별 SoR (port 8082)
-├── ido/                      # IdO: 오케스트레이터 (port 8083)
-├── agency-stub/              # 유관기관 시뮬레이터 (port 8084)
-├── onepass-fe/               # React SPA 프론트엔드 (port 3001)
+├── idem-common/          # 공통 도메인·이벤트·에러 코드 (공유 라이브러리)
+├── idem-gate/                   # Q-Sign: 인증 SoR (port 8081)
+├── idem-registry/                     # Q-IM: 식별 SoR (port 8082)
+├── idem-hub/                      # IdO: 오케스트레이터 (port 8083)
+├── idem-tenant-sample/              # 유관기관 시뮬레이터 (port 8084)
+├── idem-console/               # React SPA 프론트엔드 (port 3001)
 ├── infra/
 │   └── docker/               # Docker Compose 구성
 │       ├── docker-compose.yml

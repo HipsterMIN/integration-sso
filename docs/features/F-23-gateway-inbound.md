@@ -4,7 +4,7 @@
 > **Phase**: Phase 3-A (Gate 2 통과 후 활성화)  
 > **기본값**: `false` (안전)  
 > **엔드포인트**: `POST /api/v1/agency/gateway/inbound/event`  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/gateway/`
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/gateway/`
 
 ---
 

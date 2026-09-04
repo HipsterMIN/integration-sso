@@ -187,7 +187,7 @@ infra/
 │       └── ido-secrets-template.yml  # Secret 구조 템플릿
 │
 └── helm/
-    └── ido/
+    └── idem-hub/
         ├── Chart.yaml
         ├── values.yaml            # 기본값 (개발/스테이징)
         ├── values-prod.yaml       # 운영 오버라이드
@@ -235,7 +235,7 @@ kubectl rollout restart deployment/ido -n smes
 # 특정 태그로 전환
 eval $(minikube -p onepass docker-env)
 docker tag smes/ido:local smes/ido:v2.3.1
-helm upgrade ido infra/helm/ido \
+helm upgrade ido infra/helm/idem-hub \
   --namespace=smes \
   --set image.tag=v2.3.1 \
   --reuse-values
@@ -249,7 +249,7 @@ kubectl apply -f infra/k8s/configmaps/ido-configmap-phase2a.yml
 kubectl rollout restart deployment/ido -n smes
 
 # 또는 Helm으로 직접 설정
-helm upgrade ido infra/helm/ido \
+helm upgrade ido infra/helm/idem-hub \
   --namespace=smes \
   --set featureFlags.provisioning=true \
   --set featureFlags.provisioningDryRun=true \
@@ -263,7 +263,7 @@ helm upgrade ido infra/helm/ido \
 kubectl scale deployment ido -n smes --replicas=2
 
 # HPA 활성화 (metrics-server 애드온 필요)
-helm upgrade ido infra/helm/ido \
+helm upgrade ido infra/helm/idem-hub \
   --namespace=smes \
   --set autoscaling.enabled=true \
   --set autoscaling.minReplicas=1 \
@@ -280,8 +280,8 @@ helm upgrade ido infra/helm/ido \
 ```bash
 # 1. 새 이미지 빌드
 eval $(minikube -p onepass docker-env)
-./gradlew :ido:bootJar -x test
-docker build -f ido/Dockerfile -t smes/ido:v2-new .
+./gradlew :idem-hub:bootJar -x test
+docker build -f idem-hub/Dockerfile -t smes/ido:v2-new .
 
 # 2. Rolling Update 시작 (maxUnavailable=0, maxSurge=1 설정됨)
 kubectl set image deployment/ido ido=smes/ido:v2-new -n smes
@@ -356,7 +356,7 @@ kubectl rollout restart deployment/ido -n smes
 
 ```bash
 # 메모리 제한을 매우 낮게 설정
-helm upgrade ido infra/helm/ido \
+helm upgrade ido infra/helm/idem-hub \
   --namespace=smes \
   --set resources.limits.memory=256Mi \
   --reuse-values
@@ -383,11 +383,11 @@ ido-xxx      0/1     ImagePullBackOff   0
 # 원인 1: Minikube Docker 환경 밖에서 이미지를 빌드함
 # 해결: Minikube Docker 환경으로 전환 후 다시 빌드
 eval $(minikube -p onepass docker-env)
-docker build -f ido/Dockerfile -t smes/ido:local .
+docker build -f idem-hub/Dockerfile -t smes/ido:local .
 
 # 원인 2: imagePullPolicy가 Always로 설정됨
 # 해결: Never로 변경
-helm upgrade ido infra/helm/ido \
+helm upgrade ido infra/helm/idem-hub \
   --namespace=smes \
   --set image.pullPolicy=Never \
   --reuse-values
@@ -517,7 +517,7 @@ helm rollback ido -n smes
 
 # 강제 재설치
 helm uninstall ido -n smes
-helm install ido infra/helm/ido \
+helm install ido infra/helm/idem-hub \
   --namespace=smes \
   --set image.tag=local \
   --set image.pullPolicy=Never \
@@ -540,10 +540,10 @@ $env:JAVA_HOME = "C:\Program Files\Java\jdk-17"
 $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 
 # WSL2에서 실행 (대안)
-wsl bash -c "cd /mnt/c/Users/User/Projects/integration-sso && ./gradlew :ido:bootJar -x test"
+wsl bash -c "cd /mnt/c/Users/User/Projects/integration-sso && ./gradlew :idem-hub:bootJar -x test"
 
 # WSL2에서 빌드 후 이미지를 Minikube에 로드
-wsl bash -c "eval \$(minikube -p onepass docker-env) && docker build -f ido/Dockerfile -t smes/ido:local ."
+wsl bash -c "eval \$(minikube -p onepass docker-env) && docker build -f idem-hub/Dockerfile -t smes/ido:local ."
 ```
 
 ---
@@ -556,7 +556,7 @@ wsl bash -c "eval \$(minikube -p onepass docker-env) && docker build -f ido/Dock
 # arm64 플랫폼으로 빌드
 docker build \
   --platform linux/amd64 \
-  -f ido/Dockerfile \
+  -f idem-hub/Dockerfile \
   -t smes/ido:local .
 
 # 또는 Dockerfile에 플랫폼 명시
@@ -582,7 +582,7 @@ docker build \
 ```bash
 # 절대 운영에 들어가면 안 되는 값들 확인
 grep -r "dummy\|AAAAAAA\|poc-\|change-me\|local" \
-  infra/k8s/secrets/ infra/helm/ido/values-prod.yaml
+  infra/k8s/secrets/ infra/helm/idem-hub/values-prod.yaml
 
 # Sealed Secrets 사용 예시 (kubeseal 설치 필요)
 kubeseal --cert=seal.pem -o yaml \
@@ -693,7 +693,7 @@ spring:
 **배포 전 검증**:
 ```bash
 # 마이그레이션 드라이런
-./gradlew :ido:flywayInfo -Dflyway.url=jdbc:postgresql://prod-db:5432/onepass
+./gradlew :idem-hub:flywayInfo -Dflyway.url=jdbc:postgresql://prod-db:5432/onepass
 ```
 
 ---
@@ -815,13 +815,13 @@ kubectl logs -l app=ido -n smes --all-containers=true -f
 helm get values ido -n smes
 
 # 렌더링된 템플릿 확인 (배포 전 검증)
-helm template ido infra/helm/ido \
+helm template ido infra/helm/idem-hub \
   --namespace=smes \
   --set image.tag=local \
   --set replicaCount=1
 
 # 차이 확인 (helm-diff 플러그인 필요)
-helm diff upgrade ido infra/helm/ido \
+helm diff upgrade ido infra/helm/idem-hub \
   --namespace=smes \
   --set image.tag=v2-new \
   --reuse-values
@@ -854,8 +854,8 @@ pkill -f "kubectl port-forward"
 ## 관련 문서
 
 - [infra/k8s/deployments/ido-deployment.yml](../k8s/deployments/ido-deployment.yml) — Deployment 정의
-- [infra/helm/ido/values.yaml](../helm/ido/values.yaml) — Helm 기본값
-- [infra/helm/ido/values-prod.yaml](../helm/ido/values-prod.yaml) — 운영 오버라이드
+- [infra/helm/idem-hub/values.yaml](../helm/idem-hub/values.yaml) — Helm 기본값
+- [infra/helm/idem-hub/values-prod.yaml](../helm/idem-hub/values-prod.yaml) — 운영 오버라이드
 - [infra/k8s/secrets/ido-secrets-template.yml](../k8s/secrets/ido-secrets-template.yml) — Secret 템플릿
 - [infra/docker/docker-compose.yml](../docker/docker-compose.yml) — 로컬 인프라
 

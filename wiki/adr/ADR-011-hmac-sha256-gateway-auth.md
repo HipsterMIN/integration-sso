@@ -7,7 +7,7 @@
 | **상태** | ✅ Accepted |
 | **결정일** | 2026 (Sprint 13) |
 | **결정자** | 보안 위원회 |
-| **관련 파일** | `ido/gateway/HmacSignatureFilter.java`, `ido/gateway/AgencyHmacKeyStore.java`, `ido/gateway/AgencyGatewayController.java` |
+| **관련 파일** | `idem-hub/gateway/HmacSignatureFilter.java`, `idem-hub/gateway/AgencyHmacKeyStore.java`, `idem-hub/gateway/AgencyGatewayController.java` |
 
 ---
 

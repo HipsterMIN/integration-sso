@@ -9,8 +9,8 @@
 #
 # 환경 변수 (docker-compose.monitoring.yml에서 주입):
 #   SLACK_WEBHOOK_URL         — Slack Incoming Webhook URL
-#   SLACK_CRITICAL_CHANNEL    — 긴급 알림 Slack 채널 (예: #onepass-alerts-critical)
-#   SLACK_WARNING_CHANNEL     — 경고 알림 Slack 채널 (예: #onepass-alerts)
+#   SLACK_CRITICAL_CHANNEL    — 긴급 알림 Slack 채널 (예: #idem-alerts-critical)
+#   SLACK_WARNING_CHANNEL     — 경고 알림 Slack 채널 (예: #idem-alerts)
 #   ALERT_EMAIL_TO            — 수신 이메일 주소 (콤마 구분)
 #   ALERT_EMAIL_FROM          — 발신 이메일 주소 (예: alert@smes.go.kr)
 #   SMTP_HOST                 — SMTP 서버 (예: smtp.gmail.com:587)
@@ -33,7 +33,7 @@ contactPoints:
         type: slack
         settings:
           url: ${SLACK_WEBHOOK_URL}
-          recipient: "${SLACK_CRITICAL_CHANNEL:#onepass-alerts-critical}"
+          recipient: "${SLACK_CRITICAL_CHANNEL:#idem-alerts-critical}"
           # 알림 메시지 템플릿
           title: |
             :red_circle: [{{ .CommonLabels.severity | toUpper }}] {{ .GroupLabels.alertname }}
@@ -65,7 +65,7 @@ contactPoints:
         type: slack
         settings:
           url: ${SLACK_WEBHOOK_URL}
-          recipient: "${SLACK_WARNING_CHANNEL:#onepass-alerts}"
+          recipient: "${SLACK_WARNING_CHANNEL:#idem-alerts}"
           title: |
             :warning: [WARNING] {{ .GroupLabels.alertname }}
           text: |
@@ -95,7 +95,7 @@ contactPoints:
             [CRITICAL] OnePass 플랫폼 알림: {{ .GroupLabels.alertname }}
           # HTML 이메일 본문
           message: |
-            <h2 style="color:#FF0000">🚨 긴급 알림 — OnePass Platform</h2>
+            <h2 style="color:#FF0000">🚨 긴급 알림 — Idem Platform</h2>
 
             <table border="1" cellpadding="8" style="border-collapse:collapse">
               <tr><th>항목</th><th>내용</th></tr>
@@ -133,7 +133,7 @@ contactPoints:
           subject: |
             [WARNING] OnePass 플랫폼 알림: {{ .GroupLabels.alertname }}
           message: |
-            <h2 style="color:#FF9900">⚠️ 경고 알림 — OnePass Platform</h2>
+            <h2 style="color:#FF9900">⚠️ 경고 알림 — Idem Platform</h2>
 
             <table border="1" cellpadding="8" style="border-collapse:collapse">
               <tr><th>항목</th><th>내용</th></tr>

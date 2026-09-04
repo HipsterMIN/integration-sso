@@ -2,7 +2,7 @@
 
 > **환경변수**: `IDO_RETENTION_ENABLED` / `IDO_RETENTION_DRY_RUN`  
 > **기본값**: `false` / `true` (매우 안전)  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/retention/PersonalDataRetentionScheduler.java`
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/retention/PersonalDataRetentionScheduler.java`
 
 ---
 

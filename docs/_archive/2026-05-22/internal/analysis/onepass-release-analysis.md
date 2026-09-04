@@ -2,7 +2,7 @@
 
 > **작성일**: 2026-05-18  
 > **분석 대상**: `onepass-be-release` (IdO 기반 백엔드) · `onepass-release` (React 프론트엔드)  
-> **비교 기준**: `integration-sso` 멀티모듈 레포지토리 (`ido/` 모듈 + `onepass-fe/` 모듈)  
+> **비교 기준**: `integration-sso` 멀티모듈 레포지토리 (`idem-hub/` 모듈 + `idem-console/` 모듈)  
 > **작성자**: AI 기술 리뷰어 (수정 없이 문서만 작성)
 
 ---
@@ -118,14 +118,14 @@ spring:
 #### ❌ ISSUE-BE-2: 테스트 파일이 `src/main`에 혼재
 
 ```
-src/main/java/kr/go/smes/ido/broker/InternalSigVerifierTest.java
-src/main/java/kr/go/smes/ido/handoff/HandoffServiceImplTest.java
-src/main/java/kr/go/smes/ido/handoff/crypto/HandoffCryptoServiceTest.java
-src/main/java/kr/go/smes/ido/handoff/validate/CallbackUrlValidatorTest.java
-src/main/java/kr/go/smes/ido/memberlookup/MemberLookupControllerTest.java
-src/main/java/kr/go/smes/ido/webhook/WebhookDispatchOutboxRelayTest.java
-src/main/java/kr/go/smes/ido/webhook/WebhookDispatcherServiceTest.java
-src/main/java/kr/go/smes/ido/qim/crypto/AesSharedKeyDecryptorTest.java
+src/main/java/kr/go/smes/idem-hub/broker/InternalSigVerifierTest.java
+src/main/java/kr/go/smes/idem-hub/handoff/HandoffServiceImplTest.java
+src/main/java/kr/go/smes/idem-hub/handoff/crypto/HandoffCryptoServiceTest.java
+src/main/java/kr/go/smes/idem-hub/handoff/validate/CallbackUrlValidatorTest.java
+src/main/java/kr/go/smes/idem-hub/memberlookup/MemberLookupControllerTest.java
+src/main/java/kr/go/smes/idem-hub/webhook/WebhookDispatchOutboxRelayTest.java
+src/main/java/kr/go/smes/idem-hub/webhook/WebhookDispatcherServiceTest.java
+src/main/java/kr/go/smes/idem-hub/qim/crypto/AesSharedKeyDecryptorTest.java
 ```
 
 8개의 테스트 파일이 `src/main/java`에 위치해 있다. 테스트 클래스는 반드시 `src/test/java`에 있어야 한다. 이 상태에서는:
@@ -143,7 +143,7 @@ src/main/java/kr/go/smes/ido/qim/crypto/AesSharedKeyDecryptorTest.java
 
 #### ⚠️ ISSUE-BE-5: `board/` 도메인 잔존 — RFC 명시 폐기 대상
 
-RFC §2 확정 사항에 "board 도메인: 폐기 (샘플 코드 명시)"라고 명확히 기재되어 있다. 그러나 `onepass-be-release`에 `ido/board/` 디렉터리(BoardController, BoardClient, BoardProperties)가 그대로 존재한다. legacy에서 신규 패키지로 이관만 된 상태다. 기술 부채가 될 수 있다.
+RFC §2 확정 사항에 "board 도메인: 폐기 (샘플 코드 명시)"라고 명확히 기재되어 있다. 그러나 `onepass-be-release`에 `idem-hub/board/` 디렉터리(BoardController, BoardClient, BoardProperties)가 그대로 존재한다. legacy에서 신규 패키지로 이관만 된 상태다. 기술 부채가 될 수 있다.
 
 #### ⚠️ ISSUE-BE-6: `ONEPASS_AUTH_INCOMING_KEYS` 미설정 시 전체 차단
 
@@ -171,7 +171,7 @@ public FeApiKeyInterceptor(@Value("${onepass.auth.incoming-keys:}") List<String>
 
 ### 3.1 무엇인가 — 분기된 클론 레포지토리
 
-`onepass-release`는 `integration-sso/onepass-fe/frontend`와 **소스 코드가 거의 동일**하다. `beInstance.ts`는 두 파일이 완전히 일치(identical)한다. 분기 이후 독자적인 진화가 거의 없는 상태로, 주로 `.env` 파일의 차이가 핵심이다.
+`onepass-release`는 `integration-sso/idem-console/frontend`와 **소스 코드가 거의 동일**하다. `beInstance.ts`는 두 파일이 완전히 일치(identical)한다. 분기 이후 독자적인 진화가 거의 없는 상태로, 주로 `.env` 파일의 차이가 핵심이다.
 
 **소스 차이 요약**:
 - `.env` 파일: `BE_API_TARGET=https://onepass-ido-dev.smes.go.kr` (9292 포트 타겟 → 실제 개발 서버)
@@ -197,7 +197,7 @@ public FeApiKeyInterceptor(@Value("${onepass.auth.incoming-keys:}") List<String>
 `integration-sso/onepass-fe`에는 다음과 같은 B-5 보안 패치가 적용되어 있다:
 
 ```typescript
-// integration-sso/onepass-fe/frontend/src/api/extInstance.ts
+// integration-sso/idem-console/frontend/src/api/extInstance.ts
 // B-5 보안 패치:
 //   - 기존: EXT_API_ENDPOINT(Q-IM 직접) + EXT_API_KEY FE 번들 노출
 //   - 변경: ido(8083) /api/ext/** forward proxy 경유
@@ -406,7 +406,7 @@ RFC가 이미 훌륭한 이관 계획을 담고 있다. RFC를 기준으로 아�
 
 ```groovy
 // 목표 상태
-implementation("kr.go.smes:platform-common:1.0.0")
+implementation("kr.go.smes:idem-common:1.0.0")
 ```
 
 #### P2-3: CI/CD 파이프라인 정비

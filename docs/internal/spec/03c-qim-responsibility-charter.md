@@ -143,7 +143,7 @@
 코드 검사 결과 다음이 발견되었다:
 
 ```
-q-im/src/main/java/kr/go/smes/qim/conversion/AgencyMemberLookupServiceImpl.java
+idem-registry/src/main/java/kr/go/smes/qim/conversion/AgencyMemberLookupServiceImpl.java
   → agency-stub(`/api/agency/member/lookup`) RestTemplate 직접 호출
   → X-Qim-Internal-Key 헤더 인증
 ```
@@ -375,9 +375,9 @@ springdoc:                                # Swagger 관련 라이브러리 자�
 ```
 
 추가 enforcement:
-- `q-im/build.gradle.kts` 에 `springdoc-openapi`, `spring-boot-admin-*`, `h2`, `spring-boot-starter-thymeleaf`, `spring-boot-starter-freemarker`, `spring-boot-starter-mustache` 의존성 **추가 금지** — CI 에서 dependency-check 로 검사
-- `q-im/src/main/resources/static/` 디렉토리 생성 금지 (CI 검사)
-- `q-im/src/main/resources/templates/` 디렉토리 생성 금지 (CI 검사)
+- `idem-registry/build.gradle.kts` 에 `springdoc-openapi`, `spring-boot-admin-*`, `h2`, `spring-boot-starter-thymeleaf`, `spring-boot-starter-freemarker`, `spring-boot-starter-mustache` 의존성 **추가 금지** — CI 에서 dependency-check 로 검사
+- `idem-registry/src/main/resources/static/` 디렉토리 생성 금지 (CI 검사)
+- `idem-registry/src/main/resources/templates/` 디렉토리 생성 금지 (CI 검사)
 - `@Controller`(View 반환용) 어노테이션 금지 — `@RestController` 만 허용 (정적 코드 분석 또는 ArchUnit 테스트로 강제)
 
 ### 6.5.6 본 정책의 폐기 절차
@@ -509,4 +509,4 @@ springdoc:                                # Swagger 관련 라이브러리 자�
 1. 본 헌장을 인접 모듈 오너(IdO / Q-Sign / onepass-fe / onepass-support / onepass-agent) 에게 회람 후 합의 서명
 2. §6 SEC 갭 시정 PR 5건 백로그 등록
 3. §3.4 회색지대 (Q-IM → agency 직접 호출) 가드레일 PR 1건
-4. CODEOWNERS 에 `q-im/**` 와 `docs/internal/spec/03c-*.md` 에 Q-IM 오너 지정
+4. CODEOWNERS 에 `idem-registry/**` 와 `docs/internal/spec/03c-*.md` 에 Q-IM 오너 지정

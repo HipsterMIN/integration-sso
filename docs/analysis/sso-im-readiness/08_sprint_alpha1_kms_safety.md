@@ -23,7 +23,7 @@ KMS 관련 두 개의 Critical 결함을 **운영 진입 전 절대 차단** 사
 ### 2.1 변경 전 상태
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/crypto/kms/LocalKmsClient.java
+// idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/kms/LocalKmsClient.java
 @ConditionalOnProperty(prefix = "ido.kms", name = "enabled",
                        havingValue = "false", matchIfMissing = true)  // ← 위험
 public class LocalKmsClient implements KmsClient {
@@ -118,7 +118,7 @@ public class LocalKmsClient implements KmsClient {
 ### 3.1 변경 전 상태
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/crypto/kms/VaultKmsClient.java
+// idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/kms/VaultKmsClient.java
 @PostConstruct
 void init() {
     // ...
@@ -224,11 +224,11 @@ ido:
 
 | 파일 | 변경 종류 | 추가 LOC | 삭제 LOC |
 |------|----------|---------|---------|
-| `ido/src/main/java/kr/go/smes/ido/crypto/kms/LocalKmsClient.java` | 수정 | +60 | -3 |
-| `ido/src/main/java/kr/go/smes/ido/crypto/kms/VaultKmsClient.java` | 수정 | +55 | -12 |
-| `ido/src/main/resources/application.yml` | 설정 추가 | +15 | 0 |
-| `ido/src/test/java/kr/go/smes/ido/crypto/kms/LocalKmsClientTest.java` | 테스트 추가 | +95 | -3 |
-| `ido/src/test/java/kr/go/smes/ido/crypto/kms/VaultKmsClientTest.java` | 테스트 추가 | +95 | 0 |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/kms/LocalKmsClient.java` | 수정 | +60 | -3 |
+| `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/kms/VaultKmsClient.java` | 수정 | +55 | -12 |
+| `idem-hub/src/main/resources/application.yml` | 설정 추가 | +15 | 0 |
+| `idem-hub/src/test/java/kr/go/smes/idem-hub/crypto/kms/LocalKmsClientTest.java` | 테스트 추가 | +95 | -3 |
+| `idem-hub/src/test/java/kr/go/smes/idem-hub/crypto/kms/VaultKmsClientTest.java` | 테스트 추가 | +95 | 0 |
 | `docs/analysis/sso-im-readiness/07_risk_matrix_roadmap.md` | 진행 상태 반영 | +6 | -10 |
 | `docs/analysis/sso-im-readiness/08_sprint_alpha1_kms_safety.md` | 신규 | +250 | 0 |
 
@@ -248,8 +248,8 @@ ido:
 - [x] 기존 dev/local/stage/prod 환경 호환성 보존 (코드 변경으로 인한 동작 변화 없음)
 - [x] application.yml 새 설정 키 문서화
 - [x] 분석 문서 진행 상태 반영 (`07_risk_matrix_roadmap.md`)
-- [ ] (CI에서 검증) `./gradlew :ido:test --tests "*KmsClientTest*"` 통과
-- [ ] (CI에서 검증) `./gradlew :ido:build` 통과
+- [ ] (CI에서 검증) `./gradlew :idem-hub:test --tests "*KmsClientTest*"` 통과
+- [ ] (CI에서 검증) `./gradlew :idem-hub:build` 통과
 
 > sandbox에 Java/Gradle 미설치로 로컬 컴파일·테스트는 수행 불가.
 > 정적 검증 결과: 중괄호 균형 OK, import 누락 없음, 기존 호출 사이트(테스트 2건) 모두 업데이트 완료.

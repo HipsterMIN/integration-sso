@@ -7,7 +7,7 @@
 | **상태** | ✅ Accepted |
 | **결정일** | 2026 (Sprint 15) |
 | **결정자** | FE 아키텍처 위원회 |
-| **관련 파일** | `onepass-fe/frontend/src/api/beInstance.ts`, `onepass-fe/frontend/src/api/extInstance.ts`, `ido/ext/ExtProxyController.java` |
+| **관련 파일** | `idem-console/frontend/src/api/beInstance.ts`, `idem-console/frontend/src/api/extInstance.ts`, `idem-hub/ext/ExtProxyController.java` |
 
 ---
 

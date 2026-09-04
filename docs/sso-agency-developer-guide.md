@@ -283,7 +283,7 @@ CREATE INDEX idx_qim_user_id ON {기관_회원_테이블} (qim_user_id);
 **Gradle (build.gradle)**:
 ```groovy
 dependencies {
-    implementation 'kr.go.smes:onepass-agency-sdk:1.0.0'
+    implementation 'kr.go.smes:idem-sdk-java:1.0.0'
     // 런타임 의존성 ZERO — 추가 라이브러리 불필요
 }
 ```

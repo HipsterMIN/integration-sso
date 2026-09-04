@@ -7,9 +7,9 @@
 -- [역할 제한]
 --   스키마(네임스페이스) 생성만 담당합니다.
 --   테이블·인덱스·시드 데이터는 각 서비스 Flyway 마이그레이션이 전담합니다:
---     · ido/src/main/resources/db/migration/V*.sql
---     · q-sign/src/main/resources/db/migration/V*.sql
---     · agency-stub/src/main/resources/db/migration/V*.sql
+--     · idem-hub/src/main/resources/db/migration/V*.sql
+--     · idem-gate/src/main/resources/db/migration/V*.sql
+--     · idem-tenant-sample/src/main/resources/db/migration/V*.sql
 --     · q-im은 MariaDB 전용 (이 파일과 무관)
 --
 -- [DB 분리 구조]

@@ -11,19 +11,19 @@
 
 | # | 파일 | 라인 | 핵심 책임 |
 |---|------|------|-----------|
-| 1 | `ido/.../api/HandoffController.java` | 201 | Issue / Verify / Revoke 엔드포인트, Fe-Session-Id 쿠키 추출 |
-| 2 | `ido/.../handoff/HandoffServiceImpl.java` | 318 | Issue/Verify/Revoke 트랜잭션 본체 |
-| 3 | `ido/.../handoff/crypto/HandoffCryptoService.java` | 262 | encrypt/sign/verify (AES-GCM + HMAC) |
-| 4 | `ido/.../infrastructure/TicketRepositoryImpl.java` | 219 | Redis 기반 ticket 저장소 |
-| 5 | `ido/.../policy/PolicyEngineImpl.java` | 244 | buildHandoffPayload, GUEST 분기 |
-| 6 | `ido/.../gateway/HmacSignatureFilter.java` | 257 | F-26 인바운드 HMAC 검증 필터 |
-| 7 | `ido/.../webhook/WebhookDispatcherService.java` | 564 | Webhook Outbox 적재 + HMAC 서명 |
-| 8 | `ido/.../webhook/WebhookDispatchOutboxRelay.java` | 510 | HTTPS POST 폴링 발송, 지수 백오프 |
-| 9 | `ido/.../gateway/AgencyGatewayServiceImpl.java` | 334 | 인/아웃바운드 게이트웨이, HMAC 서명 |
-| 10 | `ido/.../sso/CrossAgencySsoController.java` | 279 | CAST 토큰 발급/검증, 기관간 SSO |
-| 11 | `ido/.../fe/api/FeSessionController.java` | 226 | FE 세션 CRUD (BFF) |
-| 12 | `ido/.../fe/session/FeSessionServiceImpl.java` | 234 | Redis 기반 FE 세션 |
-| 13 | `ido/.../provision/ProvisioningServiceImpl.java` | 463+ | 전 기관 프로비저닝 (Virtual Thread) |
+| 1 | `idem-hub/.../api/HandoffController.java` | 201 | Issue / Verify / Revoke 엔드포인트, Fe-Session-Id 쿠키 추출 |
+| 2 | `idem-hub/.../handoff/HandoffServiceImpl.java` | 318 | Issue/Verify/Revoke 트랜잭션 본체 |
+| 3 | `idem-hub/.../handoff/crypto/HandoffCryptoService.java` | 262 | encrypt/sign/verify (AES-GCM + HMAC) |
+| 4 | `idem-hub/.../infrastructure/TicketRepositoryImpl.java` | 219 | Redis 기반 ticket 저장소 |
+| 5 | `idem-hub/.../policy/PolicyEngineImpl.java` | 244 | buildHandoffPayload, GUEST 분기 |
+| 6 | `idem-hub/.../gateway/HmacSignatureFilter.java` | 257 | F-26 인바운드 HMAC 검증 필터 |
+| 7 | `idem-hub/.../webhook/WebhookDispatcherService.java` | 564 | Webhook Outbox 적재 + HMAC 서명 |
+| 8 | `idem-hub/.../webhook/WebhookDispatchOutboxRelay.java` | 510 | HTTPS POST 폴링 발송, 지수 백오프 |
+| 9 | `idem-hub/.../gateway/AgencyGatewayServiceImpl.java` | 334 | 인/아웃바운드 게이트웨이, HMAC 서명 |
+| 10 | `idem-hub/.../sso/CrossAgencySsoController.java` | 279 | CAST 토큰 발급/검증, 기관간 SSO |
+| 11 | `idem-hub/.../fe/api/FeSessionController.java` | 226 | FE 세션 CRUD (BFF) |
+| 12 | `idem-hub/.../fe/session/FeSessionServiceImpl.java` | 234 | Redis 기반 FE 세션 |
+| 13 | `idem-hub/.../provision/ProvisioningServiceImpl.java` | 463+ | 전 기관 프로비저닝 (Virtual Thread) |
 
 ---
 
@@ -40,8 +40,8 @@
 ### F4.1 [**Critical**] `HandoffCryptoService.verify()` 는 dead code — Handoff Verify 가 서명/암호화를 검증하지 않는다
 
 **증거**:
-- `ido/.../handoff/crypto/HandoffCryptoService.java:161-170` — `verify(String ticketId, String agencyCode, String encryptedPayload, String signature)` 메서드 정의됨.
-- `grep -rn "handoffCryptoService\." ido/src/main/java/` 결과 (call site 전체):
+- `idem-hub/.../handoff/crypto/HandoffCryptoService.java:161-170` — `verify(String ticketId, String agencyCode, String encryptedPayload, String signature)` 메서드 정의됨.
+- `grep -rn "handoffCryptoService\." idem-hub/src/main/java/` 결과 (call site 전체):
   ```
   HandoffServiceImpl.java:111: String encrypted = handoffCryptoService.encrypt(plain, ticketId);
   HandoffServiceImpl.java:112: String signature = handoffCryptoService.sign(ticketId, cmd.getAgencyCode(), encrypted);
@@ -82,7 +82,7 @@
 
 ### F4.2 [**Critical**] `TicketRepositoryImpl.consume()` 는 atomic CAS 가 아니다 — 동시 verify 시 ticket 이중 소비 가능
 
-**증거** — `ido/.../infrastructure/TicketRepositoryImpl.java:91-131`:
+**증거** — `idem-hub/.../infrastructure/TicketRepositoryImpl.java:91-131`:
 ```java
 public void consume(String ticketId) {
     String key = "handoff:ticket:" + ticketId;
@@ -277,7 +277,7 @@ private String tryResolveDi(String qimUserId, String agencyCode, String correlat
 
 ### F4.7 [**High**] HmacSignatureFilter soft mode (F-26=false) 가 missing signature 를 unconditional pass — 점진 도입 의도와 운영 위험 충돌
 
-**증거** — `ido/.../gateway/HmacSignatureFilter.java:104` 인근 (요약):
+**증거** — `idem-hub/.../gateway/HmacSignatureFilter.java:104` 인근 (요약):
 - F-26 (`featureFlags.isHmacSigRequired()`) 가 false 이면 **시그니처 헤더 부재 시 그냥 통과**, true 이면 401.
 - 즉 점진 도입(soft) 모드에서는 공격자가 X-Internal-Sig 헤더 없이 요청하면 통과.
 

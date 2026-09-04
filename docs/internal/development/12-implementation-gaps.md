@@ -33,7 +33,7 @@ v3.1.0 기준 전체 구현 완성도: **약 96%** (프리프로덕션 단계)
 ## 1-A. v3.1.0 운영 버그 수정 내역 (Sprint 12)
 
 > **배경**: P3-05(보호자 인증)/P3-06(기업회원 전환) 구현 후 심층 운영 관점 분석에서 발견된 결함 8종 순차 수정.  
-> **빌드**: `DOCKER_UNAVAILABLE=true ./gradlew :q-im:clean :q-im:test --no-daemon` → **219 tests, 0 failures, 30 skipped**  
+> **빌드**: `DOCKER_UNAVAILABLE=true ./gradlew :idem-registry:clean :idem-registry:test --no-daemon` → **219 tests, 0 failures, 30 skipped**  
 > **커밋**: `fafc795` | **PR**: [#85](https://github.com/HipsterMIN/integration-sso/pull/85)
 
 ### Fix 1 — Virtual Thread Executor 정리 누락 (AgencyMemberLookupServiceImpl)
@@ -43,7 +43,7 @@ v3.1.0 기준 전체 구현 완성도: **약 96%** (프리프로덕션 단계)
 | **문제** | `Executors.newVirtualThreadPerTaskExecutor()` 사용 후 `shutdown()` 미호출 → 스레드 누수 가능 |
 | **영향** | 운영 환경에서 68개 유관시스템 동시 조회 시 Virtual Thread 무제한 생성 위험 |
 | **해결** | `try-finally` 블록으로 `executor.shutdown()` 보장 + `Duration.ofSeconds(30)` 절대 데드라인 타임아웃 |
-| **수정 파일** | `q-im/.../agency/AgencyMemberLookupServiceImpl.java` |
+| **수정 파일** | `idem-registry/.../agency/AgencyMemberLookupServiceImpl.java` |
 
 ```java
 // 수정 후 패턴
@@ -241,12 +241,12 @@ short adultBirthYear = (short)(Year.now().getValue() - 20);  // 만 20세 → is
 | ~~P1-06~~ | ~~agency-stub 이벤트 폴링 API 완성~~ | ~~IdO~~ | ~~`GET /api/v1/agency/events` 완전 구현~~ | ✅ **완료** (v1.9.3) |
 
 **P1-06 구현 파일** (v1.9.3):
-- `ido/.../api/dto/AgencyEventResponse.java` — 이벤트 단건 응답 DTO
-- `ido/.../api/dto/AgencyEventListResponse.java` — 목록 응답 래퍼 (hasMore 커서 포함)
-- `ido/.../webhook/AgencyEventQueryService.java` — 폴링 조회 서비스 인터페이스
-- `ido/.../webhook/AgencyEventQueryServiceImpl.java` — `webhook_dispatch_outbox` JdbcTemplate 조회 + `markAsRead()`
-- `ido/.../api/AgencyEventController.java` — `GET /api/v1/agency/events` + `POST /{dispatchId}/read`
-- `ido/.../fe/config/IdoWebMvcConfig.java` — `/api/v1/agency/**` 인터셉터·CORS 등록
+- `idem-hub/.../api/dto/AgencyEventResponse.java` — 이벤트 단건 응답 DTO
+- `idem-hub/.../api/dto/AgencyEventListResponse.java` — 목록 응답 래퍼 (hasMore 커서 포함)
+- `idem-hub/.../webhook/AgencyEventQueryService.java` — 폴링 조회 서비스 인터페이스
+- `idem-hub/.../webhook/AgencyEventQueryServiceImpl.java` — `webhook_dispatch_outbox` JdbcTemplate 조회 + `markAsRead()`
+- `idem-hub/.../api/AgencyEventController.java` — `GET /api/v1/agency/events` + `POST /{dispatchId}/read`
+- `idem-hub/.../fe/config/IdoWebMvcConfig.java` — `/api/v1/agency/**` 인터셉터·CORS 등록
 
 ---
 
@@ -266,22 +266,22 @@ short adultBirthYear = (short)(Year.now().getValue() - 20);  // 만 20세 → is
 | ~~-~~ | ~~GDPR V6 컬럼 NULL 처리~~ | ~~guardian_qim_user_id, guardian_consent_at 파기~~ | ✅ **완료** (Fix 2, v3.1.0) |
 
 **v2.0.0 구현 파일**:
-- `q-im/.../withdrawal/WithdrawalType.java` — 탈퇴 유형 enum (4종)
-- `q-im/.../withdrawal/WithdrawalService.java` / `WithdrawalServiceImpl.java` — 탈퇴 4종 + 예약 취소 + 만료 스케줄러 (Fix 2: V6 컬럼 추가)
-- `q-im/.../withdrawal/WithdrawalRequest.java` / `WithdrawalResponse.java` — 탈퇴 요청/응답 DTO
-- `q-im/.../api/WithdrawalController.java` — `POST /withdrawal`, `DELETE /withdrawal/schedule`
-- `q-im/.../entity/ConsentVersionJpaEntity.java` — 동의 버전 테이블 매핑
-- `q-im/.../entity/ConsentRecordJpaEntity.java` — 동의 이력 테이블 매핑 (이력 보존 INSERT 전용)
-- `q-im/.../consent/ConsentService.java` / `ConsentServiceImpl.java` — 동의 기록/철회/조회
-- `q-im/.../api/ConsentController.java` — 동의 4종 API
-- `q-im/.../entity/ConversionSessionJpaEntity.java` — 전환 세션 테이블 매핑
-- `q-im/.../conversion/ConversionSessionState.java` — 상태 전이 enum (canTransitionTo)
-- `q-im/.../conversion/ConversionSessionService.java` / `ConversionSessionServiceImpl.java` — 상태 기계 5단계
-- `q-im/.../api/ConversionController.java` — 전환 세션 6종 API
-- `q-im/resources/db/migration/V5__withdrawal_consent_conversion.sql` — DB 스키마 마이그레이션
-- `q-im/resources/db/migration/V6__guardian_biz_member.sql` — 보호자/기업회원 스키마 (★v3.1.0)
-- `platform-common/.../UserStatus.java` — WITHDRAWAL_SCHEDULED 상태 추가
-- `platform-common/.../PlatformErrorCode.java` — E-IM-205~217 에러코드 추가
+- `idem-registry/.../withdrawal/WithdrawalType.java` — 탈퇴 유형 enum (4종)
+- `idem-registry/.../withdrawal/WithdrawalService.java` / `WithdrawalServiceImpl.java` — 탈퇴 4종 + 예약 취소 + 만료 스케줄러 (Fix 2: V6 컬럼 추가)
+- `idem-registry/.../withdrawal/WithdrawalRequest.java` / `WithdrawalResponse.java` — 탈퇴 요청/응답 DTO
+- `idem-registry/.../api/WithdrawalController.java` — `POST /withdrawal`, `DELETE /withdrawal/schedule`
+- `idem-registry/.../entity/ConsentVersionJpaEntity.java` — 동의 버전 테이블 매핑
+- `idem-registry/.../entity/ConsentRecordJpaEntity.java` — 동의 이력 테이블 매핑 (이력 보존 INSERT 전용)
+- `idem-registry/.../consent/ConsentService.java` / `ConsentServiceImpl.java` — 동의 기록/철회/조회
+- `idem-registry/.../api/ConsentController.java` — 동의 4종 API
+- `idem-registry/.../entity/ConversionSessionJpaEntity.java` — 전환 세션 테이블 매핑
+- `idem-registry/.../conversion/ConversionSessionState.java` — 상태 전이 enum (canTransitionTo)
+- `idem-registry/.../conversion/ConversionSessionService.java` / `ConversionSessionServiceImpl.java` — 상태 기계 5단계
+- `idem-registry/.../api/ConversionController.java` — 전환 세션 6종 API
+- `idem-registry/resources/db/migration/V5__withdrawal_consent_conversion.sql` — DB 스키마 마이그레이션
+- `idem-registry/resources/db/migration/V6__guardian_biz_member.sql` — 보호자/기업회원 스키마 (★v3.1.0)
+- `idem-common/.../UserStatus.java` — WITHDRAWAL_SCHEDULED 상태 추가
+- `idem-common/.../PlatformErrorCode.java` — E-IM-205~217 에러코드 추가
 
 ### 4.2 Handoff 전략 완성 ✅ v1.9.2 완료
 
@@ -291,8 +291,8 @@ short adultBirthYear = (short)(Year.now().getValue() - 20);  // 만 20세 → is
 | ~~-~~ | ~~APACHE_GATE HandoffStrategy~~ | ~~Apache mod_auth 호환 헤더 주입~~ | ✅ **완료** (v1.9.2) |
 
 **구현 파일**:
-- `ido/.../handoff/strategy/InternalSsoHandoffStrategy.java` — `POST {ssoDomain}/internal/sso-session`
-- `ido/.../handoff/strategy/ApacheGateHandoffStrategy.java` — Apache `X-Remote-User`, `X-Auth-Level`, `X-Handoff-Token` 헤더 Push
+- `idem-hub/.../handoff/strategy/InternalSsoHandoffStrategy.java` — `POST {ssoDomain}/internal/sso-session`
+- `idem-hub/.../handoff/strategy/ApacheGateHandoffStrategy.java` — Apache `X-Remote-User`, `X-Auth-Level`, `X-Handoff-Token` 헤더 Push
 
 ### 4.3 인프라
 
@@ -304,14 +304,14 @@ short adultBirthYear = (short)(Year.now().getValue() - 20);  // 만 20세 → is
 | ~~GAP-QIM-05~~ | ~~`snapshot_meta` 사용 로직 구현~~ | ~~Q-IM Snapshot 발행 기능~~ | ✅ **완료** (v1.9.2) |
 
 **GAP-QS-03 구현 파일**:
-- `q-sign/.../kafka/IdempotentEventStore.java` — `qsign.processed_event` + `qsign.last_event_version` ON CONFLICT 패턴
-- `q-sign/.../kafka/QimUserEventConsumer.java` — `@KafkaListener` + 6단계 멱등 처리 + USER_SUSPENDED/WITHDRAWN → auth_lock 잠금
+- `idem-gate/.../kafka/IdempotentEventStore.java` — `qsign.processed_event` + `qsign.last_event_version` ON CONFLICT 패턴
+- `idem-gate/.../kafka/QimUserEventConsumer.java` — `@KafkaListener` + 6단계 멱등 처리 + USER_SUSPENDED/WITHDRAWN → auth_lock 잠금
 
 **GAP-QIM-05 구현 파일**:
-- `q-im/.../entity/SnapshotMetaJpaEntity.java` — `snapshot_meta` 테이블 JPA 매핑
-- `q-im/.../repository/SnapshotMetaJpaRepository.java` — 최신 스냅샷 조회, 중복 방지
-- `q-im/.../outbox/SnapshotService.java` / `SnapshotServiceImpl.java` — 10개 이벤트마다 스냅샷 발행
-- `q-im/.../outbox/OutboxServiceImpl.java` — `relayPendingEvents()` 스냅샷 트리거 분기 추가
+- `idem-registry/.../entity/SnapshotMetaJpaEntity.java` — `snapshot_meta` 테이블 JPA 매핑
+- `idem-registry/.../repository/SnapshotMetaJpaRepository.java` — 최신 스냅샷 조회, 중복 방지
+- `idem-registry/.../outbox/SnapshotService.java` / `SnapshotServiceImpl.java` — 10개 이벤트마다 스냅샷 발행
+- `idem-registry/.../outbox/OutboxServiceImpl.java` — `relayPendingEvents()` 스냅샷 트리거 분기 추가
 
 ### 4.4 프론트엔드
 

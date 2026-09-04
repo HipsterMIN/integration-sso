@@ -17,7 +17,7 @@
 #   [단독] 모니터링만 기동 (네트워크·볼륨을 자체 생성):
 #     docker compose -f docker-compose.monitoring.yml up -d
 #     ※ exporter들은 docker-compose.yml의 redis/kafka/postgres 컨테이너에
-#        접근하기 위해 동일 네트워크(onepass-net)가 이미 존재해야 합니다.
+#        접근하기 위해 동일 네트워크(idem-net)가 이미 존재해야 합니다.
 #        존재하지 않을 경우 exporter 기동은 성공하나 스크레이핑은 실패합니다.
 #
 # 접속 정보:
@@ -36,7 +36,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 networks:
-  onepass-net:
+  idem-net:
     # docker-compose.yml이 먼저 기동된 경우 해당 네트워크를 재사용.
     # 단독 기동 시에는 새로 생성 (external 제거).
     driver: bridge
@@ -67,7 +67,7 @@ services:
   # ════════════════════════════════════════════════════════════
   prometheus:
     image: prom/prometheus:v2.51.2
-    container_name: onepass-prometheus
+    container_name: idem-prometheus
     restart: unless-stopped
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -84,7 +84,7 @@ services:
       - ../monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
       - prometheus-data:/prometheus
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.30
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
@@ -109,7 +109,7 @@ services:
   # ════════════════════════════════════════════════════════════
   grafana:
     image: grafana/grafana-oss:10.4.2
-    container_name: onepass-grafana
+    container_name: idem-grafana
     restart: unless-stopped
     environment:
       # ── 계정 ─────────────────────────────────────────────────
@@ -119,7 +119,7 @@ services:
       # ── 익명 접근 비활성화 ────────────────────────────────────
       GF_AUTH_ANONYMOUS_ENABLED:            "false"
       # ── 대시보드 기본 설정 ────────────────────────────────────
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/onepass-overview.json
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/idem-overview.json
       # ── 알림 (Alerting) ───────────────────────────────────────
       GF_ALERTING_ENABLED:                  "true"
       GF_UNIFIED_ALERTING_ENABLED:          "true"
@@ -129,13 +129,13 @@ services:
       GF_SMTP_USER:                         "${SMTP_USER:-alert@smes.go.kr}"
       GF_SMTP_PASSWORD:                     "${SMTP_PASSWORD:-}"
       GF_SMTP_FROM_ADDRESS:                 "${ALERT_EMAIL_FROM:-alert@smes.go.kr}"
-      GF_SMTP_FROM_NAME:                    "OnePass Platform Monitoring"
+      GF_SMTP_FROM_NAME:                    "Idem Platform Monitoring"
       GF_SMTP_STARTTLS_POLICY:              "MandatoryStartTLS"
       GF_SMTP_SKIP_VERIFY:                  "false"
       # ── Slack 알림 채널 환경 변수 (contact-points.yml 참조) ────
       SLACK_WEBHOOK_URL:                    "${SLACK_WEBHOOK_URL:-}"
-      SLACK_CRITICAL_CHANNEL:               "${SLACK_CRITICAL_CHANNEL:-#onepass-alerts-critical}"
-      SLACK_WARNING_CHANNEL:                "${SLACK_WARNING_CHANNEL:-#onepass-alerts}"
+      SLACK_CRITICAL_CHANNEL:               "${SLACK_CRITICAL_CHANNEL:-#idem-alerts-critical}"
+      SLACK_WARNING_CHANNEL:                "${SLACK_WARNING_CHANNEL:-#idem-alerts}"
       ALERT_EMAIL_TO:                       "${ALERT_EMAIL_TO:-oncall@smes.go.kr}"
       ALERT_EMAIL_FROM:                     "${ALERT_EMAIL_FROM:-alert@smes.go.kr}"
       # ── 플러그인 ──────────────────────────────────────────────
@@ -159,7 +159,7 @@ services:
       # 영구 저장
       - grafana-data:/var/lib/grafana
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.31
     depends_on:
       prometheus:
@@ -189,7 +189,7 @@ services:
   # ════════════════════════════════════════════════════════════
   loki:
     image: grafana/loki:2.9.6
-    container_name: onepass-loki
+    container_name: idem-loki
     restart: unless-stopped
     command: -config.file=/etc/loki/loki-config.yml
     ports:
@@ -199,7 +199,7 @@ services:
       - ../monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/tmp/loki
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.32
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
@@ -231,7 +231,7 @@ services:
   # ════════════════════════════════════════════════════════════
   promtail:
     image: grafana/promtail:2.9.6
-    container_name: onepass-promtail
+    container_name: idem-promtail
     restart: unless-stopped
     command: -config.file=/etc/promtail/promtail-config.yml
     ports:
@@ -241,7 +241,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro   # Docker API 접근
       - /var/log:/var/log:ro                           # 호스트 시스템 로그 (선택)
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.33
     depends_on:
       loki:
@@ -260,7 +260,7 @@ services:
   # ════════════════════════════════════════════════════════════
   redis-exporter:
     image: oliver006/redis_exporter:v1.59.0-alpine
-    container_name: onepass-redis-exporter
+    container_name: idem-redis-exporter
     restart: unless-stopped
     environment:
       REDIS_ADDR: redis://redis:6379
@@ -268,7 +268,7 @@ services:
     ports:
       - "9121:9121"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.34
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9121/health || exit 1"]
@@ -289,7 +289,7 @@ services:
   # ════════════════════════════════════════════════════════════
   kafka-exporter:
     image: danielqsj/kafka-exporter:v1.7.0
-    container_name: onepass-kafka-exporter
+    container_name: idem-kafka-exporter
     restart: unless-stopped
     command:
       - "--kafka.server=kafka:29092"
@@ -301,7 +301,7 @@ services:
     ports:
       - "9308:9308"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.35
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9308/metrics | grep kafka_brokers || exit 1"]
@@ -323,7 +323,7 @@ services:
   # ════════════════════════════════════════════════════════════
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
-    container_name: onepass-postgres-exporter
+    container_name: idem-postgres-exporter
     restart: unless-stopped
     environment:
       DATA_SOURCE_NAME: "postgresql://onepass:onepass@postgres:5432/onepass?sslmode=disable"
@@ -331,7 +331,7 @@ services:
     ports:
       - "9187:9187"
     networks:
-      onepass-net:
+      idem-net:
         ipv4_address: 172.20.0.36
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9187/metrics | grep pg_up || exit 1"]

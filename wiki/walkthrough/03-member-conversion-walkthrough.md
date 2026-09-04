@@ -264,9 +264,9 @@ try {
 | `qim/member/MemberConversionService.java` | 전환 핵심 로직, 분산락 |
 | `qim/sp/service/QimSpReceiverService.java` | `resolveRegisterEventType()` |
 | `qim/outbox/OutboxService.java` | 전환 이벤트 Outbox INSERT |
-| `ido/kafka/QimEventConsumer.java` | 전환 이벤트 수신 → 프로비저닝 트리거 |
-| `onepass-fe/src/hooks/useEzAuth.ts` | EzAuth 기업 인증 hook |
-| `onepass-fe/src/pages/MyPage/` | 전환 신청 페이지 |
+| `idem-hub/kafka/QimEventConsumer.java` | 전환 이벤트 수신 → 프로비저닝 트리거 |
+| `idem-console/src/hooks/useEzAuth.ts` | EzAuth 기업 인증 hook |
+| `idem-console/src/pages/MyPage/` | 전환 신청 페이지 |
 
 ---
 

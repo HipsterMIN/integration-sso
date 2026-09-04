@@ -89,7 +89,7 @@ onepass-fe (React SPA, :3001 dev / Nginx prod)
 # Node.js 20+ 필요 (nvm 권장)
 node --version   # v20.x.x 이상 확인
 
-cd onepass-fe/frontend
+cd idem-console/frontend
 npm install
 
 # 환경변수 설정
@@ -100,7 +100,7 @@ cp .env.example .env
 ### 2.2 개발 서버 실행
 
 ```bash
-cd onepass-fe/frontend
+cd idem-console/frontend
 
 # 로컬 개발 서버 (webpack-dev-server, :3001)
 npm run dev
@@ -117,7 +117,7 @@ APP_ENV=prod npm run build
 ```bash
 # 로컬 ido 서버 실행 (별도 터미널)
 cd <project-root>
-./gradlew :ido:bootRun --args='--spring.profiles.active=local'
+./gradlew :idem-hub:bootRun --args='--spring.profiles.active=local'
 # → http://localhost:8083 기동
 
 # FE .env에서 ido 연결
@@ -541,7 +541,7 @@ exchangeCiToken({
 ## 10. 디렉토리 구조
 
 ```
-onepass-fe/frontend/src/
+idem-console/frontend/src/
 ├── api/
 │   ├── beInstance.ts          # beApiInstance (ido BFF — 모든 API 경유)
 │   ├── extInstance.ts         # deprecated: beApiInstance re-export
@@ -630,7 +630,7 @@ grep -E "AES_GCM_KEY|EXT_API_KEY|SKIP_AUTH|EXT_API_ENDPOINT" .env
 # → 위 변수가 있으면 삭제 (v3.0에서 제거됨)
 
 # 타입 검사
-cd onepass-fe/frontend && npx tsc --noEmit
+cd idem-console/frontend && npx tsc --noEmit
 ```
 
 ### 12.2 스테이징/프로덕션 배포 전

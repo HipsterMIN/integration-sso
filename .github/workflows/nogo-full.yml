@@ -16,11 +16,11 @@
 #
 # 검증 매트릭스:
 #   Phase 1 (병렬):
-#     - module-tests:  ido / q-im / onepass-agent / agency-stub
+#     - module-tests:  idem-hub / idem-registry / idem-agent / idem-tenant-sample
 #                      (각 모듈 별도 runner — Testcontainers Docker 가용)
-#     - frontend:      onepass-fe 단독
+#     - frontend:      idem-console 단독
 #   Phase 2 (Phase 1 후):
-#     - integration:   :ido :q-im 통합 테스트 (Testcontainers PostgreSQL 사용)
+#     - integration:   :idem-hub :idem-registry 통합 테스트 (Testcontainers PostgreSQL 사용)
 #     - e2e (optional): Issue #2 Agency E2E — @Disabled 무시 시도
 #     - security (optional): OWASP Dependency-Check
 #   Phase 3:
@@ -84,13 +84,13 @@ jobs:
       fail-fast: false      # 한 모듈 실패해도 다른 모듈 계속
       matrix:
         module:
-          - ido
-          - q-im
-          - onepass-agent
-          - agency-stub
-          - platform-common
-          - q-sign
-          - outbox-relay-batch
+          - idem-hub
+          - idem-registry
+          - idem-agent
+          - idem-tenant-sample
+          - idem-common
+          - idem-gate
+          - idem-relay
 
     steps:
       - name: 소스 체크아웃
@@ -191,7 +191,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: onepass-fe/frontend
+        working-directory: idem-console/frontend
 
     steps:
       - name: 소스 체크아웃
@@ -202,7 +202,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'yarn'
-          cache-dependency-path: onepass-fe/frontend/yarn.lock
+          cache-dependency-path: idem-console/frontend/yarn.lock
 
       - name: yarn install (frozen-lockfile)
         run: yarn install --frozen-lockfile --network-timeout 600000
@@ -234,7 +234,7 @@ jobs:
         with:
           name: frontend-build-${{ github.run_number }}
           path: |
-            onepass-fe/frontend/dist/
+            idem-console/frontend/dist/
           retention-days: 3
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -280,7 +280,7 @@ jobs:
           # 따라서 별도 -Pcli 프로퍼티로 어노테이션 제거 후 재실행하는 우회 없음.
           # 대신 @Disabled 표시 그대로 두고, 다음 명령은 "현재 활성화된 E2E 만" 실행.
           chmod +x ./gradlew
-          ./gradlew :agency-stub:test --no-daemon --console=plain --continue \
+          ./gradlew :idem-tenant-sample:test --no-daemon --console=plain --continue \
             --tests "kr.go.smes.agency.e2e.*" 2>&1 | tee /tmp/e2e.log || true
           
           echo ""
@@ -297,8 +297,8 @@ jobs:
         with:
           name: e2e-agency-${{ github.run_number }}
           path: |
-            agency-stub/build/reports/tests/
-            agency-stub/build/test-results/
+            idem-tenant-sample/build/reports/tests/
+            idem-tenant-sample/build/test-results/
             /tmp/e2e.log
           retention-days: 3
 

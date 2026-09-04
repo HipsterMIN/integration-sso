@@ -1,0 +1,15 @@
+apiVersion: v2
+name: idem
+description: Idem — 회원통합·연합인가 플랫폼 (idem-gate / idem-registry / idem-hub / idem-authz / idem-relay / idem-tenant-sample)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - onepass
+  - sso
+  - authentication
+  - oidc
+home: https://github.com/HipsterMIN/integration-sso
+maintainers:
+  - name: idem-team
+    email: onepass@example.com

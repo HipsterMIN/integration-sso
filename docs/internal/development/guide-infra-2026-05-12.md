@@ -130,7 +130,7 @@ cd <project-root>
 FE_AES_GCM_KEY="$(openssl rand -base64 32)" \
 IDO_QIM_EXT_API_KEY="test-ext-api-key" \
 IDO_QIM_INTERNAL_API_KEY="ido-internal" \
-./gradlew :ido:bootRun --args='--spring.profiles.active=local'
+./gradlew :idem-hub:bootRun --args='--spring.profiles.active=local'
 ```
 
 ### 3.4 헬스체크 스크립트
@@ -284,21 +284,21 @@ add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
 ```bash
 # 컴파일 + 테스트 검증
-./gradlew :ido:compileJava :q-sign:compileJava --no-daemon
-./gradlew :ido:test :q-sign:test --no-daemon
+./gradlew :idem-hub:compileJava :idem-gate:compileJava --no-daemon
+./gradlew :idem-hub:test :idem-gate:test --no-daemon
 
 # JAR 빌드
-./gradlew :ido:bootJar -x test
+./gradlew :idem-hub:bootJar -x test
 
 # Docker 이미지 빌드
-docker build -f ido/Dockerfile -t onepass-ido:latest .
-docker build -f q-sign/Dockerfile -t onepass-qsign:latest .
+docker build -f idem-hub/Dockerfile -t onepass-ido:latest .
+docker build -f idem-gate/Dockerfile -t onepass-qsign:latest .
 ```
 
 ### 6.2 프론트엔드 (FE) 빌드
 
 ```bash
-cd onepass-fe/frontend
+cd idem-console/frontend
 
 # ⚠️ v3.0: AES_GCM_KEY, EXT_API_KEY, SKIP_AUTH 없는 .env.prod 사용
 APP_ENV=prod npm run build
@@ -322,7 +322,7 @@ sleep 15
 curl -f http://localhost:8083/actuator/health && echo "✅ ido 기동 확인"
 
 # FE 번들 보안 확인 — AES 키 미포함 검증
-unzip -p onepass-fe/frontend/build/static/js/main.*.js | strings | grep -c "AES_GCM_KEY"
+unzip -p idem-console/frontend/build/static/js/main.*.js | strings | grep -c "AES_GCM_KEY"
 # → 0이어야 함 (키 미포함 확인)
 ```
 
@@ -514,7 +514,7 @@ curl -H "X-BE-API-Key: $BE_API_KEY" \
     → strings main.*.js | grep -i "ext.*key\|imk-" → 0건
 
 [ ] SKIP_AUTH 코드 잔존 없음 확인
-    → grep -r "SKIP_AUTH" onepass-fe/frontend/src/ → 0건
+    → grep -r "SKIP_AUTH" idem-console/frontend/src/ → 0건
 
 [ ] KEYCLOAK_CLIENT_SECRET 하드코딩 없음 확인
     → grep "change-me" infra/docker/docker-compose.yml → 0건

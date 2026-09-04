@@ -182,7 +182,7 @@
 
 ## 5. 데이터 모델 변경
 
-> Q-IM은 MariaDB, ido/q-authz는 PostgreSQL(분산 TX 없음 → 아웃박스+멱등 의존).
+> Q-IM은 MariaDB, idem-hub/q-authz는 PostgreSQL(분산 TX 없음 → 아웃박스+멱등 의존).
 
 ### 5.1 신규 `identity_merge_log` (q-im) — 병합 감사(불변)
 | 컬럼 | 타입 | 설명 |

@@ -40,10 +40,10 @@ F-26 HMAC 서명은 **인프라만 구현**했고, 기본값은 `false`를 유�
 
 ---
 
-### 2. Helm Chart 패키징 (infra/helm/ido/)
+### 2. Helm Chart 패키징 (infra/helm/idem-hub/)
 
 ```
-infra/helm/ido/
+infra/helm/idem-hub/
 ├── Chart.yaml                  # appVersion: 2.3.0
 ├── values.yaml                 # 기본값 (Phase 1)
 ├── values-prod.yaml            # 운영 오버라이드
@@ -62,7 +62,7 @@ infra/helm/ido/
 `--set phase=<value>` 한 줄로 Feature Flag 일괄 전환:
 
 ```bash
-helm upgrade ido ./infra/helm/ido -n production -f values-prod.yaml --set phase=2a
+helm upgrade ido ./infra/helm/idem-hub -n production -f values-prod.yaml --set phase=2a
 # → IDO_PROVISIONING_ENABLED=true, IDO_PROVISIONING_DRY_RUN=true 자동 적용
 ```
 
@@ -119,19 +119,19 @@ k6 run test/load/k6-hmac-verification.js \
 
 | 파일 | 변경 유형 | 설명 |
 |------|-----------|------|
-| `ido/.../gateway/HmacSignatureFilter.java` | **신규** | F-26 인바운드 서명 검증 필터 |
-| `ido/.../gateway/AgencyHmacKeyStore.java` | **신규** | 기관별 HMAC 키 저장소 |
-| `ido/.../gateway/AgencyGatewayServiceImpl.java` | **수정** | 아웃바운드 실제 HMAC 서명 적용 |
-| `infra/helm/ido/Chart.yaml` | **신규** | Helm Chart 메타데이터 |
-| `infra/helm/ido/values.yaml` | **신규** | 기본 values (Phase 1) |
-| `infra/helm/ido/values-prod.yaml` | **신규** | 운영 오버라이드 |
-| `infra/helm/ido/templates/_helpers.tpl` | **신규** | Phase 프리셋 헬퍼 |
-| `infra/helm/ido/templates/configmap.yaml` | **신규** | Feature Flags ConfigMap 템플릿 |
-| `infra/helm/ido/templates/deployment.yaml` | **신규** | Deployment 템플릿 (HMAC Secret 포함) |
-| `infra/helm/ido/templates/service.yaml` | **신규** | Service 템플릿 |
-| `infra/helm/ido/templates/serviceaccount.yaml` | **신규** | ServiceAccount 템플릿 |
-| `infra/helm/ido/templates/hpa.yaml` | **신규** | HPA 템플릿 |
-| `infra/helm/ido/templates/pdb.yaml` | **신규** | PDB 템플릿 |
+| `idem-hub/.../gateway/HmacSignatureFilter.java` | **신규** | F-26 인바운드 서명 검증 필터 |
+| `idem-hub/.../gateway/AgencyHmacKeyStore.java` | **신규** | 기관별 HMAC 키 저장소 |
+| `idem-hub/.../gateway/AgencyGatewayServiceImpl.java` | **수정** | 아웃바운드 실제 HMAC 서명 적용 |
+| `infra/helm/idem-hub/Chart.yaml` | **신규** | Helm Chart 메타데이터 |
+| `infra/helm/idem-hub/values.yaml` | **신규** | 기본 values (Phase 1) |
+| `infra/helm/idem-hub/values-prod.yaml` | **신규** | 운영 오버라이드 |
+| `infra/helm/idem-hub/templates/_helpers.tpl` | **신규** | Phase 프리셋 헬퍼 |
+| `infra/helm/idem-hub/templates/configmap.yaml` | **신규** | Feature Flags ConfigMap 템플릿 |
+| `infra/helm/idem-hub/templates/deployment.yaml` | **신규** | Deployment 템플릿 (HMAC Secret 포함) |
+| `infra/helm/idem-hub/templates/service.yaml` | **신규** | Service 템플릿 |
+| `infra/helm/idem-hub/templates/serviceaccount.yaml` | **신규** | ServiceAccount 템플릿 |
+| `infra/helm/idem-hub/templates/hpa.yaml` | **신규** | HPA 템플릿 |
+| `infra/helm/idem-hub/templates/pdb.yaml` | **신규** | PDB 템플릿 |
 | `test/load/k6-provisioning.js` | **신규** | 프로비저닝 부하 테스트 |
 | `test/load/k6-hmac-verification.js` | **신규** | HMAC 검증 부하 테스트 |
 | `docs/features/F-26-hmac-sig.md` | **보완** | Sprint 17 구현 내용 전면 반영 |
@@ -142,8 +142,8 @@ k6 run test/load/k6-hmac-verification.js \
 ## 빌드 검증
 
 ```
-./gradlew :ido:compileJava  → ✅ BUILD SUCCESSFUL
-./gradlew :ido:test         → ✅ BUILD SUCCESSFUL
+./gradlew :idem-hub:compileJava  → ✅ BUILD SUCCESSFUL
+./gradlew :idem-hub:test         → ✅ BUILD SUCCESSFUL
 ```
 
 ---
@@ -157,9 +157,9 @@ kubectl create secret generic ido-gateway-hmac-keys \
   -n production
 
 # 2. Helm으로 v2.3.0 배포 (Phase 1 — 신규 기능 OFF)
-helm upgrade --install ido ./infra/helm/ido \
+helm upgrade --install ido ./infra/helm/idem-hub \
   -n production \
-  -f infra/helm/ido/values-prod.yaml \
+  -f infra/helm/idem-hub/values-prod.yaml \
   --set image.tag=2.3.0
 
 # 3. 배포 후 Feature Flags 확인

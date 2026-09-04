@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_SECURITY_HEADERS_ENABLED`  
 > **기본값**: `true` (운영 필수)  
 > **Spring 프로퍼티**: `ido.security-headers.enabled`  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/config/SecurityHeadersFilter.java`
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/config/SecurityHeadersFilter.java`
 
 ---
 
@@ -129,5 +129,5 @@ ido:
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
 - [OWASP Secure Headers Project](https://owasp.org/www-project-secure-headers/)

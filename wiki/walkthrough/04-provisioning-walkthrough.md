@@ -80,7 +80,7 @@ sequenceDiagram
 ## 2. QimEventConsumer — 이벤트 수신 및 필터링
 
 ```java
-// ido/kafka/QimEventConsumer.java
+// idem-hub/kafka/QimEventConsumer.java
 @KafkaListener(topics = "qim.user.events", groupId = "ido-provisioning-group")
 public void onQimEvent(ConsumerRecord<String, String> record) {
     QimEvent event = deserialize(record.value());
@@ -125,7 +125,7 @@ triggerProvisioning() 호출
 ## 3. ProvisioningServiceImpl — Virtual Thread 병렬 HTTP
 
 ```java
-// ido/provision/ProvisioningServiceImpl.java
+// idem-hub/provision/ProvisioningServiceImpl.java
 @Override
 public void triggerProvisioning(QimEvent event) {
     List<AgencyEndpoint> endpoints = agencyRepository.findAllActive(); // 68개
@@ -197,7 +197,7 @@ Virtual Thread × 68  → 68 경량 스레드 (메모리 ~1MB)
 
 **상수 시간 비교 코드** (타이밍 공격 방어):
 ```java
-// ido/gateway/HmacSignatureFilter.java
+// idem-hub/gateway/HmacSignatureFilter.java
 boolean valid = MessageDigest.isEqual(
     expectedSignature.getBytes(StandardCharsets.UTF_8),
     receivedSignature.getBytes(StandardCharsets.UTF_8)
@@ -371,15 +371,15 @@ sequenceDiagram
 
 | 파일 | 역할 |
 |------|------|
-| `ido/provision/ProvisioningService.java` | 프로비저닝 인터페이스 (Javadoc: QIM-OUTBOX-SPEC-001) |
-| `ido/provision/ProvisioningServiceImpl.java` | Virtual Thread 병렬 구현 |
-| `ido/provision/ProvisioningOutboxRecord.java` | Outbox 레코드 (V18 CHECK 제약 Javadoc) |
-| `ido/provision/ProvisioningOutboxRelay.java` | 지수 백오프 릴레이 |
-| `ido/kafka/QimEventConsumer.java` | Kafka 이벤트 수신 + 5종 필터 |
-| `ido/gateway/HmacSignatureFilter.java` | HMAC-SHA256 기관 인증 |
-| `ido/provision/dto/ProvisioningEventType.java` | 이벤트 타입 열거형 |
-| `ido/src/main/resources/db/migration/V15__add_provisioning_outbox_and_agency_endpoint.sql` | provisioning_outbox 생성 |
-| `ido/src/main/resources/db/migration/V18__update_event_type_constraints.sql` | CHECK 제약 갱신 |
+| `idem-hub/provision/ProvisioningService.java` | 프로비저닝 인터페이스 (Javadoc: QIM-OUTBOX-SPEC-001) |
+| `idem-hub/provision/ProvisioningServiceImpl.java` | Virtual Thread 병렬 구현 |
+| `idem-hub/provision/ProvisioningOutboxRecord.java` | Outbox 레코드 (V18 CHECK 제약 Javadoc) |
+| `idem-hub/provision/ProvisioningOutboxRelay.java` | 지수 백오프 릴레이 |
+| `idem-hub/kafka/QimEventConsumer.java` | Kafka 이벤트 수신 + 5종 필터 |
+| `idem-hub/gateway/HmacSignatureFilter.java` | HMAC-SHA256 기관 인증 |
+| `idem-hub/provision/dto/ProvisioningEventType.java` | 이벤트 타입 열거형 |
+| `idem-hub/src/main/resources/db/migration/V15__add_provisioning_outbox_and_agency_endpoint.sql` | provisioning_outbox 생성 |
+| `idem-hub/src/main/resources/db/migration/V18__update_event_type_constraints.sql` | CHECK 제약 갱신 |
 
 ---
 

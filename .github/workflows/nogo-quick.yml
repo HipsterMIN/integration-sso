@@ -12,10 +12,10 @@
 #           (branch 선택 가능 — shipster/main/genspark_ai_developer 등)
 #
 # 검증 범위:
-#   - Issue #1: :ido:compileTestJava + :ido:test (MemberLookupControllerTest)
-#   - Issue #3a/3b: :q-im:test (QimLifecycle + Outbox)
-#   - Issue #4: :onepass-agent:test (WeavingStrategyFactoryJeusTest)
-#   - Issue #5: :onepass-fe:yarnInstall (또는 frontend 단독 yarn install)
+#   - Issue #1: :idem-hub:compileTestJava + :idem-hub:test (MemberLookupControllerTest)
+#   - Issue #3a/3b: :idem-registry:test (QimLifecycle + Outbox)
+#   - Issue #4: :idem-agent:test (WeavingStrategyFactoryJeusTest)
+#   - Issue #5: :idem-console:yarnInstall (또는 frontend 단독 yarn install)
 #   - Issue #2: SKIPPED (Testcontainers 필요 — full 버전에서 검증)
 #
 # Docker 가 GitHub runner 에 있지만 본 워크플로는 Testcontainers 의도적으로 비활성화
@@ -28,7 +28,7 @@ on:
   workflow_dispatch:           # 수동 실행 지원 — Actions 탭에서 Run workflow 버튼
     inputs:
       modules:
-        description: '실행할 모듈 (쉼표 구분, 예: ido,q-im,onepass-agent,frontend / 빈 값 = 모두)'
+        description: '실행할 모듈 (쉼표 구분, 예: idem-hub,idem-registry,idem-agent,frontend / 빈 값 = 모두)'
         required: false
         default: ''
   push:
@@ -91,7 +91,7 @@ jobs:
         run: |
           INPUT="${{ inputs.modules }}"
           if [ -z "$INPUT" ]; then
-            echo "modules=ido,q-im,onepass-agent,frontend" >> $GITHUB_OUTPUT
+            echo "modules=idem-hub,idem-registry,idem-agent,frontend" >> $GITHUB_OUTPUT
             echo "▶ 입력 없음 → 전체 모듈 실행"
           else
             echo "modules=$INPUT" >> $GITHUB_OUTPUT
@@ -99,44 +99,44 @@ jobs:
           fi
 
       # ── Issue #1: IdO 컴파일 + 테스트 ───────────────────────────────────────
-      - name: 'Issue #1 — :ido 컴파일 + MemberLookupControllerTest'
-        if: contains(steps.pick.outputs.modules, 'ido')
-        id: ido
+      - name: 'Issue #1 — :idem-hub 컴파일 + MemberLookupControllerTest'
+        if: contains(steps.pick.outputs.modules, 'idem-hub')
+        id: idem-hub
         run: |
           set -o pipefail
           echo "::group::compileTestJava"
-          ./gradlew :ido:compileTestJava --no-daemon --console=plain --stacktrace 2>&1 | tee /tmp/ido-compile.log
+          ./gradlew :idem-hub:compileTestJava --no-daemon --console=plain --stacktrace 2>&1 | tee /tmp/ido-compile.log
           echo "::endgroup::"
           echo "::group::test (memberlookup only)"
-          ./gradlew :ido:test --no-daemon --console=plain --continue \
+          ./gradlew :idem-hub:test --no-daemon --console=plain --continue \
             --tests "kr.go.smes.ido.memberlookup.*" 2>&1 | tee /tmp/ido-test.log
           echo "::endgroup::"
 
       # ── Issue #3a + #3b: Q-IM lifecycle + outbox ──────────────────────────
-      - name: 'Issue #3a/3b — :q-im QimLifecycle + Outbox'
-        if: contains(steps.pick.outputs.modules, 'q-im')
+      - name: 'Issue #3a/3b — :idem-registry QimLifecycle + Outbox'
+        if: contains(steps.pick.outputs.modules, 'idem-registry')
         id: qim
         run: |
           set -o pipefail
           echo "::group::test (lifecycle + outbox)"
-          ./gradlew :q-im:test --no-daemon --console=plain --continue \
+          ./gradlew :idem-registry:test --no-daemon --console=plain --continue \
             --tests "kr.go.smes.qim.integration.QimLifecycleIntegrationTest" \
             --tests "kr.go.smes.qim.outbox.OutboxIntegrationTest" 2>&1 | tee /tmp/qim-test.log
           echo "::endgroup::"
 
       # ── Issue #4: Agent WeavingStrategyFactoryJeusTest ────────────────────
-      - name: 'Issue #4 — :onepass-agent WeavingStrategyFactoryJeusTest'
-        if: contains(steps.pick.outputs.modules, 'onepass-agent')
+      - name: 'Issue #4 — :idem-agent WeavingStrategyFactoryJeusTest'
+        if: contains(steps.pick.outputs.modules, 'idem-agent')
         id: agent
         run: |
           set -o pipefail
           echo "::group::test"
-          ./gradlew :onepass-agent:test --no-daemon --console=plain --continue \
+          ./gradlew :idem-agent:test --no-daemon --console=plain --continue \
             --tests "kr.go.smes.agent.weaving.jeus.WeavingStrategyFactoryJeusTest" 2>&1 | tee /tmp/agent-test.log
           echo "::endgroup::"
 
       # ── Issue #5: FE yarn install ─────────────────────────────────────────
-      - name: 'Issue #5 — onepass-fe yarn install 검증'
+      - name: 'Issue #5 — idem-console yarn install 검증'
         if: contains(steps.pick.outputs.modules, 'frontend')
         id: fe
         run: |
@@ -145,7 +145,7 @@ jobs:
           node --version
           echo "::endgroup::"
           echo "::group::yarn install"
-          cd onepass-fe/frontend
+          cd idem-console/frontend
           # CI에서는 frozen-lockfile 권장 (lock 파일 갱신 필요 시 PR 분리)
           yarn install --frozen-lockfile --network-timeout 600000 2>&1 | tee /tmp/fe-yarn.log
           echo "::endgroup::"
@@ -180,7 +180,7 @@ jobs:
             echo ""
             echo "| Issue | Step | Status |"
             echo "|-------|------|--------|"
-            echo "| #1 IdO   | ${{ steps.ido.outcome   || 'skipped' }} |"
+            echo "| #1 IdO   | ${{ steps.idem-hub.outcome   || 'skipped' }} |"
             echo "| #3a/3b Q-IM | ${{ steps.qim.outcome   || 'skipped' }} |"
             echo "| #4 Agent  | ${{ steps.agent.outcome || 'skipped' }} |"
             echo "| #5 FE    | ${{ steps.fe.outcome    || 'skipped' }} |"

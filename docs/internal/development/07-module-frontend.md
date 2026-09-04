@@ -2,7 +2,7 @@
 
 > **문서 버전**: v1.9.0  
 > **최종 수정**: 2026-05-09  
-> **모듈 경로**: `onepass-fe/`  
+> **모듈 경로**: `idem-console/`  
 > **포트**: 3001  
 > **기술 스택**: React 18, Vite, Node.js 20+
 
@@ -19,7 +19,7 @@ onepass-fe는 **OnePass 통합인증 플랫폼의 SPA(Single Page Application) �
 ## 2. 디렉토리 구조
 
 ```
-onepass-fe/
+idem-console/
 ├── src/
 │   ├── components/        # 공통 컴포넌트
 │   ├── pages/             # 페이지 컴포넌트

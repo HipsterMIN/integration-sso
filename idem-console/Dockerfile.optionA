@@ -1,0 +1,63 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Option A — React 빌드 산출물을 idem-hub JAR 의 정적 리소스로 포함 (단일 JAR 배포)
+#
+# [변경] idem-console Spring Boot BFF 제거
+#   React 빌드 산출물을 idem-hub(BFF) 정적 리소스에 포함시켜 단일 JAR 로 배포.
+#   BFF API 는 idem-hub /api/v1/fe-session/** 에서 제공.
+#
+# 빌드 명령:
+#   docker build -f idem-console/Dockerfile.optionA -t idem-hub:latest .
+#
+# 실행:
+#   docker run -p 8083:8083 idem-hub:latest
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Stage 1: React 빌드 ──────────────────────────────────────────────────────
+FROM node:20-alpine AS frontend-builder
+WORKDIR /frontend
+COPY idem-console/frontend/package.json idem-console/frontend/yarn.lock* ./
+RUN yarn install --frozen-lockfile --network-timeout 120000
+COPY idem-console/frontend/ .
+RUN yarn build:prod
+
+# ── Stage 2: Gradle + Java 빌드 (idem-hub) ───────────────────────────────────────
+FROM eclipse-temurin:21-jdk-alpine AS backend-builder
+WORKDIR /build
+
+# React 빌드 산출물을 idem-hub 정적 리소스 위치로 복사
+# idem-hub 가 SpaController 또는 Nginx-equivalent 로 index.html 서빙
+COPY --from=frontend-builder /frontend/dist \
+     /build/idem-hub/src/main/resources/static
+
+# Gradle 빌드
+COPY gradle/              gradle/
+COPY gradlew              gradlew
+COPY settings.gradle.kts  .
+COPY build.gradle.kts     .
+COPY idem-common/     idem-common/
+COPY idem-gate/              idem-gate/
+COPY idem-registry/                idem-registry/
+COPY idem-hub/                 idem-hub/
+COPY idem-console/          idem-console/
+COPY idem-tenant-sample/         idem-tenant-sample/
+
+RUN chmod +x gradlew && \
+    ./gradlew :idem-hub:bootJar -x test --no-daemon
+
+# ── Stage 3: 런타임 ──────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jre-alpine AS runtime
+WORKDIR /app
+
+# 비루트 사용자
+RUN addgroup -S smes && adduser -S smes -G smes
+USER smes
+
+COPY --from=backend-builder /build/idem-hub/build/libs/*-SNAPSHOT.jar app.jar
+
+EXPOSE 8083
+
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:MaxRAMPercentage=75", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-jar", "app.jar"]

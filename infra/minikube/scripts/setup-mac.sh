@@ -181,7 +181,7 @@ build_ido_image() {
 
     log_info "Gradle bootJar 빌드 중..."
     if [[ -f "./gradlew" ]]; then
-        ./gradlew :ido:bootJar -x test --quiet
+        ./gradlew :idem-hub:bootJar -x test --quiet
     else
         log_error "gradlew를 찾을 수 없습니다: ${PROJECT_ROOT}"
         exit 1
@@ -189,7 +189,7 @@ build_ido_image() {
 
     log_info "Docker 이미지 빌드 중: ${IDO_IMAGE}:${IDO_TAG}"
     docker build \
-        -f ido/Dockerfile \
+        -f idem-hub/Dockerfile \
         -t "${IDO_IMAGE}:${IDO_TAG}" \
         --build-arg SPRING_PROFILES_ACTIVE=local \
         .
@@ -281,7 +281,7 @@ setup_port_forward() {
         -n "${NAMESPACE}" &>/dev/null &
 
     local PF_PID=$!
-    echo "${PF_PID}" > /tmp/onepass-pf-ido.pid
+    echo "${PF_PID}" > /tmp/idem-pf-hub.pid
 
     sleep 2
 
@@ -343,9 +343,9 @@ teardown() {
     log_step "전체 환경 정리"
 
     # 포트 포워딩 종료
-    if [[ -f /tmp/onepass-pf-ido.pid ]]; then
-        kill "$(cat /tmp/onepass-pf-ido.pid)" 2>/dev/null || true
-        rm -f /tmp/onepass-pf-ido.pid
+    if [[ -f /tmp/idem-pf-hub.pid ]]; then
+        kill "$(cat /tmp/idem-pf-hub.pid)" 2>/dev/null || true
+        rm -f /tmp/idem-pf-hub.pid
     fi
     pkill -f "kubectl port-forward" 2>/dev/null || true
 

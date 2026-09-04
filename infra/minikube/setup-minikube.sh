@@ -17,7 +17,7 @@
 # ============================================================
 set -euo pipefail
 
-NAMESPACE="onepass-dev"
+NAMESPACE="idem-dev"
 RELEASE_NAME="onepass"
 CHART_DIR="$(cd "$(dirname "$0")/../helm/onepass" && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -71,14 +71,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 pushd "$PROJECT_ROOT" > /dev/null
 
 # Gradle 빌드가 완료된 경우에만 Docker 빌드
-for svc in q-sign q-im ido agency-stub; do
-  IMG_NAME="onepass-${svc//-/}"
-  case "$svc" in
-    q-sign)      IMG_NAME="onepass-qsign";;
-    q-im)        IMG_NAME="onepass-qim";;
-    ido)         IMG_NAME="onepass-ido";;
-    agency-stub) IMG_NAME="onepass-agency-stub";;
-  esac
+# 모듈 디렉터리명 = 이미지명 (Idem 개명 이후 동일)
+for svc in idem-gate idem-registry idem-hub idem-tenant-sample; do
+  IMG_NAME="${svc}"
 
   if docker image inspect "${IMG_NAME}:latest" &>/dev/null; then
     ok "이미지 존재: ${IMG_NAME}:latest"
@@ -112,14 +107,14 @@ kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -
 info "Secret 생성 (로컬 개발용 더미값)..."
 
 # Q-Sign Secret
-kubectl create secret generic onepass-qsign-secret \
+kubectl create secret generic idem-gate-secret \
   --namespace="$NAMESPACE" \
   --from-literal=DB_HOST="host.minikube.internal" \
   --from-literal=DB_USERNAME="onepass" \
   --from-literal=DB_PASSWORD="onepass" \
   --from-literal=KEYCLOAK_URL="http://host.minikube.internal:8088" \
   --from-literal=QSIGN_KEYCLOAK_CLIENT_SECRET="change-me" \
-  --from-literal=IDO_BASE_URL="http://onepass-ido:8083" \
+  --from-literal=IDO_BASE_URL="http://idem-hub:8083" \
   --from-literal=IDO_INTERNAL_SIG_SECRET="dev-sig-secret-32-bytes-minimum00" \
   --from-literal=REDIS_HOST="host.minikube.internal" \
   --from-literal=REDIS_PASSWORD="" \
@@ -127,7 +122,7 @@ kubectl create secret generic onepass-qsign-secret \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Q-IM Secret
-kubectl create secret generic onepass-qim-secret \
+kubectl create secret generic idem-registry-secret \
   --namespace="$NAMESPACE" \
   --from-literal=QIM_DB_HOST="host.minikube.internal" \
   --from-literal=QIM_DB_USERNAME="qim" \
@@ -142,7 +137,7 @@ kubectl create secret generic onepass-qim-secret \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # IdO Secret
-kubectl create secret generic onepass-ido-secret \
+kubectl create secret generic idem-hub-secret \
   --namespace="$NAMESPACE" \
   --from-literal=DB_HOST="host.minikube.internal" \
   --from-literal=DB_USERNAME="onepass" \
@@ -153,8 +148,8 @@ kubectl create secret generic onepass-ido-secret \
   --from-literal=IDO_INTERNAL_SIG_SECRET="dev-sig-secret-32-bytes-minimum00" \
   --from-literal=KEYCLOAK_BASE_URL="http://host.minikube.internal:8088" \
   --from-literal=KEYCLOAK_CLIENT_SECRET="change-me" \
-  --from-literal=QIM_BASE_URL="http://onepass-qim:8082" \
-  --from-literal=QSIGN_BASE_URL="http://onepass-qsign:8081" \
+  --from-literal=QIM_BASE_URL="http://idem-registry:8082" \
+  --from-literal=QSIGN_BASE_URL="http://idem-gate:8081" \
   --from-literal=IDO_HANDOFF_AES_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" \
   --from-literal=IDO_HANDOFF_HMAC_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" \
   --from-literal=IDO_WEBHOOK_SIGNING_SECRET="poc-webhook-secret-change-in-production" \
@@ -166,7 +161,7 @@ kubectl create secret generic onepass-ido-secret \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Agency-Stub Secret
-kubectl create secret generic onepass-agency-stub-secret \
+kubectl create secret generic idem-tenant-sample-secret \
   --namespace="$NAMESPACE" \
   --from-literal=DB_HOST="host.minikube.internal" \
   --from-literal=DB_USERNAME="onepass" \
@@ -174,7 +169,7 @@ kubectl create secret generic onepass-agency-stub-secret \
   --from-literal=REDIS_HOST="host.minikube.internal" \
   --from-literal=REDIS_PASSWORD="" \
   --from-literal=KAFKA_SERVERS="host.minikube.internal:9092" \
-  --from-literal=IDO_BASE_URL="http://onepass-ido:8083" \
+  --from-literal=IDO_BASE_URL="http://idem-hub:8083" \
   --from-literal=AGENCY_API_KEY="stub-api-key-dev-001" \
   --from-literal=IDO_WEBHOOK_SIGNING_SECRET="poc-webhook-secret-change-in-production" \
   --dry-run=client -o yaml | kubectl apply -f -
@@ -214,13 +209,13 @@ echo " Ingress를 통한 외부 접근을 위해 별도 터미널에서 실행:"
 echo "   minikube tunnel"
 echo ""
 echo " 또는 Port-forward로 직접 접근:"
-echo "   kubectl port-forward svc/onepass-ido 8083:8083 -n $NAMESPACE"
-echo "   kubectl port-forward svc/onepass-qim 8082:8082 -n $NAMESPACE"
-echo "   kubectl port-forward svc/onepass-qsign 8081:8081 -n $NAMESPACE"
+echo "   kubectl port-forward svc/idem-hub 8083:8083 -n $NAMESPACE"
+echo "   kubectl port-forward svc/idem-registry 8082:8082 -n $NAMESPACE"
+echo "   kubectl port-forward svc/idem-gate 8081:8081 -n $NAMESPACE"
 echo ""
 echo " Smoke test 실행:"
 echo "   ./infra/scripts/smoke-test.sh --base-url http://localhost:8083"
 echo ""
 echo " 로그 확인:"
-echo "   kubectl logs -f deployment/onepass-ido -n $NAMESPACE"
+echo "   kubectl logs -f deployment/idem-hub -n $NAMESPACE"
 echo ""

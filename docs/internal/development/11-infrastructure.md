@@ -92,12 +92,12 @@ docker compose --profile monitoring up -d
 
 ```bash
 # JAR 빌드 (루트에서)
-./gradlew :q-sign:bootJar :ido:bootJar :q-im:bootJar -x test
+./gradlew :idem-gate:bootJar :idem-hub:bootJar :idem-registry:bootJar -x test
 
 # Docker 이미지 빌드
-docker build -f q-sign/Dockerfile -t onepass-qsign:latest .
-docker build -f ido/Dockerfile     -t onepass-ido:latest .
-docker build -f q-im/Dockerfile    -t onepass-qim:latest .
+docker build -f idem-gate/Dockerfile -t onepass-qsign:latest .
+docker build -f idem-hub/Dockerfile     -t onepass-ido:latest .
+docker build -f idem-registry/Dockerfile    -t onepass-qim:latest .
 ```
 
 ### 2.3 헬스체크
@@ -116,19 +116,19 @@ curl http://localhost:8088/health/ready     # Keycloak
 모든 Spring Boot 서비스는 **멀티스테이지 빌드** + **non-root 사용자** 패턴 적용:
 
 ```dockerfile
-# ido/Dockerfile 예시
+# idem-hub/Dockerfile 예시
 # Stage 1: Build
 FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /build
 COPY . .
-RUN ./gradlew :ido:bootJar -x test
+RUN ./gradlew :idem-hub:bootJar -x test
 
 # Stage 2: Runtime
 FROM eclipse-temurin:21-jre-alpine
 RUN addgroup -S ido && adduser -S ido -G ido
 USER ido
 WORKDIR /app
-COPY --from=builder /build/ido/build/libs/ido-*.jar app.jar
+COPY --from=builder /build/idem-hub/build/libs/idem-hub-*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 
@@ -264,7 +264,7 @@ scrape_configs:
       - targets: ['localhost']
         labels:
           service: 'ido'
-          __path__: '/var/log/ido/*.log'
+          __path__: '/var/log/idem-hub/*.log'
     pipeline_stages:
       - json:
           expressions:
@@ -295,16 +295,16 @@ PostgreSQL/MariaDB/Redis가 로컬에서 실행 중인 경우:
 ```bash
 # Q-Sign
 SPRING_PROFILES_ACTIVE=local \
-  java -jar q-sign/build/libs/q-sign-0.1.0-SNAPSHOT.jar &
+  java -jar idem-gate/build/libs/q-sign-0.1.0-SNAPSHOT.jar &
 
 # IdO
 SPRING_PROFILES_ACTIVE=local \
   IDO_INTERNAL_SIG_SECRET=local-test-secret-32bytes-padding \
-  java -jar ido/build/libs/ido-0.1.0-SNAPSHOT.jar &
+  java -jar idem-hub/build/libs/ido-0.1.0-SNAPSHOT.jar &
 
 # Q-IM
 SPRING_PROFILES_ACTIVE=local \
-  java -jar q-im/build/libs/q-im-0.1.0-SNAPSHOT.jar &
+  java -jar idem-registry/build/libs/q-im-0.1.0-SNAPSHOT.jar &
 ```
 
 ---

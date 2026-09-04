@@ -7,7 +7,7 @@
 | **상태** | ✅ Accepted |
 | **결정일** | 2025-Q4 (Sprint 2) |
 | **결정자** | 아키텍처 위원회 |
-| **관련 파일** | `ido/config/RedisConfig.java`, `ido/config/RedissonConfig.java`, `ido/auth/store/NiceAuthSessionStore.java`, `ido/fe/session/FeSessionService.java` |
+| **관련 파일** | `idem-hub/config/RedisConfig.java`, `idem-hub/config/RedissonConfig.java`, `idem-hub/auth/store/NiceAuthSessionStore.java`, `idem-hub/fe/session/FeSessionService.java` |
 
 ---
 

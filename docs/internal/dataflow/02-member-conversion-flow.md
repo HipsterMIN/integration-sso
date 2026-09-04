@@ -136,7 +136,7 @@ sequenceDiagram
 
 #### Step1 — 회원유형 선택
 
-**파일**: `onepass-fe/frontend/src/pages/ConversionSteps/member/Step1.tsx`
+**파일**: `idem-console/frontend/src/pages/ConversionSteps/member/Step1.tsx`
 
 ```typescript
 const params = new URLSearchParams(window.location.search);
@@ -176,7 +176,7 @@ FE → POST /api/v1/auth/nice/phone/result
 
 #### Step4 — 기존 회원 확인 (ci-check)
 
-**파일**: `onepass-fe/frontend/src/api/nice/ciCheck.ts`
+**파일**: `idem-console/frontend/src/api/nice/ciCheck.ts`
 
 ```
 POST /api/v1/auth/nice/ci-check
@@ -257,7 +257,7 @@ sequenceDiagram
 
 ## 5. NICE 휴대폰 본인인증 상세 흐름
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/auth/service/NiceAuthService.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/service/NiceAuthService.java`
 
 ### 5.1 Access Token 획득 — 분산 락 상태 머신
 

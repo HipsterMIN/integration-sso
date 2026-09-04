@@ -1,0 +1,35 @@
+##############################################################################
+# Spring Boot 3.x + Embedded Tomcat 10 테스트베드
+# 실제 유관기관이 Spring Boot로 개발한 최신 환경 시뮬레이션
+# JAR 실행 방식 (CATALINA_HOME 없음 — WasDetector 클래스패스 감지 테스트)
+##############################################################################
+FROM eclipse-temurin:17-jre-jammy
+
+LABEL description="OnePass Agent Testbed - Spring Boot 3.x + Embedded Tomcat"
+
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /app /agent /agent-config
+
+VOLUME ["/agent", "/agent-config"]
+
+# Spring Boot 샘플 앱 복사 (빌드 후 마운트)
+# COPY ../apps/springboot-sample/build/libs/springboot-sample.jar /app/app.jar
+COPY springboot-sample-placeholder.txt /app/
+
+# Spring Boot JAR 실행 with Agent
+# CATALINA_HOME 없음 → WasDetector가 클래스패스에서 Tomcat 클래스를 직접 감지해야 함
+ENV JAVA_OPTS="-javaagent:/agent/idem-agent-all.jar=/agent-config/onepass-agent.properties \
+    -Donepass.was.type=TOMCAT_10_PLUS \
+    -Xms256m -Xmx512m \
+    -XX:+UseG1GC"
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+WORKDIR /app
+# CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# 플레이스홀더: 실제 사용 시 위 CMD 활성화
+CMD ["sh", "-c", "echo 'Spring Boot 샘플 앱을 마운트하여 실행하세요: ./scripts/build-springboot.sh' && sleep infinity"]

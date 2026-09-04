@@ -68,16 +68,16 @@ IdO(Identity Orchestrator)는 **정책 오케스트레이터 + FE BFF** 역할�
 export DOCKER_UNAVAILABLE=true
 
 # 2. ido만 컴파일 검증
-DOCKER_UNAVAILABLE=true ./gradlew :ido:compileJava --no-daemon -q
+DOCKER_UNAVAILABLE=true ./gradlew :idem-hub:compileJava --no-daemon -q
 
 # 3. 로컬 프로파일로 실행
-./gradlew :ido:bootRun --args='--spring.profiles.active=local'
+./gradlew :idem-hub:bootRun --args='--spring.profiles.active=local'
 ```
 
 ### application-local.yml 필수 설정
 
 ```yaml
-# ido/src/main/resources/application-local.yml
+# idem-hub/src/main/resources/application-local.yml
 ido:
   auth-rl:
     enabled: false           # IP Rate Limit 끄기 (로컬 반복 테스트)
@@ -132,7 +132,7 @@ IDO_WEBHOOK_RELAY_ENABLED=true
 ## 3. 패키지 구조 및 설계 원칙
 
 ```
-ido/src/main/java/kr/go/smes/ido/
+idem-hub/src/main/java/kr/go/smes/idem-hub/
 ├── admin/              # 기관 Admin API (CRUD)
 ├── api/                # Handoff + 기관 이벤트 폴링
 │   └── handoff/        # POST /api/v1/handoff/issue, verify
@@ -343,7 +343,7 @@ ido:
 ### 패키지 구조
 
 ```
-ido/src/main/java/kr/go/smes/ido/auth/
+idem-hub/src/main/java/kr/go/smes/idem-hub/auth/
 ├── client/
 │   ├── NiceApiClient.java           # NICE IDO API (Access Token, URL발급, 결과조회)
 │   ├── OacxClient.java              # OACX SDK v1.3.2 래퍼
@@ -686,7 +686,7 @@ public void consume(AuthEvent event) {
 ### 테스트 구조
 
 ```
-ido/src/test/java/kr/go/smes/ido/
+idem-hub/src/test/java/kr/go/smes/idem-hub/
 ├── auth/
 │   ├── NiceAuthServiceTest.java      # NICE 인증 서비스 (12개)
 │   ├── NiceCryptoUtilTest.java       # 암호화 유틸 (10개)

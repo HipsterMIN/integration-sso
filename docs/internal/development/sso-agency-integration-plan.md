@@ -50,7 +50,7 @@ AgencyGatewayClient
 
 #### [GAP-1] Handoff Ticket 검증 클라이언트 없음
 
-**현황**: `ido/HandoffController`에 `/api/v1/handoff/verify` API가 있지만, SDK에 이를 호출하는 메서드가 없다.
+**현황**: `idem-hub/HandoffController`에 `/api/v1/handoff/verify` API가 있지만, SDK에 이를 호출하는 메서드가 없다.
 
 **영향**: 자체 SSO 기관이 OnePass 인증 완료 후 HandoffTicket을 검증하려면 직접 HTTP 호출 코드를 작성해야 함.
 
@@ -87,7 +87,7 @@ public String getBodyField(String key) { ... } // 단순 파싱 헬퍼
 
 #### [P1] HandoffVerifyClient 추가 ← **즉시 구현 권장**
 
-**파일**: `onepass-agency-sdk/src/main/java/kr/go/smes/sdk/agency/HandoffVerifyClient.java` (신규)
+**파일**: `idem-sdk-java/src/main/java/kr/go/smes/sdk/agency/HandoffVerifyClient.java` (신규)
 
 ```java
 /**
@@ -132,14 +132,14 @@ public final class HandoffVerifyClient {
 **신규 모델**:
 
 ```java
-// onepass-agency-sdk/.../model/HandoffVerifyRequest.java
+// idem-sdk-java/.../model/HandoffVerifyRequest.java
 public final class HandoffVerifyRequest {
     private final String ticketId;
     private final String agencyCode;
     // toJsonString() — 외부 JSON 라이브러리 없이 수동 직렬화
 }
 
-// onepass-agency-sdk/.../model/HandoffPayload.java
+// idem-sdk-java/.../model/HandoffPayload.java
 public final class HandoffPayload {
     private final String subject;         // OnePass 사용자 식별자 (sub claim)
     private final String identifierHash;  // SHA-256(CI) — 회원 전환 시 기관 조회 키
@@ -217,7 +217,7 @@ public HandoffPayload toHandoffPayload() { ... }
 
 #### [P4] MemberConversionAdapter SPI 인터페이스 ← **자체 SSO 기관 전용, 낮은 우선순위**
 
-**파일**: `onepass-agency-sdk/src/main/java/kr/go/smes/sdk/agency/spi/MemberConversionAdapter.java` (신규)
+**파일**: `idem-sdk-java/src/main/java/kr/go/smes/sdk/agency/spi/MemberConversionAdapter.java` (신규)
 
 ```java
 /**

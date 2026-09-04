@@ -207,9 +207,9 @@ function Build-IdoImage {
         # Gradle 빌드
         Write-Info "Gradle bootJar 빌드 중..."
         if (Test-Path ".\gradlew.bat") {
-            .\gradlew.bat :ido:bootJar -x test --quiet
+            .\gradlew.bat :idem-hub:bootJar -x test --quiet
         } elseif (Test-Path ".\gradlew") {
-            bash .\gradlew :ido:bootJar -x test --quiet
+            bash .\gradlew :idem-hub:bootJar -x test --quiet
         } else {
             Write-Err "gradlew를 찾을 수 없습니다"
             exit 1
@@ -314,7 +314,7 @@ function Start-PortForward {
     $job = Start-Job -ScriptBlock {
         kubectl port-forward service/ido-service 8083:8083 -n $using:Namespace
     }
-    $job.Id | Out-File -FilePath "$env:TEMP\onepass-pf-ido.txt" -Encoding utf8
+    $job.Id | Out-File -FilePath "$env:TEMP\idem-pf-hub.txt" -Encoding utf8
 
     Start-Sleep -Seconds 3
 
@@ -374,11 +374,11 @@ function Invoke-Teardown {
     Write-Step "전체 환경 정리"
 
     # 포트 포워딩 종료
-    if (Test-Path "$env:TEMP\onepass-pf-ido.txt") {
-        $jobId = Get-Content "$env:TEMP\onepass-pf-ido.txt"
+    if (Test-Path "$env:TEMP\idem-pf-hub.txt") {
+        $jobId = Get-Content "$env:TEMP\idem-pf-hub.txt"
         Stop-Job -Id $jobId -ErrorAction SilentlyContinue
         Remove-Job -Id $jobId -ErrorAction SilentlyContinue
-        Remove-Item "$env:TEMP\onepass-pf-ido.txt" -ErrorAction SilentlyContinue
+        Remove-Item "$env:TEMP\idem-pf-hub.txt" -ErrorAction SilentlyContinue
     }
 
     # Helm 릴리스 삭제

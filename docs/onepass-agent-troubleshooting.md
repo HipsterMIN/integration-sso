@@ -59,7 +59,7 @@ Unsupported major.minor version 52.0
 - Agent JAR가 `--release 8` 옵션으로 컴파일됐는지 확인
 - 담당자에게 JDK 1.5 호환 버전 요청
 
-> **참고**: `onepass-agent-1.0.0-all.jar`는 `--release 8` (JDK 8 소스 호환) 컴파일로  
+> **참고**: `idem-agent-1.0.0-all.jar`는 `--release 8` (JDK 8 소스 호환) 컴파일로  
 > JDK 8+ 환경에서 실행됩니다. JDK 1.5/1.6/1.7 환경에서 Agent 클래스 자체가 로드되려면  
 > `--release 5`로 재컴파일이 필요합니다. → **현재 미지원, Sprint 계획 예정**
 
@@ -113,14 +113,14 @@ java.util.zip.ZipException: invalid entry size
 **해결**:
 ```bash
 # JAR 파일 무결성 확인
-java -jar /opt/onepass/onepass-agent-1.0.0-all.jar 2>&1 | head -5
+java -jar /opt/onepass/idem-agent-1.0.0-all.jar 2>&1 | head -5
 
 # MANIFEST 확인
-jar tf /opt/onepass/onepass-agent-1.0.0-all.jar | grep "Premain\|MANIFEST"
+jar tf /opt/onepass/idem-agent-1.0.0-all.jar | grep "Premain\|MANIFEST"
 # 기대 출력: META-INF/MANIFEST.MF
 
 # MANIFEST 내용 확인
-jar xf /opt/onepass/onepass-agent-1.0.0-all.jar META-INF/MANIFEST.MF -C /tmp/
+jar xf /opt/onepass/idem-agent-1.0.0-all.jar META-INF/MANIFEST.MF -C /tmp/
 cat /tmp/META-INF/MANIFEST.MF
 # Premain-Class: kr.go.smes.agent.core.OnePassAgentMain 가 있어야 함
 ```
@@ -427,7 +427,7 @@ java.lang.NoClassDefFoundError: net/bytebuddy/agent/builder/AgentBuilder
 **해결**:
 ```bash
 # fat-JAR에 byte-buddy 포함됐는지 확인
-jar tf /opt/onepass/onepass-agent-1.0.0-all.jar | grep "bytebuddy" | head -5
+jar tf /opt/onepass/idem-agent-1.0.0-all.jar | grep "bytebuddy" | head -5
 # 출력 없으면 fat-JAR 재빌드 필요 → 담당자 문의
 ```
 
@@ -496,7 +496,7 @@ echo "======================================"
 
 # 1. JAR 파일 존재
 echo -n "[1] Agent JAR 파일: "
-[ -f /opt/onepass/onepass-agent-1.0.0-all.jar ] && echo "✅ 존재" || echo "❌ 없음"
+[ -f /opt/onepass/idem-agent-1.0.0-all.jar ] && echo "✅ 존재" || echo "❌ 없음"
 
 # 2. 설정 파일 존재
 echo -n "[2] 설정 파일: "

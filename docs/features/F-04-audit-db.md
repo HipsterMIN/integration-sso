@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_AUDIT_DB_ENABLED`  
 > **기본값**: `true`  
 > **Spring 프로퍼티**: `ido.audit.db-save-enabled`  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/audit/AuditLogRepository.java`  
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/audit/AuditLogRepository.java`  
 > **대상 테이블**: `ido.audit_log`
 
 ---
@@ -155,5 +155,5 @@ LIMIT 20;
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../ido/src/main/java/kr/go/smes/ido/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)

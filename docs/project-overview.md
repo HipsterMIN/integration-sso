@@ -1,13 +1,14 @@
-# OnePass 통합 인증 플랫폼 — 프로젝트 소개
+# Idem 회원통합·연합인가 플랫폼 — 프로젝트 소개
 
 > **작성일** 2026-09-01 · **기준 버전** v0.8.11 · **대상 독자** 프로젝트를 처음 접하는 분(기관 담당자·경영진·신규 참여자)
 > 같은 내용의 배포용 문서: `OnePass-프로젝트-소개.docx` (Word)
+> **개명 안내**: 2026-09-04 제품명을 OnePass에서 **Idem** 으로 바꾸었다. 아래 본문에서 "OnePass/원패스"는 첫 적용 사례(중소벤처기업부 중기원패스)의 서비스명이고, 제품 자체는 Idem이다. 모듈 대응표는 [`naming.md`](naming.md).
 
 ---
 
 ## 1. 이 프로젝트는 무엇인가
 
-**OnePass는 중소기업 지원 유관기관(최대 68개)의 회원가입과 로그인을 하나로 통합하는 플랫폼입니다.**
+**Idem은 여러 기관(테넌트)의 회원가입과 로그인을 동일인 기준으로 하나로 통합하는 플랫폼입니다.** 첫 적용 사례인 OnePass(중기원패스)는 중소기업 지원 유관기관(최대 68개)을 대상으로 합니다.
 이용자는 원패스 계정 하나로 여러 기관 서비스를 다시 가입하지 않고 이용하고, 기관은 회원관리·본인인증·보안을 플랫폼 표준에 맡길 수 있습니다.
 
 핵심 가치는 세 가지입니다.
@@ -125,5 +126,5 @@ Java 21 / Spring Boot 기반 마이크로서비스 구조이며, 컨테이너(Ku
 | [`README.md`](../README.md) | 프로젝트 전체 개요 |
 | [`docs/analysis/production-readiness/00-go-no-go-20260630.md`](./analysis/production-readiness/00-go-no-go-20260630.md) | 운영 배포 가능성 평가(GO/NO-GO) |
 | [`docs/member-integration-plan/`](./member-integration-plan/README.md) | 회원통합 마스터 플랜 + 이기종 기관 통합 실행 플랜 |
-| [`onepass-agency-sdk/README.md`](../onepass-agency-sdk/README.md) | 기관용 SDK 사용 가이드 |
+| [`idem-sdk-java/README.md`](../idem-sdk-java/README.md) | 기관용 SDK 사용 가이드 |
 | `wiki/ops/` | 운영 문서(런북·알람 등) |

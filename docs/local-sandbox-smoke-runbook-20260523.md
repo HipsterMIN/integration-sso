@@ -130,7 +130,7 @@ docker inspect onepass-kafka-ui --format "{{.State.Health.Status}}|{{range .Stat
 ### 1-7. 코드 핵심 스모크 테스트
 
 ```powershell
-.\gradlew.bat :q-sign:test :q-im:test :ido:test
+.\gradlew.bat :idem-gate:test :idem-registry:test :idem-hub:test
 ```
 
 - 결과:
@@ -139,7 +139,7 @@ docker inspect onepass-kafka-ui --format "{{.State.Health.Status}}|{{range .Stat
   - `ido`: 미실행(앞 단계 실패로 중단)
 
 ```powershell
-.\gradlew.bat :ido:test
+.\gradlew.bat :idem-hub:test
 ```
 
 - 결과: FAIL (CAS 테스트/웹슬라이스 컨텍스트 로딩 이슈)
@@ -147,15 +147,15 @@ docker inspect onepass-kafka-ui --format "{{.State.Health.Status}}|{{range .Stat
 ### 1-8. 실패 원인 grep(로그 근거 확보)
 
 ```powershell
-rg -n "Duplicate key name|idx_status_history_user|V3__add_ci_encryption_and_status_history" q-im/build/test-results
+rg -n "Duplicate key name|idx_status_history_user|V3__add_ci_encryption_and_status_history" idem-registry/build/test-results
 ```
 
 ```powershell
-rg -n "NoSuchBeanDefinitionException|UnsatisfiedDependencyException|Caused by" "ido/build/test-results/test/TEST-kr.go.smes.ido.memberlookup.MemberLookupControllerTest$AuditLogBehavior.xml"
+rg -n "NoSuchBeanDefinitionException|UnsatisfiedDependencyException|Caused by" "idem-hub/build/test-results/test/TEST-kr.go.smes.ido.memberlookup.MemberLookupControllerTest$AuditLogBehavior.xml"
 ```
 
 ```powershell
-rg -n "UnrecognizedPropertyException|AssertionError|Caused by" "ido/build/test-results/test/TEST-kr.go.smes.ido.infrastructure.TicketRepositoryImplTest$CasBranchHandling.xml"
+rg -n "UnrecognizedPropertyException|AssertionError|Caused by" "idem-hub/build/test-results/test/TEST-kr.go.smes.ido.infrastructure.TicketRepositoryImplTest$CasBranchHandling.xml"
 ```
 
 ### 1-9. 전체 프로파일(app 포함) 기동 재검증
@@ -230,8 +230,8 @@ docker exec onepass-mariadb mariadb -u root -prootpass -N -e "SHOW DATABASES LIK
 ### Step E. 핵심 테스트
 
 ```powershell
-.\gradlew.bat :q-sign:test :q-im:test
-.\gradlew.bat :ido:test
+.\gradlew.bat :idem-gate:test :idem-registry:test
+.\gradlew.bat :idem-hub:test
 ```
 
 ### Step F. 전체 프로파일(app 포함) 기동 확인

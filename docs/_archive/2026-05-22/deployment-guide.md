@@ -126,25 +126,25 @@
 # 1. 프로젝트 루트에서 ido 모듈 빌드
 cd /path/to/onepass-platform
 
-./gradlew :ido:bootJar --no-daemon \
+./gradlew :idem-hub:bootJar --no-daemon \
   -x test \
   -Dspring.profiles.active=prod
 
 # 빌드 산출물 확인
-ls -lh ido/build/libs/ido-*.jar
+ls -lh idem-hub/build/libs/idem-hub-*.jar
 
 # 2. Docker 이미지 빌드
 docker build \
-  --build-arg JAR_FILE=ido/build/libs/ido-0.1.0-SNAPSHOT.jar \
+  --build-arg JAR_FILE=idem-hub/build/libs/ido-0.1.0-SNAPSHOT.jar \
   --build-arg SPRING_PROFILES_ACTIVE=prod \
   -t registry.smes.go.kr/onepass/ido:$(git rev-parse --short HEAD) \
-  -f ido/Dockerfile .
+  -f idem-hub/Dockerfile .
 
 # 3. 이미지 레지스트리 푸시
 docker push registry.smes.go.kr/onepass/ido:$(git rev-parse --short HEAD)
 ```
 
-> ⚠️ **주의**: `ido:test` 는 DB/Redis/Kafka 없이도 통과하지만, 배포 전 반드시 `DOCKER_UNAVAILABLE=false ./gradlew :ido:test` 로 전체 테스트를 실행하세요.
+> ⚠️ **주의**: `ido:test` 는 DB/Redis/Kafka 없이도 통과하지만, 배포 전 반드시 `DOCKER_UNAVAILABLE=false ./gradlew :idem-hub:test` 로 전체 테스트를 실행하세요.
 
 ---
 
@@ -191,7 +191,7 @@ flyway \
   -url="jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}?currentSchema=ido" \
   -user="${DB_USERNAME}" \
   -password="${DB_PASSWORD}" \
-  -locations="filesystem:ido/src/main/resources/db/migration" \
+  -locations="filesystem:idem-hub/src/main/resources/db/migration" \
   -schemas=ido \
   migrate
 
@@ -498,7 +498,7 @@ unset NEW_KEY
 ```groovy
 // build.gradle (Groovy DSL) — JDK 8+ 모두 지원
 dependencies {
-    implementation 'kr.go.smes:onepass-agency-sdk:0.1.0-SNAPSHOT'
+    implementation 'kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT'
 
     // HTTP 어댑터 선택 (하나만 선택, 미선택 시 JDK HttpURLConnection 사용)
     // OkHttp3 사용 시:
@@ -511,7 +511,7 @@ dependencies {
 ```kotlin
 // build.gradle.kts (Kotlin DSL)
 dependencies {
-    implementation("kr.go.smes:onepass-agency-sdk:0.1.0-SNAPSHOT")
+    implementation("kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT")
 }
 ```
 

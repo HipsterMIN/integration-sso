@@ -112,7 +112,7 @@ curl -v --connect-timeout 5 https://onepass.go.kr/health
 [ ]   OnePass 서버 URL 수신 (행정안전부 담당자)
 [ ]   API Key 수신 (행정안전부 담당자)
 [ ]   방화벽 허용 완료 (WAS → OnePass 서버)
-[ ]   onepass-agent-1.0.0-all.jar 파일 확보
+[ ]   idem-agent-1.0.0-all.jar 파일 확보
 [ ]   배포 디렉토리 쓰기 권한 보유
 [ ]   WAS 재시작 가능한 유지보수 시간 확보
 ```
@@ -136,14 +136,14 @@ sudo chown -R jeus:jeus /opt/onepass/
 
 ```bash
 # JAR 파일 복사
-sudo cp onepass-agent-1.0.0-all.jar /opt/onepass/
+sudo cp idem-agent-1.0.0-all.jar /opt/onepass/
 
 # 실행 불필요, 읽기 권한만
-sudo chmod 644 /opt/onepass/onepass-agent-1.0.0-all.jar
+sudo chmod 644 /opt/onepass/idem-agent-1.0.0-all.jar
 
 # 무결성 확인 (담당자로부터 체크섬 수령 후)
-sha256sum /opt/onepass/onepass-agent-1.0.0-all.jar
-# 출력 예시: a3f9e2b1... /opt/onepass/onepass-agent-1.0.0-all.jar
+sha256sum /opt/onepass/idem-agent-1.0.0-all.jar
+# 출력 예시: a3f9e2b1... /opt/onepass/idem-agent-1.0.0-all.jar
 ```
 
 ### 2-3. 설정 파일 생성
@@ -197,7 +197,7 @@ vi $JEUS_HOME/bin/jeusboot.sh
 
 # 파일 상단의 JAVA_OPTS 라인 찾기 (없으면 추가)
 # 아래 라인 추가:
-JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
+JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
 # JEUS 자동 감지 실패 시 명시적 지정 (선택)
 JAVA_OPTS="$JAVA_OPTS -Donepass.was.type=JEUS_LEGACY"
 ```
@@ -218,7 +218,7 @@ vi $JEUS_HOME/config/domain.xml
   <!-- [기존 jvm-option들] -->
   
   <!-- OnePass Agent 추가 -->
-  <jvm-option>-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
+  <jvm-option>-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
   <jvm-option>-Donepass.was.type=JEUS_LEGACY</jvm-option>
 </jvm-config>
 ```
@@ -318,7 +318,7 @@ vi $JEUS_HOME/domains/jeusdomain/config/domain.xml
   <jvm-config>
     <jvm-option>-Xmx1024m</jvm-option>  <!-- 기존 옵션 유지 -->
     <!-- OnePass Agent 추가 -->
-    <jvm-option>-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
+    <jvm-option>-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
   </jvm-config>
 </server>
 ```
@@ -370,7 +370,7 @@ vi $JEUS_HOME/domains/jeusdomain/config/domain.xml
 <jvm-config>
   <!-- 기존 옵션들 -->
   <!-- OnePass Agent -->
-  <jvm-option>-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
+  <jvm-option>-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
 </jvm-config>
 ```
 
@@ -414,7 +414,7 @@ java -version 2>&1
   <!-- 기존 옵션들 -->
   
   <!-- OnePass Agent -->
-  <jvm-option>-javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
+  <jvm-option>-javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
   
   <!-- JDK 11+ 권장 옵션 -->
   <jvm-option>-XX:+EnableDynamicAgentLoading</jvm-option>
@@ -447,7 +447,7 @@ cat > $CATALINA_HOME/bin/setenv.sh << 'EOF'
 # Tomcat 환경 설정
 
 # OnePass Agent
-CATALINA_OPTS="$CATALINA_OPTS -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
+CATALINA_OPTS="$CATALINA_OPTS -javaagent:/opt/onepass/idem-agent-1.0.0-all.jar=config=/opt/onepass/conf/onepass-agent.properties"
 EOF
 
 chmod +x $CATALINA_HOME/bin/setenv.sh
@@ -626,14 +626,14 @@ echo "================================"
 
 ```bash
 # 기존 JAR 백업
-cp /opt/onepass/onepass-agent-1.0.0-all.jar \
-   /opt/onepass/onepass-agent-1.0.0-all.jar.backup.$(date +%Y%m%d)
+cp /opt/onepass/idem-agent-1.0.0-all.jar \
+   /opt/onepass/idem-agent-1.0.0-all.jar.backup.$(date +%Y%m%d)
 
 # 새 버전 배포
-cp onepass-agent-1.1.0-all.jar /opt/onepass/
+cp idem-agent-1.1.0-all.jar /opt/onepass/
 
 # 심링크 방식 (권장 — 롤백 용이)
-ln -sf /opt/onepass/onepass-agent-1.1.0-all.jar \
+ln -sf /opt/onepass/idem-agent-1.1.0-all.jar \
        /opt/onepass/onepass-agent-current.jar
 ```
 
@@ -655,7 +655,7 @@ grep "OnePass Agency Java Agent v" $JEUS_HOME/logs/JeusServer.log | tail -1
 
 ```bash
 # 이전 버전으로 복원
-ln -sf /opt/onepass/onepass-agent-1.0.0-all.jar \
+ln -sf /opt/onepass/idem-agent-1.0.0-all.jar \
        /opt/onepass/onepass-agent-current.jar
 
 # WAS 재시작
@@ -711,7 +711,7 @@ ls /opt/onepass/ 2>/dev/null || echo "정상 제거됨"
 [ ] 네트워크 연결 확인
 
 파일 배포
-[ ] /opt/onepass/onepass-agent-1.0.0-all.jar 배포
+[ ] /opt/onepass/idem-agent-1.0.0-all.jar 배포
 [ ] /opt/onepass/conf/onepass-agent.properties 생성
 [ ] 설정 파일 권한 600 설정
 
@@ -730,7 +730,7 @@ WAS 설정
 ## WK-12: 멀티 WAS Docker 테스트베드 워크스루
 
 > **목적**: 실제 운영 배포 전, Docker Compose로 7개 WAS에 Agent를 동시에 검증합니다.  
-> **위치**: 프로젝트 루트의 `onepass-agent-testbed/` 디렉토리  
+> **위치**: 프로젝트 루트의 `idem-agent-testbed/` 디렉토리  
 > **사전 조건**: Docker, Docker Compose 설치됨
 
 ### 12-1. 테스트베드 준비
@@ -739,10 +739,10 @@ WAS 설정
 # 프로젝트 루트에서 실행
 
 # 1. Agent JAR 최신 빌드
-./gradlew :onepass-agent:agentJar
+./gradlew :idem-agent:agentJar
 
 # 빌드 결과 확인
-ls -la onepass-agent/build/libs/
+ls -la idem-agent/build/libs/
 # onepass-agent-0.1.0-SNAPSHOT-all.jar  (~10MB)
 
 # 2. Agent JAR을 테스트베드에 복사
@@ -751,7 +751,7 @@ cd onepass-agent-testbed
 
 # 기대 출력:
 # [replace-agent] Agent JAR 탐색 중...
-# [replace-agent] 발견: ../onepass-agent/build/libs/onepass-agent-0.1.0-SNAPSHOT-all.jar
+# [replace-agent] 발견: ../idem-agent/build/libs/onepass-agent-0.1.0-SNAPSHOT-all.jar
 # [replace-agent] agent/ 디렉토리에 복사 완료
 # [replace-agent] 심볼릭 링크 갱신: onepass-agent-current.jar
 ```
@@ -847,7 +847,7 @@ docker compose logs wildfly27 | grep -E "OnePassAgent|WasDetector"
 ### 12-5. 자동화 테스트 실행
 
 ```bash
-# onepass-agent-testbed/ 루트에서 실행
+# idem-agent-testbed/ 루트에서 실행
 
 # 전체 WAS 자동화 테스트
 ./scripts/run-all-tests.sh
@@ -909,7 +909,7 @@ curl $BASE/protected -H "Authorization: Bearer invalid-token" -o /dev/null -w "%
 
 ```bash
 # 1. 새 버전 빌드
-./gradlew :onepass-agent:agentJar
+./gradlew :idem-agent:agentJar
 
 # 2. 테스트베드에 교체
 cd onepass-agent-testbed
@@ -930,7 +930,7 @@ docker compose logs tomcat9 --since 30s | grep OnePassAgent
 ### 12-8. 테스트베드 정리
 
 ```bash
-cd onepass-agent-testbed/docker
+cd idem-agent-testbed/docker
 
 # 컨테이너 중지 및 삭제
 docker compose down

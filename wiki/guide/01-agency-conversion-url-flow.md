@@ -7,7 +7,7 @@
 | **대상 독자** | 유관기관 개발팀, OnePass FE/BE 개발팀, 보안 검토자 |
 | **최종 갱신** | 2026-05-16 (v0.8.9) |
 | **관련 문서** | [GUIDE-002](./02-conversion-param-security.md) · [GUIDE-003](./03-conversion-launch-sample.md) · [GUIDE-004](./04-conversion-data-flow-diagram.md) |
-| **관련 파일** | `onepass-fe/.../ConversionSteps/member/Step1.tsx` ~ `Step8.tsx` · `ido/.../fe/session/FeSessionServiceImpl.java` · `ido/.../handoff/validate/CallbackUrlValidator.java` |
+| **관련 파일** | `idem-console/.../ConversionSteps/member/Step1.tsx` ~ `Step8.tsx` · `idem-hub/.../fe/session/FeSessionServiceImpl.java` · `idem-hub/.../handoff/validate/CallbackUrlValidator.java` |
 
 > **⚠️ 중요**: 이 문서는 현재 코드의 버그를 포함한 실제 동작을 분석하고 수정 방향을 기술합니다.  
 > **다른 점**과 **틀린 점**을 명시적으로 구분합니다.

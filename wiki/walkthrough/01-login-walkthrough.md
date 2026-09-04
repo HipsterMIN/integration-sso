@@ -295,15 +295,15 @@ TTL: 3600s (1시간), Sliding Window 미적용
 
 | 파일 | 역할 |
 |------|------|
-| `ido/auth/controller/AuthController.java` | 모든 인증 수신 엔드포인트 |
-| `ido/auth/service/NiceAuthService.java` | NICE 인증 처리, ciToken 생성 |
-| `ido/auth/client/NiceApiClient.java` | NICE 외부 API 연동 |
-| `ido/auth/store/NiceAuthSessionStore.java` | Redis NICE 세션 관리 |
-| `ido/broker/keycloak/` | Keycloak OIDC 콜백·검증 |
-| `ido/ext/ExtProxyController.java` | CI API Key 서버사이드 주입 |
-| `onepass-fe/src/hooks/useEzAuth.ts` | EzAuth SDK 호출 hook |
-| `onepass-fe/src/pages/Login/index.tsx` | 로그인 페이지 (형식 POST 포함) |
-| `onepass-fe/src/api/` | beInstance / extInstance 분리 |
+| `idem-hub/auth/controller/AuthController.java` | 모든 인증 수신 엔드포인트 |
+| `idem-hub/auth/service/NiceAuthService.java` | NICE 인증 처리, ciToken 생성 |
+| `idem-hub/auth/client/NiceApiClient.java` | NICE 외부 API 연동 |
+| `idem-hub/auth/store/NiceAuthSessionStore.java` | Redis NICE 세션 관리 |
+| `idem-hub/broker/keycloak/` | Keycloak OIDC 콜백·검증 |
+| `idem-hub/ext/ExtProxyController.java` | CI API Key 서버사이드 주입 |
+| `idem-console/src/hooks/useEzAuth.ts` | EzAuth SDK 호출 hook |
+| `idem-console/src/pages/Login/index.tsx` | 로그인 페이지 (형식 POST 포함) |
+| `idem-console/src/api/` | beInstance / extInstance 분리 |
 | `qsign/auth/AuthSessionService.java` | Q-Sign 인증 세션 관리 |
 | `qsign/broker/keycloak/KeycloakOidcHandler.java` | PKCE 검증, id_token 처리 |
 

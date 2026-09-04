@@ -287,8 +287,8 @@ Content-Type: application/json
 | `qim/outbox/OutboxService.java` | Outbox INSERT |
 | `qim/outbox/OutboxRelay.java` | 비동기 Kafka 발행 릴레이 |
 | `qim/sp/service/QimSpReceiverService.java` | `resolveRegisterEventType()` 구현 |
-| `ido/kafka/QimEventConsumer.java` | Kafka 이벤트 소비 → 프로비저닝 트리거 |
-| `ido/provision/ProvisioningServiceImpl.java` | Virtual Thread 프로비저닝 |
+| `idem-hub/kafka/QimEventConsumer.java` | Kafka 이벤트 소비 → 프로비저닝 트리거 |
+| `idem-hub/provision/ProvisioningServiceImpl.java` | Virtual Thread 프로비저닝 |
 
 ---
 

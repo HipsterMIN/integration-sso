@@ -1576,7 +1576,7 @@ CREATE TABLE ido.provider_config (
 
 ```sql
 -- V999__anyid_provider_config.sql
--- Flyway 마이그레이션 파일: ido/src/main/resources/db/migration/
+-- Flyway 마이그레이션 파일: idem-hub/src/main/resources/db/migration/
 
 INSERT INTO ido.provider_config
   (provider_code, display_name, auth_level, broker_mode, provider_type, active)

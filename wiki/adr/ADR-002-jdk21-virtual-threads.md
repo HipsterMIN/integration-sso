@@ -7,7 +7,7 @@
 | **상태** | ✅ Accepted |
 | **결정일** | 2025-Q4 (Sprint 1) |
 | **결정자** | 아키텍처 위원회 |
-| **관련 파일** | `ido/build.gradle`, `ProvisioningServiceImpl.java` |
+| **관련 파일** | `idem-hub/build.gradle`, `ProvisioningServiceImpl.java` |
 
 ---
 

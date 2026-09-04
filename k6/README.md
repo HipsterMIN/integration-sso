@@ -116,7 +116,7 @@ node k6/mock-server/server.js
 ```bash
 # Docker Compose (PostgreSQL + Redis 포함)
 docker compose -f infra/docker/docker-compose.yml up -d postgres redis
-./gradlew :ido:bootRun
+./gradlew :idem-hub:bootRun
 # → http://localhost:8083
 ```
 

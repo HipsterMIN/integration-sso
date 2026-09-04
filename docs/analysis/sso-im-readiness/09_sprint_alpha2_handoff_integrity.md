@@ -32,7 +32,7 @@ Handoff Verify 경로의 **무결성·원자성·재시도 가능성** 세 가�
 ### 2.1 변경 전 상태
 
 ```java
-// ido/src/main/java/kr/go/smes/ido/handoff/HandoffServiceImpl.java:198~202
+// idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/HandoffServiceImpl.java:198~202
 ticketRepository.consume(ticketId);
 publishHandoffEvent(HandoffEvent.TYPE_HANDOFF_CONSUMED, ticket, null);
 HandoffPayload payload = policyEngine.buildHandoffPayload(ticket, correlationId);
@@ -319,12 +319,12 @@ HTTP status 401 + 표준 PlatformErrorResponse 형식이므로 기존 fallback �
 ## 10. 변경 파일 요약
 
 ```
-ido/src/main/java/kr/go/smes/ido/handoff/HandoffServiceImpl.java         (F4.1+F4.5)
-ido/src/main/java/kr/go/smes/ido/infrastructure/TicketRepositoryImpl.java (F4.2)
-platform-common/src/main/java/kr/go/smes/common/error/PlatformErrorCode.java  (E-IDO-108 추가)
-platform-common/src/main/java/kr/go/smes/common/event/HandoffEvent.java        (SIGNATURE_INVALID 추가)
-ido/src/test/java/kr/go/smes/ido/handoff/HandoffServiceImplTest.java           (회귀 9건)
-ido/src/test/java/kr/go/smes/ido/infrastructure/TicketRepositoryImplTest.java  (신규, 회귀 9건)
+idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/HandoffServiceImpl.java         (F4.1+F4.5)
+idem-hub/src/main/java/kr/go/smes/idem-hub/infrastructure/TicketRepositoryImpl.java (F4.2)
+idem-common/src/main/java/kr/go/smes/common/error/PlatformErrorCode.java  (E-IDO-108 추가)
+idem-common/src/main/java/kr/go/smes/common/event/HandoffEvent.java        (SIGNATURE_INVALID 추가)
+idem-hub/src/test/java/kr/go/smes/idem-hub/handoff/HandoffServiceImplTest.java           (회귀 9건)
+idem-hub/src/test/java/kr/go/smes/idem-hub/infrastructure/TicketRepositoryImplTest.java  (신규, 회귀 9건)
 docs/analysis/sso-im-readiness/09_sprint_alpha2_handoff_integrity.md           (신규)
 docs/analysis/sso-im-readiness/07_risk_matrix_roadmap.md                       (진행 상태 갱신)
 docs/analysis/sso-im-readiness/00_INDEX.md                                     (인덱스 갱신)

@@ -2,7 +2,7 @@
 
 > **문서 버전**: v1.9.0  
 > **최종 수정**: 2026-05-09  
-> **모듈 경로**: `q-sign/`  
+> **모듈 경로**: `idem-gate/`  
 > **포트**: 8081  
 > **DB**: PostgreSQL (`qsign` 스키마, V1~V5)
 
@@ -15,7 +15,7 @@ Q-Sign은 **인증 SoR(Source of Record)**으로, 모든 인증 결과의 단일
 ### 1.1 패키지 구조
 
 ```
-q-sign/src/main/java/kr/go/smes/qsign/
+idem-gate/src/main/java/kr/go/smes/qsign/
 ├── QSignApplication.java
 ├── api/                           # IdO 내부 API
 │   ├── AuthController.java

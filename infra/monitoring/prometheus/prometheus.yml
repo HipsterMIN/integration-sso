@@ -2,7 +2,7 @@ global:
   scrape_interval:     15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'onepass-local'
+    cluster: 'idem-local'
     env:     'development'
 
 rule_files:
@@ -18,7 +18,7 @@ alerting:
 #
 # [환경별 타겟 전략]
 #   Docker Compose (profile=app):
-#     - 앱 서비스들이 onepass-net 브리지 네트워크 내 컨테이너명으로 접근 가능
+#     - 앱 서비스들이 idem-net 브리지 네트워크 내 컨테이너명으로 접근 가능
 #     - Prometheus 컨테이너도 동일 네트워크(172.20.0.50) → 컨테이너명 직접 사용
 #     - extra_hosts: host.docker.internal:host-gateway 로 호스트 접근도 가능
 #
@@ -35,48 +35,48 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Q-Sign (Docker Compose: onepass-qsign:8081 / 로컬 IDE: host.docker.internal:8081)
+  # Q-Sign (Docker Compose: idem-gate:8081 / 로컬 IDE: host.docker.internal:8081)
   - job_name: 'q-sign'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets:
-          - 'onepass-qsign:8081'    # Docker Compose app 프로파일
+          - 'idem-gate:8081'    # Docker Compose app 프로파일
     relabel_configs:
       - target_label: service
         replacement: 'q-sign'
       - target_label: module
         replacement: 'auth'
 
-  # Q-IM (Docker Compose: onepass-qim:8082 / 로컬 IDE: host.docker.internal:8082)
+  # Q-IM (Docker Compose: idem-registry:8082 / 로컬 IDE: host.docker.internal:8082)
   - job_name: 'q-im'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets:
-          - 'onepass-qim:8082'
+          - 'idem-registry:8082'
     relabel_configs:
       - target_label: service
         replacement: 'q-im'
       - target_label: module
         replacement: 'identity'
 
-  # IdO (Docker Compose: onepass-ido:8083 / 로컬 IDE: host.docker.internal:8083)
+  # IdO (Docker Compose: idem-hub:8083 / 로컬 IDE: host.docker.internal:8083)
   - job_name: 'ido'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets:
-          - 'onepass-ido:8083'
+          - 'idem-hub:8083'
     relabel_configs:
       - target_label: service
         replacement: 'ido'
       - target_label: module
         replacement: 'handoff'
 
-  # Agency-Stub (Docker Compose: onepass-agency-stub:8084)
+  # Agency-Stub (Docker Compose: idem-tenant-sample:8084)
   - job_name: 'agency-stub'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets:
-          - 'onepass-agency-stub:8084'
+          - 'idem-tenant-sample:8084'
     relabel_configs:
       - target_label: service
         replacement: 'agency-stub'

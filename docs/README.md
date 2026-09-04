@@ -1,5 +1,7 @@
 # integration-sso 문서 디렉토리 안내
 
+> **개명 안내 (2026-09-04)**: 제품명 **OnePass → Idem**, 모듈 `q-sign/q-im/ido/…` → `idem-gate/idem-registry/idem-hub/…`. 본 디렉토리의 기존 문서는 작성 시점의 이름을 그대로 담고 있으며 경로 참조만 새 디렉터리로 갱신했다. 대응표와 미변경 항목: [`naming.md`](naming.md)
+
 > **최종 정리일**: 2026-05-22
 > **변경 사항**: Sprint α-1/α-2/α-3 결과 반영, `analysis/sso-im-readiness/` 추가, 시점 산출물·구버전 23건을 `_archive/2026-05-22/`로 이동
 > **상위 README**: 루트 [`README.md`](../README.md)
@@ -81,6 +83,7 @@ docs/
 
 | 파일 | 내용 |
 |---|---|
+| [`naming.md`](naming.md) | **Idem 개명 대응표** — 구명↔신명, 개명 단계, 아직 바꾸지 않은 런타임 식별자 목록 |
 | [`onepass-agency-sdk-usage-guide.md`](onepass-agency-sdk-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |
 | [`onepass-agent-index.md`](onepass-agent-index.md) | Agency Java Agent — 문서 인덱스 |
 | [`onepass-agent-integration-guide.md`](onepass-agent-integration-guide.md) | Agency Java Agent — 통합 가이드 |

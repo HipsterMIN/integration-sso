@@ -130,7 +130,7 @@ sequenceDiagram
 ### 4.1 서명 생성 (IdO → CastTokenService)
 
 ```java
-// ido/sso/CastTokenServiceImpl.java
+// idem-hub/sso/CastTokenServiceImpl.java
 public String generateCastToken(CastTokenRequest req) {
     Map<String, Object> payload = Map.of(
         "sub", req.getMemberId(),
@@ -238,7 +238,7 @@ CSRF 보호가 필요한 기관에서 사용:
 
 **FE 처리**:
 ```typescript
-// onepass-fe/src/api/sso/handoff.ts
+// idem-console/src/api/sso/handoff.ts
 const response = await beInstance.post('/api/v1/sso/handoff', {
   agencyCode, strategy: 'POST_FORM'
 });
@@ -310,14 +310,14 @@ GET /api/v1/sso/.well-known/jwks.json
 
 | 파일 | 역할 |
 |------|------|
-| `ido/sso/CastTokenService.java` | CAST Token 인터페이스 |
-| `ido/sso/CastTokenServiceImpl.java` | Ed25519 서명 생성 구현 |
-| `ido/sso/CastKeyConfig.java` | 키 쌍 관리, JWK 엔드포인트 |
-| `ido/sso/CrossAgencySsoController.java` | `/api/v1/sso/handoff` 엔드포인트 |
-| `ido/handoff/strategy/` | 4가지 Handoff 전략 구현 |
-| `ido/handoff/HandoffStrategyRouter.java` | 기관 설정 기반 전략 선택 |
-| `onepass-fe/src/api/sso/handoff.ts` | FE Handoff 요청 |
-| `agency-stub/handoff/` | PoC 스텁: Handoff 수신 시뮬레이터 |
+| `idem-hub/sso/CastTokenService.java` | CAST Token 인터페이스 |
+| `idem-hub/sso/CastTokenServiceImpl.java` | Ed25519 서명 생성 구현 |
+| `idem-hub/sso/CastKeyConfig.java` | 키 쌍 관리, JWK 엔드포인트 |
+| `idem-hub/sso/CrossAgencySsoController.java` | `/api/v1/sso/handoff` 엔드포인트 |
+| `idem-hub/handoff/strategy/` | 4가지 Handoff 전략 구현 |
+| `idem-hub/handoff/HandoffStrategyRouter.java` | 기관 설정 기반 전략 선택 |
+| `idem-console/src/api/sso/handoff.ts` | FE Handoff 요청 |
+| `idem-tenant-sample/handoff/` | PoC 스텁: Handoff 수신 시뮬레이터 |
 
 ---
 

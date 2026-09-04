@@ -1,6 +1,6 @@
 groups:
   # ══════════════════════════════════════════════════════════════════════════
-  # OnePass Platform — Prometheus 알람 룰 (PR-B2-new 축소판: 16 → 8)
+  # Idem Platform — Prometheus 알람 룰 (PR-B2-new 축소판: 16 → 8)
   #
   # 설계 원칙 (회고 정책 PR-A5 + PR-B1-new 본질 메트릭 정렬):
   #   1. 새벽 3시 호출(critical)은 SSO/IM 본질이 깨졌을 때만 (5개 이내)

@@ -234,4 +234,4 @@ kubectl rollout status deployment/outbox-relay-batch -n production
 | 운영 배포 가이드 | `wiki/ops/01-production-deployment-guide.md` |
 | 기관 지원 런북 | `wiki/ops/03-agency-support-runbook.md` |
 | ADR-013 Java Agent 마이그레이션 | `wiki/adr/ADR-013-java-agent-migration.md` |
-| DEAD_LETTER 알림 구현 | `outbox-relay-batch/.../alert/DeadLetterNotifier.java` |
+| DEAD_LETTER 알림 구현 | `idem-relay/.../alert/DeadLetterNotifier.java` |

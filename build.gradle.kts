@@ -72,13 +72,13 @@ subprojects {
     // ADR-013 방법 B: Mockito Agent 전용 Configuration
     // -javaagent로 byte-buddy-agent를 명시 주입 → JDK 24 Dynamic Agent Loading 금지 대비.
     //
-    // ※ onepass-agency-sdk는 자체 build.gradle.kts에서 configurations.all { resolutionStrategy }를
+    // ※ idem-sdk-java는 자체 build.gradle.kts에서 configurations.all { resolutionStrategy }를
     //   사용하므로, mockitoAgent를 생성한 뒤 resolutionStrategy 변경이 충돌함.
     //   SDK는 Spring 테스트 스택 없이 JUnit 5 + Mockito 직접 버전 명시 모듈이므로
     //   여기서는 SDK를 제외하고, SDK 자체 build.gradle.kts에서 별도 처리함.
-    // onepass-agent: 완전 독립 모듈 — Spring/Lombok/Testcontainers 비의존
+    // idem-agent: 완전 독립 모듈 — Spring/Lombok/Testcontainers 비의존
     //               자체 byte-buddy shading(relocated) 사용하므로 mockitoAgent 제외
-    if (project.name != "onepass-agency-sdk" && project.name != "onepass-agent") {
+    if (project.name != "idem-sdk-java" && project.name != "idem-agent") {
         val mockitoAgent by configurations.creating {
             isCanBeResolved = true
             isCanBeConsumed = false
@@ -106,9 +106,9 @@ subprojects {
 
     val testcontainersVersion = "1.20.4"
 
-    // onepass-agent는 Spring/Lombok/Testcontainers 비의존 완전 독립 모듈
+    // idem-agent는 Spring/Lombok/Testcontainers 비의존 완전 독립 모듈
     // 자체 build.gradle.kts에서 JUnit 5 직접 버전 명시로 처리
-    if (project.name != "onepass-agent") {
+    if (project.name != "idem-agent") {
         dependencies {
             // Lombok
             "compileOnly"("org.projectlombok:lombok")
@@ -138,14 +138,14 @@ subprojects {
         // JDK 21+의 동적 Agent 로딩 경고를 JVM 레벨에서 원천 차단.
         // JEP 451(JDK 21 준비) / JEP 472(JDK 24 차단)에 대응.
         //
-        // onepass-agency-sdk는 configurations.all { resolutionStrategy } 충돌로
+        // idem-sdk-java는 configurations.all { resolutionStrategy } 충돌로
         // mockitoAgent configuration 미생성 → 방법 A 플래그만 적용.
         // SDK 자체 build.gradle.kts에서 jvmArgs 직접 처리.
         val args = mutableListOf(
             "-XX:+EnableDynamicAgentLoading",  // 방법 A: JDK 버전 교차 환경 대응
             "-Djdk.instrument.traceUsage=false"
         )
-        if (project.name != "onepass-agency-sdk" && project.name != "onepass-agent") {
+        if (project.name != "idem-sdk-java" && project.name != "idem-agent") {
             // 방법 B: -javaagent 명시 (mockitoAgent configuration이 있는 모듈만)
             args.add(0, "-javaagent:${configurations["mockitoAgent"].asPath}")
         }
@@ -195,21 +195,21 @@ subprojects {
     configureForceCleanBuildDir()
 }
 
-// ── platform-common: 실행 JAR 불필요, plain JAR만 생성 ───────────────────────
-project(":platform-common") {
+// ── idem-common: 실행 JAR 불필요, plain JAR만 생성 ───────────────────────
+project(":idem-common") {
     tasks.withType<BootJar> { enabled = false }
     tasks.withType<Jar>     { enabled = true  }
 }
 
-// ── outbox-relay-batch: 실행 JAR 생성 (Spring Boot 플러그인 적용) ─────────────
+// ── idem-relay: 실행 JAR 생성 (Spring Boot 플러그인 적용) ─────────────
 // ShedLock 분산 릴레이 배치 서비스 — 독립 배포 아티팩트
-project(":outbox-relay-batch") {
+project(":idem-relay") {
     tasks.withType<Jar>     { enabled = true  }
 }
 
-// ── onepass-agency-sdk: Java 8 호환 라이브러리 — Spring Boot 플러그인/BOM 제외 ─
+// ── idem-sdk-java: Java 8 호환 라이브러리 — Spring Boot 플러그인/BOM 제외 ─
 // SDK는 JDK 버전 프리 설계: Spring 의존성 전이 없음, 자체 build.gradle.kts에서 타겟 설정
-project(":onepass-agency-sdk") {
+project(":idem-sdk-java") {
     // Spring Boot 플러그인이 없으므로 BootJar 태스크가 존재하지 않음 — Jar만 활성화
     tasks.withType<Jar> { enabled = true }
     // Spring BOM 버전 관리는 테스트 의존성에만 적용 (junit-jupiter 버전 등)
@@ -290,7 +290,7 @@ sonarqube {
     properties {
         // ── 프로젝트 식별 (SonarCloud 조직/키와 일치해야 함) ─────────────────
         property("sonar.projectKey",         "HipsterMIN_integration-sso")
-        property("sonar.projectName",        "OnePass Integration SSO Platform")
+        property("sonar.projectName",        "Idem Platform")
         property("sonar.organization",       "hipstermin")
 
         // ── 서버 주소 (환경변수 우선, 기본값 SonarCloud) ─────────────────────
@@ -316,8 +316,8 @@ sonarqube {
             "**/dto/**",                // DTO (비즈니스 로직 없음)
             "**/*Application.java",     // 스프링 부트 메인
             "**/config/**",             // 설정 클래스
-            "onepass-fe/**",            // FE 코드 (별도 SonarCloud 프로젝트 가능)
-            "agency-stub/**",           // 테스트 스텁
+            "idem-console/**",            // FE 코드 (별도 SonarCloud 프로젝트 가능)
+            "idem-tenant-sample/**",           // 테스트 스텁
             "infra/**",                 // 인프라 코드
         ).joinToString(","))
 

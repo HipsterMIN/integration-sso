@@ -2,7 +2,7 @@
 
 > **기준 버전**: v1.9.3 / 커밋 `46b1fe9`  
 > **최종 갱신**: 2026-05-09  
-> **모듈 경로**: `q-im/`  
+> **모듈 경로**: `idem-registry/`  
 > **포트**: 8082  
 > **DB**: MariaDB 11 (`qim` 스키마, V1~V3)  
 > **완성도**: 92%
@@ -33,7 +33,7 @@ SP(Service Provider) 수신 API 처리
 ## 2. 패키지 구조
 
 ```
-q-im/src/main/java/kr/go/smes/qim/
+idem-registry/src/main/java/kr/go/smes/qim/
 ├── QImApplication.java
 ├── api/
 │   ├── MemberLookupController.java     # CI 기반 회원 조회

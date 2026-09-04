@@ -129,7 +129,7 @@ sequenceDiagram
 
 #### ① FE Login.tsx — form POST 전송
 
-**파일**: `onepass-fe/frontend/src/pages/Login/index.tsx`
+**파일**: `idem-console/frontend/src/pages/Login/index.tsx`
 
 ```tsx
 // useKeycloakParams()로 URL 쿼리에서 action_url 파싱
@@ -165,7 +165,7 @@ Keycloak이 `loginId` + `password`를 내부 사용자 저장소(LDAP 또는 Key
 #### ③ Keycloak → q-sign 리다이렉트 (Authorization Code)
 
 ```
-HTTP 302 Location: http://q-sign/api/v1/oidc/keycloak/callback
+HTTP 302 Location: http://idem-gate/api/v1/oidc/keycloak/callback
   ?code={authorization_code}
   &state={state_값}
   &session_state={session_state}
@@ -173,7 +173,7 @@ HTTP 302 Location: http://q-sign/api/v1/oidc/keycloak/callback
 
 #### ④~⑥ q-sign: KeycloakCallbackService 11단계 처리
 
-**파일**: `q-sign/.../keycloak/KeycloakCallbackService.java`
+**파일**: `idem-gate/.../keycloak/KeycloakCallbackService.java`
 
 ```java
 // 1단계: state Redis 소비 (CSRF 방어)
@@ -224,7 +224,7 @@ notifyIdoAndGetRedirect(authResult, stateEntry.get());
 
 #### ⑦ q-sign → ido: 완료 통보 (X-Internal-Sig HMAC 검증)
 
-**파일**: `q-sign/.../keycloak/KeycloakCallbackService.java`
+**파일**: `idem-gate/.../keycloak/KeycloakCallbackService.java`
 
 ```java
 // HMAC-SHA256 내부 서명 생성
@@ -232,7 +232,7 @@ String sig = buildInternalSig(correlationId);
 // 페이로드: {correlationId}:{epochSeconds}
 // 키: application.properties의 qsign.internal-sig-secret
 
-POST http://ido/api/internal/v1/oidc/complete
+POST http://idem-hub/api/internal/v1/oidc/complete
 X-Internal-Sig: {hmac_sha256_signature}
 X-Correlation-Id: {correlationId}
 Content-Type: application/json
@@ -248,7 +248,7 @@ Content-Type: application/json
 
 #### ⑧ ido: OidcCompleteController — FE 세션 생성
 
-**파일**: `ido/.../broker/OidcCompleteController.java`
+**파일**: `idem-hub/.../broker/OidcCompleteController.java`
 
 ```java
 // X-Internal-Sig 검증
@@ -287,7 +287,7 @@ Content-Type: application/json
 
 #### ⑩ FE 세션 Redis 저장 구조
 
-**파일**: `ido/.../fe/session/FeSessionServiceImpl.java`
+**파일**: `idem-hub/.../fe/session/FeSessionServiceImpl.java`
 
 ```
 Redis Keys:
@@ -349,9 +349,9 @@ sequenceDiagram
 
 #### ① FE → ido: NICE URL 요청
 
-**파일**: `onepass-fe/frontend/src/hooks/useNicePhoneAuth.ts` (호출부)  
-**파일**: `ido/.../auth/controller/AuthController.java`  
-**파일**: `ido/.../auth/service/NiceAuthService.java`
+**파일**: `idem-console/frontend/src/hooks/useNicePhoneAuth.ts` (호출부)  
+**파일**: `idem-hub/.../auth/controller/AuthController.java`  
+**파일**: `idem-hub/.../auth/service/NiceAuthService.java`
 
 ```
 GET /api/v1/auth/nice/phone/url?returnUrl={returnUrl}
@@ -589,7 +589,7 @@ sequenceDiagram
 
 ### 6.2 BrokerService 처리 (qsign 모드)
 
-**파일**: `ido/.../broker/BrokerService.java`
+**파일**: `idem-hub/.../broker/BrokerService.java`
 
 ```java
 // broker.mode=qsign
@@ -607,7 +607,7 @@ return ResponseEntity.status(302).header("Location", authUrl).build();
 
 ### 6.3 KeycloakAuthUrlController 처리
 
-**파일**: `q-sign/.../keycloak/KeycloakAuthUrlController.java`
+**파일**: `idem-gate/.../keycloak/KeycloakAuthUrlController.java`
 
 ```java
 // state/nonce 생성 및 Redis 저장
@@ -729,7 +729,7 @@ sequenceDiagram
 
 ### 8.1 FeSessionServiceImpl 세션 생성
 
-**파일**: `ido/.../fe/session/FeSessionServiceImpl.java`
+**파일**: `idem-hub/.../fe/session/FeSessionServiceImpl.java`
 
 ```java
 // 256-bit 엔트로피 세션 ID 생성
@@ -803,7 +803,7 @@ sequenceDiagram
     FE-->>사용자: ⑤ 로그인 페이지로 이동
 ```
 
-**파일**: `onepass-fe/frontend/src/api/feSession.ts`
+**파일**: `idem-console/frontend/src/api/feSession.ts`
 
 ```typescript
 export const initiateSlo = async () => {

@@ -964,7 +964,7 @@
     <span class="typ">String</span> <span class="var">ts</span> = <span class="typ">String</span>.<span class="fn">valueOf</span>(Instant.<span class="fn">now</span>().<span class="fn">getEpochSecond</span>());
     <span class="typ">String</span> <span class="var">sig</span> = <span class="fn">computeInternalSig</span>(correlationId, ts);  <span class="cmt">// HMAC-SHA256</span>
 
-    <span class="cmt">// POST q-sign/api/v1/oidc/{provider}/auth-url</span>
+    <span class="cmt">// POST idem-gate/api/v1/oidc/{provider}/auth-url</span>
     <span class="kw">return</span> qSignClient.<span class="fn">getAuthorizationUrl</span>(provider, returnUrl,
             correlationId, sig, ts);
 }
@@ -1375,7 +1375,7 @@ params.<span class="fn">add</span>(<span class="str">"redirect_uri"</span>,  cal
         </p>
         <div class="code-wrap">
           <div class="code-label">Q-Sign → IdO 내부 통보 <span>Q-Sign</span></div>
-          <pre><span class="cmt">// POST ido/api/internal/v1/oidc/complete</span>
+          <pre><span class="cmt">// POST idem-hub/api/internal/v1/oidc/complete</span>
 <span class="typ">OidcCompleteRequest</span> <span class="var">req</span> = <span class="typ">OidcCompleteRequest</span>.<span class="fn">builder</span>()
         .<span class="fn">authResultId</span>(authResult.<span class="fn">getAuthResultId</span>())
         .<span class="fn">identifierHash</span>(authResult.<span class="fn">getIdentifierHash</span>()) <span class="cmt">// CI 해시</span>

@@ -1,0 +1,169 @@
+# =============================================================================
+# IdO Helm Chart — values.yaml (기본값)
+#
+# 사용법:
+#   helm install ido ./infra/helm/idem-hub -n production -f values-prod.yaml
+#   helm upgrade ido ./infra/helm/idem-hub -n production -f values-prod.yaml
+#
+# Phase 전환 예시:
+#   helm upgrade ido ./infra/helm/idem-hub -n production \
+#     --set featureFlags.provisioning=true \
+#     --set featureFlags.provisioningDryRun=true
+# =============================================================================
+
+# ── 기본 이미지 설정 ──────────────────────────────────────────────────────────
+image:
+  repository: smes/ido
+  tag: "2.3.0"            # CI/CD에서 --set image.tag=$(GIT_SHA) 로 치환
+  pullPolicy: IfNotPresent
+
+# ── 배포 설정 ─────────────────────────────────────────────────────────────────
+replicaCount: 2
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+# ── 서비스 설정 ───────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 8083
+
+# ── 리소스 요청/제한 ──────────────────────────────────────────────────────────
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "1000m"
+
+# ── JVM 옵션 ─────────────────────────────────────────────────────────────────
+jvm:
+  opts: >-
+    -XX:+UseContainerSupport
+    -XX:MaxRAMPercentage=75.0
+    -XX:+UseG1GC
+    -XX:+OptimizeStringConcat
+    -Djava.security.egd=file:/dev/./urandom
+
+# ── Spring 설정 ───────────────────────────────────────────────────────────────
+spring:
+  profilesActive: prod
+
+# ── ConfigMap 이름 ────────────────────────────────────────────────────────────
+configMap:
+  name: ido-config
+
+# ── Secret 이름들 ─────────────────────────────────────────────────────────────
+secrets:
+  # 기본 자격증명 (DB, Redis, Kafka 등)
+  main: ido-secrets
+  # OACX RSA 키
+  oacx: ido-oacx-keys
+  # Sprint 17: 기관별 HMAC 서명 키
+  # 형식: IDO_GATEWAY_HMAC_KEY_{AGENCY_CODE}=<32자 이상 시크릿>
+  # kubectl create secret generic ido-gateway-hmac-keys \
+  #   --from-literal=AGENCY_001=<secret> --from-literal=AGENCY_002=<secret>
+  hmacKeys: ido-gateway-hmac-keys
+
+# ── Phase-Gate Feature Flags ─────────────────────────────────────────────────
+# 각 Phase에서 이 값들을 변경하여 기능을 단계적으로 활성화합니다.
+# 참고: docs/phased-rollout-strategy.md
+featureFlags:
+  # ── Phase 1 (기본값 — 현재 운영 중) ──────────────────────────────────────
+  # 기존 F-01~F-18: 안정 운영 (기본값 유지)
+  authRateLimit:           "true"
+  agencyRateLimit:         "true"
+  auditKafka:              "true"
+  auditDb:                 "true"
+  authTracing:             "true"
+  redissonLock:            "true"
+  securityHeaders:         "true"
+  retentionJob:            "true"
+  retentionDryRun:         "true"
+  cryptoRotation:          "true"
+  outboxRelay:             "true"
+  webhookRelay:            "true"
+  spReceiverAudit:         "true"
+
+  # ── Sprint 14~16 신규 기능 (Phase-Gate) ──────────────────────────────────
+  # Phase 1: 전부 false (기본값)
+  # Phase 2: provisioning=true, provisioningDryRun=true 먼저 활성화
+  # Phase 3: gatewayInbound/Outbound 활성화
+  # Phase 4: hmacSigRequired=true (Sprint 17 완료 후)
+  provisioning:            "false"    # F-20: Phase 2↑
+  provisioningRelay:       "false"    # F-21: Phase 2-B↑
+  provisioningDryRun:      "true"     # F-22: Phase 2-A=true → 2-B=false
+  gatewayInbound:          "false"    # F-23: Phase 3-A↑
+  gatewayOutbound:         "false"    # F-24: Phase 3-B↑
+  gatewayIdempotency:      "true"     # F-25: 항상 ON
+  hmacSigRequired:         "false"    # F-26: Phase 4↑ (Sprint 17 구현 완료)
+  agencyKeyAuditLog:       "true"     # F-27: 항상 ON
+
+# ── Phase 프리셋 (--set phase=2a 로 일괄 적용) ───────────────────────────────
+# 사용 예시: helm upgrade ido . --set phase=2a
+# templates/_helpers.tpl에서 이 값 기반으로 featureFlags를 오버라이드
+phase: "1"   # "1" | "2a" | "2b" | "3a" | "3b" | "4"
+
+# ── 헬스체크 설정 ─────────────────────────────────────────────────────────────
+probes:
+  readiness:
+    path: /actuator/health/readiness
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3
+  liveness:
+    path: /actuator/health/liveness
+    initialDelaySeconds: 60
+    periodSeconds: 20
+    failureThreshold: 3
+  startup:
+    path: /actuator/health
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    failureThreshold: 12
+
+# ── 네임스페이스 ──────────────────────────────────────────────────────────────
+namespace: production
+
+# ── ServiceAccount ────────────────────────────────────────────────────────────
+serviceAccount:
+  name: ido-sa
+  annotations: {}
+  # AWS IRSA 예시:
+  # eks.amazonaws.com/role-arn: "arn:aws:iam::123456789:role/ido-kms-role"
+
+# ── 분산 배치 설정 ────────────────────────────────────────────────────────────
+topologySpread:
+  enabled: true
+  maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone
+
+# ── Prometheus 스크레이핑 ──────────────────────────────────────────────────────
+prometheus:
+  enabled: true
+  path: /actuator/prometheus
+  port: "8083"
+
+# ── 보안 컨텍스트 ─────────────────────────────────────────────────────────────
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# ── HPA (Horizontal Pod Autoscaler) ──────────────────────────────────────────
+autoscaling:
+  enabled: false          # 운영 준비 후 true로 전환
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# ── PodDisruptionBudget ───────────────────────────────────────────────────────
+pdb:
+  enabled: true
+  minAvailable: 1         # 배포 중 최소 1개 Pod 유지

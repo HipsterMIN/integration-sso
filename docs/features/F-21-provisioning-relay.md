@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_PROVISIONING_RELAY_ENABLED`  
 > **Phase**: Phase 2-B (F-20 실제 발행 전환과 동시 활성화)  
 > **기본값**: `false` (안전)  
-> **소스**: `ido/src/main/java/kr/go/smes/ido/provision/ProvisioningOutboxRelay.java`
+> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/provision/ProvisioningOutboxRelay.java`
 
 ---
 

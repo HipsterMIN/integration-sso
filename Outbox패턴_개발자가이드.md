@@ -281,7 +281,7 @@ public AuthResult processAuthentication(AuthRequest request) {
 // 실행 클래스: kr.go.smes.qsign.auth.AuthServiceImpl (또는 AuthEventBuilder 유틸)
 // 실행 메서드: buildAuthEvent(AuthResult) — processAuthentication() 내부에서 호출
 // 실행 시점: qsign.outbox INSERT 직전, payload JSON 직렬화 시
-// 참조 클래스: platform-common/kr.go.smes.common.event.AuthEvent
+// 참조 클래스: idem-common/kr.go.smes.common.event.AuthEvent
 // ═══════════════════════════════════════════════════════════════════
 
 // AuthEvent 빌드 — Outbox payload에 JSON으로 직렬화되어 저장됨
@@ -1913,7 +1913,7 @@ WHERE aggregate_id = '동일_authResultId'
 // 테스트 목적: processAuthentication() 호출 시 qsign.outbox에 PENDING 레코드가
 //              정상적으로 INSERT 되는지 검증
 // 사용 DB: H2 인메모리 DB 또는 Testcontainers PostgreSQL
-// 실행 방법: ./gradlew :q-sign:test 또는 IDE에서 직접 실행
+// 실행 방법: ./gradlew :idem-gate:test 또는 IDE에서 직접 실행
 // ═══════════════════════════════════════════════════════════════════
 @Test
 @Transactional
@@ -1946,7 +1946,7 @@ void 인증_완료_시_outbox_레코드가_생성된다() {
 //   [테스트 2] Kafka 브로커 장애 시 → retry_count 증가, PENDING 유지 검증
 // 사용 DB: Testcontainers PostgreSQL
 // 사용 Kafka: @EmbeddedKafka (인메모리 Kafka 브로커)
-// 실행 방법: ./gradlew :q-sign:test --tests "*OutboxRelayIntegrationTest"
+// 실행 방법: ./gradlew :idem-gate:test --tests "*OutboxRelayIntegrationTest"
 // ═══════════════════════════════════════════════════════════════════
 @SpringBootTest
 @EmbeddedKafka(partitions = 1, topics = {"qsign.auth.events"})
@@ -1999,7 +1999,7 @@ class OutboxRelayIntegrationTest {
 // 테스트 목적: 동일 이벤트를 2번 수신해도 비즈니스 로직(Redis Pre-warming)이
 //              1번만 실행되는지 검증 (at-least-once + 멱등성 보장)
 // 사용 DB: Testcontainers PostgreSQL — ido.idempotent_event 테이블
-// 실행 방법: ./gradlew :ido:test --tests "*QsignAuthEventConsumerTest"
+// 실행 방법: ./gradlew :idem-hub:test --tests "*QsignAuthEventConsumerTest"
 // ═══════════════════════════════════════════════════════════════════
 @Test
 void 동일_이벤트_두번_처리해도_결과가_같다() {
@@ -2031,7 +2031,7 @@ void 동일_이벤트_두번_처리해도_결과가_같다() {
 //              동일 레코드를 각각 1번씩만 처리하는지 검증
 // 사용 DB: Testcontainers PostgreSQL (실제 FOR UPDATE SKIP LOCKED 동작 확인 필수)
 //          ⚠️ H2는 FOR UPDATE SKIP LOCKED 미지원 → 반드시 실제 PostgreSQL 사용
-// 실행 방법: ./gradlew :q-sign:test --tests "*OutboxSkipLockedTest"
+// 실행 방법: ./gradlew :idem-gate:test --tests "*OutboxSkipLockedTest"
 // ═══════════════════════════════════════════════════════════════════
 @Test
 void 다중_인스턴스에서_동일_레코드_중복_처리_안됨() throws Exception {

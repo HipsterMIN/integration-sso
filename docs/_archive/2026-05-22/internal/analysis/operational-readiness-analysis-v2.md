@@ -61,16 +61,16 @@
 
 | 파일 | 설명 |
 |------|------|
-| `q-sign/Dockerfile` | 멀티스테이지 빌드 (JDK 21 build → JRE 21 runtime), non-root 사용자 `qsign` |
-| `ido/Dockerfile` | 멀티스테이지 빌드, non-root 사용자 `ido` |
-| `q-im/Dockerfile` | 멀티스테이지 빌드, non-root 사용자 `qim` |
+| `idem-gate/Dockerfile` | 멀티스테이지 빌드 (JDK 21 build → JRE 21 runtime), non-root 사용자 `qsign` |
+| `idem-hub/Dockerfile` | 멀티스테이지 빌드, non-root 사용자 `ido` |
+| `idem-registry/Dockerfile` | 멀티스테이지 빌드, non-root 사용자 `qim` |
 
 **빌드 명령**:
 ```bash
 # 루트에서 실행
-docker build -f q-sign/Dockerfile -t onepass-qsign:latest .
-docker build -f ido/Dockerfile     -t onepass-ido:latest .
-docker build -f q-im/Dockerfile    -t onepass-qim:latest .
+docker build -f idem-gate/Dockerfile -t onepass-qsign:latest .
+docker build -f idem-hub/Dockerfile     -t onepass-ido:latest .
+docker build -f idem-registry/Dockerfile    -t onepass-qim:latest .
 ```
 
 ### 3.2 P0: docker-compose.yml onepass-qsign 서비스 추가 ✅
@@ -159,7 +159,7 @@ private String buildInternalSig(String correlationId) {
 
 ```
 webapp/
-├── q-sign/
+├── idem-gate/
 │   ├── Dockerfile                               ★ 신규 (v2.1)
 │   └── src/main/java/kr/go/smes/qsign/
 │       ├── application/
@@ -186,9 +186,9 @@ webapp/
 │           ├── V4__add_processed_event.sql
 │           └── V5__add_auth_method.sql          ★ v1.4.1 신규
 │
-├── ido/
+├── idem-hub/
 │   ├── Dockerfile                               ★ 신규 (v2.1)
-│   └── src/main/java/kr/go/smes/ido/
+│   └── src/main/java/kr/go/smes/idem-hub/
 │       └── config/
 │           ├── RedisConfig.java                 ★ BUG-07: keycloakJwks 추가, @EnableCaching 통합
 │           └── IdoWebConfig.java                ★ BUG-07: cacheManager 제거, @EnableScheduling 유지
@@ -200,7 +200,7 @@ webapp/
 │           ├── V5__add_processed_event.sql      ★ BUG-09 수정
 │           └── V6__add_broker_audit_log.sql
 │
-├── q-im/
+├── idem-registry/
 │   ├── Dockerfile                               ★ 신규 (v2.1)
 │   └── src/main/resources/
 │       └── application-local.yml                ★ v1.4.1 신규
@@ -228,7 +228,7 @@ webapp/
 | P1-02 | 기관 Attribute 필터링 | `PolicyEngineImpl` | `filterAttributes()` 빈 구현 — 기관 정책에 따른 속성 마스킹 미구현 |
 | P1-03 | IdO `X-Internal-Sig` 검증 구현 | `OidcCompleteController` / Filter | HMAC-SHA256 재계산 + `±60초` 타임스탬프 유효성 검사 |
 | P1-04 | `AgencyEntryController.callIdoVerify()` 실 구현 | `agency-stub` | 현재 Stub 반환 → RestTemplate으로 실제 IdO Verify API 호출, API Key 헤더 전송 구현 |
-| P1-05 | IdO Webhook 디스패처 신규 구현 | `ido/webhook/` 신규 패키지 | Handoff REVOKED/Advisory 이벤트 발생 시 기관 Webhook URL로 HTTPS POST (Resilience4j retry 포함) |
+| P1-05 | IdO Webhook 디스패처 신규 구현 | `idem-hub/webhook/` 신규 패키지 | Handoff REVOKED/Advisory 이벤트 발생 시 기관 Webhook URL로 HTTPS POST (Resilience4j retry 포함) |
 | P1-06 | agency-stub Docker 격리 | `docker-compose.yml` | agency-stub을 `onepass-net`에서 제거 → 별도 `agency-net` 또는 host 모드 |
 
 ### P2 — 중기 구현 대상
@@ -240,8 +240,8 @@ webapp/
 | P2-03 | 동의 테이블 V3 migration | `ido` | `ido.consent_record`, `ido.consent_version` 스키마 추가 예정 |
 | P2-04 | `AgencyMemberLookupService` | `ido` | 기관 회원 조회 API 스텁 상태 |
 | P2-05 | Non-OIDC 흐름 `issueFromOidc` 교체 | `AuthServiceImpl` | PASS/GPKI 실 운용 시 idToken sub 파싱 후 `SHA-256(sub)` 기반 `identifierHash` 산출로 교체 필요 |
-| P2-06 | 이벤트 폴링 API 구현 | `ido/api/AgencyEventController` | 기관 Webhook 대안 — GET `/api/v1/agency/events?since={ts}` |
-| P2-07 | agency-stub Kafka 직접 구독 제거 | `agency-stub/HandoffEventConsumer` | PoC 코드 정리 — 운영 전 Webhook/Polling 방식으로 교체 필수 |
+| P2-06 | 이벤트 폴링 API 구현 | `idem-hub/api/AgencyEventController` | 기관 Webhook 대안 — GET `/api/v1/agency/events?since={ts}` |
+| P2-07 | agency-stub Kafka 직접 구독 제거 | `idem-tenant-sample/HandoffEventConsumer` | PoC 코드 정리 — 운영 전 Webhook/Polling 방식으로 교체 필수 |
 
 ---
 
@@ -251,12 +251,12 @@ webapp/
 
 ```bash
 # 1. 각 서비스 JAR 빌드
-./gradlew :q-sign:bootJar :ido:bootJar :q-im:bootJar -x test
+./gradlew :idem-gate:bootJar :idem-hub:bootJar :idem-registry:bootJar -x test
 
 # 2. Docker 이미지 빌드 (루트에서)
-docker build -f q-sign/Dockerfile -t onepass-qsign:latest .
-docker build -f ido/Dockerfile     -t onepass-ido:latest .
-docker build -f q-im/Dockerfile    -t onepass-qim:latest .
+docker build -f idem-gate/Dockerfile -t onepass-qsign:latest .
+docker build -f idem-hub/Dockerfile     -t onepass-ido:latest .
+docker build -f idem-registry/Dockerfile    -t onepass-qim:latest .
 
 # 3. 환경변수 파일 생성 (.env)
 cat > infra/docker/.env << 'EOF'
@@ -341,18 +341,18 @@ SPRING_PROFILES_ACTIVE=local \
   SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/onepass?currentSchema=qsign" \
   SPRING_DATASOURCE_USERNAME=onepass SPRING_DATASOURCE_PASSWORD=onepass \
   SPRING_DATA_REDIS_HOST=localhost \
-  java -jar q-sign/build/libs/q-sign-0.1.0-SNAPSHOT.jar &
+  java -jar idem-gate/build/libs/q-sign-0.1.0-SNAPSHOT.jar &
 
 # IdO
 SPRING_PROFILES_ACTIVE=local \
   SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/onepass?currentSchema=ido" \
   SPRING_DATASOURCE_USERNAME=onepass SPRING_DATASOURCE_PASSWORD=onepass \
   SPRING_DATA_REDIS_HOST=localhost \
-  java -jar ido/build/libs/ido-0.1.0-SNAPSHOT.jar &
+  java -jar idem-hub/build/libs/ido-0.1.0-SNAPSHOT.jar &
 
 # Q-IM
 SPRING_PROFILES_ACTIVE=local \
-  java -jar q-im/build/libs/q-im-0.1.0-SNAPSHOT.jar &
+  java -jar idem-registry/build/libs/q-im-0.1.0-SNAPSHOT.jar &
 ```
 
 ---

@@ -4,7 +4,7 @@
 # 전제(운영 결정 필요):
 #   · 클러스터 접근: secrets.KUBE_CONFIG (base64 인코딩된 kubeconfig)
 #       echo -n "$(cat ~/.kube/config)" | base64 -w0   →  Repo Settings > Secrets
-#   · 이미지: ci.yml이 GHCR(ghcr.io/<owner>/onepass-<module>)로 push한 것을 사용
+#   · 이미지: ci.yml이 GHCR(ghcr.io/<owner>/idem-<module> (예: idem-hub, idem-gate))로 push한 것을 사용
 #   · GitOps(ArgoCD/Flux)를 쓰는 경우 본 워크플로 대신 그쪽 파이프라인을 사용하세요.
 #       (본 파일은 push 기반 helm upgrade 템플릿이며, 환경/네임스페이스/태그를 입력받습니다.)
 #
@@ -64,9 +64,9 @@ jobs:
       - name: Helm upgrade --install
         run: |
           TAG='${{ inputs.image_tag }}'
-          helm upgrade --install onepass infra/helm/onepass \
-            --namespace "onepass-${{ inputs.environment }}" --create-namespace \
-            -f "infra/helm/onepass/values-${{ inputs.environment }}.yaml" \
+          helm upgrade --install onepass infra/helm/idem \
+            --namespace "idem-${{ inputs.environment }}" --create-namespace \
+            -f "infra/helm/idem/values-${{ inputs.environment }}.yaml" \
             --set "global.imageRegistry=${IMAGE_REPO}" \
             --set "qsign.image.tag=${TAG}" \
             --set "qim.image.tag=${TAG}" \
@@ -76,4 +76,4 @@ jobs:
             --wait --timeout 10m
 
       - name: 롤아웃 상태
-        run: kubectl -n "onepass-${{ inputs.environment }}" get deploy,po
+        run: kubectl -n "idem-${{ inputs.environment }}" get deploy,po

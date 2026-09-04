@@ -7,7 +7,7 @@
 | **상태** | ✅ Accepted |
 | **결정일** | 2025 (Sprint 5) |
 | **결정자** | 아키텍처 위원회 |
-| **관련 파일** | `ido/infrastructure/outbox/IdoOutboxRelay.java`, `ido/infrastructure/outbox/QimOutboxRelay.java`, `ido/provision/ProvisioningOutboxRelay.java`, `ido/webhook/WebhookDispatchOutboxRelay.java`, `q-im/outbox/OutboxServiceImpl.java` |
+| **관련 파일** | `idem-hub/infrastructure/outbox/IdoOutboxRelay.java`, `idem-hub/infrastructure/outbox/QimOutboxRelay.java`, `idem-hub/provision/ProvisioningOutboxRelay.java`, `idem-hub/webhook/WebhookDispatchOutboxRelay.java`, `idem-registry/outbox/OutboxServiceImpl.java` |
 
 ---
 

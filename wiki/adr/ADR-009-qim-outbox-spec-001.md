@@ -7,7 +7,7 @@
 | **상태** | ✅ Accepted |
 | **결정일** | 2026-05 (Sprint 14) |
 | **결정자** | 플랫폼 팀 |
-| **관련 파일** | `ido/provision/dto/ProvisioningEventType.java`, `ido/kafka/QimEventConsumer.java`, `ido/qim/sp/service/QimSpReceiverService.java`, `V18__update_event_type_constraints.sql` |
+| **관련 파일** | `idem-hub/provision/dto/ProvisioningEventType.java`, `idem-hub/kafka/QimEventConsumer.java`, `idem-hub/qim/sp/service/QimSpReceiverService.java`, `V18__update_event_type_constraints.sql` |
 
 ---
 

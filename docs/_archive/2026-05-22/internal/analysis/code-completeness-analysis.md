@@ -100,7 +100,7 @@
 
 ### C-001 [Critical] BrokerService.buildInternalSig() — PoC 서명 사용
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/broker/BrokerService.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/BrokerService.java`
 
 **현재 코드**:
 ```java
@@ -143,8 +143,8 @@ private String buildInternalSig(String correlationId) {
 
 ### C-002 [Critical] OidcCompleteController — identifierHash를 qimUserId 대용으로 사용
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/broker/OidcCompleteController.java`  
-**연관 파일**: `ido/src/main/java/kr/go/smes/ido/broker/keycloak/KeycloakOidcService.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/OidcCompleteController.java`  
+**연관 파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/keycloak/KeycloakOidcService.java`
 
 **현재 코드**:
 ```java
@@ -183,7 +183,7 @@ FeSession session = feSessionService.create(
 
 ### C-003 [Critical] InternalSigVerifier.strict-mode=false — 서명 검증 우회
 
-**파일**: `q-sign/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java`
+**파일**: `idem-gate/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java`
 
 **현재 코드**:
 ```java
@@ -230,7 +230,7 @@ public ResponseEntity<Void> updateProfile(
 
 ### H-001 [High] FE 탈퇴 흐름 전체 미구현
 
-**파일**: `onepass-fe/frontend/src/pages/Mypage/pages/Withdraw.tsx`
+**파일**: `idem-console/frontend/src/pages/Mypage/pages/Withdraw.tsx`
 
 **현재 코드**:
 ```typescript
@@ -251,7 +251,7 @@ public ResponseEntity<Void> updateProfile(
 
 ### H-002 [High] FE 비밀번호 변경 흐름 미구현
 
-**파일**: `onepass-fe/frontend/src/pages/Mypage/pages/PasswordStep1.tsx`
+**파일**: `idem-console/frontend/src/pages/Mypage/pages/PasswordStep1.tsx`
 
 **현재 상태**:
 ```typescript
@@ -265,7 +265,7 @@ NICE 인증/OACX 인증 후 비밀번호 변경 Step2 이동 및 BE API 연동 �
 
 ### H-003 [High] 회원 정보 수정 Step2 일부 미구현
 
-**파일**: `onepass-fe/frontend/src/pages/Mypage/pages/InformationStep2.tsx`
+**파일**: `idem-console/frontend/src/pages/Mypage/pages/InformationStep2.tsx`
 
 ```typescript
 // "서비스 준비 중" 모달이 2곳에 존재
@@ -279,7 +279,7 @@ NICE 인증/OACX 인증 후 비밀번호 변경 Step2 이동 및 BE API 연동 �
 
 ### H-004 [High] 기업 회원 전환 Step3 (기업인증) 미구현
 
-**파일**: `onepass-fe/frontend/src/pages/ConversionSteps/member/Step3.tsx`
+**파일**: `idem-console/frontend/src/pages/ConversionSteps/member/Step3.tsx`
 
 ```typescript
 title="서비스 준비 중"  // line 445
@@ -292,7 +292,7 @@ title="서비스 준비 중"  // line 445
 
 ### H-005 [High] 기업 회원 전환 AccountForm — 사업자 진위확인 API 호출 스킵
 
-**파일**: `onepass-fe/frontend/src/pages/ConversionSteps/member/components/AccountForm.tsx`
+**파일**: `idem-console/frontend/src/pages/ConversionSteps/member/components/AccountForm.tsx`
 
 ```typescript
 // TODO: 기업인증 구현 후 진위확인 API 호출 활성화
@@ -306,7 +306,7 @@ setValidateMessage('진위확인 생략 (기업인증 미구현)');
 
 ### H-006 [High] SloServiceImpl — internalSigSecret 빈 값 허용
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/slo/SloServiceImpl.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/slo/SloServiceImpl.java`
 
 ```java
 // internalSigSecret이 비어 있으면 경고 후 임시 식별자 반환
@@ -318,7 +318,7 @@ SLO(Single Log-Out) 처리 시 서명 비밀 키가 없으면 임시 식별자�
 
 ### H-007 [High] WebhookDispatcherService — 기본 서명 시크릿 PoC 수준
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/webhook/WebhookDispatcherService.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/webhook/WebhookDispatcherService.java`
 
 ```java
 private String defaultSigningSecret;   // PoC 기본값; 운영: Vault/KMS 주입
@@ -330,7 +330,7 @@ private String defaultSigningSecret;   // PoC 기본값; 운영: Vault/KMS 주�
 
 ### H-008 [High] Kafka 토픽 설정 — PoC/운영 혼용
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/config/KafkaTopicConfig.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/config/KafkaTopicConfig.java`
 
 ```java
 /** 핵심 토픽 파티션 수 — 60k 대응 기준 12 (PoC: 6, 운영: 12~24) */
@@ -344,7 +344,7 @@ private String defaultSigningSecret;   // PoC 기본값; 운영: Vault/KMS 주�
 
 ### H-009 [High] 개인 정보 보존 기간 — 임시값 사용
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/retention/PersonalDataRetentionScheduler.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/retention/PersonalDataRetentionScheduler.java`
 
 ```java
 /** 보존 기간 (일). 기본 365일 = 1년. 법무팀 확정 전 임시값. */
@@ -357,7 +357,7 @@ private static final int DEFAULT_RETENTION_DAYS = 365;
 
 ### H-010 [High] NonOidcBrokerAdapter — 완전 PoC 구현
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/broker/nonoidc/NonOidcBrokerAdapter.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/nonoidc/NonOidcBrokerAdapter.java`
 
 ```java
 // PoC: 더미 — 운영: 금융결제원 금융인증서 API 연동
@@ -372,7 +372,7 @@ private static final int DEFAULT_RETENTION_DAYS = 365;
 
 ### H-011 [High] CallbackUrlValidator — whitelist 비어있으면 검증 스킵
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/handoff/validate/CallbackUrlValidator.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/validate/CallbackUrlValidator.java`
 
 ```java
 // whitelist가 null이거나 비어있으면 검증 스킵 (PoC 하위호환)
@@ -387,7 +387,7 @@ Handoff 발급 시 callbackUrl 화이트리스트가 비어있으면 임의 URL�
 
 ### M-001 [Medium] NICE HMAC 비교 — 타이밍 공격 취약
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/auth/service/NiceAuthService.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/service/NiceAuthService.java`
 
 ```java
 String calculated = NiceCryptoUtil.hmacSha256Base64Url(response.getEncData(), hmacKey);
@@ -443,7 +443,7 @@ if (!MessageDigest.isEqual(
 
 ### M-006 [Medium] OACX CI 미제공 Provider 처리 정책 미확립
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/auth/service/AuthService.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/service/AuthService.java`
 
 ```java
 } else {
@@ -498,7 +498,7 @@ FE 시작 시 환경변수 유효성 검증 추가 필요.
 
 ### L-001 [Low] HandoffKeyRotationScheduler — KMS 통합 필요
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/crypto/HandoffKeyRotationScheduler.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/HandoffKeyRotationScheduler.java`
 
 ```java
 // 실제 키 생성은 KMS에 위임 (이 구현은 PoC/개발 환경용 자체 생성 포함)
@@ -510,7 +510,7 @@ FE 시작 시 환경변수 유효성 검증 추가 필요.
 
 ### L-002 [Low] AgencyMeta — bridge_endpoint 컬럼 재사용
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/domain/AgencyMeta.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/domain/AgencyMeta.java`
 
 ```java
 // DB: bridge_endpoint 컬럼 재사용 (APACHE_GATE 전용 컬럼 추가 전 임시)
@@ -530,7 +530,7 @@ NICE/OACX 인증 성공 시 `auth_mean_mappings.last_used_at`이 갱신되지 �
 
 ### L-004 [Low] FE CI 필드 응답 타입에 포함
 
-**파일**: `onepass-fe/frontend/src/hooks/useNicePhoneAuth.ts`
+**파일**: `idem-console/frontend/src/hooks/useNicePhoneAuth.ts`
 
 ```typescript
 export interface NicePhoneAuthResult {
@@ -548,7 +548,7 @@ BE(Q3=B 정책)는 CI를 반환하지 않지만 FE 타입에 `ci?` 필드가 남
 
 ### L-005 [Low] PhoneAuthTab — URL 폴링 방식 (비권장)
 
-**파일**: `onepass-fe/frontend/src/pages/OacxTest/PhoneAuthTab.tsx`
+**파일**: `idem-console/frontend/src/pages/OacxTest/PhoneAuthTab.tsx`
 
 ```typescript
 // 팝업의 URL 변화를 폴링으로 감지
@@ -566,7 +566,7 @@ pollingRef.current = setInterval(async () => {
 
 ### L-006 [Low] 운영 환경 Kafka RF=1 위험
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/config/KafkaTopicConfig.java`
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/config/KafkaTopicConfig.java`
 
 ```java
 /** Replication Factor — 운영: 3, PoC: 1 */
@@ -840,31 +840,31 @@ num.partitions: 12  # 주요 토픽
 
 | 파일 경로 | 키워드 | 내용 요약 |
 |---------|--------|---------|
-| `ido/broker/BrokerService.java` | PoC | buildInternalSig() 더미 서명 |
-| `ido/broker/OidcCompleteController.java` | PoC | identifierHash qimUserId 대용 |
-| `ido/broker/keycloak/KeycloakOidcService.java` | PoC | identifierHash qimUserId 대용 (2곳) |
-| `ido/broker/nonoidc/NonOidcBrokerAdapter.java` | PoC | 공동인증서 연동 더미 (5곳) |
-| `ido/broker/nonoidc/NonOidcAuthCommand.java` | PoC | 암호화 채널 미구현 |
-| `q-sign/api/InternalSigVerifier.java` | PoC | strict-mode=false 서명 검증 우회 |
-| `q-sign/application/AuthServiceImpl.java` | 임시 | identifierHash 임시 계산 |
-| `ido/handoff/validate/CallbackUrlValidator.java` | PoC | whitelist 비어있으면 검증 스킵 |
-| `ido/webhook/WebhookDispatcherService.java` | PoC | 기본 서명 시크릿 |
-| `ido/crypto/HandoffKeyRotationScheduler.java` | PoC | KMS 미연동 |
-| `ido/retention/PersonalDataRetentionScheduler.java` | 임시 | 보존 기간 365일 임시값 |
-| `ido/domain/AgencyMeta.java` | 임시 | bridge_endpoint 컬럼 재사용 |
-| `ido/config/KafkaTopicConfig.java` | PoC | RF=1, Partition=6 |
-| `ido/slo/SloServiceImpl.java` | 임시 | internalSigSecret 없으면 임시 처리 |
-| `ido/auth/service/AuthService.java` | TODO | OACX CI Q-IM 등록 |
-| `ido/auth/dto/CiCheckResponse.java` | TODO | S7-T6 TODO 주석 (이미 구현됨, 주석만 남음) |
-| `ido/auth/dto/NicePhoneAuthResultResponse.java` | TODO | CI TODO 주석 (이미 구현됨) |
-| `onepass-fe/Withdraw.tsx` | TODO | 탈퇴 API 연동 |
-| `onepass-fe/PasswordStep1.tsx` | TODO | 비밀번호 변경 Step2 |
-| `onepass-fe/ConversionSteps/Step3.tsx` | 개발 중 | 기업인증 |
-| `onepass-fe/AccountForm.tsx` | TODO | 진위확인 API |
-| `onepass-fe/Affiliation.tsx` | 개발 중 | 소속기관 관리 |
-| `onepass-fe/InformationStep2.tsx` | 개발 중 | 정보수정 일부 |
-| `onepass-fe/Login/index.tsx` | 개발 중 | 공동인증서/Any-ID/기업인증서 |
-| `onepass-fe/RegisterSteps/Step3.tsx` | 개발 중 | 기업인증 (신규가입) |
+| `idem-hub/broker/BrokerService.java` | PoC | buildInternalSig() 더미 서명 |
+| `idem-hub/broker/OidcCompleteController.java` | PoC | identifierHash qimUserId 대용 |
+| `idem-hub/broker/keycloak/KeycloakOidcService.java` | PoC | identifierHash qimUserId 대용 (2곳) |
+| `idem-hub/broker/nonoidc/NonOidcBrokerAdapter.java` | PoC | 공동인증서 연동 더미 (5곳) |
+| `idem-hub/broker/nonoidc/NonOidcAuthCommand.java` | PoC | 암호화 채널 미구현 |
+| `idem-gate/api/InternalSigVerifier.java` | PoC | strict-mode=false 서명 검증 우회 |
+| `idem-gate/application/AuthServiceImpl.java` | 임시 | identifierHash 임시 계산 |
+| `idem-hub/handoff/validate/CallbackUrlValidator.java` | PoC | whitelist 비어있으면 검증 스킵 |
+| `idem-hub/webhook/WebhookDispatcherService.java` | PoC | 기본 서명 시크릿 |
+| `idem-hub/crypto/HandoffKeyRotationScheduler.java` | PoC | KMS 미연동 |
+| `idem-hub/retention/PersonalDataRetentionScheduler.java` | 임시 | 보존 기간 365일 임시값 |
+| `idem-hub/domain/AgencyMeta.java` | 임시 | bridge_endpoint 컬럼 재사용 |
+| `idem-hub/config/KafkaTopicConfig.java` | PoC | RF=1, Partition=6 |
+| `idem-hub/slo/SloServiceImpl.java` | 임시 | internalSigSecret 없으면 임시 처리 |
+| `idem-hub/auth/service/AuthService.java` | TODO | OACX CI Q-IM 등록 |
+| `idem-hub/auth/dto/CiCheckResponse.java` | TODO | S7-T6 TODO 주석 (이미 구현됨, 주석만 남음) |
+| `idem-hub/auth/dto/NicePhoneAuthResultResponse.java` | TODO | CI TODO 주석 (이미 구현됨) |
+| `idem-console/Withdraw.tsx` | TODO | 탈퇴 API 연동 |
+| `idem-console/PasswordStep1.tsx` | TODO | 비밀번호 변경 Step2 |
+| `idem-console/ConversionSteps/Step3.tsx` | 개발 중 | 기업인증 |
+| `idem-console/AccountForm.tsx` | TODO | 진위확인 API |
+| `idem-console/Affiliation.tsx` | 개발 중 | 소속기관 관리 |
+| `idem-console/InformationStep2.tsx` | 개발 중 | 정보수정 일부 |
+| `idem-console/Login/index.tsx` | 개발 중 | 공동인증서/Any-ID/기업인증서 |
+| `idem-console/RegisterSteps/Step3.tsx` | 개발 중 | 기업인증 (신규가입) |
 
 ---
 

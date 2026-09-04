@@ -2,34 +2,34 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "onepass-fe (React Dev Server)",
+      "name": "idem-console (React Dev Server)",
       "runtimeExecutable": "yarn",
       "runtimeArgs": ["dev"],
-      "cwd": "onepass-fe/frontend",
+      "cwd": "idem-console/frontend",
       "port": 3301
     },
     {
       "name": "ido (IdO 정책 오케스트레이터 :8083)",
       "runtimeExecutable": "gradlew",
-      "runtimeArgs": [":ido:bootRun", "--args=--spring.profiles.active=local"],
+      "runtimeArgs": [":idem-hub:bootRun", "--args=--spring.profiles.active=local"],
       "port": 8083
     },
     {
       "name": "q-sign (Q-Sign 인증 SoR :8081)",
       "runtimeExecutable": "gradlew",
-      "runtimeArgs": [":q-sign:bootRun", "--args=--spring.profiles.active=local"],
+      "runtimeArgs": [":idem-gate:bootRun", "--args=--spring.profiles.active=local"],
       "port": 8081
     },
     {
       "name": "q-im (Q-IM 식별·매핑 SoR :8082)",
       "runtimeExecutable": "gradlew",
-      "runtimeArgs": [":q-im:bootRun", "--args=--spring.profiles.active=local"],
+      "runtimeArgs": [":idem-registry:bootRun", "--args=--spring.profiles.active=local"],
       "port": 8082
     },
     {
       "name": "agency-stub (유관기관 시뮬레이터 :8084)",
       "runtimeExecutable": "gradlew",
-      "runtimeArgs": [":agency-stub:bootRun", "--args=--spring.profiles.active=local"],
+      "runtimeArgs": [":idem-tenant-sample:bootRun", "--args=--spring.profiles.active=local"],
       "port": 8084
     },
     {

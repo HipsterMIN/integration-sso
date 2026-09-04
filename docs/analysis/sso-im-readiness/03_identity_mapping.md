@@ -74,14 +74,14 @@
 ### F3.1 [**Critical**] SHA-256 인코딩 불일치 — CI 기반 조회 영구 실패
 
 **위치**:
-- `q-im/.../api/MemberLookupController.java:141-149` (Base64URL)
-- `q-im/.../api/UserController.java:378-386` (hex)
-- `q-sign/.../keycloak/KeycloakCallbackService.java:240` (hex)
-- `q-sign/.../application/AuthServiceImpl.java:199` (hex)
-- `ido/.../broker/keycloak/KeycloakOidcService.java:325` (hex)
-- `ido/.../broker/nonoidc/NonOidcAuthService.java:262` (hex)
-- `ido/.../broker/nonoidc/NonOidcBrokerAdapter.java:263` (hex)
-- `ido/.../broker/nonoidc/NonOidcBrokerController.java:287` (hex)
+- `idem-registry/.../api/MemberLookupController.java:141-149` (Base64URL)
+- `idem-registry/.../api/UserController.java:378-386` (hex)
+- `idem-gate/.../keycloak/KeycloakCallbackService.java:240` (hex)
+- `idem-gate/.../application/AuthServiceImpl.java:199` (hex)
+- `idem-hub/.../broker/keycloak/KeycloakOidcService.java:325` (hex)
+- `idem-hub/.../broker/nonoidc/NonOidcAuthService.java:262` (hex)
+- `idem-hub/.../broker/nonoidc/NonOidcBrokerAdapter.java:263` (hex)
+- `idem-hub/.../broker/nonoidc/NonOidcBrokerController.java:287` (hex)
 
 **문제 상세**: 동일한 입력에 대해 **`MemberLookupController.sha256()`만 Base64URL withoutPadding을 사용**하고, 나머지 모든 8곳은 hex (소문자) 인코딩을 사용한다. CI 평문 `"S1234567890"`을 예로 들면:
 
@@ -105,11 +105,11 @@ Base64URL wOPad = "-4Skt-..." (43자)
 ### F3.2 [**Critical**] `findByIdentifierHash` 단일 hash 조회 — V4 마이그레이션 후 의미 모호
 
 **위치**:
-- `q-im/.../infrastructure/jpa/repository/QimUserJpaRepository.java:31`
-- `q-im/.../api/UserController.java:117` (getUserByHash)
-- `q-im/.../api/MemberLookupController.java:83, 107`
-- `q-im/.../user/UserRegistrationServiceImpl.java:62` (registerOrGet)
-- `q-im/.../conversion/ConversionSessionServiceImpl.java:194` 간접 호출
+- `idem-registry/.../infrastructure/jpa/repository/QimUserJpaRepository.java:31`
+- `idem-registry/.../api/UserController.java:117` (getUserByHash)
+- `idem-registry/.../api/MemberLookupController.java:83, 107`
+- `idem-registry/.../user/UserRegistrationServiceImpl.java:62` (registerOrGet)
+- `idem-registry/.../conversion/ConversionSessionServiceImpl.java:194` 간접 호출
 
 **문제 상세**: V4 마이그레이션(`uq_identifier_hash` 제거, `uq_identifier_hash_provider` 추가) 이후 **identifier_hash 단독으로는 더이상 unique가 아니다**. 그러나 `findByIdentifierHash(hash)`는 여전히 `Optional` (단일 결과)를 반환한다.
 
@@ -137,7 +137,7 @@ Optional<QimUserJpaEntity> findByIdentifierHash(@Param("identifierHash") String 
 
 ### F3.3 [**Critical**] CI 암호화 키 운영 환경 기본값 — Production 노출 위험
 
-**위치**: `q-im/.../crypto/CiCryptoServiceImpl.java:40`
+**위치**: `idem-registry/.../crypto/CiCryptoServiceImpl.java:40`
 
 ```java
 @Value("${qim.crypto.ci.key-v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}")
@@ -148,7 +148,7 @@ private String aesKeyV1Base64;
 - 환경변수 `QIM_CI_AES_KEY_V1` 미설정 시 **`AAA...` 28개 + `=` (Base64 → 32바이트 전부 `0x00`)** 키를 사용
 - 운영에서 환경변수 누락 시 모든 CI가 **알려진 키로 암호화**됨 → 사실상 평문 노출
 - `@PostConstruct` 검증 없음 — 키 미설정 알람 메커니즘 부재
-- `q-sign/KeycloakCallbackService:80`의 `ido-internal-secret` 기본값(Phase 2 F2.1)과 동일 패턴
+- `idem-gate/KeycloakCallbackService:80`의 `ido-internal-secret` 기본값(Phase 2 F2.1)과 동일 패턴
 
 **실 사용 시나리오**:
 - DevOps가 K8s Secret 누락 → Pod 정상 기동 → 모든 신규 사용자 CI가 약한 키로 암호화됨
@@ -164,7 +164,7 @@ private String aesKeyV1Base64;
 
 ### F3.4 [**Critical**] DI Secret 운영 환경 기본값 — 모든 기관 DI 위조 가능
 
-**위치**: `q-im/.../identity/DiGenerationService.java:39`
+**위치**: `idem-registry/.../identity/DiGenerationService.java:39`
 
 ```java
 @Value("${qim.crypto.di.secret:default-di-secret-change-in-production}")
@@ -190,7 +190,7 @@ private String diSecret;
 
 ### F3.5 [High] CI 복호화 평문 fallback — 부분 마이그레이션 데이터의 무방비 노출
 
-**위치**: `q-im/.../crypto/CiCryptoServiceImpl.java:81-88`
+**위치**: `idem-registry/.../crypto/CiCryptoServiceImpl.java:81-88`
 
 ```java
 public String decrypt(String encryptedCi) {
@@ -218,9 +218,9 @@ public String decrypt(String encryptedCi) {
 ### F3.6 [High] 전환 세션 동시 시작 — 다중 ACTIVE 세션 가능
 
 **위치**:
-- `q-im/.../conversion/ConversionSessionServiceImpl.java:60` (initiate)
-- `q-im/.../infrastructure/jpa/repository/ConversionSessionJpaRepository.java:20` (findActiveByUser)
-- `q-im/src/main/resources/db/migration/V5__withdrawal_consent_conversion.sql:96` (conversion_session UNIQUE 미존재)
+- `idem-registry/.../conversion/ConversionSessionServiceImpl.java:60` (initiate)
+- `idem-registry/.../infrastructure/jpa/repository/ConversionSessionJpaRepository.java:20` (findActiveByUser)
+- `idem-registry/src/main/resources/db/migration/V5__withdrawal_consent_conversion.sql:96` (conversion_session UNIQUE 미존재)
 
 **문제 상세**:
 - `findActiveByUser(qimUserId, now)`는 `LIMIT 1` + ORDER BY createdAt DESC → 가장 최근 1건만 보고 판단
@@ -242,8 +242,8 @@ public String decrypt(String encryptedCi) {
 ### F3.7 [High] 동의 동시 INSERT — 같은 type 다중 AGREED 레코드
 
 **위치**:
-- `q-im/.../consent/ConsentServiceImpl.java:41-66` (agree)
-- `q-im/src/main/resources/db/migration/V5__withdrawal_consent_conversion.sql:63` (consent_record UNIQUE 미존재)
+- `idem-registry/.../consent/ConsentServiceImpl.java:41-66` (agree)
+- `idem-registry/src/main/resources/db/migration/V5__withdrawal_consent_conversion.sql:63` (consent_record UNIQUE 미존재)
 
 **문제 상세**:
 - `agree()`는 항상 새 record INSERT (이력 보존 원칙)
@@ -260,8 +260,8 @@ public String decrypt(String encryptedCi) {
 ### F3.8 [High] PII 삭제가 중복 정의 — 단일 책임 위반 + 코드 동기화 위험
 
 **위치**:
-- `q-im/.../user/UserRegistrationServiceImpl.java:202-217` (deletePii)
-- `q-im/.../withdrawal/WithdrawalServiceImpl.java:255-270` (deletePii)
+- `idem-registry/.../user/UserRegistrationServiceImpl.java:202-217` (deletePii)
+- `idem-registry/.../withdrawal/WithdrawalServiceImpl.java:255-270` (deletePii)
 
 **문제 상세**:
 - 동일한 `UPDATE user_profile SET name_masked=NULL, ..., ci=NULL, ...` 쿼리가 **두 곳에 똑같이 복사**되어 있음
@@ -281,7 +281,7 @@ public String decrypt(String encryptedCi) {
 
 ### F3.9 [High] DI 저장 누락 시 매번 재계산 — 멱등성은 OK이지만 di_map 갱신 누락 가능
 
-**위치**: `q-im/.../api/UserController.java:159-186` (getDi)
+**위치**: `idem-registry/.../api/UserController.java:159-186` (getDi)
 
 ```java
 boolean alreadyExists = diGenerationService.parseDiMap(currentDiMap).containsKey(agencyCode);
@@ -311,7 +311,7 @@ if (!alreadyExists && profile != null) {
 
 ### F3.10 [Medium] Conversion fallback hash가 qimUserId 자체 — 다른 기관 조회 결과와 매칭 불가
 
-**위치**: `q-im/.../conversion/ConversionSessionServiceImpl.java:192-211` (resolveIdentifierHash)
+**위치**: `idem-registry/.../conversion/ConversionSessionServiceImpl.java:192-211` (resolveIdentifierHash)
 
 ```java
 private String resolveIdentifierHash(String qimUserId) {
@@ -345,7 +345,7 @@ private String resolveIdentifierHash(String qimUserId) {
 
 ### F3.11 [Medium] CI 복호화 실패 시 동일 응답 코드 — Oracle attack 우려
 
-**위치**: `q-im/.../api/MemberLookupController.java:71-77`
+**위치**: `idem-registry/.../api/MemberLookupController.java:71-77`
 
 ```java
 try {
@@ -372,8 +372,8 @@ try {
 ### F3.12 [Medium] InternalApiKeyInterceptor — actuator/Swagger excludePath 미설정
 
 **위치**:
-- `q-im/.../config/InternalApiKeyInterceptor.java`
-- `q-im/.../config/QimWebMvcConfig.java:42-45`
+- `idem-registry/.../config/InternalApiKeyInterceptor.java`
+- `idem-registry/.../config/QimWebMvcConfig.java:42-45`
 
 **문제 상세**:
 - `QimWebMvcConfig`은 `/api/v1/internal/**` 에만 인터셉터를 적용
@@ -389,7 +389,7 @@ try {
 
 ### F3.13 [Medium] register-social 정상 200 OK + isNew=false 응답 — IdO 측 처리 모호
 
-**위치**: `q-im/.../api/UserController.java:313-324` (registerSocialUser 경합 방어)
+**위치**: `idem-registry/.../api/UserController.java:313-324` (registerSocialUser 경합 방어)
 
 ```java
 if (existing.isPresent()) {
@@ -415,7 +415,7 @@ if (existing.isPresent()) {
 
 ### F3.14 [Low] Q-IM Outbox는 자체 Kafka producer 직접 사용 — outbox-relay-batch와 책임 중복
 
-**위치**: `q-im/.../outbox/OutboxServiceImpl.java:93-103, 167-197`
+**위치**: `idem-registry/.../outbox/OutboxServiceImpl.java:93-103, 167-197`
 
 **문제 상세**:
 - Q-IM 자체 스케줄러(`@Scheduled(fixedDelayString = "${qim.outbox.relay-interval-ms:500}")`)가 outbox 테이블을 폴링하여 Kafka 직접 발행

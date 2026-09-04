@@ -75,7 +75,7 @@ docker compose up -d mariadb redis zookeeper kafka kafka-init
 
 # 2. Q-IM 빌드 및 실행
 cd ../../
-./gradlew :q-im:bootRun --args='--spring.profiles.active=local'
+./gradlew :idem-registry:bootRun --args='--spring.profiles.active=local'
 
 # 3. 헬스체크
 curl http://localhost:8082/actuator/health
@@ -85,7 +85,7 @@ curl http://localhost:8082/actuator/health
 ### 2.2 application-local.yml 예시
 
 ```yaml
-# q-im/src/main/resources/application-local.yml
+# idem-registry/src/main/resources/application-local.yml
 spring:
   datasource:
     url: jdbc:mariadb://localhost:3306/qim?serverTimezone=Asia/Seoul
@@ -135,7 +135,7 @@ logging:
 ### 3.1 전체 패키지 구조
 
 ```
-q-im/src/main/java/kr/go/smes/qim/
+idem-registry/src/main/java/kr/go/smes/qim/
 ├── QImApplication.java
 ├── api/                           # 내부 API (X-Internal-Api-Key 인증)
 │   ├── GlobalExceptionHandler.java
@@ -798,7 +798,7 @@ public void onSloCompleted(ConsumerRecord<String, String> record) {
 ### 12.2 새 마이그레이션 작성 규칙
 
 ```sql
--- 파일 위치: q-im/src/main/resources/db/migration/V4__<설명>.sql
+-- 파일 위치: idem-registry/src/main/resources/db/migration/V4__<설명>.sql
 -- 명명 규칙: V{숫자}__{스네이크케이스_설명}.sql
 
 -- ✅ 좋은 예
@@ -818,10 +818,10 @@ CREATE INDEX idx_user_profile_retention
 ```bash
 # 로컬 개발 중 마이그레이션 파일을 수정한 경우
 # (운영 환경에서는 절대 사용 금지)
-./gradlew :q-im:flywayRepair
+./gradlew :idem-registry:flywayRepair
 
 # 또는 checksum 강제 업데이트
-./gradlew :q-im:flywayValidate
+./gradlew :idem-registry:flywayValidate
 ```
 
 ---
@@ -831,7 +831,7 @@ CREATE INDEX idx_user_profile_retention
 ### 13.1 테스트 구조
 
 ```
-q-im/src/test/java/kr/go/smes/qim/
+idem-registry/src/test/java/kr/go/smes/qim/
 ├── crypto/
 │   └── CiCryptoServiceImplTest.java    # AES-256-GCM 암복호화 검증
 ├── identity/
@@ -984,7 +984,7 @@ FlywayException: Detected failed migration to version 3
 
 **해결 (로컬만 가능)**:
 ```bash
-./gradlew :q-im:flywayRepair --args='--spring.profiles.active=local'
+./gradlew :idem-registry:flywayRepair --args='--spring.profiles.active=local'
 ```
 
 **해결 (운영)**: 절대 기존 마이그레이션 수정 금지 — 새 V{n+1} 파일로 수정사항 적용

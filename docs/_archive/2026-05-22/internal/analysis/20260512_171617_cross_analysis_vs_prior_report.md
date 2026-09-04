@@ -30,7 +30,7 @@
 **코드 근거**:
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/broker/OidcCompleteController.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/broker/OidcCompleteController.java
 라인: 55-58 (Javadoc 변경 이력)
 ```
 
@@ -50,7 +50,7 @@
 **코드 근거**:
 
 ```
-파일: q-sign/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java
+파일: idem-gate/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java
 라인: 102-157
 ```
 
@@ -72,7 +72,7 @@
 **코드 근거**:
 
 ```
-파일: q-sign/src/main/java/kr/go/smes/qsign/pkce/PkceService.java
+파일: idem-gate/src/main/java/kr/go/smes/qsign/pkce/PkceService.java
 라인: 15-175
 ```
 
@@ -96,7 +96,7 @@ RFC 7636 S256 방식 완전 구현:
 **코드 근거**:
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/qim/sp/service/QimSpReceiverService.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/qim/sp/service/QimSpReceiverService.java
 라인: 283-317
 ```
 
@@ -118,7 +118,7 @@ RFC 7636 S256 방식 완전 구현:
 **코드 근거**:
 
 ```
-파일: q-im/src/main/java/kr/go/smes/qim/crypto/CiCryptoServiceImpl.java
+파일: idem-registry/src/main/java/kr/go/smes/qim/crypto/CiCryptoServiceImpl.java
 라인: 54-107
 ```
 
@@ -141,7 +141,7 @@ RFC 7636 S256 방식 완전 구현:
 **코드 근거**:
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/handoff/crypto/HandoffCryptoService.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/crypto/HandoffCryptoService.java
 라인: 62-240
 ```
 
@@ -164,7 +164,7 @@ RFC 7636 S256 방식 완전 구현:
 **코드 근거**:
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/policy/PolicyEngineImpl.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/policy/PolicyEngineImpl.java
 라인: 168-174
 ```
 
@@ -216,7 +216,7 @@ PoC 기본값이며, 파일 헤더에 "운영 배포 시 외부에서 override �
 **코드 근거**:
 
 ```
-파일: ido/src/main/resources/application.yml
+파일: idem-hub/src/main/resources/application.yml
 라인 582: handoff-aes-key: ${IDO_HANDOFF_AES_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
 라인 583: handoff-hmac-key: ${IDO_HANDOFF_HMAC_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
 ```
@@ -237,10 +237,10 @@ PoC 기본값이며, 파일 헤더에 "운영 배포 시 외부에서 override �
 **심각도**: Critical (환경 변수 미주입 시 보안 무력화)
 
 ```
-파일: ido/src/main/resources/application.yml
+파일: idem-hub/src/main/resources/application.yml
 라인 325: signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-change-in-production}
 
-파일: ido/src/main/java/kr/go/smes/ido/policy/PolicyEngineImpl.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/policy/PolicyEngineImpl.java
 라인 44: @Value("${ido.agency-subject-secret:default-poc-secret-change-in-production}")
 ```
 
@@ -256,7 +256,7 @@ PoC 기본값이며, 파일 헤더에 "운영 배포 시 외부에서 override �
 **심각도**: High
 
 ```
-파일: ido/src/main/resources/db/migration/V8__seed_agency_api_key_and_fix_webhook.sql
+파일: idem-hub/src/main/resources/db/migration/V8__seed_agency_api_key_and_fix_webhook.sql
 라인 9-16:
   -- rawApiKey  = "stub-api-key-dev-001"
   -- rawWebhookSecret = "poc-webhook-secret-change-in-production"
@@ -273,7 +273,7 @@ DB 마이그레이션 파일에 PoC 원문 키가 주석으로 기록되어 있�
 **심각도**: Medium (K8s 멀티 Pod 배포 시)
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/ratelimit/AgencyRateLimiter.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/ratelimit/AgencyRateLimiter.java
 ```
 
 `ConcurrentHashMap` 기반 인메모리 카운터 사용. K8s 환경에서 Pod가 2개 이상 실행되면 각 Pod가 독립적인 카운터를 가져 실제 TPS 제한이 `설정값 × Pod 수`가 된다. Redisson 분산 락(F-08)은 적용되어 있으나, Rate Limiter 카운터 자체가 단일 JVM 범위다.
@@ -285,7 +285,7 @@ DB 마이그레이션 파일에 PoC 원문 키가 주석으로 기록되어 있�
 **심각도**: Medium
 
 ```
-파일: q-sign/src/main/resources/application.yml
+파일: idem-gate/src/main/resources/application.yml
 라인 231: jwks-cache-ttl-seconds: 3600
 ```
 

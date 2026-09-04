@@ -51,11 +51,11 @@ git clone <repo-url>
 cd integration-sso
 
 # 의존성 없는 컴파일 검증 (Docker 불필요)
-DOCKER_UNAVAILABLE=true ./gradlew :platform-common:compileJava \
-  :q-im:compileJava :q-sign:compileJava :ido:compileJava
+DOCKER_UNAVAILABLE=true ./gradlew :idem-common:compileJava \
+  :idem-registry:compileJava :idem-gate:compileJava :idem-hub:compileJava
 
 # 테스트 (Docker 불필요)
-DOCKER_UNAVAILABLE=true ./gradlew :platform-common:test :ido:test --rerun-tasks
+DOCKER_UNAVAILABLE=true ./gradlew :idem-common:test :idem-hub:test --rerun-tasks
 # 기대: 212 tests, 0 failures
 ```
 
@@ -71,8 +71,8 @@ docker-compose up -d onepass-qsign onepass-qim onepass-ido
 #### 0-3. .env 파일 생성 (FE 로컬 개발용)
 
 ```bash
-# onepass-fe/frontend/.env (로컬 개발 전용 — 절대 커밋 금지)
-cat > onepass-fe/frontend/.env << 'EOF'
+# idem-console/frontend/.env (로컬 개발 전용 — 절대 커밋 금지)
+cat > idem-console/frontend/.env << 'EOF'
 APP_ENV=local
 SKIP_AUTH=false
 NODE_ENV=development
@@ -97,7 +97,7 @@ EOF
 
 #### Task 1-1: SKIP_AUTH 제거 【FE팀 / 0.5일】
 
-**파일**: `onepass-fe/frontend/src/AppRoutes/Private.tsx`
+**파일**: `idem-console/frontend/src/AppRoutes/Private.tsx`
 
 **변경 1**: Line 67
 ```typescript
@@ -163,7 +163,7 @@ if (isUserFetching) {
 ```
 
 **변경 6**: `webpack.config.js` — SKIP_AUTH DefinePlugin 라인 제거  
-**파일**: `onepass-fe/frontend/webpack.config.js`  
+**파일**: `idem-console/frontend/webpack.config.js`  
 **Line 52**: 아래 라인 삭제
 ```typescript
 // BEFORE (line 52)
@@ -178,7 +178,7 @@ SKIP_AUTH: process.env.SKIP_AUTH,
 **배경**: `webpack.config.js`의 `DefinePlugin`이 `AES_GCM_KEY`를 JS 번들에 인라인 삽입.  
 번들을 다운받으면 암호화 키 평문 노출. Q3=B 위반의 핵심.
 
-**파일 1**: `onepass-fe/frontend/webpack.config.js`  
+**파일 1**: `idem-console/frontend/webpack.config.js`  
 **Line 64**: 아래 라인 삭제
 ```typescript
 // BEFORE (line 64)
@@ -186,22 +186,22 @@ AES_GCM_KEY: process.env.AES_GCM_KEY,
 // AFTER: 라인 전체 삭제
 ```
 
-**파일 2**: `onepass-fe/frontend/src/utils/crypto/aesGcm.ts`  
+**파일 2**: `idem-console/frontend/src/utils/crypto/aesGcm.ts`  
 **전체 파일 삭제**: CI 암호화는 FE가 아닌 ido BE에서 수행해야 함.  
 이 파일 자체가 보안 위반 설계의 근거이므로 삭제.
 
 ```bash
-rm onepass-fe/frontend/src/utils/crypto/aesGcm.ts
+rm idem-console/frontend/src/utils/crypto/aesGcm.ts
 ```
 
 > ⚠️ `aesGcm.ts`를 import하는 파일 있으면 해당 import도 함께 제거 필요.  
-> 검색: `grep -r "aesGcm\|encryptCi" onepass-fe/frontend/src --include="*.ts" --include="*.tsx"`
+> 검색: `grep -r "aesGcm\|encryptCi" idem-console/frontend/src --include="*.ts" --include="*.tsx"`
 
 ---
 
 #### Task 1-3: Math.random() → 서버사이드 임시 비밀번호 【FE팀 / 0.5일】
 
-**파일**: `onepass-fe/frontend/src/pages/ConversionSteps/member/Step5.tsx`  
+**파일**: `idem-console/frontend/src/pages/ConversionSteps/member/Step5.tsx`  
 **Lines 72~77** (기업회원 임시 비밀번호 생성 코드):
 
 ```typescript
@@ -241,7 +241,7 @@ if (!password) {
 
 #### Task 1-4: MOCK_MEMBER 초기값 제거 【FE팀 / 0.5일】
 
-**파일**: `onepass-fe/frontend/src/constants/mockData.ts`
+**파일**: `idem-console/frontend/src/constants/mockData.ts`
 
 ```typescript
 // BEFORE (lines 1~9)
@@ -322,7 +322,7 @@ echo "✅ .env.secrets 생성 완료 — 절대 커밋 금지"
 현재 FE의 `extInstance`가 Q-IM(8082)을 직접 호출. 이를 ido(8083)를 통해 중계해야 함.  
 `/api/ext/**` → ido가 X-API-Key를 서버 환경변수에서 로드하여 Q-IM으로 포워딩.
 
-**구현할 파일**: `ido/src/main/java/kr/go/smes/ido/ext/ExtProxyController.java` (신규 생성)
+**구현할 파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/ext/ExtProxyController.java` (신규 생성)
 
 ```java
 package kr.go.smes.ido.ext;
@@ -421,7 +421,7 @@ public class ExtProxyController {
 ```
 
 **RestTemplate 빈 등록** (이미 있으면 스킵):  
-파일: `ido/src/main/java/kr/go/smes/ido/config/RestTemplateConfig.java` (신규)
+파일: `idem-hub/src/main/java/kr/go/smes/idem-hub/config/RestTemplateConfig.java` (신규)
 
 ```java
 package kr.go.smes.ido.config;
@@ -440,7 +440,7 @@ public class RestTemplateConfig {
 ```
 
 **application.yml 추가**:  
-파일: `ido/src/main/resources/application.yml`  
+파일: `idem-hub/src/main/resources/application.yml`  
 `spring:` 블록 외부, 최하단에 추가:
 
 ```yaml
@@ -488,13 +488,13 @@ curl -X GET http://localhost:8083/api/ext/clients \
 ##### 2-2-A. extInstance.ts 삭제
 
 ```bash
-rm onepass-fe/frontend/src/api/extInstance.ts
+rm idem-console/frontend/src/api/extInstance.ts
 ```
 
 ##### 2-2-B. beInstance 확인 (이미 존재하는지 확인)
 
 ```bash
-find onepass-fe/frontend/src/api -name "beInstance.ts" -o -name "instance.ts" | head -5
+find idem-console/frontend/src/api -name "beInstance.ts" -o -name "instance.ts" | head -5
 # 없으면 신규 생성:
 ```
 
@@ -521,7 +521,7 @@ export default beInstance;
 ##### 2-2-C. 파일별 일괄 교체 (sed 명령)
 
 ```bash
-cd onepass-fe/frontend/src
+cd idem-console/frontend/src
 
 # 모든 api/ext/*.ts, api/provision/*.ts 파일에서 extInstance → beInstance 교체
 find api/ext api/provision -name "*.ts" | xargs sed -i \
@@ -534,7 +534,7 @@ find api/ext api/provision -name "*.ts" | xargs sed -i \
 
 ##### 2-2-D. ciToken.ts 완전 재작성 (Q3=B 핵심 수정)
 
-**파일**: `onepass-fe/frontend/src/api/provision/ciToken.ts`
+**파일**: `idem-console/frontend/src/api/provision/ciToken.ts`
 
 ```typescript
 // BEFORE — Q3=B 위반: CI를 FE에서 암호화하여 Q-IM에 직접 전송
@@ -598,7 +598,7 @@ export default exchangeCiToken;
 **배경**: FE ciToken.ts 재작성(Task 2-2-D)의 서버 측 구현.  
 CI 원문을 FE로부터 받아 AES 암호화 후 Q-IM에 전달, ciToken 반환.
 
-**파일**: `ido/src/main/java/kr/go/smes/ido/auth/controller/AuthController.java`  
+**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/controller/AuthController.java`  
 기존 `AuthController`에 아래 엔드포인트 추가 (기존 파일 수정):
 
 ```java
@@ -625,7 +625,7 @@ public ResponseEntity<CiTokenResponse> exchangeCiToken(
 
 **DTO 신규 생성**:
 
-`ido/src/main/java/kr/go/smes/ido/auth/dto/CiTokenRequest.java`:
+`idem-hub/src/main/java/kr/go/smes/idem-hub/auth/dto/CiTokenRequest.java`:
 ```java
 package kr.go.smes.ido.auth.dto;
 
@@ -639,7 +639,7 @@ public class CiTokenRequest {
 }
 ```
 
-`ido/src/main/java/kr/go/smes/ido/auth/dto/CiTokenResponse.java`:
+`idem-hub/src/main/java/kr/go/smes/idem-hub/auth/dto/CiTokenResponse.java`:
 ```java
 package kr.go.smes.ido.auth.dto;
 
@@ -654,7 +654,7 @@ public class CiTokenResponse {
 ```
 
 **AuthService에 메서드 추가**:  
-파일: `ido/src/main/java/kr/go/smes/ido/auth/service/AuthService.java`
+파일: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/service/AuthService.java`
 
 ```java
 /**
@@ -692,7 +692,7 @@ public CiTokenResponse exchangeCiToken(String ciPlaintext) {
 
 ```bash
 # 현재 구현된 파일 확인
-find q-sign/src/main/java -name "*.java" | xargs grep -l \
+find idem-gate/src/main/java -name "*.java" | xargs grep -l \
   "openid\|jwks\|authorize\|well-known\|userinfo" | sort
 ```
 
@@ -713,7 +713,7 @@ find q-sign/src/main/java -name "*.java" | xargs grep -l \
 
 #### Task 3-2: `issueFromOidc()` 운영 가능하도록 수정 【BE팀 / 1일】
 
-**파일**: `q-sign/src/main/java/kr/go/smes/qsign/application/AuthServiceImpl.java`
+**파일**: `idem-gate/src/main/java/kr/go/smes/qsign/application/AuthServiceImpl.java`
 
 **현재 문제** (line ~67):
 ```java
@@ -742,7 +742,7 @@ String identifierHash = computeIdentifierHash(
 
 #### Task 3-3: q-sign OIDC 표준 엔드포인트 5개 구현 【BE팀 / 4일】
 
-**신규 파일**: `q-sign/src/main/java/kr/go/smes/qsign/api/OidcController.java`
+**신규 파일**: `idem-gate/src/main/java/kr/go/smes/qsign/api/OidcController.java`
 
 ```java
 package kr.go.smes.qsign.api;
@@ -829,7 +829,7 @@ public class OidcController {
 }
 ```
 
-**신규 파일**: `q-sign/src/main/java/kr/go/smes/qsign/api/OidcProxyService.java`
+**신규 파일**: `idem-gate/src/main/java/kr/go/smes/qsign/api/OidcProxyService.java`
 
 ```java
 package kr.go.smes.qsign.api;
@@ -890,16 +890,16 @@ public class OidcProxyService {
 
 #### Task 3-4: InternalSigVerifier strict-mode 운영 설정 확인 【BE팀 / 0.5일】
 
-**파일**: `q-sign/src/main/resources/application.yml`
+**파일**: `idem-gate/src/main/resources/application.yml`
 
 현재 기본값 확인:
 ```bash
-grep -n "strict" q-sign/src/main/resources/application.yml
+grep -n "strict" idem-gate/src/main/resources/application.yml
 ```
 
 운영 yml에 명시적 설정 추가 (기본값 true이지만 명시):
 ```yaml
-# q-sign/src/main/resources/application.yml
+# idem-gate/src/main/resources/application.yml
 qsign:
   ido:
     internal-sig-strict-mode: true  # 운영에서 반드시 true — false 시 X-Sig 우회 허용
@@ -1023,7 +1023,7 @@ data:
 
 #### Task 5-2: ido Deployment 및 Service 정의 【DevOps / 1일】
 
-**신규 파일**: `infra/k8s/ido/deployment.yaml`
+**신규 파일**: `infra/k8s/idem-hub/deployment.yaml`
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -1093,8 +1093,8 @@ spec:
 ```
 
 동일 패턴으로 아래 파일도 생성:
-- `infra/k8s/q-sign/deployment.yaml` (port: 8081)
-- `infra/k8s/q-im/deployment.yaml` (port: 8082)
+- `infra/k8s/idem-gate/deployment.yaml` (port: 8081)
+- `infra/k8s/idem-registry/deployment.yaml` (port: 8082)
 
 ---
 
@@ -1170,9 +1170,9 @@ jobs:
     - name: Build and Test (BE)
       run: |
         DOCKER_UNAVAILABLE=true ./gradlew \
-          :platform-common:test \
-          :ido:test \
-          :q-sign:test \
+          :idem-common:test \
+          :idem-hub:test \
+          :idem-gate:test \
           --rerun-tasks
 
     - name: Build Docker Images
@@ -1315,9 +1315,9 @@ DevOps   [P0: 환경 세팅]                                           [P4: Keyc
 |---|------|------|:---:|
 | INF-01 | K8s namespace.yaml | `infra/k8s/namespace.yaml` | 0.1일 |
 | INF-02 | K8s secrets.yaml (템플릿) | `infra/k8s/secrets/` | 0.3일 |
-| INF-03 | ido deployment.yaml + service.yaml | `infra/k8s/ido/` | 0.5일 |
-| INF-04 | q-sign deployment.yaml + service.yaml | `infra/k8s/q-sign/` | 0.5일 |
-| INF-05 | q-im deployment.yaml + service.yaml | `infra/k8s/q-im/` | 0.5일 |
+| INF-03 | ido deployment.yaml + service.yaml | `infra/k8s/idem-hub/` | 0.5일 |
+| INF-04 | q-sign deployment.yaml + service.yaml | `infra/k8s/idem-gate/` | 0.5일 |
+| INF-05 | q-im deployment.yaml + service.yaml | `infra/k8s/idem-registry/` | 0.5일 |
 | INF-06 | Ingress + TLS 설정 | `infra/k8s/ingress.yaml` | 0.5일 |
 | INF-07 | Keycloak realm export + import 자동화 | `infra/keycloak/` | 0.5일 |
 | INF-08 | CI/CD GitHub Actions | `.github/workflows/` | 2일 |
@@ -1334,19 +1334,19 @@ DevOps   [P0: 환경 세팅]                                           [P4: Keyc
 
 ### 🔴 보안 (하나라도 RED = 배포 금지)
 - [ ] **S-1**: `Private.tsx` SKIP_AUTH 코드 전체 제거 확인  
-  `grep -r "SKIP_AUTH" onepass-fe/frontend/src` → 결과 없어야 함
+  `grep -r "SKIP_AUTH" idem-console/frontend/src` → 결과 없어야 함
 - [ ] **S-2**: `webpack.config.js` DefinePlugin에서 AES_GCM_KEY, EXT_API_KEY 제거 확인  
-  `grep -n "AES_GCM_KEY\|EXT_API_KEY" onepass-fe/frontend/webpack.config.js` → 결과 없어야 함
+  `grep -n "AES_GCM_KEY\|EXT_API_KEY" idem-console/frontend/webpack.config.js` → 결과 없어야 함
 - [ ] **S-3**: JS 번들에 키값 미포함 확인  
-  `strings onepass-fe/frontend/build/main.js | grep -i "aes\|api-key"` → 결과 없어야 함
+  `strings idem-console/frontend/build/main.js | grep -i "aes\|api-key"` → 결과 없어야 함
 - [ ] **S-4**: extInstance.ts 파일 삭제 확인  
-  `ls onepass-fe/frontend/src/api/extInstance.ts` → No such file
+  `ls idem-console/frontend/src/api/extInstance.ts` → No such file
 - [ ] **S-5**: `Step5.tsx` Math.random() 코드 제거 확인  
-  `grep -n "Math.random" onepass-fe/frontend/src/pages/ConversionSteps/member/Step5.tsx` → 결과 없어야 함
+  `grep -n "Math.random" idem-console/frontend/src/pages/ConversionSteps/member/Step5.tsx` → 결과 없어야 함
 - [ ] **S-6**: Keycloak client secret `change-me` 제거 확인  
   `grep "change-me" infra/docker/docker-compose.yml infra/k8s/secrets/*.yaml` → 결과 없어야 함
 - [ ] **S-7**: q-sign `strict-mode: true` 확인  
-  `grep "strict-mode" q-sign/src/main/resources/application*.yml`
+  `grep "strict-mode" idem-gate/src/main/resources/application*.yml`
 - [ ] **S-8**: HTTPS 강제 (HTTP 리다이렉트 설정) 확인
 
 ### 🟡 기능 (하나라도 RED = 배포 금지)

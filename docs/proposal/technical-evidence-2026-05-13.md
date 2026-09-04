@@ -35,12 +35,12 @@
 
 ```
 integration-sso/
-├── onepass-fe/          ← React 18/TypeScript 프론트엔드
+├── idem-console/          ← React 18/TypeScript 프론트엔드
 │   └── frontend/
-├── ido/                 ← BFF (Backend For Frontend) — Spring Boot
-├── q-im/                ← ID 관리 서비스 — Spring Boot
-├── q-sign/              ← 인증 처리 서비스 — Spring Boot + Keycloak
-└── platform-common/     ← 공통 유틸리티
+├── idem-hub/                 ← BFF (Backend For Frontend) — Spring Boot
+├── idem-registry/                ← ID 관리 서비스 — Spring Boot
+├── idem-gate/              ← 인증 처리 서비스 — Spring Boot + Keycloak
+└── idem-common/     ← 공통 유틸리티
 ```
 
 ### 1.2 현황 한눈에 보기
@@ -64,7 +64,7 @@ integration-sso/
 `onepass-fe`는 백엔드와의 통신에 **두 개의 Axios 인스턴스**를 사용합니다.
 
 ```
-파일: onepass-fe/frontend/src/api/extInstance.ts
+파일: idem-console/frontend/src/api/extInstance.ts
 ```
 
 ```typescript
@@ -79,7 +79,7 @@ const extInstance = axios.create({
 ```
 
 ```
-파일: onepass-fe/frontend/webpack.config.js (proxy 설정)
+파일: idem-console/frontend/webpack.config.js (proxy 설정)
 ```
 
 ```javascript
@@ -102,7 +102,7 @@ proxy: {
 아래는 현재 `extInstance`를 통해 Q-IM 서버를 **직접** 호출하는 API 전체 목록입니다.
 
 ```
-파일 위치: onepass-fe/frontend/src/api/ext/ 및 provision/ 디렉토리
+파일 위치: idem-console/frontend/src/api/ext/ 및 provision/ 디렉토리
 ```
 
 | # | HTTP | 경로 | 기능 | 소스 파일 |
@@ -185,7 +185,7 @@ proxy: {
 ### 3.1 `SKIP_AUTH=true` — 인증 전체 우회
 
 ```
-파일: onepass-fe/frontend/.env
+파일: idem-console/frontend/.env
 ```
 
 ```bash
@@ -196,7 +196,7 @@ SKIP_AUTH=true
 이 값이 `true`이면 아래 코드에서 **모든 인증 검사가 우회**됩니다.
 
 ```
-파일: onepass-fe/frontend/src/AppRoutes/Private.tsx
+파일: idem-console/frontend/src/AppRoutes/Private.tsx
 ```
 
 ```typescript
@@ -233,7 +233,7 @@ new webpack.DefinePlugin({
 ### 3.2 `AES_GCM_KEY` 평문 번들 노출
 
 ```
-파일: onepass-fe/frontend/.env
+파일: idem-console/frontend/.env
 ```
 
 ```bash
@@ -244,7 +244,7 @@ AES_GCM_KEY=DL5vnfsm01CfLlycU6k8NvCDy3tpO5/MXMuqV0uMCv8=
 이 키는 CI(연계정보) 암호화에 사용되는 AES-256-GCM 키입니다. 현재 다음과 같이 FE 코드에서 직접 사용됩니다.
 
 ```
-파일: onepass-fe/frontend/src/utils/crypto/aesGcm.ts
+파일: idem-console/frontend/src/utils/crypto/aesGcm.ts
 ```
 
 ```typescript
@@ -263,9 +263,9 @@ export async function encryptCi(ciPlaintext: string): Promise<string> {
 
 ```
 파일 사용 위치:
-- onepass-fe/frontend/src/pages/ConversionSteps/member/Step3.tsx (라인 42, 101)
-- onepass-fe/frontend/src/pages/RegisterSteps/member/Step3.tsx (라인 53, 109)
-- onepass-fe/frontend/src/pages/Mypage/pages/AffiliationWithdrawStep1.tsx (라인 159)
+- idem-console/frontend/src/pages/ConversionSteps/member/Step3.tsx (라인 42, 101)
+- idem-console/frontend/src/pages/RegisterSteps/member/Step3.tsx (라인 53, 109)
+- idem-console/frontend/src/pages/Mypage/pages/AffiliationWithdrawStep1.tsx (라인 159)
 ```
 
 **구체적 보안 위험**:
@@ -278,7 +278,7 @@ export async function encryptCi(ciPlaintext: string): Promise<string> {
 ### 3.3 `Math.random()` — 기업 임시 비밀번호 생성
 
 ```
-파일: onepass-fe/frontend/src/pages/ConversionSteps/member/Step5.tsx (라인 73–76)
+파일: idem-console/frontend/src/pages/ConversionSteps/member/Step5.tsx (라인 73–76)
 ```
 
 ```typescript
@@ -297,7 +297,7 @@ const password =
 ### 3.4 `INITIAL_DATA` — Mock 데이터 폼 초기값 잔존
 
 ```
-파일: onepass-fe/frontend/src/providers/Conversion/ConversionContext.tsx (라인 69–97)
+파일: idem-console/frontend/src/providers/Conversion/ConversionContext.tsx (라인 69–97)
 ```
 
 ```typescript
@@ -318,7 +318,7 @@ const INITIAL_DATA: ConversionData = {
 ```
 
 ```
-파일: onepass-fe/frontend/src/constants/mockData.ts
+파일: idem-console/frontend/src/constants/mockData.ts
 ```
 
 ```typescript
@@ -335,8 +335,8 @@ export const MOCK_MEMBER = {
 ### 3.5 기업인증 진위확인 임시 스킵
 
 ```
-파일: onepass-fe/frontend/src/pages/ConversionSteps/member/Step5.tsx (라인 46)
-파일: onepass-fe/frontend/src/pages/ConversionSteps/member/components/AccountForm.tsx (라인 66, 73–74)
+파일: idem-console/frontend/src/pages/ConversionSteps/member/Step5.tsx (라인 46)
+파일: idem-console/frontend/src/pages/ConversionSteps/member/components/AccountForm.tsx (라인 66, 73–74)
 ```
 
 ```typescript
@@ -388,7 +388,7 @@ q-sign은 **OIDC 브로커**가 아닌 **Keycloak 콜백 수신 및 인증 결�
 현재 q-sign이 구현하는 엔드포인트:
 
 ```
-파일: q-sign/src/main/java/kr/go/smes/qsign/api/AuthController.java
+파일: idem-gate/src/main/java/kr/go/smes/qsign/api/AuthController.java
 ```
 
 ```java
@@ -403,7 +403,7 @@ public class AuthController {
 ### 4.2 코드 내 '미사용' 명시
 
 ```
-파일: q-sign/src/main/java/kr/go/smes/qsign/application/AuthServiceImpl.java (라인 44–57)
+파일: idem-gate/src/main/java/kr/go/smes/qsign/application/AuthServiceImpl.java (라인 44–57)
 ```
 
 ```java
@@ -431,7 +431,7 @@ public class AuthController {
   │
   └──→ Keycloak (인증 담당)
            │ 인증 완료
-           └──→ q-sign/callback (결과 수신 및 저장)
+           └──→ idem-gate/callback (결과 수신 및 저장)
                       │
                       └──→ ido /api/internal/v1/oidc/complete (세션 발급 요청)
 ```
@@ -457,7 +457,7 @@ public class AuthController {
 ### 4.4 PoC 모드 허용 코드
 
 ```
-파일: q-sign/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java (라인 34–35, 99, 115)
+파일: idem-gate/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java (라인 34–35, 99, 115)
 ```
 
 ```java
@@ -477,7 +477,7 @@ return !strictMode; // strict=false → PoC 허용, strict=true → 거부
 ### 5.1 현재 ido가 담당하는 인증 엔드포인트
 
 ```
-파일: ido/src/main/java/kr/go/smes/ido/auth/controller/AuthController.java
+파일: idem-hub/src/main/java/kr/go/smes/idem-hub/auth/controller/AuthController.java
 ```
 
 ```java
@@ -580,19 +580,19 @@ integration-sso BE는 다음 항목이 이미 완료된 상태입니다.
 
 | 근거 | 파일 경로 | 핵심 코드/설정 |
 |------|----------|--------------|
-| Q-IM 직접 호출 | `onepass-fe/frontend/src/api/extInstance.ts` | `baseURL: EXT_API_ENDPOINT (Q-IM 주소)` |
-| Proxy 설정 | `onepass-fe/frontend/webpack.config.js` | `/api/ext` → Q-IM, `/api` → ido |
-| SKIP_AUTH 우회 | `onepass-fe/frontend/.env` | `SKIP_AUTH=true` |
-| SKIP_AUTH 코드 | `onepass-fe/frontend/src/AppRoutes/Private.tsx:67,109,130` | `process.env.SKIP_AUTH === 'true'` |
-| AES_GCM_KEY 노출 | `onepass-fe/frontend/.env` | `AES_GCM_KEY=DL5vnfsm01Cf...` |
-| AES_GCM_KEY 번들 삽입 | `onepass-fe/frontend/webpack.config.js` | `DefinePlugin` 내 `AES_GCM_KEY` |
-| AES_GCM_KEY 사용 | `onepass-fe/frontend/src/utils/crypto/aesGcm.ts:10` | `const AES_GCM_KEY = process.env.AES_GCM_KEY` |
-| Math.random() | `onepass-fe/frontend/src/pages/ConversionSteps/member/Step5.tsx:73–76` | 기업 임시 비밀번호 생성 |
-| Mock 데이터 | `onepass-fe/frontend/src/providers/Conversion/ConversionContext.tsx:69–97` | `INITIAL_DATA` 내 MOCK_MEMBER/MOCK_BUSINESS |
-| q-sign 미사용 OIDC 경로 | `q-sign/src/main/java/.../AuthServiceImpl.java:44–57` | `현 설계에서는 사용되지 않는다` 주석 |
-| q-sign OIDC 엔드포인트 부재 | `q-sign/src/main/java/` (전체) | `/.well-known`, `/authorize`, `/token` 없음 |
-| PoC 모드 서명 우회 | `q-sign/src/main/java/.../InternalSigVerifier.java:115` | `return !strictMode` |
-| ido 인증 엔드포인트 | `ido/src/main/java/.../AuthController.java` | 7개 엔드포인트 (NICE/OACX 특화) |
+| Q-IM 직접 호출 | `idem-console/frontend/src/api/extInstance.ts` | `baseURL: EXT_API_ENDPOINT (Q-IM 주소)` |
+| Proxy 설정 | `idem-console/frontend/webpack.config.js` | `/api/ext` → Q-IM, `/api` → ido |
+| SKIP_AUTH 우회 | `idem-console/frontend/.env` | `SKIP_AUTH=true` |
+| SKIP_AUTH 코드 | `idem-console/frontend/src/AppRoutes/Private.tsx:67,109,130` | `process.env.SKIP_AUTH === 'true'` |
+| AES_GCM_KEY 노출 | `idem-console/frontend/.env` | `AES_GCM_KEY=DL5vnfsm01Cf...` |
+| AES_GCM_KEY 번들 삽입 | `idem-console/frontend/webpack.config.js` | `DefinePlugin` 내 `AES_GCM_KEY` |
+| AES_GCM_KEY 사용 | `idem-console/frontend/src/utils/crypto/aesGcm.ts:10` | `const AES_GCM_KEY = process.env.AES_GCM_KEY` |
+| Math.random() | `idem-console/frontend/src/pages/ConversionSteps/member/Step5.tsx:73–76` | 기업 임시 비밀번호 생성 |
+| Mock 데이터 | `idem-console/frontend/src/providers/Conversion/ConversionContext.tsx:69–97` | `INITIAL_DATA` 내 MOCK_MEMBER/MOCK_BUSINESS |
+| q-sign 미사용 OIDC 경로 | `idem-gate/src/main/java/.../AuthServiceImpl.java:44–57` | `현 설계에서는 사용되지 않는다` 주석 |
+| q-sign OIDC 엔드포인트 부재 | `idem-gate/src/main/java/` (전체) | `/.well-known`, `/authorize`, `/token` 없음 |
+| PoC 모드 서명 우회 | `idem-gate/src/main/java/.../InternalSigVerifier.java:115` | `return !strictMode` |
+| ido 인증 엔드포인트 | `idem-hub/src/main/java/.../AuthController.java` | 7개 엔드포인트 (NICE/OACX 특화) |
 
 ---
 
