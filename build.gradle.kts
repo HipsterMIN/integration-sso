@@ -2,7 +2,7 @@ import org.springframework.boot.gradle.tasks.bundling.BootJar
 import io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension
 
 // ── 플러그인 버전 상수 ─────────────────────────────────────────────────────────
-val owaspVersion   = "12.1.3"   // OWASP Dependency-Check
+val owaspVersion   = "12.2.2"   // OWASP Dependency-Check
 val sonarVersion   = "5.1.0.4882"  // SonarQube/SonarCloud
 
 plugins {
@@ -10,7 +10,7 @@ plugins {
     id("org.springframework.boot")            version "3.5.9"       apply false
     id("io.spring.dependency-management")     version "1.1.7"       apply false
     // ── P3-04: 보안 스캔 & 코드 품질 플러그인 (루트 전용) ──────────────────────
-    id("org.owasp.dependencycheck")           version "12.1.3"      apply true
+    id("org.owasp.dependencycheck")           version "12.2.2"      apply true
     id("org.sonarqube")                       version "5.1.0.4882"  apply true
     jacoco
 }
@@ -230,7 +230,7 @@ project(":onepass-agency-sdk") {
 dependencyCheck {
     // ── 보고서 형식 ──────────────────────────────────────────────────────────
     formats = listOf("HTML", "JSON", "SARIF")
-    outputDirectory = layout.buildDirectory.dir("reports/dependency-check").get().asFile.absolutePath
+    outputDirectory = layout.buildDirectory.dir("reports/dependency-check")   // 12.2+: DirectoryProperty
 
     // ── CVSS 점수 7.0 이상 시 빌드 실패 (High/Critical 취약점) ───────────────
     // CI에서는 || true 로 실행하여 리포트만 수집; 운영 게이트는 별도 정책 적용
@@ -269,9 +269,9 @@ dependencyCheck {
         assemblyEnabled = false    // .NET Assembly 분석 비활성화
         nuspecEnabled   = false
         nugetconfEnabled = false
-        // Node.js 분석 (FE 의존성)
-        nodeEnabled      = true
-        nodeAuditEnabled = true
+        // Node.js 분석 (FE 의존성) — 12.2+: nodeEnabled/nodeAuditEnabled 플랫 속성은 deprecated → 중첩 블록
+        nodePackage { enabled = true }
+        nodeAudit   { enabled = true }
         // 실험적 분석기 비활성화 (오탐률 감소)
         experimentalEnabled = false
     }

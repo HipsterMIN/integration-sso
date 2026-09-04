@@ -160,6 +160,7 @@ jobs:
       - name: 검증 로그 업로드
         uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true   # 아티팩트 저장 용량 초과가 검증 결과를 실패로 만들지 않도록
         with:
           name: nogo-quick-logs-${{ github.run_number }}
           path: |
@@ -169,7 +170,7 @@ jobs:
             /tmp/fe-*.log
             **/build/reports/tests/
             **/build/test-results/
-          retention-days: 14
+          retention-days: 3
 
       - name: 요약 출력
         if: always()

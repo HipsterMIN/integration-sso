@@ -164,13 +164,14 @@ jobs:
       - name: 테스트 결과 업로드 (${{ matrix.module }})
         if: steps.filter.outputs.run == 'true' && always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true   # 아티팩트 저장 용량 초과가 모듈 검증 결과를 실패로 만들지 않도록
         with:
           name: test-${{ matrix.module }}-${{ github.run_number }}
           path: |
             ${{ matrix.module }}/build/reports/tests/
             ${{ matrix.module }}/build/test-results/
             /tmp/${{ matrix.module }}-test.log
-          retention-days: 14
+          retention-days: 3
 
       - name: JUnit XML 을 Check 로 게시
         if: steps.filter.outputs.run == 'true' && always()
@@ -229,11 +230,12 @@ jobs:
       - name: FE 결과 업로드
         if: always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: frontend-build-${{ github.run_number }}
           path: |
             onepass-fe/frontend/dist/
-          retention-days: 7
+          retention-days: 3
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Phase 2: Issue #2 — Agency E2E (수동/옵트인 시에만)
@@ -291,12 +293,14 @@ jobs:
       - name: E2E 결과 업로드
         if: always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: e2e-agency-${{ github.run_number }}
           path: |
             agency-stub/build/reports/tests/
             agency-stub/build/test-results/
             /tmp/e2e.log
+          retention-days: 3
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Phase 2: OWASP 보안 스캔 (옵트인)
@@ -338,10 +342,11 @@ jobs:
       - name: 보안 스캔 결과 업로드
         if: always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: security-report-${{ github.run_number }}
           path: '**/build/reports/dependency-check/'
-          retention-days: 30
+          retention-days: 7
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Phase 3: 결과 종합 + PR 댓글 자동 게시
