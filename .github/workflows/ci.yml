@@ -22,10 +22,13 @@ on:
   workflow_dispatch:           # 수동 실행 (Actions UI → Run workflow) 지원 추가
   schedule:
     - cron: '30 15 * * *'      # 매일 00:30 KST — OWASP 심층 스캔 전용 (main 기준)
+  # 사용량 절감(2026-09-04): shipster push 트리거 제거 — shipster 변경은 PR 이벤트로만 검증한다.
+  # 종전에는 shipster push + PR 이 같은 커밋을 두 번 실행해 Actions 분을 2배로 썼고,
+  # 같은 ref 의 concurrency 취소로 진행 중 실행이 유실되는 사고도 있었다.
   push:
-    branches: [ main, develop, genspark_ai_developer, shipster ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 # 동일 브랜치/PR 동시 실행 방지 (이전 실행 자동 취소)
 concurrency:
@@ -152,7 +155,9 @@ jobs:
   # trivy-pr-scan(Job 3b)이 담당하고, 본 잡은 매일 야간 cron + 수동 실행 전용.
   security-scan:
     name: OWASP Dependency-Check
-    runs-on: ubuntu-latest
+    # 무거운 잡은 저장소 변수 CI_HEAVY_RUNNER(예: self-hosted)로 자체 호스팅 러너에 보낼 수 있다.
+    # 변수 미설정 시 GitHub 호스트 러너. 등록 절차: docs/ci-runner-guide.md
+    runs-on: ${{ vars.CI_HEAVY_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 60    # 야간 전용이라 PR을 막지 않음 — NVD 저하 시에도 첫 전체 동기화가 완주하도록 여유
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
@@ -203,7 +208,8 @@ jobs:
       # 타임아웃/취소 직후에는 Gradle 데몬(JVM)이 아직 H2 DB(odc.mv.db)를 쓰고 있어
       # tar가 "file changed as we read it"로 실패한다(run 33595730174 실측) → 저장 전 종료.
       - name: OWASP 프로세스 정리 (캐시 저장 전 DB 쓰기 중단)
-        if: always()
+        # 자체 호스팅 러너에서는 pkill 이 같은 머신의 다른 Gradle 프로세스까지 죽이므로 호스트 러너에서만 실행
+        if: always() && runner.environment == 'github-hosted'
         run: |
           pkill -f 'org.gradle' 2>/dev/null || true
           pkill -f 'dependency-check' 2>/dev/null || true
@@ -281,8 +287,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: build-and-test    # 빌드/단위 테스트 통과 후 실행
-    # push 이벤트 (main, develop, genspark_ai_developer) 에서만 실행
-    if: github.event_name == 'push'
+    # main push + PR 에서 실행. shipster push 트리거가 사라졌으므로 PR 이 기동 검증의 유일한 게이트다.
+    # (서비스 컨테이너를 쓰므로 GitHub 호스트 러너 고정 — Windows 자체 호스팅 러너는 services 미지원)
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
 
     services:
       # idem-hub 서버가 의존하는 Redis (Rate Limiter, Session)
@@ -497,17 +504,15 @@ jobs:
   # ── Job 6: Docker 멀티스테이지 이미지 빌드 검증 (S8-T6) ─────────────────────
   docker-build:
     name: Docker Build (Multistage)
-    runs-on: ubuntu-latest
+    # 저장소 변수 CI_HEAVY_RUNNER 설정 시 자체 호스팅 러너(Docker 필요, Linux/WSL2 권장)에서 실행
+    runs-on: ${{ vars.CI_HEAVY_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     needs: build-and-test
     permissions:
       contents: read
       packages: write          # GHCR(ghcr.io) 이미지 push 권한
-    # main / develop 브랜치 push 시에만 실행 (PR에서는 빌드 검증만)
-    if: |
-      github.event_name == 'push' &&
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' ||
-       github.ref == 'refs/heads/genspark_ai_developer')
+    # main push 시에만 실행 (PR에서는 빌드 검증만)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     strategy:
       matrix:

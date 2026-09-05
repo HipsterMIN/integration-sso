@@ -1,3 +1,8 @@
+# ⚠️ 2026-09-05: 이 파일에 평문으로 있던 벤더 개발 자격증명(AnyID SSO/PID/KMS, Q-IM AES 공유키, 기관 subject secret)을
+#    모두 환경변수 플레이스홀더로 교체했다. 로컬 기동 시 아래 변수를 셸 또는 IDE 실행 구성에 설정한다.
+#      ANYID_SSO_SECRET_CODE, ANYID_PID_CLIENT_ID, ANYID_PID_CLIENT_SECRET, ANYID_PID_CLIENT_API_KEY,
+#      ANYID_KMS_APP_KEY, QIM_AES_SHARED_KEY, IDO_AGENCY_SUBJECT_SECRET
+#    값은 저장소·이슈·채팅에 적지 않는다. 종전 값은 git 히스토리에 남아 있으므로 벤더(AnyID·NICE)에 키 교체를 요청한다.
 # ============================================================
 # IdO local 프로파일 — 로컬 개발 환경 안전 기본값
 # 목적: 외부 의존성(Redis 분산락/Kafka/OTel/SKM) 없이도 앱 기동 가능
@@ -113,7 +118,7 @@ management:
       domain: "https://sso.anyid.dev"
       port: 1452
       # 개발키 — 운영: ANYID_SSO_SECRET_CODE K8s Secret 주입
-      secret-code: "WDtDc2ek56S0kLKttE8Ux7BomxcOyTPpe0CfzdxSobI="
+      secret-code: ${ANYID_SSO_SECRET_CODE:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
       adaptor-conf: "classpath:sso-adaptor-conf-local.properties"
 
     kms:
@@ -122,16 +127,16 @@ management:
       cversion: 1
       kdist-config: "classpath:config/anyid/kdist-local.json"
       # 개발키 — 운영: ANYID_KMS_APP_KEY / ANYID_KMS_CLIENT_INFO K8s Secret 주입
-      app-key: "ouO39zrElZW/RnQ0RVvzi0bv8tQDh0OcxzP5WcyNrG1n5NVJ/7OLNzcDYTqCl1EY+t3DiWI4tT4I00QbaqMtz1jxsjUC6d96XVxjc570xCVQFANYUX/5+eOvozm5BPQn"
+      app-key: ${ANYID_KMS_APP_KEY:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
       client-info: "ExWK0pJDBEcK6Q8be7XN4D0sQyvnay5xiGSIi1HDZdTYUsIlybPbW8UjnDQpIz7Yf4mdz/Yig3XK0o/E5bM1Gsnt0J9w5rU1r4+qIOaYbOrH2PoZJZTsRb4GF4pf0Ev"
 
     pid:
       api-config: "classpath:config/anyid/pid_api.json"
       provider-url: "https://www.anyid.dev:1443/pid/auth.do"
       # 개발키 — 운영: ANYID_PID_CLIENT_ID / CLIENT_SECRET / CLIENT_API_KEY K8s Secret 주입
-      client-id:      "0yK6MOzAV1rXug3Dpz0TR33SB3g="
-      client-secret:  "iPBd8PB8H3cRSBGbJH0XB8KS3To="
-      client-api-key: "emV2R+F1L4sVazCFk7IT31qh3qrNBgRRt+fWh9RYB3U=.3jaXKJtFgrP8J+dMeHugXQ=="
+      client-id: ${ANYID_PID_CLIENT_ID:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
+      client-secret: ${ANYID_PID_CLIENT_SECRET:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
+      client-api-key: ${ANYID_PID_CLIENT_API_KEY:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
 
     config-file: "classpath:config/anyid/config.anyidc.json"
 
@@ -159,10 +164,10 @@ management:
 
   # F-18: SP 수신 감사 로그 OFF
   qim:
-    aes-shared-key: bG9jYWwtdGVzdC1zZWNyZXQtMzJieXRlcy1wYWRkZWQ=
+    aes-shared-key: ${QIM_AES_SHARED_KEY:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
     receiver-audit-enabled: false
 
-  agency-subject-secret: local-test-secret-32-bytes-padding
+  agency-subject-secret: ${IDO_AGENCY_SUBJECT_SECRET:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
 
 # ── Resilience4j 로컬 완화 설정 (F-06, F-07) ─────────────────────────────────
 # NICE/통합인증 서버 없는 로컬에서 CB가 즉시 OPEN되어

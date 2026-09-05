@@ -83,6 +83,7 @@ docs/
 
 | 파일 | 내용 |
 |---|---|
+| [`vendor-plugin-plan.md`](vendor-plugin-plan.md) | **벤더 독립화·플러그인 아키텍처 플랜** — NICE/OACX·AnyID 를 플러그인으로 분리하는 P0~P5 단계, SPI 계약 초안 |
 | [`naming.md`](naming.md) | **Idem 개명 대응표** — 구명↔신명, 개명 단계, 아직 바꾸지 않은 런타임 식별자 목록 |
 | [`onepass-agency-sdk-usage-guide.md`](onepass-agency-sdk-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |
 | [`onepass-agent-index.md`](onepass-agent-index.md) | Agency Java Agent — 문서 인덱스 |

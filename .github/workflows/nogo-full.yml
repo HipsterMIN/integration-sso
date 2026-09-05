@@ -52,8 +52,7 @@ on:
         description: '실행할 모듈 (쉼표 구분 / 빈 값 = 모두)'
         required: false
         default: ''
-  push:
-    branches: [ shipster ]
+  # 사용량 절감(2026-09-04): shipster push 트리거 제거 — PR 이벤트로만 실행 (ci.yml 과 동일 원칙)
   pull_request:
     branches: [ main, develop ]
     types: [ opened, synchronize, reopened ]
