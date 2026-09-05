@@ -20,10 +20,12 @@
 
 | 잡 | 필요 조건 |
 |---|---|
+| Build & Unit Test (PR 게이트) | JDK 는 `actions/setup-java` 가 내려받음. `run:` 스텝이 bash 문법이라 Linux/WSL2 권장 |
+| k6 Smoke Test (PR 게이트) | `services:` 컨테이너(Redis·PostgreSQL·Kafka)를 쓰므로 **Docker 가 있는 Linux/WSL2 러너 필수**. k6 설치 스텝은 `apt` + `sudo` 를 쓰므로 러너 계정에 passwordless sudo 가 있거나 k6 를 미리 설치해 둔다(설치돼 있으면 스텝이 건너뜀) |
 | Docker Build (Multistage) 6종 | Docker 데몬 + buildx. **Linux 또는 WSL2 Ubuntu** 권장 (Windows 네이티브 러너는 Linux 이미지 빌드 불가) |
-| OWASP Dependency-Check (야간) | JDK 21 만 있으면 됨. 어느 OS 든 가능하나 `run:` 스텝이 bash 문법이라 Windows 는 Git Bash 필요 |
+| OWASP Dependency-Check (야간) | JDK 21 만 있으면 됨 |
 
-k6 스모크는 `services:` 컨테이너(Redis·PostgreSQL·Kafka)를 쓰므로 호스트 러너에 고정했다. Linux 자체 호스팅 러너에 Docker 가 있으면 services 도 동작하지만 기본값은 바꾸지 않았다.
+즉 변수 하나로 PR 게이트 2종 + 무거운 잡 2종이 모두 자체 호스팅으로 간다(2026-09-05 확장). Frontend Build·Trivy·Sonar·nogo-full 모듈 매트릭스는 여전히 호스트 러너다 — 짧은 잡이라 분 소모가 작고, 한도 초과 중에는 실패로 표시되지만 머지 판단은 위 게이트 2종으로 한다.
 
 ### 2.1 러너 등록 (WSL2 Ubuntu 기준, 약 5분)
 

@@ -45,7 +45,8 @@ jobs:
   # ── Job 1: 빌드 + 단위 테스트 ────────────────────────────────────────────────
   build-and-test:
     name: Build & Unit Test
-    runs-on: ubuntu-latest
+    # PR 게이트. 저장소 변수 CI_HEAVY_RUNNER(예: self-hosted) 설정 시 자체 호스팅 러너에서 실행 (Actions 분 미차감) — docs/ci-runner-guide.md
+    runs-on: ${{ vars.CI_HEAVY_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
 
     steps:
@@ -284,7 +285,8 @@ jobs:
   # ── Job 5: k6 스모크 테스트 (배포 직후 핵심 엔드포인트 검증) ─────────────────
   smoke-test:
     name: k6 Smoke Test
-    runs-on: ubuntu-latest
+    # PR 게이트. CI_HEAVY_RUNNER 설정 시 자체 호스팅 러너 — services: 컨테이너를 쓰므로 Docker 가 있는 Linux/WSL2 러너여야 한다
+    runs-on: ${{ vars.CI_HEAVY_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     needs: build-and-test    # 빌드/단위 테스트 통과 후 실행
     # main push + PR 에서 실행. shipster push 트리거가 사라졌으므로 PR 이 기동 검증의 유일한 게이트다.
@@ -362,6 +364,8 @@ jobs:
 
       - name: k6 설치
         run: |
+          # 자체 호스팅 러너에는 이미 설치돼 있을 수 있음 — 있으면 apt 절차를 건너뛴다
+          if command -v k6 >/dev/null 2>&1; then echo "k6 already installed: $(k6 version)"; exit 0; fi
           sudo gpg -k
           sudo gpg --no-default-keyring \
             --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
