@@ -380,6 +380,8 @@ jobs:
           SPRING_DATA_REDIS_HOST: localhost
           SPRING_DATA_REDIS_PORT: 6379
           SPRING_PROFILES_ACTIVE: test
+          # 본인인증 SPI Mock 플러그인 활성 — 코어가 벤더 없이 인증 흐름을 제공하는지 k6 로 검증 (P1 게이트)
+          IDEM_PLUGINS_MOCKAUTH_ENABLED: "true"
         run: |
           # 빌드된 JAR로 서버 시작 (백그라운드)
           IDO_JAR=$(find ./artifacts -name "idem-hub-*.jar" | head -1)

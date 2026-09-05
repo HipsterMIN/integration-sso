@@ -63,6 +63,9 @@ public enum PlatformErrorCode {
     IDO_SESSION_NOT_FOUND ("E-IDO-107", HttpStatus.UNAUTHORIZED,       "FE 세션이 없거나 만료되었습니다. 재인증 필요."),
     // E-IDO-108: Sprint α-2 / F4.1 — Handoff verify 시 HMAC 서명/AAD 검증 실패
     IDO_TICKET_SIGNATURE_INVALID("E-IDO-108", HttpStatus.UNAUTHORIZED, "Handoff Ticket 서명 검증 실패."),
+    // ── 본인인증 SPI (docs/vendor-plugin-plan.md P1) ─────────────────────────
+    IDO_AUTH_PROVIDER_UNKNOWN("E-IDO-109", HttpStatus.NOT_FOUND, "등록되지 않은 본인인증 제공자입니다."),
+    IDO_AUTH_VERIFICATION_FAILED("E-IDO-110", HttpStatus.BAD_REQUEST, "본인인증에 실패했습니다."),
 
     // ── 기관 오류 (E-AGENCY-3xx) ─────────────────────────────────────────────
     AGENCY_NOT_REGISTERED ("E-AGENCY-301", HttpStatus.FORBIDDEN,   "등록되지 않은 기관 코드입니다."),

@@ -33,6 +33,37 @@ export default function () {
     });
   }
 
+  // 1b. 본인인증 SPI — 제공자 목록에 MOCK 이 있고 initiate → complete 라운드트립이 된다 (P1 게이트)
+  {
+    const list = http.get(`${BASE_URL}/api/v1/auth/providers`, { headers: h });
+    let codes = [];
+    try { codes = JSON.parse(list.body).map((p) => p.code); } catch (_) { codes = []; }
+    check(list, {
+      'smoke: providers 200':        (r) => r.status === 200,
+      'smoke: providers has MOCK':   () => codes.includes('MOCK'),
+    });
+    const init = http.post(
+      `${BASE_URL}/api/v1/auth/providers/MOCK/initiate`,
+      JSON.stringify({ returnUrl: 'https://fe.local/return', params: { name: 'k6', phone: '01099998888' } }),
+      { headers: h }
+    );
+    let txId = null;
+    try { txId = JSON.parse(init.body).txId; } catch (_) { txId = null; }
+    check(init, {
+      'smoke: MOCK initiate 200':    (r) => r.status === 200,
+      'smoke: MOCK initiate txId':   () => typeof txId === 'string' && txId.startsWith('mock-'),
+    });
+    const done = http.post(
+      `${BASE_URL}/api/v1/auth/providers/MOCK/complete`,
+      JSON.stringify({ txId: txId, params: {} }),
+      { headers: h }
+    );
+    check(done, {
+      'smoke: MOCK complete 200':    (r) => r.status === 200,
+      'smoke: MOCK complete name':   (r) => { let b; try { b = JSON.parse(r.body); } catch (_) { return false; } return b && b.name === 'k6'; },
+    });
+  }
+
   // 2. CI-Check 파라미터 검증 (외부 의존성 없음)
   {
     const res = http.post(

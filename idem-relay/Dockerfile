@@ -54,6 +54,7 @@ COPY idem-tenant-sample/build.gradle.kts     idem-tenant-sample/
 COPY idem-sdk-java/build.gradle.kts idem-sdk-java/
 COPY idem-relay/build.gradle.kts idem-relay/
 COPY idem-agent/build.gradle.kts   idem-agent/
+COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 
 # Gradle Wrapper 실행 권한 + 의존성 사전 다운로드
 RUN --mount=type=cache,target=/root/.gradle \

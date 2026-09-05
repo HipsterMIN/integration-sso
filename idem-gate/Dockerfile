@@ -42,6 +42,7 @@ COPY idem-tenant-sample/build.gradle.kts     idem-tenant-sample/
 COPY idem-sdk-java/build.gradle.kts idem-sdk-java/
 COPY idem-relay/build.gradle.kts idem-relay/
 COPY idem-agent/build.gradle.kts   idem-agent/
+COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 
 RUN --mount=type=cache,target=/root/.gradle \
     chmod +x gradlew && \

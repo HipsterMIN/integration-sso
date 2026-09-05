@@ -50,6 +50,7 @@ COPY idem-tenant-sample/build.gradle.kts     idem-tenant-sample/
 COPY idem-sdk-java/build.gradle.kts idem-sdk-java/
 COPY idem-relay/build.gradle.kts idem-relay/
 COPY idem-agent/build.gradle.kts   idem-agent/
+COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 # idem-hub 로컬 libs 디렉토리 (OACX SDK 등)
 COPY idem-hub/libs/ idem-hub/libs/
 
@@ -65,6 +66,7 @@ FROM deps AS builder
 # 소스 복사 (의존성 레이어와 분리 — 소스 변경 시 이 레이어부터 재빌드)
 COPY idem-common/src/ idem-common/src/
 COPY idem-hub/src/ idem-hub/src/
+COPY plugins/idem-plugin-mock-auth/src/ plugins/idem-plugin-mock-auth/src/
 
 # Layered JAR 빌드 (Spring Boot 2.3+ 기본 지원)
 RUN --mount=type=cache,target=/root/.gradle \
