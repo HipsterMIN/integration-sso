@@ -1,0 +1,46 @@
+# CI 러너 운영 가이드 — 사용량 절감과 자체 호스팅 러너
+
+> 작성 2026-09-04 · 배경: 프라이빗 저장소 Actions 분 한도 초과로 main push 실행의 Docker Build 6종·k6·Sonar 잡이 러너 배정 없이 실패(run 33842068829)
+
+## 1. 트리거 정리 (적용 완료)
+
+| 워크플로 | 종전 | 현재 |
+|---|---|---|
+| `ci.yml` | push: main/develop/genspark_ai_developer/shipster + PR: main/develop | **push: main** + **PR: main** |
+| `nogo-full.yml` | push: shipster + PR: main/develop | **PR: main/develop** (+ 수동) |
+| `nogo-quick.yml` | 수동 | 수동 |
+
+효과: shipster 변경 1건당 실행이 4개(ci push, ci PR, nogo push, nogo PR)에서 2개로 줄고, 같은 ref 의 concurrency 취소로 진행 중 실행이 유실되는 문제가 사라진다. k6 스모크는 shipster push 가 없어졌으므로 PR 에서도 실행한다.
+
+작업 절차는 그대로다: shipster 에 커밋·푸시 → PR 생성 시점에 CI 실행 → 머지 → main push 에서 Docker Build·GHCR 발행.
+
+## 2. 무거운 잡을 자체 호스팅 러너로 (선택)
+
+자체 호스팅 러너에서 실행된 시간은 Actions 분에 **계산되지 않는다**. `ci.yml` 의 다음 잡은 저장소 변수 `CI_HEAVY_RUNNER` 가 있으면 그 라벨의 러너에서, 없으면 GitHub 호스트 러너에서 돈다.
+
+| 잡 | 필요 조건 |
+|---|---|
+| Docker Build (Multistage) 6종 | Docker 데몬 + buildx. **Linux 또는 WSL2 Ubuntu** 권장 (Windows 네이티브 러너는 Linux 이미지 빌드 불가) |
+| OWASP Dependency-Check (야간) | JDK 21 만 있으면 됨. 어느 OS 든 가능하나 `run:` 스텝이 bash 문법이라 Windows 는 Git Bash 필요 |
+
+k6 스모크는 `services:` 컨테이너(Redis·PostgreSQL·Kafka)를 쓰므로 호스트 러너에 고정했다. Linux 자체 호스팅 러너에 Docker 가 있으면 services 도 동작하지만 기본값은 바꾸지 않았다.
+
+### 2.1 러너 등록 (WSL2 Ubuntu 기준, 약 5분)
+
+1. 저장소 → Settings → Actions → Runners → **New self-hosted runner** → Linux x64 선택.
+2. 화면에 나오는 다운로드·설정 명령을 WSL2 셸에서 그대로 실행한다. `./config.sh` 실행 시 라벨은 기본값(`self-hosted, Linux, X64`)을 두면 된다.
+3. 서비스로 상시 실행: `sudo ./svc.sh install && sudo ./svc.sh start`.
+4. Docker Desktop 의 WSL2 통합을 켜서 WSL2 안에서 `docker info` 가 되는지 확인한다.
+5. 저장소 → Settings → Secrets and variables → Actions → **Variables** → `CI_HEAVY_RUNNER` = `self-hosted` 추가.
+
+이후 main push 의 Docker Build 와 야간 OWASP 가 그 머신에서 실행된다. 변수를 지우면 즉시 호스트 러너로 돌아간다.
+
+### 2.2 주의
+
+- 자체 호스팅 러너는 **프라이빗 저장소에서만** 쓴다. 저장소를 공개하면 포크 PR 이 러너에서 코드를 실행할 수 있으므로 변수를 제거하고 러너를 내린다.
+- 러너 머신의 Docker 레이어·Gradle 캐시는 워크플로 밖에 남는다. 디스크가 차면 `docker system prune` 으로 정리한다.
+- OWASP 잡의 프로세스 정리 스텝(`pkill -f org.gradle`)은 호스트 러너에서만 실행되도록 조건을 걸었다. 자체 호스팅 머신의 다른 Gradle 프로세스를 죽이지 않기 위해서다.
+
+## 3. 공개 전환 시
+
+퍼블릭 저장소는 Actions 분과 아티팩트·캐시 저장소가 무제한이라 1·2절이 모두 불필요해진다. 공개 준비 항목은 `docs/open-source-readiness.md` 참조.
