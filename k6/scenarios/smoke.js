@@ -4,6 +4,9 @@
  * 목적: CI/CD 파이프라인에서 배포 직후 핵심 엔드포인트가 살아있는지 확인.
  * 1 VU × 1회만 실행하므로 외부 의존성 오류는 허용된다.
  *
+ * 게이트: `checks: rate==1` 임계값으로 check 하나라도 실패하면 k6 종료 코드 ≠ 0 → CI 잡 실패.
+ * (이전에는 http_req_failed/http_req_duration 임계값만 있어 check 실패가 잡 실패로 이어지지 않았다.)
+ *
  * 실행:
  *   k6 run k6/scenarios/smoke.js
  */
@@ -16,6 +19,7 @@ export const options = {
   vus: 1,
   iterations: 1,
   thresholds: {
+    'checks':            ['rate==1'],     // 모든 check 통과 — 실패 시 종료 코드 ≠ 0 (CI 게이트)
     'http_req_duration': ['p(95)<5000'],  // 스모크: 5초 이하
     'http_req_failed':   ['rate<1'],      // 타임아웃 없을 것
   },
@@ -65,6 +69,9 @@ export default function () {
   }
 
   // 2. CI-Check 파라미터 검증 (외부 의존성 없음)
+  //    빈 ci 는 컨트롤러의 @Valid(@NotBlank/@Size) 에서 걸려 GlobalExceptionHandler 가
+  //    400 + ErrorResponse{code:'E-IDO-400', message:'ci: …'} 를 돌려준다.
+  //    서비스 레이어의 resultCode 4000 분기는 HTTP 로는 도달하지 않는다.
   {
     const res = http.post(
       `${BASE_URL}/api/v1/auth/nice/ci-check`,
@@ -72,10 +79,10 @@ export default function () {
       { headers: h }
     );
     check(res, {
-      'smoke: ci-check responds': (r) => r.status === 200,
-      'smoke: ci-check 4000':     (r) => {
+      'smoke: ci-check 400 (bean validation)': (r) => r.status === 400,
+      'smoke: ci-check E-IDO-400 on ci':       (r) => {
         let b; try { b = JSON.parse(r.body); } catch (_) { return false; }
-        return b && b.resultCode === '4000';
+        return b && b.code === 'E-IDO-400' && typeof b.message === 'string' && b.message.startsWith('ci');
       },
     });
   }

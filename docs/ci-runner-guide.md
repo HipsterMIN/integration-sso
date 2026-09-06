@@ -22,6 +22,7 @@
 |---|---|
 | Build & Unit Test (PR 게이트) | JDK 는 `actions/setup-java` 가 내려받음. `run:` 스텝이 bash 문법이라 Linux/WSL2 권장 |
 | k6 Smoke Test (PR 게이트) | `services:` 컨테이너(Redis·PostgreSQL·Kafka)를 쓰므로 **Docker 가 있는 Linux/WSL2 러너 필수**. k6 설치 스텝은 `apt` + `sudo` 를 쓰므로 러너 계정에 passwordless sudo 가 있거나 k6 를 미리 설치해 둔다(설치돼 있으면 스텝이 건너뜀) |
+| ↳ 판정 기준 | `k6/scenarios/smoke.js` 의 `thresholds.checks: rate==1` — check 하나라도 ✗ 면 k6 종료 코드 ≠ 0 으로 잡 실패(2026-09-06). 그 전에는 `http_req_failed`/`http_req_duration` 임계값만 있어 `ci-check` check 가 매번 ✗ 인데도 잡이 초록으로 표시됐다 |
 | Docker Build (Multistage) 6종 | Docker 데몬 + buildx. **Linux 또는 WSL2 Ubuntu** 권장 (Windows 네이티브 러너는 Linux 이미지 빌드 불가) |
 | OWASP Dependency-Check (야간) | JDK 21 만 있으면 됨 |
 
