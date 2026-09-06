@@ -64,6 +64,8 @@ configurations {
 
 dependencies {
     implementation(project(":idem-common"))
+    // 본인인증 SPI Mock 플러그인 — 클래스패스에는 항상 있지만 idem.plugins.mock-auth.enabled=true 일 때만 활성 (P1)
+    runtimeOnly(project(":idem-plugin-mock-auth"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")

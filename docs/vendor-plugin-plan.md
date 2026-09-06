@@ -62,8 +62,8 @@ plugins/
 
 | 단계 | 내용 | 산출물 | 게이트 | 규모 |
 |---|---|---|---|---|
-| **P0 즉시 정리** | `xecure7.jar` 삭제 · `application-local.yml` 벤더키를 env 플레이스홀더로 교체하고 벤더에 키 교체 요청 · `idem-console/frontend/.env` untrack · OACX 구버전 리스크 기록 | 커밋 1건, 공개 준비 B1·B4 해소 | 로컬 프로파일 기동 확인 | S |
-| **P1 SPI + Mock** | `IdentityVerificationProvider`/`VerifiedIdentity`/`AuthWidgetDescriptor`/`ProviderRegistry` 정의 · `idem-plugin-mock-auth` · `NiceAuthService` 를 SPI 어댑터 뒤로 이동(아직 코어 안) · `/api/v1/auth/providers` API | SPI 문서, mock 플러그인 | **코어가 mock 만으로 기동·k6 통과**, 기존 NICE 통합 테스트 그린 | M |
+| **P0 즉시 정리** ✅ 2026-09-05 | `xecure7.jar` 삭제 · `application-local.yml` 벤더키를 env 플레이스홀더로 교체하고 벤더에 키 교체 요청 · `idem-console/frontend/.env` untrack · OACX 구버전 리스크 기록 | 커밋 1건, 공개 준비 B1·B4 해소 | 로컬 프로파일 기동 확인 | S |
+| **P1 SPI + Mock** ✅ 2026-09-05 (`identity-provider-spi.md`) | `IdentityVerificationProvider`/`VerifiedIdentity`/`AuthWidgetDescriptor`/`ProviderRegistry` 정의 · `idem-plugin-mock-auth` · `NiceAuthService` 를 SPI 어댑터 뒤로 이동(아직 코어 안) · `/api/v1/auth/providers` API | SPI 문서, mock 플러그인 | **코어가 mock 만으로 기동·k6 통과**, 기존 NICE 통합 테스트 그린 | M |
 | **P2 NICE/OACX 플러그인** | `OacxClient`·`NiceApiClient`·`NiceAuthService`·`dto/nice`·OACX 엔드포인트·EzAuth 자산을 `idem-plugin-nice-oacx` 로 이동 · OACX SDK 를 vendor-libs 외부 공급 · `useAuthWidget` 전환 | 플러그인 모듈, FE 훅 | 플러그인 on/off 두 프로파일 통합 테스트, 공개 준비 B2 일부·B3(EzAuth) 해소 | M |
 | **P3 AnyID 플러그인** | `broker/anyid` 5클래스·`AnyIdKmsClient`·`static/anyid`·SDK 13 jar 를 `idem-plugin-anyid` 로 이동 · `vendor.js`(RSA key) 저장소 제거 | 플러그인 모듈 | AnyID 브로커·KMS 회귀 테스트, B2·B3 완전 해소 | M~L |
 | **P4 설정·배포·문서** | 설정 스키마 통일 · Helm `plugins` · 코어/KR 이미지 변형 · **플러그인 작성 가이드**(새 벤더를 붙이는 절차, 계약 테스트 킷) | 가이드, Helm, CI 매트릭스(core / kr-public) | 두 이미지 모두 Docker Build·k6 통과 | M |

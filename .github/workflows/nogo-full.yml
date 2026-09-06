@@ -90,6 +90,7 @@ jobs:
           - idem-common
           - idem-gate
           - idem-relay
+          - idem-plugin-mock-auth
 
     steps:
       - name: 소스 체크아웃

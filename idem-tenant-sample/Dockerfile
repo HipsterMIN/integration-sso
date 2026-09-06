@@ -29,6 +29,7 @@ COPY idem-tenant-sample/build.gradle.kts     idem-tenant-sample/
 COPY idem-sdk-java/build.gradle.kts idem-sdk-java/
 COPY idem-relay/build.gradle.kts idem-relay/
 COPY idem-agent/build.gradle.kts   idem-agent/
+COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 
 # 소스 복사 (목표 모듈 + 의존 idem-common 만)
 COPY idem-common/src/ idem-common/src/
