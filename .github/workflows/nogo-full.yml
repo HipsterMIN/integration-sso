@@ -91,6 +91,7 @@ jobs:
           - idem-gate
           - idem-relay
           - idem-plugin-mock-auth
+          - idem-plugin-nice-oacx
 
     steps:
       - name: 소스 체크아웃

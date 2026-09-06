@@ -63,7 +63,7 @@ Mock 동작: `params.fail=true` 로 실패 경로, `params.subjectKey` 로 동�
 ## 5. 새 제공자(플러그인) 만들기 — 최소 절차
 
 1. `plugins/idem-plugin-<id>/` 모듈 생성, `api(project(":idem-common"))` + `spring-boot-autoconfigure` 의존.
-2. `IdentityVerificationProvider` 구현 (벤더 SDK 는 `compileOnly`/`runtimeOnly`, 저장소 밖 `vendor-libs` 에서 공급 — P2 에서 Gradle 속성 정리).
+2. `IdentityVerificationProvider` 구현. 벤더 SDK 는 저장소 밖 `vendor-libs`(`-PvendorLibsDir`, `IDEM_VENDOR_LIBS`, 기본 `~/.idem/vendor-libs`)에서 `compileOnly`/`runtimeOnly` 로 읽고, SDK 부재 시 해당 패키지를 `sourceSets` 에서 제외한다 — 구현 예: `plugins/idem-plugin-nice-oacx/build.gradle.kts`.
 3. `@AutoConfiguration` + `@ConditionalOnProperty("idem.plugins.<id>.enabled")` (+ `@ConditionalOnClass(벤더 진입 클래스)`) 로 빈 등록, `META-INF/spring/…AutoConfiguration.imports` 에 등재.
 4. `settings.gradle.kts` include + `projectDir` 매핑, 각 서비스 Dockerfile deps 스테이지에 `build.gradle.kts` COPY 추가 (Gradle 9 는 include 된 모듈 디렉터리가 없으면 설정 단계에서 실패).
 5. 코드 중복 금지 — 레지스트리가 부팅 시 검출한다.

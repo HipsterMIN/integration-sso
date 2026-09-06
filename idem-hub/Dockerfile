@@ -51,6 +51,7 @@ COPY idem-sdk-java/build.gradle.kts idem-sdk-java/
 COPY idem-relay/build.gradle.kts idem-relay/
 COPY idem-agent/build.gradle.kts   idem-agent/
 COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
+COPY plugins/idem-plugin-nice-oacx/build.gradle.kts plugins/idem-plugin-nice-oacx/
 # idem-hub 로컬 libs 디렉토리 (OACX SDK 등)
 COPY idem-hub/libs/ idem-hub/libs/
 
