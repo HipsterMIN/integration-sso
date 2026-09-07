@@ -26,6 +26,7 @@
 | Docker Build (Multistage) 6종 | Docker 데몬 + buildx. **Linux 또는 WSL2 Ubuntu** 권장 (Windows 네이티브 러너는 Linux 이미지 빌드 불가) |
 | OWASP Dependency-Check (야간) | JDK 21 만 있으면 됨 |
 | ↳ 스캔 범위 | `dependencyCheckAggregate` 로 서브프로젝트 전체 의존성을 한 리포트로 스캔(2026-09-07). 그 전의 `dependencyCheckAnalyze` 는 루트 프로젝트(의존성 0개)만 봐서 "0건" 이 무검사였다(run 34049253507). SARIF 업로드에는 잡 `permissions.security-events: write` 와 저장소 Code scanning 활성(프라이빗은 GHAS 필요)이 모두 필요하며, 저장소 변수 `CODE_SCANNING_ENABLED=true` 일 때만 업로드 스텝이 실행된다 |
+| ↳ 캐시 전송 생략 | 자체 호스팅 러너(`runner.environment != 'github-hosted'`)에서는 setup-java 의 gradle 캐시, `Gradle 캐시`, `OWASP NVD 캐시`, `Docker 레이어 캐시` 스텝을 건너뛴다. `~/.gradle`, `~/.gradle/dependency-check-data`, `/tmp/.buildx-cache-*` 가 머신에 남아 있어 전송이 불필요하고, 느린 망에서는 500MB 전송이 잡을 수십 분 지연시켰다(2026-09-07, run 34079947660 Java 설정 단계 10분 이상 정지) |
 | ↳ WSL2 러너 주의 | Java 가 IPv6 를 먼저 시도해 NVD·RetireJS 다운로드가 `Network is unreachable` 로 실패할 수 있어 OWASP 스텝은 `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true` 를 건다(run 34075241830) |
 
 즉 변수 하나로 PR 게이트 2종 + 무거운 잡 2종이 모두 자체 호스팅으로 간다(2026-09-05 확장). Frontend Build·Trivy·Sonar·nogo-full 모듈 매트릭스는 여전히 호스트 러너다 — 짧은 잡이라 분 소모가 작고, 한도 초과 중에는 실패로 표시되지만 머지 판단은 위 게이트 2종으로 한다.
