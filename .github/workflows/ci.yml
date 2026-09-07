@@ -161,6 +161,10 @@ jobs:
     runs-on: ${{ vars.CI_HEAVY_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 60    # 야간 전용이라 PR을 막지 않음 — NVD 저하 시에도 첫 전체 동기화가 완주하도록 여유
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      security-events: write   # SARIF → Security 탭 업로드 (없으면 "Resource not accessible by integration", run 34049253507)
+      actions: read            # upload-sarif 가 workflow-run 조회에 사용
 
     steps:
       - name: 소스 체크아웃
@@ -200,7 +204,10 @@ jobs:
           # build.gradle.kts dependencyCheck.nvd.apiKey 가 이 환경변수를 읽는다.
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
-          ./gradlew dependencyCheckAnalyze --no-daemon \
+          # dependencyCheckAggregate: 서브프로젝트 12개의 의존성을 한 리포트로 스캔.
+          # dependencyCheckAnalyze 는 호출한 프로젝트(루트, 의존성 0개)만 봐서
+          # "Found 0 vulnerabilities" 가 무검사였다(run 34049253507). 리포트 경로는 동일.
+          ./gradlew dependencyCheckAggregate --no-daemon \
             -Pdependency.check.failBuildOnCVSS=7 \
             -Pdependency.check.formats=HTML,JSON,SARIF
           # SECURITY: CVSS 7.0 이상 취약점 발견 시 빌드 실패 (보안 게이트 활성화)
@@ -249,6 +256,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      security-events: write   # SARIF → Security 탭 업로드
+      actions: read
     steps:
       - name: 소스 체크아웃
         uses: actions/checkout@v4
