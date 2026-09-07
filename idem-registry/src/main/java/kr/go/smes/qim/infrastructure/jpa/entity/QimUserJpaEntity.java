@@ -1,5 +1,8 @@
 package kr.go.smes.qim.infrastructure.jpa.entity;
 
+import lombok.AccessLevel;
+import org.springframework.data.domain.Persistable;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -21,7 +24,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class QimUserJpaEntity {
+public class QimUserJpaEntity implements Persistable<String> {
 
     @Id
     @Column(name = "qim_user_id", length = 36, nullable = false)
@@ -90,4 +93,27 @@ public class QimUserJpaEntity {
     protected void onUpdate() {
         updatedAt = Instant.now();
     }
+
+    // ── Spring Data 신규 판정 (Hibernate 6.6 @MapsId merge 회귀 대응) ──────────
+    /**
+     * 할당 ID 엔터티는 Spring Data {@code save()} 가 {@code merge} 로 가는데, Hibernate 6.6 은
+     * DB 에 행이 없는 {@code @MapsId} 자식의 merge 에 {@code StaleObjectStateException} 을 던진다
+     * ({@code MapsIdPersistRegressionTest}). {@link Persistable#isNew()} 가 true 이면 {@code save()} 가
+     * {@code persist} 를 호출하므로 신규 저장이 INSERT 로 간다. 로드·저장 후에는 false 로 바뀐다.
+     */
+    @Transient
+    @Builder.Default
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private boolean isNew = true;
+
+    @Override
+    public String getId() { return qimUserId; }
+
+    @Override
+    public boolean isNew() { return isNew; }
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() { isNew = false; }
 }

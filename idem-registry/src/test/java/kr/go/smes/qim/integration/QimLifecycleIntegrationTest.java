@@ -333,11 +333,12 @@ class QimLifecycleIntegrationTest {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // S5: 선택 동의 철회 (이력 보존 INSERT 전용)
+    // S5: 선택 동의 철회 — 같은 consent_record 를 WITHDRAWN 으로 갱신 (markWithdrawn UPDATE)
+    //     ※ 과거 기대값(INSERT 전용 이력 2건)은 구현·설계(03-member-update-withdraw-flow)와 달라 2026-09-07 정정
     // ══════════════════════════════════════════════════════════════════════
 
     @Test
-    @DisplayName("S5: 선택 동의 AGREED → 철회 → consent_record WITHDRAWN, 이력 보존")
+    @DisplayName("S5: 선택 동의 AGREED → 철회 → 같은 consent_record 가 WITHDRAWN 으로 갱신")
     void s5_consentWithdraw() {
         // 준비
         String qimUserId = createActiveUser("user-s5-001");
@@ -358,11 +359,14 @@ class QimLifecycleIntegrationTest {
         assertThat(withdrawResult.getConsentStatus()).isEqualTo("WITHDRAWN");
         assertThat(withdrawResult.getWithdrawnAt()).isNotNull();
 
-        // DB 검증 — 레코드 2개 (AGREED + WITHDRAWN): INSERT 전용 이력 보존
+        // DB 검증 — 레코드 1개가 제자리에서 WITHDRAWN 으로 갱신 (ConsentServiceImpl.withdraw → markWithdrawn UPDATE)
+        entityManager.flush();
+        entityManager.clear();
         List<ConsentRecordJpaEntity> records = recordRepository.findAll();
-        assertThat(records).hasSize(2);
-        assertThat(records.stream().anyMatch(r -> "AGREED".equals(r.getConsentStatus()))).isTrue();
-        assertThat(records.stream().anyMatch(r -> "WITHDRAWN".equals(r.getConsentStatus()))).isTrue();
+        assertThat(records).hasSize(1);
+        assertThat(records.get(0).getConsentStatus()).isEqualTo("WITHDRAWN");
+        assertThat(records.get(0).getWithdrawnAt()).isNotNull();
+        assertThat(records.get(0).getWithdrawalReason()).isEqualTo("마케팅 수신 거부");
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -578,7 +582,9 @@ class QimLifecycleIntegrationTest {
         assertThat(found.getBizRegNo()).isEqualTo("1234567890");
         assertThat(found.getCompanyName()).isEqualTo("주식회사 테스트");
 
-        // biz_member 테이블 직접 확인
+        // biz_member 테이블 직접 확인 — save() 가 persist(미flush) 이고 findByQimUserId 는 1차 캐시(findById)라
+        // JDBC 로 보기 전에 명시적 flush 가 필요하다 (운영은 트랜잭션 커밋 시 flush)
+        entityManager.flush();
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM biz_member WHERE qim_user_id = ?",
                 Integer.class, qimUserId);

@@ -35,7 +35,13 @@ public class UserRepositoryImpl implements UserRepository {
     @Override
     public void save(QimUser user) {
         QimUserJpaEntity entity = toEntity(user);
-        jpaRepository.save(entity);
+        if (entity.isNew()) {
+            // 신규: Persistable.isNew()=true → persist → @MapsId 프로필까지 cascade PERSIST (INSERT)
+            jpaRepository.save(entity);
+        }
+        // 기존(managed) 엔터티는 트랜잭션 커밋 시 더티 체킹과 flush-time cascade PERSIST 로 반영된다.
+        // 여기서 save()(= merge) 를 다시 호출하면 새로 붙인 @MapsId 프로필의 merge 가
+        // Hibernate 6.6 에서 StaleObjectStateException 을 낸다 (MapsIdPersistRegressionTest).
         log.debug("[UserRepository] 저장 qimUserId={} status={}", user.getQimUserId(), user.getStatus());
     }
 
@@ -136,6 +142,12 @@ public class UserRepositoryImpl implements UserRepository {
             pe.setNationalityType(domain.getProfile().getNationalityType());
             pe.setCi(domain.getProfile().getCi());
             pe.setDiMap(domain.getProfile().getDi());
+            // P3-05 미성년자·보호자 필드 동기화 — 누락 시 신규 프로필 INSERT 가 is_minor NOT NULL 에 걸린다
+            // (MapsIdPersistRegressionTest.addProfileToManagedUserViaDomainRepository)
+            pe.setBirthYear(domain.getProfile().getBirthYear());
+            pe.setIsMinor(Boolean.TRUE.equals(domain.getProfile().getIsMinor()));
+            pe.setGuardianQimUserId(domain.getProfile().getGuardianQimUserId());
+            pe.setGuardianConsentAt(domain.getProfile().getGuardianConsentAt());
             entity.setProfile(pe);
         }
 
