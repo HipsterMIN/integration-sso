@@ -20,10 +20,13 @@
 ### 작업 순서
 1. `git checkout shipster`로 시작
 2. 코드 수정
-3. 즉시 커밋: `git add . && git commit -m "..."`
+3. 즉시 커밋: `git add . && git commit -m "..."` — **pre-commit 훅이 Spotless 포맷팅**(origin/main 대비 변경 Java 파일만) 적용
 4. `git fetch origin main && git rebase origin/main`
-5. `git push origin shipster`
+5. `git push origin shipster` — **pre-push 훅이 변경된 모듈(과 의존 모듈)의 테스트만 실행**, 실패 시 push 중단
 6. PR: `shipster` → `main`
+
+훅 설치(로컬 1회): `scripts/dev/install-git-hooks.sh`. 상세·건너뛰기 옵션: `docs/local-dev-workflow.md`.
+CI 는 PR 게이트(Build & Unit Test, k6)만 담당하고 Testcontainers 통합 테스트는 로컬 push 전에만 돈다.
 
 ---
 

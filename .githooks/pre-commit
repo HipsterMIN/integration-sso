@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# pre-commit — Spotless 포맷팅 (Java, origin/main 대비 변경 파일만)
+#
+# 설치: scripts/dev/install-git-hooks.sh  (git config core.hooksPath .githooks)
+# 건너뛰기: SKIP_SPOTLESS=1 git commit ...   또는 git commit --no-verify
+#
+# 동작: 스테이징된 Java 파일이 있으면 ./gradlew spotlessApply 를 돌리고, 포맷이 바뀐 "스테이징 파일"만 다시 add 한다.
+#       스테이징되지 않은 변경은 손대지 않는다(포맷은 적용될 수 있으나 add 하지 않음).
+set -euo pipefail
+
+if [[ "${SKIP_SPOTLESS:-}" == "1" ]]; then
+    echo "[pre-commit] SKIP_SPOTLESS=1 — spotless 건너뜀"
+    exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+# 스테이징된 Java 파일 (삭제 제외)
+mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACMR -- '*.java')
+if [[ ${#STAGED[@]} -eq 0 ]]; then
+    exit 0
+fi
+
+# ratchetFrom("origin/main") 이 참조할 origin/main 이 없으면(얕은 clone 등) 받아 둔다
+if ! git rev-parse --verify -q origin/main >/dev/null; then
+    git fetch -q origin main || true
+fi
+
+echo "[pre-commit] spotlessApply — 스테이징된 Java 파일 ${#STAGED[@]}개"
+if ! ./gradlew -q spotlessApply --offline 2>/dev/null; then
+    # 오프라인 캐시가 없으면 온라인으로 한 번 더
+    ./gradlew -q spotlessApply
+fi
+
+# 포맷으로 내용이 바뀐 스테이징 파일만 다시 add
+CHANGED=0
+for f in "${STAGED[@]}"; do
+    if [[ -f "$f" ]] && ! git diff --quiet -- "$f"; then
+        git add -- "$f"
+        CHANGED=$((CHANGED+1))
+    fi
+done
+if [[ $CHANGED -gt 0 ]]; then
+    echo "[pre-commit] 포맷 적용 후 재스테이징: ${CHANGED}개 파일"
+fi
+exit 0

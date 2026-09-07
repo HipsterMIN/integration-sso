@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# pre-push — 변경된 모듈(과 그 의존 모듈)의 테스트만 실행
+#
+# 설치: scripts/dev/install-git-hooks.sh  (git config core.hooksPath .githooks)
+# 건너뛰기: SKIP_TESTS=1 git push ...   또는 git push --no-verify
+# 통합 테스트 제외: SKIP_IT=1 git push ...   (idem-hub integrationTest — Docker/Testcontainers 필요)
+# 계획만 보기: PREPUSH_DRY_RUN=1 .githooks/pre-push   (범위는 PREPUSH_RANGE, 기본 origin/main..HEAD)
+# 수동 실행: PREPUSH_RANGE=origin/main~3..HEAD .githooks/pre-push   (범위를 직접 지정해 실제 테스트 실행)
+#
+# 범위: git 이 stdin 으로 넘기는 <local ref> <local sha> <remote ref> <remote sha> 마다
+#       remote sha..local sha 의 변경 파일. 원격 브랜치가 없으면(신규 push) origin/main..local sha.
+# 매핑: 첫 경로 조각 → Gradle 프로젝트 (idem-*, plugins/idem-plugin-*).
+#       idem-common / 루트 빌드 파일 / gradle/ 변경 → 전체 테스트.
+#       plugins/idem-plugin-mock-auth 변경 → idem-hub 도 포함(runtimeOnly 의존).
+#       idem-console/frontend 변경 → yarn typecheck (yarn 있을 때).
+set -uo pipefail
+
+if [[ "${SKIP_TESTS:-}" == "1" ]]; then
+    echo "[pre-push] SKIP_TESTS=1 — 테스트 건너뜀"
+    exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+# Gradle 에 포함된 테스트 대상 프로젝트 (settings.gradle.kts 기준; idem-agent-testbed 는 미포함)
+ALL_PROJECTS=(idem-common idem-gate idem-registry idem-hub idem-authz idem-relay idem-sdk-java idem-agent idem-tenant-sample idem-plugin-mock-auth idem-plugin-nice-oacx)
+
+ZERO=0000000000000000000000000000000000000000
+RANGES=()
+if [[ -n "${PREPUSH_RANGE:-}" ]]; then
+    RANGES+=("$PREPUSH_RANGE")
+elif [[ "${PREPUSH_DRY_RUN:-}" == "1" ]]; then
+    RANGES+=("origin/main..HEAD")
+else
+    while read -r local_ref local_sha remote_ref remote_sha; do
+        [[ -z "${local_sha:-}" || "$local_sha" == "$ZERO" ]] && continue   # 브랜치 삭제
+        if [[ "${remote_sha:-$ZERO}" == "$ZERO" ]] || ! git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+            git rev-parse --verify -q origin/main >/dev/null || git fetch -q origin main || true
+            RANGES+=("origin/main..${local_sha}")
+        else
+            RANGES+=("${remote_sha}..${local_sha}")
+        fi
+    done
+fi
+[[ ${#RANGES[@]} -eq 0 ]] && exit 0
+
+FILES=$(for r in "${RANGES[@]}"; do git diff --name-only "$r" 2>/dev/null; done | sort -u)
+if [[ -z "$FILES" ]]; then
+    echo "[pre-push] 변경 파일 없음 — 테스트 건너뜀"
+    exit 0
+fi
+
+declare -A SEL=()
+RUN_ALL=0
+FRONTEND=0
+while IFS= read -r f; do
+    # 문서·이미지·산출물 파일은 테스트 대상이 아니다 (모듈 디렉터리 안에 있어도)
+    case "$f" in *.md|*.txt|*.png|*.jpg|*.svg|*.pdf|*.docx|*.pptx|*.xlsx|LICENSE*) continue ;; esac
+    case "$f" in
+        build.gradle.kts|settings.gradle.kts|gradle/*|gradlew|gradlew.bat|gradle.properties) RUN_ALL=1 ;;
+        idem-common/*) RUN_ALL=1 ;;
+        plugins/idem-plugin-mock-auth/*) SEL[idem-plugin-mock-auth]=1; SEL[idem-hub]=1 ;;
+        plugins/idem-plugin-nice-oacx/*) SEL[idem-plugin-nice-oacx]=1 ;;
+        idem-console/frontend/*) FRONTEND=1 ;;
+        idem-console/*) ;;                      # Java 테스트 없음
+        idem-agent-testbed/*) ;;                # Gradle 미포함 — 별도 compose 환경
+        idem-*/*) m="${f%%/*}"; SEL[$m]=1 ;;
+        *) ;;                                   # docs, k6, infra, .github 등 — 테스트 대상 아님
+    esac
+done <<< "$FILES"
+
+TASKS=()
+if [[ $RUN_ALL -eq 1 ]]; then
+    for m in "${ALL_PROJECTS[@]}"; do TASKS+=(":${m}:test"); done
+else
+    for m in "${!SEL[@]}"; do
+        # settings 에 없는 디렉터리(예: 신규 폴더)는 무시
+        printf '%s\n' "${ALL_PROJECTS[@]}" | grep -qx "$m" && TASKS+=(":${m}:test")
+    done
+fi
+# idem-hub 통합 테스트(Testcontainers) — Docker 가 있으면 함께 실행
+if [[ "${SKIP_IT:-}" != "1" ]] && printf '%s\n' "${TASKS[@]}" | grep -qx ":idem-hub:test"; then
+    if docker info >/dev/null 2>&1; then TASKS+=(":idem-hub:integrationTest"); fi
+fi
+
+if [[ ${#TASKS[@]} -eq 0 && $FRONTEND -eq 0 ]]; then
+    echo "[pre-push] 테스트 대상 모듈 변경 없음 (변경: $(echo "$FILES" | wc -l) 파일) — 건너뜀"
+    exit 0
+fi
+
+echo "[pre-push] 범위: ${RANGES[*]}"
+echo "[pre-push] 변경 파일 $(echo "$FILES" | wc -l)개 → Gradle 태스크: ${TASKS[*]:-없음}$([[ $FRONTEND -eq 1 ]] && echo " + frontend typecheck")"
+if [[ "${PREPUSH_DRY_RUN:-}" == "1" ]]; then
+    echo "[pre-push] DRY RUN — 실행하지 않음"
+    exit 0
+fi
+
+STATUS=0
+if [[ ${#TASKS[@]} -gt 0 ]]; then
+    # 실패한 태스크가 있어도 끝까지 돌려 전체 그림을 보여 준다
+    ./gradlew "${TASKS[@]}" --continue --no-daemon || STATUS=$?
+fi
+if [[ $FRONTEND -eq 1 ]]; then
+    if command -v yarn >/dev/null 2>&1 && [[ -d idem-console/frontend/node_modules ]]; then
+        (cd idem-console/frontend && yarn --silent typecheck) || STATUS=$?
+    else
+        echo "[pre-push] yarn 또는 idem-console/frontend/node_modules 가 없어 frontend typecheck 건너뜀 (CI 의 Frontend Build 가 검사)"
+    fi
+fi
+
+if [[ $STATUS -ne 0 ]]; then
+    echo
+    echo "[pre-push] 테스트 실패 — push 중단. 리포트: <module>/build/reports/tests/test/index.html"
+    echo "[pre-push] 그래도 push 하려면: SKIP_TESTS=1 git push ...  (또는 --no-verify)"
+    exit $STATUS
+fi
+echo "[pre-push] 통과"
+exit 0
