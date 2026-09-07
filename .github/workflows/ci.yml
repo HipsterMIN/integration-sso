@@ -203,6 +203,9 @@ jobs:
           # NVD API 키 (secrets.NVD_API_KEY) — 미설정 시에도 동작하나 NVD rate limit로 20~40분 소요.
           # build.gradle.kts dependencyCheck.nvd.apiKey 가 이 환경변수를 읽는다.
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          # 자체 호스팅(WSL2) 러너에서 Java 가 IPv6 를 먼저 시도해 "Network is unreachable" 로 NVD/RetireJS/
+          # 호스티드 suppression 다운로드가 전부 실패했다(run 34075241830). JVM 전체에 IPv4 우선을 강제한다.
+          JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
         run: |
           # dependencyCheckAggregate: 서브프로젝트 12개의 의존성을 한 리포트로 스캔.
           # dependencyCheckAnalyze 는 호출한 프로젝트(루트, 의존성 0개)만 봐서
@@ -242,7 +245,9 @@ jobs:
 
       - name: SARIF 결과를 GitHub Security에 업로드
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        # 프라이빗 저장소는 Code scanning(GHAS) 이 꺼져 있어 업로드가 거부된다(run 34075241830:
+        # "Code scanning is not enabled for this repository"). 저장소 변수 CODE_SCANNING_ENABLED=true 일 때만 실행.
+        if: always() && vars.CODE_SCANNING_ENABLED == 'true'
         with:
           sarif_file: build/reports/dependency-check/dependency-check-report.sarif
         continue-on-error: true    # SARIF 없을 때 실패 방지
@@ -288,7 +293,7 @@ jobs:
 
       - name: SARIF 결과를 GitHub Security에 업로드
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && vars.CODE_SCANNING_ENABLED == 'true'   # Code scanning 활성 저장소에서만
         with:
           sarif_file: trivy-fs.sarif
         continue-on-error: true
