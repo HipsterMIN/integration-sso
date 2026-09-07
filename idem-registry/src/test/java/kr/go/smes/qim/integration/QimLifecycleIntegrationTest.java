@@ -582,7 +582,9 @@ class QimLifecycleIntegrationTest {
         assertThat(found.getBizRegNo()).isEqualTo("1234567890");
         assertThat(found.getCompanyName()).isEqualTo("주식회사 테스트");
 
-        // biz_member 테이블 직접 확인
+        // biz_member 테이블 직접 확인 — save() 가 persist(미flush) 이고 findByQimUserId 는 1차 캐시(findById)라
+        // JDBC 로 보기 전에 명시적 flush 가 필요하다 (운영은 트랜잭션 커밋 시 flush)
+        entityManager.flush();
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM biz_member WHERE qim_user_id = ?",
                 Integer.class, qimUserId);
