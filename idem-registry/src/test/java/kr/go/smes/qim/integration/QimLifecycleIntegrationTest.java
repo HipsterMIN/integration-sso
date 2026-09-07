@@ -333,11 +333,12 @@ class QimLifecycleIntegrationTest {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // S5: 선택 동의 철회 (이력 보존 INSERT 전용)
+    // S5: 선택 동의 철회 — 같은 consent_record 를 WITHDRAWN 으로 갱신 (markWithdrawn UPDATE)
+    //     ※ 과거 기대값(INSERT 전용 이력 2건)은 구현·설계(03-member-update-withdraw-flow)와 달라 2026-09-07 정정
     // ══════════════════════════════════════════════════════════════════════
 
     @Test
-    @DisplayName("S5: 선택 동의 AGREED → 철회 → consent_record WITHDRAWN, 이력 보존")
+    @DisplayName("S5: 선택 동의 AGREED → 철회 → 같은 consent_record 가 WITHDRAWN 으로 갱신")
     void s5_consentWithdraw() {
         // 준비
         String qimUserId = createActiveUser("user-s5-001");
@@ -358,11 +359,14 @@ class QimLifecycleIntegrationTest {
         assertThat(withdrawResult.getConsentStatus()).isEqualTo("WITHDRAWN");
         assertThat(withdrawResult.getWithdrawnAt()).isNotNull();
 
-        // DB 검증 — 레코드 2개 (AGREED + WITHDRAWN): INSERT 전용 이력 보존
+        // DB 검증 — 레코드 1개가 제자리에서 WITHDRAWN 으로 갱신 (ConsentServiceImpl.withdraw → markWithdrawn UPDATE)
+        entityManager.flush();
+        entityManager.clear();
         List<ConsentRecordJpaEntity> records = recordRepository.findAll();
-        assertThat(records).hasSize(2);
-        assertThat(records.stream().anyMatch(r -> "AGREED".equals(r.getConsentStatus()))).isTrue();
-        assertThat(records.stream().anyMatch(r -> "WITHDRAWN".equals(r.getConsentStatus()))).isTrue();
+        assertThat(records).hasSize(1);
+        assertThat(records.get(0).getConsentStatus()).isEqualTo("WITHDRAWN");
+        assertThat(records.get(0).getWithdrawnAt()).isNotNull();
+        assertThat(records.get(0).getWithdrawalReason()).isEqualTo("마케팅 수신 거부");
     }
 
     // ══════════════════════════════════════════════════════════════════════
