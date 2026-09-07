@@ -149,7 +149,7 @@
 
 **Secret 생성 예시 (kubectl)**:
 ```bash
-kubectl create secret generic onepass-qsign-secret \
+kubectl create secret generic idem-gate-secret \
   --namespace=onepass \
   --from-literal=QIM_INTERNAL_API_KEY="$(openssl rand -hex 32)" \
   --from-literal=QSIGN_KEYCLOAK_CLIENT_SECRET="..." \
@@ -236,10 +236,10 @@ cp infra/docker/.env.example infra/docker/.env
 
 # 2. 앱 이미지 빌드 (프로젝트 루트에서)
 ./gradlew :idem-gate:bootJar :idem-registry:bootJar :idem-hub:bootJar :idem-tenant-sample:bootJar -x test
-docker build -f idem-gate/Dockerfile -t onepass-qsign:latest .
-docker build -f idem-registry/Dockerfile -t onepass-qim:latest .
-docker build -f idem-hub/Dockerfile -t onepass-ido:latest .
-docker build -f idem-tenant-sample/Dockerfile -t onepass-agency-stub:latest .
+docker build -f idem-gate/Dockerfile -t idem-gate:latest .
+docker build -f idem-registry/Dockerfile -t idem-registry:latest .
+docker build -f idem-hub/Dockerfile -t idem-hub:latest .
+docker build -f idem-tenant-sample/Dockerfile -t idem-tenant-sample:latest .
 ```
 
 ### 7.2 인프라만 기동 (DB/Redis/Kafka)
@@ -299,16 +299,16 @@ docker compose -f infra/docker/docker-compose.yml \
 ./infra/minikube/setup-minikube.sh --clean
 
 # 포트 포워딩
-kubectl port-forward svc/onepass-ido 8083:8083 -n onepass-dev &
-kubectl port-forward svc/onepass-qim 8082:8082 -n onepass-dev &
-kubectl port-forward svc/onepass-qsign 8081:8081 -n onepass-dev &
+kubectl port-forward svc/idem-hub 8083:8083 -n onepass-dev &
+kubectl port-forward svc/idem-registry 8082:8082 -n onepass-dev &
+kubectl port-forward svc/idem-gate 8081:8081 -n onepass-dev &
 
 # 상태 확인
 kubectl get pods -n onepass-dev
 kubectl get svc -n onepass-dev
 
 # 로그 확인
-kubectl logs -f deployment/onepass-ido -n onepass-dev
+kubectl logs -f deployment/idem-hub -n onepass-dev
 ```
 
 > **host.minikube.internal**: Minikube 내부에서 호스트 OS(로컬 개발 PC)의 Docker Compose 인프라에 접근할 때 사용합니다.  
@@ -325,14 +325,14 @@ NAMESPACE=onepass
 kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
 # Q-Sign Secret
-kubectl create secret generic onepass-qsign-secret \
+kubectl create secret generic idem-gate-secret \
   --namespace=$NAMESPACE \
   --from-literal=DB_HOST="<POSTGRES_ENDPOINT>" \
   --from-literal=DB_USERNAME="<POSTGRES_USER>" \
   --from-literal=DB_PASSWORD="<POSTGRES_PASSWORD>" \
   --from-literal=KEYCLOAK_URL="<KEYCLOAK_URL>" \
   --from-literal=QSIGN_KEYCLOAK_CLIENT_SECRET="<SECRET>" \
-  --from-literal=IDO_BASE_URL="http://onepass-ido:8083" \
+  --from-literal=IDO_BASE_URL="http://idem-hub:8083" \
   --from-literal=IDO_INTERNAL_SIG_SECRET="<SECRET_32CHARS>" \
   --from-literal=REDIS_HOST="<REDIS_ENDPOINT>" \
   --from-literal=REDIS_PASSWORD="<REDIS_PASSWORD>" \
@@ -488,7 +488,7 @@ docker compose -f infra/docker/docker-compose.yml \
   --profile app down
 
 # 이전 버전 이미지로 기동
-docker tag onepass-ido:previous onepass-ido:latest
+docker tag idem-hub:previous idem-hub:latest
 docker compose -f infra/docker/docker-compose.yml \
   --profile app up -d
 ```
@@ -506,14 +506,14 @@ helm rollback onepass -n onepass
 helm rollback onepass 2 -n onepass --wait
 
 # 롤백 확인
-kubectl rollout status deployment/onepass-ido -n onepass
+kubectl rollout status deployment/idem-hub -n onepass
 ```
 
 ### DB 롤백 (Flyway)
 
 ```bash
 # Flyway 현재 버전 확인
-kubectl exec deployment/onepass-ido -n onepass -- \
+kubectl exec deployment/idem-hub -n onepass -- \
   curl -s http://localhost:8083/actuator/flyway | jq .
 
 # 주의: Flyway DDL rollback은 별도 Undo 마이그레이션 스크립트 필요
@@ -545,11 +545,11 @@ kubectl get events -n onepass --sort-by='.lastTimestamp' | tail -20
 
 ```bash
 # Q-Sign / IdO: PostgreSQL 접속 확인
-kubectl exec deployment/onepass-ido -n onepass -- \
+kubectl exec deployment/idem-hub -n onepass -- \
   curl -s http://localhost:8083/actuator/health | jq '.components.db'
 
 # Q-IM: MariaDB 접속 확인
-kubectl exec deployment/onepass-qim -n onepass -- \
+kubectl exec deployment/idem-registry -n onepass -- \
   curl -s http://localhost:8082/actuator/health | jq '.components.db'
 ```
 
@@ -576,8 +576,8 @@ kafka-topics --bootstrap-server kafka:29092 --list | sort
 # 원인: QIM_INTERNAL_API_KEY ≠ IDO_QIM_INTERNAL_API_KEY
 
 # 확인
-kubectl get secret onepass-qim-secret -n onepass -o jsonpath='{.data.QIM_INTERNAL_API_KEY}' | base64 -d
-kubectl get secret onepass-ido-secret -n onepass -o jsonpath='{.data.IDO_QIM_INTERNAL_API_KEY}' | base64 -d
+kubectl get secret idem-registry-secret -n onepass -o jsonpath='{.data.QIM_INTERNAL_API_KEY}' | base64 -d
+kubectl get secret idem-hub-secret -n onepass -o jsonpath='{.data.IDO_QIM_INTERNAL_API_KEY}' | base64 -d
 # 두 값이 동일해야 함
 ```
 
@@ -601,13 +601,13 @@ kafka-console-consumer --bootstrap-server kafka:29092 \
 
 ```bash
 # Prometheus 재시작
-kubectl rollout restart deployment/onepass-prometheus -n onepass
+kubectl rollout restart deployment/idem-prometheus -n onepass
 
 # Grafana 재시작
-kubectl rollout restart deployment/onepass-grafana -n onepass
+kubectl rollout restart deployment/idem-grafana -n onepass
 
 # Promtail (로그 수집) 재시작
-kubectl rollout restart daemonset/onepass-promtail -n onepass
+kubectl rollout restart daemonset/idem-promtail -n onepass
 ```
 
 ---

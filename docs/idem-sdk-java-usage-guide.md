@@ -1,7 +1,9 @@
 # OnePass Agency SDK 사용 가이드
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+
 > **대상**: 유관기관 개발자
-> **버전**: `onepass-agency-sdk 0.1.0-SNAPSHOT`
+> **버전**: `idem-sdk-java 0.1.0-SNAPSHOT`
 > **최종 수정**: 2026-05-18
 > **브랜치**: `shipster`
 
@@ -101,7 +103,7 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 
 | 항목 | 잘못된 예 | 올바른 예 |
 |---|---|---|
-| `baseUrl` | `http://onepass-fe:3000` (UI 서버 X) | `http://ido-service:8083` (IdO 서버) |
+| `baseUrl` | `http://idem-console:3000` (UI 서버 X) | `http://ido-service:8083` (IdO 서버) |
 | `baseUrl` | `http://ido-service:8083/` (슬래시 붙이면 안 됨) | `http://ido-service:8083` |
 | `apiKey` | 비워두거나 null | 운영팀에서 받은 실제 키 값 |
 

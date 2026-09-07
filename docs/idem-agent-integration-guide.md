@@ -1,5 +1,7 @@
 # OnePass Agency Java Agent — 유관기관 개발자 통합 가이드
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+
 > **문서 번호**: AGENT-GUIDE-001  
 > **문서 버전**: v1.2.0  
 > **작성일**: 2026-05-17  
@@ -11,7 +13,7 @@
 
 ## 목차
 
-1. [OnePass Agent란 무엇인가?](#1-onepass-agent란-무엇인가)
+1. [OnePass Agent란 무엇인가?](#1-idem-agent란-무엇인가)
 2. [지원 환경 및 호환성 매트릭스](#2-지원-환경-및-호환성-매트릭스)
 3. [사전 준비](#3-사전-준비)
 4. [JEUS 버전별 설치 가이드](#4-jeus-버전별-설치-가이드)
@@ -474,7 +476,7 @@ onepass.agent.log-level=INFO
 ```bash
 # $CATALINA_HOME/bin/setenv.sh (없으면 생성)
 export CATALINA_OPTS="$CATALINA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 
 # ⚠️ 동적 어태치(agentmain) 불가 — 반드시 정적 어태치(-javaagent)만 사용
 # WAS 재시작 필수
@@ -501,7 +503,7 @@ export CATALINA_OPTS="$CATALINA_OPTS \
 ```bash
 # $CATALINA_HOME/bin/setenv.sh
 export CATALINA_OPTS="$CATALINA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 ```
 
 **JDK 버전 확인**:
@@ -529,7 +531,7 @@ java -version
 ```bash
 # $CATALINA_HOME/bin/setenv.sh
 export CATALINA_OPTS="$CATALINA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 ```
 
 **기동 로그**:
@@ -543,7 +545,7 @@ export CATALINA_OPTS="$CATALINA_OPTS \
 **Spring Boot 1.x/2.x Embedded Tomcat (Tomcat 8.5 기반)**:
 ```bash
 java \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties \
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties \
   -jar your-spring-boot-app.jar
 ```
 
@@ -557,7 +559,7 @@ java \
 ```bash
 # $CATALINA_HOME/bin/setenv.sh
 export CATALINA_OPTS="$CATALINA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 ```
 
 **기동 로그**:
@@ -583,7 +585,7 @@ Tomcat 11:        JDK 21+
 ```bash
 # $CATALINA_HOME/bin/setenv.sh
 export CATALINA_OPTS="$CATALINA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 ```
 
 **기동 로그**:
@@ -615,12 +617,12 @@ Spring Boot 버전에 따라 내장 Tomcat 버전이 다릅니다:
 ```bash
 # JAR 실행 시
 java \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties \
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties \
   -jar your-spring-boot-app.jar
 
 # systemd 서비스 파일 예시
 [Service]
-Environment=JAVA_OPTS="-javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+Environment=JAVA_OPTS="-javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/app/app.jar
 ```
 
@@ -633,7 +635,7 @@ ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/app/app.jar
 ```bash
 # $JBOSS_HOME/bin/standalone.conf (또는 domain.conf)
 JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 
 # 또는 domain.xml의 JVM 설정에 추가
 ```
@@ -649,7 +651,7 @@ JAVA_OPTS="$JAVA_OPTS \
 ```bash
 # $WILDFLY_HOME/bin/standalone.conf
 JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 ```
 
 **기동 로그**:
@@ -669,7 +671,7 @@ JAVA_OPTS="$JAVA_OPTS \
 ```bash
 # $DOMAIN_HOME/bin/setDomainEnv.sh
 JAVA_OPTIONS="${JAVA_OPTIONS} \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 ```
 
 **WebLogic 클래스로더 설정** (`weblogic.xml` 추가):
@@ -695,7 +697,7 @@ JAVA_OPTIONS="${JAVA_OPTIONS} \
 ```bash
 # $DOMAIN_HOME/bin/setDomainEnv.sh
 JAVA_OPTIONS="${JAVA_OPTIONS} \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 ```
 
 **기동 로그**:
@@ -722,13 +724,13 @@ JAVA_OPTIONS="${JAVA_OPTIONS} \
 ```bash
 # server.xml의 jvmOptions 또는 jvm.options 파일에 추가
 # $WLP_HOME/usr/servers/<server-name>/jvm.options
--javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties
+-javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties
 ```
 
 **또는 server.env 파일**:
 ```bash
 # $WLP_HOME/usr/servers/<server-name>/server.env
-JVM_ARGS=-javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties
+JVM_ARGS=-javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties
 ```
 
 **기동 로그**:
@@ -741,14 +743,14 @@ JVM_ARGS=-javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepa
 
 ```bash
 # WebSphere 관리 콘솔 → 서버 → JVM 설정 → 일반 JVM 인수 추가:
--javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties
+-javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties
 ```
 
 **또는 startServer.sh 스크립트 수정**:
 ```bash
 # $WAS_HOME/bin/startServer.sh
 JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties"
 ```
 
 **기동 로그**:
@@ -1041,4 +1043,4 @@ A: Agent는 기존 Filter Chain 앞단에서 동작하므로 충돌 가능성이
 ---
 
 *문의: OnePass 행정안전부 통합인증 플랫폼 운영팀*  
-*이메일: onepass-support@go.kr*
+*이메일: idem-support@go.kr*

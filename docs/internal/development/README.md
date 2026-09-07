@@ -16,7 +16,7 @@
 | 04 | [04-module-qsign.md](04-module-qsign.md) | Q-Sign 모듈 — Keycloak OIDC, PKCE, AuthResult JPA, Flyway V1~V5 |
 | 05 | [05-module-qim.md](05-module-qim.md) | Q-IM 모듈 — 회원 SoR, CI 암호화, PII 마스킹, DI 생성, Flyway V1~V3 |
 | 06 | [06-module-agency-stub.md](06-module-agency-stub.md) | agency-stub — PoC 시뮬레이터, Webhook 수신, Verify API |
-| 07 | [07-module-frontend.md](07-module-frontend.md) | onepass-fe — React SPA, FeSession 관리, 미구현 UI |
+| 07 | [07-module-frontend.md](07-module-frontend.md) | idem-console — React SPA, FeSession 관리, 미구현 UI |
 | 08 | [08-database-schema.md](08-database-schema.md) | DB 스키마 전체 (qsign V1~V5, ido V1~V10, qim V1~V3) |
 | 09 | [09-api-spec.md](09-api-spec.md) | REST API 명세 (IdO, Q-Sign, Q-IM, Webhook 이벤트) |
 | 10 | [10-security.md](10-security.md) | 보안 구현 현황, 암호화 상세, 키 관리, Rate Limit, Circuit Breaker |
@@ -36,7 +36,7 @@ Q-Sign           ██████████████████░░  9
 Q-IM             █████████████████░░░  85%
 IdO              ████████████████████  97%
 agency-stub      ██████████████████░░  90%
-onepass-fe       ████████████░░░░░░░░  60%
+idem-console       ████████████░░░░░░░░  60%
 인프라/Docker    ████████████████████ 100%
 보안             ██████████████████░░  93%
 테스트           ░░░░░░░░░░░░░░░░░░░░   0%

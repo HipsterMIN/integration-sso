@@ -14,7 +14,7 @@ _(다음 릴리즈 예정 변경사항 없음)_
 ## [0.1.0-GAP-PATCH] — 2026-05-16 (통합 버전: v0.8.10 / PR #129 MERGED)
 
 > **GAP-1~5 서버 정합성 수정 완료** — 36개 테스트 전체 통과 (0 failures)  
-> **유관기관 개발자 사용 가이드** 신규 작성 (757줄, PR #130 MERGED) — [`docs/onepass-agency-sdk-usage-guide.md`](../../docs/onepass-agency-sdk-usage-guide.md)
+> **유관기관 개발자 사용 가이드** 신규 작성 (757줄, PR #130 MERGED) — [`docs/idem-sdk-java-usage-guide.md`](../../docs/idem-sdk-java-usage-guide.md)
 
 ### Fixed (갭 분석 기반 수정 — 서버 정합성 확보)
 

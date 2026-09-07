@@ -2,7 +2,7 @@
 
 ## Goal
 
-`onepass-support` is developed as an independent CS backoffice module. It does not depend on the SSO/IM user login flow for CS staff access. Public Q&A and FAQ remain user-facing support channels, while CS staff work in a separate operational area.
+`idem-support` is developed as an independent CS backoffice module. It does not depend on the SSO/IM user login flow for CS staff access. Public Q&A and FAQ remain user-facing support channels, while CS staff work in a separate operational area.
 
 ## Scope
 
@@ -17,7 +17,7 @@
 - [x] Add backoffice APIs for queue, ticket detail, phone intake, internal note, assignment, and status update.
 - [x] Link new Q&A posts to support tickets.
 - [x] Record Q&A answers as ticket timeline events.
-- [x] Verify with `:onepass-support:test`.
+- [x] Verify with `:idem-support:test`.
 
 ### Phase 2 - Operational Controls
 
@@ -65,5 +65,5 @@
 
 ## Completion Log
 
-- 2026-05-23: Plan created on `feature/onepass-support`.
-- 2026-05-23: Phase 1 backend foundation implemented on `feature/onepass-support`; compile and module tests passed.
+- 2026-05-23: Plan created on `feature/idem-support`.
+- 2026-05-23: Phase 1 backend foundation implemented on `feature/idem-support`; compile and module tests passed.

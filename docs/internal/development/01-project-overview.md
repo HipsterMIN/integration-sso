@@ -23,7 +23,7 @@
 
 ```
 인증 흐름 전체:
-  사용자 → onepass-fe → Q-Sign(인증 SoR) → Keycloak(OIDC 브로커)
+  사용자 → idem-console → Q-Sign(인증 SoR) → Keycloak(OIDC 브로커)
          → IdO(오케스트레이터) → Q-IM(식별 SoR) → 유관기관(Handoff Ticket)
 ```
 
@@ -74,7 +74,7 @@
 
 | 기술 | 버전 | 용도 |
 |------|------|------|
-| React 18 | - | onepass-fe SPA |
+| React 18 | - | idem-console SPA |
 | Vite | - | 빌드 도구 |
 | Node.js | 20+ | 개발 서버 |
 
@@ -166,7 +166,7 @@ integration-sso/
 - Webhook 수신 처리
 - 이벤트 폴링 API
 
-### 4.6 onepass-fe (port 3001)
+### 4.6 idem-console (port 3001)
 
 **React SPA 프론트엔드** — 사용자 인증 UI.
 

@@ -1,21 +1,21 @@
-# 03-F. onepass-fe 모듈 상세 명세 — 데이터 흐름 정본
+# 03-F. idem-console 모듈 상세 명세 — 데이터 흐름 정본
 
 > **기준 버전**: v1.9.3+  
 > **기준 커밋**: `50954de` (main)  
 > **최종 갱신**: 2026-06-02  
 > **모듈 경로**: `idem-console/frontend/`  
 > **런타임**: Node 18+ (빌드) / Nginx 1.25 (런타임, 포트 **8080**)  
-> **분석 범위**: `onepass-fe`만 — Q-IM / Q-Sign / IdO 내부 처리는 의도적 블랙박스
+> **분석 범위**: `idem-console`만 — Q-IM / Q-Sign / IdO 내부 처리는 의도적 블랙박스
 
 ---
 
 ## 0. 한 줄 정리
 
-> **onepass-fe = "유관기관 ↔ IdO(게이트웨이) 사이의 React SPA + Nginx 정적 호스트"**  
+> **idem-console = "유관기관 ↔ IdO(게이트웨이) 사이의 React SPA + Nginx 정적 호스트"**  
 > URL 쿼리 / 외부 SDK 콜백 / Keycloak form-POST 를 입력으로 받아, **React Context + Redux + LocalStorage + 짧은 메모리** 4계층 상태에 보관하면서, **단일 베이스 URL(IdO 게이트웨이) 로 만든 axios 인스턴스 군**을 통해 IdO 로 내보낸다.  
 > **CI 평문은 절대 영속 저장하지 않는다** (`ciToken` JWT 참조 토큰만 메모리에 둠).
 >
-> **🔒 단일 채널 헌법 (ADR-008)**: onepass-fe 는 **Q-IM / Q-Sign / agency-stub 등 어떤 백엔드도 직접 호출하지 않는다**. 모든 외부 호출은 IdO 게이트웨이 단일 채널을 거친다. (코드 측 명명 정합화 — `BE_API_*` → `IDO_API_*` — 는 **Phase 2 에서 완료**: PR #203, 커밋 `a7065ae`. 한 페이즈 동안 구 명칭 fallback 유지. 02-architecture.md ADR-008 / 09-gap-and-roadmap.md §6.A.1 참조.)
+> **🔒 단일 채널 헌법 (ADR-008)**: idem-console 는 **Q-IM / Q-Sign / agency-stub 등 어떤 백엔드도 직접 호출하지 않는다**. 모든 외부 호출은 IdO 게이트웨이 단일 채널을 거친다. (코드 측 명명 정합화 — `BE_API_*` → `IDO_API_*` — 는 **Phase 2 에서 완료**: PR #203, 커밋 `a7065ae`. 한 페이즈 동안 구 명칭 fallback 유지. 02-architecture.md ADR-008 / 09-gap-and-roadmap.md §6.A.1 참조.)
 
 ---
 
@@ -35,7 +35,7 @@
 | **IdO reverse proxy** | **없음** — Nginx는 순수 정적 서빙만 (dev 시 webpack-dev-server 가 `/api → IdO` 프록시 담당) |
 | OpenTelemetry `/v1/traces` 프록시 | **현재 주석 처리됨** (FE 트레이스 미수집 상태) |
 
-> **핵심**: onepass-fe Nginx 는 IdO 를 프록시하지 않는다 (prod). 모든 IdO 호출은 **브라우저 → IdO 게이트웨이(별도 호스트)** 로 CORS 직접 요청. Q-IM / Q-Sign 으로의 직접 호출은 **존재하지 않는다** (ADR-008).
+> **핵심**: idem-console Nginx 는 IdO 를 프록시하지 않는다 (prod). 모든 IdO 호출은 **브라우저 → IdO 게이트웨이(별도 호스트)** 로 CORS 직접 요청. Q-IM / Q-Sign 으로의 직접 호출은 **존재하지 않는다** (ADR-008).
 
 ### 1.2 URL 쿼리 파라미터 — 유관기관 진입의 1차 인터페이스
 
@@ -47,7 +47,7 @@
 ```
 ?signed_request=<JWT>
 ```
-- onepass-fe는 JWT를 **파싱·검증하지 않는다**. 그대로 `POST /api/v1/conversion/init`으로 forward
+- idem-console는 JWT를 **파싱·검증하지 않는다**. 그대로 `POST /api/v1/conversion/init`으로 forward
 - 응답으로 `conversion_session_id`, `user_type` (`INDIVIDUAL` | `ENTERPRISE`) 수신
 - → Context 의 `conversionSessionId`, `memberType` 으로 저장
 
@@ -76,7 +76,7 @@
 | **NICE 휴대폰 인증** | (외부 NICE 스크립트 동적 로드) | `{resultCode, resultMsg, ci, name, phone, birthday}` |
 | **개인 간편인증 (EasySign)** | 위와 동일 SDK 경로 | `EasysignResult { resultCode, resultMsg, ci, name, birthday, phone }` |
 
-> **중요**: 콜백은 DOM 이벤트가 아니라 **window 전역 함수 호출** 로 들어옴. onepass-fe는 이걸 React state 로 끌어올린 뒤 즉시 BE에 송신하거나 폐기한다.
+> **중요**: 콜백은 DOM 이벤트가 아니라 **window 전역 함수 호출** 로 들어옴. idem-console는 이걸 React state 로 끌어올린 뒤 즉시 BE에 송신하거나 폐기한다.
 
 ### 1.4 HTTP 응답 인터셉터 — 간접 입력 (자동 동작)
 
@@ -247,7 +247,7 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 |------|-------|-------|
 | **Keycloak** | Login 페이지 `<form action={actionUrl} method="POST">` 직접 submit | `username`/`password` 또는 `bizNo`+`encCi` hidden field |
 | **유관기관 콜백 URL** | `ConversionStep8` 의 `window.location.href = data.redirectUri` | URL 이동만 (body 없음) |
-| **NICE / EzAuth 서버** | SDK 내부 자체 호출 | onepass-fe 코드 비관여 |
+| **NICE / EzAuth 서버** | SDK 내부 자체 호출 | idem-console 코드 비관여 |
 
 ### 3.4 환경변수 — 빌드 시 번들에 박히는 값
 
@@ -265,7 +265,7 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 
 ## 4. 종단 데이터 흐름 — 유관기관 사용자 진입 시 전형 시나리오
 
-대표 케이스: **유관기관 시스템에서 "통합ID 전환" 버튼 클릭 → onepass-fe 진입 → 전환 완료 → 유관기관 복귀**
+대표 케이스: **유관기관 시스템에서 "통합ID 전환" 버튼 클릭 → idem-console 진입 → 전환 완료 → 유관기관 복귀**
 
 ```
 [유관기관 시스템]
@@ -274,7 +274,7 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
     │    https://onepass.smes.go.kr/conversion/step1?signed_request=<JWT>
     │    (또는 레거시: ?redirect_uri=&mbrId=&return_client=&userType=)
     ▼
-[Nginx :8080  ← onepass-fe 정적 호스트]
+[Nginx :8080  ← idem-console 정적 호스트]
     │ 2. try_files 미스 → /index.html 반환 (React SPA 부트)
     ▼
 [React Router → ConversionStep1]
@@ -345,7 +345,7 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 
 ---
 
-## 5. onepass-fe 의 책임 (DO)
+## 5. idem-console 의 책임 (DO)
 
 | 책임 | 위치 | 비고 |
 |------|------|------|
@@ -359,7 +359,7 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 | ✅ 다국어 (i18n) | `public/locales/{ko,en,jp}` | |
 | ✅ 최종 redirect (`window.location.href = data.redirectUri`) | `Step8.tsx` | 유관기관 복귀의 유일한 출구 |
 
-## 6. onepass-fe 의 비책임 (DO NOT — 다른 모듈에 위임)
+## 6. idem-console 의 비책임 (DO NOT — 다른 모듈에 위임)
 
 | 비책임 | 위임처 |
 |--------|--------|
@@ -375,11 +375,11 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 | ❌ API 키 (`X-Ext-Api-Key` 등 외부 키) 보유 | **IdO** 가 서버측 주입 (FE 번들에 절대 미포함) — `ExtProxyController` |
 
 > **🔒 단일 채널 헌법 (ADR-008)**:
-> onepass-fe 는 **Q-IM / Q-Sign / agency-stub 등 어떤 백엔드도 직접 호출하지 않는다**.
+> idem-console 는 **Q-IM / Q-Sign / agency-stub 등 어떤 백엔드도 직접 호출하지 않는다**.
 > 모든 외부 호출은 **IdO 게이트웨이 단일 채널** 을 거친다.
 > 향후 도입될 `onepass-admin` 등 신규 FE 도 동일 원칙을 따르며, FE 가 1 개에서 N 개로 늘어나도 BE 노출 표면은 불변이다 (IdO 의 "BE 보호 불변식").
 >
-> **Q-IM 책임 헌장 정합**: `03c-qim-responsibility-charter.md` §6 / §6.5 에 따라, Q-IM 은 사람-대상 UI 면을 영구히 갖지 않으며, 운영자 콘솔도 영구히 금지된다. 사람-대상 화면은 **FE 군(현재 `onepass-fe`, 향후 `onepass-admin` 등)** 이 호스트하고, 그 FE 군은 **IdO 단일 채널** 을 통해서만 백엔드와 통신한다. 본 문서는 그 중 `onepass-fe` 측 단면이다.
+> **Q-IM 책임 헌장 정합**: `03c-qim-responsibility-charter.md` §6 / §6.5 에 따라, Q-IM 은 사람-대상 UI 면을 영구히 갖지 않으며, 운영자 콘솔도 영구히 금지된다. 사람-대상 화면은 **FE 군(현재 `idem-console`, 향후 `onepass-admin` 등)** 이 호스트하고, 그 FE 군은 **IdO 단일 채널** 을 통해서만 백엔드와 통신한다. 본 문서는 그 중 `idem-console` 측 단면이다.
 
 ---
 
@@ -427,7 +427,7 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 │         │ inbound            │ callback                │ outbound       │
 │         ▼                    ▼                         │                │
 │  ┌─────────────────────────────────────────────────────┴─────────────┐  │
-│  │             onepass-fe React SPA (Nginx :8080)                    │  │
+│  │             idem-console React SPA (Nginx :8080)                    │  │
 │  │             (FE 군 멤버 — 향후 onepass-admin 등 추가 가능)        │  │
 │  │                                                                    │  │
 │  │  STATE LAYERS                                                      │  │
@@ -471,7 +471,7 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
                ┌──────────────┐                  ┌──────────────┐
                │  Q-IM (8082) │                  │ Q-Sign / KC  │
                └──────────────┘                  └──────────────┘
-               ↑ onepass-fe 는 IdO 까지만 관여. 그 너머는 블랙박스.
+               ↑ idem-console 는 IdO 까지만 관여. 그 너머는 블랙박스.
                ↑ FE 가 N 개로 늘어도(BE 보호 불변식) 이 그림의 IdO↓
                   부분은 변하지 않는다.
 ```
@@ -494,9 +494,9 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 ## 11. 함께 읽기
 
 - [`02-architecture.md`](02-architecture.md) **ADR-008** — **FE 군 ↔ IdO 단일 채널 헌법**. 본 문서의 모든 "단일 채널" 서술의 출처. 3 단 명제(책임 종류 → 모듈군 → 단일 게이트웨이), Option A/B 인증 모델, onepass-admin 도입 체크리스트 포함
-- [`02-architecture.md`](02-architecture.md) **ADR-002** — onepass-fe 순수 React SPA 전환. ADR-008 의 직접 선조
+- [`02-architecture.md`](02-architecture.md) **ADR-002** — idem-console 순수 React SPA 전환. ADR-008 의 직접 선조
 - [`03c-qim-responsibility-charter.md`](03c-qim-responsibility-charter.md) §6 / §6.5 — Q-IM 의 UI 영구 금지선. FE 군이 사람-대상 화면을 호스트하는 이유
-- [`03d-module-ido.md`](03d-module-ido.md) — onepass-fe 가 호출하는 IdO 엔드포인트의 BE 측 구현
+- [`03d-module-ido.md`](03d-module-ido.md) — idem-console 가 호출하는 IdO 엔드포인트의 BE 측 구현
 - [`09-gap-and-roadmap.md`](09-gap-and-roadmap.md) **SEC-IDO-*** — Phase 2 (rename `BE_*` → `IDO_*`, **PR #203 완료**) + Phase 3 (`onepass-admin` 준비 체크리스트) 백로그
 - [`idem-console/DEVELOPMENT.md`](../../../idem-console/DEVELOPMENT.md) — 본 문서가 "데이터 흐름의 정본"이라면, DEVELOPMENT.md 는 "개발자 온보딩 & 운영 가이드"
 - [`07-security.md`](07-security.md) — 전 모듈 보안 정책 (FE 위험 표면 참조)
@@ -504,4 +504,4 @@ export const idoApiInstance = axios.create({ /* 동일 설정 */ });
 
 ---
 
-*최종 검토: 2026-06-02 / onepass-fe 코드 직접 분석 기반 (Step1 ~ Step8, api/, utils/, hooks/, AppRoutes/, providers/, store/)*
+*최종 검토: 2026-06-02 / idem-console 코드 직접 분석 기반 (Step1 ~ Step8, api/, utils/, hooks/, AppRoutes/, providers/, store/)*

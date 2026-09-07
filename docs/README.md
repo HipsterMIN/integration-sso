@@ -63,7 +63,7 @@ docs/
 | α-1 | F5.1 + F5.2 (KMS 안전망) | #176 → #177 | ✅ main 머지 |
 | α-2 | F4.1 + F4.5 + F4.2 (Handoff 무결성) | #177 (`aa18aa8`) | ✅ main 머지 |
 | α-3 | F4.3 + F4.4 + F4.6 (경계 영역 보안 강화) | #178 (`946f235`) | ✅ main 머지 |
-| 부수 | onepass-support 모듈 뼈대 | #179 (`3d2b8b8`) | ✅ main 머지 |
+| 부수 | idem-support 모듈 뼈대 | #179 (`3d2b8b8`) | ✅ main 머지 |
 
 ---
 
@@ -86,11 +86,11 @@ docs/
 | [`identity-provider-spi.md`](identity-provider-spi.md) | **본인인증 SPI** — `IdentityVerificationProvider` 계약, 표준 엔드포인트, Mock 플러그인 사용법, 새 제공자 작성 절차 |
 | [`vendor-plugin-plan.md`](vendor-plugin-plan.md) | **벤더 독립화·플러그인 아키텍처 플랜** — NICE/OACX·AnyID 를 플러그인으로 분리하는 P0~P5 단계, SPI 계약 초안 |
 | [`naming.md`](naming.md) | **Idem 개명 대응표** — 구명↔신명, 개명 단계, 아직 바꾸지 않은 런타임 식별자 목록 |
-| [`onepass-agency-sdk-usage-guide.md`](onepass-agency-sdk-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |
-| [`onepass-agent-index.md`](onepass-agent-index.md) | Agency Java Agent — 문서 인덱스 |
-| [`onepass-agent-integration-guide.md`](onepass-agent-integration-guide.md) | Agency Java Agent — 통합 가이드 |
-| [`onepass-agent-walkthrough.md`](onepass-agent-walkthrough.md) | Agency Java Agent — 설치·운영 워크스루 |
-| [`onepass-agent-troubleshooting.md`](onepass-agent-troubleshooting.md) | Agency Java Agent — 트러블슈팅 |
+| [`idem-sdk-java-usage-guide.md`](idem-sdk-java-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |
+| [`idem-agent-index.md`](idem-agent-index.md) | Agency Java Agent — 문서 인덱스 |
+| [`idem-agent-integration-guide.md`](idem-agent-integration-guide.md) | Agency Java Agent — 통합 가이드 |
+| [`idem-agent-walkthrough.md`](idem-agent-walkthrough.md) | Agency Java Agent — 설치·운영 워크스루 |
+| [`idem-agent-troubleshooting.md`](idem-agent-troubleshooting.md) | Agency Java Agent — 트러블슈팅 |
 | [`sso-agency-developer-guide.md`](sso-agency-developer-guide.md) | 자체 SSO 보유 기관 — 개발자 레퍼런스 |
 | [`sso-agency-integration-guide.md`](sso-agency-integration-guide.md) | 자체 SSO 보유 기관 — 담당자용 |
 | [`sso-agency-operations-guide.md`](sso-agency-operations-guide.md) | 자체 SSO 보유 기관 — 운영 가이드 |
@@ -119,7 +119,7 @@ docs/
 | `qim-ido-integration-architecture.md` | Q-IM ↔ IdO 연동 아키텍처 설계서 |
 | `agency-external-arch-supplement.md` | 유관기관 외부망 배치 설계 보완 (ARCH-SUPP-001) |
 | `FEATURE_FLAGS.md` | IdO 기능 플래그 완전 가이드 |
-| `onepass-agent-architecture.md` | OnePass Agency Java Agent 아키텍처 |
+| `idem-agent-architecture.md` | OnePass Agency Java Agent 아키텍처 |
 | `jeus-sso-deep-dive.md` | JEUS SSO 심층 분석 |
 | `EDA-2026-001-eda-architecture-proposal-analysis.md` | EDA 아키텍처 제안 분석 |
 | `ADR-2026-004-internal-sso-integration-pattern.md` | ADR: 내부 SSO 통합 패턴 |
@@ -152,8 +152,8 @@ docs/
 | `qim-sp-receiver-api-spec.md` | IdO Q-IM SP 수신 API 명세 |
 | `local-dev-guide.md` | 로컬 개발 환경 구동 가이드 |
 | `member-conversion-implementation-plan.md` | 회원 전환 구현 플랜 |
-| `onepass-be-integration-plan.md` | onepass-be 통합 플랜 |
-| `onepass-agent-developer-reference.md` | Agent 개발자 레퍼런스 |
+| `idem-be-integration-plan.md` | idem-hub 통합 플랜 |
+| `idem-agent-developer-reference.md` | Agent 개발자 레퍼런스 |
 | `sso-agency-integration-plan.md` | SSO 유관기관 통합 플랜 |
 | `01~13-*.md` | 프로젝트 개요 / 아키텍처 / 모듈별 가이드 (시리즈) |
 | `handoff-note.md` | integration-sso 인수인계 노트 |
@@ -248,7 +248,7 @@ git mv docs/_archive/2026-05-22/<path> docs/<path>
 |---|---|---|
 | 최신 분석 | `docs/analysis/sso-im-readiness/` | ❌ 검토 후 |
 | 운영/배포 | `docs/deployment/`, `docs/OPERATION_INVENTORY.md`, `docs/RUNBOOK_SSO_METRICS.md` | ❌ 검토 후 |
-| 외부 개발자용 SDK | `docs/onepass-agency-sdk-usage-guide.md`, `docs/onepass-agent-*.md`, `docs/sso-agency-*.md` | ✅ 배포 가능 |
+| 외부 개발자용 SDK | `docs/idem-sdk-java-usage-guide.md`, `docs/idem-agent-*.md`, `docs/sso-agency-*.md` | ✅ 배포 가능 |
 | 기능 명세 | `docs/features/` | ❌ 검토 후 |
 | 내부 개발 문서 | `docs/internal/` | ❌ 검토 후 |
 | SMEP 인계 | `docs/smep-handover/` | ✅ 직접 전달 |
@@ -263,5 +263,5 @@ git mv docs/_archive/2026-05-22/<path> docs/<path>
 |---|---|
 | 2026-05-22 | **문서 정리 1차** — Sprint α-3 머지 완료 시점. 시점 산출물/구버전 23건을 `_archive/2026-05-22/`로 이동(`git mv` 이력 보존). `docs/analysis/sso-im-readiness/` 11건 신규 추가. 살아있는 문서의 링크 25건 갱신. |
 | 2026-05-18 | onepass-be-release / onepass-release 심층 분석 보고서 작성 (PR #131) → 현재 archive |
-| 2026-05-16 | `onepass-agency-sdk-usage-guide.md` 신규 (PR #130) |
+| 2026-05-16 | `idem-sdk-java-usage-guide.md` 신규 (PR #130) |
 | 2026-05-11 | 초기 디렉토리 구조화 — `internal/`, `smep-handover/`, `proposal/` 분류 체계 수립 |

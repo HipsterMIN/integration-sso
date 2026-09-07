@@ -11,16 +11,16 @@
 
 | 문서 번호 | 문서명 | 경로 | 대상 독자 |
 |---------|-------|------|---------|
-| AGENT-GUIDE-001 | **유관기관 개발자 통합 가이드** | [`onepass-agent-integration-guide.md`](./onepass-agent-integration-guide.md) | 유관기관 개발자, 시스템 관리자 |
-| AGENT-WALKTHROUGH-001 | **설치·운영 워크스루** | [`onepass-agent-walkthrough.md`](./onepass-agent-walkthrough.md) | 처음 설치하는 담당자 |
-| AGENT-TROUBLESHOOT-001 | **트러블슈팅 가이드** | [`onepass-agent-troubleshooting.md`](./onepass-agent-troubleshooting.md) | 유관기관 담당자, 지원팀 |
+| AGENT-GUIDE-001 | **유관기관 개발자 통합 가이드** | [`idem-agent-integration-guide.md`](./idem-agent-integration-guide.md) | 유관기관 개발자, 시스템 관리자 |
+| AGENT-WALKTHROUGH-001 | **설치·운영 워크스루** | [`idem-agent-walkthrough.md`](./idem-agent-walkthrough.md) | 처음 설치하는 담당자 |
+| AGENT-TROUBLESHOOT-001 | **트러블슈팅 가이드** | [`idem-agent-troubleshooting.md`](./idem-agent-troubleshooting.md) | 유관기관 담당자, 지원팀 |
 
 ### 🔧 OnePass 플랫폼 내부 개발자 대상
 
 | 문서 번호 | 문서명 | 경로 | 대상 독자 |
 |---------|-------|------|---------|
-| AGENT-ARCH-001 | **에이전트 아키텍처 설계서** | [`internal/architecture/onepass-agent-architecture.md`](./internal/architecture/onepass-agent-architecture.md) | 아키텍트, 시니어 개발자 |
-| AGENT-DEVREF-001 | **내부 개발자 기술 레퍼런스** | [`internal/development/onepass-agent-developer-reference.md`](./internal/development/onepass-agent-developer-reference.md) | OnePass 팀 개발자 |
+| AGENT-ARCH-001 | **에이전트 아키텍처 설계서** | [`internal/architecture/idem-agent-architecture.md`](./internal/architecture/idem-agent-architecture.md) | 아키텍트, 시니어 개발자 |
+| AGENT-DEVREF-001 | **내부 개발자 기술 레퍼런스** | [`internal/development/idem-agent-developer-reference.md`](./internal/development/idem-agent-developer-reference.md) | OnePass 팀 개발자 |
 | AGENT-JEUS-001 | **JEUS 버전별 SSO 심층 기술 노트** | [`internal/architecture/jeus-sso-deep-dive.md`](./internal/architecture/jeus-sso-deep-dive.md) | 아키텍트, 시니어 개발자 |
 
 ---

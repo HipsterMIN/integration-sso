@@ -1,7 +1,7 @@
 # OnePass 전체 서비스 출시 GO/NO-GO 재판정
 
 - 작성일: 2026-05-24
-- 기준 브랜치: `feature/onepass-support`
+- 기준 브랜치: `feature/idem-support`
 - 기준 커밋: `ec1b993 feat(docker): SSO/IM 및 Support 독립 실행을 위한 Docker Compose 분리 파일 추가`
 - 범위: SSO/IM, Q-Sign, Q-IM, IdO, Agency Stub, SDK, Agent, Outbox Relay, OnePass FE, OnePass Support, Docker Compose 조합
 
@@ -115,18 +115,18 @@ OnePass Support의 전용 PostgreSQL compose 구성은 보완 후 정상 확인�
 처음 `compose.support.yml` 실행 시 다음 문제가 있었다.
 
 ```text
-failed to create network onepass-net: Pool overlaps with other one on this address space
+failed to create network idem-net: Pool overlaps with other one on this address space
 ```
 
 원인:
 
-- 기존 전체 compose가 실제로 만든 네트워크 이름은 `docker_onepass-net`
-- 신규 `compose.base.yml`은 `onepass-net`이라는 새 네트워크 이름을 고정
+- 기존 전체 compose가 실제로 만든 네트워크 이름은 `docker_idem-net`
+- 신규 `compose.base.yml`은 `idem-net`이라는 새 네트워크 이름을 고정
 - 같은 `172.20.0.0/24` 대역을 새 네트워크로 만들려다 충돌
 
 조치:
 
-- `compose.base.yml`의 네트워크 실제 이름을 `docker_onepass-net`으로 수정
+- `compose.base.yml`의 네트워크 실제 이름을 `docker_idem-net`으로 수정
 
 확인:
 
@@ -153,7 +153,7 @@ support.support_ticket_event
 
 검증:
 
-- `.\gradlew.bat :onepass-support:bootJar --no-daemon --max-workers=1 -x test`
+- `.\gradlew.bat :idem-support:bootJar --no-daemon --max-workers=1 -x test`
 - support jar 실행
 - 환경변수:
   - `SUPPORT_DB_HOST=localhost`

@@ -45,10 +45,10 @@ infra/docker/
 
 | 서비스 | 이미지 | 포트 | IP |
 |--------|--------|------|-----|
-| onepass-ido | onepass-ido:latest | 8083 | 172.20.0.19 |
-| onepass-react | onepass-react:latest | 3001 | 172.20.0.20 |
-| onepass-qim | onepass-qim:latest | 8082 | 172.20.0.22 |
-| onepass-qsign | onepass-qsign:latest | 8081 | 172.20.0.24 |
+| idem-hub | idem-hub:latest | 8083 | 172.20.0.19 |
+| idem-console | idem-console:latest | 3001 | 172.20.0.20 |
+| idem-registry | idem-registry:latest | 8082 | 172.20.0.22 |
+| idem-gate | idem-gate:latest | 8081 | 172.20.0.24 |
 
 #### keycloak 프로파일 (`--profile keycloak`)
 
@@ -95,9 +95,9 @@ docker compose --profile monitoring up -d
 ./gradlew :idem-gate:bootJar :idem-hub:bootJar :idem-registry:bootJar -x test
 
 # Docker 이미지 빌드
-docker build -f idem-gate/Dockerfile -t onepass-qsign:latest .
-docker build -f idem-hub/Dockerfile     -t onepass-ido:latest .
-docker build -f idem-registry/Dockerfile    -t onepass-qim:latest .
+docker build -f idem-gate/Dockerfile -t idem-gate:latest .
+docker build -f idem-hub/Dockerfile     -t idem-hub:latest .
+docker build -f idem-registry/Dockerfile    -t idem-registry:latest .
 ```
 
 ### 2.3 헬스체크
@@ -227,17 +227,17 @@ global:
 scrape_configs:
   - job_name: 'ido'
     static_configs:
-      - targets: ['onepass-ido:8083']
+      - targets: ['idem-hub:8083']
     metrics_path: /actuator/prometheus
 
   - job_name: 'q-sign'
     static_configs:
-      - targets: ['onepass-qsign:8081']
+      - targets: ['idem-gate:8081']
     metrics_path: /actuator/prometheus
 
   - job_name: 'q-im'
     static_configs:
-      - targets: ['onepass-qim:8082']
+      - targets: ['idem-registry:8082']
     metrics_path: /actuator/prometheus
 ```
 

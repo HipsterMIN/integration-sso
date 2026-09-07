@@ -158,7 +158,7 @@ IN POST /api/ext/provision/enterprises (중기원패스 → Q-IM): 201 OK
 │                     외부 / 유관기관 영역                               │
 │                                                                     │
 │  사용자 브라우저                유관기관 정보시스템                      │
-│  (onepass-fe)                  smes-tipa-01 (통합플랫폼 중소벤처24)    │
+│  (idem-console)                  smes-tipa-01 (통합플랫폼 중소벤처24)    │
 │                                smes-sbiz-01 (중소기업 플랫폼)          │
 │                                smes-biz24-01 (비즈24)                │
 │                                smes-pass-01 (중기원패스)              │

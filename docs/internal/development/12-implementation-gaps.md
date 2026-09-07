@@ -23,7 +23,7 @@ v3.1.0 기준 전체 구현 완성도: **약 96%** (프리프로덕션 단계)
 | Q-IM | **99%** | 탈퇴 4종 · 동의 스키마 · ConversionSession · 보호자 인증 · 기업회원 전환 + Fix 1~8 운영 버그 수정 완성 |
 | IdO | **99%** | P1-06 기관 폴링 API 완성; HandoffStrategy 완전 구현; Keycloak SSO 완성 |
 | agency-stub | **90%** | Docker 격리 미완성, mTLS P3 |
-| onepass-fe | **60%** | 회원 전환·관리 UI 미구현 |
+| idem-console | **60%** | 회원 전환·관리 UI 미구현 |
 | 인프라/Docker | **100%** | 전 모듈 Dockerfile + docker-compose 완비 |
 | 보안 | **99%** | GDPR V6 완전 준수, InternalApiKeyInterceptor, redirectUri 검증, UNIQUE 복합 키 |
 | 테스트 | **65%** | q-im 219개 통과 + 30 skipped · S1~S9 시나리오 (V6 E2E 포함) 완성 |

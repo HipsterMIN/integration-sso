@@ -1,10 +1,12 @@
 # 유관기관 외부망 배치 설계 보완서
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](../../naming.md) §3.
+
 **문서 번호**: ARCH-SUPP-001  
 **작성일**: 2026-05-08  
 **대상 버전**: v1.4.2+  
 **관련 문서**: README.md, _archive/2026-05-22/internal/analysis/operational-readiness-analysis-v2.md, _archive/2026-05-22/internal/analysis/eda-master-arch-gap-analysis-v0.8.md  
-**작성 배경**: README.md 아키텍처 구성도에서 `agency-stub`이 내부망(`onepass-net`)으로 잘못 표현된 것을 발견, 전체 설계 재검토 및 보완
+**작성 배경**: README.md 아키텍처 구성도에서 `agency-stub`이 내부망(`idem-net`)으로 잘못 표현된 것을 발견, 전체 설계 재검토 및 보완
 
 ---
 
@@ -38,7 +40,7 @@
 
 | 컴포넌트 | 문제 | 심각도 |
 |----------|------|--------|
-| `agency-stub` Docker 배치 | onepass-net 내부에 포함됨 | 설계 오류 |
+| `agency-stub` Docker 배치 | idem-net 내부에 포함됨 | 설계 오류 |
 | `HandoffEventConsumer.java` | 내부 Kafka(`ido.handoff.events`) 직접 구독 | PoC 편의성 코드 (운영 불가) |
 | `HandoffEventConsumer.java` | `platform.session.advisory` 직접 구독 | PoC 편의성 코드 (운영 불가) |
 | `application.yml` (agency-stub) | `KAFKA_SERVERS` 환경변수로 내부 Kafka 연결 | PoC 편의성 설정 |
@@ -65,7 +67,7 @@
   └───────────────────────────┬─────────────────────────┘
                               │ HTTPS (공개 API)
 ══════════════════════════════╪═══════════════════════════════
-  내부망 (Internal Network — onepass-net)
+  내부망 (Internal Network — idem-net)
 ══════════════════════════════╪═══════════════════════════════
                               ▼
                   ┌───────────────────────┐
@@ -176,10 +178,10 @@ HMAC-SHA256 서명으로 이벤트 진위 검증
 
 #### 현재 PoC (잘못된 구성)
 ```yaml
-# ❌ 수정 전: agency-stub이 onepass-net 내부에 포함됨
+# ❌ 수정 전: agency-stub이 idem-net 내부에 포함됨
 agency-stub:
   networks:
-    onepass-net:                     # ← 내부망 직접 접근 가능
+    idem-net:                     # ← 내부망 직접 접근 가능
       ipv4_address: 172.20.0.25
   environment:
     KAFKA_SERVERS: kafka:29092       # ← 내부 Kafka 직접 연결
@@ -198,7 +200,7 @@ agency-stub:
 networks:
   agency-net:
     driver: bridge
-    # onepass-net과 연결 없음
+    # idem-net과 연결 없음
 ```
 
 > **PoC 현실적 타협**: 로컬 개발에서는 `localhost:8083`으로 IdO 호출.  
@@ -349,7 +351,7 @@ IdO WebhookDispatcher → 기관 Webhook URL (HTTPS) ← 외부
 | **감사 로그 (Audit)** | ✅ **구현 완료** (v1.5.0) | DB + Kafka 이중 기록 | P1 | `AuditLogPublisher` |
 | **DB 마이그레이션 V7** | ✅ **구현 완료** (v1.5.0) | 4개 신규 테이블 | P1 | `V7__add_webhook_and_audit.sql` |
 | 이벤트 폴링 API | ❌ 미구현 | GET `/api/v1/agency/events` | P2 | `idem-hub/api/AgencyEventController` |
-| agency-stub Docker 격리 | ❌ onepass-net 포함 | 별도 네트워크 또는 host | P2 | `docker-compose.yml` |
+| agency-stub Docker 격리 | ❌ idem-net 포함 | 별도 네트워크 또는 host | P2 | `docker-compose.yml` |
 | mTLS 기관 인증 | ❌ 미구현 (API Key 대체) | 클라이언트 인증서 검증 | P3 | Nginx/Gateway 레벨 |
 
 ---

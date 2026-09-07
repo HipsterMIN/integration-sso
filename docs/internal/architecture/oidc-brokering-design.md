@@ -4,7 +4,7 @@
 > **버전**: v1.5.0  
 > **최종 수정**: 2026-05-07  
 > **대상 독자**: 백엔드 개발자, 인프라 엔지니어, 보안 검토자  
-> **관련 모듈**: `ido`, `q-sign`, `onepass-fe`
+> **관련 모듈**: `ido`, `q-sign`, `idem-console`
 
 ---
 
@@ -60,7 +60,7 @@ OnePass 통합인증 플랫폼은 **카카오, 네이버 등 외부 OIDC 사업�
 |------|------|
 | `ido` | Identity Orchestrator — 정책 오케스트레이터 서비스 (port 8083) |
 | `q-sign` | Q-Sign — 인증 처리 서비스, 기존 브로커 역할 담당 (port 8081) |
-| `onepass-fe` | React SPA 프론트엔드 (port 3000/3001) |
+| `idem-console` | React SPA 프론트엔드 (port 3000/3001) |
 | `correlationId` | 단일 인증 요청의 전 과정 추적 UUID |
 | `identifierHash` | SHA-256(사용자 고유 식별자 sub) — PII 직접 노출 방지 |
 | `state` | CSRF 방어용 opaque 랜덤 값 (32자 UUID) |
@@ -77,7 +77,7 @@ OnePass 통합인증 플랫폼은 **카카오, 네이버 등 외부 OIDC 사업�
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│                        onepass-fe (React SPA)                             │
+│                        idem-console (React SPA)                             │
 │                    http://localhost:3000  /  3001                         │
 └───────────────────────┬───────────────────────────────────────────────────┘
                         │  GET /api/v1/broker/{provider}/authorize   (OIDC)
@@ -598,7 +598,7 @@ return switch (providerCode.toUpperCase()) {
 
 ```mermaid
 sequenceDiagram
-    participant FE as onepass-fe
+    participant FE as idem-console
     participant IDO as ido (:8083)
     participant QS as q-sign (:8081)
     participant KC as Keycloak (:8081 realm onepass)
@@ -650,7 +650,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant FE as onepass-fe
+    participant FE as idem-console
     participant IDO as ido (:8083)
     participant KC as Keycloak (:8088)
     participant KAKAO as kauth.kakao.com
@@ -699,7 +699,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant FE as onepass-fe
+    participant FE as idem-console
     participant IDO as ido (:8083)
     participant PASS as PASS 사업자
     participant DB as PostgreSQL
@@ -1084,7 +1084,7 @@ ido:
 ```yaml
 # docker-compose.yml
 services:
-  onepass-ido:
+  idem-hub:
     environment:
       # DB
       DB_HOST: postgres
@@ -1225,7 +1225,7 @@ export IDO_BROKER_MODE=keycloak
 
 # Step 2: ido 서비스 재시작 (Graceful shutdown)
 ./gradlew :idem-hub:bootRun
-# 또는 Docker: docker compose up -d --no-deps onepass-ido
+# 또는 Docker: docker compose up -d --no-deps idem-hub
 
 # Step 3: 전환 검증
 curl -v "http://localhost:8083/api/v1/broker/kakao/authorize?returnUrl=http://localhost:3000"
@@ -1370,7 +1370,7 @@ export IDO_BROKER_MODE=qsign
 ### 14.3 의존성 그래프 (qsign mode — q-sign Keycloak 어댑터 ✅)
 
 ```
-onepass-fe
+idem-console
     │ GET /api/v1/broker/kakao/authorize
     ▼
 BrokerController (ido)
@@ -1405,7 +1405,7 @@ KeycloakCallbackController (q-sign)
     │ Set-Cookie: feSessionId=...
     │ 302 → returnUrl
     ▼
-onepass-fe
+idem-console
 
 --- 비동기 (q-sign) ---
 OutboxRelay (@Scheduled 500ms)
@@ -1790,7 +1790,7 @@ docker compose logs -f kafka
 ./gradlew :idem-hub:bootRun
 
 # React 프론트엔드 (다른 터미널)
-cd onepass-fe && npm install && npm run dev
+cd idem-console && npm install && npm run dev
 ```
 
 ### 17.4 모드별 빠른 테스트

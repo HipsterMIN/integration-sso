@@ -36,7 +36,7 @@
 
 ```mermaid
 graph TD
-    FE["onepass-fe\nReact SPA :3000"]
+    FE["idem-console\nReact SPA :3000"]
     NGX["Nginx Proxy"]
     IDO["ido :8083\n인증 중재자 IdO"]
     QS["q-sign :8081\nOIDC/소셜 브로커"]

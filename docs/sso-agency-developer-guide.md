@@ -1,9 +1,11 @@
 # OnePass 자체 SSO 기관 연동 — 개발자 레퍼런스
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+
 > **대상 독자**: 유관기관 백엔드 개발자, 플랫폼 연동 담당 개발자
 > **버전**: v1.0 (2026-05-17)
-> **관련 SDK**: `onepass-agency-sdk` (Java 8+, 런타임 의존성 ZERO)
-> **관련 Agent**: `onepass-agent` (byte-buddy/Javassist 위빙)
+> **관련 SDK**: `idem-sdk-java` (Java 8+, 런타임 의존성 ZERO)
+> **관련 Agent**: `idem-agent` (byte-buddy/Javassist 위빙)
 
 ---
 
@@ -541,11 +543,11 @@ void updateCiHash(@Param("userId") String userId, @Param("ciHash") String ciHash
 ```bash
 # Tomcat (setenv.sh)
 JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent.jar=config=/etc/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties"
 
 # JBoss/WildFly (standalone.conf)
 JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent.jar=config=/etc/onepass/onepass-agent.properties"
+  -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties"
 ```
 
 ### 8.2 기본 설정 파일 (Authorization 헤더 기반)
@@ -817,6 +819,6 @@ curl -X POST http://localhost:8084/mock/sso/activate \
 
 ---
 
-*이 문서는 `agency-stub`, `onepass-agency-sdk`, `onepass-agent`, `ido`, `q-im` 소스코드 직접 분석을 기반으로 작성되었습니다.*
+*이 문서는 `agency-stub`, `idem-sdk-java`, `idem-agent`, `ido`, `q-im` 소스코드 직접 분석을 기반으로 작성되었습니다.*
 
 *문의: 플랫폼 연동팀 (내부 이슈 트래커: ONEPASS-DEV 프로젝트)*

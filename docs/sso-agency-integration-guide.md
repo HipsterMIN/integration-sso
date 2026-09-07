@@ -1,5 +1,7 @@
 # OnePass 연동 가이드 — 자체 SSO 보유 기관 담당자용
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+
 > **대상 독자**: 유관기관 SSO 시스템 담당자, 정보시스템 담당 과장/팀장
 > **기술 수준**: 비개발자도 이해할 수 있도록 작성, 개발팀에 전달 가능한 요구사항 명세 포함
 > **버전**: v1.0 (2026-05-17)
@@ -146,7 +148,7 @@
 □ 원패스 Agency SDK 통합
 
 Agent 설치 (원패스 토큰 검증 자동화 시):
-□ onepass-agent.jar JVM 설치
+□ idem-agent.jar JVM 설치
 □ onepass-agent.properties 설정 파일 작성
 ```
 

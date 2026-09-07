@@ -44,7 +44,7 @@
 
 | 서비스 | 로컬 URL | 운영 URL |
 |--------|---------|---------|
-| ido (FE BFF) | `http://localhost:8083` | `https://onepass-ido.smes.go.kr` |
+| ido (FE BFF) | `http://localhost:8083` | `https://idem-hub.smes.go.kr` |
 | Q-Sign | `http://localhost:8081` | 내부망 전용 |
 | Q-IM | `http://localhost:8082` | `https://onepass.smes.go.kr/im` (내부) |
 | FE (개발) | `http://localhost:3001` | `https://onepass.smes.go.kr` |

@@ -24,7 +24,7 @@
 ```
 [사용자 브라우저]
      ↕ HTTPS
-[onepass-fe (React SPA)]  ←→  [IdO (BFF + 오케스트레이터)]
+[idem-console (React SPA)]  ←→  [IdO (BFF + 오케스트레이터)]
                                      ↕ HTTP (내부망)
                            [Q-Sign (인증 SoR)]  [Q-IM (식별 SoR)]
                                      ↕ Kafka
@@ -43,7 +43,7 @@
 |------|------|----------|
 | **Java** | 21 LTS | 전 모듈 |
 | **Spring Boot** | 3.5.9 | q-sign, q-im, ido, agency-stub |
-| **Gradle** | 9.5.0 | 멀티모듈 빌드 (`onepass-platform`) |
+| **Gradle** | 9.5.0 | 멀티모듈 빌드 (`idem`) |
 | **Spring Data JPA** | BOM 관리 | q-sign(PostgreSQL), q-im(MariaDB), ido(PostgreSQL) |
 | **Spring Kafka** | BOM 관리 | 전 서비스 |
 | **Spring Data Redis** | BOM 관리 | ido, q-im |
@@ -77,7 +77,7 @@
 | Kafka | `confluentinc/cp-kafka:7.6.1` | 전 서비스 이벤트 버스 |
 | Zookeeper | `confluentinc/cp-zookeeper:7.6.1` | Kafka 코디네이터 |
 | Keycloak | `quay.io/keycloak/keycloak:24` | OIDC IdP 브로커 |
-| Nginx | `nginx:1.27-alpine` | onepass-fe 운영 서빙 |
+| Nginx | `nginx:1.27-alpine` | idem-console 운영 서빙 |
 
 ---
 
@@ -92,7 +92,7 @@
 | `q-im` | `kr.go.smes.qim` | 8082 | 41 | **식별 SoR** — 회원 원장, CI 암호화, Snapshot |
 | `ido` | `kr.go.smes.ido` | 8083 | 106 | **정책 오케스트레이터 + FE BFF** |
 | `agency-stub` | `kr.go.smes.agency` | 8084 | 15 | PoC 유관기관 시뮬레이터 |
-| `onepass-fe` | (React) | 3000/3001 | — | 순수 React SPA |
+| `idem-console` | (React) | 3000/3001 | — | 순수 React SPA |
 
 ### 3.2 platform-common 제공 요소
 
@@ -177,7 +177,7 @@ kr.go.smes.common/
 ### 4.1 정상 흐름 (카카오 OIDC 기준)
 
 ```
-1. 사용자 → onepass-fe → GET /api/v1/oidc/{provider}/authorize  (Q-Sign)
+1. 사용자 → idem-console → GET /api/v1/oidc/{provider}/authorize  (Q-Sign)
    └─ PKCE 챌린지 생성, Keycloak 인가 URL 반환
 
 2. 사용자 → Keycloak → 카카오 로그인

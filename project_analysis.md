@@ -224,9 +224,9 @@ infra/
 
 **활발한 문서화** — `docs/` 디렉토리에 상세 문서 다수:
 - `sso-agency-developer-guide.md` — 기관 개발자 가이드
-- `onepass-agency-sdk-usage-guide.md` — SDK 사용 가이드
-- `onepass-agent-integration-guide.md` — Agent 연동 가이드
-- `onepass-support-board-redesign-plan.md` — 지원 게시판 리디자인
+- `idem-sdk-java-usage-guide.md` — SDK 사용 가이드
+- `idem-agent-integration-guide.md` — Agent 연동 가이드
+- `idem-support-board-redesign-plan.md` — 지원 게시판 리디자인
 - `kafka_easy_guide_for_developers.md` — Kafka 개발자 가이드
 - `phased-rollout-strategy.md` — 단계별 릴리즈 전략
 - `SPRINT_B_PLAN.md` — 스프린트 B 계획

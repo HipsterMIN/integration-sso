@@ -4,7 +4,7 @@
 > **작성일**: 2026-05-26
 > **기준 커밋**: `a564f36` (main, PR #199 머지 후)
 > **선행 문서**: [03c-module-qim.md](03c-module-qim.md), [01-system-overview.md](01-system-overview.md)
-> **목적**: Q-IM 모듈이 "무엇을 책임지고 무엇을 책임지지 않는가"를 명문화. 인접 모듈(IdO / Q-Sign / agency-stub / onepass-fe / onepass-support / onepass-agent) 팀이 Q-IM에 요구해서는 안 되는 것과 반드시 요구해야 하는 것을 단일 페이지로 합의한다.
+> **목적**: Q-IM 모듈이 "무엇을 책임지고 무엇을 책임지지 않는가"를 명문화. 인접 모듈(IdO / Q-Sign / agency-stub / idem-console / idem-support / idem-agent) 팀이 Q-IM에 요구해서는 안 되는 것과 반드시 요구해야 하는 것을 단일 페이지로 합의한다.
 
 ---
 
@@ -121,9 +121,9 @@
 | **IdO** | ✅ 전체 | ✅ | ❌ | ❌ | ✅ `qim.user.events`, `qim.user.snapshot` |
 | **Q-Sign** | ❌ | ❌ | ❌ | ❌ | ✅ `qim.user.events` (탈퇴 → 잠금) |
 | **agency-stub / 기관** | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **onepass-fe** | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **onepass-support** | ❌ | ❌ | ❌ | ❌ | ❌ (IdO 가 변환해서 노출) |
-| **onepass-agent** | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **idem-console** | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **idem-support** | ❌ | ❌ | ❌ | ❌ | ❌ (IdO 가 변환해서 노출) |
+| **idem-agent** | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **outbox-relay-batch** | ❌ | ❌ | ⚠️ Q-IM Outbox 테이블 read-only (별도 합의) | ❌ | ❌ |
 
 > **모든 ❌는 코드/네트워크 양쪽에서 차단**해야 한다. 현재 enforcement gap → §6 참조.
@@ -301,14 +301,14 @@ idem-registry/src/main/java/kr/go/smes/qim/conversion/AgencyMemberLookupServiceI
 | **3** | 감사 추적성 분기 | IdO `platform.audit.log` 와 Q-IM 자체 UI 로그 두 갈래 → 사고 조사 시 양쪽 어긋남 |
 | **4** | 위협 모델 전면 변경 | CORS·세션·CSRF·XSS — 현재 모두 무관한데 UI 가 생기면 4개 다시 작업 |
 | **5** | 단순성 파괴 | "IdO 만 ✅, 나머지 ❌" 매트릭스(§3.2) 가 깨지고 호출자 종류·인증 수단 폭증 |
-| **6** | 인접 모듈 책임 경계 붕괴 | §7.4 가 무너지고 onepass-support → IdO 어드민 API 경로가 우회됨 |
+| **6** | 인접 모듈 책임 경계 붕괴 | §7.4 가 무너지고 idem-support → IdO 어드민 API 경로가 우회됨 |
 | **7** | 운영 비용 폭증 | 새 코드베이스·CI·배포·RBAC·운영팀 모두 추가 — Q-IM이 *"식별의 진실"* 한 가지에만 집중 못 함 |
 
 ### 6.5.3 자주 시도되는 우회로와 차단
 
 | 시도 | 그럴듯한 이유 | 차단 근거 |
 |------|----------|---------|
-| "운영자가 빠르게 회원 조회해야 해서 페이지 하나만" | 운영 편의 | onepass-support 가 IdO 어드민 API 호출하는 화면을 만들면 됨. §7.4 |
+| "운영자가 빠르게 회원 조회해야 해서 페이지 하나만" | 운영 편의 | idem-support 가 IdO 어드민 API 호출하는 화면을 만들면 됨. §7.4 |
 | "Swagger UI 만 띄우자, 개발자만 봄" | 개발 편의 | OpenAPI **스펙(.yaml/.json)** 은 OK, **렌더링 UI** 는 ❌. 스펙은 IdO/외부 도구로 import |
 | "Actuator HTML 뷰만 켜자" | 운영 진단 | `/actuator/health`, `/actuator/prometheus` JSON 만 허용. `management.endpoints.web.exposure` 에서 UI 관련 엔드포인트 명시 차단 |
 | "H2 Console (로컬 개발만)" | 디버그 | 운영 build profile 에서 자동 제외 강제. 로컬에서도 default OFF |
@@ -337,11 +337,11 @@ GUI 가 없으면 운영자가 손도 못 댄다는 우려를 차단하기 위�
 > **사람-대상 화면의 정본 호스트 — FE 군 ↔ IdO 단일 채널 (ADR-008)**:
 >
 > Q-IM 이 갖지 않는 모든 사람-대상 화면은 **프론트엔드 군(group)** 이 호스트한다.
-> 현재 군 구성: [`03f-module-onepass-fe.md`](03f-module-onepass-fe.md) 가 정의하는 **`onepass-fe`** (일반 신청자·대표자·실무자 화면). 향후 도입 가능한 군 구성원: **`onepass-admin`** (운영·관리 화면), **`onepass-support`** (지원팀 화면), 기타 역할별 FE.
+> 현재 군 구성: [`03f-module-idem-console.md`](03f-module-idem-console.md) 가 정의하는 **`idem-console`** (일반 신청자·대표자·실무자 화면). 향후 도입 가능한 군 구성원: **`onepass-admin`** (운영·관리 화면), **`idem-support`** (지원팀 화면), 기타 역할별 FE.
 >
 > **단, FE 가 1 개든 N 개든** 이들 FE 군은 모두 **IdO 게이트웨이 단일 채널** 로만 백엔드(Q-IM / Q-Sign / agency-stub / Keycloak) 와 통신한다. Q-IM 을 비롯한 어떠한 BE 모듈도 FE 가 직접 호출할 수 없다. 이는 본 헌장 §6 (사람-대상 화면 위임) / §6.5 (관리자 페이지 영구 금지) 를 **시스템 경계 차원에서 강제**하는 메커니즘이다.
 >
-> 자세한 헌법화는 [`02-architecture.md`](02-architecture.md) **ADR-008** 참조. onepass-fe 측 데이터 흐름 정본은 [`03f-module-onepass-fe.md`](03f-module-onepass-fe.md) 참조.
+> 자세한 헌법화는 [`02-architecture.md`](02-architecture.md) **ADR-008** 참조. idem-console 측 데이터 흐름 정본은 [`03f-module-idem-console.md`](03f-module-idem-console.md) 참조.
 
 ### 6.5.5 enforcement 체크리스트
 
@@ -385,7 +385,7 @@ springdoc:                                # Swagger 관련 라이브러리 자�
 본 §6.5 는 **헌장의 다른 어떤 조항보다 강한 효력**을 가진다. 이를 폐기 또는 약화하려면:
 
 1. 신규 RFC/ADR 작성 — *"왜 §6.5 를 폐기해야 하는가"* 의 7가지 논증(§6.5.2) 각각에 대한 반박
-2. 전 모듈 오너(IdO / Q-Sign / onepass-fe / onepass-support / onepass-agent / 보안팀) 의 **만장일치 합의** (다수결 불가)
+2. 전 모듈 오너(IdO / Q-Sign / idem-console / idem-support / idem-agent / 보안팀) 의 **만장일치 합의** (다수결 불가)
 3. 폐기 후 발생할 위협 모델 변화 분석 + 신규 시정 PR 목록
 4. 폐기 발효일로부터 **최소 30일 cooldown** (그 동안 추가 의견 수렴)
 5. 헌장 신규 버전 발행 + git tag `qim-charter-v2`
@@ -413,31 +413,31 @@ springdoc:                                # Swagger 관련 라이브러리 자�
 | Q-IM → Q-Sign (간접) | `qim.user.events` 발행 | Q-Sign 의 `QimUserEventConsumer` 가 잠금 처리 |
 | Q-Sign → Q-IM | **직접 호출 없음** | 모든 요청은 IdO 경유 |
 
-### 7.3 onepass-fe ↔ Q-IM
+### 7.3 idem-console ↔ Q-IM
 
 **현재 상태 (2026-05-26 PR #199 후 확인)**:
-- onepass-fe 의 `/api/v1/internal/**` 직접 호출: **0건** ✅
-- onepass-fe 는 모두 IdO BFF (`/api/v1/ext/**`, `/api/v1/handoff/**`) 만 호출
+- idem-console 의 `/api/v1/internal/**` 직접 호출: **0건** ✅
+- idem-console 는 모두 IdO BFF (`/api/v1/ext/**`, `/api/v1/handoff/**`) 만 호출
 
 **유지해야 할 정책**:
-- onepass-fe 에서 `q-im` / `/api/v1/internal/` 문자열이 등장하면 그 자체로 코드 리뷰 reject
+- idem-console 에서 `q-im` / `/api/v1/internal/` 문자열이 등장하면 그 자체로 코드 리뷰 reject
 - PR #198 §1 인증 모델은 FE → IdO 까지만 다룸. Q-IM 은 IdO 의 backend, FE 의 backend 가 아니다.
 
-### 7.4 onepass-support ↔ Q-IM
+### 7.4 idem-support ↔ Q-IM
 
 **현재 상태**:
-- onepass-support → Q-IM 직접 호출: **0건** ✅
-- onepass-support 는 모두 IdO 어드민 API 호출
+- idem-support → Q-IM 직접 호출: **0건** ✅
+- idem-support 는 모두 IdO 어드민 API 호출
 
 **유지해야 할 정책**:
 - 어드민 화면에서 회원 상세 조회/상태 변경/탈퇴 처리 시 IdO 어드민 API 만 사용
-- IdO 가 Q-IM API 를 어떻게 호출하든 onepass-support 는 알 필요 없음
-- 만약 onepass-support 가 Q-IM 의 새 기능을 필요로 한다면 → **IdO 에 어드민 API 를 추가 요청**하는 것이 정도. Q-IM 직접 호출 우회 ❌
+- IdO 가 Q-IM API 를 어떻게 호출하든 idem-support 는 알 필요 없음
+- 만약 idem-support 가 Q-IM 의 새 기능을 필요로 한다면 → **IdO 에 어드민 API 를 추가 요청**하는 것이 정도. Q-IM 직접 호출 우회 ❌
 
-### 7.5 onepass-agent ↔ Q-IM
+### 7.5 idem-agent ↔ Q-IM
 
 - **직접 호출 0건** ✅
-- onepass-agent 는 기관 측 서비스. IdO 의 외부 API (`/api/v1/handoff`, `/api/v1/agency`) 만 호출.
+- idem-agent 는 기관 측 서비스. IdO 의 외부 API (`/api/v1/handoff`, `/api/v1/agency`) 만 호출.
 - Q-IM 은 기관의 존재를 모르며, 기관 인증/인가에 관여하지 않는다.
 
 ### 7.6 agency-stub / 실제 기관 ↔ Q-IM
@@ -463,9 +463,9 @@ springdoc:                                # Swagger 관련 라이브러리 자�
 | "운영 DB에 직접 UPDATE 한 번만…" | ❌ §5.2 | Flyway PR + 3단계 배포 |
 | "감사 로그를 platform.audit.log 가 아니라 따로 받고 싶어" | ⚠️ 거절은 아니지만 IdO 와 협의 | IdO 의 감사 토픽 구독, 필터링은 컨슈머 측 책임 |
 | "기관 X 호출 좀 추가해줘 (직접 Q-IM 에서)" | ⚠️ §3.4 가드레일 통과 시만 | 가능하면 IdO 에 추가. Q-IM 의 agency 직접 호출은 전환 세션 한정 |
-| "onepass-support 에 Q-IM 데이터 노출 필요" | ❌ §7.4 | IdO 에 어드민 API 추가 요청 |
-| "Q-IM 에 UI 한 페이지만…" | 🚫 **절대 금지 §6.5** (헌장 개정 없이는 영구 불가) | onepass-support 가 IdO 어드민 API 호출하는 화면 |
-| "Q-IM 관리자 콘솔·어드민 대시보드 하나만 열어줘" | 🚫 **절대 금지 §6.5** | onepass-support / 별도 운영 모듈에서 IdO 경유로 구현 |
+| "idem-support 에 Q-IM 데이터 노출 필요" | ❌ §7.4 | IdO 에 어드민 API 추가 요청 |
+| "Q-IM 에 UI 한 페이지만…" | 🚫 **절대 금지 §6.5** (헌장 개정 없이는 영구 불가) | idem-support 가 IdO 어드민 API 호출하는 화면 |
+| "Q-IM 관리자 콘솔·어드민 대시보드 하나만 열어줘" | 🚫 **절대 금지 §6.5** | idem-support / 별도 운영 모듈에서 IdO 경유로 구현 |
 | "운영 편의용 임시 화면 — 딱 한 번만, 곧 지울게" | 🚫 **절대 금지 §6.5.3** (한 번 열리면 영구화됨) | `kubectl exec` + `scripts/ops/*.sh` (2인 승인) |
 | "Swagger UI / H2 Console / Spring Boot Admin 만이라도 켜두자" | 🚫 **절대 금지 §6.5.3** (bypass 시도로 간주) | OpenAPI **JSON** (`/v3/api-docs`)을 IdO·문서 사이트가 소비 |
 | "JWT 검증 좀 Q-IM 이 해주면 안 돼?" | ❌ Q-Sign / IdO 책임 | Q-IM 은 자기 INTERNAL API 호출자 인증만 (§6.2) |
@@ -497,16 +497,16 @@ springdoc:                                # Swagger 관련 라이브러리 자�
 | Q-IM 패키지 내 `@KafkaListener` | **0건** (= 외부 토픽 소비 없음) |
 | Q-IM Spring Security 설정 | **0건** (= SEC-QIM-01 갭) |
 | Q-IM → 외부 직접 HTTP 호출 | 1건 (`AgencyMemberLookupServiceImpl`, §3.4) |
-| onepass-fe → `/api/v1/internal/` 호출 | **0건** ✅ |
-| onepass-support → `q-im` / `QimClient` | **0건** ✅ |
-| onepass-agent → `q-im` / `QimClient` | **0건** ✅ |
+| idem-console → `/api/v1/internal/` 호출 | **0건** ✅ |
+| idem-support → `q-im` / `QimClient` | **0건** ✅ |
+| idem-agent → `q-im` / `QimClient` | **0건** ✅ |
 | Q-IM Flyway 마이그레이션 | V1~V7 (qim 스키마 단독 소유) |
 | Q-IM 발행 Kafka 토픽 | `qim.user.events`, `qim.user.events.dlq`, `qim.user.snapshot` (+`qim.sp.member.events` 는 IdO 발행) |
 
 ---
 
 *다음 단계*:
-1. 본 헌장을 인접 모듈 오너(IdO / Q-Sign / onepass-fe / onepass-support / onepass-agent) 에게 회람 후 합의 서명
+1. 본 헌장을 인접 모듈 오너(IdO / Q-Sign / idem-console / idem-support / idem-agent) 에게 회람 후 합의 서명
 2. §6 SEC 갭 시정 PR 5건 백로그 등록
 3. §3.4 회색지대 (Q-IM → agency 직접 호출) 가드레일 PR 1건
 4. CODEOWNERS 에 `idem-registry/**` 와 `docs/internal/spec/03c-*.md` 에 Q-IM 오너 지정

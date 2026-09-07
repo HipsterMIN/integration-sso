@@ -26,7 +26,7 @@
              │ /api/v1/oidc/**                        │ HTTPS (공개 API만)
              │                                        │
 ══════════════════════════════════════════════════════╪══════════════════
-  내부망 (onepass-net 172.20.0.0/24)                  │
+  내부망 (idem-net 172.20.0.0/24)                  │
 ══════════════════════════════════════════════════════╪══════════════════
              │                                         │
              ▼                                         ▼
@@ -205,11 +205,11 @@ APACHE_GATE:  POST {apacheGateEndpoint} — mod_auth_openidc 헤더 사전 주�
 - **이유**: 기존 정부기관 시스템 호환성, 운영 팀 숙련도
 - **영향**: IdO·Q-Sign은 PostgreSQL 유지, Q-IM만 별도 MariaDB
 
-### ADR-002: onepass-fe 순수 React SPA 전환
+### ADR-002: idem-console 순수 React SPA 전환
 
 - **결정**: Spring Boot BFF 제거 → ido가 BFF 역할 흡수
 - **이유**: 배포 복잡성 감소, ido에서 CORS·feSession 통합 관리
-- **영향**: onepass-fe는 정적 파일만 서빙 (Nginx or webpack-dev-server)
+- **영향**: idem-console는 정적 파일만 서빙 (Nginx or webpack-dev-server)
 
 ### ADR-003: Transactional Outbox 전 서비스 적용
 
@@ -252,9 +252,9 @@ APACHE_GATE:  POST {apacheGateEndpoint} — mod_auth_openidc 헤더 사전 주�
    - (단, Q-IM 자체의 관리 콘솔은 03-C §6.5 에 따라 **영구 금지** 됨 — 본 ADR 의 (b) 는
      Q-IM 외부에서, IdO 가 부여한 권한 등급 하에 별도 FE 가 호스트한다.)
 2. **모듈 군(群)** — 위 책임은 단일 모듈이 아닌 **프론트엔드 군(group)** 으로 구현된다.
-   - 현재: `onepass-fe` (end-user 화면 담당)
-   - 향후 도입 가능: `onepass-admin`, `onepass-support`, `onepass-audit` 등
-   - (※ "현재 onepass-fe 가 유일한 FE 다" 는 **현시점 사실**일 뿐, **설계상 제약이 아니다**.
+   - 현재: `idem-console` (end-user 화면 담당)
+   - 향후 도입 가능: `onepass-admin`, `idem-support`, `onepass-audit` 등
+   - (※ "현재 idem-console 가 유일한 FE 다" 는 **현시점 사실**일 뿐, **설계상 제약이 아니다**.
      설계는 처음부터 N 개 FE 를 전제로 한다.)
 3. **단일 게이트웨이** — 군에 속한 모든 FE 는 **IdO 단일 채널** 로만 백엔드와 통신한다.
    - IdO 가 BFF + Gateway + Orchestrator 역할을 통합 수행한다.
@@ -262,7 +262,7 @@ APACHE_GATE:  POST {apacheGateEndpoint} — mod_auth_openidc 헤더 사전 주�
 
 #### 결정 (Decision)
 
-- **결정**: 모든 프론트엔드 모듈(현재 `onepass-fe`, 향후 도입될 `onepass-admin` 등 일체)은
+- **결정**: 모든 프론트엔드 모듈(현재 `idem-console`, 향후 도입될 `onepass-admin` 등 일체)은
   **IdO 단일 채널** 을 통해서만 백엔드(Q-IM / Q-Sign / agency-stub / Keycloak 등)와 통신한다.
   FE 에서 Q-IM 등 백엔드를 직접 호출하는 어떠한 경로도 허용하지 않는다.
 - **단일성의 정의**:
@@ -303,7 +303,7 @@ APACHE_GATE:  POST {apacheGateEndpoint} — mod_auth_openidc 헤더 사전 주�
 
 | 항목 | Option A: feSession + API Key 단일 모델 (현재) | Option B: 인증 등급 분리 (향후 onepass-admin 도입 시) |
 |------|-----------------------------------------------|---------------------------------------------------|
-| 대상 FE | onepass-fe (end-user) | onepass-fe + onepass-admin (+ ...) |
+| 대상 FE | idem-console (end-user) | idem-console + onepass-admin (+ ...) |
 | FE→IdO 인증 | `feSessionId` 쿠키 + `X-BE-API-Key` | (end-user) feSession 유지 / (admin) Keycloak admin-realm OIDC + mTLS + step-up MFA |
 | API 키 스코프 | 단일 키 | FE 별 분리 키, 스코프(read/write/admin) 차등 |
 | 경로 분리 | `/api/v1/**` | `/api/v1/**` (end-user) ↔ `/api/admin/v1/**` (admin) |
@@ -318,7 +318,7 @@ APACHE_GATE:  POST {apacheGateEndpoint} — mod_auth_openidc 헤더 사전 주�
 향후 운영·관리 FE 가 도입될 때, **IdO 측** 에 다음을 사전 적용해야 한다.
 (BE 측 변경은 원칙적으로 없음 — 본 ADR 의 "BE 보호 불변식" 효과)
 
-1. **API 키 스코핑** — onepass-fe 와 분리된 별도 API 키 발급, 스코프(`admin:*`) 차등 부여.
+1. **API 키 스코핑** — idem-console 와 분리된 별도 API 키 발급, 스코프(`admin:*`) 차등 부여.
 2. **CORS N-origin** — IdO `cors.allowed-origins` 에 신규 FE Origin 추가
    (`onepass-admin.smes.go.kr` 등). 와일드카드 금지.
 3. **쿠키 도메인 정책** — admin 쿠키는 `Domain=admin.smes.go.kr; Path=/; SameSite=Strict`
@@ -331,11 +331,11 @@ APACHE_GATE:  POST {apacheGateEndpoint} — mod_auth_openidc 헤더 사전 주�
 
 #### 연계 ADR / 참조
 
-- **ADR-002 (onepass-fe 순수 React SPA)** — 본 ADR 의 직접 선조. 본 ADR 은 ADR-002 를
+- **ADR-002 (idem-console 순수 React SPA)** — 본 ADR 의 직접 선조. 본 ADR 은 ADR-002 를
   "BFF 흡수" 에서 "BFF + Gateway 흡수, 그리고 FE 의 N 개화" 로 확장한다.
 - **03-C §6, §6.5 (Q-IM 책임 헌장 / 관리자 페이지 영구 금지)** — 본 ADR 이 시스템 경계로
   강제하는 대상.
-- **03-F (onepass-fe 데이터 흐름 정본)** — 본 ADR 의 onepass-fe 측 구현 단면.
+- **03-F (idem-console 데이터 흐름 정본)** — 본 ADR 의 idem-console 측 구현 단면.
 - **`ExtProxyController` / `FeSessionController`** — 본 ADR 의 IdO 측 구현 단면.
 
 ---
@@ -345,10 +345,10 @@ APACHE_GATE:  POST {apacheGateEndpoint} — mod_auth_openidc 헤더 사전 주�
 ### 5.1 Docker 네트워크
 
 ```
-네트워크: onepass-net (bridge, 172.20.0.0/24)
+네트워크: idem-net (bridge, 172.20.0.0/24)
   참여 서비스: postgres, mariadb, redis, zookeeper, kafka,
                keycloak, q-sign, q-im, ido, agency-stub,
-               onepass-fe(nginx), prometheus, grafana, loki
+               idem-console(nginx), prometheus, grafana, loki
 ```
 
 ### 5.2 서비스 포트 맵 (호스트:컨테이너)
@@ -370,7 +370,7 @@ APACHE_GATE:  POST {apacheGateEndpoint} — mod_auth_openidc 헤더 사전 주�
 | Q-IM | 8082 | 8082 | |
 | Kafdrop | 8091 | 8080 | |
 | IdO | 8083 | 8083 | |
-| onepass-fe (nginx) | 3001 | 80 | |
+| idem-console (nginx) | 3001 | 80 | |
 | agency-stub | 8084 | 8084 | |
 | Prometheus | 9090 | 9090 | |
 | Grafana | 3002 | 3000 | |

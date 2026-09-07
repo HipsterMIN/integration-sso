@@ -21,7 +21,7 @@ Keycloak OIDC 브로커를 중심으로 다양한 인증 수단(PASS, 금융인�
 | `q-sign` | Q-Sign 서명·인증 검증 (레거시 호환) | 8081 |
 | `q-im` | Q-IM 회원 정보 관리 | 8082 |
 | `agency-stub` | 기관 시뮬레이터 (PoC) | 8084 |
-| `onepass-fe` | React BFF (Vite) | 3000 |
+| `idem-console` | React BFF (Vite) | 3000 |
 
 ---
 

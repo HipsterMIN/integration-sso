@@ -14,7 +14,7 @@
 | **ido (BE)** | **68%** | ❌ | `/api/ext/**` forward proxy 전무, CI 처리 경로 미완 |
 | **q-sign** | **40%** | ❌ | OIDC 표준 엔드포인트 5개 전무, `issueFromOidc()` 운영 불가 |
 | **q-im** | **75%** | ⚠️ 조건부 | 기존 구현 있으나 FE Direct Call 의존 구조 |
-| **onepass-fe** | **30%** | ❌ | extInstance 16파일 직접 호출, SKIP_AUTH, AES_GCM_KEY 번들 노출 |
+| **idem-console** | **30%** | ❌ | extInstance 16파일 직접 호출, SKIP_AUTH, AES_GCM_KEY 번들 노출 |
 | **infra** | **25%** | ❌ | K8s 매니페스트 전무, CI/CD 전무, Secret 관리 전무 |
 | **platform-common** | **85%** | ✅ | 도메인 모델·유틸 완성, SecurePasswordGenerator 완성 |
 
@@ -65,7 +65,7 @@ DOCKER_UNAVAILABLE=true ./gradlew :idem-common:test :idem-hub:test --rerun-tasks
 cd infra/docker
 docker-compose up -d postgres mariadb redis kafka zookeeper schema-registry keycloak
 # keycloak 준비 대기 (약 60초)
-docker-compose up -d onepass-qsign onepass-qim onepass-ido
+docker-compose up -d idem-gate idem-registry idem-hub
 ```
 
 #### 0-3. .env 파일 생성 (FE 로컬 개발용)
@@ -1264,7 +1264,7 @@ DevOps   [P0: 환경 세팅]                                           [P4: Keyc
 
 ## 4. 모듈별 남은 작업 상세 (코더 참조용)
 
-### 4-1. onepass-fe 남은 작업 (완성률 30% → 목표 90%)
+### 4-1. idem-console 남은 작업 (완성률 30% → 목표 90%)
 
 | # | 작업 | 파일 | 라인 | 예상일 |
 |---|------|------|------|:---:|

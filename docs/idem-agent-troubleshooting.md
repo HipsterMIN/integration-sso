@@ -1,5 +1,7 @@
 # OnePass Agency Java Agent — 트러블슈팅 가이드
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+
 > **문서 번호**: AGENT-TROUBLESHOOT-001  
 > **문서 버전**: v1.0.0  
 > **작성일**: 2026-05-17  
@@ -623,7 +625,7 @@ java -XshowSettings:all 2>&1 | grep -i "vm.name"
 # WebSphere Liberty인 경우:
 # $WLP_HOME/usr/servers/<server-name>/jvm.options에 추가
 -Donepass.was.type=WEBSPHERE_LEGACY
--javaagent:/opt/onepass/onepass-agent-all.jar=config=/opt/onepass/onepass-agent.properties
+-javaagent:/opt/onepass/idem-agent-all.jar=config=/opt/onepass/onepass-agent.properties
 ```
 
 기동 로그 확인:
@@ -767,10 +769,10 @@ OnePass Agent JAR는 System ClassLoader 레벨에 있어야 함
 **Agent JAR 배치 권장 위치**:
 ```bash
 # WebLogic 서버 공유 라이브러리에 추가
-cp onepass-agent-all.jar $WL_HOME/server/lib/
+cp idem-agent-all.jar $WL_HOME/server/lib/
 
 # 또는 DOMAIN_HOME/lib/에 추가 (도메인 레벨 공유)
-cp onepass-agent-all.jar $DOMAIN_HOME/lib/
+cp idem-agent-all.jar $DOMAIN_HOME/lib/
 ```
 
 ---
@@ -900,4 +902,4 @@ ls /opt/tomcat* /opt/jeus* /opt/jboss* /usr/local/tomcat* 2>/dev/null
 
 ---
 
-*문의: OnePass 행정안전부 통합인증 플랫폼 지원팀 | onepass-support@go.kr*
+*문의: OnePass 행정안전부 통합인증 플랫폼 지원팀 | idem-support@go.kr*

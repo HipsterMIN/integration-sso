@@ -1,6 +1,6 @@
 # Onepass-Platform Outbox 패턴 분석
 
-이 문서는 onepass-platform 프로젝트에 적용된 Outbox 패턴의 구조와 데이터 흐름을 상세하게 분석합니다.
+이 문서는 idem 프로젝트에 적용된 Outbox 패턴의 구조와 데이터 흐름을 상세하게 분석합니다.
 
 ## 1. Outbox 패턴 개요
 

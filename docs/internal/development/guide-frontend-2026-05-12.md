@@ -2,7 +2,7 @@
 
 > **버전**: v3.0.0 (PR #77 반영 — 2026-05-12 GAP 패치 완료 기준)  
 > **최종 수정**: 2026-05-12  
-> **대상**: onepass-fe 프론트엔드 개발팀  
+> **대상**: idem-console 프론트엔드 개발팀  
 > **기술 스택**: React 18 / TypeScript / webpack 5 / Redux (legacy_createStore + thunk)  
 > **로컬 개발 서버**: `:3001` (webpack-dev-server)  
 > **연동 BFF**: ido `:8083` / `:9292`
@@ -49,7 +49,7 @@
 사용자 브라우저
     │
     ▼
-onepass-fe (React SPA, :3001 dev / Nginx prod)
+idem-console (React SPA, :3001 dev / Nginx prod)
     │
     │  ① beApiInstance  ─────────────────────────────┐
     │     (X-BE-API-Key 헤더)                         │
@@ -187,7 +187,7 @@ IDO_BASE_URL=http://localhost:8083
 
 ```dotenv
 # ============================================================
-# onepass-fe 로컬 개발 환경변수 (.env)
+# idem-console 로컬 개발 환경변수 (.env)
 # v3.0 — 2026-05-12 GAP 패치 기준
 # ============================================================
 

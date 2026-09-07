@@ -150,7 +150,7 @@ settings.gradle.kts 에 추가:
 ### 4.1 모듈 위치 및 구조
 
 ```
-onepass-platform/
+idem/
 ├── idem-common/
 ├── idem-gate/
 ├── idem-registry/
