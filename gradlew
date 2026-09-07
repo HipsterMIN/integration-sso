@@ -4,6 +4,14 @@
 # Gradle Wrapper Script (Gradle 9.5.0)
 #
 
+# 오류 메시지를 출력하고 종료한다. (축약 래퍼에 누락돼 있어 "die: not found" 만 찍히던 결함 수정, 2026-09-07)
+die () {
+    echo
+    echo "$*"
+    echo
+    exit 1
+} >&2
+
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
