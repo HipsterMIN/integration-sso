@@ -5,7 +5,7 @@
 > **최종 수정**: 2026-05-07  
 > **근거 문서**: 중기원패스 프로세스 설계서 v0.9 (44슬라이드), PoC 실행문서  
 > **대상 독자**: 백엔드 개발자, 아키텍트, PM  
-> **관련 모듈**: `q-im`, `ido`, `q-sign`, `onepass-fe`, `agency-stub`
+> **관련 모듈**: `q-im`, `ido`, `q-sign`, `idem-console`, `agency-stub`
 
 ---
 
@@ -356,7 +356,7 @@ TTL: 600초 (10분)
 
 ```
 POST /api/v1/conversion/initiate
-요청 주체: onepass-fe (FE BFF)
+요청 주체: idem-console (FE BFF)
 목적: 전환 세션 개시 + 개인정보 동의 기록
 
 Request:

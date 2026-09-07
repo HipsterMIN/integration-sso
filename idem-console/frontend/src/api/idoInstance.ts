@@ -13,7 +13,7 @@
  *
  * Refs:
  *   - docs/internal/spec/02-architecture.md (ADR-008)
- *   - docs/internal/spec/03f-module-onepass-fe.md §3
+ *   - docs/internal/spec/03f-module-idem-console.md §3
  *   - docs/internal/spec/09-gap-and-roadmap.md §6.A (SEC-IDO-*)
  */
 import axios from 'axios';

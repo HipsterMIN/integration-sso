@@ -67,6 +67,14 @@ Gradle 태스크 경로는 그대로 따라간다 (`:ido:bootJar` → `:idem-hub
 | Helm values 키 | `qsign:`, `qim:`, `ido:`, `batch:`, `agencyStub:` | 차트명·이미지명만 개명. 키 개명은 helm lint 가능한 환경에서 |
 | 기존 문서 본문 | `docs/`, `wiki/` 의 Q-Sign·IdO·OnePass 표기 | 작성 시점 기록으로 유지. 경로 참조만 갱신 |
 
+### 2.4 문서 파일명·본문 정리 (2026-09-07)
+
+`docs/` 에서 3단계까지 끝난 이름을 아직 구명으로 적고 있던 곳을 정리했다.
+
+- 파일명 11개: `onepass-agent-*.md` → `idem-agent-*.md`, `onepass-agency-sdk-usage-guide.md` → `idem-sdk-java-usage-guide.md`, `onepass-support-*-plan.md` → `idem-support-*-plan.md`, `internal/architecture/onepass-agent-architecture.md`, `internal/development/onepass-agent-developer-reference.md`·`onepass-be-integration-plan.md`, `internal/spec/03f-module-onepass-fe.md` → `03f-module-idem-console.md`. 저장소 전체의 링크를 함께 갱신했다.
+- 본문: compose 컨테이너·이미지(`onepass-ido` 등) → `idem-*`, `onepass-fe` → `idem-console`, `onepass-agency-sdk` → `idem-sdk-java`, `onepass-agent-…-all.jar` → `idem-agent-…-all.jar`, `infra/helm/onepass` → `infra/helm/idem`, 계획 문서의 `onepass-support` → `idem-support`.
+- **그대로 둔 것 (4·5단계 대상)**: `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*`, `OnePass-Signature` 헤더, `OnePassAgent*` 클래스, Maven 좌표 `kr.go.smes:onepass-agency-sdk`, Keycloak `onepass-realm.json`, k8s `onepass-dev/-secrets/-tls`, 고객 도메인 `onepass*.smes.go.kr`, `_archive/`. 해당 문서 상단에 "명칭 안내 (2026-09-07)" 블록을 넣어 구명 유지 사유를 밝혔다.
+
 ## 4. 단계
 
 1. ~~이름 확정·가용성 확인~~ (Idem 확정. 상표(KIPRIS)·도메인·GitHub org·Maven 그룹 확인은 소유 주체가 수행)

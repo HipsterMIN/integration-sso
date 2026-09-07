@@ -1,5 +1,7 @@
 # OnePass Agency Java Agent — 내부 개발자 기술 레퍼런스
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](../../naming.md) §3.
+
 > **문서 번호**: AGENT-DEVREF-001  
 > **문서 버전**: v1.0.0  
 > **작성일**: 2026-05-17  
@@ -61,7 +63,7 @@ ls -la idem-agent/build/libs/idem-agent-*-all.jar
 
 ```
 File > Project Structure > Modules
-  > onepass-agent
+  > idem-agent
     > Sources > Language Level: 8
     > Dependencies: JDK 17 (SDK)
 
@@ -87,8 +89,8 @@ integration-sso/
 │       ├── main/java/kr/go/smes/agent/
 │       └── test/java/kr/go/smes/agent/
 │
-├── onepass-qim/               ← Spring Boot 모듈 (무관)
-├── onepass-ido/               ← Spring Boot 모듈 (무관)
+├── idem-registry/               ← Spring Boot 모듈 (무관)
+├── idem-hub/               ← Spring Boot 모듈 (무관)
 └── ...
 ```
 
@@ -1000,7 +1002,7 @@ val agentJarLegacy by tasks.registering(Jar::class) {
 해결 방향 2: Thin Agent (프록시 방식)
 ```
 [JDK 1.5 JEUS 4/5 JVM]
-  └── onepass-agent-legacy-1.0.0.jar (JDK 1.5 컴파일)
+  └── idem-agent-legacy-1.0.0.jar (JDK 1.5 컴파일)
         → System.setProperty로 설정
         → Javassist 위빙
         → HttpURLConnection API 호출
@@ -1035,7 +1037,7 @@ version = "1.0.1"  // 버전 업데이트
 ```bash
 ./gradlew :idem-agent:agentJar
 
-JAR="idem-agent/build/libs/onepass-agent-$(./gradlew properties -q | grep "version:" | awk '{print $2}')-all.jar"
+JAR="idem-agent/build/libs/idem-agent-$(./gradlew properties -q | grep "version:" | awk '{print $2}')-all.jar"
 sha256sum "$JAR" > "${JAR}.sha256"
 cat "${JAR}.sha256"
 ```

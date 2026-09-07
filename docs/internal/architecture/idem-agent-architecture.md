@@ -1,5 +1,7 @@
 # OnePass Agency Java Agent — 아키텍처 설계서
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](../../naming.md) §3.
+
 > **문서 번호**: AGENT-ARCH-001  
 > **문서 버전**: v1.0.0  
 > **작성일**: 2026-05-17  
@@ -33,7 +35,7 @@
 
 ### 1.1 목적
 
-본 문서는 **OnePass Agency Java Agent** (`onepass-agent`)의 아키텍처 설계를 상세하게 기술한다.  
+본 문서는 **OnePass Agency Java Agent** (`idem-agent`)의 아키텍처 설계를 상세하게 기술한다.  
 이 에이전트는 유관기관 WAS(Web Application Server)에 부착되어 **코드 수정 없이** SSO(Single Sign-On)를 구현하는 자바 에이전트이다.
 
 ### 1.2 배경

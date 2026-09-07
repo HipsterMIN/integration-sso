@@ -4,7 +4,7 @@
 > **버전**: v1.3.0  
 > **최종 수정**: 2026-05-09  
 > **대상 독자**: 백엔드 개발자, 프론트엔드 개발자, DevOps  
-> **관련 모듈**: `q-sign`, `q-im`, `ido`, `onepass-fe`, `agency-stub`, `platform-common`
+> **관련 모듈**: `q-sign`, `q-im`, `ido`, `idem-console`, `agency-stub`, `platform-common`
 
 > **v1.3.0 변경 내역** (2026-05-09)
 > - §8.4 v1.9.x 신규 기능 동작 확인 절차 추가 (기관 이벤트 폴링 API, Provider 라우팅, Broker Audit Log)
@@ -528,14 +528,14 @@ docker compose -f infra/docker/docker-compose.yml up -d
 ```
 
 이 명령으로 기동되는 서비스:
-- `onepass-mariadb` — **MariaDB 11.4 (port 3306) — Q-IM 전용**
-- `onepass-postgres` — PostgreSQL 16 (port 5432) — Q-Sign / IdO / agency-stub / Keycloak 공용
-- `onepass-redis` — Redis 7.2 (port 6379)
-- `onepass-zookeeper` — Zookeeper (port 2181)
-- `onepass-kafka` — Kafka Broker (port 9092)
-- `onepass-kafka-init` — Kafka 토픽 초기화 (one-shot, 완료 후 종료)
-- `onepass-kafka-ui` — Kafka UI 모니터링 (port 8090)
-- `onepass-redis-insight` — Redis 데이터 뷰어 (port 5540)
+- `idem-mariadb` — **MariaDB 11.4 (port 3306) — Q-IM 전용**
+- `idem-postgres` — PostgreSQL 16 (port 5432) — Q-Sign / IdO / agency-stub / Keycloak 공용
+- `idem-redis` — Redis 7.2 (port 6379)
+- `idem-zookeeper` — Zookeeper (port 2181)
+- `idem-kafka` — Kafka Broker (port 9092)
+- `idem-kafka-init` — Kafka 토픽 초기화 (one-shot, 완료 후 종료)
+- `idem-kafka-ui` — Kafka UI 모니터링 (port 8090)
+- `idem-redis-insight` — Redis 데이터 뷰어 (port 5540)
 
 #### Windows (PowerShell / CMD)
 
@@ -592,8 +592,8 @@ docker compose -f infra/docker/docker-compose.yml \
 > | `schema` | Schema Registry | Avro 스키마 |
 > | `keycloak` | Keycloak | OIDC 브로커 |
 > | `monitoring` | Prometheus, Grafana, Loki, Promtail | **★ 신규** 모니터링 |
-> | `app` | onepass-qsign, onepass-qim, onepass-ido, onepass-agency-stub | Docker 이미지 실행 |
-> | `optionB` | onepass-react (Nginx) | 프로덕션 FE |
+> | `app` | idem-gate, idem-registry, idem-hub, idem-tenant-sample | Docker 이미지 실행 |
+> | `optionB` | idem-console (Nginx) | 프로덕션 FE |
 
 ### 3.4 기동 로그 실시간 확인
 
@@ -624,14 +624,14 @@ docker compose -f infra/docker/docker-compose.yml ps
 
 ```
 NAME                    STATUS              PORTS
-onepass-mariadb         Up (healthy)        0.0.0.0:3306->3306/tcp   ← Q-IM 전용 MariaDB
-onepass-postgres        Up (healthy)        0.0.0.0:5432->5432/tcp
-onepass-redis           Up (healthy)        0.0.0.0:6379->6379/tcp
-onepass-zookeeper       Up (healthy)        0.0.0.0:2181->2181/tcp
-onepass-kafka           Up (healthy)        0.0.0.0:9092->9092/tcp
-onepass-kafka-init      Exited (0)                                     ← 0으로 종료 = 정상
-onepass-kafka-ui        Up (healthy)        0.0.0.0:8090->8080/tcp
-onepass-redis-insight   Up                  0.0.0.0:5540->5540/tcp
+idem-mariadb         Up (healthy)        0.0.0.0:3306->3306/tcp   ← Q-IM 전용 MariaDB
+idem-postgres        Up (healthy)        0.0.0.0:5432->5432/tcp
+idem-redis           Up (healthy)        0.0.0.0:6379->6379/tcp
+idem-zookeeper       Up (healthy)        0.0.0.0:2181->2181/tcp
+idem-kafka           Up (healthy)        0.0.0.0:9092->9092/tcp
+idem-kafka-init      Exited (0)                                     ← 0으로 종료 = 정상
+idem-kafka-ui        Up (healthy)        0.0.0.0:8090->8080/tcp
+idem-redis-insight   Up                  0.0.0.0:5540->5540/tcp
 ```
 
 > ⚠️ `kafka-init`의 exit code가 **0** 이어야 정상입니다. **1** 이면 토픽 생성 실패입니다.
@@ -640,7 +640,7 @@ onepass-redis-insight   Up                  0.0.0.0:5540->5540/tcp
 
 ```bash
 # MariaDB 컨테이너 연결 확인
-docker exec -it onepass-mariadb mariadb -u qim -pqim qim -e "SHOW TABLES;"
+docker exec -it idem-mariadb mariadb -u qim -pqim qim -e "SHOW TABLES;"
 ```
 
 **Q-IM Flyway 마이그레이션 후 정상 출력:**
@@ -666,7 +666,7 @@ docker exec -it onepass-mariadb mariadb -u qim -pqim qim -e "SHOW TABLES;"
 
 ```bash
 # MariaDB Flyway 이력 확인
-docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
+docker exec -it idem-mariadb mariadb -u qim -pqim qim \
   -e "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
 # 정상 출력:
 # | 1 | Initial Q-IM schema     | 1 |
@@ -678,7 +678,7 @@ docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
 
 ```bash
 # Docker 컨테이너 내부에서 psql 실행
-docker exec -it onepass-postgres psql -U onepass -d onepass -c "\dn"
+docker exec -it idem-postgres psql -U onepass -d onepass -c "\dn"
 ```
 
 **정상 출력 (Q-IM 제거, MariaDB로 이관됨):**
@@ -695,19 +695,19 @@ docker exec -it onepass-postgres psql -U onepass -d onepass -c "\dn"
 (5 rows)
 ```
 
-> ℹ️ `qim` 스키마는 PostgreSQL에 없습니다. Q-IM은 MariaDB(`onepass-mariadb:3306/qim`)를 사용합니다.
+> ℹ️ `qim` 스키마는 PostgreSQL에 없습니다. Q-IM은 MariaDB(`idem-mariadb:3306/qim`)를 사용합니다.
 
 ### 4.4 Redis 연결 확인
 
 ```bash
-docker exec -it onepass-redis redis-cli ping
+docker exec -it idem-redis redis-cli ping
 # PONG 이 출력되면 정상
 ```
 
 ### 4.5 Kafka 토픽 생성 확인
 
 ```bash
-docker exec -it onepass-kafka \
+docker exec -it idem-kafka \
   kafka-topics --bootstrap-server localhost:9092 --list
 ```
 
@@ -893,7 +893,7 @@ curl http://localhost:8081/actuator/health
 ```
 
 > ⚠️ q-im은 **MariaDB** (`localhost:3306/qim`)에 연결합니다.  
-> `onepass-mariadb` 컨테이너가 `healthy` 상태인지 먼저 확인하세요.
+> `idem-mariadb` 컨테이너가 `healthy` 상태인지 먼저 확인하세요.
 
 #### Windows PowerShell
 
@@ -1036,7 +1036,7 @@ yarn dev
 #### Windows PowerShell
 
 ```powershell
-cd onepass-fe\frontend
+cd idem-console\frontend
 yarn install
 yarn dev
 ```
@@ -1175,7 +1175,7 @@ curl -s -X POST http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001/rota
 
 ```bash
 # Rate Limiter Redis 키 확인 (Redis CLI)
-docker exec -it onepass-redis redis-cli
+docker exec -it idem-redis redis-cli
 
 # TPS 카운터 키 확인 (에포크 초 단위 슬라이딩 윈도우)
 KEYS ido:rl:tps:*
@@ -1187,7 +1187,7 @@ KEYS ido:rl:daily:*
 # GET ido:rl:tps:AGENCY_STUB_001:<epochSecond>
 
 # per-agency Rate Limit 설정 확인 (PostgreSQL)
-docker exec -it onepass-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U onepass -d onepass \
   -c "SELECT * FROM ido.agency_rate_limit_config;"
 ```
 
@@ -1199,10 +1199,10 @@ grep -A 3 "pkce" idem-gate/src/main/resources/application.yml
 # qsign.pkce.enabled: true 이어야 함
 
 # Redis에서 PKCE challenge 키 확인 (인증 흐름 진행 중일 때)
-docker exec -it onepass-redis redis-cli KEYS "qsign:pkce:challenge:*"
+docker exec -it idem-redis redis-cli KEYS "qsign:pkce:challenge:*"
 
 # PKCE challenge TTL 확인
-# docker exec -it onepass-redis redis-cli TTL "qsign:pkce:challenge:<state>"
+# docker exec -it idem-redis redis-cli TTL "qsign:pkce:challenge:<state>"
 ```
 
 #### MemberLookup — CI 기반 회원 조회 (IdO → Q-IM)
@@ -1218,7 +1218,7 @@ curl -s -X POST http://localhost:8083/api/v1/member/lookup \
 # 기대 결과: 유효하지 않은 CI → 404 또는 복호화 오류 응답
 
 # Q-IM MemberLookup 로그 확인 (member_lookup_log 테이블)
-docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
+docker exec -it idem-mariadb mariadb -u qim -pqim qim \
   -e "SELECT agency_code, lookup_type, result_code, response_ms, occurred_at \
       FROM member_lookup_log ORDER BY occurred_at DESC LIMIT 10;"
 ```
@@ -1227,17 +1227,17 @@ docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
 
 ```bash
 # 현재 활성 AES 키 버전 확인
-docker exec -it onepass-redis redis-cli GET "ido:crypto:aes:current-version"
+docker exec -it idem-redis redis-cli GET "ido:crypto:aes:current-version"
 # 예시 출력: "v1"
 
 # 키 버전별 등록 여부 확인
-docker exec -it onepass-redis redis-cli KEYS "ido:crypto:aes:version:*"
+docker exec -it idem-redis redis-cli KEYS "ido:crypto:aes:version:*"
 
 # 로테이션 분산 락 확인 (로테이션 진행 중에만 존재)
-docker exec -it onepass-redis redis-cli EXISTS "ido:crypto:aes:rotate-lock"
+docker exec -it idem-redis redis-cli EXISTS "ido:crypto:aes:rotate-lock"
 
 # PostgreSQL crypto_key_registry 테이블 확인
-docker exec -it onepass-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U onepass -d onepass \
   -c "SELECT key_type, key_version, active, current_flag, grace_until \
       FROM ido.crypto_key_registry ORDER BY created_at;"
 ```
@@ -1267,7 +1267,7 @@ curl -s -X POST "http://localhost:8083/api/v1/agency/events/{dispatchId}/read" \
 # 기대 결과: HTTP 204 No Content
 
 # webhook_dispatch_outbox 테이블 직접 확인
-docker exec -it onepass-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U onepass -d onepass \
   -c "SELECT dispatch_id, event_type, status, agency_code, created_at \
       FROM ido.webhook_dispatch_outbox \
       ORDER BY created_at DESC LIMIT 10;"
@@ -1277,32 +1277,32 @@ docker exec -it onepass-postgres psql -U onepass -d onepass \
 
 ```bash
 # provider_config 테이블에서 provider_type 확인
-docker exec -it onepass-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U onepass -d onepass \
   -c "SELECT provider_code, provider_type, broker_mode, active \
       FROM ido.provider_config ORDER BY provider_code;"
 
 # provider_circuit_config 테이블 확인 (동적 CB 설정)
-docker exec -it onepass-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U onepass -d onepass \
   -c "SELECT provider_code, sliding_window_size, failure_rate_threshold, \
              wait_duration_open_ms, active \
       FROM ido.provider_circuit_config;"
 
 # Redis에서 Provider 설정 캐시 확인
-docker exec -it onepass-redis redis-cli KEYS "ido:provider-config:*"
+docker exec -it idem-redis redis-cli KEYS "ido:provider-config:*"
 ```
 
 #### Broker Audit Log 확인 (v1.9.0)
 
 ```bash
 # 브로커 감사 로그 최근 20건 확인
-docker exec -it onepass-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U onepass -d onepass \
   -c "SELECT provider_code, provider_type, action, auth_level, \
              error_code, created_at \
       FROM ido.broker_audit_log \
       ORDER BY created_at DESC LIMIT 20;"
 
 # 특정 provider_code의 실패 내역 확인
-docker exec -it onepass-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U onepass -d onepass \
   -c "SELECT action, error_code, error_detail, client_ip, created_at \
       FROM ido.broker_audit_log \
       WHERE provider_code = 'KAKAO_OIDC' AND action = 'FAIL' \
@@ -1313,7 +1313,7 @@ docker exec -it onepass-postgres psql -U onepass -d onepass \
 
 ```bash
 # IdO auth_result V10 확장 컬럼 확인
-docker exec -it onepass-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U onepass -d onepass \
   -c "SELECT auth_result_id, provider_code, auth_method, \
              issued_at, expires_at,
              CASE WHEN raw_id_token IS NOT NULL THEN 'SET' ELSE 'NULL' END AS raw_token_status,
@@ -1322,7 +1322,7 @@ docker exec -it onepass-postgres psql -U onepass -d onepass \
       ORDER BY created_at DESC LIMIT 5;"
 
 # Q-Sign auth_method 컬럼 확인
-docker exec -it onepass-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U onepass -d onepass \
   -c "SELECT auth_result_id, provider_code, auth_method, created_at \
       FROM qsign.auth_result \
       ORDER BY created_at DESC LIMIT 5;"
@@ -1746,7 +1746,7 @@ docker compose -f infra/docker/docker-compose.yml down -v postgres
 docker compose -f infra/docker/docker-compose.yml up -d postgres
 
 # 또는 직접 초기화 스크립트 실행
-docker exec -i onepass-postgres \
+docker exec -i idem-postgres \
   psql -U onepass -d onepass < infra/docker/init-db.sql
 ```
 
@@ -1759,7 +1759,7 @@ docker exec -i onepass-postgres \
 **해결:**
 ```bash
 # Flyway baseline 재설정 (마이그레이션 기록 테이블 초기화)
-docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+docker exec -it idem-postgres psql -U onepass -d onepass -c \
   "DELETE FROM ido.flyway_schema_history WHERE version = '1';"
 
 # 또는 완전 초기화 (DB 볼륨 삭제)
@@ -1789,9 +1789,9 @@ docker compose -f infra/docker/docker-compose.yml logs kafka-init
 docker compose -f infra/docker/docker-compose.yml restart kafka-init
 
 # 또는 수동으로 토픽 생성 스크립트 실행
-docker exec -it onepass-kafka bash /create-topics.sh
+docker exec -it idem-kafka bash /create-topics.sh
 # 위가 안 되면:
-docker exec -it onepass-kafka \
+docker exec -it idem-kafka \
   kafka-topics --bootstrap-server localhost:9092 \
   --create --topic qsign.auth.events \
   --partitions 6 --replication-factor 1
@@ -1820,7 +1820,7 @@ docker compose -f infra/docker/docker-compose.yml ps kafka
 ./gradlew :idem-hub:bootRun
 
 # Kafka 브로커 직접 연결 테스트
-docker exec -it onepass-kafka \
+docker exec -it idem-kafka \
   kafka-broker-api-versions --bootstrap-server localhost:9092
 ```
 
@@ -1871,7 +1871,7 @@ org.springframework.data.redis.RedisConnectionFailureException:
 docker compose -f infra/docker/docker-compose.yml ps redis
 
 # Redis 연결 테스트
-docker exec -it onepass-redis redis-cli ping
+docker exec -it idem-redis redis-cli ping
 # PONG 이 나와야 정상
 
 # Redis 재시작
@@ -1895,10 +1895,10 @@ io.lettuce.core.RedisCommandExecutionException: OOM command not allowed when use
 **해결:**
 ```bash
 # Redis 메모리 사용량 확인
-docker exec -it onepass-redis redis-cli info memory | grep used_memory_human
+docker exec -it idem-redis redis-cli info memory | grep used_memory_human
 
 # 전체 캐시 삭제 (주의: 모든 세션 및 캐시 데이터 삭제)
-docker exec -it onepass-redis redis-cli FLUSHALL
+docker exec -it idem-redis redis-cli FLUSHALL
 
 # 또는 redis.conf의 maxmemory 값 증가 후 재시작
 # infra/docker/redis/redis.conf 에서 maxmemory 512mb → 1024mb 변경
@@ -2097,7 +2097,7 @@ docker compose -f infra/docker/docker-compose.yml ps kafka
 sleep 30
 
 # 3. Kafka 직접 연결 테스트
-docker exec -it onepass-kafka \
+docker exec -it idem-kafka \
   kafka-broker-api-versions --bootstrap-server localhost:9092
 
 # 4. 모두 정상이면 Spring Boot 재기동
@@ -2147,7 +2147,7 @@ Migration checksum mismatch for migration version 1
 # 기동 후 해당 설정 제거
 
 # 방법 2: 마이그레이션 기록 수동 수정 (개발 환경 전용)
-docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+docker exec -it idem-postgres psql -U onepass -d onepass -c \
   "UPDATE ido.flyway_schema_history SET checksum = [새_체크섬] WHERE version = '1';"
 
 # 방법 3: 완전 초기화 (데이터 전부 삭제, 개발 환경만)
@@ -2390,7 +2390,7 @@ PlatformException: IDP_SIGNATURE_MISMATCH — state 검증 실패 (만료 또는
    ```
 2. **Redis 연결 끊김**: state가 저장되지 않은 경우
    ```bash
-   docker exec -it onepass-redis redis-cli ping
+   docker exec -it idem-redis redis-cli ping
    # PONG 이면 정상
    docker compose -f infra/docker/docker-compose.yml restart redis
    ```
@@ -2675,12 +2675,12 @@ HTTP 429 Too Many Requests 응답.
 
 ```bash
 # 1. 현재 TPS 카운터 확인 (Redis)
-docker exec -it onepass-redis redis-cli \
+docker exec -it idem-redis redis-cli \
   KEYS "ido:rl:tps:AGENCY_STUB_001:*"
 # 키가 있으면 해당 초에 요청이 집중된 것
 
 # 2. 일별 쿼터 카운터 확인
-docker exec -it onepass-redis redis-cli \
+docker exec -it idem-redis redis-cli \
   GET "ido:rl:daily:AGENCY_STUB_001:$(date +%Y%m%d)"
 # 1000000 이상이면 일별 한도 초과
 
@@ -2690,16 +2690,16 @@ docker exec -it onepass-redis redis-cli \
 # ido.rate-limit.daily-limit: 100000000
 
 # 4. DB에서 기관별 Rate Limit 설정 확인/수정 (개발 환경)
-docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+docker exec -it idem-postgres psql -U onepass -d onepass -c \
   "SELECT * FROM ido.agency_rate_limit_config;"
 # 특정 기관 한도 상향 (개발용)
-docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+docker exec -it idem-postgres psql -U onepass -d onepass -c \
   "UPDATE ido.agency_rate_limit_config \
    SET tps_limit=10000, daily_limit=100000000 \
    WHERE agency_code='AGENCY_STUB_001';"
 
 # 5. Redis Rate Limit 카운터 수동 초기화 (긴급 시)
-docker exec -it onepass-redis redis-cli DEL \
+docker exec -it idem-redis redis-cli DEL \
   "ido:rl:daily:AGENCY_STUB_001:$(date +%Y%m%d)"
 ```
 
@@ -2728,11 +2728,11 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
 
 2. **Redis 연결 문제** — challenge 저장 실패
    ```bash
-   docker exec -it onepass-redis redis-cli ping
+   docker exec -it idem-redis redis-cli ping
    # PONG 이면 정상
    
    # PKCE 키 존재 여부 확인
-   docker exec -it onepass-redis redis-cli KEYS "qsign:pkce:challenge:*"
+   docker exec -it idem-redis redis-cli KEYS "qsign:pkce:challenge:*"
    ```
 
 3. **PKCE 비활성화** (로컬 테스트용)
@@ -2769,11 +2769,11 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
 2. **기관 코드를 찾을 수 없음** → 404 응답
    ```bash
    # DB에서 등록된 기관 목록 확인
-   docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+   docker exec -it idem-postgres psql -U onepass -d onepass -c \
      "SELECT agency_code, official_name, active FROM ido.agency_meta;"
    
    # 기관이 없으면 V8/V9 마이그레이션 확인
-   docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+   docker exec -it idem-postgres psql -U onepass -d onepass -c \
      "SELECT version, description, success \
       FROM ido.flyway_schema_history ORDER BY installed_rank;"
    # V8 (seed agency api key), V9 (crypto key registry) 모두 Success이어야 함
@@ -2782,8 +2782,8 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
 3. **AgencyMeta Redis 캐시 stale** — 캐시 TTL 60분 내 변경 사항 미반영
    ```bash
    # 캐시 수동 삭제 (재기동 없이 즉시 반영)
-   docker exec -it onepass-redis redis-cli KEYS "ido:agency:*"
-   docker exec -it onepass-redis redis-cli DEL "ido:agency:AGENCY_STUB_001"
+   docker exec -it idem-redis redis-cli KEYS "ido:agency:*"
+   docker exec -it idem-redis redis-cli DEL "ido:agency:AGENCY_STUB_001"
    ```
 
 ---
@@ -2811,7 +2811,7 @@ ERROR CiCryptoServiceImpl - CI 복호화 실패: AES-256-GCM tag mismatch
 2. **CI 암호화 키 버전 불일치** — IdO와 Q-IM의 키가 다른 경우
    ```bash
    # Q-IM의 active CI 암호화 키 버전 확인 (MariaDB)
-   docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
+   docker exec -it idem-mariadb mariadb -u qim -pqim qim \
      -e "SELECT key_type, key_version, active FROM crypto_key_version;"
    
    # IdO application.yml의 CI 암호화 키 버전 확인
@@ -2828,7 +2828,7 @@ ERROR CiCryptoServiceImpl - CI 복호화 실패: AES-256-GCM tag mismatch
 
 4. **member_lookup_log 감사 기록 확인**
    ```bash
-   docker exec -it onepass-mariadb mariadb -u qim -pqim qim \
+   docker exec -it idem-mariadb mariadb -u qim -pqim qim \
      -e "SELECT agency_code, lookup_type, result_code, response_ms, occurred_at \
          FROM member_lookup_log ORDER BY occurred_at DESC LIMIT 20;"
    # result_code: NOT_FOUND / FOUND / ERROR / DECRYPTION_FAILED
@@ -2850,23 +2850,23 @@ ERROR HandoffKeyRotationScheduler - 로테이션 중 오류 발생
 1. **분산 락이 해제되지 않음** — 이전 로테이션이 비정상 종료된 경우
    ```bash
    # 로테이션 락 키 존재 여부 확인
-   docker exec -it onepass-redis redis-cli EXISTS "ido:crypto:aes:rotate-lock"
+   docker exec -it idem-redis redis-cli EXISTS "ido:crypto:aes:rotate-lock"
    # 1 = 락 존재 (정상 로테이션 중), 0 = 락 없음 (정상)
    
    # 락이 오래 지속되면 (비정상 잔류) 수동 삭제
-   docker exec -it onepass-redis redis-cli DEL "ido:crypto:aes:rotate-lock"
+   docker exec -it idem-redis redis-cli DEL "ido:crypto:aes:rotate-lock"
    ```
 
 2. **현재 키 버전 확인 및 수동 초기화**
    ```bash
    # 현재 버전 확인
-   docker exec -it onepass-redis redis-cli GET "ido:crypto:aes:current-version"
+   docker exec -it idem-redis redis-cli GET "ido:crypto:aes:current-version"
    
    # 등록된 키 버전 목록
-   docker exec -it onepass-redis redis-cli KEYS "ido:crypto:aes:version:*"
+   docker exec -it idem-redis redis-cli KEYS "ido:crypto:aes:version:*"
    
    # DB crypto_key_registry 확인
-   docker exec -it onepass-postgres psql -U onepass -d onepass -c \
+   docker exec -it idem-postgres psql -U onepass -d onepass -c \
      "SELECT key_type, key_version, active, current_flag, grace_until \
       FROM ido.crypto_key_registry ORDER BY created_at;"
    ```
@@ -2915,9 +2915,9 @@ docker compose -f infra/docker/docker-compose.yml ps
 docker compose -f infra/docker/docker-compose.yml restart kafka
 
 # 컨테이너 내부 접속
-docker exec -it onepass-postgres bash
-docker exec -it onepass-kafka bash
-docker exec -it onepass-redis redis-cli
+docker exec -it idem-postgres bash
+docker exec -it idem-kafka bash
+docker exec -it idem-redis redis-cli
 
 # 로그 실시간 확인 (최근 100줄부터)
 docker compose -f infra/docker/docker-compose.yml logs -f --tail=100 kafka
@@ -2927,14 +2927,14 @@ docker stats
 
 # 네트워크 확인
 docker network ls
-docker network inspect onepass_onepass-net
+docker network inspect onepass_idem-net
 ```
 
 ### 12.3 MariaDB 유용한 명령어 (Q-IM 전용)
 
 ```bash
 # MariaDB CLI 접속
-docker exec -it onepass-mariadb mariadb -u qim -pqim qim
+docker exec -it idem-mariadb mariadb -u qim -pqim qim
 
 # 테이블 목록
 SHOW TABLES;
@@ -2966,7 +2966,7 @@ FROM crypto_key_version ORDER BY created_at;
 
 ```bash
 # psql 접속
-docker exec -it onepass-postgres psql -U onepass -d onepass
+docker exec -it idem-postgres psql -U onepass -d onepass
 
 # 스키마별 테이블 목록
 \dn          -- 스키마 목록 (qim 없음 — MariaDB 이관)
@@ -3001,7 +3001,7 @@ FROM ido.member_lookup_log ORDER BY occurred_at DESC LIMIT 20;
 
 ```bash
 # Redis CLI 접속
-docker exec -it onepass-redis redis-cli
+docker exec -it idem-redis redis-cli
 
 # --- 기존 키 패턴 ---
 
@@ -3041,47 +3041,47 @@ INFO memory
 
 ```bash
 # 전체 IdO Rate Limit 키 확인
-docker exec -it onepass-redis redis-cli KEYS "ido:rl:*"
+docker exec -it idem-redis redis-cli KEYS "ido:rl:*"
 
 # 전체 PKCE 키 확인
-docker exec -it onepass-redis redis-cli KEYS "qsign:pkce:*"
+docker exec -it idem-redis redis-cli KEYS "qsign:pkce:*"
 
 # 전체 AES 암호화 관련 키 확인
-docker exec -it onepass-redis redis-cli KEYS "ido:crypto:*"
+docker exec -it idem-redis redis-cli KEYS "ido:crypto:*"
 
 # 특정 기관의 오늘 Rate Limit 카운터 조회
 AGENCY=AGENCY_STUB_001
 DATE=$(date +%Y%m%d)
-docker exec -it onepass-redis redis-cli GET "ido:rl:daily:${AGENCY}:${DATE}"
+docker exec -it idem-redis redis-cli GET "ido:rl:daily:${AGENCY}:${DATE}"
 
 # 현재 AES 키 버전 조회
-docker exec -it onepass-redis redis-cli GET "ido:crypto:aes:current-version"
+docker exec -it idem-redis redis-cli GET "ido:crypto:aes:current-version"
 ```
 
 ### 12.7 Kafka 유용한 명령어
 
 ```bash
 # 토픽 목록 확인
-docker exec -it onepass-kafka \
+docker exec -it idem-kafka \
   kafka-topics --bootstrap-server localhost:9092 --list
 
 # 토픽 상세 정보
-docker exec -it onepass-kafka \
+docker exec -it idem-kafka \
   kafka-topics --bootstrap-server localhost:9092 \
   --describe --topic qsign.auth.events
 
 # 토픽 메시지 실시간 소비 (처음부터)
-docker exec -it onepass-kafka \
+docker exec -it idem-kafka \
   kafka-console-consumer --bootstrap-server localhost:9092 \
   --topic qsign.auth.events \
   --from-beginning
 
 # 컨슈머 그룹 목록
-docker exec -it onepass-kafka \
+docker exec -it idem-kafka \
   kafka-consumer-groups --bootstrap-server localhost:9092 --list
 
 # 컨슈머 그룹 lag 확인
-docker exec -it onepass-kafka \
+docker exec -it idem-kafka \
   kafka-consumer-groups --bootstrap-server localhost:9092 \
   --describe --group ido-qsign-consumer
 ```
@@ -3237,8 +3237,8 @@ Step 5 — 프론트엔드 기동 (1개 터미널)
 | Redis Host | `localhost` | `redis` |
 | Redis Port | `6379` | `6379` |
 | Kafka Servers | `localhost:9092` | `kafka:29092` |
-| Q-IM Base URL | `http://localhost:8082` | `http://onepass-qim:8082` |
-| Q-Sign Base URL | `http://localhost:8081` | `http://onepass-qsign:8081` |
+| Q-IM Base URL | `http://localhost:8082` | `http://idem-registry:8082` |
+| Q-Sign Base URL | `http://localhost:8081` | `http://idem-gate:8081` |
 | IDO Broker Mode | `qsign` | `qsign` |
 | Keycloak Base URL | `http://localhost:8088` | `http://keycloak:8080` |
 

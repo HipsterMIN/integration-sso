@@ -135,12 +135,12 @@ SMEP 인수인계 문서(2026-05-08) 기준 현재 bypass 중인 항목:
 ═══════════════════════════════════════════════════════════════
   사용자 (브라우저)
       │ HTTPS
-  onepass-fe (React SPA, :3001)
+  idem-console (React SPA, :3001)
       │ BFF API
   유관기관 시스템 (SMEP 등 — 항상 외부망)
       │ HTTPS (Handoff Ticket Verify)
 ═══════════════════════════════════════════════════════════════
-  내부망 (onepass-net)
+  내부망 (idem-net)
 ═══════════════════════════════════════════════════════════════
       │
   IdO :8083  [오케스트레이터 — 단일 진입점]
@@ -173,7 +173,7 @@ SMEP 인수인계 문서(2026-05-08) 기준 현재 bypass 중인 항목:
 ```
 [계층 1 — 네트워크]
   기관 ↔ IdO: HTTPS only
-  내부 서비스 간: onepass-net 격리
+  내부 서비스 간: idem-net 격리
 
 [계층 2 — 인증/인가]
   기관 → IdO:          X-Agency-Code + X-Agency-Key (PBKDF2 해시 검증)
@@ -301,7 +301,7 @@ ADR-001 기준 올바른 연동 구조:
 
 ```
 [인증 흐름]
-사용자 → onepass-fe → IdO → Q-Sign → Keycloak → (kakao/naver)
+사용자 → idem-console → IdO → Q-Sign → Keycloak → (kakao/naver)
                        └→ Handoff Ticket 발급
                             ↓
 SMEP ← ticketId redirect ← 사용자
@@ -368,7 +368,7 @@ public class SmepAgencyAdapter implements AgencyAdapter {
 | **Q-Sign 팀** | 인증 SoR 완성 | `q-sign` | X-Internal-Sig 수신 검증 (GAP-QS-04) |
 | **기관(SMEP) 팀** | Handoff Ticket 연동 | `agency-stub` 참조 | Ticket Verify API 연동 구현 |
 | **인프라 팀** | 운영 환경 구성 | `infra/docker` | 운영 키 교체, K8s 준비 |
-| **프론트엔드 팀** | UI 고도화 | `onepass-fe` | 회원 전환·관리 UI |
+| **프론트엔드 팀** | UI 고도화 | `idem-console` | 회원 전환·관리 UI |
 
 ### 5.2 기관(SMEP) 팀 마이그레이션 경로
 
@@ -486,7 +486,7 @@ cd ../..
 ./gradlew :idem-tenant-sample:bootRun &  # :8084
 
 # 5. 프론트엔드 기동 (별도 터미널)
-cd onepass-fe
+cd idem-console
 npm install
 npm run dev   # :3001
 

@@ -191,7 +191,7 @@ Week 1:
 Week 2:
   □ Sprint 14 코드 리뷰: ProvisioningService, ProvisioningOutboxRelay
   □ Sprint 15 코드 리뷰: AgencyGatewayController, AgencyGatewayServiceImpl
-  □ Sprint 16 코드 리뷰: onepass-agency-sdk 전체
+  □ Sprint 16 코드 리뷰: idem-sdk-java 전체
   □ Flyway V15/V16 마이그레이션 SQL 이해
   □ FeatureFlags 클래스 이해 (/actuator/features 응답 확인)
 ```
@@ -350,7 +350,7 @@ IDO_GATEWAY_IDEMPOTENCY_ENABLED: "true"  # F-25: ON
 ## 7. Phase 4: SDK 공개 + 보안 강화 (Sprint 16~17)
 
 ### 목표
-- `onepass-agency-sdk` Maven/Gradle 배포
+- `idem-sdk-java` Maven/Gradle 배포
 - HMAC-SHA256 서명 필수화
 - 유관기관 연동 시작
 
@@ -420,7 +420,7 @@ IDO_HMAC_SIG_REQUIRED: "true"            # F-26: HMAC 필수 검증 (Sprint 17)
 팀 이해도:
   □ HmacSigner 서명/검증 로직 설명 가능
   □ IdempotencyKeyGenerator 3종 전략 이해
-  □ onepass-agency-sdk 빌드 및 로컬 테스트 실행 성공
+  □ idem-sdk-java 빌드 및 로컬 테스트 실행 성공
   □ AgencyGatewayClient Builder 패턴 사용법 이해
 
 운영 안정성:

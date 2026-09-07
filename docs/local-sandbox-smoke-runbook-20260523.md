@@ -78,11 +78,11 @@ docker compose -f infra/docker/docker-compose.yml ps
 ```
 
 ```powershell
-docker logs --tail 120 onepass-kafka-init
+docker logs --tail 120 idem-kafka-init
 ```
 
 ```powershell
-docker exec onepass-kafka kafka-topics --bootstrap-server localhost:9092 --list
+docker exec idem-kafka kafka-topics --bootstrap-server localhost:9092 --list
 ```
 
 - 결과:
@@ -92,11 +92,11 @@ docker exec onepass-kafka kafka-topics --bootstrap-server localhost:9092 --list
 ### 1-5. DB 스모크 확인
 
 ```powershell
-docker exec onepass-postgres psql -U onepass -d onepass -tAc "select schema_name from information_schema.schemata where schema_name in ('keycloak','agency_stub','ido','qsign') order by schema_name;"
+docker exec idem-postgres psql -U onepass -d onepass -tAc "select schema_name from information_schema.schemata where schema_name in ('keycloak','agency_stub','ido','qsign') order by schema_name;"
 ```
 
 ```powershell
-docker exec onepass-mariadb mariadb -u root -proot -N -e "SHOW DATABASES LIKE 'qim';"
+docker exec idem-mariadb mariadb -u root -proot -N -e "SHOW DATABASES LIKE 'qim';"
 ```
 
 - 결과: 실패 (`root` 비밀번호 불일치)
@@ -106,11 +106,11 @@ rg -n "mariadb|MYSQL_ROOT_PASSWORD|MARIADB_ROOT_PASSWORD|MARIADB_DATABASE" infra
 ```
 
 ```powershell
-docker inspect onepass-mariadb --format "{{json .Config.Env}}"
+docker inspect idem-mariadb --format "{{json .Config.Env}}"
 ```
 
 ```powershell
-docker exec onepass-mariadb mariadb -u root -prootpass -N -e "SHOW DATABASES LIKE 'qim';"
+docker exec idem-mariadb mariadb -u root -prootpass -N -e "SHOW DATABASES LIKE 'qim';"
 ```
 
 - 결과: 성공 (`qim` 확인)
@@ -118,11 +118,11 @@ docker exec onepass-mariadb mariadb -u root -prootpass -N -e "SHOW DATABASES LIK
 ### 1-6. kafka-ui 비정상 원인 확인
 
 ```powershell
-docker logs --tail 80 onepass-kafka-ui
+docker logs --tail 80 idem-kafka-ui
 ```
 
 ```powershell
-docker inspect onepass-kafka-ui --format "{{.State.Health.Status}}|{{range .State.Health.Log}}{{.ExitCode}} {{.Output}}{{end}}"
+docker inspect idem-kafka-ui --format "{{.State.Health.Status}}|{{range .State.Health.Log}}{{.ExitCode}} {{.Output}}{{end}}"
 ```
 
 - 결과: `unhealthy`, 헬스체크에서 `curl not found`
@@ -172,7 +172,7 @@ docker compose -f infra/docker/docker-compose.yml --profile app --profile option
 ```
 
 - 결과: 실패  
-  - 원인: `onepass-qim` 이미지 pull 실패 (`pull access denied`)
+  - 원인: `idem-registry` 이미지 pull 실패 (`pull access denied`)
 
 ### 1-10. 최종 상태 확인
 
@@ -222,9 +222,9 @@ docker compose -f infra/docker/docker-compose.yml ps
 ### Step D. Kafka/DB 스모크
 
 ```powershell
-docker exec onepass-kafka kafka-topics --bootstrap-server localhost:9092 --list
-docker exec onepass-postgres psql -U onepass -d onepass -tAc "select schema_name from information_schema.schemata where schema_name in ('keycloak','agency_stub','ido','qsign') order by schema_name;"
-docker exec onepass-mariadb mariadb -u root -prootpass -N -e "SHOW DATABASES LIKE 'qim';"
+docker exec idem-kafka kafka-topics --bootstrap-server localhost:9092 --list
+docker exec idem-postgres psql -U onepass -d onepass -tAc "select schema_name from information_schema.schemata where schema_name in ('keycloak','agency_stub','ido','qsign') order by schema_name;"
+docker exec idem-mariadb mariadb -u root -prootpass -N -e "SHOW DATABASES LIKE 'qim';"
 ```
 
 ### Step E. 핵심 테스트
@@ -248,7 +248,7 @@ docker compose -f infra/docker/docker-compose.yml --profile app --profile option
   - infra core 컨테이너 기동
   - Kafka 토픽/DB 기본 리소스 준비
 - `NO-GO` 원인:
-  - app profile 전체 기동 실패 (`onepass-qim` 이미지 pull 실패)
+  - app profile 전체 기동 실패 (`idem-registry` 이미지 pull 실패)
   - `q-im`, `ido` 테스트 실패
   - `kafka-ui` unhealthy
 

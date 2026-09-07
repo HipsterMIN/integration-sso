@@ -48,7 +48,7 @@ OnePass는 다음 5개 서비스로 구성된다(`infra/docker/docker-compose.ym
 | Grafana (profile: monitoring) | 3002 (`admin/admin`) | 172.20.0.51 |
 | Loki / Promtail | 3100 | 172.20.0.52 / .53 |
 
-서브넷은 `172.20.0.0/24` (Docker bridge: `onepass-net`).
+서브넷은 `172.20.0.0/24` (Docker bridge: `idem-net`).
 
 ---
 
@@ -352,7 +352,7 @@ Prometheus에서 다음 메트릭을 추적(앱 자체 메트릭, `/actuator/pro
 - `outbox_relay_duration_seconds` — 발행 latency
 - `webhook_dispatch_attempts_total{result="success|failure"}` — Webhook 결과
 
-대시보드: `infra/monitoring/dashboards/onepass-overview.json` (Grafana 진입 시 기본 로딩).
+대시보드: `infra/monitoring/dashboards/idem-overview.json` (Grafana 진입 시 기본 로딩).
 
 ### 6.4 수동 재시도
 
@@ -579,7 +579,7 @@ management.otlp.tracing.endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/trace
 
 - Prometheus 설정: `infra/monitoring/prometheus/prometheus.yml`
 - 알람 규칙: `infra/monitoring/prometheus/alert_rules.yml`
-- 대시보드: `infra/monitoring/dashboards/onepass-overview.json`
+- 대시보드: `infra/monitoring/dashboards/idem-overview.json`
 - 로그: Loki + Promtail (컨테이너 label `logging=promtail` 인 서비스만 수집)
 
 ---
@@ -645,8 +645,8 @@ ConfigMap 또는 환경변수로 주입한다(기관 callback whitelist 보조).
 
 ```bash
 # 컨테이너 로그
-docker logs onepass-ido --tail=200 | grep -E "validate|empty|required|fail"
-docker logs onepass-qim --tail=200 | grep -E "validate|empty|required|fail"
+docker logs idem-hub --tail=200 | grep -E "validate|empty|required|fail"
+docker logs idem-registry --tail=200 | grep -E "validate|empty|required|fail"
 
 # 검증 메서드 위치
 # - q-im: CiCryptoServiceImpl.validateKeyV1(), DiGenerationService.validateDiSecret()
@@ -691,7 +691,7 @@ readiness probe FAIL 로 K8s가 자동으로 endpoint에서 제외한다. 단,
 ## 17. 정기 점검 체크리스트
 
 ### 일간
-- [ ] Grafana `onepass-overview` 대시보드 SLA 패널 (P95 latency, 5xx rate)
+- [ ] Grafana `idem-overview` 대시보드 SLA 패널 (P95 latency, 5xx rate)
 - [ ] `outbox_pending_total` < 100 (각 모듈)
 - [ ] `webhook_dispatch_attempts_total{result="failure"}` 증가 추세 없음
 - [ ] CB Open 카운트 0

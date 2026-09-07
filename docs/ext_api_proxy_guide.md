@@ -8,7 +8,7 @@
 
 ## 1. 개요: 왜 FE가 Q-IM을 직접 호출하는 것처럼 보일까?
 
-OnePass 플랫폼의 프론트엔드(`onepass-fe`) 코드를 분석해보면, `extInstance`라는 API 클라이언트를 통해 `/api/ext/members/{mbrNo}`, `/api/ext/provision/users` 와 같은 수많은 API를 호출하는 것을 볼 수 있습니다. 이 경로들은 회원 정보와 관련된 Q-IM(식별 원장) 모듈의 기능들입니다.
+OnePass 플랫폼의 프론트엔드(`idem-console`) 코드를 분석해보면, `extInstance`라는 API 클라이언트를 통해 `/api/ext/members/{mbrNo}`, `/api/ext/provision/users` 와 같은 수많은 API를 호출하는 것을 볼 수 있습니다. 이 경로들은 회원 정보와 관련된 Q-IM(식별 원장) 모듈의 기능들입니다.
 
 **결론부터 말씀드리면, 사용자의 브라우저(FE)는 Q-IM 서버와 '직접' 네트워크 통신을 하지 않습니다.**
 
@@ -28,7 +28,7 @@ OnePass 플랫폼의 프론트엔드(`onepass-fe`) 코드를 분석해보면, `e
 
 ```mermaid
 flowchart LR
-    FE["🌐 브라우저\n(onepass-fe)"]
+    FE["🌐 브라우저\n(idem-console)"]
     NGINX["🔀 Nginx\n(리버스 프록시\n단일 진입점)"]
     IDO["⚙️ IdO 서버\n:8083\nExtProxyController"]
     QIM["🗄️ Q-IM 서버\n:8082\n(내부망 전용)"]
@@ -45,7 +45,7 @@ flowchart LR
     style IDO fill:#e6ffe6,stroke:#009900
 ```
 
-> **Nginx의 역할**: `nginx.conf`의 `location /api/` 블록이 모든 API 요청을 `bff_backend`(= `onepass-ido:8083`)로 라우팅합니다. FE는 Nginx 주소 하나만 알면 됩니다.
+> **Nginx의 역할**: `nginx.conf`의 `location /api/` 블록이 모든 API 요청을 `bff_backend`(= `idem-hub:8083`)로 라우팅합니다. FE는 Nginx 주소 하나만 알면 됩니다.
 
 ---
 
@@ -403,7 +403,7 @@ const response = await extInstance.get('/api/ext/member/profile');
 
 ```nginx
 upstream bff_backend {
-    server onepass-ido:8083;  # IdO 서버
+    server idem-hub:8083;  # IdO 서버
     keepalive 32;
 }
 
@@ -427,7 +427,7 @@ server {
 
 | 환경변수 | 설명 | 비고 |
 |---------|------|------|
-| `QIM_BASE_URL` | Q-IM 서버 내부망 주소 | 예: `http://onepass-qim:8082` |
+| `QIM_BASE_URL` | Q-IM 서버 내부망 주소 | 예: `http://idem-registry:8082` |
 | `IDO_QIM_EXT_API_KEY` | Q-IM 외부 API 인증 키 | K8s Secret 주입 필수. 비어있으면 Q-IM 인증 실패 |
 
 ---

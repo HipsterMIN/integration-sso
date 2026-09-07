@@ -386,7 +386,7 @@
 - **K6 부하 테스트** (디렉토리 존재 확인됨) — 실제 race condition 발현 여부 측정.
 - **Ingress / Service Mesh 정책** — `/api/v1/fe-session` 외부 노출 여부 (F4.8 의 전제).
 - **Helm values.yaml + ConfigMap** — 운영 환경변수 누락 점검 (F5.1 의 전제).
-- **agency-stub / onepass-agent-testbed** — 기관 SDK 동작 검증.
+- **agency-stub / idem-agent-testbed** — 기관 SDK 동작 검증.
 - **OutboxRelay 의 ido vs qim 비교** — Phase 1 의 R3 risk 확인.
 
 ### 7.2 코드 외 권고사항

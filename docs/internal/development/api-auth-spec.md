@@ -1,6 +1,6 @@
 # 본인인증 API 명세서
 
-> **대상**: onepass-fe 프론트엔드 개발팀  
+> **대상**: idem-console 프론트엔드 개발팀  
 > **버전**: v1.0.0 (S7-T2 구현)  
 > **작성일**: 2026-05-10  
 > **API 기준 서버**: ido (port 8083)  
@@ -30,7 +30,7 @@
 
 ## 1. 개요
 
-본 문서는 onepass-fe React SPA가 본인인증 기능을 구현하기 위해 호출하는 **ido BFF API** 명세를 정의합니다.
+본 문서는 idem-console React SPA가 본인인증 기능을 구현하기 위해 호출하는 **ido BFF API** 명세를 정의합니다.
 
 ### 지원 인증 방식
 
@@ -790,7 +790,7 @@ console.log('인증 성공: name=', resultData.name, 'mobileCo=', resultData.mob
 ### 10.1 로컬 개발 환경
 
 ```bash
-# onepass-fe .env 설정 확인
+# idem-console .env 설정 확인
 cat frontend/.env
 # BE_API_TARGET=http://localhost:8083  → ido BFF
 

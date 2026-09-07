@@ -12,7 +12,7 @@
 
 **통합 결정 변경**: ~~Option B (onepass-bff 신규 모듈)~~ → **Option A: `ido` 모듈 직접 통합**
 
-`onepass-be`(identity-orchestrator)의 **5개 핵심 인증 엔드포인트(NICE/OACX/기업인증)** 및
+`idem-hub`(identity-orchestrator)의 **5개 핵심 인증 엔드포인트(NICE/OACX/기업인증)** 및
 **ImApiOutPort(CI → Q-IM 등록)** 기능을 `integration-sso`의 `ido` 모듈(포트 8083)에 직접 구현한다.
 
 ### Option A 선택 이유
@@ -29,7 +29,7 @@
 ### Option A 최종 아키텍처 (v2.0.0)
 
 ```
-onepass-fe (9090)
+idem-console (9090)
      │
      ▼
   ido (8083)  ◄── 모든 인증 엔드포인트 통합
@@ -51,7 +51,7 @@ onepass-fe (9090)
 
 ---
 
-## 1. onepass-be 분석 결과 요약
+## 1. idem-hub 분석 결과 요약
 
 ### 1.1 프로젝트 원본 정보
 
@@ -234,7 +234,7 @@ FE → POST /api/v1/auth/nice/ci-check
 
 ## 5. FE 연동 변경 사항 (GAP-BE-05)
 
-onepass-fe의 `beInstance` 설정을 아래와 같이 변경해야 한다.
+idem-console의 `beInstance` 설정을 아래와 같이 변경해야 한다.
 
 ```javascript
 // 변경 전 (Option B 기준 — 적용 안 됨)

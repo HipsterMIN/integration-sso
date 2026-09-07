@@ -1,5 +1,7 @@
 # OnePass Agent — JEUS 버전별 SSO 심층 기술 노트
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](../../naming.md) §3.
+
 > **문서 번호**: AGENT-JEUS-001  
 > **문서 버전**: v1.0.0  
 > **작성일**: 2026-05-17  
@@ -407,7 +409,7 @@ builder.installOn(inst);
 Bootstrap ClassLoader (JDK rt.jar)
     └── Extension ClassLoader
             └── System ClassLoader
-                    ├── Agent ClassLoader (onepass-agent-all.jar)
+                    ├── Agent ClassLoader (idem-agent-all.jar)
                     │       ← OnePassAgentMain, JavassistWeavingEngine 등
                     │
                     └── JEUS Server ClassLoader

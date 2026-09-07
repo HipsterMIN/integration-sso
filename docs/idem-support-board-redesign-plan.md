@@ -2,7 +2,7 @@
 
 > 작성일: 2026-05-26
 > 기준 기획안: `05.게시판.zip` (문의하기 목록/글쓰기/상세(타인글)/상세(본인글)/상세(관리자)/자주묻는질문 6장)
-> 적용 범위: `onepass-support` 모듈(백엔드) + `onepass-fe`(프론트엔드 신규 영역)
+> 적용 범위: `idem-support` 모듈(백엔드) + `idem-console`(프론트엔드 신규 영역)
 
 ---
 
@@ -10,12 +10,12 @@
 
 ### 0.1 두 단계 사용자 지시 정리
 
-- **1차 지시 (`초기`)**: "onepass-support는 SSO/IM과 별개 서비스. 사용자가 서비스를 이용할 때 로그인에 대해서는 신경을 쓰지 않아도 될 거 같아."
-- **2차 지시 (`보완`)**: "이미지를 자세히 보면 로그인 후 진행하는 흐름이다. onepass-fe를 통해서 접근하는 서비스이고 로그인된 사용자를 어떻게 알아보는가? 유관기관처럼 클라이언트 등록이 필요한가? 익명도 함께 정리해줘."
+- **1차 지시 (`초기`)**: "idem-support는 SSO/IM과 별개 서비스. 사용자가 서비스를 이용할 때 로그인에 대해서는 신경을 쓰지 않아도 될 거 같아."
+- **2차 지시 (`보완`)**: "이미지를 자세히 보면 로그인 후 진행하는 흐름이다. idem-console를 통해서 접근하는 서비스이고 로그인된 사용자를 어떻게 알아보는가? 유관기관처럼 클라이언트 등록이 필요한가? 익명도 함께 정리해줘."
 
 ### 0.2 통합 해석 (이번 문서의 작업 가설)
 
-1. **`onepass-support`는 SSO/IM과 "프로세스/서비스 경계"는 분리**되지만, **"신원 신뢰 기반"은 onepass-fe가 이미 보유한 Keycloak JWT를 그대로 받아 검증**한다. → 유관기관처럼 OIDC 브로커링이나 새 client_secret을 등록하지 **않는다**. 같은 Realm의 일반 백엔드 모듈로만 등록한다 (자세한 근거는 §2 참조).
+1. **`idem-support`는 SSO/IM과 "프로세스/서비스 경계"는 분리**되지만, **"신원 신뢰 기반"은 idem-console가 이미 보유한 Keycloak JWT를 그대로 받아 검증**한다. → 유관기관처럼 OIDC 브로커링이나 새 client_secret을 등록하지 **않는다**. 같은 Realm의 일반 백엔드 모듈로만 등록한다 (자세한 근거는 §2 참조).
 2. **사용자 동작은 "로그인을 강요하지 않는다"**. 익명 사용자도 Q&A 작성/조회와 FAQ 조회가 가능하다.
 3. **로그인 사용자가 와 있으면 "부드럽게 인지"한다**.
    - 글쓰기 시 작성자/이메일 자동 prefill
@@ -30,11 +30,11 @@
 
 ## 1. 인증 모델 — 로그인 인식과 익명 처리 (2차 지시 보강 ⭐ 신설)
 
-> 이 장은 "로그인된 사용자를 onepass-support가 어떻게 알아보는가?" 와 "익명 사용자는 어떻게 다루는가?" 를 정리한다. 본 문서에서 가장 핵심적인 결정 영역.
+> 이 장은 "로그인된 사용자를 idem-support가 어떻게 알아보는가?" 와 "익명 사용자는 어떻게 다루는가?" 를 정리한다. 본 문서에서 가장 핵심적인 결정 영역.
 
 ### 1.1 결론 한 줄
 
-**onepass-support는 onepass-fe와 "같은 Keycloak realm을 공유하는 일반 백엔드 모듈"로 등록한다. 유관기관 OIDC 브로커링(ADR-2026-004) 패턴이 아니라, ido / q-im 과 동일한 "내부 마이크로서비스 + JWT Resource Server" 패턴을 따른다.**
+**idem-support는 idem-console와 "같은 Keycloak realm을 공유하는 일반 백엔드 모듈"로 등록한다. 유관기관 OIDC 브로커링(ADR-2026-004) 패턴이 아니라, ido / q-im 과 동일한 "내부 마이크로서비스 + JWT Resource Server" 패턴을 따른다.**
 
 ### 1.2 왜 "유관기관 클라이언트 등록" 패턴이 아닌가?
 
@@ -42,22 +42,22 @@
 
 | 패턴 | 대상 | 정체성 발급 | 정체성 검증 |
 |---|---|---|---|
-| **A. 내부 마이크로서비스** | `ido`, `q-im`, `q-sign`, `onepass-agent`, (신규) `onepass-support` | onepass Keycloak realm이 직접 발급한 JWT (access_token) | `KeycloakJwksVerifier` 등으로 같은 realm의 JWKS 서명 검증 |
+| **A. 내부 마이크로서비스** | `ido`, `q-im`, `q-sign`, `idem-agent`, (신규) `idem-support` | onepass Keycloak realm이 직접 발급한 JWT (access_token) | `KeycloakJwksVerifier` 등으로 같은 realm의 JWKS 서명 검증 |
 | **B. 유관기관 OIDC 브로커링** (ADR-2026-004) | 자체 SSO를 가진 외부 기관 (벤처24, 소상365 등) | onepass Keycloak이 외부 기관 SSO를 IdP로 브로커링 후 자체 토큰 발급 | OnePass 게이트웨이를 통한 핸드오프 티켓 |
 
-`onepass-support`는 onepass 플랫폼의 **내장 모듈**이고 onepass-fe에서 직접 호출하므로 **패턴 A**가 자연스럽다. 패턴 B를 쓰면:
+`idem-support`는 onepass 플랫폼의 **내장 모듈**이고 idem-console에서 직접 호출하므로 **패턴 A**가 자연스럽다. 패턴 B를 쓰면:
 - 별도 client_id/client_secret 발급 필요 (운영 부담)
 - IdO를 거치는 핸드오프 티켓 사이클 필요 (불필요한 hop)
 - AgencyMeta 등록 필요 (기관도 아닌데)
 
 반대로 패턴 A는:
-- onepass-fe는 **이미 가지고 있는** Keycloak JWT (`Authorization: Bearer ${accessJwt}`)를 그대로 `/api/v1/support/**`에 보내면 됨
-- onepass-support는 Spring Security Resource Server + Keycloak JWKS 검증만 추가하면 됨 (ido의 `KeycloakJwksVerifier` 패턴 재사용)
+- idem-console는 **이미 가지고 있는** Keycloak JWT (`Authorization: Bearer ${accessJwt}`)를 그대로 `/api/v1/support/**`에 보내면 됨
+- idem-support는 Spring Security Resource Server + Keycloak JWKS 검증만 추가하면 됨 (ido의 `KeycloakJwksVerifier` 패턴 재사용)
 
-### 1.3 onepass-fe → onepass-support 호출 시퀀스
+### 1.3 idem-console → idem-support 호출 시퀀스
 
 ```
-[User Browser]                       [onepass-fe]                    [Keycloak]              [onepass-support :8085]
+[User Browser]                       [idem-console]                    [Keycloak]              [idem-support :8085]
      │                                    │                              │                            │
      │  1. 로그인 (또는 SSO 자동 로그인)        │                              │                            │
      ├───────────────────────────────────►│                              │                            │
@@ -102,30 +102,30 @@ Keycloak Admin Console 또는 IaC 스크립트:
 
 ```
 realm: onepass
-client_id: onepass-fe (이미 존재)
+client_id: idem-console (이미 존재)
   - client_type: public (SPA)
   - valid_redirect_uris: https://onepass.go.kr/*
-  - audience: onepass-fe + onepass-support(추가)  ← 핵심
+  - audience: idem-console + idem-support(추가)  ← 핵심
 ```
 
-**"audience 추가"** 하나로 끝난다. onepass-fe의 토큰에 `aud: [onepass-fe, onepass-support]` 클레임이 들어가도록 client scope에 audience mapper 1줄만 추가:
+**"audience 추가"** 하나로 끝난다. idem-console의 토큰에 `aud: [idem-console, idem-support]` 클레임이 들어가도록 client scope에 audience mapper 1줄만 추가:
 
 ```json
 {
-  "name": "onepass-support-audience",
+  "name": "idem-support-audience",
   "protocol": "openid-connect",
   "protocolMapper": "oidc-audience-mapper",
   "config": {
-    "included.client.audience": "onepass-support",
+    "included.client.audience": "idem-support",
     "id.token.claim": "false",
     "access.token.claim": "true"
   }
 }
 ```
 
-새 client_secret 발급 **불필요**. onepass-support는 검증만 하면 되므로 confidential client가 아니다.
+새 client_secret 발급 **불필요**. idem-support는 검증만 하면 되므로 confidential client가 아니다.
 
-#### 1.4.2 onepass-support 측 설정
+#### 1.4.2 idem-support 측 설정
 
 `application.yml`에 1블록 추가:
 
@@ -138,7 +138,7 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER:https://keycloak.onepass.go.kr/realms/onepass}
           jwk-set-uri: ${KEYCLOAK_JWKS:https://keycloak.onepass.go.kr/realms/onepass/protocol/openid-connect/certs}
           # audience 검증 (이중 안전장치)
-          audiences: onepass-support
+          audiences: idem-support
 ```
 
 `build.gradle.kts`에 의존성 2개 추가:
@@ -244,11 +244,11 @@ public PageResponse<QnaSummary> list(
 }
 ```
 
-→ 더 이상 onepass-fe가 `X-User-Id`/`X-User-Role` 헤더를 직접 만들지 않는다. **Keycloak JWT 하나로 모든 신원이 흘러간다.**
+→ 더 이상 idem-console가 `X-User-Id`/`X-User-Role` 헤더를 직접 만들지 않는다. **Keycloak JWT 하나로 모든 신원이 흘러간다.**
 
 ### 1.5 익명 사용자 처리 정책 (구체)
 
-| 시나리오 | onepass-fe 동작 | onepass-support 동작 | DB 처리 |
+| 시나리오 | idem-console 동작 | idem-support 동작 | DB 처리 |
 |---|---|---|---|
 | **A. 비로그인 사용자가 FAQ 조회** | Authorization 헤더 없이 호출 | Security가 anonymous 통과 → public API matcher 적용 → 200 | (조회만, 변경 없음) |
 | **B. 비로그인 사용자가 Q&A 목록 조회** | 헤더 없이 호출 | anonymous + repo 쿼리: `secret_yn='N'`만 반환 | (조회만) |
@@ -279,7 +279,7 @@ public PageResponse<QnaSummary> list(
 → 본인글이 아니므로 그 비회원에게는 비공개 글로 보임. 본인 외 누구도 못 본다. 다만 로그인 사용자도 본인 글을 "로그아웃 상태로 다시 보고 싶을 때"가 있을 수 있어서, **글 작성 시 비밀번호 필드를 (선택 사항이지만) 표시**한다. 비밀번호를 안 넣고 작성하면 "로그인 안 한 상태로는 이 글을 다시 볼 수 없다"는 안내 문구 노출.
 
 **Q5. "유관기관 SSO 사용자(예: 자체 SSO로 들어온 사용자)도 동일 흐름인가?"**
-→ **그렇다.** ADR-2026-004의 OIDC 브로커링을 거치면 결과적으로 onepass realm의 JWT를 발급받게 된다. 따라서 onepass-support 입장에서는 "기관 사용자"든 "직접 가입 사용자"든 동일한 JWT 흐름.
+→ **그렇다.** ADR-2026-004의 OIDC 브로커링을 거치면 결과적으로 onepass realm의 JWT를 발급받게 된다. 따라서 idem-support 입장에서는 "기관 사용자"든 "직접 가입 사용자"든 동일한 JWT 흐름.
 
 **Q6. "JWT 검증이 운영 환경 Keycloak에 매번 RPC 호출하나? 성능은?"**
 → JWKS는 RSA 공개키 셋이라 ido와 동일하게 **Redis TTL 60분 캐시**한다. 첫 요청만 Keycloak에 가고, 이후 1시간은 캐시. JWT 서명 검증 자체는 로컬 CPU 연산(밀리초 이하).
@@ -287,24 +287,24 @@ public PageResponse<QnaSummary> list(
 **Q7. "Keycloak 장애 시 게시판이 같이 죽나?"**
 → JWKS는 캐시되어 있어 1시간 버틴다. 그 사이 Keycloak 복구되면 무중단. JWKS 캐시 만료 + Keycloak 다운 동시 발생 시에만 401. 다만 **익명 호출은 영향 없다** (검증 자체를 안 하니까) — 게시판 "읽기"는 계속 가능, "작성"만 일시 영향 (로그인 prefill만 불가, 비로그인 작성은 가능).
 
-**Q8. "내부 마이크로서비스 간 호출(예: onepass-support → ido로 회원 정보 조회)은?"**
+**Q8. "내부 마이크로서비스 간 호출(예: idem-support → ido로 회원 정보 조회)은?"**
 → 본 Phase 범위에서는 그런 호출이 없다. 만약 추가되면 ido가 이미 사용하는 "서비스 계정 토큰" 또는 "HMAC 게이트웨이 시그니처" 패턴을 그대로 채택한다. (별도 ADR 필요)
 
 ### 1.7 헤더 GNB와 본문 분리 정책 (헤더 인사말 "유상옥님 안녕하세요")
 
-- 헤더의 사용자 인사말/로그아웃 버튼은 **onepass-fe의 공통 GNB 위젯**이 표시한다 (현재 코드에 이미 있음).
+- 헤더의 사용자 인사말/로그아웃 버튼은 **idem-console의 공통 GNB 위젯**이 표시한다 (현재 코드에 이미 있음).
 - 게시판 본문(Q&A/FAQ 페이지)은 **헤더 상태와 독립적으로 동작**한다.
 - 즉: "로그아웃 상태로 게시판만 접근" 시나리오가 가능해야 한다 (기획 의도 일관성).
 - 헤더 위젯이 본문 페이지 권한을 제어하지 **않는다**. 본문은 Spring Security가 단독 결정.
 
-### 1.8 onepass-support의 "클라이언트 등록" 여부 최종 답
+### 1.8 idem-support의 "클라이언트 등록" 여부 최종 답
 
 | 질문 | 답 |
 |---|---|
-| onepass-support가 유관기관처럼 Keycloak 클라이언트로 등록되어야 하나? | **반쯤 그렇다.** 단, OIDC client(confidential)가 아니라 **"resource server / audience"**로만 등록. 즉 `onepass-fe` 클라이언트가 발급하는 토큰의 audience에 `onepass-support`를 추가하는 mapper 1개만 등록. 별도 client_secret 발급 없음. |
+| idem-support가 유관기관처럼 Keycloak 클라이언트로 등록되어야 하나? | **반쯤 그렇다.** 단, OIDC client(confidential)가 아니라 **"resource server / audience"**로만 등록. 즉 `idem-console` 클라이언트가 발급하는 토큰의 audience에 `idem-support`를 추가하는 mapper 1개만 등록. 별도 client_secret 발급 없음. |
 | client_secret 관리 / rotation이 필요한가? | **아니오.** confidential client가 아니기 때문에 secret 없음. JWKS 공개키만 사용. |
 | AgencyMeta 등록이 필요한가? | **아니오.** 기관이 아니라 내부 모듈. |
-| 핸드오프 티켓이 필요한가? | **아니오.** ido를 거치지 않고 onepass-fe → onepass-support 직접 호출. |
+| 핸드오프 티켓이 필요한가? | **아니오.** ido를 거치지 않고 idem-console → idem-support 직접 호출. |
 | 사용자 식별 키는 무엇? | JWT의 `sub` claim (= `mbrUuid`). 본 DB에서는 `writer_user_id VARCHAR(64)`. |
 
 ---
@@ -391,7 +391,7 @@ public PageResponse<QnaSummary> list(
 
 ---
 
-## 3. 현재 구현(`onepass-support`) 스냅샷
+## 3. 현재 구현(`idem-support`) 스냅샷
 
 ### 3.1 백엔드 도메인 (요약)
 
@@ -796,7 +796,7 @@ export function useCurrentUser() {
 ### Phase 1 — MVP (사용자 게시판 정공법)
 **목표: 기획안 6개 화면을 그대로 동작하게**
 
-#### Backend (`onepass-support`)
+#### Backend (`idem-support`)
 - [ ] **B-01**: `V4__redesign_qna_for_board.sql` 마이그레이션
   - `inquiry_category` 테이블 생성 + 시드(`VENTURE24`/`SOSANG24`/`SOSANG365`/`ETC`)
   - `qna_post`에 `post_no BIGSERIAL`, `category_id FK`, `writer_nm`, `writer_email NOT NULL`, `writer_pwd_hash`, `privacy_agreed_yn`, `privacy_agreed_at` 추가
@@ -867,8 +867,8 @@ export function useCurrentUser() {
 
 ### 8.3 인증 계층 마이그레이션 (⭐ 신규)
 
-1. **Step A (B-00-1)**: Keycloak 관리자에게 audience mapper 추가 요청 → `onepass-fe` 클라이언트의 client scope에 `onepass-support` aud 추가. 핫템 필요 없음, downtime 0.
-2. **Step B (B-00-2~5)**: `onepass-support`에 Spring Security Resource Server 적용. 이 시점 `X-User-Id` 헤더도 계속 읽을 수 있도록 **dual-read** 옵션 (transition 기간).
+1. **Step A (B-00-1)**: Keycloak 관리자에게 audience mapper 추가 요청 → `idem-console` 클라이언트의 client scope에 `idem-support` aud 추가. 핫템 필요 없음, downtime 0.
+2. **Step B (B-00-2~5)**: `idem-support`에 Spring Security Resource Server 적용. 이 시점 `X-User-Id` 헤더도 계속 읽을 수 있도록 **dual-read** 옵션 (transition 기간).
 3. **Step C (B-06)**: 프론트 코드가 `Authorization` 헤더 전송을 완전히 전환한 뒤 (이미 axios 인터셉터로 자동), `X-User-*` 헤더 읽기 코드 제거.
 4. **Step D**: `X-User-*` 헤더 컴포넌트(`SupportRequester.of(...)`) 제거 완료 → `fromAuthentication(Authentication auth)` 단일 경로.
 
@@ -917,8 +917,8 @@ export function useCurrentUser() {
   - actionlint/typecheck/lint 통과
 - [ ] **문서**
   - 본 문서(이 파일) 갱신 — 완료 항목 체크
-  - `docs/onepass-support-cs-backoffice-plan.md` Phase 2 연결성 갱신
-  - `onepass-support/README.md` 정책 갱신 — "Keycloak JWT 리소스 서버 + 익명 공존"
+  - `docs/idem-support-cs-backoffice-plan.md` Phase 2 연결성 갱신
+  - `idem-support/README.md` 정책 갱신 — "Keycloak JWT 리소스 서버 + 익명 공존"
 
 ---
 
@@ -963,17 +963,17 @@ PR을 작게 쪼개야 리뷰가 빠릅니다.
 5. **상태값** — `작성중/답변완료` 2개로 끝인지, `대기/처리중/답변완료/종결` 4단계로 갈지? (현재 DB는 OPEN/ANSWERED/CLOSED 3단계 → 사용자 UI는 2단계 매핑 권장)
 6. **비밀번호 재설정 절차 (익명 폴백용)** — Phase 1에서는 비밀번호 분실 시 신규 등록 안내로 처리해도 되는지?
 7. **공지사항 게시판** — 기획안에 없음. 별도 모듈로 가는지? (본 문서 범위 외)
-8. **Keycloak audience mapper 적용 권한** — 운영 Keycloak 관리자에게 `onepass-support` aud 추가 요청 권한 있나? (B-00-1 차단 요소)
-9. **JWT 토큰 만료 처리** — `onepass-support` API 호출 중 토큰 만료 시 onepass-fe의 refresh 흐름이 자동 작동하나? (axios 인터셉터 응답 401 처리 확인 필요)
+8. **Keycloak audience mapper 적용 권한** — 운영 Keycloak 관리자에게 `idem-support` aud 추가 요청 권한 있나? (B-00-1 차단 요소)
+9. **JWT 토큰 만료 처리** — `idem-support` API 호출 중 토큰 만료 시 idem-console의 refresh 흐름이 자동 작동하나? (axios 인터셉터 응답 401 처리 확인 필요)
 
 ---
 
 ## 13. 참고 자료
 
 - 기획 이미지 6장 (압축 해제 위치: `/tmp/board-images/decoded/`)
-- 현재 DB 스키마: `onepass-support/src/main/resources/db/migration/V1~V3__*.sql`
-- 현재 API: `onepass-support/README.md`
-- 기존 CS 백오피스 plan: `docs/onepass-support-cs-backoffice-plan.md`
+- 현재 DB 스키마: `idem-support/src/main/resources/db/migration/V1~V3__*.sql`
+- 현재 API: `idem-support/README.md`
+- 기존 CS 백오피스 plan: `docs/idem-support-cs-backoffice-plan.md`
 - 외부 유관기관 OIDC 브로커링(차별화 비교용): `docs/internal/architecture/ADR-2026-004-internal-sso-integration-pattern.md`
 - JWKS 검증 패턴 참조: `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/keycloak/KeycloakJwksVerifier.java`
 - 프론트 JWT 인터셉터: `idem-console/frontend/src/api/index.ts`

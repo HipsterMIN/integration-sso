@@ -18,7 +18,7 @@
   └──────────────────────────────┬───────────────────────────────┘
                                  │ HTTPS
   ┌──────────────────────────────▼───────────────────────────────┐
-  │  onepass-fe (React SPA, port 3001)                            │
+  │  idem-console (React SPA, port 3001)                            │
   │  - 인증 UI (provider 선택, redirect)                           │
   │  - FeSession 기반 상태 관리                                     │
   └──────────────────────────────┬───────────────────────────────┘
@@ -30,7 +30,7 @@
   └──────────────────────────────┬───────────────────────────────┘
                                  │ HTTPS (POST /api/v1/handoff/verify)
 ═══════════════════════════════════════════════════════════════════════
-  내부망 (Internal Network — onepass-net)
+  내부망 (Internal Network — idem-net)
 ═══════════════════════════════════════════════════════════════════════
                                  │
                   ┌──────────────▼──────────────┐
@@ -82,7 +82,7 @@
 ### 2.1 Keycloak OIDC 흐름 (카카오/네이버)
 
 ```
-사용자          onepass-fe       IdO :8083        Q-Sign :8081      Keycloak :8088
+사용자          idem-console       IdO :8083        Q-Sign :8081      Keycloak :8088
    │                 │               │                  │                  │
    │ 인증 시작        │               │                  │                  │
    │────────────────►│               │                  │                  │
@@ -217,12 +217,12 @@ NON_STANDARD → DIRECT_BROKER
 | redis-insight | 172.20.0.16 | 5540 | default |
 | pgadmin | 172.20.0.17 | 5050 | default |
 | keycloak | 172.20.0.18 | 8088 | keycloak |
-| onepass-ido | 172.20.0.19 | 8083 | app |
-| onepass-react | 172.20.0.20 | 3001 | app |
+| idem-hub | 172.20.0.19 | 8083 | app |
+| idem-console | 172.20.0.20 | 3001 | app |
 | mariadb | 172.20.0.21 | 3306 | default |
-| onepass-qim | 172.20.0.22 | 8082 | app |
+| idem-registry | 172.20.0.22 | 8082 | app |
 | adminer | 172.20.0.23 | 8091 | default |
-| onepass-qsign | 172.20.0.24 | 8081 | app |
+| idem-gate | 172.20.0.24 | 8081 | app |
 
 ### 4.2 Kafka 토픽 구성
 
@@ -244,7 +244,7 @@ NON_STANDARD → DIRECT_BROKER
 ```
 [계층 1 — 네트워크]
   - 유관기관 ↔ IdO: HTTPS only
-  - 내부 서비스 간: 내부망 (onepass-net) 격리
+  - 내부 서비스 간: 내부망 (idem-net) 격리
 
 [계층 2 — 인증/인가]
   - 유관기관 → IdO: X-Agency-Code + X-Agency-Key (PBKDF2 해시 검증)

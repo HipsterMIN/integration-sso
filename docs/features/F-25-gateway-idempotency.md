@@ -81,7 +81,7 @@ ON CONFLICT (idempotency_key) DO NOTHING
 ## 4. X-Idempotency-Key 생성 가이드
 
 ```java
-// onepass-agency-sdk에서 제공하는 생성기
+// idem-sdk-java에서 제공하는 생성기
 
 // 1. UUID v4 (가장 단순)
 String key1 = IdempotencyKeyGenerator.generate();

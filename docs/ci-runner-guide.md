@@ -24,7 +24,10 @@
 | k6 Smoke Test (PR 게이트) | `services:` 컨테이너(Redis·PostgreSQL·Kafka)를 쓰므로 **Docker 가 있는 Linux/WSL2 러너 필수**. k6 설치 스텝은 `apt` + `sudo` 를 쓰므로 러너 계정에 passwordless sudo 가 있거나 k6 를 미리 설치해 둔다(설치돼 있으면 스텝이 건너뜀) |
 | ↳ 판정 기준 | `k6/scenarios/smoke.js` 의 `thresholds.checks: rate==1` — check 하나라도 ✗ 면 k6 종료 코드 ≠ 0 으로 잡 실패(2026-09-06). 그 전에는 `http_req_failed`/`http_req_duration` 임계값만 있어 `ci-check` check 가 매번 ✗ 인데도 잡이 초록으로 표시됐다 |
 | Docker Build (Multistage) 6종 | Docker 데몬 + buildx. **Linux 또는 WSL2 Ubuntu** 권장 (Windows 네이티브 러너는 Linux 이미지 빌드 불가) |
-| OWASP Dependency-Check (야간) | JDK 21 만 있으면 됨 |
+| OWASP Dependency-Check (수동 전용) | JDK 21 + NVD API 도달 가능한 망. **2026-09-07 야간 cron 제거** — Actions 탭 → CI → Run workflow 로만 실행. 로컬 실행: `NVD_API_KEY=<키> ./gradlew dependencyCheckAggregate` (리포트 `build/reports/dependency-check/`). 일상 의존성 점검은 PR 의 Trivy 저장소 스캔과 main push 의 Trivy 이미지 스캔이 담당 |
+| ↳ 스캔 범위 | `dependencyCheckAggregate` 로 서브프로젝트 전체 의존성을 한 리포트로 스캔(2026-09-07). 그 전의 `dependencyCheckAnalyze` 는 루트 프로젝트(의존성 0개)만 봐서 "0건" 이 무검사였다(run 34049253507). SARIF 업로드에는 잡 `permissions.security-events: write` 와 저장소 Code scanning 활성(프라이빗은 GHAS 필요)이 모두 필요하며, 저장소 변수 `CODE_SCANNING_ENABLED=true` 일 때만 업로드 스텝이 실행된다 |
+| ↳ 캐시 전송 생략 | 자체 호스팅 러너(`runner.environment != 'github-hosted'`)에서는 setup-java 의 gradle 캐시, `Gradle 캐시`, `OWASP NVD 캐시`, `Docker 레이어 캐시` 스텝을 건너뛴다. `~/.gradle`, `~/.gradle/dependency-check-data`, `/tmp/.buildx-cache-*` 가 머신에 남아 있어 전송이 불필요하고, 느린 망에서는 500MB 전송이 잡을 수십 분 지연시켰다(2026-09-07, run 34079947660 Java 설정 단계 10분 이상 정지) |
+| ↳ WSL2 러너 주의 | Java 가 IPv6 를 먼저 시도해 NVD·RetireJS 다운로드가 `Network is unreachable` 로 실패할 수 있어 OWASP 스텝은 `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true` 를 건다(run 34075241830) |
 
 즉 변수 하나로 PR 게이트 2종 + 무거운 잡 2종이 모두 자체 호스팅으로 간다(2026-09-05 확장). Frontend Build·Trivy·Sonar·nogo-full 모듈 매트릭스는 여전히 호스트 러너다 — 짧은 잡이라 분 소모가 작고, 한도 초과 중에는 실패로 표시되지만 머지 판단은 위 게이트 2종으로 한다.
 
@@ -36,7 +39,7 @@
 4. Docker Desktop 의 WSL2 통합을 켜서 WSL2 안에서 `docker info` 가 되는지 확인한다.
 5. 저장소 → Settings → Secrets and variables → Actions → **Variables** → `CI_HEAVY_RUNNER` = `self-hosted` 추가.
 
-이후 main push 의 Docker Build 와 야간 OWASP 가 그 머신에서 실행된다. 변수를 지우면 즉시 호스트 러너로 돌아간다.
+이후 main push 의 Docker Build 와 수동 OWASP 가 그 머신에서 실행된다. 변수를 지우면 즉시 호스트 러너로 돌아간다.
 
 ### 2.2 주의
 

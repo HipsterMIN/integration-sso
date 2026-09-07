@@ -1,5 +1,7 @@
 # OnePass 자체 SSO 기관 연동 — 운영 가이드
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+
 > **대상 독자**: 운영 개발자, 인프라 엔지니어, SRE
 > **버전**: v1.0 (2026-05-17)
 > **전제**: 개발자 레퍼런스(`docs/sso-agency-developer-guide.md`) 숙지 필요
@@ -34,7 +36,7 @@
 │  │  (기존 운영)     │     │                                  │    │
 │  │                 │     │  [JVM Process]                   │    │
 │  │  LDAP/SAML/     │     │    ├── 기관 애플리케이션 WAR/JAR  │    │
-│  │  OAuth 기반     │     │    └── onepass-agent.jar (주입됨) │    │
+│  │  OAuth 기반     │     │    └── idem-agent.jar (주입됨) │    │
 │  └─────────────────┘     │                                  │    │
 │                           │  onepass-agent.properties        │    │
 │                           │  (설정 파일 — 외부 마운트)        │    │
@@ -58,8 +60,8 @@
 
 | 컴포넌트 | 현재 버전 | 최소 요구 JDK | 비고 |
 |---------|---------|-------------|------|
-| `onepass-agent.jar` | 1.0.0 | JDK 8 | byte-buddy 위빙 |
-| `onepass-agency-sdk` | 1.0.0 | JDK 8 | 런타임 의존성 ZERO |
+| `idem-agent.jar` | 1.0.0 | JDK 8 | byte-buddy 위빙 |
+| `idem-sdk-java` | 1.0.0 | JDK 8 | 런타임 의존성 ZERO |
 | agency-stub (테스트용) | 1.0.0 | JDK 17 | 운영에 배포하지 않음 |
 
 ### 1.3 포트 및 엔드포인트
@@ -79,14 +81,14 @@
 ```bash
 # 권장 디렉토리 구조
 /opt/onepass/
-├── onepass-agent.jar          # Agent JAR (버전 관리)
-└── onepass-agent-{version}.jar  # 버전별 보관
+├── idem-agent.jar          # Agent JAR (버전 관리)
+└── idem-agent-{version}.jar  # 버전별 보관
 
 /etc/onepass/
 └── onepass-agent.properties   # 설정 파일 (외부 마운트, 비밀정보 포함)
 
 /var/log/onepass/
-└── onepass-agent.log          # Agent 로그 (stdout 리다이렉트)
+└── idem-agent.log          # Agent 로그 (stdout 리다이렉트)
 ```
 
 ```bash
@@ -133,24 +135,24 @@ onepass.agent.log-level=WARN        # 운영 환경: WARN (INFO는 로그 과다
 export ONEPASS_API_KEY="$(cat /run/secrets/onepass_api_key)"
 
 JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/onepass/onepass-agent.jar=config=/etc/onepass/onepass-agent.properties \
+  -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties \
   -Donepass.agent.endpoint=https://ido.onepass.go.kr"
 ```
 
 **JEUS (startDomainAdminServer.sh)**:
 ```xml
 <!-- domain.xml JVM 설정 -->
-<jvm-option>-javaagent:/opt/onepass/onepass-agent.jar=config=/etc/onepass/onepass-agent.properties</jvm-option>
+<jvm-option>-javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties</jvm-option>
 ```
 
 **JBoss/WildFly (standalone.conf)**:
 ```bash
-JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/onepass-agent.jar=config=/etc/onepass/onepass-agent.properties"
+JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties"
 ```
 
 **WebLogic (setDomainEnv.sh)**:
 ```bash
-JAVA_OPTIONS="${JAVA_OPTIONS} -javaagent:/opt/onepass/onepass-agent.jar=config=/etc/onepass/onepass-agent.properties"
+JAVA_OPTIONS="${JAVA_OPTIONS} -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties"
 ```
 
 **Docker 컨테이너**:
@@ -158,14 +160,14 @@ JAVA_OPTIONS="${JAVA_OPTIONS} -javaagent:/opt/onepass/onepass-agent.jar=config=/
 FROM {기관_베이스_이미지}
 
 # Agent 복사
-COPY onepass-agent.jar /opt/onepass/onepass-agent.jar
+COPY idem-agent.jar /opt/onepass/idem-agent.jar
 
 # 환경변수로 설정 주입
 ENV ONEPASS_API_KEY=""
 ENV ONEPASS_AGENT_ENDPOINT="https://ido.onepass.go.kr"
 
 # JVM 옵션에 Agent 추가
-ENV JAVA_OPTS="-javaagent:/opt/onepass/onepass-agent.jar \
+ENV JAVA_OPTS="-javaagent:/opt/onepass/idem-agent.jar \
                -Donepass.agent.endpoint=${ONEPASS_AGENT_ENDPOINT} \
                -Donepass.agent.api-key=${ONEPASS_API_KEY}"
 ```
@@ -184,16 +186,16 @@ spec:
           key: api-key
     - name: JAVA_OPTS
       value: >-
-        -javaagent:/opt/onepass/onepass-agent.jar
+        -javaagent:/opt/onepass/idem-agent.jar
         -Donepass.agent.endpoint=https://ido.onepass.go.kr
         -Donepass.agent.api-key=$(ONEPASS_API_KEY)
     volumeMounts:
-    - name: onepass-agent
+    - name: idem-agent
       mountPath: /opt/onepass
   volumes:
-  - name: onepass-agent
+  - name: idem-agent
     configMap:
-      name: onepass-agent-jar
+      name: idem-agent-jar
 ```
 
 ### 2.4 Agent 시작 확인
@@ -248,7 +250,7 @@ curl -X GET https://ido.onepass.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
 
 ```bash
 # 1. 스테이징 환경 먼저 적용
-./gradlew dependencies | grep onepass-agency-sdk
+./gradlew dependencies | grep idem-sdk-java
 
 # 2. 주요 변경사항 확인 (CHANGELOG 참조)
 # - 하위 호환성 확인 필수
@@ -541,8 +543,8 @@ Agent JAR는 JVM 시작 시 단 1회 로드된다. 업그레이드는 반드시 
 
 ```bash
 # 1. 새 Agent JAR 배포
-cp onepass-agent-{new-version}.jar /opt/onepass/
-ln -sf /opt/onepass/onepass-agent-{new-version}.jar /opt/onepass/onepass-agent.jar
+cp idem-agent-{new-version}.jar /opt/onepass/
+ln -sf /opt/onepass/idem-agent-{new-version}.jar /opt/onepass/idem-agent.jar
 
 # 2. 헬스체크 URL 확인
 curl -I https://{기관서버}/health
@@ -689,12 +691,12 @@ public class PreAgentBypassFilter extends OncePerRequestFilter {
 
 ```bash
 # Agent JAR 무결성 검증
-sha256sum /opt/onepass/onepass-agent.jar
+sha256sum /opt/onepass/idem-agent.jar
 # → 배포 시 제공된 체크섬과 비교
 
 # 예: 배포 매니페스트에서 체크섬 가져오기
 EXPECTED_CHECKSUM=$(curl -sf https://releases.onepass.go.kr/agent/1.0.0/SHA256SUMS)
-ACTUAL_CHECKSUM=$(sha256sum /opt/onepass/onepass-agent.jar | awk '{print $1}')
+ACTUAL_CHECKSUM=$(sha256sum /opt/onepass/idem-agent.jar | awk '{print $1}')
 [ "${ACTUAL_CHECKSUM}" = "${EXPECTED_CHECKSUM}" ] && echo "OK" || echo "CHECKSUM MISMATCH!"
 ```
 

@@ -389,7 +389,7 @@ POST /api/v1/agency/events/{dispatchId}/read
 | **Dockerfile (Q-Sign)** | 멀티스테이지 빌드, non-root `qsign` 사용자 |
 | **Dockerfile (IdO)** | 멀티스테이지 빌드, non-root `ido` 사용자 |
 | **Dockerfile (Q-IM)** | 멀티스테이지 빌드, non-root `qim` 사용자 |
-| **docker-compose.yml** | `onepass-qsign` 서비스 추가 (172.20.0.24:8081) |
+| **docker-compose.yml** | `idem-gate` 서비스 추가 (172.20.0.24:8081) |
 | **HMAC-SHA256 내부 서명** | `KeycloakCallbackService.buildInternalSig()` PoC → 실제 HMAC |
 | **SHA-256 identifierHash** | `AuthServiceImpl` placeholder → SHA-256 |
 | `application-local.yml` | 전 모듈 로컬 개발 프로파일 신규 작성 |
@@ -434,7 +434,7 @@ POST /api/v1/agency/events/{dispatchId}/read
 
 | 구분 | 내용 |
 |------|------|
-| **멀티모듈 구조** | platform-common, q-sign, q-im, ido, agency-stub, onepass-fe |
+| **멀티모듈 구조** | platform-common, q-sign, q-im, ido, agency-stub, idem-console |
 | **기본 OIDC 흐름** | PoC 수준 인증 흐름 |
 | **Transactional Outbox** | 전 모듈 Kafka 발행 기반 |
 | **AgencyMeta** | 기관 메타 기본 구조 |

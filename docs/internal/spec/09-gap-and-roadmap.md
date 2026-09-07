@@ -14,7 +14,7 @@ Q-Sign           ████████████████████  9
 Q-IM             ██████████████████░░  92%  (회원 전환·탈퇴 흐름 미완)
 IdO              ████████████████████  99%  (DLQ 연결, Idempotency-Key 미완)
 agency-stub      ████████████████████  90%  (Docker 격리 미완, mTLS P3)
-onepass-fe       ████████████░░░░░░░░  60%  (회원 전환·관리 UI 미구현)
+idem-console       ████████████░░░░░░░░  60%  (회원 전환·관리 UI 미구현)
 인프라/Docker    ████████████████████ 100%  (전 모듈 Dockerfile + Compose 완비)
 보안             ██████████████████░░  93%  (X-Internal-Sig 수신 미완)
 테스트           ░░░░░░░░░░░░░░░░░░░░   0%  (단위·통합 테스트 전무)
@@ -144,7 +144,7 @@ onepass-fe       ████████████░░░░░░░░  6
 | SEC-IDO-04 | 헤더명 rename: `X-BE-API-Key` → `X-IDO-API-Key` | FE axios 인스턴스 + webpack dev proxy header injection | ✅ PR #203 (IdO 측 수신 코드 0건 → 단방향 전환 안전) |
 | SEC-IDO-05 | axios 인스턴스 식별자 rename: `beInstance` / `beApiInstance` → `idoInstance` / `idoApiInstance` | `src/api/idoInstance.ts` 신설 + 25 파일 일괄 식별자 치환 | ✅ PR #203 |
 | SEC-IDO-06 | 잔존 셸 제거: `api/beInstance.ts` + `api/extInstance.ts` | grep 으로 사용처 0 확인 후 파일 자체 삭제 | ✅ PR #203 |
-| SEC-IDO-07 | 문서 cross-ref 갱신 — 03f / DEVELOPMENT.md / 09 의 `BE_*` 흔적 정정 | `docs/internal/spec/03f-module-onepass-fe.md`, `idem-console/DEVELOPMENT.md`, `09-gap-and-roadmap.md §6.A.1` | ✅ PR #204 (본 문서) |
+| SEC-IDO-07 | 문서 cross-ref 갱신 — 03f / DEVELOPMENT.md / 09 의 `BE_*` 흔적 정정 | `docs/internal/spec/03f-module-idem-console.md`, `idem-console/DEVELOPMENT.md`, `09-gap-and-roadmap.md §6.A.1` | ✅ PR #204 (본 문서) |
 
 **완료 정의(DoD)** — 모두 충족:
 - ✅ `grep -rn "\bbeInstance\b\|\bbeApiInstance\b" idem-console/frontend/src/` = 1 (코드 내 의도된 회고 주석 한 줄)
@@ -156,7 +156,7 @@ onepass-fe       ████████████░░░░░░░░  6
 
 ### 6.A.2 Phase 3 — `onepass-admin` 도입 준비 (IdO 측 선행 작업)
 
-**목표**: 향후 운영·관리 FE (`onepass-admin`, `onepass-support`, `onepass-audit` 등) 이 도입될 때, **BE 코드 변경 0** 으로 수용 가능하도록 IdO 측 정책 슬롯을 사전 마련한다 (ADR-008 의 "BE 보호 불변식" 실현).
+**목표**: 향후 운영·관리 FE (`onepass-admin`, `idem-support`, `onepass-audit` 등) 이 도입될 때, **BE 코드 변경 0** 으로 수용 가능하도록 IdO 측 정책 슬롯을 사전 마련한다 (ADR-008 의 "BE 보호 불변식" 실현).
 
 | ID | 항목 | 위치 | 비고 |
 |----|------|------|------|

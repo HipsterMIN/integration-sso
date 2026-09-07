@@ -1,5 +1,7 @@
 # 06. agency-stub 모듈 구현 상태 (v1.9.0)
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](../../naming.md) §3.
+
 > **문서 버전**: v1.9.0  
 > **최종 수정**: 2026-05-09  
 > **모듈 경로**: `idem-tenant-sample/`  
@@ -131,7 +133,7 @@ public void consumeHandoff(HandoffEvent event) {
 | 기관 API Key 검증 | ✅ | X-Agency-Key 헤더 |
 | 이벤트 폴링 API | ✅ | 구조 완성 |
 | Kafka 내부 구독 | ⚠️ | PoC 전용 (운영 불가) |
-| agency-stub Docker 격리 | ❌ | onepass-net 포함 (P2) |
+| agency-stub Docker 격리 | ❌ | idem-net 포함 (P2) |
 | mTLS 기관 인증 | ❌ | P3 (Nginx/Gateway 레벨) |
 
 ---
@@ -141,7 +143,7 @@ public void consumeHandoff(HandoffEvent event) {
 | 항목 | 현재 PoC | 운영 목표 | 우선순위 |
 |------|---------|----------|---------|
 | Kafka 직접 구독 | ✅ (내부 Kafka) | ❌ 제거 → Webhook/폴링 | P2 |
-| Docker 네트워크 | onepass-net 포함 | 별도 네트워크 분리 | P2 |
+| Docker 네트워크 | idem-net 포함 | 별도 네트워크 분리 | P2 |
 | returnUrl 화이트리스트 | localhost:8084 포함 | 실제 기관 도메인만 | P2 |
 | 인증 | API Key | mTLS (선택) | P3 |
 

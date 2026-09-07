@@ -1,5 +1,7 @@
 # OnePass Agency Java Agent — 설치·운영 워크스루
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+
 > **문서 번호**: AGENT-WALKTHROUGH-001  
 > **문서 버전**: v1.0.0  
 > **작성일**: 2026-05-17  
@@ -634,14 +636,14 @@ cp idem-agent-1.1.0-all.jar /opt/onepass/
 
 # 심링크 방식 (권장 — 롤백 용이)
 ln -sf /opt/onepass/idem-agent-1.1.0-all.jar \
-       /opt/onepass/onepass-agent-current.jar
+       /opt/onepass/idem-agent-current.jar
 ```
 
 ### 10-2. domain.xml 경로 심링크 활용 시
 
 ```xml
 <!-- 심링크를 사용하면 JAR 교체 시 domain.xml 수정 불필요 -->
-<jvm-option>-javaagent:/opt/onepass/onepass-agent-current.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
+<jvm-option>-javaagent:/opt/onepass/idem-agent-current.jar=config=/opt/onepass/conf/onepass-agent.properties</jvm-option>
 ```
 
 ### 10-3. WAS 재시작 후 버전 확인
@@ -656,7 +658,7 @@ grep "OnePass Agency Java Agent v" $JEUS_HOME/logs/JeusServer.log | tail -1
 ```bash
 # 이전 버전으로 복원
 ln -sf /opt/onepass/idem-agent-1.0.0-all.jar \
-       /opt/onepass/onepass-agent-current.jar
+       /opt/onepass/idem-agent-current.jar
 
 # WAS 재시작
 $JEUS_HOME/bin/stopDomainAdminServer && \
@@ -743,17 +745,17 @@ WAS 설정
 
 # 빌드 결과 확인
 ls -la idem-agent/build/libs/
-# onepass-agent-0.1.0-SNAPSHOT-all.jar  (~10MB)
+# idem-agent-0.1.0-SNAPSHOT-all.jar  (~10MB)
 
 # 2. Agent JAR을 테스트베드에 복사
-cd onepass-agent-testbed
+cd idem-agent-testbed
 ./scripts/replace-agent.sh
 
 # 기대 출력:
 # [replace-agent] Agent JAR 탐색 중...
-# [replace-agent] 발견: ../idem-agent/build/libs/onepass-agent-0.1.0-SNAPSHOT-all.jar
+# [replace-agent] 발견: ../idem-agent/build/libs/idem-agent-0.1.0-SNAPSHOT-all.jar
 # [replace-agent] agent/ 디렉토리에 복사 완료
-# [replace-agent] 심볼릭 링크 갱신: onepass-agent-current.jar
+# [replace-agent] 심볼릭 링크 갱신: idem-agent-current.jar
 ```
 
 ### 12-2. Mock OnePass Server 확인
@@ -912,7 +914,7 @@ curl $BASE/protected -H "Authorization: Bearer invalid-token" -o /dev/null -w "%
 ./gradlew :idem-agent:agentJar
 
 # 2. 테스트베드에 교체
-cd onepass-agent-testbed
+cd idem-agent-testbed
 ./scripts/replace-agent.sh
 
 # 특정 컨테이너만 재시작하여 교체
@@ -955,7 +957,7 @@ docker compose stop tomcat8 tomcat9
 [ ] 네트워크 연결 확인 (OnePass 서버 접근)
 
 파일 배포
-[ ] onepass-agent-{version}-all.jar 배포
+[ ] idem-agent-{version}-all.jar 배포
 [ ] onepass-agent.properties 생성
 [ ] 설정 파일 권한 600 설정
 

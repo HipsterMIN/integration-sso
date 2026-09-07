@@ -60,9 +60,9 @@
 | `kafka` | `9092` | 이벤트 스트리밍 | default |
 | `zookeeper` | `2181` | Kafka 코디네이터 | default |
 | `keycloak` | `8080` | IdP / OIDC | default |
-| `onepass-ido` | `8083` | BE BFF + 오케스트레이터 | `app` |
-| `onepass-qsign` | `8081` | 인증 SoR | `app` |
-| `onepass-fe` | `3001` | React SPA (Nginx) | `app` |
+| `idem-hub` | `8083` | BE BFF + 오케스트레이터 | `app` |
+| `idem-gate` | `8081` | 인증 SoR | `app` |
+| `idem-console` | `3001` | React SPA (Nginx) | `app` |
 | `agency-stub` | `8084` | 기관 시뮬레이터 | `app` |
 | `kafka-ui` | `8090` | Kafka 관리 UI | 선택 |
 | `pgadmin` | `5050` | DB 관리 UI | 선택 |
@@ -70,16 +70,16 @@
 ### 2.2 네트워크 구성
 
 ```
-onepass-net (172.20.0.0/24)
+idem-net (172.20.0.0/24)
 ├── postgres      172.20.0.10
 ├── mariadb       172.20.0.11
 ├── redis         172.20.0.12
 ├── kafka         172.20.0.13
 ├── zookeeper     172.20.0.14
 ├── keycloak      172.20.0.15
-├── onepass-qsign 172.20.0.17
-├── onepass-ido   172.20.0.19
-├── onepass-fe    172.20.0.20
+├── idem-gate 172.20.0.17
+├── idem-hub   172.20.0.19
+├── idem-console    172.20.0.20
 └── agency-stub   172.20.0.21
 ```
 
@@ -111,12 +111,12 @@ docker compose --profile app up -d
 
 ```bash
 # ido만 재시작 (설정 변경 후)
-docker compose restart onepass-ido
+docker compose restart idem-hub
 
 # 로그 확인
-docker compose logs -f onepass-ido
-docker compose logs -f onepass-qsign
-docker compose logs -f onepass-fe
+docker compose logs -f idem-hub
+docker compose logs -f idem-gate
+docker compose logs -f idem-console
 ```
 
 ### 3.3 Gradle 직접 실행 (인프라만 Docker 사용)
@@ -221,7 +221,7 @@ IDO_INTERNAL_SIG_SECRET=<q-sign과 동일한 시크릿>
 # /etc/nginx/conf.d/onepass.conf (v3.0)
 
 upstream ido_backend {
-    server onepass-ido:8083;
+    server idem-hub:8083;
 }
 
 server {
@@ -291,8 +291,8 @@ add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 ./gradlew :idem-hub:bootJar -x test
 
 # Docker 이미지 빌드
-docker build -f idem-hub/Dockerfile -t onepass-ido:latest .
-docker build -f idem-gate/Dockerfile -t onepass-qsign:latest .
+docker build -f idem-hub/Dockerfile -t idem-hub:latest .
+docker build -f idem-gate/Dockerfile -t idem-gate:latest .
 ```
 
 ### 6.2 프론트엔드 (FE) 빌드
@@ -305,7 +305,7 @@ APP_ENV=prod npm run build
 
 # Docker 이미지 빌드 (Nginx 포함)
 cd ..
-docker build -f Dockerfile.optionB -t onepass-react:latest .
+docker build -f Dockerfile.optionB -t idem-console:latest .
 ```
 
 ### 6.3 빌드 결과 검증
@@ -315,7 +315,7 @@ docker build -f Dockerfile.optionB -t onepass-react:latest .
 docker run --rm \
   -e FE_AES_GCM_KEY="$(openssl rand -base64 32)" \
   -e SPRING_PROFILES_ACTIVE=docker \
-  onepass-ido:latest \
+  idem-hub:latest \
   java -jar app.jar --spring.profiles.active=docker &
 
 sleep 15
@@ -381,7 +381,7 @@ env:
 1. 새 키 생성: openssl rand -base64 32
 2. Q-IM 팀에 새 QIM_AES_SHARED_KEY 공유 (Q-IM도 동시 교체)
 3. ido K8s Secret 업데이트: kubectl edit secret ido-secrets
-4. ido Pod 롤링 재시작: kubectl rollout restart deployment/onepass-ido
+4. ido Pod 롤링 재시작: kubectl rollout restart deployment/idem-hub
 5. Q-IM 서버 재시작 (Q-IM 팀 협조)
 6. GET /api/v1/auth/provision/aes-gcm-key 정상 응답 확인
 ⚠️ 키 교체 중 Step3 본인인증 오류 발생 가능 — 유지보수 윈도우 중 진행 권장
@@ -458,13 +458,13 @@ KEYCLOAK_IDO_CLIENT_SECRET=local-dev-ido-secret
 
 ```bash
 # ido 이전 버전으로 롤백
-kubectl rollout undo deployment/onepass-ido -n onepass
+kubectl rollout undo deployment/idem-hub -n onepass
 
 # FE 이전 버전으로 롤백
-kubectl rollout undo deployment/onepass-fe -n onepass
+kubectl rollout undo deployment/idem-console -n onepass
 
 # 상태 확인
-kubectl rollout status deployment/onepass-ido -n onepass
+kubectl rollout status deployment/idem-hub -n onepass
 ```
 
 ---

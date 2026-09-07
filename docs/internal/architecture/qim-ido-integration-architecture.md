@@ -66,7 +66,7 @@ Q-IM 명세서 관점:    SP = 중기원패스 유관기관 정보시스템
 ┌─────────────────────────────────────────────────────────────────┐
 │                    외부 / 유관기관 영역                              │
 │                                                                   │
-│   onepass-fe ─────────┐  agency-A ────────────────────────┐      │
+│   idem-console ─────────┐  agency-A ────────────────────────┐      │
 │   (React SPA)         │  agency-B  (유관기관 정보시스템)      │      │
 │                       │  agency-C ────────────────────────┘      │
 └───────────────────────┼──────────────────────────────────────────┘
@@ -133,7 +133,7 @@ Q-IM 명세서 관점:    SP = 중기원패스 유관기관 정보시스템
 
 ```yaml
 # Q-IM 관리 콘솔 기준으로 IdO는 하나의 SP
-clientId: onepass-ido-sp
+clientId: idem-hub-sp
 spName: 중기원패스 통합인증 플랫폼 IdO
 endpoints:
   MEMBER_QUERY:    https://ido.smes.go.kr/api/qim/sp/v1/member/query
@@ -149,7 +149,7 @@ status: READY
 ### 4.1 회원 등록 흐름 (신규 가입 / 전환)
 
 ```
-onepass-fe                    IdO                        Q-IM
+idem-console                    IdO                        Q-IM
     │                          │                           │
     │ POST /api/v1/conversion/  │                           │
     │     initiate              │                           │

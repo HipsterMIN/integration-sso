@@ -82,7 +82,7 @@ integration-sso (멀티모듈)
 ├── Q-IM   :8082      식별 SoR — 통합 회원 ID, DI, CI 암호화
 ├── IdO    :8083      오케스트레이터 — 모든 연동의 단일 창구
 ├── agency-stub :8084 유관기관 시뮬레이터 (PoC·검증용)
-└── onepass-fe  :3001 React SPA 인증 UI
+└── idem-console  :3001 React SPA 인증 UI
 ```
 
 ### 2.3 핵심 설계 원칙

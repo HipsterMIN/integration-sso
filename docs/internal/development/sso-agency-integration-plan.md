@@ -1,5 +1,7 @@
 # SDK/Agent 수정 보완 플랜 — 자체 SSO 보유 유관기관 연동 지원
 
+> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](../../naming.md) §3.
+
 > **문서 유형**: 내부 개발 계획서 (기술 검토 후 확정 필요)
 > **작성일**: 2026-05-17
 > **작성자**: AI Developer (코드 분석 기반)
@@ -16,8 +18,8 @@
 
 | 컴포넌트 | 현재 상태 | 보완 필요 사항 |
 |---------|----------|-------------|
-| `onepass-agency-sdk` | Gateway 이벤트 송수신 전용 | Handoff Ticket 검증, 회원 전환 지원 |
-| `onepass-agent` | Authorization 헤더 Bearer 토큰만 추출 | 쿠키/파라미터 토큰 추출 전략 확장 |
+| `idem-sdk-java` | Gateway 이벤트 송수신 전용 | Handoff Ticket 검증, 회원 전환 지원 |
+| `idem-agent` | Authorization 헤더 Bearer 토큰만 추출 | 쿠키/파라미터 토큰 추출 전략 확장 |
 
 ### 0.2 자체 SSO 기관의 연동 가능성 결론
 

@@ -65,7 +65,7 @@
 
 추가 확인:
 
-- `docker compose ... up -d` 시 앱 이미지 pull 실패(`onepass-qim`, `onepass-agency-stub` 등 레지스트리 미존재)
+- `docker compose ... up -d` 시 앱 이미지 pull 실패(`idem-registry`, `idem-tenant-sample` 등 레지스트리 미존재)
 - 결과적으로 운영 형태 런타임 플로우를 끝까지 재현하지 못함
 
 ## 흐름 중심 판정 해석

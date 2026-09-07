@@ -20,7 +20,7 @@
 | **03-C-Charter** | [03c-qim-responsibility-charter.md](03c-qim-responsibility-charter.md) | Q-IM 책임 헌장 — DO / DO NOT, 인접 모듈과의 계약 (정본) | 전 모듈 오너 |
 | **03-D** | [03d-module-ido.md](03d-module-ido.md) | IdO 정책 오케스트레이터 — 전 기능 상세 | IdO 담당 |
 | **03-E** | [03e-module-agency-stub.md](03e-module-agency-stub.md) | agency-stub PoC 시뮬레이터 | 연동 개발자 |
-| **03-F** | [03f-module-onepass-fe.md](03f-module-onepass-fe.md) | onepass-fe 데이터 흐름 정본 — 진입/상태/송신 4계층, CI 처리 경로 | 프론트·연동·보안 검토자 |
+| **03-F** | [03f-module-idem-console.md](03f-module-idem-console.md) | idem-console 데이터 흐름 정본 — 진입/상태/송신 4계층, CI 처리 경로 | 프론트·연동·보안 검토자 |
 | **04** | [04-api-reference.md](../../_archive/2026-05-22/internal/spec/04-api-reference.md) | 전체 REST API 명세 (모듈별) | 프론트·연동팀 |
 | **05** | [05-database-schema.md](05-database-schema.md) | DB 스키마 전체 (Flyway V1~최신) | DBA·백엔드 |
 | **06** | [06-kafka-event-catalog.md](06-kafka-event-catalog.md) | Kafka 토픽·이벤트 구조·컨슈머 그룹 | 백엔드·인프라 |
@@ -40,7 +40,7 @@
 | `q-im` | **8082** | 식별 SoR (회원 원장, CI 관리) |
 | `ido` | **8083** | 정책 오케스트레이터 + FE BFF |
 | `agency-stub` | **8084** | 유관기관 PoC 시뮬레이터 |
-| `onepass-fe` | **3000** (dev) / **3001** (nginx) | React SPA |
+| `idem-console` | **3000** (dev) / **3001** (nginx) | React SPA |
 | PostgreSQL | **5432** | q-sign · ido 스키마 |
 | MariaDB | **3306** | q-im 전용 |
 | Redis | **6379** | FE 세션 · 캐시 |
@@ -104,7 +104,7 @@ Q-Sign           ████████████████████  9
 Q-IM             ██████████████████░░  92%  (41 Java files)
 IdO              ████████████████████  99%  (106 Java files)
 agency-stub      ████████████████████  90%  (15 Java files)
-onepass-fe       ████████████░░░░░░░░  60%  (React SPA)
+idem-console       ████████████░░░░░░░░  60%  (React SPA)
 인프라/Docker    ████████████████████ 100%  (Compose 완비)
 보안             ██████████████████░░  93%  (X-Internal-Sig 수신 미완)
 테스트           ░░░░░░░░░░░░░░░░░░░░   0%  (단위·통합 미작성)

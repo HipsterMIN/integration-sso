@@ -37,16 +37,16 @@ infra/docker/
 
 | 서비스 | 이미지 | 포트 | 역할 |
 |--------|--------|------|------|
-| `onepass-postgres` | `postgres:16-alpine` | 5432 | Q-Sign + IdO DB |
-| `onepass-mariadb` | `mariadb:11.4` | 3306 | Q-IM 전용 DB |
-| `onepass-redis` | `redis:7.2-alpine` | 6379 | 세션 + 캐시 |
-| `onepass-zookeeper` | `confluentinc/cp-zookeeper:7.6.1` | 2181 | Kafka 코디네이터 |
-| `onepass-kafka` | `confluentinc/cp-kafka:7.6.1` | 9092 | 이벤트 버스 |
+| `idem-postgres` | `postgres:16-alpine` | 5432 | Q-Sign + IdO DB |
+| `idem-mariadb` | `mariadb:11.4` | 3306 | Q-IM 전용 DB |
+| `idem-redis` | `redis:7.2-alpine` | 6379 | 세션 + 캐시 |
+| `idem-zookeeper` | `confluentinc/cp-zookeeper:7.6.1` | 2181 | Kafka 코디네이터 |
+| `idem-kafka` | `confluentinc/cp-kafka:7.6.1` | 9092 | 이벤트 버스 |
 | `kafka-init` | (init 전용) | — | 토픽 자동 생성 |
-| `onepass-keycloak` | `quay.io/keycloak/keycloak:24` | 8085→8080 | OIDC IdP |
-| `onepass-nginx` | `nginx:1.27-alpine` | 3001→80 | FE 운영 서빙 |
-| `onepass-react` | (빌드) | 3000 | FE 개발 서버 |
-| `onepass-agency-stub` | (빌드) | 8084 | 기관 시뮬레이터 |
+| `idem-keycloak` | `quay.io/keycloak/keycloak:24` | 8085→8080 | OIDC IdP |
+| `idem-nginx` | `nginx:1.27-alpine` | 3001→80 | FE 운영 서빙 |
+| `idem-console` | (빌드) | 3000 | FE 개발 서버 |
+| `idem-tenant-sample` | (빌드) | 8084 | 기관 시뮬레이터 |
 
 ### 1.3 모니터링 서비스 (profile: monitoring)
 
@@ -120,7 +120,7 @@ docker compose -f infra/docker/docker-compose.yml up -d
 docker compose -f infra/docker/docker-compose.yml ps
 
 # 4. Kafka 토픽 확인
-docker exec -it onepass-kafka kafka-topics --bootstrap-server localhost:9092 --list
+docker exec -it idem-kafka kafka-topics --bootstrap-server localhost:9092 --list
 
 # 5. 백엔드 빌드
 ./gradlew :idem-common:build :idem-gate:build :idem-registry:build :idem-hub:build :idem-tenant-sample:build -x test
@@ -200,16 +200,16 @@ for port in 8081 8082 8083 8084; do
 done
 
 # Kafka 토픽 목록 (12개 예상)
-docker exec -it onepass-kafka kafka-topics --bootstrap-server localhost:9092 --list | wc -l
+docker exec -it idem-kafka kafka-topics --bootstrap-server localhost:9092 --list | wc -l
 
 # PostgreSQL 스키마 확인
-docker exec -it onepass-postgres psql -U onepass -c "\dn"
+docker exec -it idem-postgres psql -U onepass -c "\dn"
 
 # MariaDB Q-IM 스키마 확인
-docker exec -it onepass-mariadb mysql -u qim -p onepass_qim -e "SHOW TABLES;"
+docker exec -it idem-mariadb mysql -u qim -p onepass_qim -e "SHOW TABLES;"
 
 # Redis 세션 키 확인
-docker exec -it onepass-redis redis-cli KEYS "fe:session:*" | head -5
+docker exec -it idem-redis redis-cli KEYS "fe:session:*" | head -5
 ```
 
 ---
@@ -260,7 +260,7 @@ lsof -i :8081    # Q-Sign / Keycloak 충돌 주의!
 ls -la infra/docker/keycloak/realm-export.json
 
 # Keycloak 재시작
-docker compose -f infra/docker/docker-compose.yml restart onepass-keycloak
+docker compose -f infra/docker/docker-compose.yml restart idem-keycloak
 
 # realm 확인
 curl -s http://localhost:8085/realms/onepass
@@ -273,7 +273,7 @@ curl -s http://localhost:8085/realms/onepass
 docker logs kafka-init
 
 # 수동 토픽 생성 (예시)
-docker exec -it onepass-kafka kafka-topics \
+docker exec -it idem-kafka kafka-topics \
   --bootstrap-server localhost:9092 \
   --create --topic qsign.auth.events \
   --partitions 12 --replication-factor 1
@@ -283,7 +283,7 @@ docker exec -it onepass-kafka kafka-topics \
 
 ```bash
 # PostgreSQL Flyway 이력 확인
-docker exec -it onepass-postgres psql -U onepass -c \
+docker exec -it idem-postgres psql -U onepass -c \
   "SELECT version, description, success FROM ido.flyway_schema_history ORDER BY installed_rank;"
 
 # 마이그레이션 재실행 (checksum 오류 시)
@@ -326,8 +326,8 @@ gradlew.bat :idem-hub:bootRun
 | IdO | http://localhost:8083 | 오케스트레이터 |
 | agency-stub | http://localhost:8084 | PoC 기관 시뮬레이터 |
 | agency-stub Web UI | http://localhost:8084/ | 브라우저 E2E 시뮬레이터 |
-| onepass-fe (개발) | http://localhost:3000 | React SPA |
-| onepass-fe (운영) | http://localhost:3001 | Nginx 서빙 |
+| idem-console (개발) | http://localhost:3000 | React SPA |
+| idem-console (운영) | http://localhost:3001 | Nginx 서빙 |
 | Keycloak | http://localhost:8085 | OIDC IdP (admin/admin) |
 | Kafka UI | http://localhost:8090 | 토픽·오프셋 조회 |
 | pgAdmin | http://localhost:5050 | PostgreSQL 관리 |

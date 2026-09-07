@@ -36,7 +36,7 @@
 ```mermaid
 sequenceDiagram
     actor 사용자
-    participant FE as FE (onepass-fe)
+    participant FE as FE (idem-console)
     participant IDO as ido (HandoffController)
     participant QIM as q-im
     participant AGC as 기관 서버

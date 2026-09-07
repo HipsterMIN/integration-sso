@@ -1,8 +1,8 @@
 # 인증 흐름 개선 플랜 (2026-05-26)
 
 ## 1. Keycloak 설정 보완
-- [ ] `onepass-fe` 클라이언트에 audience mapper 추가
-- [ ] `onepass-support`를 리소스 서버로 등록 (JWKS URI 설정)
+- [ ] `idem-console` 클라이언트에 audience mapper 추가
+- [ ] `idem-support`를 리소스 서버로 등록 (JWKS URI 설정)
 
 ## 2. 백엔드 보안 계층 강화
 - [ ] Spring Security Resource Server 도입
@@ -25,7 +25,7 @@
 {
   "protocolMapper": "oidc-audience-mapper",
   "config": {
-    "included.client.audience": "onepass-support",
+    "included.client.audience": "idem-support",
     "id.token.claim": "false",
     "access.token.claim": "true"
   }

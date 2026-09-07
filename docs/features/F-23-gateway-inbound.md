@@ -170,7 +170,7 @@ if (response.isIdempotencyConflict()) {
 ## 6. SDK 연동 예시 (Java 8+)
 
 ```java
-// onepass-agency-sdk 사용
+// idem-sdk-java 사용
 AgencyGatewayClient client = AgencyGatewayClient.builder()
     .baseUrl("https://onepass.go.kr")
     .apiKey("your-api-key")

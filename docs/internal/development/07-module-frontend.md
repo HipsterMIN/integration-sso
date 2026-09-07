@@ -1,4 +1,4 @@
-# 07. onepass-fe 프론트엔드 모듈 구현 상태 (v1.9.0)
+# 07. idem-console 프론트엔드 모듈 구현 상태 (v1.9.0)
 
 > **문서 버전**: v1.9.0  
 > **최종 수정**: 2026-05-09  
@@ -10,7 +10,7 @@
 
 ## 1. 모듈 개요
 
-onepass-fe는 **OnePass 통합인증 플랫폼의 SPA(Single Page Application) 프론트엔드**이다.
+idem-console는 **OnePass 통합인증 플랫폼의 SPA(Single Page Application) 프론트엔드**이다.
 
 > ⚠️ **현황**: BFF(Backend for Frontend) Spring Boot 서버가 **제거**되었으며, FE Advisory 처리는 IdO 모듈로 이관되었다.
 
@@ -91,7 +91,7 @@ IdP 리디렉션 → 인증 완료 → FeSession 발급
 
 ```bash
 # 개발 서버
-cd onepass-fe
+cd idem-console
 npm install
 npm run dev  # port 3001
 
@@ -102,12 +102,12 @@ npm run build
 ### Docker 구성
 
 ```yaml
-onepass-react:
-  image: onepass-react:latest
+idem-console:
+  image: idem-console:latest
   ports:
     - "3001:3001"
   networks:
-    onepass-net:
+    idem-net:
       ipv4_address: 172.20.0.20
   profiles:
     - app

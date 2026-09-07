@@ -951,7 +951,7 @@ integration-sso/
 > **모듈**: `idem-agent/` | **아티팩트**: `onepass-agent-{version}-all.jar` (~10MB fat-JAR)  
 > **목적**: 유관기관 WAS에 **소스 코드 수정 없이** OnePass SSO를 적용하는 자바 에이전트  
 > **JDK 지원**: JDK 1.5(JEUS 4/5) ~ JDK 21+(Tomcat 11, WildFly 28+)  
-> **참고 문서**: [통합 가이드](./docs/onepass-agent-integration-guide.md) | [아키텍처](./docs/internal/architecture/onepass-agent-architecture.md) | [개발자 레퍼런스](./docs/internal/development/onepass-agent-developer-reference.md)
+> **참고 문서**: [통합 가이드](./docs/idem-agent-integration-guide.md) | [아키텍처](./docs/internal/architecture/idem-agent-architecture.md) | [개발자 레퍼런스](./docs/internal/development/idem-agent-developer-reference.md)
 
 ### Agent 핵심 특징
 
@@ -1034,12 +1034,12 @@ WAS 자동 감지가 실패하는 경우:
 
 | 문서 | 경로 | 설명 |
 |------|------|------|
-| 통합 가이드 | [`docs/onepass-agent-integration-guide.md`](./docs/onepass-agent-integration-guide.md) | 유관기관 개발자/관리자용 설치 가이드 |
-| 워크스루 | [`docs/onepass-agent-walkthrough.md`](./docs/onepass-agent-walkthrough.md) | 단계별 설치·검증 워크스루 |
-| 트러블슈팅 | [`docs/onepass-agent-troubleshooting.md`](./docs/onepass-agent-troubleshooting.md) | 문제 증상별 진단·해결 |
-| 문서 인덱스 | [`docs/onepass-agent-index.md`](./docs/onepass-agent-index.md) | Agent 전체 문서 목차 |
-| 아키텍처 설계서 | [`docs/internal/architecture/onepass-agent-architecture.md`](./docs/internal/architecture/onepass-agent-architecture.md) | 내부 아키텍처, 위빙 설계, 클래스로더 격리 |
-| 개발자 레퍼런스 | [`docs/internal/development/onepass-agent-developer-reference.md`](./docs/internal/development/onepass-agent-developer-reference.md) | 새 WAS 추가, Javassist/byte-buddy 코딩 가이드 |
+| 통합 가이드 | [`docs/idem-agent-integration-guide.md`](./docs/idem-agent-integration-guide.md) | 유관기관 개발자/관리자용 설치 가이드 |
+| 워크스루 | [`docs/idem-agent-walkthrough.md`](./docs/idem-agent-walkthrough.md) | 단계별 설치·검증 워크스루 |
+| 트러블슈팅 | [`docs/idem-agent-troubleshooting.md`](./docs/idem-agent-troubleshooting.md) | 문제 증상별 진단·해결 |
+| 문서 인덱스 | [`docs/idem-agent-index.md`](./docs/idem-agent-index.md) | Agent 전체 문서 목차 |
+| 아키텍처 설계서 | [`docs/internal/architecture/idem-agent-architecture.md`](./docs/internal/architecture/idem-agent-architecture.md) | 내부 아키텍처, 위빙 설계, 클래스로더 격리 |
+| 개발자 레퍼런스 | [`docs/internal/development/idem-agent-developer-reference.md`](./docs/internal/development/idem-agent-developer-reference.md) | 새 WAS 추가, Javassist/byte-buddy 코딩 가이드 |
 
 ---
 
@@ -1526,7 +1526,7 @@ docs/
 ├── SPRINT_B_PLAN.md                # Sprint B 축소 계획
 ├── phased-rollout-strategy.md      # 단계적 배포 전략 (Phase-Gate Rollout)
 │
-├── onepass-agency-sdk-usage-guide.md   # 현행 SDK 사용 가이드 (메인)
+├── idem-sdk-java-usage-guide.md   # 현행 SDK 사용 가이드 (메인)
 ├── onepass-agent-*.md                  # Agency Java Agent 가이드 시리즈
 ├── sso-agency-*.md                     # 자체 SSO 보유 기관 가이드 (개발자/담당자/운영)
 ├── ext_api_proxy_guide.md              # /api/ext/** 프록시 가이드
