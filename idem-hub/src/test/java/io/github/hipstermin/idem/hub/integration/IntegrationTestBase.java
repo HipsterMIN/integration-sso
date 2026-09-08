@@ -1,22 +1,26 @@
 package io.github.hipstermin.idem.hub.integration;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import java.util.concurrent.CompletableFuture;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -26,11 +30,13 @@ import org.testcontainers.utility.DockerImageName;
  * <ul>
  *   <li>PostgreSQL 15-alpine — Flyway 마이그레이션 자동 실행</li>
  *   <li>Redis 7-alpine — AgencyRateLimiter · TicketRepository · Idempotency 저장소</li>
- *   <li>WireMock — NICE 외부 API HTTP Mock 서버</li>
+ *   <li>WireMock — NICE 외부 API · Q-IM(idem-registry) HTTP Mock 서버</li>
  * </ul>
  *
- * <p>컨테이너는 {@code @Container + static} 선언으로 테스트 스위트 실행 동안
- * 단 한 번만 시작/종료 (Singleton 패턴 — 빠른 실행 보장).
+ * <p><b>싱글턴 패턴(JVM 당 1회 기동)</b>: 컨테이너와 WireMock 은 static 초기화 블록에서 시작하고 JVM 종료 시 정리한다.
+ * {@code @Container}/{@code @BeforeAll}·{@code @AfterAll} 로 관리하면 <em>테스트 클래스마다</em> 종료·재기동되는데,
+ * Spring 테스트 컨텍스트는 클래스 간에 캐시되므로 두 번째 클래스부터 이미 죽은 DB·Redis·WireMock 포트를 바라보게 된다
+ * (2026-09-08 전체 실행에서 Q-IM 스텁 connection refused 로 발견).
  *
  * <p>하위 테스트 클래스는 이 클래스를 상속하여 공유 인프라를 자동으로 활용한다.
  */
@@ -38,12 +44,10 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("integration-test")
-@Testcontainers
 @ExtendWith(SpringExtension.class)
 public abstract class IntegrationTestBase {
 
     // ── PostgreSQL 컨테이너 (Flyway 마이그레이션 포함) ──────────────────────
-    @Container
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
                     .withDatabaseName("onepass")
@@ -53,29 +57,40 @@ public abstract class IntegrationTestBase {
                     .waitingFor(Wait.forListeningPort());
 
     // ── Redis 컨테이너 ────────────────────────────────────────────────────────
-    @Container
     @SuppressWarnings("resource")
     static final GenericContainer<?> REDIS =
             new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
                     .withExposedPorts(6379)
                     .waitingFor(Wait.forLogMessage(".*Ready to accept connections.*", 1));
 
-    // ── WireMock 서버 (NICE 외부 API Mock) ───────────────────────────────────
-    static WireMockServer wireMockServer;
+    // ── WireMock 서버 (NICE 외부 API · Q-IM Mock) ────────────────────────────
+    static final WireMockServer wireMockServer =
+            new WireMockServer(WireMockConfiguration.wireMockConfig().dynamicPort());
 
-    @BeforeAll
-    static void startWireMock() {
-        wireMockServer = new WireMockServer(
-                WireMockConfiguration.wireMockConfig().dynamicPort()
-        );
+    static {
+        POSTGRES.start();
+        REDIS.start();
         wireMockServer.start();
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            wireMockServer.stop();
+            REDIS.stop();
+            POSTGRES.stop();
+        }));
     }
 
-    @AfterAll
-    static void stopWireMock() {
-        if (wireMockServer != null && wireMockServer.isRunning()) {
-            wireMockServer.stop();
-        }
+    // ── Kafka 프로듀서 Mock ──────────────────────────────────────────────────
+    // idoProducerFactory 는 transaction-id-prefix 가 고정된 트랜잭셔널 프로듀서라서, 브로커가 없으면
+    // @Transactional 서비스 안의 kafkaTemplate.send() 가 initTransactions() 에서 max.block.ms(기본 60초)만큼
+    // 요청 스레드를 붙잡는다. 통합 테스트는 Kafka 범위 밖이므로 템플릿을 Mock 으로 바꾸고 완료된 Future 를 돌려준다.
+    @MockitoBean(name = "idoKafkaTemplate")
+    protected KafkaTemplate<String, Object> kafkaTemplate;
+
+    @BeforeEach
+    void stubKafkaTemplate() {
+        lenient().when(kafkaTemplate.send(anyString(), any(), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        lenient().when(kafkaTemplate.send(anyString(), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
     }
 
     // ── Spring 동적 프로퍼티 주입 ─────────────────────────────────────────────
@@ -104,6 +119,10 @@ public abstract class IntegrationTestBase {
                 () -> "http://localhost:" + wireMockServer.port());
         registry.add("ido.nice.access-token-url",
                 () -> "http://localhost:" + wireMockServer.port() + "/v1/token");
+
+        // Q-IM(idem-registry) → WireMock (Handoff 발급 경로의 사용자 상태 조회 등을 스텁으로 응답)
+        registry.add("ido.qim.base-url",
+                () -> "http://localhost:" + wireMockServer.port());
 
         // Kafka 비활성화 (통합 테스트 범위 외)
         registry.add("spring.kafka.bootstrap-servers",  () -> "localhost:19092");

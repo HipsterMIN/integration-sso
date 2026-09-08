@@ -21,10 +21,10 @@ import org.springframework.http.*;
  *
  * <p>테스트 항목:
  * <ul>
- *   <li>CI-Check: 입력 검증 오류(빈 CI) → 4000</li>
- *   <li>CI-Check: 잘못된 mbrDvsnCd → 4000</li>
- *   <li>OACX Easysign: 빈 fn → 4000 (입력 검증)</li>
- *   <li>NICE Phone Result: 빈 requestNo → 4000</li>
+ *   <li>CI-Check: 입력 검증 오류(빈 CI) → 400 (Bean Validation)</li>
+ *   <li>CI-Check: 잘못된 mbrDvsnCd → 400 (Bean Validation)</li>
+ *   <li>OACX Easysign: 빈 fn → 400 (Bean Validation)</li>
+ *   <li>NICE Phone Result: 빈 requestNo → 400 (Bean Validation)</li>
  *   <li>NICE Phone URL: WireMock NICE 토큰 응답 → URL 발급 성공 흐름</li>
  * </ul>
  */
@@ -97,8 +97,8 @@ class NiceAuthIntegrationTest extends IntegrationTestBase {
     // ── 입력 검증 테스트 (외부 의존성 없음) ────────────────────────────────
 
     @Test
-    @DisplayName("CI-Check: 빈 CI → 4000 (입력 검증)")
-    void ciCheck_blankCi_returns4000() throws Exception {
+    @DisplayName("CI-Check: 빈 CI → 400 (Bean Validation)")
+    void ciCheck_blankCi_returns400() throws Exception {
         String body = """
                 {
                   "ci": "",
@@ -109,13 +109,14 @@ class NiceAuthIntegrationTest extends IntegrationTestBase {
 
         ResponseEntity<String> response = postJson("/api/v1/auth/nice/ci-check", body);
 
-        assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody()).contains("4000");
+        // Bean Validation(@Valid) 이 서비스 진입 전에 거부 → 400 + E-IDO-400 (k6 smoke ci-check 와 동일 기대값)
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).contains("E-IDO-400");
     }
 
     @Test
-    @DisplayName("CI-Check: CI null → 4000 (입력 검증)")
-    void ciCheck_nullCi_returns4000() throws Exception {
+    @DisplayName("CI-Check: CI null → 400 (Bean Validation)")
+    void ciCheck_nullCi_returns400() throws Exception {
         String body = """
                 {
                   "indvlMbrNm": "홍길동",
@@ -125,13 +126,14 @@ class NiceAuthIntegrationTest extends IntegrationTestBase {
 
         ResponseEntity<String> response = postJson("/api/v1/auth/nice/ci-check", body);
 
-        assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody()).contains("4000");
+        // Bean Validation(@Valid) 이 서비스 진입 전에 거부 → 400 + E-IDO-400 (k6 smoke ci-check 와 동일 기대값)
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).contains("E-IDO-400");
     }
 
     @Test
-    @DisplayName("CI-Check: 잘못된 mbrDvsnCd → 4000")
-    void ciCheck_invalidMbrDvsnCd_returns4000() throws Exception {
+    @DisplayName("CI-Check: 잘못된 mbrDvsnCd → 400 (Bean Validation)")
+    void ciCheck_invalidMbrDvsnCd_returns400() throws Exception {
         String body = """
                 {
                   "ci": "%s",
@@ -142,13 +144,14 @@ class NiceAuthIntegrationTest extends IntegrationTestBase {
 
         ResponseEntity<String> response = postJson("/api/v1/auth/nice/ci-check", body);
 
-        assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody()).contains("4000");
+        // Bean Validation(@Valid) 이 서비스 진입 전에 거부 → 400 + E-IDO-400 (k6 smoke ci-check 와 동일 기대값)
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).contains("E-IDO-400");
     }
 
     @Test
-    @DisplayName("OACX Easysign: 빈 fn → 4000 (입력 검증)")
-    void oacxEasysign_blankFn_returns4000() throws Exception {
+    @DisplayName("OACX Easysign: 빈 fn → 400 (Bean Validation)")
+    void oacxEasysign_blankFn_returns400() throws Exception {
         String body = """
                 {
                   "fn": "",
@@ -158,13 +161,14 @@ class NiceAuthIntegrationTest extends IntegrationTestBase {
 
         ResponseEntity<String> response = postJson("/api/v1/auth/oacx/easysign", body);
 
-        assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody()).contains("4000");
+        // Bean Validation(@Valid) 이 서비스 진입 전에 거부 → 400 + E-IDO-400 (k6 smoke ci-check 와 동일 기대값)
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).contains("E-IDO-400");
     }
 
     @Test
-    @DisplayName("OACX Easysign: fn null → 4000 (입력 검증)")
-    void oacxEasysign_nullFn_returns4000() throws Exception {
+    @DisplayName("OACX Easysign: fn null → 400 (Bean Validation)")
+    void oacxEasysign_nullFn_returns400() throws Exception {
         String body = """
                 {
                   "signedData": "some-signed-data"
@@ -173,13 +177,14 @@ class NiceAuthIntegrationTest extends IntegrationTestBase {
 
         ResponseEntity<String> response = postJson("/api/v1/auth/oacx/easysign", body);
 
-        assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody()).contains("4000");
+        // Bean Validation(@Valid) 이 서비스 진입 전에 거부 → 400 + E-IDO-400 (k6 smoke ci-check 와 동일 기대값)
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).contains("E-IDO-400");
     }
 
     @Test
-    @DisplayName("NICE Phone Result: 빈 requestNo → 4000 (입력 검증)")
-    void nicePhoneResult_blankRequestNo_returns4000() throws Exception {
+    @DisplayName("NICE Phone Result: 빈 requestNo → 400 (Bean Validation)")
+    void nicePhoneResult_blankRequestNo_returns400() throws Exception {
         String body = """
                 {
                   "requestNo": "",
@@ -189,8 +194,9 @@ class NiceAuthIntegrationTest extends IntegrationTestBase {
 
         ResponseEntity<String> response = postJson("/api/v1/auth/nice/phone/result", body);
 
-        assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getBody()).contains("4000");
+        // Bean Validation(@Valid) 이 서비스 진입 전에 거부 → 400 + E-IDO-400 (k6 smoke ci-check 와 동일 기대값)
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).contains("E-IDO-400");
     }
 
     // ── WireMock 연동 테스트 ────────────────────────────────────────────────

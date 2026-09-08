@@ -72,7 +72,24 @@ public class AesSharedKeyDecryptor {
         this.rawAesSharedKey = aesSharedKey;
         this.transformation  = transformation;
         this.ivLength        = ivLength;
-        this.sharedKeyBytes  = Base64.getDecoder().decode(aesSharedKey);
+        this.sharedKeyBytes  = decodeKeyOrEmpty(aesSharedKey);
+    }
+
+    /**
+     * Base64 키 디코딩 — 기본값(CHANGEME 플레이스홀더)처럼 Base64 가 아닌 값이면 빈 키로 대체한다.
+     *
+     * <p>이전에는 생성자에서 {@link IllegalArgumentException} 이 전파되어 컨텍스트 기동 자체가 실패했다.
+     * 잘못된 키는 {@link #validateConfiguration()} 이 보안 경고로 알리고, 복호화 호출 시
+     * {@link QimDecryptionException} 으로 실패하도록 통일한다 (application.yml 기본값 "" 과 동일한 경로).
+     */
+    private static byte[] decodeKeyOrEmpty(String aesSharedKey) {
+        try {
+            return Base64.getDecoder().decode(aesSharedKey);
+        } catch (IllegalArgumentException e) {
+            log.error("[QIM-CRYPTO][보안경고] ido.qim.aes-shared-key 가 유효한 Base64 가 아닙니다 ({}). " +
+                      "AES 복호화 기능이 비활성화됩니다.", e.getMessage());
+            return new byte[0];
+        }
     }
 
     /**

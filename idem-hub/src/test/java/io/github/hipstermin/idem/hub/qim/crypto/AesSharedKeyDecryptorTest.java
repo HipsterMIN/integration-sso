@@ -128,10 +128,24 @@ class AesSharedKeyDecryptorTest {
     // ─────────────────────────────────────────────────────────────
 
     @Test
+    @DisplayName("CHANGEME 플레이스홀더(비 Base64) 기본값 — 생성자·validateConfiguration 은 통과, decrypt() → QimDecryptionException")
+    void constructor_placeholderDefault_doesNotThrow() throws Exception {
+        // "CHANGEME_32BYTES_BASE64_PLACEHOLDER=" 는 '_' 를 포함해 유효한 Base64 가 아니다.
+        // @Value 기본값이 그대로 들어와도 컨텍스트 기동이 실패하면 안 되고, 복호화 시점에만 실패해야 한다.
+        AesSharedKeyDecryptor placeholderDecryptor =
+                new AesSharedKeyDecryptor("CHANGEME_32BYTES_BASE64_PLACEHOLDER=", TRANSFORMATION, IV_LENGTH);
+        placeholderDecryptor.validateConfiguration();
+
+        String encrypted = encryptAesCbc("test", VALID_KEY_B64);
+
+        assertThatThrownBy(() -> placeholderDecryptor.decrypt(encrypted))
+                .isInstanceOf(AesSharedKeyDecryptor.QimDecryptionException.class)
+                .hasMessageContaining("32바이트");
+    }
+
+    @Test
     @DisplayName("CHANGEME 키(유효 Base64이지만 32바이트 미만) 생성자 후 decrypt() → QimDecryptionException")
     void decrypt_changeMe_throws() throws Exception {
-        // "CHANGEME_32BYTES_BASE64_PLACEHOLDER=" 는 유효하지 않은 Base64 (Base64 알파벳 외 '_' 포함),
-        // 따라서 생성자에서 IllegalArgumentException이 발생한다.
         // 테스트 의도: 유효한 Base64이지만 32바이트 미만 키를 사용하면 decrypt()에서 실패해야 함.
         // → 16바이트(AES-128) 키로 생성 후 decrypt() 호출 시 QimDecryptionException 발생 검증
         byte[] shortKeyBytes = new byte[16]; // 16바이트 (AES-128, 32바이트 미만)

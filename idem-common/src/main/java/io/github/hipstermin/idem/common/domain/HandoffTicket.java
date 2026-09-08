@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.jackson.Jacksonized;
 
 /**
  * IdO Handoff Ticket 구조
@@ -12,6 +13,7 @@ import lombok.Getter;
  */
 @Getter
 @Builder
+@Jacksonized // Redis 에 JSON 으로 저장한 티켓을 다시 읽을 수 있도록 빌더 기반 역직렬화 (없으면 findById/consume 이 항상 empty)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class HandoffTicket {
 

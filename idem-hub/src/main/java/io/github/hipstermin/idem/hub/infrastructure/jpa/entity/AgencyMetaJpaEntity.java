@@ -3,6 +3,8 @@ package io.github.hipstermin.idem.hub.infrastructure.jpa.entity;
 import jakarta.persistence.*;
 import java.time.Instant;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * 기관 메타 JPA 엔터티 — ido.agency_meta 테이블 매핑
@@ -42,6 +44,7 @@ public class AgencyMetaJpaEntity {
      * 허용된 콜백 URL 화이트리스트 (JSONB → TEXT 로 저장, 도메인에서 파싱)
      * e.g. ["https://agency-a.example.com/callback"]
      */
+    @JdbcTypeCode(SqlTypes.JSON) // PostgreSQL jsonb 컬럼에 String 을 varchar 로 바인딩하면 42804 오류 — JSON 타입으로 바인딩
     @Column(name = "callback_whitelist", columnDefinition = "jsonb")
     private String callbackWhitelist;
 
@@ -49,6 +52,7 @@ public class AgencyMetaJpaEntity {
      * 기관이 조회 허용한 사용자 속성 목록 (JSONB)
      * e.g. ["name_masked","mobile_masked"]
      */
+    @JdbcTypeCode(SqlTypes.JSON) // PostgreSQL jsonb 컬럼에 String 을 varchar 로 바인딩하면 42804 오류 — JSON 타입으로 바인딩
     @Column(name = "allowed_attributes", columnDefinition = "jsonb")
     private String allowedAttributes;
 
@@ -56,6 +60,7 @@ public class AgencyMetaJpaEntity {
      * 점검 시간대 (JSONB)
      * e.g. [{"dayOfWeek":"MON","startTime":"02:00","endTime":"04:00"}]
      */
+    @JdbcTypeCode(SqlTypes.JSON) // PostgreSQL jsonb 컬럼에 String 을 varchar 로 바인딩하면 42804 오류 — JSON 타입으로 바인딩
     @Column(name = "maintenance_windows", columnDefinition = "jsonb")
     private String maintenanceWindows;
 

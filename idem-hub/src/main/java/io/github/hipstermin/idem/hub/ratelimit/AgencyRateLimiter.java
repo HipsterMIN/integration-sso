@@ -7,6 +7,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.serializer.GenericToStringSerializer;
+import org.springframework.data.redis.serializer.RedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Component;
 
 /**
@@ -67,6 +70,16 @@ public class AgencyRateLimiter {
                 return 1
             end
             """;
+
+    /**
+     * Lua ARGV 는 반드시 문자열 그대로 전달한다.
+     *
+     * <p>RedisTemplate 기본 값 직렬화기(GenericJackson2JsonRedisSerializer)를 쓰면 "5" 가 JSON 문자열 {@code "\"5\""}
+     * 로 전달되어 {@code tonumber(ARGV[1])} 이 nil 이 되고, 스크립트가 "attempt to compare nil with number" 로
+     * 실패해 fail-open(항상 허용)으로 빠진다 — 2026-09-08 idem-hub integrationTest 에서 발견.
+     */
+    private static final RedisSerializer<String> LUA_ARGS_SERIALIZER   = new StringRedisSerializer();
+    private static final RedisSerializer<Long>   LUA_RESULT_SERIALIZER = new GenericToStringSerializer<>(Long.class);
 
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -142,6 +155,7 @@ public class AgencyRateLimiter {
             String key = tpsKey(agencyCode);
             DefaultRedisScript<Long> script = new DefaultRedisScript<>(TPS_LUA, Long.class);
             Long result = redisTemplate.execute(script,
+                    LUA_ARGS_SERIALIZER, LUA_RESULT_SERIALIZER,
                     List.of(key),
                     String.valueOf(limit),
                     "2"   // TTL 2초 (슬라이딩 윈도우 1초 + 여유)
@@ -159,6 +173,7 @@ public class AgencyRateLimiter {
             String key = dailyKey(agencyCode);
             DefaultRedisScript<Long> script = new DefaultRedisScript<>(DAILY_LUA, Long.class);
             Long result = redisTemplate.execute(script,
+                    LUA_ARGS_SERIALIZER, LUA_RESULT_SERIALIZER,
                     List.of(key),
                     String.valueOf(limit),
                     String.valueOf(Duration.ofHours(25).toSeconds()) // 25시간 TTL

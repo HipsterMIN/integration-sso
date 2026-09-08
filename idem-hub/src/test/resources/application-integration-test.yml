@@ -2,6 +2,14 @@
 # IntegrationTestBase의 @DynamicPropertySource로 DB/Redis/WireMock URL이 주입됨
 
 spring:
+  kafka:
+    # Kafka 는 통합 테스트 범위 밖(브로커 없음). 프로듀서 메타데이터 대기 기본 60초 → 요청마다 60초 블로킹되므로 짧게.
+    # KafkaProducer.send 는 TimeoutException 을 실패 Future 로 돌려주고 예외를 던지지 않는다.
+    producer:
+      properties:
+        max.block.ms: 250
+    listener:
+      auto-startup: false   # 컨슈머 컨테이너의 브로커 재접속 로그 소음 제거
   jpa:
     hibernate:
       ddl-auto: validate       # Flyway 마이그레이션이 스키마를 관리
@@ -21,6 +29,8 @@ ido:
     base-url: http://localhost:8082
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
+    # 테스트 전용 AES-256 공유키 (32바이트 "01234567890123456789012345678901" 의 Base64) — 실제 키 아님
+    aes-shared-key: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
   audit:
     kafka-publish-enabled: false
     retry-interval-ms: 600000
@@ -45,6 +55,27 @@ ido:
   # Sprint γ-3 / F3.3 후속 — 통합 테스트에서는 Handoff 폴백 키 미주입 허용
   ticket:
     allow-empty-fallback-keys: true
+    # Handoff 발급 경로(HandoffCryptoService AES-256-GCM / HMAC-SHA256)가 실제로 키를 쓰므로 테스트 전용 폴백 키를 준다 (실제 키 아님)
+    aes-key: aW50ZWdyYXRpb24tdGVzdC1hZXMta2V5LTMyYnl0ZXM=
+    hmac-key: aW50ZWdyYXRpb24tdGVzdC1obWFjLWtleS0zMmJ5dGU=
+  # Sprint α-1 / F5.1 — LocalKmsClient 는 ido.kms.enabled=false 를 명시해야 활성화된다(matchIfMissing=false).
+  # 테스트용 application.yml 이 main 의 application.yml 을 가리므로 main 기본값(enabled=false)이 적용되지 않는다.
+  kms:
+    enabled: false
+  # AuthProperties 는 record(기본값 없음) — ido.auth.* 가 비어 있으면 AuthWebClientConfig 가 NPE 로 기동 실패한다.
+  # main application.yml 의 기본값과 동일하게 채운다(자격 증명은 빈 값).
+  auth:
+    nice:
+      client-id: ""
+      client-secret: ""
+      return-url: http://localhost:3000/otp/auth-result
+      timeout-seconds: 10
+    oacx:
+      provider-key-path: ""
+      debug-mode: false
+    integration:
+      base-url: ""
+      timeout-seconds: 10
 
 resilience4j:
   circuitbreaker:

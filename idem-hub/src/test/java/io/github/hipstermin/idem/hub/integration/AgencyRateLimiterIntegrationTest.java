@@ -104,6 +104,10 @@ class AgencyRateLimiterIntegrationTest extends IntegrationTestBase {
         }
 
         ready.await();
+        // TPS 키는 epoch 초 단위(ido:rl:tps:{agency}:{second})라 30건이 초 경계를 걸치면 두 윈도우로 나뉘어
+        // 허용 수가 최대 2배가 된다 → 다음 초가 시작된 직후에 동시에 출발시켜 한 윈도우 안에 넣는다.
+        long msIntoSecond = System.currentTimeMillis() % 1000;
+        Thread.sleep(1000 - msIntoSecond + 20);
         start.countDown();
         executor.shutdown();
         executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
