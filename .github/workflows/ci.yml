@@ -141,6 +141,14 @@ jobs:
           cache: ${{ runner.environment == 'github-hosted' && 'yarn' || '' }}
           cache-dependency-path: idem-console/frontend/yarn.lock
 
+      # 호스트 러너와 달리 자체 호스팅 러너에는 yarn 이 없다(2026-09-08 첫 실행 "yarn: command not found").
+      # Node 20 에 포함된 Corepack 으로 yarn classic(1.x, yarn.lock v1)을 활성화한다 — 호스트 러너에서도 동일하게 동작.
+      - name: yarn 준비 (Corepack)
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn --version
+
       - name: 의존성 설치
         run: yarn install --frozen-lockfile
 
