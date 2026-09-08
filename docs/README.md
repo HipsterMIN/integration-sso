@@ -16,6 +16,9 @@ docs/
 ├── project-overview.md             ← ★프로젝트 소개 (처음 접하는 분용, docx 배포본과 동일 내용)
 ├── local-dev-workflow.md           ← 로컬 개발 워크플로 (git 훅: pre-commit Spotless, pre-push 변경 모듈 테스트)
 │
+├── certification/                  ← CC(국내용)·GS 인증 준비
+│   └── cc-gs-gap-analysis.md       │   요구사항별 갭 분석·TOE 범위·로드맵 (초안 2026-09-08)
+│
 ├── analysis/                       ← 운영 적합성 심층 분석 (★최신)
 │   └── sso-im-readiness/           │   Phase 1-7 + Sprint α-1/α-2/α-3 결과
 │
@@ -87,6 +90,7 @@ docs/
 | [`identity-provider-spi.md`](identity-provider-spi.md) | **본인인증 SPI** — `IdentityVerificationProvider` 계약, 표준 엔드포인트, Mock 플러그인 사용법, 새 제공자 작성 절차 |
 | [`vendor-plugin-plan.md`](vendor-plugin-plan.md) | **벤더 독립화·플러그인 아키텍처 플랜** — NICE/OACX·AnyID 를 플러그인으로 분리하는 P0~P5 단계, SPI 계약 초안 |
 | [`naming.md`](naming.md) | **Idem 개명 대응표** — 구명↔신명, 개명 단계, 아직 바꾸지 않은 런타임 식별자 목록 |
+| [`certification/cc-gs-gap-analysis.md`](certification/cc-gs-gap-analysis.md) | **CC·GS 인증 갭 분석 (초안)** — 국가용 보안요구사항(SSO) 클래스별 현재 구현 대조, TOE 범위 제안, 보증 산출물·GS 품질 특성 갭, 로드맵·질의 목록 |
 | [`idem-sdk-java-usage-guide.md`](idem-sdk-java-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |
 | [`idem-agent-index.md`](idem-agent-index.md) | Agency Java Agent — 문서 인덱스 |
 | [`idem-agent-integration-guide.md`](idem-agent-integration-guide.md) | Agency Java Agent — 통합 가이드 |
