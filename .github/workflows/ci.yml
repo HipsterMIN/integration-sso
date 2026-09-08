@@ -10,11 +10,8 @@
 #   1. build-and-test   — Gradle 빌드 + 단위 테스트 (모든 모듈)
 #   2. frontend-check   — FE TypeScript 컴파일 + Webpack 빌드
 #   3. security-scan    — OWASP Dependency-Check 취약점 스캔
-#   4. code-quality     — (Optional) SonarQube 정적 분석 (SONAR_TOKEN 설정 시 활성화)
 #
 # 시크릿 (GitHub Settings → Secrets):
-#   SONAR_TOKEN    — SonarCloud 분석 토큰 (설정 시 code-quality 활성화)
-#   SONAR_HOST_URL — SonarQube 서버 URL (기본: https://sonarcloud.io)
 
 name: CI
 
@@ -51,7 +48,7 @@ jobs:
       - name: 소스 체크아웃
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0    # SonarQube blame 분석 위해 전체 이력 필요
+          fetch-depth: 0    # (Sonar 제거 후에도 유지) 전체 이력 — 릴리스 노트·blame 참조용
 
       - name: Java ${{ env.JAVA_VERSION }} 설정
         uses: actions/setup-java@v4
@@ -119,7 +116,8 @@ jobs:
   # ── Job 2: FE 빌드 검증 ───────────────────────────────────────────────────────
   frontend-check:
     name: Frontend Build
-    runs-on: ubuntu-latest
+    # 2026-09-08 호스트 러너 한도(분 소진)로 항상 실패하던 것을 자체 호스팅 러너로 이동. 프론트 변경을 검증하는 유일한 자동 지점.
+    runs-on: ${{ vars.CI_HEAVY_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     defaults:
       run:
@@ -133,7 +131,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'yarn'
+          # 자체 호스팅 러너는 node_modules·yarn 캐시가 머신에 남으므로 GitHub 캐시 전송 생략(느린 망에서 수 분 지연)
+          cache: ${{ runner.environment == 'github-hosted' && 'yarn' || '' }}
           cache-dependency-path: idem-console/frontend/yarn.lock
 
       - name: 의존성 설치
@@ -152,7 +151,7 @@ jobs:
   # ── Job 3: OWASP Dependency-Check (수동 전용 심층 스캔) ──────────────────────
   # PR 게이트에서 제외한 이유: NVD API가 키가 있어도 상습적으로 저하/장애 상태라
   # (2026-09 NvdCveClient NPE 사례) PR을 20~40분씩 막았음. 빠른 PR 게이트는
-  # trivy-pr-scan(Job 3b)과 docker-build 의 Trivy 이미지 스캔이 담당하고, 본 잡은 수동 실행(workflow_dispatch) 전용.
+  # docker-build 의 Trivy 이미지 스캔이 담당하고, 본 잡은 수동 실행(workflow_dispatch) 전용.
   # 2026-09-07 야간 cron 제거 — NVD 동기화가 망 상태(IPv6·프록시·대역폭)에 민감해 무인 실행 가치가 낮았다.
   # 로컬 실행: NVD_API_KEY=... ./gradlew dependencyCheckAggregate  (docs/ci-runner-guide.md)
   security-scan:
@@ -254,52 +253,6 @@ jobs:
         with:
           sarif_file: build/reports/dependency-check/dependency-check-report.sarif
         continue-on-error: true    # SARIF 없을 때 실패 방지
-
-  # ── Job 3b: Trivy 의존성 스캔 (빠른 PR 게이트) ───────────────────────────────
-  # OWASP(수동)를 대신해 PR에서 수 분 내 도는 경량 스캔. Trivy 자체 DB(GHSA/OSV/NVD
-  # 통합 미러)를 통으로 받아 NVD API 실시간 호출이 없어 외부 장애에 강함.
-  # 우선 리포트 전용(exit-code 0)으로 도입 — 기존 취약점 트리아지 후 차단 전환 검토.
-  trivy-pr-scan:
-    name: Trivy 의존성 스캔 (PR)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      security-events: write   # SARIF → Security 탭 업로드
-      actions: read
-    steps:
-      - name: 소스 체크아웃
-        uses: actions/checkout@v4
-
-      - name: Trivy 저장소 스캔 (의존성·시크릿·설정)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: table
-          exit-code: '0'          # 리포트 전용 — 차단 전환은 트리아지 후 결정
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Trivy SARIF 생성
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: sarif
-          output: trivy-fs.sarif
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
-        continue-on-error: true
-
-      - name: SARIF 결과를 GitHub Security에 업로드
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && vars.CODE_SCANNING_ENABLED == 'true'   # Code scanning 활성 저장소에서만
-        with:
-          sarif_file: trivy-fs.sarif
-        continue-on-error: true
 
   # ── Job 5: k6 스모크 테스트 (배포 직후 핵심 엔드포인트 검증) ─────────────────
   smoke-test:
@@ -479,54 +432,6 @@ jobs:
           if [ -n "$IDO_PID" ]; then
             kill "$IDO_PID" 2>/dev/null || true
           fi
-
-  # ── Job 4: SonarQube 정적 분석 (SONAR_TOKEN 설정 시 활성화) ──────────────────
-  code-quality:
-    name: SonarQube Analysis
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: build-and-test    # 빌드/테스트 통과 후 실행
-    # NOTE: GitHub Actions 는 job-level `if:` 에서 secrets/env 컨텍스트 접근을 금지함.
-    #       대신 step-level `if:` 에서 env 비교가 허용됨 (아래 SonarQube 스캔 step 참고).
-    #       SONAR_TOKEN 미설정 시 모든 step 이 자동 스킵되어 job 은 success 로 종료.
-
-    steps:
-      - name: 소스 체크아웃
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Java ${{ env.JAVA_VERSION }} 설정
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          cache: ${{ runner.environment == 'github-hosted' && 'gradle' || '' }}   # 자체 호스팅은 ~/.gradle 이 머신에 남으므로 캐시 전송 생략
-
-      - name: Gradle 캐시
-        uses: actions/cache@v4
-        if: runner.environment == 'github-hosted'   # 자체 호스팅 러너는 로컬 ~/.gradle 재사용 (느린 망에서 500MB 전송이 잡을 수십 분 지연)
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.kts') }}
-
-      - name: SonarQube 스캔
-        # SONAR_TOKEN 미설정 시 자동 스킵 (env 노출 후 step-level if 에서 비교)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }}
-        if: ${{ env.SONAR_TOKEN != '' }}
-        run: |
-          ./gradlew sonarqube --no-daemon \
-            -Dsonar.projectKey=HipsterMIN_integration-sso \
-            -Dsonar.organization=hipstermin \
-            -Dsonar.host.url=${SONAR_HOST_URL} \
-            -Dsonar.coverage.jacoco.xmlReportPaths=**/build/reports/jacoco/**/*.xml \
-            -Dsonar.exclusions=**/generated/**,**/*.sql \
-            || true
 
   # ── Job 6: Docker 멀티스테이지 이미지 빌드 검증 (S8-T6) ─────────────────────
   docker-build:
