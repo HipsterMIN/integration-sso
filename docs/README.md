@@ -14,6 +14,7 @@
 docs/
 ├── README.md                       ← 이 파일 (전체 안내)
 ├── project-overview.md             ← ★프로젝트 소개 (처음 접하는 분용, docx 배포본과 동일 내용)
+├── local-dev-workflow.md           ← 로컬 개발 워크플로 (git 훅: pre-commit Spotless, pre-push 변경 모듈 테스트)
 │
 ├── analysis/                       ← 운영 적합성 심층 분석 (★최신)
 │   └── sso-im-readiness/           │   Phase 1-7 + Sprint α-1/α-2/α-3 결과

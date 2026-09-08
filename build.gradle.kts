@@ -11,6 +11,7 @@ plugins {
     id("io.spring.dependency-management")     version "1.1.7"       apply false
     // ── P3-04: 보안 스캔 & 코드 품질 플러그인 (루트 전용) ──────────────────────
     id("org.owasp.dependencycheck")           version "12.2.2"      apply true
+    id("com.diffplug.spotless")               version "7.2.1"       apply false
     id("org.sonarqube")                       version "5.1.0.4882"  apply true
     jacoco
 }
@@ -424,5 +425,30 @@ tasks.register<JacocoReport>("jacocoAggregateReport") {
         xml.required.set(true)
         html.required.set(true)
         html.outputLocation.set(layout.buildDirectory.dir("reports/jacoco/aggregate"))
+    }
+}
+
+// ── Spotless: 로컬 pre-commit 포맷팅 (2026-09-07) ─────────────────────────────
+// CI 게이트가 아니라 .githooks/pre-commit 에서 spotlessApply 로 실행된다 (scripts/dev/install-git-hooks.sh).
+// ratchetFrom("origin/main") — origin/main 대비 변경된 파일만 대상 → 기존 코드 일괄 재포맷 없이 점진 도입.
+// 보수적 규칙만 적용(임포트 정리·미사용 임포트 제거·후행 공백·파일 끝 개행·탭→4칸). 전체 재포맷(palantirJavaFormat 등)은
+// 코드베이스 합의 후 별도 도입.
+subprojects {
+    plugins.withId("java") {
+        apply(plugin = "com.diffplug.spotless")
+        extensions.configure<com.diffplug.gradle.spotless.SpotlessExtension> {
+            // check/build 에 spotlessCheck 를 묶지 않는다 — CI 의 얕은 checkout 에는 origin/main 이 없어
+            // ratchetFrom 이 실패하고, 포맷 검사는 로컬 pre-commit 훅이 담당한다.
+            isEnforceCheck = false
+            ratchetFrom("origin/main")
+            java {
+                target("src/**/*.java")
+                importOrder()
+                removeUnusedImports()
+                trimTrailingWhitespace()
+                endWithNewline()
+                leadingTabsToSpaces(4)
+            }
+        }
     }
 }
