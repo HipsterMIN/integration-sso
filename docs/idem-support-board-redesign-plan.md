@@ -396,7 +396,7 @@ public PageResponse<QnaSummary> list(
 ### 3.1 백엔드 도메인 (요약)
 
 ```
-src/main/java/kr/go/smes/support/
+src/main/java/io/github/hipstermin/idem/support/
 ├── api/
 │   ├── QnaController.java                    # /api/v1/support/qna (GET/POST)
 │   ├── FaqController.java                    # /api/v1/support/faqs (+ /groups)
@@ -975,7 +975,7 @@ PR을 작게 쪼개야 리뷰가 빠릅니다.
 - 현재 API: `idem-support/README.md`
 - 기존 CS 백오피스 plan: `docs/idem-support-cs-backoffice-plan.md`
 - 외부 유관기관 OIDC 브로커링(차별화 비교용): `docs/internal/architecture/ADR-2026-004-internal-sso-integration-pattern.md`
-- JWKS 검증 패턴 참조: `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/keycloak/KeycloakJwksVerifier.java`
+- JWKS 검증 패턴 참조: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/keycloak/KeycloakJwksVerifier.java`
 - 프론트 JWT 인터셉터: `idem-console/frontend/src/api/index.ts`
 - KRDS(공공기관 표준 디자인 시스템): https://www.krds.go.kr (참고)
 - BCrypt: Spring Security `BCryptPasswordEncoder`

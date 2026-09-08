@@ -144,7 +144,7 @@ flowchart TD
 
 ### 2.2 idpHintMapping (Keycloak IDP 매핑)
 
-`idem-gate/src/main/java/kr/go/smes/qsign/keycloak/KeycloakProperties.java`:
+`idem-gate/src/main/java/io/github/hipstermin/idem/gate/keycloak/KeycloakProperties.java`:
 
 ```
 kakao   → "social-kakao"   (Keycloak Social Identity Provider)
@@ -887,7 +887,7 @@ onBizSubmit → bizFormRef.current?.submit()
 
 ### 7.2 P0 — HMAC 타이밍 공격 취약점 수정
 
-**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/util/NiceCryptoUtil.java`
+**파일**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/util/NiceCryptoUtil.java`
 
 ```java
 // 현재 코드 (취약)

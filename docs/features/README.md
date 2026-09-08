@@ -87,6 +87,6 @@ helm upgrade ido infra/helm/idem-hub --set phase=4
 ## 관련 문서
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)
 - [배포 가이드](../_archive/2026-05-22/deployment-guide.md)
-- [FeatureFlags 소스 코드](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
+- [FeatureFlags 소스 코드](../../idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/FeatureFlags.java)
 - [K8s ConfigMap](../../infra/k8s/configmaps/)
 - [Helm Chart](../../infra/helm/idem-hub/)

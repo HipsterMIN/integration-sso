@@ -4,7 +4,7 @@
 > **Phase**: Phase 2 (Gate 1 통과 후 활성화)  
 > **기본값**: `false` / `true` (안전)  
 > **구현 Sprint**: Sprint 14  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/provision/`
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/provision/`
 
 ---
 

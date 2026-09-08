@@ -138,7 +138,7 @@ tasks.withType<Jar>().configureEach {
             "Implementation-Title"   to "OnePass Agency SDK",
             "Implementation-Version" to project.version,
             "Build-Jdk-Spec"        to "8+",   // Java 8 이상 호환 명시
-            "Automatic-Module-Name" to "kr.go.smes.sdk.agency"
+            "Automatic-Module-Name" to "io.github.hipstermin.idem.sdk.agency"
         )
     }
 }
@@ -192,7 +192,7 @@ tasks.withType<Test>().configureEach {
 // ──────────────────────────────────────────────────────────────────────────────
 
 // SDK 아티팩트 메타데이터
-val sdkGroup      = "kr.go.smes"
+val sdkGroup      = "io.github.hipstermin.idem"
 val sdkArtifactId = "idem-sdk-java"
 val sdkVersion    = project.version.toString()    // 루트 build.gradle.kts: "0.1.0-SNAPSHOT"
 

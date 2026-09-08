@@ -28,7 +28,7 @@
 | C5 | 라이선스 부재 — `LICENSE` 없음, Dockerfile 라벨 `Proprietary` 5건 | 루트, `*/Dockerfile` | 라이선스 선택(권장 Apache-2.0), `LICENSE`·`NOTICE` 추가, 라벨 교체. 벤더 SDK 분리 후에만 가능 |
 | C6 | 바이너리 문서 — docx 15건, pptx 2건 | `docs/**`, `wiki/docx` | 공개판에서 제외하거나 md 로 대체 |
 | C7 | 자체 호스팅 러너 | `CI_HEAVY_RUNNER` 변수 | 공개 시 변수 제거·러너 해제 (포크 PR 코드 실행 위험) |
-| C8 | 개명 4·5단계 미완 — Java 패키지 `kr.go.smes`, 런타임 식별자 | `docs/naming.md` §3 | 공개 자체의 차단 요소는 아니나 첫인상에 영향. 스냅샷 이관 전 완료 권장 |
+| C8 | 개명 4·5단계 미완 — Java 패키지 `io.github.hipstermin.idem`, 런타임 식별자 | `docs/naming.md` §3 | 공개 자체의 차단 요소는 아니나 첫인상에 영향. 스냅샷 이관 전 완료 권장 |
 
 ## 4. 권장 절차 — 스냅샷 이관
 

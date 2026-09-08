@@ -1915,7 +1915,7 @@ docker compose -f infra/docker/docker-compose.yml restart redis
 
 **증상:**
 ```
-Error: Could not find or load main class kr.go.smes.ido.IdoApplication
+Error: Could not find or load main class io.github.hipstermin.idem.hub.IdoApplication
 ```
 
 **해결:**

@@ -247,7 +247,7 @@ flowchart TD
 ### 4.3 실제 구현 코드 (핵심 부분)
 
 ```java
-// idem-hub/src/main/java/kr/go/smes/idem-hub/ext/ExtProxyController.java
+// idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/ext/ExtProxyController.java
 
 @RestController
 @RequestMapping("/api/ext")

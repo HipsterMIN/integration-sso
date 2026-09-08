@@ -16,7 +16,7 @@
 ## 2. 패키지 구조
 
 ```
-idem-common/src/main/java/kr/go/smes/common/
+idem-common/src/main/java/io/github/hipstermin/idem/common/
 ├── domain/
 │   ├── AuthResult.java          # 인증 결과 핵심 도메인
 │   └── HandoffPayload.java      # Handoff 페이로드 전체 정의
@@ -37,7 +37,7 @@ idem-common/src/main/java/kr/go/smes/common/
 ## 3. AuthResult 도메인
 
 ```java
-// kr.go.smes.common.domain.AuthResult
+// io.github.hipstermin.idem.common.domain.AuthResult
 public class AuthResult {
     private String authResultId;       // UUID (36자)
     private String correlationId;      // 요청 추적 ID

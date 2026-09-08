@@ -19,7 +19,7 @@ spring:
 logging:
   level:
     root: WARN
-    kr.go.smes.batch: INFO
+    io.github.hipstermin.idem.relay: INFO
     net.javacrumbs.shedlock: WARN     # ShedLock은 운영 중 조용해야 정상
     org.springframework: WARN
     org.springframework.kafka: WARN

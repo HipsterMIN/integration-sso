@@ -212,7 +212,7 @@
 - `qim.crypto.ci.allow-empty-key` escape hatch — 단위 테스트는 `@BeforeEach` 의 reflection 주입으로 컨테이너 외부에서 인스턴스를 만들므로 영향 없음. `application-local.yml` 에 `allow-empty-key: true` 추가 (로컬 샌드박스 한정).
 - 회귀 테스트: 기존 `CiCryptoServiceImplTest` 의 23건 보존 + `StartupGuard` Nested 14건 추가 (Reject 8 / Accept 3 / Escape Hatch 2 / 회귀 가드 1). 특히 legacy `AAAA...=` placeholder 의 소문자 변형도 차단되는지 확인 (대소문자 무시 비교 검증).
 - **호환성 영향 (중요)**: 운영 환경변수 `QIM_CI_AES_KEY_V1` 의무화. 32바이트 무작위 Base64 키 (생성: `openssl rand -base64 32`). 미주입 시 `IllegalStateException` 으로 ApplicationContext 초기화 차단 → 컨테이너 CrashLoopBackOff. 기존 운영 환경에 이미 키가 주입되어 있다면 영향 없음. 만약 default 값에 의존하던 dev/stage 환경이 있다면 즉시 키 주입 필요.
-- **별도 보고**: γ-2 정적 검증 중 ido 측에도 동일 패턴의 placeholder default 가 발견됨 — `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/KeyVersionRegistry.java` line 62/65 (ticket aes/hmac key) + `idem-hub/src/main/resources/application.yml` line 605/606 (handoff aes/hmac key) + `infra/docker/docker-compose.yml` line 675/676. 이들은 α-3 (Handoff KMS) 영역 후속 정리 대상으로, 별도 PR (γ-3 후보) 로 분리 처리 권장.
+- **별도 보고**: γ-2 정적 검증 중 ido 측에도 동일 패턴의 placeholder default 가 발견됨 — `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/crypto/KeyVersionRegistry.java` line 62/65 (ticket aes/hmac key) + `idem-hub/src/main/resources/application.yml` line 605/606 (handoff aes/hmac key) + `infra/docker/docker-compose.yml` line 675/676. 이들은 α-3 (Handoff KMS) 영역 후속 정리 대상으로, 별도 PR (γ-3 후보) 로 분리 처리 권장.
 - 잔여 인증 본체 P0: F3.2 (findByIdentifierHash provider 별 조회). γ-3 단독 PR 예정.
 - 통합 PR: shipster→main, 본 PR 로 묶음.
 

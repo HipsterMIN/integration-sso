@@ -89,7 +89,7 @@ public String getBodyField(String key) { ... } // 단순 파싱 헬퍼
 
 #### [P1] HandoffVerifyClient 추가 ← **즉시 구현 권장**
 
-**파일**: `idem-sdk-java/src/main/java/kr/go/smes/sdk/agency/HandoffVerifyClient.java` (신규)
+**파일**: `idem-sdk-java/src/main/java/io/github/hipstermin/idem/sdk/agency/HandoffVerifyClient.java` (신규)
 
 ```java
 /**
@@ -219,7 +219,7 @@ public HandoffPayload toHandoffPayload() { ... }
 
 #### [P4] MemberConversionAdapter SPI 인터페이스 ← **자체 SSO 기관 전용, 낮은 우선순위**
 
-**파일**: `idem-sdk-java/src/main/java/kr/go/smes/sdk/agency/spi/MemberConversionAdapter.java` (신규)
+**파일**: `idem-sdk-java/src/main/java/io/github/hipstermin/idem/sdk/agency/spi/MemberConversionAdapter.java` (신규)
 
 ```java
 /**

@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_RATE_LIMIT_ENABLED`  
 > **기본값**: `true` (운영 필수)  
 > **Spring 프로퍼티**: `ido.rate-limit.enabled`  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/gateway/AgencyRateLimiter.java`
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/gateway/AgencyRateLimiter.java`
 
 ---
 
@@ -156,5 +156,5 @@ ORDER BY rate_limited DESC;
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/FeatureFlags.java)
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)

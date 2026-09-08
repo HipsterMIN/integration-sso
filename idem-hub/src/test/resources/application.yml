@@ -61,4 +61,4 @@ resilience4j:
 logging:
   level:
     root: WARN
-    kr.go.smes: INFO
+    io.github.hipstermin.idem: INFO

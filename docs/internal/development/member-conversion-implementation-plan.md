@@ -178,7 +178,7 @@ Sprint 6    통합 테스트 + PoC 검증                    (1주)
 #### 4.1.1 `AgencyMemberLookupResult` (유관시스템 회원 조회 결과)
 
 ```java
-// idem-registry/src/main/java/kr/go/smes/qim/domain/AgencyMemberLookupResult.java
+// idem-registry/src/main/java/io/github/hipstermin/idem/registry/domain/AgencyMemberLookupResult.java
 @Getter @Builder
 public class AgencyMemberLookupResult {
     private final String  agencyCode;       // 유관시스템 코드
@@ -193,7 +193,7 @@ public class AgencyMemberLookupResult {
 #### 4.1.2 `ConversionSession` (전환 세션 — Redis 임시 저장)
 
 ```java
-// idem-registry/src/main/java/kr/go/smes/qim/domain/ConversionSession.java
+// idem-registry/src/main/java/io/github/hipstermin/idem/registry/domain/ConversionSession.java
 @Getter @Builder
 public class ConversionSession {
     private final String sessionId;           // UUID
@@ -218,7 +218,7 @@ public class ConversionSession {
 #### 4.1.3 `ConsentRecord` (개인정보 동의 기록)
 
 ```java
-// idem-registry/src/main/java/kr/go/smes/qim/domain/ConsentRecord.java
+// idem-registry/src/main/java/io/github/hipstermin/idem/registry/domain/ConsentRecord.java
 @Getter @Builder
 public class ConsentRecord {
     private final String  consentId;       // UUID
@@ -242,7 +242,7 @@ public class ConsentRecord {
   - 조회 실패한 기관은 스킵 (부분 성공 허용)
   - 결과를 ConversionSession에 저장
 
-구현 위치: idem-registry/src/main/java/kr/go/smes/qim/agency/AgencyMemberLookupService.java
+구현 위치: idem-registry/src/main/java/io/github/hipstermin/idem/registry/agency/AgencyMemberLookupService.java
 의존성: AgencyStub REST API (확장 가능하도록 인터페이스 분리)
 
 주요 메서드:
@@ -264,7 +264,7 @@ public class ConsentRecord {
   - 통합계정 UUID 생성 (registerUser 호출)
   - 완료 후 ConversionSession 삭제
 
-구현 위치: idem-registry/src/main/java/kr/go/smes/qim/conversion/MemberConversionService.java
+구현 위치: idem-registry/src/main/java/io/github/hipstermin/idem/registry/conversion/MemberConversionService.java
 
 주요 메서드:
   ConversionSession initiateConversion(InitiateConversionCommand cmd)
@@ -281,7 +281,7 @@ public class ConsentRecord {
   - 보호자 CI 획득 분기 처리
   - 보호자 ConversionSession 연결
 
-구현 위치: idem-registry/src/main/java/kr/go/smes/qim/conversion/MinorGuardianService.java
+구현 위치: idem-registry/src/main/java/io/github/hipstermin/idem/registry/conversion/MinorGuardianService.java
 ```
 
 ### 4.3 `addAuthMeanMapping` 실제 구현 완성
@@ -499,7 +499,7 @@ q-im.user_profile에 business_reg_no, company_name, ceo_name 컬럼 추가
 #### 6.1.2 삭제 불가 시 논리적 삭제 (PPTX 3.5)
 
 ```java
-// idem-registry/src/main/java/kr/go/smes/qim/domain/RetentionPolicy.java
+// idem-registry/src/main/java/io/github/hipstermin/idem/registry/domain/RetentionPolicy.java
 @Getter @Builder
 public class RetentionPolicy {
     private final String agencyCode;
@@ -524,7 +524,7 @@ DB 마이그레이션 필요:
 #### 6.1.3 부분 탈퇴 (PPTX 3.6 — 일부 유관시스템만)
 
 ```java
-// idem-registry/src/main/java/kr/go/smes/qim/application/UserService.java에 추가
+// idem-registry/src/main/java/io/github/hipstermin/idem/registry/application/UserService.java에 추가
 /**
  * 특정 유관시스템에 대한 인증수단 매핑 해제 (부분 탈퇴)
  * PPTX 3.6: 탈퇴 대상 시스템 선택 → 영향도 고지 → 본인인증 → 해제
@@ -561,7 +561,7 @@ QimUser revokeAuthMeanMapping(String qimUserId, List<String> agencyCodes,
 ### 6.2 탈퇴 제한 조건 체크 서비스
 
 ```java
-// idem-hub/src/main/java/kr/go/smes/idem-hub/policy/WithdrawalPolicyEngine.java
+// idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/policy/WithdrawalPolicyEngine.java
 public interface WithdrawalPolicyEngine {
     /**
      * 탈퇴 가능 여부 판단
@@ -599,7 +599,7 @@ public interface WithdrawalPolicyEngine {
 ```
 
 ```java
-// idem-hub/src/main/java/kr/go/smes/idem-hub/broker/BrokerController.java 수정
+// idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/BrokerController.java 수정
 
 @GetMapping("/{provider}/authorize")
 public ResponseEntity<?> authorize(...) {
@@ -640,7 +640,7 @@ DB 마이그레이션:
 ```
 
 ```java
-// idem-hub/src/main/java/kr/go/smes/idem-hub/policy/PolicyEngineImpl.java 수정
+// idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/policy/PolicyEngineImpl.java 수정
 
 @Override
 public UserStatus resolveUserStatus(String qimUserId, String correlationId) {
@@ -802,7 +802,7 @@ CREATE TABLE ido.privacy_portal_withdrawal (
 ### 9.4 에러 코드 신규 추가
 
 ```java
-// idem-common/src/main/java/kr/go/smes/common/error/PlatformErrorCode.java 추가
+// idem-common/src/main/java/io/github/hipstermin/idem/common/error/PlatformErrorCode.java 추가
 
 // ── 회원 전환 오류 (E-CONV-5xx) ──────────────────────────────────────────
 CONV_SESSION_EXPIRED      ("E-CONV-501", HttpStatus.GONE,          "전환 세션이 만료되었습니다."),

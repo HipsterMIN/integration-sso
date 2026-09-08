@@ -309,7 +309,7 @@ Kafka-UI(8090) → `Topics → 토픽명 → Config` 에서 `cleanup.policy=comp
 
 ### 6.1 Q-IM Outbox
 
-코드: `idem-registry/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java`
+코드: `idem-registry/src/main/java/io/github/hipstermin/idem/registry/outbox/OutboxServiceImpl.java`
 
 설정(`qim.outbox.*`):
 - `relay-interval-ms: 500` — PENDING 폴링 주기
@@ -466,7 +466,7 @@ CB 상태 메트릭:
 
 ## 10. 기관(Agency) 운영
 
-엔드포인트: `idem-hub/src/main/java/kr/go/smes/idem-hub/admin/AgencyAdminController.java`
+엔드포인트: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/admin/AgencyAdminController.java`
 
 | Method | Path | 설명 |
 |---|---|---|
@@ -491,7 +491,7 @@ CB 상태 메트릭:
 ## 11. Q-IM API 운영 진단
 
 운영자가 데이터 정합성을 확인할 때 사용하는 주요 엔드포인트
-(`idem-registry/src/main/java/kr/go/smes/qim/api/`):
+(`idem-registry/src/main/java/io/github/hipstermin/idem/registry/api/`):
 
 | Controller | Method | Path | 용도 |
 |---|---|---|---|
@@ -522,7 +522,7 @@ CB 상태 메트릭:
 
 ## 12. 개인정보 파기 (Retention)
 
-스케줄러: `idem-hub/src/main/java/kr/go/smes/idem-hub/retention/PersonalDataRetentionScheduler.java`
+스케줄러: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/retention/PersonalDataRetentionScheduler.java`
 
 기본 동작:
 1. `executeRetentionPolicy()` 가 주기적으로 실행 (cron은 클래스 내 어노테이션 확인).
@@ -757,10 +757,10 @@ readiness probe FAIL 로 K8s가 자동으로 endpoint에서 제외한다. 단,
 ## 부록 C. 참고 코드 위치
 
 - 부팅 가드:
-  - `idem-registry/src/main/java/kr/go/smes/qim/crypto/CiCryptoServiceImpl.java`
-  - `idem-registry/src/main/java/kr/go/smes/qim/identity/DiGenerationService.java` (위치는 패키지 검색)
-  - `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/KeyVersionRegistry.java`
-  - `idem-hub/src/main/java/kr/go/smes/idem-hub/webhook/WebhookDispatcherService.java`
+  - `idem-registry/src/main/java/io/github/hipstermin/idem/registry/crypto/CiCryptoServiceImpl.java`
+  - `idem-registry/src/main/java/io/github/hipstermin/idem/registry/identity/DiGenerationService.java` (위치는 패키지 검색)
+  - `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/crypto/KeyVersionRegistry.java`
+  - `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/webhook/WebhookDispatcherService.java`
 - Outbox:
   - `idem-registry/.../qim/outbox/OutboxServiceImpl.java`, `SnapshotServiceImpl.java`
   - `idem-hub/.../idem-hub/webhook/` (Webhook Outbox Relay)

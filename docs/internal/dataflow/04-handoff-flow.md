@@ -108,7 +108,7 @@ sequenceDiagram
 
 #### [B] POST /api/v1/handoff/issue
 
-**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/api/HandoffController.java`
+**파일**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/api/HandoffController.java`
 
 ```
 POST /api/v1/handoff/issue
@@ -408,7 +408,7 @@ Headers:
 
 ## 5. 연동 유형별 전략 패턴
 
-**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/handoff/strategy/HandoffStrategyFactory.java`
+**파일**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/handoff/strategy/HandoffStrategyFactory.java`
 
 ```mermaid
 graph TD

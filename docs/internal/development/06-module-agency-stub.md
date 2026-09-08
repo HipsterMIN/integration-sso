@@ -23,7 +23,7 @@ agency-stub은 **유관기관 정보시스템 시뮬레이터**로, 실제 유�
 ## 2. 패키지 구조
 
 ```
-idem-tenant-sample/src/main/java/kr/go/smes/agency/
+idem-tenant-sample/src/main/java/io/github/hipstermin/idem/tenant/
 ├── AgencyStubApplication.java
 ├── api/                           # 기관 공개 API
 │   ├── AgencyEntryController.java     # 기관 진입점 (ticketId 수신 → Verify 호출)

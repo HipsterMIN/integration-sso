@@ -125,7 +125,7 @@ IdO 서비스는 **환경에 따라 모든 외부 의존성이 갖춰지지 않�
 
 ### F-01 IP 기반 Auth Rate Limiting
 
-**관련 클래스**: `kr.go.smes.ido.ratelimit.AuthRateLimitInterceptor`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.ratelimit.AuthRateLimitInterceptor`  
 **등록 경로**: `IdoWebMvcConfig` → `/api/v1/auth/**` 인터셉터
 
 #### 기능 설명
@@ -197,7 +197,7 @@ IDO_AUTH_RL_DAILY=100000
 
 ### F-02 기관별 Rate Limiting
 
-**관련 클래스**: `kr.go.smes.ido.ratelimit.AgencyRateLimiter`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.ratelimit.AgencyRateLimiter`  
 **사용처**: `HandoffService`, `HandoffController` 등 기관 인증 흐름
 
 #### 기능 설명
@@ -240,7 +240,7 @@ IDO_RATE_LIMIT_ENABLED=false
 
 ### F-03 감사 로그 Kafka 발행
 
-**관련 클래스**: `kr.go.smes.ido.audit.AuditLogPublisher`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.audit.AuditLogPublisher`  
 **토픽**: `platform.audit.log`
 
 #### 기능 설명
@@ -291,7 +291,7 @@ IDO_AUDIT_KAFKA_ENABLED=false
 
 ### F-04 감사 로그 DB 저장
 
-**관련 클래스**: `kr.go.smes.ido.audit.AuditLogPublisher`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.audit.AuditLogPublisher`  
 **테이블**: `ido.audit_log`
 
 #### 기능 설명
@@ -331,7 +331,7 @@ IDO_AUDIT_DB_ENABLED=false
 
 ### F-05 OTel 분산 추적 AOP
 
-**관련 클래스**: `kr.go.smes.ido.auth.tracing.AuthTracingAspect`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.auth.tracing.AuthTracingAspect`  
 **의존성**: Micrometer Tracing + OTel SDK + OTLP Exporter
 
 #### 기능 설명
@@ -388,7 +388,7 @@ IDO_AUTH_TRACING_ENABLED=false
 
 ### F-06 Resilience4j CB+Retry (NICE)
 
-**관련 클래스**: `kr.go.smes.ido.auth.client.NiceApiClient`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.auth.client.NiceApiClient`  
 **CB 인스턴스명**: `nice-api-client`
 
 #### 기능 설명
@@ -446,7 +446,7 @@ resilience4j:
 
 ### F-07 Resilience4j CB+Retry (통합인증)
 
-**관련 클래스**: `kr.go.smes.ido.auth.client.IntegrationAuthClient`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.auth.client.IntegrationAuthClient`  
 **CB 인스턴스명**: `integration-auth-client`
 
 #### 기능 설명
@@ -475,7 +475,7 @@ F-06과 동일 패턴, `integration-auth-client` 인스턴스명으로 yml 오�
 
 ### F-08 Redisson 분산 락
 
-**관련 클래스**: `kr.go.smes.ido.config.RedissonConfig`, `kr.go.smes.ido.auth.service.NiceAuthService`
+**관련 클래스**: `io.github.hipstermin.idem.hub.config.RedissonConfig`, `io.github.hipstermin.idem.hub.auth.service.NiceAuthService`
 
 #### 기능 설명
 
@@ -535,7 +535,7 @@ public class RedissonConfig { ... }
 
 ### F-09 NHN Cloud SKM KMS
 
-**관련 클래스**: `kr.go.smes.ido.crypto.kms.NhnKmsClient`, `kr.go.smes.ido.crypto.kms.NoOpKmsClient`
+**관련 클래스**: `io.github.hipstermin.idem.hub.crypto.kms.NhnKmsClient`, `io.github.hipstermin.idem.hub.crypto.kms.NoOpKmsClient`
 
 #### 기능 설명
 
@@ -592,7 +592,7 @@ ido:
 
 ### F-10 보안 응답 헤더 필터
 
-**관련 클래스**: `kr.go.smes.ido.config.SecurityHeadersFilter`
+**관련 클래스**: `io.github.hipstermin.idem.hub.config.SecurityHeadersFilter`
 
 #### 기능 설명
 
@@ -641,7 +641,7 @@ IDO_SECURITY_HEADERS_ENABLED=false
 
 ### F-11 개인정보 파기 스케줄러
 
-**관련 클래스**: `kr.go.smes.ido.retention.PersonalDataRetentionScheduler`
+**관련 클래스**: `io.github.hipstermin.idem.hub.retention.PersonalDataRetentionScheduler`
 
 #### 기능 설명
 
@@ -701,7 +701,7 @@ IDO_RETENTION_DRY_RUN=true    # 실제 삭제 없이 대상 확인만
 
 ### F-12 Handoff 키 로테이션 스케줄러
 
-**관련 클래스**: `kr.go.smes.ido.crypto.HandoffKeyRotationScheduler`
+**관련 클래스**: `io.github.hipstermin.idem.hub.crypto.HandoffKeyRotationScheduler`
 
 #### 기능 설명
 
@@ -742,7 +742,7 @@ IDO_CRYPTO_ROTATION_ENABLED=false
 
 ### F-13 IdO Outbox Relay
 
-**관련 클래스**: `kr.go.smes.ido.infrastructure.outbox.IdoOutboxRelay`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.infrastructure.outbox.IdoOutboxRelay`  
 **테이블**: `ido.outbox`
 
 #### 기능 설명
@@ -793,7 +793,7 @@ IDO_OUTBOX_RELAY_ENABLED=false
 
 ### F-14 Webhook Outbox Relay
 
-**관련 클래스**: `kr.go.smes.ido.webhook.WebhookDispatchOutboxRelay`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.webhook.WebhookDispatchOutboxRelay`  
 **테이블**: `ido.webhook_dispatch_outbox`
 
 #### 기능 설명
@@ -843,7 +843,7 @@ IDO_WEBHOOK_RELAY_ENABLED=false
 
 ### F-15 CORS 제어
 
-**관련 클래스**: `kr.go.smes.ido.fe.config.IdoWebMvcConfig`
+**관련 클래스**: `io.github.hipstermin.idem.hub.fe.config.IdoWebMvcConfig`
 
 #### 기능 설명
 
@@ -877,7 +877,7 @@ ido:
 
 ### F-16 Bean Validation (끄면 안 됨)
 
-**관련 클래스**: `kr.go.smes.ido.auth.controller.AuthController`  
+**관련 클래스**: `io.github.hipstermin.idem.hub.auth.controller.AuthController`  
 **어노테이션**: `@Validated`, `@Valid`, `@NotBlank`, `@Size`, `@Pattern`
 
 #### 기능 설명
@@ -904,7 +904,7 @@ ido:
 
 ### F-17 Traceparent 상관관계 ID 필터
 
-**관련 클래스**: `kr.go.smes.ido.config.TraceparentFilter`
+**관련 클래스**: `io.github.hipstermin.idem.hub.config.TraceparentFilter`
 
 #### 기능 설명
 
@@ -935,7 +935,7 @@ ido:
 
 ### F-18 SP 수신 감사 로그
 
-**관련 클래스**: `kr.go.smes.ido.qim.sp.service.QimSpReceiverService`
+**관련 클래스**: `io.github.hipstermin.idem.hub.qim.sp.service.QimSpReceiverService`
 
 #### 기능 설명
 
@@ -1072,9 +1072,9 @@ logging:
   level:
     org.springframework.kafka: ERROR
     org.apache.kafka: ERROR
-    kr.go.smes.ido.auth: DEBUG          # 인증 흐름 상세 로그
-    kr.go.smes.ido.crypto: DEBUG        # 암호화 디버그
-    kr.go.smes.ido.ratelimit: DEBUG     # Rate Limit 디버그
+    io.github.hipstermin.idem.hub.auth: DEBUG          # 인증 흐름 상세 로그
+    io.github.hipstermin.idem.hub.crypto: DEBUG        # 암호화 디버그
+    io.github.hipstermin.idem.hub.ratelimit: DEBUG     # Rate Limit 디버그
 ```
 
 ---

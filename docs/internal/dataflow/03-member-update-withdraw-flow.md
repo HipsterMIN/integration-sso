@@ -198,7 +198,7 @@ sequenceDiagram
 
 ### 3.3 향후 구현 시 탈퇴 처리 상세 (Q-IM 기준)
 
-**파일**: `idem-registry/src/main/java/kr/go/smes/qim/user/UserRegistrationServiceImpl.java`
+**파일**: `idem-registry/src/main/java/io/github/hipstermin/idem/registry/user/UserRegistrationServiceImpl.java`
 
 ```java
 @Transactional

@@ -32,7 +32,7 @@ RUN yarn build:prod
 
 # ── Stage 2: Nginx 서빙 ──────────────────────────────────────────────────────
 FROM nginx:1.27-alpine AS react-nginx
-LABEL maintainer="kr.go.smes"
+LABEL maintainer="io.github.hipstermin.idem"
 LABEL description="OnePass React Frontend (Option B — Nginx)"
 
 # React 빌드 산출물 복사

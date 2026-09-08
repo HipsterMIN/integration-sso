@@ -46,7 +46,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: "kr.go.smes.*"
+        spring.json.trusted.packages: "io.github.hipstermin.idem.*"
     listener:
       auto-startup: false
       missing-topics-fatal: false
@@ -114,7 +114,7 @@ management:
 
 logging:
   level:
-    kr.go.smes.agency: INFO
+    io.github.hipstermin.idem.tenant: INFO
     org.flywaydb: WARN
     org.testcontainers: WARN
     com.github.dockerjava: WARN

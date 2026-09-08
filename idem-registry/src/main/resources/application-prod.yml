@@ -15,7 +15,7 @@ spring:
 logging:
   level:
     root: WARN
-    kr.go.smes.qim: INFO
+    io.github.hipstermin.idem.registry: INFO
     org.springframework: WARN
     org.springframework.kafka: WARN
     org.flywaydb: INFO

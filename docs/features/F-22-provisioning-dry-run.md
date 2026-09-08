@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_PROVISIONING_DRY_RUN`  
 > **기본값**: `true` (안전 — 실제 HTTP 미발행)  
 > **Spring 프로퍼티**: `ido.provisioning.dry-run`  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/provisioning/ProvisioningService.java`  
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/provisioning/ProvisioningService.java`  
 > **상위 플래그**: [F-20 전 기관 프로비저닝](F-20-provisioning.md)
 
 ---
@@ -146,6 +146,6 @@ F-20=true + F-21=false + F-22=false 조합 시:
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/FeatureFlags.java)
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)
 - [Helm Phase 프리셋]( ../../infra/helm/idem-hub/templates/_helpers.tpl)

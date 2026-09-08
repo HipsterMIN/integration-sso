@@ -249,11 +249,11 @@ POST /api/v1/agency/events/{dispatchId}/read
 | 파일 | 설명 |
 |------|------|
 | `idem-hub/src/main/resources/db/migration/V10__extend_auth_result_and_provider_routing.sql` | auth_result 4개 컬럼 추가 + provider_circuit_config 테이블 + broker_audit_log 인덱스 |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/BrokerAuditLogService.java` | broker_audit_log 비동기 INSERT 서비스 (REDIRECT/CALLBACK/COMPLETE/FAIL/TIMEOUT) |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/provider/ProviderConfig.java` | STANDARD_OIDC/SEMI_STANDARD_OIDC/NON_STANDARD 도메인 모델 |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/provider/ProviderConfigRepository.java` | provider_config DB 조회 + Redis @Cacheable (TTL 60분) |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/provider/ProviderRouter.java` | provider_type → KEYCLOAK_RELAY/DIRECT_BROKER 런타임 라우팅 |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/provider/ProviderCircuitBreakerConfig.java` | provider_code 단위 Resilience4j CB 동적 생성 |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/BrokerAuditLogService.java` | broker_audit_log 비동기 INSERT 서비스 (REDIRECT/CALLBACK/COMPLETE/FAIL/TIMEOUT) |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/provider/ProviderConfig.java` | STANDARD_OIDC/SEMI_STANDARD_OIDC/NON_STANDARD 도메인 모델 |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/provider/ProviderConfigRepository.java` | provider_config DB 조회 + Redis @Cacheable (TTL 60분) |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/provider/ProviderRouter.java` | provider_type → KEYCLOAK_RELAY/DIRECT_BROKER 런타임 라우팅 |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/provider/ProviderCircuitBreakerConfig.java` | provider_code 단위 Resilience4j CB 동적 생성 |
 | `docs/handoff-note.md` | v1.9.0 최종 인수인계 패키지 |
 
 #### 수정된 파일

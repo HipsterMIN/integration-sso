@@ -473,7 +473,7 @@ A: {
       `,
       code: {
         lang: 'java', label: 'idem-gate/…/keycloak/KeycloakCallbackService.java',
-        content: `<span class="hl-comment">// 파일: idem-gate/src/main/java/kr/go/smes/qsign/keycloak/KeycloakCallbackService.java</span>
+        content: `<span class="hl-comment">// 파일: idem-gate/src/main/java/io/github/hipstermin/idem/gate/keycloak/KeycloakCallbackService.java</span>
 <span class="hl-comment">// 실행 위치: Q-Sign 서버 (포트 8082)</span>
 <span class="hl-comment">// 진입 시점: Keycloak이 인증 완료 후 /keycloak/callback?code=...&amp;state=... 리다이렉트</span>
 
@@ -624,7 +624,7 @@ A: {
       `,
       code: {
         lang: 'java', label: 'idem-gate/…/outbox/OutboxRelay.java',
-        content: `<span class="hl-comment">// 파일: idem-gate/src/main/java/kr/go/smes/qsign/outbox/OutboxRelay.java</span>
+        content: `<span class="hl-comment">// 파일: idem-gate/src/main/java/io/github/hipstermin/idem/gate/outbox/OutboxRelay.java</span>
 <span class="hl-comment">// 실행 위치: Q-Sign 서버 (포트 8082) — 별도 스케줄러 스레드</span>
 <span class="hl-comment">// 실행 시점: 이전 실행 완료 후 500ms 대기 → 다시 실행 (fixedDelay)</span>
 
@@ -756,7 +756,7 @@ A: {
       `,
       code: {
         lang: 'java', label: 'idem-hub/…/kafka/QsignAuthEventConsumer.java',
-        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/kafka/QsignAuthEventConsumer.java</span>
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/io/github/hipstermin/idem/hub/kafka/QsignAuthEventConsumer.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080) — Kafka Consumer 스레드</span>
 <span class="hl-comment">// 구독 토픽: qsign.auth.events (컨슈머 그룹: ido-qsign-consumer)</span>
 
@@ -813,7 +813,7 @@ A: {
       `,
       code: {
         lang: 'java', label: 'idem-hub/…/burst/AuthResultCacheService.java (preWarm)',
-        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/burst/AuthResultCacheService.java</span>
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/io/github/hipstermin/idem/hub/burst/AuthResultCacheService.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080) — QsignAuthEventConsumer 스레드에서 동기 호출</span>
 <span class="hl-comment">// 실행 시점: AUTH_COMPLETED 이벤트 수신 직후</span>
 
@@ -896,7 +896,7 @@ B: {
       `,
       code: {
         lang: 'java', label: 'idem-registry/…/withdrawal/WithdrawalServiceImpl.java',
-        content: `<span class="hl-comment">// 파일: idem-registry/src/main/java/kr/go/smes/qim/withdrawal/WithdrawalServiceImpl.java</span>
+        content: `<span class="hl-comment">// 파일: idem-registry/src/main/java/io/github/hipstermin/idem/registry/withdrawal/WithdrawalServiceImpl.java</span>
 <span class="hl-comment">// 실행 위치: Q-IM 서버 (포트 8081)</span>
 <span class="hl-comment">// 진입 시점: WithdrawalController → WithdrawalService.withdraw() 호출</span>
 
@@ -1011,7 +1011,7 @@ B: {
       `,
       code: {
         lang: 'java', label: 'idem-registry/…/outbox/OutboxServiceImpl.java (relayPendingEvents + sendToKafka)',
-        content: `<span class="hl-comment">// 파일: idem-registry/src/main/java/kr/go/smes/qim/outbox/OutboxServiceImpl.java</span>
+        content: `<span class="hl-comment">// 파일: idem-registry/src/main/java/io/github/hipstermin/idem/registry/outbox/OutboxServiceImpl.java</span>
 <span class="hl-comment">// 실행 위치: Q-IM 서버 (포트 8081) — 스케줄러 스레드</span>
 
 <span class="hl-anno">@Scheduled</span>(fixedDelayString = <span class="hl-str">"\${qim.outbox.relay-interval-ms:500}"</span>)
@@ -1062,7 +1062,7 @@ B: {
       `,
       code: {
         lang: 'java', label: 'idem-gate/…/kafka/QimUserEventConsumer.java',
-        content: `<span class="hl-comment">// 파일: idem-gate/src/main/java/kr/go/smes/qsign/kafka/QimUserEventConsumer.java</span>
+        content: `<span class="hl-comment">// 파일: idem-gate/src/main/java/io/github/hipstermin/idem/gate/kafka/QimUserEventConsumer.java</span>
 <span class="hl-comment">// 실행 위치: Q-Sign 서버 (포트 8082) — Kafka Consumer 스레드</span>
 <span class="hl-comment">// 구독 토픽: qim.user.events (컨슈머 그룹: q-sign-qim-consumer)</span>
 
@@ -1186,7 +1186,7 @@ C: {
       `,
       code: {
         lang: 'java', label: 'idem-hub/…/handoff/HandoffServiceImpl.java (issue)',
-        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/handoff/HandoffServiceImpl.java</span>
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/io/github/hipstermin/idem/hub/handoff/HandoffServiceImpl.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080)</span>
 <span class="hl-comment">// 진입 시점: HandoffController → HandoffService.issue() 호출</span>
 
@@ -1235,7 +1235,7 @@ C: {
       `,
       code: {
         lang: 'java', label: 'idem-hub/…/kafka/HandoffEventConsumer.java (handleHandoffIssued)',
-        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/kafka/HandoffEventConsumer.java</span>
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/io/github/hipstermin/idem/hub/kafka/HandoffEventConsumer.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080) — Kafka Consumer 스레드</span>
 <span class="hl-comment">// 구독 토픽: ido.handoff.events (컨슈머 그룹: ido-handoff-consumer)</span>
 
@@ -1311,7 +1311,7 @@ C: {
       `,
       code: {
         lang: 'java', label: 'idem-hub/…/webhook/WebhookDispatchOutboxRelay.java (relay + dispatchOne)',
-        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/kr/go/smes/ido/webhook/WebhookDispatchOutboxRelay.java</span>
+        content: `<span class="hl-comment">// 파일: idem-hub/src/main/java/io/github/hipstermin/idem/hub/webhook/WebhookDispatchOutboxRelay.java</span>
 <span class="hl-comment">// 실행 위치: IdO 서버 (포트 8080) — 스케줄러 스레드</span>
 <span class="hl-comment">// 실행 시점: fixedDelay=500ms 마다 (IDO_WEBHOOK_RELAY_ENABLED=true 일 때)</span>
 

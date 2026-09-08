@@ -8,7 +8,7 @@
 
 | 구성요소 | 위치 | 역할 |
 |---|---|---|
-| SPI 계약 | `idem-common` `kr.go.smes.common.spi.identity` | `IdentityVerificationProvider`, `VerificationRequest/Start/Callback`, `VerifiedIdentity`, `AuthWidgetDescriptor`, `IdentityVerificationException`, `IdentityProviderRegistry` (Spring 비의존) |
+| SPI 계약 | `idem-common` `io.github.hipstermin.idem.common.spi.identity` | `IdentityVerificationProvider`, `VerificationRequest/Start/Callback`, `VerifiedIdentity`, `AuthWidgetDescriptor`, `IdentityVerificationException`, `IdentityProviderRegistry` (Spring 비의존) |
 | 레지스트리 빈 | `idem-hub` `auth/spi/IdentityProviderRegistryConfig` | 부팅 시 발견된 모든 제공자 빈을 코드별로 등록. 코드 중복은 부팅 실패 |
 | 표준 엔드포인트 | `idem-hub` `auth/spi/IdentityVerificationController` | `GET /api/v1/auth/providers`, `POST /api/v1/auth/providers/{code}/initiate`, `POST …/{code}/complete` |
 | NICE 어댑터 | `idem-hub` `auth/spi/NiceIdentityVerificationProvider` | 코드 `NICE_PHONE`, 등급 L2. 기존 `NiceAuthService` 를 감싼다. P2 에서 플러그인으로 이동 |

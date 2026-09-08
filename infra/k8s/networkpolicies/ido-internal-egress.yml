@@ -16,7 +16,7 @@
 #   내부 egress 가 클러스터 정책에 의해 차단될 위험 차단.
 #
 # k8s overlay 라벨 표준 (본 파일이 강제):
-#   app: ido           — kr.go.smes.ido (auth gateway, port 8083)
+#   app: ido           — io.github.hipstermin.idem.hub (auth gateway, port 8083)
 #   app: qsign         — idem-gate  (sign service,  port 8081)
 #   app: qim           — idem-registry    (IM service,    port 8082)
 #   app: agency-stub   — PoC 스텁                       (port 8083 client)

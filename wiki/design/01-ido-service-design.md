@@ -25,7 +25,7 @@ IdO는 통합인증 플랫폼의 **중앙 오케스트레이터**다. 직접 인
 ## 2. 패키지 구조
 
 ```
-kr.go.smes.ido
+io.github.hipstermin.idem.hub
 ├── auth/                   # 인증 결과 수신·처리
 │   ├── controller/         # AuthController (NICE, OACX, ci-token 등)
 │   ├── service/            # AuthService, NiceAuthService

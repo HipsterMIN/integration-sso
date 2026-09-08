@@ -18,7 +18,7 @@ plugins {
 
 // ── 전체 공통 설정 ────────────────────────────────────────────────────────────
 allprojects {
-    group   = "kr.go.smes"
+    group   = "io.github.hipstermin.idem"
     version = "0.1.0-SNAPSHOT"
 
     repositories {

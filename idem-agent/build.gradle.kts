@@ -77,7 +77,7 @@ dependencies {
 //
 // 패키지 Relocate 전략:
 //   - 현재 빌드: byte-buddy 원래 패키지(net.bytebuddy)로 번들 포함
-//   - 완전한 shading(net.bytebuddy → kr.go.smes.agent.shaded.bytebuddy)은
+//   - 완전한 shading(net.bytebuddy → io.github.hipstermin.idem.agent.shaded.bytebuddy)은
 //     실제 운영 배포 CI에서 maven-shade-plugin 스테이지로 수행
 //   - 유관기관 WAS에 기존 byte-buddy가 없는 경우(대부분) 충돌 없이 동작
 // ──────────────────────────────────────────────────────────────────────────────
@@ -93,8 +93,8 @@ val agentJar by tasks.registering(Jar::class) {
     // ── MANIFEST 설정 ──────────────────────────────────────────────────────
     manifest {
         attributes(
-            "Premain-Class"           to "kr.go.smes.agent.core.OnePassAgentMain",
-            "Agent-Class"             to "kr.go.smes.agent.core.OnePassAgentMain",
+            "Premain-Class"           to "io.github.hipstermin.idem.agent.core.OnePassAgentMain",
+            "Agent-Class"             to "io.github.hipstermin.idem.agent.core.OnePassAgentMain",
             "Can-Redefine-Classes"    to "true",
             "Can-Retransform-Classes" to "true",
             "Boot-Class-Path"         to "",

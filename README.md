@@ -236,7 +236,7 @@ onepass-fe       █████████████████░░░  8
 |------|-----|
 | 서비스명 | `q-authz` (`spring.application.name`) |
 | 포트 | **8086** (graceful shutdown) |
-| 베이스 패키지 | `kr.go.smes.authz` |
+| 베이스 패키지 | `io.github.hipstermin.idem.authz` |
 | DB / 스키마 | PostgreSQL · `authz` (`currentSchema=authz`, Hibernate `default_schema`) |
 | JPA | `ddl-auto: validate`, `open-in-view: false`, UTC |
 | Flyway | `classpath:db/migration` (V1, V2) |
@@ -305,7 +305,7 @@ curl -sS -X DELETE "http://q-authz:8086/api/v1/internal/authz/grants?qimUserId=u
 
 - **CAST 토큰** (`CastTokenServiceImpl`) — 발급 시 `effective-roles` 결과를 서명 JWT의 `roles` 클레임(`CastToken.CLAIM_ROLES`)으로 주입. 검증 시 `extractRoles(Claims)`가 `List<String>`만 필터(부재 시 `List.of()`). (`TTL` 300s)
 - **Handoff 토큰** (`HandoffServiceImpl`) — `buildPlainPayload(...)`가 `"roles"` JSON 키로 유효 역할을 평문 페이로드에 삽입한 뒤 **AES-256-GCM 암호화**(ticketId AAD) + HMAC 서명. 역할은 암호화된 `encryptedPayload` 내부에 존재.
-- **QAuthzClient fail-open** (`kr.go.smes.ido.infrastructure.QAuthzClient`) — `GET {base-url}/api/v1/internal/authz/users/{qimUserId}/effective-roles?agencyCode=`. **절대 null 미반환**(항상 `emptyList`). q-authz 다운/타임아웃/non-2xx 등 모든 예외는 캐치되어 빈 역할로 fail-open → SSO/Handoff 발급 지속(인가 가용성과 인증 가용성 분리). `X-Internal-Api-Key`(비공백 시)·`X-Correlation-Id` 전송, 전용 RestTemplate(connect 3000ms / read 5000ms).
+- **QAuthzClient fail-open** (`io.github.hipstermin.idem.hub.infrastructure.QAuthzClient`) — `GET {base-url}/api/v1/internal/authz/users/{qimUserId}/effective-roles?agencyCode=`. **절대 null 미반환**(항상 `emptyList`). q-authz 다운/타임아웃/non-2xx 등 모든 예외는 캐치되어 빈 역할로 fail-open → SSO/Handoff 발급 지속(인가 가용성과 인증 가용성 분리). `X-Internal-Api-Key`(비공백 시)·`X-Correlation-Id` 전송, 전용 RestTemplate(connect 3000ms / read 5000ms).
 
 ### 게이트웨이 속성 전파 (PEP)
 
@@ -800,21 +800,21 @@ export const Logout = (): void => {
 ```
 integration-sso/
 ├── idem-common/
-│   └── src/main/java/kr/go/smes/common/
+│   └── src/main/java/io/github/hipstermin/idem/common/
 │       ├── domain/           # AuthResult, HandoffPayload(+GUEST), HandoffTicket
 │       ├── error/            # PlatformErrorCode
 │       ├── event/            # AuthEvent, HandoffEvent, AuditLogEvent
 │       └── util/             # UuidV7, ApiKeyHashValidator
 │
 ├── idem-gate/                   # 인증 SoR (포트 8081)
-│   └── src/main/java/kr/go/smes/qsign/
+│   └── src/main/java/io/github/hipstermin/idem/gate/
 │       ├── broker/           # Keycloak OIDC 브로커
 │       ├── kafka/            # Outbox + 멱등 컨슈머
 │       ├── pkce/             # RFC 7636 PKCE
 │       └── slo/              # SLO Keycloak end_session 전파
 │
 ├── idem-registry/                     # 식별 SoR (포트 8082, MariaDB)
-│   └── src/main/java/kr/go/smes/qim/
+│   └── src/main/java/io/github/hipstermin/idem/registry/
 │       ├── api/
 │       │   ├── UserController.java          # ★SSO: find-by-social-sub, register-social
 │       │   ├── dto/SocialRegisterRequest.java  # ★SSO: 소셜 등록 DTO
@@ -837,7 +837,7 @@ integration-sso/
 ├── idem-hub/                      # 정책 오케스트레이터 + FE BFF (포트 8083)
 │   ├── libs/
 │   │   └── OACX-SDK-v1.3.2.jar
-│   └── src/main/java/kr/go/smes/idem-hub/
+│   └── src/main/java/io/github/hipstermin/idem/idem-hub/
 │       ├── auth/             # NICE/OACX 본인인증 BFF (S7-T2)
 │       ├── broker/
 │       │   └── keycloak/
@@ -862,7 +862,7 @@ integration-sso/
 │       └── webhook/          # Webhook Push + Outbox Relay
 │
 ├── idem-authz/                  # 🆕 연합 인가(Federated Authorization) — 역할 부여 SoR (포트 8086, PostgreSQL authz)
-│   └── src/main/java/kr/go/smes/authz/
+│   └── src/main/java/io/github/hipstermin/idem/authz/
 │       ├── QAuthzApplication.java          # @SpringBootApplication + @EnableScheduling
 │       ├── api/
 │       │   ├── AuthzInternalController.java # /api/v1/internal/authz (roles·grants·effective-roles)
@@ -882,7 +882,7 @@ integration-sso/
 │   # NOTE: authz.assignment.events Kafka 릴레이는 idem-relay/job/authz/AuthzKafkaRelayJob
 │
 ├── idem-tenant-sample/              # 기관 시뮬레이터 (포트 8084)
-│   └── src/main/java/kr/go/smes/agency/
+│   └── src/main/java/io/github/hipstermin/idem/tenant/
 │       └── api/AgencyEntryController.java   # ★SSO: GUEST case 분기 추가
 │
 ├── idem-console/               # React SPA
@@ -898,7 +898,7 @@ integration-sso/
 │       └── pages/Mypage/pages/InformationStep3.tsx
 │
 ├── idem-agent/                # 🆕 OnePass Agency Java Agent (독립 fat-JAR)
-│   └── src/main/java/kr/go/smes/agent/
+│   └── src/main/java/io/github/hipstermin/idem/agent/
 │       ├── core/OnePassAgentMain.java      # JVM 진입점 (premain/agentmain)
 │       ├── config/AgentConfig.java         # 외부 설정 로더/검증기
 │       ├── was/
@@ -1440,7 +1440,7 @@ Annotation Processors: 활성화 (Lombok)
 
 ```java
 // 1. 패키지 구조: 기능별 평탄화 (헥사고날 미적용)
-kr.go.smes.ido.{기능}/
+io.github.hipstermin.idem.hub.{기능}/
     {기능}Controller.java
     {기능}Service.java
     {기능}ServiceImpl.java

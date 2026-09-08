@@ -83,7 +83,7 @@ jobs:
           DOCKER_UNAVAILABLE: 'true'    # Testcontainers(Docker 필요) 자동 스킵
         run: |
           ./gradlew test --no-daemon --continue \
-            --tests "kr.go.smes.**"
+            --tests "io.github.hipstermin.idem.**"
           # NOTE: idem-registry:test가 복원되었습니다.
           # idem-registry 모듈 테스트 통과가 CI 성공 조건입니다.
 

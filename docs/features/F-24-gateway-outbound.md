@@ -4,7 +4,7 @@
 > **Phase**: Phase 3-B (F-23 인바운드 안정화 후 활성화)  
 > **기본값**: `false` (안전)  
 > **엔드포인트**: `PATCH /api/v1/agency/gateway/outbound/notify`  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/gateway/AgencyGatewayController.java`
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/gateway/AgencyGatewayController.java`
 
 ---
 

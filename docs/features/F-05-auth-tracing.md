@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_AUTH_TRACING_ENABLED`  
 > **기본값**: `true`  
 > **Spring 프로퍼티**: `ido.tracing.auth-aspect-enabled`  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/AuthTracingAspect.java`
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/AuthTracingAspect.java`
 
 ---
 
@@ -47,7 +47,7 @@ public class AuthTracingAspect {
     private final FeatureFlags featureFlags;
     private final Tracer tracer;
 
-    @Around("@annotation(kr.go.smes.ido.auth.TraceAuth)")
+    @Around("@annotation(io.github.hipstermin.idem.hub.auth.TraceAuth)")
     public Object traceAuth(ProceedingJoinPoint pjp) throws Throwable {
         Span span = tracer.spanBuilder(pjp.getSignature().getName()).startSpan();
         try (Scope scope = span.makeCurrent()) {
@@ -138,5 +138,5 @@ curl "http://jaeger:16686/api/traces?service=ido-gateway&operation=auth.verify-t
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/FeatureFlags.java)
 - [OTel Java Agent 설정](https://opentelemetry.io/docs/instrumentation/java/automatic/)

@@ -18,9 +18,9 @@
 --      (Any-ID 신규 수단에 대해 기본 회로차단기 설정 삽입)
 --
 -- 연관 클래스:
---   - kr.go.smes.ido.broker.BrokerService#isAnyIdProvider()
---   - kr.go.smes.ido.broker.anyid.AnyIdBrokerAdapter
---   - kr.go.smes.ido.broker.provider.ProviderConfig.ProviderType
+--   - io.github.hipstermin.idem.hub.broker.BrokerService#isAnyIdProvider()
+--   - io.github.hipstermin.idem.hub.broker.anyid.AnyIdBrokerAdapter
+--   - io.github.hipstermin.idem.hub.broker.provider.ProviderConfig.ProviderType
 --
 -- 참조 문서:
 --   - wiki/iam/08-kr-auth-providers-guide.md §8 (provider_config DB 등록)

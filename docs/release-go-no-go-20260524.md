@@ -36,7 +36,7 @@ OnePass Support의 전용 PostgreSQL compose 구성은 보완 후 정상 확인�
 
 ### 1. IdO 테스트 소스 컴파일 실패
 
-- 파일: `idem-hub/src/test/java/kr/go/smes/idem-hub/memberlookup/MemberLookupControllerTest.java`
+- 파일: `idem-hub/src/test/java/io/github/hipstermin/idem/idem-hub/memberlookup/MemberLookupControllerTest.java`
 - 증상:
   - 156행 부근에서 메서드/블록 구조가 깨져 `<identifier> expected`
   - 407행 이후 클래스 닫힘 뒤 중복 코드가 남아 `class, interface, enum, or record expected`

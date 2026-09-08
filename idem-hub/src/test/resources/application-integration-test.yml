@@ -68,6 +68,6 @@ resilience4j:
 logging:
   level:
     root: WARN
-    kr.go.smes: DEBUG
+    io.github.hipstermin.idem: DEBUG
     org.testcontainers: INFO
     com.github.tomakehurst.wiremock: INFO

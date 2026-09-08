@@ -388,7 +388,7 @@ q-sign은 **OIDC 브로커**가 아닌 **Keycloak 콜백 수신 및 인증 결�
 현재 q-sign이 구현하는 엔드포인트:
 
 ```
-파일: idem-gate/src/main/java/kr/go/smes/qsign/api/AuthController.java
+파일: idem-gate/src/main/java/io/github/hipstermin/idem/gate/api/AuthController.java
 ```
 
 ```java
@@ -403,7 +403,7 @@ public class AuthController {
 ### 4.2 코드 내 '미사용' 명시
 
 ```
-파일: idem-gate/src/main/java/kr/go/smes/qsign/application/AuthServiceImpl.java (라인 44–57)
+파일: idem-gate/src/main/java/io/github/hipstermin/idem/gate/application/AuthServiceImpl.java (라인 44–57)
 ```
 
 ```java
@@ -457,7 +457,7 @@ public class AuthController {
 ### 4.4 PoC 모드 허용 코드
 
 ```
-파일: idem-gate/src/main/java/kr/go/smes/qsign/api/InternalSigVerifier.java (라인 34–35, 99, 115)
+파일: idem-gate/src/main/java/io/github/hipstermin/idem/gate/api/InternalSigVerifier.java (라인 34–35, 99, 115)
 ```
 
 ```java
@@ -477,7 +477,7 @@ return !strictMode; // strict=false → PoC 허용, strict=true → 거부
 ### 5.1 현재 ido가 담당하는 인증 엔드포인트
 
 ```
-파일: idem-hub/src/main/java/kr/go/smes/idem-hub/auth/controller/AuthController.java
+파일: idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/controller/AuthController.java
 ```
 
 ```java

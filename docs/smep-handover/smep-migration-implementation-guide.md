@@ -530,7 +530,7 @@ account:
 #### 현재 코드 (더미 상태)
 
 ```java
-// 파일 위치: src/main/java/kr/go/smes/account/service/impl/AuthServiceImpl.java
+// 파일 위치: src/main/java/io/github/hipstermin/idem/account/service/impl/AuthServiceImpl.java
 // 현재 상태: 더미 토큰 반환으로 항상 로그인 성공
 
 @Service
@@ -618,7 +618,7 @@ public class AuthController {
 #### 현재 코드 (위험 상태)
 
 ```java
-// 파일 위치: src/main/java/kr/go/smes/account/config/SecurityConfig.java
+// 파일 위치: src/main/java/io/github/hipstermin/idem/account/config/SecurityConfig.java
 // 현재 위험: 전체 API 오픈
 
 .authorizeHttpRequests(auth -> auth
@@ -661,7 +661,7 @@ public class AuthController {
 #### SecurityConfig 전체 수정본
 
 ```java
-// src/main/java/kr/go/smes/account/config/SecurityConfig.java (완성형)
+// src/main/java/io/github/hipstermin/idem/account/config/SecurityConfig.java (완성형)
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -1238,7 +1238,7 @@ public class KeycloakAccessTokenClaimExtractor {
 ### 7.2 통합 테스트 코드 (Spring Boot Test)
 
 ```java
-// src/test/java/kr/go/smes/account/integration/AuthIntegrationTest.java
+// src/test/java/io/github/hipstermin/idem/account/integration/AuthIntegrationTest.java
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)

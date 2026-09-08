@@ -27,7 +27,7 @@ FE → IdO(:8083) → [Q-IM :8082]
 ## 2. 패키지 구조
 
 ```
-kr.go.smes.qim
+io.github.hipstermin.idem.registry
 ├── api/                    # REST API 레이어
 │   ├── ext/                # External API (FE 직접 호출 대상)
 │   ├── internal/           # Internal API (IdO 전용)

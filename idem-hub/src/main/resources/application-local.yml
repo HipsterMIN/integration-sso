@@ -195,7 +195,7 @@ logging:
   level:
     org.springframework.kafka: ERROR
     org.apache.kafka: ERROR
-    kr.go.smes.ido.auth: DEBUG          # 인증 흐름 상세 로그
-    kr.go.smes.ido.crypto: DEBUG        # 암호화 디버그
-    kr.go.smes.ido.ratelimit: DEBUG     # Rate Limit 디버그
-    kr.go.smes.ido.config: DEBUG        # FeatureFlags 기동 로그 확인
+    io.github.hipstermin.idem.hub.auth: DEBUG          # 인증 흐름 상세 로그
+    io.github.hipstermin.idem.hub.crypto: DEBUG        # 암호화 디버그
+    io.github.hipstermin.idem.hub.ratelimit: DEBUG     # Rate Limit 디버그
+    io.github.hipstermin.idem.hub.config: DEBUG        # FeatureFlags 기동 로그 확인

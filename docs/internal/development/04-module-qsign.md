@@ -15,7 +15,7 @@ Q-Sign은 **인증 SoR(Source of Record)**으로, 모든 인증 결과의 단일
 ### 1.1 패키지 구조
 
 ```
-idem-gate/src/main/java/kr/go/smes/qsign/
+idem-gate/src/main/java/io/github/hipstermin/idem/gate/
 ├── QSignApplication.java
 ├── api/                           # IdO 내부 API
 │   ├── AuthController.java

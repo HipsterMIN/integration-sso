@@ -122,7 +122,7 @@
 
 #### Consumer A — `QimEventConsumer` (ido-qim-consumer 그룹)
 ```java
-// idem-hub/src/main/java/kr/go/smes/idem-hub/kafka/QimEventConsumer.java
+// idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/kafka/QimEventConsumer.java
 // 역할: UserEvent 소비 → Redis 캐시 무효화 + needsSync시 Q-IM API pull
 //       + ProvisioningService.triggerProvisioning() 호출
 @KafkaListener(topics = "qim.user.events", groupId = "ido-qim-consumer")
@@ -130,7 +130,7 @@
 
 #### Consumer B — `QimSpMemberEventConsumer` (ido-qim-member-consumer 그룹)
 ```java
-// idem-hub/src/main/java/kr/go/smes/idem-hub/qim/sp/kafka/QimSpMemberEventConsumer.java
+// idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/qim/sp/kafka/QimSpMemberEventConsumer.java
 // 역할: BIZ/PERSONAL_MEMBER_CONVERTED/REGISTERED/WITHDRAWN 처리
 //       → QimSpMemberEventHandler → WebhookDispatcherService → 기관 webhook Outbox
 @KafkaListener(topics = "qim.user.events", groupId = "ido-qim-member-consumer")

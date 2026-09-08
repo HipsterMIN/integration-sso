@@ -4,7 +4,7 @@
 
 ```
 좌표(Coordinates):
-  groupId:    kr.go.smes
+  groupId:    io.github.hipstermin.idem
   artifactId: onepass-agency-sdk
   version:    0.1.0-SNAPSHOT  (현재 개발 버전 — GAP-1~5 수정 완료)
 ```
@@ -130,10 +130,10 @@
 ### 3.1 기본 사용 (HttpURLConnection — 외부 의존성 없음)
 
 ```java
-import kr.go.smes.sdk.agency.AgencyGatewayClient;
-import kr.go.smes.sdk.agency.idempotency.IdempotencyKeyGenerator;
-import kr.go.smes.sdk.agency.model.GatewayResponse;
-import kr.go.smes.sdk.agency.model.InboundEvent;
+import io.github.hipstermin.idem.sdk.agency.AgencyGatewayClient;
+import io.github.hipstermin.idem.sdk.agency.idempotency.IdempotencyKeyGenerator;
+import io.github.hipstermin.idem.sdk.agency.model.GatewayResponse;
+import io.github.hipstermin.idem.sdk.agency.model.InboundEvent;
 
 // 1. 클라이언트 생성 (애플리케이션 시작 시 1회 — 싱글턴으로 관리 권장)
 AgencyGatewayClient client = AgencyGatewayClient.builder()
@@ -166,7 +166,7 @@ if (response.isSuccess()) {
 > 이 메서드는 하위 호환성을 위해 남겨두었으나 다음 Major 버전에서 제거될 예정입니다.
 
 ```java
-import kr.go.smes.sdk.agency.model.OutboundNotifyRequest;
+import io.github.hipstermin.idem.sdk.agency.model.OutboundNotifyRequest;
 
 // ⚠️ @Deprecated — GAP-2: 서버 자동 Webhook 발송으로 인해 기관 측 직접 호출 불필요
 OutboundNotifyRequest notify = OutboundNotifyRequest.builder()
@@ -197,7 +197,7 @@ System.out.println("연동 상태: " + status.getBody());
 ```kotlin
 dependencies {
     // OnePass Agency SDK (런타임 의존성 없음 — JDK 내장 HttpURLConnection 사용)
-    implementation("kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT")
+    implementation("io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT")
 
     // [선택] OkHttp3 어댑터 사용 시
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -211,7 +211,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT'
+    implementation 'io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT'
 
     // [선택] OkHttp3 어댑터 사용 시
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
@@ -225,7 +225,7 @@ dependencies {
 
 ```xml
 <dependency>
-    <groupId>kr.go.smes</groupId>
+    <groupId>io.github.hipstermin.idem</groupId>
     <artifactId>onepass-agency-sdk</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
@@ -442,7 +442,7 @@ dependencies {
 ```
 
 ```java
-import kr.go.smes.sdk.agency.http.OkHttpAgencyAdapter;
+import io.github.hipstermin.idem.sdk.agency.http.OkHttpAgencyAdapter;
 import okhttp3.OkHttpClient;
 import java.util.concurrent.TimeUnit;
 
@@ -473,7 +473,7 @@ dependencies {
 ```
 
 ```java
-import kr.go.smes.sdk.agency.http.ApacheHttpAgencyAdapter;
+import io.github.hipstermin.idem.sdk.agency.http.ApacheHttpAgencyAdapter;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
@@ -503,8 +503,8 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 ### 6.4 람다/커스텀 어댑터 (Spring RestTemplate, WebClient 등)
 
 ```java
-import kr.go.smes.sdk.agency.http.AgencyHttpAdapter;
-import kr.go.smes.sdk.agency.model.GatewayResponse;
+import io.github.hipstermin.idem.sdk.agency.http.AgencyHttpAdapter;
+import io.github.hipstermin.idem.sdk.agency.model.GatewayResponse;
 
 // Spring RestTemplate 기반 예시
 AgencyHttpAdapter restTemplateAdapter = (method, url, headers, body) -> {
@@ -617,8 +617,8 @@ if (!signer.verifySignature(receivedSig, computed)) {
 ## 8. 에러 처리 패턴
 
 ```java
-import kr.go.smes.sdk.agency.exception.AgencyHttpException;
-import kr.go.smes.sdk.agency.exception.AgencySdkException;
+import io.github.hipstermin.idem.sdk.agency.exception.AgencyHttpException;
+import io.github.hipstermin.idem.sdk.agency.exception.AgencySdkException;
 
 try {
     GatewayResponse response = client.sendInbound(event);
@@ -733,7 +733,7 @@ public void relay(OutboxRecord record) {
 ### 10.1 Bean 등록 (`@Configuration`)
 
 ```java
-import kr.go.smes.sdk.agency.AgencyGatewayClient;
+import io.github.hipstermin.idem.sdk.agency.AgencyGatewayClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -835,7 +835,7 @@ Maven Central 배포는 **Sonatype OSSRH** 계정과 **GPG 서명 키**가 필�
 #### 사전 준비
 
 1. **Sonatype OSSRH 계정 발급** — https://issues.sonatype.org/
-   - JIRA 이슈 생성하여 `kr.go.smes` 그룹 ID 승인 요청
+   - JIRA 이슈 생성하여 `io.github.hipstermin.idem` 그룹 ID 승인 요청
 
 2. **GPG 키 생성**
    ```bash
@@ -911,7 +911,7 @@ jobs:
 
 #### 사전 준비
 
-1. Nexus Repository Manager 3.x 설치 및 `kr.go.smes` 그룹 저장소 구성
+1. Nexus Repository Manager 3.x 설치 및 `io.github.hipstermin.idem` 그룹 저장소 구성
 2. 배포 계정 생성 (`deployment` 롤 필요)
 
 #### 환경변수 설정
@@ -972,7 +972,7 @@ repositories {
 SKIP_SIGNING=true ./gradlew :idem-sdk-java:publishToMavenLocal --no-daemon
 
 # 설치 확인
-ls ~/.m2/repository/kr/go/smes/idem-sdk-java/
+ls ~/.m2/repository/io/github/hipstermin/idem/idem-sdk-java/
 ```
 
 사용 측 `build.gradle.kts`:

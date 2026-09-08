@@ -34,7 +34,7 @@ FE Login → Q-Sign(:8081)
 ## 2. 패키지 구조
 
 ```
-kr.go.smes.qsign
+io.github.hipstermin.idem.gate
 ├── api/                    # REST API 컨트롤러
 │   ├── AuthController.java         ← 인증 시작·콜백
 │   ├── InternalSessionController.java  ← 내부 세션 조회

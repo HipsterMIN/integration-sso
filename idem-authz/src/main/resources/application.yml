@@ -84,7 +84,7 @@ management:
 
 logging:
   level:
-    kr.go.smes.authz: INFO
+    io.github.hipstermin.idem.authz: INFO
     org.flywaydb: INFO
 
 springdoc:

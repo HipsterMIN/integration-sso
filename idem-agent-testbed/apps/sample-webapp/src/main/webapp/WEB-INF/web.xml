@@ -15,7 +15,7 @@
     <!-- ─── 헬스체크 (인증 제외 대상) ────────────────────────── -->
     <servlet>
         <servlet-name>HealthServlet</servlet-name>
-        <servlet-class>kr.go.smes.testbed.servlet.HealthServlet</servlet-class>
+        <servlet-class>io.github.hipstermin.idem.testbed.servlet.HealthServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>HealthServlet</servlet-name>
@@ -25,7 +25,7 @@
     <!-- ─── 공개 엔드포인트 (인증 제외 대상) ─────────────────── -->
     <servlet>
         <servlet-name>PublicServlet</servlet-name>
-        <servlet-class>kr.go.smes.testbed.servlet.PublicServlet</servlet-class>
+        <servlet-class>io.github.hipstermin.idem.testbed.servlet.PublicServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>PublicServlet</servlet-name>
@@ -35,7 +35,7 @@
     <!-- ─── 보호된 엔드포인트 (Agent 인증 필요) ──────────────── -->
     <servlet>
         <servlet-name>ProtectedServlet</servlet-name>
-        <servlet-class>kr.go.smes.testbed.servlet.ProtectedServlet</servlet-class>
+        <servlet-class>io.github.hipstermin.idem.testbed.servlet.ProtectedServlet</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>ProtectedServlet</servlet-name>

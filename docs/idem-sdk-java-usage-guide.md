@@ -53,14 +53,14 @@ SDK를 받아서 → 클라이언트를 만들고 → 이벤트를 보내고 →
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT")
+    implementation("io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT")
 }
 ```
 
 ```groovy
 // build.gradle
 dependencies {
-    implementation 'kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT'
+    implementation 'io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT'
 }
 ```
 
@@ -70,7 +70,7 @@ dependencies {
 
 ```xml
 <dependency>
-    <groupId>kr.go.smes</groupId>
+    <groupId>io.github.hipstermin.idem</groupId>
     <artifactId>onepass-agency-sdk</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
@@ -90,7 +90,7 @@ dependencies {
 매 요청마다 새로 만들지 않는다. 이 객체는 스레드 안전(thread-safe)하다.
 
 ```java
-import kr.go.smes.sdk.agency.AgencyGatewayClient;
+import io.github.hipstermin.idem.sdk.agency.AgencyGatewayClient;
 
 AgencyGatewayClient client = AgencyGatewayClient.builder()
     .baseUrl("http://ido-service:8083")     // ① IdO 서버 URL
@@ -134,8 +134,8 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 ### 기본 전송 (가장 간단한 형태)
 
 ```java
-import kr.go.smes.sdk.agency.model.InboundEvent;
-import kr.go.smes.sdk.agency.model.GatewayResponse;
+import io.github.hipstermin.idem.sdk.agency.model.InboundEvent;
+import io.github.hipstermin.idem.sdk.agency.model.GatewayResponse;
 
 // 이벤트 객체 생성
 InboundEvent event = InboundEvent.builder()
@@ -184,7 +184,7 @@ if (response.isSuccess()) {
 동일 이벤트를 안전하게 재전송하려면 매번 같은 키를 사용해야 한다.
 
 ```java
-import kr.go.smes.sdk.agency.idempotency.IdempotencyKeyGenerator;
+import io.github.hipstermin.idem.sdk.agency.idempotency.IdempotencyKeyGenerator;
 
 // 이벤트마다 고유한 키를 미리 생성해서 저장해 두고 재사용한다
 String idempotencyKey = IdempotencyKeyGenerator.generateWithPrefix("MOIS");
@@ -303,8 +303,8 @@ SDK는 두 가지 예외만 던진다. 둘 다 `RuntimeException`이므로 `try-
 ### 예외 처리 코드 패턴
 
 ```java
-import kr.go.smes.sdk.agency.exception.AgencyHttpException;
-import kr.go.smes.sdk.agency.exception.AgencySdkException;
+import io.github.hipstermin.idem.sdk.agency.exception.AgencyHttpException;
+import io.github.hipstermin.idem.sdk.agency.exception.AgencySdkException;
 
 try {
     GatewayResponse response = client.sendInbound(event);
@@ -367,7 +367,7 @@ try {
 ### 언제 어떤 전략을 쓸까
 
 ```java
-import kr.go.smes.sdk.agency.idempotency.IdempotencyKeyGenerator;
+import io.github.hipstermin.idem.sdk.agency.idempotency.IdempotencyKeyGenerator;
 
 // 전략 1: 자동 생성 (가장 간단) — 단발성 이벤트에 적합
 InboundEvent event = InboundEvent.builder()
@@ -423,13 +423,13 @@ try {
 ```kotlin
 // build.gradle.kts — 의존성 추가
 dependencies {
-    implementation("kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT")
+    implementation("io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 ```
 
 ```java
-import kr.go.smes.sdk.agency.http.OkHttpAgencyAdapter;
+import io.github.hipstermin.idem.sdk.agency.http.OkHttpAgencyAdapter;
 import okhttp3.OkHttpClient;
 import java.util.concurrent.TimeUnit;
 
@@ -453,13 +453,13 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 ```kotlin
 // build.gradle.kts — 의존성 추가
 dependencies {
-    implementation("kr.go.smes:idem-sdk-java:0.1.0-SNAPSHOT")
+    implementation("io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT")
     implementation("org.apache.httpcomponents.client5:httpclient5:5.3.1")
 }
 ```
 
 ```java
-import kr.go.smes.sdk.agency.http.ApacheHttpAgencyAdapter;
+import io.github.hipstermin.idem.sdk.agency.http.ApacheHttpAgencyAdapter;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 
@@ -498,7 +498,7 @@ onepass:
 ### Configuration 클래스
 
 ```java
-import kr.go.smes.sdk.agency.AgencyGatewayClient;
+import io.github.hipstermin.idem.sdk.agency.AgencyGatewayClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -535,11 +535,11 @@ public class OnePassSdkConfig {
 ### Service 클래스에서 사용
 
 ```java
-import kr.go.smes.sdk.agency.AgencyGatewayClient;
-import kr.go.smes.sdk.agency.exception.AgencyHttpException;
-import kr.go.smes.sdk.agency.model.GatewayResponse;
-import kr.go.smes.sdk.agency.model.InboundEvent;
-import kr.go.smes.sdk.agency.idempotency.IdempotencyKeyGenerator;
+import io.github.hipstermin.idem.sdk.agency.AgencyGatewayClient;
+import io.github.hipstermin.idem.sdk.agency.exception.AgencyHttpException;
+import io.github.hipstermin.idem.sdk.agency.model.GatewayResponse;
+import io.github.hipstermin.idem.sdk.agency.model.InboundEvent;
+import io.github.hipstermin.idem.sdk.agency.idempotency.IdempotencyKeyGenerator;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -613,12 +613,12 @@ GatewayResponse status = client.getStatus(null);  // Builder의 agencyCode 사�
 순수 Java 환경 기준으로 처음부터 끝까지 동작하는 예시다.
 
 ```java
-import kr.go.smes.sdk.agency.AgencyGatewayClient;
-import kr.go.smes.sdk.agency.exception.AgencyHttpException;
-import kr.go.smes.sdk.agency.exception.AgencySdkException;
-import kr.go.smes.sdk.agency.idempotency.IdempotencyKeyGenerator;
-import kr.go.smes.sdk.agency.model.GatewayResponse;
-import kr.go.smes.sdk.agency.model.InboundEvent;
+import io.github.hipstermin.idem.sdk.agency.AgencyGatewayClient;
+import io.github.hipstermin.idem.sdk.agency.exception.AgencyHttpException;
+import io.github.hipstermin.idem.sdk.agency.exception.AgencySdkException;
+import io.github.hipstermin.idem.sdk.agency.idempotency.IdempotencyKeyGenerator;
+import io.github.hipstermin.idem.sdk.agency.model.GatewayResponse;
+import io.github.hipstermin.idem.sdk.agency.model.InboundEvent;
 
 public class OnePassExample {
 

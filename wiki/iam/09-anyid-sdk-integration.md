@@ -1012,10 +1012,10 @@ xhr.setRequestHeader("hashed", computedHash);  // SDK가 자동 계산
 |------|------|
 | 국내 인증 수단 종합 가이드 | `wiki/iam/08-kr-auth-providers-guide.md` |
 | Any-ID DB migration V19 | `idem-hub/src/main/resources/db/migration/V19__anyid_provider_config.sql` |
-| AnyIdSsobService | `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdSsobService.java` |
-| AnyIdController | `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdController.java` |
-| AnyIdBrokerAdapter | `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdBrokerAdapter.java` |
-| AnyIdProperties | `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdProperties.java` |
+| AnyIdSsobService | `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/anyid/AnyIdSsobService.java` |
+| AnyIdController | `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/anyid/AnyIdController.java` |
+| AnyIdBrokerAdapter | `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/anyid/AnyIdBrokerAdapter.java` |
+| AnyIdProperties | `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/anyid/AnyIdProperties.java` |
 | config.anyidc.json | `idem-hub/src/main/resources/config/anyid/config.anyidc.json` |
 | kdist-local.json | `idem-hub/src/main/resources/config/anyid/kdist-local.json` |
 | SDK 샘플 login.jsp | `AuthResourceInstall/webapp/sample/login.jsp` |

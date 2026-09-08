@@ -334,7 +334,7 @@ Content-Type: application/json
 
 ## 4. NICE 암호화 복호화 알고리즘
 
-**구현체**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/util/NiceCryptoUtil.java`
+**구현체**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/util/NiceCryptoUtil.java`
 
 ### 4.1 전체 복호화 프로세스
 

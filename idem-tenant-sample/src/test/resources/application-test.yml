@@ -29,5 +29,5 @@ agency-stub:
 
 logging:
   level:
-    kr.go.smes: DEBUG
+    io.github.hipstermin.idem: DEBUG
     root: WARN

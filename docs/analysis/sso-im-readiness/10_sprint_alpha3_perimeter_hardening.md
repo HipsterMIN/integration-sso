@@ -360,10 +360,10 @@ private String tryResolveDi(String qimUserId, String agencyCode, String correlat
 
 ```bash
 ./gradlew :idem-hub:compileJava :idem-hub:compileTestJava
-./gradlew :idem-hub:test --tests 'kr.go.smes.ido.webhook.WebhookDispatcherServiceTest' \
-                  --tests 'kr.go.smes.ido.sso.CrossAgencySsoControllerTest' \
-                  --tests 'kr.go.smes.ido.policy.PolicyEngineImplTest' \
-                  --tests 'kr.go.smes.ido.infrastructure.QimClientGetDiTest'
+./gradlew :idem-hub:test --tests 'io.github.hipstermin.idem.hub.webhook.WebhookDispatcherServiceTest' \
+                  --tests 'io.github.hipstermin.idem.hub.sso.CrossAgencySsoControllerTest' \
+                  --tests 'io.github.hipstermin.idem.hub.policy.PolicyEngineImplTest' \
+                  --tests 'io.github.hipstermin.idem.hub.infrastructure.QimClientGetDiTest'
 ```
 
 ### 6.3 통합 부팅 검증 (운영 배포 전)

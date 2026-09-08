@@ -33,7 +33,7 @@ IdO(Identity Orchestrator)는 통합인증 플랫폼의 **정책 오케스트레
 ## 2. 패키지 구조 (전체)
 
 ```
-idem-hub/src/main/java/kr/go/smes/idem-hub/
+idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/
 ├── IdoApplication.java
 ├── admin/                              # 기관 Admin API
 │   ├── AgencyAdminController.java      # /api/v1/admin/agencies/**

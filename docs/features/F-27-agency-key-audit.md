@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_AGENCY_KEY_AUDIT_LOG`  
 > **Phase**: 항상 ON (보안 감사 필수)  
 > **기본값**: `true`  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/config/HandoffAgencyKeyInterceptor.java`
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/HandoffAgencyKeyInterceptor.java`
 
 ---
 
@@ -65,4 +65,4 @@ kubectl logs -n smes deployment/ido \
 
 ## 연관 문서
 - [배포 가이드 §8.3 API Key 인증 실패](../_archive/2026-05-22/deployment-guide.md)
-- [HandoffAgencyKeyInterceptor 소스](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/HandoffAgencyKeyInterceptor.java)
+- [HandoffAgencyKeyInterceptor 소스](../../idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/HandoffAgencyKeyInterceptor.java)

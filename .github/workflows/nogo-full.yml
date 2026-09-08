@@ -282,7 +282,7 @@ jobs:
           # 대신 @Disabled 표시 그대로 두고, 다음 명령은 "현재 활성화된 E2E 만" 실행.
           chmod +x ./gradlew
           ./gradlew :idem-tenant-sample:test --no-daemon --console=plain --continue \
-            --tests "kr.go.smes.agency.e2e.*" 2>&1 | tee /tmp/e2e.log || true
+            --tests "io.github.hipstermin.idem.tenant.e2e.*" 2>&1 | tee /tmp/e2e.log || true
           
           echo ""
           echo "═══════════════════════════════════════════════════════════════"

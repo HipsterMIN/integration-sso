@@ -157,7 +157,7 @@ idem/
 ├── idem-hub/
 ├── outbox-scheduler/          ← 신규
 │   ├── build.gradle.kts
-│   └── src/main/java/kr/go/smes/scheduler/
+│   └── src/main/java/io/github/hipstermin/idem/scheduler/
 │       ├── OutboxSchedulerApplication.java
 │       ├── config/
 │       │   ├── KafkaProducerConfig.java     ← Kafka 설정 단일화

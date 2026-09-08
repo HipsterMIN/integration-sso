@@ -109,7 +109,7 @@ jobs:
           echo "::endgroup::"
           echo "::group::test (memberlookup only)"
           ./gradlew :idem-hub:test --no-daemon --console=plain --continue \
-            --tests "kr.go.smes.ido.memberlookup.*" 2>&1 | tee /tmp/ido-test.log
+            --tests "io.github.hipstermin.idem.hub.memberlookup.*" 2>&1 | tee /tmp/ido-test.log
           echo "::endgroup::"
 
       # ── Issue #3a + #3b: Q-IM lifecycle + outbox ──────────────────────────
@@ -120,8 +120,8 @@ jobs:
           set -o pipefail
           echo "::group::test (lifecycle + outbox)"
           ./gradlew :idem-registry:test --no-daemon --console=plain --continue \
-            --tests "kr.go.smes.qim.integration.QimLifecycleIntegrationTest" \
-            --tests "kr.go.smes.qim.outbox.OutboxIntegrationTest" 2>&1 | tee /tmp/qim-test.log
+            --tests "io.github.hipstermin.idem.registry.integration.QimLifecycleIntegrationTest" \
+            --tests "io.github.hipstermin.idem.registry.outbox.OutboxIntegrationTest" 2>&1 | tee /tmp/qim-test.log
           echo "::endgroup::"
 
       # ── Issue #4: Agent WeavingStrategyFactoryJeusTest ────────────────────
@@ -132,7 +132,7 @@ jobs:
           set -o pipefail
           echo "::group::test"
           ./gradlew :idem-agent:test --no-daemon --console=plain --continue \
-            --tests "kr.go.smes.agent.weaving.jeus.WeavingStrategyFactoryJeusTest" 2>&1 | tee /tmp/agent-test.log
+            --tests "io.github.hipstermin.idem.agent.weaving.jeus.WeavingStrategyFactoryJeusTest" 2>&1 | tee /tmp/agent-test.log
           echo "::endgroup::"
 
       # ── Issue #5: FE yarn install ─────────────────────────────────────────

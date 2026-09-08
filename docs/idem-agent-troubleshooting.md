@@ -51,7 +51,7 @@ grep "ERROR\|Exception\|Error" $JEUS_HOME/logs/JeusServer.log | head -30
 **증상**:
 ```
 java.lang.UnsupportedClassVersionError: 
-kr/go/smes/agent/core/OnePassAgentMain : 
+io/github/hipstermin/idem/agent/core/OnePassAgentMain : 
 Unsupported major.minor version 52.0
 ```
 
@@ -124,7 +124,7 @@ jar tf /opt/onepass/idem-agent-1.0.0-all.jar | grep "Premain\|MANIFEST"
 # MANIFEST 내용 확인
 jar xf /opt/onepass/idem-agent-1.0.0-all.jar META-INF/MANIFEST.MF -C /tmp/
 cat /tmp/META-INF/MANIFEST.MF
-# Premain-Class: kr.go.smes.agent.core.OnePassAgentMain 가 있어야 함
+# Premain-Class: io.github.hipstermin.idem.agent.core.OnePassAgentMain 가 있어야 함
 ```
 
 ---
@@ -679,7 +679,7 @@ Agent가 특정 번들의 클래스를 찾지 못할 수 있습니다.
 ### 증상
 
 ```
-[WARN] [GenericFilterAdvice] 토큰 검증 중 예외: ClassNotFoundException: kr.go.smes.agent.*
+[WARN] [GenericFilterAdvice] 토큰 검증 중 예외: ClassNotFoundException: io.github.hipstermin.idem.agent.*
 또는
 Agent 클래스가 WAS 애플리케이션에서 보이지 않는 현상
 ```
@@ -687,7 +687,7 @@ Agent 클래스가 WAS 애플리케이션에서 보이지 않는 현상
 ### 원인
 
 Oracle WebLogic Server는 `FilteringClassLoader`를 사용하여 특정 패키지를 애플리케이션으로부터 격리합니다.  
-이로 인해 Agent 클래스(`kr.go.smes.agent.*`)나 byte-buddy 클래스(`net.bytebuddy.*`)가  
+이로 인해 Agent 클래스(`io.github.hipstermin.idem.agent.*`)나 byte-buddy 클래스(`net.bytebuddy.*`)가  
 WAS 애플리케이션 ClassLoader에서 보이지 않을 수 있습니다.
 
 ### 진단
@@ -710,7 +710,7 @@ grep -i "ClassNotFoundException\|NoClassDefFoundError\|FilteringClassLoader" $DO
   <container-descriptor>
     <!-- OnePass Agent 클래스가 앱에서 보이도록 허용 -->
     <prefer-application-packages>
-      <package-name>kr.go.smes.agent.*</package-name>
+      <package-name>io.github.hipstermin.idem.agent.*</package-name>
       <package-name>net.bytebuddy.*</package-name>
       <package-name>javassist.*</package-name>
     </prefer-application-packages>
@@ -725,7 +725,7 @@ EAR 배포 시:
 <!-- META-INF/weblogic-application.xml -->
 <weblogic-application xmlns="http://xmlns.oracle.com/weblogic/weblogic-application">
   <prefer-application-packages>
-    <package-name>kr.go.smes.agent.*</package-name>
+    <package-name>io.github.hipstermin.idem.agent.*</package-name>
     <package-name>net.bytebuddy.*</package-name>
   </prefer-application-packages>
 </weblogic-application>

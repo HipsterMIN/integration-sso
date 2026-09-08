@@ -69,7 +69,7 @@ integration-sso 목표 구조 (ADR-001):
 ### 2.1 패키지 구조
 
 ```
-kr.go.smes/
+io.github.hipstermin.idem/
 ├── account/                    # 인증·계정 도메인 (핵심)
 │   ├── api/                    # 컨트롤러 계층
 │   │   ├── AuthController.java          # ID/PW 로그인 (더미 토큰 반환)
@@ -914,7 +914,7 @@ Phase 2 완료 (IdO 어댑터 + Q-IM 라우팅 전환):
 
 ## 부록 A. 분석 완료 파일 목록
 
-| 파일 경로 (kr.go.smes 이후) | 분석 완료 | 핵심 발견 |
+| 파일 경로 (io.github.hipstermin.idem 이후) | 분석 완료 | 핵심 발견 |
 |------------------------------|-----------|-----------|
 | `account/config/SecurityConfig.java` | ✅ | /api/v1/** permitAll, JWT 필터 체인 |
 | `account/api/AuthController.java` 관련 | ✅ | (AuthServiceImpl에서 더미 토큰 확인) |
