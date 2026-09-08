@@ -3,16 +3,22 @@
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # 트리거:
-#   - push: main, develop, genspark_ai_developer 브랜치
-#   - pull_request: main, develop 대상
+#   - push: main            (Docker Build 6종 + GHCR push 포함)
+#   - pull_request: main    (PR 게이트: build-and-test → smoke-test, frontend-check)
+#   - workflow_dispatch     (수동: security-scan 등)
 #
-# Job 구성:
-#   1. build-and-test   — Gradle 빌드 + 단위 테스트 (모든 모듈)
-#   2. frontend-check   — FE TypeScript 컴파일 + Webpack 빌드
-#   3. security-scan    — OWASP Dependency-Check 취약점 스캔
+# Job 구성 (2026-09-08 정리 — 전부 CI_HEAVY_RUNNER 자체 호스팅 러너):
+#   1. build-and-test   — Gradle 빌드 + 단위 테스트 (모든 모듈)            [PR·main]
+#   2. frontend-check   — FE TypeScript 컴파일 + Webpack 빌드              [PR·main]
+#   3. security-scan    — OWASP Dependency-Check (수동 전용)                [dispatch]
+#   4. smoke-test       — k6 스모크 (idem-hub 기동 + MOCK 본인인증 라운드트립) [PR·main]
+#   5. docker-build     — 6개 서비스 이미지 빌드 + GHCR push + Trivy 이미지 스캔 [main]
+#   포맷(Spotless)·변경 모듈 테스트는 로컬 git 훅이 담당한다: docs/local-dev-workflow.md
 #
 # 시크릿 (GitHub Settings → Secrets):
-
+#   NVD_API_KEY — OWASP NVD API 키 (security-scan, 없으면 느리게 동작)
+#   GHCR push 는 GITHUB_TOKEN(packages: write) 사용
+#
 name: CI
 
 on:
