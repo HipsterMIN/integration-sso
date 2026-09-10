@@ -9,7 +9,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.HandoffPayload;
 import io.github.hipstermin.idem.common.domain.HandoffTicket;
-import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
@@ -23,6 +22,8 @@ import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
 import io.github.hipstermin.idem.hub.infrastructure.TicketRepository;
 import io.github.hipstermin.idem.hub.policy.PolicyEngine;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyEvaluation;
 import io.github.hipstermin.idem.hub.ratelimit.AgencyRateLimiter;
 import java.time.Instant;
 import java.util.List;
@@ -124,9 +125,7 @@ class HandoffServiceImplTest {
         void setUpCommonMocks() {
             given(agencyMetaRepository.findByCode(AGENCY_CODE)).willReturn(Optional.of(activeAgency));
             given(rateLimiter.tryAcquire(AGENCY_CODE)).willReturn(true);
-            given(policyEngine.isUnderMaintenance(any())).willReturn(false);
-            given(policyEngine.meetsMinAuthLevel(any(), any())).willReturn(true);
-            given(policyEngine.resolveUserStatus(eq(QIM_USER_ID), any())).willReturn(UserStatus.ACTIVE);
+            given(policyEngine.evaluate(any(), eq(true))).willReturn(PolicyEvaluation.allowedAll());
             given(handoffCryptoService.encrypt(any(), any())).willReturn("encrypted-payload");
             given(handoffCryptoService.sign(any(), any(), any())).willReturn("hmac-signature");
 
@@ -219,7 +218,8 @@ class HandoffServiceImplTest {
         @Test
         @DisplayName("점검 시간 — AGENCY_MAINTENANCE 예외")
         void maintenanceWindow_throwsMaintenanceException() {
-            given(policyEngine.isUnderMaintenance(any())).willReturn(true);
+            given(policyEngine.evaluate(any(), eq(true))).willReturn(new PolicyEvaluation(List.of(
+                    PolicyDecision.deny("MAINTENANCE", "test", "MAINTENANCE", PlatformErrorCode.AGENCY_MAINTENANCE))));
 
             assertThatThrownBy(() -> sut.issue(validCommand))
                     .isInstanceOf(PlatformException.class)
@@ -230,7 +230,8 @@ class HandoffServiceImplTest {
         @Test
         @DisplayName("인증 수준 미달 — IDO_AUTH_LEVEL_INSUFFICIENT 예외")
         void authLevelInsufficient_throwsException() {
-            given(policyEngine.meetsMinAuthLevel(any(), any())).willReturn(false);
+            given(policyEngine.evaluate(any(), eq(true))).willReturn(new PolicyEvaluation(List.of(
+                    PolicyDecision.deny("MIN_AUTH_LEVEL", "test", "AUTH_LEVEL_INSUFFICIENT", PlatformErrorCode.IDO_AUTH_LEVEL_INSUFFICIENT))));
 
             assertThatThrownBy(() -> sut.issue(validCommand))
                     .isInstanceOf(PlatformException.class)
@@ -243,8 +244,8 @@ class HandoffServiceImplTest {
         @Test
         @DisplayName("정지 사용자 — IM_USER_SUSPENDED 예외")
         void suspendedUser_throwsUserSuspendedException() {
-            given(policyEngine.resolveUserStatus(eq(QIM_USER_ID), any()))
-                    .willReturn(UserStatus.SUSPENDED);
+            given(policyEngine.evaluate(any(), eq(true))).willReturn(new PolicyEvaluation(List.of(
+                    PolicyDecision.deny("USER_STATUS", "test", "USER_SUSPENDED", PlatformErrorCode.IM_USER_SUSPENDED))));
 
             assertThatThrownBy(() -> sut.issue(validCommand))
                     .isInstanceOf(PlatformException.class)
@@ -257,8 +258,8 @@ class HandoffServiceImplTest {
         @Test
         @DisplayName("탈퇴 사용자 — IM_USER_WITHDRAWN 예외")
         void withdrawnUser_throwsUserWithdrawnException() {
-            given(policyEngine.resolveUserStatus(eq(QIM_USER_ID), any()))
-                    .willReturn(UserStatus.WITHDRAWN);
+            given(policyEngine.evaluate(any(), eq(true))).willReturn(new PolicyEvaluation(List.of(
+                    PolicyDecision.deny("USER_STATUS", "test", "USER_WITHDRAWN", PlatformErrorCode.IM_USER_WITHDRAWN))));
 
             assertThatThrownBy(() -> sut.issue(validCommand))
                     .isInstanceOf(PlatformException.class)

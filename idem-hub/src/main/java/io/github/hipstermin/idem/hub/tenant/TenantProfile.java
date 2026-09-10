@@ -58,7 +58,12 @@ public record TenantProfile(
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)
     public record Policy(AuthResult.AuthLevel minAuthLevel, String policyVersion, List<String> allowedProviders,
-                         Session session, List<MaintenanceWindow> maintenance) {}
+                         Session session, List<MaintenanceWindow> maintenance, List<RuleRef> rules) {}
+
+    /** 프로파일이 지정하는 규칙 — 내장 규칙의 파라미터 또는 커스텀 규칙(에디션 플러그인) 활성화 (S3). */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Builder(toBuilder = true)
+    public record RuleRef(String type, Map<String, Object> params) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)

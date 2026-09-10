@@ -69,6 +69,7 @@ public class TenantProfileMapper {
                         .maintenance(readMaintenance(e.getMaintenanceWindows()))
                         .allowedProviders(exPolicy != null ? exPolicy.allowedProviders() : null)
                         .session(exPolicy != null ? exPolicy.session() : null)
+                        .rules(exPolicy != null ? exPolicy.rules() : null)
                         .build())
                 .limits(TenantProfile.Limits.builder()
                         .daily(e.getDailyLookupLimit())

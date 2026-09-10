@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.hub.sso;
 
+import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.CastToken;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
@@ -97,7 +98,8 @@ public class CastTokenServiceImpl implements CastTokenService {
         Instant issuedAt      = Instant.now();
         Instant expiresAt     = issuedAt.plusSeconds(CastToken.TTL_SECONDS);
         String  qimUserId     = feSession.getQimUserId();
-        String  authLevel     = feSession.getAuthLevel() != null ? feSession.getAuthLevel() : "LOW";
+        // S3 어휘 통일: FE 세션 값(L*/LOW·MEDIUM·HIGH/acr 숫자/CONV 등)을 정규 L1~L3 로 — 토큰에는 정규 어휘만 싣는다
+        String  authLevel     = AuthResult.AuthLevel.parseOrDefault(feSession.getAuthLevel(), AuthResult.AuthLevel.L1).name();
         // sourceAgency: FE 세션에 저장된 기관 코드 (없으면 ONEPASS)
         String  sourceAgency  = "ONEPASS";
 

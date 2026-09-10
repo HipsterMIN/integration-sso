@@ -173,6 +173,38 @@ class HandoffIntegrationTest extends IntegrationTestBase {
         assertThat(responseBody.get("ticketId").toString()).isNotBlank();
     }
 
+    @Test
+    @DisplayName("S3: 프로파일 allowedProviders 에 없는 제공자로 발급 요청 → 403 E-IDO-104 (정책 엔진이 프로파일을 읽는다)")
+    void issueHandoff_providerNotAllowedByProfile_returns403() {
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_JSON);
+        h.set("X-Admin-Id", "s3-test");
+        ResponseEntity<String> profile = restTemplate.exchange(
+                baseUrl + "/api/v1/admin/tenants/" + AGENCY_CODE + "/profile", HttpMethod.PUT,
+                new HttpEntity<>("""
+                        {"schemaVersion":1,"tenant":{"code":"%s","name":"통합테스트 기관"},
+                         "protocol":{"type":"DIRECT","endpoints":{"callbackWhitelist":["https://agency.example.com/callback"]}},
+                         "identity":{"attributes":["name_masked","mobile_masked"]},
+                         "policy":{"minAuthLevel":"L1","allowedProviders":["NICE"]}}
+                        """.formatted(AGENCY_CODE), h), String.class);
+        assertThat(profile.getStatusCode().value()).as("body=%s", profile.getBody()).isEqualTo(200);
+
+        String body = """
+                {
+                  "agencyCode": "%s",
+                  "authResultId": "%s",
+                  "authLevel": "L1",
+                  "providerCode": "MOCK",
+                  "callbackUrl": "https://agency.example.com/callback"
+                }
+                """.formatted(AGENCY_CODE, UUID.randomUUID());
+
+        ResponseEntity<String> response = postJson("/api/v1/handoff/issue", body, UUID.randomUUID().toString());
+
+        assertThat(response.getStatusCode().value()).as("body=%s", response.getBody()).isEqualTo(403);
+        assertThat(response.getBody()).contains("E-IDO-104");
+    }
+
     // ── Idempotency 테스트 ──────────────────────────────────────────────────
 
     @Test

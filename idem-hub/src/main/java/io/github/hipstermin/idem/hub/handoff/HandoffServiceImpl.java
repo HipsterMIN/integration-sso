@@ -3,7 +3,6 @@ package io.github.hipstermin.idem.hub.handoff;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.domain.HandoffPayload;
 import io.github.hipstermin.idem.common.domain.HandoffTicket;
-import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.event.AuditLogEvent;
@@ -19,6 +18,8 @@ import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
 import io.github.hipstermin.idem.hub.infrastructure.TicketRepository;
 import io.github.hipstermin.idem.hub.policy.PolicyEngine;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
 import io.github.hipstermin.idem.hub.ratelimit.AgencyRateLimiter;
 import java.time.Instant;
 import java.util.Map;
@@ -85,26 +86,18 @@ public class HandoffServiceImpl implements HandoffService {
             // 3. Callback URL 화이트리스트 검증
             callbackUrlValidator.validate(cmd.getRedirectUri(), agency.getCallbackWhitelist(), cmd.getCorrelationId());
 
-            // 3. 점검 시간 차단
-            if (policyEngine.isUnderMaintenance(agency)) {
-                throw new PlatformException(PlatformErrorCode.AGENCY_MAINTENANCE, cmd.getCorrelationId());
-            }
-
-            // 4. 최소 인증수준 충족 검증
-            if (!policyEngine.meetsMinAuthLevel(cmd.getAuthLevel(), agency.getMinAuthLevel())) {
-                auditIssue(cmd, null, AuditLogEvent.OUTCOME_FAILURE, "AUTH_LEVEL_INSUFFICIENT", null);
-                throw new PlatformException(PlatformErrorCode.IDO_AUTH_LEVEL_INSUFFICIENT, cmd.getCorrelationId());
-            }
-
-            // 5. Q-IM 사용자 상태 확인
-            UserStatus userStatus = policyEngine.resolveUserStatus(cmd.getQimUserId(), cmd.getCorrelationId());
-            if (userStatus == UserStatus.SUSPENDED) {
-                auditIssue(cmd, null, AuditLogEvent.OUTCOME_FAILURE, "USER_SUSPENDED", null);
-                throw new PlatformException(PlatformErrorCode.IM_USER_SUSPENDED, cmd.getCorrelationId());
-            }
-            if (userStatus == UserStatus.WITHDRAWN) {
-                auditIssue(cmd, null, AuditLogEvent.OUTCOME_FAILURE, "USER_WITHDRAWN", null);
-                throw new PlatformException(PlatformErrorCode.IM_USER_WITHDRAWN, cmd.getCorrelationId());
+            // 3~5. 정책 평가 (S3 — 프로파일의 규칙 집합: MAINTENANCE → MIN_AUTH_LEVEL → ALLOWED_PROVIDERS → USER_STATUS)
+            PolicyContext policyContext = PolicyContext.builder()
+                    .tenantCode(cmd.getAgencyCode())
+                    .authLevel(cmd.getAuthLevel())
+                    .providerCode(cmd.getProviderCode())
+                    .userStatus(() -> policyEngine.resolveUserStatus(cmd.getQimUserId(), cmd.getCorrelationId()))
+                    .correlationId(cmd.getCorrelationId())
+                    .build();
+            PolicyDecision denial = policyEngine.evaluate(policyContext, true).firstDenial().orElse(null);
+            if (denial != null) {
+                auditIssue(cmd, null, AuditLogEvent.OUTCOME_FAILURE, denial.auditReason(), null);
+                throw new PlatformException(denial.errorCode(), cmd.getCorrelationId(), denial.reason());
             }
 
             // 6. Ticket 발급

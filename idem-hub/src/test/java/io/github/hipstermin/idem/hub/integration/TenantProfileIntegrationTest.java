@@ -37,7 +37,7 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired ObjectMapper objectMapper;
 
-    private static final List<String> CODES = List.of("TC_S2_ONBOARD", "TC_S2_BAD", "TC_S2_LEGACY");
+    private static final List<String> CODES = List.of("TC_S2_ONBOARD", "TC_S2_BAD", "TC_S2_LEGACY", "TC_S3_SIM");
 
     /** 공유 DB(로컬 PostgreSQL 재사용 포함)에서도 결정적이도록 대상 기관과 이력을 비운다. */
     @BeforeEach
@@ -160,6 +160,38 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
         // PostgreSQL 이 돌려주는 jsonb 원문은 공백이 정규화되므로 파싱해서 비교
         JsonNode stored = objectMapper.readTree(jpaRepository.findById(code).orElseThrow().getProfile());
         assertThat(stored.at("/ui/brandName").asText()).isEqualTo("보존돼야 함");
+    }
+
+    @Test
+    @DisplayName("S3: 정책 시뮬레이션 — 프로파일 규칙(최소 수준·허용 제공자)이 요청별로 어떻게 판정하는지 전부 보여준다")
+    void policySimulation_reportsEveryRule() throws Exception {
+        String code = "TC_S3_SIM";
+        assertThat(put(code, """
+                {"schemaVersion":1,"tenant":{"code":"%s","name":"S3 시뮬레이션 기관"},
+                 "protocol":{"type":"DIRECT"},
+                 "policy":{"minAuthLevel":"L2","allowedProviders":["NICE"]}}
+                """.formatted(code)).getStatusCode().value()).isEqualTo(200);
+
+        HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<String> denied = restTemplate.exchange(url("/api/v1/admin/tenants/" + code + "/policy/simulate"),
+                HttpMethod.POST, new HttpEntity<>("{\"authLevel\":\"LOW\",\"providerCode\":\"MOCK\",\"userStatus\":\"ACTIVE\"}", h), String.class);
+        assertThat(denied.getStatusCode().value()).as("body=%s", denied.getBody()).isEqualTo(200);
+        JsonNode d = json(denied);
+        assertThat(d.at("/allowed").asBoolean()).isFalse();
+        // 첫 거부에서 멈추지 않고 전부 평가 — MIN_AUTH_LEVEL·ALLOWED_PROVIDERS 둘 다 DENY, USER_STATUS 는 ALLOW
+        assertThat(d.at("/decisions")).hasSize(4);
+        assertThat(d.at("/decisions/1/rule").asText()).isEqualTo("MIN_AUTH_LEVEL");
+        assertThat(d.at("/decisions/1/outcome").asText()).isEqualTo("DENY");
+        assertThat(d.at("/decisions/2/rule").asText()).isEqualTo("ALLOWED_PROVIDERS");
+        assertThat(d.at("/decisions/2/outcome").asText()).isEqualTo("DENY");
+        assertThat(d.at("/decisions/3/rule").asText()).isEqualTo("USER_STATUS");
+        assertThat(d.at("/decisions/3/outcome").asText()).isEqualTo("ALLOW");
+
+        ResponseEntity<String> allowed = restTemplate.exchange(url("/api/v1/admin/tenants/" + code + "/policy/simulate"),
+                HttpMethod.POST, new HttpEntity<>("{\"authLevel\":\"L2\",\"providerCode\":\"nice\"}", h), String.class);
+        JsonNode a = json(allowed);
+        assertThat(a.at("/allowed").asBoolean()).isTrue();
+        assertThat(a.at("/decisions/3/outcome").asText()).isEqualTo("SKIP"); // 사용자 상태 미지정
     }
 
     @Test

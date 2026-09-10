@@ -13,6 +13,7 @@ import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
 import io.github.hipstermin.idem.hub.infrastructure.UserStatusCache;
+import io.github.hipstermin.idem.hub.tenant.TenantProfileService;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +50,7 @@ class PolicyEngineImplTest {
     @Mock UserStatusCache      userStatusCache;
     @Mock QimClient            qimClient;
     @Mock AgencyMetaRepository agencyMetaRepository;
+    @Mock TenantProfileService tenantProfileService;
 
     PolicyEngineImpl sut;
 
@@ -59,7 +61,7 @@ class PolicyEngineImplTest {
 
     @BeforeEach
     void setUp() {
-        sut = new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository);
+        sut = new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, tenantProfileService, java.util.List.of());
         ReflectionTestUtils.setField(sut, "defaultPolicyVersion", "1.0");
         // 기본: agencyMeta 없음(=allowedAttrs=비어있음 = 전체 차단), userStatusCache 없음
         given(agencyMetaRepository.findByCode(anyString())).willReturn(Optional.empty());

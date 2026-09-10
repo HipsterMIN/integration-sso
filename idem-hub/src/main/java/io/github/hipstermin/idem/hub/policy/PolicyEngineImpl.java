@@ -10,8 +10,13 @@ import io.github.hipstermin.idem.hub.domain.AgencyMeta;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
 import io.github.hipstermin.idem.hub.infrastructure.UserStatusCache;
-import java.time.LocalTime;
-import java.time.ZoneId;
+import io.github.hipstermin.idem.hub.policy.rule.MaintenanceRule;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyEvaluation;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyRule;
+import io.github.hipstermin.idem.hub.tenant.TenantProfile;
+import io.github.hipstermin.idem.hub.tenant.TenantProfileService;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -48,12 +53,71 @@ public class PolicyEngineImpl implements PolicyEngine {
     @Value("${ido.policy.default-version:1.0}")
     private String defaultPolicyVersion;
 
+    private final TenantProfileService tenantProfileService;
+    private final List<PolicyRule>     builtInRules;
+    private final Map<String, PolicyRule> customRules;
+
     public PolicyEngineImpl(UserStatusCache userStatusCache,
                             QimClient qimClient,
-                            AgencyMetaRepository agencyMetaRepository) {
+                            AgencyMetaRepository agencyMetaRepository,
+                            TenantProfileService tenantProfileService,
+                            List<PolicyRule> rules) {
         this.userStatusCache      = userStatusCache;
         this.qimClient            = qimClient;
         this.agencyMetaRepository = agencyMetaRepository;
+        this.tenantProfileService = tenantProfileService;
+        this.builtInRules = rules.stream().filter(PolicyRule::builtIn)
+                .sorted(Comparator.comparingInt(PolicyRule::order)).toList();
+        Map<String, PolicyRule> custom = new LinkedHashMap<>();
+        for (PolicyRule r : rules) {
+            if (!r.builtIn() && custom.putIfAbsent(r.type().toUpperCase(Locale.ROOT), r) != null) {
+                throw new IllegalStateException("PolicyRule 유형 중복: " + r.type());
+            }
+        }
+        this.customRules = Collections.unmodifiableMap(custom);
+        log.info("[PolicyEngine] 내장 규칙 {} · 커스텀 규칙 {}",
+                builtInRules.stream().map(PolicyRule::type).toList(), customRules.keySet());
+    }
+
+    // ── S3: 규칙 집합 평가 ────────────────────────────────────────────────────
+
+    @Override
+    public PolicyEvaluation evaluate(PolicyContext ctx, boolean stopAtFirstDenial) {
+        PolicyContext effective = ctx;
+        if (ctx.profile() == null && ctx.tenantCode() != null) {
+            effective = ctx.toBuilder()
+                    .profile(tenantProfileService.find(ctx.tenantCode()).orElse(null))
+                    .build();
+        }
+        // 프로파일이 지정한 규칙 (내장 규칙의 파라미터 또는 커스텀 규칙)
+        Map<String, Map<String, Object>> configured = new LinkedHashMap<>();
+        TenantProfile.Policy policy = effective.policy();
+        if (policy != null && policy.rules() != null) {
+            for (TenantProfile.RuleRef ref : policy.rules()) {
+                if (ref != null && ref.type() != null) {
+                    configured.put(ref.type().trim().toUpperCase(Locale.ROOT),
+                            ref.params() != null ? ref.params() : Map.of());
+                }
+            }
+        }
+        List<PolicyDecision> decisions = new ArrayList<>();
+        for (PolicyRule rule : builtInRules) {
+            PolicyDecision d = rule.evaluate(effective, configured.getOrDefault(rule.type(), Map.of()));
+            decisions.add(d);
+            if (stopAtFirstDenial && d.denied()) return new PolicyEvaluation(decisions);
+        }
+        for (Map.Entry<String, Map<String, Object>> e : configured.entrySet()) {
+            if (builtInRules.stream().anyMatch(r -> r.type().equals(e.getKey()))) continue;
+            PolicyRule rule = customRules.get(e.getKey());
+            PolicyDecision d = rule != null
+                    ? rule.evaluate(effective, e.getValue())
+                    : PolicyDecision.deny(e.getKey(), "등록되지 않은 규칙 유형 — 프로파일이 존재하지 않는 규칙을 요구함",
+                            "UNKNOWN_RULE", PlatformErrorCode.IDO_POLICY_REJECTED);
+            if (rule == null) log.error("[PolicyEngine] 미등록 규칙 유형: {} (tenant={})", e.getKey(), effective.tenantCode());
+            decisions.add(d);
+            if (stopAtFirstDenial && d.denied()) return new PolicyEvaluation(decisions);
+        }
+        return new PolicyEvaluation(decisions);
     }
 
     @Override
@@ -73,20 +137,17 @@ public class PolicyEngineImpl implements PolicyEngine {
 
     @Override
     public boolean meetsMinAuthLevel(AuthResult.AuthLevel actual, AuthResult.AuthLevel required) {
-        return actual.ordinal() >= required.ordinal();
+        return actual != null && actual.meets(required);
     }
 
     @Override
     public boolean isUnderMaintenance(AgencyMeta agency) {
         if (agency.getMaintenanceWindows() == null || agency.getMaintenanceWindows().isEmpty()) return false;
-        LocalTime now   = LocalTime.now(ZoneId.of("Asia/Seoul"));
-        String    today = java.time.DayOfWeek.from(java.time.LocalDate.now(ZoneId.of("Asia/Seoul"))).name();
-        return agency.getMaintenanceWindows().stream().anyMatch(w -> {
-            if (!w.getDayOfWeek().equalsIgnoreCase(today)) return false;
-            LocalTime start = LocalTime.parse(w.getStartTime());
-            LocalTime end   = LocalTime.parse(w.getEndTime());
-            return !now.isBefore(start) && now.isBefore(end);
-        });
+        // S3: MaintenanceRule 과 같은 판정 (MON/MONDAY 모두 인식 — 종전에는 "MON" 이 한 번도 걸리지 않았다)
+        List<TenantProfile.MaintenanceWindow> windows = agency.getMaintenanceWindows().stream()
+                .map(w -> new TenantProfile.MaintenanceWindow(w.getDayOfWeek(), w.getStartTime(), w.getEndTime()))
+                .toList();
+        return MaintenanceRule.isWithin(windows, java.time.Instant.now(), MaintenanceRule.DEFAULT_ZONE);
     }
 
     @Override

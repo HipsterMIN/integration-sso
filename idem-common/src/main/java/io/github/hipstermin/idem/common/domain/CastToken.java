@@ -39,7 +39,7 @@ import java.util.List;
  * @param qimUserId     OnePass 사용자 고유 ID
  * @param sourceAgency  발행 기관 코드 (기관 A)
  * @param targetAgency  대상 기관 코드 (기관 B) — verify 시 일치 검증
- * @param authLevel     인증 수준 (LOW / MEDIUM / HIGH)
+ * @param authLevel     인증 수준 — 정규 어휘 L1/L2/L3 (S3). 수신 시 LOW/MEDIUM/HIGH 도 호환 해석
  * @param issuedAt      발행 시각
  * @param expiresAt     만료 시각 (issuedAt + 5분)
  * @param token         서명된 JWT 문자열 (Base64url 인코딩)

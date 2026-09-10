@@ -1,12 +1,19 @@
 package io.github.hipstermin.idem.hub.admin;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.github.hipstermin.idem.common.domain.AuthResult;
+import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.ErrorResponse;
 import io.github.hipstermin.idem.common.error.PlatformException;
+import io.github.hipstermin.idem.hub.policy.PolicyEngine;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
+import io.github.hipstermin.idem.hub.policy.rule.PolicyEvaluation;
 import io.github.hipstermin.idem.hub.tenant.TenantProfile;
 import io.github.hipstermin.idem.hub.tenant.TenantProfileService;
 import io.github.hipstermin.idem.hub.tenant.TenantProfileValidator;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -41,6 +49,7 @@ public class TenantProfileAdminController {
 
     private final TenantProfileService   tenantProfileService;
     private final TenantProfileValidator validator;
+    private final PolicyEngine           policyEngine;
 
     @GetMapping(value = "/profile-schema", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> schema() {
@@ -62,6 +71,37 @@ public class TenantProfileAdminController {
         String cid = correlationId != null ? correlationId : UUID.randomUUID().toString();
         log.info("[TenantProfileCtrl] PUT profile: tenantCode={} adminId={} cid={}", tenantCode, adminId, cid);
         return ResponseEntity.ok(tenantProfileService.put(tenantCode, body, adminId, changeReason, cid));
+    }
+
+    /** 정책 시뮬레이션 요청 — 값이 없는 항목은 해당 규칙이 SKIP 된다. {@code at} 은 점검 시간대 판정 시각(생략 시 지금). */
+    public record PolicySimulationRequest(String authLevel, String providerCode, String userStatus, Instant at) {}
+    public record PolicySimulationResponse(boolean allowed, List<PolicyDecision> decisions) {}
+
+    /**
+     * 정책 시뮬레이션 (S3) — 저장된 프로파일로 "이런 요청이 오면 어떤 규칙이 어떻게 판정하는가" 를 실제 발급 없이 본다.
+     * 모든 규칙을 끝까지 평가한다(첫 거부에서 멈추지 않음).
+     */
+    @PostMapping(value = "/{tenantCode}/policy/simulate", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<PolicySimulationResponse> simulate(
+            @PathVariable String tenantCode,
+            @RequestBody PolicySimulationRequest req) {
+        TenantProfile profile = tenantProfileService.get(tenantCode);
+        UserStatus status = parseStatus(req.userStatus());
+        PolicyContext ctx = PolicyContext.builder()
+                .tenantCode(tenantCode)
+                .profile(profile)
+                .authLevel(AuthResult.AuthLevel.parse(req.authLevel()).orElse(null))
+                .providerCode(req.providerCode())
+                .userStatus(status == null ? null : () -> status)
+                .now(req.at())
+                .build();
+        PolicyEvaluation eval = policyEngine.evaluate(ctx, false);
+        return ResponseEntity.ok(new PolicySimulationResponse(eval.allowed(), eval.decisions()));
+    }
+
+    private static UserStatus parseStatus(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try { return UserStatus.valueOf(raw.trim().toUpperCase()); } catch (IllegalArgumentException e) { return null; }
     }
 
     /**

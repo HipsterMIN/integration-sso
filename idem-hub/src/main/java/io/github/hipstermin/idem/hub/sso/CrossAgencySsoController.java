@@ -334,12 +334,9 @@ public class CrossAgencySsoController {
      * LOW=L1, MEDIUM=L2, HIGH=L3
      */
     private io.github.hipstermin.idem.common.domain.AuthResult.AuthLevel mapAuthLevel(String castAuthLevel) {
-        if (castAuthLevel == null) return io.github.hipstermin.idem.common.domain.AuthResult.AuthLevel.L1;
-        return switch (castAuthLevel.toUpperCase()) {
-            case "HIGH"   -> io.github.hipstermin.idem.common.domain.AuthResult.AuthLevel.L3;
-            case "MEDIUM" -> io.github.hipstermin.idem.common.domain.AuthResult.AuthLevel.L2;
-            default       -> io.github.hipstermin.idem.common.domain.AuthResult.AuthLevel.L1;
-        };
+        // S3 어휘 통일 — 정규 L1/L2/L3 와 구 LOW/MEDIUM/HIGH 모두 해석, 미지 값은 L1
+        return io.github.hipstermin.idem.common.domain.AuthResult.AuthLevel.parseOrDefault(
+                castAuthLevel, io.github.hipstermin.idem.common.domain.AuthResult.AuthLevel.L1);
     }
 
     private String extractClientIp(HttpServletRequest request) {

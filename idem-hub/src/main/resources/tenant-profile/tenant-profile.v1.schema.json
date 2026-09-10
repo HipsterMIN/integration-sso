@@ -90,9 +90,23 @@
             "additionalProperties": false,
             "required": ["dayOfWeek", "startTime", "endTime"],
             "properties": {
-              "dayOfWeek": { "type": "string", "pattern": "^[A-Za-z]{3}$" },
+              "dayOfWeek": { "type": "string", "pattern": "^[A-Za-z]{3,9}$", "description": "MON 또는 MONDAY" },
               "startTime": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
               "endTime":   { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+            }
+          }
+        },
+        "rules": {
+          "type": "array",
+          "maxItems": 50,
+          "description": "내장 규칙 파라미터 또는 커스텀 규칙 활성화 (S3 PolicyRule SPI). type 은 등록된 PolicyRule.type()",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type"],
+            "properties": {
+              "type":   { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$", "maxLength": 50 },
+              "params": { "type": "object" }
             }
           }
         }

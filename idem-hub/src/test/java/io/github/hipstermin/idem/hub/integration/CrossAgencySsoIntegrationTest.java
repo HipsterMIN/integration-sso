@@ -96,7 +96,7 @@ class CrossAgencySsoIntegrationTest extends IntegrationTestBase {
         assertThat(castToken.token()).isNotBlank();
         assertThat(castToken.qimUserId()).isEqualTo(qimUserId);
         assertThat(castToken.targetAgency()).isEqualTo(TARGET_AGENCY);
-        assertThat(castToken.authLevel()).isEqualTo("MEDIUM");
+        assertThat(castToken.authLevel()).isEqualTo("L2") /* S3: CAST 는 정규 어휘 */;
         assertThat(castToken.isExpired()).isFalse();
         assertThat(castToken.expiresAt().getEpochSecond() - castToken.issuedAt().getEpochSecond())
                 .isEqualTo(CastToken.TTL_SECONDS);
@@ -157,7 +157,7 @@ class CrossAgencySsoIntegrationTest extends IntegrationTestBase {
         assertThat(verified.jti()).isEqualTo(issued.jti());
         assertThat(verified.qimUserId()).isEqualTo(qimUserId);
         assertThat(verified.targetAgency()).isEqualTo(TARGET_AGENCY);
-        assertThat(verified.authLevel()).isEqualTo("HIGH");
+        assertThat(verified.authLevel()).isEqualTo("L3") /* S3: CAST 는 정규 어휘 */;
     }
 
     // ── S13-T5: CAST 토큰 재사용 시도 ────────────────────────────────────

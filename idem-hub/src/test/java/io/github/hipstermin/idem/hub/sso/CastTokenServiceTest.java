@@ -101,7 +101,7 @@ class CastTokenServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.qimUserId()).isEqualTo(QIM_USER_ID);
         assertThat(result.targetAgency()).isEqualTo(TARGET_AGENCY);
-        assertThat(result.authLevel()).isEqualTo("MEDIUM");
+        assertThat(result.authLevel()).isEqualTo("L2") /* S3: 토큰은 정규 어휘 L1~L3 */;
         assertThat(result.token()).isNotBlank();
         assertThat(result.jti()).isNotBlank();
         assertThat(result.isExpired()).isFalse();

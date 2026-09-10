@@ -202,6 +202,15 @@ ui:     { brandName: "…", logoUrl: "…", locale: ko }
 `PolicyRule` SPI(`evaluate(ctx) → Decision`) · 내장 규칙 `MIN_AUTH_LEVEL / USER_STATUS / MAINTENANCE / ALLOWED_PROVIDERS / REAUTH` · 기관 프로파일 `policy.rules` 로 조합 · `AuthLevel` 단일 어휘(`L1/L2/L3` 유지, `LOW/MEDIUM/HIGH` 제거, 플러그인 하드코딩 `L2` 를 SPI `level()` 로) · 정책 시뮬레이션 API(`POST /admin/tenants/{code}/policy/simulate`).
 완료 기준: `PolicyEngineImpl` 의 하드코딩 규칙 0, 규칙별 단위 테스트, 시뮬레이션 통합 테스트.
 
+**진행 기록 (2026-09-10)** — S3 구현 PR:
+- ✅ `PolicyRule` SPI(`type/builtIn/order/evaluate(ctx, params)`) + `PolicyContext`(프로파일·요청 속성·지연 사용자 상태 공급자·시각) + `PolicyDecision`(ALLOW/DENY/SKIP, 감사 코드, 오류 코드) + `PolicyEvaluation`
+- ✅ 내장 규칙 4종: `MAINTENANCE`(10) → `MIN_AUTH_LEVEL`(20) → `ALLOWED_PROVIDERS`(30) → `USER_STATUS`(90, Q-IM 조회라 마지막). 프로파일에 설정이 없으면 SKIP. `policy.rules[]` 로 내장 규칙 파라미터(예: USER_STATUS `deny`)·커스텀 규칙(에디션 플러그인 `PolicyRule` 빈) 지정. 미등록 유형 요구는 fail-closed
+- ✅ `PolicyEngine.evaluate(ctx, stopAtFirstDenial)` — 발급 경로는 첫 거부에서 중단(뒤의 비싼 규칙 미호출), 시뮬레이션은 전부 평가. **정책 읽기가 프로파일로 이동**(`HandoffServiceImpl` 은 `AgencyMeta` 컬럼 대신 `TenantProfile.policy` 로 판정)
+- ✅ 정책 시뮬레이션 API `POST /api/v1/admin/tenants/{code}/policy/simulate` — 규칙별 판정·사유를 실제 발급 없이 확인
+- ✅ 인증수준 어휘 통일: `AuthLevel.parse/meets` (L1~L3 정규, LOW/MEDIUM/HIGH·acr 숫자 호환 해석). CAST 토큰은 정규 어휘만 싣고 검증 측은 둘 다 해석. 플러그인의 `level()` 은 SPI 계약대로 유지
+- ✅ 부수 발견: 점검 시간대 판정이 `DayOfWeek.name()`("MONDAY")과 저장값("MON")을 그대로 비교해 **한 번도 걸리지 않던 상태** → 앞 3글자 비교(MON/MONDAY 모두 인식). 스키마도 `{3,9}` 자로
+- ⏭ REAUTH(재인증) 규칙은 인증 시각이 요청 컨텍스트에 없어 S6(세션 정책)으로 이월
+
 ### S4 — 식별자·속성 계약 (3주)
 
 `SubjectIdentifierScheme` SPI + registry `subject_key/scheme` 컬럼(백필: `ci`→`CI` 스킴) · `PAIRWISE_HMAC` 스킴으로 `DiGenerationService` 일반화 · `AttributeCatalog`(코어 정의, 마스킹 규칙 포함) · 기관 `identity.attributes/attributeMapping` 으로 `HandoffPayload.attributes` 구성 · `allowed_attributes` 는 프로파일로 흡수.

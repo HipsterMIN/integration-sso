@@ -52,8 +52,32 @@ public class AuthResult {
      */
     private final String authMethod;
 
+    /**
+     * 인증수준 — 플랫폼 정규 어휘는 {@code L1 < L2 < L3} 하나뿐이다 (S3 어휘 통일).
+     * 종전 CAST 토큰·FE 세션이 쓰던 {@code LOW/MEDIUM/HIGH} 와 Keycloak {@code acr} 숫자는 {@link #parse} 가 호환 해석한다.
+     */
     public enum AuthLevel {
-        L1, L2, L3
+        L1, L2, L3;
+
+        /** 요구 수준 이상인가. */
+        public boolean meets(AuthLevel required) {
+            return required == null || ordinal() >= required.ordinal();
+        }
+
+        /** L1/L2/L3 · LOW/MEDIUM/HIGH · 1/2/3 (대소문자·공백 무시). 그 외는 empty. */
+        public static java.util.Optional<AuthLevel> parse(String raw) {
+            if (raw == null) return java.util.Optional.empty();
+            return switch (raw.trim().toUpperCase(java.util.Locale.ROOT)) {
+                case "L1", "LOW", "1"    -> java.util.Optional.of(L1);
+                case "L2", "MEDIUM", "2" -> java.util.Optional.of(L2);
+                case "L3", "HIGH", "3"   -> java.util.Optional.of(L3);
+                default -> java.util.Optional.empty();
+            };
+        }
+
+        public static AuthLevel parseOrDefault(String raw, AuthLevel fallback) {
+            return parse(raw).orElse(fallback);
+        }
     }
 
     public enum VerificationResult {
