@@ -81,6 +81,21 @@ public class AgencyMetaJpaEntity {
     @Column(name = "sso_domain", length = 200)
     private String ssoDomain;
 
+    /** 일별 조회 한도 (agency_rate_limit 보조) — Tenant Profile limits.daily 의 투영 */
+    @Column(name = "daily_lookup_limit")
+    private Integer dailyLookupLimit;
+
+    /**
+     * Tenant Profile 원문 (S2). 낱개 컬럼은 이 문서의 투영이다 — 쓰기 경로는 반드시
+     * TenantProfileMapper.applyToEntity / syncProfileColumn 을 거쳐 둘을 일치시킨다.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "profile", columnDefinition = "jsonb")
+    private String profile;
+
+    @Column(name = "profile_schema_version")
+    private Integer profileSchemaVersion;
+
     @Column(name = "active", nullable = false)
     @Builder.Default
     private boolean active = true;

@@ -69,6 +69,8 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    // Tenant Profile JSON Schema 검증 (범용화 S2) — 1.5.x 는 Jackson 2 계열
+    implementation("com.networknt:json-schema-validator:1.5.9")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")

@@ -17,6 +17,7 @@ import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
+import io.github.hipstermin.idem.hub.tenant.TenantProfileMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,8 @@ class AgencyAdminServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AgencyAdminService(jpaRepository, auditLogPublisher, jdbcTemplate, new ObjectMapper());
+        service = new AgencyAdminService(jpaRepository, auditLogPublisher, jdbcTemplate, new ObjectMapper(),
+                new TenantProfileMapper(new ObjectMapper()));
         lenient().when(jpaRepository.save(any(AgencyMetaJpaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 

@@ -7,6 +7,7 @@ import io.github.hipstermin.idem.hub.domain.AgencyMeta;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
+import io.github.hipstermin.idem.hub.tenant.TenantProfileMapper;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
 
     private final AgencyMetaJpaRepository jpaRepository;
     private final ObjectMapper objectMapper;
+    private final TenantProfileMapper tenantProfileMapper;
 
     /** 신규 기관 생성 시 policyVersion 기본값 (하드코딩 "1.0" 제거 — §11.2) */
     @Value("${ido.policy.default-version:1.0}")
@@ -45,6 +47,13 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
     @Override
     public void save(AgencyMeta agencyMeta) {
         AgencyMetaJpaEntity entity = toEntity(agencyMeta);
+        // S2: 도메인 객체에는 프로파일·한도가 없으므로 기존 행의 값을 보존한 뒤 컬럼 → 프로파일 동기화
+        jpaRepository.findById(agencyMeta.getAgencyCode()).ifPresent(existing -> {
+            entity.setProfile(existing.getProfile());
+            entity.setProfileSchemaVersion(existing.getProfileSchemaVersion());
+            entity.setDailyLookupLimit(existing.getDailyLookupLimit());
+        });
+        tenantProfileMapper.syncProfileColumn(entity);
         jpaRepository.save(entity);
         log.debug("[AgencyMetaRepository] 기관 메타 저장: agencyCode={}", agencyMeta.getAgencyCode());
     }

@@ -189,6 +189,14 @@ ui:     { brandName: "…", logoUrl: "…", locale: ko }
 `tenant-profile.schema.json` v1 · `TenantProfile` 도메인(record) · `agency_meta.profile JSONB` 마이그레이션(기존 컬럼 → 프로파일 합성 백필) · `TenantProfileService`(읽기: 프로파일 우선, 없으면 컬럼 합성; 쓰기: 프로파일) · Admin API `PUT /api/v1/admin/tenants/{code}/profile`(스키마 검증) · `AgencyMeta` 는 프로파일의 뷰로 재구성 · 이력은 `agency_policy_history` 에 스냅샷.
 완료 기준: 기존 API·Handoff 동작 동일, 새 기관을 프로파일만으로 온보딩하는 통합 테스트.
 
+**진행 기록 (2026-09-10)** — S2 구현 PR:
+- ✅ `tenant-profile/tenant-profile.v1.schema.json` (draft 2020-12, `additionalProperties:false`) · `TenantProfile` record 트리 · `TenantProfileValidator`(networknt 1.5.9)
+- ✅ V21: `agency_meta.profile JSONB` + `profile_schema_version`, 기존 컬럼 → v1 백필(`jsonb_strip_nulls`), `protocol.type` 인덱스
+- ✅ **단일 쓰기 원칙**: `TenantProfileService.put` 은 검증 → 컬럼 투영(`applyToEntity`) → 원문 저장 → `agency_meta_history` 스냅샷(이전에는 읽기만 있고 쓰는 코드가 없었음) → 감사. 레거시 쓰기 경로(`AgencyAdminService` 5곳, `AgencyMetaRepositoryImpl.save`)는 저장 직전 `syncProfileColumn` 으로 컬럼 → 프로파일을 맞추며, 프로파일 전용 항목(security·attributeMapping·allowedProviders·session·limits.tps·ui)은 보존
+- ✅ Admin API `GET/PUT /api/v1/admin/tenants/{code}/profile`, `GET /api/v1/admin/tenants/profile-schema`. 미지 스키마 위반·코드 불일치 → 400 `E-IDO-113`. 기관이 없으면 PUT 이 생성(프로파일만으로 온보딩)
+- ✅ `daily_lookup_limit` 이 JPA 엔티티에 매핑됨 — 이전에는 `AgencyCreateRequest.dailyLookupLimit` 이 받기만 하고 저장되지 않았다
+- ⏭ 읽기 경로(`AgencyMeta` 도메인)는 아직 컬럼이 진실. S3(정책)·S4(속성)에서 프로파일 읽기로 전환하고 컬럼을 제거한다
+
 ### S3 — 정책 엔진 규칙화 (2주)
 
 `PolicyRule` SPI(`evaluate(ctx) → Decision`) · 내장 규칙 `MIN_AUTH_LEVEL / USER_STATUS / MAINTENANCE / ALLOWED_PROVIDERS / REAUTH` · 기관 프로파일 `policy.rules` 로 조합 · `AuthLevel` 단일 어휘(`L1/L2/L3` 유지, `LOW/MEDIUM/HIGH` 제거, 플러그인 하드코딩 `L2` 를 SPI `level()` 로) · 정책 시뮬레이션 API(`POST /admin/tenants/{code}/policy/simulate`).

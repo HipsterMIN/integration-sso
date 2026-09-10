@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hipstermin/idem/tenant-profile/v1",
+  "title": "Idem Tenant Profile v1",
+  "description": "연동기관(테넌트)별 선언적 설정. docs/generalization-plan.md §2.1. 코어는 이 문서의 필드로 기관 요구를 수용하며, 코드 분기는 마지막 수단이다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "tenant", "protocol", "policy"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+
+    "tenant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "name"],
+      "properties": {
+        "code":   { "type": "string", "pattern": "^[A-Za-z0-9_\\-]{2,50}$", "description": "기관 코드 — URL 경로·API 키·감사 로그의 식별자" },
+        "name":   { "type": "string", "minLength": 1, "maxLength": 200 },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"], "default": "ACTIVE" }
+      }
+    },
+
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["DIRECT", "BRIDGE", "APACHE_GATE", "INTERNAL_SSO"], "description": "IntegrationType 과 같은 값 집합. S6 에서 OIDC_RP·SAML_SP 확장" },
+        "endpoints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "callbackWhitelist": { "type": "array", "items": { "type": "string", "format": "uri", "maxLength": 500 }, "maxItems": 50 },
+            "bridge":     { "type": "string", "format": "uri", "maxLength": 500, "description": "BRIDGE 전용" },
+            "apacheGate": { "type": "string", "format": "uri", "maxLength": 500, "description": "APACHE_GATE 전용" },
+            "ssoDomain":  { "type": "string", "maxLength": 200, "description": "INTERNAL_SSO 전용 — 쿠키 도메인 (예: .agency.example.org)" }
+          }
+        },
+        "security": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mtlsRequired": { "type": "boolean" },
+            "ipAllowlist":  { "type": "array", "items": { "type": "string", "maxLength": 50 }, "maxItems": 100 }
+          }
+        }
+      }
+    },
+
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "type": "array",
+          "description": "기관에 전달을 허용하는 사용자 속성 키. 생략 = 제한 없음, 빈 배열 = 전체 차단 (allowed_attributes 와 동일 의미)",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "maxItems": 100
+        },
+        "attributeMapping": {
+          "type": "object",
+          "description": "코어 속성 키 → 기관 측 필드명 (S4 에서 적용)",
+          "additionalProperties": { "type": "string", "maxLength": 100 }
+        }
+      }
+    },
+
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minAuthLevel"],
+      "properties": {
+        "minAuthLevel":  { "type": "string", "enum": ["L1", "L2", "L3"] },
+        "policyVersion": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)*$", "maxLength": 20 },
+        "allowedProviders": { "type": "array", "items": { "type": "string", "maxLength": 50 }, "description": "허용 본인인증 제공자 코드 (S3 에서 적용)" },
+        "session": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "idleMinutes":     { "type": "integer", "minimum": 1, "maximum": 1440 },
+            "absoluteMinutes": { "type": "integer", "minimum": 1, "maximum": 43200 },
+            "concurrent":      { "type": "integer", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "maintenance": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["dayOfWeek", "startTime", "endTime"],
+            "properties": {
+              "dayOfWeek": { "type": "string", "pattern": "^[A-Za-z]{3}$" },
+              "startTime": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+              "endTime":   { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+            }
+          }
+        }
+      }
+    },
+
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tps":   { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "daily": { "type": "integer", "minimum": 1, "maximum": 1000000000 }
+      }
+    },
+
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "brandName": { "type": "string", "maxLength": 100 },
+        "logoUrl":   { "type": "string", "format": "uri", "maxLength": 500 },
+        "locale":    { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+      }
+    }
+  }
+}
