@@ -49,6 +49,14 @@ public class UserProfileJpaEntity implements Persistable<String> {
     @Column(name = "ci", length = 300)
     private String ci;
 
+    /** 주체 식별자 스킴 (S4): CI / EMAIL / PHONE / EXTERNAL_SUB — V8 */
+    @Column(name = "subject_scheme", length = 20)
+    private String subjectScheme;
+
+    /** 주체 키 — 암호화 저장 (CI 스킴이면 {@link #ci} 와 같은 값) — V8 */
+    @Column(name = "subject_key", length = 512)
+    private String subjectKey;
+
     /** {agencyCode: DI} 기관별 DI 맵 — JSON 컬럼 */
     @Column(name = "di_map", columnDefinition = "JSON")
     private String diMap;

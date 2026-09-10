@@ -8,6 +8,7 @@ import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -16,8 +17,8 @@ import org.springframework.stereotype.Component;
  * Tenant Profile ↔ {@code agency_meta} 투영 (S2).
  *
  * <ul>
- *   <li>{@link #fromEntity} — 컬럼이 진실인 항목은 컬럼에서, 프로파일에만 있는 항목(security·attributeMapping·
- *       allowedProviders·session·limits.tps·ui)은 기존 프로파일 JSON 에서 가져와 합친다</li>
+ *   <li>{@link #fromEntity} — 컬럼이 진실인 항목은 컬럼에서, 프로파일에만 있는 항목(security·subjectScheme·
+ *       attributeMapping·속성 옵션·allowedProviders·session·rules·limits.tps·ui)은 기존 프로파일 JSON 에서 가져와 합친다</li>
  *   <li>{@link #applyToEntity} — 프로파일을 컬럼으로 투영한다 (PUT 경로)</li>
  *   <li>{@link #syncProfileColumn} — 컬럼을 고친 레거시 쓰기 경로(Admin 서비스·도메인 저장소)가 저장 직전에 호출해
  *       {@code profile} 컬럼을 컬럼 값과 일치시킨다. 프로파일에만 있는 항목은 보존된다</li>
@@ -60,7 +61,9 @@ public class TenantProfileMapper {
                         .security(exProtocol != null ? exProtocol.security() : null)
                         .build())
                 .identity(TenantProfile.Identity.builder()
-                        .attributes(readList(e.getAllowedAttributes()))
+                        .subjectScheme(exIdentity != null ? exIdentity.subjectScheme() : null)
+                        .attributes(mergeSelections(readList(e.getAllowedAttributes()),
+                                exIdentity != null ? exIdentity.attributes() : null))
                         .attributeMapping(exIdentity != null ? exIdentity.attributeMapping() : null)
                         .build())
                 .policy(TenantProfile.Policy.builder()
@@ -113,7 +116,8 @@ public class TenantProfileMapper {
         e.setApacheGateEndpoint(ep != null ? ep.apacheGate() : null);
         e.setSsoDomain(ep != null ? ep.ssoDomain() : null);
 
-        e.setAllowedAttributes(p.identity() != null ? writeJson(p.identity().attributes()) : null);
+        // 컬럼에는 이름 목록만 내려간다 — required·masking·subjectScheme 은 프로파일에만 있다
+        e.setAllowedAttributes(p.identity() != null ? writeJson(p.identity().attributeNames()) : null);
 
         TenantProfile.Policy policy = p.policy();
         e.setMinAuthLevel(policy.minAuthLevel() != null ? policy.minAuthLevel().name() : "L1");
@@ -157,6 +161,24 @@ public class TenantProfileMapper {
     }
 
     // ── helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * 컬럼의 이름 집합이 진실이고, 같은 이름의 기존 선택 항목이 있으면 그 옵션(required·masking)을 유지한다.
+     * 컬럼과 프로파일이 정상 경로에서는 항상 일치하므로 이 합성은 레거시 쓰기 경로 직후에만 의미가 있다.
+     */
+    static List<TenantProfile.AttributeSelection> mergeSelections(List<String> columnNames,
+                                                                  List<TenantProfile.AttributeSelection> existing) {
+        if (columnNames == null) return null;
+        Map<String, TenantProfile.AttributeSelection> byName = new java.util.HashMap<>();
+        if (existing != null) {
+            for (TenantProfile.AttributeSelection sel : existing) {
+                if (sel != null && sel.name() != null) byName.put(sel.name(), sel);
+            }
+        }
+        return columnNames.stream()
+                .map(n -> byName.getOrDefault(n, TenantProfile.AttributeSelection.of(n)))
+                .toList();
+    }
 
     private List<String> readList(String json) {
         if (json == null || json.isBlank()) return null;

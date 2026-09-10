@@ -148,7 +148,14 @@ ui:     { brandName: "…", logoUrl: "…", locale: ko }
 
 ### 2.3 식별자·속성 계약 (S4)
 
-`SubjectIdentifierScheme` SPI: `CI`(KR 플러그인) · `PAIRWISE_HMAC`(현 DI 일반화 = OIDC pairwise sub) · `EMAIL` · `PHONE` · `EXTERNAL_SUB`. registry 는 `subject_key` + `scheme` 컬럼으로 저장하고 `ci` 는 KR 스킴의 값이 된다. `AttributeCatalog`(이름·타입·민감도·마스킹 규칙·출처) 를 코어에 정의하고 기관은 카탈로그 부분집합 + 매핑만 선언.
+`SubjectScheme`(idem-common) 하나가 두 자리에서 쓰인다.
+
+| 자리 | 스킴 | 뜻 |
+|---|---|---|
+| registry 저장 키 (`user_profile.subject_scheme/subject_key`, 암호화) | `CI`(KR) · `EMAIL` · `PHONE` · `EXTERNAL_SUB` | 사람을 registry 안에서 유일하게 가리키는 값. 조회는 `auth_mean_mapping.identifier_hash` 로만 (`CI`/`EXTERNAL_SUB` 는 원문 SHA-256 호환, `EMAIL`/`PHONE` 은 `"EMAIL:"+정규화` 접두) |
+| 기관향 식별자 (프로파일 `identity.subjectScheme`) | `PAIRWISE_HMAC`(기본, 현 DI) · `PLATFORM_ID` · `EMAIL` · `PHONE` · `EXTERNAL_SUB` | Handoff `subject.agencySubjectId` 의 종류. `CI` 는 registry 밖으로 평문이 나가지 않으므로 선택 불가. 스킴이 다른 사용자는 GUEST |
+
+hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 해석하고, `AttributeCatalog`(정규 이름·타입·출처 TICKET/PROFILE/SUBJECT·민감도·기본 마스킹·종전 별칭) 의 부분집합을 기관이 `identity.attributes`(+`required`/`masking`) 와 `identity.attributeMapping` 으로 선언한다. 카탈로그 밖 이름은 프로파일 검증에서 거부되고, 별칭(camelCase)으로 선언한 기관은 출력 키도 별칭을 유지한다(기존 연동 호환). 본인인증 SPI 결과(`VerifiedIdentity.subjectScheme + subjectKey`) 는 `SubjectRegistrationService` 가 `POST /internal/users/register-subject` 로 registry 사용자로 확정한다 — CI 가 없는 제공자도 같은 경로.
 
 ### 2.4 에디션
 
@@ -195,7 +202,7 @@ ui:     { brandName: "…", logoUrl: "…", locale: ko }
 - ✅ **단일 쓰기 원칙**: `TenantProfileService.put` 은 검증 → 컬럼 투영(`applyToEntity`) → 원문 저장 → `agency_meta_history` 스냅샷(이전에는 읽기만 있고 쓰는 코드가 없었음) → 감사. 레거시 쓰기 경로(`AgencyAdminService` 5곳, `AgencyMetaRepositoryImpl.save`)는 저장 직전 `syncProfileColumn` 으로 컬럼 → 프로파일을 맞추며, 프로파일 전용 항목(security·attributeMapping·allowedProviders·session·limits.tps·ui)은 보존
 - ✅ Admin API `GET/PUT /api/v1/admin/tenants/{code}/profile`, `GET /api/v1/admin/tenants/profile-schema`. 미지 스키마 위반·코드 불일치 → 400 `E-IDO-113`. 기관이 없으면 PUT 이 생성(프로파일만으로 온보딩)
 - ✅ `daily_lookup_limit` 이 JPA 엔티티에 매핑됨 — 이전에는 `AgencyCreateRequest.dailyLookupLimit` 이 받기만 하고 저장되지 않았다
-- ⏭ 읽기 경로(`AgencyMeta` 도메인)는 아직 컬럼이 진실. S3(정책)·S4(속성)에서 프로파일 읽기로 전환하고 컬럼을 제거한다
+- ✅ (S3·S4 에서 해소) 정책·식별자·속성 읽기는 프로파일로 이동했다. `AgencyMeta` 컬럼은 발급 경로의 기관 존재·활성·콜백·연동 유형 판정에만 남아 있고 S6 에서 프로파일로 옮긴다
 
 ### S3 — 정책 엔진 규칙화 (2주)
 
@@ -215,6 +222,17 @@ ui:     { brandName: "…", logoUrl: "…", locale: ko }
 
 `SubjectIdentifierScheme` SPI + registry `subject_key/scheme` 컬럼(백필: `ci`→`CI` 스킴) · `PAIRWISE_HMAC` 스킴으로 `DiGenerationService` 일반화 · `AttributeCatalog`(코어 정의, 마스킹 규칙 포함) · 기관 `identity.attributes/attributeMapping` 으로 `HandoffPayload.attributes` 구성 · `allowed_attributes` 는 프로파일로 흡수.
 완료 기준: CI 없는 스킴(EMAIL)으로 Mock 인증→Handoff 통합 테스트 통과.
+
+**진행 기록 (2026-09-10)** — S4 구현 PR:
+- ✅ `SubjectScheme`(idem-common): registry 저장 스킴 `CI/EMAIL/PHONE/EXTERNAL_SUB` · 기관향 `PAIRWISE_HMAC(기본)/PLATFORM_ID/EMAIL/PHONE/EXTERNAL_SUB`. 정규화(이메일 소문자·전화 숫자만)·`identifierHash` 규칙을 한 곳에 둠 — hub·registry 가 같은 해시를 계산한다
+- ✅ `AttributeCatalog` 13개 정의(TICKET 5 · PROFILE 5 · SUBJECT 3) + `MaskingRule`(NONE/PRESET/PARTIAL/LAST4/EMAIL_LOCAL). 프로파일 스키마 `identity.subjectScheme`, `identity.attributes[]` 는 문자열 또는 `{name, required, masking}`. 검증기가 카탈로그 밖 이름·중복·미선언 매핑 키를 E-IDO-113 으로 거부
+- ✅ hub `SubjectIdentifierScheme` SPI + `SubjectIdentifierResolver`(미지원 스킴 fail-closed E-IDO-115, 중복 기동 거부) + 코어 구현 5종. `HandoffAttributeAssembler` — 출처별 지연 조회(프로필 1회·스킴별 1회), 마스킹, `attributeMapping`, `required` 결핍은 E-IDO-114(422, consume 전 거부라 티켓은 살아 있음). `PolicyEngineImpl.buildHandoffPayload` 는 프로파일이 진실(`AgencyMeta` 컬럼 읽기 제거). 페이로드 `subject.subjectScheme` 추가
+- ✅ 본인인증 SPI 결과에 `VerifiedIdentity.subjectScheme`(기본 EXTERNAL_SUB, 종전 생성자 호환) · `POST /auth/providers/{code}/complete` 가 `SubjectRegistrationService` 로 registry 등록까지 하고 `{identity, registration:{qimUserId,newUser}}` 를 돌려줌 · Mock 제공자는 `email` 파라미터로 EMAIL 스킴
+- ✅ registry V8: `user_profile.subject_scheme/subject_key`(암호화) + `ci` 백필. `POST /internal/users/register-subject`(스킴 중립, 본문은 종전 `UserRegisterRequest` 확장) · `GET /internal/users/{id}/subject?scheme=`(CI 400 · 불일치 404) · 응답에 `subjectScheme`, DI 응답에 `scheme=PAIRWISE_HMAC`. 탈퇴 PII 삭제에 `subject_key` 포함
+- ✅ **부수 발견 2건(운영 결함)**: hub `QimClientImpl.registerUser/findByCi` 가 registry 에 **없는** `POST /internal/users/register`·`/find-by-ci` 를 호출하고 있었다 → NICE/OACX 인증 후 등록은 항상 503, CI 회원조회는 항상 "미등록". 각각 `register-subject(scheme=CI)`·`by-hash(CI 해시)` 로 연결. 그리고 `allowed_attributes` 가 NULL 이면 코드가 "전체 차단" 하는데 S2 스키마 설명은 "제한 없음" 이었다 → 최소 권한(전달 없음)으로 통일하고 설명 수정
+- ✅ **부수 발견 3(운영 결함)**: Handoff `verify` 의 원자적 consume(Lua CAS)이 값 직렬화기(JSON)가 문자열을 `\"state\":\"ISSUED\"` 로 이스케이프해 저장하는 것을 몰라 항상 `PARSE_ERROR` → 500 이었다(verify 를 끝까지 타는 통합 테스트가 없어 미검출). 원문·이스케이프 마커 둘 다 인식하고 인자·결과를 문자열 직렬화기로 보내도록 수정 — 이번 통합 테스트가 최초의 issue→verify 끝-끝 검증
+- ✅ 완료 기준 충족: `IdentityContractIntegrationTest` — Mock 인증(email) → `register-subject(EMAIL)` → Handoff verify 가 이메일을 `agencySubjectId` 로, `userNm`(매핑)·`mail`(마스킹 해제)·`birth_year`·`qimUserId`(별칭 유지) 를 속성으로 돌려준다. 기본 스킴 기관은 종전 DI 경로 그대로, 스킴 불일치는 GUEST, required 결핍은 422
+- ⏭ registry 통합 테스트(MariaDB Testcontainers)는 이 환경에서 못 돌렸다 — V8 SQL(MariaDB `ADD COLUMN IF NOT EXISTS`)·엔티티 매핑은 로컬 `./gradlew :idem-registry:test` 로 확인 필요. `register-social` 은 아직 `subject_scheme` 을 쓰지 않는다(프로필 행이 없음) — S8 에서 EXTERNAL_SUB 로 정리. 이름 원문 보관("이름은 마스킹 없이")은 registry 저장 정책이라 S8 로 이월
 
 ### S5 — 벤더 엔드포인트 SPI 완전 이관 (2~3주, OACX SDK 재수령 필요)
 

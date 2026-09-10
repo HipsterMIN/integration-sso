@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.domain.AuthResult;
+import io.github.hipstermin.idem.common.identity.MaskingRule;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import java.util.List;
@@ -40,7 +42,7 @@ class TenantProfileMapperTest {
         assertThat(p.protocol().type()).isEqualTo(IntegrationType.APACHE_GATE);
         assertThat(p.protocol().endpoints().apacheGate()).isEqualTo("https://gw.example.org/sso");
         assertThat(p.protocol().endpoints().callbackWhitelist()).containsExactly("https://a.example.org/cb");
-        assertThat(p.identity().attributes()).containsExactly("name_masked");
+        assertThat(p.identity().attributeNames()).containsExactly("name_masked");
         assertThat(p.policy().minAuthLevel()).isEqualTo(AuthResult.AuthLevel.L2);
         assertThat(p.policy().policyVersion()).isEqualTo("1.4");
         assertThat(p.policy().maintenance()).singleElement()
@@ -56,7 +58,9 @@ class TenantProfileMapperTest {
                 .tenant(new TenantProfile.Tenant("AG_MAP", "옛 이름", TenantProfile.TenantStatus.ACTIVE))
                 .protocol(TenantProfile.Protocol.builder().type(IntegrationType.DIRECT)
                         .security(new TenantProfile.Security(true, List.of("10.0.0.0/8"))).build())
-                .identity(new TenantProfile.Identity(null, java.util.Map.of("name_masked", "userNm")))
+                .identity(new TenantProfile.Identity(SubjectScheme.EMAIL,
+                        List.of(new TenantProfile.AttributeSelection("name_masked", true, MaskingRule.NONE)),
+                        java.util.Map.of("name_masked", "userNm")))
                 .policy(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
                         .allowedProviders(List.of("NICE")).session(new TenantProfile.Session(30, 480, 1)).build())
                 .limits(new TenantProfile.Limits(50, 1))
@@ -73,6 +77,10 @@ class TenantProfileMapperTest {
         // 프로파일에만 있는 항목은 보존
         assertThat(merged.protocol().security().mtlsRequired()).isTrue();
         assertThat(merged.identity().attributeMapping()).containsEntry("name_masked", "userNm");
+        // S4: 스킴·속성 옵션(required·masking)도 프로파일에만 있으므로 보존된다
+        assertThat(merged.identity().subjectScheme()).isEqualTo(SubjectScheme.EMAIL);
+        assertThat(merged.identity().attributes()).singleElement()
+                .satisfies(sel -> { assertThat(sel.isRequired()).isTrue(); assertThat(sel.masking()).isEqualTo(MaskingRule.NONE); });
         assertThat(merged.policy().allowedProviders()).containsExactly("NICE");
         assertThat(merged.policy().session().idleMinutes()).isEqualTo(30);
         assertThat(merged.limits().tps()).isEqualTo(50);
@@ -88,7 +96,7 @@ class TenantProfileMapperTest {
                 .protocol(TenantProfile.Protocol.builder().type(IntegrationType.BRIDGE)
                         .endpoints(TenantProfile.Endpoints.builder().bridge("https://b.example.org/push")
                                 .callbackWhitelist(List.of("https://b.example.org/cb")).build()).build())
-                .identity(new TenantProfile.Identity(List.of("name_masked", "mobile_masked"), null))
+                .identity(new TenantProfile.Identity(null, TenantProfile.Identity.selectionsOf(List.of("name_masked", "mobile_masked")), null))
                 .policy(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L3).policyVersion("2.0")
                         .maintenance(List.of(new TenantProfile.MaintenanceWindow("MON", "02:00", "04:00"))).build())
                 .limits(new TenantProfile.Limits(null, 777))

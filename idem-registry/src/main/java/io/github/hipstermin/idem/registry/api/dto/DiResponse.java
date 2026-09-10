@@ -14,4 +14,7 @@ public class DiResponse {
     private final String agencyCode;
     private final String di;
     private final boolean isNew; // true = 신규 생성
+    /** S4: 이 값의 스킴 — 항상 PAIRWISE_HMAC (기관별 가명) */
+    @lombok.Builder.Default
+    private final String scheme = "PAIRWISE_HMAC";
 }

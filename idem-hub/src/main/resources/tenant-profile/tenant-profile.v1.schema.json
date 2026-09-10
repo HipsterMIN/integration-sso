@@ -50,17 +50,38 @@
     "identity": {
       "type": "object",
       "additionalProperties": false,
+      "description": "식별자·속성 계약 (S4). 코어 속성 카탈로그(AttributeCatalog)의 부분집합을 고르고 기관 측 필드명을 붙인다",
       "properties": {
+        "subjectScheme": {
+          "type": "string",
+          "enum": ["PAIRWISE_HMAC", "PLATFORM_ID", "EMAIL", "PHONE", "EXTERNAL_SUB"],
+          "default": "PAIRWISE_HMAC",
+          "description": "Handoff subject.agencySubjectId 의 종류. PAIRWISE_HMAC = 기관별 가명(기본, 기관 간 결합 불가). EMAIL/PHONE/EXTERNAL_SUB 는 그 스킴으로 등록된 사용자만 값이 있고 나머지는 GUEST. CI 는 registry 밖으로 나가지 않으므로 선택 불가"
+        },
         "attributes": {
           "type": "array",
-          "description": "기관에 전달을 허용하는 사용자 속성 키. 생략 = 제한 없음, 빈 배열 = 전체 차단 (allowed_attributes 와 동일 의미)",
-          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-          "maxItems": 100
+          "description": "기관에 전달하는 사용자 속성. 이름은 AttributeCatalog 의 정규 이름(snake_case) 또는 종전 별칭(camelCase — 이 경우 출력 키도 별칭 유지). 생략·빈 배열 = 속성 전달 없음(최소 권한). 카탈로그에 없는 이름은 거부",
+          "maxItems": 100,
+          "items": {
+            "oneOf": [
+              { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$", "maxLength": 50 },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name"],
+                "properties": {
+                  "name":     { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$", "maxLength": 50 },
+                  "required": { "type": "boolean", "description": "true 면 사용자에게서 값을 얻지 못할 때 Handoff 를 거부한다(E-IDO-114)" },
+                  "masking":  { "type": "string", "enum": ["NONE", "PRESET", "PARTIAL", "LAST4", "EMAIL_LOCAL"], "description": "카탈로그 기본 마스킹을 바꾼다. NONE 으로 낮추면 기관 계약 근거가 있어야 한다" }
+                }
+              }
+            ]
+          }
         },
         "attributeMapping": {
           "type": "object",
-          "description": "코어 속성 키 → 기관 측 필드명 (S4 에서 적용)",
-          "additionalProperties": { "type": "string", "maxLength": 100 }
+          "description": "속성 이름(정규 이름 또는 선언한 별칭) → 기관 측 필드명. 없는 항목은 선언한 이름 그대로 나간다",
+          "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 100 }
         }
       }
     },

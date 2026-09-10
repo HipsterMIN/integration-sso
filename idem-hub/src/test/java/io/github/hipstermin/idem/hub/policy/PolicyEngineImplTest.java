@@ -10,6 +10,9 @@ import io.github.hipstermin.idem.common.domain.HandoffPayload;
 import io.github.hipstermin.idem.common.domain.HandoffTicket;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
+import io.github.hipstermin.idem.hub.identity.CoreSubjectSchemes;
+import io.github.hipstermin.idem.hub.identity.HandoffAttributeAssembler;
+import io.github.hipstermin.idem.hub.identity.SubjectIdentifierResolver;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
 import io.github.hipstermin.idem.hub.infrastructure.UserStatusCache;
@@ -61,10 +64,14 @@ class PolicyEngineImplTest {
 
     @BeforeEach
     void setUp() {
-        sut = new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, tenantProfileService, java.util.List.of());
+        // S4: 기본 스킴 PAIRWISE_HMAC 은 registry DI(getDi) 로 해석된다 — 종전 테스트 계약 유지
+        SubjectIdentifierResolver resolver = new SubjectIdentifierResolver(
+                java.util.List.of(new CoreSubjectSchemes().pairwiseHmacSubjectScheme(qimClient)));
+        sut = new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, tenantProfileService,
+                resolver, new HandoffAttributeAssembler(qimClient, resolver), java.util.List.of());
         ReflectionTestUtils.setField(sut, "defaultPolicyVersion", "1.0");
-        // 기본: agencyMeta 없음(=allowedAttrs=비어있음 = 전체 차단), userStatusCache 없음
-        given(agencyMetaRepository.findByCode(anyString())).willReturn(Optional.empty());
+        // 기본: 기관 프로파일 없음(S4: 스킴 PAIRWISE_HMAC · 속성 선언 없음 = 빈 attributes), userStatusCache 없음
+        // (tenantProfileService.find 는 Mockito 기본값 Optional.empty)
         given(userStatusCache.get(anyString())).willReturn(Optional.empty());
     }
 

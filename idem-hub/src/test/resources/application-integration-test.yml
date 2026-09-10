@@ -77,6 +77,12 @@ ido:
       base-url: ""
       timeout-seconds: 10
 
+# 범용화 S4 — CI 없는 스킴(EMAIL) 으로 Mock 인증 → registry 등록 → Handoff 를 검증하기 위해 Mock 제공자를 켠다 (운영 금지)
+idem:
+  plugins:
+    mock-auth:
+      enabled: true
+
 resilience4j:
   circuitbreaker:
     configs:

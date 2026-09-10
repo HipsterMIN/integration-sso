@@ -15,6 +15,9 @@ import io.github.hipstermin.idem.common.spi.identity.VerificationRequest;
 import io.github.hipstermin.idem.common.spi.identity.VerificationStart;
 import io.github.hipstermin.idem.common.spi.identity.VerifiedIdentity;
 import io.github.hipstermin.idem.hub.api.GlobalExceptionHandler;
+import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
+import io.github.hipstermin.idem.hub.identity.SubjectRegistrationService;
+import io.github.hipstermin.idem.hub.infrastructure.QimClient;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +53,11 @@ class IdentityVerificationControllerTest {
     @BeforeEach
     void setUp() {
         IdentityProviderRegistry registry = new IdentityProviderRegistry(List.of(new FakeProvider()));
-        mvc = MockMvcBuilders.standaloneSetup(new IdentityVerificationController(registry))
+        // S4: complete 는 registry 에 주체를 등록한다 — QimClient 를 흉내 내 qimUserId 를 돌려준다
+        QimClient qimClient = org.mockito.Mockito.mock(QimClient.class);
+        org.mockito.Mockito.when(qimClient.registerSubject(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(QimRegisterResponse.builder().qimUserId("qim-fake-1").status("ACTIVE").isNew(true).build());
+        mvc = MockMvcBuilders.standaloneSetup(new IdentityVerificationController(registry, new SubjectRegistrationService(qimClient)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -80,14 +87,17 @@ class IdentityVerificationControllerTest {
     }
 
     @Test
-    @DisplayName("POST /{code}/complete — 성공은 VerifiedIdentity, 실패는 E-IDO-110, 미등록 코드는 E-IDO-109")
+    @DisplayName("POST /{code}/complete — 성공은 identity + registration(qimUserId), 실패는 E-IDO-110, 미등록 코드는 E-IDO-109")
     void complete() throws Exception {
         mvc.perform(post("/api/v1/auth/providers/FAKE/complete").contentType(MediaType.APPLICATION_JSON)
                         .header("X-Correlation-Id", "c-9")
                         .content("{\"txId\":\"tx-1\",\"params\":{}}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.subjectKey").value("subj"))
-                .andExpect(jsonPath("$.level").value("L3"));
+                .andExpect(jsonPath("$.identity.subjectKey").value("subj"))
+                .andExpect(jsonPath("$.identity.subjectScheme").value("EXTERNAL_SUB"))
+                .andExpect(jsonPath("$.identity.level").value("L3"))
+                .andExpect(jsonPath("$.registration.qimUserId").value("qim-fake-1"))
+                .andExpect(jsonPath("$.registration.newUser").value(true));
 
         mvc.perform(post("/api/v1/auth/providers/FAKE/complete").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"txId\":\"bad\"}"))

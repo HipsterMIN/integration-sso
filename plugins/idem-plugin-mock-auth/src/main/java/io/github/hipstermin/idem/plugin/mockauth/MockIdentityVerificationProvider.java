@@ -1,6 +1,7 @@
 package io.github.hipstermin.idem.plugin.mockauth;
 
 import io.github.hipstermin.idem.common.domain.AuthResult;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.common.spi.identity.IdentityVerificationException;
 import io.github.hipstermin.idem.common.spi.identity.IdentityVerificationProvider;
 import io.github.hipstermin.idem.common.spi.identity.VerificationCallback;
@@ -25,7 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>동작:
  * <ul>
  *   <li>{@code initiate}: 트랜잭션을 메모리에 기록하고 {@code returnUrl?mockTxId=…} 로 되돌아가라는 결과를 돌려준다.
- *       요청 params 의 {@code name / birthDate / gender / phone / subjectKey} 를 그대로 결과에 반영한다.</li>
+ *       요청 params 의 {@code name / birthDate / gender / phone / subjectKey / subjectScheme / email} 를 그대로 결과에 반영한다.
+ *       {@code email} 이 있으면 EMAIL 스킴(subjectKey = email), 아니면 EXTERNAL_SUB 로 판정한다 (S4).</li>
  *   <li>{@code complete}: txId 가 살아 있고 만료 전이면 표준 결과를 만든다. params 에 {@code fail=true} 가 오면
  *       {@link IdentityVerificationException} 을 던져 실패 경로를 검증할 수 있게 한다.</li>
  *   <li>{@code subjectKey} 가 없으면 {@code mock:} + SHA-256(name|birthDate|phone) 앞 32자로 결정적으로 만든다.
@@ -95,13 +97,24 @@ public class MockIdentityVerificationProvider implements IdentityVerificationPro
         String gender    = merged.getOrDefault("gender", "1");
         String phone     = merged.getOrDefault("phone", "01000000000");
         String subject   = merged.get("subjectKey");
+        SubjectScheme scheme = SubjectScheme.parse(merged.get("subjectScheme")).orElse(null);
+        String email = merged.get("email");
+        if (scheme == null) {
+            // email 이 오면 EMAIL 스킴(CI 없는 코어 경로), 아니면 제공자 안정 식별자(EXTERNAL_SUB)
+            scheme = email != null && !email.isBlank() ? SubjectScheme.EMAIL : SubjectScheme.EXTERNAL_SUB;
+        }
+        if ((subject == null || subject.isBlank()) && scheme == SubjectScheme.EMAIL) {
+            subject = email;
+        }
         if (subject == null || subject.isBlank()) {
             subject = "mock:" + sha256(name + "|" + birthDate + "|" + phone).substring(0, 32);
         }
 
+        Map<String, String> attrs = new LinkedHashMap<>();
+        attrs.put("mock", "true");
+        if (email != null && !email.isBlank()) attrs.put("email", email);
         return new VerifiedIdentity(CODE, callback.txId(), subject, name, birthDate, gender, phone,
-                merged.getOrDefault("phoneCarrier", "MOCK"), level(), clock.instant(),
-                Map.of("mock", "true"));
+                merged.getOrDefault("phoneCarrier", "MOCK"), level(), clock.instant(), attrs, scheme);
     }
 
     /** 테스트·운영 관찰용: 대기 중 트랜잭션 수. */

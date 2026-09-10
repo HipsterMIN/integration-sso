@@ -29,6 +29,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -113,8 +114,8 @@ class TicketRepositoryImplTest {
         @DisplayName("Lua=1 (성공) — 정상 완료, 감사 이력 갱신 호출")
         void casSuccess_completesAndUpdatesAudit() throws Exception {
             given(valueOps.get(KEY)).willReturn(issuedJson());
-            given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
-                    .willReturn(1L);
+            given(redisTemplate.execute(any(RedisScript.class), any(RedisSerializer.class), any(RedisSerializer.class), anyList(), any(), any(), any(), any(), any()))
+                    .willReturn("1");
 
             sut.consume(TICKET_ID);
 
@@ -135,7 +136,7 @@ class TicketRepositoryImplTest {
                     .isEqualTo(PlatformErrorCode.IDO_TICKET_EXPIRED);
 
             // Lua 호출 자체가 일어나지 않음
-            then(redisTemplate).should(never()).execute(any(RedisScript.class), anyList(), any());
+            then(redisTemplate).should(never()).execute(any(RedisScript.class), any(RedisSerializer.class), any(RedisSerializer.class), anyList(), any(), any(), any(), any(), any());
             // 감사 이력 갱신도 호출 안 됨
             then(jdbcTemplate).shouldHaveNoInteractions();
         }
@@ -150,7 +151,7 @@ class TicketRepositoryImplTest {
                     .extracting(e -> ((PlatformException) e).getErrorCode())
                     .isEqualTo(PlatformErrorCode.IDO_TICKET_CONSUMED);
 
-            then(redisTemplate).should(never()).execute(any(RedisScript.class), anyList(), any());
+            then(redisTemplate).should(never()).execute(any(RedisScript.class), any(RedisSerializer.class), any(RedisSerializer.class), anyList(), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -163,7 +164,7 @@ class TicketRepositoryImplTest {
                     .extracting(e -> ((PlatformException) e).getErrorCode())
                     .isEqualTo(PlatformErrorCode.IDO_TICKET_REVOKED);
 
-            then(redisTemplate).should(never()).execute(any(RedisScript.class), anyList(), any());
+            then(redisTemplate).should(never()).execute(any(RedisScript.class), any(RedisSerializer.class), any(RedisSerializer.class), anyList(), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -171,7 +172,7 @@ class TicketRepositoryImplTest {
         void casRaceMismatchConsumed_throwsConsumed() throws Exception {
             // 사전 GET 시점에는 ISSUED 였지만, Lua 실행 직전 다른 winner 가 이미 CONSUMED 로 전이
             given(valueOps.get(KEY)).willReturn(issuedJson());
-            given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
+            given(redisTemplate.execute(any(RedisScript.class), any(RedisSerializer.class), any(RedisSerializer.class), anyList(), any(), any(), any(), any(), any()))
                     .willReturn("CONSUMED");
 
             assertThatThrownBy(() -> sut.consume(TICKET_ID))
@@ -187,7 +188,7 @@ class TicketRepositoryImplTest {
         @DisplayName("Race condition — 사전 검사 통과 후 Lua 가 REVOKED 반환 → IDO_TICKET_REVOKED")
         void casRaceMismatchRevoked_throwsRevoked() throws Exception {
             given(valueOps.get(KEY)).willReturn(issuedJson());
-            given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
+            given(redisTemplate.execute(any(RedisScript.class), any(RedisSerializer.class), any(RedisSerializer.class), anyList(), any(), any(), any(), any(), any()))
                     .willReturn("REVOKED");
 
             assertThatThrownBy(() -> sut.consume(TICKET_ID))
@@ -202,8 +203,8 @@ class TicketRepositoryImplTest {
         @DisplayName("Race condition — Lua 실행 직전 TTL 만료로 키 사라짐 → IDO_TICKET_EXPIRED")
         void casRaceMissingKey_throwsExpired() throws Exception {
             given(valueOps.get(KEY)).willReturn(issuedJson());
-            given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
-                    .willReturn(0L);
+            given(redisTemplate.execute(any(RedisScript.class), any(RedisSerializer.class), any(RedisSerializer.class), anyList(), any(), any(), any(), any(), any()))
+                    .willReturn("0");
 
             assertThatThrownBy(() -> sut.consume(TICKET_ID))
                     .isInstanceOf(PlatformException.class)
@@ -217,7 +218,7 @@ class TicketRepositoryImplTest {
         @DisplayName("Lua 가 PARSE_ERROR 반환 — RuntimeException (운영 알람 대상)")
         void casParseError_throwsRuntimeException() throws Exception {
             given(valueOps.get(KEY)).willReturn(issuedJson());
-            given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
+            given(redisTemplate.execute(any(RedisScript.class), any(RedisSerializer.class), any(RedisSerializer.class), anyList(), any(), any(), any(), any(), any()))
                     .willReturn("PARSE_ERROR");
 
             assertThatThrownBy(() -> sut.consume(TICKET_ID))
@@ -230,8 +231,8 @@ class TicketRepositoryImplTest {
         @DisplayName("Lua 호출에 ISSUED 마커가 정확히 전달되는지 확인 (스크립트 호출 인자 검증)")
         void luaScriptInvokedWithIssuedStateMarker() throws Exception {
             given(valueOps.get(KEY)).willReturn(issuedJson());
-            given(redisTemplate.execute(any(RedisScript.class), anyList(), any(), any(), any(), any()))
-                    .willReturn(1L);
+            given(redisTemplate.execute(any(RedisScript.class), any(RedisSerializer.class), any(RedisSerializer.class), anyList(), any(), any(), any(), any(), any()))
+                    .willReturn("1");
 
             sut.consume(TICKET_ID);
 
@@ -240,13 +241,17 @@ class TicketRepositoryImplTest {
             ArgumentCaptor<Object> arg2 = ArgumentCaptor.forClass(Object.class);
             ArgumentCaptor<Object> arg3 = ArgumentCaptor.forClass(Object.class);
             ArgumentCaptor<Object> arg4 = ArgumentCaptor.forClass(Object.class);
+            ArgumentCaptor<Object> arg5 = ArgumentCaptor.forClass(Object.class);
             then(redisTemplate).should().execute(
                     any(RedisScript.class),
+                    any(RedisSerializer.class), any(RedisSerializer.class),
                     eq(List.of(KEY)),
-                    arg1.capture(), arg2.capture(), arg3.capture(), arg4.capture());
+                    arg1.capture(), arg2.capture(), arg3.capture(), arg4.capture(), arg5.capture());
 
             org.assertj.core.api.Assertions.assertThat(arg1.getValue()).isEqualTo("ISSUED");
             org.assertj.core.api.Assertions.assertThat(arg4.getValue()).isEqualTo("\"state\":\"ISSUED\"");
+            // ARGV[5] 는 JSON 값 직렬화기가 저장하는 이스케이프 형식의 마커
+            org.assertj.core.api.Assertions.assertThat(arg5.getValue()).isEqualTo("\\\"state\\\":\\\"ISSUED\\\"");
             // arg2 는 CONSUMED JSON (state 마커 검증)
             org.assertj.core.api.Assertions.assertThat(String.valueOf(arg2.getValue()))
                     .contains("\"state\":\"CONSUMED\"");

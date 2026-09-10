@@ -71,6 +71,28 @@ class TenantProfileValidatorTest {
     }
 
     @Test
+    @DisplayName("S4 identity: 객체형 속성 선언·subjectScheme 은 유효, 카탈로그 밖 이름·중복·미선언 매핑·CI 스킴은 위반")
+    void identityContract_semanticRules() throws Exception {
+        String ok = MINIMAL.replace("\"policy\"", "\"identity\":{\"subjectScheme\":\"EMAIL\",\"attributes\":[\"name_masked\",{\"name\":\"email\",\"required\":true,\"masking\":\"NONE\"},\"qimUserId\"],\"attributeMapping\":{\"email\":\"mail\",\"qimUserId\":\"uid\"}},\"policy\"");
+        assertThat(validator.violations(json(ok))).isEmpty();
+
+        List<String> unknown = validator.violations(json(MINIMAL.replace("\"policy\"", "\"identity\":{\"attributes\":[\"not_in_catalog\"]},\"policy\"")));
+        assertThat(unknown).singleElement().satisfies(m -> assertThat(m).contains("not_in_catalog").contains("name_masked"));
+
+        List<String> dup = validator.violations(json(MINIMAL.replace("\"policy\"", "\"identity\":{\"attributes\":[\"qim_user_id\",\"qimUserId\"]},\"policy\"")));
+        assertThat(dup).singleElement().satisfies(m -> assertThat(m).contains("중복"));
+
+        List<String> mapping = validator.violations(json(MINIMAL.replace("\"policy\"", "\"identity\":{\"attributes\":[\"email\"],\"attributeMapping\":{\"phone\":\"tel\"}},\"policy\"")));
+        assertThat(mapping).singleElement().satisfies(m -> assertThat(m).contains("attributeMapping").contains("phone"));
+
+        List<String> ci = validator.violations(json(MINIMAL.replace("\"policy\"", "\"identity\":{\"subjectScheme\":\"CI\"},\"policy\"")));
+        assertThat(ci).isNotEmpty();   // 스키마 enum 이 1차로 막는다
+
+        List<String> badMasking = validator.violations(json(MINIMAL.replace("\"policy\"", "\"identity\":{\"attributes\":[{\"name\":\"email\",\"masking\":\"ROT13\"}]},\"policy\"")));
+        assertThat(badMasking).isNotEmpty();
+    }
+
+    @Test
     @DisplayName("validateOrThrow 는 400(E-IDO-113) 과 위반 내용을 담아 던진다")
     void validateOrThrow_throwsPlatformException() throws Exception {
         JsonNode bad = json("{\"schemaVersion\":1,\"tenant\":{\"code\":\"AG\",\"name\":\"x\"},\"policy\":{\"minAuthLevel\":\"L9\"}}");

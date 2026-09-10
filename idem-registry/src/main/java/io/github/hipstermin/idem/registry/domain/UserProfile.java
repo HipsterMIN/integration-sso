@@ -23,6 +23,8 @@ public class UserProfile {
     private final String ci;
     /** DI (중복가입확인정보) */
     private final String di;
+    /** 주체 식별자 스킴 (S4) — CI / EMAIL / PHONE / EXTERNAL_SUB */
+    private final String subjectScheme;
     /** 출생 연도 (일/월 제외) */
     private final Short birthYear;
 

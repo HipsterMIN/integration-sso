@@ -10,6 +10,7 @@ import io.github.hipstermin.idem.common.spi.identity.VerificationCallback;
 import io.github.hipstermin.idem.common.spi.identity.VerificationRequest;
 import io.github.hipstermin.idem.common.spi.identity.VerificationStart;
 import io.github.hipstermin.idem.common.spi.identity.VerifiedIdentity;
+import io.github.hipstermin.idem.hub.identity.SubjectRegistrationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import java.util.List;
@@ -31,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <pre>
  *   GET  /api/v1/auth/providers                    등록된 제공자 목록 (코드·등급·위젯 기술자)
  *   POST /api/v1/auth/providers/{code}/initiate    인증 시작 → VerificationStart
- *   POST /api/v1/auth/providers/{code}/complete    인증 완료 → VerifiedIdentity
+ *   POST /api/v1/auth/providers/{code}/complete    인증 완료 → { identity: VerifiedIdentity, registration: { qimUserId, newUser } }
  * </pre>
  * {@code /api/v1/auth/**} 하위라 기존 CORS·IP Rate Limit 정책이 그대로 적용된다.
  * 벤더별 엔드포인트({@code /nice/phone/*} 등)는 P2 에서 플러그인으로 이동할 때까지 병존한다.
@@ -43,7 +44,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 public class IdentityVerificationController {
 
-    private final IdentityProviderRegistry registry;
+    private final IdentityProviderRegistry     registry;
+    private final SubjectRegistrationService   subjectRegistrationService;
 
     @GetMapping
     public List<ProviderDescriptor> list() {
@@ -63,16 +65,26 @@ public class IdentityVerificationController {
         }
     }
 
+    /**
+     * 인증 완료 → 표준 결과 + registry 사용자 확정 (S4).
+     *
+     * <p>응답의 {@code identity} 는 종전 {@link VerifiedIdentity} 그대로이고, {@code registration} 에 registry 가 준
+     * {@code qimUserId} 와 신규 여부가 붙는다. registry 장애면 503(IDO_QIM_UNREACHABLE) — 인증 성공을 등록 없이
+     * 돌려주지 않는다(종전 NICE 흐름과 같은 원칙).
+     */
     @PostMapping("/{code}/complete")
-    public VerifiedIdentity complete(@PathVariable String code,
+    public CompleteResponse complete(@PathVariable String code,
                                      @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
                                      @Valid @RequestBody CompleteRequest body) {
         IdentityVerificationProvider provider = require(code, correlationId);
+        VerifiedIdentity identity;
         try {
-            return provider.complete(new VerificationCallback(provider.code(), body.txId(), correlationId, body.params()));
+            identity = provider.complete(new VerificationCallback(provider.code(), body.txId(), correlationId, body.params()));
         } catch (IdentityVerificationException e) {
             throw failed(e, correlationId);
         }
+        SubjectRegistrationService.Result reg = subjectRegistrationService.register(identity, correlationId);
+        return new CompleteResponse(identity, new Registration(reg.qimUserId(), reg.newUser()));
     }
 
     private IdentityVerificationProvider require(String code, String correlationId) {
@@ -91,6 +103,10 @@ public class IdentityVerificationController {
 
     public record CompleteRequest(@jakarta.validation.constraints.NotBlank @Size(max = 200) String txId,
                                   Map<String, String> params) {}
+
+    public record Registration(String qimUserId, boolean newUser) {}
+
+    public record CompleteResponse(VerifiedIdentity identity, Registration registration) {}
 
     public record ProviderDescriptor(String code, String level, AuthWidgetDescriptor widget) {
         static ProviderDescriptor of(IdentityVerificationProvider p) {

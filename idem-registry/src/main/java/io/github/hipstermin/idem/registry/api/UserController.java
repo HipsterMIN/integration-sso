@@ -1,8 +1,10 @@
 package io.github.hipstermin.idem.registry.api;
 
 import io.github.hipstermin.idem.common.event.UserEvent;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.common.util.UuidV7;
 import io.github.hipstermin.idem.registry.api.dto.*;
+import io.github.hipstermin.idem.registry.crypto.CiCryptoService;
 import io.github.hipstermin.idem.registry.identity.DiGenerationService;
 import io.github.hipstermin.idem.registry.infrastructure.jpa.entity.AuthMeanMappingJpaEntity;
 import io.github.hipstermin.idem.registry.infrastructure.jpa.entity.QimUserJpaEntity;
@@ -15,6 +17,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +54,7 @@ public class UserController {
     private final QimUserJpaRepository    userRepository;
     private final DiGenerationService     diGenerationService;
     private final OutboxService           outboxService;
+    private final CiCryptoService         ciCryptoService;
 
     // ── 기존 CRUD API ─────────────────────────────────────────────────────────
 
@@ -71,6 +75,70 @@ public class UserController {
     }
 
     /**
+     * S4: 스킴 중립 사용자 등록 (Upsert) — hub {@code QimClient.registerSubject} 의 대응 엔드포인트.
+     * POST /api/v1/internal/users/register-subject
+     * body: { scheme, subjectKey, identifierHash?, providerCode, authResultId?, authLevel?, rawName?, rawMobile?,
+     *         birthYear?, gender?, nationalityType?, correlationId? }
+     * 본문 형식은 {@link UserRegisterRequest} 와 같다 — {@code POST /api/v1/internal/users} 와 처리도 같다.
+     */
+    @PostMapping("/register-subject")
+    public ResponseEntity<UserResponse> registerSubject(
+            @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @RequestBody UserRegisterRequest request) {
+
+        log.info("[UserCtrl] register-subject: scheme={} provider={} correlationId={}",
+                request.getScheme(), request.getProviderCode(), correlationId);
+        UserResponse response = userRegistrationService.registerOrGet(request);
+        HttpStatus status = response.isNew() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(response);
+    }
+
+    /**
+     * S4: 주체 키 조회 — 기관향 식별자로 EMAIL/PHONE/EXTERNAL_SUB 를 고른 기관의 Handoff 가 부른다.
+     * GET /api/v1/internal/users/{qimUserId}/subject?scheme=EMAIL
+     *
+     * <ul>
+     *   <li>400 — 기관향으로 고를 수 없는 스킴(CI 등) 또는 모르는 스킴. CI 평문은 registry 밖으로 나가지 않는다</li>
+     *   <li>404 — 사용자가 없거나 그 스킴으로 등록되지 않았다 (hub 는 GUEST 로 본다)</li>
+     *   <li>200 — { qimUserId, scheme, subjectKey }</li>
+     * </ul>
+     */
+    @GetMapping("/{qimUserId}/subject")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Map<String, Object>> getSubjectKey(
+            @PathVariable String qimUserId,
+            @RequestParam String scheme,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
+
+        var parsed = SubjectScheme.parse(scheme);
+        if (parsed.isEmpty() || !parsed.get().isRegistryKey() || !parsed.get().isTenantSelectable()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "SUBJECT_SCHEME_NOT_SELECTABLE",
+                    "message", "기관향으로 조회할 수 없는 스킴입니다: " + scheme));
+        }
+        SubjectScheme wanted = parsed.get();
+        return userRepository.findById(qimUserId)
+                .<ResponseEntity<Map<String, Object>>>map(u -> {
+                    UserProfileJpaEntity profile = u.getProfile();
+                    if (profile == null || profile.getSubjectKey() == null
+                            || !wanted.name().equals(profile.getSubjectScheme())) {
+                        log.info("[UserCtrl] 주체 키 없음(스킴 불일치): qimUserId={} wanted={} actual={} cid={}",
+                                qimUserId, wanted, profile != null ? profile.getSubjectScheme() : null, correlationId);
+                        return ResponseEntity.notFound().build();
+                    }
+                    String key = ciCryptoService.isEncrypted(profile.getSubjectKey())
+                            ? ciCryptoService.decrypt(profile.getSubjectKey()) : profile.getSubjectKey();
+                    Map<String, Object> body = new LinkedHashMap<>();
+                    body.put("qimUserId", qimUserId);
+                    body.put("scheme", wanted.name());
+                    body.put("subjectKey", key);
+                    return ResponseEntity.ok(body);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
      * 사용자 조회 by qimUserId
      * GET /api/v1/internal/users/{qimUserId}
      */
@@ -87,6 +155,7 @@ public class UserController {
                     String nationality  = u.getProfile() != null ? u.getProfile().getNationalityType() : null;
                     Short  birthYear    = u.getProfile() != null ? u.getProfile().getBirthYear() : null;
                     String gender       = u.getProfile() != null ? u.getProfile().getGender() : null;
+                    String scheme       = u.getProfile() != null ? u.getProfile().getSubjectScheme() : null;
                     return ResponseEntity.ok(UserResponse.builder()
                             .qimUserId(u.getQimUserId())
                             .status(u.getStatus())
@@ -95,6 +164,7 @@ public class UserController {
                             .nationalityType(nationality)
                             .birthYear(birthYear)
                             .gender(gender)
+                            .subjectScheme(scheme)
                             .isNew(false)
                             .createdAt(u.getCreatedAt())
                             .updatedAt(u.getUpdatedAt())

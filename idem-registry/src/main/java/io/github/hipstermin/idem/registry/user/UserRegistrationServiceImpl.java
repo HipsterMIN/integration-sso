@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.registry.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.event.UserEvent;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.common.util.UuidV7;
 import io.github.hipstermin.idem.registry.api.dto.UserRegisterRequest;
 import io.github.hipstermin.idem.registry.api.dto.UserResponse;
@@ -52,18 +53,46 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
     @Override
     @Transactional
     public UserResponse registerOrGet(UserRegisterRequest req) {
-        log.info("[UserReg] 사용자 등록/조회: identifierHash={} provider={} correlationId={}",
-                truncate(req.getIdentifierHash()), req.getProviderCode(), req.getCorrelationId());
+        // S4: 스킴·주체 키·해시 정규화 — 종전 rawCi 요청은 scheme=CI 로 해석된다
+        SubjectScheme scheme = resolveScheme(req);
+        String subjectKey = resolveSubjectKey(req, scheme);
+        String identifierHash = req.getIdentifierHash();
+        if ((identifierHash == null || identifierHash.isBlank()) && subjectKey != null) {
+            identifierHash = scheme.identifierHash(subjectKey);
+        }
+        if (identifierHash == null || identifierHash.isBlank()) {
+            throw new IllegalArgumentException("identifierHash 또는 (scheme, subjectKey) 가 필요합니다");
+        }
+        log.info("[UserReg] 사용자 등록/조회: scheme={} identifierHash={} provider={} correlationId={}",
+                scheme, truncate(identifierHash), req.getProviderCode(), req.getCorrelationId());
 
         // 1. 기존 사용자 조회 (identifierHash 기반)
-        var existing = userRepository.findByIdentifierHash(req.getIdentifierHash());
+        var existing = userRepository.findByIdentifierHash(identifierHash);
         if (existing.isPresent()) {
             log.info("[UserReg] 기존 사용자 반환: qimUserId={}", existing.get().getQimUserId());
             return toResponse(existing.get(), false);
         }
 
         // 2. 신규 사용자 생성
-        return createNewUser(req);
+        return createNewUser(req, scheme, subjectKey, identifierHash);
+    }
+
+    /** 요청의 scheme, 없으면 rawCi 유무로 CI/EXTERNAL_SUB. registry 저장 스킴이 아니면 거부. */
+    static SubjectScheme resolveScheme(UserRegisterRequest req) {
+        SubjectScheme scheme = SubjectScheme.parse(req.getScheme())
+                .orElse(req.getRawCi() != null && !req.getRawCi().isBlank() ? SubjectScheme.CI : SubjectScheme.EXTERNAL_SUB);
+        if (!scheme.isRegistryKey()) {
+            throw new IllegalArgumentException("registry 저장 스킴이 아닙니다: " + scheme);
+        }
+        return scheme;
+    }
+
+    /** subjectKey, CI 스킴이면 rawCi 도 인정. 정규화(이메일 소문자·전화 숫자만)해서 돌려준다. 없으면 null. */
+    static String resolveSubjectKey(UserRegisterRequest req, SubjectScheme scheme) {
+        String key = req.getSubjectKey();
+        if ((key == null || key.isBlank()) && scheme == SubjectScheme.CI) key = req.getRawCi();
+        if (key == null || key.isBlank()) return null;
+        return scheme.normalizeKey(key);
     }
 
     @Override
@@ -119,15 +148,17 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
     // ── private ──────────────────────────────────────────────────────────────
 
-    private UserResponse createNewUser(UserRegisterRequest req) {
+    private UserResponse createNewUser(UserRegisterRequest req, SubjectScheme scheme, String subjectKey,
+                                       String identifierHash) {
         String qimUserId = UuidV7.generate();
         Instant now = Instant.now();
 
-        // CI 암호화 (rawCi가 있는 경우만)
-        String encryptedCi = null;
-        if (req.getRawCi() != null && !req.getRawCi().isBlank()) {
-            encryptedCi = ciCryptoService.encrypt(req.getRawCi());
+        // 주체 키 암호화 (있는 경우만). CI 스킴이면 ci 컬럼에도 같은 값 — 읽기 호환(V8)
+        String encryptedKey = null;
+        if (subjectKey != null) {
+            encryptedKey = ciCryptoService.encrypt(subjectKey);
         }
+        String encryptedCi = scheme == SubjectScheme.CI ? encryptedKey : null;
 
         // PII 마스킹
         String nameMasked   = piiMaskingService.maskName(req.getRawName());
@@ -157,6 +188,8 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
                 .mobileMasked(mobileMasked)
                 .nationalityType(req.getNationalityType() != null ? req.getNationalityType() : "DOMESTIC")
                 .ci(encryptedCi)
+                .subjectScheme(scheme.name())
+                .subjectKey(encryptedKey)
                 .birthYear(req.getBirthYear())
                 .gender(req.getGender() != null ? req.getGender() : "UNKNOWN")
                 .isMinor(isMinor)
@@ -168,7 +201,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
                 .mappingId(UuidV7.generate())
                 .user(userEntity)
                 .providerCode(req.getProviderCode())
-                .identifierHash(req.getIdentifierHash())
+                .identifierHash(identifierHash)
                 .status("ACTIVE")
                 .linkedAt(now)
                 .build();
@@ -180,8 +213,8 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
             userRepository.save(userEntity);
         } catch (DataIntegrityViolationException e) {
             // 동시 요청으로 이미 생성된 경우 — 기존 사용자 반환
-            log.warn("[UserReg] 동시 생성 충돌 — 기존 사용자 조회: identifierHash={}", truncate(req.getIdentifierHash()));
-            return userRepository.findByIdentifierHash(req.getIdentifierHash())
+            log.warn("[UserReg] 동시 생성 충돌 — 기존 사용자 조회: identifierHash={}", truncate(identifierHash));
+            return userRepository.findByIdentifierHash(identifierHash)
                     .map(u -> toResponse(u, false))
                     .orElseThrow(() -> new RuntimeException("사용자 생성 및 조회 모두 실패", e));
         }
@@ -203,6 +236,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
                 SET name_masked           = NULL,
                     mobile_masked         = NULL,
                     ci                    = NULL,
+                    subject_key           = NULL,
                     di_map                = NULL,
                     extra_attributes      = NULL,
                     guardian_qim_user_id  = NULL,
@@ -232,6 +266,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         String nationality  = entity.getProfile() != null ? entity.getProfile().getNationalityType() : null;
         Short  birthYear    = entity.getProfile() != null ? entity.getProfile().getBirthYear()    : null;
         String gender       = entity.getProfile() != null ? entity.getProfile().getGender()       : null;
+        String scheme       = entity.getProfile() != null ? entity.getProfile().getSubjectScheme() : null;
 
         return UserResponse.builder()
                 .qimUserId(entity.getQimUserId())
@@ -241,6 +276,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
                 .nationalityType(nationality)
                 .birthYear(birthYear)
                 .gender(gender)
+                .subjectScheme(scheme)
                 .isNew(isNew)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

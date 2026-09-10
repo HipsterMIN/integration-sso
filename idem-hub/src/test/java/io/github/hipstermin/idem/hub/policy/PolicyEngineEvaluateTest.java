@@ -7,6 +7,8 @@ import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
+import io.github.hipstermin.idem.hub.identity.HandoffAttributeAssembler;
+import io.github.hipstermin.idem.hub.identity.SubjectIdentifierResolver;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
 import io.github.hipstermin.idem.hub.infrastructure.UserStatusCache;
@@ -50,7 +52,9 @@ class PolicyEngineEvaluateTest {
     };
 
     private PolicyEngineImpl engine() {
+        SubjectIdentifierResolver resolver = new SubjectIdentifierResolver(List.of());
         return new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, tenantProfileService,
+                resolver, new HandoffAttributeAssembler(qimClient, resolver),
                 List.of(new UserStatusRule(), new AllowedProvidersRule(), new MinAuthLevelRule(), new MaintenanceRule(), CUSTOM));
     }
 

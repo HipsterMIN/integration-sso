@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -64,20 +65,23 @@ public class TicketRepositoryImpl implements TicketRepository {
      */
     private static final String CONSUME_LUA = ""
             + "local cur = redis.call('GET', KEYS[1]);\n"
-            + "if cur == false then return 0; end;\n"
-            // state 마커가 포함되어 있는지로 현 상태 확인 (JSON.parse 회피)
-            + "if string.find(cur, ARGV[4], 1, true) == nil then\n"
-            // ISSUED 가 아님 → 현재 state 추출하여 반환
-            + "  local s = string.match(cur, '\"state\":\"([^\"]+)\"');\n"
+            + "if cur == false then return '0'; end;\n"
+            // state 마커가 포함되어 있는지로 현 상태 확인 (JSON.parse 회피).
+            // 값 직렬화기가 JSON(GenericJackson2Json)이면 문자열이 "…\"state\":\"ISSUED\"…" 로 이스케이프되어 저장되므로
+            // 원문 마커(ARGV[4])와 이스케이프 마커(ARGV[5]) 둘 다 본다 — 종전에는 원문만 봐서 항상 PARSE_ERROR 였다.
+            + "if string.find(cur, ARGV[4], 1, true) == nil and string.find(cur, ARGV[5], 1, true) == nil then\n"
+            // ISSUED 가 아님 → 현재 state 추출하여 반환 (따옴표 앞 백슬래시는 있어도 없어도 됨)
+            + "  local s = string.match(cur, '\\\\?\"state\\\\?\":\\\\?\"([^\"\\\\]+)');\n"
             + "  if s == nil then return 'PARSE_ERROR'; end;\n"
             + "  return s;\n"
             + "end;\n"
-            // 원자적 SET + TTL 갱신
+            // 원자적 SET + TTL 갱신 — ARGV[2] 는 저장 직렬화기를 이미 거친 바이트
             + "redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3]);\n"
-            + "return 1;\n";
+            + "return '1';\n";
 
-    private static final RedisScript<Object> CONSUME_SCRIPT =
-            new DefaultRedisScript<>(CONSUME_LUA, Object.class);
+    /** 결과는 항상 문자열('1'·'0'·state) — 정수 회신을 값 직렬화기가 JSON 으로 읽다 실패하던 문제를 피한다. */
+    private static final RedisScript<String> CONSUME_SCRIPT =
+            new DefaultRedisScript<>(CONSUME_LUA, String.class);
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final JdbcTemplate jdbcTemplate;
@@ -189,12 +193,16 @@ public class TicketRepositoryImpl implements TicketRepository {
                     existing.getExpiresAt().getEpochSecond() - Instant.now().getEpochSecond() + 30);
 
             // ④ Lua atomic CAS — state == ISSUED 인 경우에만 덮어쓰기
-            //    state 마커는 JSON 내부 문자열 검사로 처리 (Lua cjson 의존 회피)
+            //    state 마커는 JSON 내부 문자열 검사로 처리 (Lua cjson 의존 회피).
+            //    인자·결과는 문자열 직렬화기로 보내고, 새 값은 저장 직렬화기(값 직렬화기)를 거친 바이트를 그대로 넘겨
+            //    opsForValue().set 이 저장한 형식과 같게 한다.
             String issuedMarker = "\"state\":\"ISSUED\"";
+            String escapedMarker = "\\\"state\\\":\\\"ISSUED\\\"";
             Object result = redisTemplate.execute(
                     CONSUME_SCRIPT,
+                    RedisSerializer.string(), RedisSerializer.string(),
                     Collections.singletonList(key),
-                    "ISSUED", consumedJson, String.valueOf(remainTtl), issuedMarker
+                    "ISSUED", storedForm(consumedJson), String.valueOf(remainTtl), issuedMarker, escapedMarker
             );
 
             handleConsumeResult(ticketId, result);
@@ -209,6 +217,15 @@ public class TicketRepositoryImpl implements TicketRepository {
             log.error("[TicketRepository] Ticket consume 실패: ticketId={}", ticketId, e);
             throw new RuntimeException("Ticket consume 실패", e);
         }
+    }
+
+    /** 값 직렬화기가 저장하는 바이트 형식 그대로의 문자열 (JSON 직렬화기면 따옴표·이스케이프 포함). */
+    @SuppressWarnings("unchecked")
+    private String storedForm(String value) {
+        RedisSerializer<Object> valueSerializer = (RedisSerializer<Object>) redisTemplate.getValueSerializer();
+        if (valueSerializer == null) return value;
+        byte[] bytes = valueSerializer.serialize(value);
+        return bytes == null ? value : new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /**

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.hipstermin.idem.common.domain.AuthResult;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.common.spi.identity.IdentityVerificationException;
 import io.github.hipstermin.idem.common.spi.identity.VerificationCallback;
 import io.github.hipstermin.idem.common.spi.identity.VerificationRequest;
@@ -53,6 +54,26 @@ class MockIdentityVerificationProviderTest {
                 Map.of("name", "B", "subjectKey", "user-42")));
         assertThat(id.name()).isEqualTo("B");
         assertThat(id.subjectKey()).isEqualTo("user-42");
+    }
+
+    @Test
+    @DisplayName("S4: email 파라미터가 있으면 EMAIL 스킴(subjectKey=email), 없으면 EXTERNAL_SUB; subjectScheme 로 명시할 수도 있다")
+    void subjectScheme_fromParams() {
+        VerificationStart s1 = provider.initiate(new VerificationRequest(null, null, Map.of("email", "Alice@Example.org")));
+        VerifiedIdentity byEmail = provider.complete(new VerificationCallback("MOCK", s1.txId(), null, Map.of()));
+        assertThat(byEmail.subjectScheme()).isEqualTo(SubjectScheme.EMAIL);
+        assertThat(byEmail.subjectKey()).isEqualTo("Alice@Example.org");
+        assertThat(byEmail.attributes()).containsEntry("email", "Alice@Example.org");
+
+        VerificationStart s2 = provider.initiate(new VerificationRequest(null, null, Map.of("name", "A")));
+        assertThat(provider.complete(new VerificationCallback("MOCK", s2.txId(), null, Map.of())).subjectScheme())
+                .isEqualTo(SubjectScheme.EXTERNAL_SUB);
+
+        VerificationStart s3 = provider.initiate(new VerificationRequest(null, null,
+                Map.of("subjectScheme", "phone", "subjectKey", "010-1234-5678")));
+        VerifiedIdentity byPhone = provider.complete(new VerificationCallback("MOCK", s3.txId(), null, Map.of()));
+        assertThat(byPhone.subjectScheme()).isEqualTo(SubjectScheme.PHONE);
+        assertThat(byPhone.subjectKey()).isEqualTo("010-1234-5678");
     }
 
     @Test

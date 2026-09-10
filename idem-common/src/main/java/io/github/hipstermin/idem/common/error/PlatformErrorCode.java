@@ -70,6 +70,9 @@ public enum PlatformErrorCode {
     IDO_INVALID_INTEGRATION_TYPE("E-IDO-111", HttpStatus.BAD_REQUEST, "지원하지 않는 기관 연동 유형입니다."),
     IDO_PROVIDER_NOT_CONFIGURED("E-IDO-112", HttpStatus.SERVICE_UNAVAILABLE, "인증 제공자가 설정되지 않았습니다."),
     IDO_INVALID_TENANT_PROFILE("E-IDO-113", HttpStatus.BAD_REQUEST, "기관 프로파일이 스키마에 맞지 않습니다."),
+    // ── 범용화 S4 (식별자·속성 계약) ─────────────────────────────────────────
+    IDO_REQUIRED_ATTRIBUTE_MISSING("E-IDO-114", HttpStatus.UNPROCESSABLE_ENTITY, "기관이 필수로 요구한 속성을 사용자에게서 얻을 수 없습니다."),
+    IDO_SUBJECT_SCHEME_UNSUPPORTED("E-IDO-115", HttpStatus.SERVICE_UNAVAILABLE, "기관 프로파일이 지정한 주체 식별자 스킴을 이 설치본이 지원하지 않습니다."),
 
     // ── 기관 오류 (E-AGENCY-3xx) ─────────────────────────────────────────────
     AGENCY_NOT_REGISTERED ("E-AGENCY-301", HttpStatus.FORBIDDEN,   "등록되지 않은 기관 코드입니다."),

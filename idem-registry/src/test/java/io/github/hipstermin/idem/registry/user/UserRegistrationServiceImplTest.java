@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.event.UserEvent;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.registry.api.dto.UserRegisterRequest;
 import io.github.hipstermin.idem.registry.api.dto.UserResponse;
 import io.github.hipstermin.idem.registry.crypto.CiCryptoService;
@@ -377,6 +378,66 @@ class UserRegistrationServiceImplTest {
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────
+
+    // ── S4: 스킴 중립 등록 ───────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("S4 — scheme/subjectKey 등록 (CI 없는 코어 경로)")
+    class SubjectSchemeRegistration {
+
+        @Test
+        @DisplayName("EMAIL 스킴: identifierHash 를 registry 가 계산(EMAIL: 접두·소문자)하고, 정규화된 키를 암호화해 subject_key 에, ci 는 비운다")
+        void emailScheme_hashComputed_keyEncrypted_noCi() {
+            String expectedHash = SubjectScheme.EMAIL.identifierHash("Alice@Example.org");
+            given(userRepository.findByIdentifierHash(expectedHash)).willReturn(Optional.empty());
+            given(ciCryptoService.encrypt("alice@example.org")).willReturn("v1.iv.enc-email");
+            given(piiMaskingService.maskName("Alice")).willReturn("A***");
+            given(userRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            UserResponse res = service.registerOrGet(UserRegisterRequest.builder()
+                    .scheme("email").subjectKey("Alice@Example.org").providerCode("MOCK")
+                    .rawName("Alice").correlationId("cid-s4").build());
+
+            assertThat(res.isNew()).isTrue();
+            assertThat(res.getSubjectScheme()).isEqualTo("EMAIL");
+            ArgumentCaptor<QimUserJpaEntity> saved = ArgumentCaptor.forClass(QimUserJpaEntity.class);
+            then(userRepository).should().save(saved.capture());
+            UserProfileJpaEntity profile = saved.getValue().getProfile();
+            assertThat(profile.getSubjectScheme()).isEqualTo("EMAIL");
+            assertThat(profile.getSubjectKey()).isEqualTo("v1.iv.enc-email");
+            assertThat(profile.getCi()).isNull();
+            assertThat(saved.getValue().getAuthMeanMappings()).singleElement()
+                    .satisfies(m -> assertThat(m.getIdentifierHash()).isEqualTo(expectedHash));
+        }
+
+        @Test
+        @DisplayName("CI 스킴(종전 rawCi 요청): 제공된 해시를 쓰고 ci 와 subject_key 에 같은 암호문을 넣는다")
+        void ciScheme_keepsCiColumn() {
+            given(userRepository.findByIdentifierHash(HASH)).willReturn(Optional.empty());
+            given(ciCryptoService.encrypt(RAW_CI)).willReturn(ENC_CI);
+            given(userRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            service.registerOrGet(buildRequest(RAW_CI));
+
+            ArgumentCaptor<QimUserJpaEntity> saved = ArgumentCaptor.forClass(QimUserJpaEntity.class);
+            then(userRepository).should().save(saved.capture());
+            UserProfileJpaEntity profile = saved.getValue().getProfile();
+            assertThat(profile.getSubjectScheme()).isEqualTo("CI");
+            assertThat(profile.getCi()).isEqualTo(ENC_CI);
+            assertThat(profile.getSubjectKey()).isEqualTo(ENC_CI);
+        }
+
+        @Test
+        @DisplayName("파생 스킴(PAIRWISE_HMAC)이나 해시·키 모두 없는 요청은 거부한다")
+        void invalidRequests_rejected() {
+            assertThatThrownBy(() -> service.registerOrGet(UserRegisterRequest.builder()
+                    .scheme("PAIRWISE_HMAC").subjectKey("x").providerCode("MOCK").build()))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> service.registerOrGet(UserRegisterRequest.builder()
+                    .scheme("EMAIL").providerCode("MOCK").build()))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
 
     private UserRegisterRequest buildRequest(String rawCi) {
         return UserRegisterRequest.builder()

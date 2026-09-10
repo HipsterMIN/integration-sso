@@ -1,6 +1,7 @@
 package io.github.hipstermin.idem.common.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import java.time.Instant;
 import java.util.Map;
 import lombok.Builder;
@@ -49,8 +50,10 @@ public class HandoffPayload {
     @Getter
     @Builder
     public static class SubjectIdentifier {
-        /** Q-IM 기반 기관향 식별자 */
+        /** 기관향 식별자 — 값의 종류는 {@link #subjectScheme} (S4). GUEST 는 null */
         private final String agencySubjectId;
+        /** {@code agencySubjectId} 의 스킴 — 기관 프로파일 {@code identity.subjectScheme} (기본 PAIRWISE_HMAC). GUEST 는 null */
+        private final SubjectScheme subjectScheme;
         /** Q-IM 내부 사용자 ID (정본) */
         private final String qimUserId;
         private final UserStatus status;

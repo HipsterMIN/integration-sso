@@ -1,9 +1,11 @@
 package io.github.hipstermin.idem.hub.infrastructure;
 
 import io.github.hipstermin.idem.common.domain.UserStatus;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.hub.auth.dto.AuthResult;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
+import io.github.hipstermin.idem.hub.identity.SubjectRegistration;
 import java.util.Map;
 import java.util.Optional;
 
@@ -36,8 +38,22 @@ public interface QimClient {
      */
     Map<String, Object> getUserById(String qimUserId, String correlationId);
 
-    /** 기관별 DI 조회/생성 (agencySubjectId 연계용) */
+    /** 기관별 DI 조회/생성 (agencySubjectId 연계용 — {@link io.github.hipstermin.idem.common.identity.SubjectScheme#PAIRWISE_HMAC}) */
     String getDi(String qimUserId, String agencyCode, String correlationId);
+
+    /**
+     * S4: 사용자의 주체 키 조회 — {@code GET /api/v1/internal/users/{qimUserId}/subject?scheme=}.
+     *
+     * <p>empty = 사용자가 없거나 그 스킴으로 등록되지 않았다(404 — 정당한 GUEST). 장애는
+     * {@link io.github.hipstermin.idem.common.error.PlatformErrorCode#IDO_QIM_UNREACHABLE}.
+     */
+    Optional<String> getSubjectKey(String qimUserId, SubjectScheme scheme, String correlationId);
+
+    /**
+     * S4: 스킴 중립 사용자 등록 — {@code POST /api/v1/internal/users/register-subject}.
+     * 기존 사용자면 {@code isNew=false} 로 돌려준다. {@link #registerUser} 는 이 계약으로 위임한다.
+     */
+    QimRegisterResponse registerSubject(SubjectRegistration registration);
 
     /**
      * S7-T6: CI를 Q-IM에 등록 (신규 사용자 생성 또는 기존 사용자 인증 시각 갱신)
