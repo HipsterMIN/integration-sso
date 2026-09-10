@@ -3,6 +3,7 @@
 > 작성 2026-09-09 · 기준 `shipster` d93cf71 (PR #221) · 요약본은 이 문서의 §0 · 요구사항 수준의 근거는 [`certification/cc-gs-gap-analysis.md`](certification/cc-gs-gap-analysis.md)
 >
 > 목표: **Idem 을 GS → CC(국내용, 통합인증 SSO 유형) 인증을 통과하는 제품으로 만든다.** 오픈소스 공개는 CC 평가판 고정 이후.
+> 구조 리팩토링(범용화)은 [`generalization-plan.md`](generalization-plan.md) 의 S1~S9 로 진행하며, S7(관리 콘솔·관리자 인증)은 이 문서의 P1 과 같은 작업이다.
 
 ---
 
