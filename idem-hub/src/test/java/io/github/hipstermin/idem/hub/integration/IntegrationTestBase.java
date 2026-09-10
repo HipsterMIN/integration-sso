@@ -115,6 +115,8 @@ public abstract class IntegrationTestBase {
                 () -> REDIS.getMappedPort(6379).toString());
 
         // WireMock → NICE API 기본 URL 오버라이드
+        registry.add("ido.auth.nice.base-url",            // S5a: 플러그인 NiceProperties
+                () -> "http://localhost:" + wireMockServer.port());
         registry.add("ido.nice.api-base-url",
                 () -> "http://localhost:" + wireMockServer.port());
         registry.add("ido.nice.access-token-url",

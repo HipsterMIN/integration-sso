@@ -1,18 +1,14 @@
-package io.github.hipstermin.idem.hub.auth.client;
+package io.github.hipstermin.idem.plugin.niceoacx;
 
-import io.github.hipstermin.idem.hub.auth.config.AuthProperties;
-import io.github.hipstermin.idem.hub.auth.config.AuthWebClientConfig;
-import io.github.hipstermin.idem.hub.auth.dto.nice.NiceResultApiResponse;
-import io.github.hipstermin.idem.hub.auth.dto.nice.NiceTokenApiResponse;
-import io.github.hipstermin.idem.hub.auth.dto.nice.NiceUrlApiResponse;
+import io.github.hipstermin.idem.plugin.niceoacx.dto.NiceResultApiResponse;
+import io.github.hipstermin.idem.plugin.niceoacx.dto.NiceTokenApiResponse;
+import io.github.hipstermin.idem.plugin.niceoacx.dto.NiceUrlApiResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -50,7 +46,6 @@ import reactor.core.publisher.Mono;
  * @see io.github.hipstermin.idem.hub.auth.config.AuthWebClientConfig
  */
 @Slf4j
-@Component
 public class NiceApiClient {
 
     private static final String TOKEN_PATH = "/ido/intc/v1.0/auth/token";
@@ -61,12 +56,10 @@ public class NiceApiClient {
     private final String clientId;
     private final String clientSecret;
 
-    public NiceApiClient(
-            @Qualifier(AuthWebClientConfig.NICE_WEB_CLIENT) WebClient client,
-            AuthProperties props) {
+    public NiceApiClient(WebClient client, NiceProperties props) {
         this.client = client;
-        this.clientId = props.nice().clientId();
-        this.clientSecret = props.nice().clientSecret();
+        this.clientId = props.getClientId();
+        this.clientSecret = props.getClientSecret();
     }
 
     /**

@@ -82,3 +82,9 @@ logging:
   level:
     root: WARN
     io.github.hipstermin.idem: INFO
+
+# S5a: 단위 테스트 컨텍스트는 벤더 플러그인 없이(코어 에디션) 기동한다
+idem:
+  plugins:
+    nice-oacx:
+      enabled: false

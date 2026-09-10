@@ -82,6 +82,9 @@ idem:
   plugins:
     mock-auth:
       enabled: true
+    # S5a: NICE 플러그인을 켜서 WireMock NICE 스텁으로 SPI·레거시 프록시 경로를 검증한다 (base-url 은 IntegrationTestBase 가 주입)
+    nice-oacx:
+      enabled: true
 
 resilience4j:
   circuitbreaker:

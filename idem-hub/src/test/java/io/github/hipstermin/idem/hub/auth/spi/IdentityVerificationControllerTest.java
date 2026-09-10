@@ -57,7 +57,7 @@ class IdentityVerificationControllerTest {
         QimClient qimClient = org.mockito.Mockito.mock(QimClient.class);
         org.mockito.Mockito.when(qimClient.registerSubject(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(QimRegisterResponse.builder().qimUserId("qim-fake-1").status("ACTIVE").isNew(true).build());
-        mvc = MockMvcBuilders.standaloneSetup(new IdentityVerificationController(registry, new SubjectRegistrationService(qimClient)))
+        mvc = MockMvcBuilders.standaloneSetup(new IdentityVerificationController(registry, new SubjectRegistrationService(qimClient), org.mockito.Mockito.mock(io.github.hipstermin.idem.hub.auth.audit.AuthAuditService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

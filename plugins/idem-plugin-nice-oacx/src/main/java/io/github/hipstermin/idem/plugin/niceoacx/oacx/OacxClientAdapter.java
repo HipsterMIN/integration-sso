@@ -1,12 +1,10 @@
-package io.github.hipstermin.idem.hub.auth.client;
+package io.github.hipstermin.idem.plugin.niceoacx.oacx;
 
 import OACX.OacxException;
 import OACX.OacxUtil;
-import io.github.hipstermin.idem.hub.auth.config.AuthProperties;
-import io.github.hipstermin.idem.hub.auth.dto.OacxAccessInfoResponse;
+import io.github.hipstermin.idem.plugin.niceoacx.OacxProperties;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 /**
  * OACX 전자서명 중계모듈 SDK 래퍼 클라이언트
@@ -36,15 +34,14 @@ import org.springframework.stereotype.Component;
  * @see io.github.hipstermin.idem.hub.auth.service.AuthService
  */
 @Slf4j
-@Component
-public class OacxClient {
+public class OacxClientAdapter {
 
     private final String providerKeyPath;
     private final boolean debugMode;
 
-    public OacxClient(AuthProperties props) {
-        this.providerKeyPath = props.oacx().providerKeyPath();
-        this.debugMode = props.oacx().debugMode();
+    public OacxClientAdapter(OacxProperties props) {
+        this.providerKeyPath = props.getProviderKeyPath();
+        this.debugMode = props.isDebugMode();
         log.info("[OacxClient] 초기화 — providerKeyPath={}, debugMode={}",
                 providerKeyPath.isEmpty() ? "(미설정)" : providerKeyPath, debugMode);
     }
@@ -66,65 +63,23 @@ public class OacxClient {
      * @param fn OACX 기능 코드 (현재: "simpleAuth")
      * @return OACX 접근 정보 응답 DTO
      */
-    public OacxAccessInfoResponse getAccessInfo(String fn) {
+    /** 접근 정보(accKey·accToken) 발급. 실패는 IdentityVerificationException(reasonCode 5001). */
+    public Map<String, String> getAccessInfo(String fn) {
         log.info("[OACX] getAccessInfo 요청: fn={}", fn);
-
         if (providerKeyPath == null || providerKeyPath.isBlank()) {
-            log.error("[OACX] providerKeyPath 미설정 — ido.auth.oacx.provider-key-path 확인 필요");
-            return OacxAccessInfoResponse.builder()
-                    .resultCode("5001")
-                    .resultMsg("OACX 설정 오류: provider-key-path 미설정")
-                    .build();
+            throw new io.github.hipstermin.idem.common.spi.identity.IdentityVerificationException(
+                    OacxEasySignIdentityVerificationProvider.CODE, "5001", "OACX 설정 오류: provider-key-path 미설정");
         }
-
         OacxUtil oacx = createOacxUtil();
         Map<String, String> accMap = oacx.getAccessInfo();
-        log.info("[OACX] getAccessInfo 응답: status={}", accMap.get("status"));
-
         if (!"success".equals(accMap.get("status"))) {
-            log.error("[OACX] 접근정보 발급 실패: status={}, message={}",
-                    accMap.get("status"), accMap.get("message"));
-            return OacxAccessInfoResponse.builder()
-                    .resultCode("5001")
-                    .resultMsg("OACX 접근정보 발급 실패: " + accMap.get("status"))
-                    .build();
+            log.error("[OACX] 접근정보 발급 실패: status={}, message={}", accMap.get("status"), accMap.get("message"));
+            throw new io.github.hipstermin.idem.common.spi.identity.IdentityVerificationException(
+                    OacxEasySignIdentityVerificationProvider.CODE, "5001", "OACX 접근정보 발급 실패: " + accMap.get("status"));
         }
-
-        return OacxAccessInfoResponse.builder()
-                .resultCode("2000")
-                .resultMsg("성공")
-                .fn(fn)
-                .accKey(accMap.get("accKey"))
-                .accToken(accMap.get("accToken"))
-                .build();
+        return Map.of("fn", fn == null ? "" : fn, "accKey", accMap.get("accKey"), "accToken", accMap.get("accToken"));
     }
 
-    /**
-     * OACX 간편서명 콜백 JWT 복호화
-     *
-     * <p>OACX JS SDK가 전달한 콜백 데이터(fn, status, res)를 SDK를 통해 복호화.
-     * 복호화 결과 Map에서 사용자 정보(name/userNm, phone/phoneNo, ci, birthday 등)를 추출.
-     *
-     * <p><b>OACX 인증 플로우에서의 위치 (Step 8~9):</b>
-     * <pre>
-     * Step 7: OACX JS SDK → FE 콜백 발생
-     * Step 8: FE → POST /api/v1/auth/oacx/easysign (콜백 데이터 전달)
-     * Step 9: ido → OacxUtil.jwtDecryptResult() 복호화
-     * Step 10: ido → FE에 {name, birthday, phone} 반환 (CI 미포함 — Q3=B)
-     * </pre>
-     *
-     * <p><b>복호화 결과 Map 주요 키:</b>
-     * <ul>
-     *   <li>{@code status} — "success" 또는 "error"</li>
-     *   <li>{@code name} 또는 {@code userNm} — 이름 (provider마다 다름)</li>
-     *   <li>{@code phone} 또는 {@code phoneNo} — 휴대폰 번호 (provider마다 다름)</li>
-     *   <li>{@code birthday} — 생년월일 (일부 provider만 제공)</li>
-     *   <li>{@code ci} — 연계정보 (CI 미반환 정책 Q3=B — AuthService에서 사용하지 않음)</li>
-     * </ul>
-     *
-     * @param callbackData OACX JS SDK 콜백 전체 맵 ({fn, status, res} 포함)
-     * @return 복호화 결과 Map ("status": "success" 또는 "error", 사용자 정보 포함)
-     */
     public Map<String, String> decryptEasysignResult(Map<String, Object> callbackData) {
         log.info("[OACX] jwtDecryptResult 호출: fn={}, status={}",
                 callbackData.get("fn"), callbackData.get("status"));

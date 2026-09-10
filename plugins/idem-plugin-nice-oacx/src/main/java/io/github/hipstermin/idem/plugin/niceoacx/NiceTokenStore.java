@@ -1,10 +1,9 @@
-package io.github.hipstermin.idem.hub.auth.store;
+package io.github.hipstermin.idem.plugin.niceoacx;
 
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Component;
 
 /**
  * NICE Access Token Redis 캐시 저장소
@@ -38,7 +37,6 @@ import org.springframework.stereotype.Component;
  * @see NiceAuthSessionStore
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class NiceTokenStore {
 

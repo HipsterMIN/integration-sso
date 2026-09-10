@@ -1,4 +1,4 @@
-package io.github.hipstermin.idem.hub.auth.util;
+package io.github.hipstermin.idem.plugin.niceoacx;
 
 import static org.assertj.core.api.Assertions.*;
 

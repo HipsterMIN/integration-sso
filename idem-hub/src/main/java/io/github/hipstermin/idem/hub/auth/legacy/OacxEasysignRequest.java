@@ -1,4 +1,4 @@
-package io.github.hipstermin.idem.hub.auth.dto;
+package io.github.hipstermin.idem.hub.auth.legacy;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

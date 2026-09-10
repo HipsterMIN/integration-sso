@@ -37,111 +37,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "ido.auth")
 public record AuthProperties(
-        Nice nice,
-        Oacx oacx,
         Integration integration
 ) {
-
-    /**
-     * NICE 휴대폰 본인인증 연동 설정
-     *
-     * <p>NICE IDO 인증 서버({@code https://auth.niceid.co.kr}) 접속 정보.
-     * NICE 계약을 통해 발급받은 clientId/clientSecret 필수.
-     *
-     * <p><b>민감 정보 주의:</b> clientSecret은 로그에 절대 출력하지 말 것.
-     */
-    public record Nice(
-            /**
-             * NICE 클라이언트 ID
-             *
-             * <p>NICE 계약 후 발급받은 클라이언트 식별자.
-             * Basic Auth 형식({@code clientId:clientSecret})으로 인코딩하여
-             * Access Token 발급 API에 전달.
-             */
-            String clientId,
-
-            /**
-             * NICE 클라이언트 시크릿
-             *
-             * <p><b>보안 주의:</b> 이 값은 절대 로그에 출력하지 말 것.
-             * 환경변수 {@code NICE_CLIENT_SECRET}로 주입.
-             */
-            String clientSecret,
-
-            /**
-             * 인증 완료 후 리다이렉트 URL
-             *
-             * <p>NICE 표준창이 인증 완료 후 브라우저를 리다이렉트하는 URL.
-             * FE의 팝업 수신 페이지 URL이어야 함.
-             * 기본값: {@code http://localhost:3000/otp/auth-result}
-             */
-            String returnUrl,
-
-            /**
-             * NICE API 요청 타임아웃 (초)
-             *
-             * <p>기본값: 10초. NICE 서버 응답이 늦을 경우 조정 필요.
-             */
-            int timeoutSeconds
-    ) {
-        public Nice {
-            if (clientId == null) clientId = "";
-            if (clientSecret == null) clientSecret = "";
-            if (returnUrl == null) returnUrl = "";
-            if (timeoutSeconds <= 0) timeoutSeconds = 10;
-        }
+    public AuthProperties {
+        if (integration == null) integration = new Integration(null, 0);
     }
 
-    /**
-     * OACX 전자서명 중계모듈 설정
-     *
-     * <p>OACX SDK를 통해 간편서명 기능을 사용하기 위한 설정.
-     */
-    public record Oacx(
-            /**
-             * OACX SDK provider key JSON 파일 경로
-             *
-             * <p>OACX 운영사에서 발급한 provider 키 파일의 절대 경로.
-             * OACX SDK의 {@code OacxUtil.loadJSONInfo(path)}에 전달.
-             * 예: {@code /app/config/oacx-provider-key.json}
-             */
-            String providerKeyPath,
-
-            /**
-             * OACX SDK 디버그 모드 활성화 여부
-             *
-             * <p>true: OACX SDK 내부 디버그 로그 출력 (개발/검증 환경에서만 사용).
-             * 운영 환경에서는 반드시 false로 설정.
-             */
-            boolean debugMode
-    ) {
-        public Oacx {
-            if (providerKeyPath == null || providerKeyPath.isBlank()) {
-                providerKeyPath = "";
-            }
-        }
-    }
-
-    /**
-     * 통합인증 서버 연동 설정
-     *
-     * <p>기업 간편인증 콜백({@code POST /api/v1/auth/callback}) 처리 시
-     * 통합인증 서버에 auth-check를 요청하는 설정.
-     */
+    /** NICE·OACX 설정은 S5a 부터 idem-plugin-nice-oacx 가 같은 키(ido.auth.nice.* / ido.auth.oacx.*)로 바인딩한다. */
     public record Integration(
-            /**
-             * 통합인증 서버 기본 URL
-             *
-             * <p>예: {@code https://intg-auth.example.org}
-             * 환경변수 {@code INTEGRATION_AUTH_BASE_URL}로 주입.
-             */
             String baseUrl,
-
-            /**
-             * 통합인증 서버 요청 타임아웃 (초)
-             *
-             * <p>기본값: 10초. 기업인증 처리가 느릴 경우 조정 필요.
-             */
             int timeoutSeconds
     ) {
         public Integration {

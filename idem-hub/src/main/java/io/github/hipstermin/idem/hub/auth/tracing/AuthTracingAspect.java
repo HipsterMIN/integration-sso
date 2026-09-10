@@ -4,7 +4,6 @@ import io.github.hipstermin.idem.common.util.CorrelationIdHolder;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -12,49 +11,16 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Auth 관련 분산 추적 AOP Aspect (S9-T4)
+ * 본인인증 흐름 분산 추적 AOP (S9-T4, S5a 에서 벤더 무관으로 정리).
  *
- * <p>NICE/OACX/CI 처리 흐름 및 외부 HTTP 클라이언트 호출에서
- * 커스텀 스팬을 생성하여 분산 추적 가시성을 높인다.
- * Micrometer Tracing Bridge(OTel) 기반으로 기존 W3C traceparent 컨텍스트와 연동.
- *
- * <p><b>추적 대상 메서드:</b>
+ * <p>스팬:
  * <ul>
- *   <li>{@code NiceAuthService.getNicePhoneAuthUrl()} — NICE URL 발급 스팬</li>
- *   <li>{@code NiceAuthService.getNicePhoneAuthResult()} — NICE 결과 복호화 스팬</li>
- *   <li>{@code AuthService.checkNiceCi()} — CI 기반 회원 조회 스팬</li>
- *   <li>{@code AuthService.handleOacxEasysign()} — OACX 간편서명 복호화 스팬</li>
- *   <li>{@code AuthService.getOacxAccessInfo()} — OACX 접근키 발급 스팬</li>
- *   <li>{@code AuthService.callback()} — 기업인증 콜백 스팬</li>
- *   <li>{@code NiceApiClient.fetchAccessToken()} — NICE 토큰 발급 외부 API 스팬</li>
- *   <li>{@code NiceApiClient.requestAuthUrl()} — NICE 표준창 URL 발급 외부 API 스팬</li>
- *   <li>{@code NiceApiClient.requestAuthResult()} — NICE 결과 조회 외부 API 스팬</li>
- *   <li>{@code IntegrationAuthClient.sendAuthCheck()} — 통합인증 서버 auth-check 스팬</li>
+ *   <li>{@code auth.provider.initiate / complete} — SPI 컨트롤러({@code /api/v1/auth/providers/{code}/…})</li>
+ *   <li>{@code auth.ci-check} · {@code integration.callback} · {@code integration.auth-check}</li>
  * </ul>
- *
- * <p><b>스팬 태그 전략:</b>
- * <ul>
- *   <li>{@code auth.service} — 서비스 유형 (nice / oacx / integration)</li>
- *   <li>{@code auth.operation} — 세부 작업 이름</li>
- *   <li>{@code auth.result} — success / error</li>
- *   <li>{@code correlation.id} — CorrelationIdHolder의 현재 값</li>
- *   <li>{@code span.kind} — CLIENT (외부 HTTP 호출 스팬에만 적용)</li>
- *   <li>{@code peer.service} — 외부 서비스 명칭 (nice.api / integration.api)</li>
- * </ul>
- *
- * <p><b>PII 보호:</b> CI, 이름, 생년월일 등 개인정보는 스팬 태그에 포함하지 않음.
- * correlationId와 requestNo만 추적 식별자로 사용.
- *
- * <p><b>F-05 On/Off:</b> {@code IDO_AUTH_TRACING_ENABLED=false} 시 이 빈 자체가 미등록됨.
- * Jaeger/Tempo 없는 로컬/개발 환경에서 OTLP 연결 오류 없이 실행 가능.
- * matchIfMissing=true → 설정값 없으면 기본 활성(ON).
- *
- * @see io.github.hipstermin.idem.hub.auth.service.NiceAuthService
- * @see io.github.hipstermin.idem.hub.auth.service.AuthService
- * @see io.github.hipstermin.idem.hub.auth.client.NiceApiClient
- * @see io.github.hipstermin.idem.hub.auth.client.IntegrationAuthClient
+ * 벤더 API 호출 스팬(NICE 토큰·URL·결과)은 플러그인이 필요하면 자체 계측한다.
+ * 비활성화: {@code ido.tracing.auth-aspect-enabled=false}.
  */
-@Slf4j
 @Aspect
 @Component
 @RequiredArgsConstructor
@@ -65,62 +31,17 @@ public class AuthTracingAspect {
     private final Tracer tracer;
 
     // ─────────────────────────────────────────────────────────────────────────
-    // NICE 서비스 추적 (비즈니스 레이어)
+    // 본인인증 SPI 추적 (벤더 무관, S5a) — 제공자 코드는 경로 변수로 스팬 속성에 싣는다
     // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * NICE 휴대폰 인증 URL 발급 추적
-     *
-     * <p>스팬명: {@code nice.phone.url}
-     * 태그: auth.service=nice, auth.operation=phone-url, correlation.id, auth.result
-     */
-    @Around("execution(* io.github.hipstermin.idem.hub.auth.service.NiceAuthService.getNicePhoneAuthUrl(..))")
-    public Object traceNicePhoneAuthUrl(ProceedingJoinPoint pjp) throws Throwable {
-        return traceMethod(pjp, "nice.phone.url", "nice", "phone-url");
+    @Around("execution(* io.github.hipstermin.idem.hub.auth.spi.IdentityVerificationController.initiate(..))")
+    public Object traceProviderInitiate(ProceedingJoinPoint pjp) throws Throwable {
+        return traceMethod(pjp, "auth.provider.initiate", "spi", "initiate");
     }
 
-    /**
-     * NICE 휴대폰 인증 결과 복호화 추적
-     *
-     * <p>스팬명: {@code nice.phone.result}
-     * HMAC 검증 + AES-GCM 복호화 + Q-IM 등록 전체 플로우 포함.
-     * 태그: auth.service=nice, auth.operation=phone-result, correlation.id, auth.result
-     */
-    @Around("execution(* io.github.hipstermin.idem.hub.auth.service.NiceAuthService.getNicePhoneAuthResult(..))")
-    public Object traceNicePhoneAuthResult(ProceedingJoinPoint pjp) throws Throwable {
-        return traceMethod(pjp, "nice.phone.result", "nice", "phone-result");
+    @Around("execution(* io.github.hipstermin.idem.hub.auth.spi.IdentityVerificationController.complete(..))")
+    public Object traceProviderComplete(ProceedingJoinPoint pjp) throws Throwable {
+        return traceMethod(pjp, "auth.provider.complete", "spi", "complete");
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // OACX 서비스 추적 (비즈니스 레이어)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * OACX 접근키 발급 추적
-     *
-     * <p>스팬명: {@code oacx.access-info}
-     * 태그: auth.service=oacx, auth.operation=access-info
-     */
-    @Around("execution(* io.github.hipstermin.idem.hub.auth.service.AuthService.getOacxAccessInfo(..))")
-    public Object traceOacxAccessInfo(ProceedingJoinPoint pjp) throws Throwable {
-        return traceMethod(pjp, "oacx.access-info", "oacx", "access-info");
-    }
-
-    /**
-     * OACX 간편서명 복호화 추적
-     *
-     * <p>스팬명: {@code oacx.easysign}
-     * JWT 복호화 + CI 내부 처리 전체 포함.
-     * 태그: auth.service=oacx, auth.operation=easysign
-     */
-    @Around("execution(* io.github.hipstermin.idem.hub.auth.service.AuthService.handleOacxEasysign(..))")
-    public Object traceOacxEasysign(ProceedingJoinPoint pjp) throws Throwable {
-        return traceMethod(pjp, "oacx.easysign", "oacx", "easysign");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // CI 처리 추적
-    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * CI 기반 회원 확인 추적
@@ -150,44 +71,7 @@ public class AuthTracingAspect {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // NiceApiClient HTTP 외부 호출 스팬 (CLIENT 스팬)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * NICE Access Token 발급 외부 API 호출 추적
-     *
-     * <p>스팬명: {@code nice.api.fetch-token}
-     * 태그: span.kind=CLIENT, peer.service=nice.api
-     */
-    @Around("execution(* io.github.hipstermin.idem.hub.auth.client.NiceApiClient.fetchAccessToken(..))")
-    public Object traceNiceFetchToken(ProceedingJoinPoint pjp) throws Throwable {
-        return traceExternalApiCall(pjp, "nice.api.fetch-token", "nice.api");
-    }
-
-    /**
-     * NICE 표준창 URL 발급 외부 API 호출 추적
-     *
-     * <p>스팬명: {@code nice.api.request-url}
-     * 태그: span.kind=CLIENT, peer.service=nice.api
-     */
-    @Around("execution(* io.github.hipstermin.idem.hub.auth.client.NiceApiClient.requestAuthUrl(..))")
-    public Object traceNiceRequestUrl(ProceedingJoinPoint pjp) throws Throwable {
-        return traceExternalApiCall(pjp, "nice.api.request-url", "nice.api");
-    }
-
-    /**
-     * NICE 인증 결과 조회 외부 API 호출 추적
-     *
-     * <p>스팬명: {@code nice.api.request-result}
-     * 태그: span.kind=CLIENT, peer.service=nice.api
-     */
-    @Around("execution(* io.github.hipstermin.idem.hub.auth.client.NiceApiClient.requestAuthResult(..))")
-    public Object traceNiceRequestResult(ProceedingJoinPoint pjp) throws Throwable {
-        return traceExternalApiCall(pjp, "nice.api.request-result", "nice.api");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // IntegrationAuthClient HTTP 외부 호출 스팬 (CLIENT 스팬)
+    // 외부 HTTP 호출 스팬 (CLIENT 스팬) — 코어가 직접 부르는 통합인증 서버만. 벤더 API 호출 추적은 플러그인 몫
     // ─────────────────────────────────────────────────────────────────────────
 
     /**

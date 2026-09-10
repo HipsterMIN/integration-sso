@@ -66,6 +66,8 @@ dependencies {
     implementation(project(":idem-common"))
     // 본인인증 SPI Mock 플러그인 — 클래스패스에는 항상 있지만 idem.plugins.mock-auth.enabled=true 일 때만 활성 (P1)
     runtimeOnly(project(":idem-plugin-mock-auth"))
+    // NICE/OACX 플러그인 (S5a) — 클래스패스에는 있지만 idem.plugins.nice-oacx.enabled=true 일 때만 활성. 코어 에디션은 false
+    runtimeOnly(project(":idem-plugin-nice-oacx"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -85,7 +87,9 @@ dependencies {
 
     // Redisson — 분산 락 (S9-T1: NiceTokenStore ensureAccessToken() 다중 Pod 대응)
     // redisson-spring-boot-starter: Spring Boot 자동 설정 + RedissonClient 빈 자동 등록
-    implementation("org.redisson:redisson-spring-boot-starter:3.32.0")
+    // 3.52.0: Spring Data Redis 3.5 어댑터(redisson-spring-data-35) 포함. 3.32.0(-33 어댑터)은 3.5.x 에서
+    //         RedisTemplate.expire() 가 StackOverflowError 로 재귀하는 문제가 있어 S5a 에서 올림
+    implementation("org.redisson:redisson-spring-boot-starter:3.52.0")
 
     // OpenTelemetry — 분산 추적 (S9-T4: auth 스팬)
     // Spring Boot Actuator + Micrometer Tracing: W3C TraceContext 전파 + OTLP 내보내기
@@ -116,8 +120,8 @@ dependencies {
     // HttpComponentsClientHttpRequestFactory + PoolingConnectionManager 조합으로 mTLS 구현
     implementation("org.apache.httpcomponents.client5:httpclient5")
 
-    // OACX SDK (전자서명 중계모듈) — Maven Central 미등록 → 로컬 libs/ 디렉토리
-    // 버전: v1.3.2 (idem-be/libs/OACX-SDK-v1.3.2.jar 에서 복사)
+    // AnyID SDK jar (libs/) — S5b 에서 idem-plugin-anyid 로 이동하고 vendor-libs 외부 공급으로 바꾼다.
+    // OACX SDK 는 S5a 에서 저장소에서 제거됨(플러그인이 vendor-libs 에서 읽는다)
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

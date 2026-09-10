@@ -1,6 +1,7 @@
 package io.github.hipstermin.idem.plugin.niceoacx;
 
 import io.github.hipstermin.idem.common.domain.AuthResult;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.common.spi.identity.AuthWidgetDescriptor;
 import io.github.hipstermin.idem.common.spi.identity.IdentityVerificationException;
 import io.github.hipstermin.idem.common.spi.identity.IdentityVerificationProvider;
@@ -16,9 +17,8 @@ import java.util.Optional;
 /**
  * NICE 휴대폰 본인인증 제공자 (플러그인판). 코드 {@code NICE_PHONE}, 등급 L2.
  *
- * <p>idem-hub 의 {@code NiceIdentityVerificationProvider}(P1 어댑터)와 같은 코드를 쓴다. 둘이 동시에 활성화되면
- * {@code IdentityProviderRegistry} 가 부팅 시 코드 중복으로 실패하므로, 플러그인을 켤 때는
- * {@code ido.auth.nice.provider-enabled=false} 로 코어 어댑터를 끈다. P2 본작업이 끝나면 코어 어댑터는 삭제된다.
+ * <p>S5a 부터 코어(idem-hub)에는 NICE 코드가 없다. 결과의 subjectKey 는 CI(registry {@code SubjectScheme#CI}),
+ * DI·내외국인 구분은 속성으로 싣는다. CI 는 FE 로 나가지 않는다 — 코어 컨트롤러가 registry 등록에만 쓴다.
  */
 public class NicePhoneIdentityVerificationProvider implements IdentityVerificationProvider {
 
@@ -60,12 +60,17 @@ public class NicePhoneIdentityVerificationProvider implements IdentityVerificati
             throw new IdentityVerificationException(CODE, "MISSING_PARAM", "params." + PARAM_WEB_TX_ID + " 가 필요합니다");
         }
         NicePhoneGateway.Result r = gateway.result(webTxId, callback.txId());
-        if (r == null || r.di() == null) {
-            throw new IdentityVerificationException(CODE, "RESULT_FAILED", "NICE 인증 결과 조회 실패");
+        if (r == null) {
+            throw new IdentityVerificationException(CODE, "5002", "NICE 인증 결과 조회 실패");
         }
         Map<String, String> attrs = new LinkedHashMap<>();
         if (r.nationalInfo() != null) attrs.put("nationalInfo", r.nationalInfo());
-        return new VerifiedIdentity(CODE, callback.txId(), r.di(), r.name(), r.birthdate(), r.gender(),
-                r.mobileNo(), r.mobileCo(), level(), Instant.now(), attrs);
+        if (r.di() != null) attrs.put("di", r.di());
+        // 동일인 판정 키는 CI(KR registry 스킴). CI 가 없으면 등록 불가 — 실패로 본다 (종전 "CI 미포함 — 등록 건너뜀" 은 사용자 없는 인증)
+        if (r.ci() == null || r.ci().isBlank()) {
+            throw new IdentityVerificationException(CODE, "5002", "NICE 결과에 CI 가 없습니다");
+        }
+        return new VerifiedIdentity(CODE, callback.txId(), r.ci(), r.name(), r.birthdate(), r.gender(),
+                r.mobileNo(), r.mobileCo(), level(), Instant.now(), attrs, SubjectScheme.CI);
     }
 }

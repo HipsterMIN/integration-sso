@@ -1,8 +1,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // idem-plugin-nice-oacx — NICE 휴대폰 본인인증 + OACX 전자서명 + EzAuth 위젯 플러그인 (P2 골격)
 //
-// 상태(2026-09-06): 골격만. 실제 코드(NiceAuthService/NiceApiClient/OacxClient/dto/nice, EzAuth 자산)는
-// 아직 idem-hub 에 있으며 README.md 의 이동표에 따라 P2 본작업에서 옮긴다.
+// 상태(2026-09-10, S5a): NICE 휴대폰 본인인증 코드(NicePhoneService/NiceApiClient/암·복호화/저장소)와 OACX 어댑터가
+// idem-hub 에서 이 모듈로 이동했다. 코어에는 벤더 클래스가 없다. EzAuth 정적 자산(FE public/ezauth)은 아직 콘솔에 있다.
 //
 // 벤더 SDK 공급 규칙
 //   - 저장소에 벤더 jar 를 두지 않는다. Gradle 속성 -PvendorLibsDir=<경로> 또는 환경변수 IDEM_VENDOR_LIBS,
@@ -27,8 +27,14 @@ dependencies {
     api(project(":idem-common"))
     implementation("org.springframework.boot:spring-boot-autoconfigure")
     compileOnly("org.springframework.boot:spring-boot-starter")
-    compileOnly("org.springframework.boot:spring-boot-starter-web")     // 정적 자산 서빙·컨트롤러(P2 본작업)
-    compileOnly("org.springframework:spring-webflux")                    // NiceApiClient(WebClient) 이동 대비
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    // 코어(idem-hub)가 런타임에 제공하는 빈·라이브러리 — 플러그인은 컴파일 시에만 참조한다 (S5a)
+    compileOnly("org.springframework:spring-webflux")                    // NiceApiClient(WebClient)
+    compileOnly("io.projectreactor.netty:reactor-netty-http")
+    compileOnly("org.springframework.boot:spring-boot-starter-data-redis")   // 토큰·세션 저장소
+    compileOnly("org.redisson:redisson-spring-boot-starter:3.52.0")          // 토큰 갱신 분산 락
+    compileOnly("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")    // @CircuitBreaker/@Retry
+    compileOnly("com.fasterxml.jackson.core:jackson-databind")
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     if (oacxSdkPresent) {
@@ -37,6 +43,13 @@ dependencies {
     }
     testImplementation("org.springframework.boot:spring-boot-starter")
     testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework:spring-webflux")
+    testImplementation("io.projectreactor.netty:reactor-netty-http")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-redis")
+    testImplementation("org.redisson:redisson-spring-boot-starter:3.52.0")
+    testImplementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
 }
 
 sourceSets {

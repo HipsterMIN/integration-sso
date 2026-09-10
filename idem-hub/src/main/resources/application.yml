@@ -116,7 +116,7 @@ ido:
   # ── S7-T2: NICE/OACX 본인인증 연동 (AuthProperties 바인딩) ──────────────
   # 설계 결정: Q1=B(API Key 없음), Q2=B(callback 추가), Q3=B(CI FE 미반환), Q4=A(WebClient)
   auth:
-    # ── NICE 휴대폰 본인인증 ───────────────────────────────────────────────
+    # ── NICE 휴대폰 본인인증 (S5a: idem-plugin-nice-oacx 가 이 키를 바인딩한다 — 코어에는 NICE 코드 없음) ──
     # NICE IDO 인증 서버: https://auth.niceid.co.kr
     # NICE 계약 후 발급받은 clientId/clientSecret 필수
     nice:
@@ -130,10 +130,10 @@ ido:
       return-url: ${NICE_RETURN_URL:http://localhost:3000/otp/auth-result}
       # NICE API 응답 타임아웃 (초) — 기본 10초
       timeout-seconds: ${NICE_TIMEOUT_SECONDS:10}
+      # NICE API 기본 URL — 통합 테스트(WireMock)에서만 바꾼다
+      base-url: ${NICE_BASE_URL:https://auth.niceid.co.kr}
 
-    # ── OACX 전자서명 중계모듈 ───────────────────────────────────────────
-    # OACX SDK(v1.3.2)를 통한 간편서명 기능 제공
-    # OACX-SDK-v1.3.2.jar: ido/libs/ 디렉토리에 배치 필요
+    # ── OACX 전자서명 중계모듈 (S5a: 플러그인이 바인딩. SDK 는 저장소 밖 vendor-libs 에서 공급, 없으면 제공자 미등록) ──
     oacx:
       # OACX provider key JSON 파일 절대 경로
       # OACX 운영사에서 발급한 파일 — 운영: OACX_PROVIDER_KEY_PATH 환경변수 필수 설정
@@ -862,3 +862,11 @@ logging:
     org.springframework.kafka: WARN
     org.flywaydb: INFO
 
+# ── 플러그인 (docs/vendor-plugin-plan.md · 범용화 S5) ─────────────────────────
+# 코어 에디션은 mock 만, KR 공공 에디션은 nice-oacx(·anyid) 를 켠다. 기본값은 현행 KR 배포 호환(true).
+idem:
+  plugins:
+    mock-auth:
+      enabled: ${IDEM_PLUGINS_MOCK_AUTH_ENABLED:false}
+    nice-oacx:
+      enabled: ${IDEM_PLUGINS_NICE_OACX_ENABLED:true}

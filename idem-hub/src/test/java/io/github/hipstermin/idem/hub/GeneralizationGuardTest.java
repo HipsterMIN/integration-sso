@@ -71,7 +71,7 @@ class GeneralizationGuardTest {
                     if (!EXTENSIONS.contains(extensionOf(file))) continue;
                     String rel = root.relativize(file).toString().replace('\\', '/');
                     if (isAllowlisted(rel)) continue;
-                    scan(file, rel, violations);
+                    scan(file, rel, FORBIDDEN, violations);
                 }
             }
         }
@@ -91,11 +91,64 @@ class GeneralizationGuardTest {
                     .withFailMessage("허용 목록 경로가 없습니다 — 목록에서 제거하세요: %s", suffix)
                     .isTrue();
         }
+        for (String suffix : VENDOR_ALLOWLIST.keySet()) {
+            assertThat(Files.exists(root.resolve(suffix)))
+                    .withFailMessage("벤더 허용 목록 경로가 없습니다 — 목록에서 제거하세요: %s", suffix)
+                    .isTrue();
+        }
+    }
+
+    // ── S5 벤더 가드 ────────────────────────────────────────────────────────
+
+    /**
+     * 코어 hub main 에 있으면 안 되는 벤더 SDK·API 토큰 ({@code docs/vendor-plugin-plan.md} P2). NICE 본인확인·OACX 간편인증은
+     * S5a 에서 {@code plugins/idem-plugin-nice-oacx} 로 옮겼으므로 hub 코어는 벤더 클래스·호스트를 직접 참조하지 않는다.
+     */
+    private static final List<String> VENDOR_FORBIDDEN = List.of(
+            "NiceApiClient", "NicePhoneService", "NiceCryptoUtil", "NiceTokenStore", "NiceAuthSessionStore",
+            "OacxClient", "OacxUtil", "OACX.", "niceid.co.kr", "import OACX"
+    );
+
+    /** 경로 접미사 → 허용 사유 (벤더 가드). */
+    private static final Map<String, String> VENDOR_ALLOWLIST = Map.of(
+            "idem-hub/src/main/java/io/github/hipstermin/idem/hub/auth/legacy/",
+                    "구 벤더 엔드포인트(/api/v1/auth/nice|oacx/*) 호환 프록시 — 콘솔 훅·k6 가 SPI 엔드포인트로 옮겨간 뒤 제거",
+            "idem-hub/src/main/java/io/github/hipstermin/idem/hub/broker/anyid/",
+                    "AnyID 브로커 — S5b 에서 idem-plugin-anyid 로 이동",
+            "idem-hub/src/main/resources/application.yml",
+                    "ido.auth.nice.base-url 기본값(플러그인 설정 키) — 플러그인 전용 설정 파일로 옮긴 뒤 제거",
+            "idem-hub/src/main/resources/sso-adaptor-conf-local.properties",
+                    "AnyID 벤더 SDK 설정 — S5b 에서 idem-plugin-anyid 로 이동",
+            "idem-hub/src/main/resources/config/anyid/",
+                    "AnyID 벤더 SDK 설정 파일 — S5b",
+            "idem-hub/src/main/resources/static/",
+                    "AnyID 벤더 프런트 번들 — S5b"
+    );
+
+    @Test
+    @DisplayName("hub 코어 main 에 벤더 SDK·API 토큰이 없다 (레거시 프록시·AnyID 허용 목록 제외)")
+    void hubCoreContainsNoVendorTokens() throws IOException {
+        Path root = repositoryRoot();
+        Path main = root.resolve("idem-hub/src/main");
+        List<String> violations = new ArrayList<>();
+        try (Stream<Path> files = Files.walk(main)) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) {
+                if (!EXTENSIONS.contains(extensionOf(file))) continue;
+                String rel = root.relativize(file).toString().replace('\\', '/');
+                if (VENDOR_ALLOWLIST.keySet().stream().anyMatch(rel::startsWith)) continue;
+                scan(file, rel, VENDOR_FORBIDDEN, violations);
+            }
+        }
+        assertThat(violations)
+                .withFailMessage("hub 코어에 벤더 토큰이 있습니다. 벤더 코드는 plugins/ 의 IdentityVerificationProvider 플러그인으로 옮기세요:\n  "
+                        + String.join("\n  ", violations))
+                .isEmpty();
     }
 
     // ── helpers ────────────────────────────────────────────────────────────
 
-    private static void scan(Path file, String rel, List<String> violations) throws IOException {
+    private static void scan(Path file, String rel, List<String> tokens, List<String> violations)
+            throws IOException {
         List<String> lines;
         try {
             lines = Files.readAllLines(file);
@@ -104,7 +157,7 @@ class GeneralizationGuardTest {
         }
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
-            for (String token : FORBIDDEN) {
+            for (String token : tokens) {
                 if (line.contains(token)) {
                     violations.add(rel + ":" + (i + 1) + "  [" + token + "]  " + line.trim());
                 }

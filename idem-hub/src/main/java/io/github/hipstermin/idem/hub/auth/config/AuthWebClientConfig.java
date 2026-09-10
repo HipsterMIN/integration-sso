@@ -31,17 +31,18 @@ import reactor.netty.http.client.HttpClient;
  *
  * <p><b>WebClient 빈 목록:</b>
  * <ul>
- *   <li>{@code niceWebClient} — NICE IDO 인증 서버({@code https://auth.niceid.co.kr}) 전용</li>
  *   <li>{@code integrationAuthWebClient} — 통합인증 서버 전용 (기업인증 auth-check)</li>
  * </ul>
+ *
+ * <p>벤더 본인인증(NICE 본인확인·OACX 간편인증)의 WebClient 는 S5a 부터 각 플러그인이 스스로 만든다
+ * ({@code plugins/idem-plugin-nice-oacx}).
  *
  * <p><b>기존 RestTemplate과의 공존:</b>
  * {@code IdoWebConfig}의 {@code restTemplate}, {@code qimRestTemplate},
  * {@code webhookRestTemplate} 빈과 충돌 없음.
- * WebClient는 NICE/OACX/통합인증 전용, RestTemplate은 Q-Sign/Q-IM/Webhook 전용으로 역할 분리.
+ * WebClient는 통합인증 전용, RestTemplate은 Q-Sign/Q-IM/Webhook 전용으로 역할 분리.
  *
  * @see AuthProperties
- * @see io.github.hipstermin.idem.hub.auth.client.NiceApiClient
  * @see io.github.hipstermin.idem.hub.auth.client.IntegrationAuthClient
  */
 @Slf4j
@@ -50,65 +51,13 @@ import reactor.netty.http.client.HttpClient;
 public class AuthWebClientConfig {
 
     /**
-     * NICE WebClient Bean 이름 상수
+     * 통합인증 WebClient Bean 이름 상수
      *
-     * <p>{@code NiceApiClient}에서 {@code @Qualifier(AuthWebClientConfig.NICE_WEB_CLIENT)}로 주입.
-     */
-    public static final String NICE_WEB_CLIENT = "niceWebClient";
-
-    /**
-     * 통합인증 서버 WebClient Bean 이름 상수
-     *
-     * <p>{@code IntegrationAuthClient}에서
-     * {@code @Qualifier(AuthWebClientConfig.INTEGRATION_AUTH_WEB_CLIENT)}로 주입.
+     * <p>{@code IntegrationAuthClient}에서 {@code @Qualifier(AuthWebClientConfig.INTEGRATION_AUTH_WEB_CLIENT)}로 주입.
      */
     public static final String INTEGRATION_AUTH_WEB_CLIENT = "integrationAuthWebClient";
 
-    /** NICE IDO 인증 서버 고정 Base URL */
-    private static final String NICE_BASE_URL = "https://auth.niceid.co.kr";
-
-    /** NICE API에 필요한 플랫폼 헤더 */
-    private static final String NICE_DEV_LANG_HEADER = "X-Tntc-DevLang";
-    private static final String NICE_DEV_LANG_VALUE = "Linux/Java";
-
-    /**
-     * NICE 인증 서버 전용 WebClient
-     *
-     * <p>NICE IDO 통합인증 표준 API 호출 전용. Base URL 고정.
-     * 커넥션 타임아웃 5초, 응답 타임아웃은 {@code AuthProperties.Nice.timeoutSeconds} 기준.
-     *
-     * <p><b>기본 헤더:</b>
-     * <ul>
-     *   <li>{@code Content-Type: application/json}</li>
-     *   <li>{@code Accept: application/json}</li>
-     *   <li>{@code X-Tntc-DevLang: Linux/Java} — NICE 서버 요구 헤더</li>
-     * </ul>
-     *
-     * @param props AuthProperties (ido.auth.nice 설정)
-     * @return NICE 전용 WebClient
-     */
-    @Bean(NICE_WEB_CLIENT)
-    public WebClient niceWebClient(AuthProperties props) {
-        int timeoutSeconds = props.nice().timeoutSeconds();
-        log.info("[AuthWebClientConfig] NICE WebClient 초기화 — baseUrl={}, timeout={}s",
-                NICE_BASE_URL, timeoutSeconds);
-        return baseBuilder(NICE_BASE_URL, timeoutSeconds)
-                .defaultHeader(NICE_DEV_LANG_HEADER, NICE_DEV_LANG_VALUE)
-                .build();
-    }
-
-    /**
-     * 통합인증 서버 전용 WebClient
-     *
-     * <p>기업 간편인증 콜백 처리 시 통합인증 서버에 auth-check를 요청하는 클라이언트.
-     * Base URL은 {@code AuthProperties.Integration.baseUrl}에서 주입.
-     *
-     * <p><b>주의:</b> {@code baseUrl}이 비어있으면 WebClient 빈 생성은 되지만,
-     * 실제 요청 시 오류 발생. 운영 환경에서 반드시 {@code INTEGRATION_AUTH_BASE_URL} 환경변수 설정 필요.
-     *
-     * @param props AuthProperties (ido.auth.integration 설정)
-     * @return 통합인증 서버 전용 WebClient
-     */
+    /** 통합인증 서버 WebClient — base URL·타임아웃은 {@code ido.auth.integration.*} */
     @Bean(INTEGRATION_AUTH_WEB_CLIENT)
     public WebClient integrationAuthWebClient(AuthProperties props) {
         String baseUrl = props.integration().baseUrl();

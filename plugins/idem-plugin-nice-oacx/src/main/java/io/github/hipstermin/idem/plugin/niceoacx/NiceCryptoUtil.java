@@ -1,4 +1,4 @@
-package io.github.hipstermin.idem.hub.auth.util;
+package io.github.hipstermin.idem.plugin.niceoacx;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;

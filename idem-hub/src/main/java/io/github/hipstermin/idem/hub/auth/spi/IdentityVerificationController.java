@@ -10,6 +10,7 @@ import io.github.hipstermin.idem.common.spi.identity.VerificationCallback;
 import io.github.hipstermin.idem.common.spi.identity.VerificationRequest;
 import io.github.hipstermin.idem.common.spi.identity.VerificationStart;
 import io.github.hipstermin.idem.common.spi.identity.VerifiedIdentity;
+import io.github.hipstermin.idem.hub.auth.audit.AuthAuditService;
 import io.github.hipstermin.idem.hub.identity.SubjectRegistrationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -46,6 +47,7 @@ public class IdentityVerificationController {
 
     private final IdentityProviderRegistry     registry;
     private final SubjectRegistrationService   subjectRegistrationService;
+    private final AuthAuditService             authAuditService;
 
     @GetMapping
     public List<ProviderDescriptor> list() {
@@ -59,8 +61,11 @@ public class IdentityVerificationController {
         IdentityVerificationProvider provider = require(code, correlationId);
         InitiateRequest req = body == null ? new InitiateRequest(null, null) : body;
         try {
-            return provider.initiate(new VerificationRequest(correlationId, req.returnUrl(), req.params()));
+            VerificationStart start = provider.initiate(new VerificationRequest(correlationId, req.returnUrl(), req.params()));
+            authAuditService.publishProviderInitiate(provider.code(), start.txId(), "2000", null);
+            return start;
         } catch (IdentityVerificationException e) {
+            authAuditService.publishProviderInitiate(provider.code(), null, e.getReasonCode(), e.getMessage());
             throw failed(e, correlationId);
         }
     }
@@ -81,9 +86,17 @@ public class IdentityVerificationController {
         try {
             identity = provider.complete(new VerificationCallback(provider.code(), body.txId(), correlationId, body.params()));
         } catch (IdentityVerificationException e) {
+            authAuditService.publishProviderComplete(provider.code(), body.txId(), e.getReasonCode(), null, null, e.getMessage());
             throw failed(e, correlationId);
         }
-        SubjectRegistrationService.Result reg = subjectRegistrationService.register(identity, correlationId);
+        SubjectRegistrationService.Result reg;
+        try {
+            reg = subjectRegistrationService.register(identity, correlationId);
+        } catch (RuntimeException e) {
+            authAuditService.publishProviderComplete(provider.code(), body.txId(), "5010", null, null, "registry 등록 실패: " + e.getMessage());
+            throw e;
+        }
+        authAuditService.publishProviderComplete(provider.code(), body.txId(), "2000", reg.qimUserId(), reg.newUser(), null);
         return new CompleteResponse(identity, new Registration(reg.qimUserId(), reg.newUser()));
     }
 

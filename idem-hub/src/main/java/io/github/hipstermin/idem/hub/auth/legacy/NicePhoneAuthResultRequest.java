@@ -1,4 +1,4 @@
-package io.github.hipstermin.idem.hub.auth.dto;
+package io.github.hipstermin.idem.hub.auth.legacy;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
