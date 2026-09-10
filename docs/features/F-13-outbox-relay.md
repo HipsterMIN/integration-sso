@@ -2,7 +2,7 @@
 
 > **환경변수**: `IDO_OUTBOX_RELAY_ENABLED`  
 > **기본값**: `true` (안정 운영 중)  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/infrastructure/outbox/IdoOutboxRelay.java`
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/infrastructure/outbox/IdoOutboxRelay.java`
 
 ---
 

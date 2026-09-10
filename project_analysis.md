@@ -9,7 +9,7 @@
 | 항목 | 내용 |
 |------|------|
 | **프로젝트명** | OnePass 통합 인증 플랫폼 (integration-sso) |
-| **루트 그룹** | `kr.go.smes` |
+| **루트 그룹** | `io.github.hipstermin.idem` |
 | **빌드 시스템** | Gradle (Kotlin DSL) — 멀티 모듈 |
 | **Java 버전** | JDK 21 (toolchain), SDK는 Java 8 호환 타겟 |
 | **Spring Boot** | 3.5.9 |
@@ -50,7 +50,7 @@ onepass-platform (root)
 - DB: MariaDB (NHN Cloud RDS) / Flyway 마이그레이션
 - `platform-common` 의존
 
-**도메인 패키지** (`kr.go.smes.qim`):
+**도메인 패키지** (`io.github.hipstermin.idem.registry`):
 | 패키지 | 역할 |
 |--------|------|
 | `api` | REST 컨트롤러 레이어 |
@@ -98,7 +98,7 @@ onepass-platform (root)
 - HTTP 어댑터: `HttpURLConnection` (기본) / OkHttp3 / Apache HC5 (선택적 compileOnly)
 - Maven Central + 내부 Nexus 배포 지원
 - GPG 서명 (CI: 환경변수 방식)
-- 배포 좌표: `kr.go.smes:onepass-agency-sdk`
+- 배포 좌표: `io.github.hipstermin.idem:onepass-agency-sdk`
 
 ---
 

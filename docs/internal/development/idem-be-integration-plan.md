@@ -61,7 +61,7 @@ idem-console (9090)
 | Spring Boot | **4.0.6** | 3.5.x로 다운그레이드 (breaking 없음) |
 | Java | 21 | 동일 |
 | 포트 | 9292 | **8083 (ido 포트)** 사용 |
-| 패키지 | `kr.ucube.integratedauth.identityorchestrator` | `kr.go.smes.ido.auth` 패키지 이식 |
+| 패키지 | `kr.ucube.integratedauth.identityorchestrator` | `io.github.hipstermin.idem.hub.auth` 패키지 이식 |
 | 아키텍처 | 헥사고날 (Ports & Adapters) | **ido에 이식** (포트/어댑터 패턴 보존) |
 | DB | H2/PostgreSQL (Board 샘플만) | 불필요 (stateless 설계) |
 | HTTP 클라이언트 | WebFlux WebClient (비동기) | RestTemplate (ido 표준) |
@@ -121,14 +121,14 @@ idem-console (9090)
 
 | 파일 경로 | 역할 | 신규/수정 |
 |-----------|------|-----------|
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/port/ImApiOutPort.java` | 아웃바운드 포트 인터페이스 | **신규** |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/adapter/ImApiOutAdapter.java` | 포트 구현체 (QimClient 위임) | **신규** |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/dto/im/QimRegisterResponse.java` | Q-IM 등록 응답 DTO | **신규** |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/dto/im/QimMemberInfo.java` | Q-IM CI 조회 결과 DTO | **신규** |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/infrastructure/QimClient.java` | HTTP 클라이언트 인터페이스 확장 | **수정** |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/infrastructure/QimClientImpl.java` | HTTP 클라이언트 구현체 확장 | **수정** |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/service/AuthService.java` | handleOacxEasysign + checkNiceCi TODO 해제 | **수정** |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/service/NiceAuthService.java` | getNicePhoneAuthResult CI 등록 로직 추가 | **수정** |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/port/ImApiOutPort.java` | 아웃바운드 포트 인터페이스 | **신규** |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/adapter/ImApiOutAdapter.java` | 포트 구현체 (QimClient 위임) | **신규** |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/dto/im/QimRegisterResponse.java` | Q-IM 등록 응답 DTO | **신규** |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/dto/im/QimMemberInfo.java` | Q-IM CI 조회 결과 DTO | **신규** |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/infrastructure/QimClient.java` | HTTP 클라이언트 인터페이스 확장 | **수정** |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/infrastructure/QimClientImpl.java` | HTTP 클라이언트 구현체 확장 | **수정** |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/service/AuthService.java` | handleOacxEasysign + checkNiceCi TODO 해제 | **수정** |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/service/NiceAuthService.java` | getNicePhoneAuthResult CI 등록 로직 추가 | **수정** |
 
 ### 3.2 CI 처리 플로우 (Q3=B 결정 준수)
 
@@ -261,7 +261,7 @@ const beInstance = axios.create({ baseURL: 'http://localhost:8083' });
 | 항목 | 결과 | 비고 |
 |------|------|------|
 | `./gradlew :idem-hub:compileJava` | ✅ BUILD SUCCESSFUL | S7-T6 신규 파일 포함 |
-| `./gradlew :idem-hub:test --tests "kr.go.smes.ido.auth.*"` | ✅ **33건 전체 통과** | checkNiceCi +2건 신규 |
+| `./gradlew :idem-hub:test --tests "io.github.hipstermin.idem.hub.auth.*"` | ✅ **33건 전체 통과** | checkNiceCi +2건 신규 |
 | `AuthServiceTest` | ✅ 16건 | ImApiOutPort Mock 주입 완료 |
 | `NiceCryptoUtil` 테스트 | ✅ 17건 | 기존 테스트 유지 |
 

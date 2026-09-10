@@ -410,7 +410,7 @@ jakarta.servlet.* 시작 버전:
 ### 6.1 패키지 구조
 
 ```
-kr.go.smes.agent
+io.github.hipstermin.idem.agent
 ├── core/
 │   └── OnePassAgentMain.java          ← JVM 진입점 (premain/agentmain)
 ├── config/
@@ -757,12 +757,12 @@ OnePass 서버 연결 실패       WARN 로그 (비동기) + 요청 단계에서
 ```
 idem-agent-1.0.0-all.jar
 ├── META-INF/MANIFEST.MF
-│   ├── Premain-Class: kr.go.smes.agent.core.OnePassAgentMain
-│   ├── Agent-Class:   kr.go.smes.agent.core.OnePassAgentMain
+│   ├── Premain-Class: io.github.hipstermin.idem.agent.core.OnePassAgentMain
+│   ├── Agent-Class:   io.github.hipstermin.idem.agent.core.OnePassAgentMain
 │   ├── Can-Redefine-Classes: true
 │   └── Can-Retransform-Classes: true
 │
-├── kr/go/smes/agent/**         ← Agent 클래스
+├── io/github/hipstermin/idem/agent/**         ← Agent 클래스
 ├── net/bytebuddy/**            ← byte-buddy (JDK 8+ 환경용)
 └── javassist/**                ← Javassist (JDK 1.5 환경용)
 ```
@@ -818,8 +818,8 @@ CtClass ctClass = pool.makeClass(classfileBuffer_InputStream);
 
 운영 배포 시 maven-shade-plugin으로 패키지 재배치:
 ```
-net.bytebuddy.** → kr.go.smes.agent.shaded.bytebuddy.**
-javassist.**    → kr.go.smes.agent.shaded.javassist.**
+net.bytebuddy.** → io.github.hipstermin.idem.agent.shaded.bytebuddy.**
+javassist.**    → io.github.hipstermin.idem.agent.shaded.javassist.**
 ```
 
 > 현재 개발 빌드(build.gradle.kts)에서는 원래 패키지로 번들링.  

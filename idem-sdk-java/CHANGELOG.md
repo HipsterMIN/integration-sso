@@ -181,7 +181,7 @@ _(다음 릴리즈 예정 변경사항 없음)_
 ### Technical Notes
 
 - **JDK 버전 프리 설계**: Java 8 바이너리 출력, JDK 21로 빌드
-- **Automatic-Module-Name**: `kr.go.smes.sdk.agency` (JPMS 호환)
+- **Automatic-Module-Name**: `io.github.hipstermin.idem.sdk.agency` (JPMS 호환)
 - **Spring BOM 격리**: 루트 프로젝트의 Spring Boot 3.x BOM이 SDK에 전이되지 않도록 `configurations` 블록으로 차단
 - **Lombok 컴파일 타임 전용**: 런타임 의존성 없음
 

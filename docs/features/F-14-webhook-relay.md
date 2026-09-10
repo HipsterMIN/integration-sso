@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_WEBHOOK_RELAY_ENABLED`  
 > **기본값**: `true`  
 > **Spring 프로퍼티**: `ido.webhook.relay-enabled`  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/webhook/WebhookRelayScheduler.java`  
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/webhook/WebhookRelayScheduler.java`  
 > **대상 테이블**: `webhook_dispatch_outbox`
 
 ---
@@ -144,5 +144,5 @@ ORDER BY avg_retry DESC;
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/FeatureFlags.java)
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)

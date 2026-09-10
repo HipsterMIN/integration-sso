@@ -424,7 +424,7 @@ const tempPassword = pwRes.data.tempPassword;  // 필드명 일치 확인
 ## 10. 패키지 구조 및 설계 원칙
 
 ```
-idem-hub/src/main/java/kr/go/smes/idem-hub/
+idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/
 ├── auth/
 │   ├── controller/
 │   │   └── AuthController.java     # /api/v1/auth/** — BFF 진입점
@@ -469,7 +469,7 @@ idem-hub/src/main/java/kr/go/smes/idem-hub/
 ./gradlew :idem-hub:build --no-daemon
 
 # 특정 테스트 클래스만 실행
-./gradlew :idem-hub:test --tests "kr.go.smes.ido.auth.*" --no-daemon
+./gradlew :idem-hub:test --tests "io.github.hipstermin.idem.hub.auth.*" --no-daemon
 ```
 
 ### 테스트 작성 주의사항

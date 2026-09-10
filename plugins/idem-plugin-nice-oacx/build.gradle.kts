@@ -7,7 +7,7 @@
 // 벤더 SDK 공급 규칙
 //   - 저장소에 벤더 jar 를 두지 않는다. Gradle 속성 -PvendorLibsDir=<경로> 또는 환경변수 IDEM_VENDOR_LIBS,
 //     기본 $HOME/.idem/vendor-libs 에서 OACX-SDK-*.jar 를 compileOnly/runtimeOnly 로 읽는다.
-//   - SDK 가 없으면 SDK 에 의존하는 소스(kr.go.smes.plugin.niceoacx.oacx 패키지)를 컴파일에서 자동 제외한다.
+//   - SDK 가 없으면 SDK 에 의존하는 소스(io.github.hipstermin.idem.plugin.niceoacx.oacx 패키지)를 컴파일에서 자동 제외한다.
 //     → 코어 CI 는 벤더 없이 통과하고, SDK 가 있는 환경(자체 호스팅 러너·개발 PC)에서만 OACX 부분이 빌드된다.
 // ══════════════════════════════════════════════════════════════════════════════
 plugins {

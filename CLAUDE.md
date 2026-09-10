@@ -35,7 +35,7 @@ CI 는 PR 게이트(Build & Unit Test, k6)만 담당하고 Testcontainers 통합
 - **프로젝트명**: Idem — 회원통합·연합인가 플랫폼 (2026-09-04 OnePass에서 개명, `docs/naming.md`)
 - **현재 버전**: v0.8.11
 - **주요 모듈**: `idem-gate/`(구 q-sign), `idem-registry/`(구 q-im), `idem-hub/`(구 ido), `idem-authz/`, `idem-relay/`, `idem-console/`, `idem-sdk-java/`, `idem-agent/`, `idem-tenant-sample/`, `idem-common/`
-- **명명 규칙**: Java 패키지(`kr.go.smes.*`)·런타임 식별자는 아직 구명 — 개명 4·5단계 전까지 새 코드도 기존 패키지를 따른다
+- **명명 규칙**: Java 패키지는 `io.github.hipstermin.idem.{common,gate,registry,hub,authz,relay,sdk,agent,tenant,plugin}` (4a 완료). 런타임 식별자(설정 키 `ido.*`/`qim.*`, 헤더 값 `q-sign`, Redis 접두 `ido:*`, 환경변수 `IDO_*`/`QIM_*`/`ONEPASS_*`, DB·Keycloak 이름)는 4b·5단계 전까지 구명 유지 — 새 코드도 기존 키를 따른다
 
 ## 문서 구조
 

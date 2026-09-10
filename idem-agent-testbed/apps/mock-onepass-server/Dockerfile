@@ -9,16 +9,16 @@ FROM eclipse-temurin:11-jdk-jammy AS build
 WORKDIR /build
 
 # Java 소스 복사
-COPY src/main/java/kr/go/smes/mock/MockOnePassServer.java \
-     /build/kr/go/smes/mock/MockOnePassServer.java
+COPY src/main/java/io/github/hipstermin/idem/testbed/mock/MockOnePassServer.java \
+     /build/io/github/hipstermin/idem/testbed/mock/MockOnePassServer.java
 
 # 컴파일 (외부 의존 없음 — JDK 표준 라이브러리만 사용)
 RUN javac -source 11 -target 11 \
     -d /build/classes \
-    /build/kr/go/smes/mock/MockOnePassServer.java
+    /build/io/github/hipstermin/idem/testbed/mock/MockOnePassServer.java
 
 # manifest 생성
-RUN echo "Main-Class: kr.go.smes.mock.MockOnePassServer" > /build/MANIFEST.MF
+RUN echo "Main-Class: io.github.hipstermin.idem.testbed.mock.MockOnePassServer" > /build/MANIFEST.MF
 
 # JAR 패키징
 RUN jar cfm /build/mock-onepass-server.jar /build/MANIFEST.MF \

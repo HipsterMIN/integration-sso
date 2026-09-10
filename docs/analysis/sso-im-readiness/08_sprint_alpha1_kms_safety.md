@@ -23,7 +23,7 @@ KMS 관련 두 개의 Critical 결함을 **운영 진입 전 절대 차단** 사
 ### 2.1 변경 전 상태
 
 ```java
-// idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/kms/LocalKmsClient.java
+// idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/crypto/kms/LocalKmsClient.java
 @ConditionalOnProperty(prefix = "ido.kms", name = "enabled",
                        havingValue = "false", matchIfMissing = true)  // ← 위험
 public class LocalKmsClient implements KmsClient {
@@ -118,7 +118,7 @@ public class LocalKmsClient implements KmsClient {
 ### 3.1 변경 전 상태
 
 ```java
-// idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/kms/VaultKmsClient.java
+// idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/crypto/kms/VaultKmsClient.java
 @PostConstruct
 void init() {
     // ...
@@ -224,11 +224,11 @@ ido:
 
 | 파일 | 변경 종류 | 추가 LOC | 삭제 LOC |
 |------|----------|---------|---------|
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/kms/LocalKmsClient.java` | 수정 | +60 | -3 |
-| `idem-hub/src/main/java/kr/go/smes/idem-hub/crypto/kms/VaultKmsClient.java` | 수정 | +55 | -12 |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/crypto/kms/LocalKmsClient.java` | 수정 | +60 | -3 |
+| `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/crypto/kms/VaultKmsClient.java` | 수정 | +55 | -12 |
 | `idem-hub/src/main/resources/application.yml` | 설정 추가 | +15 | 0 |
-| `idem-hub/src/test/java/kr/go/smes/idem-hub/crypto/kms/LocalKmsClientTest.java` | 테스트 추가 | +95 | -3 |
-| `idem-hub/src/test/java/kr/go/smes/idem-hub/crypto/kms/VaultKmsClientTest.java` | 테스트 추가 | +95 | 0 |
+| `idem-hub/src/test/java/io/github/hipstermin/idem/idem-hub/crypto/kms/LocalKmsClientTest.java` | 테스트 추가 | +95 | -3 |
+| `idem-hub/src/test/java/io/github/hipstermin/idem/idem-hub/crypto/kms/VaultKmsClientTest.java` | 테스트 추가 | +95 | 0 |
 | `docs/analysis/sso-im-readiness/07_risk_matrix_roadmap.md` | 진행 상태 반영 | +6 | -10 |
 | `docs/analysis/sso-im-readiness/08_sprint_alpha1_kms_safety.md` | 신규 | +250 | 0 |
 

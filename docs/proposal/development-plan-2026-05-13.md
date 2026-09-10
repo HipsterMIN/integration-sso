@@ -322,10 +322,10 @@ echo "✅ .env.secrets 생성 완료 — 절대 커밋 금지"
 현재 FE의 `extInstance`가 Q-IM(8082)을 직접 호출. 이를 ido(8083)를 통해 중계해야 함.  
 `/api/ext/**` → ido가 X-API-Key를 서버 환경변수에서 로드하여 Q-IM으로 포워딩.
 
-**구현할 파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/ext/ExtProxyController.java` (신규 생성)
+**구현할 파일**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/ext/ExtProxyController.java` (신규 생성)
 
 ```java
-package kr.go.smes.ido.ext;
+package io.github.hipstermin.idem.hub.ext;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -421,10 +421,10 @@ public class ExtProxyController {
 ```
 
 **RestTemplate 빈 등록** (이미 있으면 스킵):  
-파일: `idem-hub/src/main/java/kr/go/smes/idem-hub/config/RestTemplateConfig.java` (신규)
+파일: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/RestTemplateConfig.java` (신규)
 
 ```java
-package kr.go.smes.ido.config;
+package io.github.hipstermin.idem.hub.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -598,13 +598,13 @@ export default exchangeCiToken;
 **배경**: FE ciToken.ts 재작성(Task 2-2-D)의 서버 측 구현.  
 CI 원문을 FE로부터 받아 AES 암호화 후 Q-IM에 전달, ciToken 반환.
 
-**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/controller/AuthController.java`  
+**파일**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/controller/AuthController.java`  
 기존 `AuthController`에 아래 엔드포인트 추가 (기존 파일 수정):
 
 ```java
 // 기존 import에 추가
-import kr.go.smes.ido.auth.dto.CiTokenRequest;
-import kr.go.smes.ido.auth.dto.CiTokenResponse;
+import io.github.hipstermin.idem.hub.auth.dto.CiTokenRequest;
+import io.github.hipstermin.idem.hub.auth.dto.CiTokenResponse;
 
 // 컨트롤러 내부에 추가
 /**
@@ -625,9 +625,9 @@ public ResponseEntity<CiTokenResponse> exchangeCiToken(
 
 **DTO 신규 생성**:
 
-`idem-hub/src/main/java/kr/go/smes/idem-hub/auth/dto/CiTokenRequest.java`:
+`idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/dto/CiTokenRequest.java`:
 ```java
-package kr.go.smes.ido.auth.dto;
+package io.github.hipstermin.idem.hub.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -639,9 +639,9 @@ public class CiTokenRequest {
 }
 ```
 
-`idem-hub/src/main/java/kr/go/smes/idem-hub/auth/dto/CiTokenResponse.java`:
+`idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/dto/CiTokenResponse.java`:
 ```java
-package kr.go.smes.ido.auth.dto;
+package io.github.hipstermin.idem.hub.auth.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -654,7 +654,7 @@ public class CiTokenResponse {
 ```
 
 **AuthService에 메서드 추가**:  
-파일: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/service/AuthService.java`
+파일: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/service/AuthService.java`
 
 ```java
 /**
@@ -713,7 +713,7 @@ find idem-gate/src/main/java -name "*.java" | xargs grep -l \
 
 #### Task 3-2: `issueFromOidc()` 운영 가능하도록 수정 【BE팀 / 1일】
 
-**파일**: `idem-gate/src/main/java/kr/go/smes/qsign/application/AuthServiceImpl.java`
+**파일**: `idem-gate/src/main/java/io/github/hipstermin/idem/gate/application/AuthServiceImpl.java`
 
 **현재 문제** (line ~67):
 ```java
@@ -742,12 +742,12 @@ String identifierHash = computeIdentifierHash(
 
 #### Task 3-3: q-sign OIDC 표준 엔드포인트 5개 구현 【BE팀 / 4일】
 
-**신규 파일**: `idem-gate/src/main/java/kr/go/smes/qsign/api/OidcController.java`
+**신규 파일**: `idem-gate/src/main/java/io/github/hipstermin/idem/gate/api/OidcController.java`
 
 ```java
-package kr.go.smes.qsign.api;
+package io.github.hipstermin.idem.gate.api;
 
-import kr.go.smes.qsign.keycloak.KeycloakProperties;
+import io.github.hipstermin.idem.gate.keycloak.KeycloakProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -829,12 +829,12 @@ public class OidcController {
 }
 ```
 
-**신규 파일**: `idem-gate/src/main/java/kr/go/smes/qsign/api/OidcProxyService.java`
+**신규 파일**: `idem-gate/src/main/java/io/github/hipstermin/idem/gate/api/OidcProxyService.java`
 
 ```java
-package kr.go.smes.qsign.api;
+package io.github.hipstermin.idem.gate.api;
 
-import kr.go.smes.qsign.keycloak.KeycloakProperties;
+import io.github.hipstermin.idem.gate.keycloak.KeycloakProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;

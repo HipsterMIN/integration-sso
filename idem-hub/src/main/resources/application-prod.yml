@@ -33,13 +33,13 @@ spring:
 logging:
   level:
     root: WARN
-    kr.go.smes.ido: INFO
-    kr.go.smes.ido.fe: INFO
-    kr.go.smes.ido.webhook: INFO
-    kr.go.smes.ido.burst: INFO
-    kr.go.smes.ido.audit: INFO        # 감사 로그는 INFO — 적재 추적 필요
-    kr.go.smes.ido.auth: INFO         # 인증 흐름 — DEBUG는 PII 노출 위험
-    kr.go.smes.ido.crypto: WARN       # 암호화 — 키/IV 로그 차단
+    io.github.hipstermin.idem.hub: INFO
+    io.github.hipstermin.idem.hub.fe: INFO
+    io.github.hipstermin.idem.hub.webhook: INFO
+    io.github.hipstermin.idem.hub.burst: INFO
+    io.github.hipstermin.idem.hub.audit: INFO        # 감사 로그는 INFO — 적재 추적 필요
+    io.github.hipstermin.idem.hub.auth: INFO         # 인증 흐름 — DEBUG는 PII 노출 위험
+    io.github.hipstermin.idem.hub.crypto: WARN       # 암호화 — 키/IV 로그 차단
     org.springframework: WARN
     org.springframework.kafka: WARN
     org.flywaydb: INFO

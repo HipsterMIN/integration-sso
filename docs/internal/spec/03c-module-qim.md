@@ -33,7 +33,7 @@ SP(Service Provider) 수신 API 처리
 ## 2. 패키지 구조
 
 ```
-idem-registry/src/main/java/kr/go/smes/qim/
+idem-registry/src/main/java/io/github/hipstermin/idem/registry/
 ├── QImApplication.java
 ├── api/
 │   ├── MemberLookupController.java     # CI 기반 회원 조회

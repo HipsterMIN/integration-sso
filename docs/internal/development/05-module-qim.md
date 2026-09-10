@@ -15,7 +15,7 @@ Q-IM(Q-Identity Management)은 **식별 SoR(Source of Record)**으로, 통합 �
 ### 1.1 패키지 구조
 
 ```
-idem-registry/src/main/java/kr/go/smes/qim/
+idem-registry/src/main/java/io/github/hipstermin/idem/registry/
 ├── QImApplication.java
 ├── api/                           # 외부/내부 API
 │   ├── GlobalExceptionHandler.java

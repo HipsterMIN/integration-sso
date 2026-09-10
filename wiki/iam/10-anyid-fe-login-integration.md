@@ -1032,7 +1032,7 @@ public ResponseEntity<?> handleSsob(
 
 ### 10.2 BE에 통합 ssob 엔드포인트 추가
 
-**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/broker/anyid/AnyIdController.java`
+**파일**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/anyid/AnyIdController.java`
 
 기존 `@PostMapping("/{provider}/ssob")` 외에 다음 추가:
 

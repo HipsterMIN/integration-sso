@@ -22,7 +22,7 @@
 
 ## 2. 목표 아키텍처
 
-### 2.1 코어 SPI (`idem-common` 의 `spi` 패키지, 4단계 패키지 이동 전까지 `kr.go.smes.common.spi`)
+### 2.1 코어 SPI (`idem-common` 의 `spi` 패키지, 4단계 패키지 이동 전까지 `io.github.hipstermin.idem.common.spi`)
 
 ```java
 public interface IdentityVerificationProvider {          // 본인인증

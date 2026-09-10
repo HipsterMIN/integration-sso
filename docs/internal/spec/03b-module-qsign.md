@@ -28,7 +28,7 @@ Q-Sign은 **인증(Authentication) Source of Record**다. 외부 IdP(Keycloak, �
 ## 2. 패키지 구조
 
 ```
-idem-gate/src/main/java/kr/go/smes/qsign/
+idem-gate/src/main/java/io/github/hipstermin/idem/gate/
 ├── QSignApplication.java
 ├── auth/
 │   ├── AuthController.java              # POST /api/v1/auth/complete (내부)

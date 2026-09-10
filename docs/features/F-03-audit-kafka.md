@@ -3,7 +3,7 @@
 > **환경변수**: `IDO_AUDIT_KAFKA_ENABLED`  
 > **기본값**: `true`  
 > **Spring 프로퍼티**: `ido.audit.kafka-publish-enabled`  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/audit/AuditLogPublisher.java`  
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/audit/AuditLogPublisher.java`  
 > **Kafka 토픽**: `platform.audit.log`
 
 ---
@@ -152,5 +152,5 @@ ORDER BY dt DESC;
 ---
 
 ## 연관 문서
-- [FeatureFlags.java](../../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
+- [FeatureFlags.java](../../idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/FeatureFlags.java)
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)

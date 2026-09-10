@@ -143,7 +143,7 @@
 코드 검사 결과 다음이 발견되었다:
 
 ```
-idem-registry/src/main/java/kr/go/smes/qim/conversion/AgencyMemberLookupServiceImpl.java
+idem-registry/src/main/java/io/github/hipstermin/idem/registry/conversion/AgencyMemberLookupServiceImpl.java
   → agency-stub(`/api/agency/member/lookup`) RestTemplate 직접 호출
   → X-Qim-Internal-Key 헤더 인증
 ```

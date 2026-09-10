@@ -29,7 +29,7 @@ IdO → Webhook       ────────►  /webhook/inbound
 ## 2. 패키지 구조
 
 ```
-kr.go.smes.agency
+io.github.hipstermin.idem.tenant
 ├── api/                        # REST API 컨트롤러
 │   ├── AgencyEntryController.java      ← Handoff 수신 엔트리
 │   ├── AgencyEventPollingController.java   ← IdO 이벤트 폴링

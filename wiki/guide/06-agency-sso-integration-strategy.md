@@ -115,7 +115,7 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 **권장 명명 규칙** (Nexus 배포 시):
 ```xml
 <dependency>
-    <groupId>kr.go.smes.onepass</groupId>
+    <groupId>io.github.hipstermin.idem.onepass</groupId>
     <artifactId>onepass-agency-sdk</artifactId>
     <version>1.0.0</version>  <!-- SemVer 준수 -->
 </dependency>

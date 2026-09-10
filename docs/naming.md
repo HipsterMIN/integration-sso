@@ -53,7 +53,7 @@ Gradle 태스크 경로는 그대로 따라간다 (`:ido:bootJar` → `:idem-hub
 
 | 구분 | 현재 값 | 비고 |
 |---|---|---|
-| Java 패키지 | `kr.go.smes.{qsign,qim,ido,authz,agency,batch,sdk,agent,common}` | 612개 파일. Kafka 이벤트·아웃박스 페이로드에 클래스명 직렬화 여부 사전 점검 필요 |
+| Java 패키지 | ~~`kr.go.smes.{qsign,qim,ido,authz,agency,batch,sdk,agent,common}`~~ → **`io.github.hipstermin.idem.{gate,registry,hub,authz,tenant,relay,sdk,agent,common,plugin}` (4a 완료 2026-09-08)** | 578개 파일 + 참조 116개 파일. 사전 점검 결과: Kafka 는 타입 헤더 없음(안전), Redis 캐시 값은 `@class` FQCN 포함 → 배포 시 flush 필요, 자동설정 imports·`Class.forName`·`trusted.packages`·로깅 키 함께 갱신 |
 | `spring.application.name` | `q-sign`, `q-im`, `ido`, `q-authz`, `agency-stub` | Micrometer `application` 태그, Kafka client/consumer-group 접두와 연동 |
 | 서비스 간 호출자 ID | `X-Source-System: q-sign`, `X-Outbound-Source: onepass-ido`, `ido.internal.api-keys.q-sign` 등 | 설정 키와 Java 상수가 짝을 이룸 |
 | Redis 키 접두 | `ido:ticket:*`, `ido:rl:*`, `ido:idempotency:*` | 운영 데이터 |
@@ -80,5 +80,5 @@ Gradle 태스크 경로는 그대로 따라간다 (`:ido:bootJar` → `:idem-hub
 1. ~~이름 확정·가용성 확인~~ (Idem 확정. 상표(KIPRIS)·도메인·GitHub org·Maven 그룹 확인은 소유 주체가 수행)
 2. ~~저장소·루트 프로젝트·문서 표제~~
 3. ~~모듈 디렉터리·Gradle·Dockerfile·CI·Helm·이미지명~~
-4. Java 패키지 이동 + 런타임 식별자(설정 키·헤더 값·Redis 접두·환경변수·k8s 이름·Prometheus 라벨) + agency→tenant 용어
+4. Java 패키지 이동(**4a 완료 2026-09-08** — `io.github.hipstermin.idem.*`, 동작 변화 없음) + 런타임 식별자(설정 키·헤더 값·Redis 접두·환경변수·k8s 이름·Prometheus 라벨) + agency→tenant 용어 (**4b 예정** — 구·신 환경변수 동시 인식 호환 기간 필요)
 5. DB명·스키마명·Keycloak realm

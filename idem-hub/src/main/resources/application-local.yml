@@ -99,12 +99,13 @@ management:
     mode: ${IDO_BROKER_MODE:qsign}
 
   # ── Any-ID 설치형 연동 — 로컬 개발 개발키 (기관 #311) ──────────────────
-  # 행안부 발급 개발키 직접 주입 (별첨2. 개발KEY 311_중소기업기술정보진흥원)
+  # 행안부 발급 개발키는 환경변수로 주입 (코드·설정에 값 금지)
   # 운영 배포 시: 환경변수 또는 K8s Secret으로 분리 (아래 주석 참조)
   anyid:
-    srvc-no: "1000001157"
-    agency-code: "1000001157"
-    agency-name: "중소벤처24기업마당"
+    # 운영기관 식별자는 환경변수로 주입 (S1 범용화 — 코드·설정 기본값에 고객값 금지)
+    srvc-no: ${ANYID_SRVC_NO:}
+    agency-code: ${ANYID_AGENCY_CODE:}
+    agency-name: ${ANYID_AGENCY_NAME:}
 
     portal:
       domain: "https://www.anyid.dev"
@@ -195,7 +196,7 @@ logging:
   level:
     org.springframework.kafka: ERROR
     org.apache.kafka: ERROR
-    kr.go.smes.ido.auth: DEBUG          # 인증 흐름 상세 로그
-    kr.go.smes.ido.crypto: DEBUG        # 암호화 디버그
-    kr.go.smes.ido.ratelimit: DEBUG     # Rate Limit 디버그
-    kr.go.smes.ido.config: DEBUG        # FeatureFlags 기동 로그 확인
+    io.github.hipstermin.idem.hub.auth: DEBUG          # 인증 흐름 상세 로그
+    io.github.hipstermin.idem.hub.crypto: DEBUG        # 암호화 디버그
+    io.github.hipstermin.idem.hub.ratelimit: DEBUG     # Rate Limit 디버그
+    io.github.hipstermin.idem.hub.config: DEBUG        # FeatureFlags 기동 로그 확인

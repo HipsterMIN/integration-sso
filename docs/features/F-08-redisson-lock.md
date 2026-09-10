@@ -2,7 +2,7 @@
 
 > **환경변수**: `IDO_REDISSON_ENABLED`  
 > **기본값**: `true` (운영 필수)  
-> **소스**: `idem-hub/src/main/java/kr/go/smes/idem-hub/config/RedissonConfig.java` / `NoOpRedissonConfig.java`
+> **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/RedissonConfig.java` / `NoOpRedissonConfig.java`
 
 ---
 

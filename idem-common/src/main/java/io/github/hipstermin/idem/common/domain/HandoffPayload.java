@@ -1,0 +1,70 @@
+package io.github.hipstermin.idem.common.domain;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
+import java.time.Instant;
+import java.util.Map;
+import lombok.Builder;
+import lombok.Getter;
+
+/**
+ * Handoff Verify 응답 표준 페이로드
+ * 설계서 16.5절 참조 — 기관향 Projection (정본=Q-IM)
+ */
+@Getter
+@Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class HandoffPayload {
+
+    private final String ticketId;
+    private final String correlationId;
+    private final String agencyCode;
+    private final String policyVersion;
+    private final HandoffState state;
+
+    /** Subject Identifier (기관향 Projection) */
+    private final SubjectIdentifier subject;
+
+    /** 인증 컨텍스트 */
+    private final AuthContext authContext;
+
+    /** 기관별 허용 속성 필터링 결과 */
+    private final Map<String, Object> attributes;
+
+    private final Instant issuedAt;
+    private final Instant expiresAt;
+
+    public enum HandoffState {
+        APPROVED,
+        /**
+         * Q-IM UUID 매핑이 없는 사용자 — 기관 회원 연결이 없음.
+         * 기관은 이 상태를 받으면 제한된 게스트 접근을 허용하거나 회원 가입 안내로 유도해야 한다.
+         * agencySubjectId는 null이고 qimUserId만 포함된다.
+         */
+        GUEST,
+        HOLD,
+        REJECTED,
+        MANUAL_REVIEW
+    }
+
+    @Getter
+    @Builder
+    public static class SubjectIdentifier {
+        /** 기관향 식별자 — 값의 종류는 {@link #subjectScheme} (S4). GUEST 는 null */
+        private final String agencySubjectId;
+        /** {@code agencySubjectId} 의 스킴 — 기관 프로파일 {@code identity.subjectScheme} (기본 PAIRWISE_HMAC). GUEST 는 null */
+        private final SubjectScheme subjectScheme;
+        /** Q-IM 내부 사용자 ID (정본) */
+        private final String qimUserId;
+        private final UserStatus status;
+    }
+
+    @Getter
+    @Builder
+    public static class AuthContext {
+        private final AuthResult.AuthLevel authLevel;
+        private final String providerCode;
+        private final Instant authenticatedAt;
+        private final String authResultId;
+    }
+}

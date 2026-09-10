@@ -189,7 +189,7 @@ ido:
 
 ```java
 // BrokerService.buildAuthorizationUrl()
-// 파일: idem-hub/src/main/java/kr/go/smes/idem-hub/broker/BrokerService.java
+// 파일: idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/BrokerService.java
 return switch (brokerMode) {
     case "keycloak" -> buildKeycloakAuthorizationUrl(provider, correlationId, returnUrl, requestedLevel);
     case "qsign"    -> buildQsignAuthorizationUrl(provider, correlationId, returnUrl, requestedLevel);
@@ -411,7 +411,7 @@ Keycloak 도입 후 **q-sign이 더 이상 카카오 콜백을 수신하지 않�
 ### 5.3 처리 단계 (KeycloakOidcService.handleCallback)
 
 ```java
-// 파일: idem-hub/src/main/java/kr/go/smes/idem-hub/broker/keycloak/KeycloakOidcService.java
+// 파일: idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/keycloak/KeycloakOidcService.java
 @Transactional
 public CallbackResult handleCallback(String code, String state) {
 ```
@@ -480,7 +480,7 @@ acrToAuthLevel.getOrDefault(acr, "L1");
 ### 5.7 KeycloakJwksVerifier 동작
 
 ```java
-// 파일: idem-hub/src/main/java/kr/go/smes/idem-hub/broker/keycloak/KeycloakJwksVerifier.java
+// 파일: idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/keycloak/KeycloakJwksVerifier.java
 // JWKS 엔드포인트: {baseUrl}/realms/{realm}/protocol/openid-connect/certs
 
 public KeycloakJwtClaims verifyAndParse(String idToken, String correlationId) {
@@ -561,7 +561,7 @@ status=CIRCUIT_OPEN         → 503
 ### 6.5 NonOidcAuthService 처리
 
 ```java
-// 파일: idem-hub/src/main/java/kr/go/smes/idem-hub/broker/nonoidc/NonOidcAuthService.java
+// 파일: idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/broker/nonoidc/NonOidcAuthService.java
 @Transactional
 public String processAuth(NonOidcAuthCommand command) {
     // 1. identifierHash = SHA-256(rawIdentifier)
@@ -1263,7 +1263,7 @@ export IDO_BROKER_MODE=qsign
 
 ## 14. 클래스 책임 맵
 
-### 14.1 ido 모듈 (idem-hub/src/main/java/kr/go/smes/idem-hub/)
+### 14.1 ido 모듈 (idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/)
 
 #### broker/ 패키지
 
@@ -1326,10 +1326,10 @@ export IDO_BROKER_MODE=qsign
 | `FeSessionServiceImpl` | Redis 기반 구현 (Sliding TTL, 역인덱스, Advisory 플래그) | `RedisTemplate` |
 | `FeSession` | FE 세션 도메인 객체 (feSessionId, qimUserId, authLevel, advisoryFlag 등) | — |
 
-### 14.2 q-sign 모듈 (idem-gate/src/main/java/kr/go/smes/qsign/)
+### 14.2 q-sign 모듈 (idem-gate/src/main/java/io/github/hipstermin/idem/gate/)
 
-> **v1.5.0 변경**: 기존 `kr.go.smes.qsign.broker.oidc` (Kakao 직접 연결) 패키지 전체 삭제,
-> `kr.go.smes.qsign.keycloak` 패키지 신규 추가.
+> **v1.5.0 변경**: 기존 `io.github.hipstermin.idem.gate.broker.oidc` (Kakao 직접 연결) 패키지 전체 삭제,
+> `io.github.hipstermin.idem.gate.keycloak` 패키지 신규 추가.
 
 #### keycloak/ 패키지 (신규 — v1.5.0)
 

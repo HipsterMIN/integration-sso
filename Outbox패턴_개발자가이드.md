@@ -73,7 +73,7 @@
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: IdO 서버 (포트 8080)
-// 실행 클래스: kr.go.smes.ido.handoff.HandoffServiceImpl
+// 실행 클래스: io.github.hipstermin.idem.hub.handoff.HandoffServiceImpl
 // 실행 메서드: issueHandoffTicket(...)
 // 실행 시점: 인증 완료 후 기관 이동(Handoff) 티켓 발급 요청 시
 //            (HTTP POST /api/v1/handoff/issue 등)
@@ -238,7 +238,7 @@ published_at    TIMESTAMP              -- 발행 성공 시각 (NULL이면 미�
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-Sign 서버 (포트 8082)
-// 실행 클래스: kr.go.smes.qsign.auth.AuthServiceImpl
+// 실행 클래스: io.github.hipstermin.idem.gate.auth.AuthServiceImpl
 // 실행 메서드: processAuthentication(AuthRequest)
 // 실행 시점: 사용자 인증 요청 처리 시
 //            (HTTP POST /api/v1/auth/verify 또는 /api/v1/auth/callback 등)
@@ -278,10 +278,10 @@ public AuthResult processAuthentication(AuthRequest request) {
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-Sign 서버 (포트 8082)
-// 실행 클래스: kr.go.smes.qsign.auth.AuthServiceImpl (또는 AuthEventBuilder 유틸)
+// 실행 클래스: io.github.hipstermin.idem.gate.auth.AuthServiceImpl (또는 AuthEventBuilder 유틸)
 // 실행 메서드: buildAuthEvent(AuthResult) — processAuthentication() 내부에서 호출
 // 실행 시점: qsign.outbox INSERT 직전, payload JSON 직렬화 시
-// 참조 클래스: idem-common/kr.go.smes.common.event.AuthEvent
+// 참조 클래스: idem-common/io.github.hipstermin.idem.common.event.AuthEvent
 // ═══════════════════════════════════════════════════════════════════
 
 // AuthEvent 빌드 — Outbox payload에 JSON으로 직렬화되어 저장됨
@@ -319,7 +319,7 @@ AuthEvent lockEvent = AuthEvent.builder()
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-Sign 서버 (포트 8082)
-// 실행 클래스: kr.go.smes.qsign.outbox.OutboxRelay
+// 실행 클래스: io.github.hipstermin.idem.gate.outbox.OutboxRelay
 // 실행 메서드: relay()
 // 실행 시점: Spring @Scheduled — 이전 실행 완료 후 500ms마다 자동 실행
 //            (fixedDelay: 이전 실행이 끝나야 다음 대기 시작 → 중복 실행 방지)
@@ -444,7 +444,7 @@ Q-Sign은 **Q-IM 사용자 이벤트**를 수신해서 계정 잠금/해제 처�
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-Sign 서버 (포트 8082)
-// 실행 클래스: kr.go.smes.qsign.kafka.QimUserEventConsumer
+// 실행 클래스: io.github.hipstermin.idem.gate.kafka.QimUserEventConsumer
 // 실행 메서드: onUserEvent(ConsumerRecord, Acknowledgment)
 // 실행 시점: Kafka qim.user.events 토픽에 새 메시지 도착 시 자동 호출
 //            (Kafka Consumer 그룹: q-sign-qim-consumer)
@@ -507,7 +507,7 @@ public void onUserEvent(ConsumerRecord<String, UserEvent> record, Acknowledgment
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-IM 서버 (포트 8081)
-// 실행 클래스: kr.go.smes.qim.user.UserRegService (회원 가입 예시)
+// 실행 클래스: io.github.hipstermin.idem.registry.user.UserRegService (회원 가입 예시)
 // 실행 메서드: registerUser(RegisterRequest)
 // 실행 시점: 회원 가입 API 처리 시 (HTTP POST /api/v1/users 등)
 // 트랜잭션: @Transactional — 아래 DB 작업 2개가 하나의 트랜잭션으로 묶임
@@ -548,7 +548,7 @@ public QimUser registerUser(RegisterRequest request) {
 
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-IM 서버 (포트 8081)
-// 실행 클래스: kr.go.smes.qim.outbox.OutboxServiceImpl
+// 실행 클래스: io.github.hipstermin.idem.registry.outbox.OutboxServiceImpl
 // 실행 메서드: publishInTx(DomainEvent)
 // 실행 시점: UserRegService.registerUser() 또는 UserMgmtService 내 @Transactional 메서드 내부
 //            PROPAGATION.REQUIRED → 호출자의 트랜잭션에 그대로 참여 (새 트랜잭션 시작 안 함)
@@ -576,7 +576,7 @@ public void publishInTx(DomainEvent event) {
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-IM 서버 (포트 8081)
-// 실행 클래스: kr.go.smes.qim.infrastructure.jpa.entity.OutboxJpaEntity
+// 실행 클래스: io.github.hipstermin.idem.registry.infrastructure.jpa.entity.OutboxJpaEntity
 // 실행 메서드: onCreate() — JPA @PrePersist 콜백
 // 실행 시점: outboxRepository.save() 호출 시 JPA가 INSERT 직전에 자동 호출
 // DB: Q-IM MariaDB (qim 스키마) — qim.outbox 테이블
@@ -605,7 +605,7 @@ public class OutboxJpaEntity {
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-IM 서버 (포트 8081)
-// 실행 클래스: kr.go.smes.qim.outbox.OutboxServiceImpl
+// 실행 클래스: io.github.hipstermin.idem.registry.outbox.OutboxServiceImpl
 //
 // [메서드 1] relayPendingEvents()
 // 실행 시점: @Scheduled fixedDelay=500ms 마다 자동 실행
@@ -644,7 +644,7 @@ public void relayFailedEvents() {
 
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-IM 서버 (포트 8081)
-// 실행 클래스: kr.go.smes.qim.outbox.OutboxServiceImpl
+// 실행 클래스: io.github.hipstermin.idem.registry.outbox.OutboxServiceImpl
 // 실행 메서드: sendToKafka(OutboxRecord)
 // 실행 시점: relayPendingEvents() 또는 relayFailedEvents() 내부에서 호출
 // Kafka: qim.user.events 토픽으로 비동기 발행
@@ -730,7 +730,7 @@ WHERE event_id = ?;
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-IM 서버 (포트 8081)
-// 실행 클래스: kr.go.smes.qim.outbox.OutboxServiceImpl
+// 실행 클래스: io.github.hipstermin.idem.registry.outbox.OutboxServiceImpl
 // 실행 메서드: triggerSnapshotIfNeeded(OutboxRecord)
 // 실행 시점: sendToKafka() 내 Kafka 발행 성공 콜백(whenComplete) 수신 직후
 // Kafka: 조건 충족 시 qim.user.snapshot 토픽으로 사용자 전체 상태 발행
@@ -754,7 +754,7 @@ private void triggerSnapshotIfNeeded(OutboxRecord record) {
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: Q-IM 서버 (포트 8081)
-// 실행 클래스: kr.go.smes.qim.user.UserMgmtService
+// 실행 클래스: io.github.hipstermin.idem.registry.user.UserMgmtService
 // 실행 메서드: updateUser(String qimUserId, UpdateRequest)
 // 실행 시점: 회원 정보 변경 API 처리 시
 //            (HTTP PUT /api/v1/users/{qimUserId} 등)
@@ -800,7 +800,7 @@ public QimUser updateUser(String qimUserId, UpdateRequest request) {
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: IdO 서버 (포트 8080)
-// 실행 클래스: kr.go.smes.ido.broker.keycloak.KeycloakOidcService
+// 실행 클래스: io.github.hipstermin.idem.hub.broker.keycloak.KeycloakOidcService
 // 실행 메서드: handleCallback(String code, String state) — 내부에서 saveOutboxEvent() 호출
 // 실행 시점: Keycloak OIDC 인증 콜백 수신 시
 //            (HTTP GET /callback?code=...&state=... — Keycloak 리디렉션)
@@ -821,7 +821,7 @@ public CallbackResult handleCallback(String code, String state) {
 
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: IdO 서버 (포트 8080)
-// 실행 클래스: kr.go.smes.ido.broker.keycloak.KeycloakOidcService
+// 실행 클래스: io.github.hipstermin.idem.hub.broker.keycloak.KeycloakOidcService
 // 실행 메서드: saveOutboxEvent(...) — private 메서드
 // 실행 시점: handleCallback() 의 @Transactional 내부 Step 10
 // 실행 방식: JdbcTemplate.update() — 직접 SQL 실행 (JPA 미사용)
@@ -873,7 +873,7 @@ private void saveOutboxEvent(String authResultId, String correlationId,
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: IdO 서버 (포트 8080)
-// 실행 클래스: kr.go.smes.ido.infrastructure.outbox.IdoOutboxRelay
+// 실행 클래스: io.github.hipstermin.idem.hub.infrastructure.outbox.IdoOutboxRelay
 // 실행 메서드: relay()
 // 실행 시점: @Scheduled fixedDelay=500ms 마다 자동 실행
 //            Feature Flag IDO_OUTBOX_RELAY_ENABLED=false 이면 즉시 return
@@ -950,7 +950,7 @@ FOR UPDATE SKIP LOCKED;
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: IdO 서버 (포트 8080)
-// 실행 클래스: kr.go.smes.ido.webhook.WebhookDispatcherService
+// 실행 클래스: io.github.hipstermin.idem.hub.webhook.WebhookDispatcherService
 // 실행 메서드: insertOutbox(...) — private 메서드
 //              enqueueForHandoffEvent() / enqueueForMemberLookupResult() 등에서 호출
 // 실행 시점: HandoffEventConsumer.onHandoffEvent() 가 HANDOFF_ISSUED 이벤트 처리 시
@@ -997,7 +997,7 @@ private boolean insertOutbox(AgencyWebhookConfig config,
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: IdO 서버 (포트 8080)
-// 실행 클래스: kr.go.smes.ido.webhook.WebhookDispatchOutboxRelay
+// 실행 클래스: io.github.hipstermin.idem.hub.webhook.WebhookDispatchOutboxRelay
 // 실행 메서드: relay()
 // 실행 시점: @Scheduled fixedDelay=500ms 마다 자동 실행
 //            Feature Flag IDO_WEBHOOK_RELAY_ENABLED=false 이면 즉시 return
@@ -1162,7 +1162,7 @@ WHERE dispatch_id = ?;
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: IdO 서버 (포트 8080)
-// 실행 클래스: kr.go.smes.ido.webhook.WebhookDispatcherService
+// 실행 클래스: io.github.hipstermin.idem.hub.webhook.WebhookDispatcherService
 // 실행 메서드: buildHandoffWebhookPayload(HandoffEvent, AgencyWebhookConfig, String)
 // 실행 시점: insertOutbox() 호출 직전, 기관에 전달할 Webhook 페이로드 JSON 생성 시
 // 주의: PII(개인식별정보) 포함 금지 — ticketId, eventType, correlationId만 포함
@@ -1200,7 +1200,7 @@ private String buildHandoffWebhookPayload(HandoffEvent event,
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 실행 위치: IdO 서버 (포트 8080)
-// 실행 클래스: kr.go.smes.ido.provision.ProvisioningServiceImpl
+// 실행 클래스: io.github.hipstermin.idem.hub.provision.ProvisioningServiceImpl
 // 실행 메서드: provisionToAllAgencies(String qimUserId, String sourceEventId, String correlationId)
 // 실행 시점: Q-IM qim.user.events 토픽에서 USER_REGISTERED 이벤트 수신 시
 //            QimSpMemberEventConsumer 또는 별도 Consumer가 이 메서드 호출
@@ -1391,7 +1391,7 @@ public void consume(ConsumerRecord<String, EventType> record, Acknowledgment ack
 // ═══════════════════════════════════════════════════════════════════
 // 이 구조체는 발행 측(Q-Sign 서버 / IdO 서버)이 Outbox payload에 JSON으로 저장하고,
 // 수신 측(IdO 서버 QsignAuthEventConsumer)이 역직렬화하여 처리합니다.
-// 클래스 위치: platform-common / kr.go.smes.common.event.AuthEvent
+// 클래스 위치: platform-common / io.github.hipstermin.idem.common.event.AuthEvent
 // ═══════════════════════════════════════════════════════════════════
 
 // 공통 DomainEvent 필드
@@ -1417,7 +1417,7 @@ VerificationResult verificationResult; // SUCCESS / FAIL / LOCKED
 // 발행 위치: Q-IM 서버 OutboxServiceImpl → Kafka qim.user.events
 // 수신 위치: Q-Sign 서버 QimUserEventConsumer
 //            IdO 서버 QimSpMemberEventConsumer
-// 클래스 위치: platform-common / kr.go.smes.common.event.UserEvent
+// 클래스 위치: platform-common / io.github.hipstermin.idem.common.event.UserEvent
 // ═══════════════════════════════════════════════════════════════════
 
 // DomainEvent 공통 필드 +
@@ -1434,7 +1434,7 @@ String mergedIntoQimUserId;  // MERGED 이벤트 시 대상 ID
 // 발행 위치: IdO 서버 HandoffServiceImpl → Kafka ido.handoff.events (직접 발행, Outbox 미사용)
 // 수신 위치: IdO 서버 HandoffEventConsumer
 //            [PoC 전용] agency-stub HandoffEventConsumer
-// 클래스 위치: platform-common / kr.go.smes.common.event.HandoffEvent
+// 클래스 위치: platform-common / io.github.hipstermin.idem.common.event.HandoffEvent
 // ═══════════════════════════════════════════════════════════════════
 
 // DomainEvent 공통 필드 +
@@ -1487,7 +1487,7 @@ CREATE TABLE qsign.last_event_version (
 // 실행 위치: 각 서버의 Kafka Consumer 클래스 내부
 //   · IdO 서버: QsignAuthEventConsumer, HandoffEventConsumer
 //   · Q-Sign 서버: QimUserEventConsumer
-// 실행 클래스: kr.go.smes.{서비스}.event.IdempotentEventStore (서비스별 구현체)
+// 실행 클래스: io.github.hipstermin.idem.{서비스}.event.IdempotentEventStore (서비스별 구현체)
 // 실행 시점: Kafka 메시지 수신 시 Consumer 내부에서 순서대로 호출
 // DB: 서비스별 idempotent_event 테이블 조회/INSERT
 //     Q-Sign 한정: last_event_version 테이블도 조회/UPSERT
@@ -1909,7 +1909,7 @@ WHERE aggregate_id = '동일_authResultId'
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 테스트 실행 위치: Q-Sign 서버 테스트 환경 (로컬 또는 CI)
-// 테스트 클래스: kr.go.smes.qsign.auth.AuthServiceImplTest (예시)
+// 테스트 클래스: io.github.hipstermin.idem.gate.auth.AuthServiceImplTest (예시)
 // 테스트 목적: processAuthentication() 호출 시 qsign.outbox에 PENDING 레코드가
 //              정상적으로 INSERT 되는지 검증
 // 사용 DB: H2 인메모리 DB 또는 Testcontainers PostgreSQL
@@ -1940,7 +1940,7 @@ void 인증_완료_시_outbox_레코드가_생성된다() {
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 테스트 실행 위치: Q-Sign 서버 테스트 환경 (로컬 또는 CI)
-// 테스트 클래스: kr.go.smes.qsign.outbox.OutboxRelayIntegrationTest
+// 테스트 클래스: io.github.hipstermin.idem.gate.outbox.OutboxRelayIntegrationTest
 // 테스트 목적:
 //   [테스트 1] PENDING 레코드 → Kafka 발행 → qsign.outbox PUBLISHED 상태 전이 검증
 //   [테스트 2] Kafka 브로커 장애 시 → retry_count 증가, PENDING 유지 검증
@@ -1995,7 +1995,7 @@ class OutboxRelayIntegrationTest {
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 테스트 실행 위치: IdO 서버 테스트 환경 (로컬 또는 CI)
-// 테스트 클래스: kr.go.smes.ido.kafka.QsignAuthEventConsumerTest (예시)
+// 테스트 클래스: io.github.hipstermin.idem.hub.kafka.QsignAuthEventConsumerTest (예시)
 // 테스트 목적: 동일 이벤트를 2번 수신해도 비즈니스 로직(Redis Pre-warming)이
 //              1번만 실행되는지 검증 (at-least-once + 멱등성 보장)
 // 사용 DB: Testcontainers PostgreSQL — ido.idempotent_event 테이블
@@ -2026,7 +2026,7 @@ void 동일_이벤트_두번_처리해도_결과가_같다() {
 ```java
 // ═══════════════════════════════════════════════════════════════════
 // 테스트 실행 위치: Q-Sign 서버 테스트 환경 (로컬 또는 CI)
-// 테스트 클래스: kr.go.smes.qsign.outbox.OutboxSkipLockedTest (예시)
+// 테스트 클래스: io.github.hipstermin.idem.gate.outbox.OutboxSkipLockedTest (예시)
 // 테스트 목적: 다중 인스턴스 시뮬레이션 — 2개의 Relay 쓰레드가 동시 실행 시
 //              동일 레코드를 각각 1번씩만 처리하는지 검증
 // 사용 DB: Testcontainers PostgreSQL (실제 FOR UPDATE SKIP LOCKED 동작 확인 필수)

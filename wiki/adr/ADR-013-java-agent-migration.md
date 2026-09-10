@@ -157,7 +157,7 @@ After:  W3C Trace Context (traceparent 헤더) 자동 전파
 @Aspect
 @Component
 public class ProvisioningAuditAspect {
-    @Around("execution(* kr.go.smes.ido.provision.*.*(..))")
+    @Around("execution(* io.github.hipstermin.idem.hub.provision.*.*(..))")
     public Object auditProvisioning(ProceedingJoinPoint pjp) throws Throwable {
         // 감사 로그 자동 기록
     }

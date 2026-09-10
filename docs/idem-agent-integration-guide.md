@@ -680,7 +680,7 @@ JAVA_OPTIONS="${JAVA_OPTIONS} \
   <container-descriptor>
     <!-- OnePass Agent 클래스가 WAS 내부에서 보이도록 필터 제외 -->
     <prefer-application-packages>
-      <package-name>kr.go.smes.agent.*</package-name>
+      <package-name>io.github.hipstermin.idem.agent.*</package-name>
     </prefer-application-packages>
   </container-descriptor>
 </weblogic-web-app>

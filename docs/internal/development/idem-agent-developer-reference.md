@@ -86,8 +86,8 @@ integration-sso/
 ├── idem-agent/             ← ⭐ 이 모듈 (완전 독립)
 │   ├── build.gradle.kts       ← 스프링 없음, JDK 8 타겟
 │   └── src/
-│       ├── main/java/kr/go/smes/agent/
-│       └── test/java/kr/go/smes/agent/
+│       ├── main/java/io/github/hipstermin/idem/agent/
+│       └── test/java/io/github/hipstermin/idem/agent/
 │
 ├── idem-registry/               ← Spring Boot 모듈 (무관)
 ├── idem-hub/               ← Spring Boot 모듈 (무관)
@@ -114,8 +114,8 @@ val agentJar by tasks.registering(Jar::class) {
     // MANIFEST에 Premain-Class 등록 (이것이 없으면 Agent 동작 안 함)
     manifest {
         attributes(
-            "Premain-Class" to "kr.go.smes.agent.core.OnePassAgentMain",
-            "Agent-Class"   to "kr.go.smes.agent.core.OnePassAgentMain",
+            "Premain-Class" to "io.github.hipstermin.idem.agent.core.OnePassAgentMain",
+            "Agent-Class"   to "io.github.hipstermin.idem.agent.core.OnePassAgentMain",
             "Can-Redefine-Classes"    to "true",
             "Can-Retransform-Classes" to "true"
         )
@@ -261,8 +261,8 @@ case "WEBSPHERE": return WasType.WEBSPHERE;
 ### Step 3: 위빙 전략 클래스 생성
 
 ```java
-// kr.go.smes.agent.weaving.WebSphereWeavingStrategy.java
-package kr.go.smes.agent.weaving;
+// io.github.hipstermin.idem.agent.weaving.WebSphereWeavingStrategy.java
+package io.github.hipstermin.idem.agent.weaving;
 
 public final class WebSphereWeavingStrategy implements WeavingStrategy {
 
@@ -769,7 +769,7 @@ builder.installOn(inst);
 ### 8.1 테스트 파일 위치 규칙
 
 ```
-idem-agent/src/test/java/kr/go/smes/agent/
+idem-agent/src/test/java/io/github/hipstermin/idem/agent/
 ├── config/
 │   └── AgentConfigTest.java          ← AgentConfig 단위 테스트
 ├── core/
@@ -895,7 +895,7 @@ cat /tmp/META-INF/MANIFEST.MF
 
 # 2. Agent 클래스 존재
 jar tf "$JAR_FILE" | grep "OnePassAgentMain"
-# 기대: kr/go/smes/agent/core/OnePassAgentMain.class
+# 기대: io/github/hipstermin/idem/agent/core/OnePassAgentMain.class
 
 # 3. byte-buddy 번들링 확인
 jar tf "$JAR_FILE" | grep "bytebuddy" | wc -l
@@ -918,8 +918,8 @@ ls -lh "$JAR_FILE"
 
 ```
 Manifest-Version: 1.0
-Premain-Class: kr.go.smes.agent.core.OnePassAgentMain
-Agent-Class: kr.go.smes.agent.core.OnePassAgentMain
+Premain-Class: io.github.hipstermin.idem.agent.core.OnePassAgentMain
+Agent-Class: io.github.hipstermin.idem.agent.core.OnePassAgentMain
 Can-Redefine-Classes: true
 Can-Retransform-Classes: true
 Boot-Class-Path: 

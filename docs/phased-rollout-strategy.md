@@ -597,4 +597,4 @@ kubectl rollout status deployment/ido -n smes
 > **관련 문서**:  
 > - [배포 가이드](_archive/2026-05-22/deployment-guide.md)  
 > - [기능 문서 목록](features/)  
-> - [Feature Flag 코드](../idem-hub/src/main/java/kr/go/smes/idem-hub/config/FeatureFlags.java)
+> - [Feature Flag 코드](../idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/FeatureFlags.java)

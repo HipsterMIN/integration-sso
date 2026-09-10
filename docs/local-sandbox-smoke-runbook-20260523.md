@@ -151,11 +151,11 @@ rg -n "Duplicate key name|idx_status_history_user|V3__add_ci_encryption_and_stat
 ```
 
 ```powershell
-rg -n "NoSuchBeanDefinitionException|UnsatisfiedDependencyException|Caused by" "idem-hub/build/test-results/test/TEST-kr.go.smes.ido.memberlookup.MemberLookupControllerTest$AuditLogBehavior.xml"
+rg -n "NoSuchBeanDefinitionException|UnsatisfiedDependencyException|Caused by" "idem-hub/build/test-results/test/TEST-io.github.hipstermin.idem.hub.memberlookup.MemberLookupControllerTest$AuditLogBehavior.xml"
 ```
 
 ```powershell
-rg -n "UnrecognizedPropertyException|AssertionError|Caused by" "idem-hub/build/test-results/test/TEST-kr.go.smes.ido.infrastructure.TicketRepositoryImplTest$CasBranchHandling.xml"
+rg -n "UnrecognizedPropertyException|AssertionError|Caused by" "idem-hub/build/test-results/test/TEST-io.github.hipstermin.idem.hub.infrastructure.TicketRepositoryImplTest$CasBranchHandling.xml"
 ```
 
 ### 1-9. 전체 프로파일(app 포함) 기동 재검증

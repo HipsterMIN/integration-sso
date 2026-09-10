@@ -257,7 +257,7 @@ sequenceDiagram
 
 ## 5. NICE 휴대폰 본인인증 상세 흐름
 
-**파일**: `idem-hub/src/main/java/kr/go/smes/idem-hub/auth/service/NiceAuthService.java`
+**파일**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/service/NiceAuthService.java`
 
 ### 5.1 Access Token 획득 — 분산 락 상태 머신
 

@@ -87,17 +87,17 @@
 
 | 모듈 | 패키지 루트 | 포트 | Java 파일 수 | 역할 |
 |------|------------|------|-------------|------|
-| `platform-common` | `kr.go.smes.common` | — | 16 | 공통 도메인·이벤트·에러코드 라이브러리 |
-| `q-sign` | `kr.go.smes.qsign` | 8081 | 35 | **인증 SoR** — IdP 연동, AuthResult 기록, 잠금 정책 |
-| `q-im` | `kr.go.smes.qim` | 8082 | 41 | **식별 SoR** — 회원 원장, CI 암호화, Snapshot |
-| `ido` | `kr.go.smes.ido` | 8083 | 106 | **정책 오케스트레이터 + FE BFF** |
-| `agency-stub` | `kr.go.smes.agency` | 8084 | 15 | PoC 유관기관 시뮬레이터 |
+| `platform-common` | `io.github.hipstermin.idem.common` | — | 16 | 공통 도메인·이벤트·에러코드 라이브러리 |
+| `q-sign` | `io.github.hipstermin.idem.gate` | 8081 | 35 | **인증 SoR** — IdP 연동, AuthResult 기록, 잠금 정책 |
+| `q-im` | `io.github.hipstermin.idem.registry` | 8082 | 41 | **식별 SoR** — 회원 원장, CI 암호화, Snapshot |
+| `ido` | `io.github.hipstermin.idem.hub` | 8083 | 106 | **정책 오케스트레이터 + FE BFF** |
+| `agency-stub` | `io.github.hipstermin.idem.tenant` | 8084 | 15 | PoC 유관기관 시뮬레이터 |
 | `idem-console` | (React) | 3000/3001 | — | 순수 React SPA |
 
 ### 3.2 platform-common 제공 요소
 
 ```
-kr.go.smes.common/
+io.github.hipstermin.idem.common/
 ├── domain/
 │   ├── AuthResult          # 인증 결과 (authResultId, authLevel, qimUserId, ...)
 │   ├── HandoffTicket       # Handoff 티켓 (ticketId, expiresAt, authLevel, ...)
