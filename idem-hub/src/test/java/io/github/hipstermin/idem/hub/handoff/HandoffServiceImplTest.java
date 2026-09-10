@@ -14,6 +14,7 @@ import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
 import io.github.hipstermin.idem.hub.domain.AgencyMeta;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.handoff.crypto.HandoffCryptoService;
 import io.github.hipstermin.idem.hub.handoff.strategy.HandoffStrategy;
 import io.github.hipstermin.idem.hub.handoff.strategy.HandoffStrategyFactory;
@@ -98,7 +99,7 @@ class HandoffServiceImplTest {
                 .minAuthLevel(AuthResult.AuthLevel.L1)
                 .callbackWhitelist(List.of(REDIRECT_URI))
                 .allowedAttributes(List.of("name", "mobile"))
-                .integrationType("DIRECT")
+                .integrationType(IntegrationType.DIRECT)
                 .build();
 
         validCommand = HandoffIssueCommand.builder()
@@ -193,7 +194,7 @@ class HandoffServiceImplTest {
             AgencyMeta inactiveAgency = AgencyMeta.builder()
                     .agencyCode(AGENCY_CODE).active(false)
                     .minAuthLevel(AuthResult.AuthLevel.L1)
-                    .integrationType("DIRECT").build();
+                    .integrationType(IntegrationType.DIRECT).build();
             given(agencyMetaRepository.findByCode(AGENCY_CODE)).willReturn(Optional.of(inactiveAgency));
 
             assertThatThrownBy(() -> sut.issue(validCommand))

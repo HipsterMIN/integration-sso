@@ -126,7 +126,7 @@ ido:
       client-secret: ${NICE_CLIENT_SECRET:}
       # NICE 인증 완료 후 리다이렉트 URL (FE 팝업 결과 수신 페이지)
       # 개발: http://localhost:3000/otp/auth-result (React dev-server)
-      # 운영: https://www.smes.go.kr/otp/auth-result (실제 도메인)
+      # 운영: https://portal.example.org/otp/auth-result (실제 도메인)
       return-url: ${NICE_RETURN_URL:http://localhost:3000/otp/auth-result}
       # NICE API 응답 타임아웃 (초) — 기본 10초
       timeout-seconds: ${NICE_TIMEOUT_SECONDS:10}
@@ -147,7 +147,7 @@ ido:
     # 현재 FE 미호출 상태 — 향후 FE 기업인증 구현 시 활성화
     integration:
       # 통합인증 서버 기본 URL — 운영: INTEGRATION_AUTH_BASE_URL 환경변수 필수 설정
-      # 예: https://intg-auth.smes.go.kr
+      # 예: https://intg-auth.example.org
       base-url: ${INTEGRATION_AUTH_BASE_URL:}
       # 통합인증 서버 응답 타임아웃 (초) — 기본 10초
       timeout-seconds: ${INTEGRATION_AUTH_TIMEOUT_SECONDS:10}
@@ -266,15 +266,16 @@ ido:
   broker:
     mode: ${IDO_BROKER_MODE:qsign}
 
-  # ── Any-ID 설치형 연동 설정 (기관 #311, srvc_No=1000001157) ────────────
+  # ── Any-ID 설치형 연동 설정 (운영기관 식별자·개발키는 설치 시 주입) ────────────
   # 참조: wiki/iam/06-install-type-integration.md
-  # 행안부 Any-ID 사업단 발급 개발키 적용 (별첨2. 개발KEY 311_중소기업기술정보진흥원)
+  # 행안부 Any-ID 사업단이 운영기관에 발급한 개발키를 환경변수로 주입
   anyid:
     # ── 기관 식별자 ──────────────────────────────────────────────────────
     # 모든 API 호출 시 srvc_no 파라미터로 전달
-    srvc-no: ${ANYID_SRVC_NO:1000001157}
-    agency-code: ${ANYID_AGENCY_CODE:1000001157}
-    agency-name: ${ANYID_AGENCY_NAME:중소벤처24기업마당}
+    # 운영기관 식별자 — 코어 기본값 없음. AnyID 를 쓰는 설치에서만 주입하며, 비어 있으면 AnyID 브로커는 503 으로 거부한다 (S1 범용화)
+    srvc-no: ${ANYID_SRVC_NO:}
+    agency-code: ${ANYID_AGENCY_CODE:}
+    agency-name: ${ANYID_AGENCY_NAME:}
 
     # ── Any-ID 포털 (관리/프로비저닝 API) ────────────────────────────────
     # 개발: https://www.anyid.dev:1451 / 운영: https://www.anyid.go.kr:443
@@ -417,22 +418,10 @@ ido:
     session:
       sliding-ttl-minutes: 30            # §12.4 Sliding TTL
       absolute-timeout-minutes: 480      # §12.4 절대 만료 (8h)
-    # returnUrl 화이트리스트 (§12.6 — 기관 callback_whitelist 보조)
-    # [버그 수정 2026-05-16] B-2: PoC 더미 URL 제거, 실제 기관 URL로 교체
-    # 운영 배포 시: 환경변수 IDO_FE_ALLOWED_RETURN_URLS 또는 ConfigMap으로 주입
-    # ※ 기관 추가/변경 시 이 목록과 agency_meta.callback_whitelist DB 모두 갱신 필요
-    allowed-return-urls:
-      # ── 중소벤처기업부 직속 서비스 ──────────────────────────────────
-      - ${ALLOWED_URL_SMES:https://www.smes.go.kr}
-      - ${ALLOWED_URL_BIZINFO:https://www.bizinfo.go.kr}
-      - ${ALLOWED_URL_MSS:https://www.mss.go.kr}
-      # ── 산하기관 ─────────────────────────────────────────────────
-      - ${ALLOWED_URL_SBIZ:https://www.sbiz.or.kr}
-      - ${ALLOWED_URL_FANFAN:https://www.fanfan.or.kr}
-      - ${ALLOWED_URL_KOSMES:https://www.kosmes.or.kr}
-      # ── 나머지 기관 (환경변수로 추가 주입 — 운영팀 등록 필요) ──────
-      # IDO_FE_ALLOWED_RETURN_URLS_EXTRA=https://기관1.go.kr,https://기관2.or.kr
-      # ── 개발/스테이징 (운영 배포 시 제거 또는 환경변수로 분리) ───────
+    # returnUrl 화이트리스트 (§12.6 — 기관 callback_whitelist 보조) — 쉼표 구분 목록.
+    # 운영기관·연동기관 URL 은 설치 시 IDO_FE_ALLOWED_RETURN_URLS 로 주입한다 (코어 기본값은 로컬 개발용, S1 범용화).
+    # 주의: 이전에는 YAML 시퀀스였는데 @Value 가 시퀀스를 해석하지 못해 목록이 비어 있었다 → 스칼라(쉼표 구분)로 전환.
+    allowed-return-urls: ${IDO_FE_ALLOWED_RETURN_URLS:http://localhost:3000,http://localhost:3001}
       - ${AGENCY_STUB_URL:http://localhost:8084}
       - ${REACT_DEV_URL:http://localhost:3000}
       - ${REACT_PROD_URL:http://localhost:3001}

@@ -37,8 +37,9 @@ public class AgencyMeta {
     /** 기관 API Key (검증용) */
     private final String apiKeyHash;
 
-    /** 연동 유형 (DIRECT / BRIDGE / APACHE_GATE / INTERNAL_SSO) */
-    private final String integrationType;
+    /** 연동 유형 — S1 에서 문자열 → {@link IntegrationType}. 빌더 미지정 시 DEFAULT(DIRECT) */
+    @Builder.Default
+    private final IntegrationType integrationType = IntegrationType.DEFAULT;
 
     /** Bridge 서버 엔드포인트 (integrationType=BRIDGE 일 때만 사용) */
     private final String bridgeEndpoint;
@@ -54,7 +55,7 @@ public class AgencyMeta {
      * Apache 게이트웨이 엔드포인트 (integrationType=APACHE_GATE 일 때 사용)
      * 설계서 §8.5 — Apache mod_auth 호환 세션 헤더 사전 등록 URL
      * 예: "https://gw.agency-b.go.kr/internal/sso-session"
-     * DB: bridge_endpoint 컬럼 재사용 (APACHE_GATE 전용 컬럼 추가 전 임시)
+     * DB: apache_gate_endpoint (S1 에서 bridge_endpoint 와 분리)
      */
     private final String apacheGateEndpoint;
 

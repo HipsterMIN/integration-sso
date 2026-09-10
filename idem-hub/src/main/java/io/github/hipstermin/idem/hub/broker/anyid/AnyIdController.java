@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.*;
  * Any-ID 설치형 연동 전용 컨트롤러
  *
  * <p>행안부 Any-ID 설치형 인증 흐름의 진입점(initiate)과 콜백(callback)을 처리한다.<br>
- * 기관 #311 — 중소기업기술정보진흥원 (중소벤처24기업마당), srvc_no=1000001157
+ * 운영기관 식별자(srvc_no 등)는 ido.anyid.* 설정으로 주입된다 (S1 범용화).
  *
  * <h3>엔드포인트</h3>
  * <ul>

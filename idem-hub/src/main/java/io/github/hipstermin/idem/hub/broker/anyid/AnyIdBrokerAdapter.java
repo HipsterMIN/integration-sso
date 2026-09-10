@@ -24,7 +24,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  * Any-ID 설치형 직접 연동 브로커 어댑터
  *
  * <p>행안부 Any-ID 사업단 발급 개발키를 기반으로 인증 흐름을 처리한다.<br>
- * 기관 #311 — 중소기업기술정보진흥원 (중소벤처24기업마당), srvc_no=1000001157
+ * 운영기관 식별자(srvc_no 등)는 ido.anyid.* 설정으로 주입된다 (S1 범용화).
  *
  * <p><b>지원 인증 수단</b>:
  * <ul>
@@ -117,6 +117,7 @@ public class AnyIdBrokerAdapter {
      */
     public String initiateAuth(String provider, String correlationId,
                                 String callbackUrl, String returnUrl) {
+        anyIdProperties.requireAgencyConfigured(correlationId);
         log.info("[AnyId-Broker] 인증 시작: provider={} srvc_no={} correlationId={}",
                 provider, anyIdProperties.getSrvcNo(), correlationId);
 
@@ -180,6 +181,7 @@ public class AnyIdBrokerAdapter {
      */
     public AnyIdAuthResult verifyCallback(String provider, String correlationId,
                                            String txId, String code) {
+        anyIdProperties.requireAgencyConfigured(correlationId);
         log.info("[AnyId-Broker] 콜백 검증: provider={} txId={} correlationId={}",
                 provider, txId, correlationId);
 
@@ -240,6 +242,7 @@ public class AnyIdBrokerAdapter {
      */
     public String buildAuthorizationUrl(String provider, String correlationId,
                                          String returnUrl, String requestedLevel) {
+        anyIdProperties.requireAgencyConfigured(correlationId);
         log.info("[AnyId-Broker] Authorization URL 생성: provider={} correlationId={} level={}",
                 provider, correlationId, requestedLevel);
 
@@ -264,6 +267,7 @@ public class AnyIdBrokerAdapter {
      * @return SSO 검증 결과 (agencyCode, userId, authLevel, exp 등)
      */
     public JsonNode verifySsoToken(String ssoToken, String correlationId) {
+        anyIdProperties.requireAgencyConfigured(correlationId);
         AnyIdProperties.Sso sso = anyIdProperties.getSso();
 
         String verifyUrl = sso.getVerifyUrl();
@@ -351,7 +355,7 @@ public class AnyIdBrokerAdapter {
      *
      * <pre>
      * https://www.anyid.dev:1443/pid/auth.do
-     *   ?srvc_no=1000001157
+     *   ?srvc_no={srvc_no}
      *   &client_id={clientId}
      *   &callback={ido callback url}
      *   &provider={소셜 provider}

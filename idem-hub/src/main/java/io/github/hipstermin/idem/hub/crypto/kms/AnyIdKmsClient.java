@@ -183,7 +183,7 @@ public class AnyIdKmsClient implements KmsClient {
      * <p>요청 Body (JSON):
      * <pre>
      * {
-     *   "srvc_no":     "1000001157",
+     *   "srvc_no":     "<ido.anyid.srvc-no>",
      *   "app_key":     "{Base64 앱 키}",
      *   "client_info": "{Base64 클라이언트 정보}",
      *   "cversion":    1,

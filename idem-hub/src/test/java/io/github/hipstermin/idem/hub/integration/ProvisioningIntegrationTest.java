@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyEndpointRecord;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyEndpointRegistryRepository;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
@@ -73,7 +74,7 @@ class ProvisioningIntegrationTest extends IntegrationTestBase {
                     .officialName("통합테스트 스텁 기관")
                     .minAuthLevel("L1")
                     .policyVersion("1.0")
-                    .integrationType("DIRECT")
+                    .integrationType(IntegrationType.DIRECT)
                     .active(true)
                     .build());
         }

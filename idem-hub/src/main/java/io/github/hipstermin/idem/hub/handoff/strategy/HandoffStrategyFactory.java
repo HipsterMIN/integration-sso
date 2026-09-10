@@ -1,9 +1,11 @@
 package io.github.hipstermin.idem.hub.handoff.strategy;
 
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -17,34 +19,31 @@ import org.springframework.stereotype.Component;
 @Component
 public class HandoffStrategyFactory {
 
-    private final Map<String, HandoffStrategy> strategyMap;
-    private final HandoffStrategy              defaultStrategy;
+    private final Map<IntegrationType, HandoffStrategy> strategyMap;
 
+    /**
+     * 모든 {@link IntegrationType} 에 전략이 하나씩 있어야 기동한다 — S1 에서 "미지 값 DIRECT 폴백" 을 없앴다.
+     * 유형이 늘면(S6 프로토콜 확장) 전략도 함께 추가해야 하며, 누락은 배포 전에 드러난다.
+     */
     public HandoffStrategyFactory(List<HandoffStrategy> strategies) {
-        this.strategyMap = strategies.stream()
-                .collect(Collectors.toMap(
-                        HandoffStrategy::getIntegrationType,
-                        Function.identity()
-                ));
-        this.defaultStrategy = strategyMap.getOrDefault("DIRECT",
-                strategies.stream().findFirst().orElseThrow(
-                        () -> new IllegalStateException("HandoffStrategy 구현체가 없습니다")));
+        Map<IntegrationType, HandoffStrategy> map = new EnumMap<>(IntegrationType.class);
+        for (HandoffStrategy s : strategies) {
+            if (map.putIfAbsent(s.getIntegrationType(), s) != null) {
+                throw new IllegalStateException("HandoffStrategy 중복 등록: " + s.getIntegrationType());
+            }
+        }
+        List<IntegrationType> missing = Arrays.stream(IntegrationType.values())
+                .filter(t -> !map.containsKey(t)).toList();
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("HandoffStrategy 미등록 연동 유형: " + missing
+                    + " — 모든 IntegrationType 에 전략이 있어야 기동한다");
+        }
+        this.strategyMap = Collections.unmodifiableMap(map);
         log.info("[StrategyFactory] 등록된 HandoffStrategy: {}", strategyMap.keySet());
     }
 
-    /**
-     * integration_type 으로 전략 조회
-     *
-     * @param integrationType DIRECT / APACHE_GATE / BRIDGE / INTERNAL_SSO
-     * @return 해당 전략 (미등록이면 DIRECT fallback)
-     */
-    public HandoffStrategy getStrategy(String integrationType) {
-        if (integrationType == null) return defaultStrategy;
-        HandoffStrategy strategy = strategyMap.get(integrationType.toUpperCase());
-        if (strategy == null) {
-            log.warn("[StrategyFactory] 알 수 없는 integration_type '{}' — DIRECT fallback", integrationType);
-            return defaultStrategy;
-        }
-        return strategy;
+    /** null 은 {@link IntegrationType#DEFAULT}. 그 외 유형은 생성 시점에 전부 검증됐으므로 항상 존재한다. */
+    public HandoffStrategy getStrategy(IntegrationType integrationType) {
+        return strategyMap.get(integrationType == null ? IntegrationType.DEFAULT : integrationType);
     }
 }

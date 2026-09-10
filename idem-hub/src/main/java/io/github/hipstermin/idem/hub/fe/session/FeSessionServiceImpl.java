@@ -136,6 +136,7 @@ public class FeSessionServiceImpl implements FeSessionService {
     public boolean isValidReturnUrl(String returnUrl) {
         if (returnUrl == null || returnUrl.isBlank()) return false;
         return allowedReturnUrls.stream()
+                .filter(allowed -> allowed != null && !allowed.isBlank()) // 빈 항목이 모든 URL 을 통과시키지 않도록
                 .anyMatch(allowed -> returnUrl.startsWith(allowed.trim()));
     }
 

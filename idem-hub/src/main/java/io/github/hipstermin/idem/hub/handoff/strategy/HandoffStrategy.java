@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.hub.handoff.strategy;
 
 import io.github.hipstermin.idem.common.domain.HandoffPayload;
 import io.github.hipstermin.idem.common.domain.HandoffTicket;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 
 /**
  * Handoff 연동 유형별 전략 인터페이스 (Strategy Pattern)
@@ -20,7 +21,7 @@ import io.github.hipstermin.idem.common.domain.HandoffTicket;
 public interface HandoffStrategy {
 
     /** 이 전략이 처리하는 integration_type 문자열 */
-    String getIntegrationType();
+    IntegrationType getIntegrationType();
 
     /**
      * Ticket 발급 후 후처리 실행

@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
@@ -89,7 +90,7 @@ class HandoffIntegrationTest extends IntegrationTestBase {
                     .apiKeyHash(sha256Hex(AGENCY_KEY))
                     .callbackWhitelist("[\"https://agency.example.com/callback\"]")
                     .allowedAttributes("[\"name_masked\",\"mobile_masked\"]")
-                    .integrationType("DIRECT")
+                    .integrationType(IntegrationType.DIRECT)
                     .active(true)
                     .build();
             agencyMetaJpaRepository.save(agency);

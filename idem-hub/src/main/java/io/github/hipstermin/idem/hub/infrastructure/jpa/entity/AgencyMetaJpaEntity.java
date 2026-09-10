@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.hub.infrastructure.jpa.entity;
 
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import jakarta.persistence.*;
 import java.time.Instant;
 import lombok.*;
@@ -64,12 +65,18 @@ public class AgencyMetaJpaEntity {
     @Column(name = "maintenance_windows", columnDefinition = "jsonb")
     private String maintenanceWindows;
 
-    /** 연동 유형: DIRECT / APACHE_GATE / BRIDGE / INTERNAL_SSO */
+    /** 연동 유형 — DB CHECK(chk_integration_type) 와 IntegrationType 열거형은 같은 값 집합 */
+    @Enumerated(EnumType.STRING)
     @Column(name = "integration_type", length = 20, nullable = false)
-    private String integrationType;
+    private IntegrationType integrationType;
 
+    /** BRIDGE 전용 — Bridge 서버 Payload 푸시 엔드포인트 */
     @Column(name = "bridge_endpoint", length = 500)
     private String bridgeEndpoint;
+
+    /** APACHE_GATE 전용 — 게이트웨이 세션 사전 등록 URL (V20, S1 에서 bridge_endpoint 와 분리) */
+    @Column(name = "apache_gate_endpoint", length = 500)
+    private String apacheGateEndpoint;
 
     @Column(name = "sso_domain", length = 200)
     private String ssoDomain;
@@ -94,7 +101,7 @@ public class AgencyMetaJpaEntity {
         if (updatedAt == null) updatedAt = now;
         if (minAuthLevel == null) minAuthLevel = "L1";
         if (policyVersion == null) policyVersion = DEFAULT_POLICY_VERSION;
-        if (integrationType == null) integrationType = "DIRECT";
+        if (integrationType == null) integrationType = IntegrationType.DEFAULT;
     }
 
     @PreUpdate

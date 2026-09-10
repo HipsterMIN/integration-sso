@@ -19,6 +19,7 @@ public class AgencyResponse {
     private final String       policyVersion;
     private final String       integrationType;
     private final String       bridgeEndpoint;
+    private final String       apacheGateEndpoint;
     private final String       ssoDomain;
     private final List<String> callbackWhitelist;
     private final List<String> allowedAttributes;

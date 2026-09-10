@@ -16,6 +16,7 @@ import io.github.hipstermin.idem.hub.auth.dto.*;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import io.github.hipstermin.idem.hub.auth.port.ImApiOutPort;
+import io.github.hipstermin.idem.hub.qim.MemberDivisionPolicy;
 import io.github.hipstermin.idem.hub.qim.crypto.AesSharedKeyDecryptor;
 import java.util.Map;
 import java.util.Optional;
@@ -57,7 +58,7 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthService(integrationAuthClient, oacxClient, new ObjectMapper(),
-                imApiOutPort, authAuditService, aesSharedKeyDecryptor);
+                imApiOutPort, authAuditService, aesSharedKeyDecryptor, MemberDivisionPolicy.defaults());
     }
 
     // ── callback 테스트 ──────────────────────────────────────────────────────

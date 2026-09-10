@@ -66,6 +66,9 @@ public enum PlatformErrorCode {
     // ── 본인인증 SPI (docs/vendor-plugin-plan.md P1) ─────────────────────────
     IDO_AUTH_PROVIDER_UNKNOWN("E-IDO-109", HttpStatus.NOT_FOUND, "등록되지 않은 본인인증 제공자입니다."),
     IDO_AUTH_VERIFICATION_FAILED("E-IDO-110", HttpStatus.BAD_REQUEST, "본인인증에 실패했습니다."),
+    // ── 범용화 S1 (docs/generalization-plan.md) ──────────────────────────────
+    IDO_INVALID_INTEGRATION_TYPE("E-IDO-111", HttpStatus.BAD_REQUEST, "지원하지 않는 기관 연동 유형입니다."),
+    IDO_PROVIDER_NOT_CONFIGURED("E-IDO-112", HttpStatus.SERVICE_UNAVAILABLE, "인증 제공자가 설정되지 않았습니다."),
 
     // ── 기관 오류 (E-AGENCY-3xx) ─────────────────────────────────────────────
     AGENCY_NOT_REGISTERED ("E-AGENCY-301", HttpStatus.FORBIDDEN,   "등록되지 않은 기관 코드입니다."),

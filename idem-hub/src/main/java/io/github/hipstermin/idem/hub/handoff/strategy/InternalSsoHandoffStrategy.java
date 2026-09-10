@@ -3,6 +3,7 @@ package io.github.hipstermin.idem.hub.handoff.strategy;
 import io.github.hipstermin.idem.common.domain.HandoffPayload;
 import io.github.hipstermin.idem.common.domain.HandoffTicket;
 import io.github.hipstermin.idem.hub.domain.AgencyMeta;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -57,8 +58,8 @@ public class InternalSsoHandoffStrategy implements HandoffStrategy {
     private final RestTemplate         restTemplate;
 
     @Override
-    public String getIntegrationType() {
-        return "INTERNAL_SSO";
+    public IntegrationType getIntegrationType() {
+        return IntegrationType.INTERNAL_SSO;
     }
 
     /**

@@ -175,6 +175,15 @@ ui:     { brandName: "…", logoUrl: "…", locale: ko }
 
 완료 기준: 통합 35건·단위 전부 통과, 코어 소스 고객 문자열 0건, `IntegrationType` 외 문자열 비교 0건.
 
+**진행 기록 (2026-09-10)** — S1 구현 PR:
+- ✅ `IntegrationType` enum · 전략 팩토리 fail-fast(누락·중복 유형은 기동 거부, 미지 값 DIRECT 폴백 제거) · JPA `@Enumerated` · Admin API 미지 값 400(`E-IDO-111`)
+- ✅ V20: `apache_gate_endpoint` 컬럼 신설·데이터 이동, `AgencyMetaRepositoryImpl` 의 컬럼 이중 의미 제거
+- ✅ AnyID 운영기관 식별자(srvc-no·agency-code·agency-name) 코드·설정 기본값 제거 → 미설정 시 브로커 진입에서 503(`E-IDO-112`)
+- ✅ `mbrDvsnCd` 허용 목록을 `ido.qim.member-division-codes` / `corporate-division-codes` 로 외부화(`MemberDivisionPolicy`, `@MemberDivisionCode`)
+- ✅ `GeneralizationGuardTest` — 코어 6모듈 main 에 고객 토큰 0건을 CI 로 강제(허용 목록: 적용된 시드 V8·V13, AnyID 벤더 자산, registry `AgencyRegistry`)
+- ✅ 부수 발견: `ido.fe.allowed-return-urls` 가 YAML 시퀀스라 `@Value List` 바인딩이 비어 **모든 returnUrl 이 거부되던 상태** → 쉼표 구분 스칼라로 전환, 빈 항목 무시
+- ⏸ 항목 7(V13 시드 이동)은 **개명 5단계(DB 재구축)로 이월** — 이미 적용된 Flyway 이력을 옮기면 기존 DB 가 `validate` 에서 실패한다. 가드 허용 목록에 사유를 적어 둠
+
 ### S2 — Tenant Profile (2~3주)
 
 `tenant-profile.schema.json` v1 · `TenantProfile` 도메인(record) · `agency_meta.profile JSONB` 마이그레이션(기존 컬럼 → 프로파일 합성 백필) · `TenantProfileService`(읽기: 프로파일 우선, 없으면 컬럼 합성; 쓰기: 프로파일) · Admin API `PUT /api/v1/admin/tenants/{code}/profile`(스키마 검증) · `AgencyMeta` 는 프로파일의 뷰로 재구성 · 이력은 `agency_policy_history` 에 스냅샷.

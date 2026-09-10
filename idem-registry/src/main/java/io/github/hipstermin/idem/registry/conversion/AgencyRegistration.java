@@ -21,7 +21,7 @@ public class AgencyRegistration {
 
     /**
      * 기관 API 베이스 URL
-     * (예: http://agency-stub:8083, https://api.smes.go.kr)
+     * (예: http://agency-stub:8083, https://api.agency.example.org)
      */
     private final String baseUrl;
 

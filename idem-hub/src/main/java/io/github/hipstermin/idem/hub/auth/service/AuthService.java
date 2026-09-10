@@ -8,6 +8,7 @@ import io.github.hipstermin.idem.hub.auth.dto.*;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import io.github.hipstermin.idem.hub.auth.port.ImApiOutPort;
+import io.github.hipstermin.idem.hub.qim.MemberDivisionPolicy;
 import io.github.hipstermin.idem.hub.qim.crypto.AesSharedKeyDecryptor;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -62,6 +63,7 @@ public class AuthService {
     private final ImApiOutPort imApiOutPort;
     private final AuthAuditService authAuditService;
     private final AesSharedKeyDecryptor aesSharedKeyDecryptor;
+    private final MemberDivisionPolicy memberDivisionPolicy;
 
     /**
      * FE에서 AES-GCM으로 암호화하여 전송한 CI를 복호화하는 키
@@ -382,15 +384,15 @@ public class AuthService {
 
         // 2. 회원구분코드 검증
         String mbrDvsnCd = request.getMbrDvsnCd();
-        if (!"A101".equals(mbrDvsnCd) && !"A102".equals(mbrDvsnCd)) {
+        if (!memberDivisionPolicy.isAllowed(mbrDvsnCd)) {
             return CiCheckResponse.builder()
                     .resultCode("4000")
-                    .resultMsg("mbrDvsnCd 값이 유효하지 않습니다. 허용값: A101(개인), A102(기업)")
+                    .resultMsg("mbrDvsnCd 값이 유효하지 않습니다. 허용값: " + memberDivisionPolicy.describeAllowed())
                     .build();
         }
 
         // 3. 기업회원 필수 파라미터 검증
-        if ("A102".equals(mbrDvsnCd)) {
+        if (memberDivisionPolicy.requiresBusinessNumber(mbrDvsnCd)) {
             if (request.getBizno() == null || request.getBizno().isBlank()) {
                 return CiCheckResponse.builder()
                         .resultCode("4000")
@@ -477,16 +479,16 @@ public class AuthService {
         }
 
         // 2. 회원 구분 코드 검증
-        if (!"A101".equals(mbrDvsnCd) && !"A102".equals(mbrDvsnCd)) {
+        if (!memberDivisionPolicy.isAllowed(mbrDvsnCd)) {
             return CiTokenExchangeResponse.builder()
                     .resultCode("4000")
-                    .resultMsg("mbrDvsnCd 값이 유효하지 않습니다. 허용값: A101(개인), A102(기업)")
+                    .resultMsg("mbrDvsnCd 값이 유효하지 않습니다. 허용값: " + memberDivisionPolicy.describeAllowed())
                     .build();
         }
-        if ("A102".equals(mbrDvsnCd) && (request.getBizno() == null || request.getBizno().isBlank())) {
+        if (memberDivisionPolicy.requiresBusinessNumber(mbrDvsnCd) && (request.getBizno() == null || request.getBizno().isBlank())) {
             return CiTokenExchangeResponse.builder()
                     .resultCode("4000")
-                    .resultMsg("기업회원(A102)은 bizno(사업자등록번호)가 필수입니다.")
+                    .resultMsg("기업회원(" + mbrDvsnCd + ")은 bizno(사업자등록번호)가 필수입니다.")
                     .build();
         }
 

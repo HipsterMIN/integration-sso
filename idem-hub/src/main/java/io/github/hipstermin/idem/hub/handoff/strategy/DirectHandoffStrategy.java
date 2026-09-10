@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.hub.handoff.strategy;
 
 import io.github.hipstermin.idem.common.domain.HandoffPayload;
 import io.github.hipstermin.idem.common.domain.HandoffTicket;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -18,8 +19,8 @@ import org.springframework.stereotype.Component;
 public class DirectHandoffStrategy implements HandoffStrategy {
 
     @Override
-    public String getIntegrationType() {
-        return "DIRECT";
+    public IntegrationType getIntegrationType() {
+        return IntegrationType.DIRECT;
     }
 
     @Override

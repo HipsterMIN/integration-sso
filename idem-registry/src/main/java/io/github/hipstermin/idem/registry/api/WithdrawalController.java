@@ -62,7 +62,7 @@ public class WithdrawalController {
      * {
      *   "type": "ADMIN_FORCED",
      *   "reason": "이용 약관 위반",
-     *   "requestedBy": "admin@smes.go.kr"
+     *   "requestedBy": "admin@example.org"
      * }
      * }</pre>
      *

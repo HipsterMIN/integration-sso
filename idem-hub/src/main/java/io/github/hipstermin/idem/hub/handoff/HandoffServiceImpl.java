@@ -11,6 +11,7 @@ import io.github.hipstermin.idem.common.event.HandoffEvent;
 import io.github.hipstermin.idem.common.util.UuidV7;
 import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
 import io.github.hipstermin.idem.hub.domain.AgencyMeta;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.handoff.crypto.HandoffCryptoService;
 import io.github.hipstermin.idem.hub.handoff.strategy.HandoffStrategyFactory;
 import io.github.hipstermin.idem.hub.handoff.validate.CallbackUrlValidator;
@@ -136,8 +137,8 @@ public class HandoffServiceImpl implements HandoffService {
             // INTERNAL_SSO: SSO 도메인 쿠키 세션 사전 등록
             // APACHE_GATE: 게이트웨이 세션 헤더 사전 등록
             HandoffPayload preBuiltPayload = null;
-            String integrationType = agency.getIntegrationType();
-            if (integrationType != null && !"DIRECT".equalsIgnoreCase(integrationType)) {
+            IntegrationType integrationType = agency.getIntegrationType();
+            if (integrationType != IntegrationType.DIRECT) {
                 // DIRECT 외 전략에서는 Payload가 필요할 수 있으므로 사전 빌드
                 try {
                     preBuiltPayload = policyEngine.buildHandoffPayload(ticket, cmd.getCorrelationId());

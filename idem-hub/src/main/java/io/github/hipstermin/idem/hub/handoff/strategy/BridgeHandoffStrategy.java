@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.domain.HandoffPayload;
 import io.github.hipstermin.idem.common.domain.HandoffTicket;
 import io.github.hipstermin.idem.hub.domain.AgencyMeta;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -41,8 +42,8 @@ public class BridgeHandoffStrategy implements HandoffStrategy {
     private final ObjectMapper         objectMapper;
 
     @Override
-    public String getIntegrationType() {
-        return "BRIDGE";
+    public IntegrationType getIntegrationType() {
+        return IntegrationType.BRIDGE;
     }
 
     @Override

@@ -1,19 +1,21 @@
 package io.github.hipstermin.idem.hub.broker.anyid;
 
+import io.github.hipstermin.idem.common.error.PlatformErrorCode;
+import io.github.hipstermin.idem.common.error.PlatformException;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Any-ID 설치형 연동 설정 프로퍼티 (기관 #311 — 중소벤처24기업마당)
+ * Any-ID 설치형 연동 설정 프로퍼티
  *
  * <p>행안부 Any-ID 사업단 발급 개발키 바인딩.<br>
- * 원본: {@code 별첨2.(개발KEY)311_중소기업기술정보진흥원_중소벤처24기업마당.xlsx}
+ * 운영기관 식별자(srvc-no·agency-code·agency-name)와 자격증명은 코드 기본값 없이 설치 시 주입한다 (S1 범용화).
  *
  * <p><b>환경변수 → 설정 매핑</b>:
  * <pre>
- * ANYID_SRVC_NO          → ido.anyid.srvc-no          (기본: 1000001157)
+ * ANYID_SRVC_NO          → ido.anyid.srvc-no          (필수 — 운영기관에 발급된 서비스 번호)
  * ANYID_SSO_SECRET_CODE  → ido.anyid.sso.secret-code  (HMAC 서명 키)
  * ANYID_KMS_APP_KEY      → ido.anyid.kms.app-key      (ARIA-CBC-256 앱 키)
  * ANYID_KMS_CLIENT_INFO  → ido.anyid.kms.client-info  (ARIA-CBC-256 클라이언트 정보)
@@ -45,12 +47,29 @@ import org.springframework.stereotype.Component;
 public class AnyIdProperties {
 
     // ── 기관 식별자 ──────────────────────────────────────────────────────
-    /** 서비스 번호 — 모든 API 호출의 srvc_no 파라미터 (기본: 1000001157) */
-    private String srvcNo = "1000001157";
+    /** 서비스 번호 — 모든 API 호출의 srvc_no 파라미터. 설치 시 주입(코어 기본값 없음) */
+    private String srvcNo = "";
     /** 기관 코드 (=srvcNo) */
-    private String agencyCode = "1000001157";
+    private String agencyCode = "";
     /** 기관명 (로그/감사 추적용) */
-    private String agencyName = "중소벤처24기업마당";
+    private String agencyName = "";
+
+    /** 운영기관 식별자 3종이 모두 주입됐는가. AnyID 를 쓰지 않는 설치에서는 false 이며 브로커 진입 시 503 으로 거부한다. */
+    public boolean isAgencyConfigured() {
+        return hasText(srvcNo) && hasText(agencyCode) && hasText(agencyName);
+    }
+
+    /** AnyID 브로커 진입점에서 호출 — 식별자 미설정이면 IDO_PROVIDER_NOT_CONFIGURED(503). */
+    public void requireAgencyConfigured(String correlationId) {
+        if (!isAgencyConfigured()) {
+            throw new PlatformException(PlatformErrorCode.IDO_PROVIDER_NOT_CONFIGURED, correlationId,
+                    "AnyID 운영기관 식별자 미설정 — ido.anyid.srvc-no / agency-code / agency-name (ANYID_SRVC_NO 등) 을 주입하세요");
+        }
+    }
+
+    private static boolean hasText(String v) {
+        return v != null && !v.isBlank();
+    }
 
     // ── Any-ID 포털 (관리 API) ────────────────────────────────────────────
     private Portal portal = new Portal();

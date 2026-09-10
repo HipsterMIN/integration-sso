@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.hub.domain.AgencyMeta;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
 import java.util.List;
@@ -51,14 +52,6 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
     // ── 도메인 ↔ 엔터티 변환 ─────────────────────────────────────────────────
 
     private AgencyMeta toDomain(AgencyMetaJpaEntity e) {
-        // APACHE_GATE 전략은 bridge_endpoint 컬럼을 apacheGateEndpoint 로 재사용
-        String apacheGateEndpoint = "APACHE_GATE".equalsIgnoreCase(e.getIntegrationType())
-                ? e.getBridgeEndpoint()
-                : null;
-        String bridgeEndpoint = "BRIDGE".equalsIgnoreCase(e.getIntegrationType())
-                ? e.getBridgeEndpoint()
-                : null;
-
         return AgencyMeta.builder()
                 .agencyCode(e.getAgencyCode())
                 .officialName(e.getOfficialName())
@@ -68,10 +61,10 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
                 .callbackWhitelist(parseJsonList(e.getCallbackWhitelist()))
                 .allowedAttributes(parseJsonList(e.getAllowedAttributes()))
                 .maintenanceWindows(parseMaintenanceWindows(e.getMaintenanceWindows()))
-                .integrationType(e.getIntegrationType() != null ? e.getIntegrationType() : "DIRECT")
-                .bridgeEndpoint(bridgeEndpoint)
+                .integrationType(e.getIntegrationType() != null ? e.getIntegrationType() : IntegrationType.DEFAULT)
+                .bridgeEndpoint(e.getBridgeEndpoint())
                 .ssoDomain(e.getSsoDomain())
-                .apacheGateEndpoint(apacheGateEndpoint)
+                .apacheGateEndpoint(e.getApacheGateEndpoint())
                 .active(e.isActive())
                 .build();
     }
@@ -82,13 +75,6 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
         String attrJson     = toJson(domain.getAllowedAttributes());
         String mwJson       = toJson(domain.getMaintenanceWindows());
 
-        // bridge_endpoint: BRIDGE→bridgeEndpoint, APACHE_GATE→apacheGateEndpoint
-        String bridgeEndpointCol = "BRIDGE".equalsIgnoreCase(domain.getIntegrationType())
-                ? domain.getBridgeEndpoint()
-                : ("APACHE_GATE".equalsIgnoreCase(domain.getIntegrationType())
-                   ? domain.getApacheGateEndpoint()
-                   : null);
-
         return AgencyMetaJpaEntity.builder()
                 .agencyCode(domain.getAgencyCode())
                 .officialName(domain.getOfficialName() != null ? domain.getOfficialName() : domain.getAgencyCode())
@@ -98,8 +84,9 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
                 .callbackWhitelist(callbackJson)
                 .allowedAttributes(attrJson)
                 .maintenanceWindows(mwJson)
-                .integrationType(domain.getIntegrationType() != null ? domain.getIntegrationType() : "DIRECT")
-                .bridgeEndpoint(bridgeEndpointCol)
+                .integrationType(domain.getIntegrationType() != null ? domain.getIntegrationType() : IntegrationType.DEFAULT)
+                .bridgeEndpoint(domain.getBridgeEndpoint())
+                .apacheGateEndpoint(domain.getApacheGateEndpoint())
                 .ssoDomain(domain.getSsoDomain())
                 .active(domain.isActive())
                 .build();

@@ -79,7 +79,7 @@ public class AuthController {
      * <pre>
      * // useNicePhoneAuth.ts
      * const { data } = await beApiInstance.get('/api/v1/auth/nice/phone/url', {
-     *   params: { returnUrl: 'https://www.smes.go.kr/otp/auth-result' }
+     *   params: { returnUrl: 'https://portal.example.org/otp/auth-result' }
      * });
      * if (data.resultCode === '2000') {
      *   // data.authUrl: NICE 표준창 URL

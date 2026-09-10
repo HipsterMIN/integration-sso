@@ -2,10 +2,13 @@ package io.github.hipstermin.idem.hub.admin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.error.PlatformErrorCode;
+import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.event.AuditLogEvent;
 import io.github.hipstermin.idem.hub.admin.dto.AgencyCreateRequest;
 import io.github.hipstermin.idem.hub.admin.dto.AgencyResponse;
 import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
 import java.security.MessageDigest;
@@ -58,8 +61,9 @@ public class AgencyAdminService {
                 .officialName(req.getOfficialName())
                 .minAuthLevel(req.getMinAuthLevel() != null ? req.getMinAuthLevel() : "L1")
                 .policyVersion(req.getPolicyVersion() != null ? req.getPolicyVersion() : defaultPolicyVersion)
-                .integrationType(req.getIntegrationType() != null ? req.getIntegrationType() : "DIRECT")
+                .integrationType(parseIntegrationType(req.getIntegrationType()))
                 .bridgeEndpoint(req.getBridgeEndpoint())
+                .apacheGateEndpoint(req.getApacheGateEndpoint())
                 .ssoDomain(req.getSsoDomain())
                 .callbackWhitelist(toJson(req.getCallbackWhitelist()))
                 .allowedAttributes(toJson(req.getAllowedAttributes()))
@@ -88,8 +92,9 @@ public class AgencyAdminService {
         if (req.getOfficialName()     != null) entity.setOfficialName(req.getOfficialName());
         if (req.getMinAuthLevel()     != null) entity.setMinAuthLevel(req.getMinAuthLevel());
         if (req.getPolicyVersion()    != null) entity.setPolicyVersion(req.getPolicyVersion());
-        if (req.getIntegrationType()  != null) entity.setIntegrationType(req.getIntegrationType());
+        if (req.getIntegrationType()  != null) entity.setIntegrationType(parseIntegrationType(req.getIntegrationType()));
         if (req.getBridgeEndpoint()   != null) entity.setBridgeEndpoint(req.getBridgeEndpoint());
+        if (req.getApacheGateEndpoint() != null) entity.setApacheGateEndpoint(req.getApacheGateEndpoint());
         if (req.getSsoDomain()        != null) entity.setSsoDomain(req.getSsoDomain());
         if (req.getCallbackWhitelist() != null) entity.setCallbackWhitelist(toJson(req.getCallbackWhitelist()));
         if (req.getAllowedAttributes() != null) entity.setAllowedAttributes(toJson(req.getAllowedAttributes()));
@@ -301,6 +306,15 @@ public class AgencyAdminService {
         }
     }
 
+    /** 연동 유형 검증 — 미지 값은 400(E-IDO-111). null 은 DEFAULT(DIRECT). */
+    private IntegrationType parseIntegrationType(String raw) {
+        try {
+            return IntegrationType.fromOrDefault(raw);
+        } catch (IllegalArgumentException e) {
+            throw new PlatformException(PlatformErrorCode.IDO_INVALID_INTEGRATION_TYPE, null, e.getMessage());
+        }
+    }
+
     private String toJson(Object obj) {
         if (obj == null) return null;
         try { return objectMapper.writeValueAsString(obj); }
@@ -317,8 +331,9 @@ public class AgencyAdminService {
                 .officialName(e.getOfficialName())
                 .minAuthLevel(e.getMinAuthLevel())
                 .policyVersion(e.getPolicyVersion())
-                .integrationType(e.getIntegrationType())
+                .integrationType(e.getIntegrationType() != null ? e.getIntegrationType().name() : IntegrationType.DEFAULT.name())
                 .bridgeEndpoint(e.getBridgeEndpoint())
+                .apacheGateEndpoint(e.getApacheGateEndpoint())
                 .ssoDomain(e.getSsoDomain())
                 .callbackWhitelist(parseJsonList(e.getCallbackWhitelist()))
                 .allowedAttributes(parseJsonList(e.getAllowedAttributes()))

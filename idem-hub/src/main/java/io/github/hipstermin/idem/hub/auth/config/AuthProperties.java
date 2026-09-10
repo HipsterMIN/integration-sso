@@ -132,7 +132,7 @@ public record AuthProperties(
             /**
              * 통합인증 서버 기본 URL
              *
-             * <p>예: {@code https://intg-auth.smes.go.kr}
+             * <p>예: {@code https://intg-auth.example.org}
              * 환경변수 {@code INTEGRATION_AUTH_BASE_URL}로 주입.
              */
             String baseUrl,

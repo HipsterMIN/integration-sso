@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.hub.auth.dto;
 
+import io.github.hipstermin.idem.hub.auth.validation.MemberDivisionCode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -61,7 +62,7 @@ public class CiCheckRequest {
      * </ul>
      */
     @NotBlank(message = "mbrDvsnCd는 필수입니다")
-    @Pattern(regexp = "^A10[12]$", message = "mbrDvsnCd는 A101 또는 A102 이어야 합니다")
+    @MemberDivisionCode // 허용 목록은 ido.qim.member-division-codes (S1 범용화)
     private String mbrDvsnCd;
 
     /**

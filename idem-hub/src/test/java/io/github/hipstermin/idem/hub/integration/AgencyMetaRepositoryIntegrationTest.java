@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.hub.domain.AgencyMeta;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
@@ -55,7 +56,7 @@ class AgencyMetaRepositoryIntegrationTest extends IntegrationTestBase {
                 .apiKeyHash("pbkdf2-hash-value")
                 .callbackWhitelist("[\"https://tc-agency.example.com/cb\"]")
                 .allowedAttributes("[\"name_masked\"]")
-                .integrationType("DIRECT")
+                .integrationType(IntegrationType.DIRECT)
                 .active(true)
                 .build();
 
@@ -87,7 +88,7 @@ class AgencyMetaRepositoryIntegrationTest extends IntegrationTestBase {
                 .officialName("도메인 변환 테스트 기관")
                 .minAuthLevel("L2")
                 .policyVersion("2.0")
-                .integrationType("DIRECT")
+                .integrationType(IntegrationType.DIRECT)
                 .callbackWhitelist("[\"https://example.com/cb\"]")
                 .allowedAttributes("[]")
                 .active(true)
@@ -140,7 +141,7 @@ class AgencyMetaRepositoryIntegrationTest extends IntegrationTestBase {
                 .officialName("목록 조회 테스트")
                 .minAuthLevel("L1")
                 .policyVersion("1.0")
-                .integrationType("DIRECT")
+                .integrationType(IntegrationType.DIRECT)
                 .active(true)
                 .build();
         jpaRepository.save(entity);
@@ -150,5 +151,53 @@ class AgencyMetaRepositoryIntegrationTest extends IntegrationTestBase {
 
         // then: 최소 1개 이상 (방금 삽입한 것 포함)
         assertThat(count).isGreaterThanOrEqualTo(1);
+    }
+
+    // ── S1 범용화: 연동 유형 타입화 + APACHE_GATE 전용 엔드포인트 컬럼 ────────────
+
+    @Test
+    @DisplayName("S1: APACHE_GATE / BRIDGE 기관은 각자 전용 엔드포인트 컬럼으로 왕복하고 서로 섞이지 않는다")
+    void integrationType_endpointsRoundTrip_dedicatedColumns() {
+        AgencyMeta gate = AgencyMeta.builder()
+                .agencyCode("TC_S1_GATE").officialName("S1 게이트 기관")
+                .minAuthLevel(AuthResult.AuthLevel.L1).policyVersion("1.0")
+                .integrationType(IntegrationType.APACHE_GATE)
+                .apacheGateEndpoint("https://gw.example.org/internal/sso-session")
+                .active(true).build();
+        AgencyMeta bridge = AgencyMeta.builder()
+                .agencyCode("TC_S1_BRIDGE").officialName("S1 브리지 기관")
+                .minAuthLevel(AuthResult.AuthLevel.L1).policyVersion("1.0")
+                .integrationType(IntegrationType.BRIDGE)
+                .bridgeEndpoint("https://bridge.example.org/api/handoff/push")
+                .active(true).build();
+
+        agencyMetaRepository.save(gate);
+        agencyMetaRepository.save(bridge);
+
+        AgencyMeta gateLoaded = agencyMetaRepository.findByCode("TC_S1_GATE").orElseThrow();
+        assertThat(gateLoaded.getIntegrationType()).isEqualTo(IntegrationType.APACHE_GATE);
+        assertThat(gateLoaded.getApacheGateEndpoint()).isEqualTo("https://gw.example.org/internal/sso-session");
+        assertThat(gateLoaded.getBridgeEndpoint()).isNull();
+
+        AgencyMeta bridgeLoaded = agencyMetaRepository.findByCode("TC_S1_BRIDGE").orElseThrow();
+        assertThat(bridgeLoaded.getIntegrationType()).isEqualTo(IntegrationType.BRIDGE);
+        assertThat(bridgeLoaded.getBridgeEndpoint()).isEqualTo("https://bridge.example.org/api/handoff/push");
+        assertThat(bridgeLoaded.getApacheGateEndpoint()).isNull();
+
+        // DB 컬럼도 분리돼 있어야 한다 (V20)
+        AgencyMetaJpaEntity gateRow = jpaRepository.findById("TC_S1_GATE").orElseThrow();
+        assertThat(gateRow.getApacheGateEndpoint()).isNotNull();
+        assertThat(gateRow.getBridgeEndpoint()).isNull();
+    }
+
+    @Test
+    @DisplayName("S1: 빌더에서 연동 유형을 지정하지 않으면 DEFAULT(DIRECT) 로 저장된다")
+    void integrationType_unspecified_defaultsToDirect() {
+        agencyMetaRepository.save(AgencyMeta.builder()
+                .agencyCode("TC_S1_DEFAULT").officialName("S1 기본")
+                .minAuthLevel(AuthResult.AuthLevel.L1).policyVersion("1.0").active(true).build());
+
+        assertThat(agencyMetaRepository.findByCode("TC_S1_DEFAULT").orElseThrow().getIntegrationType())
+                .isEqualTo(IntegrationType.DIRECT);
     }
 }
