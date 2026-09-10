@@ -1,4 +1,4 @@
-package io.github.hipstermin.idem.hub.tenant;
+package io.github.hipstermin.idem.hub.serviceprofile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -12,10 +12,10 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("TenantProfileMapper — 컬럼 ↔ 프로파일 투영")
-class TenantProfileMapperTest {
+@DisplayName("ServiceProfileMapper — 컬럼 ↔ 프로파일 투영")
+class ServiceProfileMapperTest {
 
-    private final TenantProfileMapper mapper = new TenantProfileMapper(new ObjectMapper());
+    private final ServiceProfileMapper mapper = new ServiceProfileMapper(new ObjectMapper());
 
     private static AgencyMetaJpaEntity entity() {
         return AgencyMetaJpaEntity.builder()
@@ -34,11 +34,11 @@ class TenantProfileMapperTest {
     @Test
     @DisplayName("컬럼 → 프로파일: 컬럼 값이 그대로 실린다")
     void fromEntity_projectsColumns() {
-        TenantProfile p = mapper.fromEntity(entity(), null);
+        ServiceProfile p = mapper.fromEntity(entity(), null);
 
         assertThat(p.schemaVersion()).isEqualTo(1);
-        assertThat(p.tenant().code()).isEqualTo("AG_MAP");
-        assertThat(p.tenant().status()).isEqualTo(TenantProfile.TenantStatus.INACTIVE);
+        assertThat(p.service().code()).isEqualTo("AG_MAP");
+        assertThat(p.service().status()).isEqualTo(ServiceProfile.ServiceStatus.INACTIVE);
         assertThat(p.protocol().type()).isEqualTo(IntegrationType.APACHE_GATE);
         assertThat(p.protocol().endpoints().apacheGate()).isEqualTo("https://gw.example.org/sso");
         assertThat(p.protocol().endpoints().callbackWhitelist()).containsExactly("https://a.example.org/cb");
@@ -53,24 +53,24 @@ class TenantProfileMapperTest {
     @Test
     @DisplayName("컬럼 → 프로파일 합성 시 프로파일에만 있는 항목(ui·session·security·mapping·tps)은 보존된다")
     void fromEntity_preservesProfileOnlyFields() {
-        TenantProfile existing = TenantProfile.builder()
+        ServiceProfile existing = ServiceProfile.builder()
                 .schemaVersion(1)
-                .tenant(new TenantProfile.Tenant("AG_MAP", "옛 이름", TenantProfile.TenantStatus.ACTIVE))
-                .protocol(TenantProfile.Protocol.builder().type(IntegrationType.DIRECT)
-                        .security(new TenantProfile.Security(true, List.of("10.0.0.0/8"))).build())
-                .identity(new TenantProfile.Identity(SubjectScheme.EMAIL,
-                        List.of(new TenantProfile.AttributeSelection("name_masked", true, MaskingRule.NONE)),
+                .service(new ServiceProfile.Service("AG_MAP", "옛 이름", ServiceProfile.ServiceStatus.ACTIVE))
+                .protocol(ServiceProfile.Protocol.builder().type(IntegrationType.DIRECT)
+                        .security(new ServiceProfile.Security(true, List.of("10.0.0.0/8"))).build())
+                .identity(new ServiceProfile.Identity(SubjectScheme.EMAIL,
+                        List.of(new ServiceProfile.AttributeSelection("name_masked", true, MaskingRule.NONE)),
                         java.util.Map.of("name_masked", "userNm")))
-                .policy(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
-                        .allowedProviders(List.of("NICE")).session(new TenantProfile.Session(30, 480, 1)).build())
-                .limits(new TenantProfile.Limits(50, 1))
-                .ui(new TenantProfile.Ui("기관 A", null, "ko"))
+                .policy(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
+                        .allowedProviders(List.of("NICE")).session(new ServiceProfile.Session(30, 480, 1)).build())
+                .limits(new ServiceProfile.Limits(50, 1))
+                .ui(new ServiceProfile.Ui("기관 A", null, "ko"))
                 .build();
 
-        TenantProfile merged = mapper.fromEntity(entity(), existing);
+        ServiceProfile merged = mapper.fromEntity(entity(), existing);
 
         // 컬럼이 진실인 항목은 컬럼 값
-        assertThat(merged.tenant().name()).isEqualTo("매핑 기관");
+        assertThat(merged.service().name()).isEqualTo("매핑 기관");
         assertThat(merged.protocol().type()).isEqualTo(IntegrationType.APACHE_GATE);
         assertThat(merged.policy().minAuthLevel()).isEqualTo(AuthResult.AuthLevel.L2);
         assertThat(merged.limits().daily()).isEqualTo(5000);
@@ -90,17 +90,17 @@ class TenantProfileMapperTest {
     @Test
     @DisplayName("프로파일 → 컬럼: 투영되고 profile 원문이 함께 저장된다")
     void applyToEntity_projectsToColumns() {
-        TenantProfile p = TenantProfile.builder()
+        ServiceProfile p = ServiceProfile.builder()
                 .schemaVersion(1)
-                .tenant(new TenantProfile.Tenant("AG_NEW", "새 기관", TenantProfile.TenantStatus.ACTIVE))
-                .protocol(TenantProfile.Protocol.builder().type(IntegrationType.BRIDGE)
-                        .endpoints(TenantProfile.Endpoints.builder().bridge("https://b.example.org/push")
+                .service(new ServiceProfile.Service("AG_NEW", "새 기관", ServiceProfile.ServiceStatus.ACTIVE))
+                .protocol(ServiceProfile.Protocol.builder().type(IntegrationType.BRIDGE)
+                        .endpoints(ServiceProfile.Endpoints.builder().bridge("https://b.example.org/push")
                                 .callbackWhitelist(List.of("https://b.example.org/cb")).build()).build())
-                .identity(new TenantProfile.Identity(null, TenantProfile.Identity.selectionsOf(List.of("name_masked", "mobile_masked")), null))
-                .policy(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L3).policyVersion("2.0")
-                        .maintenance(List.of(new TenantProfile.MaintenanceWindow("MON", "02:00", "04:00"))).build())
-                .limits(new TenantProfile.Limits(null, 777))
-                .ui(new TenantProfile.Ui("B", null, null))
+                .identity(new ServiceProfile.Identity(null, ServiceProfile.Identity.selectionsOf(List.of("name_masked", "mobile_masked")), null))
+                .policy(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L3).policyVersion("2.0")
+                        .maintenance(List.of(new ServiceProfile.MaintenanceWindow("MON", "02:00", "04:00"))).build())
+                .limits(new ServiceProfile.Limits(null, 777))
+                .ui(new ServiceProfile.Ui("B", null, null))
                 .build();
         AgencyMetaJpaEntity e = AgencyMetaJpaEntity.builder().agencyCode("AG_NEW").build();
 
@@ -125,14 +125,14 @@ class TenantProfileMapperTest {
     @DisplayName("syncProfileColumn: 컬럼을 고친 뒤 호출하면 프로파일이 따라오고 프로파일 전용 항목은 남는다")
     void syncProfileColumn_keepsProfileOnlyFields() {
         AgencyMetaJpaEntity e = entity();
-        e.setProfile("{\"schemaVersion\":1,\"tenant\":{\"code\":\"AG_MAP\",\"name\":\"옛\"},"
+        e.setProfile("{\"schemaVersion\":1,\"service\":{\"code\":\"AG_MAP\",\"name\":\"옛\"},"
                 + "\"protocol\":{\"type\":\"DIRECT\"},\"policy\":{\"minAuthLevel\":\"L1\"},\"ui\":{\"brandName\":\"보존\"}}");
         e.setOfficialName("바뀐 이름");
 
         mapper.syncProfileColumn(e);
 
-        TenantProfile synced = mapper.fromJson(e.getProfile());
-        assertThat(synced.tenant().name()).isEqualTo("바뀐 이름");
+        ServiceProfile synced = mapper.fromJson(e.getProfile());
+        assertThat(synced.service().name()).isEqualTo("바뀐 이름");
         assertThat(synced.protocol().type()).isEqualTo(IntegrationType.APACHE_GATE);
         assertThat(synced.ui().brandName()).isEqualTo("보존");
     }
@@ -140,7 +140,7 @@ class TenantProfileMapperTest {
     @Test
     @DisplayName("JSON 왕복: parse(toNode(p)) 는 p 와 같다")
     void jsonRoundTrip() {
-        TenantProfile p = mapper.fromEntity(entity(), null);
+        ServiceProfile p = mapper.fromEntity(entity(), null);
         assertThat(mapper.parse(mapper.toNode(p))).isEqualTo(p);
         assertThat(mapper.fromJson(mapper.toJson(p))).isEqualTo(p);
     }

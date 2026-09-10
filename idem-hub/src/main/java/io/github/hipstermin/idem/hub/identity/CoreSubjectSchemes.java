@@ -28,7 +28,7 @@ public class CoreSubjectSchemes {
         return new SubjectIdentifierScheme() {
             @Override public SubjectScheme scheme() { return SubjectScheme.PAIRWISE_HMAC; }
             @Override public Optional<String> resolve(SubjectResolutionContext ctx) {
-                String di = qimClient.getDi(ctx.qimUserId(), ctx.tenantCode(), ctx.correlationId());
+                String di = qimClient.getDi(ctx.qimUserId(), ctx.serviceCode(), ctx.correlationId());
                 return di == null || di.isBlank() ? Optional.empty() : Optional.of(di);
             }
         };

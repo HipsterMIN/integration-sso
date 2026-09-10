@@ -25,10 +25,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * S2 범용화 — Tenant Profile 로 기관을 온보딩하고, 프로파일과 낱개 컬럼이 항상 일치하는지 검증한다.
+ * S2 범용화 — Service Profile 로 기관을 온보딩하고, 프로파일과 낱개 컬럼이 항상 일치하는지 검증한다.
  */
-@DisplayName("S2 — Tenant Profile Admin API 통합 테스트")
-class TenantProfileIntegrationTest extends IntegrationTestBase {
+@DisplayName("S2 — Service Profile Admin API 통합 테스트")
+class ServiceProfileIntegrationTest extends IntegrationTestBase {
 
     @LocalServerPort int port;
     @Autowired TestRestTemplate restTemplate;
@@ -37,7 +37,7 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired ObjectMapper objectMapper;
 
-    private static final List<String> CODES = List.of("TC_S2_ONBOARD", "TC_S2_BAD", "TC_S2_LEGACY", "TC_S3_SIM");
+    private static final List<String> CODES = List.of("TC_S2_ONBOARD", "TC_S2_BAD", "TC_S2_LEGACY", "TC_S3_SIM", "TC_S4B_SVC");
 
     /** 공유 DB(로컬 PostgreSQL 재사용 포함)에서도 결정적이도록 대상 기관과 이력을 비운다. */
     @BeforeEach
@@ -56,12 +56,12 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
         h.setContentType(MediaType.APPLICATION_JSON);
         h.set("X-Admin-Id", "s2-admin");
         h.set("X-Change-Reason", "S2 통합 테스트");
-        return restTemplate.exchange(url("/api/v1/admin/tenants/" + code + "/profile"), HttpMethod.PUT,
+        return restTemplate.exchange(url("/api/v1/admin/services/" + code + "/profile"), HttpMethod.PUT,
                 new HttpEntity<>(json, h), String.class);
     }
 
     private ResponseEntity<String> get(String code) {
-        return restTemplate.getForEntity(url("/api/v1/admin/tenants/" + code + "/profile"), String.class);
+        return restTemplate.getForEntity(url("/api/v1/admin/services/" + code + "/profile"), String.class);
     }
 
     private JsonNode json(ResponseEntity<String> res) throws Exception { return objectMapper.readTree(res.getBody()); }
@@ -72,7 +72,7 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
         String code = "TC_S2_ONBOARD";
         String body = """
                 {"schemaVersion":1,
-                 "tenant":{"code":"%s","name":"S2 온보딩 기관"},
+                 "service":{"code":"%s","name":"S2 온보딩 기관"},
                  "protocol":{"type":"BRIDGE","endpoints":{"bridge":"https://bridge.example.org/push","callbackWhitelist":["https://tenant.example.org/cb"]}},
                  "identity":{"attributes":["name_masked"],"attributeMapping":{"name_masked":"userNm"}},
                  "policy":{"minAuthLevel":"L2","policyVersion":"1.2","session":{"idleMinutes":20}},
@@ -82,7 +82,7 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
 
         ResponseEntity<String> res = put(code, body);
         assertThat(res.getStatusCode().value()).as("body=%s", res.getBody()).isEqualTo(200);
-        assertThat(json(res).at("/tenant/code").asText()).isEqualTo(code);
+        assertThat(json(res).at("/service/code").asText()).isEqualTo(code);
 
         // 컬럼 투영 — 기존 런타임 경로(AgencyMetaRepository)가 같은 값을 본다
         AgencyMeta meta = agencyMetaRepository.findByCode(code).orElseThrow();
@@ -115,12 +115,12 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
     void putProfile_invalid_rejected() throws Exception {
         String code = "TC_S2_BAD";
         ResponseEntity<String> missingPolicy = put(code,
-                "{\"schemaVersion\":1,\"tenant\":{\"code\":\"" + code + "\",\"name\":\"x\"},\"protocol\":{\"type\":\"DIRECT\"}}");
+                "{\"schemaVersion\":1,\"service\":{\"code\":\"" + code + "\",\"name\":\"x\"},\"protocol\":{\"type\":\"DIRECT\"}}");
         assertThat(missingPolicy.getStatusCode().value()).isEqualTo(400);
         assertThat(missingPolicy.getBody()).contains("E-IDO-113").contains("policy");
 
         ResponseEntity<String> mismatch = put(code,
-                "{\"schemaVersion\":1,\"tenant\":{\"code\":\"OTHER\",\"name\":\"x\"},\"protocol\":{\"type\":\"DIRECT\"},\"policy\":{\"minAuthLevel\":\"L1\"}}");
+                "{\"schemaVersion\":1,\"service\":{\"code\":\"OTHER\",\"name\":\"x\"},\"protocol\":{\"type\":\"DIRECT\"},\"policy\":{\"minAuthLevel\":\"L1\"}}");
         assertThat(mismatch.getStatusCode().value()).isEqualTo(400);
         assertThat(mismatch.getBody()).contains("E-IDO-113");
 
@@ -138,11 +138,11 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
         // 프로파일 컬럼 없이 저장된 행 → 컬럼 합성
         JsonNode synthesized = json(get(code));
         assertThat(synthesized.at("/protocol/type").asText()).isEqualTo("DIRECT");
-        assertThat(synthesized.at("/tenant/name").asText()).isEqualTo("레거시 기관");
+        assertThat(synthesized.at("/service/name").asText()).isEqualTo("레거시 기관");
 
         // 프로파일로 ui 를 채운 뒤
         ResponseEntity<String> res = put(code, """
-                {"schemaVersion":1,"tenant":{"code":"%s","name":"레거시 기관"},
+                {"schemaVersion":1,"service":{"code":"%s","name":"레거시 기관"},
                  "protocol":{"type":"DIRECT"},"policy":{"minAuthLevel":"L1"},"ui":{"brandName":"보존돼야 함"}}
                 """.formatted(code));
         assertThat(res.getStatusCode().value()).isEqualTo(200);
@@ -154,7 +154,7 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
                 .active(true).build());
 
         JsonNode after = json(get(code));
-        assertThat(after.at("/tenant/name").asText()).isEqualTo("도메인 경로로 변경");
+        assertThat(after.at("/service/name").asText()).isEqualTo("도메인 경로로 변경");
         assertThat(after.at("/policy/minAuthLevel").asText()).isEqualTo("L3");
         assertThat(after.at("/ui/brandName").asText()).isEqualTo("보존돼야 함");
         // PostgreSQL 이 돌려주는 jsonb 원문은 공백이 정규화되므로 파싱해서 비교
@@ -167,13 +167,13 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
     void policySimulation_reportsEveryRule() throws Exception {
         String code = "TC_S3_SIM";
         assertThat(put(code, """
-                {"schemaVersion":1,"tenant":{"code":"%s","name":"S3 시뮬레이션 기관"},
+                {"schemaVersion":1,"service":{"code":"%s","name":"S3 시뮬레이션 기관"},
                  "protocol":{"type":"DIRECT"},
                  "policy":{"minAuthLevel":"L2","allowedProviders":["NICE"]}}
                 """.formatted(code)).getStatusCode().value()).isEqualTo(200);
 
         HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
-        ResponseEntity<String> denied = restTemplate.exchange(url("/api/v1/admin/tenants/" + code + "/policy/simulate"),
+        ResponseEntity<String> denied = restTemplate.exchange(url("/api/v1/admin/services/" + code + "/policy/simulate"),
                 HttpMethod.POST, new HttpEntity<>("{\"authLevel\":\"LOW\",\"providerCode\":\"MOCK\",\"userStatus\":\"ACTIVE\"}", h), String.class);
         assertThat(denied.getStatusCode().value()).as("body=%s", denied.getBody()).isEqualTo(200);
         JsonNode d = json(denied);
@@ -187,7 +187,7 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
         assertThat(d.at("/decisions/3/rule").asText()).isEqualTo("USER_STATUS");
         assertThat(d.at("/decisions/3/outcome").asText()).isEqualTo("ALLOW");
 
-        ResponseEntity<String> allowed = restTemplate.exchange(url("/api/v1/admin/tenants/" + code + "/policy/simulate"),
+        ResponseEntity<String> allowed = restTemplate.exchange(url("/api/v1/admin/services/" + code + "/policy/simulate"),
                 HttpMethod.POST, new HttpEntity<>("{\"authLevel\":\"L2\",\"providerCode\":\"nice\"}", h), String.class);
         JsonNode a = json(allowed);
         assertThat(a.at("/allowed").asBoolean()).isTrue();
@@ -195,10 +195,67 @@ class TenantProfileIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("S4b: Service 는 Tenant(Realm) 에 속한다 — 기본 DEFAULT, Tenant Admin API 로 만든 Tenant 지정, 미등록 Tenant 는 400")
+    void serviceBelongsToTenant() throws Exception {
+        // Tenant 목록에 V22 시드 DEFAULT 가 있다
+        ResponseEntity<String> list = restTemplate.getForEntity(url("/api/v1/admin/tenants"), String.class);
+        assertThat(list.getStatusCode().value()).isEqualTo(200);
+        assertThat(json(list).findValuesAsText("code")).contains("DEFAULT");
+
+        // 새 Tenant 생성
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_JSON);
+        h.set("X-Admin-Id", "s4b-admin");
+        ResponseEntity<String> tenantRes = restTemplate.exchange(url("/api/v1/admin/tenants/TC_S4B_TENANT"), HttpMethod.PUT,
+                new HttpEntity<>("{\"name\":\"S4b 테넌트\",\"status\":\"ACTIVE\"}", h), String.class);
+        assertThat(tenantRes.getStatusCode().value()).as("body=%s", tenantRes.getBody()).isEqualTo(200);
+        assertThat(json(tenantRes).at("/code").asText()).isEqualTo("TC_S4B_TENANT");
+
+        // service.tenant 를 지정한 프로파일 → 컬럼·JSONB 모두 반영, 루트 블록은 service (tenant 블록 없음)
+        String code = "TC_S4B_SVC";
+        ResponseEntity<String> res = put(code, """
+                {"schemaVersion":1,
+                 "service":{"code":"%s","name":"S4b 서비스","tenant":"TC_S4B_TENANT"},
+                 "protocol":{"type":"DIRECT"},
+                 "policy":{"minAuthLevel":"L1"}}
+                """.formatted(code));
+        assertThat(res.getStatusCode().value()).as("body=%s", res.getBody()).isEqualTo(200);
+        assertThat(json(res).at("/service/tenant").asText()).isEqualTo("TC_S4B_TENANT");
+        assertThat(jdbcTemplate.queryForObject("SELECT tenant_code FROM ido.agency_meta WHERE agency_code = ?", String.class, code))
+                .isEqualTo("TC_S4B_TENANT");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT jsonb_exists(profile, 'tenant') OR NOT jsonb_exists(profile, 'service') FROM ido.agency_meta WHERE agency_code = ?", Boolean.class, code))
+                .isFalse();
+
+        // tenant 생략 → DEFAULT
+        ResponseEntity<String> def = put(code, """
+                {"schemaVersion":1,"service":{"code":"%s","name":"S4b 서비스"},"protocol":{"type":"DIRECT"},"policy":{"minAuthLevel":"L1"}}
+                """.formatted(code));
+        assertThat(json(def).at("/service/tenant").asText()).isEqualTo("DEFAULT");
+
+        // 미등록 Tenant → 400 E-IDO-113
+        ResponseEntity<String> bad = put(code, """
+                {"schemaVersion":1,"service":{"code":"%s","name":"x","tenant":"NO_SUCH_TENANT"},"protocol":{"type":"DIRECT"},"policy":{"minAuthLevel":"L1"}}
+                """.formatted(code));
+        assertThat(bad.getStatusCode().value()).isEqualTo(400);
+        assertThat(json(bad).at("/code").asText()).isEqualTo("E-IDO-113");
+        assertThat(json(bad).at("/message").asText()).contains("NO_SUCH_TENANT");
+
+        // V22 이관 검증: 종전 형식(tenant 블록)으로 저장된 행도 service 로 읽힌다 — 마이그레이션 SQL 을 그대로 재적용
+        jdbcTemplate.update("UPDATE ido.agency_meta SET profile = (profile - 'service') || jsonb_build_object('tenant', profile->'service') WHERE agency_code = ?", code);
+        jdbcTemplate.update("""
+                UPDATE ido.agency_meta
+                   SET profile = (profile - 'tenant') || jsonb_build_object('service', (profile -> 'tenant') || jsonb_build_object('tenant', tenant_code))
+                 WHERE profile IS NOT NULL AND jsonb_exists(profile, 'tenant') AND NOT jsonb_exists(profile, 'service') AND agency_code = ?
+                """, code);
+        assertThat(json(get(code)).at("/service/code").asText()).isEqualTo(code);
+    }
+
+    @Test
     @DisplayName("스키마 엔드포인트는 v1 스키마 원문을 돌려준다")
     void schemaEndpoint() {
-        ResponseEntity<String> res = restTemplate.getForEntity(url("/api/v1/admin/tenants/profile-schema"), String.class);
+        ResponseEntity<String> res = restTemplate.getForEntity(url("/api/v1/admin/services/profile-schema"), String.class);
         assertThat(res.getStatusCode().value()).isEqualTo(200);
-        assertThat(res.getBody()).contains("Idem Tenant Profile v1");
+        assertThat(res.getBody()).contains("Idem Service Profile v1");
     }
 }

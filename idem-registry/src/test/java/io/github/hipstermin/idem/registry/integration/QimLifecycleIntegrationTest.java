@@ -10,7 +10,6 @@ import io.github.hipstermin.idem.registry.biz.BizMemberConversionService;
 import io.github.hipstermin.idem.registry.biz.BizMemberConversionServiceImpl;
 import io.github.hipstermin.idem.registry.biz.BizMemberResult;
 import io.github.hipstermin.idem.registry.consent.*;
-import io.github.hipstermin.idem.registry.conversion.*;
 import io.github.hipstermin.idem.registry.crypto.PiiMaskingService;
 import io.github.hipstermin.idem.registry.guardian.GuardianConsentService;
 import io.github.hipstermin.idem.registry.guardian.GuardianConsentServiceImpl;
@@ -74,9 +73,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         OutboxRepositoryImpl.class,
         // Consent
         ConsentServiceImpl.class,
-        // Conversion — AgencyMemberLookupService 는 외부 IdO HTTP 호출을 수행하므로
-        // 본 테스트 슬라이스에서는 @MockitoBean 으로 격리한다.
-        ConversionSessionServiceImpl.class,
         // Guardian (P3-05 V6)
         GuardianConsentServiceImpl.class,
         // BizMember (P3-06 V6)
@@ -114,12 +110,6 @@ class QimLifecycleIntegrationTest {
     @MockitoBean
     OutboxService outboxService;
 
-    // AgencyMemberLookupService 는 ConversionSessionServiceImpl 이 호출하지만,
-    // S6(전환 세션 상태 기계) 검증은 sessionRepository 직접 조회로 수행하므로
-    // 빈 응답을 반환하는 mock 으로 격리한다.
-    @MockitoBean
-    io.github.hipstermin.idem.registry.conversion.AgencyMemberLookupService agencyMemberLookupService;
-
     // ── Spring 빈 주입 ────────────────────────────────────────────────────────
 
     @Autowired QimUserJpaRepository          userRepository;
@@ -127,10 +117,8 @@ class QimLifecycleIntegrationTest {
     @Autowired BizMemberJpaRepository        bizMemberRepository;
     @Autowired ConsentVersionJpaRepository   versionRepository;
     @Autowired ConsentRecordJpaRepository    recordRepository;
-    @Autowired ConversionSessionJpaRepository sessionRepository;
     @Autowired WithdrawalService             withdrawalService;
     @Autowired ConsentService                consentService;
-    @Autowired ConversionSessionService      conversionSessionService;
     @Autowired GuardianConsentService        guardianConsentService;
     @Autowired BizMemberConversionService    bizMemberConversionService;
     @Autowired JdbcTemplate                  jdbcTemplate;
@@ -168,7 +156,6 @@ class QimLifecycleIntegrationTest {
     @BeforeEach
     void cleanUp() {
         // 테스트 격리: FK 의존 순서대로 삭제
-        sessionRepository.deleteAll();
         recordRepository.deleteAll();
         versionRepository.deleteAll();
         bizMemberRepository.deleteAll();
@@ -365,57 +352,6 @@ class QimLifecycleIntegrationTest {
         assertThat(records.get(0).getConsentStatus()).isEqualTo("WITHDRAWN");
         assertThat(records.get(0).getWithdrawnAt()).isNotNull();
         assertThat(records.get(0).getWithdrawalReason()).isEqualTo("마케팅 수신 거부");
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    // S6: ConversionSession 상태 기계 전체 흐름
-    // ══════════════════════════════════════════════════════════════════════
-
-    @Test
-    @DisplayName("S6: INITIATED → MEMBERS_FETCHED → ACCOUNT_SELECTED → COMPLETED 전체 흐름")
-    void s6_conversionSessionFullFlow() {
-        // 준비
-        String qimUserId = createActiveUser("user-s6-001");
-
-        // 1단계: INITIATED
-        ConversionSessionResult initiated =
-                conversionSessionService.initiate(qimUserId, CORR);
-        assertThat(initiated.getState()).isEqualTo(ConversionSessionState.INITIATED);
-        String sessionId = initiated.getSessionId();
-        assertThat(sessionId).isNotBlank();
-
-        // 기존 활성 세션 재사용 확인
-        ConversionSessionResult reused =
-                conversionSessionService.initiate(qimUserId, CORR);
-        assertThat(reused.getSessionId()).isEqualTo(sessionId);
-
-        // 2단계: MEMBERS_FETCHED (AgencyMemberLookupService 없이 — @DataJpaTest 환경)
-        // ConversionSessionServiceImpl에 AgencyMemberLookupService가 주입되지 않으므로
-        // 직접 상태를 MEMBERS_FETCHED로 변환
-        ConversionSessionJpaEntity sessionEntity =
-                sessionRepository.findById(sessionId).orElseThrow();
-        sessionEntity.setStatus(ConversionSessionState.MEMBERS_FETCHED.name());
-        sessionRepository.saveAndFlush(sessionEntity);
-
-        // 3단계: ACCOUNT_SELECTED
-        List<String> selectedCodes = List.of("GOV_SMES", "GOV_MSS");
-        ConversionSessionResult selected =
-                conversionSessionService.selectAccounts(sessionId, selectedCodes, CORR);
-        assertThat(selected.getState()).isEqualTo(ConversionSessionState.ACCOUNT_SELECTED);
-        assertThat(selected.getSelectedAgencyCodes()).containsExactlyElementsOf(selectedCodes);
-
-        // 4단계: COMPLETED (performLinking stub — @DataJpaTest 환경)
-        // ACCOUNT_SELECTED → LINKING → COMPLETED 상태를 직접 DB에서 검증
-        ConversionSessionJpaEntity forLink =
-                sessionRepository.findById(sessionId).orElseThrow();
-        forLink.setStatus(ConversionSessionState.COMPLETED.name());
-        forLink.setLinkedAgencyCodesJson("[\"GOV_SMES\",\"GOV_MSS\"]");
-        sessionRepository.saveAndFlush(forLink);
-
-        ConversionSessionResult completed =
-                conversionSessionService.getSession(sessionId, CORR);
-        assertThat(completed.getState()).isEqualTo(ConversionSessionState.COMPLETED);
-        assertThat(completed.getLinkedAgencyCodes()).containsExactly("GOV_SMES", "GOV_MSS");
     }
 
     // ══════════════════════════════════════════════════════════════════════

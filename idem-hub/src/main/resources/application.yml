@@ -582,17 +582,7 @@ ido:
   # ⚠️  Phase 1: 아래 모든 신규 기능 기본값 false (안전)
   # ════════════════════════════════════════════════════════════════════════
 
-  # ── F-20: 전 기관 프로비저닝 (Sprint 14, Phase 2 활성화) ─────────────────
-  # true: JDK 21 Virtual Thread로 최대 68개 기관에 동시 HTTP POST 발행
-  # ⚠️  F-22 dry-run=true 상태로 먼저 2주 관찰 후 운영 전환 권장
-  provisioning:
-    enabled:              ${IDO_PROVISIONING_ENABLED:false}       # F-20: Phase 2↑
-    dry-run:              ${IDO_PROVISIONING_DRY_RUN:true}        # F-22: Phase 2-A=true, 2-B=false
-    relay-enabled:        ${IDO_PROVISIONING_RELAY_ENABLED:false} # F-21: Phase 2-B↑
-    relay-interval-ms:    ${IDO_PROVISIONING_RELAY_INTERVAL_MS:30000}
-    relay-batch-size:     ${IDO_PROVISIONING_RELAY_BATCH_SIZE:50}
-    timeout-ms:           ${IDO_PROVISIONING_TIMEOUT_MS:0}
-    max-parallel-agencies: ${IDO_PROVISIONING_MAX_PARALLEL:100}
+  # (S4b) F-20~F-22 전 기관 프로비저닝은 제거되었다 — 서비스에는 어설션·백채널 로그아웃·보안/감사 이벤트만 push 한다 (docs/generalization-plan.md §2.0)
 
   # ── F-23/F-24: Agency Gateway API (Sprint 15, Phase 3 활성화) ────────────
   # F-23: 기관 → OnePass 인바운드 이벤트 수신 (POST /inbound/event)

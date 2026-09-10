@@ -14,7 +14,6 @@ import io.github.hipstermin.idem.hub.gateway.dto.OutboundNotifyRequest;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyEndpointRecord;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyEndpointRegistryRepository;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
-import io.github.hipstermin.idem.hub.provision.ProvisioningOutboxRepository;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +50,6 @@ class AgencyGatewayServiceTest {
     @Mock private GatewayOutboundRepository        outboundRepository;
     @Mock private AgencyEndpointRegistryRepository endpointRegistry;
     @Mock private AgencyMetaRepository             agencyMetaRepository;
-    @Mock private ProvisioningOutboxRepository     provisioningOutboxRepository;
     @Mock private RestTemplate                     restTemplate;
     @Mock private AgencyHmacKeyStore               hmacKeyStore;
 
@@ -68,7 +66,7 @@ class AgencyGatewayServiceTest {
     void setUp() {
         sut = new AgencyGatewayServiceImpl(
                 idempotencyStore, inboundRepository, outboundRepository,
-                endpointRegistry, agencyMetaRepository, provisioningOutboxRepository,
+                endpointRegistry, agencyMetaRepository,
                 restTemplate, objectMapper, hmacKeyStore);
     }
 

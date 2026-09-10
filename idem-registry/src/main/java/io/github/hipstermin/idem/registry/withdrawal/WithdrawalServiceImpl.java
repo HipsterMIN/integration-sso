@@ -73,7 +73,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
 
         if (!"WITHDRAWAL_SCHEDULED".equals(user.getStatus())) {
             throw new PlatformException(
-                    PlatformErrorCode.IM_CONVERSION_INVALID_STATE, correlationId);
+                    PlatformErrorCode.IM_WITHDRAWAL_NOT_ALLOWED, correlationId);   // S4b: 전환 코드 오용 → 탈퇴 상태 오류
         }
 
         user.setStatus("ACTIVE");

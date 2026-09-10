@@ -30,7 +30,7 @@ class SubjectIdentifierResolverTest {
     }
 
     private static SubjectResolutionContext ctx() {
-        return SubjectResolutionContext.builder().qimUserId("u1").tenantCode("AG").correlationId("c1").build();
+        return SubjectResolutionContext.builder().qimUserId("u1").serviceCode("AG").correlationId("c1").build();
     }
 
     @Test

@@ -1,4 +1,4 @@
-package io.github.hipstermin.idem.hub.tenant;
+package io.github.hipstermin.idem.hub.serviceprofile;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -21,9 +21,9 @@ import java.util.Map;
 import lombok.Builder;
 
 /**
- * Tenant Profile — 연동기관(테넌트)별 선언적 설정의 단일 원천 (S2, {@code docs/generalization-plan.md} §2.1).
+ * Service Profile — 연동기관(테넌트)별 선언적 설정의 단일 원천 (S2, {@code docs/generalization-plan.md} §2.1).
  *
- * <p>JSON Schema {@code tenant-profile/tenant-profile.v1.schema.json} 과 1:1 로 대응하며, 저장은
+ * <p>JSON Schema {@code service-profile/service-profile.v1.schema.json} 과 1:1 로 대응하며, 저장은
  * {@code agency_meta.profile JSONB} 에 한다. 기존 컬럼(official_name·min_auth_level·integration_type·…)은
  * 이 문서의 <b>투영</b>이다 — 쓰기는 프로파일을 거쳐 컬럼으로 내려가고, 읽기는 아직 컬럼이 런타임 진실이다
  * (S3·S4 에서 읽기 경로를 프로파일로 옮긴다).
@@ -34,9 +34,9 @@ import lombok.Builder;
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Builder(toBuilder = true)
-public record TenantProfile(
+public record ServiceProfile(
         Integer schemaVersion,
-        Tenant tenant,
+        Service service,
         Protocol protocol,
         Identity identity,
         Policy policy,
@@ -44,12 +44,28 @@ public record TenantProfile(
         Ui ui) {
 
     public static final int SCHEMA_VERSION = 1;
+    /** 설치본의 기본 Tenant(Realm) — V22 시드 */
+    public static final String DEFAULT_TENANT = "DEFAULT";
 
-    public enum TenantStatus { ACTIVE, INACTIVE }
+    public enum ServiceStatus { ACTIVE, INACTIVE }
 
+    /**
+     * Service(기관·클라이언트) 식별 (S4b — 종전 {@code tenant} 블록).
+     *
+     * @param tenant 소속 Tenant(Realm) 코드 — null 이면 {@link #DEFAULT_TENANT}
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)
-    public record Tenant(String code, String name, TenantStatus status) {}
+    public record Service(String code, String name, ServiceStatus status, String tenant) {
+        public Service(String code, String name, ServiceStatus status) {
+            this(code, name, status, null);
+        }
+
+        @JsonIgnore
+        public String tenantOrDefault() {
+            return tenant == null || tenant.isBlank() ? DEFAULT_TENANT : tenant;
+        }
+    }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)
@@ -176,6 +192,6 @@ public record TenantProfile(
     /** 활성 여부 — status 가 없으면 ACTIVE 로 본다. (파생 값 — JSON 에는 싣지 않는다) */
     @JsonIgnore
     public boolean isActive() {
-        return tenant == null || tenant.status() == null || tenant.status() == TenantStatus.ACTIVE;
+        return service == null || service.status() == null || service.status() == ServiceStatus.ACTIVE;
     }
 }

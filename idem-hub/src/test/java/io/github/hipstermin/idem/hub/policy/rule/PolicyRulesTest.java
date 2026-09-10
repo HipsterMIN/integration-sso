@@ -6,7 +6,7 @@ import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
-import io.github.hipstermin.idem.hub.tenant.TenantProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -17,15 +17,15 @@ import org.junit.jupiter.api.Test;
 @DisplayName("S3 내장 정책 규칙")
 class PolicyRulesTest {
 
-    private static TenantProfile profile(TenantProfile.Policy policy) {
-        return TenantProfile.builder().schemaVersion(1)
-                .tenant(new TenantProfile.Tenant("AG", "기관", TenantProfile.TenantStatus.ACTIVE))
-                .protocol(TenantProfile.Protocol.builder().type(IntegrationType.DIRECT).build())
+    private static ServiceProfile profile(ServiceProfile.Policy policy) {
+        return ServiceProfile.builder().schemaVersion(1)
+                .service(new ServiceProfile.Service("AG", "기관", ServiceProfile.ServiceStatus.ACTIVE))
+                .protocol(ServiceProfile.Protocol.builder().type(IntegrationType.DIRECT).build())
                 .policy(policy).build();
     }
 
-    private static PolicyContext ctx(TenantProfile.Policy policy, AuthResult.AuthLevel level, String provider, UserStatus status, Instant now) {
-        return PolicyContext.builder().tenantCode("AG").profile(profile(policy)).authLevel(level).providerCode(provider)
+    private static PolicyContext ctx(ServiceProfile.Policy policy, AuthResult.AuthLevel level, String provider, UserStatus status, Instant now) {
+        return PolicyContext.builder().serviceCode("AG").profile(profile(policy)).authLevel(level).providerCode(provider)
                 .userStatus(status == null ? null : () -> status).now(now).correlationId("cid").build();
     }
 
@@ -35,19 +35,19 @@ class PolicyRulesTest {
         final MinAuthLevelRule rule = new MinAuthLevelRule();
 
         @Test void meets_allows() {
-            var d = rule.evaluate(ctx(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L2).build(), AuthResult.AuthLevel.L3, null, null, null), Map.of());
+            var d = rule.evaluate(ctx(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L2).build(), AuthResult.AuthLevel.L3, null, null, null), Map.of());
             assertThat(d.outcome()).isEqualTo(PolicyDecision.Outcome.ALLOW);
         }
 
         @Test void below_denies_withHandoffErrorCode() {
-            var d = rule.evaluate(ctx(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L2).build(), AuthResult.AuthLevel.L1, null, null, null), Map.of());
+            var d = rule.evaluate(ctx(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L2).build(), AuthResult.AuthLevel.L1, null, null, null), Map.of());
             assertThat(d.denied()).isTrue();
             assertThat(d.errorCode()).isEqualTo(PlatformErrorCode.IDO_AUTH_LEVEL_INSUFFICIENT);
             assertThat(d.auditReason()).isEqualTo("AUTH_LEVEL_INSUFFICIENT");
         }
 
         @Test void missingLevel_denies_failClosed() {
-            var d = rule.evaluate(ctx(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1).build(), null, null, null, null), Map.of());
+            var d = rule.evaluate(ctx(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1).build(), null, null, null, null), Map.of());
             assertThat(d.denied()).isTrue();
         }
 
@@ -63,17 +63,17 @@ class PolicyRulesTest {
         final AllowedProvidersRule rule = new AllowedProvidersRule();
 
         @Test void noRestriction_skips() {
-            assertThat(rule.evaluate(ctx(TenantProfile.Policy.builder().build(), null, "NICE", null, null), Map.of()).outcome())
+            assertThat(rule.evaluate(ctx(ServiceProfile.Policy.builder().build(), null, "NICE", null, null), Map.of()).outcome())
                     .isEqualTo(PolicyDecision.Outcome.SKIP);
         }
 
         @Test void listed_allows_caseInsensitive() {
-            var p = TenantProfile.Policy.builder().allowedProviders(List.of("NICE", "OACX_EASYSIGN")).build();
+            var p = ServiceProfile.Policy.builder().allowedProviders(List.of("NICE", "OACX_EASYSIGN")).build();
             assertThat(rule.evaluate(ctx(p, null, "nice", null, null), Map.of()).outcome()).isEqualTo(PolicyDecision.Outcome.ALLOW);
         }
 
         @Test void notListed_orMissing_denies() {
-            var p = TenantProfile.Policy.builder().allowedProviders(List.of("NICE")).build();
+            var p = ServiceProfile.Policy.builder().allowedProviders(List.of("NICE")).build();
             var d1 = rule.evaluate(ctx(p, null, "MOCK", null, null), Map.of());
             var d2 = rule.evaluate(ctx(p, null, null, null, null), Map.of());
             assertThat(d1.denied()).isTrue();
@@ -90,9 +90,9 @@ class PolicyRulesTest {
         final Instant thuSeoul0300 = Instant.parse("2026-09-09T18:00:00Z");
         final Instant thuSeoul0500 = Instant.parse("2026-09-09T20:00:00Z");
 
-        TenantProfile.Policy windows(String day) {
-            return TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
-                    .maintenance(List.of(new TenantProfile.MaintenanceWindow(day, "02:00", "04:00"))).build();
+        ServiceProfile.Policy windows(String day) {
+            return ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
+                    .maintenance(List.of(new ServiceProfile.MaintenanceWindow(day, "02:00", "04:00"))).build();
         }
 
         @Test void within_denies_bothDayFormats() {
@@ -108,7 +108,7 @@ class PolicyRulesTest {
         }
 
         @Test void noWindows_skips() {
-            assertThat(rule.evaluate(ctx(TenantProfile.Policy.builder().build(), null, null, null, thuSeoul0300), Map.of()).outcome())
+            assertThat(rule.evaluate(ctx(ServiceProfile.Policy.builder().build(), null, null, null, thuSeoul0300), Map.of()).outcome())
                     .isEqualTo(PolicyDecision.Outcome.SKIP);
         }
     }

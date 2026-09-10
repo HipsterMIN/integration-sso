@@ -31,14 +31,6 @@ public class GatewayStatusResponse {
     @JsonProperty("active_endpoints")
     int activeEndpoints;
 
-    /** PENDING 프로비저닝 건수 (provisioning_outbox PENDING 상태) */
-    @JsonProperty("pending_provisioning")
-    int pendingProvisioning;
-
-    /** DEAD_LETTER 프로비저닝 건수 (운영 알람 기준) */
-    @JsonProperty("dead_letter_provisioning")
-    int deadLetterProvisioning;
-
     /** 미처리 인바운드 이벤트 수 (gateway_inbound_audit RECEIVED 상태) */
     @JsonProperty("unprocessed_inbound")
     int unprocessedInbound;

@@ -1,6 +1,6 @@
 # Idem 범용화 리팩토링 플랜 — 구조 분석과 단계별 실행 계획
 
-> 작성 2026-09-10 · 기준 `shipster` 4eb5704 · 상태: 초안 v0.1
+> 작성 2026-09-10 · 기준 `shipster` 4eb5704 · 상태: v0.2 (2026-09-10 개정 — Tenant/Service 계층·IdP 모델로 목표 구조 수정, S4b 신설, S8 재정의)
 >
 > 목표: **어느 운영기관이든 설치할 수 있고, 어떤 연동기관의 요구도 코드 수정 없이(설정) 또는 플러그인으로 수용하는 구조**로 Idem 을 재편한다.
 > 인증(CC·GS) 실행 계획 [`execution-plan.md`](execution-plan.md) 과 벤더 분리 [`vendor-plugin-plan.md`](vendor-plugin-plan.md) 의 **구조적 전제**가 되는 문서다.
@@ -14,27 +14,30 @@
 | 축 | 뜻 | 지금 |
 |---|---|---|
 | A. 운영기관 설치 가능성 | 중소벤처기업부가 아닌 다른 기관·기업이 자기 환경에 설치·운영 | ❌ 고객 고유값(이름·코드·회원 유형·도메인)이 코어에 박혀 있음 |
-| B. 연동기관 수용성 | 붙는 기관(테넌트)마다 다른 프로토콜·속성·정책·보안 요구를 코드 수정 없이 수용 | 🟡 `agency_meta` 12컬럼 + 문자열 `integration_type` 4종. 정책·속성·IdP 선택·세션 정책은 전역 고정 |
+| B. 연동기관 수용성 | 붙는 기관(서비스)마다 다른 프로토콜·속성·정책·보안 요구를 코드 수정 없이 수용 | 🟡 `agency_meta` 12컬럼 + 문자열 `integration_type` 4종. 정책·속성·IdP 선택·세션 정책은 전역 고정 |
 
-**결합 지점 7가지** (§1 상세): 고객 고유값 · 벤더 코드 · 경직된 기관 모델 · 한국 고유 식별자(CI/DI) · 독자 프로토콜 편중 · 관리 면 부재 · SMES 특화 회원 전환.
+**결합 지점 8가지** (§1 상세): 고객 고유값 · 벤더 코드 · 경직된 기관 모델 · 한국 고유 식별자(CI/DI) · 독자 프로토콜 편중 · 관리 면 부재 · SMES 특화 회원 전환 · **회원통합 브로커 모델(기관이 회원의 진실을 쥐고 플랫폼이 기관을 돌며 조회·등록)**.
 
-**목표 구조** (§2): *Core(프로토콜·벤더·고객 중립) + Tenant Profile(기관별 선언적 설정) + Edition Plugins(KR 공공 등) + Admin Console*.
+**목표 모델** (§2, 2026-09-10 개정 v0.2): 범용 IdP/IAM 과 같은 계층 — **설치본 → Tenant(Realm, 운영기관·사용자 디렉터리) → Service(기관·클라이언트)**. 사용자는 Tenant 에 속하고, Tenant 에서 SSO 가 가능하면 그 안의 모든 Service 에 SSO 가 가능하며, Service 별로 무엇을 할 수 있는지는 IM 의 **할당·역할**이 정한다. Service 가 받는 것은 어설션(Handoff/OIDC/SAML)·백채널 로그아웃·보안/감사 이벤트뿐이고, 나머지는 로그인 시점에 pull 한다. 플랫폼이 기관 DB 를 돌며 회원을 조회·등록·방송하는 흐름은 코어에서 제거한다.
+
+*Core(프로토콜·벤더·고객 중립) + Service Profile(기관별 선언적 설정) + Tenant(디렉터리·할당) + Edition Plugins(KR 공공 등) + Admin Console*.
 
 **단계** (§3) — 앞 단계가 뒤 단계의 토대. 각 단계는 독립 PR, 동작 변화 없음(또는 호환 유지)이 원칙.
 
 | 단계 | 내용 | 위험 | 규모 |
 |---|---|---|---|
-| **S1** | 매직 문자열 타입화 + 고객 고유 기본값 외부화 | 낮음 | 1주 |
-| **S2** | Tenant Profile 도입 (버전 있는 선언적 기관 설정) | 중 | 2~3주 |
-| **S3** | 정책 엔진 규칙화 (PolicyRule SPI, 기관별 규칙, 인증수준 어휘 통일) | 중 | 2주 |
-| **S4** | 식별자·속성 계약 (SubjectIdentifier 스킴, AttributeCatalog, 기관별 매핑) | 중~높음 | 3주 |
+| **S1** ✅ | 매직 문자열 타입화 + 고객 고유 기본값 외부화 | 낮음 | 1주 |
+| **S2** ✅ | Service Profile 도입 (버전 있는 선언적 기관 설정 — 당시 이름 Tenant Profile) | 중 | 2~3주 |
+| **S3** ✅ | 정책 엔진 규칙화 (PolicyRule SPI, 기관별 규칙, 인증수준 어휘 통일) | 중 | 2주 |
+| **S4** ✅ | 식별자·속성 계약 (SubjectScheme, AttributeCatalog, 기관별 매핑) | 중~높음 | 3주 |
+| **S4b** | **Tenant/Service 계층 정립 + 회원통합 브로커 흐름 제거** (전환 팬아웃·전 기관 프로비저닝·기관 하드코딩 목록) | 중 | 2주 |
 | **S5** | 벤더 엔드포인트 SPI 완전 이관 (`/auth/nice/*`·`/auth/oacx/*`·AnyID → `/auth/providers/{code}`) | 중 | 2~3주 (+OACX SDK) |
-| **S6** | 프로토콜 확장 (표준 OIDC RP 파사드, Agent 를 프로토콜로, SAML 준비) | 높음 | 4주 |
-| **S7** | 관리 콘솔 + 관리자 인증 (기관 CRUD·프로파일 편집·감사 조회) | 중 | 4~6주 |
-| **S8** | 회원 모델 일반화 (SMES 회원 유형·사업자·후견을 에디션 확장으로) | 높음 | 4주 |
-| **S9** | 에디션 패키징·온보딩 가이드·요구사항 수용 체크리스트 | 낮음 | 2주 |
+| **S6** | 프로토콜 확장 (표준 OIDC RP 파사드, Agent 를 프로토콜로, SAML 준비, 백채널 로그아웃·이벤트 스트림 정리) | 높음 | 4주 |
+| **S7** | 관리 콘솔 + 관리자 인증 (Tenant·Service CRUD·프로파일 편집·감사 조회) | 중 | 4~6주 |
+| **S8** | **할당·역할 모델 (IM 권한 관리)** — 사용자/그룹 ↔ Service 할당, Service 별 앱 역할, 발급 판정의 `ASSIGNMENT` 규칙, `idem-authz` PDP 정리. SMES 회원 유형·사업자·후견은 에디션 확장으로 | 높음 | 4주 |
+| **S9** | 에디션 패키징·온보딩 가이드·요구사항 수용 체크리스트·일회성 회원 이관 도구(KR 에디션) | 낮음 | 2주 |
 
-의존: S1 → S2 → S3 → S4 → (S5 ∥ S6) → S7 → S8 → S9. S7 은 `execution-plan.md` P1 의 관리자 인증과 같은 작업이다.
+의존: S1 → S2 → S3 → S4 → S4b → (S5 ∥ S6) → S7 → S8 → S9. S7 은 `execution-plan.md` P1 의 관리자 인증과 같은 작업이다.
 
 ---
 
@@ -85,6 +88,16 @@
 
 **C7. 회원 전환·조회 흐름이 SMES 특화** — `conversion` 7파일·`memberlookup`·`qim` 12파일이 "중기원패스 → 통합 회원 전환" 시나리오 전용. 다른 운영기관은 이 흐름이 필요 없거나 다른 형태.
 
+**C8. 회원통합 브로커 모델 — 기관이 회원의 진실을 쥔다는 전제** (2026-09-10 S4 후 심층 분석에서 확인)
+
+| 흐름 | 위치 | 하는 일 | 문제 |
+|---|---|---|---|
+| 회원 전환(계정 연결) | registry `conversion` | 하드코딩 68개 기관에 `POST /members/lookup` 병렬 조회 → 선택 기관에 `POST /members/link` 통보 | 제품 흐름 어디에서도 호출되지 않음(hub `QimClient` 에 없음). **전역 SHA-256(CI)** 를 전 기관에 방송(기관 간 결합 가능, PAIRWISE 원칙 위배). 기관 실명이 코어에. 연결 결과가 영속되지 않아 Handoff 판정에 무관 |
+| 전 기관 프로비저닝 | hub `provision` + relay `ProvisioningRelayJob` | 회원 가입·전환·탈퇴 이벤트마다 활성 기관 전체에 qimUserId 를 POST | `sha256(qimUserId:registeredAt)` 은 기관이 대조할 수 없는 값 → 실질은 플랫폼 ID 방송. 수신 구현이 SDK·샘플에 없음. `enabled=false`·dry-run 기본으로 한 번도 실발행된 적 없음 |
+| GUEST 판정 | hub `PolicyEngineImpl` | "DI 없음 = 기관 매핑 없음 → GUEST" | registry `/di` 는 누구에게나 즉시 생성 → 사실상 전원 APPROVED. 접근 권한 개념이 없다 |
+
+범용 IdP(Keycloak Realm/Client · Entra Tenant/Enterprise App · Okta Org/App · SAML IdP/SP · OIDC OP/RP)는 예외 없이 **디렉터리가 진실**이고, 서비스 접근은 **할당(assignment)** 으로 결정하며, 서비스에 push 하는 것은 백채널 로그아웃·보안 이벤트(CAEP/RISC)·SCIM(선택, 서비스별 opt-in) 뿐이다. 기존 계정 연결은 **서비스 측**이 첫 SSO 로그인 때 클레임으로 한다. 현재 모델은 "68개 기관 회원 DB 를 이어 붙이는 연결기" 로 출발한 흔적이며, 이 전제를 버리는 것이 S4b·S8 이다.
+
 ### 1.3 유지할 강점
 
 Outbox 패턴(릴레이·멱등·재시도) · `IdentityVerificationProvider` SPI · `KmsClient` SPI · `HandoffStrategy` 팩토리 · 기관 정책 버전·이력(`agency_policy_history`) · SLO 체인 · CAST 1회성·Ed25519 · 기관별 Rate Limit · 감사 카테고리 체계 · SCIM v2 · Testcontainers 통합 테스트(2026-09-08 복구).
@@ -93,31 +106,32 @@ Outbox 패턴(릴레이·멱등·재시도) · `IdentityVerificationProvider` SP
 
 ## 2. 목표 구조
 
+### 2.0 계층 — 설치본 → Tenant → Service (v0.2, S4b)
+
 ```
-┌──────────────────────────────── Admin Console (S7) ────────────────────────────────┐
-│  기관 온보딩 · Tenant Profile 편집(스키마 검증) · 정책 시뮬레이션 · 감사 조회 · 관리자 I&A │
-└─────────────────────────────────────────────────────────────────────────────────────┘
-┌──────────────────────────── Idem Core (프로토콜·벤더·고객 중립) ─────────────────────────┐
-│  Tenant Profile (S2)   ─ 버전 있는 선언적 기관 설정, JSON Schema 검증, 이력             │
-│  Policy Engine (S3)    ─ PolicyRule SPI, 기관별 규칙 집합, 인증수준 단일 어휘            │
-│  Identity Contract(S4) ─ SubjectIdentifier 스킴, AttributeCatalog, 기관별 AttributeMapper │
-│  Protocol SPI (S6)     ─ HANDOFF_DIRECT · HANDOFF_BRIDGE · AGENT · WEBHOOK · OIDC_RP · SAML_SP│
-│  Provider SPI (S5)     ─ IdentityVerificationProvider · IdpBrokerAdapter (기존)          │
-│  Crypto/KMS SPI        ─ CryptoProvider(CC P2) · KmsClient(기존)                         │
-│  Audit Sink SPI        ─ DB · Kafka · 파일 폴백 (CC P1)                                  │
-└─────────────────────────────────────────────────────────────────────────────────────┘
-┌──────────── Edition Plugins ────────────┐   ┌──────────── Tenant-side ──────────────┐
-│ KR Public: NICE/OACX · AnyID · CI/DI 스킴 │   │ idem-sdk-java · idem-agent · 샘플       │
-│ · SMES 회원 유형(개인/기업/후견) · 전환 흐름 │   │ (프로토콜별 참조 구현)                   │
-│ Core 기본: Mock 인증 · 이메일/전화 스킴    │   └──────────────────────────────────────┘
-└─────────────────────────────────────────┘
+설치본 (운영기관 1개 이상 — 다중 Tenant 는 Realm 단위 격리)
+└─ Tenant (Realm)  ─ 사용자 디렉터리(registry) · 그룹 · 동의 · 관리자
+   ├─ Service A (기관·클라이언트) ─ Service Profile: 프로토콜·엔드포인트·클레임 계약·정책·역할
+   ├─ Service B
+   └─ …
 ```
 
-### 2.1 Tenant Profile (S2) — 기관별 선언적 설정의 단일 원천
+| 개념 | Idem 용어 | 표준 대응 | 진실이 있는 곳 |
+|---|---|---|---|
+| Tenant | `ido.tenant` (`tenant_code`) · registry `qim_user.tenant_code` | Keycloak Realm · Entra Tenant · Okta Org | hub(설정) + registry(사용자) |
+| Service | `agency_meta` + **Service Profile**(`profile JSONB`) — 코드·API 는 `service`, DB 식별자 `agency_code` 는 4b 개명 전까지 유지 | Client · Relying Party · Enterprise App | hub |
+| 사용자 | registry `qim_user`(Tenant 소속) | Directory user | registry |
+| 접근 | 할당(사용자/그룹 ↔ Service) + Service 별 역할 (S8) | App assignment · App role | hub/authz |
+| 어설션 | Handoff 페이로드 (S6 에서 OIDC/SAML 도 같은 계약) | id_token · SAML assertion | hub 가 발급, Service 가 pull |
+| Service 로 push | 백채널 로그아웃 · 보안/감사 이벤트(웹훅 아웃박스) · SCIM(선택, S9) | Back-channel logout · CAEP/RISC · SCIM | hub 아웃박스 |
+
+**IM 이 관리하는 것**: 디렉터리 · 할당·역할 · Service 별 동의·클레임 계약 · 정책 · 세션. **Service 가 하는 것**: 어설션 검증, 자기 계정과의 연결(첫 로그인 시 클레임으로), 자기 권한 집행(어설션의 역할 또는 authz PDP 조회). **하지 않는 것**: 플랫폼이 Service 회원 DB 를 조회·등록·동기화하는 일.
+
+### 2.1 Service Profile (S2, S4b 에서 개명) — 기관별 선언적 설정의 단일 원천
 
 ```yaml
 schemaVersion: 1
-tenant: { code: AGENCY_A, name: "…", status: ACTIVE }
+service: { code: AGENCY_A, name: "…", status: ACTIVE, tenant: DEFAULT }   # S4b: 루트 블록 tenant → service, 소속 Tenant 참조
 protocol:                # S6 에서 확장
   type: HANDOFF_DIRECT   # HANDOFF_DIRECT | HANDOFF_BRIDGE | AGENT | WEBHOOK | OIDC_RP | SAML_SP
   endpoints: { callback: [...], bridge: "...", webhook: "..." }
@@ -191,7 +205,7 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 - ✅ 부수 발견: `ido.fe.allowed-return-urls` 가 YAML 시퀀스라 `@Value List` 바인딩이 비어 **모든 returnUrl 이 거부되던 상태** → 쉼표 구분 스칼라로 전환, 빈 항목 무시
 - ⏸ 항목 7(V13 시드 이동)은 **개명 5단계(DB 재구축)로 이월** — 이미 적용된 Flyway 이력을 옮기면 기존 DB 가 `validate` 에서 실패한다. 가드 허용 목록에 사유를 적어 둠
 
-### S2 — Tenant Profile (2~3주)
+### S2 — Tenant Profile → Service Profile (2~3주)
 
 `tenant-profile.schema.json` v1 · `TenantProfile` 도메인(record) · `agency_meta.profile JSONB` 마이그레이션(기존 컬럼 → 프로파일 합성 백필) · `TenantProfileService`(읽기: 프로파일 우선, 없으면 컬럼 합성; 쓰기: 프로파일) · Admin API `PUT /api/v1/admin/tenants/{code}/profile`(스키마 검증) · `AgencyMeta` 는 프로파일의 뷰로 재구성 · 이력은 `agency_policy_history` 에 스냅샷.
 완료 기준: 기존 API·Handoff 동작 동일, 새 기관을 프로파일만으로 온보딩하는 통합 테스트.
@@ -200,7 +214,7 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 - ✅ `tenant-profile/tenant-profile.v1.schema.json` (draft 2020-12, `additionalProperties:false`) · `TenantProfile` record 트리 · `TenantProfileValidator`(networknt 1.5.9)
 - ✅ V21: `agency_meta.profile JSONB` + `profile_schema_version`, 기존 컬럼 → v1 백필(`jsonb_strip_nulls`), `protocol.type` 인덱스
 - ✅ **단일 쓰기 원칙**: `TenantProfileService.put` 은 검증 → 컬럼 투영(`applyToEntity`) → 원문 저장 → `agency_meta_history` 스냅샷(이전에는 읽기만 있고 쓰는 코드가 없었음) → 감사. 레거시 쓰기 경로(`AgencyAdminService` 5곳, `AgencyMetaRepositoryImpl.save`)는 저장 직전 `syncProfileColumn` 으로 컬럼 → 프로파일을 맞추며, 프로파일 전용 항목(security·attributeMapping·allowedProviders·session·limits.tps·ui)은 보존
-- ✅ Admin API `GET/PUT /api/v1/admin/tenants/{code}/profile`, `GET /api/v1/admin/tenants/profile-schema`. 미지 스키마 위반·코드 불일치 → 400 `E-IDO-113`. 기관이 없으면 PUT 이 생성(프로파일만으로 온보딩)
+- ✅ Admin API `GET/PUT /api/v1/admin/tenants/{code}/profile`, `GET /api/v1/admin/tenants/profile-schema` (S4b 에서 `/admin/services/…` 로 개명). 미지 스키마 위반·코드 불일치 → 400 `E-IDO-113`. 기관이 없으면 PUT 이 생성(프로파일만으로 온보딩)
 - ✅ `daily_lookup_limit` 이 JPA 엔티티에 매핑됨 — 이전에는 `AgencyCreateRequest.dailyLookupLimit` 이 받기만 하고 저장되지 않았다
 - ✅ (S3·S4 에서 해소) 정책·식별자·속성 읽기는 프로파일로 이동했다. `AgencyMeta` 컬럼은 발급 경로의 기관 존재·활성·콜백·연동 유형 판정에만 남아 있고 S6 에서 프로파일로 옮긴다
 
@@ -234,6 +248,25 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 - ✅ 완료 기준 충족: `IdentityContractIntegrationTest` — Mock 인증(email) → `register-subject(EMAIL)` → Handoff verify 가 이메일을 `agencySubjectId` 로, `userNm`(매핑)·`mail`(마스킹 해제)·`birth_year`·`qimUserId`(별칭 유지) 를 속성으로 돌려준다. 기본 스킴 기관은 종전 DI 경로 그대로, 스킴 불일치는 GUEST, required 결핍은 422
 - ⏭ registry 통합 테스트(MariaDB Testcontainers)는 이 환경에서 못 돌렸다 — V8 SQL(MariaDB `ADD COLUMN IF NOT EXISTS`)·엔티티 매핑은 로컬 `./gradlew :idem-registry:test` 로 확인 필요. `register-social` 은 아직 `subject_scheme` 을 쓰지 않는다(프로필 행이 없음) — S8 에서 EXTERNAL_SUB 로 정리. 이름 원문 보관("이름은 마스킹 없이")은 registry 저장 정책이라 S8 로 이월
 
+### S4b — Tenant/Service 계층 정립 + 회원통합 브로커 흐름 제거 (2주)
+
+| 작업 | 내용 |
+|---|---|
+| 계층 개명 | `TenantProfile*` → `ServiceProfile*`, 패키지 `hub.tenant` → `hub.serviceprofile`, Admin API `/api/v1/admin/tenants/{code}/…` → `/api/v1/admin/services/{code}/…`, 프로파일 루트 블록 `tenant` → `service`(+`service.tenant` 소속 참조), 스키마 파일 `service-profile.v1.schema.json`. 저장된 `profile` JSONB 의 키는 V22 가 이관 |
+| Tenant 신설 | hub V22 `ido.tenant`(code·name·status) + 기본 행 `DEFAULT`, `agency_meta.tenant_code` FK(기본 DEFAULT). Admin API `GET/PUT /api/v1/admin/tenants/{code}`. registry V9 `qim_user.tenant_code`(기본 DEFAULT). 다중 Tenant 격리(사용자·관리자 분리)는 S7 |
+| 팬아웃 제거 | registry `conversion` 패키지·`conversion_session` 테이블·`AgencyRegistry`(기관 68개 하드코딩)·`qim.agency.*` 설정 · hub `provision` 패키지·`provisioning_outbox`·`ido.provisioning.*`·mTLS 프로비저닝 RestTemplate · relay `ProvisioningRelayJob` · tenant-sample `/api/v1/members/lookup,link` · Kafka 소비자의 프로비저닝 트리거 |
+| 대체 | 기존 계정 연결 = Service 측 첫 로그인 연결(가이드·샘플), 일회성 회원 이관 도구 = S9(KR 에디션), SCIM 아웃바운드 = S9 선택 옵션. hub `conversion`(기관 signed_request 전환 진입) 은 SMES 전환 UX 라 S8 에서 에디션으로 |
+| 문서 | `sso-agency-integration-guide.md` §4.2·§5 를 "Service 측 계정 연결" 로 재작성, `features/F-20~22` 제거 표기, 가드 허용 목록에서 `AgencyRegistry` 삭제 |
+
+완료 기준: 코어 어디에도 "플랫폼 → 기관 회원 DB 조회/등록/방송" 코드가 없고, 기관 목록의 진실이 `agency_meta`(+Service Profile) 하나이며, 전 모듈 테스트 통과.
+
+**진행 기록 (2026-09-10)** — S4b 구현 PR:
+- ✅ 제거: registry `conversion` 패키지 9파일 + `ConversionController` + `conversion_session`(V9 DROP) + `RestTemplateConfig`(`qim.agency.*`) · hub `provision` 패키지 9파일 + `provisioning_outbox`(V22 DROP) + `ido.provisioning.*` + mTLS 프로비저닝 RestTemplate + Kafka 소비자 트리거 + 게이트웨이 상태의 프로비저닝 카운트 · relay `ProvisioningRelayJob`(+`batch.relay.provisioning`) · tenant-sample `/api/v1/members/lookup,link` · 오류 코드 `IM_CONVERSION_*`. `AgencyCredentialStore` 는 기관 자격증명 조회(전환 JWT 검증)에 쓰여 `hub.infrastructure` 로 이동. 가드 허용 목록에서 `AgencyRegistry` 삭제
+- ✅ 계층: `ServiceProfile*`(패키지 `hub.serviceprofile`), Admin API `/api/v1/admin/services/{code}/profile|profile-schema|policy/simulate`, 프로파일 루트 `service{code,name,status,tenant}`(`tenant` 생략 = DEFAULT, 미등록 Tenant 400). `ido.tenant` + `agency_meta.tenant_code`(V22, 저장된 `profile` JSONB 의 `tenant`→`service` 이관 포함), Tenant Admin API `GET/PUT /api/v1/admin/tenants[/{code}]`. registry `qim_user.tenant_code`(V9), 등록 계약(`register-subject`)에 `tenantCode`
+- ✅ 부수 발견: registry `WithdrawalServiceImpl` 이 예약 탈퇴 취소 상태 오류에 전환 코드(`IM_CONVERSION_INVALID_STATE`)를 빌려 쓰고 있었다 → `IM_WITHDRAWAL_NOT_ALLOWED`
+- ✅ 문서: `sso-agency-integration-guide.md` §4.2·§5 를 "Service 측 첫 로그인 계정 연결" 로 재작성(§6 Q&A·체크리스트 정합), `features/F-20~22` 제거 표기
+- ⏭ `relay` 의 `BatchRestTemplateConfig`(provisioning* 빈)·`DeadLetterNotifier` 는 프로비저닝 전용이 아니어서 남겨 두었다(다음 아웃박스 정리 때 이름 정리). wiki/ops 의 프로비저닝 런북·ADR-009 는 이력으로 유지. hub `conversion`(signed_request 전환 진입)·`memberlookup` 은 S8 에서 KR 에디션으로. 다중 Tenant 격리(사용자·관리자 분리)는 S7
+
 ### S5 — 벤더 엔드포인트 SPI 완전 이관 (2~3주, OACX SDK 재수령 필요)
 
 `AuthController` 벤더 경로 5개 → `IdentityVerificationController` 경유로 대체(구 경로는 1 릴리스 deprecated 프록시) · `NiceCryptoUtil`·`AuthWebClientConfig` NICE 부분 → `idem-plugin-nice-oacx` · `broker/anyid` → `idem-plugin-anyid`(`vendor-plugin-plan.md` P3) · `BrokerController /kakao` 제거, `idp-hint-mapping` 을 프로파일 `allowedProviders` 로 · FE `useEzAuth` → `useAuthWidget`.
@@ -248,10 +281,13 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 
 관리자 I&A·RBAC(P1) 위에 기관 목록/온보딩/프로파일 편집(스키마 기반 폼)/정책 시뮬레이션/감사 조회. `idem-console` 의 SigNoz 잔재 정리 후 **관리 앱과 사용자 포털 분리**(`idem-console-admin`, `idem-portal`).
 
-### S8 — 회원 모델 일반화 (4주, 위험 높음)
+### S8 — 할당·역할 모델: IM 권한 관리 (4주, 위험 높음)
 
-registry 의 `biz`·`guardian`·`mbrDvsnCd`·`conversion`·`memberlookup` 을 **KR 에디션 확장 모듈**로 이동(`idem-registry` 코어는 `user/identity/consent/withdrawal` 만). 확장 속성은 `extra_attributes JSONB` + 카탈로그. 전환 흐름은 에디션 기능 플래그.
-완료 기준: 코어 registry 가 SMES 개념 없이 기동·테스트 통과, KR 에디션에서 기존 시나리오(S1~S9 라이프사이클) 통과.
+- **할당(assignment)**: 사용자/그룹 ↔ Service (직접 · 그룹 · 속성 규칙). 미할당이면 발급 거부 — 정책 엔진에 내장 규칙 `ASSIGNMENT` 추가(S3 SPI). GUEST 는 Service Profile 이 셀프 가입을 허용할 때만 허용.
+- **역할**: Service 별 앱 역할(app role) 정의·부여, 어설션(Handoff/OIDC 클레임)에 싣기. 세밀 인가는 `idem-authz` 를 PDP 로 정리(fail-open 제거, SCIM Groups 와 연결).
+- **DI/GUEST 정리**: PAIRWISE 식별자는 첫 발급 시 생성(표준 pairwise sub 와 동일) 으로 의미를 고정하고 "DI 없음 → GUEST" 서술 제거.
+- SMES 회원 유형(개인/기업/후견)·사업자 전환·`mbrDvsnCd`·hub `conversion`(signed_request 전환 진입)·`memberlookup` 은 **KR 에디션 확장 모듈**로 이동(`idem-registry` 코어는 `user/identity/consent/withdrawal`). 확장 속성은 `extra_attributes JSONB` + 카탈로그.
+완료 기준: 코어 registry 가 SMES 개념 없이 기동·테스트 통과, 미할당 사용자의 Handoff 가 거부되는 통합 테스트, KR 에디션에서 기존 시나리오 통과.
 
 ### S9 — 에디션 패키징·온보딩 가이드 (2주)
 
@@ -278,6 +314,11 @@ Core/KR 이미지·Helm values 분리(`vendor-plugin-plan.md` P4) · 기관 온�
 | "콜백은 우리 도메인만, mTLS 필수, IP 제한" | `protocol.security` | S2 |
 | "초당 50건 제한" | `limits` | 현재 |
 | "감사 로그를 우리 SIEM 으로" | Audit Sink SPI + 웹훅 | CC P1 |
+| "우리 기관 사용자만 / 특정 그룹만 접근" | 할당(사용자·그룹 ↔ Service) | S8 |
+| "우리 서비스 안에서 역할(관리자·심사자)을 SSO 가 내려줬으면" | Service 별 앱 역할 → 어설션 클레임 | S8 |
+| "기존 회원 계정과 자동으로 이어 달라" | Service 측 첫 로그인 연결(이메일·사번 클레임) + 일회성 이관 도구 | S4b·S9 |
+| "회원 생성·삭제를 우리 쪽에도 동기화" | SCIM 2.0 아웃바운드(Service 별 opt-in) · 탈퇴 이벤트 웹훅 | S9 |
+| "로그아웃하면 우리 세션도 끊어 달라" | 백채널 로그아웃 이벤트 | S6 |
 | "로고·기관명 표시" | `ui` | S2·S7 |
 | "동의 문구·항목이 다르다" | `consent` 프로파일(S8 에서 카탈로그화) | S8 |
 | "우리 기관 관리자가 직접 설정하고 싶다" | 콘솔 기관 관리자 역할 | S7 |

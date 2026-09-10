@@ -1,4 +1,4 @@
-package io.github.hipstermin.idem.hub.tenant;
+package io.github.hipstermin.idem.hub.serviceprofile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -18,6 +18,7 @@ import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
+import io.github.hipstermin.idem.hub.tenant.TenantJpaRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,25 +30,27 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("TenantProfileService — 검증·투영·이력")
-class TenantProfileServiceTest {
+@DisplayName("ServiceProfileService — 검증·투영·이력")
+class ServiceProfileServiceTest {
 
     @Mock AgencyMetaJpaRepository jpaRepository;
+    @Mock TenantJpaRepository     tenantRepository;
     @Mock JdbcTemplate            jdbcTemplate;
     @Mock AuditLogPublisher       auditLogPublisher;
 
     private final ObjectMapper om = new ObjectMapper();
-    private TenantProfileService service;
+    private ServiceProfileService service;
 
     @BeforeEach
     void setUp() {
-        service = new TenantProfileService(jpaRepository, new TenantProfileMapper(om), new TenantProfileValidator(),
+        lenient().when(tenantRepository.existsById("DEFAULT")).thenReturn(true);
+        service = new ServiceProfileService(jpaRepository, tenantRepository, new ServiceProfileMapper(om), new ServiceProfileValidator(),
                 jdbcTemplate, auditLogPublisher);
         lenient().when(jpaRepository.save(any(AgencyMetaJpaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private JsonNode body(String code, String extra) throws Exception {
-        return om.readTree("{\"schemaVersion\":1,\"tenant\":{\"code\":\"" + code + "\",\"name\":\"기관\"},"
+        return om.readTree("{\"schemaVersion\":1,\"service\":{\"code\":\"" + code + "\",\"name\":\"기관\"},"
                 + "\"protocol\":{\"type\":\"BRIDGE\",\"endpoints\":{\"bridge\":\"https://b.example.org/push\"}},"
                 + "\"policy\":{\"minAuthLevel\":\"L2\",\"policyVersion\":\"1.1\"}" + extra + "}");
     }
@@ -55,7 +58,7 @@ class TenantProfileServiceTest {
     @Test
     @DisplayName("스키마 위반이면 저장하지 않고 400(E-IDO-113)")
     void put_invalid_rejected() throws Exception {
-        JsonNode bad = om.readTree("{\"schemaVersion\":1,\"tenant\":{\"code\":\"AG\"}}");
+        JsonNode bad = om.readTree("{\"schemaVersion\":1,\"service\":{\"code\":\"AG\"}}");
 
         assertThatThrownBy(() -> service.put("AG", bad, "admin", null, "cid"))
                 .isInstanceOf(PlatformException.class)
@@ -66,7 +69,7 @@ class TenantProfileServiceTest {
     }
 
     @Test
-    @DisplayName("경로 코드와 본문 tenant.code 가 다르면 400")
+    @DisplayName("경로 코드와 본문 service.code 가 다르면 400")
     void put_codeMismatch_rejected() throws Exception {
         assertThatThrownBy(() -> service.put("AG_A", body("AG_B", ""), "admin", null, "cid"))
                 .isInstanceOf(PlatformException.class)
@@ -79,7 +82,7 @@ class TenantProfileServiceTest {
     void put_newTenant_createsAndProjects() throws Exception {
         given(jpaRepository.findById("AG_NEW")).willReturn(Optional.empty());
 
-        TenantProfile result = service.put("AG_NEW", body("AG_NEW", ",\"ui\":{\"brandName\":\"신규\"}"), "admin", "onboard", "cid");
+        ServiceProfile result = service.put("AG_NEW", body("AG_NEW", ",\"ui\":{\"brandName\":\"신규\"}"), "admin", "onboard", "cid");
 
         ArgumentCaptor<AgencyMetaJpaEntity> saved = ArgumentCaptor.forClass(AgencyMetaJpaEntity.class);
         verify(jpaRepository).save(saved.capture());
@@ -94,7 +97,7 @@ class TenantProfileServiceTest {
 
         verify(jdbcTemplate).update(anyString(), any(), eq("AG_NEW"), eq("1.1"), anyString(), eq("admin"), eq("onboard"));
         verify(auditLogPublisher).publish(any(AuditLogPublisher.AuditEntry.class));
-        assertThat(result.tenant().code()).isEqualTo("AG_NEW");
+        assertThat(result.service().code()).isEqualTo("AG_NEW");
         assertThat(result.ui().brandName()).isEqualTo("신규");
     }
 
@@ -104,7 +107,7 @@ class TenantProfileServiceTest {
         AgencyMetaJpaEntity existing = AgencyMetaJpaEntity.builder()
                 .agencyCode("AG_OLD").officialName("옛 기관").minAuthLevel("L1").policyVersion("1.0")
                 .integrationType(IntegrationType.DIRECT).active(true)
-                .profile("{\"schemaVersion\":1,\"tenant\":{\"code\":\"AG_OLD\",\"name\":\"옛 기관\"},\"protocol\":{\"type\":\"DIRECT\"},\"policy\":{\"minAuthLevel\":\"L1\"}}")
+                .profile("{\"schemaVersion\":1,\"service\":{\"code\":\"AG_OLD\",\"name\":\"옛 기관\"},\"protocol\":{\"type\":\"DIRECT\"},\"policy\":{\"minAuthLevel\":\"L1\"}}")
                 .build();
         given(jpaRepository.findById("AG_OLD")).willReturn(Optional.of(existing));
 
@@ -126,5 +129,19 @@ class TenantProfileServiceTest {
                 .isInstanceOf(PlatformException.class)
                 .satisfies(ex -> assertThat(((PlatformException) ex).getErrorCode())
                         .isEqualTo(PlatformErrorCode.AGENCY_NOT_REGISTERED));
+    }
+
+    @Test
+    @DisplayName("S4b: service.tenant 가 등록되지 않은 Tenant 면 400(E-IDO-113) 으로 거부한다")
+    void unknownTenant_rejected() throws Exception {
+        given(tenantRepository.existsById("NOPE_T")).willReturn(false);
+        JsonNode body = om.readTree("""
+                {"schemaVersion":1,"service":{"code":"AG_T","name":"x","tenant":"NOPE_T"},
+                 "protocol":{"type":"DIRECT"},"policy":{"minAuthLevel":"L1"}}
+                """);
+        assertThatThrownBy(() -> service.put("AG_T", body, "admin", null, "cid-t"))
+                .isInstanceOf(PlatformException.class)
+                .hasMessageContaining("NOPE_T");
+        verify(jpaRepository, never()).save(any());
     }
 }

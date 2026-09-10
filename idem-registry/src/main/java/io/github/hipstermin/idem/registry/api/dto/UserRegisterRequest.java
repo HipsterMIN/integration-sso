@@ -49,6 +49,9 @@ public class UserRegisterRequest {
     /** 성별 (MALE / FEMALE / UNKNOWN) */
     private final String gender;
 
+    /** S4b: 소속 Tenant(Realm) 코드 — 없으면 DEFAULT */
+    private final String tenantCode;
+
     /** 전체 흐름 추적 ID */
     private final String correlationId;
 }

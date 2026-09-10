@@ -1,5 +1,8 @@
 # F-20 / F-22: 전 기관 프로비저닝 (Sprint 14)
 
+> **⚠️ 제거됨 (2026-09-10, 범용화 S4b)** — 전 기관 프로비저닝은 코어에서 삭제되었다. 플랫폼은 기관(Service)에 사용자를 등록·방송하지 않으며, 어설션·백채널 로그아웃·보안/감사 이벤트만 push 한다. 근거: `docs/generalization-plan.md` §1.2 C8 · §2.0 · §3 S4b. 아래 내용은 이력 참고용이다.
+
+
 > **환경변수**: `IDO_PROVISIONING_ENABLED` / `IDO_PROVISIONING_DRY_RUN`  
 > **Phase**: Phase 2 (Gate 1 통과 후 활성화)  
 > **기본값**: `false` / `true` (안전)  

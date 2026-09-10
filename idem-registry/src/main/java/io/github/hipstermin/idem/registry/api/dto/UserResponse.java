@@ -22,6 +22,8 @@ public class UserResponse {
     private final String  gender;
     /** S4: 주체 식별자 스킴 (CI / EMAIL / PHONE / EXTERNAL_SUB) — 키 값 자체는 싣지 않는다 */
     private final String  subjectScheme;
+    /** S4b: 소속 Tenant(Realm) */
+    private final String  tenantCode;
     private final boolean isNew;        // true = 신규 생성, false = 기존 사용자 반환
     private final Instant createdAt;
     private final Instant updatedAt;

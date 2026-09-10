@@ -1,22 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/hipstermin/idem/tenant-profile/v1",
-  "title": "Idem Tenant Profile v1",
+  "$id": "https://github.com/hipstermin/idem/service-profile/v1",
+  "title": "Idem Service Profile v1",
   "description": "연동기관(테넌트)별 선언적 설정. docs/generalization-plan.md §2.1. 코어는 이 문서의 필드로 기관 요구를 수용하며, 코드 분기는 마지막 수단이다.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "tenant", "protocol", "policy"],
+  "required": ["schemaVersion", "service", "protocol", "policy"],
   "properties": {
     "schemaVersion": { "const": 1 },
 
-    "tenant": {
+    "service": {
       "type": "object",
       "additionalProperties": false,
       "required": ["code", "name"],
+      "description": "Service(기관·클라이언트) 식별. Tenant(Realm) 안에 등록된다 — docs/generalization-plan.md §2.0",
       "properties": {
-        "code":   { "type": "string", "pattern": "^[A-Za-z0-9_\\-]{2,50}$", "description": "기관 코드 — URL 경로·API 키·감사 로그의 식별자" },
+        "code":   { "type": "string", "pattern": "^[A-Za-z0-9_\\-]{2,50}$", "description": "Service 코드 — URL 경로·API 키·감사 로그의 식별자 (DB 컬럼명은 4b 개명 전까지 agency_code)" },
         "name":   { "type": "string", "minLength": 1, "maxLength": 200 },
-        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"], "default": "ACTIVE" }
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"], "default": "ACTIVE" },
+        "tenant": { "type": "string", "pattern": "^[A-Za-z0-9_\\-]{1,50}$", "default": "DEFAULT", "description": "소속 Tenant(Realm) 코드. 생략 = DEFAULT. 등록된 Tenant 여야 한다" }
       }
     },
 

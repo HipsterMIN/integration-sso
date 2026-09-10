@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  * S1 범용화 가드 — 코어 모듈의 main 소스·리소스에 특정 고객(운영기관) 고유값이 다시 들어오는 것을 막는다
  * ({@code docs/generalization-plan.md} §1.2 C1).
  *
- * <p>고객 고유값은 설치 시 설정(환경변수·Helm values·Tenant Profile)으로 주입해야 하며, 코어 코드·기본값·주석에도 남기지 않는다.
+ * <p>고객 고유값은 설치 시 설정(환경변수·Helm values·Service Profile)으로 주입해야 하며, 코어 코드·기본값·주석에도 남기지 않는다.
  * 허용 목록({@link #ALLOWLIST})은 "이미 적용된 마이그레이션 이력" 처럼 지금 바꿀 수 없는 파일과, 뒤 단계(S5·S8)에서
  * 에디션 플러그인으로 옮길 벤더 자산에 한정하고, 항목마다 사유와 해소 단계를 적는다.
  */
@@ -54,9 +54,7 @@ class GeneralizationGuardTest {
             "idem-hub/src/main/resources/config/anyid/",
                     "AnyID 벤더 SDK 설정 파일 — S5 에서 idem-plugin-anyid 로 이동",
             "idem-hub/src/main/resources/static/",
-                    "AnyID 벤더 프런트 번들 — S5 에서 플러그인으로 이동 (open-source-readiness B3)",
-            "idem-registry/src/main/java/io/github/hipstermin/idem/registry/conversion/AgencyRegistry.java",
-                    "SMES 유관기관 68개 목록(회원 전환 PoC) — S8 에서 KR 에디션으로 이동"
+                    "AnyID 벤더 프런트 번들 — S5 에서 플러그인으로 이동 (open-source-readiness B3)"
     );
 
     @Test

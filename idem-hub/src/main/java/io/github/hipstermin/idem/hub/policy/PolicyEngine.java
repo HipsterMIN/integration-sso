@@ -41,7 +41,7 @@ public interface PolicyEngine {
 
     /**
      * 규칙 집합 평가 (S3). 내장 규칙(MAINTENANCE → MIN_AUTH_LEVEL → ALLOWED_PROVIDERS → USER_STATUS)은 항상,
-     * 프로파일 {@code policy.rules[]} 의 커스텀 규칙은 지정 순으로. {@code ctx.profile()} 이 null 이면 {@code tenantCode} 로 읽는다.
+     * 프로파일 {@code policy.rules[]} 의 커스텀 규칙은 지정 순으로. {@code ctx.profile()} 이 null 이면 {@code serviceCode} 로 읽는다.
      *
      * @param stopAtFirstDenial true 면 첫 DENY 에서 멈춘다(발급 경로). false 면 전부 평가(시뮬레이션)
      */

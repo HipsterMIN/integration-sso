@@ -1,4 +1,4 @@
-package io.github.hipstermin.idem.hub.tenant;
+package io.github.hipstermin.idem.hub.serviceprofile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -11,17 +11,17 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("TenantProfileValidator — JSON Schema v1")
-class TenantProfileValidatorTest {
+@DisplayName("ServiceProfileValidator — JSON Schema v1")
+class ServiceProfileValidatorTest {
 
     private final ObjectMapper om = new ObjectMapper();
-    private final TenantProfileValidator validator = new TenantProfileValidator();
+    private final ServiceProfileValidator validator = new ServiceProfileValidator();
 
     private JsonNode json(String s) throws Exception { return om.readTree(s); }
 
     static final String MINIMAL = """
             {"schemaVersion":1,
-             "tenant":{"code":"AG_MIN","name":"최소 기관"},
+             "service":{"code":"AG_MIN","name":"최소 기관"},
              "protocol":{"type":"DIRECT"},
              "policy":{"minAuthLevel":"L1"}}
             """;
@@ -37,7 +37,7 @@ class TenantProfileValidatorTest {
     void fullProfile_isValid() throws Exception {
         String full = """
                 {"schemaVersion":1,
-                 "tenant":{"code":"AG_FULL","name":"전체 기관","status":"ACTIVE"},
+                 "service":{"code":"AG_FULL","name":"전체 기관","status":"ACTIVE"},
                  "protocol":{"type":"BRIDGE",
                              "endpoints":{"callbackWhitelist":["https://a.example.org/cb"],"bridge":"https://bridge.example.org/push","ssoDomain":".example.org"},
                              "security":{"mtlsRequired":true,"ipAllowlist":["10.0.0.0/8"]}},
@@ -55,15 +55,15 @@ class TenantProfileValidatorTest {
     @DisplayName("필수 항목 누락·미지 속성·허용값 밖은 각각 위반으로 잡힌다")
     void violations_areReported() throws Exception {
         List<String> missingName = validator.violations(json(
-                "{\"schemaVersion\":1,\"tenant\":{\"code\":\"AG\"},\"protocol\":{\"type\":\"DIRECT\"},\"policy\":{\"minAuthLevel\":\"L1\"}}"));
+                "{\"schemaVersion\":1,\"service\":{\"code\":\"AG\"},\"protocol\":{\"type\":\"DIRECT\"},\"policy\":{\"minAuthLevel\":\"L1\"}}"));
         assertThat(missingName).anySatisfy(m -> assertThat(m).contains("name"));
 
         List<String> unknown = validator.violations(json(
-                "{\"schemaVersion\":1,\"tenant\":{\"code\":\"AG\",\"name\":\"x\"},\"protocol\":{\"type\":\"DIRECT\"},\"policy\":{\"minAuthLevel\":\"L1\"},\"foo\":1}"));
+                "{\"schemaVersion\":1,\"service\":{\"code\":\"AG\",\"name\":\"x\"},\"protocol\":{\"type\":\"DIRECT\"},\"policy\":{\"minAuthLevel\":\"L1\"},\"foo\":1}"));
         assertThat(unknown).anySatisfy(m -> assertThat(m).contains("foo"));
 
         List<String> badType = validator.violations(json(
-                "{\"schemaVersion\":1,\"tenant\":{\"code\":\"AG\",\"name\":\"x\"},\"protocol\":{\"type\":\"SAML\"},\"policy\":{\"minAuthLevel\":\"L1\"}}"));
+                "{\"schemaVersion\":1,\"service\":{\"code\":\"AG\",\"name\":\"x\"},\"protocol\":{\"type\":\"SAML\"},\"policy\":{\"minAuthLevel\":\"L1\"}}"));
         assertThat(badType).anySatisfy(m -> assertThat(m).contains("protocol.type"));
 
         List<String> badVersion = validator.violations(json(MINIMAL.replace("\"schemaVersion\":1", "\"schemaVersion\":2")));
@@ -95,7 +95,7 @@ class TenantProfileValidatorTest {
     @Test
     @DisplayName("validateOrThrow 는 400(E-IDO-113) 과 위반 내용을 담아 던진다")
     void validateOrThrow_throwsPlatformException() throws Exception {
-        JsonNode bad = json("{\"schemaVersion\":1,\"tenant\":{\"code\":\"AG\",\"name\":\"x\"},\"policy\":{\"minAuthLevel\":\"L9\"}}");
+        JsonNode bad = json("{\"schemaVersion\":1,\"service\":{\"code\":\"AG\",\"name\":\"x\"},\"policy\":{\"minAuthLevel\":\"L9\"}}");
 
         assertThatThrownBy(() -> validator.validateOrThrow(bad, "cid-1"))
                 .isInstanceOf(PlatformException.class)
@@ -108,6 +108,6 @@ class TenantProfileValidatorTest {
     @Test
     @DisplayName("스키마 원문을 노출한다 (콘솔 폼 생성용)")
     void schemaText_isExposed() {
-        assertThat(validator.schemaText()).contains("Idem Tenant Profile v1");
+        assertThat(validator.schemaText()).contains("Idem Service Profile v1");
     }
 }

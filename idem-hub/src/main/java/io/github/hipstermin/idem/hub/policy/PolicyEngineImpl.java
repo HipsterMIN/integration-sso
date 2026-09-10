@@ -19,8 +19,8 @@ import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyEvaluation;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyRule;
-import io.github.hipstermin.idem.hub.tenant.TenantProfile;
-import io.github.hipstermin.idem.hub.tenant.TenantProfileService;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -56,7 +56,7 @@ public class PolicyEngineImpl implements PolicyEngine {
     @Value("${ido.policy.default-version:1.0}")
     private String defaultPolicyVersion;
 
-    private final TenantProfileService tenantProfileService;
+    private final ServiceProfileService serviceProfileService;
     private final SubjectIdentifierResolver subjectResolver;
     private final HandoffAttributeAssembler attributeAssembler;
     private final List<PolicyRule>     builtInRules;
@@ -65,14 +65,14 @@ public class PolicyEngineImpl implements PolicyEngine {
     public PolicyEngineImpl(UserStatusCache userStatusCache,
                             QimClient qimClient,
                             AgencyMetaRepository agencyMetaRepository,
-                            TenantProfileService tenantProfileService,
+                            ServiceProfileService serviceProfileService,
                             SubjectIdentifierResolver subjectResolver,
                             HandoffAttributeAssembler attributeAssembler,
                             List<PolicyRule> rules) {
         this.userStatusCache      = userStatusCache;
         this.qimClient            = qimClient;
         this.agencyMetaRepository = agencyMetaRepository;
-        this.tenantProfileService = tenantProfileService;
+        this.serviceProfileService = serviceProfileService;
         this.subjectResolver      = subjectResolver;
         this.attributeAssembler   = attributeAssembler;
         this.builtInRules = rules.stream().filter(PolicyRule::builtIn)
@@ -93,16 +93,16 @@ public class PolicyEngineImpl implements PolicyEngine {
     @Override
     public PolicyEvaluation evaluate(PolicyContext ctx, boolean stopAtFirstDenial) {
         PolicyContext effective = ctx;
-        if (ctx.profile() == null && ctx.tenantCode() != null) {
+        if (ctx.profile() == null && ctx.serviceCode() != null) {
             effective = ctx.toBuilder()
-                    .profile(tenantProfileService.find(ctx.tenantCode()).orElse(null))
+                    .profile(serviceProfileService.find(ctx.serviceCode()).orElse(null))
                     .build();
         }
         // 프로파일이 지정한 규칙 (내장 규칙의 파라미터 또는 커스텀 규칙)
         Map<String, Map<String, Object>> configured = new LinkedHashMap<>();
-        TenantProfile.Policy policy = effective.policy();
+        ServiceProfile.Policy policy = effective.policy();
         if (policy != null && policy.rules() != null) {
-            for (TenantProfile.RuleRef ref : policy.rules()) {
+            for (ServiceProfile.RuleRef ref : policy.rules()) {
                 if (ref != null && ref.type() != null) {
                     configured.put(ref.type().trim().toUpperCase(Locale.ROOT),
                             ref.params() != null ? ref.params() : Map.of());
@@ -122,7 +122,7 @@ public class PolicyEngineImpl implements PolicyEngine {
                     ? rule.evaluate(effective, e.getValue())
                     : PolicyDecision.deny(e.getKey(), "등록되지 않은 규칙 유형 — 프로파일이 존재하지 않는 규칙을 요구함",
                             "UNKNOWN_RULE", PlatformErrorCode.IDO_POLICY_REJECTED);
-            if (rule == null) log.error("[PolicyEngine] 미등록 규칙 유형: {} (tenant={})", e.getKey(), effective.tenantCode());
+            if (rule == null) log.error("[PolicyEngine] 미등록 규칙 유형: {} (service={})", e.getKey(), effective.serviceCode());
             decisions.add(d);
             if (stopAtFirstDenial && d.denied()) return new PolicyEvaluation(decisions);
         }
@@ -153,8 +153,8 @@ public class PolicyEngineImpl implements PolicyEngine {
     public boolean isUnderMaintenance(AgencyMeta agency) {
         if (agency.getMaintenanceWindows() == null || agency.getMaintenanceWindows().isEmpty()) return false;
         // S3: MaintenanceRule 과 같은 판정 (MON/MONDAY 모두 인식 — 종전에는 "MON" 이 한 번도 걸리지 않았다)
-        List<TenantProfile.MaintenanceWindow> windows = agency.getMaintenanceWindows().stream()
-                .map(w -> new TenantProfile.MaintenanceWindow(w.getDayOfWeek(), w.getStartTime(), w.getEndTime()))
+        List<ServiceProfile.MaintenanceWindow> windows = agency.getMaintenanceWindows().stream()
+                .map(w -> new ServiceProfile.MaintenanceWindow(w.getDayOfWeek(), w.getStartTime(), w.getEndTime()))
                 .toList();
         return MaintenanceRule.isWithin(windows, java.time.Instant.now(), MaintenanceRule.DEFAULT_ZONE);
     }
@@ -165,8 +165,8 @@ public class PolicyEngineImpl implements PolicyEngine {
         String qimUserId  = ticket.getQimUserId();
 
         // 1. 기관 프로파일 (S4: 식별자 스킴·속성 계약은 프로파일이 진실) + policyVersion
-        TenantProfile profile = tenantProfileService.find(agencyCode).orElse(null);
-        TenantProfile.Identity identity = profile != null ? profile.identity() : null;
+        ServiceProfile profile = serviceProfileService.find(agencyCode).orElse(null);
+        ServiceProfile.Identity identity = profile != null ? profile.identity() : null;
         SubjectScheme scheme = identity != null ? identity.subjectSchemeOrDefault() : SubjectScheme.DEFAULT;
         String resolvedPolicyVersion = profile != null && profile.policy() != null && profile.policy().policyVersion() != null
                 ? profile.policy().policyVersion() : defaultPolicyVersion;
@@ -240,7 +240,7 @@ public class PolicyEngineImpl implements PolicyEngine {
     private String tryResolveSubject(SubjectScheme scheme, String qimUserId, String agencyCode, String correlationId) {
         try {
             SubjectResolutionContext ctx = SubjectResolutionContext.builder()
-                    .qimUserId(qimUserId).tenantCode(agencyCode).correlationId(correlationId).build();
+                    .qimUserId(qimUserId).serviceCode(agencyCode).correlationId(correlationId).build();
             return subjectResolver.resolve(scheme, ctx).orElse(null);
         } catch (PlatformException e) {
             log.error("[PolicyEngine][F4.6] 주체 식별자 해석 실패 → 안전 우선 거부: agency={} scheme={} code={} err={}",

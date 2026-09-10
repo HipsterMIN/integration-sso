@@ -20,9 +20,9 @@
 | F-13 | [F-13-outbox-relay.md](F-13-outbox-relay.md) | `IDO_OUTBOX_RELAY_ENABLED` | `true` | Outbox 릴레이 |
 | F-14 | [F-14-webhook-relay.md](F-14-webhook-relay.md) | `IDO_WEBHOOK_RELAY_ENABLED` | `true` | Webhook 릴레이 |
 | F-18 | [F-18-sp-receiver-audit.md](F-18-sp-receiver-audit.md) | `IDO_QIM_RECEIVER_AUDIT` | `true` | Q-IM SP 수신 감사 |
-| **F-20** | [F-20-provisioning.md](F-20-provisioning.md) | `IDO_PROVISIONING_ENABLED` | **`false`** 🔴Phase2 | 전 기관 프로비저닝 |
-| **F-21** | [F-21-provisioning-relay.md](F-21-provisioning-relay.md) | `IDO_PROVISIONING_RELAY_ENABLED` | **`false`** 🔴Phase2B | Outbox 릴레이 |
-| **F-22** | [F-22-provisioning-dry-run.md](F-22-provisioning-dry-run.md) | `IDO_PROVISIONING_DRY_RUN` | `true` 🟡Phase2A | 프로비저닝 Dry-Run |
+| ~~F-20~~ | [F-20-provisioning.md](F-20-provisioning.md) | ~~`IDO_PROVISIONING_ENABLED`~~ | **제거(S4b)** | 전 기관 프로비저닝 — 범용화 S4b 에서 삭제 |
+| ~~F-21~~ | [F-21-provisioning-relay.md](F-21-provisioning-relay.md) | ~~`IDO_PROVISIONING_RELAY_ENABLED`~~ | **제거(S4b)** | 프로비저닝 릴레이 — 삭제 |
+| ~~F-22~~ | [F-22-provisioning-dry-run.md](F-22-provisioning-dry-run.md) | ~~`IDO_PROVISIONING_DRY_RUN`~~ | **제거(S4b)** | 프로비저닝 Dry-Run — 삭제 |
 | **F-23** | [F-23-gateway-inbound.md](F-23-gateway-inbound.md) | `IDO_GATEWAY_INBOUND_ENABLED` | **`false`** 🔴Phase3A | 인바운드 API |
 | **F-24** | [F-24-gateway-outbound.md](F-24-gateway-outbound.md) | `IDO_GATEWAY_OUTBOUND_ENABLED` | **`false`** 🔴Phase3B | 아웃바운드 API |
 | **F-25** | [F-25-gateway-idempotency.md](F-25-gateway-idempotency.md) | `IDO_GATEWAY_IDEMPOTENCY_ENABLED` | `true` ✅ | 멱등성 방어 |

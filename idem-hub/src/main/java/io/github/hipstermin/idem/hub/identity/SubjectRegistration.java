@@ -21,6 +21,7 @@ import lombok.Builder;
  * @param birthDate      생년월일 원문(YYYYMMDD 등) — registry 는 연도만 저장
  * @param gender         성별 코드 원문
  * @param nationalityType DOMESTIC / FOREIGN
+ * @param tenantCode     소속 Tenant(Realm) — null 이면 DEFAULT (S4b)
  * @param correlationId  추적 ID
  */
 @Builder(toBuilder = true)
@@ -36,6 +37,7 @@ public record SubjectRegistration(
         String birthDate,
         String gender,
         String nationalityType,
+        String tenantCode,
         String correlationId) {
 
     public SubjectRegistration {

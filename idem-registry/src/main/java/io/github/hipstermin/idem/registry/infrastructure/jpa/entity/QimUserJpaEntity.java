@@ -31,6 +31,11 @@ public class QimUserJpaEntity implements Persistable<String> {
     @Column(name = "status", length = 20, nullable = false)
     private String status;
 
+    /** 소속 Tenant(Realm) — V9 (S4b). 사용자는 Tenant 에 속하고 Service(기관)에 속하지 않는다. 기본 DEFAULT */
+    @Column(name = "tenant_code", length = 50, nullable = false)
+    @Builder.Default
+    private String tenantCode = "DEFAULT";
+
     @Column(name = "withdrawal_reason", length = 200)
     private String withdrawalReason;
 

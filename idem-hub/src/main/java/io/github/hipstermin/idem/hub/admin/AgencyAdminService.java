@@ -11,7 +11,7 @@ import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
-import io.github.hipstermin.idem.hub.tenant.TenantProfileMapper;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileMapper;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -42,7 +42,7 @@ public class AgencyAdminService {
     private final AuditLogPublisher       auditLogPublisher;
     private final JdbcTemplate            jdbcTemplate;
     private final ObjectMapper            objectMapper;
-    private final TenantProfileMapper     tenantProfileMapper;
+    private final ServiceProfileMapper     serviceProfileMapper;
 
     /** 신규 기관 생성 시 policyVersion 기본값 (하드코딩 "1.0" 제거) */
     @Value("${ido.policy.default-version:1.0}")
@@ -73,7 +73,7 @@ public class AgencyAdminService {
                 .active(true)
                 .build();
 
-        tenantProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
+        serviceProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
         jpaRepository.save(entity);
 
         // Webhook 설정이 있으면 등록
@@ -104,7 +104,7 @@ public class AgencyAdminService {
         if (req.getCallbackWhitelist() != null) entity.setCallbackWhitelist(toJson(req.getCallbackWhitelist()));
         if (req.getAllowedAttributes() != null) entity.setAllowedAttributes(toJson(req.getAllowedAttributes()));
 
-        tenantProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
+        serviceProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
         jpaRepository.save(entity);
 
         if (req.getWebhookEndpoint() != null) {
@@ -143,7 +143,7 @@ public class AgencyAdminService {
     public void activate(String agencyCode, String adminId) {
         AgencyMetaJpaEntity entity = findOrThrow(agencyCode);
         entity.setActive(true);
-        tenantProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
+        serviceProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
         jpaRepository.save(entity);
         audit("AGENCY_ACTIVATED", agencyCode, null, adminId, AuditLogEvent.OUTCOME_SUCCESS);
         log.info("[Admin] 기관 활성화: agencyCode={}", agencyCode);
@@ -153,7 +153,7 @@ public class AgencyAdminService {
     public void deactivate(String agencyCode, String adminId) {
         AgencyMetaJpaEntity entity = findOrThrow(agencyCode);
         entity.setActive(false);
-        tenantProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
+        serviceProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
         jpaRepository.save(entity);
         audit("AGENCY_DEACTIVATED", agencyCode, null, adminId, AuditLogEvent.OUTCOME_SUCCESS);
         log.info("[Admin] 기관 비활성화: agencyCode={}", agencyCode);
@@ -172,7 +172,7 @@ public class AgencyAdminService {
         String newHash   = sha256Hex(newRawKey);
 
         entity.setApiKeyHash(newHash);
-        tenantProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
+        serviceProfileMapper.syncProfileColumn(entity); // S2: 컬럼 → 프로파일 동기화
         jpaRepository.save(entity);
 
         audit("AGENCY_KEY_ROTATED", agencyCode, null, adminId, AuditLogEvent.OUTCOME_SUCCESS);

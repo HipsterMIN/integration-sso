@@ -187,13 +187,7 @@ batch:
         lock-at-least: ${BATCH_AUTHZ_KAFKA_LOCK_LEAST:400ms}
         retry-interval-ms: ${BATCH_AUTHZ_KAFKA_RETRY_INTERVAL_MS:30000}
 
-    # ── 프로비저닝 HTTP POST 릴레이 ────────────────────────────────────────────
-    provisioning:
-      enabled: ${BATCH_PROVISIONING_RELAY_ENABLED:true}
-      interval-ms: ${BATCH_PROVISIONING_INTERVAL_MS:30000}
-      batch-size: ${BATCH_PROVISIONING_BATCH_SIZE:50}
-      lock-at-most: ${BATCH_PROVISIONING_LOCK_MOST:120s}
-      lock-at-least: ${BATCH_PROVISIONING_LOCK_LEAST:25s}
+    # (S4b) 프로비저닝 릴레이 제거 — 전 기관 프로비저닝 흐름은 코어에서 삭제되었다 (docs/generalization-plan.md §2.0)
 
     # ── Webhook HTTPS POST 릴레이 ──────────────────────────────────────────────
     webhook:

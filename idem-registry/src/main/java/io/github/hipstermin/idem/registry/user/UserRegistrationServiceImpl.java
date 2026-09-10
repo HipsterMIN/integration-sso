@@ -167,6 +167,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         // 사용자 엔티티 생성
         QimUserJpaEntity userEntity = QimUserJpaEntity.builder()
                 .qimUserId(qimUserId)
+                .tenantCode(req.getTenantCode() != null && !req.getTenantCode().isBlank() ? req.getTenantCode().trim() : "DEFAULT")
                 .status(STATUS_ACTIVE)
                 .eventVersion(1L)
                 .createdAt(now)
@@ -277,6 +278,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
                 .birthYear(birthYear)
                 .gender(gender)
                 .subjectScheme(scheme)
+                .tenantCode(entity.getTenantCode())
                 .isNew(isNew)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

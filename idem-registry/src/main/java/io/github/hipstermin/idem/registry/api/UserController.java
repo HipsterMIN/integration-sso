@@ -165,6 +165,7 @@ public class UserController {
                             .birthYear(birthYear)
                             .gender(gender)
                             .subjectScheme(scheme)
+                            .tenantCode(u.getTenantCode())
                             .isNew(false)
                             .createdAt(u.getCreatedAt())
                             .updatedAt(u.getUpdatedAt())

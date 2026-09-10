@@ -14,7 +14,7 @@ import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.identity.MaskingRule;
 import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
-import io.github.hipstermin.idem.hub.tenant.TenantProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -46,8 +46,8 @@ class HandoffAttributeAssemblerTest {
                 .issuedAt(ISSUED).expiresAt(ISSUED.plusSeconds(60)).build();
     }
 
-    private static TenantProfile.Identity identity(List<TenantProfile.AttributeSelection> sel, Map<String, String> mapping) {
-        return new TenantProfile.Identity(null, sel, mapping);
+    private static ServiceProfile.Identity identity(List<ServiceProfile.AttributeSelection> sel, Map<String, String> mapping) {
+        return new ServiceProfile.Identity(null, sel, mapping);
     }
 
     @Test
@@ -62,9 +62,9 @@ class HandoffAttributeAssemblerTest {
     @DisplayName("TICKET 속성은 조회 없이 채워지고, 별칭(camelCase)으로 선언하면 출력 키도 별칭 — 종전 페이로드 호환")
     void ticketAttributes_legacyAliasKeepsWireKey() {
         Map<String, Object> out = assembler().assemble(identity(List.of(
-                TenantProfile.AttributeSelection.of("qimUserId"),
-                TenantProfile.AttributeSelection.of("auth_level"),
-                TenantProfile.AttributeSelection.of("authenticated_at")), null), ticket(), "c1");
+                ServiceProfile.AttributeSelection.of("qimUserId"),
+                ServiceProfile.AttributeSelection.of("auth_level"),
+                ServiceProfile.AttributeSelection.of("authenticated_at")), null), ticket(), "c1");
 
         assertThat(out).containsEntry("qimUserId", "u1").containsEntry("auth_level", "L2")
                 .containsEntry("authenticated_at", ISSUED.toString());
@@ -80,9 +80,9 @@ class HandoffAttributeAssemblerTest {
         given(qimClient.getUserById("u1", "c1")).willReturn(profile);
 
         Map<String, Object> out = assembler().assemble(identity(List.of(
-                TenantProfile.AttributeSelection.of("name_masked"),
-                TenantProfile.AttributeSelection.of("birth_year"),
-                TenantProfile.AttributeSelection.of("gender")),           // 값 없음 → 생략
+                ServiceProfile.AttributeSelection.of("name_masked"),
+                ServiceProfile.AttributeSelection.of("birth_year"),
+                ServiceProfile.AttributeSelection.of("gender")),           // 값 없음 → 생략
                 Map.of("name_masked", "userNm")), ticket(), "c1");
 
         assertThat(out).containsEntry("userNm", "홍*동").containsEntry("birth_year", 1990).doesNotContainKey("gender");
@@ -95,9 +95,9 @@ class HandoffAttributeAssemblerTest {
         given(qimClient.getSubjectKey("u1", SubjectScheme.EMAIL, "c1")).willReturn(Optional.of("alice@example.org"));
 
         Map<String, Object> masked = assembler().assemble(identity(List.of(
-                TenantProfile.AttributeSelection.of("email")), null), ticket(), "c1");
+                ServiceProfile.AttributeSelection.of("email")), null), ticket(), "c1");
         Map<String, Object> raw = assembler().assemble(identity(List.of(
-                new TenantProfile.AttributeSelection("email", null, MaskingRule.NONE)), Map.of("email", "mail")), ticket(), "c1");
+                new ServiceProfile.AttributeSelection("email", null, MaskingRule.NONE)), Map.of("email", "mail")), ticket(), "c1");
 
         assertThat(masked).containsEntry("email", "al***@example.org");
         assertThat(raw).containsEntry("mail", "alice@example.org");
@@ -109,7 +109,7 @@ class HandoffAttributeAssemblerTest {
         given(qimClient.getSubjectKey("u1", SubjectScheme.EMAIL, "c1")).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> assembler().assemble(identity(List.of(
-                new TenantProfile.AttributeSelection("email", true, null)), null), ticket(), "c1"))
+                new ServiceProfile.AttributeSelection("email", true, null)), null), ticket(), "c1"))
                 .isInstanceOf(PlatformException.class)
                 .extracting(e -> ((PlatformException) e).getErrorCode())
                 .isEqualTo(PlatformErrorCode.IDO_REQUIRED_ATTRIBUTE_MISSING);
@@ -121,7 +121,7 @@ class HandoffAttributeAssemblerTest {
         given(qimClient.getUserById("u1", "c1")).willReturn(null);
 
         assertThatThrownBy(() -> assembler().assemble(identity(List.of(
-                TenantProfile.AttributeSelection.of("name_masked")), null), ticket(), "c1"))
+                ServiceProfile.AttributeSelection.of("name_masked")), null), ticket(), "c1"))
                 .isInstanceOf(PlatformException.class)
                 .extracting(e -> ((PlatformException) e).getErrorCode())
                 .isEqualTo(PlatformErrorCode.IDO_QIM_UNREACHABLE);
@@ -131,8 +131,8 @@ class HandoffAttributeAssemblerTest {
     @DisplayName("카탈로그에 없는 이름은 무시된다(레거시 컬럼 값 방어)")
     void unknownName_ignored() {
         Map<String, Object> out = assembler().assemble(identity(List.of(
-                TenantProfile.AttributeSelection.of("not_in_catalog"),
-                TenantProfile.AttributeSelection.of("agency_code")), null), ticket(), "c1");
+                ServiceProfile.AttributeSelection.of("not_in_catalog"),
+                ServiceProfile.AttributeSelection.of("agency_code")), null), ticket(), "c1");
         assertThat(out).containsOnlyKeys("agency_code");
     }
 }

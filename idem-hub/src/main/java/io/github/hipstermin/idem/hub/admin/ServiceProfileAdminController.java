@@ -9,9 +9,9 @@ import io.github.hipstermin.idem.hub.policy.PolicyEngine;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyEvaluation;
-import io.github.hipstermin.idem.hub.tenant.TenantProfile;
-import io.github.hipstermin.idem.hub.tenant.TenantProfileService;
-import io.github.hipstermin.idem.hub.tenant.TenantProfileValidator;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileValidator;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -30,12 +30,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Tenant Profile Admin API (S2) — 기관 설정을 선언적 문서 하나로 읽고 쓴다.
+ * Service Profile Admin API (S2) — 기관 설정을 선언적 문서 하나로 읽고 쓴다.
  *
  * <pre>
- * GET /api/v1/admin/tenants/profile-schema          JSON Schema (콘솔 폼 생성·클라이언트 검증용)
- * GET /api/v1/admin/tenants/{code}/profile          현재 프로파일 (저장분 + 컬럼 합성)
- * PUT /api/v1/admin/tenants/{code}/profile          전체 치환. 기관이 없으면 생성 (프로파일만으로 온보딩)
+ * GET /api/v1/admin/services/profile-schema          JSON Schema (콘솔 폼 생성·클라이언트 검증용)
+ * GET /api/v1/admin/services/{code}/profile          현재 프로파일 (저장분 + 컬럼 합성)
+ * PUT /api/v1/admin/services/{code}/profile          전체 치환. 기관이 없으면 생성 (프로파일만으로 온보딩)
  * </pre>
  *
  * <p>기존 {@code /api/v1/admin/agencies} 는 유지된다(컬럼 단위 수정). 두 경로 모두 저장 시 프로파일과 컬럼을 일치시킨다.
@@ -43,12 +43,12 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/admin/tenants")
+@RequestMapping("/api/v1/admin/services")
 @RequiredArgsConstructor
-public class TenantProfileAdminController {
+public class ServiceProfileAdminController {
 
-    private final TenantProfileService   tenantProfileService;
-    private final TenantProfileValidator validator;
+    private final ServiceProfileService   serviceProfileService;
+    private final ServiceProfileValidator validator;
     private final PolicyEngine           policyEngine;
 
     @GetMapping(value = "/profile-schema", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -56,21 +56,21 @@ public class TenantProfileAdminController {
         return ResponseEntity.ok(validator.schemaText());
     }
 
-    @GetMapping("/{tenantCode}/profile")
-    public ResponseEntity<TenantProfile> get(@PathVariable String tenantCode) {
-        return ResponseEntity.ok(tenantProfileService.get(tenantCode));
+    @GetMapping("/{serviceCode}/profile")
+    public ResponseEntity<ServiceProfile> get(@PathVariable String serviceCode) {
+        return ResponseEntity.ok(serviceProfileService.get(serviceCode));
     }
 
-    @PutMapping(value = "/{tenantCode}/profile", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<TenantProfile> put(
-            @PathVariable String tenantCode,
+    @PutMapping(value = "/{serviceCode}/profile", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ServiceProfile> put(
+            @PathVariable String serviceCode,
             @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId,
             @RequestHeader(value = "X-Change-Reason", required = false) String changeReason,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @RequestBody JsonNode body) {
         String cid = correlationId != null ? correlationId : UUID.randomUUID().toString();
-        log.info("[TenantProfileCtrl] PUT profile: tenantCode={} adminId={} cid={}", tenantCode, adminId, cid);
-        return ResponseEntity.ok(tenantProfileService.put(tenantCode, body, adminId, changeReason, cid));
+        log.info("[ServiceProfileCtrl] PUT profile: serviceCode={} adminId={} cid={}", serviceCode, adminId, cid);
+        return ResponseEntity.ok(serviceProfileService.put(serviceCode, body, adminId, changeReason, cid));
     }
 
     /** 정책 시뮬레이션 요청 — 값이 없는 항목은 해당 규칙이 SKIP 된다. {@code at} 은 점검 시간대 판정 시각(생략 시 지금). */
@@ -81,14 +81,14 @@ public class TenantProfileAdminController {
      * 정책 시뮬레이션 (S3) — 저장된 프로파일로 "이런 요청이 오면 어떤 규칙이 어떻게 판정하는가" 를 실제 발급 없이 본다.
      * 모든 규칙을 끝까지 평가한다(첫 거부에서 멈추지 않음).
      */
-    @PostMapping(value = "/{tenantCode}/policy/simulate", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/{serviceCode}/policy/simulate", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<PolicySimulationResponse> simulate(
-            @PathVariable String tenantCode,
+            @PathVariable String serviceCode,
             @RequestBody PolicySimulationRequest req) {
-        TenantProfile profile = tenantProfileService.get(tenantCode);
+        ServiceProfile profile = serviceProfileService.get(serviceCode);
         UserStatus status = parseStatus(req.userStatus());
         PolicyContext ctx = PolicyContext.builder()
-                .tenantCode(tenantCode)
+                .serviceCode(serviceCode)
                 .profile(profile)
                 .authLevel(AuthResult.AuthLevel.parse(req.authLevel()).orElse(null))
                 .providerCode(req.providerCode())
@@ -111,7 +111,7 @@ public class TenantProfileAdminController {
      */
     @ExceptionHandler(PlatformException.class)
     public ResponseEntity<ErrorResponse> handlePlatformException(PlatformException ex) {
-        log.warn("[TenantProfileCtrl] {} cid={} : {}", ex.getErrorCode().getCode(), ex.getCorrelationId(), ex.getMessage());
+        log.warn("[ServiceProfileCtrl] {} cid={} : {}", ex.getErrorCode().getCode(), ex.getCorrelationId(), ex.getMessage());
         return ResponseEntity.status(ex.getErrorCode().getHttpStatus())
                 .body(ErrorResponse.builder()
                         .code(ex.getErrorCode().getCode())

@@ -1,7 +1,7 @@
 package io.github.hipstermin.idem.hub.policy.rule;
 
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
-import io.github.hipstermin.idem.hub.tenant.TenantProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalTime;
@@ -41,7 +41,7 @@ public class MaintenanceRule implements PolicyRule {
 
     @Override
     public PolicyDecision evaluate(PolicyContext ctx, Map<String, Object> params) {
-        List<TenantProfile.MaintenanceWindow> windows = ctx.policy() != null ? ctx.policy().maintenance() : null;
+        List<ServiceProfile.MaintenanceWindow> windows = ctx.policy() != null ? ctx.policy().maintenance() : null;
         if (windows == null || windows.isEmpty()) {
             return PolicyDecision.skip(TYPE, "점검 시간대 설정 없음");
         }
@@ -51,7 +51,7 @@ public class MaintenanceRule implements PolicyRule {
     }
 
     /** 공용 판정 — 레거시 {@code PolicyEngine.isUnderMaintenance} 도 이 로직을 쓴다. */
-    public static boolean isWithin(List<TenantProfile.MaintenanceWindow> windows, Instant at, ZoneId zone) {
+    public static boolean isWithin(List<ServiceProfile.MaintenanceWindow> windows, Instant at, ZoneId zone) {
         if (windows == null || windows.isEmpty() || at == null) return false;
         ZonedDateTime zdt = at.atZone(zone);
         DayOfWeek today = zdt.getDayOfWeek();

@@ -5,7 +5,6 @@ import io.github.hipstermin.idem.common.event.UserEvent;
 import io.github.hipstermin.idem.hub.infrastructure.LastEventVersionStore;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
 import io.github.hipstermin.idem.hub.infrastructure.UserStatusCache;
-import io.github.hipstermin.idem.hub.provision.ProvisioningService;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +36,6 @@ public class QimEventConsumer {
     private final UserStatusCache       userStatusCache;
     private final IdempotentEventStore  idempotentEventStore;
     private final QimClient             qimClient;
-    /** Sprint 14: 전 기관 프로비저닝 트리거 (QIM-OUTBOX-SPEC-001 신규 4종 이벤트 대응) */
-    private final ProvisioningService   provisioningService;
     // consumer group 전용 버전 저장 → 단순 qimUserId 기반 LastEventVersionStore 래핑
     // (consumerGroup prefix 는 key 에 포함하여 구분)
 
@@ -129,26 +126,7 @@ public class QimEventConsumer {
             lastEventVersionStore.put(versionKey, version);
             idempotentEventStore.markProcessed(eventId, CONSUMER_GROUP, event.getEventType(), "OK");
 
-            // ⑥ Sprint 14: 전 기관 프로비저닝 트리거 (QIM-OUTBOX-SPEC-001 신규 4종 명칭 적용)
-            //    등록/전환 4종 이벤트 모두 프로비저닝 트리거 대상
-            //    provisioningService 내부에서 Feature Flag + 중복 sourceEventId 방어 처리
-            String evtType = event.getEventType();
-            if (isProvisioningTriggerEvent(evtType)) {
-                try {
-                    provisioningService.triggerProvisioning(
-                            qimUserId,
-                            evtType,
-                            eventId,        // sourceEventId — 중복 트리거 방어
-                            eventId         // correlationId — 이벤트 단위 흐름 추적
-                    );
-                } catch (Exception provEx) {
-                    // 프로비저닝 실패는 provisioning_outbox PENDING으로 이미 저장됨
-                    // Relay가 재시도하므로 consumer 실패로 전파하지 않음
-                    log.error("[QimEventConsumer] 프로비저닝 트리거 예외 (Relay 재시도 예정): " +
-                                    "qimUserId={} eventType={} eventId={} error={}",
-                            qimUserId, evtType, eventId, provEx.getMessage());
-                }
-            }
+            // S4b: 전 기관 프로비저닝 트리거 제거 — 서비스에는 어설션·백채널 로그아웃·보안/감사 이벤트만 push 한다(플랜 §2.0)
 
             log.info("[QimEventConsumer] 처리 완료: qimUserId={} eventType={} version={}",
                     qimUserId, event.getEventType(), version);
@@ -163,26 +141,4 @@ public class QimEventConsumer {
         }
     }
 
-    /**
-     * 프로비저닝 트리거 대상 이벤트인지 판별
-     *
-     * <p>QIM-OUTBOX-SPEC-001 기준 등록/전환 4종 이벤트가
-     * 프로비저닝(68개 기관 병렬 알림) 트리거 대상이다.
-     *
-     * <ul>
-     *   <li>BIZ_MEMBER_CONVERTED      — 기업회원 전환</li>
-     *   <li>BIZ_MEMBER_REGISTERED     — 기업회원 신규</li>
-     *   <li>PERSONAL_MEMBER_CONVERTED — 개인회원 전환</li>
-     *   <li>PERSONAL_MEMBER_REGISTERED— 개인회원 신규</li>
-     * </ul>
-     *
-     * @param eventType Kafka 메시지의 eventType 필드
-     * @return 프로비저닝 트리거 대상이면 true
-     */
-    private static boolean isProvisioningTriggerEvent(String eventType) {
-        return "BIZ_MEMBER_CONVERTED".equals(eventType)
-            || "BIZ_MEMBER_REGISTERED".equals(eventType)
-            || "PERSONAL_MEMBER_CONVERTED".equals(eventType)
-            || "PERSONAL_MEMBER_REGISTERED".equals(eventType);
-    }
 }

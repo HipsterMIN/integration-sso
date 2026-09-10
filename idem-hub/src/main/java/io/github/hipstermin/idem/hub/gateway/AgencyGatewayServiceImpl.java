@@ -9,7 +9,6 @@ import io.github.hipstermin.idem.hub.gateway.dto.OutboundNotifyRequest;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyEndpointRecord;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyEndpointRegistryRepository;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
-import io.github.hipstermin.idem.hub.provision.ProvisioningOutboxRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -58,7 +57,6 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
     private final GatewayOutboundRepository        outboundRepository;
     private final AgencyEndpointRegistryRepository endpointRegistry;
     private final AgencyMetaRepository             agencyMetaRepository;
-    private final ProvisioningOutboxRepository     provisioningOutboxRepository;
     private final RestTemplate                     restTemplate;
     private final ObjectMapper                     objectMapper;
     /** Sprint 17: 기관별 HMAC 키 조회 (아웃바운드 서명 발송) */
@@ -211,15 +209,6 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
         // 활성 엔드포인트 수
         int activeEndpoints = endpointRegistry.findAllActiveByAgency(agencyCode).size();
 
-        // PENDING 프로비저닝 건수 (provisioning_outbox)
-        // findPendingBatch(Integer.MAX_VALUE)는 위험 — countByAgency 전용 메서드 사용
-        // 현재 ProvisioningOutboxRepository에 countPendingByAgency 없으므로 0으로 기본값
-        int pendingProvisioning    = 0;
-        int deadLetterProvisioning = provisioningOutboxRepository.countDeadLetterByUser("__agency__" + agencyCode);
-        // 실제로는 agencyCode 기준 dead_letter count가 필요하나 현재 API는 qimUserId 기준
-        // → 0으로 처리 (Sprint 17 운영 모니터링 확장 시 보완)
-        deadLetterProvisioning = 0;
-
         // 인바운드 미처리 건수
         int unprocessedInbound = inboundRepository.countUnprocessedByAgency(agencyCode);
 
@@ -232,8 +221,6 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
                 .agencyName(agencyName)
                 .active(active)
                 .activeEndpoints(activeEndpoints)
-                .pendingProvisioning(pendingProvisioning)
-                .deadLetterProvisioning(deadLetterProvisioning)
                 .unprocessedInbound(unprocessedInbound)
                 .lastInboundAt(lastInboundAt)
                 .lastOutboundAt(lastOutboundAt)

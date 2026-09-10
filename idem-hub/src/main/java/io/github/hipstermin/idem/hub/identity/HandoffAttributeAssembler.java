@@ -8,7 +8,7 @@ import io.github.hipstermin.idem.common.identity.AttributeDefinition;
 import io.github.hipstermin.idem.common.identity.MaskingRule;
 import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
-import io.github.hipstermin.idem.hub.tenant.TenantProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Tenant Profile {@code identity.attributes/attributeMapping} 으로 Handoff {@code attributes} 를 만든다 (S4).
+ * Service Profile {@code identity.attributes/attributeMapping} 으로 Handoff {@code attributes} 를 만든다 (S4).
  *
  * <p>규칙:
  * <ul>
@@ -41,7 +41,7 @@ public class HandoffAttributeAssembler {
     private final QimClient qimClient;
     private final SubjectIdentifierResolver subjectResolver;
 
-    public Map<String, Object> assemble(TenantProfile.Identity identity, HandoffTicket ticket, String correlationId) {
+    public Map<String, Object> assemble(ServiceProfile.Identity identity, HandoffTicket ticket, String correlationId) {
         if (identity == null || identity.attributes() == null || identity.attributes().isEmpty()) {
             return new LinkedHashMap<>();
         }
@@ -52,12 +52,12 @@ public class HandoffAttributeAssembler {
 
         Map<String, Object> out = new LinkedHashMap<>();
         List<String> missingRequired = new ArrayList<>();
-        for (TenantProfile.AttributeSelection sel : identity.attributes()) {
+        for (ServiceProfile.AttributeSelection sel : identity.attributes()) {
             if (sel == null || sel.name() == null) continue;
             Optional<AttributeDefinition> found = AttributeCatalog.find(sel.name());
             if (found.isEmpty()) {
                 // 검증(E-IDO-113)이 막지만, 검증 전에 저장된 레거시 컬럼 값일 수 있다 — 조용히 넘기지 않고 경고
-                log.warn("[AttrAssembler] 카탈로그에 없는 속성 선언 무시: tenant={} name={}", ticket.getAgencyCode(), sel.name());
+                log.warn("[AttrAssembler] 카탈로그에 없는 속성 선언 무시: service={} name={}", ticket.getAgencyCode(), sel.name());
                 continue;
             }
             AttributeDefinition def = found.get();
@@ -69,7 +69,7 @@ public class HandoffAttributeAssembler {
                 }
                 case SUBJECT -> subjectKeys.computeIfAbsent(def.subjectScheme(), scheme ->
                         subjectResolver.resolve(scheme, SubjectResolutionContext.builder()
-                                .qimUserId(ticket.getQimUserId()).tenantCode(ticket.getAgencyCode())
+                                .qimUserId(ticket.getQimUserId()).serviceCode(ticket.getAgencyCode())
                                 .correlationId(correlationId).build())).orElse(null);
             };
             if (value == null) {
@@ -83,7 +83,7 @@ public class HandoffAttributeAssembler {
         }
         if (!missingRequired.isEmpty()) {
             throw new PlatformException(PlatformErrorCode.IDO_REQUIRED_ATTRIBUTE_MISSING, correlationId,
-                    "tenant=" + ticket.getAgencyCode() + " missing=" + missingRequired);
+                    "service=" + ticket.getAgencyCode() + " missing=" + missingRequired);
         }
         return out;
     }

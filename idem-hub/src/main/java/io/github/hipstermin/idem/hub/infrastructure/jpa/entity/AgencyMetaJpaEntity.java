@@ -29,6 +29,11 @@ public class AgencyMetaJpaEntity {
     @Column(name = "official_name", length = 200, nullable = false)
     private String officialName;
 
+    /** 소속 Tenant(Realm) — V22 (S4b). 기본 DEFAULT */
+    @Column(name = "tenant_code", length = 50, nullable = false)
+    @Builder.Default
+    private String tenantCode = "DEFAULT";
+
     /** 최소 인증 수준: L1 / L2 / L3 */
     @Column(name = "min_auth_level", length = 10, nullable = false)
     private String minAuthLevel;
@@ -81,13 +86,13 @@ public class AgencyMetaJpaEntity {
     @Column(name = "sso_domain", length = 200)
     private String ssoDomain;
 
-    /** 일별 조회 한도 (agency_rate_limit 보조) — Tenant Profile limits.daily 의 투영 */
+    /** 일별 조회 한도 (agency_rate_limit 보조) — Service Profile limits.daily 의 투영 */
     @Column(name = "daily_lookup_limit")
     private Integer dailyLookupLimit;
 
     /**
-     * Tenant Profile 원문 (S2). 낱개 컬럼은 이 문서의 투영이다 — 쓰기 경로는 반드시
-     * TenantProfileMapper.applyToEntity / syncProfileColumn 을 거쳐 둘을 일치시킨다.
+     * Service Profile 원문 (S2). 낱개 컬럼은 이 문서의 투영이다 — 쓰기 경로는 반드시
+     * ServiceProfileMapper.applyToEntity / syncProfileColumn 을 거쳐 둘을 일치시킨다.
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "profile", columnDefinition = "jsonb")

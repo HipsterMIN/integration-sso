@@ -36,7 +36,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *   <li>SCHEDULED — 기본 30일 유예 예약</li>
  *   <li>SCHEDULED — scheduledAt 명시 시 해당 일시 사용</li>
  *   <li>SCHEDULED — 취소 (cancelScheduledWithdrawal) → ACTIVE 복원</li>
- *   <li>SCHEDULED — 비WITHDRAWAL_SCHEDULED 상태 취소 → IM_CONVERSION_INVALID_STATE</li>
+ *   <li>SCHEDULED — 비WITHDRAWAL_SCHEDULED 상태 취소 → IM_WITHDRAWAL_NOT_ALLOWED</li>
  *   <li>AGENCY_REQUESTED — reason에 기관코드 포함</li>
  *   <li>ADMIN_FORCED — reason에 관리자ID 포함</li>
  *   <li>processExpiredScheduledWithdrawals — 만료 사용자 일괄 처리</li>
@@ -214,7 +214,7 @@ class WithdrawalServiceImplTest {
         }
 
         @Test
-        @DisplayName("WITHDRAWAL_SCHEDULED 아닌 상태에서 취소 → IM_CONVERSION_INVALID_STATE")
+        @DisplayName("WITHDRAWAL_SCHEDULED 아닌 상태에서 취소 → IM_WITHDRAWAL_NOT_ALLOWED")
         void cancelScheduled_wrongState() {
             given(userRepository.findById(QIM_USER_ID)).willReturn(Optional.of(activeUser()));
 
@@ -222,7 +222,7 @@ class WithdrawalServiceImplTest {
                     sut.cancelScheduledWithdrawal(QIM_USER_ID, CORRELATION_ID))
                     .isInstanceOf(PlatformException.class)
                     .extracting(e -> ((PlatformException) e).getErrorCode())
-                    .isEqualTo(PlatformErrorCode.IM_CONVERSION_INVALID_STATE);
+                    .isEqualTo(PlatformErrorCode.IM_WITHDRAWAL_NOT_ALLOWED);
         }
     }
 

@@ -180,9 +180,9 @@ class HandoffIntegrationTest extends IntegrationTestBase {
         h.setContentType(MediaType.APPLICATION_JSON);
         h.set("X-Admin-Id", "s3-test");
         ResponseEntity<String> profile = restTemplate.exchange(
-                baseUrl + "/api/v1/admin/tenants/" + AGENCY_CODE + "/profile", HttpMethod.PUT,
+                baseUrl + "/api/v1/admin/services/" + AGENCY_CODE + "/profile", HttpMethod.PUT,
                 new HttpEntity<>("""
-                        {"schemaVersion":1,"tenant":{"code":"%s","name":"통합테스트 기관"},
+                        {"schemaVersion":1,"service":{"code":"%s","name":"통합테스트 기관"},
                          "protocol":{"type":"DIRECT","endpoints":{"callbackWhitelist":["https://agency.example.com/callback"]}},
                          "identity":{"attributes":["name_masked","mobile_masked"]},
                          "policy":{"minAuthLevel":"L1","allowedProviders":["NICE"]}}

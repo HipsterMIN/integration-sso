@@ -88,7 +88,7 @@ public class HandoffServiceImpl implements HandoffService {
 
             // 3~5. 정책 평가 (S3 — 프로파일의 규칙 집합: MAINTENANCE → MIN_AUTH_LEVEL → ALLOWED_PROVIDERS → USER_STATUS)
             PolicyContext policyContext = PolicyContext.builder()
-                    .tenantCode(cmd.getAgencyCode())
+                    .serviceCode(cmd.getAgencyCode())
                     .authLevel(cmd.getAuthLevel())
                     .providerCode(cmd.getProviderCode())
                     .userStatus(() -> policyEngine.resolveUserStatus(cmd.getQimUserId(), cmd.getCorrelationId()))

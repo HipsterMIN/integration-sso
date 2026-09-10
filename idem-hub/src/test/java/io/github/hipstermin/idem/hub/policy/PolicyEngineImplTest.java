@@ -16,7 +16,7 @@ import io.github.hipstermin.idem.hub.identity.SubjectIdentifierResolver;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
 import io.github.hipstermin.idem.hub.infrastructure.UserStatusCache;
-import io.github.hipstermin.idem.hub.tenant.TenantProfileService;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,7 +53,7 @@ class PolicyEngineImplTest {
     @Mock UserStatusCache      userStatusCache;
     @Mock QimClient            qimClient;
     @Mock AgencyMetaRepository agencyMetaRepository;
-    @Mock TenantProfileService tenantProfileService;
+    @Mock ServiceProfileService serviceProfileService;
 
     PolicyEngineImpl sut;
 
@@ -67,11 +67,11 @@ class PolicyEngineImplTest {
         // S4: 기본 스킴 PAIRWISE_HMAC 은 registry DI(getDi) 로 해석된다 — 종전 테스트 계약 유지
         SubjectIdentifierResolver resolver = new SubjectIdentifierResolver(
                 java.util.List.of(new CoreSubjectSchemes().pairwiseHmacSubjectScheme(qimClient)));
-        sut = new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, tenantProfileService,
+        sut = new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, serviceProfileService,
                 resolver, new HandoffAttributeAssembler(qimClient, resolver), java.util.List.of());
         ReflectionTestUtils.setField(sut, "defaultPolicyVersion", "1.0");
         // 기본: 기관 프로파일 없음(S4: 스킴 PAIRWISE_HMAC · 속성 선언 없음 = 빈 attributes), userStatusCache 없음
-        // (tenantProfileService.find 는 Mockito 기본값 Optional.empty)
+        // (serviceProfileService.find 는 Mockito 기본값 Optional.empty)
         given(userStatusCache.get(anyString())).willReturn(Optional.empty());
     }
 

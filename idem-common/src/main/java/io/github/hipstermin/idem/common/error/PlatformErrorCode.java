@@ -38,9 +38,6 @@ public enum PlatformErrorCode {
     IM_WITHDRAWAL_NOT_ALLOWED ("E-IM-206", HttpStatus.FORBIDDEN,      "현재 상태에서 탈퇴가 허용되지 않습니다."),
     IM_CONSENT_NOT_FOUND      ("E-IM-207", HttpStatus.NOT_FOUND,      "동의 기록을 찾을 수 없습니다."),
     IM_CONSENT_VERSION_INVALID("E-IM-208", HttpStatus.CONFLICT,       "동의 버전이 유효하지 않습니다."),
-    IM_CONVERSION_NOT_FOUND   ("E-IM-209", HttpStatus.NOT_FOUND,      "전환 세션을 찾을 수 없습니다."),
-    IM_CONVERSION_EXPIRED     ("E-IM-210", HttpStatus.GONE,           "전환 세션이 만료되었습니다."),
-    IM_CONVERSION_INVALID_STATE("E-IM-211", HttpStatus.CONFLICT,      "전환 세션 상태 전이가 유효하지 않습니다."),
 
     // ── 보호자 인증 오류 (E-IM-212~214) ───────────────────────────────────────
     IM_MINOR_GUARDIAN_REQUIRED  ("E-IM-212", HttpStatus.FORBIDDEN,    "14세 미만 회원은 보호자 동의가 필요합니다."),
@@ -69,7 +66,7 @@ public enum PlatformErrorCode {
     // ── 범용화 S1 (docs/generalization-plan.md) ──────────────────────────────
     IDO_INVALID_INTEGRATION_TYPE("E-IDO-111", HttpStatus.BAD_REQUEST, "지원하지 않는 기관 연동 유형입니다."),
     IDO_PROVIDER_NOT_CONFIGURED("E-IDO-112", HttpStatus.SERVICE_UNAVAILABLE, "인증 제공자가 설정되지 않았습니다."),
-    IDO_INVALID_TENANT_PROFILE("E-IDO-113", HttpStatus.BAD_REQUEST, "기관 프로파일이 스키마에 맞지 않습니다."),
+    IDO_INVALID_TENANT_PROFILE("E-IDO-113", HttpStatus.BAD_REQUEST, "Service 프로파일 또는 Tenant 가 유효하지 않습니다."),
     // ── 범용화 S4 (식별자·속성 계약) ─────────────────────────────────────────
     IDO_REQUIRED_ATTRIBUTE_MISSING("E-IDO-114", HttpStatus.UNPROCESSABLE_ENTITY, "기관이 필수로 요구한 속성을 사용자에게서 얻을 수 없습니다."),
     IDO_SUBJECT_SCHEME_UNSUPPORTED("E-IDO-115", HttpStatus.SERVICE_UNAVAILABLE, "기관 프로파일이 지정한 주체 식별자 스킴을 이 설치본이 지원하지 않습니다."),

@@ -1,4 +1,4 @@
-package io.github.hipstermin.idem.hub.provision;
+package io.github.hipstermin.idem.hub.infrastructure;
 
 import jakarta.annotation.PostConstruct;
 import java.util.Locale;

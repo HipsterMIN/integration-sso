@@ -99,7 +99,7 @@ class IdentityContractIntegrationTest extends IntegrationTestBase {
         String code = "TC_S4_EMAIL";
         putProfile(code, """
                 {"schemaVersion":1,
-                 "tenant":{"code":"%s","name":"S4 이메일 기관"},
+                 "service":{"code":"%s","name":"S4 이메일 기관"},
                  "protocol":{"type":"DIRECT","endpoints":{"callbackWhitelist":["https://tenant.example.org/cb"]}},
                  "identity":{"subjectScheme":"EMAIL",
                              "attributes":["name_masked",{"name":"email","masking":"NONE"},"birth_year","qimUserId","gender"],
@@ -158,7 +158,7 @@ class IdentityContractIntegrationTest extends IntegrationTestBase {
         String code = "TC_S4_PAIRWISE";
         putProfile(code, """
                 {"schemaVersion":1,
-                 "tenant":{"code":"%s","name":"S4 기본 기관"},
+                 "service":{"code":"%s","name":"S4 기본 기관"},
                  "protocol":{"type":"DIRECT","endpoints":{"callbackWhitelist":["https://tenant.example.org/cb"]}},
                  "policy":{"minAuthLevel":"L1"}}
                 """.formatted(code));
@@ -188,7 +188,7 @@ class IdentityContractIntegrationTest extends IntegrationTestBase {
         String code = "TC_S4_EMAIL";
         putProfile(code, """
                 {"schemaVersion":1,
-                 "tenant":{"code":"%s","name":"S4 이메일 기관"},
+                 "service":{"code":"%s","name":"S4 이메일 기관"},
                  "protocol":{"type":"DIRECT","endpoints":{"callbackWhitelist":["https://tenant.example.org/cb"]}},
                  "identity":{"subjectScheme":"EMAIL","attributes":["name_masked","email"]},
                  "policy":{"minAuthLevel":"L1"}}
@@ -203,7 +203,7 @@ class IdentityContractIntegrationTest extends IntegrationTestBase {
         String req = "TC_S4_REQ";
         putProfile(req, """
                 {"schemaVersion":1,
-                 "tenant":{"code":"%s","name":"S4 필수속성 기관"},
+                 "service":{"code":"%s","name":"S4 필수속성 기관"},
                  "protocol":{"type":"DIRECT","endpoints":{"callbackWhitelist":["https://tenant.example.org/cb"]}},
                  "identity":{"attributes":[{"name":"email","required":true}]},
                  "policy":{"minAuthLevel":"L1"}}
@@ -223,7 +223,7 @@ class IdentityContractIntegrationTest extends IntegrationTestBase {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
         h.set("X-Admin-Id", "s4-admin");
-        ResponseEntity<String> res = restTemplate.exchange(url("/api/v1/admin/tenants/" + code + "/profile"),
+        ResponseEntity<String> res = restTemplate.exchange(url("/api/v1/admin/services/" + code + "/profile"),
                 HttpMethod.PUT, new HttpEntity<>(body, h), String.class);
         assertThat(res.getStatusCode().value()).as("profile PUT body=%s", res.getBody()).isEqualTo(200);
         // API 키는 프로파일 밖(rotate-key 경로) — 테스트는 해시를 직접 심는다

@@ -20,8 +20,8 @@ import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyEvaluation;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyRule;
 import io.github.hipstermin.idem.hub.policy.rule.UserStatusRule;
-import io.github.hipstermin.idem.hub.tenant.TenantProfile;
-import io.github.hipstermin.idem.hub.tenant.TenantProfileService;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,7 +39,7 @@ class PolicyEngineEvaluateTest {
     @Mock UserStatusCache userStatusCache;
     @Mock QimClient qimClient;
     @Mock AgencyMetaRepository agencyMetaRepository;
-    @Mock TenantProfileService tenantProfileService;
+    @Mock ServiceProfileService serviceProfileService;
 
     /** 커스텀 규칙 — params.allow 가 false 면 거부 */
     static final PolicyRule CUSTOM = new PolicyRule() {
@@ -53,23 +53,23 @@ class PolicyEngineEvaluateTest {
 
     private PolicyEngineImpl engine() {
         SubjectIdentifierResolver resolver = new SubjectIdentifierResolver(List.of());
-        return new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, tenantProfileService,
+        return new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, serviceProfileService,
                 resolver, new HandoffAttributeAssembler(qimClient, resolver),
                 List.of(new UserStatusRule(), new AllowedProvidersRule(), new MinAuthLevelRule(), new MaintenanceRule(), CUSTOM));
     }
 
-    private static TenantProfile profile(TenantProfile.Policy policy) {
-        return TenantProfile.builder().schemaVersion(1)
-                .tenant(new TenantProfile.Tenant("AG", "기관", TenantProfile.TenantStatus.ACTIVE))
-                .protocol(TenantProfile.Protocol.builder().type(IntegrationType.DIRECT).build())
+    private static ServiceProfile profile(ServiceProfile.Policy policy) {
+        return ServiceProfile.builder().schemaVersion(1)
+                .service(new ServiceProfile.Service("AG", "기관", ServiceProfile.ServiceStatus.ACTIVE))
+                .protocol(ServiceProfile.Protocol.builder().type(IntegrationType.DIRECT).build())
                 .policy(policy).build();
     }
 
     @Test
     @DisplayName("내장 규칙은 order 순(MAINTENANCE → MIN_AUTH_LEVEL → ALLOWED_PROVIDERS → USER_STATUS)으로 전부 평가된다")
     void builtInsEvaluatedInOrder() {
-        PolicyContext ctx = PolicyContext.builder().tenantCode("AG")
-                .profile(profile(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1).build()))
+        PolicyContext ctx = PolicyContext.builder().serviceCode("AG")
+                .profile(profile(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1).build()))
                 .authLevel(AuthResult.AuthLevel.L2).providerCode("NICE").userStatus(() -> UserStatus.ACTIVE).build();
 
         PolicyEvaluation eval = engine().evaluate(ctx, false);
@@ -83,8 +83,8 @@ class PolicyEngineEvaluateTest {
     @DisplayName("stopAtFirstDenial=true 면 첫 거부에서 멈추고 뒤의(비싼) USER_STATUS 공급자는 호출되지 않는다")
     void stopsAtFirstDenial_withoutCallingLaterSuppliers() {
         AtomicInteger statusCalls = new AtomicInteger();
-        PolicyContext ctx = PolicyContext.builder().tenantCode("AG")
-                .profile(profile(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L3).build()))
+        PolicyContext ctx = PolicyContext.builder().serviceCode("AG")
+                .profile(profile(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L3).build()))
                 .authLevel(AuthResult.AuthLevel.L1)
                 .userStatus(() -> { statusCalls.incrementAndGet(); return UserStatus.ACTIVE; }).build();
 
@@ -99,10 +99,10 @@ class PolicyEngineEvaluateTest {
     @Test
     @DisplayName("프로파일 policy.rules 로 커스텀 규칙을 켜고 파라미터를 넘긴다")
     void customRule_fromProfileRules() {
-        TenantProfile.Policy on = TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
-                .rules(List.of(new TenantProfile.RuleRef("CUSTOM_FLAG", Map.of("allow", true)))).build();
-        TenantProfile.Policy off = TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
-                .rules(List.of(new TenantProfile.RuleRef("custom_flag", Map.of("allow", false)))).build();
+        ServiceProfile.Policy on = ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
+                .rules(List.of(new ServiceProfile.RuleRef("CUSTOM_FLAG", Map.of("allow", true)))).build();
+        ServiceProfile.Policy off = ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
+                .rules(List.of(new ServiceProfile.RuleRef("custom_flag", Map.of("allow", false)))).build();
 
         assertThat(engine().evaluate(PolicyContext.builder().profile(profile(on)).authLevel(AuthResult.AuthLevel.L1).build(), false).allowed()).isTrue();
         PolicyEvaluation denied = engine().evaluate(PolicyContext.builder().profile(profile(off)).authLevel(AuthResult.AuthLevel.L1).build(), false);
@@ -113,8 +113,8 @@ class PolicyEngineEvaluateTest {
     @Test
     @DisplayName("등록되지 않은 규칙 유형을 프로파일이 요구하면 거부한다(fail-closed)")
     void unknownRuleType_denies() {
-        TenantProfile.Policy p = TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
-                .rules(List.of(new TenantProfile.RuleRef("NOT_REGISTERED", null))).build();
+        ServiceProfile.Policy p = ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
+                .rules(List.of(new ServiceProfile.RuleRef("NOT_REGISTERED", null))).build();
 
         PolicyEvaluation eval = engine().evaluate(PolicyContext.builder().profile(profile(p)).authLevel(AuthResult.AuthLevel.L1).build(), false);
 
@@ -123,13 +123,13 @@ class PolicyEngineEvaluateTest {
     }
 
     @Test
-    @DisplayName("프로파일이 없으면 tenantCode 로 읽는다")
-    void loadsProfileByTenantCode() {
-        given(tenantProfileService.find("AG")).willReturn(Optional.of(
-                profile(TenantProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L2).build())));
+    @DisplayName("프로파일이 없으면 serviceCode 로 읽는다")
+    void loadsProfileByServiceCode() {
+        given(serviceProfileService.find("AG")).willReturn(Optional.of(
+                profile(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L2).build())));
 
         PolicyEvaluation eval = engine().evaluate(
-                PolicyContext.builder().tenantCode("AG").authLevel(AuthResult.AuthLevel.L1).build(), true);
+                PolicyContext.builder().serviceCode("AG").authLevel(AuthResult.AuthLevel.L1).build(), true);
 
         assertThat(eval.firstDenial()).isPresent();
         assertThat(eval.firstDenial().get().rule()).isEqualTo("MIN_AUTH_LEVEL");

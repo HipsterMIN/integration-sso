@@ -16,7 +16,7 @@ docs/
 ├── project-overview.md             ← ★프로젝트 소개 (처음 접하는 분용, docx 배포본과 동일 내용)
 ├── local-dev-workflow.md           ← 로컬 개발 워크플로 (git 훅: pre-commit Spotless, pre-push 변경 모듈 테스트)
 ├── execution-plan.md               ← 실행 계획 (PR #221 마무리 → 범위 고정 → 보안 보완 → 암호모듈 → GS → CC)
-├── generalization-plan.md          ← 범용화 리팩토링 플랜 (결합 지점 7가지 분석 · 목표 구조 · S1~S9 단계 · 기관 요구사항 수용 매트릭스)
+├── generalization-plan.md          ← 범용화 리팩토링 플랜 v0.2 (결합 지점 8가지 · Tenant/Service 계층 목표 구조 · S1~S9 단계 · 기관 요구사항 수용 매트릭스)
 │
 ├── certification/                  ← CC(국내용)·GS 인증 준비
 │   └── cc-gs-gap-analysis.md       │   요구사항별 갭 분석·TOE 범위·로드맵 (초안 2026-09-08)
@@ -92,7 +92,7 @@ docs/
 | [`identity-provider-spi.md`](identity-provider-spi.md) | **본인인증 SPI** — `IdentityVerificationProvider` 계약, 표준 엔드포인트, Mock 플러그인 사용법, 새 제공자 작성 절차 |
 | [`vendor-plugin-plan.md`](vendor-plugin-plan.md) | **벤더 독립화·플러그인 아키텍처 플랜** — NICE/OACX·AnyID 를 플러그인으로 분리하는 P0~P5 단계, SPI 계약 초안 |
 | [`naming.md`](naming.md) | **Idem 개명 대응표** — 구명↔신명, 개명 단계, 아직 바꾸지 않은 런타임 식별자 목록 |
-| [`generalization-plan.md`](generalization-plan.md) | **범용화 리팩토링 플랜** — 현재 구조 분석(고객·벤더·기관모델·식별자·프로토콜·관리면·회원전환 결합), Tenant Profile 중심 목표 구조, S1~S9 단계, 기관 요구사항 수용 매트릭스, S1 작업 지시서 |
+| [`generalization-plan.md`](generalization-plan.md) | **범용화 리팩토링 플랜 v0.2** — 현재 구조 분석(고객·벤더·기관모델·식별자·프로토콜·관리면·회원전환·브로커 모델 결합), 설치본→Tenant(Realm)→Service 계층의 IdP 모델 목표 구조, S1~S9 단계(S4b·S8 재정의), 기관 요구사항 수용 매트릭스 |
 | [`execution-plan.md`](execution-plan.md) | **실행 계획 (확장판)** — 단계별 작업·완료 기준·병행 트랙·의사결정 대기·위험. 요약은 §0 |
 | [`certification/cc-gs-gap-analysis.md`](certification/cc-gs-gap-analysis.md) | **CC·GS 인증 갭 분석 (초안)** — 국가용 보안요구사항(SSO) 클래스별 현재 구현 대조, TOE 범위 제안, 보증 산출물·GS 품질 특성 갭, 로드맵·질의 목록 |
 | [`idem-sdk-java-usage-guide.md`](idem-sdk-java-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |
@@ -206,7 +206,7 @@ docs/
 | 분산 락/보안 | F-08-redisson-lock · F-10-security-headers · F-12-crypto-rotation |
 | 보존/Outbox | F-11-retention · F-13-outbox-relay · F-14-webhook-relay |
 | SP 감사 | F-18-sp-receiver-audit |
-| 프로비저닝 | F-20-provisioning · F-21-provisioning-relay · F-22-provisioning-dry-run |
+| ~~프로비저닝~~ (S4b 제거) | F-20-provisioning · F-21-provisioning-relay · F-22-provisioning-dry-run — 이력 참고용 |
 | Gateway | F-23-gateway-inbound · F-24-gateway-outbound · F-25-gateway-idempotency |
 | HMAC/키 | F-26-hmac-sig · F-27-agency-key-audit |
 

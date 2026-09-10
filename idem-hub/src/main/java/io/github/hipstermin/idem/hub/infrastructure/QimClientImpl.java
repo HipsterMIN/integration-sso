@@ -235,6 +235,7 @@ public class QimClientImpl implements QimClient {
             body.put("birthYear", reg.birthYear());
             body.put("gender", reg.gender());
             body.put("nationalityType", reg.nationalityType());
+            body.put("tenantCode", reg.tenantCode() != null ? reg.tenantCode() : "DEFAULT");
             body.put("correlationId", correlationId);
 
             String url = qimBaseUrl + "/api/v1/internal/users/register-subject";
