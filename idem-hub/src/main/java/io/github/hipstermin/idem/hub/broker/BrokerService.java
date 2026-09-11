@@ -2,7 +2,7 @@ package io.github.hipstermin.idem.hub.broker;
 
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
-import io.github.hipstermin.idem.hub.broker.anyid.AnyIdBrokerAdapter;
+import io.github.hipstermin.idem.common.spi.broker.DirectBrokerAdapter;
 import io.github.hipstermin.idem.hub.broker.keycloak.KeycloakProperties;
 import io.github.hipstermin.idem.hub.broker.provider.ProviderConfigRepository;
 import io.github.hipstermin.idem.hub.broker.provider.ProviderRouter;
@@ -11,7 +11,9 @@ import io.github.hipstermin.idem.hub.broker.state.IdoOidcStateStore;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
@@ -36,8 +38,8 @@ import org.springframework.web.util.UriComponentsBuilder;
  *       카카오·네이버 등 RFC 준수 소셜 로그인 → <b>Layer 2</b>로 진입
  *   </li>
  *   <li><b>비표준 OIDC</b> ({@code NON_STANDARD}):
- *       PASS·공동인증서·금융인증서·Any-ID 인증수단 → <b>ido 직접 처리</b>
- *       (NonOidcBrokerAdapter 또는 AnyIdBrokerAdapter)
+ *       PASS·공동인증서·금융인증서·설치형 벤더 인증수단 → <b>ido 직접 처리</b>
+ *       (플러그인 {@link DirectBrokerAdapter} 또는 코어 NonOidcBrokerAdapter)
  *   </li>
  * </ul>
  *
@@ -54,8 +56,9 @@ import org.springframework.web.util.UriComponentsBuilder;
  *
  * <h3>비표준 OIDC 처리 경로 (IDO_BROKER_MODE와 무관)</h3>
  * <ul>
- *   <li>Any-ID 인증수단 (모바일신분증·간편인증·공동인증서·금융인증서·민간ID):
- *       <pre>FE → ido → AnyIdBrokerAdapter → https://www.anyid.dev:1443/api/v1/init</pre>
+ *   <li>플러그인 직접 브로커 (예: KR 에디션 idem-plugin-anyid 의 모바일신분증·간편인증·공동인증서·금융인증서·민간ID):
+ *       <pre>FE → ido → DirectBrokerAdapter(플러그인) → 벤더 인증 서버</pre>
+ *       어댑터 선택: provider_config.broker_mode == adapter.id() → 없으면 adapter.supports(code)
  *   </li>
  *   <li>기타 비표준 (PASS 등):
  *       <pre>FE → ido → NonOidcBrokerAdapter (비OIDC 직접 브로커링)</pre>
@@ -67,11 +70,11 @@ import org.springframework.web.util.UriComponentsBuilder;
  * IDO_BROKER_MODE=qsign     → 카카오·네이버(표준 OIDC)를 q-sign으로 처리 (기본)
  * IDO_BROKER_MODE=keycloak  → 카카오·네이버(표준 OIDC)를 Keycloak으로 처리
  *
- * (Any-ID 비표준 인증수단은 IDO_BROKER_MODE 값과 무관하게 항상 AnyIdBrokerAdapter로 처리)
+ * (플러그인 직접 브로커 인증수단은 IDO_BROKER_MODE 값과 무관하게 항상 해당 어댑터로 처리)
  * </pre>
  *
  * @see ProviderRouter
- * @see io.github.hipstermin.idem.hub.broker.anyid.AnyIdBrokerAdapter
+ * @see DirectBrokerAdapter
  * @see io.github.hipstermin.idem.hub.broker.nonoidc.NonOidcBrokerAdapter
  */
 @Slf4j
@@ -87,7 +90,7 @@ public class BrokerService {
      * </ul>
      *
      * <p>이 값은 <b>표준 OIDC(카카오·네이버 등)에만 적용</b>된다.
-     * 비표준 OIDC(Any-ID 인증수단, PASS 등)는 provider_type 기반으로 별도 처리된다.
+     * 비표준 OIDC(플러그인 직접 브로커 인증수단, PASS 등)는 provider_type 기반으로 별도 처리된다.
      */
     @Value("${ido.broker.mode:qsign}")
     private String brokerMode;
@@ -125,8 +128,8 @@ public class BrokerService {
     private final KeycloakProperties keycloakProperties;
     private final IdoOidcStateStore  idoOidcStateStore;
 
-    // ── Any-ID 비표준 OIDC 컴포넌트 ──────────────────────────────────────
-    private final AnyIdBrokerAdapter anyIdBrokerAdapter;
+    // ── 플러그인 직접 브로커 어댑터 (S5b) — 없으면 빈 목록 ────────────────
+    private final List<DirectBrokerAdapter> directBrokerAdapters;
 
     // ── provider 라우팅 (Layer 1) ─────────────────────────────────────────
     private final ProviderRouter           providerRouter;
@@ -140,7 +143,7 @@ public class BrokerService {
      * <p><b>Layer 1</b>: {@link ProviderRouter}로 provider 유형 판별
      * <ul>
      *   <li>표준 OIDC → Layer 2 (brokerMode 기반 백엔드 선택)</li>
-     *   <li>비표준 OIDC → Any-ID 또는 NonOidc 직접 처리</li>
+     *   <li>비표준 OIDC → 플러그인 직접 브로커 또는 NonOidc 직접 처리</li>
      * </ul>
      *
      * <p><b>Layer 2</b> (표준 OIDC 전용): {@code ido.broker.mode}로 백엔드 선택
@@ -149,7 +152,7 @@ public class BrokerService {
      *   <li>keycloak → Keycloak 직접 연동</li>
      * </ul>
      *
-     * @param provider       인증 수단 코드 (kakao / MOBILE_ID / FINANCIAL_CERT 등)
+     * @param provider       인증 수단 코드 (kakao / 플러그인 인증수단 코드 등)
      * @param correlationId  흐름 추적 ID
      * @param returnUrl      인증 완료 후 이동할 기관 URL
      * @param requestedLevel 요청 인증 수준 (L1/L2/L3)
@@ -191,10 +194,8 @@ public class BrokerService {
     /**
      * 비표준 OIDC provider 처리 — provider 코드 기반 어댑터 선택
      *
-     * <p>Any-ID 인증수단 (MOBILE_ID·EASY_SIGN·JOINT_CERT·FINANCIAL_CERT·PRIVATE_ID):
-     * {@link AnyIdBrokerAdapter}로 위임.
-     *
-     * <p>기타 비표준 (PASS 등): NonOidcBrokerAdapter로 처리
+     * <p>플러그인 {@link DirectBrokerAdapter} 가 맡는 인증수단이면 그 어댑터로 위임하고,
+     * 아니면 NonOidcBrokerAdapter(PASS 등)로 처리한다
      * (현재는 {@link io.github.hipstermin.idem.hub.broker.nonoidc.NonOidcBrokerController}가 별도 경로 보유).
      */
     private String buildNonOidcAuthorizationUrl(String provider,
@@ -203,14 +204,11 @@ public class BrokerService {
                                                  String requestedLevel) {
         String upper = provider.toUpperCase().replace("-", "_");
 
-        // Any-ID 인증수단 판별 (provider_config.broker_mode="anyid" 또는 코드 패턴)
-        boolean isAnyId = isAnyIdProvider(upper, correlationId);
-
-        if (isAnyId) {
-            log.info("[BrokerService][nonoidc→anyid] Any-ID 인증수단: provider={} correlationId={}",
-                    provider, correlationId);
-            return anyIdBrokerAdapter.buildAuthorizationUrl(
-                    provider, correlationId, returnUrl, requestedLevel);
+        Optional<DirectBrokerAdapter> adapter = resolveDirectBrokerAdapter(upper, correlationId);
+        if (adapter.isPresent()) {
+            log.info("[BrokerService][nonoidc→{}] 플러그인 직접 브로커: provider={} correlationId={}",
+                    adapter.get().id(), provider, correlationId);
+            return adapter.get().buildAuthorizationUrl(provider, correlationId, returnUrl, requestedLevel);
         }
 
         // NonOidc 기타 (PASS 등) — NonOidcBrokerController 경로로 리다이렉트 URL 반환
@@ -220,40 +218,36 @@ public class BrokerService {
     }
 
     /**
-     * provider가 Any-ID 인증수단인지 판별
+     * provider 를 맡을 플러그인 직접 브로커 어댑터 선택
      *
      * <p>판별 순서:
      * <ol>
-     *   <li>DB {@code provider_config.broker_mode = "anyid"} 확인 (우선)</li>
-     *   <li>provider 코드 패턴 휴리스틱 fallback</li>
+     *   <li>DB {@code provider_config.broker_mode} 가 어댑터 {@link DirectBrokerAdapter#id()} 와 같으면 그 어댑터</li>
+     *   <li>DB 설정이 없거나 조회 실패면 {@link DirectBrokerAdapter#supports(String)} 휴리스틱</li>
      * </ol>
      */
-    private boolean isAnyIdProvider(String providerCode, String correlationId) {
-        // 1. DB 설정 확인
+    Optional<DirectBrokerAdapter> resolveDirectBrokerAdapter(String providerCode, String correlationId) {
+        if (directBrokerAdapters == null || directBrokerAdapters.isEmpty()) return Optional.empty();
+
+        String brokerMode = null;
         try {
-            return providerConfigRepository.findByCode(providerCode)
-                    .map(cfg -> "anyid".equalsIgnoreCase(cfg.getBrokerMode()))
-                    .orElseGet(() -> isAnyIdHeuristic(providerCode));
+            brokerMode = providerConfigRepository.findByCode(providerCode)
+                    .map(cfg -> cfg.getBrokerMode())
+                    .orElse(null);
         } catch (Exception e) {
             log.warn("[BrokerService] provider_config 조회 실패 — 휴리스틱 사용: provider={} correlationId={}",
                     providerCode, correlationId);
-            return isAnyIdHeuristic(providerCode);
         }
-    }
-
-    /**
-     * Any-ID 인증수단 코드 패턴 휴리스틱
-     *
-     * <p>Any-ID 설치형 인증수단 코드 패턴:
-     * MOBILE_ID / EASY_SIGN / JOINT_CERT / FINANCIAL_CERT / PRIVATE_ID / ANYID_*
-     */
-    private boolean isAnyIdHeuristic(String providerCode) {
-        return providerCode.startsWith("ANYID_")
-                || "MOBILE_ID".equals(providerCode)
-                || "EASY_SIGN".equals(providerCode)
-                || "JOINT_CERT".equals(providerCode)
-                || "FINANCIAL_CERT".equals(providerCode)
-                || "PRIVATE_ID".equals(providerCode);
+        if (brokerMode != null && !brokerMode.isBlank()) {
+            String mode = brokerMode.toLowerCase();
+            Optional<DirectBrokerAdapter> byMode = directBrokerAdapters.stream()
+                    .filter(a -> mode.equals(a.id()))
+                    .findFirst();
+            if (byMode.isPresent()) return byMode;
+        }
+        return directBrokerAdapters.stream()
+                .filter(a -> a.supports(providerCode))
+                .findFirst();
     }
 
     /**

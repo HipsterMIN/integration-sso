@@ -1,0 +1,49 @@
+# idem-plugin-anyid 기본값 — AnyIdDefaultsEnvironmentPostProcessor 가 가장 낮은 우선순위로 올린다.
+# 설치별 값은 환경변수(ANYID_*)·K8s Secret 으로만 주입한다. 운영기관 식별자·자격증명의 코어 기본값은 없다.
+# 개발 호스트 anyid.dev / 운영 호스트 anyid.go.kr 는 행안부 Any-ID 사업단 고지값이다.
+idem:
+  plugins:
+    anyid:
+      enabled: ${IDEM_PLUGINS_ANYID_ENABLED:true}
+ido:
+  anyid:
+    srvc-no: ${ANYID_SRVC_NO:}
+    agency-code: ${ANYID_AGENCY_CODE:}
+    agency-name: ${ANYID_AGENCY_NAME:}
+    portal:
+      domain: ${ANYID_PORTAL_DOMAIN:https://www.anyid.dev}
+      port: ${ANYID_PORTAL_PORT:1451}
+      base-url: ${ANYID_PORTAL_DOMAIN:https://www.anyid.dev}:${ANYID_PORTAL_PORT:1451}
+    auth:
+      domain: ${ANYID_AUTH_DOMAIN:https://www.anyid.dev}
+      port: ${ANYID_AUTH_PORT:1443}
+      base-url: ${ANYID_AUTH_DOMAIN:https://www.anyid.dev}:${ANYID_AUTH_PORT:1443}
+    sso:
+      domain: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}
+      port: ${ANYID_SSO_PORT:1452}
+      base-url: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}:${ANYID_SSO_PORT:1452}
+      secret-code: ${ANYID_SSO_SECRET_CODE:}
+      adaptor-conf: ${ANYID_SSO_ADAPTOR_CONF:classpath:config/anyid/sso-adaptor-conf-local.properties}
+      session-ttl-seconds: 3600
+      verify-url: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}:${ANYID_SSO_PORT:1452}/sso/api/v1/verify
+      logout-url: ${ANYID_SSO_DOMAIN:https://sso.anyid.dev}:${ANYID_SSO_PORT:1452}/sso/api/v1/logout
+    kms:
+      server-host: ${ANYID_KMS_HOST:https://www.anyid.dev:8119/}
+      enc-alg: ${ANYID_KMS_ENC_ALG:ARIA-CBC-256}
+      cversion: ${ANYID_KMS_CVERSION:1}
+      kdist-config: ${ANYID_KMS_KDIST_CONFIG:classpath:config/anyid/kdist-local.json}
+      app-key: ${ANYID_KMS_APP_KEY:}
+      client-info: ${ANYID_KMS_CLIENT_INFO:}
+      connect-timeout-ms: 3000
+      read-timeout-ms: 5000
+    pid:
+      api-config: ${ANYID_PID_API_CONFIG:classpath:config/anyid/pid_api.json}
+      provider-url: ${ANYID_PID_PROVIDER_URL:https://www.anyid.dev:1443/pid/auth.do}
+      callback-path: /api/v1/anyid/pid/callback
+      client-id: ${ANYID_PID_CLIENT_ID:}
+      client-secret: ${ANYID_PID_CLIENT_SECRET:}
+      client-api-key: ${ANYID_PID_CLIENT_API_KEY:}
+    config-file: ${ANYID_CONFIG_FILE:classpath:config/anyid/config.anyidc.json}
+    http:
+      connect-timeout-ms: ${ANYID_HTTP_CONNECT_TIMEOUT_MS:3000}
+      read-timeout-ms: ${ANYID_HTTP_READ_TIMEOUT_MS:5000}

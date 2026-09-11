@@ -82,6 +82,9 @@ idem:
   plugins:
     mock-auth:
       enabled: true
+    # S5b: AnyID 플러그인을 켜서 코어 부팅(DirectBrokerAdapter·/api/v1/anyid 등록)을 검증한다. SDK 는 없어도 된다
+    anyid:
+      enabled: true
     # S5a: NICE 플러그인을 켜서 WireMock NICE 스텁으로 SPI·레거시 프록시 경로를 검증한다 (base-url 은 IntegrationTestBase 가 주입)
     nice-oacx:
       enabled: true

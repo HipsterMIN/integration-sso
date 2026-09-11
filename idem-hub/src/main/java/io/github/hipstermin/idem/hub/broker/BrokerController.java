@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
  * <ul>
  *   <li>GET /api/v1/broker/{provider}/authorize  — provider = kakao | naver 등</li>
  * </ul>
+ * (종전 카카오 전용 별칭 {@code /kakao/authorize} 는 S5b 에서 제거 — 같은 경로가 {@code {provider}} 매핑으로 처리된다)
  *
  * <p>프론트엔드 호출 예시:
  * <pre>
@@ -68,21 +69,5 @@ public class BrokerController {
         HttpHeaders headers = new HttpHeaders();
         headers.setLocation(URI.create(authUrl));
         return ResponseEntity.status(HttpStatus.FOUND).headers(headers).build();
-    }
-
-    /**
-     * (하위 호환) 카카오 전용 엔드포인트 — 기존 프론트엔드 코드 호환
-     *
-     * <p>이전 버전과의 하위 호환을 위해 유지. 신규 코드는 /{provider}/authorize 사용.
-     *
-     * @deprecated /api/v1/broker/kakao/authorize 사용
-     */
-    @GetMapping("/kakao/authorize")
-    @Deprecated(forRemoval = true)
-    public ResponseEntity<Void> kakaoAuthorize(
-            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
-            @RequestParam(required = false) String returnUrl,
-            @RequestParam(defaultValue = "L1") String requestedLevel) {
-        return authorize("kakao", correlationId, returnUrl, requestedLevel);
     }
 }

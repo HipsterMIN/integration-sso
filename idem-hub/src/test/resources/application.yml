@@ -88,3 +88,5 @@ idem:
   plugins:
     nice-oacx:
       enabled: false
+    anyid:
+      enabled: false

@@ -20,8 +20,8 @@ import org.junit.jupiter.api.Test;
  * ({@code docs/generalization-plan.md} §1.2 C1).
  *
  * <p>고객 고유값은 설치 시 설정(환경변수·Helm values·Service Profile)으로 주입해야 하며, 코어 코드·기본값·주석에도 남기지 않는다.
- * 허용 목록({@link #ALLOWLIST})은 "이미 적용된 마이그레이션 이력" 처럼 지금 바꿀 수 없는 파일과, 뒤 단계(S5·S8)에서
- * 에디션 플러그인으로 옮길 벤더 자산에 한정하고, 항목마다 사유와 해소 단계를 적는다.
+ * 허용 목록({@link #ALLOWLIST})은 "이미 적용된 마이그레이션 이력" 처럼 지금 바꿀 수 없는 파일에 한정하고,
+ * 항목마다 사유와 해소 단계를 적는다. 벤더 자산(NICE/OACX·AnyID)은 S5a·S5b 에서 플러그인·vendor-libs 로 나갔다.
  */
 @DisplayName("범용화 가드 — 코어에 고객 고유값 금지")
 class GeneralizationGuardTest {
@@ -48,13 +48,7 @@ class GeneralizationGuardTest {
             "idem-hub/src/main/resources/db/migration/V13__seed_agency_pattern_scenarios.sql",
                     "이미 적용된 PoC 기관 시드 — Flyway 이력상 수정 불가. 개명 5단계(DB 재구축)에서 KR 에디션 시드로 이동",
             "idem-hub/src/main/resources/db/migration/V8__seed_agency_api_key_and_fix_webhook.sql",
-                    "이미 적용된 PoC 시드 — 위와 동일",
-            "idem-hub/src/main/resources/sso-adaptor-conf-local.properties",
-                    "AnyID 벤더 SDK 설정 — S5 에서 idem-plugin-anyid 로 이동",
-            "idem-hub/src/main/resources/config/anyid/",
-                    "AnyID 벤더 SDK 설정 파일 — S5 에서 idem-plugin-anyid 로 이동",
-            "idem-hub/src/main/resources/static/",
-                    "AnyID 벤더 프런트 번들 — S5 에서 플러그인으로 이동 (open-source-readiness B3)"
+                    "이미 적용된 PoC 시드 — 위와 동일"
     );
 
     @Test
@@ -101,32 +95,29 @@ class GeneralizationGuardTest {
     // ── S5 벤더 가드 ────────────────────────────────────────────────────────
 
     /**
-     * 코어 hub main 에 있으면 안 되는 벤더 SDK·API 토큰 ({@code docs/vendor-plugin-plan.md} P2). NICE 본인확인·OACX 간편인증은
-     * S5a 에서 {@code plugins/idem-plugin-nice-oacx} 로 옮겼으므로 hub 코어는 벤더 클래스·호스트를 직접 참조하지 않는다.
+     * 코어 hub main 에 있으면 안 되는 벤더 SDK·API 토큰 ({@code docs/vendor-plugin-plan.md} P2·P3). NICE 본인확인·OACX 간편인증은
+     * S5a 에서 {@code plugins/idem-plugin-nice-oacx} 로, AnyID 설치형 브로커·KMS·SDK·정적 번들은 S5b 에서
+     * {@code plugins/idem-plugin-anyid} 로 옮겼으므로 hub 코어는 벤더 클래스·호스트를 직접 참조하지 않는다.
      */
     private static final List<String> VENDOR_FORBIDDEN = List.of(
             "NiceApiClient", "NicePhoneService", "NiceCryptoUtil", "NiceTokenStore", "NiceAuthSessionStore",
-            "OacxClient", "OacxUtil", "OACX.", "niceid.co.kr", "import OACX"
+            "OacxClient", "OacxUtil", "OACX.", "niceid.co.kr", "import OACX",
+            "AnyIdBrokerAdapter", "AnyIdController", "AnyIdKmsClient", "AnyIdSsobService", "AnyIdProperties",
+            "kr.or.anyid", "AnyidCertRef", "anyid.dev", "anyid.go.kr", "kdist-api", "pid_api"
     );
 
     /** 경로 접미사 → 허용 사유 (벤더 가드). */
     private static final Map<String, String> VENDOR_ALLOWLIST = Map.of(
             "idem-hub/src/main/java/io/github/hipstermin/idem/hub/auth/legacy/",
                     "구 벤더 엔드포인트(/api/v1/auth/nice|oacx/*) 호환 프록시 — 콘솔 훅·k6 가 SPI 엔드포인트로 옮겨간 뒤 제거",
-            "idem-hub/src/main/java/io/github/hipstermin/idem/hub/broker/anyid/",
-                    "AnyID 브로커 — S5b 에서 idem-plugin-anyid 로 이동",
             "idem-hub/src/main/resources/application.yml",
                     "ido.auth.nice.base-url 기본값(플러그인 설정 키) — 플러그인 전용 설정 파일로 옮긴 뒤 제거",
-            "idem-hub/src/main/resources/sso-adaptor-conf-local.properties",
-                    "AnyID 벤더 SDK 설정 — S5b 에서 idem-plugin-anyid 로 이동",
-            "idem-hub/src/main/resources/config/anyid/",
-                    "AnyID 벤더 SDK 설정 파일 — S5b",
-            "idem-hub/src/main/resources/static/",
-                    "AnyID 벤더 프런트 번들 — S5b"
+            "idem-hub/src/main/resources/db/migration/V19__anyid_provider_config.sql",
+                    "이미 적용된 provider_config 시드(broker_mode=anyid) — Flyway 이력상 수정 불가. 개명 5단계에서 KR 에디션 시드로 이동"
     );
 
     @Test
-    @DisplayName("hub 코어 main 에 벤더 SDK·API 토큰이 없다 (레거시 프록시·AnyID 허용 목록 제외)")
+    @DisplayName("hub 코어 main 에 벤더 SDK·API 토큰이 없다 (레거시 프록시·적용된 마이그레이션 제외)")
     void hubCoreContainsNoVendorTokens() throws IOException {
         Path root = repositoryRoot();
         Path main = root.resolve("idem-hub/src/main");

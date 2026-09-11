@@ -3,6 +3,7 @@
 > 작성 2026-09-04 · 스캔 도구: gitleaks 8.21.2 (전체 히스토리 187 커밋), 수작업 인벤토리 · 상태: **공개 불가 — 차단 항목 4건 해소 전**
 
 > **진행 (2026-09-05, P0)**: B1 평문 자격증명을 환경변수 플레이스홀더로 교체(파일 기준 해소, 히스토리에는 잔존 → 스냅샷 이관 시 소멸, 벤더 키 교체 요청 필요) · B4 `idem-console/frontend/.env` untrack · B2 중 `xecure7.jar` 삭제. 나머지 B2·B3 는 `vendor-plugin-plan.md` P2·P3.
+> **진행 (2026-09-10/11, S5a·S5b)**: B2 벤더 jar 전부 저장소에서 제거(OACX·AnyID → vendor-libs 외부 공급, 동봉 공개 의존성은 Maven Central) · B3 AnyID 번들(`static/anyid/**`, RSA 키 블록 포함 `vendor.js`)·`config/anyid`·`sso-adaptor-conf-local.properties` 제거 → 플러그인이 vendor-libs 에서 복사. 남은 B3 는 EzAuth 위젯(`idem-console/frontend/public/ezauth/**`, S7). B1 추가 발견: `application-local.yml` AnyID KMS `client-info` 와 `config/anyid/*.json`·SSO 어댑터 properties 의 자격증명 평문도 제거(히스토리 잔존 → 키 교체 요청).
 
 ## 1. 결론
 

@@ -55,7 +55,6 @@ tasks.named<Test>("test") {
     }
 }
 
-// ── 로컬 libs 디렉토리 (OACX SDK, BouncyCastle 등 Maven Central 미등록 JAR) ──
 configurations {
     compileOnly {
         extendsFrom(configurations.annotationProcessor.get())
@@ -68,6 +67,8 @@ dependencies {
     runtimeOnly(project(":idem-plugin-mock-auth"))
     // NICE/OACX 플러그인 (S5a) — 클래스패스에는 있지만 idem.plugins.nice-oacx.enabled=true 일 때만 활성. 코어 에디션은 false
     runtimeOnly(project(":idem-plugin-nice-oacx"))
+    // Any-ID 설치형 브로커 플러그인 (S5b) — idem.plugins.anyid.enabled=true 일 때만 활성. SDK·자산은 vendor-libs 외부 공급
+    runtimeOnly(project(":idem-plugin-anyid"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -120,9 +121,7 @@ dependencies {
     // HttpComponentsClientHttpRequestFactory + PoolingConnectionManager 조합으로 mTLS 구현
     implementation("org.apache.httpcomponents.client5:httpclient5")
 
-    // AnyID SDK jar (libs/) — S5b 에서 idem-plugin-anyid 로 이동하고 vendor-libs 외부 공급으로 바꾼다.
-    // OACX SDK 는 S5a 에서 저장소에서 제거됨(플러그인이 vendor-libs 에서 읽는다)
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
+    // 벤더 SDK jar 는 저장소에 없다 — 각 플러그인이 vendor-libs(-PvendorLibsDir / IDEM_VENDOR_LIBS / ~/.idem/vendor-libs)에서 읽는다 (S5a·S5b)
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")

@@ -52,8 +52,8 @@ COPY idem-relay/build.gradle.kts idem-relay/
 COPY idem-agent/build.gradle.kts   idem-agent/
 COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 COPY plugins/idem-plugin-nice-oacx/build.gradle.kts plugins/idem-plugin-nice-oacx/
-# idem-hub 로컬 libs 디렉토리 (OACX SDK 등)
-COPY idem-hub/libs/ idem-hub/libs/
+COPY plugins/idem-plugin-anyid/build.gradle.kts plugins/idem-plugin-anyid/
+# 벤더 SDK jar 는 저장소·이미지 컨텍스트에 없다 (S5a·S5b). KR 에디션 이미지는 빌드 인자로 vendor-libs 를 주입한다 (P4).
 
 # Gradle Wrapper 실행 권한 + 의존성 사전 다운로드
 # BuildKit 캐시 마운트: ~/.gradle 재사용으로 빌드 시간 단축
@@ -68,6 +68,8 @@ FROM deps AS builder
 COPY idem-common/src/ idem-common/src/
 COPY idem-hub/src/ idem-hub/src/
 COPY plugins/idem-plugin-mock-auth/src/ plugins/idem-plugin-mock-auth/src/
+COPY plugins/idem-plugin-nice-oacx/src/ plugins/idem-plugin-nice-oacx/src/
+COPY plugins/idem-plugin-anyid/src/ plugins/idem-plugin-anyid/src/
 
 # Layered JAR 빌드 (Spring Boot 2.3+ 기본 지원)
 RUN --mount=type=cache,target=/root/.gradle \
