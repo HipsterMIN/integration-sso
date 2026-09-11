@@ -418,6 +418,17 @@ jobs:
             sleep 2
           done
 
+      # S4 부터 /auth/providers/{code}/complete 는 registry(idem-registry, 8082) 에 register-subject 로 등록까지 마쳐야 200 이다.
+      # 스모크 잡은 MariaDB·registry 를 띄우지 않으므로 등록 API 만 응답하는 스텁을 둔다 (k6/mock-server/registry-stub.js).
+      - name: registry 스텁 기동 (register-subject, 8082)
+        run: |
+          node k6/mock-server/registry-stub.js > /tmp/registry-stub.log 2>&1 &
+          echo "REGISTRY_STUB_PID=$!" >> $GITHUB_ENV
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:8082/actuator/health > /dev/null 2>&1 && { echo "✅ registry stub UP"; break; }
+            sleep 1
+          done
+
       - name: k6 스모크 테스트 실행
         run: |
           k6 run k6/scenarios/smoke.js \
@@ -429,7 +440,10 @@ jobs:
 
       - name: idem-hub 서버 로그 출력 (실패 시)
         if: failure()
-        run: cat /tmp/ido-server.log || true
+        run: |
+          cat /tmp/ido-server.log || true
+          echo "──── registry stub log ────"
+          cat /tmp/registry-stub.log || true
 
       - name: k6 스모크 결과 업로드
         uses: actions/upload-artifact@v4
@@ -445,6 +459,9 @@ jobs:
         run: |
           if [ -n "$IDO_PID" ]; then
             kill "$IDO_PID" 2>/dev/null || true
+          fi
+          if [ -n "$REGISTRY_STUB_PID" ]; then
+            kill "$REGISTRY_STUB_PID" 2>/dev/null || true
           fi
 
   # ── Job 6: Docker 멀티스테이지 이미지 빌드 검증 (S8-T6) ─────────────────────
