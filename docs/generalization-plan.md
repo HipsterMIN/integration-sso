@@ -1,6 +1,7 @@
 # Idem 범용화 리팩토링 플랜 — 구조 분석과 단계별 실행 계획
 
-> 작성 2026-09-10 · 기준 `shipster` 4eb5704 · 상태: v0.2 (2026-09-10 개정 — Tenant/Service 계층·IdP 모델로 목표 구조 수정, S4b 신설, S8 재정의)
+> 작성 2026-09-10 · 기준 `main` 504d9e2 (PR #222 머지) · 상태: **v0.3 (2026-09-16 개정 — GS 우선·Keycloak 유지 결정, 제품화 순서로 재편: D1 다이어트 → D2 fail-secure·암호 경계 → S8 → S7 → S6 → S9)**
+> 이전: v0.2 (2026-09-10 — Tenant/Service 계층·IdP 모델, S4b 신설, S8 재정의) · v0.1 (2026-09-10)
 >
 > 목표: **어느 운영기관이든 설치할 수 있고, 어떤 연동기관의 요구도 코드 수정 없이(설정) 또는 플러그인으로 수용하는 구조**로 Idem 을 재편한다.
 > 인증(CC·GS) 실행 계획 [`execution-plan.md`](execution-plan.md) 과 벤더 분리 [`vendor-plugin-plan.md`](vendor-plugin-plan.md) 의 **구조적 전제**가 되는 문서다.
@@ -22,22 +23,38 @@
 
 *Core(프로토콜·벤더·고객 중립) + Service Profile(기관별 선언적 설정) + Tenant(디렉터리·할당) + Edition Plugins(KR 공공 등) + Admin Console*.
 
-**단계** (§3) — 앞 단계가 뒤 단계의 토대. 각 단계는 독립 PR, 동작 변화 없음(또는 호환 유지)이 원칙.
+**결정 (2026-09-16, v0.3)**
 
-| 단계 | 내용 | 위험 | 규모 |
-|---|---|---|---|
-| **S1** ✅ | 매직 문자열 타입화 + 고객 고유 기본값 외부화 | 낮음 | 1주 |
-| **S2** ✅ | Service Profile 도입 (버전 있는 선언적 기관 설정 — 당시 이름 Tenant Profile) | 중 | 2~3주 |
-| **S3** ✅ | 정책 엔진 규칙화 (PolicyRule SPI, 기관별 규칙, 인증수준 어휘 통일) | 중 | 2주 |
-| **S4** ✅ | 식별자·속성 계약 (SubjectScheme, AttributeCatalog, 기관별 매핑) | 중~높음 | 3주 |
-| **S4b** | **Tenant/Service 계층 정립 + 회원통합 브로커 흐름 제거** (전환 팬아웃·전 기관 프로비저닝·기관 하드코딩 목록) | 중 | 2주 |
-| **S5** | 벤더 엔드포인트 SPI 완전 이관 (`/auth/nice/*`·`/auth/oacx/*`·AnyID → `/auth/providers/{code}`) | 중 | 2~3주 (+OACX SDK) |
-| **S6** | 프로토콜 확장 (표준 OIDC RP 파사드, Agent 를 프로토콜로, SAML 준비, 백채널 로그아웃·이벤트 스트림 정리) | 높음 | 4주 |
-| **S7** | 관리 콘솔 + 관리자 인증 (Tenant·Service CRUD·프로파일 편집·감사 조회) | 중 | 4~6주 |
-| **S8** | **할당·역할 모델 (IM 권한 관리)** — 사용자/그룹 ↔ Service 할당, Service 별 앱 역할, 발급 판정의 `ASSIGNMENT` 규칙, `idem-authz` PDP 정리. SMES 회원 유형·사업자·후견은 에디션 확장으로 | 높음 | 4주 |
-| **S9** | 에디션 패키징·온보딩 가이드·요구사항 수용 체크리스트·일회성 회원 이관 도구(KR 에디션) | 낮음 | 2주 |
+| 결정 | 내용 | 영향 |
+|---|---|---|
+| **GS 우선** | 1차 목표는 GS 인증(TTA)과 조달 등록. CC 는 KCMVP 암호모듈·관리자 보안기능·fail-secure 가 갖춰진 1.x 릴리스로 별도 프로젝트 | S9 에서 1.0 동결 → GS 문서 작업. `execution-plan.md` P3 이 P4 보다 앞 |
+| **Keycloak 유지** | 표준 OIDC 발급·세션은 Keycloak 을 쓰되 설치본 안에 완전히 숨긴다(설치자·기관은 Keycloak 을 보지 않는다). 토큰 발급·세션 경계는 Idem 코드 뒤에 두어 CC 시점에 자체 IdP 로 바꿀 수 있게 한다 | S6 은 "Keycloak client 프로비저닝 정식화" 로 축소. 자체 IdP 는 범위 밖 |
+| **IM 을 얇게** | IM 코어 = 사용자·식별자·자격증명·동의·생명주기·할당·역할. 기관 업무 개념(회원 유형·사업자 전환·등급)은 KR 에디션 확장 또는 서비스 측 | S8 이 S6·S7 보다 앞 |
+| **다이어트 먼저** | 새 기능 전에 설치 복잡도를 줄인다: DB 엔진 1종, Kafka 선택, 제품 3개로 재편 | D1·D2 신설, S6~S9 앞에 둠 |
 
-의존: S1 → S2 → S3 → S4 → S4b → (S5 ∥ S6) → S7 → S8 → S9. S7 은 `execution-plan.md` P1 의 관리자 인증과 같은 작업이다.
+**진행 현황 (2026-09-16)** — S1~S5 완료(main 504d9e2). "코어에서 고객값·벤더를 걷어내는 일" 은 끝났고 "다른 기관이 설치해 쓰는 제품" 까지는 약 40%. 남은 넷(IM 모델·관리 콘솔·표준 프로토콜·패키징)이 지금까지보다 크다. 설치 복잡도는 오히려 늘었다(모듈 10 + 플러그인 3, DB 2종, Kafka·Redis·Keycloak, vendor-libs).
+
+**단계** (§3) — 앞 단계가 뒤 단계의 토대. 각 단계는 독립 PR, 동작 변화 없음(또는 호환 유지)이 원칙. v0.3 부터 순서는 아래 표의 순서다.
+
+| 순서 | 단계 | 내용 | 위험 | 규모 |
+|---|---|---|---|---|
+| 1 | **S1** ✅ | 매직 문자열 타입화 + 고객 고유 기본값 외부화 | 낮음 | 1주 |
+| 2 | **S2** ✅ | Service Profile 도입 (버전 있는 선언적 기관 설정) | 중 | 2~3주 |
+| 3 | **S3** ✅ | 정책 엔진 규칙화 (PolicyRule SPI, 인증수준 어휘 통일) | 중 | 2주 |
+| 4 | **S4** ✅ | 식별자·속성 계약 (SubjectScheme, AttributeCatalog) | 중~높음 | 3주 |
+| 5 | **S4b** ✅ | Tenant/Service 계층 정립 + 회원통합 브로커 흐름 제거 | 중 | 2주 |
+| 6 | **S5** ✅ | 벤더 코드 플러그인 이관 (nice-oacx·anyid), 코어 브로커 SPI, SDK·번들·자격증명 저장소 제거 | 중 | 2~3주 |
+| 7 | **D1** | **다이어트** — registry 를 PostgreSQL 로, Kafka 선택 의존화(DB 만으로 아웃박스·감사 완결), 제품 3개(SSO·IM·KR 에디션)로 재편, 단일 설치본 | 중 | 2~3주 |
+| 8 | **D2** | **fail-secure 전수 점검 + 암호 경계 단일화** — 모든 fail-open·PoC 폴백 제거, `CryptoProvider` SPI 로 JCA 호출 집약(KCMVP 교체 자리) | 중 | 1~2주 |
+| 9 | **S8** | **할당·역할 모델 = IM 을 얇게** — 사용자/그룹 ↔ Service 할당, 앱 역할, `ASSIGNMENT` 규칙, SMES 회원 개념을 KR 확장으로 | 높음 | 3~4주 |
+| 10 | **S7** | **관리자 인증 + 최소 관리 콘솔** — 관리자 I&A(2단계)·보안관리자/감사자 분리·온보딩·프로파일 편집·감사 조회 (`execution-plan.md` P1) | 중 | 4~6주 |
+| 11 | **S6** | **표준 프로토콜** — `OIDC_RP` 를 Keycloak client 프로비저닝으로 정식화(Keycloak 은 숨김), Handoff 는 KR 연계 방식으로 격하, SAML 설계만 | 중 | 3~4주 |
+| 12 | **S9** | **개명 마무리(4b·5) + 에디션 패키징 + 1.0 동결** — 설정 키·DB 이름 idem 화, Core/KR 이미지·Helm 분리, 온보딩 가이드, 요구사항 체크리스트 → GS 문서 착수 | 중 | 3~4주 |
+| 13 | — | 플랫폼 소개서 재작성 (1.0 동결 후, 제품 그대로) | 낮음 | 1주 |
+
+의존: S1 → … → S5 → **D1 → D2 → S8 → S7 → S6 → S9** → 소개서. 합계 약 4~5개월. S7 은 `execution-plan.md` P1 과 같은 작업이고, S9 의 1.0 동결이 `execution-plan.md` P3(GS) 의 입력이다.
+
+**왜 이 순서인가**: D1·D2 를 앞에 두는 것은 뒤 단계 전부가 그 위에 쌓이기 때문이다(S8 을 먼저 하면 MariaDB 위에 할당 모델을 짓고 다시 옮긴다). S6 을 S7 뒤로 미룬 것은 표준 프로토콜은 Keycloak 이 대부분 해 주지만 관리자 인증·콘솔은 아무도 대신 해 주지 않고, GS 심사원이 보는 것도 콘솔이기 때문이다.
 
 ---
 
@@ -171,11 +188,22 @@ ui:     { brandName: "…", logoUrl: "…", locale: ko }
 
 hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 해석하고, `AttributeCatalog`(정규 이름·타입·출처 TICKET/PROFILE/SUBJECT·민감도·기본 마스킹·종전 별칭) 의 부분집합을 기관이 `identity.attributes`(+`required`/`masking`) 와 `identity.attributeMapping` 으로 선언한다. 카탈로그 밖 이름은 프로파일 검증에서 거부되고, 별칭(camelCase)으로 선언한 기관은 출력 키도 별칭을 유지한다(기존 연동 호환). 본인인증 SPI 결과(`VerifiedIdentity.subjectScheme + subjectKey`) 는 `SubjectRegistrationService` 가 `POST /internal/users/register-subject` 로 registry 사용자로 확정한다 — CI 가 없는 제공자도 같은 경로.
 
-### 2.4 에디션
+### 2.4 에디션과 제품 구성 (v0.3)
 
-- **Idem Core**: Mock 인증·이메일/전화 스킴·표준 프로토콜. 공개 저장소.
-- **Idem KR Public Edition**: NICE/OACX·AnyID·CI/DI·SMES 회원 유형·전환 흐름·기관 시드. 사설 저장소(`vendor-plugin-plan.md` P5).
-- 운영기관 고유값은 전부 **설치 시 입력**(Helm values·환경변수·Tenant Profile), 코드·마이그레이션 기본값에는 남기지 않는다.
+**제품 3개** (D1 에서 재편):
+
+| 제품 | 모듈 | 책임 |
+|---|---|---|
+| **Idem SSO** | `idem-hub` + `idem-gate` (+ 숨긴 Keycloak) | OIDC/SAML 발급·세션·SLO·인증수준 승격·본인확인 SPI·기관 연계(Handoff/OIDC_RP) |
+| **Idem IM** | `idem-registry` + `idem-authz` | 사용자·식별자·자격증명·동의·생명주기·할당·역할·SCIM |
+| **Idem KR Public Edition** | `plugins/idem-plugin-nice-oacx`·`idem-plugin-anyid`·KR 확장 모듈·KR 시드 | 본인확인 벤더·AnyID·CI/DI·SMES 회원 개념·한국 정책(휴면·파기) |
+
+`idem-relay`·`idem-agent`·`idem-tenant-sample`·`idem-sdk-java` 는 **제품 밖**(운영 도구·샘플·SDK)으로 표시하고 GS 대상에서 뺀다.
+
+- **Idem Core** = SSO + IM, 플러그인 0(Mock 인증)·이메일/전화 스킴·표준 프로토콜. 공개 저장소.
+- **KR Public Edition** = Core + KR 플러그인·확장. 사설 저장소(`vendor-plugin-plan.md` P5).
+- 운영기관 고유값은 전부 **설치 시 입력**(Helm values·환경변수·Service Profile), 코드·마이그레이션 기본값에는 남기지 않는다.
+- **Keycloak 은 설치본 내부 구성요소**다. 설치자에게 노출되는 것은 Idem 설정뿐이며, Keycloak realm·client 는 Idem 이 프로비저닝한다(S6). CC 로 갈 때 자체 IdP 로 교체할 수 있도록 토큰 발급·세션 경계는 Idem 코드 뒤에 둔다.
 
 ---
 
@@ -267,7 +295,7 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 - ✅ 문서: `sso-agency-integration-guide.md` §4.2·§5 를 "Service 측 첫 로그인 계정 연결" 로 재작성(§6 Q&A·체크리스트 정합), `features/F-20~22` 제거 표기
 - ⏭ `relay` 의 `BatchRestTemplateConfig`(provisioning* 빈)·`DeadLetterNotifier` 는 프로비저닝 전용이 아니어서 남겨 두었다(다음 아웃박스 정리 때 이름 정리). wiki/ops 의 프로비저닝 런북·ADR-009 는 이력으로 유지. hub `conversion`(signed_request 전환 진입)·`memberlookup` 은 S8 에서 KR 에디션으로. 다중 Tenant 격리(사용자·관리자 분리)는 S7
 
-### S5 — 벤더 엔드포인트 SPI 완전 이관 (2~3주, OACX SDK 재수령 필요)
+### S5 ✅ — 벤더 코드 플러그인 이관 (S5a NICE/OACX · S5b AnyID, PR #222)
 
 `AuthController` 벤더 경로 5개 → `IdentityVerificationController` 경유로 대체(구 경로는 1 릴리스 deprecated 프록시) · `NiceCryptoUtil`·`AuthWebClientConfig` NICE 부분 → `idem-plugin-nice-oacx` · `broker/anyid` → `idem-plugin-anyid`(`vendor-plugin-plan.md` P3) · `BrokerController /kakao` 제거, `idp-hint-mapping` 을 프로파일 `allowedProviders` 로 · FE `useEzAuth` → `useAuthWidget`.
 완료 기준: 코어 `idem-hub` 에 벤더 클래스 0, Mock 플러그인만으로 CI 통과.
@@ -286,16 +314,27 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 - ✅ 발견: 콘솔의 `useAnyIdAuth.ts`·`AnyIdLoginModal` 은 import 되는 곳이 없고 SDK 스크립트를 로드하는 곳도 없다 — AnyID FE 연동은 현재 죽은 코드. `VaultKmsHealthIndicator` 의 "anyid 후순위" 분기는 대상이 사라져 첫 번째(`@Primary`) 구현 사용으로 단순화
 - ⏭ `idp-hint-mapping`(Keycloak IdP alias 매핑)은 고객값이 아니라 Keycloak 설정이라 S6 `OIDC_RP`(Keycloak client 프로비저닝)에서 프로파일로 옮긴다. FE `useEzAuth`→`useAuthWidget`·`public/ezauth` 이동, AnyID FE 훅 정리는 S7. `auth/legacy` 삭제는 콘솔 전환 뒤
 
-### S6 — 프로토콜 확장 (4주)
+### D1 — 다이어트: 설치 복잡도 줄이기 (2~3주, v0.3 신설)
 
-`IntegrationProtocol` + `TenantProtocolHandler` SPI · 기존 3 전략 이식 · `OIDC_RP`: Keycloak client 프로비저닝 + 정책 강제 authenticator · Agent(`APACHE_GATE`) 를 프로토콜로 정식화 · `SAML_SP` 설계만.
-완료 기준: tenant-sample 이 프로파일 `protocol.type` 변경만으로 4가지 방식 모두 통과.
+새 기능 없이 줄이기만 한다. GS 시험기관이 설치 단계에서 시간을 다 쓰지 않게 하는 것이 목적이다.
 
-### S7 — 관리 콘솔 + 관리자 인증 (4~6주, `execution-plan.md` P1 과 동일 작업)
+- **DB 엔진 1종**: `idem-registry` 를 MariaDB → PostgreSQL 로 이관(Flyway 스크립트 재작성, JPA 방언·`IF NOT EXISTS` 구문 정리, Testcontainers 를 PostgreSQL 로). hub 와 같은 인스턴스의 별도 스키마(`qim`)를 기본으로.
+- **Kafka 선택 의존**: 아웃박스 릴레이·감사 발행·FE 세션 advisory 가 Kafka 없이 DB 폴링만으로 완결되게 하고, `idem.messaging.kafka.enabled=false` 가 기본. Kafka 는 다중 인스턴스 배포 옵션.
+- **제품 3개로 재편**(§2.4): Gradle 그룹·이미지·Helm 차트를 SSO / IM / KR 에디션으로 정리. relay·agent·tenant-sample·sdk-java 는 `tools/`·`samples/` 로 옮기거나 "제품 밖" 으로 표시.
+- **단일 설치본**: 컴포즈 하나(hub·gate·registry·authz·PostgreSQL·Redis·Keycloak) 로 처음부터 로그인까지. Keycloak realm 은 설치 시 자동 프로비저닝.
+- Redisson·Lettuce 이중 Redis 클라이언트 정리, 헬스체크 `readiness` 항목을 db·redis·keycloak 으로 고정.
+완료 기준: 새 환경에서 `docs/install.md` 한 장으로 30분 안에 설치·로그인. registry 통합 테스트가 PostgreSQL Testcontainers 로 CI 에서 돈다. Kafka 없이 hub·registry 가 기동해 스모크 통과.
 
-관리자 I&A·RBAC(P1) 위에 기관 목록/온보딩/프로파일 편집(스키마 기반 폼)/정책 시뮬레이션/감사 조회. `idem-console` 의 SigNoz 잔재 정리 후 **관리 앱과 사용자 포털 분리**(`idem-console-admin`, `idem-portal`).
+### D2 — fail-secure 전수 점검 + 암호 경계 단일화 (1~2주, v0.3 신설)
 
-### S8 — 할당·역할 모델: IM 권한 관리 (4주, 위험 높음)
+CC·GS 보안 항목 모두 여기서 걸린다. TSF 는 안전하게 실패해야 한다.
+
+- **fail-open 제거**: `AuthRateLimitInterceptor`(Redis 오류 시 통과 + Lua 인자 직렬화 결함), AnyID 서버 장애 시 로컬 팝업 URL 폴백, FE 세션 생성 실패 시 임시 ID, `idem-authz` fail-open, 기타 "PoC 환경 허용" 분기 전수 조사. 원칙은 "외부 의존 실패 = 거부 + 감사 기록".
+- **암호 경계**: AES/HMAC/서명/PII 암호화/해시 호출을 `CryptoProvider` SPI 하나로 모은다(`KmsClient` 는 키 보관, `CryptoProvider` 는 연산). 지금은 JCA 구현, `execution-plan.md` P2 에서 KCMVP 모듈로 교체. JCA 직접 호출 0건을 가드 테스트로.
+- 벤더 자격증명 히스토리 잔존 → 키 교체 요청 완료 확인(문서에 기록).
+완료 기준: fail-open 목록이 비고, `GeneralizationGuardTest` 급의 `CryptoBoundaryGuardTest` 가 코어의 `javax.crypto`·BouncyCastle 직접 참조를 막는다.
+
+### S8 — 할당·역할 모델: IM 을 얇게 (3~4주, 위험 높음, v0.3 에서 S7·S6 앞으로)
 
 - **할당(assignment)**: 사용자/그룹 ↔ Service (직접 · 그룹 · 속성 규칙). 미할당이면 발급 거부 — 정책 엔진에 내장 규칙 `ASSIGNMENT` 추가(S3 SPI). GUEST 는 Service Profile 이 셀프 가입을 허용할 때만 허용.
 - **역할**: Service 별 앱 역할(app role) 정의·부여, 어설션(Handoff/OIDC 클레임)에 싣기. 세밀 인가는 `idem-authz` 를 PDP 로 정리(fail-open 제거, SCIM Groups 와 연결).
@@ -303,9 +342,22 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 - SMES 회원 유형(개인/기업/후견)·사업자 전환·`mbrDvsnCd`·hub `conversion`(signed_request 전환 진입)·`memberlookup` 은 **KR 에디션 확장 모듈**로 이동(`idem-registry` 코어는 `user/identity/consent/withdrawal`). 확장 속성은 `extra_attributes JSONB` + 카탈로그.
 완료 기준: 코어 registry 가 SMES 개념 없이 기동·테스트 통과, 미할당 사용자의 Handoff 가 거부되는 통합 테스트, KR 에디션에서 기존 시나리오 통과.
 
-### S9 — 에디션 패키징·온보딩 가이드 (2주)
+### S7 — 관리자 인증 + 최소 관리 콘솔 (4~6주, `execution-plan.md` P1 과 동일 작업)
 
-Core/KR 이미지·Helm values 분리(`vendor-plugin-plan.md` P4) · 기관 온보딩 가이드(프로파일 작성 → 검증 → 시험 → 승인) · **요구사항 수용 체크리스트**(§4) · 설치 시 입력값 목록(운영기관 고유값 전부).
+관리자 I&A(2단계 인증)·보안관리자/감사자 권한 분리·세션 잠금·패스워드 정책(P1) 위에 기관 목록/온보딩/프로파일 편집(스키마 기반 폼)/정책 시뮬레이션/감사 조회. `idem-console` 의 SigNoz 잔재 정리 후 **관리 앱과 사용자 포털 분리**(`idem-console-admin`, `idem-portal`). 사용자 포털은 뒤로 미루고, 콘솔의 벤더 훅(EzAuth·AnyID, 일부 죽은 코드)은 `useAuthWidget` 로 정리하거나 제거.
+완료 기준: GS 시연 시나리오(설치 → 관리자 로그인 → 기관 온보딩 → 로그인 → 감사 조회)를 콘솔만으로 수행.
+
+### S6 — 표준 프로토콜: Keycloak 을 숨긴 OIDC_RP 정식화 (3~4주, v0.3 에서 축소)
+
+Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `IntegrationProtocol` SPI · `OIDC_RP`: Service Profile 의 `protocol.type=OIDC_RP` 만으로 Idem 이 Keycloak client 를 프로비저닝하고 정책 강제 authenticator 를 붙인다 · Keycloak 관리 UI 는 설치자에게 노출하지 않는다 · Handoff 는 "KR 기관 연계 방식" 으로 격하하되 유지 · Agent(`APACHE_GATE`) 는 제품 밖 도구로 · `SAML_SP` 는 설계만 · `idp-hint-mapping` 을 프로파일로.
+완료 기준: tenant-sample 이 `protocol.type` 변경만으로 Handoff·OIDC_RP 두 방식 통과, Keycloak 에 사람이 손대는 단계 0.
+
+### S9 — 개명 마무리 + 에디션 패키징 + 1.0 동결 (3~4주)
+
+- **개명 4b·5**(`naming.md`): 설정 키 `ido.*`/`qim.*` → `idem.*`, 헤더·Redis 접두·환경변수·DB/Keycloak 이름. 구 키는 1 릴리스 호환 계층.
+- Core/KR 이미지·Helm values 분리(`vendor-plugin-plan.md` P4) · 기관 온보딩 가이드(프로파일 작성 → 검증 → 시험 → 승인) · **요구사항 수용 체크리스트**(§4) · 설치 시 입력값 목록 · 일회성 회원 이관 도구(KR 에디션).
+- **1.0 동결**: 릴리스 브랜치, 설치 매뉴얼·관리자 매뉴얼·기능 명세·시험 항목표 → `execution-plan.md` P3(GS) 착수.
+완료 기준: 1.0 태그, GS 시험 신청 서류 초안 완성.
 
 ---
 
@@ -348,7 +400,8 @@ Core/KR 이미지·Helm values 분리(`vendor-plugin-plan.md` P4) · 기관 온�
 - API 는 구 경로를 1 릴리스 동안 deprecated 프록시로 유지, 응답 헤더 `Deprecation` 명시.
 - 프로파일 스키마는 `schemaVersion` 으로 마이그레이터 체인.
 - 각 단계는 Testcontainers 통합 테스트에 "기존 시나리오 + 새 시나리오" 를 추가한 뒤 머지.
-- 4b 개명(`agency→tenant`, `ido.*→idem.*`)은 S2 에서 새 API·프로파일 키에 **새 이름만** 쓰고, 구 이름은 호환 계층에만 남긴다.
+- 4b 개명(`agency→tenant`, `ido.*→idem.*`)은 S2 에서 새 API·프로파일 키에 **새 이름만** 쓰고, 구 이름은 호환 계층에만 남긴다. 마무리는 S9.
+- D1 의 registry DB 이관은 **데이터 이관 도구 + 리허설**을 같이 낸다(MariaDB 덤프 → PostgreSQL 적재 → 행수·해시 대조). 이관 전까지 MariaDB 경로는 삭제하지 않고 프로파일로 남긴다.
 
 ## 6. 리스크
 
@@ -360,6 +413,10 @@ Core/KR 이미지·Helm values 분리(`vendor-plugin-plan.md` P4) · 기관 온�
 | 벤더 SDK 미수령으로 S5 검증 지연 | Mock 플러그인으로 코어 검증, 벤더 플러그인은 계약 테스트만 |
 | CC P1(관리자 인증) 과 S7 의 중복 작업 | 같은 작업으로 취급, `execution-plan.md` P1 을 S7 로 링크 |
 | 단계가 길어 shipster 에 미완 작업이 쌓임 | 단계마다 PR·머지, 기능 플래그로 미완 경로 격리 |
+| D1 DB 이관이 운영 registry 데이터를 깨뜨림 | 이관 도구·리허설·대조 자동화, MariaDB 경로를 1 릴리스 유지 |
+| Kafka 를 빼면서 다중 인스턴스 정합성이 깨짐 | 단일 인스턴스 기본 + DB 폴링, 다중 인스턴스는 Kafka 옵션으로 문서화 |
+| Keycloak 을 숨긴 채 유지하다 CC 시점에 TOE 경계가 안 잡힘 | 토큰 발급·세션 경계를 Idem 인터페이스 뒤에 두고(S6), CC 착수 전 자체 IdP 전환 비용을 재산정 |
+| fail-secure 전환으로 PoC 환경이 불편해짐 | Mock 플러그인·로컬 프로파일로만 완화, 운영 프로파일에서는 escape hatch 금지 |
 
 ---
 
