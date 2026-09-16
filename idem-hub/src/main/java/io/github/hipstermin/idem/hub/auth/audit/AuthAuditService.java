@@ -47,47 +47,36 @@ import org.springframework.stereotype.Service;
 public class AuthAuditService {
 
     // ── 감사 액션 상수 ─────────────────────────────────────────────────────
-    public static final String ACTION_NICE_URL_ISSUED       = "AUTH_NICE_URL_ISSUED";
-    public static final String ACTION_NICE_URL_FAILED       = "AUTH_NICE_URL_FAILED";
-    public static final String ACTION_NICE_RESULT_SUCCESS   = "AUTH_NICE_RESULT_SUCCESS";
-    public static final String ACTION_NICE_RESULT_FAILED    = "AUTH_NICE_RESULT_FAILED";
+    public static final String ACTION_PROVIDER_INITIATED     = "AUTH_PROVIDER_INITIATED";
+    public static final String ACTION_PROVIDER_INITIATE_FAILED = "AUTH_PROVIDER_INITIATE_FAILED";
+    public static final String ACTION_PROVIDER_VERIFIED      = "AUTH_PROVIDER_VERIFIED";
+    public static final String ACTION_PROVIDER_VERIFY_FAILED = "AUTH_PROVIDER_VERIFY_FAILED";
     public static final String ACTION_NICE_CI_CHECK_SUCCESS = "AUTH_NICE_CI_CHECK_SUCCESS";
     public static final String ACTION_NICE_CI_CHECK_FAILED  = "AUTH_NICE_CI_CHECK_FAILED";
-    public static final String ACTION_OACX_ACCESS_INFO      = "AUTH_OACX_ACCESS_INFO";
-    public static final String ACTION_OACX_EASYSIGN_SUCCESS = "AUTH_OACX_EASYSIGN_SUCCESS";
-    public static final String ACTION_OACX_EASYSIGN_FAILED  = "AUTH_OACX_EASYSIGN_FAILED";
     public static final String ACTION_CALLBACK_SUCCESS      = "AUTH_CALLBACK_SUCCESS";
     public static final String ACTION_CALLBACK_FAILED       = "AUTH_CALLBACK_FAILED";
 
     private final AuditLogPublisher auditLogPublisher;
 
     // ─────────────────────────────────────────────────────────────────────────
-    // NICE 인증 감사 이벤트
+    // 본인인증 제공자(SPI) 감사 이벤트 — 벤더 무관 (S5a)
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * NICE 인증 URL 발급 감사 이벤트 발행
-     *
-     * @param requestNo   발급된 requestNo (PII 없음)
-     * @param resultCode  결과 코드 (2000=성공, 그 외=실패)
-     * @param failReason  실패 사유 (성공 시 null)
-     */
-    public void publishNiceUrlEvent(String requestNo, String resultCode, String failReason) {
+    /** 인증 시작(initiate). resultCode 2000 = 성공, 그 외 실패. */
+    public void publishProviderInitiate(String providerCode, String txId, String resultCode, String failReason) {
         boolean success = "2000".equals(resultCode);
-        String action = success ? ACTION_NICE_URL_ISSUED : ACTION_NICE_URL_FAILED;
-
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("requestNo", requestNo);
+        metadata.put("providerCode", providerCode);
+        if (txId != null) metadata.put("txId", txId);
         metadata.put("resultCode", resultCode);
         if (failReason != null) metadata.put("failReason", failReason);
-
         auditLogPublisher.publish(
                 AuditLogPublisher.AuditEntry.builder()
                         .eventCategory(AuditLogEvent.CATEGORY_AUTH)
-                        .eventAction(action)
+                        .eventAction(success ? ACTION_PROVIDER_INITIATED : ACTION_PROVIDER_INITIATE_FAILED)
                         .actorType(AuditLogEvent.ACTOR_USER)
-                        .resourceType("NICE_AUTH_SESSION")
-                        .resourceId(requestNo)
+                        .resourceType("AUTH_PROVIDER")
+                        .resourceId(providerCode)
                         .correlationId(CorrelationIdHolder.get())
                         .outcome(success ? AuditLogEvent.OUTCOME_SUCCESS : AuditLogEvent.OUTCOME_FAILURE)
                         .outcomeDetail(failReason)
@@ -96,41 +85,25 @@ public class AuthAuditService {
         );
     }
 
-    /**
-     * NICE 인증 결과 처리 감사 이벤트 발행
-     *
-     * <p>PII 보호: di는 포함하지 않음 (requestNo로 추적 가능).
-     * nationalInfo(내외국인)는 비PII이므로 포함.
-     *
-     * @param requestNo       요청 번호
-     * @param webTransactionId 웹 트랜잭션 ID (NICE 측 식별자)
-     * @param resultCode      결과 코드
-     * @param qimUserId       Q-IM 등록된 사용자 ID (null이면 미등록)
-     * @param isNewUser       신규 등록 여부
-     * @param failReason      실패 사유 (성공 시 null)
-     */
-    public void publishNiceResultEvent(String requestNo, String webTransactionId,
-                                        String resultCode, String qimUserId,
-                                        Boolean isNewUser, String failReason) {
+    /** 인증 완료(complete) + registry 등록 결과. */
+    public void publishProviderComplete(String providerCode, String txId, String resultCode,
+                                        String qimUserId, Boolean isNewUser, String failReason) {
         boolean success = "2000".equals(resultCode);
-        String action = success ? ACTION_NICE_RESULT_SUCCESS : ACTION_NICE_RESULT_FAILED;
-
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("requestNo", requestNo);
-        metadata.put("webTransactionId", webTransactionId);
+        metadata.put("providerCode", providerCode);
+        if (txId != null) metadata.put("txId", txId);
         metadata.put("resultCode", resultCode);
         if (qimUserId != null) metadata.put("qimUserId", qimUserId);
         if (isNewUser != null) metadata.put("isNewUser", isNewUser);
         if (failReason != null) metadata.put("failReason", failReason);
-
         auditLogPublisher.publish(
                 AuditLogPublisher.AuditEntry.builder()
                         .eventCategory(AuditLogEvent.CATEGORY_AUTH)
-                        .eventAction(action)
+                        .eventAction(success ? ACTION_PROVIDER_VERIFIED : ACTION_PROVIDER_VERIFY_FAILED)
                         .actorType(AuditLogEvent.ACTOR_USER)
                         .actorId(qimUserId)
-                        .resourceType("NICE_AUTH_RESULT")
-                        .resourceId(requestNo)
+                        .resourceType("AUTH_PROVIDER")
+                        .resourceId(providerCode)
                         .correlationId(CorrelationIdHolder.get())
                         .outcome(success ? AuditLogEvent.OUTCOME_SUCCESS : AuditLogEvent.OUTCOME_FAILURE)
                         .outcomeDetail(failReason)
@@ -139,15 +112,6 @@ public class AuthAuditService {
         );
     }
 
-    /**
-     * NICE CI 확인 감사 이벤트 발행
-     *
-     * <p>PII 보호: CI 원본 포함 금지. mbrDvsnCd(개인/기업 구분)만 기록.
-     *
-     * @param mbrDvsnCd  회원구분코드 (A101/A102)
-     * @param resultCode 결과 코드
-     * @param failReason 실패 사유
-     */
     public void publishCiCheckEvent(String mbrDvsnCd, String resultCode, String failReason) {
         boolean success = "2000".equals(resultCode);
         String action = success ? ACTION_NICE_CI_CHECK_SUCCESS : ACTION_NICE_CI_CHECK_FAILED;
@@ -163,67 +127,6 @@ public class AuthAuditService {
                         .eventAction(action)
                         .actorType(AuditLogEvent.ACTOR_USER)
                         .resourceType("CI_CHECK")
-                        .correlationId(CorrelationIdHolder.get())
-                        .outcome(success ? AuditLogEvent.OUTCOME_SUCCESS : AuditLogEvent.OUTCOME_FAILURE)
-                        .outcomeDetail(failReason)
-                        .metadata(metadata)
-                        .build()
-        );
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // OACX 감사 이벤트
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * OACX 접근키 발급 감사 이벤트 발행
-     *
-     * @param fn         OACX 기능 코드
-     * @param resultCode 결과 코드
-     */
-    public void publishOacxAccessInfoEvent(String fn, String resultCode) {
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("fn", fn);
-        metadata.put("resultCode", resultCode);
-
-        auditLogPublisher.publish(
-                AuditLogPublisher.AuditEntry.builder()
-                        .eventCategory(AuditLogEvent.CATEGORY_AUTH)
-                        .eventAction(ACTION_OACX_ACCESS_INFO)
-                        .actorType(AuditLogEvent.ACTOR_USER)
-                        .resourceType("OACX_ACCESS_INFO")
-                        .correlationId(CorrelationIdHolder.get())
-                        .outcome("2000".equals(resultCode)
-                                ? AuditLogEvent.OUTCOME_SUCCESS : AuditLogEvent.OUTCOME_FAILURE)
-                        .metadata(metadata)
-                        .build()
-        );
-    }
-
-    /**
-     * OACX 간편서명 결과 처리 감사 이벤트 발행
-     *
-     * <p>PII 보호: CI 원본 포함 금지. provider(naver/toss/pass 등)만 기록.
-     *
-     * @param provider   OACX provider 식별자 (PII 없음)
-     * @param resultCode 결과 코드
-     * @param failReason 실패 사유
-     */
-    public void publishOacxEasysignEvent(String provider, String resultCode, String failReason) {
-        boolean success = "2000".equals(resultCode);
-        String action = success ? ACTION_OACX_EASYSIGN_SUCCESS : ACTION_OACX_EASYSIGN_FAILED;
-
-        Map<String, Object> metadata = new HashMap<>();
-        if (provider != null) metadata.put("provider", provider);
-        metadata.put("resultCode", resultCode);
-        if (failReason != null) metadata.put("failReason", failReason);
-
-        auditLogPublisher.publish(
-                AuditLogPublisher.AuditEntry.builder()
-                        .eventCategory(AuditLogEvent.CATEGORY_AUTH)
-                        .eventAction(action)
-                        .actorType(AuditLogEvent.ACTOR_USER)
-                        .resourceType("OACX_EASYSIGN")
                         .correlationId(CorrelationIdHolder.get())
                         .outcome(success ? AuditLogEvent.OUTCOME_SUCCESS : AuditLogEvent.OUTCOME_FAILURE)
                         .outcomeDetail(failReason)

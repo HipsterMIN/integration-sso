@@ -91,55 +91,16 @@ management:
     rotation-enabled: false
 
   # ⚠️  IDO_BROKER_MODE는 "표준 OIDC(카카오·네이버)" 처리 백엔드만 결정한다.
-  # Any-ID 인증수단(모바일신분증·간편인증 등)은 이 값과 무관하게 AnyIdBrokerAdapter가 처리.
+  # 플러그인 직접 브로커 인증수단(AnyID 모바일신분증·간편인증 등)은 이 값과 무관하게 플러그인이 처리.
   #
   # qsign    : [표준 OIDC] q-sign 위임 (기본)
   # keycloak : [표준 OIDC] Keycloak 직접 연동 → IDO_BROKER_MODE=keycloak 환경변수 설정
   broker:
     mode: ${IDO_BROKER_MODE:qsign}
 
-  # ── Any-ID 설치형 연동 — 로컬 개발 개발키 (기관 #311) ──────────────────
-  # 행안부 발급 개발키는 환경변수로 주입 (코드·설정에 값 금지)
-  # 운영 배포 시: 환경변수 또는 K8s Secret으로 분리 (아래 주석 참조)
-  anyid:
-    # 운영기관 식별자는 환경변수로 주입 (S1 범용화 — 코드·설정 기본값에 고객값 금지)
-    srvc-no: ${ANYID_SRVC_NO:}
-    agency-code: ${ANYID_AGENCY_CODE:}
-    agency-name: ${ANYID_AGENCY_NAME:}
-
-    portal:
-      domain: "https://www.anyid.dev"
-      port: 1451
-
-    auth:
-      domain: "https://www.anyid.dev"
-      port: 1443
-
-    sso:
-      domain: "https://sso.anyid.dev"
-      port: 1452
-      # 개발키 — 운영: ANYID_SSO_SECRET_CODE K8s Secret 주입
-      secret-code: ${ANYID_SSO_SECRET_CODE:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
-      adaptor-conf: "classpath:sso-adaptor-conf-local.properties"
-
-    kms:
-      server-host: "https://www.anyid.dev:8119/"
-      enc-alg: "ARIA-CBC-256"
-      cversion: 1
-      kdist-config: "classpath:config/anyid/kdist-local.json"
-      # 개발키 — 운영: ANYID_KMS_APP_KEY / ANYID_KMS_CLIENT_INFO K8s Secret 주입
-      app-key: ${ANYID_KMS_APP_KEY:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
-      client-info: "ExWK0pJDBEcK6Q8be7XN4D0sQyvnay5xiGSIi1HDZdTYUsIlybPbW8UjnDQpIz7Yf4mdz/Yig3XK0o/E5bM1Gsnt0J9w5rU1r4+qIOaYbOrH2PoZJZTsRb4GF4pf0Ev"
-
-    pid:
-      api-config: "classpath:config/anyid/pid_api.json"
-      provider-url: "https://www.anyid.dev:1443/pid/auth.do"
-      # 개발키 — 운영: ANYID_PID_CLIENT_ID / CLIENT_SECRET / CLIENT_API_KEY K8s Secret 주입
-      client-id: ${ANYID_PID_CLIENT_ID:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
-      client-secret: ${ANYID_PID_CLIENT_SECRET:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
-      client-api-key: ${ANYID_PID_CLIENT_API_KEY:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
-
-    config-file: "classpath:config/anyid/config.anyidc.json"
+  # ── Any-ID 설치형 연동: S5b 부터 코어 설정에 없다 — plugins/idem-plugin-anyid 기본값 + 환경변수(ANYID_*) ──
+  # ⚠️ 2026-09-11: 이 블록에 남아 있던 KMS client-info 평문(및 config/anyid/*.json·sso-adaptor-conf-local.properties 의
+  #    app_key·client_info·PID clientId/Secret/ApiKey·SSO secret)을 저장소에서 제거했다. 히스토리에 남아 있으므로 벤더에 키 교체를 요청한다.
 
   # F-13: IdO Outbox Relay OFF → Kafka 없는 환경 500ms 폴링 오류 없음
   outbox:

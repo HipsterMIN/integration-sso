@@ -11,7 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "idem.plugins.nice-oacx")
 public class NiceOacxPluginProperties {
 
-    /** 플러그인 활성화. 기본 false — 켜면 코어의 NICE 어댑터({@code ido.auth.nice.provider-enabled})는 꺼야 코드 충돌이 없다. */
+    /** 플러그인 활성화. 코어에는 NICE 어댑터가 없으므로(S5a) 이 스위치 하나로 NICE_PHONE·OACX_EASYSIGN 제공자가 켜지고 꺼진다. */
     private boolean enabled = false;
 
     /** EzAuth 위젯 스크립트 URL. 플러그인 정적 자산 경로가 기본값. */

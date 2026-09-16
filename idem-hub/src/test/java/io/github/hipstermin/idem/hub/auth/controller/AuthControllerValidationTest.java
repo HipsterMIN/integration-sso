@@ -13,10 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import io.github.hipstermin.idem.hub.api.GlobalExceptionHandler;
 import io.github.hipstermin.idem.hub.auth.dto.CiCheckRequest;
 import io.github.hipstermin.idem.hub.auth.dto.CiCheckResponse;
-import io.github.hipstermin.idem.hub.auth.dto.OacxEasysignRequest;
-import io.github.hipstermin.idem.hub.auth.dto.OacxEasysignResponse;
 import io.github.hipstermin.idem.hub.auth.service.AuthService;
-import io.github.hipstermin.idem.hub.auth.service.NiceAuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,8 +35,7 @@ class AuthControllerValidationTest {
     @BeforeEach
     void setUp() {
         authService = mock(AuthService.class);
-        NiceAuthService niceAuthService = mock(NiceAuthService.class);
-        mvc = MockMvcBuilders.standaloneSetup(new AuthController(authService, niceAuthService))
+        mvc = MockMvcBuilders.standaloneSetup(new AuthController(authService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -68,15 +64,4 @@ class AuthControllerValidationTest {
                 .andExpect(jsonPath("$.resultCode").value("2000"));
     }
 
-    @Test
-    @DisplayName("POST /oacx/easysign — fn 이 있으면 검증 통과, 서비스가 4000 을 200 으로 반환")
-    void oacxEasysign_invalidFn_200_4000() throws Exception {
-        when(authService.handleOacxEasysign(any(OacxEasysignRequest.class)))
-                .thenReturn(OacxEasysignResponse.builder().resultCode("4000").resultMsg("유효하지 않은 fn").build());
-        mvc.perform(post("/api/v1/auth/oacx/easysign")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"fn\":\"INVALID\",\"status\":\"success\",\"res\":{}}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.resultCode").value("4000"));
-    }
 }

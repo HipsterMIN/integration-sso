@@ -70,14 +70,11 @@ import org.springframework.stereotype.Component;
 public class VaultKmsHealthIndicator implements HealthIndicator {
 
     /**
-     * 다중 KmsClient 빈을 List로 주입 — Spring이 활성화한 모든 구현체를 받는다.
+     * KmsClient 빈을 List로 주입 — Spring이 활성화한 모든 구현체를 받는다.
      *
-     * <p><b>설계 근거</b>:
-     * 정상 설정에서는 1개의 KmsClient만 활성화되지만,
-     * {@link io.github.hipstermin.idem.hub.crypto.kms.AnyIdKmsClient}는 별도 prefix(ido.anyid.kms)를 사용하므로
-     * {@link io.github.hipstermin.idem.hub.crypto.kms.LocalKmsClient}와 동시에 활성화될 수 있다.
-     * 단일 KmsClient 주입은 NoUniqueBeanDefinitionException을 유발하므로
-     * List로 받아 첫 번째(우선순위 — 일반적으로 비-AnyId)를 사용한다.
+     * <p>정상 설정에서는 1개의 KmsClient만 활성화된다({@code ido.kms.provider} 로 상호배타). 에디션 플러그인이
+     * 보조 구현을 더 올리더라도 {@code @Primary} 인 코어 구현이 목록 앞에 오므로 첫 번째를 쓴다
+     * (벤더 전용 KMS 는 S5b 부터 코어 KmsClient 계약 밖의 플러그인 내부 컴포넌트다).
      *
      * <p>전부 비활성(빈 리스트)이라면 UNKNOWN 상태로 안전 처리한다.
      */
@@ -117,25 +114,9 @@ public class VaultKmsHealthIndicator implements HealthIndicator {
         return performHealthCheck(now, cached);
     }
 
-    /**
-     * 우선 사용할 KmsClient 선택.
-     *
-     * <p>여러 KMS 구현체가 동시에 등록된 경우 (예: LocalKmsClient + AnyIdKmsClient),
-     * AnyIdKmsClient(보조 — AnyID 전용)가 아닌 일반 KMS(Vault/NHN/Local/NoOp)를 우선한다.
-     */
+    /** 우선 사용할 KmsClient — 목록의 첫 번째(코어 {@code @Primary} 구현). */
     private KmsClient primaryKms() {
-        // "anyid"로 끝나는 provider는 후순위
-        return kmsClients.stream()
-                .filter(c -> {
-                    try {
-                        String name = c.providerName();
-                        return name == null || !name.toLowerCase().contains("anyid");
-                    } catch (Throwable t) {
-                        return true;
-                    }
-                })
-                .findFirst()
-                .orElse(kmsClients.get(0));
+        return kmsClients.get(0);
     }
 
     private Health performHealthCheck(Instant now, CachedResult prev) {

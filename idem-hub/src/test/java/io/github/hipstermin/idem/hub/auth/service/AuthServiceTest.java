@@ -11,14 +11,11 @@ import static org.mockito.Mockito.verify;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.hub.auth.audit.AuthAuditService;
 import io.github.hipstermin.idem.hub.auth.client.IntegrationAuthClient;
-import io.github.hipstermin.idem.hub.auth.client.OacxClient;
 import io.github.hipstermin.idem.hub.auth.dto.*;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import io.github.hipstermin.idem.hub.auth.port.ImApiOutPort;
 import io.github.hipstermin.idem.hub.qim.MemberDivisionPolicy;
 import io.github.hipstermin.idem.hub.qim.crypto.AesSharedKeyDecryptor;
-import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,9 +39,6 @@ class AuthServiceTest {
     private IntegrationAuthClient integrationAuthClient;
 
     @Mock
-    private OacxClient oacxClient;
-
-    @Mock
     private ImApiOutPort imApiOutPort;
 
     @Mock
@@ -57,7 +51,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(integrationAuthClient, oacxClient, new ObjectMapper(),
+        authService = new AuthService(integrationAuthClient, new ObjectMapper(),
                 imApiOutPort, authAuditService, aesSharedKeyDecryptor, MemberDivisionPolicy.defaults());
     }
 
@@ -127,134 +121,6 @@ class AuthServiceTest {
     }
 
     // ── handleOacxEasysign 테스트 ──────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("handleOacxEasysign — OACX 간편서명 결과 처리")
-    class OacxEasysignTest {
-
-        @Test
-        @DisplayName("fn이 authComplete가 아니면 4000 반환")
-        void handleOacxEasysign_shouldReturn4000ForInvalidFn() {
-            // given
-            OacxEasysignRequest request = OacxEasysignRequest.builder()
-                    .fn("unknownFunction")
-                    .status("success")
-                    .build();
-
-            // when
-            OacxEasysignResponse response = authService.handleOacxEasysign(request);
-
-            // then
-            assertThat(response.getResultCode()).isEqualTo("4000");
-            assertThat(response.getResultMsg()).contains("authComplete");
-            verify(oacxClient, never()).decryptEasysignResult(any());
-        }
-
-        @Test
-        @DisplayName("OACX resultCode가 200이 아니면 4001 반환")
-        void handleOacxEasysign_shouldReturn4001ForNon200OacxCode() {
-            // given
-            OacxEasysignRequest request = OacxEasysignRequest.builder()
-                    .fn("authComplete")
-                    .status("success")
-                    .res(Map.of("resultCode", "400"))
-                    .build();
-
-            // when
-            OacxEasysignResponse response = authService.handleOacxEasysign(request);
-
-            // then
-            assertThat(response.getResultCode()).isEqualTo("4001");
-            assertThat(response.getResultMsg()).contains("인증 실패");
-            verify(oacxClient, never()).decryptEasysignResult(any());
-        }
-
-        @Test
-        @DisplayName("복호화 실패 시 5002 반환")
-        void handleOacxEasysign_shouldReturn5002WhenDecryptFails() {
-            // given
-            OacxEasysignRequest request = OacxEasysignRequest.builder()
-                    .fn("authComplete")
-                    .status("success")
-                    .res(Map.of("resultCode", "200", "encData", "some-jwt"))
-                    .build();
-            given(oacxClient.decryptEasysignResult(any()))
-                    .willReturn(Map.of("status", "error", "message", "JWT 복호화 실패"));
-
-            // when
-            OacxEasysignResponse response = authService.handleOacxEasysign(request);
-
-            // then
-            assertThat(response.getResultCode()).isEqualTo("5002");
-            assertThat(response.getResultMsg()).contains("복호화 실패");
-        }
-
-        @Test
-        @DisplayName("성공 시 name, birthday, phone 반환 — CI 미포함 (Q3=B)")
-        void handleOacxEasysign_shouldReturnUserInfoWithoutCi() {
-            // given
-            OacxEasysignRequest request = OacxEasysignRequest.builder()
-                    .fn("authComplete")
-                    .status("success")
-                    .res(Map.of("resultCode", "200", "encData", "some-jwt"))
-                    .build();
-            // OACX SDK 복호화 결과에 CI 포함
-            given(oacxClient.decryptEasysignResult(any())).willReturn(Map.of(
-                    "status", "success",
-                    "name", "홍길동",
-                    "phone", "01012345678",
-                    "birthday", "19900101",
-                    "ci", "ABCDEF0123456789ABCDEF0123456789..."  // 88자 CI
-            ));
-            // S7-T6: Q-IM 등록 Mock
-            given(imApiOutPort.register(any(), anyString()))
-                    .willReturn(QimRegisterResponse.builder()
-                            .qimUserId("qim-user-001")
-                            .isNew(true)
-                            .status("ACTIVE")
-                            .build());
-
-            // when
-            OacxEasysignResponse response = authService.handleOacxEasysign(request);
-
-            // then: 성공 + 사용자 정보 포함
-            assertThat(response.getResultCode()).isEqualTo("2000");
-            assertThat(response.getName()).isEqualTo("홍길동");
-            assertThat(response.getPhone()).isEqualTo("01012345678");
-            assertThat(response.getBirthday()).isEqualTo("19900101");
-
-            // ★ Q3=B: CI는 FE에 미반환 — null이어야 함
-            assertThat(response.getCi()).isNull();
-        }
-
-        @Test
-        @DisplayName("PASS 통신사 provider (userNm/phoneNo 키) 응답 정상 처리 — CI 없음 (정상 케이스)")
-        void handleOacxEasysign_shouldHandlePassProviderKeys() {
-            // given: PASS(통신3사) provider는 userNm, phoneNo 키 사용 + CI 미제공
-            OacxEasysignRequest request = OacxEasysignRequest.builder()
-                    .fn("authComplete")
-                    .status("success")
-                    .res(Map.of("resultCode", "200"))
-                    .build();
-            given(oacxClient.decryptEasysignResult(any())).willReturn(Map.of(
-                    "status", "success",
-                    "userNm", "김철수",   // PASS provider: userNm (name 아님)
-                    "phoneNo", "01098765432",  // PASS provider: phoneNo (phone 아님)
-                    "birthday", "19851215"
-                    // ci 없음 — Q-IM 등록 건너뜀
-            ));
-
-            // when
-            OacxEasysignResponse response = authService.handleOacxEasysign(request);
-
-            // then: userNm → name, phoneNo → phone 으로 정상 매핑
-            assertThat(response.getResultCode()).isEqualTo("2000");
-            assertThat(response.getName()).isEqualTo("김철수");
-            assertThat(response.getPhone()).isEqualTo("01098765432");
-        }
-    }
-
-    // ── checkNiceCi 테스트 ────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("checkNiceCi — NICE CI 회원 확인")
@@ -437,30 +303,4 @@ class AuthServiceTest {
 
     // ── getOacxAccessInfo 테스트 ──────────────────────────────────────────────
 
-    @Nested
-    @DisplayName("getOacxAccessInfo — OACX 접근정보 발급")
-    class GetOacxAccessInfoTest {
-
-        @Test
-        @DisplayName("OacxClient 결과를 그대로 반환해야 한다")
-        void getOacxAccessInfo_shouldDelegateToOacxClient() {
-            // given
-            String fn = "simpleAuth";
-            OacxAccessInfoResponse expected = OacxAccessInfoResponse.builder()
-                    .resultCode("2000")
-                    .resultMsg("성공")
-                    .fn(fn)
-                    .accKey("test-acc-key")
-                    .accToken("test-acc-token")
-                    .build();
-            given(oacxClient.getAccessInfo(eq(fn))).willReturn(expected);
-
-            // when
-            OacxAccessInfoResponse response = authService.getOacxAccessInfo(fn);
-
-            // then
-            assertThat(response).isEqualTo(expected);
-            verify(oacxClient).getAccessInfo(fn);
-        }
-    }
 }

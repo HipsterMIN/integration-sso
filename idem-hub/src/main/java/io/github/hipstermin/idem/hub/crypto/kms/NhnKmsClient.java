@@ -82,7 +82,7 @@ import org.springframework.web.client.RestTemplate;
  */
 @Slf4j
 @Component
-@Primary   // 일반 KMS(NoOp/Local/Nhn/Vault)는 상호배타 활성 — AnyIdKmsClient(보조, ido.anyid.kms 전담)와 공존 시 단일 KmsClient 주입의 정본
+@Primary   // 일반 KMS(NoOp/Local/Nhn/Vault)는 ido.kms.provider 로 상호배타 활성 — 단일 KmsClient 주입의 정본
 @ConditionalOnProperty(
     prefix      = "ido.kms",
     name        = {"enabled", "provider"},

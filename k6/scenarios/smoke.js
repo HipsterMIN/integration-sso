@@ -64,7 +64,9 @@ export default function () {
     );
     check(done, {
       'smoke: MOCK complete 200':    (r) => r.status === 200,
-      'smoke: MOCK complete name':   (r) => { let b; try { b = JSON.parse(r.body); } catch (_) { return false; } return b && b.name === 'k6'; },
+      // S4 계약: { identity: VerifiedIdentity, registration: { qimUserId, newUser } } — registry(8082) 등록까지 끝나야 200
+      'smoke: MOCK complete name':   (r) => { let b; try { b = JSON.parse(r.body); } catch (_) { return false; } return !!b && !!b.identity && b.identity.name === 'k6'; },
+      'smoke: MOCK complete registration': (r) => { let b; try { b = JSON.parse(r.body); } catch (_) { return false; } return !!b && !!b.registration && typeof b.registration.qimUserId === 'string' && b.registration.qimUserId.length > 0; },
     });
   }
 

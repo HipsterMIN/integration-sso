@@ -3,7 +3,6 @@ package io.github.hipstermin.idem.hub.auth.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.hub.auth.audit.AuthAuditService;
 import io.github.hipstermin.idem.hub.auth.client.IntegrationAuthClient;
-import io.github.hipstermin.idem.hub.auth.client.OacxClient;
 import io.github.hipstermin.idem.hub.auth.dto.*;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
@@ -42,15 +41,14 @@ import org.springframework.stereotype.Service;
  *
  * <p><b>S7-T6 구현 완료 (운영 수준 개선):</b>
  * <ul>
- *   <li>CI 처리: OACX 인증 결과 CI → {@link io.github.hipstermin.idem.hub.auth.port.ImApiOutPort#register} 등록</li>
  *   <li>ciCheck: CI 기반 Q-IM 조회 전용 — 신규 등록 없음 (데이터 품질 보호)
- *       <br>신규 등록은 반드시 {@code POST /nice/phone/result} 또는 OACX easysign 완전 흐름을 통해 수행</li>
+ *       <br>신규 등록은 반드시 SPI 인증 완료 흐름({@code POST /api/v1/auth/providers/{code}/complete} 또는
+ *       레거시 프록시 {@code /nice/phone/result}·{@code /oacx/easysign})의
+ *       {@link io.github.hipstermin.idem.hub.identity.SubjectRegistrationService} 를 통해 수행</li>
  *   <li>correlationId: {@code UUID.randomUUID()} 기반 — 충돌 없는 고유 추적 ID 보장</li>
  * </ul>
  *
  * @see IntegrationAuthClient
- * @see OacxClient
- * @see NiceAuthService
  */
 @Slf4j
 @Service
@@ -58,7 +56,6 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private final IntegrationAuthClient integrationAuthClient;
-    private final OacxClient oacxClient;
     private final ObjectMapper objectMapper;
     private final ImApiOutPort imApiOutPort;
     private final AuthAuditService authAuditService;
@@ -176,165 +173,6 @@ public class AuthService {
                     .resultMsg("기업인증 처리 오류: " + e.getMessage())
                     .build();
         }
-    }
-
-    /**
-     * OACX 전자서명 접근키/토큰 발급
-     *
-     * <p>FE의 OACX JS SDK 초기화에 필요한 accKey, accToken을 발급한다.
-     * OACX SDK({@code OacxClient})가 OACX 서버와 통신하여 접근 정보를 생성.
-     *
-     * <p><b>FE 사용 방법:</b>
-     * <pre>
-     * // POST /api/v1/auth/oacx/access-info
-     * // body: "simpleAuth"  (plain string)
-     * const { fn, accKey, accToken } = await response.json();
-     * OACXsdk.init({ fn, accKey, accToken });
-     * </pre>
-     *
-     * @param fn OACX 기능 코드 ("simpleAuth" 고정)
-     * @return OACX 접근 정보 응답 (fn, accKey, accToken)
-     */
-    public OacxAccessInfoResponse getOacxAccessInfo(String fn) {
-        log.info("[OACX] getAccessInfo 요청: fn={}", fn);
-        OacxAccessInfoResponse response = oacxClient.getAccessInfo(fn);
-        authAuditService.publishOacxAccessInfoEvent(fn,
-                response != null ? response.getResultCode() : "5000");
-        return response;
-    }
-
-    /**
-     * OACX 간편서명 콜백 처리 및 사용자 정보 반환 (Q3=B: CI FE 미반환)
-     *
-     * <p>OACX JS SDK 콜백 데이터를 수신하여 JWT를 복호화하고 사용자 정보를 추출.
-     *
-     * <p><b>OACX 인증 완료 플로우 (Step 7~11):</b>
-     * <pre>
-     * Step 7: OACX JS SDK 간편서명 완료 → FE 콜백 발생 (fn, status, res)
-     * Step 8: FE → POST /api/v1/auth/oacx/easysign (이 메서드)
-     * Step 9: OacxClient.decryptEasysignResult() → JWT 복호화
-     * Step 10: 사용자 정보 추출 (provider별 키 이름 통일 처리)
-     * Step 11: FE에 {name, birthday, phone} 반환 (CI 제외 — Q3=B)
-     * </pre>
-     *
-     * <p><b>보안 정책 (Q3=B):</b>
-     * OACX 복호화 결과에 CI가 포함되어 있어도 FE에 반환하지 않음.
-     * {@code OacxEasysignResponse}에 ci 필드가 null로 설정되어 {@code @JsonInclude(NON_NULL)}에 의해
-     * 응답 JSON에서 자동 제외됨.
-     *
-     * <p><b>OACX provider별 키 이름 차이:</b>
-     * <ul>
-     *   <li>naver/toss/dream/banksalad: {@code name}, {@code phone}</li>
-     *   <li>PASS (통신3사): {@code userNm}, {@code phoneNo}</li>
-     * </ul>
-     *
-     * <p><b>S7-T6 구현 완료:</b> 복호화된 CI를 {@link io.github.hipstermin.idem.hub.auth.port.ImApiOutPort#register}를
-     * 통해 Q-IM에 등록. CI 등록 실패 시 인증 플로우 중단(resultCode=5010) — CI 미등록 상태로의
-     * 진행은 데이터 정합성 위반이므로 허용하지 않음.
-     *
-     * @param request OACX SDK 콜백 데이터 (fn, status, res 포함)
-     * @return OACX 인증 결과 응답 (name, birthday, phone — CI 제외)
-     */
-    public OacxEasysignResponse handleOacxEasysign(OacxEasysignRequest request) {
-        log.info("[OACX] easysign 콜백: fn={}, status={}", request.getFn(), request.getStatus());
-
-        // fn 검증: "authComplete"가 아니면 잘못된 요청
-        if (!"authComplete".equals(request.getFn())) {
-            log.warn("[OACX] 예상치 못한 fn 값: {}", request.getFn());
-            authAuditService.publishOacxEasysignEvent(null, "4000",
-                    "유효하지 않은 fn: " + request.getFn());
-            return OacxEasysignResponse.builder()
-                    .resultCode("4000")
-                    .resultMsg("유효하지 않은 fn 값: " + request.getFn() + " (예상: authComplete)")
-                    .build();
-        }
-
-        // OACX 내부 resultCode 검증
-        String oacxResultCode = request.getRes() != null
-                ? String.valueOf(request.getRes().get("resultCode"))
-                : null;
-        if (!"200".equals(oacxResultCode)) {
-            log.warn("[OACX] 인증 실패 또는 취소: resultCode={}", oacxResultCode);
-            authAuditService.publishOacxEasysignEvent(null, "4001",
-                    "OACX 인증 실패: resultCode=" + oacxResultCode);
-            return OacxEasysignResponse.builder()
-                    .resultCode("4001")
-                    .resultMsg("OACX 인증 실패: resultCode=" + oacxResultCode)
-                    .build();
-        }
-
-        // OACX SDK로 JWT 복호화 (SDK는 fn/status/res 전체 맵을 요구)
-        Map<String, Object> fullCallbackMap = Map.of(
-                "fn", request.getFn(),
-                "status", request.getStatus(),
-                "res", request.getRes()
-        );
-        Map<String, String> decrypted = oacxClient.decryptEasysignResult(fullCallbackMap);
-
-        if (!"success".equals(decrypted.get("status"))) {
-            log.error("[OACX] JWT 복호화 실패: status={}, message={}",
-                    decrypted.get("status"), decrypted.get("message"));
-            authAuditService.publishOacxEasysignEvent(null, "5002",
-                    "JWT 복호화 실패: " + decrypted.get("message"));
-            return OacxEasysignResponse.builder()
-                    .resultCode("5002")
-                    .resultMsg("OACX 인증 결과 복호화 실패")
-                    .build();
-        }
-
-        // CI 내부 처리 (FE 미반환 — Q3=B)
-        log.debug("[OACX] 복호화 결과 keys={}", decrypted.keySet());
-        String ciForInternalUse = decrypted.get("ci");
-
-        // OACX provider별 키 이름 차이 통일 처리
-        // - naver/toss/dream/banksalad: name, phone
-        // - PASS(통신3사): userNm, phoneNo
-        String name = decrypted.getOrDefault("name", decrypted.get("userNm"));
-        String phone = decrypted.getOrDefault("phone", decrypted.get("phoneNo"));
-
-        // S7-T6: CI → Q-IM 등록 (Q3=B: CI는 FE 미반환, Q-IM에만 전달)
-        if (ciForInternalUse != null && !ciForInternalUse.isBlank()) {
-            try {
-                String correlationId = "oacx-" + UUID.randomUUID();
-                AuthResult authResult = AuthResult.builder()
-                        .ci(ciForInternalUse)
-                        .di(decrypted.get("di"))
-                        .name(name)
-                        .birthday(decrypted.get("birthday"))
-                        .gender(decrypted.get("gender"))
-                        .mobile(phone)
-                        .mobileCorp(decrypted.get("mobileCorp"))
-                        .build();
-                QimRegisterResponse registerResult = imApiOutPort.register(authResult, correlationId);
-                log.info("[OACX] Q-IM 등록 완료: qimUserId={} isNew={}", registerResult.getQimUserId(), registerResult.getIsNew());
-            } catch (Exception e) {
-                // Q-IM 등록 실패 시 인증 플로우 중단 (CI 미등록 상태로 진행 불가)
-                log.error("[OACX] Q-IM 등록 실패 — 인증 중단: {}", e.getMessage(), e);
-                authAuditService.publishOacxEasysignEvent(
-                        decrypted.get("provider"), "5010", "Q-IM 등록 실패: " + e.getMessage());
-                return OacxEasysignResponse.builder()
-                        .resultCode("5010")
-                        .resultMsg("사용자 정보 등록 실패: " + e.getMessage())
-                        .build();
-            }
-        } else {
-            log.warn("[OACX] CI 미포함 — Q-IM 등록 건너뜀 (provider가 CI를 미제공)");
-        }
-
-        log.info("[OACX] 인증 성공: name={}", name);
-
-        // 감사 로그: OACX 간편서명 성공 (provider 정보는 PII 없음)
-        authAuditService.publishOacxEasysignEvent(decrypted.get("provider"), "2000", null);
-
-        // CI는 FE 미반환 (Q3=B) — OacxEasysignResponse.ci 필드를 null로 유지
-        return OacxEasysignResponse.builder()
-                .resultCode("2000")
-                .resultMsg("성공")
-                // .ci(decrypted.get("ci"))  ← Q3=B: 의도적으로 CI 미설정
-                .name(name)
-                .birthday(decrypted.get("birthday"))
-                .phone(phone)
-                .build();
     }
 
     /**
