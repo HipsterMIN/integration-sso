@@ -1,0 +1,16 @@
+Idem — 회원통합·연합인가 플랫폼 (integration-sso)
+Copyright 2026 민대영 (HipsterMIN)
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software developed by third parties. Notices for
+components that require attribution are collected in THIRD-PARTY-NOTICES.md.
+In particular:
+
+  * The management console (idem-console/frontend) is derived from the
+    SigNoz frontend, Copyright (c) 2020-present SigNoz Inc., licensed under
+    the MIT Expat license. The full MIT text is reproduced in
+    THIRD-PARTY-NOTICES.md.
+  * Vendor SDKs for Korean identity-verification providers (NICE, OACX, Any-ID)
+    are NOT part of this distribution and are supplied separately by their
+    owners under their own terms (see plugins/*/README.md).

@@ -80,7 +80,7 @@ LABEL org.opencontainers.image.title="Idem Platform — Q-IM Service" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.source="https://github.com/HipsterMIN/integration-sso" \
       org.opencontainers.image.vendor="Idem" \
-      org.opencontainers.image.licenses="Proprietary"
+      org.opencontainers.image.licenses="Apache-2.0"
 
 WORKDIR /app
 
