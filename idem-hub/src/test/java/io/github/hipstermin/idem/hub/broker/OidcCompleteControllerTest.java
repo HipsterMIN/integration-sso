@@ -1,10 +1,13 @@
 package io.github.hipstermin.idem.hub.broker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
+import io.github.hipstermin.idem.common.error.PlatformErrorCode;
+import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
 import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import io.github.hipstermin.idem.hub.broker.dto.OidcCompleteRequest;
@@ -31,7 +34,7 @@ import org.springframework.test.util.ReflectionTestUtils;
  * <ol>
  *   <li>CI가 있는 기존 사용자 → QimClient.findByCi() 호출 → 실제 qimUserId 사용</li>
  *   <li>CI가 있는 신규 사용자 → QimClient.registerUser() 호출 → 신규 qimUserId 사용</li>
- *   <li>CI가 없는 경우 → identifierHash 폴백 + 경고 (PoC 경로)</li>
+ *   <li>CI가 없는 경우 → (D2) 거부. allow-ciless-identity=true 일 때만 identifierHash 폴백</li>
  *   <li>X-Internal-Sig 없으면 → 서명 검증 실패 → PlatformException</li>
  * </ol>
  */
@@ -134,9 +137,27 @@ class OidcCompleteControllerTest {
         }
 
         @Test
-        @DisplayName("[P0-FALLBACK] CI 없음 → identifierHash를 qimUserId로 폴백 (PoC 경로)")
-        void resolve_noCi_shouldFallbackToIdentifierHash() {
-            // given
+        @DisplayName("(D2) CI 없음 → 기본은 거부(IDO_IDENTITY_UNRESOLVED) — 세션 미발급, Q-IM 미호출")
+        void resolve_noCi_shouldBeRejectedByDefault() {
+            String identifierHash = "sha256-hash-of-sub-value";
+            given(feSessionService.isValidReturnUrl(any())).willReturn(true);
+            given(internalSigVerifier.verify(any(), any())).willReturn(true);
+
+            OidcCompleteRequest req = buildRequestNoCi(identifierHash);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            assertThatThrownBy(() -> controller.complete("valid-sig", "q-sign", "cid-003", req, response))
+                    .isInstanceOf(PlatformException.class)
+                    .satisfies(e -> assertThat(((PlatformException) e).getErrorCode())
+                            .isEqualTo(PlatformErrorCode.IDO_IDENTITY_UNRESOLVED));
+            verify(qimClient, never()).findByCi(any(), any(), any());
+            verify(feSessionService, never()).create(any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("(D2) ido.broker.allow-ciless-identity=true (로컬 전용) 일 때만 identifierHash 폴백")
+        void resolve_noCi_fallbackOnlyWhenExplicitlyAllowed() {
+            ReflectionTestUtils.setField(controller, "allowCilessIdentity", true);
             String identifierHash = "sha256-hash-of-sub-value";
 
             given(feSessionService.isValidReturnUrl(any())).willReturn(true);
@@ -145,16 +166,10 @@ class OidcCompleteControllerTest {
                     .willReturn(buildMockSession(identifierHash));
 
             OidcCompleteRequest req = buildRequestNoCi(identifierHash);
-            MockHttpServletResponse response = new MockHttpServletResponse();
+            controller.complete("valid-sig", "q-sign", "cid-003", req, new MockHttpServletResponse());
 
-            // when
-            controller.complete("valid-sig", "q-sign", "cid-003", req, response);
-
-            // then — QimClient 호출 없이 identifierHash로 세션 생성
             verify(qimClient, never()).findByCi(any(), any(), any());
-            verify(qimClient, never()).registerUser(any(), any());
-            verify(feSessionService, times(1))
-                    .create(eq(identifierHash), any(), any(), any());
+            verify(feSessionService, times(1)).create(eq(identifierHash), any(), any(), any());
         }
 
         @Test

@@ -71,6 +71,12 @@ public enum PlatformErrorCode {
     IDO_REQUIRED_ATTRIBUTE_MISSING("E-IDO-114", HttpStatus.UNPROCESSABLE_ENTITY, "기관이 필수로 요구한 속성을 사용자에게서 얻을 수 없습니다."),
     IDO_SUBJECT_SCHEME_UNSUPPORTED("E-IDO-115", HttpStatus.SERVICE_UNAVAILABLE, "기관 프로파일이 지정한 주체 식별자 스킴을 이 설치본이 지원하지 않습니다."),
 
+    // ── 범용화 D2 (fail-secure: 외부 의존 실패 = 거부 + 감사) ────────────────
+    IDO_DEPENDENCY_UNAVAILABLE("E-IDO-116", HttpStatus.SERVICE_UNAVAILABLE, "필수 의존 시스템(Redis·서명키 등) 장애 — 안전 우선 거부."),
+    IDO_AUTHZ_UNAVAILABLE("E-IDO-117", HttpStatus.SERVICE_UNAVAILABLE, "인가 서비스(idem-authz) 조회 실패 — 안전 우선 거부."),
+    IDO_IDENTITY_UNRESOLVED("E-IDO-118", HttpStatus.UNPROCESSABLE_ENTITY, "주체 식별자를 확인할 수 없어 세션을 발급하지 않습니다."),
+    IDO_SESSION_UNAVAILABLE("E-IDO-119", HttpStatus.SERVICE_UNAVAILABLE, "FE 세션 저장소 장애 — 세션을 발급하지 않습니다."),
+
     // ── 기관 오류 (E-AGENCY-3xx) ─────────────────────────────────────────────
     AGENCY_NOT_REGISTERED ("E-AGENCY-301", HttpStatus.FORBIDDEN,   "등록되지 않은 기관 코드입니다."),
     AGENCY_CODE_MISMATCH  ("E-AGENCY-302", HttpStatus.FORBIDDEN,   "기관 코드 불일치."),

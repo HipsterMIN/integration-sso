@@ -171,13 +171,9 @@ public class PolicyEngineImpl implements PolicyEngine {
         String resolvedPolicyVersion = profile != null && profile.policy() != null && profile.policy().policyVersion() != null
                 ? profile.policy().policyVersion() : defaultPolicyVersion;
 
-        // 2. 사용자 상태 (캐시)
-        UserStatus userStatus;
-        try {
-            userStatus = userStatusCache.get(qimUserId).orElse(UserStatus.ACTIVE);
-        } catch (Exception e) {
-            userStatus = UserStatus.ACTIVE;
-        }
+        // 2. 사용자 상태 — D2 fail-secure: 캐시 미스면 정본(Q-IM) 조회, 그것도 실패면 거부(IDO_QIM_UNREACHABLE).
+        //    종전에는 조회 실패를 ACTIVE 로 가정해 정지·탈퇴 사용자에게 페이로드가 나갈 수 있었다.
+        UserStatus userStatus = resolveUserStatus(qimUserId, correlationId);
 
         // 3. agencySubjectId — 프로파일이 고른 스킴으로 해석 (기본 PAIRWISE_HMAC = registry DI, 종전과 동일)
         //

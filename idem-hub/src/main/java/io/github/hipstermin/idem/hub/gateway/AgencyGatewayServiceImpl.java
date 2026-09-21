@@ -161,15 +161,11 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
             // 서명 페이로드: "{agencyCode}:{idempotencyKey}:{epochSeconds}"
             // auth_type=HMAC 인 기관에만 X-Internal-Sig 헤더 첨부
             if ("HMAC".equals(endpoint.getAuthType())) {
+                // D2 fail-secure: 서명할 수 없으면 무서명으로 보내지 않는다 (예외 → 발송 실패 → 아웃박스 재시도)
                 String outboundSig = buildOutboundHmacSig(agencyCode, idempotencyKey);
-                if (outboundSig != null) {
-                    headers.set("X-Internal-Sig", outboundSig);
-                    log.debug("[GatewayOutbound] HMAC 서명 첨부: agencyCode={} idempotencyKey={}",
-                              agencyCode, idempotencyKey);
-                } else {
-                    log.warn("[GatewayOutbound] HMAC 키 미등록 — X-Internal-Sig 헤더 생략: agencyCode={}",
-                             agencyCode);
-                }
+                headers.set("X-Internal-Sig", outboundSig);
+                log.debug("[GatewayOutbound] HMAC 서명 첨부: agencyCode={} idempotencyKey={}",
+                          agencyCode, idempotencyKey);
             }
 
             HttpEntity<String> entity = new HttpEntity<>(request.getPayloadJson(), headers);
@@ -298,18 +294,15 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
     private String buildOutboundHmacSig(String agencyCode, String idempotencyKey) {
         String secret = hmacKeyStore.findSecret(agencyCode);
         if (secret == null || secret.isBlank()) {
-            return null; // 키 없음 — 호출부에서 경고 로그 처리
+            throw new IllegalStateException("HMAC 기관인데 서명 키 미등록 — 무서명 발송 금지: agencyCode=" + agencyCode);
         }
         try {
             // F4.9 (Sprint β-3): 공통 SignaturePayloadBuilder 위임.
-            // 기존 인라인 계산을 제거하여 인바운드/아웃바운드/프로비저닝 모두 동일 규칙 사용.
             long epochSeconds = Instant.now().getEpochSecond();
             return SignaturePayloadBuilder.computeSignature(
                     agencyCode, idempotencyKey, epochSeconds, secret);
         } catch (Exception e) {
-            log.error("[GatewayOutbound] 아웃바운드 HMAC 서명 생성 실패: agencyCode={} err={}",
-                      agencyCode, e.getMessage());
-            return null;
+            throw new IllegalStateException("아웃바운드 HMAC 서명 생성 실패: agencyCode=" + agencyCode + " — " + e.getMessage(), e);
         }
     }
 }

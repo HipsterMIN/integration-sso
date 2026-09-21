@@ -183,8 +183,8 @@ public class DiGenerationService {
         try {
             return objectMapper.readValue(diMapJson, new TypeReference<Map<String, String>>() {});
         } catch (Exception e) {
-            log.warn("[DiGeneration] di_map JSON 파싱 실패 — 빈 맵 반환: {}", e.getMessage());
-            return new HashMap<>();
+            // D2 fail-secure: 손상된 di_map 을 빈 맵으로 읽으면 기존 DI 가 유실·재발급된다 — 데이터 오류로 전파
+            throw new IllegalStateException("user_profile.di_map JSON 손상: " + e.getMessage(), e);
         }
     }
 }

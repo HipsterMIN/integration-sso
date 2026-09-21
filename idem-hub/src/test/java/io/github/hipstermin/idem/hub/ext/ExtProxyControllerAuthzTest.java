@@ -1,11 +1,13 @@
 package io.github.hipstermin.idem.hub.ext;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
@@ -101,7 +103,7 @@ class ExtProxyControllerAuthzTest {
     }
 
     @Test
-    @DisplayName("세션 없음 → 인가 헤더 미주입(fail-open 통과)")
+    @DisplayName("세션 쿠키 없음(익명) → 인가 헤더 미주입 후 통과")
     void noSession_noAuthzHeaders() {
         MockHttpServletRequest req = new MockHttpServletRequest(); // 쿠키 없음
 
@@ -114,17 +116,15 @@ class ExtProxyControllerAuthzTest {
     }
 
     @Test
-    @DisplayName("q-authz 장애여도 anti-spoof 위조 헤더는 제거(fail-open)")
-    void failOpen_stillStripsSpoofed() {
+    @DisplayName("(D2) 세션 쿠키가 있는데 세션 저장소 장애 → 헤더 없이 프록시하지 않고 IDO_DEPENDENCY_UNAVAILABLE 로 거부")
+    void sessionStoreDown_denies() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.setCookies(new Cookie("feSessionId", FE_SESSION_ID));
         req.addHeader("X-Authz-User", "attacker");
         lenient().when(feSessionService.findById(FE_SESSION_ID))
                 .thenThrow(new RuntimeException("session store down"));
 
-        HttpHeaders headers = invokeBuildForwardHeaders(req);
-
-        // 전파는 실패해도 위조 헤더는 절대 통과하지 않아야 함
-        assertThat(headers.containsKey("X-Authz-User")).isFalse();
+        assertThatThrownBy(() -> invokeBuildForwardHeaders(req))
+                .isInstanceOf(PlatformException.class);
     }
 }

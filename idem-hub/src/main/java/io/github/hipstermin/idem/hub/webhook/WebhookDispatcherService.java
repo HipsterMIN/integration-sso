@@ -412,8 +412,9 @@ public class WebhookDispatcherService {
             List<String> allowed = objectMapper.readValue(filterJson, List.class);
             return allowed.contains(eventType);
         } catch (Exception e) {
-            log.warn("[WebhookDispatcher] event_type_filter 파싱 실패, 전체 허용 처리: {}", filterJson);
-            return true;
+            // D2 fail-secure: 손상된 필터는 "전체 허용" 이 아니라 "발송 안 함" — 기관이 구독하지 않은 이벤트 유출 방지
+            log.error("[WebhookDispatcher] event_type_filter 파싱 실패 → 해당 기관 발송 보류: {}", filterJson);
+            return false;
         }
     }
 

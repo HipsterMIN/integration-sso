@@ -90,6 +90,7 @@ data:
   IDO_RATE_LIMIT_DEFAULT_TPS: {{ .Values.ido.config.IDO_RATE_LIMIT_DEFAULT_TPS | quote }}
   IDO_RATE_LIMIT_DEFAULT_DAILY: {{ .Values.ido.config.IDO_RATE_LIMIT_DEFAULT_DAILY | quote }}
   IDO_AUDIT_KAFKA_ENABLED: {{ .Values.ido.config.IDO_AUDIT_KAFKA_ENABLED | quote }}
+  IDO_QAUTHZ_ENABLED: {{ .Values.ido.config.IDO_QAUTHZ_ENABLED | quote }}
   IDO_KAFKA_PARTITION_COUNT_MAIN: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_MAIN | quote }}
   IDO_KAFKA_PARTITION_COUNT_DLQ: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_DLQ | quote }}
   IDO_KAFKA_REPLICATION_FACTOR: {{ .Values.ido.config.IDO_KAFKA_REPLICATION_FACTOR | quote }}

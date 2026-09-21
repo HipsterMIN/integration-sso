@@ -50,10 +50,24 @@ public class InternalApiKeyInterceptor implements HandlerInterceptor {
      */
     private final String internalApiKey;
 
+    private static final java.util.Set<String> HARDENED = java.util.Set.of("prod", "stage");
+
+    /** 테스트·수동 구성용 — 프로파일 강화 검사 없음 */
+    public InternalApiKeyInterceptor(String internalApiKey) {
+        this(internalApiKey, "");
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public InternalApiKeyInterceptor(
-            @Value("${qim.security.internal-api-key:}") String internalApiKey) {
+            @Value("${qim.security.internal-api-key:}") String internalApiKey,
+            @Value("${spring.profiles.active:}") String activeProfiles) {
         this.internalApiKey = internalApiKey;
 
+        // D2 fail-secure: 운영·스테이지에서 키 미설정이면 기동 거부 (런타임은 어차피 전면 401 이지만 사고를 부팅 시점에 드러낸다)
+        boolean hardened = java.util.Arrays.stream(activeProfiles.split(",")).map(String::trim).anyMatch(HARDENED::contains);
+        if (hardened && (internalApiKey == null || internalApiKey.isBlank())) {
+            throw new IllegalStateException("[InternalApiKeyInterceptor] QIM_INTERNAL_API_KEY 미설정 — 운영·스테이지에서는 기동을 거부합니다");
+        }
         // 애플리케이션 기동 시점에 키 미설정 경고
         if (internalApiKey == null || internalApiKey.isBlank()) {
             log.warn("[InternalApiKeyInterceptor] QIM_INTERNAL_API_KEY 미설정 — " +

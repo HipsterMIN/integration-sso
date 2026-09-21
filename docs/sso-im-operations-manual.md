@@ -170,6 +170,36 @@ openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 
 ---
 
+### 3.4 fail-secure 원칙과 탈출구 (D2, 2026-09-21)
+
+**원칙**: 외부 의존(Redis·DB·authz·서명키·사업자 응답)이 실패하면 **거부(503/422)하고 감사 기록**을 남긴다. "장애 시 허용" 경로는 코어에서 제거했다.
+아래 값이 비어 있으면 hub 는 **기동을 거부**한다(종전에는 경고만 남기고 떠서 사고가 런타임까지 숨었다).
+
+| 필수 값 | 용도 | 생성 |
+|---|---|---|
+| `IDO_INTERNAL_SIG_SECRET` | gate ↔ hub 내부 서명 (gate 도 prod/stage 에서 필수) | `openssl rand -hex 32` |
+| `IDO_CAST_PRIVATE_KEY` / `IDO_CAST_PUBLIC_KEY` | SSO 토큰(CAST) Ed25519 서명키 — 임시 키 자동 생성 없음 | `docs/install.md` §2 |
+| `QIM_AES_SHARED_KEY` | registry ↔ hub CI 공유키 (32바이트) | `openssl rand -base64 32` |
+| `IDO_QAUTHZ_INTERNAL_API_KEY` | hub → authz (`IDO_QAUTHZ_ENABLED=true` 일 때) | authz 의 `AUTHZ_INTERNAL_API_KEY` 와 동일 |
+| `IDO_QAUTHZ_ENABLED` | authz 를 배포하지 않는 SSO 단독 설치는 **`false` 로 명시** (조용한 폴백 없음) | — |
+
+**탈출구(escape hatch)** — 로컬·테스트 편의를 위한 플래그. `prod`/`stage` 프로파일에서는 어느 하나라도 켜져 있으면 `FailSecureBootGuard` 가 기동을 거부하고 위반 목록을 로그에 남긴다.
+
+| 플래그 | 켜면 |
+|---|---|
+| `IDO_INTERNAL_ALLOW_EMPTY_SIG_SECRET` | 내부 서명키 없이 기동 |
+| `IDO_INTERNAL_ALLOW_EMPTY_CALLERS`, `IDO_WEBHOOK_ALLOW_EMPTY_SECRET`, `ido.keycloak.allow-empty-client-secret`, `ido.ticket.allow-empty-fallback-keys` | 종전 탈출구 (그대로) |
+| `IDO_BROKER_ALLOW_CILESS_IDENTITY` | CI 없는 인증 결과를 identifierHash 로 세션 발급 (종전 PoC 폴백) |
+| `IDO_CAST_ALLOW_GENERATED_KEYS` | CAST 서명키 임시 생성 |
+| `IDO_QIM_ALLOW_EMPTY_AES_KEY` | registry 공유키 없이 기동 (복호화는 실패) |
+| `IDO_QAUTHZ_ALLOW_EMPTY_API_KEY` | authz 키 없이 기동 |
+| `ido.kms.local.allow-in-prod`, `ido.kms.vault.allow-empty-token` | KMS 우회 |
+| `IDEM_PLUGINS_MOCK_AUTH_ENABLED` | 무검증 Mock 본인확인 — 플러그인 자체가 `!prod & !stage` 프로파일에서만 로드된다 |
+
+prod/stage 에서 **반드시 true** 여야 하는 것: `IDO_AUDIT_DB_ENABLED`, `IDO_SECURITY_HEADERS_ENABLED`, `IDO_AUTH_RL_ENABLED`, `IDO_RATE_LIMIT_ENABLED`, `IDO_REDISSON_ENABLED`.
+
+**런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
+
 ## 4. 데이터베이스 운영
 
 ### 4.1 Q-IM (PostgreSQL, 스키마 `qim` — D1 부터. 종전 MariaDB 는 이관 대상)

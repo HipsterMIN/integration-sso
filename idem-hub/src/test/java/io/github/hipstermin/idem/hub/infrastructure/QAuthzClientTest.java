@@ -1,11 +1,15 @@
 package io.github.hipstermin.idem.hub.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.hipstermin.idem.common.error.PlatformErrorCode;
+import io.github.hipstermin.idem.common.error.PlatformException;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,15 +58,25 @@ class QAuthzClientTest {
     }
 
     @Test
-    @DisplayName("q-authz 장애: fail-open으로 빈 역할 반환(예외 전파 안 함)")
-    void getEffectiveRoles_failOpenOnError() {
+    @DisplayName("(D2) q-authz 장애: 빈 역할로 위장하지 않고 IDO_AUTHZ_UNAVAILABLE 로 거부")
+    void getEffectiveRoles_failSecureOnError() {
         when(qAuthzRestTemplate.exchange(
                 any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new RestClientException("connection refused"));
 
-        List<String> roles = client.getEffectiveRoles("u1", "GOV_SMES", "cid");
+        assertThatThrownBy(() -> client.getEffectiveRoles("u1", "GOV_SMES", "cid"))
+                .isInstanceOf(PlatformException.class)
+                .satisfies(e -> assertThat(((PlatformException) e).getErrorCode())
+                        .isEqualTo(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE));
+    }
 
-        assertThat(roles).isEmpty();
+    @Test
+    @DisplayName("(D2) ido.q-authz.enabled=false — 명시적 스위치: authz 호출 없이 항상 빈 역할")
+    void getEffectiveRoles_disabledExplicitly() {
+        ReflectionTestUtils.setField(client, "enabled", false);
+
+        assertThat(client.getEffectiveRoles("u1", "GOV_SMES", "cid")).isEmpty();
+        verifyNoInteractions(qAuthzRestTemplate);
     }
 
     @Test

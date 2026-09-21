@@ -267,6 +267,7 @@ ido:
       cpu: 2000m
       memory: 2Gi
   config:
+    IDO_QAUTHZ_ENABLED: "true"   # D2: authz 조회 실패 = 거부(503). authz 를 배포하지 않으면 "false" 로 명시
     IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
     SPRING_PROFILES_ACTIVE: k8s
     DB_NAME: onepass

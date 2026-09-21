@@ -72,6 +72,13 @@ public class OidcCompleteController {
     private String brokerMode;
 
     /**
+     * D2 fail-secure: CI 가 없는 요청을 identifierHash 로 "임시 사용자" 처리하던 PoC 폴백은 기본 금지.
+     * 요청 본문이 통제 가능한 값으로 영구 식별자·세션이 발급되는 경로였다. 로컬·테스트에서만 true.
+     */
+    @Value("${ido.broker.allow-ciless-identity:false}")
+    private boolean allowCilessIdentity;
+
+    /**
      * OIDC 인증 완료 후 FE 세션 발급 (q-sign 모드 전용)
      *
      * <p>q-sign이 AuthResult를 DB에 저장한 뒤 이 엔드포인트를 호출.
@@ -195,11 +202,16 @@ public class OidcCompleteController {
         String ci = req.getCi();
 
         if (ci == null || ci.isBlank()) {
-            // CI 없음: 소셜 로그인 전용 경로 또는 PoC 환경
-            // 운영 배포 전 NICE/OACX 본인인증 연동으로 CI 확보 필수
-            log.warn("[OidcComplete][P0-FALLBACK] CI 미포함 요청 — identifierHash를 임시 qimUserId로 사용. " +
-                     "운영 배포 전 반드시 CI 연동 완료 필요. " +
-                     "authResultId={} correlationId={}", req.getAuthResultId(), cid);
+            if (!allowCilessIdentity) {
+                // D2 fail-secure: 주체를 확인할 수 없으면 세션을 발급하지 않는다 (422). 소셜 전용 로그인은 S4 SPI 경로(EXTERNAL_SUB 스킴)로.
+                log.warn("[OidcComplete] CI 미포함 요청 거부 (ido.broker.allow-ciless-identity=false): authResultId={} correlationId={}",
+                        req.getAuthResultId(), cid);
+                throw new PlatformException(PlatformErrorCode.IDO_IDENTITY_UNRESOLVED, cid,
+                        "CI 없는 인증 결과로는 세션을 발급하지 않습니다");
+            }
+            // 로컬·테스트 전용 폴백 (운영 프로파일에서는 FailSecureBootGuard 가 이 플래그를 거부한다)
+            log.warn("[OidcComplete][LOCAL-ONLY] CI 미포함 요청 — identifierHash 를 임시 qimUserId 로 사용: authResultId={} correlationId={}",
+                     req.getAuthResultId(), cid);
             return req.getIdentifierHash();
         }
 

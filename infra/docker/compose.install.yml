@@ -175,6 +175,11 @@ services:
       # 내부 호출자 API 키 (F4.8) — 비면 기동 실패
       IDO_INTERNAL_API_KEY_QSIGN: ${IDO_INTERNAL_API_KEY_QSIGN:?IDO_INTERNAL_API_KEY_QSIGN 를 install.env 에 설정하세요}
       IDO_INTERNAL_API_KEY_OUTBOX: ${IDO_INTERNAL_API_KEY_OUTBOX:?IDO_INTERNAL_API_KEY_OUTBOX 를 install.env 에 설정하세요}
+      # D2 fail-secure 필수 — 없으면 hub 가 기동을 거부한다 (탈출구는 로컬 전용)
+      IDO_QAUTHZ_INTERNAL_API_KEY: ${AUTHZ_INTERNAL_API_KEY:?AUTHZ_INTERNAL_API_KEY 를 install.env 에 설정하세요}
+      IDO_CAST_PRIVATE_KEY: ${IDO_CAST_PRIVATE_KEY:?IDO_CAST_PRIVATE_KEY(Ed25519 PKCS8 DER Base64) 를 install.env 에 설정하세요}
+      IDO_CAST_PUBLIC_KEY: ${IDO_CAST_PUBLIC_KEY:?IDO_CAST_PUBLIC_KEY(Ed25519 X.509 DER Base64) 를 install.env 에 설정하세요}
+      QIM_AES_SHARED_KEY: ${QIM_AES_SHARED_KEY:?QIM_AES_SHARED_KEY(32바이트 Base64) 를 install.env 에 설정하세요}
       IDO_BROKER_MODE: ${IDO_BROKER_MODE:-qsign}
       KEYCLOAK_BASE_URL: http://keycloak:8080
       KEYCLOAK_REALM: onepass
@@ -255,7 +260,7 @@ services:
     restart: unless-stopped
     environment:
       <<: *app-common
-      AUTHZ_INTERNAL_API_KEY: ${AUTHZ_INTERNAL_API_KEY:-}
+      AUTHZ_INTERNAL_API_KEY: ${AUTHZ_INTERNAL_API_KEY:?AUTHZ_INTERNAL_API_KEY 를 install.env 에 설정하세요}
     ports:
       - "127.0.0.1:${IDEM_PORT_AUTHZ:-8086}:8086"
     networks: [idem-net]

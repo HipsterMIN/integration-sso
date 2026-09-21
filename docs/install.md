@@ -45,6 +45,16 @@ openssl rand -hex 32
 | `IDO_INTERNAL_SIG_SECRET`, `IDO_INTERNAL_API_KEY_QSIGN`, `IDO_INTERNAL_API_KEY_OUTBOX`, `QIM_INTERNAL_API_KEY`, `AUTHZ_INTERNAL_API_KEY` | 서비스 간 인증 |
 | `QSIGN_KEYCLOAK_CLIENT_SECRET`, `KEYCLOAK_CLIENT_SECRET` | Keycloak client secret — realm import 와 앱이 같은 값을 읽는다 |
 | `IDO_HANDOFF_AES_KEY`, `IDO_HANDOFF_HMAC_KEY`, `IDO_WEBHOOK_SIGNING_SECRET` | Handoff 티켓·웹훅 서명 |
+| `QIM_AES_SHARED_KEY` | registry ↔ hub CI 전달 공유키 (base64 32바이트) |
+| `IDO_CAST_PRIVATE_KEY`, `IDO_CAST_PUBLIC_KEY` | SSO 토큰(CAST) Ed25519 서명키 — 아래 명령으로 생성. (D2) 없으면 hub 가 기동을 거부한다 |
+
+```bash
+openssl genpkey -algorithm ed25519 -out cast.pem
+echo "IDO_CAST_PRIVATE_KEY=$(openssl pkey -in cast.pem -outform DER | base64 -w0)"
+echo "IDO_CAST_PUBLIC_KEY=$(openssl pkey -in cast.pem -pubout -outform DER | base64 -w0)"
+```
+
+**fail-secure (D2)**: 위 값이 하나라도 비면 해당 컨테이너는 기동하지 않는다. 로컬 개발용 탈출구(`*_ALLOW_EMPTY_*`, `IDO_CAST_ALLOW_GENERATED_KEYS` 등)는 이 설치본에서 쓰지 않으며, `prod`/`stage` 프로파일에서는 켜져 있으면 기동을 거부한다(`docs/sso-im-operations-manual.md` §3.4).
 
 `install.env` 는 `.gitignore` 에 있다. 값을 채팅·티켓·문서에 붙여넣지 않는다.
 

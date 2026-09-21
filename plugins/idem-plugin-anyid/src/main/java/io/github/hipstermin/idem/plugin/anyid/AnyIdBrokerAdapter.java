@@ -175,10 +175,9 @@ public class AnyIdBrokerAdapter implements DirectBrokerAdapter {
             String redirectUrl = root.path("redirectUrl").asText();
 
             if (txId.isBlank() || redirectUrl.isBlank()) {
-                // PoC 환경(연결 불가)에서 fallback: 더미 리다이렉트 URL 구성
-                log.warn("[AnyId-Broker] init 응답에 txId/redirectUrl 없음 — fallback URL 구성: correlationId={}",
-                        correlationId);
-                return buildFallbackRedirectUrl(provider, correlationId, callbackUrl);
+                // D2 fail-secure: 서버 측 트랜잭션 없이 "인증 화면" 을 보여 주던 로컬 팝업 폴백 제거 — 거부(502)
+                throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, correlationId,
+                        "Any-ID init 응답에 txId/redirectUrl 없음");
             }
 
             log.info("[AnyId-Broker] init 완료: txId={} correlationId={}", txId, correlationId);
@@ -187,10 +186,10 @@ public class AnyIdBrokerAdapter implements DirectBrokerAdapter {
         } catch (PlatformException e) {
             throw e;
         } catch (Exception e) {
-            // 개발 환경에서 anyid.dev 서버 연결 불가 시 fallback
-            log.warn("[AnyId-Broker] Any-ID 서버 연결 실패 — fallback URL 반환: correlationId={} err={}",
-                    correlationId, e.getMessage());
-            return buildFallbackRedirectUrl(provider, correlationId, callbackUrl);
+            // D2 fail-secure: 연결 실패는 거부(502) — 종전 로컬 popup.html 폴백은 인증 미수행 화면을 정상처럼 노출했다
+            log.error("[AnyId-Broker] Any-ID 서버 연결 실패 → 거부: correlationId={} err={}", correlationId, e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDP_PROVIDER_UNAVAILABLE, correlationId,
+                    "Any-ID 서버 연결 실패: " + e.getMessage());
         }
     }
 
@@ -427,29 +426,6 @@ public class AnyIdBrokerAdapter implements DirectBrokerAdapter {
         return sb.toString();
     }
 
-    /**
-     * 개발 환경 fallback URL — anyid.dev 서버 연결 불가 시
-     * config.anyidc.json의 ui_path 기반 로컬 시뮬레이션 URL 반환
-     */
-    private String buildFallbackRedirectUrl(String provider, String correlationId, String callbackUrl) {
-        String uiPath = switch (normalizeProvider(provider)) {
-            case "MOBILE_ID"      -> "/anyid/mid/popup.html";
-            case "EASY_SIGN"      -> "/anyid/easy/popup.html";
-            case "JOINT_CERT"     -> "/anyid/cert/popup.html";
-            case "FINANCIAL_CERT" -> "/anyid/fcert/popup.html";
-            case "PRIVATE_ID"     -> "/anyid/pid/popup.html";
-            default               -> "/anyid/easy/popup.html";
-        };
-
-        return UriComponentsBuilder
-                .fromPath(uiPath)
-                .queryParam("srvc_no",       anyIdProperties.getSrvcNo())
-                .queryParam("provider",      normalizeProvider(provider))
-                .queryParam("callback",      encodeParam(callbackUrl))
-                .queryParam("correlationId", correlationId)
-                .build(false)
-                .toUriString();
-    }
 
     /** Any-ID verify 응답에서 AuthResult 추출 */
     private AnyIdAuthResult extractAuthResult(JsonNode root, String provider, String correlationId) {

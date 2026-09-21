@@ -35,8 +35,10 @@ public class CallbackUrlValidator {
     public void validate(String requestedUrl, List<String> whitelist, String correlationId) {
         if (requestedUrl == null || requestedUrl.isBlank()) return;
         if (whitelist == null || whitelist.isEmpty()) {
-            log.debug("[CallbackValidator] whitelist 미설정 — 검증 스킵: {}", requestedUrl);
-            return;
+            // D2 fail-secure: 화이트리스트가 없으면 어떤 콜백도 허용하지 않는다 (종전 "PoC 하위호환" 스킵은 open redirect 경로)
+            log.warn("[CallbackValidator] whitelist 미설정 — 콜백 URL 거부: {}", requestedUrl);
+            throw new PlatformException(PlatformErrorCode.AGENCY_CALLBACK_BLOCKED, correlationId,
+                    "기관 콜백 URL 화이트리스트가 비어 있어 콜백을 허용하지 않습니다");
         }
 
         for (String allowed : whitelist) {

@@ -137,6 +137,9 @@
 | `KEYCLOAK_CLIENT_SECRET` | IdO Keycloak 클라이언트 시크릿 | Keycloak Admin > ido-client > Credentials |
 | `IDO_INTERNAL_SIG_SECRET` | Q-Sign ↔ IdO HMAC-SHA256 서명 키 | `openssl rand -hex 32` |
 | `IDO_HANDOFF_AES_KEY` | Handoff 암호화 AES-256-GCM 키 | `openssl rand -base64 32` |
+| `IDO_CAST_PRIVATE_KEY` / `IDO_CAST_PUBLIC_KEY` | (D2 필수) CAST Ed25519 서명키 — 미설정 시 기동 거부 | `docs/install.md` §2 |
+| `QIM_AES_SHARED_KEY` | (D2 필수) registry ↔ hub CI 공유키 | `openssl rand -base64 32` |
+| `IDO_QAUTHZ_INTERNAL_API_KEY` | (D2) hub → authz 키, `IDO_QAUTHZ_ENABLED=true` 일 때 필수 | authz `AUTHZ_INTERNAL_API_KEY` 와 동일 |
 | `IDO_HANDOFF_HMAC_KEY` | Handoff HMAC-SHA256 서명 키 | `openssl rand -base64 32` |
 | `QIM_CI_AES_KEY_V1` | CI(연계정보) AES-256 암호화 키 | KMS 또는 `openssl rand -base64 32` |
 | `QIM_DI_SECRET` | DI(중복가입확인정보) 생성 비밀키 | `openssl rand -hex 32` |

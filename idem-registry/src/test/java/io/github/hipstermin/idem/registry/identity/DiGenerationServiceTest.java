@@ -239,10 +239,11 @@ class DiGenerationServiceTest {
         }
 
         @Test
-        @DisplayName("손상된 JSON → 빈 Map 반환 (예외 전파 없음)")
-        void parseDiMap_malformedJson_returnsEmptyMap() {
-            Map<String, String> result = diService.parseDiMap("{not-valid-json");
-            assertThat(result).isNotNull().isEmpty();
+        @DisplayName("(D2) 손상된 JSON → IllegalStateException (빈 Map 으로 읽으면 기존 DI 유실·재발급)")
+        void parseDiMap_malformedJson_throws() {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> diService.parseDiMap("{not-valid-json"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("di_map");
         }
 
         @Test

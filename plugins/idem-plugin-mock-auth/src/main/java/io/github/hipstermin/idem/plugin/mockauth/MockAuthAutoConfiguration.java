@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration
 @ConditionalOnProperty(prefix = "idem.plugins.mock-auth", name = "enabled", havingValue = "true")
+@org.springframework.context.annotation.Profile("!prod & !stage") // D2 fail-secure: 운영·스테이지에서는 환경변수로도 켤 수 없다
 public class MockAuthAutoConfiguration {
 
     @Bean

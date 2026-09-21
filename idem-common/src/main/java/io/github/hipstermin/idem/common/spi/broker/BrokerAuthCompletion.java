@@ -33,7 +33,7 @@ public interface BrokerAuthCompletion {
 
     /**
      * @param authResultId 코어가 저장한 AuthResult ID
-     * @param feSessionId  발급된 FE 세션 ID (세션 발급 실패 시 임시 ID — 코어가 로그로 남긴다)
+     * @param feSessionId  발급된 FE 세션 ID (D2: 세션 발급에 실패하면 임시 ID 대신 예외 — 코어가 503 으로 거부한다)
      */
     record Result(String authResultId, String feSessionId) {
     }

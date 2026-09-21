@@ -107,8 +107,9 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
         try {
             return AuthResult.AuthLevel.valueOf(level);
         } catch (Exception e) {
-            log.warn("[AgencyMetaRepository] 알 수 없는 minAuthLevel '{}' → L1 기본값 적용", level);
-            return AuthResult.AuthLevel.L1;
+            // D2 fail-secure: 알 수 없는 값은 가장 엄격한 수준으로 (종전 L1 다운그레이드는 정책 우회 경로)
+            log.error("[AgencyMetaRepository] 알 수 없는 minAuthLevel '{}' → 최고 수준(L3) 적용. agency_meta 를 바로잡으세요", level);
+            return AuthResult.AuthLevel.L3;
         }
     }
 
@@ -117,8 +118,9 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
         try {
             return objectMapper.readValue(json, new TypeReference<List<String>>() {});
         } catch (Exception e) {
-            log.warn("[AgencyMetaRepository] JSON 파싱 실패 (빈 목록 반환): {}", e.getMessage());
-            return List.of();
+            // D2 fail-secure: 손상된 목록(콜백 화이트리스트 등)을 "없음" 으로 읽지 않는다 — 설정 오류로 전파(503).
+            // 기관 레코드를 고치기 전까지 그 기관은 사용 불가.
+            throw new IllegalStateException("agency_meta JSON 목록 손상: " + e.getMessage(), e);
         }
     }
 
@@ -128,8 +130,7 @@ public class AgencyMetaRepositoryImpl implements AgencyMetaRepository {
             return objectMapper.readValue(json,
                     new TypeReference<List<AgencyMeta.MaintenanceWindow>>() {});
         } catch (Exception e) {
-            log.warn("[AgencyMetaRepository] MaintenanceWindow JSON 파싱 실패: {}", e.getMessage());
-            return List.of();
+            throw new IllegalStateException("agency_meta maintenance_windows JSON 손상: " + e.getMessage(), e);
         }
     }
 

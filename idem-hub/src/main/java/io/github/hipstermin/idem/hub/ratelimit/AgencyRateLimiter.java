@@ -1,5 +1,7 @@
 package io.github.hipstermin.idem.hub.ratelimit;
 
+import io.github.hipstermin.idem.common.error.PlatformErrorCode;
+import io.github.hipstermin.idem.common.error.PlatformException;
 import java.time.Duration;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -162,9 +164,10 @@ public class AgencyRateLimiter {
             );
             return result != null && result == 1L;
         } catch (Exception e) {
-            log.error("[RateLimit] TPS Redis 오류 — 허용 처리 (fail-open): agencyCode={} err={}",
-                    agencyCode, e.getMessage());
-            return true; // fail-open: Redis 장애 시 허용
+            // D2 fail-secure: 쿼터를 셀 수 없으면 거부 (503) — GlobalExceptionHandler 가 응답
+            log.error("[RateLimit] TPS Redis 오류 — 안전 우선 거부: agencyCode={} err={}", agencyCode, e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_DEPENDENCY_UNAVAILABLE, null,
+                    "rate-limit backend unavailable: " + e.getMessage());
         }
     }
 
@@ -180,9 +183,9 @@ public class AgencyRateLimiter {
             );
             return result != null && result == 1L;
         } catch (Exception e) {
-            log.error("[RateLimit] Daily Redis 오류 — 허용 처리 (fail-open): agencyCode={} err={}",
-                    agencyCode, e.getMessage());
-            return true;
+            log.error("[RateLimit] Daily Redis 오류 — 안전 우선 거부: agencyCode={} err={}", agencyCode, e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_DEPENDENCY_UNAVAILABLE, null,
+                    "rate-limit backend unavailable: " + e.getMessage());
         }
     }
 

@@ -1,7 +1,8 @@
 package io.github.hipstermin.idem.hub.broker.nonoidc;
 
+import io.github.hipstermin.idem.common.error.PlatformErrorCode;
+import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.spi.broker.BrokerAuthCompletion;
-import io.github.hipstermin.idem.common.util.UuidV7;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,9 +42,11 @@ public class DirectBrokerAuthCompletion implements BrokerAuthCompletion {
                     .create(authResultId, authResultId, c.authLevel(), c.returnUrl())
                     .getFeSessionId();
         } catch (Exception e) {
-            log.warn("[DirectBrokerAuthCompletion] FeSession 생성 실패 (임시 ID 반환): cid={} err={}",
-                    c.correlationId(), e.getMessage());
-            feSessionId = UuidV7.generate();
+            // D2 fail-secure: 세션을 못 만들면 가짜 ID 를 돌려주지 않는다 (503). AuthResult 는 저장돼 있으므로 재시도 가능.
+            log.error("[DirectBrokerAuthCompletion] FeSession 생성 실패 → 거부: cid={} authResultId={} err={}",
+                    c.correlationId(), authResultId, e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_SESSION_UNAVAILABLE, c.correlationId(),
+                    "FE 세션 발급 실패: " + e.getMessage());
         }
         return new Result(authResultId, feSessionId);
     }
