@@ -244,6 +244,8 @@ curl -s http://localhost:8083/actuator/flyway | jq .
 
 ## 5. Kafka 토픽 운영
 
+> **D1-b (2026-09-21)**: Kafka 는 선택 의존이다. `IDEM_KAFKA_ENABLED`(`idem.messaging.kafka.enabled`) 기본 **false** — 브로커 없이 기동하고 hub 아웃박스는 프로세스 내 배달, 감사는 DB 만, gate·registry·relay 의 Kafka 릴레이는 정지한다(어느 흐름이 멈추는지는 `docs/install.md` §6). 이 절은 `true`(다중 인스턴스·외부 연동, `compose.sso-im*.yml`·Helm 기본) 일 때만 해당한다.
+
 ### 5.1 토픽 목록 (코드 참조)
 
 Q-IM (`idem-registry/src/main/resources/application.yml`):

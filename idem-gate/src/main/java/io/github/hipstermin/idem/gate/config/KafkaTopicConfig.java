@@ -1,8 +1,10 @@
 package io.github.hipstermin.idem.gate.config;
 
+import io.github.hipstermin.idem.common.messaging.KafkaOptional;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.config.TopicConfig;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
@@ -17,6 +19,7 @@ import org.springframework.kafka.config.TopicBuilder;
  * </pre>
  */
 @Configuration
+@ConditionalOnProperty(name = KafkaOptional.PROPERTY, havingValue = "true") // D1-b: Kafka 선택 의존
 public class KafkaTopicConfig {
 
     @Value("${qsign.kafka.topic-auth-events:qsign.auth.events}")

@@ -1,0 +1,294 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Idem 단일 설치본 (D1-b) — docs/install.md
+#
+#   PostgreSQL · Redis · Keycloak(숨김) · idem-gate · idem-registry · idem-hub · idem-authz · idem-console
+#   Kafka 없음: idem.messaging.kafka.enabled=false 로 아웃박스·감사가 DB 만으로 완결된다 (docs/generalization-plan.md D1).
+#
+#   cp infra/docker/install.env.example infra/docker/install.env      # 값 채우기 (openssl rand — install.md 2단계)
+#   docker compose --env-file infra/docker/install.env \
+#                  -f infra/docker/compose.install.yml up -d --build
+#
+# 이 파일 하나로 완결된다 (compose.base.yml 등과 겹쳐 쓰지 않는다). 기존 개발용 전체 스택(Kafka·Vault·모니터링 포함)은
+# compose.sso-im.yml / compose.sso-im-apps.yml 을 그대로 쓴다.
+# ═══════════════════════════════════════════════════════════════════════════
+name: idem
+
+x-log: &log
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+# 앱 공통 — DB·Redis·Kafka 스위치
+x-app-common: &app-common
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: onepass
+  DB_USERNAME: onepass
+  DB_PASSWORD: ${IDEM_DB_PASSWORD:?IDEM_DB_PASSWORD 를 install.env 에 설정하세요}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  IDEM_KAFKA_ENABLED: "false"
+  TZ: ${IDEM_TZ:-Asia/Seoul}
+
+networks:
+  idem-net:
+
+volumes:
+  pg-data:
+  redis-data:
+  keycloak-data:
+
+services:
+  # ── 데이터 ────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: idem-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: onepass
+      POSTGRES_PASSWORD: ${IDEM_DB_PASSWORD:?IDEM_DB_PASSWORD 를 install.env 에 설정하세요}
+      POSTGRES_DB: onepass
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/00-init-db.sql:ro   # 스키마 qsign·ido·qim·keycloak (authz 는 Flyway 가 생성)
+    ports:
+      - "127.0.0.1:${IDEM_PORT_POSTGRES:-5432}:5432"
+    networks: [idem-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onepass -d onepass"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    logging: *log
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: idem-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks: [idem-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    logging: *log
+
+  # ── 숨긴 Keycloak (표준 OIDC 발급·세션, S6 에서 프로비저닝 정식화) ─────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: idem-keycloak
+    restart: unless-stopped
+    command: start-dev --http-port=8080 --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD 를 install.env 에 설정하세요}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/onepass?currentSchema=keycloak
+      KC_DB_USERNAME: onepass
+      KC_DB_PASSWORD: ${IDEM_DB_PASSWORD}
+      KC_DB_SCHEMA: keycloak
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_PROXY: edge
+      KC_LOG_LEVEL: INFO
+      # realm-export.json 의 client secret 은 ${env.…} 로 아래 값을 읽는다 — 앱 쪽 값과 같아야 한다
+      QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET:?QSIGN_KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "127.0.0.1:${IDEM_PORT_KEYCLOAK:-8088}:8080"
+    networks: [idem-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # 이미지에 curl 이 없다 — bash 로 realm 엔드포인트 200 확인 (import 완료 = 준비됨)
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /realms/onepass HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 90s
+    logging: *log
+
+  # ── 제품 1: Idem SSO ───────────────────────────────────────────────────────
+  idem-gate:
+    build:
+      context: ../..
+      dockerfile: idem-gate/Dockerfile
+    image: idem-gate:${IDEM_VERSION:-latest}
+    container_name: idem-gate
+    restart: unless-stopped
+    environment:
+      <<: *app-common
+      IDO_BASE_URL: http://idem-hub:8083
+      IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:?IDO_INTERNAL_SIG_SECRET 를 install.env 에 설정하세요}
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: onepass
+      QSIGN_KEYCLOAK_CLIENT_ID: q-sign-client
+      QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET}
+      QSIGN_KEYCLOAK_REDIRECT_URI: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}/api/v1/oidc/keycloak/callback
+      QSIGN_INTERNAL_SIG_STRICT: "true"
+    ports:
+      - "127.0.0.1:${IDEM_PORT_GATE:-8081}:8081"
+    networks: [idem-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging: *log
+
+  idem-hub:
+    build:
+      context: ../..
+      dockerfile: idem-hub/Dockerfile
+    image: idem-hub:${IDEM_VERSION:-latest}
+    container_name: idem-hub
+    restart: unless-stopped
+    environment:
+      <<: *app-common
+      QIM_BASE_URL: http://idem-registry:8082
+      QSIGN_BASE_URL: http://idem-gate:8081
+      QAUTHZ_BASE_URL: http://idem-authz:8086
+      IDO_QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:?QIM_INTERNAL_API_KEY 를 install.env 에 설정하세요}
+      IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET}
+      # 내부 호출자 API 키 (F4.8) — 비면 기동 실패
+      IDO_INTERNAL_API_KEY_QSIGN: ${IDO_INTERNAL_API_KEY_QSIGN:?IDO_INTERNAL_API_KEY_QSIGN 를 install.env 에 설정하세요}
+      IDO_INTERNAL_API_KEY_OUTBOX: ${IDO_INTERNAL_API_KEY_OUTBOX:?IDO_INTERNAL_API_KEY_OUTBOX 를 install.env 에 설정하세요}
+      IDO_BROKER_MODE: ${IDO_BROKER_MODE:-qsign}
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_REALM: onepass
+      KEYCLOAK_CLIENT_ID: ido-client
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_REDIRECT_URI: ${IDEM_PUBLIC_URL_HUB:-http://localhost:8083}/api/v1/broker/callback
+      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:?IDO_WEBHOOK_SIGNING_SECRET 를 install.env 에 설정하세요}
+      IDO_HANDOFF_AES_KEY: ${IDO_HANDOFF_AES_KEY:?IDO_HANDOFF_AES_KEY 를 install.env 에 설정하세요}
+      IDO_HANDOFF_HMAC_KEY: ${IDO_HANDOFF_HMAC_KEY:?IDO_HANDOFF_HMAC_KEY 를 install.env 에 설정하세요}
+      CORS_ORIGIN_DEV: ${IDEM_PUBLIC_URL_CONSOLE:-http://localhost:3001}
+      CORS_ORIGIN_PROD: ${IDEM_PUBLIC_URL_CONSOLE:-http://localhost:3001}
+      # 설치 검증용 Mock 본인확인 제공자 (docs/install.md 5단계). 운영 전환 시 false 로 되돌린다
+      IDEM_PLUGINS_MOCK_AUTH_ENABLED: ${IDEM_PLUGINS_MOCK_AUTH_ENABLED:-false}
+      IDEM_PLUGINS_NICE_OACX_ENABLED: "false"
+      IDEM_PLUGINS_ANYID_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${IDEM_PORT_HUB:-8083}:8083"
+    networks: [idem-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      idem-registry:
+        condition: service_healthy
+      idem-gate:
+        condition: service_healthy
+      idem-authz:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    logging: *log
+
+  # ── 제품 2: Idem IM ────────────────────────────────────────────────────────
+  idem-registry:
+    build:
+      context: ../..
+      dockerfile: idem-registry/Dockerfile
+    image: idem-registry:${IDEM_VERSION:-latest}
+    container_name: idem-registry
+    restart: unless-stopped
+    environment:
+      <<: *app-common
+      QIM_DB_HOST: postgres
+      QIM_DB_PORT: "5432"
+      QIM_DB_NAME: onepass
+      QIM_DB_SCHEMA: qim
+      QIM_DB_USERNAME: onepass
+      QIM_DB_PASSWORD: ${IDEM_DB_PASSWORD}
+      QIM_DB_SSL: "false"
+      QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY}
+    ports:
+      - "127.0.0.1:${IDEM_PORT_REGISTRY:-8082}:8082"
+    networks: [idem-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+    logging: *log
+
+  idem-authz:
+    build:
+      context: ../..
+      dockerfile: idem-authz/Dockerfile
+    image: idem-authz:${IDEM_VERSION:-latest}
+    container_name: idem-authz
+    restart: unless-stopped
+    environment:
+      <<: *app-common
+      AUTHZ_INTERNAL_API_KEY: ${AUTHZ_INTERNAL_API_KEY:-}
+    ports:
+      - "127.0.0.1:${IDEM_PORT_AUTHZ:-8086}:8086"
+    networks: [idem-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8086/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+    logging: *log
+
+  # ── 관리 콘솔 (React + Nginx, /api → idem-hub) ─────────────────────────────
+  idem-console:
+    build:
+      context: ../..
+      dockerfile: idem-console/Dockerfile.optionB
+      target: react-nginx
+    image: idem-console:${IDEM_VERSION:-latest}
+    container_name: idem-console
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${IDEM_PORT_CONSOLE:-3001}:80"
+    networks: [idem-net]
+    depends_on:
+      idem-hub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging: *log

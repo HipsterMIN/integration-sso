@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.common.event;
 
 import lombok.Getter;
 import lombok.experimental.SuperBuilder;
+import lombok.extern.jackson.Jacksonized;
 
 /**
  * 플랫폼 전역 감사 로그 이벤트
@@ -22,6 +23,7 @@ import lombok.experimental.SuperBuilder;
  */
 @Getter
 @SuperBuilder
+@Jacksonized // D1-b: Kafka JsonDeserializer·아웃박스 프로세스 내 배달 모두 이 클래스로 역직렬화한다 (생성자만으로는 Jackson 이 만들 수 없었다)
 public class AuditLogEvent extends DomainEvent {
 
     // ── 이벤트 카테고리 상수 ───────────────────────────────────────────────

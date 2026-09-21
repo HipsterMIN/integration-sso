@@ -68,6 +68,7 @@ qsign:
       memory: 1Gi
   # 환경변수 (비민감 — ConfigMap으로 관리)
   config:
+    IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
     SPRING_PROFILES_ACTIVE: k8s
     DB_NAME: onepass
     DB_PORT: "5432"
@@ -203,6 +204,7 @@ qim:
       cpu: 1000m
       memory: 1Gi
   config:
+    IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
     SPRING_PROFILES_ACTIVE: k8s
     QIM_DB_PORT: "3306"
     QIM_DB_NAME: qim
@@ -265,6 +267,7 @@ ido:
       cpu: 2000m
       memory: 2Gi
   config:
+    IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
     SPRING_PROFILES_ACTIVE: k8s
     DB_NAME: onepass
     DB_PORT: "5432"

@@ -55,6 +55,10 @@ public class SessionAdvisoryPublisher {
     @Value("${ido.kafka.topic-session-advisory:platform.session.advisory}")
     private String advisoryTopic;
 
+    /** D1-b: Kafka 선택 의존 — 꺼지면 Kafka 를 건너뛰고 ido.outbox 에 적재, IdoOutboxRelay 가 FeAdvisoryConsumer 로 프로세스 내 배달 */
+    @Value("${idem.messaging.kafka.enabled:false}")
+    private boolean kafkaEnabled;
+
     // ── AUTH_LOCKED → MANDATORY_SECURITY_TERMINATE ────────────────────────
 
     /**
@@ -150,6 +154,11 @@ public class SessionAdvisoryPublisher {
     private void sendToKafkaWithFallback(SessionAdvisoryEvent event,
                                           String partitionKey,
                                           String correlationId) {
+        if (!kafkaEnabled) {
+            // Kafka 없음(D1-b): 아웃박스가 유일한 경로 — 릴레이가 같은 프로세스의 FeAdvisoryConsumer.handle() 로 배달
+            insertOutboxFallback(event, partitionKey);
+            return;
+        }
         try {
             kafkaTemplate.send(advisoryTopic, partitionKey, event)
                     .whenComplete((result, ex) -> {

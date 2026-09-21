@@ -67,18 +67,34 @@ public class QsignAuthEventConsumer {
             return;
         }
 
+        log.debug("[QsignAuthEventConsumer] 이벤트 수신: eventId={} type={} partition={} offset={}",
+                event.getEventId(), event.getEventType(), record.partition(), record.offset());
+
+        try {
+            handle(event);
+        } catch (Exception e) {
+            // 예외 재던짐 → Spring Kafka 재시도/DLQ 처리
+            throw e;
+        } finally {
+            ack.acknowledge();
+        }
+    }
+
+    /**
+     * 프로세스 내 진입점 (D1-b). Kafka 가 꺼진 배포에서는 {@code IdoOutboxRelay} 가 {@code ido.outbox} 의
+     * {@code qsign.auth.events} 레코드를 폴링해 이 메서드로 배달한다. 멱등 처리·타입 분기·완료 마킹은 경로와 무관하게 같다.
+     *
+     * @throws RuntimeException 처리 실패 — 호출자가 재시도(Kafka: 에러 핸들러, 아웃박스: 백오프 재예약)
+     */
+    public void handle(AuthEvent event) {
         String eventId      = event.getEventId();
         String eventType    = event.getEventType();
         String correlationId = event.getCorrelationId();
-
-        log.debug("[QsignAuthEventConsumer] 이벤트 수신: eventId={} type={} partition={} offset={}",
-                eventId, eventType, record.partition(), record.offset());
 
         try {
             // ① 멱등 처리 — 동일 이벤트 중복 소비 방지
             if (idempotentEventStore.isAlreadyProcessed(eventId, CONSUMER_GROUP)) {
                 log.debug("[QsignAuthEventConsumer] 중복 이벤트 스킵: eventId={}", eventId);
-                ack.acknowledge();
                 return;
             }
 
@@ -99,10 +115,7 @@ public class QsignAuthEventConsumer {
         } catch (Exception e) {
             log.error("[QsignAuthEventConsumer] 처리 실패: eventId={} type={} error={}",
                     eventId, eventType, e.getMessage(), e);
-            // 예외 재던짐 → Spring Kafka 재시도/DLQ 처리
             throw e;
-        } finally {
-            ack.acknowledge();
         }
     }
 

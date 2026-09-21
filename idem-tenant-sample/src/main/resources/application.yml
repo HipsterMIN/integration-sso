@@ -218,3 +218,9 @@ logging:
     io.github.hipstermin.idem.tenant: INFO
     org.springframework.kafka: WARN
     org.flywaydb: INFO
+
+# ── D1-b: Kafka 선택 의존 — 샘플은 제품 밖이지만 같은 스위치를 따른다 (false 면 Handoff/Advisory 컨슈머가 시작되지 않는다) ──
+idem:
+  messaging:
+    kafka:
+      enabled: ${IDEM_KAFKA_ENABLED:false}

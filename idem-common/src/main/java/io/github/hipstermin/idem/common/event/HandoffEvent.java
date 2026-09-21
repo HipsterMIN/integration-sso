@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.common.event;
 
 import lombok.Getter;
 import lombok.experimental.SuperBuilder;
+import lombok.extern.jackson.Jacksonized;
 
 /**
  * IdO Handoff 이벤트 (Issue / Verify / Revoke)
@@ -10,6 +11,7 @@ import lombok.experimental.SuperBuilder;
  */
 @Getter
 @SuperBuilder
+@Jacksonized // D1-b: Kafka JsonDeserializer·아웃박스 프로세스 내 배달 모두 이 클래스로 역직렬화한다 (생성자만으로는 Jackson 이 만들 수 없었다)
 public class HandoffEvent extends DomainEvent {
 
     public static final String TYPE_HANDOFF_ISSUED   = "HANDOFF_ISSUED";

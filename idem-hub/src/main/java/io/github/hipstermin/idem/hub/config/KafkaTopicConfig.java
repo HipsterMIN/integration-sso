@@ -1,8 +1,10 @@
 package io.github.hipstermin.idem.hub.config;
 
+import io.github.hipstermin.idem.common.messaging.KafkaOptional;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.config.TopicConfig;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
@@ -46,6 +48,7 @@ import org.springframework.kafka.config.TopicBuilder;
  * </pre>
  */
 @Configuration
+@ConditionalOnProperty(name = KafkaOptional.PROPERTY, havingValue = "true") // D1-b: Kafka 선택 의존 — 꺼지면 토픽 빈 없음(KafkaAdmin 접속 안 함)
 public class KafkaTopicConfig {
 
     // ── 파티션 수 (환경변수로 오버라이드 가능) ──────────────────────────

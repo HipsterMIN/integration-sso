@@ -49,6 +49,7 @@
   - `AgencyMetaJpaEntity` 의 jsonb 컬럼 3개가 `varchar` 로 바인딩되어 PostgreSQL 에서 `agency_meta` JPA 저장이 42804 로 실패 → `@JdbcTypeCode(SqlTypes.JSON)`.
   - `AesSharedKeyDecryptor` 의 `@Value` 기본값(CHANGEME 플레이스홀더)이 Base64 가 아니어서 생성자에서 예외 → 빈 키로 대체하고 경고만 남기도록 완화.
   - `HandoffTicket`(idem-common) 이 `@Builder` 만 있어 Jackson 이 역직렬화하지 못함 → Redis 에 저장한 티켓을 `findById`/`consume` 이 항상 못 찾는 결함(**Handoff 검증·멱등 재조회가 운영에서 동작하지 않던 상태**). `@Jacksonized` 추가 + 왕복 단위 테스트.
+  - (D1-b 이후) `idem.messaging.kafka.enabled` 기본 false 라 브로커 없이 기동한다 — `KafkaTemplate` 은 `DisabledKafkaTemplate`, 아웃박스는 프로세스 내 배달. 아래는 `IDEM_KAFKA_ENABLED=true` 로 켰을 때의 주의점이다.
   - 트랜잭셔널 Kafka 프로듀서(`idoProducerFactory`, 고정 `transaction-id-prefix`)는 브로커가 없으면 `@Transactional` 서비스 안의 `send()` 가 `initTransactions()` 에서 `max.block.ms`(기본 60초)만큼 요청 스레드를 붙잡는다. 통합 테스트는 `KafkaTemplate` 을 `@MockitoBean` 으로 대체. 운영에서는 Kafka 장애 시 Handoff 발급 API 지연으로 나타나므로 별도 개선 과제.
   - `handoff_audit`·`audit_log` 의 `correlation_id`/`qim_user_id`/`auth_result_id` 가 VARCHAR(36) 이라 36자를 넘는 값은 감사 이력 저장이 조용히 실패(경고 로그만). 테스트 데이터는 UUID 로 맞췄고, 클라이언트가 긴 `X-Correlation-Id` 를 보내는 경우는 별도 과제.
   - Handoff·NICE 통합 테스트 기대값이 P1(FE 세션 쿠키 필수)·Bean Validation(400) 도입 이전 상태 → FE 세션 쿠키 발급, `X-Agency-Key`(SHA-256 해시 저장), Q-IM 사용자 상태 WireMock 스텁을 갖춰 실제 200 경로를 검증하도록 갱신.

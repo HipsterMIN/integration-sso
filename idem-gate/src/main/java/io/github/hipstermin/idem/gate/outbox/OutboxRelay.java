@@ -42,6 +42,10 @@ public class OutboxRelay {
     @Value("${qsign.kafka.topic-auth-events:qsign.auth.events}")
     private String authEventsTopic;
 
+    /** D1-b: Kafka 선택 의존 — idem.messaging.kafka.enabled=false 면 파생 기본값으로 false (PENDING 은 DB 에 남는다) */
+    @Value("${qsign.outbox.relay-enabled:true}")
+    private boolean relayEnabled;
+
     /**
      * 500ms 마다 PENDING 이벤트 발행
      * §9.3 Outbox Relay: at-least-once 보장, 멱등 컨슈머가 중복 처리
@@ -49,6 +53,9 @@ public class OutboxRelay {
     @Scheduled(fixedDelayString = "${qsign.outbox.relay-interval-ms:500}")
     @Transactional
     public void relay() {
+        if (!relayEnabled) {
+            return;
+        }
         List<QSignOutboxRecord> pending = outboxRepository.findPendingBatch(batchSize);
         if (pending.isEmpty()) {
             return;

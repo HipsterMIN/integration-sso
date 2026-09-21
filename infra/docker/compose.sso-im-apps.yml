@@ -37,6 +37,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
+      IDEM_KAFKA_ENABLED: "true"   # D1-b: 이 스택은 Kafka 를 띄우므로 Kafka 경로. 없이 설치하려면 compose.install.yml
       IDO_BASE_URL: http://idem-hub:8083
       IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
       KEYCLOAK_URL: http://keycloak:8080
@@ -88,6 +89,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
+      IDEM_KAFKA_ENABLED: "true"   # D1-b: 이 스택은 Kafka 를 띄우므로 Kafka 경로. 없이 설치하려면 compose.install.yml
       QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
     ports:
       - "8082:8082"
@@ -130,6 +132,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
+      IDEM_KAFKA_ENABLED: "true"   # D1-b: 이 스택은 Kafka 를 띄우므로 Kafka 경로. 없이 설치하려면 compose.install.yml
       QIM_BASE_URL: http://idem-registry:8082
       QSIGN_BASE_URL: http://idem-gate:8081
       IDO_QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
@@ -190,6 +193,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
+      IDEM_KAFKA_ENABLED: "true"   # D1-b: 이 스택은 Kafka 를 띄우므로 Kafka 경로. 없이 설치하려면 compose.install.yml
       IDO_BASE_URL: http://idem-hub:8083
       AGENCY_API_KEY: ${AGENCY_API_KEY:-stub-api-key-dev-001}
       IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}

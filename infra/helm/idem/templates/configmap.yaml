@@ -38,6 +38,7 @@ metadata:
     app.kubernetes.io/component: q-sign
 data:
   SPRING_PROFILES_ACTIVE: {{ .Values.qsign.config.SPRING_PROFILES_ACTIVE | quote }}
+  IDEM_KAFKA_ENABLED: {{ .Values.qsign.config.IDEM_KAFKA_ENABLED | quote }}
   DB_PORT: {{ .Values.qsign.config.DB_PORT | quote }}
   DB_NAME: {{ .Values.qsign.config.DB_NAME | quote }}
   REDIS_PORT: {{ .Values.qsign.config.REDIS_PORT | quote }}
@@ -58,6 +59,7 @@ metadata:
     app.kubernetes.io/component: q-im
 data:
   SPRING_PROFILES_ACTIVE: {{ .Values.qim.config.SPRING_PROFILES_ACTIVE | quote }}
+  IDEM_KAFKA_ENABLED: {{ .Values.qim.config.IDEM_KAFKA_ENABLED | quote }}
   QIM_DB_PORT: {{ .Values.qim.config.QIM_DB_PORT | quote }}
   QIM_DB_NAME: {{ .Values.qim.config.QIM_DB_NAME | quote }}
   QIM_DB_SSL: {{ .Values.qim.config.QIM_DB_SSL | quote }}
@@ -76,6 +78,7 @@ metadata:
     app.kubernetes.io/component: ido
 data:
   SPRING_PROFILES_ACTIVE: {{ .Values.ido.config.SPRING_PROFILES_ACTIVE | quote }}
+  IDEM_KAFKA_ENABLED: {{ .Values.ido.config.IDEM_KAFKA_ENABLED | quote }}
   DB_PORT: {{ .Values.ido.config.DB_PORT | quote }}
   DB_NAME: {{ .Values.ido.config.DB_NAME | quote }}
   REDIS_PORT: {{ .Values.ido.config.REDIS_PORT | quote }}
