@@ -3,7 +3,9 @@
 > 작성 2026-09-09 · 기준 `shipster` d93cf71 (PR #221) · 요약본은 이 문서의 §0 · 요구사항 수준의 근거는 [`certification/cc-gs-gap-analysis.md`](certification/cc-gs-gap-analysis.md)
 >
 > 목표: **Idem 을 GS → CC(국내용, 통합인증 SSO 유형) 인증을 통과하는 제품으로 만든다.** 오픈소스 공개는 CC 평가판 고정 이후.
-> 구조 리팩토링(범용화)은 [`generalization-plan.md`](generalization-plan.md) 의 S1~S9 로 진행하며, S7(관리 콘솔·관리자 인증)은 이 문서의 P1 과 같은 작업이다.
+> 구조 리팩토링(범용화)은 [`generalization-plan.md`](generalization-plan.md) 로 진행하며, S7(관리 콘솔·관리자 인증)은 이 문서의 P1 과 같은 작업이다.
+>
+> **2026-09-16 결정 (generalization-plan v0.3)**: **GS 우선** — S9 의 1.0 동결이 P3(GS) 의 입력이고 P4(CC) 는 그 뒤 별도 프로젝트. **Keycloak 유지** — 설치본 안에 숨기고 토큰 발급·세션 경계만 Idem 뒤에 둔다(P0 의 "TOE 범위 고정" 은 이 전제로). P2 의 `CryptoProvider` SPI 는 generalization-plan **D2** 에서 먼저 만들고, KCMVP 모듈 교체만 P2 에 남긴다. 순서: D1 다이어트 → D2 → S8 → S7(=P1) → S6 → S9 → P3(GS).
 
 ---
 
