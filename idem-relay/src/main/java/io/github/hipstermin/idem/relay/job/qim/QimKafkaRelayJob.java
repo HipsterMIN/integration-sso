@@ -24,13 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
  * qim.outbox → qim.user.events Kafka 릴레이 배치 Job
  *
  * <h2>대상</h2>
- * Q-IM 서비스(MariaDB)의 qim.outbox 테이블 PENDING 레코드.
+ * Q-IM 서비스(PostgreSQL, 스키마 qim — D1)의 qim.outbox 테이블 PENDING 레코드.
  * 기존 {@code OutboxServiceImpl#relayPendingEvents()}를 대체.
  *
- * <h2>MariaDB FOR UPDATE SKIP LOCKED</h2>
- * MariaDB 10.6+ 부터 FOR UPDATE SKIP LOCKED 지원.
- * 이전 버전(10.3~10.5)은 SKIP LOCKED 미지원 → NOWAIT로 폴백 가능하나
- * NHN Cloud RDS MariaDB 11.x는 지원.
+ * <h2>FOR UPDATE SKIP LOCKED</h2>
+ * PostgreSQL 9.5+ 지원. (1 릴리스 호환으로 남긴 MariaDB 경로도 10.6+ 에서 같은 문법을 지원한다.)
  *
  * <h2>Snapshot 발행 (GAP-QIM-05)</h2>
  * 기존 인-프로세스 {@code OutboxServiceImpl}에서 스냅샷 발행 트리거를 포함했으나
@@ -39,10 +37,10 @@ import org.springframework.transaction.annotation.Transactional;
  * Q-IM 도메인을 직접 알 필요 없음 → Q-IM 서비스의 잔류 @Scheduled에서 처리 또는
  * Kafka Consumer에서 처리 권장.
  *
- * <h2>주의 — MariaDB 스키마</h2>
+ * <h2>주의 — qim.outbox 스키마</h2>
  * qim.outbox 테이블 구조가 ido.outbox와 다름:
  * - status: 'PENDING' / 'PUBLISHED' / 'FAILED' (동일)
- * - payload: JSON (JSONB 아님 — MariaDB에는 JSONB 없음)
+ * - payload: JSONB (PostgreSQL) — 문자열로 읽어 그대로 발행
  * - partition_key 컬럼명 확인 필요 (qim은 qimUserId)
  */
 @Slf4j
@@ -153,7 +151,6 @@ public class QimKafkaRelayJob {
 
     private void markPublished(String eventId) {
         try {
-            // MariaDB 문법: NOW() 사용 (PostgreSQL NOW()와 동일)
             qimJdbcTemplate.update("""
                     UPDATE qim.outbox
                     SET status = 'PUBLISHED', published_at = NOW()
@@ -199,9 +196,9 @@ public class QimKafkaRelayJob {
     }
 
     /**
-     * PENDING 레코드 조회 (FOR UPDATE SKIP LOCKED — MariaDB 10.6+)
+     * PENDING 레코드 조회 (FOR UPDATE SKIP LOCKED)
      *
-     * <p>MariaDB qim.outbox 스키마 기준:
+     * <p>qim.outbox 스키마 기준:
      * event_id(PK), event_type, partition_key, payload(JSON), status, retry_count
      */
     private List<QimOutboxRow> fetchPending() {

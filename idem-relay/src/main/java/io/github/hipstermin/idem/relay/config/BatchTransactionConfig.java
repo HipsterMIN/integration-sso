@@ -14,7 +14,7 @@ import org.springframework.transaction.PlatformTransactionManager;
  * <h2>트랜잭션 매니저 목록</h2>
  * <pre>
  * idoTransactionManager   → ido PostgreSQL (Primary)
- * qimTransactionManager   → q-im MariaDB
+ * qimTransactionManager   → q-im PostgreSQL(qim)
  * qsignTransactionManager → q-sign PostgreSQL
  * authzTransactionManager → q-authz PostgreSQL
  * </pre>
@@ -42,7 +42,7 @@ public class BatchTransactionConfig {
     }
 
     /**
-     * q-im MariaDB TransactionManager
+     * q-im PostgreSQL TransactionManager
      */
     @Bean(name = "qimTransactionManager")
     public PlatformTransactionManager qimTransactionManager(

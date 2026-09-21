@@ -24,14 +24,14 @@ spring:
       fail-on-unknown-properties: false   # API 클라이언트 호환성 유지
 
   # ── DataSource ──────────────────────────────────────────────
-  # [변경] PostgreSQL → MariaDB
-  # 운영: NHN Cloud RDS for MariaDB (${QIM_DB_HOST})
-  # 로컬 PoC: Docker self-hosted MariaDB 11.x (172.20.0.21:3306)
+  # D1(2026-09-21): PostgreSQL 16 — hub(ido)·gate(qsign) 와 같은 인스턴스, 스키마 qim.
+  #   QIM_DB_HOST / QIM_DB_PORT / QIM_DB_NAME / QIM_DB_USERNAME / QIM_DB_PASSWORD / QIM_DB_SCHEMA
+  # 종전 MariaDB 설치는 `--spring.profiles.active=...,mariadb` 로 1 릴리스 동안 유지 (application-mariadb.yml).
   datasource:
-    url: jdbc:mariadb://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:3306}/${QIM_DB_NAME:qim}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true&useSSL=${QIM_DB_SSL:false}
-    username: ${QIM_DB_USERNAME:qim}
-    password: ${QIM_DB_PASSWORD:qim}
-    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:postgresql://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:5432}/${QIM_DB_NAME:onepass}?currentSchema=${QIM_DB_SCHEMA:qim}&ssl=${QIM_DB_SSL:false}
+    username: ${QIM_DB_USERNAME:onepass}
+    password: ${QIM_DB_PASSWORD:onepass}
+    driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: qim-hikari
       maximum-pool-size: 20
@@ -43,8 +43,6 @@ spring:
       connection-test-query: SELECT 1
 
   # ── JPA ────────────────────────────────────────────────────
-  # [변경] PostgreSQLDialect → MariaDBDialect
-  # MariaDB는 스키마 개념 없음 → default_schema 제거, DB 자체가 qim
   jpa:
     hibernate:
       ddl-auto: validate
@@ -52,7 +50,8 @@ spring:
     open-in-view: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MariaDBDialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: ${QIM_DB_SCHEMA:qim}
         jdbc:
           time_zone: UTC
           batch_size: 50
@@ -60,11 +59,13 @@ spring:
         order_updates: true
 
   # ── Flyway ─────────────────────────────────────────────────
-  # [변경] schemas/default-schema 제거 (MariaDB는 DB = 스키마)
-  # MariaDB Flyway는 flyway-mysql 플러그인 사용 (build.gradle.kts 참조)
+  # 벤더별 스크립트 디렉터리: db/migration/postgresql (기준선) · db/migration/mariadb (종전 이력)
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    locations: classpath:db/migration/{vendor}
+    schemas: ${QIM_DB_SCHEMA:qim}
+    default-schema: ${QIM_DB_SCHEMA:qim}
+    create-schemas: true
     baseline-on-migrate: true
     baseline-version: 0
     validate-on-migrate: true

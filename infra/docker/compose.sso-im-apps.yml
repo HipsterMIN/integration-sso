@@ -78,11 +78,12 @@ services:
       com.docker.compose.service: idem-registry
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      QIM_DB_HOST: mariadb
-      QIM_DB_PORT: "3306"
-      QIM_DB_NAME: qim
-      QIM_DB_USERNAME: qim
-      QIM_DB_PASSWORD: qim
+      QIM_DB_HOST: postgres
+      QIM_DB_PORT: "5432"
+      QIM_DB_NAME: onepass
+      QIM_DB_SCHEMA: qim
+      QIM_DB_USERNAME: onepass
+      QIM_DB_PASSWORD: onepass
       QIM_DB_SSL: "false"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
@@ -94,7 +95,7 @@ services:
       idem-net:
         ipv4_address: 172.20.0.22
     depends_on:
-      mariadb:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy

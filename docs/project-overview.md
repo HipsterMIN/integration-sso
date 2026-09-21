@@ -61,7 +61,7 @@ Java 21 / Spring Boot 기반 마이크로서비스 구조이며, 컨테이너(Ku
 | 구성요소 | 역할 |
 |---|---|
 | `q-sign` | 로그인·인증 게이트웨이 (Keycloak 연계, 소셜/간편 로그인) |
-| `q-im` | 통합회원 원장 — 회원 데이터의 정본 (MariaDB) |
+| `q-im` | 통합회원 원장 — 회원 데이터의 정본 (PostgreSQL 스키마 `qim`) |
 | `ido` | 기관 연동 오케스트레이터 — 티켓(Handoff)·본인인증·웹훅·프로비저닝 중계 |
 | `q-authz` | 연합 인가 서비스 — 역할·권한 원장, SCIM 동기화 (PostgreSQL) |
 | `idem-console` | 이용자 웹 화면 (React) |
@@ -70,7 +70,7 @@ Java 21 / Spring Boot 기반 마이크로서비스 구조이며, 컨테이너(Ku
 | `agency-stub` | 기관 연동 레퍼런스(예제) 서버 |
 | `outbox-relay-batch` | 이벤트 중계 배치 — 데이터 변경을 유실 없이 전파(아웃박스 패턴) |
 
-공통 인프라: MariaDB·PostgreSQL(데이터), Redis(세션), Kafka(이벤트), Vault(암호키 관리), Prometheus·Grafana·Loki(모니터링·알람).
+공통 인프라: PostgreSQL(데이터, 엔진 1종), Redis(세션), Kafka(이벤트, 선택), Vault(암호키 관리), Prometheus·Grafana·Loki(모니터링·알람).
 
 ## 5. 다양한 기관 환경, 어떻게 연동하나
 

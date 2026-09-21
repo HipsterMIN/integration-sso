@@ -325,6 +325,14 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 - Redisson·Lettuce 이중 Redis 클라이언트 정리, 헬스체크 `readiness` 항목을 db·redis·keycloak 으로 고정.
 완료 기준: 새 환경에서 `docs/install.md` 한 장으로 30분 안에 설치·로그인. registry 통합 테스트가 PostgreSQL Testcontainers 로 CI 에서 돈다. Kafka 없이 hub·registry 가 기동해 스모크 통과.
 
+**진행 기록 (2026-09-21)** — D1-a 구현 PR (registry PostgreSQL 이관):
+- ✅ `idem-registry` 를 PostgreSQL 16 으로: hub 와 같은 인스턴스(`onepass`)의 스키마 `qim`(`QIM_DB_SCHEMA`, JDBC `currentSchema`, Flyway `schemas/create-schemas`). Flyway 스크립트를 벤더별 디렉터리(`db/migration/{vendor}`)로 나누고 `postgresql/V1__baseline_registry.sql` 에 MariaDB V1~V9 최종 스키마를 단일 기준선으로 옮겼다(DATETIME(6)→timestamptz(6), JSON→jsonb, TINYINT(1)→boolean, 부분 인덱스 `outbox(status='PENDING')`). 종전 MariaDB 는 spring profile `mariadb` 로 1 릴리스 유지(`ddl-auto=none`)
+- ✅ 코드: JSON 컬럼 3개에 `@JdbcTypeCode(SqlTypes.JSON)`(hub 와 같은 방식), 네이티브 SQL 의 `NOW(6)`→`CURRENT_TIMESTAMP`. `idem-relay` 의 qim DataSource 도 PostgreSQL(`QIM_DB_URL`/`QIM_DB_DRIVER` 로 MariaDB 호환). 드라이버·flyway-mysql·testcontainers:mariadb 는 runtimeOnly/제거
+- ✅ **부수 발견(운영 결함)**: `user_status_history` INSERT 가 PK `history_id` 를 넣지 않아 MariaDB 에서도 항상 실패하고 있었다(예외를 warn 으로 삼켜 "비치명적" 처리 → 상태 전이 이력이 한 건도 남지 않았음). Java 에서 UUID 를 넣고 PostgreSQL 기준선은 `DEFAULT gen_random_uuid()` 도 둔다
+- ✅ 테스트: `OutboxIntegrationTest`·`QimLifecycleIntegrationTest` 를 PostgreSQL Testcontainers 로(MariaDB `DATABASE()` 단정은 `current_schema()`), `MapsIdPersistRegressionTest` H2 는 `MODE=PostgreSQL`. registry 245건·relay 10건 통과(샌드박스 로컬 PostgreSQL 에 기준선 적용·`ddl-auto=validate` 통과)
+- ✅ 인프라·문서: compose 4종에서 MariaDB 서비스·볼륨·Adminer 제거, `init-db.sql` 에 `qim` 스키마, registry 컨테이너 env 를 postgres 로. 운영 매뉴얼·배포 README·개요·README 갱신. 이관 도구 `scripts/registry-db-migrate/`(테이블별 복사 + 행수·PK 순 행 해시 대조, `--verify-only`)
+- ⏭ **MariaDB 실데이터 리허설은 이 환경(MariaDB 없음)에서 못 했다** — 스테이징에서 `README.md` 절차 3 을 먼저 수행. D1 나머지(Kafka 선택 의존·제품 3개 재편·단일 설치본·`docs/install.md`)는 다음 PR
+
 ### D2 — fail-secure 전수 점검 + 암호 경계 단일화 (1~2주, v0.3 신설)
 
 CC·GS 보안 항목 모두 여기서 걸린다. TSF 는 안전하게 실패해야 한다.

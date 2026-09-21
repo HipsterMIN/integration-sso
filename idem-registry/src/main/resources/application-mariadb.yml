@@ -1,0 +1,25 @@
+# ============================================================
+# idem-registry — 종전 MariaDB 설치 호환 프로파일 (D1, 1 릴리스 유지)
+#   --spring.profiles.active=<기존 프로파일>,mariadb
+# 새 설치는 PostgreSQL(application.yml 기본값)을 쓰고, 기존 데이터는
+# scripts/registry-db-migrate/ 로 옮긴 뒤 이 프로파일을 끈다.
+# ============================================================
+spring:
+  datasource:
+    url: jdbc:mariadb://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:3306}/${QIM_DB_NAME:qim}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true&useSSL=${QIM_DB_SSL:false}
+    username: ${QIM_DB_USERNAME:qim}
+    password: ${QIM_DB_PASSWORD:qim}
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      # MariaDB 의 JSON(longtext)·DATETIME(6) 은 PostgreSQL 기준 엔티티 매핑(jsonb·timestamptz)과 이름이 달라 검증을 끈다
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+        default_schema:
+  flyway:
+    locations: classpath:db/migration/{vendor}
+    schemas:
+    default-schema:
+    create-schemas: false

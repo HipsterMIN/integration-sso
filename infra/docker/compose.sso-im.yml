@@ -1,7 +1,7 @@
 # OnePass SSO/IM stack.
 #
 # Default services are shared SSO/IM infrastructure only:
-#   postgres, mariadb, redis, vault, zookeeper, kafka, kafka-init
+#   postgres, redis, vault, zookeeper, kafka, kafka-init  (D1: mariadb 제거 — registry 도 postgres 의 qim 스키마)
 #
 # Optional profiles:
 #   keycloak : Keycloak broker
@@ -24,7 +24,6 @@ x-log-small: &log-small
 
 volumes:
   pg-data:
-  mariadb-data:
   redis-data:
   kafka-data:
   zookeeper-data:
@@ -63,38 +62,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 1g
-        reservations:
-          memory: 512m
-    logging: *log-defaults
-
-  mariadb:
-    image: mariadb:11.4
-    container_name: idem-mariadb
-    restart: unless-stopped
-    environment:
-      MARIADB_ROOT_PASSWORD: rootpass
-      MARIADB_DATABASE: qim
-      MARIADB_USER: qim
-      MARIADB_PASSWORD: qim
-      TZ: UTC
-    ports:
-      - "3306:3306"
-    volumes:
-      - mariadb-data:/var/lib/mysql
-      - ./mariadb/mariadb.cnf:/etc/mysql/conf.d/mariadb.cnf:ro
-    networks:
-      idem-net:
-        ipv4_address: 172.20.0.21
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
     deploy:
       resources:
         limits:

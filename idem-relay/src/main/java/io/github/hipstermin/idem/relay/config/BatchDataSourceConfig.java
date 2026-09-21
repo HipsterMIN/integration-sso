@@ -24,7 +24,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * │                     │          │ ido.webhook_dispatch_outbox          │
  * │                     │          │ ido.shedlock  (락 메타 테이블)        │
  * ├─────────────────────┼──────────┼─────────────────────────────────────┤
- * │ qimDataSource       │ MariaDB  │ qim.outbox                           │
+ * │ qimDataSource       │ PostgreSQL│ qim.outbox                           │
  * ├─────────────────────┼──────────┼─────────────────────────────────────┤
  * │ qsignDataSource     │ PgSQL    │ qsign.outbox                         │
  * ├─────────────────────┼──────────┼─────────────────────────────────────┤
@@ -77,7 +77,7 @@ public class BatchDataSourceConfig {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // q-im DataSource (MariaDB)
+    // q-im DataSource (PostgreSQL qim 스키마 — D1)
     // ─────────────────────────────────────────────────────────────────────
 
     @Bean
@@ -87,10 +87,10 @@ public class BatchDataSourceConfig {
     }
 
     /**
-     * q-im MariaDB DataSource
+     * q-im PostgreSQL DataSource
      *
      * <p>qim.outbox 테이블 접근 전용.
-     * q-im은 MariaDB를 사용하므로 드라이버 클래스명이 다름.
+     * D1 부터 hub 와 같은 PostgreSQL 인스턴스의 qim 스키마를 쓴다(종전 MariaDB 는 QIM_DB_URL/QIM_DB_DRIVER 로 1 릴리스 호환).
      */
     @Bean(name = "qimDataSource", destroyMethod = "close")
     public HikariDataSource qimDataSource(@Qualifier("qimHikariConfig") HikariConfig config) {

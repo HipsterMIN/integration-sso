@@ -33,7 +33,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.MariaDBContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -81,27 +81,25 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         com.fasterxml.jackson.databind.ObjectMapper.class
 })
 @DisabledIfEnvironmentVariable(named = "DOCKER_UNAVAILABLE", matches = "true")
-@DisplayName("Q-IM 회원 생명주기 E2E 통합 테스트 (Testcontainers MariaDB)")
+@DisplayName("Q-IM 회원 생명주기 E2E 통합 테스트 (Testcontainers PostgreSQL)")
 class QimLifecycleIntegrationTest {
 
     // ── Testcontainers 컨테이너 ───────────────────────────────────────────────
 
     @Container
-    static final MariaDBContainer<?> MARIA_DB =
-            new MariaDBContainer<>("mariadb:11.2")
-                    .withDatabaseName("qim")
-                    .withUsername("qim")
-                    .withPassword("qim_test_pw")
+    static final PostgreSQLContainer<?> POSTGRES =
+            new PostgreSQLContainer<>("postgres:16-alpine")
+                    .withDatabaseName("onepass")
+                    .withUsername("onepass")
+                    .withPassword("onepass")
                     .withReuse(true);
 
     @DynamicPropertySource
     static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url",      MARIA_DB::getJdbcUrl);
-        registry.add("spring.datasource.username", MARIA_DB::getUsername);
-        registry.add("spring.datasource.password", MARIA_DB::getPassword);
-        registry.add("spring.flyway.url",          MARIA_DB::getJdbcUrl);
-        registry.add("spring.flyway.user",         MARIA_DB::getUsername);
-        registry.add("spring.flyway.password",     MARIA_DB::getPassword);
+        registry.add("spring.datasource.url",      () -> POSTGRES.getJdbcUrl() + "&currentSchema=qim");
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     }
 
     // ── 외부 의존 빈 격리 (Kafka / IdO HTTP) ──────────────────────────────────
@@ -391,7 +389,7 @@ class QimLifecycleIntegrationTest {
         // INFORMATION_SCHEMA 조회로 컬럼 존재 확인
         List<String> columns = jdbcTemplate.queryForList(
                 "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
-                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_profile' " +
+                "WHERE TABLE_SCHEMA = current_schema() AND TABLE_NAME = 'user_profile' " +
                 "AND COLUMN_NAME IN ('is_minor', 'guardian_qim_user_id', 'guardian_consent_at')",
                 String.class);
 
@@ -479,7 +477,7 @@ class QimLifecycleIntegrationTest {
     void s9_1_bizMemberTableExists() {
         List<String> tables = jdbcTemplate.queryForList(
                 "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES " +
-                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'biz_member'",
+                "WHERE TABLE_SCHEMA = current_schema() AND TABLE_NAME = 'biz_member'",
                 String.class);
 
         assertThat(tables)

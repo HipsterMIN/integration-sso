@@ -242,7 +242,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
                     extra_attributes      = NULL,
                     guardian_qim_user_id  = NULL,
                     guardian_consent_at   = NULL,
-                    updated_at            = NOW(6)
+                    updated_at            = CURRENT_TIMESTAMP
                 WHERE qim_user_id = ?
                 """, qimUserId);
         log.info("[UserReg] PII 삭제 완료 (탈퇴): qimUserId={}", qimUserId);
@@ -253,9 +253,9 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         try {
             jdbcTemplate.update("""
                     INSERT INTO user_status_history
-                    (qim_user_id, status_before, status_after, changed_by, change_reason, occurred_at)
-                    VALUES (?, ?, ?, ?, ?, NOW(6))
-                    """, qimUserId, before, after, changedBy, reason);
+                    (history_id, qim_user_id, status_before, status_after, changed_by, change_reason, occurred_at)
+                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """, java.util.UUID.randomUUID().toString(), qimUserId, before, after, changedBy, reason);
         } catch (Exception e) {
             log.warn("[UserReg] 상태 이력 기록 실패 (비치명적): {}", e.getMessage());
         }
