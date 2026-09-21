@@ -70,3 +70,6 @@ __pycache__/
 
 # Idem 단일 설치본 환경 파일 (docs/install.md) — 시크릿
 infra/docker/install.env
+
+# Redis 로컬 덤프 (D0 공개 전 점검에서 추적 해제)
+dump.rdb

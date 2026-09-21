@@ -1,5 +1,7 @@
 # Idem — 회원통합·연합인가 플랫폼 (integration-sso)
 
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+
 **Idem(아이뎀)** 은 이기종 회원원장을 가진 여러 기관(테넌트)의 회원을 동일인 기준으로 하나로 묶고, 기관에는 가명 ID만 전달하며, 연합 인가(역할·권한)와 세션 핸드오프를 제공하는 **IdP 위에 얹는 회원통합·연합인가 계층**입니다.
 첫 적용 사례는 중소벤처기업부 유관기관 통합회원(중기원패스, OnePass)이며, 저장소는 2026-09-04 **Idem** 으로 개명되었습니다 — 개명 범위·매핑·미변경 항목은 [`docs/naming.md`](docs/naming.md) 참조.
 
@@ -1566,6 +1568,14 @@ docs/
 2026-05-22 정리분 23건은 `docs/_archive/2026-05-22/`로 이동되었습니다(이력은 `git mv`로 보존). 대상·이유는 [`docs/_archive/2026-05-22/README.md`](docs/_archive/2026-05-22/README.md) 참조.
 
 ---
+
+---
+
+## 라이선스
+
+Idem 은 [Apache License 2.0](LICENSE) 으로 배포됩니다. 제3자 구성요소 고지는 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md), 저작권 고지는 [`NOTICE`](NOTICE) 에 있습니다.
+관리 콘솔 프런트엔드는 SigNoz 프런트엔드(MIT)에서 파생했습니다. 벤더 SDK(NICE·OACX·Any-ID)는 이 저장소에 포함되지 않으며 각 사업자 조건을 따릅니다.
+보안 취약점 신고는 [`SECURITY.md`](SECURITY.md), 기여 안내는 [`CONTRIBUTING.md`](CONTRIBUTING.md) 를 보십시오.
 
 ---
 
