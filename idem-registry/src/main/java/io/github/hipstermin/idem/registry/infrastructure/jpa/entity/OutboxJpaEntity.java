@@ -3,6 +3,8 @@ package io.github.hipstermin.idem.registry.infrastructure.jpa.entity;
 import jakarta.persistence.*;
 import java.time.Instant;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Transactional Outbox JPA 엔터티 — MariaDB qim.outbox 테이블 매핑
@@ -41,7 +43,8 @@ public class OutboxJpaEntity {
     private Long eventVersion;
 
     /** 직렬화된 이벤트 페이로드 (JSON) */
-    @Column(name = "payload", columnDefinition = "JSON", nullable = false)
+    @JdbcTypeCode(SqlTypes.JSON) // PostgreSQL jsonb — String 을 JSON 타입으로 바인딩 (D1)
+    @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
     private String payload;
 
     /** qim.user.events 또는 qim.user.snapshot */

@@ -24,7 +24,7 @@ OnePass는 다음 5개 서비스로 구성된다(`infra/docker/docker-compose.ym
 | 서비스 | 모듈 | 포트 | DB | 비고 |
 |---|---|---|---|---|
 | Q-Sign | `idem-gate/` | 8081 | PostgreSQL `onepass` (schema: `qsign`) | 인증 결과 SoR, Keycloak OIDC 클라이언트 |
-| Q-IM | `idem-registry/` | 8082 | MariaDB 11 `qim` | 식별·매핑 SoR (회원·동의·전환·후견·CI) |
+| Q-IM | `idem-registry/` | 8082 | PostgreSQL 16 스키마 `qim` (D1: MariaDB 제거) | 식별·매핑 SoR (회원·동의·후견·CI) |
 | IdO | `idem-hub/` | 8083 | PostgreSQL `onepass` (schema: `ido`) | 정책 오케스트레이터 + FE BFF + Webhook Dispatcher |
 | Agency-Stub | `idem-tenant-sample/` | 8084 | PostgreSQL `onepass` | 유관기관 OIDC 클라이언트 시뮬레이터 |
 | React SPA | `idem-console/` | 3001 (Nginx) | — | `Dockerfile.optionB` 사용 |
@@ -34,7 +34,6 @@ OnePass는 다음 5개 서비스로 구성된다(`infra/docker/docker-compose.ym
 | 컴포넌트 | 호스트:포트 | 내부 IP |
 |---|---|---|
 | PostgreSQL 16 | 5432 | 172.20.0.10 |
-| MariaDB 11.4 | 3306 | 172.20.0.21 |
 | Redis 7.2 | 6379 | 172.20.0.11 |
 | Zookeeper | 2181 | 172.20.0.12 |
 | Kafka (Confluent 7.6.1) | 9092 (외부) / 29092 (내부) | 172.20.0.13 |
@@ -81,7 +80,7 @@ docker compose -f infra/docker/docker-compose.yml \
 ```
 
 `depends_on` + `condition: service_healthy` 가 모든 앱 서비스에 설정되어 있어
-Postgres / MariaDB / Redis / Kafka / kafka-init 가 healthy 상태가 될 때까지
+Postgres / Redis / Kafka / kafka-init 가 healthy 상태가 될 때까지
 대기 후 기동된다. `kafka-init` 컨테이너는 `kafka/create-topics.sh` 를
 한 번만 실행한 후 `service_completed_successfully` 상태로 종료된다.
 
@@ -111,7 +110,7 @@ K8s 환경에서는 `terminationGracePeriodSeconds ≥ 30s` 권장.
 
 | 환경변수 | 용도 | 부팅 차단 여부 |
 |---|---|---|
-| `QIM_DB_HOST` / `QIM_DB_PORT` / `QIM_DB_NAME` / `QIM_DB_USERNAME` / `QIM_DB_PASSWORD` | MariaDB 접속 | 연결 실패 시 Hikari 재시도 |
+| `QIM_DB_HOST` / `QIM_DB_PORT` / `QIM_DB_NAME` / `QIM_DB_SCHEMA` / `QIM_DB_USERNAME` / `QIM_DB_PASSWORD` | PostgreSQL 접속 (기본 `localhost:5432/onepass`, 스키마 `qim`). 종전 MariaDB 설치는 프로파일 `mariadb` 로 1 릴리스 유지 → `scripts/registry-db-migrate/` 로 이관 | 연결 실패 시 Hikari 재시도 |
 | `QIM_DB_SSL` | TLS 사용 여부 (`true`/`false`) | — |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis | — |
 | `KAFKA_SERVERS` | Kafka bootstrap | — |
@@ -173,7 +172,7 @@ openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 
 ## 4. 데이터베이스 운영
 
-### 4.1 Q-IM (MariaDB, DB=`qim`)
+### 4.1 Q-IM (PostgreSQL, 스키마 `qim` — D1 부터. 종전 MariaDB 는 이관 대상)
 
 마이그레이션 위치: `idem-registry/src/main/resources/db/migration/`
 
@@ -192,7 +191,7 @@ Flyway 설정: `baseline-on-migrate=true`, `validate-on-migrate=true`,
 부팅 실패한다.
 
 운영 메모:
-- MariaDB Dialect: `org.hibernate.dialect.MariaDBDialect`
+- Dialect: `org.hibernate.dialect.PostgreSQLDialect` (Flyway `db/migration/postgresql/V1__baseline_registry.sql`)
 - JDBC URL에 `serverTimezone=UTC&rewriteBatchedStatements=true` 포함
 - HikariCP: pool 최대 20, idle 5, connection-test `SELECT 1`
 
@@ -359,7 +358,7 @@ Prometheus에서 다음 메트릭을 추적(앱 자체 메트릭, `/actuator/pro
 운영 데이터베이스에서 다음 쿼리로 재시도 가능:
 
 ```sql
--- Q-IM (MariaDB)
+-- Q-IM (PostgreSQL, 스키마 qim)
 UPDATE outbox SET status='PENDING', retry_count=0, error_message=NULL
 WHERE event_id IN (...);
 
@@ -706,7 +705,7 @@ readiness probe FAIL 로 K8s가 자동으로 endpoint에서 제외한다. 단,
 - [ ] AES/HMAC 키 회전 일정 점검 (90일)
 - [ ] 기관 API Key 회전 권고 (PBKDF2 해시 갱신: `/admin/agencies/{code}/rotate-key`)
 - [ ] Keycloak / Any-ID 인증서 만료일 확인
-- [ ] Docker 이미지 보안 패치 (postgres, mariadb, kafka, keycloak, vault)
+- [ ] Docker 이미지 보안 패치 (postgres, kafka, keycloak, vault)
 
 ---
 
@@ -732,7 +731,6 @@ readiness probe FAIL 로 K8s가 자동으로 endpoint에서 제외한다. 단,
 | pgAdmin | 5050 | profile=tools |
 | Redis Insight | 5540 | |
 | PostgreSQL | 5432 | |
-| MariaDB | 3306 | |
 | Redis | 6379 | |
 | Zookeeper | 2181 | |
 | Vault | 8200 | |

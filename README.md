@@ -182,7 +182,7 @@ onepass-fe       █████████████████░░░  8
          ┌───────────┴───────────┐
          ▼                       ▼
   ┌─────────────┐       ┌─────────────────────────────────────┐
-  │ q-sign:8081 │       │  q-im:8082  (MariaDB)               │
+  │ q-sign:8081 │       │  q-im:8082  (PostgreSQL qim)        │
   │  인증 SoR    │       │  식별 SoR                           │
   │  Keycloak   │       │  회원 원장 · CI AES-256-GCM v{n}    │
   │  OIDC 브로커 │       │  ★SSO: find-by-social-sub           │
@@ -784,7 +784,6 @@ export const Logout = (): void => {
 | 서비스 | 이미지 | 용도 |
 |--------|--------|------|
 | PostgreSQL | `postgres:16-alpine` | q-sign, ido 스키마 |
-| MariaDB | `mariadb:11.4` | q-im 전용 |
 | Redis | `redis:7.2-alpine` | 세션, PKCE, 캐시, Rate Limit, NICE 토큰/세션 |
 | Kafka | `confluentinc/cp-kafka:7.6.1` | 이벤트 버스 |
 | Keycloak | `quay.io/keycloak/keycloak:24` | OIDC IdP 브로커 (SSO) |
@@ -813,7 +812,7 @@ integration-sso/
 │       ├── pkce/             # RFC 7636 PKCE
 │       └── slo/              # SLO Keycloak end_session 전파
 │
-├── idem-registry/                     # 식별 SoR (포트 8082, MariaDB)
+├── idem-registry/                     # 식별 SoR (포트 8082, PostgreSQL 스키마 qim)
 │   └── src/main/java/io/github/hipstermin/idem/registry/
 │       ├── api/
 │       │   ├── UserController.java          # ★SSO: find-by-social-sub, register-social
@@ -1103,7 +1102,7 @@ cd docker && docker compose down
 |------|---------|--------|----------------|
 | Q-Sign | PostgreSQL 16 | `qsign` | **V5** — auth_method 컬럼 |
 | IdO | PostgreSQL 16 | `ido` | **V13** — agency pattern scenarios seed |
-| Q-IM | MariaDB 11.4 | `qim` | **V4** — 소셜 SSO UNIQUE 복합 키 (`★신규`) |
+| Q-IM | PostgreSQL 16 | 스키마 `qim` | **V1 기준선**(D1, 종전 MariaDB V1~V9 통합) |
 | agency-stub | PostgreSQL 16 | `agency_stub` | **V2** — webhook + api_key |
 | **q-authz** | PostgreSQL 16 | `authz` | **V2** — authz_outbox (회수 전파 아웃박스) (`🆕`) |
 
@@ -1242,7 +1241,7 @@ cd docker && docker compose down
 ### 1. 인프라 기동
 
 ```bash
-# 기본 인프라 (PostgreSQL, MariaDB, Redis, Kafka, Keycloak)
+# 기본 인프라 (PostgreSQL, Redis, Kafka, Keycloak)
 docker compose -f infra/docker/docker-compose.yml up -d
 
 # 모니터링 스택 (Prometheus, Grafana, Loki, Promtail)

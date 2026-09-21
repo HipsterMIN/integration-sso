@@ -125,7 +125,6 @@ subprojects {
             "testImplementation"(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
             "testImplementation"("org.testcontainers:junit-jupiter")
             "testImplementation"("org.testcontainers:postgresql")
-            "testImplementation"("org.testcontainers:mariadb")
             "testImplementation"("org.testcontainers:kafka")
             "testImplementation"("org.springframework.boot:spring-boot-testcontainers")
         }

@@ -66,3 +66,4 @@ http/*.env.json
 
 # 벤더 SDK 외부 공급 디렉터리 (docs/vendor-plugin-plan.md) — 저장소에 커밋 금지
 **/vendor-libs/
+__pycache__/

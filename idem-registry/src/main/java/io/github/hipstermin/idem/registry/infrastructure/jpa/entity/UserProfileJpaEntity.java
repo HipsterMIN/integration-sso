@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import lombok.*;
 import lombok.AccessLevel;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.domain.Persistable;
 
 /**
@@ -58,7 +60,8 @@ public class UserProfileJpaEntity implements Persistable<String> {
     private String subjectKey;
 
     /** {agencyCode: DI} 기관별 DI 맵 — JSON 컬럼 */
-    @Column(name = "di_map", columnDefinition = "JSON")
+    @JdbcTypeCode(SqlTypes.JSON) // PostgreSQL jsonb — String 을 JSON 타입으로 바인딩 (D1)
+    @Column(name = "di_map", columnDefinition = "jsonb")
     private String diMap;
 
     /** 출생 연도 (일/월 제외) */
@@ -70,7 +73,8 @@ public class UserProfileJpaEntity implements Persistable<String> {
     private String gender;
 
     /** 확장 속성 (provider별) — JSON 컬럼 */
-    @Column(name = "extra_attributes", columnDefinition = "JSON")
+    @JdbcTypeCode(SqlTypes.JSON) // PostgreSQL jsonb — String 을 JSON 타입으로 바인딩 (D1)
+    @Column(name = "extra_attributes", columnDefinition = "jsonb")
     private String extraAttributes;
 
     // ── P3-05: 미성년자/보호자 ────────────────────────────────────────────────

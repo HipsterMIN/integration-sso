@@ -42,7 +42,8 @@ dependencies {
 
     // ── DB 드라이버 ──────────────────────────────────────────────────────────
     implementation("org.postgresql:postgresql")                                   // idem-hub, idem-gate
-    implementation("org.mariadb.jdbc:mariadb-java-client")                       // idem-registry
+    // D1: idem-registry 도 PostgreSQL(qim 스키마) — MariaDB 드라이버는 1 릴리스 호환용 runtimeOnly
+    runtimeOnly("org.mariadb.jdbc:mariadb-java-client")
 
     // ── Kafka Producer ──────────────────────────────────────────────────────
     implementation("org.springframework.kafka:spring-kafka")
@@ -62,7 +63,6 @@ dependencies {
     // ── Flyway (shedlock 테이블 마이그레이션 — idem-hub PostgreSQL) ─────────────────
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
-    implementation("org.flywaydb:flyway-mysql")                                  // MariaDB 마이그레이션
 
     // ── Apache HttpClient 5 — PoolingConnectionManager 기반 RestTemplate ──────
     // SimpleClientHttpRequestFactory(JDK 기본)는 커넥션 풀 없음 → 기관 동시 연결 제어 불가
@@ -77,7 +77,6 @@ dependencies {
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("com.h2database:h2")
     testImplementation("org.testcontainers:postgresql")
-    testImplementation("org.testcontainers:mariadb")
     testImplementation("org.testcontainers:kafka")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")

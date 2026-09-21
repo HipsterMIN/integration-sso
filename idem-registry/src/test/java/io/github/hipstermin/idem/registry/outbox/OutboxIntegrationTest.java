@@ -19,7 +19,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MariaDBContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -66,24 +66,21 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class OutboxIntegrationTest {
 
     @Container
-    static final MariaDBContainer<?> MARIA_DB =
-            new MariaDBContainer<>("mariadb:11.2")
-                    .withDatabaseName("qim")
-                    .withUsername("qim")
-                    .withPassword("qim_test_pw")
+    static final PostgreSQLContainer<?> POSTGRES =
+            new PostgreSQLContainer<>("postgres:16-alpine")
+                    .withDatabaseName("onepass")
+                    .withUsername("onepass")
+                    .withPassword("onepass")
                     .withReuse(true);
 
     @DynamicPropertySource
     static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url",      MARIA_DB::getJdbcUrl);
-        registry.add("spring.datasource.username", MARIA_DB::getUsername);
-        registry.add("spring.datasource.password", MARIA_DB::getPassword);
-        registry.add("spring.datasource.driver-class-name", () -> "org.mariadb.jdbc.Driver");
+        // 네이티브 SQL(unqualified) 이 qim 스키마를 보도록 currentSchema 를 URL 에 싣는다 (application.yml 과 동일)
+        registry.add("spring.datasource.url",      () -> POSTGRES.getJdbcUrl() + "&currentSchema=qim");
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
         registry.add("spring.flyway.enabled", () -> "true");
-        registry.add("spring.flyway.locations", () -> "classpath:db/migration");
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
-        registry.add("spring.jpa.properties.hibernate.dialect",
-                () -> "org.hibernate.dialect.MariaDBDialect");
     }
 
     @Autowired

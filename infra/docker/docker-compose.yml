@@ -1,18 +1,15 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # 통합인증 플랫폼 — 로컬/개발 인프라 (Docker Compose)
 #
-# [DB 분리 구조]
-#   PostgreSQL 16 (port 5432) : Q-Sign / IdO / agency-stub / Keycloak
-#   MariaDB 11    (port 3306) : Q-IM 전용
-#     → 운영: NHN Cloud RDS for MariaDB
-#     → 로컬: self-hosted MariaDB 컨테이너 (172.20.0.21)
+# [DB 구조] (D1, 2026-09-21: MariaDB 제거 — 엔진 1종)
+#   PostgreSQL 16 (port 5432) : Q-Sign(qsign) / IdO(ido) / Q-IM(qim) / agency-stub / Keycloak — 스키마로 분리
 #
 # [프로파일 구성]
 #   기본(프로파일 없음) : 인프라만 (DB / Redis / Kafka / Kafka-UI / Redis-Insight)
 #   app               : + Q-Sign / Q-IM / IdO / Agency-Stub
 #   keycloak          : + Keycloak OIDC 브로커
 #   optionB           : + React SPA (Nginx)
-#   tools             : + pgAdmin / Adminer
+#   tools             : + pgAdmin
 #   monitoring        : + Prometheus / Grafana / Loki / Promtail
 #
 # [환경변수 관리]
@@ -52,7 +49,6 @@ networks:
 
 volumes:
   pg-data:
-  mariadb-data:
   redis-data:
   kafka-data:
   zookeeper-data:
@@ -65,45 +61,7 @@ volumes:
 services:
 
   # ════════════════════════════════════════════════════════════
-  # MariaDB 11 — Q-IM 전용
-  # 운영: NHN Cloud RDS for MariaDB (system_time_zone KST 주의)
-  # 로컬: self-hosted (172.20.0.21:3306), TZ=UTC 설정
-  # Adminer: http://localhost:8091
-  # ════════════════════════════════════════════════════════════
-  mariadb:
-    image: mariadb:11.4
-    container_name: idem-mariadb
-    restart: unless-stopped
-    environment:
-      MARIADB_ROOT_PASSWORD: rootpass
-      MARIADB_DATABASE:  qim
-      MARIADB_USER:      qim
-      MARIADB_PASSWORD:  qim
-      TZ: UTC
-    ports:
-      - "3306:3306"
-    volumes:
-      - mariadb-data:/var/lib/mysql
-      - ./mariadb/mariadb.cnf:/etc/mysql/conf.d/mariadb.cnf:ro
-    networks:
-      idem-net:
-        ipv4_address: 172.20.0.21
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 1g
-        reservations:
-          memory: 512m
-    logging: *log-defaults
-
-  # ════════════════════════════════════════════════════════════
-  # PostgreSQL 16 — Q-Sign / IdO / agency-stub / Keycloak
+  # PostgreSQL 16 — Q-Sign(qsign) / IdO(ido) / Q-IM(qim, D1) / agency-stub / Keycloak
   # ════════════════════════════════════════════════════════════
   postgres:
     image: postgres:16-alpine
@@ -440,26 +398,6 @@ services:
     logging: *log-small
 
   # ════════════════════════════════════════════════════════════
-  # Adminer — MariaDB 관리 UI — http://localhost:8091
-  # profile: tools
-  # ════════════════════════════════════════════════════════════
-  adminer:
-    image: adminer:latest
-    container_name: onepass-adminer
-    restart: unless-stopped
-    ports:
-      - "8091:8080"
-    networks:
-      idem-net:
-        ipv4_address: 172.20.0.23
-    depends_on:
-      mariadb:
-        condition: service_healthy
-    profiles:
-      - tools
-    logging: *log-small
-
-  # ════════════════════════════════════════════════════════════
   # Keycloak 24.0 — OIDC 브로커 — http://localhost:8088
   # profile: keycloak
   #
@@ -586,12 +524,13 @@ services:
       com.docker.compose.service: idem-registry
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      # ── MariaDB ─────────────────────────────────────────────
-      QIM_DB_HOST:     mariadb
-      QIM_DB_PORT:     "3306"
-      QIM_DB_NAME:     qim
-      QIM_DB_USERNAME: qim
-      QIM_DB_PASSWORD: qim
+      # ── PostgreSQL (D1: hub 와 같은 인스턴스, 스키마 qim) ───────
+      QIM_DB_HOST:     postgres
+      QIM_DB_PORT:     "5432"
+      QIM_DB_NAME:     onepass
+      QIM_DB_SCHEMA:   qim
+      QIM_DB_USERNAME: onepass
+      QIM_DB_PASSWORD: onepass
       QIM_DB_SSL:      "false"
       # ── Redis / Kafka ───────────────────────────────────────
       REDIS_HOST:    redis
@@ -606,7 +545,7 @@ services:
       idem-net:
         ipv4_address: 172.20.0.22
     depends_on:
-      mariadb:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy

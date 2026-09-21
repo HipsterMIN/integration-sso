@@ -10,11 +10,9 @@
 --     · idem-hub/src/main/resources/db/migration/V*.sql
 --     · idem-gate/src/main/resources/db/migration/V*.sql
 --     · idem-tenant-sample/src/main/resources/db/migration/V*.sql
---     · q-im은 MariaDB 전용 (이 파일과 무관)
+--     · idem-registry/src/main/resources/db/migration/postgresql/V*.sql (D1 부터 PostgreSQL)
 --
--- [DB 분리 구조]
---   PostgreSQL 16 (이 컨테이너): Q-Sign / IdO / agency-stub / Keycloak
---   MariaDB 11    (별도 컨테이너): Q-IM 전용
+-- [DB 구조] PostgreSQL 16 하나: qsign / ido / qim / agency_stub / keycloak 스키마 (D1: MariaDB 제거)
 -- ──────────────────────────────────────────────────────────────────────────────
 
 -- Q-Sign 스키마 (인증 SoR)
@@ -29,4 +27,5 @@ CREATE SCHEMA IF NOT EXISTS agency_stub;
 -- Keycloak 스키마 (§10 — 테이블은 Keycloak이 자동 생성)
 CREATE SCHEMA IF NOT EXISTS keycloak;
 
--- ※ Q-IM 스키마 없음 — MariaDB(qim DB)로 분리됨
+-- Q-IM(idem-registry) 스키마 — D1 부터 PostgreSQL. Flyway(create-schemas) 도 만들지만 권한·순서 문제를 피해 여기서도 만든다
+CREATE SCHEMA IF NOT EXISTS qim;

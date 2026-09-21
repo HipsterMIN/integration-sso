@@ -35,7 +35,8 @@ import org.springframework.context.annotation.Import;
  * DB 종류와 무관하다.
  */
 @DataJpaTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:qim_mapsid;MODE=MariaDB;DB_CLOSE_DELAY=-1",
+        "spring.datasource.url=jdbc:h2:mem:qim_mapsid;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1",
+        "spring.jpa.properties.hibernate.default_schema=",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",

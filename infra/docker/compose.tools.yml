@@ -84,18 +84,3 @@ services:
     logging: *log-small
 
 
-  adminer:
-    image: adminer:latest
-    container_name: onepass-adminer
-    restart: unless-stopped
-    ports:
-      - "8091:8080"
-    networks:
-      idem-net:
-        ipv4_address: 172.20.0.23
-    depends_on:
-      mariadb:
-        condition: service_healthy
-    profiles:
-      - sso-im-tools
-    logging: *log-small

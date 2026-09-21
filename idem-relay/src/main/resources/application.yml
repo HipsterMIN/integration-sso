@@ -66,13 +66,13 @@ batch:
       max-lifetime: 1800000
       connection-test-query: SELECT 1
 
-    # ── q-im MariaDB ────────────────────────────────────────────────────────────
-    # 대상: qim.outbox
+    # ── q-im PostgreSQL (D1: MariaDB → PostgreSQL, 스키마 qim) ─────────────────
+    # 대상: qim.outbox. 종전 MariaDB 설치는 QIM_DB_URL/QIM_DB_DRIVER 로 jdbc:mariadb://… 를 주입해 1 릴리스 동안 유지
     qim:
-      jdbc-url: jdbc:mariadb://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:3306}/${QIM_DB_NAME:qim}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
-      username: ${QIM_DB_USERNAME:qim}
-      password: ${QIM_DB_PASSWORD:qim}
-      driver-class-name: org.mariadb.jdbc.Driver
+      jdbc-url: ${QIM_DB_URL:jdbc:postgresql://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:5432}/${QIM_DB_NAME:onepass}?currentSchema=${QIM_DB_SCHEMA:qim}}
+      username: ${QIM_DB_USERNAME:onepass}
+      password: ${QIM_DB_PASSWORD:onepass}
+      driver-class-name: ${QIM_DB_DRIVER:org.postgresql.Driver}
       maximum-pool-size: 5
       minimum-idle: 1
       idle-timeout: 300000

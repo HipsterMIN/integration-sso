@@ -38,7 +38,7 @@
 │ Agency-Stub(:8084) │ 유관기관 시뮬레이터 (PoC 전용)        │
 ├────────────────────┼─────────────────────────────────────┤
 │ PostgreSQL (:5432) │ Q-Sign / IdO / Agency-Stub DB        │
-│ MariaDB    (:3306) │ Q-IM 전용 DB (NHN Cloud RDS 연동)    │
+│ PostgreSQL 스키마 qim │ Q-IM (D1: MariaDB 제거, 같은 인스턴스) │
 │ Redis      (:6379) │ 세션/캐시/Rate Limit                 │
 │ Kafka      (:9092) │ 이벤트 스트리밍                      │
 │ Keycloak   (:8088) │ OIDC 브로커 (mode=keycloak 시)       │
@@ -52,7 +52,7 @@
                ↓ (내부 API, X-Internal-Api-Key)
           Q-IM(:8082)   Q-Sign(:8081)
                ↓
-          MariaDB       PostgreSQL
+                PostgreSQL
                ↓
              Redis ← → Kafka
 ```
@@ -87,8 +87,6 @@
 |------|------|
 | PostgreSQL endpoint | `rds-postgres.internal:5432` |
 | PostgreSQL 자격증명 | user/password |
-| MariaDB endpoint | `rds-mariadb.internal:3306` (NHN Cloud RDS) |
-| MariaDB 자격증명 | user/password |
 | Redis endpoint | `redis-cluster.internal:6379` |
 | Redis 비밀번호 | (있는 경우) |
 | Kafka bootstrap | `kafka1:9092,kafka2:9092,kafka3:9092` |
@@ -122,7 +120,7 @@
 | Internal | IdO | Q-IM | 8082 | 내부 API |
 | Internal | IdO | Q-Sign | 8081 | 내부 API |
 | Internal | 모든 앱 | PostgreSQL | 5432 | DB |
-| Internal | Q-IM | MariaDB | 3306 | DB |
+| Internal | Q-IM | PostgreSQL(qim 스키마) | 5432 | DB |
 | Internal | 모든 앱 | Redis | 6379 | 캐시 |
 | Internal | 모든 앱 | Kafka | 9092 | 이벤트 |
 
@@ -144,7 +142,7 @@
 | `QIM_DI_SECRET` | DI(중복가입확인정보) 생성 비밀키 | `openssl rand -hex 32` |
 | `IDO_WEBHOOK_SIGNING_SECRET` | 기관 Webhook HMAC-SHA256 서명 키 | `openssl rand -hex 32` |
 | `QIM_INBOUND_API_KEY_HASH` | Q-IM SP 수신 API 검증 PBKDF2 해시 | `infra/scripts/generate-api-key-hash.sh` |
-| DB 자격증명 | PostgreSQL / MariaDB user/password | 고객사 DBA에서 발급 |
+| DB 자격증명 | PostgreSQL user/password | 고객사 DBA에서 발급 |
 | Redis 비밀번호 | Redis AUTH (없으면 빈값) | 고객사 인프라팀 |
 
 **Secret 생성 예시 (kubectl)**:
@@ -214,7 +212,7 @@ KAFKA_BROKER=kafka:29092 KAFKA_REPLICATION_FACTOR=3 \
 | PostgreSQL | `ido` | IdO | Flyway 자동 마이그레이션 |
 | PostgreSQL | `agency_stub` | Agency-Stub | Flyway 자동 마이그레이션 |
 | PostgreSQL | `keycloak` | Keycloak | `infra/docker/init-db.sql` |
-| MariaDB | `qim` | Q-IM | Flyway 자동 마이그레이션 |
+| PostgreSQL | 스키마 `qim` | Q-IM | Flyway 자동 마이그레이션 (`db/migration/postgresql`) |
 
 **스키마 초기화 (Docker Compose)**:
 ```bash
@@ -273,7 +271,6 @@ docker compose -f infra/docker/docker-compose.yml \
 # http://localhost:9090 → Prometheus
 # http://localhost:3002 → Grafana (admin/admin)
 # http://localhost:5050 → pgAdmin
-# http://localhost:8091 → Adminer (MariaDB)
 ```
 
 ### 7.5 프론트엔드 포함 (Option B)
@@ -450,7 +447,7 @@ Secret / 환경변수
 
 DB / 인프라
 □ PostgreSQL 연결 확인 (qsign, ido, agency_stub, keycloak 스키마)
-□ MariaDB 연결 확인 (qim DB, serverTimezone=UTC 확인)
+□ PostgreSQL qim 스키마 연결 확인 (QIM_DB_SCHEMA=qim)
 □ Redis 연결 확인
 □ Kafka 연결 및 topic 생성 확인 (8개 topic + 5개 DLT)
 □ Keycloak realm-export.json과 client secret 일치 확인
@@ -548,14 +545,14 @@ kubectl get events -n onepass --sort-by='.lastTimestamp' | tail -20
 kubectl exec deployment/idem-hub -n onepass -- \
   curl -s http://localhost:8083/actuator/health | jq '.components.db'
 
-# Q-IM: MariaDB 접속 확인
+# Q-IM: PostgreSQL qim 스키마 접속 확인
 kubectl exec deployment/idem-registry -n onepass -- \
   curl -s http://localhost:8082/actuator/health | jq '.components.db'
 ```
 
-**MariaDB KST/UTC 이슈**: `serverTimezone=UTC` 설정 여부 확인
+**시각 저장은 timestamptz(UTC)** — JVM/DB 타임존과 무관
 ```
-jdbc:mariadb://host:3306/qim?serverTimezone=UTC&...
+jdbc:postgresql://host:5432/onepass?currentSchema=qim
 ```
 
 ### 13.3 Kafka 연결 실패
@@ -628,7 +625,6 @@ infra/
 │   │   └── nginx.conf            # Nginx 설정 (optionB용)
 │   ├── postgres/                 # PostgreSQL 설정
 │   ├── redis/                    # Redis 설정
-│   └── mariadb/                  # MariaDB 설정
 ├── helm/
 │   └── onepass/
 │       ├── Chart.yaml
