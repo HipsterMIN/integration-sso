@@ -1,10 +1,9 @@
 package io.github.hipstermin.idem.hub.config;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,7 +28,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * <p><b>보안 원칙</b>:
  * <ul>
  *   <li>rawKey 평문은 절대 로그·DB에 저장하지 않음</li>
- *   <li>DB 비교는 {@link MessageDigest#isEqual} 상수시간 비교로 타이밍 공격 방지</li>
+ *   <li>DB 비교는 {@code CryptoProvider.constantTimeEquals} 상수시간 비교로 타이밍 공격 방지</li>
  *   <li>키 해시 불일치 시에도 동일한 에러 메시지 반환 (정보 노출 방지)</li>
  *   <li>검증 성공 시 agencyCode 를 Request Attribute 에 저장 → 컨트롤러에서 활용</li>
  * </ul>
@@ -130,17 +129,7 @@ public class HandoffAgencyKeyInterceptor implements HandlerInterceptor {
      * SHA-256(input) → 소문자 HEX 64자
      */
     private String sha256Hex(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(64);
-            for (byte b : hash) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
+        return CryptoProviders.current().sha256Hex(input);
     }
 
     /**
@@ -152,7 +141,7 @@ public class HandoffAgencyKeyInterceptor implements HandlerInterceptor {
     private boolean constantTimeEquals(String a, String b) {
         byte[] ba = a.getBytes(StandardCharsets.UTF_8);
         byte[] bb = b.getBytes(StandardCharsets.UTF_8);
-        return MessageDigest.isEqual(ba, bb);
+        return CryptoProviders.current().constantTimeEquals(ba, bb);
     }
 
     private void sendUnauthorized(HttpServletResponse response, String errorCode) throws java.io.IOException {

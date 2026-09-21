@@ -1,1 +1,2 @@
 io.github.hipstermin.idem.common.messaging.KafkaOptionalAutoConfiguration
+io.github.hipstermin.idem.common.crypto.CryptoAutoConfiguration

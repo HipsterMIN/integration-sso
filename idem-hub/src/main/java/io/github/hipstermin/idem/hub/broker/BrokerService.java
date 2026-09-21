@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.hub.broker;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.spi.broker.DirectBrokerAdapter;
@@ -10,12 +11,9 @@ import io.github.hipstermin.idem.hub.broker.state.IdoOidcStateEntry;
 import io.github.hipstermin.idem.hub.broker.state.IdoOidcStateStore;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -383,10 +381,7 @@ public class BrokerService {
         try {
             long epochSeconds = System.currentTimeMillis() / 1000L;
             String payload = correlationId + ":" + epochSeconds;
-            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-            mac.init(new SecretKeySpec(internalSigSecret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
-            byte[] hmacBytes = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hmacBytes);
+            return CryptoProviders.current().hmacSha256Hex(internalSigSecret.getBytes(StandardCharsets.UTF_8), payload);
         } catch (Exception e) {
             log.error("[BrokerService] X-Internal-Sig HMAC 생성 실패: correlationId={}", correlationId, e);
             throw new PlatformException(PlatformErrorCode.IDP_PROVIDER_UNAVAILABLE, correlationId, e);

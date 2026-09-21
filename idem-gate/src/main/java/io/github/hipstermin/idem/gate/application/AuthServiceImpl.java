@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.gate.application;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.IdOAuthInput;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
@@ -11,11 +12,8 @@ import io.github.hipstermin.idem.common.util.UuidV7;
 import io.github.hipstermin.idem.gate.infrastructure.AuthResultRepository;
 import io.github.hipstermin.idem.gate.infrastructure.LockRepository;
 import io.github.hipstermin.idem.gate.metrics.AuthMetrics;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -194,13 +192,7 @@ public class AuthServiceImpl implements AuthService {
      * PII 비보관 원칙: 원문 input 은 이 메서드 호출 이후 참조 금지.
      */
     private String computeIdentifierHash(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new IllegalStateException("SHA-256 해시 계산 실패", e);
-        }
+        return CryptoProviders.current().sha256Hex(input);
     }
 
     private void publishAuthEvent(AuthResult result, String eventType) {

@@ -1,9 +1,9 @@
 package io.github.hipstermin.idem.hub.crypto;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.event.AuditLogEvent;
 import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
 import io.github.hipstermin.idem.hub.crypto.kms.KmsClient;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -139,8 +139,7 @@ public class HandoffKeyRotationScheduler {
     private Map<String, Object> performRotation(String adminId, String reason) {
         try {
             // 1. 새 키 생성 (AES-256 = 32 bytes, SecureRandom)
-            byte[] newKeyBytes = new byte[32];
-            new SecureRandom().nextBytes(newKeyBytes);
+            byte[] newKeyBytes = CryptoProviders.current().randomBytes(32);
 
             // 2. KMS로 DEK 암호화 — provider에 따라 자동 선택
             //    Vault:  "vault:v1:AABB..." (Transit ciphertext)

@@ -118,8 +118,8 @@
 
 ## 4. P2 — 검증필 암호모듈 (8~12주, P1 병행)
 
-- **`CryptoProvider` SPI 신설** (idem-common): `aesGcmEncrypt/Decrypt`, `hmacSha256`, `sha256`, `pbkdf2`, `randomBytes`, `sign/verify(Ed25519 또는 모듈 지원 알고리즘)`. 기본 구현은 현행 JCE.
-- **호출부 교체** — `HandoffCryptoService`, `CiCryptoServiceImpl`, `AesSharedKeyDecryptor`, `NiceCryptoUtil`, `CastTokenServiceImpl`, `SignaturePayloadBuilder`, `InternalSigVerifier`(hub/gate), `WebhookDispatcherService`, `WebhookRelayJob`, `HmacSigner`(SDK), `DiGenerationService`, `PkceService`, `ApiKeyHashUtil`, `HandoffKeyRotationScheduler`. 부록 A 인벤토리 기준 **JCE 직접 호출 0건**을 CI 로 검사(ArchUnit 또는 grep).
+- ~~**`CryptoProvider` SPI 신설**~~ **✅ 2026-09-21 generalization-plan D2-b 에서 완료** — idem-common `crypto/CryptoProvider`(AES-GCM/CBC·HMAC·SHA-256·PBKDF2·DRBG·상수시간 비교·Ed25519/RSA 서명), 기본 구현 `jca/JcaCryptoProvider`, `CryptoBoundaryGuardTest` 가 코어(common·gate·registry·hub·authz·relay)의 JCE 직접 호출 0건을 강제. P2 에 남는 것은 아래 KCMVP 어댑터·키 수명·키 회전.
+- **호출부 교체** — ✅ 코어 63곳 완료(D2-b). 남은 것: `NiceCryptoUtil`(플러그인, 벤더 규격), `HmacSigner`(SDK, 무의존), `OnePassHttpClient`(에이전트) — KCMVP 모듈 도입 시 SDK/에이전트를 모듈 경유로 할지 별도 결정.
 - **KCMVP 모듈 어댑터** — 후보 선정(JDK 21·Spring Boot 3·컨테이너 지원, 라이선스), 어댑터 구현, 모듈 자체시험 호출을 기동 시 실행.
 - **키 수명 관리** — 키 재료 `byte[]`/`char[]` + 사용 후 제로화, KMS 로부터 받은 키의 메모리 체류 최소화.
 - **키 회전** — CI 키 회전 재암호화 배치, 절차를 관리자 지침서에.

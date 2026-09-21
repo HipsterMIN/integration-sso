@@ -1,6 +1,6 @@
 package io.github.hipstermin.idem.hub.fe.session;
 
-import java.security.SecureRandom;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -27,7 +27,6 @@ public class FeSessionServiceImpl implements FeSessionService {
 
     private static final String KEY_PREFIX      = "fe:session:";
     private static final String USER_SET_PREFIX = "fe:user-sessions:";
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -195,9 +194,7 @@ public class FeSessionServiceImpl implements FeSessionService {
     // ── 내부 유틸 ─────────────────────────────────────────────────────────
 
     private String generateSessionId() {
-        byte[] bytes = new byte[32];   // 256-bit 엔트로피
-        SECURE_RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        return CryptoProviders.current().randomToken(32);   // 256-bit 엔트로피
     }
 
     @SuppressWarnings("unchecked")

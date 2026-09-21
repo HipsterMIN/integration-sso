@@ -1,6 +1,7 @@
 package io.github.hipstermin.idem.hub.gateway;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.gateway.dto.GatewayStatusResponse;
@@ -9,11 +10,7 @@ import io.github.hipstermin.idem.hub.gateway.dto.OutboundNotifyRequest;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyEndpointRecord;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyEndpointRegistryRepository;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -256,13 +253,7 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
     // ─────────────────────────────────────────────────────────────────────
 
     private String sha256Hex(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            return "sha256_unavailable";
-        }
+        return CryptoProviders.current().sha256Hex(input);
     }
 
     private String truncate(String value, int maxLen) {

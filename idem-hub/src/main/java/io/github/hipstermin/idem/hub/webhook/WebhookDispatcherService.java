@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.hub.webhook;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.event.AuditLogEvent;
 import io.github.hipstermin.idem.common.event.HandoffEvent;
 import io.github.hipstermin.idem.common.util.UuidV7;
@@ -10,8 +11,6 @@ import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -323,10 +322,7 @@ public class WebhookDispatcherService {
             }
         }
         try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(rawSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] digest = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            return "sha256=" + bytesToHex(digest);
+            return "sha256=" + CryptoProviders.current().hmacSha256Hex(rawSecret.getBytes(StandardCharsets.UTF_8), payload);
         } catch (IllegalArgumentException e) {
             throw e;   // F4.3 가드는 그대로 전파
         } catch (Exception e) {

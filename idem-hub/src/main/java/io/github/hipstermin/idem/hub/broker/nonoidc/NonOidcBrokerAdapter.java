@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.hub.broker.nonoidc;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.IdOAuthInput;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
@@ -291,13 +292,7 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
      * 실제 해싱은 NonOidcAuthService.computeIdentifierHash()에서 수행
      */
     private String computeIdentifierHashPreview(String rawIdentifier) {
-        try {
-            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(rawIdentifier.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            return java.util.HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            return "hash-preview-error";
-        }
+        return CryptoProviders.current().sha256Hex(rawIdentifier);
     }
 
     private String encodeUrl(String url) {

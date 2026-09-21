@@ -1,9 +1,7 @@
 package io.github.hipstermin.idem.hub.gateway;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import java.nio.charset.StandardCharsets;
-import java.util.HexFormat;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 
 /**
  * F4.9 — 기관-IdO 간 HMAC 서명 페이로드 생성 공통 유틸 (Sprint β-3)
@@ -106,13 +104,6 @@ public final class SignaturePayloadBuilder {
             throw new IllegalArgumentException("HMAC secret 이 비어 있습니다");
         }
         String payload = buildPayload(agencyCode, idempotencyKey, epochSeconds);
-        try {
-            Mac mac = Mac.getInstance(ALGORITHM);
-            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), ALGORITHM));
-            byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(rawHmac);
-        } catch (java.security.NoSuchAlgorithmException | java.security.InvalidKeyException e) {
-            throw new RuntimeException("HMAC " + ALGORITHM + " 계산 실패", e);
-        }
+        return CryptoProviders.current().hmacSha256Hex(secret.getBytes(StandardCharsets.UTF_8), payload); // D2-b
     }
 }

@@ -1,8 +1,7 @@
 package io.github.hipstermin.idem.hub.sso;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import java.security.*;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -84,9 +83,8 @@ public class CastKeyConfig {
             byte[] privDer = Base64.getDecoder().decode(privateKeyBase64.strip());
             byte[] pubDer  = Base64.getDecoder().decode(publicKeyBase64.strip());
 
-            KeyFactory kf = KeyFactory.getInstance("Ed25519");
-            PrivateKey privateKey = kf.generatePrivate(new PKCS8EncodedKeySpec(privDer));
-            PublicKey  publicKey  = kf.generatePublic(new X509EncodedKeySpec(pubDer));
+            PrivateKey privateKey = CryptoProviders.current().decodePrivateKey("Ed25519", privDer);
+            PublicKey  publicKey  = CryptoProviders.current().decodePublicKey("Ed25519", pubDer);
 
             log.info("[CastKeyConfig] Ed25519 키 로드 완료 (운영 설정값)");
             return new KeyPair(publicKey, privateKey);
@@ -101,15 +99,9 @@ public class CastKeyConfig {
     // ── 개발용 임시 키 생성 ────────────────────────────────────────────────
 
     private KeyPair generateDevKeyPair() {
-        try {
-            KeyPairGenerator kpg = KeyPairGenerator.getInstance("Ed25519");
-            KeyPair kp = kpg.generateKeyPair();
-            log.warn("[CastKeyConfig] ⚠️  Ed25519 임시 키페어 생성됨 — 개발 전용! " +
+        KeyPair kp = CryptoProviders.current().generateKeyPair("Ed25519");
+        log.warn("[CastKeyConfig] ⚠️  Ed25519 임시 키페어 생성됨 — 개발 전용! " +
                      "운영 환경에서는 ido.cast.private-key / public-key 를 반드시 설정하세요.");
-            return kp;
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(
-                "[CastKeyConfig] Ed25519 알고리즘 미지원 (JDK 15+ 필요): " + e.getMessage(), e);
-        }
+        return kp;
     }
 }

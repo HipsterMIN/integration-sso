@@ -1,6 +1,7 @@
 package io.github.hipstermin.idem.hub.slo;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.qim.sp.domain.InstMbrIdMapping;
@@ -188,13 +189,7 @@ public class SloServiceImpl implements SloService {
         try {
             long epochSeconds = System.currentTimeMillis() / 1000L;
             String payload = correlationId + ":" + epochSeconds;
-            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-            mac.init(new javax.crypto.spec.SecretKeySpec(
-                    internalSigSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                    "HmacSHA256"));
-            byte[] rawHmac = mac.doFinal(
-                    payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            return java.util.HexFormat.of().formatHex(rawHmac);
+            return CryptoProviders.current().hmacSha256Hex(internalSigSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8), payload);
         } catch (Exception e) {
             throw new IllegalStateException("SLO X-Internal-Sig 생성 실패: correlationId=" + correlationId + " — " + e.getMessage(), e);
         }

@@ -15,7 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-import javax.crypto.SecretKey;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -152,7 +151,8 @@ public class ConversionInitService {
     private Claims verifyAndExtractClaims(String signedRequest, String apiKey,
                                           String expectedAgencyCode, String cid) {
         try {
-            SecretKey key = Keys.hmacShaKeyFor(apiKey.getBytes(StandardCharsets.UTF_8));
+            // jjwt 가 서명을 수행한다(JWT 계층). 키 타입은 jjwt 가 소유하므로 var 로 받는다.
+            var key = Keys.hmacShaKeyFor(apiKey.getBytes(StandardCharsets.UTF_8));
 
             Claims claims = Jwts.parser()
                     .verifyWith(key)

@@ -1,9 +1,6 @@
 package io.github.hipstermin.idem.common.identity;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -102,11 +99,6 @@ public enum SubjectScheme {
     }
 
     static String sha256Hex(String input) {
-        try {
-            byte[] hash = MessageDigest.getInstance("SHA-256").digest(input.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 을 사용할 수 없습니다", e);
-        }
+        return CryptoProviders.current().sha256Hex(input); // D2-b: CryptoProvider 경유
     }
 }

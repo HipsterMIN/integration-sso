@@ -1,9 +1,9 @@
 package io.github.hipstermin.idem.authz.config;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -89,6 +89,6 @@ public class InternalApiKeyInterceptor implements HandlerInterceptor {
     private static boolean secureEquals(String expected, String actual) {
         byte[] e = expected.getBytes(StandardCharsets.UTF_8);
         byte[] a = actual.getBytes(StandardCharsets.UTF_8);
-        return MessageDigest.isEqual(e, a);
+        return CryptoProviders.current().constantTimeEquals(e, a);
     }
 }
