@@ -182,10 +182,8 @@ public class SloServiceImpl implements SloService {
      */
     private String buildInternalSig(String correlationId) {
         if (internalSigSecret == null || internalSigSecret.isBlank()) {
-            log.warn("[SLO] IDO_INTERNAL_SIG_SECRET 미설정 — X-Internal-Sig 생성 불가: correlationId={}",
-                    correlationId);
-            // 비치명적: 서명 검증은 Q-Sign 측에서 실패 → revokeKeycloakSessionSafely()가 warn만 출력
-            return "sig-unsigned";
+            // D2 fail-secure: 더미 서명("sig-unsigned")으로 SLO 실패를 숨기지 않는다
+            throw new IllegalStateException("IDO_INTERNAL_SIG_SECRET 미설정 — SLO 내부 서명 불가: correlationId=" + correlationId);
         }
         try {
             long epochSeconds = System.currentTimeMillis() / 1000L;
@@ -198,8 +196,7 @@ public class SloServiceImpl implements SloService {
                     payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             return java.util.HexFormat.of().formatHex(rawHmac);
         } catch (Exception e) {
-            log.error("[SLO] X-Internal-Sig 생성 실패: correlationId={} cause={}", correlationId, e.getMessage());
-            return "sig-error";
+            throw new IllegalStateException("SLO X-Internal-Sig 생성 실패: correlationId=" + correlationId + " — " + e.getMessage(), e);
         }
     }
 }

@@ -134,19 +134,29 @@ class AesSharedKeyDecryptorTest {
     // ─────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("CHANGEME 플레이스홀더(비 Base64) 기본값 — 생성자·validateConfiguration 은 통과, decrypt() → QimDecryptionException")
-    void constructor_placeholderDefault_doesNotThrow() throws Exception {
-        // "CHANGEME_32BYTES_BASE64_PLACEHOLDER=" 는 '_' 를 포함해 유효한 Base64 가 아니다.
-        // @Value 기본값이 그대로 들어와도 컨텍스트 기동이 실패하면 안 되고, 복호화 시점에만 실패해야 한다.
+    @DisplayName("(D2) CHANGEME 플레이스홀더 — validateConfiguration 이 기동을 거부한다 (allow-empty-aes-key=false)")
+    void validate_placeholder_rejectsBoot() {
         AesSharedKeyDecryptor placeholderDecryptor =
                 new AesSharedKeyDecryptor("CHANGEME_32BYTES_BASE64_PLACEHOLDER=", TRANSFORMATION, IV_LENGTH);
-        placeholderDecryptor.validateConfiguration();
+
+        assertThatThrownBy(placeholderDecryptor::validateConfiguration)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("placeholder");
+    }
+
+    @Test
+    @DisplayName("(D2) 빈 키 — allow-empty-aes-key=true(로컬·테스트 전용) 면 기동은 통과하되 decrypt() 는 실패")
+    void validate_emptyKey_allowedOnlyExplicitly() throws Exception {
+        AesSharedKeyDecryptor emptyDecryptor = new AesSharedKeyDecryptor("", TRANSFORMATION, IV_LENGTH, true);
+        emptyDecryptor.validateConfiguration();   // 통과 (경고만)
 
         String encrypted = encryptAesCbc("test", VALID_KEY_B64);
-
-        assertThatThrownBy(() -> placeholderDecryptor.decrypt(encrypted))
+        assertThatThrownBy(() -> emptyDecryptor.decrypt(encrypted))
                 .isInstanceOf(AesSharedKeyDecryptor.QimDecryptionException.class)
                 .hasMessageContaining("32바이트");
+
+        assertThatThrownBy(() -> new AesSharedKeyDecryptor("", TRANSFORMATION, IV_LENGTH).validateConfiguration())
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test

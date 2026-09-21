@@ -1,5 +1,7 @@
 package io.github.hipstermin.idem.hub.ext;
 
+import io.github.hipstermin.idem.common.error.PlatformErrorCode;
+import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
@@ -72,7 +74,7 @@ public class ExtProxyController {
     /** FE 세션 → qimUserId 해석 (인가 속성 전파용) */
     private final FeSessionService feSessionService;
 
-    /** 연합 인가 — 플랫폼 스코프 역할 조회 (fail-open) */
+    /** 연합 인가 — 플랫폼 스코프 역할 조회 (D2: 장애 시 503 거부) */
     private final QAuthzClient qAuthzClient;
 
     /** FE 세션 쿠키명 ({@code FeSessionController.COOKIE_NAME}와 동일) */
@@ -351,21 +353,21 @@ public class ExtProxyController {
      * 전파된 {@code X-Authz-*} 헤더로 Q-IM(또는 기관 PEP)이 세밀한 결정을 내린다.
      * 설계 원칙: 부여/배송은 플랫폼, 해석/집행은 지역.
      *
-     * <p>best-effort — 세션 없음/q-authz 장애 시 헤더를 주입하지 않고 조용히 통과시켜
-     * 프록시 기능을 막지 않는다(fail-open).
+     * <p>D2 fail-secure — 세션 쿠키가 <b>없으면</b> 익명 호출로 보고 전파하지 않는다. 세션 쿠키가 있는데 세션 저장소·authz 를
+     * 조회할 수 없으면 헤더 없이 프록시하지 않고 503 으로 거부한다(다운스트림이 "역할 헤더 없음" 을 허용으로 읽는 우회 차단).
      */
     private void injectAuthzHeaders(HttpServletRequest request, HttpHeaders headers) {
+        String feSessionId = extractFeSessionId(request);
+        if (feSessionId == null) {
+            return; // 비인증 ext 호출 — 전파 없음
+        }
+        String correlationId = request.getHeader("X-Correlation-Id");
         try {
-            String feSessionId = extractFeSessionId(request);
-            if (feSessionId == null) {
-                return; // 비인증 ext 호출 — 전파 없음
-            }
             Optional<FeSession> session = feSessionService.findById(feSessionId);
             if (session.isEmpty() || session.get().getQimUserId() == null) {
                 return;
             }
             String qimUserId = session.get().getQimUserId();
-            String correlationId = request.getHeader("X-Correlation-Id");
             List<String> roles = qAuthzClient.getEffectiveRoles(qimUserId, AUTHZ_SCOPE, correlationId);
 
             headers.set(HEADER_AUTHZ_USER, qimUserId);
@@ -373,9 +375,12 @@ public class ExtProxyController {
             headers.set(HEADER_AUTHZ_ROLES, String.join(",", roles)); // 빈 문자열 = L0(역할 없음)
             log.debug("[EXT-PROXY] 인가 속성 전파 user={} scope={} roles={}",
                     qimUserId, AUTHZ_SCOPE, roles.size());
+        } catch (PlatformException e) {
+            throw e;
         } catch (Exception e) {
-            // 전파 실패는 비치명적 — 프록시는 계속 (fail-open)
-            log.warn("[EXT-PROXY] 인가 속성 전파 실패(비치명적): {}", e.getMessage());
+            log.error("[EXT-PROXY] 인가 속성 전파 실패 → 거부(503): {}", e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_DEPENDENCY_UNAVAILABLE, correlationId,
+                    "세션·인가 조회 실패: " + e.getMessage());
         }
     }
 

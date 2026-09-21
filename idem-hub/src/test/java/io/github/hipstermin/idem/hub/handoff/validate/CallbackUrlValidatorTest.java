@@ -1,6 +1,8 @@
 package io.github.hipstermin.idem.hub.handoff.validate;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
@@ -24,7 +26,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * <p>스킵 조건:
  * <ul>
  *   <li>requestedUrl이 null 또는 blank → 검증 스킵 (예외 미발생)</li>
- *   <li>whitelist가 null 또는 empty → 검증 스킵 (PoC 하위호환)</li>
+ *   <li>whitelist가 null 또는 empty → (D2) 콜백 거부</li>
  * </ul>
  *
  * <p>차단 시: PlatformException(AGENCY_CALLBACK_BLOCKED) 발생
@@ -69,19 +71,19 @@ class CallbackUrlValidatorTest {
         }
 
         @Test
-        @DisplayName("whitelist가 null이면 검증 스킵 — PoC 하위호환")
-        void nullWhitelist_skips() {
-            assertThatCode(() ->
-                    validator.validate(BLOCKED_URL, null, CID)
-            ).doesNotThrowAnyException();
+        @DisplayName("(D2) whitelist가 null이면 콜백 거부 — AGENCY_CALLBACK_BLOCKED (종전 PoC 스킵 제거)")
+        void nullWhitelist_blocks() {
+            assertThatThrownBy(() -> validator.validate(BLOCKED_URL, null, CID))
+                    .isInstanceOf(PlatformException.class)
+                    .satisfies(e -> assertThat(((PlatformException) e).getErrorCode())
+                            .isEqualTo(PlatformErrorCode.AGENCY_CALLBACK_BLOCKED));
         }
 
         @Test
-        @DisplayName("whitelist가 빈 리스트이면 검증 스킵 — PoC 하위호환")
-        void emptyWhitelist_skips() {
-            assertThatCode(() ->
-                    validator.validate(BLOCKED_URL, Collections.emptyList(), CID)
-            ).doesNotThrowAnyException();
+        @DisplayName("(D2) whitelist가 빈 리스트이면 콜백 거부 — AGENCY_CALLBACK_BLOCKED")
+        void emptyWhitelist_blocks() {
+            assertThatThrownBy(() -> validator.validate(BLOCKED_URL, Collections.emptyList(), CID))
+                    .isInstanceOf(PlatformException.class);
         }
 
         @Test

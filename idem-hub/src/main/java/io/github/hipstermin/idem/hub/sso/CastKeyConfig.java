@@ -50,6 +50,10 @@ public class CastKeyConfig {
     @Value("${ido.cast.public-key:}")
     private String publicKeyBase64;
 
+    /** D2 fail-secure: 키 미설정 시 임시 키페어 자동 생성은 로컬·테스트에서만 (기본 false → 부팅 실패) */
+    @Value("${ido.cast.allow-generated-keys:false}")
+    private boolean allowGeneratedKeys;
+
     /**
      * Ed25519 KeyPair 빈 생성
      *
@@ -64,6 +68,11 @@ public class CastKeyConfig {
         if (privateKeyBase64 != null && !privateKeyBase64.isBlank()
                 && publicKeyBase64 != null && !publicKeyBase64.isBlank()) {
             return loadFromConfig();
+        }
+        if (!allowGeneratedKeys) {
+            throw new IllegalStateException(
+                "[CastKeyConfig] ido.cast.private-key / public-key 가 설정되지 않았습니다. 운영에서는 Ed25519 키를 주입하십시오 "
+                    + "(docs/sso-im-operations-manual.md). 로컬·테스트에서만 ido.cast.allow-generated-keys=true 로 임시 키를 허용합니다.");
         }
         return generateDevKeyPair();
     }

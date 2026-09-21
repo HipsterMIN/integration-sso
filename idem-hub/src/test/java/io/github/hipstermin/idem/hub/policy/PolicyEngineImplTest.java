@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.HandoffPayload;
 import io.github.hipstermin.idem.common.domain.HandoffTicket;
+import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.identity.CoreSubjectSchemes;
@@ -73,6 +75,8 @@ class PolicyEngineImplTest {
         // 기본: 기관 프로파일 없음(S4: 스킴 PAIRWISE_HMAC · 속성 선언 없음 = 빈 attributes), userStatusCache 없음
         // (serviceProfileService.find 는 Mockito 기본값 Optional.empty)
         given(userStatusCache.get(anyString())).willReturn(Optional.empty());
+        // D2: 캐시 미스면 정본(Q-IM) 조회 — 실패 시 거부. 기본 스텁은 ACTIVE
+        lenient().when(qimClient.getUserStatus(anyString(), anyString())).thenReturn(UserStatus.ACTIVE);
     }
 
     private HandoffTicket buildTicket() {

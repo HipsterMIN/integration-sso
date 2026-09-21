@@ -28,9 +28,23 @@ public class InternalApiKeyInterceptor implements HandlerInterceptor {
 
     private final String internalApiKey;
 
+    private static final java.util.Set<String> HARDENED = java.util.Set.of("prod", "stage");
+
+    /** 테스트·수동 구성용 — 프로파일 강화 검사 없음 */
+    public InternalApiKeyInterceptor(String internalApiKey) {
+        this(internalApiKey, "");
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public InternalApiKeyInterceptor(
-            @Value("${authz.security.internal-api-key:}") String internalApiKey) {
+            @Value("${authz.security.internal-api-key:}") String internalApiKey,
+            @Value("${spring.profiles.active:}") String activeProfiles) {
         this.internalApiKey = internalApiKey;
+        // D2 fail-secure: 운영·스테이지에서 키 미설정이면 기동 거부
+        boolean hardened = java.util.Arrays.stream(activeProfiles.split(",")).map(String::trim).anyMatch(HARDENED::contains);
+        if (hardened && (internalApiKey == null || internalApiKey.isBlank())) {
+            throw new IllegalStateException("[InternalApiKeyInterceptor] AUTHZ_INTERNAL_API_KEY 미설정 — 운영·스테이지에서는 기동을 거부합니다");
+        }
         if (internalApiKey == null || internalApiKey.isBlank()) {
             log.warn("[InternalApiKeyInterceptor] AUTHZ_INTERNAL_API_KEY 미설정 — " +
                      "모든 /api/v1/internal/** 요청이 401로 거부됩니다. 운영 환경에서 반드시 설정하십시오.");

@@ -126,11 +126,7 @@ qsign:
     # X-Internal-Sig HMAC-SHA256 공유 비밀키 (ido와 동일 값, IDO_INTERNAL_SIG_SECRET 필수)
     internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:}
     internal-sig-ttl-seconds: 60
-    # GAP-QS-04: broker-input 수신 측 서명 검증 strict 모드
-    # [P1 수정] 기본값 false → true 로 변경 (운영 안전 기본값)
-    # true(운영): HMAC 불일치 시 403 반환 ← 운영 필수
-    # false(PoC): 경고 로그 후 통과 ← 개발 환경에서만 QSIGN_INTERNAL_SIG_STRICT=false 로 오버라이드
-    internal-sig-strict-mode: ${QSIGN_INTERNAL_SIG_STRICT:true}
+    # (D2) internal-sig-strict-mode 는 삭제됨 — 서명 검증은 항상 strict (non-strict 경로 없음). QSIGN_INTERNAL_SIG_STRICT 는 무시된다.
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
   # Kafka 토픽

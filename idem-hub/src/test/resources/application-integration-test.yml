@@ -26,6 +26,7 @@ spring:
 
 ido:
   qim:
+    allow-empty-aes-key: true      # D2 테스트 전용 탈출구
     base-url: http://localhost:8082
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
@@ -49,6 +50,7 @@ ido:
   # Sprint β-2 / F4.8 — 통합 테스트에서는 internal caller 등록 없이 컨텍스트 기동 허용
   internal:
     allow-empty-callers: true
+    allow-empty-sig-secret: true   # D2: 테스트 컨텍스트는 내부 서명 비밀키 없이 기동
   # Sprint γ-1 / F2.1 — 통합 테스트에서는 keycloak.client-secret 미주입 허용
   keycloak:
     allow-empty-client-secret: true
@@ -78,6 +80,12 @@ ido:
       timeout-seconds: 10
 
 # 범용화 S4 — CI 없는 스킴(EMAIL) 으로 Mock 인증 → registry 등록 → Handoff 를 검증하기 위해 Mock 제공자를 켠다 (운영 금지)
+  broker:
+    allow-ciless-identity: true    # D2 테스트 전용 탈출구
+  cast:
+    allow-generated-keys: true     # D2 테스트 전용 탈출구
+  q-authz:
+    enabled: false                 # D2: 테스트는 authz 없이
 idem:
   plugins:
     mock-auth:

@@ -42,9 +42,4 @@ management:
         readiness:
           include: readinessState
 
-# ── 4. 내부 서명 strict 모드 — 운영 강제 ─────────────────────────────────────
-# X-Internal-Sig HMAC 검증 strict 모드를 환경변수와 무관하게 prod에서 강제.
-# 기본값(application.yml)도 이미 true이지만 운영 의도를 본 파일에 명시한다.
-qsign:
-  ido:
-    internal-sig-strict-mode: true
+# ── 4. 내부 서명 — 항상 strict (D2: non-strict 경로·설정 키 삭제). prod/stage 에서는 InternalSigVerifier 가 비밀키 미설정 시 기동을 거부한다 ──

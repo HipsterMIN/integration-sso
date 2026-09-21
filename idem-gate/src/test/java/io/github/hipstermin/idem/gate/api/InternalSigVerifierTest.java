@@ -310,7 +310,20 @@ class InternalSigVerifierTest {
     class StartupValidation {
 
         @Test
-        @DisplayName("validateSigSecret() 은 예외를 던지지 않는다 (경고 로그만)")
+        @DisplayName("(D2) prod/stage 프로파일에서 비밀키 미설정·공개 기본값이면 validateSigSecret() 이 기동을 거부한다")
+        void hardened_prod_rejectsMissingSecret() {
+            ReflectionTestUtils.setField(verifier, "activeProfiles", "prod");
+            ReflectionTestUtils.setField(verifier, "sigSecret", "");
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(verifier, "validateSigSecret"))
+                    .isInstanceOf(IllegalStateException.class);
+            ReflectionTestUtils.setField(verifier, "sigSecret", "ido-internal-secret");
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(verifier, "validateSigSecret"))
+                    .isInstanceOf(IllegalStateException.class);
+            ReflectionTestUtils.setField(verifier, "activeProfiles", "");
+        }
+
+        @Test
+        @DisplayName("validateSigSecret() 은 예외를 던지지 않는다 (경고 로그만) — 비강화 프로파일")
         void validateSigSecret_doesNotThrow_evenIfSecretInsecure() {
             // 1) 정상 secret
             ReflectionTestUtils.setField(verifier, "sigSecret", VALID_SECRET);

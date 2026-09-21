@@ -76,7 +76,8 @@ public class KeycloakCallbackService {
     @Value("${qsign.ido.base-url:http://localhost:8083}")
     private String idoBaseUrl;
 
-    @Value("${qsign.ido.internal-sig-secret:ido-internal-secret}")
+    // D2: 종전 기본값 "ido-internal-secret"(공개 문자열) 으로 실제 서명하던 결함 제거 — 비면 InternalSigVerifier 가드가 처리
+    @Value("${qsign.ido.internal-sig-secret:}")
     private String internalSigSecret;
 
     // ── 공개 진입점 ─────────────────────────────────────────────────────────

@@ -1,13 +1,19 @@
 package io.github.hipstermin.idem.hub.ratelimit;
 
+import io.github.hipstermin.idem.common.event.AuditLogEvent;
+import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.serializer.GenericToStringSerializer;
+import org.springframework.data.redis.serializer.RedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -38,9 +44,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * <p><b>IP 추출 우선순위</b>:
  * X-Forwarded-For → X-Real-IP → RemoteAddr (Nginx 리버스 프록시 환경 고려)
  *
- * <p><b>fail-open 정책</b>:
- * Redis 장애 시 모든 요청을 허용 (서비스 가용성 우선).
- * 장애 발생 시 경고 로그 남김.
+ * <p><b>장애 정책 (D2 fail-secure)</b>:
+ * Redis 를 셀 수 없으면 인증 API 요청을 503 으로 거부하고 감사 기록을 남긴다. 종전의 "장애 시 전부 허용" 은
+ * Lua 인자 직렬화 결함과 결합해 레이트리밋을 상시 무력화하고 있었다.
  *
  * <p><b>응답 헤더</b>:
  * {@code X-RateLimit-Limit}, {@code X-RateLimit-Remaining},
@@ -71,7 +77,21 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
             return cur
             """;
 
+    /**
+     * D2: Lua ARGV 는 문자열 그대로 보낸다. RedisTemplate 기본 값 직렬화기(JSON)를 쓰면 "20" 이 {@code "\"20\""} 로 전달되어
+     * {@code tonumber(ARGV[2])} 가 nil → EXPIRE 실패 → 예외 → 종전 fail-open 으로 레이트리밋이 상시 무력화되어 있었다
+     * (AgencyRateLimiter 는 2026-09-08 에 고쳤으나 이 클래스는 누락).
+     */
+    private static final RedisSerializer<String> LUA_ARGS_SERIALIZER   = new StringRedisSerializer();
+    private static final RedisSerializer<Long>   LUA_RESULT_SERIALIZER = new GenericToStringSerializer<>(Long.class);
+
+    /** Redis 장애 시 카운터를 셀 수 없다는 뜻 — D2: 통과가 아니라 거부(503)+감사 */
+    static final class RateLimitBackendUnavailable extends RuntimeException {
+        RateLimitBackendUnavailable(String message, Throwable cause) { super(message, cause); }
+    }
+
     private final RedisTemplate<String, Object> redisTemplate;
+    private final AuditLogPublisher             auditLogPublisher;
 
     // F-01: IP Auth Rate Limiting 독립 스위치 (F-02 기관 RL의 IDO_RATE_LIMIT_ENABLED와 완전 분리)
     // 로컬/개발: IDO_AUTH_RL_ENABLED=false 권장 (반복 테스트 시 자기 IP 차단 방지)
@@ -105,8 +125,12 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
         // OPTIONS(CORS preflight)는 Rate Limit 제외
         if ("OPTIONS".equalsIgnoreCase(method)) return true;
 
-        // ① TPS 검사
-        int currentTps = incrementAndGet(tpsKeyFor(clientIp), tpsLimit, 2);
+        int currentTps;
+        int currentMin;
+        int currentDaily;
+        try {
+            // ① TPS 검사
+            currentTps = incrementAndGet(tpsKeyFor(clientIp), tpsLimit, 2);
         if (currentTps > tpsLimit) {
             log.warn("[AuthRateLimit] TPS 초과: ip={} path={} count={}/s limit={}",
                     clientIp, path, currentTps, tpsLimit);
@@ -114,8 +138,8 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // ② 분당 검사
-        int currentMin = incrementAndGet(minKeyFor(clientIp), perMinuteLimit, 70);
+            // ② 분당 검사
+            currentMin = incrementAndGet(minKeyFor(clientIp), perMinuteLimit, 70);
         if (currentMin > perMinuteLimit) {
             log.warn("[AuthRateLimit] 분당 한도 초과: ip={} path={} count={}/min limit={}",
                     clientIp, path, currentMin, perMinuteLimit);
@@ -123,8 +147,26 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        // ③ 일별 검사
-        int currentDaily = incrementAndGet(dailyKeyFor(clientIp), dailyLimit, 90000); // 25h
+            // ③ 일별 검사
+            currentDaily = incrementAndGet(dailyKeyFor(clientIp), dailyLimit, 90000); // 25h
+        } catch (RateLimitBackendUnavailable e) {
+            // D2 fail-secure: Redis 를 못 세면 인증 API 를 열어 두지 않는다 — 503 + 감사 기록
+            log.error("[AuthRateLimit] Redis 장애 — 안전 우선 거부(503): ip={} path={} err={}",
+                    clientIp, path, e.getMessage());
+            auditLogPublisher.publish(AuditLogPublisher.AuditEntry.builder()
+                    .eventCategory(AuditLogEvent.CATEGORY_SYSTEM)
+                    .eventAction("RATE_LIMIT_BACKEND_UNAVAILABLE")
+                    .actorType(AuditLogEvent.ACTOR_USER)
+                    .actorId(clientIp)
+                    .resourceType("AUTH_ENDPOINT")
+                    .resourceId(path)
+                    .outcome(AuditLogEvent.OUTCOME_FAILURE)
+                    .outcomeDetail("Redis unavailable — request denied (fail-secure)")
+                    .metadata(Map.of("error", String.valueOf(e.getMessage())))
+                    .build());
+            writeUnavailableResponse(response);
+            return false;
+        }
         if (currentDaily > dailyLimit) {
             log.warn("[AuthRateLimit] 일별 한도 초과: ip={} path={} count={}/day limit={}",
                     clientIp, path, currentDaily, dailyLimit);
@@ -149,20 +191,42 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
      * @param key   Redis 키
      * @param limit 한도 (로그용)
      * @param ttl   만료 초
-     * @return 현재 카운터 값 (fail-open: Redis 장애 시 0 반환)
+     * @return 현재 카운터 값
+     * @throws RateLimitBackendUnavailable Redis 장애 (호출부가 503 + 감사)
      */
     private int incrementAndGet(String key, int limit, int ttl) {
         try {
             DefaultRedisScript<Long> script = new DefaultRedisScript<>(RATE_LIMIT_LUA, Long.class);
             Long result = redisTemplate.execute(script,
+                    LUA_ARGS_SERIALIZER, LUA_RESULT_SERIALIZER,
                     List.of(key),
                     String.valueOf(limit),
                     String.valueOf(ttl));
-            return result == null ? 0 : result.intValue();
+            if (result == null) {
+                throw new RateLimitBackendUnavailable("Redis returned null for " + key, null);
+            }
+            return result.intValue();
+        } catch (RateLimitBackendUnavailable e) {
+            throw e;
         } catch (Exception e) {
-            log.error("[AuthRateLimit] Redis 오류 — fail-open 허용: key={} err={}", key, e.getMessage());
-            return 0; // fail-open: 장애 시 허용
+            throw new RateLimitBackendUnavailable(e.getMessage(), e);
         }
+    }
+
+    private void writeUnavailableResponse(HttpServletResponse response) throws Exception {
+        response.setStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Retry-After", "5");
+        response.getWriter().write("""
+                {
+                  "status": 503,
+                  "error": "Service Unavailable",
+                  "code": "E-IDO-116",
+                  "message": "요청 한도를 확인할 수 없어 인증 요청을 처리하지 않습니다. 잠시 후 다시 시도해 주세요."
+                }
+                """);
+        response.getWriter().flush();
     }
 
     /**

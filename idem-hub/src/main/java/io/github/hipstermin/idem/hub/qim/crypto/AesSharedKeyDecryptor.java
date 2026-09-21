@@ -59,17 +59,29 @@ public class AesSharedKeyDecryptor {
 
     private final byte[] sharedKeyBytes;
     private final String rawAesSharedKey;
+    private final boolean allowEmptyKey;
 
     /**
      * @param aesSharedKey    Base64 인코딩된 AES 공유키 (Q-IM 관리 콘솔에서 발급, 32바이트)
      * @param transformation  AES 변환 문자열 (Q-IM 팀 합의 필요, 기본: AES/CBC/PKCS5Padding)
      * @param ivLength        IV 길이 (기본: 16바이트)
      */
+    public AesSharedKeyDecryptor(String aesSharedKey, String transformation, int ivLength) {
+        this(aesSharedKey, transformation, ivLength, false);
+    }
+
+    /**
+     * @param allowEmptyKey D2 fail-secure: {@code false}(기본) 면 키가 비었거나 placeholder·길이 오류일 때 부팅을 막는다.
+     *                      로컬·테스트에서만 {@code ido.qim.allow-empty-aes-key=true}.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
     public AesSharedKeyDecryptor(
-            @Value("${ido.qim.aes-shared-key:CHANGEME_32BYTES_BASE64_PLACEHOLDER=}") String aesSharedKey,
+            @Value("${ido.qim.aes-shared-key:}") String aesSharedKey,
             @Value("${ido.qim.aes-transformation:AES/CBC/PKCS5Padding}") String transformation,
-            @Value("${ido.qim.aes-iv-length:16}") int ivLength) {
-        this.rawAesSharedKey = aesSharedKey;
+            @Value("${ido.qim.aes-iv-length:16}") int ivLength,
+            @Value("${ido.qim.allow-empty-aes-key:false}") boolean allowEmptyKey) {
+        this.allowEmptyKey   = allowEmptyKey;
+        this.rawAesSharedKey = aesSharedKey == null ? "" : aesSharedKey;
         this.transformation  = transformation;
         this.ivLength        = ivLength;
         this.sharedKeyBytes  = decodeKeyOrEmpty(aesSharedKey);
@@ -100,17 +112,19 @@ public class AesSharedKeyDecryptor {
      */
     @PostConstruct
     void validateConfiguration() {
-        // AES 공유키 검증
-        if ("CHANGEME_32BYTES_BASE64_PLACEHOLDER=".equals(rawAesSharedKey)
-                || rawAesSharedKey.startsWith("CHANGEME")) {
-            log.error("[QIM-CRYPTO][보안경고] QIM_AES_SHARED_KEY가 기본값(CHANGEME)입니다. " +
-                      "운영 환경에서는 반드시 Q-IM 관리 콘솔에서 발급된 실제 키를 설정하세요. " +
-                      "현재 AES 복호화 기능이 비활성화됩니다.");
-        }
-
-        if (sharedKeyBytes.length != 32) {
-            log.error("[QIM-CRYPTO][보안경고] AES 공유키 길이 오류: 실제={}바이트, 요구=32바이트(AES-256). " +
-                      "Q-IM 팀에서 발급된 올바른 키를 사용하세요.", sharedKeyBytes.length);
+        // AES 공유키 검증 — D2 fail-secure: placeholder·빈 키·길이 오류는 부팅 차단 (allow-empty-aes-key=true 일 때만 경고로 완화)
+        boolean placeholder = rawAesSharedKey.startsWith("CHANGEME");
+        boolean badLength   = sharedKeyBytes.length != 32;
+        if (placeholder || badLength) {
+            String reason = placeholder
+                    ? "QIM_AES_SHARED_KEY 가 placeholder(CHANGEME) 입니다"
+                    : "AES 공유키 길이 오류: 실제=" + sharedKeyBytes.length + "바이트, 요구=32바이트(AES-256)";
+            if (!allowEmptyKey) {
+                throw new IllegalStateException("[QIM-CRYPTO] " + reason
+                        + ". Q-IM 관리 콘솔에서 발급된 실제 키를 ido.qim.aes-shared-key 로 주입하십시오. "
+                        + "로컬·테스트에서만 ido.qim.allow-empty-aes-key=true 로 우회 가능합니다.");
+            }
+            log.error("[QIM-CRYPTO][보안경고] {} — allow-empty-aes-key=true 로 기동 계속 (로컬·테스트 전용). 복호화는 실패합니다.", reason);
         }
 
         // Transformation 검증

@@ -33,14 +33,13 @@ public class QimWebMvcConfig implements WebMvcConfigurer {
     /**
      * {@link InternalApiKeyInterceptor}를 {@code /api/v1/internal/**} 경로에 등록.
      *
-     * <p>excludePathPatterns로 Actuator와 공개 Status API는 제외.
-     * Q-IM Status API({@code GET /api/v1/users/{qimUserId}})는 IdO가 호출하지만
-     * 기관 서버가 직접 접근할 수도 있으므로 인터셉터에서 제외.
-     * (대신 해당 API는 네트워크 레벨 접근 제어로 보호 — 설계서 §10.6)
+     * <p>(D2) Status API({@code GET /api/v1/users/{qimUserId}})도 내부 키 검증 대상이다. hub 는 {@code X-Internal-Api-Key}
+     * 를 보낸다. 기관 서버의 직접 조회는 허용하지 않는다(네트워크 통제에 기대던 종전 가정 제거).
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // D2 fail-secure: 상태 조회 API(/api/v1/users/**)도 내부 키 필수 — 종전에는 무인증("네트워크 레벨 보호" 가정)
         registry.addInterceptor(internalApiKeyInterceptor)
-                .addPathPatterns("/api/v1/internal/**");
+                .addPathPatterns("/api/v1/internal/**", "/api/v1/users/**");
     }
 }

@@ -93,16 +93,14 @@ class AnyIdBrokerAdapterTest {
     }
 
     @Test
-    @DisplayName("AnyID 서버 장애(5xx·연결 실패)면 로컬 시뮬레이션 팝업 URL(/anyid/**)로 폴백한다")
-    void initFallbackOnServerError() {
+    @DisplayName("(D2) AnyID 서버 장애(5xx·연결 실패)면 로컬 팝업 폴백 없이 IDP_PROVIDER_UNAVAILABLE 로 거부한다")
+    void initServerErrorIsRejected() {
         server.expect(requestTo("https://auth.example.test/api/v1/init")).andRespond(withServerError());
 
-        String url = adapter.buildAuthorizationUrl("joint-cert", "cid-3", null, "L3");
-
-        assertThat(url).startsWith("/anyid/cert/popup.html?")
-                .contains("srvc_no=SRVC-TEST")
-                .contains("provider=JOINT_CERT")
-                .contains("correlationId=cid-3");
+        assertThatThrownBy(() -> adapter.buildAuthorizationUrl("joint-cert", "cid-3", null, "L3"))
+                .isInstanceOf(PlatformException.class)
+                .satisfies(e -> assertThat(((PlatformException) e).getErrorCode())
+                        .isEqualTo(PlatformErrorCode.IDP_PROVIDER_UNAVAILABLE));
     }
 
     @Test

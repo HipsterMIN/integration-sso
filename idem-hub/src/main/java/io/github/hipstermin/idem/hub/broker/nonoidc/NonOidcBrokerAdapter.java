@@ -7,6 +7,7 @@ import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.broker.IdpBrokerResult;
 import io.github.hipstermin.idem.hub.broker.IdpBrokerService;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,8 @@ import org.springframework.stereotype.Service;
 public class NonOidcBrokerAdapter implements IdpBrokerService {
 
     private final NonOidcAuthService nonOidcAuthService;
+    /** D2: 사업자별 응답 검증기 — 없으면 그 사업자는 사용 불가(503) */
+    private final List<NonOidcProviderVerifier> providerVerifiers;
 
     // ──────────────────────────────────────────────────────────────────────
     // IdpBrokerService 구현
@@ -208,6 +211,19 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
             throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, correlationId,
                     "providerCode 없음");
         }
+        // D2 fail-secure: 응답을 검증할 수 없는 사업자는 시작 단계부터 막는다 (막다른 인증 화면 방지)
+        if (findVerifier(providerCode) == null) {
+            throw new PlatformException(PlatformErrorCode.IDO_PROVIDER_NOT_CONFIGURED, correlationId,
+                    "비OIDC 사업자 응답 검증기(NonOidcProviderVerifier) 미등록: " + providerCode);
+        }
+    }
+
+    private NonOidcProviderVerifier findVerifier(String providerCode) {
+        if (providerVerifiers == null) return null;
+        return providerVerifiers.stream()
+                .filter(v -> v.supports(providerCode))
+                .findFirst()
+                .orElse(null);
     }
 
     @SuppressWarnings("unchecked")
@@ -232,13 +248,30 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
     }
 
     /**
-     * 사업자 응답 1차 검증 (PoC: 항상 통과)
-     * 운영: 사업자별 전자서명 검증 (RSA / ECDSA), MAC 검증 등 적용
+     * 사업자 응답 검증 — 등록된 {@link NonOidcProviderVerifier} 에 위임한다 (D2 fail-secure).
+     * 검증기가 없거나 검증에 실패하면 {@link PlatformErrorCode#IDP_SIGNATURE_MISMATCH} 로 거부한다. 종전의 "PoC: 항상 통과" 는 제거.
      */
     private boolean verifyProviderResponse(Map<String, Object> responseMap,
                                             String providerCode, String correlationId) {
-        // PoC: 항상 true — 운영 시 사업자 서명 검증 로직으로 교체
-        log.debug("[NonOidcBrokerAdapter] 응답 검증 (PoC pass-through): provider={}", providerCode);
+        NonOidcProviderVerifier verifier = findVerifier(providerCode);
+        if (verifier == null) {
+            throw new PlatformException(PlatformErrorCode.IDO_PROVIDER_NOT_CONFIGURED, correlationId,
+                    "비OIDC 사업자 응답 검증기 미등록: " + providerCode);
+        }
+        boolean ok;
+        try {
+            ok = verifier.verify(responseMap, providerCode, correlationId);
+        } catch (RuntimeException e) {
+            log.error("[NonOidcBrokerAdapter] 응답 검증 불가 → 거부: provider={} cid={} err={}",
+                    providerCode, correlationId, e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDP_SIGNATURE_MISMATCH, correlationId,
+                    "사업자 응답 검증 불가: " + e.getMessage());
+        }
+        if (!ok) {
+            log.warn("[NonOidcBrokerAdapter] 응답 검증 실패 → 거부: provider={} cid={}", providerCode, correlationId);
+            throw new PlatformException(PlatformErrorCode.IDP_SIGNATURE_MISMATCH, correlationId,
+                    "사업자 응답 서명 불일치: " + providerCode);
+        }
         return true;
     }
 

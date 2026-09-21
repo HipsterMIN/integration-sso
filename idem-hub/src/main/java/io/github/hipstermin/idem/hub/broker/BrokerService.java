@@ -376,9 +376,9 @@ public class BrokerService {
      */
     private String buildInternalSig(String correlationId) {
         if (internalSigSecret == null || internalSigSecret.isBlank()) {
-            log.warn("[BrokerService] IDO_INTERNAL_SIG_SECRET 미설정 — X-Internal-Sig 빈값 correlationId={}",
-                     correlationId);
-            return "";
+            // D2 fail-secure: 서명 없이 내부 호출을 보내지 않는다 (부팅 시 FailSecureBootGuard 가 이미 막지만 이중 방어)
+            throw new PlatformException(PlatformErrorCode.IDO_DEPENDENCY_UNAVAILABLE, correlationId,
+                    "IDO_INTERNAL_SIG_SECRET 미설정 — 내부 서명 불가");
         }
         try {
             long epochSeconds = System.currentTimeMillis() / 1000L;

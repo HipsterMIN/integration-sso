@@ -183,6 +183,8 @@ ido:
       q-sign:       ${IDO_INTERNAL_API_KEY_QSIGN:}
       outbox-relay: ${IDO_INTERNAL_API_KEY_OUTBOX:}
     allow-empty-callers: ${IDO_INTERNAL_ALLOW_EMPTY_CALLERS:false}
+    # D2 fail-secure: IDO_INTERNAL_SIG_SECRET 이 비면 기동 거부 (FailSecureBootGuard). 로컬·테스트에서만 true
+    allow-empty-sig-secret: ${IDO_INTERNAL_ALLOW_EMPTY_SIG_SECRET:false}
 
   # §11.5 Q-IM 연동
   qim:
@@ -211,6 +213,8 @@ ido:
     # [합의 필요 #1] Q-IM 팀과 암호화 스펙(transformation/IV 방식) 협의 후 확정
     # 운영: QIM_AES_SHARED_KEY 환경변수 필수 설정 (미설정 시 AES 복호화 불가)
     aes-shared-key: ${QIM_AES_SHARED_KEY:}
+    # D2 fail-secure: 공유키가 비었거나 placeholder·길이 오류면 기동 거부. 로컬·테스트에서만 true
+    allow-empty-aes-key: ${IDO_QIM_ALLOW_EMPTY_AES_KEY:false}
     # AES 변환 방식 (Q-IM 팀 합의 후 QIM_AES_TRANSFORMATION 환경변수로 확정)
     aes-transformation: ${QIM_AES_TRANSFORMATION:AES/CBC/PKCS5Padding}
     # AES IV 길이 (바이트, 기본 16)
@@ -232,6 +236,9 @@ ido:
   # GET /api/v1/internal/authz/users/{qimUserId}/effective-roles?agencyCode=...
   # ⚠️ 장애·미설정 시 QAuthzClient가 fail-open(빈 역할) — SSO/Handoff 발급은 계속됨.
   q-authz:
+    # D2 fail-secure: authz 조회 실패 = 거부(503). authz 없는 SSO 단독 설치는 enabled=false 로 명시
+    enabled: ${IDO_QAUTHZ_ENABLED:true}
+    allow-empty-api-key: ${IDO_QAUTHZ_ALLOW_EMPTY_API_KEY:false}
     base-url: ${QAUTHZ_BASE_URL:http://localhost:8086}
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
@@ -263,6 +270,8 @@ ido:
   #   플러그인 DirectBrokerAdapter 가 맡는 인증수단(KR 에디션 idem-plugin-anyid: MOBILE_ID / EASY_SIGN / JOINT_CERT / FINANCIAL_CERT / PRIVATE_ID)
   #   PASS 등 기타 비표준 → NonOidcBrokerAdapter
   broker:
+    # D2 fail-secure: CI 없는 인증 결과를 identifierHash 로 세션 발급하던 PoC 폴백 — 기본 금지(422), 로컬·테스트에서만 true
+    allow-ciless-identity: ${IDO_BROKER_ALLOW_CILESS_IDENTITY:false}
     mode: ${IDO_BROKER_MODE:qsign}
 
   # ── Any-ID 설치형 연동 설정: S5b 부터 코어에 없다 ─────────────────────────────
@@ -628,6 +637,9 @@ ido:
       hmac-key-id: ${NHN_SKM_HMAC_KEY_ID:}
 
 # ── Resilience4j (S9-T2: NICE/OACX/통합인증 CB+Retry 추가) ───────────────
+  cast:
+    # D2 fail-secure: Ed25519 CAST 서명키(IDO_CAST_PRIVATE_KEY/PUBLIC_KEY) 미설정 시 임시 키 자동 생성 금지(기동 거부). 로컬·테스트에서만 true
+    allow-generated-keys: ${IDO_CAST_ALLOW_GENERATED_KEYS:false}
 resilience4j:
   circuitbreaker:
     instances:

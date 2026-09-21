@@ -133,6 +133,10 @@ services:
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
       IDEM_KAFKA_ENABLED: "true"   # D1-b: 이 스택은 Kafka 를 띄우므로 Kafka 경로. 없이 설치하려면 compose.install.yml
+      # D2 fail-secure 탈출구 — 개발 스택 전용 (prod/stage 프로파일에서는 FailSecureBootGuard 가 기동을 거부한다)
+      IDO_QAUTHZ_ENABLED: "false"             # 이 스택에는 idem-authz 가 없다
+      IDO_CAST_ALLOW_GENERATED_KEYS: "true"   # CAST 서명키 임시 생성 허용
+      IDO_QIM_ALLOW_EMPTY_AES_KEY: "true"     # registry 공유키 없이 기동 허용
       QIM_BASE_URL: http://idem-registry:8082
       QSIGN_BASE_URL: http://idem-gate:8081
       IDO_QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}

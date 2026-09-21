@@ -58,12 +58,26 @@ public class InternalSigVerifier {
      * <p>서명 검증은 항상 strict 모드로 동작합니다. non-strict 경로는 제거되었습니다.
      * IDO_INTERNAL_SIG_SECRET 미설정 시 모든 내부 API 호출이 거부됩니다.
      */
+    /** D2 fail-secure: 운영·스테이지 프로파일에서는 비밀키 미설정·기본값이면 기동을 거부한다 */
+    @Value("${spring.profiles.active:}")
+    private String activeProfiles;
+
+    private static final java.util.Set<String> HARDENED = java.util.Set.of("prod", "stage");
+
     @PostConstruct
     void validateSigSecret() {
-        if (sigSecret == null || sigSecret.isBlank()) {
+        String profiles = activeProfiles == null ? "" : activeProfiles;
+        boolean hardened = java.util.Arrays.stream(profiles.split(",")).map(String::trim).anyMatch(HARDENED::contains);
+        boolean missing  = sigSecret == null || sigSecret.isBlank();
+        boolean insecure = INSECURE_DEFAULT.equals(sigSecret);
+        if (hardened && (missing || insecure)) {
+            throw new IllegalStateException("[QSign-InternalSigVerifier] IDO_INTERNAL_SIG_SECRET "
+                    + (missing ? "미설정" : "이 공개 기본값") + " — 운영·스테이지에서는 기동을 거부합니다 (openssl rand -hex 32 로 생성해 주입)");
+        }
+        if (missing) {
             log.error("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET 환경변수 미설정. " +
                       "⚠️ [REQUIRES_MANUAL] 모든 내부 서명 검증이 실패합니다. 즉시 설정하세요: openssl rand -hex 32");
-        } else if (INSECURE_DEFAULT.equals(sigSecret)) {
+        } else if (insecure) {
             log.error("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
                       "운영 환경에서는 반드시 최소 32자 이상의 무작위 비밀값으로 교체하세요.");
         } else if (sigSecret.length() < MIN_SECRET_LENGTH) {

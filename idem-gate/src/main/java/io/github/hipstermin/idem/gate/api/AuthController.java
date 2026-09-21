@@ -51,9 +51,7 @@ public class AuthController {
      * POST /api/v1/auth/broker-input
      * 설계서 11.7절 — 내부 전용 (mTLS 보호 구간)
      *
-     * <p>X-Internal-Sig 헤더를 HMAC-SHA256으로 검증한다.
-     * strict-mode=true(운영): 불일치 시 403 반환.
-     * strict-mode=false(PoC): 경고 로그 후 통과.
+     * <p>X-Internal-Sig 헤더를 HMAC-SHA256으로 검증한다 — 항상 strict(불일치·누락 시 403). (D2) PoC non-strict 경로는 없다.
      */
     @PostMapping("/broker-input")
     public ResponseEntity<AuthResult> authenticateFromBroker(
