@@ -93,17 +93,32 @@ public class HandoffEventConsumer {
                 return;
             }
 
-            String eventId      = event.getEventId();
-            String eventType    = event.getEventType();
-            String correlationId = event.getCorrelationId();
-
             log.debug("[HandoffEventConsumer] 이벤트 수신: eventId={} type={} agencyCode={}",
-                    eventId, eventType, event.getAgencyCode());
+                    event.getEventId(), event.getEventType(), event.getAgencyCode());
 
+            handle(event);
+
+        } catch (Exception e) {
+            throw e;  // Spring Kafka 재시도/DLQ 처리
+        } finally {
+            ack.acknowledge();
+        }
+    }
+
+    /**
+     * 프로세스 내 진입점 (D1-b). Kafka 가 꺼진 배포에서는 {@code HandoffEventPublisher} 가 이벤트를 {@code ido.outbox} 에
+     * 넣고 {@code IdoOutboxRelay} 가 폴링해 이 메서드로 배달한다. 멱등 처리·타입 분기·완료 마킹은 경로와 무관하게 같다.
+     *
+     * @throws RuntimeException 처리 실패 — 호출자가 재시도
+     */
+    public void handle(HandoffEvent event) {
+        String eventId      = event.getEventId();
+        String eventType    = event.getEventType();
+
+        try {
             // ① 멱등 처리
             if (idempotentEventStore.isAlreadyProcessed(eventId, CONSUMER_GROUP)) {
                 log.debug("[HandoffEventConsumer] 중복 이벤트 스킵: eventId={}", eventId);
-                ack.acknowledge();
                 return;
             }
 
@@ -123,11 +138,8 @@ public class HandoffEventConsumer {
                     eventId, eventType, event.getAgencyCode());
 
         } catch (Exception e) {
-            String eventId = (event != null) ? event.getEventId() : "unknown";
             log.error("[HandoffEventConsumer] 처리 실패: eventId={} error={}", eventId, e.getMessage(), e);
-            throw e;  // Spring Kafka 재시도/DLQ 처리
-        } finally {
-            ack.acknowledge();
+            throw e;
         }
     }
 

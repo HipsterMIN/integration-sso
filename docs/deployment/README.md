@@ -178,6 +178,8 @@ kubectl create secret generic idem-gate-secret \
 
 ## 5. Kafka Topic 목록
 
+> D1-b: Kafka 는 선택 의존(`IDEM_KAFKA_ENABLED`, 기본 false). Kafka 없는 설치는 `docs/install.md`. 아래 토픽은 `true` 일 때만 필요하다.
+
 | Topic 이름 | 파티션 | 역할 | 보존 기간 |
 |-----------|--------|------|-----------|
 | `qsign.auth.events` | 12 | Q-Sign 인증 완료 이벤트 → IdO Pre-warming | 1시간 |

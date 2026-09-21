@@ -48,11 +48,25 @@ public class FeAdvisoryConsumer {
             return;
         }
 
+        log.debug("[FeAdvisoryConsumer] 수신 eventId={} type={} qimUserId={}",
+                event.getEventId(), event.getEventType(), event.getQimUserId());
+
+        try {
+            handle(event);
+        } finally {
+            ack.acknowledge();
+        }
+    }
+
+    /**
+     * 프로세스 내 진입점 (D1-b). Kafka 가 꺼진 배포에서는 {@code SessionAdvisoryPublisher} 가 {@code ido.outbox} 에
+     * 넣은 {@code platform.session.advisory} 레코드를 {@code IdoOutboxRelay} 가 폴링해 이 메서드로 배달한다.
+     *
+     * @throws RuntimeException 처리 실패 — 호출자가 재시도
+     */
+    public void handle(SessionAdvisoryEvent event) {
         String qimUserId = event.getQimUserId();
         String eventType = event.getEventType();
-
-        log.debug("[FeAdvisoryConsumer] 수신 eventId={} type={} qimUserId={}",
-                event.getEventId(), eventType, qimUserId);
 
         try {
             if (SessionAdvisoryEvent.TYPE_MANDATORY_SECURITY.equals(eventType)) {
@@ -69,9 +83,7 @@ public class FeAdvisoryConsumer {
         } catch (Exception e) {
             log.error("[FeAdvisoryConsumer] 처리 실패: eventId={} qimUserId={} type={}",
                     event.getEventId(), qimUserId, eventType, e);
-            throw e;   // DefaultErrorHandler (exponential back-off) 에 위임
-        } finally {
-            ack.acknowledge();
+            throw e;   // Kafka: DefaultErrorHandler (exponential back-off) / 아웃박스: 백오프 재예약
         }
     }
 }

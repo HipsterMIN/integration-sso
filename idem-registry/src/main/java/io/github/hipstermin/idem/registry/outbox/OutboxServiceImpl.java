@@ -38,8 +38,8 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>스냅샷 발행 실패는 비치명적 — Outbox 본래 발행 흐름에 영향 없음</li>
  * </ul>
  *
- * [DB] NHN Cloud RDS for MariaDB (PoC: Docker MariaDB 11.x)
- *      Outbox 테이블: qim.outbox (idx_qim_outbox_status 인덱스 활용)
+ * [DB] PostgreSQL qim 스키마 (D1-a) — Outbox 테이블: qim.outbox (idx_qim_outbox_pending 부분 인덱스 활용)
+ * [D1-b] {@code qim.outbox.relay-enabled=false}(Kafka 꺼짐 파생 기본값) 면 릴레이를 돌리지 않는다 — PENDING 은 DB 에 남는다.
  */
 @Slf4j
 @Service
@@ -54,6 +54,10 @@ public class OutboxServiceImpl implements OutboxService {
     /** FAILED 레코드 재시도 주기 (ms): 기본 30초 */
     @Value("${qim.outbox.retry-interval-ms:30000}")
     private long retryIntervalMs;
+
+    /** D1-b: Kafka 선택 의존 — idem.messaging.kafka.enabled=false 면 파생 기본값으로 false */
+    @Value("${qim.outbox.relay-enabled:true}")
+    private boolean relayEnabled;
 
     private final OutboxRepository              outboxRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -92,6 +96,7 @@ public class OutboxServiceImpl implements OutboxService {
     @Override
     @Scheduled(fixedDelayString = "${qim.outbox.relay-interval-ms:500}")
     public void relayPendingEvents() {
+        if (!relayEnabled) return;
         List<OutboxRecord> pending = outboxRepository.findPending(100);
         if (pending.isEmpty()) return;
 
@@ -140,6 +145,7 @@ public class OutboxServiceImpl implements OutboxService {
     @Override
     @Scheduled(fixedDelayString = "${qim.outbox.retry-interval-ms:30000}")
     public void relayFailedEvents() {
+        if (!relayEnabled) return;
         List<OutboxRecord> retryable = outboxRepository.findRetryable(maxRetry, 50);
         if (retryable.isEmpty()) return;
 

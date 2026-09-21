@@ -138,6 +138,7 @@ qsign:
     topic-auth-events: qsign.auth.events
   # Outbox Relay
   outbox:
+    relay-enabled: ${QSIGN_OUTBOX_RELAY_ENABLED:true}   # D1-b: idem.messaging.kafka.enabled=false 면 false 로 파생
     relay-interval-ms: 500
     batch-size: 100
     max-retry: 3
@@ -233,3 +234,12 @@ logging:
     io.github.hipstermin.idem.gate: INFO
     org.springframework.kafka: WARN
     org.flywaydb: INFO
+
+# ── D1-b: Kafka 선택 의존 (docs/generalization-plan.md D1, docs/install.md) ──
+# false(기본): 브로커 없이 기동 — 토픽 생성·프로듀서·컨슈머(qim.user.events)·아웃박스 릴레이 정지.
+#              qsign.auth.events 는 hub 가 자체 발행분을 프로세스 내 처리하므로 gate 의 아웃박스 PENDING 은 DB 에 남는다.
+# true : Kafka 경로. infra/docker 전체 스택·helm 은 true 로 준다.
+idem:
+  messaging:
+    kafka:
+      enabled: ${IDEM_KAFKA_ENABLED:false}

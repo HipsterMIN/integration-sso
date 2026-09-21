@@ -3,11 +3,13 @@ package io.github.hipstermin.idem.registry.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.github.hipstermin.idem.common.messaging.KafkaOptional;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -25,6 +27,7 @@ import org.springframework.kafka.transaction.KafkaTransactionManager;
  * Outbox Relay 배치가 트랜잭션 프로듀서를 통해 exactly-once 발행.
  */
 @Configuration
+@ConditionalOnProperty(name = KafkaOptional.PROPERTY, havingValue = "true") // D1-b: 꺼지면 idem-common 의 DisabledKafkaTemplate 이 대신 주입된다 (KafkaTransactionManager 도 없음)
 public class KafkaProducerConfig {
 
     @Value("${spring.kafka.bootstrap-servers}")

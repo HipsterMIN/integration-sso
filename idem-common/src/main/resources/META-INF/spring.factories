@@ -1,0 +1,2 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+io.github.hipstermin.idem.common.messaging.KafkaOptionalEnvironmentPostProcessor

@@ -25,7 +25,6 @@ import java.time.Instant;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +43,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class HandoffServiceImpl implements HandoffService {
 
-    private static final String TOPIC_HANDOFF = "ido.handoff.events";
     private static final String SOURCE_SYSTEM = "ido";
     private static final long   TICKET_TTL_SEC = 60L;
 
@@ -57,7 +55,7 @@ public class HandoffServiceImpl implements HandoffService {
     private final HandoffStrategyFactory  strategyFactory;
     private final AgencyRateLimiter       rateLimiter;
     private final ObjectMapper            objectMapper;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final HandoffEventPublisher   handoffEventPublisher;
     /** 연합 인가 — 기관 스코프 역할 조회(fail-open) */
     private final QAuthzClient            qAuthzClient;
 
@@ -350,7 +348,7 @@ public class HandoffServiceImpl implements HandoffService {
                 ticket.getCorrelationId(), ticket.getQimUserId(), 1L,
                 ticket.getTicketId(), ticket.getAgencyCode(),
                 ticket.getAuthResultId(), ticket.getState().name(), revokeReason);
-        kafkaTemplate.send(TOPIC_HANDOFF, ticket.getQimUserId(), event);
+        handoffEventPublisher.publish(event, ticket.getQimUserId());
     }
 
     private void publishReuseAttemptEvent(HandoffTicket ticket, String correlationId) {
@@ -359,7 +357,7 @@ public class HandoffServiceImpl implements HandoffService {
                 correlationId, ticket.getQimUserId(), 1L,
                 ticket.getTicketId(), ticket.getAgencyCode(),
                 ticket.getAuthResultId(), "REUSE_ATTEMPT", null);
-        kafkaTemplate.send(TOPIC_HANDOFF, ticket.getQimUserId(), event);
+        handoffEventPublisher.publish(event, ticket.getQimUserId());
     }
 
     /**
@@ -373,7 +371,7 @@ public class HandoffServiceImpl implements HandoffService {
                     correlationId, ticket.getQimUserId(), 1L,
                     ticket.getTicketId(), ticket.getAgencyCode(),
                     ticket.getAuthResultId(), "SIGNATURE_INVALID", null);
-            kafkaTemplate.send(TOPIC_HANDOFF, ticket.getQimUserId(), event);
+            handoffEventPublisher.publish(event, ticket.getQimUserId());
         } catch (Exception e) {
             // Kafka 실패는 검증 결과(401) 자체를 막지 않음 — 감사 로그로 fallback
             log.warn("[HandoffSvc] SIGNATURE_INVALID 이벤트 발행 실패 (비치명적): {}", e.getMessage());

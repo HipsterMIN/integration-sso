@@ -789,6 +789,13 @@ logging:
 # ── 플러그인 (docs/vendor-plugin-plan.md · 범용화 S5) ─────────────────────────
 # 코어 에디션은 mock 만, KR 공공 에디션은 nice-oacx(·anyid) 를 켠다. 기본값은 현행 KR 배포 호환(true).
 idem:
+  # ── D1-b: Kafka 선택 의존 (docs/generalization-plan.md D1, docs/install.md) ──
+  # false(기본): 브로커 없이 기동. 토픽 생성·컨슈머·Kafka 릴레이(F-30)·감사 Kafka 발행(F-03) 정지,
+  #              ido.outbox 는 IdoOutboxRelay 가 같은 프로세스의 컨슈머로 배달, 감사는 DB 저장(F-04)만.
+  # true : Kafka 경로(다중 인스턴스·외부 시스템 연동). infra/docker 전체 스택·helm 은 true 로 준다.
+  messaging:
+    kafka:
+      enabled: ${IDEM_KAFKA_ENABLED:false}
   plugins:
     mock-auth:
       enabled: ${IDEM_PLUGINS_MOCK_AUTH_ENABLED:false}

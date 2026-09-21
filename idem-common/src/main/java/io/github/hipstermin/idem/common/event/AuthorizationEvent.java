@@ -3,6 +3,7 @@ package io.github.hipstermin.idem.common.event;
 import java.time.Instant;
 import lombok.Getter;
 import lombok.experimental.SuperBuilder;
+import lombok.extern.jackson.Jacksonized;
 
 /**
  * 연합 인가(q-authz) 도메인 이벤트 — 역할 부여/회수/만료.
@@ -17,6 +18,7 @@ import lombok.experimental.SuperBuilder;
  */
 @Getter
 @SuperBuilder
+@Jacksonized // D1-b: Kafka JsonDeserializer·아웃박스 프로세스 내 배달 모두 이 클래스로 역직렬화한다 (생성자만으로는 Jackson 이 만들 수 없었다)
 public class AuthorizationEvent extends DomainEvent {
 
     public static final String SOURCE_SYSTEM = "q-authz";

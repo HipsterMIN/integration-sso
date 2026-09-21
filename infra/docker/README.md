@@ -7,6 +7,8 @@
 
 | 파일 | 목적 |
 | --- | --- |
+| `compose.install.yml` | **단일 설치본 (D1-b)** — 이 파일 하나로 PostgreSQL·Redis·Keycloak·gate·registry·hub·authz·console. Kafka 없음. 절차는 `docs/install.md`. 다른 파일과 겹쳐 쓰지 않는다. |
+| `install.env.example` | 단일 설치본 환경 파일 견본 (`install.env` 로 복사, 커밋 금지) |
 | `compose.base.yml` | 공통 네트워크만 정의한다. 모든 조합의 첫 번째 파일로 사용한다. |
 | `compose.sso-im.yml` | SSO/IM 인프라와 Keycloak/Schema Registry를 정의한다. 앱 secret이 없어도 config 검증 가능하다. |
 | `compose.sso-im-apps.yml` | q-sign, q-im, ido, agency-stub, onepass-fe 컨테이너를 정의한다. 앱 secret이 필요하다. |
@@ -41,9 +43,16 @@ docker compose `
   up -d
 ```
 
-## SSO/IM 단독
+## 설치본 (Kafka 없음)
 
-기본 실행은 DB, Redis, Kafka, Vault 등 인프라만 띄운다.
+```bash
+cp infra/docker/install.env.example infra/docker/install.env   # 값 채우기
+docker compose --env-file infra/docker/install.env -f infra/docker/compose.install.yml up -d --build
+```
+
+## SSO/IM 단독 (개발용 전체 스택, Kafka 포함)
+
+기본 실행은 DB, Redis, Kafka, Vault 등 인프라만 띄운다. 앱 컨테이너는 `IDEM_KAFKA_ENABLED=true` 로 Kafka 경로를 쓴다.
 
 ```powershell
 docker compose `

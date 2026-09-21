@@ -1,7 +1,6 @@
 package io.github.hipstermin.idem.hub.kafka;
 
 import jakarta.persistence.*;
-import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -37,16 +36,17 @@ public class IdempotentEventStore {
      * 처리 완료 기록
      * ON CONFLICT DO NOTHING: 동시 처리 시 중복 삽입 무시
      */
+    /** D1-b: processed_at 은 DB 시각(NOW()). 종전에는 {@code Instant} 를 JDBC 파라미터로 넘겨 pgjdbc 가 타입을 추론하지 못해("Can't infer the SQL type") 모든 컨슈머의 완료 마킹이 항상 실패했다. */
     public void markProcessed(String eventId, String consumerGroup,
                               String eventType, String resultCode) {
         jdbcTemplate.update(
                 """
                 INSERT INTO ido.processed_event
                     (event_id, consumer_group, event_type, result_code, processed_at)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, NOW())
                 ON CONFLICT (event_id, consumer_group) DO NOTHING
                 """,
-                eventId, consumerGroup, eventType, resultCode, Instant.now()
+                eventId, consumerGroup, eventType, resultCode
         );
     }
 }

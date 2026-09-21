@@ -119,8 +119,14 @@ class AesSharedKeyDecryptorTest {
                 "99887766554433221100998877665544".getBytes(StandardCharsets.UTF_8));
         String encryptedWithOtherKey = encryptAesCbc("plaintext", otherKey);
 
-        assertThatThrownBy(() -> decryptor.decrypt(encryptedWithOtherKey))
-                .isInstanceOf(AesSharedKeyDecryptor.QimDecryptionException.class);
+        // CBC/PKCS5 는 잘못된 키로도 약 1/256 확률로 패딩이 우연히 맞아 예외 없이 쓰레기 평문이 나온다(패딩 오라클의 뒷면).
+        // 예외가 나면 타입을 확인하고, 안 나면 원문이 복원되지 않았음을 확인한다 — CI 게이트를 플레이크로 만들지 않기 위함.
+        try {
+            String garbage = decryptor.decrypt(encryptedWithOtherKey);
+            org.assertj.core.api.Assertions.assertThat(garbage).isNotEqualTo("plaintext");
+        } catch (AesSharedKeyDecryptor.QimDecryptionException expected) {
+            // 정상 — 패딩/무결성 오류
+        }
     }
 
     // ─────────────────────────────────────────────────────────────

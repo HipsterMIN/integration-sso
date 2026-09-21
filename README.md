@@ -1238,10 +1238,12 @@ cd docker && docker compose down
 
 ## 빠른 시작
 
+> **설치해서 써 보려면** `docs/install.md` — compose 하나(`infra/docker/compose.install.yml`)로 PostgreSQL·Redis·Keycloak·SSO·IM 을 올린다. **Kafka 는 필요 없다**(`IDEM_KAFKA_ENABLED=false` 기본, D1-b). 아래는 개발자용 절차다.
+
 ### 1. 인프라 기동
 
 ```bash
-# 기본 인프라 (PostgreSQL, Redis, Kafka, Keycloak)
+# 개발용 전체 인프라 (PostgreSQL, Redis, Kafka, Keycloak) — 앱은 IDEM_KAFKA_ENABLED=true 로 Kafka 경로
 docker compose -f infra/docker/docker-compose.yml up -d
 
 # 모니터링 스택 (Prometheus, Grafana, Loki, Promtail)

@@ -126,6 +126,7 @@ spring:
 qim:
   # §10.5.2 / GAP-QIM-04 Transactional Outbox Relay
   outbox:
+    relay-enabled: ${QIM_OUTBOX_RELAY_ENABLED:true}   # D1-b: idem.messaging.kafka.enabled=false 면 false 로 파생
     relay-interval-ms: 500      # PENDING 레코드 발행 주기 (ms)
     batch-size: 100
     max-retry: 5                # 최대 재시도 횟수 (도달 시 영구 FAILED)
@@ -188,3 +189,11 @@ logging:
     org.springframework.kafka: WARN
     org.flywaydb: INFO
 
+# ── D1-b: Kafka 선택 의존 (docs/generalization-plan.md D1, docs/install.md) ──
+# false(기본): 브로커 없이 기동 — 토픽 생성·프로듀서(트랜잭션 매니저 포함)·아웃박스 릴레이 정지.
+#              qim.user.events 는 qim.outbox 에 PENDING 으로 남는다(hub/gate 캐시 무효화·잠금 전파는 Kafka 경로 전용 — 플랜 D1 기록 참조).
+# true : Kafka 경로. infra/docker 전체 스택·helm 은 true 로 준다.
+idem:
+  messaging:
+    kafka:
+      enabled: ${IDEM_KAFKA_ENABLED:false}

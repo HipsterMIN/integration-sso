@@ -39,7 +39,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.kafka.core.KafkaTemplate;
 
 /**
  * HandoffServiceImpl 단위 테스트
@@ -66,7 +65,7 @@ class HandoffServiceImplTest {
     @Mock CallbackUrlValidator    callbackUrlValidator;
     @Mock HandoffStrategyFactory  strategyFactory;
     @Mock AgencyRateLimiter       rateLimiter;
-    @Mock KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock HandoffEventPublisher   handoffEventPublisher;
     @Mock QAuthzClient            qAuthzClient;
 
     @InjectMocks
@@ -89,7 +88,7 @@ class HandoffServiceImplTest {
         sut = new HandoffServiceImpl(
                 agencyMetaRepository, ticketRepository, policyEngine,
                 handoffCryptoService, auditLogPublisher, callbackUrlValidator,
-                strategyFactory, rateLimiter, new ObjectMapper(), kafkaTemplate,
+                strategyFactory, rateLimiter, new ObjectMapper(), handoffEventPublisher,
                 qAuthzClient
         );
 
@@ -154,7 +153,7 @@ class HandoffServiceImplTest {
             // ticketRepository.save() 1회 호출
             then(ticketRepository).should(times(1)).save(any(HandoffTicket.class));
             // Kafka 이벤트 발행
-            then(kafkaTemplate).should(times(1)).send(eq("ido.handoff.events"), any(), any());
+            then(handoffEventPublisher).should(times(1)).publish(any(), any());
         }
 
         @Test
@@ -343,7 +342,7 @@ class HandoffServiceImplTest {
 
             assertThat(result).isEqualTo(expectedPayload);
             then(ticketRepository).should(times(1)).consume(TICKET_ID);
-            then(kafkaTemplate).should(times(1)).send(eq("ido.handoff.events"), any(), any());
+            then(handoffEventPublisher).should(times(1)).publish(any(), any());
             // F4.1 — 서명 검증이 1회 호출되어야 함
             then(handoffCryptoService).should(times(1))
                     .verify(eq(TICKET_ID), eq(AGENCY_CODE), eq("encrypted"), eq("sig"));
@@ -378,7 +377,7 @@ class HandoffServiceImplTest {
                     .isEqualTo(PlatformErrorCode.IDO_TICKET_CONSUMED);
 
             // REUSE_ATTEMPT 이벤트가 Kafka로 발행되어야 함
-            then(kafkaTemplate).should(times(1)).send(eq("ido.handoff.events"), any(), any());
+            then(handoffEventPublisher).should(times(1)).publish(any(), any());
         }
 
         @Test
@@ -476,7 +475,7 @@ class HandoffServiceImplTest {
             then(ticketRepository).should(never()).consume(any());
             then(policyEngine).should(never()).buildHandoffPayload(any(), any());
             // SIGNATURE_INVALID Kafka 이벤트 발행 확인 (REUSE_ATTEMPT 와 동일 토픽)
-            then(kafkaTemplate).should(times(1)).send(eq("ido.handoff.events"), any(), any());
+            then(handoffEventPublisher).should(times(1)).publish(any(), any());
         }
 
         @Test
@@ -570,7 +569,7 @@ class HandoffServiceImplTest {
             then(ticketRepository).should(never()).consume(any());
             // HANDOFF_CONSUMED Kafka 이벤트도 발행되지 않아야 함
             // (다른 이벤트는 없으므로 0회)
-            then(kafkaTemplate).should(never()).send(any(String.class), any(), any());
+            then(handoffEventPublisher).should(never()).publish(any(), any());
         }
 
         @Test
@@ -588,11 +587,11 @@ class HandoffServiceImplTest {
             assertThat(result).isEqualTo(expectedPayload);
 
             // Mockito InOrder 로 호출 순서 검증
-            var inOrder = inOrder(handoffCryptoService, policyEngine, ticketRepository, kafkaTemplate);
+            var inOrder = inOrder(handoffCryptoService, policyEngine, ticketRepository, handoffEventPublisher);
             inOrder.verify(handoffCryptoService).verify(any(), any(), any(), any());
             inOrder.verify(policyEngine).buildHandoffPayload(any(), any());
             inOrder.verify(ticketRepository).consume(TICKET_ID);
-            inOrder.verify(kafkaTemplate).send(eq("ido.handoff.events"), any(), any());
+            inOrder.verify(handoffEventPublisher).publish(any(), any());
         }
 
         @Test
@@ -610,7 +609,7 @@ class HandoffServiceImplTest {
                     .isEqualTo(PlatformErrorCode.IDO_TICKET_CONSUMED);
 
             // HANDOFF_CONSUMED Kafka 이벤트는 발행되지 않아야 함
-            then(kafkaTemplate).should(never()).send(any(String.class), any(), any());
+            then(handoffEventPublisher).should(never()).publish(any(), any());
         }
     }
 
@@ -649,7 +648,7 @@ class HandoffServiceImplTest {
             sut.revoke(TICKET_ID, "incident_containment", CORRELATION_ID);
 
             then(ticketRepository).should(times(1)).revoke(eq(TICKET_ID), eq("incident_containment"));
-            then(kafkaTemplate).should(times(1)).send(eq("ido.handoff.events"), any(), any());
+            then(handoffEventPublisher).should(times(1)).publish(any(), any());
         }
 
         @Test

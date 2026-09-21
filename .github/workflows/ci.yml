@@ -306,18 +306,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
-      # idem-hub KafkaAdmin 토픽 구성이 브로커 부재 시 기동을 지연시키므로 실브로커 제공
-      # (apache/kafka 단일 노드 KRaft — 기본 listener PLAINTEXT://localhost:9092,
-      #  앱 기본값 KAFKA_SERVERS=localhost:9092 / replication-factor=1 과 정합)
-      kafka:
-        image: apache/kafka:3.9.1
-        ports:
-          - 9092:9092
-        options: >-
-          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
-          --health-interval 5s
-          --health-timeout 10s
-          --health-retries 20
+      # (D1-b) Kafka 서비스 없음 — idem.messaging.kafka.enabled=false(기본) 로 브로커 없이 기동하는지가 이 잡의 검증 항목이다
 
     steps:
       - name: 소스 체크아웃
@@ -373,6 +362,8 @@ jobs:
           SPRING_PROFILES_ACTIVE: test
           # 본인인증 SPI Mock 플러그인 활성 — 코어가 벤더 없이 인증 흐름을 제공하는지 k6 로 검증 (P1 게이트)
           IDEM_PLUGINS_MOCKAUTH_ENABLED: "true"
+          # D1-b: Kafka 선택 의존 — 브로커 없이 기동·아웃박스 프로세스 내 배달 경로를 스모크로 검증
+          IDEM_KAFKA_ENABLED: "false"
         run: |
           # 빌드된 JAR로 서버 시작 (백그라운드)
           IDO_JAR=$(find ./artifacts -name "idem-hub-*.jar" | head -1)

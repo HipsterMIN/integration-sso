@@ -67,3 +67,6 @@ http/*.env.json
 # 벤더 SDK 외부 공급 디렉터리 (docs/vendor-plugin-plan.md) — 저장소에 커밋 금지
 **/vendor-libs/
 __pycache__/
+
+# Idem 단일 설치본 환경 파일 (docs/install.md) — 시크릿
+infra/docker/install.env

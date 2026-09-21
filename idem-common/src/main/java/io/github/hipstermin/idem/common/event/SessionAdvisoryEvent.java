@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.common.event;
 
 import lombok.Getter;
 import lombok.experimental.SuperBuilder;
+import lombok.extern.jackson.Jacksonized;
 
 /**
  * 세션 종료 권고 이벤트 (Advisory — 강제 종료 아님)
@@ -12,6 +13,7 @@ import lombok.experimental.SuperBuilder;
  */
 @Getter
 @SuperBuilder
+@Jacksonized // D1-b: Kafka JsonDeserializer·아웃박스 프로세스 내 배달 모두 이 클래스로 역직렬화한다 (생성자만으로는 Jackson 이 만들 수 없었다)
 public class SessionAdvisoryEvent extends DomainEvent {
 
     public static final String TYPE_SESSION_LOGOUT_HINT    = "SESSION_LOGOUT_HINT";

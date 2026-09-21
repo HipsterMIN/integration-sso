@@ -63,6 +63,11 @@ public class FeatureFlags {
     @Value("${ido.rate-limit.enabled:${IDO_RATE_LIMIT_ENABLED:true}}")
     private boolean agencyRateLimit;
 
+    // ── F-31: Kafka 선택 의존 (D1-b) ─────────────────────────────────────────
+    /** false(기본) → 브로커 없이 기동, 아웃박스는 프로세스 내 배달·감사는 DB 만. 환경변수 IDEM_KAFKA_ENABLED */
+    @Value("${idem.messaging.kafka.enabled:${IDEM_KAFKA_ENABLED:false}}")
+    private boolean kafkaEnabled;
+
     // ── F-03: 감사 로그 Kafka 발행 ──────────────────────────────────────────
     /** platform.audit.log 토픽 비동기 발행. 환경변수 IDO_AUDIT_KAFKA_ENABLED */
     @Value("${ido.audit.kafka-publish-enabled:${IDO_AUDIT_KAFKA_ENABLED:true}}")
@@ -268,6 +273,7 @@ public class FeatureFlags {
         // ── 기존 기능 ──
         log.info("[FeatureFlags]   F-01 authRateLimit       = {}  (IDO_AUTH_RL_ENABLED)", fmt(authRateLimit));
         log.info("[FeatureFlags]   F-02 agencyRateLimit     = {}  (IDO_RATE_LIMIT_ENABLED)", fmt(agencyRateLimit));
+        log.info("[FeatureFlags]   F-31 kafkaEnabled        = {}  (IDEM_KAFKA_ENABLED) — false 면 F-03·F-30 은 강제 OFF, F-13 은 프로세스 내 배달", fmt(kafkaEnabled));
         log.info("[FeatureFlags]   F-03 auditKafka          = {}  (IDO_AUDIT_KAFKA_ENABLED)", fmt(auditKafka));
         log.info("[FeatureFlags]   F-04 auditDb             = {}  (IDO_AUDIT_DB_ENABLED)", fmt(auditDb));
         log.info("[FeatureFlags]   F-05 authTracing         = {}  (IDO_AUTH_TRACING_ENABLED)", fmt(authTracing));
@@ -357,6 +363,8 @@ public class FeatureFlags {
                 featureEntry(authRateLimit, "IDO_AUTH_RL_ENABLED", "stable", "IP 기반 Auth 엔드포인트 Rate Limiting")),
             java.util.Map.entry("F-02_agencyRateLimit",
                 featureEntry(agencyRateLimit, "IDO_RATE_LIMIT_ENABLED", "stable", "기관별 API Rate Limiting (Bucket4j)")),
+            java.util.Map.entry("F-31_kafkaEnabled",
+                featureEntry(kafkaEnabled, "IDEM_KAFKA_ENABLED", "stable", "Kafka 선택 의존 (false: 브로커 없이 기동, 아웃박스 프로세스 내 배달)")),
             java.util.Map.entry("F-03_auditKafka",
                 featureEntry(auditKafka, "IDO_AUDIT_KAFKA_ENABLED", "stable", "감사 로그 Kafka 비동기 발행")),
             java.util.Map.entry("F-04_auditDb",

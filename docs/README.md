@@ -77,6 +77,7 @@ docs/
 
 | 파일 | 내용 |
 |---|---|
+| [`install.md`](install.md) | **설치 가이드 — 단일 설치본 (D1-b)** — PostgreSQL·Redis·Keycloak·SSO·IM 을 compose 하나로, Kafka 없음. 30분 설치·로그인 확인·Kafka 없이 도는 흐름 표 |
 | [`deployment/README.md`](deployment/README.md) | **운영 배포 가이드 (최신, 2026-05-21)** — develop 브랜치 기준 |
 | [`OPERATION_INVENTORY.md`](OPERATION_INVENTORY.md) | 운영 관리 포인트 인벤토리 — 신규 운영자 온보딩 |
 | [`RUNBOOK_SSO_METRICS.md`](RUNBOOK_SSO_METRICS.md) | SSO/IM 본질 메트릭 RUNBOOK (PR-B1-new 산출물) |
@@ -92,7 +93,7 @@ docs/
 | [`identity-provider-spi.md`](identity-provider-spi.md) | **본인인증 SPI** — `IdentityVerificationProvider` 계약, 표준 엔드포인트, Mock 플러그인 사용법, 새 제공자 작성 절차 |
 | [`vendor-plugin-plan.md`](vendor-plugin-plan.md) | **벤더 독립화·플러그인 아키텍처 플랜** — NICE/OACX·AnyID 를 플러그인으로 분리하는 P0~P5 단계, SPI 계약 초안 |
 | [`naming.md`](naming.md) | **Idem 개명 대응표** — 구명↔신명, 개명 단계, 아직 바꾸지 않은 런타임 식별자 목록 |
-| [`generalization-plan.md`](generalization-plan.md) | **범용화 리팩토링 플랜 v0.2** — 현재 구조 분석(고객·벤더·기관모델·식별자·프로토콜·관리면·회원전환·브로커 모델 결합), 설치본→Tenant(Realm)→Service 계층의 IdP 모델 목표 구조, S1~S9 단계(S4b·S8 재정의), 기관 요구사항 수용 매트릭스 |
+| [`generalization-plan.md`](generalization-plan.md) | **범용화 리팩토링 플랜 v0.3** — GS 우선·Keycloak 유지·IM 을 얇게·다이어트 먼저 결정, 제품 3개(SSO·IM·KR 에디션), D1→D2→S8→S7→S6→S9 순서와 진행 기록(S1~S5·D1-a·D1-b 완료) |
 | [`execution-plan.md`](execution-plan.md) | **실행 계획 (확장판)** — 단계별 작업·완료 기준·병행 트랙·의사결정 대기·위험. 요약은 §0 |
 | [`certification/cc-gs-gap-analysis.md`](certification/cc-gs-gap-analysis.md) | **CC·GS 인증 갭 분석 (초안)** — 국가용 보안요구사항(SSO) 클래스별 현재 구현 대조, TOE 범위 제안, 보증 산출물·GS 품질 특성 갭, 로드맵·질의 목록 |
 | [`idem-sdk-java-usage-guide.md`](idem-sdk-java-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |

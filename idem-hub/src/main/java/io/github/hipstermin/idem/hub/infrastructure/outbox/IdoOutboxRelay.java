@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
@@ -81,6 +82,12 @@ public class IdoOutboxRelay {
     private final IdoOutboxRepository               outboxRepository;
     private final KafkaTemplate<String, Object>     kafkaTemplate;
     private final ObjectMapper                       objectMapper;
+    /** D1-b: Kafka 꺼진 배포에서만 존재 — 같은 프로세스의 컨슈머 진입점으로 배달 */
+    private final ObjectProvider<InProcessOutboxDispatcher> inProcessDispatcher;
+
+    /** D1-b: Kafka 선택 의존. false 면 Kafka 대신 {@link InProcessOutboxDispatcher} 로 배달한다 (릴레이 자체는 계속 돈다). */
+    @Value("${idem.messaging.kafka.enabled:false}")
+    private boolean kafkaEnabled;
 
     // F-13: Outbox Relay On/Off (IDO_OUTBOX_RELAY_ENABLED)
     // false → @Scheduled 실행되어도 즉시 return, DB 500ms 폴링 없음
@@ -131,6 +138,10 @@ public class IdoOutboxRelay {
         log.debug("[IdoOutboxRelay] PENDING 이벤트 {} 건 발행 시작", pending.size());
 
         for (IdoOutboxRecord record : pending) {
+            if (!kafkaEnabled) {
+                dispatchInProcess(record);
+                continue;
+            }
             try {
                 // ── payload 역직렬화: Map<String, Object> (타입 무관, 범용 처리) ──
                 // 이유: ido.outbox에는 AuthEvent(qsign.auth.events) 외에
@@ -161,6 +172,26 @@ public class IdoOutboxRelay {
                         record.getEventId(), record.getEventType(), e.getMessage());
                 handleFailure(record, e);
             }
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // D1-b: Kafka 없는 배포 — 프로세스 내 배달 (동기, REQUIRES_NEW)
+    // ──────────────────────────────────────────────────────────────────────
+
+    private void dispatchInProcess(IdoOutboxRecord record) {
+        InProcessOutboxDispatcher dispatcher = inProcessDispatcher.getIfAvailable();
+        if (dispatcher == null) {
+            handleFailure(record, new IllegalStateException("InProcessOutboxDispatcher 빈 없음 — "
+                    + "idem.messaging.kafka.enabled=false 인데 배달기가 등록되지 않았다"));
+            return;
+        }
+        try {
+            dispatcher.dispatch(record);
+            outboxRepository.markPublished(record.getEventId());
+            log.debug("[IdoOutboxRelay] 프로세스 내 배달 완료: eventId={} topic={}", record.getEventId(), record.getTopic());
+        } catch (Exception e) {
+            handleFailure(record, e);
         }
     }
 
