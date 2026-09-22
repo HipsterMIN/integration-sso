@@ -1,6 +1,6 @@
 package io.github.hipstermin.idem.common.util;
 
-import java.security.SecureRandom;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 
 /**
  * 암호학적으로 안전한 임시 비밀번호 생성 유틸리티
@@ -13,7 +13,7 @@ import java.security.SecureRandom;
  * 전체 기관 관리자 계정이 위협받을 수 있다.
  *
  * <p><b>구현 방식:</b>
- * {@link SecureRandom}은 JVM이 제공하는 CSPRNG(Cryptographically Secure PRNG)로,
+ * {@code CryptoProvider.randomInt}은 JVM이 제공하는 CSPRNG(Cryptographically Secure PRNG)로,
  * OS 엔트로피 소스({@code /dev/urandom}, Windows CryptGenRandom)를 사용한다.
  * {@code Math.random()}과 달리 예측 불가능한 무작위성을 보장한다.
  *
@@ -27,7 +27,7 @@ import java.security.SecureRandom;
  * </ul>
  *
  * <p><b>스레드 안전성:</b>
- * {@link SecureRandom}은 스레드 안전하다. 단일 인스턴스를 공유 사용한다.
+ * {@code CryptoProvider.randomInt}은 스레드 안전하다. 단일 인스턴스를 공유 사용한다.
  *
  * <p><b>사용 시나리오:</b>
  * <ul>
@@ -40,12 +40,10 @@ import java.security.SecureRandom;
  * {@code POST /api/ext/provision/enterprises}에 전달하는 흐름을 개선하기 위해,
  * 향후 이 유틸리티를 사용하는 BFF 엔드포인트를 통해 서버 사이드 생성을 권장한다.
  *
- * @see SecureRandom
+ * @see io.github.hipstermin.idem.common.crypto.CryptoProvider
  */
 public final class SecurePasswordGenerator {
 
-    /** 암호학적 안전 난수 생성기 (CSPRNG) — 스레드 안전 */
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     /** 비밀번호 구성 문자 집합 */
     private static final String UPPERCASE   = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // I, O 제외 (혼동 방지)
@@ -67,7 +65,7 @@ public final class SecurePasswordGenerator {
      * 기본 정책(12자, 각 유형 2개 이상)의 임시 비밀번호를 생성한다.
      *
      * <p>생성된 비밀번호는 대문자·소문자·숫자·특수문자를 각 2개 이상 포함하며,
-     * {@link SecureRandom}으로 예측 불가능한 순서로 섞인다.
+     * {@code CryptoProvider.randomInt}으로 예측 불가능한 순서로 섞인다.
      *
      * <p><b>주의:</b> 이 비밀번호는 임시 비밀번호이며, 첫 로그인 후 사용자가 반드시
      * 변경하도록 Keycloak의 {@code requiredAction: UPDATE_PASSWORD}를 설정해야 한다.
@@ -113,7 +111,7 @@ public final class SecurePasswordGenerator {
 
         // Fisher-Yates 셔플로 순서 무작위화 (CSPRNG 기반)
         for (int i = length - 1; i > 0; i--) {
-            int j = SECURE_RANDOM.nextInt(i + 1);
+            int j = CryptoProviders.current().randomInt(i + 1);
             char tmp = password[i];
             password[i] = password[j];
             password[j] = tmp;
@@ -129,6 +127,6 @@ public final class SecurePasswordGenerator {
      * @return 무작위 선택된 문자
      */
     private static char randomChar(String charSet) {
-        return charSet.charAt(SECURE_RANDOM.nextInt(charSet.length()));
+        return charSet.charAt(CryptoProviders.current().randomInt(charSet.length()));
     }
 }

@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.hub.gateway;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.hub.config.FeatureFlags;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -7,7 +8,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
@@ -31,7 +31,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *   <li>서명 페이로드: {@code "{agencyCode}:{idempotencyKey}:{epochSeconds}"}</li>
  *   <li>허용 타임스탬프 편차: ±{@link #TTL_SECONDS}초 (네트워크 지연 + 시계 편차 허용)</li>
  *   <li>기관별 독립 HMAC 키: {@link AgencyHmacKeyStore}에서 조회</li>
- *   <li>상수시간 비교({@link MessageDigest#isEqual})로 타이밍 공격 방어</li>
+ *   <li>상수시간 비교({@code CryptoProvider.constantTimeEquals})로 타이밍 공격 방어</li>
  * </ol>
  *
  * <h3>서명 생성 예시 (연동 기관 측 코드)</h3>
@@ -237,14 +237,14 @@ public class HmacSignatureFilter extends OncePerRequestFilter {
     /**
      * 상수시간 문자열 비교 (타이밍 공격 방지).
      *
-     * <p>{@link MessageDigest#isEqual}은 두 배열 길이가 달라도 일정 시간을
+     * <p>{@code CryptoProvider.constantTimeEquals}은 두 배열 길이가 달라도 일정 시간을
      * 소비하므로 길이 차이를 이용한 타이밍 공격을 방지합니다.
      */
     private boolean constantTimeEquals(String a, String b) {
         if (a == null || b == null) return false;
         byte[] ba = a.toLowerCase().getBytes(StandardCharsets.UTF_8);
         byte[] bb = b.toLowerCase().getBytes(StandardCharsets.UTF_8);
-        return MessageDigest.isEqual(ba, bb);
+        return CryptoProviders.current().constantTimeEquals(ba, bb);
     }
 
     /**

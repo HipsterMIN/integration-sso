@@ -1,15 +1,13 @@
 package io.github.hipstermin.idem.relay.job.ido;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -267,10 +265,8 @@ public class WebhookRelayJob {
             return "";
         }
         try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            return "sha256=" + HexFormat.of().formatHex(
-                    mac.doFinal(signTarget.getBytes(StandardCharsets.UTF_8)));
+            return "sha256=" + CryptoProviders.current()
+                    .hmacSha256Hex(key.getBytes(StandardCharsets.UTF_8), signTarget);
         } catch (Exception e) {
             log.error("[WebhookRelayJob] HMAC 계산 실패: {}", e.getMessage());
             return "";

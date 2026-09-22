@@ -1,8 +1,8 @@
 package io.github.hipstermin.idem.gate.keycloak;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import java.time.Duration;
 import java.util.Optional;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -42,8 +42,8 @@ public class KeycloakStateStore {
      */
     public KeycloakStateEntry create(String correlationId, String returnUrl,
                                      String requestedLevel, String provider) {
-        String state = UUID.randomUUID().toString().replace("-", "");
-        String nonce = UUID.randomUUID().toString().replace("-", "");
+        String state = CryptoProviders.current().randomHex(16);   // D2-b: CSPRNG 32 hex
+        String nonce = CryptoProviders.current().randomHex(16);
 
         KeycloakStateEntry entry = KeycloakStateEntry.builder()
                 .state(state)

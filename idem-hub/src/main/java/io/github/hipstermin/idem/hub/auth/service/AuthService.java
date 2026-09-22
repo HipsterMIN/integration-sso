@@ -1,6 +1,7 @@
 package io.github.hipstermin.idem.hub.auth.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.hub.auth.audit.AuthAuditService;
 import io.github.hipstermin.idem.hub.auth.client.IntegrationAuthClient;
 import io.github.hipstermin.idem.hub.auth.dto.*;
@@ -14,9 +15,6 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import javax.crypto.Cipher;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -420,11 +418,7 @@ public class AuthService {
                 keyBytes = feAesGcmKey.getBytes(StandardCharsets.UTF_8);
             }
 
-            SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
-            GCMParameterSpec gcmSpec = new GCMParameterSpec(128, iv);
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
-            byte[] plainBytes = cipher.doFinal(cipherBytes);
+            byte[] plainBytes = CryptoProviders.current().aesGcmDecrypt(keyBytes, iv, cipherBytes, null);
 
             return new String(plainBytes, StandardCharsets.UTF_8);
 

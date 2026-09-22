@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.hub.broker.nonoidc;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.domain.IdOAuthInput;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
@@ -12,8 +13,6 @@ import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -283,9 +282,7 @@ public class NonOidcBrokerController {
         if (PlatformErrorCode.QS_AUTH_FAILED.equals(e.getErrorCode())
                 || PlatformErrorCode.IDP_SIGNATURE_MISMATCH.equals(e.getErrorCode())) {
             try {
-                MessageDigest md   = MessageDigest.getInstance("SHA-256");
-                byte[]        hash = md.digest(identifier.getBytes(StandardCharsets.UTF_8));
-                String identifierHash = HexFormat.of().formatHex(hash);
+                String identifierHash = CryptoProviders.current().sha256Hex(identifier);
                 nonOidcAuthService.recordFailure(identifierHash, providerCode, correlationId);
             } catch (Exception ignored) {
                 log.warn("[NonOidcBrokerController] 실패 카운트 기록 실패 (무시): cid={}", correlationId);

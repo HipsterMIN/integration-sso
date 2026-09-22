@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.hub.admin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.event.AuditLogEvent;
@@ -12,10 +13,6 @@ import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
 import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileMapper;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -166,9 +163,7 @@ public class AgencyAdminService {
         AgencyMetaJpaEntity entity = findOrThrow(agencyCode);
 
         // 새 API Key 생성 (32바이트 랜덤)
-        byte[] raw = new byte[32];
-        new SecureRandom().nextBytes(raw);
-        String newRawKey = Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
+        String newRawKey = CryptoProviders.current().randomToken(32);
         String newHash   = sha256Hex(newRawKey);
 
         entity.setApiKeyHash(newHash);
@@ -303,16 +298,7 @@ public class AgencyAdminService {
     }
 
     private String sha256Hex(String input) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) sb.append(String.format("%02x", b));
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            // SHA-256은 Java 명세상 항상 지원 — 발생 불가하나 checked exception 명시
-            throw new IllegalStateException("SHA-256 알고리즘 지원 안 됨 (JVM 환경 이상)", e);
-        }
+        return CryptoProviders.current().sha256Hex(input);
     }
 
     /** 연동 유형 검증 — 미지 값은 400(E-IDO-111). null 은 DEFAULT(DIRECT). */

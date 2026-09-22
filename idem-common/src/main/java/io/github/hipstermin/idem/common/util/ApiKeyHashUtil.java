@@ -1,12 +1,7 @@
 package io.github.hipstermin.idem.common.util;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.security.spec.InvalidKeySpecException;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import java.util.Base64;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
 
 /**
  * API Key PBKDF2-HMAC-SHA256 해시 유틸리티
@@ -18,7 +13,7 @@ import javax.crypto.spec.PBEKeySpec;
  *   <li>Salt: 16바이트 (128비트) — SecureRandom 생성</li>
  *   <li>Key 길이: 32바이트 (256비트)</li>
  *   <li>저장 포맷: {@code pbkdf2:{iterations}:{saltBase64}:{hashBase64}}</li>
- *   <li>타이밍 공격 방지: {@link MessageDigest#isEqual} 상수 시간 비교</li>
+ *   <li>타이밍 공격 방지: {@code CryptoProvider.constantTimeEquals} 상수 시간 비교</li>
  * </ul>
  *
  * <p>사용 예:
@@ -41,7 +36,6 @@ public final class ApiKeyHashUtil {
     private static final int    SALT_LENGTH    = 16;   // bytes
     private static final int    KEY_LENGTH     = 256;  // bits
 
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private ApiKeyHashUtil() {}
 
@@ -57,8 +51,7 @@ public final class ApiKeyHashUtil {
             throw new IllegalArgumentException("rawApiKey는 null 또는 빈 문자열일 수 없습니다.");
         }
 
-        byte[] salt = new byte[SALT_LENGTH];
-        SECURE_RANDOM.nextBytes(salt);
+        byte[] salt = CryptoProviders.current().randomBytes(SALT_LENGTH);
 
         byte[] hashBytes = pbkdf2(rawApiKey.toCharArray(), salt, ITERATIONS, KEY_LENGTH);
 
@@ -96,7 +89,7 @@ public final class ApiKeyHashUtil {
             byte[] actual = pbkdf2(rawApiKey.toCharArray(), salt, iterations, expected.length * 8);
 
             // 상수 시간 비교 (타이밍 공격 방지)
-            return MessageDigest.isEqual(expected, actual);
+            return CryptoProviders.current().constantTimeEquals(expected, actual);
 
         } catch (Exception e) {
             // 파싱 오류 → 검증 실패 (예외 스택 미노출로 열거 공격 방지)
@@ -117,14 +110,7 @@ public final class ApiKeyHashUtil {
     // ── 내부 PBKDF2 연산 ──────────────────────────────────────────────────────
 
     private static byte[] pbkdf2(char[] password, byte[] salt, int iterations, int keyLengthBits) {
-        try {
-            PBEKeySpec spec = new PBEKeySpec(password, salt, iterations, keyLengthBits);
-            SecretKeyFactory skf = SecretKeyFactory.getInstance(ALGORITHM);
-            byte[] result = skf.generateSecret(spec).getEncoded();
-            spec.clearPassword(); // 비밀번호 메모리에서 즉시 제거
-            return result;
-        } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-            throw new IllegalStateException("PBKDF2 해시 연산 실패: " + e.getMessage(), e);
-        }
+        // D2-b: CryptoProvider 경유 (구현체가 비밀번호 배열을 지운다)
+        return CryptoProviders.current().pbkdf2HmacSha256(password, salt, iterations, keyLengthBits);
     }
 }

@@ -1,15 +1,13 @@
 package io.github.hipstermin.idem.registry.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.registry.crypto.CiCryptoService;
 import io.github.hipstermin.idem.registry.crypto.PiiMaskingService;
 import io.github.hipstermin.idem.registry.identity.DiGenerationService;
 import io.github.hipstermin.idem.registry.infrastructure.jpa.entity.QimUserJpaEntity;
 import io.github.hipstermin.idem.registry.infrastructure.jpa.entity.UserProfileJpaEntity;
 import io.github.hipstermin.idem.registry.infrastructure.jpa.repository.QimUserJpaRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -153,12 +151,6 @@ public class MemberLookupController {
      * DB 의 {@code identifier_hash} 컬럼과 정확히 매칭된다.
      */
     private String sha256(String input) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new RuntimeException("SHA-256 계산 실패", e);
-        }
+        return CryptoProviders.current().sha256Hex(input);
     }
 }

@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.registry.config;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -151,6 +152,6 @@ public class InternalApiKeyInterceptor implements HandlerInterceptor {
     private static boolean secureEquals(String expected, String actual) {
         byte[] expectedBytes = expected.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] actualBytes   = actual.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        return java.security.MessageDigest.isEqual(expectedBytes, actualBytes);
+        return CryptoProviders.current().constantTimeEquals(expectedBytes, actualBytes);
     }
 }

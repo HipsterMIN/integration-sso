@@ -2,14 +2,12 @@ package io.github.hipstermin.idem.registry.identity;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -145,11 +143,8 @@ public class DiGenerationService {
      */
     public String generateDi(String qimUserId, String agencyCode) {
         try {
-            Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-            mac.init(new SecretKeySpec(diSecret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
             String input = agencyCode + ":" + qimUserId;
-            byte[] hash = mac.doFinal(input.getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            return CryptoProviders.current().hmacSha256Base64Url(diSecret.getBytes(StandardCharsets.UTF_8), input);
         } catch (Exception e) {
             log.error("[DiGeneration] DI 생성 실패: qimUserId={} agencyCode={}", qimUserId, agencyCode, e);
             throw new RuntimeException("DI 생성 실패", e);

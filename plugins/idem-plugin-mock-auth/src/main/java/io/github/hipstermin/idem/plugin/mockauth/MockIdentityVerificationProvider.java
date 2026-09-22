@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.plugin.mockauth;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.common.spi.identity.IdentityVerificationException;
@@ -8,13 +9,9 @@ import io.github.hipstermin.idem.common.spi.identity.VerificationCallback;
 import io.github.hipstermin.idem.common.spi.identity.VerificationRequest;
 import io.github.hipstermin.idem.common.spi.identity.VerificationStart;
 import io.github.hipstermin.idem.common.spi.identity.VerifiedIdentity;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -123,12 +120,7 @@ public class MockIdentityVerificationProvider implements IdentityVerificationPro
     }
 
     private static String sha256(String s) {
-        try {
-            byte[] d = MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(d);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
+        return CryptoProviders.current().sha256Hex(s); // 플러그인도 코어 CryptoProvider 를 쓸 수 있다 (레퍼런스)
     }
 
     private record PendingTx(Map<String, String> params, Instant expiresAt) {}

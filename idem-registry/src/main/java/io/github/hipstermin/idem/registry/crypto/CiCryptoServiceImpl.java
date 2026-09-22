@@ -1,14 +1,11 @@
 package io.github.hipstermin.idem.registry.crypto;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
-import javax.crypto.Cipher;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -81,7 +78,6 @@ public class CiCryptoServiceImpl implements CiCryptoService {
     @Value("${qim.crypto.ci.allow-empty-key:false}")
     private boolean allowEmptyKey;
 
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     // ── 부팅 검증 (Sprint γ-2 / F3.3) ─────────────────────────────────────────
 
@@ -155,16 +151,9 @@ public class CiCryptoServiceImpl implements CiCryptoService {
             throw new IllegalArgumentException("CI 값이 비어있습니다.");
         }
         try {
-            byte[] keyBytes = resolveKey(currentVersion);
-            SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-
-            byte[] iv = new byte[GCM_IV_LENGTH];
-            SECURE_RANDOM.nextBytes(iv);
-
-            Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
-
-            byte[] cipherBytes = cipher.doFinal(rawCi.getBytes(StandardCharsets.UTF_8));
+            byte[] keyBytes    = resolveKey(currentVersion);
+            byte[] iv          = CryptoProviders.current().randomBytes(GCM_IV_LENGTH);
+            byte[] cipherBytes = CryptoProviders.current().aesGcmEncrypt(keyBytes, iv, rawCi.getBytes(StandardCharsets.UTF_8), null);
 
             String ivB64  = Base64.getUrlEncoder().withoutPadding().encodeToString(iv);
             String ctB64  = Base64.getUrlEncoder().withoutPadding().encodeToString(cipherBytes);
@@ -191,13 +180,8 @@ public class CiCryptoServiceImpl implements CiCryptoService {
             byte[] iv        = Base64.getUrlDecoder().decode(parts[1]);
             byte[] cipherBytes = Base64.getUrlDecoder().decode(parts[2]);
 
-            byte[] keyBytes  = resolveKey(version);
-            SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-
-            Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
-
-            byte[] plain = cipher.doFinal(cipherBytes);
+            byte[] keyBytes = resolveKey(version);
+            byte[] plain    = CryptoProviders.current().aesGcmDecrypt(keyBytes, iv, cipherBytes, null);
             return new String(plain, StandardCharsets.UTF_8);
         } catch (Exception e) {
             log.error("[CiCrypto] AES-256-GCM 복호화 실패", e);

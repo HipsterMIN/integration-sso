@@ -1,12 +1,12 @@
 package io.github.hipstermin.idem.hub.fe.config;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,7 +34,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
  *       {@code X-Internal-Api-Key}(공유 시크릿 평문) 검증.</li>
  *   <li>시크릿은 application.yml {@code ido.internal.callers.{caller}=<key>} 로 주입.
  *       운영은 K8s Secret / Vault → 환경변수.</li>
- *   <li>비교는 {@link MessageDigest#isEqual} 상수시간.</li>
+ *   <li>비교는 {@code CryptoProvider.constantTimeEquals} 상수시간.</li>
  *   <li>실패 시 401 + {@code {error, message}} JSON 응답.</li>
  *   <li>성공 시 Request Attribute {@link #ATTR_VALIDATED_CALLER} 에 caller 식별자 저장.</li>
  * </ol>
@@ -202,7 +202,7 @@ public class InternalCallerAuthInterceptor implements HandlerInterceptor {
         if (a == null || b == null) return false;
         byte[] ba = a.getBytes(StandardCharsets.UTF_8);
         byte[] bb = b.getBytes(StandardCharsets.UTF_8);
-        return MessageDigest.isEqual(ba, bb);
+        return CryptoProviders.current().constantTimeEquals(ba, bb);
     }
 
     private static String trimToNull(String s) {

@@ -3,6 +3,7 @@ package io.github.hipstermin.idem.hub.handoff.crypto;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.*;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.hub.crypto.KeyVersionRegistry;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -370,47 +371,47 @@ class HandoffCryptoServiceTest {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // MessageDigestUtil.safeEquals() — 상수시간 비교
+    // CryptoProvider.constantTimeEquals() — 상수시간 비교 (구 MessageDigestUtil.safeEquals)
     // ════════════════════════════════════════════════════════════════════════
 
     @Nested
-    @DisplayName("MessageDigestUtil.safeEquals() — 상수시간 비교")
+    @DisplayName("CryptoProvider.constantTimeEquals() — 상수시간 비교 (구 MessageDigestUtil.safeEquals)")
     class SafeEqualsTests {
 
         @Test
         @DisplayName("동일 문자열 → true")
         void sameStringReturnsTrue() {
-            assertThat(HandoffCryptoService.MessageDigestUtil.safeEquals("abc", "abc")).isTrue();
+            assertThat(CryptoProviders.current().constantTimeEquals("abc", "abc")).isTrue();
         }
 
         @Test
         @DisplayName("다른 문자열 → false")
         void differentStringReturnsFalse() {
-            assertThat(HandoffCryptoService.MessageDigestUtil.safeEquals("abc", "xyz")).isFalse();
+            assertThat(CryptoProviders.current().constantTimeEquals("abc", "xyz")).isFalse();
         }
 
         @Test
         @DisplayName("길이가 다른 문자열 → false")
         void differentLengthReturnsFalse() {
-            assertThat(HandoffCryptoService.MessageDigestUtil.safeEquals("abc", "abcd")).isFalse();
+            assertThat(CryptoProviders.current().constantTimeEquals("abc", "abcd")).isFalse();
         }
 
         @Test
         @DisplayName("null(a) → false")
         void nullAReturnsFalse() {
-            assertThat(HandoffCryptoService.MessageDigestUtil.safeEquals(null, "abc")).isFalse();
+            assertThat(CryptoProviders.current().constantTimeEquals(null, "abc")).isFalse();
         }
 
         @Test
         @DisplayName("null(b) → false")
         void nullBReturnsFalse() {
-            assertThat(HandoffCryptoService.MessageDigestUtil.safeEquals("abc", null)).isFalse();
+            assertThat(CryptoProviders.current().constantTimeEquals("abc", null)).isFalse();
         }
 
         @Test
         @DisplayName("양쪽 빈 문자열 → true")
         void bothEmptyReturnsTrue() {
-            assertThat(HandoffCryptoService.MessageDigestUtil.safeEquals("", "")).isTrue();
+            assertThat(CryptoProviders.current().constantTimeEquals("", "")).isTrue();
         }
     }
 }

@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.hub.broker.keycloak;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.broker.keycloak.dto.KeycloakJwtClaims;
@@ -10,9 +11,7 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import java.math.BigInteger;
-import java.security.KeyFactory;
 import java.security.interfaces.RSAPublicKey;
-import java.security.spec.RSAPublicKeySpec;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -156,7 +155,6 @@ public class KeycloakJwksVerifier {
     private RSAPublicKey buildRsaPublicKey(String n, String e) throws Exception {
         BigInteger modulus  = new BigInteger(1, Base64.getUrlDecoder().decode(n));
         BigInteger exponent = new BigInteger(1, Base64.getUrlDecoder().decode(e));
-        RSAPublicKeySpec spec = new RSAPublicKeySpec(modulus, exponent);
-        return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(spec);
+        return (RSAPublicKey) CryptoProviders.current().rsaPublicKey(modulus, exponent);
     }
 }

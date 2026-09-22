@@ -1,6 +1,7 @@
 package io.github.hipstermin.idem.hub.broker.keycloak;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
@@ -16,10 +17,7 @@ import io.github.hipstermin.idem.hub.broker.state.IdoOidcStateStore;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -319,13 +317,7 @@ public class KeycloakOidcService {
             throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, correlationId,
                     "id_token sub 클레임 없음");
         }
-        try {
-            MessageDigest md    = MessageDigest.getInstance("SHA-256");
-            byte[]        hash  = md.digest(sub.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new IllegalStateException("identifierHash 생성 실패", e);
-        }
+        return CryptoProviders.current().sha256Hex(sub);
     }
 
     /**

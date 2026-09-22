@@ -1,5 +1,6 @@
 package io.github.hipstermin.idem.registry.api;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.event.UserEvent;
 import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.common.util.UuidV7;
@@ -12,11 +13,7 @@ import io.github.hipstermin.idem.registry.infrastructure.jpa.entity.UserProfileJ
 import io.github.hipstermin.idem.registry.infrastructure.jpa.repository.QimUserJpaRepository;
 import io.github.hipstermin.idem.registry.outbox.OutboxService;
 import io.github.hipstermin.idem.registry.user.UserRegistrationService;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -446,12 +443,6 @@ public class UserController {
      * PII 비보관 원칙: sub 원문은 이 메서드 호출 이후 참조 불가.
      */
     private static String computeSha256Hex(String input) {
-        try {
-            MessageDigest md   = MessageDigest.getInstance("SHA-256");
-            byte[]        hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 미지원 환경", e);
-        }
+        return CryptoProviders.current().sha256Hex(input);
     }
 }

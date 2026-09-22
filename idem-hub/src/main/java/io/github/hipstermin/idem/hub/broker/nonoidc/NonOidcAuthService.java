@@ -1,16 +1,14 @@
 package io.github.hipstermin.idem.hub.broker.nonoidc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.event.AuthEvent;
 import io.github.hipstermin.idem.common.util.UuidV7;
 import io.github.hipstermin.idem.hub.broker.BrokerAuditLogService;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -257,13 +255,7 @@ public class NonOidcAuthService {
             throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, correlationId,
                     "rawIdentifier 없음 — identifierHash 생성 불가");
         }
-        try {
-            MessageDigest md   = MessageDigest.getInstance("SHA-256");
-            byte[]        hash = md.digest(rawIdentifier.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new IllegalStateException("identifierHash 생성 실패", e);
-        }
+        return CryptoProviders.current().sha256Hex(rawIdentifier);
     }
 
     private String buildEventPayload(String eventId, String authResultId, String correlationId,

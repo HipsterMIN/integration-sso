@@ -1,13 +1,9 @@
 package io.github.hipstermin.idem.hub.handoff.crypto;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.hub.crypto.KeyVersionRegistry;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.util.Base64;
-import javax.crypto.Cipher;
-import javax.crypto.Mac;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -43,8 +39,6 @@ public class HandoffCryptoService {
     /** 버전 접두사 정규식: v{숫자}.{base64url}.{base64url} */
     private static final String VERSION_PREFIX_PATTERN = "^v\\d+\\..+\\..+$";
 
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-
     private final KeyVersionRegistry keyVersionRegistry;
 
     // ── 암호화 ───────────────────────────────────────────────────────────
@@ -61,20 +55,9 @@ public class HandoffCryptoService {
     public String encrypt(String plaintext, String aad) {
         String version = keyVersionRegistry.currentAesVersion();
         try {
-            byte[]       keyBytes = keyVersionRegistry.resolveAesKey(version);
-            SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-
-            byte[] iv = new byte[GCM_IV_LENGTH];
-            SECURE_RANDOM.nextBytes(iv);
-
-            Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
-
-            if (aad != null && !aad.isEmpty()) {
-                cipher.updateAAD(aad.getBytes(StandardCharsets.UTF_8));
-            }
-
-            byte[] cipherBytes = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+            byte[] keyBytes    = keyVersionRegistry.resolveAesKey(version);
+            byte[] iv          = CryptoProviders.current().randomBytes(GCM_IV_LENGTH);
+            byte[] cipherBytes = CryptoProviders.current().aesGcmEncrypt(keyBytes, iv, plaintext.getBytes(StandardCharsets.UTF_8), aadBytes(aad));
 
             String ivB64 = Base64.getUrlEncoder().withoutPadding().encodeToString(iv);
             String ctB64 = Base64.getUrlEncoder().withoutPadding().encodeToString(cipherBytes);
@@ -137,15 +120,8 @@ public class HandoffCryptoService {
         String version = keyVersionRegistry.currentHmacVersion();
         try {
             byte[]       keyBytes = keyVersionRegistry.resolveHmacKey(version);
-            SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "HmacSHA256");
-
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(keySpec);
-
             String signingInput = ticketId + "|" + agencyCode + "|" + encryptedPayload;
-            byte[] hmacBytes = mac.doFinal(signingInput.getBytes(StandardCharsets.UTF_8));
-
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hmacBytes);
+            return CryptoProviders.current().hmacSha256Base64Url(keyBytes, signingInput);
         } catch (Exception e) {
             log.error("[HandoffCrypto] HMAC-SHA256 서명 실패 (version={})", version, e);
             throw new RuntimeException("Handoff signature 생성 실패", e);
@@ -161,7 +137,7 @@ public class HandoffCryptoService {
                           String encryptedPayload, String expectedSignature) {
         try {
             String actual = sign(ticketId, agencyCode, encryptedPayload);
-            return MessageDigestUtil.safeEquals(actual, expectedSignature);
+            return CryptoProviders.current().constantTimeEquals(actual, expectedSignature);
         } catch (Exception e) {
             log.error("[HandoffCrypto] 서명 검증 실패", e);
             return false;
@@ -184,16 +160,7 @@ public class HandoffCryptoService {
             byte[]       iv         = Base64.getUrlDecoder().decode(parts[1]);
             byte[]       cipherBytes = Base64.getUrlDecoder().decode(parts[2]);
             byte[]       keyBytes   = keyVersionRegistry.resolveAesKey(version);
-            SecretKeySpec keySpec   = new SecretKeySpec(keyBytes, "AES");
-
-            Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
-
-            if (aad != null && !aad.isEmpty()) {
-                cipher.updateAAD(aad.getBytes(StandardCharsets.UTF_8));
-            }
-
-            byte[] plain = cipher.doFinal(cipherBytes);
+            byte[]       plain      = CryptoProviders.current().aesGcmDecrypt(keyBytes, iv, cipherBytes, aadBytes(aad));
             return new String(plain, StandardCharsets.UTF_8);
 
         } catch (KeyVersionRegistry.KeyNotFoundException e) {
@@ -219,17 +186,8 @@ public class HandoffCryptoService {
             System.arraycopy(combined, GCM_IV_LENGTH, cipherBytes, 0, cipherBytes.length);
 
             // 레거시 → v1 키 사용
-            byte[]       keyBytes = keyVersionRegistry.resolveAesKey("v1");
-            SecretKeySpec keySpec = new SecretKeySpec(keyBytes, "AES");
-
-            Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, keySpec, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
-
-            if (aad != null && !aad.isEmpty()) {
-                cipher.updateAAD(aad.getBytes(StandardCharsets.UTF_8));
-            }
-
-            byte[] plain = cipher.doFinal(cipherBytes);
+            byte[] keyBytes = keyVersionRegistry.resolveAesKey("v1");
+            byte[] plain    = CryptoProviders.current().aesGcmDecrypt(keyBytes, iv, cipherBytes, aadBytes(aad));
             return new String(plain, StandardCharsets.UTF_8);
 
         } catch (Exception e) {
@@ -240,22 +198,8 @@ public class HandoffCryptoService {
 
     // ── 내부 유틸 ─────────────────────────────────────────────────────────
 
-    /**
-     * 상수 시간(constant-time) 문자열 비교 — timing-attack 방지
-     */
-    static final class MessageDigestUtil {
-        private MessageDigestUtil() {}
-
-        static boolean safeEquals(String a, String b) {
-            if (a == null || b == null) return false;
-            byte[] aBytes = a.getBytes(StandardCharsets.UTF_8);
-            byte[] bBytes = b.getBytes(StandardCharsets.UTF_8);
-            if (aBytes.length != bBytes.length) return false;
-            int diff = 0;
-            for (int i = 0; i < aBytes.length; i++) {
-                diff |= aBytes[i] ^ bBytes[i];
-            }
-            return diff == 0;
-        }
+    /** GCM AAD — ticketId 바인딩 (비어 있으면 없음) */
+    private static byte[] aadBytes(String aad) {
+        return aad != null && !aad.isEmpty() ? aad.getBytes(StandardCharsets.UTF_8) : null;
     }
 }

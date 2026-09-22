@@ -220,6 +220,8 @@ GS 를 먼저 받는다. 배포본·매뉴얼이 고정되고 그 산출물이 C
 
 ## 부록 A — 암호 인벤토리 (현재, 전부 JCE/BouncyCastle)
 
+> **2026-09-21 갱신**: 코어(common·gate·registry·hub·authz·relay)의 아래 항목은 전부 `idem-common` `CryptoProvider` SPI 를 경유하며 JCE 직접 호출은 `crypto/jca/JcaCryptoProvider` 한 곳뿐이다(`CryptoBoundaryGuardTest` 로 강제). 검증필 모듈 도입은 이 구현체 교체로 끝난다. SDK(`HmacSigner`)·에이전트(`OnePassHttpClient`)·플러그인(`NiceCryptoUtil`, AnyID)은 SPI 밖이다. `NiceCryptoUtil` 은 `plugins/idem-plugin-nice-oacx` 로, AnyID KMS 는 `plugins/idem-plugin-anyid` 로 이동했다.
+
 | 용도 | 알고리즘 | 위치 |
 |---|---|---|
 | Handoff 티켓 암호화 | AES-256-GCM(96-bit IV, 128-bit 태그, AAD=ticketId) | `idem-hub/.../handoff/crypto/HandoffCryptoService.java` |

@@ -1,10 +1,8 @@
 package io.github.hipstermin.idem.gate.api;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
-import java.util.HexFormat;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -127,7 +125,7 @@ public class InternalSigVerifier {
             long candidate = nowEpochSeconds + delta;
             try {
                 String expected = computeHmac(correlationId, candidate);
-                if (expected.equalsIgnoreCase(receivedSig)) {
+                if (CryptoProviders.current().constantTimeEquals(expected, receivedSig.toLowerCase())) { // D2-b: 상수 시간 비교
                     if (Math.abs(delta) > 10) {
                         log.debug("[QSign-InternalSigVerifier] 서명 유효 (시계 편차 {}초) correlationId={}",
                                 delta, correlationId);
@@ -152,10 +150,6 @@ public class InternalSigVerifier {
      */
     private String computeHmac(String correlationId, long epochSeconds) throws Exception {
         String payload = correlationId + ":" + epochSeconds;
-        Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-        mac.init(new SecretKeySpec(
-                sigSecret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM));
-        byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-        return HexFormat.of().formatHex(rawHmac);
+        return CryptoProviders.current().hmacSha256Hex(sigSecret.getBytes(StandardCharsets.UTF_8), payload);
     }
 }

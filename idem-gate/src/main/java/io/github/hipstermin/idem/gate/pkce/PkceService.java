@@ -1,10 +1,8 @@
 package io.github.hipstermin.idem.gate.pkce;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -66,9 +64,7 @@ public class PkceService {
      * <p>운영: 클라이언트가 직접 생성. 이 메서드는 서버 시뮬레이션/테스트 전용.
      */
     public String generateCodeVerifier() {
-        byte[] bytes = new byte[VERIFIER_LEN];
-        new SecureRandom().nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        return CryptoProviders.current().randomToken(VERIFIER_LEN);
     }
 
     /**
@@ -77,14 +73,7 @@ public class PkceService {
      */
     public String generateCodeChallenge(String codeVerifier) {
         validateVerifier(codeVerifier);
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(codeVerifier.getBytes(StandardCharsets.US_ASCII));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
-        } catch (Exception e) {
-            log.error("[PKCE] code_challenge 생성 실패", e);
-            throw new PkceException("PKCE code_challenge 생성 실패", e);
-        }
+        return CryptoProviders.current().sha256Base64Url(codeVerifier.getBytes(StandardCharsets.US_ASCII));
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -167,10 +156,7 @@ public class PkceService {
         }
 
         // 상수시간 비교 (타이밍 공격 방지)
-        boolean valid = MessageDigest.isEqual(
-                challenge.getBytes(StandardCharsets.UTF_8),
-                computedChallenge.getBytes(StandardCharsets.UTF_8)
-        );
+        boolean valid = CryptoProviders.current().constantTimeEquals(challenge, computedChallenge);
 
         if (!valid) {
             log.warn("[PKCE] code_verifier 검증 실패: state={} method={}", state, method);

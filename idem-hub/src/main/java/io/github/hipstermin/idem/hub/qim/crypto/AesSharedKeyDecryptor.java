@@ -1,15 +1,9 @@
 package io.github.hipstermin.idem.hub.qim.crypto;
 
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.util.Base64;
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -49,11 +43,12 @@ public class AesSharedKeyDecryptor {
     /** AES-GCM IV 고정 길이 (12바이트 — NIST SP 800-38D 권장) */
     private static final int GCM_IV_LENGTH = 12;
 
-    /** CSPRNG: SecureRandom 인스턴스 (스레드 안전) */
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-
     /** AES 암호화 모드/패딩 (환경변수 QIM_AES_TRANSFORMATION으로 주입, Q-IM 팀 합의 필요) */
     private final String transformation;
+    private static final String TRANSFORMATION_CBC = "AES/CBC/PKCS5Padding";
+    private static final String TRANSFORMATION_GCM = "AES/GCM/NoPadding";
+
+    private boolean isGcm() { return TRANSFORMATION_GCM.equals(transformation); }
     /** IV 바이트 길이 (환경변수 QIM_AES_IV_LENGTH, 기본 16) */
     private final int ivLength;
 
@@ -127,10 +122,10 @@ public class AesSharedKeyDecryptor {
             log.error("[QIM-CRYPTO][보안경고] {} — allow-empty-aes-key=true 로 기동 계속 (로컬·테스트 전용). 복호화는 실패합니다.", reason);
         }
 
-        // Transformation 검증
-        if (!transformation.startsWith("AES/")) {
-            log.error("[QIM-CRYPTO][설정오류] ido.qim.aes-transformation 값이 올바르지 않습니다: {}. " +
-                      "AES/CBC/PKCS5Padding 또는 AES/GCM/NoPadding 형식이어야 합니다.", transformation);
+        // Transformation 검증 — D2-b: 화이트리스트 밖(ECB 등)은 기동 거부. 알고리즘은 CryptoProvider 가 실행한다
+        if (!isGcm() && !TRANSFORMATION_CBC.equals(transformation)) {
+            throw new IllegalStateException("[QIM-CRYPTO] ido.qim.aes-transformation 값이 올바르지 않습니다: " + transformation
+                    + " — " + TRANSFORMATION_CBC + " 또는 " + TRANSFORMATION_GCM + " 만 허용");
         }
 
         log.info("[QIM-CRYPTO] AES 설정 로드 완료: transformation={} ivLength={}",
@@ -177,13 +172,9 @@ public class AesSharedKeyDecryptor {
             byte[] cipherTextBytes = new byte[encryptedBytes.length - ivLength];
             System.arraycopy(encryptedBytes, ivLength, cipherTextBytes, 0, cipherTextBytes.length);
 
-            SecretKey secretKey = new SecretKeySpec(sharedKeyBytes, ALGORITHM);
-            IvParameterSpec ivSpec = new IvParameterSpec(iv);
-
-            Cipher cipher = Cipher.getInstance(transformation);
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec);
-
-            byte[] plainBytes = cipher.doFinal(cipherTextBytes);
+            byte[] plainBytes = isGcm()
+                    ? CryptoProviders.current().aesGcmDecrypt(sharedKeyBytes, iv, cipherTextBytes, null)
+                    : CryptoProviders.current().aesCbcDecrypt(sharedKeyBytes, iv, cipherTextBytes);
             return new String(plainBytes, StandardCharsets.UTF_8);
 
         } catch (QimDecryptionException e) {
@@ -248,15 +239,10 @@ public class AesSharedKeyDecryptor {
     private String encryptGcm(String plainText) {
         try {
             // 1. IV 생성 (12바이트 — NIST 권장)
-            byte[] iv = new byte[GCM_IV_LENGTH];
-            SECURE_RANDOM.nextBytes(iv);
+            byte[] iv = CryptoProviders.current().randomBytes(GCM_IV_LENGTH);
 
-            // 2. AES-GCM 암호화
-            SecretKey secretKey = new SecretKeySpec(sharedKeyBytes, ALGORITHM);
-            GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv);
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec);
-            byte[] cipherBytes = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+            // 2. AES-GCM 암호화 (CryptoProvider)
+            byte[] cipherBytes = CryptoProviders.current().aesGcmEncrypt(sharedKeyBytes, iv, plainText.getBytes(StandardCharsets.UTF_8), null);
 
             // 3. IV || CipherText+Tag 결합 후 Base64 인코딩
             byte[] combined = new byte[iv.length + cipherBytes.length];
@@ -283,15 +269,10 @@ public class AesSharedKeyDecryptor {
     private String encryptCbc(String plainText) {
         try {
             // 1. IV 생성 (ivLength 바이트)
-            byte[] iv = new byte[ivLength];
-            SECURE_RANDOM.nextBytes(iv);
+            byte[] iv = CryptoProviders.current().randomBytes(ivLength);
 
-            // 2. AES-CBC 암호화
-            SecretKey secretKey = new SecretKeySpec(sharedKeyBytes, ALGORITHM);
-            IvParameterSpec ivSpec = new IvParameterSpec(iv);
-            Cipher cipher = Cipher.getInstance(transformation);
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
-            byte[] cipherBytes = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+            // 2. AES-CBC 암호화 (CryptoProvider — 레거시, 인증 태그 없음)
+            byte[] cipherBytes = CryptoProviders.current().aesCbcEncrypt(sharedKeyBytes, iv, plainText.getBytes(StandardCharsets.UTF_8));
 
             // 3. IV || CipherText 결합 후 Base64 인코딩
             byte[] combined = new byte[iv.length + cipherBytes.length];
@@ -315,15 +296,7 @@ public class AesSharedKeyDecryptor {
      */
     public String computeIdentifierHash(String plainCi) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(plainCi.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hash) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex);
-            }
-            return hexString.toString();
+            return CryptoProviders.current().sha256Hex(plainCi);
         } catch (Exception e) {
             throw new QimDecryptionException("identifierHash 생성 실패", e);
         }

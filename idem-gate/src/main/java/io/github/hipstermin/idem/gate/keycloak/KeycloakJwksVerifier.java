@@ -2,15 +2,13 @@ package io.github.hipstermin.idem.gate.keycloak;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.gate.keycloak.dto.KeycloakIdTokenClaims;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
 import java.security.PublicKey;
-import java.security.Signature;
-import java.security.spec.RSAPublicKeySpec;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +29,7 @@ import org.springframework.web.client.RestTemplate;
  * (QSignWebConfig 의 CacheManager 설정에 의해 관리)
  *
  * <p>Java 표준 라이브러리만 사용 — 추가 JWT 라이브러리 의존성 없음:
- * {@link java.security.Signature}, {@link java.security.KeyFactory}
+ * {@code CryptoProvider.verify}/{@code rsaPublicKey}
  */
 @Slf4j
 @Component
@@ -89,11 +87,7 @@ public class KeycloakJwksVerifier {
             byte[] signingInput    = (parts[0] + "." + parts[1]).getBytes(StandardCharsets.UTF_8);
             byte[] signatureBytes  = Base64.getUrlDecoder().decode(parts[2]);
 
-            Signature sig = Signature.getInstance("SHA256withRSA");
-            sig.initVerify(publicKey);
-            sig.update(signingInput);
-
-            if (!sig.verify(signatureBytes)) {
+            if (!CryptoProviders.current().verify("SHA256withRSA", publicKey, signingInput, signatureBytes)) {
                 throw new PlatformException(PlatformErrorCode.IDP_SIGNATURE_MISMATCH, correlationId,
                         "Keycloak ID Token RS256 서명 검증 실패");
             }
@@ -147,8 +141,7 @@ public class KeycloakJwksVerifier {
                     BigInteger n      = new BigInteger(1, nBytes);
                     BigInteger e      = new BigInteger(1, eBytes);
 
-                    KeyFactory kf = KeyFactory.getInstance("RSA");
-                    PublicKey  pk = kf.generatePublic(new RSAPublicKeySpec(n, e));
+                    PublicKey  pk = CryptoProviders.current().rsaPublicKey(n, e);
                     log.debug("[KeycloakJwksVerifier] 공개키 로드 성공: kid={}", kid);
                     return pk;
                 }

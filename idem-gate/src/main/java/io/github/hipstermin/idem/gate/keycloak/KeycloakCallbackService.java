@@ -1,6 +1,7 @@
 package io.github.hipstermin.idem.gate.keycloak;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
@@ -15,12 +16,8 @@ import io.github.hipstermin.idem.gate.metrics.AuthMetrics;
 import io.github.hipstermin.idem.gate.outbox.QSignOutboxRecord;
 import io.github.hipstermin.idem.gate.outbox.QSignOutboxRepository;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Map;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -236,13 +233,7 @@ public class KeycloakCallbackService {
             throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, correlationId,
                     "Keycloak ID Token sub 클레임이 없음");
         }
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(sub.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new IllegalStateException("SHA-256 해시 계산 실패", e);
-        }
+        return CryptoProviders.current().sha256Hex(sub);
     }
 
     // ── 내부: providerCode 결정 ──────────────────────────────────────────────
@@ -401,11 +392,7 @@ public class KeycloakCallbackService {
         try {
             long epochSeconds = System.currentTimeMillis() / 1000L;
             String payload = correlationId + ":" + epochSeconds;
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(
-                    internalSigSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-            byte[] rawHmac = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(rawHmac);
+            return CryptoProviders.current().hmacSha256Hex(internalSigSecret.getBytes(StandardCharsets.UTF_8), payload);
         } catch (Exception e) {
             log.error("[KeycloakCallback] 내부 서명 생성 실패: correlationId={}", correlationId, e);
             throw new IllegalStateException("HMAC-SHA256 내부 서명 생성 실패", e);
