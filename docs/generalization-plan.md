@@ -1,6 +1,6 @@
 # Idem 범용화 리팩토링 플랜 — 구조 분석과 단계별 실행 계획
 
-> 작성 2026-09-10 · 기준 `main` 504d9e2 (PR #222 머지) · 상태: **v0.3 (2026-09-16 개정 — GS 우선·Keycloak 유지 결정, 제품화 순서로 재편: D1 다이어트 → D2 fail-secure·암호 경계 → S8 → S7 → S6 → S9)**
+> 작성 2026-09-10 · 기준 `main` 504d9e2 (PR #222 머지) · 상태: **v0.4 (2026-09-24 개정 — 적대적 점검 결과 반영: S8 을 S8-a(빼기)·S8-b(더하기)로 나누고 S6(표준 프로토콜)을 S7(콘솔) 앞으로. 순서: D1 → D2 → S8-a → S8-b → S6 → S7 → S9)**
 > 이전: v0.2 (2026-09-10 — Tenant/Service 계층·IdP 모델, S4b 신설, S8 재정의) · v0.1 (2026-09-10)
 >
 > 목표: **어느 운영기관이든 설치할 수 있고, 어떤 연동기관의 요구도 코드 수정 없이(설정) 또는 플러그인으로 수용하는 구조**로 Idem 을 재편한다.
@@ -48,15 +48,16 @@
 | 6 | **S5** ✅ | 벤더 코드 플러그인 이관 (nice-oacx·anyid), 코어 브로커 SPI, SDK·번들·자격증명 저장소 제거 | 중 | 2~3주 |
 | 7 | **D1** | **다이어트** — registry 를 PostgreSQL 로, Kafka 선택 의존화(DB 만으로 아웃박스·감사 완결), 제품 3개(SSO·IM·KR 에디션)로 재편, 단일 설치본 | 중 | 2~3주 |
 | 8 | **D2** | **fail-secure 전수 점검 + 암호 경계 단일화** — 모든 fail-open·PoC 폴백 제거, `CryptoProvider` SPI 로 JCA 호출 집약(KCMVP 교체 자리) | 중 | 1~2주 |
-| 9 | **S8** | **할당·역할 모델 = IM 을 얇게** — 사용자/그룹 ↔ Service 할당, 앱 역할, `ASSIGNMENT` 규칙, SMES 회원 개념을 KR 확장으로 | 높음 | 3~4주 |
-| 10 | **S7** | **관리자 인증 + 최소 관리 콘솔** — 관리자 I&A(2단계)·보안관리자/감사자 분리·온보딩·프로파일 편집·감사 조회 (`execution-plan.md` P1) | 중 | 4~6주 |
-| 11 | **S6** | **표준 프로토콜** — `OIDC_RP` 를 Keycloak client 프로비저닝으로 정식화(Keycloak 은 숨김), Handoff 는 KR 연계 방식으로 격하, SAML 설계만 | 중 | 3~4주 |
-| 12 | **S9** | **개명 마무리(4b·5) + 에디션 패키징 + 1.0 동결** — 설정 키·DB 이름 idem 화, Core/KR 이미지·Helm 분리, 온보딩 가이드, 요구사항 체크리스트 → GS 문서 착수 | 중 | 3~4주 |
-| 13 | — | 플랫폼 소개서 재작성 (1.0 동결 후, 제품 그대로) | 낮음 | 1주 |
+| 9 | **S8-a** | **IM 을 얇게 (빼기)** — SMES 회원 개념(CI 조회·기업인증·회원전환·회원조회·기업회원·회원구분코드)을 `editions/idem-kr-hub`·`idem-kr-registry` 로 이동, 코어 hub·registry 는 SMES 없이 기동·통과, KR 가드 | 중 | 1~2주 |
+| 10 | **S8-b** | **할당·역할 모델 (더하기)** — 사용자/그룹 ↔ Service 할당, 앱 역할, `ASSIGNMENT` 규칙, DI/GUEST 정리, hub `qim/sp` 정리 | 높음 | 2~3주 |
+| 11 | **S6** | **표준 프로토콜** — `OIDC_RP` 를 Keycloak client 프로비저닝으로 정식화(Keycloak 은 숨김), Handoff 는 KR 연계 방식으로 격하, SAML 설계만. **v0.4 에서 S7 앞으로** — 시연·심사 로그인이 독자 프로토콜이면 안 된다 | 중 | 3~4주 |
+| 12 | **S7** | **관리자 인증 + 최소 관리 콘솔** — 관리자 I&A(2단계)·보안관리자/감사자 분리·온보딩·프로파일 편집·감사 조회 (`execution-plan.md` P1) | 중 | 4~6주 |
+| 13 | **S9** | **개명 마무리(4b·5) + 에디션 패키징 + 1.0 동결** — 설정 키·DB 이름 idem 화, Core/KR 이미지·Helm 분리, 온보딩 가이드, 요구사항 체크리스트 → GS 문서 착수 | 중 | 3~4주 |
+| 14 | — | 플랫폼 소개서 재작성 (1.0 동결 후, 제품 그대로) | 낮음 | 1주 |
 
-의존: S1 → … → S5 → **D1 → D2 → S8 → S7 → S6 → S9** → 소개서. 합계 약 4~5개월. S7 은 `execution-plan.md` P1 과 같은 작업이고, S9 의 1.0 동결이 `execution-plan.md` P3(GS) 의 입력이다.
+의존: S1 → … → S5 → **D1 → D2 → S8-a → S8-b → S6 → S7 → S9** → 소개서. 합계 약 4~5개월. S7 은 `execution-plan.md` P1 과 같은 작업이고, S9 의 1.0 동결이 `execution-plan.md` P3(GS) 의 입력이다.
 
-**왜 이 순서인가**: D1·D2 를 앞에 두는 것은 뒤 단계 전부가 그 위에 쌓이기 때문이다(S8 을 먼저 하면 MariaDB 위에 할당 모델을 짓고 다시 옮긴다). S6 을 S7 뒤로 미룬 것은 표준 프로토콜은 Keycloak 이 대부분 해 주지만 관리자 인증·콘솔은 아무도 대신 해 주지 않고, GS 심사원이 보는 것도 콘솔이기 때문이다.
+**왜 이 순서인가**: D1·D2 를 앞에 두는 것은 뒤 단계 전부가 그 위에 쌓이기 때문이다(S8 을 먼저 하면 MariaDB 위에 할당 모델을 짓고 다시 옮긴다). **v0.4 (2026-09-24, 적대적 점검)**: hub 가 31k LOC·커버리지 38% 인 상태라 기능(할당·역할)을 얹기 전에 SMES 개념을 먼저 빼야 한다(S8-a → S8-b). S6 을 S7 앞으로 당긴 이유는 점검에서 드러난 사실 때문이다 — gate 의 discovery 문서가 Keycloak URL 을 그대로 내보내고 기관 연동 가이드의 표준 OIDC/SAML 경로가 "향후 지원" 이라, 콘솔 시연의 로그인이 독자 Handoff 로 남으면 심사원에게 설명할 것이 하나 더 는다. 콘솔(S7)은 표준 경로 위에 짓는다.
 
 ---
 
@@ -198,12 +199,12 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 |---|---|---|
 | **Idem SSO** | `idem-hub` + `idem-gate` (+ 숨긴 Keycloak) | OIDC/SAML 발급·세션·SLO·인증수준 승격·본인확인 SPI·기관 연계(Handoff/OIDC_RP) |
 | **Idem IM** | `idem-registry` + `idem-authz` | 사용자·식별자·자격증명·동의·생명주기·할당·역할·SCIM |
-| **Idem KR Public Edition** | `plugins/idem-plugin-nice-oacx`·`idem-plugin-anyid`·KR 확장 모듈·KR 시드 | 본인확인 벤더·AnyID·CI/DI·SMES 회원 개념·한국 정책(휴면·파기) |
+| **Idem KR Public Edition** | `editions/idem-kr-hub`·`editions/idem-kr-registry`(S8-a) + `plugins/idem-plugin-nice-oacx`·`idem-plugin-anyid`·KR 시드 | 본인확인 벤더·AnyID·CI/DI·SMES 회원 개념(CI 조회·기업인증·회원전환·회원조회·기업회원)·한국 정책(휴면·파기) |
 
 `idem-relay`·`idem-agent`·`idem-tenant-sample`·`idem-sdk-java` 는 **제품 밖**(운영 도구·샘플·SDK)으로 표시하고 GS 대상에서 뺀다.
 
-- **Idem Core** = SSO + IM, 플러그인 0(Mock 인증)·이메일/전화 스킴·표준 프로토콜. 공개 저장소.
-- **KR Public Edition** = Core + KR 플러그인·확장. 사설 저장소(`vendor-plugin-plan.md` P5).
+- **Idem Core** = SSO + IM, 플러그인 0(Mock 인증)·이메일/전화 스킴·표준 프로토콜. 공개 저장소. bootJar: `:idem-hub`·`:idem-registry`.
+- **KR Public Edition** = Core + KR 확장 모듈(`editions/`, 코어를 의존하며 코어는 에디션을 모른다) + KR 플러그인. bootJar: `:idem-kr-hub`·`:idem-kr-registry`, 설치본 `IDEM_EDITION=kr`. 에디션 = 어느 bootJar 를 실행하느냐. 벤더 SDK·자격증명만 사설(`vendor-plugin-plan.md` P5).
 - 운영기관 고유값은 전부 **설치 시 입력**(Helm values·환경변수·Service Profile), 코드·마이그레이션 기본값에는 남기지 않는다.
 - **Keycloak 은 설치본 내부 구성요소**다. 설치자에게 노출되는 것은 Idem 설정뿐이며, Keycloak realm·client 는 Idem 이 프로비저닝한다(S6). CC 로 갈 때 자체 IdP 로 교체할 수 있도록 토큰 발급·세션 경계는 Idem 코드 뒤에 둔다.
 
@@ -369,23 +370,41 @@ CC·GS 보안 항목 모두 여기서 걸린다. TSF 는 안전하게 실패해�
 - ✅ 검증: common 420 · hub 475 + IT 42 · gate 81 · registry 245(IT 29 포함) · authz 29 · relay · 플러그인 54 통과(`--rerun-tasks`)
 - ⏭ **범위 밖으로 둔 것**: `idem-sdk-java`(`HmacSigner`, 무의존 SDK 라 idem-common 을 못 끌어옴)·`idem-agent`(`OnePassHttpClient`, 자바에이전트)·`idem-tenant-sample`(기관 측 예제)·플러그인(`NiceCryptoUtil` 벤더 규격, `AnyIdBrokerAdapter`) — 인벤토리에 남기고 KCMVP 도입 시 SDK 는 별도 판단. `HandoffAgencyKeyInterceptor`·`AgencyAdminService` 의 **무염 SHA-256 API 키 해시 → PBKDF2** 는 저장 포맷 변경(기존 키 재발급 또는 이중 검증기)이 필요해 S7 관리 콘솔의 기관 키 재발급과 함께. relay `WebhookRelayJob` 의 "서명키 없으면 무서명 발송" 은 제품 밖 모듈이라 그대로(D2-a 원칙 적용은 relay 정리 때)
 
-### S8 — 할당·역할 모델: IM 을 얇게 (3~4주, 위험 높음, v0.3 에서 S7·S6 앞으로)
+### S8-a — IM 을 얇게 (빼기): SMES 회원 개념을 KR 에디션으로 (1~2주, v0.4 에서 분할)
+
+hub 31k LOC 위에 기능을 얹기 전에 뺀다. SMES 회원 유형(개인/기업)·회원구분코드(`mbrDvsnCd`)·CI 조회·기업인증 콜백·회원전환(`conversion`)·기관 회원조회(`memberlookup`)·기업회원(`biz_member`)을 **`editions/idem-kr-hub`·`editions/idem-kr-registry`** 로 옮기고, 코어의 registry 계약을 스킴 중립으로 바꾼다.
+완료 기준: 코어 hub·registry 가 SMES 개념 없이 기동·테스트 통과(KR 엔드포인트 404), KR 에디션에서 종전 시나리오 통과, 코어에 SMES 토큰이 다시 못 들어오는 가드.
+
+**진행 기록 (2026-09-24, S8-a)** — 구현 PR.
+- ✅ **에디션 모듈**: `editions/idem-kr-hub`(`:idem-kr-hub`)·`editions/idem-kr-registry`(`:idem-kr-registry`) — Spring Boot 부트 모듈로 코어(`:idem-hub`·`:idem-registry`)를 의존하고 mainClass 는 코어의 것을 쓴다. 패키지 `io.github.hipstermin.idem.hub.kr.*`·`registry.kr.*` 는 코어 앱의 스캔 범위 안이라 jar 만 있으면 활성화된다. **코어는 에디션을 모른다**(빌드 의존 단방향, 가드로 강제). 에디션 = 어느 bootJar 를 실행하느냐 — `IDEM_EDITION=core|kr` 로 Dockerfile·설치본이 고른다
+- ✅ **hub 에서 뺀 것 (35개 파일)**: `auth` 패키지 전체(CI 조회 `AuthController/AuthService`, `CiCheck*`·`CiTokenExchange*`·`AuthCallback*`·NICE 모양 `AuthResult`, 기업인증 `IntegrationAuthClient`, `ImApiOutPort/Adapter`, 구 벤더 프록시 `auth/legacy`, `MemberDivisionCode*`·`MemberDivisionPolicy`), `conversion`, `memberlookup`, FE 회원전환 세션(`/api/v1/fe-session/conversion`). 코어에 남는 본인확인 SPI 경로는 `identity/spi`·`identity/audit`·`identity/tracing` 로 옮겼다
+- ✅ **코어 계약 스킴 중립화**: `QimClient` 의 CI 전용 `registerUser(AuthResult)`·`findByCi(ci, memberType)` 를 없애고 `registerSubject(SubjectRegistration)`·`findByIdentifierHash(hash)` 만 남겼다. `QimMemberInfo` 는 `qimUserId`·`status` 만(개인/기업 회원 ID 는 registry 가 돌려준 적이 없었다 — 항상 null 이던 것을 계약에서 지웠다). `OidcCompleteRequest` 에 `subjectScheme/subjectKey` 를 추가하고 구 `ci` 는 CI 스킴 별칭으로 받는다(gate 호환). KR 어댑터가 CI 해시·`SubjectRegistration(scheme=CI)` 변환을 맡는다
+- ✅ **registry 에서 뺀 것 (8개 파일)**: `biz/*`·`BizMemberJpaEntity/Repository`·`BizMemberConversionController`·`MemberLookupController`(lookup-by-ci). `biz_member` DDL 은 V1 베이스라인에서 빼고 KR 마이그레이션 `db/migration/kr/postgresql/V1000_1__kr_biz_member.sql`(버전 1000+ 대역, `FlywayConfigurationCustomizer` 로 location 추가)로. **후견·미성년 동의는 코어에 남겼다** — 연령 기반 보호자 동의는 KR 만의 개념이 아니다(COPPA·GDPR-K)
+- ✅ **설정**: 코어 `application.yml` 에서 `ido.conversion.*`·`ido.fe-aes-gcm-key`·`ido.auth.integration.*`·`integration-auth-client` resilience 인스턴스를 빼고 KR 은 `KrHubEditionEnvironmentPostProcessor`(spring.factories, 최하위 우선순위) 기본값으로 공급. retry 인스턴스는 정의하지 않는다(resilience4j 2.2 의 "intervalFunction configured twice" 회피)
+- ✅ **가드**: `GeneralizationGuardTest` 에 KR 가드 2건 — 코어 main 에 SMES 토큰(`mbrDvsnCd`·`bizno`·`cmpMbrId`·`indvlMbrId`·`entMbrNo`·`biz_member`·`BizMember`·`MemberLookupService`·`ConversionInit`·`hub.kr.` 등) 금지, 코어 `build.gradle.kts` 가 에디션 모듈을 의존하지 않을 것. 허용 목록(줄어야 하는 것): hub `qim/sp`(SMES SP 수신기 — S8-b), 적용된 Flyway 이력, MariaDB 구 이력(S9 제거)
+- ✅ **테스트 인프라**: hub `IntegrationTestBase`·테스트 프로파일 설정을 `java-test-fixtures`(`src/testFixtures`)로 옮겨 KR 에디션 테스트가 공유. 테스트 기본 설정은 `application-hub-test-base.yml` 을 각 모듈의 `src/test/resources/application.yml` 이 `spring.config.import` 로 가져온다(클래스패스 순서에 따라 코어 main yml 이 섞여 들어오던 문제를 이걸로 잡았다). 이동 테스트 6개 + 신규 `KrAuthIntegrationTest`(레거시 프록시·CI-check·콜백·KR 엔드포인트 존재)·`KrBizMemberLifecycleIntegrationTest`(코어 V1 뒤 KR V1000.1 적용 확인)·`KrBizMemberMapsIdPersistTest`. 코어 `NiceAuthIntegrationTest` 는 KR 엔드포인트 7개가 404 인지 확인
+- ✅ **코어 결함 2건 수정(점검 중 발견)**: hub `GlobalExceptionHandler` 가 없는 경로(`NoResourceFoundException`)와 필수 헤더·파라미터 누락·본문 파싱 실패를 모두 500 으로 바꾸고 있었다 → 404 `E-IDO-404`·400 `E-IDO-400`. 종전 테스트가 "4xx 또는 5xx" 로 이를 덮고 있었다
+- ✅ **패키징·CI**: hub·registry Dockerfile `ARG IDEM_EDITION=core|kr`(모듈 선택), `compose.install.yml` 빌드 인자 + 이미지 태그 `-core|-kr`, `install.env.example` `IDEM_EDITION`, 4개 Dockerfile 에 editions 빌드 파일 COPY, CI k6 스모크는 코어 jar 로 `IDEM_EDITION=core`(KR 엔드포인트 404 검사), pre-push 훅에 에디션 모듈·의존 매핑
+- ✅ 검증: 코어 hub 444 + IT 39 · KR hub 32 + IT 5 · registry 218(IT 24) · KR registry 28(IT 6) · gate 81 · authz 29 · common 418 · 플러그인 54 · relay 10 · tenant-sample 84 통과. 실제 bootJar 기동: KR jar 는 `/api/v1/auth/nice/ci-check` 400·`/conversion/init` 400, 코어 jar 는 전부 404, 공통 `/auth/providers` 200
+- ⏭ **남긴 것**: hub `qim/sp`(SMES SP 수신기, mbrUuid/entMbrNo·BIZ/PERSONAL — `WebhookDispatcherService`·`SloServiceImpl` 결합) → S8-b 에서 범용 기관회원매핑으로 정리하거나 KR 로; `PlatformErrorCode` 의 `IM_BIZ_*`·`CONVERSION_*` 코드는 공용 카탈로그에 남김; k6 KR 시나리오(`k6/scripts/02-auth.js` 등)는 KR 에디션 jar 로 수동 실행; 콘솔 프런트의 conversion·ci-check 훅은 S7 콘솔 분리 때; 관련 문서 다수(`docs/internal/*`)가 여전히 구 패키지 경로를 적고 있다 — S9 문서 정리
+
+### S8-b — 할당·역할 모델 (더하기) (2~3주, 위험 높음)
 
 - **할당(assignment)**: 사용자/그룹 ↔ Service (직접 · 그룹 · 속성 규칙). 미할당이면 발급 거부 — 정책 엔진에 내장 규칙 `ASSIGNMENT` 추가(S3 SPI). GUEST 는 Service Profile 이 셀프 가입을 허용할 때만 허용.
-- **역할**: Service 별 앱 역할(app role) 정의·부여, 어설션(Handoff/OIDC 클레임)에 싣기. 세밀 인가는 `idem-authz` 를 PDP 로 정리(fail-open 제거, SCIM Groups 와 연결).
+- **역할**: Service 별 앱 역할(app role) 정의·부여, 어설션(Handoff/OIDC 클레임)에 싣기. 세밀 인가는 `idem-authz` 를 PDP 로 정리(fail-open 제거, SCIM Groups 와 연결). 기존 `authz_role`/`authz_user_role` 위에 Service 단위로 최소 구현.
 - **DI/GUEST 정리**: PAIRWISE 식별자는 첫 발급 시 생성(표준 pairwise sub 와 동일) 으로 의미를 고정하고 "DI 없음 → GUEST" 서술 제거.
-- SMES 회원 유형(개인/기업/후견)·사업자 전환·`mbrDvsnCd`·hub `conversion`(signed_request 전환 진입)·`memberlookup` 은 **KR 에디션 확장 모듈**로 이동(`idem-registry` 코어는 `user/identity/consent/withdrawal`). 확장 속성은 `extra_attributes JSONB` + 카탈로그.
-완료 기준: 코어 registry 가 SMES 개념 없이 기동·테스트 통과, 미할당 사용자의 Handoff 가 거부되는 통합 테스트, KR 에디션에서 기존 시나리오 통과.
+- S8-a 잔여: hub `qim/sp` 정리, tenant·ServiceProfile·agency 세 개념 정돈(코어에 "기관" 105개 파일).
+완료 기준: 미할당 사용자의 Handoff/OIDC 발급이 거부되는 통합 테스트, KR 에디션에서 기존 시나리오 통과.
 
-### S7 — 관리자 인증 + 최소 관리 콘솔 (4~6주, `execution-plan.md` P1 과 동일 작업)
-
-관리자 I&A(2단계 인증)·보안관리자/감사자 권한 분리·세션 잠금·패스워드 정책(P1) 위에 기관 목록/온보딩/프로파일 편집(스키마 기반 폼)/정책 시뮬레이션/감사 조회. `idem-console` 의 SigNoz 잔재 정리 후 **관리 앱과 사용자 포털 분리**(`idem-console-admin`, `idem-portal`). 사용자 포털은 뒤로 미루고, 콘솔의 벤더 훅(EzAuth·AnyID, 일부 죽은 코드)은 `useAuthWidget` 로 정리하거나 제거.
-완료 기준: GS 시연 시나리오(설치 → 관리자 로그인 → 기관 온보딩 → 로그인 → 감사 조회)를 콘솔만으로 수행.
-
-### S6 — 표준 프로토콜: Keycloak 을 숨긴 OIDC_RP 정식화 (3~4주, v0.3 에서 축소)
+### S6 — 표준 프로토콜: Keycloak 을 숨긴 OIDC_RP 정식화 (3~4주, v0.3 에서 축소, v0.4 에서 S7 앞으로)
 
 Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `IntegrationProtocol` SPI · `OIDC_RP`: Service Profile 의 `protocol.type=OIDC_RP` 만으로 Idem 이 Keycloak client 를 프로비저닝하고 정책 강제 authenticator 를 붙인다 · Keycloak 관리 UI 는 설치자에게 노출하지 않는다 · Handoff 는 "KR 기관 연계 방식" 으로 격하하되 유지 · Agent(`APACHE_GATE`) 는 제품 밖 도구로 · `SAML_SP` 는 설계만 · `idp-hint-mapping` 을 프로파일로.
 완료 기준: tenant-sample 이 `protocol.type` 변경만으로 Handoff·OIDC_RP 두 방식 통과, Keycloak 에 사람이 손대는 단계 0.
+
+### S7 — 관리자 인증 + 최소 관리 콘솔 (4~6주, `execution-plan.md` P1 과 동일 작업, v0.4 에서 S6 뒤로)
+
+관리자 I&A(2단계 인증)·보안관리자/감사자 권한 분리·세션 잠금·패스워드 정책(P1) 위에 기관 목록/온보딩/프로파일 편집(스키마 기반 폼)/정책 시뮬레이션/감사 조회. `idem-console` 의 SigNoz 잔재 정리 후 **관리 앱과 사용자 포털 분리**(`idem-console-admin`, `idem-portal`). 사용자 포털은 뒤로 미루고, 콘솔의 벤더 훅(EzAuth·AnyID, 일부 죽은 코드)은 `useAuthWidget` 로 정리하거나 제거.
+완료 기준: GS 시연 시나리오(설치 → 관리자 로그인 → 기관 온보딩 → 로그인 → 감사 조회)를 콘솔만으로 수행.
 
 ### S9 — 개명 마무리 + 에디션 패키징 + 1.0 동결 (3~4주)
 

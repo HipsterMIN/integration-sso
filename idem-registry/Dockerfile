@@ -45,6 +45,8 @@ COPY idem-agent/build.gradle.kts   idem-agent/
 COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 COPY plugins/idem-plugin-nice-oacx/build.gradle.kts plugins/idem-plugin-nice-oacx/
 COPY plugins/idem-plugin-anyid/build.gradle.kts plugins/idem-plugin-anyid/
+COPY editions/idem-kr-hub/build.gradle.kts editions/idem-kr-hub/
+COPY editions/idem-kr-registry/build.gradle.kts editions/idem-kr-registry/
 
 RUN --mount=type=cache,target=/root/.gradle \
     chmod +x gradlew && \
@@ -53,18 +55,24 @@ RUN --mount=type=cache,target=/root/.gradle \
 # ── Stage 2: Build ────────────────────────────────────────────────────────────
 FROM deps AS builder
 
+# S8-a 에디션 선택: core(기본) = idem-registry bootJar, kr = editions/idem-kr-registry bootJar (코어 + SMES 회원 개념)
+ARG IDEM_EDITION=core
+
 COPY idem-common/src/ idem-common/src/
 COPY idem-registry/src/ idem-registry/src/
+COPY editions/idem-kr-registry/src/ editions/idem-kr-registry/src/
 
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew :idem-registry:bootJar \
+    if [ "$IDEM_EDITION" = "kr" ]; then MODULE=idem-kr-registry; MODULE_DIR=editions/idem-kr-registry; else MODULE=idem-registry; MODULE_DIR=idem-registry; fi && \
+    echo "IDEM_EDITION=$IDEM_EDITION -> :$MODULE:bootJar" && \
+    ./gradlew :$MODULE:bootJar \
         -x test \
         --no-daemon \
         --parallel \
         --build-cache && \
     mkdir -p /workspace/layers && \
     java -Djarmode=layertools \
-         -jar /workspace/idem-registry/build/libs/idem-registry-*.jar \
+         -jar /workspace/$MODULE_DIR/build/libs/$MODULE-*.jar \
          extract --destination /workspace/layers
 
 # ── Stage 3: Runtime ─────────────────────────────────────────────────────────

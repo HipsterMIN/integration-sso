@@ -1,0 +1,96 @@
+# IdO 테스트 전용 application.yml
+# @WebMvcTest 슬라이스 테스트가 main application.yml의 SnakeYaml 중복키 오류를 피하도록
+# 최소 설정만 포함한 독립 설정 파일
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  kafka:
+    bootstrap-servers: localhost:9092
+
+ido:
+  qim:
+    allow-empty-aes-key: true      # D2 테스트 전용 탈출구
+    base-url: http://localhost:8082
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
+    # 테스트 전용 AES-256 공유키 (32바이트 "01234567890123456789012345678901" 의 Base64) — 실제 키 아님
+    aes-shared-key: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+  audit:
+    kafka-publish-enabled: false
+    retry-interval-ms: 600000
+  cors:
+    enabled: false
+    allowed-origins: http://localhost:3000
+  # Sprint α-3 / F4.3 — 슬라이스 테스트에서는 signing-secret 미주입 허용
+  webhook:
+    allow-empty-secret: true
+  # Sprint β-2 / F4.8 — 슬라이스 테스트에서는 internal caller 등록 없이 컨텍스트 기동 허용
+  internal:
+    allow-empty-callers: true
+    allow-empty-sig-secret: true   # D2: 테스트 컨텍스트는 내부 서명 비밀키 없이 기동
+  # Sprint γ-1 / F2.1 — 슬라이스 테스트에서는 keycloak.client-secret 미주입 허용
+  keycloak:
+    allow-empty-client-secret: true
+  # Sprint γ-3 / F3.3 후속 — 슬라이스 테스트에서는 Handoff 폴백 키 미주입 허용
+  ticket:
+    allow-empty-fallback-keys: true
+  # Sprint α-1 / F5.1 — LocalKmsClient 는 ido.kms.enabled=false 를 명시해야 활성화된다(matchIfMissing=false).
+  # 테스트용 application.yml 이 main 의 application.yml 을 가리므로 main 기본값(enabled=false)이 적용되지 않는다.
+  kms:
+    enabled: false
+  # AuthProperties 는 record(기본값 없음) — ido.auth.* 가 비어 있으면 AuthWebClientConfig 가 NPE 로 기동 실패한다.
+  # main application.yml 의 기본값과 동일하게 채운다(자격 증명은 빈 값).
+  auth:
+    nice:
+      client-id: ""
+      client-secret: ""
+      return-url: http://localhost:3000/otp/auth-result
+      timeout-seconds: 10
+    oacx:
+      provider-key-path: ""
+      debug-mode: false
+  broker:
+    allow-ciless-identity: true    # D2 테스트 전용 탈출구
+  cast:
+    allow-generated-keys: true     # D2 테스트 전용 탈출구
+  q-authz:
+    enabled: false                 # D2: 테스트는 authz 없이
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 5
+        minimum-number-of-calls: 5
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 1s
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 5s
+
+logging:
+  level:
+    root: WARN
+    io.github.hipstermin.idem: INFO
+
+# S5a: 단위 테스트 컨텍스트는 벤더 플러그인 없이(코어 에디션) 기동한다
+idem:
+  plugins:
+    nice-oacx:
+      enabled: false
+    anyid:
+      enabled: false

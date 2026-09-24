@@ -5,9 +5,6 @@ import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.identity.SubjectScheme;
-import io.github.hipstermin.idem.hub.auth.dto.AuthResult;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import io.github.hipstermin.idem.hub.identity.SubjectRegistration;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,11 +26,7 @@ import org.springframework.web.client.RestTemplate;
  *   <li>{@link #getDi(String, String, String)} — 기관별 DI 조회/생성</li>
  * </ul>
  *
- * <p>v3.0 추가 (S7-T6):
- * <ul>
- *   <li>{@link #registerUser(AuthResult, String)} — CI → Q-IM 등록</li>
- *   <li>{@link #findByCi(String, String, String)} — CI로 Q-IM 사용자 조회</li>
- * </ul>
+ * <p>S8-a: CI 전용 registerUser/findByCi 제거 — {@link #registerSubject}·{@link #findByIdentifierHash} 로 스킴 중립화.
  *
  * <p>v4.0 추가 (SSO — Keycloak identifierHash 수정):
  * <ul>
@@ -186,32 +179,6 @@ public class QimClientImpl implements QimClient {
         }
     }
 
-    // ── registerUser ───────────────────────────────────────────────────────
-
-    /**
-     * S7-T6: CI를 Q-IM에 등록
-     * POST /api/v1/internal/users/register
-     *
-     * <p>신규 사용자이면 Q-IM이 CI를 AES-256-GCM으로 암호화하여 저장하고 qimUserId를 발급.
-     * 기존 사용자이면 마지막 인증 시각만 갱신하고 {@code isNew=false}로 응답.
-     */
-    @Override
-    public QimRegisterResponse registerUser(AuthResult authResult, String correlationId) {
-        // S4: 종전 구현은 registry 에 없는 /internal/users/register 를 호출해 NICE·OACX 등록이 항상 실패했다.
-        // CI 스킴의 register-subject 로 위임한다 — 본문은 registry UserRegisterRequest(rawCi 등) 와 호환.
-        SubjectRegistration reg = SubjectRegistration.builder()
-                .scheme(SubjectScheme.CI)
-                .subjectKey(authResult.getCi())
-                .providerCode("NICE")
-                .name(authResult.getName())
-                .phone(authResult.getMobile())
-                .birthDate(authResult.getBirthday())
-                .gender(authResult.getGender())
-                .correlationId(correlationId)
-                .build();
-        return registerSubject(reg);
-    }
-
     // ── S4: register-subject / subject-key ────────────────────────────────
 
     @Override
@@ -291,51 +258,42 @@ public class QimClientImpl implements QimClient {
         }
     }
 
-    // ── findByCi ──────────────────────────────────────────────────────────
+    // ── findByIdentifierHash (S8-a) ────────────────────────────────────────
 
     /**
-     * S7-T6: CI로 Q-IM 사용자 조회
-     * POST /api/v1/internal/users/find-by-ci
-     *
-     * <p>Q-IM은 전달된 CI를 해시하여 내부 CI 레코드와 비교.
-     * 404 응답 → 미등록 사용자 → {@code Optional.empty()} 반환.
-     * 그 외 오류 → {@link PlatformException} 발생.
+     * 식별자 해시로 사용자 조회 — GET /api/v1/internal/users/by-hash.
+     * 404 → {@code Optional.empty()}, 그 외 오류 → {@link PlatformException}.
      */
     @Override
-    public Optional<QimMemberInfo> findByCi(String ci, String memberType, String correlationId) {
-        // S4: 종전 구현은 registry 에 없는 POST /internal/users/find-by-ci 를 호출해 항상 "미등록" 으로 판정했다.
-        // CI 스킴의 identifierHash 로 GET /internal/users/by-hash 를 조회한다. memberType(SMES 회원 유형) 은
-        // registry 코어에 없으므로 응답에 싣지 않는다 — S8(SMES 전환 플러그인) 에서 채운다.
-        log.debug("[QimClient] CI 조회(by-hash): memberType={}", memberType);
-        String identifierHash = SubjectScheme.CI.identifierHash(ci);
+    public Optional<QimMemberInfo> findByIdentifierHash(String identifierHash, String correlationId) {
+        if (identifierHash == null || identifierHash.isBlank()) {
+            throw new IllegalArgumentException("identifierHash 가 비어 있습니다");
+        }
         try {
             HttpHeaders headers = buildHeaders(correlationId);
             String url = qimBaseUrl + "/api/v1/internal/users/by-hash?identifierHash=" + identifierHash;
             ResponseEntity<Map> response = qimRestTemplate.exchange(
                     url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<?, ?> body = response.getBody();
                 Object id = body.get("qimUserId");
                 if (id instanceof String s && !s.isBlank()) {
-                    log.debug("[QimClient] CI 조회 성공: qimUserId={}", s);
+                    log.debug("[QimClient] 해시 조회 성공: qimUserId={}", s);
                     return Optional.of(QimMemberInfo.builder()
                             .qimUserId(s)
                             .status(body.get("status") instanceof String st ? st : null)
-                            .memberType(memberType)
                             .build());
                 }
             }
             return Optional.empty();
-
         } catch (HttpClientErrorException.NotFound e) {
-            log.debug("[QimClient] CI 미등록 사용자");
+            log.debug("[QimClient] 해시 미등록 사용자");
             return Optional.empty();
         } catch (RestClientException e) {
-            log.error("[QimClient] CI 조회 네트워크 오류: {}", e.getMessage());
+            log.error("[QimClient] 해시 조회 네트워크 오류: {}", e.getMessage());
             throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
         } catch (Exception e) {
-            log.error("[QimClient] CI 조회 예외: err={}", e.getMessage(), e);
+            log.error("[QimClient] 해시 조회 예외: err={}", e.getMessage(), e);
             throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId);
         }
     }

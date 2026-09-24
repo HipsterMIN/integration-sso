@@ -44,7 +44,6 @@ import org.springframework.context.annotation.Configuration;
  * ido:lock:key-rotation        — AES 키 로테이션 스케줄러 락 (다중 Pod 중복 실행 방지)
  * </pre>
  *
- * @see io.github.hipstermin.idem.hub.auth.service.NiceAuthService
  * @see io.github.hipstermin.idem.hub.config.NoOpRedissonConfig
  */
 @Slf4j

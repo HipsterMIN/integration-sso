@@ -45,9 +45,6 @@ ido:
     oacx:
       provider-key-path: ${OACX_PROVIDER_KEY_PATH:}
       debug-mode: true
-    integration:
-      base-url: ${INTEGRATION_AUTH_BASE_URL:http://localhost:9292}
-      timeout-seconds: 15
 
   # F-02: 기관 Rate Limiting OFF → 로컬 테스트 중 기관 제한 없음
   rate-limit:
@@ -150,16 +147,10 @@ resilience4j:
         minimum-number-of-calls: 100    # 100건 쌓여야 CB 집계 시작 (사실상 비활성)
         failure-rate-threshold: 100     # 100% 실패해야 OPEN
         sliding-window-size: 100
-      integration-auth-client:
-        minimum-number-of-calls: 100
-        failure-rate-threshold: 100
-        sliding-window-size: 100
   retry:
     instances:
       nice-api-client:
         max-attempts: 1                 # 재시도 없음 (로컬 테스트 속도 향상)
-      integration-auth-client:
-        max-attempts: 1
 
 # ── 로컬 로그 레벨 ────────────────────────────────────────────────────────────
 logging:

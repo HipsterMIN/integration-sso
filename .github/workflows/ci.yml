@@ -434,8 +434,10 @@ jobs:
 
       - name: k6 스모크 테스트 실행
         run: |
+          # S8-a: 스모크는 코어 에디션 jar 를 띄운다 — IDEM_EDITION=core 로 KR 엔드포인트(/auth/nice/ci-check 등)가 404 인지까지 검사
           k6 run k6/scenarios/smoke.js \
             --env BASE_URL=http://localhost:8083 \
+            --env IDEM_EDITION=core \
             --env AGENCY_CODE=AGENCY001 \
             --env INTERNAL_API_KEY=test-internal-key \
             --out json=/tmp/smoke-result.json

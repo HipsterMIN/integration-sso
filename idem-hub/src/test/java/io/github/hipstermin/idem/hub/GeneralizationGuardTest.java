@@ -90,6 +90,11 @@ class GeneralizationGuardTest {
                     .withFailMessage("벤더 허용 목록 경로가 없습니다 — 목록에서 제거하세요: %s", suffix)
                     .isTrue();
         }
+        for (String suffix : KR_ALLOWLIST.keySet()) {
+            assertThat(Files.exists(root.resolve(suffix)))
+                    .withFailMessage("KR 허용 목록 경로가 없습니다 — 목록에서 제거하세요: %s", suffix)
+                    .isTrue();
+        }
     }
 
     // ── S5 벤더 가드 ────────────────────────────────────────────────────────
@@ -108,8 +113,6 @@ class GeneralizationGuardTest {
 
     /** 경로 접미사 → 허용 사유 (벤더 가드). */
     private static final Map<String, String> VENDOR_ALLOWLIST = Map.of(
-            "idem-hub/src/main/java/io/github/hipstermin/idem/hub/auth/legacy/",
-                    "구 벤더 엔드포인트(/api/v1/auth/nice|oacx/*) 호환 프록시 — 콘솔 훅·k6 가 SPI 엔드포인트로 옮겨간 뒤 제거",
             "idem-hub/src/main/resources/application.yml",
                     "ido.auth.nice.base-url 기본값(플러그인 설정 키) — 플러그인 전용 설정 파일로 옮긴 뒤 제거",
             "idem-hub/src/main/resources/db/migration/V19__anyid_provider_config.sql",
@@ -134,6 +137,60 @@ class GeneralizationGuardTest {
                 .withFailMessage("hub 코어에 벤더 토큰이 있습니다. 벤더 코드는 plugins/ 의 IdentityVerificationProvider 플러그인으로 옮기세요:\n  "
                         + String.join("\n  ", violations))
                 .isEmpty();
+    }
+
+    // ── S8-a KR 에디션 가드 ──────────────────────────────────────────────────
+    // SMES 회원 개념(회원구분코드·기업회원·개인/기업 회원 ID·회원전환·기관 회원조회)은 editions/idem-kr-* 에만 있다.
+    // 코어 main 에 이 토큰이 다시 들어오면 실패한다. (CI/DI 스킴 자체는 SubjectScheme 의 한 값이라 금지하지 않는다)
+    private static final List<String> KR_FORBIDDEN = List.of(
+            "mbrDvsnCd", "MemberDivision", "bizno", "cmpMbrId", "indvlMbrId", "indvlMbrNm", "entMbrNo",
+            "biz_member", "BizMember", "bizRegNo", "MemberLookupService", "MemberLookupController",
+            "ConversionInit", "ConversionSession", "checkNiceCi", "CiCheckRequest", "CiTokenExchange",
+            "IntegrationAuthClient", "ImApiOutPort", "hub.kr.", "registry.kr.", "\"A101\"", "\"A102\""
+    );
+
+    /** KR 가드 허용 목록 — 남은 SMES 흔적과 그 이유. 줄어들어야지 늘어나면 안 된다. */
+    private static final Map<String, String> KR_ALLOWLIST = Map.of(
+            "idem-hub/src/main/java/io/github/hipstermin/idem/hub/qim/sp/",
+                    "SMES SP 수신기(기관 회원 ID 매핑 mbrUuid/entMbrNo, BIZ/PERSONAL) — WebhookDispatcherService·SloServiceImpl 가 쓰는 코어 결합. S8-b 에서 범용 기관회원매핑으로 바꾸거나 KR 에디션으로 이동",
+            "idem-hub/src/main/resources/db/migration/",
+                    "이미 적용된 hub Flyway 이력(V4 qim_sp_receiver, V7·V9 주석) — 개명 5단계(DB 재구축)에서 정리",
+            "idem-registry/src/main/resources/db/migration/mariadb/",
+                    "D1 이전 MariaDB 이력(biz_member V6 등) — mariadb 프로파일 호환용, S9 에서 제거"
+    );
+
+    @Test
+    @DisplayName("코어 main(hub·registry·common·gate·authz) 에 SMES 회원 개념 토큰이 없다 — KR 에디션 모듈(editions/) 전용")
+    void coreContainsNoKrEditionConcepts() throws IOException {
+        Path root = repositoryRoot();
+        List<String> violations = new ArrayList<>();
+        for (String module : List.of("idem-common", "idem-gate", "idem-registry", "idem-hub", "idem-authz")) {
+            Path main = root.resolve(module).resolve("src/main");
+            if (!Files.isDirectory(main)) continue;
+            try (Stream<Path> files = Files.walk(main)) {
+                for (Path file : files.filter(Files::isRegularFile).toList()) {
+                    if (!EXTENSIONS.contains(extensionOf(file))) continue;
+                    String rel = root.relativize(file).toString().replace('\\', '/');
+                    if (isAllowlisted(rel) || KR_ALLOWLIST.keySet().stream().anyMatch(rel::startsWith)) continue;
+                    scan(file, rel, KR_FORBIDDEN, violations);
+                }
+            }
+        }
+        assertThat(violations)
+                .withFailMessage("코어에 KR 에디션(SMES) 개념이 있습니다. editions/idem-kr-hub 또는 idem-kr-registry 로 옮기세요:\n  "
+                        + String.join("\n  ", violations))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("코어 hub·registry 는 KR 에디션 모듈을 빌드 의존하지 않는다 (에디션 → 코어 단방향)")
+    void coreDoesNotDependOnKrEditionModules() throws IOException {
+        Path root = repositoryRoot();
+        for (String module : List.of("idem-hub", "idem-registry", "idem-common", "idem-gate", "idem-authz")) {
+            String build = Files.readString(root.resolve(module).resolve("build.gradle.kts"));
+            assertThat(build).withFailMessage("%s/build.gradle.kts 가 KR 에디션 모듈을 의존합니다", module)
+                    .doesNotContain(":idem-kr-hub").doesNotContain(":idem-kr-registry");
+        }
     }
 
     // ── helpers ────────────────────────────────────────────────────────────

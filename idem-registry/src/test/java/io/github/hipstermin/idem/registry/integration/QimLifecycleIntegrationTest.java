@@ -5,10 +5,6 @@ import static org.assertj.core.api.Assertions.*;
 import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
-import io.github.hipstermin.idem.registry.biz.BizMemberConversionRequest;
-import io.github.hipstermin.idem.registry.biz.BizMemberConversionService;
-import io.github.hipstermin.idem.registry.biz.BizMemberConversionServiceImpl;
-import io.github.hipstermin.idem.registry.biz.BizMemberResult;
 import io.github.hipstermin.idem.registry.consent.*;
 import io.github.hipstermin.idem.registry.crypto.PiiMaskingService;
 import io.github.hipstermin.idem.registry.guardian.GuardianConsentService;
@@ -52,7 +48,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  *   <li><b>S6 전환 세션 상태 기계</b>: INITIATED → MEMBERS_FETCHED → ACCOUNT_SELECTED → COMPLETED</li>
  *   <li><b>S7 중복 탈퇴 방지</b>: WITHDRAWN 사용자 재탈퇴 → IM_WITHDRAWAL_ALREADY</li>
  *   <li><b>S8 보호자 동의 E2E (V6)</b>: 미성년자 등록 → 보호자 동의 → guardian_consent_at 설정</li>
- *   <li><b>S9 기업회원 전환 E2E (V6)</b>: biz_member INSERT → 조회 → 중복 전환 방지</li>
+ *   <li><b>S9 기업회원 전환 E2E</b>: S8-a 에서 KR 에디션(idem-kr-registry, KrBizMemberLifecycleIntegrationTest)으로 이동</li>
  * </ol>
  *
  * <h3>실행 조건</h3>
@@ -75,8 +71,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         ConsentServiceImpl.class,
         // Guardian (P3-05 V6)
         GuardianConsentServiceImpl.class,
-        // BizMember (P3-06 V6)
-        BizMemberConversionServiceImpl.class,
         PiiMaskingService.class,
         com.fasterxml.jackson.databind.ObjectMapper.class
 })
@@ -112,13 +106,11 @@ class QimLifecycleIntegrationTest {
 
     @Autowired QimUserJpaRepository          userRepository;
     @Autowired UserProfileJpaRepository      profileRepository;
-    @Autowired BizMemberJpaRepository        bizMemberRepository;
     @Autowired ConsentVersionJpaRepository   versionRepository;
     @Autowired ConsentRecordJpaRepository    recordRepository;
     @Autowired WithdrawalService             withdrawalService;
     @Autowired ConsentService                consentService;
     @Autowired GuardianConsentService        guardianConsentService;
-    @Autowired BizMemberConversionService    bizMemberConversionService;
     @Autowired JdbcTemplate                  jdbcTemplate;
     @Autowired jakarta.persistence.EntityManager entityManager;  // 1차 캐시 명시 초기화용
 
@@ -156,7 +148,6 @@ class QimLifecycleIntegrationTest {
         // 테스트 격리: FK 의존 순서대로 삭제
         recordRepository.deleteAll();
         versionRepository.deleteAll();
-        bizMemberRepository.deleteAll();
         profileRepository.deleteAll();
         userRepository.deleteAll();
         // @MapsId + CascadeType.ALL + orphanRemoval 조합에서 deleteAll() 이후
@@ -471,124 +462,6 @@ class QimLifecycleIntegrationTest {
     // ══════════════════════════════════════════════════════════════════════
     // S9: 기업회원 전환 E2E (V6 마이그레이션 — biz_member 테이블)
     // ══════════════════════════════════════════════════════════════════════
-
-    @Test
-    @DisplayName("S9-1: V6 biz_member 테이블 존재 확인")
-    void s9_1_bizMemberTableExists() {
-        List<String> tables = jdbcTemplate.queryForList(
-                "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES " +
-                "WHERE TABLE_SCHEMA = current_schema() AND TABLE_NAME = 'biz_member'",
-                String.class);
-
-        assertThat(tables)
-                .as("V6 마이그레이션 후 biz_member 테이블이 존재해야 합니다.")
-                .containsExactly("biz_member");
-    }
-
-    @Test
-    @DisplayName("S9-2: 기업회원 전환 → biz_member INSERT → 조회")
-    void s9_2_bizMemberConversionFullFlow() {
-        // 준비
-        String qimUserId = createActiveUser("user-s9-001");
-
-        BizMemberConversionRequest req = BizMemberConversionRequest.builder()
-                .qimUserId(qimUserId)
-                .bizRegNo("123-45-67890")          // 하이픈 포함 형식 → 정규화
-                .companyName("주식회사 테스트")
-                .repName("홍길동")
-                .bizType("소프트웨어 개발")
-                .build();
-
-        // 기업회원 전환 실행
-        BizMemberResult result = bizMemberConversionService.convert(req, CORR);
-
-        // 반환값 검증
-        assertThat(result.getQimUserId()).isEqualTo(qimUserId);
-        assertThat(result.getBizRegNo()).isEqualTo("1234567890"); // 정규화된 10자리
-        assertThat(result.getCompanyName()).isEqualTo("주식회사 테스트");
-        assertThat(result.getBizStatus()).isEqualTo("ACTIVE");
-        assertThat(result.getConvertedAt()).isNotNull();
-
-        // DB 조회 검증
-        BizMemberResult found = bizMemberConversionService.findByQimUserId(qimUserId, CORR);
-        assertThat(found.getBizRegNo()).isEqualTo("1234567890");
-        assertThat(found.getCompanyName()).isEqualTo("주식회사 테스트");
-
-        // biz_member 테이블 직접 확인 — save() 가 persist(미flush) 이고 findByQimUserId 는 1차 캐시(findById)라
-        // JDBC 로 보기 전에 명시적 flush 가 필요하다 (운영은 트랜잭션 커밋 시 flush)
-        entityManager.flush();
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM biz_member WHERE qim_user_id = ?",
-                Integer.class, qimUserId);
-        assertThat(count).isEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("S9-3: 동일 qimUserId 중복 전환 시도 → IM_BIZ_REG_DUPLICATE")
-    void s9_3_duplicateConversionBlocked() {
-        String qimUserId = createActiveUser("user-s9-002");
-
-        BizMemberConversionRequest firstReq = BizMemberConversionRequest.builder()
-                .qimUserId(qimUserId)
-                .bizRegNo("9876543210")
-                .companyName("주식회사 첫번째")
-                .build();
-        bizMemberConversionService.convert(firstReq, CORR);
-
-        // 같은 qimUserId로 재전환 시도
-        BizMemberConversionRequest secondReq = BizMemberConversionRequest.builder()
-                .qimUserId(qimUserId)
-                .bizRegNo("1111111111")
-                .companyName("주식회사 두번째")
-                .build();
-        assertThatThrownBy(() -> bizMemberConversionService.convert(secondReq, CORR))
-                .isInstanceOf(PlatformException.class)
-                .extracting(e -> ((PlatformException) e).getErrorCode())
-                .isEqualTo(PlatformErrorCode.IM_BIZ_REG_DUPLICATE);
-    }
-
-    @Test
-    @DisplayName("S9-4: 사업자등록번호 중복 — 다른 qimUserId가 이미 등록한 번호 → IM_BIZ_REG_DUPLICATE")
-    void s9_4_duplicateBizRegNoBlocked() {
-        String user1 = createActiveUser("user-s9-003");
-        String user2 = createActiveUser("user-s9-004");
-
-        // user1이 먼저 등록
-        BizMemberConversionRequest req1 = BizMemberConversionRequest.builder()
-                .qimUserId(user1)
-                .bizRegNo("5555555555")
-                .companyName("주식회사 A")
-                .build();
-        bizMemberConversionService.convert(req1, CORR);
-
-        // user2가 동일 사업자등록번호로 시도 → 차단
-        BizMemberConversionRequest req2 = BizMemberConversionRequest.builder()
-                .qimUserId(user2)
-                .bizRegNo("5555555555")
-                .companyName("주식회사 B")
-                .build();
-        assertThatThrownBy(() -> bizMemberConversionService.convert(req2, CORR))
-                .isInstanceOf(PlatformException.class)
-                .extracting(e -> ((PlatformException) e).getErrorCode())
-                .isEqualTo(PlatformErrorCode.IM_BIZ_REG_DUPLICATE);
-    }
-
-    @Test
-    @DisplayName("S9-5: 사업자등록번호 형식 오류 → IM_BIZ_REG_INVALID")
-    void s9_5_invalidBizRegNoFormat() {
-        String qimUserId = createActiveUser("user-s9-005");
-
-        BizMemberConversionRequest invalidReq = BizMemberConversionRequest.builder()
-                .qimUserId(qimUserId)
-                .bizRegNo("INVALID-FORMAT")
-                .companyName("주식회사 오류")
-                .build();
-
-        assertThatThrownBy(() -> bizMemberConversionService.convert(invalidReq, CORR))
-                .isInstanceOf(PlatformException.class)
-                .extracting(e -> ((PlatformException) e).getErrorCode())
-                .isEqualTo(PlatformErrorCode.IM_BIZ_REG_INVALID);
-    }
 
     @Test
     @DisplayName("S9-6: GDPR 탈퇴 후 guardian_qim_user_id / guardian_consent_at NULL 처리 확인")

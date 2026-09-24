@@ -25,6 +25,9 @@ export const options = {
   },
 };
 
+// S8-a 에디션: core 는 KR 엔드포인트가 없어야 하고(404), kr 은 종전 검사를 그대로 한다. CI 는 core 를 명시한다.
+const EDITION = (__ENV.IDEM_EDITION || 'kr').toLowerCase();
+
 export default function () {
   const cid = 'k6-smoke-001';
   const h = jsonHeaders(cid);
@@ -70,39 +73,47 @@ export default function () {
     });
   }
 
-  // 2. CI-Check 파라미터 검증 (외부 의존성 없음)
-  //    빈 ci 는 컨트롤러의 @Valid(@NotBlank/@Size) 에서 걸려 GlobalExceptionHandler 가
-  //    400 + ErrorResponse{code:'E-IDO-400', message:'ci: …'} 를 돌려준다.
-  //    서비스 레이어의 resultCode 4000 분기는 HTTP 로는 도달하지 않는다.
-  {
-    const res = http.post(
-      `${BASE_URL}/api/v1/auth/nice/ci-check`,
-      JSON.stringify({ ci: '', mbrDvsnCd: 'A101' }),
-      { headers: h }
-    );
-    check(res, {
-      'smoke: ci-check 400 (bean validation)': (r) => r.status === 400,
-      'smoke: ci-check E-IDO-400 on ci':       (r) => {
-        let b; try { b = JSON.parse(r.body); } catch (_) { return false; }
-        return b && b.code === 'E-IDO-400' && typeof b.message === 'string' && b.message.startsWith('ci');
-      },
-    });
-  }
+  if (EDITION === 'kr') {
+    // 2. CI-Check 파라미터 검증 (외부 의존성 없음)
+    //    빈 ci 는 컨트롤러의 @Valid(@NotBlank/@Size) 에서 걸려 GlobalExceptionHandler 가
+    //    400 + ErrorResponse{code:'E-IDO-400', message:'ci: …'} 를 돌려준다.
+    //    서비스 레이어의 resultCode 4000 분기는 HTTP 로는 도달하지 않는다.
+    {
+      const res = http.post(
+        `${BASE_URL}/api/v1/auth/nice/ci-check`,
+        JSON.stringify({ ci: '', mbrDvsnCd: 'A101' }),
+        { headers: h }
+      );
+      check(res, {
+        'smoke: ci-check 400 (bean validation)': (r) => r.status === 400,
+        'smoke: ci-check E-IDO-400 on ci':       (r) => {
+          let b; try { b = JSON.parse(r.body); } catch (_) { return false; }
+          return b && b.code === 'E-IDO-400' && typeof b.message === 'string' && b.message.startsWith('ci');
+        },
+      });
+    }
 
-  // 3. OACX fn 검증 (외부 의존성 없음)
-  {
-    const res = http.post(
-      `${BASE_URL}/api/v1/auth/oacx/easysign`,
-      JSON.stringify({ fn: 'INVALID', status: 'success', res: {} }),
-      { headers: h }
-    );
-    check(res, {
-      'smoke: oacx-easysign responds': (r) => r.status === 200,
-      'smoke: oacx-easysign 4000':     (r) => {
-        let b; try { b = JSON.parse(r.body); } catch (_) { return false; }
-        return b && b.resultCode === '4000';
-      },
-    });
+    // 3. OACX fn 검증 (외부 의존성 없음)
+    {
+      const res = http.post(
+        `${BASE_URL}/api/v1/auth/oacx/easysign`,
+        JSON.stringify({ fn: 'INVALID', status: 'success', res: {} }),
+        { headers: h }
+      );
+      check(res, {
+        'smoke: oacx-easysign responds': (r) => r.status === 200,
+        'smoke: oacx-easysign 4000':     (r) => {
+          let b; try { b = JSON.parse(r.body); } catch (_) { return false; }
+          return b && b.resultCode === '4000';
+        },
+      });
+    }
+  } else {
+    // 2'. 코어 에디션: KR 전용 엔드포인트는 존재하지 않는다 (GlobalExceptionHandler → 404 E-IDO-404)
+    const ci = http.post(`${BASE_URL}/api/v1/auth/nice/ci-check`, JSON.stringify({ ci: '', mbrDvsnCd: 'A101' }), { headers: h });
+    const oacx = http.post(`${BASE_URL}/api/v1/auth/oacx/easysign`, JSON.stringify({ fn: 'INVALID' }), { headers: h });
+    check(ci,   { 'smoke(core): ci-check is 404':      (r) => r.status === 404 });
+    check(oacx, { 'smoke(core): oacx-easysign is 404': (r) => r.status === 404 });
   }
 
   // 4. Handoff Issue (내부 API 연결 확인)

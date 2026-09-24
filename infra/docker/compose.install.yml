@@ -162,7 +162,9 @@ services:
     build:
       context: ../..
       dockerfile: idem-hub/Dockerfile
-    image: idem-hub:${IDEM_VERSION:-latest}
+      args:
+        IDEM_EDITION: ${IDEM_EDITION:-core}   # core | kr (S8-a: KR 에디션은 SMES 회원 개념 포함)
+    image: idem-hub:${IDEM_VERSION:-latest}-${IDEM_EDITION:-core}
     container_name: idem-hub
     restart: unless-stopped
     environment:
@@ -222,7 +224,9 @@ services:
     build:
       context: ../..
       dockerfile: idem-registry/Dockerfile
-    image: idem-registry:${IDEM_VERSION:-latest}
+      args:
+        IDEM_EDITION: ${IDEM_EDITION:-core}   # core | kr (S8-a: KR 에디션은 SMES 회원 개념 포함)
+    image: idem-registry:${IDEM_VERSION:-latest}-${IDEM_EDITION:-core}
     container_name: idem-registry
     restart: unless-stopped
     environment:

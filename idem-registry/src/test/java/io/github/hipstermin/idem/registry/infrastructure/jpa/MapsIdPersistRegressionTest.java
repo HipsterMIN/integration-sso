@@ -7,10 +7,8 @@ import io.github.hipstermin.idem.registry.domain.QimUser;
 import io.github.hipstermin.idem.registry.domain.UserProfile;
 import io.github.hipstermin.idem.registry.infrastructure.UserRepository;
 import io.github.hipstermin.idem.registry.infrastructure.UserRepositoryImpl;
-import io.github.hipstermin.idem.registry.infrastructure.jpa.entity.BizMemberJpaEntity;
 import io.github.hipstermin.idem.registry.infrastructure.jpa.entity.QimUserJpaEntity;
 import io.github.hipstermin.idem.registry.infrastructure.jpa.entity.UserProfileJpaEntity;
-import io.github.hipstermin.idem.registry.infrastructure.jpa.repository.BizMemberJpaRepository;
 import io.github.hipstermin.idem.registry.infrastructure.jpa.repository.QimUserJpaRepository;
 import io.github.hipstermin.idem.registry.infrastructure.jpa.repository.UserProfileJpaRepository;
 import java.time.Instant;
@@ -23,7 +21,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 
 /**
- * 회귀 테스트 — Hibernate 6.6 에서 {@code @MapsId} 자식(user_profile, biz_member)을
+ * 회귀 테스트 — Hibernate 6.6 에서 {@code @MapsId} 자식(user_profile; biz_member 는 KR 에디션 테스트)을
  * Spring Data {@code save()}(= merge) 로 신규 저장하면 {@code StaleObjectStateException} 이 난다.
  *
  * <p>Hibernate 6.6 의 {@code DefaultMergeEventListener.entityIsDetached} 는 DB 에 행이 없고
@@ -50,7 +48,6 @@ class MapsIdPersistRegressionTest {
 
     @Autowired QimUserJpaRepository     userRepository;
     @Autowired UserProfileJpaRepository profileRepository;
-    @Autowired BizMemberJpaRepository   bizMemberRepository;
     @Autowired UserRepository           domainUserRepository;
     @Autowired TestEntityManager        em;
 
@@ -87,25 +84,6 @@ class MapsIdPersistRegressionTest {
         assertThat(profileRepository.findById("mapsid-u1")).isPresent();
         assertThat(userRepository.findById("mapsid-u1")).get()
                 .extracting(u -> u.getProfile().getNameMasked()).isEqualTo("홍*동");
-    }
-
-    @Test
-    @DisplayName("기존 회원에 @MapsId biz_member 를 JPA save() 로 저장 — BizMemberConversionServiceImpl 경로")
-    void saveNewBizMemberForExistingUser() {
-        em.persistAndFlush(newUser("mapsid-u2"));
-        em.clear();
-
-        QimUserJpaEntity managed = userRepository.findById("mapsid-u2").orElseThrow();
-        BizMemberJpaEntity biz = BizMemberJpaEntity.builder()
-                .qimUserId("mapsid-u2").user(managed)
-                .bizRegNo("1234567890").companyName("테스트(주)").bizStatus("ACTIVE")
-                .build();
-
-        bizMemberRepository.saveAndFlush(biz);
-        em.clear();
-
-        assertThat(bizMemberRepository.findById("mapsid-u2")).get()
-                .extracting(BizMemberJpaEntity::getCompanyName).isEqualTo("테스트(주)");
     }
 
     @Test

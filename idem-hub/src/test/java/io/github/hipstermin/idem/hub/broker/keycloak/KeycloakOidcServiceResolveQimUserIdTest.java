@@ -8,12 +8,12 @@ import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.error.PlatformException;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import io.github.hipstermin.idem.hub.broker.BrokerAuditLogService;
 import io.github.hipstermin.idem.hub.broker.state.IdoOidcStateStore;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
+import io.github.hipstermin.idem.hub.infrastructure.QimMemberInfo;
+import io.github.hipstermin.idem.hub.infrastructure.QimRegisterResponse;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

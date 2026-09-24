@@ -94,7 +94,7 @@ docs/
 | [`identity-provider-spi.md`](identity-provider-spi.md) | **본인인증 SPI** — `IdentityVerificationProvider` 계약, 표준 엔드포인트, Mock 플러그인 사용법, 새 제공자 작성 절차 |
 | [`vendor-plugin-plan.md`](vendor-plugin-plan.md) | **벤더 독립화·플러그인 아키텍처 플랜** — NICE/OACX·AnyID 를 플러그인으로 분리하는 P0~P5 단계, SPI 계약 초안 |
 | [`naming.md`](naming.md) | **Idem 개명 대응표** — 구명↔신명, 개명 단계, 아직 바꾸지 않은 런타임 식별자 목록 |
-| [`generalization-plan.md`](generalization-plan.md) | **범용화 리팩토링 플랜 v0.3** — GS 우선·Keycloak 유지·IM 을 얇게·다이어트 먼저 결정, 제품 3개(SSO·IM·KR 에디션), D1→D2→S8→S7→S6→S9 순서와 진행 기록(S1~S5·D1-a·D1-b 완료) |
+| [`generalization-plan.md`](generalization-plan.md) | **범용화 리팩토링 플랜 v0.4** — GS 우선·Keycloak 유지·IM 을 얇게·다이어트 먼저 결정, 제품 3개(SSO·IM·KR 에디션 `editions/`), D1→D2→S8-a→S8-b→S6→S7→S9 순서와 진행 기록(S1~S5·D1·D2·S8-a 완료) |
 | [`execution-plan.md`](execution-plan.md) | **실행 계획 (확장판)** — 단계별 작업·완료 기준·병행 트랙·의사결정 대기·위험. 요약은 §0 |
 | [`certification/cc-gs-gap-analysis.md`](certification/cc-gs-gap-analysis.md) | **CC·GS 인증 갭 분석 (초안)** — 국가용 보안요구사항(SSO) 클래스별 현재 구현 대조, TOE 범위 제안, 보증 산출물·GS 품질 특성 갭, 로드맵·질의 목록 |
 | [`idem-sdk-java-usage-guide.md`](idem-sdk-java-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |

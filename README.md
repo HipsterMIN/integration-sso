@@ -10,6 +10,7 @@
 | `idem-gate` | 인증 관문 — 로그인 프론트, OIDC 파사드(Keycloak 프록시), PKCE | 8081 |
 | `idem-registry` | 회원 원장 — 골든 레코드, 가명 ID(DI), 탈퇴 | 8082 |
 | `idem-hub` | 오케스트레이션 — 세션 핸드오프, 프로비저닝, 웹훅, KMS, 본인인증 브로커 | 8083 |
+| `editions/idem-kr-hub` · `editions/idem-kr-registry` | KR 에디션 부트 모듈 — 코어 + SMES 회원 개념(CI 조회·기업인증·회원전환·회원조회·기업회원). `IDEM_EDITION=kr` | 8083 · 8082 |
 | `idem-authz` | 연합 인가 — 역할 원장(SoR), SCIM 2.0 Groups, 만료·회수 전파 | 8086 |
 | `idem-relay` | Transactional Outbox 분산 릴레이 배치 (ShedLock) | 8090 |
 | `idem-console` | 관리·사용자 웹 (React SPA) | 3001 |

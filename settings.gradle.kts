@@ -17,6 +17,8 @@ include(
     "idem-plugin-mock-auth",  // 본인인증 SPI Mock 플러그인 (Core 검증용, 운영 금지)
     "idem-plugin-nice-oacx",  // NICE/OACX/EzAuth 플러그인 (P2·S5a). OACX SDK 는 vendor-libs 외부 공급, 부재 시 oacx 패키지 자동 제외
     "idem-plugin-anyid",      // 행안부 Any-ID 설치형 브로커 플러그인 (P3·S5b). SDK·자산은 vendor-libs 외부 공급, 부재 시 sdk 패키지 자동 제외
+    "idem-kr-hub",            // KR 에디션 hub 부트 모듈 (S8-a): 코어 hub + SMES 회원 개념(CI 조회·기업인증·회원전환·회원조회). bootJar = KR 에디션 이미지
+    "idem-kr-registry",       // KR 에디션 registry 부트 모듈 (S8-a): 코어 registry + 기업회원(biz_member)·CI 조회. Flyway KR 마이그레이션 동봉
 
     // ── 제품 밖: 운영 도구·샘플·SDK (GS 대상 아님) ──
     "idem-console",           // 관리 콘솔 프런트(React) — S7 에서 제품으로 편입
@@ -30,3 +32,7 @@ include(
 project(":idem-plugin-mock-auth").projectDir = file("plugins/idem-plugin-mock-auth")
 project(":idem-plugin-nice-oacx").projectDir = file("plugins/idem-plugin-nice-oacx")
 project(":idem-plugin-anyid").projectDir = file("plugins/idem-plugin-anyid")
+
+// KR 에디션 모듈은 editions/ 디렉터리에 모은다. 코어(idem-hub·idem-registry)는 이 모듈들을 모르고, 에디션이 코어를 의존한다
+project(":idem-kr-hub").projectDir = file("editions/idem-kr-hub")
+project(":idem-kr-registry").projectDir = file("editions/idem-kr-registry")

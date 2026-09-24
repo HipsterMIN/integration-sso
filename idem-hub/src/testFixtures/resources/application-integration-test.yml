@@ -1,0 +1,121 @@
+# 통합 테스트 전용 application.yml (profile: integration-test)
+# IntegrationTestBase의 @DynamicPropertySource로 DB/Redis/WireMock URL이 주입됨
+
+spring:
+  kafka:
+    # Kafka 는 통합 테스트 범위 밖(브로커 없음). 프로듀서 메타데이터 대기 기본 60초 → 요청마다 60초 블로킹되므로 짧게.
+    # KafkaProducer.send 는 TimeoutException 을 실패 Future 로 돌려주고 예외를 던지지 않는다.
+    producer:
+      properties:
+        max.block.ms: 250
+    listener:
+      auto-startup: false   # 컨슈머 컨테이너의 브로커 재접속 로그 소음 제거
+  jpa:
+    hibernate:
+      ddl-auto: validate       # Flyway 마이그레이션이 스키마를 관리
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: ido
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    schemas: ido
+    default-schema: ido
+    baseline-on-migrate: true
+
+ido:
+  qim:
+    allow-empty-aes-key: true      # D2 테스트 전용 탈출구
+    base-url: http://localhost:8082
+    connect-timeout-ms: 3000
+    read-timeout-ms: 5000
+    # 테스트 전용 AES-256 공유키 (32바이트 "01234567890123456789012345678901" 의 Base64) — 실제 키 아님
+    aes-shared-key: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+  audit:
+    kafka-publish-enabled: false
+    retry-interval-ms: 600000
+  cors:
+    enabled: false
+    allowed-origins: http://localhost:3000
+  rate-limit:
+    enabled: true
+    default-tps: 200
+    default-daily-limit: 1000000
+  policy:
+    default-version: "1.0"
+  # Sprint α-3 / F4.3 — 통합 테스트에서는 signing-secret 미주입 허용
+  webhook:
+    allow-empty-secret: true
+  # Sprint β-2 / F4.8 — 통합 테스트에서는 internal caller 등록 없이 컨텍스트 기동 허용
+  internal:
+    allow-empty-callers: true
+    allow-empty-sig-secret: true   # D2: 테스트 컨텍스트는 내부 서명 비밀키 없이 기동
+  # Sprint γ-1 / F2.1 — 통합 테스트에서는 keycloak.client-secret 미주입 허용
+  keycloak:
+    allow-empty-client-secret: true
+  # Sprint γ-3 / F3.3 후속 — 통합 테스트에서는 Handoff 폴백 키 미주입 허용
+  ticket:
+    allow-empty-fallback-keys: true
+    # Handoff 발급 경로(HandoffCryptoService AES-256-GCM / HMAC-SHA256)가 실제로 키를 쓰므로 테스트 전용 폴백 키를 준다 (실제 키 아님)
+    aes-key: aW50ZWdyYXRpb24tdGVzdC1hZXMta2V5LTMyYnl0ZXM=
+    hmac-key: aW50ZWdyYXRpb24tdGVzdC1obWFjLWtleS0zMmJ5dGU=
+  # Sprint α-1 / F5.1 — LocalKmsClient 는 ido.kms.enabled=false 를 명시해야 활성화된다(matchIfMissing=false).
+  # 테스트용 application.yml 이 main 의 application.yml 을 가리므로 main 기본값(enabled=false)이 적용되지 않는다.
+  kms:
+    enabled: false
+  # AuthProperties 는 record(기본값 없음) — ido.auth.* 가 비어 있으면 AuthWebClientConfig 가 NPE 로 기동 실패한다.
+  # main application.yml 의 기본값과 동일하게 채운다(자격 증명은 빈 값).
+  auth:
+    nice:
+      client-id: ""
+      client-secret: ""
+      return-url: http://localhost:3000/otp/auth-result
+      timeout-seconds: 10
+    oacx:
+      provider-key-path: ""
+      debug-mode: false
+
+# 범용화 S4 — CI 없는 스킴(EMAIL) 으로 Mock 인증 → registry 등록 → Handoff 를 검증하기 위해 Mock 제공자를 켠다 (운영 금지)
+  broker:
+    allow-ciless-identity: true    # D2 테스트 전용 탈출구
+  cast:
+    allow-generated-keys: true     # D2 테스트 전용 탈출구
+  q-authz:
+    enabled: false                 # D2: 테스트는 authz 없이
+idem:
+  plugins:
+    mock-auth:
+      enabled: true
+    # S5b: AnyID 플러그인을 켜서 코어 부팅(DirectBrokerAdapter·/api/v1/anyid 등록)을 검증한다. SDK 는 없어도 된다
+    anyid:
+      enabled: true
+    # S5a: NICE 플러그인을 켜서 WireMock NICE 스텁으로 SPI·레거시 프록시 경로를 검증한다 (base-url 은 IntegrationTestBase 가 주입)
+    nice-oacx:
+      enabled: true
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+  retry:
+    configs:
+      default:
+        max-attempts: 2
+        wait-duration: 100ms
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 5s
+
+logging:
+  level:
+    root: WARN
+    io.github.hipstermin.idem: DEBUG
+    org.testcontainers: INFO
+    com.github.tomakehurst.wiremock: INFO

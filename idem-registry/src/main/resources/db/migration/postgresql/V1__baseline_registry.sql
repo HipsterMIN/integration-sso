@@ -239,20 +239,4 @@ CREATE INDEX idx_consent_record_user_type    ON consent_record (qim_user_id, con
 CREATE INDEX idx_consent_record_user_version ON consent_record (qim_user_id, version_id);
 CREATE INDEX idx_consent_record_agreed_at    ON consent_record (agreed_at);
 
--- ── 9. biz_member — 기업회원 (KR 에디션 확장 후보, S8 에서 이동) ───────────────
-CREATE TABLE biz_member (
-    qim_user_id     VARCHAR(36)     NOT NULL,
-    biz_reg_no      VARCHAR(20)     NOT NULL,
-    company_name    VARCHAR(200)    NOT NULL,
-    rep_name_masked VARCHAR(100),
-    biz_type        VARCHAR(50),
-    biz_status      VARCHAR(20)     NOT NULL DEFAULT 'ACTIVE',
-    verified_at     TIMESTAMPTZ(6),
-    converted_at    TIMESTAMPTZ(6)  NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ(6)  NOT NULL DEFAULT NOW(),
-    CONSTRAINT pk_biz_member          PRIMARY KEY (qim_user_id),
-    CONSTRAINT uq_biz_reg_no          UNIQUE (biz_reg_no),
-    CONSTRAINT fk_biz_member_qim_user FOREIGN KEY (qim_user_id) REFERENCES qim_user (qim_user_id)
-        ON DELETE RESTRICT ON UPDATE CASCADE
-);
-COMMENT ON TABLE biz_member IS '기업회원 전환 정보 — 사업자등록번호 기반 (S8 에서 KR 에디션 확장으로 이동 예정)';
+-- ── 9. (S8-a) 기업회원 테이블은 KR 에디션(idem-kr-registry, db/migration/kr/postgresql V1000_1) 으로 이동했다 ──

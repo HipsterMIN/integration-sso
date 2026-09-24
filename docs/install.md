@@ -16,6 +16,8 @@
 | `postgres` | 데이터 | PostgreSQL 16 — DB 1개(`onepass`), 스키마 `ido`·`qsign`·`qim`·`authz`·`keycloak` | 5432 |
 | `redis` | 데이터 | 세션·레이트리밋·캐시 | — |
 
+**에디션 (S8-a).** `install.env` 의 `IDEM_EDITION` 이 `core`(기본)면 Idem SSO + IM 코어만 올라간다 — SMES 회원 개념(NICE CI 조회·기업인증 콜백·회원전환·기관 회원조회·기업회원)이 없고 해당 경로는 404 다. `kr` 이면 `editions/idem-kr-hub`·`idem-kr-registry` 의 KR 에디션 bootJar 로 이미지를 빌드하고(태그 `-kr`) registry 에 KR 마이그레이션(`biz_member`, V1000.1)이 추가로 적용된다. 값을 바꾸면 `--build` 로 다시 빌드한다. 벤더 플러그인(NICE·AnyID)은 에디션과 별개로 `IDEM_PLUGINS_*_ENABLED` 로 켠다.
+
 **Kafka 는 없다.** 모든 앱이 `IDEM_KAFKA_ENABLED=false` 로 뜨며, 아웃박스는 hub 가 DB 를 폴링해 같은 프로세스 안의 핸들러로 배달하고 감사 로그는 DB 에만 남는다(§6). 다중 인스턴스·외부 시스템 연동이 필요해지면 Kafka 를 붙이고 스위치를 `true` 로 바꾼다.
 
 ## 2. 준비
@@ -115,7 +117,7 @@ hub 기동 로그에 다음 줄이 있어야 한다: `[Idem] Kafka 비활성 (id
 - [ ] `IDEM_PUBLIC_URL_HUB/GATE/CONSOLE` 를 실제 공개 주소(리버스 프록시·TLS)로. 앱 포트는 127.0.0.1 바인딩이므로 프록시가 필요하다
 - [ ] Keycloak realm 의 `redirectUris` 를 공개 주소로 (`infra/docker/keycloak/realm-export.json` 은 첫 import 에만 쓰인다 — 이후는 콘솔에서)
 - [ ] `install.env` 백업을 비밀 저장소에. 키 교체 절차는 `docs/sso-im-operations-manual.md`
-- [ ] 벤더 플러그인(KR 에디션)은 `~/.idem/vendor-libs` 공급 후 이미지 재빌드 (`plugins/*/README.md`)
+- [ ] KR 에디션이 필요하면 `IDEM_EDITION=kr` 로 재빌드. 벤더 플러그인은 `~/.idem/vendor-libs` 공급 후 이미지 재빌드 (`plugins/*/README.md`)
 - [ ] 백업: `pg-data` 볼륨(스키마 5개), `keycloak-data`
 
 ## 8. 제거
