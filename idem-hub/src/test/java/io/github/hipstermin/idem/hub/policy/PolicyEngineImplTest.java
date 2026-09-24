@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.hub.policy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
@@ -12,12 +13,16 @@ import io.github.hipstermin.idem.common.domain.HandoffTicket;
 import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.identity.CoreSubjectSchemes;
 import io.github.hipstermin.idem.hub.identity.HandoffAttributeAssembler;
 import io.github.hipstermin.idem.hub.identity.SubjectIdentifierResolver;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
+import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
+import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
 import io.github.hipstermin.idem.hub.infrastructure.UserStatusCache;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import java.time.Instant;
 import java.util.Optional;
@@ -56,6 +61,7 @@ class PolicyEngineImplTest {
     @Mock QimClient            qimClient;
     @Mock AgencyMetaRepository agencyMetaRepository;
     @Mock ServiceProfileService serviceProfileService;
+    @Mock QAuthzClient          qAuthzClient;
 
     PolicyEngineImpl sut;
 
@@ -70,13 +76,16 @@ class PolicyEngineImplTest {
         SubjectIdentifierResolver resolver = new SubjectIdentifierResolver(
                 java.util.List.of(new CoreSubjectSchemes().pairwiseHmacSubjectScheme(qimClient)));
         sut = new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, serviceProfileService,
-                resolver, new HandoffAttributeAssembler(qimClient, resolver), java.util.List.of());
+                resolver, new HandoffAttributeAssembler(qimClient, resolver), qAuthzClient, java.util.List.of());
         ReflectionTestUtils.setField(sut, "defaultPolicyVersion", "1.0");
         // 기본: 기관 프로파일 없음(S4: 스킴 PAIRWISE_HMAC · 속성 선언 없음 = 빈 attributes), userStatusCache 없음
         // (serviceProfileService.find 는 Mockito 기본값 Optional.empty)
         given(userStatusCache.get(anyString())).willReturn(Optional.empty());
         // D2: 캐시 미스면 정본(Q-IM) 조회 — 실패 시 거부. 기본 스텁은 ACTIVE
         lenient().when(qimClient.getUserStatus(anyString(), anyString())).thenReturn(UserStatus.ACTIVE);
+        // S8-b: 기본은 authz 활성·미할당·역할 없음 (할당 정책이 없는 프로파일은 이 값을 상태 판정에 쓰지 않는다)
+        lenient().when(qAuthzClient.getServiceAccess(anyString(), anyString(), any()))
+                .thenReturn(new ServiceAccess(true, false, null, java.util.List.of()));
     }
 
     private HandoffTicket buildTicket() {
@@ -204,6 +213,79 @@ class PolicyEngineImplTest {
                                 .as("예상 외 예외도 안전 우선 거부 — GUEST로 새지 않음")
                                 .isEqualTo(PlatformErrorCode.IDO_QIM_UNREACHABLE);
                     });
+        }
+    }
+
+    // ── S8-b 할당 정책 ──────────────────────────────────────────────────────
+    @Nested
+    @DisplayName("[S8-b] policy.assignment.required=true — 상태는 할당이 정한다")
+    class AssignmentPolicy {
+
+        private ServiceProfile requiredProfile(boolean selfSignup) {
+            return ServiceProfile.builder().schemaVersion(1)
+                    .service(new ServiceProfile.Service(AGENCY_CODE, "기관", ServiceProfile.ServiceStatus.ACTIVE))
+                    .protocol(ServiceProfile.Protocol.builder().type(IntegrationType.DIRECT).build())
+                    .policy(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
+                            .assignment(new ServiceProfile.Assignment(true, selfSignup)).build())
+                    .build();
+        }
+
+        @Test
+        @DisplayName("할당됨 → APPROVED, roles 와 subject.assigned=true 가 페이로드에 실린다")
+        void assigned_approvedWithRoles() {
+            given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.of(requiredProfile(false)));
+            given(qimClient.getDi(QIM_USER_ID, AGENCY_CODE, CORRELATION_ID)).willReturn("DI-ASSIGNED");
+            given(qAuthzClient.getServiceAccess(QIM_USER_ID, AGENCY_CODE, CORRELATION_ID))
+                    .willReturn(new ServiceAccess(true, true, "CONSOLE", java.util.List.of("MANAGER", "REVIEWER")));
+
+            HandoffPayload payload = sut.buildHandoffPayload(buildTicket(), CORRELATION_ID);
+
+            assertThat(payload.getState()).isEqualTo(HandoffPayload.HandoffState.APPROVED);
+            assertThat(payload.getRoles()).containsExactly("MANAGER", "REVIEWER");
+            assertThat(payload.getSubject().getAssigned()).isTrue();
+            assertThat(payload.getSubject().getAgencySubjectId()).isEqualTo("DI-ASSIGNED");
+        }
+
+        @Test
+        @DisplayName("미할당(selfSignup 통과) → GUEST 지만 주체 식별자는 해석되면 실린다 (기관이 가입 후 연결할 수 있게)")
+        void unassigned_guestKeepsSubject() {
+            given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.of(requiredProfile(true)));
+            given(qimClient.getDi(QIM_USER_ID, AGENCY_CODE, CORRELATION_ID)).willReturn("DI-NEW");
+            given(qAuthzClient.getServiceAccess(QIM_USER_ID, AGENCY_CODE, CORRELATION_ID))
+                    .willReturn(new ServiceAccess(true, false, null, java.util.List.of()));
+
+            HandoffPayload payload = sut.buildHandoffPayload(buildTicket(), CORRELATION_ID);
+
+            assertThat(payload.getState()).isEqualTo(HandoffPayload.HandoffState.GUEST);
+            assertThat(payload.getSubject().getAssigned()).isFalse();
+            assertThat(payload.getSubject().getAgencySubjectId()).isEqualTo("DI-NEW");
+            assertThat(payload.getRoles()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("authz 비활성 설치(ido.q-authz.enabled=false)인데 할당 필수 → IDO_AUTHZ_UNAVAILABLE (평가 불가 = 거부)")
+        void authzDisabled_denied() {
+            given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.of(requiredProfile(false)));
+            given(qimClient.getDi(QIM_USER_ID, AGENCY_CODE, CORRELATION_ID)).willReturn("DI-X");
+            given(qAuthzClient.getServiceAccess(QIM_USER_ID, AGENCY_CODE, CORRELATION_ID)).willReturn(ServiceAccess.disabled());
+
+            assertThatThrownBy(() -> sut.buildHandoffPayload(buildTicket(), CORRELATION_ID))
+                    .isInstanceOf(PlatformException.class)
+                    .extracting(e -> ((PlatformException) e).getErrorCode())
+                    .isEqualTo(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE);
+        }
+
+        @Test
+        @DisplayName("할당 정책 없는 프로파일: 종전 의미 유지 — DI 없으면 GUEST, subject.assigned 는 authz 값 그대로")
+        void noAssignmentPolicy_legacySemantics() {
+            given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.empty());
+            given(qimClient.getDi(QIM_USER_ID, AGENCY_CODE, CORRELATION_ID)).willReturn(null);
+
+            HandoffPayload payload = sut.buildHandoffPayload(buildTicket(), CORRELATION_ID);
+
+            assertThat(payload.getState()).isEqualTo(HandoffPayload.HandoffState.GUEST);
+            assertThat(payload.getSubject().getAgencySubjectId()).isNull();
+            assertThat(payload.getSubject().getAssigned()).isFalse();
         }
     }
 }

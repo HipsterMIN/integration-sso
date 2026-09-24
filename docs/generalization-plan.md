@@ -396,6 +396,14 @@ hub 31k LOC 위에 기능을 얹기 전에 뺀다. SMES 회원 유형(개인/기
 - S8-a 잔여: hub `qim/sp` 정리, tenant·ServiceProfile·agency 세 개념 정돈(코어에 "기관" 105개 파일).
 완료 기준: 미할당 사용자의 Handoff/OIDC 발급이 거부되는 통합 테스트, KR 에디션에서 기존 시나리오 통과.
 
+**진행 기록 (2026-09-24, S8-b PR-1: 할당 모델 + `ASSIGNMENT` 규칙)** — 구현 PR.
+- ✅ **할당 모델(authz)**: `authz.authz_assignment`(사용자 ↔ Service(agency_code), `status ACTIVE/REVOKED/EXPIRED`, `source CONSOLE/SCIM/API/AGENCY_PUSH/ROLE_GRANT/SELF_SIGNUP`, `expires_at`, 부여·회수 주체) — `V3__assignment.sql`. 기존 `authz_user_role` 의 ACTIVE 행을 `ROLE_GRANT` 할당으로 **백필**하므로 이미 역할이 있는 사용자는 마이그레이션 직후에도 할당 상태다. 역할 부여(`grantRole`)는 할당을 자동 보장하고, 만료 배치는 할당도 만료시킨다(감사 `ASSIGN/UNASSIGN`). 내부 API: `POST/DELETE /api/v1/internal/authz/assignments`, `GET /users/{id}/access?agencyCode=` → `{assigned, assignmentSource, roles}`(멱등)
+- ✅ **정책 규칙 `ASSIGNMENT`(순서 95, `USER_STATUS` 뒤)**: Service Profile `policy.assignment { required, selfSignup }`(스키마 v1 확장, `rules[]` 파라미터로도 덮어씀). 의미 — `required` 가 아니면 ALLOW(기본, 기존 프로파일 무변경) · 할당됨 → ALLOW(`APPROVED`) · 미할당 + `selfSignup` → ALLOW 하되 상태 `GUEST`(주체 ID 는 그대로 실린다) · 미할당 → DENY **`E-IDO-120`**(403, 감사 `ASSIGNMENT_REQUIRED`) · `required` 인데 authz 비활성 → DENY `E-IDO-117`(fail-closed). authz 조회는 `PolicyContext.serviceAccess` 공급자로 지연·메모이즈되어 규칙이 요구할 때만 한 번 호출된다. CAST(hub 간 SSO)도 대상 프로파일이 `required` 면 미할당을 거부한다
+- ✅ **역할을 어설션에**: `HandoffPayload.roles`(최상위)·`subject.assigned`. 종전에는 역할이 암호화 티켓 안에만 있고 `verify` 응답에는 없었다(결함) — `ServiceAccess` 한 번 조회로 Payload·plain 응답 모두에 싣는다. 시뮬레이션 API 요청에 `assigned` 추가
+- ✅ 검증: hub 460 + IT 43(신규 `AssignmentIntegrationTest` 4 — 403/E-IDO-120 · GUEST 셀프가입 · APPROVED+roles · authz 5xx→503) · authz 41 · common 418 · gate 81 · registry 218 · kr-hub 32 · kr-registry 28 · 플러그인 54 · relay 10 · tenant-sample 84. V1→V3 마이그레이션을 로컬 PostgreSQL 에서 빈 스키마·기존 데이터 양쪽에 적용해 백필 확인
+- 배운 것: `ServiceProfile.Policy` 레코드에 컴포넌트를 더할 때 `ServiceProfileMapper.fromEntity` 병합이 새 항목을 잃는다(테스트로 고정) · 레코드 접근자에 `is*`/`get*` 이름 + `@JsonIgnore` 를 붙이면 Jackson 이 본 속성까지 지운다(비게터 이름으로) · 레코드 호환 생성자는 Jackson 이 생성자를 고를 때 모호해지므로 두지 않는다
+- ⏭ **남긴 것(S8-b PR-2)**: 그룹·속성 규칙 할당(현재 직접 할당만) · 할당 변경 이벤트 전파(아웃박스, SCIM Groups 연결) · authz fail-open 잔여 정리(`isEnabled=false` 경로) · hub `qim/sp` 정리 · tenant·ServiceProfile·agency 개념 정돈 · DI/GUEST 서술 정리(GUEST = "미할당 셀프가입" 으로 재정의됨, 가이드·운영 문서 반영) · 콘솔 할당 화면은 S7
+
 ### S6 — 표준 프로토콜: Keycloak 을 숨긴 OIDC_RP 정식화 (3~4주, v0.3 에서 축소, v0.4 에서 S7 앞으로)
 
 Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `IntegrationProtocol` SPI · `OIDC_RP`: Service Profile 의 `protocol.type=OIDC_RP` 만으로 Idem 이 Keycloak client 를 프로비저닝하고 정책 강제 authenticator 를 붙인다 · Keycloak 관리 UI 는 설치자에게 노출하지 않는다 · Handoff 는 "KR 기관 연계 방식" 으로 격하하되 유지 · Agent(`APACHE_GATE`) 는 제품 밖 도구로 · `SAML_SP` 는 설계만 · `idp-hint-mapping` 을 프로파일로.

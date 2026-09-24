@@ -5,6 +5,7 @@ import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.ErrorResponse;
 import io.github.hipstermin.idem.common.error.PlatformException;
+import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
 import io.github.hipstermin.idem.hub.policy.PolicyEngine;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
@@ -74,7 +75,8 @@ public class ServiceProfileAdminController {
     }
 
     /** 정책 시뮬레이션 요청 — 값이 없는 항목은 해당 규칙이 SKIP 된다. {@code at} 은 점검 시간대 판정 시각(생략 시 지금). */
-    public record PolicySimulationRequest(String authLevel, String providerCode, String userStatus, Instant at) {}
+    /** {@code assigned}: S8-b 할당 여부 가정 (null 이면 ASSIGNMENT 규칙은 '할당 정보 미제공' 으로 SKIP) */
+    public record PolicySimulationRequest(String authLevel, String providerCode, String userStatus, Instant at, Boolean assigned) {}
     public record PolicySimulationResponse(boolean allowed, List<PolicyDecision> decisions) {}
 
     /**
@@ -93,6 +95,8 @@ public class ServiceProfileAdminController {
                 .authLevel(AuthResult.AuthLevel.parse(req.authLevel()).orElse(null))
                 .providerCode(req.providerCode())
                 .userStatus(status == null ? null : () -> status)
+                .serviceAccess(req.assigned() == null ? null
+                        : () -> new ServiceAccess(true, req.assigned(), req.assigned() ? "SIMULATION" : null, List.of()))
                 .now(req.at())
                 .build();
         PolicyEvaluation eval = policyEngine.evaluate(ctx, false);

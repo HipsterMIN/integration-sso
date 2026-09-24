@@ -51,7 +51,7 @@ class ServiceProfileMapperTest {
     }
 
     @Test
-    @DisplayName("컬럼 → 프로파일 합성 시 프로파일에만 있는 항목(ui·session·security·mapping·tps)은 보존된다")
+    @DisplayName("컬럼 → 프로파일 합성 시 프로파일에만 있는 항목(ui·session·security·mapping·tps·assignment)은 보존된다")
     void fromEntity_preservesProfileOnlyFields() {
         ServiceProfile existing = ServiceProfile.builder()
                 .schemaVersion(1)
@@ -62,7 +62,8 @@ class ServiceProfileMapperTest {
                         List.of(new ServiceProfile.AttributeSelection("name_masked", true, MaskingRule.NONE)),
                         java.util.Map.of("name_masked", "userNm")))
                 .policy(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
-                        .allowedProviders(List.of("NICE")).session(new ServiceProfile.Session(30, 480, 1)).build())
+                        .allowedProviders(List.of("NICE")).session(new ServiceProfile.Session(30, 480, 1))
+                        .assignment(new ServiceProfile.Assignment(true, false)).build())
                 .limits(new ServiceProfile.Limits(50, 1))
                 .ui(new ServiceProfile.Ui("기관 A", null, "ko"))
                 .build();
@@ -83,6 +84,8 @@ class ServiceProfileMapperTest {
                 .satisfies(sel -> { assertThat(sel.isRequired()).isTrue(); assertThat(sel.masking()).isEqualTo(MaskingRule.NONE); });
         assertThat(merged.policy().allowedProviders()).containsExactly("NICE");
         assertThat(merged.policy().session().idleMinutes()).isEqualTo(30);
+        // S8-b: 할당 정책도 프로파일에만 있으므로 보존된다 (빠뜨리면 할당 필수가 조용히 꺼진다)
+        assertThat(merged.policy().assignment().requiresAssignment()).isTrue();
         assertThat(merged.limits().tps()).isEqualTo(50);
         assertThat(merged.ui().brandName()).isEqualTo("기관 A");
     }
@@ -143,5 +146,19 @@ class ServiceProfileMapperTest {
         ServiceProfile p = mapper.fromEntity(entity(), null);
         assertThat(mapper.parse(mapper.toNode(p))).isEqualTo(p);
         assertThat(mapper.fromJson(mapper.toJson(p))).isEqualTo(p);
+    }
+
+    @Test
+    @DisplayName("S8-b: JSON 의 policy.assignment 는 parse 로 살아남는다 (보조 생성자가 있으면 Jackson 이 그것을 골라 버렸다)")
+    void parse_keepsAssignmentBlock() throws Exception {
+        var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree("""
+                {"schemaVersion":1,"service":{"code":"AG_ASGN","name":"기관"},"protocol":{"type":"DIRECT"},
+                 "policy":{"minAuthLevel":"L1","assignment":{"required":true,"selfSignup":true}}}
+                """);
+        ServiceProfile parsed = mapper.parse(node);
+        assertThat(parsed.policy().assignment()).isNotNull();
+        assertThat(parsed.policy().assignment().requiresAssignment()).isTrue();
+        assertThat(parsed.policy().assignment().allowsSelfSignup()).isTrue();
+        assertThat(mapper.parse(mapper.toNode(parsed)).policy().assignment().requiresAssignment()).isTrue();
     }
 }

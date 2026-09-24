@@ -6,6 +6,7 @@ import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.UserStatus;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
+import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
 import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import java.time.Instant;
 import java.util.List;
@@ -138,6 +139,51 @@ class PolicyRulesTest {
             assertThat(d.errorCode()).isEqualTo(PlatformErrorCode.IDO_POLICY_REJECTED);
             // 기본 집합에서는 통과
             assertThat(rule.evaluate(ctx(null, null, null, UserStatus.WITHDRAWAL_SCHEDULED, null), Map.of()).outcome()).isEqualTo(PolicyDecision.Outcome.ALLOW);
+        }
+    }
+
+    @Nested
+    @DisplayName("ASSIGNMENT (S8-b)")
+    class Assignment {
+        final AssignmentRule rule = new AssignmentRule();
+
+        private PolicyContext ctxWith(ServiceProfile.Assignment cfg, ServiceAccess access) {
+            var policy = ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1).assignment(cfg).build();
+            return PolicyContext.builder().serviceCode("AG").profile(profile(policy))
+                    .serviceAccess(access == null ? null : () -> access).correlationId("cid").build();
+        }
+
+        @Test void noPolicy_allows_withoutTouchingAuthz() {
+            var d = rule.evaluate(ctxWith(null, null), Map.of());
+            assertThat(d.outcome()).isEqualTo(PolicyDecision.Outcome.ALLOW);
+        }
+        @Test void required_assigned_allows() {
+            var d = rule.evaluate(ctxWith(new ServiceProfile.Assignment(true, false), new ServiceAccess(true, true, "SCIM", List.of())), Map.of());
+            assertThat(d.outcome()).isEqualTo(PolicyDecision.Outcome.ALLOW);
+        }
+        @Test void required_unassigned_denies_E120() {
+            var d = rule.evaluate(ctxWith(new ServiceProfile.Assignment(true, false), new ServiceAccess(true, false, null, List.of())), Map.of());
+            assertThat(d.denied()).isTrue();
+            assertThat(d.errorCode()).isEqualTo(PlatformErrorCode.IDO_ASSIGNMENT_REQUIRED);
+            assertThat(d.auditReason()).isEqualTo("ASSIGNMENT_REQUIRED");
+        }
+        @Test void required_unassigned_selfSignup_allows() {
+            var d = rule.evaluate(ctxWith(new ServiceProfile.Assignment(true, true), new ServiceAccess(true, false, null, List.of())), Map.of());
+            assertThat(d.outcome()).isEqualTo(PolicyDecision.Outcome.ALLOW);
+            assertThat(d.reason()).contains("GUEST");
+        }
+        @Test void required_authzDisabled_denies_failClosed() {
+            var d = rule.evaluate(ctxWith(new ServiceProfile.Assignment(true, true), ServiceAccess.disabled()), Map.of());
+            assertThat(d.denied()).isTrue();
+            assertThat(d.errorCode()).isEqualTo(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE);
+        }
+        @Test void required_noAccessSupplier_skips() {
+            var d = rule.evaluate(ctxWith(new ServiceProfile.Assignment(true, false), null), Map.of());
+            assertThat(d.outcome()).isEqualTo(PolicyDecision.Outcome.SKIP);
+        }
+        @Test void params_overrideProfile() {
+            var d = rule.evaluate(ctxWith(null, new ServiceAccess(true, false, null, List.of())), Map.of("required", true));
+            assertThat(d.denied()).isTrue();
         }
     }
 }

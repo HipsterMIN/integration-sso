@@ -76,6 +76,7 @@ public enum PlatformErrorCode {
     IDO_AUTHZ_UNAVAILABLE("E-IDO-117", HttpStatus.SERVICE_UNAVAILABLE, "인가 서비스(idem-authz) 조회 실패 — 안전 우선 거부."),
     IDO_IDENTITY_UNRESOLVED("E-IDO-118", HttpStatus.UNPROCESSABLE_ENTITY, "주체 식별자를 확인할 수 없어 세션을 발급하지 않습니다."),
     IDO_SESSION_UNAVAILABLE("E-IDO-119", HttpStatus.SERVICE_UNAVAILABLE, "FE 세션 저장소 장애 — 세션을 발급하지 않습니다."),
+    IDO_ASSIGNMENT_REQUIRED("E-IDO-120", HttpStatus.FORBIDDEN, "이 서비스에 할당되지 않은 사용자입니다 — 관리자 할당 또는 셀프 가입이 필요합니다."),
 
     // ── 기관 오류 (E-AGENCY-3xx) ─────────────────────────────────────────────
     AGENCY_NOT_REGISTERED ("E-AGENCY-301", HttpStatus.FORBIDDEN,   "등록되지 않은 기관 코드입니다."),

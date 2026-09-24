@@ -16,13 +16,16 @@ import io.github.hipstermin.idem.hub.handoff.strategy.HandoffStrategyFactory;
 import io.github.hipstermin.idem.hub.handoff.validate.CallbackUrlValidator;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
+import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
 import io.github.hipstermin.idem.hub.infrastructure.TicketRepository;
 import io.github.hipstermin.idem.hub.policy.PolicyEngine;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
 import io.github.hipstermin.idem.hub.ratelimit.AgencyRateLimiter;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -85,11 +88,15 @@ public class HandoffServiceImpl implements HandoffService {
             callbackUrlValidator.validate(cmd.getRedirectUri(), agency.getCallbackWhitelist(), cmd.getCorrelationId());
 
             // 3~5. 정책 평가 (S3 — 프로파일의 규칙 집합: MAINTENANCE → MIN_AUTH_LEVEL → ALLOWED_PROVIDERS → USER_STATUS)
+            // S8-b: 할당·역할은 authz 정본을 한 번만 읽는다(규칙 평가와 티켓 페이로드가 같은 값을 쓴다). 장애 = 거부(D2)
+            Supplier<ServiceAccess> access = memoize(() -> qAuthzClient.getServiceAccess(
+                    cmd.getQimUserId(), cmd.getAgencyCode(), cmd.getCorrelationId()));
             PolicyContext policyContext = PolicyContext.builder()
                     .serviceCode(cmd.getAgencyCode())
                     .authLevel(cmd.getAuthLevel())
                     .providerCode(cmd.getProviderCode())
                     .userStatus(() -> policyEngine.resolveUserStatus(cmd.getQimUserId(), cmd.getCorrelationId()))
+                    .serviceAccess(access)
                     .correlationId(cmd.getCorrelationId())
                     .build();
             PolicyDecision denial = policyEngine.evaluate(policyContext, true).firstDenial().orElse(null);
@@ -101,7 +108,7 @@ public class HandoffServiceImpl implements HandoffService {
             // 6. Ticket 발급
             Instant now      = Instant.now();
             String  ticketId = UuidV7.generate();
-            String  plain    = buildPlainPayload(ticketId, cmd);
+            String  plain    = buildPlainPayload(ticketId, cmd, access.get().roles());
             String  encrypted = handoffCryptoService.encrypt(plain, ticketId);
             String  signature = handoffCryptoService.sign(ticketId, cmd.getAgencyCode(), encrypted);
 
@@ -322,7 +329,18 @@ public class HandoffServiceImpl implements HandoffService {
 
     // ── private: Kafka ─────────────────────────────────────────────────────
 
-    private String buildPlainPayload(String ticketId, HandoffIssueCommand cmd) {
+    private static <T> Supplier<T> memoize(Supplier<T> delegate) {
+        return new Supplier<>() {
+            private T value;
+            private boolean done;
+            @Override public synchronized T get() {
+                if (!done) { value = delegate.get(); done = true; }
+                return value;
+            }
+        };
+    }
+
+    private String buildPlainPayload(String ticketId, HandoffIssueCommand cmd, List<String> roles) {
         try {
             var payload = new java.util.LinkedHashMap<String, Object>();
             payload.put("ticketId",     ticketId);
@@ -331,10 +349,9 @@ public class HandoffServiceImpl implements HandoffService {
             payload.put("authResultId", cmd.getAuthResultId());
             payload.put("authLevel",    cmd.getAuthLevel().name());
             payload.put("providerCode", cmd.getProviderCode());
-            // 연합 인가: 기관 스코프 유효 역할(fail-open — 장애 시 빈 역할).
+            // 연합 인가: 기관 스코프 유효 역할 (S8-b: 규칙 평가와 같은 authz 조회 결과. 장애는 이미 거부됐다)
             // 플랫폼은 굵은 RBAC 역할만 배송, 세밀한 집행은 기관 PEP가 수행.
-            payload.put("roles",        qAuthzClient.getEffectiveRoles(
-                    cmd.getQimUserId(), cmd.getAgencyCode(), cmd.getCorrelationId()));
+            payload.put("roles",        roles);
             payload.put("issuedAt",     Instant.now().toString());
             return objectMapper.writeValueAsString(payload);
         } catch (Exception e) {

@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>{@link #fromEntity} — 컬럼이 진실인 항목은 컬럼에서, 프로파일에만 있는 항목(security·subjectScheme·
- *       attributeMapping·속성 옵션·allowedProviders·session·rules·limits.tps·ui)은 기존 프로파일 JSON 에서 가져와 합친다</li>
+ *       attributeMapping·속성 옵션·allowedProviders·session·rules·assignment·limits.tps·ui)은 기존 프로파일 JSON 에서 가져와 합친다</li>
  *   <li>{@link #applyToEntity} — 프로파일을 컬럼으로 투영한다 (PUT 경로)</li>
  *   <li>{@link #syncProfileColumn} — 컬럼을 고친 레거시 쓰기 경로(Admin 서비스·도메인 저장소)가 저장 직전에 호출해
  *       {@code profile} 컬럼을 컬럼 값과 일치시킨다. 프로파일에만 있는 항목은 보존된다</li>
@@ -74,6 +74,7 @@ public class ServiceProfileMapper {
                         .allowedProviders(exPolicy != null ? exPolicy.allowedProviders() : null)
                         .session(exPolicy != null ? exPolicy.session() : null)
                         .rules(exPolicy != null ? exPolicy.rules() : null)
+                        .assignment(exPolicy != null ? exPolicy.assignment() : null)   // S8-b: 프로파일에만 있는 항목
                         .build())
                 .limits(ServiceProfile.Limits.builder()
                         .daily(e.getDailyLookupLimit())

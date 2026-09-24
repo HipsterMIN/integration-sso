@@ -178,8 +178,10 @@ class ServiceProfileIntegrationTest extends IntegrationTestBase {
         assertThat(denied.getStatusCode().value()).as("body=%s", denied.getBody()).isEqualTo(200);
         JsonNode d = json(denied);
         assertThat(d.at("/allowed").asBoolean()).isFalse();
-        // 첫 거부에서 멈추지 않고 전부 평가 — MIN_AUTH_LEVEL·ALLOWED_PROVIDERS 둘 다 DENY, USER_STATUS 는 ALLOW
-        assertThat(d.at("/decisions")).hasSize(4);
+        // 첫 거부에서 멈추지 않고 전부 평가 — MIN_AUTH_LEVEL·ALLOWED_PROVIDERS 둘 다 DENY, USER_STATUS 는 ALLOW, ASSIGNMENT(S8-b) 는 정책 미적용 ALLOW
+        assertThat(d.at("/decisions")).hasSize(5);
+        assertThat(d.at("/decisions/4/rule").asText()).isEqualTo("ASSIGNMENT");
+        assertThat(d.at("/decisions/4/outcome").asText()).isEqualTo("ALLOW");
         assertThat(d.at("/decisions/1/rule").asText()).isEqualTo("MIN_AUTH_LEVEL");
         assertThat(d.at("/decisions/1/outcome").asText()).isEqualTo("DENY");
         assertThat(d.at("/decisions/2/rule").asText()).isEqualTo("ALLOWED_PROVIDERS");

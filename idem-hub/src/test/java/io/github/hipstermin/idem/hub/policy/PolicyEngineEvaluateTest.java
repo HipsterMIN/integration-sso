@@ -10,9 +10,11 @@ import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.identity.HandoffAttributeAssembler;
 import io.github.hipstermin.idem.hub.identity.SubjectIdentifierResolver;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
+import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
 import io.github.hipstermin.idem.hub.infrastructure.UserStatusCache;
 import io.github.hipstermin.idem.hub.policy.rule.AllowedProvidersRule;
+import io.github.hipstermin.idem.hub.policy.rule.AssignmentRule;
 import io.github.hipstermin.idem.hub.policy.rule.MaintenanceRule;
 import io.github.hipstermin.idem.hub.policy.rule.MinAuthLevelRule;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
@@ -40,6 +42,7 @@ class PolicyEngineEvaluateTest {
     @Mock QimClient qimClient;
     @Mock AgencyMetaRepository agencyMetaRepository;
     @Mock ServiceProfileService serviceProfileService;
+    @Mock QAuthzClient qAuthzClient;
 
     /** 커스텀 규칙 — params.allow 가 false 면 거부 */
     static final PolicyRule CUSTOM = new PolicyRule() {
@@ -54,8 +57,8 @@ class PolicyEngineEvaluateTest {
     private PolicyEngineImpl engine() {
         SubjectIdentifierResolver resolver = new SubjectIdentifierResolver(List.of());
         return new PolicyEngineImpl(userStatusCache, qimClient, agencyMetaRepository, serviceProfileService,
-                resolver, new HandoffAttributeAssembler(qimClient, resolver),
-                List.of(new UserStatusRule(), new AllowedProvidersRule(), new MinAuthLevelRule(), new MaintenanceRule(), CUSTOM));
+                resolver, new HandoffAttributeAssembler(qimClient, resolver), qAuthzClient,
+                List.of(new UserStatusRule(), new AllowedProvidersRule(), new MinAuthLevelRule(), new MaintenanceRule(), new AssignmentRule(), CUSTOM));
     }
 
     private static ServiceProfile profile(ServiceProfile.Policy policy) {
@@ -66,7 +69,7 @@ class PolicyEngineEvaluateTest {
     }
 
     @Test
-    @DisplayName("내장 규칙은 order 순(MAINTENANCE → MIN_AUTH_LEVEL → ALLOWED_PROVIDERS → USER_STATUS)으로 전부 평가된다")
+    @DisplayName("내장 규칙은 order 순(MAINTENANCE → MIN_AUTH_LEVEL → ALLOWED_PROVIDERS → USER_STATUS → ASSIGNMENT)으로 전부 평가된다")
     void builtInsEvaluatedInOrder() {
         PolicyContext ctx = PolicyContext.builder().serviceCode("AG")
                 .profile(profile(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1).build()))
@@ -76,7 +79,7 @@ class PolicyEngineEvaluateTest {
 
         assertThat(eval.allowed()).isTrue();
         assertThat(eval.decisions()).extracting(PolicyDecision::rule)
-                .containsExactly("MAINTENANCE", "MIN_AUTH_LEVEL", "ALLOWED_PROVIDERS", "USER_STATUS");
+                .containsExactly("MAINTENANCE", "MIN_AUTH_LEVEL", "ALLOWED_PROVIDERS", "USER_STATUS", "ASSIGNMENT");
     }
 
     @Test

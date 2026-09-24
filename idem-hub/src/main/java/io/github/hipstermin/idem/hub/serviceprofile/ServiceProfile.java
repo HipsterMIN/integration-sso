@@ -165,7 +165,23 @@ public record ServiceProfile(
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)
     public record Policy(AuthResult.AuthLevel minAuthLevel, String policyVersion, List<String> allowedProviders,
-                         Session session, List<MaintenanceWindow> maintenance, List<RuleRef> rules) {}
+                         Session session, List<MaintenanceWindow> maintenance, List<RuleRef> rules,
+                         Assignment assignment) {}
+    // 주의: 호환용 보조 생성자를 두지 않는다 — Jackson 이 레코드의 정식 생성자 대신 그것을 골라 assignment 를 조용히 버렸다(S8-b 통합 테스트로 발견)
+
+    /**
+     * S8-b 할당 정책. {@code required=true} 면 idem-authz 에 이 Service 할당이 있는 사용자만 발급받는다.
+     * 미할당은 {@code selfSignup=true} 일 때만 GUEST 로 통과(기관이 가입·연결 후 할당을 보고), 아니면 E-IDO-120 거부.
+     * 블록이 없으면(기본) 할당을 보지 않는다 — 레거시 GUEST 의미(주체 식별자 없음) 유지.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Builder(toBuilder = true)
+    public record Assignment(Boolean required, Boolean selfSignup) {
+        // 헬퍼 이름을 getter 규칙(isXxx/getXxx)으로 짓지 않는다 — @JsonIgnore 를 붙이면 Jackson 이 'required' 속성 자체를
+        // 무시해 역직렬화에서 값이 사라진다(S8-b 통합 테스트로 발견)
+        public boolean requiresAssignment() { return Boolean.TRUE.equals(required); }
+        public boolean allowsSelfSignup() { return Boolean.TRUE.equals(selfSignup); }
+    }
 
     /** 프로파일이 지정하는 규칙 — 내장 규칙의 파라미터 또는 커스텀 규칙(에디션 플러그인) 활성화 (S3). */
     @JsonInclude(JsonInclude.Include.NON_NULL)

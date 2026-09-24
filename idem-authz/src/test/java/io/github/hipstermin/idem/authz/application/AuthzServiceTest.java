@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.hipstermin.idem.authz.api.AuthzErrorCode;
@@ -37,6 +39,7 @@ class AuthzServiceTest {
     @Mock AuthzUserRoleRepository userRoleRepository;
     @Mock AuthzAuditService auditService;
     @Mock AuthzOutboxService outboxService;
+    @Mock io.github.hipstermin.idem.authz.infrastructure.AuthzAssignmentRepository assignmentRepository;   // S8-b
 
     @InjectMocks AuthzService service;
 
@@ -48,6 +51,9 @@ class AuthzServiceTest {
 
     @BeforeEach
     void setUp() {
+        // S8-b: 만료 스케줄이 할당 표도 보므로 기본은 빈 페이지 (strict stubs 예외 방지용 lenient)
+        org.mockito.Mockito.lenient().when(assignmentRepository.findByStatusAndExpiresAtNotNullAndExpiresAtBefore(any(), any(), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
         assignableRole = AuthzRoleEntity.builder()
                 .agencyCode(AGENCY).roleCode(ROLE).assignable(true)
                 .createdAt(Instant.now()).build();
@@ -233,5 +239,88 @@ class AuthzServiceTest {
         List<String> roles = service.effectiveRoleCodes(USER, AGENCY);
 
         assertThat(roles).containsExactly("AUDITOR", "MANAGER"); // 만료 REVIEWER 제외, 정렬
+    }
+
+    // ── S8-b 할당 ────────────────────────────────────────────────────────────
+    private io.github.hipstermin.idem.authz.api.dto.AssignRequest assignReq(String source) {
+        return new io.github.hipstermin.idem.authz.api.dto.AssignRequest(USER, AGENCY, "admin@onepass", null, source, "test");
+    }
+
+    @Test
+    void assign_new_persistsActiveAndAudits() {
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.empty());
+        when(assignmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        var result = service.assign(assignReq("CONSOLE"), "1.2.3.4", "cid-a");
+        assertThat(result.getStatus()).isEqualTo(AssignmentStatus.ACTIVE);
+        assertThat(result.getSource()).isEqualTo(io.github.hipstermin.idem.authz.domain.AssignmentSource.CONSOLE);
+        verify(auditService).record(eq(io.github.hipstermin.idem.authz.domain.AuditEvent.ASSIGN),
+                eq(USER), eq(AGENCY), isNull(), eq("admin@onepass"), any(), any(), eq("cid-a"));
+    }
+
+    @Test
+    void assign_alreadyActive_isIdempotent_noAudit() {
+        var existing = io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.builder()
+                .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).status(AssignmentStatus.ACTIVE)
+                .source(io.github.hipstermin.idem.authz.domain.AssignmentSource.API)
+                .grantedAt(Instant.now()).grantedBy("x").build();
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.of(existing));
+        when(assignmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        var result = service.assign(assignReq("SCIM"), "1.2.3.4", "cid-b");
+        assertThat(result).isSameAs(existing);
+        assertThat(result.getSource()).isEqualTo(io.github.hipstermin.idem.authz.domain.AssignmentSource.SCIM);
+        verify(auditService, never()).record(eq(io.github.hipstermin.idem.authz.domain.AuditEvent.ASSIGN), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void assign_invalidSource_rejected() {
+        assertThatThrownBy(() -> service.assign(assignReq("BOGUS"), "1.2.3.4", "cid"))
+                .isInstanceOf(AuthzException.class);
+    }
+
+    @Test
+    void unassign_notFound_throws() {
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.unassign(USER, AGENCY, "admin", "1.2.3.4", "r", "cid"))
+                .isInstanceOf(AuthzException.class);
+    }
+
+    @Test
+    void unassign_active_revokesAndAudits_rolesUntouched() {
+        var existing = io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.builder()
+                .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).status(AssignmentStatus.ACTIVE)
+                .source(io.github.hipstermin.idem.authz.domain.AssignmentSource.API)
+                .grantedAt(Instant.now()).grantedBy("x").build();
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.of(existing));
+        service.unassign(USER, AGENCY, "admin", "1.2.3.4", "탈퇴", "cid-u");
+        assertThat(existing.getStatus()).isEqualTo(AssignmentStatus.REVOKED);
+        assertThat(existing.getRevokedBy()).isEqualTo("admin");
+        verify(auditService).record(eq(io.github.hipstermin.idem.authz.domain.AuditEvent.UNASSIGN),
+                eq(USER), eq(AGENCY), isNull(), eq("admin"), any(), eq("탈퇴"), eq("cid-u"));
+        verifyNoInteractions(userRoleRepository);
+    }
+
+    @Test
+    void grant_autoAssignsWhenNoActiveAssignment() {
+        when(roleRepository.findById(new AuthzRoleId(AGENCY, ROLE))).thenReturn(Optional.of(assignableRole));
+        when(userRoleRepository.findByQimUserIdAndAgencyCodeAndRoleCode(USER, AGENCY, ROLE)).thenReturn(Optional.empty());
+        when(userRoleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.empty());
+        when(assignmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        service.grantRole(grantReq(null), "1.2.3.4", "cid-g");
+        ArgumentCaptor<io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity> cap =
+                ArgumentCaptor.forClass(io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.class);
+        verify(assignmentRepository).save(cap.capture());
+        assertThat(cap.getValue().getSource()).isEqualTo(io.github.hipstermin.idem.authz.domain.AssignmentSource.ROLE_GRANT);
+        assertThat(cap.getValue().getStatus()).isEqualTo(AssignmentStatus.ACTIVE);
+    }
+
+    @Test
+    void effectiveAssignment_expired_isEmpty() {
+        var expired = io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.builder()
+                .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).status(AssignmentStatus.ACTIVE)
+                .source(io.github.hipstermin.idem.authz.domain.AssignmentSource.API)
+                .grantedAt(Instant.now().minusSeconds(100)).grantedBy("x").expiresAt(Instant.now().minusSeconds(1)).build();
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.of(expired));
+        assertThat(service.effectiveAssignment(USER, AGENCY)).isEmpty();
     }
 }

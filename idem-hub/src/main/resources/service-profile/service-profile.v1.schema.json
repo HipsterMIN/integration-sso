@@ -5,50 +5,119 @@
   "description": "연동기관(테넌트)별 선언적 설정. docs/generalization-plan.md §2.1. 코어는 이 문서의 필드로 기관 요구를 수용하며, 코드 분기는 마지막 수단이다.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "service", "protocol", "policy"],
+  "required": [
+    "schemaVersion",
+    "service",
+    "protocol",
+    "policy"
+  ],
   "properties": {
-    "schemaVersion": { "const": 1 },
-
+    "schemaVersion": {
+      "const": 1
+    },
     "service": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["code", "name"],
+      "required": [
+        "code",
+        "name"
+      ],
       "description": "Service(기관·클라이언트) 식별. Tenant(Realm) 안에 등록된다 — docs/generalization-plan.md §2.0",
       "properties": {
-        "code":   { "type": "string", "pattern": "^[A-Za-z0-9_\\-]{2,50}$", "description": "Service 코드 — URL 경로·API 키·감사 로그의 식별자 (DB 컬럼명은 4b 개명 전까지 agency_code)" },
-        "name":   { "type": "string", "minLength": 1, "maxLength": 200 },
-        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"], "default": "ACTIVE" },
-        "tenant": { "type": "string", "pattern": "^[A-Za-z0-9_\\-]{1,50}$", "default": "DEFAULT", "description": "소속 Tenant(Realm) 코드. 생략 = DEFAULT. 등록된 Tenant 여야 한다" }
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_\\-]{2,50}$",
+          "description": "Service 코드 — URL 경로·API 키·감사 로그의 식별자 (DB 컬럼명은 4b 개명 전까지 agency_code)"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ],
+          "default": "ACTIVE"
+        },
+        "tenant": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_\\-]{1,50}$",
+          "default": "DEFAULT",
+          "description": "소속 Tenant(Realm) 코드. 생략 = DEFAULT. 등록된 Tenant 여야 한다"
+        }
       }
     },
-
     "protocol": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["DIRECT", "BRIDGE", "APACHE_GATE", "INTERNAL_SSO"], "description": "IntegrationType 과 같은 값 집합. S6 에서 OIDC_RP·SAML_SP 확장" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "DIRECT",
+            "BRIDGE",
+            "APACHE_GATE",
+            "INTERNAL_SSO"
+          ],
+          "description": "IntegrationType 과 같은 값 집합. S6 에서 OIDC_RP·SAML_SP 확장"
+        },
         "endpoints": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "callbackWhitelist": { "type": "array", "items": { "type": "string", "format": "uri", "maxLength": 500 }, "maxItems": 50 },
-            "bridge":     { "type": "string", "format": "uri", "maxLength": 500, "description": "BRIDGE 전용" },
-            "apacheGate": { "type": "string", "format": "uri", "maxLength": 500, "description": "APACHE_GATE 전용" },
-            "ssoDomain":  { "type": "string", "maxLength": 200, "description": "INTERNAL_SSO 전용 — 쿠키 도메인 (예: .agency.example.org)" }
+            "callbackWhitelist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 500
+              },
+              "maxItems": 50
+            },
+            "bridge": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 500,
+              "description": "BRIDGE 전용"
+            },
+            "apacheGate": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 500,
+              "description": "APACHE_GATE 전용"
+            },
+            "ssoDomain": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "INTERNAL_SSO 전용 — 쿠키 도메인 (예: .agency.example.org)"
+            }
           }
         },
         "security": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "mtlsRequired": { "type": "boolean" },
-            "ipAllowlist":  { "type": "array", "items": { "type": "string", "maxLength": 50 }, "maxItems": 100 }
+            "mtlsRequired": {
+              "type": "boolean"
+            },
+            "ipAllowlist": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "maxItems": 100
+            }
           }
         }
       }
     },
-
     "identity": {
       "type": "object",
       "additionalProperties": false,
@@ -56,7 +125,13 @@
       "properties": {
         "subjectScheme": {
           "type": "string",
-          "enum": ["PAIRWISE_HMAC", "PLATFORM_ID", "EMAIL", "PHONE", "EXTERNAL_SUB"],
+          "enum": [
+            "PAIRWISE_HMAC",
+            "PLATFORM_ID",
+            "EMAIL",
+            "PHONE",
+            "EXTERNAL_SUB"
+          ],
           "default": "PAIRWISE_HMAC",
           "description": "Handoff subject.agencySubjectId 의 종류. PAIRWISE_HMAC = 기관별 가명(기본, 기관 간 결합 불가). EMAIL/PHONE/EXTERNAL_SUB 는 그 스킴으로 등록된 사용자만 값이 있고 나머지는 GUEST. CI 는 registry 밖으로 나가지 않으므로 선택 불가"
         },
@@ -66,15 +141,38 @@
           "maxItems": 100,
           "items": {
             "oneOf": [
-              { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$", "maxLength": 50 },
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+                "maxLength": 50
+              },
               {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["name"],
+                "required": [
+                  "name"
+                ],
                 "properties": {
-                  "name":     { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$", "maxLength": 50 },
-                  "required": { "type": "boolean", "description": "true 면 사용자에게서 값을 얻지 못할 때 Handoff 를 거부한다(E-IDO-114)" },
-                  "masking":  { "type": "string", "enum": ["NONE", "PRESET", "PARTIAL", "LAST4", "EMAIL_LOCAL"], "description": "카탈로그 기본 마스킹을 바꾼다. NONE 으로 낮추면 기관 계약 근거가 있어야 한다" }
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+                    "maxLength": 50
+                  },
+                  "required": {
+                    "type": "boolean",
+                    "description": "true 면 사용자에게서 값을 얻지 못할 때 Handoff 를 거부한다(E-IDO-114)"
+                  },
+                  "masking": {
+                    "type": "string",
+                    "enum": [
+                      "NONE",
+                      "PRESET",
+                      "PARTIAL",
+                      "LAST4",
+                      "EMAIL_LOCAL"
+                    ],
+                    "description": "카탈로그 기본 마스킹을 바꾼다. NONE 으로 낮추면 기관 계약 근거가 있어야 한다"
+                  }
                 }
               }
             ]
@@ -83,26 +181,61 @@
         "attributeMapping": {
           "type": "object",
           "description": "속성 이름(정규 이름 또는 선언한 별칭) → 기관 측 필드명. 없는 항목은 선언한 이름 그대로 나간다",
-          "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 100 }
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
         }
       }
     },
-
     "policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minAuthLevel"],
+      "required": [
+        "minAuthLevel"
+      ],
       "properties": {
-        "minAuthLevel":  { "type": "string", "enum": ["L1", "L2", "L3"] },
-        "policyVersion": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)*$", "maxLength": 20 },
-        "allowedProviders": { "type": "array", "items": { "type": "string", "maxLength": 50 }, "description": "허용 본인인증 제공자 코드 (S3 에서 적용)" },
+        "minAuthLevel": {
+          "type": "string",
+          "enum": [
+            "L1",
+            "L2",
+            "L3"
+          ]
+        },
+        "policyVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)*$",
+          "maxLength": 20
+        },
+        "allowedProviders": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "description": "허용 본인인증 제공자 코드 (S3 에서 적용)"
+        },
         "session": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "idleMinutes":     { "type": "integer", "minimum": 1, "maximum": 1440 },
-            "absoluteMinutes": { "type": "integer", "minimum": 1, "maximum": 43200 },
-            "concurrent":      { "type": "integer", "minimum": 0, "maximum": 100 }
+            "idleMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440
+            },
+            "absoluteMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 43200
+            },
+            "concurrent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            }
           }
         },
         "maintenance": {
@@ -111,11 +244,25 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["dayOfWeek", "startTime", "endTime"],
+            "required": [
+              "dayOfWeek",
+              "startTime",
+              "endTime"
+            ],
             "properties": {
-              "dayOfWeek": { "type": "string", "pattern": "^[A-Za-z]{3,9}$", "description": "MON 또는 MONDAY" },
-              "startTime": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
-              "endTime":   { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+              "dayOfWeek": {
+                "type": "string",
+                "pattern": "^[A-Za-z]{3,9}$",
+                "description": "MON 또는 MONDAY"
+              },
+              "startTime": {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              "endTime": {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+              }
             }
           }
         },
@@ -126,32 +273,69 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["type"],
+            "required": [
+              "type"
+            ],
             "properties": {
-              "type":   { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$", "maxLength": 50 },
-              "params": { "type": "object" }
+              "type": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$",
+                "maxLength": 50
+              },
+              "params": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "assignment": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "S8-b 할당 정책: required=true 면 idem-authz 할당이 있는 사용자만 발급. 미할당은 selfSignup=true 일 때만 GUEST, 아니면 E-IDO-120",
+          "properties": {
+            "required": {
+              "type": "boolean"
+            },
+            "selfSignup": {
+              "type": "boolean"
             }
           }
         }
       }
     },
-
     "limits": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "tps":   { "type": "integer", "minimum": 1, "maximum": 100000 },
-        "daily": { "type": "integer", "minimum": 1, "maximum": 1000000000 }
+        "tps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "daily": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        }
       }
     },
-
     "ui": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "brandName": { "type": "string", "maxLength": 100 },
-        "logoUrl":   { "type": "string", "format": "uri", "maxLength": 500 },
-        "locale":    { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+        "brandName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "logoUrl": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 500
+        },
+        "locale": {
+          "type": "string",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+        }
       }
     }
   }

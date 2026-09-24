@@ -9,6 +9,9 @@ import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
+import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.SignatureException;
@@ -66,6 +69,7 @@ public class CastTokenServiceImpl implements CastTokenService {
     private final JdbcTemplate               jdbcTemplate;
     /** 연합 인가 — 대상 기관 스코프 역할 조회(fail-open) */
     private final QAuthzClient               qAuthzClient;
+    private final ServiceProfileService      serviceProfileService;   // S8-b 할당 정책
 
     /** CastKeyConfig 에서 주입된 Ed25519 KeyPair */
     @Qualifier("castKeyPair")
@@ -103,9 +107,22 @@ public class CastTokenServiceImpl implements CastTokenService {
         // sourceAgency: FE 세션에 저장된 기관 코드 (없으면 ONEPASS)
         String  sourceAgency  = "ONEPASS";
 
-        // 연합 인가: 대상 기관 스코프 유효 역할 조회(fail-open — 장애 시 빈 역할).
-        // 플랫폼은 굵은 RBAC 역할만 배송하고, 세밀한 집행은 기관 PEP가 수행한다.
-        List<String> roles = qAuthzClient.getEffectiveRoles(qimUserId, targetAgencyCode, correlationId);
+        // S8-b 연합 인가: 대상 Service 의 할당·유효 역할(authz 정본, 장애 = 거부). 플랫폼은 굵은 RBAC 역할만 배송한다.
+        // CAST 는 기관 간 SSO 라 GUEST 가 없다 — 대상 프로파일이 할당 필수면 미할당은 E-IDO-120.
+        ServiceAccess access = qAuthzClient.getServiceAccess(qimUserId, targetAgencyCode, correlationId);
+        ServiceProfile.Assignment assignment = serviceProfileService.find(targetAgencyCode)
+                .map(ServiceProfile::policy).map(ServiceProfile.Policy::assignment).orElse(null);
+        if (assignment != null && assignment.requiresAssignment()) {
+            if (!access.authzEnabled()) {
+                throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId,
+                        "할당 필수 프로파일인데 idem-authz 가 비활성");
+            }
+            if (!access.assigned()) {
+                log.warn("[CastToken] 미할당 사용자 거부 targetAgency={} cid={}", targetAgencyCode, correlationId);
+                throw new PlatformException(PlatformErrorCode.IDO_ASSIGNMENT_REQUIRED, correlationId);
+            }
+        }
+        List<String> roles = access.roles();
 
         String jwt;
         try {

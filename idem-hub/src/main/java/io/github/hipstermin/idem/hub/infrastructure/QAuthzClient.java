@@ -117,6 +117,51 @@ public class QAuthzClient {
         }
     }
 
+    /**
+     * S8-b: 할당 여부 + 유효 역할을 한 번에 — {@code GET /api/v1/internal/authz/users/{id}/access?agencyCode=}.
+     * 장애·비정상 응답은 {@link PlatformErrorCode#IDO_AUTHZ_UNAVAILABLE} (fail-secure).
+     * {@code ido.q-authz.enabled=false} 면 {@link ServiceAccess#disabled()} — 할당 필수 정책은 그 자체로 거부된다.
+     */
+    @SuppressWarnings("unchecked")
+    public ServiceAccess getServiceAccess(String qimUserId, String agencyCode, String correlationId) {
+        if (!enabled) {
+            return ServiceAccess.disabled();
+        }
+        if (qimUserId == null || qimUserId.isBlank() || agencyCode == null || agencyCode.isBlank()) {
+            return new ServiceAccess(true, false, null, List.of());
+        }
+        try {
+            String url = UriComponentsBuilder
+                    .fromHttpUrl(qAuthzBaseUrl)
+                    .path("/api/v1/internal/authz/users/{qimUserId}/access")
+                    .queryParam("agencyCode", agencyCode)
+                    .buildAndExpand(qimUserId)
+                    .toUriString();
+            ResponseEntity<Map> response = qAuthzRestTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(buildHeaders(correlationId)), Map.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<?, ?> body = response.getBody();
+                Object rolesObj = body.get("roles");
+                List<String> roles = rolesObj instanceof List<?> list
+                        ? list.stream().filter(String.class::isInstance).map(String.class::cast).toList()
+                        : List.of();
+                boolean assigned = Boolean.TRUE.equals(body.get("assigned"));
+                Object src = body.get("assignmentSource");
+                return new ServiceAccess(true, assigned, src instanceof String st ? st : null, roles);
+            }
+            log.error("[QAuthzClient] 접근 정보 조회 비정상 응답 → 거부: status={} user={} agency={}",
+                    response.getStatusCode(), qimUserId, agencyCode);
+            throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId,
+                    "authz 비정상 응답: " + response.getStatusCode());
+        } catch (PlatformException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[QAuthzClient] 접근 정보 조회 실패 → 거부: user={} agency={} err={}", qimUserId, agencyCode, e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId,
+                    "authz 조회 실패: " + e.getMessage());
+        }
+    }
+
     private HttpHeaders buildHeaders(String correlationId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Correlation-Id", correlationId != null ? correlationId : "");
