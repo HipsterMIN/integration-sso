@@ -72,7 +72,7 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
         // ────────────────────────────────────────────────────────────────
         // F4.8 (Sprint β-2) — 내부 호출자 인증
         //
-        // /api/v1/fe-session (POST) 및 /api/v1/fe-session/conversion (POST) 은
+        // /api/v1/fe-session (POST) 은 (KR 에디션의 /conversion 은 idem-kr-hub 가 같은 인터셉터를 등록한다)
         // Q-Sign 등 내부 서비스에서만 호출되어야 한다. 본 인터셉터로
         // X-Internal-Caller + X-Internal-Api-Key 헤더 검증을 강제한다.
         //
@@ -81,8 +81,7 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(internalCallerAuthInterceptor)
                 .addPathPatterns(
                         "/api/v1/fe-session",
-                        "/api/v1/fe-session/",
-                        "/api/v1/fe-session/conversion"
+                        "/api/v1/fe-session/"
                 )
                 .excludePathPatterns(
                         "/api/v1/fe-session/check",

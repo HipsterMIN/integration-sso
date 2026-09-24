@@ -1,8 +1,8 @@
 package io.github.hipstermin.idem.hub.identity;
 
 import io.github.hipstermin.idem.common.spi.identity.VerifiedIdentity;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
+import io.github.hipstermin.idem.hub.infrastructure.QimRegisterResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

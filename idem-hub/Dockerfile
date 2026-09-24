@@ -53,6 +53,8 @@ COPY idem-agent/build.gradle.kts   idem-agent/
 COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 COPY plugins/idem-plugin-nice-oacx/build.gradle.kts plugins/idem-plugin-nice-oacx/
 COPY plugins/idem-plugin-anyid/build.gradle.kts plugins/idem-plugin-anyid/
+COPY editions/idem-kr-hub/build.gradle.kts editions/idem-kr-hub/
+COPY editions/idem-kr-registry/build.gradle.kts editions/idem-kr-registry/
 # 벤더 SDK jar 는 저장소·이미지 컨텍스트에 없다 (S5a·S5b). KR 에디션 이미지는 빌드 인자로 vendor-libs 를 주입한다 (P4).
 
 # Gradle Wrapper 실행 권한 + 의존성 사전 다운로드
@@ -64,24 +66,29 @@ RUN --mount=type=cache,target=/root/.gradle \
 # ── Stage 2: Build ────────────────────────────────────────────────────────────
 FROM deps AS builder
 
+# S8-a 에디션 선택: core(기본) = idem-hub bootJar, kr = editions/idem-kr-hub bootJar (코어 + SMES 회원 개념)
+ARG IDEM_EDITION=core
+
 # 소스 복사 (의존성 레이어와 분리 — 소스 변경 시 이 레이어부터 재빌드)
 COPY idem-common/src/ idem-common/src/
 COPY idem-hub/src/ idem-hub/src/
+COPY editions/idem-kr-hub/src/ editions/idem-kr-hub/src/
 COPY plugins/idem-plugin-mock-auth/src/ plugins/idem-plugin-mock-auth/src/
 COPY plugins/idem-plugin-nice-oacx/src/ plugins/idem-plugin-nice-oacx/src/
 COPY plugins/idem-plugin-anyid/src/ plugins/idem-plugin-anyid/src/
 
 # Layered JAR 빌드 (Spring Boot 2.3+ 기본 지원)
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew :idem-hub:bootJar \
+    if [ "$IDEM_EDITION" = "kr" ]; then MODULE=idem-kr-hub; MODULE_DIR=editions/idem-kr-hub; else MODULE=idem-hub; MODULE_DIR=idem-hub; fi && \
+    echo "IDEM_EDITION=$IDEM_EDITION -> :$MODULE:bootJar" && \
+    ./gradlew :$MODULE:bootJar \
         -x test \
         --no-daemon \
         --parallel \
         --build-cache && \
-    # JAR 레이어 추출 (레이어별 Docker COPY 최적화)
     mkdir -p /workspace/layers && \
     java -Djarmode=layertools \
-         -jar /workspace/idem-hub/build/libs/idem-hub-*.jar \
+         -jar /workspace/$MODULE_DIR/build/libs/$MODULE-*.jar \
          extract --destination /workspace/layers
 
 # ── Stage 3: Runtime ─────────────────────────────────────────────────────────

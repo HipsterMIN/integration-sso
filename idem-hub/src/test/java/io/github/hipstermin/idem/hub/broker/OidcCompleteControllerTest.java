@@ -8,12 +8,14 @@ import static org.mockito.Mockito.*;
 
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.hub.broker.dto.OidcCompleteRequest;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
+import io.github.hipstermin.idem.hub.identity.SubjectRegistration;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
+import io.github.hipstermin.idem.hub.infrastructure.QimMemberInfo;
+import io.github.hipstermin.idem.hub.infrastructure.QimRegisterResponse;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,9 +35,10 @@ import org.springframework.test.util.ReflectionTestUtils;
  *
  * <p><b>P0 검증 항목</b>:
  * <ol>
- *   <li>CI가 있는 기존 사용자 → QimClient.findByCi() 호출 → 실제 qimUserId 사용</li>
- *   <li>CI가 있는 신규 사용자 → QimClient.registerUser() 호출 → 신규 qimUserId 사용</li>
- *   <li>CI가 없는 경우 → (D2) 거부. allow-ciless-identity=true 일 때만 identifierHash 폴백</li>
+ *   <li>주체 키가 있는 기존 사용자 → QimClient.findByIdentifierHash() 결과의 qimUserId 사용</li>
+ *   <li>주체 키가 있는 신규 사용자 → QimClient.registerSubject() 호출 → 신규 qimUserId 사용</li>
+ *   <li>S8-a: 구 {@code ci} 필드는 scheme=CI 의 별칭, 정식 계약은 subjectScheme/subjectKey</li>
+ *   <li>주체 키가 없는 경우 → (D2) 거부. allow-ciless-identity=true 일 때만 identifierHash 폴백</li>
  *   <li>X-Internal-Sig 없으면 → 서명 검증 실패 → PlatformException</li>
  * </ol>
  */
@@ -63,11 +67,11 @@ class OidcCompleteControllerTest {
     // ── qimUserId 해석 테스트 ─────────────────────────────────────────────
 
     @Nested
-    @DisplayName("resolveQimUserId — CI → qimUserId 해석")
+    @DisplayName("resolveQimUserId — 주체 스킴·키 → qimUserId 해석")
     class ResolveQimUserIdTest {
 
         @Test
-        @DisplayName("[P0] CI 있음 + 기존 Q-IM 사용자 → findByCi() 결과의 qimUserId 사용")
+        @DisplayName("[P0] CI(별칭) 있음 + 기존 registry 사용자 → findByIdentifierHash(CI 해시) 결과의 qimUserId 사용")
         void resolve_existingUser_shouldUseQimUserIdFromFindByCi() {
             // given
             String ci = "test-ci-value-0123456789abcdef";
@@ -80,29 +84,27 @@ class OidcCompleteControllerTest {
 
             given(feSessionService.isValidReturnUrl(any())).willReturn(true);
             given(internalSigVerifier.verify(any(), any())).willReturn(true);
-            given(qimClient.findByCi(eq(ci), eq("INDIVIDUAL"), anyString()))
+            given(qimClient.findByIdentifierHash(eq(SubjectScheme.CI.identifierHash(ci)), anyString()))
                     .willReturn(Optional.of(memberInfo));
             given(feSessionService.create(eq(expectedQimUserId), any(), any(), any()))
                     .willReturn(buildMockSession(expectedQimUserId));
 
-            OidcCompleteRequest req = buildRequest(ci, "INDIVIDUAL");
+            OidcCompleteRequest req = buildRequest(ci);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             // when
             controller.complete("valid-sig", "q-sign", "cid-001", req, response);
 
             // then
-            // findByCi는 1번 호출됨
-            verify(qimClient, times(1)).findByCi(eq(ci), eq("INDIVIDUAL"), anyString());
-            // registerUser는 호출되지 않음 (기존 사용자)
-            verify(qimClient, never()).registerUser(any(), anyString());
+            verify(qimClient, times(1)).findByIdentifierHash(eq(SubjectScheme.CI.identifierHash(ci)), anyString());
+            verify(qimClient, never()).registerSubject(any());
             // FeSession은 실제 qimUserId로 생성됨
             verify(feSessionService, times(1))
                     .create(eq(expectedQimUserId), any(), any(), any());
         }
 
         @Test
-        @DisplayName("[P0] CI 있음 + Q-IM 미등록 사용자 → registerUser() 호출 후 신규 qimUserId 사용")
+        @DisplayName("[P0] CI(별칭) 있음 + registry 미등록 사용자 → registerSubject(scheme=CI) 후 신규 qimUserId 사용")
         void resolve_newUser_shouldRegisterAndUseNewQimUserId() {
             // given
             String ci = "new-user-ci-value-0123456789abc";
@@ -116,22 +118,25 @@ class OidcCompleteControllerTest {
 
             given(feSessionService.isValidReturnUrl(any())).willReturn(true);
             given(internalSigVerifier.verify(any(), any())).willReturn(true);
-            given(qimClient.findByCi(eq(ci), eq("INDIVIDUAL"), anyString()))
+            given(qimClient.findByIdentifierHash(eq(SubjectScheme.CI.identifierHash(ci)), anyString()))
                     .willReturn(Optional.empty());  // 미등록
-            given(qimClient.registerUser(any(), anyString()))
+            given(qimClient.registerSubject(any()))
                     .willReturn(registerResponse);
             given(feSessionService.create(eq(newQimUserId), any(), any(), any()))
                     .willReturn(buildMockSession(newQimUserId));
 
-            OidcCompleteRequest req = buildRequest(ci, "INDIVIDUAL");
+            OidcCompleteRequest req = buildRequest(ci);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             // when
             controller.complete("valid-sig", "q-sign", "cid-002", req, response);
 
             // then
-            verify(qimClient, times(1)).findByCi(eq(ci), eq("INDIVIDUAL"), anyString());
-            verify(qimClient, times(1)).registerUser(any(), anyString());
+            ArgumentCaptor<SubjectRegistration> captor = ArgumentCaptor.forClass(SubjectRegistration.class);
+            verify(qimClient, times(1)).registerSubject(captor.capture());
+            assertThat(captor.getValue().scheme()).isEqualTo(SubjectScheme.CI);
+            assertThat(captor.getValue().subjectKey()).isEqualTo(ci);
+            assertThat(captor.getValue().providerCode()).isEqualTo("KAKAO_OIDC");
             verify(feSessionService, times(1))
                     .create(eq(newQimUserId), any(), any(), any());
         }
@@ -150,7 +155,7 @@ class OidcCompleteControllerTest {
                     .isInstanceOf(PlatformException.class)
                     .satisfies(e -> assertThat(((PlatformException) e).getErrorCode())
                             .isEqualTo(PlatformErrorCode.IDO_IDENTITY_UNRESOLVED));
-            verify(qimClient, never()).findByCi(any(), any(), any());
+            verify(qimClient, never()).findByIdentifierHash(any(), any());
             verify(feSessionService, never()).create(any(), any(), any(), any());
         }
 
@@ -168,38 +173,28 @@ class OidcCompleteControllerTest {
             OidcCompleteRequest req = buildRequestNoCi(identifierHash);
             controller.complete("valid-sig", "q-sign", "cid-003", req, new MockHttpServletResponse());
 
-            verify(qimClient, never()).findByCi(any(), any(), any());
+            verify(qimClient, never()).findByIdentifierHash(any(), any());
             verify(feSessionService, times(1)).create(eq(identifierHash), any(), any(), any());
         }
 
         @Test
-        @DisplayName("[P0] memberType 미전달 시 'INDIVIDUAL' 기본값 사용")
-        void resolve_noMemberType_shouldDefaultToIndividual() {
-            // given
-            String ci = "ci-no-membertype-value-0123456789";
-            String qimUserId = "qim-user-default-type";
-
-            QimMemberInfo memberInfo = QimMemberInfo.builder()
-                    .qimUserId(qimUserId)
-                    .status("ACTIVE")
-                    .build();
-
+        @DisplayName("(S8-a) 정식 계약 subjectScheme/subjectKey 로 조회 — ci 없이 EMAIL 스킴")
+        void resolve_subjectSchemeContract() {
+            String qimUserId = "qim-user-email-001";
             given(feSessionService.isValidReturnUrl(any())).willReturn(true);
             given(internalSigVerifier.verify(any(), any())).willReturn(true);
-            // memberType이 null이면 "INDIVIDUAL"로 조회해야 함
-            given(qimClient.findByCi(eq(ci), eq("INDIVIDUAL"), anyString()))
-                    .willReturn(Optional.of(memberInfo));
+            given(qimClient.findByIdentifierHash(eq(SubjectScheme.EMAIL.identifierHash("alice@example.org")), anyString()))
+                    .willReturn(Optional.of(QimMemberInfo.builder().qimUserId(qimUserId).status("ACTIVE").build()));
             given(feSessionService.create(eq(qimUserId), any(), any(), any()))
                     .willReturn(buildMockSession(qimUserId));
+            OidcCompleteRequest req = buildRequestNoCi("sha256-hash-x");
+            ReflectionTestUtils.setField(req, "subjectScheme", "email");
+            ReflectionTestUtils.setField(req, "subjectKey", "alice@example.org");
 
-            OidcCompleteRequest req = buildRequest(ci, null);  // memberType=null
-            MockHttpServletResponse response = new MockHttpServletResponse();
+            controller.complete("valid-sig", "q-sign", "cid-005", req, new MockHttpServletResponse());
 
-            // when
-            controller.complete("valid-sig", "q-sign", "cid-004", req, response);
-
-            // then
-            verify(qimClient).findByCi(eq(ci), eq("INDIVIDUAL"), anyString());
+            verify(qimClient).findByIdentifierHash(eq(SubjectScheme.EMAIL.identifierHash("alice@example.org")), anyString());
+            verify(feSessionService).create(eq(qimUserId), any(), any(), any());
         }
     }
 
@@ -215,7 +210,7 @@ class OidcCompleteControllerTest {
             // given
             given(internalSigVerifier.verify(any(), any())).willReturn(false);
 
-            OidcCompleteRequest req = buildRequest("any-ci", "INDIVIDUAL");
+            OidcCompleteRequest req = buildRequest("any-ci");
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             // when & then
@@ -225,7 +220,7 @@ class OidcCompleteControllerTest {
             );
 
             // QimClient, FeSessionService는 호출되지 않아야 함
-            verify(qimClient, never()).findByCi(any(), any(), any());
+            verify(qimClient, never()).findByIdentifierHash(any(), any());
             verify(feSessionService, never()).create(any(), any(), any(), any());
         }
 
@@ -235,7 +230,7 @@ class OidcCompleteControllerTest {
             // given
             given(internalSigVerifier.verify(isNull(), any())).willReturn(false);
 
-            OidcCompleteRequest req = buildRequest("any-ci", "INDIVIDUAL");
+            OidcCompleteRequest req = buildRequest("any-ci");
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             // when & then
@@ -251,7 +246,7 @@ class OidcCompleteControllerTest {
             // given
             ReflectionTestUtils.setField(controller, "brokerMode", "keycloak");
 
-            OidcCompleteRequest req = buildRequest("any-ci", "INDIVIDUAL");
+            OidcCompleteRequest req = buildRequest("any-ci");
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             // when
@@ -266,9 +261,9 @@ class OidcCompleteControllerTest {
     // ── 헬퍼 ─────────────────────────────────────────────────────────────
 
     /**
-     * CI + memberType 포함 요청 DTO 생성 (Reflection 사용)
+     * CI(별칭) 포함 요청 DTO 생성 (Reflection 사용)
      */
-    private OidcCompleteRequest buildRequest(String ci, String memberType) {
+    private OidcCompleteRequest buildRequest(String ci) {
         OidcCompleteRequest req = new OidcCompleteRequest();
         ReflectionTestUtils.setField(req, "authResultId",    "auth-result-001");
         ReflectionTestUtils.setField(req, "identifierHash",  "sha256-hash-001");
@@ -277,7 +272,6 @@ class OidcCompleteControllerTest {
         ReflectionTestUtils.setField(req, "correlationId",   "cid-test");
         ReflectionTestUtils.setField(req, "returnUrl",       "http://localhost:8084/callback");
         ReflectionTestUtils.setField(req, "ci",              ci);
-        ReflectionTestUtils.setField(req, "memberType",      memberType);
         return req;
     }
 
@@ -293,7 +287,6 @@ class OidcCompleteControllerTest {
         ReflectionTestUtils.setField(req, "correlationId",   "cid-no-ci");
         ReflectionTestUtils.setField(req, "returnUrl",       "http://localhost:8084/callback");
         ReflectionTestUtils.setField(req, "ci",              null);
-        ReflectionTestUtils.setField(req, "memberType",      null);
         return req;
     }
 

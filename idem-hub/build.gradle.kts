@@ -2,6 +2,7 @@ plugins {
     id("org.springframework.boot")
     id("io.spring.dependency-management")
     java
+    `java-test-fixtures`   // S8-a: IntegrationTestBase·테스트 프로파일 설정을 KR 에디션(idem-kr-hub) 테스트와 공유
 }
 
 // ── 통합 테스트 소스 세트 분리 (S8-T4) ────────────────────────────────────
@@ -11,8 +12,8 @@ sourceSets {
     create("integrationTest") {
         java.srcDir("src/test/java")
         resources.srcDir("src/test/resources")
-        compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
-        runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+        compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output + sourceSets["testFixtures"].output
+        runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output + sourceSets["testFixtures"].output
     }
 }
 
@@ -135,4 +136,11 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers")
     // WireMock: NICE 외부 API Mock 서버
     testImplementation("org.wiremock:wiremock-standalone:3.10.0")
+
+    // S8-a: 테스트 픽스처(src/testFixtures) — IntegrationTestBase 가 쓰는 것만. 소비자: 이 모듈의 test·integrationTest, idem-kr-hub
+    testFixturesApi("org.springframework.boot:spring-boot-starter-test")
+    testFixturesApi("org.testcontainers:postgresql")
+    testFixturesApi("org.testcontainers:junit-jupiter")
+    testFixturesApi("org.wiremock:wiremock-standalone:3.10.0")
+    testFixturesImplementation("org.springframework.kafka:spring-kafka")
 }

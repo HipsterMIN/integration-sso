@@ -8,8 +8,6 @@ import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.error.PlatformException;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;

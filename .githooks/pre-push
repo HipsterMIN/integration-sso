@@ -24,7 +24,7 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
 # Gradle 에 포함된 테스트 대상 프로젝트 (settings.gradle.kts 기준; idem-agent-testbed 는 미포함)
-ALL_PROJECTS=(idem-common idem-gate idem-registry idem-hub idem-authz idem-relay idem-sdk-java idem-agent idem-tenant-sample idem-plugin-mock-auth idem-plugin-nice-oacx)
+ALL_PROJECTS=(idem-common idem-gate idem-registry idem-hub idem-authz idem-relay idem-sdk-java idem-agent idem-tenant-sample idem-plugin-mock-auth idem-plugin-nice-oacx idem-kr-hub idem-kr-registry)
 
 ZERO=0000000000000000000000000000000000000000
 RANGES=()
@@ -64,6 +64,10 @@ while IFS= read -r f; do
         plugins/idem-plugin-nice-oacx/*) SEL[idem-plugin-nice-oacx]=1 ;;
         idem-console/frontend/*) FRONTEND=1 ;;
         idem-console/*) ;;                      # Java 테스트 없음
+        editions/idem-kr-hub/*) SEL[idem-kr-hub]=1 ;;            # S8-a KR 에디션
+        editions/idem-kr-registry/*) SEL[idem-kr-registry]=1 ;;
+        idem-hub/*) SEL[idem-hub]=1; SEL[idem-kr-hub]=1 ;;          # 에디션은 코어를 의존 — 코어가 바뀌면 에디션도
+        idem-registry/*) SEL[idem-registry]=1; SEL[idem-kr-registry]=1 ;;
         idem-agent-testbed/*) ;;                # Gradle 미포함 — 별도 compose 환경
         idem-*/*) m="${f%%/*}"; SEL[$m]=1 ;;
         *) ;;                                   # docs, k6, infra, .github 등 — 테스트 대상 아님

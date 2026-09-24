@@ -8,7 +8,7 @@ import lombok.extern.jackson.Jacksonized;
  * 기관 Webhook 발송 요청 이벤트
  *
  * <p>IdO 내부 Kafka 버스에서만 유통된다.
- * HandoffEventConsumer / MemberLookupService 등이 이 이벤트를 발행하면,
+ * HandoffEventConsumer / 회원조회 결과 발행자(KR 에디션) 등이 이 이벤트를 발행하면,
  * WebhookDispatcherService 가 수신하여 기관 HTTPS endpoint 로 HTTP POST 를 보낸다.
  *
  * <p><b>토픽</b>: {@code ido.webhook.dispatch.requests}

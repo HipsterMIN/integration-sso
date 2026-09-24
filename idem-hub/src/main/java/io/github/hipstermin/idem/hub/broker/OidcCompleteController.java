@@ -2,14 +2,15 @@ package io.github.hipstermin.idem.hub.broker;
 
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
+import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import io.github.hipstermin.idem.common.util.CorrelationIdHolder;
-import io.github.hipstermin.idem.hub.auth.dto.AuthResult;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import io.github.hipstermin.idem.hub.broker.dto.OidcCompleteRequest;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
+import io.github.hipstermin.idem.hub.identity.SubjectRegistration;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
+import io.github.hipstermin.idem.hub.infrastructure.QimMemberInfo;
+import io.github.hipstermin.idem.hub.infrastructure.QimRegisterResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -52,8 +53,8 @@ import org.springframework.web.bind.annotation.*;
  * <p>엔드포인트: POST /api/internal/v1/oidc/complete
  *
  * <p><b>P0 수정 (v0.8.7)</b>: {@code identifierHash} 를 {@code qimUserId} 대용으로 사용하던
- * PoC 코드를 제거. 이제 {@code QimClient.findByCi()} 로 실제 {@code qimUserId} 를 조회하며,
- * 미등록 사용자인 경우 {@code QimClient.registerUser()} 로 Q-IM 등록 후 {@code qimUserId} 획득.
+ * PoC 코드를 제거. 이제 {@code QimClient.findByIdentifierHash()} 로 실제 {@code qimUserId} 를 조회하며,
+ * 미등록 사용자인 경우 {@code QimClient.registerSubject()} 로 Q-IM 등록 후 {@code qimUserId} 획득.
  */
 @Slf4j
 @RestController
@@ -62,7 +63,6 @@ import org.springframework.web.bind.annotation.*;
 public class OidcCompleteController {
 
     private static final String COOKIE_NAME      = "feSessionId";
-    private static final String DEFAULT_MEMBER_TYPE = "INDIVIDUAL";
 
     private final FeSessionService     feSessionService;
     private final InternalSigVerifier  internalSigVerifier;
@@ -183,74 +183,49 @@ public class OidcCompleteController {
     // ── 내부 헬퍼 ────────────────────────────────────────────────────────
 
     /**
-     * [P0] CI → 실제 qimUserId 해석
+     * S8-a: 주체 스킴·키로 registry 사용자를 찾고, 없으면 등록한다 (스킴 중립).
      *
-     * <p><b>흐름</b>:
-     * <ol>
-     *   <li>req.ci 가 있으면 → {@code QimClient.findByCi()} 로 Q-IM 조회</li>
-     *   <li>기존 사용자 → {@code qimUserId} 반환</li>
-     *   <li>미등록 사용자 → {@code QimClient.registerUser()} 로 Q-IM 자동 등록 후 {@code qimUserId} 반환</li>
-     *   <li>CI 없음 → {@code identifierHash} 기반 임시 식별자로 폴백 + 경고 로그
-     *       (소셜 로그인 전용 PoC 경로 — 운영 배포 전 CI 연동 완료 필수)</li>
-     * </ol>
-     *
-     * @param req 요청 DTO (ci, memberType, identifierHash 포함)
-     * @param cid correlationId (감사 로그)
-     * @return 실제 qimUserId (또는 임시 identifierHash 폴백)
+     * <ul>
+     *   <li>{@code subjectScheme}+{@code subjectKey} — 정식 계약. 구 필드 {@code ci} 는 scheme=CI 의 별칭으로 받는다(gate 호환).</li>
+     *   <li>키가 없으면 → 로컬 탈출구({@code ido.broker.allow-ciless-identity}) 가 켜진 경우에만 identifierHash 를 임시 ID 로.</li>
+     *   <li>미등록 → {@code registerSubject} 로 자동 등록.</li>
+     * </ul>
      */
     private String resolveQimUserId(OidcCompleteRequest req, String cid) {
-        String ci = req.getCi();
-
-        if (ci == null || ci.isBlank()) {
+        SubjectScheme scheme = req.resolvedSubjectScheme();
+        String subjectKey = req.resolvedSubjectKey();
+        if (scheme == null || subjectKey == null || subjectKey.isBlank()) {
             if (!allowCilessIdentity) {
-                // D2 fail-secure: 주체를 확인할 수 없으면 세션을 발급하지 않는다 (422). 소셜 전용 로그인은 S4 SPI 경로(EXTERNAL_SUB 스킴)로.
-                log.warn("[OidcComplete] CI 미포함 요청 거부 (ido.broker.allow-ciless-identity=false): authResultId={} correlationId={}",
+                log.warn("[OidcComplete] 주체 키 미포함 요청 거부 (ido.broker.allow-ciless-identity=false): authResultId={} correlationId={}",
                         req.getAuthResultId(), cid);
                 throw new PlatformException(PlatformErrorCode.IDO_IDENTITY_UNRESOLVED, cid,
-                        "CI 없는 인증 결과로는 세션을 발급하지 않습니다");
+                        "주체 키(subjectScheme/subjectKey) 없는 인증 결과로는 세션을 발급하지 않습니다");
             }
-            // 로컬·테스트 전용 폴백 (운영 프로파일에서는 FailSecureBootGuard 가 이 플래그를 거부한다)
-            log.warn("[OidcComplete][LOCAL-ONLY] CI 미포함 요청 — identifierHash 를 임시 qimUserId 로 사용: authResultId={} correlationId={}",
+            log.warn("[OidcComplete][LOCAL-ONLY] 주체 키 미포함 요청 — identifierHash 를 임시 qimUserId 로 사용: authResultId={} correlationId={}",
                      req.getAuthResultId(), cid);
             return req.getIdentifierHash();
         }
-
-        String memberType = (req.getMemberType() != null && !req.getMemberType().isBlank())
-                ? req.getMemberType()
-                : DEFAULT_MEMBER_TYPE;
-
-        // Q-IM CI 조회 시도
-        Optional<QimMemberInfo> memberOpt = qimClient.findByCi(ci, memberType, cid);
-
+        String identifierHash = scheme.identifierHash(subjectKey);
+        Optional<QimMemberInfo> memberOpt = qimClient.findByIdentifierHash(identifierHash, cid);
         if (memberOpt.isPresent()) {
-            // 기존 사용자
             String qimUserId = memberOpt.get().getQimUserId();
-            log.info("[OidcComplete] Q-IM 기존 사용자 확인 완료: qimUserId={}... correlationId={}",
-                     qimUserId.substring(0, Math.min(8, qimUserId.length())), cid);
+            log.info("[OidcComplete] registry 기존 사용자 확인: scheme={} qimUserId={}... correlationId={}",
+                     scheme, qimUserId.substring(0, Math.min(8, qimUserId.length())), cid);
             return qimUserId;
         }
-
-        // 미등록 사용자 → Q-IM 자동 등록
-        log.info("[OidcComplete] Q-IM 미등록 사용자 — 자동 등록 진행: correlationId={}", cid);
-        QimRegisterResponse registered =
-                qimClient.registerUser(buildAuthResultForRegistration(req), cid);
+        log.info("[OidcComplete] registry 미등록 사용자 — 자동 등록: scheme={} correlationId={}", scheme, cid);
+        QimRegisterResponse registered = qimClient.registerSubject(SubjectRegistration.builder()
+                .scheme(scheme)
+                .subjectKey(subjectKey)
+                .identifierHash(identifierHash)
+                .providerCode(req.getProviderCode())
+                .authResultId(req.getAuthResultId())
+                .correlationId(cid)
+                .build());
         String newQimUserId = registered.getQimUserId();
-        log.info("[OidcComplete] Q-IM 신규 등록 완료: qimUserId={}... isNew={} correlationId={}",
+        log.info("[OidcComplete] registry 신규 등록 완료: qimUserId={}... isNew={} correlationId={}",
                  newQimUserId.substring(0, Math.min(8, newQimUserId.length())),
                  registered.getIsNew(), cid);
         return newQimUserId;
-    }
-
-    /**
-     * Q-IM 신규 등록용 AuthResult 최소 구성 (CI 필드만 필수)
-     *
-     * <p>Q-Sign 모드에서 OidcCompleteRequest는 CI만 포함하므로,
-     * 나머지 필드(name, birthday 등)는 Q-IM이 본인인증 원문으로 보완한다.
-     * (Q-IM이 CI 등록 API에서 CI 외 필드는 선택사항으로 처리)
-     */
-    private AuthResult buildAuthResultForRegistration(OidcCompleteRequest req) {
-        return AuthResult.builder()
-                .ci(req.getCi())
-                .build();
     }
 }

@@ -142,15 +142,7 @@ ido:
       # OACX SDK 디버그 모드 — 개발/검증: true, 운영: 반드시 false
       debug-mode: ${OACX_DEBUG_MODE:false}
 
-    # ── 통합인증 서버 연동 (기업 간편인증 콜백, Q2=B) ──────────────────────
-    # 기업인증 콜백(POST /api/v1/auth/callback) 처리 시 auth-check 요청
-    # 현재 FE 미호출 상태 — 향후 FE 기업인증 구현 시 활성화
-    integration:
-      # 통합인증 서버 기본 URL — 운영: INTEGRATION_AUTH_BASE_URL 환경변수 필수 설정
-      # 예: https://intg-auth.example.org
-      base-url: ${INTEGRATION_AUTH_BASE_URL:}
-      # 통합인증 서버 응답 타임아웃 (초) — 기본 10초
-      timeout-seconds: ${INTEGRATION_AUTH_TIMEOUT_SECONDS:10}
+    # (S8-a) 통합인증 서버 설정(기업인증 콜백)은 KR 에디션(idem-kr-hub) 기본값으로 이동
 
     # ── Auth 엔드포인트 IP 기반 Rate Limiting (S9-T7) ─────────────────────────
     # /api/v1/auth/** 경로 전용 제한 (NICE/OACX 인증 API 남용 방지)
@@ -224,12 +216,7 @@ ido:
     # SP 수신 감사 로그 활성화 (운영: true 권장)
     receiver-audit-enabled: ${QIM_RECEIVER_AUDIT:true}
 
-  # ── FE AES-GCM 복호화 키 (CI 토큰 교환 전용) ───────────────────────────
-  # FE의 aesGcm.ts에서 CI 암호화에 사용하는 AES-GCM 키 (서버사이드 복호화용)
-  # FE webpack DefinePlugin AES_GCM_KEY와 동일한 값이어야 함
-  # 운영: K8s Secret / Vault → FE_AES_GCM_KEY 환경변수로 주입
-  # ⚠️ 미설정 시 POST /api/v1/auth/ci-token 엔드포인트에서 CI 복호화 불가
-  fe-aes-gcm-key: ${FE_AES_GCM_KEY:}
+  # (S8-a) FE AES-GCM 키(CI 토큰 교환)는 KR 에디션(idem-kr-hub) 기본값으로 이동
 
   # 연합 인가(Federated Authorization) — Q-Authz 연동
   # 토큰(CAST/Handoff) 발급 시 사용자×대상기관 유효 역할 조회 → roles[] 클레임 임베드.
@@ -359,10 +346,7 @@ ido:
       - ${REACT_DEV_URL:http://localhost:3000}
       - ${REACT_PROD_URL:http://localhost:3001}
 
-  # ── 회원 전환 세션 설정 (ConversionInitService) ─────────────────────────
-  conversion:
-    session-ttl-minutes: 30              # ConversionSession Redis TTL (GUIDE-002)
-    signed-request-max-age-minutes: 5    # JWT exp 허용 시간 (기관 signed_request 만료)
+  # (S8-a) 회원 전환 세션 설정은 KR 에디션(idem-kr-hub) 기본값으로 이동
 
   # Kafka 토픽
   kafka:
@@ -679,19 +663,6 @@ resilience4j:
           - java.lang.IllegalStateException
           - java.io.IOException
           - java.util.concurrent.TimeoutException
-      # ── S9-T2 신규: 통합인증 서버 CB ─────────────────────────────────────
-      # 기업 간편인증 콜백 처리 시 통합인증 서버 장애 격리
-      integration-auth-client:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        slow-call-duration-threshold: 8s
-        wait-duration-in-open-state: 60s           # 통합인증 서버 장애 복구에 더 긴 대기
-        permitted-number-of-calls-in-half-open-state: 3
-        minimum-number-of-calls: 5
-        record-exceptions:
-          - java.lang.IllegalStateException
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
   retry:
     instances:
       qim-client:
@@ -720,15 +691,6 @@ resilience4j:
           - java.util.concurrent.TimeoutException
         ignore-exceptions:
           - java.lang.IllegalArgumentException   # 클라이언트 입력 오류는 재시도 불필요
-      # ── S9-T2 신규: 통합인증 서버 Retry ──────────────────────────────────
-      integration-auth-client:
-        max-attempts: 2
-        wait-duration: 500ms
-        enable-exponential-backoff: true
-        exponential-backoff-multiplier: 2.0
-        retry-exceptions:
-          - java.io.IOException
-          - java.util.concurrent.TimeoutException
   timelimiter:
     instances:
       qim-client:
@@ -741,8 +703,6 @@ resilience4j:
       # 반응형 파이프라인 외부에서도 시간 제한 보장
       nice-api-client:
         timeout-duration: 12s    # WebClient 타임아웃(10s) + 여유 2s
-      integration-auth-client:
-        timeout-duration: 12s
 
 # ── Actuator (S9-T4: OTel 추적 설정 포함) ─────────────────────
 management:

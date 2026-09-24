@@ -10,9 +10,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * IdO 글로벌 예외 핸들러
@@ -123,6 +129,37 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder()
                         .code("E-IDO-400")
                         .message(ex.getMessage())
+                        .timestamp(Instant.now())
+                        .build());
+    }
+
+    /**
+     * 요청 형식 오류 (400) — 필수 헤더·파라미터 누락, 본문 파싱 실패, 타입 불일치.
+     * S8-a: 종전에는 catch-all 이 500 으로 바꿔 클라이언트 오류가 서버 오류로 집계됐다.
+     */
+    @ExceptionHandler({MissingRequestHeaderException.class, MissingServletRequestParameterException.class,
+            HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ErrorResponse> handleBadRequest(Exception ex) {
+        log.warn("[IdO] 요청 형식 오류: {}", ex.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.builder()
+                        .code("E-IDO-400")
+                        .message(ex instanceof HttpMessageNotReadableException ? "요청 본문을 읽을 수 없습니다." : ex.getMessage())
+                        .timestamp(Instant.now())
+                        .build());
+    }
+
+    /**
+     * 없는 경로 (404) — S8-a: 종전에는 catch-all 이 500 으로 바꿔 "엔드포인트 없음"과 "서버 오류"를 구분할 수 없었다.
+     * 에디션 분리 뒤에는 KR 엔드포인트가 코어에 없는 것이 정상 상태라 404 를 그대로 돌려준다.
+     */
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ErrorResponse> handleNotFound(Exception ex) {
+        log.debug("[IdO] 없는 경로: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.builder()
+                        .code("E-IDO-404")
+                        .message("요청한 경로가 없습니다.")
                         .timestamp(Instant.now())
                         .build());
     }

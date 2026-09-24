@@ -12,8 +12,6 @@ import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.identity.SubjectScheme;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimMemberInfo;
-import io.github.hipstermin.idem.hub.auth.dto.im.QimRegisterResponse;
 import io.github.hipstermin.idem.hub.identity.SubjectRegistration;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -35,7 +33,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 /** S4 — register-subject / subject-key / by-hash 클라이언트 계약. */
-@DisplayName("QimClientImpl — S4 주체 등록·조회 (registerSubject / getSubjectKey / findByCi→by-hash)")
+@DisplayName("QimClientImpl — 주체 등록·조회 (registerSubject / getSubjectKey / findByIdentifierHash)")
 @ExtendWith(MockitoExtension.class)
 class QimClientSubjectApiTest {
 
@@ -76,23 +74,6 @@ class QimClientSubjectApiTest {
     }
 
     @Test
-    @DisplayName("registerUser(레거시 CI) 는 registry 에 없는 /register 대신 register-subject(scheme=CI) 로 위임한다")
-    void registerUser_delegatesToRegisterSubject() {
-        given(restTemplate.exchange(eq(BASE + "/api/v1/internal/users/register-subject"), eq(HttpMethod.POST), any(), eq(QimRegisterResponse.class)))
-                .willReturn(ResponseEntity.ok(QimRegisterResponse.builder().qimUserId("u2").isNew(false).build()));
-
-        QimRegisterResponse res = sut.registerUser(io.github.hipstermin.idem.hub.auth.dto.AuthResult.builder()
-                .ci("ci-raw-value").name("홍길동").mobile("01000000000").birthday("19850505").gender("1").build(), "c2");
-
-        assertThat(res.getQimUserId()).isEqualTo("u2");
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<HttpEntity<Map<String, Object>>> captor = ArgumentCaptor.forClass(HttpEntity.class);
-        then(restTemplate).should().exchange(any(String.class), eq(HttpMethod.POST), captor.capture(), eq(QimRegisterResponse.class));
-        assertThat(captor.getValue().getBody()).containsEntry("scheme", "CI")
-                .containsEntry("identifierHash", SubjectScheme.CI.identifierHash("ci-raw-value"));
-    }
-
-    @Test
     @DisplayName("registerSubject: 5xx·네트워크 오류·qimUserId 없는 응답은 IDO_QIM_UNREACHABLE")
     void registerSubject_failures() {
         given(restTemplate.exchange(any(String.class), eq(HttpMethod.POST), any(), eq(QimRegisterResponse.class)))
@@ -125,19 +106,20 @@ class QimClientSubjectApiTest {
     }
 
     @Test
-    @DisplayName("findByCi 는 registry 에 없는 find-by-ci 대신 by-hash(CI 해시) 를 조회한다; 404 → empty")
-    void findByCi_usesByHash() {
-        String url = BASE + "/api/v1/internal/users/by-hash?identifierHash=" + SubjectScheme.CI.identifierHash("ci-x");
+    @DisplayName("findByIdentifierHash: by-hash 를 조회한다; 404 → empty, 빈 해시는 IllegalArgumentException (S8-a 스킴 중립)")
+    void findByIdentifierHash_usesByHash() {
+        String hash = SubjectScheme.CI.identifierHash("ci-x");
+        String url = BASE + "/api/v1/internal/users/by-hash?identifierHash=" + hash;
         given(restTemplate.exchange(eq(url), eq(HttpMethod.GET), any(), eq(Map.class)))
                 .willReturn(ResponseEntity.ok(Map.of("qimUserId", "u7", "status", "ACTIVE")));
-        Optional<QimMemberInfo> found = sut.findByCi("ci-x", "A101", "c");
+        Optional<QimMemberInfo> found = sut.findByIdentifierHash(hash, "c");
         assertThat(found).isPresent();
         assertThat(found.get().getQimUserId()).isEqualTo("u7");
-        assertThat(found.get().getMemberType()).isEqualTo("A101");
-
+        assertThat(found.get().getStatus()).isEqualTo("ACTIVE");
         given(restTemplate.exchange(eq(url), eq(HttpMethod.GET), any(), eq(Map.class)))
                 .willThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "nf", null, null, StandardCharsets.UTF_8));
-        assertThat(sut.findByCi("ci-x", "A101", "c")).isEmpty();
+        assertThat(sut.findByIdentifierHash(hash, "c")).isEmpty();
+        assertThatThrownBy(() -> sut.findByIdentifierHash(" ", "c")).isInstanceOf(IllegalArgumentException.class);
     }
 
     private static SubjectRegistration reg() {

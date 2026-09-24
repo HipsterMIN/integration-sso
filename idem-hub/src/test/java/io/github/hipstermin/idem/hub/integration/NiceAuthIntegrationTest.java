@@ -26,7 +26,7 @@ import org.springframework.http.ResponseEntity;
  * S5a — NICE 는 플러그인(idem-plugin-nice-oacx)이 제공하고 코어는 SPI 경로와 레거시 프록시만 갖는다.
  * WireMock 이 NICE API(토큰·URL 발급)를 흉내 낸다 (`ido.auth.nice.base-url` → WireMock).
  */
-@DisplayName("NICE 본인인증 — 플러그인 SPI 경로 + 레거시 프록시 통합 테스트 (WireMock NICE Mock)")
+@DisplayName("NICE 본인인증 플러그인 — SPI 경로 통합 테스트 (WireMock NICE Mock). 레거시 프록시·CI-check 는 KR 에디션(idem-kr-hub KrAuthIntegrationTest)")
 class NiceAuthIntegrationTest extends IntegrationTestBase {
 
     @LocalServerPort int port;
@@ -78,44 +78,16 @@ class NiceAuthIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("레거시 프록시: GET /nice/phone/url 은 같은 흐름을 종전 응답 형식(2000·authUrl·requestNo)으로 돌려준다")
-    void legacyUrl_proxy() throws Exception {
-        ResponseEntity<String> res = restTemplate.getForEntity(
-                baseUrl + "/api/v1/auth/nice/phone/url?returnUrl=https://fe.example.org/auth-result", String.class);
-        assertThat(res.getStatusCode().value()).isEqualTo(200);
-        JsonNode body = objectMapper.readTree(res.getBody());
-        assertThat(body.get("resultCode").asText()).as("body=%s", res.getBody()).isEqualTo("2000");
-        assertThat(body.get("authUrl").asText()).isEqualTo("https://nice.example.org/auth?tx=1");
-        assertThat(body.get("requestNo").asText()).isEqualTo("REQ-IT-001");
-    }
-
-    @Test
-    @DisplayName("레거시 프록시: 모르는 request_no 의 결과 조회는 200/4000 (세션 없음), 빈 requestNo 는 400 (Bean Validation)")
-    void legacyResult_sessionMissing() throws Exception {
-        ResponseEntity<String> res = postJson("/api/v1/auth/nice/phone/result",
-                "{\"web_transaction_id\":\"W-1\",\"request_no\":\"REQ-NOPE\"}");
-        assertThat(res.getStatusCode().value()).isEqualTo(200);
-        assertThat(objectMapper.readTree(res.getBody()).get("resultCode").asText()).isEqualTo("4000");
-
-        ResponseEntity<String> bad = postJson("/api/v1/auth/nice/phone/result", "{\"web_transaction_id\":\"W\",\"request_no\":\"\"}");
-        assertThat(bad.getStatusCode().value()).isEqualTo(400);
-    }
-
-    @Test
-    @DisplayName("CI-Check(KR): 빈 CI·잘못된 mbrDvsnCd → 400 (Bean Validation); OACX easysign 빈 fn → 400, 잘못된 fn → 200/4000")
-    void validationContracts() {
-        assertThat(postJson("/api/v1/auth/nice/ci-check", "{\"ci\":\"\",\"indvlMbrNm\":\"홍길동\",\"mbrDvsnCd\":\"A101\"}").getStatusCode().value()).isEqualTo(400);
-        assertThat(postJson("/api/v1/auth/nice/ci-check", "{\"ci\":\"abcdefgh12345678\",\"indvlMbrNm\":\"홍길동\",\"mbrDvsnCd\":\"Z999\"}").getStatusCode().value()).isEqualTo(400);
-        assertThat(postJson("/api/v1/auth/oacx/easysign", "{\"fn\":\"\",\"status\":\"success\"}").getStatusCode().value()).isEqualTo(400);
-        ResponseEntity<String> oacx = postJson("/api/v1/auth/oacx/easysign", "{\"fn\":\"INVALID\",\"status\":\"success\",\"res\":{}}");
-        assertThat(oacx.getStatusCode().value()).isEqualTo(200);
-        assertThat(oacx.getBody()).contains("\"resultCode\":\"4000\"");
-    }
-
-    @Test
-    @DisplayName("기업인증 콜백: 빈 요청 본문 → 서버 정상 응답")
-    void callback_emptyBody() {
-        assertThat(postJson("/api/v1/auth/callback", "{}").getStatusCode().value()).isIn(200, 400, 422, 500);
+    @DisplayName("코어 에디션에는 KR 엔드포인트가 없다 — /auth/nice/ci-check·/auth/nice/phone/url·/auth/oacx/easysign·/auth/callback·/member/lookup·/conversion/init·/fe-session/conversion → 404")
+    void coreEdition_hasNoKrEndpoints() {
+        assertThat(postJson("/api/v1/auth/nice/ci-check", "{\"ci\":\"x\",\"mbrDvsnCd\":\"A101\"}").getStatusCode().value()).isEqualTo(404);
+        assertThat(restTemplate.getForEntity(baseUrl + "/api/v1/auth/nice/phone/url?returnUrl=https://fe.example.org/x", String.class)
+                .getStatusCode().value()).isEqualTo(404);
+        assertThat(postJson("/api/v1/auth/oacx/easysign", "{\"fn\":\"INVALID\",\"status\":\"success\",\"res\":{}}").getStatusCode().value()).isEqualTo(404);
+        assertThat(postJson("/api/v1/auth/callback", "{}").getStatusCode().value()).isEqualTo(404);
+        assertThat(postJson("/api/v1/member/lookup", "{}").getStatusCode().value()).isEqualTo(404);
+        assertThat(postJson("/api/v1/conversion/init", "{}").getStatusCode().value()).isEqualTo(404);
+        assertThat(postJson("/api/v1/fe-session/conversion", "{}").getStatusCode().value()).isEqualTo(404);
     }
 
     private ResponseEntity<String> postJson(String path, String body) {
