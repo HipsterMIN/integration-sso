@@ -68,6 +68,14 @@ public class KeycloakIdTokenClaims {
     @JsonProperty("identity_provider")
     private String identityProvider;
 
+    /** S6: Keycloak 세션 ID — 판정 감사·캐시 키. */
+    @JsonProperty("sid")
+    private String sessionId;
+
+    /** S6: authorized party — 토큰을 받은 client_id. */
+    @JsonProperty("azp")
+    private String authorizedParty;
+
     // ── 편의 메서드 ────────────────────────────────────────────────────────
 
     /**

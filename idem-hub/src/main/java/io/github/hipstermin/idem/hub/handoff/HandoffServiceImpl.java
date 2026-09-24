@@ -77,6 +77,11 @@ public class HandoffServiceImpl implements HandoffService {
             if (!agency.isActive()) {
                 throw new PlatformException(PlatformErrorCode.AGENCY_NOT_REGISTERED, cmd.getCorrelationId());
             }
+            // S6: OIDC_RP 기관은 표준 OIDC 로만 로그인한다 — Handoff 발급 경로 자체를 닫는다
+            if (agency.getIntegrationType() != null && !agency.getIntegrationType().usesHandoff()) {
+                throw new PlatformException(PlatformErrorCode.IDO_PROTOCOL_MISMATCH, cmd.getCorrelationId(),
+                        "연동 유형 " + agency.getIntegrationType() + " 은(는) Handoff 를 쓰지 않습니다 — 표준 OIDC 로 붙으세요");
+            }
 
             // 2. Rate Limiting 검증 (기관별 TPS + 일별 한도)
             if (!rateLimiter.tryAcquire(cmd.getAgencyCode())) {

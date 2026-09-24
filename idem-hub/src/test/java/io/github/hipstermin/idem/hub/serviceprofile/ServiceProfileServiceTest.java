@@ -37,6 +37,7 @@ class ServiceProfileServiceTest {
     @Mock TenantJpaRepository     tenantRepository;
     @Mock JdbcTemplate            jdbcTemplate;
     @Mock AuditLogPublisher       auditLogPublisher;
+    @Mock io.github.hipstermin.idem.hub.protocol.oidcrp.OidcRpClientProvisioner oidcRpProvisioner;
 
     private final ObjectMapper om = new ObjectMapper();
     private ServiceProfileService service;
@@ -45,7 +46,7 @@ class ServiceProfileServiceTest {
     void setUp() {
         lenient().when(tenantRepository.existsById("DEFAULT")).thenReturn(true);
         service = new ServiceProfileService(jpaRepository, tenantRepository, new ServiceProfileMapper(om), new ServiceProfileValidator(),
-                jdbcTemplate, auditLogPublisher);
+                jdbcTemplate, auditLogPublisher, oidcRpProvisioner);
         lenient().when(jpaRepository.save(any(AgencyMetaJpaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
@@ -53,6 +54,44 @@ class ServiceProfileServiceTest {
         return om.readTree("{\"schemaVersion\":1,\"service\":{\"code\":\"" + code + "\",\"name\":\"기관\"},"
                 + "\"protocol\":{\"type\":\"BRIDGE\",\"endpoints\":{\"bridge\":\"https://b.example.org/push\"}},"
                 + "\"policy\":{\"minAuthLevel\":\"L2\",\"policyVersion\":\"1.1\"}" + extra + "}");
+    }
+
+    @Test
+    @DisplayName("S6: OIDC_RP 프로파일 저장은 같은 흐름에서 Keycloak client 를 프로비저닝하고, DIRECT 는 Keycloak 을 부르지 않는다")
+    void put_oidcRp_provisions_direct_doesNot() throws Exception {
+        given(jpaRepository.findById("AG_OIDC")).willReturn(Optional.empty());
+        given(jpaRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(inv -> inv.getArgument(0));
+        String oidc = """
+                {"schemaVersion":1,"service":{"code":"AG_OIDC","name":"OIDC 기관"},
+                 "protocol":{"type":"OIDC_RP","oidc":{"redirectUris":["https://rp.example.org/cb"]}},
+                 "policy":{"minAuthLevel":"L1"}}
+                """;
+        service.put("AG_OIDC", om.readTree(oidc), "admin", null, "cid");
+        org.mockito.Mockito.verify(oidcRpProvisioner).sync(org.mockito.ArgumentMatchers.argThat(p ->
+                p.protocol().type() == io.github.hipstermin.idem.hub.domain.IntegrationType.OIDC_RP
+                        && p.protocol().oidc().redirectUris().contains("https://rp.example.org/cb")), eq("admin"), eq("cid"));
+
+        given(jpaRepository.findById("AG_DIRECT")).willReturn(Optional.empty());
+        service.put("AG_DIRECT", om.readTree("""
+                {"schemaVersion":1,"service":{"code":"AG_DIRECT","name":"기관"},"protocol":{"type":"DIRECT"},"policy":{"minAuthLevel":"L1"}}
+                """), "admin", null, "cid");
+        org.mockito.Mockito.verify(oidcRpProvisioner, org.mockito.Mockito.times(1)).sync(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("S6: 프로비저닝 실패(E-IDO-122)는 put 밖으로 나간다 — 트랜잭션이 저장을 되돌린다")
+    void put_oidcRp_provisionFailure_propagates() throws Exception {
+        given(jpaRepository.findById("AG_OIDC2")).willReturn(Optional.empty());
+        given(jpaRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(inv -> inv.getArgument(0));
+        given(oidcRpProvisioner.sync(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .willThrow(new PlatformException(PlatformErrorCode.IDO_OIDC_PROVISION_FAILED, "cid", "kc down"));
+        assertThatThrownBy(() -> service.put("AG_OIDC2", om.readTree("""
+                {"schemaVersion":1,"service":{"code":"AG_OIDC2","name":"x"},
+                 "protocol":{"type":"OIDC_RP","oidc":{"redirectUris":["https://rp.example.org/cb"]}},"policy":{"minAuthLevel":"L1"}}
+                """), "admin", null, "cid"))
+                .isInstanceOf(PlatformException.class)
+                .extracting(e -> ((PlatformException) e).getErrorCode())
+                .isEqualTo(PlatformErrorCode.IDO_OIDC_PROVISION_FAILED);
     }
 
     @Test

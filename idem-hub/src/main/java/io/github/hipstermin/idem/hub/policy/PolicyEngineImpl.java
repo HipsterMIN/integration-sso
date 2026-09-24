@@ -241,6 +241,13 @@ public class PolicyEngineImpl implements PolicyEngine {
                 .build();
     }
 
+    @Override
+    public String resolveAgencySubjectId(ServiceProfile profile, String qimUserId, String serviceCode, String correlationId) {
+        ServiceProfile.Identity identity = profile != null ? profile.identity() : null;
+        SubjectScheme scheme = identity != null ? identity.subjectSchemeOrDefault() : SubjectScheme.DEFAULT;
+        return tryResolveSubject(scheme, qimUserId, serviceCode, correlationId);
+    }
+
     // ── private ──────────────────────────────────────────────────────────────
 
     /**

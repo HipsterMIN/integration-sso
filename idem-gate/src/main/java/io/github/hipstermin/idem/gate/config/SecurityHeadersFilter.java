@@ -42,6 +42,17 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
     @Value("${qsign.keycloak.base-url:}")
     private String keycloakBaseUrl;
 
+    /**
+     * S6 OIDC 프런트: Keycloak 이 돌려주는 로그인 화면·브로커 경로·정적 자원은 Keycloak 자신의 보안 헤더를 그대로 쓴다.
+     * gate 의 CSP({@code default-src 'none'; form-action 'none'})를 덧씌우면 브라우저가 로그인 폼 제출을 거부한다
+     * (실 Keycloak 끝-끝 검증에서 발견). 이 경로의 응답 헤더는 {@code KeycloakProxy} 가 Keycloak 의 것을 통과시킨다.
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path != null && (path.startsWith("/realms/") || path.startsWith("/resources/"));
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,

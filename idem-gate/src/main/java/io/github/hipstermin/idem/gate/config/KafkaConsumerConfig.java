@@ -70,8 +70,7 @@ public class KafkaConsumerConfig {
     @Bean("qsignQimListenerContainerFactory")
     public ConcurrentKafkaListenerContainerFactory<String, UserEvent>
     qsignQimListenerContainerFactory(
-            @org.springframework.beans.factory.annotation.Qualifier("qsignKafkaTemplate")
-            org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate) {
+            org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate /* D1-b: Kafka 꺼지면 idem-common 의 DisabledKafkaTemplate — 한정자 없이 받는다 */) {
 
         ConcurrentKafkaListenerContainerFactory<String, UserEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();

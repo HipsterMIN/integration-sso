@@ -6,7 +6,6 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -75,7 +74,7 @@ public class KafkaConsumerConfig {
      */
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory(
-            @Qualifier("qimKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate) {
+            KafkaTemplate<String, Object> kafkaTemplate /* D1-b: Kafka 꺼지면 idem-common 의 DisabledKafkaTemplate — 한정자 없이 받는다 */) {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(qimConsumerFactory());
@@ -102,7 +101,7 @@ public class KafkaConsumerConfig {
      */
     @Bean
     public DefaultErrorHandler qimErrorHandler(
-            @Qualifier("qimKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate) {
+            KafkaTemplate<String, Object> kafkaTemplate) {
 
         ExponentialBackOffWithMaxRetries backOff =
                 new ExponentialBackOffWithMaxRetries(3);

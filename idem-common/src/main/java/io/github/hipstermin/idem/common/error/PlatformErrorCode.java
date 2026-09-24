@@ -77,6 +77,12 @@ public enum PlatformErrorCode {
     IDO_IDENTITY_UNRESOLVED("E-IDO-118", HttpStatus.UNPROCESSABLE_ENTITY, "주체 식별자를 확인할 수 없어 세션을 발급하지 않습니다."),
     IDO_SESSION_UNAVAILABLE("E-IDO-119", HttpStatus.SERVICE_UNAVAILABLE, "FE 세션 저장소 장애 — 세션을 발급하지 않습니다."),
     IDO_ASSIGNMENT_REQUIRED("E-IDO-120", HttpStatus.FORBIDDEN, "이 서비스에 할당되지 않은 사용자입니다 — 관리자 할당 또는 셀프 가입이 필요합니다."),
+    /** S6: 연동 유형이 요청한 경로와 맞지 않음 — 예: OIDC_RP 기관에 Handoff 티켓 발급 요청. */
+    IDO_PROTOCOL_MISMATCH("E-IDO-121", HttpStatus.BAD_REQUEST, "이 서비스의 연동 유형은 요청한 경로를 지원하지 않습니다."),
+    /** S6: Keycloak client 프로비저닝 실패 — 프로파일 저장을 되돌린다(안전 우선). */
+    IDO_OIDC_PROVISION_FAILED("E-IDO-122", HttpStatus.SERVICE_UNAVAILABLE, "OIDC client 프로비저닝에 실패해 프로파일을 저장하지 않았습니다."),
+    /** S6: 토큰 교환 시 client_id 가 Idem 이 프로비저닝한 OIDC_RP 서비스와 대응하지 않음. */
+    IDO_OIDC_CLIENT_UNKNOWN("E-IDO-123", HttpStatus.FORBIDDEN, "Idem 이 프로비저닝한 OIDC 클라이언트가 아닙니다."),
 
     // ── 기관 오류 (E-AGENCY-3xx) ─────────────────────────────────────────────
     AGENCY_NOT_REGISTERED ("E-AGENCY-301", HttpStatus.FORBIDDEN,   "등록되지 않은 기관 코드입니다."),

@@ -69,7 +69,33 @@ public record ServiceProfile(
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)
-    public record Protocol(IntegrationType type, Endpoints endpoints, Security security) {}
+    public record Protocol(IntegrationType type, Endpoints endpoints, Security security, Oidc oidc) {
+        @JsonIgnore
+        public IntegrationType typeOrDefault() {
+            return type != null ? type : IntegrationType.DEFAULT;
+        }
+    }
+
+    /**
+     * OIDC_RP 전용 설정 (S6) — Keycloak client 프로비저닝의 입력. PKCE S256 은 플랫폼 규칙이라 항목이 없다.
+     *
+     * @param redirectUris           기관 RP 의 redirect_uri (정확 일치)
+     * @param postLogoutRedirectUris RP-Initiated Logout 후 복귀 URI
+     * @param backchannelLogoutUri   Back-Channel Logout 수신 URL (선택)
+     * @param clientAuthMethod       token endpoint 인증 방식 — null 이면 CLIENT_SECRET_BASIC
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Builder(toBuilder = true)
+    public record Oidc(List<String> redirectUris, List<String> postLogoutRedirectUris,
+                       String backchannelLogoutUri, String clientAuthMethod) {
+        public static final String AUTH_BASIC = "CLIENT_SECRET_BASIC";
+        public static final String AUTH_POST  = "CLIENT_SECRET_POST";
+
+        @JsonIgnore
+        public String clientAuthMethodOrDefault() {
+            return clientAuthMethod == null || clientAuthMethod.isBlank() ? AUTH_BASIC : clientAuthMethod;
+        }
+    }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)

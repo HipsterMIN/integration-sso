@@ -16,16 +16,24 @@ import java.util.stream.Collectors;
  *   <li>{@link #BRIDGE} — Bridge 서버에 Payload 를 미리 푸시 ({@code bridge_endpoint})</li>
  *   <li>{@link #APACHE_GATE} — 게이트웨이(idem-agent)에 세션 헤더 사전 등록 ({@code apache_gate_endpoint})</li>
  *   <li>{@link #INTERNAL_SSO} — 기관 SSO 도메인 쿠키 세션 사전 등록 ({@code sso_domain})</li>
+ *   <li>{@link #OIDC_RP} — S6 표준 프로토콜. 기관은 OIDC Relying Party 로 Idem(gate 가 앞에 선 Keycloak)에 붙는다.
+ *       Handoff 티켓을 발급하지 않으며(E-IDO-121), Keycloak client 는 Idem 이 프로파일에서 프로비저닝한다</li>
  * </ul>
  */
 public enum IntegrationType {
     DIRECT,
     BRIDGE,
     APACHE_GATE,
-    INTERNAL_SSO;
+    INTERNAL_SSO,
+    OIDC_RP;
 
     /** 값이 지정되지 않은 기관의 기본 유형. */
     public static final IntegrationType DEFAULT = DIRECT;
+
+    /** Handoff 티켓 발급 경로를 쓰는 유형인가 — {@link #OIDC_RP} 는 표준 OIDC 로만 로그인한다. */
+    public boolean usesHandoff() {
+        return this != OIDC_RP;
+    }
 
     /**
      * 문자열 → 유형. 대소문자·양끝 공백은 허용하되 미지 값은 거부한다.

@@ -63,9 +63,10 @@
             "DIRECT",
             "BRIDGE",
             "APACHE_GATE",
-            "INTERNAL_SSO"
+            "INTERNAL_SSO",
+            "OIDC_RP"
           ],
-          "description": "IntegrationType 과 같은 값 집합. S6 에서 OIDC_RP·SAML_SP 확장"
+          "description": "IntegrationType 과 같은 값 집합. OIDC_RP 는 S6 표준 프로토콜(Handoff 미사용, protocol.oidc 필수). SAML_SP 는 설계만"
         },
         "endpoints": {
           "type": "object",
@@ -115,7 +116,64 @@
               "maxItems": 100
             }
           }
+        },
+        "oidc": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "OIDC_RP 전용 — Idem 이 이 값으로 Keycloak client(idem-svc-{code})를 프로비저닝한다. PKCE S256 은 항상 필수",
+          "required": [
+            "redirectUris"
+          ],
+          "properties": {
+            "redirectUris": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20,
+              "items": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 500
+              },
+              "description": "기관 RP 의 redirect_uri(정확 일치, 와일드카드 금지)"
+            },
+            "postLogoutRedirectUris": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 500
+              }
+            },
+            "backchannelLogoutUri": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 500,
+              "description": "OIDC Back-Channel Logout 수신 URL (선택)"
+            },
+            "clientAuthMethod": {
+              "type": "string",
+              "enum": [
+                "CLIENT_SECRET_BASIC",
+                "CLIENT_SECRET_POST"
+              ],
+              "description": "token endpoint 인증 방식 — 기본 CLIENT_SECRET_BASIC"
+            }
+          }
         }
+      },
+      "if": {
+        "properties": {
+          "type": {
+            "const": "OIDC_RP"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "type",
+          "oidc"
+        ]
       }
     },
     "identity": {

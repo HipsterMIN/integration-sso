@@ -205,6 +205,20 @@ class HandoffServiceImplTest {
         }
 
         @Test
+        @DisplayName("S6: OIDC_RP 기관에는 Handoff 티켓을 발급하지 않는다 — E-IDO-121")
+        void issue_rejectsOidcRpAgency() {
+            AgencyMeta oidcAgency = AgencyMeta.builder()
+                    .agencyCode(AGENCY_CODE).active(true)
+                    .integrationType(IntegrationType.OIDC_RP).build();
+            given(agencyMetaRepository.findByCode(AGENCY_CODE)).willReturn(Optional.of(oidcAgency));
+
+            assertThatThrownBy(() -> sut.issue(validCommand))
+                    .isInstanceOf(PlatformException.class)
+                    .extracting(e -> ((PlatformException) e).getErrorCode())
+                    .isEqualTo(PlatformErrorCode.IDO_PROTOCOL_MISMATCH);
+        }
+
+        @Test
         @DisplayName("Rate Limit 초과 — AGENCY_RATE_LIMIT_EXCEEDED 예외")
         void rateLimitExceeded_throwsRateLimitException() {
             given(rateLimiter.tryAcquire(AGENCY_CODE)).willReturn(false);

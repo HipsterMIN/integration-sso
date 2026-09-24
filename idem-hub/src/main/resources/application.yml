@@ -297,6 +297,20 @@ ido:
       "1": L1
       "2": L2
       "3": L3
+
+  # ── S6 표준 프로토콜(OIDC_RP): Keycloak 을 숨긴 채 기관 RP 를 붙인다 ──────────────
+  # issuer 는 gate 공개 URL 아래 /realms/{realm} — Keycloak 의 KC_HOSTNAME_URL(=gate 공개 URL)과 같아야 한다.
+  # Keycloak client 는 Idem 이 Service Profile(protocol.oidc)에서 프로비저닝한다(콘솔 조작 없음).
+  oidc-rp:
+    enabled: ${IDO_OIDC_RP_ENABLED:true}
+    issuer: ${IDEM_OIDC_ISSUER:${IDEM_PUBLIC_URL_GATE:http://localhost:8081}/realms/${KEYCLOAK_REALM:onepass}}
+    client-id-prefix: idem-svc-
+    provisioner:
+      # realm-management(manage-clients·view-clients)만 가진 서비스 계정 — 관리자 비밀번호는 앱이 쓰지 않는다
+      client-id: ${KEYCLOAK_PROVISIONER_CLIENT_ID:idem-provisioner}
+      client-secret: ${KEYCLOAK_PROVISIONER_CLIENT_SECRET:}
+      connect-timeout-ms: 3000
+      read-timeout-ms: 5000
     # NOTE(P1): Kafka 인증 이벤트 토픽은 ido.kafka.topic-auth-events 로 통일.
     # KeycloakOidcService / NonOidcAuthService 모두 ${ido.kafka.topic-auth-events} 참조.
     # 이전에 있던 ido.keycloak.auth-events-topic 키는 제거 — ido.kafka.topic-auth-events 사용.
