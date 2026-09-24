@@ -1,7 +1,7 @@
 # Idem 범용화 리팩토링 플랜 — 구조 분석과 단계별 실행 계획
 
-> 작성 2026-09-10 · 기준 `main` 504d9e2 (PR #222 머지) · 상태: **v0.4 (2026-09-24 개정 — 적대적 점검 결과 반영: S8 을 S8-a(빼기)·S8-b(더하기)로 나누고 S6(표준 프로토콜)을 S7(콘솔) 앞으로. 순서: D1 → D2 → S8-a → S8-b → S6 → S7 → S9)**
-> 이전: v0.2 (2026-09-10 — Tenant/Service 계층·IdP 모델, S4b 신설, S8 재정의) · v0.1 (2026-09-10)
+> 작성 2026-09-10 · 기준 `main` e4acd8d (PR #231 머지) · 상태: **v0.5 (2026-09-24 2차 적대적 점검 — D1·D2·S8-a·S8-b·S6 PR-1 완료. 관리자 무인증·콘솔 고객 전용·설치 경로 미검증을 차단 항목으로 명시하고 D3(fail-secure 2차 + 설치본 정직화)을 신설. 순서: S6 PR-2 → D3 → S7 → S9)**
+> 이전: v0.4 (2026-09-24 — S8 분할, S6 를 S7 앞으로) · v0.2 (2026-09-10 — Tenant/Service 계층·IdP 모델, S4b 신설, S8 재정의) · v0.1 (2026-09-10)
 >
 > 목표: **어느 운영기관이든 설치할 수 있고, 어떤 연동기관의 요구도 코드 수정 없이(설정) 또는 플러그인으로 수용하는 구조**로 Idem 을 재편한다.
 > 인증(CC·GS) 실행 계획 [`execution-plan.md`](execution-plan.md) 과 벤더 분리 [`vendor-plugin-plan.md`](vendor-plugin-plan.md) 의 **구조적 전제**가 되는 문서다.
@@ -34,6 +34,37 @@
 
 **진행 현황 (2026-09-16)** — S1~S5 완료(main 504d9e2). "코어에서 고객값·벤더를 걷어내는 일" 은 끝났고 "다른 기관이 설치해 쓰는 제품" 까지는 약 40%. 남은 넷(IM 모델·관리 콘솔·표준 프로토콜·패키징)이 지금까지보다 크다. 설치 복잡도는 오히려 늘었다(모듈 10 + 플러그인 3, DB 2종, Kafka·Redis·Keycloak, vendor-libs).
 
+**진행 현황 (2026-09-24, 2차 적대적 점검 — main e4acd8d)** — D1·D2·S8-a·S8-b·S6 PR-1 완료. hub 28.3k LOC(31k 에서), 라인 커버리지 hub 40.6%·gate 47%·registry 52%·authz 74%. 정직한 추정: **백엔드 범용성 약 60%, 콘솔 포함 45%. SSO 요건 약 55%, IM 요건 약 40%.** 판정 근거는 아래 두 표. 차단 항목 셋 — (1) 관리자 API 무인증(`X-Admin-Id` 헤더뿐, Spring Security 를 쓰는 모듈 0, 콘솔 nginx 가 `/api/` 를 hub 로 그대로 전달) (2) 콘솔이 중기원패스 회원 포털 그대로(관리 화면 0, 회원전환 29 파일, `.smes.go.kr` 허용목록, 영어 로케일에 한국 브랜딩 150건) (3) 설치 경로 미검증(`install.md` 가 "compose 를 기동해 보지 못했다" 고 적음, CI 는 hub 만 기동 — S6 실기동에서 gate·registry 기동 불가와 Keycloak secret 전부 `change-me` 를 발견). 그 밖의 중대 항목: 테넌트 격리 0(테넌트 필터 쿼리 없음), 운영 마이그레이션에 시드된 테스트 기관 6개(V8 평문 키 `stub-api-key-dev-001` 주석 포함), 코어 기본값이 KR 벤더 플러그인 on, 코어의 한국 고정 로직(`CrossAgencySsoController:277` `*.agency.go.kr`, `NonOidcBrokerAdapter` PASS/GPKI switch, `ProviderRouter` KAKAO/NAVER, `CastTokenServiceImpl` `"ONEPASS"`), mock 외 비한국 IdP 구현 없음, 문서 141 중 101 이 OnePass/SMES 잔재.
+
+| SSO 요건 | 상태 | 근거 |
+|---|---|---|
+| 표준 OIDC SP-initiated | 부분 | code+PKCE S256+토큰 교환 시 정책 강제 동작(실 Keycloak 끝-끝). refresh·revoke·introspect·logout 은 단순 통과, RP 샘플 없음, `sub` 비 pairwise |
+| SAML 2.0 | 없음 | 설계만 |
+| Handoff·CAST | 구현(CAST 부분) | Handoff Lua CAS 원자 소비. **CAST 단일사용 검사가 GET→SET 비원자**(`CastTokenServiceImpl:233-252`) |
+| 단일 로그아웃 | **고장** | gate `KeycloakLogoutService` 가 `q-sign-client` 로 client_credentials 를 시도하나 realm 에서 서비스 계정 off, 호출도 `DELETE /users/{id}/sessions`(비표준). 백채널·프런트채널 수신기 없음, FeSession 에 `sid` 없음 |
+| 세션 정책 | 부분 | 전역 30/480분만. 프로파일 `policy.session.*` 는 저장만 되고 hub 어디서도 읽지 않음(0건). 상태 변경 시 세션 무효화는 Kafka 전용 → 기본 설치본에서 흐르지 않음 |
+| 단계 상승·재인증 | 없음 | `MinAuthLevelRule` 거부만. V12 AAL/MFA 컬럼은 코드 미사용 |
+| 관리자 인증·MFA·역할 분리 | 없음 | |
+| 토큰·암호 위생 | 부분 | Handoff 키 회전 있음. gate 자체 로그인은 PKCE 미전송(`PkceService` 미사용), issuer 미검증. **JWKS `@Cacheable` 자기호출로 캐시 우회**(gate·hub) |
+| 감사 | 부분 | 테이블 다수, 해시체인 없음, registry 는 상태 이력뿐 |
+| 레이트리밋·잠금 | 부분 | hub 리밋 동작. **gate 잠금 카운터 `incrementAttempt` 호출자 0** |
+| 외부 IdP 연합 | 부분 | realm IdP 4개 중 kakao 만 활성, 콘솔 없이 상류 IdP 추가 불가 |
+
+| IM 요건 | 상태 | 근거 |
+|---|---|---|
+| 사용자 생명주기 | 부분 | 등록·상태변경·탈퇴 4종·스케줄러. DORMANT·휴면 배치·프로파일 수정·하드 삭제 없음. PII 삭제 경로 둘(`subject_key` 처리 상이) |
+| 식별자 모델 | 구현 | 스킴 6종, CI AES-GCM, DI HMAC. 무염 SHA-256 해시, 계정 연결/해제 API 없음 |
+| 속성 계약 | 구현(Handoff) | OIDC userinfo 미적용 |
+| 동의 | 부분 | 서비스별 아님, hub 미사용 |
+| 그룹·조직 | 없음 | SCIM Groups = 역할 별칭 |
+| 역할·할당 | 부분 | 권한 모델·PDP 없음, RLS `app.current_agency` 미설정 |
+| SCIM | 부분 | Groups 만, `/Users`·아웃바운드 없음 |
+| 셀프서비스 | **백엔드 없음** | 콘솔 20 파일이 `/api/v1/ext/**` 호출, 정의한 백엔드 0 |
+| 자격증명·MFA | 없음 | 연합 전용 |
+| 관리자 위임·테넌트 스코프 | 없음 | |
+| 데이터 보호 | 부분 | CI·subject_key 만 암호화, 재암호화 잡 없음, 보존 스케줄러 기본 off, PII 조회 감사 없음 |
+| 이벤트·연동 | 구현(Kafka 의존) | registry 사용자 이벤트는 Kafka 전용 |
+
 **공개 (2026-09-21)** — GitHub Actions 결제 문제로 저장소를 S9 보다 앞당겨 **Public·Apache-2.0** 으로 전환한다. D0(공개 전 점검) 은 `docs/public-release-checklist.md`. 벤더 자격증명 교체는 전환 전 필수, 고객 문서·히스토리 정리는 사용자 결정.
 
 **단계** (§3) — 앞 단계가 뒤 단계의 토대. 각 단계는 독립 PR, 동작 변화 없음(또는 호환 유지)이 원칙. v0.3 부터 순서는 아래 표의 순서다.
@@ -46,18 +77,20 @@
 | 4 | **S4** ✅ | 식별자·속성 계약 (SubjectScheme, AttributeCatalog) | 중~높음 | 3주 |
 | 5 | **S4b** ✅ | Tenant/Service 계층 정립 + 회원통합 브로커 흐름 제거 | 중 | 2주 |
 | 6 | **S5** ✅ | 벤더 코드 플러그인 이관 (nice-oacx·anyid), 코어 브로커 SPI, SDK·번들·자격증명 저장소 제거 | 중 | 2~3주 |
-| 7 | **D1** | **다이어트** — registry 를 PostgreSQL 로, Kafka 선택 의존화(DB 만으로 아웃박스·감사 완결), 제품 3개(SSO·IM·KR 에디션)로 재편, 단일 설치본 | 중 | 2~3주 |
-| 8 | **D2** | **fail-secure 전수 점검 + 암호 경계 단일화** — 모든 fail-open·PoC 폴백 제거, `CryptoProvider` SPI 로 JCA 호출 집약(KCMVP 교체 자리) | 중 | 1~2주 |
-| 9 | **S8-a** | **IM 을 얇게 (빼기)** — SMES 회원 개념(CI 조회·기업인증·회원전환·회원조회·기업회원·회원구분코드)을 `editions/idem-kr-hub`·`idem-kr-registry` 로 이동, 코어 hub·registry 는 SMES 없이 기동·통과, KR 가드 | 중 | 1~2주 |
-| 10 | **S8-b** | **할당·역할 모델 (더하기)** — 사용자/그룹 ↔ Service 할당, 앱 역할, `ASSIGNMENT` 규칙, DI/GUEST 정리, hub `qim/sp` 정리 | 높음 | 2~3주 |
-| 11 | **S6** | **표준 프로토콜** — `OIDC_RP` 를 Keycloak client 프로비저닝으로 정식화(Keycloak 은 숨김), Handoff 는 KR 연계 방식으로 격하, SAML 설계만. **v0.4 에서 S7 앞으로** — 시연·심사 로그인이 독자 프로토콜이면 안 된다 | 중 | 3~4주 |
-| 12 | **S7** | **관리자 인증 + 최소 관리 콘솔** — 관리자 I&A(2단계)·보안관리자/감사자 분리·온보딩·프로파일 편집·감사 조회 (`execution-plan.md` P1) | 중 | 4~6주 |
+| 7 | **D1** ✅ | **다이어트** — registry 를 PostgreSQL 로, Kafka 선택 의존화(DB 만으로 아웃박스·감사 완결), 제품 3개(SSO·IM·KR 에디션)로 재편, 단일 설치본 | 중 | 2~3주 |
+| 8 | **D2** ✅ | **fail-secure 전수 점검 + 암호 경계 단일화** — 모든 fail-open·PoC 폴백 제거, `CryptoProvider` SPI 로 JCA 호출 집약(KCMVP 교체 자리) | 중 | 1~2주 |
+| 9 | **S8-a** ✅ | **IM 을 얇게 (빼기)** — SMES 회원 개념(CI 조회·기업인증·회원전환·회원조회·기업회원·회원구분코드)을 `editions/idem-kr-hub`·`idem-kr-registry` 로 이동, 코어 hub·registry 는 SMES 없이 기동·통과, KR 가드 | 중 | 1~2주 |
+| 10 | **S8-b** ✅(PR-1) | **할당·역할 모델 (더하기)** — 사용자/그룹 ↔ Service 할당, 앱 역할, `ASSIGNMENT` 규칙, DI/GUEST 정리, hub `qim/sp` 정리 | 높음 | 2~3주 |
+| 11 | **S6** ✅(PR-1) | **표준 프로토콜** — `OIDC_RP` 를 Keycloak client 프로비저닝으로 정식화(Keycloak 은 숨김), Handoff 는 KR 연계 방식으로 격하, SAML 설계만. **v0.4 에서 S7 앞으로** — 시연·심사 로그인이 독자 프로토콜이면 안 된다 | 중 | 3~4주 |
+| 11-2 | **S6 PR-2** | **표준 프로토콜 마무리** — SLO 수리(백채널 로그아웃 수신·`sid`·gate 세션 종료를 서비스 계정+표준 엔드포인트로), tenant-sample 표준 RP 경로, `IntegrationProtocol` SPI, `idp-hint` 프로파일화, SAML 설계 문서 | 중 | 2주 |
+| 11-3 | **D3** | **fail-secure 2차 + 설치본 정직화 (v0.5 신설)** — 2차 점검이 잡은 결함 9건 수리(잠금 카운터·CAST 원자 소비·JWKS 캐시·세션 정책 강제·상태변경 전파 DB 경로·PII 삭제 경로 단일화), 시드 기관 제거, KR 플러그인 기본값 off, 한국 고정 로직 제거, CI 가 compose 설치본을 실기동 | 중 | 1~2주 |
+| 12 | **S7** | **관리자 인증 + 최소 관리 콘솔 (심사 전제·차단 항목)** — 관리자 I&A(2단계)·보안관리자/감사자 분리·온보딩·프로파일 편집·감사 조회 (`execution-plan.md` P1) | 중 | 4~6주 |
 | 13 | **S9** | **개명 마무리(4b·5) + 에디션 패키징 + 1.0 동결** — 설정 키·DB 이름 idem 화, Core/KR 이미지·Helm 분리, 온보딩 가이드, 요구사항 체크리스트 → GS 문서 착수 | 중 | 3~4주 |
 | 14 | — | 플랫폼 소개서 재작성 (1.0 동결 후, 제품 그대로) | 낮음 | 1주 |
 
-의존: S1 → … → S5 → **D1 → D2 → S8-a → S8-b → S6 → S7 → S9** → 소개서. 합계 약 4~5개월. S7 은 `execution-plan.md` P1 과 같은 작업이고, S9 의 1.0 동결이 `execution-plan.md` P3(GS) 의 입력이다.
+의존: S1 → … → S5 → D1 → D2 → S8-a → S8-b → S6 PR-1 → **S6 PR-2 → D3 → S7 → S9** → 소개서. 합계 약 4~5개월. S7 은 `execution-plan.md` P1 과 같은 작업이고, S9 의 1.0 동결이 `execution-plan.md` P3(GS) 의 입력이다.
 
-**왜 이 순서인가**: D1·D2 를 앞에 두는 것은 뒤 단계 전부가 그 위에 쌓이기 때문이다(S8 을 먼저 하면 MariaDB 위에 할당 모델을 짓고 다시 옮긴다). **v0.4 (2026-09-24, 적대적 점검)**: hub 가 31k LOC·커버리지 38% 인 상태라 기능(할당·역할)을 얹기 전에 SMES 개념을 먼저 빼야 한다(S8-a → S8-b). S6 을 S7 앞으로 당긴 이유는 점검에서 드러난 사실 때문이다 — gate 의 discovery 문서가 Keycloak URL 을 그대로 내보내고 기관 연동 가이드의 표준 OIDC/SAML 경로가 "향후 지원" 이라, 콘솔 시연의 로그인이 독자 Handoff 로 남으면 심사원에게 설명할 것이 하나 더 는다. 콘솔(S7)은 표준 경로 위에 짓는다.
+**왜 이 순서인가**: D1·D2 를 앞에 두는 것은 뒤 단계 전부가 그 위에 쌓이기 때문이다(S8 을 먼저 하면 MariaDB 위에 할당 모델을 짓고 다시 옮긴다). **v0.4 (2026-09-24, 적대적 점검)**: hub 가 31k LOC·커버리지 38% 인 상태라 기능(할당·역할)을 얹기 전에 SMES 개념을 먼저 빼야 한다(S8-a → S8-b). S6 을 S7 앞으로 당긴 이유는 점검에서 드러난 사실 때문이다 — gate 의 discovery 문서가 Keycloak URL 을 그대로 내보내고 기관 연동 가이드의 표준 OIDC/SAML 경로가 "향후 지원" 이라, 콘솔 시연의 로그인이 독자 Handoff 로 남으면 심사원에게 설명할 것이 하나 더 는다. 콘솔(S7)은 표준 경로 위에 짓는다. **v0.5 (2026-09-24, 2차 적대적 점검)**: S6 PR-1 의 실 Keycloak 끝-끝이 CI 가 한 번도 기동해 보지 않은 설치본의 결함 4건을 드러냈고, 점검은 SLO 고장·잠금 카운터 미호출·CAST 비원자·JWKS 캐시 우회·세션 정책 미강제 등 9건을 더 찾았다. 이런 것을 안고 S7(콘솔)을 지으면 심사 시연에서 로그아웃과 잠금이 먼저 깨진다. 그래서 S6 PR-2 에 SLO 수리를 넣고, S7 앞에 **D3** 를 끼운다. D3 는 대부분 하루 안팎의 수리이고 CI 가 설치본을 실기동하게 만드는 것이 핵심이다.
 
 ---
 
@@ -419,10 +452,21 @@ Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `Integ
 - ✅ 검증: common 418 · hub 487(+IT: `OidcRpProvisioningIntegrationTest` 3) · gate 96+ · registry 218 · authz 41 · kr-hub 32 · kr-registry 28 · 플러그인 54 · relay 10 · tenant-sample 84
 - ⏭ **남긴 것(S6 PR-2)**: tenant-sample 에 표준 RP 경로(`spring-boot-starter-oauth2-client`, `protocol.type` 만 바꿔 Handoff·OIDC_RP 통과 — 완료 기준의 남은 절반) · Back-Channel Logout 수신 ↔ Idem SLO·FeSession `sid` 연결 · `IntegrationProtocol` SPI 로 Handoff 전략 승격(§2.2) · `idp-hint-mapping` 프로파일화 · SAML_SP 설계 문서 · 심층 방어용 Keycloak authenticator(선택) · CI 스모크가 gate·registry 도 Kafka 없이 기동하는지 확인(이번 결함 (2)(3) 의 재발 방지)
 
-### S7 — 관리자 인증 + 최소 관리 콘솔 (4~6주, `execution-plan.md` P1 과 동일 작업, v0.4 에서 S6 뒤로)
+**S6 PR-2 확정 범위 (v0.5)**: ① SLO 수리 — gate `KeycloakLogoutService` 를 서비스 계정(`idem-provisioner` 급 별도 계정, `view-users`·`manage-users` 최소)과 표준 `POST /admin/realms/{realm}/users/{id}/logout` 로 바꾸고, FeSession 에 Keycloak `sid` 를 저장하며, OIDC Back-Channel Logout 수신(`logout_token` 검증 → FeSession·판정 캐시 무효화 → 기관 웹훅) 을 gate 프런트에 추가. RP-initiated `/logout` 통과 시 FeSession 도 정리 ② tenant-sample 에 `spring-boot-starter-oauth2-client` 표준 RP 경로(`protocol.type` 만 바꿔 Handoff·OIDC_RP 통과 — 완료 기준) ③ `IntegrationProtocol` SPI 로 Handoff 전략 승격(§2.2) ④ `idp-hint-mapping` 프로파일화 ⑤ SAML_SP 설계 문서. 완료 기준: 표준 RP 로그인 → 로그아웃이 Keycloak·FeSession·RP 세 곳에서 모두 끝나는 통합 테스트.
+
+### D3 — fail-secure 2차 + 설치본 정직화 (1~2주, v0.5 신설)
+
+2차 적대적 점검(§0 표)이 잡은 것을 S7 전에 닫는다. 새 기능 없음.
+- **수리 9건**: gate 로그인 실패 잠금 카운터가 호출되지 않음(`AuthLockJpaRepository.incrementAttempt` 호출자 0, `AuthServiceImpl:56` 이 식별자 자리에 providerCode 전달) · CAST 단일사용 검사를 SET NX 원자 연산으로 · JWKS `@Cacheable` 자기호출 우회(gate·hub, 별도 빈으로 분리) · 프로파일 `policy.session.{idleMinutes,absoluteMinutes,concurrent}` 를 FeSession 발급·갱신에서 강제 · 사용자 상태 변경 → 세션 무효화를 Kafka 없이 DB 아웃박스 폴링으로(hub 가 `qim.user.events` 를 직접 소비) · registry PII 삭제 경로 단일화(`subject_key` 포함) · `updateStatus` 의 상태 문자열 검증 · gate 자체 Keycloak 로그인에 PKCE·issuer 검증 · authz RLS `app.current_agency` 설정 또는 정책 제거
+- **설치본 정직화**: 운영 마이그레이션의 시드 기관 6개(V8 `AGENCY_STUB_001`, V13 시나리오 5개)를 V24 로 제거하고 테스트 픽스처로 이동 · 코어 `application.yml` 의 `IDEM_PLUGINS_NICE_OACX_ENABLED`/`ANYID_ENABLED` 기본값 false(KR 에디션 후처리기가 true 공급) · hub 가 플러그인 3개를 항상 번들하는 것을 에디션별로 · `CrossAgencySsoController` `*.agency.go.kr`·`CastTokenServiceImpl` `"ONEPASS"`·`NonOidcBrokerAdapter` 한국 인증서 switch·`ProviderRouter` KAKAO/NAVER·`DeadLetterNotifier` onepass.go.kr 제거(프로파일·설정으로) · 커밋된 잡동사니(`login-flow.html`·`project_analysis.md`·`기능명세서_*.md`·`outputs/*.pptx`) 제거 · `infra/k8s` 의 smes 매니페스트 7개는 삭제 또는 `editions/` 로
+- **CI**: `compose.install.yml` 을 GitHub Actions 에서 실제로 올려(postgres·redis·keycloak·gate·hub·registry·authz) 헬스 + Discovery + 프로파일 PUT→client 생성 + Handoff 스모크까지. 지금 k6 는 hub 만 기동하고 registry 는 Node 스텁이라 이번 결함 4건을 한 번도 못 잡았다
+완료 기준: 위 항목마다 회귀 테스트, CI 설치본 스모크 녹색, `install.md` 의 "기동해 보지 못했다" 문장 삭제.
+
+### S7 — 관리자 인증 + 최소 관리 콘솔 (4~6주, `execution-plan.md` P1 과 동일 작업, v0.4 에서 S6 뒤로, **v0.5 에서 심사 전제·차단 항목**)
 
 관리자 I&A(2단계 인증)·보안관리자/감사자 권한 분리·세션 잠금·패스워드 정책(P1) 위에 기관 목록/온보딩/프로파일 편집(스키마 기반 폼)/정책 시뮬레이션/감사 조회. `idem-console` 의 SigNoz 잔재 정리 후 **관리 앱과 사용자 포털 분리**(`idem-console-admin`, `idem-portal`). 사용자 포털은 뒤로 미루고, 콘솔의 벤더 훅(EzAuth·AnyID, 일부 죽은 코드)은 `useAuthWidget` 로 정리하거나 제거.
-완료 기준: GS 시연 시나리오(설치 → 관리자 로그인 → 기관 온보딩 → 로그인 → 감사 조회)를 콘솔만으로 수행.
+**v0.5 결정**: (1) 관리자 인증이 없으면 GS·CC 어느 심사도 시작할 수 없다 — `/api/v1/admin/**`·`/api/v1/internal/**` 전부를 Spring Security 체인 뒤로(관리자 세션 + 2단계, 내부 API 는 기존 HMAC/키), `X-Admin-Id` 헤더 제거 (2) 현 `idem-console`(489 파일·48k 라인, 중기원패스 회원 포털)은 **KR 에디션의 포털로 옮기고** 코어에는 작은 관리 콘솔(`idem-console-admin`)을 새로 짓는다 — 기관 목록·온보딩(프로파일 스키마 폼)·OIDC client 상태/secret 회전·정책 시뮬레이션·할당·감사 조회·관리자 관리 (3) 셀프서비스 포털 백엔드(`/api/v1/ext/**`, 현재 정의된 곳 없음)는 KR 에디션 요구로 분류하고 코어 1.0 범위 밖으로 명시 (4) 테넌트 스코프 최소 구현 — 관리자는 테넌트에 속하고 관리 API 는 그 테넌트의 기관만 본다(사용자 유일성의 테넌트 스코프화는 S9 개명과 함께).
+완료 기준: GS 시연 시나리오(설치 → 관리자 로그인(2단계) → 기관 온보딩 → 표준 OIDC 로그인 → 로그아웃 → 감사 조회)를 관리 콘솔과 tenant-sample 만으로 수행. 무인증 관리 엔드포인트 0.
 
 ### S9 — 개명 마무리 + 에디션 패키징 + 1.0 동결 (3~4주)
 
@@ -480,6 +524,9 @@ Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `Integ
 | 위험 | 대응 |
 |---|---|
 | S4·S8 이 registry 데이터 모델을 건드려 운영 데이터 이관 필요 | 백필 마이그레이션 + 이중 읽기, 이관 리허설을 Testcontainers 로 자동화 |
+| 관리자 무인증 상태로 시연·심사에 들어감 | S7 을 차단 항목으로 — D3 뒤 즉시, 콘솔보다 인증을 먼저 |
+| CI 가 설치본을 기동하지 않아 설치 결함이 누적 (S6 에서 4건 발견) | D3 에서 compose 실기동 스모크를 PR 게이트로 |
+| 콘솔 재작성 비용을 과소평가 | 현 콘솔은 KR 에디션으로 이동(삭제 아님), 코어 관리 콘솔은 화면 6개로 시작 |
 | OIDC_RP 에서 Idem 정책을 Keycloak 이 우회 | Keycloak client 는 Idem 만 프로비저닝, 정책 authenticator 필수, 직접 등록 금지 |
 | 프로파일 스키마가 과도하게 커짐 | v1 은 §2.1 범위로 제한, 확장은 마이너 버전 + 마이그레이터 |
 | 벤더 SDK 미수령으로 S5 검증 지연 | Mock 플러그인으로 코어 검증, 벤더 플러그인은 계약 테스트만 |
