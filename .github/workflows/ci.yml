@@ -117,6 +117,7 @@ jobs:
           path: |
             idem-hub/build/libs/idem-hub-*.jar
             !idem-hub/build/libs/*-plain.jar
+            !idem-hub/build/libs/*-test-fixtures.jar   # S8-a: java-test-fixtures 산출물 — 실행 가능 jar 가 아니다
           retention-days: 1
 
   # ── Job 2: FE 빌드 검증 ───────────────────────────────────────────────────────
@@ -366,11 +367,11 @@ jobs:
           IDEM_KAFKA_ENABLED: "false"
         run: |
           # 빌드된 JAR로 서버 시작 (백그라운드)
-          IDO_JAR=$(find ./artifacts -name "idem-hub-*.jar" | head -1)
+          IDO_JAR=$(find ./artifacts -name "idem-hub-*.jar" -not -name "*-plain.jar" -not -name "*-test-fixtures.jar" | head -1)
           if [ -z "$IDO_JAR" ]; then
             echo "⚠️  idem-hub JAR not found in artifacts, building from source..."
             ./gradlew :idem-hub:bootJar -x test --no-daemon
-            IDO_JAR=$(find idem-hub/build/libs -name "idem-hub-*.jar" | head -1)
+            IDO_JAR=$(find idem-hub/build/libs -name "idem-hub-*.jar" -not -name "*-plain.jar" -not -name "*-test-fixtures.jar" | head -1)
           fi
           # 부팅 시크릿 가드(F3.3/F4.3/F4.8/Keycloak) 통과용 1회용 랜덤 시크릿
           # — escape hatch(allow-empty-*) 대신 실키 주입으로 운영 경로 그대로 검증
