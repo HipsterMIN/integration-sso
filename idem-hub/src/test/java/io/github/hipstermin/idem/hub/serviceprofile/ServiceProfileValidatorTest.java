@@ -44,7 +44,8 @@ class ServiceProfileValidatorTest {
                  "identity":{"attributes":["name_masked","mobile_masked"],"attributeMapping":{"name_masked":"userNm"}},
                  "policy":{"minAuthLevel":"L2","policyVersion":"1.3","allowedProviders":["NICE"],
                            "session":{"idleMinutes":30,"absoluteMinutes":480,"concurrent":1},
-                           "maintenance":[{"dayOfWeek":"MON","startTime":"02:00","endTime":"04:00"}]},
+                           "maintenance":[{"dayOfWeek":"MON","startTime":"02:00","endTime":"04:00"}],
+                           "assignment":{"required":true,"selfSignup":false}},
                  "limits":{"tps":50,"daily":100000},
                  "ui":{"brandName":"기관 A","logoUrl":"https://a.example.org/logo.png","locale":"ko"}}
                 """;

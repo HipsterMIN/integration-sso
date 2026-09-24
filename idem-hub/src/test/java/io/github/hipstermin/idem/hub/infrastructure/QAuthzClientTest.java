@@ -85,4 +85,44 @@ class QAuthzClientTest {
         assertThat(client.getEffectiveRoles(null, "GOV_SMES", "cid")).isEmpty();
         assertThat(client.getEffectiveRoles("u1", "", "cid")).isEmpty();
     }
+
+    // ── S8-b getServiceAccess ─────────────────────────────────────────────────
+    @Test
+    @DisplayName("S8-b getServiceAccess: assigned·assignmentSource·roles 를 파싱한다")
+    void getServiceAccess_success() {
+        ResponseEntity<Map> resp = new ResponseEntity<>(
+                Map.of("qimUserId", "u1", "agencyCode", "GOV_SMES", "assigned", true,
+                        "assignmentSource", "CONSOLE", "roles", List.of("MANAGER")),
+                HttpStatus.OK);
+        when(qAuthzRestTemplate.exchange(
+                contains("/users/u1/access"), eq(HttpMethod.GET), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(resp);
+        ServiceAccess access = client.getServiceAccess("u1", "GOV_SMES", "cid");
+        assertThat(access.authzEnabled()).isTrue();
+        assertThat(access.assigned()).isTrue();
+        assertThat(access.assignmentSource()).isEqualTo("CONSOLE");
+        assertThat(access.roles()).containsExactly("MANAGER");
+    }
+
+    @Test
+    @DisplayName("S8-b getServiceAccess: 장애 → IDO_AUTHZ_UNAVAILABLE (미할당으로 위장하지 않는다)")
+    void getServiceAccess_failSecure() {
+        when(qAuthzRestTemplate.exchange(
+                any(String.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(Map.class)))
+                .thenThrow(new RestClientException("down"));
+        assertThatThrownBy(() -> client.getServiceAccess("u1", "GOV_SMES", "cid"))
+                .isInstanceOf(PlatformException.class)
+                .satisfies(e -> assertThat(((PlatformException) e).getErrorCode())
+                        .isEqualTo(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE));
+    }
+
+    @Test
+    @DisplayName("S8-b getServiceAccess: ido.q-authz.enabled=false → disabled() (authzEnabled=false, 호출 없음)")
+    void getServiceAccess_disabled() {
+        ReflectionTestUtils.setField(client, "enabled", false);
+        ServiceAccess access = client.getServiceAccess("u1", "GOV_SMES", "cid");
+        assertThat(access.authzEnabled()).isFalse();
+        assertThat(access.assigned()).isFalse();
+        verifyNoInteractions(qAuthzRestTemplate);
+    }
 }

@@ -2,6 +2,8 @@ package io.github.hipstermin.idem.authz.api;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -16,6 +18,7 @@ import io.github.hipstermin.idem.authz.domain.AuthzUserRoleEntity;
 import io.github.hipstermin.idem.authz.domain.GrantSource;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,5 +97,63 @@ class AuthzInternalControllerTest {
                         .param("roleCode", "MANAGER")
                         .param("revokedBy", "admin@onepass"))
                 .andExpect(status().isNoContent());
+    }
+
+    // ── S8-b 할당 ────────────────────────────────────────────────────────────
+    private io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity sampleServiceAssignment() {
+        return io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.builder()
+                .id(UUID.randomUUID()).qimUserId("user-1").agencyCode("GOV_SMES")
+                .status(AssignmentStatus.ACTIVE).source(io.github.hipstermin.idem.authz.domain.AssignmentSource.CONSOLE)
+                .grantedAt(Instant.now()).grantedBy("admin@onepass").build();
+    }
+
+    @Test
+    void assign_returns201() throws Exception {
+        when(authzService.assign(any(), any(), any())).thenReturn(sampleServiceAssignment());
+        String body = om.writeValueAsString(java.util.Map.of(
+                "qimUserId", "user-1", "agencyCode", "GOV_SMES", "grantedBy", "admin@onepass", "source", "CONSOLE"));
+        mockMvc.perform(post("/api/v1/internal/authz/assignments")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.agencyCode").value("GOV_SMES"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.source").value("CONSOLE"));
+    }
+
+    @Test
+    void assign_missingGrantedBy_returns400() throws Exception {
+        String body = om.writeValueAsString(java.util.Map.of("qimUserId", "user-1", "agencyCode", "GOV_SMES"));
+        mockMvc.perform(post("/api/v1/internal/authz/assignments")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void unassign_returns204() throws Exception {
+        mockMvc.perform(delete("/api/v1/internal/authz/assignments")
+                        .param("qimUserId", "user-1").param("agencyCode", "GOV_SMES").param("revokedBy", "admin"))
+                .andExpect(status().isNoContent());
+        verify(authzService).unassign(eq("user-1"), eq("GOV_SMES"), eq("admin"), any(), isNull(), isNull());
+    }
+
+    @Test
+    void access_returnsAssignedAndRoles() throws Exception {
+        when(authzService.effectiveAssignment("user-1", "GOV_SMES")).thenReturn(Optional.of(sampleServiceAssignment()));
+        when(authzService.effectiveRoleCodes("user-1", "GOV_SMES")).thenReturn(List.of("MANAGER"));
+        mockMvc.perform(get("/api/v1/internal/authz/users/user-1/access").param("agencyCode", "GOV_SMES"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assigned").value(true))
+                .andExpect(jsonPath("$.assignmentSource").value("CONSOLE"))
+                .andExpect(jsonPath("$.roles[0]").value("MANAGER"));
+    }
+
+    @Test
+    void access_unassigned_returnsFalse() throws Exception {
+        when(authzService.effectiveAssignment("user-2", "GOV_SMES")).thenReturn(Optional.empty());
+        when(authzService.effectiveRoleCodes("user-2", "GOV_SMES")).thenReturn(List.of());
+        mockMvc.perform(get("/api/v1/internal/authz/users/user-2/access").param("agencyCode", "GOV_SMES"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assigned").value(false))
+                .andExpect(jsonPath("$.roles").isEmpty());
     }
 }

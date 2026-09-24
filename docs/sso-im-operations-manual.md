@@ -198,7 +198,7 @@ openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 
 prod/stage 에서 **반드시 true** 여야 하는 것: `IDO_AUDIT_DB_ENABLED`, `IDO_SECURITY_HEADERS_ENABLED`, `IDO_AUTH_RL_ENABLED`, `IDO_RATE_LIMIT_ENABLED`, `IDO_REDISSON_ENABLED`.
 
-**런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
+**런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
 
 ## 4. 데이터베이스 운영
 

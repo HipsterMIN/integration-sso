@@ -12,7 +12,9 @@ import io.github.hipstermin.idem.hub.identity.HandoffAttributeAssembler;
 import io.github.hipstermin.idem.hub.identity.SubjectIdentifierResolver;
 import io.github.hipstermin.idem.hub.identity.SubjectResolutionContext;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
+import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
 import io.github.hipstermin.idem.hub.infrastructure.QimClient;
+import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
 import io.github.hipstermin.idem.hub.infrastructure.UserStatusCache;
 import io.github.hipstermin.idem.hub.policy.rule.MaintenanceRule;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
@@ -59,6 +61,7 @@ public class PolicyEngineImpl implements PolicyEngine {
     private final ServiceProfileService serviceProfileService;
     private final SubjectIdentifierResolver subjectResolver;
     private final HandoffAttributeAssembler attributeAssembler;
+    private final QAuthzClient         qAuthzClient;   // S8-b 할당·역할
     private final List<PolicyRule>     builtInRules;
     private final Map<String, PolicyRule> customRules;
 
@@ -68,6 +71,7 @@ public class PolicyEngineImpl implements PolicyEngine {
                             ServiceProfileService serviceProfileService,
                             SubjectIdentifierResolver subjectResolver,
                             HandoffAttributeAssembler attributeAssembler,
+                            QAuthzClient qAuthzClient,
                             List<PolicyRule> rules) {
         this.userStatusCache      = userStatusCache;
         this.qimClient            = qimClient;
@@ -75,6 +79,7 @@ public class PolicyEngineImpl implements PolicyEngine {
         this.serviceProfileService = serviceProfileService;
         this.subjectResolver      = subjectResolver;
         this.attributeAssembler   = attributeAssembler;
+        this.qAuthzClient         = qAuthzClient;
         this.builtInRules = rules.stream().filter(PolicyRule::builtIn)
                 .sorted(Comparator.comparingInt(PolicyRule::order)).toList();
         Map<String, PolicyRule> custom = new LinkedHashMap<>();
@@ -185,14 +190,31 @@ public class PolicyEngineImpl implements PolicyEngine {
         // 4. 속성 — 프로파일 identity.attributes/attributeMapping 으로 조립 (GUEST 도 같은 계약을 따른다)
         Map<String, Object> attributes = attributeAssembler.assemble(identity, ticket, correlationId);
 
-        HandoffPayload.HandoffState state = agencySubjectId == null
-                ? HandoffPayload.HandoffState.GUEST : HandoffPayload.HandoffState.APPROVED;
-        if (state == HandoffPayload.HandoffState.GUEST) {
-            log.info("[PolicyEngine] 기관 매핑 없음(scheme={}) — GUEST 반환: qimUserId={} agency={} correlationId={}",
-                    scheme, qimUserId, agencyCode, correlationId);
+        // 5. S8-b 할당·역할 — authz 정본. 장애는 IDO_AUTHZ_UNAVAILABLE 로 전파(verify 는 consume 전이라 티켓은 살아 있다)
+        ServiceAccess access = qAuthzClient.getServiceAccess(qimUserId, agencyCode, correlationId);
+        ServiceProfile.Assignment assignment = profile != null && profile.policy() != null ? profile.policy().assignment() : null;
+        boolean assignmentRequired = assignment != null && assignment.requiresAssignment();
+        HandoffPayload.HandoffState state;
+        if (assignmentRequired) {
+            // 할당 정책이 켜진 프로파일: 상태는 할당이 정한다. 미할당은 발급 단계(AssignmentRule)에서 selfSignup 일 때만 통과했다
+            if (!access.authzEnabled()) {
+                throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId,
+                        "할당 필수 프로파일인데 idem-authz 가 비활성");
+            }
+            state = access.assigned() ? HandoffPayload.HandoffState.APPROVED : HandoffPayload.HandoffState.GUEST;
+            if (state == HandoffPayload.HandoffState.GUEST) {
+                log.info("[PolicyEngine] 미할당(selfSignup) — GUEST 반환: qimUserId={} agency={} subjectResolved={} correlationId={}",
+                        qimUserId, agencyCode, agencySubjectId != null, correlationId);
+            }
         } else {
-            log.debug("[PolicyEngine] 속성 조립: scheme={} attrs={}", scheme, attributes.size());
+            // 레거시 의미: 주체 식별자를 해석할 수 없으면 GUEST
+            state = agencySubjectId == null ? HandoffPayload.HandoffState.GUEST : HandoffPayload.HandoffState.APPROVED;
+            if (state == HandoffPayload.HandoffState.GUEST) {
+                log.info("[PolicyEngine] 기관 매핑 없음(scheme={}) — GUEST 반환: qimUserId={} agency={} correlationId={}",
+                        scheme, qimUserId, agencyCode, correlationId);
+            }
         }
+        log.debug("[PolicyEngine] 속성 조립: scheme={} attrs={} roles={}", scheme, attributes.size(), access.roles().size());
 
         return HandoffPayload.builder()
                 .ticketId(ticket.getTicketId())
@@ -201,11 +223,13 @@ public class PolicyEngineImpl implements PolicyEngine {
                 .policyVersion(resolvedPolicyVersion)
                 .state(state)
                 .subject(HandoffPayload.SubjectIdentifier.builder()
-                        .agencySubjectId(agencySubjectId)   // GUEST 는 null
+                        .agencySubjectId(agencySubjectId)   // 해석되지 않으면 null (S8-b: 미할당 GUEST 도 해석되면 실린다)
                         .subjectScheme(agencySubjectId != null ? scheme : null)
                         .qimUserId(qimUserId)
                         .status(userStatus)
+                        .assigned(access.authzEnabled() ? access.assigned() : null)
                         .build())
+                .roles(access.roles())
                 .authContext(HandoffPayload.AuthContext.builder()
                         .authLevel(ticket.getAuthLevel())
                         .authResultId(ticket.getAuthResultId())

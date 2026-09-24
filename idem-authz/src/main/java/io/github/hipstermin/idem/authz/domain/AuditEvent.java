@@ -5,5 +5,8 @@ public enum AuditEvent {
     GRANT,
     REVOKE,
     EXPIRE,
-    ROLE_CREATED
+    ROLE_CREATED,
+    /** S8-b 할당 */
+    ASSIGN,
+    UNASSIGN
 }

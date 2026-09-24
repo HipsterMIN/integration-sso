@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
+import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.CastToken;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
@@ -14,6 +17,9 @@ import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
+import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.time.Instant;
@@ -44,6 +50,7 @@ class CastTokenServiceTest {
     @Mock private ValueOperations<String, Object> valueOps;
     @Mock private JdbcTemplate               jdbcTemplate;
     @Mock private QAuthzClient               qAuthzClient;
+    @Mock private ServiceProfileService      serviceProfileService;
 
     /** Ed25519 키페어 (테스트용 인메모리 생성) */
     private KeyPair testKeyPair;
@@ -61,14 +68,15 @@ class CastTokenServiceTest {
 
         castTokenService = new CastTokenServiceImpl(
                 feSessionService, agencyMetaRepository,
-                redisTemplate, jdbcTemplate, qAuthzClient, testKeyPair
+                redisTemplate, jdbcTemplate, qAuthzClient, serviceProfileService, testKeyPair
         );
 
         // Redis mock 공통 설정 — lenient: 일부 테스트에서 미사용 허용
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
         // 연합 인가 — 기본 빈 역할(개별 테스트에서 필요 시 재정의)
-        lenient().when(qAuthzClient.getEffectiveRoles(anyString(), anyString(), any()))
-                .thenReturn(java.util.List.of());
+        lenient().when(qAuthzClient.getServiceAccess(anyString(), anyString(), any()))
+                .thenReturn(new ServiceAccess(true, false, null, java.util.List.of()));
+        lenient().when(serviceProfileService.find(anyString())).thenReturn(Optional.empty());
     }
 
     // ── issue() 성공 케이스 ───────────────────────────────────────────────
@@ -225,8 +233,8 @@ class CastTokenServiceTest {
         when(agencyMetaRepository.findByCode(TARGET_AGENCY)).thenReturn(Optional.of(agency));
         when(valueOps.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
         // q-authz가 역할 2개 반환
-        when(qAuthzClient.getEffectiveRoles(QIM_USER_ID, TARGET_AGENCY, "issue-cid-roles"))
-                .thenReturn(java.util.List.of("MANAGER", "REVIEWER"));
+        when(qAuthzClient.getServiceAccess(QIM_USER_ID, TARGET_AGENCY, "issue-cid-roles"))
+                .thenReturn(new ServiceAccess(true, true, "CONSOLE", java.util.List.of("MANAGER", "REVIEWER")));
 
         // When: 발급 → roles가 토큰 도메인 객체에 반영
         CastToken issued = castTokenService.issue("fe-session-roles", TARGET_AGENCY, "issue-cid-roles");
@@ -304,5 +312,31 @@ class CastTokenServiceTest {
                 .isInstanceOf(PlatformException.class)
                 .satisfies(e -> assertThat(((PlatformException) e).getErrorCode())
                         .isEqualTo(PlatformErrorCode.SSO_CAST_AGENCY_MISMATCH));
+    }
+
+    // ── S8-b 할당 정책 ──────────────────────────────────────────────────────
+    @Test
+    @DisplayName("S8-b: 대상 프로파일이 할당 필수인데 미할당 → IDO_ASSIGNMENT_REQUIRED (CAST 는 GUEST 가 없다)")
+    void issue_assignmentRequired_unassigned_denied() {
+        FeSession session = FeSession.builder()
+                .feSessionId("fe-session-asgn").qimUserId(QIM_USER_ID).authLevel("L2").authResultId("auth-asgn")
+                .createdAt(Instant.now()).lastActivityAt(Instant.now())
+                .absoluteExpiresAt(Instant.now().plusSeconds(3600)).build();
+        AgencyMeta agency = mock(AgencyMeta.class);
+        when(agency.isActive()).thenReturn(true);
+        when(feSessionService.findById("fe-session-asgn")).thenReturn(Optional.of(session));
+        when(agencyMetaRepository.findByCode(TARGET_AGENCY)).thenReturn(Optional.of(agency));
+        when(serviceProfileService.find(TARGET_AGENCY)).thenReturn(Optional.of(ServiceProfile.builder().schemaVersion(1)
+                .service(new ServiceProfile.Service(TARGET_AGENCY, "기관 B", ServiceProfile.ServiceStatus.ACTIVE))
+                .policy(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
+                        .assignment(new ServiceProfile.Assignment(true, true)).build()).build()));
+        when(qAuthzClient.getServiceAccess(QIM_USER_ID, TARGET_AGENCY, "cid-asgn"))
+                .thenReturn(new ServiceAccess(true, false, null, java.util.List.of()));
+
+        assertThatThrownBy(() -> castTokenService.issue("fe-session-asgn", TARGET_AGENCY, "cid-asgn"))
+                .isInstanceOf(PlatformException.class)
+                .extracting(e -> ((PlatformException) e).getErrorCode())
+                .isEqualTo(PlatformErrorCode.IDO_ASSIGNMENT_REQUIRED);
+        verify(valueOps, never()).setIfAbsent(anyString(), anyString(), any());
     }
 }

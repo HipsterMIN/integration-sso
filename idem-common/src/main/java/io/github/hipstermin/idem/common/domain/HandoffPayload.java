@@ -3,6 +3,7 @@ package io.github.hipstermin.idem.common.domain;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.hipstermin.idem.common.identity.SubjectScheme;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import lombok.Builder;
 import lombok.Getter;
@@ -31,15 +32,22 @@ public class HandoffPayload {
     /** 기관별 허용 속성 필터링 결과 */
     private final Map<String, Object> attributes;
 
+    /**
+     * S8-b 연합 인가: 이 Service 범위의 유효 앱 역할(idem-authz 정본, 굵은 RBAC). 세밀 집행은 기관 PEP 몫.
+     * 종전에는 발급 시 암호화 티켓 안에만 실려 verify 응답에는 나가지 않았다 — 이제 응답의 정식 필드다. 없으면 빈 목록.
+     */
+    private final List<String> roles;
+
     private final Instant issuedAt;
     private final Instant expiresAt;
 
     public enum HandoffState {
         APPROVED,
         /**
-         * Q-IM UUID 매핑이 없는 사용자 — 기관 회원 연결이 없음.
-         * 기관은 이 상태를 받으면 제한된 게스트 접근을 허용하거나 회원 가입 안내로 유도해야 한다.
-         * agencySubjectId는 null이고 qimUserId만 포함된다.
+         * S8-b: <b>이 Service 에 할당되지 않은</b> 인증 사용자 — 프로파일이 셀프 가입({@code policy.assignment.selfSignup})을
+         * 허용할 때만 나온다(할당 필수인데 셀프 가입도 없으면 발급 단계에서 E-IDO-120 거부). 기관은 회원 가입·계정 연결로 유도한다.
+         * 주체 식별자는 해석되면 함께 실린다(PAIRWISE 는 첫 발급 시 생성) — 기관이 가입 완료 후 같은 식별자로 연결할 수 있게.
+         * 레거시 의미(주체 식별자를 해석할 수 없음)는 할당 정책을 켜지 않은 프로파일에서만 남아 있다.
          */
         GUEST,
         HOLD,
@@ -57,6 +65,8 @@ public class HandoffPayload {
         /** Q-IM 내부 사용자 ID (정본) */
         private final String qimUserId;
         private final UserStatus status;
+        /** S8-b: 이 Service 에 할당된 사용자인가 (idem-authz 정본). authz 없는 설치는 null */
+        private final Boolean assigned;
     }
 
     @Getter

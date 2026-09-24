@@ -1,11 +1,15 @@
 package io.github.hipstermin.idem.authz.api;
 
+import io.github.hipstermin.idem.authz.api.dto.AssignRequest;
+import io.github.hipstermin.idem.authz.api.dto.AssignmentResponse;
 import io.github.hipstermin.idem.authz.api.dto.CreateRoleRequest;
 import io.github.hipstermin.idem.authz.api.dto.EffectiveRolesResponse;
 import io.github.hipstermin.idem.authz.api.dto.GrantRoleRequest;
 import io.github.hipstermin.idem.authz.api.dto.RoleResponse;
+import io.github.hipstermin.idem.authz.api.dto.ServiceAccessResponse;
 import io.github.hipstermin.idem.authz.api.dto.UserRoleResponse;
 import io.github.hipstermin.idem.authz.application.AuthzService;
+import io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -89,6 +93,41 @@ public class AuthzInternalController {
         authzService.revokeRole(qimUserId, agencyCode, roleCode,
                 resolveActor(revokedBy), clientIp(request), reason, correlationId);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── S8-b 할당 ────────────────────────────────────────────────────────────
+
+    @PostMapping("/assignments")
+    public ResponseEntity<AssignmentResponse> assign(
+            @Valid @RequestBody AssignRequest req,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            HttpServletRequest request) {
+        AssignmentResponse res = AssignmentResponse.from(
+                authzService.assign(req, clientIp(request), correlationId));
+        return ResponseEntity.status(HttpStatus.CREATED).body(res);
+    }
+
+    @DeleteMapping("/assignments")
+    public ResponseEntity<Void> unassign(
+            @RequestParam("qimUserId") String qimUserId,
+            @RequestParam("agencyCode") String agencyCode,
+            @RequestParam(value = "revokedBy", required = false) String revokedBy,
+            @RequestParam(value = "reason", required = false) String reason,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            HttpServletRequest request) {
+        authzService.unassign(qimUserId, agencyCode, resolveActor(revokedBy), clientIp(request), reason, correlationId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** hub 발급 경로가 한 번에 읽는 접근 정보: 할당 여부 + 유효 역할. */
+    @GetMapping("/users/{qimUserId}/access")
+    public ResponseEntity<ServiceAccessResponse> access(
+            @PathVariable String qimUserId,
+            @RequestParam("agencyCode") String agencyCode) {
+        AuthzAssignmentEntity assignment = authzService.effectiveAssignment(qimUserId, agencyCode).orElse(null);
+        List<String> roles = authzService.effectiveRoleCodes(qimUserId, agencyCode);
+        return ResponseEntity.ok(new ServiceAccessResponse(qimUserId, agencyCode,
+                assignment != null, assignment != null ? assignment.getSource().name() : null, roles));
     }
 
     // ── 조회 ────────────────────────────────────────────────────────────────

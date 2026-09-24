@@ -2,19 +2,25 @@ package io.github.hipstermin.idem.authz.application;
 
 import io.github.hipstermin.idem.authz.api.AuthzErrorCode;
 import io.github.hipstermin.idem.authz.api.AuthzException;
+import io.github.hipstermin.idem.authz.api.dto.AssignRequest;
 import io.github.hipstermin.idem.authz.api.dto.CreateRoleRequest;
 import io.github.hipstermin.idem.authz.api.dto.GrantRoleRequest;
+import io.github.hipstermin.idem.authz.domain.AssignmentSource;
 import io.github.hipstermin.idem.authz.domain.AssignmentStatus;
 import io.github.hipstermin.idem.authz.domain.AuditEvent;
+import io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity;
 import io.github.hipstermin.idem.authz.domain.AuthzRoleEntity;
 import io.github.hipstermin.idem.authz.domain.AuthzRoleId;
 import io.github.hipstermin.idem.authz.domain.AuthzUserRoleEntity;
 import io.github.hipstermin.idem.authz.domain.GrantSource;
+import io.github.hipstermin.idem.authz.infrastructure.AuthzAssignmentRepository;
 import io.github.hipstermin.idem.authz.infrastructure.AuthzRoleRepository;
 import io.github.hipstermin.idem.authz.infrastructure.AuthzUserRoleRepository;
 import io.github.hipstermin.idem.common.event.AuthorizationEvent;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +42,7 @@ public class AuthzService {
     private final AuthzUserRoleRepository userRoleRepository;
     private final AuthzAuditService       auditService;
     private final AuthzOutboxService      outboxService;
+    private final AuthzAssignmentRepository assignmentRepository;   // S8-b
 
     // ── 역할 카탈로그 ──────────────────────────────────────────────────────────
 
@@ -120,6 +127,8 @@ public class AuthzService {
 
         auditService.record(AuditEvent.GRANT, req.qimUserId(), req.agencyCode(), req.roleCode(),
                 req.grantedBy(), actorIp, req.reason(), correlationId);
+        // S8-b: 역할이 있으면 그 Service 의 사용자다 — 할당이 없으면 자동 생성(source=ROLE_GRANT)
+        ensureAssigned(req.qimUserId(), req.agencyCode(), req.grantedBy(), actorIp, correlationId);
         // 회수 전파 기반: 부여 이벤트를 같은 TX로 아웃박스 적재
         outboxService.publishInTx(AuthorizationEvent.granted(
                 req.qimUserId(), req.agencyCode(), req.roleCode(),
@@ -193,14 +202,102 @@ public class AuthzService {
             outboxService.publishInTx(AuthorizationEvent.expired(
                     e.getQimUserId(), e.getAgencyCode(), e.getRoleCode(), "expires_at 경과 자동 만료"));
         }
-        if (!page.isEmpty()) {
-            log.info("[q-authz] 만료 전이 {}건 처리 (잔여 추정 hasNext={})",
-                    page.getNumberOfElements(), page.hasNext());
+        // S8-b: 한시 할당도 같은 주기로 만료
+        var assignments = assignmentRepository.findByStatusAndExpiresAtNotNullAndExpiresAtBefore(
+                AssignmentStatus.ACTIVE, now, org.springframework.data.domain.PageRequest.of(0, batchSize));
+        for (AuthzAssignmentEntity a : assignments.getContent()) {
+            a.setStatus(AssignmentStatus.EXPIRED);
+            assignmentRepository.save(a);
+            auditService.record(AuditEvent.UNASSIGN, a.getQimUserId(), a.getAgencyCode(), null,
+                    "SYSTEM", null, "expires_at 경과 자동 만료(할당)", null);
         }
-        return page.getNumberOfElements();
+        if (!page.isEmpty() || !assignments.isEmpty()) {
+            log.info("[q-authz] 만료 전이 역할 {}건·할당 {}건 처리 (잔여 추정 hasNext={})",
+                    page.getNumberOfElements(), assignments.getNumberOfElements(), page.hasNext() || assignments.hasNext());
+        }
+        return page.getNumberOfElements() + assignments.getNumberOfElements();
     }
 
     // ── private ───────────────────────────────────────────────────────────────
+
+    // ── S8-b 할당 ────────────────────────────────────────────────────────────
+
+    /** 사용자를 Service 에 할당한다 — 멱등(이미 ACTIVE 면 만료·출처·사유만 갱신). REVOKED/EXPIRED 는 재활성화. */
+    @Transactional
+    public AuthzAssignmentEntity assign(AssignRequest req, String actorIp, String correlationId) {
+        AssignmentSource source = parseAssignmentSource(req.source());
+        AuthzAssignmentEntity entity = assignmentRepository
+                .findByQimUserIdAndAgencyCode(req.qimUserId(), req.agencyCode())
+                .orElse(null);
+        if (entity != null && entity.getStatus() == AssignmentStatus.ACTIVE) {
+            entity.setExpiresAt(req.expiresAt());
+            entity.setSource(source);
+            entity.setReason(req.reason());
+            assignmentRepository.save(entity);
+            log.info("[q-authz] 할당 멱등(이미 ACTIVE) user={} agency={}", req.qimUserId(), req.agencyCode());
+            return entity;
+        }
+        if (entity == null) {
+            entity = AuthzAssignmentEntity.builder()
+                    .id(UUID.randomUUID())
+                    .qimUserId(req.qimUserId())
+                    .agencyCode(req.agencyCode())
+                    .build();
+        }
+        entity.setStatus(AssignmentStatus.ACTIVE);
+        entity.setSource(source);
+        entity.setGrantedAt(Instant.now());
+        entity.setGrantedBy(req.grantedBy());
+        entity.setExpiresAt(req.expiresAt());
+        entity.setReason(req.reason());
+        entity.setRevokedAt(null);
+        entity.setRevokedBy(null);
+        assignmentRepository.save(entity);
+        auditService.record(AuditEvent.ASSIGN, req.qimUserId(), req.agencyCode(), null,
+                req.grantedBy(), actorIp, req.reason(), correlationId);
+        return entity;
+    }
+
+    /** 할당 해제 — 역할 부여는 건드리지 않는다(역할은 남지만 미할당이라 발급이 거부된다). */
+    @Transactional
+    public void unassign(String qimUserId, String agencyCode, String revokedBy, String actorIp,
+                         String reason, String correlationId) {
+        AuthzAssignmentEntity entity = assignmentRepository
+                .findByQimUserIdAndAgencyCode(qimUserId, agencyCode)
+                .orElseThrow(() -> new AuthzException(AuthzErrorCode.ASSIGNMENT_NOT_FOUND,
+                        "할당 없음: " + qimUserId + "@" + agencyCode));
+        if (entity.getStatus() != AssignmentStatus.REVOKED) {
+            entity.setStatus(AssignmentStatus.REVOKED);
+            entity.setRevokedAt(Instant.now());
+            entity.setRevokedBy(revokedBy);
+            assignmentRepository.save(entity);
+        }
+        auditService.record(AuditEvent.UNASSIGN, qimUserId, agencyCode, null,
+                revokedBy, actorIp, reason, correlationId);
+    }
+
+    /** 유효 할당 (ACTIVE 이고 만료 전). */
+    @Transactional(readOnly = true)
+    public Optional<AuthzAssignmentEntity> effectiveAssignment(String qimUserId, String agencyCode) {
+        Instant now = Instant.now();
+        return assignmentRepository.findByQimUserIdAndAgencyCode(qimUserId, agencyCode)
+                .filter(a -> a.isEffectiveAt(now));
+    }
+
+    private void ensureAssigned(String qimUserId, String agencyCode, String actor, String actorIp, String correlationId) {
+        if (effectiveAssignment(qimUserId, agencyCode).isPresent()) return;
+        assign(new AssignRequest(qimUserId, agencyCode, actor, null,
+                AssignmentSource.ROLE_GRANT.name(), "역할 부여로 자동 할당"), actorIp, correlationId);
+    }
+
+    private AssignmentSource parseAssignmentSource(String raw) {
+        if (raw == null || raw.isBlank()) return AssignmentSource.API;
+        try {
+            return AssignmentSource.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new AuthzException(AuthzErrorCode.INVALID_REQUEST, "source 값이 유효하지 않습니다: " + raw);
+        }
+    }
 
     private GrantSource parseSource(String raw) {
         if (raw == null || raw.isBlank()) return GrantSource.API;

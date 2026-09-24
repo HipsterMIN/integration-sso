@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.hub.policy.rule;
 
 import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.UserStatus;
+import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
 import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import java.time.Instant;
 import java.util.function.Supplier;
@@ -25,6 +26,8 @@ public record PolicyContext(
         AuthResult.AuthLevel authLevel,
         String providerCode,
         Supplier<UserStatus> userStatus,
+        /** S8-b: 할당·역할 (idem-authz) — 지연 조회. 시뮬레이션은 고정값 공급 가능. null 이면 ASSIGNMENT 규칙은 SKIP */
+        Supplier<ServiceAccess> serviceAccess,
         Instant now,
         String correlationId) {
 
