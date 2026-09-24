@@ -5,8 +5,10 @@ import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.common.event.AuditLogEvent;
 import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
+import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
+import io.github.hipstermin.idem.hub.protocol.oidcrp.OidcRpClientProvisioner;
 import io.github.hipstermin.idem.hub.tenant.TenantJpaRepository;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,6 +43,7 @@ public class ServiceProfileService {
     private final ServiceProfileValidator  validator;
     private final JdbcTemplate            jdbcTemplate;
     private final AuditLogPublisher       auditLogPublisher;
+    private final OidcRpClientProvisioner oidcRpProvisioner;
 
     @Transactional(readOnly = true)
     public ServiceProfile get(String serviceCode) {
@@ -86,8 +89,15 @@ public class ServiceProfileService {
                 : Optional.ofNullable(entity.getProfile())
                           .orElseGet(() -> mapper.toJson(mapper.fromEntity(entity, null)));
 
+        IntegrationType previousType = entity.getIntegrationType();
         mapper.applyToEntity(requested, entity);
         AgencyMetaJpaEntity saved = jpaRepository.save(entity);
+
+        // S6: OIDC_RP 면 같은 트랜잭션에서 Keycloak client 를 맞춘다 — 실패(E-IDO-122)는 저장을 되돌린다.
+        // OIDC_RP 가 아니고 이전에도 아니었으면 Keycloak 을 부르지 않는다(Keycloak 없는 설치본·테스트 무영향)
+        if (requested.protocol().type() == IntegrationType.OIDC_RP || previousType == IntegrationType.OIDC_RP) {
+            oidcRpProvisioner.sync(requested, adminId, correlationId);
+        }
 
         recordHistory(serviceCode, saved.getPolicyVersion(), previousSnapshot, adminId,
                 changeReason != null ? changeReason : (created ? "프로파일 신규 등록" : "프로파일 갱신"));

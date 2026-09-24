@@ -94,7 +94,28 @@ hub 기동 로그에 다음 줄이 있어야 한다: `[Idem] Kafka 비활성 (id
      ```
 3. `IDEM_PLUGINS_MOCK_AUTH_ENABLED=false` 로 되돌리고 hub 재기동.
 
-표준 OIDC 로그인(Keycloak 경유)은 `IDO_BROKER_MODE=keycloak` 으로 바꾸고 `IDEM_PUBLIC_URL_*` 를 브라우저가 접근하는 주소로 준다. Keycloak 콘솔은 `http://localhost:8088`(admin / `KEYCLOAK_ADMIN_PASSWORD`) — 기관에는 노출하지 않는다(S6 에서 Idem 이 client 를 프로비저닝한다).
+### 5.1 표준 OIDC 로 기관 붙이기 (S6 — Keycloak 은 보이지 않는다)
+
+기관이 표준 OIDC Relying Party 로 붙는 경로다. 사람이 Keycloak 콘솔에 들어가는 단계는 없다.
+
+1. 기관 프로파일을 `protocol.type=OIDC_RP` 로 저장한다 — hub 가 같은 트랜잭션에서 Keycloak client `idem-svc-{code}` 를 만든다(실패하면 저장도 되돌린다, `E-IDO-122`):
+   ```bash
+   curl -X PUT http://localhost:8083/api/v1/admin/services/AGENCY_B/profile -H 'Content-Type: application/json' -H 'X-Admin-Id: installer' -d '{
+     "schemaVersion":1, "service":{"code":"AGENCY_B","name":"기관 B","status":"ACTIVE"},
+     "protocol":{"type":"OIDC_RP","oidc":{"redirectUris":["https://b.example.org/login/oauth2/code/idem"],
+                                          "postLogoutRedirectUris":["https://b.example.org/"]}},
+     "policy":{"minAuthLevel":"L1"}}'
+   ```
+2. client secret 을 한 번 받아 기관에 전달한다(Idem 은 저장하지 않는다 — 다시 보려면 다시 회전):
+   ```bash
+   curl -X POST http://localhost:8083/api/v1/admin/services/AGENCY_B/oidc-client/secret -H 'X-Admin-Id: installer'
+   # → {"clientId":"idem-svc-AGENCY_B","clientSecret":"…","issuer":"http://localhost:8081/realms/onepass","discoveryUrl":"…/.well-known/openid-configuration"}
+   ```
+3. 기관에는 **issuer·client_id·client_secret** 셋만 준다. 기관 RP 는 `{issuer}/.well-known/openid-configuration` 으로 나머지를 찾는다. Authorization Code + PKCE(S256) 만 허용되며, 토큰 교환 시 hub 가 Idem 정책(점검·인증수준·허용 제공자·사용자 상태·할당)을 판정해 거부하면 토큰이 나가지 않는다(`access_denied`, 사유 `E-IDO-1xx`). userinfo 에는 `idem_service·idem_state·idem_subject·idem_roles·idem_assigned` 가 실린다.
+
+issuer 는 `{IDEM_PUBLIC_URL_GATE}/realms/onepass` 다. gate 가 `/realms/**`·`/resources/**` 를 Keycloak 으로 투명 프록시하므로 리버스 프록시는 gate 하나만 공개하면 된다. Keycloak 콘솔(`http://localhost:8088`, admin / `KEYCLOAK_ADMIN_PASSWORD`)은 설치자의 진단용이며, **Idem 이 만든 client(`idem-svc-*`)를 콘솔에서 고치지 않는다** — 다음 프로파일 저장이 덮어쓴다.
+
+`IDO_BROKER_MODE=keycloak` 은 hub 의 브라우저 로그인(FE 세션) 을 Keycloak 브로커로 돌리는 별개 설정이다.
 
 ## 6. Kafka 없이 무엇이 어떻게 도는가
 
@@ -115,7 +136,8 @@ hub 기동 로그에 다음 줄이 있어야 한다: `[Idem] Kafka 비활성 (id
 
 - [ ] `IDEM_PLUGINS_MOCK_AUTH_ENABLED=false`
 - [ ] `IDEM_PUBLIC_URL_HUB/GATE/CONSOLE` 를 실제 공개 주소(리버스 프록시·TLS)로. 앱 포트는 127.0.0.1 바인딩이므로 프록시가 필요하다
-- [ ] Keycloak realm 의 `redirectUris` 를 공개 주소로 (`infra/docker/keycloak/realm-export.json` 은 첫 import 에만 쓰인다 — 이후는 콘솔에서)
+- [ ] `IDEM_PUBLIC_URL_GATE` 를 바꿨으면 keycloak(`KC_HOSTNAME_URL`)·gate·hub 를 함께 재기동 — 표준 OIDC issuer 가 이 값이다. 기관 OIDC client 의 redirect URI 는 프로파일(`protocol.oidc.redirectUris`) 로 관리한다(콘솔 수정 금지). 내부 client(`q-sign-client`·`ido-client`) 의 `redirectUris` 만 `realm-export.json` 첫 import 값이다
+- [ ] **S6 이전 설치본 주의**: 종전 `realm-export.json` 의 secret 자리표시자(`${env.X:change-me}`)는 Keycloak 24 가 치환하지 않아 `q-sign-client`·`ido-client` 의 실제 secret 이 문자 그대로 `change-me` 였다(앱 쪽 값과 불일치). S6 에서 `${X}` 로 고쳤지만 realm import 는 첫 기동에만 적용되므로, 기존 설치본은 `keycloak-data` 볼륨을 지우고 다시 import 하거나(권장) 콘솔에서 세 client(`q-sign-client`·`ido-client`·`idem-provisioner`)의 secret 을 `install.env` 값으로 한 번 맞춘다
 - [ ] `install.env` 백업을 비밀 저장소에. 키 교체 절차는 `docs/sso-im-operations-manual.md`
 - [ ] KR 에디션이 필요하면 `IDEM_EDITION=kr` 로 재빌드. 벤더 플러그인은 `~/.idem/vendor-libs` 공급 후 이미지 재빌드 (`plugins/*/README.md`)
 - [ ] 백업: `pg-data` 볼륨(스키마 5개), `keycloak-data`

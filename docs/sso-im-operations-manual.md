@@ -198,7 +198,9 @@ openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 
 prod/stage 에서 **반드시 true** 여야 하는 것: `IDO_AUDIT_DB_ENABLED`, `IDO_SECURITY_HEADERS_ENABLED`, `IDO_AUTH_RL_ENABLED`, `IDO_RATE_LIMIT_ENABLED`, `IDO_REDISSON_ENABLED`.
 
-**런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
+**런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응 · `E-IDO-121` 연동 유형 불일치 — 400, OIDC_RP 기관에 Handoff 발급 요청 · `E-IDO-122` OIDC client 프로비저닝 실패 — 503, Keycloak 관리 API 장애 또는 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 미설정, 프로파일 저장이 되돌려진다 · `E-IDO-123` Idem 이 프로비저닝하지 않은 OIDC client — 403, 토큰 교환의 `client_id` 가 `idem-svc-*` 가 아니거나 프로파일이 OIDC_RP 가 아님): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
+
+**표준 OIDC(OIDC_RP) 경로 (S6)**: 기관 RP 의 토큰 교환이 `403 access_denied` 면 `error_description` 첫 토큰이 위 코드다(정책 거부). `503 temporarily_unavailable` 은 hub 판정 API(`/api/internal/v1/oidc-rp/access`) 또는 Keycloak 이 닿지 않는 것이다 — gate 로그 `[OIDC-FRONT]` 와 hub 로그 `[OidcRpAccess]` 를 본다. 프로파일 저장이 `E-IDO-122` 면 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 과 Keycloak 의 `idem-provisioner` client secret 이 같은지 확인한다(realm import 는 첫 기동에만 적용된다).
 
 ## 4. 데이터베이스 운영
 

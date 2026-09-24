@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.event.DomainEvent;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -60,7 +59,7 @@ public class OutboxServiceImpl implements OutboxService {
     private boolean relayEnabled;
 
     private final OutboxRepository              outboxRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate /* D1-b: Kafka 꺼지면 idem-common 의 DisabledKafkaTemplate — 한정자 없이 받는다 */;
     private final ObjectMapper                  objectMapper;
 
     /** GAP-QIM-05: Compacted Snapshot Topic 발행 서비스 */
@@ -68,7 +67,7 @@ public class OutboxServiceImpl implements OutboxService {
 
     public OutboxServiceImpl(
             OutboxRepository outboxRepository,
-            @Qualifier("qimKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate,
+            KafkaTemplate<String, Object> kafkaTemplate,
             ObjectMapper objectMapper,
             SnapshotService snapshotService) {
         this.outboxRepository = outboxRepository;

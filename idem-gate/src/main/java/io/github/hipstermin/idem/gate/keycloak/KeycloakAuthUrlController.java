@@ -1,6 +1,7 @@
 package io.github.hipstermin.idem.gate.keycloak;
 
 import io.github.hipstermin.idem.common.util.CorrelationIdHolder;
+import io.github.hipstermin.idem.gate.api.InternalSigVerifier;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -40,6 +41,7 @@ public class KeycloakAuthUrlController {
 
     private final KeycloakStateStore   stateStore;
     private final KeycloakProperties   keycloakProperties;
+    private final InternalSigVerifier  internalSigVerifier;
 
     /**
      * Keycloak Authorization URL 발급
@@ -67,6 +69,11 @@ public class KeycloakAuthUrlController {
         String correlationId = body.getOrDefault("correlationId",
                 headerCid != null ? headerCid : CorrelationIdHolder.get());
         CorrelationIdHolder.set(correlationId);
+        // S6 점검에서 발견: 헤더를 받기만 하고 검증하지 않던 내부 API — hub 는 항상 서명해 보낸다
+        if (!internalSigVerifier.verify(internalSig, correlationId)) {
+            log.warn("[KeycloakAuthUrl] X-Internal-Sig 검증 실패: caller={} correlationId={}", caller, correlationId);
+            return ResponseEntity.status(403).body(Map.of("error", "INTERNAL_SIG_INVALID"));
+        }
 
         String returnUrl      = body.getOrDefault("returnUrl", "");
         String requestedLevel = body.getOrDefault("requestedLevel", "L1");

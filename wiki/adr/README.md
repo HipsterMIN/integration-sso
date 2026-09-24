@@ -318,6 +318,7 @@ FE Axios 인스턴스를 `beInstance`(내부 API)와 `extInstance`(외부 CI API
 - [ADR-010](./ADR-010-cast-token-cross-agency-sso.md) — CAST Token Ed25519 (Cross-Agency SSO)
 - [ADR-011](./ADR-011-hmac-sha256-gateway-auth.md) — HMAC-SHA256 (Gateway 인증)
 - [ADR-012](./ADR-012-react-fe-dual-instance.md) — FE 이중 Axios 인스턴스 (CI 보안 분리)
+- [ADR-014](./ADR-014-hidden-keycloak-oidc-front.md) — Keycloak 을 숨긴 표준 OIDC 프런트 (OIDC_RP, 범용화 S6)
 
 ---
 

@@ -46,4 +46,12 @@ public interface PolicyEngine {
      * @param stopAtFirstDenial true 면 첫 DENY 에서 멈춘다(발급 경로). false 면 전부 평가(시뮬레이션)
      */
     PolicyEvaluation evaluate(PolicyContext ctx, boolean stopAtFirstDenial);
+
+    /**
+     * 기관향 주체 식별자 해석 (S4 스킴 — 기본 PAIRWISE_HMAC). S6 표준 OIDC 경로가 Handoff 와 같은 값을 내려주기 위해 공개.
+     *
+     * @return 해석되지 않으면(기관 매핑 없음) null. registry 장애는 {@code PlatformException}(안전 우선 거부)
+     */
+    String resolveAgencySubjectId(io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile profile,
+                                  String qimUserId, String serviceCode, String correlationId);
 }

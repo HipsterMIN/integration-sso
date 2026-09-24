@@ -53,6 +53,51 @@ class ServiceProfileValidatorTest {
     }
 
     @Test
+    @DisplayName("S6 OIDC_RP: oidc 블록이 있으면 유효하고, 없으면 if/then 이 잡는다")
+    void oidcRp_requiresOidcBlock() throws Exception {
+        String ok = """
+                {"schemaVersion":1,
+                 "service":{"code":"AG_OIDC","name":"OIDC 기관"},
+                 "protocol":{"type":"OIDC_RP",
+                             "oidc":{"redirectUris":["https://rp.example.org/login/oauth2/code/idem"],
+                                     "postLogoutRedirectUris":["https://rp.example.org/"],
+                                     "backchannelLogoutUri":"https://rp.example.org/logout/backchannel",
+                                     "clientAuthMethod":"CLIENT_SECRET_POST"}},
+                 "policy":{"minAuthLevel":"L1"}}
+                """;
+        assertThat(validator.violations(json(ok))).isEmpty();
+
+        List<String> missing = validator.violations(json(
+                "{\"schemaVersion\":1,\"service\":{\"code\":\"AG\",\"name\":\"x\"},\"protocol\":{\"type\":\"OIDC_RP\"},\"policy\":{\"minAuthLevel\":\"L1\"}}"));
+        assertThat(missing).anySatisfy(m -> assertThat(m).contains("oidc"));
+
+        List<String> emptyUris = validator.violations(json(
+                "{\"schemaVersion\":1,\"service\":{\"code\":\"AG\",\"name\":\"x\"},\"protocol\":{\"type\":\"OIDC_RP\",\"oidc\":{\"redirectUris\":[]}},\"policy\":{\"minAuthLevel\":\"L1\"}}"));
+        assertThat(emptyUris).anySatisfy(m -> assertThat(m).contains("redirectUris"));
+    }
+
+    @Test
+    @DisplayName("S6 OIDC_RP: 와일드카드·fragment·상대 redirect URI 와 다른 유형의 oidc 블록은 의미 검증이 거부한다")
+    void oidcRp_semanticRules() throws Exception {
+        String wildcard = """
+                {"schemaVersion":1,"service":{"code":"AG","name":"x"},
+                 "protocol":{"type":"OIDC_RP","oidc":{"redirectUris":["https://rp.example.org/*"]}},
+                 "policy":{"minAuthLevel":"L1"}}
+                """;
+        assertThat(validator.violations(json(wildcard))).anySatisfy(m -> assertThat(m).contains("와일드카드"));
+
+        String fragment = wildcard.replace("https://rp.example.org/*", "https://rp.example.org/cb#x");
+        assertThat(validator.violations(json(fragment))).anySatisfy(m -> assertThat(m).contains("redirectUris"));
+
+        String onDirect = """
+                {"schemaVersion":1,"service":{"code":"AG","name":"x"},
+                 "protocol":{"type":"DIRECT","oidc":{"redirectUris":["https://rp.example.org/cb"]}},
+                 "policy":{"minAuthLevel":"L1"}}
+                """;
+        assertThat(validator.violations(json(onDirect))).anySatisfy(m -> assertThat(m).contains("OIDC_RP 일 때만"));
+    }
+
+    @Test
     @DisplayName("필수 항목 누락·미지 속성·허용값 밖은 각각 위반으로 잡힌다")
     void violations_areReported() throws Exception {
         List<String> missingName = validator.violations(json(

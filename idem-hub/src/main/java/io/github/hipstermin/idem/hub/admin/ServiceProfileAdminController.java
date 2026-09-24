@@ -10,6 +10,9 @@ import io.github.hipstermin.idem.hub.policy.PolicyEngine;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyEvaluation;
+import io.github.hipstermin.idem.hub.protocol.oidcrp.OidcClientSecret;
+import io.github.hipstermin.idem.hub.protocol.oidcrp.OidcClientStatus;
+import io.github.hipstermin.idem.hub.protocol.oidcrp.OidcRpClientProvisioner;
 import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileValidator;
@@ -51,6 +54,7 @@ public class ServiceProfileAdminController {
     private final ServiceProfileService   serviceProfileService;
     private final ServiceProfileValidator validator;
     private final PolicyEngine           policyEngine;
+    private final OidcRpClientProvisioner oidcRpProvisioner;
 
     @GetMapping(value = "/profile-schema", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> schema() {
@@ -72,6 +76,28 @@ public class ServiceProfileAdminController {
         String cid = correlationId != null ? correlationId : UUID.randomUUID().toString();
         log.info("[ServiceProfileCtrl] PUT profile: serviceCode={} adminId={} cid={}", serviceCode, adminId, cid);
         return ResponseEntity.ok(serviceProfileService.put(serviceCode, body, adminId, changeReason, cid));
+    }
+
+    /** S6: 프로비저닝된 OIDC client 상태 — secret 은 보이지 않는다. */
+    @GetMapping("/{serviceCode}/oidc-client")
+    public ResponseEntity<OidcClientStatus> oidcClient(
+            @PathVariable String serviceCode,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
+        serviceProfileService.get(serviceCode); // 등록된 기관인지 먼저 (404 E-IDO)
+        return ResponseEntity.ok(oidcRpProvisioner.status(serviceCode,
+                correlationId != null ? correlationId : UUID.randomUUID().toString()));
+    }
+
+    /** S6: client secret 회전 — 새 secret 은 이 응답에서만 한 번 보인다. */
+    @PostMapping("/{serviceCode}/oidc-client/secret")
+    public ResponseEntity<OidcClientSecret> rotateOidcSecret(
+            @PathVariable String serviceCode,
+            @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
+        serviceProfileService.get(serviceCode);
+        String cid = correlationId != null ? correlationId : UUID.randomUUID().toString();
+        log.info("[ServiceProfileCtrl] OIDC secret 회전: serviceCode={} adminId={} cid={}", serviceCode, adminId, cid);
+        return ResponseEntity.ok(oidcRpProvisioner.rotateSecret(serviceCode, adminId, cid));
     }
 
     /** 정책 시뮬레이션 요청 — 값이 없는 항목은 해당 규칙이 SKIP 된다. {@code at} 은 점검 시간대 판정 시각(생략 시 지금). */

@@ -60,6 +60,7 @@ public class ServiceProfileMapper {
                                 .ssoDomain(e.getSsoDomain())
                                 .build())
                         .security(exProtocol != null ? exProtocol.security() : null)
+                        .oidc(exProtocol != null ? exProtocol.oidc() : null)   // S6: 컬럼이 없어 프로파일에서만 온다
                         .build())
                 .identity(ServiceProfile.Identity.builder()
                         .subjectScheme(exIdentity != null ? exIdentity.subjectScheme() : null)

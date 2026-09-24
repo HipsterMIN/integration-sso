@@ -84,7 +84,7 @@ class HandoffStrategyFactoryTest {
         assertThatThrownBy(() -> IntegrationType.from("WEBHOOK"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("WEBHOOK")
-                .hasMessageContaining("DIRECT, BRIDGE, APACHE_GATE, INTERNAL_SSO");
+                .hasMessageContaining("DIRECT, BRIDGE, APACHE_GATE, INTERNAL_SSO, OIDC_RP");
         assertThatThrownBy(() -> IntegrationType.from(""))
                 .isInstanceOf(IllegalArgumentException.class);
     }

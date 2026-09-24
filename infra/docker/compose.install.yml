@@ -101,9 +101,15 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_PROXY: edge
       KC_LOG_LEVEL: INFO
+      # S6: Keycloak 은 gate 뒤에 숨는다 — 토큰 iss·로그인 화면 링크가 gate 공개 URL 로 나오도록 hostname 을 gate 로 고정.
+      # 관리 콘솔(설치자 전용)만 loopback 포트로.
+      KC_HOSTNAME_URL: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
+      KC_HOSTNAME_ADMIN_URL: http://localhost:${IDEM_PORT_KEYCLOAK:-8088}
       # realm-export.json 의 client secret 은 ${env.…} 로 아래 값을 읽는다 — 앱 쪽 값과 같아야 한다
       QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET:?QSIGN_KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
+      # S6: hub 가 OIDC_RP client 를 프로비저닝할 때 쓰는 서비스 계정(realm-management manage-clients) 비밀
+      KEYCLOAK_PROVISIONER_CLIENT_SECRET: ${KEYCLOAK_PROVISIONER_CLIENT_SECRET:?KEYCLOAK_PROVISIONER_CLIENT_SECRET 를 install.env 에 설정하세요}
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
@@ -140,6 +146,8 @@ services:
       QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET}
       QSIGN_KEYCLOAK_REDIRECT_URI: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}/api/v1/oidc/keycloak/callback
       QSIGN_INTERNAL_SIG_STRICT: "true"
+      # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/onepass (Keycloak KC_HOSTNAME_URL 과 같다)
+      IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
     ports:
       - "127.0.0.1:${IDEM_PORT_GATE:-8081}:8081"
     networks: [idem-net]
@@ -188,6 +196,9 @@ services:
       KEYCLOAK_CLIENT_ID: ido-client
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
       KEYCLOAK_REDIRECT_URI: ${IDEM_PUBLIC_URL_HUB:-http://localhost:8083}/api/v1/broker/callback
+      # S6: OIDC_RP client 프로비저닝(서비스 계정) + 기관에 알려 줄 issuer
+      KEYCLOAK_PROVISIONER_CLIENT_SECRET: ${KEYCLOAK_PROVISIONER_CLIENT_SECRET}
+      IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
       IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:?IDO_WEBHOOK_SIGNING_SECRET 를 install.env 에 설정하세요}
       IDO_HANDOFF_AES_KEY: ${IDO_HANDOFF_AES_KEY:?IDO_HANDOFF_AES_KEY 를 install.env 에 설정하세요}
       IDO_HANDOFF_HMAC_KEY: ${IDO_HANDOFF_HMAC_KEY:?IDO_HANDOFF_HMAC_KEY 를 install.env 에 설정하세요}

@@ -27,4 +27,5 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("com.h2database:h2")
+    testImplementation("org.wiremock:wiremock-standalone:3.10.0")   // S6: OIDC 프런트(Keycloak·hub 스텁)
 }

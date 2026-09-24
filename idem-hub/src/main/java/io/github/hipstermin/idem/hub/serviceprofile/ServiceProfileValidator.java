@@ -62,6 +62,7 @@ public class ServiceProfileValidator {
      */
     static List<String> semanticViolations(JsonNode profile) {
         List<String> out = new ArrayList<>();
+        out.addAll(oidcViolations(profile.get("protocol")));
         JsonNode identity = profile.get("identity");
         if (identity == null || identity.isNull()) return out;
 
@@ -97,6 +98,36 @@ public class ServiceProfileValidator {
             Optional<SubjectScheme> parsed = SubjectScheme.parse(scheme.asText());
             if (parsed.isEmpty() || !parsed.get().isTenantSelectable()) {
                 out.add("identity.subjectScheme: '" + scheme.asText() + "' 은(는) 기관향 식별자로 선택할 수 없습니다");
+            }
+        }
+        return out;
+    }
+
+    /**
+     * S6 {@code protocol.oidc} 규칙 (스키마 {@code if/then} 이 OIDC_RP 의 {@code oidc} 필수를 잡고, 여기서는 값의 뜻을 본다):
+     * <ul>
+     *   <li>redirect URI 는 절대 URL 이어야 하고 와일드카드({@code *})·fragment 를 담을 수 없다 (RFC 6749 §3.1.2)</li>
+     *   <li>{@code oidc} 블록은 OIDC_RP 유형에서만 뜻이 있다 — 다른 유형에 있으면 설정 실수로 보고 거부</li>
+     * </ul>
+     */
+    static List<String> oidcViolations(JsonNode protocol) {
+        List<String> out = new ArrayList<>();
+        if (protocol == null || protocol.isNull()) return out;
+        JsonNode oidc = protocol.get("oidc");
+        boolean isOidcRp = "OIDC_RP".equals(protocol.path("type").asText(null));
+        if (oidc == null || oidc.isNull()) return out;
+        if (!isOidcRp) {
+            out.add("protocol.oidc: 연동 유형이 OIDC_RP 일 때만 지정할 수 있습니다 (현재 " + protocol.path("type").asText("") + ")");
+            return out;
+        }
+        for (String field : List.of("redirectUris", "postLogoutRedirectUris")) {
+            JsonNode uris = oidc.get(field);
+            if (uris == null || !uris.isArray()) continue;
+            for (JsonNode u : uris) {
+                String v = u.asText("");
+                if (v.contains("*") || v.contains("#") || !(v.startsWith("https://") || v.startsWith("http://"))) {
+                    out.add("protocol.oidc." + field + ": '" + v + "' — 절대 http(s) URL 이어야 하며 와일드카드·fragment 는 허용하지 않습니다");
+                }
             }
         }
         return out;

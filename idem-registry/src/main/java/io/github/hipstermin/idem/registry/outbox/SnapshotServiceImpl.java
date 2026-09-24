@@ -8,7 +8,6 @@ import io.github.hipstermin.idem.registry.infrastructure.jpa.repository.QimUserJ
 import io.github.hipstermin.idem.registry.infrastructure.jpa.repository.SnapshotMetaJpaRepository;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -57,12 +56,12 @@ public class SnapshotServiceImpl implements SnapshotService {
 
     private final QimUserJpaRepository       qimUserRepository;
     private final SnapshotMetaJpaRepository  snapshotMetaRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate /* D1-b: Kafka 꺼지면 idem-common 의 DisabledKafkaTemplate — 한정자 없이 받는다 */;
 
     public SnapshotServiceImpl(
             QimUserJpaRepository qimUserRepository,
             SnapshotMetaJpaRepository snapshotMetaRepository,
-            @Qualifier("qimKafkaTemplate") KafkaTemplate<String, Object> kafkaTemplate) {
+            KafkaTemplate<String, Object> kafkaTemplate) {
         this.qimUserRepository      = qimUserRepository;
         this.snapshotMetaRepository = snapshotMetaRepository;
         this.kafkaTemplate          = kafkaTemplate;
