@@ -12,7 +12,7 @@
 #   2. frontend-check   — FE 빌드: 관리 콘솔(npm/Vite) · frontend-check-kr: KR 포털(yarn/Webpack)   [PR·main]
 #   3. security-scan    — OWASP Dependency-Check (수동 전용)                [dispatch]
 #   4. smoke-test       — 설치본 스모크 (D3: compose 환경 계약으로 Keycloak·registry·authz·gate·hub 실기동 + install-smoke.sh + k6) [PR·main]
-#   5. docker-build     — 8개 이미지(hub·registry 는 core/kr 변형) 빌드 + GHCR push [main] · docker-build-check(PR, KR hub) · helm-lint(차트 lint·렌더·kubeconform)
+#   5. docker-build     — 8개 이미지(hub·registry 는 core/kr 변형) 빌드 + GHCR push [main] · docker-build-check(PR, 전 Dockerfile 매트릭스) · helm-lint(차트 lint·렌더·kubeconform)
 #   포맷(Spotless)·변경 모듈 테스트는 로컬 git 훅이 담당한다: docs/local-dev-workflow.md
 #
 # 시크릿 (GitHub Settings → Secrets):
@@ -573,7 +573,7 @@ jobs:
           NAME='${{ matrix.module.name }}'; ED='${{ matrix.module.edition }}'
           KEY="$NAME${ED:+-$ED}"
           TAGS="$REPO/$NAME:${{ github.sha }}${ED:+-$ED}"$'\n'"$REPO/$NAME:latest${ED:+-$ED}"
-          if [ -z "$ED" ] || [ "$ED" = "core" ]; then TAGS="$TAGS"$'\n'"$REPO/$NAME:${{ github.sha }}"$'\n'"$REPO/$NAME:latest"; fi
+          if [ "$ED" = "core" ]; then TAGS="$TAGS"$'\n'"$REPO/$NAME:${{ github.sha }}"$'\n'"$REPO/$NAME:latest"; fi   # 에디션 없는 모듈은 첫 줄이 이미 접미 없는 태그
           { echo "IMAGE_REPO=$REPO"; echo "CACHE_KEY=$KEY"; echo "IDEM_EDITION=${ED:-core}"; echo "IMAGE_TAGS<<EOF"; echo "$TAGS"; echo "EOF"; } >> "$GITHUB_ENV"
 
       # GitHub Actions 캐시를 Docker 레이어 캐시로 활용
@@ -616,32 +616,43 @@ jobs:
             ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:latest${{ matrix.module.edition && format('-{0}', matrix.module.edition) || '' }} || true
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # S9 PR-3: PR 에서 KR 에디션 hub 이미지가 Dockerfile 로 빌드되는지 확인 (push 없음).
-  # main 의 docker-build 는 PR 뒤에야 돌므로, 에디션 변형·vendor-libs 컨텍스트가 깨지면 여기서 먼저 잡는다.
+  # S9 PR-3/1.0.1: PR 에서 모든 Dockerfile(hub 는 core·kr 둘 다)이 빌드되는지 확인 (push 없음).
+  # main 의 docker-build 는 PR 뒤에야 돌므로, Dockerfile 이 settings.gradle.kts 와 어긋나거나 vendor-libs 컨텍스트가 깨지면 여기서 먼저 잡는다.
   # ═══════════════════════════════════════════════════════════════════════════
   docker-build-check:
-    name: Docker Build Check (KR hub)
+    name: Docker Build Check (${{ matrix.image.name }}${{ matrix.image.edition && format(' {0}', matrix.image.edition) || '' }})
     runs-on: ubuntu-latest
     timeout-minutes: 25
     needs: build-and-test
     if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - { name: idem-hub,           dockerfile: idem-hub/Dockerfile,           edition: kr }
+          - { name: idem-hub,           dockerfile: idem-hub/Dockerfile,           edition: core }
+          - { name: idem-registry,      dockerfile: idem-registry/Dockerfile,      edition: core }
+          - { name: idem-gate,          dockerfile: idem-gate/Dockerfile }
+          - { name: idem-authz,         dockerfile: idem-authz/Dockerfile }
+          - { name: idem-relay,         dockerfile: idem-relay/Dockerfile }
+          - { name: idem-tenant-sample, dockerfile: idem-tenant-sample/Dockerfile }
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: hub kr 이미지 빌드 (vendor-libs 없이 — 벤더 패키지 제외 경로)
+      - name: 이미지 빌드 (push 없음, vendor-libs 없이)
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: idem-hub/Dockerfile
+          file: ${{ matrix.image.dockerfile }}
           push: false
           load: false
-          tags: idem-hub:pr-kr
+          tags: ${{ matrix.image.name }}:pr-${{ matrix.image.edition || 'core' }}
           build-args: |
-            IDEM_EDITION=kr
+            IDEM_EDITION=${{ matrix.image.edition || 'core' }}
             APP_VERSION=pr
             GIT_SHA=${{ github.sha }}
-          cache-from: type=gha,scope=hub-kr
-          cache-to: type=gha,scope=hub-kr,mode=max
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.image.edition || 'core' }}
+          cache-to: type=gha,scope=${{ matrix.image.name }}-${{ matrix.image.edition || 'core' }},mode=max
 
   # ═══════════════════════════════════════════════════════════════════════════
   # S9 PR-3: Helm 차트 — lint · core/kr 렌더링 · kubeconform 스키마 검사 · files/ 사본이 infra/docker 원본과 같은지

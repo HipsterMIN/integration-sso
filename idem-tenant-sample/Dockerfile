@@ -31,6 +31,9 @@ COPY idem-relay/build.gradle.kts idem-relay/
 COPY idem-agent/build.gradle.kts   idem-agent/
 COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 COPY plugins/idem-plugin-nice-oacx/build.gradle.kts plugins/idem-plugin-nice-oacx/
+COPY plugins/idem-plugin-anyid/build.gradle.kts plugins/idem-plugin-anyid/
+COPY editions/idem-kr-hub/build.gradle.kts editions/idem-kr-hub/
+COPY editions/idem-kr-registry/build.gradle.kts editions/idem-kr-registry/
 
 # 소스 복사 (목표 모듈 + 의존 idem-common 만)
 COPY idem-common/src/ idem-common/src/
