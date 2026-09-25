@@ -11,13 +11,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * D3: 비OIDC 직접 브로커 사업자 목록 — 설정 {@code ido.broker.nonoidc.providers.{CODE}}.
+ * D3: 비OIDC 직접 브로커 사업자 목록 — 설정 {@code idem.hub.broker.nonoidc.providers.{CODE}}.
  *
  * <p>종전에는 {@code NonOidcBrokerAdapter} 가 PASS·FINANCIAL_CERT·GPKI·JOINT_CERT 를 코드에 박고 있었다. 코어는 사업자를 모르고,
  * 어떤 사업자가 있는지·어디로 보내는지·인증수준이 무엇인지는 설치(에디션 후처리기 또는 환경)가 정한다. 코어 기본값은 빈 목록이다.
  *
  * <pre>
- * ido.broker.nonoidc.providers:
+ * idem.hub.broker.nonoidc.providers:
  *   PASS:
  *     initiate-url: https://pass.example.com/auth?callback={callbackUrl}&amp;cid={correlationId}
  *     auth-level: L2
@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
 @Getter
 @Setter
 @Component
-@ConfigurationProperties(prefix = "ido.broker.nonoidc")
+@ConfigurationProperties(prefix = "idem.hub.broker.nonoidc")
 public class NonOidcProviderProperties {
 
     private Map<String, Provider> providers = new LinkedHashMap<>();

@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ido-config
+  name: idem-hub-config
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "ido.labels" . | nindent 4 }}
+    {{- include "idem.hub.labels" . | nindent 4 }}
   annotations:
     # Phase 정보 — 현재 활성화된 Phase 추적용
     onepass.idem-hub/phase: {{ .Values.phase | default "1" | quote }}
@@ -13,37 +13,37 @@ data:
   # ── 서버 기본 설정 ────────────────────────────────────────────────────────
   SERVER_PORT: "8083"
   SPRING_PROFILES_ACTIVE: {{ .Values.spring.profilesActive | default "prod" | quote }}
-  IDO_PLATFORM_VERSION: {{ .Chart.AppVersion | quote }}
+  IDEM_HUB_PLATFORM_VERSION: {{ .Chart.AppVersion | quote }}
 
   # ── Feature Flags: 기존 F-01~F-18 ────────────────────────────────────────
-  IDO_AUTH_RL_ENABLED:            {{ .Values.featureFlags.authRateLimit        | default "true"  | quote }}
-  IDO_RATE_LIMIT_ENABLED:         {{ .Values.featureFlags.agencyRateLimit      | default "true"  | quote }}
-  IDO_AUDIT_KAFKA_ENABLED:        {{ .Values.featureFlags.auditKafka           | default "true"  | quote }}
-  IDO_AUDIT_DB_ENABLED:           {{ .Values.featureFlags.auditDb              | default "true"  | quote }}
-  IDO_AUTH_TRACING_ENABLED:       {{ .Values.featureFlags.authTracing          | default "true"  | quote }}
-  IDO_REDISSON_ENABLED:           {{ .Values.featureFlags.redissonLock         | default "true"  | quote }}
-  IDO_SECURITY_HEADERS_ENABLED:   {{ .Values.featureFlags.securityHeaders      | default "true"  | quote }}
-  IDO_RETENTION_ENABLED:          {{ .Values.featureFlags.retentionJob         | default "true"  | quote }}
-  IDO_RETENTION_DRY_RUN:          {{ .Values.featureFlags.retentionDryRun      | default "true"  | quote }}
-  IDO_CRYPTO_ROTATION_ENABLED:    {{ .Values.featureFlags.cryptoRotation       | default "true"  | quote }}
-  IDO_OUTBOX_RELAY_ENABLED:       {{ .Values.featureFlags.outboxRelay          | default "true"  | quote }}
-  IDO_WEBHOOK_RELAY_ENABLED:      {{ .Values.featureFlags.webhookRelay         | default "true"  | quote }}
-  IDO_QIM_RECEIVER_AUDIT:         {{ .Values.featureFlags.spReceiverAudit      | default "true"  | quote }}
+  IDEM_HUB_AUTH_RL_ENABLED:            {{ .Values.featureFlags.authRateLimit        | default "true"  | quote }}
+  IDEM_HUB_RATE_LIMIT_ENABLED:         {{ .Values.featureFlags.agencyRateLimit      | default "true"  | quote }}
+  IDEM_HUB_AUDIT_KAFKA_ENABLED:        {{ .Values.featureFlags.auditKafka           | default "true"  | quote }}
+  IDEM_HUB_AUDIT_DB_ENABLED:           {{ .Values.featureFlags.auditDb              | default "true"  | quote }}
+  IDEM_HUB_AUTH_TRACING_ENABLED:       {{ .Values.featureFlags.authTracing          | default "true"  | quote }}
+  IDEM_HUB_REDISSON_ENABLED:           {{ .Values.featureFlags.redissonLock         | default "true"  | quote }}
+  IDEM_HUB_SECURITY_HEADERS_ENABLED:   {{ .Values.featureFlags.securityHeaders      | default "true"  | quote }}
+  IDEM_HUB_RETENTION_ENABLED:          {{ .Values.featureFlags.retentionJob         | default "true"  | quote }}
+  IDEM_HUB_RETENTION_DRY_RUN:          {{ .Values.featureFlags.retentionDryRun      | default "true"  | quote }}
+  IDEM_HUB_CRYPTO_ROTATION_ENABLED:    {{ .Values.featureFlags.cryptoRotation       | default "true"  | quote }}
+  IDEM_HUB_OUTBOX_RELAY_ENABLED:       {{ .Values.featureFlags.outboxRelay          | default "true"  | quote }}
+  IDEM_HUB_WEBHOOK_RELAY_ENABLED:      {{ .Values.featureFlags.webhookRelay         | default "true"  | quote }}
+  IDEM_HUB_REGISTRY_RECEIVER_AUDIT:         {{ .Values.featureFlags.spReceiverAudit      | default "true"  | quote }}
 
   # ── Feature Flags: Sprint 14~16 신규 (Phase-Gate) ────────────────────────
   # Phase 1 기본값: 신규 기능 전부 false
   # Phase 전환은 --set phase=2a|2b|3a|3b|4 또는 featureFlags.* 개별 지정
-  IDO_PROVISIONING_ENABLED:         {{ .Values.featureFlags.provisioning          | default "false" | quote }}
-  IDO_PROVISIONING_RELAY_ENABLED:   {{ .Values.featureFlags.provisioningRelay     | default "false" | quote }}
-  IDO_PROVISIONING_DRY_RUN:         {{ .Values.featureFlags.provisioningDryRun    | default "true"  | quote }}
-  IDO_GATEWAY_INBOUND_ENABLED:      {{ .Values.featureFlags.gatewayInbound        | default "false" | quote }}
-  IDO_GATEWAY_OUTBOUND_ENABLED:     {{ .Values.featureFlags.gatewayOutbound       | default "false" | quote }}
-  IDO_GATEWAY_IDEMPOTENCY_ENABLED:  {{ .Values.featureFlags.gatewayIdempotency    | default "true"  | quote }}
-  IDO_HMAC_SIG_REQUIRED:            {{ .Values.featureFlags.hmacSigRequired       | default "false" | quote }}
-  IDO_AGENCY_KEY_AUDIT_LOG:         {{ .Values.featureFlags.agencyKeyAuditLog     | default "true"  | quote }}
+  IDEM_HUB_PROVISIONING_ENABLED:         {{ .Values.featureFlags.provisioning          | default "false" | quote }}
+  IDEM_HUB_PROVISIONING_RELAY_ENABLED:   {{ .Values.featureFlags.provisioningRelay     | default "false" | quote }}
+  IDEM_HUB_PROVISIONING_DRY_RUN:         {{ .Values.featureFlags.provisioningDryRun    | default "true"  | quote }}
+  IDEM_HUB_GATEWAY_INBOUND_ENABLED:      {{ .Values.featureFlags.gatewayInbound        | default "false" | quote }}
+  IDEM_HUB_GATEWAY_OUTBOUND_ENABLED:     {{ .Values.featureFlags.gatewayOutbound       | default "false" | quote }}
+  IDEM_HUB_GATEWAY_IDEMPOTENCY_ENABLED:  {{ .Values.featureFlags.gatewayIdempotency    | default "true"  | quote }}
+  IDEM_HUB_HMAC_SIG_REQUIRED:            {{ .Values.featureFlags.hmacSigRequired       | default "false" | quote }}
+  IDEM_HUB_AGENCY_KEY_AUDIT_LOG:         {{ .Values.featureFlags.agencyKeyAuditLog     | default "true"  | quote }}
 
   # ── 프로비저닝 성능 튜닝 ────────────────────────────────────────────────
-  IDO_PROVISIONING_RELAY_INTERVAL_MS: "30000"
-  IDO_PROVISIONING_RELAY_BATCH_SIZE:  "50"
-  IDO_PROVISIONING_TIMEOUT_MS:        "0"
-  IDO_PROVISIONING_MAX_PARALLEL:      "100"
+  IDEM_HUB_PROVISIONING_RELAY_INTERVAL_MS: "30000"
+  IDEM_HUB_PROVISIONING_RELAY_BATCH_SIZE:  "50"
+  IDEM_HUB_PROVISIONING_TIMEOUT_MS:        "0"
+  IDEM_HUB_PROVISIONING_MAX_PARALLEL:      "100"

@@ -98,7 +98,7 @@ class IdoOutboxRelayInProcessTest {
     private static IdoOutboxRecord record(String id, int retry) {
         return IdoOutboxRecord.builder()
                 .eventId(id).eventType("AUTH_COMPLETED").partitionKey("pk").aggregateId("agg")
-                .eventVersion(1L).payload("{}").topic("qsign.auth.events").status("PENDING").retryCount(retry)
+                .eventVersion(1L).payload("{}").topic("idem.gate.auth.events").status("PENDING").retryCount(retry)
                 .createdAt(Instant.now()).build();
     }
 }

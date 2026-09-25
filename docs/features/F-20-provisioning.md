@@ -3,7 +3,7 @@
 > **⚠️ 제거됨 (2026-09-10, 범용화 S4b)** — 전 기관 프로비저닝은 코어에서 삭제되었다. 플랫폼은 기관(Service)에 사용자를 등록·방송하지 않으며, 어설션·백채널 로그아웃·보안/감사 이벤트만 push 한다. 근거: `docs/generalization-plan.md` §1.2 C8 · §2.0 · §3 S4b. 아래 내용은 이력 참고용이다.
 
 
-> **환경변수**: `IDO_PROVISIONING_ENABLED` / `IDO_PROVISIONING_DRY_RUN`  
+> **환경변수**: `IDEM_HUB_PROVISIONING_ENABLED` / `IDEM_HUB_PROVISIONING_DRY_RUN`  
 > **Phase**: Phase 2 (Gate 1 통과 후 활성화)  
 > **기본값**: `false` / `true` (안전)  
 > **구현 Sprint**: Sprint 14  
@@ -76,7 +76,7 @@ try (ExecutorService vThreadPool = Executors.newVirtualThreadPerTaskExecutor()) 
 
 ### 왜 dry-run이 필요한가?
 
-처음 `IDO_PROVISIONING_ENABLED=true`로 전환할 때, **실제 기관에 HTTP 요청을 보내지 않고** 어떤 기관에 어떤 데이터가 전송될지 미리 확인할 수 있습니다.
+처음 `IDEM_HUB_PROVISIONING_ENABLED=true`로 전환할 때, **실제 기관에 HTTP 요청을 보내지 않고** 어떤 기관에 어떤 데이터가 전송될지 미리 확인할 수 있습니다.
 
 ```
 dry-run=true 일 때:
@@ -99,7 +99,7 @@ dry-run=false 일 때:
 kubectl logs -n smes deployment/ido | grep "DRY-RUN"
 
 # 예상 출력:
-# [Provisioning] DRY-RUN 모드 (IDO_PROVISIONING_DRY_RUN=true): 페이로드 생성 후 HTTP 미발행. qimUserId=xxx
+# [Provisioning] DRY-RUN 모드 (IDEM_HUB_PROVISIONING_DRY_RUN=true): 페이로드 생성 후 HTTP 미발행. qimUserId=xxx
 # [Provisioning] DRY-RUN 완료: 대상 기관=3개, qimUserId=xxx, eventType=USER_REGISTERED. 실제 발행 없음.
 # [Provisioning] DRY-RUN 대상: agencyCode=MOIS url=https://mois.go.kr/onepass/provision
 # [Provisioning] DRY-RUN 대상: agencyCode=MSS url=https://mss.go.kr/onepass/provision
@@ -196,11 +196,11 @@ FOR UPDATE SKIP LOCKED  -- 다른 Pod가 이미 처리 중인 행은 건너뜀
 ```bash
 # 프로비저닝 즉시 중단 (재배포 없이)
 kubectl set env deployment/ido -n smes \
-  IDO_PROVISIONING_ENABLED=false \
-  IDO_PROVISIONING_RELAY_ENABLED=false
+  IDEM_HUB_PROVISIONING_ENABLED=false \
+  IDEM_HUB_PROVISIONING_RELAY_ENABLED=false
 
 # dry-run 모드로 일시 전환 (발행 중단, 로그만)
-kubectl set env deployment/ido -n smes IDO_PROVISIONING_DRY_RUN=true
+kubectl set env deployment/ido -n smes IDEM_HUB_PROVISIONING_DRY_RUN=true
 
 # Pod 재시작으로 설정 반영
 kubectl rollout restart deployment/ido -n smes

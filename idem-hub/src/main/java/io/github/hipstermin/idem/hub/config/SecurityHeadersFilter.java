@@ -31,7 +31,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <ul>
  *   <li>인증 API 서버이므로 스크립트/스타일 외부 로드 불허 ({@code 'none'})</li>
  *   <li>API 응답만 하므로 form-action, frame-ancestors도 차단</li>
- *   <li>운영 환경 배포 시 {@code ido.csp.report-uri}로 위반 보고 설정 권장</li>
+ *   <li>운영 환경 배포 시 {@code idem.hub.csp.report-uri}로 위반 보고 설정 권장</li>
  * </ul>
  *
  * <p><b>참고</b>: onepass-fe (React SPA) 전용 CSP는
@@ -39,12 +39,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * 이 필터는 IdO API 서버 응답 헤더 전용이다.
  */
 /**
- * F-10 On/Off: {@code IDO_SECURITY_HEADERS_ENABLED=false} 시 이 필터 빈 자체가 미등록됨.
+ * F-10 On/Off: {@code IDEM_HUB_SECURITY_HEADERS_ENABLED=false} 시 이 필터 빈 자체가 미등록됨.
  * FE 개발 중 CSP 오류 없이 테스트 가능. matchIfMissing=true → 기본 활성(ON).
  */
 @Component
 @Order(1)
-@ConditionalOnProperty(name = "ido.security-headers.enabled",
+@ConditionalOnProperty(name = "idem.hub.security-headers.enabled",
         havingValue = "true", matchIfMissing = true)
 public class SecurityHeadersFilter extends OncePerRequestFilter {
 
@@ -52,14 +52,14 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
      * CSP 위반 보고 URI (운영 환경에서 설정. 기본 비활성화).
      * 예: https://csp-report.example.com/report
      */
-    @Value("${ido.csp.report-uri:}")
+    @Value("${idem.hub.csp.report-uri:}")
     private String cspReportUri;
 
     /**
      * 허용된 API 도메인 Origin (CORS + CSP connect-src 일치).
      * 예: https://sso.example.org
      */
-    @Value("${ido.csp.allowed-origin:}")
+    @Value("${idem.hub.csp.allowed-origin:}")
     private String allowedOrigin;
 
     // ── 필터 실행 ──────────────────────────────────────────────────────────

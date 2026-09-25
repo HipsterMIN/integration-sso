@@ -1,8 +1,8 @@
 # F-12: Handoff AES 키 로테이션 스케줄러
 
-> **환경변수**: `IDO_CRYPTO_ROTATION_ENABLED`  
+> **환경변수**: `IDEM_HUB_CRYPTO_ROTATION_ENABLED`  
 > **기본값**: `true`  
-> **Spring 프로퍼티**: `ido.crypto.rotation-enabled`  
+> **Spring 프로퍼티**: `idem.hub.crypto.rotation-enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/crypto/CastKeyRotationScheduler.java`  
 > **연관 설정**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/crypto/CastKeyConfig.java`
 
@@ -27,7 +27,7 @@ Day104: KeyA 폐기
 ```java
 // CastKeyRotationScheduler.java
 @Component
-@ConditionalOnProperty("ido.crypto.rotation-enabled")  // F-12=false → 스케줄러 미등록
+@ConditionalOnProperty("idem.hub.crypto.rotation-enabled")  // F-12=false → 스케줄러 미등록
 @RequiredArgsConstructor
 public class CastKeyRotationScheduler {
 
@@ -110,7 +110,7 @@ kubectl rollout restart deployment/ido-gateway
 
 **수동 키 관리** 정책을 사용하는 경우에만 false 허용:
 ```bash
-IDO_CRYPTO_ROTATION_ENABLED=false  # 수동으로 K8s Secret 업데이트
+IDEM_HUB_CRYPTO_ROTATION_ENABLED=false  # 수동으로 K8s Secret 업데이트
 ```
 
 > ⚠️ **false 상태에서 90일 이상 경과 시, 키 로테이션을 수동으로 수행해야 합니다.**  

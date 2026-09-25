@@ -9,8 +9,8 @@
 # 대규모 (5-broker): PARTITIONS_MAIN=24, RF=3, ISR=2
 #
 # ── 처리량 계산 ──────────────────────────────────────────────
-# qsign.auth.events 12파티션 × concurrency 6 = ~1,200 events/s
-# ido.handoff.events 12파티션 × concurrency 6 = ~1,200 events/s
+# idem.gate.auth.events 12파티션 × concurrency 6 = ~1,200 events/s
+# idem.hub.handoff.events 12파티션 × concurrency 6 = ~1,200 events/s
 # 60,000명 × 10분 → 피크 100 events/s → 충분
 # 60,000명 × 1분  → 피크 1,000 events/s → 한계치, 24파티션 권장
 # ============================================================
@@ -103,7 +103,7 @@ echo "   consumer: QsignAuthEventConsumer (concurrency=6)"
 # §9.3 Q-Sign 인증 결과 이벤트
 # 60,000명 급증 핵심 토픽 — AUTH_COMPLETED 수신 즉시 Redis Pre-warming
 # IdO QsignAuthEventConsumer → AuthResultCacheService.preWarm()
-create_topic "qsign.auth.events" "$PARTITIONS_MAIN" "$RF" \
+create_topic "idem.gate.auth.events" "$PARTITIONS_MAIN" "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=3600000" \
   "compression.type=lz4" \
@@ -111,10 +111,10 @@ create_topic "qsign.auth.events" "$PARTITIONS_MAIN" "$RF" \
   "max.message.bytes=1048576"
 
 # 기존 6파티션 → 12파티션 증설 (이미 운영 중인 경우)
-alter_partitions_if_needed "qsign.auth.events" "$PARTITIONS_MAIN"
+alter_partitions_if_needed "idem.gate.auth.events" "$PARTITIONS_MAIN"
 
 # Q-Sign DLQ
-create_topic "qsign.auth.events.dlt" "$PARTITIONS_DLQ" "$RF" \
+create_topic "idem.gate.auth.events.dlt" "$PARTITIONS_DLQ" "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=604800000" \
   "compression.type=lz4"
@@ -128,7 +128,7 @@ echo "   partitionKey: qimUserId"
 echo "   consumer: QimEventConsumer (concurrency=3)"
 
 # §10.5.2 / §11.5.4 Q-IM 사용자 이벤트 (compacted log — 최신 상태 유지)
-create_topic "qim.user.events" "$PARTITIONS_QIM" "$RF" \
+create_topic "idem.registry.user.events" "$PARTITIONS_QIM" "$RF" \
   "cleanup.policy=compact" \
   "min.compaction.lag.ms=0" \
   "max.compaction.lag.ms=3600000" \
@@ -138,10 +138,10 @@ create_topic "qim.user.events" "$PARTITIONS_QIM" "$RF" \
   "min.insync.replicas=$ISR" \
   "max.message.bytes=1048576"
 
-alter_partitions_if_needed "qim.user.events" "$PARTITIONS_QIM"
+alter_partitions_if_needed "idem.registry.user.events" "$PARTITIONS_QIM"
 
 # Q-IM 사용자 스냅샷 (신규 컨슈머 빠른 복원용)
-create_topic "qim.user.snapshot" "$PARTITIONS_QIM" "$RF" \
+create_topic "idem.registry.user.snapshot" "$PARTITIONS_QIM" "$RF" \
   "cleanup.policy=compact" \
   "min.compaction.lag.ms=0" \
   "segment.bytes=104857600" \
@@ -151,7 +151,7 @@ create_topic "qim.user.snapshot" "$PARTITIONS_QIM" "$RF" \
   "max.message.bytes=10485760"
 
 # Q-IM DLQ
-create_topic "qim.user.events.dlt" "$PARTITIONS_DLQ" "$RF" \
+create_topic "idem.registry.user.events.dlt" "$PARTITIONS_DLQ" "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=604800000"
 
@@ -164,23 +164,23 @@ echo "   partitionKey: correlationId"
 echo "   consumer: HandoffEventConsumer (concurrency=6)"
 echo ""
 echo "   ⚡ 기관은 Kafka 직접 구독 불가 → HTTPS webhook으로 수신"
-echo "      [ido.handoff.events] → HandoffEventConsumer"
+echo "      [idem.hub.handoff.events] → HandoffEventConsumer"
 echo "        → WebhookDispatcherService → webhook_dispatch_outbox"
 echo "          → WebhookDispatchOutboxRelay → 기관 HTTPS POST"
 
 # §16.3 IdO Handoff 이벤트
 # HANDOFF_ISSUED → WebhookDispatcherService → 기관 webhook 발송
-create_topic "ido.handoff.events" "$PARTITIONS_MAIN" "$RF" \
+create_topic "idem.hub.handoff.events" "$PARTITIONS_MAIN" "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=31536000000" \
   "compression.type=lz4" \
   "min.insync.replicas=$ISR" \
   "max.message.bytes=1048576"
 
-alter_partitions_if_needed "ido.handoff.events" "$PARTITIONS_MAIN"
+alter_partitions_if_needed "idem.hub.handoff.events" "$PARTITIONS_MAIN"
 
 # Handoff DLT (Dead Letter Topic — Spring Kafka ErrorHandler .dlt 규칙 준수)
-create_topic "ido.handoff.events.dlt" "$PARTITIONS_DLQ" "$RF" \
+create_topic "idem.hub.handoff.events.dlt" "$PARTITIONS_DLQ" "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=604800000"
 
@@ -242,14 +242,14 @@ echo "        → webhook_dispatch_outbox → HTTPS POST 기관"
 
 # QimSpReceiverService Outbox 발행 → QimSpMemberEventConsumer 소비
 # → QimSpMemberEventHandler → WebhookDispatcherService → 기관 webhook
-create_topic "qim.sp.member.events" 6 "$RF" \
+create_topic "idem.registry.sp.member.events" 6 "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=2592000000" \
   "compression.type=lz4" \
   "min.insync.replicas=$ISR"
 
 # Q-IM SP 회원 DLQ
-create_topic "qim.sp.member.events.dlt" 3 "$RF" \
+create_topic "idem.registry.sp.member.events.dlt" 3 "$RF" \
   "cleanup.policy=delete" \
   "retention.ms=604800000"
 
@@ -263,7 +263,7 @@ echo ""
 echo "══════════════════════════════════════════════════════"
 echo " 주요 토픽 상세 정보"
 echo "══════════════════════════════════════════════════════"
-for TOPIC in "qsign.auth.events" "ido.handoff.events" "platform.session.advisory" "platform.audit.log"; do
+for TOPIC in "idem.gate.auth.events" "idem.hub.handoff.events" "platform.session.advisory" "platform.audit.log"; do
   echo "--- $TOPIC ---"
   kafka-topics --bootstrap-server "$BROKER" --describe --topic "$TOPIC" 2>/dev/null || echo "  (토픽 없음)"
 done
@@ -272,11 +272,11 @@ echo ""
 echo "✅ Kafka 토픽 초기화 완료"
 echo ""
 echo "── 아키텍처 요약 ────────────────────────────────────────"
-echo " qsign.auth.events ($PARTITIONS_MAIN p): Q-Sign → IdO Pre-warming (60k DB 폭발 방지)"
-echo " ido.handoff.events ($PARTITIONS_MAIN p): IdO → 기관 webhook 트리거 | DLT: ido.handoff.events.dlt"
+echo " idem.gate.auth.events ($PARTITIONS_MAIN p): Q-Sign → IdO Pre-warming (60k DB 폭발 방지)"
+echo " idem.hub.handoff.events ($PARTITIONS_MAIN p): IdO → 기관 webhook 트리거 | DLT: idem.hub.handoff.events.dlt"
 echo " platform.session.advisory ($PARTITIONS_MAIN p): AUTH_LOCKED → FE 세션 강제 종료 | DLT: platform.session.advisory.dlt"
 echo " platform.audit.log ($PARTITIONS_MAIN p): 전역 감사 (2년 보존)"
-echo " qim.sp.member.events (6p): SP 회원 연동 → 기관 webhook"
+echo " idem.registry.sp.member.events (6p): SP 회원 연동 → 기관 webhook"
 echo ""
 echo " ⚠  기관은 Kafka 직접 접근 불가 — IdO가 HTTPS webhook으로 push"
 echo "────────────────────────────────────────────────────────"

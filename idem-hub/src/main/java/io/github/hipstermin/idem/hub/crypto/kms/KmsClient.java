@@ -14,12 +14,12 @@ package io.github.hipstermin.idem.hub.crypto.kms;
  *
  * <p><b>NHN Cloud Secure Key Manager 연동 방식</b>:
  * <pre>
- * [SECRET 모드 — 권장] (ido.kms.nhn.mode=secret)
+ * [SECRET 모드 — 권장] (idem.hub.kms.nhn.mode=secret)
  *   1. NHN SKM 콘솔에서 기밀 데이터(32byte AES 키, Base64)를 keyId로 저장
  *   2. DB key_material_encrypted = SKM keyId (문자열)
  *   3. 조회 시: GET /secrets/{keyId} → base64 디코딩 → 평문 키 바이트
  *
- * [ENVELOPE 모드] (ido.kms.nhn.mode=envelope)
+ * [ENVELOPE 모드] (idem.hub.kms.nhn.mode=envelope)
  *   1. 32-byte AES 키(DEK) 생성
  *   2. POST /symmetric-keys/{keyid}/encrypt → EncryptedDEK
  *   3. DB key_material_encrypted = EncryptedDEK (Base64)

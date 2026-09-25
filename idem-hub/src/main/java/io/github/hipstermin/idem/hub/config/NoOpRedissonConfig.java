@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * F-08 Redisson 분산 락 비활성화 시 NoOp 대체 구현 (IDO_REDISSON_ENABLED=false)
+ * F-08 Redisson 분산 락 비활성화 시 NoOp 대체 구현 (IDEM_HUB_REDISSON_ENABLED=false)
  *
  * <p><b>목적</b>:
  * Redis 없는 로컬/개발 환경에서 {@code RedissonClient} 빈이 없으면
@@ -28,16 +28,16 @@ import org.springframework.context.annotation.Configuration;
  *
  * <p><b>⚠️ 단일 Pod 전용</b>:
  * NoOp 락은 JVM 간 중복 실행을 막지 않는다.
- * K8s 다중 Pod 환경에서는 반드시 {@code IDO_REDISSON_ENABLED=true}로 실제 락 사용.
+ * K8s 다중 Pod 환경에서는 반드시 {@code IDEM_HUB_REDISSON_ENABLED=true}로 실제 락 사용.
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(name = "ido.redisson.enabled", havingValue = "false")
+@ConditionalOnProperty(name = "idem.hub.redisson.enabled", havingValue = "false")
 public class NoOpRedissonConfig {
 
     @Bean
     public RedissonClient redissonClient() {
-        log.warn("[NoOpRedissonConfig] Redisson 분산 락 비활성 (IDO_REDISSON_ENABLED=false). " +
+        log.warn("[NoOpRedissonConfig] Redisson 분산 락 비활성 (IDEM_HUB_REDISSON_ENABLED=false). " +
                 "단일 JVM synchronized 만으로 동작. 다중 Pod 환경에서는 사용 금지.");
 
         return (RedissonClient) Proxy.newProxyInstance(
@@ -61,7 +61,7 @@ public class NoOpRedissonConfig {
                 case "shutdown", "shutdownAsync" -> null;
                 default -> throw new UnsupportedOperationException(
                         "[NoOpRedissonClient] 지원하지 않는 메서드: " + method.getName() +
-                        " — IDO_REDISSON_ENABLED=true 로 실제 Redisson 활성화 필요");
+                        " — IDEM_HUB_REDISSON_ENABLED=true 로 실제 Redisson 활성화 필요");
             };
         }
 

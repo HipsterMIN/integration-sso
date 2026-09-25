@@ -1,8 +1,8 @@
 # F-05: OTel 분산 추적 AOP
 
-> **환경변수**: `IDO_AUTH_TRACING_ENABLED`  
+> **환경변수**: `IDEM_HUB_AUTH_TRACING_ENABLED`  
 > **기본값**: `true`  
-> **Spring 프로퍼티**: `ido.tracing.auth-aspect-enabled`  
+> **Spring 프로퍼티**: `idem.hub.tracing.auth-aspect-enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/AuthTracingAspect.java`
 
 ---
@@ -82,16 +82,16 @@ public class AuthTracingAspect {
 
 **OTel Collector 미구성 환경** (로컬 개발, 일부 테스트 환경):
 ```bash
-IDO_AUTH_TRACING_ENABLED=false  # OTel Collector 없는 환경
+IDEM_HUB_AUTH_TRACING_ENABLED=false  # OTel Collector 없는 환경
 ```
 
 **성능 측정 목적** — AOP 오버헤드 측정 시 일시적으로 false:
 ```bash
 # 벤치마크: tracing=false 기준값 측정
-IDO_AUTH_TRACING_ENABLED=false
+IDEM_HUB_AUTH_TRACING_ENABLED=false
 
 # 벤치마크: tracing=true 오버헤드 측정
-IDO_AUTH_TRACING_ENABLED=true
+IDEM_HUB_AUTH_TRACING_ENABLED=true
 ```
 
 ---

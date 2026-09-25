@@ -15,23 +15,23 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Q-IM 회원 이벤트 전용 Outbox Relay — qim.user.events PENDING 이벤트 Kafka 발행
+ * Q-IM 회원 이벤트 전용 Outbox Relay — idem.registry.user.events PENDING 이벤트 Kafka 발행
  *
  * <h2>도입 배경 (QIM-OUTBOX-SPEC-001)</h2>
  * <p>Q-IM / Q-Sign 은 Kafka Producer 로직을 직접 구현하기 어려운 상황에서
  * <b>Outbox 테이블에 INSERT만 수행</b>하고, IdO 측 폴링 스케줄러가 대신 Kafka 발행을 담당하는
  * 방식을 채택하였다.
  *
- * <p>이 클래스는 {@code ido.outbox}에 INSERT된 {@code qim.user.events} 토픽 대상
+ * <p>이 클래스는 {@code idem.hub.outbox}에 INSERT된 {@code idem.registry.user.events} 토픽 대상
  * PENDING 레코드를 폴링하여 Kafka로 발행하는 전용 릴레이다.
  *
  * <h2>IdoOutboxRelay 와의 차이점</h2>
  * <table border="1">
  *   <tr><th>항목</th><th>IdoOutboxRelay</th><th>QimOutboxRelay (이 클래스)</th></tr>
- *   <tr><td>대상 이벤트</td><td>qsign.auth.events (인증)</td><td>qim.user.events (회원)</td></tr>
+ *   <tr><td>대상 이벤트</td><td>idem.gate.auth.events (인증)</td><td>idem.registry.user.events (회원)</td></tr>
  *   <tr><td>INSERT 주체</td><td>KeycloakOidcService / NonOidcAuthService</td><td>QimSpReceiverService</td></tr>
  *   <tr><td>폴링 주기</td><td>500ms</td><td>1,000ms (회원 이벤트는 실시간성 요구 낮음)</td></tr>
- *   <tr><td>토픽 필터</td><td>없음 (topic 컬럼 기반 발행)</td><td>qim.user.events 만 처리</td></tr>
+ *   <tr><td>토픽 필터</td><td>없음 (topic 컬럼 기반 발행)</td><td>idem.registry.user.events 만 처리</td></tr>
  * </table>
  *
  * <h2>데이터 흐름</h2>
@@ -39,13 +39,13 @@ import org.springframework.transaction.annotation.Transactional;
  * [Q-IM / Q-Sign]
  *   └─► POST /api/v1/qim/sp/member/register  (QimSpReceiverController)
  *         └─► QimSpReceiverService.handleMemberRegister()
- *               └─► INSERT ido.outbox (topic='qim.user.events', status='PENDING')
+ *               └─► INSERT idem.hub.outbox (topic='idem.registry.user.events', status='PENDING')
  *
  * [이 클래스 — 1000ms 폴링]
  *   └─► SELECT FOR UPDATE SKIP LOCKED
- *         WHERE topic = 'qim.user.events' AND status = 'PENDING'
+ *         WHERE topic = 'idem.registry.user.events' AND status = 'PENDING'
  *               AND (next_retry_at IS NULL OR next_retry_at <= NOW())
- *         └─► kafkaTemplate.send('qim.user.events', payload)
+ *         └─► kafkaTemplate.send('idem.registry.user.events', payload)
  *               ├─ 성공 → UPDATE status='PUBLISHED'
  *               └─ 실패 → incrementRetryWithBackoff() / markFailed()
  *
@@ -67,16 +67,16 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <h2>설정 키</h2>
  * <ul>
- *   <li>{@code ido.qim-outbox.relay-enabled}    — On/Off 피처 플래그 (기본 true)</li>
- *   <li>{@code ido.qim-outbox.relay-interval-ms} — 폴링 주기 (기본 1000ms)</li>
- *   <li>{@code ido.qim-outbox.batch-size}        — 배치 크기 (기본 50)</li>
- *   <li>{@code ido.qim-outbox.max-retry}         — 최대 재시도 횟수 (기본 5)</li>
+ *   <li>{@code idem.hub.registry-outbox.relay-enabled}    — On/Off 피처 플래그 (기본 true)</li>
+ *   <li>{@code idem.hub.registry-outbox.relay-interval-ms} — 폴링 주기 (기본 1000ms)</li>
+ *   <li>{@code idem.hub.registry-outbox.batch-size}        — 배치 크기 (기본 50)</li>
+ *   <li>{@code idem.hub.registry-outbox.max-retry}         — 최대 재시도 횟수 (기본 5)</li>
  * </ul>
  *
  * <p><b>⚠️ 운영 전환 안내 — outbox-relay-batch 서비스 배포 시</b>:
  * {@code outbox-relay-batch} 모듈 배포 후에는 아래 환경변수로 이 릴레이를 비활성화하십시오.
  * <pre>
- * IDO_QIM_OUTBOX_RELAY_ENABLED=false
+ * IDEM_HUB_REGISTRY_OUTBOX_RELAY_ENABLED=false
  * </pre>
  */
 @Slf4j
@@ -84,8 +84,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class QimOutboxRelay {
 
-    /** 처리 대상 토픽 (qim.user.events) */
-    private static final String TARGET_TOPIC = "qim.user.events";
+    /** 처리 대상 토픽 (idem.registry.user.events) */
+    private static final String TARGET_TOPIC = "idem.registry.user.events";
 
     /** payload JSON → Map 역직렬화용 TypeReference */
     private static final TypeReference<Map<String, Object>> MAP_TYPE_REF =
@@ -96,20 +96,20 @@ public class QimOutboxRelay {
     private final ObjectMapper                  objectMapper;
 
     /**
-     * Feature Flag: IDO_QIM_OUTBOX_RELAY_ENABLED
+     * Feature Flag: IDEM_HUB_REGISTRY_OUTBOX_RELAY_ENABLED
      * false → @Scheduled 실행되어도 즉시 return.
      * Kafka 없는 로컬 환경 또는 Q-IM 통합 전 개발 단계에서 OFF 설정 가능.
      */
-    @Value("${ido.qim-outbox.relay-enabled:${IDO_QIM_OUTBOX_RELAY_ENABLED:true}}")
+    @Value("${idem.hub.registry-outbox.relay-enabled:${IDEM_HUB_REGISTRY_OUTBOX_RELAY_ENABLED:true}}")
     private boolean relayEnabled;
 
-    @Value("${ido.qim-outbox.relay-interval-ms:1000}")
+    @Value("${idem.hub.registry-outbox.relay-interval-ms:1000}")
     private long relayIntervalMs;
 
-    @Value("${ido.qim-outbox.batch-size:50}")
+    @Value("${idem.hub.registry-outbox.batch-size:50}")
     private int batchSize;
 
-    @Value("${ido.qim-outbox.max-retry:5}")
+    @Value("${idem.hub.registry-outbox.max-retry:5}")
     private int maxRetry;
 
     // ══════════════════════════════════════════════════════════════════════
@@ -117,7 +117,7 @@ public class QimOutboxRelay {
     // ══════════════════════════════════════════════════════════════════════
 
     /**
-     * qim.user.events PENDING 이벤트 Kafka 발행 스케줄러
+     * idem.registry.user.events PENDING 이벤트 Kafka 발행 스케줄러
      *
      * <p>fixedDelay: 이전 실행 완료 후 대기 → 처리량이 배치 크기보다 많아도 중복 실행 없음.
      *
@@ -126,11 +126,11 @@ public class QimOutboxRelay {
      * Kafka 비동기 콜백({@code whenComplete})은 TX 커밋 이후에 실행되므로
      * 상태 갱신은 별도 TX로 처리된다 (at-least-once 설계).
      */
-    @Scheduled(fixedDelayString = "${ido.qim-outbox.relay-interval-ms:1000}")
+    @Scheduled(fixedDelayString = "${idem.hub.registry-outbox.relay-interval-ms:1000}")
     @Transactional
     public void relay() {
         if (!relayEnabled) {
-            log.trace("[QimOutboxRelay] DISABLED (IDO_QIM_OUTBOX_RELAY_ENABLED=false)");
+            log.trace("[QimOutboxRelay] DISABLED (IDEM_HUB_REGISTRY_OUTBOX_RELAY_ENABLED=false)");
             return;
         }
 

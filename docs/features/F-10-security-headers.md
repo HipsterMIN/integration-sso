@@ -1,8 +1,8 @@
 # F-10: 보안 응답 헤더 필터
 
-> **환경변수**: `IDO_SECURITY_HEADERS_ENABLED`  
+> **환경변수**: `IDEM_HUB_SECURITY_HEADERS_ENABLED`  
 > **기본값**: `true` (운영 필수)  
-> **Spring 프로퍼티**: `ido.security-headers.enabled`  
+> **Spring 프로퍼티**: `idem.hub.security-headers.enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/SecurityHeadersFilter.java`
 
 ---
@@ -81,7 +81,7 @@ Sprint 17에서 `HmacSignatureFilter` (Order=10)가 추가되었습니다.
 **API Gateway(Kong, Envoy) 등 상위 레이어에서 이미 보안 헤더를 삽입**하는 경우에만 false 허용:
 ```bash
 # 상위 API Gateway가 보안 헤더를 담당하는 경우
-IDO_SECURITY_HEADERS_ENABLED=false
+IDEM_HUB_SECURITY_HEADERS_ENABLED=false
 ```
 
 > ⚠️ **확인 없이 false로 설정하면 OWASP ZAP, Nessus 등 보안 스캐너에서 취약점이 감지됩니다.**

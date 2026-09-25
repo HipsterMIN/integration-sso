@@ -42,7 +42,7 @@ class QimEventConsumerTest {
 
     private static UserEvent event(String id, String type, String status, long version) {
         return UserEvent.builder().eventId(id).eventType(type).qimUserId("u1").eventVersion(version)
-                .userStatus(status).needsSync(false).sourceSystem("q-im").build();
+                .userStatus(status).needsSync(false).sourceSystem("idem-registry").build();
     }
 
     @Test
@@ -50,8 +50,8 @@ class QimEventConsumerTest {
         sut.handle(event("e1", UserEvent.TYPE_SUSPENDED, "SUSPENDED", 2L));
         verify(cache).invalidate("u1");
         verify(sessions).invalidateByQimUserId("u1", UserEvent.TYPE_SUSPENDED);
-        verify(idempotent).markProcessed("e1", "ido-qim-consumer", UserEvent.TYPE_SUSPENDED, "OK");
-        verify(versions).put("ido-qim-consumer:u1", 2L);
+        verify(idempotent).markProcessed("e1", "idem-hub-registry-consumer", UserEvent.TYPE_SUSPENDED, "OK");
+        verify(versions).put("idem-hub-registry-consumer:u1", 2L);
     }
 
     @Test
@@ -76,7 +76,7 @@ class QimEventConsumerTest {
 
     @Test
     void duplicateSkipped() {
-        given(idempotent.isAlreadyProcessed("e1", "ido-qim-consumer")).willReturn(true);
+        given(idempotent.isAlreadyProcessed("e1", "idem-hub-registry-consumer")).willReturn(true);
         sut.handle(event("e1", UserEvent.TYPE_SUSPENDED, "SUSPENDED", 2L));
         verify(cache, never()).invalidate(anyString());
         verify(sessions, never()).invalidateByQimUserId(anyString(), anyString());
@@ -84,7 +84,7 @@ class QimEventConsumerTest {
 
     @Test
     void staleVersionSkipped() {
-        given(versions.get("ido-qim-consumer:u1")).willReturn(9L);
+        given(versions.get("idem-hub-registry-consumer:u1")).willReturn(9L);
         sut.handle(event("e5", UserEvent.TYPE_SUSPENDED, "SUSPENDED", 2L));
         verify(sessions, never()).invalidateByQimUserId(anyString(), anyString());
         verify(idempotent).markProcessed(eq("e5"), anyString(), anyString(), eq("SKIPPED"));

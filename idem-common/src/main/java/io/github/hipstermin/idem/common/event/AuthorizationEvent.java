@@ -9,11 +9,11 @@ import lombok.extern.jackson.Jacksonized;
  * 연합 인가(q-authz) 도메인 이벤트 — 역할 부여/회수/만료.
  *
  * <p>q-authz가 부여 상태를 변경할 때 트랜잭셔널 아웃박스에 적재하여
- * {@code authz.assignment.events} 토픽으로 발행한다. 다운스트림(기관 게이트웨이·
+ * {@code idem.authz.assignment.events} 토픽으로 발행한다. 다운스트림(기관 게이트웨이·
  * 세션 캐시·ido)이 이를 구독해 <b>역할 회수를 토큰 만료 이전에 전파</b>할 수 있다
  * (연합 인가의 회수 지연 약점 해소).
  *
- * <p><b>토픽</b>: {@code authz.assignment.events}
+ * <p><b>토픽</b>: {@code idem.authz.assignment.events}
  * <p><b>파티션 키</b>: {@code qimUserId} (사용자 단위 순서 보장)
  */
 @Getter
@@ -21,9 +21,9 @@ import lombok.extern.jackson.Jacksonized;
 @Jacksonized // D1-b: Kafka JsonDeserializer·아웃박스 프로세스 내 배달 모두 이 클래스로 역직렬화한다 (생성자만으로는 Jackson 이 만들 수 없었다)
 public class AuthorizationEvent extends DomainEvent {
 
-    public static final String SOURCE_SYSTEM = "q-authz";
+    public static final String SOURCE_SYSTEM = "idem-authz";
 
-    public static final String TYPE_GRANTED = "AUTHZ_GRANTED";
+    public static final String TYPE_GRANTED = "IDEM_AUTHZ_GRANTED";
     public static final String TYPE_REVOKED = "AUTHZ_REVOKED";
     public static final String TYPE_EXPIRED = "AUTHZ_EXPIRED";
 

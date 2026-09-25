@@ -23,9 +23,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AdminSessionStore {
 
-    static final String SESSION_PREFIX = "ido:admin:session:";
-    static final String USER_PREFIX = "ido:admin:user:";
-    static final String MFA_PREFIX = "ido:admin:mfa:";
+    static final String SESSION_PREFIX = "idem:admin:session:";
+    static final String USER_PREFIX = "idem:admin:user:";
+    static final String MFA_PREFIX = "idem:admin:mfa:";
 
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;

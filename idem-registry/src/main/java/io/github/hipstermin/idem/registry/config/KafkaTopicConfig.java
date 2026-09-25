@@ -14,18 +14,18 @@ import org.springframework.kafka.config.TopicBuilder;
  * 설계서 §10.5.2 Transactional Outbox / §11.5.6 Compacted Snapshot
  *
  * <pre>
- * qim.user.events    : 사용자 변경 이벤트 (compact) — partitionKey=qimUserId
- * qim.user.snapshot  : 사용자 전체 상태 스냅샷 (compact) — IdO 초기 로딩용
+ * idem.registry.user.events    : 사용자 변경 이벤트 (compact) — partitionKey=qimUserId
+ * idem.registry.user.snapshot  : 사용자 전체 상태 스냅샷 (compact) — IdO 초기 로딩용
  * </pre>
  */
 @Configuration
 @ConditionalOnProperty(name = KafkaOptional.PROPERTY, havingValue = "true") // D1-b: Kafka 선택 의존
 public class KafkaTopicConfig {
 
-    @Value("${qim.kafka.topic-user-events:qim.user.events}")
+    @Value("${idem.registry.kafka.topic-user-events:idem.registry.user.events}")
     private String userEventsTopic;
 
-    @Value("${qim.kafka.topic-snapshot:qim.user.snapshot}")
+    @Value("${idem.registry.kafka.topic-snapshot:idem.registry.user.snapshot}")
     private String snapshotTopic;
 
     /**

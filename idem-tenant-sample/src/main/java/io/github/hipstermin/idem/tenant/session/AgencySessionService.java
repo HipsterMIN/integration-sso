@@ -50,13 +50,13 @@ public class AgencySessionService {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper  objectMapper;
 
-    @Value("${agency-stub.code:AGENCY_STUB_001}")
+    @Value("${idem.sample.code:AGENCY_STUB_001}")
     private String agencyCode;
 
-    @Value("${agency-stub.session.idle-timeout-minutes:30}")
+    @Value("${idem.sample.session.idle-timeout-minutes:30}")
     private int idleTimeoutMinutes;
 
-    @Value("${agency-stub.session.absolute-timeout-minutes:480}")
+    @Value("${idem.sample.session.absolute-timeout-minutes:480}")
     private int absoluteTimeoutMinutes;
 
     // ══════════════════════════════════════════════════════════════════════

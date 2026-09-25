@@ -1,5 +1,5 @@
 # ── Q-Sign Service ─────────────────────────────────────────────────
-{{- if .Values.qsign.enabled }}
+{{- if .Values.gate.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -7,20 +7,20 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-sign
+    app.kubernetes.io/component: idem-gate
 spec:
-  type: {{ .Values.qsign.service.type }}
+  type: {{ .Values.gate.service.type }}
   selector:
     app: idem-gate
   ports:
     - name: http
-      port: {{ .Values.qsign.service.port }}
+      port: {{ .Values.gate.service.port }}
       targetPort: http
       protocol: TCP
 {{- end }}
 ---
 # ── Q-IM Service ───────────────────────────────────────────────────
-{{- if .Values.qim.enabled }}
+{{- if .Values.registry.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -28,20 +28,20 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-im
+    app.kubernetes.io/component: idem-registry
 spec:
-  type: {{ .Values.qim.service.type }}
+  type: {{ .Values.registry.service.type }}
   selector:
     app: idem-registry
   ports:
     - name: http
-      port: {{ .Values.qim.service.port }}
+      port: {{ .Values.registry.service.port }}
       targetPort: http
       protocol: TCP
 {{- end }}
 ---
 # ── IdO Service ────────────────────────────────────────────────────
-{{- if .Values.ido.enabled }}
+{{- if .Values.hub.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -49,20 +49,20 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ido
+    app.kubernetes.io/component: idem-hub
 spec:
-  type: {{ .Values.ido.service.type }}
+  type: {{ .Values.hub.service.type }}
   selector:
     app: idem-hub
   ports:
     - name: http
-      port: {{ .Values.ido.service.port }}
+      port: {{ .Values.hub.service.port }}
       targetPort: http
       protocol: TCP
 {{- end }}
 ---
 # ── Outbox Relay Batch Service (Prometheus scrape용) ──────────────
-{{- if .Values.batch.enabled }}
+{{- if .Values.relay.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -77,18 +77,18 @@ metadata:
     prometheus.io/port: "8090"
     prometheus.io/path: "/actuator/prometheus"
 spec:
-  type: {{ .Values.batch.service.type }}
+  type: {{ .Values.relay.service.type }}
   selector:
     app: idem-relay
   ports:
     - name: http
-      port: {{ .Values.batch.service.port }}
+      port: {{ .Values.relay.service.port }}
       targetPort: http
       protocol: TCP
 {{- end }}
 ---
 # ── Agency-Stub Service (PoC 전용) ────────────────────────────────
-{{- if .Values.agencyStub.enabled }}
+{{- if .Values.sample.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -98,12 +98,12 @@ metadata:
     {{- include "onepass.labels" . | nindent 4 }}
     app.kubernetes.io/component: agency-stub
 spec:
-  type: {{ .Values.agencyStub.service.type }}
+  type: {{ .Values.sample.service.type }}
   selector:
     app: idem-tenant-sample
   ports:
     - name: http
-      port: {{ .Values.agencyStub.service.port }}
+      port: {{ .Values.sample.service.port }}
       targetPort: http
       protocol: TCP
 {{- end }}
@@ -117,7 +117,7 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-authz
+    app.kubernetes.io/component: idem-authz
 spec:
   type: {{ .Values.authz.service.type }}
   selector:

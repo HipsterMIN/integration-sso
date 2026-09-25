@@ -1,2 +1,3 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
+io.github.hipstermin.idem.common.naming.LegacyNamesEnvironmentPostProcessor,\
 io.github.hipstermin.idem.common.messaging.KafkaOptionalEnvironmentPostProcessor

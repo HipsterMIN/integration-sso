@@ -1,6 +1,6 @@
 # F-23: Agency Gateway 인바운드 API (Sprint 15)
 
-> **환경변수**: `IDO_GATEWAY_INBOUND_ENABLED`  
+> **환경변수**: `IDEM_HUB_GATEWAY_INBOUND_ENABLED`  
 > **Phase**: Phase 3-A (Gate 2 통과 후 활성화)  
 > **기본값**: `false` (안전)  
 > **엔드포인트**: `POST /api/v1/agency/gateway/inbound/event`  
@@ -80,7 +80,7 @@ curl -X POST https://onepass.go.kr/api/v1/agency/gateway/inbound/event \
 # 응답: 503 Service Unavailable
 {
   "error":   "FEATURE_DISABLED",
-  "message": "Gateway 인바운드 API가 현재 비활성화 상태입니다. (IDO_GATEWAY_INBOUND_ENABLED=false)",
+  "message": "Gateway 인바운드 API가 현재 비활성화 상태입니다. (IDEM_HUB_GATEWAY_INBOUND_ENABLED=false)",
   "phase":   "Phase 3-A 진입 후 활성화 예정"
 }
 ```
@@ -112,7 +112,7 @@ kubectl rollout restart deployment/ido -n smes
 
 # 5단계: 기능 활성화 확인
 curl -s http://localhost:8083/actuator/features | jq '.features["F-23_gatewayInbound"]'
-# 예상: {"enabled": true, "env": "IDO_GATEWAY_INBOUND_ENABLED", ...}
+# 예상: {"enabled": true, "env": "IDEM_HUB_GATEWAY_INBOUND_ENABLED", ...}
 ```
 
 ### 테스트 시나리오

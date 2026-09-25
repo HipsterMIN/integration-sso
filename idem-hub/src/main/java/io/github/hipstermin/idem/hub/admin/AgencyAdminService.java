@@ -42,7 +42,7 @@ public class AgencyAdminService {
     private final ServiceProfileMapper     serviceProfileMapper;
 
     /** 신규 기관 생성 시 policyVersion 기본값 (하드코딩 "1.0" 제거) */
-    @Value("${ido.policy.default-version:1.0}")
+    @Value("${idem.hub.policy.default-version:1.0}")
     private String defaultPolicyVersion;
 
     // ── 기관 등록 ──────────────────────────────────────────────────────────

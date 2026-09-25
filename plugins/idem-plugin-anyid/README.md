@@ -11,13 +11,13 @@
 |---|---|
 | `build.gradle.kts` | 벤더 SDK·자산 외부 공급(`-PvendorLibsDir` / `IDEM_VENDOR_LIBS` / `~/.idem/vendor-libs`), SDK 부재 시 `sdk` 패키지 자동 제외. 코어 의존은 전부 `compileOnly` |
 | `AnyIdAutoConfiguration` | `idem.plugins.anyid.enabled=true` 일 때 활성. 코어 빈 `ObjectMapper`·`BrokerAuthCompletion`·`ResourceLoader` 만 받는다 |
-| `AnyIdDefaultsEnvironmentPostProcessor` + `idem-plugin-anyid-defaults.yml` | `ido.anyid.*` 기본값과 환경변수(`ANYID_*`) 매핑을 가장 낮은 우선순위로 올린다. 코어 `application.yml` 에는 AnyID 설정이 없다 |
-| `AnyIdProperties` | `ido.anyid.*` 바인딩. 운영기관 식별자(`srvc-no`·`agency-code`·`agency-name`) 3종이 비어 있으면 브로커 진입을 503 으로 거부 |
+| `AnyIdDefaultsEnvironmentPostProcessor` + `idem-plugin-anyid-defaults.yml` | `idem.hub.anyid.*` 기본값과 환경변수(`ANYID_*`) 매핑을 가장 낮은 우선순위로 올린다. 코어 `application.yml` 에는 AnyID 설정이 없다 |
+| `AnyIdProperties` | `idem.hub.anyid.*` 바인딩. 운영기관 식별자(`srvc-no`·`agency-code`·`agency-name`) 3종이 비어 있으면 브로커 진입을 503 으로 거부 |
 | `AnyIdBrokerAdapter` | 코어 SPI `DirectBrokerAdapter`(`id()="anyid"`, `supports()` 휴리스틱) — 인증 시작 URL(init)·verify·SSO 토큰 검증·민간ID 리다이렉트 |
 | `AnyIdController` | `/api/v1/anyid/*` — initiate · callback · `{provider}/ssob` · `ssob`(FE 호환) · `txId` · `oidc/ssoLogin` · `config` · `health` |
 | `SsobDecryptor` → `sdk/AnyIdSdkSsobDecryptor` | ssob 복호화 포트와 SDK(`kr.or.anyid.util.AnyidCertRef`) 구현. SDK 가 있을 때만 빈 등록, 없으면 ssob 계열 엔드포인트가 503(`ANYID_SDK_UNAVAILABLE`) |
 | `AnyIdSsob` | 복호화된 ssob 필드 해석(ci·authLvl→L1/L2/L3·name), SDK 비의존 |
-| `AnyIdKmsClient` | AnyID KMS(kdist, ARIA-CBC-256) 클라이언트. `ido.anyid.kms.app-key` 가 있을 때만 빈. 코어 `KmsClient` 계약 밖의 플러그인 내부 컴포넌트 |
+| `AnyIdKmsClient` | AnyID KMS(kdist, ARIA-CBC-256) 클라이언트. `idem.hub.anyid.kms.app-key` 가 있을 때만 빈. 코어 `KmsClient` 계약 밖의 플러그인 내부 컴포넌트 |
 
 ## 2. 코어(idem-hub)와의 경계
 

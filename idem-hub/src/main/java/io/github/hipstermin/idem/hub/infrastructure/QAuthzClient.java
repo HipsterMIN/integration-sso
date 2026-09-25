@@ -24,9 +24,9 @@ import org.springframework.web.util.UriComponentsBuilder;
  * 세밀한 권한 해석/집행은 대상 기관(또는 후속 L3 PDP)의 책임이다.
  *
  * <h3>가용성 정책 — D2 fail-secure</h3>
- * <p>{@code ido.q-authz.enabled=true}(기본) 이면 조회 실패는 <b>거부</b>({@link PlatformErrorCode#IDO_AUTHZ_UNAVAILABLE}, 503) 다 —
+ * <p>{@code idem.hub.authz.enabled=true}(기본) 이면 조회 실패는 <b>거부</b>({@link PlatformErrorCode#IDEM_HUB_AUTHZ_UNAVAILABLE}, 503) 다 —
  * 종전에는 장애 시 빈 역할을 돌려 "역할 없음" 과 "인가 서비스 다운" 을 소비측이 구분할 수 없었다.
- * Idem IM(authz) 없이 SSO 만 쓰는 설치는 {@code ido.q-authz.enabled=false} 로 <b>명시</b>해야 하며, 그때는 항상 빈 역할(L0)이다.
+ * Idem IM(authz) 없이 SSO 만 쓰는 설치는 {@code idem.hub.authz.enabled=false} 로 <b>명시</b>해야 하며, 그때는 항상 빈 역할(L0)이다.
  *
  * @see io.github.hipstermin.idem.hub.infrastructure.QimClientImpl 동일 HTTP 클라이언트 패턴
  */
@@ -36,33 +36,33 @@ public class QAuthzClient {
 
     private final RestTemplate qAuthzRestTemplate;
 
-    @Value("${ido.q-authz.base-url:http://localhost:8086}")
+    @Value("${idem.hub.authz.base-url:http://localhost:8086}")
     private String qAuthzBaseUrl;
 
     /**
-     * q-authz 내부 API 키 — {@code IDO_QAUTHZ_INTERNAL_API_KEY} 환경변수 주입.
+     * q-authz 내부 API 키 — {@code IDEM_HUB_AUTHZ_INTERNAL_API_KEY} 환경변수 주입.
      * D2: enabled 인데 비어 있으면 부팅 차단 (allow-empty-api-key 는 로컬·테스트 전용).
      */
-    @Value("${ido.q-authz.internal-api-key:}")
+    @Value("${idem.hub.authz.internal-api-key:}")
     private String qAuthzInternalApiKey;
 
     /** false 면 authz 를 호출하지 않고 항상 빈 역할 — SSO 단독 설치용 명시적 스위치 (조용한 폴백 아님) */
-    @Value("${ido.q-authz.enabled:true}")
+    @Value("${idem.hub.authz.enabled:true}")
     private boolean enabled = true;
 
     /** D2: enabled 인데 내부 API 키가 비면 부팅 차단 (로컬·테스트에서만 true) */
-    @Value("${ido.q-authz.allow-empty-api-key:false}")
+    @Value("${idem.hub.authz.allow-empty-api-key:false}")
     private boolean allowEmptyApiKey;
 
     @jakarta.annotation.PostConstruct
     void validateConfiguration() {
         if (enabled && (qAuthzInternalApiKey == null || qAuthzInternalApiKey.isBlank()) && !allowEmptyApiKey) {
-            throw new IllegalStateException("[QAuthzClient] ido.q-authz.enabled=true 인데 IDO_QAUTHZ_INTERNAL_API_KEY 가 비어 있습니다. "
-                    + "키를 주입하거나, authz 없는 SSO 단독 설치면 ido.q-authz.enabled=false 로 명시하십시오. "
-                    + "로컬·테스트에서만 ido.q-authz.allow-empty-api-key=true 로 우회 가능합니다.");
+            throw new IllegalStateException("[QAuthzClient] idem.hub.authz.enabled=true 인데 IDEM_HUB_AUTHZ_INTERNAL_API_KEY 가 비어 있습니다. "
+                    + "키를 주입하거나, authz 없는 SSO 단독 설치면 idem.hub.authz.enabled=false 로 명시하십시오. "
+                    + "로컬·테스트에서만 idem.hub.authz.allow-empty-api-key=true 로 우회 가능합니다.");
         }
         if (!enabled) {
-            log.warn("[QAuthzClient] ido.q-authz.enabled=false — 연합 인가 조회 없이 항상 빈 역할(L0) 로 동작합니다");
+            log.warn("[QAuthzClient] idem.hub.authz.enabled=false — 연합 인가 조회 없이 항상 빈 역할(L0) 로 동작합니다");
         }
     }
 
@@ -75,7 +75,7 @@ public class QAuthzClient {
      * {@code GET /api/v1/internal/authz/users/{qimUserId}/effective-roles?agencyCode=...}
      *
      * @return 역할 코드 목록(ACTIVE·만료 미경과). 미부여·authz 비활성 시 빈 리스트(절대 null 아님).
-     * @throws PlatformException {@link PlatformErrorCode#IDO_AUTHZ_UNAVAILABLE} — authz 장애·비정상 응답 (D2 fail-secure)
+     * @throws PlatformException {@link PlatformErrorCode#IDEM_HUB_AUTHZ_UNAVAILABLE} — authz 장애·비정상 응답 (D2 fail-secure)
      */
     @SuppressWarnings("unchecked")
     public List<String> getEffectiveRoles(String qimUserId, String agencyCode, String correlationId) {
@@ -119,8 +119,8 @@ public class QAuthzClient {
 
     /**
      * S8-b: 할당 여부 + 유효 역할을 한 번에 — {@code GET /api/v1/internal/authz/users/{id}/access?agencyCode=}.
-     * 장애·비정상 응답은 {@link PlatformErrorCode#IDO_AUTHZ_UNAVAILABLE} (fail-secure).
-     * {@code ido.q-authz.enabled=false} 면 {@link ServiceAccess#disabled()} — 할당 필수 정책은 그 자체로 거부된다.
+     * 장애·비정상 응답은 {@link PlatformErrorCode#IDEM_HUB_AUTHZ_UNAVAILABLE} (fail-secure).
+     * {@code idem.hub.authz.enabled=false} 면 {@link ServiceAccess#disabled()} — 할당 필수 정책은 그 자체로 거부된다.
      */
     @SuppressWarnings("unchecked")
     public ServiceAccess getServiceAccess(String qimUserId, String agencyCode, String correlationId) {

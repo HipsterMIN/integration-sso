@@ -31,11 +31,11 @@ import org.springframework.web.client.RestTemplate;
  *
  * <p><b>설정 키</b>:
  * <pre>
- * ido.anyid.kms.server-host   : https://www.anyid.dev:8119/   (개발)
- * ido.anyid.kms.enc-alg       : ARIA-CBC-256
- * ido.anyid.kms.cversion      : 1
- * ido.anyid.kms.app-key       : (Base64, K8s Secret ANYID_KMS_APP_KEY)
- * ido.anyid.kms.client-info   : (Base64, K8s Secret ANYID_KMS_CLIENT_INFO)
+ * idem.hub.anyid.kms.server-host   : https://www.anyid.dev:8119/   (개발)
+ * idem.hub.anyid.kms.enc-alg       : ARIA-CBC-256
+ * idem.hub.anyid.kms.cversion      : 1
+ * idem.hub.anyid.kms.app-key       : (Base64, K8s Secret ANYID_KMS_APP_KEY)
+ * idem.hub.anyid.kms.client-info   : (Base64, K8s Secret ANYID_KMS_CLIENT_INFO)
  * </pre>
  *
  * <p><b>kdist API 흐름</b>:
@@ -56,7 +56,7 @@ import org.springframework.web.client.RestTemplate;
  * 운영 환경에서는 반드시 K8s Secret / Vault에서 주입한다.
  *
  * <p><b>코어와의 관계 (S5b)</b>: 코어 {@code KmsClient} 계약(Handoff DEK 보호)과는 별개인 플러그인 내부 컴포넌트다.
- * {@code ido.anyid.kms.app-key} 가 있을 때만 {@link AnyIdAutoConfiguration} 이 빈으로 올린다. 코어의 KMS 선택·헬스체크에는
+ * {@code idem.hub.anyid.kms.app-key} 가 있을 때만 {@link AnyIdAutoConfiguration} 이 빈으로 올린다. 코어의 KMS 선택·헬스체크에는
  * 참여하지 않는다.
  *
  * @see AnyIdProperties
@@ -85,7 +85,7 @@ public class AnyIdKmsClient {
         this.restTemplate = new RestTemplate(factory);
 
         if (kms.getAppKey() == null || kms.getAppKey().isBlank()) {
-            log.warn("[AnyId-KMS] ido.anyid.kms.app-key 미설정 — " +
+            log.warn("[AnyId-KMS] idem.hub.anyid.kms.app-key 미설정 — " +
                      "Any-ID KMS 키 요청이 실패할 수 있습니다. " +
                      "운영 환경: K8s Secret ANYID_KMS_APP_KEY를 설정하세요.");
         } else {
@@ -176,7 +176,7 @@ public class AnyIdKmsClient {
      * <p>요청 Body (JSON):
      * <pre>
      * {
-     *   "srvc_no":     "<ido.anyid.srvc-no>",
+     *   "srvc_no":     "<idem.hub.anyid.srvc-no>",
      *   "app_key":     "{Base64 앱 키}",
      *   "client_info": "{Base64 클라이언트 정보}",
      *   "cversion":    1,
@@ -398,7 +398,7 @@ public class AnyIdKmsClient {
         AnyIdProperties.Kms kms = anyIdProperties.getKms();
         if (kms.getAppKey() == null || kms.getAppKey().isBlank()) {
             throw new KmsDecryptException(
-                    "[AnyId-KMS] ido.anyid.kms.app-key가 설정되지 않았습니다. " +
+                    "[AnyId-KMS] idem.hub.anyid.kms.app-key가 설정되지 않았습니다. " +
                     "K8s Secret ANYID_KMS_APP_KEY를 환경변수로 주입하세요.", null);
         }
     }

@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * S6 표준 프로토콜(OIDC_RP) 설정 — {@code ido.oidc-rp.*}.
+ * S6 표준 프로토콜(OIDC_RP) 설정 — {@code idem.hub.oidc-rp.*}.
  *
  * <p>Keycloak 은 설치본 내부 구성요소다. 기관(RP)에는 {@link #getIssuer() issuer}(gate 의 공개 URL 아래
  * {@code /realms/{realm}})만 알려 주고, Keycloak client 는 Idem 이 프로파일에서 프로비저닝한다.
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 @Getter
 @Setter
 @Component
-@ConfigurationProperties(prefix = "ido.oidc-rp")
+@ConfigurationProperties(prefix = "idem.hub.oidc-rp")
 public class OidcRpProperties {
 
     /** OIDC_RP 프로비저닝 활성 — false 면 OIDC_RP 프로파일 저장이 E-IDO-122 로 거부된다(안전 우선). */

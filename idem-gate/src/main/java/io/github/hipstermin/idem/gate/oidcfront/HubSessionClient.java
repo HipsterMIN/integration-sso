@@ -22,10 +22,10 @@ public class HubSessionClient {
 
     private final RestTemplate restTemplate;
 
-    @Value("${qsign.ido.base-url:http://localhost:8083}")
+    @Value("${idem.gate.hub.base-url:http://localhost:8083}")
     private String idoBaseUrl;
 
-    @Value("${qsign.ido.internal-sig-secret:}")
+    @Value("${idem.gate.hub.internal-sig-secret:}")
     private String internalSigSecret;
 
     public HubSessionClient(RestTemplate restTemplate) {
@@ -42,7 +42,7 @@ public class HubSessionClient {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
         h.set("X-Correlation-Id", correlationId);
-        h.set("X-Internal-Caller", "q-sign");
+        h.set("X-Internal-Caller", "idem-gate");
         h.set("X-Internal-Sig", CryptoProviders.current().hmacSha256Hex(internalSigSecret.getBytes(StandardCharsets.UTF_8),
                 correlationId + ":" + (System.currentTimeMillis() / 1000L)));
         try {

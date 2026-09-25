@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AccessDecisionCache {
 
-    static final String PREFIX = "qsign:oidcrp:access:";
+    static final String PREFIX = "idem:gate:oidcrp:access:";
 
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;

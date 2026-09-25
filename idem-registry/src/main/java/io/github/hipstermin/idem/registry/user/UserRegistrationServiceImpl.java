@@ -128,7 +128,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
             default -> UserEvent.TYPE_UPDATED;
         };
         outboxService.publishInTx(new UserEvent(
-                eventType, "q-im",
+                eventType, "idem-registry",
                 null, qimUserId, user.getEventVersion() + 1,
                 target.name(), reason, true));
         log.info("[UserReg] 상태 변경 완료: qimUserId={} {} → {}", qimUserId, oldStatus, newStatus);
@@ -156,7 +156,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
         // UserEvent 발행
         outboxService.publishInTx(new UserEvent(
-                UserEvent.TYPE_WITHDRAWN, "q-im",
+                UserEvent.TYPE_WITHDRAWN, "idem-registry",
                 null, qimUserId, user.getEventVersion() + 1,
                 STATUS_WITHDRAWN, reason, true));
         log.info("[UserReg] 탈퇴 처리 완료 (PII 삭제됨): qimUserId={}", qimUserId);
@@ -238,7 +238,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
 
         // Kafka Outbox 등록
         outboxService.publishInTx(new UserEvent(
-                UserEvent.TYPE_UPDATED, "q-im",
+                UserEvent.TYPE_UPDATED, "idem-registry",
                 null, qimUserId, 1L,
                 STATUS_ACTIVE, "USER_REGISTERED", false));
 

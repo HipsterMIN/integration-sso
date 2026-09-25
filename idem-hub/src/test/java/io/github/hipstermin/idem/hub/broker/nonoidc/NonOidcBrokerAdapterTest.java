@@ -30,7 +30,7 @@ class NonOidcBrokerAdapterTest {
     }
 
     @Test
-    @DisplayName("검증기 미등록 사업자 — initiate 부터 IDO_PROVIDER_NOT_CONFIGURED (막다른 인증 화면 방지)")
+    @DisplayName("검증기 미등록 사업자 — initiate 부터 IDEM_HUB_PROVIDER_NOT_CONFIGURED (막다른 인증 화면 방지)")
     void noVerifier_initiateRejected() {
         NonOidcBrokerAdapter sut = new NonOidcBrokerAdapter(nonOidcAuthService, List.of(), props());
 

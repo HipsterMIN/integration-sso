@@ -1,4 +1,4 @@
-{{- if .Values.qim.enabled }}
+{{- if .Values.registry.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,11 +6,11 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-im
+    app.kubernetes.io/component: idem-registry
   annotations:
     checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
 spec:
-  replicas: {{ .Values.qim.replicaCount }}
+  replicas: {{ .Values.registry.replicaCount }}
   selector:
     matchLabels:
       app: idem-registry
@@ -24,20 +24,20 @@ spec:
       labels:
         app: idem-registry
         {{- include "onepass.labels" . | nindent 8 }}
-        app.kubernetes.io/component: q-im
+        app.kubernetes.io/component: idem-registry
     spec:
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
       {{- end }}
-      {{- if and .Values.qim.serviceAccount .Values.qim.serviceAccount.create }}
-      serviceAccountName: {{ .Values.qim.serviceAccount.name | default "idem-registry" }}
+      {{- if and .Values.registry.serviceAccount .Values.registry.serviceAccount.create }}
+      serviceAccountName: {{ .Values.registry.serviceAccount.name | default "idem-registry" }}
       {{- end }}
       terminationGracePeriodSeconds: 30
       containers:
-        - name: q-im
-          image: {{ include "onepass.image" .Values.qim.image }}
-          imagePullPolicy: {{ .Values.qim.image.pullPolicy }}
+        - name: idem-registry
+          image: {{ include "onepass.image" .Values.registry.image }}
+          imagePullPolicy: {{ .Values.registry.image.pullPolicy }}
           ports:
             - name: http
               containerPort: 8082
@@ -48,17 +48,17 @@ spec:
             - configMapRef:
                 name: idem-common-config
             - secretRef:
-                name: {{ .Values.qim.secretRef.name }}
-          {{- if .Values.qim.startupProbe }}
+                name: {{ .Values.registry.secretRef.name }}
+          {{- if .Values.registry.startupProbe }}
           startupProbe:
-            {{- toYaml .Values.qim.startupProbe | nindent 12 }}
+            {{- toYaml .Values.registry.startupProbe | nindent 12 }}
           {{- end }}
           livenessProbe:
-            {{- toYaml .Values.qim.livenessProbe | nindent 12 }}
+            {{- toYaml .Values.registry.livenessProbe | nindent 12 }}
           readinessProbe:
-            {{- toYaml .Values.qim.readinessProbe | nindent 12 }}
+            {{- toYaml .Values.registry.readinessProbe | nindent 12 }}
           resources:
-            {{- toYaml .Values.qim.resources | nindent 12 }}
+            {{- toYaml .Values.registry.resources | nindent 12 }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

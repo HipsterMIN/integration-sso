@@ -68,11 +68,11 @@ jobs:
             --namespace "idem-${{ inputs.environment }}" --create-namespace \
             -f "infra/helm/idem/values-${{ inputs.environment }}.yaml" \
             --set "global.imageRegistry=${IMAGE_REPO}" \
-            --set "qsign.image.tag=${TAG}" \
-            --set "qim.image.tag=${TAG}" \
-            --set "ido.image.tag=${TAG}" \
-            --set "authz.image.tag=${TAG}" \
-            --set "batch.image.tag=${TAG}" \
+            --set "idem.gate.image.tag=${TAG}" \
+            --set "idem.registry.image.tag=${TAG}" \
+            --set "idem.hub.image.tag=${TAG}" \
+            --set "idem.authz.image.tag=${TAG}" \
+            --set "idem.relay.image.tag=${TAG}" \
             --wait --timeout 10m
 
       - name: 롤아웃 상태

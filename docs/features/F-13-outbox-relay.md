@@ -1,6 +1,6 @@
 # F-13: IdO Outbox Relay (기존 기능)
 
-> **환경변수**: `IDO_OUTBOX_RELAY_ENABLED`  
+> **환경변수**: `IDEM_HUB_OUTBOX_RELAY_ENABLED`  
 > **기본값**: `true` (안정 운영 중)  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/infrastructure/outbox/IdoOutboxRelay.java`
 
@@ -43,7 +43,7 @@ Kafka 발행은 트랜잭션 밖에서 일어납니다. DB 커밋은 성공했�
 
 ```bash
 # Kafka 없는 로컬 개발 환경
-IDO_OUTBOX_RELAY_ENABLED=false  # false로 설정
+IDEM_HUB_OUTBOX_RELAY_ENABLED=false  # false로 설정
 ```
 
 ---

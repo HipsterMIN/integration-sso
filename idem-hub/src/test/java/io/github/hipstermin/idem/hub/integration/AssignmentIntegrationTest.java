@@ -41,9 +41,9 @@ class AssignmentIntegrationTest extends IntegrationTestBase {
 
     @DynamicPropertySource
     static void authzProps(DynamicPropertyRegistry registry) {
-        registry.add("ido.q-authz.enabled", () -> "true");
-        registry.add("ido.q-authz.allow-empty-api-key", () -> "true");
-        registry.add("ido.q-authz.base-url", () -> "http://localhost:" + wireMockServer.port());
+        registry.add("idem.hub.authz.enabled", () -> "true");
+        registry.add("idem.hub.authz.allow-empty-api-key", () -> "true");
+        registry.add("idem.hub.authz.base-url", () -> "http://localhost:" + wireMockServer.port());
     }
 
     @LocalServerPort int port;

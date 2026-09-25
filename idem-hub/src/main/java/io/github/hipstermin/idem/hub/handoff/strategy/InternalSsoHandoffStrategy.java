@@ -105,7 +105,7 @@ public class InternalSsoHandoffStrategy implements HandoffStrategy {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Agency-Code",    agencyCode);
             headers.set("X-Correlation-Id", correlationId);
-            headers.set("X-Source-System",  "ido");
+            headers.set("X-Source-System",  "idem-hub");
 
             // 4. POST 전송
             ResponseEntity<String> resp = restTemplate.exchange(

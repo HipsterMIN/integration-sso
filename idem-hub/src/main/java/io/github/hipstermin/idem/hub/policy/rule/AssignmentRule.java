@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
  *   <li>할당 있음 → ALLOW</li>
  *   <li>미할당 + selfSignup=true → ALLOW (페이로드 상태는 GUEST — {@code PolicyEngineImpl.buildHandoffPayload})</li>
  *   <li>미할당 + selfSignup=false → DENY {@code E-IDO-120}</li>
- *   <li>authz 비활성 설치(ido.q-authz.enabled=false)인데 required → DENY {@code E-IDO-117} (평가 불가 = 거부, fail-secure)</li>
+ *   <li>authz 비활성 설치(idem.hub.authz.enabled=false)인데 required → DENY {@code E-IDO-117} (평가 불가 = 거부, fail-secure)</li>
  * </ul>
  * 규칙 파라미터 {@code required}/{@code selfSignup} 이 있으면 프로파일 블록보다 우선한다(시뮬레이션·에디션 오버라이드용).
  * order 95: USER_STATUS(90) 뒤 — 원격 조회이므로 값싼 규칙이 먼저 거른 뒤에 부른다.

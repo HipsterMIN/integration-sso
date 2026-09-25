@@ -9,8 +9,8 @@
 |---|---|
 | `build.gradle.kts` | 벤더 SDK 외부 공급(`-PvendorLibsDir` / `IDEM_VENDOR_LIBS` / `~/.idem/vendor-libs`), SDK 부재 시 `oacx` 패키지 자동 제외. 코어 의존은 전부 `compileOnly`(hub 가 준다) |
 | `NiceOacxAutoConfiguration` | `idem.plugins.nice-oacx.enabled=true` 일 때 활성. 코어 빈 `RedisTemplate<String,String>`·`RedissonClient`·`ObjectMapper` 만 받아 기본 게이트웨이(`NicePhoneService`)를 만든다. `NicePhoneGateway` 빈을 따로 주면 그것을 쓴다(테스트·대체 구현) |
-| `NiceProperties` / `OacxProperties` | `ido.auth.nice.*`(clientId·clientSecret·returnUrl·timeoutSeconds·baseUrl) / `ido.auth.oacx.*`. 키 이름은 4b 개명까지 유지 — 환경변수 `NICE_CLIENT_ID` 등 그대로 |
-| `NiceCredentialsValidator` | `prod` 프로파일에서 자격증명 누락 시 기동 실패(`ido.auth.allow-missing-credentials=true` 로 완화) |
+| `NiceProperties` / `OacxProperties` | `idem.hub.auth.nice.*`(clientId·clientSecret·returnUrl·timeoutSeconds·baseUrl) / `idem.hub.auth.oacx.*`. 키 이름은 4b 개명까지 유지 — 환경변수 `NICE_CLIENT_ID` 등 그대로 |
+| `NiceCredentialsValidator` | `prod` 프로파일에서 자격증명 누락 시 기동 실패(`idem.hub.auth.allow-missing-credentials=true` 로 완화) |
 | `NicePhoneGateway` → `NicePhoneService` | NICE API 포트와 기본 구현: 토큰 캐시(`NiceTokenStore`, Redisson 분산 락으로 갱신)·세션(`NiceAuthSessionStore`)·`NiceApiClient`(WebClient + Resilience4j)·`NiceCryptoUtil`(PBKDF2/HMAC/AES-GCM). registry 등록·감사는 하지 않는다 — 코어 몫 |
 | `NicePhoneIdentityVerificationProvider` | SPI 구현 `NICE_PHONE`(L2, EzAuth 위젯 기술자). `complete` 는 CI 스킴 `VerifiedIdentity`(속성 `nationalInfo`·`di`) |
 | `oacx/OacxClientAdapter`, `oacx/OacxEasySignIdentityVerificationProvider` | SPI 구현 `OACX_EASYSIGN`. `import OACX.*` 는 이 패키지에만. `OACX.OacxUtil` 이 클래스패스에 있을 때만 빈 등록 |

@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
  * Handoff 이벤트 발행 경로 선택 (D1-b).
  *
  * <ul>
- *   <li>Kafka 켜짐: 종전과 같이 {@code ido.handoff.events} 로 즉시 발행 (비동기, 실패는 로그).</li>
- *   <li>Kafka 꺼짐(기본): {@code ido.outbox} 에 PENDING 으로 적재 — 호출자의 DB 트랜잭션과 함께 커밋되므로
+ *   <li>Kafka 켜짐: 종전과 같이 {@code idem.hub.handoff.events} 로 즉시 발행 (비동기, 실패는 로그).</li>
+ *   <li>Kafka 꺼짐(기본): {@code idem.hub.outbox} 에 PENDING 으로 적재 — 호출자의 DB 트랜잭션과 함께 커밋되므로
  *       티켓 상태 변경과 이벤트가 원자적이다. {@code IdoOutboxRelay} 가 폴링해 같은 프로세스의
  *       {@code HandoffEventConsumer.handle()} 로 배달한다(웹훅 적재·캐시 무효화·감사).</li>
  * </ul>
@@ -31,7 +31,7 @@ public class HandoffEventPublisher {
     @Value("${idem.messaging.kafka.enabled:false}")
     private boolean kafkaEnabled;
 
-    @Value("${ido.kafka.topic-handoff-events:ido.handoff.events}")
+    @Value("${idem.hub.kafka.topic-handoff-events:idem.hub.handoff.events}")
     private String handoffTopic;
 
     /**

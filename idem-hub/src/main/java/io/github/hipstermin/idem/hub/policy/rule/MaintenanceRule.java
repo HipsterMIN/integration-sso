@@ -17,13 +17,13 @@ import org.springframework.stereotype.Component;
  *
  * <p>요일은 {@code MON} 과 {@code MONDAY} 를 모두 받는다. 종전 구현은 {@code DayOfWeek.name()}("MONDAY")과
  * 저장값("MON")을 그대로 비교해 점검 시간대가 한 번도 걸리지 않았다 — S3 에서 앞 3글자 비교로 고쳤다.
- * 시각은 {@code ido.zone}(기본 UTC, 설치본은 컨테이너 TZ) 기준.
+ * 시각은 {@code idem.hub.zone}(기본 UTC, 설치본은 컨테이너 TZ) 기준.
  */
 @Component
 public class MaintenanceRule implements PolicyRule {
 
     public static final String TYPE = "MAINTENANCE";
-    /** D3: 코어 기본 시간대는 UTC — 설치가 {@code ido.zone}(= 컨테이너 TZ) 으로 정한다. 종전 고정값 Asia/Seoul 제거 */
+    /** D3: 코어 기본 시간대는 UTC — 설치가 {@code idem.hub.zone}(= 컨테이너 TZ) 으로 정한다. 종전 고정값 Asia/Seoul 제거 */
     public static final ZoneId DEFAULT_ZONE = java.time.ZoneOffset.UTC;
 
     private final ZoneId zone;
@@ -33,7 +33,7 @@ public class MaintenanceRule implements PolicyRule {
     }
 
     @org.springframework.beans.factory.annotation.Autowired
-    public MaintenanceRule(@org.springframework.beans.factory.annotation.Value("${ido.zone:UTC}") String zone) {
+    public MaintenanceRule(@org.springframework.beans.factory.annotation.Value("${idem.hub.zone:UTC}") String zone) {
         this(ZoneId.of(zone));
     }
 

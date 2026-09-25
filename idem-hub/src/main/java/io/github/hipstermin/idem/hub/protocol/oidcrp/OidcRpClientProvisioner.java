@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  * Service Profile → Keycloak client 프로비저닝 (S6).
  *
  * <p>사람이 Keycloak 콘솔에 손대는 단계를 없앤다. {@code protocol.type=OIDC_RP} 프로파일이 저장될 때 같은 트랜잭션 안에서
- * client {@code idem-svc-{code}} 를 만들거나 맞추고, 실패하면 {@link PlatformErrorCode#IDO_OIDC_PROVISION_FAILED} 로
+ * client {@code idem-svc-{code}} 를 만들거나 맞추고, 실패하면 {@link PlatformErrorCode#IDEM_HUB_OIDC_PROVISION_FAILED} 로
  * 저장 자체를 되돌린다. 유형이 OIDC_RP 에서 벗어나면 client 를 지우지 않고 비활성으로 남긴다(감사·복구).
  *
  * <p>프로비저닝되는 client 의 고정 규칙 — 기관이 바꿀 수 없다:
@@ -58,7 +58,7 @@ public class OidcRpClientProvisioner {
         try {
             if (wantsOidc && !props.isEnabled()) {
                 throw new PlatformException(PlatformErrorCode.IDO_OIDC_PROVISION_FAILED, correlationId,
-                        "ido.oidc-rp.enabled=false — 이 설치본은 OIDC_RP 프로비저닝이 꺼져 있습니다");
+                        "idem.hub.oidc-rp.enabled=false — 이 설치본은 OIDC_RP 프로비저닝이 꺼져 있습니다");
             }
             Optional<Map<String, Object>> existing = wantsOidc || props.isEnabled()
                     ? keycloak.findClientByClientId(clientId) : Optional.empty();

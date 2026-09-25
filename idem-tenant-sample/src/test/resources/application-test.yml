@@ -16,7 +16,7 @@ spring:
       group-id: test-group
       auto-offset-reset: earliest
 
-agency-stub:
+idem.sample:
   code: AGENCY_TEST_001
   webhook:
     signing-secret: test-signing-secret-for-unit-tests

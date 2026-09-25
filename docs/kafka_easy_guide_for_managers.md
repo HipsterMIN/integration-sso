@@ -237,7 +237,7 @@ IdO는 자신의 업무를 처리한 뒤, 그 결과를 다시 게시판에 남�
 
 | IdO가 작성하는 메모 | 게시판 | 이유 |
 |--------------------|--------|------|
-| Handoff 티켓 발급/소비/만료/취소 | `ido.handoff.events` | 기관 Webhook 트리거 + 감사 기록 |
+| Handoff 티켓 발급/소비/만료/취소 | `idem.hub.handoff.events` | 기관 Webhook 트리거 + 감사 기록 |
 | FE 세션 강제 종료 명령 | `platform.session.advisory` | FE가 즉시 해당 사용자 세션 무효화 |
 | 플랫폼 전역 감사 로그 | `platform.audit.log` | 법적 감사 추적 (5년 보존) |
 
@@ -400,7 +400,7 @@ sequenceDiagram
     RELAY_QIM->>DB_QIM: ③ Outbox 확인 → USER_SUSPENDED 발견
     RELAY_QIM->>KAFKA: ④ USER_SUSPENDED 이벤트 발행
 
-    par IdO 처리 (ido-qim-consumer 그룹)
+    par IdO 처리 (idem-hub-registry-consumer 그룹)
         KAFKA-->>IDO: ⑤ 이벤트 수신
         IDO->>IDO: ⑥ 사용자 상태 캐시 무효화<br/>Q-IM API Pull → 최신 상태 갱신
         note over IDO: 캐시 무효화 후 다음 Handoff 요청 시<br/>자동으로 SUSPENDED 상태 감지 → 발급 거부
@@ -423,9 +423,9 @@ sequenceDiagram
 flowchart TB
     subgraph KAFKA_BUS["🗂️ 사내 게시판 (Kafka) — 메시지 버스"]
         direction LR
-        T1[qsign.auth.events]
-        T2[qim.user.events]
-        T3[ido.handoff.events]
+        T1[idem.gate.auth.events]
+        T2[idem.registry.user.events]
+        T3[idem.hub.handoff.events]
         T4[platform.session.advisory]
         T5[platform.audit.log]
     end
@@ -447,7 +447,7 @@ flowchart TB
     IDO -->|Webhook\nHTTPS POST| 기관들["🏢 68개 유관기관\n(Kafka 직접 접속 불가)"]
 ```
 
-> **이 다이어그램 읽는 법**: 왼쪽에서 오른쪽, 위에서 아래로 흐르는 화살표가 "게시판에 메모를 붙인다"는 뜻이고, "읽기" 화살표가 "게시판에서 메모를 가져간다"는 뜻입니다. `T2(qim.user.events)`에서 IdO와 Q-Sign 양쪽으로 화살표가 나가는 것이 시나리오 D에서 설명한 "하나의 메모를 두 시스템이 동시에 읽는" 구조입니다.
+> **이 다이어그램 읽는 법**: 왼쪽에서 오른쪽, 위에서 아래로 흐르는 화살표가 "게시판에 메모를 붙인다"는 뜻이고, "읽기" 화살표가 "게시판에서 메모를 가져간다"는 뜻입니다. `T2(idem.registry.user.events)`에서 IdO와 Q-Sign 양쪽으로 화살표가 나가는 것이 시나리오 D에서 설명한 "하나의 메모를 두 시스템이 동시에 읽는" 구조입니다.
 
 | 시스템 | 핵심 역할 | Kafka에서 하는 일 |
 |--------|----------|-----------------| 

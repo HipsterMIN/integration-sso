@@ -27,11 +27,11 @@ import org.springframework.kafka.support.serializer.JsonDeserializer;
  * Q-Sign Kafka Consumer 설정
  * 설계서 §9.3 Q-IM 사용자 이벤트 수신 / §16.3 멱등 컨슈머 / §19.4 DLQ 전략
  *
- * <p>GAP-QS-03: Q-Sign도 qim.user.events 소비 시 DLQ 처리 필요 (설계 §19.4).
+ * <p>GAP-QS-03: Q-Sign도 idem.registry.user.events 소비 시 DLQ 처리 필요 (설계 §19.4).
  *
  * <p>컨슈머 그룹:
  * <ul>
- *   <li>q-sign-qim-consumer: qim.user.events 구독 (사용자 상태 연동)</li>
+ *   <li>q-sign-qim-consumer: idem.registry.user.events 구독 (사용자 상태 연동)</li>
  * </ul>
  *
  * <p>오류 처리 전략:
@@ -47,7 +47,7 @@ public class KafkaConsumerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${qsign.kafka.consumer-group-qim:q-sign-qim-consumer}")
+    @Value("${idem.gate.kafka.consumer-group-qim:q-sign-qim-consumer}")
     private String qimConsumerGroup;
 
     // ── Q-IM 사용자 이벤트 컨슈머 팩토리 ─────────────────────────────────────
@@ -63,7 +63,7 @@ public class KafkaConsumerConfig {
 
     /**
      * Q-IM 사용자 이벤트 리스너 컨테이너 팩토리
-     * - concurrency=3: qim.user.events 파티션 수 대응
+     * - concurrency=3: idem.registry.user.events 파티션 수 대응
      * - MANUAL_IMMEDIATE: 처리 완료 후 수동 커밋 (멱등 처리 보장)
      * - 지수 백오프 재시도 후 DLQ 전송 (설계서 §19.4)
      */

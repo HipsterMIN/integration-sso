@@ -1,8 +1,8 @@
 # F-14: Webhook Outbox HTTP 릴레이
 
-> **환경변수**: `IDO_WEBHOOK_RELAY_ENABLED`  
+> **환경변수**: `IDEM_HUB_WEBHOOK_RELAY_ENABLED`  
 > **기본값**: `true`  
-> **Spring 프로퍼티**: `ido.webhook.relay-enabled`  
+> **Spring 프로퍼티**: `idem.hub.webhook.relay-enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/webhook/WebhookRelayScheduler.java`  
 > **대상 테이블**: `webhook_dispatch_outbox`
 
@@ -80,7 +80,7 @@ X-Idempotency-Key: evt-550e8400
 
 **Webhook 기관이 아직 없는 경우** 또는 **릴레이 스케줄러 임시 중지** 시:
 ```bash
-IDO_WEBHOOK_RELAY_ENABLED=false  # webhook_dispatch_outbox 레코드 누적됨
+IDEM_HUB_WEBHOOK_RELAY_ENABLED=false  # webhook_dispatch_outbox 레코드 누적됨
 ```
 
 > ⚠️ **false 기간 중 `webhook_dispatch_outbox`에 레코드가 누적됩니다. true 복원 시 일괄 재발송됩니다.**  

@@ -60,7 +60,7 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
      * <p>PoC: 각 providerCode 별 더미 URL 반환.
      * 운영: 실제 사업자 API(PASS 등) 호출 후 redirect URL 또는 txId 반환.
      *
-     * @param providerCode  인증 수단 코드 (설정 ido.broker.nonoidc.providers 의 키)
+     * @param providerCode  인증 수단 코드 (설정 idem.hub.broker.nonoidc.providers 의 키)
      * @param correlationId 흐름 추적 ID
      * @param callbackUrl   인증 완료 후 사업자가 호출할 ido callback URL
      * @return {@link IdpBrokerResult} — redirect URL 또는 직접 호출 결과
@@ -76,7 +76,7 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
         // D3: 사업자별 분기(PASS·GPKI …)를 코드에서 뺐다 — 설정에 없는 사업자는 시작 자체를 거부
         NonOidcProviderProperties.Provider cfg = providerProperties.find(providerCode)
                 .orElseThrow(() -> new PlatformException(PlatformErrorCode.IDP_PROVIDER_UNAVAILABLE, correlationId,
-                        "설정되지 않은 비OIDC provider(ido.broker.nonoidc.providers): " + providerCode));
+                        "설정되지 않은 비OIDC provider(idem.hub.broker.nonoidc.providers): " + providerCode));
         if (cfg.getInitiateUrl() == null || cfg.getInitiateUrl().isBlank()) {
             throw new PlatformException(PlatformErrorCode.IDO_PROVIDER_NOT_CONFIGURED, correlationId,
                     "비OIDC provider 의 initiate-url 이 비어 있습니다: " + providerCode);
@@ -230,7 +230,7 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
         return true;
     }
 
-    /** D3: 인증수준은 설정(ido.broker.nonoidc.providers.{CODE}.auth-level)이 정한다 — 없으면 L1 */
+    /** D3: 인증수준은 설정(idem.hub.broker.nonoidc.providers.{CODE}.auth-level)이 정한다 — 없으면 L1 */
     private AuthResult.AuthLevel resolveAuthLevel(String providerCode) {
         return providerProperties.find(providerCode)
                 .map(NonOidcProviderProperties.Provider::getAuthLevel)

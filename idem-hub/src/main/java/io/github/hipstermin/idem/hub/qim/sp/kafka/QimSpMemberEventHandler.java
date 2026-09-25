@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [해결 흐름]
  *   Q-IM → IdO SP API (회원 등록/조회/탈퇴)
  *     → QimSpReceiverService
- *         → Outbox → Kafka(qim.sp.member.events)
+ *         → Outbox → Kafka(idem.registry.sp.member.events)
  *             → [이 클래스] 수신
  *                 → WebhookDispatcherService.enqueueForMemberXxx()
  *                     → webhook_dispatch_outbox INSERT
@@ -56,7 +56,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class QimSpMemberEventHandler {
 
     private static final String SCHEMA        = "ido";
-    private static final String SOURCE_SYSTEM = "ido";
+    private static final String SOURCE_SYSTEM = "idem-hub";
 
     private final InstMbrIdMappingRepository mappingRepository;
     private final JdbcTemplate               jdbcTemplate;

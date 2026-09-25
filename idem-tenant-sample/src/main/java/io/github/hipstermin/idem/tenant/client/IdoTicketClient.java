@@ -27,11 +27,11 @@ import org.springframework.web.client.RestTemplate;
  * <pre>
  *   AgencySimulatorController.runFullFlow()
  *     └─ IdoTicketClient.issue()
- *           POST {ido.base-url}/api/v1/handoff/issue
+ *           POST {idem.hub.base-url}/api/v1/handoff/issue
  *           Headers: X-Agency-Code, X-Agency-Key, X-Correlation-Id, Idempotency-Key
  *           → HandoffTicket (ticketId, expiresAt, ...)
  *     └─ IdoVerifyClient.verify(ticketId, correlationId)
- *           POST {ido.base-url}/api/v1/handoff/verify
+ *           POST {idem.hub.base-url}/api/v1/handoff/verify
  *           → HandoffPayload (APPROVED / REJECTED / HOLD)
  *     └─ AgencySessionService.createSession(payload, ticketId, ...)
  *           → 기관 로컬 세션 생성 + AGSID 발급
@@ -52,13 +52,13 @@ public class IdoTicketClient {
     @Qualifier("idoRestTemplate")
     private final RestTemplate restTemplate;
 
-    @Value("${agency-stub.ido.base-url:http://localhost:8083}")
+    @Value("${idem.sample.ido.base-url:http://localhost:8083}")
     private String idoBaseUrl;
 
-    @Value("${agency-stub.code:AGENCY_STUB_001}")
+    @Value("${idem.sample.code:AGENCY_STUB_001}")
     private String agencyCode;
 
-    @Value("${agency-stub.ido.api-key:stub-api-key-dev-001}")
+    @Value("${idem.sample.ido.api-key:stub-api-key-dev-001}")
     private String apiKey;
 
     // ════════════════════════════════════════════════════════════════════════
@@ -74,7 +74,7 @@ public class IdoTicketClient {
      * @param qimUserId    QIM 사용자 ID (시뮬레이션용: 임의 UUID 사용 가능)
      * @param authResultId 인증 결과 ID (시뮬레이션용: 임의 UUID 사용 가능)
      * @param authLevel    인증 수준 (L1 / L2 / L3)
-     * @param providerCode 인증 수단 코드 (예: QSIGN_CERT)
+     * @param providerCode 인증 수단 코드 (예: IDEM_GATE_CERT)
      * @param correlationId 추적 ID
      * @return 발급된 티켓 정보 {@link TicketResult}
      * @throws IdoTicketIssuanceException 발급 실패 시

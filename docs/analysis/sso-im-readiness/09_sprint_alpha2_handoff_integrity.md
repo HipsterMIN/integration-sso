@@ -81,7 +81,7 @@ if (ticket.getEncryptedPayload() == null || ticket.getSignature() == null
 
 | 타입 | 토픽 | 용도 |
 |------|------|------|
-| `SIGNATURE_INVALID` | `ido.handoff.events` | 변조 의심 / Redis 침해 시그널, SIEM 연계 |
+| `SIGNATURE_INVALID` | `idem.hub.handoff.events` | 변조 의심 / Redis 침해 시그널, SIEM 연계 |
 
 ---
 

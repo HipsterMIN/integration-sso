@@ -45,24 +45,26 @@ openssl rand -hex 32
 |---|---|
 | `IDEM_DB_PASSWORD` | PostgreSQL `onepass` 사용자 — Keycloak·모든 앱 공용 |
 | `KEYCLOAK_ADMIN_PASSWORD` | Keycloak 관리 콘솔(설치자 전용) |
-| `IDO_INTERNAL_SIG_SECRET`, `IDO_INTERNAL_API_KEY_QSIGN`, `IDO_INTERNAL_API_KEY_OUTBOX`, `QIM_INTERNAL_API_KEY`, `AUTHZ_INTERNAL_API_KEY` | 서비스 간 인증 |
-| `QSIGN_KEYCLOAK_CLIENT_SECRET`, `KEYCLOAK_CLIENT_SECRET` | Keycloak client secret — realm import 와 앱이 같은 값을 읽는다 |
-| `IDO_HANDOFF_AES_KEY`, `IDO_HANDOFF_HMAC_KEY`, `IDO_WEBHOOK_SIGNING_SECRET` | Handoff 티켓·웹훅 서명 |
-| `QIM_AES_SHARED_KEY` | registry ↔ hub CI 전달 공유키 (base64 32바이트) |
-| `QIM_DI_SECRET`, `QIM_CI_AES_KEY_V1` | registry 기관별 식별자(DI) HMAC 비밀(hex 32)·저장 CI 암호화 키(base64 32바이트). (D3) 종전 예시에 빠져 registry 가 기동을 거부했다 — 바꾸면 기존 식별자·CI 를 잃는다 |
+| `IDEM_HUB_INTERNAL_SIG_SECRET`, `IDEM_HUB_INTERNAL_API_KEY_GATE`, `IDEM_HUB_INTERNAL_API_KEY_RELAY`, `IDEM_REGISTRY_INTERNAL_API_KEY`, `IDEM_AUTHZ_INTERNAL_API_KEY` | 서비스 간 인증 |
+| `IDEM_GATE_KEYCLOAK_CLIENT_SECRET`, `KEYCLOAK_CLIENT_SECRET` | Keycloak client secret — realm import 와 앱이 같은 값을 읽는다 |
+| `IDEM_HUB_HANDOFF_AES_KEY`, `IDEM_HUB_HANDOFF_HMAC_KEY`, `IDEM_HUB_WEBHOOK_SIGNING_SECRET` | Handoff 티켓·웹훅 서명 |
+| `IDEM_REGISTRY_AES_SHARED_KEY` | registry ↔ hub CI 전달 공유키 (base64 32바이트) |
+| `IDEM_REGISTRY_DI_SECRET`, `IDEM_REGISTRY_CI_AES_KEY_V1` | registry 기관별 식별자(DI) HMAC 비밀(hex 32)·저장 CI 암호화 키(base64 32바이트). (D3) 종전 예시에 빠져 registry 가 기동을 거부했다 — 바꾸면 기존 식별자·CI 를 잃는다 |
 | `KEYCLOAK_PROVISIONER_CLIENT_SECRET`, `KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET` | hub 의 OIDC client 프로비저닝 서비스 계정 · gate 의 단일 로그아웃 서비스 계정 |
-| `IDO_CAST_PRIVATE_KEY`, `IDO_CAST_PUBLIC_KEY` | SSO 토큰(CAST) Ed25519 서명키 — 아래 명령으로 생성. (D2) 없으면 hub 가 기동을 거부한다 |
-| `IDEM_ADMIN_BOOTSTRAP_PASSWORD`, `IDEM_ADMIN_SECRET_KEY` | (S7) 첫 관리자(`admin`, SYSTEM_ADMIN)의 초기 비밀번호(10자 이상·3종 문자·`admin` 포함 금지, 첫 로그인에서 변경 요구) · 관리자 2단계(TOTP) 비밀 봉인 키(base64 32바이트). 관리 API 는 관리자 로그인 뒤에만 열린다 — `docs/admin-auth.md` |
+| `IDEM_HUB_CAST_PRIVATE_KEY`, `IDEM_HUB_CAST_PUBLIC_KEY` | SSO 토큰(CAST) Ed25519 서명키 — 아래 명령으로 생성. (D2) 없으면 hub 가 기동을 거부한다 |
+| `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD`, `IDEM_HUB_ADMIN_SECRET_KEY` | (S7) 첫 관리자(`admin`, SYSTEM_ADMIN)의 초기 비밀번호(10자 이상·3종 문자·`admin` 포함 금지, 첫 로그인에서 변경 요구) · 관리자 2단계(TOTP) 비밀 봉인 키(base64 32바이트). 관리 API 는 관리자 로그인 뒤에만 열린다 — `docs/admin-auth.md` |
 
 ```bash
 openssl genpkey -algorithm ed25519 -out cast.pem
-echo "IDO_CAST_PRIVATE_KEY=$(openssl pkey -in cast.pem -outform DER | base64 -w0)"
-echo "IDO_CAST_PUBLIC_KEY=$(openssl pkey -in cast.pem -pubout -outform DER | base64 -w0)"
+echo "IDEM_HUB_CAST_PRIVATE_KEY=$(openssl pkey -in cast.pem -outform DER | base64 -w0)"
+echo "IDEM_HUB_CAST_PUBLIC_KEY=$(openssl pkey -in cast.pem -pubout -outform DER | base64 -w0)"
 ```
 
-**fail-secure (D2)**: 위 값이 하나라도 비면 해당 컨테이너는 기동하지 않는다. 로컬 개발용 탈출구(`*_ALLOW_EMPTY_*`, `IDO_CAST_ALLOW_GENERATED_KEYS` 등)는 이 설치본에서 쓰지 않으며, `prod`/`stage` 프로파일에서는 켜져 있으면 기동을 거부한다(`docs/sso-im-operations-manual.md` §3.4).
+**fail-secure (D2)**: 위 값이 하나라도 비면 해당 컨테이너는 기동하지 않는다. 로컬 개발용 탈출구(`*_ALLOW_EMPTY_*`, `IDEM_HUB_CAST_ALLOW_GENERATED_KEYS` 등)는 이 설치본에서 쓰지 않으며, `prod`/`stage` 프로파일에서는 켜져 있으면 기동을 거부한다(`docs/sso-im-operations-manual.md` §3.4).
 
 `install.env` 는 `.gitignore` 에 있다. 값을 채팅·티켓·문서에 붙여넣지 않는다.
+
+**이름 규칙 (S9, 2026-09-25)**: 환경변수는 `IDEM_<모듈>_<이름>` — `IDEM_HUB_*`(hub)·`IDEM_GATE_*`(gate)·`IDEM_REGISTRY_*`(registry)·`IDEM_AUTHZ_*`(authz)·`IDEM_RELAY_*`(relay), 설치본 공통은 `IDEM_*`(`IDEM_PUBLIC_URL_*`·`IDEM_PORT_*`·`IDEM_EDITION`·`IDEM_PLUGINS_*`), 데이터·Keycloak·벤더는 제 이름(`DB_*`·`REDIS_*`·`KEYCLOAK_*`·`NICE_*`). **S9 이전 설치본의 `install.env`(`IDO_*`·`QIM_*`·`QSIGN_*`·`AUTHZ_*`·`IDEM_ADMIN_*`)는 한 릴리스 동안 그대로 동작한다** — 앱이 구 이름을 새 이름으로 비춰 읽고 기동 로그에 `[Idem 개명] 구 이름 N개…` WARN 을 남긴다. 대응표는 `docs/naming.md` §3.1. 업그레이드 때 Redis 를 비운다(키 접두 `ido:*` → `idem:*`, 사용자·관리자 세션은 재로그인).
 
 ## 3. 기동
 
@@ -88,11 +90,11 @@ hub 기동 로그에 다음 줄이 있어야 한다: `[Idem] Kafka 비활성 (id
 
 ### 4.1 관리자 로그인 (S7 — 관리 API 는 로그인 뒤에만 열린다)
 
-`/api/v1/admin/**` 은 관리자 세션(비밀번호 + 2단계 TOTP) 없이는 `401 E-IDO-130` 이다. 첫 로그인은 (1) `IDEM_ADMIN_BOOTSTRAP_PASSWORD` 로 로그인 →
+`/api/v1/admin/**` 은 관리자 세션(비밀번호 + 2단계 TOTP) 없이는 `401 E-IDO-130` 이다. 첫 로그인은 (1) `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD` 로 로그인 →
 (2) 서버가 준 TOTP 비밀(`secret`/`otpauthUri`)을 인증 앱에 등록하고 코드 제출 → (3) 비밀번호 변경. 이 흐름을 그대로 하는 스크립트가 있다:
 
 ```bash
-SID=$(IDEM_ADMIN_PASSWORD="$IDEM_ADMIN_BOOTSTRAP_PASSWORD" IDEM_ADMIN_NEW_PASSWORD='<새 비밀번호>' \
+SID=$(IDEM_ADMIN_PASSWORD="$IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD" IDEM_ADMIN_NEW_PASSWORD='<새 비밀번호>' \
       IDEM_ADMIN_TOTP_SECRET_FILE=~/.idem/admin-totp-secret scripts/lib/admin-login.sh)
 #   → 2단계 비밀을 등록하고 ~/.idem/admin-totp-secret 에 저장했다 (0600)   ← 운영에서는 이 값을 인증 앱에 옮기고 파일은 지운다
 #   → 첫 로그인 비밀번호를 바꿨다 (username=admin)
@@ -109,7 +111,7 @@ curl -s http://localhost:8083/api/v1/admin/auth/me "${ADM[@]}"                 #
 벤더 플러그인 없이 코어 흐름(본인확인 → registry 등록 → Handoff 티켓)을 확인한다. **설치 검증 뒤에는 반드시 끈다.**
 
 1. `install.env` 에 `IDEM_PLUGINS_MOCK_AUTH_ENABLED=true` 를 두고 `up -d idem-hub` 로 hub 만 재기동.
-2. `k6/scenarios/smoke.js` 와 같은 순서로 호출한다 (k6 가 있으면 `k6 run k6/scenarios/smoke.js --env BASE_URL=http://localhost:8083 --env AGENCY_CODE=AGENCY001 --env INTERNAL_API_KEY=<IDO_INTERNAL_API_KEY_QSIGN>`):
+2. `k6/scenarios/smoke.js` 와 같은 순서로 호출한다 (k6 가 있으면 `k6 run k6/scenarios/smoke.js --env BASE_URL=http://localhost:8083 --env AGENCY_CODE=AGENCY001 --env INTERNAL_API_KEY=<IDEM_HUB_INTERNAL_API_KEY_GATE>`):
    - `POST /api/v1/auth/providers/MOCK/initiate` → `POST /api/v1/auth/providers/MOCK/complete` (응답에 `identity.name`, `registration.qimUserId`)
    - `POST /api/v1/handoff/issue` → 티켓 발급. 몇 초 뒤 `ido.outbox` 의 해당 `HANDOFF_ISSUED` 행이 `PUBLISHED` 로 바뀌면 프로세스 내 배달이 도는 것이다:
      ```sql
@@ -141,19 +143,19 @@ curl -s http://localhost:8083/api/v1/admin/auth/me "${ADM[@]}"                 #
 
 issuer 는 `{IDEM_PUBLIC_URL_GATE}/realms/onepass` 다. gate 가 `/realms/**`·`/resources/**` 를 Keycloak 으로 투명 프록시하므로 리버스 프록시는 gate 하나만 공개하면 된다. Keycloak 콘솔(`http://localhost:8088`, admin / `KEYCLOAK_ADMIN_PASSWORD`)은 설치자의 진단용이며, **Idem 이 만든 client(`idem-svc-*`)를 콘솔에서 고치지 않는다** — 다음 프로파일 저장이 덮어쓴다.
 
-`IDO_BROKER_MODE=keycloak` 은 hub 의 브라우저 로그인(FE 세션) 을 Keycloak 브로커로 돌리는 별개 설정이다.
+`IDEM_HUB_BROKER_MODE=keycloak` 은 hub 의 브라우저 로그인(FE 세션) 을 Keycloak 브로커로 돌리는 별개 설정이다.
 
 ## 6. Kafka 없이 무엇이 어떻게 도는가
 
 | 흐름 | Kafka 있음 | Kafka 없음(기본) |
 |---|---|---|
-| hub 인증 이벤트(`qsign.auth.events`) | outbox → Kafka → `QsignAuthEventConsumer` | outbox → `IdoOutboxRelay` 가 같은 프로세스의 `QsignAuthEventConsumer.handle()` 호출 |
+| hub 인증 이벤트(`idem.gate.auth.events`) | outbox → Kafka → `QsignAuthEventConsumer` | outbox → `IdoOutboxRelay` 가 같은 프로세스의 `QsignAuthEventConsumer.handle()` 호출 |
 | 세션 advisory(`platform.session.advisory`) | Kafka → `FeAdvisoryConsumer` | outbox → `FeAdvisoryConsumer.handle()` |
-| Handoff 이벤트(`ido.handoff.events`) | 직접 발행 → `HandoffEventConsumer` → 웹훅 아웃박스 | outbox(티켓 트랜잭션과 원자적) → `HandoffEventConsumer.handle()` → 웹훅 아웃박스 |
+| Handoff 이벤트(`idem.hub.handoff.events`) | 직접 발행 → `HandoffEventConsumer` → 웹훅 아웃박스 | outbox(티켓 트랜잭션과 원자적) → `HandoffEventConsumer.handle()` → 웹훅 아웃박스 |
 | 기관 웹훅 | HTTP 릴레이(F-14) | 동일 |
 | 감사 로그 | DB + Kafka(F-03) | DB 만 (F-04) |
-| registry `qim.user.events` (hub·gate 캐시 무효화·탈퇴 잠금 전파) | Kafka | **흐르지 않는다** — `qim.outbox` 에 PENDING 으로 남는다. hub 는 registry 를 TTL 캐시(≤5분)로 읽으므로 반영이 최대 TTL 만큼 늦다 |
-| gate 아웃박스(`qsign.auth.events`, gate 발행분) | Kafka | **흐르지 않는다** — `qsign` 아웃박스에 PENDING 으로 남는다 |
+| registry `idem.registry.user.events` (hub·gate 캐시 무효화·탈퇴 잠금 전파) | Kafka | **흐르지 않는다** — `qim.outbox` 에 PENDING 으로 남는다. hub 는 registry 를 TTL 캐시(≤5분)로 읽으므로 반영이 최대 TTL 만큼 늦다 |
+| gate 아웃박스(`idem.gate.auth.events`, gate 발행분) | Kafka | **흐르지 않는다** — `qsign` 아웃박스에 PENDING 으로 남는다 |
 | `idem-relay`·`idem-tenant-sample` 컨슈머 | Kafka | 정지 (제품 밖) |
 
 멈춘 두 경로는 같은 PostgreSQL 안에 있으므로 다음 단계(D1-c 후보)에서 hub 가 직접 폴링하도록 만들 수 있다. 그 전까지는 **단일 인스턴스 + 이 설치본** 이 기본이고, 다중 인스턴스는 Kafka 경로(`IDEM_KAFKA_ENABLED=true`, `compose.sso-im.yml` + `compose.sso-im-apps.yml` 또는 Helm)를 쓴다.
@@ -164,8 +166,9 @@ issuer 는 `{IDEM_PUBLIC_URL_GATE}/realms/onepass` 다. gate 가 `/realms/**`·`
 - [ ] `IDEM_PUBLIC_URL_HUB/GATE/CONSOLE` 를 실제 공개 주소(리버스 프록시·TLS)로. 앱 포트는 127.0.0.1 바인딩이므로 프록시가 필요하다. 관리 콘솔(3001)은 관리자 망에만 공개하고, TLS 뒤에 둔다(관리 세션 쿠키가 Secure)
 - [ ] `IDEM_PUBLIC_URL_GATE` 를 바꿨으면 keycloak(`KC_HOSTNAME_URL`)·gate·hub 를 함께 재기동 — 표준 OIDC issuer 가 이 값이다. 기관 OIDC client 의 redirect URI 는 프로파일(`protocol.oidc.redirectUris`) 로 관리한다(콘솔 수정 금지). 내부 client(`q-sign-client`·`ido-client`) 의 `redirectUris` 만 `realm-export.json` 첫 import 값이다
 - [ ] **S6 이전 설치본 주의**: 종전 `realm-export.json` 의 secret 자리표시자(`${env.X:change-me}`)는 Keycloak 24 가 치환하지 않아 `q-sign-client`·`ido-client` 의 실제 secret 이 문자 그대로 `change-me` 였다(앱 쪽 값과 불일치). S6 에서 `${X}` 로 고쳤지만 realm import 는 첫 기동에만 적용되므로, 기존 설치본은 `keycloak-data` 볼륨을 지우고 다시 import 하거나(권장) 콘솔에서 세 client(`q-sign-client`·`ido-client`·`idem-provisioner`)의 secret 을 `install.env` 값으로 한 번 맞춘다
-- [ ] (S7) 부트스트랩 관리자의 첫 로그인(비밀번호 변경·2단계 등록)을 마쳤고, `IDEM_ADMIN_BOOTSTRAP_PASSWORD` 는 더 쓰이지 않는다(관리자가 있으면 무시된다). 운영 관리자는 인증 앱을 쓴다 — `admin-login.sh` 의 비밀 파일은 설치 확인용
-- [ ] (S7) 관리자 계정을 역할별로 나눈다(`SYSTEM_ADMIN` 최소 2명 — 한 명이 2단계를 잃으면 다른 한 명이 `reset-mfa`, `POLICY_ADMIN`, `AUDITOR`). `IDEM_ADMIN_COOKIE_SECURE=true`, `IDEM_ADMIN_MFA_REQUIRED=true` 가 기본이며 `prod`/`stage` 에서 false 면 기동 거부
+- [ ] (S7) 부트스트랩 관리자의 첫 로그인(비밀번호 변경·2단계 등록)을 마쳤고, `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD` 는 더 쓰이지 않는다(관리자가 있으면 무시된다). 운영 관리자는 인증 앱을 쓴다 — `admin-login.sh` 의 비밀 파일은 설치 확인용
+- [ ] (S7) 관리자 계정을 역할별로 나눈다(`SYSTEM_ADMIN` 최소 2명 — 한 명이 2단계를 잃으면 다른 한 명이 `reset-mfa`, `POLICY_ADMIN`, `AUDITOR`). `IDEM_HUB_ADMIN_COOKIE_SECURE=true`, `IDEM_HUB_ADMIN_MFA_REQUIRED=true` 가 기본이며 `prod`/`stage` 에서 false 면 기동 거부
+- [ ] (S9) `install.env` 의 변수명을 새 이름(`IDEM_HUB_*` …)으로 옮겼다 — 구 이름 호환은 한 릴리스뿐이다. 기동 로그에 `[Idem 개명]` WARN 이 없으면 끝난 것
 - [ ] `install.env` 백업을 비밀 저장소에. 키 교체 절차는 `docs/sso-im-operations-manual.md`
 - [ ] KR 에디션이 필요하면 `IDEM_EDITION=kr` 로 재빌드. 벤더 플러그인은 `~/.idem/vendor-libs` 공급 후 이미지 재빌드 (`plugins/*/README.md`)
 - [ ] 백업: `pg-data` 볼륨(스키마 5개), `keycloak-data`
@@ -187,7 +190,7 @@ docker compose --env-file infra/docker/install.env -f infra/docker/compose.insta
   엔드포인트 404 · (S7) 관리자 로그인(2단계 등록·첫 비밀번호 변경)과 무인증 관리 API/actuator 401·CSRF 403 · 감사 조회(로그인·비밀번호 변경·거부·기관 관리 행위) → 로그아웃.
   이어서 k6 스모크가 hub + 실제 registry 로 돈다(종전에는 registry 가 Node 스텁이었다).
 - 같은 스크립트를 로컬(PostgreSQL 16·Redis·Keycloak 24.0.5 + 부트 jar 4개)에서 돌려 2026-09-25 전 항목 통과를 확인했다. 그 과정에서 registry
-  부팅 가드가 요구하는 `QIM_DI_SECRET`·`QIM_CI_AES_KEY_V1` 이 compose·예시 env 에 빠져 있던 것을 잡아 §2 에 넣었다.
+  부팅 가드가 요구하는 `IDEM_REGISTRY_DI_SECRET`·`IDEM_REGISTRY_CI_AES_KEY_V1` 이 compose·예시 env 에 빠져 있던 것을 잡아 §2 에 넣었다.
 - S7(2026-09-25): 같은 로컬 스택에서 관리자 로그인이 포함된 스모크 전 항목과 `scripts/dev/seed-dev-agencies.sh`(첫 실행 2단계 등록 → 두 번째 실행 저장된 비밀 재사용) 를 확인했다.
 - **못 한 것**: `docker compose up --build` 로 이미지 5개를 빌드해 올리는 것 자체는 PR 게이트에서 돌리지 않는다(이미지 빌드 시간). Dockerfile
   빌드는 main 의 docker-build 잡이, 실행 환경 계약은 위 스모크가 검증하므로 남는 차이는 컨테이너 네트워크(서비스 이름 `idem-*`)와 볼륨뿐이다.

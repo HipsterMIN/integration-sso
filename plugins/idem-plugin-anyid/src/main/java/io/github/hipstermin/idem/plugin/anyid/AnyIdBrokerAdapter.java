@@ -22,7 +22,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  * Any-ID 설치형 직접 연동 브로커 어댑터
  *
  * <p>행안부 Any-ID 사업단 발급 개발키를 기반으로 인증 흐름을 처리한다.<br>
- * 운영기관 식별자(srvc_no 등)는 ido.anyid.* 설정으로 주입된다 (S1 범용화).
+ * 운영기관 식별자(srvc_no 등)는 idem.hub.anyid.* 설정으로 주입된다 (S1 범용화).
  *
  * <p><b>지원 인증 수단</b>:
  * <ul>
@@ -35,7 +35,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  *
  * <p><b>활성화 조건</b>:
  * <pre>
- * idem.plugins.anyid.enabled=true (플러그인) — IDO_BROKER_MODE 값과 무관.
+ * idem.plugins.anyid.enabled=true (플러그인) — IDEM_HUB_BROKER_MODE 값과 무관.
  * 코어 BrokerService 는 provider_config.broker_mode="anyid" 또는 {@link #supports(String)} 휴리스틱으로
  * 이 어댑터({@link DirectBrokerAdapter})를 고른다.
  * </pre>
@@ -289,7 +289,7 @@ public class AnyIdBrokerAdapter implements DirectBrokerAdapter {
      * Any-ID SSO 세션 토큰 검증
      *
      * <p>SSO 어댑터를 통해 세션 토큰 유효성 확인 후 사용자 정보를 반환한다.
-     * HMAC-SHA256 서명 검증: {@code ido.anyid.sso.secret-code}
+     * HMAC-SHA256 서명 검증: {@code idem.hub.anyid.sso.secret-code}
      *
      * @param ssoToken      검증할 SSO 세션 토큰
      * @param correlationId 흐름 추적 ID

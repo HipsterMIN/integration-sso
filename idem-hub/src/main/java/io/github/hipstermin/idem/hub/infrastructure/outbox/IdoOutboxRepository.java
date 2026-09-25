@@ -11,7 +11,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 /**
- * ido.outbox 테이블 JDBC 리포지토리
+ * idem.hub.outbox 테이블 JDBC 리포지토리
  *
  * <p>q-sign의 QSignOutboxRepository에 대응하는 ido 측 구현.
  * JPA 대신 JdbcTemplate 사용 — JSONB 컬럼 및 직접 SQL 제어 목적.
@@ -52,7 +52,7 @@ public class IdoOutboxRepository {
     /**
      * 지정 토픽을 제외한 PENDING 레코드 조회 — IdoOutboxRelay 전용.
      *
-     * <p>qim.user.events는 {@link QimOutboxRelay}가 전담하므로 IdoOutboxRelay에서 제외한다.
+     * <p>idem.registry.user.events는 {@link QimOutboxRelay}가 전담하므로 IdoOutboxRelay에서 제외한다.
      * 새로운 전용 릴레이 추가 시 excludedTopics Set에 토픽명을 추가하면 된다.
      *
      * <p>IN 절 바인딩을 위해 Spring JdbcTemplate의 {@code queryForList} 대신
@@ -98,8 +98,8 @@ public class IdoOutboxRepository {
     /**
      * 특정 토픽의 PENDING 레코드만 조회 — QimOutboxRelay 전용.
      *
-     * <p>IdoOutboxRelay(qsign.auth.events)와 QimOutboxRelay(qim.user.events)가
-     * 동일한 {@code ido.outbox} 테이블을 공유하므로 토픽 필터로 구분한다.
+     * <p>IdoOutboxRelay(idem.gate.auth.events)와 QimOutboxRelay(idem.registry.user.events)가
+     * 동일한 {@code idem.hub.outbox} 테이블을 공유하므로 토픽 필터로 구분한다.
      * 이를 통해 두 릴레이가 서로의 레코드를 처리하지 않는다.
      */
     public List<IdoOutboxRecord> findPendingBatchByTopic(String topic, int batchSize) {

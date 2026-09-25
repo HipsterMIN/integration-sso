@@ -70,13 +70,13 @@ public class AgencySimulatorController {
     private final AgencySessionService agencySessionService;
     private final JdbcTemplate         jdbcTemplate;
 
-    @Value("${agency-stub.code:AGENCY_STUB_001}")
+    @Value("${idem.sample.code:AGENCY_STUB_001}")
     private String agencyCode;
 
-    @Value("${agency-stub.ido.base-url:http://localhost:8083}")
+    @Value("${idem.sample.ido.base-url:http://localhost:8083}")
     private String idoBaseUrl;
 
-    @Value("${agency-stub.session.idle-timeout-minutes:30}")
+    @Value("${idem.sample.session.idle-timeout-minutes:30}")
     private int idleTimeoutMinutes;
 
     // ════════════════════════════════════════════════════════════════════════
@@ -670,7 +670,7 @@ public class AgencySimulatorController {
         /** 인증 수준: L1 / L2 / L3 */
         private String authLevel    = "L2";
         /** 인증 수단 코드 */
-        private String providerCode = "QSIGN_CERT";
+        private String providerCode = "IDEM_GATE_CERT";
         /**
          * 시나리오 모드 이름 — {@link ScenarioMode} 값 중 하나.
          * 기본값: {@code "NORMAL"}.

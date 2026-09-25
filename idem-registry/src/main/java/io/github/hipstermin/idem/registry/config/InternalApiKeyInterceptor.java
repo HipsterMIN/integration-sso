@@ -14,26 +14,26 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * Q-IM 내부 API 키 검증 인터셉터
  *
  * <p>{@code /api/v1/internal/**} 경로는 IdO 서버만 호출 가능한 내부 전용 엔드포인트.
- * 요청 헤더 {@code X-Internal-Api-Key}를 환경변수 {@code QIM_INTERNAL_API_KEY}와 비교하여
+ * 요청 헤더 {@code X-Internal-Api-Key}를 환경변수 {@code IDEM_REGISTRY_INTERNAL_API_KEY}와 비교하여
  * 불일치·누락 시 즉시 {@code 401 Unauthorized}를 반환한다.
  *
  * <h3>보안 설계</h3>
  * <ul>
  *   <li>상수 시간 비교({@link #secureEquals}): 타이밍 공격 방지</li>
- *   <li>키 미설정 방어: {@code QIM_INTERNAL_API_KEY}가 빈 값이면 요청을 전면 거부
+ *   <li>키 미설정 방어: {@code IDEM_REGISTRY_INTERNAL_API_KEY}가 빈 값이면 요청을 전면 거부
  *       → 운영 환경에서 환경변수 미설정 시 실수로 API가 노출되는 경우를 차단</li>
  *   <li>Actuator / Swagger 경로 제외: {@link QimWebMvcConfig}에서 경로 매핑으로 제어</li>
  * </ul>
  *
  * <h3>환경변수</h3>
  * <pre>
- *   QIM_INTERNAL_API_KEY=&lt;32자 이상 랜덤 문자열&gt;
+ *   IDEM_REGISTRY_INTERNAL_API_KEY=&lt;32자 이상 랜덤 문자열&gt;
  * </pre>
  * application.yml 참고:
  * <pre>
  *   qim:
  *     security:
- *       internal-api-key: ${QIM_INTERNAL_API_KEY:}
+ *       internal-api-key: ${IDEM_REGISTRY_INTERNAL_API_KEY:}
  * </pre>
  *
  * <p><b>P2 보안 수정</b>: 기존 UserController는 {@code X-Internal-Api-Key} 헤더를
@@ -46,7 +46,7 @@ public class InternalApiKeyInterceptor implements HandlerInterceptor {
     private static final String HEADER_INTERNAL_API_KEY = "X-Internal-Api-Key";
 
     /**
-     * 환경변수 {@code QIM_INTERNAL_API_KEY}로 주입되는 내부 API 키.
+     * 환경변수 {@code IDEM_REGISTRY_INTERNAL_API_KEY}로 주입되는 내부 API 키.
      * 기본값은 빈 문자열 — 운영 환경에서 반드시 주입해야 함.
      */
     private final String internalApiKey;
@@ -60,18 +60,18 @@ public class InternalApiKeyInterceptor implements HandlerInterceptor {
 
     @org.springframework.beans.factory.annotation.Autowired
     public InternalApiKeyInterceptor(
-            @Value("${qim.security.internal-api-key:}") String internalApiKey,
+            @Value("${idem.registry.security.internal-api-key:}") String internalApiKey,
             @Value("${spring.profiles.active:}") String activeProfiles) {
         this.internalApiKey = internalApiKey;
 
         // D2 fail-secure: 운영·스테이지에서 키 미설정이면 기동 거부 (런타임은 어차피 전면 401 이지만 사고를 부팅 시점에 드러낸다)
         boolean hardened = java.util.Arrays.stream(activeProfiles.split(",")).map(String::trim).anyMatch(HARDENED::contains);
         if (hardened && (internalApiKey == null || internalApiKey.isBlank())) {
-            throw new IllegalStateException("[InternalApiKeyInterceptor] QIM_INTERNAL_API_KEY 미설정 — 운영·스테이지에서는 기동을 거부합니다");
+            throw new IllegalStateException("[InternalApiKeyInterceptor] IDEM_REGISTRY_INTERNAL_API_KEY 미설정 — 운영·스테이지에서는 기동을 거부합니다");
         }
         // 애플리케이션 기동 시점에 키 미설정 경고
         if (internalApiKey == null || internalApiKey.isBlank()) {
-            log.warn("[InternalApiKeyInterceptor] QIM_INTERNAL_API_KEY 미설정 — " +
+            log.warn("[InternalApiKeyInterceptor] IDEM_REGISTRY_INTERNAL_API_KEY 미설정 — " +
                      "모든 /api/v1/internal/** 요청이 401로 거부됩니다. " +
                      "운영 환경에서 반드시 환경변수를 설정하십시오.");
         } else {

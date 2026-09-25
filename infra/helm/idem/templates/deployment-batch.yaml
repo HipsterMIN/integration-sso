@@ -9,7 +9,7 @@
 #    (application.yml: spring.lifecycle.timeout-per-shutdown-phase=30s)
 #  - 외부 노출 없음 → ClusterIP Service만 (Prometheus scrape용)
 # ============================================================
-{{- if .Values.batch.enabled }}
+{{- if .Values.relay.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,7 +23,7 @@ metadata:
     checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
     checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
 spec:
-  replicas: {{ .Values.batch.replicaCount }}
+  replicas: {{ .Values.relay.replicaCount }}
   selector:
     matchLabels:
       app: idem-relay
@@ -38,7 +38,7 @@ spec:
         app: idem-relay
         {{- include "onepass.labels" . | nindent 8 }}
         app.kubernetes.io/component: batch
-      {{- with .Values.batch.podAnnotations }}
+      {{- with .Values.relay.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -47,15 +47,15 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
       {{- end }}
-      {{- if and .Values.batch.serviceAccount .Values.batch.serviceAccount.create }}
-      serviceAccountName: {{ .Values.batch.serviceAccount.name | default "idem-relay" }}
+      {{- if and .Values.relay.serviceAccount .Values.relay.serviceAccount.create }}
+      serviceAccountName: {{ .Values.relay.serviceAccount.name | default "idem-relay" }}
       {{- end }}
       # 진행 중 Job 완료 대기 + Spring graceful shutdown 30s 여유분
       terminationGracePeriodSeconds: 45
       containers:
         - name: batch
-          image: {{ include "onepass.image" .Values.batch.image }}
-          imagePullPolicy: {{ .Values.batch.image.pullPolicy }}
+          image: {{ include "onepass.image" .Values.relay.image }}
+          imagePullPolicy: {{ .Values.relay.image.pullPolicy }}
           ports:
             - name: http
               containerPort: 8090
@@ -66,17 +66,17 @@ spec:
             - configMapRef:
                 name: idem-common-config
             - secretRef:
-                name: {{ .Values.batch.secretRef.name }}
-          {{- if .Values.batch.startupProbe }}
+                name: {{ .Values.relay.secretRef.name }}
+          {{- if .Values.relay.startupProbe }}
           startupProbe:
-            {{- toYaml .Values.batch.startupProbe | nindent 12 }}
+            {{- toYaml .Values.relay.startupProbe | nindent 12 }}
           {{- end }}
           livenessProbe:
-            {{- toYaml .Values.batch.livenessProbe | nindent 12 }}
+            {{- toYaml .Values.relay.livenessProbe | nindent 12 }}
           readinessProbe:
-            {{- toYaml .Values.batch.readinessProbe | nindent 12 }}
+            {{- toYaml .Values.relay.readinessProbe | nindent 12 }}
           resources:
-            {{- toYaml .Values.batch.resources | nindent 12 }}
+            {{- toYaml .Values.relay.resources | nindent 12 }}
       # Pod Anti-Affinity — ShedLock HA 시 서로 다른 노드 우선 배치
       affinity:
         podAntiAffinity:

@@ -125,7 +125,7 @@ GET /api/v1/auth/nice/phone/url?returnUrl={returnUrl}
 - `returnUrl` 파라미터: FE 팝업 콜백 수신 페이지 URL
   - `useNicePhoneAuth` 훅: `${window.location.origin}/nice-callback.html`
   - `PhoneAuthTab` (테스트): `${window.location.origin}/auth-test`
-  - 미전달 시: `ido.auth.nice.return-url` 기본값 사용
+  - 미전달 시: `idem.hub.auth.nice.return-url` 기본값 사용
 
 **처리 컴포넌트**:
 ```
@@ -145,7 +145,7 @@ Step 1: tokenStore.isValid() 확인
 [캐시 HIT] → tokenStore.get() 반환 (락 없이 즉시)
 
 [캐시 MISS]
-Step 2: Redisson.getLock("ido:lock:nice-token-refresh")
+Step 2: Redisson.getLock("idem:lock:nice-token-refresh")
         → tryLock(waitSeconds=3, leaseSeconds=10, SECONDS)
 
         [락 획득 실패]
@@ -886,17 +886,17 @@ if (data.status === 'success' && data.fn === 'authComplete') {
 
 | 이벤트 | 토픽 | 발행 시점 | 주요 페이로드 |
 |--------|------|----------|--------------|
-| `NICE_URL_ISSUED` | `ido.audit.events` | NICE URL 발급 성공/실패 | requestNo, resultCode |
-| `NICE_AUTH_RESULT_SUCCESS` | `ido.audit.events` | NICE 결과 복호화 + Q-IM 등록 성공 | requestNo, webTransactionId, resultCode |
-| `NICE_INTEGRITY_FAIL` | `ido.audit.events` | HMAC 검증 실패 (데이터 위변조 의심) | requestNo, webTransactionId, resultCode=5003 |
-| `NICE_QIM_REGISTER_FAIL` | `ido.audit.events` | Q-IM 등록 실패 | requestNo, errorMsg |
-| `OACX_ACCESS_INFO` | `ido.audit.events` | OACX 접근키 발급 | fn, resultCode |
-| `OACX_EASYSIGN_SUCCESS` | `ido.audit.events` | OACX 간편서명 성공 | provider, resultCode |
-| `OACX_QIM_REGISTER_FAIL` | `ido.audit.events` | OACX Q-IM 등록 실패 | errorMsg |
-| `CI_CHECK_EVENT` | `ido.audit.events` | CI 확인 처리 결과 | mbrDvsnCd, resultCode |
-| `CALLBACK_EVENT` | `ido.audit.events` | 기업인증 콜백 수신 | txId, resultCode |
+| `NICE_URL_ISSUED` | `idem.hub.audit.events` | NICE URL 발급 성공/실패 | requestNo, resultCode |
+| `NICE_AUTH_RESULT_SUCCESS` | `idem.hub.audit.events` | NICE 결과 복호화 + Q-IM 등록 성공 | requestNo, webTransactionId, resultCode |
+| `NICE_INTEGRITY_FAIL` | `idem.hub.audit.events` | HMAC 검증 실패 (데이터 위변조 의심) | requestNo, webTransactionId, resultCode=5003 |
+| `NICE_QIM_REGISTER_FAIL` | `idem.hub.audit.events` | Q-IM 등록 실패 | requestNo, errorMsg |
+| `OACX_ACCESS_INFO` | `idem.hub.audit.events` | OACX 접근키 발급 | fn, resultCode |
+| `OACX_EASYSIGN_SUCCESS` | `idem.hub.audit.events` | OACX 간편서명 성공 | provider, resultCode |
+| `OACX_QIM_REGISTER_FAIL` | `idem.hub.audit.events` | OACX Q-IM 등록 실패 | errorMsg |
+| `CI_CHECK_EVENT` | `idem.hub.audit.events` | CI 확인 처리 결과 | mbrDvsnCd, resultCode |
+| `CALLBACK_EVENT` | `idem.hub.audit.events` | 기업인증 콜백 수신 | txId, resultCode |
 
-> `ido.audit.events` 토픽에서 감사 로그 시스템이 소비
+> `idem.hub.audit.events` 토픽에서 감사 로그 시스템이 소비
 
 ---
 
@@ -1060,8 +1060,8 @@ String correlationId = UUID.randomUUID().toString();
 
 | 설정 경로 | 기본값 | 설명 |
 |----------|--------|------|
-| `ido.auth.nice.timeout-seconds` | 10 | NICE API 타임아웃 (초) |
-| `ido.auth.oacx.debug-mode` | false | OACX SDK 디버그 로그 (운영: false 필수) |
+| `idem.hub.auth.nice.timeout-seconds` | 10 | NICE API 타임아웃 (초) |
+| `idem.hub.auth.oacx.debug-mode` | false | OACX SDK 디버그 로그 (운영: false 필수) |
 | `NiceAuthSessionStore.SESSION_TTL_MINUTES` | 10 | NICE 인증 세션 TTL |
 | `NiceTokenStore.EXPIRY_SAFETY_MARGIN_MILLIS` | 60,000 | 토큰 만료 60초 전 재발급 |
 | `NiceAuthService.LOCK_WAIT_SECONDS` | 3 | Redisson 락 대기 시간 |

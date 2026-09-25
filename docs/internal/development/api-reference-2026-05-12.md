@@ -435,7 +435,7 @@ POST /api/v1/auth/ci-token { encryptedCi, realm, clientId }
   ido: AES-GCM 복호화 (FE_AES_GCM_KEY)
      → QIM_AES_SHARED_KEY로 재암호화
      → Q-IM /api/ext/ci/token 호출
-  Q-IM: 복호화(QIM_AES_SHARED_KEY) → ciToken 발급
+  Q-IM: 복호화(IDEM_REGISTRY_AES_SHARED_KEY) → ciToken 발급
   ← { ciToken }
 ```
 
@@ -818,7 +818,7 @@ Q-IM에서 회원 탈퇴 이벤트 수신.
 
 > **경로**: `/api/ext/**`  
 > **접근 방법**: FE → ido (X-BE-API-Key) → Q-IM (X-Ext-Api-Key, ido 자동 주입)  
-> **인증**: ido가 `X-Ext-Api-Key: IDO_QIM_EXT_API_KEY` 자동 주입 (B-5)  
+> **인증**: ido가 `X-Ext-Api-Key: IDEM_HUB_REGISTRY_EXT_API_KEY` 자동 주입 (B-5)  
 > **공통 응답 형식**: `{ statusCode, payload: { data } }` 또는 `{ statusCode, message }`
 
 ### 2-A. 클라이언트 조회
@@ -962,7 +962,7 @@ Q-IM에서 회원 탈퇴 이벤트 수신.
 }
 ```
 
-> 암호화 키: `QIM_AES_SHARED_KEY` (ido-Q-IM 합의 키)
+> 암호화 키: `IDEM_REGISTRY_AES_SHARED_KEY` (ido-Q-IM 합의 키)
 
 ---
 
@@ -1322,7 +1322,7 @@ Q-IM에서 회원 탈퇴 이벤트 수신.
 | `POST` | `/api/v1/internal/session/logout` | Keycloak 세션 종료 (SLO) | ido |
 
 **내부 인증**:
-- `X-Internal-Sig` HMAC-SHA256 서명 (`IDO_INTERNAL_SIG_SECRET`)
+- `X-Internal-Sig` HMAC-SHA256 서명 (`IDEM_HUB_INTERNAL_SIG_SECRET`)
 - Nonce + Timestamp 포함 (재전송 공격 방지)
 
 ---

@@ -16,13 +16,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * IdO Transactional Outbox Relay — ido.outbox PENDING 이벤트 재발행 (문서 §P0-2)
+ * IdO Transactional Outbox Relay — idem.hub.outbox PENDING 이벤트 재발행 (문서 §P0-2)
  *
  * <p>문제 배경:
  * {@code KeycloakOidcService}와 {@code NonOidcAuthService} 모두
- * Kafka 즉시 발행 실패 시 {@code ido.outbox}에 PENDING 레코드를 남기지만,
- * q-sign의 {@code OutboxRelay}는 {@code qsign.outbox}만 읽는다.
- * 이 클래스가 없으면 {@code ido.outbox} PENDING 레코드는 영구 미처리된다.
+ * Kafka 즉시 발행 실패 시 {@code idem.hub.outbox}에 PENDING 레코드를 남기지만,
+ * q-sign의 {@code OutboxRelay}는 {@code idem.gate.outbox}만 읽는다.
+ * 이 클래스가 없으면 {@code idem.hub.outbox} PENDING 레코드는 영구 미처리된다.
  *
  * <p>동작 방식 (q-sign {@code OutboxRelay}와 동일한 Transactional Outbox 패턴):
  * <ol>
@@ -35,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><b>payload 역직렬화 전략 (QIM-OUTBOX-SPEC-001 대응)</b>:
  * 이전에는 {@code AuthEvent} 타입으로 고정 역직렬화하였으나,
  * {@code QimSpReceiverService}가 {@code BIZ_MEMBER_CONVERTED} 등 QIM 이벤트를
- * 동일한 {@code ido.outbox}에 INSERT하면서 타입 불일치({@code ClassCastException}) 위험이
+ * 동일한 {@code idem.hub.outbox}에 INSERT하면서 타입 불일치({@code ClassCastException}) 위험이
  * 발생하였다.
  *
  * <p>해결책: payload를 {@code Map<String, Object>}로 역직렬화한 뒤 Kafka로 발행.
@@ -50,9 +50,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>설정 키:
  * <ul>
- *   <li>{@code ido.outbox.relay-interval-ms} — 스케줄 주기 (기본 500ms)</li>
- *   <li>{@code ido.outbox.batch-size}         — 배치 크기 (기본 100)</li>
- *   <li>{@code ido.outbox.max-retry}          — 최대 재시도 횟수 (기본 3)</li>
+ *   <li>{@code idem.hub.outbox.relay-interval-ms} — 스케줄 주기 (기본 500ms)</li>
+ *   <li>{@code idem.hub.outbox.batch-size}         — 배치 크기 (기본 100)</li>
+ *   <li>{@code idem.hub.outbox.max-retry}          — 최대 재시도 횟수 (기본 3)</li>
  * </ul>
  *
  * <p>{@code @EnableScheduling}은 {@code IdoApplication} + {@code IdoWebConfig}에
@@ -63,7 +63,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Feature Flag으로 비활성화해야 이중 실행을 방지할 수 있습니다.
  * <pre>
  * # 비활성화 환경변수 (K8s ConfigMap 또는 .env 수정)
- * IDO_OUTBOX_RELAY_ENABLED=false
+ * IDEM_HUB_OUTBOX_RELAY_ENABLED=false
  * </pre>
  * 단, {@code outbox-relay-batch} 서비스 중단 시 즉각 재활성화하여
  * PENDING 레코드 처리 공백을 방지하십시오.
@@ -89,16 +89,16 @@ public class IdoOutboxRelay {
     @Value("${idem.messaging.kafka.enabled:false}")
     private boolean kafkaEnabled;
 
-    // F-13: Outbox Relay On/Off (IDO_OUTBOX_RELAY_ENABLED)
+    // F-13: Outbox Relay On/Off (IDEM_HUB_OUTBOX_RELAY_ENABLED)
     // false → @Scheduled 실행되어도 즉시 return, DB 500ms 폴링 없음
     // Kafka 없는 로컬 환경에서 연결 오류 없이 실행 가능
-    @Value("${ido.outbox.relay-enabled:${IDO_OUTBOX_RELAY_ENABLED:true}}")
+    @Value("${idem.hub.outbox.relay-enabled:${IDEM_HUB_OUTBOX_RELAY_ENABLED:true}}")
     private boolean relayEnabled;
 
-    @Value("${ido.outbox.batch-size:100}")
+    @Value("${idem.hub.outbox.batch-size:100}")
     private int batchSize;
 
-    @Value("${ido.outbox.max-retry:3}")
+    @Value("${idem.hub.outbox.max-retry:3}")
     private int maxRetry;
 
     /**
@@ -116,17 +116,17 @@ public class IdoOutboxRelay {
      */
     /**
      * 이 릴레이가 처리하지 않을 토픽 목록.
-     * qim.user.events는 {@link QimOutboxRelay}가 전담하므로 제외.
+     * idem.registry.user.events는 {@link QimOutboxRelay}가 전담하므로 제외.
      */
     private static final java.util.Set<String> EXCLUDED_TOPICS =
-            java.util.Set.of("qim.user.events");
+            java.util.Set.of("idem.registry.user.events");
 
-    @Scheduled(fixedDelayString = "${ido.outbox.relay-interval-ms:500}")
+    @Scheduled(fixedDelayString = "${idem.hub.outbox.relay-interval-ms:500}")
     @Transactional
     public void relay() {
         // F-13 Guard
         if (!relayEnabled) {
-            log.trace("[IdoOutboxRelay] DISABLED (IDO_OUTBOX_RELAY_ENABLED=false)");
+            log.trace("[IdoOutboxRelay] DISABLED (IDEM_HUB_OUTBOX_RELAY_ENABLED=false)");
             return;
         }
         List<IdoOutboxRecord> pending = outboxRepository.findPendingBatchExcludingTopics(
@@ -144,14 +144,14 @@ public class IdoOutboxRelay {
             }
             try {
                 // ── payload 역직렬화: Map<String, Object> (타입 무관, 범용 처리) ──
-                // 이유: ido.outbox에는 AuthEvent(qsign.auth.events) 외에
-                //        QIM 이벤트(qim.user.events, BIZ_MEMBER_CONVERTED 등)도 INSERT됨.
+                // 이유: ido.outbox에는 AuthEvent(idem.gate.auth.events) 외에
+                //        QIM 이벤트(idem.registry.user.events, BIZ_MEMBER_CONVERTED 등)도 INSERT됨.
                 //        AuthEvent 고정 역직렬화 시 ClassCastException/JsonMappingException 발생.
                 //        Map으로 역직렬화하면 어떤 이벤트 타입이든 JSON 구조가 유지되어
                 //        Consumer가 eventType 필드를 기준으로 처리 분기 가능.
                 Map<String, Object> payload = objectMapper.readValue(record.getPayload(), MAP_TYPE_REF);
 
-                // topic 필드에 기록된 토픽으로 발행 (qsign.auth.events, qim.user.events 등)
+                // topic 필드에 기록된 토픽으로 발행 (idem.gate.auth.events, idem.registry.user.events 등)
                 CompletableFuture<SendResult<String, Object>> future =
                         kafkaTemplate.send(
                                 record.getTopic(),

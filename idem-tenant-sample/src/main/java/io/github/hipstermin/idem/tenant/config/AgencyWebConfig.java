@@ -26,10 +26,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @EnableScheduling
 public class AgencyWebConfig implements WebMvcConfigurer {
 
-    @Value("${agency-stub.ido.connect-timeout-ms:3000}")
+    @Value("${idem.sample.ido.connect-timeout-ms:3000}")
     private int connectTimeoutMs;
 
-    @Value("${agency-stub.ido.read-timeout-ms:5000}")
+    @Value("${idem.sample.ido.read-timeout-ms:5000}")
     private int readTimeoutMs;
 
     private final AgencyApiKeyInterceptor agencyApiKeyInterceptor;

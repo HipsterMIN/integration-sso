@@ -43,16 +43,16 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class PkceService {
 
-    private static final String KEY_PREFIX    = "qsign:pkce:challenge:";
+    private static final String KEY_PREFIX    = "idem:gate:pkce:challenge:";
     private static final int    VERIFIER_LEN  = 64; // 64 bytes → 86 chars base64url (within 43-128)
     private static final String CHALLENGE_METHOD = "S256";
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @Value("${qsign.pkce.challenge-ttl-seconds:300}")
+    @Value("${idem.gate.pkce.challenge-ttl-seconds:300}")
     private long challengeTtlSeconds;
 
-    @Value("${qsign.pkce.enabled:true}")
+    @Value("${idem.gate.pkce.enabled:true}")
     private boolean pkceEnabled;
 
     // ────────────────────────────────────────────────────────────────────────

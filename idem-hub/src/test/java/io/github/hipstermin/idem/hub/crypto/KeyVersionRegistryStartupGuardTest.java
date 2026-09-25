@@ -66,8 +66,8 @@ class KeyVersionRegistryStartupGuardTest {
             KeyVersionRegistry registry = freshInstance(null, VALID_32B_KEY_2, false);
             assertThatThrownBy(registry::validateFallbackKeys)
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("ido.ticket.aes-key")
-                    .hasMessageContaining("IDO_HANDOFF_AES_KEY");
+                    .hasMessageContaining("idem.hub.ticket.aes-key")
+                    .hasMessageContaining("IDEM_HUB_HANDOFF_AES_KEY");
         }
 
         @Test
@@ -76,8 +76,8 @@ class KeyVersionRegistryStartupGuardTest {
             KeyVersionRegistry registry = freshInstance(VALID_32B_KEY, "   ", false);
             assertThatThrownBy(registry::validateFallbackKeys)
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("ido.ticket.hmac-key")
-                    .hasMessageContaining("IDO_HANDOFF_HMAC_KEY");
+                    .hasMessageContaining("idem.hub.ticket.hmac-key")
+                    .hasMessageContaining("IDEM_HUB_HANDOFF_HMAC_KEY");
         }
 
         @Test
@@ -87,7 +87,7 @@ class KeyVersionRegistryStartupGuardTest {
             assertThatThrownBy(registry::validateFallbackKeys)
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("placeholder")
-                    .hasMessageContaining("ido.ticket.aes-key");
+                    .hasMessageContaining("idem.hub.ticket.aes-key");
         }
 
         @Test
@@ -97,7 +97,7 @@ class KeyVersionRegistryStartupGuardTest {
             assertThatThrownBy(registry::validateFallbackKeys)
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("placeholder")
-                    .hasMessageContaining("ido.ticket.hmac-key");
+                    .hasMessageContaining("idem.hub.ticket.hmac-key");
         }
 
         @Test
@@ -137,7 +137,7 @@ class KeyVersionRegistryStartupGuardTest {
             assertThatThrownBy(registry::validateFallbackKeys)
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("32바이트")
-                    .hasMessageContaining("ido.ticket.hmac-key");
+                    .hasMessageContaining("idem.hub.ticket.hmac-key");
         }
     }
 
@@ -222,7 +222,7 @@ class KeyVersionRegistryStartupGuardTest {
             KeyVersionRegistry registry = freshInstance(LEGACY_DEFAULT, VALID_32B_KEY_2, false);
             assertThatThrownBy(registry::validateFallbackKeys)
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("ido.ticket.aes-key"); // AES 슬롯에서 실패
+                    .hasMessageContaining("idem.hub.ticket.aes-key"); // AES 슬롯에서 실패
         }
     }
 }

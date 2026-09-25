@@ -50,7 +50,7 @@ public class AgencyApiKeyInterceptor implements HandlerInterceptor {
 
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${agency-stub.code:AGENCY_STUB_001}")
+    @Value("${idem.sample.code:AGENCY_STUB_001}")
     private String myAgencyCode;
 
     @Override

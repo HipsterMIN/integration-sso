@@ -1,4 +1,4 @@
-{{- if .Values.ido.enabled }}
+{{- if .Values.hub.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,11 +6,11 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ido
+    app.kubernetes.io/component: idem-hub
   annotations:
     checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
 spec:
-  replicas: {{ .Values.ido.replicaCount }}
+  replicas: {{ .Values.hub.replicaCount }}
   selector:
     matchLabels:
       app: idem-hub
@@ -24,7 +24,7 @@ spec:
       labels:
         app: idem-hub
         {{- include "onepass.labels" . | nindent 8 }}
-        app.kubernetes.io/component: ido
+        app.kubernetes.io/component: idem-hub
     spec:
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
@@ -32,16 +32,16 @@ spec:
       {{- end }}
       # Vault Kubernetes Auth(VAULT_AUTH_METHOD=kubernetes) 사용 시 필수.
       # 다른 인증 방식(token/approle)에서는 SA JWT를 읽지 않으므로 무해.
-      {{- if .Values.ido.serviceAccount }}
-      {{- if .Values.ido.serviceAccount.create }}
-      serviceAccountName: {{ .Values.ido.serviceAccount.name | default "idem-hub" }}
+      {{- if .Values.hub.serviceAccount }}
+      {{- if .Values.hub.serviceAccount.create }}
+      serviceAccountName: {{ .Values.hub.serviceAccount.name | default "idem-hub" }}
       {{- end }}
       {{- end }}
       terminationGracePeriodSeconds: 30
       containers:
-        - name: ido
-          image: {{ include "onepass.image" .Values.ido.image }}
-          imagePullPolicy: {{ .Values.ido.image.pullPolicy }}
+        - name: idem-hub
+          image: {{ include "onepass.image" .Values.hub.image }}
+          imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
           ports:
             - name: http
               containerPort: 8083
@@ -52,17 +52,17 @@ spec:
             - configMapRef:
                 name: idem-common-config
             - secretRef:
-                name: {{ .Values.ido.secretRef.name }}
-          {{- if .Values.ido.startupProbe }}
+                name: {{ .Values.hub.secretRef.name }}
+          {{- if .Values.hub.startupProbe }}
           startupProbe:
-            {{- toYaml .Values.ido.startupProbe | nindent 12 }}
+            {{- toYaml .Values.hub.startupProbe | nindent 12 }}
           {{- end }}
           livenessProbe:
-            {{- toYaml .Values.ido.livenessProbe | nindent 12 }}
+            {{- toYaml .Values.hub.livenessProbe | nindent 12 }}
           readinessProbe:
-            {{- toYaml .Values.ido.readinessProbe | nindent 12 }}
+            {{- toYaml .Values.hub.readinessProbe | nindent 12 }}
           resources:
-            {{- toYaml .Values.ido.resources | nindent 12 }}
+            {{- toYaml .Values.hub.resources | nindent 12 }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

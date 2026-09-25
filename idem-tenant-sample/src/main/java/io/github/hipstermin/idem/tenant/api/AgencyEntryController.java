@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.*;
  *     │
  *     ├─ [1] AgencyApiKeyInterceptor — X-Agency-Code / X-Agency-Key 검증 (인터셉터 레이어)
  *     │
- *     ├─ [2] IdoVerifyClient.verify() — POST {ido.base-url}/api/v1/handoff/verify
+ *     ├─ [2] IdoVerifyClient.verify() — POST {idem.hub.base-url}/api/v1/handoff/verify
  *     │         - Resilience4j CircuitBreaker "ido-verify" (실패율 50% → 10s OPEN)
  *     │         - Retry 2회 (5xx / 네트워크 오류만)
  *     │         - 4xx → 즉시 REJECTED 반환 (재시도 없음)
@@ -75,7 +75,7 @@ public class AgencyEntryController {
     private final IdoVerifyClient      idoVerifyClient;
     private final AgencySessionService agencySessionService;
 
-    @Value("${agency-stub.session.idle-timeout-minutes:30}")
+    @Value("${idem.sample.session.idle-timeout-minutes:30}")
     private int idleTimeoutMinutes;
 
     // ══════════════════════════════════════════════════════════════════════

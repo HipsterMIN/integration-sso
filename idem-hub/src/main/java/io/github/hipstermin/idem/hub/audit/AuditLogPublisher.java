@@ -46,22 +46,22 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AuditLogPublisher {
 
-    private static final String SOURCE_SYSTEM = "ido";
+    private static final String SOURCE_SYSTEM = "idem-hub";
     private static final String AUDIT_TOPIC   = "platform.audit.log";
 
     private final JdbcTemplate                  jdbcTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper                  objectMapper;
 
-    // F-03: Kafka 발행 On/Off (IDO_AUDIT_KAFKA_ENABLED)
+    // F-03: Kafka 발행 On/Off (IDEM_HUB_AUDIT_KAFKA_ENABLED)
     // false → Kafka 없는 환경에서 연결 오류 없음, 재처리 스케줄러도 건너뜀
-    @Value("${ido.audit.kafka-publish-enabled:${IDO_AUDIT_KAFKA_ENABLED:true}}")
+    @Value("${idem.hub.audit.kafka-publish-enabled:${IDEM_HUB_AUDIT_KAFKA_ENABLED:true}}")
     private boolean kafkaPublishEnabled;
 
-    // F-04: DB 저장 On/Off (IDO_AUDIT_DB_ENABLED)
+    // F-04: DB 저장 On/Off (IDEM_HUB_AUDIT_DB_ENABLED)
     // false → ido.audit_log 테이블 없는 환경에서도 오류 없음
     // ⚠️ 운영에서 false 금지 — 컴플라이언스(개인정보보호법) 위반 가능
-    @Value("${ido.audit.db-save-enabled:${IDO_AUDIT_DB_ENABLED:true}}")
+    @Value("${idem.hub.audit.db-save-enabled:${IDEM_HUB_AUDIT_DB_ENABLED:true}}")
     private boolean dbSaveEnabled;
 
     // ── 공개 API ───────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ public class AuditLogPublisher {
             if (dbSaveEnabled) {
                 dbSaved = insertAuditLog(auditId, entry, metadataJson);
             } else {
-                log.debug("[AuditLogPublisher] DB 저장 SKIP (IDO_AUDIT_DB_ENABLED=false): action={}", entry.eventAction());
+                log.debug("[AuditLogPublisher] DB 저장 SKIP (IDEM_HUB_AUDIT_DB_ENABLED=false): action={}", entry.eventAction());
             }
 
             // ② Kafka 발행 (F-03: 비동기 fire-and-forget)
@@ -270,7 +270,7 @@ public class AuditLogPublisher {
      * Kafka 발행 실패한 감사 로그 재처리 (10분 주기)
      * DB에 kafka_published=false 로 남은 레코드를 재발행.
      */
-    @org.springframework.scheduling.annotation.Scheduled(fixedDelayString = "${ido.audit.retry-interval-ms:600000}")
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelayString = "${idem.hub.audit.retry-interval-ms:600000}")
     public void retryKafkaPublish() {
         if (!kafkaPublishEnabled) return;
         try {

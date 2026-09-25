@@ -20,11 +20,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * authz.authz_outbox → authz.assignment.events Kafka 릴레이 배치 Job
+ * authz.authz_outbox → idem.authz.assignment.events Kafka 릴레이 배치 Job
  *
  * <h2>대상</h2>
  * q-authz 서비스(PostgreSQL)의 authz.authz_outbox 테이블 PENDING 레코드.
- * 인가 부여/회수/만료(AUTHZ_GRANTED/REVOKED/EXPIRED) 이벤트를 발행하여
+ * 인가 부여/회수/만료(IDEM_AUTHZ_GRANTED/REVOKED/EXPIRED) 이벤트를 발행하여
  * 다운스트림(기관 게이트웨이·세션 캐시·ido)이 <b>역할 회수를 토큰 만료
  * 이전에 전파</b>할 수 있게 한다.
  *
@@ -49,16 +49,16 @@ public class AuthzKafkaRelayJob {
     private final Counter failureCounter;
     private final Counter deadLetterCounter;
 
-    @Value("${batch.relay.authz.kafka.batch-size:100}")
+    @Value("${idem.relay.jobs.authz.kafka.batch-size:100}")
     private int batchSize;
 
-    @Value("${batch.relay.authz.kafka.max-retry:5}")
+    @Value("${idem.relay.jobs.authz.kafka.max-retry:5}")
     private int maxRetry;
 
-    @Value("${batch.relay.authz.kafka.enabled:true}")
+    @Value("${idem.relay.jobs.authz.kafka.enabled:true}")
     private boolean enabled;
 
-    @Value("${batch.relay.authz.kafka.topic:authz.assignment.events}")
+    @Value("${idem.relay.jobs.authz.kafka.topic:idem.authz.assignment.events}")
     private String assignmentEventsTopic;
 
     public AuthzKafkaRelayJob(
@@ -69,16 +69,16 @@ public class AuthzKafkaRelayJob {
         this.authzJdbcTemplate = authzJdbcTemplate;
         this.kafkaTemplate     = kafkaTemplate;
         this.objectMapper      = objectMapper;
-        this.successCounter    = meterRegistry.counter("batch.relay.authz.kafka.success");
-        this.failureCounter    = meterRegistry.counter("batch.relay.authz.kafka.failure");
-        this.deadLetterCounter = meterRegistry.counter("batch.relay.authz.kafka.dead_letter");
+        this.successCounter    = meterRegistry.counter("idem.relay.jobs.authz.kafka.success");
+        this.failureCounter    = meterRegistry.counter("idem.relay.jobs.authz.kafka.failure");
+        this.deadLetterCounter = meterRegistry.counter("idem.relay.jobs.authz.kafka.dead_letter");
     }
 
-    @Scheduled(fixedDelayString = "${batch.relay.authz.kafka.interval-ms:500}")
+    @Scheduled(fixedDelayString = "${idem.relay.jobs.authz.kafka.interval-ms:500}")
     @SchedulerLock(
             name           = "authz-kafka-relay",
-            lockAtMostFor  = "${batch.relay.authz.kafka.lock-at-most:10s}",
-            lockAtLeastFor = "${batch.relay.authz.kafka.lock-at-least:400ms}"
+            lockAtMostFor  = "${idem.relay.jobs.authz.kafka.lock-at-most:10s}",
+            lockAtLeastFor = "${idem.relay.jobs.authz.kafka.lock-at-least:400ms}"
     )
     @Transactional(transactionManager = "authzTransactionManager")
     public void relay() {
@@ -203,7 +203,7 @@ public class AuthzKafkaRelayJob {
     /**
      * FAILED(retry_count &lt; maxRetry) 레코드를 PENDING으로 복구해 재발행 기회 제공.
      */
-    @Scheduled(fixedDelayString = "${batch.relay.authz.kafka.retry-interval-ms:30000}")
+    @Scheduled(fixedDelayString = "${idem.relay.jobs.authz.kafka.retry-interval-ms:30000}")
     @SchedulerLock(
             name           = "authz-kafka-relay-failed",
             lockAtMostFor  = "60s",

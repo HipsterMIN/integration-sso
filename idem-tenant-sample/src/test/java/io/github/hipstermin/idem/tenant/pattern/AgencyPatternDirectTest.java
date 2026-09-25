@@ -81,7 +81,7 @@ class AgencyPatternDirectTest {
         givenVerifyApproved(TICKET_ID, AGENCY_DIRECT, AuthResult.AuthLevel.L2);
         givenSessionCreated("session-001", "user-001", AGENCY_DIRECT + "_USER", "L2");
 
-        SimulationRequest req = normalReq("L2", "QSIGN_CERT");
+        SimulationRequest req = normalReq("L2", "IDEM_GATE_CERT");
 
         // When
         ResponseEntity<?> resp = controller.runFullFlow(req, httpReq, httpResp);
@@ -90,7 +90,7 @@ class AgencyPatternDirectTest {
         assertThat(resp.getStatusCode().value()).isEqualTo(200);
         assertBodyStatus(resp, "OK");
         assertThat(bodyAsMap(resp)).containsKey("session");
-        verify(idoTicketClient).issue(anyString(), anyString(), eq("L2"), eq("QSIGN_CERT"), anyString());
+        verify(idoTicketClient).issue(anyString(), anyString(), eq("L2"), eq("IDEM_GATE_CERT"), anyString());
         verify(idoVerifyClient).verify(eq(TICKET_ID), anyString());
         verify(agencySessionService).createSession(any(), eq(TICKET_ID), anyString(), anyString(), any());
     }
@@ -129,7 +129,7 @@ class AgencyPatternDirectTest {
         givenVerifyState(HandoffState.HOLD, AGENCY_DIRECT, AuthResult.AuthLevel.L2);
 
         // When
-        ResponseEntity<?> resp = controller.runFullFlow(normalReq("L2", "QSIGN_CERT"), httpReq, httpResp);
+        ResponseEntity<?> resp = controller.runFullFlow(normalReq("L2", "IDEM_GATE_CERT"), httpReq, httpResp);
 
         // Then
         assertThat(resp.getStatusCode().value()).isEqualTo(503);
@@ -149,7 +149,7 @@ class AgencyPatternDirectTest {
         givenVerifyState(HandoffState.REJECTED, AGENCY_DIRECT, AuthResult.AuthLevel.L2);
 
         // When
-        ResponseEntity<?> resp = controller.runFullFlow(normalReq("L2", "QSIGN_CERT"), httpReq, httpResp);
+        ResponseEntity<?> resp = controller.runFullFlow(normalReq("L2", "IDEM_GATE_CERT"), httpReq, httpResp);
 
         // Then
         assertThat(resp.getStatusCode().value()).isEqualTo(403);
@@ -170,7 +170,7 @@ class AgencyPatternDirectTest {
                         "TICKET_ISSUE_FAILED", "IdO 응답 오류"));
 
         // When
-        ResponseEntity<?> resp = controller.runFullFlow(normalReq("L2", "QSIGN_CERT"), httpReq, httpResp);
+        ResponseEntity<?> resp = controller.runFullFlow(normalReq("L2", "IDEM_GATE_CERT"), httpReq, httpResp);
 
         // Then
         assertThat(resp.getStatusCode().value()).isEqualTo(502);
@@ -192,7 +192,7 @@ class AgencyPatternDirectTest {
                 .thenThrow(new RuntimeException("DB 연결 실패"));
 
         // When
-        ResponseEntity<?> resp = controller.runFullFlow(normalReq("L2", "QSIGN_CERT"), httpReq, httpResp);
+        ResponseEntity<?> resp = controller.runFullFlow(normalReq("L2", "IDEM_GATE_CERT"), httpReq, httpResp);
 
         // Then
         assertThat(resp.getStatusCode().value()).isEqualTo(500);

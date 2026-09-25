@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
  * </ul>
  * 키 통일 처리는 {@code AuthService.handleOacxEasysign()}에서 수행.
  *
- * <p><b>설정 위치:</b> {@code ido.auth.oacx.provider-key-path}
+ * <p><b>설정 위치:</b> {@code idem.hub.auth.oacx.provider-key-path}
  *
  * @see io.github.hipstermin.idem.hub.auth.service.AuthService
  */

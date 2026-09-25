@@ -4,7 +4,7 @@ server:
 
 spring:
   application:
-    name: agency-stub
+    name: idem-tenant-sample
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
@@ -74,7 +74,7 @@ spring:
     properties:
       security.protocol: PLAINTEXT
     consumer:
-      group-id: agency-stub-consumer
+      group-id: idem-tenant-sample-consumer
       auto-offset-reset: earliest
       enable-auto-commit: false
       max-poll-records: 50
@@ -89,7 +89,7 @@ spring:
       missing-topics-fatal: true
 
 # ── Agency-Stub 도메인 설정 ────────────────────────────────────
-agency-stub:
+idem.sample:
   code: AGENCY_STUB_001
   # S6 PR-2: 기관이 Idem 에 붙는 방식 — HANDOFF(기본, /agency/entry) | OIDC_RP(표준 OIDC, /agency/oidc/login).
   # Idem 쪽 Service Profile 의 protocol.type 과 같아야 한다. 세션 저장·쿠키·웹훅은 두 방식이 같다.
@@ -103,7 +103,7 @@ agency-stub:
     post-logout-redirect-uri: ${AGENCY_OIDC_POST_LOGOUT_URI:http://localhost:8084/}
   # §11 IdO Verify API 연동
   ido:
-    base-url: ${IDO_BASE_URL:http://localhost:8083}
+    base-url: ${IDEM_HUB_BASE_URL:http://localhost:8083}
     api-key: ${AGENCY_API_KEY:stub-api-key-dev}
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
@@ -122,15 +122,15 @@ agency-stub:
 
   # §14.7 Webhook 수신 (IdO → 기관)
   webhook:
-    signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-change-in-production}
+    signing-secret: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-change-in-production}
     # 수신 엔드포인트: POST /api/v1/webhook/inbound
     # HMAC-SHA256 서명 검증 + 타임스탬프 ±5분
     enabled: true
 
   # Kafka 토픽 구독 (PoC 전용 — 운영 시 webhook으로 대체)
   kafka:
-    consumer-group: agency-stub-consumer
-    topic-handoff-events: ido.handoff.events
+    consumer-group: idem-tenant-sample-consumer
+    topic-handoff-events: idem.hub.handoff.events
     topic-session-advisory: platform.session.advisory
 
 # ── Resilience4j — IdO Verify API Circuit Breaker / Retry ────

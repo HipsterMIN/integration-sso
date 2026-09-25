@@ -21,9 +21,9 @@ import org.springframework.stereotype.Component;
  *
  * <p>운영 환경변수:
  * <ul>
- *   <li>QIM_CI_AES_KEY_V1 — 32바이트 Base64 키 (필수)</li>
- *   <li>QIM_CI_AES_KEY_V2 — 로테이션 키 (선택)</li>
- *   <li>QIM_CI_CURRENT_KEY_VERSION — 현재 버전 (기본 v1)</li>
+ *   <li>IDEM_REGISTRY_CI_AES_KEY_V1 — 32바이트 Base64 키 (필수)</li>
+ *   <li>IDEM_REGISTRY_CI_AES_KEY_V2 — 로테이션 키 (선택)</li>
+ *   <li>IDEM_REGISTRY_CI_CURRENT_KEY_VERSION — 현재 버전 (기본 v1)</li>
  * </ul>
  *
  * <p>부팅 검증 (Sprint γ-2 / F3.3):
@@ -31,7 +31,7 @@ import org.springframework.stereotype.Component;
  *   <li>현재 버전(v1 기본) AES 키가 비어있으면 부팅 차단 (CrashLoopBackOff)</li>
  *   <li>과거 placeholder default("AAAA...=" — 32바이트 0x00) 명시적 거부</li>
  *   <li>Base64 디코드 후 정확히 32바이트(AES-256)인지 검증</li>
- *   <li>로컬·테스트는 {@code qim.crypto.ci.allow-empty-key=true} 로 우회</li>
+ *   <li>로컬·테스트는 {@code idem.registry.crypto.ci.allow-empty-key=true} 로 우회</li>
  * </ul>
  */
 @Slf4j
@@ -62,20 +62,20 @@ public class CiCryptoServiceImpl implements CiCryptoService {
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa="
     );
 
-    @Value("${qim.crypto.ci.key-v1:}")
+    @Value("${idem.registry.crypto.ci.key-v1:}")
     private String aesKeyV1Base64;
 
-    @Value("${qim.crypto.ci.key-v2:}")
+    @Value("${idem.registry.crypto.ci.key-v2:}")
     private String aesKeyV2Base64;
 
-    @Value("${qim.crypto.ci.current-version:v1}")
+    @Value("${idem.registry.crypto.ci.current-version:v1}")
     private String currentVersion;
 
     /**
      * 로컬·테스트 전용 escape hatch.
      * <p>{@code true} 일 때만 빈 값 / placeholder 가 허용된다. 운영에서는 절대 사용 금지.
      */
-    @Value("${qim.crypto.ci.allow-empty-key:false}")
+    @Value("${idem.registry.crypto.ci.allow-empty-key:false}")
     private boolean allowEmptyKey;
 
 
@@ -94,14 +94,14 @@ public class CiCryptoServiceImpl implements CiCryptoService {
      *   <li>Base64 디코드 가능하며, 결과가 정확히 32바이트(AES-256) 일 것</li>
      * </ol>
      *
-     * <p>{@code qim.crypto.ci.allow-empty-key=true} 가 명시되면 검증을 건너뛴다
+     * <p>{@code idem.registry.crypto.ci.allow-empty-key=true} 가 명시되면 검증을 건너뛴다
      * (로컬/단위 테스트 한정).
      */
     @PostConstruct
     void validateKeyV1() {
         String version = (currentVersion == null || currentVersion.isBlank()) ? "v1" : currentVersion.trim();
         String keyB64  = "v2".equals(version) ? aesKeyV2Base64 : aesKeyV1Base64;
-        String label   = "qim.crypto.ci.key-" + version;
+        String label   = "idem.registry.crypto.ci.key-" + version;
 
         if (keyB64 == null || keyB64.isBlank()) {
             if (allowEmptyKey) {
@@ -110,9 +110,9 @@ public class CiCryptoServiceImpl implements CiCryptoService {
             }
             throw new IllegalStateException(
                     "[CiCrypto] " + label + " 가 설정되지 않았습니다. "
-                            + "환경변수 QIM_CI_AES_KEY_" + version.toUpperCase() + " 를 32바이트 Base64 키로 주입하십시오. "
+                            + "환경변수 IDEM_REGISTRY_CI_AES_KEY_" + version.toUpperCase() + " 를 32바이트 Base64 키로 주입하십시오. "
                             + "(예: openssl rand -base64 32). "
-                            + "로컬·테스트에서만 qim.crypto.ci.allow-empty-key=true 로 우회 가능합니다.");
+                            + "로컬·테스트에서만 idem.registry.crypto.ci.allow-empty-key=true 로 우회 가능합니다.");
         }
 
         String normalized = keyB64.trim().toLowerCase();

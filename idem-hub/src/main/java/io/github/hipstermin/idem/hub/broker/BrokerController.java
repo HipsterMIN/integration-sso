@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
  * ido — OIDC 브로커 Authorization URL 발급 컨트롤러 (문서 §6)
  *
  * <p>React SPA(onepass-fe)가 간편인증 버튼 클릭 시 이 엔드포인트를 호출.
- * {@code ido.broker.mode} 설정에 따라 두 가지 모드로 동작:
+ * {@code idem.hub.broker.mode} 설정에 따라 두 가지 모드로 동작:
  *
  * <ul>
  *   <li>{@code qsign}    : 기존 모드 — ido → q-sign으로 URL 발급 위임</li>

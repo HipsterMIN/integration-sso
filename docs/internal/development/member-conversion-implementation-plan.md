@@ -50,7 +50,7 @@
 │   ├── KeycloakProperties (idp-hint-mapping: kakao/naver/pass/gpki) ✅
 │   └── realm-export.json (onepass, q-sign-client, ido-client, social-kakao IdP) ✅
 │
-├── OIDC 브로커링 — ido Keycloak 모드 (IDO_BROKER_MODE=keycloak) ✅
+├── OIDC 브로커링 — ido Keycloak 모드 (IDEM_HUB_BROKER_MODE=keycloak) ✅
 ├── 비OIDC 브로커링 (PASS/GPKI/금융인증서/공동인증서 — PoC 플레이스홀더) ✅
 ├── AuthResult 생성 + Outbox 발행 (qsign.auth_result, ido.auth_result) ✅
 ├── FeSession 발급·관리 (Redis, 슬라이딩 TTL 30분, 절대만료 8시간) ✅
@@ -67,10 +67,10 @@
     ├── SpReceiverIdempotencyStore (ido.sp_receiver_idempotency TTL=7일) ✅
     ├── AesSharedKeyDecryptor    (AES-256-CBC, identifierHash SHA-256) ✅
     ├── InstMbrIdMapping         (도메인: PERSONAL|CORPORATE, ACTIVE|WITHDRAWN) ✅
-    ├── QimSpMemberEventConsumer (Kafka: qim.sp.member.events 구독) ✅
+    ├── QimSpMemberEventConsumer (Kafka: idem.registry.sp.member.events 구독) ✅
     ├── QimSpMemberEventHandler  (REGISTERED/TRANSFERRED/WITHDRAWN 이벤트 처리) ✅
     ├── DB V4 마이그레이션        (inst_mbr_id_mapping, sp_receiver_idempotency, qim_sp_receiver_log) ✅
-    └── application.yml          (ido.qim.inbound-api-key-hash, aes-shared-key 설정 추가) ✅
+    └── application.yml          (idem.hub.registry.inbound-api-key-hash, aes-shared-key 설정 추가) ✅
 
 미구현 영역 (RED) — PPTX와 대조하여 도출 (v1.2.0 기준)
 ├── [P1] CI값 기반 68개 유관시스템 회원정보 조회 ❌
@@ -825,21 +825,21 @@ WDRL_MINOR_NOT_ALLOWED    ("E-WDRL-603", HttpStatus.FORBIDDEN,     "미성년자
 
 | 토픽 | 생산자 | 소비자 | 용도 |
 |------|-------|-------|------|
-| `qim.sp.member.events` | IdO (Outbox) | IdO (QimSpMemberEventConsumer) | **[v1.2.0 구현완료]** SP 수신 회원 이벤트 내부 전파 |
-| `qim.conversion.events` | Q-IM | IdO, agency-stub | 전환 완료/취소 이벤트 |
-| `qim.consent.events` | Q-IM | 법무/감사 시스템 | 개인정보 동의 기록 |
-| `qim.withdrawal.events` | Q-IM | IdO, 유관시스템 | 탈퇴/삭제 전파 |
-| `ido.fallback.events` | IdO | 모니터링 | Circuit Breaker 전환 감사 |
+| `idem.registry.sp.member.events` | IdO (Outbox) | IdO (QimSpMemberEventConsumer) | **[v1.2.0 구현완료]** SP 수신 회원 이벤트 내부 전파 |
+| `idem.registry.conversion.events` | Q-IM | IdO, agency-stub | 전환 완료/취소 이벤트 |
+| `idem.registry.consent.events` | Q-IM | 법무/감사 시스템 | 개인정보 동의 기록 |
+| `idem.registry.withdrawal.events` | Q-IM | IdO, 유관시스템 | 탈퇴/삭제 전파 |
+| `idem.hub.fallback.events` | IdO | 모니터링 | Circuit Breaker 전환 감사 |
 
-> **`qim.sp.member.events` 이벤트 타입** (v1.2.0 구현):
-> - `QIM_MEMBER_REGISTERED`  — Q-IM이 SP(IdO)에 신규 회원 등록 통보
-> - `QIM_MEMBER_TRANSFERRED` — Q-IM이 SP(IdO)에 전환 회원 등록 통보
-> - `QIM_MEMBER_WITHDRAWN`   — Q-IM이 SP(IdO)에 회원 탈퇴 통보
+> **`idem.registry.sp.member.events` 이벤트 타입** (v1.2.0 구현):
+> - `IDEM_REGISTRY_MEMBER_REGISTERED`  — Q-IM이 SP(IdO)에 신규 회원 등록 통보
+> - `IDEM_REGISTRY_MEMBER_TRANSFERRED` — Q-IM이 SP(IdO)에 전환 회원 등록 통보
+> - `IDEM_REGISTRY_MEMBER_WITHDRAWN`   — Q-IM이 SP(IdO)에 회원 탈퇴 통보
 
 ### 10.2 이벤트 페이로드
 
 ```json
-// qim.withdrawal.events 예시
+// idem.registry.withdrawal.events 예시
 {
   "eventId": "uuid",
   "eventType": "USER_WITHDRAWN",         // USER_WITHDRAWN / LOGICALLY_DELETED / MAPPING_REVOKED
@@ -857,7 +857,7 @@ WDRL_MINOR_NOT_ALLOWED    ("E-WDRL-603", HttpStatus.FORBIDDEN,     "미성년자
 ```
 
 ```json
-// qim.conversion.events 예시
+// idem.registry.conversion.events 예시
 {
   "eventId": "uuid",
   "eventType": "CONVERSION_COMPLETED",

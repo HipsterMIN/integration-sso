@@ -82,7 +82,7 @@ public class AgencyCredentialStore {
      * 형식: "ENV_NAME_1=value1,ENV_NAME_2=value2"
      * 운영 환경: K8s Secret envFrom으로 주입 (이 값은 비워 둠)
      */
-    @Value("${ido.provisioning.credential.dev-overrides:}")
+    @Value("${idem.hub.provisioning.credential.dev-overrides:}")
     private String devOverridesRaw;
 
     @PostConstruct

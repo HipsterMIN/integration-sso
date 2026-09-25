@@ -57,8 +57,8 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class KeycloakCallbackService {
 
-    private static final String SOURCE_SYSTEM = "q-sign";
-    private static final String TOPIC_AUTH    = "qsign.auth.events";
+    private static final String SOURCE_SYSTEM = "idem-gate";
+    private static final String TOPIC_AUTH    = "idem.gate.auth.events";
 
     private final KeycloakStateStore      stateStore;
     private final KeycloakJwksVerifier    jwksVerifier;
@@ -70,15 +70,15 @@ public class KeycloakCallbackService {
     private final ObjectMapper            objectMapper;
     private final AuthMetrics             authMetrics;
 
-    @Value("${qsign.ido.base-url:http://localhost:8083}")
+    @Value("${idem.gate.hub.base-url:http://localhost:8083}")
     private String idoBaseUrl;
 
     // D2: 종전 기본값 "ido-internal-secret"(공개 문자열) 으로 실제 서명하던 결함 제거 — 비면 InternalSigVerifier 가드가 처리
-    @Value("${qsign.ido.internal-sig-secret:}")
+    @Value("${idem.gate.hub.internal-sig-secret:}")
     private String internalSigSecret;
 
     /** D3: gate 가 RP 에 내보내는 공개 issuer — Keycloak KC_HOSTNAME_URL 이 이 값이면 id_token iss 도 이 값이다 */
-    @Value("${qsign.oidc-front.issuer:}")
+    @Value("${idem.gate.oidc-front.issuer:}")
     private String publicIssuer;
 
     // ── 공개 진입점 ─────────────────────────────────────────────────────────
@@ -236,8 +236,8 @@ public class KeycloakCallbackService {
     // ── 내부: issuer 검증 (D3) ───────────────────────────────────────────────
 
     /**
-     * id_token {@code iss} 가 우리 realm 인지 — Keycloak 내부 주소({@code qsign.keycloak.base-url}/realms/{realm}) 또는
-     * gate 가 공개하는 issuer({@code qsign.oidc-front.issuer}, = KC_HOSTNAME_URL 기준). 서명 검증은 이미 우리 JWKS 로
+     * id_token {@code iss} 가 우리 realm 인지 — Keycloak 내부 주소({@code idem.gate.keycloak.base-url}/realms/{realm}) 또는
+     * gate 가 공개하는 issuer({@code idem.gate.oidc-front.issuer}, = KC_HOSTNAME_URL 기준). 서명 검증은 이미 우리 JWKS 로
      * 했지만, 같은 Keycloak 의 다른 realm 토큰이 통과하지 않도록 issuer 를 명시적으로 본다. 비어 있거나 다르면 거부.
      */
     void validateIssuer(String issuer, String correlationId) {

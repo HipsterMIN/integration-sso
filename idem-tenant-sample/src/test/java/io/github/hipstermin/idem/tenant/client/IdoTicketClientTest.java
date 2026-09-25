@@ -63,7 +63,7 @@ class IdoTicketClientTest {
                 "qim-user-001",
                 "auth-result-001",
                 "L2",
-                "QSIGN_CERT",
+                "IDEM_GATE_CERT",
                 "corr-001"
         );
 
@@ -92,7 +92,7 @@ class IdoTicketClientTest {
                 eq(IdoTicketClient.TicketResponse.class)
         )).thenReturn(ResponseEntity.ok(ticketResponse));
 
-        client.issue("qim-001", "auth-001", "L1", "QSIGN_CERT", "corr-hdr");
+        client.issue("qim-001", "auth-001", "L1", "IDEM_GATE_CERT", "corr-hdr");
 
         HttpHeaders headers = entityCaptor.getValue().getHeaders();
         assertThat(headers.getFirst("X-Agency-Code")).isEqualTo("AGENCY_TEST_001");

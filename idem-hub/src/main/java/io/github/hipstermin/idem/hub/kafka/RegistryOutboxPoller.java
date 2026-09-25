@@ -18,9 +18,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * D3: Kafka 없는 설치의 사용자 상태 변경 전파 — registry 아웃박스({@code qim.user.events})를 HTTP 로 폴링해
+ * D3: Kafka 없는 설치의 사용자 상태 변경 전파 — registry 아웃박스({@code idem.registry.user.events})를 HTTP 로 폴링해
  * {@link QimEventConsumer#handle} 에 넘긴다. Kafka 가 켜진 설치에서는 {@code KafkaListener} 가 같은 일을 하므로 이 빈은 뜨지 않는다
- * ({@code ido.qim-events.poll.enabled} 는 {@code KafkaOptionalEnvironmentPostProcessor} 가 Kafka 꺼짐 파생 기본값으로 켠다).
+ * ({@code idem.hub.registry-events.poll.enabled} 는 {@code KafkaOptionalEnvironmentPostProcessor} 가 Kafka 꺼짐 파생 기본값으로 켠다).
  *
  * <p>워터마크 {@code (createdAt, eventId)} 는 Redis 에 둔다(TTL 없음). 없으면 {@code initial-lookback} 만큼 과거부터 시작한다 —
  * 중복은 {@code processed_event} 멱등 저장소가 걸러 준다. 한 이벤트가 실패하면 그 앞까지만 워터마크를 옮기고 다음 주기에 재시도하며,
@@ -29,11 +29,11 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "ido.qim-events.poll.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "idem.hub.registry-events.poll.enabled", havingValue = "true")
 public class RegistryOutboxPoller {
 
-    static final String WATERMARK_KEY = "ido:qim-events:watermark";
-    static final String CONSUMER_GROUP = "ido-qim-consumer";
+    static final String WATERMARK_KEY = "idem:qim-events:watermark";
+    static final String CONSUMER_GROUP = "idem-hub-registry-consumer";
 
     private final QimClient qimClient;
     private final QimEventConsumer consumer;
@@ -41,13 +41,13 @@ public class RegistryOutboxPoller {
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
 
-    @Value("${ido.qim-events.poll.batch-size:100}")
+    @Value("${idem.hub.registry-events.poll.batch-size:100}")
     private int batchSize = 100;
 
-    @Value("${ido.qim-events.poll.initial-lookback-hours:24}")
+    @Value("${idem.hub.registry-events.poll.initial-lookback-hours:24}")
     private long initialLookbackHours = 24;
 
-    @Value("${ido.qim-events.poll.max-failures:5}")
+    @Value("${idem.hub.registry-events.poll.max-failures:5}")
     private int maxFailures = 5;
 
     private final Map<String, Integer> failures = new ConcurrentHashMap<>();
@@ -63,7 +63,7 @@ public class RegistryOutboxPoller {
         log.info("[RegistryOutboxPoller] 활성 — Kafka 없이 registry 이벤트 피드를 폴링한다");
     }
 
-    @Scheduled(fixedDelayString = "${ido.qim-events.poll.interval-ms:5000}", initialDelayString = "${ido.qim-events.poll.initial-delay-ms:10000}")
+    @Scheduled(fixedDelayString = "${idem.hub.registry-events.poll.interval-ms:5000}", initialDelayString = "${idem.hub.registry-events.poll.initial-delay-ms:10000}")
     public void poll() {
         if (!running.compareAndSet(false, true)) return;
         try {

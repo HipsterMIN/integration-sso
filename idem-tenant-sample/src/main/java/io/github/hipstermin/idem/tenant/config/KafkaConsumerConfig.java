@@ -26,11 +26,11 @@ import org.springframework.kafka.support.serializer.JsonDeserializer;
  *
  * <p>구독 토픽:
  * <ul>
- *   <li>ido.handoff.events        — Handoff 이벤트 수신 (REVOKED 감지)</li>
+ *   <li>idem.hub.handoff.events        — Handoff 이벤트 수신 (REVOKED 감지)</li>
  *   <li>platform.session.advisory — 세션 Advisory 수신 → 기관 세션 처리</li>
  * </ul>
  *
- * <p>컨슈머 그룹: agency-stub-consumer (FE 와 완전히 독립된 오프셋)
+ * <p>컨슈머 그룹: idem-tenant-sample-consumer (FE 와 완전히 독립된 오프셋)
  */
 @Configuration
 public class KafkaConsumerConfig {
@@ -38,7 +38,7 @@ public class KafkaConsumerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${agency-stub.kafka.consumer-group:agency-stub-consumer}")
+    @Value("${idem.sample.kafka.consumer-group:idem-tenant-sample-consumer}")
     private String consumerGroup;
 
     // ── Handoff 이벤트 컨슈머 ─────────────────────────────────────────────

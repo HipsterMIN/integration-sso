@@ -37,28 +37,28 @@ import org.springframework.web.client.RestTemplate;
 @EnableScheduling
 public class IdoWebConfig {
 
-    @Value("${ido.qsign.connect-timeout-ms:3000}")
+    @Value("${idem.hub.gate.connect-timeout-ms:3000}")
     private int connectTimeoutMs;
 
-    @Value("${ido.qsign.read-timeout-ms:5000}")
+    @Value("${idem.hub.gate.read-timeout-ms:5000}")
     private int readTimeoutMs;
 
-    @Value("${ido.qim.connect-timeout-ms:3000}")
+    @Value("${idem.hub.registry.connect-timeout-ms:3000}")
     private int qimConnectTimeoutMs;
 
-    @Value("${ido.qim.read-timeout-ms:5000}")
+    @Value("${idem.hub.registry.read-timeout-ms:5000}")
     private int qimReadTimeoutMs;
 
-    @Value("${ido.webhook.connect-timeout-ms:3000}")
+    @Value("${idem.hub.webhook.connect-timeout-ms:3000}")
     private int webhookConnectTimeoutMs;
 
-    @Value("${ido.webhook.read-timeout-ms:8000}")
+    @Value("${idem.hub.webhook.read-timeout-ms:8000}")
     private int webhookReadTimeoutMs;
 
-    @Value("${ido.q-authz.connect-timeout-ms:3000}")
+    @Value("${idem.hub.authz.connect-timeout-ms:3000}")
     private int qAuthzConnectTimeoutMs;
 
-    @Value("${ido.q-authz.read-timeout-ms:5000}")
+    @Value("${idem.hub.authz.read-timeout-ms:5000}")
     private int qAuthzReadTimeoutMs;
 
     // ── HTTP 클라이언트 ────────────────────────────────────────────────────

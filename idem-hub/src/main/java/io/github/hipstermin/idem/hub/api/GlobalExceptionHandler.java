@@ -27,7 +27,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * <p><b>GAP-API-04 (v1.9.4)</b>: Retry-After 헤더 적용 범위 확대
  * <ul>
  *   <li>429 Too Many Requests (AGENCY_RATE_LIMIT_EXCEEDED, QS_AUTH_LOCKED): 동적 계산</li>
- *   <li>503 Service Unavailable (OPS_EXTERNAL_SYSTEM_ERROR, IDO_QIM_UNREACHABLE,
+ *   <li>503 Service Unavailable (OPS_EXTERNAL_SYSTEM_ERROR, IDEM_HUB_REGISTRY_UNREACHABLE,
  *       IDP_CIRCUIT_OPEN, AGENCY_MAINTENANCE): 서비스별 차등 Retry-After</li>
  *   <li>504 Gateway Timeout (QS_PROVIDER_TIMEOUT): 30초 후 재시도</li>
  *   <li>5xx 미처리 예외: 기본 Retry-After 60초 추가</li>

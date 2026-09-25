@@ -13,9 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * D3: 사용자 변경 이벤트 내부 피드 — Kafka 없는 설치에서 hub 가 {@code qim.user.events} 를 폴링한다.
+ * D3: 사용자 변경 이벤트 내부 피드 — Kafka 없는 설치에서 hub 가 {@code idem.registry.user.events} 를 폴링한다.
  *
- * <p>{@code GET /api/v1/internal/events?topic=qim.user.events&afterCreatedAt=…&afterEventId=…&limit=…}
+ * <p>{@code GET /api/v1/internal/events?topic=idem.registry.user.events&afterCreatedAt=…&afterEventId=…&limit=…}
  *
  * <p>읽기 전용이다: 아웃박스 상태(PENDING/PUBLISHED)를 바꾸지 않는다 — Kafka 릴레이가 켜진 설치와 폴링 설치가 같은 테이블을
  * 서로 다른 방식으로 소비해도 간섭하지 않는다. 순서는 {@code (created_at, event_id)} 키셋이며 hub 가 워터마크를 쥔다.
@@ -34,7 +34,7 @@ public class OutboxEventsController {
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<List<OutboxEventResponse>> list(
-            @RequestParam(defaultValue = "qim.user.events") String topic,
+            @RequestParam(defaultValue = "idem.registry.user.events") String topic,
             @RequestParam(required = false) Instant afterCreatedAt,
             @RequestParam(required = false) String afterEventId,
             @RequestParam(defaultValue = "100") int limit,

@@ -20,14 +20,14 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>설계 원칙</b>:
  * <ul>
- *   <li>Kafka 발행 실패 시 IdO Outbox(ido.outbox)에 백업하여 at-least-once 보장</li>
+ *   <li>Kafka 발행 실패 시 IdO Outbox(idem.hub.outbox)에 백업하여 at-least-once 보장</li>
  *   <li>MANDATORY_SECURITY_TERMINATE: FE 세션 강제 종료 + 모든 기관 통보</li>
  *   <li>SESSION_LOGOUT_HINT: 부드러운 로그아웃 권고 (기관이 결정)</li>
  * </ul>
  *
  * <p><b>이벤트 체인</b>:
  * <pre>
- * [Q-Sign Outbox] → qsign.auth.events → [QsignAuthEventConsumer]
+ * [Q-Sign Outbox] → idem.gate.auth.events → [QsignAuthEventConsumer]
  *   └─ AUTH_LOCKED → SessionAdvisoryPublisher.publishAuthLocked()
  *                        │
  *                        ▼
@@ -45,17 +45,17 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SessionAdvisoryPublisher {
 
-    private static final String SOURCE_SYSTEM    = "ido";
+    private static final String SOURCE_SYSTEM    = "idem-hub";
     private static final String ADVISORY_TOPIC   = "platform.session.advisory";
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final JdbcTemplate                  jdbcTemplate;
     private final AuditLogPublisher             auditLogPublisher;
 
-    @Value("${ido.kafka.topic-session-advisory:platform.session.advisory}")
+    @Value("${idem.hub.kafka.topic-session-advisory:platform.session.advisory}")
     private String advisoryTopic;
 
-    /** D1-b: Kafka 선택 의존 — 꺼지면 Kafka 를 건너뛰고 ido.outbox 에 적재, IdoOutboxRelay 가 FeAdvisoryConsumer 로 프로세스 내 배달 */
+    /** D1-b: Kafka 선택 의존 — 꺼지면 Kafka 를 건너뛰고 idem.hub.outbox 에 적재, IdoOutboxRelay 가 FeAdvisoryConsumer 로 프로세스 내 배달 */
     @Value("${idem.messaging.kafka.enabled:false}")
     private boolean kafkaEnabled;
 
@@ -145,11 +145,11 @@ public class SessionAdvisoryPublisher {
     // ── 내부 구현 ──────────────────────────────────────────────────────────
 
     /**
-     * Kafka 발행 + 실패 시 ido.outbox Fallback
+     * Kafka 발행 + 실패 시 idem.hub.outbox Fallback
      *
      * <p>at-least-once 보장:
      * Kafka 직접 발행 성공 → 완료
-     * 실패 → ido.outbox INSERT → IdoOutboxRelay 가 재발행
+     * 실패 → idem.hub.outbox INSERT → IdoOutboxRelay 가 재발행
      */
     private void sendToKafkaWithFallback(SessionAdvisoryEvent event,
                                           String partitionKey,
@@ -181,7 +181,7 @@ public class SessionAdvisoryPublisher {
     }
 
     /**
-     * Kafka 발행 실패 시 ido.outbox 에 PENDING 레코드 삽입
+     * Kafka 발행 실패 시 idem.hub.outbox 에 PENDING 레코드 삽입
      * IdoOutboxRelay 가 500ms 간격으로 재발행
      */
     private void insertOutboxFallback(SessionAdvisoryEvent event, String partitionKey) {

@@ -8,25 +8,25 @@
 
 | ID | 파일 | 환경변수 | 현재 Phase 기본값 | 설명 |
 |----|------|---------|:-----------------:|------|
-| F-01 | [F-01-auth-rate-limit.md](F-01-auth-rate-limit.md) | `IDO_AUTH_RL_ENABLED` | `true` | IP Rate Limit |
-| F-02 | [F-02-agency-rate-limit.md](F-02-agency-rate-limit.md) | `IDO_RATE_LIMIT_ENABLED` | `true` | 기관 Rate Limit |
-| F-03 | [F-03-audit-kafka.md](F-03-audit-kafka.md) | `IDO_AUDIT_KAFKA_ENABLED` | `true` | 감사 Kafka |
-| F-04 | [F-04-audit-db.md](F-04-audit-db.md) | `IDO_AUDIT_DB_ENABLED` | `true` ⚠️ | 감사 DB |
-| F-05 | [F-05-auth-tracing.md](F-05-auth-tracing.md) | `IDO_AUTH_TRACING_ENABLED` | `true` | OTel 분산 추적 |
-| F-08 | [F-08-redisson-lock.md](F-08-redisson-lock.md) | `IDO_REDISSON_ENABLED` | `true` | 분산 락 |
-| F-10 | [F-10-security-headers.md](F-10-security-headers.md) | `IDO_SECURITY_HEADERS_ENABLED` | `true` | 보안 응답 헤더 |
-| F-11 | [F-11-retention.md](F-11-retention.md) | `IDO_RETENTION_ENABLED` | `false` ⚠️ | 개인정보 파기 |
-| F-12 | [F-12-crypto-rotation.md](F-12-crypto-rotation.md) | `IDO_CRYPTO_ROTATION_ENABLED` | `true` | AES 키 로테이션 |
-| F-13 | [F-13-outbox-relay.md](F-13-outbox-relay.md) | `IDO_OUTBOX_RELAY_ENABLED` | `true` | Outbox 릴레이 |
-| F-14 | [F-14-webhook-relay.md](F-14-webhook-relay.md) | `IDO_WEBHOOK_RELAY_ENABLED` | `true` | Webhook 릴레이 |
-| F-18 | [F-18-sp-receiver-audit.md](F-18-sp-receiver-audit.md) | `IDO_QIM_RECEIVER_AUDIT` | `true` | Q-IM SP 수신 감사 |
-| ~~F-20~~ | [F-20-provisioning.md](F-20-provisioning.md) | ~~`IDO_PROVISIONING_ENABLED`~~ | **제거(S4b)** | 전 기관 프로비저닝 — 범용화 S4b 에서 삭제 |
-| ~~F-21~~ | [F-21-provisioning-relay.md](F-21-provisioning-relay.md) | ~~`IDO_PROVISIONING_RELAY_ENABLED`~~ | **제거(S4b)** | 프로비저닝 릴레이 — 삭제 |
-| ~~F-22~~ | [F-22-provisioning-dry-run.md](F-22-provisioning-dry-run.md) | ~~`IDO_PROVISIONING_DRY_RUN`~~ | **제거(S4b)** | 프로비저닝 Dry-Run — 삭제 |
-| **F-23** | [F-23-gateway-inbound.md](F-23-gateway-inbound.md) | `IDO_GATEWAY_INBOUND_ENABLED` | **`false`** 🔴Phase3A | 인바운드 API |
-| **F-24** | [F-24-gateway-outbound.md](F-24-gateway-outbound.md) | `IDO_GATEWAY_OUTBOUND_ENABLED` | **`false`** 🔴Phase3B | 아웃바운드 API |
-| **F-25** | [F-25-gateway-idempotency.md](F-25-gateway-idempotency.md) | `IDO_GATEWAY_IDEMPOTENCY_ENABLED` | `true` ✅ | 멱등성 방어 |
-| **F-26** | [F-26-hmac-sig.md](F-26-hmac-sig.md) | `IDO_HMAC_SIG_REQUIRED` | `false` 🔴Phase4 | HMAC 필수화 |
+| F-01 | [F-01-auth-rate-limit.md](F-01-auth-rate-limit.md) | `IDEM_HUB_AUTH_RL_ENABLED` | `true` | IP Rate Limit |
+| F-02 | [F-02-agency-rate-limit.md](F-02-agency-rate-limit.md) | `IDEM_HUB_RATE_LIMIT_ENABLED` | `true` | 기관 Rate Limit |
+| F-03 | [F-03-audit-kafka.md](F-03-audit-kafka.md) | `IDEM_HUB_AUDIT_KAFKA_ENABLED` | `true` | 감사 Kafka |
+| F-04 | [F-04-audit-db.md](F-04-audit-db.md) | `IDEM_HUB_AUDIT_DB_ENABLED` | `true` ⚠️ | 감사 DB |
+| F-05 | [F-05-auth-tracing.md](F-05-auth-tracing.md) | `IDEM_HUB_AUTH_TRACING_ENABLED` | `true` | OTel 분산 추적 |
+| F-08 | [F-08-redisson-lock.md](F-08-redisson-lock.md) | `IDEM_HUB_REDISSON_ENABLED` | `true` | 분산 락 |
+| F-10 | [F-10-security-headers.md](F-10-security-headers.md) | `IDEM_HUB_SECURITY_HEADERS_ENABLED` | `true` | 보안 응답 헤더 |
+| F-11 | [F-11-retention.md](F-11-retention.md) | `IDEM_HUB_RETENTION_ENABLED` | `false` ⚠️ | 개인정보 파기 |
+| F-12 | [F-12-crypto-rotation.md](F-12-crypto-rotation.md) | `IDEM_HUB_CRYPTO_ROTATION_ENABLED` | `true` | AES 키 로테이션 |
+| F-13 | [F-13-outbox-relay.md](F-13-outbox-relay.md) | `IDEM_HUB_OUTBOX_RELAY_ENABLED` | `true` | Outbox 릴레이 |
+| F-14 | [F-14-webhook-relay.md](F-14-webhook-relay.md) | `IDEM_HUB_WEBHOOK_RELAY_ENABLED` | `true` | Webhook 릴레이 |
+| F-18 | [F-18-sp-receiver-audit.md](F-18-sp-receiver-audit.md) | `IDEM_HUB_REGISTRY_RECEIVER_AUDIT` | `true` | Q-IM SP 수신 감사 |
+| ~~F-20~~ | [F-20-provisioning.md](F-20-provisioning.md) | ~~`IDEM_HUB_PROVISIONING_ENABLED`~~ | **제거(S4b)** | 전 기관 프로비저닝 — 범용화 S4b 에서 삭제 |
+| ~~F-21~~ | [F-21-provisioning-relay.md](F-21-provisioning-relay.md) | ~~`IDEM_HUB_PROVISIONING_RELAY_ENABLED`~~ | **제거(S4b)** | 프로비저닝 릴레이 — 삭제 |
+| ~~F-22~~ | [F-22-provisioning-dry-run.md](F-22-provisioning-dry-run.md) | ~~`IDEM_HUB_PROVISIONING_DRY_RUN`~~ | **제거(S4b)** | 프로비저닝 Dry-Run — 삭제 |
+| **F-23** | [F-23-gateway-inbound.md](F-23-gateway-inbound.md) | `IDEM_HUB_GATEWAY_INBOUND_ENABLED` | **`false`** 🔴Phase3A | 인바운드 API |
+| **F-24** | [F-24-gateway-outbound.md](F-24-gateway-outbound.md) | `IDEM_HUB_GATEWAY_OUTBOUND_ENABLED` | **`false`** 🔴Phase3B | 아웃바운드 API |
+| **F-25** | [F-25-gateway-idempotency.md](F-25-gateway-idempotency.md) | `IDEM_HUB_GATEWAY_IDEMPOTENCY_ENABLED` | `true` ✅ | 멱등성 방어 |
+| **F-26** | [F-26-hmac-sig.md](F-26-hmac-sig.md) | `IDEM_HUB_HMAC_SIG_REQUIRED` | `false` 🔴Phase4 | HMAC 필수화 |
 
 ---
 

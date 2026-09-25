@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class WithdrawalServiceImpl implements WithdrawalService {
 
     private static final int  DEFAULT_SCHEDULED_DAYS = 30;
-    private static final String SOURCE_SYSTEM         = "q-im";
+    private static final String SOURCE_SYSTEM         = "idem-registry";
 
     private final QimUserJpaRepository userRepository;
     private final OutboxService         outboxService;
@@ -101,7 +101,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
      * withdrawal_scheduled_at 이 지난 WITHDRAWAL_SCHEDULED 사용자를 일괄 탈퇴 처리.
      */
     @Override
-    @Scheduled(fixedDelayString = "${qim.withdrawal.scheduled-check-ms:300000}")
+    @Scheduled(fixedDelayString = "${idem.registry.withdrawal.scheduled-check-ms:300000}")
     @Transactional
     public int processExpiredScheduledWithdrawals() {
         Instant now = Instant.now();

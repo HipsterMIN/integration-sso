@@ -34,8 +34,8 @@ Keycloak OIDC 브로커를 중심으로 다양한 인증 수단(PASS, 금융인�
 | V10 마이그레이션 | `auth_result` 에 `auth_method`, `issued_at`, `expires_at`, `raw_id_token` 추가; `provider_circuit_config` 신규 테이블; `broker_audit_log` 인덱스 보강 | `V10__extend_auth_result_and_provider_routing.sql` |
 | KeycloakOidcService | `saveAuthResult()` 에 4개 신규 컬럼 삽입; `AuthResult.resolveAuthMethod()` 연동 | `KeycloakOidcService.java` |
 | NonOidcAuthService | `saveAuthResult()` 에 `auth_method` 삽입 | `NonOidcAuthService.java` |
-| policyVersion 외부화 | 하드코딩 `"1.0"` → `${ido.policy.default-version:1.0}` (`@Value` 주입) | `application.yml`, `AgencyAdminService`, `AgencyMetaRepositoryImpl`, `PolicyEngineImpl` |
-| platformVersion 외부화 | 하드코딩 `"1.0"` → `${ido.platform-version:1.0}` | `WebhookDispatcherService`, `WebhookDispatchOutboxRelay` |
+| policyVersion 외부화 | 하드코딩 `"1.0"` → `${idem.hub.policy.default-version:1.0}` (`@Value` 주입) | `application.yml`, `AgencyAdminService`, `AgencyMetaRepositoryImpl`, `PolicyEngineImpl` |
+| platformVersion 외부화 | 하드코딩 `"1.0"` → `${idem.hub.platform-version:1.0}` | `WebhookDispatcherService`, `WebhookDispatchOutboxRelay` |
 
 ### P1 — 핵심 (전부 완료)
 
@@ -56,7 +56,7 @@ Keycloak OIDC 브로커를 중심으로 다양한 인증 수단(PASS, 금융인�
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| Kafka DLQ/compaction | 설정 존재 (DLQ 파티션 설정 `ido.kafka.partition-count-dlq`) | 운영 배포 시 Kafka 토픽 수동 생성 필요 |
+| Kafka DLQ/compaction | 설정 존재 (DLQ 파티션 설정 `idem.hub.kafka.partition-count-dlq`) | 운영 배포 시 Kafka 토픽 수동 생성 필요 |
 | Docker Compose | `docker-compose.yml` + profile 분리 이미 구성 | `tools`, `keycloak`, `monitoring`, `app`, `optionB` profile |
 | 최종 인수 패키지 | ✅ 본 문서 | `docs/handoff-note.md` |
 
@@ -77,7 +77,7 @@ Keycloak → GET /api/v1/broker/callback?code=...&state=...
    → KeycloakOidcService.handleCallback()
        ↓ state 검증 → token 교환 → JWT 검증
        ↓ auth_result INSERT (V10: auth_method, issued_at, expires_at, raw_id_token)
-       ↓ outbox INSERT → Kafka qsign.auth.events
+       ↓ outbox INSERT → Kafka idem.gate.auth.events
        ↓ broker_audit_log COMPLETE 기록
    → FE 세션 생성 → feSessionId 쿠키
    → 302 → returnUrl
@@ -91,7 +91,7 @@ FE/기관 → POST /api/v1/broker/nonoidc/{provider}/callback
    → NonOidcBrokerAdapter.normalizeResponse()
    → NonOidcAuthService.processAuth()
        ↓ auth_result INSERT (V10: auth_method)
-       ↓ outbox INSERT → Kafka qsign.auth.events
+       ↓ outbox INSERT → Kafka idem.gate.auth.events
        ↓ broker_audit_log COMPLETE 기록
 ```
 
@@ -130,16 +130,16 @@ ProviderRouter.resolve(providerCode)
 
 | 키 | 기본값 | 설명 |
 |----|--------|------|
-| `ido.platform-version` | `1.0` | Webhook 헤더·페이로드 platformVersion (하드코딩 제거) |
-| `ido.policy.default-version` | `1.0` | 신규 기관 policyVersion 기본값 (하드코딩 제거) |
-| `ido.provider.circuit-cache-ttl-seconds` | `3600` | provider_circuit_config 캐시 TTL |
+| `idem.hub.platform-version` | `1.0` | Webhook 헤더·페이로드 platformVersion (하드코딩 제거) |
+| `idem.hub.policy.default-version` | `1.0` | 신규 기관 policyVersion 기본값 (하드코딩 제거) |
+| `idem.hub.provider.circuit-cache-ttl-seconds` | `3600` | provider_circuit_config 캐시 TTL |
 
 ### 환경변수 오버라이드 (운영 배포 필수)
 
 ```bash
-IDO_DEFAULT_POLICY_VERSION=2.0        # 정책 버전 업그레이드 시
-IDO_PLATFORM_VERSION=1.1              # API 버전 변경 시
-IDO_PROVIDER_CIRCUIT_CACHE_TTL=7200   # CB 설정 캐시 연장 시
+IDEM_HUB_DEFAULT_POLICY_VERSION=2.0        # 정책 버전 업그레이드 시
+IDEM_HUB_PLATFORM_VERSION=1.1              # API 버전 변경 시
+IDEM_HUB_PROVIDER_CIRCUIT_CACHE_TTL=7200   # CB 설정 캐시 연장 시
 ```
 
 ---
@@ -213,7 +213,7 @@ GROUP BY provider_code;
 | 권장 | `ProviderRouter` 실제 호출 지점 연결 | `HandoffController` 또는 `FeSessionController`에서 `ProviderRouter.resolve()` 호출하여 실제 라우팅에 활용 |
 | 권장 | `ProviderCircuitBreakerConfig` 실제 wrapping | `KeycloakOidcService.exchangeCodeForToken()`, `NonOidcBrokerAdapter.initiateAuth()` 등에 CB 적용 |
 | 운영 | `raw_id_token` 암호화 저장 | AES-256-GCM으로 저장 후 복호화 조회 |
-| 운영 | Kafka DLQ 토픽 수동 생성 | `kafka-topics.sh --create --topic qsign.auth.events.dlq ...` |
+| 운영 | Kafka DLQ 토픽 수동 생성 | `kafka-topics.sh --create --topic idem.gate.auth.events.dlq ...` |
 | 운영 | `provider_circuit_config` 초기 데이터 적재 | PASS, KAKAO_OIDC 등 사용 provider에 CB 설정 삽입 |
 
 ---

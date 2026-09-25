@@ -13,7 +13,7 @@ import lombok.Value;
  * FE URL 파라미터를 통한 위변조를 방지한다.
  *
  * <p>Redis 키: {@code conversion:session:{sessionId}}
- * TTL: {@code ido.conversion.session-ttl-minutes} (기본 30분)
+ * TTL: {@code idem.hub.conversion.session-ttl-minutes} (기본 30분)
  */
 @Value
 @Builder

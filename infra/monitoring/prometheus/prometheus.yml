@@ -36,7 +36,7 @@ scrape_configs:
       - targets: ['localhost:9090']
 
   # Q-Sign (Docker Compose: idem-gate:8081 / 로컬 IDE: host.docker.internal:8081)
-  - job_name: 'q-sign'
+  - job_name: 'idem-gate'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets:
@@ -48,7 +48,7 @@ scrape_configs:
         replacement: 'auth'
 
   # Q-IM (Docker Compose: idem-registry:8082 / 로컬 IDE: host.docker.internal:8082)
-  - job_name: 'q-im'
+  - job_name: 'idem-registry'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets:
@@ -60,7 +60,7 @@ scrape_configs:
         replacement: 'identity'
 
   # IdO (Docker Compose: idem-hub:8083 / 로컬 IDE: host.docker.internal:8083)
-  - job_name: 'ido'
+  - job_name: 'idem-hub'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets:
@@ -84,15 +84,15 @@ scrape_configs:
         replacement: 'simulation'
 
   # ── 로컬 IDE 직접 실행 시 아래 주석 해제하고 위 컨테이너명 타겟 주석 처리 ──
-  # - job_name: 'q-sign-local'
+  # - job_name: 'idem-gate'-local'
   #   metrics_path: '/actuator/prometheus'
   #   static_configs:
   #     - targets: ['host.docker.internal:8081']
-  # - job_name: 'q-im-local'
+  # - job_name: 'idem-registry'-local'
   #   metrics_path: '/actuator/prometheus'
   #   static_configs:
   #     - targets: ['host.docker.internal:8082']
-  # - job_name: 'ido-local'
+  # - job_name: 'idem-hub'-local'
   #   metrics_path: '/actuator/prometheus'
   #   static_configs:
   #     - targets: ['host.docker.internal:8083']

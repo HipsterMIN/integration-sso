@@ -12,10 +12,10 @@
 #
 #   HUB_URL GATE_URL REGISTRY_URL AUTHZ_URL   기본 localhost:8083/8081/8082/8086
 #   ISSUER                                     기본 $GATE_URL/realms/onepass
-#   IDEM_ADMIN_BOOTSTRAP_PASSWORD              관리자(admin) 비밀번호 (S7). IDEM_ADMIN_PASSWORD 가 있으면 그것을 쓴다
+#   IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD              관리자(admin) 비밀번호 (S7). IDEM_ADMIN_PASSWORD 가 있으면 그것을 쓴다
 #   IDEM_ADMIN_NEW_PASSWORD                    첫 로그인 비밀번호 변경이 요구되면 이 값으로(없으면 1회용 값을 만든다 — 다시 로그인할 수 없다)
 #   IDEM_ADMIN_TOTP_SECRET                     이미 2단계 등록된 관리자면 그 비밀 (첫 로그인은 스크립트가 등록한다)
-#   QIM_INTERNAL_API_KEY                       있으면 ⑥ 을 검사한다
+#   IDEM_REGISTRY_INTERNAL_API_KEY                       있으면 ⑥ 을 검사한다
 #   IDEM_EDITION                               core(기본) | kr
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
@@ -55,8 +55,8 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$HUB_URL/api/v1/admin/agencies" -
 [ "$code" = "401" ] && ok "무인증(종전 X-Admin-Id) 관리 API 는 401" || fail "무인증 관리 API 가 $code"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$HUB_URL/actuator/flyway")
 [ "$code" = "401" ] && ok "무인증 actuator 는 401" || fail "무인증 actuator 가 $code"
-export IDEM_ADMIN_PASSWORD="${IDEM_ADMIN_PASSWORD:-${IDEM_ADMIN_BOOTSTRAP_PASSWORD:-}}"
-[ -n "$IDEM_ADMIN_PASSWORD" ] || fail "IDEM_ADMIN_BOOTSTRAP_PASSWORD(또는 IDEM_ADMIN_PASSWORD) 가 없다"
+export IDEM_ADMIN_PASSWORD="${IDEM_ADMIN_PASSWORD:-${IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD:-}}"
+[ -n "$IDEM_ADMIN_PASSWORD" ] || fail "IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD(또는 IDEM_ADMIN_PASSWORD) 가 없다"
 export IDEM_ADMIN_NEW_PASSWORD="${IDEM_ADMIN_NEW_PASSWORD:-Smoke-$(head -c 12 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 12)-1}"
 SID=$("$LIB/admin-login.sh") || fail "관리자 로그인 실패"
 adm=(-H "Cookie: idemAdminSid=$SID" -H 'X-Requested-With: install-smoke' -H "X-Correlation-Id: $CID")
@@ -105,12 +105,12 @@ done_=$(curl -sf -X POST "$HUB_URL/api/v1/auth/providers/MOCK/complete" "${h[@]}
 qim=$(echo "$done_" | jq -r '.registration.qimUserId'); [ -n "$qim" ] && [ "$qim" != "null" ] && ok "registry 등록 qimUserId=$qim" || fail "registration 없음: $done_"
 [ "$(echo "$done_" | jq -r '.identity.name')" = "smoke" ] && ok "identity.name 전달" || fail "identity 불일치: $done_"
 
-if [ -n "${QIM_INTERNAL_API_KEY:-}" ]; then
+if [ -n "${IDEM_REGISTRY_INTERNAL_API_KEY:-}" ]; then
   echo "⑥ registry 이벤트 피드 (Kafka 없는 상태 전파)"
-  feed=$(curl -sf "$REGISTRY_URL/api/v1/internal/events?limit=5" -H "X-Internal-Api-Key: $QIM_INTERNAL_API_KEY" -H "X-Correlation-Id: $CID") || fail "이벤트 피드 실패"
+  feed=$(curl -sf "$REGISTRY_URL/api/v1/internal/events?limit=5" -H "X-Internal-Api-Key: $IDEM_REGISTRY_INTERNAL_API_KEY" -H "X-Correlation-Id: $CID") || fail "이벤트 피드 실패"
   echo "$feed" | jq -e 'type == "array"' >/dev/null && ok "이벤트 피드 응답 (n=$(echo "$feed" | jq length))" || fail "이벤트 피드 형식: $feed"
 else
-  echo "⑥ (QIM_INTERNAL_API_KEY 없음 — 이벤트 피드 검사 생략)"
+  echo "⑥ (IDEM_REGISTRY_INTERNAL_API_KEY 없음 — 이벤트 피드 검사 생략)"
 fi
 
 if [ "$EDITION" = "core" ]; then

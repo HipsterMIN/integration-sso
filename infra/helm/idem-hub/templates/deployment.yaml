@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ido
+  name: idem-hub
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "ido.labels" . | nindent 4 }}
+    {{- include "idem.hub.labels" . | nindent 4 }}
   annotations:
     # 배포 메타데이터
     onepass.idem-hub/phase: {{ .Values.phase | default "1" | quote }}
@@ -13,7 +13,7 @@ spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "ido.selectorLabels" . | nindent 6 }}
+      {{- include "idem.hub.selectorLabels" . | nindent 6 }}
   strategy:
     type: {{ .Values.strategy.type }}
     rollingUpdate:
@@ -22,7 +22,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "ido.selectorLabels" . | nindent 8 }}
+        {{- include "idem.hub.selectorLabels" . | nindent 8 }}
         version: {{ .Chart.AppVersion | quote }}
       annotations:
         # ConfigMap/Secret 변경 시 Pod 자동 재시작 (Checksum)
@@ -36,7 +36,7 @@ spec:
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
 
-      {{- include "ido.imagePullSecrets" . | nindent 6 }}
+      {{- include "idem.hub.imagePullSecrets" . | nindent 6 }}
 
       # ── 보안 컨텍스트 (Pod) ────────────────────────────────────────────
       securityContext:
@@ -46,7 +46,7 @@ spec:
         fsGroup: {{ .Values.securityContext.fsGroup }}
 
       containers:
-        - name: ido
+        - name: idem-hub
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
@@ -60,7 +60,7 @@ spec:
                 name: {{ .Values.configMap.name }}
             - secretRef:
                 name: {{ .Values.secrets.main }}
-            # Sprint 17: 기관별 HMAC 서명 키 (IDO_GATEWAY_HMAC_KEY_* 패턴)
+            # Sprint 17: 기관별 HMAC 서명 키 (IDEM_HUB_GATEWAY_HMAC_KEY_* 패턴)
             - secretRef:
                 name: {{ .Values.secrets.hmacKeys }}
                 optional: true   # 키 없어도 기동 가능 (F-26=false이면 검증 미수행)
@@ -84,7 +84,7 @@ spec:
                 {{ .Values.jvm.opts }}
                 -Dspring.profiles.active=$(SPRING_PROFILES_ACTIVE)
             # Phase 프리셋 환경변수 (--set phase=2a 시 자동 오버라이드)
-            {{- include "ido.phaseEnvVars" . | nindent 12 }}
+            {{- include "idem.hub.phaseEnvVars" . | nindent 12 }}
 
           # ── 리소스 요청/제한 ──────────────────────────────────────────
           resources:
@@ -152,7 +152,7 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              {{- include "ido.selectorLabels" . | nindent 14 }}
+              {{- include "idem.hub.selectorLabels" . | nindent 14 }}
       {{- end }}
 
       # ── Pod 반-친화성 (동일 노드 중복 배치 억제) ──────────────────────
@@ -163,5 +163,5 @@ spec:
               podAffinityTerm:
                 labelSelector:
                   matchLabels:
-                    {{- include "ido.selectorLabels" . | nindent 20 }}
+                    {{- include "idem.hub.selectorLabels" . | nindent 20 }}
                 topologyKey: kubernetes.io/hostname

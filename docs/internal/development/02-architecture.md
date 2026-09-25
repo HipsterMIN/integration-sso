@@ -50,12 +50,12 @@
            ▼                                     ▼
   ┌─────────────────┐              ┌─────────────────────────┐
   │ Q-Sign :8081    │              │  Apache Kafka            │
-  │ 인증 SoR         │              │  - qsign.auth.events     │
-  │ - OIDC 브로커링  │              │  - qim.user.events       │
-  │ - AuthResult    │              │  - ido.handoff.events    │
+  │ 인증 SoR         │              │  - idem.gate.auth.events     │
+  │ - OIDC 브로커링  │              │  - idem.registry.user.events       │
+  │ - AuthResult    │              │  - idem.hub.handoff.events    │
   │ - PKCE          │◄────Kafka───►│  - platform.session.advisory│
   └────────┬────────┘              │  - platform.audit.log    │
-           │                       │  - qim.sp.member.events  │
+           │                       │  - idem.registry.sp.member.events  │
            ▼                       └──────────────┬───────────┘
   ┌─────────────────┐                             │
   │ Keycloak :8088  │                             ▼
@@ -228,12 +228,12 @@ NON_STANDARD → DIRECT_BROKER
 
 | 토픽 | 파티션 | RF | ISR | 생산자 | 소비자 |
 |------|--------|-----|-----|--------|--------|
-| `qsign.auth.events` | 12 | 3 | 2 | Q-Sign | IdO |
-| `qim.user.events` | 6 | 3 | 2 | Q-IM | IdO |
-| `ido.handoff.events` | 12 | 3 | 2 | IdO | IdO(내부), Webhook |
+| `idem.gate.auth.events` | 12 | 3 | 2 | Q-Sign | IdO |
+| `idem.registry.user.events` | 6 | 3 | 2 | Q-IM | IdO |
+| `idem.hub.handoff.events` | 12 | 3 | 2 | IdO | IdO(내부), Webhook |
 | `platform.session.advisory` | 12 | 3 | 2 | IdO | IdO(FE Advisory) |
 | `platform.audit.log` | 6 | 3 | 2 | IdO | 감사 시스템 |
-| `qim.sp.member.events` | 6 | 3 | 2 | IdO | agency-adapter |
+| `idem.registry.sp.member.events` | 6 | 3 | 2 | IdO | agency-adapter |
 
 ---
 

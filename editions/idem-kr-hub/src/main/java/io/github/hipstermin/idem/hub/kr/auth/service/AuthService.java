@@ -68,7 +68,7 @@ public class AuthService {
      *
      * <p>운영: {@code FE_AES_GCM_KEY} 환경변수 필수 설정 (32바이트, Base64 인코딩)
      */
-    @Value("${ido.fe-aes-gcm-key:}")
+    @Value("${idem.hub.fe-aes-gcm-key:}")
     private String feAesGcmKey;
 
     /**
@@ -83,7 +83,7 @@ public class AuthService {
      * 이 메서드는 키를 런타임에 주입하여 번들 노출 위험을 차단한다.
      *
      * <p><b>운영 설정:</b>
-     * {@code ido.fe-aes-gcm-key} (환경변수: {@code FE_AES_GCM_KEY}) 필수.
+     * {@code idem.hub.fe-aes-gcm-key} (환경변수: {@code FE_AES_GCM_KEY}) 필수.
      * 미설정 시 {@link IllegalStateException} 발생 → 500 응답.
      *
      * @return FE AES-GCM 키 응답 ({@code aesGcmKey} 필드)
@@ -91,7 +91,7 @@ public class AuthService {
      */
     public Map<String, String> getFeAesGcmKey() {
         if (feAesGcmKey == null || feAesGcmKey.isBlank()) {
-            log.error("[AES-GCM-KEY][보안경고] ido.fe-aes-gcm-key 미설정 — FE_AES_GCM_KEY 환경변수를 설정하세요.");
+            log.error("[AES-GCM-KEY][보안경고] idem.hub.fe-aes-gcm-key 미설정 — FE_AES_GCM_KEY 환경변수를 설정하세요.");
             throw new IllegalStateException("서버 설정 오류: FE_AES_GCM_KEY가 설정되지 않았습니다.");
         }
         log.debug("[AES-GCM-KEY] FE AES-GCM 키 제공 완료");
@@ -289,7 +289,7 @@ public class AuthService {
      * <p><b>처리 플로우</b>:
      * <ol>
      *   <li>FE 전송 암호화 CI 수신 (Base64: IV[12] || CipherText+Tag)</li>
-     *   <li>FE AES-GCM 키({@code ido.fe-aes-gcm-key})로 복호화 → CI 평문</li>
+     *   <li>FE AES-GCM 키({@code idem.hub.fe-aes-gcm-key})로 복호화 → CI 평문</li>
      *   <li>CI 평문을 Q-IM 공유키로 재암호화({@link AesSharedKeyDecryptor#encrypt})</li>
      *   <li>Q-IM {@code POST /api/v1/internal/users/register} 호출</li>
      *   <li>Q-IM이 발급한 qimUserId를 ciToken으로 반환</li>
@@ -308,7 +308,7 @@ public class AuthService {
 
         // 1. FE AES-GCM 키 설정 검증
         if (feAesGcmKey == null || feAesGcmKey.isBlank()) {
-            log.error("[CI-TOKEN][보안경고] ido.fe-aes-gcm-key 미설정 — CI 복호화 불가. FE_AES_GCM_KEY 환경변수를 설정하세요.");
+            log.error("[CI-TOKEN][보안경고] idem.hub.fe-aes-gcm-key 미설정 — CI 복호화 불가. FE_AES_GCM_KEY 환경변수를 설정하세요.");
             return CiTokenExchangeResponse.builder()
                     .resultCode("5000")
                     .resultMsg("서버 설정 오류: FE AES-GCM 키가 설정되지 않았습니다.")

@@ -28,7 +28,7 @@ import reactor.core.publisher.Mono;
  * 5. ido → Base64 디코딩 + AuthCallbackResponse 변환 → FE 반환
  * </pre>
  *
- * <p><b>설정:</b> {@code ido.auth.integration.base-url}, {@code ido.auth.integration.timeout-seconds}
+ * <p><b>설정:</b> {@code idem.hub.auth.integration.base-url}, {@code idem.hub.auth.integration.timeout-seconds}
  *
  * <p><b>Resilience4j (S9-T2):</b>
  * {@code integration-auth-client} CB+Retry — 통합인증 서버 장애 격리.

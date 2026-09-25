@@ -6,9 +6,9 @@
 # ============================================================
 spring:
   datasource:
-    url: jdbc:mariadb://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:3306}/${QIM_DB_NAME:qim}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true&useSSL=${QIM_DB_SSL:false}
-    username: ${QIM_DB_USERNAME:qim}
-    password: ${QIM_DB_PASSWORD:qim}
+    url: jdbc:mariadb://${IDEM_REGISTRY_DB_HOST:localhost}:${IDEM_REGISTRY_DB_PORT:3306}/${IDEM_REGISTRY_DB_NAME:qim}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true&useSSL=${IDEM_REGISTRY_DB_SSL:false}
+    username: ${IDEM_REGISTRY_DB_USERNAME:qim}
+    password: ${IDEM_REGISTRY_DB_PASSWORD:qim}
     driver-class-name: org.mariadb.jdbc.Driver
   jpa:
     hibernate:

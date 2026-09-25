@@ -7,7 +7,7 @@ import lombok.extern.jackson.Jacksonized;
 /**
  * Q-IM 사용자 변경 이벤트
  * 설계서 10.5절 / Transactional Outbox 패턴
- * Kafka Topic: qim.user.events (cleanup.policy=compact, partitionKey=qimUserId)
+ * Kafka Topic: idem.registry.user.events (cleanup.policy=compact, partitionKey=qimUserId)
  */
 @Getter
 @SuperBuilder

@@ -14,7 +14,7 @@ import org.springframework.stereotype.Repository;
  * Spring Cache(@Cacheable)로 TTL 기반 캐싱 — DB 조회 최소화.
  *
  * <p>캐시 키: {@code provider-config::{providerCode}}
- * TTL: {@code application.yml ido.qim.agency-meta-ttl-seconds} (기본 3600s)
+ * TTL: {@code application.yml idem.hub.registry.agency-meta-ttl-seconds} (기본 3600s)
  */
 @Slf4j
 @Repository

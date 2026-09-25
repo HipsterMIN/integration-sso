@@ -54,7 +54,7 @@ class AnyIdBrokerAdapterTest {
     }
 
     @Test
-    @DisplayName("운영기관 식별자가 비어 있으면 IDO_PROVIDER_NOT_CONFIGURED 로 거부한다")
+    @DisplayName("운영기관 식별자가 비어 있으면 IDEM_HUB_PROVIDER_NOT_CONFIGURED 로 거부한다")
     void rejectsWhenAgencyNotConfigured() {
         props.setSrvcNo("");
         assertThatThrownBy(() -> adapter.buildAuthorizationUrl("mobile-id", "cid-1", null, "L2"))

@@ -48,8 +48,8 @@ class FeSessionServiceImplIdpTest {
         FeSession s = sut.create("qim-1", "ar-1", "L2", null, "kc-sub", "sid-1");
         assertThat(s.getIdpSub()).isEqualTo("kc-sub");
         assertThat(s.getIdpSid()).isEqualTo("sid-1");
-        verify(values).set(eq("fe:idp-sid:sid-1"), eq(s.getFeSessionId()), any(Duration.class));
-        verify(sets).add("fe:idp-sub:kc-sub", s.getFeSessionId());
+        verify(values).set(eq("idem:fe:idp-sid:sid-1"), eq(s.getFeSessionId()), any(Duration.class));
+        verify(sets).add("idem:fe:idp-sub:kc-sub", s.getFeSessionId());
 
         FeSession legacy = sut.create("qim-2", "ar-2", "L1", null);
         assertThat(legacy.getIdpSub()).isNull();
@@ -60,28 +60,28 @@ class FeSessionServiceImplIdpTest {
     @DisplayName("invalidateByIdpSession(sid): 그 세션 하나만 만료하고 인덱스를 지운다")
     void invalidateBySid() {
         FeSession s = FeSession.builder().feSessionId("fe-1").qimUserId("qim-1").idpSub("kc-sub").idpSid("sid-1").build();
-        given(values.get("fe:idp-sid:sid-1")).willReturn("fe-1");
-        given(values.get("fe:session:fe-1")).willReturn(s);
+        given(values.get("idem:fe:idp-sid:sid-1")).willReturn("fe-1");
+        given(values.get("idem:fe:session:fe-1")).willReturn(s);
 
         int n = sut.invalidateByIdpSession("kc-sub", "sid-1", "BACKCHANNEL_LOGOUT");
 
         assertThat(n).isEqualTo(1);
-        verify(redis).delete("fe:session:fe-1");
-        verify(sets).remove("fe:user-sessions:qim-1", "fe-1");
-        verify(redis, org.mockito.Mockito.atLeastOnce()).delete("fe:idp-sid:sid-1");
-        verify(sets).remove("fe:idp-sub:kc-sub", "fe-1");
+        verify(redis).delete("idem:fe:session:fe-1");
+        verify(sets).remove("idem:fe:user-sessions:qim-1", "fe-1");
+        verify(redis, org.mockito.Mockito.atLeastOnce()).delete("idem:fe:idp-sid:sid-1");
+        verify(sets).remove("idem:fe:idp-sub:kc-sub", "fe-1");
     }
 
     @Test
     @DisplayName("invalidateByIdpSession(sub 만): 그 사용자의 IdP 세션 전부 만료, 없으면 0")
     void invalidateBySub() {
-        given(sets.members("fe:idp-sub:kc-sub")).willReturn(Set.of("fe-1", "fe-2"));
-        given(values.get("fe:session:fe-1")).willReturn(FeSession.builder().feSessionId("fe-1").qimUserId("q").build());
-        given(values.get("fe:session:fe-2")).willReturn(FeSession.builder().feSessionId("fe-2").qimUserId("q").build());
+        given(sets.members("idem:fe:idp-sub:kc-sub")).willReturn(Set.of("fe-1", "fe-2"));
+        given(values.get("idem:fe:session:fe-1")).willReturn(FeSession.builder().feSessionId("fe-1").qimUserId("q").build());
+        given(values.get("idem:fe:session:fe-2")).willReturn(FeSession.builder().feSessionId("fe-2").qimUserId("q").build());
         assertThat(sut.invalidateByIdpSession("kc-sub", null, "SLO")).isEqualTo(2);
-        verify(redis).delete("fe:idp-sub:kc-sub");
+        verify(redis).delete("idem:fe:idp-sub:kc-sub");
 
-        given(sets.members("fe:idp-sub:nobody")).willReturn(Set.of());
+        given(sets.members("idem:fe:idp-sub:nobody")).willReturn(Set.of());
         assertThat(sut.invalidateByIdpSession("nobody", null, "SLO")).isZero();
     }
 
@@ -91,10 +91,10 @@ class FeSessionServiceImplIdpTest {
         FeSession s = FeSession.builder().feSessionId("fe-1").qimUserId("q").authResultId("a").authLevel("L1")
                 .createdAt(java.time.Instant.now()).lastActivityAt(java.time.Instant.now())
                 .absoluteExpiresAt(java.time.Instant.now().plusSeconds(3600)).idpSub("kc-sub").idpSid("sid-1").build();
-        given(values.get("fe:session:fe-1")).willReturn(s);
+        given(values.get("idem:fe:session:fe-1")).willReturn(s);
         ArgumentCaptor<Object> saved = ArgumentCaptor.forClass(Object.class);
         FeSession r = sut.refresh("fe-1");
-        verify(values).set(eq("fe:session:fe-1"), saved.capture(), any(Duration.class));
+        verify(values).set(eq("idem:fe:session:fe-1"), saved.capture(), any(Duration.class));
         assertThat(((FeSession) saved.getValue()).getIdpSid()).isEqualTo("sid-1");
         assertThat(r.getIdpSub()).isEqualTo("kc-sub");
     }

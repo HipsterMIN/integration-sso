@@ -58,7 +58,7 @@
 
 | 기술 | 버전 | 토픽 |
 |------|------|------|
-| Apache Kafka | 3.x | qsign.auth.events, qim.user.events, ido.handoff.events, platform.session.advisory, platform.audit.log |
+| Apache Kafka | 3.x | idem.gate.auth.events, idem.registry.user.events, idem.hub.handoff.events, platform.session.advisory, platform.audit.log |
 | Zookeeper | 3.8 | Kafka 코디네이터 |
 
 ### 2.4 인프라
@@ -128,7 +128,7 @@ integration-sso/
 - Keycloak OIDC 브로커링 (카카오, 네이버, PASS, GPKI)
 - AuthResult 생성·저장 (qsign.auth_result)
 - PKCE(RFC 7636) 구현
-- Transactional Outbox → `qsign.auth.events` Kafka 발행
+- Transactional Outbox → `idem.gate.auth.events` Kafka 발행
 - DB: PostgreSQL (`qsign` 스키마), V1~V5 Flyway 마이그레이션
 
 ### 4.3 Q-IM (port 8082)
@@ -139,7 +139,7 @@ integration-sso/
 - DI(Duplicate Identity) 생성 (HMAC-SHA256)
 - CI AES-256-GCM 암호화
 - PII 마스킹 서비스
-- Transactional Outbox → `qim.user.events` Kafka 발행
+- Transactional Outbox → `idem.registry.user.events` Kafka 발행
 - DB: MariaDB (`qim` 스키마), V1~V3 Flyway 마이그레이션
 
 ### 4.4 IdO (port 8083)
@@ -148,7 +148,7 @@ integration-sso/
 
 - Handoff Ticket Issue/Verify/Revoke (AES-256-GCM + HMAC-SHA256)
 - PolicyEngine: 기관 정책·속성 필터링·agencySubjectId 생성
-- Keycloak OIDC 브로커 어댑터 (IDO_BROKER_MODE=keycloak)
+- Keycloak OIDC 브로커 어댑터 (IDEM_HUB_BROKER_MODE=keycloak)
 - 비OIDC 브로커 어댑터 (PASS, GPKI)
 - Q-IM SP 수신 API 완전 중재 (MEMBER_QUERY/REGISTER/WITHDRAW)
 - Webhook 디스패처 (유관기관 외부 알림)

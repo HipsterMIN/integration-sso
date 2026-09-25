@@ -4,8 +4,7 @@ server:
 
 spring:
   application:
-    name: outbox-relay-batch
-
+    name: idem-relay
   lifecycle:
     timeout-per-shutdown-phase: 30s   # 진행 중 Job 완료 대기
 
@@ -46,17 +45,17 @@ spring:
 # 배치 서비스 전용 설정
 # ═══════════════════════════════════════════════════════════════════════════════
 
-batch:
+idem.relay:
 
   # ── 멀티 DataSource ─────────────────────────────────────────────────────────
   datasource:
 
     # ── ido PostgreSQL (Primary) ───────────────────────────────────────────────
     # 대상: ido.outbox, ido.provisioning_outbox, ido.webhook_dispatch_outbox, ido.shedlock
-    ido:
-      jdbc-url: jdbc:postgresql://${IDO_DB_HOST:localhost}:${IDO_DB_PORT:5432}/${IDO_DB_NAME:onepass}?currentSchema=ido
-      username: ${IDO_DB_USERNAME:onepass}
-      password: ${IDO_DB_PASSWORD:onepass}
+    hub:
+      jdbc-url: jdbc:postgresql://${IDEM_HUB_DB_HOST:localhost}:${IDEM_HUB_DB_PORT:5432}/${IDEM_HUB_DB_NAME:onepass}?currentSchema=ido
+      username: ${IDEM_HUB_DB_USERNAME:onepass}
+      password: ${IDEM_HUB_DB_PASSWORD:onepass}
       driver-class-name: org.postgresql.Driver
       # 배치는 순차 폴링 — 풀 크기 작게 유지
       maximum-pool-size: 5
@@ -67,12 +66,12 @@ batch:
       connection-test-query: SELECT 1
 
     # ── q-im PostgreSQL (D1: MariaDB → PostgreSQL, 스키마 qim) ─────────────────
-    # 대상: qim.outbox. 종전 MariaDB 설치는 QIM_DB_URL/QIM_DB_DRIVER 로 jdbc:mariadb://… 를 주입해 1 릴리스 동안 유지
-    qim:
-      jdbc-url: ${QIM_DB_URL:jdbc:postgresql://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:5432}/${QIM_DB_NAME:onepass}?currentSchema=${QIM_DB_SCHEMA:qim}}
-      username: ${QIM_DB_USERNAME:onepass}
-      password: ${QIM_DB_PASSWORD:onepass}
-      driver-class-name: ${QIM_DB_DRIVER:org.postgresql.Driver}
+    # 대상: idem.registry.outbox. 종전 MariaDB 설치는 IDEM_REGISTRY_DB_URL/IDEM_REGISTRY_DB_DRIVER 로 jdbc:mariadb://… 를 주입해 1 릴리스 동안 유지
+    registry:
+      jdbc-url: ${IDEM_REGISTRY_DB_URL:jdbc:postgresql://${IDEM_REGISTRY_DB_HOST:localhost}:${IDEM_REGISTRY_DB_PORT:5432}/${IDEM_REGISTRY_DB_NAME:onepass}?currentSchema=${IDEM_REGISTRY_DB_SCHEMA:qim}}
+      username: ${IDEM_REGISTRY_DB_USERNAME:onepass}
+      password: ${IDEM_REGISTRY_DB_PASSWORD:onepass}
+      driver-class-name: ${IDEM_REGISTRY_DB_DRIVER:org.postgresql.Driver}
       maximum-pool-size: 5
       minimum-idle: 1
       idle-timeout: 300000
@@ -82,10 +81,10 @@ batch:
 
     # ── q-sign PostgreSQL ───────────────────────────────────────────────────────
     # 대상: qsign.outbox
-    qsign:
-      jdbc-url: jdbc:postgresql://${QSIGN_DB_HOST:localhost}:${QSIGN_DB_PORT:5432}/${QSIGN_DB_NAME:onepass}?currentSchema=qsign
-      username: ${QSIGN_DB_USERNAME:onepass}
-      password: ${QSIGN_DB_PASSWORD:onepass}
+    gate:
+      jdbc-url: jdbc:postgresql://${IDEM_GATE_DB_HOST:localhost}:${IDEM_GATE_DB_PORT:5432}/${IDEM_GATE_DB_NAME:onepass}?currentSchema=qsign
+      username: ${IDEM_GATE_DB_USERNAME:onepass}
+      password: ${IDEM_GATE_DB_PASSWORD:onepass}
       driver-class-name: org.postgresql.Driver
       maximum-pool-size: 5
       minimum-idle: 1
@@ -97,9 +96,9 @@ batch:
     # ── q-authz PostgreSQL ──────────────────────────────────────────────────────
     # 대상: authz.authz_outbox (인가 부여/회수/만료 이벤트)
     authz:
-      jdbc-url: jdbc:postgresql://${AUTHZ_DB_HOST:localhost}:${AUTHZ_DB_PORT:5432}/${AUTHZ_DB_NAME:onepass}?currentSchema=authz
-      username: ${AUTHZ_DB_USERNAME:onepass}
-      password: ${AUTHZ_DB_PASSWORD:onepass}
+      jdbc-url: jdbc:postgresql://${IDEM_AUTHZ_DB_HOST:localhost}:${IDEM_AUTHZ_DB_PORT:5432}/${IDEM_AUTHZ_DB_NAME:onepass}?currentSchema=authz
+      username: ${IDEM_AUTHZ_DB_USERNAME:onepass}
+      password: ${IDEM_AUTHZ_DB_PASSWORD:onepass}
       driver-class-name: org.postgresql.Driver
       maximum-pool-size: 5
       minimum-idle: 1
@@ -121,83 +120,83 @@ batch:
     #
     # 등록 방법:
     #   kubectl create secret generic batch-mtls-cert \
-    #     --from-literal=BATCH_MTLS_KEYSTORE_BASE64=$(base64 -w0 /path/to/client.p12) \
-    #     --from-literal=BATCH_MTLS_KEYSTORE_PASS=<keystore-password> \
+    #     --from-literal=IDEM_RELAY_MTLS_KEYSTORE_BASE64=$(base64 -w0 /path/to/client.p12) \
+    #     --from-literal=IDEM_RELAY_MTLS_KEYSTORE_PASS=<keystore-password> \
     #     -n production
     #
     # 미설정 시: mtlsProvisioningRestTemplate 이 일반 TLS로 Fallback (WARN 로그 발생)
     mtls:
-      keystore-base64: ${BATCH_MTLS_KEYSTORE_BASE64:}
-      keystore-password: ${BATCH_MTLS_KEYSTORE_PASS:}
-      keystore-type: ${BATCH_MTLS_KEYSTORE_TYPE:PKCS12}
+      keystore-base64: ${IDEM_RELAY_MTLS_KEYSTORE_BASE64:}
+      keystore-password: ${IDEM_RELAY_MTLS_KEYSTORE_PASS:}
+      keystore-type: ${IDEM_RELAY_MTLS_KEYSTORE_TYPE:PKCS12}
 
   # ── 릴레이 Job 설정 ─────────────────────────────────────────────────────────
-  relay:
+  jobs:
 
-    # ── ido → Kafka (qsign.auth.events, 기타 토픽) ─────────────────────────────
-    ido:
+    # ── ido → Kafka (idem.gate.auth.events, 기타 토픽) ─────────────────────────────
+    hub:
       kafka:
-        enabled: ${BATCH_IDO_KAFKA_RELAY_ENABLED:true}
-        interval-ms: ${BATCH_IDO_KAFKA_INTERVAL_MS:500}
-        batch-size: ${BATCH_IDO_KAFKA_BATCH_SIZE:100}
-        max-retry: ${BATCH_IDO_KAFKA_MAX_RETRY:3}
-        lock-at-most: ${BATCH_IDO_KAFKA_LOCK_MOST:10s}
-        lock-at-least: ${BATCH_IDO_KAFKA_LOCK_LEAST:400ms}
+        enabled: ${IDEM_RELAY_HUB_KAFKA_RELAY_ENABLED:true}
+        interval-ms: ${IDEM_RELAY_HUB_KAFKA_INTERVAL_MS:500}
+        batch-size: ${IDEM_RELAY_HUB_KAFKA_BATCH_SIZE:100}
+        max-retry: ${IDEM_RELAY_HUB_KAFKA_MAX_RETRY:3}
+        lock-at-most: ${IDEM_RELAY_HUB_KAFKA_LOCK_MOST:10s}
+        lock-at-least: ${IDEM_RELAY_HUB_KAFKA_LOCK_LEAST:400ms}
 
-      # ── ido → qim.user.events ──────────────────────────────────────────────
+      # ── ido → idem.registry.user.events ──────────────────────────────────────────────
       qim:
-        enabled: ${BATCH_IDO_QIM_RELAY_ENABLED:true}
-        interval-ms: ${BATCH_IDO_QIM_INTERVAL_MS:1000}
-        batch-size: ${BATCH_IDO_QIM_BATCH_SIZE:50}
-        max-retry: ${BATCH_IDO_QIM_MAX_RETRY:5}
-        lock-at-most: ${BATCH_IDO_QIM_LOCK_MOST:15s}
-        lock-at-least: ${BATCH_IDO_QIM_LOCK_LEAST:800ms}
+        enabled: ${IDEM_RELAY_HUB_REGISTRY_RELAY_ENABLED:true}
+        interval-ms: ${IDEM_RELAY_HUB_REGISTRY_INTERVAL_MS:1000}
+        batch-size: ${IDEM_RELAY_HUB_REGISTRY_BATCH_SIZE:50}
+        max-retry: ${IDEM_RELAY_HUB_REGISTRY_MAX_RETRY:5}
+        lock-at-most: ${IDEM_RELAY_HUB_REGISTRY_LOCK_MOST:15s}
+        lock-at-least: ${IDEM_RELAY_HUB_REGISTRY_LOCK_LEAST:800ms}
 
-    # ── q-im → Kafka (qim.user.events) ─────────────────────────────────────────
-    qim:
+    # ── q-im → Kafka (idem.registry.user.events) ─────────────────────────────────────────
+    registry:
       kafka:
-        enabled: ${BATCH_QIM_KAFKA_RELAY_ENABLED:true}
-        interval-ms: ${BATCH_QIM_KAFKA_INTERVAL_MS:500}
-        batch-size: ${BATCH_QIM_KAFKA_BATCH_SIZE:100}
-        max-retry: ${BATCH_QIM_KAFKA_MAX_RETRY:5}
-        lock-at-most: ${BATCH_QIM_KAFKA_LOCK_MOST:10s}
-        lock-at-least: ${BATCH_QIM_KAFKA_LOCK_LEAST:400ms}
-        retry-interval-ms: ${BATCH_QIM_KAFKA_RETRY_INTERVAL_MS:30000}
+        enabled: ${IDEM_RELAY_REGISTRY_KAFKA_RELAY_ENABLED:true}
+        interval-ms: ${IDEM_RELAY_REGISTRY_KAFKA_INTERVAL_MS:500}
+        batch-size: ${IDEM_RELAY_REGISTRY_KAFKA_BATCH_SIZE:100}
+        max-retry: ${IDEM_RELAY_REGISTRY_KAFKA_MAX_RETRY:5}
+        lock-at-most: ${IDEM_RELAY_REGISTRY_KAFKA_LOCK_MOST:10s}
+        lock-at-least: ${IDEM_RELAY_REGISTRY_KAFKA_LOCK_LEAST:400ms}
+        retry-interval-ms: ${IDEM_RELAY_REGISTRY_KAFKA_RETRY_INTERVAL_MS:30000}
 
-    # ── q-sign → Kafka (qsign.auth.events) ─────────────────────────────────────
-    qsign:
+    # ── q-sign → Kafka (idem.gate.auth.events) ─────────────────────────────────────
+    gate:
       kafka:
-        enabled: ${BATCH_QSIGN_KAFKA_RELAY_ENABLED:true}
-        interval-ms: ${BATCH_QSIGN_KAFKA_INTERVAL_MS:500}
-        batch-size: ${BATCH_QSIGN_KAFKA_BATCH_SIZE:100}
-        max-retry: ${BATCH_QSIGN_KAFKA_MAX_RETRY:3}
-        topic: ${QSIGN_AUTH_EVENTS_TOPIC:qsign.auth.events}
-        lock-at-most: ${BATCH_QSIGN_KAFKA_LOCK_MOST:10s}
-        lock-at-least: ${BATCH_QSIGN_KAFKA_LOCK_LEAST:400ms}
+        enabled: ${IDEM_RELAY_GATE_KAFKA_RELAY_ENABLED:true}
+        interval-ms: ${IDEM_RELAY_GATE_KAFKA_INTERVAL_MS:500}
+        batch-size: ${IDEM_RELAY_GATE_KAFKA_BATCH_SIZE:100}
+        max-retry: ${IDEM_RELAY_GATE_KAFKA_MAX_RETRY:3}
+        topic: ${IDEM_GATE_AUTH_EVENTS_TOPIC:idem.gate.auth.events}
+        lock-at-most: ${IDEM_RELAY_GATE_KAFKA_LOCK_MOST:10s}
+        lock-at-least: ${IDEM_RELAY_GATE_KAFKA_LOCK_LEAST:400ms}
 
-    # ── q-authz → Kafka (authz.assignment.events) ─────────────────────────────
+    # ── q-authz → Kafka (idem.authz.assignment.events) ─────────────────────────────
     authz:
       kafka:
-        enabled: ${BATCH_AUTHZ_KAFKA_RELAY_ENABLED:true}
-        interval-ms: ${BATCH_AUTHZ_KAFKA_INTERVAL_MS:500}
-        batch-size: ${BATCH_AUTHZ_KAFKA_BATCH_SIZE:100}
-        max-retry: ${BATCH_AUTHZ_KAFKA_MAX_RETRY:5}
-        topic: ${AUTHZ_ASSIGNMENT_EVENTS_TOPIC:authz.assignment.events}
-        lock-at-most: ${BATCH_AUTHZ_KAFKA_LOCK_MOST:10s}
-        lock-at-least: ${BATCH_AUTHZ_KAFKA_LOCK_LEAST:400ms}
-        retry-interval-ms: ${BATCH_AUTHZ_KAFKA_RETRY_INTERVAL_MS:30000}
+        enabled: ${IDEM_RELAY_AUTHZ_KAFKA_RELAY_ENABLED:true}
+        interval-ms: ${IDEM_RELAY_AUTHZ_KAFKA_INTERVAL_MS:500}
+        batch-size: ${IDEM_RELAY_AUTHZ_KAFKA_BATCH_SIZE:100}
+        max-retry: ${IDEM_RELAY_AUTHZ_KAFKA_MAX_RETRY:5}
+        topic: ${IDEM_AUTHZ_ASSIGNMENT_EVENTS_TOPIC:idem.authz.assignment.events}
+        lock-at-most: ${IDEM_RELAY_AUTHZ_KAFKA_LOCK_MOST:10s}
+        lock-at-least: ${IDEM_RELAY_AUTHZ_KAFKA_LOCK_LEAST:400ms}
+        retry-interval-ms: ${IDEM_RELAY_AUTHZ_KAFKA_RETRY_INTERVAL_MS:30000}
 
     # (S4b) 프로비저닝 릴레이 제거 — 전 기관 프로비저닝 흐름은 코어에서 삭제되었다 (docs/generalization-plan.md §2.0)
 
     # ── Webhook HTTPS POST 릴레이 ──────────────────────────────────────────────
     webhook:
-      enabled: ${BATCH_WEBHOOK_RELAY_ENABLED:true}
-      interval-ms: ${BATCH_WEBHOOK_INTERVAL_MS:500}
-      batch-size: ${BATCH_WEBHOOK_BATCH_SIZE:50}
-      max-retry: ${BATCH_WEBHOOK_MAX_RETRY:3}
-      signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:}
-      lock-at-most: ${BATCH_WEBHOOK_LOCK_MOST:10s}
-      lock-at-least: ${BATCH_WEBHOOK_LOCK_LEAST:400ms}
+      enabled: ${IDEM_RELAY_WEBHOOK_RELAY_ENABLED:true}
+      interval-ms: ${IDEM_RELAY_WEBHOOK_INTERVAL_MS:500}
+      batch-size: ${IDEM_RELAY_WEBHOOK_BATCH_SIZE:50}
+      max-retry: ${IDEM_RELAY_WEBHOOK_MAX_RETRY:3}
+      signing-secret: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:}
+      lock-at-most: ${IDEM_RELAY_WEBHOOK_LOCK_MOST:10s}
+      lock-at-least: ${IDEM_RELAY_WEBHOOK_LOCK_LEAST:400ms}
 
   # ── DEAD_LETTER 알림 채널 (D-06) ────────────────────────────────────────────
   # provisioning_outbox DEAD_LETTER 전환 시 Slack/PagerDuty 알림 발송.
@@ -205,25 +204,25 @@ batch:
   #
   # Slack 설정:
   #   kubectl create secret generic batch-alert-slack \
-  #     --from-literal=BATCH_ALERT_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../... \
+  #     --from-literal=IDEM_RELAY_ALERT_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../... \
   #     -n production
   #
   # PagerDuty 설정 (Events API v2 Routing Key):
   #   kubectl create secret generic batch-alert-pagerduty \
-  #     --from-literal=BATCH_ALERT_PAGERDUTY_ROUTING_KEY=<integration-key> \
+  #     --from-literal=IDEM_RELAY_ALERT_PAGERDUTY_ROUTING_KEY=<integration-key> \
   #     -n production
   alert:
     slack:
-      enabled: ${BATCH_ALERT_SLACK_ENABLED:false}
-      webhook-url: ${BATCH_ALERT_SLACK_WEBHOOK_URL:}
+      enabled: ${IDEM_RELAY_ALERT_SLACK_ENABLED:false}
+      webhook-url: ${IDEM_RELAY_ALERT_SLACK_WEBHOOK_URL:}
     pagerduty:
-      enabled: ${BATCH_ALERT_PAGERDUTY_ENABLED:false}
-      routing-key: ${BATCH_ALERT_PAGERDUTY_ROUTING_KEY:}
-      dashboard-url: ${BATCH_ALERT_PAGERDUTY_DASHBOARD_URL:}   # D3: 이벤트 links 에 실을 운영 대시보드 (비면 생략)
+      enabled: ${IDEM_RELAY_ALERT_PAGERDUTY_ENABLED:false}
+      routing-key: ${IDEM_RELAY_ALERT_PAGERDUTY_ROUTING_KEY:}
+      dashboard-url: ${IDEM_RELAY_ALERT_PAGERDUTY_DASHBOARD_URL:}   # D3: 이벤트 links 에 실을 운영 대시보드 (비면 생략)
 
 # ── ido 플랫폼 설정 (Webhook 헤더용) ────────────────────────────────────────
-ido:
-  platform-version: ${IDO_PLATFORM_VERSION:1.0}
+idem.hub:
+  platform-version: ${IDEM_HUB_PLATFORM_VERSION:1.0}
 
 # ── Actuator ─────────────────────────────────────────────────────────────────
 management:
@@ -248,7 +247,7 @@ management:
       #                     백로그 적체 시 readiness DOWN으로 트래픽을 차단하면
       #                     처리 자체가 멎어 악순환을 만든다. Prometheus 알람이 정답.
       #                     OutboxBacklogMetrics(@Component)가 Gauge로 노출:
-      #                     onepass_outbox_pending_total / onepass_outbox_failed_total
+      #                     idem_outbox_pending_total / idem_outbox_failed_total
       group:
         liveness:
           include: livenessState
@@ -275,7 +274,7 @@ spring:
       on-profile: local
 
   # 로컬: Redis 없는 환경 — JDBC LockProvider로 전환 (ShedLockConfig Bean 순서 변경 불필요)
-  # BATCH_IDO_KAFKA_RELAY_ENABLED=false 등으로 특정 Job만 활성화 가능
+  # IDEM_RELAY_HUB_KAFKA_RELAY_ENABLED=false 등으로 특정 Job만 활성화 가능
 
 logging:
   level:

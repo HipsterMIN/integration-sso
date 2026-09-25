@@ -31,16 +31,16 @@
 **증거** — `LocalKmsClient.java:46`:
 ```java
 @ConditionalOnProperty(
-    prefix = "ido.kms",
+    prefix = "idem.hub.kms",
     name = "enabled",
     havingValue = "false",
-    matchIfMissing = true   // ← ido.kms.enabled 가 명시되지 않으면 LocalKmsClient 활성화
+    matchIfMissing = true   // ← idem.hub.kms.enabled 가 명시되지 않으면 LocalKmsClient 활성화
 )
 public class LocalKmsClient implements KmsClient {
 ```
 
 **문제 — 운영 진입 직전 관점**:
-- Helm chart, K8s ConfigMap, application-prod.yml 어디든 한 곳에서 `IDO_KMS_ENABLED` 환경변수가 누락되면 → LocalKmsClient 활성화 → 모든 키가 Base64 평문으로 DB 저장 + 디코딩만 수행 → **KMS 보호 0**.
+- Helm chart, K8s ConfigMap, application-prod.yml 어디든 한 곳에서 `IDEM_HUB_KMS_ENABLED` 환경변수가 누락되면 → LocalKmsClient 활성화 → 모든 키가 Base64 평문으로 DB 저장 + 디코딩만 수행 → **KMS 보호 0**.
 - "운영자가 깜빡할 수 있는 단 한 글자"가 보안 전체를 뒤집음.
 - 실제 application-prod.yml 또는 Helm values 파일을 확인하지 못한 상태로 운영 진입하면 위험.
 
@@ -48,15 +48,15 @@ public class LocalKmsClient implements KmsClient {
 ```
 보안 경고: 이 구현체는 키 재료를 암호화하지 않으므로
 운영·스테이징 환경에서 절대 사용 금지.
-ido.kms.enabled=false 설정은 개발·테스트 환경으로 제한한다.
+idem.hub.kms.enabled=false 설정은 개발·테스트 환경으로 제한한다.
 ```
 → 의도는 분명하나 **fail-safe 설계가 정반대** (missing → off). 진정한 fail-safe 는 missing → exception 또는 missing → 가장 안전한 옵션 (Vault 시도).
 
 **개선안**:
-1. `matchIfMissing = false` 로 변경 → `ido.kms.enabled` 미설정 시 Spring 컨텍스트 기동 실패 (KmsClient bean 부재).
+1. `matchIfMissing = false` 로 변경 → `idem.hub.kms.enabled` 미설정 시 Spring 컨텍스트 기동 실패 (KmsClient bean 부재).
 2. 또는 `@PostConstruct` 에서 운영 프로파일(`@Profile("prod")`) 활성 시 `LocalKmsClient` 가 선택되면 즉시 fail-fast (`IllegalStateException`).
 3. Health check 에 "KMS provider != local" 검증 추가 — Liveness 실패.
-4. Helm chart `values.yaml.example` 에 `IDO_KMS_ENABLED: "true"` 강제 표시 + `helm lint` 시 누락 검출.
+4. Helm chart `values.yaml.example` 에 `IDEM_HUB_KMS_ENABLED: "true"` 강제 표시 + `helm lint` 시 누락 검출.
 
 ---
 
@@ -216,7 +216,7 @@ public void publish(AuditEntry entry) {
 
 **증거** — `AuditLogPublisher.java:275-289`:
 ```java
-@Scheduled(fixedDelayString = "${ido.audit.retry-interval-ms:600000}")  // 10분
+@Scheduled(fixedDelayString = "${idem.hub.audit.retry-interval-ms:600000}")  // 10분
 public void retryKafkaPublish() {
     ...
     var unpublished = jdbcTemplate.queryForList("""
@@ -241,13 +241,13 @@ public void retryKafkaPublish() {
 **증거** — `AuditLogPublisher.java:65-67`:
 ```java
 // ⚠️ 운영에서 false 금지 — 컴플라이언스(개인정보보호법) 위반 가능
-@Value("${ido.audit.db-save-enabled:${IDO_AUDIT_DB_ENABLED:true}}")
+@Value("${idem.hub.audit.db-save-enabled:${IDEM_HUB_AUDIT_DB_ENABLED:true}}")
 private boolean dbSaveEnabled;
 ```
 
 **문제**:
 - 주석에 명시 "운영에서 false 금지" — 하지만 코드상 강제 차단은 없음.
-- 운영 환경에서 `IDO_AUDIT_DB_ENABLED=false` 가 누군가 잘못 설정하면 즉시 모든 audit 누락 → 사후 발견 시 컴플라이언스 위반 (개인정보보호법 §28, §29).
+- 운영 환경에서 `IDEM_HUB_AUDIT_DB_ENABLED=false` 가 누군가 잘못 설정하면 즉시 모든 audit 누락 → 사후 발견 시 컴플라이언스 위반 (개인정보보호법 §28, §29).
 - F4 보안 가이드라인은 "운영 환경에서 dbSaveEnabled 강제 true" 메커니즘 부재.
 
 **개선안**:
@@ -256,7 +256,7 @@ private boolean dbSaveEnabled;
 void verifyProdConfiguration() {
     if (env.acceptsProfiles(Profiles.of("prod")) && !dbSaveEnabled) {
         throw new IllegalStateException(
-            "운영 환경에서 IDO_AUDIT_DB_ENABLED=false 설정 금지");
+            "운영 환경에서 IDEM_HUB_AUDIT_DB_ENABLED=false 설정 금지");
     }
 }
 ```
@@ -275,7 +275,7 @@ if ("encrypt".equals(operation)) {
 **문제**:
 - Vault Transit 은 `context` 파라미터를 통해 derived key (per-context unique key) 를 지원.
 - 현재 구현은 `context` 없이 plaintext 만 보냄 → 모든 암호문이 같은 키로 복호화 가능.
-- 만약 attacker 가 Vault 키 (`ido-handoff-key`) 에 일시 접근하면 **모든 과거 ciphertext** 즉시 평문화 가능.
+- 만약 attacker 가 Vault 키 (`idem-handoff-key`) 에 일시 접근하면 **모든 과거 ciphertext** 즉시 평문화 가능.
 - Vault context 사용 시: encrypt(plaintext, context=ticketId) → 같은 키지만 context 별 derived key → ticketId 모르면 복호화 불가.
 
 **개선안**:
@@ -298,11 +298,11 @@ context = ticketId 또는 agencyCode 사용.
 
 ---
 
-### F5.12 [**Medium**] `HandoffCryptoService` 의 환경변수 직접 의존 — KMS Off 모드에서 `IDO_HANDOFF_AES_KEY` 평문 환경변수
+### F5.12 [**Medium**] `HandoffCryptoService` 의 환경변수 직접 의존 — KMS Off 모드에서 `IDEM_HUB_HANDOFF_AES_KEY` 평문 환경변수
 
 **증거** — 주석 (라인 33-34):
 ```
-운영 시 IDO_HANDOFF_AES_KEY / IDO_HANDOFF_HMAC_KEY 환경변수 교체 필수.
+운영 시 IDEM_HUB_HANDOFF_AES_KEY / IDEM_HUB_HANDOFF_HMAC_KEY 환경변수 교체 필수.
 두 키 모두 32바이트(256-bit) Base64URL 인코딩 문자열이어야 합니다.
 ```
 
@@ -407,9 +407,9 @@ else if (pad == 3) normalized += "=";
 
 ## 2. Catastrophic Scenarios
 
-### Scenario M: K8s ConfigMap 에서 `IDO_KMS_ENABLED` 누락 → 모든 키 평문 운영
+### Scenario M: K8s ConfigMap 에서 `IDEM_HUB_KMS_ENABLED` 누락 → 모든 키 평문 운영
 
-1. Helm chart 업그레이드 중 `IDO_KMS_ENABLED` 환경변수 정의 누락 (typo, 또는 chart 분기 시 leak).
+1. Helm chart 업그레이드 중 `IDEM_HUB_KMS_ENABLED` 환경변수 정의 누락 (typo, 또는 chart 분기 시 leak).
 2. 새 IdO Pod 기동 시 LocalKmsClient 활성 (matchIfMissing=true).
 3. 새 key version 생성 시 LocalKmsClient.encrypt() = Base64 인코딩만 → DB `key_material_encrypted` 에 평문 Base64 키 저장.
 4. 운영자가 Pod 정상 기동을 확인하고 release 승인.

@@ -38,7 +38,7 @@ public class GlobalExceptionHandler {
         if (PlatformErrorCode.OPS_EXTERNAL_SYSTEM_ERROR.equals(ex.getErrorCode())) {
             builder.header(HttpHeaders.RETRY_AFTER, String.valueOf(DEFAULT_RETRY_AFTER_SECONDS));
         }
-        // IDO_QIM_UNREACHABLE / QS_PROVIDER_TIMEOUT 도 재시도 안내
+        // IDEM_HUB_REGISTRY_UNREACHABLE / QS_PROVIDER_TIMEOUT 도 재시도 안내
         if (PlatformErrorCode.IDO_QIM_UNREACHABLE.equals(ex.getErrorCode())
                 || PlatformErrorCode.QS_PROVIDER_TIMEOUT.equals(ex.getErrorCode())) {
             builder.header(HttpHeaders.RETRY_AFTER, String.valueOf(DEFAULT_RETRY_AFTER_SECONDS));

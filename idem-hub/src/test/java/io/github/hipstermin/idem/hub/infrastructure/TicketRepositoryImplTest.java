@@ -54,7 +54,7 @@ class TicketRepositoryImplTest {
     private static final String TICKET_ID = "ticket-cas-001";
     private static final String AGENCY_CODE = "AGENCY-001";
     private static final String QIM_USER_ID = "qim-user-cas-001";
-    private static final String KEY = "ido:ticket:" + TICKET_ID;
+    private static final String KEY = "idem:ticket:" + TICKET_ID;
 
     @BeforeEach
     void setUp() {

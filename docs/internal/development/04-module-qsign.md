@@ -127,7 +127,7 @@ String identifierHash = computeIdentifierHash(providerCode + ":" + correlationId
 
 ```java
 // OutboxRelay — 500ms 폴링
-// PENDING → Kafka(qsign.auth.events) 발행 → PUBLISHED
+// PENDING → Kafka(idem.gate.auth.events) 발행 → PUBLISHED
 ```
 
 ### 2.6 X-Internal-Sig HMAC-SHA256 서명
@@ -193,9 +193,9 @@ qsign:
   keycloak:
     base-url: ${KEYCLOAK_URL:http://localhost:8088}
     realm: ${KEYCLOAK_REALM:onepass}
-    client-id: ${QSIGN_KEYCLOAK_CLIENT_ID:q-sign-client}
-    client-secret: ${QSIGN_KEYCLOAK_CLIENT_SECRET:change-me}
-    redirect-uri: ${QSIGN_KEYCLOAK_REDIRECT_URI:http://localhost:8081/api/v1/oidc/keycloak/callback}
+    client-id: ${IDEM_GATE_KEYCLOAK_CLIENT_ID:q-sign-client}
+    client-secret: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:change-me}
+    redirect-uri: ${IDEM_GATE_KEYCLOAK_REDIRECT_URI:http://localhost:8081/api/v1/oidc/keycloak/callback}
     idp-hint-mapping:
       kakao: social-kakao
       naver: social-naver

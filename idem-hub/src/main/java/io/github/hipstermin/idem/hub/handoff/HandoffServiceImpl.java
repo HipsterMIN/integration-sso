@@ -46,7 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class HandoffServiceImpl implements HandoffService {
 
-    private static final String SOURCE_SYSTEM = "ido";
+    private static final String SOURCE_SYSTEM = "idem-hub";
     private static final long   TICKET_TTL_SEC = 60L;
 
     private final AgencyMetaRepository    agencyMetaRepository;
@@ -247,7 +247,7 @@ public class HandoffServiceImpl implements HandoffService {
 
             // ── ④ Atomic consume (F4.2) ───────────────────────────────────────
             // - ISSUED → CONSUMED CAS. 동시 verify 시 한쪽만 성공.
-            // - 실패 시 PlatformException(IDO_TICKET_CONSUMED/EXPIRED/...) throw.
+            // - 실패 시 PlatformException(IDEM_HUB_TICKET_CONSUMED/EXPIRED/...) throw.
             ticketRepository.consume(ticketId);
 
             // ── ⑤ Kafka HANDOFF_CONSUMED 이벤트 ────────────────────────────────

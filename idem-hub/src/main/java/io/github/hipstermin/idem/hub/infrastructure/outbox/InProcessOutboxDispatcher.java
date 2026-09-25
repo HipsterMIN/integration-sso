@@ -19,17 +19,17 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Kafka 없는 배포의 아웃박스 배달기 (D1-b, {@code docs/generalization-plan.md} D1).
  *
- * <p>{@link IdoOutboxRelay} 가 {@code ido.outbox} PENDING 레코드를 Kafka 로 보내는 대신 이 클래스로 넘기면,
+ * <p>{@link IdoOutboxRelay} 가 {@code idem.hub.outbox} PENDING 레코드를 Kafka 로 보내는 대신 이 클래스로 넘기면,
  * 토픽 이름으로 같은 프로세스의 컨슈머 진입점({@code handle(...)})을 골라 호출한다. 컨슈머 쪽 멱등 처리
  * ({@code processed_event})가 그대로 동작하므로 릴레이의 at-least-once 재시도와 합쳐 정확히 한 번 효과를 낸다.
  *
  * <p>배달 대상 (hub 자기 자신이 발행하고 자기 자신이 소비하는 토픽):
  * <ul>
- *   <li>{@code qsign.auth.events}        → {@link QsignAuthEventConsumer#handle}</li>
+ *   <li>{@code idem.gate.auth.events}        → {@link QsignAuthEventConsumer#handle}</li>
  *   <li>{@code platform.session.advisory} → {@link FeAdvisoryConsumer#handle}</li>
- *   <li>{@code ido.handoff.events}       → {@link HandoffEventConsumer#handle}</li>
+ *   <li>{@code idem.hub.handoff.events}       → {@link HandoffEventConsumer#handle}</li>
  * </ul>
- * 그 외 토픽(예: {@code qim.user.events}, 감사 토픽)은 이 프로세스에 소비자가 없으므로 실패로 돌려 릴레이가 FAILED 로 남긴다 —
+ * 그 외 토픽(예: {@code idem.registry.user.events}, 감사 토픽)은 이 프로세스에 소비자가 없으므로 실패로 돌려 릴레이가 FAILED 로 남긴다 —
  * 운영자가 보게 하는 것이 조용히 PUBLISHED 처리하는 것보다 낫다.
  *
  * <p>각 배달은 {@code REQUIRES_NEW} 트랜잭션이다: 핸들러가 실패해도 릴레이의 바깥 트랜잭션(레코드 잠금·상태 갱신)이
@@ -46,13 +46,13 @@ public class InProcessOutboxDispatcher {
     private final FeAdvisoryConsumer       feAdvisoryConsumer;
     private final HandoffEventConsumer     handoffEventConsumer;
 
-    @Value("${ido.kafka.topic-auth-events:qsign.auth.events}")
+    @Value("${idem.hub.kafka.topic-auth-events:idem.gate.auth.events}")
     private String authEventsTopic;
 
-    @Value("${ido.kafka.topic-session-advisory:platform.session.advisory}")
+    @Value("${idem.hub.kafka.topic-session-advisory:platform.session.advisory}")
     private String sessionAdvisoryTopic;
 
-    @Value("${ido.kafka.topic-handoff-events:ido.handoff.events}")
+    @Value("${idem.hub.kafka.topic-handoff-events:idem.hub.handoff.events}")
     private String handoffEventsTopic;
 
     /**

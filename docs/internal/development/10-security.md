@@ -98,7 +98,7 @@ return HexFormat.of().formatHex(hash);
 ```java
 // KeycloakCallbackService.buildInternalSig()
 // payload = correlationId + ":" + epochSeconds
-// HMAC-SHA256(payload, IDO_INTERNAL_SIG_SECRET)
+// HMAC-SHA256(payload, IDEM_HUB_INTERNAL_SIG_SECRET)
 // 헤더: X-Internal-Sig: {hexHmac}
 // ⚠️ 수신 측(OidcCompleteController) 검증 미구현 — P1-03
 ```
@@ -111,13 +111,13 @@ return HexFormat.of().formatHex(hash);
 
 | 키 | 용도 | 환경변수 | 저장 위치 |
 |----|------|---------|---------|
-| AES-256-GCM 키 | Handoff Payload 암호화 | `IDO_HANDOFF_AES_KEY` | K8s Secret / Vault |
+| AES-256-GCM 키 | Handoff Payload 암호화 | `IDEM_HUB_HANDOFF_AES_KEY` | K8s Secret / Vault |
 | HMAC-SHA256 시크릿 | Handoff 서명 | `IDO_HANDOFF_HMAC_SECRET` | K8s Secret / Vault |
-| 내부 서명 시크릿 | X-Internal-Sig | `IDO_INTERNAL_SIG_SECRET` | K8s Secret / Vault |
-| agencySubject 시크릿 | agencySubjectId HMAC | `IDO_AGENCY_SUBJECT_SECRET` | K8s Secret / Vault |
-| Q-IM AES 공유키 | encCi 복호화 | `QIM_AES_SHARED_KEY` | K8s Secret / Vault |
-| CI 암호화 키 (Q-IM) | CI 저장 | `QIM_CI_AES_KEY_V1` | K8s Secret / Vault |
-| DI 생성 시크릿 | DI HMAC | `QIM_DI_SECRET` | K8s Secret / Vault |
+| 내부 서명 시크릿 | X-Internal-Sig | `IDEM_HUB_INTERNAL_SIG_SECRET` | K8s Secret / Vault |
+| agencySubject 시크릿 | agencySubjectId HMAC | `IDEM_HUB_AGENCY_SUBJECT_SECRET` | K8s Secret / Vault |
+| Q-IM AES 공유키 | encCi 복호화 | `IDEM_REGISTRY_AES_SHARED_KEY` | K8s Secret / Vault |
+| CI 암호화 키 (Q-IM) | CI 저장 | `IDEM_REGISTRY_CI_AES_KEY_V1` | K8s Secret / Vault |
+| DI 생성 시크릿 | DI HMAC | `IDEM_REGISTRY_DI_SECRET` | K8s Secret / Vault |
 
 ### 3.2 키 버전 관리
 
@@ -135,13 +135,13 @@ return HexFormat.of().formatHex(hash);
 
 ```java
 // TPS 제한 (1초 윈도우)
-String tpsKey = "ido:rate-limit:" + agencyCode + ":tps";
+String tpsKey = "idem:rate-limit:" + agencyCode + ":tps";
 Long tpsCount = redisTemplate.opsForValue().increment(tpsKey);
 redisTemplate.expire(tpsKey, 1, TimeUnit.SECONDS);
 if (tpsCount > maxTps) throw new RateLimitException("TPS 초과");
 
 // 일별 쿼터 제한
-String dailyKey = "ido:rate-limit:" + agencyCode + ":daily:" + LocalDate.now();
+String dailyKey = "idem:rate-limit:" + agencyCode + ":daily:" + LocalDate.now();
 Long dailyCount = redisTemplate.opsForValue().increment(dailyKey);
 redisTemplate.expire(dailyKey, 24, TimeUnit.HOURS);
 if (dailyCount > dailyQuota) throw new RateLimitException("일별 쿼터 초과");
@@ -176,7 +176,7 @@ resilience4j:
 // 1. ido.provider_circuit_config DB 조회
 // 2. 없으면 circuitBreakerRegistry.getDefaultConfig() 상속
 // 3. "provider-{providerCode.toLowerCase()}" 이름으로 CB 등록
-// 4. ConcurrentHashMap 캐시 (TTL: ido.provider.circuit-cache-ttl-seconds)
+// 4. ConcurrentHashMap 캐시 (TTL: idem.hub.provider.circuit-cache-ttl-seconds)
 ```
 
 ### 5.2 기본 CB 설정 (application.yml)

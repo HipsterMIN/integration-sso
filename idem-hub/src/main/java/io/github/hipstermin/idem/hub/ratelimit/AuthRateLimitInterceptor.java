@@ -29,9 +29,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * <p><b>제한 정책</b>:
  * <table border="1">
  *   <tr><th>윈도우</th><th>기본 한도</th><th>환경 변수</th></tr>
- *   <tr><td>초당 (TPS)</td><td>20 req/s</td><td>IDO_AUTH_RL_TPS</td></tr>
- *   <tr><td>분당</td><td>100 req/min</td><td>IDO_AUTH_RL_PER_MIN</td></tr>
- *   <tr><td>일별</td><td>1,000 req/day</td><td>IDO_AUTH_RL_DAILY</td></tr>
+ *   <tr><td>초당 (TPS)</td><td>20 req/s</td><td>IDEM_HUB_AUTH_RL_TPS</td></tr>
+ *   <tr><td>분당</td><td>100 req/min</td><td>IDEM_HUB_AUTH_RL_PER_MIN</td></tr>
+ *   <tr><td>일별</td><td>1,000 req/day</td><td>IDEM_HUB_AUTH_RL_DAILY</td></tr>
  * </table>
  *
  * <p><b>Redis 키 구조</b>:
@@ -60,14 +60,14 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @RequiredArgsConstructor
 public class AuthRateLimitInterceptor implements HandlerInterceptor {
 
-    /** D3: 일 단위 키의 날짜 경계 시간대 — ido.zone (기본 UTC) */
-    @org.springframework.beans.factory.annotation.Value("${ido.zone:UTC}")
+    /** D3: 일 단위 키의 날짜 경계 시간대 — idem.hub.zone (기본 UTC) */
+    @org.springframework.beans.factory.annotation.Value("${idem.hub.zone:UTC}")
     private String zoneId = "UTC";
 
     // ── Redis 키 접두사 ────────────────────────────────────────────────────
-    private static final String TPS_KEY_PREFIX   = "ido:auth-rl:tps:";
-    private static final String MIN_KEY_PREFIX   = "ido:auth-rl:min:";
-    private static final String DAILY_KEY_PREFIX = "ido:auth-rl:daily:";
+    private static final String TPS_KEY_PREFIX   = "idem:auth-rl:tps:";
+    private static final String MIN_KEY_PREFIX   = "idem:auth-rl:min:";
+    private static final String DAILY_KEY_PREFIX = "idem:auth-rl:daily:";
 
     // ── Lua 스크립트: INCR + EXPIRE 원자적 처리 ──────────────────────────
     private static final String RATE_LIMIT_LUA = """
@@ -97,19 +97,19 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
     private final RedisTemplate<String, Object> redisTemplate;
     private final AuditLogPublisher             auditLogPublisher;
 
-    // F-01: IP Auth Rate Limiting 독립 스위치 (F-02 기관 RL의 IDO_RATE_LIMIT_ENABLED와 완전 분리)
-    // 로컬/개발: IDO_AUTH_RL_ENABLED=false 권장 (반복 테스트 시 자기 IP 차단 방지)
-    // 운영: IDO_AUTH_RL_ENABLED=true (기본값)
-    @Value("${ido.auth.rate-limit.enabled:${IDO_AUTH_RL_ENABLED:true}}")
+    // F-01: IP Auth Rate Limiting 독립 스위치 (F-02 기관 RL의 IDEM_HUB_RATE_LIMIT_ENABLED와 완전 분리)
+    // 로컬/개발: IDEM_HUB_AUTH_RL_ENABLED=false 권장 (반복 테스트 시 자기 IP 차단 방지)
+    // 운영: IDEM_HUB_AUTH_RL_ENABLED=true (기본값)
+    @Value("${idem.hub.auth.rate-limit.enabled:${IDEM_HUB_AUTH_RL_ENABLED:true}}")
     private boolean rateLimitEnabled;
 
-    @Value("${ido.auth.rate-limit.tps:${IDO_RATE_LIMIT_DEFAULT_TPS:20}}")
+    @Value("${idem.hub.auth.rate-limit.tps:${IDEM_HUB_RATE_LIMIT_DEFAULT_TPS:20}}")
     private int tpsLimit;
 
-    @Value("${ido.auth.rate-limit.per-minute:100}")
+    @Value("${idem.hub.auth.rate-limit.per-minute:100}")
     private int perMinuteLimit;
 
-    @Value("${ido.auth.rate-limit.daily:${IDO_RATE_LIMIT_DEFAULT_DAILY:1000}}")
+    @Value("${idem.hub.auth.rate-limit.daily:${IDEM_HUB_RATE_LIMIT_DEFAULT_DAILY:1000}}")
     private int dailyLimit;
 
     @Override
@@ -118,7 +118,7 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
                               Object handler) throws Exception {
 
         if (!rateLimitEnabled) {
-            log.debug("[AuthRateLimit] DISABLED — 모든 /api/v1/auth/** 요청 무제한 허용 (IDO_AUTH_RL_ENABLED=false)");
+            log.debug("[AuthRateLimit] DISABLED — 모든 /api/v1/auth/** 요청 무제한 허용 (IDEM_HUB_AUTH_RL_ENABLED=false)");
             return true;
         }
 

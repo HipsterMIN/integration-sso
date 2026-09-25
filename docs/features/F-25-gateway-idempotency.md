@@ -1,6 +1,6 @@
 # F-25: Gateway 멱등성 중복 방어 (Sprint 15)
 
-> **환경변수**: `IDO_GATEWAY_IDEMPOTENCY_ENABLED`  
+> **환경변수**: `IDEM_HUB_GATEWAY_IDEMPOTENCY_ENABLED`  
 > **Phase**: 항상 ON (보안 필수)  
 > **기본값**: `true`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/gateway/GatewayIdempotencyStore.java`

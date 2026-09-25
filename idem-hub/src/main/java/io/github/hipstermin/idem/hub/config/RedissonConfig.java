@@ -26,8 +26,8 @@ import org.springframework.context.annotation.Configuration;
  *
  * <p><b>F-08 On/Off 제어:</b>
  * <pre>
- * IDO_REDISSON_ENABLED=true  (기본) → RedissonClient 빈 등록, 분산 락 활성
- * IDO_REDISSON_ENABLED=false         → RedissonClient 빈 미등록, NoOpRedissonClient 사용
+ * IDEM_HUB_REDISSON_ENABLED=true  (기본) → RedissonClient 빈 등록, 분산 락 활성
+ * IDEM_HUB_REDISSON_ENABLED=false         → RedissonClient 빈 미등록, NoOpRedissonClient 사용
  *                                      Redis 없는 로컬 환경에서도 앱 정상 기동 가능
  * </pre>
  *
@@ -36,7 +36,7 @@ import org.springframework.context.annotation.Configuration;
  * 단일 Pod 환경에서는 충분하나, K8s 다중 Pod에서는 중복 발급 가능성 있음.
  *
  * <p><b>⚠️ 운영 멀티 Pod 주의:</b>
- * HPA로 2개 이상 Pod 운영 시 반드시 {@code IDO_REDISSON_ENABLED=true} 유지.
+ * HPA로 2개 이상 Pod 운영 시 반드시 {@code IDEM_HUB_REDISSON_ENABLED=true} 유지.
  *
  * <p><b>Key 네이밍:</b>
  * <pre>
@@ -48,7 +48,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(name = "ido.redisson.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "idem.hub.redisson.enabled", havingValue = "true", matchIfMissing = true)
 public class RedissonConfig {
 
     @Value("${spring.data.redis.host:localhost}")

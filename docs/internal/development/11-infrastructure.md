@@ -144,15 +144,15 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 
 | 토픽 | 파티션 | 복제팩터 | ISR | 보존기간 | 압축 |
 |------|--------|---------|-----|---------|------|
-| `qsign.auth.events` | 12 | 3 | 2 | 7일 | lz4 |
-| `qim.user.events` | 6 | 3 | 2 | 7일 | lz4 |
-| `ido.handoff.events` | 12 | 3 | 2 | 7일 | lz4 |
+| `idem.gate.auth.events` | 12 | 3 | 2 | 7일 | lz4 |
+| `idem.registry.user.events` | 6 | 3 | 2 | 7일 | lz4 |
+| `idem.hub.handoff.events` | 12 | 3 | 2 | 7일 | lz4 |
 | `platform.session.advisory` | 12 | 3 | 2 | 1일 | lz4 |
 | `platform.audit.log` | 6 | 3 | 2 | 180일 | snappy |
-| `qim.sp.member.events` | 6 | 3 | 2 | 7일 | lz4 |
+| `idem.registry.sp.member.events` | 6 | 3 | 2 | 7일 | lz4 |
 
 > **DLQ 토픽** (GAP-IDO-09 — 미구현):  
-> `qsign.auth.events.dlt`, `qim.user.events.dlt`, `ido.handoff.events.dlt` 등  
+> `idem.gate.auth.events.dlt`, `idem.registry.user.events.dlt`, `idem.hub.handoff.events.dlt` 등  
 > `DeadLetterPublishingRecoverer` 연결 후 활성화 예정
 
 ### 4.3 컨슈머 concurrency 설정
@@ -163,10 +163,10 @@ spring:
     consumer:
       group-id: ido-consumer-group
     listener:
-      concurrency: 6  # qsign.auth.events, ido.handoff.events
-      # qim.user.events: 3
+      concurrency: 6  # idem.gate.auth.events, idem.hub.handoff.events
+      # idem.registry.user.events: 3
       # platform.advisory: 3
-      # qim.sp.member.events: 2
+      # idem.registry.sp.member.events: 2
 ```
 
 ---
@@ -299,7 +299,7 @@ SPRING_PROFILES_ACTIVE=local \
 
 # IdO
 SPRING_PROFILES_ACTIVE=local \
-  IDO_INTERNAL_SIG_SECRET=local-test-secret-32bytes-padding \
+  IDEM_HUB_INTERNAL_SIG_SECRET=local-test-secret-32bytes-padding \
   java -jar idem-hub/build/libs/ido-0.1.0-SNAPSHOT.jar &
 
 # Q-IM
@@ -315,18 +315,18 @@ SPRING_PROFILES_ACTIVE=local \
 
 ```bash
 # IdO
-IDO_HANDOFF_AES_KEY=<base64-32bytes>
+IDEM_HUB_HANDOFF_AES_KEY=<base64-32bytes>
 IDO_HANDOFF_HMAC_SECRET=<base64-32bytes>
-IDO_INTERNAL_SIG_SECRET=<32bytes-이상>
-IDO_AGENCY_SUBJECT_SECRET=<32bytes-이상>
-QIM_AES_SHARED_KEY=<base64-32bytes>
+IDEM_HUB_INTERNAL_SIG_SECRET=<32bytes-이상>
+IDEM_HUB_AGENCY_SUBJECT_SECRET=<32bytes-이상>
+IDEM_REGISTRY_AES_SHARED_KEY=<base64-32bytes>
 
 # Q-IM
-QIM_CI_AES_KEY_V1=<base64-32bytes>
-QIM_DI_SECRET=<base64-32bytes>
+IDEM_REGISTRY_CI_AES_KEY_V1=<base64-32bytes>
+IDEM_REGISTRY_DI_SECRET=<base64-32bytes>
 
 # Q-Sign
-QSIGN_KEYCLOAK_CLIENT_SECRET=<Keycloak Admin 발급>
+IDEM_GATE_KEYCLOAK_CLIENT_SECRET=<Keycloak Admin 발급>
 
 # 공통
 SPRING_DATASOURCE_USERNAME=onepass
@@ -336,10 +336,10 @@ SPRING_DATASOURCE_PASSWORD=<secure-password>
 ### 8.2 선택 환경변수
 
 ```bash
-IDO_PLATFORM_VERSION=1.0
-IDO_DEFAULT_POLICY_VERSION=1.0
-IDO_PROVIDER_CIRCUIT_CACHE_TTL=3600
-IDO_BROKER_MODE=keycloak
+IDEM_HUB_PLATFORM_VERSION=1.0
+IDEM_HUB_DEFAULT_POLICY_VERSION=1.0
+IDEM_HUB_PROVIDER_CIRCUIT_CACHE_TTL=3600
+IDEM_HUB_BROKER_MODE=keycloak
 ```
 
 ---

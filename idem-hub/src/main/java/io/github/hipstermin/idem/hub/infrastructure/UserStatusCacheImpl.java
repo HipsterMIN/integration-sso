@@ -15,18 +15,18 @@ import org.springframework.stereotype.Component;
  *
  * <p>TTL ≤ 5분 (성능 최적화 목적, 정본 아님)
  * <p>Q-IM 변경 이벤트(UserEvent) 수신 시 즉시 무효화
- * <p>캐시 키: "ido:user_status:{qimUserId}"
+ * <p>캐시 키: "idem:user_status:{qimUserId}"
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class UserStatusCacheImpl implements UserStatusCache {
 
-    private static final String KEY_PREFIX = "ido:user_status:";
+    private static final String KEY_PREFIX = "idem:user_status:";
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @Value("${ido.qim.cache-ttl-seconds:300}")
+    @Value("${idem.hub.registry.cache-ttl-seconds:300}")
     private long cacheTtlSeconds;
 
     @Override

@@ -33,7 +33,7 @@ public class KafkaProducerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${spring.kafka.producer.client-id:q-im-producer}")
+    @Value("${spring.kafka.producer.client-id:idem-registry-producer}")
     private String clientId;
 
     @Bean

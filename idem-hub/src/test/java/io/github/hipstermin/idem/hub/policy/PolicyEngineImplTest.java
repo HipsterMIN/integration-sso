@@ -42,15 +42,15 @@ import org.springframework.test.util.ReflectionTestUtils;
  * <ul>
  *   <li>이전: {@code catch (Exception e) { return null; }} → Q-IM 5xx/timeout이 영구 미매핑과 동일 처리됨</li>
  *   <li>결과: Q-IM 장애 시 모든 사용자가 GUEST로 응답 → 데이터 무결성 위험</li>
- *   <li>수정: {@link PlatformException}({@link PlatformErrorCode#IDO_QIM_UNREACHABLE}) 전파 → 503 응답으로 재시도 유도</li>
+ *   <li>수정: {@link PlatformException}({@link PlatformErrorCode#IDEM_HUB_REGISTRY_UNREACHABLE}) 전파 → 503 응답으로 재시도 유도</li>
  * </ul>
  *
  * <p><b>검증 시나리오</b>:
  * <ul>
  *   <li>{@code getDi()} 가 정상 DI 반환 → APPROVED + agencySubjectId=DI</li>
  *   <li>{@code getDi()} 가 null 반환 (영구 미매핑) → GUEST + agencySubjectId=null</li>
- *   <li>{@code getDi()} 가 PlatformException(IDO_QIM_UNREACHABLE) throw → 그대로 전파</li>
- *   <li>{@code getDi()} 가 예상 외 RuntimeException throw → IDO_QIM_UNREACHABLE 로 변환 후 전파</li>
+ *   <li>{@code getDi()} 가 PlatformException(IDEM_HUB_REGISTRY_UNREACHABLE) throw → 그대로 전파</li>
+ *   <li>{@code getDi()} 가 예상 외 RuntimeException throw → IDEM_HUB_REGISTRY_UNREACHABLE 로 변환 후 전파</li>
  * </ul>
  */
 @ExtendWith(MockitoExtension.class)
@@ -296,7 +296,7 @@ class PolicyEngineImplTest {
         }
 
         @Test
-        @DisplayName("authz 비활성 설치(ido.q-authz.enabled=false)인데 할당 필수 → IDO_AUTHZ_UNAVAILABLE (평가 불가 = 거부)")
+        @DisplayName("authz 비활성 설치(idem.hub.authz.enabled=false)인데 할당 필수 → IDO_AUTHZ_UNAVAILABLE (평가 불가 = 거부)")
         void authzDisabled_denied() {
             given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.of(requiredProfile(false)));
             given(qimClient.getDi(QIM_USER_ID, AGENCY_CODE, CORRELATION_ID)).willReturn("DI-X");

@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * <h3>설계 원칙</h3>
  * <ul>
  *   <li>기관별 독립 비밀키 — 한 기관 키 유출이 타 기관에 영향 없음</li>
- *   <li>K8s Secret 마운트 방식 — 환경변수 {@code IDO_GATEWAY_HMAC_KEY_{AGENCY_CODE}} 읽기</li>
+ *   <li>K8s Secret 마운트 방식 — 환경변수 {@code IDEM_HUB_GATEWAY_HMAC_KEY_{AGENCY_CODE}} 읽기</li>
  *   <li>기동 시 등록 키 목록 로그 출력 (키 값은 절대 출력 안 함)</li>
  *   <li>런타임 키 갱신 지원 ({@link #refresh(String, String)}) — 무중단 키 로테이션</li>
  * </ul>
@@ -33,8 +33,8 @@ import org.springframework.stereotype.Component;
  *       name: ido-gateway-hmac-keys
  *       optional: true   # 개발 환경: 키 없어도 기동 (F-26=false이므로 검증 미수행)
  *
- * # 3) 환경변수 명명 규칙: IDO_GATEWAY_HMAC_KEY_{기관코드 대문자}
- * #    예: AGENCY_001 → IDO_GATEWAY_HMAC_KEY_AGENCY_001
+ * # 3) 환경변수 명명 규칙: IDEM_HUB_GATEWAY_HMAC_KEY_{기관코드 대문자}
+ * #    예: AGENCY_001 → IDEM_HUB_GATEWAY_HMAC_KEY_AGENCY_001
  * </pre>
  *
  * <h3>키 로테이션 (무중단)</h3>
@@ -61,8 +61,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class AgencyHmacKeyStore {
 
-    /** 환경변수 접두사: IDO_GATEWAY_HMAC_KEY_{AGENCY_CODE} */
-    private static final String ENV_PREFIX = "IDO_GATEWAY_HMAC_KEY_";
+    /** 환경변수 접두사: IDEM_HUB_GATEWAY_HMAC_KEY_{AGENCY_CODE} */
+    private static final String ENV_PREFIX = "IDEM_HUB_GATEWAY_HMAC_KEY_";
 
     /** 최소 권장 키 길이 (256비트 = 32바이트) */
     private static final int MIN_KEY_LENGTH = 32;
@@ -76,12 +76,12 @@ public class AgencyHmacKeyStore {
 
     // ── 개발/테스트용 fallback 설정 ──────────────────────────────────────
     // 운영 환경: K8s Secret 환경변수로 주입
-    // 개발 환경: ido.gateway.hmac.dev-keys.{agencyCode}=secret 으로 설정 가능
+    // 개발 환경: idem.hub.gateway.hmac.dev-keys.{agencyCode}=secret 으로 설정 가능
 
     /**
      * 개발 환경 전용 — application.yml에서 기관별 테스트 키 설정.
      *
-     * <p>운영 환경에서는 K8s Secret 환경변수({@code IDO_GATEWAY_HMAC_KEY_*})로 주입됩니다.
+     * <p>운영 환경에서는 K8s Secret 환경변수({@code IDEM_HUB_GATEWAY_HMAC_KEY_*})로 주입됩니다.
      * 이 속성은 {@code application-dev.yml} 또는 {@code application-test.yml}에서만 설정하세요.
      *
      * <p>예시 ({@code application-dev.yml}):
@@ -92,7 +92,7 @@ public class AgencyHmacKeyStore {
      *       dev-keys: "AGENCY_TEST_001=test-secret-key-for-dev-env-only-not-prod"
      * </pre>
      */
-    @Value("${ido.gateway.hmac.dev-keys:}")
+    @Value("${idem.hub.gateway.hmac.dev-keys:}")
     private String devKeysRaw;
 
     // ════════════════════════════════════════════════════════════════════════
@@ -104,14 +104,14 @@ public class AgencyHmacKeyStore {
      *
      * <p>우선순위:
      * <ol>
-     *   <li>환경변수 {@code IDO_GATEWAY_HMAC_KEY_{AGENCY_CODE}} (K8s Secret)</li>
-     *   <li>시스템 속성 {@code IDO_GATEWAY_HMAC_KEY_{AGENCY_CODE}}</li>
-     *   <li>개발용 {@code ido.gateway.hmac.dev-keys} (application-dev.yml)</li>
+     *   <li>환경변수 {@code IDEM_HUB_GATEWAY_HMAC_KEY_{AGENCY_CODE}} (K8s Secret)</li>
+     *   <li>시스템 속성 {@code IDEM_HUB_GATEWAY_HMAC_KEY_{AGENCY_CODE}}</li>
+     *   <li>개발용 {@code idem.hub.gateway.hmac.dev-keys} (application-dev.yml)</li>
      * </ol>
      */
     @PostConstruct
     void init() {
-        // ① 환경변수/시스템 속성에서 IDO_GATEWAY_HMAC_KEY_* 패턴 로드
+        // ① 환경변수/시스템 속성에서 IDEM_HUB_GATEWAY_HMAC_KEY_* 패턴 로드
         Map<String, String> env = System.getenv();
         int loadedCount = 0;
         for (Map.Entry<String, String> entry : env.entrySet()) {
@@ -154,9 +154,9 @@ public class AgencyHmacKeyStore {
 
         if (loadedCount == 0) {
             log.warn("[AgencyHmacKeyStore] 등록된 기관 HMAC 키가 없습니다. " +
-                     "F-26(IDO_HMAC_SIG_REQUIRED=true) 활성화 전에 " +
+                     "F-26(IDEM_HUB_HMAC_SIG_REQUIRED=true) 활성화 전에 " +
                      "K8s Secret 'ido-gateway-hmac-keys'에 키를 등록하세요. " +
-                     "환경변수 명명 규칙: IDO_GATEWAY_HMAC_KEY_{기관코드대문자}");
+                     "환경변수 명명 규칙: IDEM_HUB_GATEWAY_HMAC_KEY_{기관코드대문자}");
         } else {
             log.info("[AgencyHmacKeyStore] 기관 HMAC 키 로드 완료: {}개 기관 — {}",
                      loadedCount, String.join(", ", keyCache.keySet()));

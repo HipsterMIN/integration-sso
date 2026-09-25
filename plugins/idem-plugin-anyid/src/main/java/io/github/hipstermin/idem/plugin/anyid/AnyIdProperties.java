@@ -15,22 +15,22 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *
  * <p><b>환경변수 → 설정 매핑</b>:
  * <pre>
- * ANYID_SRVC_NO          → ido.anyid.srvc-no          (필수 — 운영기관에 발급된 서비스 번호)
- * ANYID_SSO_SECRET_CODE  → ido.anyid.sso.secret-code  (HMAC 서명 키)
- * ANYID_KMS_APP_KEY      → ido.anyid.kms.app-key      (ARIA-CBC-256 앱 키)
- * ANYID_KMS_CLIENT_INFO  → ido.anyid.kms.client-info  (ARIA-CBC-256 클라이언트 정보)
- * ANYID_PID_CLIENT_ID    → ido.anyid.pid.client-id    (민간ID 클라이언트 ID)
- * ANYID_PID_CLIENT_SECRET→ ido.anyid.pid.client-secret
- * ANYID_PID_CLIENT_API_KEY→ido.anyid.pid.client-api-key
+ * ANYID_SRVC_NO          → idem.hub.anyid.srvc-no          (필수 — 운영기관에 발급된 서비스 번호)
+ * ANYID_SSO_SECRET_CODE  → idem.hub.anyid.sso.secret-code  (HMAC 서명 키)
+ * ANYID_KMS_APP_KEY      → idem.hub.anyid.kms.app-key      (ARIA-CBC-256 앱 키)
+ * ANYID_KMS_CLIENT_INFO  → idem.hub.anyid.kms.client-info  (ARIA-CBC-256 클라이언트 정보)
+ * ANYID_PID_CLIENT_ID    → idem.hub.anyid.pid.client-id    (민간ID 클라이언트 ID)
+ * ANYID_PID_CLIENT_SECRET→ idem.hub.anyid.pid.client-secret
+ * ANYID_PID_CLIENT_API_KEY→idem.hub.anyid.pid.client-api-key
  * </pre>
  *
- * <p><b>브로커 모드 (IDO_BROKER_MODE) 관계</b>:
+ * <p><b>브로커 모드 (IDEM_HUB_BROKER_MODE) 관계</b>:
  * <pre>
- * IDO_BROKER_MODE는 표준 OIDC(카카오·네이버)의 처리 백엔드만 결정한다.
- *   IDO_BROKER_MODE=qsign    → [표준 OIDC] q-sign에 위임 (기본값)
- *   IDO_BROKER_MODE=keycloak → [표준 OIDC] Keycloak 직접 연동
+ * IDEM_HUB_BROKER_MODE는 표준 OIDC(카카오·네이버)의 처리 백엔드만 결정한다.
+ *   IDEM_HUB_BROKER_MODE=qsign    → [표준 OIDC] q-sign에 위임 (기본값)
+ *   IDEM_HUB_BROKER_MODE=keycloak → [표준 OIDC] Keycloak 직접 연동
  *
- * ⚠️  AnyIdBrokerAdapter는 IDO_BROKER_MODE 값과 무관하게 항상 동작한다.
+ * ⚠️  AnyIdBrokerAdapter는 IDEM_HUB_BROKER_MODE 값과 무관하게 항상 동작한다.
  *     MOBILE_ID / EASY_SIGN / JOINT_CERT / FINANCIAL_CERT / PRIVATE_ID 등
  *     비표준 OIDC 인증수단은 ProviderRouter.resolve()가 자동으로 DIRECT_BROKER로
  *     라우팅하여 AnyIdBrokerAdapter로 연결한다.
@@ -42,7 +42,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @Getter
 @Setter
-@ConfigurationProperties(prefix = "ido.anyid")
+@ConfigurationProperties(prefix = "idem.hub.anyid")
 public class AnyIdProperties {
 
     // ── 기관 식별자 ──────────────────────────────────────────────────────
@@ -58,11 +58,11 @@ public class AnyIdProperties {
         return hasText(srvcNo) && hasText(agencyCode) && hasText(agencyName);
     }
 
-    /** AnyID 브로커 진입점에서 호출 — 식별자 미설정이면 IDO_PROVIDER_NOT_CONFIGURED(503). */
+    /** AnyID 브로커 진입점에서 호출 — 식별자 미설정이면 IDEM_HUB_PROVIDER_NOT_CONFIGURED(503). */
     public void requireAgencyConfigured(String correlationId) {
         if (!isAgencyConfigured()) {
             throw new PlatformException(PlatformErrorCode.IDO_PROVIDER_NOT_CONFIGURED, correlationId,
-                    "AnyID 운영기관 식별자 미설정 — ido.anyid.srvc-no / agency-code / agency-name (ANYID_SRVC_NO 등) 을 주입하세요");
+                    "AnyID 운영기관 식별자 미설정 — idem.hub.anyid.srvc-no / agency-code / agency-name (ANYID_SRVC_NO 등) 을 주입하세요");
         }
     }
 

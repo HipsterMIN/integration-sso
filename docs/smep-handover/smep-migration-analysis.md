@@ -396,7 +396,7 @@ Q-IM ──► POST /api/ciw-im/member/withdraw
 
 ```java
 // QimInboundAuthenticationService.java
-@Value("${qim.inbound.api-key:}") private final String apiKey;
+@Value("${idem.registry.inbound.api-key:}") private final String apiKey;
 
 public boolean matches(String apiKeyHeader) {
     return apiKey != null && apiKey.equals(trimToNull(apiKeyHeader));

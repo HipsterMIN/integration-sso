@@ -48,14 +48,14 @@ public class SloServiceImpl implements SloService {
     private final ObjectMapper                 objectMapper;
 
     /** Q-Sign 서비스 내부 베이스 URL */
-    @Value("${ido.qsign.base-url:http://localhost:8081}")
+    @Value("${idem.hub.gate.base-url:http://localhost:8081}")
     private String qsignBaseUrl;
 
     /** Q-Sign 내부 서명 비밀키 (HMAC-SHA256 서명 생성용) */
-    @Value("${ido.qsign.internal-sig-secret:}")
+    @Value("${idem.hub.gate.internal-sig-secret:}")
     private String internalSigSecret;
 
-    @Value("${ido.qsign.internal-sig-ttl-seconds:60}")
+    @Value("${idem.hub.gate.internal-sig-ttl-seconds:60}")
     private int internalSigTtlSeconds;
 
     // ════════════════════════════════════════════════════════════════════════
@@ -99,7 +99,7 @@ public class SloServiceImpl implements SloService {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Correlation-Id",  correlationId);
-            headers.set("X-Internal-Caller", "ido");
+            headers.set("X-Internal-Caller", "idem-hub");
             headers.set("X-Internal-Sig",    buildInternalSig(correlationId));
 
             // S6 PR-2: 종전에는 qimUserId 를 Keycloak username 으로 넘겨 항상 실패했다 — 이제 id_token 의 sub·sid 를 넘긴다
@@ -189,7 +189,7 @@ public class SloServiceImpl implements SloService {
     private String buildInternalSig(String correlationId) {
         if (internalSigSecret == null || internalSigSecret.isBlank()) {
             // D2 fail-secure: 더미 서명("sig-unsigned")으로 SLO 실패를 숨기지 않는다
-            throw new IllegalStateException("IDO_INTERNAL_SIG_SECRET 미설정 — SLO 내부 서명 불가: correlationId=" + correlationId);
+            throw new IllegalStateException("IDEM_HUB_INTERNAL_SIG_SECRET 미설정 — SLO 내부 서명 불가: correlationId=" + correlationId);
         }
         try {
             long epochSeconds = System.currentTimeMillis() / 1000L;

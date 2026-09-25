@@ -68,14 +68,14 @@ public class OidcCompleteController {
     private final InternalSigVerifier  internalSigVerifier;
     private final QimClient            qimClient;
 
-    @Value("${ido.broker.mode:qsign}")
+    @Value("${idem.hub.broker.mode:qsign}")
     private String brokerMode;
 
     /**
      * D2 fail-secure: CI 가 없는 요청을 identifierHash 로 "임시 사용자" 처리하던 PoC 폴백은 기본 금지.
      * 요청 본문이 통제 가능한 값으로 영구 식별자·세션이 발급되는 경로였다. 로컬·테스트에서만 true.
      */
-    @Value("${ido.broker.allow-ciless-identity:false}")
+    @Value("${idem.hub.broker.allow-ciless-identity:false}")
     private boolean allowCilessIdentity;
 
     /**
@@ -189,7 +189,7 @@ public class OidcCompleteController {
      *
      * <ul>
      *   <li>{@code subjectScheme}+{@code subjectKey} — 정식 계약. 구 필드 {@code ci} 는 scheme=CI 의 별칭으로 받는다(gate 호환).</li>
-     *   <li>키가 없으면 → 로컬 탈출구({@code ido.broker.allow-ciless-identity}) 가 켜진 경우에만 identifierHash 를 임시 ID 로.</li>
+     *   <li>키가 없으면 → 로컬 탈출구({@code idem.hub.broker.allow-ciless-identity}) 가 켜진 경우에만 identifierHash 를 임시 ID 로.</li>
      *   <li>미등록 → {@code registerSubject} 로 자동 등록.</li>
      * </ul>
      */
@@ -198,7 +198,7 @@ public class OidcCompleteController {
         String subjectKey = req.resolvedSubjectKey();
         if (scheme == null || subjectKey == null || subjectKey.isBlank()) {
             if (!allowCilessIdentity) {
-                log.warn("[OidcComplete] 주체 키 미포함 요청 거부 (ido.broker.allow-ciless-identity=false): authResultId={} correlationId={}",
+                log.warn("[OidcComplete] 주체 키 미포함 요청 거부 (idem.hub.broker.allow-ciless-identity=false): authResultId={} correlationId={}",
                         req.getAuthResultId(), cid);
                 throw new PlatformException(PlatformErrorCode.IDO_IDENTITY_UNRESOLVED, cid,
                         "주체 키(subjectScheme/subjectKey) 없는 인증 결과로는 세션을 발급하지 않습니다");

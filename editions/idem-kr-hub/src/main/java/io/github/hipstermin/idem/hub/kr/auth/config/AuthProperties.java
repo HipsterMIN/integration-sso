@@ -3,9 +3,9 @@ package io.github.hipstermin.idem.hub.kr.auth.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * 본인인증 외부 시스템 연동 설정 (ido.auth.*)
+ * 본인인증 외부 시스템 연동 설정 (idem.hub.auth.*)
  *
- * <p>{@code application.yml}의 {@code ido.auth} 네임스페이스 하위 설정을 바인딩.
+ * <p>{@code application.yml}의 {@code idem.hub.auth} 네임스페이스 하위 설정을 바인딩.
  * {@code IdoApplication} 또는 {@code AuthWebClientConfig}에서
  * {@code @EnableConfigurationProperties(AuthProperties.class)}로 활성화.
  *
@@ -35,7 +35,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   <li>{@code INTEGRATION_AUTH_BASE_URL} — 통합인증 서버 기본 URL</li>
  * </ul>
  */
-@ConfigurationProperties(prefix = "ido.auth")
+@ConfigurationProperties(prefix = "idem.hub.auth")
 public record AuthProperties(
         Integration integration
 ) {
@@ -43,7 +43,7 @@ public record AuthProperties(
         if (integration == null) integration = new Integration(null, 0);
     }
 
-    /** NICE·OACX 설정은 S5a 부터 idem-plugin-nice-oacx 가 같은 키(ido.auth.nice.* / ido.auth.oacx.*)로 바인딩한다. */
+    /** NICE·OACX 설정은 S5a 부터 idem-plugin-nice-oacx 가 같은 키(idem.hub.auth.nice.* / idem.hub.auth.oacx.*)로 바인딩한다. */
     public record Integration(
             String baseUrl,
             int timeoutSeconds

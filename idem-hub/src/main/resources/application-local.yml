@@ -1,7 +1,7 @@
 # ⚠️ 2026-09-05: 이 파일에 평문으로 있던 벤더 개발 자격증명(AnyID SSO/PID/KMS, Q-IM AES 공유키, 기관 subject secret)을
 #    모두 환경변수 플레이스홀더로 교체했다. 로컬 기동 시 아래 변수를 셸 또는 IDE 실행 구성에 설정한다.
 #      ANYID_SSO_SECRET_CODE, ANYID_PID_CLIENT_ID, ANYID_PID_CLIENT_SECRET, ANYID_PID_CLIENT_API_KEY,
-#      ANYID_KMS_APP_KEY, QIM_AES_SHARED_KEY, IDO_AGENCY_SUBJECT_SECRET
+#      ANYID_KMS_APP_KEY, IDEM_REGISTRY_AES_SHARED_KEY, IDEM_HUB_AGENCY_SUBJECT_SECRET
 #    값은 저장소·이슈·채팅에 적지 않는다. 종전 값은 git 히스토리에 남아 있으므로 벤더(AnyID·NICE)에 키 교체를 요청한다.
 # ============================================================
 # IdO local 프로파일 — 로컬 개발 환경 안전 기본값
@@ -25,7 +25,7 @@ spring:
     connect-retries-interval: 3s
 
 # ── Feature Flags: 로컬 안전 기본값 ─────────────────────────────────────────
-ido:
+idem.hub:
 
   # F-08: Redisson 분산 락 OFF → Redis 없어도 앱 기동 가능
   # (NiceAuthService는 JVM 내 synchronized 만 사용)
@@ -70,9 +70,9 @@ ido:
     allow-ciless-identity: true    # D2 로컬 전용
   cast:
     allow-generated-keys: true     # D2 로컬 전용
-  qim:
+  registry:
     allow-empty-aes-key: true      # D2 로컬 전용
-  q-authz:
+  authz:
     enabled: false                 # D2: 로컬은 authz 없이 SSO 만 (명시적 스위치)
 management:
   tracing:
@@ -95,13 +95,13 @@ management:
   crypto:
     rotation-enabled: false
 
-  # ⚠️  IDO_BROKER_MODE는 "표준 OIDC(카카오·네이버)" 처리 백엔드만 결정한다.
+  # ⚠️  IDEM_HUB_BROKER_MODE는 "표준 OIDC(카카오·네이버)" 처리 백엔드만 결정한다.
   # 플러그인 직접 브로커 인증수단(AnyID 모바일신분증·간편인증 등)은 이 값과 무관하게 플러그인이 처리.
   #
   # qsign    : [표준 OIDC] q-sign 위임 (기본)
-  # keycloak : [표준 OIDC] Keycloak 직접 연동 → IDO_BROKER_MODE=keycloak 환경변수 설정
+  # keycloak : [표준 OIDC] Keycloak 직접 연동 → IDEM_HUB_BROKER_MODE=keycloak 환경변수 설정
   broker:
-    mode: ${IDO_BROKER_MODE:qsign}
+    mode: ${IDEM_HUB_BROKER_MODE:qsign}
 
   # ── Any-ID 설치형 연동: S5b 부터 코어 설정에 없다 — plugins/idem-plugin-anyid 기본값 + 환경변수(ANYID_*) ──
   # ⚠️ 2026-09-11: 이 블록에 남아 있던 KMS client-info 평문(및 config/anyid/*.json·sso-adaptor-conf-local.properties 의
@@ -125,17 +125,17 @@ management:
     allow-empty-sig-secret: true   # D2 로컬 전용 — prod/stage 는 FailSecureBootGuard 가 거부
 
   # Sprint γ-1 / F2.1 — 로컬은 keycloak.client-secret 미주입 허용
-  # (IDO_BROKER_MODE=qsign 인 경우 실제 사용 안 함. keycloak 모드에서는 실제 secret 필요)
+  # (IDEM_HUB_BROKER_MODE=qsign 인 경우 실제 사용 안 함. keycloak 모드에서는 실제 secret 필요)
   # 운영은 application.yml 에서 강제 (KEYCLOAK_CLIENT_SECRET 환경변수 필수).
   keycloak:
     allow-empty-client-secret: true
 
   # F-18: SP 수신 감사 로그 OFF
   qim:
-    aes-shared-key: ${QIM_AES_SHARED_KEY:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
+    aes-shared-key: ${IDEM_REGISTRY_AES_SHARED_KEY:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
     receiver-audit-enabled: false
 
-  agency-subject-secret: ${IDO_AGENCY_SUBJECT_SECRET:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
+  agency-subject-secret: ${IDEM_HUB_AGENCY_SUBJECT_SECRET:}   # 개인정보·벤더 자격증명 — 환경변수로만 주입 (2026-09-05 평문 제거)
 
 # ── Resilience4j 로컬 완화 설정 (F-06, F-07) ─────────────────────────────────
 # NICE/통합인증 서버 없는 로컬에서 CB가 즉시 OPEN되어

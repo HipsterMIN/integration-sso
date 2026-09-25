@@ -53,65 +53,65 @@ class FeSessionServiceImplPolicyTest {
     @Test
     @DisplayName("유휴·절대 만료를 프로파일 값으로 줄인다")
     void tightens() {
-        given(values.get("fe:session:s1")).willReturn(session("s1", created));
-        given(redis.getExpire("fe:session:s1")).willReturn(1800L);
+        given(values.get("idem:fe:session:s1")).willReturn(session("s1", created));
+        given(redis.getExpire("idem:fe:session:s1")).willReturn(1800L);
 
         FeSession updated = sut.applySessionPolicy("s1", 10, 60, null).orElseThrow();
 
         assertThat(updated.getAbsoluteExpiresAt()).isEqualTo(created.plus(Duration.ofMinutes(60)));
         ArgumentCaptor<Duration> ttl = ArgumentCaptor.forClass(Duration.class);
-        verify(values).set(eq("fe:session:s1"), any(), ttl.capture());
+        verify(values).set(eq("idem:fe:session:s1"), any(), ttl.capture());
         assertThat(ttl.getValue()).isEqualTo(Duration.ofMinutes(10));
     }
 
     @Test
     @DisplayName("프로파일 값이 더 느슨하면 아무것도 늘리지 않는다")
     void neverLoosens() {
-        given(values.get("fe:session:s1")).willReturn(session("s1", created));
-        given(redis.getExpire("fe:session:s1")).willReturn(1800L);
+        given(values.get("idem:fe:session:s1")).willReturn(session("s1", created));
+        given(redis.getExpire("idem:fe:session:s1")).willReturn(1800L);
 
         FeSession updated = sut.applySessionPolicy("s1", 60, 600, null).orElseThrow();
 
         assertThat(updated.getAbsoluteExpiresAt()).isEqualTo(created.plus(Duration.ofMinutes(480)));
         ArgumentCaptor<Duration> ttl = ArgumentCaptor.forClass(Duration.class);
-        verify(values).set(eq("fe:session:s1"), any(), ttl.capture());
+        verify(values).set(eq("idem:fe:session:s1"), any(), ttl.capture());
         assertThat(ttl.getValue()).isEqualTo(Duration.ofSeconds(1800));
     }
 
     @Test
     @DisplayName("concurrent=1 이면 같은 사용자의 다른 세션을 오래된 순으로 만료하고 이 세션은 남긴다")
     void enforcesConcurrent() {
-        given(values.get("fe:session:s1")).willReturn(session("s1", created));
-        given(values.get("fe:session:old1")).willReturn(session("old1", created.minus(Duration.ofHours(2))));
-        given(values.get("fe:session:old2")).willReturn(session("old2", created.minus(Duration.ofHours(1))));
-        given(redis.getExpire("fe:session:s1")).willReturn(1800L);
-        given(sets.members("fe:user-sessions:u1")).willReturn(Set.of("s1", "old1", "old2"));
+        given(values.get("idem:fe:session:s1")).willReturn(session("s1", created));
+        given(values.get("idem:fe:session:old1")).willReturn(session("old1", created.minus(Duration.ofHours(2))));
+        given(values.get("idem:fe:session:old2")).willReturn(session("old2", created.minus(Duration.ofHours(1))));
+        given(redis.getExpire("idem:fe:session:s1")).willReturn(1800L);
+        given(sets.members("idem:fe:user-sessions:u1")).willReturn(Set.of("s1", "old1", "old2"));
 
         sut.applySessionPolicy("s1", null, null, 1);
 
-        verify(redis).delete("fe:session:old1");
-        verify(redis).delete("fe:session:old2");
-        verify(redis, never()).delete("fe:session:s1");
+        verify(redis).delete("idem:fe:session:old1");
+        verify(redis).delete("idem:fe:session:old2");
+        verify(redis, never()).delete("idem:fe:session:s1");
     }
 
     @Test
     @DisplayName("concurrent=2 이면 가장 오래된 하나만 만료")
     void concurrentTwoKeepsNewest() {
-        given(values.get("fe:session:s1")).willReturn(session("s1", created));
-        given(values.get("fe:session:old1")).willReturn(session("old1", created.minus(Duration.ofHours(2))));
-        given(values.get("fe:session:old2")).willReturn(session("old2", created.minus(Duration.ofHours(1))));
-        given(redis.getExpire("fe:session:s1")).willReturn(1800L);
-        given(sets.members("fe:user-sessions:u1")).willReturn(Set.of("s1", "old1", "old2"));
+        given(values.get("idem:fe:session:s1")).willReturn(session("s1", created));
+        given(values.get("idem:fe:session:old1")).willReturn(session("old1", created.minus(Duration.ofHours(2))));
+        given(values.get("idem:fe:session:old2")).willReturn(session("old2", created.minus(Duration.ofHours(1))));
+        given(redis.getExpire("idem:fe:session:s1")).willReturn(1800L);
+        given(sets.members("idem:fe:user-sessions:u1")).willReturn(Set.of("s1", "old1", "old2"));
 
         sut.applySessionPolicy("s1", null, null, 2);
 
-        verify(redis).delete("fe:session:old1");
-        verify(redis, never()).delete("fe:session:old2");
+        verify(redis).delete("idem:fe:session:old1");
+        verify(redis, never()).delete("idem:fe:session:old2");
     }
 
     @Test
     void missingSessionIsEmpty() {
-        given(values.get("fe:session:none")).willReturn(null);
+        given(values.get("idem:fe:session:none")).willReturn(null);
         assertThat(sut.applySessionPolicy("none", 10, 10, 1)).isEmpty();
     }
 }

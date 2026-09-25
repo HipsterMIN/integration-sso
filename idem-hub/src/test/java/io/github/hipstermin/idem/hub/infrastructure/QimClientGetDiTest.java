@@ -38,9 +38,9 @@ import org.springframework.web.client.RestTemplate;
  *   <li>2xx + di 존재 → DI 반환 (정상)</li>
  *   <li>2xx + di null 또는 blank → null 반환 (정당 미매핑)</li>
  *   <li>404 NotFound → null 반환 (정당 미매핑)</li>
- *   <li>5xx → PlatformException(IDO_QIM_UNREACHABLE)</li>
- *   <li>네트워크 오류 (ResourceAccessException) → PlatformException(IDO_QIM_UNREACHABLE)</li>
- *   <li>예상 외 RuntimeException → PlatformException(IDO_QIM_UNREACHABLE)</li>
+ *   <li>5xx → PlatformException(IDEM_HUB_REGISTRY_UNREACHABLE)</li>
+ *   <li>네트워크 오류 (ResourceAccessException) → PlatformException(IDEM_HUB_REGISTRY_UNREACHABLE)</li>
+ *   <li>예상 외 RuntimeException → PlatformException(IDEM_HUB_REGISTRY_UNREACHABLE)</li>
  * </ul>
  */
 @ExtendWith(MockitoExtension.class)

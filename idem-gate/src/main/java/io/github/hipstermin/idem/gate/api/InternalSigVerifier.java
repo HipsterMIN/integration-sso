@@ -30,8 +30,8 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>운영 정책</b>: 서명 검증은 항상 strict 모드로 동작합니다.
  * PoC용 non-strict 코드 경로는 운영 이관 전 완전히 제거되었습니다.
- * IDO_INTERNAL_SIG_SECRET 환경변수를 반드시 설정하세요.
- * ⚠️ [REQUIRES_MANUAL] IDO_INTERNAL_SIG_SECRET: openssl rand -hex 32
+ * IDEM_HUB_INTERNAL_SIG_SECRET 환경변수를 반드시 설정하세요.
+ * ⚠️ [REQUIRES_MANUAL] IDEM_HUB_INTERNAL_SIG_SECRET: openssl rand -hex 32
  */
 @Slf4j
 @Component
@@ -43,18 +43,18 @@ public class InternalSigVerifier {
     private static final int    MIN_SECRET_LENGTH = 32;
 
     /**
-     * IdO 와 공유하는 비밀키 (docker-compose: IDO_INTERNAL_SIG_SECRET)
-     * 설계서 §9.4 / Q-Sign application.yml: qsign.ido.internal-sig-secret
-     * 환경변수 IDO_INTERNAL_SIG_SECRET 필수 설정 (기본값 없음)
+     * IdO 와 공유하는 비밀키 (docker-compose: IDEM_HUB_INTERNAL_SIG_SECRET)
+     * 설계서 §9.4 / Q-Sign application.yml: idem.gate.hub.internal-sig-secret
+     * 환경변수 IDEM_HUB_INTERNAL_SIG_SECRET 필수 설정 (기본값 없음)
      */
-    @Value("${qsign.ido.internal-sig-secret:}")
+    @Value("${idem.gate.hub.internal-sig-secret:}")
     private String sigSecret;
 
     /**
      * 기동 시 내부 서명 비밀키 보안 검증
      *
      * <p>서명 검증은 항상 strict 모드로 동작합니다. non-strict 경로는 제거되었습니다.
-     * IDO_INTERNAL_SIG_SECRET 미설정 시 모든 내부 API 호출이 거부됩니다.
+     * IDEM_HUB_INTERNAL_SIG_SECRET 미설정 시 모든 내부 API 호출이 거부됩니다.
      */
     /** D2 fail-secure: 운영·스테이지 프로파일에서는 비밀키 미설정·기본값이면 기동을 거부한다 */
     @Value("${spring.profiles.active:}")
@@ -69,17 +69,17 @@ public class InternalSigVerifier {
         boolean missing  = sigSecret == null || sigSecret.isBlank();
         boolean insecure = INSECURE_DEFAULT.equals(sigSecret);
         if (hardened && (missing || insecure)) {
-            throw new IllegalStateException("[QSign-InternalSigVerifier] IDO_INTERNAL_SIG_SECRET "
+            throw new IllegalStateException("[QSign-InternalSigVerifier] IDEM_HUB_INTERNAL_SIG_SECRET "
                     + (missing ? "미설정" : "이 공개 기본값") + " — 운영·스테이지에서는 기동을 거부합니다 (openssl rand -hex 32 로 생성해 주입)");
         }
         if (missing) {
-            log.error("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET 환경변수 미설정. " +
+            log.error("[QSign-InternalSigVerifier][P1-보안경고] IDEM_HUB_INTERNAL_SIG_SECRET 환경변수 미설정. " +
                       "⚠️ [REQUIRES_MANUAL] 모든 내부 서명 검증이 실패합니다. 즉시 설정하세요: openssl rand -hex 32");
         } else if (insecure) {
-            log.error("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
+            log.error("[QSign-InternalSigVerifier][P1-보안경고] IDEM_HUB_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
                       "운영 환경에서는 반드시 최소 32자 이상의 무작위 비밀값으로 교체하세요.");
         } else if (sigSecret.length() < MIN_SECRET_LENGTH) {
-            log.warn("[QSign-InternalSigVerifier][P1-보안경고] IDO_INTERNAL_SIG_SECRET 길이 부족: 현재={}자, 권장={}자 이상.",
+            log.warn("[QSign-InternalSigVerifier][P1-보안경고] IDEM_HUB_INTERNAL_SIG_SECRET 길이 부족: 현재={}자, 권장={}자 이상.",
                      sigSecret.length(), MIN_SECRET_LENGTH);
         } else {
             log.info("[QSign-InternalSigVerifier] strict 모드 — X-Internal-Sig HMAC-SHA256 검증 활성화됨.");
@@ -89,11 +89,11 @@ public class InternalSigVerifier {
     /**
      * 타임스탬프 유효 범위 (초, 양방향): 기본 60초
      */
-    @Value("${qsign.ido.internal-sig-ttl-seconds:60}")
+    @Value("${idem.gate.hub.internal-sig-ttl-seconds:60}")
     private int ttlSeconds;
 
     // NOTE: strict-mode 설정 항목 제거됨 — 서명 검증은 항상 strict 모드로 동작
-    // PoC용 qsign.ido.internal-sig-strict-mode 설정이 application.yml에 존재하는 경우 제거 가능
+    // PoC용 idem.gate.hub.internal-sig-strict-mode 설정이 application.yml에 존재하는 경우 제거 가능
 
     /**
      * X-Internal-Sig 서명 검증

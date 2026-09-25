@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
  *     base-url: http://localhost:8080
  *     realm: onepass
  *     client-id: q-sign-client
- *     client-secret: ${QSIGN_KEYCLOAK_CLIENT_SECRET:change-me}
+ *     client-secret: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:change-me}
  *     redirect-uri: http://localhost:8081/api/v1/oidc/keycloak/callback
  *     state-ttl-seconds: 300
  *     idp-hint-mapping:
@@ -38,7 +38,7 @@ import org.springframework.stereotype.Component;
 @Getter
 @Setter
 @Component
-@ConfigurationProperties(prefix = "qsign.keycloak")
+@ConfigurationProperties(prefix = "idem.gate.keycloak")
 public class KeycloakProperties {
 
     /** Keycloak 서버 Base URL (예: http://localhost:8080) */
@@ -52,7 +52,7 @@ public class KeycloakProperties {
 
     /**
      * q-sign 용 Keycloak Client Secret
-     * 환경변수: QSIGN_KEYCLOAK_CLIENT_SECRET (필수)
+     * 환경변수: IDEM_GATE_KEYCLOAK_CLIENT_SECRET (필수)
      *
      * <p>[Sprint γ-1 / F2.1] 기본값 "change-me" 제거 → 환경변수 주입 필수.
      * 부팅 시 {@link #validateClientSecret()} 가 비어있거나 placeholder 면 즉시 실패.
@@ -64,9 +64,9 @@ public class KeycloakProperties {
     /**
      * 부팅 검증 우회 escape hatch — 테스트/로컬 한정.
      * 운영 환경에서는 절대 true 설정 금지.
-     * <p>활성화 방법(테스트 한정): {@code qsign.keycloak.allow-empty-client-secret=true}
+     * <p>활성화 방법(테스트 한정): {@code idem.gate.keycloak.allow-empty-client-secret=true}
      */
-    @Value("${qsign.keycloak.allow-empty-client-secret:false}")
+    @Value("${idem.gate.keycloak.allow-empty-client-secret:false}")
     private boolean allowEmptyClientSecret;
 
     /**
@@ -171,24 +171,24 @@ public class KeycloakProperties {
     void validateClientSecret() {
         if (clientSecret == null || clientSecret.isBlank()) {
             if (allowEmptyClientSecret) {
-                log.warn("[KeycloakProperties] qsign.keycloak.client-secret 미설정 — "
+                log.warn("[KeycloakProperties] idem.gate.keycloak.client-secret 미설정 — "
                         + "allow-empty-client-secret=true 로 우회 (테스트/로컬 한정)");
                 return;
             }
             throw new IllegalStateException(
-                    "qsign.keycloak.client-secret 환경변수 QSIGN_KEYCLOAK_CLIENT_SECRET 가 설정되지 않았습니다. "
+                    "idem.gate.keycloak.client-secret 환경변수 IDEM_GATE_KEYCLOAK_CLIENT_SECRET 가 설정되지 않았습니다. "
                             + "운영에서는 반드시 Keycloak Admin Console 의 Client Secret 을 주입하십시오. "
-                            + "테스트/로컬에서만 qsign.keycloak.allow-empty-client-secret=true 로 우회 가능.");
+                            + "테스트/로컬에서만 idem.gate.keycloak.allow-empty-client-secret=true 로 우회 가능.");
         }
         String normalized = clientSecret.trim().toLowerCase();
         if (FORBIDDEN_PLACEHOLDERS.contains(normalized)) {
             throw new IllegalStateException(
-                    "qsign.keycloak.client-secret 가 안전하지 않은 placeholder('"
+                    "idem.gate.keycloak.client-secret 가 안전하지 않은 placeholder('"
                             + clientSecret + "') 입니다. 운영용 비밀키를 주입하십시오.");
         }
         if (clientSecret.length() < 8) {
             throw new IllegalStateException(
-                    "qsign.keycloak.client-secret 가 너무 짧습니다 (length="
+                    "idem.gate.keycloak.client-secret 가 너무 짧습니다 (length="
                             + clientSecret.length() + "). 최소 8자 이상의 무작위 비밀키를 주입하십시오.");
         }
         log.info("[KeycloakProperties] client-secret 검증 통과 (length={})", clientSecret.length());

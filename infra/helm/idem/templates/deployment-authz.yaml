@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-authz
+    app.kubernetes.io/component: idem-authz
   annotations:
     # Secret 변경 시 자동 rollout 트리거
     checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
@@ -25,7 +25,7 @@ spec:
       labels:
         app: idem-authz
         {{- include "onepass.labels" . | nindent 8 }}
-        app.kubernetes.io/component: q-authz
+        app.kubernetes.io/component: idem-authz
     spec:
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
@@ -36,7 +36,7 @@ spec:
       {{- end }}
       terminationGracePeriodSeconds: 30
       containers:
-        - name: q-authz
+        - name: idem-authz
           image: {{ include "onepass.image" .Values.authz.image }}
           imagePullPolicy: {{ .Values.authz.image.pullPolicy }}
           ports:

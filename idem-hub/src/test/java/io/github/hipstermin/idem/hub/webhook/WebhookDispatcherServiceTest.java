@@ -184,7 +184,7 @@ class WebhookDispatcherServiceTest {
                     ReflectionTestUtils.invokeMethod(bean, "validateSigningSecret"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("F4.3 Guard")
-                    .hasMessageContaining("ido.webhook.signing-secret");
+                    .hasMessageContaining("idem.hub.webhook.signing-secret");
         }
 
         @Test
@@ -237,7 +237,7 @@ class WebhookDispatcherServiceTest {
         @BeforeEach
         void setUpEvent() {
             issuedEvent = new HandoffEvent(
-                    HandoffEvent.TYPE_HANDOFF_ISSUED, "ido",
+                    HandoffEvent.TYPE_HANDOFF_ISSUED, "idem-hub",
                     CORRELATION_ID, "qim-user-001", 1L,
                     "ticket-abc", AGENCY_CODE,
                     "auth-res-001", "ISSUED", null
@@ -359,7 +359,7 @@ class WebhookDispatcherServiceTest {
         @DisplayName("REVOKED 이벤트는 revokeReason이 payload에 포함되어야 함")
         void revokedEvent_includesRevokeReasonInPayload() {
             HandoffEvent revokedEvent = new HandoffEvent(
-                    HandoffEvent.TYPE_HANDOFF_REVOKED, "ido",
+                    HandoffEvent.TYPE_HANDOFF_REVOKED, "idem-hub",
                     CORRELATION_ID, "qim-user-001", 1L,
                     "ticket-abc", AGENCY_CODE,
                     "auth-res-001", "REVOKED", "incident_containment"

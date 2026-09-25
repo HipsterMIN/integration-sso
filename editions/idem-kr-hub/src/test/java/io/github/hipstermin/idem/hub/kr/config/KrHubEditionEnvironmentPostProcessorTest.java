@@ -31,8 +31,8 @@ class KrHubEditionEnvironmentPostProcessorTest {
         new KrHubEditionEnvironmentPostProcessor().postProcessEnvironment(env, null);
         assertThat(env.getProperty("idem.plugins.nice-oacx.enabled")).isEqualTo("true");
         assertThat(env.getProperty("idem.plugins.anyid.enabled")).isEqualTo("true");
-        assertThat(env.getProperty("ido.broker.nonoidc.providers.PASS.auth-level")).isEqualTo("L2");
-        assertThat(env.getProperty("ido.broker.nonoidc.providers.PASS.initiate-url")).contains("{callbackUrl}");
+        assertThat(env.getProperty("idem.hub.broker.nonoidc.providers.PASS.auth-level")).isEqualTo("L2");
+        assertThat(env.getProperty("idem.hub.broker.nonoidc.providers.PASS.initiate-url")).contains("{callbackUrl}");
     }
 
     @Test

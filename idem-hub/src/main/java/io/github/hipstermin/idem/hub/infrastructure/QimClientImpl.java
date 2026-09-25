@@ -42,18 +42,18 @@ public class QimClientImpl implements QimClient {
     private final RestTemplate qimRestTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${ido.qim.base-url:http://localhost:8082}")
+    @Value("${idem.hub.registry.base-url:http://localhost:8082}")
     private String qimBaseUrl;
 
     /**
      * [P2 수정] Q-IM 내부 API 호출 키 — 환경변수 주입 (하드코딩 제거)
      *
      * <p>기존: {@code headers.set("X-Internal-Api-Key", "ido-internal")} — 하드코딩으로 소스 노출 위험.
-     * <p>수정: {@code IDO_QIM_INTERNAL_API_KEY} 환경변수에서 주입.
+     * <p>수정: {@code IDEM_HUB_REGISTRY_INTERNAL_API_KEY} 환경변수에서 주입.
      * <p>운영: K8s Secret / Vault에서 주입 필수. 기본값 빈 문자열 → Q-IM 서버가 401 반환하여 실패 조기 감지.
-     * <p>로컬 개발: {@code IDO_QIM_INTERNAL_API_KEY=ido-internal} (docker-compose.yml에 설정)
+     * <p>로컬 개발: {@code IDEM_HUB_REGISTRY_INTERNAL_API_KEY=ido-internal} (docker-compose.yml에 설정)
      */
-    @Value("${ido.qim.internal-api-key:}")
+    @Value("${idem.hub.registry.internal-api-key:}")
     private String qimInternalApiKey;
 
     // ── getUserStatus ─────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ public class QimClientImpl implements QimClient {
         try {
             HttpHeaders headers = buildHeaders(correlationId);
             String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(qimBaseUrl + "/api/v1/internal/events")
-                    .queryParam("topic", "qim.user.events")
+                    .queryParam("topic", "idem.registry.user.events")
                     .queryParam("afterCreatedAt", afterCreatedAt != null ? afterCreatedAt.toString() : java.time.Instant.EPOCH.toString())
                     .queryParam("afterEventId", afterEventId != null ? afterEventId : "")
                     .queryParam("limit", limit)
@@ -161,7 +161,7 @@ public class QimClientImpl implements QimClient {
      *   <li>2xx + di 존재 → DI 반환 (= 기관 매핑 있음 → APPROVED)</li>
      *   <li>404 / 2xx + di 없음 → {@code null} 반환 (= 영구 미매핑 → 정상 GUEST)</li>
      *   <li>5xx / 4xx(404 제외) / 네트워크 오류 / 타임아웃 →
-     *       {@link PlatformException}({@link PlatformErrorCode#IDO_QIM_UNREACHABLE}) throw
+     *       {@link PlatformException}({@link PlatformErrorCode#IDEM_HUB_REGISTRY_UNREACHABLE}) throw
      *       (= 일시 장애 → 호출자가 503으로 응답하여 클라이언트 재시도 유도)</li>
      * </ul>
      *
@@ -435,11 +435,11 @@ public class QimClientImpl implements QimClient {
     private HttpHeaders buildHeaders(String correlationId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Correlation-Id", correlationId != null ? correlationId : "");
-        // [P2 수정] 환경변수 IDO_QIM_INTERNAL_API_KEY 에서 주입 (하드코딩 제거)
+        // [P2 수정] 환경변수 IDEM_HUB_REGISTRY_INTERNAL_API_KEY 에서 주입 (하드코딩 제거)
         if (qimInternalApiKey != null && !qimInternalApiKey.isBlank()) {
             headers.set("X-Internal-Api-Key", qimInternalApiKey);
         } else {
-            log.warn("[QimClient][P2-보안경고] IDO_QIM_INTERNAL_API_KEY 미설정 — Q-IM API 인증 헤더 누락. " +
+            log.warn("[QimClient][P2-보안경고] IDEM_HUB_REGISTRY_INTERNAL_API_KEY 미설정 — Q-IM API 인증 헤더 누락. " +
                      "운영 배포 전 반드시 환경변수 설정 필요. correlationId={}", correlationId);
         }
         return headers;

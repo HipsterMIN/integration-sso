@@ -1,6 +1,6 @@
 # F-26: HMAC-SHA256 서명 필수화 (Sprint 17 구현 완료)
 
-> **환경변수**: `IDO_HMAC_SIG_REQUIRED`  
+> **환경변수**: `IDEM_HUB_HMAC_SIG_REQUIRED`  
 > **Phase**: Phase 4 (모든 기관 준비 완료 후 `true` 전환)  
 > **기본값**: `false` (Phase 1~3: 소프트 검증 — 헤더 있으면 검증, 없으면 통과)  
 > **헤더**: `X-Internal-Sig`  
@@ -96,7 +96,7 @@ sig = hmac.new(shared_secret, payload, hashlib.sha256).hexdigest()
 
 ```bash
 # 기관별 독립 HMAC 키 Secret 생성
-# 환경변수 명명 규칙: IDO_GATEWAY_HMAC_KEY_{기관코드 대문자}
+# 환경변수 명명 규칙: IDEM_HUB_GATEWAY_HMAC_KEY_{기관코드 대문자}
 kubectl create secret generic ido-gateway-hmac-keys \
   --from-literal=AGENCY_001=$(openssl rand -base64 48) \
   --from-literal=AGENCY_002=$(openssl rand -base64 48) \
@@ -213,7 +213,7 @@ watch -n 10 'kubectl logs -l app=ido -n production --tail=50 | grep "HMAC\|401"'
 
 ```bash
 # F-26 활성화
-kubectl set env deployment/ido -n production IDO_HMAC_SIG_REQUIRED=true
+kubectl set env deployment/ido -n production IDEM_HUB_HMAC_SIG_REQUIRED=true
 kubectl rollout restart deployment/ido -n production
 
 # 서명 없이 요청 시 401 확인
@@ -234,7 +234,7 @@ curl -s -o /dev/null -w "%{http_code}" \
 
 ```bash
 # 즉시 롤백 (kubectl)
-kubectl set env deployment/ido -n production IDO_HMAC_SIG_REQUIRED=false
+kubectl set env deployment/ido -n production IDEM_HUB_HMAC_SIG_REQUIRED=false
 # → Pod 재시작 없이 약 30초 내 적용
 
 # Helm 롤백

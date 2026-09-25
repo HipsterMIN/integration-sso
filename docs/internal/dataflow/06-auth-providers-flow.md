@@ -851,8 +851,8 @@ onBizSubmit → bizFormRef.current?.submit()
 
 | 설정 경로 | 기본값 | 설명 |
 |----------|--------|------|
-| `ido.auth.nice.timeout-seconds` | `10` | NICE API 호출 타임아웃 (초) |
-| `ido.auth.oacx.debug-mode` | `false` | OACX SDK 디버그 로그 (운영: false 필수) |
+| `idem.hub.auth.nice.timeout-seconds` | `10` | NICE API 호출 타임아웃 (초) |
+| `idem.hub.auth.oacx.debug-mode` | `false` | OACX SDK 디버그 로그 (운영: false 필수) |
 | `NiceAuthSessionStore.SESSION_TTL_MINUTES` | `10` | NICE 인증 세션 TTL (Redis) |
 | `NiceTokenStore.EXPIRY_SAFETY_MARGIN_MILLIS` | `60,000` | 토큰 만료 60초 전 재발급 유도 |
 | `NiceAuthService.LOCK_WAIT_SECONDS` | `3` | Redisson 분산 락 대기 시간 |

@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
  * "사업자등록번호가 필수인 목록" 만 안다. 회원 모델 자체의 일반화는 S8 에서 다룬다.
  *
  * <pre>
- * ido.qim.member-division-codes:    A101,A102   # 허용 목록
- * ido.qim.corporate-division-codes: A102        # bizno(사업자등록번호) 필수 목록 (허용 목록의 부분집합)
+ * idem.hub.registry.member-division-codes:    A101,A102   # 허용 목록
+ * idem.hub.registry.corporate-division-codes: A102        # bizno(사업자등록번호) 필수 목록 (허용 목록의 부분집합)
  * </pre>
  */
 @Component
@@ -29,15 +29,15 @@ public class MemberDivisionPolicy {
     private final Set<String> corporate;
 
     public MemberDivisionPolicy(
-            @Value("${ido.qim.member-division-codes:A101,A102}") List<String> allowed,
-            @Value("${ido.qim.corporate-division-codes:A102}") List<String> corporate) {
+            @Value("${idem.hub.registry.member-division-codes:A101,A102}") List<String> allowed,
+            @Value("${idem.hub.registry.corporate-division-codes:A102}") List<String> corporate) {
         this.allowed   = normalize(allowed);
         this.corporate = normalize(corporate);
         if (this.allowed.isEmpty()) {
-            throw new IllegalStateException("ido.qim.member-division-codes 가 비어 있습니다. 허용 회원 구분 코드를 1개 이상 지정하세요.");
+            throw new IllegalStateException("idem.hub.registry.member-division-codes 가 비어 있습니다. 허용 회원 구분 코드를 1개 이상 지정하세요.");
         }
         if (!this.allowed.containsAll(this.corporate)) {
-            throw new IllegalStateException("ido.qim.corporate-division-codes " + this.corporate
+            throw new IllegalStateException("idem.hub.registry.corporate-division-codes " + this.corporate
                     + " 는 member-division-codes " + this.allowed + " 의 부분집합이어야 합니다.");
         }
     }

@@ -318,8 +318,8 @@ class CiCryptoServiceImplTest {
             CiCryptoServiceImpl svc = freshInstance(null, "", "v1", false);
             assertThatThrownBy(svc::validateKeyV1)
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("qim.crypto.ci.key-v1")
-                    .hasMessageContaining("QIM_CI_AES_KEY_V1");
+                    .hasMessageContaining("idem.registry.crypto.ci.key-v1")
+                    .hasMessageContaining("IDEM_REGISTRY_CI_AES_KEY_V1");
         }
 
         @Test
@@ -328,7 +328,7 @@ class CiCryptoServiceImplTest {
             CiCryptoServiceImpl svc = freshInstance("   ", "", "v1", false);
             assertThatThrownBy(svc::validateKeyV1)
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("QIM_CI_AES_KEY_V1");
+                    .hasMessageContaining("IDEM_REGISTRY_CI_AES_KEY_V1");
         }
 
         @Test
@@ -388,7 +388,7 @@ class CiCryptoServiceImplTest {
             CiCryptoServiceImpl svc = freshInstance(VALID_32B_KEY, "", "v2", false);
             assertThatThrownBy(svc::validateKeyV1)
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("qim.crypto.ci.key-v2");
+                    .hasMessageContaining("idem.registry.crypto.ci.key-v2");
         }
 
         // ── Accept ────────────────────────────────────────────────────────

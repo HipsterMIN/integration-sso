@@ -15,7 +15,7 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092
 
-ido:
+idem.hub:
   # S7 관리자 인증 — 테스트 컨텍스트 (통합 테스트는 이 계정으로 실제 로그인·TOTP 등록을 거친다)
   admin:
     bootstrap:
@@ -25,7 +25,7 @@ ido:
     allow-derived-secret-key: true
     cookie:
       secure: false
-  qim:
+  registry:
     allow-empty-aes-key: true      # D2 테스트 전용 탈출구
     base-url: http://localhost:8082
     connect-timeout-ms: 3000
@@ -51,11 +51,11 @@ ido:
   # Sprint γ-3 / F3.3 후속 — 슬라이스 테스트에서는 Handoff 폴백 키 미주입 허용
   ticket:
     allow-empty-fallback-keys: true
-  # Sprint α-1 / F5.1 — LocalKmsClient 는 ido.kms.enabled=false 를 명시해야 활성화된다(matchIfMissing=false).
+  # Sprint α-1 / F5.1 — LocalKmsClient 는 idem.hub.kms.enabled=false 를 명시해야 활성화된다(matchIfMissing=false).
   # 테스트용 application.yml 이 main 의 application.yml 을 가리므로 main 기본값(enabled=false)이 적용되지 않는다.
   kms:
     enabled: false
-  # AuthProperties 는 record(기본값 없음) — ido.auth.* 가 비어 있으면 AuthWebClientConfig 가 NPE 로 기동 실패한다.
+  # AuthProperties 는 record(기본값 없음) — idem.hub.auth.* 가 비어 있으면 AuthWebClientConfig 가 NPE 로 기동 실패한다.
   # main application.yml 의 기본값과 동일하게 채운다(자격 증명은 빈 값).
   auth:
     nice:
@@ -70,7 +70,7 @@ ido:
     allow-ciless-identity: true    # D2 테스트 전용 탈출구
   cast:
     allow-generated-keys: true     # D2 테스트 전용 탈출구
-  q-authz:
+  authz:
     enabled: false                 # D2: 테스트는 authz 없이
 resilience4j:
   circuitbreaker:

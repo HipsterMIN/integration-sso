@@ -5,9 +5,9 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * ido.outbox 테이블 레코드 DTO
+ * idem.hub.outbox 테이블 레코드 DTO
  *
- * <p>V1 마이그레이션에서 생성된 ido.outbox 테이블 구조와 1:1 매핑.
+ * <p>V1 마이그레이션에서 생성된 idem.hub.outbox 테이블 구조와 1:1 매핑.
  * KeycloakOidcService / NonOidcAuthService 가 INSERT한 PENDING 레코드를
  * {@link IdoOutboxRelay} 가 조회·발행 시 사용.
  *

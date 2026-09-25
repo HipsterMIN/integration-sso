@@ -34,19 +34,19 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
  *
  * <p><b>컨슈머 그룹 목록</b>:
  * <ul>
- *   <li>{@code ido-qim-consumer}         — qim.user.events 구독 (Q-IM 캐시 갱신)</li>
- *   <li>{@code ido-qsign-consumer}        — qsign.auth.events 구독 (인증 결과 Pre-warming)</li>
- *   <li>{@code ido-handoff-consumer}      — ido.handoff.events 구독 (기관 webhook 트리거)</li>
+ *   <li>{@code idem-hub-registry-consumer}         — idem.registry.user.events 구독 (Q-IM 캐시 갱신)</li>
+ *   <li>{@code ido-qsign-consumer}        — idem.gate.auth.events 구독 (인증 결과 Pre-warming)</li>
+ *   <li>{@code ido-handoff-consumer}      — idem.hub.handoff.events 구독 (기관 webhook 트리거)</li>
  *   <li>{@code ido-fe-advisory-consumer}  — platform.session.advisory 구독 (FE 세션 처리)</li>
- *   <li>{@code ido-qim-member-consumer}  — qim.user.events 구독 (QIM-OUTBOX-SPEC-001 회원 등록/전환/탈퇴)</li>
+ *   <li>{@code ido-qim-member-consumer}  — idem.registry.user.events 구독 (QIM-OUTBOX-SPEC-001 회원 등록/전환/탈퇴)</li>
  * </ul>
  *
  * <p><b>60,000명 부하 대응 Concurrency 설계</b>:
  * <pre>
- * qsign.auth.events   → concurrency=6 (파티션 12개 기준 절반, pre-warming 병렬도)
- * ido.handoff.events  → concurrency=6 (파티션 12개 기준 절반, webhook 큐잉 병렬도)
- * qim.user.events     → concurrency=3 (캐시 갱신, 순서 중요) — ido-qim-consumer
- * qim.user.events     → concurrency=2 (등록/전환/탈퇴 처리) — ido-qim-member-consumer
+ * idem.gate.auth.events   → concurrency=6 (파티션 12개 기준 절반, pre-warming 병렬도)
+ * idem.hub.handoff.events  → concurrency=6 (파티션 12개 기준 절반, webhook 큐잉 병렬도)
+ * idem.registry.user.events     → concurrency=3 (캐시 갱신, 순서 중요) — idem-hub-registry-consumer
+ * idem.registry.user.events     → concurrency=2 (등록/전환/탈퇴 처리) — ido-qim-member-consumer
  * platform.advisory   → concurrency=3 (FE 세션 처리)
  * </pre>
  */
@@ -56,25 +56,25 @@ public class KafkaConsumerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${ido.kafka.consumer-group-qim:ido-qim-consumer}")
+    @Value("${idem.hub.kafka.consumer-group-qim:idem-hub-registry-consumer}")
     private String qimConsumerGroup;
 
-    @Value("${ido.kafka.consumer-group-qsign:ido-qsign-consumer}")
+    @Value("${idem.hub.kafka.consumer-group-qsign:ido-qsign-consumer}")
     private String qsignConsumerGroup;
 
-    @Value("${ido.kafka.consumer-group-handoff:ido-handoff-consumer}")
+    @Value("${idem.hub.kafka.consumer-group-handoff:ido-handoff-consumer}")
     private String handoffConsumerGroup;
 
-    @Value("${ido.kafka.consumer-group-fe-advisory:ido-fe-advisory-consumer}")
+    @Value("${idem.hub.kafka.consumer-group-fe-advisory:ido-fe-advisory-consumer}")
     private String feAdvisoryConsumerGroup;
 
-    // QIM-OUTBOX-SPEC-001: qim.user.events 구독 (BIZ/PERSONAL REGISTERED/CONVERTED/WITHDRAWN)
-    @Value("${ido.kafka.consumer-group-qim-member:ido-qim-member-consumer}")
+    // QIM-OUTBOX-SPEC-001: idem.registry.user.events 구독 (BIZ/PERSONAL REGISTERED/CONVERTED/WITHDRAWN)
+    @Value("${idem.hub.kafka.consumer-group-qim-member:ido-qim-member-consumer}")
     private String qimMemberConsumerGroup;
 
-    // 기존 qim.sp.member.events 컨슈머 그룹 (폐기 예정 토픽 마이그레이션 완료 시 제거)
+    // 기존 idem.registry.sp.member.events 컨슈머 그룹 (폐기 예정 토픽 마이그레이션 완료 시 제거)
     @Deprecated(since = "QIM-OUTBOX-SPEC-001", forRemoval = true)
-    @Value("${ido.kafka.consumer-group-qim-sp-member:ido-qim-sp-member-consumer}")
+    @Value("${idem.hub.kafka.consumer-group-qim-sp-member:ido-qim-sp-member-consumer}")
     private String qimSpMemberConsumerGroup;
 
     // ── Q-IM 이벤트 컨슈머 팩토리 ────────────────────────────────────────
@@ -121,7 +121,7 @@ public class KafkaConsumerConfig {
     /**
      * 60,000명 급증 대응 — concurrency=6
      *
-     * <p>qsign.auth.events 파티션 12개 기준 concurrency=6 설정.
+     * <p>idem.gate.auth.events 파티션 12개 기준 concurrency=6 설정.
      * AUTH_COMPLETED 수신 즉시 Redis Pre-warming 수행.
      * 6개 스레드 × 폴링 주기 = 초당 수백 건 Pre-warming 처리 가능.
      */
@@ -158,7 +158,7 @@ public class KafkaConsumerConfig {
      * Handoff 이벤트 리스너 팩토리
      *
      * <p><b>60,000명 급증 대응 — concurrency=6</b>:
-     * ido.handoff.events 파티션 12개 기준 concurrency=6.
+     * idem.hub.handoff.events 파티션 12개 기준 concurrency=6.
      * HANDOFF_ISSUED 수신 → webhook Outbox 적재 → 병렬 처리.
      *
      * <p>Handoff Ticket TTL=60s이므로 처리 지연이 생기면 안 됨.
@@ -178,7 +178,7 @@ public class KafkaConsumerConfig {
         return factory;
     }
 
-    // ── Q-IM 회원 이벤트 컨슈머 팩토리 (qim.user.events / QIM-OUTBOX-SPEC-001) ──
+    // ── Q-IM 회원 이벤트 컨슈머 팩토리 (idem.registry.user.events / QIM-OUTBOX-SPEC-001) ──
     //    QimSpMemberEventConsumer 가 BIZ/PERSONAL_MEMBER_CONVERTED/REGISTERED/WITHDRAWN 처리
     //    payload 는 QimSpReceiverService 가 Map<String,Object> 구조로 INSERT했으므로
     //    String → 컨슈머 내에서 ObjectMapper 역직렬화 (JsonDeserializer 타입 불일치 방지)
@@ -193,9 +193,9 @@ public class KafkaConsumerConfig {
     }
 
     /**
-     * QIM-OUTBOX-SPEC-001: qim.user.events 회원 등록/전환/탈퇴 이벤트 컨슈머 팩토리
+     * QIM-OUTBOX-SPEC-001: idem.registry.user.events 회원 등록/전환/탈퇴 이벤트 컨슈머 팩토리
      *
-     * <p>concurrency=2: qim.user.events 파티션 6개 기준 적정 병렬도.
+     * <p>concurrency=2: idem.registry.user.events 파티션 6개 기준 적정 병렬도.
      * 회원 이벤트는 실시간성 요구가 낮고 순서 중요도가 높으므로 낮은 concurrency 설정.
      */
     @Bean("qimMemberListenerContainerFactory")
@@ -212,8 +212,8 @@ public class KafkaConsumerConfig {
         return factory;
     }
 
-    // ── Q-IM SP 회원 이벤트 컨슈머 팩토리 (qim.sp.member.events) ─────────
-    // @Deprecated QIM-OUTBOX-SPEC-001: qim.sp.member.events → qim.user.events 전환 완료 후 제거
+    // ── Q-IM SP 회원 이벤트 컨슈머 팩토리 (idem.registry.sp.member.events) ─────────
+    // @Deprecated QIM-OUTBOX-SPEC-001: idem.registry.sp.member.events → idem.registry.user.events 전환 완료 후 제거
 
     @Bean("qimSpMemberConsumerFactory")
     public ConsumerFactory<String, String> qimSpMemberConsumerFactory() {
@@ -269,7 +269,7 @@ public class KafkaConsumerConfig {
     public ProducerFactory<String, Object> idoProducerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ProducerConfig.CLIENT_ID_CONFIG, "ido-producer");
+        props.put(ProducerConfig.CLIENT_ID_CONFIG, "idem-hub-producer");
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         props.put(ProducerConfig.ACKS_CONFIG, "all");

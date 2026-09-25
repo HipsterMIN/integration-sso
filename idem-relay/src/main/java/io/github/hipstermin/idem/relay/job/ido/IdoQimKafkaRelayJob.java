@@ -21,11 +21,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * ido.outbox → qim.user.events Kafka 릴레이 배치 Job
+ * idem.hub.outbox → idem.registry.user.events Kafka 릴레이 배치 Job
  *
  * <h2>배경</h2>
- * ido.outbox 테이블에는 Q-IM SP 수신 이벤트({@code BIZ_MEMBER_CONVERTED} 등)도
- * qim.user.events 토픽으로 INSERT된다.
+ * idem.hub.outbox 테이블에는 Q-IM SP 수신 이벤트({@code BIZ_MEMBER_CONVERTED} 등)도
+ * idem.registry.user.events 토픽으로 INSERT된다.
  * 기존에는 {@code QimOutboxRelay}(ido 서비스 내부)가 전담했으나,
  * 이 Job이 배치 서비스에서 독립적으로 처리한다.
  *
@@ -42,7 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class IdoQimKafkaRelayJob {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE_REF = new TypeReference<>() {};
-    private static final String QIM_TOPIC = "qim.user.events";
+    private static final String QIM_TOPIC = "idem.registry.user.events";
 
     private final JdbcTemplate                  idoJdbcTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -51,13 +51,13 @@ public class IdoQimKafkaRelayJob {
     private final Counter successCounter;
     private final Counter failureCounter;
 
-    @Value("${batch.relay.ido.qim.batch-size:50}")
+    @Value("${idem.relay.jobs.hub.qim.batch-size:50}")
     private int batchSize;
 
-    @Value("${batch.relay.ido.qim.max-retry:5}")
+    @Value("${idem.relay.jobs.hub.qim.max-retry:5}")
     private int maxRetry;
 
-    @Value("${batch.relay.ido.qim.enabled:true}")
+    @Value("${idem.relay.jobs.hub.qim.enabled:true}")
     private boolean enabled;
 
     public IdoQimKafkaRelayJob(
@@ -68,15 +68,15 @@ public class IdoQimKafkaRelayJob {
         this.idoJdbcTemplate = idoJdbcTemplate;
         this.kafkaTemplate   = kafkaTemplate;
         this.objectMapper    = objectMapper;
-        this.successCounter  = meterRegistry.counter("batch.relay.ido.qim.success");
-        this.failureCounter  = meterRegistry.counter("batch.relay.ido.qim.failure");
+        this.successCounter  = meterRegistry.counter("idem.relay.jobs.hub.qim.success");
+        this.failureCounter  = meterRegistry.counter("idem.relay.jobs.hub.qim.failure");
     }
 
-    @Scheduled(fixedDelayString = "${batch.relay.ido.qim.interval-ms:1000}")
+    @Scheduled(fixedDelayString = "${idem.relay.jobs.hub.qim.interval-ms:1000}")
     @SchedulerLock(
             name           = "ido-qim-kafka-relay",
-            lockAtMostFor  = "${batch.relay.ido.qim.lock-at-most:15s}",
-            lockAtLeastFor = "${batch.relay.ido.qim.lock-at-least:800ms}"
+            lockAtMostFor  = "${idem.relay.jobs.hub.qim.lock-at-most:15s}",
+            lockAtLeastFor = "${idem.relay.jobs.hub.qim.lock-at-least:800ms}"
     )
     @Transactional(transactionManager = "idoTransactionManager")
     public void relay() {
@@ -85,7 +85,7 @@ public class IdoQimKafkaRelayJob {
         List<OutboxRow> pending = fetchPendingByTopic();
         if (pending.isEmpty()) return;
 
-        log.debug("[IdoQimKafkaRelayJob] qim.user.events PENDING {} 건", pending.size());
+        log.debug("[IdoQimKafkaRelayJob] idem.registry.user.events PENDING {} 건", pending.size());
 
         int sent = 0;
         for (OutboxRow row : pending) {

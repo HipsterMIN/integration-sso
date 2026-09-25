@@ -140,12 +140,12 @@ Optional<QimUserJpaEntity> findByIdentifierHash(@Param("identifierHash") String 
 **위치**: `idem-registry/.../crypto/CiCryptoServiceImpl.java:40`
 
 ```java
-@Value("${qim.crypto.ci.key-v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}")
+@Value("${idem.registry.crypto.ci.key-v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}")
 private String aesKeyV1Base64;
 ```
 
 **문제 상세**:
-- 환경변수 `QIM_CI_AES_KEY_V1` 미설정 시 **`AAA...` 28개 + `=` (Base64 → 32바이트 전부 `0x00`)** 키를 사용
+- 환경변수 `IDEM_REGISTRY_CI_AES_KEY_V1` 미설정 시 **`AAA...` 28개 + `=` (Base64 → 32바이트 전부 `0x00`)** 키를 사용
 - 운영에서 환경변수 누락 시 모든 CI가 **알려진 키로 암호화**됨 → 사실상 평문 노출
 - `@PostConstruct` 검증 없음 — 키 미설정 알람 메커니즘 부재
 - `idem-gate/KeycloakCallbackService:80`의 `ido-internal-secret` 기본값(Phase 2 F2.1)과 동일 패턴
@@ -156,7 +156,7 @@ private String aesKeyV1Base64;
 - 키 로테이션 시 `currentVersion` 만 변경 → 구 데이터는 약한 키로 남음
 
 **권장**:
-- 기본값 제거 (`@Value("${qim.crypto.ci.key-v1:}")`)
+- 기본값 제거 (`@Value("${idem.registry.crypto.ci.key-v1:}")`)
 - `@PostConstruct` 검증: key가 빈값/약한 키면 애플리케이션 기동 실패
 - KMS 통합 (Phase 5에서 별도 검증)
 
@@ -167,12 +167,12 @@ private String aesKeyV1Base64;
 **위치**: `idem-registry/.../identity/DiGenerationService.java:39`
 
 ```java
-@Value("${qim.crypto.di.secret:default-di-secret-change-in-production}")
+@Value("${idem.registry.crypto.di.secret:default-di-secret-change-in-production}")
 private String diSecret;
 ```
 
 **문제 상세**:
-- 환경변수 `QIM_DI_SECRET` 미설정 시 **`default-di-secret-change-in-production`** 사용
+- 환경변수 `IDEM_REGISTRY_DI_SECRET` 미설정 시 **`default-di-secret-change-in-production`** 사용
 - DI는 HMAC-SHA256(agencyCode:qimUserId, diSecret) → secret이 알려지면 **누구나 임의 사용자의 모든 기관 DI 재현 가능**
 - 기관이 DI를 신원 검증에 쓰면 → **공격자가 임의 사용자로 가장 가능**
 
@@ -418,7 +418,7 @@ if (existing.isPresent()) {
 **위치**: `idem-registry/.../outbox/OutboxServiceImpl.java:93-103, 167-197`
 
 **문제 상세**:
-- Q-IM 자체 스케줄러(`@Scheduled(fixedDelayString = "${qim.outbox.relay-interval-ms:500}")`)가 outbox 테이블을 폴링하여 Kafka 직접 발행
+- Q-IM 자체 스케줄러(`@Scheduled(fixedDelayString = "${idem.registry.outbox.relay-interval-ms:500}")`)가 outbox 테이블을 폴링하여 Kafka 직접 발행
 - 반면 q-sign은 별도의 `outbox-relay-batch` 모듈이 발행 담당
 - 동일한 패턴이 모듈마다 다르게 구현됨 → Phase 1 R1 (IdO bloat)와 유사한 일관성 문제
 - Q-IM Pod이 다운되면 outbox 발행도 멈춤 (q-sign은 batch가 독립 Pod이므로 회복 가능)
@@ -457,7 +457,7 @@ if (existing.isPresent()) {
 
 ```
 DevOps 시점:
-1. K8s manifest에 QIM_CI_AES_KEY_V1, QIM_DI_SECRET 누락
+1. K8s manifest에 IDEM_REGISTRY_CI_AES_KEY_V1, IDEM_REGISTRY_DI_SECRET 누락
 2. Q-IM Pod 정상 기동 (기본값 사용으로 인해 검증 미발동)
 3. 첫 사용자 가입 → CI가 "AAA...=" 키로 암호화되어 DB 저장
 4. 첫 DI 발급 → secret "default-di-secret-change-in-production"으로 HMAC 계산

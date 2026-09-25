@@ -36,7 +36,7 @@ class VaultKmsClientTest {
 
     private static final String VAULT_ADDR    = "http://vault:8200";
     private static final String TRANSIT_PATH  = "transit";
-    private static final String KEY_NAME      = "ido-handoff-key";
+    private static final String KEY_NAME      = "idem-handoff-key";
     private static final String TEST_TOKEN    = "test-vault-token";
 
     @BeforeEach

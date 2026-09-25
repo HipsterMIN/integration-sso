@@ -24,14 +24,14 @@ KMS 관련 두 개의 Critical 결함을 **운영 진입 전 절대 차단** 사
 
 ```java
 // idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/crypto/kms/LocalKmsClient.java
-@ConditionalOnProperty(prefix = "ido.kms", name = "enabled",
+@ConditionalOnProperty(prefix = "idem.hub.kms", name = "enabled",
                        havingValue = "false", matchIfMissing = true)  // ← 위험
 public class LocalKmsClient implements KmsClient {
 ```
 
 **문제 경로**:
 - ConfigMap 마운트 실패 / 환경변수 누락 / Helm values 미적용 시
-- `ido.kms.enabled` 속성이 "없음" 상태로 인식됨
+- `idem.hub.kms.enabled` 속성이 "없음" 상태로 인식됨
 - `matchIfMissing=true` 가 작동하여 자동으로 LocalKmsClient 활성화
 - 평문 키 모드로 운영 가동 → 실 사용자 PII 위협
 
@@ -41,7 +41,7 @@ public class LocalKmsClient implements KmsClient {
 @Component
 @Profile("!prod & !stage")                                            // ← 1차 가드
 @ConditionalOnProperty(
-    prefix      = "ido.kms",
+    prefix      = "idem.hub.kms",
     name        = "enabled",
     havingValue = "false",
     matchIfMissing = false   // ← 2차 가드: 환경변수 명시 필수
@@ -50,7 +50,7 @@ public class LocalKmsClient implements KmsClient {
 
     private final Environment environment;
 
-    @Value("${ido.kms.local.allow-in-prod:false}")
+    @Value("${idem.hub.kms.local.allow-in-prod:false}")
     private boolean allowInProd;
 
     public LocalKmsClient(Environment environment) {
@@ -81,15 +81,15 @@ public class LocalKmsClient implements KmsClient {
 |------|-------------|---------|-----------|
 | 1차 | `@Profile("!prod & !stage")` | 빈 등록 단계 | `@Profile` 어노테이션 삭제 시만 |
 | 2차 | `matchIfMissing=false` | 빈 등록 단계 | 환경변수에 `false` 명시 시만 활성 |
-| 3차 | `@PostConstruct failFastIfProdLike()` | 빈 생성 직후 | `ido.kms.local.allow-in-prod=true` 명시 시만 |
+| 3차 | `@PostConstruct failFastIfProdLike()` | 빈 생성 직후 | `idem.hub.kms.local.allow-in-prod=true` 명시 시만 |
 
 3중 안전망은 **silent 미스컨피그가 자동으로 평문 모드로 fallback되는 모든 경로를 차단**한다.
 
 ### 2.4 호환성
 
-- **로컬 개발**: `IDO_KMS_ENABLED=false` (또는 application.yml 기본값) → `havingValue="false"` 매칭 → 활성. **변화 없음**.
-- **dev 서버**: `values-dev.yaml` 에 `IDO_KMS_ENABLED: "false"` → 명시적 `false` → 활성. **변화 없음**.
-- **stage 서버**: `values-stage.yaml` 에 `IDO_KMS_ENABLED: "true"` + `IDO_KMS_PROVIDER: "vault"` → VaultKmsClient 활성. LocalKmsClient는 `@Profile("!stage")` 로 1차 차단. **변화 없음**.
+- **로컬 개발**: `IDEM_HUB_KMS_ENABLED=false` (또는 application.yml 기본값) → `havingValue="false"` 매칭 → 활성. **변화 없음**.
+- **dev 서버**: `values-dev.yaml` 에 `IDEM_HUB_KMS_ENABLED: "false"` → 명시적 `false` → 활성. **변화 없음**.
+- **stage 서버**: `values-stage.yaml` 에 `IDEM_HUB_KMS_ENABLED: "true"` + `IDEM_HUB_KMS_PROVIDER: "vault"` → VaultKmsClient 활성. LocalKmsClient는 `@Profile("!stage")` 로 1차 차단. **변화 없음**.
 - **prod 서버**: `values-prod.yaml` 도 동일하게 vault 활성. **변화 없음**.
 - **prod에서 ConfigMap 누락 시 (회귀 사고 가정)**:
   - 변경 전: `matchIfMissing=true` → LocalKmsClient 자동 활성 → 평문 키 모드 → 🔴 실 사용자 PII 위협
@@ -191,7 +191,7 @@ private void handleTokenAcquisitionFailure(String reason, Throwable cause) {
 ido:
   kms:
     vault:
-      allow-empty-token: ${IDO_KMS_VAULT_ALLOW_EMPTY_TOKEN:false}   # 기본 false (안전)
+      allow-empty-token: ${IDEM_HUB_KMS_VAULT_ALLOW_EMPTY_TOKEN:false}   # 기본 false (안전)
 ```
 
 - 기본값 `false` 로 운영 안전 보장
@@ -239,11 +239,11 @@ ido:
 - [x] F5.1: `LocalKmsClient` `matchIfMissing=false` 적용
 - [x] F5.1: `@Profile("!prod & !stage")` 1차 가드 추가
 - [x] F5.1: `@PostConstruct failFastIfProdLike()` 3차 가드 추가
-- [x] F5.1: escape hatch (`ido.kms.local.allow-in-prod`) 추가 + 기본 false
+- [x] F5.1: escape hatch (`idem.hub.kms.local.allow-in-prod`) 추가 + 기본 false
 - [x] F5.1: 회귀 테스트 9건 추가 (`LocalKmsClientTest$ProdGuard`)
 - [x] F5.2: `VaultKmsClient.init()` 토큰 획득 실패 시 IllegalStateException
 - [x] F5.2: try-catch로 acquireToken() 내부 예외도 차단
-- [x] F5.2: escape hatch (`ido.kms.vault.allow-empty-token`) 추가 + 기본 false
+- [x] F5.2: escape hatch (`idem.hub.kms.vault.allow-empty-token`) 추가 + 기본 false
 - [x] F5.2: 회귀 테스트 4건 추가 (`VaultKmsClientTest$StartupGuard`)
 - [x] 기존 dev/local/stage/prod 환경 호환성 보존 (코드 변경으로 인한 동작 변화 없음)
 - [x] application.yml 새 설정 키 문서화

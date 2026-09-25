@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  * F4.7 — Inbound HMAC 서명 결과 카운터 (Sprint β-1)
  *
  * <h3>배경</h3>
- * <p>{@link HmacSignatureFilter}는 F-26({@code IDO_HMAC_SIG_REQUIRED}) 기본값 false 상태에서
+ * <p>{@link HmacSignatureFilter}는 F-26({@code IDEM_HUB_HMAC_SIG_REQUIRED}) 기본값 false 상태에서
  * "X-Internal-Sig 헤더 부재 시 무조건 통과(soft mode)" 로 동작한다. 이 점진 도입 의도는 합리적이나,
  * 운영자가 <b>"현재 미준수 기관 비율"</b> 을 알지 못하면 F-26=true 강화 시점을 결정할 수 없다.
  * (Sprint α-3 / 04_handoff_flow.md F4.7 참조)
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li><b>soft → strict 전환 가드</b>:
  *       {@code rate(ido_inbound_hmac_total{result="missing"}[1h])} 가 충분 기간 0 인 것을 확인 후
- *       {@code IDO_HMAC_SIG_REQUIRED=true} 전환.</li>
+ *       {@code IDEM_HUB_HMAC_SIG_REQUIRED=true} 전환.</li>
  *   <li><b>침해 의심 시</b>:
  *       {@code rate(ido_inbound_hmac_total{result=~"invalid_signature|missing_agency|key_not_found"}[5m])}
  *       이 갑자기 증가하면 공격 가능성 검토.</li>
@@ -46,7 +46,7 @@ import org.springframework.stereotype.Component;
 public class InboundHmacMetrics {
 
     /** Micrometer 카운터 메트릭 이름 (Prometheus 노출 시 {@code ido_inbound_hmac_total}) */
-    public static final String METRIC_NAME = "ido.inbound.hmac.total";
+    public static final String METRIC_NAME = "idem.hub.inbound.hmac.total";
 
     /** 태그 키 */
     public static final String TAG_RESULT = "result";

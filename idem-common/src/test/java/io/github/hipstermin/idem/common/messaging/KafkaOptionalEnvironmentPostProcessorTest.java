@@ -17,20 +17,20 @@ class KafkaOptionalEnvironmentPostProcessorTest {
         StandardEnvironment env = new StandardEnvironment();
         // 모듈 application.yml 을 흉내 — 최하위
         env.getPropertySources().addLast(new MapPropertySource("app-yml", Map.of(
-                "qsign.outbox.relay-enabled", "true",
-                "ido.audit.kafka-publish-enabled", "true")));
+                "idem.gate.outbox.relay-enabled", "true",
+                "idem.hub.audit.kafka-publish-enabled", "true")));
 
         sut.postProcessEnvironment(env, null);
 
         assertThat(env.getPropertySources().contains(KafkaOptionalEnvironmentPostProcessor.PROPERTY_SOURCE_NAME)).isTrue();
-        assertThat(env.getProperty("qsign.outbox.relay-enabled")).isEqualTo("false");
+        assertThat(env.getProperty("idem.gate.outbox.relay-enabled")).isEqualTo("false");
         // D3: Kafka 없는 설치는 registry 이벤트 피드 폴링으로 상태 변경을 전파한다
-        assertThat(env.getProperty("ido.qim-events.poll.enabled")).isEqualTo("true");
-        assertThat(env.getProperty("ido.audit.kafka-publish-enabled")).isEqualTo("false");
+        assertThat(env.getProperty("idem.hub.registry-events.poll.enabled")).isEqualTo("true");
+        assertThat(env.getProperty("idem.hub.audit.kafka-publish-enabled")).isEqualTo("false");
         assertThat(env.getProperty("spring.kafka.listener.auto-startup")).isEqualTo("false");
-        assertThat(env.getProperty("batch.relay.qsign.kafka.enabled")).isEqualTo("false");
+        assertThat(env.getProperty("idem.relay.jobs.gate.kafka.enabled")).isEqualTo("false");
         // hub ido.outbox 릴레이(F-13)는 건드리지 않는다 — 프로세스 내 배달로 계속 돈다
-        assertThat(env.getProperty("ido.outbox.relay-enabled")).isNull();
+        assertThat(env.getProperty("idem.hub.outbox.relay-enabled")).isNull();
 
         int sysEnvIdx = indexOf(env, StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
         int oursIdx   = indexOf(env, KafkaOptionalEnvironmentPostProcessor.PROPERTY_SOURCE_NAME);
@@ -42,24 +42,24 @@ class KafkaOptionalEnvironmentPostProcessorTest {
         StandardEnvironment env = new StandardEnvironment();
         env.getPropertySources().addLast(new MapPropertySource("app-yml", Map.of(
                 KafkaOptional.PROPERTY, "true",
-                "qsign.outbox.relay-enabled", "true")));
+                "idem.gate.outbox.relay-enabled", "true")));
 
         sut.postProcessEnvironment(env, null);
 
         assertThat(env.getPropertySources().contains(KafkaOptionalEnvironmentPostProcessor.PROPERTY_SOURCE_NAME)).isFalse();
-        assertThat(env.getProperty("qsign.outbox.relay-enabled")).isEqualTo("true");
+        assertThat(env.getProperty("idem.gate.outbox.relay-enabled")).isEqualTo("true");
     }
 
     @Test
     void 명령행_등_상위_소스가_있으면_그_값이_이긴다() {
         StandardEnvironment env = new StandardEnvironment();
         env.getPropertySources().addFirst(new MapPropertySource("commandLineArgs", Map.of(
-                "qsign.outbox.relay-enabled", "true")));
+                "idem.gate.outbox.relay-enabled", "true")));
 
         sut.postProcessEnvironment(env, null);
 
-        assertThat(env.getProperty("qsign.outbox.relay-enabled")).isEqualTo("true");
-        assertThat(env.getProperty("qim.outbox.relay-enabled")).isEqualTo("false");
+        assertThat(env.getProperty("idem.gate.outbox.relay-enabled")).isEqualTo("true");
+        assertThat(env.getProperty("idem.registry.outbox.relay-enabled")).isEqualTo("false");
     }
 
     @Test

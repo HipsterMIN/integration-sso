@@ -99,7 +99,7 @@ public class NiceOacxAutoConfiguration {
     @Bean
     @Profile("prod")
     public Object niceCredentialsCheck(NiceProperties nice, OacxProperties oacx,
-                                       @Value("${ido.auth.allow-missing-credentials:false}") boolean allowMissing) {
+                                       @Value("${idem.hub.auth.allow-missing-credentials:false}") boolean allowMissing) {
         boolean oacxAvailable;
         try { Class.forName("OACX.OacxUtil"); oacxAvailable = true; } catch (ClassNotFoundException e) { oacxAvailable = false; }
         NiceCredentialsValidator.validate(nice, oacx, oacxAvailable, allowMissing);

@@ -7,7 +7,7 @@ import lombok.extern.jackson.Jacksonized;
 /**
  * IdO Handoff 이벤트 (Issue / Verify / Revoke)
  * 설계서 16.3 / 14.11절 참조
- * Kafka Topic: ido.handoff.events
+ * Kafka Topic: idem.hub.handoff.events
  */
 @Getter
 @SuperBuilder

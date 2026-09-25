@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><b>스냅샷 내용</b>:
  * DB에서 사용자의 현재 상태(status, eventVersion)를 조회하여
  * {@code USER_SNAPSHOT} 타입 {@link UserEvent}로 직렬화 후
- * {@code qim.user.snapshot} Compacted Topic에 발행한다.
+ * {@code idem.registry.user.snapshot} Compacted Topic에 발행한다.
  *
  * <p><b>snapshot_meta 기록</b>:
  * 스냅샷 발행 성공/실패 여부를 {@code snapshot_meta} 테이블에 기록한다.
@@ -41,17 +41,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class SnapshotServiceImpl implements SnapshotService {
 
     /** 스냅샷 발행 Kafka 토픽 (Compacted) */
-    private static final String TOPIC_SNAPSHOT    = "qim.user.snapshot";
+    private static final String TOPIC_SNAPSHOT    = "idem.registry.user.snapshot";
     /** UserEvent 타입 상수 — 스냅샷 전용 타입 */
     private static final String EVENT_TYPE_SNAPSHOT = "USER_SNAPSHOT";
     /** 이벤트 소스 시스템 */
-    private static final String SOURCE_SYSTEM     = "q-im";
+    private static final String SOURCE_SYSTEM     = "idem-registry";
 
     /**
      * 스냅샷 발행 주기 (이벤트 수)
      * 기본값: 10 — 10개 이벤트마다 스냅샷 발행 (§11.5.6)
      */
-    @Value("${qim.snapshot.interval-events:10}")
+    @Value("${idem.registry.snapshot.interval-events:10}")
     private long snapshotIntervalEvents;
 
     private final QimUserJpaRepository       qimUserRepository;

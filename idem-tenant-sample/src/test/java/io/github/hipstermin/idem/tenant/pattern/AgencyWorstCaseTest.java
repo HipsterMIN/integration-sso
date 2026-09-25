@@ -336,7 +336,7 @@ class AgencyWorstCaseTest {
         SimulationRequest req = new SimulationRequest();
         req.setScenarioMode(mode.name());
         req.setAuthLevel("L2");
-        req.setProviderCode("QSIGN_CERT");
+        req.setProviderCode("IDEM_GATE_CERT");
         return req;
     }
 

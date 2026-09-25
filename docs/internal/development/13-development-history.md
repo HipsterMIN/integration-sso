@@ -188,11 +188,11 @@ POST /api/v1/agency/events/{dispatchId}/read
 | `idem-hub/.../handoff/strategy/InternalSsoHandoffStrategy.java` | INTERNAL_SSO 전략 — `POST {ssoDomain}/internal/sso-session` SSO 세션 사전 등록 |
 | `idem-hub/.../handoff/strategy/ApacheGateHandoffStrategy.java` | APACHE_GATE 전략 — Apache mod_auth_openidc 호환 헤더 (`X-Remote-User`, `X-Auth-Level`, `X-Handoff-Token`, `X-Session-Expiry`) 사전 Push |
 | `idem-gate/.../kafka/IdempotentEventStore.java` | Q-Sign 멱등 이벤트 저장소 — `qsign.processed_event` ON CONFLICT DO NOTHING + `qsign.last_event_version` 버전 추적 |
-| `idem-gate/.../kafka/QimUserEventConsumer.java` | Q-Sign Q-IM 이벤트 컨슈머 — `@KafkaListener(qim.user.events)` + 6단계 멱등 처리 + USER_SUSPENDED/WITHDRAWN → auth_lock 강제 잠금 |
+| `idem-gate/.../kafka/QimUserEventConsumer.java` | Q-Sign Q-IM 이벤트 컨슈머 — `@KafkaListener(idem.registry.user.events)` + 6단계 멱등 처리 + USER_SUSPENDED/WITHDRAWN → auth_lock 강제 잠금 |
 | `idem-registry/.../entity/SnapshotMetaJpaEntity.java` | `snapshot_meta` 테이블 JPA 엔터티 (PUBLISHED/FAILED 상태) |
 | `idem-registry/.../repository/SnapshotMetaJpaRepository.java` | 최신 스냅샷 조회, 중복 발행 방지 쿼리 |
 | `idem-registry/.../outbox/SnapshotService.java` | 스냅샷 발행 서비스 인터페이스 |
-| `idem-registry/.../outbox/SnapshotServiceImpl.java` | 스냅샷 발행 구현체 — N개 이벤트마다 `qim.user.snapshot` Compacted Topic 발행 |
+| `idem-registry/.../outbox/SnapshotServiceImpl.java` | 스냅샷 발행 구현체 — N개 이벤트마다 `idem.registry.user.snapshot` Compacted Topic 발행 |
 
 #### 수정된 파일
 
@@ -226,7 +226,7 @@ POST /api/v1/agency/events/{dispatchId}/read
    `USER_SUSPENDED`/`USER_WITHDRAWN` 이벤트 수신 시 현재 잠긴 `auth_lock` 레코드를 대상으로  
    경고 로그 + 잠금 유지 처리. 향후 `auth_result`에 `qim_user_id` 컬럼 추가 시 완전 연동 가능.
 
-4. **스냅샷 발행 주기**: `qim.snapshot.interval-events` 설정값(기본 10) 이상의 이벤트 발행마다 트리거.  
+4. **스냅샷 발행 주기**: `idem.registry.snapshot.interval-events` 설정값(기본 10) 이상의 이벤트 발행마다 트리거.  
    `OutboxServiceImpl.sendToKafka()` 성공 콜백에서 비동기 트리거.  
    스냅샷 실패는 비치명적 처리 — 이벤트 발행 흐름에 영향 없음.
 
@@ -338,8 +338,8 @@ POST /api/v1/agency/events/{dispatchId}/read
 |------|------|
 | **WebhookDispatcherService** | Outbox 적재 (HandoffEvent / MemberLookup / MemberWithdrawn) |
 | **WebhookDispatchOutboxRelay** | 500ms 폴링 → HTTPS POST → 지수 백오프 재시도 (2s/4s/8s) |
-| **HandoffEventConsumer** | `ido.handoff.events` 수신 → WebhookDispatcherService 호출 |
-| **QsignAuthEventConsumer** | `qsign.auth.events` 수신 → Redis Pre-warming + Advisory |
+| **HandoffEventConsumer** | `idem.hub.handoff.events` 수신 → WebhookDispatcherService 호출 |
+| **QsignAuthEventConsumer** | `idem.gate.auth.events` 수신 → Redis Pre-warming + Advisory |
 | **AuthResultCacheService** | Redis `ido:auth_result:{correlationId}` TTL 300s (60k명 대응) |
 | **SessionAdvisoryPublisher** | `platform.session.advisory` 발행 + Outbox 폴백 |
 | **AuditLogPublisher** | DB 기록 후 `platform.audit.log` Kafka 비동기 발행 |
@@ -409,7 +409,7 @@ POST /api/v1/agency/events/{dispatchId}/read
 | **InstMbrIdMappingRepository** | `ido.inst_mbr_id_mapping` CRUD |
 | **SpReceiverIdempotencyStore** | `ido.sp_receiver_idempotency` TTL=7일 |
 | **AesSharedKeyDecryptor** | AES-256-CBC, identifierHash SHA-256 |
-| **QimSpMemberEventConsumer** | `qim.sp.member.events` Kafka 구독 |
+| **QimSpMemberEventConsumer** | `idem.registry.sp.member.events` Kafka 구독 |
 | **V4 마이그레이션** | `inst_mbr_id_mapping`, `sp_receiver_idempotency`, `qim_sp_receiver_log` |
 
 ---

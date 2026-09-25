@@ -1,8 +1,8 @@
 # F-04: 감사 로그 DB 저장
 
-> **환경변수**: `IDO_AUDIT_DB_ENABLED`  
+> **환경변수**: `IDEM_HUB_AUDIT_DB_ENABLED`  
 > **기본값**: `true`  
-> **Spring 프로퍼티**: `ido.audit.db-save-enabled`  
+> **Spring 프로퍼티**: `idem.hub.audit.db-save-enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/audit/AuditLogRepository.java`  
 > **대상 테이블**: `ido.audit_log`
 
@@ -11,7 +11,7 @@
 ## ⚠️ 운영에서 false 금지 — 컴플라이언스 위반
 
 ```
-IDO_AUDIT_DB_ENABLED=false  →  법적 감사 추적 불가  →  컴플라이언스 위반
+IDEM_HUB_AUDIT_DB_ENABLED=false  →  법적 감사 추적 불가  →  컴플라이언스 위반
 ```
 
 **F-04를 비활성화하면**:
@@ -20,7 +20,7 @@ IDO_AUDIT_DB_ENABLED=false  →  법적 감사 추적 불가  →  컴플라이�
 - 보안 사고 발생 시 사후 감사(Audit Trail) 불가
 
 > 운영 환경에서 F-04=false가 감지되면 앱 기동 시 **`WARN` 로그가 출력**됩니다:  
-> `[FeatureFlags] ⚠️ F-04 auditDb=OFF — 감사 로그 DB 저장 비활성. 운영 환경에서는 IDO_AUDIT_DB_ENABLED=true 필수!`
+> `[FeatureFlags] ⚠️ F-04 auditDb=OFF — 감사 로그 DB 저장 비활성. 운영 환경에서는 IDEM_HUB_AUDIT_DB_ENABLED=true 필수!`
 
 ---
 
@@ -95,7 +95,7 @@ CREATE INDEX idx_audit_log_user_id        ON ido.audit_log (user_id, created_at)
 
 ```bash
 # 로컬 개발 (audit_log 테이블 없이 구동 시)
-IDO_AUDIT_DB_ENABLED=false
+IDEM_HUB_AUDIT_DB_ENABLED=false
 ```
 
 > **스테이징, UAT, 운영 환경에서는 절대 false 설정 금지**

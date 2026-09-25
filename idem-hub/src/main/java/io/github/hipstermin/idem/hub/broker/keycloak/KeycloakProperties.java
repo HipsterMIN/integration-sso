@@ -13,20 +13,20 @@ import org.springframework.stereotype.Component;
 /**
  * Keycloak 연동 설정 프로퍼티 (문서 §5-1)
  *
- * <p>q-sign = Keycloak 전환 시 {@code ido.qsign.*} 블록을
- * {@code ido.keycloak.*} 블록으로 교체하여 사용한다.
+ * <p>q-sign = Keycloak 전환 시 {@code idem.hub.gate.*} 블록을
+ * {@code idem.hub.keycloak.*} 블록으로 교체하여 사용한다.
  *
  * <p>이중 운영 모드:
  * <ul>
- *   <li>{@code ido.broker.mode=qsign}    : 기존 q-sign Spring Boot 직접 연동 (현재)</li>
- *   <li>{@code ido.broker.mode=keycloak} : Keycloak OIDC 브로커 모드 (전환 후)</li>
+ *   <li>{@code idem.hub.broker.mode=qsign}    : 기존 q-sign Spring Boot 직접 연동 (현재)</li>
+ *   <li>{@code idem.hub.broker.mode=keycloak} : Keycloak OIDC 브로커 모드 (전환 후)</li>
  * </ul>
  */
 @Slf4j
 @Getter
 @Setter
 @Component
-@ConfigurationProperties(prefix = "ido.keycloak")
+@ConfigurationProperties(prefix = "idem.hub.keycloak")
 public class KeycloakProperties {
 
     /**
@@ -72,9 +72,9 @@ public class KeycloakProperties {
     /**
      * 부팅 검증 우회 escape hatch — 테스트/로컬 한정.
      * 운영 환경에서는 절대 true 설정 금지.
-     * <p>활성화 방법(테스트 한정): {@code ido.keycloak.allow-empty-client-secret=true}
+     * <p>활성화 방법(테스트 한정): {@code idem.hub.keycloak.allow-empty-client-secret=true}
      */
-    @Value("${ido.keycloak.allow-empty-client-secret:false}")
+    @Value("${idem.hub.keycloak.allow-empty-client-secret:false}")
     private boolean allowEmptyClientSecret;
 
     /**
@@ -173,24 +173,24 @@ public class KeycloakProperties {
     void validateClientSecret() {
         if (clientSecret == null || clientSecret.isBlank()) {
             if (allowEmptyClientSecret) {
-                log.warn("[ido KeycloakProperties] ido.keycloak.client-secret 미설정 — "
+                log.warn("[ido KeycloakProperties] idem.hub.keycloak.client-secret 미설정 — "
                         + "allow-empty-client-secret=true 로 우회 (테스트/로컬 한정)");
                 return;
             }
             throw new IllegalStateException(
-                    "ido.keycloak.client-secret 환경변수 KEYCLOAK_CLIENT_SECRET 가 설정되지 않았습니다. "
+                    "idem.hub.keycloak.client-secret 환경변수 KEYCLOAK_CLIENT_SECRET 가 설정되지 않았습니다. "
                             + "운영에서는 반드시 Keycloak Admin Console 의 Client Secret 을 주입하십시오. "
-                            + "테스트/로컬에서만 ido.keycloak.allow-empty-client-secret=true 로 우회 가능.");
+                            + "테스트/로컬에서만 idem.hub.keycloak.allow-empty-client-secret=true 로 우회 가능.");
         }
         String normalized = clientSecret.trim().toLowerCase();
         if (FORBIDDEN_PLACEHOLDERS.contains(normalized)) {
             throw new IllegalStateException(
-                    "ido.keycloak.client-secret 가 안전하지 않은 placeholder('"
+                    "idem.hub.keycloak.client-secret 가 안전하지 않은 placeholder('"
                             + clientSecret + "') 입니다. 운영용 비밀키를 주입하십시오.");
         }
         if (clientSecret.length() < 8) {
             throw new IllegalStateException(
-                    "ido.keycloak.client-secret 가 너무 짧습니다 (length="
+                    "idem.hub.keycloak.client-secret 가 너무 짧습니다 (length="
                             + clientSecret.length() + "). 최소 8자 이상의 무작위 비밀키를 주입하십시오.");
         }
         log.info("[ido KeycloakProperties] client-secret 검증 통과 (length={})",

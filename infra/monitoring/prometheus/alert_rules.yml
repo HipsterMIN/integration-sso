@@ -31,7 +31,7 @@ groups:
       # ── 1. IdO 다운 (핸드오프 오케스트레이터 정지) ─────────────────────────
       # for: 30s → 2m 로 완화 (롤링 업데이트 시 거짓경보 방지)
       - alert: IdoServiceDown
-        expr: up{job="ido"} == 0
+        expr: up{job="idem-hub"} == 0
         for: 2m
         labels:
           severity: critical
@@ -44,7 +44,7 @@ groups:
 
       # ── 2. Q-Sign 다운 (인증 SoR 정지) ───────────────────────────────────
       - alert: QSignServiceDown
-        expr: up{job="q-sign"} == 0
+        expr: up{job="idem-gate"} == 0
         for: 2m
         labels:
           severity: critical
@@ -57,7 +57,7 @@ groups:
 
       # ── 3. Q-IM 다운 (식별·매핑 SoR 정지) ────────────────────────────────
       - alert: QimServiceDown
-        expr: up{job="q-im"} == 0
+        expr: up{job="idem-registry"} == 0
         for: 2m
         labels:
           severity: critical
@@ -115,7 +115,7 @@ groups:
         expr: |
           histogram_quantile(0.95,
             sum by (le) (
-              rate(http_server_requests_seconds_bucket{job="ido",uri="/api/v1/handoff/issue"}[5m])
+              rate(http_server_requests_seconds_bucket{job="idem-hub",uri="/api/v1/handoff/issue"}[5m])
             )
           ) > 2.0
         for: 10m
@@ -133,12 +133,12 @@ groups:
       - alert: IdoHandoffErrorRateHigh
         expr: |
           (
-            rate(http_server_requests_seconds_count{job="ido",uri=~".*/handoff/issue.*",status=~"5.."}[5m])
+            rate(http_server_requests_seconds_count{job="idem-hub",uri=~".*/handoff/issue.*",status=~"5.."}[5m])
             /
-            rate(http_server_requests_seconds_count{job="ido",uri=~".*/handoff/issue.*"}[5m])
+            rate(http_server_requests_seconds_count{job="idem-hub",uri=~".*/handoff/issue.*"}[5m])
           ) > 0.05
           and
-          rate(http_server_requests_seconds_count{job="ido",uri=~".*/handoff/issue.*"}[5m]) > 0
+          rate(http_server_requests_seconds_count{job="idem-hub",uri=~".*/handoff/issue.*"}[5m]) > 0
         for: 5m
         labels:
           severity: warning
@@ -150,7 +150,7 @@ groups:
 
       # ── 8. Rate Limit 초과 급증 (보안 신호 — DDoS/기관 오동작) ────────────
       - alert: RateLimitExceeded
-        expr: increase(http_server_requests_seconds_count{job="ido",status="429"}[1m]) > 100
+        expr: increase(http_server_requests_seconds_count{job="idem-hub",status="429"}[1m]) > 100
         for: 1m
         labels:
           severity: warning

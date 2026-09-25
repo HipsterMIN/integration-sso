@@ -166,7 +166,7 @@ return Base64.getUrlEncoder().encodeToString(encrypted);
 |------|------|------|
 | 속성 필터링 (`allowedAttributes`) | ✅ | 기관별 허용 속성만 반환 |
 | `agencySubjectId` 생성 | ✅ | HMAC-SHA256(qimUserId:agencyCode) |
-| `policyVersion` 외부화 | ✅ | `${ido.policy.default-version:1.0}` |
+| `policyVersion` 외부화 | ✅ | `${idem.hub.policy.default-version:1.0}` |
 | Callback URL 화이트리스트 | ✅ | `CallbackUrlValidator` |
 
 ```java
@@ -270,7 +270,7 @@ if (dailyCount > dailyQuota) throw RateLimitException("일별 쿼터 초과");
 
 **platformVersion 외부화** (v1.9.0):
 ```java
-@Value("${ido.platform-version:1.0}")
+@Value("${idem.hub.platform-version:1.0}")
 private String platformVersion;
 // payload.put("platformVersion", platformVersion); // 하드코딩 제거
 ```
@@ -342,23 +342,23 @@ private String platformVersion;
 ```yaml
 # application.yml 핵심 설정
 ido:
-  platform-version: ${IDO_PLATFORM_VERSION:1.0}
+  platform-version: ${IDEM_HUB_PLATFORM_VERSION:1.0}
   policy:
-    default-version: ${IDO_DEFAULT_POLICY_VERSION:1.0}
+    default-version: ${IDEM_HUB_DEFAULT_POLICY_VERSION:1.0}
   provider:
-    circuit-cache-ttl-seconds: ${IDO_PROVIDER_CIRCUIT_CACHE_TTL:3600}
+    circuit-cache-ttl-seconds: ${IDEM_HUB_PROVIDER_CIRCUIT_CACHE_TTL:3600}
   broker:
-    mode: ${IDO_BROKER_MODE:keycloak}  # keycloak | qsign
+    mode: ${IDEM_HUB_BROKER_MODE:keycloak}  # keycloak | qsign
   handoff:
-    aes-key: ${IDO_HANDOFF_AES_KEY}
+    aes-key: ${IDEM_HUB_HANDOFF_AES_KEY}
     hmac-secret: ${IDO_HANDOFF_HMAC_SECRET}
   qim:
-    base-url: ${QIM_BASE_URL:http://localhost:8082}
+    base-url: ${IDEM_REGISTRY_BASE_URL:http://localhost:8082}
     api-key: ${QIM_API_KEY}
-    inbound-api-key-hash: ${QIM_INBOUND_API_KEY_HASH}
-    aes-shared-key: ${QIM_AES_SHARED_KEY}
-  internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET}
-  agency-subject-secret: ${IDO_AGENCY_SUBJECT_SECRET}
+    inbound-api-key-hash: ${IDEM_REGISTRY_INBOUND_API_KEY_HASH}
+    aes-shared-key: ${IDEM_REGISTRY_AES_SHARED_KEY}
+  internal-sig-secret: ${IDEM_HUB_INTERNAL_SIG_SECRET}
+  agency-subject-secret: ${IDEM_HUB_AGENCY_SUBJECT_SECRET}
 
 resilience4j:
   circuitbreaker:

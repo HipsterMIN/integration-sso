@@ -56,19 +56,19 @@ public class WebhookRelayJob {
     private final Counter retryCounter;
     private final Counter failureCounter;
 
-    @Value("${batch.relay.webhook.batch-size:50}")
+    @Value("${idem.relay.jobs.webhook.batch-size:50}")
     private int batchSize;
 
-    @Value("${batch.relay.webhook.max-retry:3}")
+    @Value("${idem.relay.jobs.webhook.max-retry:3}")
     private int defaultMaxRetry;
 
-    @Value("${batch.relay.webhook.enabled:true}")
+    @Value("${idem.relay.jobs.webhook.enabled:true}")
     private boolean enabled;
 
-    @Value("${batch.relay.webhook.signing-secret:}")
+    @Value("${idem.relay.jobs.webhook.signing-secret:}")
     private String defaultSigningSecret;
 
-    @Value("${ido.platform-version:1.0}")
+    @Value("${idem.hub.platform-version:1.0}")
     private String platformVersion;
 
     public WebhookRelayJob(
@@ -77,16 +77,16 @@ public class WebhookRelayJob {
             MeterRegistry meterRegistry) {
         this.idoJdbcTemplate     = idoJdbcTemplate;
         this.webhookRestTemplate = webhookRestTemplate;
-        this.successCounter      = meterRegistry.counter("batch.relay.webhook.success");
-        this.retryCounter        = meterRegistry.counter("batch.relay.webhook.retry");
-        this.failureCounter      = meterRegistry.counter("batch.relay.webhook.failure");
+        this.successCounter      = meterRegistry.counter("idem.relay.jobs.webhook.success");
+        this.retryCounter        = meterRegistry.counter("idem.relay.jobs.webhook.retry");
+        this.failureCounter      = meterRegistry.counter("idem.relay.jobs.webhook.failure");
     }
 
-    @Scheduled(fixedDelayString = "${batch.relay.webhook.interval-ms:500}")
+    @Scheduled(fixedDelayString = "${idem.relay.jobs.webhook.interval-ms:500}")
     @SchedulerLock(
             name           = "ido-webhook-relay",
-            lockAtMostFor  = "${batch.relay.webhook.lock-at-most:10s}",
-            lockAtLeastFor = "${batch.relay.webhook.lock-at-least:400ms}"
+            lockAtMostFor  = "${idem.relay.jobs.webhook.lock-at-most:10s}",
+            lockAtLeastFor = "${idem.relay.jobs.webhook.lock-at-least:400ms}"
     )
     public void relay() {
         if (!enabled) return;

@@ -12,9 +12,9 @@ package io.github.hipstermin.idem.registry.crypto;
  *
  * <p><b>환경변수</b>:
  * <ul>
- *   <li>{@code QIM_CI_AES_KEY_V1} — v1 키 (Base64, 32바이트)</li>
- *   <li>{@code QIM_CI_AES_KEY_V2} — v2 키 (로테이션 시 추가)</li>
- *   <li>{@code QIM_CI_CURRENT_KEY_VERSION} — 현재 활성 버전 (기본: v1)</li>
+ *   <li>{@code IDEM_REGISTRY_CI_AES_KEY_V1} — v1 키 (Base64, 32바이트)</li>
+ *   <li>{@code IDEM_REGISTRY_CI_AES_KEY_V2} — v2 키 (로테이션 시 추가)</li>
+ *   <li>{@code IDEM_REGISTRY_CI_CURRENT_KEY_VERSION} — 현재 활성 버전 (기본: v1)</li>
  * </ul>
  */
 public interface CiCryptoService {

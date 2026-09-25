@@ -55,8 +55,8 @@ management:
 # ── 4. Outbox 메트릭 갱신 주기 — 운영 보수적 ─────────────────────────────────
 # 30초 기본값이 적정하지만 prod에서는 query timeout을 더 짧게 박아
 # DB 부하 시에도 메트릭 수집이 다른 잡을 방해하지 않도록 한다.
-batch:
+idem.relay:
   metrics:
     outbox:
-      refresh-interval-ms: ${BATCH_METRICS_OUTBOX_REFRESH_INTERVAL_MS:30000}
+      refresh-interval-ms: ${IDEM_RELAY_METRICS_OUTBOX_REFRESH_INTERVAL_MS:30000}
       query-timeout-sec: 2              # 운영: 3 → 2초로 단축

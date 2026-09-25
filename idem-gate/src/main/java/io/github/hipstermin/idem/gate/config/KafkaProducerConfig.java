@@ -35,7 +35,7 @@ public class KafkaProducerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${spring.kafka.producer.client-id:q-sign-producer}")
+    @Value("${spring.kafka.producer.client-id:idem-gate-producer}")
     private String clientId;
 
     /**
@@ -55,7 +55,7 @@ public class KafkaProducerConfig {
     public KafkaTemplate<String, Object> kafkaTemplate() {
         KafkaTemplate<String, Object> template =
                 new KafkaTemplate<>(producerFactory());
-        template.setDefaultTopic("qsign.auth.events");
+        template.setDefaultTopic("idem.gate.auth.events");
         template.setObservationEnabled(true);
         return template;
     }

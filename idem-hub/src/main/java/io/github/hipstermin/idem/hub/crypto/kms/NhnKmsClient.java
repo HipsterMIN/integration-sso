@@ -84,7 +84,7 @@ import org.springframework.web.client.RestTemplate;
 @Component
 @Primary   // 일반 KMS(NoOp/Local/Nhn/Vault)는 ido.kms.provider 로 상호배타 활성 — 단일 KmsClient 주입의 정본
 @ConditionalOnProperty(
-    prefix      = "ido.kms",
+    prefix      = "idem.hub.kms",
     name        = {"enabled", "provider"},
     havingValue = "true,nhn"
 )
@@ -102,38 +102,38 @@ public class NhnKmsClient implements KmsClient {
      */
     private enum SkmMode { ENVELOPE, SECRET }
 
-    @Value("${ido.kms.nhn.endpoint:" + DEFAULT_ENDPOINT + "}")
+    @Value("${idem.hub.kms.nhn.endpoint:" + DEFAULT_ENDPOINT + "}")
     private String endpoint;
 
-    @Value("${ido.kms.nhn.appkey:}")
+    @Value("${idem.hub.kms.nhn.appkey:}")
     private String appkey;
 
     /** Envelope 모드: AES DEK를 암호화한 SKM 대칭 키 ID */
-    @Value("${ido.kms.nhn.aes-key-id:}")
+    @Value("${idem.hub.kms.nhn.aes-key-id:}")
     private String aesSymKeyId;
 
     /** Envelope 모드: HMAC DEK를 암호화한 SKM 대칭 키 ID */
-    @Value("${ido.kms.nhn.hmac-key-id:}")
+    @Value("${idem.hub.kms.nhn.hmac-key-id:}")
     private String hmacSymKeyId;
 
     /**
      * Secret 모드: SKM에 기밀 데이터로 저장된 AES 키 ID.
      * Envelope 모드에서는 미사용.
      */
-    @Value("${ido.kms.nhn.aes-secret-id:${ido.kms.nhn.aes-key-id:}}")
+    @Value("${idem.hub.kms.nhn.aes-secret-id:${idem.hub.kms.nhn.aes-key-id:}}")
     private String aesSecretId;
 
-    @Value("${ido.kms.nhn.hmac-secret-id:${ido.kms.nhn.hmac-key-id:}}")
+    @Value("${idem.hub.kms.nhn.hmac-secret-id:${idem.hub.kms.nhn.hmac-key-id:}}")
     private String hmacSecretId;
 
     /** 운영 모드: secret(기본) | envelope */
-    @Value("${ido.kms.nhn.mode:secret}")
+    @Value("${idem.hub.kms.nhn.mode:secret}")
     private String modeProp;
 
-    @Value("${ido.kms.connection-timeout-ms:3000}")
+    @Value("${idem.hub.kms.connection-timeout-ms:3000}")
     private int connectionTimeoutMs;
 
-    @Value("${ido.kms.request-timeout-ms:5000}")
+    @Value("${idem.hub.kms.request-timeout-ms:5000}")
     private int requestTimeoutMs;
 
     private final ObjectMapper objectMapper;
@@ -155,7 +155,7 @@ public class NhnKmsClient implements KmsClient {
         this.restTemplate = new RestTemplate(factory);
 
         if (appkey == null || appkey.isBlank()) {
-            log.error("[KMS-NHN] ido.kms.nhn.appkey 설정 없음. " +
+            log.error("[KMS-NHN] idem.hub.kms.nhn.appkey 설정 없음. " +
                     "NHN Cloud Secure Key Manager Appkey를 K8s Secret에 설정하세요.");
         } else {
             log.info("[KMS-NHN] NHN SKM 클라이언트 초기화: endpoint={} mode={}",
@@ -307,7 +307,7 @@ public class NhnKmsClient implements KmsClient {
     private byte[] decryptViaSymmetricKey(String ciphertextBase64, String symKeyId) {
         if (symKeyId == null || symKeyId.isBlank()) {
             throw new KmsDecryptException(
-                    "[KMS-NHN] ENVELOPE 모드: ido.kms.nhn.aes-key-id가 설정되지 않았습니다.", null);
+                    "[KMS-NHN] ENVELOPE 모드: idem.hub.kms.nhn.aes-key-id가 설정되지 않았습니다.", null);
         }
 
         String url = endpoint + "/keymanager/v1.0/appkey/" + appkey
@@ -355,7 +355,7 @@ public class NhnKmsClient implements KmsClient {
     private String encryptViaSymmetricKey(byte[] plainKeyBytes, String symKeyId) {
         if (symKeyId == null || symKeyId.isBlank()) {
             throw new KmsEncryptException(
-                    "[KMS-NHN] ENVELOPE 모드: ido.kms.nhn.aes-key-id가 설정되지 않았습니다.", null);
+                    "[KMS-NHN] ENVELOPE 모드: idem.hub.kms.nhn.aes-key-id가 설정되지 않았습니다.", null);
         }
 
         String url = endpoint + "/keymanager/v1.0/appkey/" + appkey
@@ -428,7 +428,7 @@ public class NhnKmsClient implements KmsClient {
     private void validateAppkey() {
         if (appkey == null || appkey.isBlank()) {
             throw new KmsDecryptException(
-                    "[KMS-NHN] ido.kms.nhn.appkey가 설정되지 않았습니다. " +
+                    "[KMS-NHN] idem.hub.kms.nhn.appkey가 설정되지 않았습니다. " +
                     "NHN Cloud Secure Key Manager Appkey를 K8s Secret에 추가하세요.", null);
         }
     }

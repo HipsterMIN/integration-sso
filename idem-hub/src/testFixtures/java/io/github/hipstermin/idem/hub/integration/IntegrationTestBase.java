@@ -141,24 +141,24 @@ public abstract class IntegrationTestBase {
                 () -> REDIS.getMappedPort(6379).toString());
 
         // WireMock → NICE API 기본 URL 오버라이드
-        registry.add("ido.auth.nice.base-url",            // S5a: 플러그인 NiceProperties
+        registry.add("idem.hub.auth.nice.base-url",            // S5a: 플러그인 NiceProperties
                 () -> "http://localhost:" + wireMockServer.port());
-        registry.add("ido.nice.api-base-url",
+        registry.add("idem.hub.nice.api-base-url",
                 () -> "http://localhost:" + wireMockServer.port());
-        registry.add("ido.nice.access-token-url",
+        registry.add("idem.hub.nice.access-token-url",
                 () -> "http://localhost:" + wireMockServer.port() + "/v1/token");
 
         // Q-IM(idem-registry) → WireMock (Handoff 발급 경로의 사용자 상태 조회 등을 스텁으로 응답)
-        registry.add("ido.qim.base-url",
+        registry.add("idem.hub.registry.base-url",
                 () -> "http://localhost:" + wireMockServer.port());
 
         // Kafka 비활성화 (통합 테스트 범위 외)
         registry.add("spring.kafka.bootstrap-servers",  () -> "localhost:19092");
-        registry.add("ido.audit.kafka-publish-enabled", () -> "false");
+        registry.add("idem.hub.audit.kafka-publish-enabled", () -> "false");
 
         // Rate Limiter 활성화 (Redis Testcontainer 대상)
-        registry.add("ido.rate-limit.enabled",           () -> "true");
-        registry.add("ido.rate-limit.default-tps",       () -> "200");
-        registry.add("ido.rate-limit.default-daily-limit", () -> "1000000");
+        registry.add("idem.hub.rate-limit.enabled",           () -> "true");
+        registry.add("idem.hub.rate-limit.default-tps",       () -> "200");
+        registry.add("idem.hub.rate-limit.default-daily-limit", () -> "1000000");
     }
 }

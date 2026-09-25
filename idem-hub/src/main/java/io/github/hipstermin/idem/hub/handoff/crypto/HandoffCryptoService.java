@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  *   <li>레거시 지원: 버전 접두사 없는 기존 암호문({@code isVersioned=false}) → 폴백 복호화</li>
  * </ul>
  *
- * <p>운영 시 {@code IDO_HANDOFF_AES_KEY} / {@code IDO_HANDOFF_HMAC_KEY} 환경변수 교체 필수.
+ * <p>운영 시 {@code IDEM_HUB_HANDOFF_AES_KEY} / {@code IDEM_HUB_HANDOFF_HMAC_KEY} 환경변수 교체 필수.
  * 두 키 모두 32바이트(256-bit) Base64URL 인코딩 문자열이어야 합니다.
  */
 @Slf4j

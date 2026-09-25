@@ -418,7 +418,7 @@ public class UserController {
 
         // 3. Kafka Outbox 이벤트 발행
         outboxService.publishInTx(new UserEvent(
-                UserEvent.TYPE_UPDATED, "q-im",
+                UserEvent.TYPE_UPDATED, "idem-registry",
                 null, qimUserId, 1L,
                 "ACTIVE", "SOCIAL_USER_REGISTERED", true));
 

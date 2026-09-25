@@ -1,8 +1,8 @@
 # F-18: Q-IM SP 수신 감사 로그
 
-> **환경변수**: `IDO_QIM_RECEIVER_AUDIT`  
+> **환경변수**: `IDEM_HUB_REGISTRY_RECEIVER_AUDIT`  
 > **기본값**: `true`  
-> **Spring 프로퍼티**: `ido.qim.receiver-audit-enabled`  
+> **Spring 프로퍼티**: `idem.hub.registry.receiver-audit-enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/qim/SpReceiverAuditInterceptor.java`
 
 ---
@@ -82,7 +82,7 @@ Q-IM 연동 감사 요구사항 (행정안전부 Q-IM 연동 가이드라인):
 
 **Q-IM 연동이 구성되지 않은 환경** (로컬, 일부 개발 환경):
 ```bash
-IDO_QIM_RECEIVER_AUDIT=false  # Q-IM 미연동 환경
+IDEM_HUB_REGISTRY_RECEIVER_AUDIT=false  # Q-IM 미연동 환경
 ```
 
 > ⚠️ **Q-IM 연동이 활성화된 운영 환경에서 false 설정 시 감사 추적 불가 — Q-IM 가이드라인 위반**

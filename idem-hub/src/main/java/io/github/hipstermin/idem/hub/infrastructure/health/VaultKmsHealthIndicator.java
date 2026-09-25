@@ -72,7 +72,7 @@ public class VaultKmsHealthIndicator implements HealthIndicator {
     /**
      * KmsClient 빈을 List로 주입 — Spring이 활성화한 모든 구현체를 받는다.
      *
-     * <p>정상 설정에서는 1개의 KmsClient만 활성화된다({@code ido.kms.provider} 로 상호배타). 에디션 플러그인이
+     * <p>정상 설정에서는 1개의 KmsClient만 활성화된다({@code idem.hub.kms.provider} 로 상호배타). 에디션 플러그인이
      * 보조 구현을 더 올리더라도 {@code @Primary} 인 코어 구현이 목록 앞에 오므로 첫 번째를 쓴다
      * (벤더 전용 KMS 는 S5b 부터 코어 KmsClient 계약 밖의 플러그인 내부 컴포넌트다).
      *
@@ -81,7 +81,7 @@ public class VaultKmsHealthIndicator implements HealthIndicator {
     private final List<KmsClient> kmsClients;
 
     /** 헬스체크 결과 캐시 TTL (밀리초). 0 이하면 캐시 비활성화. */
-    @Value("${ido.kms.health.cache-ttl-ms:5000}")
+    @Value("${idem.hub.kms.health.cache-ttl-ms:5000}")
     private long cacheTtlMs;
 
     /** 직전 호출 결과 캐시 */
@@ -97,7 +97,7 @@ public class VaultKmsHealthIndicator implements HealthIndicator {
         if (kmsClients == null || kmsClients.isEmpty()) {
             return Health.unknown()
                     .withDetail("reason", "No KmsClient bean is active. " +
-                            "Check ido.kms.enabled/provider configuration.")
+                            "Check idem.hub.kms.enabled/provider configuration.")
                     .build();
         }
 

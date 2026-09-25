@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
  * 문제: Q-Sign이 인증 완료 → 사용자가 Handoff 요청 → IdO가 DB에서 AuthResult 조회
  *       → 60,000명 동시 요청 시 DB I/O 폭발
  *
- * 해결: Q-Sign Outbox → Kafka(qsign.auth.events) → QsignAuthEventConsumer
+ * 해결: Q-Sign Outbox → Kafka(idem.gate.auth.events) → QsignAuthEventConsumer
  *       → AuthResultCacheService.preWarm() → Redis 캐시 (TTL 300초)
  *       → Handoff 요청 시 DB 조회 없이 Redis 즉시 응답
  * </pre>
@@ -43,12 +43,12 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AuthResultCacheService {
 
-    private static final String AUTH_RESULT_PREFIX = "ido:auth_result:";
-    private static final String AUTH_LEVEL_PREFIX  = "ido:auth_level:";
+    private static final String AUTH_RESULT_PREFIX = "idem:auth_result:";
+    private static final String AUTH_LEVEL_PREFIX  = "idem:auth_level:";
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @Value("${ido.burst.auth-result-cache-ttl-seconds:300}")
+    @Value("${idem.hub.burst.auth-result-cache-ttl-seconds:300}")
     private long authResultCacheTtlSeconds;
 
     // ── Pre-warming (인증 완료 이벤트 수신 즉시 호출) ─────────────────────

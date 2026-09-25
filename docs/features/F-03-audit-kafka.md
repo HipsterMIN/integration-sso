@@ -1,8 +1,8 @@
 # F-03: 감사 로그 Kafka 비동기 발행
 
-> **환경변수**: `IDO_AUDIT_KAFKA_ENABLED`  
+> **환경변수**: `IDEM_HUB_AUDIT_KAFKA_ENABLED`  
 > **기본값**: `true`  
-> **Spring 프로퍼티**: `ido.audit.kafka-publish-enabled`  
+> **Spring 프로퍼티**: `idem.hub.audit.kafka-publish-enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/audit/AuditLogPublisher.java`  
 > **Kafka 토픽**: `platform.audit.log`
 
@@ -78,13 +78,13 @@ AuditLogPublisher.publishAsync(AuditEvent event)
 **Kafka 클러스터 장애 또는 점검 중** 일시적으로 false 허용:
 ```bash
 # Kafka 점검 중 발행 중지 (DB 저장은 계속)
-IDO_AUDIT_KAFKA_ENABLED=false
-IDO_AUDIT_DB_ENABLED=true   # DB 저장은 반드시 유지
+IDEM_HUB_AUDIT_KAFKA_ENABLED=false
+IDEM_HUB_AUDIT_DB_ENABLED=true   # DB 저장은 반드시 유지
 ```
 
 Kafka 복구 후 즉시 true로 복원:
 ```bash
-kubectl set env deployment/ido-gateway IDO_AUDIT_KAFKA_ENABLED=true
+kubectl set env deployment/ido-gateway IDEM_HUB_AUDIT_KAFKA_ENABLED=true
 ```
 
 > ⚠️ **false 기간 동안 발행되지 못한 감사 로그는 DB에는 보존되지만 Kafka 토픽에는 소급 발행되지 않습니다.**

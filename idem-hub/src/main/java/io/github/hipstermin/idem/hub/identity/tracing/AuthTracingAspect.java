@@ -19,12 +19,12 @@ import org.springframework.stereotype.Component;
  *   <li>{@code auth.ci-check} · {@code integration.callback} · {@code integration.auth-check}</li>
  * </ul>
  * 벤더 API 호출 스팬(NICE 토큰·URL·결과)은 플러그인이 필요하면 자체 계측한다.
- * 비활성화: {@code ido.tracing.auth-aspect-enabled=false}.
+ * 비활성화: {@code idem.hub.tracing.auth-aspect-enabled=false}.
  */
 @Aspect
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "ido.tracing.auth-aspect-enabled",
+@ConditionalOnProperty(name = "idem.hub.tracing.auth-aspect-enabled",
         havingValue = "true", matchIfMissing = true)
 public class AuthTracingAspect {
 

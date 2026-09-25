@@ -25,19 +25,19 @@ class HandoffEventPublisherTest {
     @Mock KafkaTemplate<String, Object> kafkaTemplate;
     @Mock JdbcTemplate jdbcTemplate;
 
-    private final HandoffEvent event = new HandoffEvent(HandoffEvent.TYPE_HANDOFF_ISSUED, "ido", "cid", "user-1", 1L,
+    private final HandoffEvent event = new HandoffEvent(HandoffEvent.TYPE_HANDOFF_ISSUED, "idem-hub", "cid", "user-1", 1L,
             "ticket-1", "AGENCY001", "ar-1", "ISSUED", null);
 
     private HandoffEventPublisher sut(boolean kafkaEnabled) {
         HandoffEventPublisher p = new HandoffEventPublisher(kafkaTemplate, jdbcTemplate, new ObjectMapper()
                 .findAndRegisterModules());
         ReflectionTestUtils.setField(p, "kafkaEnabled", kafkaEnabled);
-        ReflectionTestUtils.setField(p, "handoffTopic", "ido.handoff.events");
+        ReflectionTestUtils.setField(p, "handoffTopic", "idem.hub.handoff.events");
         return p;
     }
 
     @Test
-    @DisplayName("Kafka 꺼짐(기본) → ido.outbox INSERT (topic=ido.handoff.events, aggregate=ticketId), Kafka 미호출")
+    @DisplayName("Kafka 꺼짐(기본) → ido.outbox INSERT (topic=idem.hub.handoff.events, aggregate=ticketId), Kafka 미호출")
     void disabled_outbox() {
         sut(false).publish(event, "user-1");
 
@@ -49,7 +49,7 @@ class HandoffEventPublisherTest {
         assertThat(a[2]).isEqualTo("user-1");
         assertThat(a[3]).isEqualTo("ticket-1");
         assertThat((String) a[5]).contains("\"ticketId\":\"ticket-1\"").contains("\"eventId\":\"" + event.getEventId() + "\"");
-        assertThat(a[6]).isEqualTo("ido.handoff.events");
+        assertThat(a[6]).isEqualTo("idem.hub.handoff.events");
         then(kafkaTemplate).should(never()).send(anyString(), any(), any());
     }
 
@@ -58,7 +58,7 @@ class HandoffEventPublisherTest {
     void enabled_kafka() {
         sut(true).publish(event, "user-1");
 
-        then(kafkaTemplate).should().send(eq("ido.handoff.events"), eq("user-1"), eq(event));
+        then(kafkaTemplate).should().send(eq("idem.hub.handoff.events"), eq("user-1"), eq(event));
         then(jdbcTemplate).should(never()).update(anyString(), any(Object[].class));
     }
 }

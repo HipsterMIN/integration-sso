@@ -152,7 +152,7 @@ public class AgencyGatewayServiceImpl implements AgencyGatewayService {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Idempotency-Key", idempotencyKey);
             if (correlationId != null) headers.set("X-Correlation-ID", correlationId);
-            headers.set("X-Outbound-Source", "onepass-ido");
+            headers.set("X-Outbound-Source", "idem-hub");
 
             // HMAC 서명 아웃바운드 발송 (Sprint 17 — AgencyHmacKeyStore 실제 키 사용)
             // 서명 페이로드: "{agencyCode}:{idempotencyKey}:{epochSeconds}"

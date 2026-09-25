@@ -40,8 +40,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class HandoffEventConsumer {
 
-    private static final String CONSUMER_GROUP_HANDOFF  = "agency-stub-consumer-handoff";
-    private static final String CONSUMER_GROUP_ADVISORY = "agency-stub-consumer-advisory";
+    private static final String CONSUMER_GROUP_HANDOFF  = "idem-tenant-sample-consumer-handoff";
+    private static final String CONSUMER_GROUP_ADVISORY = "idem-tenant-sample-consumer-advisory";
 
     /** DB 기반 세션 서비스 — ticketId / qimUserId 기준 무효화 위임 */
     private final AgencySessionService agencySessionService;
@@ -51,8 +51,8 @@ public class HandoffEventConsumer {
     // ══════════════════════════════════════════════════════════════════════
 
     @KafkaListener(
-            topics           = "${agency-stub.kafka.topic-handoff-events:ido.handoff.events}",
-            groupId          = "${agency-stub.kafka.consumer-group:agency-stub-consumer}-handoff",
+            topics           = "${idem.sample.kafka.topic-handoff-events:idem.hub.handoff.events}",
+            groupId          = "${idem.sample.kafka.consumer-group:idem-tenant-sample-consumer}-handoff",
             containerFactory = "agencyHandoffListenerFactory"
     )
     public void consumeHandoff(ConsumerRecord<String, HandoffEvent> record,
@@ -102,8 +102,8 @@ public class HandoffEventConsumer {
     // ══════════════════════════════════════════════════════════════════════
 
     @KafkaListener(
-            topics           = "${agency-stub.kafka.topic-session-advisory:platform.session.advisory}",
-            groupId          = "${agency-stub.kafka.consumer-group:agency-stub-consumer}-advisory",
+            topics           = "${idem.sample.kafka.topic-session-advisory:platform.session.advisory}",
+            groupId          = "${idem.sample.kafka.consumer-group:idem-tenant-sample-consumer}-advisory",
             containerFactory = "agencyAdvisoryListenerFactory"
     )
     public void consumeAdvisory(ConsumerRecord<String, SessionAdvisoryEvent> record,

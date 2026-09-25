@@ -32,7 +32,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * <ol>
  *   <li>요청 헤더 {@code X-Internal-Caller}(식별자, e.g. {@code q-sign}) +
  *       {@code X-Internal-Api-Key}(공유 시크릿 평문) 검증.</li>
- *   <li>시크릿은 application.yml {@code ido.internal.callers.{caller}=<key>} 로 주입.
+ *   <li>시크릿은 application.yml {@code idem.hub.internal.callers.{caller}=<key>} 로 주입.
  *       운영은 K8s Secret / Vault → 환경변수.</li>
  *   <li>비교는 {@code CryptoProvider.constantTimeEquals} 상수시간.</li>
  *   <li>실패 시 401 + {@code {error, message}} JSON 응답.</li>
@@ -41,10 +41,10 @@ import org.springframework.web.servlet.HandlerInterceptor;
  *
  * <h3>부팅 검증 (fail-fast)</h3>
  * <ul>
- *   <li>{@code ido.internal.callers} 가 비어 있는데 {@code ido.internal.allow-empty-callers=false}
+ *   <li>{@code idem.hub.internal.callers} 가 비어 있는데 {@code idem.hub.internal.allow-empty-callers=false}
  *       이면 {@code @PostConstruct} 단계에서 {@link IllegalStateException} 발생.</li>
  *   <li>운영 환경에서 환경변수 누락 시 CrashLoopBackOff 로 즉시 인지.</li>
- *   <li>테스트/로컬은 {@code ido.internal.allow-empty-callers=true} 로 escape.</li>
+ *   <li>테스트/로컬은 {@code idem.hub.internal.allow-empty-callers=true} 로 escape.</li>
  *   <li>α-3 {@code F4.3 ValidateSigningSecret} 와 동일 패턴.</li>
  * </ul>
  *
@@ -73,7 +73,7 @@ public class InternalCallerAuthInterceptor implements HandlerInterceptor {
     public static final String HEADER_API_KEY = "X-Internal-Api-Key";
 
     /** 메트릭 이름 (Prometheus 노출 시 {@code ido_internal_caller_auth_total}) */
-    public static final String METRIC_NAME = "ido.internal.caller.auth.total";
+    public static final String METRIC_NAME = "idem.hub.internal.caller.auth.total";
     public static final String TAG_RESULT  = "result";
 
     public static final String RESULT_VALID          = "valid";
@@ -110,11 +110,11 @@ public class InternalCallerAuthInterceptor implements HandlerInterceptor {
         if (callers == null || callers.isEmpty()) {
             if (!allowEmpty) {
                 throw new IllegalStateException(
-                        "[F4.8] ido.internal.callers 가 비어 있습니다. " +
+                        "[F4.8] idem.hub.internal.callers 가 비어 있습니다. " +
                         "운영에서는 최소 1개 caller(API key) 설정이 필요합니다. " +
-                        "테스트 전용 escape: ido.internal.allow-empty-callers=true");
+                        "테스트 전용 escape: idem.hub.internal.allow-empty-callers=true");
             }
-            log.warn("[InternalCallerAuth] ido.internal.callers 비어 있음 (allow-empty-callers=true 로 통과). " +
+            log.warn("[InternalCallerAuth] idem.hub.internal.callers 비어 있음 (allow-empty-callers=true 로 통과). " +
                      "운영 환경에서는 절대 사용 금지.");
             return;
         }
@@ -124,10 +124,10 @@ public class InternalCallerAuthInterceptor implements HandlerInterceptor {
             if (e.getValue() == null || e.getValue().isBlank()) {
                 if (!allowEmpty) {
                     throw new IllegalStateException(
-                            "[F4.8] ido.internal.callers." + e.getKey() +
+                            "[F4.8] idem.hub.internal.callers." + e.getKey() +
                             " 가 빈 문자열입니다. 환경변수 주입을 확인하세요.");
                 }
-                log.warn("[InternalCallerAuth] ido.internal.callers.{} 빈 값 (allow-empty-callers=true 로 통과)",
+                log.warn("[InternalCallerAuth] idem.hub.internal.callers.{} 빈 값 (allow-empty-callers=true 로 통과)",
                          e.getKey());
             }
         }
@@ -227,19 +227,19 @@ public class InternalCallerAuthInterceptor implements HandlerInterceptor {
     // ════════════════════════════════════════════════════════════════════
 
     /**
-     * {@code ido.internal} 프로퍼티 바인딩.
+     * {@code idem.hub.internal} 프로퍼티 바인딩.
      *
      * <pre>
-     * ido:
+     * idem.hub:
      *   internal:
      *     callers:
-     *       q-sign:       ${IDO_INTERNAL_API_KEY_QSIGN:}
-     *       outbox-relay: ${IDO_INTERNAL_API_KEY_OUTBOX:}
+     *       idem-gate:  ${IDEM_HUB_INTERNAL_API_KEY_GATE:}
+     *       idem-relay: ${IDEM_HUB_INTERNAL_API_KEY_RELAY:}
      *     allow-empty-callers: false   # 테스트 전용 escape
      * </pre>
      */
     @Configuration
-    @ConfigurationProperties(prefix = "ido.internal")
+    @ConfigurationProperties(prefix = "idem.hub.internal")
     public static class InternalCallersProperties {
         private Map<String, String> callers = new HashMap<>();
         private boolean allowEmptyCallers = false;

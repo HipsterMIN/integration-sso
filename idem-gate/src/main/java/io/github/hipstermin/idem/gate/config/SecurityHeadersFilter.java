@@ -32,14 +32,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Order(1)
 public class SecurityHeadersFilter extends OncePerRequestFilter {
 
-    @Value("${qsign.csp.report-uri:}")
+    @Value("${idem.gate.csp.report-uri:}")
     private String cspReportUri;
 
-    @Value("${qsign.csp.allowed-origin:}")
+    @Value("${idem.gate.csp.allowed-origin:}")
     private String allowedOrigin;
 
     /** Keycloak 베이스 URL (CSP connect-src에 추가) */
-    @Value("${qsign.keycloak.base-url:}")
+    @Value("${idem.gate.keycloak.base-url:}")
     private String keycloakBaseUrl;
 
     /**

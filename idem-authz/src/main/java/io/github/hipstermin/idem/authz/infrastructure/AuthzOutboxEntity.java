@@ -72,7 +72,7 @@ public class AuthzOutboxEntity {
         this.aggregateId  = aggregateId;
         this.eventVersion = eventVersion;
         this.payload      = payload;
-        this.topic        = topic != null ? topic : "authz.assignment.events";
+        this.topic        = topic != null ? topic : "idem.authz.assignment.events";
         this.status       = "PENDING";
         this.retryCount   = 0;
         this.createdAt    = Instant.now();

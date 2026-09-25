@@ -41,14 +41,14 @@ class OutboxEventsControllerTest {
     private static OutboxJpaEntity row(String id, Instant at) {
         return OutboxJpaEntity.builder().eventId(id).eventType("USER_SUSPENDED").partitionKey("u1").aggregateId("u1")
                 .eventVersion(3L).payload("{\"eventId\":\"" + id + "\",\"userStatus\":\"SUSPENDED\"}")
-                .topic("qim.user.events").status("PENDING").createdAt(at).build();
+                .topic("idem.registry.user.events").status("PENDING").createdAt(at).build();
     }
 
     @Test
     @DisplayName("커서 뒤의 이벤트를 payload 원문 JSON 과 함께 돌려준다")
     void feed() throws Exception {
         Instant since = Instant.parse("2026-09-25T00:00:00Z");
-        given(repo.findAfter(eq("qim.user.events"), eq(since), eq("e0"), any(Pageable.class)))
+        given(repo.findAfter(eq("idem.registry.user.events"), eq(since), eq("e0"), any(Pageable.class)))
                 .willReturn(List.of(row("e1", since.plusSeconds(1))));
 
         mvc.perform(get("/api/v1/internal/events").param("afterCreatedAt", since.toString()).param("afterEventId", "e0").param("limit", "10"))
@@ -65,7 +65,7 @@ class OutboxEventsControllerTest {
         given(repo.findAfter(anyString(), any(), anyString(), any(Pageable.class))).willReturn(List.of());
         mvc.perform(get("/api/v1/internal/events").param("limit", "99999")).andExpect(status().isOk());
         ArgumentCaptor<Pageable> page = ArgumentCaptor.forClass(Pageable.class);
-        verify(repo).findAfter(eq("qim.user.events"), eq(Instant.EPOCH), eq(""), page.capture());
+        verify(repo).findAfter(eq("idem.registry.user.events"), eq(Instant.EPOCH), eq(""), page.capture());
         assertThat(page.getValue().getPageSize()).isEqualTo(OutboxEventsController.MAX_LIMIT);
     }
 }

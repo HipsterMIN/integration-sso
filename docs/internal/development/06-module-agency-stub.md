@@ -115,7 +115,7 @@ GET /agency/events?since={timestamp}
  * ⚠️ PoC 전용 — 실 운영에서는 사용 불가
  * 운영 대체 방안: Webhook(POST) 또는 폴링(GET)
  */
-@KafkaListener(topics = "ido.handoff.events")
+@KafkaListener(topics = "idem.hub.handoff.events")
 public void consumeHandoff(HandoffEvent event) {
     // REVOKED 수신 → 기관 세션 무효화 (PoC 시뮬레이션)
 }

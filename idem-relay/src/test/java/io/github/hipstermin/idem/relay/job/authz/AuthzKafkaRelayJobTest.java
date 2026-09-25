@@ -36,7 +36,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AuthzKafkaRelayJobTest {
 
-    private static final String TOPIC    = "authz.assignment.events";
+    private static final String TOPIC    = "idem.authz.assignment.events";
     private static final String EVENT_ID = "01999999-aaaa-7000-8000-000000000001";
     private static final String USER_KEY = "user-1";
     private static final String PAYLOAD  =
