@@ -1,6 +1,6 @@
 # Idem 범용화 리팩토링 플랜 — 구조 분석과 단계별 실행 계획
 
-> 작성 2026-09-10 · 기준 `main` e4acd8d (PR #231 머지) · 상태: **v0.5 (2026-09-24 2차 적대적 점검 — D1·D2·S8-a·S8-b·S6 PR-1 완료. 관리자 무인증·콘솔 고객 전용·설치 경로 미검증을 차단 항목으로 명시하고 D3(fail-secure 2차 + 설치본 정직화)을 신설. 순서: S6 PR-2 → D3 → S7 → S9)**
+> 작성 2026-09-10 · 기준 `main` e4acd8d (PR #231 머지) · 상태: **v0.6 (2026-09-26 — S1~S9·D1~D3 전부 완료, 1.0 동결 `v1.0.0`. 다음은 `execution-plan.md` P3 GS, 착수 문서 `certification/gs-kickoff.md`)** · 이전: **v0.5 (2026-09-24 2차 적대적 점검 — D1·D2·S8-a·S8-b·S6 PR-1 완료. 관리자 무인증·콘솔 고객 전용·설치 경로 미검증을 차단 항목으로 명시하고 D3(fail-secure 2차 + 설치본 정직화)을 신설. 순서: S6 PR-2 → D3 → S7 → S9)**
 > 이전: v0.4 (2026-09-24 — S8 분할, S6 를 S7 앞으로) · v0.2 (2026-09-10 — Tenant/Service 계층·IdP 모델, S4b 신설, S8 재정의) · v0.1 (2026-09-10)
 >
 > 목표: **어느 운영기관이든 설치할 수 있고, 어떤 연동기관의 요구도 코드 수정 없이(설정) 또는 플러그인으로 수용하는 구조**로 Idem 을 재편한다.
@@ -85,7 +85,7 @@
 | 11-2 | **S6 PR-2** | **표준 프로토콜 마무리** — SLO 수리(백채널 로그아웃 수신·`sid`·gate 세션 종료를 서비스 계정+표준 엔드포인트로), tenant-sample 표준 RP 경로, `IntegrationProtocol` SPI, `idp-hint` 프로파일화, SAML 설계 문서 | 중 | 2주 |
 | 11-3 | **D3** | **fail-secure 2차 + 설치본 정직화 (v0.5 신설)** — 2차 점검이 잡은 결함 9건 수리(잠금 카운터·CAST 원자 소비·JWKS 캐시·세션 정책 강제·상태변경 전파 DB 경로·PII 삭제 경로 단일화), 시드 기관 제거, KR 플러그인 기본값 off, 한국 고정 로직 제거, CI 가 compose 설치본을 실기동 | 중 | 1~2주 |
 | 12 | **S7** | **관리자 인증 + 최소 관리 콘솔 (심사 전제·차단 항목)** — 관리자 I&A(2단계)·보안관리자/감사자 분리·온보딩·프로파일 편집·감사 조회 (`execution-plan.md` P1) | 중 | 4~6주 |
-| 13 | **S9** | **개명 마무리(4b·5) + 에디션 패키징 + 1.0 동결** — 설정 키·DB 이름 idem 화, Core/KR 이미지·Helm 분리, 온보딩 가이드, 요구사항 체크리스트 → GS 문서 착수 | 중 | 3~4주 |
+| 13 | **S9** ✅ | **개명 마무리(4b·5) + 에디션 패키징 + 1.0 동결** — 설정 키·DB 이름 idem 화, Core/KR 이미지·Helm 분리, 온보딩 가이드, 요구사항 체크리스트 → GS 문서 착수 | 중 | 3~4주 |
 | 14 | — | 플랫폼 소개서 재작성 (1.0 동결 후, 제품 그대로) | 낮음 | 1주 |
 
 의존: S1 → … → S5 → D1 → D2 → S8-a → S8-b → S6 PR-1 → **S6 PR-2 → D3 → S7 → S9** → 소개서. 합계 약 4~5개월. S7 은 `execution-plan.md` P1 과 같은 작업이고, S9 의 1.0 동결이 `execution-plan.md` P3(GS) 의 입력이다.
@@ -505,7 +505,7 @@ Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `Integ
 - ✅ 검증: Vitest 9(프로파일 모델 왕복·폼 밖 키 보존·검사, API 클라이언트 CSRF·204·오류·401) · `tsc` 0 오류 · Vite 빌드 264kB(gzip 81kB) · **실기동 끝-끝**(Keycloak 24.0.5 + registry·authz·gate·hub + `vite preview` 프록시 + 헤드리스 Chromium): 첫 로그인 2단계 등록 → E-IDO-137 강제 변경 → OIDC_RP 온보딩 저장 → Keycloak client `idem-svc-*` 프로비저닝 확인 → secret 회전 → 정책 시뮬레이션 허용 → 목록 → 감사(ADMIN_LOGIN_SUCCESS·ADMIN_PASSWORD_CHANGED·기관별) → AUDITOR 추가(임시 비밀번호) → 테넌트 → 로그아웃 → 새 비밀번호 + 인증 앱 코드로 재로그인. 브라우저 콘솔 오류는 로그인 전 `/auth/me` 401 하나(의도)
 - ⏭ **남긴 것**: 접근 배너·마지막 로그인 표시(콘솔) · 할당 관리 화면(authz `assignments`, S8-b PR-2) · 기관 목록 페이징(현재 500건 한 번에) · TOTP QR 이미지(비밀·otpauth URI 텍스트만) · KR 포털의 SigNoz 잔재 정리는 KR 에디션 과제 · CI 설치본 스모크에 콘솔 컨테이너(nginx) 실기동 추가
 
-### S9 — 개명 마무리 + 에디션 패키징 + 1.0 동결 (3~4주)
+### S9 ✅ — 개명 마무리 + 에디션 패키징 + 1.0 동결 (PR #237·#238·#239·PR-4, 2026-09-25~26)
 
 - **개명 4b·5**(`naming.md`): 설정 키 `ido.*`/`qim.*` → `idem.*`, 헤더·Redis 접두·환경변수·DB/Keycloak 이름. 구 키는 1 릴리스 호환 계층.
 - Core/KR 이미지·Helm values 분리(`vendor-plugin-plan.md` P4) · 기관 온보딩 가이드(프로파일 작성 → 검증 → 시험 → 승인) · **요구사항 수용 체크리스트**(§4) · 설치 시 입력값 목록 · 일회성 회원 이관 도구(KR 에디션).
@@ -537,6 +537,12 @@ Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `Integ
 - ✅ **KR 회원 일회성 이관 도구** `scripts/kr-member-import/import_members.py`(표준 라이브러리만): CSV → registry 내부 API(`register-subject` 멱등 + KR `biz-members/convert`) → 매핑 CSV(`source_id → qim_user_id`, CI 없음), `--dry-run`·`--resume`·`--verify`·`--rps`. DB 직접 쓰기 없음 — CI 암호화·해시·DI·Tenant 규칙이 registry 안에서 그대로
 - ✅ 검증: `helm lint`(core·kr) 0 오류, `helm template` core 1655줄·kr 1686줄을 파싱해 Deployment 7(kr)·env 항목 형식·프로브·Ingress 호스트 확인(이 환경에서 Go 로 helm 3.16 을 빌드해 씀) · 가드 `NamingGuardTest`·`GeneralizationGuardTest` 통과 · 이관 도구는 로컬 PG + `idem-kr-registry` jar 로 개인 2·기업 1·중복 CI 1 → `new=3 existing=1 biz=1`, 재실행 `new=0 existing=4 biz=exists`, `--resume` 전부 건너뜀, `--verify OK`, 코어 registry 에 BIZ 행은 오류(500)로 기록·종료 코드 2
 - ⏭ **남긴 것**: **실제 클러스터 배포는 못 해 봤다**(이 환경에 K8s 없음 — 첫 배포 때 README 의 확인 절차로 검증하고 기록) · Docker 빌드는 이 환경에 docker 가 없어 CI 의 `docker-build-check`(PR)·`docker-build`(main) 가 첫 검증 · 벤더 SDK 가 있는 KR 이미지 빌드는 사설 러너에서만 · registry 코어가 모르는 내부 경로에 500 으로 답하는 것(404 여야) 은 별도 수정 · Keycloak production 모드에서 `--import-realm` 의 재기동 동작(있으면 건너뜀)은 K8s 첫 배포 때 확인 · 실제 SMES 데이터 이관 리허설은 KR 고객 데이터가 있을 때
+
+**진행 기록 (2026-09-26, S9 PR-4: 1.0 동결)** — 구현 PR. **S9 완료 → `execution-plan.md` P3(GS) 착수.**
+- ✅ **버전 1.0.0**: 루트 `build.gradle.kts`(모든 모듈·SDK 좌표 `idem-sdk-java:1.0.0`), `CLAUDE.md`·`AGENTS.md`, 관리 콘솔 `package.json`, Helm `appVersion`, README 헤더·버전 히스토리(본문은 개발 기록으로 남기고 1.0 문서 목록을 머리에), SDK CHANGELOG 1.0.0, 제품 `CHANGELOG.md` 신설. 릴리스 태그 `v1.0.0` 과 브랜치 `release/1.0` 은 이 PR 의 main 머지 커밋에
+- ✅ **1.0 매뉴얼 초안** `docs/manuals/`: 설치 매뉴얼(전제·입력값·compose/Helm/오프라인·확인 8단계·업그레이드·백업/복구·제거·검증한 것/못 한 것), 관리자 매뉴얼(콘솔 기능별 + 운영 작업), 제품 설명서(기능 22개·구성·지원 플랫폼·보안 요약·제한), 시험 항목표(51항목, 자동 47 — CI 스모크·E2E·IT·UT 로 어디서 이미 도는지 표시)
+- ✅ **GS 착수 문서** `docs/certification/gs-kickoff.md`: 범위(core 에디션, compose 설치본), 제출물 상태표, 8~16주 일정, 사용자 결정 6건, 1.0.x 코드 과제, 완료 기준
+- ⏭ **1.0.x**: 콘솔 할당 화면·페이징·QR, registry 미지원 경로 404, 오프라인 설치·백업 복구 리허설, 시험 항목표 완주·결함 밀도 · **2.0**: API 경로·오류 코드·SDK 이름 개명(agency→tenant, `E-IDO`, `onepass.*`), 호환 계층 제거
 
 ---
 

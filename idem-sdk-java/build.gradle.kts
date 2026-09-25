@@ -194,7 +194,7 @@ tasks.withType<Test>().configureEach {
 // SDK 아티팩트 메타데이터
 val sdkGroup      = "io.github.hipstermin.idem"
 val sdkArtifactId = "idem-sdk-java"
-val sdkVersion    = project.version.toString()    // 루트 build.gradle.kts: "0.1.0-SNAPSHOT"
+val sdkVersion    = project.version.toString()    // 루트 build.gradle.kts: "1.0.0"
 
 publishing {
     publications {

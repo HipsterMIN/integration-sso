@@ -20,12 +20,10 @@
 | `idem-tenant-sample` | 참조 테넌트 앱 (PoC·E2E용) | 8084 |
 | `idem-common` | 공통 라이브러리 | — |
 
-> **최신 상태 (2026-06-25)** — **연합 인가(Federated Authorization) 평면 신설** — `idem-authz` 모듈(역할 부여 SoR, L1+L2) + 토큰 `roles[]` 클레임(CAST·Handoff) + `/api/ext` 게이트웨이 PEP 속성 전파 + SCIM 2.0 Groups + 한시 권한 만료 스케줄러 + 회수 이벤트 전파(`idem.authz.assignment.events`)
-> **현재 버전**: v0.8.11 + 연합 인가 (authz-1 / authz-2) + Sprint α 누적
-> **빌드 상태**: `./gradlew :idem-agent:agentJar` → **BUILD SUCCESSFUL** (`idem-agent-0.1.0-SNAPSHOT-all.jar`, ~10MB)
-> **테스트 (참고)**: `./gradlew :idem-agent:test` 131개, `:idem-sdk-java:test` 36개. Sprint α-1~α-3 신규 회귀 테스트 합산은 별도 검증 필요.
-> **최근 머지**: [#205](https://github.com/HipsterMIN/integration-sso/pull/205) (연합 인가 L1~L4 — q-authz·roles 클레임·PEP·만료·SCIM) → [#206](https://github.com/HipsterMIN/integration-sso/pull/206) (회수 이벤트 전파 — `main` 병합 대기)
-> **최신 분석/로드맵**: [`docs/analysis/sso-im-readiness/00_INDEX.md`](docs/analysis/sso-im-readiness/00_INDEX.md)
+> **현재 버전**: **v1.0.0** (2026-09-26, S9 PR-4 **1.0 동결** — 태그 `v1.0.0`, 릴리스 브랜치 `release/1.0`). 이 README 의 아래 절들은 개발 과정의 기록이며 최신 구조·절차는 다음 문서가 기준이다.
+> **1.0 문서**: 설치 [`docs/install.md`](docs/install.md)(compose) · [`infra/helm/idem/README.md`](infra/helm/idem/README.md)(Helm) · 입력값 [`docs/install-inputs.md`](docs/install-inputs.md) · 매뉴얼 [`docs/manuals/`](docs/manuals/README.md)(설치·관리자·제품 설명·시험 항목표) · 온보딩 [`docs/onboarding-guide.md`](docs/onboarding-guide.md) · 요구사항 [`docs/requirements-checklist.md`](docs/requirements-checklist.md) · 관리자 인증 [`docs/admin-auth.md`](docs/admin-auth.md) · 개명 [`docs/naming.md`](docs/naming.md)
+> **계획**: 범용화 [`docs/generalization-plan.md`](docs/generalization-plan.md)(S1~S9 완료) · 인증 [`docs/execution-plan.md`](docs/execution-plan.md)(P3 GS 착수) · GS 시작 [`docs/certification/gs-kickoff.md`](docs/certification/gs-kickoff.md)
+> **에디션**: core(Idem SSO + IM) · kr(코어 + KR 에디션 — SMES 회원·NICE/Any-ID 플러그인·회원 포털). 이미지 `<tag>-<edition>`
 > **문서 안내**: [`docs/README.md`](docs/README.md) — 2026-05-22 정리 결과 반영
 
 ---
@@ -66,6 +64,7 @@
 
 | 버전 | PR | 주요 내용 |
 |------|----|---------|
+| **v1.0.0** | [#237](https://github.com/HipsterMIN/integration-sso/pull/237)·[#238](https://github.com/HipsterMIN/integration-sso/pull/238)·[#239](https://github.com/HipsterMIN/integration-sso/pull/239)·S9 PR-4 | **1.0 동결** — 개명 완료(설정 키·환경변수·DB·스키마·Keycloak `idem`), 에디션 패키징(Helm 재작성 core/kr·이미지 변형·온보딩·체크리스트·입력값·KR 회원 이관), 1.0 매뉴얼 4종·GS 착수 문서. 앞선 단계: 다이어트 D1~D3, 관리자 인증·콘솔 S7, 표준 OIDC S6, 할당·역할 S8 |
 | **authz-2** | [#206](https://github.com/HipsterMIN/integration-sso/pull/206) | **연합 인가 — 인가 이벤트 전파(회수 무효화)** — q-authz 트랜잭셔널 아웃박스(`idem_authz.authz_outbox`, V2) → `outbox-relay-batch`가 `idem.authz.assignment.events` Kafka 토픽으로 릴레이(`FOR UPDATE SKIP LOCKED` + ShedLock, 파티션 키 `qimUserId`). `GRANTED`/`REVOKED`/`EXPIRED` 이벤트를 기관 게이트웨이·세션 캐시·ido가 구독 → **토큰 만료 전 역할 회수 전파**(연합 인가 회수 지연 약점 해소). |
 | **authz-1** | [#205](https://github.com/HipsterMIN/integration-sso/pull/205) | **연합 인가 평면 신설(L1+L2)** — `q-authz` 모듈 신규(역할 부여 SoR, 포트 8086, 스키마 `authz`, RLS 테넌트 격리) + 토큰 `roles[]` 클레임 주입(CAST JWT + Handoff 암호화 payload, q-authz `effective-roles` 조회 fail-open) + `/api/ext` 게이트웨이 PEP 속성 전파(`X-Authz-User/Scope/Roles`, 클라이언트 헤더 anti-spoofing, 비강제) + 한시 권한 만료 전이 스케줄러(ACTIVE→EXPIRED) + SCIM 2.0 Groups 프로비저닝(`/scim/v2/Groups`). |
 | **α-3 + onepass-support** | [#178](https://github.com/HipsterMIN/integration-sso/pull/178) (α-3) + [#179](https://github.com/HipsterMIN/integration-sso/pull/179) | **경계 영역 보안 강화 + 모듈 뼈대** — F4.3 Webhook 기본 시크릿 제거(`@PostConstruct` 부팅 가드 + `allow-empty-secret` escape hatch), F4.4 CAST URL 누출 방지(POST 자동 제출 form, 토큰 hidden field), F4.6 Q-IM 예외 구분(404→null·5xx→`IDEM_HUB_REGISTRY_UNREACHABLE`). 회귀 테스트 27건 신규. `onepass-support` 모듈 뼈대 추가. |
@@ -970,7 +969,7 @@ integration-sso/
 ```bash
 # 1. Agent JAR 빌드
 ./gradlew :idem-agent:agentJar
-# → idem-agent/build/libs/onepass-agent-0.1.0-SNAPSHOT-all.jar
+# → idem-agent/build/libs/onepass-agent-1.0.0-all.jar
 
 # 2. 설정 파일 작성
 cat > /opt/onepass/onepass-agent.properties << 'EOF'
@@ -980,7 +979,7 @@ onepass.agent.enabled=true
 EOF
 
 # 3. Tomcat JVM 옵션 추가 (catalina.sh 또는 setenv.sh)
-JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/onepass-agent-0.1.0-SNAPSHOT-all.jar=config=/opt/onepass/onepass-agent.properties"
+JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/onepass-agent.properties"
 
 # 4. Tomcat 재시작 → 로그 확인
 # [OnePassAgent] WAS 유형 감지: Tomcat 9.x (JDK 8+, Servlet 4.0)
@@ -1636,6 +1635,6 @@ Idem 은 [Apache License 2.0](LICENSE) 으로 배포됩니다. 제3자 구성요
 
 ---
 
-> **문서 최종 수정**: 2026-05-22 (Sprint α-3 머지 + 문서 정리 1차) | **버전**: v0.8.11 + Sprint α 누적 | **담당**: GenSpark AI Developer
+> **문서 최종 수정**: 2026-09-26 (S9 PR-4 1.0 동결 — 헤더·버전 히스토리만 갱신, 본문은 개발 기록) | **버전**: v1.0.0 | **담당**: GenSpark AI Developer
 > **개발 워크플로우**: `shipster` 브랜치에서 작업 → 누적 후 `shipster → main` release PR (squash merge) → 머지 직후 shipster를 origin/main에 reset + force-push로 동기화
 > 문서 카탈로그: [`docs/README.md`](docs/README.md) · 위키: [`wiki/INDEX.md`](wiki/INDEX.md)
