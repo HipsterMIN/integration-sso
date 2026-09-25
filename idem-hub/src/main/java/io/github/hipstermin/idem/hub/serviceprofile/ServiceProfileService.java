@@ -113,7 +113,7 @@ public class ServiceProfileService {
     private void recordHistory(String serviceCode, String policyVersion, String snapshot, String adminId, String reason) {
         try {
             jdbcTemplate.update("""
-                    INSERT INTO ido.agency_meta_history
+                    INSERT INTO idem_hub.agency_meta_history
                         (history_id, agency_code, policy_version, snapshot, changed_by, change_reason)
                     VALUES (?, ?, ?, ?::jsonb, ?, ?)
                     """,

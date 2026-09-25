@@ -16,7 +16,7 @@
 
 -- ── 1. 인바운드 이벤트 감사 테이블 ───────────────────────────────────────────
 -- 기관이 OnePass로 전달하는 모든 인바운드 이벤트 감사 이력
-CREATE TABLE IF NOT EXISTS ido.gateway_inbound_audit (
+CREATE TABLE IF NOT EXISTS idem_hub.gateway_inbound_audit (
     id                  VARCHAR(36)   NOT NULL DEFAULT gen_random_uuid(),
     agency_code         VARCHAR(50)   NOT NULL,                  -- 송신 기관 코드
     event_type          VARCHAR(50)   NOT NULL,                  -- AGENCY_USER_UPDATED / AGENCY_USER_WITHDRAWN / CUSTOM
@@ -45,24 +45,24 @@ CREATE TABLE IF NOT EXISTS ido.gateway_inbound_audit (
 
 -- 인덱스: 기관별 이벤트 이력 조회
 CREATE INDEX IF NOT EXISTS idx_gateway_inbound_agency_code
-    ON ido.gateway_inbound_audit(agency_code, received_at DESC);
+    ON idem_hub.gateway_inbound_audit(agency_code, received_at DESC);
 
 -- 인덱스: RECEIVED 상태 미처리 이벤트 조회 (모니터링/재처리용)
 CREATE INDEX IF NOT EXISTS idx_gateway_inbound_pending
-    ON ido.gateway_inbound_audit(received_at ASC)
+    ON idem_hub.gateway_inbound_audit(received_at ASC)
     WHERE status = 'RECEIVED';
 
 -- 인덱스: idempotency_key 빠른 중복 체크 (UNIQUE가 자동으로 만들지만 명시)
-COMMENT ON INDEX ido.uq_gateway_inbound_idempotency IS 'X-Idempotency-Key 중복 수신 방지 — UNIQUE 인덱스';
+COMMENT ON INDEX idem_hub.uq_gateway_inbound_idempotency IS 'X-Idempotency-Key 중복 수신 방지 — UNIQUE 인덱스';
 
-COMMENT ON TABLE  ido.gateway_inbound_audit                        IS '기관→OnePass 인바운드 이벤트 감사 이력 (Sprint 15)';
-COMMENT ON COLUMN ido.gateway_inbound_audit.idempotency_key        IS 'UUID v7 — UNIQUE 제약으로 동일 키 재수신 차단 (24h Redis + DB 이중 방어)';
-COMMENT ON COLUMN ido.gateway_inbound_audit.status                 IS 'RECEIVED: 수신완료, PROCESSED: 처리완료, REJECTED: 거부, DUPLICATE: 중복';
-COMMENT ON COLUMN ido.gateway_inbound_audit.payload                IS 'PII 최소화: 실명/전화 평문 금지, agencyUserId + 해시만 허용';
+COMMENT ON TABLE  idem_hub.gateway_inbound_audit                        IS '기관→OnePass 인바운드 이벤트 감사 이력 (Sprint 15)';
+COMMENT ON COLUMN idem_hub.gateway_inbound_audit.idempotency_key        IS 'UUID v7 — UNIQUE 제약으로 동일 키 재수신 차단 (24h Redis + DB 이중 방어)';
+COMMENT ON COLUMN idem_hub.gateway_inbound_audit.status                 IS 'RECEIVED: 수신완료, PROCESSED: 처리완료, REJECTED: 거부, DUPLICATE: 중복';
+COMMENT ON COLUMN idem_hub.gateway_inbound_audit.payload                IS 'PII 최소화: 실명/전화 평문 금지, agencyUserId + 해시만 허용';
 
 -- ── 2. 아웃바운드 발송 이력 테이블 ───────────────────────────────────────────
 -- OnePass → 기관 수동/자동 아웃바운드 발송 이력
-CREATE TABLE IF NOT EXISTS ido.gateway_outbound_audit (
+CREATE TABLE IF NOT EXISTS idem_hub.gateway_outbound_audit (
     id                  VARCHAR(36)   NOT NULL DEFAULT gen_random_uuid(),
     agency_code         VARCHAR(50)   NOT NULL,                  -- 수신 기관 코드
     event_type          VARCHAR(50)   NOT NULL,                  -- NOTIFY_USER / CAST_ISSUED / PROVISIONING
@@ -84,12 +84,12 @@ CREATE TABLE IF NOT EXISTS ido.gateway_outbound_audit (
 
 -- 인덱스: 기관별 아웃바운드 이력
 CREATE INDEX IF NOT EXISTS idx_gateway_outbound_agency_code
-    ON ido.gateway_outbound_audit(agency_code, sent_at DESC);
+    ON idem_hub.gateway_outbound_audit(agency_code, sent_at DESC);
 
 -- 인덱스: FAILED 발송 모니터링
 CREATE INDEX IF NOT EXISTS idx_gateway_outbound_failed
-    ON ido.gateway_outbound_audit(sent_at DESC)
+    ON idem_hub.gateway_outbound_audit(sent_at DESC)
     WHERE status = 'FAILED';
 
-COMMENT ON TABLE  ido.gateway_outbound_audit                       IS 'OnePass→기관 아웃바운드 발송 감사 이력 (Sprint 15)';
-COMMENT ON COLUMN ido.gateway_outbound_audit.payload_hash          IS 'SHA-256(payload) — 평문 페이로드 저장 금지, 감사용 해시만 보관';
+COMMENT ON TABLE  idem_hub.gateway_outbound_audit                       IS 'OnePass→기관 아웃바운드 발송 감사 이력 (Sprint 15)';
+COMMENT ON COLUMN idem_hub.gateway_outbound_audit.payload_hash          IS 'SHA-256(payload) — 평문 페이로드 저장 금지, 감사용 해시만 보관';

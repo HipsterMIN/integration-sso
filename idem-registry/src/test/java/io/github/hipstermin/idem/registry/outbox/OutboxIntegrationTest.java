@@ -68,15 +68,15 @@ class OutboxIntegrationTest {
     @Container
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("onepass")
-                    .withUsername("onepass")
-                    .withPassword("onepass")
+                    .withDatabaseName("idem")
+                    .withUsername("idem")
+                    .withPassword("idem")
                     .withReuse(true);
 
     @DynamicPropertySource
     static void configureDataSource(DynamicPropertyRegistry registry) {
         // 네이티브 SQL(unqualified) 이 qim 스키마를 보도록 currentSchema 를 URL 에 싣는다 (application.yml 과 동일)
-        registry.add("spring.datasource.url",      () -> POSTGRES.getJdbcUrl() + "&currentSchema=qim");
+        registry.add("spring.datasource.url",      () -> POSTGRES.getJdbcUrl() + "&currentSchema=idem_registry");
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");

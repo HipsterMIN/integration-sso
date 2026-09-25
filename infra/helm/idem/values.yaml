@@ -27,7 +27,7 @@ infra:
   postgres:
     host: postgres-service
     port: 5432
-    database: onepass
+    database: idem
     # Secret: idem-db-secret 에서 username/password 참조
     existingSecret: idem-db-secret
     usernameKey: username
@@ -70,11 +70,11 @@ gate:
   config:
     IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
     SPRING_PROFILES_ACTIVE: k8s
-    DB_NAME: onepass
+    DB_NAME: idem
     DB_PORT: "5432"
     REDIS_PORT: "6379"
-    KEYCLOAK_REALM: onepass
-    IDEM_GATE_KEYCLOAK_CLIENT_ID: q-sign-client
+    KEYCLOAK_REALM: idem
+    IDEM_GATE_KEYCLOAK_CLIENT_ID: idem-gate
     IDEM_GATE_PKCE_ENABLED: "true"
     IDEM_GATE_PKCE_TTL: "300"
     IDEM_GATE_INTERNAL_SIG_STRICT: "false"
@@ -144,7 +144,7 @@ authz:
   config:
     SPRING_PROFILES_ACTIVE: k8s
     IDEM_AUTHZ_DB_PORT: "5432"
-    IDEM_AUTHZ_DB_NAME: onepass
+    IDEM_AUTHZ_DB_NAME: idem
     IDEM_AUTHZ_DB_SSLMODE: disable
     IDEM_AUTHZ_EXPIRY_ENABLED: "true"
     IDEM_AUTHZ_EXPIRY_SCAN_INTERVAL_MS: "60000"
@@ -270,12 +270,12 @@ hub:
     IDEM_HUB_AUTHZ_ENABLED: "true"   # D2: authz 조회 실패 = 거부(503). authz 를 배포하지 않으면 "false" 로 명시
     IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
     SPRING_PROFILES_ACTIVE: k8s
-    DB_NAME: onepass
+    DB_NAME: idem
     DB_PORT: "5432"
     REDIS_PORT: "6379"
     IDEM_HUB_BROKER_MODE: qsign
-    KEYCLOAK_REALM: onepass
-    KEYCLOAK_CLIENT_ID: ido-client
+    KEYCLOAK_REALM: idem
+    KEYCLOAK_CLIENT_ID: idem-hub
     IDEM_HUB_PLATFORM_VERSION: "1.0"
     IDEM_HUB_RATE_LIMIT_ENABLED: "true"
     IDEM_HUB_RATE_LIMIT_DEFAULT_TPS: "200"
@@ -375,11 +375,11 @@ relay:
     SPRING_PROFILES_ACTIVE: k8s
     # DB 포트 (드라이버별)
     IDEM_HUB_DB_PORT: "5432"
-    IDEM_HUB_DB_NAME: onepass
+    IDEM_HUB_DB_NAME: idem
     IDEM_REGISTRY_DB_PORT: "3306"
     IDEM_REGISTRY_DB_NAME: qim
     IDEM_GATE_DB_PORT: "5432"
-    IDEM_GATE_DB_NAME: onepass
+    IDEM_GATE_DB_NAME: idem
     REDIS_PORT: "6379"
     # Webhook 헤더용
     IDEM_HUB_PLATFORM_VERSION: "1.0"
@@ -456,7 +456,7 @@ sample:
       memory: 512Mi
   config:
     SPRING_PROFILES_ACTIVE: k8s
-    DB_NAME: onepass
+    DB_NAME: idem
     DB_PORT: "5432"
     REDIS_PORT: "6379"
   secretRef:

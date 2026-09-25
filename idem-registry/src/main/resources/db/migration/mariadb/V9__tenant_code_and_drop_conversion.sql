@@ -5,7 +5,7 @@
 --
 -- ■ qim_user.tenant_code
 --   사용자는 Tenant(Realm, 운영기관 디렉터리)에 속한다. Service(기관)에 속하지 않는다.
---   기존 행은 'DEFAULT'. hub ido.tenant.tenant_code 와 같은 값.
+--   기존 행은 'DEFAULT'. hub idem_hub.tenant.tenant_code 와 같은 값.
 --
 -- ■ conversion_session 삭제
 --   플랫폼이 68개 기관 DB 를 돌며 회원을 조회·연결하던 흐름(registry conversion 패키지)은
@@ -14,7 +14,7 @@
 -- ============================================================
 
 ALTER TABLE qim_user
-    ADD COLUMN IF NOT EXISTS tenant_code VARCHAR(50) NOT NULL DEFAULT 'DEFAULT' COMMENT '소속 Tenant(Realm) — hub ido.tenant.tenant_code';
+    ADD COLUMN IF NOT EXISTS tenant_code VARCHAR(50) NOT NULL DEFAULT 'DEFAULT' COMMENT '소속 Tenant(Realm) — hub idem_hub.tenant.tenant_code';
 
 CREATE INDEX IF NOT EXISTS idx_qim_user_tenant ON qim_user (tenant_code);
 

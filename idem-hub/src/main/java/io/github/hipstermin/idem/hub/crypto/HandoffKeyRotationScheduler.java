@@ -154,7 +154,7 @@ public class HandoffKeyRotationScheduler {
             int    currentNum     = Integer.parseInt(currentVersion.replaceAll("[^0-9]", ""));
             String newVersion     = "v" + (currentNum + 1);
 
-            // 4. DB에 신규 키 버전 기록 (ido.crypto_key_registry)
+            // 4. DB에 신규 키 버전 기록 (idem_hub.crypto_key_registry)
             saveKeyVersion(newVersion, encryptedKeyMaterial, adminId, reason);
 
             // 5. 활성 버전 갱신
@@ -196,7 +196,7 @@ public class HandoffKeyRotationScheduler {
     private String queryCurrentVersionFromDb() {
         try {
             return jdbcTemplate.queryForObject(
-                    "SELECT key_version FROM ido.crypto_key_registry " +
+                    "SELECT key_version FROM idem_hub.crypto_key_registry " +
                     "WHERE key_type = 'HANDOFF_AES' AND active = TRUE " +
                     "ORDER BY created_at DESC LIMIT 1",
                     String.class);
@@ -209,7 +209,7 @@ public class HandoffKeyRotationScheduler {
     private Instant queryLastRotationTime() {
         try {
             return jdbcTemplate.queryForObject(
-                    "SELECT MAX(created_at) FROM ido.crypto_key_registry " +
+                    "SELECT MAX(created_at) FROM idem_hub.crypto_key_registry " +
                     "WHERE key_type = 'HANDOFF_AES'",
                     Instant.class);
         } catch (Exception e) {
@@ -220,14 +220,14 @@ public class HandoffKeyRotationScheduler {
     private void saveKeyVersion(String version, String encryptedKeyMaterial, String adminId, String reason) {
         // 이전 활성 키를 INACTIVE 처리 (Grace Period 동안은 복호화 가능)
         jdbcTemplate.update(
-                "UPDATE ido.crypto_key_registry SET active = FALSE, grace_until = ? " +
+                "UPDATE idem_hub.crypto_key_registry SET active = FALSE, grace_until = ? " +
                 "WHERE key_type = 'HANDOFF_AES' AND active = TRUE",
                 Instant.now().plus(Duration.ofHours(keyGracePeriodHours)));
 
         // 신규 키 등록 — encryptedKeyMaterial은 KmsClient.encrypt()가 반환한 값
         // Vault: "vault:v1:AABB...", Local(Off): Base64 평문, NHN: SKM ciphertext
         jdbcTemplate.update(
-                "INSERT INTO ido.crypto_key_registry " +
+                "INSERT INTO idem_hub.crypto_key_registry " +
                 "(key_type, key_version, key_material_encrypted, active, created_by, rotation_reason, created_at) " +
                 "VALUES ('HANDOFF_AES', ?, ?, TRUE, ?, ?, NOW())",
                 version,
@@ -239,10 +239,10 @@ public class HandoffKeyRotationScheduler {
     private void updateCurrentVersion(String version) {
         try {
             jdbcTemplate.update(
-                    "UPDATE ido.crypto_key_registry SET current_flag = FALSE " +
+                    "UPDATE idem_hub.crypto_key_registry SET current_flag = FALSE " +
                     "WHERE key_type = 'HANDOFF_AES'");
             jdbcTemplate.update(
-                    "UPDATE ido.crypto_key_registry SET current_flag = TRUE " +
+                    "UPDATE idem_hub.crypto_key_registry SET current_flag = TRUE " +
                     "WHERE key_type = 'HANDOFF_AES' AND key_version = ?",
                     version);
         } catch (Exception e) {

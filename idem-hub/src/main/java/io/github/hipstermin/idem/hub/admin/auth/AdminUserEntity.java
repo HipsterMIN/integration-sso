@@ -13,7 +13,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** {@code ido.admin_user} (V25). */
+/** {@code idem_hub.admin_user} (V25). */
 @Entity
 @Table(name = "admin_user")
 @Getter

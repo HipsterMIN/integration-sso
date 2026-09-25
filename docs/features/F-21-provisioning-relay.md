@@ -64,7 +64,7 @@ public void relay() {
 
 ```sql
 -- 다중 Pod 환경에서 같은 레코드를 여러 Pod가 동시에 처리하지 않도록
-SELECT * FROM ido.provisioning_outbox
+SELECT * FROM idem_hub.provisioning_outbox
 WHERE status = 'PENDING'
   AND next_retry_at <= NOW()
 ORDER BY next_retry_at ASC
@@ -83,7 +83,7 @@ FOR UPDATE SKIP LOCKED
 
 ```sql
 -- ProvisioningOutboxRepositoryImpl — next_retry_at 계산
-UPDATE ido.provisioning_outbox
+UPDATE idem_hub.provisioning_outbox
 SET retry_count = retry_count + 1,
     next_retry_at = NOW() + CASE retry_count
         WHEN 0 THEN INTERVAL '1 minute'   -- 1차 실패 후 1분
@@ -105,13 +105,13 @@ WHERE id = :id
 # DEAD_LETTER 확인
 psql -c "
   SELECT id, agency_code, retry_count, last_error, created_at
-  FROM ido.provisioning_outbox
+  FROM idem_hub.provisioning_outbox
   WHERE status = 'DEAD_LETTER'
   ORDER BY created_at DESC;"
 
 # 수동 재처리 (기관 엔드포인트 복구 후)
 psql -c "
-  UPDATE ido.provisioning_outbox
+  UPDATE idem_hub.provisioning_outbox
   SET status = 'PENDING',
       retry_count = 0,
       next_retry_at = NOW(),
@@ -126,13 +126,13 @@ psql -c "
 ```sql
 -- 현재 상태 요약
 SELECT status, count(*), max(created_at) as latest
-FROM ido.provisioning_outbox
+FROM idem_hub.provisioning_outbox
 WHERE created_at > now() - interval '24 hours'
 GROUP BY status;
 
 -- 기관별 PENDING 건수
 SELECT agency_code, count(*) as pending_count
-FROM ido.provisioning_outbox
+FROM idem_hub.provisioning_outbox
 WHERE status = 'PENDING'
 GROUP BY agency_code
 ORDER BY pending_count DESC;

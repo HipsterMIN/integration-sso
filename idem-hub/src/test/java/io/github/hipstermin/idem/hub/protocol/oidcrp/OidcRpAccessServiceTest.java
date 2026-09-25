@@ -121,7 +121,7 @@ class OidcRpAccessServiceTest {
     @Test
     @DisplayName("Idem 이 프로비저닝하지 않은 client·OIDC_RP 가 아닌 프로파일·비활성 서비스는 거부")
     void unknownClientOrProfile() {
-        assertThat(sut.evaluate(req("q-sign-client", null, null), "cid").denyCode()).isEqualTo("E-IDO-123");
+        assertThat(sut.evaluate(req("idem-gate", null, null), "cid").denyCode()).isEqualTo("E-IDO-123");
 
         given(profiles.find("AG2")).willReturn(Optional.of(profile("AG2", IntegrationType.DIRECT, null)));
         assertThat(sut.evaluate(req("idem-svc-AG2", null, null), "cid").denyCode()).isEqualTo("E-IDO-123");

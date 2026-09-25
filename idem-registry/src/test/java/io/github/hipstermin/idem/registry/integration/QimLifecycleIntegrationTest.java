@@ -83,14 +83,14 @@ class QimLifecycleIntegrationTest {
     @Container
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("onepass")
-                    .withUsername("onepass")
-                    .withPassword("onepass")
+                    .withDatabaseName("idem")
+                    .withUsername("idem")
+                    .withPassword("idem")
                     .withReuse(true);
 
     @DynamicPropertySource
     static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url",      () -> POSTGRES.getJdbcUrl() + "&currentSchema=qim");
+        registry.add("spring.datasource.url",      () -> POSTGRES.getJdbcUrl() + "&currentSchema=idem_registry");
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");

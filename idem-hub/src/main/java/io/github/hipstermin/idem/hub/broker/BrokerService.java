@@ -48,7 +48,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  *       <pre>FE → ido → q-sign POST /api/v1/oidc/{provider}/auth-url → 카카오/네이버</pre>
  *   </li>
  *   <li>{@code keycloak}: ido가 직접 Keycloak URL 생성
- *       <pre>FE → ido → Keycloak GET /realms/onepass/protocol/openid-connect/auth?kc_idp_hint=social-kakao</pre>
+ *       <pre>FE → ido → Keycloak GET /realms/idem/protocol/openid-connect/auth?kc_idp_hint=social-kakao</pre>
  *   </li>
  * </ul>
  *
@@ -276,9 +276,9 @@ public class BrokerService {
      *
      * <p>생성되는 URL 예시:
      * <pre>
-     *   http://keycloak:8088/realms/onepass/protocol/openid-connect/auth
+     *   http://keycloak:8088/realms/idem/protocol/openid-connect/auth
      *     ?response_type=code
-     *     &client_id=ido-client
+     *     &client_id=idem-hub
      *     &redirect_uri=http://localhost:8083/api/v1/broker/callback
      *     &scope=openid profile email
      *     &state={32자 UUID}

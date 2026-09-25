@@ -20,7 +20,7 @@ import lombok.Setter;
  * 설치본에는 V22 가 시드한 {@code DEFAULT} 가 항상 있다. 다중 Tenant 격리(관리자·사용자 분리)는 S7.
  */
 @Entity
-@Table(name = "tenant", schema = "ido")
+@Table(name = "tenant", schema = "idem_hub")
 @Getter
 @Setter
 @NoArgsConstructor

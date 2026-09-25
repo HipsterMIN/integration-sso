@@ -135,7 +135,7 @@ SELECT
     COUNT(*) AS total_requests,
     SUM(CASE WHEN result_code = '429' THEN 1 ELSE 0 END) AS rate_limited,
     ROUND(SUM(CASE WHEN result_code = '429' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS rl_rate_pct
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE created_at >= NOW() - INTERVAL 1 HOUR
   AND agency_code IS NOT NULL
 GROUP BY agency_code

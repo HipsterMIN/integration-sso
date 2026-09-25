@@ -20,10 +20,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * authz.authz_outbox → idem.authz.assignment.events Kafka 릴레이 배치 Job
+ * idem_authz.authz_outbox → idem.authz.assignment.events Kafka 릴레이 배치 Job
  *
  * <h2>대상</h2>
- * q-authz 서비스(PostgreSQL)의 authz.authz_outbox 테이블 PENDING 레코드.
+ * q-authz 서비스(PostgreSQL)의 idem_authz.authz_outbox 테이블 PENDING 레코드.
  * 인가 부여/회수/만료(IDEM_AUTHZ_GRANTED/REVOKED/EXPIRED) 이벤트를 발행하여
  * 다운스트림(기관 게이트웨이·세션 캐시·ido)이 <b>역할 회수를 토큰 만료
  * 이전에 전파</b>할 수 있게 한다.
@@ -35,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <h2>payload 처리</h2>
  * 도메인 의존성 최소화를 위해 payload를 {@code Map<String, Object>}로 처리한다.
- * (authz.authz_outbox.payload 컬럼은 text — JSON 문자열)
+ * (idem_authz.authz_outbox.payload 컬럼은 text — JSON 문자열)
  */
 @Slf4j
 @Component
@@ -139,7 +139,7 @@ public class AuthzKafkaRelayJob {
     private void markPublished(String eventId) {
         try {
             authzJdbcTemplate.update("""
-                    UPDATE authz.authz_outbox
+                    UPDATE idem_authz.authz_outbox
                     SET status = 'PUBLISHED', published_at = NOW()
                     WHERE event_id = ?
                     """, eventId);
@@ -155,7 +155,7 @@ public class AuthzKafkaRelayJob {
 
             if (nextRetry >= maxRetry) {
                 authzJdbcTemplate.update("""
-                        UPDATE authz.authz_outbox
+                        UPDATE idem_authz.authz_outbox
                         SET status = 'FAILED', retry_count = retry_count + 1, error_message = ?
                         WHERE event_id = ?
                         """, errorMsg, row.eventId());
@@ -164,7 +164,7 @@ public class AuthzKafkaRelayJob {
                         row.eventId(), nextRetry, maxRetry, errorMsg);
             } else {
                 authzJdbcTemplate.update("""
-                        UPDATE authz.authz_outbox
+                        UPDATE idem_authz.authz_outbox
                         SET retry_count = retry_count + 1, error_message = ?
                         WHERE event_id = ?
                         """, errorMsg, row.eventId());
@@ -181,7 +181,7 @@ public class AuthzKafkaRelayJob {
         try {
             authzJdbcTemplate.query("""
                     SELECT event_id, partition_key, payload, retry_count
-                    FROM authz.authz_outbox
+                    FROM idem_authz.authz_outbox
                     WHERE status = 'PENDING'
                     ORDER BY created_at ASC
                     LIMIT ?
@@ -217,7 +217,7 @@ public class AuthzKafkaRelayJob {
         try {
             authzJdbcTemplate.query("""
                     SELECT event_id
-                    FROM authz.authz_outbox
+                    FROM idem_authz.authz_outbox
                     WHERE status = 'FAILED'
                       AND retry_count < ?
                     ORDER BY created_at ASC
@@ -235,7 +235,7 @@ public class AuthzKafkaRelayJob {
         for (String eventId : retryable) {
             try {
                 authzJdbcTemplate.update(
-                        "UPDATE authz.authz_outbox SET status = 'PENDING' WHERE event_id = ?", eventId);
+                        "UPDATE idem_authz.authz_outbox SET status = 'PENDING' WHERE event_id = ?", eventId);
             } catch (Exception e) {
                 log.error("[AuthzKafkaRelayJob] PENDING 복구 실패: eventId={}", eventId);
             }

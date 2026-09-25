@@ -9,7 +9,7 @@ import lombok.Getter;
  * 기관 폴링 이벤트 단건 응답 DTO
  *
  * <p>설계서 §P1-06 — 유관기관이 {@code GET /api/v1/agency/events}로 폴링할 때
- * {@code ido.webhook_dispatch_outbox} 테이블의 각 레코드를 이 형식으로 반환.
+ * {@code idem_hub.webhook_dispatch_outbox} 테이블의 각 레코드를 이 형식으로 반환.
  *
  * <p><b>보안 원칙</b>:
  * <ul>

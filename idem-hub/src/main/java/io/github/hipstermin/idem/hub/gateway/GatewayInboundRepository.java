@@ -10,7 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * ido.gateway_inbound_audit JdbcTemplate 리포지토리
+ * idem_hub.gateway_inbound_audit JdbcTemplate 리포지토리
  *
  * <p>인바운드 이벤트 감사 이력 INSERT/조회/상태갱신.
  * DB UNIQUE(idempotency_key)가 Redis 장애 시 2차 중복 방어.
@@ -35,7 +35,7 @@ public class GatewayInboundRepository {
     public int insert(GatewayInboundRecord record) {
         try {
             return jdbcTemplate.update("""
-                    INSERT INTO ido.gateway_inbound_audit
+                    INSERT INTO idem_hub.gateway_inbound_audit
                         (agency_code, event_type, idempotency_key, payload,
                          status, source_ip, correlation_id, received_at)
                     VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, NOW())
@@ -58,7 +58,7 @@ public class GatewayInboundRepository {
     /** 처리 완료 → PROCESSED 상태 갱신 */
     public void markProcessed(String idempotencyKey) {
         jdbcTemplate.update("""
-                UPDATE ido.gateway_inbound_audit
+                UPDATE idem_hub.gateway_inbound_audit
                 SET    status       = 'PROCESSED',
                        processed_at = NOW()
                 WHERE  idempotency_key = ?
@@ -68,7 +68,7 @@ public class GatewayInboundRepository {
     /** 처리 거부 → REJECTED 상태 갱신 */
     public void markRejected(String idempotencyKey, String errorMessage) {
         jdbcTemplate.update("""
-                UPDATE ido.gateway_inbound_audit
+                UPDATE idem_hub.gateway_inbound_audit
                 SET    status        = 'REJECTED',
                        error_message = ?
                 WHERE  idempotency_key = ?
@@ -78,7 +78,7 @@ public class GatewayInboundRepository {
     /** 중복 수신 → DUPLICATE 상태 갱신 (Redis 통과했지만 DB에서 잡힌 경우) */
     public void markDuplicate(String idempotencyKey) {
         jdbcTemplate.update("""
-                UPDATE ido.gateway_inbound_audit
+                UPDATE idem_hub.gateway_inbound_audit
                 SET    status = 'DUPLICATE'
                 WHERE  idempotency_key = ?
                 """, idempotencyKey);
@@ -91,7 +91,7 @@ public class GatewayInboundRepository {
     /** 기관별 RECEIVED 미처리 건수 (모니터링용) */
     public int countUnprocessedByAgency(String agencyCode) {
         Integer count = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM ido.gateway_inbound_audit
+                SELECT COUNT(*) FROM idem_hub.gateway_inbound_audit
                 WHERE  agency_code = ?
                   AND  status      = 'RECEIVED'
                 """, Integer.class, agencyCode);
@@ -101,7 +101,7 @@ public class GatewayInboundRepository {
     /** 기관별 마지막 수신 시각 */
     public Optional<Instant> findLastReceivedAt(String agencyCode) {
         List<Instant> result = jdbcTemplate.query("""
-                SELECT received_at FROM ido.gateway_inbound_audit
+                SELECT received_at FROM idem_hub.gateway_inbound_audit
                 WHERE  agency_code = ?
                 ORDER BY received_at DESC
                 LIMIT 1

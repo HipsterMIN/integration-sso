@@ -22,8 +22,8 @@ import org.springframework.stereotype.Component;
  * qsign:
  *   keycloak:
  *     base-url: http://localhost:8080
- *     realm: onepass
- *     client-id: q-sign-client
+ *     realm: idem
+ *     client-id: idem-gate
  *     client-secret: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:change-me}
  *     redirect-uri: http://localhost:8081/api/v1/oidc/keycloak/callback
  *     state-ttl-seconds: 300
@@ -45,10 +45,10 @@ public class KeycloakProperties {
     private String baseUrl = "http://localhost:8080";
 
     /** Keycloak Realm 이름 */
-    private String realm = "onepass";
+    private String realm = "idem";
 
     /** q-sign 용 Keycloak Client ID */
-    private String clientId = "q-sign-client";
+    private String clientId = "idem-gate";
 
     /**
      * q-sign 용 Keycloak Client Secret

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Q-Sign AuthResultRepository JPA 구현체
- * 설계서 §9.3 — 인증 결과 SoR (PostgreSQL qsign.auth_result)
+ * 설계서 §9.3 — 인증 결과 SoR (PostgreSQL idem_gate.auth_result)
  */
 @Slf4j
 @Repository

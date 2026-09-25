@@ -18,8 +18,8 @@
 #   --redis-port  PORT   Redis PORT     (기본: 6379)
 #   --db-host     HOST   PostgreSQL HOST (기본: localhost)
 #   --db-port     PORT   PostgreSQL PORT (기본: 5432)
-#   --db-user     USER   PostgreSQL user (기본: onepass)
-#   --db-pass     PASS   PostgreSQL pass (기본: onepass)
+#   --db-user     USER   PostgreSQL user (기본: idem)
+#   --db-pass     PASS   PostgreSQL pass (기본: idem)
 #   --mariadb-host HOST  MariaDB HOST   (기본: localhost)
 #   --mariadb-port PORT  MariaDB PORT   (기본: 3306)
 #   --mariadb-user USER  MariaDB user   (기본: qim)
@@ -58,8 +58,8 @@ REDIS_HOST="localhost"
 REDIS_PORT="6379"
 DB_HOST="localhost"
 DB_PORT="5432"
-DB_USER="onepass"
-DB_PASS="onepass"
+DB_USER="idem"
+DB_PASS="idem"
 MARIADB_HOST="localhost"
 MARIADB_PORT="3306"
 MARIADB_USER="qim"
@@ -228,14 +228,14 @@ else
 
   # PostgreSQL
   if command -v pg_isready &>/dev/null; then
-    if pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "onepass" -t "$TIMEOUT" &>/dev/null; then
+    if pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "idem" -t "$TIMEOUT" &>/dev/null; then
       pass "PostgreSQL 접속 ($DB_HOST:$DB_PORT)"
     else
       fail "PostgreSQL 접속" \
         "pg_isready 실패 | 확인: POSTGRES_* 환경변수, 방화벽 정책, 서버 기동 여부"
     fi
   elif command -v psql &>/dev/null; then
-    PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "onepass" \
+    PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "idem" \
       -c "SELECT 1;" -t --connect-timeout="$TIMEOUT" &>/dev/null \
       && pass "PostgreSQL 접속 ($DB_HOST:$DB_PORT)" \
       || fail "PostgreSQL 접속" "psql 연결 실패 | 확인: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD"

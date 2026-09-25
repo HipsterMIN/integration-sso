@@ -16,12 +16,12 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        default_schema: ido
+        default_schema: idem_hub
   flyway:
     enabled: true
     locations: classpath:db/migration
-    schemas: ido
-    default-schema: ido
+    schemas: idem_hub
+    default-schema: idem_hub
     baseline-on-migrate: true
 
 idem.hub:

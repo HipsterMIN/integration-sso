@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>처리 흐름 (Strategy B — 문서 §8.3):
  * <ol>
  *   <li>외부 IdP 응답을 IdpBrokerService가 정규화 → {@code IdOAuthInput}</li>
- *   <li>이 서비스가 AuthResult 생성 → {@code ido.auth_result} DB 저장</li>
+ *   <li>이 서비스가 AuthResult 생성 → {@code idem_hub.auth_result} DB 저장</li>
  *   <li>Outbox 이벤트 저장 → Kafka {@code idem.gate.auth.events} 발행</li>
  *   <li>기존 {@code QsignAuthEventConsumer} 변경 없이 소비</li>
  * </ol>
@@ -45,7 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class NonOidcAuthService {
 
-    private static final String SOURCE_SYSTEM = "ido-nonoidc";
+    private static final String SOURCE_SYSTEM = "idem-hub-nonoidc";
 
     private final JdbcTemplate               jdbcTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -100,7 +100,7 @@ public class NonOidcAuthService {
     }
 
     /**
-     * 잠금 상태 기록 (연속 실패 시 ido.auth_lock 업데이트)
+     * 잠금 상태 기록 (연속 실패 시 idem_hub.auth_lock 업데이트)
      *
      * @param identifierHash 식별자 해시
      * @param providerCode   인증 수단 코드
@@ -110,15 +110,15 @@ public class NonOidcAuthService {
     public void recordFailure(String identifierHash, String providerCode, String correlationId) {
         try {
             jdbcTemplate.update("""
-                    INSERT INTO ido.auth_lock
+                    INSERT INTO idem_hub.auth_lock
                         (lock_id, identifier_hash, provider_code, failure_count,
                          first_failure_at, last_failure_at, locked_until)
                     VALUES (?, ?, ?, 1, NOW(), NOW(), NULL)
                     ON CONFLICT (identifier_hash, provider_code) DO UPDATE
-                        SET failure_count   = ido.auth_lock.failure_count + 1,
+                        SET failure_count   = idem_hub.auth_lock.failure_count + 1,
                             last_failure_at = NOW(),
                             locked_until    = CASE
-                                WHEN ido.auth_lock.failure_count + 1 >= 5
+                                WHEN idem_hub.auth_lock.failure_count + 1 >= 5
                                 THEN NOW() + INTERVAL '30 minutes'
                                 ELSE NULL
                             END
@@ -129,7 +129,7 @@ public class NonOidcAuthService {
             // 잠금 여부 확인 후 LOCKED 이벤트 발행
             Boolean locked = jdbcTemplate.queryForObject("""
                     SELECT locked_until IS NOT NULL AND locked_until > NOW()
-                    FROM ido.auth_lock
+                    FROM idem_hub.auth_lock
                     WHERE identifier_hash = ? AND provider_code = ?
                     """, Boolean.class, identifierHash, providerCode);
 
@@ -151,7 +151,7 @@ public class NonOidcAuthService {
                                  String authMethod) {
         try {
             jdbcTemplate.update("""
-                    INSERT INTO ido.auth_result
+                    INSERT INTO idem_hub.auth_result
                         (auth_result_id, correlation_id, auth_level, provider_code,
                          provider_tx_id, identifier_hash, verification_result,
                          source_system, auth_method,
@@ -181,7 +181,7 @@ public class NonOidcAuthService {
                     authLevel, providerCode, identifierHash);
 
             jdbcTemplate.update("""
-                    INSERT INTO ido.outbox
+                    INSERT INTO idem_hub.outbox
                         (event_id, event_type, partition_key, aggregate_id,
                          payload, topic, status, created_at)
                     VALUES (?, 'AUTH_COMPLETED', ?, ?, ?::jsonb, ?, 'PENDING', NOW())

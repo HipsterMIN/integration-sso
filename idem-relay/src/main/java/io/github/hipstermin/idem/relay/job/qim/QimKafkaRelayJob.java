@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Kafka Consumer에서 처리 권장.
  *
  * <h2>주의 — idem.registry.outbox 스키마</h2>
- * idem.registry.outbox 테이블 구조가 ido.outbox와 다름:
+ * idem.registry.outbox 테이블 구조가 idem_hub.outbox와 다름:
  * - status: 'PENDING' / 'PUBLISHED' / 'FAILED' (동일)
  * - payload: JSONB (PostgreSQL) — 문자열로 읽어 그대로 발행
  * - partition_key 컬럼명 확인 필요 (qim은 qimUserId)
@@ -152,7 +152,7 @@ public class QimKafkaRelayJob {
     private void markPublished(String eventId) {
         try {
             qimJdbcTemplate.update("""
-                    UPDATE qim.outbox
+                    UPDATE idem_registry.outbox
                     SET status = 'PUBLISHED', published_at = NOW()
                     WHERE event_id = ?
                     """, eventId);
@@ -169,7 +169,7 @@ public class QimKafkaRelayJob {
             if (nextRetry >= maxRetry) {
                 // 영구 FAILED — 운영팀 수동 조치
                 qimJdbcTemplate.update("""
-                        UPDATE qim.outbox
+                        UPDATE idem_registry.outbox
                         SET status = 'FAILED',
                             retry_count = retry_count + 1,
                             error_message = ?
@@ -179,9 +179,9 @@ public class QimKafkaRelayJob {
                         row.eventId(), nextRetry, maxRetry, errorMsg);
             } else {
                 // FAILED 전환 (q-im은 next_retry_at 컬럼 없음 → relayFailedEvents로 복구)
-                // ⚠️ q-im의 qim.outbox가 next_retry_at 컬럼을 가지면 지수 백오프 적용 가능
+                // ⚠️ q-im의 idem_registry.outbox가 next_retry_at 컬럼을 가지면 지수 백오프 적용 가능
                 qimJdbcTemplate.update("""
-                        UPDATE qim.outbox
+                        UPDATE idem_registry.outbox
                         SET status = 'FAILED',
                             retry_count = retry_count + 1,
                             error_message = ?
@@ -206,7 +206,7 @@ public class QimKafkaRelayJob {
         try {
             qimJdbcTemplate.query("""
                     SELECT event_id, partition_key, payload, retry_count
-                    FROM qim.outbox
+                    FROM idem_registry.outbox
                     WHERE status = 'PENDING'
                     ORDER BY created_at ASC
                     LIMIT ?
@@ -245,7 +245,7 @@ public class QimKafkaRelayJob {
         try {
             qimJdbcTemplate.query("""
                     SELECT event_id
-                    FROM qim.outbox
+                    FROM idem_registry.outbox
                     WHERE status = 'FAILED'
                       AND retry_count < ?
                     ORDER BY created_at ASC
@@ -265,7 +265,7 @@ public class QimKafkaRelayJob {
         for (String eventId : retryable) {
             try {
                 qimJdbcTemplate.update("""
-                        UPDATE qim.outbox SET status = 'PENDING' WHERE event_id = ?
+                        UPDATE idem_registry.outbox SET status = 'PENDING' WHERE event_id = ?
                         """, eventId);
             } catch (Exception e) {
                 log.error("[QimKafkaRelayJob] PENDING 복구 실패: eventId={}", eventId);

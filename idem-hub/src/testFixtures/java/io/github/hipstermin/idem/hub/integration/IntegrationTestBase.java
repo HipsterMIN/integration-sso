@@ -50,9 +50,9 @@ public abstract class IntegrationTestBase {
     // ── PostgreSQL 컨테이너 (Flyway 마이그레이션 포함) ──────────────────────
     protected static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
-                    .withDatabaseName("onepass")
-                    .withUsername("onepass")
-                    .withPassword("onepass")
+                    .withDatabaseName("idem")
+                    .withUsername("idem")
+                    .withPassword("idem")
                     .withInitScript("integration/init-schema.sql")
                     .waitingFor(Wait.forListeningPort());
 

@@ -138,11 +138,11 @@
 - Spring Boot 기본 메트릭 (`http_server_requests_seconds`, `jvm_*`, `process_*`)
 
 ### PR-A5 신규
-- `onepass.outbox.pending.total{shard}` — Gauge (batch)
-- `onepass.outbox.failed.total{shard}` — Gauge (batch)
+- `idem.outbox.pending.total{shard}` — Gauge (batch)
+- `idem.outbox.failed.total{shard}` — Gauge (batch)
 
 ### PR-B1-new 신규 (SSO 본질 메트릭 3종)
-- `onepass.kms.healthy` — Gauge 1개 (ido) — `VaultKmsHealthIndicator` 재사용으로 Vault 호출 0회 추가
+- `idem.kms.healthy` — Gauge 1개 (ido) — `VaultKmsHealthIndicator` 재사용으로 Vault 호출 0회 추가
 - (auth.success.rate / handoff.latency.p95는 **신규 코드 없이** 위 기존 메트릭 + Spring Boot 자동 메트릭으로 충족 — `docs/RUNBOOK_SSO_METRICS.md` 참조)
 
 ### 운영 가시화
@@ -162,7 +162,7 @@
 | `QSignServiceDown` | 인증 | `up{job="q-sign"}` |
 | `QimServiceDown` | 식별·매핑 | `up{job="q-im"}` |
 | `AuthSuccessRateLow` | 인증 성공률 < 90% | `auth_success_total` / `auth_failure_total` (q-sign AuthMetrics) |
-| `KmsUnavailable` | KMS healthy=0 | `onepass_kms_healthy` (PR-B1-new) |
+| `KmsUnavailable` | KMS healthy=0 | `idem_kms_healthy` (PR-B1-new) |
 
 **Warning 3개 (Slack 채널만)**
 | 알람 | 메트릭 |

@@ -23,7 +23,7 @@ infra:
   postgres:
     host: rds-postgres.prod.svc.cluster.local  # 운영: 고객사 RDS 엔드포인트
     port: 5432
-    database: onepass
+    database: idem
     existingSecret: idem-db-secret
   mariadb:
     host: rds-mariadb.prod.svc.cluster.local   # 운영: NHN Cloud RDS for MariaDB

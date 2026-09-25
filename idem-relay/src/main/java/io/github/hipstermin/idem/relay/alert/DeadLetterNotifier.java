@@ -147,7 +147,7 @@ public class DeadLetterNotifier {
      * 재시도 횟수: 5회
      * 발생 시각  : 2026-05-17 14:30:00 (KST)
      * ─────────────────────────────────────
-     * 조치 필요: ido.provisioning_outbox WHERE id='...' 확인
+     * 조치 필요: idem_hub.provisioning_outbox WHERE id='...' 확인
      * </pre>
      */
     private Map<String, Object> buildSlackPayload(String agencyCode, String recordId,
@@ -162,7 +162,7 @@ public class DeadLetterNotifier {
                 "*발생 시각*: %s (KST)",
                 agencyCode, recordId, errorReason, retryCount, timestamp);
         String footer = String.format(
-                ":wrench: 조치 필요: `ido.provisioning_outbox WHERE id = '%s'` 확인", recordId);
+                ":wrench: 조치 필요: `idem_hub.provisioning_outbox WHERE id = '%s'` 확인", recordId);
 
         Map<String, Object> headerSection = new LinkedHashMap<>();
         headerSection.put("type", "header");
@@ -238,7 +238,7 @@ public class DeadLetterNotifier {
         pdPayload.put("retry_count",  retryCount);
         pdPayload.put("occurred_at",  timestamp);
         pdPayload.put("action_required",
-                "ido.provisioning_outbox WHERE id='" + recordId + "' 확인 후 수동 처리 또는 재큐잉 필요");
+                "idem_hub.provisioning_outbox WHERE id='" + recordId + "' 확인 후 수동 처리 또는 재큐잉 필요");
 
         Map<String, Object> event = new LinkedHashMap<>();
         event.put("routing_key",  pagerdutyRoutingKey);

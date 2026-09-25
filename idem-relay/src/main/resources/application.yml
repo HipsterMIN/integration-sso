@@ -51,11 +51,11 @@ idem.relay:
   datasource:
 
     # ── ido PostgreSQL (Primary) ───────────────────────────────────────────────
-    # 대상: ido.outbox, ido.provisioning_outbox, ido.webhook_dispatch_outbox, ido.shedlock
+    # 대상: idem_hub.outbox, idem_hub.provisioning_outbox, idem_hub.webhook_dispatch_outbox, idem_hub.shedlock
     hub:
-      jdbc-url: jdbc:postgresql://${IDEM_HUB_DB_HOST:localhost}:${IDEM_HUB_DB_PORT:5432}/${IDEM_HUB_DB_NAME:onepass}?currentSchema=ido
-      username: ${IDEM_HUB_DB_USERNAME:onepass}
-      password: ${IDEM_HUB_DB_PASSWORD:onepass}
+      jdbc-url: jdbc:postgresql://${IDEM_HUB_DB_HOST:localhost}:${IDEM_HUB_DB_PORT:5432}/${IDEM_HUB_DB_NAME:idem}?currentSchema=idem_hub
+      username: ${IDEM_HUB_DB_USERNAME:idem}
+      password: ${IDEM_HUB_DB_PASSWORD:idem}
       driver-class-name: org.postgresql.Driver
       # 배치는 순차 폴링 — 풀 크기 작게 유지
       maximum-pool-size: 5
@@ -68,9 +68,9 @@ idem.relay:
     # ── q-im PostgreSQL (D1: MariaDB → PostgreSQL, 스키마 qim) ─────────────────
     # 대상: idem.registry.outbox. 종전 MariaDB 설치는 IDEM_REGISTRY_DB_URL/IDEM_REGISTRY_DB_DRIVER 로 jdbc:mariadb://… 를 주입해 1 릴리스 동안 유지
     registry:
-      jdbc-url: ${IDEM_REGISTRY_DB_URL:jdbc:postgresql://${IDEM_REGISTRY_DB_HOST:localhost}:${IDEM_REGISTRY_DB_PORT:5432}/${IDEM_REGISTRY_DB_NAME:onepass}?currentSchema=${IDEM_REGISTRY_DB_SCHEMA:qim}}
-      username: ${IDEM_REGISTRY_DB_USERNAME:onepass}
-      password: ${IDEM_REGISTRY_DB_PASSWORD:onepass}
+      jdbc-url: ${IDEM_REGISTRY_DB_URL:jdbc:postgresql://${IDEM_REGISTRY_DB_HOST:localhost}:${IDEM_REGISTRY_DB_PORT:5432}/${IDEM_REGISTRY_DB_NAME:idem}?currentSchema=${IDEM_REGISTRY_DB_SCHEMA:idem_registry}}
+      username: ${IDEM_REGISTRY_DB_USERNAME:idem}
+      password: ${IDEM_REGISTRY_DB_PASSWORD:idem}
       driver-class-name: ${IDEM_REGISTRY_DB_DRIVER:org.postgresql.Driver}
       maximum-pool-size: 5
       minimum-idle: 1
@@ -80,11 +80,11 @@ idem.relay:
       connection-test-query: SELECT 1
 
     # ── q-sign PostgreSQL ───────────────────────────────────────────────────────
-    # 대상: qsign.outbox
+    # 대상: idem_gate.outbox
     gate:
-      jdbc-url: jdbc:postgresql://${IDEM_GATE_DB_HOST:localhost}:${IDEM_GATE_DB_PORT:5432}/${IDEM_GATE_DB_NAME:onepass}?currentSchema=qsign
-      username: ${IDEM_GATE_DB_USERNAME:onepass}
-      password: ${IDEM_GATE_DB_PASSWORD:onepass}
+      jdbc-url: jdbc:postgresql://${IDEM_GATE_DB_HOST:localhost}:${IDEM_GATE_DB_PORT:5432}/${IDEM_GATE_DB_NAME:idem}?currentSchema=idem_gate
+      username: ${IDEM_GATE_DB_USERNAME:idem}
+      password: ${IDEM_GATE_DB_PASSWORD:idem}
       driver-class-name: org.postgresql.Driver
       maximum-pool-size: 5
       minimum-idle: 1
@@ -94,11 +94,11 @@ idem.relay:
       connection-test-query: SELECT 1
 
     # ── q-authz PostgreSQL ──────────────────────────────────────────────────────
-    # 대상: authz.authz_outbox (인가 부여/회수/만료 이벤트)
+    # 대상: idem_authz.authz_outbox (인가 부여/회수/만료 이벤트)
     authz:
-      jdbc-url: jdbc:postgresql://${IDEM_AUTHZ_DB_HOST:localhost}:${IDEM_AUTHZ_DB_PORT:5432}/${IDEM_AUTHZ_DB_NAME:onepass}?currentSchema=authz
-      username: ${IDEM_AUTHZ_DB_USERNAME:onepass}
-      password: ${IDEM_AUTHZ_DB_PASSWORD:onepass}
+      jdbc-url: jdbc:postgresql://${IDEM_AUTHZ_DB_HOST:localhost}:${IDEM_AUTHZ_DB_PORT:5432}/${IDEM_AUTHZ_DB_NAME:idem}?currentSchema=idem_authz
+      username: ${IDEM_AUTHZ_DB_USERNAME:idem}
+      password: ${IDEM_AUTHZ_DB_PASSWORD:idem}
       driver-class-name: org.postgresql.Driver
       maximum-pool-size: 5
       minimum-idle: 1

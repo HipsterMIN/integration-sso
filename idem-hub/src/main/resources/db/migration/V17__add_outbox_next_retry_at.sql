@@ -1,5 +1,5 @@
 -- ============================================================
--- V10: ido.outbox — next_retry_at 컬럼 추가 (QIM-OUTBOX-SPEC-001)
+-- V10: idem_hub.outbox — next_retry_at 컬럼 추가 (QIM-OUTBOX-SPEC-001)
 -- ============================================================
 -- 목적:
 --   IdoOutboxRepository.incrementRetryWithBackoff() 에서 지수 백오프 재시도를
@@ -15,15 +15,15 @@
 --   조건을 추가하여 백오프 대기 중인 레코드를 건너뛴다.
 --
 -- 영향:
---   - ido.outbox 테이블 컬럼 1개 추가 (기존 PENDING 레코드 영향 없음 — NULL 기본값)
+--   - idem_hub.outbox 테이블 컬럼 1개 추가 (기존 PENDING 레코드 영향 없음 — NULL 기본값)
 --   - 신규 인덱스 1개 추가 (폴링 성능 보장)
 -- ============================================================
 
 -- 1. next_retry_at 컬럼 추가 (NULL 허용: 최초 시도 대상은 NULL)
-ALTER TABLE ido.outbox
+ALTER TABLE idem_hub.outbox
     ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ NULL;
 
-COMMENT ON COLUMN ido.outbox.next_retry_at IS
+COMMENT ON COLUMN idem_hub.outbox.next_retry_at IS
     '지수 백오프 재시도 예약 시각. NULL = 즉시 재시도 대상. '
     'incrementRetryWithBackoff() 에서 NOW() + 2^retryCount 초로 설정.';
 
@@ -35,11 +35,11 @@ COMMENT ON COLUMN ido.outbox.next_retry_at IS
 --    WHERE status='PENDING' AND (next_retry_at IS NULL OR next_retry_at <= NOW())
 --    ORDER BY created_at ASC 쿼리 성능 최적화
 CREATE INDEX IF NOT EXISTS idx_ido_outbox_pending_retry
-    ON ido.outbox (status, next_retry_at, created_at)
+    ON idem_hub.outbox (status, next_retry_at, created_at)
     WHERE status = 'PENDING';
 
 -- 4. topic 컬럼 인덱스 추가: findPendingBatchByTopic / findPendingBatchExcludingTopics
 --    WHERE topic = ? 또는 topic NOT IN (...) 필터 성능 최적화
 CREATE INDEX IF NOT EXISTS idx_ido_outbox_topic
-    ON ido.outbox (topic, status, created_at)
+    ON idem_hub.outbox (topic, status, created_at)
     WHERE status = 'PENDING';

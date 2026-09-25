@@ -9,7 +9,7 @@ import lombok.*;
  * 설계서 §9.6 — 인증 수단별 잠금·재시도 카운터 SoR
  */
 @Entity
-@Table(name = "auth_lock", schema = "qsign")
+@Table(name = "auth_lock", schema = "idem_gate")
 @Getter
 @Setter
 @NoArgsConstructor

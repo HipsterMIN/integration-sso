@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "idem.sample.oidc")
 public class OidcRpProperties {
-    private String issuer = "http://localhost:8081/realms/onepass";
+    private String issuer = "http://localhost:8081/realms/idem";
     private String clientId = "";
     private String clientSecret = "";
     /** Idem 프로파일 {@code protocol.oidc.redirectUris} 에 등록한 값과 정확히 같아야 한다. */

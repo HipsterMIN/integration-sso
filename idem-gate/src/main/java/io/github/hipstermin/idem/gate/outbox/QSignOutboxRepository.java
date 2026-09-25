@@ -15,7 +15,7 @@ public interface QSignOutboxRepository extends JpaRepository<QSignOutboxRecord, 
 
     /** PENDING 상태 레코드를 생성 순서대로 배치 조회 */
     @Query(value = """
-            SELECT * FROM qsign.outbox
+            SELECT * FROM idem_gate.outbox
             WHERE status = 'PENDING'
             ORDER BY created_at ASC
             LIMIT :limit

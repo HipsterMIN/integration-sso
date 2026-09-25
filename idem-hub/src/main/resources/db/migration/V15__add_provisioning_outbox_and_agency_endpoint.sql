@@ -16,7 +16,7 @@
 
 -- ── 1. 기관 API 엔드포인트 레지스트리 ───────────────────────────────────────
 -- 68개 유관기관의 실제 API 엔드포인트를 관리하는 SoR
-CREATE TABLE IF NOT EXISTS ido.agency_endpoint_registry (
+CREATE TABLE IF NOT EXISTS idem_hub.agency_endpoint_registry (
     agency_code          VARCHAR(50)   NOT NULL,                  -- FK → agency_meta.agency_code
     endpoint_type        VARCHAR(30)   NOT NULL,                  -- PROVISIONING / CAST_VERIFY / WEBHOOK / STATUS
     endpoint_url         VARCHAR(500)  NOT NULL,                  -- 기관 API URL (HTTPS 필수 — 운영)
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS ido.agency_endpoint_registry (
 
     CONSTRAINT pk_agency_endpoint_registry PRIMARY KEY (agency_code, endpoint_type),
     CONSTRAINT fk_aer_agency_code FOREIGN KEY (agency_code)
-        REFERENCES ido.agency_meta(agency_code) ON DELETE CASCADE,
+        REFERENCES idem_hub.agency_meta(agency_code) ON DELETE CASCADE,
     CONSTRAINT chk_aer_endpoint_type
         CHECK (endpoint_type IN ('PROVISIONING','CAST_VERIFY','WEBHOOK','STATUS','GATEWAY_INBOUND')),
     CONSTRAINT chk_aer_auth_type
@@ -39,17 +39,17 @@ CREATE TABLE IF NOT EXISTS ido.agency_endpoint_registry (
 );
 
 CREATE INDEX IF NOT EXISTS idx_aer_active_type
-    ON ido.agency_endpoint_registry(endpoint_type, is_active)
+    ON idem_hub.agency_endpoint_registry(endpoint_type, is_active)
     WHERE is_active = TRUE;
 
-COMMENT ON TABLE  ido.agency_endpoint_registry                  IS '68개 유관기관 API 엔드포인트 레지스트리 (Sprint 14)';
-COMMENT ON COLUMN ido.agency_endpoint_registry.endpoint_type   IS 'PROVISIONING: 가입/전환 알림, CAST_VERIFY: CAST 검증, WEBHOOK: 이벤트 수신, STATUS: 헬스체크';
-COMMENT ON COLUMN ido.agency_endpoint_registry.auth_credential_ref IS 'K8s Secret 이름 (평문 자격증명 저장 금지)';
+COMMENT ON TABLE  idem_hub.agency_endpoint_registry                  IS '68개 유관기관 API 엔드포인트 레지스트리 (Sprint 14)';
+COMMENT ON COLUMN idem_hub.agency_endpoint_registry.endpoint_type   IS 'PROVISIONING: 가입/전환 알림, CAST_VERIFY: CAST 검증, WEBHOOK: 이벤트 수신, STATUS: 헬스체크';
+COMMENT ON COLUMN idem_hub.agency_endpoint_registry.auth_credential_ref IS 'K8s Secret 이름 (평문 자격증명 저장 금지)';
 
 -- ── 2. 프로비저닝 아웃박스 ───────────────────────────────────────────────────
 -- 회원가입/전환 시 68개 기관으로 전송해야 하는 프로비저닝 이벤트 큐
 -- at-least-once 보장: 실패 시 지수 백오프(1분→5분→30분) 재시도, 3회 초과 시 DEAD_LETTER
-CREATE TABLE IF NOT EXISTS ido.provisioning_outbox (
+CREATE TABLE IF NOT EXISTS idem_hub.provisioning_outbox (
     id                   VARCHAR(36)   NOT NULL DEFAULT gen_random_uuid(),
     qim_user_id          VARCHAR(36)   NOT NULL,                  -- 대상 사용자 ID
     agency_code          VARCHAR(50)   NOT NULL,                  -- 전송 대상 기관
@@ -78,31 +78,31 @@ CREATE TABLE IF NOT EXISTS ido.provisioning_outbox (
 -- 인덱스: 재시도 스케줄러가 사용하는 핵심 인덱스
 --   PENDING 상태이고 next_retry_at이 현재 시각 이전인 레코드를 효율적으로 조회
 CREATE INDEX IF NOT EXISTS idx_prov_outbox_pending
-    ON ido.provisioning_outbox(next_retry_at ASC, agency_code)
+    ON idem_hub.provisioning_outbox(next_retry_at ASC, agency_code)
     WHERE status = 'PENDING';
 
 -- 인덱스: 사용자별 프로비저닝 이력 조회
 CREATE INDEX IF NOT EXISTS idx_prov_outbox_qim_user_id
-    ON ido.provisioning_outbox(qim_user_id, created_at DESC);
+    ON idem_hub.provisioning_outbox(qim_user_id, created_at DESC);
 
 -- 인덱스: 기관별 DEAD_LETTER 모니터링
 CREATE INDEX IF NOT EXISTS idx_prov_outbox_dead_letter
-    ON ido.provisioning_outbox(agency_code, created_at DESC)
+    ON idem_hub.provisioning_outbox(agency_code, created_at DESC)
     WHERE status = 'DEAD_LETTER';
 
 -- 인덱스: 소스 이벤트 기반 중복 체크
 CREATE INDEX IF NOT EXISTS idx_prov_outbox_source_event
-    ON ido.provisioning_outbox(source_event_id)
+    ON idem_hub.provisioning_outbox(source_event_id)
     WHERE source_event_id IS NOT NULL;
 
-COMMENT ON TABLE  ido.provisioning_outbox                      IS '전 기관 프로비저닝 아웃박스 — at-least-once 보장 (Sprint 14)';
-COMMENT ON COLUMN ido.provisioning_outbox.idempotency_key      IS 'UUID v7 — (idempotency_key, agency_code) 유니크 제약으로 중복 삽입 방지';
-COMMENT ON COLUMN ido.provisioning_outbox.next_retry_at        IS '지수 백오프: 1분→5분→30분. NULL이면 즉시 재시도 가능';
-COMMENT ON COLUMN ido.provisioning_outbox.payload              IS 'PII 최소화: 실명/전화 평문 금지. qimUserId + 해시 + 가입일만 포함';
-COMMENT ON COLUMN ido.provisioning_outbox.status               IS 'PENDING: 대기/재시도, COMPLETED: 성공, DEAD_LETTER: 최대 재시도 초과';
+COMMENT ON TABLE  idem_hub.provisioning_outbox                      IS '전 기관 프로비저닝 아웃박스 — at-least-once 보장 (Sprint 14)';
+COMMENT ON COLUMN idem_hub.provisioning_outbox.idempotency_key      IS 'UUID v7 — (idempotency_key, agency_code) 유니크 제약으로 중복 삽입 방지';
+COMMENT ON COLUMN idem_hub.provisioning_outbox.next_retry_at        IS '지수 백오프: 1분→5분→30분. NULL이면 즉시 재시도 가능';
+COMMENT ON COLUMN idem_hub.provisioning_outbox.payload              IS 'PII 최소화: 실명/전화 평문 금지. qimUserId + 해시 + 가입일만 포함';
+COMMENT ON COLUMN idem_hub.provisioning_outbox.status               IS 'PENDING: 대기/재시도, COMPLETED: 성공, DEAD_LETTER: 최대 재시도 초과';
 
 -- ── 3. AGENCY_STUB_001 엔드포인트 시드 (개발/테스트용) ──────────────────────
-INSERT INTO ido.agency_endpoint_registry
+INSERT INTO idem_hub.agency_endpoint_registry
     (agency_code, endpoint_type, endpoint_url, http_method, auth_type, timeout_ms, is_active, note)
 VALUES
     ('AGENCY_STUB_001', 'PROVISIONING',    'http://localhost:8084/api/provisioning/users',  'POST', 'API_KEY', 5000, TRUE, '개발용 stub 기관 프로비저닝 엔드포인트'),

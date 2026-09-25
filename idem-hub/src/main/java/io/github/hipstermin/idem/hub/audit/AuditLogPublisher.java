@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>설계 원칙</b>:
  * <ol>
- *   <li>DB 우선 저장 ({@code ido.audit_log}) — Kafka 발행 실패 시에도 감사 기록 보존</li>
+ *   <li>DB 우선 저장 ({@code idem_hub.audit_log}) — Kafka 발행 실패 시에도 감사 기록 보존</li>
  *   <li>Kafka 비동기 발행 ({@code platform.audit.log}) — @Async 처리</li>
  *   <li>감사 로그 실패는 비치명적 — 절대 서비스 흐름 차단 금지</li>
  *   <li>개인정보(CI/DN/이름) 포함 금지 — identifierHash, agencyCode만 허용</li>
@@ -59,7 +59,7 @@ public class AuditLogPublisher {
     private boolean kafkaPublishEnabled;
 
     // F-04: DB 저장 On/Off (IDEM_HUB_AUDIT_DB_ENABLED)
-    // false → ido.audit_log 테이블 없는 환경에서도 오류 없음
+    // false → idem_hub.audit_log 테이블 없는 환경에서도 오류 없음
     // ⚠️ 운영에서 false 금지 — 컴플라이언스(개인정보보호법) 위반 가능
     @Value("${idem.hub.audit.db-save-enabled:${IDEM_HUB_AUDIT_DB_ENABLED:true}}")
     private boolean dbSaveEnabled;
@@ -107,7 +107,7 @@ public class AuditLogPublisher {
     private boolean insertAuditLog(String auditId, AuditEntry entry, String metadataJson) {
         try {
             jdbcTemplate.update("""
-                    INSERT INTO ido.audit_log (
+                    INSERT INTO idem_hub.audit_log (
                         audit_id, event_category, event_action,
                         actor_type, actor_id,
                         resource_type, resource_id,
@@ -172,7 +172,7 @@ public class AuditLogPublisher {
     private void markKafkaPublished(String auditId) {
         try {
             jdbcTemplate.update("""
-                    UPDATE ido.audit_log
+                    UPDATE idem_hub.audit_log
                     SET kafka_published = TRUE, kafka_published_at = NOW()
                     WHERE audit_id = ?
                     """, auditId);
@@ -279,7 +279,7 @@ public class AuditLogPublisher {
                            actor_type, actor_id, resource_type, resource_id,
                            agency_code, correlation_id, source_ip,
                            outcome, outcome_detail, metadata::text
-                    FROM ido.audit_log
+                    FROM idem_hub.audit_log
                     WHERE kafka_published = FALSE
                     ORDER BY occurred_at ASC
                     LIMIT 200

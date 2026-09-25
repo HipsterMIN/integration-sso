@@ -108,7 +108,7 @@
 ### 옵션 C: 표준 OIDC (OIDC_RP) — 기관이 표준 Relying Party 로 붙는다
 
 ```
-기관 서비스 (OIDC RP)  ──authorization code + PKCE──▶  Idem OIDC Provider (gate 공개 URL/realms/onepass)
+기관 서비스 (OIDC RP)  ──authorization code + PKCE──▶  Idem OIDC Provider (gate 공개 URL/realms/idem)
         ▲                                                   │ 토큰 교환 시 Idem 정책 판정(점검·인증수준·제공자·상태·할당)
         └──────── id_token · access_token · userinfo(idem_*) ◀┘
 ```
@@ -165,7 +165,7 @@ Agent 설치 (원패스 토큰 검증 자동화 시):
 
 ```
 네트워크:
-□ 기관 서버 → IdO 서버 (idem.hub.onepass.go.kr:443) HTTPS 아웃바운드 허용
+□ 기관 서버 → IdO 서버 (예: idem.hub.example.org:443) HTTPS 아웃바운드 허용
 □ Q-IM 서버 → 기관 API (api/v1/members/**) 인바운드 허용 (방화벽)
 
 서버:
@@ -434,7 +434,7 @@ CI(연계정보, Connecting Information)는 **주민등록번호로부터 파생
 
 **상황**: 기관 서버가 외부 인터넷과 완전히 격리된 폐쇄망
 
-**제약**: 원패스 서버(idem.hub.onepass.go.kr)와 직접 통신 불가
+**제약**: Idem 서버(예: idem.hub.example.org)와 직접 통신 불가
 
 **대안**:
 - 전용 회선 또는 VPN 터널 구성

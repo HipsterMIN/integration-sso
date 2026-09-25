@@ -39,7 +39,7 @@ public class IdoOutboxRepository {
                        event_version, payload::text, topic, status,
                        retry_count, error_message, created_at, published_at,
                        next_retry_at
-                FROM ido.outbox
+                FROM idem_hub.outbox
                 WHERE status = 'PENDING'
                   AND (next_retry_at IS NULL OR next_retry_at <= NOW())
                 ORDER BY created_at ASC
@@ -76,7 +76,7 @@ public class IdoOutboxRepository {
                        event_version, payload::text, topic, status,
                        retry_count, error_message, created_at, published_at,
                        next_retry_at
-                FROM ido.outbox
+                FROM idem_hub.outbox
                 WHERE status = 'PENDING'
                   AND topic NOT IN (%s)
                   AND (next_retry_at IS NULL OR next_retry_at <= NOW())
@@ -108,7 +108,7 @@ public class IdoOutboxRepository {
                        event_version, payload::text, topic, status,
                        retry_count, error_message, created_at, published_at,
                        next_retry_at
-                FROM ido.outbox
+                FROM idem_hub.outbox
                 WHERE status = 'PENDING'
                   AND topic  = ?
                   AND (next_retry_at IS NULL OR next_retry_at <= NOW())
@@ -124,7 +124,7 @@ public class IdoOutboxRepository {
      */
     public void markPublished(String eventId) {
         jdbcTemplate.update("""
-                UPDATE ido.outbox
+                UPDATE idem_hub.outbox
                 SET status = 'PUBLISHED', published_at = NOW()
                 WHERE event_id = ?
                 """, eventId);
@@ -136,7 +136,7 @@ public class IdoOutboxRepository {
      */
     public void markFailed(String eventId, String errorMessage) {
         jdbcTemplate.update("""
-                UPDATE ido.outbox
+                UPDATE idem_hub.outbox
                 SET status = 'FAILED',
                     error_message = ?,
                     retry_count = retry_count + 1
@@ -162,7 +162,7 @@ public class IdoOutboxRepository {
         // 2^(currentRetryCount+1) 초 백오프 (최대 64초)
         long backoffSeconds = Math.min((long) Math.pow(2, currentRetryCount + 1), 64L);
         jdbcTemplate.update("""
-                UPDATE ido.outbox
+                UPDATE idem_hub.outbox
                 SET retry_count   = retry_count + 1,
                     error_message = ?,
                     next_retry_at = NOW() + (? || ' seconds')::interval
@@ -181,7 +181,7 @@ public class IdoOutboxRepository {
     @Deprecated(since = "QIM-OUTBOX-SPEC-001", forRemoval = true)
     public void incrementRetry(String eventId, String errorMessage) {
         jdbcTemplate.update("""
-                UPDATE ido.outbox
+                UPDATE idem_hub.outbox
                 SET retry_count   = retry_count + 1,
                     error_message = ?
                 WHERE event_id = ?

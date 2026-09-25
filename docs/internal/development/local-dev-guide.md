@@ -678,7 +678,7 @@ docker exec -it idem-mariadb mariadb -u qim -pqim qim \
 
 ```bash
 # Docker 컨테이너 내부에서 psql 실행
-docker exec -it idem-postgres psql -U onepass -d onepass -c "\dn"
+docker exec -it idem-postgres psql -U idem -d idem -c "\dn"
 ```
 
 **정상 출력 (Q-IM 제거, MariaDB로 이관됨):**
@@ -1190,8 +1190,8 @@ KEYS idem:rl:daily:*
 # GET ido:rl:tps:AGENCY_STUB_001:<epochSecond>
 
 # per-agency Rate Limit 설정 확인 (PostgreSQL)
-docker exec -it idem-postgres psql -U onepass -d onepass \
-  -c "SELECT * FROM ido.agency_rate_limit_config;"
+docker exec -it idem-postgres psql -U idem -d idem \
+  -c "SELECT * FROM idem_hub.agency_rate_limit_config;"
 ```
 
 #### PKCE — Q-Sign PKCE 흐름 테스트
@@ -1240,9 +1240,9 @@ docker exec -it idem-redis redis-cli KEYS "idem:crypto:aes:version:*"
 docker exec -it idem-redis redis-cli EXISTS "idem:crypto:aes:rotate-lock"
 
 # PostgreSQL crypto_key_registry 테이블 확인
-docker exec -it idem-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U idem -d idem \
   -c "SELECT key_type, key_version, active, current_flag, grace_until \
-      FROM ido.crypto_key_registry ORDER BY created_at;"
+      FROM idem_hub.crypto_key_registry ORDER BY created_at;"
 ```
 
 ---
@@ -1270,9 +1270,9 @@ curl -s -X POST "http://localhost:8083/api/v1/agency/events/{dispatchId}/read" \
 # 기대 결과: HTTP 204 No Content
 
 # webhook_dispatch_outbox 테이블 직접 확인
-docker exec -it idem-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U idem -d idem \
   -c "SELECT dispatch_id, event_type, status, agency_code, created_at \
-      FROM ido.webhook_dispatch_outbox \
+      FROM idem_hub.webhook_dispatch_outbox \
       ORDER BY created_at DESC LIMIT 10;"
 ```
 
@@ -1280,15 +1280,15 @@ docker exec -it idem-postgres psql -U onepass -d onepass \
 
 ```bash
 # provider_config 테이블에서 provider_type 확인
-docker exec -it idem-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U idem -d idem \
   -c "SELECT provider_code, provider_type, broker_mode, active \
-      FROM ido.provider_config ORDER BY provider_code;"
+      FROM idem_hub.provider_config ORDER BY provider_code;"
 
 # provider_circuit_config 테이블 확인 (동적 CB 설정)
-docker exec -it idem-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U idem -d idem \
   -c "SELECT provider_code, sliding_window_size, failure_rate_threshold, \
              wait_duration_open_ms, active \
-      FROM ido.provider_circuit_config;"
+      FROM idem_hub.provider_circuit_config;"
 
 # Redis에서 Provider 설정 캐시 확인
 docker exec -it idem-redis redis-cli KEYS "idem:provider-config:*"
@@ -1298,16 +1298,16 @@ docker exec -it idem-redis redis-cli KEYS "idem:provider-config:*"
 
 ```bash
 # 브로커 감사 로그 최근 20건 확인
-docker exec -it idem-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U idem -d idem \
   -c "SELECT provider_code, provider_type, action, auth_level, \
              error_code, created_at \
-      FROM ido.broker_audit_log \
+      FROM idem_hub.broker_audit_log \
       ORDER BY created_at DESC LIMIT 20;"
 
 # 특정 provider_code의 실패 내역 확인
-docker exec -it idem-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U idem -d idem \
   -c "SELECT action, error_code, error_detail, client_ip, created_at \
-      FROM ido.broker_audit_log \
+      FROM idem_hub.broker_audit_log \
       WHERE provider_code = 'KAKAO_OIDC' AND action = 'FAIL' \
       ORDER BY created_at DESC LIMIT 10;"
 ```
@@ -1316,18 +1316,18 @@ docker exec -it idem-postgres psql -U onepass -d onepass \
 
 ```bash
 # IdO auth_result V10 확장 컬럼 확인
-docker exec -it idem-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U idem -d idem \
   -c "SELECT auth_result_id, provider_code, auth_method, \
              issued_at, expires_at,
              CASE WHEN raw_id_token IS NOT NULL THEN 'SET' ELSE 'NULL' END AS raw_token_status,
              created_at \
-      FROM ido.auth_result \
+      FROM idem_hub.auth_result \
       ORDER BY created_at DESC LIMIT 5;"
 
 # Q-Sign auth_method 컬럼 확인
-docker exec -it idem-postgres psql -U onepass -d onepass \
+docker exec -it idem-postgres psql -U idem -d idem \
   -c "SELECT auth_result_id, provider_code, auth_method, created_at \
-      FROM qsign.auth_result \
+      FROM idem_gate.auth_result \
       ORDER BY created_at DESC LIMIT 5;"
 ```
 
@@ -1750,7 +1750,7 @@ docker compose -f infra/docker/docker-compose.yml up -d postgres
 
 # 또는 직접 초기화 스크립트 실행
 docker exec -i idem-postgres \
-  psql -U onepass -d onepass < infra/docker/init-db.sql
+  psql -U idem -d idem < infra/docker/init-db.sql
 ```
 
 ---
@@ -1762,8 +1762,8 @@ docker exec -i idem-postgres \
 **해결:**
 ```bash
 # Flyway baseline 재설정 (마이그레이션 기록 테이블 초기화)
-docker exec -it idem-postgres psql -U onepass -d onepass -c \
-  "DELETE FROM ido.flyway_schema_history WHERE version = '1';"
+docker exec -it idem-postgres psql -U idem -d idem -c \
+  "DELETE FROM idem_hub.flyway_schema_history WHERE version = '1';"
 
 # 또는 완전 초기화 (DB 볼륨 삭제)
 docker compose -f infra/docker/docker-compose.yml down -v
@@ -2150,8 +2150,8 @@ Migration checksum mismatch for migration version 1
 # 기동 후 해당 설정 제거
 
 # 방법 2: 마이그레이션 기록 수동 수정 (개발 환경 전용)
-docker exec -it idem-postgres psql -U onepass -d onepass -c \
-  "UPDATE ido.flyway_schema_history SET checksum = [새_체크섬] WHERE version = '1';"
+docker exec -it idem-postgres psql -U idem -d idem -c \
+  "UPDATE idem_hub.flyway_schema_history SET checksum = [새_체크섬] WHERE version = '1';"
 
 # 방법 3: 완전 초기화 (데이터 전부 삭제, 개발 환경만)
 docker compose -f infra/docker/docker-compose.yml down -v
@@ -2323,7 +2323,7 @@ curl -s http://localhost:8081/health/ready
 ```
 # Keycloak 로그에서:
 ERROR: Failed to import realm: File not found
-# 또는 curl http://localhost:8081/realms/onepass 에서 404
+# 또는 curl http://localhost:8081/realms/idem 에서 404
 ```
 
 **원인**: `realm-export.json` 마운트 경로 오류 또는 파일 누락
@@ -2340,7 +2340,7 @@ git checkout -- infra/docker/keycloak/realm-export.json
 docker compose -f infra/docker/docker-compose.yml restart keycloak
 
 # 재시작 후 Realm 임포트 확인
-curl -s http://localhost:8081/realms/onepass | python3 -m json.tool | grep '"realm"'
+curl -s http://localhost:8081/realms/idem | python3 -m json.tool | grep '"realm"'
 # "realm": "onepass" 이면 정상
 
 # 임포트가 여전히 실패하면 컨테이너 재생성
@@ -2415,7 +2415,7 @@ PlatformException: IDP_SIGNATURE_MISMATCH — JWKS 서명 검증 실패
 **해결:**
 ```bash
 # 1. Keycloak JWKS 엔드포인트 접근 가능 확인
-curl -s http://localhost:8081/realms/onepass/protocol/openid-connect/certs \
+curl -s http://localhost:8081/realms/idem/protocol/openid-connect/certs \
   | python3 -m json.tool | grep '"kid"'
 # kid 값이 있으면 정상
 
@@ -2693,11 +2693,11 @@ docker exec -it idem-redis redis-cli \
 # idem.hub.rate-limit.daily-limit: 100000000
 
 # 4. DB에서 기관별 Rate Limit 설정 확인/수정 (개발 환경)
-docker exec -it idem-postgres psql -U onepass -d onepass -c \
-  "SELECT * FROM ido.agency_rate_limit_config;"
+docker exec -it idem-postgres psql -U idem -d idem -c \
+  "SELECT * FROM idem_hub.agency_rate_limit_config;"
 # 특정 기관 한도 상향 (개발용)
-docker exec -it idem-postgres psql -U onepass -d onepass -c \
-  "UPDATE ido.agency_rate_limit_config \
+docker exec -it idem-postgres psql -U idem -d idem -c \
+  "UPDATE idem_hub.agency_rate_limit_config \
    SET tps_limit=10000, daily_limit=100000000 \
    WHERE agency_code='AGENCY_STUB_001';"
 
@@ -2772,13 +2772,13 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
 2. **기관 코드를 찾을 수 없음** → 404 응답
    ```bash
    # DB에서 등록된 기관 목록 확인
-   docker exec -it idem-postgres psql -U onepass -d onepass -c \
-     "SELECT agency_code, official_name, active FROM ido.agency_meta;"
+   docker exec -it idem-postgres psql -U idem -d idem -c \
+     "SELECT agency_code, official_name, active FROM idem_hub.agency_meta;"
    
    # 기관이 없으면 V8/V9 마이그레이션 확인
-   docker exec -it idem-postgres psql -U onepass -d onepass -c \
+   docker exec -it idem-postgres psql -U idem -d idem -c \
      "SELECT version, description, success \
-      FROM ido.flyway_schema_history ORDER BY installed_rank;"
+      FROM idem_hub.flyway_schema_history ORDER BY installed_rank;"
    # V8 (seed agency api key), V9 (crypto key registry) 모두 Success이어야 함
    ```
 
@@ -2869,9 +2869,9 @@ ERROR HandoffKeyRotationScheduler - 로테이션 중 오류 발생
    docker exec -it idem-redis redis-cli KEYS "idem:crypto:aes:version:*"
    
    # DB crypto_key_registry 확인
-   docker exec -it idem-postgres psql -U onepass -d onepass -c \
+   docker exec -it idem-postgres psql -U idem -d idem -c \
      "SELECT key_type, key_version, active, current_flag, grace_until \
-      FROM ido.crypto_key_registry ORDER BY created_at;"
+      FROM idem_hub.crypto_key_registry ORDER BY created_at;"
    ```
 
 3. **로컬 환경에서 스케줄러 비활성화 (선택)**
@@ -2969,7 +2969,7 @@ FROM crypto_key_version ORDER BY created_at;
 
 ```bash
 # psql 접속
-docker exec -it idem-postgres psql -U onepass -d onepass
+docker exec -it idem-postgres psql -U idem -d idem
 
 # 스키마별 테이블 목록
 \dn          -- 스키마 목록 (qim 없음 — MariaDB 이관)
@@ -2977,27 +2977,27 @@ docker exec -it idem-postgres psql -U onepass -d onepass
 \dt ido.*    -- ido 스키마 테이블 목록
 
 # 기본 테이블 조회
-SELECT * FROM ido.agency_meta LIMIT 10;
+SELECT * FROM idem_hub.agency_meta LIMIT 10;
 
 # Flyway 마이그레이션 이력 확인
-SELECT version, description, success FROM ido.flyway_schema_history ORDER BY installed_rank;
+SELECT version, description, success FROM idem_hub.flyway_schema_history ORDER BY installed_rank;
 # 정상: V1 ~ V9 모두 success=true
 
 # ★ V9 신규 — crypto_key_registry 확인
 SELECT key_type, key_version, active, current_flag, grace_until
-FROM ido.crypto_key_registry ORDER BY created_at;
+FROM idem_hub.crypto_key_registry ORDER BY created_at;
 
 # ★ V9 신규 — 기관별 Rate Limit 설정 확인
 SELECT agency_code, tps_limit, daily_limit, burst_multiplier, enabled
-FROM ido.agency_rate_limit_config;
+FROM idem_hub.agency_rate_limit_config;
 
 # ★ V9 신규 — 기관 설정 변경 이력 확인
 SELECT agency_code, policy_version, changed_by, change_reason, changed_at
-FROM ido.agency_meta_history ORDER BY changed_at DESC LIMIT 20;
+FROM idem_hub.agency_meta_history ORDER BY changed_at DESC LIMIT 20;
 
 # ★ V9 신규 — 회원 조회 감사 로그 확인
 SELECT agency_code, lookup_type, result_code, response_ms, occurred_at
-FROM ido.member_lookup_log ORDER BY occurred_at DESC LIMIT 20;
+FROM idem_hub.member_lookup_log ORDER BY occurred_at DESC LIMIT 20;
 ```
 
 ### 12.5 Redis 유용한 명령어

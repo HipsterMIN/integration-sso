@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.*;
  * ({@link HandoffAgencyKeyInterceptor#ATTR_VALIDATED_AGENCY_CODE})에 저장.
  * 컨트롤러는 이 Attribute만 사용 — rawKey는 절대 접근하지 않음.
  *
- * <p><b>데이터 소스</b>: {@code ido.webhook_dispatch_outbox}
+ * <p><b>데이터 소스</b>: {@code idem_hub.webhook_dispatch_outbox}
  * WebhookDispatcherService가 이미 Kafka 이벤트를 처리·마스킹하여 저장한 레코드를 조회.
  *
  * <p><b>엔드포인트 목록</b>:
@@ -63,7 +63,7 @@ public class AgencyEventController {
      * 기관 이벤트 폴링
      *
      * <p>기관에게 발생한 이벤트 목록을 반환.
-     * 이벤트는 {@code ido.webhook_dispatch_outbox}에서 조회되며,
+     * 이벤트는 {@code idem_hub.webhook_dispatch_outbox}에서 조회되며,
      * status가 PENDING 또는 DISPATCHED인 이벤트만 반환.
      *
      * <p><b>요청 헤더</b>:

@@ -2,7 +2,7 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # 설치본 스모크 (D3) — CI(.github/workflows/ci.yml smoke-test)와 로컬이 같은 스크립트를 쓴다.
 #
-# 전제: registry·authz·gate·hub 가 compose.install.yml 의 환경 계약으로 떠 있고, Keycloak(realm onepass, import 완료)이
+# 전제: registry·authz·gate·hub 가 compose.install.yml 의 환경 계약으로 떠 있고, Keycloak(realm idem, import 완료)이
 #       gate 뒤에 있다(KC_HOSTNAME_URL = gate 공개 URL). hub 는 Mock 본인확인 플러그인이 켜져 있다.
 #
 # 검사: ① 4개 헬스 ② gate 를 통한 OIDC Discovery(issuer = gate 공개 URL) ②′ 관리자 로그인(2단계, 무인증 관리 API 401)
@@ -11,7 +11,7 @@
 #       ⑧ 감사 조회(관리 행위가 남는다) → 로그아웃
 #
 #   HUB_URL GATE_URL REGISTRY_URL AUTHZ_URL   기본 localhost:8083/8081/8082/8086
-#   ISSUER                                     기본 $GATE_URL/realms/onepass
+#   ISSUER                                     기본 $GATE_URL/realms/idem
 #   IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD              관리자(admin) 비밀번호 (S7). IDEM_ADMIN_PASSWORD 가 있으면 그것을 쓴다
 #   IDEM_ADMIN_NEW_PASSWORD                    첫 로그인 비밀번호 변경이 요구되면 이 값으로(없으면 1회용 값을 만든다 — 다시 로그인할 수 없다)
 #   IDEM_ADMIN_TOTP_SECRET                     이미 2단계 등록된 관리자면 그 비밀 (첫 로그인은 스크립트가 등록한다)
@@ -24,7 +24,7 @@ HUB_URL="${HUB_URL:-http://localhost:8083}"
 GATE_URL="${GATE_URL:-http://localhost:8081}"
 REGISTRY_URL="${REGISTRY_URL:-http://localhost:8082}"
 AUTHZ_URL="${AUTHZ_URL:-http://localhost:8086}"
-ISSUER="${ISSUER:-$GATE_URL/realms/onepass}"
+ISSUER="${ISSUER:-$GATE_URL/realms/idem}"
 SERVICE_CODE="${SERVICE_CODE:-SMOKE_RP}"
 EDITION="${IDEM_EDITION:-core}"
 CID="install-smoke-$(date +%s)"
@@ -41,7 +41,7 @@ for u in "$HUB_URL" "$GATE_URL" "$REGISTRY_URL" "$AUTHZ_URL"; do
 done
 
 echo "② Discovery (gate 프런트)"
-disc=$(curl -sf "$GATE_URL/realms/onepass/.well-known/openid-configuration") || fail "discovery 응답 없음"
+disc=$(curl -sf "$GATE_URL/realms/idem/.well-known/openid-configuration") || fail "discovery 응답 없음"
 iss=$(echo "$disc" | jq -r '.issuer')
 [ "$iss" = "$ISSUER" ] && ok "issuer = $iss" || fail "issuer 불일치: $iss (기대 $ISSUER)"
 for k in authorization_endpoint token_endpoint jwks_uri end_session_endpoint; do
@@ -87,12 +87,12 @@ secret=$(curl -sf -X POST "$HUB_URL/api/v1/admin/services/$SERVICE_CODE/oidc-cli
 
 echo "④ gate 프런트 → Keycloak 로그인 화면 (client 존재·PKCE 사전검사)"
 challenge=$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n' | cut -c1-43)
-auth_url="$GATE_URL/realms/onepass/protocol/openid-connect/auth?client_id=idem-svc-$SERVICE_CODE&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Frp.example.org%2Fcallback&state=smoke&code_challenge=$challenge&code_challenge_method=S256"
+auth_url="$GATE_URL/realms/idem/protocol/openid-connect/auth?client_id=idem-svc-$SERVICE_CODE&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Frp.example.org%2Fcallback&state=smoke&code_challenge=$challenge&code_challenge_method=S256"
 code=$(curl -s -o /tmp/smoke-auth.html -w '%{http_code}' "$auth_url")
 [ "$code" = "200" ] && grep -qi "kc-form-login\|kc-login\|<form" /tmp/smoke-auth.html && ok "로그인 화면 200 (프록시)" || fail "auth 응답 $code (로그인 화면 아님): $(head -c 300 /tmp/smoke-auth.html)"
-code=$(curl -s -o /dev/null -w '%{http_code}' "$GATE_URL/realms/onepass/protocol/openid-connect/auth?client_id=idem-svc-$SERVICE_CODE&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Frp.example.org%2Fcallback&state=smoke")
+code=$(curl -s -o /dev/null -w '%{http_code}' "$GATE_URL/realms/idem/protocol/openid-connect/auth?client_id=idem-svc-$SERVICE_CODE&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Frp.example.org%2Fcallback&state=smoke")
 [ "$code" = "400" ] && ok "PKCE 없는 요청은 400" || fail "PKCE 없는 요청이 $code"
-code=$(curl -s -o /dev/null -w '%{http_code}' "$GATE_URL/realms/onepass/protocol/openid-connect/auth?client_id=not-idem&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Frp.example.org%2Fcallback&state=smoke&code_challenge=$challenge&code_challenge_method=S256")
+code=$(curl -s -o /dev/null -w '%{http_code}' "$GATE_URL/realms/idem/protocol/openid-connect/auth?client_id=not-idem&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Frp.example.org%2Fcallback&state=smoke&code_challenge=$challenge&code_challenge_method=S256")
 [ "$code" = "400" ] || [ "$code" = "403" ] && ok "Idem 이 만들지 않은 client 는 $code" || fail "타 client 요청이 $code"
 
 echo "⑤ Mock 본인확인 → registry 등록 라운드트립"

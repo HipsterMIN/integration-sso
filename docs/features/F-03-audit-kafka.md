@@ -16,7 +16,7 @@ F-04(DB 저장)와 **독립적으로 동작**하므로, Kafka 장애 시에도 D
 ```
 감사 이벤트 발생
   │
-  ├─→ [F-04=true] DB 저장 (ido.audit_log) — 동기, 트랜잭션 내
+  ├─→ [F-04=true] DB 저장 (idem_hub.audit_log) — 동기, 트랜잭션 내
   │
   └─→ [F-03=true] Kafka 발행 (platform.audit.log) — 비동기, 트랜잭션 외
 ```
@@ -27,7 +27,7 @@ F-04(DB 저장)와 **독립적으로 동작**하므로, Kafka 장애 시에도 D
 
 | 항목 | F-03 Kafka 발행 | F-04 DB 저장 |
 |------|----------------|-------------|
-| 저장 위치 | Kafka `platform.audit.log` 토픽 | `ido.audit_log` 테이블 |
+| 저장 위치 | Kafka `platform.audit.log` 토픽 | `idem_hub.audit_log` 테이블 |
 | 처리 방식 | 비동기 (트랜잭션 외부) | 동기 (트랜잭션 내부) |
 | 장애 시 영향 | Kafka 장애 → 발행 실패, DB 영향 없음 | DB 장애 → 요청 전체 실패 |
 | 주요 용도 | 외부 SIEM, 실시간 감사 스트리밍 | 내부 조회, 컴플라이언스 감사 |
@@ -125,7 +125,7 @@ kafka-console-consumer.sh \
 SELECT
     DATE(created_at)     AS dt,
     COUNT(*)             AS db_saved_count
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE created_at >= NOW() - INTERVAL 7 DAY
 GROUP BY dt
 ORDER BY dt DESC;
@@ -146,7 +146,7 @@ ORDER BY dt DESC;
 | 기능 | 관계 |
 |------|------|
 | [F-04 감사 DB](F-04-audit-db.md) | 동기 DB 저장, OFF 금지 — F-03의 1차 백업 |
-| [F-13 Outbox 릴레이](F-13-outbox-relay.md) | ido.outbox → Kafka 릴레이 (별개 토픽) |
+| [F-13 Outbox 릴레이](F-13-outbox-relay.md) | idem_hub.outbox → Kafka 릴레이 (별개 토픽) |
 | [F-18 SP 수신 감사](F-18-sp-receiver-audit.md) | Q-IM 수신 이벤트도 F-03으로 Kafka 발행 |
 
 ---

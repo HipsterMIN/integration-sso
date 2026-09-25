@@ -9,7 +9,7 @@ import lombok.extern.jackson.Jacksonized;
  *
  * <p>모든 서비스(q-sign, q-im, ido)가 이 이벤트를 발행하여
  * {@code platform.audit.log} 토픽에 기록한다.
- * IdO 의 AuditLogConsumer 가 로컬 DB({@code ido.audit_log})에 이중 저장한다.
+ * IdO 의 AuditLogConsumer 가 로컬 DB({@code idem_hub.audit_log})에 이중 저장한다.
  *
  * <p><b>토픽</b>: {@code platform.audit.log}
  * <p><b>파티션 키</b>: {@code agencyCode} (없으면 {@code sourceSystem})

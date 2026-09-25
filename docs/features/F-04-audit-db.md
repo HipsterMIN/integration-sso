@@ -4,7 +4,7 @@
 > **기본값**: `true`  
 > **Spring 프로퍼티**: `idem.hub.audit.db-save-enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/audit/AuditLogRepository.java`  
-> **대상 테이블**: `ido.audit_log`
+> **대상 테이블**: `idem_hub.audit_log`
 
 ---
 
@@ -26,7 +26,7 @@ IDEM_HUB_AUDIT_DB_ENABLED=false  →  법적 감사 추적 불가  →  컴플�
 
 ## 1. 이 기능은 무엇인가?
 
-모든 API 요청·응답 감사 이벤트를 **`ido.audit_log` 테이블에 동기적으로 저장**합니다.  
+모든 API 요청·응답 감사 이벤트를 **`idem_hub.audit_log` 테이블에 동기적으로 저장**합니다.  
 트랜잭션 내부에서 동작하므로, 감사 로그 저장 실패 시 요청 처리도 롤백됩니다(무결성 보장).
 
 ```
@@ -34,7 +34,7 @@ API 요청 처리
   │
   ├─ 비즈니스 로직 실행
   │
-  ├─→ [F-04=true] ido.audit_log INSERT (트랜잭션 내, 동기)
+  ├─→ [F-04=true] idem_hub.audit_log INSERT (트랜잭션 내, 동기)
   │     실패 시 → 전체 트랜잭션 롤백 (요청 실패 처리)
   │
   └─→ [F-03=true] Kafka platform.audit.log 발행 (트랜잭션 외, 비동기)
@@ -45,7 +45,7 @@ API 요청 처리
 ## 2. 테이블 스키마
 
 ```sql
-CREATE TABLE ido.audit_log (
+CREATE TABLE idem_hub.audit_log (
     id             BIGINT       AUTO_INCREMENT PRIMARY KEY,
     event_id       VARCHAR(36)  NOT NULL UNIQUE COMMENT 'UUID',
     created_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -64,9 +64,9 @@ CREATE TABLE ido.audit_log (
   COMMENT='IdO 서비스 감사 로그';
 
 -- 주요 인덱스
-CREATE INDEX idx_audit_log_agency_created ON ido.audit_log (agency_code, created_at);
-CREATE INDEX idx_audit_log_event_type     ON ido.audit_log (event_type, created_at);
-CREATE INDEX idx_audit_log_user_id        ON ido.audit_log (user_id, created_at);
+CREATE INDEX idx_audit_log_agency_created ON idem_hub.audit_log (agency_code, created_at);
+CREATE INDEX idx_audit_log_event_type     ON idem_hub.audit_log (event_type, created_at);
+CREATE INDEX idx_audit_log_user_id        ON idem_hub.audit_log (user_id, created_at);
 ```
 
 ---
@@ -117,7 +117,7 @@ IDEM_HUB_AUDIT_DB_ENABLED=false
 ```sql
 -- 특정 기관의 오늘 감사 로그 전체 조회
 SELECT event_type, COUNT(*) AS cnt, MAX(created_at) AS last_at
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE agency_code = 'AGCY001'
   AND created_at >= CURDATE()
 GROUP BY event_type
@@ -125,7 +125,7 @@ ORDER BY cnt DESC;
 
 -- HMAC 서명 실패 이벤트 조회 (보안 모니터링)
 SELECT created_at, agency_code, ip_address, extra_json
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE event_type = 'HMAC_SIG_INVALID'
   AND created_at >= NOW() - INTERVAL 1 HOUR
 ORDER BY created_at DESC
@@ -133,7 +133,7 @@ LIMIT 100;
 
 -- 인증 실패 IP 랭킹 (브루트포스 탐지)
 SELECT ip_address, COUNT(*) AS failure_count
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE event_type = 'AUTH_FAILURE'
   AND created_at >= NOW() - INTERVAL 1 HOUR
 GROUP BY ip_address

@@ -37,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Consumer({@code QsignAuthEventConsumer})는 이미 eventType 기반 분기를 지원하므로 호환됨.
  *
  * <h2>성능</h2>
- * qsign.outbox는 인증 세션 이벤트로 트래픽이 높을 수 있음.
+ * idem_gate.outbox는 인증 세션 이벤트로 트래픽이 높을 수 있음.
  * batch-size 기본값 100, interval 500ms → 초당 최대 200건 처리.
  * 60,000명 급증 시나리오에서도 약 5분 내 처리 완료.
  */
@@ -144,7 +144,7 @@ public class QSignKafkaRelayJob {
     private void markPublished(String eventId, SendResult<String, Object> result) {
         try {
             qsignJdbcTemplate.update("""
-                    UPDATE qsign.outbox
+                    UPDATE idem_gate.outbox
                     SET status = 'PUBLISHED', published_at = NOW()
                     WHERE event_id = ?
                     """, eventId);
@@ -162,7 +162,7 @@ public class QSignKafkaRelayJob {
 
             if (nextRetry >= maxRetry) {
                 qsignJdbcTemplate.update("""
-                        UPDATE qsign.outbox
+                        UPDATE idem_gate.outbox
                         SET status = 'FAILED', error_message = ?
                         WHERE event_id = ?
                         """, errorMsg, row.eventId());
@@ -170,10 +170,10 @@ public class QSignKafkaRelayJob {
                 log.error("[QSignKafkaRelayJob] FAILED(영구): eventId={} retry={}/{} error={}",
                         row.eventId(), nextRetry, maxRetry, errorMsg);
             } else {
-                // qsign.outbox는 next_retry_at 컬럼 없음 → incrementRetry만 수행
+                // idem_gate.outbox는 next_retry_at 컬럼 없음 → incrementRetry만 수행
                 // (기존 QSignOutboxRepository.incrementRetry()와 동일 동작)
                 qsignJdbcTemplate.update("""
-                        UPDATE qsign.outbox
+                        UPDATE idem_gate.outbox
                         SET retry_count = retry_count + 1, error_message = ?
                         WHERE event_id = ?
                         """, errorMsg, row.eventId());
@@ -190,7 +190,7 @@ public class QSignKafkaRelayJob {
         try {
             qsignJdbcTemplate.query("""
                     SELECT event_id, partition_key, payload::text, retry_count
-                    FROM qsign.outbox
+                    FROM idem_gate.outbox
                     WHERE status = 'PENDING'
                     ORDER BY created_at ASC
                     LIMIT ?

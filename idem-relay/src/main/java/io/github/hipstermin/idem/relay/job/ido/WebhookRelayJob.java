@@ -22,10 +22,10 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * ido.webhook_dispatch_outbox HTTPS POST 릴레이 배치 Job
+ * idem_hub.webhook_dispatch_outbox HTTPS POST 릴레이 배치 Job
  *
  * <h2>처리 대상</h2>
- * ido.webhook_dispatch_outbox 테이블의 PENDING 레코드 → 기관 HTTPS POST.
+ * idem_hub.webhook_dispatch_outbox 테이블의 PENDING 레코드 → 기관 HTTPS POST.
  * 기존 {@code WebhookDispatchOutboxRelay}를 대체.
  *
  * <h2>ShedLock 설정</h2>
@@ -46,7 +46,7 @@ import org.springframework.web.client.RestTemplate;
 @Component
 public class WebhookRelayJob {
 
-    private static final String SOURCE_SYSTEM = "onepass-batch";
+    private static final String SOURCE_SYSTEM = "idem-relay";
     private static final long   BACKOFF_BASE  = 2L;   // 2^(retry+1) 초
 
     private final JdbcTemplate idoJdbcTemplate;
@@ -187,8 +187,8 @@ public class WebhookRelayJob {
                            w.payload::text AS payload,
                            w.retry_count, w.max_retry,
                            c.signing_secret_hash
-                    FROM   ido.webhook_dispatch_outbox w
-                    LEFT JOIN ido.agency_webhook_config c
+                    FROM   idem_hub.webhook_dispatch_outbox w
+                    LEFT JOIN idem_hub.agency_webhook_config c
                            ON c.agency_code = w.agency_code AND c.active = TRUE
                     WHERE  w.status = 'PENDING'
                       AND  (w.next_retry_at IS NULL OR w.next_retry_at <= NOW())
@@ -218,7 +218,7 @@ public class WebhookRelayJob {
     private void markDispatched(String dispatchId, int status) {
         try {
             idoJdbcTemplate.update("""
-                    UPDATE ido.webhook_dispatch_outbox
+                    UPDATE idem_hub.webhook_dispatch_outbox
                     SET status = 'DISPATCHED', last_http_status = ?, dispatched_at = NOW()
                     WHERE dispatch_id = ?
                     """, status, dispatchId);
@@ -230,7 +230,7 @@ public class WebhookRelayJob {
     private void markFailed(String dispatchId, Integer status, String error) {
         try {
             idoJdbcTemplate.update("""
-                    UPDATE ido.webhook_dispatch_outbox
+                    UPDATE idem_hub.webhook_dispatch_outbox
                     SET status = 'FAILED', last_http_status = ?, last_error_message = ?
                     WHERE dispatch_id = ?
                     """, status, truncate(error, 500), dispatchId);
@@ -243,7 +243,7 @@ public class WebhookRelayJob {
                                 Integer status, String error, long backoffSec) {
         try {
             idoJdbcTemplate.update("""
-                    UPDATE ido.webhook_dispatch_outbox
+                    UPDATE idem_hub.webhook_dispatch_outbox
                     SET retry_count = ?, last_http_status = ?,
                         last_error_message = ?,
                         next_retry_at = NOW() + (? || ' seconds')::interval

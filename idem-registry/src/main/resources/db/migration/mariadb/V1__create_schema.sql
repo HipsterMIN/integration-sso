@@ -122,7 +122,7 @@ CREATE INDEX idx_status_history_user ON user_status_history (qim_user_id, occurr
 
 -- ──────────────────────────────────────────────────────────────
 -- 5. Transactional Outbox (Q-IM → Kafka)
---    §10.5.2 qim.user.events (compact) / qim.user.snapshot 발행.
+--    §10.5.2 idem_registry.user.events (compact) / idem_registry.user.snapshot 발행.
 --    partition_key = qimUserId (동일 사용자 이벤트 순서 보장).
 --
 --    [변경] JSONB → JSON, WHERE partial index → 일반 인덱스
@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS outbox (
     aggregate_id      VARCHAR(36)   NOT NULL COMMENT 'qimUserId',
     event_version     BIGINT        NOT NULL COMMENT 'qim_user.event_version 와 동기',
     payload           JSON          NOT NULL,
-    topic             VARCHAR(200)  NOT NULL COMMENT 'qim.user.events(compact) 또는 qim.user.snapshot',
+    topic             VARCHAR(200)  NOT NULL COMMENT 'idem_registry.user.events(compact) 또는 idem_registry.user.snapshot',
     status            VARCHAR(20)   NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING / PUBLISHED / FAILED',
     retry_count       SMALLINT      NOT NULL DEFAULT 0,
     error_message     TEXT,

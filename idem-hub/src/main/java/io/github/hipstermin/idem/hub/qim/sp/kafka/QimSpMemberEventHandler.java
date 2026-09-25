@@ -55,7 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class QimSpMemberEventHandler {
 
-    private static final String SCHEMA        = "ido";
+    private static final String SCHEMA        = "idem_hub";
     private static final String SOURCE_SYSTEM = "idem-hub";
 
     private final InstMbrIdMappingRepository mappingRepository;

@@ -49,18 +49,18 @@ public class KeycloakProperties {
 
     /**
      * Keycloak Realm 이름 (§10-1)
-     * 예: onepass
+     * 예: idem
      */
-    private String realm = "onepass";
+    private String realm = "idem";
 
     /**
-     * ido-client Client ID (§10-2)
-     * Keycloak Admin Console → Clients → ido-client
+     * idem-hub Client ID (§10-2)
+     * Keycloak Admin Console → Clients → idem-hub
      */
-    private String clientId = "ido-client";
+    private String clientId = "idem-hub";
 
     /**
-     * ido-client Client Secret (§10-2 confidential client)
+     * idem-hub Client Secret (§10-2 confidential client)
      * Token Endpoint code 교환 시 사용
      *
      * <p>[Sprint γ-1 / F2.1] 기본값 "change-me" 제거 → 환경변수 KEYCLOAK_CLIENT_SECRET 필수.

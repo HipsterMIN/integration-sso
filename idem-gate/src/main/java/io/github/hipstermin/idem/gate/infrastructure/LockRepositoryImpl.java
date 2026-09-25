@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Q-Sign LockRepository JPA 구현체
- * 설계서 §9.6 — 인증 수단별 잠금·재시도 카운터 (PostgreSQL qsign.auth_lock)
+ * 설계서 §9.6 — 인증 수단별 잠금·재시도 카운터 (PostgreSQL idem_gate.auth_lock)
  *
  * lockKey = {identifierHash}:{providerCode}
  */

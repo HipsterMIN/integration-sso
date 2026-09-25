@@ -216,7 +216,7 @@ class GeneralizationGuardTest {
         for (String code : List.of("AGENCY_STUB_001", "AGENCY_BRIDGE_001", "AGENCY_APACHEGATE_001", "AGENCY_SSO_001", "AGENCY_STRICT_L3", "AGENCY_CHAOS_001")) {
             assertThat(v24).contains(code);
         }
-        assertThat(v24).contains("DELETE FROM ido.agency_meta");
+        assertThat(v24).contains("DELETE FROM idem_hub.agency_meta");
     }
 
     // ── helpers ────────────────────────────────────────────────────────────

@@ -144,7 +144,7 @@ public class IdoOutboxRelay {
             }
             try {
                 // ── payload 역직렬화: Map<String, Object> (타입 무관, 범용 처리) ──
-                // 이유: ido.outbox에는 AuthEvent(idem.gate.auth.events) 외에
+                // 이유: idem_hub.outbox에는 AuthEvent(idem.gate.auth.events) 외에
                 //        QIM 이벤트(idem.registry.user.events, BIZ_MEMBER_CONVERTED 등)도 INSERT됨.
                 //        AuthEvent 고정 역직렬화 시 ClassCastException/JsonMappingException 발생.
                 //        Map으로 역직렬화하면 어떤 이벤트 타입이든 JSON 구조가 유지되어

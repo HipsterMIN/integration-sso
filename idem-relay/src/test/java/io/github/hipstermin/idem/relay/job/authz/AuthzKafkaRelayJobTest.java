@@ -29,7 +29,7 @@ import org.springframework.kafka.support.SendResult;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * AuthzKafkaRelayJob 단위 테스트 — authz.authz_outbox → authz.assignment.events.
+ * AuthzKafkaRelayJob 단위 테스트 — idem_authz.authz_outbox → authz.assignment.events.
  */
 @DisplayName("AuthzKafkaRelayJob — 단위 테스트")
 @ExtendWith(MockitoExtension.class)

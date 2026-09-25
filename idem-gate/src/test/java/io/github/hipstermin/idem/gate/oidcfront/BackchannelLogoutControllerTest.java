@@ -40,10 +40,10 @@ class BackchannelLogoutControllerTest {
     void setUp() {
         KeycloakProperties kc = new KeycloakProperties();
         kc.setBaseUrl("http://keycloak:8080");
-        kc.setRealm("onepass");
-        kc.setClientId("q-sign-client");
+        kc.setRealm("idem");
+        kc.setClientId("idem-gate");
         OidcFrontProperties props = new OidcFrontProperties();
-        props.setIssuer("https://sso.example.org/realms/onepass");
+        props.setIssuer("https://sso.example.org/realms/idem");
         mvc = MockMvcBuilders.standaloneSetup(new BackchannelLogoutController(jwksVerifier, kc, props, hubSessionClient, cache)).build();
         given(hubSessionClient.notifyIdpLogout(anyString(), anyString(), anyString(), anyString())).willReturn(1);
     }
@@ -56,7 +56,7 @@ class BackchannelLogoutControllerTest {
     @DisplayName("유효한 logout_token: hub 에 sub·sid 통지, 판정 캐시 삭제, 200")
     void valid() throws Exception {
         given(jwksVerifier.verify(eq("lt"), anyString())).willReturn(claims(
-                "{\"iss\":\"https://sso.example.org/realms/onepass\",\"aud\":\"q-sign-client\",\"sub\":\"kc-sub\",\"sid\":\"sid-9\",\"iat\":1," + EVENTS + "}"));
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"kc-sub\",\"sid\":\"sid-9\",\"iat\":1," + EVENTS + "}"));
         mvc.perform(post("/api/v1/oidc/backchannel-logout").contentType(MediaType.APPLICATION_FORM_URLENCODED).param("logout_token", "lt"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.ok").value(true));
         verify(hubSessionClient).notifyIdpLogout(eq("kc-sub"), eq("sid-9"), eq("BACKCHANNEL_LOGOUT"), anyString());
@@ -64,10 +64,10 @@ class BackchannelLogoutControllerTest {
     }
 
     @Test
-    @DisplayName("내부 issuer(Keycloak 내부 주소) 도 허용하고, aud 가 ido-client 여도 받는다")
+    @DisplayName("내부 issuer(Keycloak 내부 주소) 도 허용하고, aud 가 idem-hub 여도 받는다")
     void internalIssuerAndIdoClient() throws Exception {
         given(jwksVerifier.verify(eq("lt"), anyString())).willReturn(claims(
-                "{\"iss\":\"http://keycloak:8080/realms/onepass\",\"aud\":[\"ido-client\"],\"sub\":\"kc-sub\"," + EVENTS + "}"));
+                "{\"iss\":\"http://keycloak:8080/realms/idem\",\"aud\":[\"idem-hub\"],\"sub\":\"kc-sub\"," + EVENTS + "}"));
         mvc.perform(post("/api/v1/oidc/backchannel-logout").contentType(MediaType.APPLICATION_FORM_URLENCODED).param("logout_token", "lt"))
                 .andExpect(status().isOk());
     }
@@ -75,13 +75,13 @@ class BackchannelLogoutControllerTest {
     @Test
     @DisplayName("거부: events 없음 · nonce 있음 · 다른 aud · 다른 iss · sub·sid 없음 · 서명 실패 — hub 를 부르지 않는다")
     void rejected() throws Exception {
-        String base = "\"iss\":\"https://sso.example.org/realms/onepass\",\"aud\":\"q-sign-client\",\"sub\":\"kc-sub\",\"sid\":\"s\"";
+        String base = "\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"kc-sub\",\"sid\":\"s\"";
         String[] bad = {
                 "{" + base + "}",                                   // events 없음
                 "{" + base + ",\"nonce\":\"n\"," + EVENTS + "}",    // nonce
-                "{\"iss\":\"https://sso.example.org/realms/onepass\",\"aud\":\"idem-svc-AG1\",\"sub\":\"x\"," + EVENTS + "}", // aud
-                "{\"iss\":\"https://evil/realms/onepass\",\"aud\":\"q-sign-client\",\"sub\":\"x\"," + EVENTS + "}",     // iss
-                "{\"iss\":\"https://sso.example.org/realms/onepass\",\"aud\":\"q-sign-client\"," + EVENTS + "}"          // sub·sid 없음
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-svc-AG1\",\"sub\":\"x\"," + EVENTS + "}", // aud
+                "{\"iss\":\"https://evil/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"x\"," + EVENTS + "}",     // iss
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\"," + EVENTS + "}"          // sub·sid 없음
         };
         for (String json : bad) {
             given(jwksVerifier.verify(eq("lt"), anyString())).willReturn(claims(json));

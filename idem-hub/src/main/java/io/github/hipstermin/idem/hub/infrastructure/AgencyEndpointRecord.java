@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Value;
 
 /**
- * ido.agency_endpoint_registry 테이블 레코드 도메인 객체
+ * idem_hub.agency_endpoint_registry 테이블 레코드 도메인 객체
  *
  * <p>복합 PK: (agencyCode, endpointType)
  * JdbcTemplate RowMapper에서 매핑하여 사용.
@@ -14,7 +14,7 @@ import lombok.Value;
 @Builder
 public class AgencyEndpointRecord {
 
-    /** 기관 코드 (FK → ido.agency_meta.agency_code) */
+    /** 기관 코드 (FK → idem_hub.agency_meta.agency_code) */
     String agencyCode;
 
     /**

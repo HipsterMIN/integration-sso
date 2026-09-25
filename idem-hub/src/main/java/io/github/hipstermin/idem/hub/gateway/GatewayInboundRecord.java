@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Value;
 
 /**
- * ido.gateway_inbound_audit 테이블 레코드 도메인 객체
+ * idem_hub.gateway_inbound_audit 테이블 레코드 도메인 객체
  */
 @Value
 @Builder(toBuilder = true)

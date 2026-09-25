@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  * <ol>
  *   <li>인메모리 캐시 (ConcurrentHashMap, 최소 지연)</li>
  *   <li>Redis (분산 캐시, TTL 1시간)</li>
- *   <li>DB {@code ido.crypto_key_registry} (영구 저장)</li>
+ *   <li>DB {@code idem_hub.crypto_key_registry} (영구 저장)</li>
  *   <li>Spring 환경 프로퍼티 {@code idem.hub.ticket.aes-key} (폴백 / 개발 환경)</li>
  * </ol>
  *
@@ -292,7 +292,7 @@ public class KeyVersionRegistry {
         String keyTypeStr = keyType == KeyType.AES ? "HANDOFF_AES" : "HANDOFF_HMAC";
         try {
             String version = jdbcTemplate.queryForObject(
-                    "SELECT key_version FROM ido.crypto_key_registry " +
+                    "SELECT key_version FROM idem_hub.crypto_key_registry " +
                     "WHERE key_type = ? AND active = TRUE AND current_flag = TRUE " +
                     "LIMIT 1",
                     String.class, keyTypeStr);
@@ -339,7 +339,7 @@ public class KeyVersionRegistry {
         String keyTypeStr = keyType == KeyType.AES ? "HANDOFF_AES" : "HANDOFF_HMAC";
         try {
             List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                    "SELECT key_material_encrypted FROM ido.crypto_key_registry " +
+                    "SELECT key_material_encrypted FROM idem_hub.crypto_key_registry " +
                     "WHERE key_type = ? AND key_version = ? " +
                     "AND (active = TRUE OR (grace_until IS NOT NULL AND grace_until > NOW()))",
                     keyTypeStr, version);

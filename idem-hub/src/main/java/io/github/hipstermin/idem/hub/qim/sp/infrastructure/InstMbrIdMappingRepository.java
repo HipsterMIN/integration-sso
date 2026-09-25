@@ -16,7 +16,7 @@ import org.springframework.stereotype.Repository;
 /**
  * instMbrId 매핑 Repository
  *
- * ido.inst_mbr_id_mapping 테이블 CRUD
+ * idem_hub.inst_mbr_id_mapping 테이블 CRUD
  * Q-IM SP 수신 API 처리 시 instMbrId ↔ qimUserId 매핑 관리
  */
 @Slf4j
@@ -26,7 +26,7 @@ public class InstMbrIdMappingRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
-    private static final String SCHEMA = "ido";
+    private static final String SCHEMA = "idem_hub";
 
     // ── 조회 ────────────────────────────────────────────────────────────────
 

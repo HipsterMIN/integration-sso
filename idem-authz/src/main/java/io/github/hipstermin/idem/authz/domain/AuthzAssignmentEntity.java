@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 사용자 ↔ Service 할당 (S8-b, authz.authz_assignment).
+ * 사용자 ↔ Service 할당 (S8-b, idem_authz.authz_assignment).
  *
  * <p>역할({@link AuthzUserRoleEntity})은 "무엇을 할 수 있나", 할당은 "이 Service 의 사용자인가" 다.
  * hub 의 ASSIGNMENT 정책 규칙과 Handoff/CAST 발급이 이 표를 정본으로 읽는다.

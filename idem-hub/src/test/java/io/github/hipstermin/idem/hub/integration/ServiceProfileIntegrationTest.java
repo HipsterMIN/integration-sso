@@ -43,9 +43,9 @@ class ServiceProfileIntegrationTest extends IntegrationTestBase {
     @BeforeEach
     void cleanTenants() {
         for (String code : CODES) {
-            jdbcTemplate.update("DELETE FROM ido.agency_meta_history WHERE agency_code = ?", code);
-            jdbcTemplate.update("DELETE FROM ido.agency_webhook_config WHERE agency_code = ?", code);
-            jdbcTemplate.update("DELETE FROM ido.agency_meta WHERE agency_code = ?", code);
+            jdbcTemplate.update("DELETE FROM idem_hub.agency_meta_history WHERE agency_code = ?", code);
+            jdbcTemplate.update("DELETE FROM idem_hub.agency_webhook_config WHERE agency_code = ?", code);
+            jdbcTemplate.update("DELETE FROM idem_hub.agency_meta WHERE agency_code = ?", code);
         }
     }
 
@@ -100,7 +100,7 @@ class ServiceProfileIntegrationTest extends IntegrationTestBase {
 
         // 이력 1건
         Integer history = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM ido.agency_meta_history WHERE agency_code = ?", Integer.class, code);
+                "SELECT COUNT(*) FROM idem_hub.agency_meta_history WHERE agency_code = ?", Integer.class, code);
         assertThat(history).isEqualTo(1);
 
         // GET — 프로파일 전용 항목(ui·session·mapping)이 그대로 돌아온다
@@ -224,10 +224,10 @@ class ServiceProfileIntegrationTest extends IntegrationTestBase {
                 """.formatted(code));
         assertThat(res.getStatusCode().value()).as("body=%s", res.getBody()).isEqualTo(200);
         assertThat(json(res).at("/service/tenant").asText()).isEqualTo("TC_S4B_TENANT");
-        assertThat(jdbcTemplate.queryForObject("SELECT tenant_code FROM ido.agency_meta WHERE agency_code = ?", String.class, code))
+        assertThat(jdbcTemplate.queryForObject("SELECT tenant_code FROM idem_hub.agency_meta WHERE agency_code = ?", String.class, code))
                 .isEqualTo("TC_S4B_TENANT");
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT jsonb_exists(profile, 'tenant') OR NOT jsonb_exists(profile, 'service') FROM ido.agency_meta WHERE agency_code = ?", Boolean.class, code))
+                "SELECT jsonb_exists(profile, 'tenant') OR NOT jsonb_exists(profile, 'service') FROM idem_hub.agency_meta WHERE agency_code = ?", Boolean.class, code))
                 .isFalse();
 
         // tenant 생략 → DEFAULT
@@ -245,9 +245,9 @@ class ServiceProfileIntegrationTest extends IntegrationTestBase {
         assertThat(json(bad).at("/message").asText()).contains("NO_SUCH_TENANT");
 
         // V22 이관 검증: 종전 형식(tenant 블록)으로 저장된 행도 service 로 읽힌다 — 마이그레이션 SQL 을 그대로 재적용
-        jdbcTemplate.update("UPDATE ido.agency_meta SET profile = (profile - 'service') || jsonb_build_object('tenant', profile->'service') WHERE agency_code = ?", code);
+        jdbcTemplate.update("UPDATE idem_hub.agency_meta SET profile = (profile - 'service') || jsonb_build_object('tenant', profile->'service') WHERE agency_code = ?", code);
         jdbcTemplate.update("""
-                UPDATE ido.agency_meta
+                UPDATE idem_hub.agency_meta
                    SET profile = (profile - 'tenant') || jsonb_build_object('service', (profile -> 'tenant') || jsonb_build_object('tenant', tenant_code))
                  WHERE profile IS NOT NULL AND jsonb_exists(profile, 'tenant') AND NOT jsonb_exists(profile, 'service') AND agency_code = ?
                 """, code);

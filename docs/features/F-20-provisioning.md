@@ -144,9 +144,9 @@ Gate 2-A 조건 충족 후:
 kubectl rollout restart deployment/ido -n smes
 
 # 발행 성공 확인
-psql -h $DB_HOST -U onepass -d onepass -c "
+psql -h $DB_HOST -U idem -d idem -c "
   SELECT agency_code, status, count(*)
-  FROM ido.provisioning_outbox
+  FROM idem_hub.provisioning_outbox
   WHERE created_at > now() - interval '1 hour'
   GROUP BY agency_code, status
   ORDER BY agency_code;"
@@ -170,7 +170,7 @@ HTTP POST가 실패하면 `provisioning_outbox` 테이블에 `PENDING` 상태로
 ```sql
 -- 현재 PENDING/DEAD_LETTER 확인
 SELECT agency_code, status, retry_count, last_error, next_retry_at
-FROM ido.provisioning_outbox
+FROM idem_hub.provisioning_outbox
 WHERE status IN ('PENDING', 'DEAD_LETTER')
 ORDER BY created_at DESC;
 ```
@@ -181,7 +181,7 @@ ORDER BY created_at DESC;
 
 ```sql
 -- ProvisioningOutboxRepositoryImpl 내부
-SELECT * FROM ido.provisioning_outbox
+SELECT * FROM idem_hub.provisioning_outbox
 WHERE status = 'PENDING'
   AND next_retry_at <= NOW()
 ORDER BY next_retry_at ASC
@@ -222,10 +222,10 @@ kubectl rollout restart deployment/ido -n smes
 
 ```sql
 -- provisioning_outbox: 기관별 발행 이력
-SELECT * FROM ido.provisioning_outbox LIMIT 5;
+SELECT * FROM idem_hub.provisioning_outbox LIMIT 5;
 
 -- agency_endpoint_registry: 기관 엔드포인트 설정
-SELECT * FROM ido.agency_endpoint_registry
+SELECT * FROM idem_hub.agency_endpoint_registry
 WHERE endpoint_type = 'PROVISIONING';
 ```
 

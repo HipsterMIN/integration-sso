@@ -313,11 +313,11 @@ jobs:
         ports:
           - 5432:5432
         env:
-          POSTGRES_DB: onepass
-          POSTGRES_USER: onepass
-          POSTGRES_PASSWORD: onepass
+          POSTGRES_DB: idem
+          POSTGRES_USER: idem
+          POSTGRES_PASSWORD: idem
         options: >-
-          --health-cmd "pg_isready -U onepass"
+          --health-cmd "pg_isready -U idem"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
@@ -353,7 +353,7 @@ jobs:
         run: |
           openssl genpkey -algorithm ed25519 -out /tmp/cast.pem
           cat > /tmp/install.env <<EOF
-          IDEM_DB_PASSWORD=onepass
+          IDEM_DB_PASSWORD=idem
           KEYCLOAK_ADMIN_PASSWORD=$(openssl rand -hex 16)
           IDEM_HUB_INTERNAL_SIG_SECRET=$(openssl rand -base64 32)
           IDEM_HUB_INTERNAL_API_KEY_GATE=$(openssl rand -hex 32)
@@ -396,7 +396,7 @@ jobs:
             | grep -c "container_name: idem-" | xargs -I{} sh -c '[ {} -ge 7 ] && echo "compose services: {}"'
 
       - name: DB 스키마 초기화 (compose 의 init-db.sql 과 동일)
-        run: PGPASSWORD=onepass psql -h localhost -U onepass -d onepass -v ON_ERROR_STOP=1 -f infra/docker/init-db.sql
+        run: PGPASSWORD=idem psql -h localhost -U idem -d idem -v ON_ERROR_STOP=1 -f infra/docker/init-db.sql
 
       - name: Keycloak 기동 (compose 와 같은 image·realm import·hostname — gate 뒤에 숨는다)
         run: |
@@ -408,7 +408,7 @@ jobs:
             -e IDEM_GATE_KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_PROVISIONER_CLIENT_SECRET -e KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET \
             quay.io/keycloak/keycloak:24.0 start-dev --http-port=8088 --import-realm
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:8088/realms/onepass > /dev/null 2>&1; then echo "✅ Keycloak realm onepass UP (${i}x3s)"; exit 0; fi
+            if curl -sf http://localhost:8088/realms/idem > /dev/null 2>&1; then echo "✅ Keycloak realm idem UP (${i}x3s)"; exit 0; fi
             sleep 3
           done
           echo "❌ Keycloak 기동 실패"; docker logs idem-keycloak | tail -50; exit 1
@@ -418,21 +418,21 @@ jobs:
           mkdir -p /tmp/idem
           jar() { find "$1/build/libs" -name "$1-*.jar" -not -name "*-plain.jar" -not -name "*-test-fixtures.jar" | head -1; }
           # x-app-common
-          export DB_HOST=localhost DB_PORT=5432 DB_NAME=onepass DB_USERNAME=onepass DB_PASSWORD=onepass
+          export DB_HOST=localhost DB_PORT=5432 DB_NAME=idem DB_USERNAME=idem DB_PASSWORD=idem
           export REDIS_HOST=localhost REDIS_PORT=6379 IDEM_KAFKA_ENABLED=false TZ=Asia/Seoul
           # registry
-          IDEM_REGISTRY_DB_HOST=localhost IDEM_REGISTRY_DB_PORT=5432 IDEM_REGISTRY_DB_NAME=onepass IDEM_REGISTRY_DB_SCHEMA=qim IDEM_REGISTRY_DB_USERNAME=onepass IDEM_REGISTRY_DB_PASSWORD=onepass IDEM_REGISTRY_DB_SSL=false \
+          IDEM_REGISTRY_DB_HOST=localhost IDEM_REGISTRY_DB_PORT=5432 IDEM_REGISTRY_DB_NAME=idem IDEM_REGISTRY_DB_SCHEMA=idem_registry IDEM_REGISTRY_DB_USERNAME=idem IDEM_REGISTRY_DB_PASSWORD=idem IDEM_REGISTRY_DB_SSL=false \
             nohup java -Xmx512m -jar "$(jar idem-registry)" --server.port=8082 > /tmp/idem/registry.log 2>&1 &
           # authz
           nohup java -Xmx384m -jar "$(jar idem-authz)" --server.port=8086 > /tmp/idem/authz.log 2>&1 &
           # gate
-          IDEM_HUB_BASE_URL=http://localhost:8083 KEYCLOAK_URL=http://localhost:8088 KEYCLOAK_REALM=onepass IDEM_GATE_KEYCLOAK_CLIENT_ID=q-sign-client \
+          IDEM_HUB_BASE_URL=http://localhost:8083 KEYCLOAK_URL=http://localhost:8088 KEYCLOAK_REALM=idem IDEM_GATE_KEYCLOAK_CLIENT_ID=idem-gate \
             IDEM_GATE_KEYCLOAK_REDIRECT_URI=http://localhost:8081/api/v1/oidc/keycloak/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
             nohup java -Xmx512m -jar "$(jar idem-gate)" --server.port=8081 > /tmp/idem/gate.log 2>&1 &
           # hub
           IDEM_REGISTRY_BASE_URL=http://localhost:8082 IDEM_GATE_BASE_URL=http://localhost:8081 IDEM_HUB_AUTHZ_BASE_URL=http://localhost:8086 \
             IDEM_HUB_REGISTRY_INTERNAL_API_KEY="$IDEM_REGISTRY_INTERNAL_API_KEY" IDEM_HUB_AUTHZ_INTERNAL_API_KEY="$IDEM_AUTHZ_INTERNAL_API_KEY" \
-            IDEM_HUB_BROKER_MODE=qsign KEYCLOAK_BASE_URL=http://localhost:8088 KEYCLOAK_REALM=onepass KEYCLOAK_CLIENT_ID=ido-client \
+            IDEM_HUB_BROKER_MODE=qsign KEYCLOAK_BASE_URL=http://localhost:8088 KEYCLOAK_REALM=idem KEYCLOAK_CLIENT_ID=idem-hub \
             KEYCLOAK_REDIRECT_URI=http://localhost:8083/api/v1/broker/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
             IDEM_PLATFORM_CODE=IDEM IDEM_PLUGINS_NICE_OACX_ENABLED=false IDEM_PLUGINS_ANYID_ENABLED=false \
             CORS_ORIGIN_DEV=http://localhost:3001 CORS_ORIGIN_PROD=http://localhost:3001 \

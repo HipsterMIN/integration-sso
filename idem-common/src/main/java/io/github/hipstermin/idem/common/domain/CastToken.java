@@ -18,7 +18,7 @@ import java.util.List;
  *             → CAST 토큰 생성 (EdDSA JWT, TTL 5분)
  *             → Redis SET NX ← jti (1회 소비 보장)
  *             → cast_token_audit INSERT
- *     → 기관 B 리디렉션 URL에 onepass_sso=&lt;CAST JWT&gt; 첨부
+ *     → 기관 B 리디렉션 URL에 idem_sso=&lt;CAST JWT&gt; 첨부
  *     → 기관 B SDK가 POST /api/v1/agency/cast/verify 호출
  *         → CastTokenService.verify(castJwt, targetAgencyCode)
  *             → Redis SET NX 소비 여부 확인 (이미 소비 시 409)

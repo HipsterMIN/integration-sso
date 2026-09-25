@@ -23,11 +23,11 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class KeycloakJwtClaims {
 
-    /** Keycloak Issuer URL (예: http://localhost:8088/realms/onepass) */
+    /** Keycloak Issuer URL (예: http://localhost:8088/realms/idem) */
     @JsonProperty("iss")
     private String issuer;
 
-    /** ido-client Client ID */
+    /** idem-hub Client ID */
     @JsonProperty("aud")
     private Object audience;   // String 또는 String[] 모두 처리
 

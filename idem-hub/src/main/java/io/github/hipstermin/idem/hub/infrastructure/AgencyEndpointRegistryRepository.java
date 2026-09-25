@@ -6,7 +6,7 @@ import java.util.Optional;
 /**
  * 유관기관 API 엔드포인트 레지스트리 리포지토리 인터페이스
  *
- * <p>ido.agency_endpoint_registry 테이블 (V15 Flyway 생성) 접근.
+ * <p>idem_hub.agency_endpoint_registry 테이블 (V15 Flyway 생성) 접근.
  * 복합 PK: (agency_code, endpoint_type)
  *
  * <p>Sprint 14 사용 시나리오:

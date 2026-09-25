@@ -1,5 +1,5 @@
 {
-  "realm": "onepass",
+  "realm": "idem",
   "enabled": true,
   "displayName": "OnePass 통합인증",
   "sslRequired": "none",
@@ -14,7 +14,7 @@
   "ssoSessionMaxLifespan": 36000,
   "clients": [
     {
-      "clientId": "q-sign-client",
+      "clientId": "idem-gate",
       "name": "Q-Sign OIDC 어댑터 클라이언트",
       "description": "q-sign 모듈이 Keycloak Authorization Code Flow 를 처리하는 Confidential Client",
       "enabled": true,
@@ -27,11 +27,11 @@
       "secret": "${IDEM_GATE_KEYCLOAK_CLIENT_SECRET}",
       "redirectUris": [
         "http://localhost:8081/api/v1/oidc/keycloak/callback",
-        "http://onepass-qsign:8081/api/v1/oidc/keycloak/callback"
+        "http://idem-gate:8081/api/v1/oidc/keycloak/callback"
       ],
       "webOrigins": [
         "http://localhost:8081",
-        "http://onepass-qsign:8081"
+        "http://idem-gate:8081"
       ],
       "attributes": {
         "post.logout.redirect.uris": "+",
@@ -51,7 +51,7 @@
       ]
     },
     {
-      "clientId": "ido-client",
+      "clientId": "idem-hub",
       "name": "IdO BFF 클라이언트",
       "description": "ido 모듈 (Policy Orchestrator + FE BFF) — broker.mode=keycloak 전환 시 사용",
       "enabled": true,
@@ -183,11 +183,11 @@
   "roles": {
     "realm": [
       {
-        "name": "onepass-user",
+        "name": "idem-user",
         "description": "OnePass 일반 사용자"
       },
       {
-        "name": "onepass-admin",
+        "name": "idem-admin",
         "description": "OnePass 관리자"
       }
     ]
@@ -195,7 +195,7 @@
   "users": [
     {
       "username": "poc-testuser",
-      "email": "poc@onepass.test",
+      "email": "poc@idem.test",
       "enabled": true,
       "emailVerified": true,
       "firstName": "PoC",
@@ -208,7 +208,7 @@
         }
       ],
       "realmRoles": [
-        "onepass-user"
+        "idem-user"
       ]
     },
     {

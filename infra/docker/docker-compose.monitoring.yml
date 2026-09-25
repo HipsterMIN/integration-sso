@@ -21,7 +21,7 @@
 #        존재하지 않을 경우 exporter 기동은 성공하나 스크레이핑은 실패합니다.
 #
 # 접속 정보:
-#   Grafana    → http://localhost:3000  (admin / onepass-admin)
+#   Grafana    → http://localhost:3000  (admin / idem-admin)
 #   Prometheus → http://localhost:9090
 #   Loki       → http://localhost:3100
 #
@@ -103,7 +103,7 @@ services:
   # ════════════════════════════════════════════════════════════
   # Grafana 10.x — 대시보드 & 알림
   # http://localhost:3000
-  #   - 초기 계정: admin / onepass-admin
+  #   - 초기 계정: admin / idem-admin
   #   - 데이터소스: Prometheus + Loki (자동 프로비저닝)
   #   - 대시보드:  OnePass 플랫폼 전체 현황 (자동 로드)
   # ════════════════════════════════════════════════════════════
@@ -114,7 +114,7 @@ services:
     environment:
       # ── 계정 ─────────────────────────────────────────────────
       GF_SECURITY_ADMIN_USER:               admin
-      GF_SECURITY_ADMIN_PASSWORD:           onepass-admin
+      GF_SECURITY_ADMIN_PASSWORD:           idem-admin
       GF_SECURITY_SECRET_KEY:               ${GF_SECRET_KEY:-change-me-secret-key-32bytes!!}
       # ── 익명 접근 비활성화 ────────────────────────────────────
       GF_AUTH_ANONYMOUS_ENABLED:            "false"
@@ -326,7 +326,7 @@ services:
     container_name: idem-postgres-exporter
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: "postgresql://onepass:onepass@postgres:5432/onepass?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://idem:idem@postgres:5432/idem?sslmode=disable"
       PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
     ports:
       - "9187:9187"

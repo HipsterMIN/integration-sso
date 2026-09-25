@@ -30,7 +30,7 @@ CREATE TABLE qim_user (
 );
 COMMENT ON TABLE  qim_user                         IS '사용자 오브젝트 SoR — 플랫폼 전역 qimUserId 기준';
 COMMENT ON COLUMN qim_user.qim_user_id             IS 'UUIDv4, 플랫폼 내 불변 식별자';
-COMMENT ON COLUMN qim_user.tenant_code             IS '소속 Tenant(Realm) — hub ido.tenant.tenant_code';
+COMMENT ON COLUMN qim_user.tenant_code             IS '소속 Tenant(Realm) — hub idem_hub.tenant.tenant_code';
 COMMENT ON COLUMN qim_user.status                  IS 'ACTIVE | SUSPENDED | WITHDRAWAL_SCHEDULED | WITHDRAWN';
 COMMENT ON COLUMN qim_user.withdrawal_type         IS 'IMMEDIATE | SCHEDULED | AGENCY_REQUESTED | ADMIN_FORCED';
 COMMENT ON COLUMN qim_user.withdrawal_scheduled_at IS '예약 탈퇴 처리 예정 일시 (SCHEDULED 전용)';
@@ -168,7 +168,7 @@ CREATE TABLE snapshot_meta (
     snapshot_id      VARCHAR(36)     NOT NULL,
     qim_user_id      VARCHAR(36)     NOT NULL,
     snapshot_version BIGINT          NOT NULL,
-    topic            VARCHAR(200)    NOT NULL DEFAULT 'qim.user.snapshot',
+    topic            VARCHAR(200)    NOT NULL DEFAULT 'idem_registry.user.snapshot',
     status           VARCHAR(20)     NOT NULL DEFAULT 'PUBLISHED',
     created_at       TIMESTAMPTZ(6)  NOT NULL DEFAULT NOW(),
     CONSTRAINT pk_snapshot_meta         PRIMARY KEY (snapshot_id),

@@ -256,7 +256,7 @@ SELECT
   request_headers->>'X-Agency-Code' AS agency_code,
   COUNT(*)                            AS fail_count,
   MAX(requested_at)                   AS last_failure
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE error_code IN ('MISSING_HMAC_SIGNATURE', 'INVALID_HMAC_SIGNATURE', 'HMAC_KEY_NOT_FOUND')
   AND requested_at > NOW() - INTERVAL '1 hour'
 GROUP BY 1
@@ -269,7 +269,7 @@ SELECT
   SUM(CASE WHEN error_code LIKE 'HMAC%' THEN 1 ELSE 0 END) AS hmac_fail,
   ROUND(100.0 * SUM(CASE WHEN error_code LIKE 'HMAC%' THEN 1 ELSE 0 END)
         / NULLIF(COUNT(*), 0), 2) AS fail_pct
-FROM ido.gateway_inbound_audit
+FROM idem_hub.gateway_inbound_audit
 WHERE received_at > NOW() - INTERVAL '7 days'
 GROUP BY 1
 ORDER BY hmac_fail DESC;

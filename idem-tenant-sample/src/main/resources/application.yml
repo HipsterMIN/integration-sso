@@ -10,9 +10,9 @@ spring:
 
   # ── DataSource ──────────────────────────────────────────────
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:onepass}?currentSchema=agency_stub&sslmode=disable
-    username: ${DB_USERNAME:onepass}
-    password: ${DB_PASSWORD:onepass}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:idem}?currentSchema=agency_stub&sslmode=disable
+    username: ${DB_USERNAME:idem}
+    password: ${DB_PASSWORD:idem}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: agency-stub-hikari
@@ -96,7 +96,7 @@ idem.sample:
   protocol: ${AGENCY_PROTOCOL:HANDOFF}
   oidc:
     # Idem 에서 받는 셋 — issuer 는 {IDEM_PUBLIC_URL_GATE}/realms/{realm}, client 는 프로파일 저장 시 프로비저닝, secret 은 회전 API 로 1회 수령
-    issuer: ${IDEM_OIDC_ISSUER:http://localhost:8081/realms/onepass}
+    issuer: ${IDEM_OIDC_ISSUER:http://localhost:8081/realms/idem}
     client-id: ${AGENCY_OIDC_CLIENT_ID:}
     client-secret: ${AGENCY_OIDC_CLIENT_SECRET:}
     redirect-uri: ${AGENCY_OIDC_REDIRECT_URI:http://localhost:8084/agency/oidc/callback}

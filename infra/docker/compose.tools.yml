@@ -65,7 +65,7 @@ services:
     container_name: idem-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@onepass.local
+      PGADMIN_DEFAULT_EMAIL: admin@idem.local
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"

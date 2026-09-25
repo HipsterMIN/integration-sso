@@ -4,11 +4,11 @@
 -- ============================================================
 
 -- ──────────────────────────────────────────────────────────────
--- 1. IdO AuthResult (ido.auth_result)
+-- 1. IdO AuthResult (idem_hub.auth_result)
 --    Keycloak/비OIDC 모드에서 IdO가 직접 생성하는 인증 결과 SoR.
---    기존 qsign.auth_result와 동일한 구조 — 공통 이벤트 버스(qsign.auth.events)로 발행.
+--    기존 idem_gate.auth_result와 동일한 구조 — 공통 이벤트 버스(idem_gate.auth.events)로 발행.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.auth_result (
+CREATE TABLE IF NOT EXISTS idem_hub.auth_result (
     auth_result_id      VARCHAR(36)   NOT NULL,
     correlation_id      VARCHAR(36)   NOT NULL,
     auth_level          VARCHAR(10)   NOT NULL,       -- L1 / L2 / L3
@@ -29,21 +29,21 @@ CREATE TABLE IF NOT EXISTS ido.auth_result (
         CHECK (source_system IN ('ido-keycloak','ido-nonoidc','ido-adapter'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_ido_auth_result_correlation  ON ido.auth_result (correlation_id);
-CREATE INDEX IF NOT EXISTS idx_ido_auth_result_identifier   ON ido.auth_result (identifier_hash, authenticated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_ido_auth_result_provider     ON ido.auth_result (provider_code, authenticated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ido_auth_result_correlation  ON idem_hub.auth_result (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_ido_auth_result_identifier   ON idem_hub.auth_result (identifier_hash, authenticated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ido_auth_result_provider     ON idem_hub.auth_result (provider_code, authenticated_at DESC);
 
-COMMENT ON TABLE  ido.auth_result                    IS '§8.3 Strategy B — Keycloak/비OIDC 모드 인증 결과 SoR';
-COMMENT ON COLUMN ido.auth_result.identifier_hash    IS 'SHA-256(sub | rawIdentifier) — Q-IM 조회 키';
-COMMENT ON COLUMN ido.auth_result.source_system      IS 'ido-keycloak: Keycloak OIDC | ido-nonoidc: PASS/GPKI 등';
-COMMENT ON COLUMN ido.auth_result.provider_tx_id     IS 'Keycloak sub 또는 외부 사업자 트랜잭션 ID';
+COMMENT ON TABLE  idem_hub.auth_result                    IS '§8.3 Strategy B — Keycloak/비OIDC 모드 인증 결과 SoR';
+COMMENT ON COLUMN idem_hub.auth_result.identifier_hash    IS 'SHA-256(sub | rawIdentifier) — Q-IM 조회 키';
+COMMENT ON COLUMN idem_hub.auth_result.source_system      IS 'ido-keycloak: Keycloak OIDC | ido-nonoidc: PASS/GPKI 등';
+COMMENT ON COLUMN idem_hub.auth_result.provider_tx_id     IS 'Keycloak sub 또는 외부 사업자 트랜잭션 ID';
 
 -- ──────────────────────────────────────────────────────────────
--- 2. 인증 잠금 (ido.auth_lock)
+-- 2. 인증 잠금 (idem_hub.auth_lock)
 --    연속 실패 시 잠금 상태 관리.
 --    설계서 §10.3 lock-attempts=5, lock-duration=30분 기준.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.auth_lock (
+CREATE TABLE IF NOT EXISTS idem_hub.auth_lock (
     lock_id             VARCHAR(36)   NOT NULL,
     identifier_hash     VARCHAR(64)   NOT NULL,
     provider_code       VARCHAR(50)   NOT NULL,
@@ -56,19 +56,19 @@ CREATE TABLE IF NOT EXISTS ido.auth_lock (
     CONSTRAINT uq_ido_auth_lock_key     UNIQUE (identifier_hash, provider_code)
 );
 
-CREATE INDEX IF NOT EXISTS idx_ido_auth_lock_hash     ON ido.auth_lock (identifier_hash);
-CREATE INDEX IF NOT EXISTS idx_ido_auth_lock_locked   ON ido.auth_lock (locked_until)
+CREATE INDEX IF NOT EXISTS idx_ido_auth_lock_hash     ON idem_hub.auth_lock (identifier_hash);
+CREATE INDEX IF NOT EXISTS idx_ido_auth_lock_locked   ON idem_hub.auth_lock (locked_until)
     WHERE locked_until IS NOT NULL;
 
-COMMENT ON TABLE  ido.auth_lock              IS '§10.3 인증 연속 실패 잠금 — 5회 실패 시 30분 잠금';
-COMMENT ON COLUMN ido.auth_lock.locked_until IS 'NULL이면 잠금 해제 상태; 값이 있으면 해당 시각까지 잠금';
+COMMENT ON TABLE  idem_hub.auth_lock              IS '§10.3 인증 연속 실패 잠금 — 5회 실패 시 30분 잠금';
+COMMENT ON COLUMN idem_hub.auth_lock.locked_until IS 'NULL이면 잠금 해제 상태; 값이 있으면 해당 시각까지 잠금';
 
 -- ──────────────────────────────────────────────────────────────
--- 3. OIDC 세션 로그 (ido.oidc_session_log)
+-- 3. OIDC 세션 로그 (idem_hub.oidc_session_log)
 --    Keycloak 브로커링 과정에서의 OIDC 세션 감사 이력.
---    q-sign의 qsign.oidc_session_log에 해당하는 ido 측 로그.
+--    q-sign의 idem_gate.oidc_session_log에 해당하는 ido 측 로그.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.oidc_session_log (
+CREATE TABLE IF NOT EXISTS idem_hub.oidc_session_log (
     log_id              VARCHAR(36)   NOT NULL,
     correlation_id      VARCHAR(36)   NOT NULL,
     provider_code       VARCHAR(50)   NOT NULL,       -- KAKAO_OIDC / NAVER_OIDC
@@ -82,18 +82,18 @@ CREATE TABLE IF NOT EXISTS ido.oidc_session_log (
         CHECK (broker_mode IN ('keycloak','qsign'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_ido_oidc_log_correlation ON ido.oidc_session_log (correlation_id);
-CREATE INDEX IF NOT EXISTS idx_ido_oidc_log_hash        ON ido.oidc_session_log (identifier_hash, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ido_oidc_log_correlation ON idem_hub.oidc_session_log (correlation_id);
+CREATE INDEX IF NOT EXISTS idx_ido_oidc_log_hash        ON idem_hub.oidc_session_log (identifier_hash, created_at DESC);
 
-COMMENT ON TABLE  ido.oidc_session_log                 IS 'Keycloak OIDC 세션 감사 이력';
-COMMENT ON COLUMN ido.oidc_session_log.provider_subject IS 'Keycloak sub — PII, 운영 환경에서는 암호화 저장 권고';
+COMMENT ON TABLE  idem_hub.oidc_session_log                 IS 'Keycloak OIDC 세션 감사 이력';
+COMMENT ON COLUMN idem_hub.oidc_session_log.provider_subject IS 'Keycloak sub — PII, 운영 환경에서는 암호화 저장 권고';
 
 -- ──────────────────────────────────────────────────────────────
--- 4. nonce 사용 이력 (ido.oidc_nonce_used)
+-- 4. nonce 사용 이력 (idem_hub.oidc_nonce_used)
 --    id_token replay attack 방지 — 이미 사용된 nonce 기록.
 --    Redis state/nonce store의 1회 소비 보완용 영속 기록.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.oidc_nonce_used (
+CREATE TABLE IF NOT EXISTS idem_hub.oidc_nonce_used (
     nonce               VARCHAR(64)   NOT NULL,
     correlation_id      VARCHAR(36)   NOT NULL,
     provider_code       VARCHAR(50)   NOT NULL,
@@ -101,15 +101,15 @@ CREATE TABLE IF NOT EXISTS ido.oidc_nonce_used (
     CONSTRAINT pk_ido_oidc_nonce_used PRIMARY KEY (nonce)
 );
 
-CREATE INDEX IF NOT EXISTS idx_ido_nonce_used_at ON ido.oidc_nonce_used (used_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ido_nonce_used_at ON idem_hub.oidc_nonce_used (used_at DESC);
 
-COMMENT ON TABLE ido.oidc_nonce_used IS 'OIDC nonce 사용 이력 — replay attack 방지 보조';
+COMMENT ON TABLE idem_hub.oidc_nonce_used IS 'OIDC nonce 사용 이력 — replay attack 방지 보조';
 
 -- ──────────────────────────────────────────────────────────────
--- 5. 인증 수단별 설정 캐시 (ido.provider_config)
+-- 5. 인증 수단별 설정 캐시 (idem_hub.provider_config)
 --    provider별 AuthLevel, 활성화 여부, 브로커 모드 관리.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.provider_config (
+CREATE TABLE IF NOT EXISTS idem_hub.provider_config (
     provider_code       VARCHAR(50)   NOT NULL,
     display_name        VARCHAR(100)  NOT NULL,
     auth_level          VARCHAR(10)   NOT NULL DEFAULT 'L1',
@@ -123,10 +123,10 @@ CREATE TABLE IF NOT EXISTS ido.provider_config (
     CONSTRAINT chk_ido_provider_mode    CHECK (broker_mode IN ('keycloak','qsign','direct'))
 );
 
-COMMENT ON TABLE ido.provider_config IS '인증 수단 설정 — AuthLevel / 브로커 모드 / Keycloak IdP 힌트';
+COMMENT ON TABLE idem_hub.provider_config IS '인증 수단 설정 — AuthLevel / 브로커 모드 / Keycloak IdP 힌트';
 
 -- 초기 provider 설정 데이터
-INSERT INTO ido.provider_config
+INSERT INTO idem_hub.provider_config
     (provider_code, display_name, auth_level, broker_mode, idp_hint, active)
 VALUES
     ('KAKAO_OIDC',     '카카오 간편인증',     'L1', 'keycloak', 'social-kakao',   TRUE),

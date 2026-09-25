@@ -10,7 +10,7 @@
 ## 1. 이 기능은 무엇인가?
 
 **Q-IM(Qualified Identity Manager) SP(Service Provider) 수신 API** 호출에 대한 감사 로그를 기록합니다.  
-Q-IM 연동에서 SP로서 수신하는 이벤트(인증 결과, 속성 수신 등)를 `ido.audit_log` 및 Kafka(F-03)에 기록하여, Q-IM 측 감사 추적과 연결할 수 있도록 합니다.
+Q-IM 연동에서 SP로서 수신하는 이벤트(인증 결과, 속성 수신 등)를 `idem_hub.audit_log` 및 Kafka(F-03)에 기록하여, Q-IM 측 감사 추적과 연결할 수 있도록 합니다.
 
 ```
 Q-IM → IdO SP 수신 API 호출
@@ -23,7 +23,7 @@ SpReceiverAuditInterceptor.preHandle()
   └─ [F-18=true]
        ├─ Q-IM 요청 헤더 추출 (QIM-Session-ID, QIM-SP-Code 등)
        ├─ 감사 이벤트 생성 (event_type = 'SP_RECEIVED')
-       ├─→ F-04: DB 저장 (ido.audit_log)
+       ├─→ F-04: DB 저장 (idem_hub.audit_log)
        └─→ F-03: Kafka 발행 (platform.audit.log)
 ```
 
@@ -99,7 +99,7 @@ SELECT
     COUNT(*)            AS request_count,
     SUM(CASE WHEN result_code = '200' THEN 1 ELSE 0 END) AS success_count,
     SUM(CASE WHEN result_code != '200' THEN 1 ELSE 0 END) AS error_count
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE event_type = 'SP_RECEIVED'
   AND created_at >= NOW() - INTERVAL 7 DAY
 GROUP BY DATE(created_at), endpoint
@@ -108,7 +108,7 @@ ORDER BY dt DESC, endpoint;
 -- Q-IM 세션 ID로 이벤트 흐름 추적
 SELECT created_at, event_type, endpoint, result_code,
        JSON_EXTRACT(extra_json, '$.qimSessionId') AS qim_session
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE JSON_EXTRACT(extra_json, '$.qimSessionId') = 'QIM-SESSION-abc123'
 ORDER BY created_at;
 ```

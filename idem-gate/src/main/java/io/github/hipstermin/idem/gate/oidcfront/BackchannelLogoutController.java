@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * OIDC Back-Channel Logout 1.0 수신기 (S6 PR-2) — Keycloak 이 Idem 의 내부 client({@code q-sign-client}·{@code ido-client})가
+ * OIDC Back-Channel Logout 1.0 수신기 (S6 PR-2) — Keycloak 이 Idem 의 내부 client({@code idem-gate}·{@code idem-hub})가
  * 참여한 세션을 끝낼 때 {@code logout_token} 을 보낸다(관리자 종료·RP-Initiated Logout·SLO 모두).
  *
  * <p>검증(§2.6): RS256 서명(JWKS) · iss = Keycloak issuer · aud 가 내부 client · {@code events} 에 backchannel-logout URI ·
@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class BackchannelLogoutController {
 
-    private static final Set<String> INTERNAL_CLIENTS_DEFAULT = Set.of("q-sign-client", "ido-client");
+    private static final Set<String> INTERNAL_CLIENTS_DEFAULT = Set.of("idem-gate", "idem-hub");
 
     private final KeycloakJwksVerifier jwksVerifier;
     private final KeycloakProperties keycloak;

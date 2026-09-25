@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
  *   동일 Idempotency-Key로 재호출하면 직전 응답이 그대로 재생됩니다.
  *
  * 구현:
- *   - 저장소: ido.sp_receiver_idempotency (DB)
+ *   - 저장소: idem_hub.sp_receiver_idempotency (DB)
  *   - TTL: 7일 (expires_at 기준, 배치 삭제)
  *   - key: Idempotency-Key 헤더 값
  */
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SpReceiverIdempotencyStore {
 
-    private static final String SCHEMA = "ido";
+    private static final String SCHEMA = "idem_hub";
     private static final int TTL_DAYS = 7;
 
     private final JdbcTemplate jdbcTemplate;

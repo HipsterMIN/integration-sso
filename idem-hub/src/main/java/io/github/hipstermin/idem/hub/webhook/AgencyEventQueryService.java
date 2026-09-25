@@ -9,7 +9,7 @@ import java.time.Instant;
  * <p>설계서 §P1-06 — 유관기관이 Kafka 직접 접속 없이
  * IdO의 HTTP 폴링 API를 통해 자신에게 발생한 이벤트를 가져가는 기능.
  *
- * <p><b>데이터 소스</b>: {@code ido.webhook_dispatch_outbox}
+ * <p><b>데이터 소스</b>: {@code idem_hub.webhook_dispatch_outbox}
  * WebhookDispatcherService 가 이미 마스킹·JSONB 저장한 레코드를 그대로 조회.
  *
  * <p><b>읽기 전용</b>: 이 서비스는 조회만 수행하며, 상태 변경(mark-as-read)은

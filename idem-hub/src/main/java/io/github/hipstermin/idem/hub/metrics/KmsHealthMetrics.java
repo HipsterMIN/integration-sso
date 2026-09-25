@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>노출 메트릭</b>:
  * <pre>
- * onepass_kms_healthy{provider="vault"}  → 1.0 (UP) | 0.0 (DOWN/UNKNOWN)
+ * idem_kms_healthy{provider="vault"}  → 1.0 (UP) | 0.0 (DOWN/UNKNOWN)
  * </pre>
  *
  * <p><b>왜 단순한가</b> ({@code OPERATION_INVENTORY.md §8} 자문 체크리스트 통과):
@@ -33,7 +33,7 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>Prometheus 알람 권장</b> ({@code docs/RUNBOOK_SSO_METRICS.md} 참조):
  * <pre>
- * onepass_kms_healthy == 0   for 1m   → critical (즉시 호출)
+ * idem_kms_healthy == 0   for 1m   → critical (즉시 호출)
  * </pre>
  *
  * <p><b>Gauge 동작</b>: Micrometer는 Gauge 값을 push 방식이 아닌 pull 방식으로 평가한다.
@@ -61,10 +61,10 @@ public class KmsHealthMetrics {
     @PostConstruct
     void registerGauge() {
         meterRegistry.gauge(
-                "onepass.kms.healthy",
+                "idem.kms.healthy",
                 healthy,
                 this::evaluate);
-        log.info("[KmsHealthMetrics] Gauge 'onepass.kms.healthy' 등록 완료");
+        log.info("[KmsHealthMetrics] Gauge 'idem.kms.healthy' 등록 완료");
     }
 
     /**

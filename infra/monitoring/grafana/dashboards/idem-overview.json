@@ -755,7 +755,7 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["onepass", "platform", "slo", "sprint5"],
+  "tags": ["idem", "platform", "slo", "sprint5"],
   "templating": {
     "list": [
       {

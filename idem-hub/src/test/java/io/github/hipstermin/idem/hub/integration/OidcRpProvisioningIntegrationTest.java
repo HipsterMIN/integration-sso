@@ -40,9 +40,9 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
     @DynamicPropertySource
     static void keycloakProps(DynamicPropertyRegistry registry) {
         registry.add("idem.hub.keycloak.base-url", () -> "http://localhost:" + wireMockServer.port());
-        registry.add("idem.hub.keycloak.realm", () -> "onepass");
+        registry.add("idem.hub.keycloak.realm", () -> "idem");
         registry.add("idem.hub.oidc-rp.provisioner.client-secret", () -> "it-provisioner-secret");
-        registry.add("idem.hub.oidc-rp.issuer", () -> "https://sso.example.org/realms/onepass");
+        registry.add("idem.hub.oidc-rp.issuer", () -> "https://sso.example.org/realms/idem");
     }
 
     @LocalServerPort int port;
@@ -52,15 +52,15 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
 
     static final String CODE = "TC_S6_OIDC";
     static final String CLIENT_ID = "idem-svc-" + CODE;
-    static final String CLIENTS = "/admin/realms/onepass/clients";
+    static final String CLIENTS = "/admin/realms/idem/clients";
 
     @BeforeEach
     void clean() {
         WireMock.configureFor("localhost", wireMockServer.port());
         wireMockServer.resetAll();
-        jdbcTemplate.update("DELETE FROM ido.agency_meta_history WHERE agency_code = ?", CODE);
-        jdbcTemplate.update("DELETE FROM ido.agency_meta WHERE agency_code = ?", CODE);
-        stubFor(post(urlEqualTo("/realms/onepass/protocol/openid-connect/token"))
+        jdbcTemplate.update("DELETE FROM idem_hub.agency_meta_history WHERE agency_code = ?", CODE);
+        jdbcTemplate.update("DELETE FROM idem_hub.agency_meta WHERE agency_code = ?", CODE);
+        stubFor(post(urlEqualTo("/realms/idem/protocol/openid-connect/token"))
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
                         .withBody("{\"access_token\":\"prov-tok\",\"expires_in\":300}")));
     }
@@ -89,7 +89,7 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
         stubFor(get(urlPathEqualTo(CLIENTS)).inScenario("client").whenScenarioStateIs(Scenario.STARTED)
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody("[]")));
         stubFor(post(urlEqualTo(CLIENTS)).inScenario("client").whenScenarioStateIs(Scenario.STARTED)
-                .willReturn(aResponse().withStatus(201).withHeader("Location", "http://kc/admin/realms/onepass/clients/uuid-s6"))
+                .willReturn(aResponse().withStatus(201).withHeader("Location", "http://kc/admin/realms/idem/clients/uuid-s6"))
                 .willSetStateTo("created"));
         stubFor(get(urlPathEqualTo(CLIENTS)).inScenario("client").whenScenarioStateIs("created")
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
@@ -109,7 +109,7 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
                 .withRequestBody(containing("\"clientId\":\"" + CLIENT_ID + "\""))
                 .withRequestBody(containing("\"fullScopeAllowed\":false"))
                 .withRequestBody(containing("idem-identity-provider")));
-        assertThat(jdbcTemplate.queryForObject("SELECT integration_type FROM ido.agency_meta WHERE agency_code = ?", String.class, CODE))
+        assertThat(jdbcTemplate.queryForObject("SELECT integration_type FROM idem_hub.agency_meta WHERE agency_code = ?", String.class, CODE))
                 .isEqualTo("OIDC_RP");
 
         ResponseEntity<String> status = restTemplate.exchange(url("/api/v1/admin/services/" + CODE + "/oidc-client"), HttpMethod.GET, new HttpEntity<>(adminHeaders(restTemplate, url(""))), String.class);
@@ -117,7 +117,7 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
         JsonNode st = om.readTree(status.getBody());
         assertThat(st.path("provisioned").asBoolean()).isTrue();
         assertThat(st.path("clientId").asText()).isEqualTo(CLIENT_ID);
-        assertThat(st.path("issuer").asText()).isEqualTo("https://sso.example.org/realms/onepass");
+        assertThat(st.path("issuer").asText()).isEqualTo("https://sso.example.org/realms/idem");
         assertThat(st.has("clientSecret")).isFalse();
 
         ResponseEntity<String> rotated = restTemplate.exchange(url("/api/v1/admin/services/" + CODE + "/oidc-client/secret"), HttpMethod.POST, new HttpEntity<>(adminHeaders(restTemplate, url(""))), String.class);
@@ -133,7 +133,7 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
         ResponseEntity<String> res = putProfile(OIDC_PROFILE);
         assertThat(res.getStatusCode().value()).isEqualTo(503);
         assertThat(res.getBody()).contains("E-IDO-122");
-        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ido.agency_meta WHERE agency_code = ?", Integer.class, CODE);
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM idem_hub.agency_meta WHERE agency_code = ?", Integer.class, CODE);
         assertThat(count).isZero();
         ResponseEntity<String> get = restTemplate.exchange(url("/api/v1/admin/services/" + CODE + "/profile"), HttpMethod.GET, new HttpEntity<>(adminHeaders(restTemplate, url(""))), String.class);
         assertThat(get.getStatusCode().is2xxSuccessful()).as("되돌려진 프로파일은 조회되지 않아야 한다").isFalse();
@@ -146,6 +146,6 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
                 {"schemaVersion":1,"service":{"code":"TC_S6_OIDC","name":"직접 기관"},"protocol":{"type":"DIRECT"},"policy":{"minAuthLevel":"L1"}}
                 """);
         assertThat(res.getStatusCode().value()).isEqualTo(200);
-        wireMockServer.verify(0, postRequestedFor(urlEqualTo("/realms/onepass/protocol/openid-connect/token")));
+        wireMockServer.verify(0, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token")));
     }
 }

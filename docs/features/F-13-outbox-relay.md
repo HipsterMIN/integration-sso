@@ -8,7 +8,7 @@
 
 ## 1. 이 기능은 무엇인가?
 
-`ido.outbox` 테이블의 PENDING 이벤트를 Kafka로 재발행하는 스케줄러입니다.
+`idem_hub.outbox` 테이블의 PENDING 이벤트를 Kafka로 재발행하는 스케줄러입니다.
 
 ```
 이벤트 발생 → DB outbox INSERT (트랜잭션) → Kafka 발행 시도
@@ -28,7 +28,7 @@ Kafka 발행은 트랜잭션 밖에서 일어납니다. DB 커밋은 성공했�
 | | F-13 IdO Outbox Relay | F-21 Provisioning Outbox Relay |
 |---|---|---|
 | 소스 | `IdoOutboxRelay.java` | `ProvisioningOutboxRelay.java` |
-| 테이블 | `ido.outbox` | `ido.provisioning_outbox` |
+| 테이블 | `idem_hub.outbox` | `idem_hub.provisioning_outbox` |
 | 목적지 | Kafka 토픽 | 기관 HTTP POST |
 | 스케줄 | 500ms | 30초 |
 | 백오프 | 없음 (Kafka 빠름) | 지수 (1→5→30분) |

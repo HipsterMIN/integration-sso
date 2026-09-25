@@ -5,16 +5,16 @@
 --
 -- integration_type 허용값 집합은 V1 의 chk_integration_type 과 Java IntegrationType 열거형이 같아야 한다.
 
-ALTER TABLE ido.agency_meta
+ALTER TABLE idem_hub.agency_meta
     ADD COLUMN IF NOT EXISTS apache_gate_endpoint VARCHAR(500);
 
-COMMENT ON COLUMN ido.agency_meta.apache_gate_endpoint
+COMMENT ON COLUMN idem_hub.agency_meta.apache_gate_endpoint
     IS 'APACHE_GATE 연동 유형 전용 — 게이트웨이(idem-agent) 세션 헤더 사전 등록 URL. S1 에서 bridge_endpoint 와 분리';
-COMMENT ON COLUMN ido.agency_meta.bridge_endpoint
+COMMENT ON COLUMN idem_hub.agency_meta.bridge_endpoint
     IS 'BRIDGE 연동 유형 전용 — Bridge 서버 Payload 푸시 엔드포인트';
 
 -- 기존 APACHE_GATE 기관: bridge_endpoint 에 들어 있던 값을 전용 컬럼으로 이동
-UPDATE ido.agency_meta
+UPDATE idem_hub.agency_meta
    SET apache_gate_endpoint = bridge_endpoint,
        bridge_endpoint      = NULL
  WHERE integration_type = 'APACHE_GATE'

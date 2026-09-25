@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>Q-Sign은 PostgreSQL({@code qsign} 스키마)을 사용한다.
  * Flyway V4 마이그레이션({@code V4__add_processed_event.sql})으로
- * 이미 {@code qsign.processed_event} 및 {@code qsign.last_event_version}
+ * 이미 {@code idem_gate.processed_event} 및 {@code idem_gate.last_event_version}
  * 테이블이 생성되어 있다.
  *
  * <p><b>중복 처리 방지 전략</b>:
@@ -50,7 +50,7 @@ public class IdempotentEventStore {
      */
     public boolean isAlreadyProcessed(String eventId, String consumerGroup) {
         Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM qsign.processed_event " +
+                "SELECT COUNT(1) FROM idem_gate.processed_event " +
                 "WHERE event_id = ? AND consumer_group = ?",
                 Integer.class, eventId, consumerGroup
         );
@@ -71,7 +71,7 @@ public class IdempotentEventStore {
                                String eventType, String resultCode) {
         jdbcTemplate.update(
                 """
-                INSERT INTO qsign.processed_event
+                INSERT INTO idem_gate.processed_event
                     (event_id, consumer_group, event_type, result_code, processed_at)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT (event_id, consumer_group) DO NOTHING
@@ -95,7 +95,7 @@ public class IdempotentEventStore {
      */
     public boolean isVersionOutdated(String aggregateId, long eventVersion) {
         Long stored = jdbcTemplate.query(
-                "SELECT last_version FROM qsign.last_event_version " +
+                "SELECT last_version FROM idem_gate.last_event_version " +
                 "WHERE consumer_group = ? AND aggregate_id = ?",
                 rs -> rs.next() ? rs.getLong("last_version") : null,
                 CONSUMER_GROUP, aggregateId
@@ -125,14 +125,14 @@ public class IdempotentEventStore {
     public void updateLastVersion(String aggregateId, String eventId, long eventVersion) {
         jdbcTemplate.update(
                 """
-                INSERT INTO qsign.last_event_version
+                INSERT INTO idem_gate.last_event_version
                     (consumer_group, aggregate_id, last_version, last_event_id, updated_at)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT (consumer_group, aggregate_id) DO UPDATE
                     SET last_version  = EXCLUDED.last_version,
                         last_event_id = EXCLUDED.last_event_id,
                         updated_at    = EXCLUDED.updated_at
-                    WHERE qsign.last_event_version.last_version < EXCLUDED.last_version
+                    WHERE idem_gate.last_event_version.last_version < EXCLUDED.last_version
                 """,
                 CONSUMER_GROUP, aggregateId, eventVersion, eventId, Instant.now()
         );

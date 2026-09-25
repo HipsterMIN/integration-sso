@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class KeycloakIdTokenClaims {
 
-    /** Keycloak Issuer URL (예: http://localhost:8080/realms/onepass) */
+    /** Keycloak Issuer URL (예: http://localhost:8080/realms/idem) */
     @JsonProperty("iss")
     private String issuer;
 
@@ -35,7 +35,7 @@ public class KeycloakIdTokenClaims {
     private String subject;
 
     /**
-     * Audience — q-sign-client (Keycloak 발급 토큰).
+     * Audience — idem-gate (Keycloak 발급 토큰).
      * 단일 String 또는 List&lt;String&gt; 양쪽 허용.
      */
     @JsonProperty("aud")

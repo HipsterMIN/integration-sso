@@ -12,9 +12,9 @@ spring:
 
   # ── DataSource ──────────────────────────────────────────────
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:onepass}?currentSchema=qsign&sslmode=disable
-    username: ${DB_USERNAME:onepass}
-    password: ${DB_PASSWORD:onepass}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:idem}?currentSchema=idem_gate&sslmode=disable
+    username: ${DB_USERNAME:idem}
+    password: ${DB_PASSWORD:idem}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: qsign-hikari
@@ -35,7 +35,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_schema: qsign
+        default_schema: idem_gate
         jdbc:
           time_zone: UTC
           batch_size: 50
@@ -47,8 +47,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    schemas: qsign
-    default-schema: qsign
+    schemas: idem_gate
+    default-schema: idem_gate
     baseline-on-migrate: true
     baseline-version: 0
     validate-on-migrate: true
@@ -149,9 +149,9 @@ idem.gate:
     # 로컬 환경:   http://localhost:8088
     base-url: ${KEYCLOAK_URL:http://localhost:8088}
     # Keycloak Realm
-    realm: ${KEYCLOAK_REALM:onepass}
+    realm: ${KEYCLOAK_REALM:idem}
     # q-sign 용 Keycloak Client ID
-    client-id: ${IDEM_GATE_KEYCLOAK_CLIENT_ID:q-sign-client}
+    client-id: ${IDEM_GATE_KEYCLOAK_CLIENT_ID:idem-gate}
     # q-sign 용 Keycloak Client Secret (Sprint γ-1 / F2.1)
     # 환경변수: IDEM_GATE_KEYCLOAK_CLIENT_SECRET — 운영에서 반드시 주입 필수.
     # default("change-me") 제거 → 미설정 시 KeycloakProperties.validateClientSecret()
@@ -159,7 +159,7 @@ idem.gate:
     # 테스트/로컬은 idem.gate.keycloak.allow-empty-client-secret=true 로 우회.
     client-secret: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:}
     # Keycloak 이 인증 완료 후 리다이렉트할 q-sign Callback URI
-    # Keycloak Admin Console > Clients > q-sign-client > Valid Redirect URIs 에 등록 필요
+    # Keycloak Admin Console > Clients > idem-gate > Valid Redirect URIs 에 등록 필요
     redirect-uri: ${IDEM_GATE_KEYCLOAK_REDIRECT_URI:http://localhost:8081/api/v1/oidc/keycloak/callback}
     # state/nonce Redis TTL (초)
     state-ttl-seconds: 300
@@ -186,7 +186,7 @@ idem.gate:
   # issuer 는 Keycloak 의 KC_HOSTNAME_URL + /realms/{realm} 과 같아야 한다(id_token iss). 기관 RP 는 이 값만 안다.
   # Idem 이 프로비저닝한 client(idem-svc-*)만 프런트를 지나며, 토큰 교환 시 hub 가 정책을 판정한다.
   oidc-front:
-    issuer: ${IDEM_OIDC_ISSUER:${IDEM_PUBLIC_URL_GATE:http://localhost:8081}/realms/${KEYCLOAK_REALM:onepass}}
+    issuer: ${IDEM_OIDC_ISSUER:${IDEM_PUBLIC_URL_GATE:http://localhost:8081}/realms/${KEYCLOAK_REALM:idem}}
     client-id-prefix: idem-svc-
     decision-cache-ttl-seconds: 3600
     proxy-connect-timeout-ms: 3000

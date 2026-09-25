@@ -29,7 +29,7 @@ class KafkaOptionalEnvironmentPostProcessorTest {
         assertThat(env.getProperty("idem.hub.audit.kafka-publish-enabled")).isEqualTo("false");
         assertThat(env.getProperty("spring.kafka.listener.auto-startup")).isEqualTo("false");
         assertThat(env.getProperty("idem.relay.jobs.gate.kafka.enabled")).isEqualTo("false");
-        // hub ido.outbox 릴레이(F-13)는 건드리지 않는다 — 프로세스 내 배달로 계속 돈다
+        // hub idem_hub.outbox 릴레이(F-13)는 건드리지 않는다 — 프로세스 내 배달로 계속 돈다
         assertThat(env.getProperty("idem.hub.outbox.relay-enabled")).isNull();
 
         int sysEnvIdx = indexOf(env, StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);

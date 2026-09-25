@@ -160,7 +160,7 @@ public class CastTokenServiceImpl implements CastTokenService {
         // 5. cast_token_audit INSERT
         try {
             jdbcTemplate.update("""
-                INSERT INTO ido.cast_token_audit
+                INSERT INTO idem_hub.cast_token_audit
                     (jti, qim_user_id, source_agency, target_agency, auth_level,
                      issued_at, expires_at, status, correlation_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'ISSUED', ?)
@@ -259,7 +259,7 @@ public class CastTokenServiceImpl implements CastTokenService {
         Instant consumedAt = Instant.now();
         try {
             jdbcTemplate.update("""
-                UPDATE ido.cast_token_audit
+                UPDATE idem_hub.cast_token_audit
                 SET status = 'CONSUMED', consumed_at = ?, consumer_ip = ?
                 WHERE jti = ?
                 """,
@@ -272,7 +272,7 @@ public class CastTokenServiceImpl implements CastTokenService {
         // 6. sso_session_link INSERT
         try {
             jdbcTemplate.update("""
-                INSERT INTO ido.sso_session_link
+                INSERT INTO idem_hub.sso_session_link
                     (cast_jti, qim_user_id, source_agency, target_agency, linked_at, correlation_id)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,

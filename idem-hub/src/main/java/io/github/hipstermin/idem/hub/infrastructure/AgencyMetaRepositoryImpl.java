@@ -21,7 +21,7 @@ import org.springframework.stereotype.Repository;
  *
  * <p>저장소 전략:
  * <ul>
- *   <li>PostgreSQL ido.agency_meta: 정본(SoR)</li>
+ *   <li>PostgreSQL idem_hub.agency_meta: 정본(SoR)</li>
  *   <li>Redis qimUserStatus / agencyMeta 캐시: TTL ≤60분 (RedisConfig 에서 관리)</li>
  * </ul>
  */

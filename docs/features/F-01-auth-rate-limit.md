@@ -132,7 +132,7 @@ SELECT
     DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS minute,
     COUNT(*)                                   AS request_count,
     SUM(CASE WHEN result_code = '429' THEN 1 ELSE 0 END) AS rate_limited
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE endpoint LIKE '/api/v1/auth/%'
   AND created_at >= NOW() - INTERVAL 1 HOUR
 GROUP BY minute

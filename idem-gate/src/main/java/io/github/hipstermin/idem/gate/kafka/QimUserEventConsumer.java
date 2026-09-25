@@ -200,14 +200,14 @@ public class QimUserEventConsumer {
         List<String> lockKeys = jdbcTemplate.queryForList(
                 """
                 SELECT DISTINCT al.lock_key
-                FROM qsign.auth_lock al
-                INNER JOIN qsign.auth_result ar
+                FROM idem_gate.auth_lock al
+                INNER JOIN idem_gate.auth_result ar
                     ON al.lock_key LIKE ar.identifier_hash || ':%'
                 WHERE ar.identifier_hash IN (
                     SELECT DISTINCT identifier_hash
-                    FROM qsign.auth_result
+                    FROM idem_gate.auth_result
                     WHERE identifier_hash IN (
-                        SELECT identifier_hash FROM qsign.auth_result
+                        SELECT identifier_hash FROM idem_gate.auth_result
                         ORDER BY created_at DESC
                         LIMIT 1000
                     )
@@ -246,7 +246,7 @@ public class QimUserEventConsumer {
         List<String> lockKeys = jdbcTemplate.queryForList(
                 """
                 SELECT DISTINCT al.lock_key
-                FROM qsign.auth_lock al
+                FROM idem_gate.auth_lock al
                 WHERE al.locked = true
                 LIMIT 100
                 """,

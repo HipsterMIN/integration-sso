@@ -41,7 +41,7 @@ import org.springframework.web.client.RestTemplate;
  *   <li>POST Keycloak Token Endpoint → access_token + id_token 교환</li>
  *   <li>Keycloak JWKS RS256 서명 검증 → KeycloakIdTokenClaims</li>
  *   <li>nonce 검증 — replay attack 방어</li>
- *   <li>audience 검증 — q-sign-client 포함 여부</li>
+ *   <li>audience 검증 — idem-gate 포함 여부</li>
  *   <li>exp 검증 — 만료 여부</li>
  *   <li>SHA-256(sub) → identifierHash 계산 (PII 비보관 원칙)</li>
  *   <li>providerCode 결정 — identity_provider 역매핑</li>

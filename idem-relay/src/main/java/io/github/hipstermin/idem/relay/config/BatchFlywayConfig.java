@@ -45,20 +45,23 @@ public class BatchFlywayConfig {
      * ido 서비스의 마이그레이션과 번호가 겹치지 않도록 관리 필요.
      * (운영 시: ido 서비스 V19를 먼저 적용하거나, 배치 서비스 V19를 ido로 이관 권장)
      */
-    @Bean(name = "idoFlyway", initMethod = "migrate")
+    // S9 PR-2: 구 스키마(ido) 가 남아 있으면 idem_hub 로 rename → repair → migrate (LegacySchemaRename). 1 릴리스 뒤 initMethod = "migrate" 로 되돌린다
+    @Bean(name = "idoFlyway")
     @DependsOn("idoDataSource")
     public Flyway idoFlyway(@Qualifier("idoDataSource") DataSource idoDataSource) {
         log.info("[BatchFlyway] ido DataSource Flyway 마이그레이션 시작");
-        return Flyway.configure()
+        Flyway flyway = Flyway.configure()
                 .dataSource(idoDataSource)
                 .locations("classpath:db/migration")
-                .schemas("ido")
-                .defaultSchema("ido")
+                .schemas("idem_hub")
+                .defaultSchema("idem_hub")
                 .baselineOnMigrate(true)
                 .baselineVersion("18")          // ido 서비스 V18까지 완료 기준
                 .validateOnMigrate(true)
                 .outOfOrder(false)
                 .connectRetries(5)
                 .load();
+        io.github.hipstermin.idem.common.naming.LegacySchemaRename.migrate(flyway);
+        return flyway;
     }
 }

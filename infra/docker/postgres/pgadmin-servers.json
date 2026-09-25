@@ -5,8 +5,8 @@
       "Group": "OnePass PoC",
       "Host": "postgres",
       "Port": 5432,
-      "MaintenanceDB": "onepass",
-      "Username": "onepass",
+      "MaintenanceDB": "idem",
+      "Username": "idem",
       "SSLMode": "prefer",
       "PassFile": "/pgpass"
     }
