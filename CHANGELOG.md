@@ -14,6 +14,7 @@
 - 연합 인가: 역할 원장·할당(사용자·그룹 ↔ 서비스)·만료·회수, 미할당 거부 또는 GUEST.
 - 관리자 인증·인가: 자체 계정 + TOTP 2단계, 역할 3종, 테넌트 범위, 잠금·비밀번호 정책·CSRF, 감사 검색. 관리 콘솔 `idem-console-admin`.
 - 본인확인 SPI(`IdentityVerificationProvider`) 와 플러그인(Mock · KR: NICE OACX·Any-ID). 벤더 SDK·자격증명은 저장소 밖.
+- registry: 없는 경로는 500 이 아니라 404 표준 오류 본문(`E-IM-404`)으로 답한다 — KR 전용 경로를 코어에 부른 경우를 도구가 구분할 수 있다.
 - fail-secure: 필수 비밀 없으면 기동 거부, 의존 장애 시 거부, 시드 기관 없음, Mock 기본 off. `CryptoProvider` SPI 로 암호 모듈 교체 가능.
 
 ### 설치본

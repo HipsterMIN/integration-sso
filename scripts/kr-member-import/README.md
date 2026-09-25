@@ -31,4 +31,4 @@
 
 ## 이 환경에서 확인한 것
 
-로컬 PostgreSQL + `idem-kr-registry` 부트 jar 로: 개인 2 + 기업 1 + 중복 CI 1 행 → 첫 실행 `new=3 existing=1 biz=1`(중복 CI 두 행이 같은 `qim_user_id`), 두 번째 실행 `new=0 existing=4 biz=1(exists)`, `--resume` 는 전부 건너뜀, `--verify OK`. 코어 registry(`idem-registry`)에 BIZ 행을 보내면 전환 API 가 없어 오류(현재 코어는 500 으로 답한다)로 기록되고 종료 코드 2 — 개인 등록은 그대로 된다. 운영 규모(수십만 행)의 소요 시간은 `--rps` 로 조절한다(기본 20/s ≈ 1시간에 7만 행). 실제 SMES 데이터로는 아직 돌려 보지 못했다 — 리허설(§절차 3)이 필수다.
+로컬 PostgreSQL + `idem-kr-registry` 부트 jar 로: 개인 2 + 기업 1 + 중복 CI 1 행 → 첫 실행 `new=3 existing=1 biz=1`(중복 CI 두 행이 같은 `qim_user_id`), 두 번째 실행 `new=0 existing=4 biz=1(exists)`, `--resume` 는 전부 건너뜀, `--verify OK`. 코어 registry(`idem-registry`)에 BIZ 행을 보내면 전환 API 가 없어 `404`(`E-IM-404`)로 답하고 도구는 "registry 가 KR 에디션이 아닙니다" 오류로 기록·종료 코드 2 — 개인 등록은 그대로 된다(종전에는 500 이었다, 1.0 에서 수정). 운영 규모(수십만 행)의 소요 시간은 `--rps` 로 조절한다(기본 20/s ≈ 1시간에 7만 행). 실제 SMES 데이터로는 아직 돌려 보지 못했다 — 리허설(§절차 3)이 필수다.
