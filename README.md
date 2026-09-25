@@ -13,7 +13,8 @@
 | `editions/idem-kr-hub` · `editions/idem-kr-registry` | KR 에디션 부트 모듈 — 코어 + SMES 회원 개념(CI 조회·기업인증·회원전환·회원조회·기업회원). `IDEM_EDITION=kr` | 8083 · 8082 |
 | `idem-authz` | 연합 인가 — 역할 원장(SoR), SCIM 2.0 Groups, 만료·회수 전파 | 8086 |
 | `idem-relay` | Transactional Outbox 분산 릴레이 배치 (ShedLock) | 8090 |
-| `idem-console` | 관리·사용자 웹 (React SPA) | 3001 |
+| `idem-console-admin` | 관리 콘솔 (React + Vite, S7) — 관리자 로그인(2단계)·기관 온보딩·OIDC client·감사·관리자 관리 | 3001 |
+| `editions/idem-kr-portal` | KR 에디션 회원 포털 (구 `idem-console`, React SPA) | 3002 |
 | `idem-sdk-java` | 테넌트(기관)측 Java 8+ SDK — 핸드오프 티켓 검증, HMAC | — |
 | `idem-agent` | 레거시 WAS용 Java Agent (`-javaagent`) | — |
 | `idem-tenant-sample` | 참조 테넌트 앱 (PoC·E2E용) | 8084 |
@@ -770,7 +771,7 @@ export const Logout = (): void => {
 | OACX SDK | **v1.3.2** | OACX 전자서명 중계모듈 (로컬 libs/ JAR) |
 | JUnit 5 + Mockito | BOM 관리 | 단위 테스트 (q-im 219개 통과 + 30 skipped) |
 
-### 프론트엔드 (`idem-console/frontend/`)
+### 프론트엔드 (`editions/idem-kr-portal/frontend/` — KR 회원 포털. 관리 콘솔 `idem-console-admin/` 은 React 19 + Vite + TypeScript, UI 라이브러리 없음)
 
 | 기술 | 버전 | 비고 |
 |------|------|------|
@@ -887,7 +888,8 @@ integration-sso/
 │   └── src/main/java/io/github/hipstermin/idem/tenant/
 │       └── api/AgencyEntryController.java   # ★SSO: GUEST case 분기 추가
 │
-├── idem-console/               # React SPA
+├── idem-console-admin/         # 관리 콘솔 (React + Vite, S7 PR-2)
+├── editions/idem-kr-portal/    # KR 회원 포털 (구 idem-console, React SPA)
 │   └── frontend/src/
 │       ├── api/
 │       │   ├── feSession.ts      # SLO API 클라이언트
@@ -1269,9 +1271,8 @@ export DOCKER_UNAVAILABLE=true
 ### 3. 프론트엔드 실행
 
 ```bash
-cd idem-console/frontend
-npm install
-npm run dev    # :3000 (webpack proxy → ido:8083)
+cd idem-console-admin && npm ci && npm run dev      # 관리 콘솔 :3001 (/api → hub:8083)
+cd editions/idem-kr-portal/frontend && yarn && yarn dev   # KR 회원 포털 (webpack proxy → hub:8083)
 ```
 
 ### 4. 로컬 환경변수
@@ -1349,7 +1350,7 @@ Annotation Processors: 활성화 (Lombok)
 {
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.formatOnSave": true,
-  "eslint.workingDirectories": ["idem-console/frontend"]
+  "eslint.workingDirectories": ["editions/idem-kr-portal/frontend"]
 }
 ```
 

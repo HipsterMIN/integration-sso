@@ -21,7 +21,7 @@ include(
     "idem-kr-registry",       // KR 에디션 registry 부트 모듈 (S8-a): 코어 registry + 기업회원(biz_member)·CI 조회. Flyway KR 마이그레이션 동봉
 
     // ── 제품 밖: 운영 도구·샘플·SDK (GS 대상 아님) ──
-    "idem-console",           // 관리 콘솔 프런트(React) — S7 에서 제품으로 편입
+    "idem-kr-portal",         // KR 에디션 회원 포털 프런트(React, 구 idem-console) — S7 PR-2 에서 에디션으로 이동. 코어 관리 콘솔은 idem-console-admin/ (npm, Gradle 밖)
     "idem-relay",             // Transactional Outbox 분산 릴레이 배치 (ShedLock) — Kafka 배포 옵션 전용
     "idem-agent",             // Idem Java Agent — 유관기관 WAS 자동 연동 (-javaagent 배포)
     "idem-tenant-sample",     // 기관(Service) 시뮬레이터 샘플
@@ -36,3 +36,4 @@ project(":idem-plugin-anyid").projectDir = file("plugins/idem-plugin-anyid")
 // KR 에디션 모듈은 editions/ 디렉터리에 모은다. 코어(idem-hub·idem-registry)는 이 모듈들을 모르고, 에디션이 코어를 의존한다
 project(":idem-kr-hub").projectDir = file("editions/idem-kr-hub")
 project(":idem-kr-registry").projectDir = file("editions/idem-kr-registry")
+project(":idem-kr-portal").projectDir = file("editions/idem-kr-portal")

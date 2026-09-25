@@ -37,7 +37,7 @@ COPY idem-gate/build.gradle.kts          idem-gate/
 COPY idem-registry/build.gradle.kts            idem-registry/
 COPY idem-hub/build.gradle.kts             idem-hub/
 COPY idem-authz/build.gradle.kts          idem-authz/
-COPY idem-console/build.gradle.kts      idem-console/
+COPY editions/idem-kr-portal/build.gradle.kts editions/idem-kr-portal/
 COPY idem-tenant-sample/build.gradle.kts     idem-tenant-sample/
 COPY idem-sdk-java/build.gradle.kts idem-sdk-java/
 COPY idem-relay/build.gradle.kts idem-relay/

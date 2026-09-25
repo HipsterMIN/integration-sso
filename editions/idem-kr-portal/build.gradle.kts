@@ -1,15 +1,18 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// idem-console — 순수 React SPA 모듈 (v2.0.0, 2026-05-10 통합)
+// idem-kr-portal (구 idem-console) — KR 에디션 회원 포털, 순수 React SPA 모듈 (v2.0.0, 2026-05-10 통합)
+//
+// S7 PR-2(2026-09-25): 중기원패스 회원 포털(회원전환·본인확인 위젯·마이페이지)은 KR 에디션 고유라 editions/ 로 옮겼다.
+// 코어 관리 콘솔은 idem-console-admin/ (npm·Vite, Gradle 밖) 이다.
 //
 // Spring Boot BFF 책임은 idem-hub 모듈로 이관.
 // 이 모듈은 React(TypeScript) + Webpack5 + Ant Design 프론트엔드만 담당.
 //
-// 개발 (Option B):  ./gradlew :idem-console:frontendDev
+// 개발 (Option B):  ./gradlew :idem-kr-portal:frontendDev
 //   → webpack-dev-server port 3301, proxy:
 //     /api/ext/** → Q-IM (EXT_API_ENDPOINT or https://onepass-dev.smes.go.kr/im)
 //     /api/**     → idem-hub:8083 (BE_API_TARGET)
 //
-// 빌드 (Option A):  ./gradlew :idem-console:build
+// 빌드 (Option A):  ./gradlew :idem-kr-portal:build
 //   → frontend/dist/ 산출물. Nginx 혹은 idem-hub 정적 리소스로 서빙
 //
 // 소스 구성:

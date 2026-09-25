@@ -66,20 +66,20 @@
 
 갭 분석 §3 의 ❌ 를 🟡 이상으로. 우선순위순.
 
-### 3.1 관리자 식별·인증·인가 (FIA/FMT) — 최우선 — ✅ 서버 측 완료 (generalization-plan S7 PR-1, 2026-09-25, ADR-015)
+### 3.1 관리자 식별·인증·인가 (FIA/FMT) — 최우선 — ✅ 완료 (generalization-plan S7 PR-1·PR-2, 2026-09-25, ADR-015)
 - ✅ 서버 측 관리자 인증: 자체 계정(`ido.admin_user`) + TOTP 2단계 + Redis 세션, `AdminAuthFilter`(결정 D3 = 자체 저장소, ADR-015).
-- ✅ 적용 범위: `/api/v1/admin/**`, `DELETE /api/v1/handoff/{id}`, `/actuator/**`(health·info·prometheus 제외). 콘솔 BFF 는 PR-2 에서 같은 필터 뒤에.
+- ✅ 적용 범위: `/api/v1/admin/**`, `DELETE /api/v1/handoff/{id}`, `/actuator/**`(health·info·prometheus 제외). 관리 콘솔(`idem-console-admin`)은 별도 BFF 없이 같은 API 를 같은 출처로 부른다(PR-2).
 - ✅ 서버 측 RBAC: `SYSTEM_ADMIN` / `POLICY_ADMIN` / `AUDITOR` + 테넌트 범위, 인가 매트릭스 `docs/admin-auth.md` §4.
 - ✅ `X-Admin-Id` 헤더 제거, 인증된 신원으로 대체(감사 actor).
-- ✅ 관리자 세션: 유휴 15분·절대 8시간, 동시 세션 1. ⏭ 마지막 로그인 표시·접근 배너는 콘솔(PR-2).
+- ✅ 관리자 세션: 유휴 15분·절대 8시간, 동시 세션 1. ⏭ 마지막 로그인 표시·접근 배너(콘솔 후속).
 - ✅ 관리자 계정 잠금(5회→15분)·해제, 비밀번호 정책(길이·문자종·사용자명·이력 3), 첫 로그인 변경 강제.
-- ⏭ 콘솔 SPA 의 SigNoz 유래 미구현 화면 정리 → PR-2 에서 `idem-console` 을 KR 에디션으로 옮기고 코어에 작은 관리 콘솔을 새로 짓는다.
+- ✅ 코어 관리 콘솔 `idem-console-admin` 신설(로그인 2단계·온보딩·OIDC client·감사·관리자), 구 `idem-console`(SigNoz 유래 포털)은 `editions/idem-kr-portal` 로 이동(PR-2). 포털의 미구현 화면 정리는 KR 에디션 과제.
 
 ### 3.2 보안감사 (FAU)
 - **모든 관리 행위 감사**: 기관 등록·수정·활성화·키 회전, 정책 변경(✅ 인증된 관리자 actor 로, S7 PR-1) · 관리자 로그인/실패/잠금/2단계/권한 거부/계정 관리(✅ `ADMIN_*`, S7 PR-1) · ⏭ 기능 플래그 변경, 감사 기능 on/off, TOE 기동·종료.
 - **유실 방지**: `AuditLogPublisher` 실패 시 로컬 파일 폴백 큐 + 재전송, 실패 카운터 메트릭·알림, 설정 가능한 "감사 불가 시 서비스 거부" 모드. VARCHAR(36) 컬럼 확장 또는 입력 길이 검증.
 - **무결성**: `audit_log` 레코드 해시체인(`prev_hash`, HMAC 키는 KMS), DB 앱 계정에서 audit 테이블 UPDATE/DELETE 권한 회수 + RLS, 변조 검증 배치.
-- **검토**: ✅ `/api/v1/admin/audit` 검색 API(기간·분류·사건·주체·기관·결과·상관ID, S7 PR-1). ⏭ 콘솔 감사 화면(PR-2).
+- **검토**: ✅ `/api/v1/admin/audit` 검색 API(기간·분류·사건·주체·기관·결과·상관ID, S7 PR-1) · ✅ 콘솔 감사 화면(PR-2).
 - **보존**: 월 파티셔닝, 서명된 월별 아카이브 export, 보존 만료 삭제 배치.
 - 감사 저장소 통합 또는 통합 조회 계층 (`ido.audit_log` / `qsign.auth_audit_log` / `authz_grant_audit` / `broker_audit_log` / `gateway_inbound_audit`).
 

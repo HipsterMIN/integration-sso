@@ -227,17 +227,17 @@ services:
       - app
     logging: *log-defaults
 
-  idem-console:
+  idem-kr-portal:   # 구 idem-console (KR 에디션 회원 포털, S7 PR-2). 코어 관리 콘솔은 compose.install.yml 의 idem-console-admin
     build:
       context: ../..
-      dockerfile: idem-console/Dockerfile.optionB
+      dockerfile: editions/idem-kr-portal/Dockerfile.optionB
       target: react-nginx
-    image: idem-console:latest
-    container_name: idem-console
+    image: idem-kr-portal:latest
+    container_name: idem-kr-portal
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: idem-console
+      com.docker.compose.service: idem-kr-portal
     ports:
       - "3001:80"
     networks:

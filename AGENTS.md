@@ -31,7 +31,7 @@
 
 - **프로젝트명**: OnePass 통합 인증 플랫폼
 - **현재 버전**: v0.8.11
-- **주요 모듈**: `onepass-be/`, `idem-console/`, `idem-sdk-java/`, `onepass-release/`, `onepass-be-release/`
+- **주요 모듈**: `onepass-be/`, `idem-console-admin/`(관리 콘솔) · `editions/idem-kr-portal/`(구 idem-console), `idem-sdk-java/`, `onepass-release/`, `onepass-be-release/`
 
 ## 문서 구조
 

@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # Idem 단일 설치본 (D1-b) — docs/install.md
 #
-#   PostgreSQL · Redis · Keycloak(숨김) · idem-gate · idem-registry · idem-hub · idem-authz · idem-console
+#   PostgreSQL · Redis · Keycloak(숨김) · idem-gate · idem-registry · idem-hub · idem-authz · idem-console-admin (+ KR 에디션: --profile kr → idem-kr-portal)
 #   Kafka 없음: idem.messaging.kafka.enabled=false 로 아웃박스·감사가 DB 만으로 완결된다 (docs/generalization-plan.md D1).
 #
 #   cp infra/docker/install.env.example infra/docker/install.env      # 값 채우기 (openssl rand — install.md 2단계)
@@ -303,17 +303,40 @@ services:
       start_period: 45s
     logging: *log
 
-  # ── 관리 콘솔 (React + Nginx, /api → idem-hub) ─────────────────────────────
-  idem-console:
+  # ── 관리 콘솔 (S7 PR-2: React + Nginx, /api → idem-hub 같은 출처. 관리자 로그인·2단계는 hub 가 한다 — docs/admin-auth.md) ──
+  idem-console-admin:
     build:
       context: ../..
-      dockerfile: idem-console/Dockerfile.optionB
-      target: react-nginx
-    image: idem-console:${IDEM_VERSION:-latest}
-    container_name: idem-console
+      dockerfile: idem-console-admin/Dockerfile
+    image: idem-console-admin:${IDEM_VERSION:-latest}
+    container_name: idem-console-admin
     restart: unless-stopped
     ports:
       - "127.0.0.1:${IDEM_PORT_CONSOLE:-3001}:80"
+    networks: [idem-net]
+    depends_on:
+      idem-hub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging: *log
+
+  # ── KR 에디션 회원 포털 (구 idem-console — 회원전환·본인확인 위젯·마이페이지). `--profile kr` 로만 올라간다 ──
+  idem-kr-portal:
+    profiles: ["kr"]
+    build:
+      context: ../..
+      dockerfile: editions/idem-kr-portal/Dockerfile.optionB
+      target: react-nginx
+    image: idem-kr-portal:${IDEM_VERSION:-latest}
+    container_name: idem-kr-portal
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${IDEM_PORT_KR_PORTAL:-3002}:80"
     networks: [idem-net]
     depends_on:
       idem-hub:

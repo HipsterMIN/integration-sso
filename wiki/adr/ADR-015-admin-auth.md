@@ -41,7 +41,7 @@ GS·CC 어느 심사도 관리자 식별·인증(FIA)·보안관리(FMT)·감사
 - 무인증 관리 엔드포인트 0 — 통합 테스트(`AdminAuthIntegrationTest`)와 CI 설치본 스모크(②′)가 401/403 을 확인한다.
 - `X-Admin-Id` 는 코드·스크립트·설치 문서에서 사라졌다. 개발 시드·CI 스모크는 `scripts/lib/admin-login.sh` 로 실제 로그인(2단계 포함)한다.
 - 잠금 카운터가 트랜잭션 롤백으로 사라지지 않도록 `login`·`verifyMfa` 는 `PlatformException` 에 대해 롤백하지 않는다(통합 테스트가 잡은 결함).
-- 남긴 것: 관리 콘솔(PR-2), 관리자 접근 배너·마지막 로그인 표시(콘솔), 감사 무결성(해시체인)·유실 방지는 `execution-plan.md` §3.2 그대로,
+- 관리 콘솔 `idem-console-admin/`(PR-2)은 같은 API 를 같은 출처(nginx 프록시)로 부른다 — 쿠키·`X-Requested-With` 규약 그대로. 남긴 것: 관리자 접근 배너·마지막 로그인 표시(콘솔), 감사 무결성(해시체인)·유실 방지는 `execution-plan.md` §3.2 그대로,
   `/api/v1/internal/**` 는 기존 내부 서명·API 키 그대로(관리자 세션 대상 아님).
 
 ## 거부한 대안

@@ -12,7 +12,7 @@
 # 매핑: 첫 경로 조각 → Gradle 프로젝트 (idem-*, plugins/idem-plugin-*).
 #       idem-common / 루트 빌드 파일 / gradle/ 변경 → 전체 테스트.
 #       plugins/idem-plugin-mock-auth 변경 → idem-hub 도 포함(runtimeOnly 의존).
-#       idem-console/frontend 변경 → yarn typecheck (yarn 있을 때).
+#       editions/idem-kr-portal/frontend 변경 → yarn typecheck (yarn 있을 때). idem-console-admin 변경 → npm run typecheck (node_modules 있을 때).
 set -uo pipefail
 
 if [[ "${SKIP_TESTS:-}" == "1" ]]; then
@@ -54,6 +54,7 @@ fi
 declare -A SEL=()
 RUN_ALL=0
 FRONTEND=0
+FRONTEND_ADMIN=0
 while IFS= read -r f; do
     # 문서·이미지·산출물 파일은 테스트 대상이 아니다 (모듈 디렉터리 안에 있어도)
     case "$f" in *.md|*.txt|*.png|*.jpg|*.svg|*.pdf|*.docx|*.pptx|*.xlsx|LICENSE*) continue ;; esac
@@ -62,8 +63,9 @@ while IFS= read -r f; do
         idem-common/*) RUN_ALL=1 ;;
         plugins/idem-plugin-mock-auth/*) SEL[idem-plugin-mock-auth]=1; SEL[idem-hub]=1 ;;
         plugins/idem-plugin-nice-oacx/*) SEL[idem-plugin-nice-oacx]=1 ;;
-        idem-console/frontend/*) FRONTEND=1 ;;
-        idem-console/*) ;;                      # Java 테스트 없음
+        editions/idem-kr-portal/frontend/*) FRONTEND=1 ;;   # KR 포털(구 idem-console)
+        editions/idem-kr-portal/*) ;;                        # Java 테스트 없음
+        idem-console-admin/*) FRONTEND_ADMIN=1 ;;            # S7 PR-2 코어 관리 콘솔 (npm)
         editions/idem-kr-hub/*) SEL[idem-kr-hub]=1 ;;            # S8-a KR 에디션
         editions/idem-kr-registry/*) SEL[idem-kr-registry]=1 ;;
         idem-hub/*) SEL[idem-hub]=1; SEL[idem-kr-hub]=1 ;;          # 에디션은 코어를 의존 — 코어가 바뀌면 에디션도
@@ -106,10 +108,17 @@ if [[ ${#TASKS[@]} -gt 0 ]]; then
     ./gradlew "${TASKS[@]}" --continue --no-daemon || STATUS=$?
 fi
 if [[ $FRONTEND -eq 1 ]]; then
-    if command -v yarn >/dev/null 2>&1 && [[ -d idem-console/frontend/node_modules ]]; then
-        (cd idem-console/frontend && yarn --silent typecheck) || STATUS=$?
+    if command -v yarn >/dev/null 2>&1 && [[ -d editions/idem-kr-portal/frontend/node_modules ]]; then
+        (cd editions/idem-kr-portal/frontend && yarn --silent typecheck) || STATUS=$?
     else
-        echo "[pre-push] yarn 또는 idem-console/frontend/node_modules 가 없어 frontend typecheck 건너뜀 (CI 의 Frontend Build 가 검사)"
+        echo "[pre-push] yarn 또는 editions/idem-kr-portal/frontend/node_modules 가 없어 frontend typecheck 건너뜀 (CI 의 Frontend Build 가 검사)"
+    fi
+fi
+if [[ $FRONTEND_ADMIN -eq 1 ]]; then
+    if command -v npm >/dev/null 2>&1 && [[ -d idem-console-admin/node_modules ]]; then
+        (cd idem-console-admin && npm run --silent typecheck && npm test --silent) || STATUS=$?
+    else
+        echo "[pre-push] npm 또는 idem-console-admin/node_modules 가 없어 admin console typecheck 건너뜀 (CI 의 Frontend Build 가 검사)"
     fi
 fi
 
