@@ -25,6 +25,15 @@ spring:
     baseline-on-migrate: true
 
 ido:
+  # S7 관리자 인증 — 테스트 컨텍스트 (통합 테스트는 이 계정으로 실제 로그인·TOTP 등록을 거친다)
+  admin:
+    bootstrap:
+      username: admin
+      password: Idem-Ops-Test-1!
+      require-password-change: false
+    allow-derived-secret-key: true
+    cookie:
+      secure: false
   qim:
     allow-empty-aes-key: true      # D2 테스트 전용 탈출구
     base-url: http://localhost:8082

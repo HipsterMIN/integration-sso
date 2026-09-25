@@ -196,6 +196,11 @@ services:
       QIM_AES_SHARED_KEY: ${QIM_AES_SHARED_KEY:?QIM_AES_SHARED_KEY(32바이트 Base64) 를 install.env 에 설정하세요}
       IDO_BROKER_MODE: ${IDO_BROKER_MODE:-qsign}
       IDEM_PLATFORM_CODE: ${IDEM_PLATFORM_CODE:-IDEM}
+      # S7 관리자 인증 — 관리 API(/api/v1/admin/**·/actuator/**)는 관리자 세션 + 2단계(TOTP) 뒤에 있다 (docs/admin-auth.md)
+      IDEM_ADMIN_BOOTSTRAP_USERNAME: ${IDEM_ADMIN_BOOTSTRAP_USERNAME:-admin}
+      IDEM_ADMIN_BOOTSTRAP_PASSWORD: ${IDEM_ADMIN_BOOTSTRAP_PASSWORD:?IDEM_ADMIN_BOOTSTRAP_PASSWORD(첫 관리자 비밀번호) 를 install.env 에 설정하세요}
+      IDEM_ADMIN_SECRET_KEY: ${IDEM_ADMIN_SECRET_KEY:?IDEM_ADMIN_SECRET_KEY(32바이트 Base64, 2단계 비밀 봉인) 를 install.env 에 설정하세요}
+      IDEM_ADMIN_COOKIE_SECURE: ${IDEM_ADMIN_COOKIE_SECURE:-true}
       KEYCLOAK_BASE_URL: http://keycloak:8080
       KEYCLOAK_REALM: onepass
       KEYCLOAK_CLIENT_ID: ido-client

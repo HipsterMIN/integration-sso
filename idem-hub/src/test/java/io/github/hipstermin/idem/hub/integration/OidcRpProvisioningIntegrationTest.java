@@ -70,7 +70,7 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
     private ResponseEntity<String> putProfile(String json) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
-        h.set("X-Admin-Id", "s6-admin");
+        withAdmin(h, restTemplate, url(""));
         return restTemplate.exchange(url("/api/v1/admin/services/" + CODE + "/profile"), HttpMethod.PUT, new HttpEntity<>(json, h), String.class);
     }
 
@@ -112,7 +112,7 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
         assertThat(jdbcTemplate.queryForObject("SELECT integration_type FROM ido.agency_meta WHERE agency_code = ?", String.class, CODE))
                 .isEqualTo("OIDC_RP");
 
-        ResponseEntity<String> status = restTemplate.getForEntity(url("/api/v1/admin/services/" + CODE + "/oidc-client"), String.class);
+        ResponseEntity<String> status = restTemplate.exchange(url("/api/v1/admin/services/" + CODE + "/oidc-client"), HttpMethod.GET, new HttpEntity<>(adminHeaders(restTemplate, url(""))), String.class);
         assertThat(status.getStatusCode().value()).isEqualTo(200);
         JsonNode st = om.readTree(status.getBody());
         assertThat(st.path("provisioned").asBoolean()).isTrue();
@@ -120,7 +120,7 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
         assertThat(st.path("issuer").asText()).isEqualTo("https://sso.example.org/realms/onepass");
         assertThat(st.has("clientSecret")).isFalse();
 
-        ResponseEntity<String> rotated = restTemplate.postForEntity(url("/api/v1/admin/services/" + CODE + "/oidc-client/secret"), null, String.class);
+        ResponseEntity<String> rotated = restTemplate.exchange(url("/api/v1/admin/services/" + CODE + "/oidc-client/secret"), HttpMethod.POST, new HttpEntity<>(adminHeaders(restTemplate, url(""))), String.class);
         assertThat(rotated.getStatusCode().value()).isEqualTo(200);
         assertThat(om.readTree(rotated.getBody()).path("clientSecret").asText()).isEqualTo("rotated-secret");
 
@@ -135,7 +135,7 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
         assertThat(res.getBody()).contains("E-IDO-122");
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ido.agency_meta WHERE agency_code = ?", Integer.class, CODE);
         assertThat(count).isZero();
-        ResponseEntity<String> get = restTemplate.getForEntity(url("/api/v1/admin/services/" + CODE + "/profile"), String.class);
+        ResponseEntity<String> get = restTemplate.exchange(url("/api/v1/admin/services/" + CODE + "/profile"), HttpMethod.GET, new HttpEntity<>(adminHeaders(restTemplate, url(""))), String.class);
         assertThat(get.getStatusCode().is2xxSuccessful()).as("되돌려진 프로파일은 조회되지 않아야 한다").isFalse();
     }
 

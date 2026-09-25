@@ -178,7 +178,7 @@ class HandoffIntegrationTest extends IntegrationTestBase {
     void issueHandoff_providerNotAllowedByProfile_returns403() {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
-        h.set("X-Admin-Id", "s3-test");
+        withAdmin(h, restTemplate, baseUrl);
         ResponseEntity<String> profile = restTemplate.exchange(
                 baseUrl + "/api/v1/admin/services/" + AGENCY_CODE + "/profile", HttpMethod.PUT,
                 new HttpEntity<>("""

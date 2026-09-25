@@ -75,6 +75,17 @@ public class JcaCryptoProvider implements CryptoProvider {
     }
 
     @Override
+    public byte[] hmacSha1(byte[] key, byte[] message) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA1");
+            mac.init(new SecretKeySpec(key, "HmacSHA1"));
+            return mac.doFinal(message);
+        } catch (GeneralSecurityException | IllegalArgumentException e) {
+            throw new CryptoException("HMAC-SHA1 failed", e);
+        }
+    }
+
+    @Override
     public String hmacSha256Hex(byte[] key, String message) {
         return HexFormat.of().formatHex(hmacSha256(key, message.getBytes(StandardCharsets.UTF_8)));
     }

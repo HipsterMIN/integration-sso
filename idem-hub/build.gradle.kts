@@ -140,4 +140,6 @@ dependencies {
     testFixturesApi("org.testcontainers:junit-jupiter")
     testFixturesApi("org.wiremock:wiremock-standalone:3.10.0")
     testFixturesImplementation("org.springframework.kafka:spring-kafka")
+    // S7: AdminTestSupport — 관리자 로그인(TestRestTemplate + Jackson)으로 IT 가 admin API 를 호출한다
+    testFixturesImplementation("org.springframework.boot:spring-boot-starter-web")
 }

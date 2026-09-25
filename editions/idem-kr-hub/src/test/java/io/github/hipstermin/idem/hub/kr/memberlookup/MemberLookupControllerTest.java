@@ -91,6 +91,11 @@ import org.springframework.test.web.servlet.MockMvc;
                 @ComponentScan.Filter(
                         type = FilterType.ASSIGNABLE_TYPE,
                         classes = InternalCallerAuthInterceptor.class
+                ),
+                // S7: AdminAuthFilter 는 AdminAuthService(JPA·Redis) 를 요구한다 — 슬라이스에서 제외
+                @ComponentScan.Filter(
+                        type = FilterType.ASSIGNABLE_TYPE,
+                        classes = io.github.hipstermin.idem.hub.admin.auth.AdminAuthFilter.class
                 )
         }
 )

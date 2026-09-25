@@ -43,7 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
  * </pre>
  *
  * <p>기존 {@code /api/v1/admin/agencies} 는 유지된다(컬럼 단위 수정). 두 경로 모두 저장 시 프로파일과 컬럼을 일치시킨다.
- * 관리자 인증은 아직 없다 — {@code execution-plan.md} P1 / 범용화 S7 에서 {@code X-Admin-Id} 를 인증된 신원으로 대체한다.
+ * 관리자 인증은 S7 — 세션 쿠키({@code AdminAuthFilter})와 역할·테넌트 범위. 종전 {@code X-Admin-Id} 헤더는 없다.
  */
 @Slf4j
 @RestController
@@ -55,6 +55,7 @@ public class ServiceProfileAdminController {
     private final ServiceProfileValidator validator;
     private final PolicyEngine           policyEngine;
     private final OidcRpClientProvisioner oidcRpProvisioner;
+    private final io.github.hipstermin.idem.hub.admin.auth.AdminTenantScope tenantScope;
 
     @GetMapping(value = "/profile-schema", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> schema() {
@@ -62,27 +63,33 @@ public class ServiceProfileAdminController {
     }
 
     @GetMapping("/{serviceCode}/profile")
-    public ResponseEntity<ServiceProfile> get(@PathVariable String serviceCode) {
+    public ResponseEntity<ServiceProfile> get(@PathVariable String serviceCode, io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
+        tenantScope.checkService(admin, serviceCode);
         return ResponseEntity.ok(serviceProfileService.get(serviceCode));
     }
 
     @PutMapping(value = "/{serviceCode}/profile", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ServiceProfile> put(
             @PathVariable String serviceCode,
-            @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin,
             @RequestHeader(value = "X-Change-Reason", required = false) String changeReason,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @RequestBody JsonNode body) {
         String cid = correlationId != null ? correlationId : UUID.randomUUID().toString();
-        log.info("[ServiceProfileCtrl] PUT profile: serviceCode={} adminId={} cid={}", serviceCode, adminId, cid);
-        return ResponseEntity.ok(serviceProfileService.put(serviceCode, body, adminId, changeReason, cid));
+        // S7 테넌트 범위: 기존 Service 는 그 Tenant 여야 하고, 본문의 service.tenant 도 범위 안이어야 한다
+        tenantScope.checkService(admin, serviceCode);
+        tenantScope.checkTenant(admin, body != null ? body.path("service").path("tenant").asText(null) : null);
+        log.info("[ServiceProfileCtrl] PUT profile: serviceCode={} adminId={} cid={}", serviceCode, admin.username(), cid);
+        return ResponseEntity.ok(serviceProfileService.put(serviceCode, body, admin.username(), changeReason, cid));
     }
 
     /** S6: 프로비저닝된 OIDC client 상태 — secret 은 보이지 않는다. */
     @GetMapping("/{serviceCode}/oidc-client")
     public ResponseEntity<OidcClientStatus> oidcClient(
             @PathVariable String serviceCode,
-            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
+        tenantScope.checkService(admin, serviceCode);
         serviceProfileService.get(serviceCode); // 등록된 기관인지 먼저 (404 E-IDO)
         return ResponseEntity.ok(oidcRpProvisioner.status(serviceCode,
                 correlationId != null ? correlationId : UUID.randomUUID().toString()));
@@ -92,12 +99,13 @@ public class ServiceProfileAdminController {
     @PostMapping("/{serviceCode}/oidc-client/secret")
     public ResponseEntity<OidcClientSecret> rotateOidcSecret(
             @PathVariable String serviceCode,
-            @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
+        tenantScope.checkService(admin, serviceCode);
         serviceProfileService.get(serviceCode);
         String cid = correlationId != null ? correlationId : UUID.randomUUID().toString();
-        log.info("[ServiceProfileCtrl] OIDC secret 회전: serviceCode={} adminId={} cid={}", serviceCode, adminId, cid);
-        return ResponseEntity.ok(oidcRpProvisioner.rotateSecret(serviceCode, adminId, cid));
+        log.info("[ServiceProfileCtrl] OIDC secret 회전: serviceCode={} adminId={} cid={}", serviceCode, admin.username(), cid);
+        return ResponseEntity.ok(oidcRpProvisioner.rotateSecret(serviceCode, admin.username(), cid));
     }
 
     /** 정책 시뮬레이션 요청 — 값이 없는 항목은 해당 규칙이 SKIP 된다. {@code at} 은 점검 시간대 판정 시각(생략 시 지금). */
@@ -112,7 +120,9 @@ public class ServiceProfileAdminController {
     @PostMapping(value = "/{serviceCode}/policy/simulate", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<PolicySimulationResponse> simulate(
             @PathVariable String serviceCode,
-            @RequestBody PolicySimulationRequest req) {
+            @RequestBody PolicySimulationRequest req,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
+        tenantScope.checkService(admin, serviceCode);
         ServiceProfile profile = serviceProfileService.get(serviceCode);
         UserStatus status = parseStatus(req.userStatus());
         PolicyContext ctx = PolicyContext.builder()

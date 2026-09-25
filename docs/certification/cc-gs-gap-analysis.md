@@ -12,7 +12,7 @@
 
 | 구분 | 현재 | 결정적 갭 |
 |---|---|---|
-| 관리자 식별·인증 (FIA/FMT) | ❌ 없음 | 콘솔은 순수 React SPA, 서버 측 로그인·역할 검증 없음. `/api/v1/admin/**` 는 `X-Admin-Id` 헤더(기본값 `SYSTEM`)만 읽는 **무인증 API** |
+| 관리자 식별·인증 (FIA/FMT) | 🟡 서버 측 있음 (S7 PR-1, 2026-09-25) | `/api/v1/admin/**`·`/actuator/**`·Handoff 취소가 관리자 세션(비밀번호 + TOTP 2단계) 뒤에 있고 역할 3종·테넌트 범위·잠금·비밀번호 정책이 서버에서 강제된다(`docs/admin-auth.md`, ADR-015). 종전 `X-Admin-Id` 무인증 API 는 없다. 남은 것: 관리 콘솔(PR-2)·접근 배너·마지막 로그인 표시 |
 | 보안감사 (FAU) | 🟡 생성만 | 무결성 보호 없음, INSERT-ONLY 미강제, 저장 실패 시 **조용히 유실**, 보존·보관 작업 없음, 검토 UI/API 없음, **관리자 행위 미감사** |
 | 암호지원 (FCS) | ❌ JCE/BouncyCastle 만 | KCMVP 검증필 모듈 없음. 국산 알고리즘은 AnyID KMS 용 ARIA(BouncyCastle) 뿐 |
 | 안전한 채널 (FTP) | ❌ 서비스 TLS 없음 | `server.ssl.*` 전무, DB 연결 `sslmode=disable` 고정. TLS 는 Nginx 에 위임 (TOE 밖) |
@@ -70,7 +70,7 @@ GS 를 먼저 받는다. 배포본·매뉴얼이 고정되고 그 산출물이 C
 | 항목 | 요구(요지) | 현재 | 판정 | 조치 |
 |---|---|---|---|---|
 | FAU_GEN.1 감사데이터 생성 | 기동/종료, 인증 성공·실패, 관리 행위, 정책 변경 등 감사대상 사건 기록 + 일시·주체·결과 | `ido.audit_log`(V7), `qsign.auth_audit_log`(V2), `authz.authz_grant_audit`, `broker_audit_log`, `gateway_inbound_audit` 로 분산. 인증·Handoff·웹훅·탈퇴·SLO 이벤트 30여 종(`AuthAuditService`, `AuditLogPublisher` 호출부). **관리자 행위(기관 등록·키 회전·활성화) 미기록** (`AgencyAdminService` 에 감사 호출 없음). TOE 기동·종료 미기록 | 🟡 | 감사대상 사건 목록을 ST 에 정의하고 누락 사건(관리 행위, 기동·종료, 설정 변경, 감사 기능 on/off) 추가. 저장소를 하나로 통합하거나 통합 조회 계층 마련 |
-| FAU_GEN.2 사용자 신원 연계 | 사건과 사용자 신원 연계 | actor_type/actor_id 있음. 관리자 행위는 `X-Admin-Id` 헤더값(검증 없음) | 🟡 | 관리자 I&A(§3.4) 도입 후 인증된 신원으로 대체 |
+| FAU_GEN.2 사용자 신원 연계 | 사건과 사용자 신원 연계 | actor_type/actor_id 있음. 관리자 행위는 인증된 관리자 사용자명(S7 PR-1), 인증·인가 사건은 `actor_type=ADMIN` | ✅ | 관리자 I&A 도입으로 인증된 신원이 실린다 |
 | FAU_SAR.1/.2/.3 감사 검토 | 권한 있는 관리자가 감사 기록을 읽고, 검색·정렬 가능 | 조회 API·UI **없음** (Java 소스에 `audit_log` SELECT 없음). Grafana/Loki 는 앱 로그용 | ❌ | 콘솔에 감사 검토 화면 + `/api/v1/admin/audit` 검색 API(기간·주체·사건·결과 필터) |
 | FAU_STG.1 감사 저장소 보호 | 인가되지 않은 삭제·변조 방지, 변조 탐지 | INSERT ONLY 는 **주석뿐**(V7:168). `authz_grant_audit` 만 RLS 적용. 무결성 필드 없음(`audit_key` 는 중복 방지용 SHA-256) | ❌ | (1) DB 역할 분리: 앱 계정에 audit 테이블 UPDATE/DELETE 권한 회수 + RLS (2) 레코드 해시체인(`prev_hash`, HMAC 키는 KMS) 또는 주기적 서명 (3) 변조 검증 배치 + 알림 |
 | FAU_STG.3/.4 저장 실패·고갈 대응 | 감사 저장 실패 시 경고, 임계치 도달 시 경고·감사 가능한 행위만 허용 등 | `AuditLogPublisher.publish` 가 `@Async` 로 **모든 예외를 삼킴**(`:98-102`), 폴백 없음, 알림 없음. 2026-09-08 확인: VARCHAR(36) 초과 값도 조용히 유실 | ❌ | 저장 실패 시 (1) 로컬 파일 폴백 큐 + 재전송 (2) 실패 카운터 메트릭·알림 (3) 설정 가능한 "감사 불가 시 서비스 거부" 모드. 용량 임계치 모니터링 |
@@ -194,9 +194,9 @@ GS 를 먼저 받는다. 배포본·매뉴얼이 고정되고 그 산출물이 C
 
 ## 7. 코드에서 바로 착수 가능한 작업 (우선순위순)
 
-1. **관리자 인증·인가 뼈대**: `/api/v1/admin/**`, `DELETE /api/v1/handoff/{id}`, `/actuator/**` 에 인증 인터셉터, 서버 측 역할 검사, `X-Admin-Id` 제거.
+1. ~~**관리자 인증·인가 뼈대**: `/api/v1/admin/**`, `DELETE /api/v1/handoff/{id}`, `/actuator/**` 에 인증 인터셉터, 서버 측 역할 검사, `X-Admin-Id` 제거.~~ ✅ S7 PR-1 (2026-09-25).
 2. **감사 유실 방지·무결성**: `AuditLogPublisher` 실패 폴백·알림·메트릭, VARCHAR(36) 컬럼 확장 또는 입력 길이 검증, `audit_log` 해시체인 + DB 권한 분리, 관리 행위 감사.
-3. **감사 검토 API/UI**: 기간·주체·사건·결과 필터 조회, 콘솔 화면.
+3. **감사 검토 API/UI**: ✅ 기간·주체·사건·결과 필터 조회 API(S7 PR-1) · ⏭ 콘솔 화면(PR-2).
 4. **암호 SPI**: `CryptoProvider` 인터페이스로 `HandoffCryptoService`·`CiCryptoServiceImpl`·`AesSharedKeyDecryptor`·`NiceCryptoUtil`·HMAC 서명·`ApiKeyHashUtil` 을 경유시키고 JCE 구현을 기본으로 두어, 검증필 모듈을 어댑터로 끼울 수 있게.
 5. **prod 안전 기본값**: `allow-empty-*`·`allow-in-prod`·`security-headers.enabled=false`·`rate-limit.enabled=false`·`audit.db-save-enabled=false` 를 prod 프로파일에서 기동 거부, CAST 키 미설정 시 기동 거부, 기관 API 키 해시를 PBKDF2 로.
 6. **TLS**: 각 서비스 `server.ssl.*` + DB/Redis/Kafka TLS 옵션, mTLS 폴백 제거, 내부 서명 강제 모드 기본화.

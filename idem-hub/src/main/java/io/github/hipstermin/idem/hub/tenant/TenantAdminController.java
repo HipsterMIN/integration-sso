@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  * PUT /api/v1/admin/tenants/{code}   생성/갱신 { name, status }
  * </pre>
  * Service(기관) 프로파일은 {@code /api/v1/admin/services/{code}/profile} — {@code service.tenant} 로 소속을 가리킨다.
- * 관리자 인증은 S7 에서 {@code X-Admin-Id} 를 인증된 신원으로 대체한다.
+ * 관리자 인증은 S7 — 세션 쿠키·SYSTEM_ADMIN(글로벌) 만 쓰기.
  */
 @Slf4j
 @RestController
@@ -70,7 +69,7 @@ public class TenantAdminController {
     @Transactional
     public ResponseEntity<TenantView> put(
             @PathVariable @Pattern(regexp = "^[A-Za-z0-9_\\-]{1,50}$") String code,
-            @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin,
             @Valid @RequestBody TenantUpsertRequest req) {
         TenantJpaEntity entity = tenantRepository.findById(code)
                 .orElseGet(() -> TenantJpaEntity.builder().tenantCode(code).build());
@@ -78,8 +77,8 @@ public class TenantAdminController {
         entity.setName(req.name());
         if (req.status() != null) entity.setStatus(req.status());
         TenantJpaEntity saved = tenantRepository.save(entity);
-        audit(created ? "TENANT_CREATED" : "TENANT_UPDATED", code, adminId);
-        log.info("[TenantAdmin] {}: tenant={} adminId={}", created ? "신규" : "갱신", code, adminId);
+        audit(created ? "TENANT_CREATED" : "TENANT_UPDATED", code, admin.username());
+        log.info("[TenantAdmin] {}: tenant={} adminId={}", created ? "신규" : "갱신", code, admin.username());
         return ResponseEntity.ok(TenantView.of(saved));
     }
 

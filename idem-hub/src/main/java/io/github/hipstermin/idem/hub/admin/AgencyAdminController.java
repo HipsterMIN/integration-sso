@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.*;
 public class AgencyAdminController {
 
     private final AgencyAdminService agencyAdminService;
+    private final io.github.hipstermin.idem.hub.admin.auth.AdminTenantScope tenantScope;
 
     // ────────────────────────────────────────────────────────────────────────
     // 1. 기관 등록
@@ -46,14 +47,15 @@ public class AgencyAdminController {
 
     @PostMapping
     public ResponseEntity<AgencyResponse> createAgency(
-            @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @Valid @RequestBody AgencyCreateRequest request) {
 
         String cid = cid(correlationId);
-        log.info("[AdminCtrl] 기관 등록 요청: agencyCode={} adminId={} cid={}", request.getAgencyCode(), adminId, cid);
+        log.info("[AdminCtrl] 기관 등록 요청: agencyCode={} adminId={} cid={}", request.getAgencyCode(), admin.username(), cid);
 
-        AgencyResponse response = agencyAdminService.createAgency(request, adminId);
+        tenantScope.checkTenant(admin, null);   // 레거시 등록 API 는 DEFAULT Tenant 에 만든다
+        AgencyResponse response = agencyAdminService.createAgency(request, admin.username());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -65,9 +67,14 @@ public class AgencyAdminController {
     @GetMapping
     public ResponseEntity<List<AgencyResponse>> listAgencies(
             @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
 
         List<AgencyResponse> list = agencyAdminService.listAgencies(page, size);
+        if (!admin.isGlobal()) {
+            // S7 테넌트 범위: 자기 Tenant 의 Service 만
+            list = list.stream().filter(a -> tenantScope.inScope(admin, a.getAgencyCode())).toList();
+        }
         return ResponseEntity.ok(list);
     }
 
@@ -77,7 +84,9 @@ public class AgencyAdminController {
     // ────────────────────────────────────────────────────────────────────────
 
     @GetMapping("/{agencyCode}")
-    public ResponseEntity<AgencyResponse> getAgency(@PathVariable String agencyCode) {
+    public ResponseEntity<AgencyResponse> getAgency(@PathVariable String agencyCode,
+                                                    io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
+        tenantScope.checkService(admin, agencyCode);
         return ResponseEntity.ok(agencyAdminService.getAgency(agencyCode));
     }
 
@@ -89,11 +98,12 @@ public class AgencyAdminController {
     @PutMapping("/{agencyCode}")
     public ResponseEntity<AgencyResponse> updateAgency(
             @PathVariable String agencyCode,
-            @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin,
             @RequestBody AgencyCreateRequest request) {
 
-        log.info("[AdminCtrl] 기관 수정: agencyCode={} adminId={}", agencyCode, adminId);
-        return ResponseEntity.ok(agencyAdminService.updateAgency(agencyCode, request, adminId));
+        log.info("[AdminCtrl] 기관 수정: agencyCode={} adminId={}", agencyCode, admin.username());
+        tenantScope.checkService(admin, agencyCode);
+        return ResponseEntity.ok(agencyAdminService.updateAgency(agencyCode, request, admin.username()));
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -104,10 +114,11 @@ public class AgencyAdminController {
     @PostMapping("/{agencyCode}/activate")
     public ResponseEntity<Map<String, Object>> activate(
             @PathVariable String agencyCode,
-            @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId) {
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
 
-        agencyAdminService.activate(agencyCode, adminId);
-        return ResponseEntity.ok(Map.of("agencyCode", agencyCode, "active", true, "adminId", adminId));
+        tenantScope.checkService(admin, agencyCode);
+        agencyAdminService.activate(agencyCode, admin.username());
+        return ResponseEntity.ok(Map.of("agencyCode", agencyCode, "active", true, "adminId", admin.username()));
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -118,10 +129,11 @@ public class AgencyAdminController {
     @PostMapping("/{agencyCode}/deactivate")
     public ResponseEntity<Map<String, Object>> deactivate(
             @PathVariable String agencyCode,
-            @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId) {
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
 
-        agencyAdminService.deactivate(agencyCode, adminId);
-        return ResponseEntity.ok(Map.of("agencyCode", agencyCode, "active", false, "adminId", adminId));
+        tenantScope.checkService(admin, agencyCode);
+        agencyAdminService.deactivate(agencyCode, admin.username());
+        return ResponseEntity.ok(Map.of("agencyCode", agencyCode, "active", false, "adminId", admin.username()));
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -132,10 +144,11 @@ public class AgencyAdminController {
     @PostMapping("/{agencyCode}/rotate-key")
     public ResponseEntity<Map<String, String>> rotateApiKey(
             @PathVariable String agencyCode,
-            @RequestHeader(value = "X-Admin-Id", defaultValue = "SYSTEM") String adminId) {
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
 
-        log.warn("[AdminCtrl] API Key 로테이션: agencyCode={} adminId={}", agencyCode, adminId);
-        Map<String, String> result = agencyAdminService.rotateApiKey(agencyCode, adminId);
+        log.warn("[AdminCtrl] API Key 로테이션: agencyCode={} adminId={}", agencyCode, admin.username());
+        tenantScope.checkService(admin, agencyCode);
+        Map<String, String> result = agencyAdminService.rotateApiKey(agencyCode, admin.username());
         return ResponseEntity.ok(result);
     }
 
@@ -145,7 +158,8 @@ public class AgencyAdminController {
     // ────────────────────────────────────────────────────────────────────────
 
     @GetMapping("/{agencyCode}/history")
-    public ResponseEntity<List<Map<String, Object>>> getHistory(@PathVariable String agencyCode) {
+    public ResponseEntity<List<Map<String, Object>>> getHistory(@PathVariable String agencyCode, io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
+        tenantScope.checkService(admin, agencyCode);
         return ResponseEntity.ok(agencyAdminService.getHistory(agencyCode));
     }
 
@@ -155,7 +169,8 @@ public class AgencyAdminController {
     // ────────────────────────────────────────────────────────────────────────
 
     @GetMapping("/{agencyCode}/stats")
-    public ResponseEntity<Map<String, Object>> getStats(@PathVariable String agencyCode) {
+    public ResponseEntity<Map<String, Object>> getStats(@PathVariable String agencyCode, io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
+        tenantScope.checkService(admin, agencyCode);
         return ResponseEntity.ok(agencyAdminService.getStats(agencyCode));
     }
 

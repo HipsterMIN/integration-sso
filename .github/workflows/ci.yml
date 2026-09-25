@@ -338,6 +338,8 @@ jobs:
           QIM_AES_SHARED_KEY=$(openssl rand -base64 32)
           QIM_DI_SECRET=$(openssl rand -hex 32)
           QIM_CI_AES_KEY_V1=$(openssl rand -base64 32)
+          IDEM_ADMIN_BOOTSTRAP_PASSWORD=Ci-$(openssl rand -hex 12)-Aa
+          IDEM_ADMIN_SECRET_KEY=$(openssl rand -base64 32)
           IDO_CAST_PRIVATE_KEY=$(openssl pkey -in /tmp/cast.pem -outform DER | base64 -w0)
           IDO_CAST_PUBLIC_KEY=$(openssl pkey -in /tmp/cast.pem -pubout -outform DER | base64 -w0)
           IDEM_PLUGINS_MOCK_AUTH_ENABLED=true
@@ -416,8 +418,12 @@ jobs:
           for n in registry authz gate hub; do echo "──── $n ────"; grep -m5 -iE "error|exception|Caused by" /tmp/idem/$n.log | cut -c1-400; done
           exit 1
 
-      - name: 설치본 스모크 (scripts/ci/install-smoke.sh)
-        run: IDEM_EDITION=core scripts/ci/install-smoke.sh
+      - name: 설치본 스모크 (scripts/ci/install-smoke.sh — 관리자 로그인(2단계)·온보딩·감사까지)
+        run: |
+          # 첫 로그인 비밀번호 변경(S7)에 쓸 1회용 값 — 로그에 남지 않도록 마스킹
+          export IDEM_ADMIN_NEW_PASSWORD="Ci-$(openssl rand -hex 12)-Bb"
+          echo "::add-mask::$IDEM_ADMIN_NEW_PASSWORD"
+          IDEM_EDITION=core scripts/ci/install-smoke.sh
 
       - name: k6 설치
         run: |

@@ -1149,28 +1149,30 @@ curl http://localhost:8084/actuator/health
 
 #### Admin API — 기관 관리
 
+관리 API 는 관리자 세션(비밀번호 + 2단계 TOTP) 뒤에 있다(S7, `docs/admin-auth.md`). 로컬 hub 는 `IDEM_ADMIN_BOOTSTRAP_PASSWORD` 로 첫 관리자 `admin` 을 만든다.
+`scripts/lib/admin-login.sh` 가 로그인(첫 로그인이면 2단계 등록·비밀번호 변경까지)해 세션 쿠키 값을 돌려준다.
+
 ```bash
+export IDEM_ADMIN_PASSWORD='…' IDEM_ADMIN_NEW_PASSWORD='…' IDEM_ADMIN_TOTP_SECRET_FILE=~/.idem/admin-totp-secret
+SID=$(scripts/lib/admin-login.sh)
+ADM=(-H "Cookie: idemAdminSid=$SID" -H 'X-Requested-With: dev')     # 쓰기 요청은 X-Requested-With 가 없으면 403
+
 # 기관 목록 조회
-curl -s http://localhost:8083/api/v1/admin/agencies \
-  -H "X-Admin-Id: local-admin" | python3 -m json.tool
+curl -s http://localhost:8083/api/v1/admin/agencies "${ADM[@]}" | python3 -m json.tool
 
 # 기관 상세 조회 (agency-stub 기본 기관코드 사용)
 # (D3) 운영 마이그레이션에는 시드 기관이 없다 — 먼저 scripts/dev/seed-dev-agencies.sh 로 AGENCY_STUB_001 을 만들고 출력된 API 키를 쓴다
-curl -s http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001 \
-  -H "X-Admin-Id: local-admin" | python3 -m json.tool
+curl -s http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001 "${ADM[@]}" | python3 -m json.tool
 
 # 기관 통계 조회
-curl -s http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001/stats \
-  -H "X-Admin-Id: local-admin" | python3 -m json.tool
+curl -s http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001/stats "${ADM[@]}" | python3 -m json.tool
 
 # API 키 로테이션 (새 키 발급)
-curl -s -X POST http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001/rotate-key \
-  -H "X-Admin-Id: local-admin" \
+curl -s -X POST http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001/rotate-key "${ADM[@]}" \
   -H "Content-Type: application/json" | python3 -m json.tool
 ```
 
-> ⚠️ `X-Admin-Id` 헤더는 내부 네트워크 접근 가정 하에 관리자 식별에 사용됩니다.  
-> 운영 환경에서는 X-Admin-Token 검증 및 내부 네트워크 접근 제한이 적용됩니다.
+> 종전 `X-Admin-Id` 헤더는 아무 효력이 없다(무인증 → `401 E-IDO-130`).
 
 #### Rate Limiter — Redis 상태 확인
 
@@ -2760,10 +2762,10 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
 
 **원인 및 해결:**
 
-1. **X-Admin-Id 헤더 누락**
+1. **관리자 세션 없음 (401 E-IDO-130) · `X-Requested-With` 없는 쓰기 (403 E-IDO-131)**
    ```bash
-   # X-Admin-Id 헤더 반드시 포함
-   curl -H "X-Admin-Id: local-admin" \
+   SID=$(scripts/lib/admin-login.sh)      # IDEM_ADMIN_PASSWORD 필요 — docs/admin-auth.md
+   curl -H "Cookie: idemAdminSid=$SID" -H 'X-Requested-With: dev' \
      http://localhost:8083/api/v1/admin/agencies
    ```
 
@@ -3211,7 +3213,7 @@ Step 5 — 프론트엔드 기동 (1개 터미널)
 □ Monitoring 스택 기동: docker compose --profile monitoring up -d
 □ Prometheus 정상: http://localhost:9090/-/healthy
 □ Grafana 정상: http://localhost:3002 (admin/admin)
-□ Admin API 동작 확인: curl -H "X-Admin-Id: local-admin" http://localhost:8083/api/v1/admin/agencies
+□ Admin API 동작 확인: SID=$(scripts/lib/admin-login.sh); curl -H "Cookie: idemAdminSid=$SID" http://localhost:8083/api/v1/admin/agencies
 □ Rate Limiter Redis 키 확인: KEYS ido:rl:*
 □ PKCE 활성화 확인: grep pkce idem-gate/src/main/resources/application.yml
 □ AES 키 버전 확인: GET ido:crypto:aes:current-version

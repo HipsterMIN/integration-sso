@@ -78,18 +78,8 @@ class NiceAuthIntegrationTest extends IntegrationTestBase {
         assertThat(body.get("redirectUrl").asText()).isEqualTo("https://nice.example.org/auth?tx=1");
     }
 
-    @Test
-    @DisplayName("코어 에디션에는 KR 엔드포인트가 없다 — /auth/nice/ci-check·/auth/nice/phone/url·/auth/oacx/easysign·/auth/callback·/member/lookup·/conversion/init·/fe-session/conversion → 404")
-    void coreEdition_hasNoKrEndpoints() {
-        assertThat(postJson("/api/v1/auth/nice/ci-check", "{\"ci\":\"x\",\"mbrDvsnCd\":\"A101\"}").getStatusCode().value()).isEqualTo(404);
-        assertThat(restTemplate.getForEntity(baseUrl + "/api/v1/auth/nice/phone/url?returnUrl=https://fe.example.org/x", String.class)
-                .getStatusCode().value()).isEqualTo(404);
-        assertThat(postJson("/api/v1/auth/oacx/easysign", "{\"fn\":\"INVALID\",\"status\":\"success\",\"res\":{}}").getStatusCode().value()).isEqualTo(404);
-        assertThat(postJson("/api/v1/auth/callback", "{}").getStatusCode().value()).isEqualTo(404);
-        assertThat(postJson("/api/v1/member/lookup", "{}").getStatusCode().value()).isEqualTo(404);
-        assertThat(postJson("/api/v1/conversion/init", "{}").getStatusCode().value()).isEqualTo(404);
-        assertThat(postJson("/api/v1/fe-session/conversion", "{}").getStatusCode().value()).isEqualTo(404);
-    }
+    // D3-b 에서 KR 에디션으로 옮겨진 뒤 "코어에는 KR 엔드포인트가 없다" 검사는 이 컨텍스트(KR 에디션)에서 성립하지 않아 제거했다
+    // — 코어 404 는 CI 설치본 스모크(scripts/ci/install-smoke.sh) 가 코어 hub 에 대해 검사한다
 
     private ResponseEntity<String> postJson(String path, String body) {
         HttpHeaders headers = new HttpHeaders();

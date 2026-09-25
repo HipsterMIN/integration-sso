@@ -40,7 +40,8 @@ public class FailSecureBootGuard {
             "ido.q-authz.allow-empty-api-key",
             "ido.kms.local.allow-in-prod",
             "ido.kms.vault.allow-empty-token",
-            "idem.plugins.mock-auth.enabled"
+            "idem.plugins.mock-auth.enabled",
+            "ido.admin.allow-derived-secret-key"          // S7: 관리자 TOTP 봉인 키 파생은 로컬 전용
     );
 
     /** 운영·스테이지에서 false 이면 기동 거부 */
@@ -49,7 +50,10 @@ public class FailSecureBootGuard {
             "ido.security-headers.enabled",
             "ido.auth.rate-limit.enabled",
             "ido.rate-limit.enabled",
-            "ido.redisson.enabled"
+            "ido.redisson.enabled",
+            "ido.admin.cookie.secure",                   // S7: 관리자 세션 쿠키는 운영에서 Secure
+            "ido.admin.mfa.required",                    // S7: 운영은 2단계 인증 필수
+            "ido.admin.bootstrap.require-password-change"
     );
 
     static final Set<String> HARDENED_PROFILES = Set.of("prod", "stage");

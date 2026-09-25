@@ -222,7 +222,7 @@ class IdentityContractIntegrationTest extends IntegrationTestBase {
     private void putProfile(String code, String body) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
-        h.set("X-Admin-Id", "s4-admin");
+        withAdmin(h, restTemplate, url(""));
         ResponseEntity<String> res = restTemplate.exchange(url("/api/v1/admin/services/" + code + "/profile"),
                 HttpMethod.PUT, new HttpEntity<>(body, h), String.class);
         assertThat(res.getStatusCode().value()).as("profile PUT body=%s", res.getBody()).isEqualTo(200);
