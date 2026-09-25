@@ -69,6 +69,10 @@ public class OidcCompleteRequest {
     /** 인증 완료 후 이동할 기관 returnUrl */
     private String returnUrl;
 
+    /** S6 PR-2: Keycloak id_token 의 sub·sid — FE 세션에 남겨 SLO·Back-Channel Logout 이 찾는다 (선택) */
+    private String idpSub;
+    private String idpSid;
+
     /** 스킴 중립 해석 — {@code subjectScheme} 우선, 구 {@code ci} 필드는 CI 스킴 별칭. */
     public SubjectScheme resolvedSubjectScheme() {
         if (subjectScheme != null && !subjectScheme.isBlank()) {

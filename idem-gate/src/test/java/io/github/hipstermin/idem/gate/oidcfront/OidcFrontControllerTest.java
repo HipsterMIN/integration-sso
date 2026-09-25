@@ -83,8 +83,11 @@ class OidcFrontControllerTest {
         HubAccessClient hubClient = new HubAccessClient(new RestTemplate(), om);
         ReflectionTestUtils.setField(hubClient, "idoBaseUrl", "http://localhost:" + hub.port());
         ReflectionTestUtils.setField(hubClient, "internalSigSecret", "0123456789abcdef0123456789abcdef");
-        OidcRpPolicyGate gate = new OidcRpPolicyGate(jwksVerifier, hubClient, cache, kcProps, props, om, proxyRt);
-        mvc = MockMvcBuilders.standaloneSetup(new OidcFrontController(kcProps, props, proxy, gate)).build();
+        HubSessionClient hubSession = new HubSessionClient(new RestTemplate());
+        ReflectionTestUtils.setField(hubSession, "idoBaseUrl", "http://localhost:" + hub.port());
+        ReflectionTestUtils.setField(hubSession, "internalSigSecret", "0123456789abcdef0123456789abcdef");
+        OidcRpPolicyGate gate = new OidcRpPolicyGate(jwksVerifier, hubClient, hubSession, cache, kcProps, props, om, proxyRt);
+        mvc = MockMvcBuilders.standaloneSetup(new OidcFrontController(kcProps, props, proxy, gate, hubSession, cache)).build();
         given(cache.get(anyString(), anyString())).willReturn(Optional.empty());
     }
 
@@ -302,6 +305,23 @@ class OidcFrontControllerTest {
         } finally {
             kc.start();
         }
+    }
+
+    @Test
+    @DisplayName("RP-Initiated Logout(S6 PR-2): id_token_hint 의 sub·sid 로 판정 캐시를 비우고 hub 에 알린 뒤 Keycloak 에 전달한다")
+    void rpInitiatedLogout_cleansIdemSideThenForwards() throws Exception {
+        kc.stubFor(WireMock.get(urlPathEqualTo("/realms/onepass/protocol/openid-connect/logout"))
+                .willReturn(aResponse().withStatus(302).withHeader("Location", "https://rp.example.org/")));
+        given(jwksVerifier.verify(eq("hint.p.s"), anyString())).willReturn(claims("kc-sub", "idem-svc-AG1", "social-kakao", "1"));
+        hub.stubFor(WireMock.post(urlEqualTo("/api/internal/v1/session/idp-logout"))
+                .withRequestBody(containing("\"sub\":\"kc-sub\"")).withRequestBody(containing("\"sid\":\"sid-1\""))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody("{\"expired\":1}")));
+        mvc.perform(get("/realms/onepass/protocol/openid-connect/logout").param("id_token_hint", "hint.p.s")
+                        .param("post_logout_redirect_uri", "https://rp.example.org/"))
+                .andExpect(status().isFound()).andExpect(header().string("Location", "https://rp.example.org/"));
+        hub.verify(1, postRequestedFor(urlEqualTo("/api/internal/v1/session/idp-logout")).withHeader("X-Internal-Sig", matching("[0-9a-f]{64}")));
+        org.mockito.Mockito.verify(cache).evictBySub("kc-sub");
+        assertThat(kc.getAllServeEvents().get(0).getRequest().getUrl()).contains("id_token_hint=hint.p.s");
     }
 
     @Test

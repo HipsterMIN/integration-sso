@@ -200,6 +200,8 @@ prod/stage 에서 **반드시 true** 여야 하는 것: `IDO_AUDIT_DB_ENABLED`, 
 
 **런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응 · `E-IDO-121` 연동 유형 불일치 — 400, OIDC_RP 기관에 Handoff 발급 요청 · `E-IDO-122` OIDC client 프로비저닝 실패 — 503, Keycloak 관리 API 장애 또는 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 미설정, 프로파일 저장이 되돌려진다 · `E-IDO-123` Idem 이 프로비저닝하지 않은 OIDC client — 403, 토큰 교환의 `client_id` 가 `idem-svc-*` 가 아니거나 프로파일이 OIDC_RP 가 아님): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
 
+**단일 로그아웃 (S6 PR-2)**: `POST /api/v1/slo/initiate` 는 FE 세션이 기억한 Keycloak `sid` 로 정확히 그 세션을 끊는다(gate `[KeycloakLogout] 세션 종료(sid)`). gate 로그에 `KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET 이 설정되지 않아` 가 보이면 FE 세션만 끝나고 Keycloak 세션이 남는 상태다. 기관 RP 의 로그아웃이 Idem FE 세션까지 끝내는지는 gate `[BC-LOGOUT] 수신 처리` 와 hub `[IdpLogout] FE 세션 만료` 로 확인한다 — realm 의 내부 client(`q-sign-client`·`ido-client`)에 `backchannel.logout.url` 이 없으면(S6 PR-2 이전 import) 콘솔에서 한 번 넣거나 `keycloak-data` 를 재import 한다.
+
 **표준 OIDC(OIDC_RP) 경로 (S6)**: 기관 RP 의 토큰 교환이 `403 access_denied` 면 `error_description` 첫 토큰이 위 코드다(정책 거부). `503 temporarily_unavailable` 은 hub 판정 API(`/api/internal/v1/oidc-rp/access`) 또는 Keycloak 이 닿지 않는 것이다 — gate 로그 `[OIDC-FRONT]` 와 hub 로그 `[OidcRpAccess]` 를 본다. 프로파일 저장이 `E-IDO-122` 면 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 과 Keycloak 의 `idem-provisioner` client secret 이 같은지 확인한다(realm import 는 첫 기동에만 적용된다).
 
 ## 4. 데이터베이스 운영

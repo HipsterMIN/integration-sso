@@ -91,6 +91,16 @@ spring:
 # ── Agency-Stub 도메인 설정 ────────────────────────────────────
 agency-stub:
   code: AGENCY_STUB_001
+  # S6 PR-2: 기관이 Idem 에 붙는 방식 — HANDOFF(기본, /agency/entry) | OIDC_RP(표준 OIDC, /agency/oidc/login).
+  # Idem 쪽 Service Profile 의 protocol.type 과 같아야 한다. 세션 저장·쿠키·웹훅은 두 방식이 같다.
+  protocol: ${AGENCY_PROTOCOL:HANDOFF}
+  oidc:
+    # Idem 에서 받는 셋 — issuer 는 {IDEM_PUBLIC_URL_GATE}/realms/{realm}, client 는 프로파일 저장 시 프로비저닝, secret 은 회전 API 로 1회 수령
+    issuer: ${IDEM_OIDC_ISSUER:http://localhost:8081/realms/onepass}
+    client-id: ${AGENCY_OIDC_CLIENT_ID:}
+    client-secret: ${AGENCY_OIDC_CLIENT_SECRET:}
+    redirect-uri: ${AGENCY_OIDC_REDIRECT_URI:http://localhost:8084/agency/oidc/callback}
+    post-logout-redirect-uri: ${AGENCY_OIDC_POST_LOGOUT_URI:http://localhost:8084/}
   # §11 IdO Verify API 연동
   ido:
     base-url: ${IDO_BASE_URL:http://localhost:8083}

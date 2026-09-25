@@ -169,6 +169,11 @@ qsign:
     http:
       connect-timeout-ms: 3000
       read-timeout-ms: 5000
+    # S6 PR-2: SLO 가 Keycloak 세션을 끊을 때 쓰는 서비스 계정 (realm-management view-users·manage-users 만).
+    # realm-export.json 의 idem-session-manager 와 같은 값 — 미설정이면 SLO 의 Keycloak 단계가 실패로 기록된다(FE 세션은 끝난다)
+    session-manager:
+      client-id: ${KEYCLOAK_SESSION_MANAGER_CLIENT_ID:idem-session-manager}
+      client-secret: ${KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET:}
     # provider 식별자 → Keycloak kc_idp_hint 매핑
     # ido 가 전달하는 provider 이름을 Keycloak Identity Provider alias 로 변환
     idp-hint-mapping:

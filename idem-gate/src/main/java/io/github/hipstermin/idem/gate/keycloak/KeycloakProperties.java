@@ -95,6 +95,19 @@ public class KeycloakProperties {
      * provider 식별자 → Keycloak kc_idp_hint 매핑 테이블
      * 기본값: kakao→social-kakao, naver→social-naver, pass→social-pass, gpki→social-gpki
      */
+    /**
+     * S6 PR-2: 세션 종료 전용 서비스 계정 (realm-management {@code view-users}·{@code manage-users} 만).
+     * 종전에는 {@code q-sign-client}(서비스 계정 없음)로 admin 토큰을 받으려 해 SLO 의 Keycloak 단계가 항상 실패했다.
+     */
+    private SessionManager sessionManager = new SessionManager();
+
+    @Getter
+    @Setter
+    public static class SessionManager {
+        private String clientId = "idem-session-manager";
+        private String clientSecret = "";
+    }
+
     private Map<String, String> idpHintMapping = new HashMap<>(Map.of(
             "kakao", "social-kakao",
             "naver", "social-naver",

@@ -48,6 +48,8 @@ public class OidcFrontController {
     private final OidcFrontProperties props;
     private final KeycloakProxy proxy;
     private final OidcRpPolicyGate policyGate;
+    private final HubSessionClient hubSessionClient;
+    private final AccessDecisionCache decisionCache;
 
     // ── Discovery ──────────────────────────────────────────────────────────
 
@@ -129,6 +131,25 @@ public class OidcFrontController {
         h.setContentType(MediaType.APPLICATION_JSON);
         h.setCacheControl("no-store");
         return ResponseEntity.ok().headers(h).body(enriched.get().getBytes(StandardCharsets.UTF_8));
+    }
+
+    // ── RP-Initiated Logout — Idem 쪽 정리 후 전달 ───────────────────────────
+
+    /**
+     * {@code end_session_endpoint}: 기관 RP 가 보낸 로그아웃. Keycloak 이 세션을 끝내면서 참여 client 들에 Back-Channel Logout 을
+     * 보내지만, 그 전에 gate 의 판정 캐시를 비우고 hub 에도 알린다({@code id_token_hint} 의 sub·sid — 서명 검증 뒤).
+     */
+    @RequestMapping(value = "/realms/{realm}/protocol/openid-connect/logout", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<byte[]> logout(@PathVariable String realm, HttpServletRequest request) throws IOException {
+        if (!realm.equals(keycloak.getRealm())) return notFound();
+        byte[] body = "POST".equals(request.getMethod()) ? StreamUtils.copyToByteArray(request.getInputStream()) : null;
+        String hint = request.getParameter("id_token_hint");
+        if (hint == null && body != null) hint = parseForm(body).get("id_token_hint");
+        if (hint != null && !hint.isBlank()) {
+            String cid = Optional.ofNullable(request.getHeader("X-Correlation-Id")).orElse(UUID.randomUUID().toString());
+            policyGate.onRpInitiatedLogout(hint, cid);
+        }
+        return proxy.forward(request, body);
     }
 
     // ── 나머지 Keycloak 경로 — 투명 프록시 ───────────────────────────────────

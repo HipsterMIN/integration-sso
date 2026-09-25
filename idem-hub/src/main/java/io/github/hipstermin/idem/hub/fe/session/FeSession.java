@@ -45,6 +45,11 @@ public class FeSession {
     /** 딥링크 진입 시 복귀할 returnUrl (화이트리스트 검증 완료) */
     private final String returnUrl;
 
+    /** S6 PR-2: 이 FE 세션을 만든 Keycloak 로그인의 sub(사용자 UUID)·sid(세션 ID). SLO 가 정확히 그 세션만 끊고,
+     *  Back-Channel Logout 이 sid 로 이 세션을 찾는다. 본인확인 SPI 경로 등 Keycloak 을 거치지 않으면 null. */
+    private final String idpSub;
+    private final String idpSid;
+
     /**
      * Advisory 플래그: 다음 요청 시 로그아웃 안내 여부
      * SessionAdvisoryEvent.TYPE_SESSION_LOGOUT_HINT 수신 시 true
@@ -67,6 +72,8 @@ public class FeSession {
                 .lastActivityAt(lastActivityAt)
                 .absoluteExpiresAt(absoluteExpiresAt)
                 .returnUrl(returnUrl)
+                .idpSub(idpSub)
+                .idpSid(idpSid)
                 .advisoryFlag(flag)
                 .build();
     }

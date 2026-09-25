@@ -116,7 +116,7 @@ public class AgencySessionService {
                 """,
                 sessionId, agsidHash, agencyUserId, ticketId, correlationId,
                 authLevel, ipAddress, truncate(userAgent, 500),
-                now, now, idleExp, absExp
+                java.sql.Timestamp.from(now), java.sql.Timestamp.from(now), java.sql.Timestamp.from(idleExp), java.sql.Timestamp.from(absExp)
         );
 
         // ⑥ last_login_at 갱신
@@ -124,7 +124,7 @@ public class AgencySessionService {
                 UPDATE agency_stub.agency_user
                 SET last_login_at = ?, updated_at = ?
                 WHERE agency_user_id = ?
-                """, now, now, agencyUserId);
+                """, java.sql.Timestamp.from(now), java.sql.Timestamp.from(now), agencyUserId);
 
         // ⑦ 세션 이벤트 로그
         insertSessionEventLog(sessionId, agencyUserId, "SESSION_CREATED", correlationId, ipAddress,
@@ -197,7 +197,7 @@ public class AgencySessionService {
                 UPDATE agency_stub.agency_local_session
                 SET    last_accessed_at = ?, idle_expires_at = ?
                 WHERE  agsid = ? AND invalidated_at IS NULL
-                """, now, newExp, agsidHash);
+                """, java.sql.Timestamp.from(now), java.sql.Timestamp.from(newExp), agsidHash);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -302,7 +302,7 @@ public class AgencySessionService {
                 VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?, ?)
                 """,
                 newUserId, agencySubjectId, qimUserId,
-                agencyCode, now, now, now);
+                agencyCode, java.sql.Timestamp.from(now), java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
 
         log.info("[AgencySessionService] 신규 사용자 생성: agencyUserId={} qimUserId={}", newUserId, qimUserId);
         return newUserId;
@@ -383,7 +383,7 @@ public class AgencySessionService {
                     (event_id, consumer_group, event_type, result_code, processed_at)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT (event_id, consumer_group) DO NOTHING
-                """, eventId, consumerGroup, eventType, resultCode, Instant.now());
+                """, eventId, consumerGroup, eventType, resultCode, java.sql.Timestamp.from(Instant.now()));
     }
 
     // ══════════════════════════════════════════════════════════════════════

@@ -27,6 +27,9 @@ public class FeSessionServiceImpl implements FeSessionService {
 
     private static final String KEY_PREFIX      = "fe:session:";
     private static final String USER_SET_PREFIX = "fe:user-sessions:";
+    /** S6 PR-2: Keycloak sid → feSessionId, Keycloak sub → feSessionId 집합 (SLO·Back-Channel Logout 역인덱스) */
+    private static final String IDP_SID_PREFIX  = "fe:idp-sid:";
+    private static final String IDP_SUB_PREFIX  = "fe:idp-sub:";
 
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -44,6 +47,12 @@ public class FeSessionServiceImpl implements FeSessionService {
     @Override
     public FeSession create(String qimUserId, String authResultId,
                             String authLevel, String returnUrl) {
+        return create(qimUserId, authResultId, authLevel, returnUrl, null, null);
+    }
+
+    @Override
+    public FeSession create(String qimUserId, String authResultId, String authLevel, String returnUrl,
+                            String idpSub, String idpSid) {
         String sessionId = generateSessionId();
         Instant now      = Instant.now();
 
@@ -56,6 +65,8 @@ public class FeSessionServiceImpl implements FeSessionService {
                 .lastActivityAt(now)
                 .absoluteExpiresAt(now.plus(Duration.ofMinutes(absoluteTimeoutMinutes)))
                 .returnUrl(returnUrl)
+                .idpSub(idpSub)
+                .idpSid(idpSid)
                 .advisoryFlag(false)
                 .build();
 
@@ -66,6 +77,16 @@ public class FeSessionServiceImpl implements FeSessionService {
         String userSetKey = USER_SET_PREFIX + qimUserId;
         redisTemplate.opsForSet().add(userSetKey, sessionId);
         redisTemplate.expire(userSetKey, Duration.ofMinutes(absoluteTimeoutMinutes));
+
+        // S6 PR-2: IdP 세션 역인덱스 — sid 는 1:1, sub 는 집합
+        if (idpSid != null && !idpSid.isBlank()) {
+            redisTemplate.opsForValue().set(IDP_SID_PREFIX + idpSid, sessionId, Duration.ofMinutes(absoluteTimeoutMinutes));
+        }
+        if (idpSub != null && !idpSub.isBlank()) {
+            String subSetKey = IDP_SUB_PREFIX + idpSub;
+            redisTemplate.opsForSet().add(subSetKey, sessionId);
+            redisTemplate.expire(subSetKey, Duration.ofMinutes(absoluteTimeoutMinutes));
+        }
 
         log.info("[FeSession] 세션 생성 feSessionId={} qimUserId={} authLevel={}",
                 sessionId, qimUserId, authLevel);
@@ -103,6 +124,8 @@ public class FeSessionServiceImpl implements FeSessionService {
                 .qimUserId(old.getQimUserId())
                 .authResultId(old.getAuthResultId())
                 .authLevel(old.getAuthLevel())
+                .idpSub(old.getIdpSub())
+                .idpSid(old.getIdpSid())
                 .createdAt(old.getCreatedAt())
                 .lastActivityAt(Instant.now())
                 .absoluteExpiresAt(old.getAbsoluteExpiresAt())
@@ -124,9 +147,38 @@ public class FeSessionServiceImpl implements FeSessionService {
             FeSession session = castSession(raw);
             String userSetKey = USER_SET_PREFIX + session.getQimUserId();
             redisTemplate.opsForSet().remove(userSetKey, feSessionId);
+            if (session.getIdpSid() != null) redisTemplate.delete(IDP_SID_PREFIX + session.getIdpSid());
+            if (session.getIdpSub() != null) redisTemplate.opsForSet().remove(IDP_SUB_PREFIX + session.getIdpSub(), feSessionId);
         }
         redisTemplate.delete(key);
         log.info("[FeSession] 세션 만료 feSessionId={}", feSessionId);
+    }
+
+    // ── S6 PR-2: IdP(Keycloak) 세션 종료 통지 → FE 세션 만료 ─────────────────
+
+    @Override
+    public int invalidateByIdpSession(String idpSub, String idpSid, String reason) {
+        int count = 0;
+        if (idpSid != null && !idpSid.isBlank()) {
+            Object feId = redisTemplate.opsForValue().get(IDP_SID_PREFIX + idpSid);
+            if (feId != null) {
+                expire(feId.toString());
+                count++;
+            }
+            redisTemplate.delete(IDP_SID_PREFIX + idpSid);
+        } else if (idpSub != null && !idpSub.isBlank()) {
+            Set<Object> ids = redisTemplate.opsForSet().members(IDP_SUB_PREFIX + idpSub);
+            if (ids != null) {
+                for (Object id : ids) {
+                    expire(id.toString());
+                    count++;
+                }
+            }
+            redisTemplate.delete(IDP_SUB_PREFIX + idpSub);
+        }
+        log.info("[FeSession] IdP 세션 종료 → FE 세션 만료 count={} sid={} sub={} reason={}", count,
+                idpSid != null ? "set" : "none", idpSub != null ? "set" : "none", reason);
+        return count;
     }
 
     // ── returnUrl 화이트리스트 검증 (§12.6) ──────────────────────────────
@@ -205,6 +257,8 @@ public class FeSessionServiceImpl implements FeSessionService {
             Map<String, Object> m = (Map<String, Object>) map;
             return FeSession.builder()
                     .feSessionId(str(m, "feSessionId"))
+                    .idpSub(str(m, "idpSub"))
+                    .idpSid(str(m, "idpSid"))
                     .qimUserId(str(m, "qimUserId"))
                     .authResultId(str(m, "authResultId"))
                     .authLevel(str(m, "authLevel"))

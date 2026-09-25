@@ -156,7 +156,9 @@ public class KeycloakOidcService {
                 qimUserId,    // 실제 Q-IM 사용자 ID — SSO Handoff 정확성 보장
                 authResultId,
                 authLevel,
-                stateEntry.getReturnUrl()
+                stateEntry.getReturnUrl(),
+                claims.getSubject(),       // S6 PR-2: Keycloak sub·sid → SLO·Back-Channel Logout
+                claims.getSessionId()
         );
 
         // ── 12. OIDC 세션 로그 기록 ──────────────────────────────────────

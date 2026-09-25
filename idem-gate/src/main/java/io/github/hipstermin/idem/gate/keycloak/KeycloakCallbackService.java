@@ -166,7 +166,7 @@ public class KeycloakCallbackService {
                 System.currentTimeMillis() - startMs);
 
         // ── 11. ido FE 세션 발급 요청 ────────────────────────────────────
-        String redirectUrl = notifyIdoAndGetRedirect(authResult, returnUrl);
+        String redirectUrl = notifyIdoAndGetRedirect(authResult, returnUrl, claims.getSubject(), claims.getSessionId());
 
         log.info("[KeycloakCallback] 인증 완료: authResultId={} → redirect={}",
                 authResult.getAuthResultId(), redirectUrl);
@@ -332,7 +332,7 @@ public class KeycloakCallbackService {
      *
      * @return ido 가 반환한 최종 redirect URL
      */
-    private String notifyIdoAndGetRedirect(AuthResult authResult, String returnUrl) {
+    private String notifyIdoAndGetRedirect(AuthResult authResult, String returnUrl, String idpSub, String idpSid) {
         String url = idoBaseUrl + "/api/internal/v1/oidc/complete";
 
         HttpHeaders headers = new HttpHeaders();
@@ -341,14 +341,16 @@ public class KeycloakCallbackService {
         headers.set("X-Internal-Caller", SOURCE_SYSTEM);
         headers.set("X-Internal-Sig",    buildInternalSig(authResult.getCorrelationId()));
 
-        Map<String, Object> body = Map.of(
-                "authResultId",   authResult.getAuthResultId(),
-                "identifierHash", authResult.getIdentifierHash(),
-                "authLevel",      authResult.getAuthLevel().name(),
-                "providerCode",   authResult.getProviderCode(),
-                "correlationId",  authResult.getCorrelationId(),
-                "returnUrl",      returnUrl != null ? returnUrl : ""
-        );
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("authResultId",   authResult.getAuthResultId());
+        body.put("identifierHash", authResult.getIdentifierHash());
+        body.put("authLevel",      authResult.getAuthLevel().name());
+        body.put("providerCode",   authResult.getProviderCode());
+        body.put("correlationId",  authResult.getCorrelationId());
+        body.put("returnUrl",      returnUrl != null ? returnUrl : "");
+        // S6 PR-2: hub FE 세션이 Keycloak sub·sid 를 기억해 SLO·Back-Channel Logout 이 정확히 그 세션을 찾는다
+        if (idpSub != null) body.put("idpSub", idpSub);
+        if (idpSid != null) body.put("idpSid", idpSid);
 
         try {
             ResponseEntity<Map> resp = restTemplate.exchange(

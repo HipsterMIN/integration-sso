@@ -63,19 +63,17 @@ public class InternalSessionController {
             return ResponseEntity.status(401).build();
         }
 
-        // ② sub 파라미터 검증
+        // ② sub / sid — S6 PR-2: hub 가 FE 세션에 남긴 Keycloak sub(사용자 UUID)·sid(세션 ID). 둘 다 없으면 400
         String sub = body.get("sub");
-        if (sub == null || sub.isBlank()) {
-            log.warn("[InternalSession] 요청 body에 sub 누락: correlationId={}", cid);
+        String sid = body.get("sid");
+        if ((sub == null || sub.isBlank()) && (sid == null || sid.isBlank())) {
+            log.warn("[InternalSession] 요청 body에 sub·sid 누락: correlationId={}", cid);
             return ResponseEntity.badRequest().build();
         }
-
-        log.info("[InternalSession] Keycloak 세션 종료 요청: sub={} caller={} correlationId={}", sub, caller, cid);
-
-        // ③ Keycloak 세션 강제 종료 (비치명적 — 실패해도 204 반환)
-        keycloakLogoutService.revokeKeycloakSession(sub, cid);
-
-        return ResponseEntity.noContent().build();
+        log.info("[InternalSession] Keycloak 세션 종료 요청: sid={} caller={} correlationId={}", sid != null, caller, cid);
+        // ③ Keycloak 세션 강제 종료 (비치명적 — 실패해도 204 반환, 결과는 헤더로)
+        KeycloakLogoutService.Outcome outcome = keycloakLogoutService.revoke(sub, sid, cid);
+        return ResponseEntity.noContent().header("X-Idp-Logout-Outcome", outcome.name()).build();
     }
 
     // ── private ────────────────────────────────────────────────────────────

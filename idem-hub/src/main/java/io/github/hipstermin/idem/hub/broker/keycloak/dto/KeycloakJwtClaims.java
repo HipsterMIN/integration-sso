@@ -55,6 +55,10 @@ public class KeycloakJwtClaims {
     @JsonProperty("identity_provider")
     private String identityProvider;
 
+    /** S6 PR-2: Keycloak 세션 ID — FE 세션에 남겨 SLO 가 정확히 그 세션을 끊는다. */
+    @JsonProperty("sid")
+    private String sessionId;
+
     /**
      * 인증 수준 (§10-4 ACR Mapper 필요)
      * 예: "1" → L1, "2" → L2, "3" → L3

@@ -68,8 +68,12 @@ public class SloServiceImpl implements SloService {
         log.info("[SLO] SLO 시작: qimUserId={} feSessionId={} correlationId={}",
                 qimUserId, feSessionId, correlationId);
 
-        // ① Q-Sign → Keycloak 세션 종료 (비치명적)
-        revokeKeycloakSessionSafely(qimUserId, correlationId);
+        // ① Q-Sign → Keycloak 세션 종료 (비치명적) — S6 PR-2: FE 세션이 기억하는 Keycloak sub·sid 로 정확히 그 세션만
+        if (session.getIdpSub() != null || session.getIdpSid() != null) {
+            revokeKeycloakSessionSafely(session.getIdpSub(), session.getIdpSid(), qimUserId, correlationId);
+        } else {
+            log.info("[SLO] Keycloak 세션 정보 없음(비 Keycloak 로그인) — IdP 단계 건너뜀: qimUserId={} correlationId={}", qimUserId, correlationId);
+        }
 
         // ② 기관 로그아웃 Webhook Outbox 적재 (비치명적)
         enqueueLogoutWebhookSafely(qimUserId, correlationId);
@@ -88,7 +92,7 @@ public class SloServiceImpl implements SloService {
      * <p>POST {qsignBaseUrl}/api/v1/internal/session/logout
      * X-Internal-Sig HMAC-SHA256 서명 포함
      */
-    private void revokeKeycloakSessionSafely(String qimUserId, String correlationId) {
+    private void revokeKeycloakSessionSafely(String idpSub, String idpSid, String qimUserId, String correlationId) {
         try {
             String url = qsignBaseUrl + "/api/v1/internal/session/logout";
 
@@ -98,11 +102,12 @@ public class SloServiceImpl implements SloService {
             headers.set("X-Internal-Caller", "ido");
             headers.set("X-Internal-Sig",    buildInternalSig(correlationId));
 
-            // qimUserId를 sub로 사용 (Keycloak preferred_username 또는 sub와 일치해야 함)
-            Map<String, String> body = Map.of(
-                    "sub",           qimUserId,
-                    "correlationId", correlationId
-            );
+            // S6 PR-2: 종전에는 qimUserId 를 Keycloak username 으로 넘겨 항상 실패했다 — 이제 id_token 의 sub·sid 를 넘긴다
+            Map<String, String> body = new java.util.HashMap<>();
+            body.put("correlationId", correlationId);
+            body.put("qimUserId", qimUserId);
+            if (idpSub != null) body.put("sub", idpSub);
+            if (idpSid != null) body.put("sid", idpSid);
 
             ResponseEntity<Void> resp = restTemplate.exchange(
                     url, HttpMethod.POST,
