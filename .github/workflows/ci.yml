@@ -573,7 +573,7 @@ jobs:
           NAME='${{ matrix.module.name }}'; ED='${{ matrix.module.edition }}'
           KEY="$NAME${ED:+-$ED}"
           TAGS="$REPO/$NAME:${{ github.sha }}${ED:+-$ED}"$'\n'"$REPO/$NAME:latest${ED:+-$ED}"
-          if [ -z "$ED" ] || [ "$ED" = "core" ]; then TAGS="$TAGS"$'\n'"$REPO/$NAME:${{ github.sha }}"$'\n'"$REPO/$NAME:latest"; fi
+          if [ "$ED" = "core" ]; then TAGS="$TAGS"$'\n'"$REPO/$NAME:${{ github.sha }}"$'\n'"$REPO/$NAME:latest"; fi   # 에디션 없는 모듈은 첫 줄이 이미 접미 없는 태그
           { echo "IMAGE_REPO=$REPO"; echo "CACHE_KEY=$KEY"; echo "IDEM_EDITION=${ED:-core}"; echo "IMAGE_TAGS<<EOF"; echo "$TAGS"; echo "EOF"; } >> "$GITHUB_ENV"
 
       # GitHub Actions 캐시를 Docker 레이어 캐시로 활용

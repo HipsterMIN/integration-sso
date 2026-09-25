@@ -56,6 +56,9 @@ COPY idem-relay/build.gradle.kts idem-relay/
 COPY idem-agent/build.gradle.kts   idem-agent/
 COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 COPY plugins/idem-plugin-nice-oacx/build.gradle.kts plugins/idem-plugin-nice-oacx/
+COPY plugins/idem-plugin-anyid/build.gradle.kts plugins/idem-plugin-anyid/
+COPY editions/idem-kr-hub/build.gradle.kts editions/idem-kr-hub/
+COPY editions/idem-kr-registry/build.gradle.kts editions/idem-kr-registry/
 
 # Gradle Wrapper 실행 권한 + 의존성 사전 다운로드
 RUN --mount=type=cache,target=/root/.gradle \
