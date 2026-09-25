@@ -48,6 +48,8 @@ openssl rand -hex 32
 | `QSIGN_KEYCLOAK_CLIENT_SECRET`, `KEYCLOAK_CLIENT_SECRET` | Keycloak client secret — realm import 와 앱이 같은 값을 읽는다 |
 | `IDO_HANDOFF_AES_KEY`, `IDO_HANDOFF_HMAC_KEY`, `IDO_WEBHOOK_SIGNING_SECRET` | Handoff 티켓·웹훅 서명 |
 | `QIM_AES_SHARED_KEY` | registry ↔ hub CI 전달 공유키 (base64 32바이트) |
+| `QIM_DI_SECRET`, `QIM_CI_AES_KEY_V1` | registry 기관별 식별자(DI) HMAC 비밀(hex 32)·저장 CI 암호화 키(base64 32바이트). (D3) 종전 예시에 빠져 registry 가 기동을 거부했다 — 바꾸면 기존 식별자·CI 를 잃는다 |
+| `KEYCLOAK_PROVISIONER_CLIENT_SECRET`, `KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET` | hub 의 OIDC client 프로비저닝 서비스 계정 · gate 의 단일 로그아웃 서비스 계정 |
 | `IDO_CAST_PRIVATE_KEY`, `IDO_CAST_PUBLIC_KEY` | SSO 토큰(CAST) Ed25519 서명키 — 아래 명령으로 생성. (D2) 없으면 hub 가 기동을 거부한다 |
 
 ```bash
@@ -153,6 +155,14 @@ docker compose --env-file infra/docker/install.env -f infra/docker/compose.insta
 
 ## 9. 이 문서에서 검증한 것 / 못 한 것
 
-- hub 가 Kafka 없이 기동해 스모크(k6)를 통과하는 것은 CI(`.github/workflows/ci.yml` smoke-test, Kafka 서비스 없음)가 매 PR 확인한다.
-- 작성 환경(Docker 없음, 로컬 PostgreSQL·Redis)에서 hub 부트 jar 를 Kafka 없이 기동해 §4·§5 를 수행했다: 16초 기동, Mock 흐름 200, `ido.outbox` PENDING 309건이 프로세스 내 배달로 전부 PUBLISHED.
-- **compose.install.yml 의 실제 기동은 Docker 가 없는 작성 환경에서 돌려보지 못했다.** 첫 설치자가 §3~§5 를 수행한 결과(소요 시간·막힌 지점)를 이 절에 기록한다.
+- **CI 가 매 PR 마다 설치본을 실기동한다** (`.github/workflows/ci.yml` smoke-test, D3): `install.env.example` 의 필수 키를 1회용 값으로 채워
+  `compose.install.yml` 을 `config` 로 렌더링하고, compose 와 같은 이미지·realm import·hostname 의 Keycloak 컨테이너와 registry·authz·gate·hub
+  부트 jar 를 compose 의 환경변수 이름 그대로 띄운 뒤 `scripts/ci/install-smoke.sh` 가 §4·§5.1 을 자동으로 수행한다 — 4개 헬스 · gate 를 통한
+  Discovery(issuer = `{IDEM_PUBLIC_URL_GATE}/realms/onepass`) · OIDC_RP 프로파일 PUT → Keycloak client 생성·secret 회전 · gate 프런트의 로그인
+  화면 프록시(PKCE 사전검사, 타 client 거부) · Mock 본인확인 → registry 등록 · registry 이벤트 피드(Kafka 없는 상태 전파) · 코어 에디션의 KR
+  엔드포인트 404. 이어서 k6 스모크가 hub + 실제 registry 로 돈다(종전에는 registry 가 Node 스텁이었다).
+- 같은 스크립트를 로컬(PostgreSQL 16·Redis·Keycloak 24.0.5 + 부트 jar 4개)에서 돌려 2026-09-25 전 항목 통과를 확인했다. 그 과정에서 registry
+  부팅 가드가 요구하는 `QIM_DI_SECRET`·`QIM_CI_AES_KEY_V1` 이 compose·예시 env 에 빠져 있던 것을 잡아 §2 에 넣었다.
+- **못 한 것**: `docker compose up --build` 로 이미지 5개를 빌드해 올리는 것 자체는 PR 게이트에서 돌리지 않는다(이미지 빌드 시간). Dockerfile
+  빌드는 main 의 docker-build 잡이, 실행 환경 계약은 위 스모크가 검증하므로 남는 차이는 컨테이너 네트워크(서비스 이름 `idem-*`)와 볼륨뿐이다.
+  첫 설치자가 §3~§5 를 수행한 결과(소요 시간·막힌 지점)를 이 절에 기록한다.

@@ -11,7 +11,7 @@
 #   1. build-and-test   — Gradle 빌드 + 단위 테스트 (모든 모듈)            [PR·main]
 #   2. frontend-check   — FE TypeScript 컴파일 + Webpack 빌드              [PR·main]
 #   3. security-scan    — OWASP Dependency-Check (수동 전용)                [dispatch]
-#   4. smoke-test       — k6 스모크 (idem-hub 기동 + MOCK 본인인증 라운드트립) [PR·main]
+#   4. smoke-test       — 설치본 스모크 (D3: compose 환경 계약으로 Keycloak·registry·authz·gate·hub 실기동 + install-smoke.sh + k6) [PR·main]
 #   5. docker-build     — 6개 서비스 이미지 빌드 + GHCR push + Trivy 이미지 스캔 [main]
 #   포맷(Spotless)·변경 모듈 테스트는 로컬 git 훅이 담당한다: docs/local-dev-workflow.md
 #
@@ -104,21 +104,6 @@ jobs:
       - name: JaCoCo 커버리지 리포트 생성
         if: success()
         run: ./gradlew jacocoTestReport --no-daemon || true    # 미설정 시 무시
-
-      - name: 빌드 산출물 업로드 (bootJar)
-        uses: actions/upload-artifact@v4
-        if: success()
-        # 소비처는 k6 스모크 잡의 idem-hub 기동뿐(IDO_JAR=find ./artifacts -name "idem-hub-*.jar")이고 idem-gate/idem-registry jar는
-        # 아무도 내려받지 않는데도 run당 300MB를 차지해 프라이빗 저장소 아티팩트 한도(500MB)를 초과시켰다
-        # (2026-09-04 "Artifact storage quota has been hit"). idem-hub bootJar 1개·1일 보관으로 축소.
-        continue-on-error: true   # 업로드 실패 시 k6 잡은 소스 빌드로 대체(fallback 존재)
-        with:
-          name: build-artifacts-${{ github.run_number }}
-          path: |
-            idem-hub/build/libs/idem-hub-*.jar
-            !idem-hub/build/libs/*-plain.jar
-            !idem-hub/build/libs/*-test-fixtures.jar   # S8-a: java-test-fixtures 산출물 — 실행 가능 jar 가 아니다
-          retention-days: 1
 
   # ── Job 2: FE 빌드 검증 ───────────────────────────────────────────────────────
   frontend-check:
@@ -269,19 +254,19 @@ jobs:
           sarif_file: build/reports/dependency-check/dependency-check-report.sarif
         continue-on-error: true    # SARIF 없을 때 실패 방지
 
-  # ── Job 5: k6 스모크 테스트 (배포 직후 핵심 엔드포인트 검증) ─────────────────
+  # ── Job 5: 설치본 스모크 (D3) — compose.install.yml 의 환경 계약으로 4개 앱 + 실제 Keycloak 을 띄운다 ─────
+  #   종전에는 hub 만 띄우고 registry 는 Node 스텁이라 설치 결함(secret 자리표시자·필수 키 누락 등)을 한 번도 잡지 못했다.
+  #   지금: compose config 검증 → Keycloak 컨테이너(realm import, 같은 image·env) → registry·authz·gate·hub 부트 jar(compose 와 같은
+  #   환경변수 이름) → scripts/ci/install-smoke.sh(헬스·Discovery·프로파일 PUT→client·로그인 화면 프록시·Mock 라운드트립) → k6 스모크.
+  #   이미지 빌드(Dockerfile) 자체는 main 의 docker-build 잡이 검증한다. 잡 이름은 브랜치 보호 규칙과 맞추기 위해 유지한다.
   smoke-test:
     name: k6 Smoke Test
-    # PR 게이트. CI_HEAVY_RUNNER 설정 시 자체 호스팅 러너 — services: 컨테이너를 쓰므로 Docker 가 있는 Linux/WSL2 러너여야 한다
     runs-on: ${{ vars.CI_HEAVY_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 10
-    needs: build-and-test    # 빌드/단위 테스트 통과 후 실행
-    # main push + PR 에서 실행. shipster push 트리거가 사라졌으므로 PR 이 기동 검증의 유일한 게이트다.
-    # (서비스 컨테이너를 쓰므로 GitHub 호스트 러너 고정 — Windows 자체 호스팅 러너는 services 미지원)
+    timeout-minutes: 25
+    needs: build-and-test
     if: github.event_name == 'push' || github.event_name == 'pull_request'
 
     services:
-      # idem-hub 서버가 의존하는 Redis (Rate Limiter, Session)
       redis:
         image: redis:7-alpine
         ports:
@@ -291,10 +276,8 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
-
-      # idem-hub 서버가 의존하는 PostgreSQL
       postgres:
-        image: postgres:15-alpine
+        image: postgres:16-alpine     # compose.install.yml 과 같은 메이저
         ports:
           - 5432:5432
         env:
@@ -307,8 +290,6 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
-      # (D1-b) Kafka 서비스 없음 — idem.messaging.kafka.enabled=false(기본) 로 브로커 없이 기동하는지가 이 잡의 검증 항목이다
-
     steps:
       - name: 소스 체크아웃
         uses: actions/checkout@v4
@@ -318,11 +299,11 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
-          cache: ${{ runner.environment == 'github-hosted' && 'gradle' || '' }}   # 자체 호스팅은 ~/.gradle 이 머신에 남으므로 캐시 전송 생략
+          cache: ${{ runner.environment == 'github-hosted' && 'gradle' || '' }}
 
       - name: Gradle 캐시
         uses: actions/cache@v4
-        if: runner.environment == 'github-hosted'   # 자체 호스팅 러너는 로컬 ~/.gradle 재사용 (느린 망에서 500MB 전송이 잡을 수십 분 지연)
+        if: runner.environment == 'github-hosted'
         with:
           path: |
             ~/.gradle/caches
@@ -331,17 +312,111 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 빌드 산출물 재사용 (build-and-test에서 업로드)
-      - name: 빌드 산출물 다운로드
-        uses: actions/download-artifact@v4
-        continue-on-error: true   # 아티팩트가 없으면(업로드 quota 실패) 아래 "idem-hub 서버 시작"이 소스 빌드로 대체
-        with:
-          name: build-artifacts-${{ github.run_number }}
-          path: ./artifacts
+      - name: 부트 jar 빌드 (registry·authz·gate·hub — 코어 에디션)
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :idem-registry:bootJar :idem-authz:bootJar :idem-gate:bootJar :idem-hub:bootJar -x test --no-daemon
+
+      - name: 설치 환경 파일 생성 (install.env.example 의 모든 필수 키를 1회용 값으로)
+        run: |
+          openssl genpkey -algorithm ed25519 -out /tmp/cast.pem
+          cat > /tmp/install.env <<EOF
+          IDEM_DB_PASSWORD=onepass
+          KEYCLOAK_ADMIN_PASSWORD=$(openssl rand -hex 16)
+          IDO_INTERNAL_SIG_SECRET=$(openssl rand -base64 32)
+          IDO_INTERNAL_API_KEY_QSIGN=$(openssl rand -hex 32)
+          IDO_INTERNAL_API_KEY_OUTBOX=$(openssl rand -hex 32)
+          QIM_INTERNAL_API_KEY=$(openssl rand -hex 32)
+          AUTHZ_INTERNAL_API_KEY=$(openssl rand -hex 32)
+          QSIGN_KEYCLOAK_CLIENT_SECRET=$(openssl rand -hex 32)
+          KEYCLOAK_CLIENT_SECRET=$(openssl rand -hex 32)
+          KEYCLOAK_PROVISIONER_CLIENT_SECRET=$(openssl rand -hex 32)
+          KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET=$(openssl rand -hex 32)
+          IDO_HANDOFF_AES_KEY=$(openssl rand -base64 32)
+          IDO_HANDOFF_HMAC_KEY=$(openssl rand -base64 32)
+          IDO_WEBHOOK_SIGNING_SECRET=$(openssl rand -hex 32)
+          QIM_AES_SHARED_KEY=$(openssl rand -base64 32)
+          QIM_DI_SECRET=$(openssl rand -hex 32)
+          QIM_CI_AES_KEY_V1=$(openssl rand -base64 32)
+          IDO_CAST_PRIVATE_KEY=$(openssl pkey -in /tmp/cast.pem -outform DER | base64 -w0)
+          IDO_CAST_PUBLIC_KEY=$(openssl pkey -in /tmp/cast.pem -pubout -outform DER | base64 -w0)
+          IDEM_PLUGINS_MOCK_AUTH_ENABLED=true
+          IDEM_EDITION=core
+          EOF
+          # 예시 파일의 '값을 채워야 하는' 키가 전부 있는지 — 예시에 키가 늘면 여기도 늘어야 한다
+          missing=0
+          for k in $(grep -E '^[A-Z_]+=' infra/docker/install.env.example | cut -d= -f1); do
+            grep -q "^$k=" /tmp/install.env || { echo "install.env.example 의 키가 스모크 env 에 없습니다: $k"; missing=1; }
+          done
+          [ $missing -eq 0 ]
+          # 아래 단계들이 같은 값을 쓴다
+          cat /tmp/install.env >> "$GITHUB_ENV"
+
+      - name: compose.install.yml 검증 (실제 값으로 config 렌더링)
+        run: |
+          docker compose --env-file /tmp/install.env -f infra/docker/compose.install.yml config -q
+          docker compose --env-file /tmp/install.env -f infra/docker/compose.install.yml config \
+            | grep -c "container_name: idem-" | xargs -I{} sh -c '[ {} -ge 7 ] && echo "compose services: {}"'
+
+      - name: DB 스키마 초기화 (compose 의 init-db.sql 과 동일)
+        run: PGPASSWORD=onepass psql -h localhost -U onepass -d onepass -v ON_ERROR_STOP=1 -f infra/docker/init-db.sql
+
+      - name: Keycloak 기동 (compose 와 같은 image·realm import·hostname — gate 뒤에 숨는다)
+        run: |
+          docker run -d --name idem-keycloak --network host \
+            -v "$PWD/infra/docker/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro" \
+            -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" \
+            -e KC_HTTP_ENABLED=true -e KC_HOSTNAME_STRICT=false -e KC_HOSTNAME_STRICT_HTTPS=false -e KC_HEALTH_ENABLED=true -e KC_PROXY=edge \
+            -e KC_HOSTNAME_URL=http://localhost:8081 -e KC_HOSTNAME_ADMIN_URL=http://localhost:8088 \
+            -e QSIGN_KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_PROVISIONER_CLIENT_SECRET -e KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET \
+            quay.io/keycloak/keycloak:24.0 start-dev --http-port=8088 --import-realm
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8088/realms/onepass > /dev/null 2>&1; then echo "✅ Keycloak realm onepass UP (${i}x3s)"; exit 0; fi
+            sleep 3
+          done
+          echo "❌ Keycloak 기동 실패"; docker logs idem-keycloak | tail -50; exit 1
+
+      - name: registry·authz·gate·hub 기동 (compose.install.yml 의 환경변수 이름 그대로)
+        run: |
+          mkdir -p /tmp/idem
+          jar() { find "$1/build/libs" -name "$1-*.jar" -not -name "*-plain.jar" -not -name "*-test-fixtures.jar" | head -1; }
+          # x-app-common
+          export DB_HOST=localhost DB_PORT=5432 DB_NAME=onepass DB_USERNAME=onepass DB_PASSWORD=onepass
+          export REDIS_HOST=localhost REDIS_PORT=6379 IDEM_KAFKA_ENABLED=false TZ=Asia/Seoul
+          # registry
+          QIM_DB_HOST=localhost QIM_DB_PORT=5432 QIM_DB_NAME=onepass QIM_DB_SCHEMA=qim QIM_DB_USERNAME=onepass QIM_DB_PASSWORD=onepass QIM_DB_SSL=false \
+            nohup java -Xmx512m -jar "$(jar idem-registry)" --server.port=8082 > /tmp/idem/registry.log 2>&1 &
+          # authz
+          nohup java -Xmx384m -jar "$(jar idem-authz)" --server.port=8086 > /tmp/idem/authz.log 2>&1 &
+          # gate
+          IDO_BASE_URL=http://localhost:8083 KEYCLOAK_URL=http://localhost:8088 KEYCLOAK_REALM=onepass QSIGN_KEYCLOAK_CLIENT_ID=q-sign-client \
+            QSIGN_KEYCLOAK_REDIRECT_URI=http://localhost:8081/api/v1/oidc/keycloak/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
+            nohup java -Xmx512m -jar "$(jar idem-gate)" --server.port=8081 > /tmp/idem/gate.log 2>&1 &
+          # hub
+          QIM_BASE_URL=http://localhost:8082 QSIGN_BASE_URL=http://localhost:8081 QAUTHZ_BASE_URL=http://localhost:8086 \
+            IDO_QIM_INTERNAL_API_KEY="$QIM_INTERNAL_API_KEY" IDO_QAUTHZ_INTERNAL_API_KEY="$AUTHZ_INTERNAL_API_KEY" \
+            IDO_BROKER_MODE=qsign KEYCLOAK_BASE_URL=http://localhost:8088 KEYCLOAK_REALM=onepass KEYCLOAK_CLIENT_ID=ido-client \
+            KEYCLOAK_REDIRECT_URI=http://localhost:8083/api/v1/broker/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
+            IDEM_PLATFORM_CODE=IDEM IDEM_PLUGINS_NICE_OACX_ENABLED=false IDEM_PLUGINS_ANYID_ENABLED=false \
+            CORS_ORIGIN_DEV=http://localhost:3001 CORS_ORIGIN_PROD=http://localhost:3001 \
+            nohup java -Xmx768m -jar "$(jar idem-hub)" --server.port=8083 > /tmp/idem/hub.log 2>&1 &
+          for i in $(seq 1 90); do
+            r=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8082/actuator/health)
+            a=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8086/actuator/health)
+            g=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/actuator/health)
+            h=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8083/actuator/health)
+            if [ "$r$a$g$h" = "200200200200" ]; then echo "✅ registry·authz·gate·hub UP (${i}x3s)"; exit 0; fi
+            sleep 3
+          done
+          echo "❌ 기동 실패: registry=$r authz=$a gate=$g hub=$h"
+          for n in registry authz gate hub; do echo "──── $n ────"; grep -m5 -iE "error|exception|Caused by" /tmp/idem/$n.log | cut -c1-400; done
+          exit 1
+
+      - name: 설치본 스모크 (scripts/ci/install-smoke.sh)
+        run: IDEM_EDITION=core scripts/ci/install-smoke.sh
 
       - name: k6 설치
         run: |
-          # 자체 호스팅 러너에는 이미 설치돼 있을 수 있음 — 있으면 apt 절차를 건너뛴다
           if command -v k6 >/dev/null 2>&1; then echo "k6 already installed: $(k6 version)"; exit 0; fi
           sudo gpg -k
           sudo gpg --no-default-keyring \
@@ -353,103 +428,20 @@ jobs:
           sudo apt-get update && sudo apt-get install -y k6
           k6 version
 
-      - name: idem-hub 서버 시작
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/onepass
-          SPRING_DATASOURCE_USERNAME: onepass
-          SPRING_DATASOURCE_PASSWORD: onepass
-          SPRING_DATA_REDIS_HOST: localhost
-          SPRING_DATA_REDIS_PORT: 6379
-          SPRING_PROFILES_ACTIVE: test
-          # 본인인증 SPI Mock 플러그인 활성 — 코어가 벤더 없이 인증 흐름을 제공하는지 k6 로 검증 (P1 게이트)
-          IDEM_PLUGINS_MOCKAUTH_ENABLED: "true"
-          # D1-b: Kafka 선택 의존 — 브로커 없이 기동·아웃박스 프로세스 내 배달 경로를 스모크로 검증
-          IDEM_KAFKA_ENABLED: "false"
+      - name: k6 스모크 (hub + 실제 registry)
         run: |
-          # 빌드된 JAR로 서버 시작 (백그라운드)
-          IDO_JAR=$(find ./artifacts -name "idem-hub-*.jar" -not -name "*-plain.jar" -not -name "*-test-fixtures.jar" | head -1)
-          if [ -z "$IDO_JAR" ]; then
-            echo "⚠️  idem-hub JAR not found in artifacts, building from source..."
-            ./gradlew :idem-hub:bootJar -x test --no-daemon
-            IDO_JAR=$(find idem-hub/build/libs -name "idem-hub-*.jar" -not -name "*-plain.jar" -not -name "*-test-fixtures.jar" | head -1)
-          fi
-          # 부팅 시크릿 가드(F3.3/F4.3/F4.8/Keycloak) 통과용 1회용 랜덤 시크릿
-          # — escape hatch(allow-empty-*) 대신 실키 주입으로 운영 경로 그대로 검증
-          export IDO_HANDOFF_AES_KEY=$(openssl rand -base64 32)
-          export IDO_HANDOFF_HMAC_KEY=$(openssl rand -base64 32)
-          export IDO_WEBHOOK_SIGNING_SECRET=$(openssl rand -hex 32)
-          export KEYCLOAK_CLIENT_SECRET=$(openssl rand -hex 32)
-          export IDO_INTERNAL_API_KEY_QSIGN=$(openssl rand -hex 32)
-          export IDO_INTERNAL_API_KEY_OUTBOX=$(openssl rand -hex 32)
-          # D2 fail-secure: 부팅 가드가 요구하는 값 — 탈출구 대신 실키를 준다
-          export IDO_INTERNAL_SIG_SECRET=$(openssl rand -hex 32)
-          export QIM_AES_SHARED_KEY=$(openssl rand -base64 32)
-          openssl genpkey -algorithm ed25519 -out /tmp/cast.pem
-          export IDO_CAST_PRIVATE_KEY=$(openssl pkey -in /tmp/cast.pem -outform DER | base64 -w0)
-          export IDO_CAST_PUBLIC_KEY=$(openssl pkey -in /tmp/cast.pem -pubout -outform DER | base64 -w0)
-          export IDO_QAUTHZ_ENABLED=false   # 스모크에는 idem-authz 가 없다 — 명시적 스위치 (조용한 폴백 아님)
-          echo "Starting idem-hub server: $IDO_JAR"
-          java -jar "$IDO_JAR" \
-            --server.port=8083 \
-            --spring.datasource.url=jdbc:postgresql://localhost:5432/onepass \
-            --spring.datasource.username=onepass \
-            --spring.datasource.password=onepass \
-            --spring.data.redis.host=localhost \
-            --spring.data.redis.port=6379 \
-            --spring.profiles.active=test \
-            > /tmp/ido-server.log 2>&1 &
-          echo "IDO_PID=$!" >> $GITHUB_ENV
-
-      - name: idem-hub 서버 헬스체크 대기 (최대 120초)
-        run: |
-          echo "Waiting for idem-hub server to start..."
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:8083/actuator/health > /dev/null 2>&1; then
-              echo "✅ idem-hub server is UP (attempt $i)"
-              break
-            fi
-            if [ $i -eq 60 ]; then
-              echo "❌ idem-hub server failed to start"
-              cat /tmp/ido-server.log
-              exit 1
-            fi
-            echo "Attempt $i/30 — waiting 2s..."
-            sleep 2
-          done
-
-      # S4 부터 /auth/providers/{code}/complete 는 registry(idem-registry, 8082) 에 register-subject 로 등록까지 마쳐야 200 이다.
-      # 스모크 잡은 MariaDB·registry 를 띄우지 않으므로 등록 API 만 응답하는 스텁을 둔다 (k6/mock-server/registry-stub.js).
-      - name: Node.js 설정 (registry 스텁용 — 자체 호스팅 러너에는 node 가 PATH 에 없다)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: registry 스텁 기동 (register-subject, 8082)
-        run: |
-          node k6/mock-server/registry-stub.js > /tmp/registry-stub.log 2>&1 &
-          echo "REGISTRY_STUB_PID=$!" >> $GITHUB_ENV
-          for i in $(seq 1 20); do
-            curl -sf http://localhost:8082/actuator/health > /dev/null 2>&1 && { echo "✅ registry stub UP"; break; }
-            sleep 1
-          done
-
-      - name: k6 스모크 테스트 실행
-        run: |
-          # S8-a: 스모크는 코어 에디션 jar 를 띄운다 — IDEM_EDITION=core 로 KR 엔드포인트(/auth/nice/ci-check 등)가 404 인지까지 검사
           k6 run k6/scenarios/smoke.js \
             --env BASE_URL=http://localhost:8083 \
             --env IDEM_EDITION=core \
             --env AGENCY_CODE=AGENCY001 \
-            --env INTERNAL_API_KEY=test-internal-key \
+            --env INTERNAL_API_KEY="$IDO_INTERNAL_API_KEY_QSIGN" \
             --out json=/tmp/smoke-result.json
-        continue-on-error: false    # 스모크 테스트 실패 시 워크플로우 중단
 
-      - name: idem-hub 서버 로그 출력 (실패 시)
+      - name: 로그 출력 (실패 시)
         if: failure()
         run: |
-          cat /tmp/ido-server.log || true
-          echo "──── registry stub log ────"
-          cat /tmp/registry-stub.log || true
+          for n in registry authz gate hub; do echo "════ $n ════"; tail -120 /tmp/idem/$n.log 2>/dev/null || true; done
+          echo "════ keycloak ════"; docker logs idem-keycloak 2>&1 | tail -80 || true
 
       - name: k6 스모크 결과 업로드
         uses: actions/upload-artifact@v4
@@ -460,15 +452,11 @@ jobs:
           path: /tmp/smoke-result.json
           retention-days: 3
 
-      - name: idem-hub 서버 종료
+      - name: 정리
         if: always()
         run: |
-          if [ -n "$IDO_PID" ]; then
-            kill "$IDO_PID" 2>/dev/null || true
-          fi
-          if [ -n "$REGISTRY_STUB_PID" ]; then
-            kill "$REGISTRY_STUB_PID" 2>/dev/null || true
-          fi
+          pkill -f 'idem-(registry|authz|gate|hub)-.*\.jar' || true
+          docker rm -f idem-keycloak > /dev/null 2>&1 || true
 
   # ── Job 6: Docker 멀티스테이지 이미지 빌드 검증 (S8-T6) ─────────────────────
   docker-build:
