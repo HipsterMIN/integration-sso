@@ -12,7 +12,7 @@
 
 | 구분 | 현재 | 결정적 갭 |
 |---|---|---|
-| 관리자 식별·인증 (FIA/FMT) | 🟡 서버 측 있음 (S7 PR-1, 2026-09-25) | `/api/v1/admin/**`·`/actuator/**`·Handoff 취소가 관리자 세션(비밀번호 + TOTP 2단계) 뒤에 있고 역할 3종·테넌트 범위·잠금·비밀번호 정책이 서버에서 강제된다(`docs/admin-auth.md`, ADR-015). 종전 `X-Admin-Id` 무인증 API 는 없다. 남은 것: 관리 콘솔(PR-2)·접근 배너·마지막 로그인 표시 |
+| 관리자 식별·인증 (FIA/FMT) | 🟡 서버 측 있음 (S7 PR-1, 2026-09-25) | `/api/v1/admin/**`·`/actuator/**`·Handoff 취소가 관리자 세션(비밀번호 + TOTP 2단계) 뒤에 있고 역할 3종·테넌트 범위·잠금·비밀번호 정책이 서버에서 강제된다(`docs/admin-auth.md`, ADR-015). 종전 `X-Admin-Id` 무인증 API 는 없다. 관리 콘솔 `idem-console-admin`(PR-2)이 같은 API 위에서 로그인(2단계)·온보딩·감사·관리자 관리를 한다. 남은 것: 접근 배너·마지막 로그인 표시 |
 | 보안감사 (FAU) | 🟡 생성만 | 무결성 보호 없음, INSERT-ONLY 미강제, 저장 실패 시 **조용히 유실**, 보존·보관 작업 없음, 검토 UI/API 없음, **관리자 행위 미감사** |
 | 암호지원 (FCS) | ❌ JCE/BouncyCastle 만 | KCMVP 검증필 모듈 없음. 국산 알고리즘은 AnyID KMS 용 ARIA(BouncyCastle) 뿐 |
 | 안전한 채널 (FTP) | ❌ 서비스 TLS 없음 | `server.ssl.*` 전무, DB 연결 `sslmode=disable` 고정. TLS 는 Nginx 에 위임 (TOE 밖) |
@@ -196,7 +196,7 @@ GS 를 먼저 받는다. 배포본·매뉴얼이 고정되고 그 산출물이 C
 
 1. ~~**관리자 인증·인가 뼈대**: `/api/v1/admin/**`, `DELETE /api/v1/handoff/{id}`, `/actuator/**` 에 인증 인터셉터, 서버 측 역할 검사, `X-Admin-Id` 제거.~~ ✅ S7 PR-1 (2026-09-25).
 2. **감사 유실 방지·무결성**: `AuditLogPublisher` 실패 폴백·알림·메트릭, VARCHAR(36) 컬럼 확장 또는 입력 길이 검증, `audit_log` 해시체인 + DB 권한 분리, 관리 행위 감사.
-3. **감사 검토 API/UI**: ✅ 기간·주체·사건·결과 필터 조회 API(S7 PR-1) · ⏭ 콘솔 화면(PR-2).
+3. **감사 검토 API/UI**: ✅ 기간·주체·사건·결과 필터 조회 API(S7 PR-1) · ✅ 콘솔 화면(PR-2).
 4. **암호 SPI**: `CryptoProvider` 인터페이스로 `HandoffCryptoService`·`CiCryptoServiceImpl`·`AesSharedKeyDecryptor`·`NiceCryptoUtil`·HMAC 서명·`ApiKeyHashUtil` 을 경유시키고 JCE 구현을 기본으로 두어, 검증필 모듈을 어댑터로 끼울 수 있게.
 5. **prod 안전 기본값**: `allow-empty-*`·`allow-in-prod`·`security-headers.enabled=false`·`rate-limit.enabled=false`·`audit.db-save-enabled=false` 를 prod 프로파일에서 기동 거부, CAST 키 미설정 시 기동 거부, 기관 API 키 해시를 PBKDF2 로.
 6. **TLS**: 각 서비스 `server.ssl.*` + DB/Redis/Kafka TLS 옵션, mTLS 폴백 제거, 내부 서명 강제 모드 기본화.

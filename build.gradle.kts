@@ -316,7 +316,8 @@ sonarqube {
             "**/dto/**",                // DTO (비즈니스 로직 없음)
             "**/*Application.java",     // 스프링 부트 메인
             "**/config/**",             // 설정 클래스
-            "idem-console/**",            // FE 코드 (별도 SonarCloud 프로젝트 가능)
+            "editions/idem-kr-portal/**", // KR 포털 FE 코드 (별도 SonarCloud 프로젝트 가능)
+            "idem-console-admin/**",      // 코어 관리 콘솔 FE (npm)
             "idem-tenant-sample/**",           // 테스트 스텁
             "infra/**",                 // 인프라 코드
         ).joinToString(","))

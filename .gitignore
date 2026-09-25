@@ -50,7 +50,8 @@ k6/mock-server/node_modules/
 # FE 빌드 캐시
 onepass-fe/frontend/.temp_cache/
 # i18n 해시 캐시 (빌드 시 자동 생성)
-onepass-fe/frontend/i18n-translations-hash.json
+# yarn typecheck 가 만드는 생성물 (구 onepass-fe → idem-console → editions/idem-kr-portal)
+editions/idem-kr-portal/frontend/i18n-translations-hash.json
 # javac 컴파일 args 파일
 javac.*.args
 # SMEP 런북 docx (smep-* 레포 관리, 이 레포에 불필요)

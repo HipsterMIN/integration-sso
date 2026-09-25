@@ -12,7 +12,8 @@
 | `keycloak` | Idem SSO (숨김) | 표준 OIDC 발급·세션. realm `onepass` 자동 import | 8088 (설치자 전용) |
 | `idem-registry` | Idem IM | 사용자·식별자·동의·생명주기 SoR (PostgreSQL `qim` 스키마) | 8082 |
 | `idem-authz` | Idem IM | 역할·할당 SoR (PostgreSQL `authz` 스키마) | 8086 |
-| `idem-console` | 관리 콘솔 | React + Nginx, `/api` → hub | 3001 |
+| `idem-console-admin` | 관리 콘솔 (S7) | React + Nginx, `/api/v1/admin` → hub 같은 출처. 관리자 로그인(2단계)·기관 온보딩·OIDC client·감사·관리자 관리 | 3001 |
+| `idem-kr-portal` | KR 에디션 회원 포털 (구 `idem-console`, `--profile kr`) | 회원전환·본인확인 위젯·마이페이지 | 3002 |
 | `postgres` | 데이터 | PostgreSQL 16 — DB 1개(`onepass`), 스키마 `ido`·`qsign`·`qim`·`authz`·`keycloak` | 5432 |
 | `redis` | 데이터 | 세션·레이트리밋·캐시 | — |
 
@@ -70,7 +71,7 @@ docker compose --env-file infra/docker/install.env -f infra/docker/compose.insta
 docker compose --env-file infra/docker/install.env -f infra/docker/compose.install.yml ps
 ```
 
-기동 순서는 compose 가 `depends_on` 으로 보장한다: postgres·redis → keycloak(realm import) → registry·authz·gate → hub → console.
+기동 순서는 compose 가 `depends_on` 으로 보장한다: postgres·redis → keycloak(realm import) → registry·authz·gate → hub → console. KR 에디션의 회원 포털은 `docker compose --profile kr … up -d` 로 함께 올린다.
 모든 컨테이너가 `healthy` 가 되면(첫 기동 2~3분) 다음으로 간다. 오래 걸리면 `logs -f idem-hub` 로 본다.
 
 ## 4. 확인
@@ -100,6 +101,8 @@ curl -s http://localhost:8083/api/v1/admin/auth/me "${ADM[@]}"                 #
 ```
 
 아래 §5.1 의 관리 API 호출은 모두 `"${ADM[@]}"` 를 붙인다. 세션은 유휴 15분·절대 8시간·동시 1개다. 역할·잠금·비밀번호 정책·추가 관리자 생성은 `docs/admin-auth.md`.
+
+**브라우저로는 관리 콘솔** `http://localhost:3001` (S7 PR-2) — 같은 계정으로 로그인하면 2단계 비밀(첫 로그인)과 비밀번호 변경을 화면이 안내하고, 기관 온보딩·OIDC client secret·감사 조회·관리자 관리를 curl 없이 한다. 아래 §5.1 의 1·2·5 단계는 콘솔의 "기관 → 새 기관 온보딩" 폼과 기관 상세의 "표준 OIDC client"·감사 화면과 같다.
 
 ## 5. 첫 로그인 흐름 확인 (Mock 제공자)
 
@@ -158,7 +161,7 @@ issuer 는 `{IDEM_PUBLIC_URL_GATE}/realms/onepass` 다. gate 가 `/realms/**`·`
 ## 7. 운영 전환 전 체크리스트
 
 - [ ] `IDEM_PLUGINS_MOCK_AUTH_ENABLED=false`
-- [ ] `IDEM_PUBLIC_URL_HUB/GATE/CONSOLE` 를 실제 공개 주소(리버스 프록시·TLS)로. 앱 포트는 127.0.0.1 바인딩이므로 프록시가 필요하다
+- [ ] `IDEM_PUBLIC_URL_HUB/GATE/CONSOLE` 를 실제 공개 주소(리버스 프록시·TLS)로. 앱 포트는 127.0.0.1 바인딩이므로 프록시가 필요하다. 관리 콘솔(3001)은 관리자 망에만 공개하고, TLS 뒤에 둔다(관리 세션 쿠키가 Secure)
 - [ ] `IDEM_PUBLIC_URL_GATE` 를 바꿨으면 keycloak(`KC_HOSTNAME_URL`)·gate·hub 를 함께 재기동 — 표준 OIDC issuer 가 이 값이다. 기관 OIDC client 의 redirect URI 는 프로파일(`protocol.oidc.redirectUris`) 로 관리한다(콘솔 수정 금지). 내부 client(`q-sign-client`·`ido-client`) 의 `redirectUris` 만 `realm-export.json` 첫 import 값이다
 - [ ] **S6 이전 설치본 주의**: 종전 `realm-export.json` 의 secret 자리표시자(`${env.X:change-me}`)는 Keycloak 24 가 치환하지 않아 `q-sign-client`·`ido-client` 의 실제 secret 이 문자 그대로 `change-me` 였다(앱 쪽 값과 불일치). S6 에서 `${X}` 로 고쳤지만 realm import 는 첫 기동에만 적용되므로, 기존 설치본은 `keycloak-data` 볼륨을 지우고 다시 import 하거나(권장) 콘솔에서 세 client(`q-sign-client`·`ido-client`·`idem-provisioner`)의 secret 을 `install.env` 값으로 한 번 맞춘다
 - [ ] (S7) 부트스트랩 관리자의 첫 로그인(비밀번호 변경·2단계 등록)을 마쳤고, `IDEM_ADMIN_BOOTSTRAP_PASSWORD` 는 더 쓰이지 않는다(관리자가 있으면 무시된다). 운영 관리자는 인증 앱을 쓴다 — `admin-login.sh` 의 비밀 파일은 설치 확인용

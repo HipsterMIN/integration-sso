@@ -1,21 +1,21 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# Option B — React + Nginx (독립 서비스)
+# Option B — React + Nginx (독립 서비스) — KR 에디션 회원 포털 (구 idem-console, S7 PR-2 에서 editions/ 로 이동)
 #
 # build context: 프로젝트 루트 (infra/docker/nginx/nginx.conf 참조 필요)
 #
 # 빌드 명령 (프로젝트 루트에서):
 #   docker build \
-#     -f idem-console/Dockerfile.optionB \
-#     -t idem-console:latest \
+#     -f editions/idem-kr-portal/Dockerfile.optionB \
+#     -t idem-kr-portal:latest \
 #     --target react-nginx \
 #     .
 #
 # Docker Compose 사용 시 (infra/docker/docker-compose.yml):
 #   context: ../..                    ← 프로젝트 루트
-#   dockerfile: idem-console/Dockerfile.optionB
+#   dockerfile: editions/idem-kr-portal/Dockerfile.optionB
 #
 # 실행:
-#   docker run -p 3001:80 idem-console:latest
+#   docker run -p 3002:80 idem-kr-portal:latest
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Stage 1: React 빌드 ──────────────────────────────────────────────────────
@@ -23,17 +23,17 @@ FROM node:20-alpine AS react-builder
 WORKDIR /app
 
 # package.json / yarn.lock만 먼저 복사 → yarn install 레이어 캐시 활용
-COPY idem-console/frontend/package.json idem-console/frontend/yarn.lock* ./
+COPY editions/idem-kr-portal/frontend/package.json editions/idem-kr-portal/frontend/yarn.lock* ./
 RUN yarn install --frozen-lockfile --network-timeout 120000
 
 # 소스 전체 복사 후 빌드
-COPY idem-console/frontend/ .
+COPY editions/idem-kr-portal/frontend/ .
 RUN yarn build:prod
 
 # ── Stage 2: Nginx 서빙 ──────────────────────────────────────────────────────
 FROM nginx:1.27-alpine AS react-nginx
 LABEL maintainer="io.github.hipstermin.idem"
-LABEL description="OnePass React Frontend (Option B — Nginx)"
+LABEL description="Idem KR Public Edition portal (React + Nginx)"
 
 # React 빌드 산출물 복사
 COPY --from=react-builder /app/dist /usr/share/nginx/html

@@ -34,7 +34,7 @@ CI 는 PR 게이트(Build & Unit Test, k6)만 담당하고 Testcontainers 통합
 
 - **프로젝트명**: Idem — 회원통합·연합인가 플랫폼 (2026-09-04 OnePass에서 개명, `docs/naming.md`)
 - **현재 버전**: v0.8.11
-- **주요 모듈**: `idem-gate/`(구 q-sign), `idem-registry/`(구 q-im), `idem-hub/`(구 ido), `idem-authz/`, `idem-relay/`, `idem-console/`, `idem-sdk-java/`, `idem-agent/`, `idem-tenant-sample/`, `idem-common/`, KR 에디션 `editions/idem-kr-hub/`·`editions/idem-kr-registry/`(코어를 의존, 코어는 에디션을 모른다 — SMES 회원 개념은 여기에만)
+- **주요 모듈**: `idem-gate/`(구 q-sign), `idem-registry/`(구 q-im), `idem-hub/`(구 ido), `idem-authz/`, `idem-relay/`, `idem-console-admin/`(관리 콘솔, npm·Vite, Gradle 밖), `idem-sdk-java/`, `idem-agent/`, `idem-tenant-sample/`, `idem-common/`, KR 에디션 `editions/idem-kr-hub/`·`editions/idem-kr-registry/`·`editions/idem-kr-portal/`(구 idem-console 회원 포털)(코어를 의존, 코어는 에디션을 모른다 — SMES 회원 개념은 여기에만)
 - **명명 규칙**: Java 패키지는 `io.github.hipstermin.idem.{common,gate,registry,hub,authz,relay,sdk,agent,tenant,plugin}` (4a 완료), KR 에디션은 `hub.kr.*`·`registry.kr.*` (코어 앱 스캔 범위 안). 런타임 식별자(설정 키 `ido.*`/`qim.*`, 헤더 값 `q-sign`, Redis 접두 `ido:*`, 환경변수 `IDO_*`/`QIM_*`/`ONEPASS_*`, DB·Keycloak 이름)는 4b·5단계 전까지 구명 유지 — 새 코드도 기존 키를 따른다
 
 ## 문서 구조

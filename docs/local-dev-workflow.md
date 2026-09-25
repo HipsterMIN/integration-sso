@@ -36,7 +36,8 @@
 | `plugins/idem-plugin-nice-oacx/**` | `:idem-plugin-nice-oacx:test` |
 | `idem-common/**`, 루트 `build.gradle.kts`·`settings.gradle.kts`·`gradle/**` | **전체** 모듈 테스트 |
 | `idem-hub/**` 이고 Docker 가 있으면 | `:idem-hub:integrationTest` 추가 (Testcontainers) |
-| `idem-console/frontend/**` | `yarn typecheck` (yarn 있을 때) |
+| `editions/idem-kr-portal/frontend/**` | `yarn typecheck` (yarn 있을 때) |
+| `idem-console-admin/**` | `npm run typecheck && npm test` (node_modules 있을 때) |
 | `docs/`, `k6/`, `infra/`, `.github/`, `idem-agent-testbed/` | 테스트 없음 — 바로 push |
 
 - 실패하면 push 가 중단된다. 리포트: `<module>/build/reports/tests/test/index.html`.

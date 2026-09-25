@@ -1,7 +1,7 @@
 # Third-party notices
 
 Idem 은 Apache-2.0 으로 배포되며 아래 제3자 구성요소를 사용한다. 이 목록은 **직접 의존성** 기준이다. 전체 전이 의존성은
-`./gradlew :<module>:dependencies --configuration runtimeClasspath` 와 `idem-console/frontend/yarn.lock` 으로 확인한다.
+`./gradlew :<module>:dependencies --configuration runtimeClasspath` 와 `editions/idem-kr-portal/frontend/yarn.lock`·`idem-console-admin/package-lock.json` 으로 확인한다.
 런타임에 함께 배포되지만 이 저장소에 포함되지 않는 것(Keycloak·PostgreSQL·Redis·Kafka·Nginx 컨테이너 이미지, 벤더 SDK)은 각자의 라이선스를 따른다.
 
 ## 백엔드 (Gradle)
@@ -35,9 +35,18 @@ Idem 은 Apache-2.0 으로 배포되며 아래 제3자 구성요소를 사용한
 | JUnit 5 | EPL-2.0 | 테스트 전용 |
 | Mockito · AssertJ · Testcontainers · WireMock | MIT / Apache-2.0 | 테스트 전용 |
 
-## 관리 콘솔 (idem-console/frontend, yarn)
+## 관리 콘솔 (idem-console-admin, npm) — S7 PR-2
 
-콘솔 프런트엔드는 **SigNoz 프런트엔드(MIT Expat)** 에서 파생했다. 원저작권 고지와 MIT 본문은 아래에 둔다.
+| 구성요소 | 라이선스 |
+|---|---|
+| React · react-dom | MIT |
+| Vite · @vitejs/plugin-react · esbuild · Rollup | MIT |
+| TypeScript | Apache-2.0 |
+| Vitest (테스트 전용) | MIT |
+
+## KR 에디션 회원 포털 (editions/idem-kr-portal/frontend, yarn — 구 idem-console)
+
+포털 프런트엔드는 **SigNoz 프런트엔드(MIT Expat)** 에서 파생했다. 원저작권 고지와 MIT 본문은 아래에 둔다.
 
 | 구성요소 | 라이선스 |
 |---|---|

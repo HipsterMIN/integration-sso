@@ -710,24 +710,24 @@ services:
     logging: *log-defaults
 
   # ════════════════════════════════════════════════════════════
-  # ★ React SPA (Nginx) — idem-console — http://localhost:3001
+  # ★ React SPA (Nginx) — idem-kr-portal (구 idem-console) — http://localhost:3001
   # profile: optionB
   #
   # build context: 프로젝트 루트 (nginx.conf 참조 가능)
   # Dockerfile.optionB는 context 내부 상대경로 사용
   # ════════════════════════════════════════════════════════════
-  idem-console:
+  idem-kr-portal:   # 구 idem-console (KR 에디션 회원 포털, S7 PR-2). 코어 관리 콘솔은 compose.install.yml 의 idem-console-admin
     build:
       # context를 프로젝트 루트로 설정 → infra/docker/nginx/nginx.conf COPY 가능
       context: ../..
-      dockerfile: idem-console/Dockerfile.optionB
+      dockerfile: editions/idem-kr-portal/Dockerfile.optionB
       target: react-nginx
-    image: idem-console:latest
-    container_name: idem-console
+    image: idem-kr-portal:latest
+    container_name: idem-kr-portal
     restart: unless-stopped
     labels:
       <<: *promtail-label
-      com.docker.compose.service: idem-console
+      com.docker.compose.service: idem-kr-portal
     ports:
       - "3001:80"
     networks:

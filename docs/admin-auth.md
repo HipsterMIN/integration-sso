@@ -101,4 +101,4 @@ curl http://localhost:8083/api/v1/admin/agencies -H "Cookie: idemAdminSid=$SID" 
 - **잠긴 관리자**: 15분 뒤 자동 해제 또는 `POST /admins/{id}/unlock`.
 - **`IDEM_ADMIN_SECRET_KEY` 교체**: 모든 관리자의 2단계를 `reset-mfa` 로 초기화한 뒤 키를 바꾼다(봉인된 비밀은 옛 키로만 열린다).
 - **세션 강제 종료**: 관리자를 `status=DISABLED`/`LOCKED` 로 바꾸거나 비밀번호를 재설정하면 그 관리자의 세션이 즉시 끝난다.
-- 관리 콘솔(S7 PR-2)은 이 API 위에 얹는다 — 쿠키는 브라우저가 들고, `X-Requested-With` 는 콘솔이 붙인다.
+- 관리 콘솔 `idem-console-admin/`(S7 PR-2)이 이 API 위에 있다 — 쿠키는 브라우저가 들고, `X-Requested-With` 는 콘솔이 붙인다. nginx 가 `/api/v1/admin/` 만 hub 로 프록시하므로 콘솔 출처에서 CORS 는 필요 없다.

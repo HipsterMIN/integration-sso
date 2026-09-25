@@ -34,7 +34,7 @@
 
 **진행 현황 (2026-09-16)** — S1~S5 완료(main 504d9e2). "코어에서 고객값·벤더를 걷어내는 일" 은 끝났고 "다른 기관이 설치해 쓰는 제품" 까지는 약 40%. 남은 넷(IM 모델·관리 콘솔·표준 프로토콜·패키징)이 지금까지보다 크다. 설치 복잡도는 오히려 늘었다(모듈 10 + 플러그인 3, DB 2종, Kafka·Redis·Keycloak, vendor-libs).
 
-**진행 현황 (2026-09-24, 2차 적대적 점검 — main e4acd8d; 2026-09-25 갱신: S6 PR-2·D3·S7 PR-1 완료 — 차단 항목 (1) 관리자 API 무인증은 닫혔다, ADR-015)** — D1·D2·S8-a·S8-b·S6 PR-1 완료. hub 28.3k LOC(31k 에서), 라인 커버리지 hub 40.6%·gate 47%·registry 52%·authz 74%. 정직한 추정: **백엔드 범용성 약 60%, 콘솔 포함 45%. SSO 요건 약 55%, IM 요건 약 40%.** 판정 근거는 아래 두 표. 차단 항목 셋 — (1) 관리자 API 무인증(`X-Admin-Id` 헤더뿐, Spring Security 를 쓰는 모듈 0, 콘솔 nginx 가 `/api/` 를 hub 로 그대로 전달) (2) 콘솔이 중기원패스 회원 포털 그대로(관리 화면 0, 회원전환 29 파일, `.smes.go.kr` 허용목록, 영어 로케일에 한국 브랜딩 150건) (3) 설치 경로 미검증(`install.md` 가 "compose 를 기동해 보지 못했다" 고 적음, CI 는 hub 만 기동 — S6 실기동에서 gate·registry 기동 불가와 Keycloak secret 전부 `change-me` 를 발견). 그 밖의 중대 항목: 테넌트 격리 0(테넌트 필터 쿼리 없음), 운영 마이그레이션에 시드된 테스트 기관 6개(V8 평문 키 `stub-api-key-dev-001` 주석 포함), 코어 기본값이 KR 벤더 플러그인 on, 코어의 한국 고정 로직(`CrossAgencySsoController:277` `*.agency.go.kr`, `NonOidcBrokerAdapter` PASS/GPKI switch, `ProviderRouter` KAKAO/NAVER, `CastTokenServiceImpl` `"ONEPASS"`), mock 외 비한국 IdP 구현 없음, 문서 141 중 101 이 OnePass/SMES 잔재.
+**진행 현황 (2026-09-24, 2차 적대적 점검 — main e4acd8d; 2026-09-25 갱신: S6 PR-2·D3·S7 완료 — 차단 항목 (1) 관리자 API 무인증은 닫혔고(ADR-015) (2) 콘솔은 코어 관리 콘솔 `idem-console-admin` 과 KR 포털 `editions/idem-kr-portal` 로 갈렸다)** — D1·D2·S8-a·S8-b·S6 PR-1 완료. hub 28.3k LOC(31k 에서), 라인 커버리지 hub 40.6%·gate 47%·registry 52%·authz 74%. 정직한 추정: **백엔드 범용성 약 60%, 콘솔 포함 45%. SSO 요건 약 55%, IM 요건 약 40%.** 판정 근거는 아래 두 표. 차단 항목 셋 — (1) 관리자 API 무인증(`X-Admin-Id` 헤더뿐, Spring Security 를 쓰는 모듈 0, 콘솔 nginx 가 `/api/` 를 hub 로 그대로 전달) (2) 콘솔이 중기원패스 회원 포털 그대로(관리 화면 0, 회원전환 29 파일, `.smes.go.kr` 허용목록, 영어 로케일에 한국 브랜딩 150건) (3) 설치 경로 미검증(`install.md` 가 "compose 를 기동해 보지 못했다" 고 적음, CI 는 hub 만 기동 — S6 실기동에서 gate·registry 기동 불가와 Keycloak secret 전부 `change-me` 를 발견). 그 밖의 중대 항목: 테넌트 격리 0(테넌트 필터 쿼리 없음), 운영 마이그레이션에 시드된 테스트 기관 6개(V8 평문 키 `stub-api-key-dev-001` 주석 포함), 코어 기본값이 KR 벤더 플러그인 on, 코어의 한국 고정 로직(`CrossAgencySsoController:277` `*.agency.go.kr`, `NonOidcBrokerAdapter` PASS/GPKI switch, `ProviderRouter` KAKAO/NAVER, `CastTokenServiceImpl` `"ONEPASS"`), mock 외 비한국 IdP 구현 없음, 문서 141 중 101 이 OnePass/SMES 잔재.
 
 | SSO 요건 | 상태 | 근거 |
 |---|---|---|
@@ -230,9 +230,9 @@ hub 는 `SubjectIdentifierScheme` SPI(스킴별 빈, 에디션이 확장) 로 �
 
 | 제품 | 모듈 | 책임 |
 |---|---|---|
-| **Idem SSO** | `idem-hub` + `idem-gate` (+ 숨긴 Keycloak) | OIDC/SAML 발급·세션·SLO·인증수준 승격·본인확인 SPI·기관 연계(Handoff/OIDC_RP) |
+| **Idem SSO** | `idem-hub` + `idem-gate` (+ 숨긴 Keycloak) + `idem-console-admin`(관리 콘솔, S7) | OIDC/SAML 발급·세션·SLO·인증수준 승격·본인확인 SPI·기관 연계(Handoff/OIDC_RP) |
 | **Idem IM** | `idem-registry` + `idem-authz` | 사용자·식별자·자격증명·동의·생명주기·할당·역할·SCIM |
-| **Idem KR Public Edition** | `editions/idem-kr-hub`·`editions/idem-kr-registry`(S8-a) + `plugins/idem-plugin-nice-oacx`·`idem-plugin-anyid`·KR 시드 | 본인확인 벤더·AnyID·CI/DI·SMES 회원 개념(CI 조회·기업인증·회원전환·회원조회·기업회원)·한국 정책(휴면·파기) |
+| **Idem KR Public Edition** | `editions/idem-kr-hub`·`editions/idem-kr-registry`(S8-a)·`editions/idem-kr-portal`(회원 포털, S7 PR-2) + `plugins/idem-plugin-nice-oacx`·`idem-plugin-anyid`·KR 시드 | 본인확인 벤더·AnyID·CI/DI·SMES 회원 개념(CI 조회·기업인증·회원전환·회원조회·기업회원)·한국 정책(휴면·파기) |
 
 `idem-relay`·`idem-agent`·`idem-tenant-sample`·`idem-sdk-java` 는 **제품 밖**(운영 도구·샘플·SDK)으로 표시하고 GS 대상에서 뺀다.
 
@@ -495,7 +495,15 @@ Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `Integ
 - ✅ **설치·CI·스크립트**: `install.env.example`·`compose.install.yml` 에 `IDEM_ADMIN_BOOTSTRAP_PASSWORD`·`IDEM_ADMIN_SECRET_KEY`(필수), `scripts/lib/admin-login.sh`(curl+python3 로 로그인·2단계 등록·첫 비밀번호 변경) 를 CI 설치본 스모크(②′ 무인증 401·CSRF 403·로그인, ⑧ 감사 조회 → 로그아웃)와 개발 시드 스크립트가 쓴다. `FailSecureBootGuard` 에 `ido.admin.cookie.secure`·`mfa.required`·`bootstrap.require-password-change`(운영 true) · `allow-derived-secret-key`(운영 false) 편입
 - ✅ **통합 테스트가 잡은 결함**: `login` 이 `@Transactional` 이라 실패 예외가 실패 카운터 저장을 되돌려 **잠금이 한 번도 걸리지 않았다** → `noRollbackFor = PlatformException`. 테스트 픽스처 비밀번호가 사용자명(`admin`)을 포함해 정책에 걸린 것도 부트스트랩 검사가 잡았다
 - ✅ 검증: common 418(+hmacSha1) · hub 557 (+IT 46: `AdminAuthIntegrationTest` 3 — 401/403/CSRF·E-IDO-137→변경→AUDITOR 403/200·감사 검색·잠금 423→해제·동시 1·TOTP 오류/토큰 1회) · kr-hub 35(+IT 7) · 로컬 실기동(Keycloak 24.0.5 + registry·authz·gate·hub) 설치본 스모크 ①~⑧ 전 항목 + `seed-dev-agencies.sh` 2회(등록 → 비밀 파일 재사용)
-- ⏭ **PR-2**: 최소 관리 콘솔(`idem-console-admin` — 로그인(2단계)·기관 목록/온보딩 폼·OIDC client·감사·관리자 관리), 기존 `idem-console` 을 KR 에디션 포털로 이동, 접근 배너·마지막 로그인 표시. `/api/v1/internal/**` 는 기존 내부 서명·API 키 그대로(관리자 세션 대상 아님). 감사 무결성·유실 방지(`execution-plan.md` §3.2)는 별도
+- ✅ PR-2 로 이월된 항목은 아래 진행 기록. `/api/v1/internal/**` 는 기존 내부 서명·API 키 그대로(관리자 세션 대상 아님). 감사 무결성·유실 방지(`execution-plan.md` §3.2)는 별도
+
+**진행 기록 (2026-09-25, S7 PR-2: 최소 관리 콘솔 + 콘솔 분리)** — 구현 PR. **S7 완료 기준 충족**: 설치 → 관리자 로그인(2단계) → 기관 온보딩 → 표준 OIDC client → 감사 조회 → 로그아웃을 **관리 콘솔만으로** 수행(헤드리스 Chromium 끝-끝 13단계), 표준 OIDC 로그인 → 로그아웃은 S6 PR-2 의 tenant-sample 표준 RP 경로가 같은 client 로 통과.
+- ✅ **`idem-console-admin/`** (코어, React 19 + TypeScript + Vite, UI 라이브러리 0, 의존 2개 + 개발 5개, Gradle 밖 npm): 로그인(비밀번호 → TOTP, 첫 로그인은 비밀 1회 표시 → 등록 → 비밀번호 변경 강제 화면) · 기관 목록/검색 · **온보딩 폼**(서비스·프로토콜 5종별 필드·식별자·정책·세션·할당·한도, 또는 JSON 전체 편집; 폼 밖 키 보존; 변경 사유 → 감사) · 기관 상세(활성화/비활성화·API 키 회전 1회 표시·**표준 OIDC client 상태·secret 회전 1회 표시**·정책 시뮬레이션·변경 이력) · 테넌트(목록·전역 SYSTEM_ADMIN 만 쓰기) · 감사(기간·분류·사건·주체·기관·결과, 상세 펼침, 쪽) · 관리자(추가 → 임시 비밀번호 1회, 역할/테넌트/상태, 재설정, 잠금 해제, 2단계 초기화; 전역 SYSTEM_ADMIN 만). 역할별 메뉴·버튼 노출은 화면용일 뿐 판정은 hub
+- ✅ **같은 출처 설계**: nginx(`nginx/default.conf`) 가 `/api/v1/admin/` 만 hub 로 프록시, 그 밖의 `/api/` 는 404. 쿠키는 브라우저가, `X-Requested-With` 는 콘솔이 붙인다 — CORS 없음, CSP `script-src 'self'`. 401 이면 로그인 화면으로
+- ✅ **hub**: `AdminApiExceptionHandler`(`admin.auth`·`admin.audit` 패키지) 가 `PlatformException` 상세(비밀번호 정책 위반 사유 등)를 응답 `message` 에 싣는다 — 전역 핸들러는 기본 메시지만 냈다
+- ✅ **콘솔 분리**: 구 `idem-console`(중기원패스 회원 포털 512 파일) → `editions/idem-kr-portal/`(Gradle `:idem-kr-portal`, compose `idem-kr-portal` `--profile kr`, 3002). 코어 설치본은 `idem-console-admin` 컨테이너(3001)만. 서비스 Dockerfile 6개·`.dockerignore`·pre-push 훅·CI(`Frontend Build` = 관리 콘솔 npm: typecheck·vitest·build, `Frontend Build (KR portal)` = 종전 yarn·Webpack)·SonarCloud 제외·THIRD-PARTY-NOTICES 갱신
+- ✅ 검증: Vitest 9(프로파일 모델 왕복·폼 밖 키 보존·검사, API 클라이언트 CSRF·204·오류·401) · `tsc` 0 오류 · Vite 빌드 264kB(gzip 81kB) · **실기동 끝-끝**(Keycloak 24.0.5 + registry·authz·gate·hub + `vite preview` 프록시 + 헤드리스 Chromium): 첫 로그인 2단계 등록 → E-IDO-137 강제 변경 → OIDC_RP 온보딩 저장 → Keycloak client `idem-svc-*` 프로비저닝 확인 → secret 회전 → 정책 시뮬레이션 허용 → 목록 → 감사(ADMIN_LOGIN_SUCCESS·ADMIN_PASSWORD_CHANGED·기관별) → AUDITOR 추가(임시 비밀번호) → 테넌트 → 로그아웃 → 새 비밀번호 + 인증 앱 코드로 재로그인. 브라우저 콘솔 오류는 로그인 전 `/auth/me` 401 하나(의도)
+- ⏭ **남긴 것**: 접근 배너·마지막 로그인 표시(콘솔) · 할당 관리 화면(authz `assignments`, S8-b PR-2) · 기관 목록 페이징(현재 500건 한 번에) · TOTP QR 이미지(비밀·otpauth URI 텍스트만) · KR 포털의 SigNoz 잔재 정리는 KR 에디션 과제 · CI 설치본 스모크에 콘솔 컨테이너(nginx) 실기동 추가
 
 ### S9 — 개명 마무리 + 에디션 패키징 + 1.0 동결 (3~4주)
 

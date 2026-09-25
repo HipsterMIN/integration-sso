@@ -6,7 +6,7 @@
 #   BFF API 는 idem-hub /api/v1/fe-session/** 에서 제공.
 #
 # 빌드 명령:
-#   docker build -f idem-console/Dockerfile.optionA -t idem-hub:latest .
+#   docker build -f editions/idem-kr-portal/Dockerfile.optionA -t idem-hub:latest .
 #
 # 실행:
 #   docker run -p 8083:8083 idem-hub:latest
@@ -15,9 +15,9 @@
 # ── Stage 1: React 빌드 ──────────────────────────────────────────────────────
 FROM node:20-alpine AS frontend-builder
 WORKDIR /frontend
-COPY idem-console/frontend/package.json idem-console/frontend/yarn.lock* ./
+COPY editions/idem-kr-portal/frontend/package.json editions/idem-kr-portal/frontend/yarn.lock* ./
 RUN yarn install --frozen-lockfile --network-timeout 120000
-COPY idem-console/frontend/ .
+COPY editions/idem-kr-portal/frontend/ .
 RUN yarn build:prod
 
 # ── Stage 2: Gradle + Java 빌드 (idem-hub) ───────────────────────────────────────
@@ -38,7 +38,7 @@ COPY idem-common/     idem-common/
 COPY idem-gate/              idem-gate/
 COPY idem-registry/                idem-registry/
 COPY idem-hub/                 idem-hub/
-COPY idem-console/          idem-console/
+COPY editions/idem-kr-portal/          editions/idem-kr-portal/
 COPY idem-tenant-sample/         idem-tenant-sample/
 
 RUN chmod +x gradlew && \
