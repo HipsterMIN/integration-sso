@@ -38,8 +38,20 @@ public class HandoffPayload {
      */
     private final List<String> roles;
 
+    /**
+     * D3: 프로파일 {@code policy.session} 이 정한 세션 정책 — 기관이 자기 세션에 같은 상한을 적용하라는 계약.
+     * Idem 쪽 FE 세션에도 같은 값이 적용된다({@code FeSessionPolicyEnforcer}). 프로파일에 없으면 null.
+     */
+    private final SessionPolicy sessionPolicy;
+
     private final Instant issuedAt;
     private final Instant expiresAt;
+
+    /** 세션 상한 — 분 단위 유휴·절대 만료와 동시 세션 수. 어느 값이든 없으면(null) 그 항목은 상한 없음. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record SessionPolicy(Integer idleMinutes, Integer absoluteMinutes, Integer concurrent) {
+        public boolean isEmpty() { return idleMinutes == null && absoluteMinutes == null && concurrent == null; }
+    }
 
     public enum HandoffState {
         APPROVED,

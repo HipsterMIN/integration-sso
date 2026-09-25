@@ -176,4 +176,23 @@ class OidcRpAccessServiceTest {
         given(info.getQimUserId()).willReturn("qim-1");
         return info;
     }
+
+    @Test
+    @DisplayName("[D3] 프로파일 policy.session 이 응답 sessionPolicy 로 나간다 (userinfo idem_session_policy 의 원천)")
+    void sessionPolicyCarried() {
+        ServiceProfile withSession = ServiceProfile.builder()
+                .schemaVersion(1)
+                .service(new ServiceProfile.Service("AG1", "기관", ServiceProfile.ServiceStatus.ACTIVE, null))
+                .protocol(ServiceProfile.Protocol.builder().type(IntegrationType.OIDC_RP)
+                        .oidc(ServiceProfile.Oidc.builder().redirectUris(List.of("https://rp/cb")).build()).build())
+                .policy(ServiceProfile.Policy.builder().session(new ServiceProfile.Session(15, 120, 2)).build())
+                .build();
+        given(profiles.find("AG1")).willReturn(Optional.of(withSession));
+        OidcRpAccessResponse r = sut.evaluate(req("idem-svc-AG1", "social-kakao", "1"), "cid");
+        assertThat(r.allowed()).isTrue();
+        assertThat(r.sessionPolicy()).isEqualTo(new HandoffPayload.SessionPolicy(15, 120, 2));
+
+        given(profiles.find("AG1")).willReturn(Optional.of(profile("AG1", IntegrationType.OIDC_RP, null)));
+        assertThat(sut.evaluate(req("idem-svc-AG1", "social-kakao", "1"), "cid").sessionPolicy()).isNull();
+    }
 }

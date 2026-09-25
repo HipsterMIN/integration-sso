@@ -375,6 +375,53 @@ class UserRegistrationServiceImplTest {
             assertThatCode(() -> service.updateStatus("qim-001", "SUSPENDED", "ADMIN", "reason"))
                     .doesNotThrowAnyException();
         }
+
+        @Test
+        @DisplayName("[D3] 알 수 없는 상태 문자열은 거부 — 종전엔 아무 문자열이나 저장됐다")
+        void updateStatus_unknownStatus_rejected() {
+            QimUserJpaEntity user = buildUser("qim-001", "ACTIVE");
+            given(userRepository.findById("qim-001")).willReturn(Optional.of(user));
+            assertThatThrownBy(() -> service.updateStatus("qim-001", "BANANA", "ADMIN", "x"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("허용되지 않은 상태");
+            assertThat(user.getStatus()).isEqualTo("ACTIVE");
+            then(userRepository).should(never()).save(any());
+            then(outboxService).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("[D3] 탈퇴(WITHDRAWN)한 사용자는 어떤 상태로도 되돌릴 수 없다")
+        void updateStatus_fromWithdrawn_rejected() {
+            QimUserJpaEntity user = buildUser("qim-001", "WITHDRAWN");
+            given(userRepository.findById("qim-001")).willReturn(Optional.of(user));
+            assertThatThrownBy(() -> service.updateStatus("qim-001", "ACTIVE", "ADMIN", "재활성"))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(user.getStatus()).isEqualTo("WITHDRAWN");
+            then(outboxService).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("[D3] 이벤트 유형은 새 상태를 따른다 — 종전엔 항상 USER_SUSPENDED 였다")
+        void updateStatus_eventTypeFollowsTarget() {
+            given(userRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+            given(jdbcTemplate.update(anyString(), any(Object[].class))).willReturn(1);
+            ArgumentCaptor<UserEvent> captor = ArgumentCaptor.forClass(UserEvent.class);
+
+            given(userRepository.findById("u-s")).willReturn(Optional.of(buildUser("u-s", "ACTIVE")));
+            service.updateStatus("u-s", " suspended ", "ADMIN", "r");   // 공백·소문자 정규화
+            given(userRepository.findById("u-w")).willReturn(Optional.of(buildUser("u-w", "SUSPENDED")));
+            service.updateStatus("u-w", "WITHDRAWN", "ADMIN", "r");
+            given(userRepository.findById("u-ws")).willReturn(Optional.of(buildUser("u-ws", "ACTIVE")));
+            service.updateStatus("u-ws", "WITHDRAWAL_SCHEDULED", "ADMIN", "r");
+            given(userRepository.findById("u-a")).willReturn(Optional.of(buildUser("u-a", "SUSPENDED")));
+            service.updateStatus("u-a", "ACTIVE", "ADMIN", "r");
+
+            then(outboxService).should(times(4)).publishInTx(captor.capture());
+            assertThat(captor.getAllValues()).extracting(UserEvent::getEventType)
+                    .containsExactly(UserEvent.TYPE_SUSPENDED, UserEvent.TYPE_WITHDRAWN, UserEvent.TYPE_WITHDRAWN, UserEvent.TYPE_UPDATED);
+            assertThat(captor.getAllValues()).extracting(UserEvent::getUserStatus)
+                    .containsExactly("SUSPENDED", "WITHDRAWN", "WITHDRAWAL_SCHEDULED", "ACTIVE");
+        }
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────────────

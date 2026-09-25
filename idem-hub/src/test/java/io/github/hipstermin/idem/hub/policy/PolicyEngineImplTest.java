@@ -218,6 +218,39 @@ class PolicyEngineImplTest {
 
     // ── S8-b 할당 정책 ──────────────────────────────────────────────────────
     @Nested
+    @DisplayName("[D3] policy.session → 페이로드 sessionPolicy")
+    class SessionPolicyInPayload {
+
+        private ServiceProfile profileWithSession(ServiceProfile.Session session) {
+            return ServiceProfile.builder().schemaVersion(1)
+                    .service(new ServiceProfile.Service(AGENCY_CODE, "기관", ServiceProfile.ServiceStatus.ACTIVE))
+                    .protocol(ServiceProfile.Protocol.builder().type(IntegrationType.DIRECT).build())
+                    .policy(ServiceProfile.Policy.builder().session(session).build())
+                    .build();
+        }
+
+        @Test
+        @DisplayName("프로파일 세션 상한이 그대로 실린다 — 종전에는 매핑만 되고 어디에도 나가지 않았다")
+        void sessionPolicyCarried() {
+            given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.of(profileWithSession(new ServiceProfile.Session(20, 240, 1))));
+            given(qimClient.getDi(anyString(), anyString(), anyString())).willReturn("di-1");
+            HandoffPayload payload = sut.buildHandoffPayload(buildTicket(), CORRELATION_ID);
+            assertThat(payload.getSessionPolicy()).isEqualTo(new HandoffPayload.SessionPolicy(20, 240, 1));
+        }
+
+        @Test
+        @DisplayName("세션 블록이 없거나 전부 비면 null")
+        void absentOrEmptyIsNull() {
+            given(qimClient.getDi(anyString(), anyString(), anyString())).willReturn("di-1");
+            given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.of(profileWithSession(null)));
+            assertThat(sut.buildHandoffPayload(buildTicket(), CORRELATION_ID).getSessionPolicy()).isNull();
+            given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.of(profileWithSession(new ServiceProfile.Session(null, null, null))));
+            assertThat(sut.buildHandoffPayload(buildTicket(), CORRELATION_ID).getSessionPolicy()).isNull();
+            assertThat(PolicyEngineImpl.sessionPolicyOf(null)).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("[S8-b] policy.assignment.required=true — 상태는 할당이 정한다")
     class AssignmentPolicy {
 

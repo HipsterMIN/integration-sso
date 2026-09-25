@@ -13,10 +13,11 @@ import java.util.List;
 public record OidcRpAccessResponse(boolean allowed, String denyCode, String denyMessage, String rule,
                                    String serviceCode, String qimUserId, HandoffPayload.HandoffState state,
                                    String agencySubjectId, String subjectScheme, List<String> roles, Boolean assigned,
-                                   String authLevel, String providerCode) {
+                                   String authLevel, String providerCode,
+                                   HandoffPayload.SessionPolicy sessionPolicy) {
 
     public static OidcRpAccessResponse denied(PlatformErrorCode code, String message, String rule, String serviceCode) {
         return new OidcRpAccessResponse(false, code.getCode(), message, rule, serviceCode,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null);
     }
 }

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.jackson.Jacksonized;
 
 /**
  * Keycloak OIDC Authorization Code Flow — Redis state 엔트리
@@ -16,6 +17,7 @@ import lombok.Getter;
  */
 @Getter
 @Builder
+@Jacksonized   // D3: 종전에는 Jackson 생성자가 없어 fromJson 이 항상 실패했다(콜백의 state 소비 = 항상 CSRF 오류). 회귀 테스트로 발견
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class KeycloakStateEntry {
 
@@ -41,6 +43,12 @@ public class KeycloakStateEntry {
      * Keycloak callback 에서 providerCode 를 결정할 때 사용한다.
      */
     private final String provider;
+
+    /**
+     * D3: PKCE code_verifier (RFC 7636). auth-url 발급 시 만들어 code_challenge(S256) 를 Keycloak 에 보내고,
+     * 콜백의 token 교환에 verifier 를 낸다 — 이 서버 세션(state)에 묶인 코드만 교환된다. 옛 엔트리는 null.
+     */
+    private final String codeVerifier;
 
     // ── JSON 직렬화 유틸 ────────────────────────────────────────────────────
 

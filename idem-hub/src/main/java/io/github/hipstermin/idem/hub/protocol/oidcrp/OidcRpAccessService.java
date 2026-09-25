@@ -112,7 +112,8 @@ public class OidcRpAccessService {
                     serviceCode, state, providerCode, authLevel, sa.roles().size(), correlationId);
             return new OidcRpAccessResponse(true, null, null, null, serviceCode, qimUserId, state,
                     agencySubjectId, agencySubjectId != null ? scheme : null, sa.roles(),
-                    sa.authzEnabled() ? sa.assigned() : null, authLevel.name(), providerCode);
+                    sa.authzEnabled() ? sa.assigned() : null, authLevel.name(), providerCode,
+                    io.github.hipstermin.idem.hub.policy.PolicyEngineImpl.sessionPolicyOf(profile));
         } catch (PlatformException e) {
             // 규칙 평가·주체 해석 중 의존 장애(authz·registry) — 거부로 돌려 gate 가 OAuth 오류로 바꾼다
             log.error("[OidcRpAccess] 의존 장애 → 거부: service={} code={} cid={} err={}", serviceCode, e.getErrorCode().getCode(), correlationId, e.getMessage());

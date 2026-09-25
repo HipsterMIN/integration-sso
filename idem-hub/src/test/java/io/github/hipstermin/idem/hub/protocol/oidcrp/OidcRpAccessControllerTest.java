@@ -44,7 +44,7 @@ class OidcRpAccessControllerTest {
     void signed_ok() throws Exception {
         given(verifier.verify("sig", "cid-1")).willReturn(true);
         given(service.evaluate(any(), eq("cid-1"))).willReturn(new OidcRpAccessResponse(true, null, null, null, "AG1", "qim-1",
-                HandoffPayload.HandoffState.APPROVED, "pw-1", "PAIRWISE_HMAC", List.of("VIEWER"), true, "L1", "KAKAO_OIDC"));
+                HandoffPayload.HandoffState.APPROVED, "pw-1", "PAIRWISE_HMAC", List.of("VIEWER"), true, "L1", "KAKAO_OIDC", null));
         mvc.perform(post("/api/internal/v1/oidc-rp/access").contentType(MediaType.APPLICATION_JSON)
                         .header("X-Internal-Sig", "sig").content(BODY))
                 .andExpect(status().isOk())

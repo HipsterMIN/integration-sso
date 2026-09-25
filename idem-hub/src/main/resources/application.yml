@@ -504,6 +504,18 @@ ido:
     batch-size: ${IDO_QIM_OUTBOX_BATCH_SIZE:50}
     max-retry: ${IDO_QIM_OUTBOX_MAX_RETRY:5}
 
+  # ── D3: Kafka 없는 설치의 사용자 상태 변경 전파 — registry 이벤트 피드 폴링 ─────
+  # Kafka 가 꺼지면(idem.messaging.kafka.enabled=false) KafkaOptionalEnvironmentPostProcessor 가 enabled=true 로 켠다.
+  # Kafka 설치에서는 QimEventConsumer 의 KafkaListener 가 같은 일을 하므로 기본 false.
+  qim-events:
+    poll:
+      enabled: ${IDO_QIM_EVENTS_POLL_ENABLED:false}
+      interval-ms: ${IDO_QIM_EVENTS_POLL_INTERVAL_MS:5000}
+      initial-delay-ms: 10000
+      batch-size: 100
+      initial-lookback-hours: 24     # 워터마크가 없을 때 이만큼 과거부터 (중복은 processed_event 가 거른다)
+      max-failures: 5                # 같은 이벤트가 이만큼 연속 실패하면 FAILED 로 기록하고 건너뛴다
+
   # ── F-14: Webhook Outbox Relay On/Off ────────────────────────────────────
   # false → 기관 webhook 발송 없음 (PENDING은 DB 유지 → 재활성 시 처리)
 

@@ -121,7 +121,7 @@ public class KeycloakAuthUrlController {
         String redirectUri = encode(keycloakProperties.getRedirectUri());
         String scope       = encode("openid profile email");
 
-        return keycloakProperties.authorizationEndpoint()
+        String url = keycloakProperties.authorizationEndpoint()
                 + "?response_type=code"
                 + "&client_id="    + keycloakProperties.getClientId()
                 + "&redirect_uri=" + redirectUri
@@ -129,6 +129,17 @@ public class KeycloakAuthUrlController {
                 + "&state="        + stateEntry.getState()
                 + "&nonce="        + stateEntry.getNonce()
                 + "&kc_idp_hint="  + encode(idpHint);
+        // D3: PKCE S256 — state 에 묶인 verifier 의 challenge. 콜백 token 교환이 같은 verifier 를 낸다
+        if (stateEntry.getCodeVerifier() != null) {
+            url += "&code_challenge=" + codeChallengeOf(stateEntry.getCodeVerifier()) + "&code_challenge_method=S256";
+        }
+        return url;
+    }
+
+    /** BASE64URL(SHA-256(ASCII(code_verifier))) — RFC 7636 §4.2 */
+    static String codeChallengeOf(String codeVerifier) {
+        return io.github.hipstermin.idem.common.crypto.CryptoProviders.current()
+                .sha256Base64Url(codeVerifier.getBytes(StandardCharsets.US_ASCII));
     }
 
     private String encode(String value) {

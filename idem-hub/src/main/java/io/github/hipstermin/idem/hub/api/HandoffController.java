@@ -46,6 +46,7 @@ public class HandoffController {
 
     private final HandoffService handoffService;
     private final FeSessionService feSessionService;
+    private final io.github.hipstermin.idem.hub.fe.session.FeSessionPolicyEnforcer feSessionPolicyEnforcer;
     private final TicketRepository ticketRepository;
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -137,6 +138,9 @@ public class HandoffController {
                 .build();
 
         HandoffTicket ticket = handoffService.issue(cmd);
+
+        // D3: 프로파일 policy.session 을 이 FE 세션에 적용 (발급 실패가 아니므로 예외는 안에서 삼킨다)
+        feSessionPolicyEnforcer.applyForService(feSessionId, req.getAgencyCode(), cid);
 
         // Idempotency-Key 캐시 저장 (TTL 1일) — 신규 발급 또는 재발급 모두
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {

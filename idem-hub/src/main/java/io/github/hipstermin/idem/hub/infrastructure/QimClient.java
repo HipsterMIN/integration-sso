@@ -92,4 +92,13 @@ public interface QimClient {
      */
     QimRegisterResponse registerSocialUser(String sub, String providerCode,
                                            String identifierHash, String correlationId);
+
+    /**
+     * D3: registry 아웃박스의 사용자 이벤트 피드 — {@code GET /api/v1/internal/events} (Kafka 없는 설치의 상태 전파).
+     * 커서 {@code (afterCreatedAt, afterEventId)} 뒤의 이벤트를 생성순으로 최대 {@code limit} 건.
+     *
+     * @throws io.github.hipstermin.idem.common.error.PlatformException IDO_QIM_UNREACHABLE (호출 실패)
+     */
+    java.util.List<QimUserEventRecord> fetchUserEvents(java.time.Instant afterCreatedAt, String afterEventId,
+                                                       int limit, String correlationId);
 }

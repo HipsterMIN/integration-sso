@@ -44,6 +44,7 @@ public class KeycloakStateStore {
                                      String requestedLevel, String provider) {
         String state = CryptoProviders.current().randomHex(16);   // D2-b: CSPRNG 32 hex
         String nonce = CryptoProviders.current().randomHex(16);
+        String codeVerifier = CryptoProviders.current().randomToken(64);   // D3: PKCE (43~128 unreserved chars)
 
         KeycloakStateEntry entry = KeycloakStateEntry.builder()
                 .state(state)
@@ -52,6 +53,7 @@ public class KeycloakStateStore {
                 .returnUrl(returnUrl)
                 .requestedLevel(requestedLevel != null ? requestedLevel : "L1")
                 .provider(provider != null ? provider : "")
+                .codeVerifier(codeVerifier)
                 .build();
 
         long ttl = keycloakProperties.getStateTtlSeconds();

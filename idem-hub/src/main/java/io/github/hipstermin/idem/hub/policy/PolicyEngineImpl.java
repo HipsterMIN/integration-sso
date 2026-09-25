@@ -236,9 +236,18 @@ public class PolicyEngineImpl implements PolicyEngine {
                         .authenticatedAt(ticket.getIssuedAt())
                         .build())
                 .attributes(attributes)
+                .sessionPolicy(sessionPolicyOf(profile))
                 .issuedAt(ticket.getIssuedAt())
                 .expiresAt(ticket.getExpiresAt())
                 .build();
+    }
+
+    /** D3: 프로파일 {@code policy.session} → 페이로드 세션 정책. 블록이 없거나 전부 비면 null (종전에는 매핑만 되고 어디에도 안 나갔다). */
+    public static HandoffPayload.SessionPolicy sessionPolicyOf(ServiceProfile profile) {
+        ServiceProfile.Session s = profile != null && profile.policy() != null ? profile.policy().session() : null;
+        if (s == null) return null;
+        HandoffPayload.SessionPolicy sp = new HandoffPayload.SessionPolicy(s.idleMinutes(), s.absoluteMinutes(), s.concurrent());
+        return sp.isEmpty() ? null : sp;
     }
 
     @Override

@@ -191,6 +191,70 @@ public class FeSessionServiceImpl implements FeSessionService {
                 .anyMatch(allowed -> returnUrl.startsWith(allowed.trim()));
     }
 
+    // ── D3: 프로파일 세션 정책 적용 ─────────────────────────────────────────
+
+    @Override
+    public Optional<FeSession> applySessionPolicy(String feSessionId, Integer idleMinutes, Integer absoluteMinutes, Integer concurrent) {
+        String key = KEY_PREFIX + feSessionId;
+        Object raw = redisTemplate.opsForValue().get(key);
+        if (raw == null) return Optional.empty();
+        FeSession old = castSession(raw);
+
+        // 절대 만료 — 짧아질 때만
+        Instant absoluteExpiresAt = old.getAbsoluteExpiresAt();
+        if (absoluteMinutes != null && absoluteMinutes > 0) {
+            Instant cap = old.getCreatedAt().plus(Duration.ofMinutes(absoluteMinutes));
+            if (absoluteExpiresAt == null || cap.isBefore(absoluteExpiresAt)) absoluteExpiresAt = cap;
+        }
+        FeSession updated = FeSession.builder()
+                .feSessionId(old.getFeSessionId())
+                .qimUserId(old.getQimUserId())
+                .authResultId(old.getAuthResultId())
+                .authLevel(old.getAuthLevel())
+                .idpSub(old.getIdpSub())
+                .idpSid(old.getIdpSid())
+                .createdAt(old.getCreatedAt())
+                .lastActivityAt(old.getLastActivityAt())
+                .absoluteExpiresAt(absoluteExpiresAt)
+                .returnUrl(old.getReturnUrl())
+                .advisoryFlag(old.isAdvisoryFlag())
+                .build();
+
+        // 유휴(sliding) TTL — 짧아질 때만
+        Long currentTtlSec = redisTemplate.getExpire(key);
+        long ttlSec = (currentTtlSec != null && currentTtlSec > 0) ? currentTtlSec : slidingTtlMinutes * 60;
+        if (idleMinutes != null && idleMinutes > 0) ttlSec = Math.min(ttlSec, idleMinutes * 60L);
+        // 절대 만료가 더 가까우면 그 이상 살지 않는다
+        if (absoluteExpiresAt != null) {
+            long untilAbsolute = Duration.between(Instant.now(), absoluteExpiresAt).getSeconds();
+            ttlSec = Math.max(1, Math.min(ttlSec, untilAbsolute));
+        }
+        redisTemplate.opsForValue().set(key, updated, Duration.ofSeconds(ttlSec));
+
+        // 동시 세션 상한 — 같은 사용자의 다른 세션 중 오래된 것부터 만료 (이 세션은 남긴다)
+        if (concurrent != null && concurrent > 0) {
+            Set<Object> ids = redisTemplate.opsForSet().members(USER_SET_PREFIX + old.getQimUserId());
+            if (ids != null && ids.size() > concurrent) {
+                List<FeSession> others = new ArrayList<>();
+                for (Object id : ids) {
+                    String sid = id.toString();
+                    if (sid.equals(feSessionId)) continue;
+                    Object r = redisTemplate.opsForValue().get(KEY_PREFIX + sid);
+                    if (r == null) { redisTemplate.opsForSet().remove(USER_SET_PREFIX + old.getQimUserId(), sid); continue; }
+                    others.add(castSession(r));
+                }
+                others.sort(Comparator.comparing(s -> s.getCreatedAt() != null ? s.getCreatedAt() : Instant.EPOCH));
+                int toExpire = others.size() + 1 - concurrent;
+                for (int i = 0; i < toExpire && i < others.size(); i++) {
+                    expire(others.get(i).getFeSessionId());
+                    log.warn("[FeSession] 동시 세션 상한 초과 → 오래된 세션 만료 qimUserId={} max={} expired={}",
+                            old.getQimUserId(), concurrent, others.get(i).getFeSessionId());
+                }
+            }
+        }
+        return Optional.of(updated);
+    }
+
     // ── 사용자별 세션 일괄 무효화 (MANDATORY_SECURITY) ────────────────────
 
     @Override
