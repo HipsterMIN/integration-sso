@@ -48,6 +48,9 @@ docs/
 # ── CI/CD 설정 (런타임 불필요) ─────────────────────────────────────────────
 .github/
 infra/docker/
+# S9 PR-3: KR 이미지의 vendor-libs 기본(빈) 컨텍스트 — Dockerfile Stage 0 이 COPY 한다
+!infra/docker/vendor-libs-empty
+!infra/docker/vendor-libs-empty/**
 
 # ── k6 부하 테스트 (런타임 불필요) ────────────────────────────────────────────
 k6/
