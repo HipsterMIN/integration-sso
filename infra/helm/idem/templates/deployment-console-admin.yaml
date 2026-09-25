@@ -1,0 +1,41 @@
+{{- /* 관리 콘솔 — 정적 React + Nginx. /api/v1/admin/ 만 idem-hub 로 프록시(같은 출처), 나머지 /api/ 는 404 (idem-console-admin/nginx/default.conf) */ -}}
+{{- if .Values.consoleAdmin.enabled }}
+{{- $c := .Values.consoleAdmin }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idem-console-admin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-console-admin" | nindent 4 }}
+spec:
+  replicas: {{ include "idem.replicas" (dict "root" . "c" $c) }}
+  selector:
+    matchLabels:
+      app: idem-console-admin
+  template:
+    metadata:
+      labels:
+        {{- include "idem.labels" . | nindent 8 }}
+        {{- include "idem.selectorLabels" "idem-console-admin" | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: nginx
+          image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" false) }}
+          imagePullPolicy: {{ .Values.appDefaults.imagePullPolicy }}
+          ports:
+            - { name: http, containerPort: 80 }
+          readinessProbe:
+            httpGet: { path: /nginx-health, port: 80 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /nginx-health, port: 80 }
+            periodSeconds: 15
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+{{- end }}

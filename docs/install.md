@@ -21,6 +21,8 @@
 
 **Kafka 는 없다.** 모든 앱이 `IDEM_KAFKA_ENABLED=false` 로 뜨며, 아웃박스는 hub 가 DB 를 폴링해 같은 프로세스 안의 핸들러로 배달하고 감사 로그는 DB 에만 남는다(§6). 다중 인스턴스·외부 시스템 연동이 필요해지면 Kafka 를 붙이고 스위치를 `true` 로 바꾼다.
 
+> **K8s 로 설치하려면** 같은 계약의 Helm 차트 `infra/helm/idem` (README) 를 쓴다 — 컴포넌트·환경변수·비밀 키 이름이 이 문서와 같다. 준비해야 하는 값 전부와 회전 영향은 `docs/install-inputs.md`. KR 에디션은 `IDEM_EDITION=kr`(compose) / `values-kr.yaml`(Helm).
+
 ## 2. 준비
 
 - Docker Engine 24+ 와 Compose v2 (`docker compose version`). 메모리 8 GB, CPU 4 vCPU 권장(앱 5개 + Keycloak).

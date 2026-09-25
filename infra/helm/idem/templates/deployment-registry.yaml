@@ -1,71 +1,60 @@
 {{- if .Values.registry.enabled }}
+{{- $c := .Values.registry }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: idem-registry
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-registry
-  annotations:
-    checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-registry" | nindent 4 }}
 spec:
-  replicas: {{ .Values.registry.replicaCount }}
+  replicas: {{ include "idem.replicas" (dict "root" . "c" $c) }}
   selector:
     matchLabels:
       app: idem-registry
   strategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   template:
     metadata:
       labels:
-        app: idem-registry
-        {{- include "onepass.labels" . | nindent 8 }}
-        app.kubernetes.io/component: idem-registry
+        {{- include "idem.labels" . | nindent 8 }}
+        {{- include "idem.selectorLabels" "idem-registry" | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $c.config | sha256sum }}
     spec:
-      {{- if .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
-      {{- end }}
-      {{- if and .Values.registry.serviceAccount .Values.registry.serviceAccount.create }}
-      serviceAccountName: {{ .Values.registry.serviceAccount.name | default "idem-registry" }}
-      {{- end }}
-      terminationGracePeriodSeconds: 30
+      {{- include "idem.podCommon" (dict "root" . "name" "idem-registry") | nindent 6 }}
       containers:
         - name: idem-registry
-          image: {{ include "onepass.image" .Values.registry.image }}
-          imagePullPolicy: {{ .Values.registry.image.pullPolicy }}
+          image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" true) }}
+          imagePullPolicy: {{ .Values.appDefaults.imagePullPolicy }}
+          {{- include "idem.containerSecurity" . | nindent 10 }}
           ports:
-            - name: http
-              containerPort: 8082
-              protocol: TCP
+            - { name: http, containerPort: 8082 }
           envFrom:
-            - configMapRef:
-                name: idem-registry-config
-            - configMapRef:
-                name: idem-common-config
-            - secretRef:
-                name: {{ .Values.registry.secretRef.name }}
-          {{- if .Values.registry.startupProbe }}
-          startupProbe:
-            {{- toYaml .Values.registry.startupProbe | nindent 12 }}
-          {{- end }}
-          livenessProbe:
-            {{- toYaml .Values.registry.livenessProbe | nindent 12 }}
-          readinessProbe:
-            {{- toYaml .Values.registry.readinessProbe | nindent 12 }}
+            - configMapRef: { name: idem-registry-config }
+          env:
+            {{- include "idem.commonEnv" . | nindent 12 }}
+            - name: JAVA_OPTS
+              value: {{ .Values.appDefaults.javaOpts | quote }}
+            # registry 는 자기 접두(IDEM_REGISTRY_DB_*)로 같은 PostgreSQL 의 idem_registry 스키마를 쓴다
+            - name: IDEM_REGISTRY_DB_HOST
+              value: {{ .Values.infra.postgres.host | quote }}
+            - name: IDEM_REGISTRY_DB_PORT
+              value: {{ .Values.infra.postgres.port | quote }}
+            - name: IDEM_REGISTRY_DB_NAME
+              value: {{ .Values.infra.postgres.database | quote }}
+            - name: IDEM_REGISTRY_DB_SCHEMA
+              value: {{ $c.dbSchema | quote }}
+            - name: IDEM_REGISTRY_DB_SSL
+              value: {{ ne .Values.infra.postgres.sslMode "disable" | quote }}
+            {{ include "idem.secretEnv" (dict "name" "IDEM_REGISTRY_DB_USERNAME" "secret" .Values.infra.postgres.existingSecret "key" .Values.infra.postgres.usernameKey) | nindent 12 }}
+            {{ include "idem.secretEnv" (dict "name" "IDEM_REGISTRY_DB_PASSWORD" "secret" .Values.infra.postgres.existingSecret "key" .Values.infra.postgres.passwordKey) | nindent 12 }}
+            # D3: 부팅 가드가 요구하는 키 — 비면 registry 가 기동을 거부한다
+            {{- include "idem.appSecretEnv" (dict "root" . "keys" (list "IDEM_REGISTRY_INTERNAL_API_KEY" "IDEM_REGISTRY_DI_SECRET" "IDEM_REGISTRY_CI_AES_KEY_V1")) | nindent 12 }}
+            {{- include "idem.mapEnv" $c.extraEnv | nindent 12 }}
+          {{- include "idem.probes" (dict "root" . "port" 8082) | nindent 10 }}
           resources:
-            {{- toYaml .Values.registry.resources | nindent 12 }}
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: idem-registry
-                topologyKey: kubernetes.io/hostname
+            {{- toYaml $c.resources | nindent 12 }}
 {{- end }}

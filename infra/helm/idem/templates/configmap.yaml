@@ -1,163 +1,50 @@
-# ============================================================
-# ConfigMap — 비민감 설정 (URL, topic명, feature flag 등)
-# 민감 정보(패스워드, 키)는 반드시 Secret으로 관리한다.
-# ============================================================
-
-# ── 플랫폼 공통 ConfigMap ──────────────────────────────────────────
+{{- /* 컴포넌트별 비민감 설정 — 값은 values 의 <컴포넌트>.config 맵. 비밀은 Secret(secrets.existingSecret) 로만 */ -}}
+{{- range $name, $c := dict "idem-gate" .Values.gate "idem-hub" .Values.hub "idem-registry" .Values.registry "idem-authz" .Values.authz "idem-relay" .Values.relay }}
+{{- if $c.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: idem-common-config
-  namespace: {{ .Values.global.namespace }}
+  name: {{ $name }}-config
+  namespace: {{ $.Release.Namespace }}
   labels:
-    {{- include "onepass.labels" . | nindent 4 }}
+    {{- include "idem.labels" $ | nindent 4 }}
+    {{- include "idem.selectorLabels" $name | nindent 4 }}
 data:
-  # ── Kafka Topic 이름 (모든 서비스가 참조) ─────────────────────────
-  KAFKA_TOPIC_AUTH_EVENTS:        {{ .Values.kafka.topics.authEvents | quote }}
-  KAFKA_TOPIC_HANDOFF_EVENTS:     {{ .Values.kafka.topics.handoffEvents | quote }}
-  KAFKA_TOPIC_SESSION_ADVISORY:   {{ .Values.kafka.topics.sessionAdvisory | quote }}
-  KAFKA_TOPIC_AUDIT_LOG:          {{ .Values.kafka.topics.auditLog | quote }}
-  KAFKA_TOPIC_QIM_USER_EVENTS:    {{ .Values.kafka.topics.qimUserEvents | quote }}
-  KAFKA_TOPIC_QIM_USER_SNAPSHOT:  {{ .Values.kafka.topics.qimUserSnapshot | quote }}
-  KAFKA_TOPIC_QIM_SP_MEMBER:      {{ .Values.kafka.topics.qimSpMemberEvents | quote }}
-  # DLT
-  KAFKA_TOPIC_AUTH_EVENTS_DLT:        {{ .Values.kafka.topics.authEventsDlt | quote }}
-  KAFKA_TOPIC_HANDOFF_EVENTS_DLT:     {{ .Values.kafka.topics.handoffEventsDlt | quote }}
-  KAFKA_TOPIC_SESSION_ADVISORY_DLT:   {{ .Values.kafka.topics.sessionAdvisoryDlt | quote }}
-  KAFKA_TOPIC_QIM_USER_EVENTS_DLT:    {{ .Values.kafka.topics.qimUserEventsDlt | quote }}
-  KAFKA_TOPIC_QIM_SP_MEMBER_DLT:      {{ .Values.kafka.topics.qimSpMemberEventsDlt | quote }}
+  {{- range $k, $v := $c.config }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
 ---
-# ── Q-Sign ConfigMap ───────────────────────────────────────────────
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: idem-gate-config
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-gate
-data:
-  SPRING_PROFILES_ACTIVE: {{ .Values.gate.config.SPRING_PROFILES_ACTIVE | quote }}
-  IDEM_KAFKA_ENABLED: {{ .Values.gate.config.IDEM_KAFKA_ENABLED | quote }}
-  DB_PORT: {{ .Values.gate.config.DB_PORT | quote }}
-  DB_NAME: {{ .Values.gate.config.DB_NAME | quote }}
-  REDIS_PORT: {{ .Values.gate.config.REDIS_PORT | quote }}
-  KEYCLOAK_REALM: {{ .Values.gate.config.KEYCLOAK_REALM | quote }}
-  IDEM_GATE_KEYCLOAK_CLIENT_ID: {{ .Values.gate.config.IDEM_GATE_KEYCLOAK_CLIENT_ID | quote }}
-  IDEM_GATE_PKCE_ENABLED: {{ .Values.gate.config.IDEM_GATE_PKCE_ENABLED | quote }}
-  IDEM_GATE_PKCE_TTL: {{ .Values.gate.config.IDEM_GATE_PKCE_TTL | quote }}
-  IDEM_GATE_INTERNAL_SIG_STRICT: {{ .Values.gate.config.IDEM_GATE_INTERNAL_SIG_STRICT | quote }}
----
-# ── Q-IM ConfigMap ─────────────────────────────────────────────────
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: idem-registry-config
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-registry
-data:
-  SPRING_PROFILES_ACTIVE: {{ .Values.registry.config.SPRING_PROFILES_ACTIVE | quote }}
-  IDEM_KAFKA_ENABLED: {{ .Values.registry.config.IDEM_KAFKA_ENABLED | quote }}
-  IDEM_REGISTRY_DB_PORT: {{ .Values.registry.config.IDEM_REGISTRY_DB_PORT | quote }}
-  IDEM_REGISTRY_DB_NAME: {{ .Values.registry.config.IDEM_REGISTRY_DB_NAME | quote }}
-  IDEM_REGISTRY_DB_SSL: {{ .Values.registry.config.IDEM_REGISTRY_DB_SSL | quote }}
-  REDIS_PORT: {{ .Values.registry.config.REDIS_PORT | quote }}
-  IDEM_REGISTRY_CI_CURRENT_VERSION: {{ .Values.registry.config.IDEM_REGISTRY_CI_CURRENT_VERSION | quote }}
-  IDEM_REGISTRY_RECEIVER_AUDIT: {{ .Values.registry.config.IDEM_REGISTRY_RECEIVER_AUDIT | quote }}
----
-# ── IdO ConfigMap ──────────────────────────────────────────────────
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: idem-hub-config
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-hub
-data:
-  SPRING_PROFILES_ACTIVE: {{ .Values.hub.config.SPRING_PROFILES_ACTIVE | quote }}
-  IDEM_KAFKA_ENABLED: {{ .Values.hub.config.IDEM_KAFKA_ENABLED | quote }}
-  DB_PORT: {{ .Values.hub.config.DB_PORT | quote }}
-  DB_NAME: {{ .Values.hub.config.DB_NAME | quote }}
-  REDIS_PORT: {{ .Values.hub.config.REDIS_PORT | quote }}
-  IDEM_HUB_BROKER_MODE: {{ .Values.hub.config.IDEM_HUB_BROKER_MODE | quote }}
-  KEYCLOAK_REALM: {{ .Values.hub.config.KEYCLOAK_REALM | quote }}
-  KEYCLOAK_CLIENT_ID: {{ .Values.hub.config.KEYCLOAK_CLIENT_ID | quote }}
-  IDEM_HUB_PLATFORM_VERSION: {{ .Values.hub.config.IDEM_HUB_PLATFORM_VERSION | quote }}
-  IDEM_HUB_RATE_LIMIT_ENABLED: {{ .Values.hub.config.IDEM_HUB_RATE_LIMIT_ENABLED | quote }}
-  IDEM_HUB_RATE_LIMIT_DEFAULT_TPS: {{ .Values.hub.config.IDEM_HUB_RATE_LIMIT_DEFAULT_TPS | quote }}
-  IDEM_HUB_RATE_LIMIT_DEFAULT_DAILY: {{ .Values.hub.config.IDEM_HUB_RATE_LIMIT_DEFAULT_DAILY | quote }}
-  IDEM_HUB_AUDIT_KAFKA_ENABLED: {{ .Values.hub.config.IDEM_HUB_AUDIT_KAFKA_ENABLED | quote }}
-  IDEM_HUB_AUTHZ_ENABLED: {{ .Values.hub.config.IDEM_HUB_AUTHZ_ENABLED | quote }}
-  IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN: {{ .Values.hub.config.IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN | quote }}
-  IDEM_HUB_KAFKA_PARTITION_COUNT_DLQ: {{ .Values.hub.config.IDEM_HUB_KAFKA_PARTITION_COUNT_DLQ | quote }}
-  IDEM_HUB_KAFKA_REPLICATION_FACTOR: {{ .Values.hub.config.IDEM_HUB_KAFKA_REPLICATION_FACTOR | quote }}
-  IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS: {{ .Values.hub.config.IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS | quote }}
-  # ── KMS / Vault Transit 비민감 설정 ───────────────────────────────
-  # 민감 키(VAULT_TOKEN/ROLE_ID/SECRET_ID)는 Secret 참조 — 여기엔 절대 넣지 말 것
-  IDEM_HUB_KMS_ENABLED:          {{ .Values.hub.config.IDEM_HUB_KMS_ENABLED | quote }}
-  IDEM_HUB_KMS_PROVIDER:         {{ .Values.hub.config.IDEM_HUB_KMS_PROVIDER | quote }}
-  IDEM_HUB_KMS_CONN_TIMEOUT_MS:  {{ .Values.hub.config.IDEM_HUB_KMS_CONN_TIMEOUT_MS | quote }}
-  IDEM_HUB_KMS_REQ_TIMEOUT_MS:   {{ .Values.hub.config.IDEM_HUB_KMS_REQ_TIMEOUT_MS | quote }}
-  VAULT_ADDR:               {{ .Values.hub.config.VAULT_ADDR | quote }}
-  VAULT_TRANSIT_PATH:       {{ .Values.hub.config.VAULT_TRANSIT_PATH | quote }}
-  VAULT_TRANSIT_KEY:        {{ .Values.hub.config.VAULT_TRANSIT_KEY | quote }}
-  VAULT_AUTH_METHOD:        {{ .Values.hub.config.VAULT_AUTH_METHOD | quote }}
-  VAULT_K8S_ROLE:           {{ .Values.hub.config.VAULT_K8S_ROLE | quote }}
-  VAULT_NAMESPACE:          {{ .Values.hub.config.VAULT_NAMESPACE | quote }}
----
-# ── Outbox Relay Batch ConfigMap ───────────────────────────────────
-{{- if .Values.relay.enabled }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: idem-relay-config
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: batch
-data:
-  SPRING_PROFILES_ACTIVE:           {{ .Values.relay.config.SPRING_PROFILES_ACTIVE | quote }}
-  # ── DataSource Endpoints (드라이버/포트/DB명만 — 호스트/계정은 Secret) ─────
-  IDEM_HUB_DB_PORT:                      {{ .Values.relay.config.IDEM_HUB_DB_PORT | quote }}
-  IDEM_HUB_DB_NAME:                      {{ .Values.relay.config.IDEM_HUB_DB_NAME | quote }}
-  IDEM_REGISTRY_DB_PORT:                      {{ .Values.relay.config.IDEM_REGISTRY_DB_PORT | quote }}
-  IDEM_REGISTRY_DB_NAME:                      {{ .Values.relay.config.IDEM_REGISTRY_DB_NAME | quote }}
-  IDEM_GATE_DB_PORT:                    {{ .Values.relay.config.IDEM_GATE_DB_PORT | quote }}
-  IDEM_GATE_DB_NAME:                    {{ .Values.relay.config.IDEM_GATE_DB_NAME | quote }}
-  REDIS_PORT:                       {{ .Values.relay.config.REDIS_PORT | quote }}
-  # ── Webhook 헤더용 ─────────────────────────────────────────────────
-  IDEM_HUB_PLATFORM_VERSION:             {{ .Values.relay.config.IDEM_HUB_PLATFORM_VERSION | quote }}
-  # ── 릴레이 Job Feature Flag ────────────────────────────────────────
-  IDEM_RELAY_HUB_KAFKA_RELAY_ENABLED:    {{ .Values.relay.config.IDEM_RELAY_HUB_KAFKA_RELAY_ENABLED | quote }}
-  IDEM_RELAY_HUB_REGISTRY_RELAY_ENABLED:      {{ .Values.relay.config.IDEM_RELAY_HUB_REGISTRY_RELAY_ENABLED | quote }}
-  IDEM_RELAY_REGISTRY_KAFKA_RELAY_ENABLED:    {{ .Values.relay.config.IDEM_RELAY_REGISTRY_KAFKA_RELAY_ENABLED | quote }}
-  IDEM_RELAY_GATE_KAFKA_RELAY_ENABLED:  {{ .Values.relay.config.IDEM_RELAY_GATE_KAFKA_RELAY_ENABLED | quote }}
-  IDEM_RELAY_PROVISIONING_RELAY_ENABLED: {{ .Values.relay.config.IDEM_RELAY_PROVISIONING_RELAY_ENABLED | quote }}
-  IDEM_RELAY_WEBHOOK_RELAY_ENABLED:      {{ .Values.relay.config.IDEM_RELAY_WEBHOOK_RELAY_ENABLED | quote }}
-  # ── 알림 채널 ON/OFF (Webhook URL/Routing Key는 Secret) ──────────
-  IDEM_RELAY_ALERT_SLACK_ENABLED:        {{ .Values.relay.config.IDEM_RELAY_ALERT_SLACK_ENABLED | quote }}
-  IDEM_RELAY_ALERT_PAGERDUTY_ENABLED:    {{ .Values.relay.config.IDEM_RELAY_ALERT_PAGERDUTY_ENABLED | quote }}
 {{- end }}
----
-# ── Q-AuthZ ConfigMap (연합 인가) ──────────────────────────────────
-{{- if .Values.authz.enabled }}
+{{- end }}
+{{- if and .Values.keycloak.enabled .Values.keycloak.realmImport }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: idem-authz-config
-  namespace: {{ .Values.global.namespace }}
+  name: idem-keycloak-realm
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-authz
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-keycloak" | nindent 4 }}
 data:
-  SPRING_PROFILES_ACTIVE:        {{ .Values.authz.config.SPRING_PROFILES_ACTIVE | quote }}
-  IDEM_AUTHZ_DB_PORT:                 {{ .Values.authz.config.IDEM_AUTHZ_DB_PORT | quote }}
-  IDEM_AUTHZ_DB_NAME:                 {{ .Values.authz.config.IDEM_AUTHZ_DB_NAME | quote }}
-  IDEM_AUTHZ_DB_SSLMODE:              {{ .Values.authz.config.IDEM_AUTHZ_DB_SSLMODE | quote }}
-  IDEM_AUTHZ_EXPIRY_ENABLED:          {{ .Values.authz.config.IDEM_AUTHZ_EXPIRY_ENABLED | quote }}
-  IDEM_AUTHZ_EXPIRY_SCAN_INTERVAL_MS: {{ .Values.authz.config.IDEM_AUTHZ_EXPIRY_SCAN_INTERVAL_MS | quote }}
-  IDEM_AUTHZ_EXPIRY_BATCH_SIZE:       {{ .Values.authz.config.IDEM_AUTHZ_EXPIRY_BATCH_SIZE | quote }}
+  # infra/docker/keycloak/realm-export.json 과 같은 파일 (CI helm-lint 가 두 사본이 같은지 대조한다)
+  realm-export.json: |-
+{{ .Files.Get "files/realm-export.json" | indent 4 }}
+{{- end }}
+{{- if .Values.dbInit.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idem-db-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-db-init" | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+data:
+  init-db.sql: |-
+{{ .Files.Get "files/init-db.sql" | indent 4 }}
 {{- end }}

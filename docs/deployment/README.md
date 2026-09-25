@@ -1,5 +1,7 @@
 # OnePass 통합인증 플랫폼 — 운영 배포 가이드
 
+> **구판 (2026-05-21)** — Kafka·MariaDB·개별 Helm 차트 시절의 문서다. 현행 설치는 `docs/install.md`(compose 단일 설치본) · `infra/helm/idem/README.md`(Helm) · `docs/install-inputs.md`(입력값) 를 본다. 이 문서는 역사 참고용으로만 남긴다 (S9 PR-3).
+
 > **대상 독자**: SI 배포 담당자, 운영 엔지니어  
 > **브랜치**: `develop`  
 > **최종 수정**: 2026-05-21

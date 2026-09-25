@@ -4,7 +4,7 @@
 # 전제(운영 결정 필요):
 #   · 클러스터 접근: secrets.KUBE_CONFIG (base64 인코딩된 kubeconfig)
 #       echo -n "$(cat ~/.kube/config)" | base64 -w0   →  Repo Settings > Secrets
-#   · 이미지: ci.yml이 GHCR(ghcr.io/<owner>/idem-<module> (예: idem-hub, idem-gate))로 push한 것을 사용
+#   · 이미지: ci.yml이 GHCR(ghcr.io/<owner>/idem-<module>, hub·registry 는 :<sha>-core / :<sha>-kr)로 push한 것을 사용
 #   · GitOps(ArgoCD/Flux)를 쓰는 경우 본 워크플로 대신 그쪽 파이프라인을 사용하세요.
 #       (본 파일은 push 기반 helm upgrade 템플릿이며, 환경/네임스페이스/태그를 입력받습니다.)
 #
@@ -22,9 +22,18 @@ on:
         options: [dev, stage, prod]
         default: dev
       image_tag:
-        description: "배포할 이미지 태그 (예: 커밋 SHA 또는 latest)"
+        description: "배포할 이미지 태그 (예: 커밋 SHA 또는 latest). hub·registry 는 <태그>-<에디션> 이미지를 쓴다"
         type: string
         default: latest
+      edition:
+        description: "에디션 — core | kr (kr 는 values-kr.yaml 을 겹친다: KR hub·registry 이미지, 회원 포털, KR 플러그인)"
+        type: choice
+        options: [core, kr]
+        default: core
+      values_file:
+        description: "환경 값 파일(저장소 경로, 선택) — 공개 URL·PostgreSQL/Redis·Ingress. 비면 차트 기본값(example.org)으로 렌더링만 맞는 배포가 된다"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -59,21 +68,22 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: 이미지 레포(소유자 소문자) 계산
-        run: echo "IMAGE_REPO=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/" >> "$GITHUB_ENV"
+        run: echo "IMAGE_REPO=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
 
+      # 비밀(idem-db-secret · idem-app-secrets)은 이 워크플로가 만들지 않는다 — 클러스터에 미리 있어야 한다 (infra/helm/idem/README.md, docs/install-inputs.md)
       - name: Helm upgrade --install
         run: |
           TAG='${{ inputs.image_tag }}'
+          EXTRA=()
+          [ -n '${{ inputs.values_file }}' ] && EXTRA+=(-f '${{ inputs.values_file }}')
+          [ '${{ inputs.edition }}' = 'kr' ] && EXTRA+=(-f infra/helm/idem/values-kr.yaml)
           helm upgrade --install idem infra/helm/idem \
             --namespace "idem-${{ inputs.environment }}" --create-namespace \
-            -f "infra/helm/idem/values-${{ inputs.environment }}.yaml" \
+            "${EXTRA[@]}" \
+            --set "global.env=${{ inputs.environment }}" \
             --set "global.imageRegistry=${IMAGE_REPO}" \
-            --set "idem.gate.image.tag=${TAG}" \
-            --set "idem.registry.image.tag=${TAG}" \
-            --set "idem.hub.image.tag=${TAG}" \
-            --set "idem.authz.image.tag=${TAG}" \
-            --set "idem.relay.image.tag=${TAG}" \
-            --wait --timeout 10m
+            --set "global.imageTag=${TAG}" \
+            --wait --timeout 15m
 
       - name: 롤아웃 상태
         run: kubectl -n "idem-${{ inputs.environment }}" get deploy,po

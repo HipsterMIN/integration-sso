@@ -1,0 +1,59 @@
+{{- /* 아웃박스 릴레이 — Kafka 를 쓰는 배포에서만(infra.kafka.enabled). 단일 설치본(Kafka 없음)에서는 필요 없다(D1). */ -}}
+{{- if .Values.relay.enabled }}
+{{- if not .Values.infra.kafka.enabled }}{{ fail "relay.enabled=true 는 infra.kafka.enabled=true 와 함께 씁니다 (Kafka 없는 설치본은 relay 가 필요 없다)" }}{{ end }}
+{{- $c := .Values.relay }}
+{{- $pg := .Values.infra.postgres }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idem-relay
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-relay" | nindent 4 }}
+spec:
+  replicas: {{ include "idem.replicas" (dict "root" . "c" $c) }}
+  selector:
+    matchLabels:
+      app: idem-relay
+  template:
+    metadata:
+      labels:
+        {{- include "idem.labels" . | nindent 8 }}
+        {{- include "idem.selectorLabels" "idem-relay" | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $c.config | sha256sum }}
+    spec:
+      {{- include "idem.podCommon" (dict "root" . "name" "idem-relay") | nindent 6 }}
+      containers:
+        - name: idem-relay
+          image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" false) }}
+          imagePullPolicy: {{ .Values.appDefaults.imagePullPolicy }}
+          {{- include "idem.containerSecurity" . | nindent 10 }}
+          ports:
+            - { name: http, containerPort: 8090 }
+          envFrom:
+            - configMapRef: { name: idem-relay-config }
+          env:
+            {{- include "idem.commonEnv" . | nindent 12 }}
+            - name: JAVA_OPTS
+              value: {{ .Values.appDefaults.javaOpts | quote }}
+            # relay 는 hub·gate·registry·authz 아웃박스를 각자 접두의 DB 설정으로 읽는다 — 모두 같은 PostgreSQL
+            {{- range $p := list "IDEM_HUB" "IDEM_GATE" "IDEM_REGISTRY" "IDEM_AUTHZ" }}
+            - name: {{ $p }}_DB_HOST
+              value: {{ $pg.host | quote }}
+            - name: {{ $p }}_DB_PORT
+              value: {{ $pg.port | quote }}
+            - name: {{ $p }}_DB_NAME
+              value: {{ $pg.database | quote }}
+            {{ include "idem.secretEnv" (dict "name" (printf "%s_DB_USERNAME" $p) "secret" $pg.existingSecret "key" $pg.usernameKey) | nindent 12 }}
+            {{ include "idem.secretEnv" (dict "name" (printf "%s_DB_PASSWORD" $p) "secret" $pg.existingSecret "key" $pg.passwordKey) | nindent 12 }}
+            {{- end }}
+            - name: IDEM_REGISTRY_DB_SCHEMA
+              value: {{ $.Values.registry.dbSchema | quote }}
+            {{- include "idem.appSecretEnv" (dict "root" . "keys" (list "IDEM_HUB_WEBHOOK_SIGNING_SECRET")) | nindent 12 }}
+            {{- include "idem.mapEnv" $c.extraEnv | nindent 12 }}
+          {{- include "idem.probes" (dict "root" . "port" 8090) | nindent 10 }}
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+{{- end }}

@@ -1,98 +1,20 @@
-# ============================================================
-# PodDisruptionBudget — 노드 드레인/업그레이드 시 가용성 보장
-#
-# 정책:
-#   - policy/v1 (안정 API, K8s 1.21+)
-#   - 기본값(values.yaml): minAvailable=1 — 최소 1 Pod 유지
-#   - 운영(values-prod.yaml): minAvailable=2 — 가용성 우선
-#
-# ⚠️ PDB는 자발적(voluntary) 중단만 막음:
-#   - kubectl drain, 노드 업그레이드 → 막음
-#   - Pod 자체 OOM, 노드 장애 → 못 막음 (이건 livenessProbe + replicaCount로 대응)
-# ============================================================
-
-# ── Q-Sign PDB ────────────────────────────────────────────────
-{{- if and .Values.gate.enabled .Values.gate.pdb.enabled }}
+{{- /* PodDisruptionBudget — 노드 드레인 때 최소 가용 수 (appDefaults.pdb, 컴포넌트 pdb 로 덮어쓴다) */ -}}
+{{- range $name, $c := dict "idem-gate" .Values.gate "idem-hub" .Values.hub "idem-registry" .Values.registry "idem-authz" .Values.authz "idem-keycloak" .Values.keycloak }}
+{{- $p := merge (deepCopy ($c.pdb | default dict)) $.Values.appDefaults.pdb }}
+{{- if and $c.enabled $p.enabled (gt (int (include "idem.replicas" (dict "root" $ "c" $c))) 1) }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: pdb-idem-gate
-  namespace: {{ .Values.global.namespace }}
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-gate
+    {{- include "idem.labels" $ | nindent 4 }}
+    {{- include "idem.selectorLabels" $name | nindent 4 }}
 spec:
-  minAvailable: {{ .Values.gate.pdb.minAvailable }}
+  minAvailable: {{ $p.minAvailable }}
   selector:
     matchLabels:
-      app: idem-gate
-{{- end }}
+      app: {{ $name }}
 ---
-# ── Q-IM PDB ──────────────────────────────────────────────────
-{{- if and .Values.registry.enabled .Values.registry.pdb.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: pdb-idem-registry
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-registry
-spec:
-  minAvailable: {{ .Values.registry.pdb.minAvailable }}
-  selector:
-    matchLabels:
-      app: idem-registry
 {{- end }}
----
-# ── IdO PDB ───────────────────────────────────────────────────
-{{- if and .Values.hub.enabled .Values.hub.pdb.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: pdb-idem-hub
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-hub
-spec:
-  minAvailable: {{ .Values.hub.pdb.minAvailable }}
-  selector:
-    matchLabels:
-      app: idem-hub
-{{- end }}
----
-# ── Outbox Relay Batch PDB ────────────────────────────────────
-# HPA는 무의미하지만 PDB는 필요 — 노드 드레인 시 ShedLock 페일오버 보장
-{{- if and .Values.relay.enabled .Values.relay.pdb.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: pdb-batch
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: batch
-spec:
-  minAvailable: {{ .Values.relay.pdb.minAvailable }}
-  selector:
-    matchLabels:
-      app: idem-relay
-{{- end }}
----
-# ── Q-AuthZ PDB ───────────────────────────────────────────────
-{{- if and .Values.authz.enabled .Values.authz.pdb.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: pdb-authz
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-authz
-spec:
-  minAvailable: {{ .Values.authz.pdb.minAvailable }}
-  selector:
-    matchLabels:
-      app: idem-authz
 {{- end }}

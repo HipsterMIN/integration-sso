@@ -1,0 +1,29 @@
+Idem {{ .Chart.AppVersion }} — 에디션 {{ .Values.global.edition }} — 릴리스 {{ .Release.Name }} (네임스페이스 {{ .Release.Namespace }})
+
+공개 URL
+  SSO(gate, OIDC issuer 베이스) : {{ .Values.global.publicUrl.gate }}   → issuer {{ .Values.global.publicUrl.gate }}/realms/idem
+  hub                          : {{ .Values.global.publicUrl.hub }}
+  관리 콘솔                     : {{ .Values.global.publicUrl.console }}
+{{- if .Values.krPortal.enabled }}
+  KR 회원 포털                  : {{ .Values.global.publicUrl.krPortal }}
+{{- end }}
+{{- if not .Values.ingress.enabled }}
+  (ingress.enabled=false — 위 주소로 트래픽을 보내는 Ingress/LB 는 따로 만든다)
+{{- end }}
+
+확인
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/idem-hub 8083:8083 &  curl -s localhost:8083/actuator/health
+  curl -s {{ .Values.global.publicUrl.gate }}/realms/idem/.well-known/openid-configuration | jq .issuer
+
+첫 관리자 로그인 (docs/admin-auth.md, scripts/lib/admin-login.sh)
+  사용자명 {{ .Values.hub.adminBootstrapUsername }} · 비밀번호 = Secret {{ .Values.secrets.existingSecret }} 의 IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD
+  첫 로그인에서 2단계(TOTP) 등록과 비밀번호 변경을 요구한다. 설치 검증 순서는 docs/install.md §4~§5 와 같다.
+
+{{- if .Values.keycloak.enabled }}
+
+Keycloak 관리 콘솔 (설치자 전용, 기본 비공개)
+  kubectl -n {{ .Release.Namespace }} port-forward svc/idem-keycloak 8088:8080   → http://localhost:8088  (admin / Secret 의 KEYCLOAK_ADMIN_PASSWORD)
+{{- end }}
+
+업그레이드 · 비밀 회전 · 운영 전환 체크리스트: docs/install.md §7, docs/install-inputs.md, docs/sso-im-operations-manual.md

@@ -1,0 +1,42 @@
+{{- /* KR 에디션 회원 포털(구 idem-console) — 정적 React + Nginx. global.edition=kr 에서만 (values-kr.yaml) */ -}}
+{{- if .Values.krPortal.enabled }}
+{{- if ne .Values.global.edition "kr" }}{{ fail "krPortal 은 global.edition=kr 에서만 배포합니다 (values-kr.yaml)" }}{{ end }}
+{{- $c := .Values.krPortal }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idem-kr-portal
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-kr-portal" | nindent 4 }}
+spec:
+  replicas: {{ include "idem.replicas" (dict "root" . "c" $c) }}
+  selector:
+    matchLabels:
+      app: idem-kr-portal
+  template:
+    metadata:
+      labels:
+        {{- include "idem.labels" . | nindent 8 }}
+        {{- include "idem.selectorLabels" "idem-kr-portal" | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: nginx
+          image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" false) }}
+          imagePullPolicy: {{ .Values.appDefaults.imagePullPolicy }}
+          ports:
+            - { name: http, containerPort: 80 }
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: 80 }
+            periodSeconds: 15
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+{{- end }}

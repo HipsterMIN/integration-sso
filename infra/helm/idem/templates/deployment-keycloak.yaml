@@ -1,0 +1,99 @@
+{{- /*
+숨긴 Keycloak (S6) — 토큰 iss·로그인 화면 링크가 gate 공개 URL 로 나오도록 KC_HOSTNAME_URL 을 gate 로 고정한다.
+관리 콘솔은 keycloak.adminUrl(비면 클러스터 안 주소) 로만. realm `idem` 은 files/realm-export.json 을 --import-realm (이미 있으면 건너뜀).
+compose 는 start-dev 지만 여기서는 production 모드(start) 다 — KC_HTTP_ENABLED + KC_PROXY=edge 로 TLS 종료는 Ingress 가 한다.
+*/ -}}
+{{- if .Values.keycloak.enabled }}
+{{- $kc := .Values.keycloak }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idem-keycloak
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-keycloak" | nindent 4 }}
+spec:
+  replicas: {{ $kc.replicaCount }}
+  selector:
+    matchLabels:
+      app: idem-keycloak
+  strategy:
+    type: Recreate          # realm import·DB 스키마 갱신이 겹치지 않도록
+  template:
+    metadata:
+      labels:
+        {{- include "idem.labels" . | nindent 8 }}
+        {{- include "idem.selectorLabels" "idem-keycloak" | nindent 8 }}
+      annotations:
+        checksum/realm: {{ .Files.Get "files/realm-export.json" | sha256sum }}
+    spec:
+      {{- include "idem.podCommon" (dict "root" . "name" "idem-keycloak") | nindent 6 }}
+      containers:
+        - name: keycloak
+          image: {{ include "idem.image" (dict "root" . "image" $kc.image "edition" false) }}
+          imagePullPolicy: {{ $kc.image.pullPolicy }}
+          args: ["start", "--http-port=8080"{{ if $kc.realmImport }}, "--import-realm"{{ end }}]
+          {{- include "idem.containerSecurity" . | nindent 10 }}
+          ports:
+            - { name: http, containerPort: 8080 }
+          env:
+            - name: KEYCLOAK_ADMIN
+              value: {{ $kc.adminUser | quote }}
+            {{ include "idem.secretEnv" (dict "name" "KEYCLOAK_ADMIN_PASSWORD" "secret" .Values.secrets.existingSecret "key" "KEYCLOAK_ADMIN_PASSWORD") | nindent 12 }}
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: {{ printf "jdbc:postgresql://%s:%v/%s?currentSchema=keycloak" .Values.infra.postgres.host .Values.infra.postgres.port .Values.infra.postgres.database | quote }}
+            - name: KC_DB_SCHEMA
+              value: keycloak
+            {{ include "idem.secretEnv" (dict "name" "KC_DB_USERNAME" "secret" .Values.infra.postgres.existingSecret "key" .Values.infra.postgres.usernameKey) | nindent 12 }}
+            {{ include "idem.secretEnv" (dict "name" "KC_DB_PASSWORD" "secret" .Values.infra.postgres.existingSecret "key" .Values.infra.postgres.passwordKey) | nindent 12 }}
+            - name: KC_HOSTNAME_URL
+              value: {{ .Values.global.publicUrl.gate | quote }}
+            - name: KC_HOSTNAME_ADMIN_URL
+              value: {{ $kc.adminUrl | default "http://idem-keycloak:8080" | quote }}
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "false"
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_PROXY
+              value: edge
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_LOG_LEVEL
+              value: INFO
+            - name: JAVA_OPTS_APPEND
+              value: {{ $kc.javaOpts | quote }}
+            - name: TZ
+              value: {{ .Values.global.timezone | quote }}
+            # realm-export.json 의 ${env.…} — 앱 쪽과 같은 값 (Secret 한 벌)
+            {{- include "idem.appSecretEnv" (dict "root" . "keys" (list "IDEM_GATE_KEYCLOAK_CLIENT_SECRET" "KEYCLOAK_CLIENT_SECRET" "KEYCLOAK_PROVISIONER_CLIENT_SECRET" "KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET")) | nindent 12 }}
+            {{- include "idem.mapEnv" $kc.extraEnv | nindent 12 }}
+          startupProbe:
+            httpGet: { path: /health/started, port: 8080 }
+            failureThreshold: 60
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health/live, port: 8080 }
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /realms/idem, port: 8080 }   # realm import 완료 = 준비됨 (compose 헬스체크와 같다)
+            periodSeconds: 10
+          resources:
+            {{- toYaml $kc.resources | nindent 12 }}
+          {{- if $kc.realmImport }}
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+          {{- end }}
+      {{- if $kc.realmImport }}
+      volumes:
+        - name: realm
+          configMap:
+            name: idem-keycloak-realm
+      {{- end }}
+{{- end }}

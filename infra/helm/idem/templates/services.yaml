@@ -1,130 +1,29 @@
-# ── Q-Sign Service ─────────────────────────────────────────────────
-{{- if .Values.gate.enabled }}
+{{- /* 컴포넌트 Service — 이름은 compose 서비스 이름과 같다(앱 간 URL http://idem-hub:8083 등이 그대로 통한다) */ -}}
+{{- $svcs := list }}
+{{- if .Values.keycloak.enabled }}{{ $svcs = append $svcs (dict "name" "idem-keycloak" "port" 8080) }}{{ end }}
+{{- if .Values.gate.enabled }}{{ $svcs = append $svcs (dict "name" "idem-gate" "port" 8081) }}{{ end }}
+{{- if .Values.registry.enabled }}{{ $svcs = append $svcs (dict "name" "idem-registry" "port" 8082) }}{{ end }}
+{{- if .Values.hub.enabled }}{{ $svcs = append $svcs (dict "name" "idem-hub" "port" 8083) }}{{ end }}
+{{- if .Values.authz.enabled }}{{ $svcs = append $svcs (dict "name" "idem-authz" "port" 8086) }}{{ end }}
+{{- if .Values.relay.enabled }}{{ $svcs = append $svcs (dict "name" "idem-relay" "port" 8090) }}{{ end }}
+{{- if .Values.consoleAdmin.enabled }}{{ $svcs = append $svcs (dict "name" "idem-console-admin" "port" 80) }}{{ end }}
+{{- if .Values.krPortal.enabled }}{{ $svcs = append $svcs (dict "name" "idem-kr-portal" "port" 80) }}{{ end }}
+{{- range $svcs }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: idem-gate
-  namespace: {{ .Values.global.namespace }}
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
   labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-gate
+    {{- include "idem.labels" $ | nindent 4 }}
+    {{- include "idem.selectorLabels" .name | nindent 4 }}
 spec:
-  type: {{ .Values.gate.service.type }}
+  type: ClusterIP
   selector:
-    app: idem-gate
+    app: {{ .name }}
   ports:
     - name: http
-      port: {{ .Values.gate.service.port }}
+      port: {{ .port }}
       targetPort: http
-      protocol: TCP
-{{- end }}
 ---
-# ── Q-IM Service ───────────────────────────────────────────────────
-{{- if .Values.registry.enabled }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: idem-registry
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-registry
-spec:
-  type: {{ .Values.registry.service.type }}
-  selector:
-    app: idem-registry
-  ports:
-    - name: http
-      port: {{ .Values.registry.service.port }}
-      targetPort: http
-      protocol: TCP
-{{- end }}
----
-# ── IdO Service ────────────────────────────────────────────────────
-{{- if .Values.hub.enabled }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: idem-hub
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-hub
-spec:
-  type: {{ .Values.hub.service.type }}
-  selector:
-    app: idem-hub
-  ports:
-    - name: http
-      port: {{ .Values.hub.service.port }}
-      targetPort: http
-      protocol: TCP
-{{- end }}
----
-# ── Outbox Relay Batch Service (Prometheus scrape용) ──────────────
-{{- if .Values.relay.enabled }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: idem-relay
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: batch
-  annotations:
-    # Prometheus annotation-based discovery
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8090"
-    prometheus.io/path: "/actuator/prometheus"
-spec:
-  type: {{ .Values.relay.service.type }}
-  selector:
-    app: idem-relay
-  ports:
-    - name: http
-      port: {{ .Values.relay.service.port }}
-      targetPort: http
-      protocol: TCP
-{{- end }}
----
-# ── Agency-Stub Service (PoC 전용) ────────────────────────────────
-{{- if .Values.sample.enabled }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: idem-tenant-sample
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: agency-stub
-spec:
-  type: {{ .Values.sample.service.type }}
-  selector:
-    app: idem-tenant-sample
-  ports:
-    - name: http
-      port: {{ .Values.sample.service.port }}
-      targetPort: http
-      protocol: TCP
-{{- end }}
----
-# ── Q-AuthZ Service (연합 인가) ────────────────────────────────────
-{{- if .Values.authz.enabled }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: idem-authz
-  namespace: {{ .Values.global.namespace }}
-  labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-authz
-spec:
-  type: {{ .Values.authz.service.type }}
-  selector:
-    app: idem-authz
-  ports:
-    - name: http
-      port: {{ .Values.authz.service.port }}
-      targetPort: http
-      protocol: TCP
 {{- end }}

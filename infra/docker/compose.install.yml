@@ -54,7 +54,7 @@ services:
       PGTZ: UTC
     volumes:
       - pg-data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/00-init-db.sql:ro   # 스키마 qsign·ido·qim·keycloak (authz 는 Flyway 가 생성)
+      - ./init-db.sql:/docker-entrypoint-initdb.d/00-init-db.sql:ro   # 스키마 idem_gate·idem_hub·idem_registry·keycloak (authz 는 Flyway 가 생성)
     ports:
       - "127.0.0.1:${IDEM_PORT_POSTGRES:-5432}:5432"
     networks: [idem-net]
@@ -176,6 +176,9 @@ services:
       dockerfile: idem-hub/Dockerfile
       args:
         IDEM_EDITION: ${IDEM_EDITION:-core}   # core | kr (S8-a: KR 에디션은 SMES 회원 개념 포함)
+      additional_contexts:
+        # KR 에디션 벤더 SDK jar 디렉터리 (S9 PR-3). core 나 SDK 없이 빌드하면 빈 디렉터리 그대로
+        vendor-libs: ${IDEM_VENDOR_LIBS_DIR:-./vendor-libs-empty}
     image: idem-hub:${IDEM_VERSION:-latest}-${IDEM_EDITION:-core}
     container_name: idem-hub
     restart: unless-stopped
