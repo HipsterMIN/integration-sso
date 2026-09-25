@@ -3,7 +3,7 @@
 > **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
 
 > **대상**: 유관기관 개발자
-> **버전**: `idem-sdk-java 0.1.0-SNAPSHOT`
+> **버전**: `idem-sdk-java 1.0.0`
 > **최종 수정**: 2026-05-18
 > **브랜치**: `shipster`
 
@@ -53,14 +53,14 @@ SDK를 받아서 → 클라이언트를 만들고 → 이벤트를 보내고 →
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT")
+    implementation("io.github.hipstermin.idem:idem-sdk-java:1.0.0")
 }
 ```
 
 ```groovy
 // build.gradle
 dependencies {
-    implementation 'io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT'
+    implementation 'io.github.hipstermin.idem:idem-sdk-java:1.0.0'
 }
 ```
 
@@ -72,7 +72,7 @@ dependencies {
 <dependency>
     <groupId>io.github.hipstermin.idem</groupId>
     <artifactId>onepass-agency-sdk</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -423,7 +423,7 @@ try {
 ```kotlin
 // build.gradle.kts — 의존성 추가
 dependencies {
-    implementation("io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT")
+    implementation("io.github.hipstermin.idem:idem-sdk-java:1.0.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 ```
@@ -453,7 +453,7 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 ```kotlin
 // build.gradle.kts — 의존성 추가
 dependencies {
-    implementation("io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT")
+    implementation("io.github.hipstermin.idem:idem-sdk-java:1.0.0")
     implementation("org.apache.httpcomponents.client5:httpclient5:5.3.1")
 }
 ```

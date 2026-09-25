@@ -81,6 +81,11 @@ _(다음 릴리즈 예정 변경사항 없음)_
 
 ---
 
+## [1.0.0] — 2026-09-26
+
+- 제품 1.0 동결(S9 PR-4)에 맞춰 SDK 버전을 `1.0.0` 으로 올린다. API 변경 없음 — `0.1.0-SNAPSHOT` 과 같은 계약(Handoff 티켓 검증·HMAC 서명·이벤트 수신). 좌표 `io.github.hipstermin.idem:idem-sdk-java:1.0.0`.
+- 알려진 것: 설정 키 `onepass.*`·헤더 `OnePass-Signature` 는 외부 계약이라 그대로 두었다(`docs/naming.md` §2.4). 새 이름은 SDK 2.0 에서.
+
 ## [0.1.0-SNAPSHOT] — 2026-05-14
 
 **Sprint 16 완성 버전** — OnePass Agency SDK 최초 배포 후보

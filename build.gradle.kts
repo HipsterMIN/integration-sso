@@ -19,7 +19,7 @@ plugins {
 // ── 전체 공통 설정 ────────────────────────────────────────────────────────────
 allprojects {
     group   = "io.github.hipstermin.idem"
-    version = "0.1.0-SNAPSHOT"
+    version = "1.0.0"   // S9 PR-4: 1.0 동결 (릴리스 태그 v1.0.0)
 
     repositories {
         mavenCentral()

@@ -745,7 +745,7 @@ WAS 설정
 
 # 빌드 결과 확인
 ls -la idem-agent/build/libs/
-# idem-agent-0.1.0-SNAPSHOT-all.jar  (~10MB)
+# idem-agent-1.0.0-all.jar  (~10MB)
 
 # 2. Agent JAR을 테스트베드에 복사
 cd idem-agent-testbed
@@ -753,7 +753,7 @@ cd idem-agent-testbed
 
 # 기대 출력:
 # [replace-agent] Agent JAR 탐색 중...
-# [replace-agent] 발견: ../idem-agent/build/libs/idem-agent-0.1.0-SNAPSHOT-all.jar
+# [replace-agent] 발견: ../idem-agent/build/libs/idem-agent-1.0.0-all.jar
 # [replace-agent] agent/ 디렉토리에 복사 완료
 # [replace-agent] 심볼릭 링크 갱신: idem-agent-current.jar
 ```

@@ -6,7 +6,7 @@
 좌표(Coordinates):
   groupId:    io.github.hipstermin.idem
   artifactId: onepass-agency-sdk
-  version:    0.1.0-SNAPSHOT  (현재 개발 버전 — GAP-1~5 수정 완료)
+  version:    1.0.0  (S9 PR-4 1.0 동결)
 ```
 
 ---
@@ -197,7 +197,7 @@ System.out.println("연동 상태: " + status.getBody());
 ```kotlin
 dependencies {
     // OnePass Agency SDK (런타임 의존성 없음 — JDK 내장 HttpURLConnection 사용)
-    implementation("io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT")
+    implementation("io.github.hipstermin.idem:idem-sdk-java:1.0.0")
 
     // [선택] OkHttp3 어댑터 사용 시
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -211,7 +211,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'io.github.hipstermin.idem:idem-sdk-java:0.1.0-SNAPSHOT'
+    implementation 'io.github.hipstermin.idem:idem-sdk-java:1.0.0'
 
     // [선택] OkHttp3 어댑터 사용 시
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
@@ -227,7 +227,7 @@ dependencies {
 <dependency>
     <groupId>io.github.hipstermin.idem</groupId>
     <artifactId>onepass-agency-sdk</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 </dependency>
 
 <!-- [선택] OkHttp3 어댑터 사용 시 -->

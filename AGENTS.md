@@ -29,8 +29,8 @@
 
 ## 프로젝트 개요
 
-- **프로젝트명**: OnePass 통합 인증 플랫폼
-- **현재 버전**: v0.8.11
+- **프로젝트명**: Idem — 회원통합·연합인가 플랫폼 (구 OnePass)
+- **현재 버전**: v1.0.0 (S9 PR-4 1.0 동결)
 - **주요 모듈**: `onepass-be/`, `idem-console-admin/`(관리 콘솔) · `editions/idem-kr-portal/`(구 idem-console), `idem-sdk-java/`, `onepass-release/`, `onepass-be-release/`
 
 ## 문서 구조
