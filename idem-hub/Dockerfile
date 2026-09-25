@@ -1,5 +1,5 @@
 # ════════════════════════════════════════════════════════════════════════════
-# IdO — Dockerfile (최적화 v2.0)
+# idem-hub — Dockerfile (코어 core · KR 에디션 kr)
 # S8-T6: Docker 멀티스테이지 빌드 최적화
 #
 # 주요 개선사항:
@@ -23,6 +23,14 @@ ARG APP_VERSION=latest
 ARG GIT_SHA=unknown
 ARG BUILD_DATE=unknown
 ARG GRADLE_VERSION=9.5
+
+# ── Stage 0: 벤더 SDK (KR 에디션, S9 PR-3) ───────────────────────────────────
+# 벤더 SDK jar 는 저장소에 없다(S5). KR 이미지를 만들 때 BuildKit 이름 붙은 컨텍스트로 넣는다:
+#   DOCKER_BUILDKIT=1 docker build --build-arg IDEM_EDITION=kr \
+#     --build-context vendor-libs=$HOME/.idem/vendor-libs -t idem-hub:1.0.0-kr -f idem-hub/Dockerfile .
+# 컨텍스트를 안 주면 아래 빈 스테이지가 쓰여 벤더 패키지는 컴파일에서 빠진다(플러그인 build.gradle.kts 의 "없음 → 제외").
+FROM scratch AS vendor-libs
+COPY infra/docker/vendor-libs-empty/ /
 
 # ── Stage 1: Dependency Layer ────────────────────────────────────────────────
 # Gradle 의존성만 다운로드 → 소스 변경 시 재다운로드 방지
@@ -55,7 +63,7 @@ COPY plugins/idem-plugin-nice-oacx/build.gradle.kts plugins/idem-plugin-nice-oac
 COPY plugins/idem-plugin-anyid/build.gradle.kts plugins/idem-plugin-anyid/
 COPY editions/idem-kr-hub/build.gradle.kts editions/idem-kr-hub/
 COPY editions/idem-kr-registry/build.gradle.kts editions/idem-kr-registry/
-# 벤더 SDK jar 는 저장소·이미지 컨텍스트에 없다 (S5a·S5b). KR 에디션 이미지는 빌드 인자로 vendor-libs 를 주입한다 (P4).
+# 벤더 SDK jar 는 저장소에 없다 (S5a·S5b). KR 에디션 이미지는 Stage 0 의 vendor-libs 컨텍스트로 넣는다 (S9 PR-3).
 
 # Gradle Wrapper 실행 권한 + 의존성 사전 다운로드
 # BuildKit 캐시 마운트: ~/.gradle 재사용으로 빌드 시간 단축
@@ -77,11 +85,15 @@ COPY plugins/idem-plugin-mock-auth/src/ plugins/idem-plugin-mock-auth/src/
 COPY plugins/idem-plugin-nice-oacx/src/ plugins/idem-plugin-nice-oacx/src/
 COPY plugins/idem-plugin-anyid/src/ plugins/idem-plugin-anyid/src/
 
+# 벤더 SDK (Stage 0) — 플러그인이 -PvendorLibsDir 로 읽는다
+COPY --from=vendor-libs / /workspace/vendor-libs/
+
 # Layered JAR 빌드 (Spring Boot 2.3+ 기본 지원)
 RUN --mount=type=cache,target=/root/.gradle \
     if [ "$IDEM_EDITION" = "kr" ]; then MODULE=idem-kr-hub; MODULE_DIR=editions/idem-kr-hub; else MODULE=idem-hub; MODULE_DIR=idem-hub; fi && \
-    echo "IDEM_EDITION=$IDEM_EDITION -> :$MODULE:bootJar" && \
+    echo "IDEM_EDITION=$IDEM_EDITION -> :$MODULE:bootJar (vendor-libs: $(ls /workspace/vendor-libs | grep -c '\.jar$' || true) jar)" && \
     ./gradlew :$MODULE:bootJar \
+        -PvendorLibsDir=/workspace/vendor-libs \
         -x test \
         --no-daemon \
         --parallel \

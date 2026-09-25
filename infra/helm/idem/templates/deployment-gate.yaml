@@ -1,74 +1,59 @@
 {{- if .Values.gate.enabled }}
+{{- $c := .Values.gate }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: idem-gate
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-gate
-  annotations:
-    # Secret 변경 시 자동 rollout 트리거
-    checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-gate" | nindent 4 }}
 spec:
-  replicas: {{ .Values.gate.replicaCount }}
+  replicas: {{ include "idem.replicas" (dict "root" . "c" $c) }}
   selector:
     matchLabels:
       app: idem-gate
   strategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   template:
     metadata:
       labels:
-        app: idem-gate
-        {{- include "onepass.labels" . | nindent 8 }}
-        app.kubernetes.io/component: idem-gate
+        {{- include "idem.labels" . | nindent 8 }}
+        {{- include "idem.selectorLabels" "idem-gate" | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $c.config | sha256sum }}
     spec:
-      {{- if .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
-      {{- end }}
-      {{- if and .Values.gate.serviceAccount .Values.gate.serviceAccount.create }}
-      serviceAccountName: {{ .Values.gate.serviceAccount.name | default "idem-gate" }}
-      {{- end }}
-      terminationGracePeriodSeconds: 30
+      {{- include "idem.podCommon" (dict "root" . "name" "idem-gate") | nindent 6 }}
       containers:
         - name: idem-gate
-          image: {{ include "onepass.image" .Values.gate.image }}
-          imagePullPolicy: {{ .Values.gate.image.pullPolicy }}
+          image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" false) }}
+          imagePullPolicy: {{ .Values.appDefaults.imagePullPolicy }}
+          {{- include "idem.containerSecurity" . | nindent 10 }}
           ports:
-            - name: http
-              containerPort: 8081
-              protocol: TCP
-          # envFrom: ConfigMap + Secret 통합 (이전 분리된 두 envFrom 블록이 YAML 스펙상
-          # 두 번째가 첫 번째를 덮어쓰는 잠재 버그 → 단일 envFrom으로 통합)
+            - { name: http, containerPort: 8081 }
           envFrom:
-            - configMapRef:
-                name: idem-gate-config
-            - configMapRef:
-                name: idem-common-config
-            - secretRef:
-                name: {{ .Values.gate.secretRef.name }}
-          {{- if .Values.gate.startupProbe }}
-          startupProbe:
-            {{- toYaml .Values.gate.startupProbe | nindent 12 }}
-          {{- end }}
-          livenessProbe:
-            {{- toYaml .Values.gate.livenessProbe | nindent 12 }}
-          readinessProbe:
-            {{- toYaml .Values.gate.readinessProbe | nindent 12 }}
+            - configMapRef: { name: idem-gate-config }
+          env:
+            {{- include "idem.commonEnv" . | nindent 12 }}
+            - name: JAVA_OPTS
+              value: {{ .Values.appDefaults.javaOpts | quote }}
+            - name: IDEM_HUB_BASE_URL
+              value: http://idem-hub:8083
+            - name: KEYCLOAK_URL
+              value: {{ include "idem.keycloakUrl" . | quote }}
+            - name: KEYCLOAK_REALM
+              value: idem
+            - name: IDEM_GATE_KEYCLOAK_CLIENT_ID
+              value: idem-gate
+            - name: IDEM_GATE_KEYCLOAK_REDIRECT_URI
+              value: {{ printf "%s/api/v1/oidc/keycloak/callback" .Values.global.publicUrl.gate | quote }}
+            # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/idem (Keycloak KC_HOSTNAME_URL 과 같다)
+            - name: IDEM_PUBLIC_URL_GATE
+              value: {{ .Values.global.publicUrl.gate | quote }}
+            {{- include "idem.appSecretEnv" (dict "root" . "keys" (list "IDEM_HUB_INTERNAL_SIG_SECRET" "IDEM_GATE_KEYCLOAK_CLIENT_SECRET" "KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET")) | nindent 12 }}
+            {{- include "idem.mapEnv" $c.extraEnv | nindent 12 }}
+          {{- include "idem.probes" (dict "root" . "port" 8081) | nindent 10 }}
           resources:
-            {{- toYaml .Values.gate.resources | nindent 12 }}
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: idem-gate
-                topologyKey: kubernetes.io/hostname
+            {{- toYaml $c.resources | nindent 12 }}
 {{- end }}

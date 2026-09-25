@@ -12,7 +12,7 @@
 #   2. frontend-check   — FE 빌드: 관리 콘솔(npm/Vite) · frontend-check-kr: KR 포털(yarn/Webpack)   [PR·main]
 #   3. security-scan    — OWASP Dependency-Check (수동 전용)                [dispatch]
 #   4. smoke-test       — 설치본 스모크 (D3: compose 환경 계약으로 Keycloak·registry·authz·gate·hub 실기동 + install-smoke.sh + k6) [PR·main]
-#   5. docker-build     — 6개 서비스 이미지 빌드 + GHCR push + Trivy 이미지 스캔 [main]
+#   5. docker-build     — 8개 이미지(hub·registry 는 core/kr 변형) 빌드 + GHCR push [main] · docker-build-check(PR, KR hub) · helm-lint(차트 lint·렌더·kubeconform)
 #   포맷(Spotless)·변경 모듈 테스트는 로컬 git 훅이 담당한다: docs/local-dev-workflow.md
 #
 # 시크릿 (GitHub Settings → Secrets):
@@ -515,13 +515,25 @@ jobs:
 
     strategy:
       matrix:
+        # S9 PR-3: hub·registry 는 에디션 변형 두 개(core·kr) — 태그 <sha>-core / <sha>-kr (compose·Helm 의 <tag>-<edition> 규칙).
+        # core 는 종전 호환으로 접미 없는 <sha>·latest 도 민다. kr 이미지의 벤더 SDK 는 CI 에 없다 → 벤더 패키지 없이 빌드된다(플러그인은 잠든 채).
         module:
           - name: idem-hub
             dockerfile: idem-hub/Dockerfile
             port: 8083
+            edition: core
+          - name: idem-hub
+            dockerfile: idem-hub/Dockerfile
+            port: 8083
+            edition: kr
           - name: idem-registry
             dockerfile: idem-registry/Dockerfile
             port: 8082
+            edition: core
+          - name: idem-registry
+            dockerfile: idem-registry/Dockerfile
+            port: 8082
+            edition: kr
           - name: idem-gate
             dockerfile: idem-gate/Dockerfile
             port: 8081
@@ -554,49 +566,112 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 이미지 레포(소유자 소문자) 계산 — GHCR은 소문자 경로만 허용
-      - name: 이미지 레포 계산
-        run: echo "IMAGE_REPO=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+      # 이미지 레포(소유자 소문자) 계산 — GHCR은 소문자 경로만 허용. 에디션 변형은 캐시 키·태그에 접미를 붙인다
+      - name: 이미지 레포·태그 계산
+        run: |
+          REPO="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          NAME='${{ matrix.module.name }}'; ED='${{ matrix.module.edition }}'
+          KEY="$NAME${ED:+-$ED}"
+          TAGS="$REPO/$NAME:${{ github.sha }}${ED:+-$ED}"$'\n'"$REPO/$NAME:latest${ED:+-$ED}"
+          if [ -z "$ED" ] || [ "$ED" = "core" ]; then TAGS="$TAGS"$'\n'"$REPO/$NAME:${{ github.sha }}"$'\n'"$REPO/$NAME:latest"; fi
+          { echo "IMAGE_REPO=$REPO"; echo "CACHE_KEY=$KEY"; echo "IDEM_EDITION=${ED:-core}"; echo "IMAGE_TAGS<<EOF"; echo "$TAGS"; echo "EOF"; } >> "$GITHUB_ENV"
 
       # GitHub Actions 캐시를 Docker 레이어 캐시로 활용
       - name: Docker 레이어 캐시
         uses: actions/cache@v4
         if: runner.environment == 'github-hosted'   # 자체 호스팅은 /tmp/.buildx-cache-* 가 머신에 남음
         with:
-          path: /tmp/.buildx-cache-${{ matrix.module.name }}
-          key: ${{ runner.os }}-buildx-${{ matrix.module.name }}-${{ github.sha }}
+          path: /tmp/.buildx-cache-${{ env.CACHE_KEY }}
+          key: ${{ runner.os }}-buildx-${{ env.CACHE_KEY }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-buildx-${{ matrix.module.name }}-
+            ${{ runner.os }}-buildx-${{ env.CACHE_KEY }}-
 
-      - name: Docker 이미지 빌드 (${{ matrix.module.name }})
+      - name: Docker 이미지 빌드 (${{ matrix.module.name }} ${{ matrix.module.edition }})
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ${{ matrix.module.dockerfile }}
           push: true    # GHCR로 push (이 잡은 보호 브랜치 push 이벤트에서만 실행)
-          tags: |
-            ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:${{ github.sha }}
-            ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:latest
+          tags: ${{ env.IMAGE_TAGS }}
           build-args: |
             APP_VERSION=${{ github.sha }}
             GIT_SHA=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
-          cache-from: type=local,src=/tmp/.buildx-cache-${{ matrix.module.name }}
-          cache-to: type=local,dest=/tmp/.buildx-cache-${{ matrix.module.name }}-new,mode=max
+            IDEM_EDITION=${{ env.IDEM_EDITION }}
+          cache-from: type=local,src=/tmp/.buildx-cache-${{ env.CACHE_KEY }}
+          cache-to: type=local,dest=/tmp/.buildx-cache-${{ env.CACHE_KEY }}-new,mode=max
 
       # 캐시 교체 (새 캐시로 덮어쓰기)
       - name: Docker 캐시 교체
         if: always()
         run: |
-          rm -rf /tmp/.buildx-cache-${{ matrix.module.name }}
-          mv /tmp/.buildx-cache-${{ matrix.module.name }}-new \
-             /tmp/.buildx-cache-${{ matrix.module.name }} 2>/dev/null || true
+          rm -rf /tmp/.buildx-cache-${{ env.CACHE_KEY }}
+          mv /tmp/.buildx-cache-${{ env.CACHE_KEY }}-new \
+             /tmp/.buildx-cache-${{ env.CACHE_KEY }} 2>/dev/null || true
 
       - name: 이미지 정보 출력 (GHCR 매니페스트)
         run: |
-          echo "=== ${{ matrix.module.name }} 이미지(GHCR) ==="
+          echo "=== ${{ matrix.module.name }} ${{ matrix.module.edition }} 이미지(GHCR) ==="
           docker buildx imagetools inspect \
-            ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:latest || true
+            ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:latest${{ matrix.module.edition && format('-{0}', matrix.module.edition) || '' }} || true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # S9 PR-3: PR 에서 KR 에디션 hub 이미지가 Dockerfile 로 빌드되는지 확인 (push 없음).
+  # main 의 docker-build 는 PR 뒤에야 돌므로, 에디션 변형·vendor-libs 컨텍스트가 깨지면 여기서 먼저 잡는다.
+  # ═══════════════════════════════════════════════════════════════════════════
+  docker-build-check:
+    name: Docker Build Check (KR hub)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: build-and-test
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: hub kr 이미지 빌드 (vendor-libs 없이 — 벤더 패키지 제외 경로)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: idem-hub/Dockerfile
+          push: false
+          load: false
+          tags: idem-hub:pr-kr
+          build-args: |
+            IDEM_EDITION=kr
+            APP_VERSION=pr
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=hub-kr
+          cache-to: type=gha,scope=hub-kr,mode=max
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # S9 PR-3: Helm 차트 — lint · core/kr 렌더링 · kubeconform 스키마 검사 · files/ 사본이 infra/docker 원본과 같은지
+  # ═══════════════════════════════════════════════════════════════════════════
+  helm-lint:
+    name: Helm Lint & Template
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: 사본 대조 (init-db.sql · realm-export.json)
+        run: |
+          cmp infra/docker/init-db.sql infra/helm/idem/files/init-db.sql
+          cmp infra/docker/keycloak/realm-export.json infra/helm/idem/files/realm-export.json
+      - name: helm lint
+        run: |
+          helm version
+          helm lint infra/helm/idem
+          helm lint infra/helm/idem -f infra/helm/idem/values-kr.yaml
+      - name: helm template (core · kr · Kafka+relay · secrets.create)
+        run: |
+          helm template idem infra/helm/idem -n idem --set ingress.enabled=true --set networkPolicy.enabled=true > /tmp/core.yaml
+          helm template idem infra/helm/idem -n idem -f infra/helm/idem/values-kr.yaml --set ingress.enabled=true > /tmp/kr.yaml
+          helm template idem infra/helm/idem -n idem --set infra.kafka.enabled=true --set infra.kafka.bootstrapServers=kafka:9092 --set relay.enabled=true > /tmp/kafka.yaml
+          grep -q 'idem-hub:latest-core' /tmp/core.yaml && grep -q 'idem-hub:latest-kr' /tmp/kr.yaml && grep -q 'name: idem-kr-portal' /tmp/kr.yaml
+          ! helm template idem infra/helm/idem -n idem --set krPortal.enabled=true 2>/dev/null   # core 에서 KR 포털은 거부
+      - name: kubeconform (K8s 스키마 검사)
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz -C /tmp kubeconform
+          for f in core kr kafka; do /tmp/kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/$f.yaml; done
 
       - name: Trivy 보안 스캔 (취약점 검사)
         uses: aquasecurity/trivy-action@master

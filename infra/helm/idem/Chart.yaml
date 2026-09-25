@@ -1,15 +1,18 @@
 apiVersion: v2
 name: idem
-description: Idem — 회원통합·연합인가 플랫폼 (idem-gate / idem-registry / idem-hub / idem-authz / idem-relay / idem-tenant-sample)
+description: Idem — 회원통합·연합인가 플랫폼. 단일 설치본(infra/docker/compose.install.yml)과 같은 구성 — 숨긴 Keycloak · idem-gate · idem-registry · idem-hub · idem-authz · idem-console-admin (+ KR 에디션 idem-kr-portal). PostgreSQL·Redis 는 바깥 서비스.
 type: application
-version: 0.1.0
+version: 1.0.0
 appVersion: "1.0.0"
 keywords:
-  - onepass
+  - idem
   - sso
-  - authentication
+  - identity
   - oidc
+  - authorization
 home: https://github.com/HipsterMIN/integration-sso
+sources:
+  - https://github.com/HipsterMIN/integration-sso
 maintainers:
   - name: idem-team
-    email: onepass@example.com
+    url: https://github.com/HipsterMIN/integration-sso

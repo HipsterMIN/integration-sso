@@ -1,0 +1,49 @@
+{{- /* 스키마 네임스페이스 초기화 (compose 의 docker-entrypoint-initdb.d 대응). 테이블은 각 앱 Flyway 가 만든다. 멱등(IF NOT EXISTS). */ -}}
+{{- if .Values.dbInit.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: idem-db-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-db-init" | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        {{- include "idem.selectorLabels" "idem-db-init" | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: psql
+          image: {{ include "idem.image" (dict "root" . "image" .Values.dbInit.image "edition" false) }}
+          command: ["sh", "-c", "until pg_isready -h \"$PGHOST\" -p \"$PGPORT\" -U \"$PGUSER\"; do echo waiting for postgres; sleep 3; done; psql -v ON_ERROR_STOP=1 -f /init/init-db.sql"]
+          env:
+            - name: PGHOST
+              value: {{ .Values.infra.postgres.host | quote }}
+            - name: PGPORT
+              value: {{ .Values.infra.postgres.port | quote }}
+            - name: PGDATABASE
+              value: {{ .Values.infra.postgres.database | quote }}
+            {{ include "idem.secretEnv" (dict "name" "PGUSER" "secret" .Values.infra.postgres.existingSecret "key" .Values.infra.postgres.usernameKey) | nindent 12 }}
+            {{ include "idem.secretEnv" (dict "name" "PGPASSWORD" "secret" .Values.infra.postgres.existingSecret "key" .Values.infra.postgres.passwordKey) | nindent 12 }}
+          volumeMounts:
+            - name: init
+              mountPath: /init
+              readOnly: true
+      volumes:
+        - name: init
+          configMap:
+            name: idem-db-init
+{{- end }}

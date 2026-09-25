@@ -79,8 +79,12 @@ docs/
 |---|---|
 | [`public-release-checklist.md`](public-release-checklist.md) | **공개 전 점검 (D0)** — Apache-2.0 전환에서 한 일, 자격증명 교체·히스토리 정리·고객 문서 결정 목록, 전환 직후 GitHub 설정 |
 | [`install.md`](install.md) | **설치 가이드 — 단일 설치본 (D1-b)** — PostgreSQL·Redis·Keycloak·SSO·IM 을 compose 하나로, Kafka 없음. 30분 설치·로그인 확인·Kafka 없이 도는 흐름 표 |
+| [`install-inputs.md`](install-inputs.md) | **설치 입력값 목록 (S9 PR-3)** — 비밀·설정 전부, 생성 규칙, 회전 영향, compose ↔ Helm 키 대응, 기관에 전달하는 값 |
+| [`../infra/helm/idem/README.md`](../infra/helm/idem/README.md) | **Helm 차트 (S9 PR-3)** — 단일 설치본과 같은 계약을 K8s 로: 숨긴 Keycloak·앱 5종·콘솔(+KR 포털), `global.edition` core/kr, 비밀 한 벌, pre-install 스키마 Job |
+| [`onboarding-guide.md`](onboarding-guide.md) | **기관 온보딩 가이드 (S9 PR-3)** — 운영기관 관리자용: 프로파일 작성 → 검증(스키마·client·시뮬레이션) → 시험 → 승인(ACTIVE), 역할, 흔한 문제 |
+| [`requirements-checklist.md`](requirements-checklist.md) | **기관 요구사항 수용 체크리스트 (S9 PR-3)** — 요구 → 프로파일 키 → 확인 방법, 설치본 쪽 수용, 아직 안 되는 것 |
 | [`admin-auth.md`](admin-auth.md) | **관리자 인증·인가 (S7)** — 관리 API 뒤의 관리자 세션·2단계(TOTP)·역할 3종·테넌트 범위·잠금·비밀번호 정책·감사, 설정 키·API·인가 매트릭스·오류 코드 E-IDO-130~139 |
-| [`deployment/README.md`](deployment/README.md) | **운영 배포 가이드 (최신, 2026-05-21)** — develop 브랜치 기준 |
+| [`deployment/README.md`](deployment/README.md) | 운영 배포 가이드 (2026-05-21, **구판** — Kafka·MariaDB 시절. 현행은 `install.md` + Helm 차트 README) |
 | [`OPERATION_INVENTORY.md`](OPERATION_INVENTORY.md) | 운영 관리 포인트 인벤토리 — 신규 운영자 온보딩 |
 | [`RUNBOOK_SSO_METRICS.md`](RUNBOOK_SSO_METRICS.md) | SSO/IM 본질 메트릭 RUNBOOK (PR-B1-new 산출물) |
 | [`SPRINT_B_PLAN.md`](SPRINT_B_PLAN.md) | Sprint B 축소 계획 (최소 메트릭 + 최소 알람) |
@@ -105,6 +109,7 @@ docs/
 | [`idem-agent-troubleshooting.md`](idem-agent-troubleshooting.md) | Agency Java Agent — 트러블슈팅 |
 | [`sso-agency-developer-guide.md`](sso-agency-developer-guide.md) | 자체 SSO 보유 기관 — 개발자 레퍼런스 |
 | [`sso-agency-integration-guide.md`](sso-agency-integration-guide.md) | 자체 SSO 보유 기관 — 담당자용 |
+| [`../scripts/kr-member-import/README.md`](../scripts/kr-member-import/README.md) | **KR 회원 일회성 이관 도구 (S9 PR-3)** — 구 플랫폼 회원 CSV → idem-kr-registry 내부 API(멱등, 기업회원 전환, 매핑 CSV) |
 | [`sso-agency-operations-guide.md`](sso-agency-operations-guide.md) | 자체 SSO 보유 기관 — 운영 가이드 |
 
 ---

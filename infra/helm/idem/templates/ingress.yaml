@@ -1,0 +1,55 @@
+{{- /*
+Ingress — 호스트는 global.publicUrl 에서 뽑는다.
+  gate    : 기관 브라우저·RP 가 보는 SSO 주소 (표준 OIDC issuer 베이스, Keycloak 화면·엔드포인트도 gate 가 프록시한다)
+  hub     : Handoff 콜백·브로커 콜백 등 hub 공개 API
+  console : 관리 콘솔 (관리자만 — annotations 로 IP 제한 권장)
+  krPortal: KR 에디션 회원 포털
+Keycloak 관리 콘솔은 기본 비공개(port-forward). exposeKeycloakAdmin=true + keycloak.adminUrl 로만 연다.
+*/ -}}
+{{- if .Values.ingress.enabled }}
+{{- $ing := .Values.ingress }}
+{{- $hosts := list }}
+{{- if .Values.gate.enabled }}{{ $hosts = append $hosts (dict "host" (include "idem.host" .Values.global.publicUrl.gate) "svc" "idem-gate" "port" 8081) }}{{ end }}
+{{- if .Values.hub.enabled }}{{ $hosts = append $hosts (dict "host" (include "idem.host" .Values.global.publicUrl.hub) "svc" "idem-hub" "port" 8083) }}{{ end }}
+{{- if .Values.consoleAdmin.enabled }}{{ $hosts = append $hosts (dict "host" (include "idem.host" .Values.global.publicUrl.console) "svc" "idem-console-admin" "port" 80) }}{{ end }}
+{{- if .Values.krPortal.enabled }}{{ $hosts = append $hosts (dict "host" (include "idem.host" .Values.global.publicUrl.krPortal) "svc" "idem-kr-portal" "port" 80) }}{{ end }}
+{{- if and $ing.exposeKeycloakAdmin .Values.keycloak.enabled }}
+{{- $hosts = append $hosts (dict "host" (include "idem.host" (required "exposeKeycloakAdmin=true 면 keycloak.adminUrl 이 필요합니다" .Values.keycloak.adminUrl)) "svc" "idem-keycloak" "port" 8080) }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: idem
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "idem.labels" . | nindent 4 }}
+  {{- with $ing.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $ing.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if $ing.tlsSecretName }}
+  tls:
+    - secretName: {{ $ing.tlsSecretName }}
+      hosts:
+        {{- range $hosts }}
+        - {{ .host }}
+        {{- end }}
+  {{- end }}
+  rules:
+    {{- range $hosts }}
+    - host: {{ .host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .svc }}
+                port:
+                  number: {{ .port }}
+    {{- end }}
+{{- end }}

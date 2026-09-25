@@ -1,510 +1,211 @@
-# ============================================================
-# OnePass Helm Chart — 기본값 (values.yaml)
-# 환경별 오버라이드:
-#   values-dev.yaml   : 개발 (Minikube / 내부 QA)
-#   values-stage.yaml : 스테이징
-#   values-prod.yaml  : 운영
+# ═══════════════════════════════════════════════════════════════════════════
+# Idem Helm 차트 — 기본값 (S9 PR-3)
 #
-# 적용 예:
-#   helm upgrade --install onepass ./infra/helm/idem \
-#     -f infra/helm/idem/values-prod.yaml \
-#     --namespace onepass \
-#     --create-namespace
-# ============================================================
+# 이 차트는 단일 설치본(infra/docker/compose.install.yml · docs/install.md)과 같은 계약을 K8s 로 옮긴 것이다.
+#   · 앱: idem-gate · idem-hub · idem-registry · idem-authz · idem-console-admin (+ KR 에디션 idem-kr-portal)
+#   · 숨긴 Keycloak(realm `idem` import) 을 차트가 같이 올린다(keycloak.enabled). 밖의 Keycloak 을 쓰면 externalUrl 로.
+#   · PostgreSQL · Redis 는 바깥 서비스(infra.*). 스키마는 pre-install Job(files/init-db.sql) 이 만든다.
+#   · Kafka 없음이 기본(infra.kafka.enabled=false). 아웃박스·감사는 DB 만으로 완결된다(D1).
+#   · 비밀은 Secret 한 벌(secrets.existingSecret) — 키 이름은 install.env 와 같다(docs/install-inputs.md).
+#
+# 에디션(global.edition): core | kr
+#   core = Idem SSO + IM 코어.   kr = 코어 + KR 에디션(idem-kr-hub·idem-kr-registry 이미지, idem-kr-portal, KR 플러그인 켬).
+#   이미지 태그는 <tag>-<edition> (예: idem-hub:1.0.0-kr) — CI docker-build 가 두 변형을 다 민다. values-kr.yaml 을 겹쳐 쓴다.
+#
+#   helm upgrade --install idem infra/helm/idem -n idem --create-namespace \
+#     -f my-values.yaml                       # publicUrl·infra·ingress
+#     [-f infra/helm/idem/values-kr.yaml]     # KR 에디션
+# ═══════════════════════════════════════════════════════════════════════════
 
 global:
-  # 네임스페이스
-  namespace: onepass
-  # 이미지 레지스트리 (운영: 고객사 사설 레지스트리로 교체)
-  imageRegistry: ""
-  # 이미지 풀 시크릿 (사설 레지스트리 인증 시)
+  edition: core                 # core | kr
+  imageRegistry: ""             # 예: ghcr.io/hipstermin — 비면 로컬 이미지 이름 그대로
   imagePullSecrets: []
-  # 환경 레이블 (dev / stage / prod)
-  env: dev
+  imageTag: latest              # 각 컴포넌트 image.tag 가 비어 있을 때 쓰는 태그
+  env: prod                     # 레이블 environment
+  timezone: Asia/Seoul          # 컨테이너 TZ = hub 의 idem.hub.zone
+  platformCode: IDEM            # 기관 간 SSO(CAST) 의 sourceAgency
+  # 브라우저가 접근하는 공개 URL (리버스 프록시·Ingress 주소). gate URL 은 표준 OIDC issuer 의 베이스 — 기관 RP 가 보는 issuer = {gate}/realms/idem
+  publicUrl:
+    gate: https://sso.example.org
+    hub: https://hub.example.org
+    console: https://console.example.org
+    krPortal: https://portal.example.org
 
-# ── 인프라 의존성 (외부 서비스 엔드포인트) ─────────────────────────
+# ── 바깥 인프라 ────────────────────────────────────────────────────────────
 infra:
   postgres:
-    host: postgres-service
+    host: postgres.example.svc.cluster.local
     port: 5432
     database: idem
-    # Secret: idem-db-secret 에서 username/password 참조
+    # Secret(키 username/password). 이 사용자로 모든 앱·Keycloak 이 붙는다 — compose 의 idem 사용자와 같다
     existingSecret: idem-db-secret
     usernameKey: username
     passwordKey: password
-  mariadb:
-    host: mariadb-service
-    port: 3306
-    database: qim
-    existingSecret: idem-mariadb-secret
-    usernameKey: username
-    passwordKey: password
+    sslMode: disable            # registry 의 IDEM_REGISTRY_DB_SSL — require 면 "true"
   redis:
-    host: redis-service
+    host: redis.example.svc.cluster.local
     port: 6379
-    # Secret: idem-redis-secret (password 없으면 빈값)
-    existingSecret: idem-redis-secret
+    # 비밀번호가 있으면 Secret(키 password) 이름. 없으면 빈값
+    existingSecret: ""
     passwordKey: password
   kafka:
-    bootstrapServers: kafka-service:9092
+    enabled: false              # true 면 IDEM_KAFKA_ENABLED=true + bootstrapServers 를 앱에 준다 (docs/install.md §6)
+    bootstrapServers: ""
 
-# ── Q-Sign ──────────────────────────────────────────────────────────
-gate:
+# ── 앱 비밀 한 벌 (docs/install-inputs.md 의 키 이름 그대로) ─────────────────
+secrets:
+  # 미리 만든 Secret 이름. 키: IDEM_HUB_INTERNAL_SIG_SECRET, IDEM_HUB_INTERNAL_API_KEY_GATE, IDEM_HUB_INTERNAL_API_KEY_RELAY,
+  #   IDEM_REGISTRY_INTERNAL_API_KEY, IDEM_AUTHZ_INTERNAL_API_KEY, IDEM_GATE_KEYCLOAK_CLIENT_SECRET, KEYCLOAK_CLIENT_SECRET,
+  #   KEYCLOAK_PROVISIONER_CLIENT_SECRET, KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET, KEYCLOAK_ADMIN_PASSWORD,
+  #   IDEM_HUB_HANDOFF_AES_KEY, IDEM_HUB_HANDOFF_HMAC_KEY, IDEM_HUB_WEBHOOK_SIGNING_SECRET, IDEM_REGISTRY_AES_SHARED_KEY,
+  #   IDEM_REGISTRY_DI_SECRET, IDEM_REGISTRY_CI_AES_KEY_V1, IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD, IDEM_HUB_ADMIN_SECRET_KEY,
+  #   IDEM_HUB_CAST_PRIVATE_KEY, IDEM_HUB_CAST_PUBLIC_KEY
+  existingSecret: idem-app-secrets
+  # true 면 아래 values 로 Secret 을 차트가 만든다 — 개발·시험용. 운영은 External Secrets 등 바깥 도구로 만들고 false.
+  create: false
+  values: {}
+
+# ── 숨긴 Keycloak ──────────────────────────────────────────────────────────
+keycloak:
   enabled: true
-  replicaCount: 2
   image:
-    repository: idem-gate
-    tag: latest
+    repository: quay.io/keycloak/keycloak
+    tag: "24.0"
     pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8081
+  # enabled=false 일 때 앱이 부를 Keycloak 주소 (realm idem 과 client 4개가 이미 있어야 한다 — files/realm-export.json)
+  externalUrl: ""
+  realmImport: true             # files/realm-export.json 을 ConfigMap 으로 마운트해 --import-realm
+  adminUser: admin              # 관리 콘솔(설치자 전용) 계정 — 비밀번호는 Secret 의 KEYCLOAK_ADMIN_PASSWORD
+  # 관리 콘솔 주소: 기본은 클러스터 안에서만(port-forward). 공개하려면 ingress 에 따로 host 를 붙이고 여기에 그 URL
+  adminUrl: ""
+  replicaCount: 1
   resources:
-    requests:
-      cpu: 250m
-      memory: 512Mi
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-  # 환경변수 (비민감 — ConfigMap으로 관리)
-  config:
-    IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
-    SPRING_PROFILES_ACTIVE: k8s
-    DB_NAME: idem
-    DB_PORT: "5432"
-    REDIS_PORT: "6379"
-    KEYCLOAK_REALM: idem
-    IDEM_GATE_KEYCLOAK_CLIENT_ID: idem-gate
-    IDEM_GATE_PKCE_ENABLED: "true"
-    IDEM_GATE_PKCE_TTL: "300"
-    IDEM_GATE_INTERNAL_SIG_STRICT: "false"
-  # 민감정보 — Secret 이름 참조 (실제 값은 Secret에 있음)
-  secretRef:
-    name: idem-gate-secret
-  # 헬스체크
-  livenessProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8081
-    initialDelaySeconds: 60
-    periodSeconds: 15
-    failureThreshold: 3
-  readinessProbe:
-    httpGet:
-      path: /actuator/health/readiness
-      port: 8081
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    failureThreshold: 3
-  # Pod 재시작 트리거 (Secret 변경 감지용 checksum annotation)
-  podAnnotations:
-    checksum/secret: ""   # Helm 렌더링 시 자동 계산
-  # ── startupProbe: 초기 부팅 느림 대응 (Spring Boot 30~60s) ───────
-  startupProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8081
-    failureThreshold: 30
-    periodSeconds: 5
-  # ── HPA: CPU/Memory 기반 오토스케일링 ──────────────────────────
-  hpa:
-    enabled: false                     # 기본은 비활성 — 운영(prod)에서 true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-  # ── PDB: 노드 드레인/업그레이드 시 가용성 보장 ────────────────
+    requests: { cpu: 250m, memory: 768Mi }
+    limits:   { cpu: "1",  memory: 1536Mi }
+  extraEnv: {}
+  javaOpts: "-XX:MaxRAMPercentage=75.0"
+
+# ── 앱 공통 기본값 (각 컴포넌트가 덮어쓸 수 있다) ───────────────────────────
+appDefaults:
+  replicaCount: 2
+  javaOpts: "-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -Dfile.encoding=UTF-8"
+  imagePullPolicy: IfNotPresent
+  terminationGracePeriodSeconds: 30
+  startupProbe:   { failureThreshold: 30, periodSeconds: 5 }     # Spring Boot 부팅 최대 150s
+  livenessProbe:  { periodSeconds: 15, failureThreshold: 3 }
+  readinessProbe: { periodSeconds: 10, failureThreshold: 3 }
+  podAntiAffinity: soft         # soft | hard | none
   pdb:
     enabled: true
     minAvailable: 1
-  # ── ServiceAccount ────────────────────────────────────────────
-  serviceAccount:
-    create: true
-    name: idem-gate
-    annotations: {}
-
-# ── Q-AuthZ (연합 인가 — 역할 부여 SoR / SCIM) ──────────────────────
-authz:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: idem-authz
-    tag: latest
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8086
-  resources:
-    requests:
-      cpu: 200m
-      memory: 384Mi
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-  config:
-    SPRING_PROFILES_ACTIVE: k8s
-    IDEM_AUTHZ_DB_PORT: "5432"
-    IDEM_AUTHZ_DB_NAME: idem
-    IDEM_AUTHZ_DB_SSLMODE: disable
-    IDEM_AUTHZ_EXPIRY_ENABLED: "true"
-    IDEM_AUTHZ_EXPIRY_SCAN_INTERVAL_MS: "60000"
-    IDEM_AUTHZ_EXPIRY_BATCH_SIZE: "500"
-  secretRef:
-    name: idem-authz-secret
-  livenessProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8086
-    initialDelaySeconds: 45
-    periodSeconds: 15
-    failureThreshold: 3
-  readinessProbe:
-    httpGet:
-      path: /actuator/health/readiness
-      port: 8086
-    initialDelaySeconds: 20
-    periodSeconds: 10
-    failureThreshold: 3
-  startupProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8086
-    failureThreshold: 30
-    periodSeconds: 5
   hpa:
     enabled: false
     minReplicas: 2
     maxReplicas: 6
     targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-  pdb:
-    enabled: true
-    minAvailable: 1
-  serviceAccount:
-    create: true
-    name: idem-authz
-    annotations: {}
 
-# ── Q-IM ────────────────────────────────────────────────────────────
-registry:
+# ── 제품 1: Idem SSO ───────────────────────────────────────────────────────
+gate:
   enabled: true
-  replicaCount: 2
-  image:
-    repository: idem-registry
-    tag: latest
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8082
+  image: { repository: idem-gate, tag: "" }
   resources:
-    requests:
-      cpu: 250m
-      memory: 512Mi
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-  config:
-    IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
-    SPRING_PROFILES_ACTIVE: k8s
-    IDEM_REGISTRY_DB_PORT: "3306"
-    IDEM_REGISTRY_DB_NAME: qim
-    IDEM_REGISTRY_DB_SSL: "false"
-    REDIS_PORT: "6379"
-    IDEM_REGISTRY_CI_CURRENT_VERSION: v1
-    IDEM_REGISTRY_RECEIVER_AUDIT: "true"
-  secretRef:
-    name: idem-registry-secret
-  livenessProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8082
-    initialDelaySeconds: 45
-    periodSeconds: 15
-    failureThreshold: 3
-  readinessProbe:
-    httpGet:
-      path: /actuator/health/readiness
-      port: 8082
-    initialDelaySeconds: 20
-    periodSeconds: 10
-    failureThreshold: 3
-  startupProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8082
-    failureThreshold: 30
-    periodSeconds: 5
-  hpa:
-    enabled: false
-    minReplicas: 2
-    maxReplicas: 8
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-  pdb:
-    enabled: true
-    minAvailable: 1
-  serviceAccount:
-    create: true
-    name: idem-registry
-    annotations: {}
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 1Gi }
+  config:                       # 비민감 환경변수 (ConfigMap). 필요한 것만 더한다
+    IDEM_GATE_INTERNAL_SIG_STRICT: "true"
+  extraEnv: {}
 
-# ── IdO ─────────────────────────────────────────────────────────────
 hub:
   enabled: true
-  replicaCount: 2
-  image:
-    repository: idem-hub
-    tag: latest
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8083
+  image: { repository: idem-hub, tag: "" }   # 에디션 접미가 붙는다: <tag>-<edition>
   resources:
-    requests:
-      cpu: 500m
-      memory: 1Gi
-    limits:
-      cpu: 2000m
-      memory: 2Gi
+    requests: { cpu: 500m, memory: 1Gi }
+    limits:   { cpu: "2",  memory: 2Gi }
+  brokerMode: qsign             # qsign(본인확인 SPI 경로) | keycloak(표준 OIDC 로그인)
+  adminBootstrapUsername: admin
+  adminCookieSecure: "true"
   config:
-    IDEM_HUB_AUTHZ_ENABLED: "true"   # D2: authz 조회 실패 = 거부(503). authz 를 배포하지 않으면 "false" 로 명시
-    IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
-    SPRING_PROFILES_ACTIVE: k8s
-    DB_NAME: idem
-    DB_PORT: "5432"
-    REDIS_PORT: "6379"
-    IDEM_HUB_BROKER_MODE: qsign
-    KEYCLOAK_REALM: idem
-    KEYCLOAK_CLIENT_ID: idem-hub
-    IDEM_HUB_PLATFORM_VERSION: "1.0"
-    IDEM_HUB_RATE_LIMIT_ENABLED: "true"
-    IDEM_HUB_RATE_LIMIT_DEFAULT_TPS: "200"
-    IDEM_HUB_RATE_LIMIT_DEFAULT_DAILY: "1000000"
-    IDEM_HUB_AUDIT_KAFKA_ENABLED: "true"
-    IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN: "12"
-    IDEM_HUB_KAFKA_PARTITION_COUNT_DLQ: "6"
-    IDEM_HUB_KAFKA_REPLICATION_FACTOR: "1"
-    IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS: "1"
-    # ── KMS / Vault Transit Engine ────────────────────────────────────
-    # 기본값(values.yaml): KMS Off — LocalKmsClient(Base64 패스스루) 사용
-    # 운영(values-prod.yaml): IDEM_HUB_KMS_ENABLED=true, IDEM_HUB_KMS_PROVIDER=vault
-    IDEM_HUB_KMS_ENABLED: "false"
-    IDEM_HUB_KMS_PROVIDER: "vault"
-    IDEM_HUB_KMS_CONN_TIMEOUT_MS: "3000"
-    IDEM_HUB_KMS_REQ_TIMEOUT_MS: "5000"
-    # Vault 접속 정보 (provider=vault 시)
-    VAULT_ADDR: "http://vault:8200"
-    VAULT_TRANSIT_PATH: "transit"
-    VAULT_TRANSIT_KEY: "idem-handoff-key"
-    # 인증 방식: token(개발) | approle(CI/CD) | kubernetes(운영 권장)
-    VAULT_AUTH_METHOD: "token"
-    # K8s Auth 사용 시 — Vault에 등록된 role 이름
-    VAULT_K8S_ROLE: "idem-hub"
-    # HCP Vault Dedicated 전용 Namespace (자체 호스팅 시 빈 값)
-    VAULT_NAMESPACE: ""
-  # ── ServiceAccount (Vault Kubernetes Auth 사용 시 필요) ────────────
-  # auth-method=kubernetes 일 때 Vault가 K8s API로 검증할 SA.
-  # vault write auth/kubernetes/role/idem-hub \
-  #   bound_service_account_names=idem-hub \
-  #   bound_service_account_namespaces=onepass \
-  #   policies=idem-hub-kms-policy
+    IDEM_HUB_AUTHZ_ENABLED: "true"          # D2: authz 조회 실패 = 거부. authz.enabled=false 면 "false"
+    IDEM_PLUGINS_MOCK_AUTH_ENABLED: "false"  # 설치 검증(docs/install.md §5)에만 잠시 true
+  # KMS(Vault Transit) 는 기본 Off — 켜려면 config 에 IDEM_HUB_KMS_ENABLED/PROVIDER 와 VAULT_* 를 넣고 Secret 에 VAULT_TOKEN 등
+  extraEnv: {}
   serviceAccount:
     create: true
-    name: idem-hub
     annotations: {}
-  secretRef:
-    name: idem-hub-secret
-  livenessProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8083
-    initialDelaySeconds: 60
-    periodSeconds: 15
-    failureThreshold: 3
-  readinessProbe:
-    httpGet:
-      path: /actuator/health/readiness
-      port: 8083
-    initialDelaySeconds: 45
-    periodSeconds: 10
-    failureThreshold: 3
-  # ── startupProbe: KMS 부팅(Vault 토큰 획득) 포함하여 더 긴 대기 ──
-  # failureThreshold * periodSeconds = 30 * 5s = 150s (KMS 통신 실패 재시도 대비)
-  startupProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8083
-    failureThreshold: 30
-    periodSeconds: 5
-  hpa:
-    enabled: false                     # 운영(prod)에서 true
-    minReplicas: 3
-    maxReplicas: 12
-    targetCPUUtilizationPercentage: 65    # ido는 SLO p95 < 2s 보장 → 보수적
-    targetMemoryUtilizationPercentage: 80
-  pdb:
-    enabled: true
-    minAvailable: 2                     # ido는 최소 2개 유지 (rate limiter 일관성)
 
-# ── Outbox Relay Batch ──────────────────────────────────────────────
-# Transactional Outbox 분산 릴레이 배치 서비스
-#  - ShedLock 분산 락 → 다중 Pod에서도 단일 인스턴스만 Job 실행
-#  - replicaCount 2 권장 (HA 페일오버) — replicaCount 1로 운영해도 동작은 함
-#  - idem-hub(PostgreSQL) / idem-registry(MariaDB) / idem-gate(PostgreSQL) 멀티 DataSource
-relay:
+# ── 제품 2: Idem IM ────────────────────────────────────────────────────────
+registry:
   enabled: true
-  # ShedLock으로 중복 실행 방지 — 2개로 운영하여 HA(파드 장애 시 즉시 페일오버) 확보
-  replicaCount: 2
-  image:
-    repository: idem-relay
-    tag: latest
-    pullPolicy: IfNotPresent
-  service:
-    # 외부 노출 불필요 — Prometheus scrape용 ClusterIP만
-    type: ClusterIP
-    port: 8090
+  image: { repository: idem-registry, tag: "" }   # 에디션 접미가 붙는다
   resources:
-    requests:
-      cpu: 200m
-      memory: 512Mi
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-  # 비민감 환경변수 (ConfigMap)
-  config:
-    SPRING_PROFILES_ACTIVE: k8s
-    # DB 포트 (드라이버별)
-    IDEM_HUB_DB_PORT: "5432"
-    IDEM_HUB_DB_NAME: idem
-    IDEM_REGISTRY_DB_PORT: "3306"
-    IDEM_REGISTRY_DB_NAME: qim
-    IDEM_GATE_DB_PORT: "5432"
-    IDEM_GATE_DB_NAME: idem
-    REDIS_PORT: "6379"
-    # Webhook 헤더용
-    IDEM_HUB_PLATFORM_VERSION: "1.0"
-    # 릴레이 Job ON/OFF
-    IDEM_RELAY_HUB_KAFKA_RELAY_ENABLED: "true"
-    IDEM_RELAY_HUB_REGISTRY_RELAY_ENABLED: "true"
-    IDEM_RELAY_REGISTRY_KAFKA_RELAY_ENABLED: "true"
-    IDEM_RELAY_GATE_KAFKA_RELAY_ENABLED: "true"
-    IDEM_RELAY_PROVISIONING_RELAY_ENABLED: "true"
-    IDEM_RELAY_WEBHOOK_RELAY_ENABLED: "true"
-    # DEAD_LETTER 알림 채널 (운영에서 enable + Secret 주입)
-    IDEM_RELAY_ALERT_SLACK_ENABLED: "false"
-    IDEM_RELAY_ALERT_PAGERDUTY_ENABLED: "false"
-  secretRef:
-    name: idem-relay-secret
-  # 헬스체크
-  #  - Liveness: ShedLock 상태와 무관하게 프로세스 생존만 확인
-  #  - Readiness: DataSource 3개 + Redis 모두 UP인 경우만 트래픽 처리 가능
-  livenessProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8090
-    initialDelaySeconds: 90    # 멀티 DS 초기화 + Flyway V19 마이그레이션 대기
-    periodSeconds: 20
-    failureThreshold: 3
-  readinessProbe:
-    httpGet:
-      path: /actuator/health/readiness
-      port: 8090
-    initialDelaySeconds: 45
-    periodSeconds: 10
-    failureThreshold: 3
-  # ── startupProbe: 멀티 DataSource(PG/MariaDB/PG) + Flyway V19 마이그레이션 ─
-  # failureThreshold * periodSeconds = 60 * 5s = 300s (가장 보수적)
-  startupProbe:
-    httpGet:
-      path: /actuator/health/liveness
-      port: 8090
-    failureThreshold: 60
-    periodSeconds: 5
-  # ── PDB: 노드 드레인 시 최소 1개 Pod 유지 (ShedLock 페일오버 보장) ──
-  # ⚠️ HPA는 ShedLock 특성상 무의미 → 의도적으로 미설정
-  pdb:
-    enabled: true
-    minAvailable: 1
-  # ── ServiceAccount ────────────────────────────────────────────
-  serviceAccount:
-    create: true
-    name: idem-relay
-    annotations: {}
-  podAnnotations:
-    # Prometheus scrape (annotation 기반 디스커버리 사용 시)
-    prometheus.io/scrape: "true"
-    prometheus.io/port: "8090"
-    prometheus.io/path: "/actuator/prometheus"
+    requests: { cpu: 250m, memory: 768Mi }
+    limits:   { cpu: "1",  memory: 1536Mi }
+  dbSchema: idem_registry
+  config: {}
+  extraEnv: {}
 
-# ── Agency-Stub ─────────────────────────────────────────────────────
-sample:
+authz:
+  enabled: true
+  image: { repository: idem-authz, tag: "" }
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 1Gi }
+  config: {}
+  extraEnv: {}
+
+# ── 관리 콘솔 (React + Nginx, /api/v1/admin → idem-hub 같은 출처) ──────────
+consoleAdmin:
   enabled: true
   replicaCount: 1
-  image:
-    repository: idem-tenant-sample
-    tag: latest
-    pullPolicy: IfNotPresent
-  service:
-    type: ClusterIP
-    port: 8084
+  image: { repository: idem-console-admin, tag: "" }
   resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-  config:
-    SPRING_PROFILES_ACTIVE: k8s
-    DB_NAME: idem
-    DB_PORT: "5432"
-    REDIS_PORT: "6379"
-  secretRef:
-    name: idem-tenant-sample-secret
+    requests: { cpu: 50m,  memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
 
-# ── Ingress ─────────────────────────────────────────────────────────
+# ── KR 에디션 회원 포털 (global.edition=kr 일 때만) ────────────────────────
+krPortal:
+  enabled: false                # values-kr.yaml 이 true 로
+  replicaCount: 1
+  image: { repository: idem-kr-portal, tag: "" }
+  resources:
+    requests: { cpu: 50m,  memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+
+# ── KR 벤더 플러그인 (kr 에디션 이미지에만 들어 있다) ─────────────────────
+plugins:
+  niceOacx: false
+  anyid: false
+
+# ── 선택: 아웃박스 릴레이 (Kafka 를 쓰는 배포에서만) ────────────────────────
+relay:
+  enabled: false
+  replicaCount: 1
+  image: { repository: idem-relay, tag: "" }
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits:   { cpu: "1",  memory: 1Gi }
+  config: {}
+  extraEnv: {}
+
+# ── Ingress ────────────────────────────────────────────────────────────────
 ingress:
   enabled: false
   className: nginx
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-  hosts:
-    - host: onepass.example.com
-      paths:
-        - path: /api/idem-gate
-          pathType: Prefix
-          service: idem-gate
-          port: 8081
-        - path: /api/idem-registry
-          pathType: Prefix
-          service: idem-registry
-          port: 8082
-        - path: /api/idem-hub
-          pathType: Prefix
-          service: idem-hub
-          port: 8083
-  tls:
-    - secretName: idem-tls
-      hosts:
-        - onepass.example.com
+  annotations: {}
+  # 호스트는 global.publicUrl 에서 뽑는다. TLS Secret 이름만 준다 (비면 TLS 블록 없음)
+  tlsSecretName: ""
+  # true 면 Keycloak 관리 콘솔도 keycloak.adminUrl 호스트로 노출 — 설치자만 접근하도록 IP 제한 등을 annotations 로
+  exposeKeycloakAdmin: false
 
-# ── Kafka Topic 설정 (ConfigMap용 레퍼런스) ─────────────────────────
-kafka:
-  topics:
-    authEvents: idem.gate.auth.events
-    handoffEvents: idem.hub.handoff.events
-    sessionAdvisory: platform.session.advisory
-    auditLog: platform.audit.log
-    qimUserEvents: idem.registry.user.events
-    qimUserSnapshot: idem.registry.user.snapshot
-    qimSpMemberEvents: idem.registry.sp.member.events
-    # DLT (Dead Letter Topics)
-    authEventsDlt: idem.gate.auth.events.dlt
-    handoffEventsDlt: idem.hub.handoff.events.dlt
-    sessionAdvisoryDlt: platform.session.advisory.dlt
-    qimUserEventsDlt: idem.registry.user.events.dlt
-    qimSpMemberEventsDlt: idem.registry.sp.member.events.dlt
-
-# ── NetworkPolicy ───────────────────────────────────────────────────
+# ── NetworkPolicy (같은 네임스페이스 안 컴포넌트 간 통신만 허용) ─────────────
 networkPolicy:
   enabled: false
+  # Ingress 컨트롤러 네임스페이스 레이블 (gate·hub·console·portal 로 들어오는 트래픽 허용)
+  ingressNamespaceSelector:
+    kubernetes.io/metadata.name: ingress-nginx
+
+# ── DB 스키마 초기화 Job (pre-install/pre-upgrade 훅, files/init-db.sql) ──────
+dbInit:
+  enabled: true
+  image: { repository: postgres, tag: 16-alpine }

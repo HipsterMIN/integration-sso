@@ -1,75 +1,87 @@
 {{- if .Values.hub.enabled }}
+{{- $c := .Values.hub }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: idem-hub
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-hub
-  annotations:
-    checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-hub" | nindent 4 }}
 spec:
-  replicas: {{ .Values.hub.replicaCount }}
+  replicas: {{ include "idem.replicas" (dict "root" . "c" $c) }}
   selector:
     matchLabels:
       app: idem-hub
   strategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   template:
     metadata:
       labels:
-        app: idem-hub
-        {{- include "onepass.labels" . | nindent 8 }}
-        app.kubernetes.io/component: idem-hub
+        {{- include "idem.labels" . | nindent 8 }}
+        {{- include "idem.selectorLabels" "idem-hub" | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $c.config | sha256sum }}
     spec:
-      {{- if .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
+      {{- include "idem.podCommon" (dict "root" . "name" "idem-hub") | nindent 6 }}
+      {{- if $c.serviceAccount.create }}
+      serviceAccountName: idem-hub
       {{- end }}
-      # Vault Kubernetes Auth(VAULT_AUTH_METHOD=kubernetes) 사용 시 필수.
-      # 다른 인증 방식(token/approle)에서는 SA JWT를 읽지 않으므로 무해.
-      {{- if .Values.hub.serviceAccount }}
-      {{- if .Values.hub.serviceAccount.create }}
-      serviceAccountName: {{ .Values.hub.serviceAccount.name | default "idem-hub" }}
-      {{- end }}
-      {{- end }}
-      terminationGracePeriodSeconds: 30
       containers:
         - name: idem-hub
-          image: {{ include "onepass.image" .Values.hub.image }}
-          imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
+          image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" true) }}
+          imagePullPolicy: {{ .Values.appDefaults.imagePullPolicy }}
+          {{- include "idem.containerSecurity" . | nindent 10 }}
           ports:
-            - name: http
-              containerPort: 8083
-              protocol: TCP
+            - { name: http, containerPort: 8083 }
           envFrom:
-            - configMapRef:
-                name: idem-hub-config
-            - configMapRef:
-                name: idem-common-config
-            - secretRef:
-                name: {{ .Values.hub.secretRef.name }}
-          {{- if .Values.hub.startupProbe }}
-          startupProbe:
-            {{- toYaml .Values.hub.startupProbe | nindent 12 }}
-          {{- end }}
-          livenessProbe:
-            {{- toYaml .Values.hub.livenessProbe | nindent 12 }}
-          readinessProbe:
-            {{- toYaml .Values.hub.readinessProbe | nindent 12 }}
+            - configMapRef: { name: idem-hub-config }
+          env:
+            {{- include "idem.commonEnv" . | nindent 12 }}
+            - name: JAVA_OPTS
+              value: {{ .Values.appDefaults.javaOpts | quote }}
+            - name: IDEM_REGISTRY_BASE_URL
+              value: http://idem-registry:8082
+            - name: IDEM_GATE_BASE_URL
+              value: http://idem-gate:8081
+            - name: IDEM_HUB_AUTHZ_BASE_URL
+              value: http://idem-authz:8086
+            - name: IDEM_HUB_BROKER_MODE
+              value: {{ $c.brokerMode | quote }}
+            - name: IDEM_PLATFORM_CODE
+              value: {{ .Values.global.platformCode | quote }}
+            # S7 관리자 인증 — 관리 API(/api/v1/admin/**·/actuator/** 일부)는 관리자 세션 + 2단계 뒤에 있다 (docs/admin-auth.md)
+            - name: IDEM_HUB_ADMIN_BOOTSTRAP_USERNAME
+              value: {{ $c.adminBootstrapUsername | quote }}
+            - name: IDEM_HUB_ADMIN_COOKIE_SECURE
+              value: {{ $c.adminCookieSecure | quote }}
+            - name: KEYCLOAK_BASE_URL
+              value: {{ include "idem.keycloakUrl" . | quote }}
+            - name: KEYCLOAK_REALM
+              value: idem
+            - name: KEYCLOAK_CLIENT_ID
+              value: idem-hub
+            - name: KEYCLOAK_REDIRECT_URI
+              value: {{ printf "%s/api/v1/broker/callback" .Values.global.publicUrl.hub | quote }}
+            # S6: OIDC_RP client 프로비저닝 + 기관에 알려 줄 issuer 베이스
+            - name: IDEM_PUBLIC_URL_GATE
+              value: {{ .Values.global.publicUrl.gate | quote }}
+            - name: CORS_ORIGIN_DEV
+              value: {{ .Values.global.publicUrl.console | quote }}
+            - name: CORS_ORIGIN_PROD
+              value: {{ .Values.global.publicUrl.console | quote }}
+            # KR 벤더 플러그인 — kr 에디션 이미지에만 들어 있다. core 이미지에서는 값과 무관하게 없다
+            - name: IDEM_PLUGINS_NICE_OACX_ENABLED
+              value: {{ and (eq .Values.global.edition "kr") .Values.plugins.niceOacx | quote }}
+            - name: IDEM_PLUGINS_ANYID_ENABLED
+              value: {{ and (eq .Values.global.edition "kr") .Values.plugins.anyid | quote }}
+            # 내부 호출자 키·서명·암호 키 — 비면 hub 가 기동을 거부한다 (D2 fail-secure)
+            {{ include "idem.secretEnv" (dict "name" "IDEM_HUB_REGISTRY_INTERNAL_API_KEY" "secret" .Values.secrets.existingSecret "key" "IDEM_REGISTRY_INTERNAL_API_KEY") | nindent 12 }}
+            {{ include "idem.secretEnv" (dict "name" "IDEM_HUB_AUTHZ_INTERNAL_API_KEY" "secret" .Values.secrets.existingSecret "key" "IDEM_AUTHZ_INTERNAL_API_KEY") | nindent 12 }}
+            {{- include "idem.appSecretEnv" (dict "root" . "keys" (list "IDEM_HUB_INTERNAL_SIG_SECRET" "IDEM_HUB_INTERNAL_API_KEY_GATE" "IDEM_HUB_INTERNAL_API_KEY_RELAY" "IDEM_HUB_CAST_PRIVATE_KEY" "IDEM_HUB_CAST_PUBLIC_KEY" "IDEM_REGISTRY_AES_SHARED_KEY" "IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD" "IDEM_HUB_ADMIN_SECRET_KEY" "KEYCLOAK_CLIENT_SECRET" "KEYCLOAK_PROVISIONER_CLIENT_SECRET" "IDEM_HUB_WEBHOOK_SIGNING_SECRET" "IDEM_HUB_HANDOFF_AES_KEY" "IDEM_HUB_HANDOFF_HMAC_KEY")) | nindent 12 }}
+            {{- include "idem.mapEnv" $c.extraEnv | nindent 12 }}
+          {{- include "idem.probes" (dict "root" . "port" 8083) | nindent 10 }}
           resources:
-            {{- toYaml .Values.hub.resources | nindent 12 }}
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: idem-hub
-                topologyKey: kubernetes.io/hostname
+            {{- toYaml $c.resources | nindent 12 }}
 {{- end }}

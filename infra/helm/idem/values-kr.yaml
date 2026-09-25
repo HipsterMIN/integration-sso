@@ -1,0 +1,15 @@
+# Idem KR Public Edition 오버레이 — 코어 위에 겹쳐 쓴다:
+#   helm upgrade --install idem infra/helm/idem -n idem -f my-values.yaml -f infra/helm/idem/values-kr.yaml
+#
+# 바뀌는 것: hub·registry 이미지가 <tag>-kr (editions/idem-kr-hub·idem-kr-registry — SMES 회원 개념·기업회원·CI 조회 포함),
+#            회원 포털(idem-kr-portal) 배포, KR 벤더 플러그인 스위치. 벤더 SDK 는 이미지 빌드 때 vendor-libs 로 넣는다
+#            (idem-hub/Dockerfile 의 --build-context vendor-libs=…). 자격증명은 Secret 에 따로(플러그인 문서).
+global:
+  edition: kr
+
+krPortal:
+  enabled: true
+
+plugins:
+  niceOacx: true     # NICE 본인확인(OACX SDK). false 면 플러그인이 잠들고 MOCK 만 남는다
+  anyid: false       # 행안부 Any-ID 브로커 — 사설 레지스트리 SDK 가 있을 때만

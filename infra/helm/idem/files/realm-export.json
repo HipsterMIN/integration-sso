@@ -1,0 +1,237 @@
+{
+  "realm": "idem",
+  "enabled": true,
+  "displayName": "OnePass 통합인증",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "clients": [
+    {
+      "clientId": "idem-gate",
+      "name": "Q-Sign OIDC 어댑터 클라이언트",
+      "description": "q-sign 모듈이 Keycloak Authorization Code Flow 를 처리하는 Confidential Client",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "secret": "${IDEM_GATE_KEYCLOAK_CLIENT_SECRET}",
+      "redirectUris": [
+        "http://localhost:8081/api/v1/oidc/keycloak/callback",
+        "http://idem-gate:8081/api/v1/oidc/keycloak/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:8081",
+        "http://idem-gate:8081"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "+",
+        "backchannel.logout.url": "http://idem-gate:8081/api/v1/oidc/backchannel-logout",
+        "backchannel.logout.session.required": "true"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "idem-hub",
+      "name": "IdO BFF 클라이언트",
+      "description": "ido 모듈 (Policy Orchestrator + FE BFF) — broker.mode=keycloak 전환 시 사용",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "secret": "${KEYCLOAK_CLIENT_SECRET}",
+      "redirectUris": [
+        "http://localhost:8083/api/v1/broker/callback",
+        "http://idem-hub:8083/api/v1/broker/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8083"
+      ],
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ],
+      "attributes": {
+        "backchannel.logout.url": "http://idem-gate:8081/api/v1/oidc/backchannel-logout",
+        "backchannel.logout.session.required": "true"
+      }
+    },
+    {
+      "clientId": "idem-provisioner",
+      "name": "Idem provisioner (S6 — hub 가 OIDC_RP client 를 프로비저닝)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${KEYCLOAK_PROVISIONER_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "idem.managed": "true"
+      }
+    },
+    {
+      "clientId": "idem-session-manager",
+      "name": "Idem session manager (S6 PR-2 — gate 가 SLO 로 Keycloak 세션을 끊는다)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "idem.managed": "true"
+      }
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "social-kakao",
+      "displayName": "카카오 로그인",
+      "providerId": "oidc",
+      "enabled": true,
+      "updateProfileFirstLoginMode": "on",
+      "trustEmail": false,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${env.KAKAO_CLIENT_ID:your-kakao-client-id}",
+        "clientSecret": "${env.KAKAO_CLIENT_SECRET:}",
+        "authorizationUrl": "https://kauth.kakao.com/oauth/authorize",
+        "tokenUrl": "https://kauth.kakao.com/oauth/token",
+        "jwksUrl": "https://kauth.kakao.com/.well-known/jwks.json",
+        "issuer": "https://kauth.kakao.com",
+        "defaultScopes": "openid profile account_email",
+        "validateSignature": "true",
+        "useJwksUrl": "true",
+        "pkceEnabled": "false",
+        "sendClientSecretBasic": "false"
+      }
+    },
+    {
+      "alias": "social-naver",
+      "displayName": "네이버 로그인",
+      "providerId": "oidc",
+      "enabled": false,
+      "config": {
+        "clientId": "${env.NAVER_CLIENT_ID:your-naver-client-id}",
+        "clientSecret": "${env.NAVER_CLIENT_SECRET:}",
+        "authorizationUrl": "https://nid.naver.com/oauth2.0/authorize",
+        "tokenUrl": "https://nid.naver.com/oauth2.0/token",
+        "defaultScopes": "openid",
+        "validateSignature": "false",
+        "useJwksUrl": "false"
+      }
+    },
+    {
+      "alias": "social-pass",
+      "displayName": "PASS 인증",
+      "providerId": "oidc",
+      "enabled": false,
+      "config": {
+        "clientId": "${env.PASS_CLIENT_ID:your-pass-client-id}",
+        "clientSecret": "${env.PASS_CLIENT_SECRET:}",
+        "defaultScopes": "openid"
+      }
+    },
+    {
+      "alias": "social-gpki",
+      "displayName": "GPKI 공동인증서",
+      "providerId": "oidc",
+      "enabled": false,
+      "config": {
+        "clientId": "${env.GPKI_CLIENT_ID:your-gpki-client-id}",
+        "clientSecret": "${env.GPKI_CLIENT_SECRET:}",
+        "defaultScopes": "openid"
+      }
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "idem-user",
+        "description": "OnePass 일반 사용자"
+      },
+      {
+        "name": "idem-admin",
+        "description": "OnePass 관리자"
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "poc-testuser",
+      "email": "poc@idem.test",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "PoC",
+      "lastName": "테스터",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Test1234!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "idem-user"
+      ]
+    },
+    {
+      "username": "service-account-idem-provisioner",
+      "enabled": true,
+      "serviceAccountClientId": "idem-provisioner",
+      "clientRoles": {
+        "realm-management": [
+          "manage-clients",
+          "view-clients"
+        ]
+      }
+    },
+    {
+      "username": "service-account-idem-session-manager",
+      "enabled": true,
+      "serviceAccountClientId": "idem-session-manager",
+      "clientRoles": {
+        "realm-management": [
+          "view-users",
+          "manage-users"
+        ]
+      }
+    }
+  ]
+}

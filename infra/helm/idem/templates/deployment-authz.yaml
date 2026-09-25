@@ -1,72 +1,46 @@
 {{- if .Values.authz.enabled }}
+{{- $c := .Values.authz }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: idem-authz
-  namespace: {{ .Values.global.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: idem-authz
-  annotations:
-    # Secret 변경 시 자동 rollout 트리거
-    checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-authz" | nindent 4 }}
 spec:
-  replicas: {{ .Values.authz.replicaCount }}
+  replicas: {{ include "idem.replicas" (dict "root" . "c" $c) }}
   selector:
     matchLabels:
       app: idem-authz
   strategy:
     type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   template:
     metadata:
       labels:
-        app: idem-authz
-        {{- include "onepass.labels" . | nindent 8 }}
-        app.kubernetes.io/component: idem-authz
+        {{- include "idem.labels" . | nindent 8 }}
+        {{- include "idem.selectorLabels" "idem-authz" | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $c.config | sha256sum }}
     spec:
-      {{- if .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
-      {{- end }}
-      {{- if and .Values.authz.serviceAccount .Values.authz.serviceAccount.create }}
-      serviceAccountName: {{ .Values.authz.serviceAccount.name | default "idem-authz" }}
-      {{- end }}
-      terminationGracePeriodSeconds: 30
+      {{- include "idem.podCommon" (dict "root" . "name" "idem-authz") | nindent 6 }}
       containers:
         - name: idem-authz
-          image: {{ include "onepass.image" .Values.authz.image }}
-          imagePullPolicy: {{ .Values.authz.image.pullPolicy }}
+          image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" false) }}
+          imagePullPolicy: {{ .Values.appDefaults.imagePullPolicy }}
+          {{- include "idem.containerSecurity" . | nindent 10 }}
           ports:
-            - name: http
-              containerPort: 8086
-              protocol: TCP
+            - { name: http, containerPort: 8086 }
           envFrom:
-            - configMapRef:
-                name: idem-authz-config
-            - configMapRef:
-                name: idem-common-config
-            - secretRef:
-                name: {{ .Values.authz.secretRef.name }}
-          {{- if .Values.authz.startupProbe }}
-          startupProbe:
-            {{- toYaml .Values.authz.startupProbe | nindent 12 }}
-          {{- end }}
-          livenessProbe:
-            {{- toYaml .Values.authz.livenessProbe | nindent 12 }}
-          readinessProbe:
-            {{- toYaml .Values.authz.readinessProbe | nindent 12 }}
+            - configMapRef: { name: idem-authz-config }
+          env:
+            {{- include "idem.commonEnv" . | nindent 12 }}
+            - name: JAVA_OPTS
+              value: {{ .Values.appDefaults.javaOpts | quote }}
+            {{- include "idem.appSecretEnv" (dict "root" . "keys" (list "IDEM_AUTHZ_INTERNAL_API_KEY")) | nindent 12 }}
+            {{- include "idem.mapEnv" $c.extraEnv | nindent 12 }}
+          {{- include "idem.probes" (dict "root" . "port" 8086) | nindent 10 }}
           resources:
-            {{- toYaml .Values.authz.resources | nindent 12 }}
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: idem-authz
-                topologyKey: kubernetes.io/hostname
+            {{- toYaml $c.resources | nindent 12 }}
 {{- end }}
