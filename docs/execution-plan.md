@@ -53,7 +53,7 @@
 
 ### 2.2 사업·조직 (사용자)
 - 신청 법인·개발기관 결정, 예산 범위(평가·컨설팅·KCMVP 모듈 라이선스·모의해킹).
-- **관리자 인증 방식 결정**: Keycloak 관리자 realm 위임(권장 — MFA·비밀번호 정책을 realm 정책으로) vs 자체 계정 저장소.
+- **관리자 인증 방식 결정**: ✅ 자체 계정 저장소 + TOTP 로 결정·구현(S7 PR-1, ADR-015). Keycloak 은 ADR-014 로 설치본 내부에 숨겨져 관리 콘솔을 노출하지 않으므로 realm 위임을 택하지 않았다.
 - GS 선행 여부 확정.
 - IT보안인증사무국 사전 질의 — 갭 분석 §8 의 8개 항목. 특히: SSO 유형 현행 판·컴포넌트 목록, Kubernetes 배포 TOE 인정 범위, Nginx TLS 종단 허용 여부, KCMVP 모듈 후보.
 - 평가기관 2곳 이상 견적, 컨설팅 범위 결정.
@@ -66,20 +66,20 @@
 
 갭 분석 §3 의 ❌ 를 🟡 이상으로. 우선순위순.
 
-### 3.1 관리자 식별·인증·인가 (FIA/FMT) — 최우선
-- 서버 측 관리자 인증: Keycloak OIDC(결정에 따라) + 서버 세션. `AdminAuthInterceptor` 신설.
-- 적용 범위: `/api/v1/admin/**`, `DELETE /api/v1/handoff/{id}`, `/actuator/**`(health 제외), 콘솔 BFF 전부.
-- 서버 측 RBAC: 시스템관리자 / 정책관리자 / 감사관리자 최소 3역할, API 인가 매트릭스 문서화.
-- `X-Admin-Id` 헤더 제거, 인증된 신원으로 대체.
-- 관리자 세션: 유휴 15분·절대 8시간, 동시 세션 1, 마지막 로그인 표시, 접근 배너(설정).
-- 관리자 계정 잠금(5회)·해제, MFA(Keycloak 위임 시 realm 정책).
-- 콘솔 SPA 의 SigNoz 유래 미구현 화면(로그인·초대·비밀번호 재설정 등) 제거 또는 구현.
+### 3.1 관리자 식별·인증·인가 (FIA/FMT) — 최우선 — ✅ 서버 측 완료 (generalization-plan S7 PR-1, 2026-09-25, ADR-015)
+- ✅ 서버 측 관리자 인증: 자체 계정(`ido.admin_user`) + TOTP 2단계 + Redis 세션, `AdminAuthFilter`(결정 D3 = 자체 저장소, ADR-015).
+- ✅ 적용 범위: `/api/v1/admin/**`, `DELETE /api/v1/handoff/{id}`, `/actuator/**`(health·info·prometheus 제외). 콘솔 BFF 는 PR-2 에서 같은 필터 뒤에.
+- ✅ 서버 측 RBAC: `SYSTEM_ADMIN` / `POLICY_ADMIN` / `AUDITOR` + 테넌트 범위, 인가 매트릭스 `docs/admin-auth.md` §4.
+- ✅ `X-Admin-Id` 헤더 제거, 인증된 신원으로 대체(감사 actor).
+- ✅ 관리자 세션: 유휴 15분·절대 8시간, 동시 세션 1. ⏭ 마지막 로그인 표시·접근 배너는 콘솔(PR-2).
+- ✅ 관리자 계정 잠금(5회→15분)·해제, 비밀번호 정책(길이·문자종·사용자명·이력 3), 첫 로그인 변경 강제.
+- ⏭ 콘솔 SPA 의 SigNoz 유래 미구현 화면 정리 → PR-2 에서 `idem-console` 을 KR 에디션으로 옮기고 코어에 작은 관리 콘솔을 새로 짓는다.
 
 ### 3.2 보안감사 (FAU)
-- **모든 관리 행위 감사**: 기관 등록·수정·활성화·키 회전, 정책 변경, 기능 플래그 변경, 감사 기능 on/off, TOE 기동·종료.
+- **모든 관리 행위 감사**: 기관 등록·수정·활성화·키 회전, 정책 변경(✅ 인증된 관리자 actor 로, S7 PR-1) · 관리자 로그인/실패/잠금/2단계/권한 거부/계정 관리(✅ `ADMIN_*`, S7 PR-1) · ⏭ 기능 플래그 변경, 감사 기능 on/off, TOE 기동·종료.
 - **유실 방지**: `AuditLogPublisher` 실패 시 로컬 파일 폴백 큐 + 재전송, 실패 카운터 메트릭·알림, 설정 가능한 "감사 불가 시 서비스 거부" 모드. VARCHAR(36) 컬럼 확장 또는 입력 길이 검증.
 - **무결성**: `audit_log` 레코드 해시체인(`prev_hash`, HMAC 키는 KMS), DB 앱 계정에서 audit 테이블 UPDATE/DELETE 권한 회수 + RLS, 변조 검증 배치.
-- **검토**: `/api/v1/admin/audit` 검색 API(기간·주체·사건·결과), 콘솔 감사 화면.
+- **검토**: ✅ `/api/v1/admin/audit` 검색 API(기간·분류·사건·주체·기관·결과·상관ID, S7 PR-1). ⏭ 콘솔 감사 화면(PR-2).
 - **보존**: 월 파티셔닝, 서명된 월별 아카이브 export, 보존 만료 삭제 배치.
 - 감사 저장소 통합 또는 통합 조회 계층 (`ido.audit_log` / `qsign.auth_audit_log` / `authz_grant_audit` / `broker_audit_log` / `gateway_inbound_audit`).
 
@@ -175,7 +175,7 @@
 |---|---|---|---|
 | D1 | 신청 법인·개발기관 | 인증서 명의, ALC 개발환경 범위 | P0 |
 | D2 | 예산 범위 | 평가기관·컨설팅·모듈·모의해킹 | P0 |
-| D3 | 관리자 인증 방식 (Keycloak 위임 vs 자체) | P1 설계 전체 | P0 초 |
+| D3 | 관리자 인증 방식 (Keycloak 위임 vs 자체) — **✅ 결정: 자체 계정 저장소 + TOTP (2026-09-25, `wiki/adr/ADR-015-admin-auth.md`)** | P1 설계 전체 | P0 초 |
 | D4 | GS 선행 여부 | P3 시점 | P0 |
 | D5 | TLS 종단 위치 (서비스 직접 vs Nginx 포함) | P1 §3.3, 사무국 회신 후 | P0 말 |
 | D6 | KCMVP 모듈 선정 | P2 어댑터 | P0 말 |

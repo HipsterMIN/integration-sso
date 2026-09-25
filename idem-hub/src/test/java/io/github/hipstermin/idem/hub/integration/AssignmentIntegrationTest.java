@@ -84,7 +84,7 @@ class AssignmentIntegrationTest extends IntegrationTestBase {
     private void putProfile(boolean required, boolean selfSignup) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
-        h.set("X-Admin-Id", "s8b-test");
+        withAdmin(h, restTemplate, baseUrl);
         ResponseEntity<String> res = restTemplate.exchange(
                 baseUrl + "/api/v1/admin/services/" + AGENCY_CODE + "/profile", HttpMethod.PUT,
                 new HttpEntity<>("""

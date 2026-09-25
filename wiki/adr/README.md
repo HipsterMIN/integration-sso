@@ -319,6 +319,7 @@ FE Axios 인스턴스를 `beInstance`(내부 API)와 `extInstance`(외부 CI API
 - [ADR-011](./ADR-011-hmac-sha256-gateway-auth.md) — HMAC-SHA256 (Gateway 인증)
 - [ADR-012](./ADR-012-react-fe-dual-instance.md) — FE 이중 Axios 인스턴스 (CI 보안 분리)
 - [ADR-014](./ADR-014-hidden-keycloak-oidc-front.md) — Keycloak 을 숨긴 표준 OIDC 프런트 (OIDC_RP, 범용화 S6)
+- [ADR-015](./ADR-015-admin-auth.md) — 관리자 인증·인가: 자체 계정 + TOTP 2단계, 서블릿 필터 (범용화 S7)
 
 ---
 
@@ -327,7 +328,7 @@ FE Axios 인스턴스를 `beInstance`(내부 API)와 `extInstance`(외부 CI API
 ### 파일명 규칙
 ```
 ADR-{NNN}-{kebab-case-title}.md
-예: ADR-013-some-new-decision.md
+예: ADR-016-some-new-decision.md
 ```
 
 ### 번호 예약 규칙

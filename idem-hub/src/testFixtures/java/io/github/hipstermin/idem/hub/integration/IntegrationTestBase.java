@@ -93,6 +93,32 @@ public abstract class IntegrationTestBase {
                 .thenReturn(CompletableFuture.completedFuture(null));
     }
 
+    // ── S7: 관리자 세션 (통합 테스트는 실제 로그인·TOTP 를 거친다) ───────────────
+    private final java.util.Map<String, org.springframework.http.HttpHeaders> adminHeaderCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** 부트스트랩 관리자 세션 쿠키 + CSRF 헤더. 컨텍스트(포트)마다 한 번 로그인한다 */
+    protected org.springframework.http.HttpHeaders adminHeaders(org.springframework.boot.test.web.client.TestRestTemplate rest, String baseUrl) {
+        return adminHeaders(rest.getRestTemplate(), baseUrl);
+    }
+
+    /** 4xx 를 예외로 던지지 않는 RestTemplate 용 */
+    protected org.springframework.http.HttpHeaders adminHeaders(org.springframework.web.client.RestOperations rest, String baseUrl) {
+        return adminHeaderCache.computeIfAbsent(baseUrl, u -> AdminTestSupport.headers(rest, u));
+    }
+
+    protected org.springframework.http.HttpHeaders withAdmin(org.springframework.http.HttpHeaders h,
+                                                             org.springframework.web.client.RestOperations rest, String baseUrl) {
+        h.addAll(adminHeaders(rest, baseUrl));
+        return h;
+    }
+
+    /** 기존 헤더에 관리자 세션을 얹는다 */
+    protected org.springframework.http.HttpHeaders withAdmin(org.springframework.http.HttpHeaders h,
+                                                             org.springframework.boot.test.web.client.TestRestTemplate rest, String baseUrl) {
+        h.addAll(adminHeaders(rest, baseUrl));
+        return h;
+    }
+
     // ── Spring 동적 프로퍼티 주입 ─────────────────────────────────────────────
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {

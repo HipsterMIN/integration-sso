@@ -319,6 +319,35 @@ ido:
     # KeycloakOidcService / NonOidcAuthService 모두 ${ido.kafka.topic-auth-events} 참조.
     # 이전에 있던 ido.keycloak.auth-events-topic 키는 제거 — ido.kafka.topic-auth-events 사용.
 
+  # ── S7 관리자 인증 (docs/admin-auth.md, ADR-015) ────────────────────────────
+  admin:
+    bootstrap:
+      username: ${IDEM_ADMIN_BOOTSTRAP_USERNAME:admin}
+      password: ${IDEM_ADMIN_BOOTSTRAP_PASSWORD:}          # 관리자가 없을 때만 쓰인다. 비면 hardened 프로파일은 기동 거부
+      require-password-change: true                        # 운영 필수 (FailSecureBootGuard)
+    secret-key: ${IDEM_ADMIN_SECRET_KEY:}                  # TOTP 비밀 봉인 AES-256 키 (base64 32바이트)
+    allow-derived-secret-key: ${IDEM_ADMIN_ALLOW_DERIVED_SECRET_KEY:false}   # 로컬 전용 탈출구
+    session:
+      idle-minutes: ${IDEM_ADMIN_SESSION_IDLE_MINUTES:15}
+      absolute-minutes: ${IDEM_ADMIN_SESSION_ABSOLUTE_MINUTES:480}
+      concurrent: 1
+      mfa-token-seconds: 300
+    cookie:
+      name: idemAdminSid
+      secure: ${IDEM_ADMIN_COOKIE_SECURE:true}             # http 로컬만 false. 운영 필수 true
+      same-site: Strict
+    lock:
+      max-attempts: 5
+      duration-minutes: 15
+    mfa:
+      required: ${IDEM_ADMIN_MFA_REQUIRED:true}             # 운영 필수 true
+      issuer: ${IDEM_ADMIN_MFA_ISSUER:Idem}
+      window: 1
+    password:
+      min-length: 10
+      min-classes: 3
+      history: 3
+
   # 플랫폼 API 버전 (Webhook 헤더, Payload 등에 사용)
   platform-version: ${IDO_PLATFORM_VERSION:1.0}
   # D3: 이 설치본의 플랫폼 코드 — CAST(기관 간 SSO) 의 sourceAgency 등 (종전 고정값 "ONEPASS")

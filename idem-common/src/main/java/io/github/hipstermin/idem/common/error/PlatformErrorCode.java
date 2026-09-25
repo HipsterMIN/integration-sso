@@ -83,6 +83,17 @@ public enum PlatformErrorCode {
     IDO_OIDC_PROVISION_FAILED("E-IDO-122", HttpStatus.SERVICE_UNAVAILABLE, "OIDC client 프로비저닝에 실패해 프로파일을 저장하지 않았습니다."),
     /** S6: 토큰 교환 시 client_id 가 Idem 이 프로비저닝한 OIDC_RP 서비스와 대응하지 않음. */
     IDO_OIDC_CLIENT_UNKNOWN("E-IDO-123", HttpStatus.FORBIDDEN, "Idem 이 프로비저닝한 OIDC 클라이언트가 아닙니다."),
+    // S7 관리자 인증 (E-IDO-13x)
+    ADMIN_UNAUTHENTICATED("E-IDO-130", HttpStatus.UNAUTHORIZED, "관리자 인증이 필요합니다."),
+    ADMIN_FORBIDDEN("E-IDO-131", HttpStatus.FORBIDDEN, "이 관리 작업을 수행할 권한이 없습니다."),
+    ADMIN_LOGIN_FAILED("E-IDO-132", HttpStatus.UNAUTHORIZED, "관리자 로그인에 실패했습니다."),
+    ADMIN_LOCKED("E-IDO-133", HttpStatus.LOCKED, "관리자 계정이 잠겨 있습니다."),
+    ADMIN_MFA_REQUIRED("E-IDO-134", HttpStatus.UNAUTHORIZED, "2단계 인증이 필요합니다."),
+    ADMIN_PASSWORD_POLICY("E-IDO-135", HttpStatus.BAD_REQUEST, "비밀번호 정책을 만족하지 않습니다."),
+    ADMIN_LAST_SYSTEM_ADMIN("E-IDO-136", HttpStatus.CONFLICT, "마지막 활성 시스템관리자는 낮추거나 비활성화할 수 없습니다."),
+    ADMIN_PASSWORD_CHANGE_REQUIRED("E-IDO-137", HttpStatus.FORBIDDEN, "비밀번호를 먼저 변경해야 합니다."),
+    ADMIN_NOT_FOUND("E-IDO-138", HttpStatus.NOT_FOUND, "관리자를 찾을 수 없습니다."),
+    ADMIN_CONFLICT("E-IDO-139", HttpStatus.CONFLICT, "이미 있는 관리자입니다."),
 
     // ── 기관 오류 (E-AGENCY-3xx) ─────────────────────────────────────────────
     AGENCY_NOT_REGISTERED ("E-AGENCY-301", HttpStatus.FORBIDDEN,   "등록되지 않은 기관 코드입니다."),

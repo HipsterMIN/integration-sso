@@ -198,7 +198,7 @@ openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 
 prod/stage 에서 **반드시 true** 여야 하는 것: `IDO_AUDIT_DB_ENABLED`, `IDO_SECURITY_HEADERS_ENABLED`, `IDO_AUTH_RL_ENABLED`, `IDO_RATE_LIMIT_ENABLED`, `IDO_REDISSON_ENABLED`.
 
-**런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응 · `E-IDO-121` 연동 유형 불일치 — 400, OIDC_RP 기관에 Handoff 발급 요청 · `E-IDO-122` OIDC client 프로비저닝 실패 — 503, Keycloak 관리 API 장애 또는 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 미설정, 프로파일 저장이 되돌려진다 · `E-IDO-123` Idem 이 프로비저닝하지 않은 OIDC client — 403, 토큰 교환의 `client_id` 가 `idem-svc-*` 가 아니거나 프로파일이 OIDC_RP 가 아님): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
+**런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응 · `E-IDO-121` 연동 유형 불일치 — 400, OIDC_RP 기관에 Handoff 발급 요청 · `E-IDO-122` OIDC client 프로비저닝 실패 — 503, Keycloak 관리 API 장애 또는 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 미설정, 프로파일 저장이 되돌려진다 · `E-IDO-123` Idem 이 프로비저닝하지 않은 OIDC client — 403, 토큰 교환의 `client_id` 가 `idem-svc-*` 가 아니거나 프로파일이 OIDC_RP 가 아님 · **관리자 인증(S7, `docs/admin-auth.md`)**: `E-IDO-130` 401 관리자 세션 없음/만료 · `E-IDO-131` 403 권한 없음·`X-Requested-With` 없는 쓰기·테넌트 범위 밖 · `E-IDO-132` 401 로그인 실패 · `E-IDO-133` 423 계정 잠김(5회→15분, `POST /api/v1/admin/admins/{id}/unlock`)·비활성 · `E-IDO-134` 401 2단계 실패·대기 토큰 만료 · `E-IDO-135` 400 비밀번호 정책 위반 · `E-IDO-136` 409 마지막 SYSTEM_ADMIN 강등 불가 · `E-IDO-137` 403 첫 로그인 비밀번호 변경 필요 · `E-IDO-138` 404 관리자 없음 · `E-IDO-139` 409 사용자명 중복): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
 
 **단일 로그아웃 (S6 PR-2)**: `POST /api/v1/slo/initiate` 는 FE 세션이 기억한 Keycloak `sid` 로 정확히 그 세션을 끊는다(gate `[KeycloakLogout] 세션 종료(sid)`). gate 로그에 `KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET 이 설정되지 않아` 가 보이면 FE 세션만 끝나고 Keycloak 세션이 남는 상태다. 기관 RP 의 로그아웃이 Idem FE 세션까지 끝내는지는 gate `[BC-LOGOUT] 수신 처리` 와 hub `[IdpLogout] FE 세션 만료` 로 확인한다 — realm 의 내부 client(`q-sign-client`·`ido-client`)에 `backchannel.logout.url` 이 없으면(S6 PR-2 이전 import) 콘솔에서 한 번 넣거나 `keycloak-data` 를 재import 한다.
 
@@ -515,7 +515,7 @@ CB 상태 메트릭:
 | GET | `/admin/agencies/{agencyCode}/history` | 변경 이력 |
 | GET | `/admin/agencies/{agencyCode}/stats` | 통계 |
 
-호출 시 `X-Admin-Id` (또는 SecurityContext) 가 audit log 에 기록된다.
+관리 API 는 관리자 세션(쿠키 `idemAdminSid`, 2단계 TOTP) 과 쓰기 요청의 `X-Requested-With` 헤더가 필요하다(S7, `docs/admin-auth.md`). 인증된 관리자 사용자명이 audit log 의 actor 로 기록되고, 인증·인가 사건 자체는 `event_category=ADMIN` 으로 남는다. 감사 조회는 `GET /api/v1/admin/audit`.
 
 기관 → IdO 인바운드(F-23)는 `IDO_GATEWAY_INBOUND_ENABLED=true` 가 필요하며,
 `X-Agency-Code` + HMAC 헤더(`IDO_HMAC_SIG_REQUIRED=true` 시) 로 인증한다.

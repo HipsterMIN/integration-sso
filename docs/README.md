@@ -79,6 +79,7 @@ docs/
 |---|---|
 | [`public-release-checklist.md`](public-release-checklist.md) | **공개 전 점검 (D0)** — Apache-2.0 전환에서 한 일, 자격증명 교체·히스토리 정리·고객 문서 결정 목록, 전환 직후 GitHub 설정 |
 | [`install.md`](install.md) | **설치 가이드 — 단일 설치본 (D1-b)** — PostgreSQL·Redis·Keycloak·SSO·IM 을 compose 하나로, Kafka 없음. 30분 설치·로그인 확인·Kafka 없이 도는 흐름 표 |
+| [`admin-auth.md`](admin-auth.md) | **관리자 인증·인가 (S7)** — 관리 API 뒤의 관리자 세션·2단계(TOTP)·역할 3종·테넌트 범위·잠금·비밀번호 정책·감사, 설정 키·API·인가 매트릭스·오류 코드 E-IDO-130~139 |
 | [`deployment/README.md`](deployment/README.md) | **운영 배포 가이드 (최신, 2026-05-21)** — develop 브랜치 기준 |
 | [`OPERATION_INVENTORY.md`](OPERATION_INVENTORY.md) | 운영 관리 포인트 인벤토리 — 신규 운영자 온보딩 |
 | [`RUNBOOK_SSO_METRICS.md`](RUNBOOK_SSO_METRICS.md) | SSO/IM 본질 메트릭 RUNBOOK (PR-B1-new 산출물) |

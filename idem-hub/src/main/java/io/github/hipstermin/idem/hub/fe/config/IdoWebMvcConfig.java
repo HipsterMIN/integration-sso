@@ -33,6 +33,7 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
     private final HandoffAgencyKeyInterceptor handoffAgencyKeyInterceptor;
     private final AuthRateLimitInterceptor authRateLimitInterceptor;
     private final InternalCallerAuthInterceptor internalCallerAuthInterceptor;
+    private final io.github.hipstermin.idem.hub.admin.auth.AdminPrincipalArgumentResolver adminPrincipalArgumentResolver;
 
     @Value("${ido.cors.enabled:true}")
     private boolean corsEnabled;
@@ -67,7 +68,8 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
         // - /api/v1/auth/** 경로 전체 적용
         // - OPTIONS(CORS preflight)는 인터셉터 내부에서 제외 처리
         registry.addInterceptor(authRateLimitInterceptor)
-                .addPathPatterns("/api/v1/auth/**");
+                .addPathPatterns("/api/v1/auth/**",
+                        "/api/v1/admin/auth/login", "/api/v1/admin/auth/mfa");   // S7: 관리자 로그인도 IP 레이트리밋
 
         // ────────────────────────────────────────────────────────────────
         // F4.8 (Sprint β-2) — 내부 호출자 인증
@@ -87,6 +89,12 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
                         "/api/v1/fe-session/check",
                         "/api/v1/fe-session/logout"
                 );
+    }
+
+    /** S7: 컨트롤러 인자 {@code AdminPrincipal} — AdminAuthFilter 가 넣은 인증된 관리자 */
+    @Override
+    public void addArgumentResolvers(List<org.springframework.web.method.support.HandlerMethodArgumentResolver> resolvers) {
+        resolvers.add(adminPrincipalArgumentResolver);
     }
 
     @Override

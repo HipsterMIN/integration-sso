@@ -37,6 +37,11 @@ public interface CryptoProvider {
 
     byte[] hmacSha256(byte[] key, byte[] message);
 
+    /**
+     * HMAC-SHA1 — RFC 6238 TOTP(인증 앱 호환) 전용. SHA-1 은 HMAC 키 유도 용도로만 허용되며 다른 서명·해시에는 쓰지 않는다.
+     */
+    byte[] hmacSha1(byte[] key, byte[] message);
+
     /** HMAC-SHA256(UTF-8 메시지) → 소문자 hex. */
     String hmacSha256Hex(byte[] key, String message);
 

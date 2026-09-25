@@ -54,14 +54,14 @@ class ServiceProfileIntegrationTest extends IntegrationTestBase {
     private ResponseEntity<String> put(String code, String json) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
-        h.set("X-Admin-Id", "s2-admin");
+        withAdmin(h, restTemplate, url(""));
         h.set("X-Change-Reason", "S2 통합 테스트");
         return restTemplate.exchange(url("/api/v1/admin/services/" + code + "/profile"), HttpMethod.PUT,
                 new HttpEntity<>(json, h), String.class);
     }
 
     private ResponseEntity<String> get(String code) {
-        return restTemplate.getForEntity(url("/api/v1/admin/services/" + code + "/profile"), String.class);
+        return restTemplate.exchange(url("/api/v1/admin/services/" + code + "/profile"), HttpMethod.GET, new HttpEntity<>(adminHeaders(restTemplate, url(""))), String.class);
     }
 
     private JsonNode json(ResponseEntity<String> res) throws Exception { return objectMapper.readTree(res.getBody()); }
@@ -173,6 +173,7 @@ class ServiceProfileIntegrationTest extends IntegrationTestBase {
                 """.formatted(code)).getStatusCode().value()).isEqualTo(200);
 
         HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_JSON);
+        withAdmin(h, restTemplate, url(""));
         ResponseEntity<String> denied = restTemplate.exchange(url("/api/v1/admin/services/" + code + "/policy/simulate"),
                 HttpMethod.POST, new HttpEntity<>("{\"authLevel\":\"LOW\",\"providerCode\":\"MOCK\",\"userStatus\":\"ACTIVE\"}", h), String.class);
         assertThat(denied.getStatusCode().value()).as("body=%s", denied.getBody()).isEqualTo(200);
@@ -200,14 +201,14 @@ class ServiceProfileIntegrationTest extends IntegrationTestBase {
     @DisplayName("S4b: Service 는 Tenant(Realm) 에 속한다 — 기본 DEFAULT, Tenant Admin API 로 만든 Tenant 지정, 미등록 Tenant 는 400")
     void serviceBelongsToTenant() throws Exception {
         // Tenant 목록에 V22 시드 DEFAULT 가 있다
-        ResponseEntity<String> list = restTemplate.getForEntity(url("/api/v1/admin/tenants"), String.class);
+        ResponseEntity<String> list = restTemplate.exchange(url("/api/v1/admin/tenants"), HttpMethod.GET, new HttpEntity<>(adminHeaders(restTemplate, url(""))), String.class);
         assertThat(list.getStatusCode().value()).isEqualTo(200);
         assertThat(json(list).findValuesAsText("code")).contains("DEFAULT");
 
         // 새 Tenant 생성
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);
-        h.set("X-Admin-Id", "s4b-admin");
+        withAdmin(h, restTemplate, url(""));
         ResponseEntity<String> tenantRes = restTemplate.exchange(url("/api/v1/admin/tenants/TC_S4B_TENANT"), HttpMethod.PUT,
                 new HttpEntity<>("{\"name\":\"S4b 테넌트\",\"status\":\"ACTIVE\"}", h), String.class);
         assertThat(tenantRes.getStatusCode().value()).as("body=%s", tenantRes.getBody()).isEqualTo(200);
@@ -256,7 +257,7 @@ class ServiceProfileIntegrationTest extends IntegrationTestBase {
     @Test
     @DisplayName("스키마 엔드포인트는 v1 스키마 원문을 돌려준다")
     void schemaEndpoint() {
-        ResponseEntity<String> res = restTemplate.getForEntity(url("/api/v1/admin/services/profile-schema"), String.class);
+        ResponseEntity<String> res = restTemplate.exchange(url("/api/v1/admin/services/profile-schema"), HttpMethod.GET, new HttpEntity<>(adminHeaders(restTemplate, url(""))), String.class);
         assertThat(res.getStatusCode().value()).isEqualTo(200);
         assertThat(res.getBody()).contains("Idem Service Profile v1");
     }
