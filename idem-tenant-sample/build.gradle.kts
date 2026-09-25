@@ -33,6 +33,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("com.h2database:h2")
+    testImplementation("org.wiremock:wiremock-standalone:3.10.0")   // S6 PR-2: 표준 OIDC RP 테스트(OP 스텁)
 }
 
 description = "기관 연계 OIDC 클라이언트 스텁 — IdO Webhook 수신 / Verify API 호출 / 기관 세션 관리 (설계서 14~16장)"

@@ -111,7 +111,9 @@ hub 기동 로그에 다음 줄이 있어야 한다: `[Idem] Kafka 비활성 (id
    curl -X POST http://localhost:8083/api/v1/admin/services/AGENCY_B/oidc-client/secret -H 'X-Admin-Id: installer'
    # → {"clientId":"idem-svc-AGENCY_B","clientSecret":"…","issuer":"http://localhost:8081/realms/onepass","discoveryUrl":"…/.well-known/openid-configuration"}
    ```
-3. 기관에는 **issuer·client_id·client_secret** 셋만 준다. 기관 RP 는 `{issuer}/.well-known/openid-configuration` 으로 나머지를 찾는다. Authorization Code + PKCE(S256) 만 허용되며, 토큰 교환 시 hub 가 Idem 정책(점검·인증수준·허용 제공자·사용자 상태·할당)을 판정해 거부하면 토큰이 나가지 않는다(`access_denied`, 사유 `E-IDO-1xx`). userinfo 에는 `idem_service·idem_state·idem_subject·idem_roles·idem_assigned` 가 실린다.
+3. 로그아웃까지 표준으로 끝난다(S6 PR-2): 기관 RP 가 `end_session_endpoint` 로 RP-Initiated Logout 을 보내거나 Idem 쪽에서 세션을 끊으면, Keycloak 이 프로파일 `protocol.oidc.backchannelLogoutUri` 로 Back-Channel Logout 을 보낸다. Idem 자신의 FE 세션은 gate 의 `/api/v1/oidc/backchannel-logout` 수신기가 정리한다(realm import 의 내부 client 가 가리킴 — `IDEM_PUBLIC_URL_GATE` 가 아니라 컨테이너 내부 주소 `http://idem-gate:8081` 이다). 세션 종료용 서비스 계정 비밀 `KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET` 이 없으면 FE 세션은 끝나지만 Keycloak 세션은 남는다(gate 로그 `[KeycloakLogout]`).
+4. 기관 샘플(`idem-tenant-sample`)로 확인: `AGENCY_PROTOCOL=OIDC_RP AGENCY_OIDC_CLIENT_ID=idem-svc-AGENCY_B AGENCY_OIDC_CLIENT_SECRET=… IDEM_OIDC_ISSUER={IDEM_PUBLIC_URL_GATE}/realms/onepass` 로 띄우고 `/agency/oidc/login` → 로그인 → `/agency/oidc/logout`. 프로파일의 `redirectUris` 는 `http://<샘플>/agency/oidc/callback`, `backchannelLogoutUri` 는 `http://<샘플>/agency/oidc/backchannel-logout`.
+5. 기관에는 **issuer·client_id·client_secret** 셋만 준다. 기관 RP 는 `{issuer}/.well-known/openid-configuration` 으로 나머지를 찾는다. Authorization Code + PKCE(S256) 만 허용되며, 토큰 교환 시 hub 가 Idem 정책(점검·인증수준·허용 제공자·사용자 상태·할당)을 판정해 거부하면 토큰이 나가지 않는다(`access_denied`, 사유 `E-IDO-1xx`). userinfo 에는 `idem_service·idem_state·idem_subject·idem_roles·idem_assigned` 가 실린다.
 
 issuer 는 `{IDEM_PUBLIC_URL_GATE}/realms/onepass` 다. gate 가 `/realms/**`·`/resources/**` 를 Keycloak 으로 투명 프록시하므로 리버스 프록시는 gate 하나만 공개하면 된다. Keycloak 콘솔(`http://localhost:8088`, admin / `KEYCLOAK_ADMIN_PASSWORD`)은 설치자의 진단용이며, **Idem 이 만든 client(`idem-svc-*`)를 콘솔에서 고치지 않는다** — 다음 프로파일 저장이 덮어쓴다.
 

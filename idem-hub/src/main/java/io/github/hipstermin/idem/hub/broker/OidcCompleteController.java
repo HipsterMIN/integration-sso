@@ -153,7 +153,9 @@ public class OidcCompleteController {
                 qimUserId,
                 req.getAuthResultId(),
                 req.getAuthLevel(),
-                returnUrl
+                returnUrl,
+                req.getIdpSub(),   // S6 PR-2: SLO 가 정확히 이 Keycloak 세션을 끊는다
+                req.getIdpSid()
         );
 
         // ── feSessionId 쿠키 발급 ─────────────────────────────────────────

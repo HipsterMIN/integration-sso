@@ -36,6 +36,7 @@ public class OidcRpPolicyGate {
 
     private final KeycloakJwksVerifier jwksVerifier;
     private final HubAccessClient hubAccessClient;
+    private final HubSessionClient hubSessionClient;
     private final AccessDecisionCache cache;
     private final KeycloakProperties keycloak;
     private final OidcFrontProperties props;
@@ -136,6 +137,19 @@ public class OidcRpPolicyGate {
         } catch (Exception e) {
             log.error("[OIDC-FRONT] userinfo 보강 실패 → 거부: cid={} err={}", correlationId, e.getMessage());
             return Optional.empty();
+        }
+    }
+
+    /** RP-Initiated Logout(S6 PR-2): id_token_hint 를 검증해 sub·sid 를 얻고, 판정 캐시를 비우고 hub 에 알린다. 실패는 로그만. */
+    public void onRpInitiatedLogout(String idTokenHint, String correlationId) {
+        try {
+            KeycloakIdTokenClaims claims = jwksVerifier.verify(idTokenHint, correlationId);
+            int evicted = cache.evictBySub(claims.getSubject());
+            int expired = hubSessionClient.notifyIdpLogout(claims.getSubject(), claims.getSessionId(), "RP_INITIATED_LOGOUT", correlationId);
+            log.info("[OIDC-FRONT] RP-Initiated Logout: client={} sid={} cacheEvicted={} feExpired={} cid={}",
+                    claims.getAuthorizedParty(), claims.getSessionId() != null, evicted, expired, correlationId);
+        } catch (Exception e) {
+            log.warn("[OIDC-FRONT] id_token_hint 검증 실패 — Idem 쪽 정리 없이 Keycloak 에 전달: cid={} err={}", correlationId, e.getMessage());
         }
     }
 

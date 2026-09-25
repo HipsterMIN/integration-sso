@@ -34,7 +34,9 @@
         "http://onepass-qsign:8081"
       ],
       "attributes": {
-        "post.logout.redirect.uris": "+"
+        "post.logout.redirect.uris": "+",
+        "backchannel.logout.url": "http://idem-gate:8081/api/v1/oidc/backchannel-logout",
+        "backchannel.logout.session.required": "true"
       },
       "defaultClientScopes": [
         "openid",
@@ -74,7 +76,11 @@
         "profile",
         "email",
         "roles"
-      ]
+      ],
+      "attributes": {
+        "backchannel.logout.url": "http://idem-gate:8081/api/v1/oidc/backchannel-logout",
+        "backchannel.logout.session.required": "true"
+      }
     },
     {
       "clientId": "idem-provisioner",
@@ -83,6 +89,22 @@
       "protocol": "openid-connect",
       "publicClient": false,
       "secret": "${KEYCLOAK_PROVISIONER_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": true,
+      "attributes": {
+        "idem.managed": "true"
+      }
+    },
+    {
+      "clientId": "idem-session-manager",
+      "name": "Idem session manager (S6 PR-2 — gate 가 SLO 로 Keycloak 세션을 끊는다)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET}",
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "implicitFlowEnabled": false,
@@ -197,6 +219,17 @@
         "realm-management": [
           "manage-clients",
           "view-clients"
+        ]
+      }
+    },
+    {
+      "username": "service-account-idem-session-manager",
+      "enabled": true,
+      "serviceAccountClientId": "idem-session-manager",
+      "clientRoles": {
+        "realm-management": [
+          "view-users",
+          "manage-users"
         ]
       }
     }

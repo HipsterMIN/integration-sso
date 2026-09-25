@@ -76,6 +76,15 @@ public class KeycloakIdTokenClaims {
     @JsonProperty("azp")
     private String authorizedParty;
 
+    /** S6 PR-2: Back-Channel Logout 토큰의 {@code events} 클레임 (OIDC Back-Channel Logout 1.0 §2.4). */
+    @JsonProperty("events")
+    private java.util.Map<String, Object> events;
+
+    /** Back-Channel Logout 토큰인가 — {@code events} 에 정해진 URI 가 있어야 한다. */
+    public boolean isBackchannelLogoutToken() {
+        return events != null && events.containsKey("http://schemas.openid.net/event/backchannel-logout");
+    }
+
     // ── 편의 메서드 ────────────────────────────────────────────────────────
 
     /**

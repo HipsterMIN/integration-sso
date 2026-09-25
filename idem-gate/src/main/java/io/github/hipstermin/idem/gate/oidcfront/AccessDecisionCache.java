@@ -38,6 +38,20 @@ public class AccessDecisionCache {
         }
     }
 
+    /** S6 PR-2: IdP 세션 종료 시 이 사용자의 모든 client 판정을 비운다 (다음 userinfo 가 hub 를 다시 묻는다). */
+    public int evictBySub(String sub) {
+        if (sub == null || sub.isBlank()) return 0;
+        try {
+            java.util.Set<String> keys = redis.keys(PREFIX + "*:" + sub);
+            if (keys == null || keys.isEmpty()) return 0;
+            Long n = redis.delete(keys);
+            return n == null ? 0 : n.intValue();
+        } catch (Exception e) {
+            log.warn("[OIDC-FRONT] 판정 캐시 일괄 삭제 실패 (비치명적): {}", e.getMessage());
+            return 0;
+        }
+    }
+
     public void evict(String clientId, String sub) {
         try {
             redis.delete(PREFIX + clientId + ":" + sub);

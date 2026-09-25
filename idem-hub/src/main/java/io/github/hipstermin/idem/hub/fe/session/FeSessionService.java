@@ -23,6 +23,17 @@ public interface FeSessionService {
     FeSession create(String qimUserId, String authResultId,
                      String authLevel, String returnUrl);
 
+    /** S6 PR-2: Keycloak 로그인에서 만든 세션 — {@code idpSub}/{@code idpSid} 를 같이 저장해 SLO·Back-Channel Logout 이 찾는다. */
+    FeSession create(String qimUserId, String authResultId, String authLevel, String returnUrl,
+                     String idpSub, String idpSid);
+
+    /**
+     * S6 PR-2: IdP(Keycloak) 세션이 끝났다는 통지 — {@code idpSid} 가 있으면 그 세션만, 없으면 {@code idpSub} 의 세션 전부 만료.
+     *
+     * @return 만료된 FE 세션 수
+     */
+    int invalidateByIdpSession(String idpSub, String idpSid, String reason);
+
     /**
      * feSessionId 로 세션 조회
      *

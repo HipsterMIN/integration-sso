@@ -86,7 +86,7 @@ class OidcCompleteControllerTest {
             given(internalSigVerifier.verify(any(), any())).willReturn(true);
             given(qimClient.findByIdentifierHash(eq(SubjectScheme.CI.identifierHash(ci)), anyString()))
                     .willReturn(Optional.of(memberInfo));
-            given(feSessionService.create(eq(expectedQimUserId), any(), any(), any()))
+            given(feSessionService.create(eq(expectedQimUserId), any(), any(), any(), any(), any()))
                     .willReturn(buildMockSession(expectedQimUserId));
 
             OidcCompleteRequest req = buildRequest(ci);
@@ -100,7 +100,7 @@ class OidcCompleteControllerTest {
             verify(qimClient, never()).registerSubject(any());
             // FeSession은 실제 qimUserId로 생성됨
             verify(feSessionService, times(1))
-                    .create(eq(expectedQimUserId), any(), any(), any());
+                    .create(eq(expectedQimUserId), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -122,7 +122,7 @@ class OidcCompleteControllerTest {
                     .willReturn(Optional.empty());  // 미등록
             given(qimClient.registerSubject(any()))
                     .willReturn(registerResponse);
-            given(feSessionService.create(eq(newQimUserId), any(), any(), any()))
+            given(feSessionService.create(eq(newQimUserId), any(), any(), any(), any(), any()))
                     .willReturn(buildMockSession(newQimUserId));
 
             OidcCompleteRequest req = buildRequest(ci);
@@ -138,7 +138,7 @@ class OidcCompleteControllerTest {
             assertThat(captor.getValue().subjectKey()).isEqualTo(ci);
             assertThat(captor.getValue().providerCode()).isEqualTo("KAKAO_OIDC");
             verify(feSessionService, times(1))
-                    .create(eq(newQimUserId), any(), any(), any());
+                    .create(eq(newQimUserId), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -156,7 +156,7 @@ class OidcCompleteControllerTest {
                     .satisfies(e -> assertThat(((PlatformException) e).getErrorCode())
                             .isEqualTo(PlatformErrorCode.IDO_IDENTITY_UNRESOLVED));
             verify(qimClient, never()).findByIdentifierHash(any(), any());
-            verify(feSessionService, never()).create(any(), any(), any(), any());
+            verify(feSessionService, never()).create(any(), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -167,14 +167,14 @@ class OidcCompleteControllerTest {
 
             given(feSessionService.isValidReturnUrl(any())).willReturn(true);
             given(internalSigVerifier.verify(any(), any())).willReturn(true);
-            given(feSessionService.create(eq(identifierHash), any(), any(), any()))
+            given(feSessionService.create(eq(identifierHash), any(), any(), any(), any(), any()))
                     .willReturn(buildMockSession(identifierHash));
 
             OidcCompleteRequest req = buildRequestNoCi(identifierHash);
             controller.complete("valid-sig", "q-sign", "cid-003", req, new MockHttpServletResponse());
 
             verify(qimClient, never()).findByIdentifierHash(any(), any());
-            verify(feSessionService, times(1)).create(eq(identifierHash), any(), any(), any());
+            verify(feSessionService, times(1)).create(eq(identifierHash), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -185,7 +185,7 @@ class OidcCompleteControllerTest {
             given(internalSigVerifier.verify(any(), any())).willReturn(true);
             given(qimClient.findByIdentifierHash(eq(SubjectScheme.EMAIL.identifierHash("alice@example.org")), anyString()))
                     .willReturn(Optional.of(QimMemberInfo.builder().qimUserId(qimUserId).status("ACTIVE").build()));
-            given(feSessionService.create(eq(qimUserId), any(), any(), any()))
+            given(feSessionService.create(eq(qimUserId), any(), any(), any(), any(), any()))
                     .willReturn(buildMockSession(qimUserId));
             OidcCompleteRequest req = buildRequestNoCi("sha256-hash-x");
             ReflectionTestUtils.setField(req, "subjectScheme", "email");
@@ -194,7 +194,7 @@ class OidcCompleteControllerTest {
             controller.complete("valid-sig", "q-sign", "cid-005", req, new MockHttpServletResponse());
 
             verify(qimClient).findByIdentifierHash(eq(SubjectScheme.EMAIL.identifierHash("alice@example.org")), anyString());
-            verify(feSessionService).create(eq(qimUserId), any(), any(), any());
+            verify(feSessionService).create(eq(qimUserId), any(), any(), any(), any(), any());
         }
     }
 
@@ -221,7 +221,7 @@ class OidcCompleteControllerTest {
 
             // QimClient, FeSessionService는 호출되지 않아야 함
             verify(qimClient, never()).findByIdentifierHash(any(), any());
-            verify(feSessionService, never()).create(any(), any(), any(), any());
+            verify(feSessionService, never()).create(any(), any(), any(), any(), any(), any());
         }
 
         @Test

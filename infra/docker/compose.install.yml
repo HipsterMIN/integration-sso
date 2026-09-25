@@ -110,6 +110,8 @@ services:
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
       # S6: hub 가 OIDC_RP client 를 프로비저닝할 때 쓰는 서비스 계정(realm-management manage-clients) 비밀
       KEYCLOAK_PROVISIONER_CLIENT_SECRET: ${KEYCLOAK_PROVISIONER_CLIENT_SECRET:?KEYCLOAK_PROVISIONER_CLIENT_SECRET 를 install.env 에 설정하세요}
+      # S6 PR-2: gate 가 SLO 로 Keycloak 세션을 끊는 서비스 계정(realm-management view-users·manage-users) 비밀
+      KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET: ${KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET:?KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET 를 install.env 에 설정하세요}
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
@@ -148,6 +150,8 @@ services:
       QSIGN_INTERNAL_SIG_STRICT: "true"
       # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/onepass (Keycloak KC_HOSTNAME_URL 과 같다)
       IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
+      # S6 PR-2: SLO 의 Keycloak 세션 종료 (Back-Channel Logout 수신은 /api/v1/oidc/backchannel-logout — realm-export 의 내부 client 가 가리킨다)
+      KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET: ${KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET}
     ports:
       - "127.0.0.1:${IDEM_PORT_GATE:-8081}:8081"
     networks: [idem-net]
