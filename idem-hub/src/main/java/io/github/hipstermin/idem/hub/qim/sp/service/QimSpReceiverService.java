@@ -362,7 +362,7 @@ public class QimSpReceiverService {
             String eventId = UuidV7.generate();
 
             jdbcTemplate.update(
-                    "INSERT INTO ido.outbox "
+                    "INSERT INTO idem_hub.outbox "
                     + "(event_id, event_type, partition_key, aggregate_id, event_version, "
                     + " payload, topic, status, retry_count, created_at) "
                     + "VALUES (?, ?, ?, ?, 1, ?::jsonb, ?, 'PENDING', 0, NOW())",

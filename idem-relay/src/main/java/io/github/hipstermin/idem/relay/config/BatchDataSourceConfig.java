@@ -20,15 +20,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * │ DataSource Bean     │ DB 종류  │ 대상 테이블                           │
  * ├─────────────────────┼──────────┼─────────────────────────────────────┤
  * │ idoDataSource       │ PgSQL    │ idem.hub.outbox                           │
- * │                     │          │ ido.provisioning_outbox              │
- * │                     │          │ ido.webhook_dispatch_outbox          │
+ * │                     │          │ idem_hub.provisioning_outbox              │
+ * │                     │          │ idem_hub.webhook_dispatch_outbox          │
  * │                     │          │ idem.hub.shedlock  (락 메타 테이블)        │
  * ├─────────────────────┼──────────┼─────────────────────────────────────┤
  * │ qimDataSource       │ PostgreSQL│ idem.registry.outbox                           │
  * ├─────────────────────┼──────────┼─────────────────────────────────────┤
  * │ qsignDataSource     │ PgSQL    │ idem.gate.outbox                         │
  * ├─────────────────────┼──────────┼─────────────────────────────────────┤
- * │ authzDataSource     │ PgSQL    │ authz.authz_outbox                   │
+ * │ authzDataSource     │ PgSQL    │ idem_authz.authz_outbox                   │
  * └─────────────────────┴──────────┴─────────────────────────────────────┘
  * </pre>
  *
@@ -58,8 +58,8 @@ public class BatchDataSourceConfig {
     /**
      * ido PostgreSQL DataSource (Primary)
      *
-     * <p>ShedLock JDBC Provider, Flyway, idem.hub.outbox / ido.provisioning_outbox /
-     * ido.webhook_dispatch_outbox 접근에 사용.
+     * <p>ShedLock JDBC Provider, Flyway, idem.hub.outbox / idem_hub.provisioning_outbox /
+     * idem_hub.webhook_dispatch_outbox 접근에 사용.
      */
     @Bean(name = "idoDataSource", destroyMethod = "close")
     @Primary
@@ -146,7 +146,7 @@ public class BatchDataSourceConfig {
     /**
      * q-authz PostgreSQL DataSource
      *
-     * <p>authz.authz_outbox 테이블 접근 전용 — 인가 부여/회수/만료 이벤트 릴레이.
+     * <p>idem_authz.authz_outbox 테이블 접근 전용 — 인가 부여/회수/만료 이벤트 릴레이.
      */
     @Bean(name = "authzDataSource", destroyMethod = "close")
     public HikariDataSource authzDataSource(@Qualifier("authzHikariConfig") HikariConfig config) {

@@ -38,12 +38,12 @@ class KeycloakAdminClientTest {
         wm.resetAll();
         KeycloakProperties kc = new KeycloakProperties();
         kc.setBaseUrl("http://localhost:" + wm.port());
-        kc.setRealm("onepass");
+        kc.setRealm("idem");
         props = new OidcRpProperties();
         props.getProvisioner().setClientSecret("prov-secret");
         RestTemplate rt = new KeycloakAdminConfig().keycloakAdminRestTemplate(props);
         sut = new KeycloakAdminClient(rt, kc, props, new ObjectMapper());
-        wm.stubFor(post(urlEqualTo("/realms/onepass/protocol/openid-connect/token"))
+        wm.stubFor(post(urlEqualTo("/realms/idem/protocol/openid-connect/token"))
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
                         .withBody("{\"access_token\":\"tok-1\",\"expires_in\":300}")));
     }
@@ -51,11 +51,11 @@ class KeycloakAdminClientTest {
     @Test
     @DisplayName("토큰은 한 번 받아 재사용하고, client 생성은 Location 마지막 세그먼트를 UUID 로 돌려준다")
     void tokenCachedAndLocationParsed() {
-        wm.stubFor(post(urlEqualTo("/admin/realms/onepass/clients"))
+        wm.stubFor(post(urlEqualTo("/admin/realms/idem/clients"))
                 .withHeader("Authorization", equalTo("Bearer tok-1"))
                 .willReturn(aResponse().withStatus(201)
-                        .withHeader("Location", "http://localhost:" + wm.port() + "/admin/realms/onepass/clients/abc-123")));
-        wm.stubFor(get(urlPathEqualTo("/admin/realms/onepass/clients/abc-123/client-secret"))
+                        .withHeader("Location", "http://localhost:" + wm.port() + "/admin/realms/idem/clients/abc-123")));
+        wm.stubFor(get(urlPathEqualTo("/admin/realms/idem/clients/abc-123/client-secret"))
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
                         .withBody("{\"type\":\"secret\",\"value\":\"the-secret\"}")));
 
@@ -63,13 +63,13 @@ class KeycloakAdminClientTest {
         assertThat(uuid).isEqualTo("abc-123");
         assertThat(sut.getClientSecret("abc-123")).isEqualTo("the-secret");
 
-        wm.verify(1, postRequestedFor(urlEqualTo("/realms/onepass/protocol/openid-connect/token")));
+        wm.verify(1, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token")));
     }
 
     @Test
     @DisplayName("clientId 조회는 정확 일치만 돌려준다 (Keycloak 의 접두 검색 결과를 거른다)")
     void findClient_exactMatchOnly() {
-        wm.stubFor(get(urlPathEqualTo("/admin/realms/onepass/clients"))
+        wm.stubFor(get(urlPathEqualTo("/admin/realms/idem/clients"))
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
                         .withBody("[{\"id\":\"u1\",\"clientId\":\"idem-svc-AG10\"},{\"id\":\"u2\",\"clientId\":\"idem-svc-AG1\"}]")));
         assertThat(sut.findClientByClientId("idem-svc-AG1")).isPresent().get().extracting(m -> m.get("id")).isEqualTo("u2");
@@ -79,7 +79,7 @@ class KeycloakAdminClientTest {
     @Test
     @DisplayName("Keycloak 4xx/5xx 는 KeycloakAdminException — 조용히 지나가지 않는다")
     void nonSuccess_throws() {
-        wm.stubFor(post(urlEqualTo("/admin/realms/onepass/clients")).willReturn(aResponse().withStatus(403)));
+        wm.stubFor(post(urlEqualTo("/admin/realms/idem/clients")).willReturn(aResponse().withStatus(403)));
         assertThatThrownBy(() -> sut.createClient(Map.of()))
                 .isInstanceOf(KeycloakAdminException.class).hasMessageContaining("403");
     }
@@ -90,6 +90,6 @@ class KeycloakAdminClientTest {
         props.getProvisioner().setClientSecret("");
         assertThatThrownBy(() -> sut.findClientByClientId("x"))
                 .isInstanceOf(KeycloakAdminException.class).hasMessageContaining("KEYCLOAK_PROVISIONER_CLIENT_SECRET");
-        wm.verify(0, postRequestedFor(urlEqualTo("/realms/onepass/protocol/openid-connect/token")));
+        wm.verify(0, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token")));
     }
 }

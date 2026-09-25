@@ -37,11 +37,11 @@ class KeycloakLogoutServiceTest {
         kc.resetAll();
         props = new KeycloakProperties();
         props.setBaseUrl("http://localhost:" + kc.port());
-        props.setRealm("onepass");
+        props.setRealm("idem");
         props.getSessionManager().setClientSecret("sm-secret");
         metrics = mock(AuthMetrics.class);
         sut = new KeycloakLogoutService(props, new RestTemplate(), metrics);
-        kc.stubFor(WireMock.post(urlEqualTo("/realms/onepass/protocol/openid-connect/token"))
+        kc.stubFor(WireMock.post(urlEqualTo("/realms/idem/protocol/openid-connect/token"))
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
                         .withBody("{\"access_token\":\"sm-tok\",\"expires_in\":300}")));
     }
@@ -49,11 +49,11 @@ class KeycloakLogoutServiceTest {
     @Test
     @DisplayName("sid 가 있으면 그 세션만 DELETE /sessions/{sid}; 토큰은 idem-session-manager 로 한 번만 받는다")
     void sid_deletesThatSession() {
-        kc.stubFor(WireMock.delete(urlEqualTo("/admin/realms/onepass/sessions/sid-1")).willReturn(aResponse().withStatus(204)));
+        kc.stubFor(WireMock.delete(urlEqualTo("/admin/realms/idem/sessions/sid-1")).willReturn(aResponse().withStatus(204)));
         assertThat(sut.revoke("kc-sub", "sid-1", "cid")).isEqualTo(KeycloakLogoutService.Outcome.REVOKED_SESSION);
         assertThat(sut.revoke("kc-sub", "sid-1", "cid")).isEqualTo(KeycloakLogoutService.Outcome.REVOKED_SESSION);
-        kc.verify(2, deleteRequestedFor(urlEqualTo("/admin/realms/onepass/sessions/sid-1")).withHeader("Authorization", WireMock.equalTo("Bearer sm-tok")));
-        kc.verify(1, postRequestedFor(urlEqualTo("/realms/onepass/protocol/openid-connect/token"))
+        kc.verify(2, deleteRequestedFor(urlEqualTo("/admin/realms/idem/sessions/sid-1")).withHeader("Authorization", WireMock.equalTo("Bearer sm-tok")));
+        kc.verify(1, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token"))
                 .withRequestBody(WireMock.containing("client_id=idem-session-manager")));
         verify(metrics, never()).incrementSloKeycloakFailure();
     }
@@ -61,17 +61,17 @@ class KeycloakLogoutServiceTest {
     @Test
     @DisplayName("sid 가 없으면 sub(사용자 UUID)로 POST /users/{sub}/logout — username 조회 없음")
     void sub_logsOutUser() {
-        kc.stubFor(WireMock.post(urlEqualTo("/admin/realms/onepass/users/kc-sub/logout")).willReturn(aResponse().withStatus(204)));
+        kc.stubFor(WireMock.post(urlEqualTo("/admin/realms/idem/users/kc-sub/logout")).willReturn(aResponse().withStatus(204)));
         assertThat(sut.revoke("kc-sub", null, "cid")).isEqualTo(KeycloakLogoutService.Outcome.REVOKED_USER);
-        kc.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/admin/realms/onepass/users")));
+        kc.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/admin/realms/idem/users")));
     }
 
     @Test
     @DisplayName("이미 없는 세션(404)은 목표 상태이므로 성공으로, 5xx 는 실패로, sub·sid 없으면 스킵")
     void notFound_failure_skip() {
-        kc.stubFor(WireMock.delete(urlEqualTo("/admin/realms/onepass/sessions/gone")).willReturn(aResponse().withStatus(404)));
+        kc.stubFor(WireMock.delete(urlEqualTo("/admin/realms/idem/sessions/gone")).willReturn(aResponse().withStatus(404)));
         assertThat(sut.revoke(null, "gone", "cid")).isEqualTo(KeycloakLogoutService.Outcome.NOT_FOUND);
-        kc.stubFor(WireMock.delete(urlEqualTo("/admin/realms/onepass/sessions/boom")).willReturn(aResponse().withStatus(500)));
+        kc.stubFor(WireMock.delete(urlEqualTo("/admin/realms/idem/sessions/boom")).willReturn(aResponse().withStatus(500)));
         assertThat(sut.revoke(null, "boom", "cid")).isEqualTo(KeycloakLogoutService.Outcome.FAILED);
         verify(metrics).incrementSloKeycloakFailure();
         assertThat(sut.revoke(null, null, "cid")).isEqualTo(KeycloakLogoutService.Outcome.SKIPPED);
@@ -82,6 +82,6 @@ class KeycloakLogoutServiceTest {
     void missingSecret() {
         props.getSessionManager().setClientSecret("");
         assertThat(sut.revoke("kc-sub", "sid-1", "cid")).isEqualTo(KeycloakLogoutService.Outcome.FAILED);
-        kc.verify(0, postRequestedFor(urlEqualTo("/realms/onepass/protocol/openid-connect/token")));
+        kc.verify(0, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token")));
     }
 }

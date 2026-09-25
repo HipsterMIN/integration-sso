@@ -33,7 +33,7 @@ class KeycloakAuthUrlControllerSigTest {
     void setUp() {
         KeycloakProperties props = new KeycloakProperties();
         props.setBaseUrl("http://kc");
-        props.setRealm("onepass");
+        props.setRealm("idem");
         mvc = MockMvcBuilders.standaloneSetup(new KeycloakAuthUrlController(stateStore, props, verifier)).build();
     }
 

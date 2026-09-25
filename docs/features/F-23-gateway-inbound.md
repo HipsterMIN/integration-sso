@@ -93,7 +93,7 @@ curl -X POST https://onepass.go.kr/api/v1/agency/gateway/inbound/event \
 
 ```bash
 # 1단계: gateway_inbound_audit 테이블 존재 확인
-psql -c "SELECT count(*) FROM ido.gateway_inbound_audit;"
+psql -c "SELECT count(*) FROM idem_hub.gateway_inbound_audit;"
 # → 오류 없이 실행되면 OK
 
 # 2단계: Redis 연결 확인
@@ -103,7 +103,7 @@ redis-cli -h $REDIS_HOST ping
 # 3단계: 테스트 기관 API Key 등록 확인
 psql -c "
   SELECT agency_code, endpoint_type, is_active
-  FROM ido.agency_endpoint_registry
+  FROM idem_hub.agency_endpoint_registry
   WHERE agency_code = 'TEST_AGENCY';"
 
 # 4단계: Phase 3-A ConfigMap 적용
@@ -141,7 +141,7 @@ curl -X POST https://onepass.go.kr/api/v1/agency/gateway/inbound/event \
 # DB 확인
 psql -c "
   SELECT idempotency_key, agency_code, event_type, status, created_at
-  FROM ido.gateway_inbound_audit
+  FROM idem_hub.gateway_inbound_audit
   ORDER BY created_at DESC LIMIT 5;"
 ```
 

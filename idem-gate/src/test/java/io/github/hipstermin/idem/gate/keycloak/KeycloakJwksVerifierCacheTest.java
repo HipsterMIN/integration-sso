@@ -45,8 +45,8 @@ class KeycloakJwksVerifierCacheTest {
         KeyPairGenerator g = KeyPairGenerator.getInstance("RSA"); g.initialize(2048);
         RSAPublicKey pub = (RSAPublicKey) g.generateKeyPair().getPublic();
         KeycloakProperties props = new KeycloakProperties();
-        props.setBaseUrl("http://kc"); props.setRealm("onepass");
-        given(rest.getForObject(eq("http://kc/realms/onepass/protocol/openid-connect/certs"), eq(String.class))).willReturn(jwks(pub, "k1"));
+        props.setBaseUrl("http://kc"); props.setRealm("idem");
+        given(rest.getForObject(eq("http://kc/realms/idem/protocol/openid-connect/certs"), eq(String.class))).willReturn(jwks(pub, "k1"));
         KeycloakJwksVerifier sut = new KeycloakJwksVerifier(rest, new ObjectMapper(), props);
 
         PublicKey a = sut.fetchPublicKey("k1", "cid");

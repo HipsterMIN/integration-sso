@@ -14,7 +14,7 @@
 --    Redis state 는 TTL 후 자동 삭제되므로,
 --    완료된 흐름의 correlation_id 연결 고리를 여기에 보관.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE qsign.oidc_session_log (
+CREATE TABLE idem_gate.oidc_session_log (
     session_log_id      VARCHAR(36)   NOT NULL,
     correlation_id      VARCHAR(36)   NOT NULL,
     provider_code       VARCHAR(50)   NOT NULL DEFAULT 'KAKAO_OIDC',
@@ -35,22 +35,22 @@ CREATE TABLE qsign.oidc_session_log (
         CHECK (status IN ('INITIATED','COMPLETED','FAILED','DENIED'))
 );
 
-CREATE INDEX idx_oidc_session_correlation ON qsign.oidc_session_log (correlation_id);
-CREATE INDEX idx_oidc_session_auth_result ON qsign.oidc_session_log (auth_result_id)
+CREATE INDEX idx_oidc_session_correlation ON idem_gate.oidc_session_log (correlation_id);
+CREATE INDEX idx_oidc_session_auth_result ON idem_gate.oidc_session_log (auth_result_id)
     WHERE auth_result_id IS NOT NULL;
-CREATE INDEX idx_oidc_session_status      ON qsign.oidc_session_log (status, initiated_at DESC);
+CREATE INDEX idx_oidc_session_status      ON idem_gate.oidc_session_log (status, initiated_at DESC);
 
-COMMENT ON TABLE  qsign.oidc_session_log                  IS '§9.7 OIDC Authorization Code Flow 감사 이력';
-COMMENT ON COLUMN qsign.oidc_session_log.state            IS 'CSRF 방어용 state (1회성, 완료 후 기록용)';
-COMMENT ON COLUMN qsign.oidc_session_log.identifier_hash  IS 'SHA-256(sub) — 원문(PII) 저장 금지';
-COMMENT ON COLUMN qsign.oidc_session_log.return_url       IS '인증 완료 후 리다이렉트 기관 URL';
+COMMENT ON TABLE  idem_gate.oidc_session_log                  IS '§9.7 OIDC Authorization Code Flow 감사 이력';
+COMMENT ON COLUMN idem_gate.oidc_session_log.state            IS 'CSRF 방어용 state (1회성, 완료 후 기록용)';
+COMMENT ON COLUMN idem_gate.oidc_session_log.identifier_hash  IS 'SHA-256(sub) — 원문(PII) 저장 금지';
+COMMENT ON COLUMN idem_gate.oidc_session_log.return_url       IS '인증 완료 후 리다이렉트 기관 URL';
 
 -- ──────────────────────────────────────────────────────────────
 -- 2. ID Token JTI 중복 방지 (ReplayGuard)
 --    nonce 기반 replay attack 방지는 Redis(OidcStateStore) 에서 1차 처리.
 --    DB 는 nonce 재사용 이력을 장기 보관 (감사 목적).
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE qsign.oidc_nonce_used (
+CREATE TABLE idem_gate.oidc_nonce_used (
     nonce               VARCHAR(64)   NOT NULL,
     provider_code       VARCHAR(50)   NOT NULL DEFAULT 'KAKAO_OIDC',
     correlation_id      VARCHAR(36)   NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE qsign.oidc_nonce_used (
     CONSTRAINT pk_oidc_nonce_used PRIMARY KEY (nonce, provider_code)
 );
 
-CREATE INDEX idx_oidc_nonce_used_at ON qsign.oidc_nonce_used (used_at DESC);
+CREATE INDEX idx_oidc_nonce_used_at ON idem_gate.oidc_nonce_used (used_at DESC);
 
-COMMENT ON TABLE  qsign.oidc_nonce_used         IS 'OIDC nonce 재사용 방지 이력 (replay attack 방어)';
-COMMENT ON COLUMN qsign.oidc_nonce_used.nonce   IS 'idToken payload.nonce — 1회만 허용';
+COMMENT ON TABLE  idem_gate.oidc_nonce_used         IS 'OIDC nonce 재사용 방지 이력 (replay attack 방어)';
+COMMENT ON COLUMN idem_gate.oidc_nonce_used.nonce   IS 'idToken payload.nonce — 1회만 허용';

@@ -6,7 +6,7 @@ import lombok.Getter;
 /**
  * IdP 사업자 설정 도메인 모델
  *
- * <p>ido.provider_config 테이블 (V3 생성, V6에서 provider_type 추가)에서 로드.
+ * <p>idem_hub.provider_config 테이블 (V3 생성, V6에서 provider_type 추가)에서 로드.
  * provider_type 을 기반으로 런타임 라우팅 전략을 결정한다.
  *
  * <p><b>provider_type 분류</b>:

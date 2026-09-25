@@ -38,7 +38,7 @@
 --    설계서 §8.3: IdO → Bridge 서버 → 기관 내부 조회
 --    실제 사례: 금융망/국방망 등 망분리 기관
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO ido.agency_meta (
+INSERT INTO idem_hub.agency_meta (
     agency_code,
     official_name,
     min_auth_level,
@@ -86,7 +86,7 @@ ON CONFLICT (agency_code) DO UPDATE
 --    설계서 §8.5: IdO → Apache 게이트웨이 세션 헤더 사전 Push
 --    실제 사례: eGovFrame + Apache httpd 앞단 기관, 행안부 표준망
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO ido.agency_meta (
+INSERT INTO idem_hub.agency_meta (
     agency_code,
     official_name,
     min_auth_level,
@@ -134,7 +134,7 @@ ON CONFLICT (agency_code) DO UPDATE
 --    설계서 §8.4: IdO → 기관 SSO 서버 세션 사전 등록
 --    실제 사례: 행안부 국가SSO, 기관 자체 LDAP/SSO 시스템
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO ido.agency_meta (
+INSERT INTO idem_hub.agency_meta (
     agency_code,
     official_name,
     min_auth_level,
@@ -182,7 +182,7 @@ ON CONFLICT (agency_code) DO UPDATE
 --    설계서 §PolicyEngine: min_auth_level=L3 → L1/L2 인증 결과는 거부
 --    실제 사례: 금융위, 국방부, 국정원 연계 기관
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO ido.agency_meta (
+INSERT INTO idem_hub.agency_meta (
     agency_code,
     official_name,
     min_auth_level,
@@ -229,7 +229,7 @@ ON CONFLICT (agency_code) DO UPDATE
 --    장애·비정상·악의적 동작 시뮬레이션에 사용.
 --    DIRECT 패턴이지만 scenarioMode=CHAOS/TIMEOUT/REPLAY 등으로 동작.
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO ido.agency_meta (
+INSERT INTO idem_hub.agency_meta (
     agency_code,
     official_name,
     min_auth_level,
@@ -275,7 +275,7 @@ ON CONFLICT (agency_code) DO UPDATE
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- BRIDGE 기관
-INSERT INTO ido.agency_webhook_config (
+INSERT INTO idem_hub.agency_webhook_config (
     agency_code, endpoint_url, signing_secret_hash,
     connect_timeout_ms, read_timeout_ms, max_retry_count, active
 )
@@ -291,7 +291,7 @@ ON CONFLICT (agency_code) DO UPDATE
         updated_at          = NOW();
 
 -- APACHE_GATE 기관
-INSERT INTO ido.agency_webhook_config (
+INSERT INTO idem_hub.agency_webhook_config (
     agency_code, endpoint_url, signing_secret_hash,
     connect_timeout_ms, read_timeout_ms, max_retry_count, active
 )
@@ -307,7 +307,7 @@ ON CONFLICT (agency_code) DO UPDATE
         updated_at          = NOW();
 
 -- INTERNAL_SSO 기관
-INSERT INTO ido.agency_webhook_config (
+INSERT INTO idem_hub.agency_webhook_config (
     agency_code, endpoint_url, signing_secret_hash,
     connect_timeout_ms, read_timeout_ms, max_retry_count, active
 )
@@ -323,7 +323,7 @@ ON CONFLICT (agency_code) DO UPDATE
         updated_at          = NOW();
 
 -- L3 고보안 기관
-INSERT INTO ido.agency_webhook_config (
+INSERT INTO idem_hub.agency_webhook_config (
     agency_code, endpoint_url, signing_secret_hash,
     connect_timeout_ms, read_timeout_ms, max_retry_count, active
 )
@@ -342,7 +342,7 @@ ON CONFLICT (agency_code) DO UPDATE
         updated_at          = NOW();
 
 -- CHAOS 기관
-INSERT INTO ido.agency_webhook_config (
+INSERT INTO idem_hub.agency_webhook_config (
     agency_code, endpoint_url, signing_secret_hash,
     connect_timeout_ms, read_timeout_ms, max_retry_count, active
 )
@@ -363,7 +363,7 @@ ON CONFLICT (agency_code) DO UPDATE
 --    기관별 TPS·일일 쿼터 차별화
 -- ─────────────────────────────────────────────────────────────────────────────
 -- agency_rate_limit_config 실제 컬럼명: enabled (active 아님 — V9 테이블 정의 기준)
-INSERT INTO ido.agency_rate_limit_config (agency_code, tps_limit, daily_limit, enabled)
+INSERT INTO idem_hub.agency_rate_limit_config (agency_code, tps_limit, daily_limit, enabled)
 VALUES
     ('AGENCY_BRIDGE_001',     50,  100000, TRUE),
     ('AGENCY_APACHEGATE_001', 30,   50000, TRUE),   -- 레거시: 낮은 TPS
@@ -381,7 +381,7 @@ ON CONFLICT (agency_code) DO UPDATE
 -- 8. 검증 쿼리 (마이그레이션 후 수동 확인용 주석)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SELECT agency_code, official_name, integration_type, min_auth_level, active
---   FROM ido.agency_meta
+--   FROM idem_hub.agency_meta
 --  ORDER BY agency_code;
 --
 -- AGENCY_BRIDGE_001     | 폐쇄망 연계 기관    | BRIDGE       | L2 | TRUE

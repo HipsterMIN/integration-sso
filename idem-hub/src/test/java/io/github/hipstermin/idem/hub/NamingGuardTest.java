@@ -33,7 +33,13 @@ class NamingGuardTest {
             Pattern.compile("\"(ido|qsign):[a-z]"),                                        // Redis 접두
             Pattern.compile("\"fe:(session|user-sessions|idp-sid|idp-sub)"),
             Pattern.compile("name: (q-sign|q-im|q-authz|ido|outbox-relay-batch|agency-stub)\\s*$", Pattern.MULTILINE),
-            Pattern.compile("\"(q-sign|q-im|q-authz|onepass-ido)\"")
+            Pattern.compile("\"(q-sign|q-im|q-authz|onepass-ido)\""),
+            // 5단계 (S9 PR-2): 스키마·DB·Keycloak realm/client·CAST 폼 필드
+            Pattern.compile("schema = \"(ido|qsign|qim|authz)\"|currentSchema=(ido|qsign|qim|authz)\\b|\\.schemas\\(\"(ido|qsign|qim|authz)\"\\)"),
+            Pattern.compile("^\\s*(default_schema|schemas|default-schema):\\s*(ido|qsign|qim|authz)\\s*$", Pattern.MULTILINE),
+            Pattern.compile("\\b(ido|qsign|qim|authz)\\.(outbox|audit_log|agency_meta|auth_result|tenant|shedlock|flyway_schema_history)\\b"),
+            Pattern.compile("/realms/onepass|\"onepass\"|KEYCLOAK_REALM[:=]\\s*onepass|onepass[._](kms|outbox)[._]|\"q-sign-client\"|\"ido-client\"|onepass_sso|ido-(keycloak|nonoidc|adapter)"),
+            Pattern.compile("\\b(DB_NAME|DB_USERNAME|POSTGRES_DB|POSTGRES_USER)[:=] ?onepass\\b")
     );
 
     /** Java 밖(yml·sh·compose·Helm·CI)에서는 환경변수 이름 자체를 금지한다 */
@@ -48,6 +54,7 @@ class NamingGuardTest {
     private static final Set<String> ALLOW_FILES = Set.of(
             "idem-common/src/main/java/io/github/hipstermin/idem/common/naming/LegacyNames.java",
             "idem-common/src/main/java/io/github/hipstermin/idem/common/naming/LegacyNamesEnvironmentPostProcessor.java");
+    /** 적용된 마이그레이션은 역사 — 단 스키마 접두는 5단계에서 새 이름으로 고쳤다(체크섬은 LegacySchemaRename 이 repair) */
     private static final Set<String> ALLOW_PATH_PARTS = Set.of("/db/migration/", "/node_modules/", "/build/", "/.git/");
 
     @Test
@@ -72,8 +79,7 @@ class NamingGuardTest {
                         var m = p.matcher(text);
                         int n = 0;
                         while (m.find() && n < 3) {
-                            if (m.group().matches("\"(ido|qsign|qim|authz)\\.(outbox|shedlock|o)\"")) continue; // 스키마.테이블 (5단계)
-                            if (m.group().startsWith("authz:") && rel.startsWith("infra/helm/")) continue;           // Helm values 의 모듈 키
+                                            if (m.group().startsWith("authz:") && rel.startsWith("infra/helm/")) continue;           // Helm values 의 모듈 키
                             int line = (int) text.chars().limit(m.start()).filter(c -> c == '\n').count() + 1;
                             violations.add(rel + ":" + line + "  " + m.group());
                             n++;

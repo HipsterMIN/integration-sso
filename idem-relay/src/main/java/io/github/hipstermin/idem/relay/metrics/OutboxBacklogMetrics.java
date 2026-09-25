@@ -86,19 +86,19 @@ public class OutboxBacklogMetrics {
     @PostConstruct
     void registerGauges() {
         // pending
-        meterRegistry.gauge("onepass.outbox.pending.total",
+        meterRegistry.gauge("idem.outbox.pending.total",
                 Tags.of("shard", "hub"),   idoPending,   AtomicLong::get);
-        meterRegistry.gauge("onepass.outbox.pending.total",
+        meterRegistry.gauge("idem.outbox.pending.total",
                 Tags.of("shard", "registry"),   qimPending,   AtomicLong::get);
-        meterRegistry.gauge("onepass.outbox.pending.total",
+        meterRegistry.gauge("idem.outbox.pending.total",
                 Tags.of("shard", "gate"), qsignPending, AtomicLong::get);
 
         // failed
-        meterRegistry.gauge("onepass.outbox.failed.total",
+        meterRegistry.gauge("idem.outbox.failed.total",
                 Tags.of("shard", "hub"),   idoFailed,    AtomicLong::get);
-        meterRegistry.gauge("onepass.outbox.failed.total",
+        meterRegistry.gauge("idem.outbox.failed.total",
                 Tags.of("shard", "registry"),   qimFailed,    AtomicLong::get);
-        meterRegistry.gauge("onepass.outbox.failed.total",
+        meterRegistry.gauge("idem.outbox.failed.total",
                 Tags.of("shard", "gate"), qsignFailed,  AtomicLong::get);
 
         log.info("[Outbox-Metrics] Micrometer Gauge 등록 완료: pending/failed × 3 shards");
@@ -113,9 +113,9 @@ public class OutboxBacklogMetrics {
     @Scheduled(fixedDelayString = "${idem.relay.metrics.outbox.refresh-interval-ms:30000}",
                initialDelayString = "${idem.relay.metrics.outbox.initial-delay-ms:10000}")
     public void refreshMetrics() {
-        refreshShard("hub",   idoJdbcTemplate,   "ido.outbox",   idoPending,   idoFailed);
-        refreshShard("registry",   qimJdbcTemplate,   "qim.outbox",   qimPending,   qimFailed);
-        refreshShard("gate", qsignJdbcTemplate, "qsign.outbox", qsignPending, qsignFailed);
+        refreshShard("hub",   idoJdbcTemplate,   "idem_hub.outbox",   idoPending,   idoFailed);
+        refreshShard("registry",   qimJdbcTemplate,   "idem_registry.outbox",   qimPending,   qimFailed);
+        refreshShard("gate", qsignJdbcTemplate, "idem_gate.outbox", qsignPending, qsignFailed);
     }
 
     private void refreshShard(String shard, JdbcTemplate jdbc, String fqTable,

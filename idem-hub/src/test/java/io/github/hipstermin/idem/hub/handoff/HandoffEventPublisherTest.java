@@ -37,7 +37,7 @@ class HandoffEventPublisherTest {
     }
 
     @Test
-    @DisplayName("Kafka 꺼짐(기본) → ido.outbox INSERT (topic=idem.hub.handoff.events, aggregate=ticketId), Kafka 미호출")
+    @DisplayName("Kafka 꺼짐(기본) → idem_hub.outbox INSERT (topic=idem.hub.handoff.events, aggregate=ticketId), Kafka 미호출")
     void disabled_outbox() {
         sut(false).publish(event, "user-1");
 

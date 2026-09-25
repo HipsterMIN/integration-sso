@@ -26,50 +26,50 @@
 -- =============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 1. ido.auth_result — AAL / MFA 확장 컬럼
+-- 1. idem_hub.auth_result — AAL / MFA 확장 컬럼
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- 1-1. aal_level: NIST SP 800-63B Authenticator Assurance Level
 --       'AAL1' | 'AAL2' | 'AAL3'
 --       NULL = 레거시 레코드 (마이그레이션 전 데이터)
-ALTER TABLE ido.auth_result
+ALTER TABLE idem_hub.auth_result
     ADD COLUMN IF NOT EXISTS aal_level VARCHAR(10);
 
-COMMENT ON COLUMN ido.auth_result.aal_level
+COMMENT ON COLUMN idem_hub.auth_result.aal_level
     IS 'NIST SP 800-63B AAL 레벨: AAL1(단요소) | AAL2(이중요소) | AAL3(하드웨어). NULL=레거시';
 
 -- 1-2. mfa_type: 2차 인증 수단 종류
 --       'TOTP' | 'FIDO2_PLATFORM' | 'FIDO2_ROAMING' | 'SMS_OTP' | 'EMAIL_OTP' | NULL
 --       AAL1에서는 NULL (MFA 미사용)
-ALTER TABLE ido.auth_result
+ALTER TABLE idem_hub.auth_result
     ADD COLUMN IF NOT EXISTS mfa_type VARCHAR(30);
 
-COMMENT ON COLUMN ido.auth_result.mfa_type
+COMMENT ON COLUMN idem_hub.auth_result.mfa_type
     IS '2차 인증 수단: TOTP | FIDO2_PLATFORM | FIDO2_ROAMING | SMS_OTP | EMAIL_OTP. AAL1 시 NULL';
 
 -- 1-3. mfa_verified_at: 2차 인증 완료 시각
 --       MFA 성공 시 서버 기준 타임스탬프 저장
 --       1차 인증(authenticated_at)과 시간 차이를 감사 추적에 활용
-ALTER TABLE ido.auth_result
+ALTER TABLE idem_hub.auth_result
     ADD COLUMN IF NOT EXISTS mfa_verified_at TIMESTAMPTZ;
 
-COMMENT ON COLUMN ido.auth_result.mfa_verified_at
+COMMENT ON COLUMN idem_hub.auth_result.mfa_verified_at
     IS 'MFA(2차 인증) 완료 시각. authenticated_at(1차)과 별도 기록. MFA 미사용 시 NULL';
 
 -- 1-4. mfa_device_id: MFA 디바이스 식별자 (해시 처리)
 --       FIDO2 authenticator AAGUID 또는 TOTP 디바이스 ID의 SHA-256 해시
 --       PII 비보관 원칙: 원문 디바이스 ID는 저장하지 않음
-ALTER TABLE ido.auth_result
+ALTER TABLE idem_hub.auth_result
     ADD COLUMN IF NOT EXISTS mfa_device_id VARCHAR(64);
 
-COMMENT ON COLUMN ido.auth_result.mfa_device_id
+COMMENT ON COLUMN idem_hub.auth_result.mfa_device_id
     IS 'MFA 디바이스 식별자 (SHA-256 해시). FIDO2 AAGUID 또는 TOTP device_id의 해시값. PII 미보관';
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2. ido.mfa_enrollment — MFA 디바이스 등록 테이블 (FIDO2/TOTP 등록 정보)
+-- 2. idem_hub.mfa_enrollment — MFA 디바이스 등록 테이블 (FIDO2/TOTP 등록 정보)
 -- ─────────────────────────────────────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS ido.mfa_enrollment (
+CREATE TABLE IF NOT EXISTS idem_hub.mfa_enrollment (
     enrollment_id       VARCHAR(36)  NOT NULL PRIMARY KEY,  -- UUID
     qim_user_id         VARCHAR(128) NOT NULL,              -- Q-IM 사용자 식별자
     mfa_type            VARCHAR(30)  NOT NULL,              -- 등록 MFA 종류
@@ -88,28 +88,28 @@ CREATE TABLE IF NOT EXISTS ido.mfa_enrollment (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE ido.mfa_enrollment
+COMMENT ON TABLE idem_hub.mfa_enrollment
     IS 'MFA 디바이스 등록 정보. FIDO2 Credential / TOTP 디바이스 등록 이력 관리';
-COMMENT ON COLUMN ido.mfa_enrollment.enrollment_id
+COMMENT ON COLUMN idem_hub.mfa_enrollment.enrollment_id
     IS 'MFA 등록 UUID — 등록 취소 시 참조 키';
-COMMENT ON COLUMN ido.mfa_enrollment.qim_user_id
+COMMENT ON COLUMN idem_hub.mfa_enrollment.qim_user_id
     IS 'Q-IM 사용자 식별자 — auth_result.qim_user_id와 동일 도메인';
-COMMENT ON COLUMN ido.mfa_enrollment.mfa_type
+COMMENT ON COLUMN idem_hub.mfa_enrollment.mfa_type
     IS 'MFA 종류: TOTP | FIDO2_PLATFORM | FIDO2_ROAMING | SMS_OTP | EMAIL_OTP';
-COMMENT ON COLUMN ido.mfa_enrollment.status
+COMMENT ON COLUMN idem_hub.mfa_enrollment.status
     IS 'ACTIVE(활성) | REVOKED(취소) | EXPIRED(만료)';
 
 -- 조회 성능 인덱스
 CREATE INDEX IF NOT EXISTS idx_mfa_enrollment_qim_user_id
-    ON ido.mfa_enrollment (qim_user_id);
+    ON idem_hub.mfa_enrollment (qim_user_id);
 CREATE INDEX IF NOT EXISTS idx_mfa_enrollment_status
-    ON ido.mfa_enrollment (status);
+    ON idem_hub.mfa_enrollment (status);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 3. ido.aal_policy — AAL 정책 테이블 (provider별 기본 AAL 매핑)
+-- 3. idem_hub.aal_policy — AAL 정책 테이블 (provider별 기본 AAL 매핑)
 -- ─────────────────────────────────────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS ido.aal_policy (
+CREATE TABLE IF NOT EXISTS idem_hub.aal_policy (
     provider_code       VARCHAR(80)  NOT NULL PRIMARY KEY,  -- PASS, GPKI, KEYCLOAK 등
     default_aal         VARCHAR(10)  NOT NULL DEFAULT 'AAL1',  -- 해당 provider 기본 AAL
     mfa_required        BOOLEAN      NOT NULL DEFAULT FALSE, -- MFA 필수 여부
@@ -118,15 +118,15 @@ CREATE TABLE IF NOT EXISTS ido.aal_policy (
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE ido.aal_policy
+COMMENT ON TABLE idem_hub.aal_policy
     IS '인증 제공자별 AAL 정책. provider_code → 기본 AAL 레벨 / MFA 필수 여부 매핑';
-COMMENT ON COLUMN ido.aal_policy.default_aal
+COMMENT ON COLUMN idem_hub.aal_policy.default_aal
     IS '제공자 기본 AAL: AAL1(단요소) | AAL2(이중요소) | AAL3(하드웨어)';
-COMMENT ON COLUMN ido.aal_policy.mfa_required
+COMMENT ON COLUMN idem_hub.aal_policy.mfa_required
     IS 'TRUE이면 해당 provider 인증 시 MFA 추가 검증 필수';
 
 -- 초기 데이터: 현재 플랫폼 인증 수단별 AAL 매핑
-INSERT INTO ido.aal_policy (provider_code, default_aal, mfa_required, description)
+INSERT INTO idem_hub.aal_policy (provider_code, default_aal, mfa_required, description)
 VALUES
     ('PASS',        'AAL2', FALSE, 'PASS 비대면 인증 — 통신사 CI 확인 기반 (NIST AAL2 수준)'),
     ('GPKI',        'AAL2', FALSE, 'GPKI 공동인증서 — PKI 기반 강도 인증'),
@@ -146,8 +146,8 @@ ON CONFLICT (provider_code) DO UPDATE
 --    provider_code → aal_policy.default_aal 기반으로 기존 데이터 채움
 -- ─────────────────────────────────────────────────────────────────────────────
 
-UPDATE ido.auth_result ar
+UPDATE idem_hub.auth_result ar
 SET aal_level = p.default_aal
-FROM ido.aal_policy p
+FROM idem_hub.aal_policy p
 WHERE ar.provider_code = p.provider_code
   AND ar.aal_level IS NULL;

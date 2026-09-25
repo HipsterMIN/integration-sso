@@ -27,7 +27,7 @@ import org.springframework.stereotype.Repository;
  * <p>저장 전략:
  * <ul>
  *   <li>Redis: 주 저장소 (TTL 60초, consumeOnce 보장)</li>
- *   <li>PostgreSQL ido.handoff_audit: 감사 이력 (영구 보관)</li>
+ *   <li>PostgreSQL idem_hub.handoff_audit: 감사 이력 (영구 보관)</li>
  * </ul>
  *
  * <p>consumeOnce 보장 (§16.10):
@@ -308,7 +308,7 @@ public class TicketRepositoryImpl implements TicketRepository {
     private void saveAuditLog(HandoffTicket ticket) {
         try {
             jdbcTemplate.update("""
-                    INSERT INTO ido.handoff_audit
+                    INSERT INTO idem_hub.handoff_audit
                         (ticket_id, correlation_id, agency_code, qim_user_id,
                          auth_result_id, auth_level, state, issued_at, expires_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -335,13 +335,13 @@ public class TicketRepositoryImpl implements TicketRepository {
         try {
             if ("CONSUMED".equals(state)) {
                 jdbcTemplate.update("""
-                        UPDATE ido.handoff_audit
+                        UPDATE idem_hub.handoff_audit
                         SET state = ?, consumed_at = NOW()
                         WHERE ticket_id = ?
                         """, state, ticketId);
             } else {
                 jdbcTemplate.update("""
-                        UPDATE ido.handoff_audit
+                        UPDATE idem_hub.handoff_audit
                         SET state = ?, revoke_reason = ?
                         WHERE ticket_id = ?
                         """, state, revokeReason, ticketId);

@@ -38,7 +38,7 @@ class OidcRpClientProvisionerTest {
 
     @BeforeEach
     void setUp() {
-        props.setIssuer("https://sso.example.org/realms/onepass");
+        props.setIssuer("https://sso.example.org/realms/idem");
         sut = new OidcRpClientProvisioner(keycloak, props, audit);
     }
 
@@ -97,7 +97,7 @@ class OidcRpClientProvisionerTest {
 
         assertThat(status.provisioned()).isTrue();
         assertThat(status.enabled()).isTrue();
-        assertThat(status.issuer()).isEqualTo("https://sso.example.org/realms/onepass");
+        assertThat(status.issuer()).isEqualTo("https://sso.example.org/realms/idem");
         assertThat(status.discoveryUrl()).endsWith("/.well-known/openid-configuration");
         verify(audit).publish(any());
     }
@@ -182,7 +182,7 @@ class OidcRpClientProvisionerTest {
     void clientIdMapping() {
         assertThat(props.clientIdFor("AG_X")).isEqualTo("idem-svc-AG_X");
         assertThat(props.serviceCodeFor("idem-svc-AG_X")).contains("AG_X");
-        assertThat(props.serviceCodeFor("q-sign-client")).isEmpty();
+        assertThat(props.serviceCodeFor("idem-gate")).isEmpty();
         assertThat(props.serviceCodeFor("idem-svc-")).isEmpty();
         assertThat(props.serviceCodeFor(null)).isEmpty();
     }

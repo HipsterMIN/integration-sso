@@ -64,7 +64,7 @@ jobs:
       - name: Helm upgrade --install
         run: |
           TAG='${{ inputs.image_tag }}'
-          helm upgrade --install onepass infra/helm/idem \
+          helm upgrade --install idem infra/helm/idem \
             --namespace "idem-${{ inputs.environment }}" --create-namespace \
             -f "infra/helm/idem/values-${{ inputs.environment }}.yaml" \
             --set "global.imageRegistry=${IMAGE_REPO}" \

@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 public class OidcFrontProperties {
 
     /** 기관 RP 가 보는 issuer (gate 공개 URL + /realms/{realm}). */
-    private String issuer = "http://localhost:8081/realms/onepass";
+    private String issuer = "http://localhost:8081/realms/idem";
 
     /** Idem 이 프로비저닝한 client 만 공개 프런트를 지날 수 있다 — hub 의 {@code idem.hub.oidc-rp.client-id-prefix} 와 같아야 한다. */
     private String clientIdPrefix = "idem-svc-";

@@ -139,7 +139,7 @@ public class CrossAgencySsoController {
         CastToken castToken = castTokenService.issue(feSessionId, targetAgency, cid);
 
         // ── Sprint α-3 / F4.4 — castToken을 URL 쿼리에 싣지 않는다 ────────────
-        // 이전: redirectUrl = "https://x.example.org/sso-entry?onepass_sso=<JWT>"
+        // 이전: redirectUrl = "https://x.example.org/sso-entry?idem_sso=<JWT>"
         //       → Referer 헤더/브라우저 히스토리/HTTPS access-log에 JWT가 누설.
         // 현재:
         //   • redirectUrl/ssoEntryUrl = 기관 B 진입점 URL only (castToken 미포함)
@@ -316,7 +316,7 @@ public class CrossAgencySsoController {
                "<body onload=\"document.forms[0].submit()\">" +
                "<noscript><p>JavaScript가 비활성화되어 있습니다. 아래 버튼을 눌러 진행하세요.</p></noscript>" +
                "<form method=\"POST\" action=\"" + escapedUrl + "\" autocomplete=\"off\">" +
-               "<input type=\"hidden\" name=\"onepass_sso\" value=\"" + escapedToken + "\"/>" +
+               "<input type=\"hidden\" name=\"idem_sso\" value=\"" + escapedToken + "\"/>" +
                "<input type=\"hidden\" name=\"jti\" value=\"" + escapedJti + "\"/>" +
                "<noscript><button type=\"submit\">계속</button></noscript>" +
                "</form></body></html>";

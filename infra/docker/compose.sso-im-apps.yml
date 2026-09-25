@@ -31,9 +31,9 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_NAME: onepass
-      DB_USERNAME: onepass
-      DB_PASSWORD: onepass
+      DB_NAME: idem
+      DB_USERNAME: idem
+      DB_PASSWORD: idem
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
@@ -41,8 +41,8 @@ services:
       IDEM_HUB_BASE_URL: http://idem-hub:8083
       IDEM_HUB_INTERNAL_SIG_SECRET: ${IDEM_HUB_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: onepass
-      IDEM_GATE_KEYCLOAK_CLIENT_ID: q-sign-client
+      KEYCLOAK_REALM: idem
+      IDEM_GATE_KEYCLOAK_CLIENT_ID: idem-gate
       IDEM_GATE_KEYCLOAK_CLIENT_SECRET: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:?IDEM_GATE_KEYCLOAK_CLIENT_SECRET 환경변수가 설정되지 않았습니다.}
       IDEM_GATE_KEYCLOAK_REDIRECT_URI: http://localhost:8081/api/v1/oidc/keycloak/callback
       IDEM_GATE_INTERNAL_SIG_STRICT: "false"
@@ -81,10 +81,10 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       IDEM_REGISTRY_DB_HOST: postgres
       IDEM_REGISTRY_DB_PORT: "5432"
-      IDEM_REGISTRY_DB_NAME: onepass
-      IDEM_REGISTRY_DB_SCHEMA: qim
-      IDEM_REGISTRY_DB_USERNAME: onepass
-      IDEM_REGISTRY_DB_PASSWORD: onepass
+      IDEM_REGISTRY_DB_NAME: idem
+      IDEM_REGISTRY_DB_SCHEMA: idem_registry
+      IDEM_REGISTRY_DB_USERNAME: idem
+      IDEM_REGISTRY_DB_PASSWORD: idem
       IDEM_REGISTRY_DB_SSL: "false"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
@@ -126,9 +126,9 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_NAME: onepass
-      DB_USERNAME: onepass
-      DB_PASSWORD: onepass
+      DB_NAME: idem
+      DB_USERNAME: idem
+      DB_PASSWORD: idem
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092
@@ -145,8 +145,8 @@ services:
       CORS_ORIGIN_PROD: http://localhost:3001
       IDEM_HUB_BROKER_MODE: ${IDEM_HUB_BROKER_MODE:-qsign}
       KEYCLOAK_BASE_URL: http://keycloak:8080
-      KEYCLOAK_REALM: onepass
-      KEYCLOAK_CLIENT_ID: ido-client
+      KEYCLOAK_REALM: idem
+      KEYCLOAK_CLIENT_ID: idem-hub
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET 환경변수가 설정되지 않았습니다.}
       KEYCLOAK_REDIRECT_URI: http://localhost:8083/api/v1/broker/callback
       IDEM_HUB_WEBHOOK_SIGNING_SECRET: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:?IDEM_HUB_WEBHOOK_SIGNING_SECRET 환경변수가 설정되지 않았습니다.}
@@ -191,9 +191,9 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_NAME: onepass
-      DB_USERNAME: onepass
-      DB_PASSWORD: onepass
+      DB_NAME: idem
+      DB_USERNAME: idem
+      DB_PASSWORD: idem
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KAFKA_SERVERS: kafka:29092

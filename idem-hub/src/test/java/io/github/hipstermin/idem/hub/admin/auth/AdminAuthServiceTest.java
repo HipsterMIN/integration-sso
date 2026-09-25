@@ -159,7 +159,7 @@ class AdminAuthServiceTest {
         sut.changePassword(p, "Correct-Horse-9", "New-Password-77", "ip");
         assertThat(policy.matches("New-Password-77", user.getPasswordHash())).isTrue();
         assertThat(user.isMustChangePassword()).isFalse();
-        verify(jdbc).update(eq("INSERT INTO ido.admin_password_history (admin_id, password_hash) VALUES (?, ?)"), eq("a1"), anyString());
+        verify(jdbc).update(eq("INSERT INTO idem_hub.admin_password_history (admin_id, password_hash) VALUES (?, ?)"), eq("a1"), anyString());
         assertThat(sessions.touch(s.sessionId()).orElseThrow().mustChangePassword()).isFalse();
     }
 

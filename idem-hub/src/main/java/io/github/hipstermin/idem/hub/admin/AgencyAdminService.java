@@ -188,7 +188,7 @@ public class AgencyAdminService {
         return jdbcTemplate.queryForList("""
                 SELECT history_id, agency_code, policy_version, changed_by,
                        change_reason, changed_at
-                FROM ido.agency_meta_history
+                FROM idem_hub.agency_meta_history
                 WHERE agency_code = ?
                 ORDER BY changed_at DESC
                 LIMIT 50
@@ -211,7 +211,7 @@ public class AgencyAdminService {
                         COUNT(*) FILTER (WHERE state='EXPIRED')  AS expired_count,
                         COUNT(*) FILTER (WHERE state='REVOKED')  AS revoked_count,
                         COUNT(*) AS total_count
-                    FROM ido.handoff_audit
+                    FROM idem_hub.handoff_audit
                     WHERE agency_code = ?
                       AND issued_at >= NOW() - INTERVAL '24 hours'
                     """, agencyCode);
@@ -229,7 +229,7 @@ public class AgencyAdminService {
                         COUNT(*) FILTER (WHERE status='PUBLISHED')   AS published,
                         COUNT(*) FILTER (WHERE status='FAILED')      AS failed,
                         COUNT(*) FILTER (WHERE status='DEAD_LETTER') AS dead_letter
-                    FROM ido.webhook_dispatch_outbox
+                    FROM idem_hub.webhook_dispatch_outbox
                     WHERE agency_code = ?
                       AND created_at >= NOW() - INTERVAL '24 hours'
                     """, agencyCode);
@@ -252,7 +252,7 @@ public class AgencyAdminService {
     private void upsertWebhookConfig(String agencyCode, String endpoint, boolean enabled) {
         try {
             jdbcTemplate.update("""
-                    INSERT INTO ido.agency_webhook_config
+                    INSERT INTO idem_hub.agency_webhook_config
                         (agency_code, endpoint_url, active, created_at, updated_at)
                     VALUES (?, ?, ?, NOW(), NOW())
                     ON CONFLICT (agency_code) DO UPDATE
@@ -268,7 +268,7 @@ public class AgencyAdminService {
     private String queryWebhookEndpoint(String agencyCode) {
         try {
             return jdbcTemplate.queryForObject(
-                    "SELECT endpoint_url FROM ido.agency_webhook_config WHERE agency_code = ?",
+                    "SELECT endpoint_url FROM idem_hub.agency_webhook_config WHERE agency_code = ?",
                     String.class, agencyCode);
         } catch (EmptyResultDataAccessException e) {
             // 정상 케이스 — webhook 미설정 기관

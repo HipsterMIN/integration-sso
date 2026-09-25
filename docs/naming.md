@@ -1,6 +1,6 @@
 # Idem 개명 대응표 (Naming)
 
-> **확정일** 2026-09-04 · **제품명** OnePass → **Idem**(아이뎀) · **상태** 2·3단계 완료, 4·5단계 예정
+> **확정일** 2026-09-04 · **제품명** OnePass → **Idem**(아이뎀) · **상태** 2~5단계 완료(2026-09-25)
 
 ## 1. 이름의 뜻과 원칙
 
@@ -47,7 +47,7 @@ Gradle 태스크 경로는 그대로 따라간다 (`:ido:bootJar` → `:idem-hub
 | 기관 (agency) | 테넌트 (tenant) | 4단계에서 코드·API·DB로 확장. 기관 고유 속성은 KR 에디션 확장으로 분리 |
 | OnePass / 중기원패스 | (제품명 아님) | 첫 적용 사례의 서비스명. 문서에서 사례로만 언급 |
 
-## 3. 런타임 식별자 (4b 완료 · 5단계 남음)
+## 3. 런타임 식별자 (4b·5단계 완료)
 
 아래는 **런타임 식별자**라 코드·설정·데이터를 함께 옮겨야 해 3단계에서 제외했던 것이다. **4b 는 S9 PR-1(2026-09-25) 에서 끝났다** — 표의 ✅ 행. 구 이름은 `idem-common` 의 `LegacyNames`/`LegacyNamesEnvironmentPostProcessor` 가 **1 릴리스 동안** 새 이름으로 비춰 준다(구 환경변수·구 설정 키가 있으면 기동 시 WARN 으로 나열). 코드·설정·설치본에 구 이름이 다시 들어오면 `NamingGuardTest` 가 막는다.
 
@@ -67,6 +67,9 @@ Gradle 태스크 경로는 그대로 따라간다 (`:ido:bootJar` → `:idem-hub
 | Prometheus | `job="ido"`·`q-sign`·`q-im`, 메트릭 `onepass_outbox_*` | `job="idem-hub"`·`idem-gate`·`idem-registry`, `idem_outbox_*` |
 | Helm | values `qsign:`·`qim:`·`ido:`·`batch:`·`agencyStub:`, 리소스 `ido-service`·`ido-config`… | `gate:`·`registry:`·`hub:`·`relay:`·`sample:`, `idem-hub-*` (helm lint 는 이 환경에 없어 텍스트 치환만 — 배포 전 `helm template` 확인) |
 | Vault transit 키 기본값 | `ido-handoff-key` | `idem-handoff-key` |
+| (5단계) DB·스키마 | `onepass` · `ido`/`qsign`/`qim`/`authz` | `idem` · `idem_hub`/`idem_gate`/`idem_registry`/`idem_authz` |
+| (5단계) Keycloak | realm `onepass`, client `q-sign-client`/`ido-client`, realm 역할 `onepass-user/admin` | realm `idem`, `idem-gate`/`idem-hub`, `idem-user/admin` |
+| (5단계) 기타 값 | CAST 폼 필드 `onepass_sso`, `auth_result.source_system` `ido-keycloak/nonoidc/adapter`, relay `source_system` `onepass-batch` | `idem_sso`, `idem-hub-keycloak/nonoidc/adapter`(V26), `idem-relay` |
 
 ### 3.2 목록 (원본, 상태 표시)
 
@@ -77,8 +80,8 @@ Gradle 태스크 경로는 그대로 따라간다 (`:ido:bootJar` → `:idem-hub
 | ✅ 서비스 간 호출자 ID | ~~`X-Source-System: q-sign`, `X-Outbound-Source: onepass-ido`, `ido.internal.api-keys.q-sign`~~ → `idem-gate`/`idem-hub`, `idem.hub.internal.callers.idem-gate` | 4b 완료 |
 | ✅ Redis 키 접두 | ~~`ido:ticket:*`, `ido:rl:*`, `ido:idempotency:*`~~ → `idem:*` | 4b 완료. 업그레이드 시 flush |
 | ✅ 환경변수 접두 | ~~`IDO_*`, `QIM_*`~~ → `IDEM_HUB_*`, `IDEM_REGISTRY_*` … (`KEYCLOAK_*` 는 Keycloak 자체 이름이라 유지, `ONEPASS_*` 는 agent/SDK 외부 계약이라 별도) | 4b 완료 |
-| Keycloak | realm `onepass`, client `q-sign-client`, `ido-client` | **5단계(S9 PR-2)** — realm export 포함 |
-| DB | PostgreSQL `onepass`, 스키마 `ido`·`qsign`·`qim`·`authz`, Flyway 이력 | **5단계(S9 PR-2)**. 운영 데이터 없는 지금이 적기 |
+| ✅ Keycloak | ~~realm `onepass`, client `q-sign-client`, `ido-client`~~ → realm `idem`, client `idem-gate`/`idem-hub` (`idem-provisioner`·`idem-session-manager` 는 그대로) | 5단계 완료(S9 PR-2, 2026-09-25). 기존 설치본은 realm 재import |
+| ✅ DB | ~~PostgreSQL `onepass`, 스키마 `ido`·`qsign`·`qim`·`authz`~~ → DB `idem`, 스키마 `idem_hub`·`idem_gate`·`idem_registry`·`idem_authz` (`keycloak`·`agency_stub` 유지) | 5단계 완료(S9 PR-2). 마이그레이션 파일의 접두를 고쳤고(체크섬 변경) `LegacySchemaRename` 이 구 스키마 rename → Flyway repair → migrate. DB 이름은 `scripts/upgrade/rename-db-1.0.sh` |
 | ✅ k8s 런타임 이름 | ~~Service `ido-service`, ConfigMap `ido-config`~~ → `idem-hub-*` (Helm 텍스트 치환, lint 미검증) | 4b 완료 |
 | ✅ Prometheus job / 알림 라벨 | ~~`job="ido"`, `job="q-sign"`~~ → `idem-hub`, `idem-gate` | 4b 완료 |
 | FE 소스 | `editions/idem-kr-portal/frontend/**` (패키지명 `onepass`, 에셋 `assets/onepass`, 외부 호스트) | KR 에디션 포털 — 에디션 과제 |
@@ -100,4 +103,4 @@ Gradle 태스크 경로는 그대로 따라간다 (`:ido:bootJar` → `:idem-hub
 2. ~~저장소·루트 프로젝트·문서 표제~~
 3. ~~모듈 디렉터리·Gradle·Dockerfile·CI·Helm·이미지명~~
 4. Java 패키지 이동(**4a 완료 2026-09-08** — `io.github.hipstermin.idem.*`, 동작 변화 없음) + 런타임 식별자(설정 키·헤더 값·Redis 접두·환경변수·k8s 이름·Prometheus 라벨) (**4b 완료 2026-09-25, S9 PR-1** — §3.1 대응표, `LegacyNames` 호환 계층 1 릴리스). agency→tenant **용어** 개명(API 경로·프로파일 키)은 1.0 API 동결과 함께 별도 판단
-5. DB명·스키마명·Keycloak realm
+5. ~~DB명·스키마명·Keycloak realm~~ (**완료 2026-09-25, S9 PR-2** — 업그레이드 절차는 `docs/sso-im-operations-manual.md` 개명 5단계, `scripts/upgrade/rename-db-1.0.sh`)

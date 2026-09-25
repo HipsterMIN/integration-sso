@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service;
  *   <li>{@link io.github.hipstermin.idem.hub.broker.nonoidc.NonOidcBrokerAdapter} — REDIRECT / CALLBACK</li>
  * </ul>
  *
- * <p><b>테이블</b>: {@code ido.broker_audit_log} (V6 마이그레이션, V10에서 인덱스 보강)
+ * <p><b>테이블</b>: {@code idem_hub.broker_audit_log} (V6 마이그레이션, V10에서 인덱스 보강)
  */
 @Slf4j
 @Service
@@ -61,7 +61,7 @@ public class BrokerAuditLogService {
     public void record(AuditEntry entry) {
         try {
             jdbcTemplate.update("""
-                    INSERT INTO ido.broker_audit_log
+                    INSERT INTO idem_hub.broker_audit_log
                         (log_id, correlation_id,
                          provider_code, provider_type, provider_tx_id,
                          broker_mode, action,

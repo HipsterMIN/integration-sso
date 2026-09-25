@@ -32,7 +32,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
  *
  * <p>위협 모델:
  * <ul>
- *   <li>이전: {@code https://x.example.org/sso-entry?onepass_sso=<JWT>} — Referer/history/access-log 유출</li>
+ *   <li>이전: {@code https://x.example.org/sso-entry?idem_sso=<JWT>} — Referer/history/access-log 유출</li>
  *   <li>현재: URL에는 JWT 미포함, hidden POST body로 전달 → 위 채널로 유출 차단</li>
  * </ul>
  */
@@ -112,10 +112,10 @@ class CrossAgencySsoControllerTest {
             assertThat(body.redirectUrl())
                     .as("redirectUrl에 castToken JWT가 포함되면 Referer/history/log로 유출됨 (F4.4 위반)")
                     .doesNotContain(FAKE_JWT)
-                    .doesNotContain("onepass_sso=");
+                    .doesNotContain("idem_sso=");
             assertThat(body.ssoEntryUrl())
                     .doesNotContain(FAKE_JWT)
-                    .doesNotContain("onepass_sso=");
+                    .doesNotContain("idem_sso=");
         }
 
         @Test
@@ -157,7 +157,7 @@ class CrossAgencySsoControllerTest {
     class FormHtmlAutoSubmit {
 
         @Test
-        @DisplayName("[F4.4] formHtml은 method=POST + onepass_sso hidden field 포함")
+        @DisplayName("[F4.4] formHtml은 method=POST + idem_sso hidden field 포함")
         void formHtml_isAutoSubmittingPost() {
             given(castTokenService.issue(anyString(), anyString(), anyString()))
                     .willReturn(buildCastToken(FAKE_JWT));
@@ -171,7 +171,7 @@ class CrossAgencySsoControllerTest {
                     .containsIgnoringCase("method=\"POST\"")
                     .contains("document.forms[0].submit()")
                     .contains("type=\"hidden\"")
-                    .contains("name=\"onepass_sso\"")
+                    .contains("name=\"idem_sso\"")
                     .contains("value=\"" + FAKE_JWT + "\"");
         }
 

@@ -9,7 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * ido.gateway_outbound_audit JdbcTemplate 리포지토리
+ * idem_hub.gateway_outbound_audit JdbcTemplate 리포지토리
  *
  * <p>아웃바운드 발송 이력 INSERT/조회/상태갱신.
  * payload_hash = SHA-256(payload) — 평문 페이로드 저장 금지.
@@ -43,7 +43,7 @@ public class GatewayOutboundRepository {
                        String correlationId, boolean delivered) {
         String status = delivered ? "DELIVERED" : "FAILED";
         jdbcTemplate.update("""
-                INSERT INTO ido.gateway_outbound_audit
+                INSERT INTO idem_hub.gateway_outbound_audit
                     (agency_code, event_type, idempotency_key, endpoint_url,
                      http_status, status, payload_hash, correlation_id,
                      sent_at, delivered_at)
@@ -61,7 +61,7 @@ public class GatewayOutboundRepository {
     /** FAILED 레코드 상태를 DELIVERED로 갱신 (수동 재처리용) */
     public void markDelivered(String idempotencyKey, String agencyCode) {
         jdbcTemplate.update("""
-                UPDATE ido.gateway_outbound_audit
+                UPDATE idem_hub.gateway_outbound_audit
                 SET    status       = 'DELIVERED',
                        delivered_at = NOW()
                 WHERE  idempotency_key = ?
@@ -76,7 +76,7 @@ public class GatewayOutboundRepository {
     /** 기관별 마지막 발송 시각 */
     public Optional<Instant> findLastSentAt(String agencyCode) {
         List<Instant> result = jdbcTemplate.query("""
-                SELECT sent_at FROM ido.gateway_outbound_audit
+                SELECT sent_at FROM idem_hub.gateway_outbound_audit
                 WHERE  agency_code = ?
                 ORDER BY sent_at DESC
                 LIMIT 1
@@ -90,7 +90,7 @@ public class GatewayOutboundRepository {
     /** 기관별 최근 FAILED 발송 건수 */
     public int countRecentFailedByAgency(String agencyCode) {
         Integer count = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM ido.gateway_outbound_audit
+                SELECT COUNT(*) FROM idem_hub.gateway_outbound_audit
                 WHERE  agency_code = ?
                   AND  status      = 'FAILED'
                   AND  sent_at    >= NOW() - INTERVAL '24 hours'

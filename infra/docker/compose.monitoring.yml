@@ -159,7 +159,7 @@ services:
     container_name: idem-postgres-exporter
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: "postgresql://onepass:onepass@postgres:5432/onepass?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://idem:idem@postgres:5432/idem?sslmode=disable"
       PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
     ports:
       - "9187:9187"

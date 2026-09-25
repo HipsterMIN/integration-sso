@@ -144,7 +144,7 @@ public class AdminAuthService {
     /** 정책 검사 + 이력 기록 + 해시 저장. {@code mustChange} 는 관리자 재설정(임시 비밀번호)일 때 true */
     void applyNewPassword(AdminUserEntity user, String next, boolean mustChange) {
         List<String> recent = jdbcTemplate.query(
-                "SELECT password_hash FROM ido.admin_password_history WHERE admin_id = ? ORDER BY changed_at DESC LIMIT ?",
+                "SELECT password_hash FROM idem_hub.admin_password_history WHERE admin_id = ? ORDER BY changed_at DESC LIMIT ?",
                 (rs, i) -> rs.getString(1), user.getAdminId(), props.getPassword().getHistory());
         List<String> v = passwordPolicy.violations(next, user.getUsername(), recent);
         if (!recent.contains(user.getPasswordHash()) && passwordPolicy.matches(next, user.getPasswordHash())) {
@@ -153,7 +153,7 @@ public class AdminAuthService {
         if (!v.isEmpty()) {
             throw new PlatformException(PlatformErrorCode.ADMIN_PASSWORD_POLICY, null, String.join(", ", v));
         }
-        jdbcTemplate.update("INSERT INTO ido.admin_password_history (admin_id, password_hash) VALUES (?, ?)",
+        jdbcTemplate.update("INSERT INTO idem_hub.admin_password_history (admin_id, password_hash) VALUES (?, ?)",
                 user.getAdminId(), user.getPasswordHash());
         user.setPasswordHash(passwordPolicy.hash(next));
         user.setPasswordChangedAt(Instant.now());

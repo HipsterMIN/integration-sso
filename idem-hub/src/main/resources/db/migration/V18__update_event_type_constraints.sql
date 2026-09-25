@@ -7,8 +7,8 @@
 --   두 테이블의 CHECK 제약을 갱신한다.
 --
 -- 영향 테이블:
---   1. ido.provisioning_outbox   — chk_prov_event_type 갱신
---   2. ido.gateway_inbound_audit — chk_gateway_inbound_event_type 갱신
+--   1. idem_hub.provisioning_outbox   — chk_prov_event_type 갱신
+--   2. idem_hub.gateway_inbound_audit — chk_gateway_inbound_event_type 갱신
 --
 -- 데이터 흐름 경로 (변경 이유):
 --   QimEventConsumer.isProvisioningTriggerEvent()
@@ -31,14 +31,14 @@
 -- ============================================================
 
 -- ────────────────────────────────────────────────────────────
--- 1. ido.provisioning_outbox — chk_prov_event_type 갱신
+-- 1. idem_hub.provisioning_outbox — chk_prov_event_type 갱신
 -- ────────────────────────────────────────────────────────────
 -- 기존 제약 삭제
-ALTER TABLE ido.provisioning_outbox
+ALTER TABLE idem_hub.provisioning_outbox
     DROP CONSTRAINT IF EXISTS chk_prov_event_type;
 
 -- 신규 제약 추가 (구 타입 + 신규 5종 동시 허용)
-ALTER TABLE ido.provisioning_outbox
+ALTER TABLE idem_hub.provisioning_outbox
     ADD CONSTRAINT chk_prov_event_type
         CHECK (event_type IN (
             -- QIM-OUTBOX-SPEC-001 신규 5종 (QimEventConsumer 기준)
@@ -55,7 +55,7 @@ ALTER TABLE ido.provisioning_outbox
         ));
 
 -- 컬럼 코멘트 갱신
-COMMENT ON COLUMN ido.provisioning_outbox.event_type IS
+COMMENT ON COLUMN idem_hub.provisioning_outbox.event_type IS
     '[QIM-OUTBOX-SPEC-001] 프로비저닝 이벤트 타입. '
     '신규 5종: PERSONAL_MEMBER_REGISTERED, PERSONAL_MEMBER_CONVERTED, '
     'BIZ_MEMBER_REGISTERED, BIZ_MEMBER_CONVERTED, MEMBER_WITHDRAWN. '
@@ -64,10 +64,10 @@ COMMENT ON COLUMN ido.provisioning_outbox.event_type IS
     '구 타입은 @Deprecated 코드 제거(forRemoval=true) 완료 후 별도 V19 마이그레이션으로 제거 예정.';
 
 -- ────────────────────────────────────────────────────────────
--- 2. ido.gateway_inbound_audit — chk_gateway_inbound_event_type 갱신
+-- 2. idem_hub.gateway_inbound_audit — chk_gateway_inbound_event_type 갱신
 -- ────────────────────────────────────────────────────────────
 -- 기존 제약 삭제
-ALTER TABLE ido.gateway_inbound_audit
+ALTER TABLE idem_hub.gateway_inbound_audit
     DROP CONSTRAINT IF EXISTS chk_gateway_inbound_event_type;
 
 -- 신규 제약 추가
@@ -75,7 +75,7 @@ ALTER TABLE ido.gateway_inbound_audit
 -- QIM-OUTBOX-SPEC-001 이벤트 타입은 IdO→기관 방향(Outbound) 이므로 이 테이블에는 해당 없음
 -- 단, AGENCY_USER_REGISTERED / AGENCY_BIZ_CONVERTED 는 신규 명명 원칙과의 일관성을 위해
 -- 대응 타입 추가 (AgencyGatewayServiceImpl case 문과 동기화)
-ALTER TABLE ido.gateway_inbound_audit
+ALTER TABLE idem_hub.gateway_inbound_audit
     ADD CONSTRAINT chk_gateway_inbound_event_type
         CHECK (event_type IN (
             -- 기존 기관→IdO Inbound 이벤트
@@ -92,7 +92,7 @@ ALTER TABLE ido.gateway_inbound_audit
             'CUSTOM'
         ));
 
-COMMENT ON COLUMN ido.gateway_inbound_audit.event_type IS
+COMMENT ON COLUMN idem_hub.gateway_inbound_audit.event_type IS
     '기관→IdO Inbound 이벤트 타입. '
     'AGENCY_ 접두사 = 기관이 IdO에 통보하는 이벤트. '
     'AGENCY_USER_REGISTERED/BIZ_CONVERTED: 기존 기관 연동 타입(하위 호환). '
@@ -104,10 +104,10 @@ COMMENT ON COLUMN ido.gateway_inbound_audit.event_type IS
 -- ────────────────────────────────────────────────────────────
 -- SELECT conname, consrc
 -- FROM pg_constraint
--- WHERE conrelid = 'ido.provisioning_outbox'::regclass
+-- WHERE conrelid = 'idem_hub.provisioning_outbox'::regclass
 --   AND contype = 'c';
 --
 -- SELECT conname, consrc
 -- FROM pg_constraint
--- WHERE conrelid = 'ido.gateway_inbound_audit'::regclass
+-- WHERE conrelid = 'idem_hub.gateway_inbound_audit'::regclass
 --   AND contype = 'c';

@@ -38,7 +38,7 @@ public class AgencyEndpointRegistryRepositoryImpl implements AgencyEndpointRegis
                 SELECT agency_code, endpoint_type, endpoint_url, http_method,
                        auth_type, auth_credential_ref, timeout_ms, is_active,
                        note, created_at, updated_at
-                FROM   ido.agency_endpoint_registry
+                FROM   idem_hub.agency_endpoint_registry
                 WHERE  agency_code    = ?
                   AND  endpoint_type  = ?
                   AND  is_active      = TRUE
@@ -54,7 +54,7 @@ public class AgencyEndpointRegistryRepositoryImpl implements AgencyEndpointRegis
                 SELECT agency_code, endpoint_type, endpoint_url, http_method,
                        auth_type, auth_credential_ref, timeout_ms, is_active,
                        note, created_at, updated_at
-                FROM   ido.agency_endpoint_registry
+                FROM   idem_hub.agency_endpoint_registry
                 WHERE  endpoint_type = ?
                   AND  is_active     = TRUE
                 ORDER BY agency_code ASC
@@ -70,7 +70,7 @@ public class AgencyEndpointRegistryRepositoryImpl implements AgencyEndpointRegis
                 SELECT agency_code, endpoint_type, endpoint_url, http_method,
                        auth_type, auth_credential_ref, timeout_ms, is_active,
                        note, created_at, updated_at
-                FROM   ido.agency_endpoint_registry
+                FROM   idem_hub.agency_endpoint_registry
                 WHERE  agency_code = ?
                   AND  is_active   = TRUE
                 ORDER BY endpoint_type ASC
@@ -85,7 +85,7 @@ public class AgencyEndpointRegistryRepositoryImpl implements AgencyEndpointRegis
     @Override
     public void upsert(AgencyEndpointRecord record) {
         String sql = """
-                INSERT INTO ido.agency_endpoint_registry
+                INSERT INTO idem_hub.agency_endpoint_registry
                     (agency_code, endpoint_type, endpoint_url, http_method,
                      auth_type, auth_credential_ref, timeout_ms, is_active, note,
                      created_at, updated_at)
@@ -118,7 +118,7 @@ public class AgencyEndpointRegistryRepositoryImpl implements AgencyEndpointRegis
     @Override
     public void deactivate(String agencyCode, String endpointType) {
         jdbcTemplate.update("""
-                UPDATE ido.agency_endpoint_registry
+                UPDATE idem_hub.agency_endpoint_registry
                 SET    is_active  = FALSE,
                        updated_at = NOW()
                 WHERE  agency_code   = ?

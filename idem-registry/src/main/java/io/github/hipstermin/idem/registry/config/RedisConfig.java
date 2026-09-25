@@ -24,7 +24,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  * <p>TTL: 300초 (IdO pull 기준 최신성 보장)
  *
  * [참고] Q-IM DB는 NHN Cloud RDS for MariaDB
- *        Redis는 공용 인프라 (onepass-redis) 사용
+ *        Redis는 공용 인프라 (idem-redis) 사용
  */
 @EnableCaching
 @Configuration

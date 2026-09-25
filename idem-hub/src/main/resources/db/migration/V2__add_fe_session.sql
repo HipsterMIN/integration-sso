@@ -6,7 +6,7 @@
 -- FE 세션 생명주기 관리가 IdO 로 이관됨.
 --
 -- 주 저장소: Redis (fe:session:{feSessionId}, TTL 기반 sliding)
--- 보조 저장소: ido.fe_session_audit (감사 이력 — DELETE 금지)
+-- 보조 저장소: idem_hub.fe_session_audit (감사 이력 — DELETE 금지)
 -- ============================================================
 
 -- ──────────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@
 --    §12.5 세션 생성/만료/무효화 감사.
 --    Redis 가 주 저장소이며 이 테이블은 감사/알림 전용.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.fe_session_audit (
+CREATE TABLE IF NOT EXISTS idem_hub.fe_session_audit (
     fe_session_id       VARCHAR(64)   NOT NULL,       -- SecureRandom Base64URL (43자)
     qim_user_id         VARCHAR(36)   NOT NULL,
     auth_result_id      VARCHAR(36)   NOT NULL,
@@ -32,20 +32,20 @@ CREATE TABLE IF NOT EXISTS ido.fe_session_audit (
 );
 
 CREATE INDEX IF NOT EXISTS idx_fe_session_audit_user
-    ON ido.fe_session_audit (qim_user_id, created_at DESC);
+    ON idem_hub.fe_session_audit (qim_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_fe_session_audit_event
-    ON ido.fe_session_audit (event_type, created_at DESC);
+    ON idem_hub.fe_session_audit (event_type, created_at DESC);
 
-COMMENT ON TABLE  ido.fe_session_audit               IS '§12.5 FE 세션 감사 이력 (BFF→IdO 이관)';
-COMMENT ON COLUMN ido.fe_session_audit.fe_session_id IS 'SecureRandom Base64URL 256-bit — Redis key 와 동일';
-COMMENT ON COLUMN ido.fe_session_audit.event_type    IS 'CREATED / EXPIRED / INVALIDATED(MANDATORY) / ADVISORY_SET';
+COMMENT ON TABLE  idem_hub.fe_session_audit               IS '§12.5 FE 세션 감사 이력 (BFF→IdO 이관)';
+COMMENT ON COLUMN idem_hub.fe_session_audit.fe_session_id IS 'SecureRandom Base64URL 256-bit — Redis key 와 동일';
+COMMENT ON COLUMN idem_hub.fe_session_audit.event_type    IS 'CREATED / EXPIRED / INVALIDATED(MANDATORY) / ADVISORY_SET';
 
 -- ──────────────────────────────────────────────────────────────
 -- 2. returnUrl 화이트리스트 (FeReturnUrlWhitelist)
 --    §12.6 returnUrl 검증 SoR.
---    application.yml ido.fe.allowed-return-urls 와 병행 사용.
+--    application.yml idem_hub.fe.allowed-return-urls 와 병행 사용.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.fe_return_url_whitelist (
+CREATE TABLE IF NOT EXISTS idem_hub.fe_return_url_whitelist (
     id                  SERIAL        NOT NULL,
     url_prefix          VARCHAR(500)  NOT NULL,       -- e.g. https://agency-a.example.com
     description         VARCHAR(200),
@@ -56,12 +56,12 @@ CREATE TABLE IF NOT EXISTS ido.fe_return_url_whitelist (
 );
 
 CREATE INDEX IF NOT EXISTS idx_fe_return_url_active
-    ON ido.fe_return_url_whitelist (active, url_prefix);
+    ON idem_hub.fe_return_url_whitelist (active, url_prefix);
 
-COMMENT ON TABLE ido.fe_return_url_whitelist IS '§12.6 FE returnUrl 화이트리스트 SoR';
+COMMENT ON TABLE idem_hub.fe_return_url_whitelist IS '§12.6 FE returnUrl 화이트리스트 SoR';
 
 -- PoC 초기 화이트리스트
-INSERT INTO ido.fe_return_url_whitelist (url_prefix, description, active) VALUES
+INSERT INTO idem_hub.fe_return_url_whitelist (url_prefix, description, active) VALUES
     ('https://agency-a.example.com', '테스트 기관 A',              TRUE),
     ('https://agency-b.example.com', '테스트 기관 B',              TRUE),
     ('http://localhost:8084',         'agency-stub (PoC)',          TRUE),

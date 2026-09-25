@@ -5,7 +5,7 @@
 
 -- ── 1. CAST 토큰 감사 테이블 ────────────────────────────────────────────────
 -- 발급된 모든 CAST 토큰의 감사 이력 (보안 감사 / GDPR 파기 기준선)
-CREATE TABLE IF NOT EXISTS ido.cast_token_audit (
+CREATE TABLE IF NOT EXISTS idem_hub.cast_token_audit (
     jti              VARCHAR(36)   NOT NULL,                   -- JWT ID (UUID v7) PK
     qim_user_id      VARCHAR(36)   NOT NULL,                   -- OnePass 사용자 ID
     source_agency    VARCHAR(50)   NOT NULL,                   -- 발행 기관 코드 (기관 A)
@@ -24,24 +24,24 @@ CREATE TABLE IF NOT EXISTS ido.cast_token_audit (
 );
 
 -- 인덱스: 사용자별 CAST 토큰 조회 (GDPR 파기 시 userId 기준 삭제)
-CREATE INDEX IF NOT EXISTS idx_cast_audit_qim_user_id ON ido.cast_token_audit(qim_user_id);
+CREATE INDEX IF NOT EXISTS idx_cast_audit_qim_user_id ON idem_hub.cast_token_audit(qim_user_id);
 
 -- 인덱스: 만료 배치 처리 (expired_at < NOW() AND status = 'ISSUED')
-CREATE INDEX IF NOT EXISTS idx_cast_audit_expires_at ON ido.cast_token_audit(expires_at) WHERE status = 'ISSUED';
+CREATE INDEX IF NOT EXISTS idx_cast_audit_expires_at ON idem_hub.cast_token_audit(expires_at) WHERE status = 'ISSUED';
 
 -- 인덱스: 기관별 CAST 토큰 통계
-CREATE INDEX IF NOT EXISTS idx_cast_audit_source_agency ON ido.cast_token_audit(source_agency, issued_at DESC);
-CREATE INDEX IF NOT EXISTS idx_cast_audit_target_agency ON ido.cast_token_audit(target_agency, issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cast_audit_source_agency ON idem_hub.cast_token_audit(source_agency, issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cast_audit_target_agency ON idem_hub.cast_token_audit(target_agency, issued_at DESC);
 
-COMMENT ON TABLE  ido.cast_token_audit                IS 'Cross-Agency SSO CAST 토큰 감사 이력';
-COMMENT ON COLUMN ido.cast_token_audit.jti            IS 'JWT ID (UUID v7) — Redis 1회 소비 키와 동일';
-COMMENT ON COLUMN ido.cast_token_audit.status         IS 'ISSUED: 발급됨, CONSUMED: 기관 B에서 소비됨, EXPIRED: 만료';
+COMMENT ON TABLE  idem_hub.cast_token_audit                IS 'Cross-Agency SSO CAST 토큰 감사 이력';
+COMMENT ON COLUMN idem_hub.cast_token_audit.jti            IS 'JWT ID (UUID v7) — Redis 1회 소비 키와 동일';
+COMMENT ON COLUMN idem_hub.cast_token_audit.status         IS 'ISSUED: 발급됨, CONSUMED: 기관 B에서 소비됨, EXPIRED: 만료';
 
 
 -- ── 2. SSO 세션 연결 테이블 ─────────────────────────────────────────────────
 -- 기관 A → 기관 B Cross-Agency SSO 성공 이력
 -- (CAST 토큰 소비 + HandoffTicket 발급 성공 시 기록)
-CREATE TABLE IF NOT EXISTS ido.sso_session_link (
+CREATE TABLE IF NOT EXISTS idem_hub.sso_session_link (
     id               VARCHAR(36)   NOT NULL DEFAULT gen_random_uuid(),
     cast_jti         VARCHAR(36)   NOT NULL,                   -- 소비된 CAST 토큰 JTI (FK)
     qim_user_id      VARCHAR(36)   NOT NULL,                   -- OnePass 사용자 ID
@@ -54,18 +54,18 @@ CREATE TABLE IF NOT EXISTS ido.sso_session_link (
 
     CONSTRAINT pk_sso_session_link PRIMARY KEY (id),
     CONSTRAINT fk_sso_cast_jti FOREIGN KEY (cast_jti)
-        REFERENCES ido.cast_token_audit(jti) ON DELETE RESTRICT
+        REFERENCES idem_hub.cast_token_audit(jti) ON DELETE RESTRICT
 );
 
 -- 인덱스: 사용자별 SSO 연결 이력
-CREATE INDEX IF NOT EXISTS idx_sso_link_qim_user_id ON ido.sso_session_link(qim_user_id, linked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sso_link_qim_user_id ON idem_hub.sso_session_link(qim_user_id, linked_at DESC);
 
 -- 인덱스: CAST JTI로 연결 이력 조회
-CREATE INDEX IF NOT EXISTS idx_sso_link_cast_jti ON ido.sso_session_link(cast_jti);
+CREATE INDEX IF NOT EXISTS idx_sso_link_cast_jti ON idem_hub.sso_session_link(cast_jti);
 
 -- 인덱스: 기관 A→B 통계
-CREATE INDEX IF NOT EXISTS idx_sso_link_agencies ON ido.sso_session_link(source_agency, target_agency, linked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sso_link_agencies ON idem_hub.sso_session_link(source_agency, target_agency, linked_at DESC);
 
-COMMENT ON TABLE  ido.sso_session_link                 IS 'Cross-Agency SSO 성공 연결 이력';
-COMMENT ON COLUMN ido.sso_session_link.cast_jti        IS '소비된 CAST 토큰 JTI — cast_token_audit 참조';
-COMMENT ON COLUMN ido.sso_session_link.handoff_ticket_id IS '기관 B 진입에 사용된 Handoff Ticket ID';
+COMMENT ON TABLE  idem_hub.sso_session_link                 IS 'Cross-Agency SSO 성공 연결 이력';
+COMMENT ON COLUMN idem_hub.sso_session_link.cast_jti        IS '소비된 CAST 토큰 JTI — cast_token_audit 참조';
+COMMENT ON COLUMN idem_hub.sso_session_link.handoff_ticket_id IS '기관 B 진입에 사용된 Handoff Ticket ID';

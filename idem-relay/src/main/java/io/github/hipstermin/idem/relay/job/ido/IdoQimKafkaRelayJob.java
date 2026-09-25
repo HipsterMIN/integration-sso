@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <h2>ShedLock 락 이름 분리</h2>
  * {@code IdoKafkaRelayJob}과 다른 락 이름({@code "ido-qim-kafka-relay"})을 사용하여
  * 두 Job이 동시에 실행 가능하도록 설계.
- * (ido.outbox를 FOR UPDATE SKIP LOCKED로 파티셔닝하므로 실제 레코드 충돌 없음)
+ * (idem_hub.outbox를 FOR UPDATE SKIP LOCKED로 파티셔닝하므로 실제 레코드 충돌 없음)
  *
  * <h2>주기</h2>
  * 기본 1000ms — Q-IM 이벤트는 Kafka Auth 이벤트보다 처리 지연이 허용 가능.
@@ -123,7 +123,7 @@ public class IdoQimKafkaRelayJob {
     private void markPublished(String eventId, SendResult<String, Object> result) {
         try {
             idoJdbcTemplate.update("""
-                    UPDATE ido.outbox
+                    UPDATE idem_hub.outbox
                     SET status = 'PUBLISHED', published_at = NOW()
                     WHERE event_id = ?
                     """, eventId);
@@ -137,14 +137,14 @@ public class IdoQimKafkaRelayJob {
             int nextRetry = row.retryCount() + 1;
             if (nextRetry >= maxRetry) {
                 idoJdbcTemplate.update("""
-                        UPDATE ido.outbox
+                        UPDATE idem_hub.outbox
                         SET status = 'FAILED', error_message = ?, retry_count = retry_count + 1
                         WHERE event_id = ?
                         """, truncate(ex.getMessage(), 2000), row.eventId());
             } else {
                 long backoffSec = Math.min((long) Math.pow(2, row.retryCount() + 1), 64L);
                 idoJdbcTemplate.update("""
-                        UPDATE ido.outbox
+                        UPDATE idem_hub.outbox
                         SET retry_count = retry_count + 1,
                             error_message = ?,
                             next_retry_at = NOW() + (? || ' seconds')::interval
@@ -161,7 +161,7 @@ public class IdoQimKafkaRelayJob {
         try {
             idoJdbcTemplate.query("""
                     SELECT event_id, partition_key, payload::text, retry_count
-                    FROM ido.outbox
+                    FROM idem_hub.outbox
                     WHERE status = 'PENDING'
                       AND topic = ?
                       AND (next_retry_at IS NULL OR next_retry_at <= NOW())

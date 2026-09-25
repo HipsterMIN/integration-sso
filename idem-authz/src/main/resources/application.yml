@@ -16,9 +16,9 @@ spring:
       fail-on-unknown-properties: false
 
   datasource:
-    url: jdbc:postgresql://${IDEM_AUTHZ_DB_HOST:${DB_HOST:localhost}}:${IDEM_AUTHZ_DB_PORT:${DB_PORT:5432}}/${IDEM_AUTHZ_DB_NAME:${DB_NAME:onepass}}?currentSchema=authz&sslmode=${IDEM_AUTHZ_DB_SSLMODE:disable}
-    username: ${IDEM_AUTHZ_DB_USERNAME:${DB_USERNAME:onepass}}
-    password: ${IDEM_AUTHZ_DB_PASSWORD:${DB_PASSWORD:onepass}}
+    url: jdbc:postgresql://${IDEM_AUTHZ_DB_HOST:${DB_HOST:localhost}}:${IDEM_AUTHZ_DB_PORT:${DB_PORT:5432}}/${IDEM_AUTHZ_DB_NAME:${DB_NAME:idem}}?currentSchema=idem_authz&sslmode=${IDEM_AUTHZ_DB_SSLMODE:disable}
+    username: ${IDEM_AUTHZ_DB_USERNAME:${DB_USERNAME:idem}}
+    password: ${IDEM_AUTHZ_DB_PASSWORD:${DB_PASSWORD:idem}}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: authz-hikari
@@ -38,15 +38,15 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_schema: authz
+        default_schema: idem_authz
         jdbc:
           time_zone: UTC
 
   flyway:
     enabled: true
     locations: classpath:db/migration
-    schemas: authz
-    default-schema: authz
+    schemas: idem_authz
+    default-schema: idem_authz
     baseline-on-migrate: true
     baseline-version: 0
     validate-on-migrate: true

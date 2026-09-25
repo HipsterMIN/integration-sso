@@ -47,7 +47,7 @@ if (!Boolean.TRUE.equals(acquired)) {
 
 ```sql
 -- GatewayInboundRepository.insert()
-INSERT INTO ido.gateway_inbound_audit
+INSERT INTO idem_hub.gateway_inbound_audit
   (idempotency_key, agency_code, event_type, ...)
 VALUES
   (:idempotencyKey, :agencyCode, :eventType, ...)

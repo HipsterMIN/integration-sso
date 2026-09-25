@@ -69,7 +69,7 @@ class OidcRpFlowTest {
     static void start() throws Exception {
         op.start();
         keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
-        issuer = "http://localhost:" + op.port() + "/realms/onepass";
+        issuer = "http://localhost:" + op.port() + "/realms/idem";
     }
 
     @AfterAll static void stop() { op.stop(); }
@@ -87,8 +87,8 @@ class OidcRpFlowTest {
         ReflectionTestUtils.setField(controller, "protocol", "OIDC_RP");
         ReflectionTestUtils.setField(controller, "idleTimeoutMinutes", 30);
         mvc = MockMvcBuilders.standaloneSetup(controller).build();
-        String oc = "/realms/onepass/protocol/openid-connect";
-        op.stubFor(WireMock.get(urlEqualTo("/realms/onepass/.well-known/openid-configuration")).willReturn(json(
+        String oc = "/realms/idem/protocol/openid-connect";
+        op.stubFor(WireMock.get(urlEqualTo("/realms/idem/.well-known/openid-configuration")).willReturn(json(
                 "{\"issuer\":\"" + issuer + "\",\"authorization_endpoint\":\"" + issuer + "/protocol/openid-connect/auth\","
                 + "\"token_endpoint\":\"" + issuer + "/protocol/openid-connect/token\",\"userinfo_endpoint\":\"" + issuer + "/protocol/openid-connect/userinfo\","
                 + "\"jwks_uri\":\"" + issuer + "/protocol/openid-connect/certs\",\"end_session_endpoint\":\"" + issuer + "/protocol/openid-connect/logout\"}")));
@@ -127,11 +127,11 @@ class OidcRpFlowTest {
         long exp = System.currentTimeMillis() / 1000 + 300;
         String idToken = sign("{\"iss\":\"" + issuer + "\",\"aud\":\"idem-svc-AG_SAMPLE\",\"sub\":\"kc-sub\",\"sid\":\"sid-1\",\"nonce\":\"" + nonce
                 + "\",\"exp\":" + exp + ",\"acr\":\"2\",\"idem_service\":\"AG_SAMPLE\"}");
-        op.stubFor(WireMock.post(urlEqualTo("/realms/onepass/protocol/openid-connect/token"))
+        op.stubFor(WireMock.post(urlEqualTo("/realms/idem/protocol/openid-connect/token"))
                 .withHeader("Authorization", containing("Basic "))
                 .withRequestBody(containing("grant_type=authorization_code")).withRequestBody(containing("code_verifier="))
                 .willReturn(json("{\"access_token\":\"at-1\",\"id_token\":\"" + idToken + "\",\"expires_in\":300}")));
-        op.stubFor(WireMock.get(urlEqualTo("/realms/onepass/protocol/openid-connect/userinfo"))
+        op.stubFor(WireMock.get(urlEqualTo("/realms/idem/protocol/openid-connect/userinfo"))
                 .withHeader("Authorization", WireMock.equalTo("Bearer at-1"))
                 .willReturn(json("{\"sub\":\"kc-sub\",\"idem_service\":\"AG_SAMPLE\",\"idem_state\":\"APPROVED\",\"idem_subject\":\"pw-1\",\"idem_user_id\":\"qim-1\",\"idem_roles\":[\"VIEWER\"]}")));
 
@@ -144,7 +144,7 @@ class OidcRpFlowTest {
         assertThat(payload.getValue().getSubject().getAgencySubjectId()).isEqualTo("pw-1");
         assertThat(payload.getValue().getSubject().getQimUserId()).isEqualTo("qim-1");
         assertThat(payload.getValue().getAuthContext().getAuthLevel().name()).isEqualTo("L2");
-        op.verify(1, postRequestedFor(urlEqualTo("/realms/onepass/protocol/openid-connect/token")));
+        op.verify(1, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token")));
 
         // RP-Initiated Logout: 세션의 id_token 으로 end_session_endpoint 에 id_token_hint 를 붙여 보낸다
         given(sessions.findValidSession("raw-agsid")).willReturn(java.util.Optional.of(Map.of("session_id", "sess-1")));
@@ -163,7 +163,7 @@ class OidcRpFlowTest {
     void denied_and_badNonce() throws Exception {
         String state = UriComponentsBuilder.fromUri(URI.create(mvc.perform(get("/agency/oidc/login")).andReturn().getResponse().getHeader("Location")))
                 .build().getQueryParams().getFirst("state");
-        op.stubFor(WireMock.post(urlEqualTo("/realms/onepass/protocol/openid-connect/token"))
+        op.stubFor(WireMock.post(urlEqualTo("/realms/idem/protocol/openid-connect/token"))
                 .willReturn(aResponse().withStatus(403).withHeader("Content-Type", "application/json")
                         .withBody("{\"error\":\"access_denied\",\"error_description\":\"E-IDO-120 미할당\"}")));
         mvc.perform(get("/agency/oidc/callback").param("code", "c1").param("state", state))
@@ -172,7 +172,7 @@ class OidcRpFlowTest {
         String state2 = UriComponentsBuilder.fromUri(URI.create(mvc.perform(get("/agency/oidc/login")).andReturn().getResponse().getHeader("Location")))
                 .build().getQueryParams().getFirst("state");
         String badNonce = sign("{\"iss\":\"" + issuer + "\",\"aud\":\"idem-svc-AG_SAMPLE\",\"sub\":\"kc-sub\",\"nonce\":\"wrong\",\"exp\":" + (System.currentTimeMillis() / 1000 + 300) + "}");
-        op.stubFor(WireMock.post(urlEqualTo("/realms/onepass/protocol/openid-connect/token"))
+        op.stubFor(WireMock.post(urlEqualTo("/realms/idem/protocol/openid-connect/token"))
                 .willReturn(json("{\"access_token\":\"at\",\"id_token\":\"" + badNonce + "\"}")));
         mvc.perform(get("/agency/oidc/callback").param("code", "c2").param("state", state2)).andExpect(status().isForbidden());
         verify(sessions, org.mockito.Mockito.never()).createSession(any(), anyString(), anyString(), any(), any());

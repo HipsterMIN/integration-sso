@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 인가 이벤트 트랜잭셔널 아웃박스 엔터티 — {@code authz.authz_outbox} 매핑.
+ * 인가 이벤트 트랜잭셔널 아웃박스 엔터티 — {@code idem_authz.authz_outbox} 매핑.
  *
  * <p>비즈니스 트랜잭션과 동일 커밋에 적재되어 발행 원자성을 보장한다.
  * 실제 Kafka 발행은 {@code outbox-relay-batch}가 담당하므로 q-authz는

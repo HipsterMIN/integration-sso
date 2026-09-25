@@ -25,7 +25,7 @@
 --   ido 서비스 V19 스크립트와 번호 충돌 방지: 이후 ido V19부터는 V20+로 관리.
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS ido.shedlock (
+CREATE TABLE IF NOT EXISTS idem_hub.shedlock (
     name       VARCHAR(64)                  NOT NULL,
     lock_until TIMESTAMP(3) WITH TIME ZONE  NOT NULL,
     locked_at  TIMESTAMP(3) WITH TIME ZONE  NOT NULL,
@@ -33,22 +33,22 @@ CREATE TABLE IF NOT EXISTS ido.shedlock (
     PRIMARY KEY (name)
 );
 
-COMMENT ON TABLE  ido.shedlock           IS 'ShedLock 분산 락 메타 테이블 — outbox-relay-batch 전용';
-COMMENT ON COLUMN ido.shedlock.name       IS 'Job 이름 (e.g. ido-kafka-relay)';
-COMMENT ON COLUMN ido.shedlock.lock_until IS '락 만료 시각 (lockAtMostFor 기준)';
-COMMENT ON COLUMN ido.shedlock.locked_at  IS '락 획득 시각';
-COMMENT ON COLUMN ido.shedlock.locked_by  IS '락 보유 인스턴스 식별자 (Pod 호스트명)';
+COMMENT ON TABLE  idem_hub.shedlock           IS 'ShedLock 분산 락 메타 테이블 — outbox-relay-batch 전용';
+COMMENT ON COLUMN idem_hub.shedlock.name       IS 'Job 이름 (e.g. ido-kafka-relay)';
+COMMENT ON COLUMN idem_hub.shedlock.lock_until IS '락 만료 시각 (lockAtMostFor 기준)';
+COMMENT ON COLUMN idem_hub.shedlock.locked_at  IS '락 획득 시각';
+COMMENT ON COLUMN idem_hub.shedlock.locked_by  IS '락 보유 인스턴스 식별자 (Pod 호스트명)';
 
 -- 만료 락 정리 쿼리 최적화 인덱스
 CREATE INDEX IF NOT EXISTS idx_shedlock_lock_until
-    ON ido.shedlock (lock_until);
+    ON idem_hub.shedlock (lock_until);
 
 -- ============================================================================
 -- 초기 락 레코드 시드 (선택적 — Job 이름 목록 가시성 확보)
 -- ShedLock은 첫 실행 시 INSERT하므로 사전 시드 불필요.
 -- 운영팀 모니터링 용이성을 위해 빈 레코드 삽입.
 -- ============================================================================
--- INSERT INTO ido.shedlock (name, lock_until, locked_at, locked_by) VALUES
+-- INSERT INTO idem_hub.shedlock (name, lock_until, locked_at, locked_by) VALUES
 --     ('ido-kafka-relay',         NOW() - INTERVAL '1 hour', NOW(), 'init'),
 --     ('ido-qim-kafka-relay',     NOW() - INTERVAL '1 hour', NOW(), 'init'),
 --     ('qim-kafka-relay',         NOW() - INTERVAL '1 hour', NOW(), 'init'),

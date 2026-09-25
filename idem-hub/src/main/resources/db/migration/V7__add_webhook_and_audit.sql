@@ -7,10 +7,10 @@
 --   IdO가 내부 Kafka를 구독한 뒤 기관 webhook endpoint로
 --   HTTPS POST를 보내는 "Webhook Dispatcher" 패턴을 채택.
 --
---   [Kafka] ido.handoff.events  ─► [IdO HandoffEventConsumer]
+--   [Kafka] idem_hub.handoff.events  ─► [IdO HandoffEventConsumer]
 --                                       │
 --                                       ▼
---                              ido.webhook_dispatch_outbox  (이 파일)
+--                              idem_hub.webhook_dispatch_outbox  (이 파일)
 --                                       │
 --                                       ▼
 --                              [WebhookDispatchOutboxRelay]
@@ -19,27 +19,27 @@
 --                              외부 기관 webhook endpoint
 --
 -- 변경 내용:
---   1. ido.agency_webhook_config  : 기관별 webhook 설정 (endpoint, secret, retry 정책)
---   2. ido.webhook_dispatch_outbox: webhook 발송 outbox (at-least-once 보장)
---   3. ido.auth_result_burst_cache: 인증 완료 이벤트 Redis pre-warming 보조 감사
---   4. ido.audit_log              : platform.audit.log 로컬 저장 (감사 요건 2년)
---   5. ido.agency_meta 컬럼 추가  : webhook_enabled, webhook_endpoint
+--   1. idem_hub.agency_webhook_config  : 기관별 webhook 설정 (endpoint, secret, retry 정책)
+--   2. idem_hub.webhook_dispatch_outbox: webhook 발송 outbox (at-least-once 보장)
+--   3. idem_hub.auth_result_burst_cache: 인증 완료 이벤트 Redis pre-warming 보조 감사
+--   4. idem_hub.audit_log              : platform.audit.log 로컬 저장 (감사 요건 2년)
+--   5. idem_hub.agency_meta 컬럼 추가  : webhook_enabled, webhook_endpoint
 -- ============================================================
 
 -- ──────────────────────────────────────────────────────────────
--- 1. ido.agency_meta 에 webhook 관련 컬럼 추가
+-- 1. idem_hub.agency_meta 에 webhook 관련 컬럼 추가
 --    기존 테이블에 webhook 활성화 여부와 기본 endpoint URL 추가.
 --    세부 설정은 agency_webhook_config 에 별도 관리.
 -- ──────────────────────────────────────────────────────────────
-ALTER TABLE ido.agency_meta
+ALTER TABLE idem_hub.agency_meta
     ADD COLUMN IF NOT EXISTS webhook_enabled   BOOLEAN      NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS webhook_endpoint  VARCHAR(500);
 
-COMMENT ON COLUMN ido.agency_meta.webhook_enabled  IS 'true = Handoff/Advisory 이벤트를 webhook으로 push';
-COMMENT ON COLUMN ido.agency_meta.webhook_endpoint IS '기관 webhook 수신 endpoint URL (HTTPS 필수 — 운영)';
+COMMENT ON COLUMN idem_hub.agency_meta.webhook_enabled  IS 'true = Handoff/Advisory 이벤트를 webhook으로 push';
+COMMENT ON COLUMN idem_hub.agency_meta.webhook_endpoint IS '기관 webhook 수신 endpoint URL (HTTPS 필수 — 운영)';
 
 -- PoC: agency-stub webhook 활성화 (개발용 HTTP 허용)
-UPDATE ido.agency_meta
+UPDATE idem_hub.agency_meta
 SET    webhook_enabled  = TRUE,
        webhook_endpoint = 'http://localhost:8084/webhook/handoff'
 WHERE  agency_code = 'AGENCY_STUB_001';
@@ -50,7 +50,7 @@ WHERE  agency_code = 'AGENCY_STUB_001';
 --    agency_meta.webhook_endpoint 는 기본값,
 --    이 테이블에 row 가 있으면 여기 설정이 우선한다.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.agency_webhook_config (
+CREATE TABLE IF NOT EXISTS idem_hub.agency_webhook_config (
     agency_code             VARCHAR(50)   NOT NULL,
 
     -- Webhook endpoint (agency_meta.webhook_endpoint 오버라이드 가능)
@@ -81,18 +81,18 @@ CREATE TABLE IF NOT EXISTS ido.agency_webhook_config (
 
     CONSTRAINT pk_agency_webhook_config PRIMARY KEY (agency_code),
     CONSTRAINT fk_webhook_agency
-        FOREIGN KEY (agency_code) REFERENCES ido.agency_meta (agency_code)
+        FOREIGN KEY (agency_code) REFERENCES idem_hub.agency_meta (agency_code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_agency_webhook_active
-    ON ido.agency_webhook_config (active);
+    ON idem_hub.agency_webhook_config (active);
 
-COMMENT ON TABLE  ido.agency_webhook_config                  IS '기관별 webhook 발송 상세 설정';
-COMMENT ON COLUMN ido.agency_webhook_config.signing_secret_hash IS 'SHA-256(raw_secret) — 평문 저장 금지; 발송 시 원본 사용 (환경변수/Vault)';
-COMMENT ON COLUMN ido.agency_webhook_config.event_type_filter   IS 'NULL이면 모든 이벤트 발송; 배열 지정 시 해당 타입만 발송';
+COMMENT ON TABLE  idem_hub.agency_webhook_config                  IS '기관별 webhook 발송 상세 설정';
+COMMENT ON COLUMN idem_hub.agency_webhook_config.signing_secret_hash IS 'SHA-256(raw_secret) — 평문 저장 금지; 발송 시 원본 사용 (환경변수/Vault)';
+COMMENT ON COLUMN idem_hub.agency_webhook_config.event_type_filter   IS 'NULL이면 모든 이벤트 발송; 배열 지정 시 해당 타입만 발송';
 
 -- PoC stub 기관 webhook 설정
-INSERT INTO ido.agency_webhook_config
+INSERT INTO idem_hub.agency_webhook_config
     (agency_code, endpoint_url, signing_secret_hash,
      connect_timeout_ms, read_timeout_ms, max_retry_count, active)
 VALUES
@@ -107,7 +107,7 @@ ON CONFLICT (agency_code) DO NOTHING;
 --    Transactional Outbox 패턴으로 webhook at-least-once 보장.
 --    WebhookDispatchOutboxRelay 가 PENDING 레코드를 읽어 HTTP POST.
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.webhook_dispatch_outbox (
+CREATE TABLE IF NOT EXISTS idem_hub.webhook_dispatch_outbox (
     dispatch_id             VARCHAR(36)   NOT NULL,   -- UUIDv4
 
     -- 발송 대상
@@ -146,21 +146,21 @@ CREATE TABLE IF NOT EXISTS ido.webhook_dispatch_outbox (
 
 -- 발송 대기 조회 인덱스 (FOR UPDATE SKIP LOCKED 최적화)
 CREATE INDEX IF NOT EXISTS idx_webhook_outbox_pending
-    ON ido.webhook_dispatch_outbox (status, next_retry_at ASC)
+    ON idem_hub.webhook_dispatch_outbox (status, next_retry_at ASC)
     WHERE status = 'PENDING';
 
 -- 기관별 이력 조회
 CREATE INDEX IF NOT EXISTS idx_webhook_outbox_agency
-    ON ido.webhook_dispatch_outbox (agency_code, created_at DESC);
+    ON idem_hub.webhook_dispatch_outbox (agency_code, created_at DESC);
 
 -- 원본 이벤트 중복 방지 (source_event_id + agency_code 유니크)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_webhook_outbox_source_event
-    ON ido.webhook_dispatch_outbox (source_event_id, agency_code);
+    ON idem_hub.webhook_dispatch_outbox (source_event_id, agency_code);
 
-COMMENT ON TABLE  ido.webhook_dispatch_outbox                  IS 'Webhook 발송 Outbox — at-least-once HTTPS POST 보장';
-COMMENT ON COLUMN ido.webhook_dispatch_outbox.source_event_id  IS '원본 Kafka eventId — 중복 발행 방지 unique 제약';
-COMMENT ON COLUMN ido.webhook_dispatch_outbox.next_retry_at    IS '지수 백오프 적용 다음 재시도 시각 (NULL = 즉시)';
-COMMENT ON COLUMN ido.webhook_dispatch_outbox.last_http_status IS '마지막 HTTP 응답 코드 (200/404/500 등)';
+COMMENT ON TABLE  idem_hub.webhook_dispatch_outbox                  IS 'Webhook 발송 Outbox — at-least-once HTTPS POST 보장';
+COMMENT ON COLUMN idem_hub.webhook_dispatch_outbox.source_event_id  IS '원본 Kafka eventId — 중복 발행 방지 unique 제약';
+COMMENT ON COLUMN idem_hub.webhook_dispatch_outbox.next_retry_at    IS '지수 백오프 적용 다음 재시도 시각 (NULL = 즉시)';
+COMMENT ON COLUMN idem_hub.webhook_dispatch_outbox.last_http_status IS '마지막 HTTP 응답 코드 (200/404/500 등)';
 
 -- ──────────────────────────────────────────────────────────────
 -- 4. 플랫폼 감사 로그 (audit_log)
@@ -168,7 +168,7 @@ COMMENT ON COLUMN ido.webhook_dispatch_outbox.last_http_status IS '마지막 HTT
 --    법적 보존 요건: 2년.
 --    삭제/수정 금지 (INSERT ONLY).
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.audit_log (
+CREATE TABLE IF NOT EXISTS idem_hub.audit_log (
     audit_id                VARCHAR(36)   NOT NULL,   -- UUIDv4
 
     -- 이벤트 분류
@@ -213,28 +213,28 @@ CREATE TABLE IF NOT EXISTS ido.audit_log (
 
 -- 감사 조회용 인덱스
 CREATE INDEX IF NOT EXISTS idx_audit_log_category_action
-    ON ido.audit_log (event_category, event_action, occurred_at DESC);
+    ON idem_hub.audit_log (event_category, event_action, occurred_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_actor
-    ON ido.audit_log (actor_id, occurred_at DESC)
+    ON idem_hub.audit_log (actor_id, occurred_at DESC)
     WHERE actor_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_agency
-    ON ido.audit_log (agency_code, occurred_at DESC)
+    ON idem_hub.audit_log (agency_code, occurred_at DESC)
     WHERE agency_code IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_correlation
-    ON ido.audit_log (correlation_id)
+    ON idem_hub.audit_log (correlation_id)
     WHERE correlation_id IS NOT NULL;
 
 -- Kafka 미발행 재처리 인덱스
 CREATE INDEX IF NOT EXISTS idx_audit_log_kafka_pending
-    ON ido.audit_log (kafka_published, occurred_at ASC)
+    ON idem_hub.audit_log (kafka_published, occurred_at ASC)
     WHERE kafka_published = FALSE;
 
-COMMENT ON TABLE  ido.audit_log                    IS '플랫폼 전역 감사 로그 — INSERT ONLY, 2년 보존';
-COMMENT ON COLUMN ido.audit_log.kafka_published    IS 'platform.audit.log Kafka 발행 완료 여부 (false = 재시도 대상)';
-COMMENT ON COLUMN ido.audit_log.metadata           IS '개인정보 포함 금지; CI/DN 대신 identifierHash 사용';
+COMMENT ON TABLE  idem_hub.audit_log                    IS '플랫폼 전역 감사 로그 — INSERT ONLY, 2년 보존';
+COMMENT ON COLUMN idem_hub.audit_log.kafka_published    IS 'platform.audit.log Kafka 발행 완료 여부 (false = 재시도 대상)';
+COMMENT ON COLUMN idem_hub.audit_log.metadata           IS '개인정보 포함 금지; CI/DN 대신 identifierHash 사용';
 
 -- ──────────────────────────────────────────────────────────────
 -- 5. 회원 조회 요청 이벤트 (member_lookup_request)
@@ -244,10 +244,10 @@ COMMENT ON COLUMN ido.audit_log.metadata           IS '개인정보 포함 금�
 --    흐름:
 --      기관 → HTTPS POST /api/v1/member/lookup
 --               → MemberLookupService (즉시 응답 or 비동기)
---               → Kafka: ido.member.lookup.requests 발행
+--               → Kafka: idem_hub.member.lookup.requests 발행
 --               → (내부) 응답 캐시 후 webhook push 또는 polling
 -- ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS ido.member_lookup_request (
+CREATE TABLE IF NOT EXISTS idem_hub.member_lookup_request (
     request_id              VARCHAR(36)   NOT NULL,   -- UUIDv4
     agency_code             VARCHAR(50)   NOT NULL,
     correlation_id          VARCHAR(36)   NOT NULL,
@@ -282,10 +282,10 @@ CREATE TABLE IF NOT EXISTS ido.member_lookup_request (
 );
 
 CREATE INDEX IF NOT EXISTS idx_member_lookup_agency
-    ON ido.member_lookup_request (agency_code, created_at DESC);
+    ON idem_hub.member_lookup_request (agency_code, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_member_lookup_hash
-    ON ido.member_lookup_request (identifier_hash);
+    ON idem_hub.member_lookup_request (identifier_hash);
 
-COMMENT ON TABLE  ido.member_lookup_request              IS '유관기관 CI/DN 회원 조회 요청 추적';
-COMMENT ON COLUMN ido.member_lookup_request.identifier_hash IS 'SHA-256(CI|DN|BRNO) — 원본 식별자 저장 금지';
+COMMENT ON TABLE  idem_hub.member_lookup_request              IS '유관기관 CI/DN 회원 조회 요청 추적';
+COMMENT ON COLUMN idem_hub.member_lookup_request.identifier_hash IS 'SHA-256(CI|DN|BRNO) — 원본 식별자 저장 금지';

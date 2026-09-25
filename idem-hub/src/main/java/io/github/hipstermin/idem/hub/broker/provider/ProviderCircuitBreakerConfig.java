@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
  * <p><b>설계</b>:
  * <ol>
  *   <li>Resilience4j {@link CircuitBreakerRegistry}에 provider_code 별 인스턴스 등록</li>
- *   <li>인스턴스 설정은 {@code ido.provider_circuit_config} DB 테이블에서 로드 (V10 신규)</li>
+ *   <li>인스턴스 설정은 {@code idem_hub.provider_circuit_config} DB 테이블에서 로드 (V10 신규)</li>
  *   <li>DB 설정 없으면 {@code application.yml} 의 {@code keycloak-client} 기본값 상속</li>
  *   <li>인스턴스는 최초 요청 시 lazy 생성 + {@link ConcurrentHashMap} 메모리 캐시</li>
  * </ol>
@@ -107,7 +107,7 @@ public class ProviderCircuitBreakerConfig {
                            slow_call_rate_threshold, slow_call_duration_threshold_ms,
                            wait_duration_in_open_ms, permitted_calls_in_half_open,
                            minimum_number_of_calls, enabled
-                    FROM ido.provider_circuit_config
+                    FROM idem_hub.provider_circuit_config
                     WHERE provider_code = ? AND enabled = TRUE
                     """,
                     rs -> {

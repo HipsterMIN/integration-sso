@@ -27,8 +27,8 @@ class SecurityHeadersFilterOidcFrontTest {
 
     @Test
     void proxiedKeycloakPaths_skipFilter() throws Exception {
-        assertThat(run("/realms/onepass/protocol/openid-connect/auth").getHeader("Content-Security-Policy")).isNull();
-        assertThat(run("/realms/onepass/login-actions/authenticate").getHeader("X-Frame-Options")).isNull();
+        assertThat(run("/realms/idem/protocol/openid-connect/auth").getHeader("Content-Security-Policy")).isNull();
+        assertThat(run("/realms/idem/login-actions/authenticate").getHeader("X-Frame-Options")).isNull();
         assertThat(run("/resources/abc/login/keycloak/css/login.css").getHeader("Content-Security-Policy")).isNull();
     }
 

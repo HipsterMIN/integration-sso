@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
  * 설계서 §9.3 — DB 트랜잭션과 Kafka 발행 원자성 보장
  */
 @Entity
-@Table(name = "outbox", schema = "qsign")
+@Table(name = "outbox", schema = "idem_gate")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class QSignOutboxRecord {

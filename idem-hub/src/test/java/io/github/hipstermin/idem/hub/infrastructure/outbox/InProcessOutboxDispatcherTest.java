@@ -26,7 +26,7 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * D1-b: Kafka 없는 배포에서 ido.outbox 레코드가 토픽별로 같은 프로세스의 컨슈머 진입점으로 배달되는지.
+ * D1-b: Kafka 없는 배포에서 idem_hub.outbox 레코드가 토픽별로 같은 프로세스의 컨슈머 진입점으로 배달되는지.
  * ObjectMapper 는 Boot 가 만드는 것과 같은 빌더(파라미터 이름 모듈 포함)로 만든다 — 이벤트 클래스는 @JsonCreator 없이
  * 생성자 파라미터 이름으로 역직렬화된다.
  */

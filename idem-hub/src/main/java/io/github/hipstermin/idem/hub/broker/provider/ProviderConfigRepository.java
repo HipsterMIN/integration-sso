@@ -8,9 +8,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * ido.provider_config 테이블 접근 레포지토리
+ * idem_hub.provider_config 테이블 접근 레포지토리
  *
- * <p>V3 + V6 마이그레이션으로 생성된 {@code ido.provider_config} 에서 설정을 로드.
+ * <p>V3 + V6 마이그레이션으로 생성된 {@code idem_hub.provider_config} 에서 설정을 로드.
  * Spring Cache(@Cacheable)로 TTL 기반 캐싱 — DB 조회 최소화.
  *
  * <p>캐시 키: {@code provider-config::{providerCode}}
@@ -36,7 +36,7 @@ public class ProviderConfigRepository {
             return jdbcTemplate.query("""
                     SELECT provider_code, display_name, auth_level,
                            broker_mode, idp_hint, provider_type, active
-                    FROM ido.provider_config
+                    FROM idem_hub.provider_config
                     WHERE provider_code = ? AND active = TRUE
                     """,
                     rs -> {

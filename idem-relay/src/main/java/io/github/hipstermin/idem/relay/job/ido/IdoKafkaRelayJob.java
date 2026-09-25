@@ -139,7 +139,7 @@ public class IdoKafkaRelayJob {
 
     private RelayResult dispatchToKafka(OutboxRow row) {
         try {
-            // payload → Map (타입 무관 — ido.outbox에는 AuthEvent/QIM 이벤트 혼재)
+            // payload → Map (타입 무관 — idem_hub.outbox에는 AuthEvent/QIM 이벤트 혼재)
             Map<String, Object> payload = objectMapper.readValue(row.payload(), MAP_TYPE_REF);
 
             CompletableFuture<SendResult<String, Object>> future =
@@ -166,7 +166,7 @@ public class IdoKafkaRelayJob {
     private void markPublished(String eventId, SendResult<String, Object> result) {
         try {
             idoJdbcTemplate.update("""
-                    UPDATE ido.outbox
+                    UPDATE idem_hub.outbox
                     SET status = 'PUBLISHED', published_at = NOW()
                     WHERE event_id = ?
                     """, eventId);
@@ -184,7 +184,7 @@ public class IdoKafkaRelayJob {
             int nextRetry = row.retryCount() + 1;
             if (nextRetry >= maxRetry) {
                 idoJdbcTemplate.update("""
-                        UPDATE ido.outbox
+                        UPDATE idem_hub.outbox
                         SET status = 'FAILED',
                             error_message = ?,
                             retry_count = retry_count + 1
@@ -196,7 +196,7 @@ public class IdoKafkaRelayJob {
                 // 지수 백오프: 2^retryCount 초
                 long backoffSec = Math.min((long) Math.pow(2, row.retryCount() + 1), 64L);
                 idoJdbcTemplate.update("""
-                        UPDATE ido.outbox
+                        UPDATE idem_hub.outbox
                         SET retry_count   = retry_count + 1,
                             error_message = ?,
                             next_retry_at = NOW() + (? || ' seconds')::interval
@@ -223,7 +223,7 @@ public class IdoKafkaRelayJob {
         String sql = """
                 SELECT event_id, event_type, partition_key, topic,
                        payload::text, retry_count, next_retry_at
-                FROM ido.outbox
+                FROM idem_hub.outbox
                 WHERE status = 'PENDING'
                   AND topic NOT IN (%s)
                   AND (next_retry_at IS NULL OR next_retry_at <= NOW())

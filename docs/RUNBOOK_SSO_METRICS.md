@@ -96,12 +96,12 @@ management:
 
 ---
 
-### 1.3 KMS 가용성 — `onepass_kms_healthy` (신규 Gauge)
+### 1.3 KMS 가용성 — `idem_kms_healthy` (신규 Gauge)
 
 | 항목 | 값 |
 |------|-----|
 | 모듈 | ido (`infrastructure/health/VaultKmsHealthIndicator` 재활용) |
-| 원천 메트릭 | `onepass_kms_healthy` (Gauge: UP=1, DOWN/UNKNOWN=0) |
+| 원천 메트릭 | `idem_kms_healthy` (Gauge: UP=1, DOWN/UNKNOWN=0) |
 | 구현 | `idem-hub/.../metrics/KmsHealthMetrics.java` (신규 — 약 80 LOC) |
 | 본질 매핑 | "개인정보가 안전한가" |
 
@@ -110,18 +110,18 @@ management:
 
 **PromQL — KMS UP 여부**:
 ```promql
-onepass_kms_healthy
+idem_kms_healthy
 ```
 
 **PromQL — KMS 다운 시간 비율 (24시간)**:
 ```promql
-1 - avg_over_time(onepass_kms_healthy[24h])
+1 - avg_over_time(idem_kms_healthy[24h])
 ```
 
 **알람 권장 임계값**:
 | 심각도 | 조건 | 지속 시간 | 대응 |
 |--------|------|----------|------|
-| **critical** | `onepass_kms_healthy == 0` | 1분 | 새벽 호출 — ID 핸드오프 암호화 불가 상태, Vault/KMS 즉시 복구 |
+| **critical** | `idem_kms_healthy == 0` | 1분 | 새벽 호출 — ID 핸드오프 암호화 불가 상태, Vault/KMS 즉시 복구 |
 | **warning** | (별도 없음) | — | Critical 단일화 |
 
 ---
@@ -138,7 +138,7 @@ onepass_kms_healthy
 ├────────────────────────────────────┴────────────────────────────────────┤
 │  Panel 3: KMS Healthy (UP=1/DOWN=0)                                     │
 │  Stat panel, red if 0                                                    │
-│  PromQL: onepass_kms_healthy                                            │
+│  PromQL: idem_kms_healthy                                            │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -163,7 +163,7 @@ onepass_kms_healthy
 | `QSignServiceDown` | `up{job="q-sign"}==0` | 2m | §1.1 인증 |
 | `QimServiceDown` | `up{job="q-im"}==0` | 2m | §1 식별·매핑 |
 | `AuthSuccessRateLow` | 인증 성공률 < 90% | 5m | **§1.1** (PR-B1-new) |
-| `KmsUnavailable` | `onepass_kms_healthy==0` | 2m | **§1.3** (PR-B1-new) |
+| `KmsUnavailable` | `idem_kms_healthy==0` | 2m | **§1.3** (PR-B1-new) |
 
 > **for=30s → 2m 완화 사유**: K8s 롤링 업데이트 / HPA 스케일 시 Pod 일시 다운으로 인한 거짓경보 방지
 
@@ -197,7 +197,7 @@ onepass_kms_healthy
 |---|---|---|
 | `auth.success.rate` (§1.1) | `AuthSuccessRateLow` ✅ | — |
 | `handoff.latency.p95` (§1.2) | — | `HandoffLatencyHigh` ✅ |
-| `onepass_kms_healthy` (§1.3) | `KmsUnavailable` ✅ | — |
+| `idem_kms_healthy` (§1.3) | `KmsUnavailable` ✅ | — |
 
 → **본질 메트릭 3종 전부 알람 연결 완료**. PR-B1-new에서 만든 메트릭이 PR-B2-new에서 운영 신호로 완성됨.
 
@@ -215,7 +215,7 @@ curl -s 'http://prom:9090/api/v1/query?query=sum(rate(auth_success_total[1h]))/(
 curl -s 'http://prom:9090/api/v1/query?query=histogram_quantile(0.95,sum%20by%20(le)(rate(http_server_requests_seconds_bucket{uri=%22/api/v1/handoff/issue%22}[1h])))'
 
 # 3. KMS 가용성 (현재)
-curl -s 'http://prom:9090/api/v1/query?query=onepass_kms_healthy'
+curl -s 'http://prom:9090/api/v1/query?query=idem_kms_healthy'
 ```
 
 세 값이 정상이면 SSO/IM 본질은 건강한 상태다. 인프라/JVM 메트릭은 별도 시점에 확인한다.

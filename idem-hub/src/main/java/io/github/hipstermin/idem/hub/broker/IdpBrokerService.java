@@ -9,7 +9,7 @@ import io.github.hipstermin.idem.common.domain.IdOAuthInput;
  * 역할 (Option 3 확정 — IdO 직접 처리):
  *   - 외부 IdP 호출·응답 중계·정규화·보안 검증
  *   - normalizeResponse() 내부에서 NonOidcAuthService.processAuth() 직접 호출
- *     → ido.auth_result 생성 + idem.gate.auth.events Kafka 발행 (Strategy B)
+ *     → idem_hub.auth_result 생성 + idem.gate.auth.events Kafka 발행 (Strategy B)
  *   - Q-Sign으로 전달하지 않음 (이전 "Q-Sign 전달" 설명 폐기)
  *   - Circuit Breaker 보호: keycloak-client (설계서 §11.6.5)
  *
@@ -35,7 +35,7 @@ public interface IdpBrokerService {
      *
      * <p>구현체({@link io.github.hipstermin.idem.hub.broker.nonoidc.NonOidcBrokerAdapter})에서
      * {@code NonOidcAuthService.processAuth()}를 직접 호출하여
-     * {@code ido.auth_result} 저장 + Kafka 발행까지 완료한다.
+     * {@code idem_hub.auth_result} 저장 + Kafka 발행까지 완료한다.
      *
      * @param providerCode  인증 수단 코드
      * @param correlationId 흐름 추적 ID

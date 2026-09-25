@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-/** 감사 로그 검색 ({@code ido.audit_log}) — 기간·분류·행위·주체·기관·결과 (execution-plan P1 §3.2 "검토"). */
+/** 감사 로그 검색 ({@code idem_hub.audit_log}) — 기간·분류·행위·주체·기관·결과 (execution-plan P1 §3.2 "검토"). */
 @Service
 @RequiredArgsConstructor
 public class AuditQueryService {
@@ -37,14 +37,14 @@ public class AuditQueryService {
 
         int size = Math.max(1, Math.min(q.size(), MAX_SIZE));
         int page = Math.max(0, q.page());
-        Long total = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ido.audit_log" + where, Long.class, args.toArray());
+        Long total = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM idem_hub.audit_log" + where, Long.class, args.toArray());
         List<Object> pageArgs = new ArrayList<>(args);
         pageArgs.add(size);
         pageArgs.add(page * size);
         List<Map<String, Object>> items = jdbcTemplate.query(
                 "SELECT audit_id, event_category, event_action, actor_type, actor_id, resource_type, resource_id, agency_code, "
                         + "correlation_id, source_system, source_ip, outcome, outcome_detail, metadata::text AS metadata, occurred_at "
-                        + "FROM ido.audit_log" + where + " ORDER BY occurred_at DESC LIMIT ? OFFSET ?",
+                        + "FROM idem_hub.audit_log" + where + " ORDER BY occurred_at DESC LIMIT ? OFFSET ?",
                 (rs, i) -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("auditId", rs.getString("audit_id"));

@@ -123,7 +123,7 @@ IDEM_HUB_CRYPTO_ROTATION_ENABLED=false  # 수동으로 K8s Secret 업데이트
 ```sql
 -- 마지막 키 로테이션 시점 확인
 SELECT created_at, extra_json
-FROM ido.audit_log
+FROM idem_hub.audit_log
 WHERE event_type = 'CRYPTO_KEY_ROTATED'
 ORDER BY created_at DESC
 LIMIT 5;

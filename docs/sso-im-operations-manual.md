@@ -23,10 +23,10 @@ OnePass는 다음 5개 서비스로 구성된다(`infra/docker/docker-compose.ym
 
 | 서비스 | 모듈 | 포트 | DB | 비고 |
 |---|---|---|---|---|
-| Q-Sign | `idem-gate/` | 8081 | PostgreSQL `onepass` (schema: `qsign`) | 인증 결과 SoR, Keycloak OIDC 클라이언트 |
+| Q-Sign | `idem-gate/` | 8081 | PostgreSQL `idem` (schema: `idem_gate`) | 인증 결과 SoR, Keycloak OIDC 클라이언트 |
 | Q-IM | `idem-registry/` | 8082 | PostgreSQL 16 스키마 `qim` (D1: MariaDB 제거) | 식별·매핑 SoR (회원·동의·후견·CI) |
-| IdO | `idem-hub/` | 8083 | PostgreSQL `onepass` (schema: `ido`) | 정책 오케스트레이터 + FE BFF + Webhook Dispatcher |
-| Agency-Stub | `idem-tenant-sample/` | 8084 | PostgreSQL `onepass` | 유관기관 OIDC 클라이언트 시뮬레이터 |
+| IdO | `idem-hub/` | 8083 | PostgreSQL `idem` (schema: `idem_hub`) | 정책 오케스트레이터 + FE BFF + Webhook Dispatcher |
+| Agency-Stub | `idem-tenant-sample/` | 8084 | PostgreSQL `idem` (schema: `agency_stub`) | 유관기관 OIDC 클라이언트 시뮬레이터 |
 | React SPA | `idem-console/` | 3001 (Nginx) | — | `Dockerfile.optionB` 사용 |
 
 공통 인프라(`docker-compose.yml`):
@@ -136,7 +136,7 @@ openssl rand -hex 32      # IDEM_REGISTRY_DI_SECRET / IDEM_REGISTRY_INTERNAL_API
 | `KAFKA_SERVERS` | Kafka bootstrap | — |
 | `IDEM_HUB_HANDOFF_AES_KEY` / `IDEM_HUB_HANDOFF_HMAC_KEY` | Handoff Ticket 폴백 키 (Base64 32바이트) | **예** — `KeyVersionRegistry.validateFallbackKeys()` |
 | `IDEM_HUB_WEBHOOK_SIGNING_SECRET` | Webhook HMAC-SHA256 서명 키 | **예** — `WebhookDispatcherService.validateSigningSecret()` |
-| `KEYCLOAK_CLIENT_SECRET` | Keycloak ido-client 시크릿 | **예** — `KeycloakProperties.validateClientSecret()` |
+| `KEYCLOAK_CLIENT_SECRET` | Keycloak client `idem-hub` 시크릿 | **예** — `KeycloakProperties.validateClientSecret()` |
 | `IDEM_HUB_INTERNAL_SIG_SECRET` | Q-Sign HMAC 공유키 (≥32자) | — |
 | `IDEM_HUB_REGISTRY_INTERNAL_API_KEY` | Q-IM 내부 호출 키 (Q-IM과 동일값) | — |
 | `IDEM_HUB_REGISTRY_EXT_API_KEY` | Q-IM 외부 API Key (FE 대리 호출) | — |
@@ -198,9 +198,9 @@ openssl rand -hex 32      # IDEM_REGISTRY_DI_SECRET / IDEM_REGISTRY_INTERNAL_API
 
 prod/stage 에서 **반드시 true** 여야 하는 것: `IDEM_HUB_AUDIT_DB_ENABLED`, `IDEM_HUB_SECURITY_HEADERS_ENABLED`, `IDEM_HUB_AUTH_RL_ENABLED`, `IDEM_HUB_RATE_LIMIT_ENABLED`, `IDEM_HUB_REDISSON_ENABLED`.
 
-**런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응 · `E-IDO-121` 연동 유형 불일치 — 400, OIDC_RP 기관에 Handoff 발급 요청 · `E-IDO-122` OIDC client 프로비저닝 실패 — 503, Keycloak 관리 API 장애 또는 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 미설정, 프로파일 저장이 되돌려진다 · `E-IDO-123` Idem 이 프로비저닝하지 않은 OIDC client — 403, 토큰 교환의 `client_id` 가 `idem-svc-*` 가 아니거나 프로파일이 OIDC_RP 가 아님 · **관리자 인증(S7, `docs/admin-auth.md`)**: `E-IDO-130` 401 관리자 세션 없음/만료 · `E-IDO-131` 403 권한 없음·`X-Requested-With` 없는 쓰기·테넌트 범위 밖 · `E-IDO-132` 401 로그인 실패 · `E-IDO-133` 423 계정 잠김(5회→15분, `POST /api/v1/admin/admins/{id}/unlock`)·비활성 · `E-IDO-134` 401 2단계 실패·대기 토큰 만료 · `E-IDO-135` 400 비밀번호 정책 위반 · `E-IDO-136` 409 마지막 SYSTEM_ADMIN 강등 불가 · `E-IDO-137` 403 첫 로그인 비밀번호 변경 필요 · `E-IDO-138` 404 관리자 없음 · `E-IDO-139` 409 사용자명 중복): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
+**런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응 · `E-IDO-121` 연동 유형 불일치 — 400, OIDC_RP 기관에 Handoff 발급 요청 · `E-IDO-122` OIDC client 프로비저닝 실패 — 503, Keycloak 관리 API 장애 또는 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 미설정, 프로파일 저장이 되돌려진다 · `E-IDO-123` Idem 이 프로비저닝하지 않은 OIDC client — 403, 토큰 교환의 `client_id` 가 `idem-svc-*` 가 아니거나 프로파일이 OIDC_RP 가 아님 · **관리자 인증(S7, `docs/admin-auth.md`)**: `E-IDO-130` 401 관리자 세션 없음/만료 · `E-IDO-131` 403 권한 없음·`X-Requested-With` 없는 쓰기·테넌트 범위 밖 · `E-IDO-132` 401 로그인 실패 · `E-IDO-133` 423 계정 잠김(5회→15분, `POST /api/v1/admin/admins/{id}/unlock`)·비활성 · `E-IDO-134` 401 2단계 실패·대기 토큰 만료 · `E-IDO-135` 400 비밀번호 정책 위반 · `E-IDO-136` 409 마지막 SYSTEM_ADMIN 강등 불가 · `E-IDO-137` 403 첫 로그인 비밀번호 변경 필요 · `E-IDO-138` 404 관리자 없음 · `E-IDO-139` 409 사용자명 중복): 감사 로그(`idem_hub.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
 
-**단일 로그아웃 (S6 PR-2)**: `POST /api/v1/slo/initiate` 는 FE 세션이 기억한 Keycloak `sid` 로 정확히 그 세션을 끊는다(gate `[KeycloakLogout] 세션 종료(sid)`). gate 로그에 `KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET 이 설정되지 않아` 가 보이면 FE 세션만 끝나고 Keycloak 세션이 남는 상태다. 기관 RP 의 로그아웃이 Idem FE 세션까지 끝내는지는 gate `[BC-LOGOUT] 수신 처리` 와 hub `[IdpLogout] FE 세션 만료` 로 확인한다 — realm 의 내부 client(`q-sign-client`·`ido-client`)에 `backchannel.logout.url` 이 없으면(S6 PR-2 이전 import) 콘솔에서 한 번 넣거나 `keycloak-data` 를 재import 한다.
+**단일 로그아웃 (S6 PR-2)**: `POST /api/v1/slo/initiate` 는 FE 세션이 기억한 Keycloak `sid` 로 정확히 그 세션을 끊는다(gate `[KeycloakLogout] 세션 종료(sid)`). gate 로그에 `KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET 이 설정되지 않아` 가 보이면 FE 세션만 끝나고 Keycloak 세션이 남는 상태다. 기관 RP 의 로그아웃이 Idem FE 세션까지 끝내는지는 gate `[BC-LOGOUT] 수신 처리` 와 hub `[IdpLogout] FE 세션 만료` 로 확인한다 — realm 의 내부 client(`idem-gate`·`idem-hub`)에 `backchannel.logout.url` 이 없으면(S6 PR-2 이전 import) 콘솔에서 한 번 넣거나 `keycloak-data` 를 재import 한다.
 
 **표준 OIDC(OIDC_RP) 경로 (S6)**: 기관 RP 의 토큰 교환이 `403 access_denied` 면 `error_description` 첫 토큰이 위 코드다(정책 거부). `503 temporarily_unavailable` 은 hub 판정 API(`/api/internal/v1/oidc-rp/access`) 또는 Keycloak 이 닿지 않는 것이다 — gate 로그 `[OIDC-FRONT]` 와 hub 로그 `[OidcRpAccess]` 를 본다. 프로파일 저장이 `E-IDO-122` 면 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 과 Keycloak 의 `idem-provisioner` client secret 이 같은지 확인한다(realm import 는 첫 기동에만 적용된다).
 
@@ -399,7 +399,7 @@ UPDATE outbox SET status='PENDING', retry_count=0, error_message=NULL
 WHERE event_id IN (...);
 
 -- IdO (PostgreSQL, schema=ido)
-UPDATE ido.outbox SET status='PENDING', retry_count=0, next_retry_at=NOW()
+UPDATE idem_hub.outbox SET status='PENDING', retry_count=0, next_retry_at=NOW()
 WHERE event_id IN (...);
 ```
 
@@ -516,6 +516,8 @@ CB 상태 메트릭:
 | GET | `/admin/agencies/{agencyCode}/stats` | 통계 |
 
 **개명 4b (S9, 2026-09-25)**: 설정 키·환경변수·앱 이름·Redis 접두·Kafka 이름이 `idem.*`/`IDEM_<모듈>_*`/`idem-*` 로 바뀌었다(`docs/naming.md` §3.1). 구 이름은 한 릴리스 동안 호환 계층이 받아 주며 기동 로그 `[Idem 개명] 구 이름 N개…` 로 확인한다. 업그레이드 절차: (1) `install.env`·외부 yml 의 이름을 표대로 옮긴다 (2) 앱을 내리고 Redis 를 비운다(`FLUSHALL` — 세션·레이트리밋·멱등 키, 사용자는 재로그인) (3) Kafka 를 쓰면 컨슈머 그룹이 `idem-*-consumer` 로 새로 시작하므로 남은 메시지를 먼저 비우거나 오프셋을 옮긴다 (4) Prometheus `job`·대시보드는 `infra/monitoring` 의 새 라벨로.
+
+**개명 5단계 (S9 PR-2)**: DB `onepass`→`idem`, 역할 `onepass`→`idem`, 스키마 `ido`/`qsign`/`qim`/`authz`→`idem_hub`/`idem_gate`/`idem_registry`/`idem_authz`, Keycloak realm `onepass`→`idem`(issuer `…/realms/idem`), client `q-sign-client`/`ido-client`→`idem-gate`/`idem-hub`, CAST 폼 필드 `onepass_sso`→`idem_sso`, `auth_result.source_system` `ido-*`→`idem-hub-*`(V26). 업그레이드: (1) 앱·Keycloak 정지 (2) `scripts/upgrade/rename-db-1.0.sh`(DB·역할·스키마 rename, 멱등; `--dry-run` 지원) (3) `install.env` 의 `DB_USERNAME`·변수명 확인 (4) `keycloak-data` 볼륨 삭제 후 기동(realm `idem` import) — 기관 OIDC client 는 프로파일 재저장으로 재생성, secret 재전달 (5) 앱 기동 — 스키마를 미리 옮기지 않았다면 첫 기동에서 `[Idem 개명] 스키마 ido → idem_hub` 뒤 Flyway 이력을 repair 한다(마이그레이션 파일의 스키마 접두가 바뀌어 체크섬이 다르다). 관리자 계정(`idem_hub.admin_user`)은 그대로 옮겨지므로 기존 비밀번호·인증 앱으로 들어간다(부트스트랩 비밀번호는 새 설치본에만). 기관 쪽: issuer·CAST 필드명 변경을 통보한다.
 
 관리 API 는 관리자 세션(쿠키 `idemAdminSid`, 2단계 TOTP) 과 쓰기 요청의 `X-Requested-With` 헤더가 필요하다(S7, `docs/admin-auth.md`). 인증된 관리자 사용자명이 audit log 의 actor 로 기록되고, 인증·인가 사건 자체는 `event_category=ADMIN` 으로 남는다. 감사 조회는 `GET /api/v1/admin/audit`.
 

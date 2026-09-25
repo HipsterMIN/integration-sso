@@ -25,7 +25,7 @@ public class IdempotentEventStore {
      */
     public boolean isAlreadyProcessed(String eventId, String consumerGroup) {
         Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM ido.processed_event " +
+                "SELECT COUNT(1) FROM idem_hub.processed_event " +
                 "WHERE event_id = ? AND consumer_group = ?",
                 Integer.class, eventId, consumerGroup
         );
@@ -41,7 +41,7 @@ public class IdempotentEventStore {
                               String eventType, String resultCode) {
         jdbcTemplate.update(
                 """
-                INSERT INTO ido.processed_event
+                INSERT INTO idem_hub.processed_event
                     (event_id, consumer_group, event_type, result_code, processed_at)
                 VALUES (?, ?, ?, ?, NOW())
                 ON CONFLICT (event_id, consumer_group) DO NOTHING

@@ -46,7 +46,7 @@ public class HandoffEventPublisher {
         try {
             String payload = objectMapper.writeValueAsString(event);
             jdbcTemplate.update("""
-                    INSERT INTO ido.outbox
+                    INSERT INTO idem_hub.outbox
                         (event_id, event_type, partition_key, aggregate_id,
                          event_version, payload, topic, status, retry_count, created_at)
                     VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, 'PENDING', 0, NOW())

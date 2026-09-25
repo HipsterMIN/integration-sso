@@ -105,7 +105,7 @@ public class KeycloakAuthUrlController {
      * <pre>
      *   {keycloak.authorizationEndpoint}
      *     ?response_type=code
-     *     &client_id={q-sign-client}
+     *     &client_id={idem-gate}
      *     &redirect_uri={idem.gate.keycloak.redirectUri}
      *     &scope=openid profile email
      *     &state={state}

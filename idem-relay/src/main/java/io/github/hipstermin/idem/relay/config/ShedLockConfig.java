@@ -102,11 +102,11 @@ public class ShedLockConfig {
     @Bean(name = "jdbcLockProvider")
     public LockProvider jdbcLockProvider(
             @Qualifier("idoDataSource") DataSource idoDataSource) {
-        log.info("[ShedLock] JDBC LockProvider 초기화 (Fallback — ido.shedlock)");
+        log.info("[ShedLock] JDBC LockProvider 초기화 (Fallback — idem_hub.shedlock)");
         return new JdbcTemplateLockProvider(
                 JdbcTemplateLockProvider.Configuration.builder()
                         .withJdbcTemplate(new JdbcTemplate(idoDataSource))
-                        .withTableName("ido.shedlock")
+                        .withTableName("idem_hub.shedlock")
                         .usingDbTime()   // DB 서버 시각 기준 — NTP 불일치 방어
                         .build()
         );

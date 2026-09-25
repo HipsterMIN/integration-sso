@@ -8,13 +8,13 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * 기관 메타 JPA 엔터티 — ido.agency_meta 테이블 매핑
+ * 기관 메타 JPA 엔터티 — idem_hub.agency_meta 테이블 매핑
  * 설계서 §11.2 / §11.3 기관 정책 SoR
  *
  * [DB] PostgreSQL — ido 스키마
  */
 @Entity
-@Table(name = "agency_meta", schema = "ido")
+@Table(name = "agency_meta", schema = "idem_hub")
 @Getter
 @Setter
 @NoArgsConstructor

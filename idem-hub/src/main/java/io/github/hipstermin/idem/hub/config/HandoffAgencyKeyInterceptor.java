@@ -20,7 +20,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * <p><b>검증 순서</b>:
  * <ol>
  *   <li>헤더 존재 여부 확인 (X-Agency-Code, X-Agency-Key 필수)</li>
- *   <li>SHA-256(rawKey) 를 {@code ido.agency_meta.api_key_hash} 와 상수시간 비교</li>
+ *   <li>SHA-256(rawKey) 를 {@code idem_hub.agency_meta.api_key_hash} 와 상수시간 비교</li>
  *   <li>기관 레코드 {@code active = true} 확인</li>
  *   <li>실패 시 401 반환 — rawKey 는 절대 로그에 기록하지 않음</li>
  * </ol>
@@ -102,7 +102,7 @@ public class HandoffAgencyKeyInterceptor implements HandlerInterceptor {
     // ════════════════════════════════════════════════════════════════════════
 
     /**
-     * ido.agency_meta 에서 api_key_hash 조회.
+     * idem_hub.agency_meta 에서 api_key_hash 조회.
      * active = TRUE 인 레코드만 대상.
      *
      * @return SHA-256 hex 문자열, 없거나 inactive 이면 null
@@ -110,7 +110,7 @@ public class HandoffAgencyKeyInterceptor implements HandlerInterceptor {
     private String queryStoredHash(String agencyCode) {
         try {
             return jdbcTemplate.queryForObject(
-                    "SELECT api_key_hash FROM ido.agency_meta " +
+                    "SELECT api_key_hash FROM idem_hub.agency_meta " +
                     "WHERE agency_code = ? AND active = TRUE " +
                     "LIMIT 1",
                     String.class,

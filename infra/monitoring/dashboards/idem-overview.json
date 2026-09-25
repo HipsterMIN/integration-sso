@@ -204,7 +204,7 @@
   ],
   "refresh": "30s",
   "schemaVersion": 38,
-  "tags": ["onepass", "overview"],
+  "tags": ["idem", "overview"],
   "templating": { "list": [] },
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},

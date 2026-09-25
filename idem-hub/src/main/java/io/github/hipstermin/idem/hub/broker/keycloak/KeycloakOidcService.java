@@ -42,7 +42,7 @@ import org.springframework.web.client.RestTemplate;
  *   <li>id_token JWKS 서명 검증 + nonce 검증 (replay attack 방지)</li>
  *   <li>identifierHash 생성 (SHA-256(sub)) — 감사 로그/DB 추적용으로만 사용</li>
  *   <li>Q-IM에서 실제 qimUserId 조회/등록 (SSO 핵심 — agencySubjectId 정확성 보장)</li>
- *   <li>AuthResult 생성 → ido.auth_result 저장 (Keycloak 모드 Strategy B)</li>
+ *   <li>AuthResult 생성 → idem_hub.auth_result 저장 (Keycloak 모드 Strategy B)</li>
  *   <li>Outbox 이벤트 저장 → Kafka idem.gate.auth.events 발행</li>
  *   <li>FE 세션 생성 → feSessionId 쿠키 발급 준비</li>
  * </ol>
@@ -63,7 +63,7 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class KeycloakOidcService {
 
-    private static final String SOURCE_SYSTEM = "ido-keycloak";
+    private static final String SOURCE_SYSTEM = "idem-hub-keycloak";
 
     private final IdoOidcStateStore          stateStore;
     private final KeycloakJwksVerifier       jwksVerifier;
@@ -243,7 +243,7 @@ public class KeycloakOidcService {
     }
 
     /**
-     * audience 검증 — id_token의 aud가 ido-client인지 확인
+     * audience 검증 — id_token의 aud가 idem-hub인지 확인
      */
     private void validateAudience(String audience, String correlationId) {
         String expectedClientId = keycloakProperties.getClientId();
@@ -337,7 +337,7 @@ public class KeycloakOidcService {
 
     /**
      * AuthResult DB 저장 (Strategy B — IdO가 직접 생성)
-     * 테이블: ido.auth_result (V3 생성, V10에서 auth_method/issued_at/expires_at/raw_id_token 추가)
+     * 테이블: idem_hub.auth_result (V3 생성, V10에서 auth_method/issued_at/expires_at/raw_id_token 추가)
      */
     private void saveAuthResult(String authResultId, String correlationId,
                                  String authLevel, String providerCode,
@@ -346,7 +346,7 @@ public class KeycloakOidcService {
                                  String rawIdToken) {
         try {
             jdbcTemplate.update("""
-                    INSERT INTO ido.auth_result
+                    INSERT INTO idem_hub.auth_result
                         (auth_result_id, correlation_id, auth_level, provider_code,
                          provider_tx_id, identifier_hash, verification_result, source_system,
                          auth_method, issued_at, expires_at, raw_id_token,
@@ -385,7 +385,7 @@ public class KeycloakOidcService {
                     authLevel, providerCode, qimUserId, identifierHash);
 
             jdbcTemplate.update("""
-                    INSERT INTO ido.outbox
+                    INSERT INTO idem_hub.outbox
                         (event_id, event_type, partition_key, aggregate_id,
                          payload, topic, status, created_at)
                     VALUES (?, 'AUTH_COMPLETED', ?, ?, ?::jsonb, ?, 'PENDING', NOW())
@@ -432,13 +432,13 @@ public class KeycloakOidcService {
 
     /**
      * OIDC 세션 로그 기록 (감사 목적)
-     * 테이블: ido.oidc_session_log (V3 마이그레이션으로 생성)
+     * 테이블: idem_hub.oidc_session_log (V3 마이그레이션으로 생성)
      */
     private void saveOidcSessionLog(String correlationId, String providerCode,
                                      String sub, String identifierHash, String authResultId) {
         try {
             jdbcTemplate.update("""
-                    INSERT INTO ido.oidc_session_log
+                    INSERT INTO idem_hub.oidc_session_log
                         (log_id, correlation_id, provider_code, provider_subject,
                          identifier_hash, auth_result_id, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, NOW())

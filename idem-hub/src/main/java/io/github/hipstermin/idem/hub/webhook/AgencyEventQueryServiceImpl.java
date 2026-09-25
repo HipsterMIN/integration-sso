@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 기관 이벤트 폴링 조회 서비스 구현체
  *
- * <p>설계서 §P1-06 — {@code ido.webhook_dispatch_outbox} 테이블에서
+ * <p>설계서 §P1-06 — {@code idem_hub.webhook_dispatch_outbox} 테이블에서
  * agency_code 기준으로 이벤트를 조회하여 기관에 반환.
  *
  * <p><b>조회 설계</b>:
@@ -96,7 +96,7 @@ public class AgencyEventQueryServiceImpl implements AgencyEventQueryService {
             // ① agencyCode 소유권 확인 + PENDING 상태인 레코드만 변경
             //    DISPATCHED는 이미 처리됨 → 멱등 처리
             int updated = jdbcTemplate.update("""
-                    UPDATE ido.webhook_dispatch_outbox
+                    UPDATE idem_hub.webhook_dispatch_outbox
                        SET status        = 'DISPATCHED',
                            dispatched_at = COALESCE(dispatched_at, NOW())
                      WHERE dispatch_id  = ?
@@ -147,7 +147,7 @@ public class AgencyEventQueryServiceImpl implements AgencyEventQueryService {
                        retry_count,
                        created_at,
                        dispatched_at
-                  FROM ido.webhook_dispatch_outbox
+                  FROM idem_hub.webhook_dispatch_outbox
                  WHERE agency_code = ?
                    AND status IN ('PENDING', 'DISPATCHED')
                 """);

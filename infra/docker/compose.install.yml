@@ -23,8 +23,8 @@ x-log: &log
 x-app-common: &app-common
   DB_HOST: postgres
   DB_PORT: "5432"
-  DB_NAME: onepass
-  DB_USERNAME: onepass
+  DB_NAME: idem
+  DB_USERNAME: idem
   DB_PASSWORD: ${IDEM_DB_PASSWORD:?IDEM_DB_PASSWORD 를 install.env 에 설정하세요}
   REDIS_HOST: redis
   REDIS_PORT: "6379"
@@ -46,9 +46,9 @@ services:
     container_name: idem-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: onepass
+      POSTGRES_USER: idem
       POSTGRES_PASSWORD: ${IDEM_DB_PASSWORD:?IDEM_DB_PASSWORD 를 install.env 에 설정하세요}
-      POSTGRES_DB: onepass
+      POSTGRES_DB: idem
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
       TZ: UTC
       PGTZ: UTC
@@ -59,7 +59,7 @@ services:
       - "127.0.0.1:${IDEM_PORT_POSTGRES:-5432}:5432"
     networks: [idem-net]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U onepass -d onepass"]
+      test: ["CMD-SHELL", "pg_isready -U idem -d idem"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -91,8 +91,8 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD 를 install.env 에 설정하세요}
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/onepass?currentSchema=keycloak
-      KC_DB_USERNAME: onepass
+      KC_DB_URL: jdbc:postgresql://postgres:5432/idem?currentSchema=keycloak
+      KC_DB_USERNAME: idem
       KC_DB_PASSWORD: ${IDEM_DB_PASSWORD}
       KC_DB_SCHEMA: keycloak
       KC_HOSTNAME_STRICT: "false"
@@ -123,7 +123,7 @@ services:
         condition: service_healthy
     healthcheck:
       # 이미지에 curl 이 없다 — bash 로 realm 엔드포인트 200 확인 (import 완료 = 준비됨)
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /realms/onepass HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /realms/idem HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
       interval: 15s
       timeout: 10s
       retries: 12
@@ -143,12 +143,12 @@ services:
       IDEM_HUB_BASE_URL: http://idem-hub:8083
       IDEM_HUB_INTERNAL_SIG_SECRET: ${IDEM_HUB_INTERNAL_SIG_SECRET:?IDEM_HUB_INTERNAL_SIG_SECRET 를 install.env 에 설정하세요}
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: onepass
-      IDEM_GATE_KEYCLOAK_CLIENT_ID: q-sign-client
+      KEYCLOAK_REALM: idem
+      IDEM_GATE_KEYCLOAK_CLIENT_ID: idem-gate
       IDEM_GATE_KEYCLOAK_CLIENT_SECRET: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET}
       IDEM_GATE_KEYCLOAK_REDIRECT_URI: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}/api/v1/oidc/keycloak/callback
       IDEM_GATE_INTERNAL_SIG_STRICT: "true"
-      # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/onepass (Keycloak KC_HOSTNAME_URL 과 같다)
+      # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/idem (Keycloak KC_HOSTNAME_URL 과 같다)
       IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
       # S6 PR-2: SLO 의 Keycloak 세션 종료 (Back-Channel Logout 수신은 /api/v1/oidc/backchannel-logout — realm-export 의 내부 client 가 가리킨다)
       KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET: ${KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET}
@@ -202,8 +202,8 @@ services:
       IDEM_HUB_ADMIN_SECRET_KEY: ${IDEM_HUB_ADMIN_SECRET_KEY:?IDEM_HUB_ADMIN_SECRET_KEY(32바이트 Base64, 2단계 비밀 봉인) 를 install.env 에 설정하세요}
       IDEM_HUB_ADMIN_COOKIE_SECURE: ${IDEM_HUB_ADMIN_COOKIE_SECURE:-true}
       KEYCLOAK_BASE_URL: http://keycloak:8080
-      KEYCLOAK_REALM: onepass
-      KEYCLOAK_CLIENT_ID: ido-client
+      KEYCLOAK_REALM: idem
+      KEYCLOAK_CLIENT_ID: idem-hub
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
       KEYCLOAK_REDIRECT_URI: ${IDEM_PUBLIC_URL_HUB:-http://localhost:8083}/api/v1/broker/callback
       # S6: OIDC_RP client 프로비저닝(서비스 계정) + 기관에 알려 줄 issuer
@@ -254,9 +254,9 @@ services:
       <<: *app-common
       IDEM_REGISTRY_DB_HOST: postgres
       IDEM_REGISTRY_DB_PORT: "5432"
-      IDEM_REGISTRY_DB_NAME: onepass
-      IDEM_REGISTRY_DB_SCHEMA: qim
-      IDEM_REGISTRY_DB_USERNAME: onepass
+      IDEM_REGISTRY_DB_NAME: idem
+      IDEM_REGISTRY_DB_SCHEMA: idem_registry
+      IDEM_REGISTRY_DB_USERNAME: idem
       IDEM_REGISTRY_DB_PASSWORD: ${IDEM_DB_PASSWORD}
       IDEM_REGISTRY_DB_SSL: "false"
       IDEM_REGISTRY_INTERNAL_API_KEY: ${IDEM_REGISTRY_INTERNAL_API_KEY}

@@ -2,7 +2,7 @@
 -- V8: AGENCY_STUB_001 API Key 해시 시드 + Webhook 엔드포인트 수정
 -- =============================================================================
 -- 목적:
---   1. ido.agency_meta.api_key_hash 에 AGENCY_STUB_001 의 실제 SHA-256 해시 입력
+--   1. idem_hub.agency_meta.api_key_hash 에 AGENCY_STUB_001 의 실제 SHA-256 해시 입력
 --      → HandoffAgencyKeyInterceptor 가 DB 조회로 X-Agency-Key 검증 가능하도록
 --   2. agency_webhook_config.endpoint_url 오류 수정
 --      (/webhook/handoff → /api/v1/webhook/inbound)
@@ -23,14 +23,14 @@
 -- 1. AGENCY_STUB_001 api_key_hash 업데이트
 --    V1 시드에서 api_key_hash 가 NULL 로 삽입됐으므로 여기서 설정
 -- ─────────────────────────────────────────────────────────────────────────────
-UPDATE ido.agency_meta
+UPDATE idem_hub.agency_meta
 SET
     api_key_hash = '8a5ad1ec5a18b326ed9ae616c9883e46bede28ed5b84d2912bb70263433749df',
     updated_at   = NOW()
 WHERE agency_code = 'AGENCY_STUB_001';
 
 -- api_key_hash 미설정 시 INSERT (V1 레코드 없을 경우 방어 로직)
-INSERT INTO ido.agency_meta (
+INSERT INTO idem_hub.agency_meta (
     agency_code,
     official_name,
     min_auth_level,
@@ -64,7 +64,7 @@ ON CONFLICT (agency_code) DO UPDATE
 -- 2. agency_webhook_config endpoint_url 수정
 --    V7 에서 /webhook/handoff 로 잘못 설정 → 실제 엔드포인트 /api/v1/webhook/inbound
 -- ─────────────────────────────────────────────────────────────────────────────
-UPDATE ido.agency_webhook_config
+UPDATE idem_hub.agency_webhook_config
 SET
     endpoint_url        = 'http://localhost:8084/api/v1/webhook/inbound',
     signing_secret_hash = 'ad4bb1a5f1e0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6',
@@ -73,7 +73,7 @@ SET
 WHERE agency_code = 'AGENCY_STUB_001';
 
 -- 레코드 없을 경우 방어 INSERT
-INSERT INTO ido.agency_webhook_config (
+INSERT INTO idem_hub.agency_webhook_config (
     agency_code,
     endpoint_url,
     signing_secret_hash,
@@ -97,9 +97,9 @@ ON CONFLICT (agency_code) DO UPDATE
         updated_at          = NOW();
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 3. ido.agency_meta webhook_enabled TRUE + endpoint 최신화 (V7 컬럼)
+-- 3. idem_hub.agency_meta webhook_enabled TRUE + endpoint 최신화 (V7 컬럼)
 -- ─────────────────────────────────────────────────────────────────────────────
-UPDATE ido.agency_meta
+UPDATE idem_hub.agency_meta
 SET
     webhook_enabled  = TRUE,
     webhook_endpoint = 'http://localhost:8084/api/v1/webhook/inbound',
@@ -110,9 +110,9 @@ WHERE agency_code = 'AGENCY_STUB_001';
 -- 4. 검증 쿼리 (마이그레이션 후 결과 확인용 주석)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SELECT agency_code, api_key_hash, webhook_enabled, webhook_endpoint
---   FROM ido.agency_meta
+--   FROM idem_hub.agency_meta
 --  WHERE agency_code = 'AGENCY_STUB_001';
 --
 -- SELECT agency_code, endpoint_url, signing_secret_hash, active
---   FROM ido.agency_webhook_config
+--   FROM idem_hub.agency_webhook_config
 --  WHERE agency_code = 'AGENCY_STUB_001';

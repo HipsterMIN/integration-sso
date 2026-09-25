@@ -74,7 +74,7 @@ public class FeatureFlags {
     private boolean auditKafka;
 
     // ── F-04: 감사 로그 DB 저장 ─────────────────────────────────────────────
-    /** ido.audit_log 테이블 DB 저장. 환경변수 IDEM_HUB_AUDIT_DB_ENABLED
+    /** idem_hub.audit_log 테이블 DB 저장. 환경변수 IDEM_HUB_AUDIT_DB_ENABLED
      * ⚠️ 운영에서 false 금지 — 컴플라이언스 위반 */
     @Value("${idem.hub.audit.db-save-enabled:${IDEM_HUB_AUDIT_DB_ENABLED:true}}")
     private boolean auditDb;

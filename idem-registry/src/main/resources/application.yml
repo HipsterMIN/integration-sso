@@ -28,9 +28,9 @@ spring:
   #   IDEM_REGISTRY_DB_HOST / IDEM_REGISTRY_DB_PORT / IDEM_REGISTRY_DB_NAME / IDEM_REGISTRY_DB_USERNAME / IDEM_REGISTRY_DB_PASSWORD / IDEM_REGISTRY_DB_SCHEMA
   # 종전 MariaDB 설치는 `--spring.profiles.active=...,mariadb` 로 1 릴리스 동안 유지 (application-mariadb.yml).
   datasource:
-    url: jdbc:postgresql://${IDEM_REGISTRY_DB_HOST:localhost}:${IDEM_REGISTRY_DB_PORT:5432}/${IDEM_REGISTRY_DB_NAME:onepass}?currentSchema=${IDEM_REGISTRY_DB_SCHEMA:qim}&ssl=${IDEM_REGISTRY_DB_SSL:false}
-    username: ${IDEM_REGISTRY_DB_USERNAME:onepass}
-    password: ${IDEM_REGISTRY_DB_PASSWORD:onepass}
+    url: jdbc:postgresql://${IDEM_REGISTRY_DB_HOST:localhost}:${IDEM_REGISTRY_DB_PORT:5432}/${IDEM_REGISTRY_DB_NAME:idem}?currentSchema=${IDEM_REGISTRY_DB_SCHEMA:idem_registry}&ssl=${IDEM_REGISTRY_DB_SSL:false}
+    username: ${IDEM_REGISTRY_DB_USERNAME:idem}
+    password: ${IDEM_REGISTRY_DB_PASSWORD:idem}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: qim-hikari
@@ -51,7 +51,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_schema: ${IDEM_REGISTRY_DB_SCHEMA:qim}
+        default_schema: ${IDEM_REGISTRY_DB_SCHEMA:idem_registry}
         jdbc:
           time_zone: UTC
           batch_size: 50
@@ -63,8 +63,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration/{vendor}
-    schemas: ${IDEM_REGISTRY_DB_SCHEMA:qim}
-    default-schema: ${IDEM_REGISTRY_DB_SCHEMA:qim}
+    schemas: ${IDEM_REGISTRY_DB_SCHEMA:idem_registry}
+    default-schema: ${IDEM_REGISTRY_DB_SCHEMA:idem_registry}
     create-schemas: true
     baseline-on-migrate: true
     baseline-version: 0
@@ -191,7 +191,7 @@ logging:
 
 # ── D1-b: Kafka 선택 의존 (docs/generalization-plan.md D1, docs/install.md) ──
 # false(기본): 브로커 없이 기동 — 토픽 생성·프로듀서(트랜잭션 매니저 포함)·아웃박스 릴레이 정지.
-#              idem.registry.user.events 는 qim.outbox 에 PENDING 으로 남는다(hub/gate 캐시 무효화·잠금 전파는 Kafka 경로 전용 — 플랜 D1 기록 참조).
+#              idem.registry.user.events 는 idem_registry.outbox 에 PENDING 으로 남는다(hub/gate 캐시 무효화·잠금 전파는 Kafka 경로 전용 — 플랜 D1 기록 참조).
 # true : Kafka 경로. infra/docker 전체 스택·helm 은 true 로 준다.
 idem:
   messaging:

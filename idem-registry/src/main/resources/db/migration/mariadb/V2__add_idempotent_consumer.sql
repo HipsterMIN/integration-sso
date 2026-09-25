@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS snapshot_meta (
     snapshot_id       VARCHAR(36)   NOT NULL,
     qim_user_id       VARCHAR(36)   NOT NULL,
     snapshot_version  BIGINT        NOT NULL COMMENT '스냅샷 기준 event_version',
-    topic             VARCHAR(200)  NOT NULL DEFAULT 'qim.user.snapshot',
+    topic             VARCHAR(200)  NOT NULL DEFAULT 'idem_registry.user.snapshot',
     status            VARCHAR(20)   NOT NULL DEFAULT 'PUBLISHED',
     created_at        DATETIME(6)   NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     CONSTRAINT pk_snapshot_meta          PRIMARY KEY (snapshot_id),

@@ -61,13 +61,13 @@ class KeycloakCallbackServicePkceIssuerTest {
     @BeforeEach
     void setUp() throws Exception {
         props.setBaseUrl("http://keycloak:8080");
-        props.setRealm("onepass");
-        props.setClientId("q-sign-client");
+        props.setRealm("idem");
+        props.setClientId("idem-gate");
         props.setClientSecret("unit-test-secret-0123");
         sut = new KeycloakCallbackService(stateStore, jwks, props, authResults, locks, outbox, rest, mapper, metrics);
         ReflectionTestUtils.setField(sut, "idoBaseUrl", "http://hub");
         ReflectionTestUtils.setField(sut, "internalSigSecret", "sig-secret");
-        ReflectionTestUtils.setField(sut, "publicIssuer", "https://sso.example.org/realms/onepass");
+        ReflectionTestUtils.setField(sut, "publicIssuer", "https://sso.example.org/realms/idem");
 
         given(stateStore.consumeAndValidate("st")).willReturn(Optional.of(KeycloakStateEntry.builder()
                 .state("st").nonce("nc").correlationId("cid-1").returnUrl("https://rp/done").requestedLevel("L1")
@@ -81,21 +81,21 @@ class KeycloakCallbackServicePkceIssuerTest {
 
     private KeycloakIdTokenClaims claims(String iss) throws Exception {
         long exp = System.currentTimeMillis() / 1000L + 300;
-        return mapper.readValue("{\"iss\":\"" + iss + "\",\"sub\":\"kc-sub\",\"aud\":\"q-sign-client\",\"nonce\":\"nc\",\"exp\":" + exp
+        return mapper.readValue("{\"iss\":\"" + iss + "\",\"sub\":\"kc-sub\",\"aud\":\"idem-gate\",\"nonce\":\"nc\",\"exp\":" + exp
                 + ",\"identity_provider\":\"social-kakao\",\"sid\":\"sid-1\"}", KeycloakIdTokenClaims.class);
     }
 
     @Test
     @DisplayName("token 교환 폼에 code_verifier 가 실리고, 내부 issuer 면 통과·성공 시 unlock")
     void verifierSentAndInternalIssuerAccepted() throws Exception {
-        given(jwks.verify("h.p.s", "cid-1")).willReturn(claims("http://keycloak:8080/realms/onepass"));
+        given(jwks.verify("h.p.s", "cid-1")).willReturn(claims("http://keycloak:8080/realms/idem"));
 
         String redirect = sut.handleCallback("code-1", "st");
 
         assertThat(redirect).isEqualTo("https://rp/done?ok");
         @SuppressWarnings("unchecked")
         ArgumentCaptor<HttpEntity<MultiValueMap<String, String>>> form = ArgumentCaptor.forClass(HttpEntity.class);
-        verify(rest).exchange(eq("http://keycloak:8080/realms/onepass/protocol/openid-connect/token"), eq(HttpMethod.POST),
+        verify(rest).exchange(eq("http://keycloak:8080/realms/idem/protocol/openid-connect/token"), eq(HttpMethod.POST),
                 form.capture(), eq(KeycloakTokenResponse.class));
         assertThat(form.getValue().getBody().getFirst("code_verifier")).isEqualTo(VERIFIER);
         assertThat(form.getValue().getBody().getFirst("code")).isEqualTo("code-1");
@@ -106,7 +106,7 @@ class KeycloakCallbackServicePkceIssuerTest {
     @Test
     @DisplayName("공개 issuer(gate 가 내보내는 KC_HOSTNAME_URL 기준)도 받는다")
     void publicIssuerAccepted() throws Exception {
-        given(jwks.verify("h.p.s", "cid-1")).willReturn(claims("https://sso.example.org/realms/onepass"));
+        given(jwks.verify("h.p.s", "cid-1")).willReturn(claims("https://sso.example.org/realms/idem"));
         assertThat(sut.handleCallback("code-1", "st")).isEqualTo("https://rp/done?ok");
     }
 
@@ -126,7 +126,7 @@ class KeycloakCallbackServicePkceIssuerTest {
     void missingIssuerRejected() throws Exception {
         given(jwks.verify("h.p.s", "cid-1")).willReturn(claims(""));
         assertThatThrownBy(() -> sut.handleCallback("code-1", "st")).isInstanceOf(PlatformException.class);
-        assertThat(sut.acceptedIssuers()).containsExactly("http://keycloak:8080/realms/onepass", "https://sso.example.org/realms/onepass");
+        assertThat(sut.acceptedIssuers()).containsExactly("http://keycloak:8080/realms/idem", "https://sso.example.org/realms/idem");
     }
 
     @Test
@@ -134,7 +134,7 @@ class KeycloakCallbackServicePkceIssuerTest {
     void legacyStateSendsNoVerifier() throws Exception {
         given(stateStore.consumeAndValidate("st")).willReturn(Optional.of(KeycloakStateEntry.builder()
                 .state("st").nonce("nc").correlationId("cid-1").returnUrl("").requestedLevel("L1").provider("kakao").build()));
-        given(jwks.verify("h.p.s", "cid-1")).willReturn(claims("http://keycloak:8080/realms/onepass"));
+        given(jwks.verify("h.p.s", "cid-1")).willReturn(claims("http://keycloak:8080/realms/idem"));
         sut.handleCallback("code-1", "st");
         @SuppressWarnings("unchecked")
         ArgumentCaptor<HttpEntity<MultiValueMap<String, String>>> form = ArgumentCaptor.forClass(HttpEntity.class);

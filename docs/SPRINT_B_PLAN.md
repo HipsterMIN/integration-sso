@@ -32,7 +32,7 @@
 |--------|------|------|----------|
 | 인증 성공률 (5분 윈도우) | PromQL 계산 | `rate(auth.success.total) / (rate(success) + rate(failure))` | **신규 코드 0줄** — 기존 `idem-gate/.../AuthMetrics.java` 재활용 |
 | Handoff 지연 p95 | Spring Boot 자동 | `http_server_requests_seconds{uri="/api/v1/handoff/issue"}` | **신규 코드 0줄** — Spring Boot Actuator 자동 메트릭 (Prometheus exposure에 포함됨) |
-| `onepass.kms.healthy` | Gauge (UP=1/DOWN=0) | KMS 가용성 (Vault Transit) | `idem-hub/.../metrics/KmsHealthMetrics.java` 신규 — `VaultKmsHealthIndicator` 재사용 (Vault 호출 0회 추가) |
+| `idem.kms.healthy` | Gauge (UP=1/DOWN=0) | KMS 가용성 (Vault Transit) | `idem-hub/.../metrics/KmsHealthMetrics.java` 신규 — `VaultKmsHealthIndicator` 재사용 (Vault 호출 0회 추가) |
 
 **의도적 제외**:
 - 개별 API endpoint 메트릭 (Spring Boot 기본 `http_server_requests`로 충분)
@@ -60,7 +60,7 @@
 | `QSignServiceDown` | `up{job="q-sign"}==0` | 2m | 인증 |
 | `QimServiceDown` | `up{job="q-im"}==0` | 2m | 식별·매핑 |
 | `AuthSuccessRateLow` | 인증 성공률 < 90% | 5m | **PR-B1-new §1.1** |
-| `KmsUnavailable` | `onepass_kms_healthy==0` | 2m | **PR-B1-new §1.3** |
+| `KmsUnavailable` | `idem_kms_healthy==0` | 2m | **PR-B1-new §1.3** |
 
 #### 실제 적용된 Warning 3개 (Slack 채널만)
 | 알람 | 조건 |

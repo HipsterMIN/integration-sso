@@ -21,7 +21,7 @@ public class OidcRpProperties {
     private boolean enabled = true;
 
     /** 기관 RP 가 보는 issuer — gate 공개 URL + {@code /realms/{realm}}. Keycloak 의 {@code KC_HOSTNAME_URL} 과 같아야 한다. */
-    private String issuer = "http://localhost:8081/realms/onepass";
+    private String issuer = "http://localhost:8081/realms/idem";
 
     /** 프로비저닝되는 Keycloak clientId 접두 — {@code idem-svc-{serviceCode}}. */
     private String clientIdPrefix = "idem-svc-";

@@ -68,9 +68,9 @@ services:
     container_name: idem-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER:     onepass
-      POSTGRES_PASSWORD: onepass
-      POSTGRES_DB:       onepass
+      POSTGRES_USER:     idem
+      POSTGRES_PASSWORD: idem
+      POSTGRES_DB:       idem
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
       TZ:   UTC
       PGTZ: UTC
@@ -89,7 +89,7 @@ services:
       idem-net:
         ipv4_address: 172.20.0.10
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U onepass -d onepass"]
+      test: ["CMD-SHELL", "pg_isready -U idem -d idem"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -371,7 +371,7 @@ services:
     logging: *log-small
 
   # ════════════════════════════════════════════════════════════
-  # pgAdmin 4 — http://localhost:5050  (admin@onepass.local / admin)
+  # pgAdmin 4 — http://localhost:5050  (admin@idem.local / admin)
   # profile: tools
   # ════════════════════════════════════════════════════════════
   pgadmin:
@@ -379,7 +379,7 @@ services:
     container_name: idem-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@onepass.local
+      PGADMIN_DEFAULT_EMAIL: admin@idem.local
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
@@ -402,8 +402,8 @@ services:
   # profile: keycloak
   #
   # Client secrets: realm-export.json과 반드시 일치해야 함
-  #   q-sign-client → IDEM_GATE_KEYCLOAK_CLIENT_SECRET
-  #   ido-client    → KEYCLOAK_CLIENT_SECRET
+  #   idem-gate → IDEM_GATE_KEYCLOAK_CLIENT_SECRET
+  #   idem-hub  → KEYCLOAK_CLIENT_SECRET
   # 초기 기본값은 .env 파일의 change-me 값과 realm-export.json이 동일해야 함
   # ════════════════════════════════════════════════════════════
   keycloak:
@@ -415,9 +415,9 @@ services:
       KEYCLOAK_ADMIN:          admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_DB:              postgres
-      KC_DB_URL:          jdbc:postgresql://postgres:5432/onepass?currentSchema=keycloak
-      KC_DB_USERNAME:     onepass
-      KC_DB_PASSWORD:     onepass
+      KC_DB_URL:          jdbc:postgresql://postgres:5432/idem?currentSchema=keycloak
+      KC_DB_USERNAME:     idem
+      KC_DB_PASSWORD:     idem
       KC_DB_SCHEMA:       keycloak
       KC_HOSTNAME_STRICT:       "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
@@ -465,9 +465,9 @@ services:
       # ── PostgreSQL ──────────────────────────────────────────
       DB_HOST:     postgres
       DB_PORT:     "5432"
-      DB_NAME:     onepass
-      DB_USERNAME: onepass
-      DB_PASSWORD: onepass
+      DB_NAME:     idem
+      DB_USERNAME: idem
+      DB_PASSWORD: idem
       # ── Redis / Kafka ───────────────────────────────────────
       REDIS_HOST:    redis
       REDIS_PORT:    "6379"
@@ -478,8 +478,8 @@ services:
       IDEM_HUB_INTERNAL_SIG_SECRET:  ${IDEM_HUB_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
       # ── Keycloak 어댑터 ─────────────────────────────────────
       KEYCLOAK_URL:                  http://keycloak:8080
-      KEYCLOAK_REALM:                onepass
-      IDEM_GATE_KEYCLOAK_CLIENT_ID:      q-sign-client
+      KEYCLOAK_REALM:                idem
+      IDEM_GATE_KEYCLOAK_CLIENT_ID:      idem-gate
       # Sprint γ-1 / F2.1 후속: docker-compose 에서도 placeholder default 제거.
       IDEM_GATE_KEYCLOAK_CLIENT_SECRET:  ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:?IDEM_GATE_KEYCLOAK_CLIENT_SECRET 환경변수가 설정되지 않았습니다. 호스트 .env 또는 셸에서 주입하십시오.}
       IDEM_GATE_KEYCLOAK_REDIRECT_URI:   http://localhost:8081/api/v1/oidc/keycloak/callback
@@ -528,10 +528,10 @@ services:
       # ── PostgreSQL (D1: hub 와 같은 인스턴스, 스키마 qim) ───────
       IDEM_REGISTRY_DB_HOST:     postgres
       IDEM_REGISTRY_DB_PORT:     "5432"
-      IDEM_REGISTRY_DB_NAME:     onepass
-      IDEM_REGISTRY_DB_SCHEMA:   qim
-      IDEM_REGISTRY_DB_USERNAME: onepass
-      IDEM_REGISTRY_DB_PASSWORD: onepass
+      IDEM_REGISTRY_DB_NAME:     idem
+      IDEM_REGISTRY_DB_SCHEMA:   idem_registry
+      IDEM_REGISTRY_DB_USERNAME: idem
+      IDEM_REGISTRY_DB_PASSWORD: idem
       IDEM_REGISTRY_DB_SSL:      "false"
       # ── Redis / Kafka ───────────────────────────────────────
       REDIS_HOST:    redis
@@ -585,9 +585,9 @@ services:
       # ── PostgreSQL ──────────────────────────────────────────
       DB_HOST:     postgres
       DB_PORT:     "5432"
-      DB_NAME:     onepass
-      DB_USERNAME: onepass
-      DB_PASSWORD: onepass
+      DB_NAME:     idem
+      DB_USERNAME: idem
+      DB_PASSWORD: idem
       # ── Redis / Kafka ───────────────────────────────────────
       REDIS_HOST:    redis
       REDIS_PORT:    "6379"
@@ -612,8 +612,8 @@ services:
       IDEM_HUB_BROKER_MODE: ${IDEM_HUB_BROKER_MODE:-qsign}
       # ── Keycloak OIDC 브로커 (mode=keycloak 전환 시 활성화) ──
       KEYCLOAK_BASE_URL:      http://keycloak:8080
-      KEYCLOAK_REALM:         onepass
-      KEYCLOAK_CLIENT_ID:     ido-client
+      KEYCLOAK_REALM:         idem
+      KEYCLOAK_CLIENT_ID:     idem-hub
       # Sprint γ-1 / γ-3 후속: docker-compose 에서도 placeholder default 제거.
       # 호스트 .env 또는 셸에서 환경변수 주입 필수. 미주입 시 컨테이너가
       # CrashLoopBackOff 로 빠져 운영자가 즉시 인지 가능 (의도된 동작).
@@ -673,9 +673,9 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST:     postgres
       DB_PORT:     "5432"
-      DB_NAME:     onepass
-      DB_USERNAME: onepass
-      DB_PASSWORD: onepass
+      DB_NAME:     idem
+      DB_USERNAME: idem
+      DB_PASSWORD: idem
       REDIS_HOST:    redis
       REDIS_PORT:    "6379"
       KAFKA_SERVERS: kafka:29092

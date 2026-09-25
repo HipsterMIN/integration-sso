@@ -3,6 +3,10 @@ plugins {
 }
 
 dependencies {
+    // S9 PR-2: 개명 5단계 스키마 자동 rename(FlywayMigrationStrategy) — Flyway 를 쓰는 앱에서만 활성 (compileOnly)
+    compileOnly("org.flywaydb:flyway-core")
+    compileOnly("org.springframework.boot:spring-boot-autoconfigure")
+
     api("org.springframework.boot:spring-boot-starter-web")
     api("org.springframework.boot:spring-boot-starter-validation")
     api("org.springframework.kafka:spring-kafka")

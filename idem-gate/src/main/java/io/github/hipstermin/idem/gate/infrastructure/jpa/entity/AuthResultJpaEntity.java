@@ -9,7 +9,7 @@ import lombok.*;
  * 설계서 §9.3 — 인증 결과 SoR (System of Record)
  */
 @Entity
-@Table(name = "auth_result", schema = "qsign")
+@Table(name = "auth_result", schema = "idem_gate")
 @Getter
 @Setter
 @NoArgsConstructor

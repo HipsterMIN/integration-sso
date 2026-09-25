@@ -57,9 +57,9 @@ class IdentityContractIntegrationTest extends IntegrationTestBase {
     @BeforeEach
     void setUp() {
         for (String code : CODES) {
-            jdbcTemplate.update("DELETE FROM ido.agency_meta_history WHERE agency_code = ?", code);
-            jdbcTemplate.update("DELETE FROM ido.agency_webhook_config WHERE agency_code = ?", code);
-            jdbcTemplate.update("DELETE FROM ido.agency_meta WHERE agency_code = ?", code);
+            jdbcTemplate.update("DELETE FROM idem_hub.agency_meta_history WHERE agency_code = ?", code);
+            jdbcTemplate.update("DELETE FROM idem_hub.agency_webhook_config WHERE agency_code = ?", code);
+            jdbcTemplate.update("DELETE FROM idem_hub.agency_meta WHERE agency_code = ?", code);
         }
         wireMockServer.resetAll();
         WireMock.configureFor("localhost", wireMockServer.port());
@@ -227,7 +227,7 @@ class IdentityContractIntegrationTest extends IntegrationTestBase {
                 HttpMethod.PUT, new HttpEntity<>(body, h), String.class);
         assertThat(res.getStatusCode().value()).as("profile PUT body=%s", res.getBody()).isEqualTo(200);
         // API 키는 프로파일 밖(rotate-key 경로) — 테스트는 해시를 직접 심는다
-        jdbcTemplate.update("UPDATE ido.agency_meta SET api_key_hash = ? WHERE agency_code = ?", sha256Hex(AGENCY_KEY), code);
+        jdbcTemplate.update("UPDATE idem_hub.agency_meta SET api_key_hash = ? WHERE agency_code = ?", sha256Hex(AGENCY_KEY), code);
     }
 
     /** FE 세션(등록된 사용자) + 기관 키로 Handoff 발급 → ticketId */

@@ -23,9 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><b>책임</b>:
  * <ol>
- *   <li>기관 webhook 설정 조회 ({@code ido.agency_webhook_config})</li>
+ *   <li>기관 webhook 설정 조회 ({@code idem_hub.agency_webhook_config})</li>
  *   <li>기관별 이벤트 필터 적용 (event_type_filter 매칭)</li>
- *   <li>{@code ido.webhook_dispatch_outbox} 에 발송 레코드 적재</li>
+ *   <li>{@code idem_hub.webhook_dispatch_outbox} 에 발송 레코드 적재</li>
  *   <li>HMAC-SHA256 서명 생성 (X-Webhook-Signature 헤더)</li>
  * </ol>
  *
@@ -36,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <pre>
  * Kafka(idem.hub.handoff.events) → HandoffEventConsumer
  *       → WebhookDispatcherService.enqueueForAllAgencies()
- *             → ido.webhook_dispatch_outbox INSERT (트랜잭션)
+ *             → idem_hub.webhook_dispatch_outbox INSERT (트랜잭션)
  *                   → WebhookDispatchOutboxRelay (500ms 폴링)
  *                         → HTTPS POST 기관 endpoint
  * </pre>
@@ -349,8 +349,8 @@ public class WebhookDispatcherService {
                     SELECT wc.agency_code, wc.endpoint_url,
                            wc.signing_secret_hash, wc.connect_timeout_ms, wc.read_timeout_ms,
                            wc.max_retry_count, wc.retry_backoff_ms, wc.event_type_filter::text
-                    FROM ido.agency_webhook_config wc
-                    JOIN ido.agency_meta am ON am.agency_code = wc.agency_code
+                    FROM idem_hub.agency_webhook_config wc
+                    JOIN idem_hub.agency_meta am ON am.agency_code = wc.agency_code
                     WHERE wc.active = TRUE
                       AND am.active = TRUE
                       AND am.webhook_enabled = TRUE
@@ -362,8 +362,8 @@ public class WebhookDispatcherService {
                     SELECT wc.agency_code, wc.endpoint_url,
                            wc.signing_secret_hash, wc.connect_timeout_ms, wc.read_timeout_ms,
                            wc.max_retry_count, wc.retry_backoff_ms, wc.event_type_filter::text
-                    FROM ido.agency_webhook_config wc
-                    JOIN ido.agency_meta am ON am.agency_code = wc.agency_code
+                    FROM idem_hub.agency_webhook_config wc
+                    JOIN idem_hub.agency_meta am ON am.agency_code = wc.agency_code
                     WHERE wc.active = TRUE
                       AND am.active = TRUE
                       AND am.webhook_enabled = TRUE
@@ -426,7 +426,7 @@ public class WebhookDispatcherService {
         try {
             // next_retry_at = NOW() (즉시 발송 시도)
             int updated = jdbcTemplate.update("""
-                    INSERT INTO ido.webhook_dispatch_outbox (
+                    INSERT INTO idem_hub.webhook_dispatch_outbox (
                         dispatch_id, agency_code, endpoint_url,
                         source_event_id, source_event_type, source_topic,
                         correlation_id, payload, status,

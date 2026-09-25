@@ -43,14 +43,14 @@
 --    PostgreSQL은 CHECK 제약을 직접 ALTER할 수 없으므로 DROP → ADD 방식 사용.
 --    제약명은 V3에서 'chk_ido_provider_mode'로 정의됨.
 -- ─────────────────────────────────────────────────────────────────────────────
-ALTER TABLE ido.provider_config
+ALTER TABLE idem_hub.provider_config
     DROP CONSTRAINT IF EXISTS chk_ido_provider_mode;
 
-ALTER TABLE ido.provider_config
+ALTER TABLE idem_hub.provider_config
     ADD CONSTRAINT chk_ido_provider_mode
         CHECK (broker_mode IN ('keycloak', 'qsign', 'direct', 'anyid'));
 
-COMMENT ON CONSTRAINT chk_ido_provider_mode ON ido.provider_config
+COMMENT ON CONSTRAINT chk_ido_provider_mode ON idem_hub.provider_config
     IS 'V19 확장: anyid 추가 (Any-ID 설치형 경로) — BrokerService.isAnyIdProvider() 참조';
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ COMMENT ON CONSTRAINT chk_ido_provider_mode ON ido.provider_config
 --    Any-ID 설치형 경로로 연동하므로 'anyid' 로 변경.
 --    provider_type 은 V6 마이그레이션에서 이미 'NON_STANDARD' 로 설정됨.
 -- ─────────────────────────────────────────────────────────────────────────────
-UPDATE ido.provider_config
+UPDATE idem_hub.provider_config
 SET
     broker_mode  = 'anyid',
     display_name = '공동인증서 (Any-ID)',
@@ -67,7 +67,7 @@ SET
 WHERE provider_code = 'JOINT_CERT'
   AND broker_mode   = 'direct';
 
-UPDATE ido.provider_config
+UPDATE idem_hub.provider_config
 SET
     broker_mode  = 'anyid',
     display_name = '금융인증서 (Any-ID)',
@@ -90,7 +90,7 @@ WHERE provider_code = 'FINANCIAL_CERT'
 --      L2 = 소유기반 (휴대폰, DID, 생체)
 --      L3 = PKI 전자서명 (공동인증서, 금융인증서, GPKI)
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO ido.provider_config
+INSERT INTO idem_hub.provider_config
     (provider_code, display_name, auth_level, broker_mode, provider_type, idp_hint, active)
 VALUES
     ('MOBILE_ID',  '모바일 신분증',        'L2', 'anyid', 'NON_STANDARD', NULL, TRUE),
@@ -110,7 +110,7 @@ ON CONFLICT (provider_code) DO UPDATE
 --      - wait_duration_in_open_ms: 60000 (60초 — 기본 30초보다 길게)
 --      - sliding_window_size: 10
 -- ─────────────────────────────────────────────────────────────────────────────
-INSERT INTO ido.provider_circuit_config
+INSERT INTO idem_hub.provider_circuit_config
     (provider_code, sliding_window_size, failure_rate_threshold,
      slow_call_rate_threshold, slow_call_duration_threshold_ms,
      wait_duration_in_open_ms, permitted_calls_in_half_open,
@@ -137,7 +137,7 @@ ON CONFLICT (provider_code) DO UPDATE
 -- 5. 결과 검증 (정보성 주석 — 실제 실행 후 psql로 확인)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SELECT provider_code, display_name, auth_level, broker_mode, provider_type, active
--- FROM ido.provider_config
+-- FROM idem_hub.provider_config
 -- WHERE broker_mode = 'anyid'
 -- ORDER BY auth_level DESC, provider_code;
 --

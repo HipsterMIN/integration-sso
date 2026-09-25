@@ -9,7 +9,7 @@ hub 의 관리 API(`/api/v1/admin/**`)와 actuator(`/actuator/**`, health·info�
 
 | 개념 | 내용 |
 |---|---|
-| 계정 | `ido.admin_user` (V25). 사용자명·표시명·PBKDF2 비밀번호 해시·역할·테넌트·상태(ACTIVE/LOCKED/DISABLED)·봉인된 TOTP 비밀 |
+| 계정 | `idem_hub.admin_user` (V25). 사용자명·표시명·PBKDF2 비밀번호 해시·역할·테넌트·상태(ACTIVE/LOCKED/DISABLED)·봉인된 TOTP 비밀 |
 | 역할 | `SYSTEM_ADMIN`(전부) · `POLICY_ADMIN`(기관·프로파일·정책 쓰기, 관리자 관리 불가) · `AUDITOR`(읽기·감사 조회만) |
 | 테넌트 범위 | `tenant_code` 가 있으면 그 테넌트의 기관만 보고 만진다. `null` 이면 전역. 관리자 관리·테넌트 쓰기는 전역 `SYSTEM_ADMIN` 만 |
 | 2단계 | TOTP(RFC 6238, SHA-1·6자리·30초, ±1 스텝). 비밀은 `IDEM_HUB_ADMIN_SECRET_KEY` 로 AES-256-GCM 봉인해 저장. `idem.hub.admin.mfa.required=true`(기본)면 첫 로그인에서 등록을 요구한다 |
@@ -17,7 +17,7 @@ hub 의 관리 API(`/api/v1/admin/**`)와 actuator(`/actuator/**`, health·info�
 | CSRF | 모든 쓰기 요청(로그인 포함)에 `X-Requested-With` 헤더 필수 — 없으면 `403 E-IDO-131` (브라우저는 이 헤더를 교차 출처 단순 요청에 붙일 수 없다) |
 | 잠금 | 비밀번호·TOTP 실패 5회 → 15분 잠금(`423 E-IDO-133`). `SYSTEM_ADMIN` 이 `unlock` 으로 즉시 해제 |
 | 비밀번호 | 10자 이상, 대/소문자·숫자·특수문자 중 3종, 사용자명 포함 금지, 최근 3개 재사용 금지. 생성·재설정된 계정은 첫 로그인에서 변경 필수(`403 E-IDO-137` — 변경 전에는 `auth/**` 만 허용) |
-| 감사 | 로그인 성공/실패/잠금, 2단계 등록/실패, 로그아웃, 비밀번호 변경, 관리자 생성/수정/재설정/해제, **인가 거부** 가 `ido.audit_log` 에 `event_category=ADMIN`·`actor_type=ADMIN` 으로 남는다. 관리 행위(프로파일·기관·테넌트) 는 기존 감사에 인증된 사용자명이 actor 로 실린다 |
+| 감사 | 로그인 성공/실패/잠금, 2단계 등록/실패, 로그아웃, 비밀번호 변경, 관리자 생성/수정/재설정/해제, **인가 거부** 가 `idem_hub.audit_log` 에 `event_category=ADMIN`·`actor_type=ADMIN` 으로 남는다. 관리 행위(프로파일·기관·테넌트) 는 기존 감사에 인증된 사용자명이 actor 로 실린다 |
 | 부트스트랩 | 관리자가 0명이고 `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD` 가 있으면 첫 기동에서 `SYSTEM_ADMIN`(`IDEM_HUB_ADMIN_BOOTSTRAP_USERNAME`, 기본 `admin`) 을 만든다. `prod`/`stage` 에서 관리자가 없고 비밀번호도 비면 기동 거부 |
 
 ## 2. 설정 (`idem.hub.admin.*`, hub `application.yml`)
@@ -97,7 +97,7 @@ curl http://localhost:8083/api/v1/admin/agencies -H "Cookie: idemAdminSid=$SID" 
 
 ## 6. 운영
 
-- **2단계 비밀을 잃은 관리자**: 다른 `SYSTEM_ADMIN` 이 `POST /admins/{id}/reset-mfa` → 다음 로그인에서 재등록. 마지막 `SYSTEM_ADMIN` 이 잃었으면 DB 에서 `UPDATE ido.admin_user SET totp_secret_enc=NULL, totp_enrolled=false WHERE username='…'` (감사 로그에 수기 기록).
+- **2단계 비밀을 잃은 관리자**: 다른 `SYSTEM_ADMIN` 이 `POST /admins/{id}/reset-mfa` → 다음 로그인에서 재등록. 마지막 `SYSTEM_ADMIN` 이 잃었으면 DB 에서 `UPDATE idem_hub.admin_user SET totp_secret_enc=NULL, totp_enrolled=false WHERE username='…'` (감사 로그에 수기 기록).
 - **잠긴 관리자**: 15분 뒤 자동 해제 또는 `POST /admins/{id}/unlock`.
 - **`IDEM_HUB_ADMIN_SECRET_KEY` 교체**: 모든 관리자의 2단계를 `reset-mfa` 로 초기화한 뒤 키를 바꾼다(봉인된 비밀은 옛 키로만 열린다).
 - **세션 강제 종료**: 관리자를 `status=DISABLED`/`LOCKED` 로 바꾸거나 비밀번호를 재설정하면 그 관리자의 세션이 즉시 끝난다.

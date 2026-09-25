@@ -19,7 +19,7 @@
 
 | 항목 | F-14 Webhook 릴레이 | F-13 Outbox 릴레이 |
 |------|--------------------|--------------------|
-| 소스 테이블 | `webhook_dispatch_outbox` | `ido.outbox` |
+| 소스 테이블 | `webhook_dispatch_outbox` | `idem_hub.outbox` |
 | 전달 대상 | **기관 Webhook HTTP URL** | **Kafka** `platform.events` 토픽 |
 | 발송 방식 | HTTP POST (기관 서버) | KafkaTemplate.send() |
 | 재시도 정책 | 지수 백오프 (1분→5분→30분) | 고정 30초 간격 |

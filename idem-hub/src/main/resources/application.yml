@@ -18,9 +18,9 @@ spring:
 
   # ── DataSource ──────────────────────────────────────────────
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:onepass}?currentSchema=ido&sslmode=disable
-    username: ${DB_USERNAME:onepass}
-    password: ${DB_PASSWORD:onepass}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:idem}?currentSchema=idem_hub&sslmode=disable
+    username: ${DB_USERNAME:idem}
+    password: ${DB_PASSWORD:idem}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: ido-hikari
@@ -41,7 +41,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_schema: ido
+        default_schema: idem_hub
         jdbc:
           time_zone: UTC
           batch_size: 50
@@ -52,8 +52,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    schemas: ido
-    default-schema: ido
+    schemas: idem_hub
+    default-schema: idem_hub
     baseline-on-migrate: true
     baseline-version: 0
     validate-on-migrate: false   # V1 멱등화(IF NOT EXISTS) 후 체크섬 변경 허용
@@ -275,10 +275,10 @@ idem.hub:
     # Keycloak 서버 URL (로컬: http://localhost:8088, Docker: http://keycloak:8088)
     base-url: ${KEYCLOAK_BASE_URL:http://localhost:8088}
     # Realm 이름 (§10-1)
-    realm: ${KEYCLOAK_REALM:onepass}
-    # ido-client 클라이언트 ID (§10-2 confidential client)
-    client-id: ${KEYCLOAK_CLIENT_ID:ido-client}
-    # ido-client 클라이언트 시크릿 (§10-2 — Keycloak Admin Console에서 생성)
+    realm: ${KEYCLOAK_REALM:idem}
+    # idem-hub 클라이언트 ID (§10-2 confidential client)
+    client-id: ${KEYCLOAK_CLIENT_ID:idem-hub}
+    # idem-hub 클라이언트 시크릿 (§10-2 — Keycloak Admin Console에서 생성)
     # [Sprint γ-1 / F2.1] default("change-me") 제거 → 미설정 시
     # KeycloakProperties.validateClientSecret() 가 부팅을 차단.
     # 테스트/로컬은 idem.hub.keycloak.allow-empty-client-secret=true 로 우회.
@@ -307,7 +307,7 @@ idem.hub:
   # Keycloak client 는 Idem 이 Service Profile(protocol.oidc)에서 프로비저닝한다(콘솔 조작 없음).
   oidc-rp:
     enabled: ${IDEM_HUB_OIDC_RP_ENABLED:true}
-    issuer: ${IDEM_OIDC_ISSUER:${IDEM_PUBLIC_URL_GATE:http://localhost:8081}/realms/${KEYCLOAK_REALM:onepass}}
+    issuer: ${IDEM_OIDC_ISSUER:${IDEM_PUBLIC_URL_GATE:http://localhost:8081}/realms/${KEYCLOAK_REALM:idem}}
     client-id-prefix: idem-svc-
     provisioner:
       # realm-management(manage-clients·view-clients)만 가진 서비스 계정 — 관리자 비밀번호는 앱이 쓰지 않는다
@@ -533,7 +533,7 @@ idem.hub:
     max-retry: 3
 
   # ── F-30: Q-IM 회원 이벤트 Outbox Relay (QIM-OUTBOX-SPEC-001) ─────────────
-  # Q-IM / Q-Sign 이 ido.outbox에 INSERT한 idem.registry.user.events PENDING 레코드 발행
+  # Q-IM / Q-Sign 이 idem_hub.outbox에 INSERT한 idem.registry.user.events PENDING 레코드 발행
   # false → Q-IM SP 수신 후 Kafka 발행 없음 (Q-IM 통합 전 개발 단계)
   # true  → 1000ms 주기로 idem.registry.user.events PENDING 레코드 폴링 후 Kafka 발행
   registry-outbox:
@@ -827,7 +827,7 @@ logging:
 idem:
   # ── D1-b: Kafka 선택 의존 (docs/generalization-plan.md D1, docs/install.md) ──
   # false(기본): 브로커 없이 기동. 토픽 생성·컨슈머·Kafka 릴레이(F-30)·감사 Kafka 발행(F-03) 정지,
-  #              ido.outbox 는 IdoOutboxRelay 가 같은 프로세스의 컨슈머로 배달, 감사는 DB 저장(F-04)만.
+  #              idem_hub.outbox 는 IdoOutboxRelay 가 같은 프로세스의 컨슈머로 배달, 감사는 DB 저장(F-04)만.
   # true : Kafka 경로(다중 인스턴스·외부 시스템 연동). infra/docker 전체 스택·helm 은 true 로 준다.
   messaging:
     kafka:

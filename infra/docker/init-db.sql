@@ -16,10 +16,10 @@
 -- ──────────────────────────────────────────────────────────────────────────────
 
 -- Q-Sign 스키마 (인증 SoR)
-CREATE SCHEMA IF NOT EXISTS qsign;
+CREATE SCHEMA IF NOT EXISTS idem_gate;
 
 -- IdO 스키마 (정책 SoR)
-CREATE SCHEMA IF NOT EXISTS ido;
+CREATE SCHEMA IF NOT EXISTS idem_hub;
 
 -- Agency-Stub 스키마
 CREATE SCHEMA IF NOT EXISTS agency_stub;
@@ -28,4 +28,4 @@ CREATE SCHEMA IF NOT EXISTS agency_stub;
 CREATE SCHEMA IF NOT EXISTS keycloak;
 
 -- Q-IM(idem-registry) 스키마 — D1 부터 PostgreSQL. Flyway(create-schemas) 도 만들지만 권한·순서 문제를 피해 여기서도 만든다
-CREATE SCHEMA IF NOT EXISTS qim;
+CREATE SCHEMA IF NOT EXISTS idem_registry;

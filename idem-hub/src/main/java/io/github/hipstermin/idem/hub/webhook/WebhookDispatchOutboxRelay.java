@@ -22,7 +22,7 @@ import org.springframework.web.client.RestTemplate;
  * Webhook 발송 Outbox Relay (at-least-once HTTPS POST 보장)
  *
  * <p><b>책임</b>:
- * {@code ido.webhook_dispatch_outbox} 테이블의 PENDING 레코드를 폴링하여
+ * {@code idem_hub.webhook_dispatch_outbox} 테이블의 PENDING 레코드를 폴링하여
  * 기관 endpoint로 HTTPS POST를 실행하고 결과를 갱신한다.
  *
  * <p><b>설계 패턴: Transactional Outbox + Polling Relay</b>
@@ -310,8 +310,8 @@ public class WebhookDispatchOutboxRelay {
                            w.payload::text AS payload,
                            w.retry_count, w.max_retry,
                            c.signing_secret_hash
-                    FROM   ido.webhook_dispatch_outbox w
-                    LEFT JOIN ido.agency_webhook_config c
+                    FROM   idem_hub.webhook_dispatch_outbox w
+                    LEFT JOIN idem_hub.agency_webhook_config c
                            ON c.agency_code = w.agency_code AND c.active = TRUE
                     WHERE  w.status = 'PENDING'
                       AND  (w.next_retry_at IS NULL OR w.next_retry_at <= NOW())
@@ -331,7 +331,7 @@ public class WebhookDispatchOutboxRelay {
     private void markDispatched(String dispatchId, int httpStatus) {
         try {
             jdbcTemplate.update("""
-                    UPDATE ido.webhook_dispatch_outbox
+                    UPDATE idem_hub.webhook_dispatch_outbox
                     SET    status = 'DISPATCHED',
                            last_http_status = ?,
                            dispatched_at = NOW()
@@ -348,7 +348,7 @@ public class WebhookDispatchOutboxRelay {
     private void markFailed(String dispatchId, Integer httpStatus, String errorMessage) {
         try {
             jdbcTemplate.update("""
-                    UPDATE ido.webhook_dispatch_outbox
+                    UPDATE idem_hub.webhook_dispatch_outbox
                     SET    status = 'FAILED',
                            last_http_status = ?,
                            last_error_message = ?
@@ -368,7 +368,7 @@ public class WebhookDispatchOutboxRelay {
                                 Integer httpStatus, String errorMessage, long backoffSec) {
         try {
             jdbcTemplate.update("""
-                    UPDATE ido.webhook_dispatch_outbox
+                    UPDATE idem_hub.webhook_dispatch_outbox
                     SET    retry_count        = ?,
                            last_http_status   = ?,
                            last_error_message = ?,

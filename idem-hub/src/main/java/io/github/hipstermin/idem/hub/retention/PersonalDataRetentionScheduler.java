@@ -163,7 +163,7 @@ public class PersonalDataRetentionScheduler {
     private List<String> findExpiredWithdrawnMembers(Instant retentionCutoff) {
         String sql = """
                 SELECT inst_mbr_id
-                FROM ido.inst_mbr_id_mapping
+                FROM idem_hub.inst_mbr_id_mapping
                 WHERE status = 'WITHDRAWN'
                   AND withdrawn_at IS NOT NULL
                   AND withdrawn_at < ?
@@ -180,7 +180,7 @@ public class PersonalDataRetentionScheduler {
     @Transactional
     public void purgePersonalData(String instMbrId) {
         int updatedMapping = jdbcTemplate.update("""
-                UPDATE ido.inst_mbr_id_mapping
+                UPDATE idem_hub.inst_mbr_id_mapping
                 SET identifier_hash = NULL,
                     mbr_uuid        = NULL,
                     updated_at      = NOW()
@@ -193,13 +193,13 @@ public class PersonalDataRetentionScheduler {
                      " (이미 파기 또는 상태 불일치)", instMbrId);
         }
 
-        String qimUserIdSql = "SELECT qim_user_id FROM ido.inst_mbr_id_mapping WHERE inst_mbr_id = ?";
+        String qimUserIdSql = "SELECT qim_user_id FROM idem_hub.inst_mbr_id_mapping WHERE inst_mbr_id = ?";
         List<String> qimUserIds = jdbcTemplate.queryForList(qimUserIdSql, String.class, instMbrId);
 
         int deletedAuthResults = 0;
         for (String qimUserId : qimUserIds) {
             deletedAuthResults += jdbcTemplate.update("""
-                    DELETE FROM ido.auth_result
+                    DELETE FROM idem_hub.auth_result
                     WHERE qim_user_id = ?
                     """, qimUserId);
         }
