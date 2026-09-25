@@ -349,7 +349,10 @@ jobs:
             grep -q "^$k=" /tmp/install.env || { echo "install.env.example 의 키가 스모크 env 에 없습니다: $k"; missing=1; }
           done
           [ $missing -eq 0 ]
-          # 아래 단계들이 같은 값을 쓴다
+          # 아래 단계들이 같은 값을 쓴다 — 1회용 값이지만 로그에 남지 않도록 마스킹한다
+          while IFS='=' read -r k v; do
+            case "$k" in *SECRET*|*KEY*|*PASSWORD*) echo "::add-mask::$v" ;; esac
+          done < /tmp/install.env
           cat /tmp/install.env >> "$GITHUB_ENV"
 
       - name: compose.install.yml 검증 (실제 값으로 config 렌더링)
@@ -400,11 +403,12 @@ jobs:
             IDEM_PLATFORM_CODE=IDEM IDEM_PLUGINS_NICE_OACX_ENABLED=false IDEM_PLUGINS_ANYID_ENABLED=false \
             CORS_ORIGIN_DEV=http://localhost:3001 CORS_ORIGIN_PROD=http://localhost:3001 \
             nohup java -Xmx768m -jar "$(jar idem-hub)" --server.port=8083 > /tmp/idem/hub.log 2>&1 &
+          # bash -e: 연결 거부(curl 종료 7)가 스크립트를 끝내지 않도록 || true
           for i in $(seq 1 90); do
-            r=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8082/actuator/health)
-            a=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8086/actuator/health)
-            g=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/actuator/health)
-            h=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8083/actuator/health)
+            r=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8082/actuator/health || true)
+            a=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8086/actuator/health || true)
+            g=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/actuator/health || true)
+            h=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8083/actuator/health || true)
             if [ "$r$a$g$h" = "200200200200" ]; then echo "✅ registry·authz·gate·hub UP (${i}x3s)"; exit 0; fi
             sleep 3
           done
