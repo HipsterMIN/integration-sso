@@ -165,6 +165,8 @@ public class KeycloakCallbackService {
                 authResult.getAuthLevel() != null ? authResult.getAuthLevel().name() : "UNKNOWN",
                 System.currentTimeMillis() - startMs);
 
+        lockRepository.unlock(identifierHash, providerCode);   // D3: 성공 시 실패 카운터 초기화
+
         // ── 11. ido FE 세션 발급 요청 ────────────────────────────────────
         String redirectUrl = notifyIdoAndGetRedirect(authResult, returnUrl, claims.getSubject(), claims.getSessionId());
 

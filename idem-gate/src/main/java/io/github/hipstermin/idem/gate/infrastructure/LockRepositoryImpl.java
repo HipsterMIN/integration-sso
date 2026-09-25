@@ -20,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class LockRepositoryImpl implements LockRepository {
 
     private static final short DEFAULT_MAX_ATTEMPTS = 5;
+    /** D3: 임계치 도달 시 잠금 지속 시간 — 종전에는 카운터만 오르고 잠기지 않았다(호출자도 없었다). */
+    @org.springframework.beans.factory.annotation.Value("${qsign.lock.duration-minutes:15}")
+    private long lockDurationMinutes = 15;
 
     private final AuthLockJpaRepository jpaRepository;
 

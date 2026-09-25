@@ -53,15 +53,16 @@ public class AuthServiceImpl implements AuthService {
                                     String idToken, String requestedLevel) {
         log.info("[Q-Sign] OIDC 인증 시작 correlationId={} provider={}", correlationId, providerCode);
 
-        if (lockRepository.isLocked(providerCode, providerCode)) {
-            authMetrics.incrementAuthLocked(providerCode);
-            throw new PlatformException(PlatformErrorCode.QS_AUTH_LOCKED, correlationId);
-        }
-
         // Task 3-2: idToken sub 파싱 → SHA-256(sub) 기반 identifierHash
         // PII 비보관 원칙: sub 원문은 hash 계산 직후 GC 대상이 됨
         String sub = extractSubFromIdToken(idToken, correlationId);
         String identifierHash = computeIdentifierHash(sub);
+
+        // D3: 잠금은 (identifierHash, providerCode) 키다 — 종전엔 providerCode 를 식별자 자리에 넣어 항상 미잠금이었다
+        if (lockRepository.isLocked(identifierHash, providerCode)) {
+            authMetrics.incrementAuthLocked(providerCode);
+            throw new PlatformException(PlatformErrorCode.QS_AUTH_LOCKED, correlationId);
+        }
         long startMs = System.currentTimeMillis();
 
         AuthResult result = AuthResult.builder()
@@ -95,14 +96,18 @@ public class AuthServiceImpl implements AuthService {
         // internalSignature 는 X-Internal-Sig 헤더로 수신 (AuthController 에서 검증)
         // identifierHash 는 ido NonOidcBroker 가 CI 기반으로 계산하여 전달
 
-        if (!input.isProviderVerified()) {
-            authMetrics.incrementAuthFailure(input.getProviderCode(), AuthMetrics.REASON_INVALID_RESPONSE);
-            throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, input.getCorrelationId());
-        }
-
         if (lockRepository.isLocked(input.getIdentifierHash(), input.getProviderCode())) {
             authMetrics.incrementAuthLocked(input.getProviderCode());
             throw new PlatformException(PlatformErrorCode.QS_AUTH_LOCKED, input.getCorrelationId());
+        }
+
+        if (!input.isProviderVerified()) {
+            // D3: 검증 실패를 센다 — 임계치(5)에 닿으면 LockRepository 가 잠근다. 종전엔 카운터를 올리는 호출자가 없었다
+            if (input.getIdentifierHash() != null && !input.getIdentifierHash().isBlank()) {
+                lockRepository.incrementAttempt(input.getIdentifierHash(), input.getProviderCode());
+            }
+            authMetrics.incrementAuthFailure(input.getProviderCode(), AuthMetrics.REASON_INVALID_RESPONSE);
+            throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, input.getCorrelationId());
         }
 
         long startMs = System.currentTimeMillis();
@@ -123,6 +128,7 @@ public class AuthServiceImpl implements AuthService {
 
         authResultRepository.save(result);
         publishAuthEvent(result, AuthEvent.TYPE_AUTH_COMPLETED);
+        lockRepository.unlock(input.getIdentifierHash(), input.getProviderCode());   // D3: 성공 시 실패 카운터 초기화
 
         authMetrics.incrementAuthSuccess(input.getProviderCode(), authLevelTag);
         authMetrics.recordAuthDuration(input.getProviderCode(), authLevelTag, System.currentTimeMillis() - startMs);

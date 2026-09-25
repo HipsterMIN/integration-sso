@@ -15,7 +15,6 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -93,8 +92,24 @@ public class KeycloakJwksVerifier {
      *
      * <p>캐시 키: kid — 키 로테이션 시 새 kid로 자동 갱신.
      */
-    @Cacheable(value = CACHE_NAME, key = "#kid")
+    /** D3: 명시적 TTL 캐시 — 종전 {@code @Cacheable} 은 자기호출이라 프록시를 타지 않아 매 검증마다 JWKS 를 읽었다. */
+    private final java.util.concurrent.ConcurrentHashMap<String, CachedKey> keyCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private record CachedKey(RSAPublicKey key, long expiresAtMillis) {}
+
+    @org.springframework.beans.factory.annotation.Value("${ido.keycloak.jwks-cache-ttl-seconds:3600}")
+    private long jwksCacheTtlSeconds = 3600;
+
     public RSAPublicKey fetchPublicKey(String kid) {
+        CachedKey cached = keyCache.get(kid);
+        if (cached != null && cached.expiresAtMillis() > System.currentTimeMillis()) return cached.key();
+        RSAPublicKey fresh = loadPublicKey(kid);
+        keyCache.put(kid, new CachedKey(fresh, System.currentTimeMillis() + jwksCacheTtlSeconds * 1000L));
+        return fresh;
+    }
+
+    public int cachedKeyCount() { return keyCache.size(); }
+
+    private RSAPublicKey loadPublicKey(String kid) {
         String jwksUri = keycloakProperties.getBaseUrl()
                 + "/realms/" + keycloakProperties.getRealm()
                 + "/protocol/openid-connect/certs";

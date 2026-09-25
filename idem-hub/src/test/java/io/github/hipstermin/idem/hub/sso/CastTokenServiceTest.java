@@ -191,7 +191,7 @@ class CastTokenServiceTest {
         CastToken issued = castTokenService.issue("fe-session-003", TARGET_AGENCY, "issue-cid");
 
         // verify() Mock 설정 — ISSUED 상태
-        when(valueOps.get(argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX))))
+        when(valueOps.getAndSet(argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX)), eq("CONSUMED")))
                 .thenReturn("ISSUED");
         when(redisTemplate.getExpire(anyString())).thenReturn(250L);
 
@@ -205,11 +205,7 @@ class CastTokenServiceTest {
         assertThat(verified.targetAgency()).isEqualTo(TARGET_AGENCY);
 
         // CONSUMED 값으로 덮어씌움 검증
-        verify(valueOps).set(
-                argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX)),
-                eq("CONSUMED"),
-                any()
-        );
+        verify(redisTemplate).expire(argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX)), any(java.time.Duration.class));
     }
 
     // ── 연합 인가: roles 클레임 임베드 + verify 추출 라운드트립 ────────────
@@ -241,7 +237,7 @@ class CastTokenServiceTest {
         assertThat(issued.roles()).containsExactly("MANAGER", "REVIEWER");
 
         // verify Mock: ISSUED 상태
-        when(valueOps.get(argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX))))
+        when(valueOps.getAndSet(argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX)), eq("CONSUMED")))
                 .thenReturn("ISSUED");
         when(redisTemplate.getExpire(anyString())).thenReturn(250L);
 
@@ -251,6 +247,26 @@ class CastTokenServiceTest {
     }
 
     // ── verify() 실패: 이미 소비 ─────────────────────────────────────────
+
+    @Test
+    @DisplayName("D3 GETSET: 키가 없던 경우(만료) → SSO_CAST_EXPIRED 이고 GETSET 이 만든 키는 지운다")
+    void verify_expired_getAndSetCreatedKeyIsDeleted() {
+        FeSession session = FeSession.builder()
+                .feSessionId("fe-session-d3").qimUserId(QIM_USER_ID).authLevel("LOW").authResultId("auth-d3")
+                .createdAt(Instant.now()).lastActivityAt(Instant.now()).absoluteExpiresAt(Instant.now().plusSeconds(3600)).build();
+        AgencyMeta agency = mock(AgencyMeta.class);
+        when(agency.isActive()).thenReturn(true);
+        when(feSessionService.findById("fe-session-d3")).thenReturn(Optional.of(session));
+        when(agencyMetaRepository.findByCode(TARGET_AGENCY)).thenReturn(Optional.of(agency));
+        when(valueOps.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
+        CastToken issued = castTokenService.issue("fe-session-d3", TARGET_AGENCY, "issue-cid-d3");
+
+        when(valueOps.getAndSet(argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX)), eq("CONSUMED"))).thenReturn(null);
+        assertThatThrownBy(() -> castTokenService.verify(issued.token(), TARGET_AGENCY, "1.2.3.4", "verify-cid-d3"))
+                .isInstanceOf(PlatformException.class)
+                .extracting(e -> ((PlatformException) e).getErrorCode()).isEqualTo(PlatformErrorCode.SSO_CAST_EXPIRED);
+        verify(redisTemplate).delete(argThat((String k) -> k != null && k.startsWith(CastToken.REDIS_CONSUMED_PREFIX)));
+    }
 
     @Test
     @DisplayName("verify: 이미 소비된 CAST 토큰 → SSO_CAST_CONSUMED")
@@ -273,7 +289,7 @@ class CastTokenServiceTest {
         CastToken issued = castTokenService.issue("fe-session-004", TARGET_AGENCY, "issue-cid-4");
 
         // Redis에서 CONSUMED 상태 반환 (이미 소비됨)
-        when(valueOps.get(argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX))))
+        when(valueOps.getAndSet(argThat(k -> k != null && k.toString().startsWith(CastToken.REDIS_CONSUMED_PREFIX)), eq("CONSUMED")))
                 .thenReturn("CONSUMED");
 
         // When & Then

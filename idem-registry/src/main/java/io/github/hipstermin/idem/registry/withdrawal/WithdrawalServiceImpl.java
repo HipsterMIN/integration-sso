@@ -258,6 +258,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                 SET name_masked           = NULL,
                     mobile_masked         = NULL,
                     ci                    = NULL,
+                    subject_key           = NULL,   -- D3: 등록 경로(UserRegistrationServiceImpl.deletePii)와 같은 삭제 집합
                     di_map                = NULL,
                     extra_attributes      = NULL,
                     guardian_qim_user_id  = NULL,
