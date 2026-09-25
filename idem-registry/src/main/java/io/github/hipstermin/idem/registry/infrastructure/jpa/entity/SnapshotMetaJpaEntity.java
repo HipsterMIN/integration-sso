@@ -13,7 +13,7 @@ import lombok.*;
  *
  * <p><b>스냅샷 발행 전략</b>:
  * Q-IM Outbox가 N개 이벤트를 발행할 때마다 전체 사용자 상태 스냅샷을
- * {@code qim.user.snapshot} Compacted Topic으로 발행한다.
+ * {@code idem.registry.user.snapshot} Compacted Topic으로 발행한다.
  * 이 테이블은 어느 event_version 기준으로 스냅샷이 발행되었는지 추적한다.
  *
  * <p><b>DB 매핑</b>:
@@ -21,7 +21,7 @@ import lombok.*;
  *   <li>{@code snapshot_id}      : UUID (PK)</li>
  *   <li>{@code qim_user_id}      : FK → qim_user.qim_user_id</li>
  *   <li>{@code snapshot_version} : 스냅샷 기준 event_version (UQ: qim_user_id + version)</li>
- *   <li>{@code topic}            : Kafka 토픽명 (기본: qim.user.snapshot)</li>
+ *   <li>{@code topic}            : Kafka 토픽명 (기본: idem.registry.user.snapshot)</li>
  *   <li>{@code status}           : PUBLISHED / FAILED</li>
  *   <li>{@code created_at}       : 스냅샷 발행 시각</li>
  * </ul>
@@ -62,11 +62,11 @@ public class SnapshotMetaJpaEntity {
 
     /**
      * Kafka 스냅샷 토픽명
-     * 기본값: {@code qim.user.snapshot} (Compacted Topic)
+     * 기본값: {@code idem.registry.user.snapshot} (Compacted Topic)
      */
     @Column(name = "topic", length = 200, nullable = false)
     @Builder.Default
-    private String topic = "qim.user.snapshot";
+    private String topic = "idem.registry.user.snapshot";
 
     /**
      * 발행 상태 (§11.5.6)
@@ -86,7 +86,7 @@ public class SnapshotMetaJpaEntity {
     @PrePersist
     void prePersist() {
         if (createdAt == null) createdAt = Instant.now();
-        if (topic == null || topic.isBlank()) topic = "qim.user.snapshot";
+        if (topic == null || topic.isBlank()) topic = "idem.registry.user.snapshot";
         if (status == null || status.isBlank()) status = SnapshotStatus.PUBLISHED.name();
     }
 

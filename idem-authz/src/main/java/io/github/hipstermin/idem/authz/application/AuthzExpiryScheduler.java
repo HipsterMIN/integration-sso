@@ -31,17 +31,17 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "authz.expiry.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "idem.authz.expiry.enabled", havingValue = "true", matchIfMissing = true)
 public class AuthzExpiryScheduler {
 
     private final AuthzService authzService;
 
-    @Value("${authz.expiry.batch-size:500}")
+    @Value("${idem.authz.expiry.batch-size:500}")
     private int batchSize;
 
     @Scheduled(
-            fixedDelayString = "${authz.expiry.scan-interval-ms:60000}",
-            initialDelayString = "${authz.expiry.initial-delay-ms:30000}")
+            fixedDelayString = "${idem.authz.expiry.scan-interval-ms:60000}",
+            initialDelayString = "${idem.authz.expiry.initial-delay-ms:30000}")
     public void scanAndExpire() {
         try {
             int expired = authzService.expireOverdue(Instant.now(), batchSize);

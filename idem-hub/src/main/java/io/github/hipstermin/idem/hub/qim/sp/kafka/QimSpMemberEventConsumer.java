@@ -12,19 +12,19 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 /**
- * IdO ← qim.sp.member.events Kafka 컨슈머 (SP 회원 등록/전환/탈퇴 이벤트)
+ * IdO ← idem.registry.sp.member.events Kafka 컨슈머 (SP 회원 등록/전환/탈퇴 이벤트)
  *
- * Q-IM이 SP 회원 등록 · 전환 · 탈퇴 처리 후 qim.sp.member.events로 발행한 이벤트를
+ * Q-IM이 SP 회원 등록 · 전환 · 탈퇴 처리 후 idem.registry.sp.member.events로 발행한 이벤트를
  * 소비하여 IdO 내부 컴포넌트(유관기관 어댑터, 정책 엔진 등)에 전파한다.
  *
- * <p><b>토픽</b>: {@code qim.sp.member.events} (설정 키: {@code ido.kafka.topic-qim-sp-member-events})
+ * <p><b>토픽</b>: {@code idem.registry.sp.member.events} (설정 키: {@code idem.hub.kafka.topic-registry-sp-member-events})
  * <p><b>이벤트 타입 (QIM-OUTBOX-SPEC-001 기준)</b>:
  * <ul>
- *   <li>{@code BIZ_MEMBER_CONVERTED}      — 기업회원 전환 (구 QIM_MEMBER_TRANSFERRED + CORPORATE)</li>
- *   <li>{@code BIZ_MEMBER_REGISTERED}     — 기업회원 신규 등록 (구 QIM_MEMBER_REGISTERED + CORPORATE)</li>
- *   <li>{@code PERSONAL_MEMBER_CONVERTED} — 개인회원 전환 (구 QIM_MEMBER_TRANSFERRED + PERSONAL)</li>
- *   <li>{@code PERSONAL_MEMBER_REGISTERED}— 개인회원 신규 등록 (구 QIM_MEMBER_REGISTERED + PERSONAL)</li>
- *   <li>{@code MEMBER_WITHDRAWN}          — 회원 탈퇴 (구 QIM_MEMBER_WITHDRAWN)</li>
+ *   <li>{@code BIZ_MEMBER_CONVERTED}      — 기업회원 전환 (구 IDEM_REGISTRY_MEMBER_TRANSFERRED + CORPORATE)</li>
+ *   <li>{@code BIZ_MEMBER_REGISTERED}     — 기업회원 신규 등록 (구 IDEM_REGISTRY_MEMBER_REGISTERED + CORPORATE)</li>
+ *   <li>{@code PERSONAL_MEMBER_CONVERTED} — 개인회원 전환 (구 IDEM_REGISTRY_MEMBER_TRANSFERRED + PERSONAL)</li>
+ *   <li>{@code PERSONAL_MEMBER_REGISTERED}— 개인회원 신규 등록 (구 IDEM_REGISTRY_MEMBER_REGISTERED + PERSONAL)</li>
+ *   <li>{@code MEMBER_WITHDRAWN}          — 회원 탈퇴 (구 IDEM_REGISTRY_MEMBER_WITHDRAWN)</li>
  * </ul>
  *
  * <p><b>처리 원칙</b>:
@@ -44,7 +44,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class QimSpMemberEventConsumer {
 
-    // QIM-OUTBOX-SPEC-001: qim.sp.member.events SP 회원 이벤트 전용 그룹
+    // QIM-OUTBOX-SPEC-001: idem.registry.sp.member.events SP 회원 이벤트 전용 그룹
     private static final String CONSUMER_GROUP = "ido-qim-sp-member-consumer";
 
     // ── 이벤트 타입 상수 (QIM-OUTBOX-SPEC-001 기준) ─────────────────────────
@@ -59,7 +59,7 @@ public class QimSpMemberEventConsumer {
     private final ObjectMapper objectMapper;
 
     /**
-     * qim.sp.member.events 구독 (SP 회원 등록/전환/탈퇴)
+     * idem.registry.sp.member.events 구독 (SP 회원 등록/전환/탈퇴)
      *
      * <p>메시지 형식 (qim_outbox payload 기준 QIM-OUTBOX-SPEC-001 §5):
      * <pre>
@@ -78,8 +78,8 @@ public class QimSpMemberEventConsumer {
      * </pre>
      */
     @KafkaListener(
-            topics           = "${ido.kafka.topic-qim-sp-member-events:qim.sp.member.events}",
-            groupId          = "${ido.kafka.consumer-group-qim-sp-member:ido-qim-sp-member-consumer}",
+            topics           = "${idem.hub.kafka.topic-registry-sp-member-events:idem.registry.sp.member.events}",
+            groupId          = "${idem.hub.kafka.consumer-group-qim-sp-member:ido-qim-sp-member-consumer}",
             containerFactory = "qimSpMemberListenerContainerFactory"
     )
     public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {

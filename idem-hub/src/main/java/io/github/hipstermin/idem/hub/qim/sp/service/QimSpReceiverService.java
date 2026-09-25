@@ -39,16 +39,16 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class QimSpReceiverService {
 
-    private static final String TOPIC_QIM_USER_EVENTS = "qim.user.events";
+    private static final String TOPIC_QIM_USER_EVENTS = "idem.registry.user.events";
 
     // ── 이벤트 타입 (qim_outbox 명세서 QIM-OUTBOX-SPEC-001 기준) ─────────────
-    // 기업회원 전환 (구 QIM_MEMBER_TRANSFERRED + CORPORATE)
+    // 기업회원 전환 (구 IDEM_REGISTRY_MEMBER_TRANSFERRED + CORPORATE)
     static final String EVENT_BIZ_MEMBER_CONVERTED      = "BIZ_MEMBER_CONVERTED";
-    // 기업회원 신규 등록 (구 QIM_MEMBER_REGISTERED + CORPORATE)
+    // 기업회원 신규 등록 (구 IDEM_REGISTRY_MEMBER_REGISTERED + CORPORATE)
     static final String EVENT_BIZ_MEMBER_REGISTERED     = "BIZ_MEMBER_REGISTERED";
-    // 개인회원 전환 (구 QIM_MEMBER_TRANSFERRED + PERSONAL)
+    // 개인회원 전환 (구 IDEM_REGISTRY_MEMBER_TRANSFERRED + PERSONAL)
     static final String EVENT_PERSONAL_MEMBER_CONVERTED = "PERSONAL_MEMBER_CONVERTED";
-    // 개인회원 신규 등록 (구 QIM_MEMBER_REGISTERED + PERSONAL)
+    // 개인회원 신규 등록 (구 IDEM_REGISTRY_MEMBER_REGISTERED + PERSONAL)
     static final String EVENT_PERSONAL_MEMBER_REGISTERED = "PERSONAL_MEMBER_REGISTERED";
     // 회원 탈퇴 (명칭 동일, 접두사만 제거)
     static final String EVENT_MEMBER_WITHDRAWN          = "MEMBER_WITHDRAWN";
@@ -66,7 +66,7 @@ public class QimSpReceiverService {
     private final ObjectMapper objectMapper;
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${ido.qim.inbound-api-key-hash:CHANGEME}")
+    @Value("${idem.hub.registry.inbound-api-key-hash:CHANGEME}")
     private String inboundApiKeyHash;
 
     // ── MEMBER_QUERY ─────────────────────────────────────────────────────────
@@ -203,7 +203,7 @@ public class QimSpReceiverService {
                     instMbrId, regMode, correlationId);
         }
 
-        // 4. Outbox 발행 (비동기 — qim.user.events)
+        // 4. Outbox 발행 (비동기 — idem.registry.user.events)
         // 이벤트 타입: isTransfer × isCorporate 조합으로 4종 분기 (QIM-OUTBOX-SPEC-001)
         String eventType = resolveRegisterEventType(request.isTransfer(), request.isCorporate());
         publishToOutbox(instMbrId, instMbrId, eventType,
@@ -299,7 +299,7 @@ public class QimSpReceiverService {
      * Q-IM 아웃바운드 API Key 검증 — PBKDF2-HMAC-SHA256 해시 비교
      *
      * <p>저장 포맷: {@code pbkdf2:{iterations}:{saltBase64}:{hashBase64}}
-     * 환경변수 {@code QIM_INBOUND_API_KEY_HASH}에 PBKDF2 해시값을 설정해야 한다.
+     * 환경변수 {@code IDEM_REGISTRY_INBOUND_API_KEY_HASH}에 PBKDF2 해시값을 설정해야 한다.
      *
      * <p>보안 원칙:
      * <ul>
@@ -319,7 +319,7 @@ public class QimSpReceiverService {
 
         // CHANGEME sentinel 즉각 거부 (운영 환경 기동 차단)
         if ("CHANGEME".equals(inboundApiKeyHash) || !ApiKeyHashUtil.isPbkdf2Format(inboundApiKeyHash)) {
-            log.error("[QIM-SP][보안경고] QIM_INBOUND_API_KEY_HASH가 PBKDF2 포맷이 아닙니다. " +
+            log.error("[QIM-SP][보안경고] IDEM_REGISTRY_INBOUND_API_KEY_HASH가 PBKDF2 포맷이 아닙니다. " +
                       "운영 전 반드시 pbkdf2:...:{salt}:{hash} 형식으로 설정하세요. 현재 모든 요청 거부.");
             return false;
         }

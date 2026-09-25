@@ -18,7 +18,7 @@ class DomainEventJacksonRoundTripTest {
 
     @Test
     void authEvent() throws Exception {
-        AuthEvent e = new AuthEvent(AuthEvent.TYPE_AUTH_LOCKED, "ido", "cid", "user", 1L,
+        AuthEvent e = new AuthEvent(AuthEvent.TYPE_AUTH_LOCKED, "idem-hub", "cid", "user", 1L,
                 "ar", AuthResult.AuthLevel.L2, "MOCK", "tx", AuthResult.VerificationResult.FAIL);
         AuthEvent back = om.readValue(om.writeValueAsString(e), AuthEvent.class);
         assertThat(back.getEventId()).isEqualTo(e.getEventId());
@@ -31,7 +31,7 @@ class DomainEventJacksonRoundTripTest {
 
     @Test
     void sessionAdvisoryEvent_부분_payload도_읽힌다() throws Exception {
-        SessionAdvisoryEvent e = new SessionAdvisoryEvent(SessionAdvisoryEvent.TYPE_MANDATORY_SECURITY, "ido", "cid",
+        SessionAdvisoryEvent e = new SessionAdvisoryEvent(SessionAdvisoryEvent.TYPE_MANDATORY_SECURITY, "idem-hub", "cid",
                 "user", 1L, "MANDATORY", null, "AUTH_LOCKED", null);
         SessionAdvisoryEvent back = om.readValue(om.writeValueAsString(e), SessionAdvisoryEvent.class);
         assertThat(back.getEventId()).isEqualTo(e.getEventId());
@@ -48,7 +48,7 @@ class DomainEventJacksonRoundTripTest {
 
     @Test
     void handoffEvent() throws Exception {
-        HandoffEvent e = new HandoffEvent(HandoffEvent.TYPE_HANDOFF_REVOKED, "ido", "cid", "user", 1L,
+        HandoffEvent e = new HandoffEvent(HandoffEvent.TYPE_HANDOFF_REVOKED, "idem-hub", "cid", "user", 1L,
                 "ticket", "AGENCY001", "ar", "REVOKED", "SUSPICIOUS");
         HandoffEvent back = om.readValue(om.writeValueAsString(e), HandoffEvent.class);
         assertThat(back.getEventId()).isEqualTo(e.getEventId());

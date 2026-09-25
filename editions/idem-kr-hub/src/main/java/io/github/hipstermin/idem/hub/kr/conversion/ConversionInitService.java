@@ -53,11 +53,11 @@ public class ConversionInitService {
     private final RedisTemplate<String, Object> redisTemplate;
 
     /** ConversionSession Redis TTL (기본 30분) */
-    @Value("${ido.conversion.session-ttl-minutes:30}")
+    @Value("${idem.hub.conversion.session-ttl-minutes:30}")
     private long sessionTtlMinutes;
 
     /** signed_request JWT 최대 허용 연령 (기본 5분) */
-    @Value("${ido.conversion.signed-request-max-age-minutes:5}")
+    @Value("${idem.hub.conversion.signed-request-max-age-minutes:5}")
     private long signedRequestMaxAgeMinutes;
 
     /**

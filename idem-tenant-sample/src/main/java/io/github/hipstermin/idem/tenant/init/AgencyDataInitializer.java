@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>API Key 시드 값</b> (PoC):
  * <pre>
- *   rawKey  = "${agency-stub.ido.api-key}" (기본값: stub-api-key-dev-001)
+ *   rawKey  = "${idem.sample.ido.api-key}" (기본값: stub-api-key-dev-001)
  *   SHA-256 = 8a5ad1ec5a18b326ed9ae616c9883e46bede28ed5b84d2912bb70263433749df
  * </pre>
  *
@@ -46,10 +46,10 @@ public class AgencyDataInitializer implements ApplicationRunner {
 
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${agency-stub.code:AGENCY_STUB_001}")
+    @Value("${idem.sample.code:AGENCY_STUB_001}")
     private String agencyCode;
 
-    @Value("${agency-stub.ido.api-key:stub-api-key-dev-001}")
+    @Value("${idem.sample.ido.api-key:stub-api-key-dev-001}")
     private String rawApiKey;
 
     // ════════════════════════════════════════════════════════════════════════

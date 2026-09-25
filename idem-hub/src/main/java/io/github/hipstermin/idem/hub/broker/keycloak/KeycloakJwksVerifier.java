@@ -96,7 +96,7 @@ public class KeycloakJwksVerifier {
     private final java.util.concurrent.ConcurrentHashMap<String, CachedKey> keyCache = new java.util.concurrent.ConcurrentHashMap<>();
     private record CachedKey(RSAPublicKey key, long expiresAtMillis) {}
 
-    @org.springframework.beans.factory.annotation.Value("${ido.keycloak.jwks-cache-ttl-seconds:3600}")
+    @org.springframework.beans.factory.annotation.Value("${idem.hub.keycloak.jwks-cache-ttl-seconds:3600}")
     private long jwksCacheTtlSeconds = 3600;
 
     public RSAPublicKey fetchPublicKey(String kid) {

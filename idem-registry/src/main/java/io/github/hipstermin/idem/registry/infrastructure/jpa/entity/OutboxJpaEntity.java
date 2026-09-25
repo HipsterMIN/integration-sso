@@ -7,7 +7,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * Transactional Outbox JPA 엔터티 — MariaDB qim.outbox 테이블 매핑
+ * Transactional Outbox JPA 엔터티 — MariaDB idem.registry.outbox 테이블 매핑
  * 설계서 §10.5.2 Transactional Outbox 패턴
  *
  * [DB] NHN Cloud RDS for MariaDB (PoC: Docker MariaDB 11.x)
@@ -47,7 +47,7 @@ public class OutboxJpaEntity {
     @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
     private String payload;
 
-    /** qim.user.events 또는 qim.user.snapshot */
+    /** idem.registry.user.events 또는 idem.registry.user.snapshot */
     @Column(name = "topic", length = 200, nullable = false)
     private String topic;
 
@@ -73,6 +73,6 @@ public class OutboxJpaEntity {
         if (createdAt == null) createdAt = Instant.now();
         if (status == null) status = "PENDING";
         if (retryCount == null) retryCount = 0;
-        if (topic == null) topic = "qim.user.events";
+        if (topic == null) topic = "idem.registry.user.events";
     }
 }

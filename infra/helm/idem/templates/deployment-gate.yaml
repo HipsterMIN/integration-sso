@@ -1,4 +1,4 @@
-{{- if .Values.qsign.enabled }}
+{{- if .Values.gate.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,12 +6,12 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-sign
+    app.kubernetes.io/component: idem-gate
   annotations:
     # Secret 변경 시 자동 rollout 트리거
     checksum/secret: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
 spec:
-  replicas: {{ .Values.qsign.replicaCount }}
+  replicas: {{ .Values.gate.replicaCount }}
   selector:
     matchLabels:
       app: idem-gate
@@ -25,20 +25,20 @@ spec:
       labels:
         app: idem-gate
         {{- include "onepass.labels" . | nindent 8 }}
-        app.kubernetes.io/component: q-sign
+        app.kubernetes.io/component: idem-gate
     spec:
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml .Values.global.imagePullSecrets | nindent 8 }}
       {{- end }}
-      {{- if and .Values.qsign.serviceAccount .Values.qsign.serviceAccount.create }}
-      serviceAccountName: {{ .Values.qsign.serviceAccount.name | default "idem-gate" }}
+      {{- if and .Values.gate.serviceAccount .Values.gate.serviceAccount.create }}
+      serviceAccountName: {{ .Values.gate.serviceAccount.name | default "idem-gate" }}
       {{- end }}
       terminationGracePeriodSeconds: 30
       containers:
-        - name: q-sign
-          image: {{ include "onepass.image" .Values.qsign.image }}
-          imagePullPolicy: {{ .Values.qsign.image.pullPolicy }}
+        - name: idem-gate
+          image: {{ include "onepass.image" .Values.gate.image }}
+          imagePullPolicy: {{ .Values.gate.image.pullPolicy }}
           ports:
             - name: http
               containerPort: 8081
@@ -51,17 +51,17 @@ spec:
             - configMapRef:
                 name: idem-common-config
             - secretRef:
-                name: {{ .Values.qsign.secretRef.name }}
-          {{- if .Values.qsign.startupProbe }}
+                name: {{ .Values.gate.secretRef.name }}
+          {{- if .Values.gate.startupProbe }}
           startupProbe:
-            {{- toYaml .Values.qsign.startupProbe | nindent 12 }}
+            {{- toYaml .Values.gate.startupProbe | nindent 12 }}
           {{- end }}
           livenessProbe:
-            {{- toYaml .Values.qsign.livenessProbe | nindent 12 }}
+            {{- toYaml .Values.gate.livenessProbe | nindent 12 }}
           readinessProbe:
-            {{- toYaml .Values.qsign.readinessProbe | nindent 12 }}
+            {{- toYaml .Values.gate.readinessProbe | nindent 12 }}
           resources:
-            {{- toYaml .Values.qsign.resources | nindent 12 }}
+            {{- toYaml .Values.gate.resources | nindent 12 }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

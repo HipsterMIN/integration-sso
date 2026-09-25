@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
  *   <li>인메모리 캐시 (ConcurrentHashMap, 최소 지연)</li>
  *   <li>Redis (분산 캐시, TTL 1시간)</li>
  *   <li>DB {@code ido.crypto_key_registry} (영구 저장)</li>
- *   <li>Spring 환경 프로퍼티 {@code ido.ticket.aes-key} (폴백 / 개발 환경)</li>
+ *   <li>Spring 환경 프로퍼티 {@code idem.hub.ticket.aes-key} (폴백 / 개발 환경)</li>
  * </ol>
  *
  * <p><b>Redis 키 구조</b>:
@@ -46,10 +46,10 @@ import org.springframework.stereotype.Component;
 public class KeyVersionRegistry {
 
     // ── Redis 키 상수 ─────────────────────────────────────────────────────
-    private static final String AES_CURRENT_VERSION_KEY  = "ido:crypto:aes:current-version";
-    private static final String AES_VERSION_KEY_PREFIX   = "ido:crypto:aes:version:";
-    private static final String HMAC_CURRENT_VERSION_KEY = "ido:crypto:hmac:current-version";
-    private static final String HMAC_VERSION_KEY_PREFIX  = "ido:crypto:hmac:version:";
+    private static final String AES_CURRENT_VERSION_KEY  = "idem:crypto:aes:current-version";
+    private static final String AES_VERSION_KEY_PREFIX   = "idem:crypto:aes:version:";
+    private static final String HMAC_CURRENT_VERSION_KEY = "idem:crypto:hmac:current-version";
+    private static final String HMAC_VERSION_KEY_PREFIX  = "idem:crypto:hmac:version:";
 
     // ── 인메모리 캐시 TTL ─────────────────────────────────────────────────
     private static final Duration LOCAL_CACHE_TTL = Duration.ofMinutes(5);
@@ -61,7 +61,7 @@ public class KeyVersionRegistry {
      * 부팅을 차단해야 하는 폴백 키 placeholder 목록 (Sprint γ-3 / F3.3 후속).
      *
      * <p>특히 {@code "AAAA...="} (32바이트 0x00 키 Base64) 는 γ-2 이전까지
-     * {@code application.yml} 의 {@code ido.ticket.aes-key} / {@code ido.ticket.hmac-key}
+     * {@code application.yml} 의 {@code idem.hub.ticket.aes-key} / {@code idem.hub.ticket.hmac-key}
      * default 로 박혀있던 값이다. Redis/DB 폴백 경로가 모두 실패해 폴백 프로퍼티가
      * 사용되는 순간(운영에서도 발생 가능), 이 값이 실제 암호화/서명 키로 동작하면
      * Handoff Ticket 전체가 사실상 평문이 된다.
@@ -83,20 +83,20 @@ public class KeyVersionRegistry {
     private final KmsClient                     kmsClient;
 
     // ── 폴백 프로퍼티 (개발/테스트 환경) ─────────────────────────────────
-    @Value("${ido.ticket.aes-key:}")
+    @Value("${idem.hub.ticket.aes-key:}")
     private String fallbackAesKeyBase64;
 
-    @Value("${ido.ticket.hmac-key:}")
+    @Value("${idem.hub.ticket.hmac-key:}")
     private String fallbackHmacKeyBase64;
 
-    @Value("${ido.crypto.current-version:v1}")
+    @Value("${idem.hub.crypto.current-version:v1}")
     private String configuredVersion;
 
     /**
      * 로컬·테스트 전용 escape hatch (Sprint γ-3 / F3.3 후속).
      * <p>{@code true} 일 때만 폴백 키 누락 / 빈 값이 허용된다. 운영에서는 절대 사용 금지.
      */
-    @Value("${ido.ticket.allow-empty-fallback-keys:false}")
+    @Value("${idem.hub.ticket.allow-empty-fallback-keys:false}")
     private boolean allowEmptyFallbackKeys;
 
     // ── 인메모리 캐시 ────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ public class KeyVersionRegistry {
      *   <li>현재 버전 Warm-up (Redis 캐시 확인) — 기존 동작 유지, 실패해도 로그 경고만</li>
      * </ol>
      *
-     * <p>{@code ido.ticket.allow-empty-fallback-keys=true} 가 명시되면 폴백 키 검증을 건너뛴다
+     * <p>{@code idem.hub.ticket.allow-empty-fallback-keys=true} 가 명시되면 폴백 키 검증을 건너뛴다
      * (로컬/단위·통합 테스트 한정).
      */
     @PostConstruct
@@ -195,7 +195,7 @@ public class KeyVersionRegistry {
     }
 
     /**
-     * Spring 부팅 시 폴백 키({@code ido.ticket.aes-key} / {@code ido.ticket.hmac-key}) 안전성 검증.
+     * Spring 부팅 시 폴백 키({@code idem.hub.ticket.aes-key} / {@code idem.hub.ticket.hmac-key}) 안전성 검증.
      *
      * <p>검증 항목 (AES / HMAC 각각):
      * <ol>
@@ -212,8 +212,8 @@ public class KeyVersionRegistry {
      * 별도 단계에서 검증되며, 본 메서드 실패와 무관하게 동작한다.
      */
     void validateFallbackKeys() {
-        validateOneFallbackKey("ido.ticket.aes-key",  fallbackAesKeyBase64,  "AES",  "IDO_HANDOFF_AES_KEY");
-        validateOneFallbackKey("ido.ticket.hmac-key", fallbackHmacKeyBase64, "HMAC", "IDO_HANDOFF_HMAC_KEY");
+        validateOneFallbackKey("idem.hub.ticket.aes-key",  fallbackAesKeyBase64,  "AES",  "IDEM_HUB_HANDOFF_AES_KEY");
+        validateOneFallbackKey("idem.hub.ticket.hmac-key", fallbackHmacKeyBase64, "HMAC", "IDEM_HUB_HANDOFF_HMAC_KEY");
     }
 
     private void validateOneFallbackKey(String propertyKey, String keyB64, String keyKind, String envVar) {
@@ -227,7 +227,7 @@ public class KeyVersionRegistry {
                     "[KeyVersionRegistry] " + propertyKey + " 폴백 " + keyKind + " 키가 설정되지 않았습니다. "
                             + "환경변수 " + envVar + " 를 32바이트 Base64 키로 주입하십시오 "
                             + "(생성: openssl rand -base64 32). "
-                            + "로컬·테스트에서만 ido.ticket.allow-empty-fallback-keys=true 로 우회 가능합니다.");
+                            + "로컬·테스트에서만 idem.hub.ticket.allow-empty-fallback-keys=true 로 우회 가능합니다.");
         }
 
         String normalized = keyB64.trim().toLowerCase();

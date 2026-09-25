@@ -71,7 +71,7 @@ class QAuthzClientTest {
     }
 
     @Test
-    @DisplayName("(D2) ido.q-authz.enabled=false — 명시적 스위치: authz 호출 없이 항상 빈 역할")
+    @DisplayName("(D2) idem.hub.authz.enabled=false — 명시적 스위치: authz 호출 없이 항상 빈 역할")
     void getEffectiveRoles_disabledExplicitly() {
         ReflectionTestUtils.setField(client, "enabled", false);
 
@@ -117,7 +117,7 @@ class QAuthzClientTest {
     }
 
     @Test
-    @DisplayName("S8-b getServiceAccess: ido.q-authz.enabled=false → disabled() (authzEnabled=false, 호출 없음)")
+    @DisplayName("S8-b getServiceAccess: idem.hub.authz.enabled=false → disabled() (authzEnabled=false, 호출 없음)")
     void getServiceAccess_disabled() {
         ReflectionTestUtils.setField(client, "enabled", false);
         ServiceAccess access = client.getServiceAccess("u1", "GOV_SMES", "cid");

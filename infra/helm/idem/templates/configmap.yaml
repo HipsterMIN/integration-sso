@@ -35,18 +35,18 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-sign
+    app.kubernetes.io/component: idem-gate
 data:
-  SPRING_PROFILES_ACTIVE: {{ .Values.qsign.config.SPRING_PROFILES_ACTIVE | quote }}
-  IDEM_KAFKA_ENABLED: {{ .Values.qsign.config.IDEM_KAFKA_ENABLED | quote }}
-  DB_PORT: {{ .Values.qsign.config.DB_PORT | quote }}
-  DB_NAME: {{ .Values.qsign.config.DB_NAME | quote }}
-  REDIS_PORT: {{ .Values.qsign.config.REDIS_PORT | quote }}
-  KEYCLOAK_REALM: {{ .Values.qsign.config.KEYCLOAK_REALM | quote }}
-  QSIGN_KEYCLOAK_CLIENT_ID: {{ .Values.qsign.config.QSIGN_KEYCLOAK_CLIENT_ID | quote }}
-  QSIGN_PKCE_ENABLED: {{ .Values.qsign.config.QSIGN_PKCE_ENABLED | quote }}
-  QSIGN_PKCE_TTL: {{ .Values.qsign.config.QSIGN_PKCE_TTL | quote }}
-  QSIGN_INTERNAL_SIG_STRICT: {{ .Values.qsign.config.QSIGN_INTERNAL_SIG_STRICT | quote }}
+  SPRING_PROFILES_ACTIVE: {{ .Values.gate.config.SPRING_PROFILES_ACTIVE | quote }}
+  IDEM_KAFKA_ENABLED: {{ .Values.gate.config.IDEM_KAFKA_ENABLED | quote }}
+  DB_PORT: {{ .Values.gate.config.DB_PORT | quote }}
+  DB_NAME: {{ .Values.gate.config.DB_NAME | quote }}
+  REDIS_PORT: {{ .Values.gate.config.REDIS_PORT | quote }}
+  KEYCLOAK_REALM: {{ .Values.gate.config.KEYCLOAK_REALM | quote }}
+  IDEM_GATE_KEYCLOAK_CLIENT_ID: {{ .Values.gate.config.IDEM_GATE_KEYCLOAK_CLIENT_ID | quote }}
+  IDEM_GATE_PKCE_ENABLED: {{ .Values.gate.config.IDEM_GATE_PKCE_ENABLED | quote }}
+  IDEM_GATE_PKCE_TTL: {{ .Values.gate.config.IDEM_GATE_PKCE_TTL | quote }}
+  IDEM_GATE_INTERNAL_SIG_STRICT: {{ .Values.gate.config.IDEM_GATE_INTERNAL_SIG_STRICT | quote }}
 ---
 # ── Q-IM ConfigMap ─────────────────────────────────────────────────
 apiVersion: v1
@@ -56,16 +56,16 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-im
+    app.kubernetes.io/component: idem-registry
 data:
-  SPRING_PROFILES_ACTIVE: {{ .Values.qim.config.SPRING_PROFILES_ACTIVE | quote }}
-  IDEM_KAFKA_ENABLED: {{ .Values.qim.config.IDEM_KAFKA_ENABLED | quote }}
-  QIM_DB_PORT: {{ .Values.qim.config.QIM_DB_PORT | quote }}
-  QIM_DB_NAME: {{ .Values.qim.config.QIM_DB_NAME | quote }}
-  QIM_DB_SSL: {{ .Values.qim.config.QIM_DB_SSL | quote }}
-  REDIS_PORT: {{ .Values.qim.config.REDIS_PORT | quote }}
-  QIM_CI_CURRENT_VERSION: {{ .Values.qim.config.QIM_CI_CURRENT_VERSION | quote }}
-  QIM_RECEIVER_AUDIT: {{ .Values.qim.config.QIM_RECEIVER_AUDIT | quote }}
+  SPRING_PROFILES_ACTIVE: {{ .Values.registry.config.SPRING_PROFILES_ACTIVE | quote }}
+  IDEM_KAFKA_ENABLED: {{ .Values.registry.config.IDEM_KAFKA_ENABLED | quote }}
+  IDEM_REGISTRY_DB_PORT: {{ .Values.registry.config.IDEM_REGISTRY_DB_PORT | quote }}
+  IDEM_REGISTRY_DB_NAME: {{ .Values.registry.config.IDEM_REGISTRY_DB_NAME | quote }}
+  IDEM_REGISTRY_DB_SSL: {{ .Values.registry.config.IDEM_REGISTRY_DB_SSL | quote }}
+  REDIS_PORT: {{ .Values.registry.config.REDIS_PORT | quote }}
+  IDEM_REGISTRY_CI_CURRENT_VERSION: {{ .Values.registry.config.IDEM_REGISTRY_CI_CURRENT_VERSION | quote }}
+  IDEM_REGISTRY_RECEIVER_AUDIT: {{ .Values.registry.config.IDEM_REGISTRY_RECEIVER_AUDIT | quote }}
 ---
 # ── IdO ConfigMap ──────────────────────────────────────────────────
 apiVersion: v1
@@ -75,41 +75,41 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ido
+    app.kubernetes.io/component: idem-hub
 data:
-  SPRING_PROFILES_ACTIVE: {{ .Values.ido.config.SPRING_PROFILES_ACTIVE | quote }}
-  IDEM_KAFKA_ENABLED: {{ .Values.ido.config.IDEM_KAFKA_ENABLED | quote }}
-  DB_PORT: {{ .Values.ido.config.DB_PORT | quote }}
-  DB_NAME: {{ .Values.ido.config.DB_NAME | quote }}
-  REDIS_PORT: {{ .Values.ido.config.REDIS_PORT | quote }}
-  IDO_BROKER_MODE: {{ .Values.ido.config.IDO_BROKER_MODE | quote }}
-  KEYCLOAK_REALM: {{ .Values.ido.config.KEYCLOAK_REALM | quote }}
-  KEYCLOAK_CLIENT_ID: {{ .Values.ido.config.KEYCLOAK_CLIENT_ID | quote }}
-  IDO_PLATFORM_VERSION: {{ .Values.ido.config.IDO_PLATFORM_VERSION | quote }}
-  IDO_RATE_LIMIT_ENABLED: {{ .Values.ido.config.IDO_RATE_LIMIT_ENABLED | quote }}
-  IDO_RATE_LIMIT_DEFAULT_TPS: {{ .Values.ido.config.IDO_RATE_LIMIT_DEFAULT_TPS | quote }}
-  IDO_RATE_LIMIT_DEFAULT_DAILY: {{ .Values.ido.config.IDO_RATE_LIMIT_DEFAULT_DAILY | quote }}
-  IDO_AUDIT_KAFKA_ENABLED: {{ .Values.ido.config.IDO_AUDIT_KAFKA_ENABLED | quote }}
-  IDO_QAUTHZ_ENABLED: {{ .Values.ido.config.IDO_QAUTHZ_ENABLED | quote }}
-  IDO_KAFKA_PARTITION_COUNT_MAIN: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_MAIN | quote }}
-  IDO_KAFKA_PARTITION_COUNT_DLQ: {{ .Values.ido.config.IDO_KAFKA_PARTITION_COUNT_DLQ | quote }}
-  IDO_KAFKA_REPLICATION_FACTOR: {{ .Values.ido.config.IDO_KAFKA_REPLICATION_FACTOR | quote }}
-  IDO_KAFKA_MIN_INSYNC_REPLICAS: {{ .Values.ido.config.IDO_KAFKA_MIN_INSYNC_REPLICAS | quote }}
+  SPRING_PROFILES_ACTIVE: {{ .Values.hub.config.SPRING_PROFILES_ACTIVE | quote }}
+  IDEM_KAFKA_ENABLED: {{ .Values.hub.config.IDEM_KAFKA_ENABLED | quote }}
+  DB_PORT: {{ .Values.hub.config.DB_PORT | quote }}
+  DB_NAME: {{ .Values.hub.config.DB_NAME | quote }}
+  REDIS_PORT: {{ .Values.hub.config.REDIS_PORT | quote }}
+  IDEM_HUB_BROKER_MODE: {{ .Values.hub.config.IDEM_HUB_BROKER_MODE | quote }}
+  KEYCLOAK_REALM: {{ .Values.hub.config.KEYCLOAK_REALM | quote }}
+  KEYCLOAK_CLIENT_ID: {{ .Values.hub.config.KEYCLOAK_CLIENT_ID | quote }}
+  IDEM_HUB_PLATFORM_VERSION: {{ .Values.hub.config.IDEM_HUB_PLATFORM_VERSION | quote }}
+  IDEM_HUB_RATE_LIMIT_ENABLED: {{ .Values.hub.config.IDEM_HUB_RATE_LIMIT_ENABLED | quote }}
+  IDEM_HUB_RATE_LIMIT_DEFAULT_TPS: {{ .Values.hub.config.IDEM_HUB_RATE_LIMIT_DEFAULT_TPS | quote }}
+  IDEM_HUB_RATE_LIMIT_DEFAULT_DAILY: {{ .Values.hub.config.IDEM_HUB_RATE_LIMIT_DEFAULT_DAILY | quote }}
+  IDEM_HUB_AUDIT_KAFKA_ENABLED: {{ .Values.hub.config.IDEM_HUB_AUDIT_KAFKA_ENABLED | quote }}
+  IDEM_HUB_AUTHZ_ENABLED: {{ .Values.hub.config.IDEM_HUB_AUTHZ_ENABLED | quote }}
+  IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN: {{ .Values.hub.config.IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN | quote }}
+  IDEM_HUB_KAFKA_PARTITION_COUNT_DLQ: {{ .Values.hub.config.IDEM_HUB_KAFKA_PARTITION_COUNT_DLQ | quote }}
+  IDEM_HUB_KAFKA_REPLICATION_FACTOR: {{ .Values.hub.config.IDEM_HUB_KAFKA_REPLICATION_FACTOR | quote }}
+  IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS: {{ .Values.hub.config.IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS | quote }}
   # ── KMS / Vault Transit 비민감 설정 ───────────────────────────────
   # 민감 키(VAULT_TOKEN/ROLE_ID/SECRET_ID)는 Secret 참조 — 여기엔 절대 넣지 말 것
-  IDO_KMS_ENABLED:          {{ .Values.ido.config.IDO_KMS_ENABLED | quote }}
-  IDO_KMS_PROVIDER:         {{ .Values.ido.config.IDO_KMS_PROVIDER | quote }}
-  IDO_KMS_CONN_TIMEOUT_MS:  {{ .Values.ido.config.IDO_KMS_CONN_TIMEOUT_MS | quote }}
-  IDO_KMS_REQ_TIMEOUT_MS:   {{ .Values.ido.config.IDO_KMS_REQ_TIMEOUT_MS | quote }}
-  VAULT_ADDR:               {{ .Values.ido.config.VAULT_ADDR | quote }}
-  VAULT_TRANSIT_PATH:       {{ .Values.ido.config.VAULT_TRANSIT_PATH | quote }}
-  VAULT_TRANSIT_KEY:        {{ .Values.ido.config.VAULT_TRANSIT_KEY | quote }}
-  VAULT_AUTH_METHOD:        {{ .Values.ido.config.VAULT_AUTH_METHOD | quote }}
-  VAULT_K8S_ROLE:           {{ .Values.ido.config.VAULT_K8S_ROLE | quote }}
-  VAULT_NAMESPACE:          {{ .Values.ido.config.VAULT_NAMESPACE | quote }}
+  IDEM_HUB_KMS_ENABLED:          {{ .Values.hub.config.IDEM_HUB_KMS_ENABLED | quote }}
+  IDEM_HUB_KMS_PROVIDER:         {{ .Values.hub.config.IDEM_HUB_KMS_PROVIDER | quote }}
+  IDEM_HUB_KMS_CONN_TIMEOUT_MS:  {{ .Values.hub.config.IDEM_HUB_KMS_CONN_TIMEOUT_MS | quote }}
+  IDEM_HUB_KMS_REQ_TIMEOUT_MS:   {{ .Values.hub.config.IDEM_HUB_KMS_REQ_TIMEOUT_MS | quote }}
+  VAULT_ADDR:               {{ .Values.hub.config.VAULT_ADDR | quote }}
+  VAULT_TRANSIT_PATH:       {{ .Values.hub.config.VAULT_TRANSIT_PATH | quote }}
+  VAULT_TRANSIT_KEY:        {{ .Values.hub.config.VAULT_TRANSIT_KEY | quote }}
+  VAULT_AUTH_METHOD:        {{ .Values.hub.config.VAULT_AUTH_METHOD | quote }}
+  VAULT_K8S_ROLE:           {{ .Values.hub.config.VAULT_K8S_ROLE | quote }}
+  VAULT_NAMESPACE:          {{ .Values.hub.config.VAULT_NAMESPACE | quote }}
 ---
 # ── Outbox Relay Batch ConfigMap ───────────────────────────────────
-{{- if .Values.batch.enabled }}
+{{- if .Values.relay.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -119,27 +119,27 @@ metadata:
     {{- include "onepass.labels" . | nindent 4 }}
     app.kubernetes.io/component: batch
 data:
-  SPRING_PROFILES_ACTIVE:           {{ .Values.batch.config.SPRING_PROFILES_ACTIVE | quote }}
+  SPRING_PROFILES_ACTIVE:           {{ .Values.relay.config.SPRING_PROFILES_ACTIVE | quote }}
   # ── DataSource Endpoints (드라이버/포트/DB명만 — 호스트/계정은 Secret) ─────
-  IDO_DB_PORT:                      {{ .Values.batch.config.IDO_DB_PORT | quote }}
-  IDO_DB_NAME:                      {{ .Values.batch.config.IDO_DB_NAME | quote }}
-  QIM_DB_PORT:                      {{ .Values.batch.config.QIM_DB_PORT | quote }}
-  QIM_DB_NAME:                      {{ .Values.batch.config.QIM_DB_NAME | quote }}
-  QSIGN_DB_PORT:                    {{ .Values.batch.config.QSIGN_DB_PORT | quote }}
-  QSIGN_DB_NAME:                    {{ .Values.batch.config.QSIGN_DB_NAME | quote }}
-  REDIS_PORT:                       {{ .Values.batch.config.REDIS_PORT | quote }}
+  IDEM_HUB_DB_PORT:                      {{ .Values.relay.config.IDEM_HUB_DB_PORT | quote }}
+  IDEM_HUB_DB_NAME:                      {{ .Values.relay.config.IDEM_HUB_DB_NAME | quote }}
+  IDEM_REGISTRY_DB_PORT:                      {{ .Values.relay.config.IDEM_REGISTRY_DB_PORT | quote }}
+  IDEM_REGISTRY_DB_NAME:                      {{ .Values.relay.config.IDEM_REGISTRY_DB_NAME | quote }}
+  IDEM_GATE_DB_PORT:                    {{ .Values.relay.config.IDEM_GATE_DB_PORT | quote }}
+  IDEM_GATE_DB_NAME:                    {{ .Values.relay.config.IDEM_GATE_DB_NAME | quote }}
+  REDIS_PORT:                       {{ .Values.relay.config.REDIS_PORT | quote }}
   # ── Webhook 헤더용 ─────────────────────────────────────────────────
-  IDO_PLATFORM_VERSION:             {{ .Values.batch.config.IDO_PLATFORM_VERSION | quote }}
+  IDEM_HUB_PLATFORM_VERSION:             {{ .Values.relay.config.IDEM_HUB_PLATFORM_VERSION | quote }}
   # ── 릴레이 Job Feature Flag ────────────────────────────────────────
-  BATCH_IDO_KAFKA_RELAY_ENABLED:    {{ .Values.batch.config.BATCH_IDO_KAFKA_RELAY_ENABLED | quote }}
-  BATCH_IDO_QIM_RELAY_ENABLED:      {{ .Values.batch.config.BATCH_IDO_QIM_RELAY_ENABLED | quote }}
-  BATCH_QIM_KAFKA_RELAY_ENABLED:    {{ .Values.batch.config.BATCH_QIM_KAFKA_RELAY_ENABLED | quote }}
-  BATCH_QSIGN_KAFKA_RELAY_ENABLED:  {{ .Values.batch.config.BATCH_QSIGN_KAFKA_RELAY_ENABLED | quote }}
-  BATCH_PROVISIONING_RELAY_ENABLED: {{ .Values.batch.config.BATCH_PROVISIONING_RELAY_ENABLED | quote }}
-  BATCH_WEBHOOK_RELAY_ENABLED:      {{ .Values.batch.config.BATCH_WEBHOOK_RELAY_ENABLED | quote }}
+  IDEM_RELAY_HUB_KAFKA_RELAY_ENABLED:    {{ .Values.relay.config.IDEM_RELAY_HUB_KAFKA_RELAY_ENABLED | quote }}
+  IDEM_RELAY_HUB_REGISTRY_RELAY_ENABLED:      {{ .Values.relay.config.IDEM_RELAY_HUB_REGISTRY_RELAY_ENABLED | quote }}
+  IDEM_RELAY_REGISTRY_KAFKA_RELAY_ENABLED:    {{ .Values.relay.config.IDEM_RELAY_REGISTRY_KAFKA_RELAY_ENABLED | quote }}
+  IDEM_RELAY_GATE_KAFKA_RELAY_ENABLED:  {{ .Values.relay.config.IDEM_RELAY_GATE_KAFKA_RELAY_ENABLED | quote }}
+  IDEM_RELAY_PROVISIONING_RELAY_ENABLED: {{ .Values.relay.config.IDEM_RELAY_PROVISIONING_RELAY_ENABLED | quote }}
+  IDEM_RELAY_WEBHOOK_RELAY_ENABLED:      {{ .Values.relay.config.IDEM_RELAY_WEBHOOK_RELAY_ENABLED | quote }}
   # ── 알림 채널 ON/OFF (Webhook URL/Routing Key는 Secret) ──────────
-  BATCH_ALERT_SLACK_ENABLED:        {{ .Values.batch.config.BATCH_ALERT_SLACK_ENABLED | quote }}
-  BATCH_ALERT_PAGERDUTY_ENABLED:    {{ .Values.batch.config.BATCH_ALERT_PAGERDUTY_ENABLED | quote }}
+  IDEM_RELAY_ALERT_SLACK_ENABLED:        {{ .Values.relay.config.IDEM_RELAY_ALERT_SLACK_ENABLED | quote }}
+  IDEM_RELAY_ALERT_PAGERDUTY_ENABLED:    {{ .Values.relay.config.IDEM_RELAY_ALERT_PAGERDUTY_ENABLED | quote }}
 {{- end }}
 ---
 # ── Q-AuthZ ConfigMap (연합 인가) ──────────────────────────────────
@@ -151,13 +151,13 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-authz
+    app.kubernetes.io/component: idem-authz
 data:
   SPRING_PROFILES_ACTIVE:        {{ .Values.authz.config.SPRING_PROFILES_ACTIVE | quote }}
-  AUTHZ_DB_PORT:                 {{ .Values.authz.config.AUTHZ_DB_PORT | quote }}
-  AUTHZ_DB_NAME:                 {{ .Values.authz.config.AUTHZ_DB_NAME | quote }}
-  AUTHZ_DB_SSLMODE:              {{ .Values.authz.config.AUTHZ_DB_SSLMODE | quote }}
-  AUTHZ_EXPIRY_ENABLED:          {{ .Values.authz.config.AUTHZ_EXPIRY_ENABLED | quote }}
-  AUTHZ_EXPIRY_SCAN_INTERVAL_MS: {{ .Values.authz.config.AUTHZ_EXPIRY_SCAN_INTERVAL_MS | quote }}
-  AUTHZ_EXPIRY_BATCH_SIZE:       {{ .Values.authz.config.AUTHZ_EXPIRY_BATCH_SIZE | quote }}
+  IDEM_AUTHZ_DB_PORT:                 {{ .Values.authz.config.IDEM_AUTHZ_DB_PORT | quote }}
+  IDEM_AUTHZ_DB_NAME:                 {{ .Values.authz.config.IDEM_AUTHZ_DB_NAME | quote }}
+  IDEM_AUTHZ_DB_SSLMODE:              {{ .Values.authz.config.IDEM_AUTHZ_DB_SSLMODE | quote }}
+  IDEM_AUTHZ_EXPIRY_ENABLED:          {{ .Values.authz.config.IDEM_AUTHZ_EXPIRY_ENABLED | quote }}
+  IDEM_AUTHZ_EXPIRY_SCAN_INTERVAL_MS: {{ .Values.authz.config.IDEM_AUTHZ_EXPIRY_SCAN_INTERVAL_MS | quote }}
+  IDEM_AUTHZ_EXPIRY_BATCH_SIZE:       {{ .Values.authz.config.IDEM_AUTHZ_EXPIRY_BATCH_SIZE | quote }}
 {{- end }}

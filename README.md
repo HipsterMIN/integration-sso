@@ -20,7 +20,7 @@
 | `idem-tenant-sample` | 참조 테넌트 앱 (PoC·E2E용) | 8084 |
 | `idem-common` | 공통 라이브러리 | — |
 
-> **최신 상태 (2026-06-25)** — **연합 인가(Federated Authorization) 평면 신설** — `idem-authz` 모듈(역할 부여 SoR, L1+L2) + 토큰 `roles[]` 클레임(CAST·Handoff) + `/api/ext` 게이트웨이 PEP 속성 전파 + SCIM 2.0 Groups + 한시 권한 만료 스케줄러 + 회수 이벤트 전파(`authz.assignment.events`)
+> **최신 상태 (2026-06-25)** — **연합 인가(Federated Authorization) 평면 신설** — `idem-authz` 모듈(역할 부여 SoR, L1+L2) + 토큰 `roles[]` 클레임(CAST·Handoff) + `/api/ext` 게이트웨이 PEP 속성 전파 + SCIM 2.0 Groups + 한시 권한 만료 스케줄러 + 회수 이벤트 전파(`idem.authz.assignment.events`)
 > **현재 버전**: v0.8.11 + 연합 인가 (authz-1 / authz-2) + Sprint α 누적
 > **빌드 상태**: `./gradlew :idem-agent:agentJar` → **BUILD SUCCESSFUL** (`idem-agent-0.1.0-SNAPSHOT-all.jar`, ~10MB)
 > **테스트 (참고)**: `./gradlew :idem-agent:test` 131개, `:idem-sdk-java:test` 36개. Sprint α-1~α-3 신규 회귀 테스트 합산은 별도 검증 필요.
@@ -66,9 +66,9 @@
 
 | 버전 | PR | 주요 내용 |
 |------|----|---------|
-| **authz-2** | [#206](https://github.com/HipsterMIN/integration-sso/pull/206) | **연합 인가 — 인가 이벤트 전파(회수 무효화)** — q-authz 트랜잭셔널 아웃박스(`authz.authz_outbox`, V2) → `outbox-relay-batch`가 `authz.assignment.events` Kafka 토픽으로 릴레이(`FOR UPDATE SKIP LOCKED` + ShedLock, 파티션 키 `qimUserId`). `GRANTED`/`REVOKED`/`EXPIRED` 이벤트를 기관 게이트웨이·세션 캐시·ido가 구독 → **토큰 만료 전 역할 회수 전파**(연합 인가 회수 지연 약점 해소). |
+| **authz-2** | [#206](https://github.com/HipsterMIN/integration-sso/pull/206) | **연합 인가 — 인가 이벤트 전파(회수 무효화)** — q-authz 트랜잭셔널 아웃박스(`authz.authz_outbox`, V2) → `outbox-relay-batch`가 `idem.authz.assignment.events` Kafka 토픽으로 릴레이(`FOR UPDATE SKIP LOCKED` + ShedLock, 파티션 키 `qimUserId`). `GRANTED`/`REVOKED`/`EXPIRED` 이벤트를 기관 게이트웨이·세션 캐시·ido가 구독 → **토큰 만료 전 역할 회수 전파**(연합 인가 회수 지연 약점 해소). |
 | **authz-1** | [#205](https://github.com/HipsterMIN/integration-sso/pull/205) | **연합 인가 평면 신설(L1+L2)** — `q-authz` 모듈 신규(역할 부여 SoR, 포트 8086, 스키마 `authz`, RLS 테넌트 격리) + 토큰 `roles[]` 클레임 주입(CAST JWT + Handoff 암호화 payload, q-authz `effective-roles` 조회 fail-open) + `/api/ext` 게이트웨이 PEP 속성 전파(`X-Authz-User/Scope/Roles`, 클라이언트 헤더 anti-spoofing, 비강제) + 한시 권한 만료 전이 스케줄러(ACTIVE→EXPIRED) + SCIM 2.0 Groups 프로비저닝(`/scim/v2/Groups`). |
-| **α-3 + onepass-support** | [#178](https://github.com/HipsterMIN/integration-sso/pull/178) (α-3) + [#179](https://github.com/HipsterMIN/integration-sso/pull/179) | **경계 영역 보안 강화 + 모듈 뼈대** — F4.3 Webhook 기본 시크릿 제거(`@PostConstruct` 부팅 가드 + `allow-empty-secret` escape hatch), F4.4 CAST URL 누출 방지(POST 자동 제출 form, 토큰 hidden field), F4.6 Q-IM 예외 구분(404→null·5xx→`IDO_QIM_UNREACHABLE`). 회귀 테스트 27건 신규. `onepass-support` 모듈 뼈대 추가. |
+| **α-3 + onepass-support** | [#178](https://github.com/HipsterMIN/integration-sso/pull/178) (α-3) + [#179](https://github.com/HipsterMIN/integration-sso/pull/179) | **경계 영역 보안 강화 + 모듈 뼈대** — F4.3 Webhook 기본 시크릿 제거(`@PostConstruct` 부팅 가드 + `allow-empty-secret` escape hatch), F4.4 CAST URL 누출 방지(POST 자동 제출 form, 토큰 hidden field), F4.6 Q-IM 예외 구분(404→null·5xx→`IDEM_HUB_REGISTRY_UNREACHABLE`). 회귀 테스트 27건 신규. `onepass-support` 모듈 뼈대 추가. |
 | **α-1 + α-2** | [#176](https://github.com/HipsterMIN/integration-sso/pull/176) → [#177](https://github.com/HipsterMIN/integration-sso/pull/177) | **KMS 안전망 + Handoff 무결성** — F5.1/F5.2 KMS 5-provider 부팅 검증 + AnyID PID 격리, F4.1/F4.5/F4.2 Handoff 무결성 (서명 검증·재생 방지·만료 정확화). |
 | **v0.8.11** | [#131](https://github.com/HipsterMIN/integration-sso/pull/131) | **onepass-be-release / onepass-release 심층 분석 보고서** — BE 9건 + FE 7건 이슈 식별, 보안취약점 8건, 운영 배포 T+0~T+3 장애 시나리오, Q-Sign/Q-IM 연동 현황 상세 분석 (494줄) |
 | **v0.8.10** | [#129 (MERGED)](https://github.com/HipsterMIN/integration-sso/pull/129) / [#130 (MERGED)](https://github.com/HipsterMIN/integration-sso/pull/130) | **SDK GAP-1~5 수정 + 유관기관 개발자 가이드** — GAP-1(HMAC 알고리즘 서버 정합성), GAP-2(triggerOutbound @Deprecated), GAP-3(X-Event-Type 헤더), GAP-4(X-Correlation-ID 대문자 D), GAP-5(getBodyField 헬퍼 + validateJson 강화) + 36개 테스트 통과 + 유관기관 개발자 사용 가이드(757줄) |
@@ -198,12 +198,12 @@ onepass-fe       █████████████████░░░  8
                         ▼
     ┌─────────────────────────────────────┐
     │           Apache Kafka              │
-    │  qsign.auth.events                  │
-    │  ido.handoff.events                 │
-    │  qim.user.events (Compacted)        │
+    │  idem.gate.auth.events                  │
+    │  idem.hub.handoff.events                 │
+    │  idem.registry.user.events (Compacted)        │
     │  platform.session.advisory          │
     │  platform.audit.log                 │
-    │  authz.assignment.events            │
+    │  idem.authz.assignment.events            │
     │  + 각 토픽별 .dlq 토픽               │
     └─────────────────────────────────────┘
 
@@ -215,7 +215,7 @@ onepass-fe       █████████████████░░░  8
     └─────────────────────────────────────┘
 ```
 
-> **연합 인가 평면 (🆕)**: 위 다이어그램에 `q-authz`(:8086, PostgreSQL `authz`, 역할 부여 SoR)가 추가됩니다. 내부망에서 IdO가 `q-authz`의 `effective-roles`를 조회해 토큰 `roles[]` 클레임·`/api/ext` 속성 전파를 수행하고, `q-authz` 부여 변경은 트랜잭셔널 아웃박스 → `outbox-relay-batch` → `authz.assignment.events` 토픽으로 회수 전파됩니다. 상세: [연합 인가](#연합-인가-federated-authorization).
+> **연합 인가 평면 (🆕)**: 위 다이어그램에 `q-authz`(:8086, PostgreSQL `authz`, 역할 부여 SoR)가 추가됩니다. 내부망에서 IdO가 `q-authz`의 `effective-roles`를 조회해 토큰 `roles[]` 클레임·`/api/ext` 속성 전파를 수행하고, `q-authz` 부여 변경은 트랜잭셔널 아웃박스 → `outbox-relay-batch` → `idem.authz.assignment.events` 토픽으로 회수 전파됩니다. 상세: [연합 인가](#연합-인가-federated-authorization).
 
 ---
 
@@ -232,7 +232,7 @@ onepass-fe       █████████████████░░░  8
 | 2b | `/api/ext` PEP 인가 속성 전파 | `ido` |
 | 3 | 한시 권한 만료 전이 스케줄러 | `q-authz` |
 | 4 (L2) | SCIM 2.0 Groups 프로비저닝 | `q-authz` |
-| 5 A/B | 트랜잭셔널 아웃박스 → `authz.assignment.events` 릴레이 (회수 전파) | `q-authz`, `outbox-relay-batch` |
+| 5 A/B | 트랜잭셔널 아웃박스 → `idem.authz.assignment.events` 릴레이 (회수 전파) | `q-authz`, `outbox-relay-batch` |
 
 ### q-authz 모듈 (L1 코어)
 
@@ -252,7 +252,7 @@ onepass-fe       █████████████████░░░  8
 | `authz_role` | `AuthzRoleEntity` | 기관별 역할 카탈로그 — 복합 PK `(agency_code, role_code)`, `is_assignable`; `agency_code='PLATFORM'` = 글로벌 역할 |
 | `authz_user_role` | `AuthzUserRoleEntity` | **역할 부여 중앙 SoR** — PK UUID, unique `(qim_user_id, agency_code, role_code)`, `expires_at` nullable(한시/JIT), `status` 기본 `ACTIVE`, `source` 기본 `API` |
 | `authz_grant_audit` | `AuthzGrantAuditEntity` | append-only 감사 로그 (event·actor·actor_ip·reason·correlation_id·at) |
-| `authz_outbox` | `AuthzOutboxEntity` | 트랜잭셔널 아웃박스 — PK `event_id`(UUIDv7), `topic` 기본 `authz.assignment.events`, `status` 기본 `PENDING`; RLS 면제(시스템 릴레이 전 테넌트 폴링) |
+| `authz_outbox` | `AuthzOutboxEntity` | 트랜잭셔널 아웃박스 — PK `event_id`(UUIDv7), `topic` 기본 `idem.authz.assignment.events`, `status` 기본 `PENDING`; RLS 면제(시스템 릴레이 전 테넌트 폴링) |
 
 > **Enum** — `AssignmentStatus`(ACTIVE/REVOKED/EXPIRED) · `GrantSource`(CONSOLE/SCIM/API/AGENCY_PUSH) · `AuditEvent`(GRANT/REVOKE/EXPIRE/ROLE_CREATED). DB CHECK 제약으로 미러링.
 
@@ -267,30 +267,30 @@ onepass-fe       █████████████████░░░  8
 | `GET` | `/users/{qimUserId}/roles?agencyCode=` | 사용자 부여 목록 |
 | `GET` | `/users/{qimUserId}/effective-roles?agencyCode=` | 유효 역할 — 토큰 `roles[]` 클레임 소스 |
 
-> **보안** — `InternalApiKeyInterceptor`가 `X-Internal-Api-Key`를 `MessageDigest.isEqual` 상수시간 비교로 검증. 서버 키(`authz.security.internal-api-key`) 미설정/공백 시 모든 보호 요청 **401 fail-closed**. 적용 경로: `/api/v1/internal/**`, `/scim/v2/**`(actuator/api-docs/swagger 제외). RLS는 심층 방어로 `app.current_agency` GUC 기반.
+> **보안** — `InternalApiKeyInterceptor`가 `X-Internal-Api-Key`를 `MessageDigest.isEqual` 상수시간 비교로 검증. 서버 키(`idem.authz.security.internal-api-key`) 미설정/공백 시 모든 보호 요청 **401 fail-closed**. 적용 경로: `/api/v1/internal/**`, `/scim/v2/**`(actuator/api-docs/swagger 제외). RLS는 심층 방어로 `app.current_agency` GUC 기반.
 
 **요청/응답 예시** (모든 내부 API는 `X-Internal-Api-Key` 필수)
 
 ```bash
 # ① 역할 카탈로그 생성
 curl -sS -X POST http://q-authz:8086/api/v1/internal/authz/roles \
-  -H "X-Internal-Api-Key: $AUTHZ_INTERNAL_API_KEY" -H "X-Actor: admin@onepass" \
+  -H "X-Internal-Api-Key: $IDEM_AUTHZ_INTERNAL_API_KEY" -H "X-Actor: admin@onepass" \
   -H "Content-Type: application/json" \
   -d '{"agencyCode":"GOV_SMES","roleCode":"MANAGER","name":"기관 관리자","description":"승인 권한"}'
 
 # ② 사용자 역할 부여(멱등) — expiresAt 지정 시 한시(JIT) 부여
 curl -sS -X POST http://q-authz:8086/api/v1/internal/authz/grants \
-  -H "X-Internal-Api-Key: $AUTHZ_INTERNAL_API_KEY" -H "X-Correlation-Id: cid-abc" \
+  -H "X-Internal-Api-Key: $IDEM_AUTHZ_INTERNAL_API_KEY" -H "X-Correlation-Id: cid-abc" \
   -H "Content-Type: application/json" \
   -d '{"qimUserId":"u-1024","agencyCode":"GOV_SMES","roleCode":"MANAGER","grantedBy":"admin@onepass","expiresAt":"2026-12-31T23:59:59Z","source":"API","reason":"분기 승인"}'
 
 # ③ 유효 역할 조회 — ido가 토큰 roles[] 클레임 발급 시 호출
 curl -sS "http://q-authz:8086/api/v1/internal/authz/users/u-1024/effective-roles?agencyCode=GOV_SMES" \
-  -H "X-Internal-Api-Key: $AUTHZ_INTERNAL_API_KEY"
+  -H "X-Internal-Api-Key: $IDEM_AUTHZ_INTERNAL_API_KEY"
 
-# ④ 역할 회수 → authz.assignment.events 회수 이벤트 발행
+# ④ 역할 회수 → idem.authz.assignment.events 회수 이벤트 발행
 curl -sS -X DELETE "http://q-authz:8086/api/v1/internal/authz/grants?qimUserId=u-1024&agencyCode=GOV_SMES&roleCode=MANAGER&revokedBy=admin@onepass&reason=offboarding" \
-  -H "X-Internal-Api-Key: $AUTHZ_INTERNAL_API_KEY"
+  -H "X-Internal-Api-Key: $IDEM_AUTHZ_INTERNAL_API_KEY"
 ```
 
 ```json
@@ -358,25 +358,25 @@ curl -sS -X DELETE "http://q-authz:8086/api/v1/internal/authz/grants?qimUserId=u
 
 ### 한시 권한 만료 + 이벤트 전파
 
-**만료 스케줄러** (`AuthzExpiryScheduler`) — `expires_at`이 지난 `ACTIVE` 부여를 `EXPIRED`로 전이. 사이클당 `batch-size`까지 처리. `@Scheduled(fixedDelay=scan-interval-ms:60000, initialDelay=30000)`, `@ConditionalOnProperty(authz.expiry.enabled, matchIfMissing=true)`. 예외는 흡수되어 다음 사이클 차단 안 함. (다중 인스턴스 동시 스캔 시 EXPIRE 감사 중복 가능 — ShedLock 권장, 현재 단일 리더 가정.)
+**만료 스케줄러** (`AuthzExpiryScheduler`) — `expires_at`이 지난 `ACTIVE` 부여를 `EXPIRED`로 전이. 사이클당 `batch-size`까지 처리. `@Scheduled(fixedDelay=scan-interval-ms:60000, initialDelay=30000)`, `@ConditionalOnProperty(idem.authz.expiry.enabled, matchIfMissing=true)`. 예외는 흡수되어 다음 사이클 차단 안 함. (다중 인스턴스 동시 스캔 시 EXPIRE 감사 중복 가능 — ShedLock 권장, 현재 단일 리더 가정.)
 
 **이벤트 전파 (회수 전파)** — 토큰 자연 만료 전에 역할 회수를 다운스트림(기관 게이트웨이·세션 캐시·ido)에 전파해 연합 인가의 회수 지연 약점을 해소.
 
-- 부여/회수/만료 시 `AuthorizationEvent`(`AUTHZ_GRANTED`/`AUTHZ_REVOKED`/`AUTHZ_EXPIRED`, `SOURCE_SYSTEM="q-authz"`)를 `AuthzOutboxService.publishInTx`로 **비즈니스 TX와 동일 트랜잭션**에 INSERT(REQUIRED 전파). 직렬화 실패 시 TX 롤백(이벤트 유실 방지).
+- 부여/회수/만료 시 `AuthorizationEvent`(`IDEM_AUTHZ_GRANTED`/`IDEM_AUTHZ_REVOKED`/`IDEM_AUTHZ_EXPIRED`, `SOURCE_SYSTEM="q-authz"`)를 `AuthzOutboxService.publishInTx`로 **비즈니스 TX와 동일 트랜잭션**에 INSERT(REQUIRED 전파). 직렬화 실패 시 TX 롤백(이벤트 유실 방지).
 - 이벤트는 **실제 상태 전이 시에만** 발행 — 멱등 no-op(이미 ACTIVE / 이미 REVOKED)에는 미발행(감사는 항상 기록).
-- `AuthzKafkaRelayJob`(`outbox-relay-batch`)이 PENDING 행을 `FOR UPDATE SKIP LOCKED`(인스턴스 간) + **ShedLock**(Pod 간) 이중 보호로 폴링해 `authz.assignment.events`로 릴레이. ShedLock 락 2종: `authz-kafka-relay`(주 릴레이), `authz-kafka-relay-failed`(실패 복구). 성공 → `PUBLISHED`, 실패 → retry 증가, `max-retry` 도달 시 `FAILED`. **q-authz는 Kafka 의존성 없음**(아웃박스 INSERT만).
+- `AuthzKafkaRelayJob`(`outbox-relay-batch`)이 PENDING 행을 `FOR UPDATE SKIP LOCKED`(인스턴스 간) + **ShedLock**(Pod 간) 이중 보호로 폴링해 `idem.authz.assignment.events`로 릴레이. ShedLock 락 2종: `authz-kafka-relay`(주 릴레이), `authz-kafka-relay-failed`(실패 복구). 성공 → `PUBLISHED`, 실패 → retry 증가, `max-retry` 도달 시 `FAILED`. **q-authz는 Kafka 의존성 없음**(아웃박스 INSERT만).
 
 ```text
 grant / revoke / expire (q-authz AuthzService)
         │  같은 TX
         ▼
-authz_outbox (PENDING, topic=authz.assignment.events)   ← q-authz는 INSERT만
+authz_outbox (PENDING, topic=idem.authz.assignment.events)   ← q-authz는 INSERT만
         │  FOR UPDATE SKIP LOCKED + ShedLock
         ▼
 AuthzKafkaRelayJob (outbox-relay-batch, @SchedulerLock)
         │  send(topic, partitionKey=qimUserId, payload)
         ▼
-Kafka  authz.assignment.events
+Kafka  idem.authz.assignment.events
         │
         ▼
 downstream (기관 게이트웨이 · 세션 캐시 · ido) → 역할 무효화 (토큰 만료 전 회수 전파)
@@ -385,9 +385,9 @@ downstream (기관 게이트웨이 · 세션 캐시 · ido) → 역할 무효화
 **이벤트 페이로드** (`AuthorizationEvent`, `@JsonInclude(NON_NULL)` — null 필드 생략)
 
 ```json
-// authz.assignment.events — REVOKED 예시 (Kafka partition key = qimUserId)
+// idem.authz.assignment.events — REVOKED 예시 (Kafka partition key = qimUserId)
 { "eventId": "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
-  "eventType": "AUTHZ_REVOKED", "sourceSystem": "q-authz",
+  "eventType": "IDEM_AUTHZ_REVOKED", "sourceSystem": "q-authz",
   "correlationId": "cid-abc", "qimUserId": "u-1024",
   "occurredAt": "2026-06-25T01:05:00Z",
   "agencyCode": "GOV_SMES", "roleCode": "MANAGER",
@@ -405,7 +405,7 @@ downstream (기관 게이트웨이 · 세션 캐시 · ido) → 역할 무효화
 [프록시] FE ──▶ ido /api/ext ──(X-Authz-User/Scope/Roles, anti-spoofing)──▶ Q-IM/기관 PEP가 집행
 [만료]   AuthzExpiryScheduler ──ACTIVE & expires_at<now──▶ EXPIRED + authz_outbox(EXPIRED)
 [회수]   q-authz DELETE /grants ──▶ REVOKED + authz_outbox(REVOKED)
-                          └─▶ outbox-relay-batch ──▶ Kafka authz.assignment.events ──▶ 다운스트림 무효화
+                          └─▶ outbox-relay-batch ──▶ Kafka idem.authz.assignment.events ──▶ 다운스트림 무효화
 ```
 
 > 토큰은 짧은 TTL(CAST 300s)로 발급되고, 회수 이벤트가 다운스트림 캐시를 능동 무효화하여 **TTL 만료 이전 회수 전파**를 달성한다(다운스트림 컨슈머는 후속 과제 — 잔여 작업 참조).
@@ -447,28 +447,28 @@ downstream (기관 게이트웨이 · 세션 캐시 · ido) → 역할 무효화
 ```bash
 # ── q-authz (포트 8086) ──────────────────────────────────────────────
 # 내부 API 키 — 미설정/공백 시 /api/v1/internal/**, /scim/v2/** 전체 401 (fail-closed)
-AUTHZ_INTERNAL_API_KEY=<강력한 랜덤 키, openssl rand -hex 32>
+IDEM_AUTHZ_INTERNAL_API_KEY=<강력한 랜덤 키, openssl rand -hex 32>
 
 # q-authz DB (미설정 시 DB_* → localhost:5432/onepass 폴백)
-AUTHZ_DB_HOST=<pg-host>
-AUTHZ_DB_PORT=5432
-AUTHZ_DB_NAME=onepass
-AUTHZ_DB_SSLMODE=require           # 운영 권장
+IDEM_AUTHZ_DB_HOST=<pg-host>
+IDEM_AUTHZ_DB_PORT=5432
+IDEM_AUTHZ_DB_NAME=onepass
+IDEM_AUTHZ_DB_SSLMODE=require           # 운영 권장
 
 # 한시 권한 만료 스케줄러
-AUTHZ_EXPIRY_ENABLED=true
-AUTHZ_EXPIRY_SCAN_INTERVAL_MS=60000
-AUTHZ_EXPIRY_BATCH_SIZE=500
+IDEM_AUTHZ_EXPIRY_ENABLED=true
+IDEM_AUTHZ_EXPIRY_SCAN_INTERVAL_MS=60000
+IDEM_AUTHZ_EXPIRY_BATCH_SIZE=500
 
 # ── ido → q-authz 연동 ───────────────────────────────────────────────
-QAUTHZ_BASE_URL=http://q-authz:8086
-IDO_QAUTHZ_INTERNAL_API_KEY=<AUTHZ_INTERNAL_API_KEY와 동일>   # 미설정 시 q-authz 401 → fail-open 빈 역할
+IDEM_HUB_AUTHZ_BASE_URL=http://q-authz:8086
+IDEM_HUB_AUTHZ_INTERNAL_API_KEY=<IDEM_AUTHZ_INTERNAL_API_KEY와 동일>   # 미설정 시 q-authz 401 → fail-open 빈 역할
 
 # ── outbox-relay-batch (authz 아웃박스 → Kafka 릴레이) ───────────────
-AUTHZ_DB_USERNAME=onepass
-AUTHZ_DB_PASSWORD=<pg-password>
-BATCH_AUTHZ_KAFKA_RELAY_ENABLED=true
-AUTHZ_ASSIGNMENT_EVENTS_TOPIC=authz.assignment.events
+IDEM_AUTHZ_DB_USERNAME=onepass
+IDEM_AUTHZ_DB_PASSWORD=<pg-password>
+IDEM_RELAY_AUTHZ_KAFKA_RELAY_ENABLED=true
+IDEM_AUTHZ_ASSIGNMENT_EVENTS_TOPIC=idem.authz.assignment.events
 ```
 
 ---
@@ -556,7 +556,7 @@ agency-stub (AgencyEntryController)
 | `idem-registry/.../config/InternalApiKeyInterceptor.java` | **신규** | `X-Internal-Api-Key` 상수 시간 비교 검증 인터셉터 (P2) |
 | `idem-registry/.../config/QimWebMvcConfig.java` | **신규** | `/api/v1/internal/**` 인터셉터 등록 (P2) |
 | `idem-registry/.../db/migration/V4__fix_social_sso.sql` | **신규** | `uq_identifier_hash` DROP → 복합 UNIQUE 추가 (P1) |
-| `idem-registry/.../resources/application.yml` | 수정 | `qim.security.internal-api-key` 설정 추가 (P2) |
+| `idem-registry/.../resources/application.yml` | 수정 | `idem.registry.security.internal-api-key` 설정 추가 (P2) |
 | `idem-hub/.../infrastructure/QimClientImpl.java` | 수정 | `findBySocialSub()` + `registerSocialUser()` HTTP 클라이언트 |
 | `idem-hub/.../broker/keycloak/KeycloakOidcService.java` | 수정 | `resolveQimUserIdFromSub()` — Q-IM 소셜 API 연동 |
 | `idem-hub/.../api/HandoffController.java` | 수정 | `.redirectUri(req.getCallbackUrl())` 누락 수정 (P3) |
@@ -568,13 +568,13 @@ agency-stub (AgencyEntryController)
 
 ```bash
 # IdO 서버
-IDO_BROKER_MODE=keycloak              # 필수 — 기본값 qsign, 이 설정 없으면 SSO 경로 비활성
-IDO_QIM_INTERNAL_API_KEY=<32자+>      # Q-IM 내부 API 인증키
+IDEM_HUB_BROKER_MODE=keycloak              # 필수 — 기본값 qsign, 이 설정 없으면 SSO 경로 비활성
+IDEM_HUB_REGISTRY_INTERNAL_API_KEY=<32자+>      # Q-IM 내부 API 인증키
 
 # Q-IM 서버
-QIM_INTERNAL_API_KEY=<동일 키>        # IDO_QIM_INTERNAL_API_KEY와 반드시 동일
+IDEM_REGISTRY_INTERNAL_API_KEY=<동일 키>        # IDEM_HUB_REGISTRY_INTERNAL_API_KEY와 반드시 동일
 
-# Keycloak 연동 (application.yml ido.keycloak.* 항목)
+# Keycloak 연동 (application.yml idem.hub.keycloak.* 항목)
 KEYCLOAK_BASE_URL=https://keycloak.example.com
 KEYCLOAK_REALM=onepass
 KEYCLOAK_CLIENT_ID=ido-client
@@ -641,7 +641,7 @@ ALLOWED_URL_SMES=https://www.smes.go.kr
 ALLOWED_URL_BIZINFO=https://www.bizinfo.go.kr
 ALLOWED_URL_MSS=https://www.mss.go.kr
 ALLOWED_URL_SBIZ=https://www.sbiz.or.kr
-# ... 나머지 기관 (IDO_FE_ALLOWED_RETURN_URLS_EXTRA 로 추가 주입 가능)
+# ... 나머지 기관 (IDEM_HUB_FE_ALLOWED_RETURN_URLS_EXTRA 로 추가 주입 가능)
 
 # 기관별 API Key (K8s Secret)
 SECRETS_AGENCY_BIZINFO_001_API_KEY=<기관별 HS256 서명 키, openssl rand -hex 32>
@@ -723,16 +723,16 @@ export const Logout = (): void => {
 
 | 플래그 | 환경변수 | 로컬 기본 | 운영 기본 | 제어 방식 |
 |--------|---------|---------|---------|---------|
-| F-01 IP Auth RL | `IDO_AUTH_RL_ENABLED` | `false` | `true` | `@Value` + guard |
-| F-02 기관별 RL | `IDO_RATE_LIMIT_ENABLED` | `false` | `true` | `@Value` + guard |
-| F-03 감사 로그 Kafka | `IDO_AUDIT_KAFKA_ENABLED` | `false` | `true` | `@Value` + guard |
-| F-04 감사 로그 DB | `IDO_AUDIT_DB_ENABLED` | `false` | `true` | `@Value` + guard |
-| F-05 OTel AOP | `IDO_TRACING_AUTH_ASPECT_ENABLED` | `false` | `true` | `@ConditionalOnProperty` |
-| F-08 Redisson | `IDO_REDISSON_ENABLED` | `false` | `true` | `@ConditionalOnProperty` |
-| F-10 보안 헤더 | `IDO_SECURITY_HEADERS_ENABLED` | `false` | `true` | `@ConditionalOnProperty` |
-| F-11 파기 스케줄러 | `IDO_RETENTION_ENABLED` | `false` | `true` | `@Value` + guard |
-| F-13 Outbox Relay | `IDO_OUTBOX_RELAY_ENABLED` | `false` | `true` | `@Value` + guard |
-| F-14 Webhook Relay | `IDO_WEBHOOK_RELAY_ENABLED` | `false` | `true` | `@Value` + guard |
+| F-01 IP Auth RL | `IDEM_HUB_AUTH_RL_ENABLED` | `false` | `true` | `@Value` + guard |
+| F-02 기관별 RL | `IDEM_HUB_RATE_LIMIT_ENABLED` | `false` | `true` | `@Value` + guard |
+| F-03 감사 로그 Kafka | `IDEM_HUB_AUDIT_KAFKA_ENABLED` | `false` | `true` | `@Value` + guard |
+| F-04 감사 로그 DB | `IDEM_HUB_AUDIT_DB_ENABLED` | `false` | `true` | `@Value` + guard |
+| F-05 OTel AOP | `IDEM_HUB_TRACING_AUTH_ASPECT_ENABLED` | `false` | `true` | `@ConditionalOnProperty` |
+| F-08 Redisson | `IDEM_HUB_REDISSON_ENABLED` | `false` | `true` | `@ConditionalOnProperty` |
+| F-10 보안 헤더 | `IDEM_HUB_SECURITY_HEADERS_ENABLED` | `false` | `true` | `@ConditionalOnProperty` |
+| F-11 파기 스케줄러 | `IDEM_HUB_RETENTION_ENABLED` | `false` | `true` | `@Value` + guard |
+| F-13 Outbox Relay | `IDEM_HUB_OUTBOX_RELAY_ENABLED` | `false` | `true` | `@Value` + guard |
+| F-14 Webhook Relay | `IDEM_HUB_WEBHOOK_RELAY_ENABLED` | `false` | `true` | `@Value` + guard |
 
 ---
 
@@ -743,7 +743,7 @@ export const Logout = (): void => {
 | `platform-common` | — | — | 공통 도메인·이벤트·에러코드·UUID v7 유틸, `HandoffPayload.GUEST` |
 | `q-sign` | **인증 SoR** | 8081 | OIDC 브로커링, JWT 검증, PKCE, SLO Keycloak 전파 |
 | `q-im` | **식별 SoR** | 8082 | qimUserId, CI AES-256-GCM v{n}, DI HMAC, 회원 원장, 소셜 계정 SSO API, InternalApiKeyInterceptor |
-| `q-authz` | **인가/역할부여 SoR** | 8086 | 기관별 역할 카탈로그·사용자 역할 부여(한시/JIT 만료) 중앙 SoR, `effective-roles` 토큰 `roles[]` 소스, SCIM 2.0 Groups, 인가 이벤트 아웃박스(`authz.assignment.events`), RLS 테넌트 격리·`X-Internal-Api-Key` fail-closed |
+| `q-authz` | **인가/역할부여 SoR** | 8086 | 기관별 역할 카탈로그·사용자 역할 부여(한시/JIT 만료) 중앙 SoR, `effective-roles` 토큰 `roles[]` 소스, SCIM 2.0 Groups, 인가 이벤트 아웃박스(`idem.authz.assignment.events`), RLS 테넌트 격리·`X-Internal-Api-Key` fail-closed |
 | `ido` | **정책 오케스트레이터 + FE BFF** | 8083 | Handoff 발급/검증, Keycloak OIDC 브로커, Policy+GUEST, Webhook, NICE/OACX BFF, AES 키 로테이션, SLO |
 | `agency-stub` | — (PoC 전용) | 8084 | 유관기관 연동 E2E 시뮬레이터 (APPROVED/GUEST 분기 처리) |
 | `onepass-fe` | — | 3000/3001 | React 18 SPA — SLO 연동, 회원정보 수정 실연동 |
@@ -882,7 +882,7 @@ integration-sso/
 │   └── src/main/resources/db/migration/
 │       ├── V1__create_authz_schema.sql      # authz 스키마 + 역할/부여/감사 + RLS
 │       └── V2__create_authz_outbox.sql      # 🆕 authz_outbox (회수 전파 아웃박스)
-│   # NOTE: authz.assignment.events Kafka 릴레이는 idem-relay/job/authz/AuthzKafkaRelayJob
+│   # NOTE: idem.authz.assignment.events Kafka 릴레이는 idem-relay/job/authz/AuthzKafkaRelayJob
 │
 ├── idem-tenant-sample/              # 기관 시뮬레이터 (포트 8084)
 │   └── src/main/java/io/github/hipstermin/idem/tenant/
@@ -1114,19 +1114,19 @@ cd docker && docker compose down
 
 | 토픽 | 파티션 | 보존 | 생산자 | 소비자 |
 |------|--------|------|--------|--------|
-| `qsign.auth.events` | 12 | 1h | Q-Sign, **IdO(SSO)** | IdO |
-| `ido.handoff.events` | 12 | 1y | IdO | IdO → Webhook |
+| `idem.gate.auth.events` | 12 | 1h | Q-Sign, **IdO(SSO)** | IdO |
+| `idem.hub.handoff.events` | 12 | 1y | IdO | IdO → Webhook |
 | `platform.session.advisory` | 12 | 24h | IdO | IdO |
 | `platform.audit.log` | 12 | 2y | IdO | 감사 시스템 |
-| `qim.user.events` | 6 | Compacted | Q-IM | IdO, Q-Sign |
-| `qim.user.snapshot` | 6 | Compacted | Q-IM | (확장 예정) |
-| `qim.sp.member.events` | 6 | 30d | IdO | IdO |
-| `authz.assignment.events` | 12 | — | q-authz(아웃박스) → outbox-relay-batch | 기관 게이트웨이·세션 캐시·IdO (확장 예정) |
+| `idem.registry.user.events` | 6 | Compacted | Q-IM | IdO, Q-Sign |
+| `idem.registry.user.snapshot` | 6 | Compacted | Q-IM | (확장 예정) |
+| `idem.registry.sp.member.events` | 6 | 30d | IdO | IdO |
+| `idem.authz.assignment.events` | 12 | — | q-authz(아웃박스) → outbox-relay-batch | 기관 게이트웨이·세션 캐시·IdO (확장 예정) |
 | *.dlq / *.dlt | 3~6 | 7d | 에러핸들러 | 운영 |
 
-> **SSO 추가**: `qsign.auth.events` 토픽에 `AUTH_COMPLETED` 이벤트를 IdO(KeycloakOidcService)가 직접 발행 (Strategy B — Q-Sign 우회 없음).
+> **SSO 추가**: `idem.gate.auth.events` 토픽에 `AUTH_COMPLETED` 이벤트를 IdO(KeycloakOidcService)가 직접 발행 (Strategy B — Q-Sign 우회 없음).
 >
-> **연합 인가 추가 (`🆕`)**: `authz.assignment.events` — q-authz가 인가 부여/회수/만료(`AUTHZ_GRANTED`/`AUTHZ_REVOKED`/`AUTHZ_EXPIRED`)를 트랜잭셔널 아웃박스(`authz.authz_outbox`)에 적재하고 `outbox-relay-batch`(`AuthzKafkaRelayJob`)가 릴레이 발행. 파티션 키 = `qimUserId`. 다운스트림이 구독해 **토큰 자연 만료 이전에 역할 회수를 전파**. 토픽 자체는 아직 명시적 `NewTopic` 미선언(확장 예정).
+> **연합 인가 추가 (`🆕`)**: `idem.authz.assignment.events` — q-authz가 인가 부여/회수/만료(`IDEM_AUTHZ_GRANTED`/`IDEM_AUTHZ_REVOKED`/`IDEM_AUTHZ_EXPIRED`)를 트랜잭셔널 아웃박스(`authz.authz_outbox`)에 적재하고 `outbox-relay-batch`(`AuthzKafkaRelayJob`)가 릴레이 발행. 파티션 키 = `qimUserId`. 다운스트림이 구독해 **토큰 자연 만료 이전에 역할 회수를 전파**. 토픽 자체는 아직 명시적 `NewTopic` 미선언(확장 예정).
 
 ---
 
@@ -1143,7 +1143,7 @@ cd docker && docker compose down
 | PKCE (RFC 7636) | S256 code_challenge | ✅ 완료 |
 | W3C traceparent 전파 | TraceparentFilter | ✅ 완료 |
 | Rate Limiter (기관별) | Redis Lua 슬라이딩 윈도우 | ✅ 완료 |
-| Rate Limiter (IP Auth) | `IDO_AUTH_RL_ENABLED` Feature Flag | ✅ Sprint 9 FF |
+| Rate Limiter (IP Auth) | `IDEM_HUB_AUTH_RL_ENABLED` Feature Flag | ✅ Sprint 9 FF |
 | Provider 단위 CB | Resilience4j 동적 생성 | ✅ 완료 |
 | SLO Keycloak 전파 | end_session_endpoint 연동 | ✅ Sprint 2 |
 | SLO FE 완전 연동 | `POST /api/v1/slo/initiate` FE 호출 | ✅ Sprint 10 |
@@ -1198,7 +1198,7 @@ cd docker && docker compose down
 | `q-im` | **219개** (+ 30 skipped) | **Sprint 12**: isMinor 3종(Fix 7) + S8 4종 + S9 6종 통합(Fix 8) |
 | **`onepass-agency-sdk`** | **36개** | **v0.8.10** SDK GAP-1~5 수정 (HMAC 알고리즘, X-Event-Type, X-Correlation-ID, getBodyField, validateJson) |
 | **`q-authz`** | **29개** (`🆕`) | **연합 인가**: AuthzService 10 / ScimGroupService 7 / Internal·Scim 컨트롤러 8 / ExpiryScheduler 2 / OutboxService 2 |
-| **`outbox-relay-batch`** | **23개** (`🆕`) | **연합 인가**: `authz.authz_outbox` → `authz.assignment.events` 릴레이 (FOR UPDATE SKIP LOCKED + ShedLock) |
+| **`outbox-relay-batch`** | **23개** (`🆕`) | **연합 인가**: `authz.authz_outbox` → `idem.authz.assignment.events` 릴레이 (FOR UPDATE SKIP LOCKED + ShedLock) |
 | **합계** | **591개 + 30 skipped** | — |
 
 > **※ 집계 기준**: `q-authz` 29 · `outbox-relay-batch` 23은 **현재 빌드 기준**(`./gradlew :idem-authz:test :idem-relay:test`, 0 실패). 상단 기존 모듈 행(`ido`·`platform-common`·`q-sign`·`q-im`)은 직전 스냅샷이며 현 빌드와 차이가 있을 수 있음 — 참고로 현재 빌드 기준 `platform-common`은 378, `ido`는 417로 증가(연합 인가 외 누적 반영). 합계 591은 표의 행 값 합.
@@ -1299,9 +1299,9 @@ ido:
 
 ```bash
 # 환경변수 (로컬 개발 — docker-compose.yml에 설정 권장)
-IDO_BROKER_MODE=keycloak
-IDO_QIM_INTERNAL_API_KEY=local-dev-key-change-in-production
-QIM_INTERNAL_API_KEY=local-dev-key-change-in-production
+IDEM_HUB_BROKER_MODE=keycloak
+IDEM_HUB_REGISTRY_INTERNAL_API_KEY=local-dev-key-change-in-production
+IDEM_REGISTRY_INTERNAL_API_KEY=local-dev-key-change-in-production
 ```
 
 ---
@@ -1373,8 +1373,8 @@ Annotation Processors: 활성화 (Lombok)
 | **P2** | agency-stub Kafka 직접 구독 → 공개 API 전환 | IdO BE | 망 분리 원칙 |
 | **P2** | CSR(관리자 UI) 미구현 기관 관리 화면 | FE | — |
 | **P2** | DLQ 전략 구현 (`KafkaConsumerConfig`) | IdO BE | GAP-IDO-09 |
-| **P2** | 연합 인가 다운스트림 컨슈머 (세션·게이트웨이 캐시 무효화) | IdO/게이트웨이 BE | `authz.assignment.events` 구독 → 토큰 만료 이전 역할 회수 반영 (회수 전파 루프 완성) |
-| **P2** | `authz.assignment.events` 명시적 `NewTopic` 선언 | IdO/DevOps | 현재 미선언 — 파티션 12 / 키 `qimUserId` 명시 |
+| **P2** | 연합 인가 다운스트림 컨슈머 (세션·게이트웨이 캐시 무효화) | IdO/게이트웨이 BE | `idem.authz.assignment.events` 구독 → 토큰 만료 이전 역할 회수 반영 (회수 전파 루프 완성) |
+| **P2** | `idem.authz.assignment.events` 명시적 `NewTopic` 선언 | IdO/DevOps | 현재 미선언 — 파티션 12 / 키 `qimUserId` 명시 |
 | **P2** | SCIM 2.0 Bearer 토큰 인증 | q-authz BE | 현재 `X-Internal-Api-Key`만 — 표준 SCIM Bearer 추가 |
 | **P2** | onepass-admin PAP 콘솔 UI (역할 부여/회수) | FE/admin | q-authz Internal API 연동 관리 화면 |
 | **P2** | 만료 스케줄러 ShedLock 적용 (다중 인스턴스) | q-authz BE | 현재 단일 리더 가정 — 동시 스캔 시 EXPIRE 감사 중복 방지 |
@@ -1453,7 +1453,7 @@ io.github.hipstermin.idem.hub.{기능}/
 public class SloServiceImpl implements SloService { ... }
 
 // 3. Feature Flag Guard 패턴
-@Value("${ido.slo.enabled:true}")
+@Value("${idem.hub.slo.enabled:true}")
 private boolean enabled;
 
 public void execute() {

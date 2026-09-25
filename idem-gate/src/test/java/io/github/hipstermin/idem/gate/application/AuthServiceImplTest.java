@@ -49,7 +49,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 @DisplayName("AuthServiceImpl — q-sign 신뢰 루트 단위 테스트")
 class AuthServiceImplTest {
 
-    private static final String TOPIC_AUTH_EVENTS = "qsign.auth.events";
+    private static final String TOPIC_AUTH_EVENTS = "idem.gate.auth.events";
 
     @Mock private AuthResultRepository authResultRepository;
     @Mock private LockRepository       lockRepository;

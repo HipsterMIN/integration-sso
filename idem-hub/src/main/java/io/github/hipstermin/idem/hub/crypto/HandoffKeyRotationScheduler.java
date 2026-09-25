@@ -43,9 +43,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class HandoffKeyRotationScheduler {
 
-    private static final String CURRENT_VERSION_KEY = "ido:crypto:aes:current-version";
-    private static final String VERSION_KEY_PREFIX  = "ido:crypto:aes:version:";
-    private static final String ROTATE_LOCK_KEY     = "ido:crypto:aes:rotate-lock";
+    private static final String CURRENT_VERSION_KEY = "idem:crypto:aes:current-version";
+    private static final String VERSION_KEY_PREFIX  = "idem:crypto:aes:version:";
+    private static final String ROTATE_LOCK_KEY     = "idem:crypto:aes:rotate-lock";
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final JdbcTemplate                  jdbcTemplate;
@@ -53,20 +53,20 @@ public class HandoffKeyRotationScheduler {
     private final KeyVersionRegistry            keyVersionRegistry;
     private final KmsClient                     kmsClient;
 
-    @Value("${ido.ticket.key-rotation-days:90}")
+    @Value("${idem.hub.ticket.key-rotation-days:90}")
     private int keyRotationDays;
 
-    @Value("${ido.ticket.key-grace-period-hours:24}")
+    @Value("${idem.hub.ticket.key-grace-period-hours:24}")
     private int keyGracePeriodHours;
 
-    @Value("${ido.crypto.rotation-enabled:true}")
+    @Value("${idem.hub.crypto.rotation-enabled:true}")
     private boolean rotationEnabled;
 
     /**
      * 매 시간 로테이션 필요 여부 확인
      * 실제 로테이션: DB에 기록된 key_rotated_at + rotationDays 이후
      */
-    @Scheduled(cron = "${ido.crypto.rotation-check-cron:0 0 * * * *}")   // 매 시간 정각
+    @Scheduled(cron = "${idem.hub.crypto.rotation-check-cron:0 0 * * * *}")   // 매 시간 정각
     public void checkAndRotate() {
         if (!rotationEnabled) {
             log.debug("[KeyRotation] 키 로테이션 비활성화 — 스킵");

@@ -3,11 +3,11 @@ package io.github.hipstermin.idem.plugin.niceoacx;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * NICE 휴대폰 본인인증 설정 — {@code ido.auth.nice.*} (환경변수 {@code NICE_CLIENT_ID} 등 계약은 그대로, S5a).
+ * NICE 휴대폰 본인인증 설정 — {@code idem.hub.auth.nice.*} (환경변수 {@code NICE_CLIENT_ID} 등 계약은 그대로, S5a).
  *
  * <p>자격증명은 환경변수·Secret 으로만 주입한다. {@code base-url} 은 통합 테스트(WireMock)에서만 바꾼다.
  */
-@ConfigurationProperties(prefix = "ido.auth.nice")
+@ConfigurationProperties(prefix = "idem.hub.auth.nice")
 public class NiceProperties {
 
     public static final String DEFAULT_BASE_URL = "https://auth.niceid.co.kr";

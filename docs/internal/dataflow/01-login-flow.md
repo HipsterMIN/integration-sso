@@ -230,7 +230,7 @@ notifyIdoAndGetRedirect(authResult, stateEntry.get());
 // HMAC-SHA256 내부 서명 생성
 String sig = buildInternalSig(correlationId);
 // 페이로드: {correlationId}:{epochSeconds}
-// 키: application.properties의 qsign.internal-sig-secret
+// 키: application.properties의 idem.gate.internal-sig-secret
 
 POST http://idem-hub/api/internal/v1/oidc/complete
 X-Internal-Sig: {hmac_sha256_signature}
@@ -619,7 +619,7 @@ String authUrl = buildKeycloakAuthUrl(stateEntry, idpHint);
 // {keycloak.authorizationEndpoint}
 //   ?response_type=code
 //   &client_id={q-sign-client}
-//   &redirect_uri={qsign.keycloak.redirectUri}
+//   &redirect_uri={idem.gate.keycloak.redirectUri}
 //   &scope=openid+profile+email
 //   &state={state}
 //   &nonce={nonce}
@@ -632,7 +632,7 @@ Key: qsign:oidc:state:{state}
 Value: KeycloakStateEntry JSON {
   state, nonce, correlationId, returnUrl, requestedLevel, provider
 }
-TTL: qsign.keycloak.state-ttl-seconds (기본 300초)
+TTL: idem.gate.keycloak.state-ttl-seconds (기본 300초)
 ```
 
 ### 6.4 Kafka Outbox 이벤트 (q-sign → Kafka)
@@ -640,7 +640,7 @@ TTL: qsign.keycloak.state-ttl-seconds (기본 300초)
 `KeycloakCallbackService` 10단계에서 AuthResult 저장 시 Outbox 등록:
 
 ```json
-// Kafka 토픽: qsign.auth.events
+// Kafka 토픽: idem.gate.auth.events
 // Event Type: TYPE_AUTH_COMPLETED
 {
   "eventType": "TYPE_AUTH_COMPLETED",
@@ -753,11 +753,11 @@ FeSession session = FeSession.builder()
 // Redis 저장
 // 1. 세션 본체 (슬라이딩 TTL)
 redisTemplate.opsForValue().set(
-    "fe:session:" + sessionId, session, Duration.ofMinutes(30));
+    "idem:fe:session:" + sessionId, session, Duration.ofMinutes(30));
 
 // 2. 사용자별 세션 역인덱스 (무효화 지원)
-redisTemplate.opsForSet().add("fe:user-sessions:" + qimUserId, sessionId);
-redisTemplate.expire("fe:user-sessions:" + qimUserId, Duration.ofMinutes(480));
+redisTemplate.opsForSet().add("idem:fe:user-sessions:" + qimUserId, sessionId);
+redisTemplate.expire("idem:fe:user-sessions:" + qimUserId, Duration.ofMinutes(480));
 ```
 
 ### 8.2 세션 Sliding TTL 갱신
@@ -816,11 +816,11 @@ export const initiateSlo = async () => {
 ```java
 // FeSessionServiceImpl.invalidateByQimUserId()
 // 보안 이벤트(탈퇴, 정지 등) 발생 시 해당 사용자의 모든 세션 무효화
-Set<Object> sessionIds = redisTemplate.opsForSet().members("fe:user-sessions:" + qimUserId);
+Set<Object> sessionIds = redisTemplate.opsForSet().members("idem:fe:user-sessions:" + qimUserId);
 for (Object sid : sessionIds) {
-    redisTemplate.delete("fe:session:" + sid);
+    redisTemplate.delete("idem:fe:session:" + sid);
 }
-redisTemplate.delete("fe:user-sessions:" + qimUserId);
+redisTemplate.delete("idem:fe:user-sessions:" + qimUserId);
 ```
 
 ---

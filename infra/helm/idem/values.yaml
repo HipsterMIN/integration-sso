@@ -49,7 +49,7 @@ infra:
     bootstrapServers: kafka-service:9092
 
 # ── Q-Sign ──────────────────────────────────────────────────────────
-qsign:
+gate:
   enabled: true
   replicaCount: 2
   image:
@@ -74,10 +74,10 @@ qsign:
     DB_PORT: "5432"
     REDIS_PORT: "6379"
     KEYCLOAK_REALM: onepass
-    QSIGN_KEYCLOAK_CLIENT_ID: q-sign-client
-    QSIGN_PKCE_ENABLED: "true"
-    QSIGN_PKCE_TTL: "300"
-    QSIGN_INTERNAL_SIG_STRICT: "false"
+    IDEM_GATE_KEYCLOAK_CLIENT_ID: q-sign-client
+    IDEM_GATE_PKCE_ENABLED: "true"
+    IDEM_GATE_PKCE_TTL: "300"
+    IDEM_GATE_INTERNAL_SIG_STRICT: "false"
   # 민감정보 — Secret 이름 참조 (실제 값은 Secret에 있음)
   secretRef:
     name: idem-gate-secret
@@ -143,12 +143,12 @@ authz:
       memory: 1Gi
   config:
     SPRING_PROFILES_ACTIVE: k8s
-    AUTHZ_DB_PORT: "5432"
-    AUTHZ_DB_NAME: onepass
-    AUTHZ_DB_SSLMODE: disable
-    AUTHZ_EXPIRY_ENABLED: "true"
-    AUTHZ_EXPIRY_SCAN_INTERVAL_MS: "60000"
-    AUTHZ_EXPIRY_BATCH_SIZE: "500"
+    IDEM_AUTHZ_DB_PORT: "5432"
+    IDEM_AUTHZ_DB_NAME: onepass
+    IDEM_AUTHZ_DB_SSLMODE: disable
+    IDEM_AUTHZ_EXPIRY_ENABLED: "true"
+    IDEM_AUTHZ_EXPIRY_SCAN_INTERVAL_MS: "60000"
+    IDEM_AUTHZ_EXPIRY_BATCH_SIZE: "500"
   secretRef:
     name: idem-authz-secret
   livenessProbe:
@@ -186,7 +186,7 @@ authz:
     annotations: {}
 
 # ── Q-IM ────────────────────────────────────────────────────────────
-qim:
+registry:
   enabled: true
   replicaCount: 2
   image:
@@ -206,12 +206,12 @@ qim:
   config:
     IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
     SPRING_PROFILES_ACTIVE: k8s
-    QIM_DB_PORT: "3306"
-    QIM_DB_NAME: qim
-    QIM_DB_SSL: "false"
+    IDEM_REGISTRY_DB_PORT: "3306"
+    IDEM_REGISTRY_DB_NAME: qim
+    IDEM_REGISTRY_DB_SSL: "false"
     REDIS_PORT: "6379"
-    QIM_CI_CURRENT_VERSION: v1
-    QIM_RECEIVER_AUDIT: "true"
+    IDEM_REGISTRY_CI_CURRENT_VERSION: v1
+    IDEM_REGISTRY_RECEIVER_AUDIT: "true"
   secretRef:
     name: idem-registry-secret
   livenessProbe:
@@ -249,7 +249,7 @@ qim:
     annotations: {}
 
 # ── IdO ─────────────────────────────────────────────────────────────
-ido:
+hub:
   enabled: true
   replicaCount: 2
   image:
@@ -267,47 +267,47 @@ ido:
       cpu: 2000m
       memory: 2Gi
   config:
-    IDO_QAUTHZ_ENABLED: "true"   # D2: authz 조회 실패 = 거부(503). authz 를 배포하지 않으면 "false" 로 명시
+    IDEM_HUB_AUTHZ_ENABLED: "true"   # D2: authz 조회 실패 = 거부(503). authz 를 배포하지 않으면 "false" 로 명시
     IDEM_KAFKA_ENABLED: "true"   # D1-b: 차트는 Kafka 를 전제로 한다. 브로커 없이 배포하려면 "false" (docs/install.md)
     SPRING_PROFILES_ACTIVE: k8s
     DB_NAME: onepass
     DB_PORT: "5432"
     REDIS_PORT: "6379"
-    IDO_BROKER_MODE: qsign
+    IDEM_HUB_BROKER_MODE: qsign
     KEYCLOAK_REALM: onepass
     KEYCLOAK_CLIENT_ID: ido-client
-    IDO_PLATFORM_VERSION: "1.0"
-    IDO_RATE_LIMIT_ENABLED: "true"
-    IDO_RATE_LIMIT_DEFAULT_TPS: "200"
-    IDO_RATE_LIMIT_DEFAULT_DAILY: "1000000"
-    IDO_AUDIT_KAFKA_ENABLED: "true"
-    IDO_KAFKA_PARTITION_COUNT_MAIN: "12"
-    IDO_KAFKA_PARTITION_COUNT_DLQ: "6"
-    IDO_KAFKA_REPLICATION_FACTOR: "1"
-    IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"
+    IDEM_HUB_PLATFORM_VERSION: "1.0"
+    IDEM_HUB_RATE_LIMIT_ENABLED: "true"
+    IDEM_HUB_RATE_LIMIT_DEFAULT_TPS: "200"
+    IDEM_HUB_RATE_LIMIT_DEFAULT_DAILY: "1000000"
+    IDEM_HUB_AUDIT_KAFKA_ENABLED: "true"
+    IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN: "12"
+    IDEM_HUB_KAFKA_PARTITION_COUNT_DLQ: "6"
+    IDEM_HUB_KAFKA_REPLICATION_FACTOR: "1"
+    IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS: "1"
     # ── KMS / Vault Transit Engine ────────────────────────────────────
     # 기본값(values.yaml): KMS Off — LocalKmsClient(Base64 패스스루) 사용
-    # 운영(values-prod.yaml): IDO_KMS_ENABLED=true, IDO_KMS_PROVIDER=vault
-    IDO_KMS_ENABLED: "false"
-    IDO_KMS_PROVIDER: "vault"
-    IDO_KMS_CONN_TIMEOUT_MS: "3000"
-    IDO_KMS_REQ_TIMEOUT_MS: "5000"
+    # 운영(values-prod.yaml): IDEM_HUB_KMS_ENABLED=true, IDEM_HUB_KMS_PROVIDER=vault
+    IDEM_HUB_KMS_ENABLED: "false"
+    IDEM_HUB_KMS_PROVIDER: "vault"
+    IDEM_HUB_KMS_CONN_TIMEOUT_MS: "3000"
+    IDEM_HUB_KMS_REQ_TIMEOUT_MS: "5000"
     # Vault 접속 정보 (provider=vault 시)
     VAULT_ADDR: "http://vault:8200"
     VAULT_TRANSIT_PATH: "transit"
-    VAULT_TRANSIT_KEY: "ido-handoff-key"
+    VAULT_TRANSIT_KEY: "idem-handoff-key"
     # 인증 방식: token(개발) | approle(CI/CD) | kubernetes(운영 권장)
     VAULT_AUTH_METHOD: "token"
     # K8s Auth 사용 시 — Vault에 등록된 role 이름
-    VAULT_K8S_ROLE: "ido"
+    VAULT_K8S_ROLE: "idem-hub"
     # HCP Vault Dedicated 전용 Namespace (자체 호스팅 시 빈 값)
     VAULT_NAMESPACE: ""
   # ── ServiceAccount (Vault Kubernetes Auth 사용 시 필요) ────────────
   # auth-method=kubernetes 일 때 Vault가 K8s API로 검증할 SA.
-  # vault write auth/kubernetes/role/ido \
+  # vault write auth/kubernetes/role/idem-hub \
   #   bound_service_account_names=idem-hub \
   #   bound_service_account_namespaces=onepass \
-  #   policies=ido-kms-policy
+  #   policies=idem-hub-kms-policy
   serviceAccount:
     create: true
     name: idem-hub
@@ -350,8 +350,8 @@ ido:
 # Transactional Outbox 분산 릴레이 배치 서비스
 #  - ShedLock 분산 락 → 다중 Pod에서도 단일 인스턴스만 Job 실행
 #  - replicaCount 2 권장 (HA 페일오버) — replicaCount 1로 운영해도 동작은 함
-#  - ido(PostgreSQL) / q-im(MariaDB) / q-sign(PostgreSQL) 멀티 DataSource
-batch:
+#  - idem-hub(PostgreSQL) / idem-registry(MariaDB) / idem-gate(PostgreSQL) 멀티 DataSource
+relay:
   enabled: true
   # ShedLock으로 중복 실행 방지 — 2개로 운영하여 HA(파드 장애 시 즉시 페일오버) 확보
   replicaCount: 2
@@ -374,25 +374,25 @@ batch:
   config:
     SPRING_PROFILES_ACTIVE: k8s
     # DB 포트 (드라이버별)
-    IDO_DB_PORT: "5432"
-    IDO_DB_NAME: onepass
-    QIM_DB_PORT: "3306"
-    QIM_DB_NAME: qim
-    QSIGN_DB_PORT: "5432"
-    QSIGN_DB_NAME: onepass
+    IDEM_HUB_DB_PORT: "5432"
+    IDEM_HUB_DB_NAME: onepass
+    IDEM_REGISTRY_DB_PORT: "3306"
+    IDEM_REGISTRY_DB_NAME: qim
+    IDEM_GATE_DB_PORT: "5432"
+    IDEM_GATE_DB_NAME: onepass
     REDIS_PORT: "6379"
     # Webhook 헤더용
-    IDO_PLATFORM_VERSION: "1.0"
+    IDEM_HUB_PLATFORM_VERSION: "1.0"
     # 릴레이 Job ON/OFF
-    BATCH_IDO_KAFKA_RELAY_ENABLED: "true"
-    BATCH_IDO_QIM_RELAY_ENABLED: "true"
-    BATCH_QIM_KAFKA_RELAY_ENABLED: "true"
-    BATCH_QSIGN_KAFKA_RELAY_ENABLED: "true"
-    BATCH_PROVISIONING_RELAY_ENABLED: "true"
-    BATCH_WEBHOOK_RELAY_ENABLED: "true"
+    IDEM_RELAY_HUB_KAFKA_RELAY_ENABLED: "true"
+    IDEM_RELAY_HUB_REGISTRY_RELAY_ENABLED: "true"
+    IDEM_RELAY_REGISTRY_KAFKA_RELAY_ENABLED: "true"
+    IDEM_RELAY_GATE_KAFKA_RELAY_ENABLED: "true"
+    IDEM_RELAY_PROVISIONING_RELAY_ENABLED: "true"
+    IDEM_RELAY_WEBHOOK_RELAY_ENABLED: "true"
     # DEAD_LETTER 알림 채널 (운영에서 enable + Secret 주입)
-    BATCH_ALERT_SLACK_ENABLED: "false"
-    BATCH_ALERT_PAGERDUTY_ENABLED: "false"
+    IDEM_RELAY_ALERT_SLACK_ENABLED: "false"
+    IDEM_RELAY_ALERT_PAGERDUTY_ENABLED: "false"
   secretRef:
     name: idem-relay-secret
   # 헬스체크
@@ -437,7 +437,7 @@ batch:
     prometheus.io/path: "/actuator/prometheus"
 
 # ── Agency-Stub ─────────────────────────────────────────────────────
-agencyStub:
+sample:
   enabled: true
   replicaCount: 1
   image:
@@ -471,17 +471,17 @@ ingress:
   hosts:
     - host: onepass.example.com
       paths:
-        - path: /api/qsign
+        - path: /api/idem-gate
           pathType: Prefix
-          service: qsign
+          service: idem-gate
           port: 8081
-        - path: /api/qim
+        - path: /api/idem-registry
           pathType: Prefix
-          service: qim
+          service: idem-registry
           port: 8082
-        - path: /api/ido
+        - path: /api/idem-hub
           pathType: Prefix
-          service: ido
+          service: idem-hub
           port: 8083
   tls:
     - secretName: idem-tls
@@ -491,19 +491,19 @@ ingress:
 # ── Kafka Topic 설정 (ConfigMap용 레퍼런스) ─────────────────────────
 kafka:
   topics:
-    authEvents: qsign.auth.events
-    handoffEvents: ido.handoff.events
+    authEvents: idem.gate.auth.events
+    handoffEvents: idem.hub.handoff.events
     sessionAdvisory: platform.session.advisory
     auditLog: platform.audit.log
-    qimUserEvents: qim.user.events
-    qimUserSnapshot: qim.user.snapshot
-    qimSpMemberEvents: qim.sp.member.events
+    qimUserEvents: idem.registry.user.events
+    qimUserSnapshot: idem.registry.user.snapshot
+    qimSpMemberEvents: idem.registry.sp.member.events
     # DLT (Dead Letter Topics)
-    authEventsDlt: qsign.auth.events.dlt
-    handoffEventsDlt: ido.handoff.events.dlt
+    authEventsDlt: idem.gate.auth.events.dlt
+    handoffEventsDlt: idem.hub.handoff.events.dlt
     sessionAdvisoryDlt: platform.session.advisory.dlt
-    qimUserEventsDlt: qim.user.events.dlt
-    qimSpMemberEventsDlt: qim.sp.member.events.dlt
+    qimUserEventsDlt: idem.registry.user.events.dlt
+    qimSpMemberEventsDlt: idem.registry.sp.member.events.dlt
 
 # ── NetworkPolicy ───────────────────────────────────────────────────
 networkPolicy:

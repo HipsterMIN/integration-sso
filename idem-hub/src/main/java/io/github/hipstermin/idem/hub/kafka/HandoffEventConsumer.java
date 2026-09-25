@@ -16,10 +16,10 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 /**
- * Handoff 이벤트 컨슈머 (ido.handoff.events → 기관 Webhook 트리거)
+ * Handoff 이벤트 컨슈머 (idem.hub.handoff.events → 기관 Webhook 트리거)
  *
  * <p><b>책임</b>:
- * HandoffServiceImpl이 발행한 {@code ido.handoff.events} 이벤트를 수신하여
+ * HandoffServiceImpl이 발행한 {@code idem.hub.handoff.events} 이벤트를 수신하여
  * {@link WebhookDispatcherService}를 통해 기관 webhook 발송 Outbox에 적재.
  *
  * <p><b>핵심 설계 — 기관 Kafka 직접 접근 불가 문제 해결</b>:
@@ -51,7 +51,7 @@ import org.springframework.stereotype.Component;
  * <p><b>Auth Result Cache 연계</b>:
  * HANDOFF_CONSUMED 수신 시 Redis 캐시 무효화 (보안: 1회용 인증 결과 재사용 방지).
  *
- * <p><b>토픽</b>: {@code ido.handoff.events} (파티션 키: correlationId)
+ * <p><b>토픽</b>: {@code idem.hub.handoff.events} (파티션 키: correlationId)
  * <p><b>컨슈머 그룹</b>: {@code ido-handoff-consumer}
  */
 @Slf4j
@@ -60,7 +60,7 @@ import org.springframework.stereotype.Component;
 public class HandoffEventConsumer {
 
     private static final String CONSUMER_GROUP = "ido-handoff-consumer";
-    private static final String SOURCE_SYSTEM  = "ido";
+    private static final String SOURCE_SYSTEM  = "idem-hub";
 
     private final IdempotentEventStore      idempotentEventStore;
     private final WebhookDispatcherService  webhookDispatcherService;
@@ -69,8 +69,8 @@ public class HandoffEventConsumer {
     private final ObjectMapper              objectMapper;
 
     @KafkaListener(
-            topics           = "${ido.kafka.topic-handoff-events:ido.handoff.events}",
-            groupId          = "${ido.kafka.consumer-group-handoff:ido-handoff-consumer}",
+            topics           = "${idem.hub.kafka.topic-handoff-events:idem.hub.handoff.events}",
+            groupId          = "${idem.hub.kafka.consumer-group-handoff:ido-handoff-consumer}",
             containerFactory = "handoffListenerContainerFactory"
     )
     public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {
@@ -106,7 +106,7 @@ public class HandoffEventConsumer {
     }
 
     /**
-     * 프로세스 내 진입점 (D1-b). Kafka 가 꺼진 배포에서는 {@code HandoffEventPublisher} 가 이벤트를 {@code ido.outbox} 에
+     * 프로세스 내 진입점 (D1-b). Kafka 가 꺼진 배포에서는 {@code HandoffEventPublisher} 가 이벤트를 {@code idem.hub.outbox} 에
      * 넣고 {@code IdoOutboxRelay} 가 폴링해 이 메서드로 배달한다. 멱등 처리·타입 분기·완료 마킹은 경로와 무관하게 같다.
      *
      * @throws RuntimeException 처리 실패 — 호출자가 재시도

@@ -43,13 +43,13 @@ import org.springframework.web.client.RestTemplate;
  *   <li>identifierHash 생성 (SHA-256(sub)) — 감사 로그/DB 추적용으로만 사용</li>
  *   <li>Q-IM에서 실제 qimUserId 조회/등록 (SSO 핵심 — agencySubjectId 정확성 보장)</li>
  *   <li>AuthResult 생성 → ido.auth_result 저장 (Keycloak 모드 Strategy B)</li>
- *   <li>Outbox 이벤트 저장 → Kafka qsign.auth.events 발행</li>
+ *   <li>Outbox 이벤트 저장 → Kafka idem.gate.auth.events 발행</li>
  *   <li>FE 세션 생성 → feSessionId 쿠키 발급 준비</li>
  * </ol>
  *
  * <p>Strategy B (문서 §8.3):
  * Keycloak 도입 후 q-sign이 더 이상 콜백을 수신하지 않으므로,
- * IdO가 직접 AuthResult를 생성하고 {@code qsign.auth.events} Kafka 토픽에 발행.
+ * IdO가 직접 AuthResult를 생성하고 {@code idem.gate.auth.events} Kafka 토픽에 발행.
  * 기존 Q-IM, Handoff 처리 등 하위 컨슈머(QsignAuthEventConsumer 등)는 변경 없음.
  *
  * <p><b>SSO 식별자 전략 (v2.4.0 수정)</b>:
@@ -76,8 +76,8 @@ public class KeycloakOidcService {
     private final ObjectMapper               objectMapper;
     private final BrokerAuditLogService      brokerAuditLogService;
 
-    // P1: ido.keycloak.auth-events-topic(구 키) → ido.kafka.topic-auth-events 로 통일
-    @Value("${ido.kafka.topic-auth-events:qsign.auth.events}")
+    // P1: idem.hub.keycloak.auth-events-topic(구 키) → idem.hub.kafka.topic-auth-events 로 통일
+    @Value("${idem.hub.kafka.topic-auth-events:idem.gate.auth.events}")
     private String authEventsTopic;
 
     // ══════════════════════════════════════════════════════════════════════
@@ -373,7 +373,7 @@ public class KeycloakOidcService {
     }
 
     /**
-     * Outbox 이벤트 저장 — Relay가 Kafka qsign.auth.events로 발행
+     * Outbox 이벤트 저장 — Relay가 Kafka idem.gate.auth.events로 발행
      * 기존 QsignAuthEventConsumer가 변경 없이 소비 가능
      */
     private void saveOutboxEvent(String authResultId, String correlationId,

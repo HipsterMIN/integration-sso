@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class HandoffController {
 
-    private static final String IDEMPOTENCY_KEY_PREFIX = "ido:idempotency:handoff:";
+    private static final String IDEMPOTENCY_KEY_PREFIX = "idem:idempotency:handoff:";
     private static final Duration IDEMPOTENCY_TTL       = Duration.ofDays(1);
     /** FE 세션 쿠키명 — §12.3 설계서 참조 */
     private static final String FE_SESSION_COOKIE_NAME  = "Fe-Session-Id";

@@ -63,16 +63,16 @@ import org.springframework.web.client.RestTemplate;
  * vault secrets enable -path=transit transit
  *
  * # 2. IDO 전용 Transit 키 생성 (AES-256-GCM96, 자동 로테이션 90일)
- * vault write -f transit/keys/ido-handoff-key
- * vault write transit/keys/ido-handoff-key/config \
+ * vault write -f transit/keys/idem-handoff-key
+ * vault write transit/keys/idem-handoff-key/config \
  *   min_decryption_version=1 \
  *   deletion_allowed=false \
  *   auto_rotate_period=2160h
  *
  * # 3. 최소 권한 정책 생성
  * vault policy write ido-kms-policy - <<'EOF'
- * path "transit/encrypt/ido-handoff-key"  { capabilities = ["update"] }
- * path "transit/decrypt/ido-handoff-key"  { capabilities = ["update"] }
+ * path "transit/encrypt/idem-handoff-key"  { capabilities = ["update"] }
+ * path "transit/decrypt/idem-handoff-key"  { capabilities = ["update"] }
  * path "sys/health"                        { capabilities = ["read"]   }
  * EOF
  *
@@ -95,8 +95,8 @@ import org.springframework.web.client.RestTemplate;
  *
  * <p><b>K8s Secret 설정 (운영)</b>:
  * <pre>
- * IDO_KMS_ENABLED:      "true"
- * IDO_KMS_PROVIDER:     "vault"
+ * IDEM_HUB_KMS_ENABLED:      "true"
+ * IDEM_HUB_KMS_PROVIDER:     "vault"
  * VAULT_ADDR:           "http://vault.vault.svc.cluster.local:8200"
  * VAULT_AUTH_METHOD:    "kubernetes"       # token | approle | kubernetes
  * VAULT_K8S_ROLE:       "ido"
@@ -127,7 +127,7 @@ import org.springframework.web.client.RestTemplate;
 @Component
 @Primary   // 일반 KMS(NoOp/Local/Nhn/Vault)는 ido.kms.provider 로 상호배타 활성 — 단일 KmsClient 주입의 정본
 @ConditionalOnProperty(
-    prefix  = "ido.kms",
+    prefix  = "idem.hub.kms",
     name    = {"enabled", "provider"},
     havingValue = "true,vault"          // enabled=true AND provider=vault 일 때만 활성화
 )
@@ -136,26 +136,26 @@ public class VaultKmsClient implements KmsClient {
     // ── 설정값 ──────────────────────────────────────────────────────────────
 
     /** Vault 서버 주소 (예: http://vault:8200, https://vault.company.com) */
-    @Value("${ido.kms.vault.address:http://vault:8200}")
+    @Value("${idem.hub.kms.vault.address:http://vault:8200}")
     private String vaultAddress;
 
     /** Transit 시크릿 엔진 마운트 경로 (기본: transit) */
-    @Value("${ido.kms.vault.transit-path:transit}")
+    @Value("${idem.hub.kms.vault.transit-path:transit}")
     private String transitPath;
 
     /** Transit 키 이름 (vault write -f transit/keys/{key-name}) */
-    @Value("${ido.kms.vault.key-name:ido-handoff-key}")
+    @Value("${idem.hub.kms.vault.key-name:idem-handoff-key}")
     private String keyName;
 
     /**
      * 인증 방식: token | approle | kubernetes
      * 환경변수: VAULT_AUTH_METHOD
      */
-    @Value("${ido.kms.vault.auth-method:${VAULT_AUTH_METHOD:token}}")
+    @Value("${idem.hub.kms.vault.auth-method:${VAULT_AUTH_METHOD:token}}")
     private String authMethod;
 
     // Token 인증
-    @Value("${ido.kms.vault.token:${VAULT_TOKEN:}}")
+    @Value("${idem.hub.kms.vault.token:${VAULT_TOKEN:}}")
     private String staticToken;
 
     // AppRole 인증
@@ -173,13 +173,13 @@ public class VaultKmsClient implements KmsClient {
     private String k8sSaTokenPath;
 
     /** HCP Vault Dedicated 전용 Namespace (자체 호스팅 시 비워둠) */
-    @Value("${ido.kms.vault.namespace:${VAULT_NAMESPACE:}}")
+    @Value("${idem.hub.kms.vault.namespace:${VAULT_NAMESPACE:}}")
     private String vaultNamespace;
 
-    @Value("${ido.kms.connection-timeout-ms:3000}")
+    @Value("${idem.hub.kms.connection-timeout-ms:3000}")
     private int connectionTimeoutMs;
 
-    @Value("${ido.kms.request-timeout-ms:5000}")
+    @Value("${idem.hub.kms.request-timeout-ms:5000}")
     private int requestTimeoutMs;
 
     /**
@@ -187,9 +187,9 @@ public class VaultKmsClient implements KmsClient {
      *
      * <p><b>기본: false</b> (startup 차단) — 운영 안전.
      * <p>테스트·일시 격리 등 특수 상황에서만 {@code true}로 설정. 운영 환경 절대 사용 금지.
-     * 환경변수: {@code IDO_KMS_VAULT_ALLOW_EMPTY_TOKEN}
+     * 환경변수: {@code IDEM_HUB_KMS_VAULT_ALLOW_EMPTY_TOKEN}
      */
-    @Value("${ido.kms.vault.allow-empty-token:false}")
+    @Value("${idem.hub.kms.vault.allow-empty-token:false}")
     private boolean allowEmptyToken;
 
     private final ObjectMapper objectMapper;
@@ -220,7 +220,7 @@ public class VaultKmsClient implements KmsClient {
      *   <li>이로써 {@code half-up} 상태(LIVE이지만 실제 요청은 실패)를 원천 차단</li>
      * </ul>
      *
-     * <p><b>Escape hatch</b>: {@code ido.kms.vault.allow-empty-token=true} 설정 시
+     * <p><b>Escape hatch</b>: {@code idem.hub.kms.vault.allow-empty-token=true} 설정 시
      * 경고만 출력하고 진행. 테스트·일시 격리 전용. 운영 금지.
      *
      * @throws IllegalStateException 토큰 획득 실패 + escape hatch 비활성 시
@@ -260,7 +260,7 @@ public class VaultKmsClient implements KmsClient {
      */
     private void handleTokenAcquisitionFailure(String reason, Throwable cause) {
         if (allowEmptyToken) {
-            log.error("[KMS-Vault][F5.2 Escape] {} — ido.kms.vault.allow-empty-token=true 로 " +
+            log.error("[KMS-Vault][F5.2 Escape] {} — idem.hub.kms.vault.allow-empty-token=true 로 " +
                       "startup 차단을 우회함. 이 상태에서는 모든 encrypt/decrypt 호출이 실패합니다. " +
                       "운영 환경 절대 사용 금지.", reason, cause);
             this.clientToken = null;

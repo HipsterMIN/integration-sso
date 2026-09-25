@@ -42,7 +42,7 @@ import org.springframework.web.client.RestTemplate;
  * <h2>엔드포인트 매핑</h2>
  * <pre>
  * [차단]  POST /api/ext/ci/**             → 403 Forbidden (CI 직접 전송 Q3=B 위반 차단)
- * [허용]  ANY  /api/ext/**               → Q-IM {QIM_BASE_URL}/api/ext/** forward proxy
+ * [허용]  ANY  /api/ext/**               → Q-IM {IDEM_REGISTRY_BASE_URL}/api/ext/** forward proxy
  * </pre>
  *
  * <h2>FE 마이그레이션 가이드</h2>
@@ -57,8 +57,8 @@ import org.springframework.web.client.RestTemplate;
  * <h2>Q-IM 서버 설정</h2>
  * <pre>
  * application.yml:
- *   ido.qim.base-url: ${QIM_BASE_URL:http://localhost:8082}
- *   ido.qim.ext-api-key: ${IDO_QIM_EXT_API_KEY:}
+ *   idem.hub.registry.base-url: ${IDEM_REGISTRY_BASE_URL:http://localhost:8082}
+ *   idem.hub.registry.ext-api-key: ${IDEM_HUB_REGISTRY_EXT_API_KEY:}
  * </pre>
  *
  * @see io.github.hipstermin.idem.hub.config.IdoWebConfig  qimRestTemplate 빈 정의
@@ -100,18 +100,18 @@ public class ExtProxyController {
             "x-authz-user", "x-authz-roles", "x-authz-scope"
     );
 
-    /** Q-IM 서버 Base URL (환경변수: QIM_BASE_URL, 기본: http://localhost:8082) */
-    @Value("${ido.qim.base-url:http://localhost:8082}")
+    /** Q-IM 서버 Base URL (환경변수: IDEM_REGISTRY_BASE_URL, 기본: http://localhost:8082) */
+    @Value("${idem.hub.registry.base-url:http://localhost:8082}")
     private String qimBaseUrl;
 
     /**
-     * Q-IM 외부 API 인증 키 (환경변수: IDO_QIM_EXT_API_KEY)
+     * Q-IM 외부 API 인증 키 (환경변수: IDEM_HUB_REGISTRY_EXT_API_KEY)
      *
      * <p>FE의 webpack DefinePlugin에 EXT_API_KEY가 번들 노출되는 보안 문제를 해결하기 위해
      * 서버사이드에서 X-Ext-Api-Key 헤더를 주입한다.
      * Q-IM 관리 콘솔에서 발급한 외부 API 키를 환경변수로 주입해야 한다.
      */
-    @Value("${ido.qim.ext-api-key:}")
+    @Value("${idem.hub.registry.ext-api-key:}")
     private String extApiKey;
 
     /** CI 관련 경로 — Q3=B 보안 정책에 따라 forward proxy 차단 대상 */
@@ -337,7 +337,7 @@ public class ExtProxyController {
         if (extApiKey != null && !extApiKey.isBlank()) {
             headers.set("X-Ext-Api-Key", extApiKey);
         } else {
-            log.debug("[EXT-PROXY] IDO_QIM_EXT_API_KEY 미설정 — X-Ext-Api-Key 헤더 미주입");
+            log.debug("[EXT-PROXY] IDEM_HUB_REGISTRY_EXT_API_KEY 미설정 — X-Ext-Api-Key 헤더 미주입");
         }
 
         // 연합 인가 속성 전파 (강제 아님 — Q-IM/기관 PEP가 집행)

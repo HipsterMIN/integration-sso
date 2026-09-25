@@ -43,19 +43,19 @@ class InProcessOutboxDispatcherTest {
     @BeforeEach
     void setUp() {
         sut = new InProcessOutboxDispatcher(objectMapper, qsignAuthEventConsumer, feAdvisoryConsumer, handoffEventConsumer);
-        ReflectionTestUtils.setField(sut, "authEventsTopic", "qsign.auth.events");
+        ReflectionTestUtils.setField(sut, "authEventsTopic", "idem.gate.auth.events");
         ReflectionTestUtils.setField(sut, "sessionAdvisoryTopic", "platform.session.advisory");
-        ReflectionTestUtils.setField(sut, "handoffEventsTopic", "ido.handoff.events");
+        ReflectionTestUtils.setField(sut, "handoffEventsTopic", "idem.hub.handoff.events");
     }
 
     @Test
-    @DisplayName("qsign.auth.events → QsignAuthEventConsumer.handle — eventId 가 보존되어 멱등 처리가 유효하다")
+    @DisplayName("idem.gate.auth.events → QsignAuthEventConsumer.handle — eventId 가 보존되어 멱등 처리가 유효하다")
     void authEvents() throws Exception {
-        AuthEvent original = new AuthEvent(AuthEvent.TYPE_AUTH_COMPLETED, "ido", "cid-1", "user-1", 1L,
+        AuthEvent original = new AuthEvent(AuthEvent.TYPE_AUTH_COMPLETED, "idem-hub", "cid-1", "user-1", 1L,
                 "ar-1", AuthResult.AuthLevel.L2, "MOCK", null, AuthResult.VerificationResult.SUCCESS);
         String payload = objectMapper.writeValueAsString(original);
 
-        sut.dispatch(record("qsign.auth.events", original.getEventType(), payload));
+        sut.dispatch(record("idem.gate.auth.events", original.getEventType(), payload));
 
         ArgumentCaptor<AuthEvent> captor = ArgumentCaptor.forClass(AuthEvent.class);
         then(qsignAuthEventConsumer).should().handle(captor.capture());
@@ -88,13 +88,13 @@ class InProcessOutboxDispatcherTest {
     }
 
     @Test
-    @DisplayName("ido.handoff.events → HandoffEventConsumer.handle")
+    @DisplayName("idem.hub.handoff.events → HandoffEventConsumer.handle")
     void handoffEvents() throws Exception {
-        HandoffEvent original = new HandoffEvent(HandoffEvent.TYPE_HANDOFF_ISSUED, "ido", "cid-2", "user-2", 1L,
+        HandoffEvent original = new HandoffEvent(HandoffEvent.TYPE_HANDOFF_ISSUED, "idem-hub", "cid-2", "user-2", 1L,
                 "ticket-2", "AGENCY001", "ar-2", "ISSUED", null);
         String payload = objectMapper.writeValueAsString(original);
 
-        sut.dispatch(record("ido.handoff.events", original.getEventType(), payload));
+        sut.dispatch(record("idem.hub.handoff.events", original.getEventType(), payload));
 
         ArgumentCaptor<HandoffEvent> captor = ArgumentCaptor.forClass(HandoffEvent.class);
         then(handoffEventConsumer).should().handle(captor.capture());
@@ -106,9 +106,9 @@ class InProcessOutboxDispatcherTest {
     @Test
     @DisplayName("이 프로세스에 소비자가 없는 토픽은 실패로 돌려 릴레이가 FAILED 로 남기게 한다")
     void unknownTopic() {
-        assertThatThrownBy(() -> sut.dispatch(record("qim.user.events", "USER_WITHDRAWN", "{}")))
+        assertThatThrownBy(() -> sut.dispatch(record("idem.registry.user.events", "USER_WITHDRAWN", "{}")))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("qim.user.events");
+                .hasMessageContaining("idem.registry.user.events");
         then(qsignAuthEventConsumer).should(never()).handle(any());
         then(feAdvisoryConsumer).should(never()).handle(any());
         then(handoffEventConsumer).should(never()).handle(any());
@@ -117,7 +117,7 @@ class InProcessOutboxDispatcherTest {
     @Test
     @DisplayName("깨진 payload 는 IllegalStateException(원인 포함) — 핸들러 호출 없음")
     void malformedPayload() {
-        assertThatThrownBy(() -> sut.dispatch(record("qsign.auth.events", "AUTH_COMPLETED", "{not-json")))
+        assertThatThrownBy(() -> sut.dispatch(record("idem.gate.auth.events", "AUTH_COMPLETED", "{not-json")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("역직렬화");
         then(qsignAuthEventConsumer).should(never()).handle(any());

@@ -44,10 +44,10 @@ public class AgencyHealthController {
 
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${agency-stub.code:AGENCY_STUB_001}")
+    @Value("${idem.sample.code:AGENCY_STUB_001}")
     private String agencyCode;
 
-    @Value("${agency-stub.ido.base-url:http://localhost:8083}")
+    @Value("${idem.sample.ido.base-url:http://localhost:8083}")
     private String idoBaseUrl;
 
     // ════════════════════════════════════════════════════════════════════════
@@ -61,7 +61,7 @@ public class AgencyHealthController {
     @GetMapping
     public ResponseEntity<?> overall() {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("service",    "agency-stub");
+        result.put("service",    "idem-tenant-sample");
         result.put("agencyCode", agencyCode);
         result.put("timestamp",  Instant.now().toString());
 
@@ -70,7 +70,7 @@ public class AgencyHealthController {
 
         Map<String, String> components = new LinkedHashMap<>();
         components.put("db",  dbOk  ? "UP" : "DOWN");
-        components.put("ido", idoOk ? "UP" : "DEGRADED");
+        components.put("hub", idoOk ? "UP" : "DEGRADED");
         result.put("components", components);
 
         String overallStatus;

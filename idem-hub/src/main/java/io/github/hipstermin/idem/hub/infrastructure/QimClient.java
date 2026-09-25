@@ -41,7 +41,7 @@ public interface QimClient {
      * S4: 사용자의 주체 키 조회 — {@code GET /api/v1/internal/users/{qimUserId}/subject?scheme=}.
      *
      * <p>empty = 사용자가 없거나 그 스킴으로 등록되지 않았다(404 — 정당한 GUEST). 장애는
-     * {@link io.github.hipstermin.idem.common.error.PlatformErrorCode#IDO_QIM_UNREACHABLE}.
+     * {@link io.github.hipstermin.idem.common.error.PlatformErrorCode#IDEM_HUB_REGISTRY_UNREACHABLE}.
      */
     Optional<String> getSubjectKey(String qimUserId, SubjectScheme scheme, String correlationId);
 
@@ -56,7 +56,7 @@ public interface QimClient {
      *
      * <p>해시는 호출자가 {@link SubjectScheme#identifierHash(String)} 로 만든다(스킴 중립).
      * 없으면 {@code Optional.empty()} (404). 장애는
-     * {@link io.github.hipstermin.idem.common.error.PlatformErrorCode#IDO_QIM_UNREACHABLE}.
+     * {@link io.github.hipstermin.idem.common.error.PlatformErrorCode#IDEM_HUB_REGISTRY_UNREACHABLE}.
      */
     Optional<QimMemberInfo> findByIdentifierHash(String identifierHash, String correlationId);
 
@@ -97,7 +97,7 @@ public interface QimClient {
      * D3: registry 아웃박스의 사용자 이벤트 피드 — {@code GET /api/v1/internal/events} (Kafka 없는 설치의 상태 전파).
      * 커서 {@code (afterCreatedAt, afterEventId)} 뒤의 이벤트를 생성순으로 최대 {@code limit} 건.
      *
-     * @throws io.github.hipstermin.idem.common.error.PlatformException IDO_QIM_UNREACHABLE (호출 실패)
+     * @throws io.github.hipstermin.idem.common.error.PlatformException IDEM_HUB_REGISTRY_UNREACHABLE (호출 실패)
      */
     java.util.List<QimUserEventRecord> fetchUserEvents(java.time.Instant afterCreatedAt, String afterEventId,
                                                        int limit, String correlationId);

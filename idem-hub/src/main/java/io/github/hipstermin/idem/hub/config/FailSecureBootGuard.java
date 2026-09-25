@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component;
  * <b>운영·스테이지 프로파일({@code prod}, {@code stage})에서는 어느 하나라도 켜져 있으면 기동을 거부한다.</b>
  * 환경변수 한 줄로 운영에서 감사·인증·서명을 끄던 경로를 물리적으로 막는다.
  *
- * <p>모든 프로파일 공통: 내부 서명 비밀키({@code IDO_INTERNAL_SIG_SECRET})가 비어 있으면 기동 거부
- * ({@code ido.internal.allow-empty-sig-secret=true} 는 로컬·테스트 전용).
+ * <p>모든 프로파일 공통: 내부 서명 비밀키({@code IDEM_HUB_INTERNAL_SIG_SECRET})가 비어 있으면 기동 거부
+ * ({@code idem.hub.internal.allow-empty-sig-secret=true} 는 로컬·테스트 전용).
  *
  * <p>검사 항목은 아래 {@link #PROD_FORBIDDEN_TRUE} / {@link #PROD_REQUIRED_TRUE} 에 있다. 새 탈출구를 추가하면 여기에도 넣는다
  * ({@code FailSecureBootGuardTest} 가 목록을 고정한다).
@@ -29,31 +29,31 @@ public class FailSecureBootGuard {
 
     /** 운영·스테이지에서 true 이면 기동 거부 */
     static final List<String> PROD_FORBIDDEN_TRUE = List.of(
-            "ido.webhook.allow-empty-secret",
-            "ido.internal.allow-empty-callers",
-            "ido.internal.allow-empty-sig-secret",
-            "ido.keycloak.allow-empty-client-secret",
-            "ido.ticket.allow-empty-fallback-keys",
-            "ido.broker.allow-ciless-identity",
-            "ido.cast.allow-generated-keys",
-            "ido.qim.allow-empty-aes-key",
-            "ido.q-authz.allow-empty-api-key",
-            "ido.kms.local.allow-in-prod",
-            "ido.kms.vault.allow-empty-token",
+            "idem.hub.webhook.allow-empty-secret",
+            "idem.hub.internal.allow-empty-callers",
+            "idem.hub.internal.allow-empty-sig-secret",
+            "idem.hub.keycloak.allow-empty-client-secret",
+            "idem.hub.ticket.allow-empty-fallback-keys",
+            "idem.hub.broker.allow-ciless-identity",
+            "idem.hub.cast.allow-generated-keys",
+            "idem.hub.registry.allow-empty-aes-key",
+            "idem.hub.authz.allow-empty-api-key",
+            "idem.hub.kms.local.allow-in-prod",
+            "idem.hub.kms.vault.allow-empty-token",
             "idem.plugins.mock-auth.enabled",
-            "ido.admin.allow-derived-secret-key"          // S7: 관리자 TOTP 봉인 키 파생은 로컬 전용
+            "idem.hub.admin.allow-derived-secret-key"          // S7: 관리자 TOTP 봉인 키 파생은 로컬 전용
     );
 
     /** 운영·스테이지에서 false 이면 기동 거부 */
     static final List<String> PROD_REQUIRED_TRUE = List.of(
-            "ido.audit.db-save-enabled",
-            "ido.security-headers.enabled",
-            "ido.auth.rate-limit.enabled",
-            "ido.rate-limit.enabled",
-            "ido.redisson.enabled",
-            "ido.admin.cookie.secure",                   // S7: 관리자 세션 쿠키는 운영에서 Secure
-            "ido.admin.mfa.required",                    // S7: 운영은 2단계 인증 필수
-            "ido.admin.bootstrap.require-password-change"
+            "idem.hub.audit.db-save-enabled",
+            "idem.hub.security-headers.enabled",
+            "idem.hub.auth.rate-limit.enabled",
+            "idem.hub.rate-limit.enabled",
+            "idem.hub.redisson.enabled",
+            "idem.hub.admin.cookie.secure",                   // S7: 관리자 세션 쿠키는 운영에서 Secure
+            "idem.hub.admin.mfa.required",                    // S7: 운영은 2단계 인증 필수
+            "idem.hub.admin.bootstrap.require-password-change"
     );
 
     static final Set<String> HARDENED_PROFILES = Set.of("prod", "stage");
@@ -64,11 +64,11 @@ public class FailSecureBootGuard {
     void verify() {
         List<String> violations = new ArrayList<>();
 
-        String sigSecret = environment.getProperty("ido.qsign.internal-sig-secret", "");
-        boolean allowEmptySig = environment.getProperty("ido.internal.allow-empty-sig-secret", Boolean.class, false);
+        String sigSecret = environment.getProperty("idem.hub.gate.internal-sig-secret", "");
+        boolean allowEmptySig = environment.getProperty("idem.hub.internal.allow-empty-sig-secret", Boolean.class, false);
         if (sigSecret.isBlank() && !allowEmptySig) {
-            violations.add("IDO_INTERNAL_SIG_SECRET(ido.qsign.internal-sig-secret) 이 비어 있습니다 — gate↔hub 내부 서명 불가. "
-                    + "로컬·테스트에서만 ido.internal.allow-empty-sig-secret=true");
+            violations.add("IDEM_HUB_INTERNAL_SIG_SECRET(idem.hub.gate.internal-sig-secret) 이 비어 있습니다 — gate↔hub 내부 서명 불가. "
+                    + "로컬·테스트에서만 idem.hub.internal.allow-empty-sig-secret=true");
         }
 
         boolean hardened = false;

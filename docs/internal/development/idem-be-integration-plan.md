@@ -45,7 +45,7 @@ idem-console (9090)
      │  ├─ POST /api/v1/internal/users/register    (CI 등록/갱신)
      │  └─ POST /api/v1/internal/users/find-by-ci  (CI 조회)
      │
-     ▼  Kafka EDA (qim.user.events)
+     ▼  Kafka EDA (idem.registry.user.events)
   ido Kafka Consumer ◄── Q-IM 이벤트 수신
 ```
 

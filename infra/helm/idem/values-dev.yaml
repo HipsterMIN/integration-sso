@@ -9,10 +9,10 @@ global:
   namespace: idem-dev
   env: dev
 
-qsign:
+gate:
   replicaCount: 1
   config:
-    QSIGN_INTERNAL_SIG_STRICT: "false"   # 개발: 서명 검증 느슨하게
+    IDEM_GATE_INTERNAL_SIG_STRICT: "false"   # 개발: 서명 검증 느슨하게
   resources:
     requests:
       cpu: 100m
@@ -21,7 +21,7 @@ qsign:
       cpu: 500m
       memory: 512Mi
 
-qim:
+registry:
   replicaCount: 1
   resources:
     requests:
@@ -31,19 +31,19 @@ qim:
       cpu: 500m
       memory: 512Mi
 
-ido:
+hub:
   replicaCount: 1
   hpa:
     enabled: false
   pdb:
     enabled: false
   config:
-    IDO_BROKER_MODE: qsign
-    IDO_RATE_LIMIT_ENABLED: "false"     # 개발: rate limit 비활성
-    IDO_KAFKA_REPLICATION_FACTOR: "1"
-    IDO_KAFKA_MIN_INSYNC_REPLICAS: "1"
+    IDEM_HUB_BROKER_MODE: qsign
+    IDEM_HUB_RATE_LIMIT_ENABLED: "false"     # 개발: rate limit 비활성
+    IDEM_HUB_KAFKA_REPLICATION_FACTOR: "1"
+    IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS: "1"
     # ── KMS Off (개발: LocalKmsClient 사용 — Vault 의존성 없음) ──────
-    IDO_KMS_ENABLED: "false"
+    IDEM_HUB_KMS_ENABLED: "false"
   resources:
     requests:
       cpu: 200m
@@ -53,19 +53,19 @@ ido:
       memory: 1Gi
 
 # 개발 환경: HPA/PDB 모두 비활성 (리소스 최소화)
-qsign:
+gate:
   hpa:
     enabled: false
   pdb:
     enabled: false
 
-qim:
+registry:
   hpa:
     enabled: false
   pdb:
     enabled: false
 
-batch:
+relay:
   pdb:
     enabled: false
   # 개발: 단일 인스턴스로 운영 (ShedLock 분산락 불필요)
@@ -73,8 +73,8 @@ batch:
   config:
     SPRING_PROFILES_ACTIVE: local
     # 개발: 외부 Webhook/Provisioning 릴레이 비활성 (외부 의존성 없음)
-    BATCH_PROVISIONING_RELAY_ENABLED: "false"
-    BATCH_WEBHOOK_RELAY_ENABLED: "false"
+    IDEM_RELAY_PROVISIONING_RELAY_ENABLED: "false"
+    IDEM_RELAY_WEBHOOK_RELAY_ENABLED: "false"
   resources:
     requests:
       cpu: 100m
@@ -83,13 +83,13 @@ batch:
       cpu: 500m
       memory: 512Mi
 
-agencyStub:
+sample:
   replicaCount: 1
 
 kafka:
   topics:
     # 개발 환경: 기본 토픽 이름 동일
-    authEvents: qsign.auth.events
+    authEvents: idem.gate.auth.events
 
 networkPolicy:
   enabled: false
@@ -101,5 +101,5 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
-          service: ido
+          service: idem-hub
           port: 8083

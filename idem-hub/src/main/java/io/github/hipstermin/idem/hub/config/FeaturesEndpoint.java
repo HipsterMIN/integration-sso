@@ -18,9 +18,9 @@ import org.springframework.stereotype.Component;
  * <pre>{@code
  * {
  *   "features": {
- *     "F-01_authRateLimit":   { "enabled": false, "env": "IDO_AUTH_RL_ENABLED" },
- *     "F-02_agencyRateLimit": { "enabled": false, "env": "IDO_RATE_LIMIT_ENABLED" },
- *     "F-03_auditKafka":      { "enabled": false, "env": "IDO_AUDIT_KAFKA_ENABLED" },
+ *     "F-01_authRateLimit":   { "enabled": false, "env": "IDEM_HUB_AUTH_RL_ENABLED" },
+ *     "F-02_agencyRateLimit": { "enabled": false, "env": "IDEM_HUB_RATE_LIMIT_ENABLED" },
+ *     "F-03_auditKafka":      { "enabled": false, "env": "IDEM_HUB_AUDIT_KAFKA_ENABLED" },
  *     ...
  *   }
  * }

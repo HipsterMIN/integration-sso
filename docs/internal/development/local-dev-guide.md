@@ -10,9 +10,9 @@
 > - §8.4 v1.9.x 신규 기능 동작 확인 절차 추가 (기관 이벤트 폴링 API, Provider 라우팅, Broker Audit Log)
 > - §9 서비스 포트 표 — `docs/spec/` 신규 문서 디렉토리 링크 추가
 > - §10 DB 스키마 구조 — IdO V10 신규 테이블 반영 (`provider_circuit_config`, auth_result 확장 4컬럼)
-> - §12 Redis 키 패턴 표 — `ido:provider-config:*` 캐시 키 추가
+> - §12 Redis 키 패턴 표 — `idem:provider-config:*` 캐시 키 추가
 > - 부록 A 체크리스트 — v1.9.3 기준 항목 추가 (기관 이벤트 폴링, Provider CB)
-> - 부록 B 환경변수 표 — `IDO_AGENCY_SUBJECT_SECRET` 행 추가
+> - 부록 B 환경변수 표 — `IDEM_HUB_AGENCY_SUBJECT_SECRET` 행 추가
 >
 > **v1.2.0 변경 내역** (2026-05-08)
 > - §8.2 PoC 흐름 테스트에 Admin API / PKCE / Rate Limiter / MemberLookup curl 예제 추가
@@ -21,7 +21,7 @@
 > - §12.4 Redis 키 패턴 표 추가 (Rate Limiter, PKCE, AES 키 로테이션, Idempotency)
 > - §12.3 MariaDB 유용한 명령어에 `user_status_history`, `crypto_key_version` 조회 예제 추가
 > - 부록 A 체크리스트에 Monitoring 스택 / Admin API 확인 항목 추가
-> - 부록 B 환경변수 표에 Q-IM 암호화 키 (`QIM_CI_*`, `QIM_DI_SECRET`) 행 추가
+> - 부록 B 환경변수 표에 Q-IM 암호화 키 (`IDEM_REGISTRY_CI_*`, `IDEM_REGISTRY_DI_SECRET`) 행 추가
 >
 > **v1.1.0 변경 내역** (2026-05-08)
 > - Monitoring 스택 추가 (Prometheus / Grafana / Loki / Promtail — profile: monitoring)
@@ -714,16 +714,16 @@ docker exec -it idem-kafka \
 **정상 출력 (11개 토픽):**
 
 ```
-ido.handoff.events
-ido.handoff.events.dlq
+idem.hub.handoff.events
+idem.hub.handoff.events.dlq
 platform.audit.log
 platform.session.advisory
 platform.session.advisory.dlq
-qim.user.events
-qim.user.events.dlq
-qim.user.snapshot
-qsign.auth.events
-qsign.auth.events.dlq
+idem.registry.user.events
+idem.registry.user.events.dlq
+idem.registry.user.snapshot
+idem.gate.auth.events
+idem.gate.auth.events.dlq
 ```
 
 > ⚠️ 토픽 목록이 비어 있거나 일부만 있는 경우 → [11.4 Kafka 오류 해결](#114-kafka--zookeeper-관련-오류) 참조
@@ -964,12 +964,12 @@ DB_HOST=localhost \
 KAFKA_SERVERS=localhost:9092 \
 ./gradlew :idem-hub:bootRun
 
-# Q-IM 환경변수 재정의 예시 (MariaDB 전용 — QIM_DB_* 네임스페이스)
-QIM_DB_HOST=localhost \
-QIM_DB_PORT=3306 \
-QIM_DB_NAME=qim \
-QIM_DB_USERNAME=qim \
-QIM_DB_PASSWORD=qim \
+# Q-IM 환경변수 재정의 예시 (MariaDB 전용 — IDEM_REGISTRY_DB_* 네임스페이스)
+IDEM_REGISTRY_DB_HOST=localhost \
+IDEM_REGISTRY_DB_PORT=3306 \
+IDEM_REGISTRY_DB_NAME=qim \
+IDEM_REGISTRY_DB_USERNAME=qim \
+IDEM_REGISTRY_DB_PASSWORD=qim \
 REDIS_HOST=localhost \
 KAFKA_SERVERS=localhost:9092 \
 ./gradlew :idem-registry:bootRun
@@ -985,11 +985,11 @@ $env:KAFKA_SERVERS="localhost:9092"
 .\gradlew.bat :idem-hub:bootRun
 
 # Q-IM (MariaDB 전용)
-$env:QIM_DB_HOST="localhost"
-$env:QIM_DB_PORT="3306"
-$env:QIM_DB_NAME="qim"
-$env:QIM_DB_USERNAME="qim"
-$env:QIM_DB_PASSWORD="qim"
+$env:IDEM_REGISTRY_DB_HOST="localhost"
+$env:IDEM_REGISTRY_DB_PORT="3306"
+$env:IDEM_REGISTRY_DB_NAME="qim"
+$env:IDEM_REGISTRY_DB_USERNAME="qim"
+$env:IDEM_REGISTRY_DB_PASSWORD="qim"
 .\gradlew.bat :idem-registry:bootRun
 ```
 
@@ -999,7 +999,7 @@ $env:QIM_DB_PASSWORD="qim"
 # IdO
 REDIS_HOST=localhost DB_HOST=localhost ./gradlew :idem-hub:bootRun
 # Q-IM
-QIM_DB_HOST=localhost QIM_DB_PORT=3306 QIM_DB_NAME=qim QIM_DB_USERNAME=qim QIM_DB_PASSWORD=qim ./gradlew :idem-registry:bootRun
+IDEM_REGISTRY_DB_HOST=localhost IDEM_REGISTRY_DB_PORT=3306 IDEM_REGISTRY_DB_NAME=qim IDEM_REGISTRY_DB_USERNAME=qim IDEM_REGISTRY_DB_PASSWORD=qim ./gradlew :idem-registry:bootRun
 ```
 
 ### 6.6 Spring Boot 브로커 모드 설정 (ido)
@@ -1008,7 +1008,7 @@ QIM_DB_HOST=localhost QIM_DB_PORT=3306 QIM_DB_NAME=qim QIM_DB_USERNAME=qim QIM_D
 
 ```bash
 # Keycloak 모드 (Keycloak 컨테이너 별도 기동 필요)
-IDO_BROKER_MODE=keycloak ./gradlew :idem-hub:bootRun
+IDEM_HUB_BROKER_MODE=keycloak ./gradlew :idem-hub:bootRun
 ```
 
 ---
@@ -1149,7 +1149,7 @@ curl http://localhost:8084/actuator/health
 
 #### Admin API — 기관 관리
 
-관리 API 는 관리자 세션(비밀번호 + 2단계 TOTP) 뒤에 있다(S7, `docs/admin-auth.md`). 로컬 hub 는 `IDEM_ADMIN_BOOTSTRAP_PASSWORD` 로 첫 관리자 `admin` 을 만든다.
+관리 API 는 관리자 세션(비밀번호 + 2단계 TOTP) 뒤에 있다(S7, `docs/admin-auth.md`). 로컬 hub 는 `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD` 로 첫 관리자 `admin` 을 만든다.
 `scripts/lib/admin-login.sh` 가 로그인(첫 로그인이면 2단계 등록·비밀번호 변경까지)해 세션 쿠키 값을 돌려준다.
 
 ```bash
@@ -1181,10 +1181,10 @@ curl -s -X POST http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001/rota
 docker exec -it idem-redis redis-cli
 
 # TPS 카운터 키 확인 (에포크 초 단위 슬라이딩 윈도우)
-KEYS ido:rl:tps:*
+KEYS idem:rl:tps:*
 
 # 일별 쿼터 카운터 키 확인
-KEYS ido:rl:daily:*
+KEYS idem:rl:daily:*
 
 # 특정 기관의 현재 TPS 확인 (예: AGENCY_STUB_001, 현재 에포크 초 대입)
 # GET ido:rl:tps:AGENCY_STUB_001:<epochSecond>
@@ -1199,13 +1199,13 @@ docker exec -it idem-postgres psql -U onepass -d onepass \
 ```bash
 # PKCE가 활성화되어 있는지 application.yml 확인
 grep -A 3 "pkce" idem-gate/src/main/resources/application.yml
-# qsign.pkce.enabled: true 이어야 함
+# idem.gate.pkce.enabled: true 이어야 함
 
 # Redis에서 PKCE challenge 키 확인 (인증 흐름 진행 중일 때)
-docker exec -it idem-redis redis-cli KEYS "qsign:pkce:challenge:*"
+docker exec -it idem-redis redis-cli KEYS "idem:gate:pkce:challenge:*"
 
 # PKCE challenge TTL 확인
-# docker exec -it idem-redis redis-cli TTL "qsign:pkce:challenge:<state>"
+# docker exec -it idem-redis redis-cli TTL "idem:gate:pkce:challenge:<state>"
 ```
 
 #### MemberLookup — CI 기반 회원 조회 (IdO → Q-IM)
@@ -1230,14 +1230,14 @@ docker exec -it idem-mariadb mariadb -u qim -pqim qim \
 
 ```bash
 # 현재 활성 AES 키 버전 확인
-docker exec -it idem-redis redis-cli GET "ido:crypto:aes:current-version"
+docker exec -it idem-redis redis-cli GET "idem:crypto:aes:current-version"
 # 예시 출력: "v1"
 
 # 키 버전별 등록 여부 확인
-docker exec -it idem-redis redis-cli KEYS "ido:crypto:aes:version:*"
+docker exec -it idem-redis redis-cli KEYS "idem:crypto:aes:version:*"
 
 # 로테이션 분산 락 확인 (로테이션 진행 중에만 존재)
-docker exec -it idem-redis redis-cli EXISTS "ido:crypto:aes:rotate-lock"
+docker exec -it idem-redis redis-cli EXISTS "idem:crypto:aes:rotate-lock"
 
 # PostgreSQL crypto_key_registry 테이블 확인
 docker exec -it idem-postgres psql -U onepass -d onepass \
@@ -1291,7 +1291,7 @@ docker exec -it idem-postgres psql -U onepass -d onepass \
       FROM ido.provider_circuit_config;"
 
 # Redis에서 Provider 설정 캐시 확인
-docker exec -it idem-redis redis-cli KEYS "ido:provider-config:*"
+docker exec -it idem-redis redis-cli KEYS "idem:provider-config:*"
 ```
 
 #### Broker Audit Log 확인 (v1.9.0)
@@ -1796,7 +1796,7 @@ docker exec -it idem-kafka bash /create-topics.sh
 # 위가 안 되면:
 docker exec -it idem-kafka \
   kafka-topics --bootstrap-server localhost:9092 \
-  --create --topic qsign.auth.events \
+  --create --topic idem.gate.auth.events \
   --partitions 6 --replication-factor 1
 ```
 
@@ -1806,7 +1806,7 @@ docker exec -it idem-kafka \
 
 **증상:**
 ```
-TimeoutException: Topic qsign.auth.events not present in metadata after 60000 ms
+TimeoutException: Topic idem.gate.auth.events not present in metadata after 60000 ms
 # 또는
 org.springframework.kafka.KafkaException: Could not start bean 'xxxKafkaListenerContainerFactory'
 ```
@@ -2367,10 +2367,10 @@ docker compose -f infra/docker/docker-compose.yml --profile keycloak up -d
 
 # 2. q-sign application.yml에 Keycloak 설정 확인
 grep -A 10 "keycloak:" idem-gate/src/main/resources/application.yml
-# qsign.keycloak.base-url 항목이 있어야 함
+# idem.gate.keycloak.base-url 항목이 있어야 함
 
 # 3. 환경변수 확인 (로컬 기동 시)
-echo $QSIGN_KEYCLOAK_BASE_URL
+echo $IDEM_GATE_KEYCLOAK_BASE_URL
 # 값이 없으면 application.yml 기본값(http://localhost:8081) 사용
 ```
 
@@ -2429,7 +2429,7 @@ docker compose -f infra/docker/docker-compose.yml logs keycloak | tail -50
 
 ---
 
-#### 오류: `QSIGN_KEYCLOAK_CLIENT_SECRET` 미설정으로 token exchange 실패
+#### 오류: `IDEM_GATE_KEYCLOAK_CLIENT_SECRET` 미설정으로 token exchange 실패
 
 **증상:**
 ```
@@ -2446,15 +2446,15 @@ docker compose -f infra/docker/docker-compose.yml logs keycloak | tail -50
 # Clients → q-sign-client → Credentials 탭 → Secret 복사
 
 # 2. 환경변수로 설정 (Linux/macOS)
-export QSIGN_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
+export IDEM_GATE_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
 ./gradlew :idem-gate:bootRun
 
 # Windows PowerShell
-$env:QSIGN_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
+$env:IDEM_GATE_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
 .\gradlew.bat :idem-gate:bootRun
 
 # 3. application.yml에 직접 설정 (로컬 개발 전용 — 운영 사용 금지)
-# qsign.keycloak.client-secret: "직접-값-입력"
+# idem.gate.keycloak.client-secret: "직접-값-입력"
 ```
 
 ---
@@ -2463,7 +2463,7 @@ $env:QSIGN_KEYCLOAK_CLIENT_SECRET="복사한-시크릿-값"
 
 **증상**: authorizationUrl에 `kc_idp_hint` 파라미터가 없음
 
-**원인**: `qsign.keycloak.idp-hint-mapping`에 해당 provider가 없음
+**원인**: `idem.gate.keycloak.idp-hint-mapping`에 해당 provider가 없음
 
 **해결:**
 ```bash
@@ -2503,7 +2503,7 @@ q-sign이 `bootRun`으로 실행 중이면 Keycloak 컨테이너와 포트가 �
 # infra/docker/docker-compose.yml 내 keycloak 서비스:
 #   ports: "8088:8080"  (8081→8088 변경)
 # idem-gate/src/main/resources/application.yml:
-#   qsign.keycloak.base-url: http://localhost:8088
+#   idem.gate.keycloak.base-url: http://localhost:8088
 ```
 
 > 💡 **권장**: 로컬에서 전체 스택 통합 테스트 시 백엔드 서비스를 `bootRun`이 아닌
@@ -2679,18 +2679,18 @@ HTTP 429 Too Many Requests 응답.
 ```bash
 # 1. 현재 TPS 카운터 확인 (Redis)
 docker exec -it idem-redis redis-cli \
-  KEYS "ido:rl:tps:AGENCY_STUB_001:*"
+  KEYS "idem:rl:tps:AGENCY_STUB_001:*"
 # 키가 있으면 해당 초에 요청이 집중된 것
 
 # 2. 일별 쿼터 카운터 확인
 docker exec -it idem-redis redis-cli \
-  GET "ido:rl:daily:AGENCY_STUB_001:$(date +%Y%m%d)"
+  GET "idem:rl:daily:AGENCY_STUB_001:$(date +%Y%m%d)"
 # 1000000 이상이면 일별 한도 초과
 
 # 3. 로컬 개발 시 Rate Limit 일시 비활성화 방법
 # idem-hub/src/main/resources/application.yml에서:
-# ido.rate-limit.default-tps: 10000
-# ido.rate-limit.daily-limit: 100000000
+# idem.hub.rate-limit.default-tps: 10000
+# idem.hub.rate-limit.daily-limit: 100000000
 
 # 4. DB에서 기관별 Rate Limit 설정 확인/수정 (개발 환경)
 docker exec -it idem-postgres psql -U onepass -d onepass -c \
@@ -2703,7 +2703,7 @@ docker exec -it idem-postgres psql -U onepass -d onepass -c \
 
 # 5. Redis Rate Limit 카운터 수동 초기화 (긴급 시)
 docker exec -it idem-redis redis-cli DEL \
-  "ido:rl:daily:AGENCY_STUB_001:$(date +%Y%m%d)"
+  "idem:rl:daily:AGENCY_STUB_001:$(date +%Y%m%d)"
 ```
 
 > ⚠️ Rate Limiter는 Redis 오류 시 **Fail-Open** (허용) 방식으로 동작합니다.  
@@ -2725,7 +2725,7 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
    ```bash
    # application.yml에서 TTL 확인
    grep -A 5 "pkce" idem-gate/src/main/resources/application.yml
-   # qsign.pkce.challenge-ttl-seconds: 300
+   # idem.gate.pkce.challenge-ttl-seconds: 300
    # 개발 시 600으로 늘릴 수 있음
    ```
 
@@ -2735,7 +2735,7 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
    # PONG 이면 정상
    
    # PKCE 키 존재 여부 확인
-   docker exec -it idem-redis redis-cli KEYS "qsign:pkce:challenge:*"
+   docker exec -it idem-redis redis-cli KEYS "idem:gate:pkce:challenge:*"
    ```
 
 3. **PKCE 비활성화** (로컬 테스트용)
@@ -2785,8 +2785,8 @@ PkceException: PKCE code_verifier 검증에 실패했습니다.
 3. **AgencyMeta Redis 캐시 stale** — 캐시 TTL 60분 내 변경 사항 미반영
    ```bash
    # 캐시 수동 삭제 (재기동 없이 즉시 반영)
-   docker exec -it idem-redis redis-cli KEYS "ido:agency:*"
-   docker exec -it idem-redis redis-cli DEL "ido:agency:AGENCY_STUB_001"
+   docker exec -it idem-redis redis-cli KEYS "idem:agency:*"
+   docker exec -it idem-redis redis-cli DEL "idem:agency:AGENCY_STUB_001"
    ```
 
 ---
@@ -2826,7 +2826,7 @@ ERROR CiCryptoServiceImpl - CI 복호화 실패: AES-256-GCM tag mismatch
    ```bash
    # ido application.yml에서 Q-IM URL 확인
    grep "qim" idem-hub/src/main/resources/application.yml
-   # ido.qim.base-url: http://localhost:8082  (로컬 기동 시)
+   # idem.hub.registry.base-url: http://localhost:8082  (로컬 기동 시)
    ```
 
 4. **member_lookup_log 감사 기록 확인**
@@ -2853,20 +2853,20 @@ ERROR HandoffKeyRotationScheduler - 로테이션 중 오류 발생
 1. **분산 락이 해제되지 않음** — 이전 로테이션이 비정상 종료된 경우
    ```bash
    # 로테이션 락 키 존재 여부 확인
-   docker exec -it idem-redis redis-cli EXISTS "ido:crypto:aes:rotate-lock"
+   docker exec -it idem-redis redis-cli EXISTS "idem:crypto:aes:rotate-lock"
    # 1 = 락 존재 (정상 로테이션 중), 0 = 락 없음 (정상)
    
    # 락이 오래 지속되면 (비정상 잔류) 수동 삭제
-   docker exec -it idem-redis redis-cli DEL "ido:crypto:aes:rotate-lock"
+   docker exec -it idem-redis redis-cli DEL "idem:crypto:aes:rotate-lock"
    ```
 
 2. **현재 키 버전 확인 및 수동 초기화**
    ```bash
    # 현재 버전 확인
-   docker exec -it idem-redis redis-cli GET "ido:crypto:aes:current-version"
+   docker exec -it idem-redis redis-cli GET "idem:crypto:aes:current-version"
    
    # 등록된 키 버전 목록
-   docker exec -it idem-redis redis-cli KEYS "ido:crypto:aes:version:*"
+   docker exec -it idem-redis redis-cli KEYS "idem:crypto:aes:version:*"
    
    # DB crypto_key_registry 확인
    docker exec -it idem-postgres psql -U onepass -d onepass -c \
@@ -3031,34 +3031,34 @@ INFO memory
 
 | 키 패턴 | TTL | 설명 | 담당 컴포넌트 |
 |---------|-----|------|---------------|
-| `fe:session:{feSessionId}` | 30분 | FE 세션 데이터 | IdO |
-| `fe:user-sessions:{qimUserId}` | 30분 | 사용자 세션 목록 (Set) | IdO |
+| `idem:fe:session:{feSessionId}` | 30분 | FE 세션 데이터 | IdO |
+| `idem:fe:user-sessions:{qimUserId}` | 30분 | 사용자 세션 목록 (Set) | IdO |
 | `oidc:state:{state}` | 5분 | OIDC CSRF state | Q-Sign |
-| `qsign:pkce:challenge:{state}` | 5분 (설정 가능) | PKCE code_challenge | Q-Sign (PkceService) |
-| `ido:idempotency:handoff:{key}` | 60초 | Handoff 멱등 처리 키 | IdO |
-| `ido:rl:tps:{agencyCode}:{epochSecond}` | 2초 | Rate Limit TPS 슬라이딩 카운터 | IdO (AgencyRateLimiter) |
-| `ido:rl:daily:{agencyCode}:{yyyyMMdd}` | 25시간 | Rate Limit 일별 누적 카운터 | IdO (AgencyRateLimiter) |
-| `ido:crypto:aes:current-version` | 없음 | 현재 활성 AES 키 버전 (e.g., `v1`) | IdO (HandoffKeyRotationScheduler) |
-| `ido:crypto:aes:version:{vN}` | 없음 | AES 키 버전별 Base64 인코딩 키 | IdO (HandoffKeyRotationScheduler) |
-| `ido:crypto:aes:rotate-lock` | 5분 | 키 로테이션 분산 락 | IdO (HandoffKeyRotationScheduler) |
+| `idem:gate:pkce:challenge:{state}` | 5분 (설정 가능) | PKCE code_challenge | Q-Sign (PkceService) |
+| `idem:idempotency:handoff:{key}` | 60초 | Handoff 멱등 처리 키 | IdO |
+| `idem:rl:tps:{agencyCode}:{epochSecond}` | 2초 | Rate Limit TPS 슬라이딩 카운터 | IdO (AgencyRateLimiter) |
+| `idem:rl:daily:{agencyCode}:{yyyyMMdd}` | 25시간 | Rate Limit 일별 누적 카운터 | IdO (AgencyRateLimiter) |
+| `idem:crypto:aes:current-version` | 없음 | 현재 활성 AES 키 버전 (e.g., `v1`) | IdO (HandoffKeyRotationScheduler) |
+| `idem:crypto:aes:version:{vN}` | 없음 | AES 키 버전별 Base64 인코딩 키 | IdO (HandoffKeyRotationScheduler) |
+| `idem:crypto:aes:rotate-lock` | 5분 | 키 로테이션 분산 락 | IdO (HandoffKeyRotationScheduler) |
 
 ```bash
 # 전체 IdO Rate Limit 키 확인
-docker exec -it idem-redis redis-cli KEYS "ido:rl:*"
+docker exec -it idem-redis redis-cli KEYS "idem:rl:*"
 
 # 전체 PKCE 키 확인
-docker exec -it idem-redis redis-cli KEYS "qsign:pkce:*"
+docker exec -it idem-redis redis-cli KEYS "idem:gate:pkce:*"
 
 # 전체 AES 암호화 관련 키 확인
-docker exec -it idem-redis redis-cli KEYS "ido:crypto:*"
+docker exec -it idem-redis redis-cli KEYS "idem:crypto:*"
 
 # 특정 기관의 오늘 Rate Limit 카운터 조회
 AGENCY=AGENCY_STUB_001
 DATE=$(date +%Y%m%d)
-docker exec -it idem-redis redis-cli GET "ido:rl:daily:${AGENCY}:${DATE}"
+docker exec -it idem-redis redis-cli GET "idem:rl:daily:${AGENCY}:${DATE}"
 
 # 현재 AES 키 버전 조회
-docker exec -it idem-redis redis-cli GET "ido:crypto:aes:current-version"
+docker exec -it idem-redis redis-cli GET "idem:crypto:aes:current-version"
 ```
 
 ### 12.7 Kafka 유용한 명령어
@@ -3071,12 +3071,12 @@ docker exec -it idem-kafka \
 # 토픽 상세 정보
 docker exec -it idem-kafka \
   kafka-topics --bootstrap-server localhost:9092 \
-  --describe --topic qsign.auth.events
+  --describe --topic idem.gate.auth.events
 
 # 토픽 메시지 실시간 소비 (처음부터)
 docker exec -it idem-kafka \
   kafka-console-consumer --bootstrap-server localhost:9092 \
-  --topic qsign.auth.events \
+  --topic idem.gate.auth.events \
   --from-beginning
 
 # 컨슈머 그룹 목록
@@ -3214,7 +3214,7 @@ Step 5 — 프론트엔드 기동 (1개 터미널)
 □ Prometheus 정상: http://localhost:9090/-/healthy
 □ Grafana 정상: http://localhost:3002 (admin/admin)
 □ Admin API 동작 확인: SID=$(scripts/lib/admin-login.sh); curl -H "Cookie: idemAdminSid=$SID" http://localhost:8083/api/v1/admin/agencies
-□ Rate Limiter Redis 키 확인: KEYS ido:rl:*
+□ Rate Limiter Redis 키 확인: KEYS idem:rl:*
 □ PKCE 활성화 확인: grep pkce idem-gate/src/main/resources/application.yml
 □ AES 키 버전 확인: GET ido:crypto:aes:current-version
 ```
@@ -3255,17 +3255,17 @@ Step 5 — 프론트엔드 기동 (1개 터미널)
 | `q-im.ci-encryption.keys[0].version` | `v1` | CI 암호화 AES 키 버전 |
 | `q-im.ci-encryption.keys[0].key` | `(placeholder)` | AES-256 키 (Base64) |
 | `q-im.ci-encryption.current-version` | `v1` | 현재 활성 버전 |
-| `q-im.di.secret` | `(placeholder)` | DI 생성 HMAC-SHA256 비밀 (`QIM_DI_SECRET`) |
-| `ido.rate-limit.default-tps` | `200` | 기관 기본 TPS 한도 |
-| `ido.rate-limit.daily-limit` | `1000000` | 기관 기본 일별 한도 |
-| `ido.ticket.key-rotation-days` | `90` | AES 키 로테이션 주기(일) |
-| `ido.ticket.key-grace-period-hours` | `24` | 로테이션 후 구 버전 유예 기간 |
-| `qsign.pkce.enabled` | `true` | PKCE RFC 7636 활성화 여부 |
-| `qsign.pkce.challenge-ttl-seconds` | `300` | PKCE challenge Redis TTL (초) |
+| `q-im.di.secret` | `(placeholder)` | DI 생성 HMAC-SHA256 비밀 (`IDEM_REGISTRY_DI_SECRET`) |
+| `idem.hub.rate-limit.default-tps` | `200` | 기관 기본 TPS 한도 |
+| `idem.hub.rate-limit.daily-limit` | `1000000` | 기관 기본 일별 한도 |
+| `idem.hub.ticket.key-rotation-days` | `90` | AES 키 로테이션 주기(일) |
+| `idem.hub.ticket.key-grace-period-hours` | `24` | 로테이션 후 구 버전 유예 기간 |
+| `idem.gate.pkce.enabled` | `true` | PKCE RFC 7636 활성화 여부 |
+| `idem.gate.pkce.challenge-ttl-seconds` | `300` | PKCE challenge Redis TTL (초) |
 
 ```bash
 # 로컬에서 환경변수로 override 예시
-export QIM_DI_SECRET="local-dev-secret-not-for-production"
-export QIM_CI_KEY_V1="bG9jYWwtZGV2LWtleS1ub3QtZm9yLXByb2Q="  # Base64
+export IDEM_REGISTRY_DI_SECRET="local-dev-secret-not-for-production"
+export IDEM_REGISTRY_CI_KEY_V1="bG9jYWwtZGV2LWtleS1ub3QtZm9yLXByb2Q="  # Base64
 ./gradlew :idem-registry:bootRun
 ```

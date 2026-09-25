@@ -5,7 +5,7 @@ idem:
   plugins:
     anyid:
       enabled: ${IDEM_PLUGINS_ANYID_ENABLED:true}
-ido:
+idem.hub:
   anyid:
     srvc-no: ${ANYID_SRVC_NO:}
     agency-code: ${ANYID_AGENCY_CODE:}

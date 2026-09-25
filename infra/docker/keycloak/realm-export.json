@@ -24,7 +24,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "secret": "${QSIGN_KEYCLOAK_CLIENT_SECRET}",
+      "secret": "${IDEM_GATE_KEYCLOAK_CLIENT_SECRET}",
       "redirectUris": [
         "http://localhost:8081/api/v1/oidc/keycloak/callback",
         "http://onepass-qsign:8081/api/v1/oidc/keycloak/callback"
@@ -64,7 +64,7 @@
       "secret": "${KEYCLOAK_CLIENT_SECRET}",
       "redirectUris": [
         "http://localhost:8083/api/v1/broker/callback",
-        "http://onepass-ido:8083/api/v1/broker/callback"
+        "http://idem-hub:8083/api/v1/broker/callback"
       ],
       "webOrigins": [
         "http://localhost:3000",

@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 @Aspect
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "ido.tracing.auth-aspect-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "idem.hub.tracing.auth-aspect-enabled", havingValue = "true", matchIfMissing = true)
 public class KrAuthTracingAspect {
 
     private final Tracer tracer;

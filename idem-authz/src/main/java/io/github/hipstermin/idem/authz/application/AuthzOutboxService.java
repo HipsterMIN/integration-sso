@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthzOutboxService {
 
-    static final String TOPIC = "authz.assignment.events";
+    static final String TOPIC = "idem.authz.assignment.events";
 
     private final AuthzOutboxRepository outboxRepository;
     private final ObjectMapper          objectMapper;

@@ -2,13 +2,13 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: ido-pdb
+  name: idem-hub-pdb
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "ido.labels" . | nindent 4 }}
+    {{- include "idem.hub.labels" . | nindent 4 }}
 spec:
   minAvailable: {{ .Values.pdb.minAvailable }}
   selector:
     matchLabels:
-      {{- include "ido.selectorLabels" . | nindent 6 }}
+      {{- include "idem.hub.selectorLabels" . | nindent 6 }}
 {{- end }}

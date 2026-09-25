@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    private static final String SOURCE_SYSTEM = "q-im";
+    private static final String SOURCE_SYSTEM = "idem-registry";
 
     private final UserRepository  userRepository;
     private final OutboxService   outboxService;

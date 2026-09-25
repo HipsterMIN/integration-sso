@@ -74,7 +74,7 @@ public class IdentityVerificationController {
      * 인증 완료 → 표준 결과 + registry 사용자 확정 (S4).
      *
      * <p>응답의 {@code identity} 는 종전 {@link VerifiedIdentity} 그대로이고, {@code registration} 에 registry 가 준
-     * {@code qimUserId} 와 신규 여부가 붙는다. registry 장애면 503(IDO_QIM_UNREACHABLE) — 인증 성공을 등록 없이
+     * {@code qimUserId} 와 신규 여부가 붙는다. registry 장애면 503(IDEM_HUB_REGISTRY_UNREACHABLE) — 인증 성공을 등록 없이
      * 돌려주지 않는다(종전 NICE 흐름과 같은 원칙).
      */
     @PostMapping("/{code}/complete")

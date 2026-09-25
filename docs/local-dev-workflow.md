@@ -45,7 +45,7 @@
 - 계획만 확인: `PREPUSH_DRY_RUN=1 .githooks/pre-push`. 범위 지정 실행: `PREPUSH_RANGE=origin/main~3..HEAD .githooks/pre-push`.
 - Testcontainers 테스트(`@Testcontainers(disabledWithoutDocker = true)`, `idem-registry` `QimLifecycleIntegrationTest`·`OutboxIntegrationTest` — D1 부터 PostgreSQL 컨테이너)는 Docker 가 있으면 일반 `test` 태스크 안에서 자동으로 돈다. CI 에서는 항상 skip 이므로 **로컬 push 전이 유일한 실행 지점**이다 (2026-09-07 Hibernate 6.6 `@MapsId` 결함이 넉 달간 묻혔던 이유).
 - `idem-hub` `integrationTest`(PostgreSQL·Redis·WireMock) 도 마찬가지로 CI 에서 돌지 않는다. 2026-09-08 훅으로 처음 실행했을 때 35건 중 32건이 실패했고, 원인은 4a 개명이 아니라 누적된 미검출 결함이었다:
-  - 테스트용 `application.yml` 이 main 의 것을 가려 `ido.kms.enabled`·`ido.auth.*`·`ido.qim.aes-shared-key` 가 비어 컨텍스트 기동 실패 (Sprint α-1 이후).
+  - 테스트용 `application.yml` 이 main 의 것을 가려 `idem.hub.kms.enabled`·`idem.hub.auth.*`·`idem.hub.registry.aes-shared-key` 가 비어 컨텍스트 기동 실패 (Sprint α-1 이후).
   - `AgencyRateLimiter` 의 Lua ARGV 가 JSON 직렬화(`"\"5\""`)로 전달되어 스크립트가 실패하고 fail-open → **운영에서도 기관별 TPS·일일 한도가 전혀 걸리지 않던 결함**. 인자 직렬화기를 `StringRedisSerializer` 로 고정해 수정.
   - `AgencyMetaJpaEntity` 의 jsonb 컬럼 3개가 `varchar` 로 바인딩되어 PostgreSQL 에서 `agency_meta` JPA 저장이 42804 로 실패 → `@JdbcTypeCode(SqlTypes.JSON)`.
   - `AesSharedKeyDecryptor` 의 `@Value` 기본값(CHANGEME 플레이스홀더)이 Base64 가 아니어서 생성자에서 예외 → 빈 키로 대체하고 경고만 남기도록 완화.

@@ -59,7 +59,7 @@ public interface FeSessionService {
 
     /**
      * returnUrl 화이트리스트 검증 (설계서 §12.6)
-     * agency_meta.callback_whitelist 와 ido.fe.allowed-return-urls 에서 확인.
+     * agency_meta.callback_whitelist 와 idem.hub.fe.allowed-return-urls 에서 확인.
      *
      * @param returnUrl 검증할 URL
      * @return 허용된 URL 이면 true

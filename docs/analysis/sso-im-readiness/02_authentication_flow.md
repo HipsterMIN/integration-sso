@@ -54,16 +54,16 @@
 
 ### 🔴 발견된 문제 (운영 적합성 우려)
 
-#### **F2.1 [Critical] `qsign.ido.internal-sig-secret` 기본값이 코드에 존재**
+#### **F2.1 [Critical] `idem.gate.hub.internal-sig-secret` 기본값이 코드에 존재**
 `KeycloakCallbackService.java:80`:
 ```java
-@Value("${qsign.ido.internal-sig-secret:ido-internal-secret}")
+@Value("${idem.gate.hub.internal-sig-secret:ido-internal-secret}")
 private String internalSigSecret;
 ```
 - 환경변수 누락 시 **`"ido-internal-secret"`** 평문 기본값으로 fallback.
 - 이 값으로 HMAC을 만들면 IdO 수신 측의 `InternalSigVerifier`도 동일 기본값을 갖는 경우 검증을 통과해버린다.
 - `InternalSigVerifier`에서는 기동 시 INSECURE_DEFAULT 감지 로그를 남기지만, `KeycloakCallbackService.buildInternalSig()` 에서는 그런 경고 없이 작동.
-- **운영 위험**: `IDO_INTERNAL_SIG_SECRET` ENV 누락 시 q-sign이 위조된 자기-신호로 ido를 호출 가능. **즉시 수정 필요**.
+- **운영 위험**: `IDEM_HUB_INTERNAL_SIG_SECRET` ENV 누락 시 q-sign이 위조된 자기-신호로 ido를 호출 가능. **즉시 수정 필요**.
 
 #### **F2.2 [High] ido 알림 실패 시 사용자가 보는 화면이 깨질 수 있음**
 `KeycloakCallbackService.notifyIdoAndGetRedirect()`:
@@ -122,7 +122,7 @@ return stripped + "_OIDC";  // 예: "social-foo" → "FOO_OIDC"
            ├─ providerVerified=false면 거부
            ├─ LockRepository.isLocked() 확인
            ├─ AuthResult 저장
-           └─ Kafka 발행 (qsign.auth.events)
+           └─ Kafka 발행 (idem.gate.auth.events)
 ```
 
 ### 검증된 강점 ✅
@@ -152,7 +152,7 @@ publishAuthEvent(result, AuthEvent.TYPE_AUTH_COMPLETED);  // Kafka 직접 발행
 - DB 저장 후 `kafkaTemplate.send()` 직접 호출 — **Outbox 패턴 미적용**.
 - Kafka 장애 시 AuthResult는 저장되지만 이벤트는 손실 가능.
 - 비교: `KeycloakCallbackService` (흐름 A)는 Outbox에 저장하고 batch가 릴레이 — **흐름 A/B 일관성 결여**.
-- **운영 위험**: NICE CI 인증 후 IdO가 인증 결과를 다시 q-sign에서 조회는 정상이지만, 다른 시스템이 `qsign.auth.events` 토픽을 구독한다면 일부 이벤트 누락. (q-im에 `QimUserEventConsumer`는 q-im → q-sign 방향이고, q-sign → 외부 구독자가 있는지 후속 확인 필요)
+- **운영 위험**: NICE CI 인증 후 IdO가 인증 결과를 다시 q-sign에서 조회는 정상이지만, 다른 시스템이 `idem.gate.auth.events` 토픽을 구독한다면 일부 이벤트 누락. (q-im에 `QimUserEventConsumer`는 q-im → q-sign 방향이고, q-sign → 외부 구독자가 있는지 후속 확인 필요)
 
 #### **F2.8 [Low] Lock 카운터가 증가만 하고 자동 잠금 트리거가 없음**
 `LockRepositoryImpl`:
@@ -234,7 +234,7 @@ metadata.put("token_endpoint", keycloakProperties.tokenEndpoint());
 ### 가장 위험한 시나리오 3가지
 
 **🚨 시나리오 A — 운영 배포 직후 인증 위조**:
-prod 환경에서 `IDO_INTERNAL_SIG_SECRET` ENV를 깜빡 누락하면, `KeycloakCallbackService`는 `"ido-internal-secret"` 평문으로 HMAC 생성. IdO 측 `InternalSigVerifier`가 동일 기본값을 사용 중이면 검증 통과. **공격자가 이 사실을 알고 직접 IdO 엔드포인트를 호출하면 인증 위조 가능**.
+prod 환경에서 `IDEM_HUB_INTERNAL_SIG_SECRET` ENV를 깜빡 누락하면, `KeycloakCallbackService`는 `"ido-internal-secret"` 평문으로 HMAC 생성. IdO 측 `InternalSigVerifier`가 동일 기본값을 사용 중이면 검증 통과. **공격자가 이 사실을 알고 직접 IdO 엔드포인트를 호출하면 인증 위조 가능**.
 
 **🚨 시나리오 B — Redis 장애 시 전면 인증 중단**:
 Redis 단일 노드 + Sentinel 미구성 상태에서 메모리 압박이나 네트워크 단절 발생. state Redis 없음 → **모든 Keycloak Callback이 401**. 운영자는 PR-B2-new에서 Redis 알람을 유령 알람으로 제거했으므로 **알람 없이 인증 전면 중단** 발생 가능. (현재 `IdoServiceDown`은 발화되지만 원인이 Redis라는 정보 없음.)

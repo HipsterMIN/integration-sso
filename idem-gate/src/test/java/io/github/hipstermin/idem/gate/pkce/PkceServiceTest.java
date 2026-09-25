@@ -43,7 +43,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class PkceServiceTest {
 
-    private static final String KEY_PREFIX = "qsign:pkce:challenge:";
+    private static final String KEY_PREFIX = "idem:gate:pkce:challenge:";
 
     /** RFC 7636 §4.1 허용 문자: A-Z a-z 0-9 - . _ ~ */
     private static final Pattern RFC7636_CHARS = Pattern.compile("[A-Za-z0-9\\-._~]+");

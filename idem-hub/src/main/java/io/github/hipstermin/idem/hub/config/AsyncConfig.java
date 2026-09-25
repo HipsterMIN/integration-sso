@@ -35,26 +35,26 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 public class AsyncConfig {
 
     // ── auditExecutor 설정 ─────────────────────────────────────────────
-    @Value("${ido.async.audit.core-pool-size:4}")
+    @Value("${idem.hub.async.audit.core-pool-size:4}")
     private int auditCorePoolSize;
 
-    @Value("${ido.async.audit.max-pool-size:16}")
+    @Value("${idem.hub.async.audit.max-pool-size:16}")
     private int auditMaxPoolSize;
 
-    @Value("${ido.async.audit.queue-capacity:10000}")
+    @Value("${idem.hub.async.audit.queue-capacity:10000}")
     private int auditQueueCapacity;
 
-    @Value("${ido.async.audit.keep-alive-seconds:60}")
+    @Value("${idem.hub.async.audit.keep-alive-seconds:60}")
     private int auditKeepAliveSeconds;
 
     // ── webhookExecutor 설정 ──────────────────────────────────────────
-    @Value("${ido.async.webhook.core-pool-size:4}")
+    @Value("${idem.hub.async.webhook.core-pool-size:4}")
     private int webhookCorePoolSize;
 
-    @Value("${ido.async.webhook.max-pool-size:20}")
+    @Value("${idem.hub.async.webhook.max-pool-size:20}")
     private int webhookMaxPoolSize;
 
-    @Value("${ido.async.webhook.queue-capacity:5000}")
+    @Value("${idem.hub.async.webhook.queue-capacity:5000}")
     private int webhookQueueCapacity;
 
     // ═══════════════════════════════════════════════════════════════════

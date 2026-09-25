@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Q-Sign — Q-IM 사용자 이벤트 컨슈머 (GAP-QS-03)
  * 설계서 §9.3 사용자 상태 연동 / §16.3 멱등 컨슈머 / §11.5.5 Ordered Consumer
  *
- * <p>Kafka Topic {@code qim.user.events}를 구독하여 사용자 상태 변경 이벤트를 처리한다.
+ * <p>Kafka Topic {@code idem.registry.user.events}를 구독하여 사용자 상태 변경 이벤트를 처리한다.
  *
  * <p><b>처리 정책별 행동</b>:
  * <ul>
@@ -54,7 +54,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class QimUserEventConsumer {
 
     private static final String CONSUMER_GROUP = "q-sign-qim-consumer";
-    private static final String TOPIC           = "qim.user.events";
+    private static final String TOPIC           = "idem.registry.user.events";
 
     private final IdempotentEventStore idempotentEventStore;
     private final LockRepository       lockRepository;

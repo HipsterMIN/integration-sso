@@ -34,7 +34,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class IdempotentEventStore {
 
-    /** Q-Sign 컨슈머 그룹 ID (application.yml: qsign.kafka.consumer-group-qim) */
+    /** Q-Sign 컨슈머 그룹 ID (application.yml: idem.gate.kafka.consumer-group-qim) */
     private static final String CONSUMER_GROUP = "q-sign-qim-consumer";
 
     private final JdbcTemplate jdbcTemplate;

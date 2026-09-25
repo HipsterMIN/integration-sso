@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  *   <li>state: CSRF 방어 — UUID 32자리 opaque 값</li>
  *   <li>nonce: Replay attack 방어 — Keycloak이 idToken에 nonce를 포함해야 함 (§10-5 설정 필요)</li>
  *   <li>1회 소비(consume) — 콜백 수신 즉시 삭제</li>
- *   <li>TTL: {@code ido.keycloak.state-ttl-seconds} (기본 300초)</li>
+ *   <li>TTL: {@code idem.hub.keycloak.state-ttl-seconds} (기본 300초)</li>
  * </ul>
  */
 @Slf4j

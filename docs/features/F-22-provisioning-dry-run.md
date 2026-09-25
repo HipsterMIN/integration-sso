@@ -3,9 +3,9 @@
 > **⚠️ 제거됨 (2026-09-10, 범용화 S4b)** — 전 기관 프로비저닝은 코어에서 삭제되었다. 플랫폼은 기관(Service)에 사용자를 등록·방송하지 않으며, 어설션·백채널 로그아웃·보안/감사 이벤트만 push 한다. 근거: `docs/generalization-plan.md` §1.2 C8 · §2.0 · §3 S4b. 아래 내용은 이력 참고용이다.
 
 
-> **환경변수**: `IDO_PROVISIONING_DRY_RUN`  
+> **환경변수**: `IDEM_HUB_PROVISIONING_DRY_RUN`  
 > **기본값**: `true` (안전 — 실제 HTTP 미발행)  
-> **Spring 프로퍼티**: `ido.provisioning.dry-run`  
+> **Spring 프로퍼티**: `idem.hub.provisioning.dry-run`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/provisioning/ProvisioningService.java`  
 > **상위 플래그**: [F-20 전 기관 프로비저닝](F-20-provisioning.md)
 
@@ -47,16 +47,16 @@ Phase 2-B: F-20=true + F-22=false
 helm upgrade ido infra/helm/idem-hub --set phase=2a
 # 또는
 kubectl set env deployment/ido-gateway \
-  IDO_PROVISIONING_ENABLED=true \
-  IDO_PROVISIONING_DRY_RUN=true
+  IDEM_HUB_PROVISIONING_ENABLED=true \
+  IDEM_HUB_PROVISIONING_DRY_RUN=true
 
 # Phase 2-B: 실제 발행 전환 (2주 관찰 후)
 helm upgrade ido infra/helm/idem-hub --set phase=2b
 # 또는
 kubectl set env deployment/ido-gateway \
-  IDO_PROVISIONING_ENABLED=true \
-  IDO_PROVISIONING_DRY_RUN=false \
-  IDO_PROVISIONING_RELAY_ENABLED=true
+  IDEM_HUB_PROVISIONING_ENABLED=true \
+  IDEM_HUB_PROVISIONING_DRY_RUN=false \
+  IDEM_HUB_PROVISIONING_RELAY_ENABLED=true
 ```
 
 ---
@@ -91,8 +91,8 @@ Phase 2-A (Dry-Run) → Phase 2-B (실제 발행) 전환 전 확인:
 - [ ] **페이로드 형식**: 각 기관의 엔드포인트·페이로드 형식 담당자 확인
 - [ ] **부하 추정**: 로그의 소요시간으로 실제 HTTP 발행 시 예상 부하 계산
 - [ ] **기관 서버 준비**: 68개 기관 Webhook 수신 서버 준비 완료 확인
-- [ ] **F-21 릴레이 준비**: `IDO_PROVISIONING_RELAY_ENABLED=true` 설정 준비
-- [ ] **롤백 계획**: `IDO_PROVISIONING_DRY_RUN=true` 복원 절차 팀 공유
+- [ ] **F-21 릴레이 준비**: `IDEM_HUB_PROVISIONING_RELAY_ENABLED=true` 설정 준비
+- [ ] **롤백 계획**: `IDEM_HUB_PROVISIONING_DRY_RUN=true` 복원 절차 팀 공유
 - [ ] **법무팀/보안팀 승인**: 개인정보 전송 동의 확인
 
 ---
@@ -133,7 +133,7 @@ public void provision(ProvisioningEvent event) {
 
 F-20=true + F-21=false + F-22=false 조합 시:
 ```
-[FeatureFlags] ⚠️ F-20 ON + F-21 OFF: 프로비저닝 실패 시 재시도 릴레이 없음. IDO_PROVISIONING_RELAY_ENABLED=true 권장.
+[FeatureFlags] ⚠️ F-20 ON + F-21 OFF: 프로비저닝 실패 시 재시도 릴레이 없음. IDEM_HUB_PROVISIONING_RELAY_ENABLED=true 권장.
 ```
 
 ---

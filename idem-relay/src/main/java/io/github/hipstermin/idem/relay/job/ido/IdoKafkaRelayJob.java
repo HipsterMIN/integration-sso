@@ -22,12 +22,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * ido.outbox Kafka 릴레이 배치 Job
+ * idem.hub.outbox Kafka 릴레이 배치 Job
  *
  * <h2>처리 대상</h2>
  * <ul>
- *   <li>ido.outbox 테이블 PENDING 레코드</li>
- *   <li>제외: qim.user.events (→ {@link IdoQimKafkaRelayJob} 전담)</li>
+ *   <li>idem.hub.outbox 테이블 PENDING 레코드</li>
+ *   <li>제외: idem.registry.user.events (→ {@link IdoQimKafkaRelayJob} 전담)</li>
  * </ul>
  *
  * <h2>ShedLock 설정</h2>
@@ -54,8 +54,8 @@ public class IdoKafkaRelayJob {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE_REF = new TypeReference<>() {};
 
-    /** qim.user.events는 IdoQimKafkaRelayJob이 전담 */
-    private static final Set<String> EXCLUDED_TOPICS = Set.of("qim.user.events");
+    /** idem.registry.user.events는 IdoQimKafkaRelayJob이 전담 */
+    private static final Set<String> EXCLUDED_TOPICS = Set.of("idem.registry.user.events");
 
     private final JdbcTemplate                     idoJdbcTemplate;
     private final KafkaTemplate<String, Object>    kafkaTemplate;
@@ -66,13 +66,13 @@ public class IdoKafkaRelayJob {
     private final Counter failureCounter;
     private final Counter deadLetterCounter;
 
-    @Value("${batch.relay.ido.kafka.batch-size:100}")
+    @Value("${idem.relay.jobs.hub.kafka.batch-size:100}")
     private int batchSize;
 
-    @Value("${batch.relay.ido.kafka.max-retry:3}")
+    @Value("${idem.relay.jobs.hub.kafka.max-retry:3}")
     private int maxRetry;
 
-    @Value("${batch.relay.ido.kafka.enabled:true}")
+    @Value("${idem.relay.jobs.hub.kafka.enabled:true}")
     private boolean enabled;
 
     public IdoKafkaRelayJob(
@@ -83,27 +83,27 @@ public class IdoKafkaRelayJob {
         this.idoJdbcTemplate = idoJdbcTemplate;
         this.kafkaTemplate   = kafkaTemplate;
         this.objectMapper    = objectMapper;
-        this.successCounter     = meterRegistry.counter("batch.relay.ido.kafka.success");
-        this.failureCounter     = meterRegistry.counter("batch.relay.ido.kafka.failure");
-        this.deadLetterCounter  = meterRegistry.counter("batch.relay.ido.kafka.dead_letter");
+        this.successCounter     = meterRegistry.counter("idem.relay.jobs.hub.kafka.success");
+        this.failureCounter     = meterRegistry.counter("idem.relay.jobs.hub.kafka.failure");
+        this.deadLetterCounter  = meterRegistry.counter("idem.relay.jobs.hub.kafka.dead_letter");
     }
 
     /**
-     * ido.outbox PENDING 레코드 Kafka 릴레이
+     * idem.hub.outbox PENDING 레코드 Kafka 릴레이
      *
      * <p>{@code @SchedulerLock}: ShedLock이 분산 락을 획득한 단일 인스턴스만 실행.
      * {@code @Transactional}: FOR UPDATE SKIP LOCKED가 TX 내에서만 유효.
      */
-    @Scheduled(fixedDelayString = "${batch.relay.ido.kafka.interval-ms:500}")
+    @Scheduled(fixedDelayString = "${idem.relay.jobs.hub.kafka.interval-ms:500}")
     @SchedulerLock(
             name                = "ido-kafka-relay",
-            lockAtMostFor       = "${batch.relay.ido.kafka.lock-at-most:10s}",
-            lockAtLeastFor      = "${batch.relay.ido.kafka.lock-at-least:400ms}"
+            lockAtMostFor       = "${idem.relay.jobs.hub.kafka.lock-at-most:10s}",
+            lockAtLeastFor      = "${idem.relay.jobs.hub.kafka.lock-at-least:400ms}"
     )
     @Transactional(transactionManager = "idoTransactionManager")
     public void relay() {
         if (!enabled) {
-            log.trace("[IdoKafkaRelayJob] 비활성화 상태 (batch.relay.ido.kafka.enabled=false)");
+            log.trace("[IdoKafkaRelayJob] 비활성화 상태 (idem.relay.jobs.hub.kafka.enabled=false)");
             return;
         }
 
@@ -213,7 +213,7 @@ public class IdoKafkaRelayJob {
     /**
      * PENDING 레코드 배치 조회 (FOR UPDATE SKIP LOCKED)
      *
-     * <p>excluded topics (qim.user.events): IN 절로 동적 제외.
+     * <p>excluded topics (idem.registry.user.events): IN 절로 동적 제외.
      * SKIP LOCKED: 기존 ido 서비스 @Scheduled 릴레이와 경합 방지 (이중 방어).
      */
     private List<OutboxRow> fetchPending() {

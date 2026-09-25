@@ -10,7 +10,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 /**
- * 첫 관리자 — 관리자가 하나도 없을 때 {@code ido.admin.bootstrap.*}({@code IDEM_ADMIN_BOOTSTRAP_PASSWORD}) 로 SYSTEM_ADMIN 을 만든다.
+ * 첫 관리자 — 관리자가 하나도 없을 때 {@code idem.hub.admin.bootstrap.*}({@code IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD}) 로 SYSTEM_ADMIN 을 만든다.
  * 비밀번호가 비면: 운영(hardened)에서는 기동 거부(관리자 없는 설치본은 관리 API 를 아무도 못 쓴다), 그 외는 경고만.
  */
 @Slf4j
@@ -38,14 +38,14 @@ public class AdminBootstrap implements ApplicationRunner {
             boolean hardened = false;
             for (String p : environment.getActiveProfiles()) if (HARDENED.contains(p)) hardened = true;
             if (hardened) {
-                throw new IllegalStateException("[AdminBootstrap] 관리자가 없고 IDEM_ADMIN_BOOTSTRAP_PASSWORD 도 비어 있습니다 — 운영·스테이지에서는 기동을 거부합니다");
+                throw new IllegalStateException("[AdminBootstrap] 관리자가 없고 IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD 도 비어 있습니다 — 운영·스테이지에서는 기동을 거부합니다");
             }
-            log.warn("[AdminBootstrap] 관리자가 없고 IDEM_ADMIN_BOOTSTRAP_PASSWORD 가 비어 있다 — 관리 API 를 쓸 수 없다");
+            log.warn("[AdminBootstrap] 관리자가 없고 IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD 가 비어 있다 — 관리 API 를 쓸 수 없다");
             return;
         }
         var v = passwordPolicy.violations(password, props.getBootstrap().getUsername(), null);
         if (!v.isEmpty()) {
-            throw new IllegalStateException("[AdminBootstrap] IDEM_ADMIN_BOOTSTRAP_PASSWORD 가 비밀번호 정책을 만족하지 않습니다: " + String.join(", ", v));
+            throw new IllegalStateException("[AdminBootstrap] IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD 가 비밀번호 정책을 만족하지 않습니다: " + String.join(", ", v));
         }
         AdminUserEntity u = AdminUserEntity.builder()
                 .adminId(UuidV7.generate())

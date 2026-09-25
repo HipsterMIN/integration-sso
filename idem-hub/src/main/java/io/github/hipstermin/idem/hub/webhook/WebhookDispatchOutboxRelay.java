@@ -56,7 +56,7 @@ import org.springframework.web.client.RestTemplate;
  * </ul>
  *
  * <p><b>운영 주의</b>:
- * {@code ido.webhook.relay-batch-size}는 HTTP 동시 발송 수와 비례.
+ * {@code idem.hub.webhook.relay-batch-size}는 HTTP 동시 발송 수와 비례.
  * 단일 인스턴스 기준 최대 100건/500ms ≈ 200 TPS 처리 가능.
  * 60,000명 급증 시나리오에서는 수초에 걸쳐 분산 처리됨.
  */
@@ -65,7 +65,7 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class WebhookDispatchOutboxRelay {
 
-    private static final String SOURCE_SYSTEM = "ido";
+    private static final String SOURCE_SYSTEM = "idem-hub";
 
     // HTTP 상태 코드 분류
     private static final int HTTP_OK_MIN       = 200;
@@ -82,29 +82,29 @@ public class WebhookDispatchOutboxRelay {
     private final WebhookDispatcherService webhookDispatcherService;
     private final AuditLogPublisher     auditLogPublisher;
 
-    // F-14: Webhook Relay On/Off (IDO_WEBHOOK_RELAY_ENABLED)
+    // F-14: Webhook Relay On/Off (IDEM_HUB_WEBHOOK_RELAY_ENABLED)
     // false → @Scheduled 실행되어도 즉시 return, 기관 webhook 발송 없음
     // PENDING 레코드는 DB에 유지 → 다시 ON 시 순서 처리 (데이터 유실 없음)
-    @Value("${ido.webhook.relay-enabled:${IDO_WEBHOOK_RELAY_ENABLED:true}}")
+    @Value("${idem.hub.webhook.relay-enabled:${IDEM_HUB_WEBHOOK_RELAY_ENABLED:true}}")
     private boolean relayEnabled;
 
-    @Value("${ido.webhook.relay-interval-ms:500}")
+    @Value("${idem.hub.webhook.relay-interval-ms:500}")
     private long relayIntervalMs;
 
-    @Value("${ido.webhook.relay-batch-size:50}")
+    @Value("${idem.hub.webhook.relay-batch-size:50}")
     private int relayBatchSize;
 
-    @Value("${ido.webhook.max-retry:3}")
+    @Value("${idem.hub.webhook.max-retry:3}")
     private int defaultMaxRetry;
 
-    @Value("${ido.webhook.connect-timeout-ms:3000}")
+    @Value("${idem.hub.webhook.connect-timeout-ms:3000}")
     private int connectTimeoutMs;
 
-    @Value("${ido.webhook.read-timeout-ms:8000}")
+    @Value("${idem.hub.webhook.read-timeout-ms:8000}")
     private int readTimeoutMs;
 
     /** 플랫폼 API 버전 헤더값 (하드코딩 "1.0" 제거) */
-    @Value("${ido.platform-version:1.0}")
+    @Value("${idem.hub.platform-version:1.0}")
     private String platformVersion;
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -118,11 +118,11 @@ public class WebhookDispatchOutboxRelay {
      * 단일 인스턴스에서 순차 실행 보장.
      * 다중 인스턴스 환경: FOR UPDATE SKIP LOCKED로 중복 발송 방지.
      */
-    @Scheduled(fixedDelayString = "${ido.webhook.relay-interval-ms:500}")
+    @Scheduled(fixedDelayString = "${idem.hub.webhook.relay-interval-ms:500}")
     public void relay() {
         // F-14 Guard
         if (!relayEnabled) {
-            log.trace("[WebhookRelay] DISABLED (IDO_WEBHOOK_RELAY_ENABLED=false)");
+            log.trace("[WebhookRelay] DISABLED (IDEM_HUB_WEBHOOK_RELAY_ENABLED=false)");
             return;
         }
         List<Map<String, Object>> pending = fetchPendingBatch();

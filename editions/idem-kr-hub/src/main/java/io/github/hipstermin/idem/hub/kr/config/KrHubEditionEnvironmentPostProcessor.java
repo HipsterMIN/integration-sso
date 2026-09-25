@@ -21,27 +21,27 @@ public class KrHubEditionEnvironmentPostProcessor implements EnvironmentPostProc
             Map.entry("idem.plugins.nice-oacx.enabled", "${IDEM_PLUGINS_NICE_OACX_ENABLED:true}"),
             Map.entry("idem.plugins.anyid.enabled", "${IDEM_PLUGINS_ANYID_ENABLED:true}"),
             // D3: 비OIDC 직접 브로커 사업자(코어는 빈 목록) — PoC 자리표시 URL, 운영은 환경변수로 덮는다
-            Map.entry("ido.broker.nonoidc.providers.PASS.initiate-url", "${KR_NONOIDC_PASS_URL:https://pass.example.com/auth?callback={callbackUrl}&cid={correlationId}}"),
-            Map.entry("ido.broker.nonoidc.providers.PASS.auth-level", "L2"),
-            Map.entry("ido.broker.nonoidc.providers.FINANCIAL_CERT.initiate-url", "${KR_NONOIDC_FINANCIAL_CERT_URL:https://financial-cert.example.com/auth?cid={correlationId}}"),
-            Map.entry("ido.broker.nonoidc.providers.FINANCIAL_CERT.auth-level", "L3"),
-            Map.entry("ido.broker.nonoidc.providers.FINANCIAL_CERT.tx-prefix", "FCERT"),
-            Map.entry("ido.broker.nonoidc.providers.GPKI.initiate-url", "${KR_NONOIDC_GPKI_URL:https://gpki.example.org/auth?cid={correlationId}}"),
-            Map.entry("ido.broker.nonoidc.providers.GPKI.auth-level", "L3"),
-            Map.entry("ido.broker.nonoidc.providers.JOINT_CERT.initiate-url", "${KR_NONOIDC_JOINT_CERT_URL:https://joint-cert.example.com/auth?cid={correlationId}}"),
-            Map.entry("ido.broker.nonoidc.providers.JOINT_CERT.auth-level", "L3"),
-            Map.entry("ido.broker.nonoidc.providers.JOINT_CERT.tx-prefix", "JCERT"),
+            Map.entry("idem.hub.broker.nonoidc.providers.PASS.initiate-url", "${KR_NONOIDC_PASS_URL:https://pass.example.com/auth?callback={callbackUrl}&cid={correlationId}}"),
+            Map.entry("idem.hub.broker.nonoidc.providers.PASS.auth-level", "L2"),
+            Map.entry("idem.hub.broker.nonoidc.providers.FINANCIAL_CERT.initiate-url", "${KR_NONOIDC_FINANCIAL_CERT_URL:https://financial-cert.example.com/auth?cid={correlationId}}"),
+            Map.entry("idem.hub.broker.nonoidc.providers.FINANCIAL_CERT.auth-level", "L3"),
+            Map.entry("idem.hub.broker.nonoidc.providers.FINANCIAL_CERT.tx-prefix", "FCERT"),
+            Map.entry("idem.hub.broker.nonoidc.providers.GPKI.initiate-url", "${KR_NONOIDC_GPKI_URL:https://gpki.example.org/auth?cid={correlationId}}"),
+            Map.entry("idem.hub.broker.nonoidc.providers.GPKI.auth-level", "L3"),
+            Map.entry("idem.hub.broker.nonoidc.providers.JOINT_CERT.initiate-url", "${KR_NONOIDC_JOINT_CERT_URL:https://joint-cert.example.com/auth?cid={correlationId}}"),
+            Map.entry("idem.hub.broker.nonoidc.providers.JOINT_CERT.auth-level", "L3"),
+            Map.entry("idem.hub.broker.nonoidc.providers.JOINT_CERT.tx-prefix", "JCERT"),
             // 회원 전환 세션 (ConversionInitService)
-            Map.entry("ido.conversion.session-ttl-minutes", "30"),
-            Map.entry("ido.conversion.signed-request-max-age-minutes", "5"),
+            Map.entry("idem.hub.conversion.session-ttl-minutes", "30"),
+            Map.entry("idem.hub.conversion.signed-request-max-age-minutes", "5"),
             // FE AES-GCM 복호화 키 (CI 토큰 교환) — SMES FE webpack DefinePlugin 값과 동일해야 한다
-            Map.entry("ido.fe-aes-gcm-key", "${FE_AES_GCM_KEY:}"),
+            Map.entry("idem.hub.fe-aes-gcm-key", "${FE_AES_GCM_KEY:}"),
             // 통합인증(기업인증) 서버
-            Map.entry("ido.auth.integration.base-url", "${INTEGRATION_AUTH_BASE_URL:}"),
-            Map.entry("ido.auth.integration.timeout-seconds", "${INTEGRATION_AUTH_TIMEOUT_SECONDS:10}"),
+            Map.entry("idem.hub.auth.integration.base-url", "${INTEGRATION_AUTH_BASE_URL:}"),
+            Map.entry("idem.hub.auth.integration.timeout-seconds", "${INTEGRATION_AUTH_TIMEOUT_SECONDS:10}"),
             // 회원구분코드 (MemberDivisionPolicy)
-            Map.entry("ido.qim.member-division-codes", "A101,A102"),
-            Map.entry("ido.qim.corporate-division-codes", "A102"),
+            Map.entry("idem.hub.registry.member-division-codes", "A101,A102"),
+            Map.entry("idem.hub.registry.corporate-division-codes", "A102"),
             // resilience4j — 통합인증 서버 클라이언트 (IntegrationAuthClient). retry 인스턴스는 정의하지 않는다:
             // base(configs.default) 위에 인스턴스를 얹으면 resilience4j 2.2 가 "intervalFunction was configured twice" 로
             // 기동을 거부한다(코어 yml 의 다른 인스턴스는 base 와 같은 파일에서 한 번에 바인딩되어 피해 간다). 기본 retry 설정을 쓴다.

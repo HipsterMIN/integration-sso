@@ -31,18 +31,18 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><b>F-11 On/Off 제어 (이중 안전장치)</b>:
  * <pre>
- * IDO_RETENTION_ENABLED=false (기본) → @Scheduled 실행되어도 즉시 return (데이터 변경 없음)
- * IDO_RETENTION_ENABLED=true          → 실행 허용
+ * IDEM_HUB_RETENTION_ENABLED=false (기본) → @Scheduled 실행되어도 즉시 return (데이터 변경 없음)
+ * IDEM_HUB_RETENTION_ENABLED=true          → 실행 허용
  *
- * IDO_RETENTION_DRY_RUN=true (기본)   → 대상 조회·로그만, 실제 DELETE/UPDATE 없음
- * IDO_RETENTION_DRY_RUN=false         → 실제 파기 실행 (영구 삭제 — 복구 불가)
+ * IDEM_HUB_RETENTION_DRY_RUN=true (기본)   → 대상 조회·로그만, 실제 DELETE/UPDATE 없음
+ * IDEM_HUB_RETENTION_DRY_RUN=false         → 실제 파기 실행 (영구 삭제 — 복구 불가)
  * </pre>
  *
  * <p><b>🔴 운영 적용 체크리스트</b>:
  * <ol>
- *   <li>법무팀 보존 기간 확정 후 {@code IDO_RETENTION_DAYS} 설정</li>
- *   <li>스테이징에서 {@code IDO_RETENTION_DRY_RUN=true}로 대상 확인</li>
- *   <li>운영 적용 시 {@code IDO_RETENTION_ENABLED=true, IDO_RETENTION_DRY_RUN=false}</li>
+ *   <li>법무팀 보존 기간 확정 후 {@code IDEM_HUB_RETENTION_DAYS} 설정</li>
+ *   <li>스테이징에서 {@code IDEM_HUB_RETENTION_DRY_RUN=true}로 대상 확인</li>
+ *   <li>운영 적용 시 {@code IDEM_HUB_RETENTION_ENABLED=true, IDEM_HUB_RETENTION_DRY_RUN=false}</li>
  * </ol>
  *
  * <p><b>법적 주의사항</b>:
@@ -59,7 +59,7 @@ public class PersonalDataRetentionScheduler {
      * 파기 스케줄러 활성 여부.
      * 기본 false — 명시적으로 true 설정 시에만 실행 (개발 DB 실수 삭제 방지).
      */
-    @Value("${ido.retention.enabled:${IDO_RETENTION_ENABLED:false}}")
+    @Value("${idem.hub.retention.enabled:${IDEM_HUB_RETENTION_ENABLED:false}}")
     private boolean retentionEnabled;
 
     /**
@@ -67,15 +67,15 @@ public class PersonalDataRetentionScheduler {
      * true(기본): 대상 조회 및 로그만, 실제 DELETE/UPDATE 없음.
      * false: 실제 파기 실행 (운영에서만 false 설정).
      */
-    @Value("${ido.retention.dry-run:${IDO_RETENTION_DRY_RUN:true}}")
+    @Value("${idem.hub.retention.dry-run:${IDEM_HUB_RETENTION_DRY_RUN:true}}")
     private boolean dryRun;
 
     /** 보존 기간 (일). 기본 365일 = 1년. 법무팀 확정 전 임시값. */
-    @Value("${ido.retention.personal-data-days:${IDO_RETENTION_DAYS:365}}")
+    @Value("${idem.hub.retention.personal-data-days:${IDEM_HUB_RETENTION_DAYS:365}}")
     private int retentionDays;
 
     /** 회당 처리 건수 한도 (DB 부하 분산) */
-    @Value("${ido.retention.batch-size:${IDO_RETENTION_BATCH_SIZE:100}}")
+    @Value("${idem.hub.retention.batch-size:${IDEM_HUB_RETENTION_BATCH_SIZE:100}}")
     private int batchSize;
 
     private final JdbcTemplate        jdbcTemplate;
@@ -85,21 +85,21 @@ public class PersonalDataRetentionScheduler {
     // ════════════════════════════════════════════════════════════════════════
 
     /**
-     * 매일 02:00 개인정보 파기 실행 (ido.zone 기준, D3)
+     * 매일 02:00 개인정보 파기 실행 (idem.hub.zone 기준, D3)
      *
      * <p>cron = "0 0 2 * * *" — 매일 새벽 2시
      *
      * <p><b>실행 조건</b>:
-     * {@code IDO_RETENTION_ENABLED=true} AND (@{code @Scheduled} 트리거)
-     * → {@code IDO_RETENTION_DRY_RUN=true}면 조회·로그만
-     * → {@code IDO_RETENTION_DRY_RUN=false}면 실제 파기
+     * {@code IDEM_HUB_RETENTION_ENABLED=true} AND (@{code @Scheduled} 트리거)
+     * → {@code IDEM_HUB_RETENTION_DRY_RUN=true}면 조회·로그만
+     * → {@code IDEM_HUB_RETENTION_DRY_RUN=false}면 실제 파기
      */
-    @Scheduled(cron = "${ido.retention.cron:0 0 2 * * *}", zone = "${ido.zone:UTC}")
+    @Scheduled(cron = "${idem.hub.retention.cron:0 0 2 * * *}", zone = "${idem.hub.zone:UTC}")
     public void executeRetentionPolicy() {
 
         // ── F-11 Guard: enabled 체크 ─────────────────────────────────────
         if (!retentionEnabled) {
-            log.debug("[RetentionScheduler] DISABLED — 개인정보 파기 비활성 (IDO_RETENTION_ENABLED=false)");
+            log.debug("[RetentionScheduler] DISABLED — 개인정보 파기 비활성 (IDEM_HUB_RETENTION_ENABLED=false)");
             return;
         }
 
@@ -107,11 +107,11 @@ public class PersonalDataRetentionScheduler {
 
         if (dryRun) {
             log.info("[RetentionScheduler][DRY-RUN] 개인정보 파기 시뮬레이션 시작: " +
-                     "retentionDays={} cutoff={} — 실제 삭제 없음 (IDO_RETENTION_DRY_RUN=true)",
+                     "retentionDays={} cutoff={} — 실제 삭제 없음 (IDEM_HUB_RETENTION_DRY_RUN=true)",
                     retentionDays, retentionCutoff);
             List<String> candidates = findExpiredWithdrawnMembers(retentionCutoff);
             log.info("[RetentionScheduler][DRY-RUN] 파기 대상 {}건 (실제 삭제 없음). " +
-                     "운영 적용 시 IDO_RETENTION_DRY_RUN=false 설정 필요.",
+                     "운영 적용 시 IDEM_HUB_RETENTION_DRY_RUN=false 설정 필요.",
                     candidates.size());
             if (!candidates.isEmpty()) {
                 log.info("[RetentionScheduler][DRY-RUN] 대상 instMbrId 샘플 (최대 5개): {}",

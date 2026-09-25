@@ -29,8 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private static final String TOPIC_AUTH_EVENTS = "qsign.auth.events";
-    private static final String SOURCE_SYSTEM     = "q-sign";
+    private static final String TOPIC_AUTH_EVENTS = "idem.gate.auth.events";
+    private static final String SOURCE_SYSTEM     = "idem-gate";
 
     private final AuthResultRepository authResultRepository;
     private final LockRepository       lockRepository;

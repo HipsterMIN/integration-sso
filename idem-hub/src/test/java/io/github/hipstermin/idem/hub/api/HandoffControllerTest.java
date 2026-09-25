@@ -68,7 +68,7 @@ class HandoffControllerTest {
     /** 테스트용 qimUserId (FeSession에서 서버 측 추출) */
     private static final String QIM_USER_ID   = "qim-user-001";
     /** Idempotency-Key Redis 키 접두어 */
-    private static final String IDEM_PREFIX   = "ido:idempotency:handoff:";
+    private static final String IDEM_PREFIX   = "idem:idempotency:handoff:";
 
     @BeforeEach
     void setUp() {

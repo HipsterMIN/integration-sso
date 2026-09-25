@@ -33,13 +33,13 @@
 
 ```java
 // WebhookDispatcherService.java — 변경 전
-@Value("${ido.webhook.signing-secret:poc-webhook-secret-change-in-production}")
+@Value("${idem.hub.webhook.signing-secret:poc-webhook-secret-change-in-production}")
 private String defaultSigningSecret;   // PoC 기본값; 운영: Vault/KMS 주입
 ```
 
 ```yaml
 # application.yml — 변경 전
-signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-change-in-production}
+signing-secret: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:poc-webhook-secret-change-in-production}
 ```
 
 ```java
@@ -49,7 +49,7 @@ String secret = (rawSecret != null && !rawSecret.isBlank())
 ```
 
 **공격/사고 시나리오**:
-1. 운영 배포 시 `IDO_WEBHOOK_SIGNING_SECRET` 환경변수가 누락된다.
+1. 운영 배포 시 `IDEM_HUB_WEBHOOK_SIGNING_SECRET` 환경변수가 누락된다.
 2. Spring이 default value `poc-webhook-secret-change-in-production` 를 주입한다.
 3. 부팅에 성공하고 **PoC 시크릿으로 운영 webhook 서명이 발송**된다.
 4. 동일 PoC 시크릿이 공개 저장소에 있으므로(이 코드가 그렇듯) **누구나 위조 가능**.
@@ -59,10 +59,10 @@ String secret = (rawSecret != null && !rawSecret.isBlank())
 
 ```java
 // WebhookDispatcherService.java — 변경 후
-@Value("${ido.webhook.signing-secret:}")
+@Value("${idem.hub.webhook.signing-secret:}")
 private String defaultSigningSecret;
 
-@Value("${ido.webhook.allow-empty-secret:false}")
+@Value("${idem.hub.webhook.allow-empty-secret:false}")
 private boolean allowEmptySecret;
 
 @PostConstruct
@@ -70,7 +70,7 @@ void validateSigningSecret() {
     boolean blank = (defaultSigningSecret == null || defaultSigningSecret.isBlank());
     if (blank && !allowEmptySecret) {
         throw new IllegalStateException(
-            "[F4.3 Guard] ido.webhook.signing-secret 미설정 — 운영 환경 부팅 차단. ..."
+            "[F4.3 Guard] idem.hub.webhook.signing-secret 미설정 — 운영 환경 부팅 차단. ..."
         );
     }
     ...
@@ -93,14 +93,14 @@ if (rawSecret == null || rawSecret.isBlank()) {
 
 ```yaml
 # application.yml — 변경 후
-signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:}
-allow-empty-secret: ${IDO_WEBHOOK_ALLOW_EMPTY_SECRET:false}
+signing-secret: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:}
+allow-empty-secret: ${IDEM_HUB_WEBHOOK_ALLOW_EMPTY_SECRET:false}
 ```
 
 **보장 속성**:
 - **부팅 시점 fail-fast**: 운영 환경에 시크릿이 미주입되면 Spring 컨텍스트 초기화 단계에서 즉시 실패.
 - **런타임 fail-fast**: 기관별 raw secret이 NULL이면 `IllegalArgumentException`으로 서명을 거부.
-- **테스트 escape hatch**: `ido.webhook.allow-empty-secret=true` 를 설정한 환경(local/integration-test)에서만 fallback 동작.
+- **테스트 escape hatch**: `idem.hub.webhook.allow-empty-secret=true` 를 설정한 환경(local/integration-test)에서만 fallback 동작.
 - **응급 운영 모드 명시화**: 임시로 default secret을 써야 할 때도 환경변수를 명시적으로 켜야 함.
 
 ### 2.3 escape hatch 적용 위치
@@ -370,12 +370,12 @@ private String tryResolveDi(String qimUserId, String agencyCode, String correlat
 
 ```bash
 # 1. F4.3 가드 검증 — secret 미주입 시 부팅 실패
-unset IDO_WEBHOOK_SIGNING_SECRET
+unset IDEM_HUB_WEBHOOK_SIGNING_SECRET
 ./gradlew :idem-hub:bootRun -Dspring.profiles.active=prod
-# → IllegalStateException: [F4.3 Guard] ido.webhook.signing-secret 미설정 ... 발생 확인
+# → IllegalStateException: [F4.3 Guard] idem.hub.webhook.signing-secret 미설정 ... 발생 확인
 
 # 2. F4.3 정상 부팅
-export IDO_WEBHOOK_SIGNING_SECRET="$(openssl rand -hex 32)"
+export IDEM_HUB_WEBHOOK_SIGNING_SECRET="$(openssl rand -hex 32)"
 ./gradlew :idem-hub:bootRun -Dspring.profiles.active=prod
 # → 정상 부팅 + "signing-secret 주입 확인 완료 (len=64)" 로그
 ```
@@ -387,10 +387,10 @@ export IDO_WEBHOOK_SIGNING_SECRET="$(openssl rand -hex 32)"
 ### 7.1 F4.3 — Webhook signing secret 강제 주입
 
 - **배포 전 체크리스트**:
-  - [ ] `IDO_WEBHOOK_SIGNING_SECRET` 환경변수 (또는 Vault path) 주입 확인.
+  - [ ] `IDEM_HUB_WEBHOOK_SIGNING_SECRET` 환경변수 (또는 Vault path) 주입 확인.
   - [ ] `agency_webhook_config.signing_secret_hash` 가 NULL인 활성 기관 사전 점검.
   - [ ] 미주입 시 Pod CrashLoopBackOff 가 발생함을 운영팀에 사전 공지.
-- **롤백 경로**: 환경변수 `IDO_WEBHOOK_ALLOW_EMPTY_SECRET=true` 임시 적용 → 부팅은 통과하되 알람으로 누락 가시화.
+- **롤백 경로**: 환경변수 `IDEM_HUB_WEBHOOK_ALLOW_EMPTY_SECRET=true` 임시 적용 → 부팅은 통과하되 알람으로 누락 가시화.
 
 ### 7.2 F4.4 — 프론트엔드 변경 동반 필요
 

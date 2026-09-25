@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   1. publishInTx()      → 현재 트랜잭션 내 OUTBOX 레코드 INSERT
  *   2. relayPendingEvents() → PENDING 레코드 Kafka 발행 + PUBLISHED/FAILED 갱신
  *                            → 발행 성공 시 SnapshotService.shouldPublishSnapshot() 판단
- *                            → 조건 충족 시 qim.user.snapshot Compacted Topic 스냅샷 발행 (§11.5.6)
+ *                            → 조건 충족 시 idem.registry.user.snapshot Compacted Topic 스냅샷 발행 (§11.5.6)
  *   3. relayFailedEvents()  → FAILED(retryCount &lt; maxRetry) → PENDING 복구 후 재발행
  * </pre>
  *
@@ -33,29 +33,29 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><b>Snapshot 발행 정책 (GAP-QIM-05)</b>:
  * <ul>
  *   <li>각 PENDING 레코드 발행 성공 후 {@link SnapshotService#shouldPublishSnapshot(String, long)} 호출</li>
- *   <li>마지막 스냅샷 이후 {@code qim.snapshot.interval-events}(기본 10)개 이상 이벤트 발행 시 스냅샷 트리거</li>
+ *   <li>마지막 스냅샷 이후 {@code idem.registry.snapshot.interval-events}(기본 10)개 이상 이벤트 발행 시 스냅샷 트리거</li>
  *   <li>스냅샷 발행 실패는 비치명적 — Outbox 본래 발행 흐름에 영향 없음</li>
  * </ul>
  *
- * [DB] PostgreSQL qim 스키마 (D1-a) — Outbox 테이블: qim.outbox (idx_qim_outbox_pending 부분 인덱스 활용)
- * [D1-b] {@code qim.outbox.relay-enabled=false}(Kafka 꺼짐 파생 기본값) 면 릴레이를 돌리지 않는다 — PENDING 은 DB 에 남는다.
+ * [DB] PostgreSQL qim 스키마 (D1-a) — Outbox 테이블: idem.registry.outbox (idx_qim_outbox_pending 부분 인덱스 활용)
+ * [D1-b] {@code idem.registry.outbox.relay-enabled=false}(Kafka 꺼짐 파생 기본값) 면 릴레이를 돌리지 않는다 — PENDING 은 DB 에 남는다.
  */
 @Slf4j
 @Service
 public class OutboxServiceImpl implements OutboxService {
 
-    private static final String TOPIC_USER_EVENTS = "qim.user.events";
+    private static final String TOPIC_USER_EVENTS = "idem.registry.user.events";
 
     /** 최대 재시도 횟수 — maxRetry 도달 시 영구 FAILED (설계서 §10.5.2) */
-    @Value("${qim.outbox.max-retry:5}")
+    @Value("${idem.registry.outbox.max-retry:5}")
     private short maxRetry;
 
     /** FAILED 레코드 재시도 주기 (ms): 기본 30초 */
-    @Value("${qim.outbox.retry-interval-ms:30000}")
+    @Value("${idem.registry.outbox.retry-interval-ms:30000}")
     private long retryIntervalMs;
 
     /** D1-b: Kafka 선택 의존 — idem.messaging.kafka.enabled=false 면 파생 기본값으로 false */
-    @Value("${qim.outbox.relay-enabled:true}")
+    @Value("${idem.registry.outbox.relay-enabled:true}")
     private boolean relayEnabled;
 
     private final OutboxRepository              outboxRepository;
@@ -93,7 +93,7 @@ public class OutboxServiceImpl implements OutboxService {
     }
 
     @Override
-    @Scheduled(fixedDelayString = "${qim.outbox.relay-interval-ms:500}")
+    @Scheduled(fixedDelayString = "${idem.registry.outbox.relay-interval-ms:500}")
     public void relayPendingEvents() {
         if (!relayEnabled) return;
         List<OutboxRecord> pending = outboxRepository.findPending(100);
@@ -110,7 +110,7 @@ public class OutboxServiceImpl implements OutboxService {
      *
      * <p>Kafka 발행 성공 콜백에서 호출된다.
      * {@link SnapshotService#shouldPublishSnapshot(String, long)} 로 판단하여
-     * 조건 충족 시 {@code qim.user.snapshot} Compacted Topic에 스냅샷 발행.
+     * 조건 충족 시 {@code idem.registry.user.snapshot} Compacted Topic에 스냅샷 발행.
      *
      * <p>스냅샷 발행 실패는 비치명적 처리 — Outbox 발행 흐름과 분리됨.
      *
@@ -142,7 +142,7 @@ public class OutboxServiceImpl implements OutboxService {
      * maxRetry(기본 5) 도달 시 영구 FAILED → 운영팀 수동 조치 (알람/DLQ 수동 처리) 필요.
      */
     @Override
-    @Scheduled(fixedDelayString = "${qim.outbox.retry-interval-ms:30000}")
+    @Scheduled(fixedDelayString = "${idem.registry.outbox.retry-interval-ms:30000}")
     public void relayFailedEvents() {
         if (!relayEnabled) return;
         List<OutboxRecord> retryable = outboxRepository.findRetryable(maxRetry, 50);

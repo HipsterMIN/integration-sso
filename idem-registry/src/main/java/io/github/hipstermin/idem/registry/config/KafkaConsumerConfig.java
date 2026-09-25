@@ -43,7 +43,7 @@ public class KafkaConsumerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Value("${spring.kafka.consumer.group-id:q-im-consumer}")
+    @Value("${spring.kafka.consumer.group-id:idem-registry-consumer}")
     private String groupId;
 
     @Bean

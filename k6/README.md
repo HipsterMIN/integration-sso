@@ -654,8 +654,8 @@ curl -sSL "https://github.com/grafana/k6/releases/download/${K6_VER}/k6-${K6_VER
 `AGENCY_CODE`를 여러 개 사용하거나 Redis TTL을 확인하세요:
 
 ```bash
-redis-cli keys "ido:rl:tps:*"
-redis-cli ttl "ido:rl:tps:AGENCY001:<epochSecond>"
+redis-cli keys "idem:rl:tps:*"
+redis-cli ttl "idem:rl:tps:AGENCY001:<epochSecond>"
 ```
 
 ---

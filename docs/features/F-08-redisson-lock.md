@@ -1,6 +1,6 @@
 # F-08: Redisson 분산 락 (기존 기능)
 
-> **환경변수**: `IDO_REDISSON_ENABLED`  
+> **환경변수**: `IDEM_HUB_REDISSON_ENABLED`  
 > **기본값**: `true` (운영 필수)  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/RedissonConfig.java` / `NoOpRedissonConfig.java`
 
@@ -30,7 +30,7 @@ F-08=false (NoOp 락):
 **단일 Pod 환경** (개발/테스트)에서만 false 허용:
 ```bash
 # 로컬 개발 (Docker Compose, 단일 Pod)
-IDO_REDISSON_ENABLED=false  # NoOpRedissonConfig 활성화
+IDEM_HUB_REDISSON_ENABLED=false  # NoOpRedissonConfig 활성화
 ```
 
 > ⚠️ **운영(K8s 다중 Pod) 환경에서 false는 절대 금지**

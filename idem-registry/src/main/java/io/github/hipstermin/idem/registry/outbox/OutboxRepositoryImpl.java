@@ -94,7 +94,7 @@ public class OutboxRepositoryImpl implements OutboxRepository {
                 .aggregateId(domain.getPartitionKey())   // partitionKey = qimUserId = aggregateId
                 .eventVersion(domain.getEventVersion())
                 .payload(domain.getPayload())
-                .topic("qim.user.events")                // 기본 토픽 (Relay 확장 시 변경)
+                .topic("idem.registry.user.events")                // 기본 토픽 (Relay 확장 시 변경)
                 .status(domain.getStatus() != null
                         ? domain.getStatus().name()
                         : OutboxRecord.OutboxStatus.PENDING.name())

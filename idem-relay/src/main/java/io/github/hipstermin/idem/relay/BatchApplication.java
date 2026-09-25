@@ -21,7 +21,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * │  outbox-relay-batch (이 서비스)                                                 │
  * │  └─ @SchedulerLock (ShedLock) 기반 분산 락 → 단일 인스턴스만 실행 보장           │
  * │  └─ FOR UPDATE SKIP LOCKED → DB 레코드 단위 중복 처리 방지 (이중 방어)           │
- * │  └─ ido.outbox / qim.outbox / qsign.outbox 각각 독립 JdbcTemplate 접근         │
+ * │  └─ idem.hub.outbox / idem.registry.outbox / idem.gate.outbox 각각 독립 JdbcTemplate 접근         │
  * │  └─ Redis ShedLock (Primary) + JDBC ShedLock (Fallback) 이중화                │
  * └──────────────────────────────────────────────────────────────────────────────┘
  * </pre>
@@ -46,7 +46,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * <ul>
  *   <li>기존 ido/q-im/q-sign의 인-프로세스 @Scheduled 릴레이는
  *       이 서비스 배포 후 Feature Flag으로 비활성화할 것
- *       (IDO_OUTBOX_RELAY_ENABLED=false, IDO_QIM_OUTBOX_RELAY_ENABLED=false 등)</li>
+ *       (IDEM_HUB_OUTBOX_RELAY_ENABLED=false, IDEM_HUB_REGISTRY_OUTBOX_RELAY_ENABLED=false 등)</li>
  *   <li>Redis 장애 시 JDBC ShedLock으로 자동 폴백 → ido DB의 shedlock 테이블 사용</li>
  *   <li>이 배치 서비스 자체가 다운되면 outbox PENDING 레코드가 적체됨 →
  *       K8s liveness/readiness probe + HPA 설정 필수</li>

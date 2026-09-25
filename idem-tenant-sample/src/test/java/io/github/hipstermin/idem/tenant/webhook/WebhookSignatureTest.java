@@ -84,7 +84,7 @@ class WebhookSignatureTest {
 
         @SuppressWarnings("unchecked")
         ResponseEntity<Map<String, String>> response = (ResponseEntity<Map<String, String>>)
-                controller.inbound(signature, timestamp, "corr-001", "ido", body);
+                controller.inbound(signature, timestamp, "corr-001", "idem-hub", body);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).containsEntry("status", "ACCEPTED");
@@ -106,7 +106,7 @@ class WebhookSignatureTest {
 
         @SuppressWarnings("unchecked")
         ResponseEntity<Map<String, String>> response = (ResponseEntity<Map<String, String>>)
-                controller.inbound(badSig, timestamp, "corr-001", "ido", body);
+                controller.inbound(badSig, timestamp, "corr-001", "idem-hub", body);
 
         assertThat(response.getStatusCode().value()).isEqualTo(401);
         assertThat(response.getBody()).containsKey("error");
@@ -123,7 +123,7 @@ class WebhookSignatureTest {
 
         @SuppressWarnings("unchecked")
         ResponseEntity<Map<String, String>> response = (ResponseEntity<Map<String, String>>)
-                controller.inbound(signature, oldTs, "corr-001", "ido", body);
+                controller.inbound(signature, oldTs, "corr-001", "idem-hub", body);
 
         assertThat(response.getStatusCode().value()).isEqualTo(401);
         assertThat(response.getBody().get("error")).isEqualTo("INVALID_TIMESTAMP");
@@ -137,7 +137,7 @@ class WebhookSignatureTest {
 
         @SuppressWarnings("unchecked")
         ResponseEntity<Map<String, String>> response = (ResponseEntity<Map<String, String>>)
-                controller.inbound("sha256=somevalue", null, "corr-001", "ido", body);
+                controller.inbound("sha256=somevalue", null, "corr-001", "idem-hub", body);
 
         assertThat(response.getStatusCode().value()).isEqualTo(401);
         assertThat(response.getBody().get("error")).isEqualTo("INVALID_TIMESTAMP");
@@ -159,7 +159,7 @@ class WebhookSignatureTest {
 
         @SuppressWarnings("unchecked")
         ResponseEntity<Map<String, String>> response = (ResponseEntity<Map<String, String>>)
-                controller.inbound(sig, ts, "corr-001", "ido", body);
+                controller.inbound(sig, ts, "corr-001", "idem-hub", body);
 
         // 서명은 정상, 타임스탬프도 유효 → ACCEPTED
         assertThat(response.getStatusCode().value()).isEqualTo(200);
@@ -185,7 +185,7 @@ class WebhookSignatureTest {
 
         @SuppressWarnings("unchecked")
         ResponseEntity<Map<String, String>> response = (ResponseEntity<Map<String, String>>)
-                controller.inbound(signature, timestamp, "corr-001", "ido", body);
+                controller.inbound(signature, timestamp, "corr-001", "idem-hub", body);
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody().get("status")).isEqualTo("ALREADY_PROCESSED");
@@ -217,7 +217,7 @@ class WebhookSignatureTest {
         when(agencySessionService.invalidateByTicketId(anyString(), anyString(), anyString()))
                 .thenReturn(1);
 
-        controller.inbound(sig, timestamp, "corr-001", "ido", body);
+        controller.inbound(sig, timestamp, "corr-001", "idem-hub", body);
 
         verify(agencySessionService, times(1))
                 .invalidateByTicketId(eq(ticketId), contains("HANDOFF_REVOKED"), any());
@@ -250,7 +250,7 @@ class WebhookSignatureTest {
         when(agencySessionService.invalidateByQimUserId(anyString(), anyString(), anyString()))
                 .thenReturn(2);
 
-        controller.inbound(sig, timestamp, "corr-001", "ido", body);
+        controller.inbound(sig, timestamp, "corr-001", "idem-hub", body);
 
         verify(agencySessionService, times(1))
                 .invalidateByQimUserId(eq(qimUserId), eq("MANDATORY_SECURITY_TERMINATE"), any());
@@ -276,7 +276,7 @@ class WebhookSignatureTest {
                 eq(Integer.class), eq(eventId), eq(AGENCY_CODE)
         )).thenReturn(0);
 
-        controller.inbound(sig, timestamp, "corr-001", "ido", body);
+        controller.inbound(sig, timestamp, "corr-001", "idem-hub", body);
 
         verify(agencySessionService, never()).invalidateByQimUserId(any(), any(), any());
     }
@@ -294,7 +294,7 @@ class WebhookSignatureTest {
 
         @SuppressWarnings("unchecked")
         ResponseEntity<Map<String, String>> response = (ResponseEntity<Map<String, String>>)
-                controller.inbound(sig, timestamp, "corr-001", "ido", badBody);
+                controller.inbound(sig, timestamp, "corr-001", "idem-hub", badBody);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody().get("error")).isEqualTo("INVALID_PAYLOAD");
@@ -310,7 +310,7 @@ class WebhookSignatureTest {
 
         @SuppressWarnings("unchecked")
         ResponseEntity<Map<String, String>> response = (ResponseEntity<Map<String, String>>)
-                controller.inbound(sig, timestamp, "corr-001", "ido", body);
+                controller.inbound(sig, timestamp, "corr-001", "idem-hub", body);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody().get("error")).isEqualTo("MISSING_EVENT_FIELDS");

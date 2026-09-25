@@ -55,8 +55,8 @@ import org.springframework.web.client.RestTemplate;
  * <h2>K8s Secret 등록 (운영 필수)</h2>
  * <pre>
  * kubectl create secret generic batch-mtls-cert \
- *   --from-literal=BATCH_MTLS_KEYSTORE_BASE64=$(base64 -w0 /path/to/client.p12) \
- *   --from-literal=BATCH_MTLS_KEYSTORE_PASS=&lt;keystore-password&gt; \
+ *   --from-literal=IDEM_RELAY_MTLS_KEYSTORE_BASE64=$(base64 -w0 /path/to/client.p12) \
+ *   --from-literal=IDEM_RELAY_MTLS_KEYSTORE_PASS=&lt;keystore-password&gt; \
  *   -n production
  *
  * # deployment.yml envFrom 추가
@@ -74,26 +74,26 @@ import org.springframework.web.client.RestTemplate;
 @Configuration
 public class BatchRestTemplateConfig {
 
-    @Value("${batch.http.connect-timeout-ms:3000}")
+    @Value("${idem.relay.http.connect-timeout-ms:3000}")
     private int connectTimeoutMs;
 
-    @Value("${batch.http.read-timeout-ms:8000}")
+    @Value("${idem.relay.http.read-timeout-ms:8000}")
     private int readTimeoutMs;
 
-    @Value("${batch.http.max-connections-total:100}")
+    @Value("${idem.relay.http.max-connections-total:100}")
     private int maxConnectionsTotal;
 
-    @Value("${batch.http.max-connections-per-route:20}")
+    @Value("${idem.relay.http.max-connections-per-route:20}")
     private int maxConnectionsPerRoute;
 
     // mTLS 설정 — K8s Secret envFrom으로 주입 (application.yml → 환경변수 바인딩)
-    @Value("${batch.http.mtls.keystore-base64:}")
+    @Value("${idem.relay.http.mtls.keystore-base64:}")
     private String mtlsKeystoreBase64;
 
-    @Value("${batch.http.mtls.keystore-password:}")
+    @Value("${idem.relay.http.mtls.keystore-password:}")
     private String mtlsKeystorePassword;
 
-    @Value("${batch.http.mtls.keystore-type:PKCS12}")
+    @Value("${idem.relay.http.mtls.keystore-type:PKCS12}")
     private String mtlsKeystoreType;
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -129,14 +129,14 @@ public class BatchRestTemplateConfig {
      * </ol>
      *
      * <p><b>Fallback 동작:</b>
-     * {@code BATCH_MTLS_KEYSTORE_BASE64} 환경변수 미설정 시 일반 TLS Fallback.
+     * {@code IDEM_RELAY_MTLS_KEYSTORE_BASE64} 환경변수 미설정 시 일반 TLS Fallback.
      * MTLS 기관 요청 시 서버가 클라이언트 인증서를 요구하면 핸드셰이크 실패 가능.
      */
     @Bean(name = "mtlsProvisioningRestTemplate")
     public RestTemplate mtlsProvisioningRestTemplate() {
         if (mtlsKeystoreBase64 == null || mtlsKeystoreBase64.isBlank()) {
             log.warn("[BatchRestTemplate] ⚠️  MTLS KeyStore 미설정 " +
-                     "(BATCH_MTLS_KEYSTORE_BASE64 환경변수 없음) " +
+                     "(IDEM_RELAY_MTLS_KEYSTORE_BASE64 환경변수 없음) " +
                      "→ 일반 TLS Fallback. MTLS 기관 있으면 운영 배포 전 K8s Secret 등록 필요.");
             return createRestTemplate("mtls-fallback", buildPlainConnectionManager());
         }

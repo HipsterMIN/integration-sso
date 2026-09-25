@@ -119,7 +119,7 @@
 - Idem 클레임: id_token/access_token 에 `identity_provider`(본인확인 경로)·`acr`(인증수준)·`idem_service`, userinfo 에 `idem_state(APPROVED|GUEST)`·`idem_subject`(프로파일 `identity.subjectScheme` 의 기관향 식별자, 기본 PAIRWISE)·`idem_subject_scheme`·`idem_roles`·`idem_assigned`·`idem_user_id`. 옵션 A 의 Handoff 어설션과 같은 어휘다.
 - 정책은 우회할 수 없다: 토큰 교환이 `403 access_denied` 로 끝나면 `error_description` 첫 토큰이 사유 코드다(`E-IDO-120` 미할당 등). 사용자 상태·할당이 뒤에 바뀌면 다음 userinfo 호출이 403 이 된다.
 - 로그아웃: RP-Initiated Logout(`end_session_endpoint`, `id_token_hint` 필수) 과 Back-Channel Logout(프로파일 `protocol.oidc.backchannelLogoutUri` 로 `logout_token` POST — `sid` 로 기관 세션을 끊으세요) 지원. Idem 쪽 세션 종료(관리자·다른 서비스의 로그아웃)도 같은 Back-Channel 로 옵니다.
-- 참조 구현: `idem-tenant-sample` 의 `agency-stub.protocol=OIDC_RP` 경로(`/agency/oidc/login·callback·logout·backchannel-logout`, `OidcRelyingPartyClient`) — 라이브러리 없이 필요한 검증을 전부 보여 줍니다. Spring Security OAuth2 Client 등 표준 라이브러리를 써도 같습니다.
+- 참조 구현: `idem-tenant-sample` 의 `idem.sample.protocol=OIDC_RP` 경로(`/agency/oidc/login·callback·logout·backchannel-logout`, `OidcRelyingPartyClient`) — 라이브러리 없이 필요한 검증을 전부 보여 줍니다. Spring Security OAuth2 Client 등 표준 라이브러리를 써도 같습니다.
 - **권장 대상**: 표준 OIDC 를 지원하는 기관 SSO/프레임워크. SAML 2.0 은 설계만 있고 구현 예정이다.
 
 > **현재 지원**: 옵션 A·B·C 를 지원합니다. 이 가이드는 주로 옵션 A(Handoff)를 기준으로 설명하며, 옵션 C 의 온보딩은 `docs/install.md` §5.1 을 따릅니다.
@@ -165,7 +165,7 @@ Agent 설치 (원패스 토큰 검증 자동화 시):
 
 ```
 네트워크:
-□ 기관 서버 → IdO 서버 (ido.onepass.go.kr:443) HTTPS 아웃바운드 허용
+□ 기관 서버 → IdO 서버 (idem.hub.onepass.go.kr:443) HTTPS 아웃바운드 허용
 □ Q-IM 서버 → 기관 API (api/v1/members/**) 인바운드 허용 (방화벽)
 
 서버:
@@ -434,7 +434,7 @@ CI(연계정보, Connecting Information)는 **주민등록번호로부터 파생
 
 **상황**: 기관 서버가 외부 인터넷과 완전히 격리된 폐쇄망
 
-**제약**: 원패스 서버(ido.onepass.go.kr)와 직접 통신 불가
+**제약**: 원패스 서버(idem.hub.onepass.go.kr)와 직접 통신 불가
 
 **대안**:
 - 전용 회선 또는 VPN 터널 구성

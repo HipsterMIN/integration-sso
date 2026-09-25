@@ -12,7 +12,7 @@ server:
 
 spring:
   application:
-    name: ido
+    name: idem-hub
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
@@ -82,7 +82,7 @@ spring:
     properties:
       security.protocol: PLAINTEXT
     producer:
-      client-id: ido-producer
+      client-id: idem-hub-producer
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all
@@ -96,7 +96,7 @@ spring:
         spring.json.add.type.headers: "false"
         transactional.id: ido-tx-producer
     consumer:
-      group-id: ido-qim-consumer          # Q-IM 이벤트 수신 컨슈머 그룹
+      group-id: idem-hub-registry-consumer          # Q-IM 이벤트 수신 컨슈머 그룹
       auto-offset-reset: earliest
       enable-auto-commit: false
       max-poll-records: 50
@@ -111,7 +111,7 @@ spring:
       missing-topics-fatal: true
 
 # ── IdO 도메인 설정 ────────────────────────────────────────────
-ido:
+idem.hub:
 
   # ── S7-T2: NICE/OACX 본인인증 연동 (AuthProperties 바인딩) ──────────────
   # 설계 결정: Q1=B(API Key 없음), Q2=B(callback 추가), Q3=B(CI FE 미반환), Q4=A(WebClient)
@@ -147,19 +147,19 @@ ido:
     # ── Auth 엔드포인트 IP 기반 Rate Limiting (S9-T7) ─────────────────────────
     # /api/v1/auth/** 경로 전용 제한 (NICE/OACX 인증 API 남용 방지)
     # 기관별 Rate Limit(AgencyRateLimiter)과 독립적으로 동작 (AND 조건)
-    # ⚠️ F-01 독립 환경변수: IDO_AUTH_RL_ENABLED (F-02의 IDO_RATE_LIMIT_ENABLED와 분리)
+    # ⚠️ F-01 독립 환경변수: IDEM_HUB_AUTH_RL_ENABLED (F-02의 IDEM_HUB_RATE_LIMIT_ENABLED와 분리)
     rate-limit:
-      enabled:    ${IDO_AUTH_RL_ENABLED:true}
+      enabled:    ${IDEM_HUB_AUTH_RL_ENABLED:true}
       # TPS: 초당 최대 요청 수 (IP 단위)
       # 기본 20 req/s — 정상 사용자는 버튼 1회 클릭 시 1~3 req 발생
       # NICE 인증 flow: URL 발급(1) + 결과 조회(1) = 2 req
-      tps:        ${IDO_AUTH_RL_TPS:20}
+      tps:        ${IDEM_HUB_AUTH_RL_TPS:20}
       # 분당 최대 요청 수 (IP 단위)
       # 기본 100 req/min — 연속 재시도 허용 범위
-      per-minute: ${IDO_AUTH_RL_PER_MIN:100}
+      per-minute: ${IDEM_HUB_AUTH_RL_PER_MIN:100}
       # 일별 최대 요청 수 (IP 단위)
       # 기본 1000 req/day — 하루 인증 시도 횟수 제한
-      daily:      ${IDO_AUTH_RL_DAILY:1000}
+      daily:      ${IDEM_HUB_AUTH_RL_DAILY:1000}
 
   # ── F4.8 (Sprint β-2) 내부 호출자 인증 ─────────────────────────────────
   # /api/v1/fe-session (POST), /api/v1/fe-session/conversion (POST) 호출 시
@@ -167,54 +167,54 @@ ido:
   #
   # 운영: 각 호출 서비스(q-sign, outbox-relay 등)별로 강력한 무작위 키(≥32자)를
   # K8s Secret / Vault → 환경변수로 주입한다.
-  #   IDO_INTERNAL_API_KEY_QSIGN=<openssl rand -hex 32>
+  #   IDEM_HUB_INTERNAL_API_KEY_GATE=<openssl rand -hex 32>
   #
   # ⚠️ allow-empty-callers=false 운영 시 callers 가 비면 부팅 실패 (F4.3 패턴 재사용).
   internal:
     callers:
-      q-sign:       ${IDO_INTERNAL_API_KEY_QSIGN:}
-      outbox-relay: ${IDO_INTERNAL_API_KEY_OUTBOX:}
-    allow-empty-callers: ${IDO_INTERNAL_ALLOW_EMPTY_CALLERS:false}
-    # D2 fail-secure: IDO_INTERNAL_SIG_SECRET 이 비면 기동 거부 (FailSecureBootGuard). 로컬·테스트에서만 true
-    allow-empty-sig-secret: ${IDO_INTERNAL_ALLOW_EMPTY_SIG_SECRET:false}
+      idem-gate:  ${IDEM_HUB_INTERNAL_API_KEY_GATE:}
+      idem-relay: ${IDEM_HUB_INTERNAL_API_KEY_RELAY:}
+    allow-empty-callers: ${IDEM_HUB_INTERNAL_ALLOW_EMPTY_CALLERS:false}
+    # D2 fail-secure: IDEM_HUB_INTERNAL_SIG_SECRET 이 비면 기동 거부 (FailSecureBootGuard). 로컬·테스트에서만 true
+    allow-empty-sig-secret: ${IDEM_HUB_INTERNAL_ALLOW_EMPTY_SIG_SECRET:false}
 
   # §11.5 Q-IM 연동
-  qim:
-    base-url: ${QIM_BASE_URL:http://localhost:8082}
+  registry:
+    base-url: ${IDEM_REGISTRY_BASE_URL:http://localhost:8082}
     cache-ttl-seconds: 300           # ≤5분 (설계서 §11.3)
     agency-meta-ttl-seconds: 3600    # ≤60분 (기관 메타·정책 캐시)
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
     # [P2 수정] Q-IM 내부 API 호출 키 — 환경변수 주입 (하드코딩 'ido-internal' 제거)
-    # 운영: K8s Secret / Vault → IDO_QIM_INTERNAL_API_KEY 환경변수로 주입
-    # 로컬 개발: docker-compose.yml에서 IDO_QIM_INTERNAL_API_KEY=ido-internal 설정
+    # 운영: K8s Secret / Vault → IDEM_HUB_REGISTRY_INTERNAL_API_KEY 환경변수로 주입
+    # 로컬 개발: docker-compose.yml에서 IDEM_HUB_REGISTRY_INTERNAL_API_KEY=ido-internal 설정
     # ⚠️ 미설정 시 Q-IM API 호출 시 X-Internal-Api-Key 헤더 누락 → Q-IM 서버 401 응답
-    internal-api-key: ${IDO_QIM_INTERNAL_API_KEY:}
+    internal-api-key: ${IDEM_HUB_REGISTRY_INTERNAL_API_KEY:}
     # Q-IM 외부 API 키 — ExtProxyController가 FE 대신 X-Ext-Api-Key 헤더로 주입 (Q3=B)
     # FE webpack DefinePlugin EXT_API_KEY 번들 노출 문제 해결:
     # FE extInstance → beApiInstance 전환 후 이 환경변수로 API Key 관리
-    # 운영: K8s Secret / Vault → IDO_QIM_EXT_API_KEY 환경변수로 주입
-    ext-api-key: ${IDO_QIM_EXT_API_KEY:}
+    # 운영: K8s Secret / Vault → IDEM_HUB_REGISTRY_EXT_API_KEY 환경변수로 주입
+    ext-api-key: ${IDEM_HUB_REGISTRY_EXT_API_KEY:}
     # ── Q-IM → IdO 아웃바운드 수신 API (SP 역할) ─────────────────────────
     # Q-IM 관리 콘솔에서 발급한 API Key PBKDF2 해시
     # 포맷: pbkdf2:{iterations}:{saltBase64}:{hashBase64}
     # 생성: scripts/generate-api-key-hash.sh 스크립트 사용
-    # 운영: QIM_INBOUND_API_KEY_HASH 환경변수 필수 설정 (미설정 시 모든 SP API 거부)
-    inbound-api-key-hash: ${QIM_INBOUND_API_KEY_HASH:}
+    # 운영: IDEM_REGISTRY_INBOUND_API_KEY_HASH 환경변수 필수 설정 (미설정 시 모든 SP API 거부)
+    inbound-api-key-hash: ${IDEM_REGISTRY_INBOUND_API_KEY_HASH:}
     # Q-IM과 협의하여 발급받은 AES-256 공유키 (Base64 인코딩, 32바이트 디코드)
     # [합의 필요 #1] Q-IM 팀과 암호화 스펙(transformation/IV 방식) 협의 후 확정
-    # 운영: QIM_AES_SHARED_KEY 환경변수 필수 설정 (미설정 시 AES 복호화 불가)
-    aes-shared-key: ${QIM_AES_SHARED_KEY:}
+    # 운영: IDEM_REGISTRY_AES_SHARED_KEY 환경변수 필수 설정 (미설정 시 AES 복호화 불가)
+    aes-shared-key: ${IDEM_REGISTRY_AES_SHARED_KEY:}
     # D2 fail-secure: 공유키가 비었거나 placeholder·길이 오류면 기동 거부. 로컬·테스트에서만 true
-    allow-empty-aes-key: ${IDO_QIM_ALLOW_EMPTY_AES_KEY:false}
-    # AES 변환 방식 (Q-IM 팀 합의 후 QIM_AES_TRANSFORMATION 환경변수로 확정)
-    aes-transformation: ${QIM_AES_TRANSFORMATION:AES/CBC/PKCS5Padding}
+    allow-empty-aes-key: ${IDEM_HUB_REGISTRY_ALLOW_EMPTY_AES_KEY:false}
+    # AES 변환 방식 (Q-IM 팀 합의 후 IDEM_REGISTRY_AES_TRANSFORMATION 환경변수로 확정)
+    aes-transformation: ${IDEM_REGISTRY_AES_TRANSFORMATION:AES/CBC/PKCS5Padding}
     # AES IV 길이 (바이트, 기본 16)
-    aes-iv-length: ${QIM_AES_IV_LENGTH:16}
+    aes-iv-length: ${IDEM_REGISTRY_AES_IV_LENGTH:16}
     # SP 수신 API 멱등성 키 TTL (일) — sp_receiver_idempotency.expires_at 기준
     idempotency-ttl-days: 7
     # SP 수신 감사 로그 활성화 (운영: true 권장)
-    receiver-audit-enabled: ${QIM_RECEIVER_AUDIT:true}
+    receiver-audit-enabled: ${IDEM_REGISTRY_RECEIVER_AUDIT:true}
 
   # (S8-a) FE AES-GCM 키(CI 토큰 교환)는 KR 에디션(idem-kr-hub) 기본값으로 이동
 
@@ -222,28 +222,28 @@ ido:
   # 토큰(CAST/Handoff) 발급 시 사용자×대상기관 유효 역할 조회 → roles[] 클레임 임베드.
   # GET /api/v1/internal/authz/users/{qimUserId}/effective-roles?agencyCode=...
   # ⚠️ 장애·미설정 시 QAuthzClient가 fail-open(빈 역할) — SSO/Handoff 발급은 계속됨.
-  q-authz:
+  authz:
     # D2 fail-secure: authz 조회 실패 = 거부(503). authz 없는 SSO 단독 설치는 enabled=false 로 명시
-    enabled: ${IDO_QAUTHZ_ENABLED:true}
-    allow-empty-api-key: ${IDO_QAUTHZ_ALLOW_EMPTY_API_KEY:false}
-    base-url: ${QAUTHZ_BASE_URL:http://localhost:8086}
+    enabled: ${IDEM_HUB_AUTHZ_ENABLED:true}
+    allow-empty-api-key: ${IDEM_HUB_AUTHZ_ALLOW_EMPTY_API_KEY:false}
+    base-url: ${IDEM_HUB_AUTHZ_BASE_URL:http://localhost:8086}
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
-    # 운영: K8s Secret / Vault → IDO_QAUTHZ_INTERNAL_API_KEY 환경변수 주입
+    # 운영: K8s Secret / Vault → IDEM_HUB_AUTHZ_INTERNAL_API_KEY 환경변수 주입
     # 미설정 시 q-authz가 401 → 빈 역할 fail-open(경고 로그)
-    internal-api-key: ${IDO_QAUTHZ_INTERNAL_API_KEY:}
+    internal-api-key: ${IDEM_HUB_AUTHZ_INTERNAL_API_KEY:}
 
   # §11.8 Q-Sign 연동 — X-Internal-Sig
-  qsign:
-    base-url: ${QSIGN_BASE_URL:http://localhost:8081}
+  gate:
+    base-url: ${IDEM_GATE_BASE_URL:http://localhost:8081}
     internal-sig-ttl-seconds: 60
     nonce-ttl-seconds: 60
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
     # X-Internal-Sig HMAC-SHA256 공유 비밀키 (Q-Sign 동일 값 사용)
-    # 운영: IDO_INTERNAL_SIG_SECRET 환경변수 필수 설정 (최소 32자 이상 무작위 문자열)
+    # 운영: IDEM_HUB_INTERNAL_SIG_SECRET 환경변수 필수 설정 (최소 32자 이상 무작위 문자열)
     # 생성 예: openssl rand -hex 32
-    internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:}
+    internal-sig-secret: ${IDEM_HUB_INTERNAL_SIG_SECRET:}
 
   # ── 브로커 모드 설정 (표준 OIDC 처리 백엔드 선택 — 문서 §6) ────────────
   #
@@ -253,24 +253,24 @@ ido:
   # qsign    : [표준 OIDC] q-sign에 URL 발급 위임 (기본값)
   # keycloak : [표준 OIDC] ido가 직접 Keycloak Authorization URL 생성
   #
-  # [비표준 OIDC] — IDO_BROKER_MODE 값과 무관하게 항상 ido 직접 처리:
+  # [비표준 OIDC] — IDEM_HUB_BROKER_MODE 값과 무관하게 항상 ido 직접 처리:
   #   플러그인 DirectBrokerAdapter 가 맡는 인증수단(KR 에디션 idem-plugin-anyid: MOBILE_ID / EASY_SIGN / JOINT_CERT / FINANCIAL_CERT / PRIVATE_ID)
   #   PASS 등 기타 비표준 → NonOidcBrokerAdapter
   broker:
     # D2 fail-secure: CI 없는 인증 결과를 identifierHash 로 세션 발급하던 PoC 폴백 — 기본 금지(422), 로컬·테스트에서만 true
-    allow-ciless-identity: ${IDO_BROKER_ALLOW_CILESS_IDENTITY:false}
-    mode: ${IDO_BROKER_MODE:qsign}
+    allow-ciless-identity: ${IDEM_HUB_BROKER_ALLOW_CILESS_IDENTITY:false}
+    mode: ${IDEM_HUB_BROKER_MODE:qsign}
     # D3: 비OIDC 직접 브로커 사업자 목록 — 코어는 비어 있다. KR 에디션 후처리기가 PASS·FINANCIAL_CERT·GPKI·JOINT_CERT 를 넣는다.
     #   providers.{CODE}: { initiate-url: "https://…?callback={callbackUrl}&cid={correlationId}", auth-level: L2, tx-prefix: CODE }
     nonoidc:
       providers: {}
 
   # ── Any-ID 설치형 연동 설정: S5b 부터 코어에 없다 ─────────────────────────────
-  # ido.anyid.* 기본값·환경변수(ANYID_*) 매핑은 plugins/idem-plugin-anyid 의 idem-plugin-anyid-defaults.yml 이 올린다.
+  # idem.hub.anyid.* 기본값·환경변수(ANYID_*) 매핑은 plugins/idem-plugin-anyid 의 idem-plugin-anyid-defaults.yml 이 올린다.
   # 운영기관 식별자·자격증명은 환경변수·K8s Secret 으로만 주입한다.
 
   # ── Keycloak OIDC 브로커 설정 (문서 §7, §10) ──────────────────────────
-  # ido.broker.mode=keycloak 전환 시 아래 설정 활성화
+  # idem.hub.broker.mode=keycloak 전환 시 아래 설정 활성화
   keycloak:
     # Keycloak 서버 URL (로컬: http://localhost:8088, Docker: http://keycloak:8088)
     base-url: ${KEYCLOAK_BASE_URL:http://localhost:8088}
@@ -281,7 +281,7 @@ ido:
     # ido-client 클라이언트 시크릿 (§10-2 — Keycloak Admin Console에서 생성)
     # [Sprint γ-1 / F2.1] default("change-me") 제거 → 미설정 시
     # KeycloakProperties.validateClientSecret() 가 부팅을 차단.
-    # 테스트/로컬은 ido.keycloak.allow-empty-client-secret=true 로 우회.
+    # 테스트/로컬은 idem.hub.keycloak.allow-empty-client-secret=true 로 우회.
     client-secret: ${KEYCLOAK_CLIENT_SECRET:}
     # Keycloak 콜백 redirect_uri (§10-2 Valid Redirect URIs에 등록 필수)
     redirect-uri: ${KEYCLOAK_REDIRECT_URI:http://localhost:8083/api/v1/broker/callback}
@@ -306,7 +306,7 @@ ido:
   # issuer 는 gate 공개 URL 아래 /realms/{realm} — Keycloak 의 KC_HOSTNAME_URL(=gate 공개 URL)과 같아야 한다.
   # Keycloak client 는 Idem 이 Service Profile(protocol.oidc)에서 프로비저닝한다(콘솔 조작 없음).
   oidc-rp:
-    enabled: ${IDO_OIDC_RP_ENABLED:true}
+    enabled: ${IDEM_HUB_OIDC_RP_ENABLED:true}
     issuer: ${IDEM_OIDC_ISSUER:${IDEM_PUBLIC_URL_GATE:http://localhost:8081}/realms/${KEYCLOAK_REALM:onepass}}
     client-id-prefix: idem-svc-
     provisioner:
@@ -315,33 +315,33 @@ ido:
       client-secret: ${KEYCLOAK_PROVISIONER_CLIENT_SECRET:}
       connect-timeout-ms: 3000
       read-timeout-ms: 5000
-    # NOTE(P1): Kafka 인증 이벤트 토픽은 ido.kafka.topic-auth-events 로 통일.
-    # KeycloakOidcService / NonOidcAuthService 모두 ${ido.kafka.topic-auth-events} 참조.
-    # 이전에 있던 ido.keycloak.auth-events-topic 키는 제거 — ido.kafka.topic-auth-events 사용.
+    # NOTE(P1): Kafka 인증 이벤트 토픽은 idem.hub.kafka.topic-auth-events 로 통일.
+    # KeycloakOidcService / NonOidcAuthService 모두 ${idem.hub.kafka.topic-auth-events} 참조.
+    # 이전에 있던 idem.hub.keycloak.auth-events-topic 키는 제거 — idem.hub.kafka.topic-auth-events 사용.
 
   # ── S7 관리자 인증 (docs/admin-auth.md, ADR-015) ────────────────────────────
   admin:
     bootstrap:
-      username: ${IDEM_ADMIN_BOOTSTRAP_USERNAME:admin}
-      password: ${IDEM_ADMIN_BOOTSTRAP_PASSWORD:}          # 관리자가 없을 때만 쓰인다. 비면 hardened 프로파일은 기동 거부
+      username: ${IDEM_HUB_ADMIN_BOOTSTRAP_USERNAME:admin}
+      password: ${IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD:}          # 관리자가 없을 때만 쓰인다. 비면 hardened 프로파일은 기동 거부
       require-password-change: true                        # 운영 필수 (FailSecureBootGuard)
-    secret-key: ${IDEM_ADMIN_SECRET_KEY:}                  # TOTP 비밀 봉인 AES-256 키 (base64 32바이트)
-    allow-derived-secret-key: ${IDEM_ADMIN_ALLOW_DERIVED_SECRET_KEY:false}   # 로컬 전용 탈출구
+    secret-key: ${IDEM_HUB_ADMIN_SECRET_KEY:}                  # TOTP 비밀 봉인 AES-256 키 (base64 32바이트)
+    allow-derived-secret-key: ${IDEM_HUB_ADMIN_ALLOW_DERIVED_SECRET_KEY:false}   # 로컬 전용 탈출구
     session:
-      idle-minutes: ${IDEM_ADMIN_SESSION_IDLE_MINUTES:15}
-      absolute-minutes: ${IDEM_ADMIN_SESSION_ABSOLUTE_MINUTES:480}
+      idle-minutes: ${IDEM_HUB_ADMIN_SESSION_IDLE_MINUTES:15}
+      absolute-minutes: ${IDEM_HUB_ADMIN_SESSION_ABSOLUTE_MINUTES:480}
       concurrent: 1
       mfa-token-seconds: 300
     cookie:
       name: idemAdminSid
-      secure: ${IDEM_ADMIN_COOKIE_SECURE:true}             # http 로컬만 false. 운영 필수 true
+      secure: ${IDEM_HUB_ADMIN_COOKIE_SECURE:true}             # http 로컬만 false. 운영 필수 true
       same-site: Strict
     lock:
       max-attempts: 5
       duration-minutes: 15
     mfa:
-      required: ${IDEM_ADMIN_MFA_REQUIRED:true}             # 운영 필수 true
-      issuer: ${IDEM_ADMIN_MFA_ISSUER:Idem}
+      required: ${IDEM_HUB_ADMIN_MFA_REQUIRED:true}             # 운영 필수 true
+      issuer: ${IDEM_HUB_ADMIN_MFA_ISSUER:Idem}
       window: 1
     password:
       min-length: 10
@@ -349,7 +349,7 @@ ido:
       history: 3
 
   # 플랫폼 API 버전 (Webhook 헤더, Payload 등에 사용)
-  platform-version: ${IDO_PLATFORM_VERSION:1.0}
+  platform-version: ${IDEM_HUB_PLATFORM_VERSION:1.0}
   # D3: 이 설치본의 플랫폼 코드 — CAST(기관 간 SSO) 의 sourceAgency 등 (종전 고정값 "ONEPASS")
   platform:
     code: ${IDEM_PLATFORM_CODE:IDEM}
@@ -358,11 +358,11 @@ ido:
 
   # provider_circuit_config 캐시 (ProviderCircuitBreakerConfig / ProviderConfigRepository)
   provider:
-    circuit-cache-ttl-seconds: ${IDO_PROVIDER_CIRCUIT_CACHE_TTL:3600}
+    circuit-cache-ttl-seconds: ${IDEM_HUB_PROVIDER_CIRCUIT_CACHE_TTL:3600}
 
   # §11.2 기관 정책 기본값
   policy:
-    default-version: ${IDO_DEFAULT_POLICY_VERSION:1.0}   # 신규 기관 생성 시 policyVersion 기본값
+    default-version: ${IDEM_HUB_DEFAULT_POLICY_VERSION:1.0}   # 신규 기관 생성 시 policyVersion 기본값
 
   # §16.4 Handoff Ticket 설정
   ticket:
@@ -374,13 +374,13 @@ ido:
     reuse-block-threshold: 3
     # ── Handoff Ticket 폴백 키 (Sprint γ-3 / F3.3 후속) ────────────────────
     # KeyVersionRegistry 가 읽는 폴백 키. Redis/DB(KMS) 경로 실패 시 사용된다.
-    # 환경변수 IDO_HANDOFF_AES_KEY / IDO_HANDOFF_HMAC_KEY 로 주입 — 운영 의무.
+    # 환경변수 IDEM_HUB_HANDOFF_AES_KEY / IDEM_HUB_HANDOFF_HMAC_KEY 로 주입 — 운영 의무.
     # default("AAAA...=" 32바이트 0x00) 제거 →
     #   미설정 시 KeyVersionRegistry.validateFallbackKeys() 가 부팅 차단(CrashLoopBackOff).
     # 32바이트 무작위 키 생성: openssl rand -base64 32
-    # 테스트/로컬은 ido.ticket.allow-empty-fallback-keys=true 로 우회.
-    aes-key:  ${IDO_HANDOFF_AES_KEY:}
-    hmac-key: ${IDO_HANDOFF_HMAC_KEY:}
+    # 테스트/로컬은 idem.hub.ticket.allow-empty-fallback-keys=true 로 우회.
+    aes-key:  ${IDEM_HUB_HANDOFF_AES_KEY:}
+    hmac-key: ${IDEM_HUB_HANDOFF_HMAC_KEY:}
 
   # §16.4.1 Clock Skew 허용
   clock-skew-tolerance-minutes: 5
@@ -391,9 +391,9 @@ ido:
       sliding-ttl-minutes: 30            # §12.4 Sliding TTL
       absolute-timeout-minutes: 480      # §12.4 절대 만료 (8h)
     # returnUrl 화이트리스트 (§12.6 — 기관 callback_whitelist 보조) — 쉼표 구분 목록.
-    # 운영기관·연동기관 URL 은 설치 시 IDO_FE_ALLOWED_RETURN_URLS 로 주입한다 (코어 기본값은 로컬 개발용, S1 범용화).
+    # 운영기관·연동기관 URL 은 설치 시 IDEM_HUB_FE_ALLOWED_RETURN_URLS 로 주입한다 (코어 기본값은 로컬 개발용, S1 범용화).
     # 주의: 이전에는 YAML 시퀀스였는데 @Value 가 시퀀스를 해석하지 못해 목록이 비어 있었다 → 스칼라(쉼표 구분)로 전환.
-    allowed-return-urls: ${IDO_FE_ALLOWED_RETURN_URLS:http://localhost:3000,http://localhost:3001}
+    allowed-return-urls: ${IDEM_HUB_FE_ALLOWED_RETURN_URLS:http://localhost:3000,http://localhost:3001}
       - ${AGENCY_STUB_URL:http://localhost:8084}
       - ${REACT_DEV_URL:http://localhost:3000}
       - ${REACT_PROD_URL:http://localhost:3001}
@@ -402,31 +402,31 @@ ido:
 
   # Kafka 토픽
   kafka:
-    topic-handoff-events: ido.handoff.events
+    topic-handoff-events: idem.hub.handoff.events
     topic-session-advisory: platform.session.advisory
-    # P1 수정: KeycloakOidcService / NonOidcAuthService @Value(${ido.kafka.topic-auth-events}) 키와 일치
-    topic-auth-events: ${IDO_KAFKA_TOPIC_AUTH_EVENTS:qsign.auth.events}
-    consumer-group-qim: ido-qim-consumer               # qim.user.events 구독
-    consumer-group-qsign: ido-qsign-consumer            # qsign.auth.events 구독
+    # P1 수정: KeycloakOidcService / NonOidcAuthService @Value(${idem.hub.kafka.topic-auth-events}) 키와 일치
+    topic-auth-events: ${IDEM_HUB_KAFKA_TOPIC_AUTH_EVENTS:idem.gate.auth.events}
+    consumer-group-qim: idem-hub-registry-consumer               # idem.registry.user.events 구독
+    consumer-group-qsign: ido-qsign-consumer            # idem.gate.auth.events 구독
     consumer-group-fe-advisory: ido-fe-advisory-consumer  # platform.session.advisory 구독 (FE 세션)
     # Q-IM SP 수신 API 내부 전파 컨슈머 (QimSpMemberEventConsumer) — QIM-OUTBOX-SPEC-001
-    # topic-qim-user-events: qim.user.events 로 전환 (KafkaTopicConfig에 신규 빈 추가)
-    topic-qim-user-events: ${QIM_USER_EVENTS_TOPIC:qim.user.events}
+    # topic-qim-user-events: idem.registry.user.events 로 전환 (KafkaTopicConfig에 신규 빈 추가)
+    topic-registry-user-events: ${IDEM_REGISTRY_USER_EVENTS_TOPIC:idem.registry.user.events}
     consumer-group-qim-member: ido-qim-member-consumer
-    # qim.agency.events (기관 이벤트, 파티션 3, 보존 365일)
-    topic-qim-agency-events: ${QIM_AGENCY_EVENTS_TOPIC:qim.agency.events}
+    # idem.registry.agency.events (기관 이벤트, 파티션 3, 보존 365일)
+    topic-registry-agency-events: ${IDEM_REGISTRY_AGENCY_EVENTS_TOPIC:idem.registry.agency.events}
     # ── Deprecated (QIM-OUTBOX-SPEC-001 마이그레이션 완료 후 제거 예정) ──────
-    topic-qim-sp-member-events: ${QIM_SP_MEMBER_TOPIC:qim.sp.member.events}
+    topic-registry-sp-member-events: ${IDEM_REGISTRY_SP_MEMBER_TOPIC:idem.registry.sp.member.events}
     consumer-group-qim-sp-member: ido-qim-sp-member-consumer
     # Handoff 이벤트 컨슈머 (HandoffEventConsumer → WebhookDispatcherService)
     consumer-group-handoff: ido-handoff-consumer
     # 60,000명 대응 파티션/복제 설정 (KafkaTopicConfig 참조)
     # PoC: partition-count-main=12(기본), replication-factor=1, min-insync-replicas=1
-    # 운영 3-broker: 환경변수 IDO_KAFKA_PARTITION_COUNT_MAIN=12, REPLICATION_FACTOR=3, ISR=2
-    partition-count-main: ${IDO_KAFKA_PARTITION_COUNT_MAIN:12}
-    partition-count-dlq:  ${IDO_KAFKA_PARTITION_COUNT_DLQ:6}
-    replication-factor:   ${IDO_KAFKA_REPLICATION_FACTOR:1}
-    min-insync-replicas:  ${IDO_KAFKA_MIN_INSYNC_REPLICAS:1}
+    # 운영 3-broker: 환경변수 IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN=12, REPLICATION_FACTOR=3, ISR=2
+    partition-count-main: ${IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN:12}
+    partition-count-dlq:  ${IDEM_HUB_KAFKA_PARTITION_COUNT_DLQ:6}
+    replication-factor:   ${IDEM_HUB_KAFKA_REPLICATION_FACTOR:1}
+    min-insync-replicas:  ${IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS:1}
 
   # ── Webhook Dispatcher 설정 ────────────────────────────────────────────
   # 기관 외부 HTTPS webhook 발송 Outbox Relay 설정
@@ -441,11 +441,11 @@ ido:
     connect-timeout-ms: 3000
     read-timeout-ms: 8000
     # ── Sprint α-3 / F4.3 — HMAC-SHA256 기본 서명 비밀키 ─────────────────
-    # 운영: 환경변수 IDO_WEBHOOK_SIGNING_SECRET (또는 Vault) 강제 주입.
+    # 운영: 환경변수 IDEM_HUB_WEBHOOK_SIGNING_SECRET (또는 Vault) 강제 주입.
     # 미설정 시 WebhookDispatcherService.validateSigningSecret() 가 부팅 단계에서 fail-fast.
     # 테스트/로컬 컨텍스트에서만 allow-empty-secret=true 로 우회 (application-local.yml / test yml에서 활성).
-    signing-secret: ${IDO_WEBHOOK_SIGNING_SECRET:}
-    allow-empty-secret: ${IDO_WEBHOOK_ALLOW_EMPTY_SECRET:false}
+    signing-secret: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:}
+    allow-empty-secret: ${IDEM_HUB_WEBHOOK_ALLOW_EMPTY_SECRET:false}
 
   # ── 60k 급증 대응 — Redis Pre-warming (Burst Absorption) ──────────────
   burst:
@@ -458,11 +458,11 @@ ido:
   # 운영 3-broker: partition-count-main=12, replication-factor=3, min-insync-replicas=2
   # (KafkaTopicConfig 참조)
   # kafka.partition-count-main, replication-factor, min-insync-replicas는
-  # ido.kafka.* 네임스페이스가 아닌 KafkaTopicConfig @Value로 직접 주입됨.
+  # idem.hub.kafka.* 네임스페이스가 아닌 KafkaTopicConfig @Value로 직접 주입됨.
   # 아래는 해당 설정을 위한 표준 위치 안내 주석 — 실제 값은 환경변수 또는 k8s ConfigMap으로 주입.
-  # IDO_KAFKA_PARTITION_COUNT_MAIN=12
-  # IDO_KAFKA_REPLICATION_FACTOR=3
-  # IDO_KAFKA_MIN_INSYNC_REPLICAS=2
+  # IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN=12
+  # IDEM_HUB_KAFKA_REPLICATION_FACTOR=3
+  # IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS=2
 
   # ── CORS (React dev-server / Nginx → IdO) ──────────────────────────────
   # BFF 이관에 따라 CORS 허용 Origin 관리
@@ -475,80 +475,80 @@ ido:
   # ── Async Executor 설정 ───────────────────────────────────────────────────
   async:
     audit:
-      core-pool-size: ${IDO_AUDIT_EXECUTOR_CORE:4}
-      max-pool-size:  ${IDO_AUDIT_EXECUTOR_MAX:16}
-      queue-capacity: ${IDO_AUDIT_EXECUTOR_QUEUE:10000}
+      core-pool-size: ${IDEM_HUB_AUDIT_EXECUTOR_CORE:4}
+      max-pool-size:  ${IDEM_HUB_AUDIT_EXECUTOR_MAX:16}
+      queue-capacity: ${IDEM_HUB_AUDIT_EXECUTOR_QUEUE:10000}
       keep-alive-seconds: 60
     webhook:
-      core-pool-size: ${IDO_WEBHOOK_EXECUTOR_CORE:4}
-      max-pool-size:  ${IDO_WEBHOOK_EXECUTOR_MAX:20}
-      queue-capacity: ${IDO_WEBHOOK_EXECUTOR_QUEUE:5000}
+      core-pool-size: ${IDEM_HUB_WEBHOOK_EXECUTOR_CORE:4}
+      max-pool-size:  ${IDEM_HUB_WEBHOOK_EXECUTOR_MAX:20}
+      queue-capacity: ${IDEM_HUB_WEBHOOK_EXECUTOR_QUEUE:5000}
 
   audit:
-    # F-03: Kafka 감사 발행 On/Off (IDO_AUDIT_KAFKA_ENABLED) — Kafka 없는 환경 false 권장
-    kafka-publish-enabled: ${IDO_AUDIT_KAFKA_ENABLED:true}
-    # F-04: DB 감사 저장 On/Off (IDO_AUDIT_DB_ENABLED) — ⚠️ 운영에서 false 금지
-    db-save-enabled: ${IDO_AUDIT_DB_ENABLED:true}
+    # F-03: Kafka 감사 발행 On/Off (IDEM_HUB_AUDIT_KAFKA_ENABLED) — Kafka 없는 환경 false 권장
+    kafka-publish-enabled: ${IDEM_HUB_AUDIT_KAFKA_ENABLED:true}
+    # F-04: DB 감사 저장 On/Off (IDEM_HUB_AUDIT_DB_ENABLED) — ⚠️ 운영에서 false 금지
+    db-save-enabled: ${IDEM_HUB_AUDIT_DB_ENABLED:true}
     retry-interval-ms: 600000   # 10분마다 Kafka 미발행 감사 로그 재처리
 
   # ── Rate Limiting (Redis 기반 기관별 TPS/Daily 제한) ──────────────────────
   rate-limit:
-    enabled:              ${IDO_RATE_LIMIT_ENABLED:true}
-    default-tps:          ${IDO_RATE_LIMIT_DEFAULT_TPS:200}
-    default-daily-limit:  ${IDO_RATE_LIMIT_DEFAULT_DAILY:1000000}
+    enabled:              ${IDEM_HUB_RATE_LIMIT_ENABLED:true}
+    default-tps:          ${IDEM_HUB_RATE_LIMIT_DEFAULT_TPS:200}
+    default-daily-limit:  ${IDEM_HUB_RATE_LIMIT_DEFAULT_DAILY:1000000}
 
   # ── F-08: Redisson 분산 락 On/Off ──────────────────────────────────────────
   # false → NoOpRedissonConfig 사용 (Redis 없는 환경 앱 기동 가능)
   # ⚠️ K8s 다중 Pod 환경에서는 반드시 true
   redisson:
-    enabled: ${IDO_REDISSON_ENABLED:true}
+    enabled: ${IDEM_HUB_REDISSON_ENABLED:true}
 
   # ── F-10: 보안 응답 헤더 On/Off ──────────────────────────────────────────
   # false → SecurityHeadersFilter 빈 미등록 (FE 개발 환경 CSP 오류 방지)
   security-headers:
-    enabled: ${IDO_SECURITY_HEADERS_ENABLED:true}
+    enabled: ${IDEM_HUB_SECURITY_HEADERS_ENABLED:true}
 
   # ── F-05: OTel 분산 추적 AOP On/Off ──────────────────────────────────────
   # false → AuthTracingAspect 빈 미등록 (Jaeger/Tempo 없는 환경)
   tracing:
-    auth-aspect-enabled: ${IDO_AUTH_TRACING_ENABLED:true}
+    auth-aspect-enabled: ${IDEM_HUB_AUTH_TRACING_ENABLED:true}
 
   # ── F-11: 개인정보 파기 스케줄러 (이중 안전장치) ───────────────────────────
   # enabled 기본 false — 명시적 true 설정 시에만 실행
   # dry-run 기본 true  — 실제 삭제 전 반드시 dry-run 검증
-  # ⚠️ 법무팀 보존 기간 확정 후 IDO_RETENTION_DAYS 설정 필수
+  # ⚠️ 법무팀 보존 기간 확정 후 IDEM_HUB_RETENTION_DAYS 설정 필수
   retention:
-    enabled: ${IDO_RETENTION_ENABLED:false}
-    dry-run: ${IDO_RETENTION_DRY_RUN:true}
-    personal-data-days: ${IDO_RETENTION_DAYS:365}
-    batch-size: ${IDO_RETENTION_BATCH_SIZE:100}
+    enabled: ${IDEM_HUB_RETENTION_ENABLED:false}
+    dry-run: ${IDEM_HUB_RETENTION_DRY_RUN:true}
+    personal-data-days: ${IDEM_HUB_RETENTION_DAYS:365}
+    batch-size: ${IDEM_HUB_RETENTION_BATCH_SIZE:100}
 
   # ── F-13: IdO Outbox Relay On/Off ────────────────────────────────────────
   # false → PENDING 폴링 없음 (Kafka 없는 환경 500ms 오류 방지)
-  # 처리 대상: qsign.auth.events (qim.user.events 는 qim-outbox 릴레이가 전담)
+  # 처리 대상: idem.gate.auth.events (idem.registry.user.events 는 qim-outbox 릴레이가 전담)
   outbox:
-    relay-enabled: ${IDO_OUTBOX_RELAY_ENABLED:true}
+    relay-enabled: ${IDEM_HUB_OUTBOX_RELAY_ENABLED:true}
     relay-interval-ms: 500
     batch-size: 100
     max-retry: 3
 
   # ── F-30: Q-IM 회원 이벤트 Outbox Relay (QIM-OUTBOX-SPEC-001) ─────────────
-  # Q-IM / Q-Sign 이 ido.outbox에 INSERT한 qim.user.events PENDING 레코드 발행
+  # Q-IM / Q-Sign 이 ido.outbox에 INSERT한 idem.registry.user.events PENDING 레코드 발행
   # false → Q-IM SP 수신 후 Kafka 발행 없음 (Q-IM 통합 전 개발 단계)
-  # true  → 1000ms 주기로 qim.user.events PENDING 레코드 폴링 후 Kafka 발행
-  qim-outbox:
-    relay-enabled: ${IDO_QIM_OUTBOX_RELAY_ENABLED:true}
-    relay-interval-ms: ${IDO_QIM_OUTBOX_RELAY_INTERVAL_MS:1000}
-    batch-size: ${IDO_QIM_OUTBOX_BATCH_SIZE:50}
-    max-retry: ${IDO_QIM_OUTBOX_MAX_RETRY:5}
+  # true  → 1000ms 주기로 idem.registry.user.events PENDING 레코드 폴링 후 Kafka 발행
+  registry-outbox:
+    relay-enabled: ${IDEM_HUB_REGISTRY_OUTBOX_RELAY_ENABLED:true}
+    relay-interval-ms: ${IDEM_HUB_REGISTRY_OUTBOX_RELAY_INTERVAL_MS:1000}
+    batch-size: ${IDEM_HUB_REGISTRY_OUTBOX_BATCH_SIZE:50}
+    max-retry: ${IDEM_HUB_REGISTRY_OUTBOX_MAX_RETRY:5}
 
   # ── D3: Kafka 없는 설치의 사용자 상태 변경 전파 — registry 이벤트 피드 폴링 ─────
   # Kafka 가 꺼지면(idem.messaging.kafka.enabled=false) KafkaOptionalEnvironmentPostProcessor 가 enabled=true 로 켠다.
   # Kafka 설치에서는 QimEventConsumer 의 KafkaListener 가 같은 일을 하므로 기본 false.
-  qim-events:
+  registry-events:
     poll:
-      enabled: ${IDO_QIM_EVENTS_POLL_ENABLED:false}
-      interval-ms: ${IDO_QIM_EVENTS_POLL_INTERVAL_MS:5000}
+      enabled: ${IDEM_HUB_REGISTRY_EVENTS_POLL_ENABLED:false}
+      interval-ms: ${IDEM_HUB_REGISTRY_EVENTS_POLL_INTERVAL_MS:5000}
       initial-delay-ms: 10000
       batch-size: 100
       initial-lookback-hours: 24     # 워터마크가 없을 때 이만큼 과거부터 (중복은 processed_event 가 거른다)
@@ -572,21 +572,21 @@ ido:
   # F-26: HMAC-SHA256 서명 필수화 (Sprint 17, Phase 4↑, 현재 false)
   # F-27: Agency Key 인증 감사 로그 (항상 true)
   gateway:
-    inbound-enabled:        ${IDO_GATEWAY_INBOUND_ENABLED:false}    # F-23: Phase 3-A↑
-    outbound-enabled:       ${IDO_GATEWAY_OUTBOUND_ENABLED:false}   # F-24: Phase 3-B↑
-    idempotency-enabled:    ${IDO_GATEWAY_IDEMPOTENCY_ENABLED:true} # F-25: 항상 ON
-    hmac-sig-required:      ${IDO_HMAC_SIG_REQUIRED:false}          # F-26: Phase 4↑ (Sprint 17)
-    agency-key-audit-log:   ${IDO_AGENCY_KEY_AUDIT_LOG:true}        # F-27: 항상 ON
+    inbound-enabled:        ${IDEM_HUB_GATEWAY_INBOUND_ENABLED:false}    # F-23: Phase 3-A↑
+    outbound-enabled:       ${IDEM_HUB_GATEWAY_OUTBOUND_ENABLED:false}   # F-24: Phase 3-B↑
+    idempotency-enabled:    ${IDEM_HUB_GATEWAY_IDEMPOTENCY_ENABLED:true} # F-25: 항상 ON
+    hmac-sig-required:      ${IDEM_HUB_HMAC_SIG_REQUIRED:false}          # F-26: Phase 4↑ (Sprint 17)
+    agency-key-audit-log:   ${IDEM_HUB_AGENCY_KEY_AUDIT_LOG:true}        # F-27: 항상 ON
 
   # ── AES 키 로테이션 스케줄러 ────────────────────────────────────────────
   crypto:
-    rotation-enabled:      ${IDO_CRYPTO_ROTATION_ENABLED:true}
+    rotation-enabled:      ${IDEM_HUB_CRYPTO_ROTATION_ENABLED:true}
     rotation-check-cron:   "0 0 * * * *"    # 매 시간 정각
     # Sprint γ-3 / F3.3 후속:
-    # [DEPRECATED] ido.crypto.handoff-aes-key / handoff-hmac-key 는 어떤 Java 코드도
+    # [DEPRECATED] idem.hub.crypto.handoff-aes-key / handoff-hmac-key 는 어떤 Java 코드도
     # 읽지 않는 dead config 였다 (γ-2 정적 검증에서 발견). 실제 폴백 키는
-    # ido.ticket.aes-key / ido.ticket.hmac-key 에서 처리한다 (KeyVersionRegistry).
-    # IDO_HANDOFF_AES_KEY / IDO_HANDOFF_HMAC_KEY 환경변수는 ido.ticket.* 로 매핑된다.
+    # idem.hub.ticket.aes-key / idem.hub.ticket.hmac-key 에서 처리한다 (KeyVersionRegistry).
+    # IDEM_HUB_HANDOFF_AES_KEY / IDEM_HUB_HANDOFF_HMAC_KEY 환경변수는 idem.hub.ticket.* 로 매핑된다.
 
   # ── KMS 연동 설정 (S9-T8) ─────────────────────────────────────────────────
   #
@@ -601,25 +601,25 @@ ido:
   # └─────────────────────────────────────────────────────────────────────┘
   #
   # [환경별 권장 설정]
-  #   local/CI   : IDO_KMS_ENABLED=false
-  #   dev 서버   : IDO_KMS_ENABLED=true  / IDO_KMS_PROVIDER=vault
-  #   stage/prod : IDO_KMS_ENABLED=true  / IDO_KMS_PROVIDER=vault
-  #   NHN 유지   : IDO_KMS_ENABLED=true  / IDO_KMS_PROVIDER=nhn  (레거시)
+  #   local/CI   : IDEM_HUB_KMS_ENABLED=false
+  #   dev 서버   : IDEM_HUB_KMS_ENABLED=true  / IDEM_HUB_KMS_PROVIDER=vault
+  #   stage/prod : IDEM_HUB_KMS_ENABLED=true  / IDEM_HUB_KMS_PROVIDER=vault
+  #   NHN 유지   : IDEM_HUB_KMS_ENABLED=true  / IDEM_HUB_KMS_PROVIDER=nhn  (레거시)
   kms:
     # ── On/Off 스위치 ────────────────────────────────────────────────────
     # false(기본): LocalKmsClient 활성화 — KMS 서버 없이 개발 가능
     # true:        provider 값에 따라 실제 KMS 클라이언트 활성화
-    enabled:  ${IDO_KMS_ENABLED:false}
+    enabled:  ${IDEM_HUB_KMS_ENABLED:false}
 
     # ── Provider 선택 (enabled=true 시에만 유효) ─────────────────────────
     # vault : HashiCorp Vault Transit Engine (★ 운영 표준)
     # nhn   : NHN Cloud Secure Key Manager  (레거시, 기존 운영 환경 유지용)
     # noop  : Base64 패스스루 — enabled=true이지만 실제 암호화 없음 (테스트)
-    provider: ${IDO_KMS_PROVIDER:vault}
+    provider: ${IDEM_HUB_KMS_PROVIDER:vault}
 
     # ── 공통 타임아웃 ────────────────────────────────────────────────────
-    connection-timeout-ms: ${IDO_KMS_CONN_TIMEOUT_MS:3000}
-    request-timeout-ms:    ${IDO_KMS_REQ_TIMEOUT_MS:5000}
+    connection-timeout-ms: ${IDEM_HUB_KMS_CONN_TIMEOUT_MS:3000}
+    request-timeout-ms:    ${IDEM_HUB_KMS_REQ_TIMEOUT_MS:5000}
 
     # ── HashiCorp Vault Transit Engine (provider=vault) ──────────────────
     # 업계 표준 KMS. 온프레미스·클라우드·하이브리드 환경 모두 지원.
@@ -629,7 +629,7 @@ ido:
     #   VAULT_ADDR=http://localhost:8200
     #   VAULT_TOKEN=dev-root-token
     #   vault secrets enable transit
-    #   vault write -f transit/keys/ido-handoff-key
+    #   vault write -f transit/keys/idem-handoff-key
     #
     # [K8s 운영 — Kubernetes Auth 권장]
     #   VAULT_AUTH_METHOD=kubernetes
@@ -641,8 +641,8 @@ ido:
       # Transit 시크릿 엔진 마운트 경로 (vault secrets enable -path=transit transit)
       transit-path: ${VAULT_TRANSIT_PATH:transit}
 
-      # Transit 키 이름 (vault write -f transit/keys/ido-handoff-key)
-      key-name:     ${VAULT_TRANSIT_KEY:ido-handoff-key}
+      # Transit 키 이름 (vault write -f transit/keys/idem-handoff-key)
+      key-name:     ${VAULT_TRANSIT_KEY:idem-handoff-key}
 
       # 인증 방식: token | approle | kubernetes
       # 환경변수 VAULT_AUTH_METHOD로 오버라이드 가능
@@ -659,8 +659,8 @@ ido:
       # 토큰 획득 실패 시 startup을 차단할지 여부.
       #   false (기본): 토큰 획득 실패 시 IllegalStateException → startup 차단 → Pod 재시작
       #   true        : 경고만 출력하고 startup 진행 (테스트·일시 격리 전용, 운영 금지)
-      # 환경변수: IDO_KMS_VAULT_ALLOW_EMPTY_TOKEN
-      allow-empty-token: ${IDO_KMS_VAULT_ALLOW_EMPTY_TOKEN:false}
+      # 환경변수: IDEM_HUB_KMS_VAULT_ALLOW_EMPTY_TOKEN
+      allow-empty-token: ${IDEM_HUB_KMS_VAULT_ALLOW_EMPTY_TOKEN:false}
 
     # ── LocalKmsClient F5.1 Escape Hatch (Sprint α-1) ─────────────────────
     # @Profile("!prod & !stage") 어노테이션 + matchIfMissing=false 로 1차 가드.
@@ -668,7 +668,7 @@ ido:
     # 이 escape hatch는 부팅 가드를 우회하지만 평문 키 모드는 그대로이므로
     # 운영 환경 절대 사용 금지.
     local:
-      allow-in-prod: ${IDO_KMS_LOCAL_ALLOW_IN_PROD:false}
+      allow-in-prod: ${IDEM_HUB_KMS_LOCAL_ALLOW_IN_PROD:false}
 
     # ── NHN Cloud Secure Key Manager (provider=nhn, 레거시) ─────────────
     # 기존 NHN Cloud 운영 환경 유지를 위한 레거시 옵션.
@@ -686,8 +686,8 @@ ido:
 
 # ── Resilience4j (S9-T2: NICE/OACX/통합인증 CB+Retry 추가) ───────────────
   cast:
-    # D2 fail-secure: Ed25519 CAST 서명키(IDO_CAST_PRIVATE_KEY/PUBLIC_KEY) 미설정 시 임시 키 자동 생성 금지(기동 거부). 로컬·테스트에서만 true
-    allow-generated-keys: ${IDO_CAST_ALLOW_GENERATED_KEYS:false}
+    # D2 fail-secure: Ed25519 CAST 서명키(IDEM_HUB_CAST_PRIVATE_KEY/PUBLIC_KEY) 미설정 시 임시 키 자동 생성 금지(기동 거부). 로컬·테스트에서만 true
+    allow-generated-keys: ${IDEM_HUB_CAST_ALLOW_GENERATED_KEYS:false}
 resilience4j:
   circuitbreaker:
     instances:

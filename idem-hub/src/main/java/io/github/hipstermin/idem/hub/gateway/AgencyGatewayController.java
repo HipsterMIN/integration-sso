@@ -86,11 +86,11 @@ public class AgencyGatewayController {
 
         // F-23: 인바운드 API 열림 여부 확인 (Phase-Gate)
         if (!featureFlags.isGatewayInbound()) {
-            log.info("[GatewayController] 인바운드 API DISABLED (IDO_GATEWAY_INBOUND_ENABLED=false). Phase 3 이전에는 비활성화 상태입니다.");
+            log.info("[GatewayController] 인바운드 API DISABLED (IDEM_HUB_GATEWAY_INBOUND_ENABLED=false). Phase 3 이전에는 비활성화 상태입니다.");
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(Map.of(
                         "error",   "FEATURE_DISABLED",
-                        "message", "Gateway 인바운드 API가 현재 비활성화 상태입니다. (IDO_GATEWAY_INBOUND_ENABLED=false)",
+                        "message", "Gateway 인바운드 API가 현재 비활성화 상태입니다. (IDEM_HUB_GATEWAY_INBOUND_ENABLED=false)",
                         "phase",   "Phase 3-A 진입 후 활성화 예정"
                     ));
         }
@@ -170,11 +170,11 @@ public class AgencyGatewayController {
 
         // F-24: 아웃바운드 API 열림 여부 확인 (Phase-Gate)
         if (!featureFlags.isGatewayOutbound()) {
-            log.info("[GatewayController] 아웃바운드 API DISABLED (IDO_GATEWAY_OUTBOUND_ENABLED=false). Phase 3-B 이전에는 비활성화 상태입니다.");
+            log.info("[GatewayController] 아웃바운드 API DISABLED (IDEM_HUB_GATEWAY_OUTBOUND_ENABLED=false). Phase 3-B 이전에는 비활성화 상태입니다.");
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(Map.of(
                         "error",   "FEATURE_DISABLED",
-                        "message", "Gateway 아웃바운드 API가 현재 비활성화 상태입니다. (IDO_GATEWAY_OUTBOUND_ENABLED=false)",
+                        "message", "Gateway 아웃바운드 API가 현재 비활성화 상태입니다. (IDEM_HUB_GATEWAY_OUTBOUND_ENABLED=false)",
                         "phase",   "Phase 3-B 진입 후 활성화 예정"
                     ));
         }

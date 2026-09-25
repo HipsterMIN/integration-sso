@@ -39,7 +39,7 @@ class InternalCallerAuthInterceptorTest {
     private InternalCallerAuthInterceptor.InternalCallersProperties props;
     private InternalCallerAuthInterceptor interceptor;
 
-    private static final String CALLER_QSIGN = "q-sign";
+    private static final String CALLER_QSIGN = "idem-gate";
     private static final String KEY_QSIGN    = "test-key-32bytes-aaaaaaaaaaaaaaaaaaaaa";
 
     @BeforeEach
@@ -177,7 +177,7 @@ class InternalCallerAuthInterceptorTest {
 
             assertThatThrownBy(i::validateCallers)
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("ido.internal.callers")
+                    .hasMessageContaining("idem.hub.internal.callers")
                     .hasMessageContaining("운영");
         }
 
@@ -201,7 +201,7 @@ class InternalCallerAuthInterceptorTest {
             InternalCallerAuthInterceptor.InternalCallersProperties p =
                     new InternalCallerAuthInterceptor.InternalCallersProperties();
             Map<String, String> m = new HashMap<>();
-            m.put("q-sign", "");
+            m.put("idem-gate", "");
             p.setCallers(m);
             p.setAllowEmptyCallers(false);
 
@@ -210,7 +210,7 @@ class InternalCallerAuthInterceptorTest {
 
             assertThatThrownBy(i::validateCallers)
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("q-sign")
+                    .hasMessageContaining("idem-gate")
                     .hasMessageContaining("빈 문자열");
         }
 
@@ -220,7 +220,7 @@ class InternalCallerAuthInterceptorTest {
             InternalCallerAuthInterceptor.InternalCallersProperties p =
                     new InternalCallerAuthInterceptor.InternalCallersProperties();
             Map<String, String> m = new HashMap<>();
-            m.put("q-sign", "valid-secret-32-bytes-padding-aaaaa");
+            m.put("idem-gate", "valid-secret-32-bytes-padding-aaaaa");
             p.setCallers(m);
             p.setAllowEmptyCallers(false);
 

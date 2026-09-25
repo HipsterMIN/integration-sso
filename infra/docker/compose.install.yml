@@ -106,7 +106,7 @@ services:
       KC_HOSTNAME_URL: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
       KC_HOSTNAME_ADMIN_URL: http://localhost:${IDEM_PORT_KEYCLOAK:-8088}
       # realm-export.json 의 client secret 은 ${env.…} 로 아래 값을 읽는다 — 앱 쪽 값과 같아야 한다
-      QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET:?QSIGN_KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
+      IDEM_GATE_KEYCLOAK_CLIENT_SECRET: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:?IDEM_GATE_KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
       # S6: hub 가 OIDC_RP client 를 프로비저닝할 때 쓰는 서비스 계정(realm-management manage-clients) 비밀
       KEYCLOAK_PROVISIONER_CLIENT_SECRET: ${KEYCLOAK_PROVISIONER_CLIENT_SECRET:?KEYCLOAK_PROVISIONER_CLIENT_SECRET 를 install.env 에 설정하세요}
@@ -140,14 +140,14 @@ services:
     restart: unless-stopped
     environment:
       <<: *app-common
-      IDO_BASE_URL: http://idem-hub:8083
-      IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:?IDO_INTERNAL_SIG_SECRET 를 install.env 에 설정하세요}
+      IDEM_HUB_BASE_URL: http://idem-hub:8083
+      IDEM_HUB_INTERNAL_SIG_SECRET: ${IDEM_HUB_INTERNAL_SIG_SECRET:?IDEM_HUB_INTERNAL_SIG_SECRET 를 install.env 에 설정하세요}
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: onepass
-      QSIGN_KEYCLOAK_CLIENT_ID: q-sign-client
-      QSIGN_KEYCLOAK_CLIENT_SECRET: ${QSIGN_KEYCLOAK_CLIENT_SECRET}
-      QSIGN_KEYCLOAK_REDIRECT_URI: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}/api/v1/oidc/keycloak/callback
-      QSIGN_INTERNAL_SIG_STRICT: "true"
+      IDEM_GATE_KEYCLOAK_CLIENT_ID: q-sign-client
+      IDEM_GATE_KEYCLOAK_CLIENT_SECRET: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET}
+      IDEM_GATE_KEYCLOAK_REDIRECT_URI: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}/api/v1/oidc/keycloak/callback
+      IDEM_GATE_INTERNAL_SIG_STRICT: "true"
       # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/onepass (Keycloak KC_HOSTNAME_URL 과 같다)
       IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
       # S6 PR-2: SLO 의 Keycloak 세션 종료 (Back-Channel Logout 수신은 /api/v1/oidc/backchannel-logout — realm-export 의 내부 client 가 가리킨다)
@@ -181,26 +181,26 @@ services:
     restart: unless-stopped
     environment:
       <<: *app-common
-      QIM_BASE_URL: http://idem-registry:8082
-      QSIGN_BASE_URL: http://idem-gate:8081
-      QAUTHZ_BASE_URL: http://idem-authz:8086
-      IDO_QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:?QIM_INTERNAL_API_KEY 를 install.env 에 설정하세요}
-      IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET}
+      IDEM_REGISTRY_BASE_URL: http://idem-registry:8082
+      IDEM_GATE_BASE_URL: http://idem-gate:8081
+      IDEM_HUB_AUTHZ_BASE_URL: http://idem-authz:8086
+      IDEM_HUB_REGISTRY_INTERNAL_API_KEY: ${IDEM_REGISTRY_INTERNAL_API_KEY:?IDEM_REGISTRY_INTERNAL_API_KEY 를 install.env 에 설정하세요}
+      IDEM_HUB_INTERNAL_SIG_SECRET: ${IDEM_HUB_INTERNAL_SIG_SECRET}
       # 내부 호출자 API 키 (F4.8) — 비면 기동 실패
-      IDO_INTERNAL_API_KEY_QSIGN: ${IDO_INTERNAL_API_KEY_QSIGN:?IDO_INTERNAL_API_KEY_QSIGN 를 install.env 에 설정하세요}
-      IDO_INTERNAL_API_KEY_OUTBOX: ${IDO_INTERNAL_API_KEY_OUTBOX:?IDO_INTERNAL_API_KEY_OUTBOX 를 install.env 에 설정하세요}
+      IDEM_HUB_INTERNAL_API_KEY_GATE: ${IDEM_HUB_INTERNAL_API_KEY_GATE:?IDEM_HUB_INTERNAL_API_KEY_GATE 를 install.env 에 설정하세요}
+      IDEM_HUB_INTERNAL_API_KEY_RELAY: ${IDEM_HUB_INTERNAL_API_KEY_RELAY:?IDEM_HUB_INTERNAL_API_KEY_RELAY 를 install.env 에 설정하세요}
       # D2 fail-secure 필수 — 없으면 hub 가 기동을 거부한다 (탈출구는 로컬 전용)
-      IDO_QAUTHZ_INTERNAL_API_KEY: ${AUTHZ_INTERNAL_API_KEY:?AUTHZ_INTERNAL_API_KEY 를 install.env 에 설정하세요}
-      IDO_CAST_PRIVATE_KEY: ${IDO_CAST_PRIVATE_KEY:?IDO_CAST_PRIVATE_KEY(Ed25519 PKCS8 DER Base64) 를 install.env 에 설정하세요}
-      IDO_CAST_PUBLIC_KEY: ${IDO_CAST_PUBLIC_KEY:?IDO_CAST_PUBLIC_KEY(Ed25519 X.509 DER Base64) 를 install.env 에 설정하세요}
-      QIM_AES_SHARED_KEY: ${QIM_AES_SHARED_KEY:?QIM_AES_SHARED_KEY(32바이트 Base64) 를 install.env 에 설정하세요}
-      IDO_BROKER_MODE: ${IDO_BROKER_MODE:-qsign}
+      IDEM_HUB_AUTHZ_INTERNAL_API_KEY: ${IDEM_AUTHZ_INTERNAL_API_KEY:?IDEM_AUTHZ_INTERNAL_API_KEY 를 install.env 에 설정하세요}
+      IDEM_HUB_CAST_PRIVATE_KEY: ${IDEM_HUB_CAST_PRIVATE_KEY:?IDEM_HUB_CAST_PRIVATE_KEY(Ed25519 PKCS8 DER Base64) 를 install.env 에 설정하세요}
+      IDEM_HUB_CAST_PUBLIC_KEY: ${IDEM_HUB_CAST_PUBLIC_KEY:?IDEM_HUB_CAST_PUBLIC_KEY(Ed25519 X.509 DER Base64) 를 install.env 에 설정하세요}
+      IDEM_REGISTRY_AES_SHARED_KEY: ${IDEM_REGISTRY_AES_SHARED_KEY:?IDEM_REGISTRY_AES_SHARED_KEY(32바이트 Base64) 를 install.env 에 설정하세요}
+      IDEM_HUB_BROKER_MODE: ${IDEM_HUB_BROKER_MODE:-qsign}
       IDEM_PLATFORM_CODE: ${IDEM_PLATFORM_CODE:-IDEM}
       # S7 관리자 인증 — 관리 API(/api/v1/admin/**·/actuator/**)는 관리자 세션 + 2단계(TOTP) 뒤에 있다 (docs/admin-auth.md)
-      IDEM_ADMIN_BOOTSTRAP_USERNAME: ${IDEM_ADMIN_BOOTSTRAP_USERNAME:-admin}
-      IDEM_ADMIN_BOOTSTRAP_PASSWORD: ${IDEM_ADMIN_BOOTSTRAP_PASSWORD:?IDEM_ADMIN_BOOTSTRAP_PASSWORD(첫 관리자 비밀번호) 를 install.env 에 설정하세요}
-      IDEM_ADMIN_SECRET_KEY: ${IDEM_ADMIN_SECRET_KEY:?IDEM_ADMIN_SECRET_KEY(32바이트 Base64, 2단계 비밀 봉인) 를 install.env 에 설정하세요}
-      IDEM_ADMIN_COOKIE_SECURE: ${IDEM_ADMIN_COOKIE_SECURE:-true}
+      IDEM_HUB_ADMIN_BOOTSTRAP_USERNAME: ${IDEM_HUB_ADMIN_BOOTSTRAP_USERNAME:-admin}
+      IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD: ${IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD:?IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD(첫 관리자 비밀번호) 를 install.env 에 설정하세요}
+      IDEM_HUB_ADMIN_SECRET_KEY: ${IDEM_HUB_ADMIN_SECRET_KEY:?IDEM_HUB_ADMIN_SECRET_KEY(32바이트 Base64, 2단계 비밀 봉인) 를 install.env 에 설정하세요}
+      IDEM_HUB_ADMIN_COOKIE_SECURE: ${IDEM_HUB_ADMIN_COOKIE_SECURE:-true}
       KEYCLOAK_BASE_URL: http://keycloak:8080
       KEYCLOAK_REALM: onepass
       KEYCLOAK_CLIENT_ID: ido-client
@@ -209,9 +209,9 @@ services:
       # S6: OIDC_RP client 프로비저닝(서비스 계정) + 기관에 알려 줄 issuer
       KEYCLOAK_PROVISIONER_CLIENT_SECRET: ${KEYCLOAK_PROVISIONER_CLIENT_SECRET}
       IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
-      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:?IDO_WEBHOOK_SIGNING_SECRET 를 install.env 에 설정하세요}
-      IDO_HANDOFF_AES_KEY: ${IDO_HANDOFF_AES_KEY:?IDO_HANDOFF_AES_KEY 를 install.env 에 설정하세요}
-      IDO_HANDOFF_HMAC_KEY: ${IDO_HANDOFF_HMAC_KEY:?IDO_HANDOFF_HMAC_KEY 를 install.env 에 설정하세요}
+      IDEM_HUB_WEBHOOK_SIGNING_SECRET: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:?IDEM_HUB_WEBHOOK_SIGNING_SECRET 를 install.env 에 설정하세요}
+      IDEM_HUB_HANDOFF_AES_KEY: ${IDEM_HUB_HANDOFF_AES_KEY:?IDEM_HUB_HANDOFF_AES_KEY 를 install.env 에 설정하세요}
+      IDEM_HUB_HANDOFF_HMAC_KEY: ${IDEM_HUB_HANDOFF_HMAC_KEY:?IDEM_HUB_HANDOFF_HMAC_KEY 를 install.env 에 설정하세요}
       CORS_ORIGIN_DEV: ${IDEM_PUBLIC_URL_CONSOLE:-http://localhost:3001}
       CORS_ORIGIN_PROD: ${IDEM_PUBLIC_URL_CONSOLE:-http://localhost:3001}
       # 설치 검증용 Mock 본인확인 제공자 (docs/install.md 5단계). 운영 전환 시 false 로 되돌린다
@@ -252,17 +252,17 @@ services:
     restart: unless-stopped
     environment:
       <<: *app-common
-      QIM_DB_HOST: postgres
-      QIM_DB_PORT: "5432"
-      QIM_DB_NAME: onepass
-      QIM_DB_SCHEMA: qim
-      QIM_DB_USERNAME: onepass
-      QIM_DB_PASSWORD: ${IDEM_DB_PASSWORD}
-      QIM_DB_SSL: "false"
-      QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY}
+      IDEM_REGISTRY_DB_HOST: postgres
+      IDEM_REGISTRY_DB_PORT: "5432"
+      IDEM_REGISTRY_DB_NAME: onepass
+      IDEM_REGISTRY_DB_SCHEMA: qim
+      IDEM_REGISTRY_DB_USERNAME: onepass
+      IDEM_REGISTRY_DB_PASSWORD: ${IDEM_DB_PASSWORD}
+      IDEM_REGISTRY_DB_SSL: "false"
+      IDEM_REGISTRY_INTERNAL_API_KEY: ${IDEM_REGISTRY_INTERNAL_API_KEY}
       # D3: registry 부팅 가드가 요구하는 키 — 종전 compose 에 없어 registry 가 기동을 거부했다(CI 설치본 스모크로 발견)
-      QIM_DI_SECRET: ${QIM_DI_SECRET:?QIM_DI_SECRET(hex 32) 를 install.env 에 설정하세요}
-      QIM_CI_AES_KEY_V1: ${QIM_CI_AES_KEY_V1:?QIM_CI_AES_KEY_V1(32바이트 Base64) 를 install.env 에 설정하세요}
+      IDEM_REGISTRY_DI_SECRET: ${IDEM_REGISTRY_DI_SECRET:?IDEM_REGISTRY_DI_SECRET(hex 32) 를 install.env 에 설정하세요}
+      IDEM_REGISTRY_CI_AES_KEY_V1: ${IDEM_REGISTRY_CI_AES_KEY_V1:?IDEM_REGISTRY_CI_AES_KEY_V1(32바이트 Base64) 를 install.env 에 설정하세요}
     ports:
       - "127.0.0.1:${IDEM_PORT_REGISTRY:-8082}:8082"
     networks: [idem-net]
@@ -288,7 +288,7 @@ services:
     restart: unless-stopped
     environment:
       <<: *app-common
-      AUTHZ_INTERNAL_API_KEY: ${AUTHZ_INTERNAL_API_KEY:?AUTHZ_INTERNAL_API_KEY 를 install.env 에 설정하세요}
+      IDEM_AUTHZ_INTERNAL_API_KEY: ${IDEM_AUTHZ_INTERNAL_API_KEY:?IDEM_AUTHZ_INTERNAL_API_KEY 를 install.env 에 설정하세요}
     ports:
       - "127.0.0.1:${IDEM_PORT_AUTHZ:-8086}:8086"
     networks: [idem-net]

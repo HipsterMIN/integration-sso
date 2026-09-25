@@ -38,12 +38,12 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AgencyRateLimiter {
 
-    /** D3: 일 단위 키의 날짜 경계 시간대 — ido.zone (기본 UTC) */
-    @org.springframework.beans.factory.annotation.Value("${ido.zone:UTC}")
+    /** D3: 일 단위 키의 날짜 경계 시간대 — idem.hub.zone (기본 UTC) */
+    @org.springframework.beans.factory.annotation.Value("${idem.hub.zone:UTC}")
     private String zoneId = "UTC";
 
-    private static final String TPS_KEY_PREFIX   = "ido:rl:tps:";
-    private static final String DAILY_KEY_PREFIX = "ido:rl:daily:";
+    private static final String TPS_KEY_PREFIX   = "idem:rl:tps:";
+    private static final String DAILY_KEY_PREFIX = "idem:rl:daily:";
 
     // Lua: INCR + EXPIRE 원자적 실행 (TPS 슬라이딩 윈도우)
     private static final String TPS_LUA = """
@@ -89,13 +89,13 @@ public class AgencyRateLimiter {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @Value("${ido.rate-limit.default-tps:200}")
+    @Value("${idem.hub.rate-limit.default-tps:200}")
     private int defaultTps;
 
-    @Value("${ido.rate-limit.default-daily-limit:1000000}")
+    @Value("${idem.hub.rate-limit.default-daily-limit:1000000}")
     private long defaultDailyLimit;
 
-    @Value("${ido.rate-limit.enabled:true}")
+    @Value("${idem.hub.rate-limit.enabled:true}")
     private boolean rateLimitEnabled;
 
     /**

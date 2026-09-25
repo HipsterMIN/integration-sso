@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 기관 샘플의 표준 OIDC 로그인 경로 (S6 PR-2) — {@code agency-stub.protocol=OIDC_RP} 일 때 쓴다.
+ * 기관 샘플의 표준 OIDC 로그인 경로 (S6 PR-2) — {@code idem.sample.protocol=OIDC_RP} 일 때 쓴다.
  *
  * <pre>
  * GET  /agency/oidc/login              → Idem authorization_endpoint 로 302 (PKCE·state·nonce)
@@ -50,10 +50,10 @@ public class OidcLoginController {
     private final OidcRpProperties props;
     private final AgencySessionService sessions;
 
-    @Value("${agency-stub.protocol:HANDOFF}")
+    @Value("${idem.sample.protocol:HANDOFF}")
     private String protocol;
 
-    @Value("${agency-stub.session.idle-timeout-minutes:30}")
+    @Value("${idem.sample.session.idle-timeout-minutes:30}")
     private int idleTimeoutMinutes;
 
     private final Map<String, OidcRelyingPartyClient.PendingLogin> pending = new ConcurrentHashMap<>();
@@ -63,7 +63,7 @@ public class OidcLoginController {
     public ResponseEntity<?> login() {
         if (!"OIDC_RP".equalsIgnoreCase(protocol)) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "PROTOCOL_MISMATCH",
-                    "message", "agency-stub.protocol=OIDC_RP 일 때만 표준 OIDC 로그인을 쓴다 (현재 " + protocol + ")"));
+                    "message", "idem.sample.protocol=OIDC_RP 일 때만 표준 OIDC 로그인을 쓴다 (현재 " + protocol + ")"));
         }
         OidcRelyingPartyClient.PendingLogin p = rp.newLogin();
         pending.entrySet().removeIf(e -> e.getValue().isExpired(props.getStateTtlSeconds()));

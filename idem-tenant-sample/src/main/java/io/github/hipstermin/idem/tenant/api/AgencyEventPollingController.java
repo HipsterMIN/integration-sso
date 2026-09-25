@@ -65,7 +65,7 @@ public class AgencyEventPollingController {
 
     private final JdbcTemplate jdbcTemplate;
 
-    @Value("${agency-stub.code:AGENCY_STUB_001}")
+    @Value("${idem.sample.code:AGENCY_STUB_001}")
     private String agencyCode;
 
     // ══════════════════════════════════════════════════════════════════════

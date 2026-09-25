@@ -13,7 +13,7 @@ class FailSecureBootGuardTest {
     private static MockEnvironment env(String... profiles) {
         MockEnvironment e = new MockEnvironment();
         e.setActiveProfiles(profiles);
-        e.setProperty("ido.qsign.internal-sig-secret", "0123456789abcdef0123456789abcdef");
+        e.setProperty("idem.hub.gate.internal-sig-secret", "0123456789abcdef0123456789abcdef");
         return e;
     }
 
@@ -23,9 +23,9 @@ class FailSecureBootGuardTest {
         MockEnvironment e = new MockEnvironment();
         assertThatThrownBy(() -> new FailSecureBootGuard(e).verify())
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("IDO_INTERNAL_SIG_SECRET");
+                .hasMessageContaining("IDEM_HUB_INTERNAL_SIG_SECRET");
 
-        e.setProperty("ido.internal.allow-empty-sig-secret", "true");
+        e.setProperty("idem.hub.internal.allow-empty-sig-secret", "true");
         assertThatCode(() -> new FailSecureBootGuard(e).verify()).doesNotThrowAnyException();
     }
 
@@ -34,22 +34,22 @@ class FailSecureBootGuardTest {
     void prod_escapeHatchesRejected() {
         MockEnvironment e = env("prod");
         e.setProperty("idem.plugins.mock-auth.enabled", "true");
-        e.setProperty("ido.internal.allow-empty-callers", "true");
-        e.setProperty("ido.audit.db-save-enabled", "false");
+        e.setProperty("idem.hub.internal.allow-empty-callers", "true");
+        e.setProperty("idem.hub.audit.db-save-enabled", "false");
 
         assertThatThrownBy(() -> new FailSecureBootGuard(e).verify())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("3건")
                 .hasMessageContaining("idem.plugins.mock-auth.enabled")
-                .hasMessageContaining("ido.internal.allow-empty-callers")
-                .hasMessageContaining("ido.audit.db-save-enabled");
+                .hasMessageContaining("idem.hub.internal.allow-empty-callers")
+                .hasMessageContaining("idem.hub.audit.db-save-enabled");
     }
 
     @Test
     @DisplayName("stage 도 prod 와 같이 강화 프로파일이다")
     void stage_isHardened() {
         MockEnvironment e = env("stage");
-        e.setProperty("ido.cast.allow-generated-keys", "true");
+        e.setProperty("idem.hub.cast.allow-generated-keys", "true");
         assertThatThrownBy(() -> new FailSecureBootGuard(e).verify()).isInstanceOf(IllegalStateException.class);
     }
 
@@ -58,7 +58,7 @@ class FailSecureBootGuardTest {
     void local_allowsEscapeHatches() {
         MockEnvironment e = env("local");
         e.setProperty("idem.plugins.mock-auth.enabled", "true");
-        e.setProperty("ido.qim.allow-empty-aes-key", "true");
+        e.setProperty("idem.hub.registry.allow-empty-aes-key", "true");
         assertThatCode(() -> new FailSecureBootGuard(e).verify()).doesNotThrowAnyException();
     }
 

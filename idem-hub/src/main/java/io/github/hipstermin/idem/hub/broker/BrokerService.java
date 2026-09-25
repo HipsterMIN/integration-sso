@@ -41,8 +41,8 @@ import org.springframework.web.util.UriComponentsBuilder;
  *   </li>
  * </ul>
  *
- * <h3>Layer 2 — 표준 OIDC 백엔드 선택 (ido.broker.mode)</h3>
- * <p>표준 OIDC의 경우에만 {@code IDO_BROKER_MODE}로 처리 백엔드를 선택한다:
+ * <h3>Layer 2 — 표준 OIDC 백엔드 선택 (idem.hub.broker.mode)</h3>
+ * <p>표준 OIDC의 경우에만 {@code IDEM_HUB_BROKER_MODE}로 처리 백엔드를 선택한다:
  * <ul>
  *   <li>{@code qsign} (기본): q-sign에 URL 발급 위임
  *       <pre>FE → ido → q-sign POST /api/v1/oidc/{provider}/auth-url → 카카오/네이버</pre>
@@ -52,7 +52,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  *   </li>
  * </ul>
  *
- * <h3>비표준 OIDC 처리 경로 (IDO_BROKER_MODE와 무관)</h3>
+ * <h3>비표준 OIDC 처리 경로 (IDEM_HUB_BROKER_MODE와 무관)</h3>
  * <ul>
  *   <li>플러그인 직접 브로커 (예: KR 에디션 idem-plugin-anyid 의 모바일신분증·간편인증·공동인증서·금융인증서·민간ID):
  *       <pre>FE → ido → DirectBrokerAdapter(플러그인) → 벤더 인증 서버</pre>
@@ -65,10 +65,10 @@ import org.springframework.web.util.UriComponentsBuilder;
  *
  * <h3>환경변수 의미 정리</h3>
  * <pre>
- * IDO_BROKER_MODE=qsign     → 카카오·네이버(표준 OIDC)를 q-sign으로 처리 (기본)
- * IDO_BROKER_MODE=keycloak  → 카카오·네이버(표준 OIDC)를 Keycloak으로 처리
+ * IDEM_HUB_BROKER_MODE=qsign     → 카카오·네이버(표준 OIDC)를 q-sign으로 처리 (기본)
+ * IDEM_HUB_BROKER_MODE=keycloak  → 카카오·네이버(표준 OIDC)를 Keycloak으로 처리
  *
- * (플러그인 직접 브로커 인증수단은 IDO_BROKER_MODE 값과 무관하게 항상 해당 어댑터로 처리)
+ * (플러그인 직접 브로커 인증수단은 IDEM_HUB_BROKER_MODE 값과 무관하게 항상 해당 어댑터로 처리)
  * </pre>
  *
  * @see ProviderRouter
@@ -90,23 +90,23 @@ public class BrokerService {
      * <p>이 값은 <b>표준 OIDC(카카오·네이버 등)에만 적용</b>된다.
      * 비표준 OIDC(플러그인 직접 브로커 인증수단, PASS 등)는 provider_type 기반으로 별도 처리된다.
      */
-    @Value("${ido.broker.mode:qsign}")
+    @Value("${idem.hub.broker.mode:qsign}")
     private String brokerMode;
 
     // ── q-sign 모드용 설정 ────────────────────────────────────────────────
     private final RestTemplate restTemplate;
 
-    @Value("${ido.qsign.base-url:http://localhost:8081}")
+    @Value("${idem.hub.gate.base-url:http://localhost:8081}")
     private String qsignBaseUrl;
 
-    @Value("${ido.qsign.internal-sig-ttl-seconds:60}")
+    @Value("${idem.hub.gate.internal-sig-ttl-seconds:60}")
     private int internalSigTtl;
 
     /**
      * IdO → Q-Sign 내부 서명 HMAC 시크릿
-     * 환경변수: IDO_INTERNAL_SIG_SECRET
+     * 환경변수: IDEM_HUB_INTERNAL_SIG_SECRET
      */
-    @Value("${ido.qsign.internal-sig-secret:}")
+    @Value("${idem.hub.gate.internal-sig-secret:}")
     private String internalSigSecret;
 
     private static final String HMAC_ALGORITHM = "HmacSHA256";
@@ -114,9 +114,9 @@ public class BrokerService {
     @PostConstruct
     void validateInternalSigConfig() {
         if (internalSigSecret == null || internalSigSecret.isBlank()) {
-            log.error("[BrokerService][보안경고] IDO_INTERNAL_SIG_SECRET 미설정 — " +
+            log.error("[BrokerService][보안경고] IDEM_HUB_INTERNAL_SIG_SECRET 미설정 — " +
                       "q-sign 모드에서 모든 내부 서명이 빈 시크릿으로 생성되어 검증 실패합니다. " +
-                      "운영 환경에서 반드시 IDO_INTERNAL_SIG_SECRET 환경변수를 설정하세요.");
+                      "운영 환경에서 반드시 IDEM_HUB_INTERNAL_SIG_SECRET 환경변수를 설정하세요.");
         } else {
             log.info("[BrokerService] X-Internal-Sig HMAC-SHA256 서명 활성화됨.");
         }
@@ -144,7 +144,7 @@ public class BrokerService {
      *   <li>비표준 OIDC → 플러그인 직접 브로커 또는 NonOidc 직접 처리</li>
      * </ul>
      *
-     * <p><b>Layer 2</b> (표준 OIDC 전용): {@code ido.broker.mode}로 백엔드 선택
+     * <p><b>Layer 2</b> (표준 OIDC 전용): {@code idem.hub.broker.mode}로 백엔드 선택
      * <ul>
      *   <li>qsign    → q-sign에 위임</li>
      *   <li>keycloak → Keycloak 직접 연동</li>
@@ -167,7 +167,7 @@ public class BrokerService {
         ProviderRouter.BrokerRoute route = providerRouter.resolve(provider, correlationId);
 
         if (route.isDirectBroker()) {
-            // 비표준 OIDC — IDO_BROKER_MODE와 무관하게 ido 직접 처리
+            // 비표준 OIDC — IDEM_HUB_BROKER_MODE와 무관하게 ido 직접 처리
             return buildNonOidcAuthorizationUrl(provider, correlationId, returnUrl, requestedLevel);
         }
 
@@ -186,7 +186,7 @@ public class BrokerService {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // Layer 1 — 비표준 OIDC 직접 처리 (IDO_BROKER_MODE 무관)
+    // Layer 1 — 비표준 OIDC 직접 처리 (IDEM_HUB_BROKER_MODE 무관)
     // ══════════════════════════════════════════════════════════════════════
 
     /**
@@ -332,7 +332,7 @@ public class BrokerService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Correlation-Id",  correlationId);
-        headers.set("X-Internal-Caller", "ido");
+        headers.set("X-Internal-Caller", "idem-hub");
         headers.set("X-Internal-Sig",    buildInternalSig(correlationId));
 
         Map<String, String> body = Map.of(
@@ -376,7 +376,7 @@ public class BrokerService {
         if (internalSigSecret == null || internalSigSecret.isBlank()) {
             // D2 fail-secure: 서명 없이 내부 호출을 보내지 않는다 (부팅 시 FailSecureBootGuard 가 이미 막지만 이중 방어)
             throw new PlatformException(PlatformErrorCode.IDO_DEPENDENCY_UNAVAILABLE, correlationId,
-                    "IDO_INTERNAL_SIG_SECRET 미설정 — 내부 서명 불가");
+                    "IDEM_HUB_INTERNAL_SIG_SECRET 미설정 — 내부 서명 불가");
         }
         try {
             long epochSeconds = System.currentTimeMillis() / 1000L;

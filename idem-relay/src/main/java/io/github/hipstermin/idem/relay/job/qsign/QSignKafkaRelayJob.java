@@ -20,16 +20,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * qsign.outbox → qsign.auth.events Kafka 릴레이 배치 Job
+ * idem.gate.outbox → idem.gate.auth.events Kafka 릴레이 배치 Job
  *
  * <h2>대상</h2>
- * Q-Sign 서비스(PostgreSQL)의 qsign.outbox 테이블 PENDING 레코드.
+ * Q-Sign 서비스(PostgreSQL)의 idem.gate.outbox 테이블 PENDING 레코드.
  * 기존 {@code OutboxRelay#relay()}를 대체.
  *
  * <h2>토픽 설정</h2>
- * 토픽명은 {@code batch.relay.qsign.kafka.topic} 프로퍼티(기본값: {@code qsign.auth.events})로
+ * 토픽명은 {@code idem.relay.jobs.gate.kafka.topic} 프로퍼티(기본값: {@code idem.gate.auth.events})로
  * 외부화되어 있으며, 하드코딩 상수를 사용하지 않습니다.
- * 환경변수 {@code QSIGN_AUTH_EVENTS_TOPIC}로 오버라이드 가능.
+ * 환경변수 {@code IDEM_GATE_AUTH_EVENTS_TOPIC}로 오버라이드 가능.
  *
  * <h2>payload 처리</h2>
  * 기존 {@code OutboxRelay}는 payload를 {@code AuthEvent}로 역직렬화했으나,
@@ -53,16 +53,16 @@ public class QSignKafkaRelayJob {
     private final Counter failureCounter;
     private final Counter deadLetterCounter;
 
-    @Value("${batch.relay.qsign.kafka.batch-size:100}")
+    @Value("${idem.relay.jobs.gate.kafka.batch-size:100}")
     private int batchSize;
 
-    @Value("${batch.relay.qsign.kafka.max-retry:3}")
+    @Value("${idem.relay.jobs.gate.kafka.max-retry:3}")
     private int maxRetry;
 
-    @Value("${batch.relay.qsign.kafka.enabled:true}")
+    @Value("${idem.relay.jobs.gate.kafka.enabled:true}")
     private boolean enabled;
 
-    @Value("${batch.relay.qsign.kafka.topic:qsign.auth.events}")
+    @Value("${idem.relay.jobs.gate.kafka.topic:idem.gate.auth.events}")
     private String authEventsTopic;
 
     public QSignKafkaRelayJob(
@@ -73,16 +73,16 @@ public class QSignKafkaRelayJob {
         this.qsignJdbcTemplate = qsignJdbcTemplate;
         this.kafkaTemplate     = kafkaTemplate;
         this.objectMapper      = objectMapper;
-        this.successCounter    = meterRegistry.counter("batch.relay.qsign.kafka.success");
-        this.failureCounter    = meterRegistry.counter("batch.relay.qsign.kafka.failure");
-        this.deadLetterCounter = meterRegistry.counter("batch.relay.qsign.kafka.dead_letter");
+        this.successCounter    = meterRegistry.counter("idem.relay.jobs.gate.kafka.success");
+        this.failureCounter    = meterRegistry.counter("idem.relay.jobs.gate.kafka.failure");
+        this.deadLetterCounter = meterRegistry.counter("idem.relay.jobs.gate.kafka.dead_letter");
     }
 
-    @Scheduled(fixedDelayString = "${batch.relay.qsign.kafka.interval-ms:500}")
+    @Scheduled(fixedDelayString = "${idem.relay.jobs.gate.kafka.interval-ms:500}")
     @SchedulerLock(
             name           = "qsign-kafka-relay",
-            lockAtMostFor  = "${batch.relay.qsign.kafka.lock-at-most:10s}",
-            lockAtLeastFor = "${batch.relay.qsign.kafka.lock-at-least:400ms}"
+            lockAtMostFor  = "${idem.relay.jobs.gate.kafka.lock-at-most:10s}",
+            lockAtLeastFor = "${idem.relay.jobs.gate.kafka.lock-at-least:400ms}"
     )
     @Transactional(transactionManager = "qsignTransactionManager")
     public void relay() {

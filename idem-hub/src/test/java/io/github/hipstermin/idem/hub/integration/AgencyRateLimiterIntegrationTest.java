@@ -44,9 +44,9 @@ class AgencyRateLimiterIntegrationTest extends IntegrationTestBase {
     @BeforeEach
     void clearRedisKeys() {
         // 테스트 격리: 이전 테스트 키 제거
-        Set<String> keys = redisTemplate.keys("ido:rl:*:" + AGENCY_A + ":*");
+        Set<String> keys = redisTemplate.keys("idem:rl:*:" + AGENCY_A + ":*");
         if (keys != null && !keys.isEmpty()) redisTemplate.delete(keys);
-        Set<String> keysB = redisTemplate.keys("ido:rl:*:" + AGENCY_B + ":*");
+        Set<String> keysB = redisTemplate.keys("idem:rl:*:" + AGENCY_B + ":*");
         if (keysB != null && !keysB.isEmpty()) redisTemplate.delete(keysB);
     }
 

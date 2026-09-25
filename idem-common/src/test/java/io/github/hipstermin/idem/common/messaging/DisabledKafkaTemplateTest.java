@@ -15,7 +15,7 @@ class DisabledKafkaTemplateTest {
 
     @Test
     void send는_예외를_던지지_않고_KafkaDisabledException_으로_실패한_Future를_돌려준다() {
-        CompletableFuture<SendResult<String, Object>> f = sut.send("qsign.auth.events", "key", "payload");
+        CompletableFuture<SendResult<String, Object>> f = sut.send("idem.gate.auth.events", "key", "payload");
 
         assertThat(f).isCompletedExceptionally();
         AtomicReference<Throwable> seen = new AtomicReference<>();

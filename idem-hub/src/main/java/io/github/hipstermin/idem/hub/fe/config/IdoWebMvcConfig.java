@@ -18,7 +18,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * React SPA(port 3000/3001) ↔ IdO(port 8083) 간 CORS 허용.
  *
  * <p>운영 환경에서는 Nginx 리버스 프록시를 통해 same-origin 으로
- * 서빙하므로 CORS 불필요 (ido.cors.enabled=false).
+ * 서빙하므로 CORS 불필요 (idem.hub.cors.enabled=false).
  *
  * <p><b>S7-T2 추가 (NICE/OACX 본인인증):</b>
  * {@code /api/v1/auth/**} CORS 매핑 추가.
@@ -35,10 +35,10 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
     private final InternalCallerAuthInterceptor internalCallerAuthInterceptor;
     private final io.github.hipstermin.idem.hub.admin.auth.AdminPrincipalArgumentResolver adminPrincipalArgumentResolver;
 
-    @Value("${ido.cors.enabled:true}")
+    @Value("${idem.hub.cors.enabled:true}")
     private boolean corsEnabled;
 
-    @Value("${ido.cors.allowed-origins:http://localhost:3000,http://localhost:3001}")
+    @Value("${idem.hub.cors.allowed-origins:http://localhost:3000,http://localhost:3001}")
     private List<String> allowedOrigins;
 
     /**

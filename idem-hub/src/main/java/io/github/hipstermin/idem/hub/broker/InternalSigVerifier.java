@@ -39,12 +39,12 @@ public class InternalSigVerifier {
     /** HMAC-SHA256 알고리즘 상수 */
     private static final String HMAC_ALGORITHM = "HmacSHA256";
 
-    /** Q-Sign 과 동일한 공유 비밀키 (설계서 §9.4) — 환경변수 IDO_INTERNAL_SIG_SECRET 필수 */
-    @Value("${ido.qsign.internal-sig-secret:}")
+    /** Q-Sign 과 동일한 공유 비밀키 (설계서 §9.4) — 환경변수 IDEM_HUB_INTERNAL_SIG_SECRET 필수 */
+    @Value("${idem.hub.gate.internal-sig-secret:}")
     private String sigSecret;
 
     /** 타임스탬프 유효 범위 (초, 양방향): 기본 60초 */
-    @Value("${ido.qsign.internal-sig-ttl-seconds:60}")
+    @Value("${idem.hub.gate.internal-sig-ttl-seconds:60}")
     private int ttlSeconds;
 
     private static final String INSECURE_DEFAULT = "ido-internal-secret";
@@ -59,17 +59,17 @@ public class InternalSigVerifier {
     @PostConstruct
     void validateSigSecret() {
         if (sigSecret == null || sigSecret.isBlank()) {
-            log.error("[InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 환경변수가 설정되지 않았습니다. " +
+            log.error("[InternalSigVerifier][보안경고] IDEM_HUB_INTERNAL_SIG_SECRET 환경변수가 설정되지 않았습니다. " +
                       "내부 서명 검증이 모든 요청에 대해 실패합니다. 즉시 설정하세요.");
             return;
         }
         if (INSECURE_DEFAULT.equals(sigSecret)) {
-            log.error("[InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
+            log.error("[InternalSigVerifier][보안경고] IDEM_HUB_INTERNAL_SIG_SECRET가 기본값('ido-internal-secret')입니다. " +
                       "운영 환경에서는 최소 32자 이상의 무작위 비밀값으로 교체하세요. " +
                       "현재 내부 API가 위조 서명에 취약합니다.");
         }
         if (sigSecret.length() < MIN_SECRET_LENGTH) {
-            log.warn("[InternalSigVerifier][보안경고] IDO_INTERNAL_SIG_SECRET 길이가 부족합니다: " +
+            log.warn("[InternalSigVerifier][보안경고] IDEM_HUB_INTERNAL_SIG_SECRET 길이가 부족합니다: " +
                      "현재={}자, 권장={}자 이상.", sigSecret.length(), MIN_SECRET_LENGTH);
         }
     }

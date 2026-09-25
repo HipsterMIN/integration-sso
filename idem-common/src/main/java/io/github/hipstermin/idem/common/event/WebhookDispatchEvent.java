@@ -11,7 +11,7 @@ import lombok.extern.jackson.Jacksonized;
  * HandoffEventConsumer / 회원조회 결과 발행자(KR 에디션) 등이 이 이벤트를 발행하면,
  * WebhookDispatcherService 가 수신하여 기관 HTTPS endpoint 로 HTTP POST 를 보낸다.
  *
- * <p><b>토픽</b>: {@code ido.webhook.dispatch.requests}
+ * <p><b>토픽</b>: {@code idem.hub.webhook.dispatch.requests}
  * <p><b>파티션 키</b>: {@code agencyCode} — 동일 기관 이벤트의 순서 보장
  *
  * <p>이벤트 타입:

@@ -5,11 +5,11 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-/** 관리자 인증 설정 {@code ido.admin.*} (S7). 값의 의미는 {@code docs/admin-auth.md}. */
+/** 관리자 인증 설정 {@code idem.hub.admin.*} (S7). 값의 의미는 {@code docs/admin-auth.md}. */
 @Getter
 @Setter
 @Component
-@ConfigurationProperties(prefix = "ido.admin")
+@ConfigurationProperties(prefix = "idem.hub.admin")
 public class AdminProperties {
 
     private Bootstrap bootstrap = new Bootstrap();
@@ -19,7 +19,7 @@ public class AdminProperties {
     private Mfa mfa = new Mfa();
     private Password password = new Password();
 
-    /** TOTP 비밀 봉인용 AES-256 키 (base64 32바이트, {@code IDEM_ADMIN_SECRET_KEY}). 비면 Handoff AES 키에서 파생(운영 금지) */
+    /** TOTP 비밀 봉인용 AES-256 키 (base64 32바이트, {@code IDEM_HUB_ADMIN_SECRET_KEY}). 비면 Handoff AES 키에서 파생(운영 금지) */
     private String secretKey = "";
     /** 비어 있을 때 파생을 허용 — 로컬·테스트 한정(hardened 프로파일에서 true 금지) */
     private boolean allowDerivedSecretKey = false;
@@ -28,7 +28,7 @@ public class AdminProperties {
     public static class Bootstrap {
         /** 관리자가 하나도 없을 때 만드는 첫 SYSTEM_ADMIN */
         private String username = "admin";
-        /** {@code IDEM_ADMIN_BOOTSTRAP_PASSWORD} — 비면 관리자를 만들지 않는다(hardened 는 기동 거부) */
+        /** {@code IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD} — 비면 관리자를 만들지 않는다(hardened 는 기동 거부) */
         private String password = "";
         /** 첫 로그인 후 비밀번호 변경 강제 — 운영 필수 */
         private boolean requirePasswordChange = true;

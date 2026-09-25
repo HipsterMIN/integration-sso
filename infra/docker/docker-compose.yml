@@ -134,7 +134,7 @@ services:
 
   # ════════════════════════════════════════════════════════════
   # HashiCorp Vault — KMS (Key Management Service)
-  # IDO_KMS_ENABLED=true / IDO_KMS_PROVIDER=vault 시 사용
+  # IDEM_HUB_KMS_ENABLED=true / IDEM_HUB_KMS_PROVIDER=vault 시 사용
   # 개발 환경: Dev 모드(인메모리, 재시작 시 초기화)
   # 운영 환경: -dev 플래그 제거 + Raft 스토리지 + TLS 적용
   # ════════════════════════════════════════════════════════════
@@ -402,7 +402,7 @@ services:
   # profile: keycloak
   #
   # Client secrets: realm-export.json과 반드시 일치해야 함
-  #   q-sign-client → QSIGN_KEYCLOAK_CLIENT_SECRET
+  #   q-sign-client → IDEM_GATE_KEYCLOAK_CLIENT_SECRET
   #   ido-client    → KEYCLOAK_CLIENT_SECRET
   # 초기 기본값은 .env 파일의 change-me 값과 realm-export.json이 동일해야 함
   # ════════════════════════════════════════════════════════════
@@ -474,16 +474,16 @@ services:
       KAFKA_SERVERS: kafka:29092
       IDEM_KAFKA_ENABLED: "true"   # D1-b: 이 스택은 Kafka 를 띄우므로 Kafka 경로. 없이 설치하려면 compose.install.yml
       # ── IdO 내부 통신 ───────────────────────────────────────
-      IDO_BASE_URL:             http://idem-hub:8083
-      IDO_INTERNAL_SIG_SECRET:  ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
+      IDEM_HUB_BASE_URL:             http://idem-hub:8083
+      IDEM_HUB_INTERNAL_SIG_SECRET:  ${IDEM_HUB_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
       # ── Keycloak 어댑터 ─────────────────────────────────────
       KEYCLOAK_URL:                  http://keycloak:8080
       KEYCLOAK_REALM:                onepass
-      QSIGN_KEYCLOAK_CLIENT_ID:      q-sign-client
+      IDEM_GATE_KEYCLOAK_CLIENT_ID:      q-sign-client
       # Sprint γ-1 / F2.1 후속: docker-compose 에서도 placeholder default 제거.
-      QSIGN_KEYCLOAK_CLIENT_SECRET:  ${QSIGN_KEYCLOAK_CLIENT_SECRET:?QSIGN_KEYCLOAK_CLIENT_SECRET 환경변수가 설정되지 않았습니다. 호스트 .env 또는 셸에서 주입하십시오.}
-      QSIGN_KEYCLOAK_REDIRECT_URI:   http://localhost:8081/api/v1/oidc/keycloak/callback
-      QSIGN_INTERNAL_SIG_STRICT:     "false"
+      IDEM_GATE_KEYCLOAK_CLIENT_SECRET:  ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:?IDEM_GATE_KEYCLOAK_CLIENT_SECRET 환경변수가 설정되지 않았습니다. 호스트 .env 또는 셸에서 주입하십시오.}
+      IDEM_GATE_KEYCLOAK_REDIRECT_URI:   http://localhost:8081/api/v1/oidc/keycloak/callback
+      IDEM_GATE_INTERNAL_SIG_STRICT:     "false"
     ports:
       - "8081:8081"
     networks:
@@ -526,13 +526,13 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       # ── PostgreSQL (D1: hub 와 같은 인스턴스, 스키마 qim) ───────
-      QIM_DB_HOST:     postgres
-      QIM_DB_PORT:     "5432"
-      QIM_DB_NAME:     onepass
-      QIM_DB_SCHEMA:   qim
-      QIM_DB_USERNAME: onepass
-      QIM_DB_PASSWORD: onepass
-      QIM_DB_SSL:      "false"
+      IDEM_REGISTRY_DB_HOST:     postgres
+      IDEM_REGISTRY_DB_PORT:     "5432"
+      IDEM_REGISTRY_DB_NAME:     onepass
+      IDEM_REGISTRY_DB_SCHEMA:   qim
+      IDEM_REGISTRY_DB_USERNAME: onepass
+      IDEM_REGISTRY_DB_PASSWORD: onepass
+      IDEM_REGISTRY_DB_SSL:      "false"
       # ── Redis / Kafka ───────────────────────────────────────
       REDIS_HOST:    redis
       REDIS_PORT:    "6379"
@@ -540,7 +540,7 @@ services:
       IDEM_KAFKA_ENABLED: "true"   # D1-b: 이 스택은 Kafka 를 띄우므로 Kafka 경로. 없이 설치하려면 compose.install.yml
       # ── 내부 API 보안 (IdO → Q-IM 호출용 X-Internal-Api-Key) ──
       # 운영: 최소 32자 무작위 문자열, .env 또는 K8s Secret으로 주입
-      QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
+      IDEM_REGISTRY_INTERNAL_API_KEY: ${IDEM_REGISTRY_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
     ports:
       - "8082:8082"
     networks:
@@ -594,22 +594,22 @@ services:
       KAFKA_SERVERS: kafka:29092
       IDEM_KAFKA_ENABLED: "true"   # D1-b: 이 스택은 Kafka 를 띄우므로 Kafka 경로. 없이 설치하려면 compose.install.yml
       # D2 fail-secure 탈출구 — 개발 스택 전용 (prod/stage 프로파일에서는 FailSecureBootGuard 가 기동을 거부한다)
-      IDO_QAUTHZ_ENABLED: "false"             # 이 스택에는 idem-authz 가 없다
-      IDO_CAST_ALLOW_GENERATED_KEYS: "true"   # CAST 서명키 임시 생성 허용
-      IDO_QIM_ALLOW_EMPTY_AES_KEY: "true"     # registry 공유키 없이 기동 허용
+      IDEM_HUB_AUTHZ_ENABLED: "false"             # 이 스택에는 idem-authz 가 없다
+      IDEM_HUB_CAST_ALLOW_GENERATED_KEYS: "true"   # CAST 서명키 임시 생성 허용
+      IDEM_HUB_REGISTRY_ALLOW_EMPTY_AES_KEY: "true"     # registry 공유키 없이 기동 허용
       # ── 백엔드 서비스 URL ───────────────────────────────────
-      QIM_BASE_URL:   http://idem-registry:8082
-      QSIGN_BASE_URL: http://idem-gate:8081
+      IDEM_REGISTRY_BASE_URL:   http://idem-registry:8082
+      IDEM_GATE_BASE_URL: http://idem-gate:8081
       # ── Q-IM 내부 API 호출 키 (IdO → Q-IM X-Internal-Api-Key) ──
-      # Q-IM의 QIM_INTERNAL_API_KEY와 반드시 동일해야 함
-      IDO_QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
+      # Q-IM의 IDEM_REGISTRY_INTERNAL_API_KEY와 반드시 동일해야 함
+      IDEM_HUB_REGISTRY_INTERNAL_API_KEY: ${IDEM_REGISTRY_INTERNAL_API_KEY:-dev-qim-internal-api-key-change-me}
       # ── Q-Sign 내부 서명 비밀키 ─────────────────────────────
-      IDO_INTERNAL_SIG_SECRET: ${IDO_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
+      IDEM_HUB_INTERNAL_SIG_SECRET: ${IDEM_HUB_INTERNAL_SIG_SECRET:-change-me-32bytes-internal-sig-secret}
       # ── CORS ─────────────────────────────────────────────────
       CORS_ORIGIN_DEV:  http://localhost:3000
       CORS_ORIGIN_PROD: http://localhost:3001
       # ── 브로커 모드 (qsign 또는 keycloak) ───────────────────
-      IDO_BROKER_MODE: ${IDO_BROKER_MODE:-qsign}
+      IDEM_HUB_BROKER_MODE: ${IDEM_HUB_BROKER_MODE:-qsign}
       # ── Keycloak OIDC 브로커 (mode=keycloak 전환 시 활성화) ──
       KEYCLOAK_BASE_URL:      http://keycloak:8080
       KEYCLOAK_REALM:         onepass
@@ -621,10 +621,10 @@ services:
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET 환경변수가 설정되지 않았습니다. 호스트 .env 또는 셸에서 주입하십시오.}
       KEYCLOAK_REDIRECT_URI:  http://localhost:8083/api/v1/broker/callback
       # ── Webhook ──────────────────────────────────────────────
-      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:?IDO_WEBHOOK_SIGNING_SECRET 환경변수가 설정되지 않았습니다. openssl rand -hex 32 로 생성하여 주입하십시오.}
+      IDEM_HUB_WEBHOOK_SIGNING_SECRET: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:?IDEM_HUB_WEBHOOK_SIGNING_SECRET 환경변수가 설정되지 않았습니다. openssl rand -hex 32 로 생성하여 주입하십시오.}
       # ── Handoff 암호화 키 (운영: Vault/KMS 주입, 로컬: 무작위 32바이트 키) ──
-      IDO_HANDOFF_AES_KEY:  ${IDO_HANDOFF_AES_KEY:?IDO_HANDOFF_AES_KEY 환경변수가 설정되지 않았습니다. openssl rand -base64 32 로 생성하여 주입하십시오.}
-      IDO_HANDOFF_HMAC_KEY: ${IDO_HANDOFF_HMAC_KEY:?IDO_HANDOFF_HMAC_KEY 환경변수가 설정되지 않았습니다. openssl rand -base64 32 로 생성하여 주입하십시오.}
+      IDEM_HUB_HANDOFF_AES_KEY:  ${IDEM_HUB_HANDOFF_AES_KEY:?IDEM_HUB_HANDOFF_AES_KEY 환경변수가 설정되지 않았습니다. openssl rand -base64 32 로 생성하여 주입하십시오.}
+      IDEM_HUB_HANDOFF_HMAC_KEY: ${IDEM_HUB_HANDOFF_HMAC_KEY:?IDEM_HUB_HANDOFF_HMAC_KEY 환경변수가 설정되지 않았습니다. openssl rand -base64 32 로 생성하여 주입하십시오.}
     ports:
       - "8083:8083"
     networks:
@@ -680,9 +680,9 @@ services:
       REDIS_PORT:    "6379"
       KAFKA_SERVERS: kafka:29092
       IDEM_KAFKA_ENABLED: "true"   # D1-b: 이 스택은 Kafka 를 띄우므로 Kafka 경로. 없이 설치하려면 compose.install.yml
-      IDO_BASE_URL:  http://idem-hub:8083
+      IDEM_HUB_BASE_URL:  http://idem-hub:8083
       AGENCY_API_KEY:             ${AGENCY_API_KEY:-stub-api-key-dev-001}
-      IDO_WEBHOOK_SIGNING_SECRET: ${IDO_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
+      IDEM_HUB_WEBHOOK_SIGNING_SECRET: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:-poc-webhook-secret-change-in-production}
     ports:
       - "8084:8084"
     networks:

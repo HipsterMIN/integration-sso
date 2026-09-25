@@ -355,25 +355,25 @@ jobs:
           cat > /tmp/install.env <<EOF
           IDEM_DB_PASSWORD=onepass
           KEYCLOAK_ADMIN_PASSWORD=$(openssl rand -hex 16)
-          IDO_INTERNAL_SIG_SECRET=$(openssl rand -base64 32)
-          IDO_INTERNAL_API_KEY_QSIGN=$(openssl rand -hex 32)
-          IDO_INTERNAL_API_KEY_OUTBOX=$(openssl rand -hex 32)
-          QIM_INTERNAL_API_KEY=$(openssl rand -hex 32)
-          AUTHZ_INTERNAL_API_KEY=$(openssl rand -hex 32)
-          QSIGN_KEYCLOAK_CLIENT_SECRET=$(openssl rand -hex 32)
+          IDEM_HUB_INTERNAL_SIG_SECRET=$(openssl rand -base64 32)
+          IDEM_HUB_INTERNAL_API_KEY_GATE=$(openssl rand -hex 32)
+          IDEM_HUB_INTERNAL_API_KEY_RELAY=$(openssl rand -hex 32)
+          IDEM_REGISTRY_INTERNAL_API_KEY=$(openssl rand -hex 32)
+          IDEM_AUTHZ_INTERNAL_API_KEY=$(openssl rand -hex 32)
+          IDEM_GATE_KEYCLOAK_CLIENT_SECRET=$(openssl rand -hex 32)
           KEYCLOAK_CLIENT_SECRET=$(openssl rand -hex 32)
           KEYCLOAK_PROVISIONER_CLIENT_SECRET=$(openssl rand -hex 32)
           KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET=$(openssl rand -hex 32)
-          IDO_HANDOFF_AES_KEY=$(openssl rand -base64 32)
-          IDO_HANDOFF_HMAC_KEY=$(openssl rand -base64 32)
-          IDO_WEBHOOK_SIGNING_SECRET=$(openssl rand -hex 32)
-          QIM_AES_SHARED_KEY=$(openssl rand -base64 32)
-          QIM_DI_SECRET=$(openssl rand -hex 32)
-          QIM_CI_AES_KEY_V1=$(openssl rand -base64 32)
-          IDEM_ADMIN_BOOTSTRAP_PASSWORD=Ci-$(openssl rand -hex 12)-Aa
-          IDEM_ADMIN_SECRET_KEY=$(openssl rand -base64 32)
-          IDO_CAST_PRIVATE_KEY=$(openssl pkey -in /tmp/cast.pem -outform DER | base64 -w0)
-          IDO_CAST_PUBLIC_KEY=$(openssl pkey -in /tmp/cast.pem -pubout -outform DER | base64 -w0)
+          IDEM_HUB_HANDOFF_AES_KEY=$(openssl rand -base64 32)
+          IDEM_HUB_HANDOFF_HMAC_KEY=$(openssl rand -base64 32)
+          IDEM_HUB_WEBHOOK_SIGNING_SECRET=$(openssl rand -hex 32)
+          IDEM_REGISTRY_AES_SHARED_KEY=$(openssl rand -base64 32)
+          IDEM_REGISTRY_DI_SECRET=$(openssl rand -hex 32)
+          IDEM_REGISTRY_CI_AES_KEY_V1=$(openssl rand -base64 32)
+          IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD=Ci-$(openssl rand -hex 12)-Aa
+          IDEM_HUB_ADMIN_SECRET_KEY=$(openssl rand -base64 32)
+          IDEM_HUB_CAST_PRIVATE_KEY=$(openssl pkey -in /tmp/cast.pem -outform DER | base64 -w0)
+          IDEM_HUB_CAST_PUBLIC_KEY=$(openssl pkey -in /tmp/cast.pem -pubout -outform DER | base64 -w0)
           IDEM_PLUGINS_MOCK_AUTH_ENABLED=true
           IDEM_EDITION=core
           EOF
@@ -405,7 +405,7 @@ jobs:
             -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" \
             -e KC_HTTP_ENABLED=true -e KC_HOSTNAME_STRICT=false -e KC_HOSTNAME_STRICT_HTTPS=false -e KC_HEALTH_ENABLED=true -e KC_PROXY=edge \
             -e KC_HOSTNAME_URL=http://localhost:8081 -e KC_HOSTNAME_ADMIN_URL=http://localhost:8088 \
-            -e QSIGN_KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_PROVISIONER_CLIENT_SECRET -e KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET \
+            -e IDEM_GATE_KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_PROVISIONER_CLIENT_SECRET -e KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET \
             quay.io/keycloak/keycloak:24.0 start-dev --http-port=8088 --import-realm
           for i in $(seq 1 60); do
             if curl -sf http://localhost:8088/realms/onepass > /dev/null 2>&1; then echo "✅ Keycloak realm onepass UP (${i}x3s)"; exit 0; fi
@@ -421,18 +421,18 @@ jobs:
           export DB_HOST=localhost DB_PORT=5432 DB_NAME=onepass DB_USERNAME=onepass DB_PASSWORD=onepass
           export REDIS_HOST=localhost REDIS_PORT=6379 IDEM_KAFKA_ENABLED=false TZ=Asia/Seoul
           # registry
-          QIM_DB_HOST=localhost QIM_DB_PORT=5432 QIM_DB_NAME=onepass QIM_DB_SCHEMA=qim QIM_DB_USERNAME=onepass QIM_DB_PASSWORD=onepass QIM_DB_SSL=false \
+          IDEM_REGISTRY_DB_HOST=localhost IDEM_REGISTRY_DB_PORT=5432 IDEM_REGISTRY_DB_NAME=onepass IDEM_REGISTRY_DB_SCHEMA=qim IDEM_REGISTRY_DB_USERNAME=onepass IDEM_REGISTRY_DB_PASSWORD=onepass IDEM_REGISTRY_DB_SSL=false \
             nohup java -Xmx512m -jar "$(jar idem-registry)" --server.port=8082 > /tmp/idem/registry.log 2>&1 &
           # authz
           nohup java -Xmx384m -jar "$(jar idem-authz)" --server.port=8086 > /tmp/idem/authz.log 2>&1 &
           # gate
-          IDO_BASE_URL=http://localhost:8083 KEYCLOAK_URL=http://localhost:8088 KEYCLOAK_REALM=onepass QSIGN_KEYCLOAK_CLIENT_ID=q-sign-client \
-            QSIGN_KEYCLOAK_REDIRECT_URI=http://localhost:8081/api/v1/oidc/keycloak/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
+          IDEM_HUB_BASE_URL=http://localhost:8083 KEYCLOAK_URL=http://localhost:8088 KEYCLOAK_REALM=onepass IDEM_GATE_KEYCLOAK_CLIENT_ID=q-sign-client \
+            IDEM_GATE_KEYCLOAK_REDIRECT_URI=http://localhost:8081/api/v1/oidc/keycloak/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
             nohup java -Xmx512m -jar "$(jar idem-gate)" --server.port=8081 > /tmp/idem/gate.log 2>&1 &
           # hub
-          QIM_BASE_URL=http://localhost:8082 QSIGN_BASE_URL=http://localhost:8081 QAUTHZ_BASE_URL=http://localhost:8086 \
-            IDO_QIM_INTERNAL_API_KEY="$QIM_INTERNAL_API_KEY" IDO_QAUTHZ_INTERNAL_API_KEY="$AUTHZ_INTERNAL_API_KEY" \
-            IDO_BROKER_MODE=qsign KEYCLOAK_BASE_URL=http://localhost:8088 KEYCLOAK_REALM=onepass KEYCLOAK_CLIENT_ID=ido-client \
+          IDEM_REGISTRY_BASE_URL=http://localhost:8082 IDEM_GATE_BASE_URL=http://localhost:8081 IDEM_HUB_AUTHZ_BASE_URL=http://localhost:8086 \
+            IDEM_HUB_REGISTRY_INTERNAL_API_KEY="$IDEM_REGISTRY_INTERNAL_API_KEY" IDEM_HUB_AUTHZ_INTERNAL_API_KEY="$IDEM_AUTHZ_INTERNAL_API_KEY" \
+            IDEM_HUB_BROKER_MODE=qsign KEYCLOAK_BASE_URL=http://localhost:8088 KEYCLOAK_REALM=onepass KEYCLOAK_CLIENT_ID=ido-client \
             KEYCLOAK_REDIRECT_URI=http://localhost:8083/api/v1/broker/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
             IDEM_PLATFORM_CODE=IDEM IDEM_PLUGINS_NICE_OACX_ENABLED=false IDEM_PLUGINS_ANYID_ENABLED=false \
             CORS_ORIGIN_DEV=http://localhost:3001 CORS_ORIGIN_PROD=http://localhost:3001 \
@@ -476,7 +476,7 @@ jobs:
             --env BASE_URL=http://localhost:8083 \
             --env IDEM_EDITION=core \
             --env AGENCY_CODE=AGENCY001 \
-            --env INTERNAL_API_KEY="$IDO_INTERNAL_API_KEY_QSIGN" \
+            --env INTERNAL_API_KEY="$IDEM_HUB_INTERNAL_API_KEY_GATE" \
             --out json=/tmp/smoke-result.json
 
       - name: 로그 출력 (실패 시)

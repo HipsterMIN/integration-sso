@@ -1,8 +1,8 @@
 # F-02: 기관별 Rate Limiting
 
-> **환경변수**: `IDO_RATE_LIMIT_ENABLED`  
+> **환경변수**: `IDEM_HUB_RATE_LIMIT_ENABLED`  
 > **기본값**: `true` (운영 필수)  
-> **Spring 프로퍼티**: `ido.rate-limit.enabled`  
+> **Spring 프로퍼티**: `idem.hub.rate-limit.enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/gateway/AgencyRateLimiter.java`
 
 ---
@@ -42,17 +42,17 @@ AgencyRateLimiter.consume(agencyCode)
 
 ## 3. 환경변수 독립성 원칙
 
-> **중요**: F-01의 `IDO_AUTH_RL_ENABLED`와 **반드시 분리**된 환경변수를 사용합니다.  
+> **중요**: F-01의 `IDEM_HUB_AUTH_RL_ENABLED`와 **반드시 분리**된 환경변수를 사용합니다.  
 > 과거 버전의 공유 환경변수 버그는 수정 완료 — 각 플래그를 독립적으로 제어 가능합니다.
 
 ```bash
 # 운영 표준 설정
-IDO_AUTH_RL_ENABLED=true     # F-01: Auth 엔드포인트 IP RL (독립)
-IDO_RATE_LIMIT_ENABLED=true  # F-02: Gateway 기관별 RL (독립)
+IDEM_HUB_AUTH_RL_ENABLED=true     # F-01: Auth 엔드포인트 IP RL (독립)
+IDEM_HUB_RATE_LIMIT_ENABLED=true  # F-02: Gateway 기관별 RL (독립)
 
 # 기관별 RL만 비활성 (테스트용 — 권장하지 않음)
-IDO_AUTH_RL_ENABLED=true
-IDO_RATE_LIMIT_ENABLED=false
+IDEM_HUB_AUTH_RL_ENABLED=true
+IDEM_HUB_RATE_LIMIT_ENABLED=false
 ```
 
 ---
@@ -78,7 +78,7 @@ ido:
 ```bash
 # Helm 운영 오버라이드
 helm upgrade ido infra/helm/idem-hub \
-  --set env.IDO_RATE_LIMIT_ENABLED=false  # ⚠️ 일시적, 반드시 복구
+  --set env.IDEM_HUB_RATE_LIMIT_ENABLED=false  # ⚠️ 일시적, 반드시 복구
 ```
 
 > ⚠️ **운영에서 false 유지 시, 단일 기관의 과부하가 전체 Gateway 성능에 영향을 줄 수 있습니다.**
@@ -102,8 +102,8 @@ if (!featureFlags.isAgencyRateLimit()) {
 
 ```bash
 # 환경변수로 특정 기관 TPS 오버라이드
-IDO_RATE_LIMIT_AGCY001_TPS=50      # 기관 AGCY001: 50 TPS 허용
-IDO_RATE_LIMIT_AGCY002_TPS=5       # 기관 AGCY002: 5 TPS 제한
+IDEM_HUB_RATE_LIMIT_AGCY001_TPS=50      # 기관 AGCY001: 50 TPS 허용
+IDEM_HUB_RATE_LIMIT_AGCY002_TPS=5       # 기관 AGCY002: 5 TPS 제한
 ```
 
 ---

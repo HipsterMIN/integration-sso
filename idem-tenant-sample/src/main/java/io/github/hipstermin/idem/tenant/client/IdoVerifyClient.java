@@ -18,7 +18,7 @@ import org.springframework.web.client.RestTemplate;
  * IdO Handoff Verify API 클라이언트
  *
  * <p><b>이전 상태</b>: callIdoVerify() 가 Stub 값을 반환하는 PoC 코드
- * <p><b>현재 구현</b>: 실제 {@code POST {ido.base-url}/api/v1/handoff/verify} 호출
+ * <p><b>현재 구현</b>: 실제 {@code POST {idem.hub.base-url}/api/v1/handoff/verify} 호출
  *
  * <p><b>요청 헤더</b>:
  * <pre>
@@ -54,13 +54,13 @@ public class IdoVerifyClient {
     @Qualifier("idoRestTemplate")
     private final RestTemplate restTemplate;
 
-    @Value("${agency-stub.ido.base-url:http://localhost:8083}")
+    @Value("${idem.sample.ido.base-url:http://localhost:8083}")
     private String idoBaseUrl;
 
-    @Value("${agency-stub.code:AGENCY_STUB_001}")
+    @Value("${idem.sample.code:AGENCY_STUB_001}")
     private String agencyCode;
 
-    @Value("${agency-stub.ido.api-key:stub-api-key-dev-001}")
+    @Value("${idem.sample.ido.api-key:stub-api-key-dev-001}")
     private String apiKey;
 
     /**

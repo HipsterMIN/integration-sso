@@ -19,7 +19,7 @@ D1 부터 idem-registry(Q-IM)는 hub 와 같은 PostgreSQL 인스턴스의 `qim`
    ```
    출력 마지막 `VERIFY OK` 를 확인한다. 테이블별 행수와 PK 순 정렬 행 해시(SHA-256)를 대조하므로 `MISMATCH` 가 하나라도 있으면 종료 코드 2 다.
 4. **본 이관**: 3 과 같은 명령. `crypto_key_version` 시드는 기준선이 이미 넣었으므로 `--truncate` 가 지운 뒤 MariaDB 값으로 다시 채운다(키 버전 메타는 양쪽이 같아야 한다).
-5. **전환**: idem-registry·idem-relay 를 PostgreSQL 설정(`QIM_DB_HOST/PORT/NAME/SCHEMA/USERNAME/PASSWORD`, relay 는 `QIM_DB_URL` 기본값)으로 기동. `mariadb` 프로파일과 MariaDB 컨테이너·RDS 는 다음 릴리스에서 제거한다.
+5. **전환**: idem-registry·idem-relay 를 PostgreSQL 설정(`IDEM_REGISTRY_DB_HOST/PORT/NAME/SCHEMA/USERNAME/PASSWORD`, relay 는 `IDEM_REGISTRY_DB_URL` 기본값)으로 기동. `mariadb` 프로파일과 MariaDB 컨테이너·RDS 는 다음 릴리스에서 제거한다.
 6. **재검증**: 전환 후 언제든 `--verify-only` 로 두 DB 를 다시 대조할 수 있다(MariaDB 를 읽기 전용으로 남겨 둔 동안).
 
 ## 변환 규칙

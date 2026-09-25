@@ -1,8 +1,8 @@
 # F-01: IP 기반 Auth Rate Limiting
 
-> **환경변수**: `IDO_AUTH_RL_ENABLED`  
+> **환경변수**: `IDEM_HUB_AUTH_RL_ENABLED`  
 > **기본값**: `true` (운영 필수)  
-> **Spring 프로퍼티**: `ido.auth.rate-limit.enabled`  
+> **Spring 프로퍼티**: `idem.hub.auth.rate-limit.enabled`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/auth/AuthRateLimitInterceptor.java`
 
 ---
@@ -43,16 +43,16 @@ AuthRateLimitInterceptor.preHandle()
 
 ## 3. 환경변수 독립성 원칙
 
-> **중요**: F-01의 `IDO_AUTH_RL_ENABLED`와 F-02의 `IDO_RATE_LIMIT_ENABLED`는 **반드시 분리된 환경변수**를 사용합니다.  
+> **중요**: F-01의 `IDEM_HUB_AUTH_RL_ENABLED`와 F-02의 `IDEM_HUB_RATE_LIMIT_ENABLED`는 **반드시 분리된 환경변수**를 사용합니다.  
 > 이전 버전에서 두 플래그가 동일 환경변수를 공유하던 버그가 수정되었습니다.
 
 ```bash
 # 올바른 설정 예시 — 독립 제어 가능
-IDO_AUTH_RL_ENABLED=true       # F-01: IP 기반 Auth RL
-IDO_RATE_LIMIT_ENABLED=true    # F-02: 기관별 RL (별개 변수)
+IDEM_HUB_AUTH_RL_ENABLED=true       # F-01: IP 기반 Auth RL
+IDEM_HUB_RATE_LIMIT_ENABLED=true    # F-02: 기관별 RL (별개 변수)
 
 # 잘못된 예시 (이전 버전 버그 패턴) — 현재는 불가
-IDO_RATE_LIMIT_ENABLED=true    # F-01과 F-02를 같은 변수로 제어 ❌
+IDEM_HUB_RATE_LIMIT_ENABLED=true    # F-01과 F-02를 같은 변수로 제어 ❌
 ```
 
 ---
@@ -72,10 +72,10 @@ ido:
 
 K8s ConfigMap 또는 환경변수로 오버라이드 가능:
 ```bash
-IDO_AUTH_RL_ENABLED=true
-IDO_AUTH_RL_TPS=5
-IDO_AUTH_RL_PER_MINUTE=30
-IDO_AUTH_RL_PER_DAY=200
+IDEM_HUB_AUTH_RL_ENABLED=true
+IDEM_HUB_AUTH_RL_TPS=5
+IDEM_HUB_AUTH_RL_PER_MINUTE=30
+IDEM_HUB_AUTH_RL_PER_DAY=200
 ```
 
 ---
@@ -84,7 +84,7 @@ IDO_AUTH_RL_PER_DAY=200
 
 **로컬 개발 / 통합 테스트** 환경에서만 false 허용:
 ```bash
-IDO_AUTH_RL_ENABLED=false  # 부하 테스트, 통합 테스트 시
+IDEM_HUB_AUTH_RL_ENABLED=false  # 부하 테스트, 통합 테스트 시
 ```
 
 > ⚠️ **운영 환경에서 false 설정 시 브루트포스 공격에 무방비 상태가 됩니다.**

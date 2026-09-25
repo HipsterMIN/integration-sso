@@ -34,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><b>이벤트 흐름</b>:
  * <pre>
- * Kafka(ido.handoff.events) → HandoffEventConsumer
+ * Kafka(idem.hub.handoff.events) → HandoffEventConsumer
  *       → WebhookDispatcherService.enqueueForAllAgencies()
  *             → ido.webhook_dispatch_outbox INSERT (트랜잭션)
  *                   → WebhookDispatchOutboxRelay (500ms 폴링)
@@ -54,13 +54,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class WebhookDispatcherService {
 
-    private static final String SOURCE_SYSTEM = "ido";
+    private static final String SOURCE_SYSTEM = "idem-hub";
 
     private final JdbcTemplate      jdbcTemplate;
     private final ObjectMapper       objectMapper;
     private final AuditLogPublisher  auditLogPublisher;
 
-    @Value("${ido.webhook.default-max-retry:3}")
+    @Value("${idem.hub.webhook.default-max-retry:3}")
     private int defaultMaxRetry;
 
     /**
@@ -72,11 +72,11 @@ public class WebhookDispatcherService {
      *   <li>현재: 기본값 제거 → 미설정 시 {@link #validateSigningSecret()}가 부팅 단계에서 fail-fast</li>
      * </ul>
      *
-     * <p>운영 배포 시 반드시 환경변수/Vault에서 {@code IDO_WEBHOOK_SIGNING_SECRET} 주입.
+     * <p>운영 배포 시 반드시 환경변수/Vault에서 {@code IDEM_HUB_WEBHOOK_SIGNING_SECRET} 주입.
      * 테스트/로컬 등 fallback 시크릿이 정당하게 필요한 환경에서는
-     * {@code ido.webhook.allow-empty-secret=true}를 설정하면 부팅 검증을 우회한다.
+     * {@code idem.hub.webhook.allow-empty-secret=true}를 설정하면 부팅 검증을 우회한다.
      */
-    @Value("${ido.webhook.signing-secret:}")
+    @Value("${idem.hub.webhook.signing-secret:}")
     private String defaultSigningSecret;
 
     /**
@@ -85,17 +85,17 @@ public class WebhookDispatcherService {
      * <p>기본 {@code false} — 운영/스테이징 부팅 시 비어 있으면 즉시 실패.
      * 테스트 컨텍스트({@code application-integration-test.yml})에서만 {@code true}로 활성화.
      */
-    @Value("${ido.webhook.allow-empty-secret:false}")
+    @Value("${idem.hub.webhook.allow-empty-secret:false}")
     private boolean allowEmptySecret;
 
     /** 플랫폼 API 버전 헤더값 (하드코딩 "1.0" 제거) */
-    @Value("${ido.platform-version:1.0}")
+    @Value("${idem.hub.platform-version:1.0}")
     private String platformVersion;
 
     /**
      * Sprint α-3 / F4.3 — 부팅 시 webhook signing secret 강제 검증.
      *
-     * <p>{@code ido.webhook.signing-secret} 미설정 + escape hatch 비활성 시
+     * <p>{@code idem.hub.webhook.signing-secret} 미설정 + escape hatch 비활성 시
      * Spring 컨텍스트 초기화 단계에서 {@link IllegalStateException}을 던져
      * PoC 기본 시크릿이 운영에 누설되는 사고를 사전 차단한다.
      *
@@ -106,9 +106,9 @@ public class WebhookDispatcherService {
         boolean blank = (defaultSigningSecret == null || defaultSigningSecret.isBlank());
         if (blank && !allowEmptySecret) {
             throw new IllegalStateException(
-                "[F4.3 Guard] ido.webhook.signing-secret 미설정 — 운영 환경 부팅 차단. " +
-                "환경변수 IDO_WEBHOOK_SIGNING_SECRET 또는 Vault 주입 필수. " +
-                "테스트 컨텍스트에서만 ido.webhook.allow-empty-secret=true 허용."
+                "[F4.3 Guard] idem.hub.webhook.signing-secret 미설정 — 운영 환경 부팅 차단. " +
+                "환경변수 IDEM_HUB_WEBHOOK_SIGNING_SECRET 또는 Vault 주입 필수. " +
+                "테스트 컨텍스트에서만 idem.hub.webhook.allow-empty-secret=true 허용."
             );
         }
         if (blank) {
@@ -161,7 +161,7 @@ public class WebhookDispatcherService {
                 String payload = buildHandoffWebhookPayload(handoffEvent, config, correlationId);
                 boolean inserted = insertOutbox(
                         config, sourceEventId, eventType,
-                        "ido.handoff.events", payload, correlationId
+                        "idem.hub.handoff.events", payload, correlationId
                 );
                 if (inserted) enqueued++;
             } catch (Exception e) {
@@ -224,7 +224,7 @@ public class WebhookDispatcherService {
                     requestId, identifierHash, exists, instMbrId, correlationId
             );
             insertOutbox(config, requestId, "MEMBER_LOOKUP_RESULT",
-                    "ido.member.lookup.requests", payload, correlationId);
+                    "idem.hub.member.lookup.requests", payload, correlationId);
             log.info("[WebhookDispatcher] MEMBER_LOOKUP_RESULT Outbox 등록: agencyCode={} exists={}",
                     agencyCode, exists);
         } catch (Exception e) {
@@ -260,7 +260,7 @@ public class WebhookDispatcherService {
             try {
                 String payload = buildUserLogoutPayload(instMbrId, correlationId);
                 insertOutbox(config, sourceEventId, "USER_LOGOUT",
-                        "ido.session.events", payload, correlationId);
+                        "idem.hub.session.events", payload, correlationId);
             } catch (Exception e) {
                 log.error("[WebhookDispatcher] USER_LOGOUT Outbox 실패: agencyCode={} error={}",
                         config.agencyCode(), e.getMessage());
@@ -280,7 +280,7 @@ public class WebhookDispatcherService {
             try {
                 String payload = buildMemberWithdrawnPayload(instMbrId, correlationId);
                 insertOutbox(config, sourceEventId, "MEMBER_WITHDRAWN",
-                        "qim.sp.member.events", payload, correlationId);
+                        "idem.registry.sp.member.events", payload, correlationId);
             } catch (Exception e) {
                 log.error("[WebhookDispatcher] MEMBER_WITHDRAWN Outbox 실패: agencyCode={} error={}",
                         config.agencyCode(), e.getMessage());
@@ -486,7 +486,7 @@ public class WebhookDispatcherService {
 
         // 플랫폼 메타
         payload.put("platformVersion", platformVersion);
-        payload.put("sourceSystem",    "ido");
+        payload.put("sourceSystem",    "idem-hub");
 
         return objectMapper.writeValueAsString(payload);
     }
@@ -565,7 +565,7 @@ public class WebhookDispatcherService {
             try {
                 String payload = buildMemberProvisionedPayload(instMbrId, eventType, correlationId);
                 boolean inserted = insertOutbox(config, sourceEventId, eventType,
-                        "qim.user.events", payload, correlationId);
+                        "idem.registry.user.events", payload, correlationId);
                 if (inserted) enqueued++;
             } catch (Exception e) {
                 log.error("[WebhookDispatcher] {} Outbox 실패: agencyCode={} error={}",

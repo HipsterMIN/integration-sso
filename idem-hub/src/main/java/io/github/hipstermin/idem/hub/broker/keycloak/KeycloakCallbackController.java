@@ -52,7 +52,7 @@ public class KeycloakCallbackController {
     private final KeycloakOidcService   keycloakOidcService;
     private final BrokerAuditLogService brokerAuditLogService;
 
-    @Value("${ido.broker.mode:qsign}")
+    @Value("${idem.hub.broker.mode:qsign}")
     private String brokerMode;
 
     /**

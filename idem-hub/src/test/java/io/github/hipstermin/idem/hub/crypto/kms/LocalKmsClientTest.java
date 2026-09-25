@@ -14,7 +14,7 @@ import org.springframework.mock.env.MockEnvironment;
 /**
  * LocalKmsClient 단위 테스트
  *
- * <p>KMS Off 모드(IDO_KMS_ENABLED=false) 동작 검증:
+ * <p>KMS Off 모드(IDEM_HUB_KMS_ENABLED=false) 동작 검증:
  * <ul>
  *   <li>encrypt: Base64 인코딩만 수행</li>
  *   <li>decrypt: Base64 디코딩만 수행 (encrypt와 라운드트립 검증)</li>

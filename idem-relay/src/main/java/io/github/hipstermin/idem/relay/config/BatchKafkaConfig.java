@@ -41,7 +41,7 @@ public class BatchKafkaConfig {
     /**
      * Outbox Relay 전용 KafkaTemplate
      *
-     * <p>payload 타입: {@code Map<String, Object>} (ido.outbox) 또는 직렬화된 JSON String.
+     * <p>payload 타입: {@code Map<String, Object>} (idem.hub.outbox) 또는 직렬화된 JSON String.
      * JsonSerializer가 Object를 직렬화하므로 Map/String/도메인 객체 모두 처리 가능.
      */
     @Bean(name = "batchKafkaTemplate")

@@ -616,7 +616,7 @@ class HandoffServiceImplTest {
         void consumeRaceMismatch_propagatesPlatformException() {
             HandoffPayload payload = HandoffPayload.builder().build();
             given(policyEngine.buildHandoffPayload(any(), any())).willReturn(payload);
-            // Lua CAS 가 mismatch 로 IDO_TICKET_CONSUMED 던짐
+            // Lua CAS 가 mismatch 로 IDEM_HUB_TICKET_CONSUMED 던짐
             willThrow(new PlatformException(PlatformErrorCode.IDO_TICKET_CONSUMED, CORRELATION_ID))
                     .given(ticketRepository).consume(TICKET_ID);
 

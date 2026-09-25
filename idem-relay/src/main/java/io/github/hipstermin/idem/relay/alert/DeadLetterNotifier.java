@@ -24,23 +24,23 @@ import org.springframework.web.client.RestTemplate;
  * </ul>
  *
  * <h2>Slack 설정</h2>
- * Incoming Webhook URL: {@code BATCH_ALERT_SLACK_WEBHOOK_URL} 환경변수 주입
+ * Incoming Webhook URL: {@code IDEM_RELAY_ALERT_SLACK_WEBHOOK_URL} 환경변수 주입
  * <pre>
  * batch:
  *   alert:
  *     slack:
- *       webhook-url: ${BATCH_ALERT_SLACK_WEBHOOK_URL:}
- *       enabled: ${BATCH_ALERT_SLACK_ENABLED:false}
+ *       webhook-url: ${IDEM_RELAY_ALERT_SLACK_WEBHOOK_URL:}
+ *       enabled: ${IDEM_RELAY_ALERT_SLACK_ENABLED:false}
  * </pre>
  *
  * <h2>PagerDuty 설정</h2>
- * Events API v2 사용: {@code BATCH_ALERT_PAGERDUTY_ROUTING_KEY} 환경변수 주입
+ * Events API v2 사용: {@code IDEM_RELAY_ALERT_PAGERDUTY_ROUTING_KEY} 환경변수 주입
  * <pre>
  * batch:
  *   alert:
  *     pagerduty:
- *       routing-key: ${BATCH_ALERT_PAGERDUTY_ROUTING_KEY:}
- *       enabled: ${BATCH_ALERT_PAGERDUTY_ENABLED:false}
+ *       routing-key: ${IDEM_RELAY_ALERT_PAGERDUTY_ROUTING_KEY:}
+ *       enabled: ${IDEM_RELAY_ALERT_PAGERDUTY_ENABLED:false}
  * </pre>
  *
  * <h2>사용 예시</h2>
@@ -61,22 +61,22 @@ public class DeadLetterNotifier {
 
     // ── Slack 설정 ────────────────────────────────────────────────────────────
 
-    @Value("${batch.alert.slack.webhook-url:}")
+    @Value("${idem.relay.alert.slack.webhook-url:}")
     private String slackWebhookUrl;
 
-    @Value("${batch.alert.slack.enabled:false}")
+    @Value("${idem.relay.alert.slack.enabled:false}")
     private boolean slackEnabled;
 
     // ── PagerDuty 설정 ────────────────────────────────────────────────────────
 
-    @Value("${batch.alert.pagerduty.routing-key:}")
+    @Value("${idem.relay.alert.pagerduty.routing-key:}")
     private String pagerdutyRoutingKey;
 
     /** D3: PagerDuty 이벤트에 실을 운영 대시보드 링크 (비면 생략) */
-    @Value("${batch.alert.pagerduty.dashboard-url:}")
+    @Value("${idem.relay.alert.pagerduty.dashboard-url:}")
     private String dashboardUrl;
 
-    @Value("${batch.alert.pagerduty.enabled:false}")
+    @Value("${idem.relay.alert.pagerduty.enabled:false}")
     private boolean pagerdutyEnabled;
 
     // ── 알림 발송 (공통 진입점) ───────────────────────────────────────────────
@@ -252,7 +252,7 @@ public class DeadLetterNotifier {
                 "timestamp", timestamp,
                 "custom_details", pdPayload
         ));
-        // D3: 운영 대시보드 링크는 설정(batch.alert.pagerduty.dashboard-url) — 없으면 links 생략
+        // D3: 운영 대시보드 링크는 설정(idem.relay.alert.pagerduty.dashboard-url) — 없으면 links 생략
         if (dashboardUrl != null && !dashboardUrl.isBlank()) {
             event.put("links", List.of(Map.of("href", dashboardUrl, "text", "운영 대시보드")));
         }

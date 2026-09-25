@@ -1,6 +1,6 @@
 # F-27: Agency API Key 인증 감사 로그 (Sprint 15)
 
-> **환경변수**: `IDO_AGENCY_KEY_AUDIT_LOG`  
+> **환경변수**: `IDEM_HUB_AGENCY_KEY_AUDIT_LOG`  
 > **Phase**: 항상 ON (보안 감사 필수)  
 > **기본값**: `true`  
 > **소스**: `idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/HandoffAgencyKeyInterceptor.java`
@@ -59,7 +59,7 @@ kubectl logs -n smes deployment/ido \
 - 컴플라이언스 감사 시 인증 이력 제출 불가
 - 기관 연동 문제 디버깅 어려움
 
-> **운영에서는 항상 `IDO_AGENCY_KEY_AUDIT_LOG=true` 유지**
+> **운영에서는 항상 `IDEM_HUB_AGENCY_KEY_AUDIT_LOG=true` 유지**
 
 ---
 

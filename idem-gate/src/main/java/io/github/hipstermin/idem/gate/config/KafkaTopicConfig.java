@@ -14,15 +14,15 @@ import org.springframework.kafka.config.TopicBuilder;
  * 설계서 §9.3 인증 이벤트 / Transactional Outbox
  *
  * <pre>
- * qsign.auth.events     : 인증 성공/실패/잠금 이벤트 (delete, 1년 보관)
- * qsign.auth.events.dlq : Dead Letter Queue
+ * idem.gate.auth.events     : 인증 성공/실패/잠금 이벤트 (delete, 1년 보관)
+ * idem.gate.auth.events.dlq : Dead Letter Queue
  * </pre>
  */
 @Configuration
 @ConditionalOnProperty(name = KafkaOptional.PROPERTY, havingValue = "true") // D1-b: Kafka 선택 의존
 public class KafkaTopicConfig {
 
-    @Value("${qsign.kafka.topic-auth-events:qsign.auth.events}")
+    @Value("${idem.gate.kafka.topic-auth-events:idem.gate.auth.events}")
     private String authEventsTopic;
 
     /**

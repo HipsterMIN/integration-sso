@@ -75,7 +75,7 @@ public class BridgeHandoffStrategy implements HandoffStrategy {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-Agency-Code",    agencyCode);
             headers.set("X-Correlation-Id", correlationId);
-            headers.set("X-Source-System",  "ido");
+            headers.set("X-Source-System",  "idem-hub");
 
             ResponseEntity<String> resp = restTemplate.exchange(
                     pushUrl, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);

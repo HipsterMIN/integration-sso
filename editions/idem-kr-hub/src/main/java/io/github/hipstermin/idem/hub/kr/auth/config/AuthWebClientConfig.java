@@ -57,7 +57,7 @@ public class AuthWebClientConfig {
      */
     public static final String INTEGRATION_AUTH_WEB_CLIENT = "integrationAuthWebClient";
 
-    /** 통합인증 서버 WebClient — base URL·타임아웃은 {@code ido.auth.integration.*} */
+    /** 통합인증 서버 WebClient — base URL·타임아웃은 {@code idem.hub.auth.integration.*} */
     @Bean(INTEGRATION_AUTH_WEB_CLIENT)
     public WebClient integrationAuthWebClient(AuthProperties props) {
         String baseUrl = props.integration().baseUrl();

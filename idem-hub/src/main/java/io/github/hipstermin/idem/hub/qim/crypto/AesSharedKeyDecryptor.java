@@ -17,9 +17,9 @@ import org.springframework.stereotype.Component;
  *
  * <p>설정값:
  * <ul>
- *   <li>{@code ido.qim.aes-shared-key} — Base64 인코딩된 AES 공유키 (Q-IM 관리 콘솔 발급, 32바이트)</li>
- *   <li>{@code ido.qim.aes-transformation} — 암호화 모드 (Q-IM 팀과 합의 후 설정, 기본: AES/CBC/PKCS5Padding)</li>
- *   <li>{@code ido.qim.aes-iv-length} — IV 길이 (기본: 16바이트)</li>
+ *   <li>{@code idem.hub.registry.aes-shared-key} — Base64 인코딩된 AES 공유키 (Q-IM 관리 콘솔 발급, 32바이트)</li>
+ *   <li>{@code idem.hub.registry.aes-transformation} — 암호화 모드 (Q-IM 팀과 합의 후 설정, 기본: AES/CBC/PKCS5Padding)</li>
+ *   <li>{@code idem.hub.registry.aes-iv-length} — IV 길이 (기본: 16바이트)</li>
  * </ul>
  *
  * <p>[합의 필요 #1] Q-IM 팀과 아래 항목 협의 완료 후 환경변수로 확정:
@@ -43,13 +43,13 @@ public class AesSharedKeyDecryptor {
     /** AES-GCM IV 고정 길이 (12바이트 — NIST SP 800-38D 권장) */
     private static final int GCM_IV_LENGTH = 12;
 
-    /** AES 암호화 모드/패딩 (환경변수 QIM_AES_TRANSFORMATION으로 주입, Q-IM 팀 합의 필요) */
+    /** AES 암호화 모드/패딩 (환경변수 IDEM_REGISTRY_AES_TRANSFORMATION으로 주입, Q-IM 팀 합의 필요) */
     private final String transformation;
     private static final String TRANSFORMATION_CBC = "AES/CBC/PKCS5Padding";
     private static final String TRANSFORMATION_GCM = "AES/GCM/NoPadding";
 
     private boolean isGcm() { return TRANSFORMATION_GCM.equals(transformation); }
-    /** IV 바이트 길이 (환경변수 QIM_AES_IV_LENGTH, 기본 16) */
+    /** IV 바이트 길이 (환경변수 IDEM_REGISTRY_AES_IV_LENGTH, 기본 16) */
     private final int ivLength;
 
     private final byte[] sharedKeyBytes;
@@ -67,14 +67,14 @@ public class AesSharedKeyDecryptor {
 
     /**
      * @param allowEmptyKey D2 fail-secure: {@code false}(기본) 면 키가 비었거나 placeholder·길이 오류일 때 부팅을 막는다.
-     *                      로컬·테스트에서만 {@code ido.qim.allow-empty-aes-key=true}.
+     *                      로컬·테스트에서만 {@code idem.hub.registry.allow-empty-aes-key=true}.
      */
     @org.springframework.beans.factory.annotation.Autowired
     public AesSharedKeyDecryptor(
-            @Value("${ido.qim.aes-shared-key:}") String aesSharedKey,
-            @Value("${ido.qim.aes-transformation:AES/CBC/PKCS5Padding}") String transformation,
-            @Value("${ido.qim.aes-iv-length:16}") int ivLength,
-            @Value("${ido.qim.allow-empty-aes-key:false}") boolean allowEmptyKey) {
+            @Value("${idem.hub.registry.aes-shared-key:}") String aesSharedKey,
+            @Value("${idem.hub.registry.aes-transformation:AES/CBC/PKCS5Padding}") String transformation,
+            @Value("${idem.hub.registry.aes-iv-length:16}") int ivLength,
+            @Value("${idem.hub.registry.allow-empty-aes-key:false}") boolean allowEmptyKey) {
         this.allowEmptyKey   = allowEmptyKey;
         this.rawAesSharedKey = aesSharedKey == null ? "" : aesSharedKey;
         this.transformation  = transformation;
@@ -93,7 +93,7 @@ public class AesSharedKeyDecryptor {
         try {
             return Base64.getDecoder().decode(aesSharedKey);
         } catch (IllegalArgumentException e) {
-            log.error("[QIM-CRYPTO][보안경고] ido.qim.aes-shared-key 가 유효한 Base64 가 아닙니다 ({}). " +
+            log.error("[QIM-CRYPTO][보안경고] idem.hub.registry.aes-shared-key 가 유효한 Base64 가 아닙니다 ({}). " +
                       "AES 복호화 기능이 비활성화됩니다.", e.getMessage());
             return new byte[0];
         }
@@ -112,19 +112,19 @@ public class AesSharedKeyDecryptor {
         boolean badLength   = sharedKeyBytes.length != 32;
         if (placeholder || badLength) {
             String reason = placeholder
-                    ? "QIM_AES_SHARED_KEY 가 placeholder(CHANGEME) 입니다"
+                    ? "IDEM_REGISTRY_AES_SHARED_KEY 가 placeholder(CHANGEME) 입니다"
                     : "AES 공유키 길이 오류: 실제=" + sharedKeyBytes.length + "바이트, 요구=32바이트(AES-256)";
             if (!allowEmptyKey) {
                 throw new IllegalStateException("[QIM-CRYPTO] " + reason
-                        + ". Q-IM 관리 콘솔에서 발급된 실제 키를 ido.qim.aes-shared-key 로 주입하십시오. "
-                        + "로컬·테스트에서만 ido.qim.allow-empty-aes-key=true 로 우회 가능합니다.");
+                        + ". Q-IM 관리 콘솔에서 발급된 실제 키를 idem.hub.registry.aes-shared-key 로 주입하십시오. "
+                        + "로컬·테스트에서만 idem.hub.registry.allow-empty-aes-key=true 로 우회 가능합니다.");
             }
             log.error("[QIM-CRYPTO][보안경고] {} — allow-empty-aes-key=true 로 기동 계속 (로컬·테스트 전용). 복호화는 실패합니다.", reason);
         }
 
         // Transformation 검증 — D2-b: 화이트리스트 밖(ECB 등)은 기동 거부. 알고리즘은 CryptoProvider 가 실행한다
         if (!isGcm() && !TRANSFORMATION_CBC.equals(transformation)) {
-            throw new IllegalStateException("[QIM-CRYPTO] ido.qim.aes-transformation 값이 올바르지 않습니다: " + transformation
+            throw new IllegalStateException("[QIM-CRYPTO] idem.hub.registry.aes-transformation 값이 올바르지 않습니다: " + transformation
                     + " — " + TRANSFORMATION_CBC + " 또는 " + TRANSFORMATION_GCM + " 만 허용");
         }
 
@@ -138,7 +138,7 @@ public class AesSharedKeyDecryptor {
      * <p>기대 형식: {@code Base64(IV[ivLength bytes] || CipherText)}
      * IV는 암호화 시 랜덤 생성하여 암호문 앞에 붙여 전송하는 방식을 적용.
      *
-     * <p>사용 알고리즘은 {@code ido.qim.aes-transformation} 설정을 따른다
+     * <p>사용 알고리즘은 {@code idem.hub.registry.aes-transformation} 설정을 따른다
      * (Q-IM 팀과 합의 후 환경변수로 확정).
      *
      * @param encryptedValue AES 암호화된 값 (Base64 인코딩)
@@ -203,7 +203,7 @@ public class AesSharedKeyDecryptor {
      * </ul>
      *
      * <p><b>Q-IM 팀 합의 필요</b>: Q-IM이 GCM을 지원하지 않으면 {@code encryptCbc()}를 사용.
-     * 현재는 GCM을 기본값으로 사용하며, 환경변수 {@code QIM_AES_TRANSFORMATION=AES/CBC/PKCS5Padding}
+     * 현재는 GCM을 기본값으로 사용하며, 환경변수 {@code IDEM_REGISTRY_AES_TRANSFORMATION=AES/CBC/PKCS5Padding}
      * 설정 시 CBC 방식으로 fallback된다.
      *
      * @param plainText 암호화할 평문 (CI 원문, 88자 기준)
@@ -261,7 +261,7 @@ public class AesSharedKeyDecryptor {
      * AES-CBC 암호화 (Q-IM 팀이 CBC를 요구할 경우 사용)
      *
      * <p>출력: {@code Base64(IV[ivLength bytes] || CipherText)}
-     * Q-IM이 CBC 방식을 사용하는 경우 {@code ido.qim.aes-transformation=AES/CBC/PKCS5Padding} 설정.
+     * Q-IM이 CBC 방식을 사용하는 경우 {@code idem.hub.registry.aes-transformation=AES/CBC/PKCS5Padding} 설정.
      *
      * @param plainText 암호화할 평문
      * @return Base64 인코딩된 암호문 (IV + CipherText)

@@ -44,7 +44,7 @@ public class AnyIdAuthResult {
     /** 인증 수단 코드 (MOBILE_ID / EASY_SIGN / JOINT_CERT / FINANCIAL_CERT / PRIVATE_ID) */
     private final String providerCode;
 
-    /** 서비스 번호 (ido.anyid.srvc-no) */
+    /** 서비스 번호 (idem.hub.anyid.srvc-no) */
     private final String srvcNo;
 
     /** 흐름 추적 ID */

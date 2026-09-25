@@ -22,13 +22,13 @@ import org.springframework.transaction.annotation.Transactional;
  * 비OIDC 인증 AuthResult 생성 서비스 (문서 §9)
  *
  * <p>PASS / 금융인증서 / GPKI / 공동인증서 등 비OIDC 인증 수단에 대해
- * IdO가 직접 AuthResult를 생성하고 {@code qsign.auth.events} Kafka 토픽에 발행.
+ * IdO가 직접 AuthResult를 생성하고 {@code idem.gate.auth.events} Kafka 토픽에 발행.
  *
  * <p>처리 흐름 (Strategy B — 문서 §8.3):
  * <ol>
  *   <li>외부 IdP 응답을 IdpBrokerService가 정규화 → {@code IdOAuthInput}</li>
  *   <li>이 서비스가 AuthResult 생성 → {@code ido.auth_result} DB 저장</li>
- *   <li>Outbox 이벤트 저장 → Kafka {@code qsign.auth.events} 발행</li>
+ *   <li>Outbox 이벤트 저장 → Kafka {@code idem.gate.auth.events} 발행</li>
  *   <li>기존 {@code QsignAuthEventConsumer} 변경 없이 소비</li>
  * </ol>
  *
@@ -52,7 +52,7 @@ public class NonOidcAuthService {
     private final ObjectMapper               objectMapper;
     private final BrokerAuditLogService      brokerAuditLogService;
 
-    @Value("${ido.kafka.topic-auth-events:qsign.auth.events}")
+    @Value("${idem.hub.kafka.topic-auth-events:idem.gate.auth.events}")
     private String authEventsTopic;
 
     // ══════════════════════════════════════════════════════════════════════

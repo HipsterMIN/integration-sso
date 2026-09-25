@@ -42,15 +42,15 @@ import org.springframework.context.annotation.Configuration;
 public class CastKeyConfig {
 
     /** K8s Secret 또는 환경변수로 주입되는 Ed25519 PKCS8 DER Base64 개인키 */
-    @Value("${ido.cast.private-key:}")
+    @Value("${idem.hub.cast.private-key:}")
     private String privateKeyBase64;
 
     /** K8s Secret 또는 환경변수로 주입되는 Ed25519 X.509 DER Base64 공개키 */
-    @Value("${ido.cast.public-key:}")
+    @Value("${idem.hub.cast.public-key:}")
     private String publicKeyBase64;
 
     /** D2 fail-secure: 키 미설정 시 임시 키페어 자동 생성은 로컬·테스트에서만 (기본 false → 부팅 실패) */
-    @Value("${ido.cast.allow-generated-keys:false}")
+    @Value("${idem.hub.cast.allow-generated-keys:false}")
     private boolean allowGeneratedKeys;
 
     /**
@@ -70,8 +70,8 @@ public class CastKeyConfig {
         }
         if (!allowGeneratedKeys) {
             throw new IllegalStateException(
-                "[CastKeyConfig] ido.cast.private-key / public-key 가 설정되지 않았습니다. 운영에서는 Ed25519 키를 주입하십시오 "
-                    + "(docs/sso-im-operations-manual.md). 로컬·테스트에서만 ido.cast.allow-generated-keys=true 로 임시 키를 허용합니다.");
+                "[CastKeyConfig] idem.hub.cast.private-key / public-key 가 설정되지 않았습니다. 운영에서는 Ed25519 키를 주입하십시오 "
+                    + "(docs/sso-im-operations-manual.md). 로컬·테스트에서만 idem.hub.cast.allow-generated-keys=true 로 임시 키를 허용합니다.");
         }
         return generateDevKeyPair();
     }
@@ -91,7 +91,7 @@ public class CastKeyConfig {
 
         } catch (Exception e) {
             throw new IllegalStateException(
-                "[CastKeyConfig] Ed25519 키 로드 실패 — ido.cast.private-key / public-key 값을 확인하세요: "
+                "[CastKeyConfig] Ed25519 키 로드 실패 — idem.hub.cast.private-key / public-key 값을 확인하세요: "
                     + e.getMessage(), e);
         }
     }
@@ -101,7 +101,7 @@ public class CastKeyConfig {
     private KeyPair generateDevKeyPair() {
         KeyPair kp = CryptoProviders.current().generateKeyPair("Ed25519");
         log.warn("[CastKeyConfig] ⚠️  Ed25519 임시 키페어 생성됨 — 개발 전용! " +
-                     "운영 환경에서는 ido.cast.private-key / public-key 를 반드시 설정하세요.");
+                     "운영 환경에서는 idem.hub.cast.private-key / public-key 를 반드시 설정하세요.");
         return kp;
     }
 }

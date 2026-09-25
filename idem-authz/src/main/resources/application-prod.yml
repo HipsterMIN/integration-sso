@@ -5,8 +5,8 @@
 # 정책 근거: q-sign/q-im/ido application-prod.yml 동일 패턴
 #
 # 필수 운영 환경변수(미설정 시 기동 차단/인가 401):
-#   AUTHZ_INTERNAL_API_KEY, AUTHZ_DB_HOST/PORT/NAME, (선택) AUTHZ_DB_SSLMODE=require
-#   AUTHZ_EXPIRY_* (만료 스케줄러), 다중 인스턴스 시 ShedLock(후속)
+#   IDEM_AUTHZ_INTERNAL_API_KEY, IDEM_AUTHZ_DB_HOST/PORT/NAME, (선택) IDEM_AUTHZ_DB_SSLMODE=require
+#   IDEM_AUTHZ_EXPIRY_* (만료 스케줄러), 다중 인스턴스 시 ShedLock(후속)
 # ============================================================
 
 spring:

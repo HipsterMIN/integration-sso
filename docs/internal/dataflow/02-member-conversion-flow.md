@@ -409,9 +409,9 @@ sequenceDiagram
 
 | 토픽 | 이벤트 타입 | 발행 시점 | 내용 |
 |---|---|---|---|
-| `qim.user.events` | `USER_UPDATED` | 신규 사용자 등록 완료 | qimUserId, status=ACTIVE, reason=USER_REGISTERED |
-| `ido.audit.events` | `NICE_URL_ISSUED` | NICE 인증 URL 발급 | requestNo, resultCode |
-| `ido.audit.events` | `NICE_RESULT_RETRIEVED` | NICE 결과 조회 완료 | requestNo, webTransactionId, resultCode |
+| `idem.registry.user.events` | `USER_UPDATED` | 신규 사용자 등록 완료 | qimUserId, status=ACTIVE, reason=USER_REGISTERED |
+| `idem.hub.audit.events` | `NICE_URL_ISSUED` | NICE 인증 URL 발급 | requestNo, resultCode |
+| `idem.hub.audit.events` | `NICE_RESULT_RETRIEVED` | NICE 결과 조회 완료 | requestNo, webTransactionId, resultCode |
 
 ### UserEvent 구조 (신규 등록)
 

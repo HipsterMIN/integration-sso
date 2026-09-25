@@ -56,7 +56,7 @@ class AnyIdAutoConfigurationTest {
     @Test
     @DisplayName("enabled=true → DirectBrokerAdapter(anyid)·컨트롤러 등록, KMS 는 app-key 있을 때만, SsobDecryptor 는 SDK 있을 때만")
     void enabled() {
-        runner.withPropertyValues("idem.plugins.anyid.enabled=true", "ido.anyid.srvc-no=SRVC").run(ctx -> {
+        runner.withPropertyValues("idem.plugins.anyid.enabled=true", "idem.hub.anyid.srvc-no=SRVC").run(ctx -> {
             assertThat(ctx).hasSingleBean(DirectBrokerAdapter.class);
             assertThat(ctx.getBean(DirectBrokerAdapter.class).id()).isEqualTo("anyid");
             assertThat(ctx).hasSingleBean(AnyIdController.class);
@@ -68,7 +68,7 @@ class AnyIdAutoConfigurationTest {
                 assertThat(ctx).doesNotHaveBean(SsobDecryptor.class);
             }
         });
-        runner.withPropertyValues("idem.plugins.anyid.enabled=true", "ido.anyid.kms.app-key=k").run(ctx ->
+        runner.withPropertyValues("idem.plugins.anyid.enabled=true", "idem.hub.anyid.kms.app-key=k").run(ctx ->
                 assertThat(ctx).hasSingleBean(AnyIdKmsClient.class));
     }
 
@@ -79,7 +79,7 @@ class AnyIdAutoConfigurationTest {
         env.getPropertySources().addFirst(new MapPropertySource("fake-env", Map.of(
                 "ANYID_SRVC_NO", "SRVC-ENV",
                 "ANYID_AUTH_PORT", "9443",
-                "ido.anyid.agency-name", "설치측기관")));
+                "idem.hub.anyid.agency-name", "설치측기관")));
 
         new AnyIdDefaultsEnvironmentPostProcessor().postProcessEnvironment(env, null);
         new AnyIdDefaultsEnvironmentPostProcessor().postProcessEnvironment(env, null); // 멱등
@@ -87,10 +87,10 @@ class AnyIdAutoConfigurationTest {
         assertThat(env.getPropertySources().stream()
                 .filter(ps -> ps.getName().startsWith(AnyIdDefaultsEnvironmentPostProcessor.SOURCE_NAME)).count()).isEqualTo(1);
         assertThat(env.getProperty("idem.plugins.anyid.enabled")).isEqualTo("true");
-        assertThat(env.getProperty("ido.anyid.srvc-no")).isEqualTo("SRVC-ENV");
-        assertThat(env.getProperty("ido.anyid.agency-code")).isEmpty();
-        assertThat(env.getProperty("ido.anyid.agency-name")).isEqualTo("설치측기관");   // 상위 소스가 이긴다
-        assertThat(env.getProperty("ido.anyid.auth.base-url")).isEqualTo("https://www.anyid.dev:9443");
-        assertThat(env.getProperty("ido.anyid.sso.adaptor-conf")).isEqualTo("classpath:config/anyid/sso-adaptor-conf-local.properties");
+        assertThat(env.getProperty("idem.hub.anyid.srvc-no")).isEqualTo("SRVC-ENV");
+        assertThat(env.getProperty("idem.hub.anyid.agency-code")).isEmpty();
+        assertThat(env.getProperty("idem.hub.anyid.agency-name")).isEqualTo("설치측기관");   // 상위 소스가 이긴다
+        assertThat(env.getProperty("idem.hub.anyid.auth.base-url")).isEqualTo("https://www.anyid.dev:9443");
+        assertThat(env.getProperty("idem.hub.anyid.sso.adaptor-conf")).isEqualTo("classpath:config/anyid/sso-adaptor-conf-local.properties");
     }
 }

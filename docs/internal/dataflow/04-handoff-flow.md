@@ -523,10 +523,10 @@ Headers: Idempotency-Key: {UUID}
 
 | 토픽 | 이벤트 타입 | 발행 시점 | 내용 |
 |---|---|---|---|
-| `ido.handoff.events` | `HANDOFF_ISSUED` | 티켓 발급 완료 | ticketId, agencyCode, qimUserId, state |
-| `ido.handoff.events` | `HANDOFF_CONSUMED` | 티켓 검증(소비) 완료 | ticketId, agencyCode, qimUserId |
-| `ido.handoff.events` | `HANDOFF_REVOKED` | 티켓 취소 | ticketId, revokeReason |
-| `ido.handoff.events` | `HANDOFF_REUSE_ATTEMPT` | 이미 소비된 티켓 재사용 시도 | ticketId, agencyCode → 보안 알림 |
+| `idem.hub.handoff.events` | `HANDOFF_ISSUED` | 티켓 발급 완료 | ticketId, agencyCode, qimUserId, state |
+| `idem.hub.handoff.events` | `HANDOFF_CONSUMED` | 티켓 검증(소비) 완료 | ticketId, agencyCode, qimUserId |
+| `idem.hub.handoff.events` | `HANDOFF_REVOKED` | 티켓 취소 | ticketId, revokeReason |
+| `idem.hub.handoff.events` | `HANDOFF_REUSE_ATTEMPT` | 이미 소비된 티켓 재사용 시도 | ticketId, agencyCode → 보안 알림 |
 
 ### HandoffEvent 구조
 

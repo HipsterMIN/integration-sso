@@ -26,8 +26,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <h3>동작 원리</h3>
  * <ol>
- *   <li>F-26({@code IDO_HMAC_SIG_REQUIRED=false}) → 헤더 없어도 통과 (Phase 1~3)</li>
- *   <li>F-26({@code IDO_HMAC_SIG_REQUIRED=true})  → X-Internal-Sig 필수 검증 (Phase 4)</li>
+ *   <li>F-26({@code IDEM_HUB_HMAC_SIG_REQUIRED=false}) → 헤더 없어도 통과 (Phase 1~3)</li>
+ *   <li>F-26({@code IDEM_HUB_HMAC_SIG_REQUIRED=true})  → X-Internal-Sig 필수 검증 (Phase 4)</li>
  *   <li>서명 페이로드: {@code "{agencyCode}:{idempotencyKey}:{epochSeconds}"}</li>
  *   <li>허용 타임스탬프 편차: ±{@link #TTL_SECONDS}초 (네트워크 지연 + 시계 편차 허용)</li>
  *   <li>기관별 독립 HMAC 키: {@link AgencyHmacKeyStore}에서 조회</li>

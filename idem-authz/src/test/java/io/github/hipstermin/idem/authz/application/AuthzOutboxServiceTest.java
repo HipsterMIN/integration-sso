@@ -39,14 +39,14 @@ class AuthzOutboxServiceTest {
         assertThat(row.getEventType()).isEqualTo(AuthorizationEvent.TYPE_GRANTED);
         assertThat(row.getPartitionKey()).isEqualTo("user-1");          // Kafka 파티션 키 = qimUserId
         assertThat(row.getAggregateId()).isEqualTo("GOV_SMES:MANAGER");
-        assertThat(row.getTopic()).isEqualTo("authz.assignment.events");
+        assertThat(row.getTopic()).isEqualTo("idem.authz.assignment.events");
         assertThat(row.getStatus()).isEqualTo("PENDING");
         // payload는 직렬화된 JSON — 핵심 필드 포함 확인
         assertThat(row.getPayload())
-                .contains("\"eventType\":\"AUTHZ_GRANTED\"")
+                .contains("\"eventType\":\"IDEM_AUTHZ_GRANTED\"")
                 .contains("\"qimUserId\":\"user-1\"")
                 .contains("\"roleCode\":\"MANAGER\"")
-                .contains("\"sourceSystem\":\"q-authz\"");
+                .contains("\"sourceSystem\":\"idem-authz\"");
     }
 
     @Test

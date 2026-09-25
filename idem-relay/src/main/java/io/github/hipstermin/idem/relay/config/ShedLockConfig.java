@@ -48,7 +48,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *
  * <h2>ShedLock 테이블 구조 (V19 마이그레이션)</h2>
  * <pre>
- * CREATE TABLE ido.shedlock (
+ * CREATE TABLE idem.hub.shedlock (
  *   name       VARCHAR(64)  NOT NULL,   -- Job 이름
  *   lock_until TIMESTAMP    NOT NULL,   -- lockAtMostFor 기준 만료 시각
  *   locked_at  TIMESTAMP    NOT NULL,   -- 락 획득 시각
@@ -70,7 +70,7 @@ public class ShedLockConfig {
      *
      * <p>Redis 장애 시: {@code RedisLockProvider.obtainLock()} 이 예외를 던져
      * ShedLock이 Job 실행을 방어적으로 스킵 (null-safe 기본 동작).
-     * → JDBC Provider로 수동 전환 필요 (BATCH_LOCK_PROVIDER=jdbc 환경변수)
+     * → JDBC Provider로 수동 전환 필요 (IDEM_RELAY_LOCK_PROVIDER=jdbc 환경변수)
      */
     @Bean
     @Primary
@@ -82,7 +82,7 @@ public class ShedLockConfig {
     /**
      * JDBC 기반 LockProvider (Fallback)
      *
-     * <p>ido PostgreSQL의 {@code ido.shedlock} 테이블을 사용.
+     * <p>ido PostgreSQL의 {@code idem.hub.shedlock} 테이블을 사용.
      * Redis 장애 시 이 Bean 이름을 @Primary로 교체하거나,
      * Spring Profile/환경변수로 Provider 전환 구성 가능.
      *

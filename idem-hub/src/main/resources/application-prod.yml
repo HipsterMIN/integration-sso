@@ -73,6 +73,6 @@ management:
 # ── 5. 보안 헤더 — 운영 강제 ON (HSTS/CSP) ───────────────────────────────────
 # application.yml 기본값도 true이지만 보안 헤더는 prod 환경의 핵심 위생이라
 # 환경변수가 어떤 값이어도 prod에서는 강제 ON을 박는다.
-ido:
+idem.hub:
   security-headers:
     enabled: true

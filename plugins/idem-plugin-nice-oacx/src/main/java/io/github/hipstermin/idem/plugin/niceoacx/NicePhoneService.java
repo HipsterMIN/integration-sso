@@ -34,7 +34,7 @@ public class NicePhoneService implements NicePhoneGateway {
 
     static final String CODE = NicePhoneIdentityVerificationProvider.CODE;
     private static final String RESULT_OK = "0000";
-    private static final String NICE_TOKEN_LOCK_KEY = "ido:lock:nice-token-refresh";
+    private static final String NICE_TOKEN_LOCK_KEY = "idem:lock:nice-token-refresh";
     private static final long LOCK_WAIT_SECONDS = 3L;
     private static final long LOCK_LEASE_SECONDS = 10L;
 

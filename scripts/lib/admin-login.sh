@@ -7,7 +7,7 @@
 #
 #   HUB_URL                     hub 주소 (기본 http://localhost:8083)
 #   IDEM_ADMIN_USERNAME         기본 admin
-#   IDEM_ADMIN_PASSWORD         필수 (부트스트랩은 IDEM_ADMIN_BOOTSTRAP_PASSWORD 값)
+#   IDEM_ADMIN_PASSWORD         필수 (부트스트랩은 IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD 값)
 #   IDEM_ADMIN_TOTP_SECRET      2단계 등록이 끝난 계정이면 그 비밀(base32). 첫 로그인은 서버가 새 비밀을 주고 이 스크립트가 등록한다
 #   IDEM_ADMIN_TOTP_SECRET_FILE 있으면 등록된 비밀을 여기서 읽고/여기에 쓴다(0600). 개발용 — 운영 관리자는 인증 앱을 쓴다
 #   IDEM_ADMIN_NEW_PASSWORD     첫 로그인에서 비밀번호 변경이 요구되면(E-IDO-137) 이 값으로 바꾼다. 없으면 실패한다

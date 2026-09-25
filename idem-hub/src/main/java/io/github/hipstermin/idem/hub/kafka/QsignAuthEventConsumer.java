@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>60,000명 급증 대응 핵심 설계</b>:
  * <pre>
- * Q-Sign 인증 완료 → Outbox → Kafka(qsign.auth.events)
+ * Q-Sign 인증 완료 → Outbox → Kafka(idem.gate.auth.events)
  *     └─► [이 클래스] handleAuthCompleted()
  *               └─► AuthResultCacheService.preWarm()
  *                       └─► Redis 캐시 (TTL 300s)
@@ -37,8 +37,8 @@ import org.springframework.stereotype.Component;
  *   <li>AUTH_LOCKED → SessionAdvisory 발행 → 전 기관 세션 강제 종료</li>
  * </ol>
  *
- * <p><b>토픽 설정 키</b>: {@code ido.kafka.topic-auth-events}
- * (실제 토픽명: {@code qsign.auth.events})
+ * <p><b>토픽 설정 키</b>: {@code idem.hub.kafka.topic-auth-events}
+ * (실제 토픽명: {@code idem.gate.auth.events})
  */
 @Slf4j
 @Component
@@ -46,7 +46,7 @@ import org.springframework.stereotype.Component;
 public class QsignAuthEventConsumer {
 
     private static final String CONSUMER_GROUP = "ido-qsign-consumer";
-    private static final String SOURCE_SYSTEM  = "ido";
+    private static final String SOURCE_SYSTEM  = "idem-hub";
 
     private final IdempotentEventStore    idempotentEventStore;
     private final AuthResultCacheService  authResultCacheService;
@@ -54,8 +54,8 @@ public class QsignAuthEventConsumer {
     private final AuditLogPublisher        auditLogPublisher;
 
     @KafkaListener(
-            topics           = "${ido.kafka.topic-auth-events:qsign.auth.events}",
-            groupId          = "${ido.kafka.consumer-group-qsign:ido-qsign-consumer}",
+            topics           = "${idem.hub.kafka.topic-auth-events:idem.gate.auth.events}",
+            groupId          = "${idem.hub.kafka.consumer-group-qsign:ido-qsign-consumer}",
             containerFactory = "qsignListenerContainerFactory"
     )
     public void consume(ConsumerRecord<String, AuthEvent> record, Acknowledgment ack) {
@@ -81,8 +81,8 @@ public class QsignAuthEventConsumer {
     }
 
     /**
-     * 프로세스 내 진입점 (D1-b). Kafka 가 꺼진 배포에서는 {@code IdoOutboxRelay} 가 {@code ido.outbox} 의
-     * {@code qsign.auth.events} 레코드를 폴링해 이 메서드로 배달한다. 멱등 처리·타입 분기·완료 마킹은 경로와 무관하게 같다.
+     * 프로세스 내 진입점 (D1-b). Kafka 가 꺼진 배포에서는 {@code IdoOutboxRelay} 가 {@code idem.hub.outbox} 의
+     * {@code idem.gate.auth.events} 레코드를 폴링해 이 메서드로 배달한다. 멱등 처리·타입 분기·완료 마킹은 경로와 무관하게 같다.
      *
      * @throws RuntimeException 처리 실패 — 호출자가 재시도(Kafka: 에러 핸들러, 아웃박스: 백오프 재예약)
      */

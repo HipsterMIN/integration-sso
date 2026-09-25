@@ -64,7 +64,7 @@ public class CastTokenServiceImpl implements CastTokenService {
     private static final long REDIS_TTL_SECONDS = CastToken.TTL_SECONDS * 2;
 
     /** D3: CAST 의 sourceAgency — 설치본의 플랫폼 코드 ({@code IDEM_PLATFORM_CODE}, 기본 IDEM) */
-    @org.springframework.beans.factory.annotation.Value("${ido.platform.code:IDEM}")
+    @org.springframework.beans.factory.annotation.Value("${idem.hub.platform.code:IDEM}")
     private String platformCode = "IDEM";
 
     private final FeSessionService           feSessionService;
@@ -108,7 +108,7 @@ public class CastTokenServiceImpl implements CastTokenService {
         String  qimUserId     = feSession.getQimUserId();
         // S3 어휘 통일: FE 세션 값(L*/LOW·MEDIUM·HIGH/acr 숫자/CONV 등)을 정규 L1~L3 로 — 토큰에는 정규 어휘만 싣는다
         String  authLevel     = AuthResult.AuthLevel.parseOrDefault(feSession.getAuthLevel(), AuthResult.AuthLevel.L1).name();
-        // sourceAgency: 이 플랫폼의 코드(ido.platform.code) — D3: 종전 고정값 "ONEPASS" 제거
+        // sourceAgency: 이 플랫폼의 코드(idem.hub.platform.code) — D3: 종전 고정값 "ONEPASS" 제거
         String  sourceAgency  = platformCode;
 
         // S8-b 연합 인가: 대상 Service 의 할당·유효 역할(authz 정본, 장애 = 거부). 플랫폼은 굵은 RBAC 역할만 배송한다.

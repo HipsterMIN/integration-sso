@@ -40,7 +40,7 @@ public class AnyIdAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "ido.anyid.kms", name = "app-key")
+    @ConditionalOnProperty(prefix = "idem.hub.anyid.kms", name = "app-key")
     @ConditionalOnMissingBean
     public AnyIdKmsClient anyIdKmsClient(AnyIdProperties properties, ObjectMapper objectMapper) {
         return new AnyIdKmsClient(properties, objectMapper);

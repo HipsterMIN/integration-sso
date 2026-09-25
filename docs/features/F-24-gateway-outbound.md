@@ -1,6 +1,6 @@
 # F-24: Agency Gateway 아웃바운드 API (Sprint 15)
 
-> **환경변수**: `IDO_GATEWAY_OUTBOUND_ENABLED`  
+> **환경변수**: `IDEM_HUB_GATEWAY_OUTBOUND_ENABLED`  
 > **Phase**: Phase 3-B (F-23 인바운드 안정화 후 활성화)  
 > **기본값**: `false` (안전)  
 > **엔드포인트**: `PATCH /api/v1/agency/gateway/outbound/notify`  

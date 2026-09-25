@@ -12,51 +12,51 @@
 # ============================================================
 
 # ── Q-Sign PDB ────────────────────────────────────────────────
-{{- if and .Values.qsign.enabled .Values.qsign.pdb.enabled }}
+{{- if and .Values.gate.enabled .Values.gate.pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: pdb-qsign
+  name: pdb-idem-gate
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-sign
+    app.kubernetes.io/component: idem-gate
 spec:
-  minAvailable: {{ .Values.qsign.pdb.minAvailable }}
+  minAvailable: {{ .Values.gate.pdb.minAvailable }}
   selector:
     matchLabels:
       app: idem-gate
 {{- end }}
 ---
 # ── Q-IM PDB ──────────────────────────────────────────────────
-{{- if and .Values.qim.enabled .Values.qim.pdb.enabled }}
+{{- if and .Values.registry.enabled .Values.registry.pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: pdb-qim
+  name: pdb-idem-registry
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-im
+    app.kubernetes.io/component: idem-registry
 spec:
-  minAvailable: {{ .Values.qim.pdb.minAvailable }}
+  minAvailable: {{ .Values.registry.pdb.minAvailable }}
   selector:
     matchLabels:
       app: idem-registry
 {{- end }}
 ---
 # ── IdO PDB ───────────────────────────────────────────────────
-{{- if and .Values.ido.enabled .Values.ido.pdb.enabled }}
+{{- if and .Values.hub.enabled .Values.hub.pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: pdb-ido
+  name: pdb-idem-hub
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ido
+    app.kubernetes.io/component: idem-hub
 spec:
-  minAvailable: {{ .Values.ido.pdb.minAvailable }}
+  minAvailable: {{ .Values.hub.pdb.minAvailable }}
   selector:
     matchLabels:
       app: idem-hub
@@ -64,7 +64,7 @@ spec:
 ---
 # ── Outbox Relay Batch PDB ────────────────────────────────────
 # HPA는 무의미하지만 PDB는 필요 — 노드 드레인 시 ShedLock 페일오버 보장
-{{- if and .Values.batch.enabled .Values.batch.pdb.enabled }}
+{{- if and .Values.relay.enabled .Values.relay.pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -74,7 +74,7 @@ metadata:
     {{- include "onepass.labels" . | nindent 4 }}
     app.kubernetes.io/component: batch
 spec:
-  minAvailable: {{ .Values.batch.pdb.minAvailable }}
+  minAvailable: {{ .Values.relay.pdb.minAvailable }}
   selector:
     matchLabels:
       app: idem-relay
@@ -89,7 +89,7 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-authz
+    app.kubernetes.io/component: idem-authz
 spec:
   minAvailable: {{ .Values.authz.pdb.minAvailable }}
   selector:

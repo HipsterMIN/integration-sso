@@ -21,7 +21,7 @@ GS·CC 어느 심사도 관리자 식별·인증(FIA)·보안관리(FMT)·감사
    - 관리자 인증 실패·잠금·권한 거부를 Idem 의 감사 로그(`event_category=ADMIN`)에 직접 남길 수 있다. Keycloak 이벤트를 끌어오는 경로가 필요 없다.
    - Keycloak 이 죽어도 관리자는 들어와 상태를 볼 수 있어야 한다(장애 대응).
 2. **2단계는 TOTP(RFC 6238)** — 인증 앱 호환이 목적이라 HMAC-SHA1·6자리·30초를 그대로 따른다. SHA-1 은 `CryptoProvider.hmacSha1` 하나로만 열고
-   다른 용도 사용은 `CryptoBoundaryGuardTest` 가 막는다. 비밀은 `IDEM_ADMIN_SECRET_KEY`(AES-256-GCM, AAD 고정)로 봉인해 저장한다.
+   다른 용도 사용은 `CryptoBoundaryGuardTest` 가 막는다. 비밀은 `IDEM_HUB_ADMIN_SECRET_KEY`(AES-256-GCM, AAD 고정)로 봉인해 저장한다.
    SMS·이메일 OTP 는 외부 채널 의존이라 코어에 두지 않는다.
 3. **Spring Security 웹 체인 대신 `OncePerRequestFilter`(`AdminAuthFilter`) + `AdminAuthorization`** 한 쌍. hub 는 Spring Security 를 쓰지 않고
    이미 HMAC·내부 서명·API 키 필터를 자체로 갖고 있다. 관리 API 의 규칙은 경로·메서드·역할·테넌트 네 축이라 매트릭스 하나로 표현되며,
@@ -31,7 +31,7 @@ GS·CC 어느 심사도 관리자 식별·인증(FIA)·보안관리(FMT)·감사
    preflight 를 강제하고 CORS 는 관리 API 를 허용하지 않는다). 로그인·2단계 요청도 같은 규칙.
 5. **역할 3개**: `SYSTEM_ADMIN`·`POLICY_ADMIN`·`AUDITOR`. **테넌트 범위 최소 구현**: 관리자에 `tenant_code` 가 있으면 그 테넌트의 기관만
    본다(목록 필터·단건 403·프로파일의 `service.tenant` 검사). 관리자 관리·테넌트 쓰기는 전역 `SYSTEM_ADMIN` 만.
-6. **부트스트랩**: 관리자가 0명이면 `IDEM_ADMIN_BOOTSTRAP_PASSWORD` 로 첫 `SYSTEM_ADMIN` 을 만들고 첫 로그인에서 비밀번호 변경·2단계 등록을
+6. **부트스트랩**: 관리자가 0명이면 `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD` 로 첫 `SYSTEM_ADMIN` 을 만들고 첫 로그인에서 비밀번호 변경·2단계 등록을
    요구한다. `prod`/`stage` 에서 관리자가 없고 비밀번호도 비면 기동 거부(fail-secure, D2 의 `FailSecureBootGuard` 규칙에 편입).
 7. **감사**: 로그인 성공/실패/잠금, 2단계 등록/실패, 로그아웃, 비밀번호 변경, 관리자 CRUD, **인가·CSRF 거부**를 `ADMIN_*` 액션으로 남기고,
    기존 관리 행위 감사의 actor 는 인증된 사용자명이다.

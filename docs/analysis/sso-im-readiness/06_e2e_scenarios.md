@@ -396,7 +396,7 @@ S-D1 의 확대판. Q-IM 장애가 30초 가 아니라 30분 지속 시:
 
 ---
 
-### S-S2: K8s Secret leak → IDO_HANDOFF_AES_KEY 평문 환경변수 입수 → 과거 ticket 전체 복호화
+### S-S2: K8s Secret leak → IDEM_HUB_HANDOFF_AES_KEY 평문 환경변수 입수 → 과거 ticket 전체 복호화
 
 **트리거**: K8s RBAC 사고 (kubectl get secret 권한 leak) 또는 etcd 백업 파일 leak.
 

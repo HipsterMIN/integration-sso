@@ -19,14 +19,14 @@ import org.springframework.stereotype.Component;
  *   qsign:oidc:state:{state}  → JSON (KeycloakStateEntry)
  * </pre>
  *
- * <p>TTL: {@code qsign.keycloak.state-ttl-seconds} (기본 300초)
+ * <p>TTL: {@code idem.gate.keycloak.state-ttl-seconds} (기본 300초)
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class KeycloakStateStore {
 
-    private static final String KEY_PREFIX = "qsign:oidc:state:";
+    private static final String KEY_PREFIX = "idem:gate:oidc:state:";
 
     private final StringRedisTemplate  stringRedisTemplate;
     private final KeycloakProperties   keycloakProperties;

@@ -33,8 +33,8 @@ public class FeAdvisoryConsumer {
     private final FeSessionService feSessionService;
 
     @KafkaListener(
-            topics           = "${ido.kafka.topic-session-advisory:platform.session.advisory}",
-            groupId          = "${ido.kafka.consumer-group-fe-advisory:ido-fe-advisory-consumer}",
+            topics           = "${idem.hub.kafka.topic-session-advisory:platform.session.advisory}",
+            groupId          = "${idem.hub.kafka.consumer-group-fe-advisory:ido-fe-advisory-consumer}",
             containerFactory = "feAdvisoryListenerFactory"
     )
     public void consume(ConsumerRecord<String, SessionAdvisoryEvent> record,
@@ -59,7 +59,7 @@ public class FeAdvisoryConsumer {
     }
 
     /**
-     * 프로세스 내 진입점 (D1-b). Kafka 가 꺼진 배포에서는 {@code SessionAdvisoryPublisher} 가 {@code ido.outbox} 에
+     * 프로세스 내 진입점 (D1-b). Kafka 가 꺼진 배포에서는 {@code SessionAdvisoryPublisher} 가 {@code idem.hub.outbox} 에
      * 넣은 {@code platform.session.advisory} 레코드를 {@code IdoOutboxRelay} 가 폴링해 이 메서드로 배달한다.
      *
      * @throws RuntimeException 처리 실패 — 호출자가 재시도

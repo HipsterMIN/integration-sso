@@ -27,10 +27,10 @@ public class HubAccessClient {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${qsign.ido.base-url:http://localhost:8083}")
+    @Value("${idem.gate.hub.base-url:http://localhost:8083}")
     private String idoBaseUrl;
 
-    @Value("${qsign.ido.internal-sig-secret:}")
+    @Value("${idem.gate.hub.internal-sig-secret:}")
     private String internalSigSecret;
 
     public HubAccessClient(RestTemplate restTemplate, ObjectMapper objectMapper) {
@@ -49,7 +49,7 @@ public class HubAccessClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Correlation-Id", correlationId);
-        headers.set("X-Internal-Caller", "q-sign");
+        headers.set("X-Internal-Caller", "idem-gate");
         headers.set("X-Internal-Sig", sign(correlationId));
         try {
             ResponseEntity<String> resp = restTemplate.exchange(URI.create(idoBaseUrl + "/api/internal/v1/oidc-rp/access"),

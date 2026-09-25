@@ -63,10 +63,10 @@ public class WebhookInboundController {
     private final AgencySessionService  agencySessionService;
     private final ObjectMapper          objectMapper;
 
-    @Value("${agency-stub.webhook.signing-secret:poc-webhook-secret-change-in-production}")
+    @Value("${idem.sample.webhook.signing-secret:poc-webhook-secret-change-in-production}")
     private String signingSecret;
 
-    @Value("${agency-stub.code:AGENCY_STUB_001}")
+    @Value("${idem.sample.code:AGENCY_STUB_001}")
     private String agencyCode;
 
     // ══════════════════════════════════════════════════════════════════════

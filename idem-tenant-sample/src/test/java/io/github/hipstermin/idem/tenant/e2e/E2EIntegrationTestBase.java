@@ -84,7 +84,7 @@ public abstract class E2EIntegrationTestBase {
         registry.add("server.port", () -> SHARED_PORT);
 
         // agency-stub.ido.base-url = self port → 내장 MockIdoVerifyController 가 응답
-        registry.add("agency-stub.ido.base-url", () -> "http://localhost:" + SHARED_PORT);
+        registry.add("idem.sample.ido.base-url", () -> "http://localhost:" + SHARED_PORT);
 
         // PostgreSQL
         registry.add("spring.datasource.url",      POSTGRES::getJdbcUrl);

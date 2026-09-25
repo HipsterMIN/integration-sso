@@ -157,7 +157,7 @@ class OidcRpClientProvisionerTest {
         props.setEnabled(false);
         assertThatThrownBy(() -> sut.sync(oidcProfile("AG6"), "admin", "cid"))
                 .isInstanceOf(PlatformException.class)
-                .hasMessageContaining("ido.oidc-rp.enabled");
+                .hasMessageContaining("idem.hub.oidc-rp.enabled");
         verify(keycloak, never()).findClientByClientId(anyString());
     }
 

@@ -24,7 +24,7 @@ spring:
     default-schema: ido
     baseline-on-migrate: true
 
-ido:
+idem.hub:
   # S7 관리자 인증 — 테스트 컨텍스트 (통합 테스트는 이 계정으로 실제 로그인·TOTP 등록을 거친다)
   admin:
     bootstrap:
@@ -34,7 +34,7 @@ ido:
     allow-derived-secret-key: true
     cookie:
       secure: false
-  qim:
+  registry:
     allow-empty-aes-key: true      # D2 테스트 전용 탈출구
     base-url: http://localhost:8082
     connect-timeout-ms: 3000
@@ -69,11 +69,11 @@ ido:
     # Handoff 발급 경로(HandoffCryptoService AES-256-GCM / HMAC-SHA256)가 실제로 키를 쓰므로 테스트 전용 폴백 키를 준다 (실제 키 아님)
     aes-key: aW50ZWdyYXRpb24tdGVzdC1hZXMta2V5LTMyYnl0ZXM=
     hmac-key: aW50ZWdyYXRpb24tdGVzdC1obWFjLWtleS0zMmJ5dGU=
-  # Sprint α-1 / F5.1 — LocalKmsClient 는 ido.kms.enabled=false 를 명시해야 활성화된다(matchIfMissing=false).
+  # Sprint α-1 / F5.1 — LocalKmsClient 는 idem.hub.kms.enabled=false 를 명시해야 활성화된다(matchIfMissing=false).
   # 테스트용 application.yml 이 main 의 application.yml 을 가리므로 main 기본값(enabled=false)이 적용되지 않는다.
   kms:
     enabled: false
-  # AuthProperties 는 record(기본값 없음) — ido.auth.* 가 비어 있으면 AuthWebClientConfig 가 NPE 로 기동 실패한다.
+  # AuthProperties 는 record(기본값 없음) — idem.hub.auth.* 가 비어 있으면 AuthWebClientConfig 가 NPE 로 기동 실패한다.
   # main application.yml 의 기본값과 동일하게 채운다(자격 증명은 빈 값).
   auth:
     nice:
@@ -90,7 +90,7 @@ ido:
     allow-ciless-identity: true    # D2 테스트 전용 탈출구
   cast:
     allow-generated-keys: true     # D2 테스트 전용 탈출구
-  q-authz:
+  authz:
     enabled: false                 # D2: 테스트는 authz 없이
 idem:
   plugins:

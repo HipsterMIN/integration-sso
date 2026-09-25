@@ -361,10 +361,10 @@ sequenceDiagram
 
 | 토픽 | 이벤트 타입 | 발행 시점 | 내용 |
 |---|---|---|---|
-| `qim.user.events` | `USER_UPDATED` | 프로필 수정 완료 | qimUserId, reason=PROFILE_UPDATED, needsSync=true |
-| `qim.user.events` | `USER_SUSPENDED` | 상태 변경(정지) | qimUserId, newStatus, reason |
-| `qim.user.events` | `USER_WITHDRAWN` | 탈퇴 처리 완료 | qimUserId, reason=USER_REQUEST, needsSync=true |
-| `ido.handoff.events` | `HANDOFF_ISSUED` | Handoff 티켓 발급 | ticketId, agencyCode, qimUserId |
+| `idem.registry.user.events` | `USER_UPDATED` | 프로필 수정 완료 | qimUserId, reason=PROFILE_UPDATED, needsSync=true |
+| `idem.registry.user.events` | `USER_SUSPENDED` | 상태 변경(정지) | qimUserId, newStatus, reason |
+| `idem.registry.user.events` | `USER_WITHDRAWN` | 탈퇴 처리 완료 | qimUserId, reason=USER_REQUEST, needsSync=true |
+| `idem.hub.handoff.events` | `HANDOFF_ISSUED` | Handoff 티켓 발급 | ticketId, agencyCode, qimUserId |
 
 ### UserEvent 구조 (탈퇴)
 
@@ -411,12 +411,12 @@ sequenceDiagram
 // FeSessionServiceImpl.invalidateByQimUserId()
 void invalidateByQimUserId(String qimUserId, String reason) {
     Set<Object> sessionIds = redisTemplate.opsForSet()
-        .members("fe:user-sessions:" + qimUserId);
+        .members("idem:fe:user-sessions:" + qimUserId);
     
     for (Object sid : sessionIds) {
-        redisTemplate.delete("fe:session:" + sid);
+        redisTemplate.delete("idem:fe:session:" + sid);
     }
-    redisTemplate.delete("fe:user-sessions:" + qimUserId);
+    redisTemplate.delete("idem:fe:user-sessions:" + qimUserId);
     
     log.warn("[FeSession] MANDATORY 일괄 무효화 qimUserId={} count={} reason={}",
              qimUserId, sessionIds.size(), reason);

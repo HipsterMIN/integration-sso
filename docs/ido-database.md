@@ -56,7 +56,7 @@ ido 데이터베이스의 주요 테이블과 각 테이블의 역할을 비즈�
 #### 2.3. 시스템 신뢰성 및 무결성
 
 - outbox (Transactional Outbox)
-    - 목적: ido 서비스가 Kafka로 이벤트를 발행할 때, 데이터베이스 트랜잭션과 메시지 발행을 원자적으로 묶어 데이터 정합성을 보장합니다. (예: Handoff 발급 DB 저장과 ido.handoff.events 토픽 발행을
+    - 목적: ido 서비스가 Kafka로 이벤트를 발행할 때, 데이터베이스 트랜잭션과 메시지 발행을 원자적으로 묶어 데이터 정합성을 보장합니다. (예: Handoff 발급 DB 저장과 idem.hub.handoff.events 토픽 발행을
       동시에 보장)
     - 주요 컬럼 및 역할:
         - status: 이벤트 발행 상태 (PENDING, PUBLISHED, FAILED).
@@ -68,7 +68,7 @@ ido 데이터베이스의 주요 테이블과 각 테이블의 역할을 비즈�
     - 목적: 위 outbox와 동일한 패턴을 외부 기관 Webhook 발송에 적용한 것입니다. 내부 Kafka 이벤트를 수신한 후, 이 테이블에 Webhook 발송 작업을 PENDING 상태로 저장하여 최소 1회 발송(at-least-once)을
       보장합니다.
     - 연관 비즈니스 로직:
-        - Kafka 컨슈머(HandoffEventConsumer)가 ido.handoff.events 토픽을 구독하고, 수신한 이벤트를 기반으로 webhook_dispatch_outbox에 발송 작업을 기록합니다.
+        - Kafka 컨슈머(HandoffEventConsumer)가 idem.hub.handoff.events 토픽을 구독하고, 수신한 이벤트를 기반으로 webhook_dispatch_outbox에 발송 작업을 기록합니다.
         - WebhookDispatchOutboxRelay가 PENDING 작업을 조회하여 기관의 webhook_endpoint로 실제 HTTPS POST 요청을 보냅니다.
 - processed_event (Idempotent Consumer)
     - 목적: Kafka 등 메시지 시스템의 at-least-once 특성으로 인해 발생할 수 있는 메시지 중복 처리를 방지합니다.

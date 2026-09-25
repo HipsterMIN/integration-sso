@@ -25,21 +25,21 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class FeSessionServiceImpl implements FeSessionService {
 
-    private static final String KEY_PREFIX      = "fe:session:";
-    private static final String USER_SET_PREFIX = "fe:user-sessions:";
+    private static final String KEY_PREFIX      = "idem:fe:session:";
+    private static final String USER_SET_PREFIX = "idem:fe:user-sessions:";
     /** S6 PR-2: Keycloak sid → feSessionId, Keycloak sub → feSessionId 집합 (SLO·Back-Channel Logout 역인덱스) */
-    private static final String IDP_SID_PREFIX  = "fe:idp-sid:";
-    private static final String IDP_SUB_PREFIX  = "fe:idp-sub:";
+    private static final String IDP_SID_PREFIX  = "idem:fe:idp-sid:";
+    private static final String IDP_SUB_PREFIX  = "idem:fe:idp-sub:";
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @Value("${ido.fe.session.sliding-ttl-minutes:30}")
+    @Value("${idem.hub.fe.session.sliding-ttl-minutes:30}")
     private long slidingTtlMinutes;
 
-    @Value("${ido.fe.session.absolute-timeout-minutes:480}")
+    @Value("${idem.hub.fe.session.absolute-timeout-minutes:480}")
     private long absoluteTimeoutMinutes;
 
-    @Value("${ido.fe.allowed-return-urls:}")
+    @Value("${idem.hub.fe.allowed-return-urls:}")
     private List<String> allowedReturnUrls;
 
     // ── 세션 생성 ─────────────────────────────────────────────────────────

@@ -89,7 +89,7 @@ idem-registry/src/main/java/io/github/hipstermin/idem/registry/
 // - CI AES-256-GCM 암호화 후 저장
 // - PII 마스킹 (이름, 전화번호, 이메일)
 // - qimUserId(UUID) 생성
-// - Outbox → qim.user.events 발행
+// - Outbox → idem.registry.user.events 발행
 ```
 
 ### 2.3 회원 상태 전이
@@ -157,7 +157,7 @@ public String decrypt(String encryptedCi) {
 
 ```java
 // OutboxServiceImpl.relayPendingEvents()
-// PENDING → Kafka(qim.user.events) 발행 → PUBLISHED
+// PENDING → Kafka(idem.registry.user.events) 발행 → PUBLISHED
 // ⚠️ 실패 시 markFailed() 미호출, retry_count 증가 미적용 (GAP-QIM-04)
 ```
 
@@ -224,9 +224,9 @@ qim:
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
   ci:
-    aes-key-v1: ${QIM_CI_AES_KEY_V1}
+    aes-key-v1: ${IDEM_REGISTRY_CI_AES_KEY_V1}
   di:
-    secret: ${QIM_DI_SECRET}
+    secret: ${IDEM_REGISTRY_DI_SECRET}
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
 ```

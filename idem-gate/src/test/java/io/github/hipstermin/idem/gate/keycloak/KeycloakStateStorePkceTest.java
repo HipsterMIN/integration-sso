@@ -34,7 +34,7 @@ class KeycloakStateStorePkceTest {
 
         assertThat(entry.getCodeVerifier()).matches("[A-Za-z0-9\\-._~]{43,128}");   // RFC 7636 §4.1
         ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
-        verify(values).set(eq("qsign:oidc:state:" + entry.getState()), json.capture(), any(Duration.class));
+        verify(values).set(eq("idem:gate:oidc:state:" + entry.getState()), json.capture(), any(Duration.class));
         assertThat(json.getValue()).contains("\"codeVerifier\":\"" + entry.getCodeVerifier() + "\"");
 
         KeycloakStateEntry restored = KeycloakStateEntry.fromJson(json.getValue());
@@ -56,10 +56,10 @@ class KeycloakStateStorePkceTest {
     void consumeReturnsVerifierOnce() {
         given(redis.opsForValue()).willReturn(values);
         KeycloakStateStore store = new KeycloakStateStore(redis, new KeycloakProperties());
-        given(values.get("qsign:oidc:state:st")).willReturn(
+        given(values.get("idem:gate:oidc:state:st")).willReturn(
                 KeycloakStateEntry.builder().state("st").nonce("n").correlationId("c").codeVerifier("v".repeat(50)).build().toJson());
         assertThat(store.consumeAndValidate("st")).get().extracting(KeycloakStateEntry::getCodeVerifier).isEqualTo("v".repeat(50));
-        verify(redis).delete("qsign:oidc:state:st");
+        verify(redis).delete("idem:gate:oidc:state:st");
         given(values.get(anyString())).willReturn(null);
         assertThat(store.consumeAndValidate("st")).isEmpty();
     }

@@ -15,7 +15,7 @@ import org.springframework.context.annotation.DependsOn;
  * <pre>
  * ┌──────────────────────────────────────────────────────────────────────┐
  * │  ido DataSource  → V19__add_shedlock_table.sql                      │
- * │                     (ido.shedlock 테이블 생성 — ShedLock JDBC용)    │
+ * │                     (idem.hub.shedlock 테이블 생성 — ShedLock JDBC용)    │
  * │                                                                      │
  * │  q-im DataSource → 마이그레이션 없음 (읽기 전용, 기존 스키마 사용)  │
  * │  q-sign DataSource → 마이그레이션 없음 (읽기 전용, 기존 스키마 사용)│

@@ -39,10 +39,10 @@ class OidcRpProvisioningIntegrationTest extends IntegrationTestBase {
 
     @DynamicPropertySource
     static void keycloakProps(DynamicPropertyRegistry registry) {
-        registry.add("ido.keycloak.base-url", () -> "http://localhost:" + wireMockServer.port());
-        registry.add("ido.keycloak.realm", () -> "onepass");
-        registry.add("ido.oidc-rp.provisioner.client-secret", () -> "it-provisioner-secret");
-        registry.add("ido.oidc-rp.issuer", () -> "https://sso.example.org/realms/onepass");
+        registry.add("idem.hub.keycloak.base-url", () -> "http://localhost:" + wireMockServer.port());
+        registry.add("idem.hub.keycloak.realm", () -> "onepass");
+        registry.add("idem.hub.oidc-rp.provisioner.client-secret", () -> "it-provisioner-secret");
+        registry.add("idem.hub.oidc-rp.issuer", () -> "https://sso.example.org/realms/onepass");
     }
 
     @LocalServerPort int port;

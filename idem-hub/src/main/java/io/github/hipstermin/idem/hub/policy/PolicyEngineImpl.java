@@ -50,8 +50,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class PolicyEngineImpl implements PolicyEngine {
 
-    /** D3: 점검 시간 판정 시간대 — ido.zone (기본 UTC) */
-    @org.springframework.beans.factory.annotation.Value("${ido.zone:UTC}")
+    /** D3: 점검 시간 판정 시간대 — idem.hub.zone (기본 UTC) */
+    @org.springframework.beans.factory.annotation.Value("${idem.hub.zone:UTC}")
     private String zoneId = "UTC";
 
     private final UserStatusCache      userStatusCache;
@@ -59,7 +59,7 @@ public class PolicyEngineImpl implements PolicyEngine {
     private final AgencyMetaRepository agencyMetaRepository;
 
     /** policyVersion 기본값 — DB에 값 없을 때 fallback (하드코딩 "1.0" 제거) */
-    @Value("${ido.policy.default-version:1.0}")
+    @Value("${idem.hub.policy.default-version:1.0}")
     private String defaultPolicyVersion;
 
     private final ServiceProfileService serviceProfileService;
@@ -180,7 +180,7 @@ public class PolicyEngineImpl implements PolicyEngine {
         String resolvedPolicyVersion = profile != null && profile.policy() != null && profile.policy().policyVersion() != null
                 ? profile.policy().policyVersion() : defaultPolicyVersion;
 
-        // 2. 사용자 상태 — D2 fail-secure: 캐시 미스면 정본(Q-IM) 조회, 그것도 실패면 거부(IDO_QIM_UNREACHABLE).
+        // 2. 사용자 상태 — D2 fail-secure: 캐시 미스면 정본(Q-IM) 조회, 그것도 실패면 거부(IDEM_HUB_REGISTRY_UNREACHABLE).
         //    종전에는 조회 실패를 ACTIVE 로 가정해 정지·탈퇴 사용자에게 페이로드가 나갈 수 있었다.
         UserStatus userStatus = resolveUserStatus(qimUserId, correlationId);
 
@@ -194,7 +194,7 @@ public class PolicyEngineImpl implements PolicyEngine {
         // 4. 속성 — 프로파일 identity.attributes/attributeMapping 으로 조립 (GUEST 도 같은 계약을 따른다)
         Map<String, Object> attributes = attributeAssembler.assemble(identity, ticket, correlationId);
 
-        // 5. S8-b 할당·역할 — authz 정본. 장애는 IDO_AUTHZ_UNAVAILABLE 로 전파(verify 는 consume 전이라 티켓은 살아 있다)
+        // 5. S8-b 할당·역할 — authz 정본. 장애는 IDEM_HUB_AUTHZ_UNAVAILABLE 로 전파(verify 는 consume 전이라 티켓은 살아 있다)
         ServiceAccess access = qAuthzClient.getServiceAccess(qimUserId, agencyCode, correlationId);
         ServiceProfile.Assignment assignment = profile != null && profile.policy() != null ? profile.policy().assignment() : null;
         boolean assignmentRequired = assignment != null && assignment.requiresAssignment();
@@ -269,9 +269,9 @@ public class PolicyEngineImpl implements PolicyEngine {
      * <p><b>Sprint α-3 / F4.6 원칙</b> — registry 일시 장애와 영구 미매핑 구분:
      * <ul>
      *   <li>{@code null} 반환 (정당한 GUEST) — 스킴 구현이 empty 를 돌려준 경우 (DI 없음·404·스킴 불일치)</li>
-     *   <li>{@link PlatformException} 재전파 (안전 우선 거부) — {@code IDO_QIM_UNREACHABLE} 등 호출 자체가 실패한 경우.
+     *   <li>{@link PlatformException} 재전파 (안전 우선 거부) — {@code IDEM_HUB_REGISTRY_UNREACHABLE} 등 호출 자체가 실패한 경우.
      *       호출자가 503 으로 응답해 클라이언트 재시도를 유도한다</li>
-     *   <li>예상 외 예외는 {@code IDO_QIM_UNREACHABLE} 로 변환 — NPE 등으로 GUEST 가 새는 사고 방지</li>
+     *   <li>예상 외 예외는 {@code IDEM_HUB_REGISTRY_UNREACHABLE} 로 변환 — NPE 등으로 GUEST 가 새는 사고 방지</li>
      * </ul>
      *
      * <p>이전 HMAC fallback({@code generateAgencySubjectId}) 은 완전히 제거된 상태를 유지한다 — 매핑 없는 사용자에게

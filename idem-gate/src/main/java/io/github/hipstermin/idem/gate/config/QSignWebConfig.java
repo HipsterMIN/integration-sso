@@ -36,13 +36,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @EnableCaching
 public class QSignWebConfig implements WebMvcConfigurer {
 
-    @Value("${qsign.keycloak.http.connect-timeout-ms:3000}")
+    @Value("${idem.gate.keycloak.http.connect-timeout-ms:3000}")
     private int connectTimeoutMs;
 
-    @Value("${qsign.keycloak.http.read-timeout-ms:5000}")
+    @Value("${idem.gate.keycloak.http.read-timeout-ms:5000}")
     private int readTimeoutMs;
 
-    @Value("${qsign.keycloak.jwks-cache-ttl-seconds:3600}")
+    @Value("${idem.gate.keycloak.jwks-cache-ttl-seconds:3600}")
     private long jwksCacheTtlSeconds;
 
     // ── RestTemplate ────────────────────────────────────────────────────

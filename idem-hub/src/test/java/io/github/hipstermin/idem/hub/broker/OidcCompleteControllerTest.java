@@ -93,7 +93,7 @@ class OidcCompleteControllerTest {
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             // when
-            controller.complete("valid-sig", "q-sign", "cid-001", req, response);
+            controller.complete("valid-sig", "idem-gate", "cid-001", req, response);
 
             // then
             verify(qimClient, times(1)).findByIdentifierHash(eq(SubjectScheme.CI.identifierHash(ci)), anyString());
@@ -129,7 +129,7 @@ class OidcCompleteControllerTest {
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             // when
-            controller.complete("valid-sig", "q-sign", "cid-002", req, response);
+            controller.complete("valid-sig", "idem-gate", "cid-002", req, response);
 
             // then
             ArgumentCaptor<SubjectRegistration> captor = ArgumentCaptor.forClass(SubjectRegistration.class);
@@ -151,7 +151,7 @@ class OidcCompleteControllerTest {
             OidcCompleteRequest req = buildRequestNoCi(identifierHash);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
-            assertThatThrownBy(() -> controller.complete("valid-sig", "q-sign", "cid-003", req, response))
+            assertThatThrownBy(() -> controller.complete("valid-sig", "idem-gate", "cid-003", req, response))
                     .isInstanceOf(PlatformException.class)
                     .satisfies(e -> assertThat(((PlatformException) e).getErrorCode())
                             .isEqualTo(PlatformErrorCode.IDO_IDENTITY_UNRESOLVED));
@@ -160,7 +160,7 @@ class OidcCompleteControllerTest {
         }
 
         @Test
-        @DisplayName("(D2) ido.broker.allow-ciless-identity=true (로컬 전용) 일 때만 identifierHash 폴백")
+        @DisplayName("(D2) idem.hub.broker.allow-ciless-identity=true (로컬 전용) 일 때만 identifierHash 폴백")
         void resolve_noCi_fallbackOnlyWhenExplicitlyAllowed() {
             ReflectionTestUtils.setField(controller, "allowCilessIdentity", true);
             String identifierHash = "sha256-hash-of-sub-value";
@@ -171,7 +171,7 @@ class OidcCompleteControllerTest {
                     .willReturn(buildMockSession(identifierHash));
 
             OidcCompleteRequest req = buildRequestNoCi(identifierHash);
-            controller.complete("valid-sig", "q-sign", "cid-003", req, new MockHttpServletResponse());
+            controller.complete("valid-sig", "idem-gate", "cid-003", req, new MockHttpServletResponse());
 
             verify(qimClient, never()).findByIdentifierHash(any(), any());
             verify(feSessionService, times(1)).create(eq(identifierHash), any(), any(), any(), any(), any());
@@ -191,7 +191,7 @@ class OidcCompleteControllerTest {
             ReflectionTestUtils.setField(req, "subjectScheme", "email");
             ReflectionTestUtils.setField(req, "subjectKey", "alice@example.org");
 
-            controller.complete("valid-sig", "q-sign", "cid-005", req, new MockHttpServletResponse());
+            controller.complete("valid-sig", "idem-gate", "cid-005", req, new MockHttpServletResponse());
 
             verify(qimClient).findByIdentifierHash(eq(SubjectScheme.EMAIL.identifierHash("alice@example.org")), anyString());
             verify(feSessionService).create(eq(qimUserId), any(), any(), any(), any(), any());
@@ -216,7 +216,7 @@ class OidcCompleteControllerTest {
             // when & then
             org.junit.jupiter.api.Assertions.assertThrows(
                     io.github.hipstermin.idem.common.error.PlatformException.class,
-                    () -> controller.complete("invalid-sig", "q-sign", "cid-sig-fail", req, response)
+                    () -> controller.complete("invalid-sig", "idem-gate", "cid-sig-fail", req, response)
             );
 
             // QimClient, FeSessionService는 호출되지 않아야 함
@@ -236,7 +236,7 @@ class OidcCompleteControllerTest {
             // when & then
             org.junit.jupiter.api.Assertions.assertThrows(
                     io.github.hipstermin.idem.common.error.PlatformException.class,
-                    () -> controller.complete(null, "q-sign", "cid-null-sig", req, response)
+                    () -> controller.complete(null, "idem-gate", "cid-null-sig", req, response)
             );
         }
 
@@ -250,7 +250,7 @@ class OidcCompleteControllerTest {
             MockHttpServletResponse response = new MockHttpServletResponse();
 
             // when
-            var result = controller.complete("any-sig", "q-sign", "cid-kc", req, response);
+            var result = controller.complete("any-sig", "idem-gate", "cid-kc", req, response);
 
             // then
             assertThat(result.getStatusCode().value()).isEqualTo(409);

@@ -38,14 +38,14 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class TicketRepositoryImpl implements TicketRepository {
 
-    private static final String KEY_PREFIX = "ido:ticket:";
+    private static final String KEY_PREFIX = "idem:ticket:";
 
     /**
      * Sprint α-2 / F4.2 — Atomic CAS Lua script for ISSUED → CONSUMED 전이.
      *
      * <p>입력:
      * <ul>
-     *   <li>KEYS[1] = "ido:ticket:&lt;ticketId&gt;"</li>
+     *   <li>KEYS[1] = "idem:ticket:&lt;ticketId&gt;"</li>
      *   <li>ARGV[1] = 기대 현재 state (보통 "ISSUED")</li>
      *   <li>ARGV[2] = 갱신할 ticket JSON (state=CONSUMED 로 마킹된)</li>
      *   <li>ARGV[3] = 갱신 후 TTL(초) — 감사 조회용 짧은 보관</li>
@@ -87,7 +87,7 @@ public class TicketRepositoryImpl implements TicketRepository {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${ido.ticket.ttl-seconds:60}")
+    @Value("${idem.hub.ticket.ttl-seconds:60}")
     private long ticketTtlSeconds;
 
     // ── 저장 ──────────────────────────────────────────────────────────────
@@ -145,9 +145,9 @@ public class TicketRepositoryImpl implements TicketRepository {
      * <p>Lua 결과 처리:
      * <ul>
      *   <li>{@code 1L} — 성공 (CONSUMED 로 전이됨)</li>
-     *   <li>{@code 0L} — 키 없음 → {@code IDO_TICKET_EXPIRED}</li>
-     *   <li>{@code "CONSUMED"} — 동시 verify 의 다른 winner 가 이미 소비 → {@code IDO_TICKET_CONSUMED}</li>
-     *   <li>{@code "REVOKED"} — race 중 revoke 가 들어와 취소됨 → {@code IDO_TICKET_REVOKED}</li>
+     *   <li>{@code 0L} — 키 없음 → {@code IDEM_HUB_TICKET_EXPIRED}</li>
+     *   <li>{@code "CONSUMED"} — 동시 verify 의 다른 winner 가 이미 소비 → {@code IDEM_HUB_TICKET_CONSUMED}</li>
+     *   <li>{@code "REVOKED"} — race 중 revoke 가 들어와 취소됨 → {@code IDEM_HUB_TICKET_REVOKED}</li>
      *   <li>{@code "PARSE_ERROR"} 또는 기타 — 손상된 데이터 → {@code RuntimeException}</li>
      * </ul>
      */

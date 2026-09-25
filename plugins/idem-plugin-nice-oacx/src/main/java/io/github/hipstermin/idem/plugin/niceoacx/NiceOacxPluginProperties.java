@@ -5,8 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * 플러그인 설정 — {@code idem.plugins.nice-oacx.*}.
  *
- * <p>자격증명(NICE client-id/secret, OACX provider key 경로)은 여기 두지 않는다. 기존 {@code ido.auth.nice.*},
- * {@code ido.auth.oacx.*} 환경변수 계약을 P2 본작업에서 {@code idem.plugins.nice-oacx.*} 로 옮길 때 함께 이전한다.
+ * <p>자격증명(NICE client-id/secret, OACX provider key 경로)은 여기 두지 않는다. 기존 {@code idem.hub.auth.nice.*},
+ * {@code idem.hub.auth.oacx.*} 환경변수 계약을 P2 본작업에서 {@code idem.plugins.nice-oacx.*} 로 옮길 때 함께 이전한다.
  */
 @ConfigurationProperties(prefix = "idem.plugins.nice-oacx")
 public class NiceOacxPluginProperties {

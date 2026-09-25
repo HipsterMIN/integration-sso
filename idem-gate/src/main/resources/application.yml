@@ -6,7 +6,7 @@ server:
 
 spring:
   application:
-    name: q-sign
+    name: idem-gate
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
@@ -76,7 +76,7 @@ spring:
     properties:
       security.protocol: PLAINTEXT
     producer:
-      client-id: q-sign-producer
+      client-id: idem-gate-producer
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all                    # 모든 ISR 확인 후 응답
@@ -90,7 +90,7 @@ spring:
         max.in.flight.requests.per.connection: "5"
         spring.json.add.type.headers: "false"
     consumer:
-      group-id: q-sign-consumer
+      group-id: idem-gate-consumer
       auto-offset-reset: earliest
       enable-auto-commit: false    # 수동 커밋 (멱등 처리)
       max-poll-records: 50
@@ -105,7 +105,7 @@ spring:
       missing-topics-fatal: true
 
 # ── Q-Sign 도메인 설정 ─────────────────────────────────────────
-qsign:
+idem.gate:
   # §9.6 잠금·재시도 정책
   lock:
     max-attempts: 5
@@ -121,20 +121,20 @@ qsign:
     GPKI_OIDC: L3
     GPKI: L3
   # IdO 내부 통신 설정
-  ido:
-    base-url: ${IDO_BASE_URL:http://localhost:8083}
-    # X-Internal-Sig HMAC-SHA256 공유 비밀키 (ido와 동일 값, IDO_INTERNAL_SIG_SECRET 필수)
-    internal-sig-secret: ${IDO_INTERNAL_SIG_SECRET:}
+  hub:
+    base-url: ${IDEM_HUB_BASE_URL:http://localhost:8083}
+    # X-Internal-Sig HMAC-SHA256 공유 비밀키 (ido와 동일 값, IDEM_HUB_INTERNAL_SIG_SECRET 필수)
+    internal-sig-secret: ${IDEM_HUB_INTERNAL_SIG_SECRET:}
     internal-sig-ttl-seconds: 60
-    # (D2) internal-sig-strict-mode 는 삭제됨 — 서명 검증은 항상 strict (non-strict 경로 없음). QSIGN_INTERNAL_SIG_STRICT 는 무시된다.
+    # (D2) internal-sig-strict-mode 는 삭제됨 — 서명 검증은 항상 strict (non-strict 경로 없음). IDEM_GATE_INTERNAL_SIG_STRICT 는 무시된다.
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
   # Kafka 토픽
   kafka:
-    topic-auth-events: qsign.auth.events
+    topic-auth-events: idem.gate.auth.events
   # Outbox Relay
   outbox:
-    relay-enabled: ${QSIGN_OUTBOX_RELAY_ENABLED:true}   # D1-b: idem.messaging.kafka.enabled=false 면 false 로 파생
+    relay-enabled: ${IDEM_GATE_OUTBOX_RELAY_ENABLED:true}   # D1-b: idem.messaging.kafka.enabled=false 면 false 로 파생
     relay-interval-ms: 500
     batch-size: 100
     max-retry: 3
@@ -151,16 +151,16 @@ qsign:
     # Keycloak Realm
     realm: ${KEYCLOAK_REALM:onepass}
     # q-sign 용 Keycloak Client ID
-    client-id: ${QSIGN_KEYCLOAK_CLIENT_ID:q-sign-client}
+    client-id: ${IDEM_GATE_KEYCLOAK_CLIENT_ID:q-sign-client}
     # q-sign 용 Keycloak Client Secret (Sprint γ-1 / F2.1)
-    # 환경변수: QSIGN_KEYCLOAK_CLIENT_SECRET — 운영에서 반드시 주입 필수.
+    # 환경변수: IDEM_GATE_KEYCLOAK_CLIENT_SECRET — 운영에서 반드시 주입 필수.
     # default("change-me") 제거 → 미설정 시 KeycloakProperties.validateClientSecret()
     # 가 부팅을 차단하여 운영자가 즉시 인지 가능.
-    # 테스트/로컬은 qsign.keycloak.allow-empty-client-secret=true 로 우회.
-    client-secret: ${QSIGN_KEYCLOAK_CLIENT_SECRET:}
+    # 테스트/로컬은 idem.gate.keycloak.allow-empty-client-secret=true 로 우회.
+    client-secret: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:}
     # Keycloak 이 인증 완료 후 리다이렉트할 q-sign Callback URI
     # Keycloak Admin Console > Clients > q-sign-client > Valid Redirect URIs 에 등록 필요
-    redirect-uri: ${QSIGN_KEYCLOAK_REDIRECT_URI:http://localhost:8081/api/v1/oidc/keycloak/callback}
+    redirect-uri: ${IDEM_GATE_KEYCLOAK_REDIRECT_URI:http://localhost:8081/api/v1/oidc/keycloak/callback}
     # state/nonce Redis TTL (초)
     state-ttl-seconds: 300
     # JWKS 공개키 캐시 TTL (초, 기본 1시간)
@@ -194,8 +194,8 @@ qsign:
 
   # ── PKCE (RFC 7636) ────────────────────────────────────────────────────────
   pkce:
-    enabled:              ${QSIGN_PKCE_ENABLED:true}
-    challenge-ttl-seconds: ${QSIGN_PKCE_TTL:300}    # 5분
+    enabled:              ${IDEM_GATE_PKCE_ENABLED:true}
+    challenge-ttl-seconds: ${IDEM_GATE_PKCE_TTL:300}    # 5분
 
 # ── Resilience4j ──────────────────────────────────────────────
 resilience4j:
@@ -247,8 +247,8 @@ logging:
     org.flywaydb: INFO
 
 # ── D1-b: Kafka 선택 의존 (docs/generalization-plan.md D1, docs/install.md) ──
-# false(기본): 브로커 없이 기동 — 토픽 생성·프로듀서·컨슈머(qim.user.events)·아웃박스 릴레이 정지.
-#              qsign.auth.events 는 hub 가 자체 발행분을 프로세스 내 처리하므로 gate 의 아웃박스 PENDING 은 DB 에 남는다.
+# false(기본): 브로커 없이 기동 — 토픽 생성·프로듀서·컨슈머(idem.registry.user.events)·아웃박스 릴레이 정지.
+#              idem.gate.auth.events 는 hub 가 자체 발행분을 프로세스 내 처리하므로 gate 의 아웃박스 PENDING 은 DB 에 남는다.
 # true : Kafka 경로. infra/docker 전체 스택·helm 은 true 로 준다.
 idem:
   messaging:

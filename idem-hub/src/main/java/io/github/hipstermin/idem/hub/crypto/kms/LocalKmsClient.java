@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>활성화 조건</b> (Sprint α-1 F5.1 강화):
  * <ol>
- *   <li>{@code ido.kms.enabled=false} <b>가 명시적으로 설정되어야 함</b>
+ *   <li>{@code idem.hub.kms.enabled=false} <b>가 명시적으로 설정되어야 함</b>
  *       — 환경변수 누락(matchIfMissing) 시 자동 활성화되지 않음.</li>
  *   <li>활성 Spring profile에 {@code prod} 또는 {@code stage} 가 <b>포함되지 않아야 함</b>
  *       — 운영/스테이지에서는 이중 안전망으로 빈 등록 자체를 거부.</li>
@@ -52,7 +52,7 @@ import org.springframework.stereotype.Component;
  * <p><b>보안 경고</b>:
  * 이 구현체는 키 재료를 암호화하지 않으므로
  * 운영·스테이징 환경에서 절대 사용 금지.
- * {@code ido.kms.enabled=false} 설정은 개발·테스트 환경으로 제한한다.
+ * {@code idem.hub.kms.enabled=false} 설정은 개발·테스트 환경으로 제한한다.
  *
  * @see VaultKmsClient (운영 표준 — provider=vault, enabled=true)
  * @see KmsClient
@@ -62,7 +62,7 @@ import org.springframework.stereotype.Component;
 @Primary   // 일반 KMS(NoOp/Local/Nhn/Vault)는 ido.kms.provider 로 상호배타 활성 — 단일 KmsClient 주입의 정본
 @Profile("!prod & !stage")
 @ConditionalOnProperty(
-    prefix      = "ido.kms",
+    prefix      = "idem.hub.kms",
     name        = "enabled",
     havingValue = "false",
     matchIfMissing = false   // F5.1: 환경변수 누락 시 자동 활성화 금지 (Sprint α-1)
@@ -77,7 +77,7 @@ public class LocalKmsClient implements KmsClient {
 
     private final Environment environment;
 
-    @Value("${ido.kms.local.allow-in-prod:false}")
+    @Value("${idem.hub.kms.local.allow-in-prod:false}")
     private boolean allowInProd;
 
     public LocalKmsClient(Environment environment) {
@@ -102,15 +102,15 @@ public class LocalKmsClient implements KmsClient {
             if (FORBIDDEN_PROFILES.contains(profile.toLowerCase())) {
                 if (allowInProd) {
                     log.error("[KMS-Local] ⚠️ 운영 의심 프로파일 '{}' 에서 LocalKmsClient 활성화 — " +
-                              "ido.kms.local.allow-in-prod=true 로 명시적 허용됨. " +
+                              "idem.hub.kms.local.allow-in-prod=true 로 명시적 허용됨. " +
                               "이 모드는 평문 키를 사용하며 운영 환경에 부적합합니다.", profile);
                     return;
                 }
                 throw new IllegalStateException(
                     "[KMS-Local][F5.1 Guard] 운영 의심 프로파일 '" + profile + "' 에서 " +
                     "LocalKmsClient가 활성화될 수 없습니다. " +
-                    "운영 환경에서는 ido.kms.enabled=true 및 ido.kms.provider=vault 설정이 필요합니다. " +
-                    "테스트 목적이라면 ido.kms.local.allow-in-prod=true 로 명시적 허용하세요. " +
+                    "운영 환경에서는 idem.hub.kms.enabled=true 및 idem.hub.kms.provider=vault 설정이 필요합니다. " +
+                    "테스트 목적이라면 idem.hub.kms.local.allow-in-prod=true 로 명시적 허용하세요. " +
                     "활성 프로파일: " + Arrays.toString(active));
             }
         }

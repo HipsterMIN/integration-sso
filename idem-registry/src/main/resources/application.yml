@@ -4,7 +4,7 @@ server:
 
 spring:
   application:
-    name: q-im
+    name: idem-registry
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
@@ -25,12 +25,12 @@ spring:
 
   # ── DataSource ──────────────────────────────────────────────
   # D1(2026-09-21): PostgreSQL 16 — hub(ido)·gate(qsign) 와 같은 인스턴스, 스키마 qim.
-  #   QIM_DB_HOST / QIM_DB_PORT / QIM_DB_NAME / QIM_DB_USERNAME / QIM_DB_PASSWORD / QIM_DB_SCHEMA
+  #   IDEM_REGISTRY_DB_HOST / IDEM_REGISTRY_DB_PORT / IDEM_REGISTRY_DB_NAME / IDEM_REGISTRY_DB_USERNAME / IDEM_REGISTRY_DB_PASSWORD / IDEM_REGISTRY_DB_SCHEMA
   # 종전 MariaDB 설치는 `--spring.profiles.active=...,mariadb` 로 1 릴리스 동안 유지 (application-mariadb.yml).
   datasource:
-    url: jdbc:postgresql://${QIM_DB_HOST:localhost}:${QIM_DB_PORT:5432}/${QIM_DB_NAME:onepass}?currentSchema=${QIM_DB_SCHEMA:qim}&ssl=${QIM_DB_SSL:false}
-    username: ${QIM_DB_USERNAME:onepass}
-    password: ${QIM_DB_PASSWORD:onepass}
+    url: jdbc:postgresql://${IDEM_REGISTRY_DB_HOST:localhost}:${IDEM_REGISTRY_DB_PORT:5432}/${IDEM_REGISTRY_DB_NAME:onepass}?currentSchema=${IDEM_REGISTRY_DB_SCHEMA:qim}&ssl=${IDEM_REGISTRY_DB_SSL:false}
+    username: ${IDEM_REGISTRY_DB_USERNAME:onepass}
+    password: ${IDEM_REGISTRY_DB_PASSWORD:onepass}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: qim-hikari
@@ -51,7 +51,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_schema: ${QIM_DB_SCHEMA:qim}
+        default_schema: ${IDEM_REGISTRY_DB_SCHEMA:qim}
         jdbc:
           time_zone: UTC
           batch_size: 50
@@ -63,8 +63,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration/{vendor}
-    schemas: ${QIM_DB_SCHEMA:qim}
-    default-schema: ${QIM_DB_SCHEMA:qim}
+    schemas: ${IDEM_REGISTRY_DB_SCHEMA:qim}
+    default-schema: ${IDEM_REGISTRY_DB_SCHEMA:qim}
     create-schemas: true
     baseline-on-migrate: true
     baseline-version: 0
@@ -93,7 +93,7 @@ spring:
     properties:
       security.protocol: PLAINTEXT
     producer:
-      client-id: q-im-producer
+      client-id: idem-registry-producer
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all
@@ -108,7 +108,7 @@ spring:
         # Transactional Outbox – 트랜잭션 프로듀서 ID
         transactional.id: q-im-tx-producer
     consumer:
-      group-id: q-im-consumer
+      group-id: idem-registry-consumer
       auto-offset-reset: earliest
       enable-auto-commit: false
       max-poll-records: 50
@@ -123,10 +123,10 @@ spring:
       missing-topics-fatal: true
 
 # ── Q-IM 도메인 설정 ───────────────────────────────────────────
-qim:
+idem.registry:
   # §10.5.2 / GAP-QIM-04 Transactional Outbox Relay
   outbox:
-    relay-enabled: ${QIM_OUTBOX_RELAY_ENABLED:true}   # D1-b: idem.messaging.kafka.enabled=false 면 false 로 파생
+    relay-enabled: ${IDEM_REGISTRY_OUTBOX_RELAY_ENABLED:true}   # D1-b: idem.messaging.kafka.enabled=false 면 false 로 파생
     relay-interval-ms: 500      # PENDING 레코드 발행 주기 (ms)
     batch-size: 100
     max-retry: 5                # 최대 재시도 횟수 (도달 시 영구 FAILED)
@@ -135,37 +135,37 @@ qim:
     retry-interval-ms: 30000    # 30초마다 FAILED 레코드 재시도
   # Kafka 토픽 (§10.5.2 / §11.5.6)
   kafka:
-    topic-user-events: qim.user.events       # cleanup.policy=compact
-    topic-snapshot: qim.user.snapshot        # Compacted Snapshot Topic
+    topic-user-events: idem.registry.user.events       # cleanup.policy=compact
+    topic-snapshot: idem.registry.user.snapshot        # Compacted Snapshot Topic
   # Redis 캐시 TTL (IdO 가 pull 시 기준)
   cache:
 
   # ── CI 암호화 키 설정 ───────────────────────────────────────────────────────
   # AES-256-GCM 키 (Sprint γ-2 / F3.3)
-  # 환경변수: QIM_CI_AES_KEY_V1 — 운영에서 반드시 주입 필수 (32바이트 Base64).
+  # 환경변수: IDEM_REGISTRY_CI_AES_KEY_V1 — 운영에서 반드시 주입 필수 (32바이트 Base64).
   #          openssl rand -base64 32 로 생성한 무작위 키를 사용하십시오.
   # default("AAAA...=" 32바이트 0x00) 제거 →
   #   미설정 시 CiCryptoServiceImpl.validateKeyV1() 가 부팅을 차단(CrashLoopBackOff).
-  # 테스트/로컬은 qim.crypto.ci.allow-empty-key=true 로 우회.
+  # 테스트/로컬은 idem.registry.crypto.ci.allow-empty-key=true 로 우회.
   crypto:
     ci:
-      key-v1:         ${QIM_CI_AES_KEY_V1:}
-      key-v2:         ${QIM_CI_AES_KEY_V2:}
-      current-version: ${QIM_CI_CURRENT_VERSION:v1}
+      key-v1:         ${IDEM_REGISTRY_CI_AES_KEY_V1:}
+      key-v2:         ${IDEM_REGISTRY_CI_AES_KEY_V2:}
+      current-version: ${IDEM_REGISTRY_CI_CURRENT_VERSION:v1}
     di:
       # DI HMAC-SHA256 공유 비밀키 (Sprint γ-1 / F3.4)
-      # 환경변수: QIM_DI_SECRET — 운영에서 반드시 주입 필수 (32자 이상 권장: openssl rand -hex 32).
+      # 환경변수: IDEM_REGISTRY_DI_SECRET — 운영에서 반드시 주입 필수 (32자 이상 권장: openssl rand -hex 32).
       # default("default-di-secret-change-in-production") 제거 →
       # 미설정 시 DiGenerationService.validateDiSecret() 가 부팅을 차단.
-      # 테스트/로컬은 qim.crypto.di.allow-empty-secret=true 로 우회.
-      secret:         ${QIM_DI_SECRET:}
+      # 테스트/로컬은 idem.registry.crypto.di.allow-empty-secret=true 로 우회.
+      secret:         ${IDEM_REGISTRY_DI_SECRET:}
 
   # ── 내부 API 보안 (P2 보안 수정) ─────────────────────────────────────────────
   # IdO → Q-IM 내부 호출 시 X-Internal-Api-Key 헤더 검증
-  # 운영 환경에서 반드시 QIM_INTERNAL_API_KEY 환경변수를 설정하십시오.
+  # 운영 환경에서 반드시 IDEM_REGISTRY_INTERNAL_API_KEY 환경변수를 설정하십시오.
   # (32자 이상 랜덤 문자열 권장 — openssl rand -hex 32)
   security:
-    internal-api-key: ${QIM_INTERNAL_API_KEY:}
+    internal-api-key: ${IDEM_REGISTRY_INTERNAL_API_KEY:}
     user-ttl-seconds: 300                    # ≤5분 (설계서 §11.3)
 
 # ── Actuator ──────────────────────────────────────────────────
@@ -191,7 +191,7 @@ logging:
 
 # ── D1-b: Kafka 선택 의존 (docs/generalization-plan.md D1, docs/install.md) ──
 # false(기본): 브로커 없이 기동 — 토픽 생성·프로듀서(트랜잭션 매니저 포함)·아웃박스 릴레이 정지.
-#              qim.user.events 는 qim.outbox 에 PENDING 으로 남는다(hub/gate 캐시 무효화·잠금 전파는 Kafka 경로 전용 — 플랜 D1 기록 참조).
+#              idem.registry.user.events 는 qim.outbox 에 PENDING 으로 남는다(hub/gate 캐시 무효화·잠금 전파는 Kafka 경로 전용 — 플랜 D1 기록 참조).
 # true : Kafka 경로. infra/docker 전체 스택·helm 은 true 로 준다.
 idem:
   messaging:

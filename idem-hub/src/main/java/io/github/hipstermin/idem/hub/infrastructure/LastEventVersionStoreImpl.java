@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class LastEventVersionStoreImpl implements LastEventVersionStore {
 
-    private static final String KEY_PREFIX = "ido:event_version:";
+    private static final String KEY_PREFIX = "idem:event_version:";
     private static final Duration VERSION_TTL = Duration.ofDays(30);
 
     private final RedisTemplate<String, Object> redisTemplate;

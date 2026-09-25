@@ -53,13 +53,13 @@ idem-console       ████████████░░░░░░░░ 
 ### 핵심 환경변수 (운영 필수)
 
 ```bash
-IDO_HANDOFF_AES_KEY=<base64-32bytes>
+IDEM_HUB_HANDOFF_AES_KEY=<base64-32bytes>
 IDO_HANDOFF_HMAC_SECRET=<base64-32bytes>
-IDO_INTERNAL_SIG_SECRET=<32bytes+>
-IDO_AGENCY_SUBJECT_SECRET=<32bytes+>
-QIM_AES_SHARED_KEY=<base64-32bytes>
-QIM_CI_AES_KEY_V1=<base64-32bytes>
-QSIGN_KEYCLOAK_CLIENT_SECRET=<Keycloak 발급값>
+IDEM_HUB_INTERNAL_SIG_SECRET=<32bytes+>
+IDEM_HUB_AGENCY_SUBJECT_SECRET=<32bytes+>
+IDEM_REGISTRY_AES_SHARED_KEY=<base64-32bytes>
+IDEM_REGISTRY_CI_AES_KEY_V1=<base64-32bytes>
+IDEM_GATE_KEYCLOAK_CLIENT_SECRET=<Keycloak 발급값>
 ```
 
 ---

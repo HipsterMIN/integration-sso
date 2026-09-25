@@ -21,10 +21,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * qim.outbox → qim.user.events Kafka 릴레이 배치 Job
+ * idem.registry.outbox → idem.registry.user.events Kafka 릴레이 배치 Job
  *
  * <h2>대상</h2>
- * Q-IM 서비스(PostgreSQL, 스키마 qim — D1)의 qim.outbox 테이블 PENDING 레코드.
+ * Q-IM 서비스(PostgreSQL, 스키마 qim — D1)의 idem.registry.outbox 테이블 PENDING 레코드.
  * 기존 {@code OutboxServiceImpl#relayPendingEvents()}를 대체.
  *
  * <h2>FOR UPDATE SKIP LOCKED</h2>
@@ -37,8 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Q-IM 도메인을 직접 알 필요 없음 → Q-IM 서비스의 잔류 @Scheduled에서 처리 또는
  * Kafka Consumer에서 처리 권장.
  *
- * <h2>주의 — qim.outbox 스키마</h2>
- * qim.outbox 테이블 구조가 ido.outbox와 다름:
+ * <h2>주의 — idem.registry.outbox 스키마</h2>
+ * idem.registry.outbox 테이블 구조가 ido.outbox와 다름:
  * - status: 'PENDING' / 'PUBLISHED' / 'FAILED' (동일)
  * - payload: JSONB (PostgreSQL) — 문자열로 읽어 그대로 발행
  * - partition_key 컬럼명 확인 필요 (qim은 qimUserId)
@@ -48,7 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class QimKafkaRelayJob {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE_REF = new TypeReference<>() {};
-    private static final String QIM_EVENTS_TOPIC = "qim.user.events";
+    private static final String QIM_EVENTS_TOPIC = "idem.registry.user.events";
 
     private final JdbcTemplate                  qimJdbcTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -58,13 +58,13 @@ public class QimKafkaRelayJob {
     private final Counter failureCounter;
     private final Counter deadLetterCounter;
 
-    @Value("${batch.relay.qim.kafka.batch-size:100}")
+    @Value("${idem.relay.jobs.registry.kafka.batch-size:100}")
     private int batchSize;
 
-    @Value("${batch.relay.qim.kafka.max-retry:5}")
+    @Value("${idem.relay.jobs.registry.kafka.max-retry:5}")
     private int maxRetry;
 
-    @Value("${batch.relay.qim.kafka.enabled:true}")
+    @Value("${idem.relay.jobs.registry.kafka.enabled:true}")
     private boolean enabled;
 
     public QimKafkaRelayJob(
@@ -75,23 +75,23 @@ public class QimKafkaRelayJob {
         this.qimJdbcTemplate    = qimJdbcTemplate;
         this.kafkaTemplate      = kafkaTemplate;
         this.objectMapper       = objectMapper;
-        this.successCounter     = meterRegistry.counter("batch.relay.qim.kafka.success");
-        this.failureCounter     = meterRegistry.counter("batch.relay.qim.kafka.failure");
-        this.deadLetterCounter  = meterRegistry.counter("batch.relay.qim.kafka.dead_letter");
+        this.successCounter     = meterRegistry.counter("idem.relay.jobs.registry.kafka.success");
+        this.failureCounter     = meterRegistry.counter("idem.relay.jobs.registry.kafka.failure");
+        this.deadLetterCounter  = meterRegistry.counter("idem.relay.jobs.registry.kafka.dead_letter");
     }
 
     /**
-     * qim.outbox PENDING 레코드 릴레이
+     * idem.registry.outbox PENDING 레코드 릴레이
      *
      * <p>lockAtMostFor 10s: 100건 × 평균 처리 50ms = 5s + 여유분.
      * Q-IM 이벤트는 사용자 가입/탈퇴 이벤트로 빈도가 낮으므로
      * 실제로는 훨씬 빠르게 완료.
      */
-    @Scheduled(fixedDelayString = "${batch.relay.qim.kafka.interval-ms:500}")
+    @Scheduled(fixedDelayString = "${idem.relay.jobs.registry.kafka.interval-ms:500}")
     @SchedulerLock(
             name           = "qim-kafka-relay",
-            lockAtMostFor  = "${batch.relay.qim.kafka.lock-at-most:10s}",
-            lockAtLeastFor = "${batch.relay.qim.kafka.lock-at-least:400ms}"
+            lockAtMostFor  = "${idem.relay.jobs.registry.kafka.lock-at-most:10s}",
+            lockAtLeastFor = "${idem.relay.jobs.registry.kafka.lock-at-least:400ms}"
     )
     @Transactional(transactionManager = "qimTransactionManager")
     public void relay() {
@@ -126,7 +126,7 @@ public class QimKafkaRelayJob {
 
     private RelayResult dispatch(QimOutboxRow row) {
         try {
-            // qim.outbox payload는 JSON 문자열 — Map으로 역직렬화하여 그대로 발행
+            // idem.registry.outbox payload는 JSON 문자열 — Map으로 역직렬화하여 그대로 발행
             Map<String, Object> payload = objectMapper.readValue(row.payload(), MAP_TYPE_REF);
 
             CompletableFuture<SendResult<String, Object>> future =
@@ -198,7 +198,7 @@ public class QimKafkaRelayJob {
     /**
      * PENDING 레코드 조회 (FOR UPDATE SKIP LOCKED)
      *
-     * <p>qim.outbox 스키마 기준:
+     * <p>idem.registry.outbox 스키마 기준:
      * event_id(PK), event_type, partition_key, payload(JSON), status, retry_count
      */
     private List<QimOutboxRow> fetchPending() {
@@ -231,7 +231,7 @@ public class QimKafkaRelayJob {
      * <p>기존 OutboxServiceImpl.relayFailedEvents()와 동일한 역할.
      * maxRetry 미만인 FAILED 레코드를 PENDING으로 복구하여 다음 주기에 재발행.
      */
-    @Scheduled(fixedDelayString = "${batch.relay.qim.kafka.retry-interval-ms:30000}")
+    @Scheduled(fixedDelayString = "${idem.relay.jobs.registry.kafka.retry-interval-ms:30000}")
     @SchedulerLock(
             name           = "qim-kafka-relay-failed",
             lockAtMostFor  = "60s",

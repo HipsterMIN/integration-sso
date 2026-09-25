@@ -43,11 +43,11 @@ public class MemberLookupService {
     private final RestTemplate qimRestTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${ido.qim.base-url:http://localhost:8082}")
+    @Value("${idem.hub.registry.base-url:http://localhost:8082}")
     private String qimBaseUrl;
 
-    /** [P2 수정] Q-IM 내부 API 호출 키 — 환경변수 IDO_QIM_INTERNAL_API_KEY 주입 */
-    @Value("${ido.qim.internal-api-key:}")
+    /** [P2 수정] Q-IM 내부 API 호출 키 — 환경변수 IDEM_HUB_REGISTRY_INTERNAL_API_KEY 주입 */
+    @Value("${idem.hub.registry.internal-api-key:}")
     private String qimInternalApiKey;
 
     /**

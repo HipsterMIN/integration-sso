@@ -8,19 +8,19 @@
 #   - KMS/Vault egress가 내부 통신(Q-IM, Q-Sign, DB, Redis, Kafka)을 막지 않도록 주의
 #
 # 통신 흐름:
-#   ingress → ido (8083)
-#   ido → qsign (8081), ido → qim (8082)
-#   qsign → postgres, qsign → redis, qsign → kafka
-#   qim → mariadb, qim → redis, qim → kafka
-#   ido → postgres, ido → redis, ido → kafka
+#   ingress → idem-hub (8083)
+#   idem-hub → idem-gate (8081), idem-hub → idem-registry (8082)
+#   idem-gate → postgres, idem-gate → redis, idem-gate → kafka
+#   idem-registry → mariadb, idem-registry → redis, idem-registry → kafka
+#   idem-hub → postgres, idem-hub → redis, idem-hub → kafka
 # ============================================================
 
 # ── Q-Sign NetworkPolicy ──────────────────────────────────────────
-{{- if .Values.qsign.enabled }}
+{{- if .Values.gate.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: netpol-qsign
+  name: netpol-idem-gate
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
@@ -73,11 +73,11 @@ spec:
 {{- end }}
 ---
 # ── Q-IM NetworkPolicy ────────────────────────────────────────────
-{{- if .Values.qim.enabled }}
+{{- if .Values.registry.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: netpol-qim
+  name: netpol-idem-registry
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
@@ -125,11 +125,11 @@ spec:
 {{- end }}
 ---
 # ── IdO NetworkPolicy ─────────────────────────────────────────────
-{{- if .Values.ido.enabled }}
+{{- if .Values.hub.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: netpol-ido
+  name: netpol-idem-hub
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
@@ -214,10 +214,10 @@ spec:
 ---
 # ── Outbox Relay Batch NetworkPolicy ──────────────────────────────
 # Egress 정책:
-#  - PostgreSQL(ido, q-sign), MariaDB(q-im), Redis(ShedLock), Kafka
+#  - PostgreSQL(idem-hub, idem-gate), MariaDB(idem-registry), Redis(ShedLock), Kafka
 #  - 외부 기관 Webhook/Provisioning (HTTPS 443)
 #  - Slack/PagerDuty 알림 (HTTPS 443) — 위 외부 443과 동일 룰로 포함
-{{- if .Values.batch.enabled }}
+{{- if .Values.relay.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -241,11 +241,11 @@ spec:
       ports:
         - port: 8090
   egress:
-    # PostgreSQL (ido, q-sign 공용)
+    # PostgreSQL (idem-hub, idem-gate 공용)
     - to: []
       ports:
         - port: 5432
-    # MariaDB (q-im)
+    # MariaDB (idem-registry)
     - to: []
       ports:
         - port: 3306

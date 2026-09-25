@@ -32,19 +32,19 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>노출 메트릭</b>:
  * <pre>
- * onepass_outbox_pending_total{shard="ido"}     → ido.outbox WHERE status='PENDING'
- * onepass_outbox_pending_total{shard="qim"}     → qim.outbox WHERE status='PENDING'
- * onepass_outbox_pending_total{shard="qsign"}   → qsign.outbox WHERE status='PENDING'
- * onepass_outbox_failed_total{shard="ido"}      → ido.outbox WHERE status='FAILED'
- * onepass_outbox_failed_total{shard="qim"}      → qim.outbox WHERE status='FAILED'
- * onepass_outbox_failed_total{shard="qsign"}    → qsign.outbox WHERE status='FAILED'
+ * idem_outbox_pending_total{shard="hub"}     → idem.hub.outbox WHERE status='PENDING'
+ * idem_outbox_pending_total{shard="registry"}     → idem.registry.outbox WHERE status='PENDING'
+ * idem_outbox_pending_total{shard="gate"}   → idem.gate.outbox WHERE status='PENDING'
+ * idem_outbox_failed_total{shard="hub"}      → idem.hub.outbox WHERE status='FAILED'
+ * idem_outbox_failed_total{shard="registry"}      → idem.registry.outbox WHERE status='FAILED'
+ * idem_outbox_failed_total{shard="gate"}    → idem.gate.outbox WHERE status='FAILED'
  * </pre>
  *
  * <p><b>Prometheus 알람 룰 권장</b>:
  * <pre>
- * sum(onepass_outbox_pending_total) > 1000  for 5m  → warning
- * sum(onepass_outbox_pending_total) > 10000 for 2m  → critical
- * sum(onepass_outbox_failed_total)  > 100   for 5m  → critical (수동 개입 필요)
+ * sum(idem_outbox_pending_total) > 1000  for 5m  → warning
+ * sum(idem_outbox_pending_total) > 10000 for 2m  → critical
+ * sum(idem_outbox_failed_total)  > 100   for 5m  → critical (수동 개입 필요)
  * </pre>
  *
  * <p><b>장애 정책</b>:
@@ -61,7 +61,7 @@ public class OutboxBacklogMetrics {
     private final JdbcTemplate qsignJdbcTemplate;
     private final MeterRegistry meterRegistry;
 
-    @Value("${batch.metrics.outbox.query-timeout-sec:3}")
+    @Value("${idem.relay.metrics.outbox.query-timeout-sec:3}")
     private int queryTimeoutSec;
 
     // 샤드별 Gauge가 참조하는 AtomicLong (Micrometer 표준 패턴)
@@ -87,19 +87,19 @@ public class OutboxBacklogMetrics {
     void registerGauges() {
         // pending
         meterRegistry.gauge("onepass.outbox.pending.total",
-                Tags.of("shard", "ido"),   idoPending,   AtomicLong::get);
+                Tags.of("shard", "hub"),   idoPending,   AtomicLong::get);
         meterRegistry.gauge("onepass.outbox.pending.total",
-                Tags.of("shard", "qim"),   qimPending,   AtomicLong::get);
+                Tags.of("shard", "registry"),   qimPending,   AtomicLong::get);
         meterRegistry.gauge("onepass.outbox.pending.total",
-                Tags.of("shard", "qsign"), qsignPending, AtomicLong::get);
+                Tags.of("shard", "gate"), qsignPending, AtomicLong::get);
 
         // failed
         meterRegistry.gauge("onepass.outbox.failed.total",
-                Tags.of("shard", "ido"),   idoFailed,    AtomicLong::get);
+                Tags.of("shard", "hub"),   idoFailed,    AtomicLong::get);
         meterRegistry.gauge("onepass.outbox.failed.total",
-                Tags.of("shard", "qim"),   qimFailed,    AtomicLong::get);
+                Tags.of("shard", "registry"),   qimFailed,    AtomicLong::get);
         meterRegistry.gauge("onepass.outbox.failed.total",
-                Tags.of("shard", "qsign"), qsignFailed,  AtomicLong::get);
+                Tags.of("shard", "gate"), qsignFailed,  AtomicLong::get);
 
         log.info("[Outbox-Metrics] Micrometer Gauge 등록 완료: pending/failed × 3 shards");
     }
@@ -110,12 +110,12 @@ public class OutboxBacklogMetrics {
      * <p>쿼리 실패 시 Gauge 값은 직전 값 유지(보수적). 운영자는 Prometheus의
      * 메트릭 시계열에서 갱신 정체를 즉시 감지할 수 있다.
      */
-    @Scheduled(fixedDelayString = "${batch.metrics.outbox.refresh-interval-ms:30000}",
-               initialDelayString = "${batch.metrics.outbox.initial-delay-ms:10000}")
+    @Scheduled(fixedDelayString = "${idem.relay.metrics.outbox.refresh-interval-ms:30000}",
+               initialDelayString = "${idem.relay.metrics.outbox.initial-delay-ms:10000}")
     public void refreshMetrics() {
-        refreshShard("ido",   idoJdbcTemplate,   "ido.outbox",   idoPending,   idoFailed);
-        refreshShard("qim",   qimJdbcTemplate,   "qim.outbox",   qimPending,   qimFailed);
-        refreshShard("qsign", qsignJdbcTemplate, "qsign.outbox", qsignPending, qsignFailed);
+        refreshShard("hub",   idoJdbcTemplate,   "ido.outbox",   idoPending,   idoFailed);
+        refreshShard("registry",   qimJdbcTemplate,   "qim.outbox",   qimPending,   qimFailed);
+        refreshShard("gate", qsignJdbcTemplate, "qsign.outbox", qsignPending, qsignFailed);
     }
 
     private void refreshShard(String shard, JdbcTemplate jdbc, String fqTable,

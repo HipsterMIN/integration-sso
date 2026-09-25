@@ -19,8 +19,8 @@ import org.springframework.kafka.config.TopicBuilder;
  * 현재 (운영): 12  파티션, RF=3, ISR=2
  *
  * 처리량 계산:
- *   qsign.auth.events   12파티션 × concurrency 6 = 초당 ~1,200건 처리 가능
- *   ido.handoff.events  12파티션 × concurrency 6 = 초당 ~1,200건 처리 가능
+ *   idem.gate.auth.events   12파티션 × concurrency 6 = 초당 ~1,200건 처리 가능
+ *   idem.hub.handoff.events  12파티션 × concurrency 6 = 초당 ~1,200건 처리 가능
  *
  *   60,000명이 10분(600s)에 걸쳐 인증 완료한다고 가정:
  *   → 초당 100건 피크 → 현재 설정으로 충분
@@ -38,13 +38,13 @@ import org.springframework.kafka.config.TopicBuilder;
  *
  * <p><b>토픽 목록</b>:
  * <pre>
- * qsign.auth.events          : Q-Sign 인증 결과 (Pre-warming 소비)
- * ido.handoff.events         : Handoff 이벤트 (기관 webhook 트리거)
- * ido.handoff.events.dlt     : Handoff DLT (Dead Letter Topic)
+ * idem.gate.auth.events          : Q-Sign 인증 결과 (Pre-warming 소비)
+ * idem.hub.handoff.events         : Handoff 이벤트 (기관 webhook 트리거)
+ * idem.hub.handoff.events.dlt     : Handoff DLT (Dead Letter Topic)
  * platform.session.advisory  : 세션 종료 Advisory
  * platform.session.advisory.dlt : Advisory DLT (Dead Letter Topic)
  * platform.audit.log         : 플랫폼 전역 감사 로그
- * ido.webhook.dispatch.requests : webhook 발송 내부 이벤트 (미래 확장용)
+ * idem.hub.webhook.dispatch.requests : webhook 발송 내부 이벤트 (미래 확장용)
  * </pre>
  */
 @Configuration
@@ -53,33 +53,33 @@ public class KafkaTopicConfig {
 
     // ── 파티션 수 (환경변수로 오버라이드 가능) ──────────────────────────
     /** 핵심 토픽 파티션 수 — 60k 대응 기준 12 (PoC: 6, 운영: 12~24) */
-    @Value("${ido.kafka.partition-count-main:12}")
+    @Value("${idem.hub.kafka.partition-count-main:12}")
     private int mainPartitions;
 
     /** DLQ 파티션 수 — 메인의 절반 */
-    @Value("${ido.kafka.partition-count-dlq:6}")
+    @Value("${idem.hub.kafka.partition-count-dlq:6}")
     private int dlqPartitions;
 
     /** Replication Factor — 운영: 3, PoC: 1 */
-    @Value("${ido.kafka.replication-factor:1}")
+    @Value("${idem.hub.kafka.replication-factor:1}")
     private short replicationFactor;
 
     /** Min ISR — 운영: 2, PoC: 1 */
-    @Value("${ido.kafka.min-insync-replicas:1}")
+    @Value("${idem.hub.kafka.min-insync-replicas:1}")
     private String minInsyncReplicas;
 
     // ── 토픽 이름 설정 ─────────────────────────────────────────────────
-    @Value("${ido.kafka.topic-auth-events:qsign.auth.events}")
+    @Value("${idem.hub.kafka.topic-auth-events:idem.gate.auth.events}")
     private String authEventsTopic;
 
-    @Value("${ido.kafka.topic-handoff-events:ido.handoff.events}")
+    @Value("${idem.hub.kafka.topic-handoff-events:idem.hub.handoff.events}")
     private String handoffEventsTopic;
 
-    @Value("${ido.kafka.topic-session-advisory:platform.session.advisory}")
+    @Value("${idem.hub.kafka.topic-session-advisory:platform.session.advisory}")
     private String sessionAdvisoryTopic;
 
     // ═══════════════════════════════════════════════════════════════════════
-    // qsign.auth.events — Q-Sign 인증 결과 (Pre-warming 소비)
+    // idem.gate.auth.events — Q-Sign 인증 결과 (Pre-warming 소비)
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -118,7 +118,7 @@ public class KafkaTopicConfig {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ido.handoff.events — Handoff 이벤트 (기관 webhook 트리거)
+    // idem.hub.handoff.events — Handoff 이벤트 (기관 webhook 트리거)
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -223,7 +223,7 @@ public class KafkaTopicConfig {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // qim.user.events — Q-IM 회원 이벤트 (QIM-OUTBOX-SPEC-001 신규 토픽)
+    // idem.registry.user.events — Q-IM 회원 이벤트 (QIM-OUTBOX-SPEC-001 신규 토픽)
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -244,7 +244,7 @@ public class KafkaTopicConfig {
      */
     @Bean
     public NewTopic qimUserEventsTopic() {
-        return TopicBuilder.name("qim.user.events")
+        return TopicBuilder.name("idem.registry.user.events")
                 .partitions(6)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
@@ -258,7 +258,7 @@ public class KafkaTopicConfig {
     /** Q-IM 회원 이벤트 DLQ */
     @Bean
     public NewTopic qimUserEventsDlqTopic() {
-        return TopicBuilder.name("qim.user.events.dlt")
+        return TopicBuilder.name("idem.registry.user.events.dlt")
                 .partitions(3)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
@@ -268,7 +268,7 @@ public class KafkaTopicConfig {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // qim.agency.events — Q-IM 기관 이벤트 (QIM-OUTBOX-SPEC-001 신규 토픽)
+    // idem.registry.agency.events — Q-IM 기관 이벤트 (QIM-OUTBOX-SPEC-001 신규 토픽)
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -282,7 +282,7 @@ public class KafkaTopicConfig {
      */
     @Bean
     public NewTopic qimAgencyEventsTopic() {
-        return TopicBuilder.name("qim.agency.events")
+        return TopicBuilder.name("idem.registry.agency.events")
                 .partitions(3)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
@@ -296,7 +296,7 @@ public class KafkaTopicConfig {
     /** Q-IM 기관 이벤트 DLQ */
     @Bean
     public NewTopic qimAgencyEventsDlqTopic() {
-        return TopicBuilder.name("qim.agency.events.dlt")
+        return TopicBuilder.name("idem.registry.agency.events.dlt")
                 .partitions(2)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
@@ -306,21 +306,21 @@ public class KafkaTopicConfig {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // qim.sp.member.events — Q-IM SP 회원 이벤트 (기존 내부 전파용, 유지)
+    // idem.registry.sp.member.events — Q-IM SP 회원 이벤트 (기존 내부 전파용, 유지)
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
      * Q-IM SP 회원 이벤트 토픽 (기존 토픽 — 마이그레이션 완료 후 폐기 예정)
      *
      * <p>기존 QimSpReceiverService → QimSpMemberEventConsumer 경로에서 사용.
-     * qim.user.events로 완전 전환 후 이 토픽은 폐기한다.
+     * idem.registry.user.events로 완전 전환 후 이 토픽은 폐기한다.
      *
-     * @deprecated qim.user.events로 대체됨 (QIM-OUTBOX-SPEC-001)
+     * @deprecated idem.registry.user.events로 대체됨 (QIM-OUTBOX-SPEC-001)
      */
     @Deprecated(since = "QIM-OUTBOX-SPEC-001", forRemoval = true)
     @Bean
     public NewTopic qimSpMemberEventsTopic() {
-        return TopicBuilder.name("qim.sp.member.events")
+        return TopicBuilder.name("idem.registry.sp.member.events")
                 .partitions(6)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
@@ -335,7 +335,7 @@ public class KafkaTopicConfig {
     @Deprecated(since = "QIM-OUTBOX-SPEC-001", forRemoval = true)
     @Bean
     public NewTopic qimSpMemberEventsDlqTopic() {
-        return TopicBuilder.name("qim.sp.member.events.dlt")
+        return TopicBuilder.name("idem.registry.sp.member.events.dlt")
                 .partitions(3)
                 .replicas(replicationFactor)
                 .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)

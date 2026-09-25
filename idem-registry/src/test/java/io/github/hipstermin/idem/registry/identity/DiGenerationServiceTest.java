@@ -286,7 +286,7 @@ class DiGenerationServiceTest {
             DiGenerationService svc = newService(null, false);
             assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("QIM_DI_SECRET");
+                    .hasMessageContaining("IDEM_REGISTRY_DI_SECRET");
         }
 
         @Test
@@ -295,7 +295,7 @@ class DiGenerationServiceTest {
             DiGenerationService svc = newService("   ", false);
             assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(svc, "validateDiSecret"))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("QIM_DI_SECRET");
+                    .hasMessageContaining("IDEM_REGISTRY_DI_SECRET");
         }
 
         @Test

@@ -116,7 +116,7 @@ class GeneralizationGuardTest {
     /** 경로 접미사 → 허용 사유 (벤더 가드). */
     private static final Map<String, String> VENDOR_ALLOWLIST = Map.of(
             "idem-hub/src/main/resources/application.yml",
-                    "ido.auth.nice.base-url 기본값(플러그인 설정 키) — 플러그인 전용 설정 파일로 옮긴 뒤 제거",
+                    "idem.hub.auth.nice.base-url 기본값(플러그인 설정 키) — 플러그인 전용 설정 파일로 옮긴 뒤 제거",
             "idem-hub/src/main/resources/db/migration/V19__anyid_provider_config.sql",
                     "이미 적용된 provider_config 시드(broker_mode=anyid) — Flyway 이력상 수정 불가. 개명 5단계에서 KR 에디션 시드로 이동"
     );

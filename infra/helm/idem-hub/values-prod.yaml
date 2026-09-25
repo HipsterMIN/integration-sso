@@ -3,22 +3,22 @@
 #
 # 사용법:
 #   # Phase 1 배포 (기본)
-#   helm upgrade --install ido ./infra/helm/idem-hub -n production -f values-prod.yaml
+#   helm upgrade --install idem-hub ./infra/helm/idem-hub -n production -f values-prod.yaml
 #
 #   # Phase 2-A 전환 (dry-run 프로비저닝 시작)
-#   helm upgrade ido ./infra/helm/idem-hub -n production -f values-prod.yaml --set phase=2a
+#   helm upgrade idem-hub ./infra/helm/idem-hub -n production -f values-prod.yaml --set phase=2a
 #
 #   # Phase 4 전환 (HMAC 필수화 — 모든 기관 준비 후)
-#   helm upgrade ido ./infra/helm/idem-hub -n production -f values-prod.yaml --set phase=4
+#   helm upgrade idem-hub ./infra/helm/idem-hub -n production -f values-prod.yaml --set phase=4
 #
 # ⚠️  운영 배포 전 반드시 확인:
-#   1. K8s Secrets (ido-secrets, ido-gateway-hmac-keys) 최신 상태 확인
+#   1. K8s Secrets (idem-hub-secrets, idem-hub-gateway-hmac-keys) 최신 상태 확인
 #   2. PDB minAvailable: 1 유지 (배포 중 서비스 중단 방지)
 #   3. 이미지 태그: CI/CD 파이프라인에서 --set image.tag=<git-sha> 로 치환
 # =============================================================================
 
 image:
-  repository: harbor.smes.go.kr/onepass/ido   # 운영 Harbor 레지스트리
+  repository: harbor.smes.go.kr/onepass/idem-hub   # 운영 Harbor 레지스트리
   tag: "2.3.0"     # CI/CD: --set image.tag=$(git rev-parse --short HEAD)
   pullPolicy: Always
 
@@ -54,8 +54,8 @@ imagePullSecrets:
   - harbor-registry-secret
 
 serviceAccount:
-  name: ido-sa
+  name: idem-hub-sa
   annotations:
     # AWS IRSA (필요 시 주석 해제)
-    # eks.amazonaws.com/role-arn: "arn:aws:iam::123456789:role/ido-kms-role"
+    # eks.amazonaws.com/role-arn: "arn:aws:iam::123456789:role/idem-hub-kms-role"
     {}

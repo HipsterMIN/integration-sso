@@ -137,7 +137,7 @@ T2: SET(state=CONSUMED) ← T1이 이미 consume 했음에도 통과
 **증거**:
 - `WebhookDispatcherService.java:67-68`:
   ```java
-  @Value("${ido.webhook.signing-secret:poc-webhook-secret-change-in-production}")
+  @Value("${idem.hub.webhook.signing-secret:poc-webhook-secret-change-in-production}")
   private String defaultSigningSecret;
   ```
 - `WebhookDispatcherService.java:260-272` `computeHmacSignature(payload, rawSecret)`:

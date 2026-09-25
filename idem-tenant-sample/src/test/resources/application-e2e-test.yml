@@ -4,7 +4,7 @@
 # - DataSource / Redis URL 은 E2EIntegrationTestBase 의 @DynamicPropertySource 가 주입
 # - Kafka 는 비활성화 (e2e 범위 외)
 # - Resilience4j 임계값을 e2e 시나리오에 맞게 짧게 조정
-# - agency-stub.ido.base-url 도 @DynamicPropertySource 에서 self port 로 주입
+# - idem.sample.ido.base-url 도 @DynamicPropertySource 에서 self port 로 주입
 
 spring:
   application:
@@ -53,7 +53,7 @@ spring:
       ack-mode: MANUAL_IMMEDIATE
       concurrency: 1
 
-agency-stub:
+idem.sample:
   code: AGENCY_STUB_001
   ido:
     # @DynamicPropertySource 에서 self port 로 오버라이드 → 내장 MockIdoVerifyController 가 응답
@@ -74,7 +74,7 @@ agency-stub:
     enabled: true
   kafka:
     consumer-group: agency-stub-e2e-test-consumer
-    topic-handoff-events: ido.handoff.events
+    topic-handoff-events: idem.hub.handoff.events
     topic-session-advisory: platform.session.advisory
 
 # Resilience4j — e2e 시나리오에서 짧게 fail-fast

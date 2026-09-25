@@ -13,36 +13,36 @@
 # ============================================================
 
 # ── Q-Sign HPA ────────────────────────────────────────────────
-{{- if and .Values.qsign.enabled .Values.qsign.hpa.enabled }}
+{{- if and .Values.gate.enabled .Values.gate.hpa.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: hpa-qsign
+  name: hpa-idem-gate
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-sign
+    app.kubernetes.io/component: idem-gate
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: idem-gate
-  minReplicas: {{ .Values.qsign.hpa.minReplicas }}
-  maxReplicas: {{ .Values.qsign.hpa.maxReplicas }}
+  minReplicas: {{ .Values.gate.hpa.minReplicas }}
+  maxReplicas: {{ .Values.gate.hpa.maxReplicas }}
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.qsign.hpa.targetCPUUtilizationPercentage }}
-    {{- if .Values.qsign.hpa.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ .Values.gate.hpa.targetCPUUtilizationPercentage }}
+    {{- if .Values.gate.hpa.targetMemoryUtilizationPercentage }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.qsign.hpa.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ .Values.gate.hpa.targetMemoryUtilizationPercentage }}
     {{- end }}
   behavior:
     scaleDown:
@@ -64,36 +64,36 @@ spec:
 {{- end }}
 ---
 # ── Q-IM HPA ──────────────────────────────────────────────────
-{{- if and .Values.qim.enabled .Values.qim.hpa.enabled }}
+{{- if and .Values.registry.enabled .Values.registry.hpa.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: hpa-qim
+  name: hpa-idem-registry
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-im
+    app.kubernetes.io/component: idem-registry
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: idem-registry
-  minReplicas: {{ .Values.qim.hpa.minReplicas }}
-  maxReplicas: {{ .Values.qim.hpa.maxReplicas }}
+  minReplicas: {{ .Values.registry.hpa.minReplicas }}
+  maxReplicas: {{ .Values.registry.hpa.maxReplicas }}
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.qim.hpa.targetCPUUtilizationPercentage }}
-    {{- if .Values.qim.hpa.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ .Values.registry.hpa.targetCPUUtilizationPercentage }}
+    {{- if .Values.registry.hpa.targetMemoryUtilizationPercentage }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.qim.hpa.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ .Values.registry.hpa.targetMemoryUtilizationPercentage }}
     {{- end }}
   behavior:
     scaleDown:
@@ -111,36 +111,36 @@ spec:
 {{- end }}
 ---
 # ── IdO HPA ───────────────────────────────────────────────────
-{{- if and .Values.ido.enabled .Values.ido.hpa.enabled }}
+{{- if and .Values.hub.enabled .Values.hub.hpa.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: hpa-ido
+  name: hpa-idem-hub
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ido
+    app.kubernetes.io/component: idem-hub
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: idem-hub
-  minReplicas: {{ .Values.ido.hpa.minReplicas }}
-  maxReplicas: {{ .Values.ido.hpa.maxReplicas }}
+  minReplicas: {{ .Values.hub.hpa.minReplicas }}
+  maxReplicas: {{ .Values.hub.hpa.maxReplicas }}
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.ido.hpa.targetCPUUtilizationPercentage }}
-    {{- if .Values.ido.hpa.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ .Values.hub.hpa.targetCPUUtilizationPercentage }}
+    {{- if .Values.hub.hpa.targetMemoryUtilizationPercentage }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.ido.hpa.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ .Values.hub.hpa.targetMemoryUtilizationPercentage }}
     {{- end }}
   behavior:
     scaleDown:
@@ -172,7 +172,7 @@ metadata:
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "onepass.labels" . | nindent 4 }}
-    app.kubernetes.io/component: q-authz
+    app.kubernetes.io/component: idem-authz
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

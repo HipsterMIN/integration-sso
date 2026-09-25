@@ -113,7 +113,7 @@ public class ApacheGateHandoffStrategy implements HandoffStrategy {
             // 플랫폼 공통 헤더
             headers.set("X-Agency-Code",    agencyCode);
             headers.set("X-Correlation-Id", correlationId);
-            headers.set("X-Source-System",  "ido");
+            headers.set("X-Source-System",  "idem-hub");
 
             // 3. 요청 Body 구성 (헤더 외 추가 메타데이터)
             Map<String, Object> body = Map.of(

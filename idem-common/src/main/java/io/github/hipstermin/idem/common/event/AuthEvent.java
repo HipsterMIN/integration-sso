@@ -8,7 +8,7 @@ import lombok.extern.jackson.Jacksonized;
 /**
  * Q-Sign 인증 완료 이벤트
  * 설계서 9.3절 / EDA 기반 최종 일관성 모델
- * Kafka Topic: qsign.auth.events
+ * Kafka Topic: idem.gate.auth.events
  */
 @Getter
 @SuperBuilder

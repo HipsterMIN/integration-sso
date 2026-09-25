@@ -45,7 +45,7 @@ class KeycloakPropertiesStartupGuardTest {
 
             assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(p, "validateClientSecret"))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("QSIGN_KEYCLOAK_CLIENT_SECRET");
+                    .hasMessageContaining("IDEM_GATE_KEYCLOAK_CLIENT_SECRET");
         }
 
         @Test
@@ -57,7 +57,7 @@ class KeycloakPropertiesStartupGuardTest {
 
             assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(p, "validateClientSecret"))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("QSIGN_KEYCLOAK_CLIENT_SECRET");
+                    .hasMessageContaining("IDEM_GATE_KEYCLOAK_CLIENT_SECRET");
         }
 
         @Test

@@ -110,21 +110,21 @@ K8s 환경에서는 `terminationGracePeriodSeconds ≥ 30s` 권장.
 
 | 환경변수 | 용도 | 부팅 차단 여부 |
 |---|---|---|
-| `QIM_DB_HOST` / `QIM_DB_PORT` / `QIM_DB_NAME` / `QIM_DB_SCHEMA` / `QIM_DB_USERNAME` / `QIM_DB_PASSWORD` | PostgreSQL 접속 (기본 `localhost:5432/onepass`, 스키마 `qim`). 종전 MariaDB 설치는 프로파일 `mariadb` 로 1 릴리스 유지 → `scripts/registry-db-migrate/` 로 이관 | 연결 실패 시 Hikari 재시도 |
-| `QIM_DB_SSL` | TLS 사용 여부 (`true`/`false`) | — |
+| `IDEM_REGISTRY_DB_HOST` / `IDEM_REGISTRY_DB_PORT` / `IDEM_REGISTRY_DB_NAME` / `IDEM_REGISTRY_DB_SCHEMA` / `IDEM_REGISTRY_DB_USERNAME` / `IDEM_REGISTRY_DB_PASSWORD` | PostgreSQL 접속 (기본 `localhost:5432/onepass`, 스키마 `qim`). 종전 MariaDB 설치는 프로파일 `mariadb` 로 1 릴리스 유지 → `scripts/registry-db-migrate/` 로 이관 | 연결 실패 시 Hikari 재시도 |
+| `IDEM_REGISTRY_DB_SSL` | TLS 사용 여부 (`true`/`false`) | — |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis | — |
 | `KAFKA_SERVERS` | Kafka bootstrap | — |
-| `QIM_CI_AES_KEY_V1` | AES-256-GCM CI 키 v1 (Base64 32바이트) | **예** — `CiCryptoServiceImpl.validateKeyV1()` |
-| `QIM_CI_AES_KEY_V2` | 키 로테이션용 v2 | 선택 |
-| `QIM_CI_CURRENT_VERSION` | 현재 활성 키 버전 (기본 `v1`) | — |
-| `QIM_DI_SECRET` | DI HMAC-SHA256 공유 비밀키 (≥32자) | **예** — `DiGenerationService.validateDiSecret()` |
-| `QIM_INTERNAL_API_KEY` | IdO → Q-IM `X-Internal-Api-Key` 검증값 | — |
+| `IDEM_REGISTRY_CI_AES_KEY_V1` | AES-256-GCM CI 키 v1 (Base64 32바이트) | **예** — `CiCryptoServiceImpl.validateKeyV1()` |
+| `IDEM_REGISTRY_CI_AES_KEY_V2` | 키 로테이션용 v2 | 선택 |
+| `IDEM_REGISTRY_CI_CURRENT_VERSION` | 현재 활성 키 버전 (기본 `v1`) | — |
+| `IDEM_REGISTRY_DI_SECRET` | DI HMAC-SHA256 공유 비밀키 (≥32자) | **예** — `DiGenerationService.validateDiSecret()` |
+| `IDEM_REGISTRY_INTERNAL_API_KEY` | IdO → Q-IM `X-Internal-Api-Key` 검증값 | — |
 
 생성 예시:
 
 ```bash
-openssl rand -base64 32   # QIM_CI_AES_KEY_V1 / V2 (32바이트)
-openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
+openssl rand -base64 32   # IDEM_REGISTRY_CI_AES_KEY_V1 / V2 (32바이트)
+openssl rand -hex 32      # IDEM_REGISTRY_DI_SECRET / IDEM_REGISTRY_INTERNAL_API_KEY
 ```
 
 ### 3.2 IdO (`idem-hub/src/main/resources/application.yml`)
@@ -134,22 +134,22 @@ openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 | `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD` | PostgreSQL | — |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis | — |
 | `KAFKA_SERVERS` | Kafka bootstrap | — |
-| `IDO_HANDOFF_AES_KEY` / `IDO_HANDOFF_HMAC_KEY` | Handoff Ticket 폴백 키 (Base64 32바이트) | **예** — `KeyVersionRegistry.validateFallbackKeys()` |
-| `IDO_WEBHOOK_SIGNING_SECRET` | Webhook HMAC-SHA256 서명 키 | **예** — `WebhookDispatcherService.validateSigningSecret()` |
+| `IDEM_HUB_HANDOFF_AES_KEY` / `IDEM_HUB_HANDOFF_HMAC_KEY` | Handoff Ticket 폴백 키 (Base64 32바이트) | **예** — `KeyVersionRegistry.validateFallbackKeys()` |
+| `IDEM_HUB_WEBHOOK_SIGNING_SECRET` | Webhook HMAC-SHA256 서명 키 | **예** — `WebhookDispatcherService.validateSigningSecret()` |
 | `KEYCLOAK_CLIENT_SECRET` | Keycloak ido-client 시크릿 | **예** — `KeycloakProperties.validateClientSecret()` |
-| `IDO_INTERNAL_SIG_SECRET` | Q-Sign HMAC 공유키 (≥32자) | — |
-| `IDO_QIM_INTERNAL_API_KEY` | Q-IM 내부 호출 키 (Q-IM과 동일값) | — |
-| `IDO_QIM_EXT_API_KEY` | Q-IM 외부 API Key (FE 대리 호출) | — |
-| `QIM_INBOUND_API_KEY_HASH` | Q-IM→IdO 인바운드 PBKDF2 해시 | — |
-| `QIM_AES_SHARED_KEY` | Q-IM↔IdO AES-256 공유키 | — |
-| `IDO_INTERNAL_API_KEY_QSIGN` | q-sign → ido 내부 호출 키 | — |
-| `IDO_INTERNAL_API_KEY_OUTBOX` | outbox-relay → ido 내부 호출 키 | — |
-| `IDO_INTERNAL_ALLOW_EMPTY_CALLERS` | 위 두 키 비었을 때 허용 (운영=false) | — |
+| `IDEM_HUB_INTERNAL_SIG_SECRET` | Q-Sign HMAC 공유키 (≥32자) | — |
+| `IDEM_HUB_REGISTRY_INTERNAL_API_KEY` | Q-IM 내부 호출 키 (Q-IM과 동일값) | — |
+| `IDEM_HUB_REGISTRY_EXT_API_KEY` | Q-IM 외부 API Key (FE 대리 호출) | — |
+| `IDEM_REGISTRY_INBOUND_API_KEY_HASH` | Q-IM→IdO 인바운드 PBKDF2 해시 | — |
+| `IDEM_REGISTRY_AES_SHARED_KEY` | Q-IM↔IdO AES-256 공유키 | — |
+| `IDEM_HUB_INTERNAL_API_KEY_GATE` | q-sign → ido 내부 호출 키 | — |
+| `IDEM_HUB_INTERNAL_API_KEY_RELAY` | outbox-relay → ido 내부 호출 키 | — |
+| `IDEM_HUB_INTERNAL_ALLOW_EMPTY_CALLERS` | 위 두 키 비었을 때 허용 (운영=false) | — |
 | `NICE_CLIENT_ID` / `NICE_CLIENT_SECRET` / `NICE_RETURN_URL` | NICE 본인인증 | — |
 | `OACX_PROVIDER_KEY_PATH` / `OACX_DEBUG_MODE` | OACX SDK | — |
 | `INTEGRATION_AUTH_BASE_URL` | 기업 통합인증 서버 | — |
 | `ANYID_*` | Any-ID 설치형 연동 (KMS / SSO / PID 등) | `ANYID_SSO_SECRET_CODE`, `ANYID_KMS_APP_KEY` 등 운영 필수 |
-| `VAULT_ADDR` / `VAULT_TOKEN` / `VAULT_TRANSIT_PATH` / `VAULT_TRANSIT_KEY` / `VAULT_AUTH_METHOD` | KMS(Vault) | `IDO_KMS_ENABLED=true` 시 |
+| `VAULT_ADDR` / `VAULT_TOKEN` / `VAULT_TRANSIT_PATH` / `VAULT_TRANSIT_KEY` / `VAULT_AUTH_METHOD` | KMS(Vault) | `IDEM_HUB_KMS_ENABLED=true` 시 |
 | `FE_AES_GCM_KEY` | FE↔IdO CI 토큰 교환 키 | CI 토큰 엔드포인트 사용 시 |
 
 자세한 의미는 application.yml 주석을 참조한다.
@@ -159,11 +159,11 @@ openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 다음 변수는 `docker-compose.yml` 에서 `${VAR:?오류 메시지}` 로 정의되어 있어
 주입하지 않으면 컨테이너 생성 자체가 거부된다.
 
-- `QSIGN_KEYCLOAK_CLIENT_SECRET`
+- `IDEM_GATE_KEYCLOAK_CLIENT_SECRET`
 - `KEYCLOAK_CLIENT_SECRET`
-- `IDO_WEBHOOK_SIGNING_SECRET`
-- `IDO_HANDOFF_AES_KEY`
-- `IDO_HANDOFF_HMAC_KEY`
+- `IDEM_HUB_WEBHOOK_SIGNING_SECRET`
+- `IDEM_HUB_HANDOFF_AES_KEY`
+- `IDEM_HUB_HANDOFF_HMAC_KEY`
 
 → 로컬 PoC 는 `infra/docker/.env` 에서 주입한다 (git ignore 됨).
 → 운영은 K8s Secret 또는 Vault 동적 주입.
@@ -177,26 +177,26 @@ openssl rand -hex 32      # QIM_DI_SECRET / QIM_INTERNAL_API_KEY
 
 | 필수 값 | 용도 | 생성 |
 |---|---|---|
-| `IDO_INTERNAL_SIG_SECRET` | gate ↔ hub 내부 서명 (gate 도 prod/stage 에서 필수) | `openssl rand -hex 32` |
-| `IDO_CAST_PRIVATE_KEY` / `IDO_CAST_PUBLIC_KEY` | SSO 토큰(CAST) Ed25519 서명키 — 임시 키 자동 생성 없음 | `docs/install.md` §2 |
-| `QIM_AES_SHARED_KEY` | registry ↔ hub CI 공유키 (32바이트) | `openssl rand -base64 32` |
-| `IDO_QAUTHZ_INTERNAL_API_KEY` | hub → authz (`IDO_QAUTHZ_ENABLED=true` 일 때) | authz 의 `AUTHZ_INTERNAL_API_KEY` 와 동일 |
-| `IDO_QAUTHZ_ENABLED` | authz 를 배포하지 않는 SSO 단독 설치는 **`false` 로 명시** (조용한 폴백 없음) | — |
+| `IDEM_HUB_INTERNAL_SIG_SECRET` | gate ↔ hub 내부 서명 (gate 도 prod/stage 에서 필수) | `openssl rand -hex 32` |
+| `IDEM_HUB_CAST_PRIVATE_KEY` / `IDEM_HUB_CAST_PUBLIC_KEY` | SSO 토큰(CAST) Ed25519 서명키 — 임시 키 자동 생성 없음 | `docs/install.md` §2 |
+| `IDEM_REGISTRY_AES_SHARED_KEY` | registry ↔ hub CI 공유키 (32바이트) | `openssl rand -base64 32` |
+| `IDEM_HUB_AUTHZ_INTERNAL_API_KEY` | hub → authz (`IDEM_HUB_AUTHZ_ENABLED=true` 일 때) | authz 의 `IDEM_AUTHZ_INTERNAL_API_KEY` 와 동일 |
+| `IDEM_HUB_AUTHZ_ENABLED` | authz 를 배포하지 않는 SSO 단독 설치는 **`false` 로 명시** (조용한 폴백 없음) | — |
 
 **탈출구(escape hatch)** — 로컬·테스트 편의를 위한 플래그. `prod`/`stage` 프로파일에서는 어느 하나라도 켜져 있으면 `FailSecureBootGuard` 가 기동을 거부하고 위반 목록을 로그에 남긴다.
 
 | 플래그 | 켜면 |
 |---|---|
-| `IDO_INTERNAL_ALLOW_EMPTY_SIG_SECRET` | 내부 서명키 없이 기동 |
-| `IDO_INTERNAL_ALLOW_EMPTY_CALLERS`, `IDO_WEBHOOK_ALLOW_EMPTY_SECRET`, `ido.keycloak.allow-empty-client-secret`, `ido.ticket.allow-empty-fallback-keys` | 종전 탈출구 (그대로) |
-| `IDO_BROKER_ALLOW_CILESS_IDENTITY` | CI 없는 인증 결과를 identifierHash 로 세션 발급 (종전 PoC 폴백) |
-| `IDO_CAST_ALLOW_GENERATED_KEYS` | CAST 서명키 임시 생성 |
-| `IDO_QIM_ALLOW_EMPTY_AES_KEY` | registry 공유키 없이 기동 (복호화는 실패) |
-| `IDO_QAUTHZ_ALLOW_EMPTY_API_KEY` | authz 키 없이 기동 |
-| `ido.kms.local.allow-in-prod`, `ido.kms.vault.allow-empty-token` | KMS 우회 |
+| `IDEM_HUB_INTERNAL_ALLOW_EMPTY_SIG_SECRET` | 내부 서명키 없이 기동 |
+| `IDEM_HUB_INTERNAL_ALLOW_EMPTY_CALLERS`, `IDEM_HUB_WEBHOOK_ALLOW_EMPTY_SECRET`, `idem.hub.keycloak.allow-empty-client-secret`, `idem.hub.ticket.allow-empty-fallback-keys` | 종전 탈출구 (그대로) |
+| `IDEM_HUB_BROKER_ALLOW_CILESS_IDENTITY` | CI 없는 인증 결과를 identifierHash 로 세션 발급 (종전 PoC 폴백) |
+| `IDEM_HUB_CAST_ALLOW_GENERATED_KEYS` | CAST 서명키 임시 생성 |
+| `IDEM_HUB_REGISTRY_ALLOW_EMPTY_AES_KEY` | registry 공유키 없이 기동 (복호화는 실패) |
+| `IDEM_HUB_AUTHZ_ALLOW_EMPTY_API_KEY` | authz 키 없이 기동 |
+| `idem.hub.kms.local.allow-in-prod`, `idem.hub.kms.vault.allow-empty-token` | KMS 우회 |
 | `IDEM_PLUGINS_MOCK_AUTH_ENABLED` | 무검증 Mock 본인확인 — 플러그인 자체가 `!prod & !stage` 프로파일에서만 로드된다 |
 
-prod/stage 에서 **반드시 true** 여야 하는 것: `IDO_AUDIT_DB_ENABLED`, `IDO_SECURITY_HEADERS_ENABLED`, `IDO_AUTH_RL_ENABLED`, `IDO_RATE_LIMIT_ENABLED`, `IDO_REDISSON_ENABLED`.
+prod/stage 에서 **반드시 true** 여야 하는 것: `IDEM_HUB_AUDIT_DB_ENABLED`, `IDEM_HUB_SECURITY_HEADERS_ENABLED`, `IDEM_HUB_AUTH_RL_ENABLED`, `IDEM_HUB_RATE_LIMIT_ENABLED`, `IDEM_HUB_REDISSON_ENABLED`.
 
 **런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응 · `E-IDO-121` 연동 유형 불일치 — 400, OIDC_RP 기관에 Handoff 발급 요청 · `E-IDO-122` OIDC client 프로비저닝 실패 — 503, Keycloak 관리 API 장애 또는 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 미설정, 프로파일 저장이 되돌려진다 · `E-IDO-123` Idem 이 프로비저닝하지 않은 OIDC client — 403, 토큰 교환의 `client_id` 가 `idem-svc-*` 가 아니거나 프로파일이 OIDC_RP 가 아님 · **관리자 인증(S7, `docs/admin-auth.md`)**: `E-IDO-130` 401 관리자 세션 없음/만료 · `E-IDO-131` 403 권한 없음·`X-Requested-With` 없는 쓰기·테넌트 범위 밖 · `E-IDO-132` 401 로그인 실패 · `E-IDO-133` 423 계정 잠김(5회→15분, `POST /api/v1/admin/admins/{id}/unlock`)·비활성 · `E-IDO-134` 401 2단계 실패·대기 토큰 만료 · `E-IDO-135` 400 비밀번호 정책 위반 · `E-IDO-136` 409 마지막 SYSTEM_ADMIN 강등 불가 · `E-IDO-137` 403 첫 로그인 비밀번호 변경 필요 · `E-IDO-138` 404 관리자 없음 · `E-IDO-139` 409 사용자명 중복): 감사 로그(`ido.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
 
@@ -283,29 +283,29 @@ curl -s http://localhost:8083/actuator/flyway | jq .
 ### 5.1 토픽 목록 (코드 참조)
 
 Q-IM (`idem-registry/src/main/resources/application.yml`):
-- `qim.user.events` — `cleanup.policy=compact`
-- `qim.user.snapshot` — Compacted snapshot
+- `idem.registry.user.events` — `cleanup.policy=compact`
+- `idem.registry.user.snapshot` — Compacted snapshot
 
 IdO (`idem-hub/src/main/resources/application.yml`):
-- `ido.handoff.events` — Handoff Ticket 이벤트
+- `idem.hub.handoff.events` — Handoff Ticket 이벤트
 - `platform.session.advisory` — FE 세션 어드바이저리
-- `qsign.auth.events` — 인증 이벤트 (default; `IDO_KAFKA_TOPIC_AUTH_EVENTS` 로 변경)
-- `qim.user.events` (구독) — Q-IM 사용자 이벤트
-- `qim.user.snapshot` (구독)
-- `qim.agency.events` — 기관 이벤트 (파티션 3, 보존 365일 — 주석 명시)
-- `qim.sp.member.events` — **deprecated** (마이그레이션 완료 후 제거 예정)
+- `idem.gate.auth.events` — 인증 이벤트 (default; `IDEM_HUB_KAFKA_TOPIC_AUTH_EVENTS` 로 변경)
+- `idem.registry.user.events` (구독) — Q-IM 사용자 이벤트
+- `idem.registry.user.snapshot` (구독)
+- `idem.registry.agency.events` — 기관 이벤트 (파티션 3, 보존 365일 — 주석 명시)
+- `idem.registry.sp.member.events` — **deprecated** (마이그레이션 완료 후 제거 예정)
 
 ### 5.2 컨슈머 그룹
 
 | 그룹 | 환경변수 / 키 | 구독 토픽 |
 |---|---|---|
-| `q-im-consumer` | `spring.kafka.consumer.group-id` (q-im) | q-im 자체 컨슈머 |
-| `ido-qim-consumer` | `ido.kafka.consumer-group-qim` | `qim.user.events`, `qim.user.snapshot` |
-| `ido-qsign-consumer` | `ido.kafka.consumer-group-qsign` | `qsign.auth.events` |
-| `ido-fe-advisory-consumer` | `ido.kafka.consumer-group-fe-advisory` | `platform.session.advisory` |
-| `ido-qim-member-consumer` | `ido.kafka.consumer-group-qim-member` | `qim.user.events` (SP 수신용) |
-| `ido-handoff-consumer` | `ido.kafka.consumer-group-handoff` | `ido.handoff.events` → Webhook Dispatcher |
-| `ido-qim-sp-member-consumer` | (deprecated) | `qim.sp.member.events` |
+| `idem-registry-consumer` | `spring.kafka.consumer.group-id` (q-im) | q-im 자체 컨슈머 |
+| `idem-hub-registry-consumer` | `idem.hub.kafka.consumer-group-qim` | `idem.registry.user.events`, `idem.registry.user.snapshot` |
+| `ido-qsign-consumer` | `idem.hub.kafka.consumer-group-qsign` | `idem.gate.auth.events` |
+| `ido-fe-advisory-consumer` | `idem.hub.kafka.consumer-group-fe-advisory` | `platform.session.advisory` |
+| `ido-qim-member-consumer` | `idem.hub.kafka.consumer-group-qim-member` | `idem.registry.user.events` (SP 수신용) |
+| `ido-handoff-consumer` | `idem.hub.kafka.consumer-group-handoff` | `idem.hub.handoff.events` → Webhook Dispatcher |
+| `ido-qim-sp-member-consumer` | (deprecated) | `idem.registry.sp.member.events` |
 
 ### 5.3 파티션·복제 설정
 
@@ -313,10 +313,10 @@ PoC 기본값(`docker-compose.yml`): 파티션 6, 복제 1, ISR 1.
 
 운영 3-broker 전환 시 환경변수:
 ```
-IDO_KAFKA_PARTITION_COUNT_MAIN=12
-IDO_KAFKA_PARTITION_COUNT_DLQ=6
-IDO_KAFKA_REPLICATION_FACTOR=3
-IDO_KAFKA_MIN_INSYNC_REPLICAS=2
+IDEM_HUB_KAFKA_PARTITION_COUNT_MAIN=12
+IDEM_HUB_KAFKA_PARTITION_COUNT_DLQ=6
+IDEM_HUB_KAFKA_REPLICATION_FACTOR=3
+IDEM_HUB_KAFKA_MIN_INSYNC_REPLICAS=2
 ```
 
 토픽 초기 생성은 `infra/docker/kafka/create-topics.sh` 가 담당한다(컴포즈
@@ -324,7 +324,7 @@ IDO_KAFKA_MIN_INSYNC_REPLICAS=2
 
 ### 5.4 Compacted 토픽 점검
 
-`qim.user.events`, `qim.user.snapshot` 은 compact 정책이므로 Log Cleaner
+`idem.registry.user.events`, `idem.registry.user.snapshot` 은 compact 정책이므로 Log Cleaner
 스레드(`KAFKA_LOG_CLEANER_ENABLE=true`, `THREADS=2`)가 동작해야 한다.
 Kafka-UI(8090) → `Topics → 토픽명 → Config` 에서 `cleanup.policy=compact`
 및 `min.cleanable.dirty.ratio=0.5` 확인.
@@ -346,7 +346,7 @@ Kafka-UI(8090) → `Topics → 토픽명 → Config` 에서 `cleanup.policy=comp
 
 코드: `idem-registry/src/main/java/io/github/hipstermin/idem/registry/outbox/OutboxServiceImpl.java`
 
-설정(`qim.outbox.*`):
+설정(`idem.registry.outbox.*`):
 - `relay-interval-ms: 500` — PENDING 폴링 주기
 - `batch-size: 100`
 - `max-retry: 5` (초과 시 영구 `FAILED`)
@@ -358,25 +358,25 @@ Kafka-UI(8090) → `Topics → 토픽명 → Config` 에서 `cleanup.policy=comp
 - `OutboxService.relayPendingEvents()` — PENDING → PUBLISHED
 - `OutboxService.relayFailedEvents()` — FAILED 재시도
 
-`SnapshotService` 가 임계치에 도달한 사용자에 대해 `qim.user.snapshot` 으로
+`SnapshotService` 가 임계치에 도달한 사용자에 대해 `idem.registry.user.snapshot` 으로
 스냅샷 이벤트를 추가 발행한다.
 
 ### 6.2 IdO Outbox & Webhook
 
-설정(`ido.outbox.*`):
+설정(`idem.hub.outbox.*`):
 - `relay-enabled: true` — Kafka 미사용 환경에서는 false로 폴링 정지
 - `relay-interval-ms: 500`, `batch-size: 100`, `max-retry: 3`
 
-Q-IM 회원 이벤트 릴레이(`ido.qim-outbox.*`):
+Q-IM 회원 이벤트 릴레이(`idem.hub.registry-outbox.*`):
 - `relay-enabled: true`
 - `relay-interval-ms: 1000`
 - `batch-size: 50`, `max-retry: 5`
 
-Webhook 릴레이(`ido.webhook.*`):
+Webhook 릴레이(`idem.hub.webhook.*`):
 - `relay-interval-ms: 500`
 - `relay-batch-size: 50`
 - `connect-timeout-ms: 3000`, `read-timeout-ms: 8000`
-- `signing-secret`: `IDO_WEBHOOK_SIGNING_SECRET` (HMAC-SHA256)
+- `signing-secret`: `IDEM_HUB_WEBHOOK_SIGNING_SECRET` (HMAC-SHA256)
 
 ### 6.3 잔여 PENDING 모니터링
 
@@ -414,28 +414,28 @@ IdO는 단계적 롤아웃을 위해 다수의 Feature Flag를 가진다. 모두
 
 | Flag (env) | 기본값 | 역할 |
 |---|---|---|
-| `IDO_AUTH_RL_ENABLED` | true | NICE/OACX 인증 IP rate limit |
-| `IDO_RATE_LIMIT_ENABLED` | true | 기관별 TPS/Daily 제한 |
-| `IDO_REDISSON_ENABLED` | true | Redisson 분산 락 (K8s 다중 Pod 시 필수) |
-| `IDO_SECURITY_HEADERS_ENABLED` | true | 보안 응답 헤더 필터 |
-| `IDO_AUTH_TRACING_ENABLED` | true | OTel 분산 추적 AOP |
-| `IDO_RETENTION_ENABLED` | **false** | 개인정보 파기 스케줄러 (활성 전 dry-run 필수) |
-| `IDO_RETENTION_DRY_RUN` | **true** | 실제 삭제 전 시뮬레이션 |
-| `IDO_RETENTION_DAYS` | 365 | 보존기간 (법무 확정 필요) |
-| `IDO_OUTBOX_RELAY_ENABLED` | true | IdO Outbox 폴링 |
-| `IDO_QIM_OUTBOX_RELAY_ENABLED` | true | Q-IM 이벤트 릴레이 |
-| `IDO_PROVISIONING_ENABLED` | **false** | F-20 전 기관 프로비저닝 (Phase 2↑) |
-| `IDO_PROVISIONING_DRY_RUN` | true | F-22 시뮬레이션 |
-| `IDO_PROVISIONING_RELAY_ENABLED` | false | F-21 릴레이 |
-| `IDO_GATEWAY_INBOUND_ENABLED` | false | F-23 인바운드 이벤트 수신 (Phase 3-A↑) |
-| `IDO_GATEWAY_OUTBOUND_ENABLED` | false | F-24 아웃바운드 발송 (Phase 3-B↑) |
-| `IDO_GATEWAY_IDEMPOTENCY_ENABLED` | true | F-25 멱등 중복 방어 |
-| `IDO_HMAC_SIG_REQUIRED` | false | F-26 HMAC 서명 필수화 (Phase 4↑) |
-| `IDO_AGENCY_KEY_AUDIT_LOG` | true | F-27 API Key 감사 |
-| `IDO_AUDIT_KAFKA_ENABLED` | true | 감사 Kafka 발행 (Kafka 없는 환경 false 권장) |
-| `IDO_AUDIT_DB_ENABLED` | true | **운영에서 false 금지** |
-| `IDO_KMS_ENABLED` | false | KMS 활성화 |
-| `IDO_KMS_PROVIDER` | vault | vault / nhn / noop |
+| `IDEM_HUB_AUTH_RL_ENABLED` | true | NICE/OACX 인증 IP rate limit |
+| `IDEM_HUB_RATE_LIMIT_ENABLED` | true | 기관별 TPS/Daily 제한 |
+| `IDEM_HUB_REDISSON_ENABLED` | true | Redisson 분산 락 (K8s 다중 Pod 시 필수) |
+| `IDEM_HUB_SECURITY_HEADERS_ENABLED` | true | 보안 응답 헤더 필터 |
+| `IDEM_HUB_AUTH_TRACING_ENABLED` | true | OTel 분산 추적 AOP |
+| `IDEM_HUB_RETENTION_ENABLED` | **false** | 개인정보 파기 스케줄러 (활성 전 dry-run 필수) |
+| `IDEM_HUB_RETENTION_DRY_RUN` | **true** | 실제 삭제 전 시뮬레이션 |
+| `IDEM_HUB_RETENTION_DAYS` | 365 | 보존기간 (법무 확정 필요) |
+| `IDEM_HUB_OUTBOX_RELAY_ENABLED` | true | IdO Outbox 폴링 |
+| `IDEM_HUB_REGISTRY_OUTBOX_RELAY_ENABLED` | true | Q-IM 이벤트 릴레이 |
+| `IDEM_HUB_PROVISIONING_ENABLED` | **false** | F-20 전 기관 프로비저닝 (Phase 2↑) |
+| `IDEM_HUB_PROVISIONING_DRY_RUN` | true | F-22 시뮬레이션 |
+| `IDEM_HUB_PROVISIONING_RELAY_ENABLED` | false | F-21 릴레이 |
+| `IDEM_HUB_GATEWAY_INBOUND_ENABLED` | false | F-23 인바운드 이벤트 수신 (Phase 3-A↑) |
+| `IDEM_HUB_GATEWAY_OUTBOUND_ENABLED` | false | F-24 아웃바운드 발송 (Phase 3-B↑) |
+| `IDEM_HUB_GATEWAY_IDEMPOTENCY_ENABLED` | true | F-25 멱등 중복 방어 |
+| `IDEM_HUB_HMAC_SIG_REQUIRED` | false | F-26 HMAC 서명 필수화 (Phase 4↑) |
+| `IDEM_HUB_AGENCY_KEY_AUDIT_LOG` | true | F-27 API Key 감사 |
+| `IDEM_HUB_AUDIT_KAFKA_ENABLED` | true | 감사 Kafka 발행 (Kafka 없는 환경 false 권장) |
+| `IDEM_HUB_AUDIT_DB_ENABLED` | true | **운영에서 false 금지** |
+| `IDEM_HUB_KMS_ENABLED` | false | KMS 활성화 |
+| `IDEM_HUB_KMS_PROVIDER` | vault | vault / nhn / noop |
 
 상태 확인: `GET /actuator/features` (Actuator exposure include 에 `features` 포함됨).
 
@@ -443,7 +443,7 @@ IdO는 단계적 롤아웃을 위해 다수의 Feature Flag를 가진다. 모두
 
 ## 8. KMS (Vault) 운영
 
-`ido.kms.*` 설정. 컨테이너: `vault` (`infra/docker/docker-compose.yml`).
+`idem.hub.kms.*` 설정. 컨테이너: `vault` (`infra/docker/docker-compose.yml`).
 
 ### 8.1 Vault 초기 설정 (개발 환경)
 
@@ -454,7 +454,7 @@ export VAULT_ADDR=http://localhost:8200
 export VAULT_TOKEN=dev-root-token   # docker-compose .env의 VAULT_TOKEN
 
 vault secrets enable transit
-vault write -f transit/keys/ido-handoff-key
+vault write -f transit/keys/idem-handoff-key
 ```
 
 ### 8.2 인증 방식
@@ -463,7 +463,7 @@ vault write -f transit/keys/ido-handoff-key
 - `VAULT_AUTH_METHOD=approle` — 자체 호스팅
 - `VAULT_AUTH_METHOD=kubernetes` — **K8s 운영 권장** (Pod ServiceAccount)
 
-`ido.kms.vault.allow-empty-token=false` (기본) 이므로 토큰 미설정 시
+`idem.hub.kms.vault.allow-empty-token=false` (기본) 이므로 토큰 미설정 시
 부팅 차단된다.
 
 ### 8.3 헬스 체크
@@ -474,15 +474,15 @@ Vault 다운 시 readiness probe FAIL → K8s 가 트래픽을 차단한다.
 
 ### 8.4 키 로테이션
 
-`ido.crypto.rotation-enabled=true` + `rotation-check-cron: "0 0 * * * *"`
-(매 시 정각). Handoff Ticket 폴백 키는 `ido.ticket.aes-key` / `hmac-key`
-이며 90일 주기(`ido.ticket.key-rotation-days`) 권장, grace period 24시간.
+`idem.hub.crypto.rotation-enabled=true` + `rotation-check-cron: "0 0 * * * *"`
+(매 시 정각). Handoff Ticket 폴백 키는 `idem.hub.ticket.aes-key` / `hmac-key`
+이며 90일 주기(`idem.hub.ticket.key-rotation-days`) 권장, grace period 24시간.
 
 ---
 
 ## 9. 본인인증(NICE/OACX) Resilience
 
-`ido.auth.*` + `resilience4j.*` 에 Circuit Breaker / Retry / TimeLimiter 정의.
+`idem.hub.auth.*` + `resilience4j.*` 에 Circuit Breaker / Retry / TimeLimiter 정의.
 
 | 인스턴스 | Sliding window | Failure rate | Open wait | Retry | TimeLimiter |
 |---|---|---|---|---|---|
@@ -492,7 +492,7 @@ Vault 다운 시 readiness probe FAIL → K8s 가 트래픽을 차단한다.
 | `integration-auth-client` | 10 | 50% | 60s | 2회 / 500ms (Exp backoff x2) | 12s |
 
 운영 시 NICE/통합인증 외부 점검 공지 발생 시 임시로
-`IDO_AUTH_RL_ENABLED=false` 또는 Circuit Open 상태를 모니터링한다.
+`IDEM_HUB_AUTH_RL_ENABLED=false` 또는 Circuit Open 상태를 모니터링한다.
 
 CB 상태 메트릭:
 - `resilience4j_circuitbreaker_state{name="nice-api-client",state="open"}`
@@ -515,11 +515,13 @@ CB 상태 메트릭:
 | GET | `/admin/agencies/{agencyCode}/history` | 변경 이력 |
 | GET | `/admin/agencies/{agencyCode}/stats` | 통계 |
 
+**개명 4b (S9, 2026-09-25)**: 설정 키·환경변수·앱 이름·Redis 접두·Kafka 이름이 `idem.*`/`IDEM_<모듈>_*`/`idem-*` 로 바뀌었다(`docs/naming.md` §3.1). 구 이름은 한 릴리스 동안 호환 계층이 받아 주며 기동 로그 `[Idem 개명] 구 이름 N개…` 로 확인한다. 업그레이드 절차: (1) `install.env`·외부 yml 의 이름을 표대로 옮긴다 (2) 앱을 내리고 Redis 를 비운다(`FLUSHALL` — 세션·레이트리밋·멱등 키, 사용자는 재로그인) (3) Kafka 를 쓰면 컨슈머 그룹이 `idem-*-consumer` 로 새로 시작하므로 남은 메시지를 먼저 비우거나 오프셋을 옮긴다 (4) Prometheus `job`·대시보드는 `infra/monitoring` 의 새 라벨로.
+
 관리 API 는 관리자 세션(쿠키 `idemAdminSid`, 2단계 TOTP) 과 쓰기 요청의 `X-Requested-With` 헤더가 필요하다(S7, `docs/admin-auth.md`). 인증된 관리자 사용자명이 audit log 의 actor 로 기록되고, 인증·인가 사건 자체는 `event_category=ADMIN` 으로 남는다. 감사 조회는 `GET /api/v1/admin/audit`.
 
-기관 → IdO 인바운드(F-23)는 `IDO_GATEWAY_INBOUND_ENABLED=true` 가 필요하며,
-`X-Agency-Code` + HMAC 헤더(`IDO_HMAC_SIG_REQUIRED=true` 시) 로 인증한다.
-키 검증은 `ido.gateway.AgencyHmacKeyStore` 가 담당.
+기관 → IdO 인바운드(F-23)는 `IDEM_HUB_GATEWAY_INBOUND_ENABLED=true` 가 필요하며,
+`X-Agency-Code` + HMAC 헤더(`IDEM_HUB_HMAC_SIG_REQUIRED=true` 시) 로 인증한다.
+키 검증은 `idem.hub.gateway.AgencyHmacKeyStore` 가 담당.
 
 ---
 
@@ -548,7 +550,7 @@ CB 상태 메트릭:
 | `WithdrawalController` | DELETE | `/api/v1/withdrawal/schedule` | 예약 탈퇴 취소 |
 | `QimStatusController` | GET | `/api/v1/qim-status/{qimUserId}` | 통합 상태 조회 |
 
-모든 호출은 `X-Internal-Api-Key: $QIM_INTERNAL_API_KEY` 필요 (IdO 호출 동일).
+모든 호출은 `X-Internal-Api-Key: $IDEM_REGISTRY_INTERNAL_API_KEY` 필요 (IdO 호출 동일).
 
 `GlobalExceptionHandler` 가 표준 에러 응답을 반환한다 — 추적 시 `correlationId`
 와 `errorCode` 를 우선 확인한다.
@@ -562,14 +564,14 @@ CB 상태 메트릭:
 기본 동작:
 1. `executeRetentionPolicy()` 가 주기적으로 실행 (cron은 클래스 내 어노테이션 확인).
 2. `findExpiredWithdrawnMembers(retentionCutoff)` 로 보존기간 만료된 탈퇴자 조회.
-3. `purgePersonalData(instMbrId)` 로 개인정보 파기 (`IDO_RETENTION_DRY_RUN=true`
+3. `purgePersonalData(instMbrId)` 로 개인정보 파기 (`IDEM_HUB_RETENTION_DRY_RUN=true`
    시 실제 삭제 없이 로그만).
 4. `publishRetentionAuditLog(...)` 로 감사 로그 발행.
 
 운영 절차 (코드상 안전장치):
-1. `IDO_RETENTION_DAYS` 를 법무팀 확정값으로 설정.
-2. `IDO_RETENTION_DRY_RUN=true` 로 최소 2주 관찰 → `retention_audit_log` 검토.
-3. 검토 완료 후 `IDO_RETENTION_DRY_RUN=false`, `IDO_RETENTION_ENABLED=true` 전환.
+1. `IDEM_HUB_RETENTION_DAYS` 를 법무팀 확정값으로 설정.
+2. `IDEM_HUB_RETENTION_DRY_RUN=true` 로 최소 2주 관찰 → `retention_audit_log` 검토.
+3. 검토 완료 후 `IDEM_HUB_RETENTION_DRY_RUN=false`, `IDEM_HUB_RETENTION_ENABLED=true` 전환.
 4. 매 실행 후 감사 로그(`retention_audit_log` 테이블 + Kafka 토픽) 자동 발행.
 
 ---
@@ -621,18 +623,18 @@ management.otlp.tracing.endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/trace
 
 ## 14. 보안 응답 헤더 / CORS
 
-`IDO_SECURITY_HEADERS_ENABLED=true` 시 `SecurityHeadersFilter` 가 활성화된다.
-CORS 는 `ido.cors.allowed-origins` 환경변수로 통제:
+`IDEM_HUB_SECURITY_HEADERS_ENABLED=true` 시 `SecurityHeadersFilter` 가 활성화된다.
+CORS 는 `idem.hub.cors.allowed-origins` 환경변수로 통제:
 
 ```yaml
-ido.cors:
+idem.hub.cors:
   enabled: true
   allowed-origins:
     - ${CORS_ORIGIN_DEV:http://localhost:3000}    # React dev
     - ${CORS_ORIGIN_PROD:http://localhost:3001}   # Nginx React
 ```
 
-운영 배포 시 실제 도메인으로 변경. `ido.fe.allowed-return-urls` 도 동일하게
+운영 배포 시 실제 도메인으로 변경. `idem.hub.fe.allowed-return-urls` 도 동일하게
 ConfigMap 또는 환경변수로 주입한다(기관 callback whitelist 보조).
 
 기본 등록된 운영 URL:
@@ -645,7 +647,7 @@ ConfigMap 또는 환경변수로 주입한다(기관 callback whitelist 보조).
 
 ### 15.1 Broker 모드
 
-`IDO_BROKER_MODE` (기본 `qsign`):
+`IDEM_HUB_BROKER_MODE` (기본 `qsign`):
 - `qsign` — Q-Sign 에 OIDC URL 발급 위임
 - `keycloak` — IdO가 직접 Keycloak Authorization URL 생성
 
@@ -656,14 +658,14 @@ ConfigMap 또는 환경변수로 주입한다(기관 callback whitelist 보조).
 
 ### 15.2 FE Session (BFF)
 
-`ido.fe.session.*`:
+`idem.hub.fe.session.*`:
 - `sliding-ttl-minutes: 30` — 활동 시 갱신
 - `absolute-timeout-minutes: 480` — 절대 만료 8시간
 - 쿠키: `feSessionId`, `HttpOnly`, `Secure`, `SameSite=Lax`
 
 ### 15.3 Handoff Ticket
 
-`ido.ticket.*`:
+`idem.hub.ticket.*`:
 - `ttl-seconds: 60` — 1회성
 - `encryption-algorithm: AES-256-GCM`
 - `signing-algorithm: HMAC-SHA256`
@@ -697,7 +699,7 @@ docker logs idem-registry --tail=200 | grep -E "validate|empty|required|fail"
 1. `outbox_pending_total` 메트릭 알람.
 2. Kafka-UI(8090) 에서 토픽 상태(파티션 leader, ISR) 확인.
 3. Kafka 정상이면 앱 측 점검:
-   - `IDO_OUTBOX_RELAY_ENABLED=true` 여부
+   - `IDEM_HUB_OUTBOX_RELAY_ENABLED=true` 여부
    - 트랜잭션 ID 충돌 (producer fence)
    - Resilience4j CB Open 여부 (`kafka` 자체에는 CB 미설정)
 4. 수동 재시도: §6.4 SQL.
@@ -705,7 +707,7 @@ docker logs idem-registry --tail=200 | grep -E "validate|empty|required|fail"
 ### 16.3 Vault 다운 → 트래픽 차단
 
 readiness probe FAIL 로 K8s가 자동으로 endpoint에서 제외한다. 단,
-`ido.kms.enabled=false` 로 임시 우회 가능. **운영 우회는 보안 사고이므로
+`idem.hub.kms.enabled=false` 로 임시 우회 가능. **운영 우회는 보안 사고이므로
 승인 절차 + 사후 키 재발급 필요**.
 
 ### 16.4 NICE/OACX 외부 점검
@@ -716,10 +718,10 @@ readiness probe FAIL 로 K8s가 자동으로 endpoint에서 제외한다. 단,
 
 ### 16.5 데이터 정합성 깨짐 (Q-IM ↔ IdO)
 
-1. `qim.user.snapshot` 토픽의 최신 메시지로 IdO 캐시 재구축 가능.
+1. `idem.registry.user.snapshot` 토픽의 최신 메시지로 IdO 캐시 재구축 가능.
 2. 재구축이 필요한 사용자 ID에 대해 `SnapshotService.publishSnapshot(...)` 강제 호출
    (개발자/오퍼레이터 도구로 한정).
-3. IdO `ido.qim.cache-ttl-seconds: 300` 만료 후 자동 재조회됨.
+3. IdO `idem.hub.registry.cache-ttl-seconds: 300` 만료 후 자동 재조회됨.
 
 ---
 

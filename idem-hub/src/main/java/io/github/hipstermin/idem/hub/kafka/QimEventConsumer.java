@@ -30,7 +30,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class QimEventConsumer {
 
-    private static final String CONSUMER_GROUP = "ido-qim-consumer";
+    private static final String CONSUMER_GROUP = "idem-hub-registry-consumer";
 
     private final LastEventVersionStore lastEventVersionStore;
     private final UserStatusCache       userStatusCache;
@@ -41,12 +41,12 @@ public class QimEventConsumer {
     // (consumerGroup prefix 는 key 에 포함하여 구분)
 
     /**
-     * qim.user.events 구독
+     * idem.registry.user.events 구독
      * containerFactory = qimListenerContainerFactory (KafkaConsumerConfig 참조)
      */
     @KafkaListener(
-            topics       = "${qim.kafka.topic-user-events:qim.user.events}",
-            groupId      = "${ido.kafka.consumer-group-qim:ido-qim-consumer}",
+            topics       = "${idem.registry.kafka.topic-user-events:idem.registry.user.events}",
+            groupId      = "${idem.hub.kafka.consumer-group-qim:idem-hub-registry-consumer}",
             containerFactory = "qimListenerContainerFactory"
     )
     public void consume(ConsumerRecord<String, UserEvent> record, Acknowledgment ack) {

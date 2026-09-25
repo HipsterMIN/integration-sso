@@ -2,18 +2,18 @@
 # IdO Helm Chart — values.yaml (기본값)
 #
 # 사용법:
-#   helm install ido ./infra/helm/idem-hub -n production -f values-prod.yaml
-#   helm upgrade ido ./infra/helm/idem-hub -n production -f values-prod.yaml
+#   helm install idem-hub ./infra/helm/idem-hub -n production -f values-prod.yaml
+#   helm upgrade idem-hub ./infra/helm/idem-hub -n production -f values-prod.yaml
 #
 # Phase 전환 예시:
-#   helm upgrade ido ./infra/helm/idem-hub -n production \
+#   helm upgrade idem-hub ./infra/helm/idem-hub -n production \
 #     --set featureFlags.provisioning=true \
 #     --set featureFlags.provisioningDryRun=true
 # =============================================================================
 
 # ── 기본 이미지 설정 ──────────────────────────────────────────────────────────
 image:
-  repository: smes/ido
+  repository: idem-hub
   tag: "2.3.0"            # CI/CD에서 --set image.tag=$(GIT_SHA) 로 치환
   pullPolicy: IfNotPresent
 
@@ -55,19 +55,19 @@ spring:
 
 # ── ConfigMap 이름 ────────────────────────────────────────────────────────────
 configMap:
-  name: ido-config
+  name: idem-hub-config
 
 # ── Secret 이름들 ─────────────────────────────────────────────────────────────
 secrets:
   # 기본 자격증명 (DB, Redis, Kafka 등)
-  main: ido-secrets
+  main: idem-hub-secrets
   # OACX RSA 키
-  oacx: ido-oacx-keys
+  oacx: idem-hub-oacx-keys
   # Sprint 17: 기관별 HMAC 서명 키
-  # 형식: IDO_GATEWAY_HMAC_KEY_{AGENCY_CODE}=<32자 이상 시크릿>
-  # kubectl create secret generic ido-gateway-hmac-keys \
+  # 형식: IDEM_HUB_GATEWAY_HMAC_KEY_{AGENCY_CODE}=<32자 이상 시크릿>
+  # kubectl create secret generic idem-hub-gateway-hmac-keys \
   #   --from-literal=AGENCY_001=<secret> --from-literal=AGENCY_002=<secret>
-  hmacKeys: ido-gateway-hmac-keys
+  hmacKeys: idem-hub-gateway-hmac-keys
 
 # ── Phase-Gate Feature Flags ─────────────────────────────────────────────────
 # 각 Phase에서 이 값들을 변경하여 기능을 단계적으로 활성화합니다.
@@ -104,7 +104,7 @@ featureFlags:
   agencyKeyAuditLog:       "true"     # F-27: 항상 ON
 
 # ── Phase 프리셋 (--set phase=2a 로 일괄 적용) ───────────────────────────────
-# 사용 예시: helm upgrade ido . --set phase=2a
+# 사용 예시: helm upgrade idem-hub . --set phase=2a
 # templates/_helpers.tpl에서 이 값 기반으로 featureFlags를 오버라이드
 phase: "1"   # "1" | "2a" | "2b" | "3a" | "3b" | "4"
 
@@ -131,10 +131,10 @@ namespace: production
 
 # ── ServiceAccount ────────────────────────────────────────────────────────────
 serviceAccount:
-  name: ido-sa
+  name: idem-hub-sa
   annotations: {}
   # AWS IRSA 예시:
-  # eks.amazonaws.com/role-arn: "arn:aws:iam::123456789:role/ido-kms-role"
+  # eks.amazonaws.com/role-arn: "arn:aws:iam::123456789:role/idem-hub-kms-role"
 
 # ── 분산 배치 설정 ────────────────────────────────────────────────────────────
 topologySpread:

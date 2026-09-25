@@ -16,7 +16,7 @@ import org.springframework.core.env.StandardEnvironment;
  * 즉 각 모듈의 yml 기본값은 덮어쓰되, 명령행·환경변수로 준 값은 여전히 이긴다.
  *
  * <p>넣는 값: 리스너 자동 시작·토픽 검사 해제, Kafka 전용 릴레이(gate·registry·relay·hub qim-outbox) 정지,
- * 감사 Kafka 발행 정지. hub 의 {@code ido.outbox} 릴레이(F-13)는 끄지 않는다 — Kafka 대신 프로세스 내 배달로 동작한다.
+ * 감사 Kafka 발행 정지. hub 의 {@code idem.hub.outbox} 릴레이(F-13)는 끄지 않는다 — Kafka 대신 프로세스 내 배달로 동작한다.
  */
 public class KafkaOptionalEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
 
@@ -30,19 +30,19 @@ public class KafkaOptionalEnvironmentPostProcessor implements EnvironmentPostPro
             Map.entry("spring.kafka.admin.fail-fast", "false"),
             Map.entry("spring.kafka.producer.properties.max.block.ms", "1000"),
             // idem-hub
-            Map.entry("ido.qim-outbox.relay-enabled", "false"),   // F-30 (qim.user.events → Kafka, 폐기 예정 SP 경로)
-            Map.entry("ido.audit.kafka-publish-enabled", "false"), // F-03 감사는 DB 저장(F-04)만
-            Map.entry("ido.qim-events.poll.enabled", "true"),      // D3: registry 이벤트 피드 폴링으로 상태 변경 전파
+            Map.entry("idem.hub.registry-outbox.relay-enabled", "false"),   // F-30 (qim.user.events → Kafka, 폐기 예정 SP 경로)
+            Map.entry("idem.hub.audit.kafka-publish-enabled", "false"), // F-03 감사는 DB 저장(F-04)만
+            Map.entry("idem.hub.registry-events.poll.enabled", "true"),      // D3: registry 이벤트 피드 폴링으로 상태 변경 전파
             // idem-gate
-            Map.entry("qsign.outbox.relay-enabled", "false"),
+            Map.entry("idem.gate.outbox.relay-enabled", "false"),
             // idem-registry
-            Map.entry("qim.outbox.relay-enabled", "false"),
+            Map.entry("idem.registry.outbox.relay-enabled", "false"),
             // idem-relay (제품 밖 — Kafka 릴레이 잡 전부 정지, webhook HTTP 릴레이는 유지)
-            Map.entry("batch.relay.ido.kafka.enabled", "false"),
-            Map.entry("batch.relay.ido.qim.enabled", "false"),
-            Map.entry("batch.relay.qim.kafka.enabled", "false"),
-            Map.entry("batch.relay.qsign.kafka.enabled", "false"),
-            Map.entry("batch.relay.authz.kafka.enabled", "false")
+            Map.entry("idem.relay.jobs.hub.kafka.enabled", "false"),
+            Map.entry("idem.relay.jobs.hub.qim.enabled", "false"),
+            Map.entry("idem.relay.jobs.registry.kafka.enabled", "false"),
+            Map.entry("idem.relay.jobs.gate.kafka.enabled", "false"),
+            Map.entry("idem.relay.jobs.authz.kafka.enabled", "false")
     );
 
     @Override
