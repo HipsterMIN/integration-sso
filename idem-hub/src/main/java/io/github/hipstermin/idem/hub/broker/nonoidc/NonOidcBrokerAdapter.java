@@ -36,8 +36,8 @@ import org.springframework.stereotype.Service;
  *           → NonOidcAuthService.processAuth()  ← AuthResult 생성·Kafka 발행
  * </pre>
  *
- * <p>PoC 단계: 실제 외부 IdP SDK/API 연동 대신 플레이스홀더 구현.
- * 운영 전환 시 각 사업자별 SDK 또는 REST API 호출 코드로 교체 필요.
+ * <p>사업자 목록·시작 URL·인증수준은 설정({@link NonOidcProviderProperties})이 정하고, 응답 검증은 {@link NonOidcProviderVerifier}
+ * 구현(에디션 플러그인)이 맡는다 — 코어는 어느 사업자도 모른다 (D3).
  */
 @Slf4j
 @Service
@@ -47,6 +47,8 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
     private final NonOidcAuthService nonOidcAuthService;
     /** D2: 사업자별 응답 검증기 — 없으면 그 사업자는 사용 불가(503) */
     private final List<NonOidcProviderVerifier> providerVerifiers;
+    /** D3: 사업자 목록·시작 URL·인증수준은 설정이 정한다 (코어 기본값 빈 목록) */
+    private final NonOidcProviderProperties providerProperties;
 
     // ──────────────────────────────────────────────────────────────────────
     // IdpBrokerService 구현
@@ -58,7 +60,7 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
      * <p>PoC: 각 providerCode 별 더미 URL 반환.
      * 운영: 실제 사업자 API(PASS 등) 호출 후 redirect URL 또는 txId 반환.
      *
-     * @param providerCode  인증 수단 (PASS / FINANCIAL_CERT / GPKI / JOINT_CERT)
+     * @param providerCode  인증 수단 코드 (설정 ido.broker.nonoidc.providers 의 키)
      * @param correlationId 흐름 추적 ID
      * @param callbackUrl   인증 완료 후 사업자가 호출할 ido callback URL
      * @return {@link IdpBrokerResult} — redirect URL 또는 직접 호출 결과
@@ -71,15 +73,27 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
 
         validateProvider(providerCode, correlationId);
 
-        return switch (providerCode.toUpperCase()) {
-            case "PASS" -> initPass(correlationId, callbackUrl);
-            case "FINANCIAL_CERT" -> initFinancialCert(correlationId, callbackUrl);
-            case "GPKI" -> initGpki(correlationId, callbackUrl);
-            case "JOINT_CERT" -> initJointCert(correlationId, callbackUrl);
-            default -> throw new PlatformException(
-                    PlatformErrorCode.IDP_PROVIDER_UNAVAILABLE, correlationId,
-                    "지원하지 않는 비OIDC provider: " + providerCode);
-        };
+        // D3: 사업자별 분기(PASS·GPKI …)를 코드에서 뺐다 — 설정에 없는 사업자는 시작 자체를 거부
+        NonOidcProviderProperties.Provider cfg = providerProperties.find(providerCode)
+                .orElseThrow(() -> new PlatformException(PlatformErrorCode.IDP_PROVIDER_UNAVAILABLE, correlationId,
+                        "설정되지 않은 비OIDC provider(ido.broker.nonoidc.providers): " + providerCode));
+        if (cfg.getInitiateUrl() == null || cfg.getInitiateUrl().isBlank()) {
+            throw new PlatformException(PlatformErrorCode.IDO_PROVIDER_NOT_CONFIGURED, correlationId,
+                    "비OIDC provider 의 initiate-url 이 비어 있습니다: " + providerCode);
+        }
+        String code = providerCode.toUpperCase();
+        String redirectUrl = cfg.getInitiateUrl()
+                .replace("{callbackUrl}", encodeUrl(callbackUrl))
+                .replace("{correlationId}", correlationId);
+        String prefix = cfg.getTxPrefix() != null && !cfg.getTxPrefix().isBlank() ? cfg.getTxPrefix() : code;
+        log.debug("[NonOidcBrokerAdapter] 인증 시작 URL 생성: provider={} correlationId={}", code, correlationId);
+        return IdpBrokerResult.builder()
+                .providerCode(code)
+                .providerTxId(prefix + "-TX-" + correlationId.replace("-", "").substring(0, Math.min(8, correlationId.replace("-", "").length())))
+                .redirectUrl(redirectUrl)
+                .state(correlationId)
+                .status(IdpBrokerResult.BrokerStatus.REDIRECT_REQUIRED)
+                .build();
     }
 
     /**
@@ -140,66 +154,6 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
                 .claims(responseMap)
                 .internalSignature(authResultId)   // authResultId를 서명 대용으로 전달 (PoC)
                 .createdAt(Instant.now())
-                .build();
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
-    // 사업자별 initiateAuth 구현 (PoC placeholder)
-    // ──────────────────────────────────────────────────────────────────────
-
-    /** PASS 본인인증 시작 — 통신사 API에 txId 요청 후 redirect URL 반환 */
-    private IdpBrokerResult initPass(String correlationId, String callbackUrl) {
-        // PoC: 더미 redirect URL
-        // 운영: PASS API (예: KT/SKT/LGU+ 사업자 SDK) 호출
-        String dummyRedirectUrl = "https://pass.example.com/auth?callback="
-                + encodeUrl(callbackUrl) + "&cid=" + correlationId;
-
-        log.debug("[NonOidcBrokerAdapter] PASS redirect URL 생성: correlationId={}", correlationId);
-        return IdpBrokerResult.builder()
-                .providerCode("PASS")
-                .providerTxId("PASS-TX-" + correlationId.replace("-", "").substring(0, 8))
-                .redirectUrl(dummyRedirectUrl)
-                .state(correlationId)
-                .status(IdpBrokerResult.BrokerStatus.REDIRECT_REQUIRED)
-                .build();
-    }
-
-    /** 금융인증서 인증 시작 — 금융결제원 API 호출 */
-    private IdpBrokerResult initFinancialCert(String correlationId, String callbackUrl) {
-        // PoC: 더미 — 운영: 금융결제원 금융인증서 API 연동
-        log.debug("[NonOidcBrokerAdapter] 금융인증서 인증 시작: correlationId={}", correlationId);
-        return IdpBrokerResult.builder()
-                .providerCode("FINANCIAL_CERT")
-                .providerTxId("FCERT-TX-" + correlationId.replace("-", "").substring(0, 8))
-                .redirectUrl("https://financial-cert.example.com/auth?cid=" + correlationId)
-                .state(correlationId)
-                .status(IdpBrokerResult.BrokerStatus.REDIRECT_REQUIRED)
-                .build();
-    }
-
-    /** GPKI 정부 공개키 인증서 시작 */
-    private IdpBrokerResult initGpki(String correlationId, String callbackUrl) {
-        // PoC: 더미 — 운영: 행정안전부 GPKI 연동
-        log.debug("[NonOidcBrokerAdapter] GPKI 인증 시작: correlationId={}", correlationId);
-        return IdpBrokerResult.builder()
-                .providerCode("GPKI")
-                .providerTxId("GPKI-TX-" + correlationId.replace("-", "").substring(0, 8))
-                .redirectUrl("https://gpki.example.go.kr/auth?cid=" + correlationId)
-                .state(correlationId)
-                .status(IdpBrokerResult.BrokerStatus.REDIRECT_REQUIRED)
-                .build();
-    }
-
-    /** 공동인증서 인증 시작 */
-    private IdpBrokerResult initJointCert(String correlationId, String callbackUrl) {
-        // PoC: 더미 — 운영: 금융결제원 / KICA / CrossCert 연동
-        log.debug("[NonOidcBrokerAdapter] 공동인증서 인증 시작: correlationId={}", correlationId);
-        return IdpBrokerResult.builder()
-                .providerCode("JOINT_CERT")
-                .providerTxId("JCERT-TX-" + correlationId.replace("-", "").substring(0, 8))
-                .redirectUrl("https://joint-cert.example.com/auth?cid=" + correlationId)
-                .state(correlationId)
-                .status(IdpBrokerResult.BrokerStatus.REDIRECT_REQUIRED)
                 .build();
     }
 
@@ -276,15 +230,11 @@ public class NonOidcBrokerAdapter implements IdpBrokerService {
         return true;
     }
 
+    /** D3: 인증수준은 설정(ido.broker.nonoidc.providers.{CODE}.auth-level)이 정한다 — 없으면 L1 */
     private AuthResult.AuthLevel resolveAuthLevel(String providerCode) {
-        if (providerCode == null) return AuthResult.AuthLevel.L1;
-        return switch (providerCode.toUpperCase()) {
-            case "PASS"           -> AuthResult.AuthLevel.L2;
-            case "FINANCIAL_CERT",
-                 "GPKI",
-                 "JOINT_CERT"    -> AuthResult.AuthLevel.L3;
-            default               -> AuthResult.AuthLevel.L1;
-        };
+        return providerProperties.find(providerCode)
+                .map(NonOidcProviderProperties.Provider::getAuthLevel)
+                .orElse(AuthResult.AuthLevel.L1);
     }
 
     /**

@@ -35,7 +35,7 @@ import org.apache.hc.core5.http.io.entity.StringEntity;
  * CloseableHttpClient apacheClient = HttpClients.createDefault();
  *
  * AgencyGatewayClient client = AgencyGatewayClient.builder()
- *     .baseUrl("https://onepass.go.kr")
+ *     .baseUrl("https://sso.example.org")
  *     .apiKey("your-api-key")
  *     .httpAdapter(new ApacheHttpAgencyAdapter(apacheClient))
  *     .build();

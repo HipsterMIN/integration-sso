@@ -66,10 +66,7 @@ dependencies {
     implementation(project(":idem-common"))
     // 본인인증 SPI Mock 플러그인 — 클래스패스에는 항상 있지만 idem.plugins.mock-auth.enabled=true 일 때만 활성 (P1)
     runtimeOnly(project(":idem-plugin-mock-auth"))
-    // NICE/OACX 플러그인 (S5a) — 클래스패스에는 있지만 idem.plugins.nice-oacx.enabled=true 일 때만 활성. 코어 에디션은 false
-    runtimeOnly(project(":idem-plugin-nice-oacx"))
-    // Any-ID 설치형 브로커 플러그인 (S5b) — idem.plugins.anyid.enabled=true 일 때만 활성. SDK·자산은 vendor-libs 외부 공급
-    runtimeOnly(project(":idem-plugin-anyid"))
+    // D3: NICE/OACX·AnyID 벤더 플러그인은 코어가 번들하지 않는다 — editions/idem-kr-hub 가 runtimeOnly 로 싣는다
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")

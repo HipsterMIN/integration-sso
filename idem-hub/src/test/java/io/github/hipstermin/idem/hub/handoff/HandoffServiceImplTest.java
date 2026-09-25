@@ -78,7 +78,7 @@ class HandoffServiceImplTest {
     private static final String AUTH_RESULT_ID  = "auth-result-001";
     private static final String CORRELATION_ID  = "corr-001";
     private static final String TICKET_ID       = "ticket-001";
-    private static final String REDIRECT_URI    = "https://agency.go.kr/callback";
+    private static final String REDIRECT_URI    = "https://agency.example.org/callback";
 
     private AgencyMeta activeAgency;
     private HandoffIssueCommand validCommand;

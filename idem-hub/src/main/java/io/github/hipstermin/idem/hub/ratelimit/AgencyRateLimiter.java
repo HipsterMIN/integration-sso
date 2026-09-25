@@ -38,6 +38,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AgencyRateLimiter {
 
+    /** D3: 일 단위 키의 날짜 경계 시간대 — ido.zone (기본 UTC) */
+    @org.springframework.beans.factory.annotation.Value("${ido.zone:UTC}")
+    private String zoneId = "UTC";
+
     private static final String TPS_KEY_PREFIX   = "ido:rl:tps:";
     private static final String DAILY_KEY_PREFIX = "ido:rl:daily:";
 
@@ -195,7 +199,7 @@ public class AgencyRateLimiter {
     }
 
     private String dailyKey(String agencyCode) {
-        String date = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))
+        String date = java.time.LocalDate.now(java.time.ZoneId.of(zoneId))
                 .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
         return DAILY_KEY_PREFIX + agencyCode + ":" + date;
     }

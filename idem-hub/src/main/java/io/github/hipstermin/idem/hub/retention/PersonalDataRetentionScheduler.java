@@ -85,7 +85,7 @@ public class PersonalDataRetentionScheduler {
     // ════════════════════════════════════════════════════════════════════════
 
     /**
-     * 매일 02:00 개인정보 파기 실행 (Asia/Seoul)
+     * 매일 02:00 개인정보 파기 실행 (ido.zone 기준, D3)
      *
      * <p>cron = "0 0 2 * * *" — 매일 새벽 2시
      *
@@ -94,7 +94,7 @@ public class PersonalDataRetentionScheduler {
      * → {@code IDO_RETENTION_DRY_RUN=true}면 조회·로그만
      * → {@code IDO_RETENTION_DRY_RUN=false}면 실제 파기
      */
-    @Scheduled(cron = "0 0 2 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "${ido.retention.cron:0 0 2 * * *}", zone = "${ido.zone:UTC}")
     public void executeRetentionPolicy() {
 
         // ── F-11 Guard: enabled 체크 ─────────────────────────────────────

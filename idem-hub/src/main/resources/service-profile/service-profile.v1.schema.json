@@ -97,6 +97,12 @@
               "type": "string",
               "maxLength": 200,
               "description": "INTERNAL_SSO 전용 — 쿠키 도메인 (예: .agency.example.org)"
+            },
+            "ssoEntry": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 500,
+              "description": "기관 간 SSO(CAST) 진입점 — 이 Service 가 castToken 을 POST 로 받는 URL. 없으면 이 Service 로의 CAST 발급이 거부된다"
             }
           }
         },

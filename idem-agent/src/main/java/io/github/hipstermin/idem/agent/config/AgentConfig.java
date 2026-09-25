@@ -134,7 +134,7 @@ public final class AgentConfig {
 
     // ── 게터 ─────────────────────────────────────────────────────────────────────
 
-    /** OnePass 인증 서버 Base URL (ex: {@code https://onepass.go.kr}) */
+    /** OnePass 인증 서버 Base URL (ex: {@code https://sso.example.org}) */
     public String endpoint() { return endpoint; }
 
     /** API 인증 키 */

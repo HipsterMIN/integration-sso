@@ -50,6 +50,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class PolicyEngineImpl implements PolicyEngine {
 
+    /** D3: 점검 시간 판정 시간대 — ido.zone (기본 UTC) */
+    @org.springframework.beans.factory.annotation.Value("${ido.zone:UTC}")
+    private String zoneId = "UTC";
+
     private final UserStatusCache      userStatusCache;
     private final QimClient            qimClient;
     private final AgencyMetaRepository agencyMetaRepository;
@@ -161,7 +165,7 @@ public class PolicyEngineImpl implements PolicyEngine {
         List<ServiceProfile.MaintenanceWindow> windows = agency.getMaintenanceWindows().stream()
                 .map(w -> new ServiceProfile.MaintenanceWindow(w.getDayOfWeek(), w.getStartTime(), w.getEndTime()))
                 .toList();
-        return MaintenanceRule.isWithin(windows, java.time.Instant.now(), MaintenanceRule.DEFAULT_ZONE);
+        return MaintenanceRule.isWithin(windows, java.time.Instant.now(), java.time.ZoneId.of(zoneId));
     }
 
     @Override

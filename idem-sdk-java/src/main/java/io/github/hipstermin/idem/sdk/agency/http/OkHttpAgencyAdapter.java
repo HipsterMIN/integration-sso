@@ -30,7 +30,7 @@ import okhttp3.ResponseBody;
  *     .build();
  *
  * AgencyGatewayClient client = AgencyGatewayClient.builder()
- *     .baseUrl("https://onepass.go.kr")
+ *     .baseUrl("https://sso.example.org")
  *     .apiKey("your-api-key")
  *     .httpAdapter(new OkHttpAgencyAdapter(okClient))
  *     .build();

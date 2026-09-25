@@ -488,11 +488,8 @@ kubectl logs -n smes deployment/ido --follow | grep "\[FeatureFlags\]"
 
 ## 10. ConfigMap 페이즈별 설정값
 
-전체 ConfigMap 파일은 인프라 레포에 페이즈별로 분리 관리:
-- `infra/k8s/configmaps/ido-configmap-phase1.yml` ← 현재 적용
-- `infra/k8s/configmaps/ido-configmap-phase2.yml`
-- `infra/k8s/configmaps/ido-configmap-phase3.yml`
-- `infra/k8s/configmaps/ido-configmap-phase4.yml`
+페이즈별 ConfigMap(`infra/k8s/configmaps/ido-configmap-phase*.yml`)은 운영기관 전용 매니페스트라 **D3 에서 코어 저장소에서 제거**했다.
+같은 값은 설치본의 환경변수(`infra/docker/install.env`, `docs/install.md`)로 준다. 운영기관의 k8s 매니페스트는 그 기관의 인프라 저장소가 관리한다.
 
 ```bash
 # 현재 Phase 확인

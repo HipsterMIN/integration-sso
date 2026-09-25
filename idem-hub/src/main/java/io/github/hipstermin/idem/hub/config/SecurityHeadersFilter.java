@@ -57,7 +57,7 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
 
     /**
      * 허용된 API 도메인 Origin (CORS + CSP connect-src 일치).
-     * 예: https://onepass.example.go.kr
+     * 예: https://sso.example.org
      */
     @Value("${ido.csp.allowed-origin:}")
     private String allowedOrigin;

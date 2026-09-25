@@ -56,7 +56,7 @@ class WebhookDispatchOutboxRelayTest {
 
     private static final String DISPATCH_ID     = "dispatch-001";
     private static final String AGENCY_CODE     = "AGENCY-001";
-    private static final String ENDPOINT_URL    = "https://agency.go.kr/webhook";
+    private static final String ENDPOINT_URL    = "https://agency.example.org/webhook";
     private static final String PAYLOAD_JSON    = "{\"eventType\":\"HANDOFF_ISSUED\"}";
     private static final String CORRELATION_ID  = "corr-001";
     private static final String SOURCE_EVENT_ID = "src-evt-001";

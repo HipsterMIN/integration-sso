@@ -260,6 +260,10 @@ ido:
     # D2 fail-secure: CI 없는 인증 결과를 identifierHash 로 세션 발급하던 PoC 폴백 — 기본 금지(422), 로컬·테스트에서만 true
     allow-ciless-identity: ${IDO_BROKER_ALLOW_CILESS_IDENTITY:false}
     mode: ${IDO_BROKER_MODE:qsign}
+    # D3: 비OIDC 직접 브로커 사업자 목록 — 코어는 비어 있다. KR 에디션 후처리기가 PASS·FINANCIAL_CERT·GPKI·JOINT_CERT 를 넣는다.
+    #   providers.{CODE}: { initiate-url: "https://…?callback={callbackUrl}&cid={correlationId}", auth-level: L2, tx-prefix: CODE }
+    nonoidc:
+      providers: {}
 
   # ── Any-ID 설치형 연동 설정: S5b 부터 코어에 없다 ─────────────────────────────
   # ido.anyid.* 기본값·환경변수(ANYID_*) 매핑은 plugins/idem-plugin-anyid 의 idem-plugin-anyid-defaults.yml 이 올린다.
@@ -317,6 +321,11 @@ ido:
 
   # 플랫폼 API 버전 (Webhook 헤더, Payload 등에 사용)
   platform-version: ${IDO_PLATFORM_VERSION:1.0}
+  # D3: 이 설치본의 플랫폼 코드 — CAST(기관 간 SSO) 의 sourceAgency 등 (종전 고정값 "ONEPASS")
+  platform:
+    code: ${IDEM_PLATFORM_CODE:IDEM}
+  # D3: 날짜 경계·점검 시간·파기 스케줄이 쓰는 시간대. 설치본은 컨테이너 TZ(IDEM_TZ)를 따른다. 코어 기본 UTC (종전 고정값 Asia/Seoul)
+  zone: ${IDEM_ZONE:${TZ:UTC}}
 
   # provider_circuit_config 캐시 (ProviderCircuitBreakerConfig / ProviderConfigRepository)
   provider:
@@ -797,8 +806,8 @@ idem:
   plugins:
     mock-auth:
       enabled: ${IDEM_PLUGINS_MOCK_AUTH_ENABLED:false}
+    # D3: 코어 기본값은 false — 벤더 플러그인은 KR 에디션(editions/idem-kr-hub)만 번들하고, 그 에디션의 후처리기가 true 를 공급한다
     nice-oacx:
-      enabled: ${IDEM_PLUGINS_NICE_OACX_ENABLED:true}
-    # AnyID 설치형 브로커 (S5b) — 기본값은 플러그인 defaults(true). 코어 에디션은 IDEM_PLUGINS_ANYID_ENABLED=false
+      enabled: ${IDEM_PLUGINS_NICE_OACX_ENABLED:false}
     anyid:
-      enabled: ${IDEM_PLUGINS_ANYID_ENABLED:true}
+      enabled: ${IDEM_PLUGINS_ANYID_ENABLED:false}

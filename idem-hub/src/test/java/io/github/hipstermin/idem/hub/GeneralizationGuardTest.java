@@ -36,6 +36,8 @@ class GeneralizationGuardTest {
     /** 코어에 있으면 안 되는 고객 고유 토큰. */
     private static final List<String> FORBIDDEN = List.of(
             "smes.go.kr",            // 운영기관 도메인
+            "onepass.go.kr",         // D3: 구 플랫폼 도메인 (링크·예시 포함)
+            "agency.go.kr",          // D3: 기관 도메인 추정 (SSO 진입점은 프로파일 protocol.endpoints.ssoEntry)
             "1000001157",            // AnyID 서비스 번호(기관 식별자)
             "중소벤처",               // 운영기관·서비스명
             "기업마당",
@@ -191,6 +193,30 @@ class GeneralizationGuardTest {
             assertThat(build).withFailMessage("%s/build.gradle.kts 가 KR 에디션 모듈을 의존합니다", module)
                     .doesNotContain(":idem-kr-hub").doesNotContain(":idem-kr-registry");
         }
+    }
+
+    @Test
+    @DisplayName("[D3] 코어 hub 는 벤더 플러그인(NICE/OACX·AnyID)을 번들하지 않고 기본값도 끈다 — KR 에디션만 싣는다")
+    void coreHubDoesNotBundleVendorPlugins() throws IOException {
+        Path root = repositoryRoot();
+        String hubBuild = Files.readString(root.resolve("idem-hub/build.gradle.kts"));
+        assertThat(hubBuild).doesNotContain(":idem-plugin-nice-oacx").doesNotContain(":idem-plugin-anyid");
+        String krBuild = Files.readString(root.resolve("editions/idem-kr-hub/build.gradle.kts"));
+        assertThat(krBuild).contains(":idem-plugin-nice-oacx").contains(":idem-plugin-anyid");
+        String yml = Files.readString(root.resolve("idem-hub/src/main/resources/application.yml"));
+        assertThat(yml).contains("IDEM_PLUGINS_NICE_OACX_ENABLED:false").contains("IDEM_PLUGINS_ANYID_ENABLED:false");
+        assertThat(yml).doesNotContain("IDEM_PLUGINS_NICE_OACX_ENABLED:true").doesNotContain("IDEM_PLUGINS_ANYID_ENABLED:true");
+    }
+
+    @Test
+    @DisplayName("[D3] 운영 마이그레이션은 시드 기관을 남기지 않는다 — V24 가 V1/V8/V13 시드를 지운다")
+    void seedAgenciesRemovedByMigration() throws IOException {
+        Path root = repositoryRoot();
+        String v24 = Files.readString(root.resolve("idem-hub/src/main/resources/db/migration/V24__remove_seed_agencies.sql"));
+        for (String code : List.of("AGENCY_STUB_001", "AGENCY_BRIDGE_001", "AGENCY_APACHEGATE_001", "AGENCY_SSO_001", "AGENCY_STRICT_L3", "AGENCY_CHAOS_001")) {
+            assertThat(v24).contains(code);
+        }
+        assertThat(v24).contains("DELETE FROM ido.agency_meta");
     }
 
     // ── helpers ────────────────────────────────────────────────────────────

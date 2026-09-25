@@ -99,7 +99,7 @@ public class QimSpResponse<T> {
 
     private static final DateTimeFormatter ISO8601_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
-                    .withZone(ZoneId.of("Asia/Seoul"));
+                    .withZone(ZoneId.systemDefault());   // D3: 컨테이너 TZ(IDEM_TZ) — 코어에 시간대를 박지 않는다
 
     private static String formatIso8601(Instant instant) {
         if (instant == null) return null;

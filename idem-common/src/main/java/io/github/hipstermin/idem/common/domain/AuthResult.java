@@ -95,11 +95,11 @@ public class AuthResult {
             // 카카오·네이버 등 Keycloak을 통한 표준 OIDC
             return "STANDARD_OIDC_" + upper;
         }
-        if (upper.equals("NAVER_LOGIN") || upper.equals("KAKAO_LOGIN")) {
-            // 비표준 소셜 로그인 (OIDC 부분 준수)
+        if (upper.endsWith("_LOGIN")) {
+            // 비표준 소셜 로그인 (OIDC 부분 준수) — D3: 특정 사업자 이름 대신 접미 규칙
             return "SEMI_STANDARD_OIDC_" + upper;
         }
-        // PASS, GPKI, FINANCIAL_CERT, JOINT_CERT 등 독자 프로토콜
+        // 그 외 독자 프로토콜
         return "NON_STANDARD_" + upper;
     }
 }

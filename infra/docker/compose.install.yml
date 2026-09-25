@@ -195,6 +195,7 @@ services:
       IDO_CAST_PUBLIC_KEY: ${IDO_CAST_PUBLIC_KEY:?IDO_CAST_PUBLIC_KEY(Ed25519 X.509 DER Base64) 를 install.env 에 설정하세요}
       QIM_AES_SHARED_KEY: ${QIM_AES_SHARED_KEY:?QIM_AES_SHARED_KEY(32바이트 Base64) 를 install.env 에 설정하세요}
       IDO_BROKER_MODE: ${IDO_BROKER_MODE:-qsign}
+      IDEM_PLATFORM_CODE: ${IDEM_PLATFORM_CODE:-IDEM}
       KEYCLOAK_BASE_URL: http://keycloak:8080
       KEYCLOAK_REALM: onepass
       KEYCLOAK_CLIENT_ID: ido-client
@@ -254,6 +255,9 @@ services:
       QIM_DB_PASSWORD: ${IDEM_DB_PASSWORD}
       QIM_DB_SSL: "false"
       QIM_INTERNAL_API_KEY: ${QIM_INTERNAL_API_KEY}
+      # D3: registry 부팅 가드가 요구하는 키 — 종전 compose 에 없어 registry 가 기동을 거부했다(CI 설치본 스모크로 발견)
+      QIM_DI_SECRET: ${QIM_DI_SECRET:?QIM_DI_SECRET(hex 32) 를 install.env 에 설정하세요}
+      QIM_CI_AES_KEY_V1: ${QIM_CI_AES_KEY_V1:?QIM_CI_AES_KEY_V1(32바이트 Base64) 를 install.env 에 설정하세요}
     ports:
       - "127.0.0.1:${IDEM_PORT_REGISTRY:-8082}:8082"
     networks: [idem-net]

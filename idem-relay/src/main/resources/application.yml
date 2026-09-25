@@ -219,6 +219,7 @@ batch:
     pagerduty:
       enabled: ${BATCH_ALERT_PAGERDUTY_ENABLED:false}
       routing-key: ${BATCH_ALERT_PAGERDUTY_ROUTING_KEY:}
+      dashboard-url: ${BATCH_ALERT_PAGERDUTY_DASHBOARD_URL:}   # D3: 이벤트 links 에 실을 운영 대시보드 (비면 생략)
 
 # ── ido 플랫폼 설정 (Webhook 헤더용) ────────────────────────────────────────
 ido:

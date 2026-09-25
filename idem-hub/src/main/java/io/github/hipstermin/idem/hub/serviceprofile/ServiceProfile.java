@@ -99,7 +99,8 @@ public record ServiceProfile(
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)
-    public record Endpoints(List<String> callbackWhitelist, String bridge, String apacheGate, String ssoDomain) {}
+    /** D3: {@code ssoEntry} — CAST(기관 간 SSO) 진입점. 종전에는 코드가 기관 코드로 URL 을 지어냈다(고정 도메인). */
+    public record Endpoints(List<String> callbackWhitelist, String bridge, String apacheGate, String ssoDomain, String ssoEntry) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)
