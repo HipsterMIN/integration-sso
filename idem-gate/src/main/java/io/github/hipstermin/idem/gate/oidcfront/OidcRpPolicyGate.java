@@ -133,6 +133,7 @@ public class OidcRpPolicyGate {
             node.set("idem_roles", objectMapper.valueToTree(decision.roles() != null ? decision.roles() : List.of()));
             if (decision.assigned() != null) node.put("idem_assigned", decision.assigned());
             if (decision.qimUserId() != null) node.put("idem_user_id", decision.qimUserId());
+            if (decision.sessionPolicy() != null) node.set("idem_session_policy", objectMapper.valueToTree(decision.sessionPolicy()));
             return Optional.of(objectMapper.writeValueAsString(node));
         } catch (Exception e) {
             log.error("[OIDC-FRONT] userinfo 보강 실패 → 거부: cid={} err={}", correlationId, e.getMessage());

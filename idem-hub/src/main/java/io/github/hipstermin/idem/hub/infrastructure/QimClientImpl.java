@@ -86,6 +86,33 @@ public class QimClientImpl implements QimClient {
         }
     }
 
+    // ── D3: fetchUserEvents (registry 아웃박스 피드) ───────────────────────
+
+    @Override
+    public java.util.List<QimUserEventRecord> fetchUserEvents(java.time.Instant afterCreatedAt, String afterEventId,
+                                                              int limit, String correlationId) {
+        try {
+            HttpHeaders headers = buildHeaders(correlationId);
+            String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(qimBaseUrl + "/api/v1/internal/events")
+                    .queryParam("topic", "qim.user.events")
+                    .queryParam("afterCreatedAt", afterCreatedAt != null ? afterCreatedAt.toString() : java.time.Instant.EPOCH.toString())
+                    .queryParam("afterEventId", afterEventId != null ? afterEventId : "")
+                    .queryParam("limit", limit)
+                    .build(true).toUriString();
+            ResponseEntity<String> response = qimRestTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId, "이벤트 피드 응답 이상: " + response.getStatusCode());
+            }
+            return objectMapper.readValue(response.getBody(),
+                    objectMapper.getTypeFactory().constructCollectionType(java.util.List.class, QimUserEventRecord.class));
+        } catch (PlatformException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("[QimClient] 이벤트 피드 조회 실패: {}", e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, correlationId, "이벤트 피드 조회 실패: " + e.getMessage());
+        }
+    }
+
     // ── getUserById ────────────────────────────────────────────────────────
 
     /**

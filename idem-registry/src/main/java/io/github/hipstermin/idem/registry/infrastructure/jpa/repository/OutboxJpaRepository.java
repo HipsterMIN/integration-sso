@@ -30,6 +30,21 @@ public interface OutboxJpaRepository extends JpaRepository<OutboxJpaEntity, Stri
     List<OutboxJpaEntity> findPendingNative(@Param("limit") int limit);
 
     /**
+     * D3: 내부 이벤트 피드용 키셋 조회 — {@code (created_at, event_id)} 가 커서보다 뒤인 레코드를 오름차순으로.
+     * 상태를 보지 않는다(PENDING/PUBLISHED 모두) — 읽기 전용 소비자(hub 폴링)는 아웃박스 상태에 관여하지 않는다.
+     */
+    @Query("""
+        SELECT o FROM OutboxJpaEntity o
+        WHERE o.topic = :topic
+          AND (o.createdAt > :afterCreatedAt OR (o.createdAt = :afterCreatedAt AND o.eventId > :afterEventId))
+        ORDER BY o.createdAt ASC, o.eventId ASC
+        """)
+    List<OutboxJpaEntity> findAfter(@Param("topic") String topic,
+                                    @Param("afterCreatedAt") Instant afterCreatedAt,
+                                    @Param("afterEventId") String afterEventId,
+                                    org.springframework.data.domain.Pageable pageable);
+
+    /**
      * 발행 완료 처리 — status = PUBLISHED, published_at = now()
      */
     @Modifying

@@ -63,6 +63,10 @@ public class CastTokenServiceImpl implements CastTokenService {
     /** Redis TTL = CAST TTL * 2 (만료 후에도 재사용 시도 감지를 위해 여유 유지) */
     private static final long REDIS_TTL_SECONDS = CastToken.TTL_SECONDS * 2;
 
+    /** D3: CAST 의 sourceAgency — 설치본의 플랫폼 코드 ({@code IDEM_PLATFORM_CODE}, 기본 IDEM) */
+    @org.springframework.beans.factory.annotation.Value("${ido.platform.code:IDEM}")
+    private String platformCode = "IDEM";
+
     private final FeSessionService           feSessionService;
     private final AgencyMetaRepository       agencyMetaRepository;
     private final RedisTemplate<String, Object> redisTemplate;
@@ -104,8 +108,8 @@ public class CastTokenServiceImpl implements CastTokenService {
         String  qimUserId     = feSession.getQimUserId();
         // S3 어휘 통일: FE 세션 값(L*/LOW·MEDIUM·HIGH/acr 숫자/CONV 등)을 정규 L1~L3 로 — 토큰에는 정규 어휘만 싣는다
         String  authLevel     = AuthResult.AuthLevel.parseOrDefault(feSession.getAuthLevel(), AuthResult.AuthLevel.L1).name();
-        // sourceAgency: FE 세션에 저장된 기관 코드 (없으면 ONEPASS)
-        String  sourceAgency  = "ONEPASS";
+        // sourceAgency: 이 플랫폼의 코드(ido.platform.code) — D3: 종전 고정값 "ONEPASS" 제거
+        String  sourceAgency  = platformCode;
 
         // S8-b 연합 인가: 대상 Service 의 할당·유효 역할(authz 정본, 장애 = 거부). 플랫폼은 굵은 RBAC 역할만 배송한다.
         // CAST 는 기관 간 SSO 라 GUEST 가 없다 — 대상 프로파일이 할당 필수면 미할당은 E-IDO-120.
@@ -231,25 +235,25 @@ public class CastTokenServiceImpl implements CastTokenService {
         //    기존 "ISSUED" 값을 "CONSUMED"로 교체하는 방식 사용
         //    (SET NX는 키가 없을 때만 성공 → ISSUED 상태 키가 이미 있으면 실패 = 이미 소비됨)
         String redisKey   = CastToken.REDIS_CONSUMED_PREFIX + jti;
-        Object existing   = redisTemplate.opsForValue().get(redisKey);
+        // D3: ISSUED → CONSUMED 를 단일 원자 연산(GETSET)으로 — 종전 GET 후 SET 은 동시 요청 둘이 모두 통과할 수 있었다
+        Long remainTtl = redisTemplate.getExpire(redisKey);
+        Object previous = redisTemplate.opsForValue().getAndSet(redisKey, REDIS_CONSUMED_VALUE);
 
-        if (existing == null) {
-            // Redis TTL 만료 (토큰 만료 후 Redis 키도 삭제됨) — 만료 처리
+        if (previous == null) {
+            // 키가 없었다(만료 또는 미발급) — GETSET 이 만든 키를 지우고 만료 처리
+            redisTemplate.delete(redisKey);
             log.warn("[CastToken] Redis 키 없음 (만료 또는 미발급) jti={} cid={}", jti, correlationId);
             throw new PlatformException(PlatformErrorCode.SSO_CAST_EXPIRED, correlationId);
         }
-        if (REDIS_CONSUMED_VALUE.equals(existing.toString())) {
+        if (REDIS_CONSUMED_VALUE.equals(previous.toString())) {
             log.warn("[CastToken] 이미 소비된 CAST 토큰 jti={} cid={}", jti, correlationId);
             throw new PlatformException(PlatformErrorCode.SSO_CAST_CONSUMED, correlationId);
         }
-
-        // ISSUED → CONSUMED 원자 전환 (GET-and-SET 패턴)
-        // TTL은 남은 시간 유지 (재소비 시도 감지를 위해 키 유지)
-        Long remainTtl = redisTemplate.getExpire(redisKey);
+        // 남은 TTL 유지 (재소비 시도 감지를 위해 키 유지)
         Duration remainDuration = (remainTtl != null && remainTtl > 0)
                 ? Duration.ofSeconds(remainTtl)
                 : Duration.ofSeconds(60L);
-        redisTemplate.opsForValue().set(redisKey, REDIS_CONSUMED_VALUE, remainDuration);
+        redisTemplate.expire(redisKey, remainDuration);
 
         // 5. cast_token_audit UPDATE
         Instant consumedAt = Instant.now();

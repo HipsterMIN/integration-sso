@@ -72,6 +72,10 @@ public class DeadLetterNotifier {
     @Value("${batch.alert.pagerduty.routing-key:}")
     private String pagerdutyRoutingKey;
 
+    /** D3: PagerDuty 이벤트에 실을 운영 대시보드 링크 (비면 생략) */
+    @Value("${batch.alert.pagerduty.dashboard-url:}")
+    private String dashboardUrl;
+
     @Value("${batch.alert.pagerduty.enabled:false}")
     private boolean pagerdutyEnabled;
 
@@ -248,10 +252,10 @@ public class DeadLetterNotifier {
                 "timestamp", timestamp,
                 "custom_details", pdPayload
         ));
-        event.put("links", List.of(
-                Map.of("href", "https://onepass.go.kr/ops/provisioning-outbox",
-                       "text", "OnePass 운영 대시보드")
-        ));
+        // D3: 운영 대시보드 링크는 설정(batch.alert.pagerduty.dashboard-url) — 없으면 links 생략
+        if (dashboardUrl != null && !dashboardUrl.isBlank()) {
+            event.put("links", List.of(Map.of("href", dashboardUrl, "text", "운영 대시보드")));
+        }
 
         return event;
     }

@@ -88,5 +88,5 @@ helm upgrade ido infra/helm/idem-hub --set phase=4
 - [Phase-Gate 배포 전략](../phased-rollout-strategy.md)
 - [배포 가이드](../_archive/2026-05-22/deployment-guide.md)
 - [FeatureFlags 소스 코드](../../idem-hub/src/main/java/io/github/hipstermin/idem/idem-hub/config/FeatureFlags.java)
-- [K8s ConfigMap](../../infra/k8s/configmaps/)
+- K8s ConfigMap — D3 에서 코어 저장소에서 제거(운영기관 전용 매니페스트). 설치본은 [`infra/docker/compose.install.yml`](../../infra/docker/compose.install.yml)
 - [Helm Chart](../../infra/helm/idem-hub/)

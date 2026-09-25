@@ -32,6 +32,7 @@ public class KafkaOptionalEnvironmentPostProcessor implements EnvironmentPostPro
             // idem-hub
             Map.entry("ido.qim-outbox.relay-enabled", "false"),   // F-30 (qim.user.events → Kafka, 폐기 예정 SP 경로)
             Map.entry("ido.audit.kafka-publish-enabled", "false"), // F-03 감사는 DB 저장(F-04)만
+            Map.entry("ido.qim-events.poll.enabled", "true"),      // D3: registry 이벤트 피드 폴링으로 상태 변경 전파
             // idem-gate
             Map.entry("qsign.outbox.relay-enabled", "false"),
             // idem-registry

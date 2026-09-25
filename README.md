@@ -935,9 +935,6 @@ integration-sso/
     ├── docker/
     │   ├── docker-compose.yml
     │   └── docker-compose.monitoring.yml
-    ├── k8s/
-    │   └── configmaps/
-    │       └── ido-configmap.yml     # Feature Flag 환경변수 14개
     ├── monitoring/
     │   ├── prometheus/
     │   ├── grafana/

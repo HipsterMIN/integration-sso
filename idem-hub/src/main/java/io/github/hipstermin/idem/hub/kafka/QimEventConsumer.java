@@ -36,6 +36,7 @@ public class QimEventConsumer {
     private final UserStatusCache       userStatusCache;
     private final IdempotentEventStore  idempotentEventStore;
     private final QimClient             qimClient;
+    private final io.github.hipstermin.idem.hub.fe.session.FeSessionService feSessionService;
     // consumer group 전용 버전 저장 → 단순 qimUserId 기반 LastEventVersionStore 래핑
     // (consumerGroup prefix 는 key 에 포함하여 구분)
 
@@ -56,7 +57,21 @@ public class QimEventConsumer {
             ack.acknowledge();
             return;
         }
+        try {
+            handle(event);
+        } finally {
+            ack.acknowledge();
+        }
+    }
 
+    /**
+     * D3: 전송 수단과 무관한 처리 진입점 — Kafka 리스너와 {@code RegistryOutboxPoller}(Kafka 없는 설치) 가 같이 쓴다.
+     * 멱등({@code processed_event})·순서(버전) 검사 후 상태 캐시를 무효화하고, 정지·탈퇴면 그 사용자의 FE 세션을 전부 끝낸다 —
+     * 종전에는 캐시만 비워 이미 로그인한 세션이 그대로 살아 있었다.
+     *
+     * @throws RuntimeException 처리 실패 (호출자가 재시도·DLQ 를 결정)
+     */
+    public void handle(UserEvent event) {
         String qimUserId   = event.getQimUserId();
         Long   version     = event.getEventVersion();
         String eventId     = event.getEventId();
@@ -65,7 +80,6 @@ public class QimEventConsumer {
             // ① 멱등 처리: 이미 처리한 eventId 이면 스킵
             if (idempotentEventStore.isAlreadyProcessed(eventId, CONSUMER_GROUP)) {
                 log.debug("[QimEventConsumer] 중복 이벤트 스킵: eventId={}", eventId);
-                ack.acknowledge();
                 return;
             }
 
@@ -77,13 +91,19 @@ public class QimEventConsumer {
                 log.debug("[QimEventConsumer] 이전 버전 스킵: qimUserId={} version={} lastVersion={}",
                         qimUserId, version, lastVersion);
                 idempotentEventStore.markProcessed(eventId, CONSUMER_GROUP, event.getEventType(), "SKIPPED");
-                ack.acknowledge();
                 return;
             }
 
             // ③ Q-IM 캐시 무효화 (TTL ≤5분 설계 §11.3)
             userStatusCache.invalidate(qimUserId);
             log.debug("[QimEventConsumer] Q-IM 캐시 무효화: qimUserId={}", qimUserId);
+
+            // ③-b D3: 정지·탈퇴는 살아 있는 FE 세션까지 끝낸다 (상태 캐시만 비우면 다음 Handoff 발급만 막히고 세션은 남았다)
+            if (isTerminal(event)) {
+                feSessionService.invalidateByQimUserId(qimUserId, event.getEventType());
+                log.info("[QimEventConsumer] 상태 변경 전파 → FE 세션 무효화: qimUserId={} eventType={} status={}",
+                        qimUserId, event.getEventType(), event.getUserStatus());
+            }
 
             // ④ needsSync=true → Selective Pull (GAP-QIM-01): Q-IM getUserById() 전체 정보 조회
             //    getUserStatus() 대신 getUserById()로 상태+프로필 전체를 한 번에 pull (§10.5.1, §24.4.1)
@@ -134,11 +154,17 @@ public class QimEventConsumer {
         } catch (Exception e) {
             log.error("[QimEventConsumer] 처리 실패: eventId={} qimUserId={}",
                     eventId, qimUserId, e);
-            // DefaultErrorHandler 가 재시도 → 임계치 초과 시 DLQ
+            // Kafka: DefaultErrorHandler 가 재시도 → 임계치 초과 시 DLQ / 폴링: 워터마크를 넘기지 않고 다음 주기에 재시도
             throw e;
-        } finally {
-            ack.acknowledge();
         }
     }
 
+    /** 정지·탈퇴(예정 포함) 이벤트인가 — 이벤트 타입 또는 실린 상태값 어느 쪽이든 */
+    static boolean isTerminal(UserEvent event) {
+        String type = event.getEventType();
+        if (UserEvent.TYPE_SUSPENDED.equals(type) || UserEvent.TYPE_WITHDRAWN.equals(type)) return true;
+        String status = event.getUserStatus();
+        return status != null && (status.equals(UserStatus.SUSPENDED.name()) || status.equals(UserStatus.WITHDRAWN.name())
+                || status.equals(UserStatus.WITHDRAWAL_SCHEDULED.name()));
+    }
 }

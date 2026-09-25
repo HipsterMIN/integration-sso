@@ -77,6 +77,10 @@ public class KeycloakCallbackService {
     @Value("${qsign.ido.internal-sig-secret:}")
     private String internalSigSecret;
 
+    /** D3: gate 가 RP 에 내보내는 공개 issuer — Keycloak KC_HOSTNAME_URL 이 이 값이면 id_token iss 도 이 값이다 */
+    @Value("${qsign.oidc-front.issuer:}")
+    private String publicIssuer;
+
     // ── 공개 진입점 ─────────────────────────────────────────────────────────
 
     /**
@@ -105,7 +109,7 @@ public class KeycloakCallbackService {
                 correlationId, stateEntry.getProvider());
 
         // ── 2. Keycloak Token Endpoint — authorization code 교환 ─────────
-        KeycloakTokenResponse tokenResp = exchangeCode(code, correlationId);
+        KeycloakTokenResponse tokenResp = exchangeCode(code, stateEntry.getCodeVerifier(), correlationId);
         String idToken = tokenResp.getIdToken();
         if (idToken == null || idToken.isBlank()) {
             throw new PlatformException(PlatformErrorCode.IDP_RESPONSE_INVALID, correlationId,
@@ -114,6 +118,9 @@ public class KeycloakCallbackService {
 
         // ── 3. Keycloak JWKS RS256 서명 검증 ─────────────────────────────
         KeycloakIdTokenClaims claims = jwksVerifier.verify(idToken, correlationId);
+
+        // ── 3-b. issuer 검증 (D3) — 우리 Keycloak realm(내부 주소 또는 gate 가 내보내는 공개 issuer)만 ──
+        validateIssuer(claims.getIssuer(), correlationId);
 
         // ── 4. nonce 검증 ─────────────────────────────────────────────────
         if (!stateEntry.getNonce().equals(claims.getNonce())) {
@@ -165,6 +172,8 @@ public class KeycloakCallbackService {
                 authResult.getAuthLevel() != null ? authResult.getAuthLevel().name() : "UNKNOWN",
                 System.currentTimeMillis() - startMs);
 
+        lockRepository.unlock(identifierHash, providerCode);   // D3: 성공 시 실패 카운터 초기화
+
         // ── 11. ido FE 세션 발급 요청 ────────────────────────────────────
         String redirectUrl = notifyIdoAndGetRedirect(authResult, returnUrl, claims.getSubject(), claims.getSessionId());
 
@@ -181,7 +190,7 @@ public class KeycloakCallbackService {
      * <p>POST {keycloak.tokenEndpoint} — application/x-www-form-urlencoded
      * <p><b>금지</b>: kauth.kakao.com/oauth/token 등 외부 IdP 직접 호출 금지.
      */
-    private KeycloakTokenResponse exchangeCode(String code, String correlationId) {
+    private KeycloakTokenResponse exchangeCode(String code, String codeVerifier, String correlationId) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
@@ -191,6 +200,10 @@ public class KeycloakCallbackService {
         body.add("redirect_uri",  keycloakProperties.getRedirectUri());
         body.add("client_id",     keycloakProperties.getClientId());
         body.add("client_secret", keycloakProperties.getClientSecret());
+        // D3: PKCE — auth-url 이 code_challenge 를 보냈으면(엔트리에 verifier 가 있으면) 같은 verifier 를 낸다
+        if (codeVerifier != null && !codeVerifier.isBlank()) {
+            body.add("code_verifier", codeVerifier);
+        }
 
         String tokenEndpoint = keycloakProperties.tokenEndpoint();
         log.debug("[KeycloakCallback] Token 교환 요청: endpoint={} correlationId={}",
@@ -218,6 +231,32 @@ public class KeycloakCallbackService {
             authMetrics.incrementAuthFailure("KEYCLOAK", AuthMetrics.REASON_IDP_ERROR);
             throw new PlatformException(PlatformErrorCode.IDP_PROVIDER_UNAVAILABLE, correlationId, e);
         }
+    }
+
+    // ── 내부: issuer 검증 (D3) ───────────────────────────────────────────────
+
+    /**
+     * id_token {@code iss} 가 우리 realm 인지 — Keycloak 내부 주소({@code qsign.keycloak.base-url}/realms/{realm}) 또는
+     * gate 가 공개하는 issuer({@code qsign.oidc-front.issuer}, = KC_HOSTNAME_URL 기준). 서명 검증은 이미 우리 JWKS 로
+     * 했지만, 같은 Keycloak 의 다른 realm 토큰이 통과하지 않도록 issuer 를 명시적으로 본다. 비어 있거나 다르면 거부.
+     */
+    void validateIssuer(String issuer, String correlationId) {
+        java.util.Set<String> accepted = acceptedIssuers();
+        if (issuer == null || issuer.isBlank() || !accepted.contains(stripTrailingSlash(issuer))) {
+            throw new PlatformException(PlatformErrorCode.IDP_SIGNATURE_MISMATCH, correlationId,
+                    "issuer 불일치: iss=" + issuer + " accepted=" + accepted);
+        }
+    }
+
+    java.util.Set<String> acceptedIssuers() {
+        java.util.Set<String> set = new java.util.LinkedHashSet<>();
+        set.add(stripTrailingSlash(keycloakProperties.getBaseUrl()) + "/realms/" + keycloakProperties.getRealm());
+        if (publicIssuer != null && !publicIssuer.isBlank()) set.add(stripTrailingSlash(publicIssuer));
+        return set;
+    }
+
+    private static String stripTrailingSlash(String s) {
+        return s != null && s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
     }
 
     // ── 내부: identifierHash 계산 ────────────────────────────────────────────

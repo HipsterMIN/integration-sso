@@ -103,18 +103,34 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         QimUserJpaEntity user = userRepository.findById(qimUserId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자 없음: " + qimUserId));
 
+        // D3: 상태 문자열 검증 — 종전엔 아무 문자열이나 저장됐고 이벤트 유형이 항상 USER_SUSPENDED 였다
+        io.github.hipstermin.idem.common.domain.UserStatus target;
+        try {
+            target = io.github.hipstermin.idem.common.domain.UserStatus.valueOf(newStatus == null ? "" : newStatus.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("허용되지 않은 상태: " + newStatus + " (허용: "
+                    + java.util.Arrays.toString(io.github.hipstermin.idem.common.domain.UserStatus.values()) + ")");
+        }
         String oldStatus = user.getStatus();
-        user.setStatus(newStatus);
+        if ("WITHDRAWN".equals(oldStatus)) {
+            throw new IllegalStateException("탈퇴한 사용자는 상태를 바꿀 수 없습니다: " + qimUserId);
+        }
+        user.setStatus(target.name());
         userRepository.save(user);
 
         // 상태 이력 기록
-        insertStatusHistory(qimUserId, oldStatus, newStatus, changedBy, reason);
+        insertStatusHistory(qimUserId, oldStatus, target.name(), changedBy, reason);
 
-        // UserEvent 발행
+        // UserEvent 발행 — 유형은 새 상태를 따른다
+        String eventType = switch (target) {
+            case SUSPENDED -> UserEvent.TYPE_SUSPENDED;
+            case WITHDRAWN, WITHDRAWAL_SCHEDULED -> UserEvent.TYPE_WITHDRAWN;
+            default -> UserEvent.TYPE_UPDATED;
+        };
         outboxService.publishInTx(new UserEvent(
-                UserEvent.TYPE_SUSPENDED, "q-im",
+                eventType, "q-im",
                 null, qimUserId, user.getEventVersion() + 1,
-                newStatus, reason, true));
+                target.name(), reason, true));
         log.info("[UserReg] 상태 변경 완료: qimUserId={} {} → {}", qimUserId, oldStatus, newStatus);
     }
 

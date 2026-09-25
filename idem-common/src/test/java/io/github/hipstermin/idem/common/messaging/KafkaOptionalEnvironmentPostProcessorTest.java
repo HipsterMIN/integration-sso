@@ -24,6 +24,8 @@ class KafkaOptionalEnvironmentPostProcessorTest {
 
         assertThat(env.getPropertySources().contains(KafkaOptionalEnvironmentPostProcessor.PROPERTY_SOURCE_NAME)).isTrue();
         assertThat(env.getProperty("qsign.outbox.relay-enabled")).isEqualTo("false");
+        // D3: Kafka 없는 설치는 registry 이벤트 피드 폴링으로 상태 변경을 전파한다
+        assertThat(env.getProperty("ido.qim-events.poll.enabled")).isEqualTo("true");
         assertThat(env.getProperty("ido.audit.kafka-publish-enabled")).isEqualTo("false");
         assertThat(env.getProperty("spring.kafka.listener.auto-startup")).isEqualTo("false");
         assertThat(env.getProperty("batch.relay.qsign.kafka.enabled")).isEqualTo("false");

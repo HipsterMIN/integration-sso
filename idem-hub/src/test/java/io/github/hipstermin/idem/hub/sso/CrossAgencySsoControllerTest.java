@@ -32,7 +32,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
  *
  * <p>위협 모델:
  * <ul>
- *   <li>이전: {@code https://x.agency.go.kr/sso-entry?onepass_sso=<JWT>} — Referer/history/access-log 유출</li>
+ *   <li>이전: {@code https://x.example.org/sso-entry?onepass_sso=<JWT>} — Referer/history/access-log 유출</li>
  *   <li>현재: URL에는 JWT 미포함, hidden POST body로 전달 → 위 채널로 유출 차단</li>
  * </ul>
  */
@@ -43,6 +43,7 @@ class CrossAgencySsoControllerTest {
     @Mock CastTokenService  castTokenService;
     @Mock HandoffService    handoffService;
     @Mock FeSessionService  feSessionService;
+    @Mock io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService serviceProfileService;
 
     private static final String FE_SESSION_ID  = "fe-session-001";
     private static final String CORRELATION_ID = "corr-cast-001";
@@ -59,7 +60,29 @@ class CrossAgencySsoControllerTest {
     }
 
     private CrossAgencySsoController newSut() {
-        return new CrossAgencySsoController(castTokenService, handoffService, feSessionService);
+        // D3: 진입점은 대상 프로파일 protocol.endpoints.ssoEntry — 테스트 기관 B 는 https://b.example.org/sso-entry
+        org.mockito.Mockito.lenient().when(serviceProfileService.find(TARGET_AGENCY)).thenReturn(java.util.Optional.of(
+                io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile.builder().schemaVersion(1)
+                        .service(new io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile.Service(TARGET_AGENCY, "기관 B",
+                                io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile.ServiceStatus.ACTIVE))
+                        .protocol(io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile.Protocol.builder()
+                                .type(io.github.hipstermin.idem.hub.domain.IntegrationType.DIRECT)
+                                .endpoints(io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile.Endpoints.builder()
+                                        .ssoEntry("https://b.example.org/sso-entry").build()).build())
+                        .policy(io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile.Policy.builder().build())
+                        .build()));
+        return new CrossAgencySsoController(castTokenService, handoffService, feSessionService, serviceProfileService);
+    }
+
+    @Test
+    @DisplayName("[D3] 대상 프로파일에 ssoEntry 가 없으면 CAST 를 발급하지 않는다 (E-IDO-113)")
+    void issue_withoutSsoEntry_rejected() {
+        given(castTokenService.issue(anyString(), anyString(), anyString())).willReturn(buildCastToken(FAKE_JWT));
+        CrossAgencySsoController sut = newSut();
+        given(serviceProfileService.find(TARGET_AGENCY)).willReturn(java.util.Optional.empty());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.issue(TARGET_AGENCY, CORRELATION_ID, requestWithFeSessionCookie()))
+                .isInstanceOf(io.github.hipstermin.idem.common.error.PlatformException.class)
+                .extracting("errorCode").isEqualTo(io.github.hipstermin.idem.common.error.PlatformErrorCode.IDO_INVALID_TENANT_PROFILE);
     }
 
     private MockHttpServletRequest requestWithFeSessionCookie() {

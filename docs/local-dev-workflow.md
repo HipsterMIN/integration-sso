@@ -66,7 +66,13 @@ git push origin shipster                    # → pre-push: 변경 모듈 테스
 # PR shipster → main. CI 게이트(빌드·k6)는 러너에서, Docker Build 는 main 머지 후
 ```
 
-## 5. 사무실 망에서 알아 둘 것
+## 5. 개발용 기관 시드 (D3)
+
+운영 마이그레이션에는 기관 시드가 없다(V24 가 종전 `AGENCY_STUB_001`·패턴 시나리오 5개를 지웠다). 로컬 hub 를 띄운 뒤
+`scripts/dev/seed-dev-agencies.sh`(기본 기관 1개, `--all` 이면 패턴 시나리오까지)가 관리 API 로 같은 기관을 만들고 API 키를 한 번 출력한다.
+tenant-sample 은 `AGENCY_STUB_IDO_API_KEY=<출력값>` 으로 띄운다.
+
+## 6. 사무실 망에서 알아 둘 것
 
 - WSL 호스트에는 회사 프록시 CA 와 IPv4 우선(`/etc/gai.conf`)이 설정돼 있어 Gradle·curl·러너는 동작한다.
 - SDKMAN 으로 받은 JDK 는 시스템 CA 를 쓰지 않으므로 Maven Central 에서 `PKIX path building failed` 가 나면

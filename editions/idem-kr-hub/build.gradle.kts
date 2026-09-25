@@ -22,6 +22,9 @@ springBoot {
 dependencies {
     implementation(project(":idem-common"))
     implementation(project(":idem-hub"))
+    // D3: KR 벤더 플러그인은 이 에디션만 번들한다 (코어 idem-hub 는 mock-auth 만). 활성 여부는 KrHubEditionEnvironmentPostProcessor 기본값 true
+    runtimeOnly(project(":idem-plugin-nice-oacx"))
+    runtimeOnly(project(":idem-plugin-anyid"))
 
     // 코어의 implementation 의존은 컴파일 클래스패스에 오지 않는다 — 직접 쓰는 것만 선언
     implementation("org.springframework.boot:spring-boot-starter-web")

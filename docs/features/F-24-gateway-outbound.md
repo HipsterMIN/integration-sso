@@ -72,7 +72,7 @@ F-23 인바운드가 1주 이상 안정적으로 동작한 후:
 
 ```bash
 # 아웃바운드 ConfigMap 적용
-kubectl apply -f infra/k8s/configmaps/ido-configmap-phase3b.yml
+# (D3) infra/k8s 는 코어 저장소에서 제거됨 — 같은 값을 설치본 환경변수(install.env)로 준다. 종전: kubectl apply -f infra/k8s/configmaps/ido-configmap-phase3b.yml
 kubectl rollout restart deployment/ido -n smes
 
 # 기능 확인

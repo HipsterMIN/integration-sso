@@ -36,7 +36,7 @@ public interface AgencyHttpAdapter {
      * HTTP 요청을 실행하고 응답을 반환한다.
      *
      * @param method  HTTP 메서드 문자열 ({@code "POST"}, {@code "PATCH"}, {@code "GET"})
-     * @param url     요청 대상 URL (완전한 형태: {@code https://onepass.go.kr/api/v1/...})
+     * @param url     요청 대상 URL (완전한 형태: {@code https://sso.example.org/api/v1/...})
      * @param headers 요청 헤더 맵 ({@code Content-Type}, {@code X-Api-Key}, {@code X-Internal-Sig} 등)
      * @param body    요청 본문 JSON 문자열 (GET/DELETE 시 {@code null} 가능)
      * @return {@link GatewayResponse} 응답 래퍼

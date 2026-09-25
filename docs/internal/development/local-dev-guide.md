@@ -1155,6 +1155,7 @@ curl -s http://localhost:8083/api/v1/admin/agencies \
   -H "X-Admin-Id: local-admin" | python3 -m json.tool
 
 # 기관 상세 조회 (agency-stub 기본 기관코드 사용)
+# (D3) 운영 마이그레이션에는 시드 기관이 없다 — 먼저 scripts/dev/seed-dev-agencies.sh 로 AGENCY_STUB_001 을 만들고 출력된 API 키를 쓴다
 curl -s http://localhost:8083/api/v1/admin/agencies/AGENCY_STUB_001 \
   -H "X-Admin-Id: local-admin" | python3 -m json.tool
 

@@ -17,6 +17,20 @@ public class KrHubEditionEnvironmentPostProcessor implements EnvironmentPostProc
     public static final String PROPERTY_SOURCE_NAME = "idemKrHubEditionDefaults";
 
     static final Map<String, Object> DEFAULTS = Map.ofEntries(
+            // D3: KR 벤더 플러그인은 이 에디션의 기본이 켜짐 — 환경변수로 끌 수 있다 (코어 yml 기본값은 false)
+            Map.entry("idem.plugins.nice-oacx.enabled", "${IDEM_PLUGINS_NICE_OACX_ENABLED:true}"),
+            Map.entry("idem.plugins.anyid.enabled", "${IDEM_PLUGINS_ANYID_ENABLED:true}"),
+            // D3: 비OIDC 직접 브로커 사업자(코어는 빈 목록) — PoC 자리표시 URL, 운영은 환경변수로 덮는다
+            Map.entry("ido.broker.nonoidc.providers.PASS.initiate-url", "${KR_NONOIDC_PASS_URL:https://pass.example.com/auth?callback={callbackUrl}&cid={correlationId}}"),
+            Map.entry("ido.broker.nonoidc.providers.PASS.auth-level", "L2"),
+            Map.entry("ido.broker.nonoidc.providers.FINANCIAL_CERT.initiate-url", "${KR_NONOIDC_FINANCIAL_CERT_URL:https://financial-cert.example.com/auth?cid={correlationId}}"),
+            Map.entry("ido.broker.nonoidc.providers.FINANCIAL_CERT.auth-level", "L3"),
+            Map.entry("ido.broker.nonoidc.providers.FINANCIAL_CERT.tx-prefix", "FCERT"),
+            Map.entry("ido.broker.nonoidc.providers.GPKI.initiate-url", "${KR_NONOIDC_GPKI_URL:https://gpki.example.org/auth?cid={correlationId}}"),
+            Map.entry("ido.broker.nonoidc.providers.GPKI.auth-level", "L3"),
+            Map.entry("ido.broker.nonoidc.providers.JOINT_CERT.initiate-url", "${KR_NONOIDC_JOINT_CERT_URL:https://joint-cert.example.com/auth?cid={correlationId}}"),
+            Map.entry("ido.broker.nonoidc.providers.JOINT_CERT.auth-level", "L3"),
+            Map.entry("ido.broker.nonoidc.providers.JOINT_CERT.tx-prefix", "JCERT"),
             // 회원 전환 세션 (ConversionInitService)
             Map.entry("ido.conversion.session-ttl-minutes", "30"),
             Map.entry("ido.conversion.signed-request-max-age-minutes", "5"),
@@ -51,6 +65,12 @@ public class KrHubEditionEnvironmentPostProcessor implements EnvironmentPostProc
         if (sources.contains(PROPERTY_SOURCE_NAME)) {
             return;
         }
-        sources.addLast(new MapPropertySource(PROPERTY_SOURCE_NAME, DEFAULTS));
+        // D3: 코어 application.yml 의 기본값(예: 플러그인 false)보다 앞, 환경변수·명령행보다는 뒤 — KafkaOptionalEnvironmentPostProcessor 와 같은 자리
+        MapPropertySource defaults = new MapPropertySource(PROPERTY_SOURCE_NAME, DEFAULTS);
+        if (sources.contains(org.springframework.core.env.StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME)) {
+            sources.addAfter(org.springframework.core.env.StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, defaults);
+        } else {
+            sources.addLast(defaults);
+        }
     }
 }

@@ -48,7 +48,7 @@ class WebhookDispatcherServiceTest {
 
     private static final String DEFAULT_SECRET  = "test-webhook-secret";
     private static final String AGENCY_CODE     = "AGENCY-001";
-    private static final String ENDPOINT_URL    = "https://agency.go.kr/webhook";
+    private static final String ENDPOINT_URL    = "https://agency.example.org/webhook";
     private static final String CORRELATION_ID  = "corr-webhook-001";
 
     @BeforeEach

@@ -55,6 +55,7 @@ class HandoffControllerTest {
     // ── 의존성 Mock ─────────────────────────────────────────────────────────
     @Mock private HandoffService                    handoffService;
     @Mock private FeSessionService                  feSessionService;
+    @Mock private io.github.hipstermin.idem.hub.fe.session.FeSessionPolicyEnforcer feSessionPolicyEnforcer;
     @Mock private TicketRepository                  ticketRepository;
     @Mock private RedisTemplate<String, Object>     redisTemplate;
     @Mock private ValueOperations<String, Object>   valueOps;

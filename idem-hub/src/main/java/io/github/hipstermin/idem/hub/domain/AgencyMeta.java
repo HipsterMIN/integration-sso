@@ -47,14 +47,14 @@ public class AgencyMeta {
     /**
      * SSO 공유 도메인 (integrationType=INTERNAL_SSO 일 때 사용)
      * 설계서 §8.4 — 동일 기관 내부 SSO 쿠키 세션 발급 대상 도메인
-     * 예: ".agency-a.go.kr"
+     * 예: ".agency-a.example.org"
      */
     private final String ssoDomain;
 
     /**
      * Apache 게이트웨이 엔드포인트 (integrationType=APACHE_GATE 일 때 사용)
      * 설계서 §8.5 — Apache mod_auth 호환 세션 헤더 사전 등록 URL
-     * 예: "https://gw.agency-b.go.kr/internal/sso-session"
+     * 예: "https://gw.agency-b.example.org/internal/sso-session"
      * DB: apache_gate_endpoint (S1 에서 bridge_endpoint 와 분리)
      */
     private final String apacheGateEndpoint;

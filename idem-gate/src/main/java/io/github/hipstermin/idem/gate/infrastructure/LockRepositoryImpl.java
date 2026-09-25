@@ -20,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class LockRepositoryImpl implements LockRepository {
 
     private static final short DEFAULT_MAX_ATTEMPTS = 5;
+    /** D3: 임계치 도달 시 잠금 지속 시간 — 종전에는 카운터만 오르고 잠기지 않았다(호출자도 없었다). */
+    @org.springframework.beans.factory.annotation.Value("${qsign.lock.duration-minutes:15}")
+    private long lockDurationMinutes = 15;
 
     private final AuthLockJpaRepository jpaRepository;
 
@@ -59,6 +62,17 @@ public class LockRepositoryImpl implements LockRepository {
         entity.setAttemptCount((short) (entity.getAttemptCount() + 1));
         entity.setLastAttemptAt(now);
         entity.setUpdatedAt(now);
+
+        // D3: 임계치 도달 → 실제 잠금. 종전에는 카운터만 오르고 locked 가 켜지지 않아 무한 시도가 가능했다.
+        short max = entity.getMaxAttempts() > 0 ? entity.getMaxAttempts() : DEFAULT_MAX_ATTEMPTS;
+        if (!entity.isLocked() && entity.getAttemptCount() >= max) {
+            entity.setLocked(true);
+            entity.setLockedAt(now);
+            entity.setUnlockAt(now.plus(java.time.Duration.ofMinutes(lockDurationMinutes)));
+            entity.setLastFailReason("MAX_ATTEMPTS");
+            log.warn("[Q-Sign Lock] 임계치 도달 → 잠금 lockKey={} attempts={} max={} unlockAt={}",
+                    lockKey, entity.getAttemptCount(), max, entity.getUnlockAt());
+        }
 
         jpaRepository.save(entity);
         log.debug("[Q-Sign Lock] 시도 횟수 증가 lockKey={} attemptCount={}",

@@ -60,6 +60,10 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @RequiredArgsConstructor
 public class AuthRateLimitInterceptor implements HandlerInterceptor {
 
+    /** D3: 일 단위 키의 날짜 경계 시간대 — ido.zone (기본 UTC) */
+    @org.springframework.beans.factory.annotation.Value("${ido.zone:UTC}")
+    private String zoneId = "UTC";
+
     // ── Redis 키 접두사 ────────────────────────────────────────────────────
     private static final String TPS_KEY_PREFIX   = "ido:auth-rl:tps:";
     private static final String MIN_KEY_PREFIX   = "ido:auth-rl:min:";
@@ -289,7 +293,7 @@ public class AuthRateLimitInterceptor implements HandlerInterceptor {
     }
 
     private String dailyKeyFor(String ip) {
-        String date = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))
+        String date = java.time.LocalDate.now(java.time.ZoneId.of(zoneId))
                 .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
         return DAILY_KEY_PREFIX + ip + ":" + date;
     }

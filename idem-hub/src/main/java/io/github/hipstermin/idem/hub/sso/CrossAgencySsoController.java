@@ -8,6 +8,8 @@ import io.github.hipstermin.idem.common.util.CorrelationIdHolder;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.handoff.HandoffIssueCommand;
 import io.github.hipstermin.idem.hub.handoff.HandoffService;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -37,7 +39,7 @@ import org.springframework.web.bind.annotation.*;
  *   3. 기관 B 프론트: POST /api/v1/agency/cast/issue?targetAgency=AGENCY_B
  *      (Fe-Session-Id 쿠키 자동 전송)
  *   4. OnePass: CAST JWT 발급 → 기관 B 리디렉션 URL 반환
- *      응답: { redirectUrl: "https://agency-b.go.kr/sso-entry?onepass_sso=<JWT>" }
+ *      응답: { redirectUrl: "https://agency-b.example.org/sso-entry" } (진입점은 프로파일 protocol.endpoints.ssoEntry)
  *   5. 기관 B 서버: POST /api/v1/agency/cast/verify
  *      (X-Agency-Api-Key + body.castToken)
  *   6. OnePass: CAST 검증 + Handoff Ticket 즉시 발급
@@ -58,6 +60,7 @@ public class CrossAgencySsoController {
     private final CastTokenService  castTokenService;
     private final HandoffService    handoffService;
     private final FeSessionService  feSessionService;
+    private final ServiceProfileService serviceProfileService;
 
     // ── DTO 내부 클래스 ────────────────────────────────────────────────────
 
@@ -136,12 +139,12 @@ public class CrossAgencySsoController {
         CastToken castToken = castTokenService.issue(feSessionId, targetAgency, cid);
 
         // ── Sprint α-3 / F4.4 — castToken을 URL 쿼리에 싣지 않는다 ────────────
-        // 이전: redirectUrl = "https://x.agency.go.kr/sso-entry?onepass_sso=<JWT>"
+        // 이전: redirectUrl = "https://x.example.org/sso-entry?onepass_sso=<JWT>"
         //       → Referer 헤더/브라우저 히스토리/HTTPS access-log에 JWT가 누설.
         // 현재:
         //   • redirectUrl/ssoEntryUrl = 기관 B 진입점 URL only (castToken 미포함)
         //   • formHtml = castToken을 hidden field로 담아 자동 POST 제출하는 HTML
-        String ssoEntryUrl = buildSsoEntryUrl(targetAgency);
+        String ssoEntryUrl = buildSsoEntryUrl(targetAgency, cid);
         String formHtml    = buildAutoSubmitForm(ssoEntryUrl, castToken.token(), castToken.jti());
 
         CastIssueResponse response = new CastIssueResponse(
@@ -273,9 +276,18 @@ public class CrossAgencySsoController {
      *
      * <p><b>주의</b>: 절대 castToken/JWT을 쿼리 스트링에 포함하지 말 것 (F4.4).
      */
-    private String buildSsoEntryUrl(String targetAgency) {
-        return String.format("https://%s.agency.go.kr/sso-entry",
-                targetAgency.toLowerCase().replace("_", "-"));
+    private String buildSsoEntryUrl(String targetAgency, String cid) {
+        // D3: 진입점은 대상 Service 프로파일(protocol.endpoints.ssoEntry)이 정한다 — 종전에는 코드가 고정 도메인으로 지어냈다. 없으면 거부
+        String entry = serviceProfileService.find(targetAgency)
+                .map(ServiceProfile::protocol)
+                .map(ServiceProfile.Protocol::endpoints)
+                .map(ServiceProfile.Endpoints::ssoEntry)
+                .orElse(null);
+        if (entry == null || entry.isBlank()) {
+            throw new PlatformException(PlatformErrorCode.IDO_INVALID_TENANT_PROFILE, cid,
+                    "대상 Service 프로파일에 protocol.endpoints.ssoEntry(CAST 진입점)가 없습니다: " + targetAgency);
+        }
+        return entry;
     }
 
     /**

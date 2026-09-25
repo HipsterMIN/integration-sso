@@ -35,6 +35,8 @@ import org.springframework.stereotype.Service;
 public class ProviderRouter {
 
     private final ProviderConfigRepository providerConfigRepository;
+    /** D3: 이름 휴리스틱(KAKAO/NAVER) 대신 Keycloak idp-hint 매핑에 있는 provider 를 relay 로 본다 */
+    private final io.github.hipstermin.idem.hub.broker.keycloak.KeycloakProperties keycloakProperties;
 
     // ────────────────────────────────────────────────────────────────────
     // 공개 API
@@ -85,14 +87,18 @@ public class ProviderRouter {
 
     /**
      * providerCode suffix 기반 휴리스틱 라우팅 (provider_config 없을 때 fallback)
-     * - "_OIDC" suffix → KEYCLOAK_RELAY
-     * - 그 외           → DIRECT_BROKER
+     * - "_OIDC" suffix · KEYCLOAK 포함 · idp-hint-mapping 의 키 → KEYCLOAK_RELAY
+     * - 그 외 → DIRECT_BROKER
      */
     private BrokerRoute heuristicRoute(String providerCode) {
         if (providerCode == null) return BrokerRoute.KEYCLOAK_RELAY;
         String upper = providerCode.toUpperCase();
-        if (upper.endsWith("_OIDC") || upper.contains("KEYCLOAK") || upper.contains("NAVER")
-                || upper.contains("KAKAO")) {
+        if (upper.endsWith("_OIDC") || upper.contains("KEYCLOAK")) {
+            return BrokerRoute.KEYCLOAK_RELAY;
+        }
+        // 설정된 Keycloak IdP 별칭(ido.keycloak.idp-hint-mapping)에 있으면 relay — 사업자 이름을 코드에 두지 않는다 (D3)
+        java.util.Map<String, String> hints = keycloakProperties != null ? keycloakProperties.getIdpHintMapping() : null;
+        if (hints != null && hints.containsKey(providerCode.toLowerCase())) {
             return BrokerRoute.KEYCLOAK_RELAY;
         }
         return BrokerRoute.DIRECT_BROKER;

@@ -58,6 +58,7 @@ public class ServiceProfileMapper {
                                 .bridge(e.getBridgeEndpoint())
                                 .apacheGate(e.getApacheGateEndpoint())
                                 .ssoDomain(e.getSsoDomain())
+                                .ssoEntry(exProtocol != null && exProtocol.endpoints() != null ? exProtocol.endpoints().ssoEntry() : null)   // D3: 컬럼 없음 — 프로파일에서만
                                 .build())
                         .security(exProtocol != null ? exProtocol.security() : null)
                         .oidc(exProtocol != null ? exProtocol.oidc() : null)   // S6: 컬럼이 없어 프로파일에서만 온다

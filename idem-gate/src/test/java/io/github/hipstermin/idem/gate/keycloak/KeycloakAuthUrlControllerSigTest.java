@@ -59,4 +59,32 @@ class KeycloakAuthUrlControllerSigTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.authorizationUrl").value(org.hamcrest.Matchers.containsString("kc_idp_hint=social-kakao")));
     }
+
+    @Test
+    @DisplayName("[D3] state 에 code_verifier 가 있으면 code_challenge(S256) 가 URL 에 붙는다")
+    void pkceChallengeInUrl() throws Exception {
+        given(verifier.verify("good", "cid-1")).willReturn(true);
+        String verifierValue = "v".repeat(64);
+        KeycloakStateEntry entry = KeycloakStateEntry.builder().state("st").nonce("nc").codeVerifier(verifierValue).build();
+        given(stateStore.create(anyString(), anyString(), anyString(), anyString())).willReturn(entry);
+        String expected = KeycloakAuthUrlController.codeChallengeOf(verifierValue);
+        mvc.perform(post("/api/v1/oidc/kakao/auth-url").contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Internal-Sig", "good").content("{\"correlationId\":\"cid-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authorizationUrl").value(org.hamcrest.Matchers.containsString("&code_challenge=" + expected + "&code_challenge_method=S256")));
+        // RFC 7636 §4.2: BASE64URL(SHA-256(verifier)) — 패딩 없음, 43자
+        org.assertj.core.api.Assertions.assertThat(expected).hasSize(43).doesNotContain("=", "+", "/");
+    }
+
+    @Test
+    @DisplayName("옛 state(verifier 없음)면 code_challenge 를 붙이지 않는다")
+    void legacyStateWithoutPkce() throws Exception {
+        given(verifier.verify("good", "cid-1")).willReturn(true);
+        given(stateStore.create(anyString(), anyString(), anyString(), anyString()))
+                .willReturn(KeycloakStateEntry.builder().state("st").nonce("nc").build());
+        mvc.perform(post("/api/v1/oidc/kakao/auth-url").contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Internal-Sig", "good").content("{\"correlationId\":\"cid-1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authorizationUrl").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("code_challenge"))));
+    }
 }

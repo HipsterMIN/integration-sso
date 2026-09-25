@@ -119,7 +119,7 @@ kubectl logs -n smes deployment/ido | grep "DRY-RUN"
 #   □ agency-stub 서버 기동
 
 # 2단계: Phase 2-A ConfigMap 적용
-kubectl apply -f infra/k8s/configmaps/ido-configmap-phase2a.yml
+# (D3) infra/k8s 는 코어 저장소에서 제거됨 — 같은 값을 설치본 환경변수(install.env)로 준다. 종전: kubectl apply -f infra/k8s/configmaps/ido-configmap-phase2a.yml
 kubectl rollout restart deployment/ido -n smes
 kubectl rollout status deployment/ido -n smes
 
@@ -140,7 +140,7 @@ Gate 2-A 조건 충족 후:
 
 ```bash
 # Phase 2-B ConfigMap 적용
-kubectl apply -f infra/k8s/configmaps/ido-configmap-phase2b.yml
+# (D3) infra/k8s 는 코어 저장소에서 제거됨 — 같은 값을 설치본 환경변수(install.env)로 준다. 종전: kubectl apply -f infra/k8s/configmaps/ido-configmap-phase2b.yml
 kubectl rollout restart deployment/ido -n smes
 
 # 발행 성공 확인

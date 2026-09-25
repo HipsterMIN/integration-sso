@@ -131,7 +131,8 @@ class AuthServiceImplTest {
             // given
             String correlationId = "cid-locked";
             String provider      = "KAKAO_OIDC";
-            given(lockRepository.isLocked(provider, provider)).willReturn(true);
+            // D3: 잠금 키는 (identifierHash, providerCode) — 종전 (providerCode, providerCode) 는 아무도 잠기지 않는 키였다
+            given(lockRepository.isLocked(sha256Hex("x"), provider)).willReturn(true);
 
             // when + then
             assertThatThrownBy(() -> authService.issueFromOidc(
@@ -288,6 +289,36 @@ class AuthServiceImplTest {
 
             then(authMetrics).should().incrementAuthLocked("PASS");
             then(authResultRepository).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("[D3] providerVerified=false 이면 (identifierHash, provider) 실패 카운터가 오른다")
+        void providerNotVerifiedIncrementsLockCounter() {
+            IdOAuthInput input = buildInput(false, "hash-x");
+            assertThatThrownBy(() -> authService.issueFromIdOAuthInput(input)).isInstanceOf(PlatformException.class);
+            then(lockRepository).should().incrementAttempt("hash-x", "PASS");
+            then(lockRepository).should(never()).unlock(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("[D3] 성공하면 실패 카운터를 초기화(unlock)한다")
+        void successResetsLockCounter() {
+            IdOAuthInput input = buildInput(true, "hash-ok");
+            given(lockRepository.isLocked("hash-ok", "PASS")).willReturn(false);
+            authService.issueFromIdOAuthInput(input);
+            then(lockRepository).should().unlock("hash-ok", "PASS");
+            then(lockRepository).should(never()).incrementAttempt(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("[D3] 잠금 검사는 검증 결과보다 먼저 — 잠긴 식별자는 providerVerified 와 무관하게 QS_AUTH_LOCKED")
+        void lockCheckedBeforeVerification() {
+            IdOAuthInput input = buildInput(false, "locked-hash");
+            given(lockRepository.isLocked("locked-hash", "PASS")).willReturn(true);
+            assertThatThrownBy(() -> authService.issueFromIdOAuthInput(input))
+                    .isInstanceOf(PlatformException.class)
+                    .extracting("errorCode").isEqualTo(PlatformErrorCode.QS_AUTH_LOCKED);
+            then(lockRepository).should(never()).incrementAttempt(anyString(), anyString());
         }
 
         @Test

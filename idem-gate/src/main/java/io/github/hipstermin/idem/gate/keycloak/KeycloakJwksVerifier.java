@@ -12,7 +12,6 @@ import java.security.PublicKey;
 import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -123,8 +122,25 @@ public class KeycloakJwksVerifier {
      * @param correlationId 로깅용
      * @return RSA PublicKey
      */
-    @Cacheable(value = "keycloakJwks", key = "#kid")
+    /** D3: 명시적 TTL 캐시 — 종전 {@code @Cacheable} 은 같은 클래스 안 자기호출이라 프록시를 타지 않아 매 검증마다 JWKS 를 읽었다. */
+    private final java.util.concurrent.ConcurrentHashMap<String, CachedKey> keyCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private record CachedKey(PublicKey key, long expiresAtMillis) {}
+
+    @org.springframework.beans.factory.annotation.Value("${qsign.keycloak.jwks-cache-ttl-seconds:3600}")
+    private long jwksCacheTtlSeconds = 3600;
+
     public PublicKey fetchPublicKey(String kid, String correlationId) {
+        CachedKey cached = keyCache.get(kid);
+        if (cached != null && cached.expiresAtMillis() > System.currentTimeMillis()) return cached.key();
+        PublicKey fresh = loadPublicKey(kid, correlationId);
+        keyCache.put(kid, new CachedKey(fresh, System.currentTimeMillis() + jwksCacheTtlSeconds * 1000L));
+        return fresh;
+    }
+
+    /** 캐시 항목 수 (테스트·진단용). */
+    public int cachedKeyCount() { return keyCache.size(); }
+
+    private PublicKey loadPublicKey(String kid, String correlationId) {
         String jwksUri = keycloakProperties.jwksUri();
         log.debug("[KeycloakJwksVerifier] JWKS 조회: uri={} kid={}", jwksUri, kid);
 

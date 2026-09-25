@@ -86,7 +86,8 @@ class PolicyRulesTest {
     @Nested
     @DisplayName("MAINTENANCE")
     class Maintenance {
-        final MaintenanceRule rule = new MaintenanceRule();
+        // D3: 규칙의 시간대는 설정(ido.zone) — 이 테스트는 KST 창을 검증하므로 명시한다 (코어 기본은 UTC)
+        final MaintenanceRule rule = new MaintenanceRule(java.time.ZoneId.of("Asia/Seoul"));
         // 2026-09-10 은 목요일. Asia/Seoul 03:00 = UTC 전날 18:00
         final Instant thuSeoul0300 = Instant.parse("2026-09-09T18:00:00Z");
         final Instant thuSeoul0500 = Instant.parse("2026-09-09T20:00:00Z");

@@ -247,7 +247,7 @@ class OidcFrontControllerTest {
                         .withBody("{\"sub\":\"kc-sub\",\"email\":\"u@example.org\"}")));
         String bearer = jwtWithPayload("{\"sub\":\"kc-sub\",\"azp\":\"idem-svc-AG1\",\"acr\":\"1\"}");
         given(cache.get("idem-svc-AG1", "kc-sub")).willReturn(Optional.of(new AccessDecision(true, null, null, null, "AG1", "qim-1",
-                "APPROVED", "pw-1", "PAIRWISE_HMAC", java.util.List.of("VIEWER", "EDITOR"), true, "L1", "KAKAO_OIDC")));
+                "APPROVED", "pw-1", "PAIRWISE_HMAC", java.util.List.of("VIEWER", "EDITOR"), true, "L1", "KAKAO_OIDC", null)));
 
         mvc.perform(get("/realms/onepass/protocol/openid-connect/userinfo").header("Authorization", "Bearer " + bearer))
                 .andExpect(status().isOk())

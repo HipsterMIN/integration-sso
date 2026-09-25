@@ -50,6 +50,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class PolicyEngineImpl implements PolicyEngine {
 
+    /** D3: 점검 시간 판정 시간대 — ido.zone (기본 UTC) */
+    @org.springframework.beans.factory.annotation.Value("${ido.zone:UTC}")
+    private String zoneId = "UTC";
+
     private final UserStatusCache      userStatusCache;
     private final QimClient            qimClient;
     private final AgencyMetaRepository agencyMetaRepository;
@@ -161,7 +165,7 @@ public class PolicyEngineImpl implements PolicyEngine {
         List<ServiceProfile.MaintenanceWindow> windows = agency.getMaintenanceWindows().stream()
                 .map(w -> new ServiceProfile.MaintenanceWindow(w.getDayOfWeek(), w.getStartTime(), w.getEndTime()))
                 .toList();
-        return MaintenanceRule.isWithin(windows, java.time.Instant.now(), MaintenanceRule.DEFAULT_ZONE);
+        return MaintenanceRule.isWithin(windows, java.time.Instant.now(), java.time.ZoneId.of(zoneId));
     }
 
     @Override
@@ -236,9 +240,18 @@ public class PolicyEngineImpl implements PolicyEngine {
                         .authenticatedAt(ticket.getIssuedAt())
                         .build())
                 .attributes(attributes)
+                .sessionPolicy(sessionPolicyOf(profile))
                 .issuedAt(ticket.getIssuedAt())
                 .expiresAt(ticket.getExpiresAt())
                 .build();
+    }
+
+    /** D3: 프로파일 {@code policy.session} → 페이로드 세션 정책. 블록이 없거나 전부 비면 null (종전에는 매핑만 되고 어디에도 안 나갔다). */
+    public static HandoffPayload.SessionPolicy sessionPolicyOf(ServiceProfile profile) {
+        ServiceProfile.Session s = profile != null && profile.policy() != null ? profile.policy().session() : null;
+        if (s == null) return null;
+        HandoffPayload.SessionPolicy sp = new HandoffPayload.SessionPolicy(s.idleMinutes(), s.absoluteMinutes(), s.concurrent());
+        return sp.isEmpty() ? null : sp;
     }
 
     @Override

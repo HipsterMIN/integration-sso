@@ -67,6 +67,14 @@ public interface FeSessionService {
     boolean isValidReturnUrl(String returnUrl);
 
     /**
+     * D3: 프로파일 세션 정책 적용 — 유휴(sliding)·절대 만료는 현재 값보다 짧을 때만 줄이고,
+     * {@code concurrent} 를 넘는 같은 사용자의 오래된 세션은 만료한다(이 세션은 남긴다). null 항목은 건드리지 않는다.
+     *
+     * @return 적용된 세션 (없으면 empty)
+     */
+    Optional<FeSession> applySessionPolicy(String feSessionId, Integer idleMinutes, Integer absoluteMinutes, Integer concurrent);
+
+    /**
      * qimUserId 기준 FE 세션 일괄 무효화 (§12.5 MANDATORY 처리)
      * SessionAdvisoryEvent.TYPE_MANDATORY_SECURITY_TERMINATE 수신 시 호출.
      *
