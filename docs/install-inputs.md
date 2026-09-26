@@ -35,6 +35,7 @@
 | `IDEM_REGISTRY_CI_AES_KEY_V1` | b64-32 | registry 저장 CI 암호화 키 v1 | **바꾸면 기존 CI 를 복호화하지 못한다** — 키 버전을 올리는 절차(F-12)로만 |
 | `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD` | pw(정책) | hub 첫 관리자 생성 | 관리자가 한 명이라도 있으면 더 쓰이지 않는다 |
 | `IDEM_HUB_ADMIN_SECRET_KEY` | b64-32 | hub 관리자 2단계(TOTP) 비밀 봉인 | **바꾸면 모든 관리자가 2단계를 다시 등록한다** |
+| `IDEM_HUB_KMS_MASTER_KEY` (1.0.1) | b64-32 | hub 회전된 Handoff 키 재료 봉인(`IDEM_HUB_KMS_PROVIDER=local`, 설치본 기본). Vault 를 쓰면 불필요 | **바꾸면 회전된 키 재료(v2+)를 복호화하지 못한다** — 유예 기간 안의 티켓 검증 실패. v1 키는 환경변수라 영향 없음 |
 | `IDEM_HUB_CAST_PRIVATE_KEY` / `IDEM_HUB_CAST_PUBLIC_KEY` | ed25519 | hub CAST 서명·검증(기관 간 SSO) | 상대 플랫폼에 공개키 재전달 |
 
 ## 3. CAST 키 만들기
@@ -58,11 +59,15 @@ IDEM_HUB_CAST_PUBLIC_KEY=$(openssl pkey -in cast.pem -pubout -outform DER | base
 | 플랫폼 코드 | `IDEM_PLATFORM_CODE` | `global.platformCode` | IDEM | 기관 간 SSO(CAST) sourceAgency |
 | 브로커 모드 | `IDEM_HUB_BROKER_MODE` | `hub.brokerMode` | qsign | qsign(본인확인 SPI) / keycloak(표준 OIDC 로그인) |
 | Mock 제공자 | `IDEM_PLUGINS_MOCK_AUTH_ENABLED` | `hub.config.IDEM_PLUGINS_MOCK_AUTH_ENABLED` | false | 설치 검증에만 true, 운영 전 false |
-| KR 플러그인 | (kr 이미지에서 `IDEM_PLUGINS_NICE_OACX_ENABLED` 등) | `plugins.niceOacx` / `plugins.anyid` | false | 벤더 자격증명은 플러그인 문서대로 Secret |
 | authz 사용 | 고정 true | `hub.config.IDEM_HUB_AUTHZ_ENABLED` | true | false 면 authz 를 배포하지 않아도 되지만 할당·역할 정책이 없다 |
 | Kafka | 없음 | `infra.kafka.enabled` + `bootstrapServers` | false | 켜면 relay 도 배포(`relay.enabled`) |
 | 관리자 첫 계정 | `IDEM_HUB_ADMIN_BOOTSTRAP_USERNAME` | `hub.adminBootstrapUsername` | admin | |
 | 관리 쿠키 Secure | `IDEM_HUB_ADMIN_COOKIE_SECURE` | `hub.adminCookieSecure` | true | TLS 없는 비-localhost 에서만 false |
+| 스프링 프로파일 | `IDEM_SPRING_PROFILE` | `appDefaults.springProfile` | prod | 1.0.1: 설치본은 `application-prod.yml`(WARN 로깅·health 상세 비공개·actuator flyway/features 비노출·보안 헤더)로 뜬다. 진단 때만 `default` |
+| actuator 관리 포트 | (앱 포트에 같이 — 프록시가 `/actuator` 를 막는다) | `appDefaults.managementPort` | 9090 | 1.0.1: Helm 은 `IDEM_MANAGEMENT_PORT` 로 actuator 를 관리 포트에 두고 Service·Ingress 는 앱 포트만 내보낸다. 프로브도 관리 포트 |
+| DB TLS | `DB_SSLMODE`(compose 내부 PG 는 disable) | `infra.postgres.sslMode` | disable | JDBC `sslmode`(gate·hub·authz; 앱별 `IDEM_GATE_DB_SSLMODE` 등이 우선). registry 는 `IDEM_REGISTRY_DB_SSL`(disable 이 아니면 true) |
+| KR 벤더 플러그인 | `IDEM_PLUGINS_NICE_OACX_ENABLED` / `IDEM_PLUGINS_ANYID_ENABLED` | `plugins.niceOacx` / `plugins.anyid` | false | 1.0.1: compose 도 install.env 로 켠다(종전 false 고정). kr 이미지에서만 뜻이 있다 |
+| 개명 repair | `IDEM_NAMING_LEGACY_REPAIR` | `hub.config` 등 | true | 0.x → 1.0 업그레이드 뒤 false 로 — 이후 Flyway 체크섬 불일치는 repair 대신 기동 거부 |
 | gate 프런트 레이트리밋 | `IDEM_GATE_FRONT_RL_ENABLED` / `_PER_SECOND` / `_PER_MINUTE` / `_TRUST_XFF` | `gate.config.IDEM_GATE_FRONT_RL_*` (env 그대로) | true / 20 / 300 / false | 1.0.1: 공개 OIDC 엔드포인트(`/realms/**`) IP 당 한도. Ingress·리버스 프록시 뒤에서는 `_TRUST_XFF=true`(X-Forwarded-For 마지막 홉이 클라이언트). Redis 장애 시 503 |
 | DB 주소 | compose 내부 postgres | `infra.postgres.host/port/database/sslMode` | idem | Helm 은 바깥 PostgreSQL |
 | Redis 주소 | compose 내부 redis | `infra.redis.host/port(+existingSecret)` | | Helm 은 바깥 Redis |

@@ -226,6 +226,10 @@ idem.hub:
 
 # ── Actuator ─────────────────────────────────────────────────────────────────
 management:
+  # 1.0.1 (3차 점검 M7): actuator 를 별도 관리 포트로 뗄 수 있다 — Helm 은 IDEM_MANAGEMENT_PORT=9090 을 주고 Service/Ingress 는 앱 포트만 내보낸다.
+  # 비어 있거나 앱 포트와 같으면 종전처럼 앱 포트에 함께 뜬다(compose·로컬).
+  server:
+    port: ${IDEM_MANAGEMENT_PORT:${server.port}}
   endpoints:
     web:
       exposure:

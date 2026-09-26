@@ -6,7 +6,7 @@ import jakarta.annotation.PostConstruct;
 import java.util.Base64;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -83,11 +83,8 @@ import org.springframework.web.client.RestTemplate;
 @Slf4j
 @Component
 @Primary   // 일반 KMS(NoOp/Local/Nhn/Vault)는 ido.kms.provider 로 상호배타 활성 — 단일 KmsClient 주입의 정본
-@ConditionalOnProperty(
-    prefix      = "idem.hub.kms",
-    name        = {"enabled", "provider"},
-    havingValue = "true,nhn"
-)
+// 1.0.1: @ConditionalOnProperty(name={"enabled","provider"}, havingValue="true,nhn") 는 두 속성이 각각 "true,nhn" 와 같아야 해 절대 참이 되지 않았다
+@ConditionalOnExpression("'${idem.hub.kms.enabled:false}' == 'true' && '${idem.hub.kms.provider:}' == 'nhn'")
 public class NhnKmsClient implements KmsClient {
 
     /** NHN SKM API 기본 엔드포인트 (Global) */

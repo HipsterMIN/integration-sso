@@ -33,8 +33,7 @@ spec:
           image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" true) }}
           imagePullPolicy: {{ .Values.appDefaults.imagePullPolicy }}
           {{- include "idem.containerSecurity" . | nindent 10 }}
-          ports:
-            - { name: http, containerPort: 8083 }
+          {{- include "idem.appPorts" (dict "root" . "port" 8083) | nindent 10 }}
           envFrom:
             - configMapRef: { name: idem-hub-config }
           env:
@@ -56,6 +55,14 @@ spec:
               value: {{ $c.adminBootstrapUsername | quote }}
             - name: IDEM_HUB_ADMIN_COOKIE_SECURE
               value: {{ $c.adminCookieSecure | quote }}
+            # 1.0.1: 회전된 Handoff 키 재료 봉인 — 기본 로컬 마스터 키(Secret), Vault 면 provider=vault + extraEnv/Secret 의 VAULT_*
+            - name: IDEM_HUB_KMS_ENABLED
+              value: {{ $c.kms.enabled | quote }}
+            - name: IDEM_HUB_KMS_PROVIDER
+              value: {{ $c.kms.provider | quote }}
+            {{- if and $c.kms.enabled (eq $c.kms.provider "local") }}
+            {{ include "idem.secretEnv" (dict "name" "IDEM_HUB_KMS_MASTER_KEY" "secret" .Values.secrets.existingSecret "key" "IDEM_HUB_KMS_MASTER_KEY") | nindent 12 }}
+            {{- end }}
             - name: KEYCLOAK_BASE_URL
               value: {{ include "idem.keycloakUrl" . | quote }}
             - name: KEYCLOAK_REALM

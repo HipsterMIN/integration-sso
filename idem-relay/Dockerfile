@@ -108,8 +108,9 @@ WORKDIR /app
 #   - curl: HEALTHCHECK용
 #   - ca-certificates: 외부 기관 Webhook HTTPS 검증 (provisioning, webhook 릴레이)
 #   - tzdata: Asia/Seoul 타임존 설정 (Outbox claimed_at 시각 정합성)
-RUN addgroup -S batch && \
-    adduser -S batch -G batch -h /app -s /sbin/nologin && \
+# 1.0.1 (3차 점검 H4): 숫자 UID/GID 1001 — K8s runAsNonRoot 는 이름 사용자를 검증하지 못한다(Helm 차트 appDefaults.runAsUser 와 같다)
+RUN addgroup -S -g 1001 batch && \
+    adduser -S -u 1001 batch -G batch -h /app -s /sbin/nologin && \
     apk add --no-cache curl ca-certificates tzdata && \
     cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
     echo "Asia/Seoul" > /etc/timezone
@@ -121,7 +122,7 @@ COPY --from=builder --chown=batch:batch /workspace/layers/spring-boot-loader/   
 COPY --from=builder --chown=batch:batch /workspace/layers/snapshot-dependencies/ ./
 COPY --from=builder --chown=batch:batch /workspace/layers/application/           ./
 
-USER batch
+USER 1001:1001
 
 # Actuator 포트 (application.yml: server.port=8090)
 EXPOSE 8090

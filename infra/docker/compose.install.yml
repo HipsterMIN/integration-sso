@@ -7,6 +7,7 @@
 #   cp infra/docker/install.env.example infra/docker/install.env      # 값 채우기 (openssl rand — install.md 2단계)
 #   docker compose --env-file infra/docker/install.env \
 #                  -f infra/docker/compose.install.yml up -d --build
+#   Docker Compose ≥ 2.17 (idem-hub 의 build.additional_contexts). `docker compose version` 으로 확인.
 #
 # 이 파일 하나로 완결된다 (compose.base.yml 등과 겹쳐 쓰지 않는다). 기존 개발용 전체 스택(Kafka·Vault·모니터링 포함)은
 # compose.sso-im.yml / compose.sso-im-apps.yml 을 그대로 쓴다.
@@ -30,6 +31,11 @@ x-app-common: &app-common
   REDIS_PORT: "6379"
   IDEM_KAFKA_ENABLED: "false"
   TZ: ${IDEM_TZ:-Asia/Seoul}
+  # 1.0.1 (3차 점검 M6): 운영 프로파일 — application-prod.yml(WARN 로깅, health 상세 비공개, actuator flyway/features 비노출, 보안 헤더).
+  # 진단을 위해 잠시 기본 프로파일로 올리려면 install.env 에 IDEM_SPRING_PROFILE=default
+  SPRING_PROFILES_ACTIVE: ${IDEM_SPRING_PROFILE:-prod}
+  # compose 내부 PostgreSQL 은 TLS 없음. 바깥 PostgreSQL 을 쓰면 require/verify-full (gate·hub·authz 의 JDBC sslmode; registry 는 IDEM_REGISTRY_DB_SSL)
+  DB_SSLMODE: disable
 
 networks:
   idem-net:
@@ -54,7 +60,7 @@ services:
       PGTZ: UTC
     volumes:
       - pg-data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/00-init-db.sql:ro   # 스키마 idem_gate·idem_hub·idem_registry·keycloak (authz 는 Flyway 가 생성)
+      - ./init-db.sql:/docker-entrypoint-initdb.d/00-init-db.sql:ro   # 스키마 idem_gate·idem_hub·idem_registry·idem_authz·keycloak (1.0.1: 구 스키마가 있으면 새 이름을 만들지 않는 가드)
     ports:
       - "127.0.0.1:${IDEM_PORT_POSTGRES:-5432}:5432"
     networks: [idem-net]
@@ -105,6 +111,10 @@ services:
       # 관리 콘솔(설치자 전용)만 loopback 포트로.
       KC_HOSTNAME_URL: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
       KC_HOSTNAME_ADMIN_URL: http://localhost:${IDEM_PORT_KEYCLOAK:-8088}
+      # 1.0.1 (3차 점검 M10): realm-export.json 의 내부 client(idem-gate·idem-hub) redirect URI·webOrigins 가 공개 URL 을 읽는다 (첫 import 때만 적용)
+      IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
+      IDEM_PUBLIC_URL_HUB: ${IDEM_PUBLIC_URL_HUB:-http://localhost:8083}
+      IDEM_PUBLIC_URL_CONSOLE: ${IDEM_PUBLIC_URL_CONSOLE:-http://localhost:3001}
       # realm-export.json 의 client secret 은 ${env.…} 로 아래 값을 읽는다 — 앱 쪽 값과 같아야 한다
       IDEM_GATE_KEYCLOAK_CLIENT_SECRET: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET:?IDEM_GATE_KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET 를 install.env 에 설정하세요}
@@ -204,6 +214,10 @@ services:
       IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD: ${IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD:?IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD(첫 관리자 비밀번호) 를 install.env 에 설정하세요}
       IDEM_HUB_ADMIN_SECRET_KEY: ${IDEM_HUB_ADMIN_SECRET_KEY:?IDEM_HUB_ADMIN_SECRET_KEY(32바이트 Base64, 2단계 비밀 봉인) 를 install.env 에 설정하세요}
       IDEM_HUB_ADMIN_COOKIE_SECURE: ${IDEM_HUB_ADMIN_COOKIE_SECURE:-true}
+      # 1.0.1: 회전된 Handoff 키 재료 봉인 — Vault 없이 prod 프로파일로 뜨기 위한 로컬 마스터 키 KMS (Vault 가 있으면 provider=vault + VAULT_*)
+      IDEM_HUB_KMS_ENABLED: "true"
+      IDEM_HUB_KMS_PROVIDER: ${IDEM_HUB_KMS_PROVIDER:-local}
+      IDEM_HUB_KMS_MASTER_KEY: ${IDEM_HUB_KMS_MASTER_KEY:?IDEM_HUB_KMS_MASTER_KEY(32바이트 Base64, 키 재료 봉인) 를 install.env 에 설정하세요}
       KEYCLOAK_BASE_URL: http://keycloak:8080
       KEYCLOAK_REALM: idem
       KEYCLOAK_CLIENT_ID: idem-hub
@@ -217,10 +231,11 @@ services:
       IDEM_HUB_HANDOFF_HMAC_KEY: ${IDEM_HUB_HANDOFF_HMAC_KEY:?IDEM_HUB_HANDOFF_HMAC_KEY 를 install.env 에 설정하세요}
       CORS_ORIGIN_DEV: ${IDEM_PUBLIC_URL_CONSOLE:-http://localhost:3001}
       CORS_ORIGIN_PROD: ${IDEM_PUBLIC_URL_CONSOLE:-http://localhost:3001}
-      # 설치 검증용 Mock 본인확인 제공자 (docs/install.md 5단계). 운영 전환 시 false 로 되돌린다
+      # 설치 검증용 Mock 본인확인 제공자 (docs/install.md 5단계, IDEM_SPRING_PROFILE=default 와 함께 — prod 프로파일은 fail-secure 가드가 거부). 운영 전환 시 false
       IDEM_PLUGINS_MOCK_AUTH_ENABLED: ${IDEM_PLUGINS_MOCK_AUTH_ENABLED:-false}
-      IDEM_PLUGINS_NICE_OACX_ENABLED: "false"
-      IDEM_PLUGINS_ANYID_ENABLED: "false"
+      # KR 에디션 벤더 플러그인 (1.0.1, 3차 점검 M8: 종전에는 false 고정이라 kr 설치본이 플러그인을 켤 수 없었다). 자격증명은 plugins/*/README.md
+      IDEM_PLUGINS_NICE_OACX_ENABLED: ${IDEM_PLUGINS_NICE_OACX_ENABLED:-false}
+      IDEM_PLUGINS_ANYID_ENABLED: ${IDEM_PLUGINS_ANYID_ENABLED:-false}
     ports:
       - "127.0.0.1:${IDEM_PORT_HUB:-8083}:8083"
     networks: [idem-net]

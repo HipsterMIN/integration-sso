@@ -47,8 +47,8 @@ FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
 # 보안: non-root 사용자
-RUN addgroup -S agency && adduser -S agency -G agency
-USER agency
+RUN addgroup -S -g 1001 agency && adduser -S -u 1001 agency -G agency   # 1.0.1: 숫자 UID (K8s runAsNonRoot)
+USER 1001:1001
 
 # 빌드 산출물 복사
 COPY --from=builder /workspace/idem-tenant-sample/build/libs/idem-tenant-sample-*.jar app.jar

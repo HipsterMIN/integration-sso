@@ -2,7 +2,7 @@ package io.github.hipstermin.idem.hub.crypto.kms;
 
 import java.util.Base64;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
@@ -31,11 +31,8 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Primary   // 일반 KMS(NoOp/Local/Nhn/Vault)는 ido.kms.provider 로 상호배타 활성 — 단일 KmsClient 주입의 정본
-@ConditionalOnProperty(
-    prefix      = "idem.hub.kms",
-    name        = {"enabled", "provider"},
-    havingValue = "true,noop"
-)
+// 1.0.1: @ConditionalOnProperty(name={"enabled","provider"}, havingValue="true,noop") 는 두 속성이 각각 "true,noop" 와 같아야 해 절대 참이 되지 않았다
+@ConditionalOnExpression("'${idem.hub.kms.enabled:false}' == 'true' && '${idem.hub.kms.provider:}' == 'noop'")
 public class NoOpKmsClient implements KmsClient {
 
     @Override

@@ -25,7 +25,7 @@
 
 ## 2. 준비
 
-- Docker Engine 24+ 와 Compose v2 (`docker compose version`). 메모리 8 GB, CPU 4 vCPU 권장(앱 5개 + Keycloak).
+- Docker Engine 24+ 와 **Docker Compose ≥ 2.17** (`docker compose version` — `build.additional_contexts` 를 쓴다). 메모리 8 GB, CPU 4 vCPU 권장(앱 5개 + Keycloak).
 - 호스트에서 비어 있어야 하는 포트: 8081·8082·8083·8086·8088·3001·5432 (모두 `install.env` 로 바꿀 수 있다).
 - 소스 체크아웃 (이미지는 설치 시 빌드한다. 첫 빌드 10~20분, Gradle 의존성 다운로드 포함).
 
@@ -112,14 +112,14 @@ curl -s http://localhost:8083/api/v1/admin/auth/me "${ADM[@]}"                 #
 
 벤더 플러그인 없이 코어 흐름(본인확인 → registry 등록 → Handoff 티켓)을 확인한다. **설치 검증 뒤에는 반드시 끈다.**
 
-1. `install.env` 에 `IDEM_PLUGINS_MOCK_AUTH_ENABLED=true` 를 두고 `up -d idem-hub` 로 hub 만 재기동.
+1. `install.env` 에 `IDEM_PLUGINS_MOCK_AUTH_ENABLED=true` 와 **`IDEM_SPRING_PROFILE=default`** 를 두고 `up -d idem-hub` 로 hub 만 재기동. (1.0.1 부터 앱은 기본 `prod` 프로파일로 뜨는데, `prod`/`stage` 에서 Mock 제공자는 fail-secure 가드가 기동을 거부한다 — 검증 동안만 기본 프로파일)
 2. `k6/scenarios/smoke.js` 와 같은 순서로 호출한다 (k6 가 있으면 `k6 run k6/scenarios/smoke.js --env BASE_URL=http://localhost:8083 --env AGENCY_CODE=AGENCY001 --env INTERNAL_API_KEY=<IDEM_HUB_INTERNAL_API_KEY_GATE>`):
    - `POST /api/v1/auth/providers/MOCK/initiate` → `POST /api/v1/auth/providers/MOCK/complete` (응답에 `identity.name`, `registration.qimUserId`)
    - `POST /api/v1/handoff/issue` → 티켓 발급. 몇 초 뒤 `idem_hub.outbox` 의 해당 `HANDOFF_ISSUED` 행이 `PUBLISHED` 로 바뀌면 프로세스 내 배달이 도는 것이다:
      ```sql
      SELECT event_type, topic, status, retry_count FROM idem_hub.outbox ORDER BY created_at DESC LIMIT 5;
      ```
-3. `IDEM_PLUGINS_MOCK_AUTH_ENABLED=false` 로 되돌리고 hub 재기동.
+3. `IDEM_PLUGINS_MOCK_AUTH_ENABLED=false` 로 되돌리고 `IDEM_SPRING_PROFILE` 줄을 지운 뒤(=`prod`) hub 재기동.
 
 ### 5.1 표준 OIDC 로 기관 붙이기 (S6 — Keycloak 은 보이지 않는다)
 
@@ -164,14 +164,14 @@ issuer 는 `{IDEM_PUBLIC_URL_GATE}/realms/idem` 다. gate 가 `/realms/**`·`/re
 
 ## 7. 운영 전환 전 체크리스트
 
-- [ ] `IDEM_PLUGINS_MOCK_AUTH_ENABLED=false`
-- [ ] `IDEM_PUBLIC_URL_HUB/GATE/CONSOLE` 를 실제 공개 주소(리버스 프록시·TLS)로. 앱 포트는 127.0.0.1 바인딩이므로 프록시가 필요하다. 관리 콘솔(3001)은 관리자 망에만 공개하고, TLS 뒤에 둔다(관리 세션 쿠키가 Secure)
+- [ ] `IDEM_PLUGINS_MOCK_AUTH_ENABLED=false` — 그리고 `IDEM_SPRING_PROFILE` 을 지워 `prod` 로(Mock 이 켜진 채 `prod` 면 hub 가 기동을 거부한다)
+- [ ] `IDEM_PUBLIC_URL_HUB/GATE/CONSOLE` 를 실제 공개 주소(리버스 프록시·TLS)로. 앱 포트는 127.0.0.1 바인딩이므로 프록시가 필요하다. 관리 콘솔(3001)은 관리자 망에만 공개하고, TLS 뒤에 둔다(관리 세션 쿠키가 Secure). **리버스 프록시는 `/actuator` 를 밖으로 내보내지 않는다** — compose 는 actuator 가 앱 포트에 같이 있다(Helm 은 관리 포트 9090 으로 분리). 앱은 기본 `prod` 프로파일(`IDEM_SPRING_PROFILE`)로 떠서 health 상세·flyway 가 비노출이지만 `metrics`·`prometheus` 는 열려 있다
 - [ ] `IDEM_PUBLIC_URL_GATE` 를 바꿨으면 keycloak(`KC_HOSTNAME_URL`)·gate·hub 를 함께 재기동 — 표준 OIDC issuer 가 이 값이다. 기관 OIDC client 의 redirect URI 는 프로파일(`protocol.oidc.redirectUris`) 로 관리한다(콘솔 수정 금지). 내부 client(`idem-gate`·`idem-hub`) 의 `redirectUris` 만 `realm-export.json` 첫 import 값이다
 - [ ] **S6 이전 설치본 주의**: 종전 `realm-export.json` 의 secret 자리표시자(`${env.X:change-me}`)는 Keycloak 24 가 치환하지 않아 `idem-gate`·`idem-hub` 의 실제 secret 이 문자 그대로 `change-me` 였다(앱 쪽 값과 불일치). S6 에서 `${X}` 로 고쳤지만 realm import 는 첫 기동에만 적용되므로, 기존 설치본은 `keycloak-data` 볼륨을 지우고 다시 import 하거나(권장) 콘솔에서 세 client(`idem-gate`·`idem-hub`·`idem-provisioner`)의 secret 을 `install.env` 값으로 한 번 맞춘다
 - [ ] (S7) 부트스트랩 관리자의 첫 로그인(비밀번호 변경·2단계 등록)을 마쳤고, `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD` 는 더 쓰이지 않는다(관리자가 있으면 무시된다). 운영 관리자는 인증 앱을 쓴다 — `admin-login.sh` 의 비밀 파일은 설치 확인용
 - [ ] (S7) 관리자 계정을 역할별로 나눈다(`SYSTEM_ADMIN` 최소 2명 — 한 명이 2단계를 잃으면 다른 한 명이 `reset-mfa`, `POLICY_ADMIN`, `AUDITOR`). `IDEM_HUB_ADMIN_COOKIE_SECURE=true`, `IDEM_HUB_ADMIN_MFA_REQUIRED=true` 가 기본이며 `prod`/`stage` 에서 false 면 기동 거부
 - [ ] (S9) `install.env` 의 변수명을 새 이름(`IDEM_HUB_*` …)으로 옮겼다 — 구 이름 호환은 한 릴리스뿐이다. 기동 로그에 `[Idem 개명]` WARN 이 없으면 끝난 것
-- [ ] (S9 5단계) **S9 이전 설치본을 올리는 경우**: 앱·Keycloak 을 내리고 `scripts/upgrade/rename-db-1.0.sh`(DB `onepass`→`idem`, 역할, 스키마 `ido/qsign/qim/authz`→`idem_hub/idem_gate/idem_registry/idem_authz`)를 postgres 에 실행한다. 스키마는 앱이 첫 기동에서 자동으로도 옮기지만(`[Idem 개명] 스키마 …` WARN 뒤 Flyway 이력 repair), DB 이름은 앱 밖에서만 바꿀 수 있다. Keycloak realm `onepass`→`idem` 은 import 로만 되므로 `keycloak-data` 볼륨을 지우고 다시 올린다 — 기관 OIDC client 는 프로파일을 다시 저장하면 hub 가 다시 만든다(secret 은 새로 회전·전달). issuer 가 `…/realms/idem` 으로 바뀌므로 기관 RP 설정도 함께 바꾼다. 관리자 계정은 DB 와 함께 옮겨지므로 기존 비밀번호·인증 앱 그대로다
+- [ ] (S9 5단계) **S9 이전 설치본을 올리는 경우**: 앱·Keycloak 을 내리고 `scripts/upgrade/rename-db-1.0.sh`(DB `onepass`→`idem`, 역할, 스키마 `ido/qsign/qim/authz`→`idem_hub/idem_gate/idem_registry/idem_authz`)를 postgres 에 실행한다 — `docker compose … exec -e PGUSER=onepass -e PGPASSWORD=$IDEM_DB_PASSWORD -e IDEM_DB_PASSWORD=$IDEM_DB_PASSWORD postgres bash -s < scripts/upgrade/rename-db-1.0.sh`. 1.0.1 부터 실행 사용자가 `onepass` 여도 된다(임시 슈퍼유저를 만들어 역할을 옮기고 지운다) 하고, `IDEM_DB_PASSWORD` 를 주면 역할 rename 으로 지워질 수 있는 MD5 비밀번호를 다시 설정한다. 스키마는 앱이 첫 기동에서 자동으로도 옮기지만(`[Idem 개명] 스키마 …` WARN 뒤 체크섬 불일치만 1회 repair), DB 이름은 앱 밖에서만 바꿀 수 있다. 구 스키마와 새 스키마가 **둘 다** 있고 새 쪽에 Flyway 이력이 없으면(새 스키마가 먼저 만들어진 상태) 스크립트와 앱이 멈춘다 — 빈 새 스키마를 DROP 한 뒤 다시. 업그레이드가 끝나면 `IDEM_NAMING_LEGACY_REPAIR=false` 로 두어 이후의 체크섬 불일치는 기동 거부가 되게 한다. Keycloak realm `onepass`→`idem` 은 import 로만 되므로 `keycloak-data` 볼륨을 지우고 다시 올린다 — 기관 OIDC client 는 프로파일을 다시 저장하면 hub 가 다시 만든다(secret 은 새로 회전·전달). issuer 가 `…/realms/idem` 으로 바뀌므로 기관 RP 설정도 함께 바꾼다. 관리자 계정은 DB 와 함께 옮겨지므로 기존 비밀번호·인증 앱 그대로다
 - [ ] `install.env` 백업을 비밀 저장소에. 키 교체 절차는 `docs/sso-im-operations-manual.md`
 - [ ] KR 에디션이 필요하면 `IDEM_EDITION=kr` 로 재빌드. 벤더 플러그인은 `~/.idem/vendor-libs` 공급 후 이미지 재빌드 (`plugins/*/README.md`)
 - [ ] 백업: `pg-data` 볼륨(스키마 5개), `keycloak-data`
