@@ -51,11 +51,11 @@ const faro = faroAppEnv !== 'local'
             propagateTraceHeaderCorsUrls: [
               /\/api\/.*/,
               // IdO 게이트웨이 단일 채널 (ADR-008) — 트레이스 헤더 전파 대상.
-              // Phase 2 / SEC-IDO-02: IDO_API_ENDPOINT 우선, 없으면 구 BE_API_ENDPOINT fallback.
-              ...((process.env.IDO_API_ENDPOINT || process.env.BE_API_ENDPOINT)
+              // Phase 2 / SEC-IDO-02: IDEM_HUB_API_ENDPOINT 우선, 없으면 구 BE_API_ENDPOINT fallback.
+              ...((process.env.IDEM_HUB_API_ENDPOINT || process.env.BE_API_ENDPOINT)
                 ? [
                     new RegExp(
-                      (process.env.IDO_API_ENDPOINT || process.env.BE_API_ENDPOINT || '')
+                      (process.env.IDEM_HUB_API_ENDPOINT || process.env.BE_API_ENDPOINT || '')
                         .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '.*',
                     ),
                   ]

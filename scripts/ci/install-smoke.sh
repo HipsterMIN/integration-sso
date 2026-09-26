@@ -10,7 +10,7 @@
 #       ⑤ Mock 본인확인 → registry 등록 라운드트립 ⑥ registry 이벤트 피드(Kafka 없는 상태 전파) ⑦ 코어 에디션이면 KR 전용 엔드포인트 404
 #       ⑧ 감사 조회(관리 행위가 남는다) → 로그아웃
 #
-#   HUB_URL GATE_URL REGISTRY_URL AUTHZ_URL   기본 localhost:8083/8081/8082/8086
+#   HUB_URL GATE_URL REGISTRY_URL IDEM_AUTHZ_URL   기본 localhost:8083/8081/8082/8086
 #   ISSUER                                     기본 $GATE_URL/realms/idem
 #   IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD              관리자(admin) 비밀번호 (S7). IDEM_ADMIN_PASSWORD 가 있으면 그것을 쓴다
 #   IDEM_ADMIN_NEW_PASSWORD                    첫 로그인 비밀번호 변경이 요구되면 이 값으로(없으면 1회용 값을 만든다 — 다시 로그인할 수 없다)
@@ -23,7 +23,7 @@ set -euo pipefail
 HUB_URL="${HUB_URL:-http://localhost:8083}"
 GATE_URL="${GATE_URL:-http://localhost:8081}"
 REGISTRY_URL="${REGISTRY_URL:-http://localhost:8082}"
-AUTHZ_URL="${AUTHZ_URL:-http://localhost:8086}"
+IDEM_AUTHZ_URL="${IDEM_AUTHZ_URL:-http://localhost:8086}"
 ISSUER="${ISSUER:-$GATE_URL/realms/idem}"
 SERVICE_CODE="${SERVICE_CODE:-SMOKE_RP}"
 EDITION="${IDEM_EDITION:-core}"
@@ -35,7 +35,7 @@ for t in curl jq python3; do command -v "$t" >/dev/null 2>&1 || fail "필요한 
 LIB="$(cd "$(dirname "$0")/../lib" && pwd)"
 
 echo "① 헬스"
-for u in "$HUB_URL" "$GATE_URL" "$REGISTRY_URL" "$AUTHZ_URL"; do
+for u in "$HUB_URL" "$GATE_URL" "$REGISTRY_URL" "$IDEM_AUTHZ_URL"; do
   st=$(curl -sf "$u/actuator/health" | jq -r '.status' 2>/dev/null || echo "DOWN")
   [ "$st" = "UP" ] && ok "$u UP" || fail "$u 헬스 실패: $st"
 done
@@ -132,4 +132,4 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$HUB_URL/api/v1/admin/aut
 code=$(curl -s -o /dev/null -w '%{http_code}' "$HUB_URL/api/v1/admin/auth/me" "${adm[@]}")
 [ "$code" = "401" ] && ok "로그아웃 뒤 세션은 401" || fail "로그아웃 뒤 세션이 $code"
 
-echo "설치본 스모크 통과 — hub=$HUB_URL gate=$GATE_URL registry=$REGISTRY_URL authz=$AUTHZ_URL issuer=$ISSUER"
+echo "설치본 스모크 통과 — hub=$HUB_URL gate=$GATE_URL registry=$REGISTRY_URL authz=$IDEM_AUTHZ_URL issuer=$ISSUER"

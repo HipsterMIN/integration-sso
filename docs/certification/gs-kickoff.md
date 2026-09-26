@@ -5,7 +5,7 @@
 ## 1. 목표와 범위
 
 - **목표**: GS(Good Software) 인증 1등급 취득 → 조달청 종합쇼핑몰 등록. (CC 는 별도 프로젝트, `execution-plan.md` P4.)
-- **시험 대상 제품**: Idem 1.0.0 — 제품 설명서 `docs/manuals/product-spec.md` 의 구성(Idem SSO · Idem IM · 관리 콘솔). 에디션은 **core** 로 신청하고 kr 은 부가 모듈로 기술한다(벤더 SDK 라이선스가 시험원 환경에 들어갈 수 없으므로).
+- **시험 대상 제품**: Idem 1.0.1 (1.0.0 + 3차 적대적 점검 후속 PR-A/B/C) — 제품 설명서 `docs/manuals/product-spec.md` 의 구성(Idem SSO · Idem IM · 관리 콘솔). 에디션은 **core** 로 신청하고 kr 은 부가 모듈로 기술한다(벤더 SDK 라이선스가 시험원 환경에 들어갈 수 없으므로).
 - **시험 환경**: Docker Compose 단일 설치본(설치 매뉴얼 §3.1)을 기본으로, 오프라인 설치(§3.3)로 반입. Helm 은 문서로만.
 
 ## 2. 제출물과 현재 상태
@@ -16,8 +16,8 @@
 | 설치 매뉴얼 | `docs/manuals/installation-manual.md` + `docs/install.md` + `docs/install-inputs.md` | 초안(compose 는 CI 로 검증) | 오프라인 설치 실행·시간 기록, 백업·복구 리허설 |
 | 관리자 매뉴얼 | `docs/manuals/administrator-manual.md` + `docs/admin-auth.md` | 초안(E2E 로 검증) | 화면 캡처, 할당 화면 추가 여부 결정 |
 | 사용자 매뉴얼 | `docs/sso-agency-integration-guide.md`·`sso-agency-developer-guide.md`·`idem-sdk-java-usage-guide.md`·`onboarding-guide.md` | 있음 | 이용자(최종 사용자) 관점 1~2쪽 요약 추가 |
-| 시험 항목표 | `docs/manuals/test-items.md` | 초안 51항목(자동 47) | 시험 환경에서 1회 완주, 결함 밀도 산출 |
-| 설치본 | 이미지 tar + 소스 tar(`v1.0.0`) | 절차만 | 만들어서 체크섬·크기 기록 |
+| 시험 항목표 | `docs/manuals/test-items.md` | 초안 51항목(자동 41 — CI 37 + 로컬 IT 4, 수동 10) | 시험 환경에서 1회 완주, 결함 밀도 산출 |
+| 설치본 | 이미지 tar + 소스 tar(`v1.0.1`) | 절차만 | 만들어서 체크섬·크기 기록 |
 | 결함 관리·형상 | GitHub PR(`shipster→main`), 태그 `v1.0.0`·브랜치 `release/1.0`, `CHANGELOG.md`(제품)·SDK CHANGELOG | 있음 | 1.0.x 항목을 계속 적는다 |
 | 성능 | k6 시나리오·CI 스모크 | 있음 | 시험 환경 재측정 보고 |
 | 호환성 | 지원 플랫폼 표(제품 설명서 §4) | 있음 | 브라우저·OS 조합 확인 기록 |

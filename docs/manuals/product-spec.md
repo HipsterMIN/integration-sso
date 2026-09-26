@@ -8,7 +8,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 제품명 / 버전 | Idem 1.0.0 (태그 `v1.0.0`, 2026-09-26) |
+| 제품명 / 버전 | Idem 1.0.1 (태그 `v1.0.1`, 2026-09-26 — 1.0.0 동결 뒤 3차 적대적 점검 후속) |
 | 라이선스 | Apache-2.0 (저장소 공개) |
 | 에디션 | **core** — Idem SSO + Idem IM · **kr** — 코어 + KR 에디션(SMES 회원 개념·NICE/Any-ID 본인확인 플러그인·회원 포털) |
 | 제품 구성 | 제품 1 Idem SSO(`idem-gate`·`idem-hub`) · 제품 2 Idem IM(`idem-registry`·`idem-authz`) · 관리 콘솔 · 기관 연동 도구(SDK·에이전트·참조 앱) |
@@ -31,7 +31,7 @@
 
 | # | 기능 | 설명 |
 |---|---|---|
-| F8 | 동일인 식별·골든 레코드 | 주체 스킴(CI/EMAIL/PHONE/EXTERNAL_SUB)별 identifierHash 로 registerOrGet, 상태(ACTIVE/SUSPENDED/WITHDRAWAL_SCHEDULED/WITHDRAWN) |
+| F8 | 동일인 식별·골든 레코드 | 주체 스킴(CI/EMAIL/PHONE/EXTERNAL_SUB/PLATFORM_ID)별 identifierHash 로 registerOrGet, 상태(ACTIVE/SUSPENDED/WITHDRAWAL_SCHEDULED/WITHDRAWN) |
 | F9 | 기관별 가명 식별자 | `PAIRWISE_HMAC`(기본) — 기관 간 결합 불가. CI 는 registry 밖으로 나가지 않는다 |
 | F10 | 속성 카탈로그·마스킹·매핑 | 프로파일 `identity.attributes/attributeMapping`, 필수 속성 없으면 거부(E-IDO-114) |
 | F11 | 탈퇴·파기·보존 | 즉시/예약/기관요청/관리자 탈퇴, 개인정보 파기 스케줄, 상태 이력 |
@@ -52,10 +52,10 @@
 |---|---|---|
 | F17 | 관리자 인증·인가 | 자체 계정 + TOTP 2단계, 역할 3종(SYSTEM_ADMIN/POLICY_ADMIN/AUDITOR), 테넌트 범위, 잠금(5회/15분), 비밀번호 정책, CSRF 헤더 |
 | F18 | 관리 콘솔 | 서비스 목록·프로파일 폼(스키마 기반)·OIDC client·secret 회전·정책 시뮬레이션·테넌트·관리자·감사 검색 |
-| F19 | 감사 | INSERT 전용 감사 행(분류·행위·행위자·기관·결과·상관관계 ID), 검색 API |
+| F19 | 감사 | 감사 행(분류·행위·행위자·기관·결과·상관관계 ID) — API 로는 추가·검색만(수정·삭제 API 없음; 발행 표시 컬럼만 내부 갱신), 검색 API |
 | F20 | 보안 기본값 | 내부 API 키·HMAC 서명·레이트리밋(IP·기관, TPS·일)·보안 헤더·fail-secure(필수 키 없으면 기동 거부, 의존 장애 시 거부) |
 | F21 | 암호 | `CryptoProvider` SPI(교체 가능), AES-256-GCM·HMAC-SHA256·Ed25519·SHA-256, 키 버전·로테이션, Vault Transit(선택) |
-| F22 | 관측 | `/actuator/health`(liveness·readiness), Prometheus 지표(`idem_*`), OTel 추적(선택) |
+| F22 | 관측 | `/actuator/health`(liveness·readiness), Prometheus 지표(`slo.*`·`personal.data.*`·`idem.kms.healthy`·`idem.outbox.*`; 1.0.1 부터 관리 포트. hub 의 `/actuator/prometheus` 는 1.0.x 미등록 — 알려진 제한), OTel 추적(선택) |
 
 ## 3. 구성과 인터페이스
 
@@ -75,12 +75,12 @@
 | 항목 | 지원 |
 |---|---|
 | 서버 OS | Linux x86-64 (컨테이너) |
-| 배포 | Docker Compose 단일 설치본 · Kubernetes 1.27+ Helm 차트 · 오프라인(이미지 tar) |
+| 배포 | Docker Compose(≥ 2.17) 단일 설치본 · Kubernetes Helm 차트(매니페스트는 K8s 1.29 스키마로 검증, Helm 3) · 오프라인(이미지 tar) |
 | 런타임(이미지 안) | Java 21(Temurin), Spring Boot 3.5, Keycloak 24.0 |
 | 데이터 | PostgreSQL 16(엔진 1종), Redis 7. Kafka 선택 |
 | 브라우저(관리 콘솔·로그인 화면) | 최신 Chrome·Edge·Firefox·Safari (ES2020) |
 | 기관 측 | 표준 OIDC 라이브러리 / Java 8+ SDK / JDK 8+ WAS 에이전트(Tomcat 8~10·Jetty·WildFly·Undertow·JEUS 검증 테스트베드) |
-| 규모 | 기관(서비스) 수 제한 없음(프로파일 단위). 한도는 프로파일 `limits.tps/daily` 로 기관별 |
+| 규모 | 기관(서비스) 수 제한 없음(프로파일 단위). 한도는 프로파일 `limits.tps/daily` 로 기관별(1.0.1 부터 적용; 없으면 설치본 기본 200 tps·1,000,000/일) |
 
 ## 5. 보안 기능 요약 (GS 보안성 항목 대응)
 
@@ -88,6 +88,6 @@
 
 ## 6. 제한·알려진 것
 
-- SAML SP·SCIM 아웃바운드·동의 카탈로그·Audit Sink SPI 는 1.0 에 없다(`docs/requirements-checklist.md` §3).
+- SAML SP·SCIM **아웃바운드**(Idem → 기관 프로비저닝)·동의 카탈로그·Audit Sink SPI 는 1.0 에 없다(`docs/requirements-checklist.md` §3). SCIM 2.0 Groups **인바운드**(`/scim/v2/Groups`, authz, 내부 키)는 있다.
 - 오류 코드·API 경로는 1.0 에서 **동결**한다(`E-IDO-1xx`, `/api/v1/admin/agencies` 등 구 이름 포함). 개명은 2.0 에서.
 - 실제 K8s 클러스터 배포·오프라인 설치·백업 복구 리허설은 아직(설치 매뉴얼 §8).

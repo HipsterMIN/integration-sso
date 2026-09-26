@@ -185,7 +185,7 @@ docker compose --env-file infra/docker/install.env -f infra/docker/compose.insta
 
 ## 9. 이 문서에서 검증한 것 / 못 한 것
 
-- **CI 가 매 PR 마다 설치본을 실기동한다** (`.github/workflows/ci.yml` smoke-test, D3): `install.env.example` 의 필수 키를 1회용 값으로 채워
+- **CI 가 매 PR 마다 설치본과 같은 환경변수로 앱을 실기동한다** (`.github/workflows/ci.yml` smoke-test, D3 — compose 자체는 `config` 검증, 앱은 boot jar 로 기동, 1.0.1 부터 prod 프로파일·로컬 KMS·관리 포트도 확인): `install.env.example` 의 필수 키를 1회용 값으로 채워
   `compose.install.yml` 을 `config` 로 렌더링하고, compose 와 같은 이미지·realm import·hostname 의 Keycloak 컨테이너와 registry·authz·gate·hub
   부트 jar 를 compose 의 환경변수 이름 그대로 띄운 뒤 `scripts/ci/install-smoke.sh` 가 §4·§5.1 을 자동으로 수행한다 — 4개 헬스 · gate 를 통한
   Discovery(issuer = `{IDEM_PUBLIC_URL_GATE}/realms/idem`) · OIDC_RP 프로파일 PUT → Keycloak client 생성·secret 회전 · gate 프런트의 로그인

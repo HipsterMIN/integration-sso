@@ -61,8 +61,8 @@ function RegisterMinorStep4(): JSX.Element {
 
 				const tokenResponse = await exchangeCiToken({
 					encryptedCi: encrypted,
-					realm: process.env.QSIGN_REALM || 'ucube-qsign',
-					clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
+					realm: process.env.KEYCLOAK_REALM || 'idem',
+					clientId: process.env.KEYCLOAK_CLIENT_ID || 'idem-kr-portal',
 					// 법정대리인 전용 flowContext — BE가 CI를 법정대리인 역할로 등록
 					flowContext: 'GUARDIAN_CONSENT',
 				});

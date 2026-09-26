@@ -44,6 +44,8 @@ public class OidcRpAccessService {
     private final QimClient qimClient;
     private final QAuthzClient qAuthzClient;
     private final PolicyEngine policyEngine;
+    /** 1.0.1 (3차 점검 H9): 표준 OIDC 토큰 교환에도 프로파일 {@code limits} 를 적용 — 종전에는 서비스별 한도가 없었다 */
+    private final io.github.hipstermin.idem.hub.ratelimit.AgencyRateLimiter rateLimiter;
 
     public OidcRpAccessResponse evaluate(OidcRpAccessRequest req, String correlationId) {
         // 1. client → service
@@ -58,6 +60,12 @@ public class OidcRpAccessService {
         }
         if (!profile.isActive()) {
             return deny(PlatformErrorCode.AGENCY_NOT_REGISTERED, "비활성 서비스: " + serviceCode, "CLIENT", serviceCode, correlationId);
+        }
+        // 1.5. 서비스 한도 (limits.tps/daily, 없으면 설치본 기본값) — gate 가 429 로 바꾼다
+        ServiceProfile.Limits limits = profile.limits();
+        if (!rateLimiter.tryAcquire(serviceCode, limits != null ? limits.tps() : null,
+                limits != null && limits.daily() != null ? limits.daily().longValue() : null)) {
+            return deny(PlatformErrorCode.AGENCY_RATE_LIMIT_EXCEEDED, "서비스 요청 한도 초과: " + serviceCode, "RATE_LIMIT", serviceCode, correlationId);
         }
 
         // 2. 인증 컨텍스트 (Keycloak 클레임 → 플랫폼 어휘)
