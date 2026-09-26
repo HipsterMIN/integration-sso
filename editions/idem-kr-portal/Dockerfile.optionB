@@ -36,7 +36,8 @@ LABEL maintainer="io.github.hipstermin.idem"
 LABEL description="Idem KR Public Edition portal (React + Nginx)"
 
 # React 빌드 산출물 복사
-COPY --from=react-builder /app/dist /usr/share/nginx/html
+# webpack.config.prod.js 의 output.path 는 ./build (dist 가 아니다 — 1.0.1 H6 첫 CI 빌드에서 발견)
+COPY --from=react-builder /app/build /usr/share/nginx/html
 
 # Nginx 설정 (프로젝트 루트 context 기준 경로)
 COPY infra/docker/nginx/nginx.conf /etc/nginx/nginx.conf

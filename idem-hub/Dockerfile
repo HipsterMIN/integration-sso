@@ -122,8 +122,9 @@ LABEL org.opencontainers.image.title="Idem Platform — IdO Service" \
 WORKDIR /app
 
 # 보안: 전용 non-root 사용자 생성
-RUN addgroup -S idem-hub && \
-    adduser -S idem-hub -G idem-hub -h /app -s /sbin/nologin && \
+# 1.0.1 (3차 점검 H4): 숫자 UID/GID 1001 — K8s runAsNonRoot 는 이름 사용자를 검증하지 못한다(Helm 차트 appDefaults.runAsUser 와 같다)
+RUN addgroup -S -g 1001 idem-hub && \
+    adduser -S -u 1001 idem-hub -G idem-hub -h /app -s /sbin/nologin && \
     # 헬스체크용 curl 설치
     apk add --no-cache curl
 
@@ -134,7 +135,7 @@ COPY --from=builder --chown=idem-hub:idem-hub /workspace/layers/spring-boot-load
 COPY --from=builder --chown=idem-hub:idem-hub /workspace/layers/snapshot-dependencies/ ./
 COPY --from=builder --chown=idem-hub:idem-hub /workspace/layers/application/           ./
 
-USER idem-hub
+USER 1001:1001
 
 # 서비스 포트 (Actuator 포함)
 EXPOSE 8083

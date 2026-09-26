@@ -5,6 +5,9 @@ compose 는 start-dev 지만 여기서는 production 모드(start) 다 — KC_HT
 */ -}}
 {{- if .Values.keycloak.enabled }}
 {{- $kc := .Values.keycloak }}
+{{- if and (gt (int $kc.replicaCount) 1) (not (hasKey $kc.extraEnv "KC_CACHE_STACK")) }}
+{{- fail "keycloak.replicaCount > 1 이면 Infinispan 클러스터 설정이 필요합니다 — keycloak.extraEnv 에 KC_CACHE_STACK(예: kubernetes) 과 JAVA_OPTS_APPEND 의 -Djgroups.dns.query=idem-keycloak-headless.<ns>.svc 를 주세요 (1.0.1 M9)" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,7 +31,7 @@ spec:
       annotations:
         checksum/realm: {{ .Files.Get "files/realm-export.json" | sha256sum }}
     spec:
-      {{- include "idem.podCommon" (dict "root" . "name" "idem-keycloak") | nindent 6 }}
+      {{- include "idem.podCommon" (dict "root" . "name" "idem-keycloak" "uid" $kc.runAsUser) | nindent 6 }}
       containers:
         - name: keycloak
           image: {{ include "idem.image" (dict "root" . "image" $kc.image "edition" false) }}
@@ -52,7 +55,14 @@ spec:
             - name: KC_HOSTNAME_URL
               value: {{ .Values.global.publicUrl.gate | quote }}
             - name: KC_HOSTNAME_ADMIN_URL
-              value: {{ $kc.adminUrl | default "http://idem-keycloak:8080" | quote }}
+              value: {{ $kc.adminUrl | default "http://localhost:8088" | quote }}
+            # 1.0.1 (M10): realm-export.json 의 내부 client redirect URI·webOrigins 가 공개 URL 을 읽는다 (첫 import 때만)
+            - name: IDEM_PUBLIC_URL_GATE
+              value: {{ .Values.global.publicUrl.gate | quote }}
+            - name: IDEM_PUBLIC_URL_HUB
+              value: {{ .Values.global.publicUrl.hub | quote }}
+            - name: IDEM_PUBLIC_URL_CONSOLE
+              value: {{ .Values.global.publicUrl.console | quote }}
             - name: KC_HOSTNAME_STRICT
               value: "false"
             - name: KC_HOSTNAME_STRICT_HTTPS

@@ -16,7 +16,7 @@ spring:
       fail-on-unknown-properties: false
 
   datasource:
-    url: jdbc:postgresql://${IDEM_AUTHZ_DB_HOST:${DB_HOST:localhost}}:${IDEM_AUTHZ_DB_PORT:${DB_PORT:5432}}/${IDEM_AUTHZ_DB_NAME:${DB_NAME:idem}}?currentSchema=idem_authz&sslmode=${IDEM_AUTHZ_DB_SSLMODE:disable}
+    url: jdbc:postgresql://${IDEM_AUTHZ_DB_HOST:${DB_HOST:localhost}}:${IDEM_AUTHZ_DB_PORT:${DB_PORT:5432}}/${IDEM_AUTHZ_DB_NAME:${DB_NAME:idem}}?currentSchema=idem_authz&sslmode=${IDEM_AUTHZ_DB_SSLMODE:${DB_SSLMODE:disable}}
     username: ${IDEM_AUTHZ_DB_USERNAME:${DB_USERNAME:idem}}
     password: ${IDEM_AUTHZ_DB_PASSWORD:${DB_PASSWORD:idem}}
     driver-class-name: org.postgresql.Driver
@@ -69,6 +69,10 @@ idem.authz:
     batch-size: ${IDEM_AUTHZ_EXPIRY_BATCH_SIZE:500}
 
 management:
+  # 1.0.1 (3차 점검 M7): actuator 를 별도 관리 포트로 뗄 수 있다 — Helm 은 IDEM_MANAGEMENT_PORT=9090 을 주고 Service/Ingress 는 앱 포트만 내보낸다.
+  # 비어 있거나 앱 포트와 같으면 종전처럼 앱 포트에 함께 뜬다(compose·로컬).
+  server:
+    port: ${IDEM_MANAGEMENT_PORT:${server.port}}
   endpoints:
     web:
       exposure:

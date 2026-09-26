@@ -92,8 +92,9 @@ LABEL org.opencontainers.image.title="Idem Platform — Q-IM Service" \
 
 WORKDIR /app
 
-RUN addgroup -S qim && \
-    adduser -S qim -G qim -h /app -s /sbin/nologin && \
+# 1.0.1 (3차 점검 H4): 숫자 UID/GID 1001 — K8s runAsNonRoot 는 이름 사용자를 검증하지 못한다(Helm 차트 appDefaults.runAsUser 와 같다)
+RUN addgroup -S -g 1001 qim && \
+    adduser -S -u 1001 qim -G qim -h /app -s /sbin/nologin && \
     apk add --no-cache curl
 
 # Spring Boot Layered JAR 레이어 순서 복사
@@ -102,7 +103,7 @@ COPY --from=builder --chown=qim:qim /workspace/layers/spring-boot-loader/    ./
 COPY --from=builder --chown=qim:qim /workspace/layers/snapshot-dependencies/ ./
 COPY --from=builder --chown=qim:qim /workspace/layers/application/           ./
 
-USER qim
+USER 1001:1001
 
 EXPOSE 8082
 

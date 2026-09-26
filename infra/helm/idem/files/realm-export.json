@@ -26,11 +26,11 @@
       "serviceAccountsEnabled": false,
       "secret": "${IDEM_GATE_KEYCLOAK_CLIENT_SECRET}",
       "redirectUris": [
-        "http://localhost:8081/api/v1/oidc/keycloak/callback",
+        "${IDEM_PUBLIC_URL_GATE}/api/v1/oidc/keycloak/callback",
         "http://idem-gate:8081/api/v1/oidc/keycloak/callback"
       ],
       "webOrigins": [
-        "http://localhost:8081",
+        "${IDEM_PUBLIC_URL_GATE}",
         "http://idem-gate:8081"
       ],
       "attributes": {
@@ -63,13 +63,12 @@
       "serviceAccountsEnabled": false,
       "secret": "${KEYCLOAK_CLIENT_SECRET}",
       "redirectUris": [
-        "http://localhost:8083/api/v1/broker/callback",
+        "${IDEM_PUBLIC_URL_HUB}/api/v1/broker/callback",
         "http://idem-hub:8083/api/v1/broker/callback"
       ],
       "webOrigins": [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:8083"
+        "${IDEM_PUBLIC_URL_CONSOLE}",
+        "${IDEM_PUBLIC_URL_HUB}"
       ],
       "defaultClientScopes": [
         "openid",

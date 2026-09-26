@@ -64,11 +64,18 @@ k6/
 editions/idem-kr-portal/frontend/
 # 코어 관리 콘솔(S7 PR-2)은 Gradle 밖(npm) — 서버 이미지에 필요 없다
 idem-console-admin/
+# 1.0.1 (3차 점검 H6): 콘솔·KR 포털 이미지(idem-console-admin/Dockerfile, editions/idem-kr-portal/Dockerfile.optionB)는
+# 프로젝트 루트를 컨텍스트로 바로 그 경로를 COPY 한다 — 예외로 되살린다(아래 node_modules·*.lock 제외는 그대로, 잠금 파일은 개별 예외).
+# 서버 이미지 컨텍스트에 두 디렉터리(약 20MB)가 더 들어가지만 COPY 하지 않으므로 이미지 크기에는 영향이 없다.
+!idem-console-admin/**
+!editions/idem-kr-portal/frontend/**
+!infra/docker/nginx/nginx.conf
 
 # ── Node.js 의존성 ────────────────────────────────────────────────────────────
 node_modules/
 **/node_modules/
 *.lock
+!editions/idem-kr-portal/frontend/yarn.lock
 
 # ── 환경 변수 파일 (보안 민감 — 빌드 컨텍스트 제외) ────────────────────────────
 .env

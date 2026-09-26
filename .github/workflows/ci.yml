@@ -372,6 +372,7 @@ jobs:
           IDEM_REGISTRY_CI_AES_KEY_V1=$(openssl rand -base64 32)
           IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD=Ci-$(openssl rand -hex 12)-Aa
           IDEM_HUB_ADMIN_SECRET_KEY=$(openssl rand -base64 32)
+          IDEM_HUB_KMS_MASTER_KEY=$(openssl rand -base64 32)
           IDEM_HUB_CAST_PRIVATE_KEY=$(openssl pkey -in /tmp/cast.pem -outform DER | base64 -w0)
           IDEM_HUB_CAST_PUBLIC_KEY=$(openssl pkey -in /tmp/cast.pem -pubout -outform DER | base64 -w0)
           IDEM_PLUGINS_MOCK_AUTH_ENABLED=true
@@ -405,6 +406,7 @@ jobs:
             -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" \
             -e KC_HTTP_ENABLED=true -e KC_HOSTNAME_STRICT=false -e KC_HOSTNAME_STRICT_HTTPS=false -e KC_HEALTH_ENABLED=true -e KC_PROXY=edge \
             -e KC_HOSTNAME_URL=http://localhost:8081 -e KC_HOSTNAME_ADMIN_URL=http://localhost:8088 \
+            -e IDEM_PUBLIC_URL_GATE=http://localhost:8081 -e IDEM_PUBLIC_URL_HUB=http://localhost:8083 -e IDEM_PUBLIC_URL_CONSOLE=http://localhost:3001 \
             -e IDEM_GATE_KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_PROVISIONER_CLIENT_SECRET -e KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET \
             quay.io/keycloak/keycloak:24.0 start-dev --http-port=8088 --import-realm
           for i in $(seq 1 60); do
@@ -418,8 +420,8 @@ jobs:
           mkdir -p /tmp/idem
           jar() { find "$1/build/libs" -name "$1-*.jar" -not -name "*-plain.jar" -not -name "*-test-fixtures.jar" | head -1; }
           # x-app-common
-          export DB_HOST=localhost DB_PORT=5432 DB_NAME=idem DB_USERNAME=idem DB_PASSWORD=idem
-          export REDIS_HOST=localhost REDIS_PORT=6379 IDEM_KAFKA_ENABLED=false TZ=Asia/Seoul
+          export DB_HOST=localhost DB_PORT=5432 DB_NAME=idem DB_USERNAME=idem DB_PASSWORD=idem DB_SSLMODE=disable
+          export REDIS_HOST=localhost REDIS_PORT=6379 IDEM_KAFKA_ENABLED=false TZ=Asia/Seoul SPRING_PROFILES_ACTIVE=prod   # 1.0.1: 설치본과 같은 prod 프로파일
           # registry
           IDEM_REGISTRY_DB_HOST=localhost IDEM_REGISTRY_DB_PORT=5432 IDEM_REGISTRY_DB_NAME=idem IDEM_REGISTRY_DB_SCHEMA=idem_registry IDEM_REGISTRY_DB_USERNAME=idem IDEM_REGISTRY_DB_PASSWORD=idem IDEM_REGISTRY_DB_SSL=false \
             nohup java -Xmx512m -jar "$(jar idem-registry)" --server.port=8082 > /tmp/idem/registry.log 2>&1 &
@@ -435,8 +437,12 @@ jobs:
             IDEM_HUB_BROKER_MODE=qsign KEYCLOAK_BASE_URL=http://localhost:8088 KEYCLOAK_REALM=idem KEYCLOAK_CLIENT_ID=idem-hub \
             KEYCLOAK_REDIRECT_URI=http://localhost:8083/api/v1/broker/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
             IDEM_PLATFORM_CODE=IDEM IDEM_PLUGINS_NICE_OACX_ENABLED=false IDEM_PLUGINS_ANYID_ENABLED=false \
+            IDEM_HUB_KMS_ENABLED=true IDEM_HUB_KMS_PROVIDER=local \
             CORS_ORIGIN_DEV=http://localhost:3001 CORS_ORIGIN_PROD=http://localhost:3001 \
+            SPRING_PROFILES_ACTIVE=default \
             nohup java -Xmx768m -jar "$(jar idem-hub)" --server.port=8083 > /tmp/idem/hub.log 2>&1 &
+          # hub 만 기본 프로파일: 스모크가 Mock 제공자(IDEM_PLUGINS_MOCK_AUTH_ENABLED=true)를 쓰는데 prod 는 fail-secure 가드가 Mock 을 거부한다(docs/install.md §5 와 같은 절차).
+          # hub 의 prod 프로파일은 아래 "hub prod 프로파일 기동" 단계가 Mock 없이 따로 확인한다
           # bash -e: 연결 거부(curl 종료 7)가 스크립트를 끝내지 않도록 || true
           for i in $(seq 1 90); do
             r=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8082/actuator/health || true)
@@ -494,6 +500,34 @@ jobs:
           path: /tmp/smoke-result.json
           retention-days: 3
 
+      - name: "hub prod 프로파일 기동 (1.0.1 M6·M7 — Mock 없이 prod + 로컬 KMS + 관리 포트 9090)"
+        run: |
+          pkill -f "idem-hub-.*\.jar" || true; sleep 3
+          jar() { find "$1/build/libs" -name "$1-*.jar" -not -name "*-plain.jar" -not -name "*-test-fixtures.jar" | head -1; }
+          IDEM_REGISTRY_BASE_URL=http://localhost:8082 IDEM_GATE_BASE_URL=http://localhost:8081 IDEM_HUB_AUTHZ_BASE_URL=http://localhost:8086 \
+            IDEM_HUB_REGISTRY_INTERNAL_API_KEY="$IDEM_REGISTRY_INTERNAL_API_KEY" IDEM_HUB_AUTHZ_INTERNAL_API_KEY="$IDEM_AUTHZ_INTERNAL_API_KEY" \
+            IDEM_HUB_BROKER_MODE=qsign KEYCLOAK_BASE_URL=http://localhost:8088 KEYCLOAK_REALM=idem KEYCLOAK_CLIENT_ID=idem-hub \
+            KEYCLOAK_REDIRECT_URI=http://localhost:8083/api/v1/broker/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
+            IDEM_PLATFORM_CODE=IDEM IDEM_PLUGINS_NICE_OACX_ENABLED=false IDEM_PLUGINS_ANYID_ENABLED=false IDEM_PLUGINS_MOCK_AUTH_ENABLED=false \
+            IDEM_HUB_KMS_ENABLED=true IDEM_HUB_KMS_PROVIDER=local IDEM_MANAGEMENT_PORT=9090 \
+            CORS_ORIGIN_DEV=http://localhost:3001 CORS_ORIGIN_PROD=http://localhost:3001 SPRING_PROFILES_ACTIVE=prod \
+            nohup java -Xmx768m -jar "$(jar idem-hub)" --server.port=8083 > /tmp/idem/hub-prod.log 2>&1 &
+          for i in $(seq 1 60); do
+            m=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/actuator/health || true)
+            [ "$m" = "200" ] && break; sleep 3
+          done
+          [ "$m" = "200" ] || { echo "❌ hub prod 기동 실패"; grep -m8 -iE "error|exception|Caused by|fail-secure" /tmp/idem/hub-prod.log | cut -c1-400; exit 1; }
+          a=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8083/actuator/health || true)      # 앱 포트에는 actuator 가 없다
+          f=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/actuator/flyway || true)      # prod: flyway 비노출
+          p=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/actuator/prometheus || true)  # 참고용 — hub 는 prometheus 레지스트리 미등록(3차 점검 A1, 404). PR-C 에서 지표 이름과 함께 정리
+          d=$(curl -s http://localhost:8083/api/v1/admin/admins -o /dev/null -w '%{http_code}' || true) # 관리 API 는 그대로 401
+          echo "app:/actuator/health=$a mgmt:/actuator/flyway=$f mgmt:/actuator/prometheus=$p app:/api/v1/admin/admins=$d"
+          [ "$a" != "200" ] && [ "$f" = "404" ] && [ "$d" = "401" ] && echo "✅ hub prod 프로파일·관리 포트 분리 확인" || { echo "❌ 기대와 다름"; exit 1; }
+          # readiness 그룹(prod: db·redis·kms)이 UP 이면 KmsClient(=local, prod 에서 LocalKmsClient 는 등록 금지) 가 살아 있다는 뜻 — crypto 패키지는 prod 에서 WARN 로깅이라 로그로는 못 본다
+          r=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/actuator/health/readiness || true)
+          [ "$r" = "200" ] && echo "✅ readiness UP (db·redis·kms=local)" || { echo "❌ readiness $r"; curl -s http://localhost:9090/actuator/health/readiness; exit 1; }
+          pkill -f "idem-hub-.*\.jar" || true
+
       - name: 정리
         if: always()
         run: |
@@ -546,6 +580,14 @@ jobs:
           - name: idem-tenant-sample
             dockerfile: idem-tenant-sample/Dockerfile
             port: 8084
+          # 1.0.1 (3차 점검 H6): 관리 콘솔·KR 포털 이미지 — cd.yml 이 GHCR 의 idem-console-admin:<sha> 를 배포하는데 종전에는 아무 잡도 만들지 않았다
+          - name: idem-console-admin
+            dockerfile: idem-console-admin/Dockerfile
+            port: 80
+          - name: idem-kr-portal
+            dockerfile: editions/idem-kr-portal/Dockerfile.optionB
+            target: react-nginx
+            port: 80
       fail-fast: false    # 하나 실패해도 나머지 빌드 계속
 
     steps:
@@ -591,6 +633,7 @@ jobs:
         with:
           context: .
           file: ${{ matrix.module.dockerfile }}
+          target: ${{ matrix.module.target || '' }}
           push: true    # GHCR로 push (이 잡은 보호 브랜치 push 이벤트에서만 실행)
           tags: ${{ env.IMAGE_TAGS }}
           build-args: |
@@ -615,6 +658,18 @@ jobs:
           docker buildx imagetools inspect \
             ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:latest${{ matrix.module.edition && format('-{0}', matrix.module.edition) || '' }} || true
 
+      # 1.0.1: 방금 민 이미지를 스캔한다 (종전에는 helm-lint 잡 끝에 잘못 붙어 존재하지 않는 idem/:latest 를 스캔하고 항상 통과했다)
+      - name: Trivy 보안 스캔 (취약점 검사)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_REPO }}/${{ matrix.module.name }}:${{ github.sha }}${{ matrix.module.edition && format('-{0}', matrix.module.edition) || '' }}
+          format: table
+          exit-code: '0'         # CRITICAL 취약점도 빌드 중단 안함 (리포트만)
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+        continue-on-error: true  # Trivy 오류 시 전체 Job 실패 방지
+
   # ═══════════════════════════════════════════════════════════════════════════
   # S9 PR-3/1.0.1: PR 에서 모든 Dockerfile(hub 는 core·kr 둘 다)이 빌드되는지 확인 (push 없음).
   # main 의 docker-build 는 PR 뒤에야 돌므로, Dockerfile 이 settings.gradle.kts 와 어긋나거나 vendor-libs 컨텍스트가 깨지면 여기서 먼저 잡는다.
@@ -636,6 +691,8 @@ jobs:
           - { name: idem-authz,         dockerfile: idem-authz/Dockerfile }
           - { name: idem-relay,         dockerfile: idem-relay/Dockerfile }
           - { name: idem-tenant-sample, dockerfile: idem-tenant-sample/Dockerfile }
+          - { name: idem-console-admin, dockerfile: idem-console-admin/Dockerfile }                                   # 1.0.1 H6
+          - { name: idem-kr-portal,     dockerfile: editions/idem-kr-portal/Dockerfile.optionB, target: react-nginx } # 1.0.1 H6
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -644,6 +701,7 @@ jobs:
         with:
           context: .
           file: ${{ matrix.image.dockerfile }}
+          target: ${{ matrix.image.target || '' }}
           push: false
           load: false
           tags: ${{ matrix.image.name }}:pr-${{ matrix.image.edition || 'core' }}
@@ -683,14 +741,13 @@ jobs:
         run: |
           curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz -C /tmp kubeconform
           for f in core kr kafka; do /tmp/kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/$f.yaml; done
-
-      - name: Trivy 보안 스캔 (취약점 검사)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: idem/${{ matrix.module.name }}:latest
-          format: table
-          exit-code: '0'         # CRITICAL 취약점도 빌드 중단 안함 (리포트만)
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-        continue-on-error: true  # Trivy 오류 시 전체 Job 실패 방지
+      - name: 1.0.1 설치본 회귀 (H4 숫자 UID · H5 레지스트리 접두 · M7 관리 포트 · M9 admin URL)
+        run: |
+          helm template idem infra/helm/idem -n idem --set global.imageRegistry=ghcr.io/example > /tmp/reg.yaml
+          grep -q 'image: ghcr.io/example/idem-hub:latest-core' /tmp/reg.yaml
+          grep -q 'image: quay.io/keycloak/keycloak:24.0' /tmp/reg.yaml && ! grep -q 'ghcr.io/example/quay.io' /tmp/reg.yaml
+          grep -q 'image: postgres:16-alpine' /tmp/reg.yaml && ! grep -q 'ghcr.io/example/postgres' /tmp/reg.yaml
+          [ "$(grep -c 'runAsUser: 1001' /tmp/core.yaml)" -ge 4 ] && grep -q 'runAsUser: 1000' /tmp/core.yaml
+          grep -q 'containerPort: 9090' /tmp/core.yaml && grep -q 'port: 9090 }' /tmp/core.yaml && ! grep -q 'port: 9090$' <(grep -A3 'kind: Service' /tmp/core.yaml)
+          grep -q 'value: "http://localhost:8088"' /tmp/core.yaml
+          ! helm template idem infra/helm/idem -n idem --set keycloak.replicaCount=2 2>/dev/null   # 캐시 스택 없이 replica 2 는 거부

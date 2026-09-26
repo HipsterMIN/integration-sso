@@ -49,8 +49,8 @@ FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
 # 비루트 사용자
-RUN addgroup -S smes && adduser -S smes -G smes
-USER smes
+RUN addgroup -S -g 1001 smes && adduser -S -u 1001 smes -G smes   # 1.0.1: 숫자 UID (K8s runAsNonRoot)
+USER 1001:1001
 
 COPY --from=backend-builder /build/idem-hub/build/libs/*-SNAPSHOT.jar app.jar
 

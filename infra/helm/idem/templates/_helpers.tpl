@@ -30,13 +30,17 @@ app.kubernetes.io/component: {{ . }}
 {{/*
 이미지 레퍼런스 — 인자: dict "root" $ "image" .Values.x.image "edition" (bool)
   edition=true 인 컴포넌트(hub·registry)는 <tag>-<global.edition> 을 쓴다 (compose.install.yml 과 같은 규칙)
+  1.0.1 (3차 점검 H5): global.imageRegistry 는 Idem 이미지(레지스트리 없는 짧은 이름)에만 붙는다. image.registry 키가 있으면 그 값이 우선한다
+  (빈 문자열 = 접두 없음) — keycloak·dbInit 같은 서드파티 이미지는 values 가 registry: "" 를 준다.
 */}}
 {{- define "idem.image" -}}
 {{- $root := .root -}}
 {{- $tag := .image.tag | default $root.Values.global.imageTag -}}
 {{- if .edition }}{{ $tag = printf "%s-%s" $tag $root.Values.global.edition }}{{ end -}}
-{{- if $root.Values.global.imageRegistry -}}
-{{ printf "%s/%s:%s" $root.Values.global.imageRegistry .image.repository $tag }}
+{{- $registry := $root.Values.global.imageRegistry -}}
+{{- if hasKey .image "registry" }}{{ $registry = .image.registry }}{{ end -}}
+{{- if and $registry (not (contains "/" .image.repository)) -}}
+{{ printf "%s/%s:%s" $registry .image.repository $tag }}
 {{- else -}}
 {{ printf "%s:%s" .image.repository $tag }}
 {{- end -}}
@@ -93,6 +97,13 @@ http://idem-keycloak:8080
 {{- end }}
 - name: TZ
   value: {{ .Values.global.timezone | quote }}
+- name: DB_SSLMODE
+  value: {{ .Values.infra.postgres.sslMode | quote }}
+# 1.0.1 (3차 점검 M6·M7): 운영 프로파일 + actuator 를 별도 관리 포트로 (Service·Ingress 는 http 포트만 내보낸다)
+- name: SPRING_PROFILES_ACTIVE
+  value: {{ .Values.appDefaults.springProfile | quote }}
+- name: IDEM_MANAGEMENT_PORT
+  value: {{ .Values.appDefaults.managementPort | quote }}
 {{- end }}
 
 {{/* map → env 항목 — 인자: map */}}
@@ -103,25 +114,36 @@ http://idem-keycloak:8080
 {{- end }}
 {{- end }}
 
-{{/* Spring Boot 앱 프로브 — 인자: dict "root" $ "port" N */}}
+{{/* Spring Boot 앱 프로브 — 인자: dict "root" $ "port" N. actuator 는 관리 포트(appDefaults.managementPort)에 있다 — .port 는 그 값이 비어 있을 때만 */}}
 {{- define "idem.probes" -}}
 {{- $d := .root.Values.appDefaults -}}
+{{- $port := $d.managementPort | default .port -}}
 startupProbe:
-  httpGet: { path: /actuator/health/liveness, port: {{ .port }} }
+  httpGet: { path: /actuator/health/liveness, port: {{ $port }} }
   failureThreshold: {{ $d.startupProbe.failureThreshold }}
   periodSeconds: {{ $d.startupProbe.periodSeconds }}
 livenessProbe:
-  httpGet: { path: /actuator/health/liveness, port: {{ .port }} }
+  httpGet: { path: /actuator/health/liveness, port: {{ $port }} }
   periodSeconds: {{ $d.livenessProbe.periodSeconds }}
   failureThreshold: {{ $d.livenessProbe.failureThreshold }}
 readinessProbe:
-  httpGet: { path: /actuator/health/readiness, port: {{ .port }} }
+  httpGet: { path: /actuator/health/readiness, port: {{ $port }} }
   periodSeconds: {{ $d.readinessProbe.periodSeconds }}
   failureThreshold: {{ $d.readinessProbe.failureThreshold }}
 {{- end }}
 
-{{/* Pod 공통 spec 조각 — 인자: dict "root" $ "name" 컴포넌트 */}}
+{{/* Spring Boot 앱 컨테이너 포트 — 인자: dict "root" $ "port" N (http + 관리 포트) */}}
+{{- define "idem.appPorts" -}}
+ports:
+  - { name: http, containerPort: {{ .port }} }
+  {{- if .root.Values.appDefaults.managementPort }}
+  - { name: management, containerPort: {{ .root.Values.appDefaults.managementPort }} }
+  {{- end }}
+{{- end }}
+
+{{/* Pod 공통 spec 조각 — 인자: dict "root" $ "name" 컴포넌트 ["uid" N]. 1.0.1 (3차 점검 H4): runAsNonRoot 는 숫자 UID 가 있어야 kubelet 이 통과시킨다 */}}
 {{- define "idem.podCommon" -}}
+{{- $uid := .uid | default .root.Values.appDefaults.runAsUser -}}
 {{- with .root.Values.global.imagePullSecrets }}
 imagePullSecrets:
   {{- toYaml . | nindent 2 }}
@@ -129,6 +151,9 @@ imagePullSecrets:
 terminationGracePeriodSeconds: {{ .root.Values.appDefaults.terminationGracePeriodSeconds }}
 securityContext:
   runAsNonRoot: true
+  runAsUser: {{ $uid }}
+  runAsGroup: {{ $uid }}
+  fsGroup: {{ $uid }}
   seccompProfile: { type: RuntimeDefault }
 {{- if ne .root.Values.appDefaults.podAntiAffinity "none" }}
 affinity:
@@ -155,9 +180,9 @@ securityContext:
   capabilities: { drop: ["ALL"] }
 {{- end }}
 
-{{/* URL 에서 host 만 — 인자: URL 문자열 */}}
+{{/* URL 에서 host 만 — 인자: URL 문자열. 경로·포트가 있어도 호스트만 남긴다 (Ingress host 에는 포트를 쓸 수 없다) */}}
 {{- define "idem.host" -}}
-{{- . | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/" -}}
+{{- . | trimPrefix "https://" | trimPrefix "http://" | splitList "/" | first | splitList ":" | first -}}
 {{- end }}
 
 {{/* 컴포넌트 replicaCount — 인자: dict "root" $ "c" 컴포넌트 values */}}

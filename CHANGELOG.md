@@ -17,6 +17,19 @@
 - hub: 지원하지 않는 메서드·Content-Type 은 500 이 아니라 405 `E-IDO-405`·415 `E-IDO-415`. authz: 없는 경로·메서드·미디어 타입도 플랫폼 본문(`E-AUTHZ-404/405/415`, 경로 반사 없음).
 - 주석 정정: registry `QimWebMvcConfig`(상태 API 는 내부 키 필수), 레이트리밋 Redis 키 접두 `idem:*`, relay ShedLock 표 위치.
 
+### 설치본 (PR-B)
+- **Helm Pod 기동 (H4)**: 모든 Idem 이미지가 숫자 UID/GID 1001(`USER 1001:1001`)로 바뀌고 차트가 `runAsUser/runAsGroup/fsGroup`(앱 1001, Keycloak 1000)을 명시한다 — 종전에는 `runAsNonRoot` 가 이름 사용자를 거부해 앱 Pod 전부 `CreateContainerConfigError`.
+- **`global.imageRegistry` 접두 (H5)**: Idem 이미지(짧은 이름)에만 붙는다. Keycloak·postgres 는 `image.registry: ""`.
+- **관리 콘솔·KR 포털 이미지 (H6)**: `.dockerignore` 예외로 두 Dockerfile 이 빌드된다. CI `docker-build`(main, GHCR)·`docker-build-check`(PR) 매트릭스에 `idem-console-admin`·`idem-kr-portal` 추가 — `cd.yml` 이 배포하던 이미지가 이제 실제로 만들어진다.
+- **업그레이드 데이터 고아 방지 (H7)**: `init-db.sql` 은 구 스키마(`ido`·`qsign`·`qim`·`authz`)가 있으면 새 스키마를 만들지 않는다(Helm 훅·compose 공통). `LegacySchemaRename` 과 `rename-db-1.0.sh` 는 구·신 스키마가 둘 다 있고 새 쪽에 Flyway 이력이 없으면 멈춘다(이력이 있으면 "구 스키마 남음" 경고). 스키마 존재는 `pg_namespace` 로 본다.
+- **`rename-db-1.0.sh` (H8)**: 실행 사용자가 `onepass` 여도 임시 슈퍼유저를 만들어 역할을 옮긴다. `IDEM_DB_PASSWORD` 가 있으면 rename 뒤 비밀번호를 다시 설정(MD5 비밀번호는 rename 으로 지워진다), 없으면 경고.
+- **Flyway repair 1회 (M1)**: 매 기동 `repair()` 대신 `validate` 를 먼저 하고 체크섬 불일치만 있을 때 1회 repair. 빠진·실패한 마이그레이션은 검증 오류로 드러난다. `IDEM_NAMING_LEGACY_REPAIR=false` 면 repair 하지 않는다.
+- **`SPRING_PROFILES_ACTIVE=prod` (M6)**: compose(`IDEM_SPRING_PROFILE`)·Helm(`appDefaults.springProfile`)·CI 설치 스모크 모두 prod 프로파일로 뜬다. 켜 보니 hub 가 기동을 거부했다 — `prod` 에서는 KMS Off(평문 키 재료)가 금지되는데 설치본에 Vault 가 없다. 새 KMS provider **`local`**(`LocalMasterKeyKmsClient`): 설치본 비밀 `IDEM_HUB_KMS_MASTER_KEY`(base64 32바이트)로 회전된 Handoff 키 재료를 AES-256-GCM 봉인(`local:v1:` 접두). 1.0 이 남긴 평문 재료는 WARN 과 함께 읽는다(`IDEM_HUB_KMS_LOCAL_ACCEPT_LEGACY`). compose·Helm·CI 기본이 `local`, Vault 는 `provider=vault`.
+- **actuator 관리 포트 (M7)**: `management.server.port=${IDEM_MANAGEMENT_PORT:${server.port}}`. Helm 은 9090 으로 분리하고 Service·Ingress 는 앱 포트만 내보낸다(프로브도 관리 포트). compose 는 앱 포트 그대로 — 리버스 프록시가 `/actuator` 를 막는다(문서).
+- **compose 플러그인 플래그 (M8)**: `IDEM_PLUGINS_NICE_OACX_ENABLED`·`IDEM_PLUGINS_ANYID_ENABLED` 를 `install.env` 로 켠다.
+- **Keycloak (M9·M10)**: Helm `KC_HOSTNAME_ADMIN_URL` 기본 `http://localhost:8088`(port-forward), `replicaCount>1` 은 `KC_CACHE_STACK` 없이는 렌더링 거부. realm-export 의 내부 client redirect URI·webOrigins 는 `${IDEM_PUBLIC_URL_GATE}`·`_HUB`·`_CONSOLE` 자리표시자 — compose·Helm·CI 가 Keycloak 에 그 값을 준다.
+- LOW: Trivy 스캔이 `docker-build` 의 실제 이미지를 스캔한다(종전 `helm-lint` 끝에서 존재하지 않는 이미지를 스캔하고 항상 통과). `DB_SSLMODE`/`IDEM_*_DB_SSLMODE` 로 gate·hub·authz 도 JDBC TLS 를 켤 수 있다(Helm `infra.postgres.sslMode`). Helm `idem.host` 가 경로·포트 있는 URL 을 다룬다. 문서: Docker Compose ≥ 2.17.
+
 ## [1.0.0] — 2026-09-26
 
 첫 동결 릴리스. 2026-09-10 부터의 범용화(`docs/generalization-plan.md` S1~S9·D1~D3)를 마감한다.

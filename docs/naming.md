@@ -81,7 +81,7 @@ Gradle 태스크 경로는 그대로 따라간다 (`:ido:bootJar` → `:idem-hub
 | ✅ Redis 키 접두 | ~~`ido:ticket:*`, `ido:rl:*`, `ido:idempotency:*`~~ → `idem:*` | 4b 완료. 업그레이드 시 flush |
 | ✅ 환경변수 접두 | ~~`IDO_*`, `QIM_*`~~ → `IDEM_HUB_*`, `IDEM_REGISTRY_*` … (`KEYCLOAK_*` 는 Keycloak 자체 이름이라 유지, `ONEPASS_*` 는 agent/SDK 외부 계약이라 별도) | 4b 완료 |
 | ✅ Keycloak | ~~realm `onepass`, client `q-sign-client`, `ido-client`~~ → realm `idem`, client `idem-gate`/`idem-hub` (`idem-provisioner`·`idem-session-manager` 는 그대로) | 5단계 완료(S9 PR-2, 2026-09-25). 기존 설치본은 realm 재import |
-| ✅ DB | ~~PostgreSQL `onepass`, 스키마 `ido`·`qsign`·`qim`·`authz`~~ → DB `idem`, 스키마 `idem_hub`·`idem_gate`·`idem_registry`·`idem_authz` (`keycloak`·`agency_stub` 유지) | 5단계 완료(S9 PR-2). 마이그레이션 파일의 접두를 고쳤고(체크섬 변경) `LegacySchemaRename` 이 구 스키마 rename → Flyway repair → migrate. DB 이름은 `scripts/upgrade/rename-db-1.0.sh` |
+| ✅ DB | ~~PostgreSQL `onepass`, 스키마 `ido`·`qsign`·`qim`·`authz`~~ → DB `idem`, 스키마 `idem_hub`·`idem_gate`·`idem_registry`·`idem_authz` (`keycloak`·`agency_stub` 유지) | 5단계 완료(S9 PR-2). 마이그레이션 파일의 접두를 고쳤고(체크섬 변경) `LegacySchemaRename` 이 구 스키마 rename → Flyway validate → 체크섬 불일치만 있을 때 1회 repair(1.0.1; `IDEM_NAMING_LEGACY_REPAIR=false` 면 거부) → migrate. 구·신 스키마 공존 + 새 쪽 이력 없음이면 기동 거부. DB 이름·역할은 `scripts/upgrade/rename-db-1.0.sh`(실행 사용자가 `onepass` 여도 됨) |
 | ✅ k8s 런타임 이름 | ~~Service `ido-service`, ConfigMap `ido-config`~~ → `idem-hub-*` (Helm 텍스트 치환, lint 미검증) | 4b 완료 |
 | ✅ Prometheus job / 알림 라벨 | ~~`job="ido"`, `job="q-sign"`~~ → `idem-hub`, `idem-gate` | 4b 완료 |
 | FE 소스 | `editions/idem-kr-portal/frontend/**` (패키지명 `onepass`, 에셋 `assets/onepass`, 외부 호스트) | KR 에디션 포털 — 에디션 과제 |

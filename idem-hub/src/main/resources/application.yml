@@ -18,7 +18,7 @@ spring:
 
   # ── DataSource ──────────────────────────────────────────────
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:idem}?currentSchema=idem_hub&sslmode=disable
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:idem}?currentSchema=idem_hub&sslmode=${IDEM_HUB_DB_SSLMODE:${DB_SSLMODE:disable}}
     username: ${DB_USERNAME:idem}
     password: ${DB_PASSWORD:idem}
     driver-class-name: org.postgresql.Driver
@@ -598,12 +598,14 @@ idem.hub:
   # │    provider=vault → VaultKmsClient  ★ 기본 표준 (HashiCorp Vault)   │
   # │    provider=nhn   → NhnKmsClient   (NHN Cloud SKM, 레거시)          │
   # │    provider=noop  → NoOpKmsClient  (Base64 패스스루, 명시적 테스트)  │
+  # │    provider=local → LocalMasterKeyKmsClient (1.0.1: IDEM_HUB_KMS_MASTER_KEY 로 AES-GCM 봉인 — 설치본 기본, Vault 없이 prod 가능) │
   # └─────────────────────────────────────────────────────────────────────┘
   #
   # [환경별 권장 설정]
   #   local/CI   : IDEM_HUB_KMS_ENABLED=false
+  #   설치본     : IDEM_HUB_KMS_ENABLED=true  / IDEM_HUB_KMS_PROVIDER=local / IDEM_HUB_KMS_MASTER_KEY (compose·Helm 기본)
   #   dev 서버   : IDEM_HUB_KMS_ENABLED=true  / IDEM_HUB_KMS_PROVIDER=vault
-  #   stage/prod : IDEM_HUB_KMS_ENABLED=true  / IDEM_HUB_KMS_PROVIDER=vault
+  #   stage/prod : IDEM_HUB_KMS_ENABLED=true  / IDEM_HUB_KMS_PROVIDER=vault (가능하면) 또는 local
   #   NHN 유지   : IDEM_HUB_KMS_ENABLED=true  / IDEM_HUB_KMS_PROVIDER=nhn  (레거시)
   kms:
     # ── On/Off 스위치 ────────────────────────────────────────────────────
@@ -668,6 +670,9 @@ idem.hub:
     # 이 escape hatch는 부팅 가드를 우회하지만 평문 키 모드는 그대로이므로
     # 운영 환경 절대 사용 금지.
     local:
+      # ── 로컬 마스터 키 (provider=local, 1.0.1) ─────────────────────────
+      master-key: ${IDEM_HUB_KMS_MASTER_KEY:}                              # base64 32바이트 — 비면 기동 거부
+      accept-legacy-plaintext: ${IDEM_HUB_KMS_LOCAL_ACCEPT_LEGACY:true}    # 1.0(KMS Off) 이 남긴 평문 재료를 WARN 과 함께 읽는다. 새 설치본은 false 권장
       allow-in-prod: ${IDEM_HUB_KMS_LOCAL_ALLOW_IN_PROD:false}
 
     # ── NHN Cloud Secure Key Manager (provider=nhn, 레거시) ─────────────
@@ -770,6 +775,10 @@ resilience4j:
 
 # ── Actuator (S9-T4: OTel 추적 설정 포함) ─────────────────────
 management:
+  # 1.0.1 (3차 점검 M7): actuator 를 별도 관리 포트로 뗄 수 있다 — Helm 은 IDEM_MANAGEMENT_PORT=9090 을 주고 Service/Ingress 는 앱 포트만 내보낸다.
+  # 비어 있거나 앱 포트와 같으면 종전처럼 앱 포트에 함께 뜬다(compose·로컬).
+  server:
+    port: ${IDEM_MANAGEMENT_PORT:${server.port}}
   endpoints:
     web:
       exposure:

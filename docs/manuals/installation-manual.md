@@ -7,7 +7,7 @@
 | 항목 | 요구 |
 |---|---|
 | 설치 형태 | (A) Docker Compose 단일 설치본 — 서버 1대 · (B) Kubernetes Helm 차트 — 바깥 PostgreSQL·Redis 필요 |
-| OS / 런타임 | Linux x86-64. (A) Docker Engine 24+ 와 Compose v2, (B) Kubernetes 1.27+ · Helm 3.12+ |
+| OS / 런타임 | Linux x86-64. (A) Docker Engine 24+ 와 Docker Compose ≥ 2.17, (B) Kubernetes 1.27+ · Helm 3.12+ |
 | 자원 | (A) 4 vCPU · 8 GB RAM · 20 GB 디스크 이상. (B) 앱 5종 요청 합계 약 1.5 vCPU · 3.5 GB (`values.yaml` resources) |
 | 데이터 | PostgreSQL 16 (compose 는 포함) · Redis 7 (포함). Kafka 없음 |
 | 네트워크 | 브라우저 → gate(공개 URL, TLS 종료는 리버스 프록시/Ingress) · 기관 RP → gate · 기관 서버 ← hub 웹훅(아웃바운드) · KR 에디션: hub → 본인확인 벤더 API |
@@ -75,12 +75,12 @@ IDEM_EDITION=core scripts/ci/install-smoke.sh     # HUB_URL·GATE_URL 등은 환
 | ⑦ 에디션 | core 에서 KR 엔드포인트 404 / kr 에서 존재 | 에디션 일치 |
 | ⑧ 감사·로그아웃 | 감사 검색 → 로그아웃 204 → 세션 401 | 통과 |
 
-Mock 본인확인(`IDEM_PLUGINS_MOCK_AUTH_ENABLED`)은 확인 뒤 **반드시 false** 로 되돌린다. Helm 은 `helm get notes idem -n idem` 의 절차로 같은 항목을 본다.
+Mock 본인확인(`IDEM_PLUGINS_MOCK_AUTH_ENABLED`)은 검증 동안 `IDEM_SPRING_PROFILE=default` 와 함께 켜고(1.0.1: `prod` 프로파일에서는 기동 거부), 확인 뒤 **반드시 false** 로 되돌린다. Helm 은 `helm get notes idem -n idem` 의 절차로 같은 항목을 본다.
 
 ## 5. 업그레이드
 
 - **1.0 → 1.x**: 이미지 태그(`IDEM_VERSION` / `global.imageTag`)만 올리고 재기동. Flyway 가 마이그레이션을 적용한다. 되돌리기는 이전 태그 + DB 백업 복구.
-- **S9 이전(0.x, OnePass 이름) → 1.0**: `docs/install.md` §7 — 앱·Keycloak 정지 → `scripts/upgrade/rename-db-1.0.sh`(DB `onepass→idem`·스키마) → `install.env` 변수명(`IDEM_HUB_*` …) → `keycloak-data` 볼륨 재생성(realm `idem` import) → 기동. 구 환경변수는 1 릴리스 동안 호환 계층이 `[Idem 개명]` 경고와 함께 받는다.
+- **S9 이전(0.x, OnePass 이름) → 1.0**: `docs/install.md` §7 — 앱·Keycloak 정지 → `scripts/upgrade/rename-db-1.0.sh`(DB `onepass→idem`·역할·스키마; `IDEM_DB_PASSWORD` 를 함께 준다) → `install.env` 변수명(`IDEM_HUB_*` …) → `keycloak-data` 볼륨 재생성(realm `idem` import) → 기동. 구 환경변수는 1 릴리스 동안 호환 계층이 `[Idem 개명]` 경고와 함께 받는다. Helm 은 db-init 훅이 구 스키마가 있으면 새 스키마를 만들지 않고, 앱이 첫 기동에서 옮긴다(1.0.1). 구·신 스키마가 둘 다 있고 새 쪽에 Flyway 이력이 없으면 앱이 기동을 거부한다 — 빈 새 스키마를 지운다.
 
 ## 6. 백업·복구
 

@@ -30,8 +30,7 @@ spec:
           image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" false) }}
           imagePullPolicy: {{ .Values.appDefaults.imagePullPolicy }}
           {{- include "idem.containerSecurity" . | nindent 10 }}
-          ports:
-            - { name: http, containerPort: 8086 }
+          {{- include "idem.appPorts" (dict "root" . "port" 8086) | nindent 10 }}
           envFrom:
             - configMapRef: { name: idem-authz-config }
           env:
