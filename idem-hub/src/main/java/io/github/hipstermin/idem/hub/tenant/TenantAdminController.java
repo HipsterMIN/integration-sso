@@ -53,13 +53,14 @@ public class TenantAdminController {
             @NotBlank @Size(max = 200) String name,
             @Pattern(regexp = "ACTIVE|INACTIVE") String status) {}
 
+    // 1.0.1 (3차 점검 H1): 모든 관리 엔드포인트가 AdminPrincipal 을 인자로 받는다 — 필터를 지나쳐도 리졸버가 401 을 낸다(심층 방어)
     @GetMapping
-    public List<TenantView> list() {
+    public List<TenantView> list(io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
         return tenantRepository.findAll().stream().map(TenantView::of).toList();
     }
 
     @GetMapping("/{code}")
-    public ResponseEntity<TenantView> get(@PathVariable String code) {
+    public ResponseEntity<TenantView> get(@PathVariable String code, io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
         return tenantRepository.findById(code).map(TenantView::of).map(ResponseEntity::ok)
                 .orElseThrow(() -> new PlatformException(PlatformErrorCode.IDO_INVALID_TENANT_PROFILE, null,
                         "등록되지 않은 Tenant: " + code));

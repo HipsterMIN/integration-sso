@@ -83,13 +83,22 @@ public class AdminUserService {
                 && users.countByRoleAndStatus(AdminRole.SYSTEM_ADMIN, AdminStatus.ACTIVE) <= 1) {
             throw new PlatformException(PlatformErrorCode.ADMIN_LAST_SYSTEM_ADMIN, null);
         }
-        if (role != null) u.setRole(role);
+        boolean scopeChanged = false;   // 1.0.1 (3차 점검 M2): 역할·테넌트가 바뀌면 살아 있는 세션도 끝낸다 — 세션이 역할을 캐시한다
+        if (role != null) {
+            scopeChanged |= role != u.getRole();
+            u.setRole(role);
+        }
         if (status != null) {
             u.setStatus(status);
             if (status == AdminStatus.ACTIVE) { u.setFailedAttempts((short) 0); u.setLockedUntil(null); }
-            if (status != AdminStatus.ACTIVE) sessions.deleteAllOf(u.getAdminId());
+            if (status != AdminStatus.ACTIVE) scopeChanged = true;
         }
-        if (tenantCode != null) u.setTenantCode(blankToNull(tenantCode));
+        if (tenantCode != null) {
+            String next = blankToNull(tenantCode);
+            scopeChanged |= !java.util.Objects.equals(next, u.getTenantCode());
+            u.setTenantCode(next);
+        }
+        if (scopeChanged) sessions.deleteAllOf(u.getAdminId());
         if (displayName != null) u.setDisplayName(displayName);
         u.setUpdatedAt(Instant.now());
         users.save(u);

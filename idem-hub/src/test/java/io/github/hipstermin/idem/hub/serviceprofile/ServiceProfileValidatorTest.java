@@ -98,6 +98,27 @@ class ServiceProfileValidatorTest {
     }
 
     @Test
+    @DisplayName("1.0.1 (3차 점검 M15): backchannelLogoutUri 는 공개 http(s) 호스트만 — 내부·루프백·사설망·컨테이너 이름은 SSRF 라 거부")
+    void oidcRp_backchannelLogoutUri() throws Exception {
+        String tpl = """
+                {"schemaVersion":1,"service":{"code":"AG","name":"x"},
+                 "protocol":{"type":"OIDC_RP","oidc":{"redirectUris":["https://rp.example.org/cb"],"backchannelLogoutUri":"%s"}},
+                 "policy":{"minAuthLevel":"L1"}}
+                """;
+        for (String bad : new String[] {"http://idem-hub:8083/api/internal/v1/session/idp-logout", "http://localhost:8083/x", "http://127.0.0.1/x",
+                "http://10.0.0.5/x", "http://172.16.3.4/x", "http://192.168.0.1/x", "http://169.254.169.254/latest", "http://[::1]/x",
+                "http://hub.internal/x", "http://svc.local/x", "https://rp.example.org/*", "https://rp.example.org/cb#f", "ftp://rp.example.org/x", "/relative"}) {
+            assertThat(validator.violations(json(tpl.formatted(bad)))).as(bad).anySatisfy(m -> assertThat(m).contains("backchannelLogoutUri"));
+        }
+        for (String ok : new String[] {"https://rp.example.org/logout/backchannel", "http://rp.example.org:8080/bc", "https://8.8.8.8/bc"}) {
+            assertThat(validator.violations(json(tpl.formatted(ok)))).as(ok).noneSatisfy(m -> assertThat(m).contains("backchannelLogoutUri"));
+        }
+        assertThat(ServiceProfileValidator.isInternalHost("100.64.0.1")).isTrue();
+        assertThat(ServiceProfileValidator.isInternalHost("fd00::1")).isTrue();
+        assertThat(ServiceProfileValidator.isInternalHost("rp.example.org")).isFalse();
+    }
+
+    @Test
     @DisplayName("필수 항목 누락·미지 속성·허용값 밖은 각각 위반으로 잡힌다")
     void violations_areReported() throws Exception {
         List<String> missingName = validator.violations(json(

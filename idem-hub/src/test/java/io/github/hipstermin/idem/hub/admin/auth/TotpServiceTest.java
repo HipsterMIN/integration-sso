@@ -37,6 +37,17 @@ class TotpServiceTest {
     }
 
     @Test
+    @DisplayName("matchedStep 은 맞은 스텝(counter)을 돌려준다 — 소비 키의 근거")
+    void matchedStep() {
+        Instant t = Instant.ofEpochSecond(1111111109L);
+        long step = 1111111109L / 30;
+        assertThat(sut.matchedStep(rfcSecret, "081804", t)).hasValue(step);
+        assertThat(sut.matchedStep(rfcSecret, "081804", t.plusSeconds(30))).hasValue(step);
+        assertThat(sut.matchedStep(rfcSecret, "000000", t)).isEmpty();
+        assertThat(sut.stepConsumptionTtl().getSeconds()).isEqualTo(90);
+    }
+
+    @Test
     void secretAndUri() {
         String s = sut.generateSecret();
         assertThat(s).matches("[A-Z2-7]{32}");

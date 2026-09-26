@@ -11,6 +11,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -162,6 +164,23 @@ public class GlobalExceptionHandler {
                         .message("요청한 경로가 없습니다.")
                         .timestamp(Instant.now())
                         .build());
+    }
+
+    /** 지원하지 않는 메서드(405) — 1.0.1: 종전에는 catch-all 이 500 E-IDO-500 + 스택 로그로 바꿔 5xx 지표를 오염시켰다. */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        log.debug("[IdO] 지원하지 않는 메서드: {}", ex.getMessage());
+        ResponseEntity.BodyBuilder b = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED);
+        if (ex.getSupportedHttpMethods() != null && !ex.getSupportedHttpMethods().isEmpty()) b.allow(ex.getSupportedHttpMethods().toArray(new org.springframework.http.HttpMethod[0]));
+        return b.body(ErrorResponse.builder().code("E-IDO-405").message("허용되지 않은 HTTP 메서드입니다.").timestamp(Instant.now()).build());
+    }
+
+    /** 지원하지 않는 Content-Type(415). */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex) {
+        log.debug("[IdO] 지원하지 않는 미디어 타입: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(ErrorResponse.builder().code("E-IDO-415").message("지원하지 않는 Content-Type 입니다.").timestamp(Instant.now()).build());
     }
 
     /**

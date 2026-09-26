@@ -2,6 +2,21 @@
 
 형식: [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/). 버전은 루트 `build.gradle.kts` 와 태그(`vX.Y.Z`)를 따른다. SDK 는 `idem-sdk-java/CHANGELOG.md`.
 
+## [Unreleased] — 1.0.1
+
+3차 적대적 점검(`docs/analysis/adversarial-review-1.0.md`) 후속. PR-A(보안) → PR-B(설치본) → PR-C(기능·문서) 순.
+
+### 보안 (PR-A)
+- **관리 API 인증 우회 수정 (H1)**: `AdminAuthFilter` 가 원본 URI 를 정규화(`RequestPath`)해 보호 경로를 판정하고, 경로 파라미터(`;x`)·퍼센트 인코딩(`%61`)·점 세그먼트·중복 슬래시로 위장한 요청은 세션과 무관하게 403 + 감사(`non-canonical path`). 모든 관리 엔드포인트(읽기 포함)와 Handoff 강제 취소가 `AdminPrincipal` 인자를 받아 필터를 지나쳐도 401 로 끝난다.
+- **gate 프록시 경로 이탈 수정 (H2)**: `KeycloakProxy` 가 정규형 경로만 전달하고 설정된 realm 아래·`/resources/**` 만 허용 — `..`/`%2e%2e` 로 Keycloak 관리 콘솔·master realm·admin REST 에 닿을 수 없다(400 `invalid_request`). Location 재작성은 호스트·포트 비교(루프백 별칭 포함)로 내부 URL 누출을 막는다.
+- **relay Flyway 제거 (H3)**: relay 가 `idem_hub` 에 `repair()` 를 돌려 hub 마이그레이션 이력을 지우던 결함. `BatchFlywayConfig`·relay `V19` 삭제, `shedlock` 은 hub `V27` 이 만든다.
+- **관리자 역할·테넌트 변경 시 세션 종료 (M2)**, **TOTP 코드 1회 사용 (M3, RFC 6238 §5.2)** — 같은 스텝의 코드 재사용은 `E-IDO-134` "이미 사용한 2단계 인증 코드"(Redis `idem:admin:totp:{adminId}:{step}`), `scripts/lib/admin-login.sh` 는 다음 스텝으로 재시도.
+- **Back-Channel Logout 검증 강화 (M4)**: `aud` 는 원소 정확 일치(`idem-gate-foo` 거부), `iat`·`jti` 필수, `exp`/최대 수명 검사, `jti` 재사용 거부(`idem:gate:bc-logout:jti:*`).
+- **`backchannelLogoutUri` 검증 (M15)**: 공개 http(s) 호스트만 — 루프백·사설망·링크로컬·`.local/.internal`·이름만인 호스트(컨테이너 이름) 거부(SSRF).
+- **gate 공개 OIDC 프런트 IP 레이트리밋 (M17)**: `/realms/**` 에 IP 당 20/s·300/min(`IDEM_GATE_FRONT_RL_*`), 초과 429 `rate_limited`, Redis 장애 시 503(fail-closed). `X-Forwarded-For` 는 `trust-forwarded-for=true` 일 때 마지막 홉만.
+- hub: 지원하지 않는 메서드·Content-Type 은 500 이 아니라 405 `E-IDO-405`·415 `E-IDO-415`. authz: 없는 경로·메서드·미디어 타입도 플랫폼 본문(`E-AUTHZ-404/405/415`, 경로 반사 없음).
+- 주석 정정: registry `QimWebMvcConfig`(상태 API 는 내부 키 필수), 레이트리밋 Redis 키 접두 `idem:*`, relay ShedLock 표 위치.
+
 ## [1.0.0] — 2026-09-26
 
 첫 동결 릴리스. 2026-09-10 부터의 범용화(`docs/generalization-plan.md` S1~S9·D1~D3)를 마감한다.

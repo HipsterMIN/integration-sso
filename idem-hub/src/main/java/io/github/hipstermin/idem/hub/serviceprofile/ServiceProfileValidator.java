@@ -130,7 +130,51 @@ public class ServiceProfileValidator {
                 }
             }
         }
+        // 1.0.1(3차 점검 M15): backchannelLogoutUri 는 Keycloak(서버)이 POST 하는 주소다 — 테넌트 관리자가 내부 주소를 적으면 SSRF.
+        // 같은 URL 규칙 + 내부·루프백·사설 호스트 거부. 스킴은 http(s) 를 허용하되 운영 문서는 https 를 권한다(Keycloak 이 검증한다).
+        JsonNode bc = oidc.get("backchannelLogoutUri");
+        if (bc != null && !bc.isNull()) {
+            String v = bc.asText("");
+            if (v.contains("*") || v.contains("#") || !(v.startsWith("https://") || v.startsWith("http://"))) {
+                out.add("protocol.oidc.backchannelLogoutUri: '" + v + "' — 절대 http(s) URL 이어야 하며 와일드카드·fragment 는 허용하지 않습니다");
+            } else {
+                String host = hostOf(v);
+                if (host == null || isInternalHost(host)) {
+                    out.add("protocol.oidc.backchannelLogoutUri: '" + v + "' — 공개 호스트여야 합니다 (루프백·사설망·링크로컬·호스트 이름만인 주소는 허용하지 않습니다)");
+                }
+            }
+        }
         return out;
+    }
+
+    static String hostOf(String url) {
+        try {
+            String h = java.net.URI.create(url).getHost();
+            return h == null || h.isBlank() ? null : h.toLowerCase(java.util.Locale.ROOT);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** 루프백·사설·링크로컬·메타데이터 주소, 점 없는 호스트 이름(컨테이너·서비스 이름), {@code .local}·{@code .internal} */
+    static boolean isInternalHost(String host) {
+        String h = host.startsWith("[") && host.endsWith("]") ? host.substring(1, host.length() - 1) : host;
+        if (h.equals("localhost") || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
+        if (!h.contains(".") && !h.contains(":")) return true;
+        if (h.equals("::1") || h.startsWith("fe80:") || h.startsWith("fc") || h.startsWith("fd")) return true;
+        if (h.startsWith("::ffff:")) h = h.substring("::ffff:".length());
+        String[] p = h.split("\\.");
+        if (p.length == 4) {
+            try {
+                int a = Integer.parseInt(p[0]);
+                int b = Integer.parseInt(p[1]);
+                if (a == 0 || a == 10 || a == 127 || (a == 169 && b == 254) || (a == 172 && b >= 16 && b <= 31)
+                        || (a == 192 && b == 168) || (a == 100 && b >= 64 && b <= 127)) return true;
+            } catch (NumberFormatException ignored) {
+                // 숫자 호스트가 아니면 이름 — 위에서 판정했다
+            }
+        }
+        return false;
     }
 
     /** 유효하지 않으면 400(E-IDO-113) — 메시지에 위반 항목을 담는다. */

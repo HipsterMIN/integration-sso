@@ -31,11 +31,12 @@ for k in sys.argv[1:]:
     v = v.get(k, "") if isinstance(v, dict) else ""
 print("" if v is None else v)' "$@"; }
 
-totp() { python3 - "$1" <<'PY'
+# totp SECRET [STEP_OFFSET] — 1.0.1 부터 같은 스텝의 코드는 한 번만 검증되므로(RFC 6238 §5.2) 30초 안의 재로그인은 다음 스텝(+1)으로 다시 시도한다
+totp() { python3 - "$1" "${2:-0}" <<'PY'
 import base64, hmac, hashlib, struct, sys, time
 s = sys.argv[1].strip().upper(); s += "=" * (-len(s) % 8)
 key = base64.b32decode(s)
-c = int(time.time()) // 30
+c = int(time.time()) // 30 + int(sys.argv[2])
 h = hmac.new(key, struct.pack(">Q", c), hashlib.sha1).digest()
 o = h[-1] & 0x0F
 print("%06d" % (((h[o] & 0x7F) << 24 | (h[o+1] & 0xFF) << 16 | (h[o+2] & 0xFF) << 8 | (h[o+3] & 0xFF)) % 1000000))
@@ -62,6 +63,15 @@ case "$status" in
     fi
     req=$(python3 -c 'import json,sys; print(json.dumps({"mfaToken": sys.argv[1], "code": sys.argv[2]}))' "$token" "$(totp "$SECRET")")
     code=$(curl -s -o "$body" -D "$hdr" -w '%{http_code}' -X POST "$HUB_URL/api/v1/admin/auth/mfa" -H 'Content-Type: application/json' -H "$CSRF" -d "$req")
+    if [ "$code" = "401" ] && grep -q '이미 사용한' "$body"; then
+      # 같은 스텝 재사용 거부 — 대기 토큰은 소비됐으니 로그인부터 다시, 다음 스텝 코드로
+      req=$(python3 -c 'import json,sys; print(json.dumps({"username": sys.argv[1], "password": sys.argv[2]}))' "$USERNAME" "$PASSWORD")
+      code=$(curl -s -o "$body" -D "$hdr" -w '%{http_code}' -X POST "$HUB_URL/api/v1/admin/auth/login" -H 'Content-Type: application/json' -H "$CSRF" -d "$req")
+      [ "$code" = "200" ] || { echo "관리자 로그인 실패 (HTTP $code): $(json code < "$body") $(json message < "$body")" >&2; exit 1; }
+      token=$(json mfaToken < "$body")
+      req=$(python3 -c 'import json,sys; print(json.dumps({"mfaToken": sys.argv[1], "code": sys.argv[2]}))' "$token" "$(totp "$SECRET" 1)")
+      code=$(curl -s -o "$body" -D "$hdr" -w '%{http_code}' -X POST "$HUB_URL/api/v1/admin/auth/mfa" -H 'Content-Type: application/json' -H "$CSRF" -d "$req")
+    fi
     [ "$code" = "200" ] || { echo "2단계 인증 실패 (HTTP $code): $(json code < "$body") $(json message < "$body")" >&2; exit 1; }
     SID=$(cookie_of "$hdr") ;;
   *) echo "알 수 없는 로그인 상태: $status" >&2; exit 1 ;;

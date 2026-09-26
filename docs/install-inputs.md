@@ -63,6 +63,7 @@ IDEM_HUB_CAST_PUBLIC_KEY=$(openssl pkey -in cast.pem -pubout -outform DER | base
 | Kafka | 없음 | `infra.kafka.enabled` + `bootstrapServers` | false | 켜면 relay 도 배포(`relay.enabled`) |
 | 관리자 첫 계정 | `IDEM_HUB_ADMIN_BOOTSTRAP_USERNAME` | `hub.adminBootstrapUsername` | admin | |
 | 관리 쿠키 Secure | `IDEM_HUB_ADMIN_COOKIE_SECURE` | `hub.adminCookieSecure` | true | TLS 없는 비-localhost 에서만 false |
+| gate 프런트 레이트리밋 | `IDEM_GATE_FRONT_RL_ENABLED` / `_PER_SECOND` / `_PER_MINUTE` / `_TRUST_XFF` | `gate.config.IDEM_GATE_FRONT_RL_*` (env 그대로) | true / 20 / 300 / false | 1.0.1: 공개 OIDC 엔드포인트(`/realms/**`) IP 당 한도. Ingress·리버스 프록시 뒤에서는 `_TRUST_XFF=true`(X-Forwarded-For 마지막 홉이 클라이언트). Redis 장애 시 503 |
 | DB 주소 | compose 내부 postgres | `infra.postgres.host/port/database/sslMode` | idem | Helm 은 바깥 PostgreSQL |
 | Redis 주소 | compose 내부 redis | `infra.redis.host/port(+existingSecret)` | | Helm 은 바깥 Redis |
 | Keycloak | compose 내부 | `keycloak.enabled` / `externalUrl` / `adminUrl` | 차트가 올림 | 밖의 Keycloak 은 realm `idem` + client 4개가 있어야 한다 |

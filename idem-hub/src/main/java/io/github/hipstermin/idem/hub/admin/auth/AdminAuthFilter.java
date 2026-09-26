@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.error.ErrorResponse;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.util.CorrelationIdHolder;
+import io.github.hipstermin.idem.common.web.RequestPath;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -28,6 +29,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>CSRF: 쿠키 세션이므로 상태를 바꾸는 요청은 {@code X-Requested-With} 헤더를 요구한다 — 브라우저는 교차 출처에서 이 헤더를
  * 사전 검사 없이 붙일 수 없고, 쿠키는 SameSite=Strict 다. 로그인에도 적용한다(로그인 CSRF).
+ *
+ * <p>경로 판정(1.0.1, 3차 점검 H1): 컨테이너는 {@code /api/v1/admin;x/…}·{@code /api/v1/%61dmin/…} 를 {@code /api/v1/admin/…} 으로
+ * 라우팅하지만 {@code getRequestURI()} 는 원본이다. 그래서 {@link RequestPath#canonical} 로 정규화한 경로로 보호 여부를 정하고,
+ * 보호 경로인데 원본이 정규형이 아니면(경로 파라미터·인코딩·점 세그먼트·중복 슬래시) 403 으로 거부한다.
  */
 @Slf4j
 @Component
@@ -53,7 +58,9 @@ public class AdminAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
+        Optional<String> canonical = RequestPath.canonical(request.getRequestURI());
+        if (canonical.isEmpty()) return false;   // 정규화할 수 없는 경로 — 필터가 거부한다
+        String path = canonical.get();
         if ("DELETE".equals(request.getMethod()) && matcher.match("/api/v1/handoff/*", path)) return false;
         return PROTECTED.stream().noneMatch(p -> matcher.match(p, path));
     }
@@ -61,8 +68,16 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String path = request.getRequestURI();
+        String raw = request.getRequestURI();
         String method = request.getMethod();
+        Optional<String> canonical = RequestPath.canonicalIfSafe(raw);
+        if (canonical.isEmpty()) {
+            // 보호 경로를 위장한 요청(;x·%61·..·//) — 무엇을 노렸든 거부하고 감사에 남긴다
+            auditor.failure("ADMIN_ACCESS_DENIED", "anonymous", "API", method + " " + raw, clientIp(request), "non-canonical path");
+            reject(response, PlatformErrorCode.ADMIN_FORBIDDEN, "경로에 허용되지 않은 형식(경로 파라미터·퍼센트 인코딩·점 세그먼트·중복 슬래시)이 있습니다");
+            return;
+        }
+        String path = canonical.get();
         boolean mutating = !("GET".equals(method) || "HEAD".equals(method) || "OPTIONS".equals(method));
 
         if (mutating && request.getHeader(CSRF_HEADER) == null) {

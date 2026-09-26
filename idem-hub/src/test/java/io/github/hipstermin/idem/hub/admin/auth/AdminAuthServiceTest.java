@@ -61,6 +61,8 @@ class AdminAuthServiceTest {
         org.mockito.Mockito.doAnswer(inv -> { kv.put(inv.getArgument(0), inv.getArgument(1)); return null; })
                 .when(values).set(anyString(), anyString(), any(java.time.Duration.class));
         given(values.getAndDelete(anyString())).willAnswer(inv -> kv.remove(inv.getArgument(0, String.class)));
+        given(values.setIfAbsent(anyString(), anyString(), any(java.time.Duration.class)))
+                .willAnswer(inv -> kv.putIfAbsent(inv.getArgument(0, String.class), inv.getArgument(1, String.class)) == null);
         given(redis.delete(anyString())).willAnswer(inv -> kv.remove(inv.getArgument(0, String.class)) != null);
         sessions = new AdminSessionStore(redis, new ObjectMapper().findAndRegisterModules(), props);
         sut = new AdminAuthService(users, sessions, totp, cipher, policy, props, auditor, jdbc);
@@ -97,6 +99,25 @@ class AdminAuthServiceTest {
         assertThatThrownBy(() -> sut.verifyMfa(r2.mfaToken(), "000000", "1.1.1.1"))
                 .isInstanceOf(PlatformException.class).extracting("errorCode").isEqualTo(PlatformErrorCode.ADMIN_MFA_REQUIRED);
         assertThat(user.getFailedAttempts()).isEqualTo((short) 1);
+    }
+
+    @Test
+    @DisplayName("1.0.1: 같은 TOTP 스텝의 코드는 한 번만 — 두 번째 로그인은 거부(E-IDO-134, 실패 카운터는 그대로), 다음 스텝 코드는 통과")
+    void totpStepConsumedOnce() {
+        AdminAuthService.LoginResult r = sut.login("alice", "Correct-Horse-9", "ip");
+        Instant now = Instant.now();
+        String code = totp.currentCode(r.secret(), now);
+        sut.verifyMfa(r.mfaToken(), code, "ip");
+
+        AdminAuthService.LoginResult r2 = sut.login("alice", "Correct-Horse-9", "ip");
+        assertThatThrownBy(() -> sut.verifyMfa(r2.mfaToken(), code, "ip"))
+                .isInstanceOf(PlatformException.class).extracting("errorCode").isEqualTo(PlatformErrorCode.ADMIN_MFA_REQUIRED);
+        assertThat(user.getFailedAttempts()).isEqualTo((short) 0);
+        verify(auditor).failure(eq(AdminAuthService.ACTION_MFA_FAILED), eq("alice"), anyString(), anyString(), anyString(), eq("totp reuse"));
+
+        AdminAuthService.LoginResult r3 = sut.login("alice", "Correct-Horse-9", "ip");
+        String next = totp.currentCode(r.secret(), now.plusSeconds(30));
+        assertThat(sut.verifyMfa(r3.mfaToken(), next, "ip").username()).isEqualTo("alice");
     }
 
     @Test

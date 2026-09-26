@@ -33,8 +33,15 @@ class BackchannelLogoutControllerTest {
     @Mock KeycloakJwksVerifier jwksVerifier;
     @Mock HubSessionClient hubSessionClient;
     @Mock AccessDecisionCache cache;
+    @Mock org.springframework.data.redis.core.StringRedisTemplate redis;
+    @Mock org.springframework.data.redis.core.ValueOperations<String, String> values;
+    final java.util.Set<String> seenJti = new java.util.HashSet<>();
     MockMvc mvc;
     static final String EVENTS = "\"events\":{\"http://schemas.openid.net/event/backchannel-logout\":{}}";
+    /** 1.0.1 필수 클레임: iat(지금)·jti — 테스트마다 다른 jti */
+    static String fresh() {
+        return "\"iat\":" + (System.currentTimeMillis() / 1000L) + ",\"jti\":\"" + java.util.UUID.randomUUID() + "\",";
+    }
 
     @BeforeEach
     void setUp() {
@@ -44,7 +51,11 @@ class BackchannelLogoutControllerTest {
         kc.setClientId("idem-gate");
         OidcFrontProperties props = new OidcFrontProperties();
         props.setIssuer("https://sso.example.org/realms/idem");
-        mvc = MockMvcBuilders.standaloneSetup(new BackchannelLogoutController(jwksVerifier, kc, props, hubSessionClient, cache)).build();
+        given(redis.opsForValue()).willReturn(values);
+        given(values.setIfAbsent(anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class)))
+                .willAnswer(inv -> seenJti.add(inv.getArgument(0, String.class)));
+        mvc = MockMvcBuilders.standaloneSetup(new BackchannelLogoutController(jwksVerifier, kc, props, hubSessionClient, cache,
+                new LogoutTokenReplayGuard(redis))).build();
         given(hubSessionClient.notifyIdpLogout(anyString(), anyString(), anyString(), anyString())).willReturn(1);
     }
 
@@ -56,7 +67,7 @@ class BackchannelLogoutControllerTest {
     @DisplayName("유효한 logout_token: hub 에 sub·sid 통지, 판정 캐시 삭제, 200")
     void valid() throws Exception {
         given(jwksVerifier.verify(eq("lt"), anyString())).willReturn(claims(
-                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"kc-sub\",\"sid\":\"sid-9\",\"iat\":1," + EVENTS + "}"));
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"kc-sub\",\"sid\":\"sid-9\"," + fresh() + EVENTS + "}"));
         mvc.perform(post("/api/v1/oidc/backchannel-logout").contentType(MediaType.APPLICATION_FORM_URLENCODED).param("logout_token", "lt"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.ok").value(true));
         verify(hubSessionClient).notifyIdpLogout(eq("kc-sub"), eq("sid-9"), eq("BACKCHANNEL_LOGOUT"), anyString());
@@ -67,7 +78,7 @@ class BackchannelLogoutControllerTest {
     @DisplayName("내부 issuer(Keycloak 내부 주소) 도 허용하고, aud 가 idem-hub 여도 받는다")
     void internalIssuerAndIdoClient() throws Exception {
         given(jwksVerifier.verify(eq("lt"), anyString())).willReturn(claims(
-                "{\"iss\":\"http://keycloak:8080/realms/idem\",\"aud\":[\"idem-hub\"],\"sub\":\"kc-sub\"," + EVENTS + "}"));
+                "{\"iss\":\"http://keycloak:8080/realms/idem\",\"aud\":[\"idem-svc-AG1\",\"idem-hub\"],\"sub\":\"kc-sub\"," + fresh() + EVENTS + "}"));
         mvc.perform(post("/api/v1/oidc/backchannel-logout").contentType(MediaType.APPLICATION_FORM_URLENCODED).param("logout_token", "lt"))
                 .andExpect(status().isOk());
     }
@@ -75,13 +86,21 @@ class BackchannelLogoutControllerTest {
     @Test
     @DisplayName("거부: events 없음 · nonce 있음 · 다른 aud · 다른 iss · sub·sid 없음 · 서명 실패 — hub 를 부르지 않는다")
     void rejected() throws Exception {
-        String base = "\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"kc-sub\",\"sid\":\"s\"";
+        String base = "\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"kc-sub\",\"sid\":\"s\"," + fresh();
+        long now = System.currentTimeMillis() / 1000L;
         String[] bad = {
-                "{" + base + "}",                                   // events 없음
-                "{" + base + ",\"nonce\":\"n\"," + EVENTS + "}",    // nonce
-                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-svc-AG1\",\"sub\":\"x\"," + EVENTS + "}", // aud
-                "{\"iss\":\"https://evil/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"x\"," + EVENTS + "}",     // iss
-                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\"," + EVENTS + "}"          // sub·sid 없음
+                "{" + base + "\"x\":1}",                                   // events 없음
+                "{" + base + "\"nonce\":\"n\"," + EVENTS + "}",    // nonce
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-svc-AG1\",\"sub\":\"x\"," + fresh() + EVENTS + "}", // aud
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate-foo\",\"sub\":\"x\"," + fresh() + EVENTS + "}", // aud 부분 일치(1.0.1)
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":[\"idem-gate-foo\",\"xidem-hub\"],\"sub\":\"x\"," + fresh() + EVENTS + "}",
+                "{\"iss\":\"https://evil/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"x\"," + fresh() + EVENTS + "}",     // iss
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\"," + fresh() + EVENTS + "}",          // sub·sid 없음
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"x\",\"jti\":\"j1\"," + EVENTS + "}", // iat 없음(1.0.1)
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"x\",\"iat\":" + now + "," + EVENTS + "}", // jti 없음
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"x\",\"iat\":" + (now - 1000) + ",\"exp\":" + (now - 500) + ",\"jti\":\"j2\"," + EVENTS + "}", // exp 지남
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"x\",\"iat\":" + (now - 1000) + ",\"jti\":\"j3\"," + EVENTS + "}", // exp 없고 iat 오래됨
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"x\",\"iat\":" + (now + 1000) + ",\"jti\":\"j4\"," + EVENTS + "}", // iat 미래
         };
         for (String json : bad) {
             given(jwksVerifier.verify(eq("lt"), anyString())).willReturn(claims(json));
@@ -92,5 +111,20 @@ class BackchannelLogoutControllerTest {
         mvc.perform(post("/api/v1/oidc/backchannel-logout").contentType(MediaType.APPLICATION_FORM_URLENCODED).param("logout_token", "lt"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("invalid_signature"));
         verify(hubSessionClient, never()).notifyIdpLogout(anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("1.0.1: 같은 jti 의 logout_token 은 두 번째부터 400 replayed — hub 는 한 번만 부른다")
+    void replayRejected() throws Exception {
+        long now = System.currentTimeMillis() / 1000L;
+        given(jwksVerifier.verify(eq("lt"), anyString())).willReturn(claims(
+                "{\"iss\":\"https://sso.example.org/realms/idem\",\"aud\":\"idem-gate\",\"sub\":\"kc-sub\",\"sid\":\"s1\",\"iat\":" + now + ",\"exp\":" + (now + 120)
+                        + ",\"jti\":\"same-jti\"," + EVENTS + "}"));
+        mvc.perform(post("/api/v1/oidc/backchannel-logout").contentType(MediaType.APPLICATION_FORM_URLENCODED).param("logout_token", "lt"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/oidc/backchannel-logout").contentType(MediaType.APPLICATION_FORM_URLENCODED).param("logout_token", "lt"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").value("replayed"));
+        verify(hubSessionClient, org.mockito.Mockito.times(1)).notifyIdpLogout(anyString(), anyString(), anyString(), anyString());
+        verify(values, org.mockito.Mockito.times(2)).setIfAbsent(eq(LogoutTokenReplayGuard.PREFIX + "same-jti"), eq("1"), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
     }
 }

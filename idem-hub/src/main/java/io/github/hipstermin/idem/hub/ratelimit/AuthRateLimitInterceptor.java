@@ -36,9 +36,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
  *
  * <p><b>Redis 키 구조</b>:
  * <pre>
- *   ido:auth-rl:tps:{ip}:{epochSecond}     → 초당 카운터 (TTL 2s)
- *   ido:auth-rl:min:{ip}:{epochMinute}     → 분당 카운터 (TTL 70s)
- *   ido:auth-rl:daily:{ip}:{yyyyMMdd}      → 일별 카운터 (TTL 25h)
+ *   idem:auth-rl:tps:{ip}:{epochSecond}     → 초당 카운터 (TTL 2s)
+ *   idem:auth-rl:min:{ip}:{epochMinute}     → 분당 카운터 (TTL 70s)
+ *   idem:auth-rl:daily:{ip}:{yyyyMMdd}      → 일별 카운터 (TTL 25h)
  * </pre>
  *
  * <p><b>IP 추출 우선순위</b>:
