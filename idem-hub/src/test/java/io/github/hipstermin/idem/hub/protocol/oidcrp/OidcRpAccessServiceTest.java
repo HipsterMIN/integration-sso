@@ -47,13 +47,15 @@ class OidcRpAccessServiceTest {
     @Mock QimClient qim;
     @Mock QAuthzClient authz;
     @Mock PolicyEngine engine;
+    @Mock io.github.hipstermin.idem.hub.ratelimit.AgencyRateLimiter rateLimiter;
     OidcRpProperties props = new OidcRpProperties();
     KeycloakProperties kc = new KeycloakProperties();
     OidcRpAccessService sut;
 
     @BeforeEach
     void setUp() {
-        sut = new OidcRpAccessService(props, profiles, kc, qim, authz, engine);
+        sut = new OidcRpAccessService(props, profiles, kc, qim, authz, engine, rateLimiter);
+        given(rateLimiter.tryAcquire(anyString(), any(), any())).willReturn(true);
         given(profiles.find("AG1")).willReturn(Optional.of(profile("AG1", IntegrationType.OIDC_RP, null)));
         QimMemberInfo info = mock(QimMemberInfo.class);
         given(info.getQimUserId()).willReturn("qim-1");
@@ -194,5 +196,16 @@ class OidcRpAccessServiceTest {
 
         given(profiles.find("AG1")).willReturn(Optional.of(profile("AG1", IntegrationType.OIDC_RP, null)));
         assertThat(sut.evaluate(req("idem-svc-AG1", "social-kakao", "1"), "cid").sessionPolicy()).isNull();
+    }
+
+    @Test
+    @DisplayName("1.0.1 (3차 점검 H9): 프로파일 limits 를 넘기면 E-AGENCY-306 거부(rule RATE_LIMIT) — 정책 평가·registry 호출 전에 끝난다")
+    void rateLimited() {
+        given(rateLimiter.tryAcquire(eq("AG1"), any(), any())).willReturn(false);
+        OidcRpAccessResponse r = sut.evaluate(new OidcRpAccessRequest("idem-svc-AG1", "kc-sub", "social-kakao", "1", "sid-1", "cid"), "cid");
+        assertThat(r.allowed()).isFalse();
+        assertThat(r.denyCode()).isEqualTo(io.github.hipstermin.idem.common.error.PlatformErrorCode.AGENCY_RATE_LIMIT_EXCEEDED.getCode());
+        assertThat(r.rule()).isEqualTo("RATE_LIMIT");
+        verify(engine, never()).evaluate(any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 }

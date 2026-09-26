@@ -2,9 +2,9 @@
 
 형식: [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/). 버전은 루트 `build.gradle.kts` 와 태그(`vX.Y.Z`)를 따른다. SDK 는 `idem-sdk-java/CHANGELOG.md`.
 
-## [Unreleased] — 1.0.1
+## [1.0.1] — 2026-09-26
 
-3차 적대적 점검(`docs/analysis/adversarial-review-1.0.md`) 후속. PR-A(보안) → PR-B(설치본) → PR-C(기능·문서) 순.
+3차 적대적 점검(`docs/analysis/adversarial-review-1.0.md`) 후속. PR-A(보안, #244) → PR-B(설치본, #245) → PR-C(기능·문서). 태그 `v1.0.1`.
 
 ### 보안 (PR-A)
 - **관리 API 인증 우회 수정 (H1)**: `AdminAuthFilter` 가 원본 URI 를 정규화(`RequestPath`)해 보호 경로를 판정하고, 경로 파라미터(`;x`)·퍼센트 인코딩(`%61`)·점 세그먼트·중복 슬래시로 위장한 요청은 세션과 무관하게 403 + 감사(`non-canonical path`). 모든 관리 엔드포인트(읽기 포함)와 Handoff 강제 취소가 `AdminPrincipal` 인자를 받아 필터를 지나쳐도 401 로 끝난다.
@@ -28,6 +28,10 @@
 - **actuator 관리 포트 (M7)**: `management.server.port=${IDEM_MANAGEMENT_PORT:${server.port}}`. Helm 은 9090 으로 분리하고 Service·Ingress 는 앱 포트만 내보낸다(프로브도 관리 포트). compose 는 앱 포트 그대로 — 리버스 프록시가 `/actuator` 를 막는다(문서).
 - **compose 플러그인 플래그 (M8)**: `IDEM_PLUGINS_NICE_OACX_ENABLED`·`IDEM_PLUGINS_ANYID_ENABLED` 를 `install.env` 로 켠다.
 - **Keycloak (M9·M10)**: Helm `KC_HOSTNAME_ADMIN_URL` 기본 `http://localhost:8088`(port-forward), `replicaCount>1` 은 `KC_CACHE_STACK` 없이는 렌더링 거부. realm-export 의 내부 client redirect URI·webOrigins 는 `${IDEM_PUBLIC_URL_GATE}`·`_HUB`·`_CONSOLE` 자리표시자 — compose·Helm·CI 가 Keycloak 에 그 값을 준다.
+- **프로파일 `limits.tps/daily` 적용 (H9, PR-C)**: Handoff 발급(`HandoffServiceImpl`)과 표준 OIDC 토큰 교환(`OidcRpAccessService`)이 프로파일 한도를 `AgencyRateLimiter` 에 전달한다(없으면 설치본 기본 200 tps·1,000,000/일). 초과는 Handoff `429 E-AGENCY-306`, OIDC 토큰 교환 `429 temporarily_unavailable` + `Retry-After`(gate).
+- **문서 정정 (PR-C)**: 온보딩 예시 `schemaVersion: 1`(정수)·모르는 키는 400·`INACTIVE` 는 authorize 단계 400·`status` 생략 시 ACTIVE·admin-login 환경변수 이름; 관리자 매뉴얼 PUT 순서(테넌트 → 스키마 → 저장 → Keycloak, 같은 트랜잭션); `install-inputs` 읽는 쪽 3건·`IDEM_HUB_INTERNAL_SIG_SECRET` 규칙·완료 판정 regex `[A-Z0-9_]`(CI 도); 제품 설명서 지표 이름(`slo.*` 등, hub prometheus 미등록)·감사 표현·K8s/Helm 버전 근거·주체 스킴 `PLATFORM_ID`·SCIM 인바운드; 시험 항목표 자동화 재집계(51 중 자동 41 = CI 37 + 로컬 IT 4, 수동 10)와 GS 착수 문서.
+- **개명 잔재·가드 (PR-C)**: KR 포털 FE 의 `IDO_API_*`·`X-IDO-API-Key`·`ucube-qsign`·`onepassCli`·`QSIGN_*`, 스모크의 `AUTHZ_URL` 정리. `NamingGuardTest` 가 FE 소스(`.ts/.tsx`)·`.py`·Dockerfile·`AUTHZ_/BATCH_` 접두도 본다.
+- 버전 1.0.1 (루트 build, 콘솔 package, Helm Chart, 매뉴얼).
 - LOW: Trivy 스캔이 `docker-build` 의 실제 이미지를 스캔한다(종전 `helm-lint` 끝에서 존재하지 않는 이미지를 스캔하고 항상 통과). `DB_SSLMODE`/`IDEM_*_DB_SSLMODE` 로 gate·hub·authz 도 JDBC TLS 를 켤 수 있다(Helm `infra.postgres.sslMode`). Helm `idem.host` 가 경로·포트 있는 URL 을 다룬다. 문서: Docker Compose ≥ 2.17.
 
 ## [1.0.0] — 2026-09-26
@@ -55,7 +59,7 @@
 - 설치·입력값·온보딩·요구사항 체크리스트·관리자 인증·개명 대응표, 1.0 매뉴얼 초안 4종(`docs/manuals/`), GS 착수 문서.
 
 ### 알려진 제한
-- SAML SP·SCIM 아웃바운드·동의 카탈로그·Audit Sink SPI 없음. API 경로·오류 코드(`E-IDO-1xx`, `/admin/agencies`)와 SDK 설정 키(`onepass.*`)는 1.0 에서 동결, 개명은 2.0.
+- SAML SP·SCIM 아웃바운드·동의 카탈로그·Audit Sink SPI 없음. API 경로·오류 코드(`E-IDO-1xx`, `/admin/agencies`)와 에이전트 설정 키(`onepass.agent.*`, 외부 계약)는 1.0 에서 동결, 개명은 2.0.
 - 실제 K8s 배포·오프라인 설치·백업 복구는 리허설 전(`docs/manuals/installation-manual.md` §8).
 
 [1.0.0]: https://github.com/HipsterMIN/integration-sso/releases/tag/v1.0.0

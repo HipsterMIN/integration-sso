@@ -12,7 +12,7 @@
 | 3 시험 | 기관 개발팀 + 운영기관 | 시험용 issuer/client 로 기관 RP(또는 `idem-tenant-sample`) 로그인 | 로그인·속성·로그아웃·거부 사례 확인 |
 | 4 승인 | SYSTEM_ADMIN | `service.status=ACTIVE` 로 저장(사유 기록) | 실사용자 트래픽 허용, 감사에 남음 |
 
-상태는 두 가지뿐이다: `INACTIVE`(작성·시험 중, 실 로그인 거부) / `ACTIVE`(운영). 별도 "승인 대기" 상태는 두지 않고 **ACTIVE 전환 권한을 SYSTEM_ADMIN 에게만** 둔다(역할은 §5).
+상태는 두 가지뿐이다: `INACTIVE`(작성·시험 중, 실 로그인 거부) / `ACTIVE`(운영). **`service.status` 를 생략하면 스키마 기본값 `ACTIVE`** 다 — 온보딩 중에는 반드시 `INACTIVE` 를 적는다. 별도 "승인 대기" 상태는 두지 않고 **ACTIVE 전환 권한을 SYSTEM_ADMIN 에게만** 둔다(역할은 §5).
 
 ## 1. 작성
 
@@ -33,7 +33,7 @@
 
 ```bash
 # 관리자 세션 (2단계 포함) — scripts/lib/admin-login.sh 가 쿠키를 돌려준다
-SID=$(IDEM_HUB_URL=https://hub.example.org scripts/lib/admin-login.sh)
+SID=$(HUB_URL=https://hub.example.org IDEM_ADMIN_PASSWORD='…' IDEM_ADMIN_TOTP_SECRET='…' scripts/lib/admin-login.sh)   # 스크립트는 HUB_URL·IDEM_ADMIN_PASSWORD(·TOTP 비밀)를 읽는다
 curl -sS -X PUT "https://hub.example.org/api/v1/admin/services/AGENCY01/profile" \
   -H "Cookie: idemAdminSid=$SID" -H "X-Requested-With: XMLHttpRequest" \
   -H "Content-Type: application/json" -H "X-Change-Reason: 온보딩 접수 2026-0042" \
@@ -44,7 +44,7 @@ curl -sS -X PUT "https://hub.example.org/api/v1/admin/services/AGENCY01/profile"
 
 ```json
 {
-  "schemaVersion": "1",
+  "schemaVersion": 1,
   "service":  { "code": "AGENCY01", "name": "기관01 민원포털", "status": "INACTIVE", "tenant": "DEFAULT" },
   "protocol": { "type": "OIDC_RP",
                 "oidc": { "redirectUris": ["https://portal.agency01.example/login/callback"],
@@ -65,7 +65,7 @@ curl -sS -X PUT "https://hub.example.org/api/v1/admin/services/AGENCY01/profile"
 
 | 검사 | 방법 | 통과 기준 |
 |---|---|---|
-| 스키마 | `PUT` 응답 | `200` + 저장된 프로파일. `400`(스키마 위반) 이면 응답의 오류 목록대로 고친다. 모르는 키는 저장은 되지만 **효과가 없다** — 오타를 의심한다 |
+| 스키마 | `PUT` 응답 | `200` + 저장된 프로파일. `400`(스키마 위반) 이면 응답의 오류 목록대로 고친다. 모르는 키도 `400` 이다(모든 객체가 `additionalProperties: false`) — 오타를 의심한다 |
 | Tenant 범위 | `PUT` 응답 | `403 E-IDO-131` 이면 관리자의 Tenant 범위 밖 — SYSTEM_ADMIN 이 하거나 Tenant 를 바꾼다 |
 | OIDC client | 콘솔 서비스 상세 → OIDC client / `GET …/{code}/oidc-client` | `provisioned=true`, `clientId=idem-svc-{code}`, issuer 가 공개 gate URL. 저장 때 `503 E-IDO-122` 면 Keycloak 프로비저닝 실패 — 프로파일은 저장되지 않는다(fail-closed). Keycloak·`KEYCLOAK_PROVISIONER_CLIENT_SECRET` 을 확인하고 다시 저장 |
 | client secret | `POST …/{code}/oidc-client/secret` (회전) | 응답에 **한 번만** 나온다. 기관에 안전한 경로로 전달하고 기록하지 않는다 |
@@ -78,9 +78,9 @@ curl -sS -X PUT "https://hub.example.org/api/v1/admin/services/AGENCY01/profile"
 2. **시험 사용자**: 설치본 검증 단계처럼 Mock 본인확인 제공자(`IDEM_PLUGINS_MOCK_AUTH_ENABLED=true`, 시험 환경에서만)를 `policy.allowedProviders` 에 넣어 로그인한다. KR 에디션은 NICE 시험 계정.
 3. **확인 항목**
    - 로그인 → RP 가 받은 `sub`(`subjectScheme` 대로: 가명 / 이메일 / 외부 sub)와 `idem_*` 클레임(요청한 속성만, 마스킹 규칙대로)
-   - 거부: `INACTIVE` 상태에서는 로그인이 `403 access_denied` 로 끝나야 한다. 인증 수준 미달·미할당(`policy.assignment` 사용 시)도 같은 방식으로 거부
+   - 거부: `INACTIVE` 상태에서는 Keycloak client 가 비활성이라 **authorize 단계에서 `400`(Client disabled)** 으로 끝난다(토큰 교환 전 차단; 정책 판정은 2차 방어). 인증 수준 미달·미할당(`policy.assignment` 사용 시)·점검 시간은 토큰 교환에서 `403 access_denied`
    - 로그아웃: RP 로그아웃 → `end_session_endpoint` → Idem 세션·Keycloak 세션 종료(SLO), 백채널 로그아웃 URI 가 있으면 수신 확인
-   - 한도: `limits.tps` 를 넘기면 `429`
+   - 한도(1.0.1): `limits.tps`/`daily` 를 넘기면 Handoff 발급은 `429 E-AGENCY-306`, 표준 OIDC 토큰 교환은 `429 temporarily_unavailable`(Retry-After). 생략하면 설치본 기본 200 tps · 1,000,000/일
    - 감사: 콘솔 감사 → 서비스 코드로 검색하면 위 행위가 모두 있다(`ADMIN_*` 와 인증 이벤트)
 4. 시험 뒤 Mock 제공자를 끄고(운영 환경에 켜지 않는다), 시험 중 만든 client secret 은 승인 전에 **한 번 더 회전**한다.
 
@@ -107,6 +107,6 @@ SYSTEM_ADMIN 이 콘솔에서 `service.status=ACTIVE` 로 바꿔 저장한다(�
 |---|---|---|
 | 저장 `503 E-IDO-122` | Keycloak 에 client 를 못 만듦 | Keycloak 기동·`idem-provisioner` secret·hub 로그 `[OidcRpClientProvisioner]` |
 | RP 에서 `invalid_client` | client_id 가 `idem-svc-{code}` 가 아니거나 Idem 이 만든 client 가 아님(`E-IDO-123`) | 콘솔 OIDC client 상태 확인 |
-| RP 에서 `access_denied` | 서비스 `INACTIVE`, 인증 수준 미달, 미할당, 점검 시간 | 시뮬레이션으로 어느 규칙인지 확인 |
+| RP 에서 `access_denied` | 인증 수준 미달, 미할당, 점검 시간 (서비스 `INACTIVE` 는 authorize 단계 `400` Client disabled) | 시뮬레이션으로 어느 규칙인지 확인 |
 | `sub` 가 `GUEST` | `subjectScheme` 이 EMAIL/PHONE/EXTERNAL_SUB 인데 그 스킴으로 등록되지 않은 사용자 | 스킴을 `PAIRWISE_HMAC` 으로 두거나 기관 측 첫 로그인 연결 안내 |
 | 속성이 비어 있다 | `identity.attributes` 에 없거나 사용자에게 값이 없음(`E-IDO-114`) | 필수 속성을 줄이거나 제공자를 바꾼다 |

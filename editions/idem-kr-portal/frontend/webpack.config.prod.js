@@ -63,17 +63,17 @@ const plugins = [
 			FARO_COLLECTOR_URL: process.env.FARO_COLLECTOR_URL,
 			FARO_TENANT_ID: process.env.FARO_TENANT_ID,
 			QSIGN_BASE_URL: process.env.QSIGN_BASE_URL,
-			QSIGN_REALM: process.env.QSIGN_REALM,
-			QSIGN_CLIENT_ID: process.env.QSIGN_CLIENT_ID,
+			KEYCLOAK_REALM: process.env.KEYCLOAK_REALM,
+			KEYCLOAK_CLIENT_ID: process.env.KEYCLOAK_CLIENT_ID,
 			EXT_API_KEY: process.env.EXT_API_KEY,
 			EXT_API_ENDPOINT: process.env.EXT_API_ENDPOINT,
 			// IdO API (Phase 2 / SEC-IDO-01..03: BE_API_* → IDO_API_* rename, ADR-008)
 			// IDO_API_* 우선, 없으면 구 BE_API_* fallback (호환 기간 유지)
-			IDO_API_KEY: process.env.IDO_API_KEY || process.env.BE_API_KEY,
-			IDO_API_ENDPOINT: process.env.IDO_API_ENDPOINT || process.env.BE_API_ENDPOINT,
+			IDEM_HUB_API_KEY: process.env.IDEM_HUB_API_KEY || process.env.BE_API_KEY,
+			IDEM_HUB_API_ENDPOINT: process.env.IDEM_HUB_API_ENDPOINT || process.env.BE_API_ENDPOINT,
 			// 하위호환: 외부 잔존 BE_API_* 참조용 (Phase 2 후속 PR 에서 제거 예정)
-			BE_API_KEY: process.env.IDO_API_KEY || process.env.BE_API_KEY,
-			BE_API_ENDPOINT: process.env.IDO_API_ENDPOINT || process.env.BE_API_ENDPOINT,
+			BE_API_KEY: process.env.IDEM_HUB_API_KEY || process.env.BE_API_KEY,
+			BE_API_ENDPOINT: process.env.IDEM_HUB_API_ENDPOINT || process.env.BE_API_ENDPOINT,
 			EASYSIGN_URL: process.env.EASYSIGN_URL,
 			EASYSIGN_ORIGIN: process.env.EASYSIGN_ORIGIN,
 			AES_GCM_KEY: process.env.AES_GCM_KEY,

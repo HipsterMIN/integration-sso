@@ -2,8 +2,8 @@ apiVersion: v2
 name: idem
 description: Idem — 회원통합·연합인가 플랫폼. 단일 설치본(infra/docker/compose.install.yml)과 같은 구성 — 숨긴 Keycloak · idem-gate · idem-registry · idem-hub · idem-authz · idem-console-admin (+ KR 에디션 idem-kr-portal). PostgreSQL·Redis 는 바깥 서비스.
 type: application
-version: 1.0.0
-appVersion: "1.0.0"
+version: 1.0.1
+appVersion: "1.0.1"
 keywords:
   - idem
   - sso

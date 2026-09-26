@@ -23,12 +23,12 @@
 
 콘솔 **새 서비스 / 편집** — 폼은 스키마(`profile-schema`)에서 만들어지며 필수 항목은 `schemaVersion`·`service`·`protocol`·`policy`. 저장(`PUT …/{code}/profile`)은 다음을 한 번에 한다:
 
-1. 스키마 검증(위반이면 400 + 오류 목록, 저장 안 됨)
-2. Tenant 범위 확인(`403 E-IDO-131`)
-3. `protocol.type=OIDC_RP` 면 Keycloak 에 client `idem-svc-{code}` 프로비저닝(실패 시 `503 E-IDO-122`, 저장 안 됨)
-4. 저장 + 감사(변경 사유 `X-Change-Reason` 포함)
+1. Tenant 범위 확인(`403 E-IDO-131`)
+2. 스키마 검증(위반이면 400 + 오류 목록, 저장 안 됨)
+3. 저장 + 감사(변경 사유 `X-Change-Reason` 포함)
+4. `protocol.type=OIDC_RP` 면 Keycloak 에 client `idem-svc-{code}` 프로비저닝 — 같은 트랜잭션이라 실패하면(`503 E-IDO-122`) 저장도 롤백된다
 
-상태 `service.status`: `INACTIVE`(작성·시험 — 실 로그인 거부) / `ACTIVE`(운영). 승인은 SYSTEM_ADMIN 이 ACTIVE 로 저장하는 것이다(`onboarding-guide.md` §4). 프로토콜 유형·주체 스킴 변경은 사용자 식별자가 바뀌므로 점검 시간에 기관과 합의해 한다.
+상태 `service.status`: `INACTIVE`(작성·시험 — Keycloak client 비활성, authorize 단계 400) / `ACTIVE`(운영). 생략하면 스키마 기본값 **ACTIVE** 다. 승인은 SYSTEM_ADMIN 이 ACTIVE 로 저장하는 것이다(`onboarding-guide.md` §4). 프로토콜 유형·주체 스킴 변경은 사용자 식별자가 바뀌므로 점검 시간에 기관과 합의해 한다.
 
 ## 4. OIDC client
 

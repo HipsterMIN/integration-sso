@@ -66,6 +66,7 @@ class HandoffServiceImplTest {
     @Mock CallbackUrlValidator    callbackUrlValidator;
     @Mock HandoffStrategyFactory  strategyFactory;
     @Mock AgencyRateLimiter       rateLimiter;
+    @Mock io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService serviceProfileService;
     @Mock HandoffEventPublisher   handoffEventPublisher;
     @Mock QAuthzClient            qAuthzClient;
 
@@ -90,7 +91,7 @@ class HandoffServiceImplTest {
                 agencyMetaRepository, ticketRepository, policyEngine,
                 handoffCryptoService, auditLogPublisher, callbackUrlValidator,
                 strategyFactory, rateLimiter, new ObjectMapper(), handoffEventPublisher,
-                qAuthzClient
+                qAuthzClient, serviceProfileService
         );
 
         activeAgency = AgencyMeta.builder()
@@ -124,7 +125,7 @@ class HandoffServiceImplTest {
         @BeforeEach
         void setUpCommonMocks() {
             given(agencyMetaRepository.findByCode(AGENCY_CODE)).willReturn(Optional.of(activeAgency));
-            given(rateLimiter.tryAcquire(AGENCY_CODE)).willReturn(true);
+            given(rateLimiter.tryAcquire(eq(AGENCY_CODE), any(), any())).willReturn(true);
             given(policyEngine.evaluate(any(), eq(true))).willReturn(PolicyEvaluation.allowedAll());
             // S8-b: 할당·역할 조회 기본값 (authz 활성, 미할당, 역할 없음)
             given(qAuthzClient.getServiceAccess(any(), any(), any())).willReturn(new ServiceAccess(true, false, null, List.of()));
@@ -221,7 +222,7 @@ class HandoffServiceImplTest {
         @Test
         @DisplayName("Rate Limit 초과 — AGENCY_RATE_LIMIT_EXCEEDED 예외")
         void rateLimitExceeded_throwsRateLimitException() {
-            given(rateLimiter.tryAcquire(AGENCY_CODE)).willReturn(false);
+            given(rateLimiter.tryAcquire(eq(AGENCY_CODE), any(), any())).willReturn(false);
 
             assertThatThrownBy(() -> sut.issue(validCommand))
                     .isInstanceOf(PlatformException.class)
@@ -229,6 +230,23 @@ class HandoffServiceImplTest {
                     .isEqualTo(PlatformErrorCode.AGENCY_RATE_LIMIT_EXCEEDED);
 
             then(ticketRepository).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("1.0.1 (3차 점검 H9): 프로파일 limits.tps/daily 가 한도 계산에 전달된다 — 없으면 null(설치본 기본값)")
+        void profileLimitsAreWired() {
+            given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.of(
+                    io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile.builder()
+                            .limits(new io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile.Limits(1, 100)).build()));
+            given(rateLimiter.tryAcquire(eq(AGENCY_CODE), eq(1), eq(100L))).willReturn(false);
+            assertThatThrownBy(() -> sut.issue(validCommand)).isInstanceOf(PlatformException.class)
+                    .extracting(e -> ((PlatformException) e).getErrorCode()).isEqualTo(PlatformErrorCode.AGENCY_RATE_LIMIT_EXCEEDED);
+            then(rateLimiter).should().tryAcquire(AGENCY_CODE, 1, 100L);
+
+            given(serviceProfileService.find(AGENCY_CODE)).willReturn(Optional.empty());
+            given(rateLimiter.tryAcquire(eq(AGENCY_CODE), isNull(), isNull())).willReturn(false);
+            assertThatThrownBy(() -> sut.issue(validCommand)).isInstanceOf(PlatformException.class);
+            then(rateLimiter).should().tryAcquire(AGENCY_CODE, null, null);
         }
 
         @Test

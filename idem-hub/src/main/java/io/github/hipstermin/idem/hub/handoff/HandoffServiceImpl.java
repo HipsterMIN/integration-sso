@@ -61,6 +61,8 @@ public class HandoffServiceImpl implements HandoffService {
     private final HandoffEventPublisher   handoffEventPublisher;
     /** 연합 인가 — 기관 스코프 역할 조회(fail-open) */
     private final QAuthzClient            qAuthzClient;
+    /** 1.0.1 (3차 점검 H9): 프로파일 {@code limits.tps/daily} 를 한도 계산에 배선 — 종전에는 저장만 되고 설치본 기본값이 쓰였다 */
+    private final io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService serviceProfileService;
 
     // ── issue ──────────────────────────────────────────────────────────────
 
@@ -83,8 +85,11 @@ public class HandoffServiceImpl implements HandoffService {
                         "연동 유형 " + agency.getIntegrationType() + " 은(는) Handoff 를 쓰지 않습니다 — 표준 OIDC 로 붙으세요");
             }
 
-            // 2. Rate Limiting 검증 (기관별 TPS + 일별 한도)
-            if (!rateLimiter.tryAcquire(cmd.getAgencyCode())) {
+            // 2. Rate Limiting 검증 (기관별 TPS + 일별 한도) — 프로파일 limits 가 우선, 없으면 설치본 기본값 (1.0.1 H9)
+            io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile.Limits limits = serviceProfileService.find(cmd.getAgencyCode())
+                    .map(io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile::limits).orElse(null);
+            if (!rateLimiter.tryAcquire(cmd.getAgencyCode(), limits != null ? limits.tps() : null,
+                    limits != null && limits.daily() != null ? limits.daily().longValue() : null)) {
                 auditIssue(cmd, null, AuditLogEvent.OUTCOME_FAILURE, "RATE_LIMIT_EXCEEDED", null);
                 throw new PlatformException(PlatformErrorCode.AGENCY_RATE_LIMIT_EXCEEDED, cmd.getCorrelationId());
             }

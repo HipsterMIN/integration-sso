@@ -35,8 +35,8 @@ function FindPassword(): JSX.Element {
 		const encrypted = await encryptCi(ci);
 		const tokenResponse = await exchangeCiToken({
 			encryptedCi: encrypted,
-			realm: 'ucube-qsign',
-			clientId: 'onepassCli',
+			realm: process.env.KEYCLOAK_REALM || 'idem',
+			clientId: process.env.KEYCLOAK_CLIENT_ID || 'idem-kr-portal',
 			flowContext: 'CHECK_CONVERSION',
 			...authInfo,
 		});

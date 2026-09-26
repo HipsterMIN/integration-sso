@@ -64,8 +64,8 @@ function RegisterStep3({
 					result.ci = undefined;
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: 'ucube-qsign',
-						clientId: 'onepassCli',
+						realm: process.env.KEYCLOAK_REALM || 'idem',
+						clientId: process.env.KEYCLOAK_CLIENT_ID || 'idem-kr-portal',
 						flowContext: 'PROVISION_USER',
 						name: result.name?.normalize('NFC').trim(),
 						birthDate: (result.birthday || '').replace(/\D/g, ''),
@@ -128,8 +128,8 @@ function RegisterStep3({
 					result.ci = undefined;
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: 'ucube-qsign',
-						clientId: 'onepassCli',
+						realm: process.env.KEYCLOAK_REALM || 'idem',
+						clientId: process.env.KEYCLOAK_CLIENT_ID || 'idem-kr-portal',
 						flowContext: 'PROVISION_USER',
 						name: result.name?.normalize('NFC').trim(),
 						birthDate: (result.birthdate || '').replace(/\D/g, ''),

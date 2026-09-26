@@ -6,9 +6,9 @@
  * Q-IM / Q-Sign / agency-stub 은 어떤 FE 에서도 직접 호출하지 않는다.
  *
  * Phase 2 / SEC-IDO-01..05 (rename):
- *   - 환경변수: BE_API_ENDPOINT / BE_API_KEY → IDO_API_ENDPOINT / IDO_API_KEY
+ *   - 환경변수: BE_API_ENDPOINT / BE_API_KEY → IDEM_HUB_API_ENDPOINT / IDEM_HUB_API_KEY
  *     (구 변수는 fallback 으로 한 페이즈 유지)
- *   - 헤더명:   X-BE-API-Key → X-IDO-API-Key
+ *   - 헤더명:   X-BE-API-Key → X-Internal-Api-Key
  *   - 식별자:   beInstance / beApiInstance → idoInstance / idoApiInstance
  *
  * Refs:
@@ -18,28 +18,28 @@
  */
 import axios from 'axios';
 
-// IDO_API_* 우선, 없으면 구 BE_API_* fallback.
+// IDEM_HUB_API_* 우선, 없으면 구 BE_API_* fallback.
 // webpack DefinePlugin 이 양쪽 키를 모두 process.env 에 노출하므로 빌드 환경에서 둘 다 평가 가능.
-const IDO_BASE_URL: string =
-	process.env.IDO_API_ENDPOINT || process.env.BE_API_ENDPOINT || '';
+const IDEM_HUB_BASE_URL: string =
+	process.env.IDEM_HUB_API_ENDPOINT || process.env.BE_API_ENDPOINT || '';
 
-const IDO_API_KEY: string =
-	process.env.IDO_API_KEY || process.env.BE_API_KEY || '';
+const IDEM_HUB_API_KEY: string =
+	process.env.IDEM_HUB_API_KEY || process.env.BE_API_KEY || '';
 
 const idoInstance = axios.create({
-	baseURL: IDO_BASE_URL,
+	baseURL: IDEM_HUB_BASE_URL,
 	headers: {
 		'Content-Type': 'application/json',
-		'X-IDO-API-Key': IDO_API_KEY,
+		'X-Internal-Api-Key': IDEM_HUB_API_KEY,
 	},
 });
 
 export default idoInstance;
 
 export const idoApiInstance = axios.create({
-	baseURL: IDO_BASE_URL,
+	baseURL: IDEM_HUB_BASE_URL,
 	headers: {
 		'Content-Type': 'application/json',
-		'X-IDO-API-Key': IDO_API_KEY,
+		'X-Internal-Api-Key': IDEM_HUB_API_KEY,
 	},
 });

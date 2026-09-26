@@ -59,8 +59,8 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					result.ci = undefined; // CI 평문 즉시 폐기
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: 'ucube-qsign',
-						clientId: 'onepassCli',
+						realm: process.env.KEYCLOAK_REALM || 'idem',
+						clientId: process.env.KEYCLOAK_CLIENT_ID || 'idem-kr-portal',
 						flowContext: 'PROVISION_USER',
 						name: result.name?.normalize('NFC').trim(),
 						birthDate: (result.birthday || '').replace(/\D/g, ''),
@@ -126,8 +126,8 @@ function ConversionStep3({ memberType = 'member' }: Step3Props): JSX.Element {
 					result.ci = undefined; // CI 평문 즉시 폐기
 					const tokenResponse = await exchangeCiToken({
 						encryptedCi: encrypted,
-						realm: 'ucube-qsign',
-						clientId: 'onepassCli',
+						realm: process.env.KEYCLOAK_REALM || 'idem',
+						clientId: process.env.KEYCLOAK_CLIENT_ID || 'idem-kr-portal',
 						flowContext: 'PROVISION_USER',
 						name: result.name?.normalize('NFC').trim(),
 						birthDate: (result.birthdate || '').replace(/\D/g, ''),

@@ -64,8 +64,8 @@ function RegisterMinorStep3(): JSX.Element {
 				const encrypted = await encryptCi(ci);
 				const tokenResponse = await exchangeCiToken({
 					encryptedCi: encrypted,
-					realm: process.env.QSIGN_REALM || 'ucube-qsign',
-					clientId: process.env.QSIGN_CLIENT_ID || 'onepassCli',
+					realm: process.env.KEYCLOAK_REALM || 'idem',
+					clientId: process.env.KEYCLOAK_CLIENT_ID || 'idem-kr-portal',
 					flowContext: 'PROVISION_USER',
 				});
 

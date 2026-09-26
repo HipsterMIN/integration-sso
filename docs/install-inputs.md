@@ -18,9 +18,9 @@
 |---|---|---|---|
 | `IDEM_DB_PASSWORD` (Helm: `idem-db-secret`/password) | pw | PostgreSQL 사용자 `idem` · Keycloak · 모든 앱 | DB 쪽과 같이 바꾸고 전부 재기동 |
 | `KEYCLOAK_ADMIN_PASSWORD` | pw | Keycloak 관리 콘솔(설치자만) | 없음 |
-| `IDEM_HUB_INTERNAL_SIG_SECRET` | b64-32 | gate ↔ hub 내부 서명 | 둘 다 재기동. 진행 중 요청 실패 |
-| `IDEM_HUB_INTERNAL_API_KEY_GATE` | hex-32 | hub(검증) · gate(호출) | 둘 다 재기동 |
-| `IDEM_HUB_INTERNAL_API_KEY_RELAY` | hex-32 | hub(검증) · relay(호출, Kafka 배포만) | 둘 다 재기동 |
+| `IDEM_HUB_INTERNAL_SIG_SECRET` | 32자 이상 문자열(base64 디코딩 없이 그대로 HMAC 키) | gate ↔ hub 내부 서명 | 둘 다 재기동. 진행 중 요청 실패 |
+| `IDEM_HUB_INTERNAL_API_KEY_GATE` | hex-32 | hub(내부 호출자 키 목록 — gate 는 1.0 에서 서명(`IDEM_HUB_INTERNAL_SIG_SECRET`)만 쓰고 이 키는 부르지 않는다; 필수 검사 때문에 값은 있어야 한다) | hub 재기동 |
+| `IDEM_HUB_INTERNAL_API_KEY_RELAY` | hex-32 | hub(내부 호출자 키 목록 — relay 는 1.0 에서 이 키를 쓰지 않는다; 필수 검사 때문에 값은 있어야 한다) | hub 재기동 |
 | `IDEM_REGISTRY_INTERNAL_API_KEY` | hex-32 | registry(검증) · hub(`IDEM_HUB_REGISTRY_INTERNAL_API_KEY`) · 회원 이관 도구 | 둘 다 재기동 |
 | `IDEM_AUTHZ_INTERNAL_API_KEY` | hex-32 | authz(검증) · hub(`IDEM_HUB_AUTHZ_INTERNAL_API_KEY`) | 둘 다 재기동. 비면 hub 가 기동 거부(D2) |
 | `IDEM_GATE_KEYCLOAK_CLIENT_SECRET` | hex-32 | Keycloak client `idem-gate` · gate | realm 재import 또는 Keycloak 콘솔에서 같이 변경 |
@@ -30,7 +30,7 @@
 | `IDEM_HUB_HANDOFF_AES_KEY` | b64-32 | hub Handoff 티켓 암호화 | 발급된 티켓(수 분) 무효 |
 | `IDEM_HUB_HANDOFF_HMAC_KEY` | b64-32 | hub Handoff 티켓 서명 | 같음 |
 | `IDEM_HUB_WEBHOOK_SIGNING_SECRET` | hex-32 | hub(·relay) 기관 웹훅 서명 | 기관에 새 값 전달 |
-| `IDEM_REGISTRY_AES_SHARED_KEY` | b64-32 | registry ↔ hub CI 전달 공유키 | 둘 다 재기동 |
+| `IDEM_REGISTRY_AES_SHARED_KEY` | b64-32 | hub 만 읽는다(registry 로 보내는 CI 봉인; registry 쪽은 `IDEM_REGISTRY_CI_AES_KEY_V1`) | hub 재기동 |
 | `IDEM_REGISTRY_DI_SECRET` | hex-32 | registry 기관별 식별자(DI) HMAC | **바꾸면 모든 기관 식별자가 바뀐다 — 사실상 회전 불가** |
 | `IDEM_REGISTRY_CI_AES_KEY_V1` | b64-32 | registry 저장 CI 암호화 키 v1 | **바꾸면 기존 CI 를 복호화하지 못한다** — 키 버전을 올리는 절차(F-12)로만 |
 | `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD` | pw(정책) | hub 첫 관리자 생성 | 관리자가 한 명이라도 있으면 더 쓰이지 않는다 |
@@ -85,6 +85,6 @@ IDEM_HUB_CAST_PUBLIC_KEY=$(openssl pkey -in cast.pem -pubout -outform DER | base
 
 ## 6. 점검
 
-- `install.env` 의 모든 키가 채워졌는지: CI 설치본 스모크와 같은 방식 — `grep -E '^[A-Z_]+=$' install.env` 가 비어야 한다.
+- `install.env` 의 모든 키가 채워졌는지: CI 설치본 스모크와 같은 방식 — `grep -E '^[A-Z0-9_]+=$' install.env` 가 비어야 한다.
 - Helm: `helm template … | grep -c secretKeyRef` 로 참조되는 키가 Secret 에 다 있는지 `kubectl get secret idem-app-secrets -o json | jq '.data | keys'` 와 대조.
 - 비밀은 저장소·채팅·티켓에 붙여 넣지 않는다. 로그에도 값이 남지 않도록 앱은 키 이름만 찍는다.

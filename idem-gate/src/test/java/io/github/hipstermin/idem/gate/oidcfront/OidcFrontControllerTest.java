@@ -209,6 +209,27 @@ class OidcFrontControllerTest {
     }
 
     @Test
+    @DisplayName("1.0.1 (3차 점검 H9): hub 가 한도 초과(E-AGENCY-306)를 돌려주면 429 temporarily_unavailable + Retry-After, 토큰 폐기")
+    void token_rateLimited() throws Exception {
+        kc.stubFor(WireMock.post(urlEqualTo("/realms/idem/protocol/openid-connect/token"))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody(TOKEN_BODY)));
+        kc.stubFor(WireMock.post(urlEqualTo("/realms/idem/protocol/openid-connect/logout")).willReturn(aResponse().withStatus(204)));
+        given(jwksVerifier.verify(eq("h.p.s"), anyString())).willReturn(claims("kc-sub", "idem-svc-AG1", "social-kakao", "1"));
+        hub.stubFor(WireMock.post(urlEqualTo("/api/internal/v1/oidc-rp/access"))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+                        .withBody("{\"allowed\":false,\"denyCode\":\"E-AGENCY-306\",\"denyMessage\":\"한도 초과\",\"rule\":\"RATE_LIMIT\"}")));
+        MvcResult res = mvc.perform(post("/realms/idem/protocol/openid-connect/token").contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .content("grant_type=authorization_code&client_id=idem-svc-AG1&client_secret=sec&code=c1"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "1"))
+                .andExpect(jsonPath("$.error").value("temporarily_unavailable"))
+                .andExpect(jsonPath("$.error_description").value(org.hamcrest.Matchers.startsWith("E-AGENCY-306")))
+                .andReturn();
+        assertThat(res.getResponse().getContentAsString()).doesNotContain("access_token");
+        kc.verify(1, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/logout")));
+    }
+
+    @Test
     @DisplayName("hub 가 닿지 않으면 503 temporarily_unavailable — 토큰은 나가지 않는다 (fail-closed)")
     void token_hubDown() throws Exception {
         kc.stubFor(WireMock.post(urlEqualTo("/realms/idem/protocol/openid-connect/token"))

@@ -380,7 +380,7 @@ jobs:
           EOF
           # 예시 파일의 '값을 채워야 하는' 키가 전부 있는지 — 예시에 키가 늘면 여기도 늘어야 한다
           missing=0
-          for k in $(grep -E '^[A-Z_]+=' infra/docker/install.env.example | cut -d= -f1); do
+          for k in $(grep -E '^[A-Z0-9_]+=' infra/docker/install.env.example | cut -d= -f1); do   # 1.0.1 M13: 숫자 포함 키(…_V1)
             grep -q "^$k=" /tmp/install.env || { echo "install.env.example 의 키가 스모크 env 에 없습니다: $k"; missing=1; }
           done
           [ $missing -eq 0 ]

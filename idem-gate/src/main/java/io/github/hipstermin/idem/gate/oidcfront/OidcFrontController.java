@@ -104,10 +104,13 @@ public class OidcFrontController {
             log.warn("[OIDC-FRONT] 토큰 발급 거부: client={} code={} cid={} — {}", outcome.clientId(),
                     outcome.decision().denyCode(), cid, outcome.decision().denyMessage());
             policyGate.revokeIssuedTokens(tokenJson, outcome.clientId(), authHeader, form.get("client_secret"));
-            HttpStatus status = "E-IDO-116".equals(outcome.decision().denyCode()) || "E-IDO-117".equals(outcome.decision().denyCode())
-                    ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.FORBIDDEN;
-            String error = status == HttpStatus.SERVICE_UNAVAILABLE ? "temporarily_unavailable" : "access_denied";
-            return oauthError(status, error, outcome.decision().denyCode() + " " + safe(outcome.decision().denyMessage()));
+            String code = outcome.decision().denyCode();
+            HttpStatus status = "E-IDO-116".equals(code) || "E-IDO-117".equals(code) ? HttpStatus.SERVICE_UNAVAILABLE
+                    : "E-AGENCY-306".equals(code) ? HttpStatus.TOO_MANY_REQUESTS   // 1.0.1 H9: 프로파일 limits 초과
+                    : HttpStatus.FORBIDDEN;
+            String error = status == HttpStatus.FORBIDDEN ? "access_denied" : "temporarily_unavailable";
+            ResponseEntity<byte[]> err = oauthError(status, error, code + " " + safe(outcome.decision().denyMessage()));
+            return status == HttpStatus.TOO_MANY_REQUESTS ? ResponseEntity.status(status).headers(err.getHeaders()).header("Retry-After", "1").body(err.getBody()) : err;
         }
         return kc;
     }
