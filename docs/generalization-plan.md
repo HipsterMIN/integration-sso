@@ -542,6 +542,7 @@ Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `Integ
 - ✅ **버전 1.0.0**: 루트 `build.gradle.kts`(모든 모듈·SDK 좌표 `idem-sdk-java:1.0.0`), `CLAUDE.md`·`AGENTS.md`, 관리 콘솔 `package.json`, Helm `appVersion`, README 헤더·버전 히스토리(본문은 개발 기록으로 남기고 1.0 문서 목록을 머리에), SDK CHANGELOG 1.0.0, 제품 `CHANGELOG.md` 신설. 릴리스 태그 `v1.0.0` 과 브랜치 `release/1.0` 은 이 PR 의 main 머지 커밋에
 - ✅ **1.0 매뉴얼 초안** `docs/manuals/`: 설치 매뉴얼(전제·입력값·compose/Helm/오프라인·확인 8단계·업그레이드·백업/복구·제거·검증한 것/못 한 것), 관리자 매뉴얼(콘솔 기능별 + 운영 작업), 제품 설명서(기능 22개·구성·지원 플랫폼·보안 요약·제한), 시험 항목표(51항목, 자동 47 — CI 스모크·E2E·IT·UT 로 어디서 이미 도는지 표시)
 - ✅ **GS 착수 문서** `docs/certification/gs-kickoff.md`: 범위(core 에디션, compose 설치본), 제출물 상태표, 8~16주 일정, 사용자 결정 6건, 1.0.x 코드 과제, 완료 기준
+- ⚠️ **3차 적대적 점검 (2026-09-26, `docs/analysis/adversarial-review-1.0.md`)**: `v1.0.0` 은 그대로 배포·GS 신청 불가 — 관리 API 인증 우회(`;`·퍼센트 인코딩), gate 프록시 dot-segment 로 Keycloak 관리 콘솔·master realm·token 우회, relay 기동이 hub Flyway 이력 파괴, Helm Pod 전부 기동 불가(runAsNonRoot), 콘솔 이미지 빌드 불가, K8s 업그레이드 시 구 데이터 고아, 프로파일 `limits` 미적용 등 HIGH 10. **1.0.1 보안·설치본 릴리스**(PR A 보안 → B 설치본 → C 기능·문서)가 다음 작업이다.
 - ⏭ **1.0.x**: 콘솔 할당 화면·페이징·QR, 오프라인 설치·백업 복구 리허설, 시험 항목표 완주·결함 밀도 · **2.0**: API 경로·오류 코드·SDK 이름 개명(agency→tenant, `E-IDO`, `onepass.*`), 호환 계층 제거
 
 ---

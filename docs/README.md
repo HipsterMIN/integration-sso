@@ -79,6 +79,7 @@ docs/
 |---|---|
 | [`public-release-checklist.md`](public-release-checklist.md) | **공개 전 점검 (D0)** — Apache-2.0 전환에서 한 일, 자격증명 교체·히스토리 정리·고객 문서 결정 목록, 전환 직후 GitHub 설정 |
 | [`install.md`](install.md) | **설치 가이드 — 단일 설치본 (D1-b)** — PostgreSQL·Redis·Keycloak·SSO·IM 을 compose 하나로, Kafka 없음. 30분 설치·로그인 확인·Kafka 없이 도는 흐름 표 |
+| [`analysis/adversarial-review-1.0.md`](analysis/adversarial-review-1.0.md) | **1.0 적대적 점검 (3차, 2026-09-26)** — HIGH 10(관리 API 인증 우회·gate 프록시로 Keycloak 노출·relay 가 hub Flyway 이력 파괴·Helm Pod 기동 불가·콘솔 이미지 빌드 불가 …)·MED 17·LOW 20, 실기동 재현, 1.0.1 조치 계획 |
 | [`manuals/README.md`](manuals/README.md) | **1.0 매뉴얼 초안 (S9 PR-4)** — 설치 매뉴얼·관리자 매뉴얼·제품 설명서·시험 항목표(51항목) — GS 제출물의 초안 |
 | [`certification/gs-kickoff.md`](certification/gs-kickoff.md) | **GS 인증 착수 문서 (S9 PR-4)** — 범위·제출물 상태·일정·사용자 결정·1.0.x 과제 |
 | [`install-inputs.md`](install-inputs.md) | **설치 입력값 목록 (S9 PR-3)** — 비밀·설정 전부, 생성 규칙, 회전 영향, compose ↔ Helm 키 대응, 기관에 전달하는 값 |
