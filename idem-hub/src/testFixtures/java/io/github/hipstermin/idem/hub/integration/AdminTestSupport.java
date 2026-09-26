@@ -26,6 +26,8 @@ public final class AdminTestSupport {
     public static final String CSRF = "X-Requested-With";
 
     private static final Map<String, String> TOTP_SECRETS = new ConcurrentHashMap<>();
+    /** 이 JVM 이 이미 검증에 쓴 username:step — 서버가 재사용을 거부하므로 다른 스텝을 고른다 */
+    private static final java.util.Set<String> USED_STEPS = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private AdminTestSupport() {}
@@ -54,8 +56,21 @@ public final class AdminTestSupport {
             secret = TOTP_SECRETS.get(username);
             if (secret == null) throw new IllegalStateException("TOTP 비밀을 모른다 — 이 JVM 에서 등록된 적 없음 (username=" + username + ")");
         }
+        // 1.0.1: 같은 TOTP 스텝은 한 번만 검증된다(RFC 6238 §5.2). 테스트는 한 JVM 에서 같은 관리자로 30초 안에 여러 번 로그인하므로
+        // 창(±1) 안의 아직 안 쓴 스텝 코드를 쓴다 — 현재·다음·이전 스텝 순. 셋 다 썼으면 다음 스텝 경계까지 기다린다.
         TotpService totp = new TotpService(new AdminProperties());
-        String code = totp.currentCode(secret, Instant.now());
+        long now = Instant.now().getEpochSecond();
+        long step = now / 30;
+        String code = null;
+        for (long candidate : new long[] {step, step + 1, step - 1}) {
+            if (USED_STEPS.add(username + ":" + candidate)) { code = totp.currentCode(secret, Instant.ofEpochSecond(candidate * 30)); break; }
+        }
+        if (code == null) {
+            try { Thread.sleep(Math.max(1, (step + 1) * 30 - now) * 1000L + 50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+            long next = Instant.now().getEpochSecond() / 30 + 1;
+            USED_STEPS.add(username + ":" + next);
+            code = totp.currentCode(secret, Instant.ofEpochSecond(next * 30));
+        }
         ResponseEntity<String> mfa = rest.exchange(baseUrl + "/api/v1/admin/auth/mfa", HttpMethod.POST,
                 new HttpEntity<>("{\"mfaToken\":\"" + body.path("mfaToken").asText() + "\",\"code\":\"" + code + "\"}", h), String.class);
         if (mfa.getStatusCode().value() != 200) throw new IllegalStateException("admin mfa " + mfa.getStatusCode() + ": " + mfa.getBody());

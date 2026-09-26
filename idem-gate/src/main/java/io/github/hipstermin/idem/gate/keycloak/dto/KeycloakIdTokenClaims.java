@@ -76,6 +76,10 @@ public class KeycloakIdTokenClaims {
     @JsonProperty("azp")
     private String authorizedParty;
 
+    /** JWT ID — Back-Channel Logout 토큰은 필수(§2.4), 재사용 방지 키. */
+    @JsonProperty("jti")
+    private String jwtId;
+
     /** S6 PR-2: Back-Channel Logout 토큰의 {@code events} 클레임 (OIDC Back-Channel Logout 1.0 §2.4). */
     @JsonProperty("events")
     private java.util.Map<String, Object> events;
@@ -95,6 +99,14 @@ public class KeycloakIdTokenClaims {
      *   <li>null    → null 반환</li>
      * </ul>
      */
+    /** audience 전체 — String 이면 1개, List 면 각 원소. 1.0.1: 검증은 이 목록의 원소와 <b>정확 일치</b>로 한다(부분 일치 금지). */
+    public List<String> getAudiences() {
+        if (audience == null) return List.of();
+        if (audience instanceof String s) return List.of(s);
+        if (audience instanceof List<?> list) return list.stream().map(String::valueOf).toList();
+        return List.of(String.valueOf(audience));
+    }
+
     @SuppressWarnings("unchecked")
     public String getAudienceAsString() {
         if (audience == null) return null;

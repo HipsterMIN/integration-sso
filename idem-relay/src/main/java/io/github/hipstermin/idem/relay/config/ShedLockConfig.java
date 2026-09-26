@@ -46,9 +46,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * - 배치 Job이 100건 처리 × HTTP 최대 응답 3s = 최대 300s 가능 (프로비저닝)
  * - 단, 정상 운영 시 훨씬 빠름 → 여유 있는 값 설정이 안전
  *
- * <h2>ShedLock 테이블 구조 (V19 마이그레이션)</h2>
+ * <h2>ShedLock 테이블 구조 (hub 의 V27 마이그레이션 — 1.0.1 부터 relay 는 Flyway 를 돌리지 않는다)</h2>
  * <pre>
- * CREATE TABLE idem.hub.shedlock (
+ * CREATE TABLE idem_hub.shedlock (
  *   name       VARCHAR(64)  NOT NULL,   -- Job 이름
  *   lock_until TIMESTAMP    NOT NULL,   -- lockAtMostFor 기준 만료 시각
  *   locked_at  TIMESTAMP    NOT NULL,   -- 락 획득 시각

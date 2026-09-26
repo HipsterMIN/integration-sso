@@ -13,9 +13,10 @@ import org.springframework.stereotype.Component;
 /**
  * 관리자 세션 (Redis) — 유휴(sliding)·절대 만료, 관리자당 동시 세션 수 제한.
  * <pre>
- *   ido:admin:session:{sid}   → JSON {@link AdminSession} (TTL = 유휴)
- *   ido:admin:user:{adminId}  → sid  (concurrent=1: 새 로그인이 이전 세션을 끝낸다)
- *   ido:admin:mfa:{token}     → JSON {@link PendingMfa} (2단계 대기, 짧은 TTL)
+ *   idem:admin:session:{sid}          → JSON {@link AdminSession} (TTL = 유휴)
+ *   idem:admin:user:{adminId}         → sid  (concurrent=1: 새 로그인이 이전 세션을 끝낸다)
+ *   idem:admin:mfa:{token}            → JSON {@link PendingMfa} (2단계 대기, 짧은 TTL)
+ *   idem:admin:totp:{adminId}:{step}  → "1"  (검증에 쓴 TOTP 스텝 — 같은 코드 재사용 거부, TTL = 창 길이)
  * </pre>
  */
 @Slf4j
@@ -26,6 +27,7 @@ public class AdminSessionStore {
     static final String SESSION_PREFIX = "idem:admin:session:";
     static final String USER_PREFIX = "idem:admin:user:";
     static final String MFA_PREFIX = "idem:admin:mfa:";
+    static final String TOTP_PREFIX = "idem:admin:totp:";
 
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
@@ -114,6 +116,15 @@ public class AdminSessionStore {
         } catch (Exception e) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * TOTP 스텝 1회 소비 (RFC 6238 §5.2) — 이 관리자가 이 스텝의 코드로 이미 검증했으면 false. Redis SET NX 라 여러 인스턴스·동시 요청에서도 한 번만 true.
+     * Redis 오류는 예외로 올라간다(fail-closed: 로그인 실패).
+     */
+    public boolean consumeTotpStep(String adminId, long step, Duration ttl) {
+        Boolean first = redis.opsForValue().setIfAbsent(TOTP_PREFIX + adminId + ":" + step, "1", ttl);
+        return Boolean.TRUE.equals(first);
     }
 
     private void save(AdminSession s) {

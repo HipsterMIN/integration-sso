@@ -12,7 +12,7 @@ hub 의 관리 API(`/api/v1/admin/**`)와 actuator(`/actuator/**`, health·info�
 | 계정 | `idem_hub.admin_user` (V25). 사용자명·표시명·PBKDF2 비밀번호 해시·역할·테넌트·상태(ACTIVE/LOCKED/DISABLED)·봉인된 TOTP 비밀 |
 | 역할 | `SYSTEM_ADMIN`(전부) · `POLICY_ADMIN`(기관·프로파일·정책 쓰기, 관리자 관리 불가) · `AUDITOR`(읽기·감사 조회만) |
 | 테넌트 범위 | `tenant_code` 가 있으면 그 테넌트의 기관만 보고 만진다. `null` 이면 전역. 관리자 관리·테넌트 쓰기는 전역 `SYSTEM_ADMIN` 만 |
-| 2단계 | TOTP(RFC 6238, SHA-1·6자리·30초, ±1 스텝). 비밀은 `IDEM_HUB_ADMIN_SECRET_KEY` 로 AES-256-GCM 봉인해 저장. `idem.hub.admin.mfa.required=true`(기본)면 첫 로그인에서 등록을 요구한다 |
+| 2단계 | TOTP(RFC 6238, SHA-1·6자리·30초, ±1 스텝). 비밀은 `IDEM_HUB_ADMIN_SECRET_KEY` 로 AES-256-GCM 봉인해 저장. `idem.hub.admin.mfa.required=true`(기본)면 첫 로그인에서 등록을 요구한다. **1.0.1**: 같은 스텝의 코드는 한 번만 검증된다(RFC 6238 §5.2, Redis `idem:admin:totp:{adminId}:{step}`) — 30초 안에 다시 로그인하면 `E-IDO-134` "이미 사용한 2단계 인증 코드", 다음 코드로 재시도(실패 카운터는 오르지 않는다). 역할·테넌트를 바꾸면 그 관리자의 세션은 즉시 끝난다 |
 | 세션 | Redis `idem:admin:session:{sid}` — 유휴 15분·절대 8시간·동시 1(새 로그인이 이전 세션을 끝낸다). 쿠키 `idemAdminSid` HttpOnly·Secure·SameSite=Strict |
 | CSRF | 모든 쓰기 요청(로그인 포함)에 `X-Requested-With` 헤더 필수 — 없으면 `403 E-IDO-131` (브라우저는 이 헤더를 교차 출처 단순 요청에 붙일 수 없다) |
 | 잠금 | 비밀번호·TOTP 실패 5회 → 15분 잠금(`423 E-IDO-133`). `SYSTEM_ADMIN` 이 `unlock` 으로 즉시 해제 |
@@ -88,7 +88,7 @@ curl http://localhost:8083/api/v1/admin/agencies -H "Cookie: idemAdminSid=$SID" 
 | `E-IDO-131` | 403 | 권한 없음 · CSRF 헤더 없음 · 테넌트 범위 밖 |
 | `E-IDO-132` | 401 | 로그인 실패(사용자명·비밀번호·현재 비밀번호 불일치 — 어느 쪽인지 말하지 않는다) |
 | `E-IDO-133` | 423 | 계정 잠김(실패 5회 → 15분) 또는 비활성 |
-| `E-IDO-134` | 401 | 2단계 실패·대기 토큰 만료/재사용 |
+| `E-IDO-134` | 401 | 2단계 실패·대기 토큰 만료/재사용·같은 TOTP 스텝 재사용(1.0.1) |
 | `E-IDO-135` | 400 | 비밀번호 정책 위반(`detail` 에 사유) |
 | `E-IDO-136` | 409 | 마지막 SYSTEM_ADMIN 을 강등·비활성화할 수 없음 |
 | `E-IDO-137` | 403 | 첫 로그인 비밀번호 변경 필요 |

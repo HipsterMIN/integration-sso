@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>Redis 키 구조</b>:
  * <pre>
- *   ido:rl:tps:{agencyCode}:{epochSecond}   → 초당 카운터 (TTL 2초)
- *   ido:rl:daily:{agencyCode}:{yyyyMMdd}    → 일별 카운터 (TTL 25시간)
+ *   idem:rl:tps:{agencyCode}:{epochSecond}   → 초당 카운터 (TTL 2초)
+ *   idem:rl:daily:{agencyCode}:{yyyyMMdd}    → 일별 카운터 (TTL 25시간)
  * </pre>
  *
  * <p><b>설계 기준</b>: 기관 1개당 기본 200 TPS / 일 1,000,000건

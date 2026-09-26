@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -105,10 +106,16 @@ public class AdminAuthService {
             if (user.getTotpSecretEnc() == null) throw new PlatformException(PlatformErrorCode.ADMIN_MFA_REQUIRED, null, "TOTP 미등록");
             secret = cipher.open(user.getTotpSecretEnc());
         }
-        if (!totp.verify(secret, code, now)) {
+        OptionalLong step = totp.matchedStep(secret, code, now);
+        if (step.isEmpty()) {
             registerFailure(user, ip, enrolling ? "bad enroll code" : "bad totp", now);
             auditor.failure(ACTION_MFA_FAILED, user.getUsername(), "ADMIN", user.getAdminId(), ip, enrolling ? "enroll" : "verify");
             throw new PlatformException(PlatformErrorCode.ADMIN_MFA_REQUIRED, null, "2단계 인증 코드 불일치");
+        }
+        // 같은 스텝의 코드는 한 번만 (RFC 6238 §5.2) — 훔쳐 본 코드를 창(±window) 안에서 되쓰는 것을 막는다. 실패 카운터는 올리지 않는다(정상 사용자의 빠른 재로그인일 수 있다)
+        if (!sessions.consumeTotpStep(user.getAdminId(), step.getAsLong(), totp.stepConsumptionTtl())) {
+            auditor.failure(ACTION_MFA_FAILED, user.getUsername(), "ADMIN", user.getAdminId(), ip, "totp reuse");
+            throw new PlatformException(PlatformErrorCode.ADMIN_MFA_REQUIRED, null, "이미 사용한 2단계 인증 코드 — 다음 코드를 입력하세요");
         }
         if (enrolling) {
             user.setTotpSecretEnc(cipher.seal(secret));

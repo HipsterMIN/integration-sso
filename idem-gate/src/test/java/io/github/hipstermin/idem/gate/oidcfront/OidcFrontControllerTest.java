@@ -308,6 +308,47 @@ class OidcFrontControllerTest {
     }
 
     @Test
+    @DisplayName("1.0.1 (3차 점검 H2): 점 세그먼트·퍼센트 인코딩·경로 파라미터로 realm 밖(관리 콘솔·master realm·admin REST)을 노리면 400, Keycloak 에 닿지 않는다")
+    void traversalRejected() throws Exception {
+        kc.stubFor(WireMock.any(anyUrl()).willReturn(aResponse().withStatus(200).withBody("LEAK")));
+        String[] attacks = {
+                "/resources/../admin/master/console/",
+                "/resources/%2e%2e/admin/master/console/",
+                "/resources/../realms/master/.well-known/openid-configuration",
+                "/resources/../admin/realms/idem/clients",
+                "/realms/idem/../master/protocol/openid-connect/auth",
+                "/realms/idem/login-actions/../../master/protocol/openid-connect/token",
+                "/realms/idem/%2e%2e/master/protocol/openid-connect/certs",
+                "/realms/idem/protocol;x/openid-connect/certs",
+                "/realms/idem//protocol/openid-connect/certs",
+                "/resources/abc/../../admin/",
+        };
+        for (String a : attacks) {
+            // 문자열 URL 은 MockMvc 가 '//' 를 접어 버린다 — 원본 그대로 보내려면 URI 로
+            var res = mvc.perform(get(java.net.URI.create(a))).andReturn().getResponse();
+            assertThat(res.getStatus()).as("GET " + a + " → " + res.getContentAsString()).isEqualTo(400);
+            assertThat(res.getContentAsString()).contains("invalid_request");
+            assertThat(mvc.perform(post(java.net.URI.create(a))).andReturn().getResponse().getStatus()).as("POST " + a).isIn(400, 404, 405);
+        }
+        assertThat(kc.getAllServeEvents()).as("Keycloak 에 닿은 요청").isEmpty();
+        // 정규형은 그대로 통과
+        mvc.perform(get("/realms/idem/protocol/openid-connect/certs")).andExpect(status().isOk()).andExpect(content().string("LEAK"));
+    }
+
+    @Test
+    @DisplayName("1.0.1 (3차 점검 H2): Keycloak 이 내부 주소의 루프백 별칭(127.0.0.1↔localhost)으로 Location 을 주어도 공개 주소로 바꾼다")
+    void locationRewriteLoopbackAlias() throws Exception {
+        kc.stubFor(WireMock.get(urlPathEqualTo("/realms/idem/login-actions/authenticate"))
+                .willReturn(aResponse().withStatus(302).withHeader("Location", "http://127.0.0.1:" + kc.port() + "/realms/idem/login-actions/required-action?x=1")));
+        mvc.perform(get("/realms/idem/login-actions/authenticate")).andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://sso.example.org/realms/idem/login-actions/required-action?x=1"));
+        // 다른 호스트·포트는 손대지 않는다
+        kc.stubFor(WireMock.get(urlPathEqualTo("/realms/idem/login-actions/other"))
+                .willReturn(aResponse().withStatus(302).withHeader("Location", "http://127.0.0.1:1/realms/idem/x")));
+        mvc.perform(get("/realms/idem/login-actions/other")).andExpect(header().string("Location", "http://127.0.0.1:1/realms/idem/x"));
+    }
+
+    @Test
     @DisplayName("RP-Initiated Logout(S6 PR-2): id_token_hint 의 sub·sid 로 판정 캐시를 비우고 hub 에 알린 뒤 Keycloak 에 전달한다")
     void rpInitiatedLogout_cleansIdemSideThenForwards() throws Exception {
         kc.stubFor(WireMock.get(urlPathEqualTo("/realms/idem/protocol/openid-connect/logout"))

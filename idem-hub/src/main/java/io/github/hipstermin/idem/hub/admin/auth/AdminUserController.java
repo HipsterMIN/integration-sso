@@ -25,11 +25,12 @@ public class AdminUserController {
     public record CreateRequest(String username, String displayName, AdminRole role, String tenantCode) {}
     public record UpdateRequest(AdminRole role, AdminStatus status, String tenantCode, String displayName) {}
 
+    // 1.0.1 (3차 점검 H1): 읽기도 AdminPrincipal 인자 필수 — 필터를 지나쳐도 리졸버가 401 (심층 방어)
     @GetMapping
-    public List<AdminUserService.AdminView> list() { return service.list(); }
+    public List<AdminUserService.AdminView> list(AdminPrincipal actor) { return service.list(); }
 
     @GetMapping("/{adminId}")
-    public AdminUserService.AdminView get(@PathVariable String adminId) { return service.get(adminId); }
+    public AdminUserService.AdminView get(@PathVariable String adminId, AdminPrincipal actor) { return service.get(adminId); }
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> create(@RequestBody CreateRequest req, AdminPrincipal actor, HttpServletRequest http) {

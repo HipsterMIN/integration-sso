@@ -191,6 +191,13 @@ idem.gate:
     decision-cache-ttl-seconds: 3600
     proxy-connect-timeout-ms: 3000
     proxy-read-timeout-ms: 10000
+    logout-token-max-age-seconds: 300
+    # 1.0.1: 공개 OIDC 프런트(/realms/**) IP 레이트리밋 — Redis 장애 시 503(fail-closed)
+    rate-limit:
+      enabled: ${IDEM_GATE_FRONT_RL_ENABLED:true}
+      per-second: ${IDEM_GATE_FRONT_RL_PER_SECOND:20}
+      per-minute: ${IDEM_GATE_FRONT_RL_PER_MINUTE:300}
+      trust-forwarded-for: ${IDEM_GATE_FRONT_RL_TRUST_XFF:false}
 
   # ── PKCE (RFC 7636) ────────────────────────────────────────────────────────
   pkce:

@@ -58,7 +58,7 @@ public class ServiceProfileAdminController {
     private final io.github.hipstermin.idem.hub.admin.auth.AdminTenantScope tenantScope;
 
     @GetMapping(value = "/profile-schema", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> schema() {
+    public ResponseEntity<String> schema(io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
         return ResponseEntity.ok(validator.schemaText());
     }
 

@@ -131,4 +131,25 @@ class AdminAuthFilterTest {
         assertThat(run("POST", "/api/v1/admin/auth/password", "sid-3", true).getHeader("X-Chain")).isEqualTo("passed");
         assertThat(run("GET", "/api/v1/admin/auth/me", "sid-3", false).getHeader("X-Chain")).isEqualTo("passed");
     }
+
+    @Test
+    @DisplayName("1.0.1 (3차 점검 H1): 경로 파라미터·퍼센트 인코딩·점 세그먼트·중복 슬래시로 위장한 보호 경로는 세션이 있어도 403, 감사에 남는다")
+    void disguisedProtectedPathsRejected() throws Exception {
+        for (String raw : new String[] {"/api/v1/admin;x/admins", "/api/v1/admin;jsessionid=1/admins", "/api/v1/%61dmin/admins",
+                "/actuator;x/flyway", "/api/v1/admin//admins", "/api/v1/admin/./admins", "/api/v1/auth/../admin/admins", "/api/v1/admin/admins/"}) {
+            assertThat(sut.shouldNotFilter(new MockHttpServletRequest("GET", raw) {{ setRequestURI(raw); }})).as(raw).isFalse();
+            MockHttpServletResponse anonymous = run("GET", raw, null, false);
+            assertThat(anonymous.getStatus()).as(raw).isEqualTo(403);
+            assertThat(anonymous.getContentAsString()).contains("E-IDO-131");
+            assertThat(anonymous.getHeader("X-Chain")).isNull();
+            MockHttpServletResponse withSession = run("GET", raw, "sid-1", false);
+            assertThat(withSession.getStatus()).as(raw).isEqualTo(403);
+            assertThat(withSession.getHeader("X-Chain")).isNull();
+        }
+        verify(auditor, org.mockito.Mockito.atLeast(8)).failure(eq("ADMIN_ACCESS_DENIED"), eq("anonymous"), eq("API"), anyString(), anyString(), eq("non-canonical path"));
+        // 루트 탈출은 정규화가 안 된다 — 역시 거부
+        assertThat(run("GET", "/../api/v1/admin/admins", "sid-1", false).getStatus()).isEqualTo(403);
+        // 정규형은 종전과 같다
+        assertThat(run("GET", "/api/v1/admin/admins", "sid-1", false).getHeader("X-Chain")).isEqualTo("passed");
+    }
 }

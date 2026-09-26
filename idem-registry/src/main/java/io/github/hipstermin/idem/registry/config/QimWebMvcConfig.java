@@ -17,7 +17,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * <h3>제외 경로</h3>
  * <ul>
  *   <li>{@code /actuator/**}  — 헬스체크 (Kubernetes probe, 모니터링)</li>
- *   <li>{@code /api/v1/users/**} — Q-IM Status API (공개 상태 조회 — {@code QimStatusController})</li>
+ *   <li>{@code /api/v1/users/**} — 상태 조회 API ({@code QimStatusController}) — D2 이후 이 경로도 내부 키 필수(아래 addInterceptors)</li>
  * </ul>
  *
  * <p><b>P2 보안 수정</b>: 기존 {@code UserController}의 {@code X-Internal-Api-Key}

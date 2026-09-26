@@ -186,16 +186,20 @@ public class HandoffController {
     }
 
     /**
-     * Ticket 강제 취소 (보안 운영용)
+     * Ticket 강제 취소 (보안 운영용 — 관리자 세션 필수, {@code AdminAuthFilter} 가 DELETE 를 보호 경로로 본다)
      * DELETE /api/v1/handoff/{ticketId}
+     *
+     * <p>1.0.1 (3차 점검 H1): {@link io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal} 인자를 받아 필터를 지나친 요청도 401 로 끝난다.
      */
     @DeleteMapping("/{ticketId}")
     public ResponseEntity<Void> revoke(
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             @PathVariable String ticketId,
-            @RequestParam String revokeReason) {
+            @RequestParam String revokeReason,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
 
         String cid = correlationId != null ? correlationId : CorrelationIdHolder.generate();
+        log.info("[Handoff] 강제 취소 ticket={} by={} cid={}", ticketId, admin.username(), cid);
         handoffService.revoke(ticketId, revokeReason, cid);
         return ResponseEntity.noContent().build();
     }
