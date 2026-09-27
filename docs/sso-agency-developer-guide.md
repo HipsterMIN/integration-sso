@@ -1,6 +1,8 @@
-# OnePass 자체 SSO 기관 연동 — 개발자 레퍼런스
+# Idem 자체 SSO 기관 연동 — 개발자 레퍼런스
 
-> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+> **명칭 안내 (2026-09-27 갱신)** — 제품명은 **Idem**(구 OnePass·원패스, 2026-09-04 개명)이다. 에이전트의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `OnePass-*` 헤더, `[OnePassAgent]` 로그 태그는 1.0 에서 **동결**됐고 2.0 에서 바꾼다(`CHANGELOG.md` [1.0.0]). 대응표: [docs/naming.md](naming.md) §3.
+
+> **2026-09-10 개정 (범용화 S4b) 반영 안내** — Idem 은 기관 회원 DB 를 조회·등록하지 **않는다**. 이 문서의 회원 조회·매핑 API(`/api/v1/members/lookup`·`/link`), `ci_hash`·`qim_user_id` 컬럼, `identifierHash`(SHA-256(CI)) 기반 회원 전환, lookup 지표·알람은 **0.x 설계**이며 1.0 에는 없다. 1.0 의 기존 계정 연결은 기관이 첫 로그인 때 `agencySubjectId` 로 수행한다 — [`sso-agency-integration-guide.md`](sso-agency-integration-guide.md) §5. 해당 절은 0.x 참고용으로만 남겨 둔다.
 
 > **대상 독자**: 유관기관 백엔드 개발자, 플랫폼 연동 담당 개발자
 > **버전**: v1.0 (2026-05-17)
@@ -28,7 +30,7 @@
 
 ## 1. 개요 및 아키텍처
 
-### 1.1 OnePass 연동 전체 흐름
+### 1.1 Idem 연동 전체 흐름
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -37,10 +39,10 @@
                    │ ①로그인 요청                       │ ⑥기관 세션 완료
                    ▼                                   ▲
 ┌──────────────────────────────┐       ┌───────────────────────────────┐
-│     OnePass IdO 서버          │       │   유관기관 애플리케이션          │
+│     Idem Hub 서버          │       │   유관기관 애플리케이션          │
 │  (Identity Orchestrator)     │       │   (자체 SSO 기관)              │
 │                              │       │                               │
-│  ②원패스 인증 처리             │       │  ⑤HandoffTicket 검증           │
+│  ②Idem 인증 처리             │       │  ⑤HandoffTicket 검증           │
 │  ③HandoffTicket 발급          │──────▶│  → HandoffPayload 수신         │
 │  GET {기관콜백}?ticket={id}   │       │  → 기관 세션 생성               │
 └──────────────────────────────┘       │                               │
@@ -56,11 +58,11 @@
 
 | 개념 | 설명 |
 |------|------|
-| **HandoffTicket** | OnePass 인증 완료 후 발급되는 단기 토큰 (기본 5분 유효). 기관 콜백 URL에 `?ticket={ticketId}` 형태로 전달됨 |
+| **HandoffTicket** | Idem 인증 완료 후 발급되는 단기 토큰 (기본 5분 유효). 기관 콜백 URL에 `?ticket={ticketId}` 형태로 전달됨 |
 | **HandoffPayload** | HandoffTicket 검증 성공 시 반환되는 사용자 정보 객체. `subject`(사용자 ID), `identifierHash` 포함 |
-| **identifierHash** | `SHA-256(CI)`로 계산된 사용자 식별자. CI(연계정보)는 주민번호 기반 NICE/PASS 인증 시 발급. 원패스가 기관 회원 조회 시 사용하는 유일 키 |
+| **identifierHash** | `SHA-256(CI)`로 계산된 사용자 식별자. CI(연계정보)는 주민번호 기반 NICE/PASS 인증 시 발급. Idem 이 기관 회원 조회 시 사용하는 유일 키 |
 | **agency_subject_id** | `agency_user` 테이블에서 `identifierHash`를 저장하는 컬럼명 |
-| **qim_user_id** | OnePass Q-IM 시스템의 사용자 UUID. 회원 전환 완료 시 기관 DB에 저장 |
+| **qim_user_id** | Idem Registry의 사용자 UUID. 회원 전환 완료 시 기관 DB에 저장 |
 
 ---
 
@@ -70,8 +72,8 @@
 
 | 항목 | 일반 기관 | 자체 SSO 기관 |
 |------|----------|-------------|
-| 로그인 처리 | OnePass가 전담 | 기관 내부 SSO가 처리 + OnePass 인증 병행 |
-| 세션 관리 | OnePass HandoffPayload → 기관 세션 | 기관 SSO 세션 유지 (OnePass는 검증만) |
+| 로그인 처리 | Idem 이 전담 | 기관 내부 SSO가 처리 + Idem 인증 병행 |
+| 세션 관리 | Idem HandoffPayload → 기관 세션 | 기관 SSO 세션 유지 (Idem 은 검증만) |
 | 회원 전환 | Agent JWT 검증으로 기본 지원 | lookup/link API 추가 구현 필요 |
 | Agent 토큰 소스 | Authorization 헤더 Bearer | 쿠키 또는 커스텀 헤더 가능 |
 | DB 변경 | 불필요 (기본 지원) | `ci_hash`, `qim_user_id` 컬럼 추가 |
@@ -175,7 +177,7 @@ X-Agency-Key: {기관_API_키}
 ```json
 {
   "identifierHash": "a3f2c8d1...",
-  "qimUserId": "550e8400-e29b-41d4-a716-446655440000",  // OnePass Q-IM UUID
+  "qimUserId": "550e8400-e29b-41d4-a716-446655440000",  // Idem Registry UUID
   "agencyCode": "AGENCY_001"
 }
 ```
@@ -224,7 +226,7 @@ int linkQimUser(@Param("qimUserId") String qimUserId,
 | 요구사항 | 설명 |
 |---------|------|
 | **HTTPS 전용** | 모든 API 호출은 TLS 1.2+ |
-| **X-Agency-Key 검증** | OnePass가 전송하는 요청에 포함된 API 키 검증 |
+| **X-Agency-Key 검증** | Idem 이 전송하는 요청에 포함된 API 키 검증 |
 | **타임아웃 준수** | `lookup` 응답 15초 이내 (Q-IM 데드라인) |
 | **멱등성** | `link` API는 동일한 `(identifierHash, qimUserId)` 재호출에 멱등 응답 |
 
@@ -259,8 +261,8 @@ CREATE TABLE agency_user (
 ```sql
 -- 기존 기관 회원 테이블 마이그레이션
 ALTER TABLE {기관_회원_테이블}
-    ADD COLUMN ci_hash     VARCHAR(300) COMMENT 'SHA-256(CI) = OnePass identifierHash',
-    ADD COLUMN qim_user_id VARCHAR(36)  COMMENT 'OnePass Q-IM 사용자 UUID';
+    ADD COLUMN ci_hash     VARCHAR(300) COMMENT 'SHA-256(CI) = Idem identifierHash',
+    ADD COLUMN qim_user_id VARCHAR(36)  COMMENT 'Idem Registry 사용자 UUID';
 
 -- 조회 성능을 위한 인덱스 (lookup API 타임아웃 방지)
 CREATE INDEX idx_ci_hash     ON {기관_회원_테이블} (ci_hash);
@@ -271,10 +273,10 @@ CREATE INDEX idx_qim_user_id ON {기관_회원_테이블} (qim_user_id);
 
 | 컬럼 | 타입 | Nullable | 설명 |
 |------|------|----------|------|
-| `ci_hash` | VARCHAR(300) | Y | SHA-256(CI) = OnePass `identifierHash`. 전환 희망자가 본인인증 시 최초 1회 저장 |
-| `qim_user_id` | VARCHAR(36) | Y | OnePass Q-IM UUID. `link` API 호출 시 저장. NULL이면 OnePass 미연결 |
+| `ci_hash` | VARCHAR(300) | Y | SHA-256(CI) = Idem `identifierHash`. 전환 희망자가 본인인증 시 최초 1회 저장 |
+| `qim_user_id` | VARCHAR(36) | Y | Idem Registry UUID. `link` API 호출 시 저장. NULL이면 Idem 미연결 |
 
-> **CI 소급 수집 불필요**: 기존 모든 회원의 CI를 일괄 수집할 필요가 없다. 원패스 전환을 원하는 사용자가 **본인인증(NICE/PASS)을 수행하는 시점에 1회** `ci_hash`를 저장하면 된다.
+> **CI 소급 수집 불필요**: 기존 모든 회원의 CI를 일괄 수집할 필요가 없다. Idem 전환을 원하는 사용자가 **본인인증(NICE/PASS)을 수행하는 시점에 1회** `ci_hash`를 저장하면 된다.
 
 ---
 
@@ -294,7 +296,7 @@ dependencies {
 ```xml
 <dependency>
     <groupId>io.github.hipstermin.idem</groupId>
-    <artifactId>onepass-agency-sdk</artifactId>
+    <artifactId>idem-sdk-java</artifactId>
     <version>1.0.0</version>
 </dependency>
 ```
@@ -304,7 +306,7 @@ dependencies {
 ```java
 // 기본 설정 (HttpURLConnection, JDK 내장)
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-    .baseUrl("https://ido.onepass.go.kr")   // OnePass IdO 서버 URL
+    .baseUrl("https://idem-hub.example.go.kr")   // Idem Hub 서버 URL
     .apiKey("your-agency-api-key")           // 발급받은 API 키
     .agencyCode("AGENCY_001")                // 기관 코드
     .connectTimeoutMs(5_000)                 // 기본값: 5초
@@ -315,7 +317,7 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 **HMAC 서명 활성화** (Sprint 17 Phase 4 이후 필수):
 ```java
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-    .baseUrl("https://ido.onepass.go.kr")
+    .baseUrl("https://idem-hub.example.go.kr")
     .apiKey("your-agency-api-key")
     .agencyCode("AGENCY_001")
     .hmacSecret("your-hmac-shared-secret")  // 별도 발급받은 HMAC 키
@@ -326,15 +328,15 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 **Spring Bean 등록 예시**:
 ```java
 @Configuration
-public class OnePassConfig {
+public class IdemConfig {
     
-    @Value("${onepass.ido.base-url}")
+    @Value("${idem.hub.base-url}")
     private String baseUrl;
     
-    @Value("${onepass.agency.api-key}")
+    @Value("${idem.agency.api-key}")
     private String apiKey;
     
-    @Value("${onepass.agency.code}")
+    @Value("${idem.agency.code}")
     private String agencyCode;
     
     @Bean
@@ -360,7 +362,7 @@ public class OnePassConfig {
 사용자 브라우저
   │ ①로그인 완료
   ▼
-OnePass IdO
+Idem Hub
   │ ②기관 콜백 URL 리다이렉트
   │ GET https://{기관}/callback?ticket=abc-123-def
   ▼
@@ -383,7 +385,7 @@ IdO 서버
 ```java
 // SDK v1.1.0 출시 후 사용 가능
 HandoffVerifyClient handoffClient = HandoffVerifyClient.builder()
-    .baseUrl("https://ido.onepass.go.kr")
+    .baseUrl("https://idem-hub.example.go.kr")
     .apiKey("your-agency-api-key")
     .agencyCode("AGENCY_001")
     .build();
@@ -409,7 +411,7 @@ public String callback(@RequestParam String ticket, HttpSession session)
         throws Exception {
     
     // 직접 HTTP 호출
-    String url = "https://ido.onepass.go.kr/api/v1/handoff/verify";
+    String url = "https://idem-hub.example.go.kr/api/v1/handoff/verify";
     String body = String.format(
         "{\"ticketId\":\"%s\",\"agencyCode\":\"%s\"}", 
         ticket, "AGENCY_001");
@@ -445,7 +447,7 @@ public String callback(@RequestParam String ticket, HttpSession session)
 
 ```json
 {
-  "subject": "qim-user-uuid-...",        // OnePass Q-IM 사용자 ID
+  "subject": "qim-user-uuid-...",        // Idem Registry 사용자 ID
   "identifierHash": "a3f2c8d1...",       // SHA-256(CI), 회원 전환 키
   "agencyCode": "AGENCY_001",
   "issuedAt": "2026-05-17T10:00:00Z",
@@ -543,20 +545,20 @@ void updateCiHash(@Param("userId") String userId, @Param("ciHash") String ciHash
 ```bash
 # Tomcat (setenv.sh)
 JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties"
+  -javaagent:/opt/idem/idem-agent.jar=config=/etc/idem/onepass-agent.properties"
 
 # JBoss/WildFly (standalone.conf)
 JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties"
+  -javaagent:/opt/idem/idem-agent.jar=config=/etc/idem/onepass-agent.properties"
 ```
 
 ### 8.2 기본 설정 파일 (Authorization 헤더 기반)
 
 ```properties
-# /etc/onepass/onepass-agent.properties
+# /etc/idem/onepass-agent.properties
 
 # 필수
-onepass.agent.endpoint=https://ido.onepass.go.kr
+onepass.agent.endpoint=https://idem-hub.example.go.kr
 onepass.agent.api-key=your-agency-api-key
 
 # 선택 (기본값)
@@ -569,7 +571,7 @@ onepass.agent.log-level=INFO
 
 ### 8.3 자체 SSO 기관 — 쿠키 기반 토큰 추출 (SDK v1.1.0 예정)
 
-자체 SSO 기관은 OnePass 토큰을 쿠키에 저장하는 경우가 많다.
+자체 SSO 기관은 Idem 토큰을 쿠키에 저장하는 경우가 많다.
 
 ```properties
 # 쿠키에서 토큰 추출 (헤더 없으면 쿠키 fallback)
@@ -584,11 +586,11 @@ onepass.agent.bypass-uris=/actuator/**,/health,/sso/**,/saml/**,/login/**
 
 ### 8.4 현재(v1.0.0) 자체 SSO 기관 우회 방법
 
-SSO 필터에서 OnePass 토큰을 Authorization 헤더로 변환하여 삽입:
+SSO 필터에서 Idem 토큰을 Authorization 헤더로 변환하여 삽입:
 
 ```java
 // 자체 SSO 기관의 필터 예시 (현재 v1.0.0 우회 방법)
-public class SsoToOnePassBridgeFilter implements Filter {
+public class SsoToIdemBridgeFilter implements Filter {
     
     @Override
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
@@ -596,17 +598,17 @@ public class SsoToOnePassBridgeFilter implements Filter {
         
         HttpServletRequest request = (HttpServletRequest) req;
         
-        // SSO 세션에서 OnePass 토큰 추출
+        // SSO 세션에서 Idem 토큰 추출
         HttpSession session = request.getSession(false);
         if (session != null) {
-            String onePassToken = (String) session.getAttribute("ONEPASS_TOKEN");
-            if (onePassToken != null) {
+            String idemToken = (String) session.getAttribute("ONEPASS_TOKEN");
+            if (idemToken != null) {
                 // Authorization 헤더로 래핑 (Agent가 읽을 수 있도록)
                 HttpServletRequestWrapper wrapper = new HttpServletRequestWrapper(request) {
                     @Override
                     public String getHeader(String name) {
                         if ("Authorization".equalsIgnoreCase(name)) {
-                            return "Bearer " + onePassToken;
+                            return "Bearer " + idemToken;
                         }
                         return super.getHeader(name);
                     }
@@ -652,7 +654,7 @@ public static String computeIdentifierHash(String ci) {
 
 ```
 CI 수집 타이밍:
-  ✅ 사용자가 원패스 전환 버튼 클릭 → 본인인증 팝업 → NICE/PASS CI 반환
+  ✅ 사용자가 Idem 전환 버튼 클릭 → 본인인증 팝업 → NICE/PASS CI 반환
   ✅ 신규 가입 시 본인인증 → CI 즉시 저장
   ✅ 기존 서비스 본인인증 기능에 ci_hash 저장 로직 추가
   
@@ -821,4 +823,4 @@ curl -X POST http://localhost:8084/mock/sso/activate \
 
 *이 문서는 `agency-stub`, `idem-sdk-java`, `idem-agent`, `ido`, `q-im` 소스코드 직접 분석을 기반으로 작성되었습니다.*
 
-*문의: 플랫폼 연동팀 (내부 이슈 트래커: ONEPASS-DEV 프로젝트)*
+*문의: 플랫폼 연동팀 (내부 이슈 트래커: IDEM-DEV 프로젝트)*
