@@ -1,6 +1,8 @@
-# OnePass 자체 SSO 기관 연동 — 운영 가이드
+# Idem 자체 SSO 기관 연동 — 운영 가이드
 
-> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+> **명칭 안내 (2026-09-27 갱신)** — 제품명은 **Idem**(구 OnePass·원패스, 2026-09-04 개명)이다. 에이전트의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `OnePass-*` 헤더, `[OnePassAgent]` 로그 태그는 1.0 에서 **동결**됐고 2.0 에서 바꾼다(`CHANGELOG.md` [1.0.0]). 대응표: [docs/naming.md](naming.md) §3.
+
+> **2026-09-10 개정 (범용화 S4b) 반영 안내** — Idem 은 기관 회원 DB 를 조회·등록하지 **않는다**. 이 문서의 회원 조회·매핑 API(`/api/v1/members/lookup`·`/link`), `ci_hash`·`qim_user_id` 컬럼, `identifierHash`(SHA-256(CI)) 기반 회원 전환, lookup 지표·알람은 **0.x 설계**이며 1.0 에는 없다. 1.0 의 기존 계정 연결은 기관이 첫 로그인 때 `agencySubjectId` 로 수행한다 — [`sso-agency-integration-guide.md`](sso-agency-integration-guide.md) §5. 해당 절은 0.x 참고용으로만 남겨 둔다.
 
 > **대상 독자**: 운영 개발자, 인프라 엔지니어, SRE
 > **버전**: v1.0 (2026-05-17)
@@ -46,8 +48,8 @@
                                               │ HTTPS
                                               ▼
                                ┌──────────────────────────┐
-                               │  OnePass IdO 서버          │
-                               │  idem.hub.onepass.go.kr:443    │
+                               │  Idem Hub 서버          │
+                               │  idem-hub.example.go.kr:443    │
                                └──────────┬───────────────┘
                                           │
                                ┌──────────▼───────────────┐
@@ -68,8 +70,8 @@
 
 | 서비스 | 포트 | 프로토콜 | 용도 |
 |-------|------|---------|------|
-| IdO (OnePass) | 443 | HTTPS | Handoff 발급/검증, Gateway API |
-| Q-IM (OnePass) | 443 | HTTPS | 회원 전환 API |
+| idem-hub | 443 | HTTPS | Handoff 발급/검증, Gateway API |
+| idem-registry | 443 | HTTPS | 회원 전환 API |
 | 기관 API 서버 | 443 | HTTPS | lookup/link API (인바운드) |
 
 ---
@@ -80,33 +82,33 @@
 
 ```bash
 # 권장 디렉토리 구조
-/opt/onepass/
+/opt/idem/
 ├── idem-agent.jar          # Agent JAR (버전 관리)
 └── idem-agent-{version}.jar  # 버전별 보관
 
-/etc/onepass/
+/etc/idem/
 └── onepass-agent.properties   # 설정 파일 (외부 마운트, 비밀정보 포함)
 
-/var/log/onepass/
+/var/log/idem/
 └── idem-agent.log          # Agent 로그 (stdout 리다이렉트)
 ```
 
 ```bash
 # 디렉토리 생성 및 권한 설정
-sudo mkdir -p /opt/onepass /etc/onepass /var/log/onepass
-sudo chown -R {WAS사용자}:{WAS그룹} /opt/onepass /etc/onepass /var/log/onepass
-sudo chmod 750 /etc/onepass          # 설정 파일 디렉토리 — 그룹 접근만 허용
-sudo chmod 640 /etc/onepass/*.properties  # API 키 보호
+sudo mkdir -p /opt/idem /etc/idem /var/log/idem
+sudo chown -R {WAS사용자}:{WAS그룹} /opt/idem /etc/idem /var/log/idem
+sudo chmod 750 /etc/idem          # 설정 파일 디렉토리 — 그룹 접근만 허용
+sudo chmod 640 /etc/idem/*.properties  # API 키 보호
 ```
 
 ### 2.2 설정 파일 관리
 
 ```properties
-# /etc/onepass/onepass-agent.properties
+# /etc/idem/onepass-agent.properties
 
 # ── 필수 설정 ──────────────────────────────────────────────────────
-onepass.agent.endpoint=https://ido.onepass.go.kr
-onepass.agent.api-key=${ONEPASS_API_KEY}  # 환경변수 참조 권장
+onepass.agent.endpoint=https://idem-hub.example.go.kr
+onepass.agent.api-key=${IDEM_AGENCY_API_KEY}  # 환경변수 참조 권장
 
 # ── 타임아웃 설정 ────────────────────────────────────────────────────
 onepass.agent.connect-timeout-ms=5000
@@ -122,7 +124,7 @@ onepass.agent.log-level=WARN        # 운영 환경: WARN (INFO는 로그 과다
 # /actuator/**, /health, /favicon.ico, 정적 파일 확장자
 
 # ── HMAC 서명 (Sprint 17 Phase 4 이후 필수) ─────────────────────────
-# onepass.agent.hmac-secret=${ONEPASS_HMAC_SECRET}
+# onepass.agent.hmac-secret=${IDEM_AGENCY_HMAC_SECRET}
 ```
 
 > **보안 주의**: `api-key`와 `hmac-secret`을 평문으로 파일에 저장하지 말 것. 환경변수, Vault, AWS Secrets Manager 등을 활용하세요.
@@ -132,27 +134,27 @@ onepass.agent.log-level=WARN        # 운영 환경: WARN (INFO는 로그 과다
 **Tomcat (setenv.sh)**:
 ```bash
 # /opt/tomcat/bin/setenv.sh
-export ONEPASS_API_KEY="$(cat /run/secrets/onepass_api_key)"
+export IDEM_AGENCY_API_KEY="$(cat /run/secrets/idem_api_key)"
 
 JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties \
-  -Donepass.agent.endpoint=https://ido.onepass.go.kr"
+  -javaagent:/opt/idem/idem-agent.jar=config=/etc/idem/onepass-agent.properties \
+  -Donepass.agent.endpoint=https://idem-hub.example.go.kr"
 ```
 
 **JEUS (startDomainAdminServer.sh)**:
 ```xml
 <!-- domain.xml JVM 설정 -->
-<jvm-option>-javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties</jvm-option>
+<jvm-option>-javaagent:/opt/idem/idem-agent.jar=config=/etc/idem/onepass-agent.properties</jvm-option>
 ```
 
 **JBoss/WildFly (standalone.conf)**:
 ```bash
-JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties"
+JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/idem/idem-agent.jar=config=/etc/idem/onepass-agent.properties"
 ```
 
 **WebLogic (setDomainEnv.sh)**:
 ```bash
-JAVA_OPTIONS="${JAVA_OPTIONS} -javaagent:/opt/onepass/idem-agent.jar=config=/etc/onepass/onepass-agent.properties"
+JAVA_OPTIONS="${JAVA_OPTIONS} -javaagent:/opt/idem/idem-agent.jar=config=/etc/idem/onepass-agent.properties"
 ```
 
 **Docker 컨테이너**:
@@ -160,16 +162,16 @@ JAVA_OPTIONS="${JAVA_OPTIONS} -javaagent:/opt/onepass/idem-agent.jar=config=/etc
 FROM {기관_베이스_이미지}
 
 # Agent 복사
-COPY idem-agent.jar /opt/onepass/idem-agent.jar
+COPY idem-agent.jar /opt/idem/idem-agent.jar
 
 # 환경변수로 설정 주입
-ENV ONEPASS_API_KEY=""
-ENV ONEPASS_AGENT_ENDPOINT="https://ido.onepass.go.kr"
+ENV IDEM_AGENCY_API_KEY=""
+ENV IDEM_AGENT_ENDPOINT="https://idem-hub.example.go.kr"
 
 # JVM 옵션에 Agent 추가
-ENV JAVA_OPTS="-javaagent:/opt/onepass/idem-agent.jar \
-               -Donepass.agent.endpoint=${ONEPASS_AGENT_ENDPOINT} \
-               -Donepass.agent.api-key=${ONEPASS_API_KEY}"
+ENV JAVA_OPTS="-javaagent:/opt/idem/idem-agent.jar \
+               -Donepass.agent.endpoint=${IDEM_AGENT_ENDPOINT} \
+               -Donepass.agent.api-key=${IDEM_AGENCY_API_KEY}"
 ```
 
 **Kubernetes (Deployment)**:
@@ -179,19 +181,19 @@ spec:
   - name: agency-app
     image: agency-app:latest
     env:
-    - name: ONEPASS_API_KEY
+    - name: IDEM_AGENCY_API_KEY
       valueFrom:
         secretKeyRef:
-          name: onepass-secrets
+          name: idem-secrets
           key: api-key
     - name: JAVA_OPTS
       value: >-
-        -javaagent:/opt/onepass/idem-agent.jar
-        -Donepass.agent.endpoint=https://ido.onepass.go.kr
-        -Donepass.agent.api-key=$(ONEPASS_API_KEY)
+        -javaagent:/opt/idem/idem-agent.jar
+        -Donepass.agent.endpoint=https://idem-hub.example.go.kr
+        -Donepass.agent.api-key=$(IDEM_AGENCY_API_KEY)
     volumeMounts:
     - name: idem-agent
-      mountPath: /opt/onepass
+      mountPath: /opt/idem
   volumes:
   - name: idem-agent
     configMap:
@@ -223,14 +225,14 @@ SDK 설정을 소스코드에 하드코딩하지 말고, 외부 설정 파일 �
 
 **Spring Boot application.yml**:
 ```yaml
-onepass:
+idem:
   ido:
-    base-url: ${ONEPASS_IDO_BASE_URL:https://ido.onepass.go.kr}
+    base-url: ${IDEM_HUB_BASE_URL:https://idem-hub.example.go.kr}
   agency:
-    api-key: ${ONEPASS_AGENCY_API_KEY}
-    code: ${ONEPASS_AGENCY_CODE:AGENCY_001}
-    hmac-secret: ${ONEPASS_HMAC_SECRET:}
-    sign-requests: ${ONEPASS_SIGN_REQUESTS:false}
+    api-key: ${IDEM_AGENCY_API_KEY}
+    code: ${IDEM_AGENCY_CODE:AGENCY_001}
+    hmac-secret: ${IDEM_AGENCY_HMAC_SECRET:}
+    sign-requests: ${IDEM_SIGN_REQUESTS:false}
     connect-timeout-ms: 5000
     read-timeout-ms: 30000
 ```
@@ -239,8 +241,8 @@ onepass:
 
 ```bash
 # SDK 연결 상태 확인 (getStatus API)
-curl -X GET https://ido.onepass.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
-  -H "X-Agency-Key: ${ONEPASS_API_KEY}" \
+curl -X GET https://idem-hub.example.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
+  -H "X-Agency-Key: ${IDEM_AGENCY_API_KEY}" \
   -H "X-Agency-Code: AGENCY_001"
 
 # 기대 응답: {"status": "ACTIVE", "agencyCode": "AGENCY_001", ...}
@@ -288,7 +290,7 @@ management:
         include: health,metrics,prometheus
   metrics:
     tags:
-      application: agency-onepass-api
+      application: agency-idem-api
 ```
 
 ```java
@@ -298,13 +300,13 @@ public ResponseEntity<MemberLookupResponse> lookup(@RequestBody MemberLookupRequ
     Timer.Sample sample = Timer.start(meterRegistry);
     try {
         // ... 비즈니스 로직
-        sample.stop(Timer.builder("onepass.lookup.duration")
+        sample.stop(Timer.builder("idem.lookup.duration")
             .tag("agency", agencyCode)
             .tag("result", found ? "found" : "not_found")
             .register(meterRegistry));
         return ResponseEntity.ok(response);
     } catch (Exception e) {
-        meterRegistry.counter("onepass.lookup.error",
+        meterRegistry.counter("idem.lookup.error",
             "agency", agencyCode, "error", e.getClass().getSimpleName()).increment();
         throw e;
     }
@@ -336,10 +338,10 @@ Row 3: Agent 상태
 ```yaml
 # prometheus-alerts.yml
 groups:
-- name: onepass-agency-alerts
+- name: idem-agency-alerts
   rules:
-  - alert: OnePassLookupHighLatency
-    expr: histogram_quantile(0.95, rate(onepass_lookup_duration_bucket[5m])) > 10
+  - alert: IdemLookupHighLatency
+    expr: histogram_quantile(0.95, rate(idem_lookup_duration_bucket[5m])) > 10
     for: 2m
     labels:
       severity: warning
@@ -347,8 +349,8 @@ groups:
       summary: "lookup API P95 응답시간 10초 초과"
       description: "Q-IM 타임아웃(15초) 위험. DBA에게 인덱스 점검 요청하세요."
 
-  - alert: OnePassLookupCriticalLatency
-    expr: histogram_quantile(0.95, rate(onepass_lookup_duration_bucket[5m])) > 14
+  - alert: IdemLookupCriticalLatency
+    expr: histogram_quantile(0.95, rate(idem_lookup_duration_bucket[5m])) > 14
     for: 1m
     labels:
       severity: critical
@@ -356,8 +358,8 @@ groups:
       summary: "lookup API P95 응답시간 14초 초과 — Q-IM 타임아웃 임박"
       description: "즉시 대응. 회원 전환 기능 비활성화 고려."
 
-  - alert: OnePassLinkErrorRate
-    expr: rate(onepass_lookup_error_total[5m]) / rate(onepass_lookup_duration_count[5m]) > 0.05
+  - alert: IdemLinkErrorRate
+    expr: rate(idem_lookup_error_total[5m]) / rate(idem_lookup_duration_count[5m]) > 0.05
     for: 3m
     labels:
       severity: critical
@@ -369,42 +371,42 @@ groups:
 
 ## 5. 장애 시나리오 및 대응 절차
 
-### 5.1 시나리오 1: OnePass IdO 서버 다운
+### 5.1 시나리오 1: Idem Hub 서버 다운
 
 **영향**: 
-- 원패스로 로그인 불가
+- Idem 으로 로그인 불가
 - 회원 전환 불가
 - Agent 토큰 검증 실패 → **Fail-Open** 정책으로 기관 서비스는 정상 작동 (토큰 없으면 통과)
 
 **대응**:
 ```bash
-# 1. OnePass 서버 상태 확인
-curl -I https://ido.onepass.go.kr/actuator/health
+# 1. Idem 서버 상태 확인
+curl -I https://idem-hub.example.go.kr/actuator/health
 # 또는
-curl -I https://status.onepass.go.kr
+curl -I https://status.example.go.kr
 
 # 2. Agent 임시 비활성화 (Fail-Open이지만 불필요한 오류 로그 방지)
 # 방법 A: 설정 파일 변경 후 WAS 재시작
 sed -i 's/onepass.agent.enabled=true/onepass.agent.enabled=false/' \
-    /etc/onepass/onepass-agent.properties
+    /etc/idem/onepass-agent.properties
 # WAS 재시작 필요 (설정 파일 변경은 재시작 없이 즉시 반영 안 됨)
 
 # 방법 B: JVM 시스템 프로퍼티 동적 변경 (WAS 지원 시)
 # -Donepass.agent.enabled=false 추가 후 재시작
 
 # 3. 사용자 공지
-# "원패스 로그인 기능이 일시 중단되었습니다. 기관 아이디/비밀번호로 로그인하세요."
+# "Idem 로그인 기능이 일시 중단되었습니다. 기관 아이디/비밀번호로 로그인하세요."
 ```
 
 **복구**:
 ```bash
-# OnePass 서버 정상화 확인 후
-curl https://ido.onepass.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
-    -H "X-Agency-Key: ${ONEPASS_API_KEY}"
+# Idem 서버 정상화 확인 후
+curl https://idem-hub.example.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
+    -H "X-Agency-Key: ${IDEM_AGENCY_API_KEY}"
 
 # Agent 재활성화
 sed -i 's/onepass.agent.enabled=false/onepass.agent.enabled=true/' \
-    /etc/onepass/onepass-agent.properties
+    /etc/idem/onepass-agent.properties
 # WAS 재시작
 ```
 
@@ -449,19 +451,19 @@ SHOW PROCESSLIST;
 **즉각 조치 (1시간 이내)**:
 
 ```bash
-# 1. 원패스 연동 지원팀에 즉시 연락
+# 1. Idem 연동 지원팀에 즉시 연락
 # "기관 코드 AGENCY_001의 API 키 즉시 비활성화 요청"
 
 # 2. 현재 API 키를 사용한 비정상 호출 로그 확인
 grep "X-Agency-Key: ${OLD_API_KEY}" /var/log/access.log | tail -1000
 
 # 3. Agent 비활성화 (새 키 발급 전까지)
-echo "onepass.agent.enabled=false" >> /etc/onepass/onepass-agent.properties
+echo "onepass.agent.enabled=false" >> /etc/idem/onepass-agent.properties
 # WAS 재시작
 
 # 4. 새 API 키 수령 후 교체
 sed -i "s/onepass.agent.api-key=.*/onepass.agent.api-key=${NEW_API_KEY}/" \
-    /etc/onepass/onepass-agent.properties
+    /etc/idem/onepass-agent.properties
 # WAS 재시작
 
 # 5. SDK 설정도 동일하게 교체
@@ -543,8 +545,8 @@ Agent JAR는 JVM 시작 시 단 1회 로드된다. 업그레이드는 반드시 
 
 ```bash
 # 1. 새 Agent JAR 배포
-cp idem-agent-{new-version}.jar /opt/onepass/
-ln -sf /opt/onepass/idem-agent-{new-version}.jar /opt/onepass/idem-agent.jar
+cp idem-agent-{new-version}.jar /opt/idem/
+ln -sf /opt/idem/idem-agent-{new-version}.jar /opt/idem/idem-agent.jar
 
 # 2. 헬스체크 URL 확인
 curl -I https://{기관서버}/health
@@ -588,7 +590,7 @@ kubectl set image deployment/agency-app \
     agency-app=agency-app:{new-version} --record
 
 # 3. 에러율 모니터링
-watch -n 5 'curl -s http://prometheus/api/v1/query?query=rate(onepass_lookup_error_total[5m])'
+watch -n 5 'curl -s http://prometheus/api/v1/query?query=rate(idem_lookup_error_total[5m])'
 
 # 4. 정상 확인 후 전체 배포
 ```
@@ -601,25 +603,25 @@ watch -n 5 'curl -s http://prometheus/api/v1/query?query=rate(onepass_lookup_err
 
 ```bash
 # 1. 사전 확인: 현재 키가 정상 동작하는지 확인
-curl https://ido.onepass.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
+curl https://idem-hub.example.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
     -H "X-Agency-Key: ${CURRENT_API_KEY}" | jq '.status'
 
 # 2. 새 키 유효성 확인 (교체 전 병행 테스트)
-curl https://ido.onepass.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
+curl https://idem-hub.example.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
     -H "X-Agency-Key: ${NEW_API_KEY}" | jq '.status'
 
 # 3. 설정 파일 업데이트 (Agent)
 sudo sed -i "s/^onepass.agent.api-key=.*/onepass.agent.api-key=${NEW_API_KEY}/" \
-    /etc/onepass/onepass-agent.properties
+    /etc/idem/onepass-agent.properties
 
 # 4. 환경변수 업데이트 (SDK)
 # AWS: aws secretsmanager update-secret ...
-# Vault: vault kv put secret/onepass api-key="${NEW_API_KEY}"
+# Vault: vault kv put secret/idem api-key="${NEW_API_KEY}"
 
 # 5. 롤링 재시작 (Agent는 재시작 필요, SDK 환경변수는 재시작 필요)
 # 섹션 6.1 절차 따름
 
-# 6. 구 키 비활성화 (원패스 관리자에게 요청)
+# 6. 구 키 비활성화 (Idem 관리자에게 요청)
 ```
 
 ### 7.2 bypass-uris 추가 (현재 v1.0: 하드코딩, v1.1: 설정 가능)
@@ -691,12 +693,12 @@ public class PreAgentBypassFilter extends OncePerRequestFilter {
 
 ```bash
 # Agent JAR 무결성 검증
-sha256sum /opt/onepass/idem-agent.jar
+sha256sum /opt/idem/idem-agent.jar
 # → 배포 시 제공된 체크섬과 비교
 
 # 예: 배포 매니페스트에서 체크섬 가져오기
-EXPECTED_CHECKSUM=$(curl -sf https://releases.onepass.go.kr/agent/1.0.0/SHA256SUMS)
-ACTUAL_CHECKSUM=$(sha256sum /opt/onepass/idem-agent.jar | awk '{print $1}')
+EXPECTED_CHECKSUM=$(curl -sf https://releases.example.go.kr/agent/1.0.0/SHA256SUMS)
+ACTUAL_CHECKSUM=$(sha256sum /opt/idem/idem-agent.jar | awk '{print $1}')
 [ "${ACTUAL_CHECKSUM}" = "${EXPECTED_CHECKSUM}" ] && echo "OK" || echo "CHECKSUM MISMATCH!"
 ```
 
@@ -773,18 +775,18 @@ WHERE ci_hash IS NOT NULL
 
 ## 10. 긴급 대응 런북
 
-### 런북 A: 원패스 로그인 전체 불가
+### 런북 A: Idem 로그인 전체 불가
 
 ```
-증상: 사용자들이 원패스 로그인 버튼 클릭 시 오류 발생
+증상: 사용자들이 Idem 로그인 버튼 클릭 시 오류 발생
 
-1. 원패스 서버 상태 확인 (30초)
-   curl -I https://ido.onepass.go.kr/health
-   → 200이면 기관 측 문제, 5xx면 원패스 서버 장애
+1. Idem 서버 상태 확인 (30초)
+   curl -I https://idem-hub.example.go.kr/health
+   → 200이면 기관 측 문제, 5xx면 Idem 서버 장애
 
-2a. 원패스 서버 장애 시:
-   - 원패스 운영팀 On-call 연락 (비상 연락처 확인)
-   - 기관 웹사이트 공지: "원패스 로그인 일시 중단, 기관 아이디로 로그인하세요"
+2a. Idem 서버 장애 시:
+   - Idem 운영팀 On-call 연락 (비상 연락처 확인)
+   - 기관 웹사이트 공지: "Idem 로그인 일시 중단, 기관 아이디로 로그인하세요"
    - Agent enabled=false 설정 (불필요 오류 로그 방지)
 
 2b. 기관 측 문제 시:
@@ -794,7 +796,7 @@ WHERE ci_hash IS NOT NULL
    - DNS 확인: nslookup {기관도메인}
 
 3. 복구 후 확인:
-   - 실제 계정으로 원패스 로그인 E2E 테스트
+   - 실제 계정으로 Idem 로그인 E2E 테스트
    - 모니터링 대시보드 정상화 확인
    - 인시던트 레포트 작성 (24시간 이내)
 ```
@@ -802,7 +804,7 @@ WHERE ci_hash IS NOT NULL
 ### 런북 B: 회원 전환 기능 전체 불가
 
 ```
-증상: 원패스 계정 연결 시도 시 항상 실패
+증상: Idem 계정 연결 시도 시 항상 실패
 
 1. 기관 lookup API 직접 테스트 (1분)
    curl -X POST https://{기관도메인}/api/v1/members/lookup \
@@ -823,7 +825,7 @@ WHERE ci_hash IS NOT NULL
    → 방화벽 팀: Q-IM 서버 IP가 기관 API 서버 인바운드 허용 목록에 있는지
 
 5. 임시 조치: 회원 전환 기능 화면에서 비활성화 (토글)
-   → 원패스 로그인 + 기관 기본 로그인은 영향 없음
+   → Idem 로그인 + 기관 기본 로그인은 영향 없음
 ```
 
 ### 런북 C: Agent 401 응답 폭증
@@ -837,15 +839,15 @@ WHERE ci_hash IS NOT NULL
    - onepass-agent.properties 변경 이력
 
 2. Agent 즉시 비활성화 (Fail-Open 전환)
-   echo "onepass.agent.enabled=false" >> /etc/onepass/onepass-agent.properties
+   echo "onepass.agent.enabled=false" >> /etc/idem/onepass-agent.properties
    # WAS 재시작 → 서비스 정상화 우선
 
 3. 원인 분석 (서비스 정상화 후)
    grep "인증 실패 → HTTP 401" catalina.out | head -20
-   # → upstream status 코드 확인 (원패스 서버 응답 코드)
+   # → upstream status 코드 확인 (Idem 서버 응답 코드)
 
 4. API 키 유효성 재확인
-   curl https://ido.onepass.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
+   curl https://idem-hub.example.go.kr/api/v1/agency/gateway/status/AGENCY_001 \
      -H "X-Agency-Key: ${CURRENT_API_KEY}"
 
 5. 정상화 후 Agent 재활성화 + 모니터링 강화
@@ -855,6 +857,6 @@ WHERE ci_hash IS NOT NULL
 
 *다음 검토 예정: 2026-08-17*
 
-*운영 이슈 접수: 내부 이슈 트래커 ONEPASS-OPS 프로젝트*
+*운영 이슈 접수: 내부 이슈 트래커 IDEM-OPS 프로젝트*
 
-*OnePass 운영팀 긴급 연락: On-call 로테이션 스케줄 참고*
+*Idem 운영팀 긴급 연락: On-call 로테이션 스케줄 참고*

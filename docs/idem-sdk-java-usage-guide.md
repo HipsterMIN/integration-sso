@@ -1,9 +1,9 @@
-# OnePass Agency SDK 사용 가이드
+# idem-sdk-java 사용 가이드
 
-> **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
+> **명칭 안내 (2026-09-27 갱신)** — 제품명은 **Idem**(구 OnePass·원패스, 2026-09-04 개명)이다. 에이전트의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `OnePass-*` 헤더, `[OnePassAgent]` 로그 태그는 1.0 에서 **동결**됐고 2.0 에서 바꾼다(`CHANGELOG.md` [1.0.0]). 대응표: [docs/naming.md](naming.md) §3.
 
 > **대상**: 유관기관 개발자
-> **버전**: `idem-sdk-java 1.0.0`
+> **버전**: `idem-sdk-java 1.0.1`
 > **최종 수정**: 2026-05-18
 > **브랜치**: `shipster`
 
@@ -11,16 +11,16 @@
 
 ## 이 문서를 읽기 전에
 
-이 가이드는 **지금 당장 OnePass Gateway에 이벤트를 전송**하는 데 필요한 것만 담았다.  
+이 가이드는 **지금 당장 Idem Hub 기관 API에 이벤트를 전송**하는 데 필요한 것만 담았다.  
 SDK를 받아서 → 클라이언트를 만들고 → 이벤트를 보내고 → 응답을 처리하는 네 단계가 전부다.
 
 **준비물 체크리스트** — 이 세 가지가 없으면 시작할 수 없다.
 
 | 항목 | 설명 | 수령처 |
 |---|---|---|
-| **`X-Agency-Key`** (API 키) | 기관 인증에 사용하는 비밀 키 | OnePass 플랫폼 운영팀 |
-| **기관 코드** (`agencyCode`) | 기관을 식별하는 영문 코드 (예: `MOIS`, `NTS`) | OnePass 플랫폼 운영팀 |
-| **IdO 서버 URL** | OnePass Gateway 서버 주소 (포트 8083) | 인프라팀 / 운영팀 |
+| **`X-Agency-Key`** (API 키) | 기관 인증에 사용하는 비밀 키 | 운영기관 Idem 운영팀 |
+| **기관 코드** (`agencyCode`) | 기관을 식별하는 영문 코드 (예: `MOIS`, `NTS`) | 운영기관 Idem 운영팀 |
+| **IdO 서버 URL** | Idem Hub 서버 주소 (포트 8083) | 인프라팀 / 운영팀 |
 
 > HMAC 서명 기능(`hmacSecret`)은 Sprint 17 Phase 4 이후에 필수화될 예정이다.  
 > 지금은 없어도 동작한다. [HMAC 서명 설정](#5-hmac-서명-설정-phase-4-대비) 참고.
@@ -71,7 +71,7 @@ dependencies {
 ```xml
 <dependency>
     <groupId>io.github.hipstermin.idem</groupId>
-    <artifactId>onepass-agency-sdk</artifactId>
+    <artifactId>idem-sdk-java</artifactId>
     <version>1.0.0</version>
 </dependency>
 ```
@@ -129,7 +129,7 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 
 ## 3. 이벤트 전송 — `sendInbound()`
 
-기관 시스템에서 OnePass로 이벤트를 보낼 때 사용하는 유일한 메서드다.
+기관 시스템에서 Idem 으로 이벤트를 보낼 때 사용하는 유일한 메서드다.
 
 ### 기본 전송 (가장 간단한 형태)
 
@@ -158,7 +158,7 @@ if (response.isSuccess()) {
 
 | 필드 | 필수 | 설명 |
 |---|---|---|
-| `eventType` | **필수** | 이벤트 종류. OnePass 운영팀과 사전에 협의한 코드를 사용한다 (예: `USER_REGISTERED`, `BIZ_CONVERTED`) |
+| `eventType` | **필수** | 이벤트 종류. Idem 운영팀과 사전에 협의한 코드를 사용한다 (예: `USER_REGISTERED`, `BIZ_CONVERTED`) |
 | `agencyCode` | **필수** | 기관 코드. Builder에 설정한 값과 동일하게 넣는다 |
 | `idempotencyKey` | 선택 | 생략하면 UUID v4 자동 생성. **같은 이벤트를 재전송할 때는 반드시 처음과 동일한 키를 지정해야 한다** |
 | `payloadJson` | 선택 | JSON 객체(`{...}`) 또는 배열(`[...]`) 형식만 허용. 생략하면 `{}` |
@@ -263,7 +263,7 @@ String active    = response.getBodyField("active");    // "true"
 ### 서명 활성화 방법
 
 `hmacSecret`은 **API 키(`X-Agency-Key`)와 완전히 다른 별개의 키**다.  
-OnePass 운영팀에서 기관별로 별도 발급한다.
+Idem 운영팀에서 기관별로 별도 발급한다.
 
 ```java
 AgencyGatewayClient client = AgencyGatewayClient.builder()
@@ -484,12 +484,12 @@ Spring Boot 프로젝트에서는 `AgencyGatewayClient`를 싱글톤 Bean으로 
 ### `application.yml` 설정
 
 ```yaml
-onepass:
+idem:
   agency:
     base-url: http://ido-service:8083
-    api-key: ${ONEPASS_AGENCY_API_KEY}        # 환경 변수로 관리
+    api-key: ${IDEM_AGENCY_API_KEY}        # 환경 변수로 관리
     agency-code: MOIS
-    hmac-secret: ${ONEPASS_AGENCY_HMAC_SECRET} # 환경 변수로 관리
+    hmac-secret: ${IDEM_AGENCY_HMAC_SECRET} # 환경 변수로 관리
     sign-requests: false                        # Phase 4 전환 시 true로 변경
     connect-timeout-ms: 5000
     read-timeout-ms: 30000
@@ -504,17 +504,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class OnePassSdkConfig {
+public class IdemSdkConfig {
 
     @Bean
     public AgencyGatewayClient agencyGatewayClient(
-            @Value("${onepass.agency.base-url}")         String baseUrl,
-            @Value("${onepass.agency.api-key}")          String apiKey,
-            @Value("${onepass.agency.agency-code}")      String agencyCode,
-            @Value("${onepass.agency.hmac-secret:}")     String hmacSecret,
-            @Value("${onepass.agency.sign-requests:false}") boolean signRequests,
-            @Value("${onepass.agency.connect-timeout-ms:5000}") int connectTimeoutMs,
-            @Value("${onepass.agency.read-timeout-ms:30000}")   int readTimeoutMs
+            @Value("${idem.agency.base-url}")         String baseUrl,
+            @Value("${idem.agency.api-key}")          String apiKey,
+            @Value("${idem.agency.agency-code}")      String agencyCode,
+            @Value("${idem.agency.hmac-secret:}")     String hmacSecret,
+            @Value("${idem.agency.sign-requests:false}") boolean signRequests,
+            @Value("${idem.agency.connect-timeout-ms:5000}") int connectTimeoutMs,
+            @Value("${idem.agency.read-timeout-ms:30000}")   int readTimeoutMs
     ) {
         AgencyGatewayClient.Builder builder = AgencyGatewayClient.builder()
                 .baseUrl(baseUrl)
@@ -545,11 +545,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserEventService {
 
-    private final AgencyGatewayClient onePassClient;
+    private final AgencyGatewayClient idemClient;
 
     // 생성자 주입 (권장)
-    public UserEventService(AgencyGatewayClient onePassClient) {
-        this.onePassClient = onePassClient;
+    public UserEventService(AgencyGatewayClient idemClient) {
+        this.idemClient = idemClient;
     }
 
     public void notifyUserRegistered(String userId) {
@@ -563,17 +563,17 @@ public class UserEventService {
                 .build();
 
         try {
-            GatewayResponse response = onePassClient.sendInbound(event);
+            GatewayResponse response = idemClient.sendInbound(event);
 
             if (response.isSuccess()) {
-                log.info("[OnePass] 회원가입 이벤트 전송 완료. userId={}, correlationId={}",
+                log.info("[Idem] 회원가입 이벤트 전송 완료. userId={}, correlationId={}",
                         userId, response.getCorrelationId());
             } else if (response.isIdempotencyConflict()) {
-                log.warn("[OnePass] 중복 이벤트 (409). 이미 처리된 키. userId={}", userId);
+                log.warn("[Idem] 중복 이벤트 (409). 이미 처리된 키. userId={}", userId);
             }
 
         } catch (AgencyHttpException e) {
-            log.error("[OnePass] 이벤트 전송 실패. userId={}, status={}, msg={}",
+            log.error("[Idem] 이벤트 전송 실패. userId={}, status={}, msg={}",
                     userId, e.getHttpStatus(), e.getMessage());
             // 필요 시 알림 발송, 재시도 큐 등록 등
         }
@@ -585,7 +585,7 @@ public class UserEventService {
 
 ## 10. 연동 상태 조회 — `getStatus()`
 
-기관의 OnePass 연동 상태를 조회한다. 초기 설정 확인, 모니터링 대시보드 등에 활용한다.
+기관의 Idem 연동 상태를 조회한다. 초기 설정 확인, 모니터링 대시보드 등에 활용한다.
 
 ```java
 GatewayResponse status = client.getStatus("MOIS");
@@ -620,7 +620,7 @@ import io.github.hipstermin.idem.sdk.agency.idempotency.IdempotencyKeyGenerator;
 import io.github.hipstermin.idem.sdk.agency.model.GatewayResponse;
 import io.github.hipstermin.idem.sdk.agency.model.InboundEvent;
 
-public class OnePassExample {
+public class IdemExample {
 
     public static void main(String[] args) {
 
@@ -687,7 +687,7 @@ public class OnePassExample {
 
 **Q. `triggerOutbound()`는 언제 쓰나요?**
 
-쓰지 않는다. 이 메서드는 OnePass **내부 운영자 전용**으로, 기관 시스템에서 호출하면 Kubernetes IngressRule에서 네트워크 차단된다. IDE에서 `@Deprecated` 경고가 뜨는 것이 정상이다. 기관이 OnePass로 이벤트를 보낼 때는 오직 `sendInbound()`만 사용한다.
+쓰지 않는다. 이 메서드는 Idem **내부 운영자 전용**으로, 기관 시스템에서 호출하면 Kubernetes IngressRule에서 네트워크 차단된다. IDE에서 `@Deprecated` 경고가 뜨는 것이 정상이다. 기관이 Idem 으로 이벤트를 보낼 때는 오직 `sendInbound()`만 사용한다.
 
 ---
 
@@ -750,10 +750,10 @@ IdO 서버의 기본 포트는 **8083**이다. 로드밸런서나 프록시를 �
 
 ## 참고
 
-- OnePass IdO 서버 포트: **8083**
-- OnePass FE 서버 포트: **3000** (UI 전용, API 호출 대상 아님)
+- Idem Hub 서버 포트: **8083**
+- Idem 로그인·OIDC(gate) 포트 **8081**, 관리 콘솔 **3001** (UI 전용, SDK 호출 대상 아님)
 - 멱등성 키 서버 보관 TTL: **24시간**
 - HMAC 서명 서버 검증 TTL: **±60초**
 - SDK 기본 재시도: **3회** (200ms → 400ms → 800ms 지수 백오프)
 - SDK 최소 Java 버전: **Java 8**
-- 문의: OnePass 플랫폼 운영팀
+- 문의: 운영기관 Idem 운영팀
