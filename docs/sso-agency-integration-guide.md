@@ -166,7 +166,7 @@ Idem 은 기관 서버의 API 를 호출해 회원을 조회하거나 등록하�
 ```
 네트워크:
 □ 기관 서버 → IdO 서버 (예: idem.hub.example.org:443) HTTPS 아웃바운드 허용
-□ Q-IM 서버 → 기관 API (api/v1/members/**) 인바운드 허용 (방화벽)
+□ (선택) Idem hub → 기관 웹훅·BCL·티켓 푸시 엔드포인트 인바운드 허용 (방화벽) — Idem 이 기관 회원 API 를 호출하는 일은 없음
 
 서버:
 □ JDK 8 이상 설치 (Agent 요구사항)
@@ -272,11 +272,11 @@ Idem 은 CI 를 기관에 **내보내지 않습니다**. 기관이 받는 것은
 2~3주차: 개발
 ├── DB 컬럼 추가 (idem_subject_id)
 ├── 첫 로그인 계정 연결 개발
-├── 본인인증 CI 수집 로직 추가
+├── (옵션 C) OIDC 라이브러리 설정 · (옵션 A) verify 호출
 └── Agent 설치 (선택)
 
 4주차: 테스트
-├── 개발 환경 테스트 (agency-stub 활용)
+├── 개발 환경 테스트 (idem-tenant-sample 활용)
 ├── 로그인·계정 연결 E2E 테스트
 └── 보안 점검
 
@@ -318,7 +318,7 @@ Idem 은 CI 를 기관에 **내보내지 않습니다**. 기관이 받는 것은
 □ DB 변경 완료 (idem_subject_id 컬럼 추가)
 □ 계정 연결 멱등성 확인 (같은 사용자 재로그인 시 같은 계정)
 □ HTTPS 인증서 설치 확인
-□ 방화벽 인바운드 규칙 추가 (Q-IM 서버 IP 허용)
+□ (선택) 방화벽 인바운드 규칙 추가 (Idem hub 아웃바운드 IP → 웹훅·BCL 수신 URL)
 ```
 
 ### 7.4 3단계 — 테스트
@@ -330,7 +330,7 @@ Idem 은 CI 를 기관에 **내보내지 않습니다**. 기관이 받는 것은
   1. 기관에 신규 가입 (본인인증 포함)
   2. idem_subject_id 가 DB에 저장되었는지 확인
   3. Idem 앱에서 해당 기관 계정 연결 시도
-  4. 연결 완료 후 qim_user_id 저장 확인
+  4. 연결 완료 후 idem_subject_id 저장 확인
 
 시나리오 2: 기존 사용자 (idem_subject_id 없음)
   1. 기존 회원이 "Idem 계정 연결" 버튼 클릭
@@ -461,11 +461,11 @@ Idem 은 CI 를 기관에 **내보내지 않습니다**. 기관이 받는 것은
 
 ```
 □ DB: idem_subject_id 컬럼 추가 (VARCHAR 100, 인덱스 포함)
-□ DB: qim_user_id 컬럼 추가 (VARCHAR 36, 인덱스 포함)
+□ DB: idem_subject_id 유니크 인덱스 확인
 □ 로그인: Handoff verify 로 어설션 수신·세션 생성 확인
 □ API: POST /api/v1/members/link 구현 및 멱등성 확인
 □ HTTPS: API 서버 TLS 인증서 설치
-□ 테스트: agency-stub로 E2E 테스트 완료
+□ 테스트: idem-tenant-sample 로 E2E 테스트 완료
 □ 보안: X-Agency-Key 헤더 검증 구현
 □ 로그: 로그인·계정 연결 로그 기록 확인
 ```

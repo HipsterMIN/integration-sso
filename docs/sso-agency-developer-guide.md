@@ -1,826 +1,512 @@
 # Idem 자체 SSO 기관 연동 — 개발자 레퍼런스
 
-> **명칭 안내 (2026-09-27 갱신)** — 제품명은 **Idem**(구 OnePass·원패스, 2026-09-04 개명)이다. 에이전트의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `OnePass-*` 헤더, `[OnePassAgent]` 로그 태그는 1.0 에서 **동결**됐고 2.0 에서 바꾼다(`CHANGELOG.md` [1.0.0]). 대응표: [docs/naming.md](naming.md) §3.
+> **명칭 안내** — 제품명은 **Idem**(구 OnePass·원패스, 2026-09-04 개명)이다. API 경로·오류 코드(`E-IDO-1xx`, `E-AGENCY-3xx`, `/api/v1/admin/agencies` 등)는 1.0 에서 **동결**됐고 개명은 2.0 이다(`CHANGELOG.md` [1.0.0]). 대응표: [docs/naming.md](naming.md) §3.
 
-> **2026-09-10 개정 (범용화 S4b) 반영 안내** — Idem 은 기관 회원 DB 를 조회·등록하지 **않는다**. 이 문서의 회원 조회·매핑 API(`/api/v1/members/lookup`·`/link`), `ci_hash`·`qim_user_id` 컬럼, `identifierHash`(SHA-256(CI)) 기반 회원 전환, lookup 지표·알람은 **0.x 설계**이며 1.0 에는 없다. 1.0 의 기존 계정 연결은 기관이 첫 로그인 때 `agencySubjectId` 로 수행한다 — [`sso-agency-integration-guide.md`](sso-agency-integration-guide.md) §5. 해당 절은 0.x 참고용으로만 남겨 둔다.
-
-> **대상 독자**: 유관기관 백엔드 개발자, 플랫폼 연동 담당 개발자
-> **버전**: v1.0 (2026-05-17)
-> **관련 SDK**: `idem-sdk-java` (Java 8+, 런타임 의존성 ZERO)
-> **관련 Agent**: `idem-agent` (byte-buddy/Javassist 위빙)
+> **버전**: v2.0 (2026-09-27, Idem 1.0.1 기준 전면 재작성). v1.0(2026-05-17)의 회원 조회·매핑 API(`/api/v1/members/lookup`·`/link`), `ci_hash`·`qim_user_id` 컬럼, `identifierHash`(SHA-256(CI)) 기반 회원 전환은 **0.x 설계**이며 범용화 S4b(2026-09-10)에서 제거됐다. 이 문서에는 더 이상 없다.
+> **대상 독자**: 연동기관 백엔드 개발자, 운영기관의 연동 담당 개발자
+> **관련 코드**: 참조 기관 앱 `idem-tenant-sample`(표준 RP + Handoff 수신), `idem-sdk-java`(Java 8+, 런타임 의존성 0)
 
 ---
 
 ## 목차
 
 1. [개요 및 아키텍처](#1-개요-및-아키텍처)
-2. [일반 기관 vs 자체 SSO 기관 차이](#2-일반-기관-vs-자체-sso-기관-차이)
-3. [기관이 구현해야 하는 2개 API](#3-기관이-구현해야-하는-2개-api)
-4. [DB 스키마 — 자체 SSO 기관 추가 컬럼](#4-db-스키마--자체-sso-기관-추가-컬럼)
-5. [SDK 설치 및 기본 설정](#5-sdk-설치-및-기본-설정)
-6. [Handoff Ticket 검증 구현](#6-handoff-ticket-검증-구현)
-7. [회원 전환 흐름 구현](#7-회원-전환-흐름-구현)
-8. [Agent 설치 및 토큰 추출 설정](#8-agent-설치-및-토큰-추출-설정)
-9. [identifierHash 처리 상세](#9-identifierhash-처리-상세)
-10. [에러 처리 및 부분 실패 허용 패턴](#10-에러-처리-및-부분-실패-허용-패턴)
-11. [테스트 환경 및 통합 검증](#11-테스트-환경-및-통합-검증)
-12. [API 레퍼런스 요약](#12-api-레퍼런스-요약)
+2. [핵심 개념](#2-핵심-개념)
+3. [연동 방식 선택](#3-연동-방식-선택)
+4. [기관이 받는 값과 준비할 것](#4-기관이-받는-값과-준비할-것)
+5. [옵션 C — 표준 OIDC(OIDC_RP) 구현](#5-옵션-c--표준-oidcoidc_rp-구현)
+6. [옵션 A·B — Handoff 티켓 구현](#6-옵션-ab--handoff-티켓-구현)
+7. [기존 계정 연결 — agencySubjectId](#7-기존-계정-연결--agencysubjectid)
+8. [상태 변경 수신 — 웹훅·이벤트 피드·Back-Channel Logout](#8-상태-변경-수신--웹훅이벤트-피드back-channel-logout)
+9. [Java SDK 의 역할](#9-java-sdk-의-역할)
+10. [Java Agent — 1.0 에서의 상태](#10-java-agent--10-에서의-상태)
+11. [오류 처리 원칙](#11-오류-처리-원칙)
+12. [테스트 환경](#12-테스트-환경)
+13. [API 레퍼런스 요약](#13-api-레퍼런스-요약)
 
 ---
 
 ## 1. 개요 및 아키텍처
 
-### 1.1 Idem 연동 전체 흐름
+### 1.1 1.0 연동 전체 흐름
+
+Idem 은 기관 회원 DB 를 **조회하거나 등록하지 않는다**. 기관이 Idem 에서 받는 것은 인증 결과 하나(어설션)뿐이고, 기관은 그 안의 **기관별 식별자**(`agencySubjectId`)로 자기 계정을 찾거나 만든다.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        사용자 브라우저                                │
-└──────────────────┬──────────────────────────────────┬───────────────┘
-                   │ ①로그인 요청                       │ ⑥기관 세션 완료
-                   ▼                                   ▲
-┌──────────────────────────────┐       ┌───────────────────────────────┐
-│     Idem Hub 서버          │       │   유관기관 애플리케이션          │
-│  (Identity Orchestrator)     │       │   (자체 SSO 기관)              │
-│                              │       │                               │
-│  ②Idem 인증 처리             │       │  ⑤HandoffTicket 검증           │
-│  ③HandoffTicket 발급          │──────▶│  → HandoffPayload 수신         │
-│  GET {기관콜백}?ticket={id}   │       │  → 기관 세션 생성               │
-└──────────────────────────────┘       │                               │
-                                       │  [선택] 회원 전환               │
-┌──────────────────────────────┐       │  ④ POST /api/v1/members/lookup │
-│     Q-IM 서버                 │◀──────│  → identifierHash 조회         │
-│  (사용자 관리)                 │       │  ④ POST /api/v1/members/link   │
-│                              │──────▶│  → qim_user_id 매핑 저장       │
-└──────────────────────────────┘       └───────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                           사용자 브라우저                              │
+└──────────┬───────────────────────────────────────────┬───────────────┘
+           │ ① "Idem 으로 로그인"                        │ ⑤ 기관 세션 완료
+           ▼                                           ▲
+┌────────────────────────────┐   ④ 어설션            ┌─────────────────────────────┐
+│  Idem SSO                  │──────────────────────▶│  기관 애플리케이션            │
+│  idem-gate  (:8081, 공개)   │  · 옵션 C: id_token · userinfo(idem_*)             │
+│    /realms/idem OIDC 프런트 │  · 옵션 A: POST /api/v1/handoff/verify 응답        │
+│    (Keycloak 은 뒤에 숨김)  │                       │  · agencySubjectId 로 계정 매칭│
+│  idem-hub   (:8083, 공개)   │◀──────────────────────│  · 자체 세션 생성            │
+│    ② 본인확인·정책 판정      │  ③ 토큰 교환 / 티켓 검증│  · (선택) 웹훅·이벤트 수신    │
+│    ③ 할당·인증수준·한도      │                       └─────────────────────────────┘
+└──────────┬─────────────────┘
+           │ 내부 API
+┌──────────▼─────────────────┐
+│  Idem IM  registry · authz  │   동일인 식별 · 기관별 가명 ID · 역할·할당
+└────────────────────────────┘
 ```
 
-### 1.2 핵심 개념
+기관이 열어야 하는 인바운드 엔드포인트는 **선택 사항**뿐이다: 웹훅 수신, Back-Channel Logout 수신, (BRIDGE·APACHE_GATE·INTERNAL_SSO 유형의) 티켓 푸시 수신.
+
+### 1.2 컴포넌트와 포트
+
+| 컴포넌트 | 기관이 보는 주소 | 용도 |
+|---|---|---|
+| idem-gate | `{IDEM_PUBLIC_URL_GATE}` (443) | 표준 OIDC 발급자(issuer `{gate}/realms/idem`), 로그인 화면, Back-Channel Logout 송신 |
+| idem-hub | `{IDEM_PUBLIC_URL_HUB}` (443) | Handoff verify, CAST, 이벤트 피드, 게이트웨이 API, 웹훅 송신 |
+| Keycloak | 없음 | gate 뒤에 숨김. 기관은 접근하지 않는다 |
+| 관리 콘솔 | 운영기관 전용 | 기관 프로파일·client secret·API 키 관리 |
+
+---
+
+## 2. 핵심 개념
 
 | 개념 | 설명 |
-|------|------|
-| **HandoffTicket** | Idem 인증 완료 후 발급되는 단기 토큰 (기본 5분 유효). 기관 콜백 URL에 `?ticket={ticketId}` 형태로 전달됨 |
-| **HandoffPayload** | HandoffTicket 검증 성공 시 반환되는 사용자 정보 객체. `subject`(사용자 ID), `identifierHash` 포함 |
-| **identifierHash** | `SHA-256(CI)`로 계산된 사용자 식별자. CI(연계정보)는 주민번호 기반 NICE/PASS 인증 시 발급. Idem 이 기관 회원 조회 시 사용하는 유일 키 |
-| **agency_subject_id** | `agency_user` 테이블에서 `identifierHash`를 저장하는 컬럼명 |
-| **qim_user_id** | Idem Registry의 사용자 UUID. 회원 전환 완료 시 기관 DB에 저장 |
+|---|---|
+| **서비스 프로파일** | 기관 하나 = JSON 문서 하나. 프로토콜(`protocol.type`), 식별자 스킴, 정책(인증수준·세션·할당), 한도가 여기 있다. 운영기관이 관리 API `PUT /api/v1/admin/services/{code}/profile` 로 저장한다(`docs/onboarding-guide.md`) |
+| **`agencySubjectId`** | 기관별 식별자. 기본 스킴 `PAIRWISE_HMAC` — 같은 사람이라도 기관마다 값이 다르고, 두 기관이 대조해도 결합되지 않는다. 기관 DB 의 연결 키다(§7). 스킴은 프로파일 `identity.subjectScheme`(PAIRWISE_HMAC·PLATFORM_ID·CI·EMAIL·PHONE·EXTERNAL_SUB) |
+| **어설션** | 옵션 C 에서는 id_token·userinfo 의 `idem_*` 클레임, 옵션 A 에서는 `HandoffPayload`. 어휘는 같다: 상태·식별자·속성·역할·인증수준·세션 정책 |
+| **상태(state)** | `APPROVED` 허용 · `GUEST` 인증은 됐으나 이 서비스에 미할당(프로파일이 `policy.assignment.selfSignup` 을 허용할 때만) · `HOLD` Idem 쪽 일시 오류(재시도) · `REJECTED` 거부 · `MANUAL_REVIEW` |
+| **인증수준** | `L1`(ID/PW·소셜) · `L2`(휴대폰 본인확인 등) · `L3`(전자서명). 프로파일 `policy.minAuthLevel` 미달이면 발급 단계에서 거부 |
+| **역할·할당** | `idem-authz` 가 정본. 어설션의 `roles`(옵션 C 는 `idem_roles`)와 `assigned` 는 굵은 RBAC 이며 세밀한 권한 집행은 기관 몫 |
+| **세션 정책** | 프로파일 `policy.session`(유휴·절대·동시). 어설션의 `sessionPolicy` 로 전달되며 기관 세션에도 같은 상한을 적용하라는 계약이다 |
+| **CI** | 연계정보는 Idem 회원원장 밖으로 나가지 않는다. 기관은 CI 를 받지도, 보관할 필요도 없다 |
 
 ---
 
-## 2. 일반 기관 vs 자체 SSO 기관 차이
+## 3. 연동 방식 선택
 
-### 2.1 연동 방식 비교
+| 방식 | 프로파일 `protocol.type` | 기관이 구현하는 것 | 권장 |
+|---|---|---|---|
+| **옵션 C 표준 OIDC** | `OIDC_RP` | OIDC 라이브러리 설정, 콜백에서 `idem_subject` 로 계정 매칭, (선택) BCL 수신 | **기본 권장**. 표준 라이브러리만으로 끝난다 |
+| **옵션 A Handoff DIRECT** | `DIRECT` | 콜백에서 `ticketId` 받아 `POST /api/v1/handoff/verify` 호출, 세션 생성 | 자체 SSO 와 병행, 완전 분리 |
+| **옵션 A Handoff BRIDGE** | `BRIDGE` | Idem 이 티켓을 푸시하는 브리지 엔드포인트(`{bridge}/api/handoff/push`) | 기관 코드 수정 최소화 |
+| **옵션 A Handoff APACHE_GATE** | `APACHE_GATE` | 웹서버 단에서 헤더(`X-Remote-User` 등)를 받는 게이트 엔드포인트 | 앱 수정 없이 |
+| **옵션 B Handoff INTERNAL_SSO** | `INTERNAL_SSO` | 기관 SSO 의 `{ssoDomain}/internal/sso-session` 수신 → 기관 SSO 세션 발급 | Idem 인증 후 기관 SSO 위임 |
+| SAML SP | — | — | 1.0 미포함(설계만, `docs/saml-sp-design.md`). OIDC 브리지로 |
 
-| 항목 | 일반 기관 | 자체 SSO 기관 |
-|------|----------|-------------|
-| 로그인 처리 | Idem 이 전담 | 기관 내부 SSO가 처리 + Idem 인증 병행 |
-| 세션 관리 | Idem HandoffPayload → 기관 세션 | 기관 SSO 세션 유지 (Idem 은 검증만) |
-| 회원 전환 | Agent JWT 검증으로 기본 지원 | lookup/link API 추가 구현 필요 |
-| Agent 토큰 소스 | Authorization 헤더 Bearer | 쿠키 또는 커스텀 헤더 가능 |
-| DB 변경 | 불필요 (기본 지원) | `ci_hash`, `qim_user_id` 컬럼 추가 |
-
-### 2.2 자체 SSO 기관의 "완전한 연동 불가능" 케이스
-
-아래 3가지는 코드 변경으로 해결할 수 없는 한계다.
-
-1. **CI 수집 이력 없는 기존 회원 소급 처리 불가**
-   - 기관이 과거에 NICE/PASS 본인인증을 수행했어도, CI를 별도로 저장하지 않았다면 `identifierHash` 역산 불가
-   - 해결책: 전환 희망자가 재본인인증 시 CI 1회 수집
-
-2. **identifierHash → 기관 내부 ID 역방향 조회 불가**
-   - SHA-256은 단방향 함수. `identifierHash`로부터 원본 CI나 기관 ID를 복원할 수 없음
-   - 해결책: 기관 DB에 `ci_hash` 컬럼 추가 후 전환 시 매핑
-
-3. **부분 실패 허용 구조**
-   - Q-IM은 68개 기관을 병렬 조회하며, 일부 기관이 응답 실패해도 다른 기관 결과로 전환 완료
-   - 기관 API가 타임아웃(15초 초과)이면 해당 기관 회원은 연결 실패로 처리됨
+`docs/sso-agency-integration-guide.md` §3 의 옵션 A·B·C 와 같은 구분이다.
 
 ---
 
-## 3. 기관이 구현해야 하는 2개 API
+## 4. 기관이 받는 값과 준비할 것
 
-자체 SSO 기관을 포함한 **모든 유관기관**이 구현해야 하는 API. `agency-stub` 모듈의 `AgencyMemberLookupController.java`가 레퍼런스 구현체다.
+### 4.1 운영기관에서 받는 값
 
-### 3.1 POST /api/v1/members/lookup — 회원 조회
+| 값 | 옵션 | 발급처 | 비고 |
+|---|---|---|---|
+| 기관 코드 (`X-Agency-Code`) | 전부 | 프로파일 `service.code` | 대문자·숫자·밑줄 |
+| OIDC issuer · client_id · client_secret | C | 프로파일 저장 시 client `idem-svc-{code}` 자동 생성, secret 은 `POST …/{code}/oidc-client/secret` 회전 응답에 **한 번만** 노출 | Discovery `{issuer}/.well-known/openid-configuration` |
+| 기관 API 키 (`X-Agency-Key`) | A·B, 이벤트 피드, SDK | `POST /api/v1/admin/agencies/{code}/rotate-key` 응답에 **한 번만** 노출(서버는 해시만 저장) | Handoff verify·issue, `/api/v1/agency/**` 전부에 필요 |
+| 웹훅 서명 비밀 | 웹훅 수신 시 | 운영기관 | `X-Webhook-Signature` 검증용 |
+| HMAC 서명 비밀 (`X-Internal-Sig`) | 게이트웨이 API 사용 시 | 운영기관 | `IDEM_HUB_HMAC_SIG_REQUIRED=true` 인 설치본에서만 필수 |
+| CAST 공개키 | 기관 간 SSO 상대만 | `GET /api/v1/agency/cast/public-key` | Ed25519 |
 
-```
-POST https://{기관도메인}/api/v1/members/lookup
-Content-Type: application/json
-X-Agency-Key: {기관_API_키}
-```
+### 4.2 기관이 운영기관에 알려 줄 값
 
-**요청 본문**:
-```json
-{
-  "identifierHash": "a3f2c8d1...",  // SHA-256(CI), 64자리 16진수
-  "agencyCode": "AGENCY_001"
-}
-```
+| 값 | 옵션 | 프로파일 위치 |
+|---|---|---|
+| 콜백/리다이렉트 URI | C | `protocol.oidc.redirectUris`, `postLogoutRedirectUris` |
+| Back-Channel Logout URI | C | `protocol.oidc.backchannelLogoutUri` — **공개 http(s) 호스트만** 허용(내부 IP·localhost 거부) |
+| 콜백 화이트리스트 | A | `protocol.endpoints.callbackWhitelist` — 여기 없는 `returnUrl` 은 400 `INVALID_RETURN_URL` / `E-AGENCY-304` |
+| 브리지·아파치게이트·SSO 진입 | A·B | `protocol.endpoints.bridge` · `apacheGate` · `ssoDomain` · `ssoEntry` |
+| 웹훅 수신 URL | 선택 | 기관 등록 API `webhookEndpoint`(`POST/PUT /api/v1/admin/agencies`) |
+| 필요한 속성 | 전부 | `identity.attributes[]`(이메일·마스킹 성명 등). 요청하지 않은 속성은 오지 않는다 |
+| 허용 IP·mTLS | 선택 | `protocol.security.ipAllowlist`, `mtlsRequired` |
 
-**응답 — 회원 존재 (200 OK)**:
-```json
-{
-  "found": true,
-  "agencyUserId": "user-uuid-1234",   // 기관 내부 사용자 ID
-  "status": "ACTIVE",                  // ACTIVE | SUSPENDED | WITHDRAWN
-  "lastLoginAt": "2026-05-10T09:30:00Z",
-  "createdAt": "2024-03-15T10:00:00Z"
-}
-```
-
-**응답 — 회원 없음 (200 OK)**:
-```json
-{
-  "found": false
-}
-```
-
-**레퍼런스 구현 (Java Spring Boot)**:
-```java
-@RestController
-@RequestMapping("/api/v1/members")
-public class AgencyMemberLookupController {
-
-    @PostMapping("/lookup")
-    public ResponseEntity<MemberLookupResponse> lookup(
-            @RequestBody MemberLookupRequest req) {
-        
-        // identifierHash = agency_subject_id와 동일한 값
-        Optional<AgencyUser> user = agencyUserRepository
-                .findByAgencySubjectIdAndStatus(req.getIdentifierHash(), "ACTIVE");
-        
-        if (user.isEmpty()) {
-            return ResponseEntity.ok(MemberLookupResponse.notFound());
-        }
-        
-        AgencyUser u = user.get();
-        return ResponseEntity.ok(MemberLookupResponse.found(
-            u.getAgencyUserId(),
-            u.getStatus(),
-            u.getLastLoginAt(),
-            u.getCreatedAt()
-        ));
-    }
-}
-```
-
-> **⚠️ 주의**: `identifierHash`는 기관 DB의 `agency_subject_id`(또는 `ci_hash`) 컬럼과 매핑된다. 조회 전에 인덱스가 생성되어 있어야 한다 (섹션 4 참조).
-
-### 3.2 POST /api/v1/members/link — 회원 매핑
+### 4.3 개발팀 체크리스트
 
 ```
-POST https://{기관도메인}/api/v1/members/link
-Content-Type: application/json
-X-Agency-Key: {기관_API_키}
+필수:
+□ 계정 연결 키 컬럼 추가 — idem_subject_id VARCHAR(128), 인덱스, (agency_code 가 여럿이면 복합 유니크)  §7
+□ 로그인 완료 처리 — 옵션 C: OIDC 콜백 / 옵션 A: ticketId → verify      §5·§6
+□ 상태별 분기 — APPROVED / GUEST / HOLD / REJECTED                       §6.4
+□ 세션 정책 반영 — sessionPolicy 의 유휴·절대·동시 상한                   §6.5
+
+선택:
+□ 웹훅 수신 (탈퇴·로그아웃·티켓 취소 반영)                                §8.1
+□ 이벤트 피드 폴링 (웹훅 대신 또는 보완)                                   §8.2
+□ Back-Channel Logout 수신 (옵션 C)                                       §8.3
+□ SDK 로 연동 상태 조회                                                   §9
 ```
-
-**요청 본문**:
-```json
-{
-  "identifierHash": "a3f2c8d1...",
-  "qimUserId": "550e8400-e29b-41d4-a716-446655440000",  // Idem Registry UUID
-  "agencyCode": "AGENCY_001"
-}
-```
-
-**응답 (200 OK)**:
-```json
-{
-  "linked": true,
-  "agencyUserId": "user-uuid-1234"
-}
-```
-
-**레퍼런스 구현**:
-```java
-@PostMapping("/link")
-public ResponseEntity<MemberLinkResponse> link(
-        @RequestBody MemberLinkRequest req) {
-    
-    int updated = agencyUserRepository.linkQimUser(
-        req.getQimUserId(),
-        req.getIdentifierHash(),
-        req.getAgencyCode()
-    );
-    
-    if (updated == 0) {
-        return ResponseEntity.ok(MemberLinkResponse.failed("USER_NOT_FOUND"));
-    }
-    return ResponseEntity.ok(MemberLinkResponse.success());
-}
-
-// Repository (JPA Native Query)
-@Modifying
-@Query(value = """
-    UPDATE agency_user
-    SET qim_user_id = :qimUserId, updated_at = NOW()
-    WHERE agency_subject_id = :identifierHash
-      AND agency_code = :agencyCode
-    """, nativeQuery = true)
-int linkQimUser(@Param("qimUserId") String qimUserId,
-                @Param("identifierHash") String identifierHash,
-                @Param("agencyCode") String agencyCode);
-```
-
-### 3.3 API 보안 요구사항
-
-| 요구사항 | 설명 |
-|---------|------|
-| **HTTPS 전용** | 모든 API 호출은 TLS 1.2+ |
-| **X-Agency-Key 검증** | Idem 이 전송하는 요청에 포함된 API 키 검증 |
-| **타임아웃 준수** | `lookup` 응답 15초 이내 (Q-IM 데드라인) |
-| **멱등성** | `link` API는 동일한 `(identifierHash, qimUserId)` 재호출에 멱등 응답 |
 
 ---
 
-## 4. DB 스키마 — 자체 SSO 기관 추가 컬럼
+## 5. 옵션 C — 표준 OIDC(OIDC_RP) 구현
 
-### 4.1 표준 agency_user 테이블 구조
+### 5.1 규격
 
-```sql
--- 기존 테이블 구조 (변경 없음)
-CREATE TABLE agency_user (
-    agency_user_id     VARCHAR(36)  NOT NULL,   -- 기관 내부 PK (UUID)
-    agency_subject_id  VARCHAR(300) NOT NULL,   -- SHA-256(CI) = identifierHash
-    qim_user_id        VARCHAR(36),             -- Q-IM 매핑 컬럼 (NULL = 미연결)
-    agency_code        VARCHAR(50)  NOT NULL,
-    status             VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
-    created_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_login_at      TIMESTAMP,
-    
-    PRIMARY KEY (agency_user_id),
-    UNIQUE KEY uk_agency_subject (agency_subject_id, agency_code),
-    INDEX idx_qim_user_id (qim_user_id)
-);
+| 항목 | 값 |
+|---|---|
+| issuer | `{IDEM_PUBLIC_URL_GATE}/realms/idem` |
+| 흐름 | Authorization Code + **PKCE S256 필수**. implicit·password·device 없음 |
+| client 인증 | `client_secret_basic`(기본) 또는 `client_secret_post` (프로파일 `protocol.oidc.clientAuthMethod`) |
+| 서명 | RS256, JWKS 는 Discovery 의 `jwks_uri` |
+| id_token·access_token 클레임 | `identity_provider`(본인확인 경로), `acr`(인증수준 L1~L3), `idem_service` |
+| userinfo 클레임 | `idem_state`(APPROVED·GUEST), `idem_subject`(= agencySubjectId), `idem_subject_scheme`, `idem_roles`, `idem_assigned`, `idem_user_id`, 프로파일이 허용한 속성 |
+| 정책 판정 시점 | **토큰 교환**. 거부면 `403 access_denied` 로 끝나고 토큰은 남지 않는다. `error_description` 첫 토큰이 사유 코드(`E-IDO-120` 미할당, `E-AGENCY-305` 점검 등) |
+| 한도 | 프로파일 `limits.tps/daily` 초과 시 토큰 교환 `429 temporarily_unavailable` + `Retry-After` |
+| 로그아웃 | RP-Initiated(`end_session_endpoint`, `id_token_hint` 필수) + Back-Channel Logout(`logout_token` POST, `sid`) |
+
+### 5.2 Spring Security 설정 예
+
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          idem:
+            client-id: idem-svc-AGENCY_001
+            client-secret: ${IDEM_OIDC_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/idem"
+            scope: openid
+            client-authentication-method: client_secret_basic
+        provider:
+          idem:
+            issuer-uri: https://idem-gate.example.go.kr/realms/idem   # Discovery 로 나머지 자동
 ```
 
-### 4.2 자체 SSO 기관의 기존 회원 테이블에 컬럼 추가
-
-기존에 자체 회원 테이블이 있는 경우 아래 컬럼을 추가한다.
-
-```sql
--- 기존 기관 회원 테이블 마이그레이션
-ALTER TABLE {기관_회원_테이블}
-    ADD COLUMN ci_hash     VARCHAR(300) COMMENT 'SHA-256(CI) = Idem identifierHash',
-    ADD COLUMN qim_user_id VARCHAR(36)  COMMENT 'Idem Registry 사용자 UUID';
-
--- 조회 성능을 위한 인덱스 (lookup API 타임아웃 방지)
-CREATE INDEX idx_ci_hash     ON {기관_회원_테이블} (ci_hash);
-CREATE INDEX idx_qim_user_id ON {기관_회원_테이블} (qim_user_id);
-```
-
-### 4.3 컬럼 상세 설명
-
-| 컬럼 | 타입 | Nullable | 설명 |
-|------|------|----------|------|
-| `ci_hash` | VARCHAR(300) | Y | SHA-256(CI) = Idem `identifierHash`. 전환 희망자가 본인인증 시 최초 1회 저장 |
-| `qim_user_id` | VARCHAR(36) | Y | Idem Registry UUID. `link` API 호출 시 저장. NULL이면 Idem 미연결 |
-
-> **CI 소급 수집 불필요**: 기존 모든 회원의 CI를 일괄 수집할 필요가 없다. Idem 전환을 원하는 사용자가 **본인인증(NICE/PASS)을 수행하는 시점에 1회** `ci_hash`를 저장하면 된다.
-
----
-
-## 5. SDK 설치 및 기본 설정
-
-### 5.1 의존성 추가
-
-**Gradle (build.gradle)**:
-```groovy
-dependencies {
-    implementation 'io.github.hipstermin.idem:idem-sdk-java:1.0.0'
-    // 런타임 의존성 ZERO — 추가 라이브러리 불필요
-}
-```
-
-**Maven (pom.xml)**:
-```xml
-<dependency>
-    <groupId>io.github.hipstermin.idem</groupId>
-    <artifactId>idem-sdk-java</artifactId>
-    <version>1.0.0</version>
-</dependency>
-```
-
-### 5.2 클라이언트 생성
-
-```java
-// 기본 설정 (HttpURLConnection, JDK 내장)
-AgencyGatewayClient client = AgencyGatewayClient.builder()
-    .baseUrl("https://idem-hub.example.go.kr")   // Idem Hub 서버 URL
-    .apiKey("your-agency-api-key")           // 발급받은 API 키
-    .agencyCode("AGENCY_001")                // 기관 코드
-    .connectTimeoutMs(5_000)                 // 기본값: 5초
-    .readTimeoutMs(30_000)                   // 기본값: 30초
-    .build();
-```
-
-**HMAC 서명 활성화** (Sprint 17 Phase 4 이후 필수):
-```java
-AgencyGatewayClient client = AgencyGatewayClient.builder()
-    .baseUrl("https://idem-hub.example.go.kr")
-    .apiKey("your-agency-api-key")
-    .agencyCode("AGENCY_001")
-    .hmacSecret("your-hmac-shared-secret")  // 별도 발급받은 HMAC 키
-    .signRequests(true)                      // X-Internal-Sig 헤더 자동 추가
-    .build();
-```
-
-**Spring Bean 등록 예시**:
 ```java
 @Configuration
-public class IdemConfig {
-    
-    @Value("${idem.hub.base-url}")
-    private String baseUrl;
-    
-    @Value("${idem.agency.api-key}")
-    private String apiKey;
-    
-    @Value("${idem.agency.code}")
-    private String agencyCode;
-    
+public class IdemOidcSecurityConfig {
+
     @Bean
-    public AgencyGatewayClient agencyGatewayClient() {
-        return AgencyGatewayClient.builder()
-            .baseUrl(baseUrl)
-            .apiKey(apiKey)
-            .agencyCode(agencyCode)
-            .build();
+    SecurityFilterChain filterChain(HttpSecurity http, AgencyAccountLinker linker) throws Exception {
+        http.oauth2Login(o -> o
+                // PKCE S256 — Spring Security 6.x 는 public/confidential 모두 PKCE 를 붙일 수 있다
+                .authorizationEndpoint(a -> a.authorizationRequestResolver(pkceResolver(http)))
+                .userInfoEndpoint(u -> u.oidcUserService(linker))      // userinfo 의 idem_* 로 계정 매칭
+                .failureHandler((req, res, ex) -> {
+                    // 토큰 교환 403 access_denied → ex.getMessage() 에 "E-IDO-120 …" 같은 사유가 온다
+                    res.sendRedirect("/login?idem_error=" + URLEncoder.encode(ex.getMessage(), UTF_8));
+                }))
+            .logout(l -> l.logoutSuccessHandler(oidcLogoutHandler()));   // RP-Initiated Logout
+        return http.build();
     }
 }
 ```
 
+`AgencyAccountLinker` 는 `OidcUserService` 를 감싸 `idem_state` 가 `GUEST` 면 가입·연결 화면으로, `APPROVED` 면 `idem_subject` 로 기관 계정을 찾아 principal 을 만든다(§7). 사용자 상태·할당이 나중에 바뀌면 다음 userinfo 호출이 403 이 되므로, 장기 세션은 주기적으로 userinfo 를 다시 부르거나 Back-Channel Logout(§8.3)을 받는다.
+
+### 5.3 참조 구현
+
+`idem-tenant-sample` 의 `idem.sample.protocol=OIDC_RP` 경로(`/agency/oidc/login·callback·logout·backchannel-logout`, `OidcRelyingPartyClient`)가 라이브러리 없이 필요한 검증 전부(state·nonce·PKCE·iss·aud·exp·JWKS·sid)를 보여 준다. 운영기관 설치 확인 절차는 `docs/install.md` §5.1.
+
 ---
 
-## 6. Handoff Ticket 검증 구현
-
-> **Note**: 이 기능은 SDK `v1.1.0` 출시 예정. 현재는 직접 HTTP 호출로 구현.
+## 6. 옵션 A·B — Handoff 티켓 구현
 
 ### 6.1 흐름
 
 ```
 사용자 브라우저
-  │ ①로그인 완료
+  │ ① 기관 화면 "Idem 으로 로그인" → Idem 로그인 화면 (returnUrl = 기관 콜백, callbackWhitelist 안이어야 함)
   ▼
-Idem Hub
-  │ ②기관 콜백 URL 리다이렉트
-  │ GET https://{기관}/callback?ticket=abc-123-def
-  ▼
-기관 서버 (아래 코드 구현)
-  │ ③ POST /api/v1/handoff/verify  (SDK or 직접 호출)
-  │ Body: {"ticketId": "abc-123-def", "agencyCode": "AGENCY_001"}
-  ▼
-IdO 서버
-  │ ④ HandoffPayload 반환
-  │ {"subject": "...", "identifierHash": "...", "expiresAt": "..."}
+Idem (gate 로그인 → hub 정책 판정 → 티켓 발급)
+  │ ② 발급된 티켓을 프로파일 유형대로 전달
+  │    DIRECT      : 브라우저가 콜백으로 복귀, ticketId 전달 → 기관이 verify
+  │    BRIDGE      : hub → POST {bridge}/api/handoff/push  (X-Agency-Code, X-Handoff-Signature)
+  │    APACHE_GATE : hub → POST {apacheGate}  (X-Remote-User, X-Auth-Level, X-Handoff-Token, X-Session-Expiry, X-Agency-Code)
+  │    INTERNAL_SSO: hub → POST {ssoDomain}/internal/sso-session  (X-Agency-Code, X-Correlation-Id, X-Source-System)
   ▼
 기관 서버
-  │ ⑤ 기관 세션 생성
+  │ ③ POST {hub}/api/v1/handoff/verify   — 서버 간, X-Agency-Code + X-Agency-Key
+  │ ④ HandoffPayload 수신 → state 분기 → agencySubjectId 로 계정 매칭 → 세션 생성
   ▼
 사용자 브라우저 (로그인 완료)
 ```
 
-### 6.2 SDK v1.1.0 예정 코드
+- 티켓은 **60초·1회 소비**, AES-256-GCM 암호화 + HMAC 서명이다. verify 가 성공하면 즉시 소비되고 두 번째 verify 는 `409 E-IDO-102` 다.
+- 발급(`POST /api/v1/handoff/issue`)은 Idem 로그인 세션 쿠키(`Fe-Session-Id`)와 기관 API 키를 **함께** 요구한다. 즉 발급은 Idem 로그인 화면을 제공하는 쪽(운영기관의 로그인 프런트·KR 회원 포털)의 일이고, 연동기관은 **verify 만** 한다. 1.0.1 core 에서 이 브라우저 경로는 `idem-tenant-sample` 시뮬레이터와 단위·통합 테스트(시험 항목 D-10)로 검증돼 있고, 운영 도입 시 브라우저 진입은 옵션 C 가 CI 설치본 스모크로 매번 검증되는 경로다.
 
-```java
-// SDK v1.1.0 출시 후 사용 가능
-HandoffVerifyClient handoffClient = HandoffVerifyClient.builder()
-    .baseUrl("https://idem-hub.example.go.kr")
-    .apiKey("your-agency-api-key")
-    .agencyCode("AGENCY_001")
-    .build();
+### 6.2 verify 요청
 
-// 기관 콜백 컨트롤러
-@GetMapping("/callback")
-public String callback(@RequestParam String ticket, HttpSession session) {
-    HandoffPayload payload = handoffClient.verify(ticket);
-    
-    // 사용자 정보로 기관 세션 생성
-    session.setAttribute("userId", payload.getSubject());
-    session.setAttribute("identifierHash", payload.getIdentifierHash());
-    
-    return "redirect:/main";
-}
+```
+POST {IDEM_PUBLIC_URL_HUB}/api/v1/handoff/verify
+Content-Type: application/json
+X-Agency-Code: AGENCY_001
+X-Agency-Key: {기관 API 키}
+X-Correlation-Id: {추적 ID, 선택 — 없으면 서버가 생성}
+
+{"ticketId": "…"}
 ```
 
-### 6.3 현재 직접 구현 (SDK v1.1.0 이전)
-
-```java
-@GetMapping("/callback")
-public String callback(@RequestParam String ticket, HttpSession session) 
-        throws Exception {
-    
-    // 직접 HTTP 호출
-    String url = "https://idem-hub.example.go.kr/api/v1/handoff/verify";
-    String body = String.format(
-        "{\"ticketId\":\"%s\",\"agencyCode\":\"%s\"}", 
-        ticket, "AGENCY_001");
-    
-    HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-    conn.setRequestMethod("POST");
-    conn.setRequestProperty("Content-Type", "application/json");
-    conn.setRequestProperty("X-Agency-Key", apiKey);
-    conn.setDoOutput(true);
-    conn.setConnectTimeout(5_000);
-    conn.setReadTimeout(10_000);
-    
-    try (OutputStream os = conn.getOutputStream()) {
-        os.write(body.getBytes(StandardCharsets.UTF_8));
-    }
-    
-    if (conn.getResponseCode() == 200) {
-        String responseBody = readBody(conn.getInputStream());
-        // JSON 파싱 (Jackson 등 사용)
-        HandoffPayload payload = objectMapper.readValue(responseBody, HandoffPayload.class);
-        session.setAttribute("userId", payload.getSubject());
-        session.setAttribute("identifierHash", payload.getIdentifierHash());
-    } else if (conn.getResponseCode() == 410) {
-        // 티켓 만료 또는 이미 사용됨
-        return "redirect:/login?error=ticket_expired";
-    }
-    
-    return "redirect:/main";
-}
-```
-
-### 6.4 HandoffPayload 응답 필드
+### 6.3 verify 응답 — HandoffPayload
 
 ```json
 {
-  "subject": "qim-user-uuid-...",        // Idem Registry 사용자 ID
-  "identifierHash": "a3f2c8d1...",       // SHA-256(CI), 회원 전환 키
+  "ticketId": "…",
+  "correlationId": "…",
   "agencyCode": "AGENCY_001",
-  "issuedAt": "2026-05-17T10:00:00Z",
-  "expiresAt": "2026-05-17T10:05:00Z",  // 발급 후 5분
-  "nonce": "random-nonce-value"          // CSRF 방지용
+  "policyVersion": "v3",
+  "state": "APPROVED",
+  "subject": {
+    "agencySubjectId": "pw_9f3a…",        // 기관별 식별자 — 계정 연결 키 (GUEST 는 null 일 수 있음)
+    "subjectScheme": "PAIRWISE_HMAC",
+    "qimUserId": "550e8400-…",           // Idem 내부 ID — 저장하지 말 것 (연결 키 아님)
+    "status": "ACTIVE",
+    "assigned": true                      // authz 없는 설치는 null
+  },
+  "authContext": { "authLevel": "L2", "providerCode": "NICE_PHONE", "authenticatedAt": "…", "authResultId": "…" },
+  "attributes": { "email": "user@x.org", "nameMasked": "홍*동" },   // 프로파일 identity.attributes 로 허용한 것만
+  "roles": ["MEMBER"],                   // 이 서비스 범위의 앱 역할 (없으면 [])
+  "sessionPolicy": { "idleMinutes": 30, "absoluteMinutes": 480, "concurrent": 1 },   // 프로파일에 없으면 없음
+  "issuedAt": "…",
+  "expiresAt": "…"
 }
 ```
 
-> **⚠️ 보안**: HandoffTicket은 1회 사용 후 즉시 무효화된다. 재사용 시도 시 서버가 410 Gone을 반환한다.
+### 6.4 상태 분기
 
----
+| `state` | 뜻 | 기관 처리 |
+|---|---|---|
+| `APPROVED` | 정책 통과 | `agencySubjectId` 로 계정 매칭 → 세션 생성 |
+| `GUEST` | 인증은 됐으나 이 서비스에 **미할당**(프로파일 `policy.assignment.selfSignup=true` 일 때만 나옴) | 가입·계정 연결 화면으로. 식별자가 실려 오면 가입 완료 뒤 같은 값으로 연결 |
+| `HOLD` | Idem 쪽 일시 오류 | 잠시 뒤 재시도 안내. 티켓은 소비되지 않았을 수 있으나 60초 안에 끝내야 한다 |
+| `REJECTED` · `MANUAL_REVIEW` | 거부 | 로그인 실패 화면. `correlationId` 를 표시해 문의에 쓰게 한다 |
 
-## 7. 회원 전환 흐름 구현
-
-### 7.1 5단계 전환 세션 (Q-IM 내부)
-
-Q-IM 서버에서 관리하는 전환 상태 머신. 기관은 `lookup`/`link` API를 구현함으로써 이 흐름에 참여한다.
-
-```
-INITIATED
-   │ Q-IM이 기관 lookup API 호출 → identifierHash로 회원 조회
-   ▼
-MEMBERS_FETCHED
-   │ 사용자가 연결할 계정 선택
-   ▼
-ACCOUNT_SELECTED
-   │ 전환 승인 처리
-   ▼
-LINKING
-   │ Q-IM이 기관 link API 호출 → qim_user_id 저장
-   ▼
-COMPLETED
-```
-
-### 7.2 기관 관점의 전환 트리거
-
-사용자가 전환을 원할 때 기관이 호출하는 인바운드 이벤트.
+### 6.5 기관 서버 구현 예 (Java, 라이브러리 없이)
 
 ```java
-// 회원 전환 이벤트 전송
-InboundEvent conversionEvent = InboundEvent.builder()
-    .eventType("MEMBER_CONVERSION_REQUEST")
-    .agencyCode("AGENCY_001")
-    .idempotencyKey(IdempotencyKeyGenerator.generateWithPrefix("AGENCY_001"))
-    .payloadJson(buildConversionPayload(identifierHash, agencyUserId))
-    .build();
+@GetMapping("/idem/callback")
+public String callback(@RequestParam String ticketId, HttpServletRequest req, HttpServletResponse res) throws Exception {
+    String cid = UUID.randomUUID().toString();
+    HttpURLConnection c = (HttpURLConnection) new URL(hubBaseUrl + "/api/v1/handoff/verify").openConnection();
+    c.setRequestMethod("POST");
+    c.setRequestProperty("Content-Type", "application/json");
+    c.setRequestProperty("X-Agency-Code", agencyCode);
+    c.setRequestProperty("X-Agency-Key", apiKey);          // 로그에 남기지 말 것
+    c.setRequestProperty("X-Correlation-Id", cid);
+    c.setConnectTimeout(3_000); c.setReadTimeout(5_000);
+    c.setDoOutput(true);
+    try (OutputStream os = c.getOutputStream()) { os.write(("{\"ticketId\":\"" + ticketId + "\"}").getBytes(UTF_8)); }
 
-GatewayResponse response = client.sendInbound(conversionEvent);
+    int status = c.getResponseCode();
+    if (status == 409 || status == 410) return "redirect:/login?error=ticket";        // E-IDO-102 소비됨 / 101·103 만료·취소
+    if (status == 401) throw new IllegalStateException("기관 API 키 거부 — 운영 확인");  // INVALID_AGENCY_CREDENTIALS / E-IDO-108
+    if (status == 429) return "redirect:/login?error=busy";                           // E-AGENCY-306 한도
+    if (status >= 500) return "redirect:/login?error=idem_unavailable";
 
-if (response.isSuccess()) {
-    // 202 Accepted — 비동기 전환 시작됨
-    log.info("회원 전환 요청 전송 완료: {}", response.getCorrelationId());
-} else if (response.isIdempotencyConflict()) {
-    // 409 Conflict — 이미 처리 중인 요청 (멱등성 키 중복)
-    log.warn("이미 진행 중인 전환 요청: {}", response.getCorrelationId());
-}
-
-private String buildConversionPayload(String identifierHash, String agencyUserId) {
-    return "{\"identifierHash\":\"" + identifierHash 
-        + "\",\"agencyUserId\":\"" + agencyUserId + "\"}";
-}
-```
-
-### 7.3 CI 수집 시점 처리
-
-```java
-// 사용자가 본인인증(NICE/PASS) 완료 시 CI 저장
-@PostMapping("/identity-verify/callback")
-public ResponseEntity<Void> identityVerifyCallback(
-        @RequestBody NiceVerifyResult result, Principal principal) {
-    
-    String ci = result.getCi();  // NICE/PASS가 반환하는 CI값
-    
-    // SHA-256(CI) = identifierHash
-    String ciHash = DigestUtils.sha256Hex(ci);
-    
-    // 기관 DB에 ci_hash 저장 (qim_user_id는 아직 null)
-    agencyUserRepository.updateCiHash(principal.getName(), ciHash);
-    
-    return ResponseEntity.ok().build();
-}
-
-// Repository
-@Modifying
-@Query("UPDATE AgencyUser u SET u.ciHash = :ciHash WHERE u.userId = :userId")
-void updateCiHash(@Param("userId") String userId, @Param("ciHash") String ciHash);
-```
-
----
-
-## 8. Agent 설치 및 토큰 추출 설정
-
-### 8.1 Agent JVM 인수 추가
-
-```bash
-# Tomcat (setenv.sh)
-JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/idem/idem-agent.jar=config=/etc/idem/onepass-agent.properties"
-
-# JBoss/WildFly (standalone.conf)
-JAVA_OPTS="$JAVA_OPTS \
-  -javaagent:/opt/idem/idem-agent.jar=config=/etc/idem/onepass-agent.properties"
-```
-
-### 8.2 기본 설정 파일 (Authorization 헤더 기반)
-
-```properties
-# /etc/idem/onepass-agent.properties
-
-# 필수
-onepass.agent.endpoint=https://idem-hub.example.go.kr
-onepass.agent.api-key=your-agency-api-key
-
-# 선택 (기본값)
-onepass.agent.enabled=true
-onepass.agent.connect-timeout-ms=5000
-onepass.agent.read-timeout-ms=10000
-onepass.agent.max-retry=2
-onepass.agent.log-level=INFO
-```
-
-### 8.3 자체 SSO 기관 — 쿠키 기반 토큰 추출 (SDK v1.1.0 예정)
-
-자체 SSO 기관은 Idem 토큰을 쿠키에 저장하는 경우가 많다.
-
-```properties
-# 쿠키에서 토큰 추출 (헤더 없으면 쿠키 fallback)
-onepass.agent.token-source=header,cookie
-onepass.agent.token-cookie-name=ONEPASS_TOKEN
-
-# 자체 SSO 엔드포인트 바이패스
-onepass.agent.bypass-uris=/actuator/**,/health,/sso/**,/saml/**,/login/**
-```
-
-> **현재(v1.0.0) 제약**: `token-source` 설정이 없어 Authorization 헤더만 지원. 자체 SSO 기관은 쿠키 대신 `Authorization: Bearer {token}` 헤더를 추가하거나, SSO 필터에서 해당 헤더를 삽입하는 우회 방법을 사용해야 한다.
-
-### 8.4 현재(v1.0.0) 자체 SSO 기관 우회 방법
-
-SSO 필터에서 Idem 토큰을 Authorization 헤더로 변환하여 삽입:
-
-```java
-// 자체 SSO 기관의 필터 예시 (현재 v1.0.0 우회 방법)
-public class SsoToIdemBridgeFilter implements Filter {
-    
-    @Override
-    public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
-            throws IOException, ServletException {
-        
-        HttpServletRequest request = (HttpServletRequest) req;
-        
-        // SSO 세션에서 Idem 토큰 추출
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            String idemToken = (String) session.getAttribute("ONEPASS_TOKEN");
-            if (idemToken != null) {
-                // Authorization 헤더로 래핑 (Agent가 읽을 수 있도록)
-                HttpServletRequestWrapper wrapper = new HttpServletRequestWrapper(request) {
-                    @Override
-                    public String getHeader(String name) {
-                        if ("Authorization".equalsIgnoreCase(name)) {
-                            return "Bearer " + idemToken;
-                        }
-                        return super.getHeader(name);
-                    }
-                };
-                chain.doFilter(wrapper, res);
-                return;
-            }
+    HandoffPayload p = objectMapper.readValue(c.getInputStream(), HandoffPayload.class);
+    switch (p.state()) {
+        case "APPROVED" -> {
+            AgencyUser u = accountLinker.findOrLink(p.subject().agencySubjectId(), p.attributes());   // §7
+            agencySession.create(u, p.sessionPolicy(), p.authContext().authLevel(), cid);            // 유휴·절대·동시 상한 적용
+            return "redirect:/main";
         }
-        
-        chain.doFilter(req, res);
+        case "GUEST" -> { req.getSession().setAttribute("idemGuest", p.subject().agencySubjectId()); return "redirect:/signup/link"; }
+        case "HOLD"  -> { return "redirect:/login?error=retry&cid=" + cid; }
+        default      -> { return "redirect:/login?error=denied&cid=" + cid; }
     }
 }
 ```
 
+`idem-tenant-sample` 의 `AgencyEntryController` + `IdoVerifyClient`(Resilience4j 서킷브레이커 `ido-verify`: 실패율 50% → 10초 OPEN → HOLD 처리)가 같은 흐름의 참조 구현이다.
+
+### 6.6 세션 정책
+
+`sessionPolicy` 가 오면 기관 세션도 같은 상한을 지킨다. 참조 구현 기본값은 유휴 30분·절대 8시간, 쿠키 `HttpOnly·Secure·SameSite=Strict`. Idem 쪽 로그인 세션에도 같은 값이 적용된다.
+
+### 6.7 CAST — 기관 간 이동
+
+A 기관에 로그인한 사용자를 B 기관으로 재로그인 없이 보낼 때. Idem 로그인 세션(브라우저)에서 `POST /api/v1/agency/cast/issue?targetAgency=B` → 응답의 `formHtml`(castToken 을 hidden 필드로 POST 자동 제출)로 B 의 `ssoEntry` 에 전달 → B 서버가 `POST /api/v1/agency/cast/verify {castToken, targetAgencyCode}` → 응답의 `handoffTicket` 을 §6.2 대로 verify. Ed25519 서명, 만료 5분, jti 원자 소비. 공개키는 `GET /api/v1/agency/cast/public-key`.
+
 ---
 
-## 9. identifierHash 처리 상세
+## 7. 기존 계정 연결 — agencySubjectId
 
-### 9.1 SHA-256(CI) 계산
+### 7.1 원칙
 
-```java
-import java.security.MessageDigest;
-import java.nio.charset.StandardCharsets;
-
-public static String computeIdentifierHash(String ci) {
-    try {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        byte[] hash = md.digest(ci.getBytes(StandardCharsets.UTF_8));
-        
-        // HEX 인코딩
-        StringBuilder sb = new StringBuilder();
-        for (byte b : hash) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString(); // 64자리 소문자 16진수
-    } catch (Exception e) {
-        throw new RuntimeException("SHA-256 계산 실패", e);
-    }
-}
-```
-
-### 9.2 identifierHash 저장 타이밍
+연결은 **기관이, 첫 로그인 때** 한다. Idem 은 기관 DB 를 모른다.
 
 ```
-CI 수집 타이밍:
-  ✅ 사용자가 Idem 전환 버튼 클릭 → 본인인증 팝업 → NICE/PASS CI 반환
-  ✅ 신규 가입 시 본인인증 → CI 즉시 저장
-  ✅ 기존 서비스 본인인증 기능에 ci_hash 저장 로직 추가
-  
-  ❌ 관리자가 기존 회원 CI 일괄 수집 (행정적 사전 동의 없이 불가)
-  ❌ 타 시스템에서 CI 이관 (법적 검토 필요)
+첫 로그인:
+  Idem → 기관: agencySubjectId = "pw_9f3a…", attributes = { email: … }
+  기관:  idem_subject_id = "pw_9f3a…" 인 계정이 있나?
+           ├─ 있음 → 로그인
+           └─ 없음 → 연결 기준(이메일·사번 등 고유 속성)으로 기존 계정 탐색
+                      ├─ 찾음 → idem_subject_id 기록 (자동 연결)
+                      └─ 못 찾음 → 기존 아이디/비밀번호 1회 입력(수동 연결) 또는 신규 계정
+이후 로그인:
+  idem_subject_id 로 즉시 매칭
 ```
 
-### 9.3 조회 쿼리 최적화
+### 7.2 스키마
 
 ```sql
--- 인덱스가 없는 경우 lookup API 타임아웃 위험
--- 반드시 생성 후 운영
-
--- EXPLAIN으로 인덱스 사용 여부 확인
-EXPLAIN SELECT * FROM agency_user WHERE agency_subject_id = 'a3f2c8d1...';
-
--- 파티셔닝이 없는 경우 1천만 건 이상 테이블에서 타임아웃 발생 가능
--- 인덱스 힌트 고려
-SELECT /*+ INDEX(agency_user idx_agency_subject_id) */
-    agency_user_id, status, last_login_at
-FROM agency_user
-WHERE agency_subject_id = ? AND status = 'ACTIVE';
+ALTER TABLE {기관_회원_테이블}
+    ADD COLUMN idem_subject_id VARCHAR(128) NULL;          -- Idem 이 준 기관별 식별자
+CREATE UNIQUE INDEX uk_member_idem_subject ON {기관_회원_테이블} (idem_subject_id);
+-- 기관 코드가 여럿인 시스템이면 (agency_code, idem_subject_id) 복합 유니크
 ```
 
----
+`qimUserId` 는 Idem 내부 ID 라 **저장하지 않는다**. 프로파일 `identity.subjectScheme` 을 바꾸면 값이 달라지므로 운영 중 스킴 변경은 재연결을 뜻한다.
 
-## 10. 에러 처리 및 부분 실패 허용 패턴
-
-### 10.1 Fail-Open 정책
-
-Agent와 SDK 모두 **Fail-Open** 정책을 기본으로 한다. 즉, 토큰 검증에 실패하거나 오류가 발생해도 서비스 가용성을 우선하여 요청을 통과시킨다.
+### 7.3 연결 로직 예
 
 ```java
-// Agent 내부 동작 (GenericFilterAdvice.java)
-@Advice.OnMethodEnter(suppress = Throwable.class) // ← 모든 예외 suppress
-public static void onEnter(...) {
-    try {
-        String token = extractBearerToken(request);
-        if (token == null || token.isEmpty()) return; // ← 토큰 없으면 통과
-        // ...
-    } catch (Throwable t) {
-        // 예외 발생 시 로그만 남기고 통과
-        if (log != null) log.println("[WARN] 토큰 검증 중 예외: " + t.getMessage());
-    }
+@Transactional
+public AgencyUser findOrLink(String subjectId, Map<String, Object> attrs) {
+    return repo.findByIdemSubjectId(subjectId).orElseGet(() -> {
+        Optional<AgencyUser> byEmail = Optional.ofNullable((String) attrs.get("email")).flatMap(repo::findByEmail);
+        if (byEmail.isPresent() && byEmail.get().getIdemSubjectId() == null) {     // 이미 다른 subject 에 연결된 계정은 덮어쓰지 않는다
+            byEmail.get().setIdemSubjectId(subjectId);
+            return byEmail.get();
+        }
+        throw new NeedsManualLink(subjectId);   // 수동 연결 화면으로
+    });
 }
 ```
 
-### 10.2 SDK 예외 계층
-
-```java
-// AgencySdkException — SDK 설정/파라미터 오류
-try {
-    GatewayResponse resp = client.sendInbound(event);
-} catch (AgencyHttpException e) {
-    // HTTP 4xx/5xx 응답 — 재시도 가능 여부 판단
-    int status = e.getHttpStatus();
-    if (status == 409) {
-        // 멱등성 충돌 — 재시도 불필요 (이미 처리됨)
-    } else if (status >= 500) {
-        // 서버 오류 — 지수 백오프 후 재시도
-    }
-} catch (AgencySdkException e) {
-    // SDK 내부 오류 — 설정 점검 필요
-    log.error("SDK 오류: {}", e.getErrorCode(), e);
-}
-```
-
-### 10.3 lookup API 타임아웃 처리
-
-Q-IM은 15초 데드라인으로 모든 기관에 병렬 조회를 실행한다. 기관의 `lookup` API가 15초 이내에 응답하지 않으면, 해당 기관의 회원은 전환 실패로 처리되지만 다른 기관은 영향받지 않는다.
-
-```java
-// 기관 측 lookup API 타임아웃 처리 권장
-@PostMapping("/lookup")
-public ResponseEntity<MemberLookupResponse> lookup(@RequestBody MemberLookupRequest req) {
-    try {
-        // DB 조회에 명시적 타임아웃 설정 (10초 이내 권장)
-        Optional<AgencyUser> user = agencyUserRepository
-                .findByAgencySubjectIdWithTimeout(req.getIdentifierHash(), 10_000);
-        // ...
-    } catch (QueryTimeoutException e) {
-        // 타임아웃 발생 → 빈 응답 반환 (서비스 오류가 아닌 빈 조회로 처리)
-        log.warn("lookup 타임아웃: identifierHash={}", req.getIdentifierHash());
-        return ResponseEntity.ok(MemberLookupResponse.notFound());
-    }
-}
-```
+- 멱등: 같은 사용자의 재로그인은 같은 계정이어야 한다. 이미 `idem_subject_id` 가 있는 계정에 다른 값을 쓰지 않는다.
+- 해제: `idem_subject_id` 를 NULL 로. 다음 Idem 로그인 때 §7.1 이 다시 돈다.
+- 일회성 이관: 기존 회원이 많으면 운영기관의 `scripts/kr-member-import`(KR 에디션) 또는 오프라인 매핑으로 사전 연결.
 
 ---
 
-## 11. 테스트 환경 및 통합 검증
+## 8. 상태 변경 수신 — 웹훅·이벤트 피드·Back-Channel Logout
 
-### 11.1 로컬 테스트 환경 (Docker Compose)
+Idem 은 로그아웃·탈퇴·티켓 취소 같은 변화를 기관에 **밀어 주거나(웹훅) 가져가게(이벤트 피드)** 한다. Kafka 는 필요 없다(hub 가 아웃박스를 DB 폴링으로 처리).
 
-```bash
-# 전체 스택 시작
-docker-compose up -d ido q-im agency-stub
+### 8.1 웹훅 (Idem → 기관)
 
-# agency-stub는 SSO 시뮬레이션 포함
-# Profile: bridge → MockSsoSessionController 활성화
+운영기관이 기관 등록에 `webhookEndpoint` 를 넣으면 hub 가 HTTPS POST 한다.
+
+```
+POST {webhookEndpoint}
+Content-Type: application/json
+X-Webhook-Signature: sha256={HEX(HmacSHA256(timestamp + "." + body, signingSecret))}
+X-Webhook-Timestamp: {epoch seconds}
+X-Correlation-Id: …
+X-Source-System: idem-hub
+X-Platform-Version: 1.0.1
+
+{"eventId":"…","eventType":"HANDOFF_REVOKED","agencyCode":"AGENCY_001","ticketId":"…","ticketState":"REVOKED",
+ "revokeReason":"ADMIN","correlationId":"…","occurredAt":"…","platformVersion":"1.0.1","sourceSystem":"idem-hub"}
 ```
 
-### 11.2 agency-stub Mock API 테스트
+검증 순서: ① `|now - X-Webhook-Timestamp| ≤ 300초` ② `expected = "sha256=" + HEX(HmacSHA256(timestamp + "." + rawBody, secret))` 를 상수 시간 비교 ③ `eventId` 로 중복 제거 ④ 200 응답. 실패는 hub 가 재시도한다. 페이로드에는 `qimUserId` 원본이 없고 개인정보는 마스킹돼 있다. 참조 구현: `idem-tenant-sample` `WebhookInboundController`(`POST /api/v1/webhook/inbound`).
 
-```bash
-# lookup API 테스트
-curl -X POST http://localhost:8084/api/v1/members/lookup \
-  -H "Content-Type: application/json" \
-  -H "X-Agency-Key: stub-api-key-dev" \
-  -d '{"identifierHash": "test-hash-001", "agencyCode": "AGENCY_STUB_001"}'
+이벤트 유형: `HANDOFF_ISSUED` · `HANDOFF_REVOKED` · `USER_LOGOUT` · `MEMBER_WITHDRAWN`. (`MEMBER_LOOKUP_RESULT` 는 0.x 잔재로 1.0 에서 발생하지 않는다.)
 
-# Expected: {"found": true, "agencyUserId": "...", "status": "ACTIVE"}
+### 8.2 이벤트 피드 (기관 → Idem, 폴링)
 
-# link API 테스트  
-curl -X POST http://localhost:8084/api/v1/members/link \
-  -H "Content-Type: application/json" \
-  -H "X-Agency-Key: stub-api-key-dev" \
-  -d '{"identifierHash": "test-hash-001", "qimUserId": "uuid-...", "agencyCode": "AGENCY_STUB_001"}'
+웹훅을 열 수 없는 기관은 가져간다.
+
+```
+GET {hub}/api/v1/agency/events?limit=20&since=2026-09-27T00:00:00Z&eventType=USER_LOGOUT
+X-Agency-Code · X-Agency-Key · X-Correlation-Id(선택)
+→ { "events":[{ "dispatchId":"…","eventType":"…","agencyCode":"…","payload":{…},"status":"PENDING" }],
+    "count":1, "hasMore":false, "polledAt":"…" }
+
+POST {hub}/api/v1/agency/events/{dispatchId}/read      — 처리 완료 표시
 ```
 
-### 11.3 SSO 세션 시뮬레이션 (bridge 프로필)
+`polledAt` 을 다음 `since` 로 쓰고, `hasMore=true` 면 이어서 폴링한다. 참조: `AgencyEventPollingController`(`/api/v1/events/poll`).
 
-```bash
-# SSO 세션 사전 등록
-curl -X POST http://localhost:8084/mock/sso/pre-register \
-  -H "Content-Type: application/json" \
-  -d '{"sessionId": "sso-session-001", "identifierHash": "test-hash-001"}'
+### 8.3 Back-Channel Logout (옵션 C)
 
-# SSO 세션 활성화 (PRE_REGISTERED → ACTIVATED)
-curl -X POST http://localhost:8084/mock/sso/activate \
-  -d '{"sessionId": "sso-session-001"}'
-```
+프로파일 `protocol.oidc.backchannelLogoutUri` 로 `logout_token`(JWT, `application/x-www-form-urlencoded`)이 POST 된다. 검증: 서명(JWKS)·`iss`·`aud`(client_id)·`iat`·`jti` 1회·`events` 클레임, 그리고 `sid` 로 기관 세션을 끊는다. Idem 쪽 세션 종료(관리자·다른 서비스의 로그아웃)도 같은 경로로 온다. 참조: `OidcLoginController.backchannelLogout`.
 
 ---
 
-## 12. API 레퍼런스 요약
+## 9. Java SDK 의 역할
 
-### 12.1 SDK AgencyGatewayClient 메서드
+`idem-sdk-java`(Maven `io.github.hipstermin.idem:idem-sdk-java:1.0.1`, Java 8+, 런타임 의존성 0)는 **게이트웨이 API 클라이언트**다. Handoff verify 는 들어 있지 않다(§6.5 처럼 직접 호출).
 
-| 메서드 | HTTP 메서드 | 경로 | 응답 |
-|--------|-----------|------|------|
-| `sendInbound(event)` | POST | `/api/v1/agency/gateway/inbound/event` | 202 Accepted |
-| `triggerOutbound(request)` | PATCH | `/api/v1/agency/gateway/outbound/notify` | 200 OK |
-| `getStatus(agencyCode)` | GET | `/api/v1/agency/gateway/status/{code}` | 200 OK |
-| `verifyHandoff(ticketId)` *(v1.1.0)* | POST | `/api/v1/handoff/verify` | HandoffPayload |
+| 메서드 | 경로 | 1.0.1 기본 설치본에서 |
+|---|---|---|
+| `getStatus(agencyCode)` | `GET /api/v1/agency/gateway/status/{code}` | 동작. 연동 상태(활성 여부·마지막 수신 시각) 조회 |
+| `sendInbound(event)` | `POST /api/v1/agency/gateway/inbound/event` | `IDEM_HUB_GATEWAY_INBOUND_ENABLED=false`(기본)면 `503 FEATURE_DISABLED` |
+| `triggerOutbound(req)` (`@Deprecated`) | `PATCH /api/v1/agency/gateway/outbound/notify` | `IDEM_HUB_GATEWAY_OUTBOUND_ENABLED=false`(기본)면 `503 FEATURE_DISABLED` |
 
-### 12.2 기관 구현 API 스펙
-
-| API | 메서드 | 경로 | 타임아웃 | 멱등성 |
-|-----|--------|------|---------|--------|
-| 회원 조회 | POST | `/api/v1/members/lookup` | 15초 이내 | Y |
-| 회원 매핑 | POST | `/api/v1/members/link` | 30초 이내 | Y |
-
-### 12.3 에러 코드
-
-| 코드 | HTTP 상태 | 의미 | 조치 |
-|------|----------|------|------|
-| `SDK_NULL_PARAM` | - | null 파라미터 전달 | 파라미터 검증 추가 |
-| `SDK_CONFIG_ERROR` | - | 필수 설정 누락 | baseUrl, apiKey 확인 |
-| `SDK_MISSING_AGENCY` | - | agencyCode 미설정 | builder에 agencyCode() 추가 |
-| `HANDOFF_TICKET_EXPIRED` | 410 | 티켓 만료/재사용 | 재로그인 유도 |
-| `AGENCY_NOT_FOUND` | 404 | 기관 코드 미등록 | 관리자에 기관 등록 요청 |
-| `HMAC_SIGNATURE_INVALID` | 401 | HMAC 서명 불일치 | hmacSecret 확인 |
+HMAC 서명(`signRequests(true)`)은 `X-Internal-Sig = HMAC-SHA256("{agencyCode}:{idempotencyKey}:{epochSeconds}")`, 서버 허용 오차 ±60초. `IDEM_HUB_HMAC_SIG_REQUIRED=true` 인 설치본에서만 필수다. 사용법은 `docs/idem-sdk-java-usage-guide.md`, README 는 `idem-sdk-java/README.md`.
 
 ---
 
-*이 문서는 `agency-stub`, `idem-sdk-java`, `idem-agent`, `ido`, `q-im` 소스코드 직접 분석을 기반으로 작성되었습니다.*
+## 10. Java Agent — 1.0 에서의 상태
 
-*문의: 플랫폼 연동팀 (내부 이슈 트래커: IDEM-DEV 프로젝트)*
+`idem-agent`(`-javaagent`)는 요청의 `Authorization: Bearer` 토큰을 `POST {endpoint}/api/v1/agency/token/verify` 로 검증하는 구조인데, **이 엔드포인트를 제공하는 서버가 Idem 1.0.x 에 없다**(hub·gate 어디에도 없고 저장소 이력에도 없다). 테스트베드(`idem-agent-testbed`)는 `mock-onepass-server` 로만 검증돼 있다. 따라서 1.0 에서 에이전트는 **운영 연동 수단이 아니다**. 레거시 WAS 는 옵션 A(콜백 서블릿 하나 + verify 호출) 또는 옵션 C 로 붙인다. 에이전트가 Idem 1.0 어설션을 검증하려면 hub 쪽 검증 API 와 브라우저 토큰 발급 경로가 함께 필요하며 이는 1.x 과제다(`docs/idem-agent-integration-guide.md` 머리 안내).
+
+---
+
+## 11. 오류 처리 원칙
+
+- **Idem 은 fail-closed** 다. 의존 장애 시 허용이 아니라 거부(`HOLD`·5xx)한다. 기관은 그때 자체 로그인으로 우회하도록 화면을 설계한다. "토큰이 없으면 통과" 같은 fail-open 은 1.0 어디에도 없다.
+- **재시도**: verify 5xx·타임아웃은 짧게 재시도하되 티켓 60초를 넘기지 않는다. 서킷브레이커를 두면 Idem 장애 때 기관 서비스가 느려지지 않는다.
+- **상관관계 ID**: 모든 호출에 `X-Correlation-Id` 를 넣고 사용자에게 보이는 오류 화면에도 표시한다. 운영기관 감사 조회의 키다.
+
+| HTTP | 코드 | 뜻 | 기관 처리 |
+|---|---|---|---|
+| 401 | `MISSING_AGENCY_CREDENTIALS` · `INVALID_AGENCY_CREDENTIALS` | 헤더 누락 · API 키 불일치/기관 비활성 | 설정·키 회전 확인 (운영 가이드 §3) |
+| 401 | `E-IDO-108` | 티켓 서명 검증 실패 | 재로그인 |
+| 403 | `E-AGENCY-301` · `302` · `304` | 미등록 기관 · 코드 불일치 · 콜백 미허용 | 프로파일 확인 |
+| 403 | `access_denied` + `E-IDO-120` (OIDC) | 미할당 | 가입·할당 안내 |
+| 404 | `E-AGENCY-307` | 기관 없음/비활성 | 운영기관 확인 |
+| 409 | `E-IDO-102` | 티켓 이미 소비 | 재로그인(재사용 공격 의심 시 로그) |
+| 410 | `E-IDO-101` · `103` | 티켓 만료 · 취소 | 재로그인 |
+| 429 | `E-AGENCY-306` / `temporarily_unavailable` | 프로파일 한도 초과 | `Retry-After` 뒤 재시도, 한도 상향 협의 |
+| 503 | `E-AGENCY-305` | 기관 점검 시간 | 점검 안내 |
+| 503 | `FEATURE_DISABLED` | 게이트웨이 API 꺼짐 | 운영기관과 플래그 협의 |
+
+---
+
+## 12. 테스트 환경
+
+```bash
+# 운영기관 설치본(compose) + 참조 기관 앱
+docker compose -f infra/docker/compose.install.yml up -d          # docs/install.md
+AGENCY_PROTOCOL=OIDC_RP AGENCY_OIDC_CLIENT_ID=idem-svc-AGENCY_B AGENCY_OIDC_CLIENT_SECRET=… \
+  IDEM_OIDC_ISSUER=http://localhost:8081/realms/idem ./gradlew :idem-tenant-sample:bootRun     # :8084
+
+# 옵션 C 확인: http://localhost:8084/agency/oidc/login → 로그인 → /agency/oidc/logout
+# 옵션 A 확인(시뮬레이터, 기관 API 키 필요):
+curl -X POST http://localhost:8084/api/v1/simulator/run          # 발급 → 검증 → 재검증(409) 시나리오
+curl -X POST 'http://localhost:8084/api/v1/simulator/verify?ticketId=…'
+# 유형별 수신 Mock: /mock/bridge/api/handoff/push · /mock/apache-gate · /internal/sso-session
+# 웹훅 수신 확인: POST /api/v1/webhook/inbound (서명·타임스탬프 검증 포함)
+```
+
+Mock 본인확인 제공자로 코어 흐름을 돌리는 절차는 `docs/install.md` §5(설치 검증 뒤 반드시 끈다). 시험 항목표는 `docs/manuals/test-items.md`.
+
+---
+
+## 13. API 레퍼런스 요약
+
+### 13.1 기관이 호출하는 Idem API
+
+| API | 메서드·경로 | 인증 | 비고 |
+|---|---|---|---|
+| OIDC Discovery | `GET {gate}/realms/idem/.well-known/openid-configuration` | 없음 | 옵션 C |
+| OIDC authorize/token/userinfo/end_session | Discovery 참조 | client 인증 + PKCE | 옵션 C |
+| Handoff 검증 | `POST {hub}/api/v1/handoff/verify` | `X-Agency-Code` + `X-Agency-Key` | 옵션 A·B, 1회 소비 |
+| CAST 검증 | `POST {hub}/api/v1/agency/cast/verify` | 기관 키 | 기관 간 SSO |
+| CAST 공개키 | `GET {hub}/api/v1/agency/cast/public-key` | 없음 | |
+| 이벤트 피드 | `GET {hub}/api/v1/agency/events` · `POST …/{dispatchId}/read` | 기관 키 | 폴링 |
+| 연동 상태 | `GET {hub}/api/v1/agency/gateway/status/{code}` | 기관 키 | SDK `getStatus` |
+| 게이트웨이 이벤트 | `POST …/gateway/inbound/event` · `PATCH …/gateway/outbound/notify` | 기관 키 (+HMAC) | 기본 꺼짐 |
+
+### 13.2 기관이 구현하는 엔드포인트
+
+| 엔드포인트 | 언제 | 호출자 | 검증 |
+|---|---|---|---|
+| OIDC 콜백 (`redirect_uri`) | 옵션 C | 브라우저 | state·nonce·PKCE·id_token |
+| Back-Channel Logout URI | 옵션 C, 선택 | idem-gate/Keycloak | `logout_token` 서명·`sid` |
+| Handoff 콜백 (`callbackWhitelist`) | DIRECT | 브라우저 | `ticketId` → verify |
+| `{bridge}/api/handoff/push` | BRIDGE | idem-hub | `X-Handoff-Signature`(HMAC) |
+| `{apacheGate}` | APACHE_GATE | idem-hub | 헤더 `X-Remote-User`·`X-Auth-Level`·`X-Handoff-Token`·`X-Session-Expiry` |
+| `{ssoDomain}/internal/sso-session` | INTERNAL_SSO | idem-hub | `X-Agency-Code`·`X-Source-System` |
+| 웹훅 수신 (`webhookEndpoint`) | 선택 | idem-hub | `X-Webhook-Signature`·`X-Webhook-Timestamp` ±5분 |
+
+---
+
+*이 문서는 `idem-hub`(`HandoffController`·`AgencyEventController`·`CrossAgencySsoController`·`WebhookDispatchOutboxRelay`), `idem-gate`(OIDC 프런트), `idem-tenant-sample`, `idem-sdk-java`, `idem-agent` 1.0.1 소스를 기준으로 작성했다. 코드와 문서가 다르면 코드가 우선한다.*

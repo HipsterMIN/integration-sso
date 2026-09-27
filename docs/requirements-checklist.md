@@ -9,7 +9,7 @@
 |---|---|---|---|
 | ☐ | "OIDC 로 붙겠다" | `protocol.type=OIDC_RP` + `protocol.oidc.*` | Discovery → RP 로그인 |
 | ☐ | "Handoff(티켓) 방식으로 붙겠다" | `protocol.type=DIRECT\|BRIDGE\|APACHE_GATE\|INTERNAL_SSO`, `protocol.endpoints`, `protocol.security` | `idem-sdk-java` 샘플 · 시뮬레이션 |
-| ☐ | "레거시 WAS 라 코드 수정이 어렵다" | `AGENT` — `idem-agent` 배포 + 위 Handoff 프로파일 | `docs/idem-agent-integration-guide.md` |
+| ☐ | "레거시 WAS 라 코드 수정이 어렵다" | Handoff 프로파일(`DIRECT`) + 콜백 서블릿 1개에서 verify 호출, 또는 `APACHE_GATE`(웹서버 단). `idem-agent` 는 1.0.x 서버에 검증 API 가 없어 **미지원** | `docs/sso-agency-developer-guide.md` §6·§10 |
 | ☐ | "본인인증은 NICE 만 / 간편인증도" | `policy.allowedProviders` (제공자 코드) | 시뮬레이션 `providerCode` |
 | ☐ | "L3(전자서명) 필수" / "재인증 규칙" | `policy.minAuthLevel`, `policy.rules[]` | 시뮬레이션 `authLevel` |
 | ☐ | "이름은 마스킹 없이, 전화번호는 뒷자리만" | `identity.attributes[{name, masking, required}]` | RP 가 받은 클레임 |

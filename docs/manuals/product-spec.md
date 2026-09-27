@@ -20,12 +20,12 @@
 | # | 기능 | 설명 | 위치 |
 |---|---|---|---|
 | F1 | 표준 OIDC 제공(OIDC_RP) | 기관이 표준 Relying Party 로 붙는다. issuer 는 공개 gate URL, Authorization Code + PKCE S256 필수, Keycloak 은 숨김 | gate 프런트 + hub 정책 판정 |
-| F2 | Handoff(1회용 암호화 티켓) | AES-256-GCM + HMAC 서명, 60초·1회 소비, 기관 SDK 로 검증 | hub |
+| F2 | Handoff(1회용 암호화 티켓) | AES-256-GCM + HMAC 서명, 60초·1회 소비, 기관 서버가 `POST /api/v1/handoff/verify` 로 검증(기관 API 키) | hub |
 | F3 | 본인확인 브로커(SPI) | `IdentityVerificationProvider` 플러그인 — Mock(설치 검증), KR: NICE OACX·Any-ID | hub + plugins |
 | F4 | 인증 수준 L1/L2/L3 | 서비스 프로파일 `policy.minAuthLevel`, 재인증 규칙 | hub PolicyEngine |
 | F5 | 세션·단일 로그아웃 | 세션 정책(유휴·절대·동시), SLO(Keycloak 세션 종료), OIDC Back-Channel Logout 송·수신 | gate·hub |
 | F6 | 기관 간 SSO(CAST) | Ed25519 서명 토큰으로 A기관 → B기관 재로그인 없이 이동, 원자 소비 | hub |
-| F7 | 레거시 WAS 연동 | `idem-agent`(-javaagent, JDK 8+) · `idem-sdk-java`(Java 8+, 의존성 0) | 도구 |
+| F7 | 레거시 WAS 연동 | `idem-sdk-java`(Java 8+, 의존성 0 — 게이트웨이·상태 조회) · 콜백 서블릿 + Handoff verify. `idem-agent`(-javaagent)는 검증 API(`/api/v1/agency/token/verify`)가 1.0.x 서버에 없어 **1.0 연동 수단 아님**(1.x 과제) | 도구 |
 
 ### 2.2 통합 회원(Idem IM)
 
