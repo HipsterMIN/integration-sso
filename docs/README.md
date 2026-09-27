@@ -16,6 +16,7 @@ docs/
 ├── project-overview.md             ← ★프로젝트 소개 (처음 접하는 분용, docx 배포본과 동일 내용)
 ├── local-dev-workflow.md           ← 로컬 개발 워크플로 (git 훅: pre-commit Spotless, pre-push 변경 모듈 테스트)
 ├── execution-plan.md               ← 실행 계획 (PR #221 마무리 → 범위 고정 → 보안 보완 → 암호모듈 → GS → CC)
+├── post-1.0-plan.md                ← 1.0 이후 실행 플랜 (G0 결정 → G1 시험 준비 1.0.2 → G2 제출물 → G3 신청·시험 → 1.1 → 2.0)
 ├── generalization-plan.md          ← 범용화 리팩토링 플랜 v0.2 (결합 지점 8가지 · Tenant/Service 계층 목표 구조 · S1~S9 단계 · 기관 요구사항 수용 매트릭스)
 │
 ├── certification/                  ← CC(국내용)·GS 인증 준비
@@ -104,6 +105,7 @@ docs/
 | [`naming.md`](naming.md) | **Idem 개명 대응표** — 구명↔신명, 개명 단계, 아직 바꾸지 않은 런타임 식별자 목록 |
 | [`generalization-plan.md`](generalization-plan.md) | **범용화 리팩토링 플랜 v0.4** — GS 우선·Keycloak 유지·IM 을 얇게·다이어트 먼저 결정, 제품 3개(SSO·IM·KR 에디션 `editions/`), D1→D2→S8-a→S8-b→S6→S7→S9 순서와 진행 기록(S1~S5·D1·D2·S8-a 완료) |
 | [`execution-plan.md`](execution-plan.md) | **실행 계획 (확장판)** — 단계별 작업·완료 기준·병행 트랙·의사결정 대기·위험. 요약은 §0 |
+| [`post-1.0-plan.md`](post-1.0-plan.md) | **1.0 이후 실행 플랜 (2026-09-27)** — G0 사용자 결정 10건 → G1 시험 준비(58 항목 완주·오프라인 설치·백업 복구·콘솔 3건·웹훅 비밀 API) → G2 제출물 → G3 GS 신청·시험 → 1.1(에이전트 결정·코어 로그인 프런트·SCIM 아웃바운드·남긴 것·AI 운영 보조) → 2.0 |
 | [`certification/cc-gs-gap-analysis.md`](certification/cc-gs-gap-analysis.md) | **CC·GS 인증 갭 분석 (초안)** — 국가용 보안요구사항(SSO) 클래스별 현재 구현 대조, TOE 범위 제안, 보증 산출물·GS 품질 특성 갭, 로드맵·질의 목록 |
 | [`idem-sdk-java-usage-guide.md`](idem-sdk-java-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |
 | [`idem-agent-index.md`](idem-agent-index.md) | Agency Java Agent — 문서 인덱스 |

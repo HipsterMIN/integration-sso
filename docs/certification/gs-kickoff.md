@@ -1,6 +1,6 @@
 # GS 인증 착수 문서 — Idem 1.0
 
-> S9 PR-4 (2026-09-26). `docs/execution-plan.md` P3(GS) 의 **착수 문서**다. 1.0 동결(태그 `v1.0.0`)을 입력으로, 시험 신청까지 무엇을 누가 언제 하는지 적는다. 갭 분석은 `cc-gs-gap-analysis.md` §5.
+> S9 PR-4 (2026-09-26). `docs/execution-plan.md` P3(GS) 의 **착수 문서**다. 단계별 실행 순서·PR 분할은 [`../post-1.0-plan.md`](../post-1.0-plan.md). 1.0 동결(태그 `v1.0.0`)을 입력으로, 시험 신청까지 무엇을 누가 언제 하는지 적는다. 갭 분석은 `cc-gs-gap-analysis.md` §5.
 
 ## 1. 목표와 범위
 
