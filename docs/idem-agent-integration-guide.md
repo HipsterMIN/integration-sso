@@ -1,4 +1,6 @@
-# OnePass Agency Java Agent — 유관기관 개발자 통합 가이드
+# Idem Agency Java Agent — 유관기관 개발자 통합 가이드
+
+> **⚠ 1.0.x 상태 (2026-09-27)** — 이 에이전트가 호출하는 검증 API `POST {endpoint}/api/v1/agency/token/verify`·`GET /api/v1/agency/health` 는 **Idem 1.0.x 의 hub·gate 어디에도 없다**(저장소 이력에도 없음). 테스트베드의 `mock-onepass-server` 로만 검증돼 있으므로 1.0 운영 연동 수단이 아니다. 레거시 WAS 는 `docs/sso-agency-developer-guide.md` §6(콜백 서블릿 + Handoff verify) 또는 옵션 C(표준 OIDC)로 붙인다. 아래 내용은 hub 검증 API 가 추가되는 1.x 를 위한 설치 절차로 남겨 둔다.
 
 > **명칭 안내 (2026-09-07)** — 이 문서의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `ONEPASS_*` 환경변수, `OnePass-*` 헤더, `OnePassAgent*` 클래스명은 개명 4단계(Java 패키지·런타임 식별자) 전까지 **구명을 그대로 사용**한다. 모듈·이미지·파일 이름만 Idem 신명이다. 대응표: [docs/naming.md](naming.md) §3.
 

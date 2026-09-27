@@ -7,6 +7,8 @@
 > **최종 수정**: 2026-05-18
 > **브랜치**: `shipster`
 
+> **1.0.1 기본 설치본에서의 동작** — `sendInbound()`(`/gateway/inbound/event`)·`triggerOutbound()` 는 운영기관 설치본의 `IDEM_HUB_GATEWAY_INBOUND_ENABLED` / `IDEM_HUB_GATEWAY_OUTBOUND_ENABLED` 가 `false`(기본)면 `503 FEATURE_DISABLED` 를 받는다. `getStatus()` 는 항상 동작한다. Handoff 티켓 검증은 SDK 에 없고 기관 서버가 `POST /api/v1/handoff/verify` 를 직접 호출한다(`docs/sso-agency-developer-guide.md` §6).
+
 ---
 
 ## 이 문서를 읽기 전에
