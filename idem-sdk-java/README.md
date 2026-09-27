@@ -1,12 +1,12 @@
-# onepass-agency-sdk
+# idem-sdk-java
 
-**OnePass 기관 연동 Java SDK** — 기관 시스템이 OnePass Gateway API를 호출하기 위한 경량 클라이언트 라이브러리.
+**Idem 기관 연동 Java SDK** — 기관(서비스) 시스템이 Idem Hub 기관 API(Handoff 검증·이벤트 게이트웨이)를 호출하기 위한 경량 클라이언트 라이브러리.
 
 ```
 좌표(Coordinates):
   groupId:    io.github.hipstermin.idem
-  artifactId: onepass-agency-sdk
-  version:    1.0.0  (S9 PR-4 1.0 동결)
+  artifactId: idem-sdk-java
+  version:    1.0.1
 ```
 
 ---
@@ -58,24 +58,24 @@
 |------|-----------|
 | **JDK** | Java 8 이상 (Java 21 빌드, Java 8 바이트코드 출력) |
 | **빌드 도구** | Gradle 7.x+ 또는 Maven 3.6+ |
-| **네트워크** | IdO(Identity Orchestration) 서버 접근 가능 |
-| **API 키** | OnePass 관리자로부터 발급받은 `X-Api-Key` |
+| **네트워크** | idem-hub 서버 접근 가능 |
+| **API 키** | Idem 관리자로부터 발급받은 `X-Api-Key` |
 
 ### 2.1 `baseUrl` — 어디를 가리켜야 하는가
 
 > ⚠️ **가장 중요한 설정 항목입니다. 반드시 정확히 이해하고 설정하세요.**
 
-이 SDK는 **IdO(Identity Orchestration) 서버**에 직접 HTTP 요청을 보냅니다.
-`baseUrl`은 **IdO 서버의 주소**를 설정해야 합니다.
+이 SDK는 **idem-hub 서버**에 직접 HTTP 요청을 보냅니다.
+`baseUrl`은 **idem-hub 서버의 주소**를 설정해야 합니다.
 
-#### OnePass 시스템 구성 요약
+#### Idem 시스템 구성 요약
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      OnePass 시스템                              │
+│                      Idem 시스템                                 │
 │                                                                  │
 │  ┌──────────────┐    ┌──────────────────────────────────────┐   │
-│  │  onepass-fe  │    │  ido (IdO 서버, 포트 8083)           │   │
+│  │  idem-gate   │    │  idem-hub (포트 8083)                │   │
 │  │  (브라우저    │    │                                      │   │
 │  │   로그인 UI) │    │  AgencyGatewayController             │   │
 │  │              │    │  POST /api/v1/agency/gateway/        │   │
@@ -90,7 +90,7 @@
                                      │ HTTP 요청 (이 SDK가 호출)
                               ┌──────────────┐
                               │  기관 시스템  │
-                              │  (agency-stub│
+                              │  (tenant-sample
                               │   또는 실제  │
                               │   기관 서버) │
                               └──────────────┘
@@ -100,28 +100,28 @@
 
 | 환경 | `baseUrl` | 비고 |
 |------|-----------|------|
-| **로컬 개발** | `http://localhost:8083` | IdO 서버 기본 포트 |
-| **Docker Compose** | `http://ido:8083` | 서비스명으로 접근 |
-| **쿠버네티스(내부)** | `http://ido-service:8083` | k8s Service 이름 |
-| **운영(내부망)** | 운영 IdO 서버 URL (관리자 확인) | 예: `http://ido.internal.smes.go.kr:8083` |
+| **로컬 개발** | `http://localhost:8083` | idem-hub 기본 포트 |
+| **Docker Compose** | `http://idem-hub:8083` | 서비스명으로 접근 |
+| **쿠버네티스(내부)** | `http://idem-hub:8083` | Helm 차트의 Service 이름 |
+| **운영(내부망)** | 운영 idem-hub URL (관리자 확인) | 예: `http://idem-hub.internal.example.go.kr:8083` |
 
 #### ❌ `baseUrl`에 넣으면 안 되는 것
 
 | 잘못된 값 | 이유 |
 |-----------|------|
-| `onepass-fe` URL | 브라우저 로그인 UI 서버 — SDK API 엔드포인트 없음 |
-| 외부 시연 URL | Q-Sign/Q-IM을 직접 통신하는 **별개 시스템** — 이 SDK와 무관 |
+| `idem-gate` URL | 브라우저 로그인·OIDC 서버 — SDK API 엔드포인트 없음 |
+| 관리 콘솔 URL | 관리자 화면 — 이 SDK와 무관 |
 
 > **참고 — `idem-tenant-sample/src/main/resources/application.yml`:**
 > ```yaml
-> agency-stub:
+> idem.sample:
 >   code: AGENCY_STUB_001
 >   ido:
->     base-url: ${IDO_BASE_URL:http://localhost:8083}  # ← SDK의 baseUrl은 이것
+>     base-url: ${IDEM_HUB_BASE_URL:http://localhost:8083}  # ← SDK의 baseUrl은 이것
 >     api-key: ${AGENCY_API_KEY:stub-api-key-dev}
 > ```
-> agency-stub이 IdO 서버(`ido` 모듈, 포트 8083)를 직접 호출하는 것과 동일하게,
-> 이 SDK도 IdO 서버를 직접 호출합니다.
+> 참조 기관 앱(idem-tenant-sample)이 idem-hub(포트 8083)를 직접 호출하는 것과 동일하게,
+> 이 SDK도 idem-hub를 직접 호출합니다.
 
 ---
 
@@ -137,12 +137,12 @@ import io.github.hipstermin.idem.sdk.agency.model.InboundEvent;
 
 // 1. 클라이언트 생성 (애플리케이션 시작 시 1회 — 싱글턴으로 관리 권장)
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("http://localhost:8083")           // IdO 서버 URL (로컬 개발)
-        .apiKey("stub-api-key-dev")                 // agency-stub.ido.api-key 값
-        .agencyCode("AGENCY_STUB_001")              // agency-stub.code 값
+        .baseUrl("http://localhost:8083")           // idem-hub URL (로컬 개발)
+        .apiKey("stub-api-key-dev")                 // idem.sample.ido.api-key 값
+        .agencyCode("AGENCY_STUB_001")              // idem.sample.code 값
         .build();
 
-// 2. 인바운드 이벤트 전송 (기관 → OnePass)
+// 2. 인바운드 이벤트 전송 (기관 → Idem)
 InboundEvent event = InboundEvent.builder()
         .eventType("USER_REGISTERED")
         .agencyCode("AGENCY_STUB_001")
@@ -159,7 +159,7 @@ if (response.isSuccess()) {
 }
 ```
 
-### 3.2 아웃바운드 알림 요청 (OnePass → 기관 Webhook 트리거)
+### 3.2 아웃바운드 알림 요청 (Idem → 기관 Webhook 트리거)
 
 > ⚠️ **`triggerOutbound()`는 GAP-2 수정에 따라 `@Deprecated` 처리되었습니다.**  
 > 서버가 내부적으로 Webhook을 자동 발송하므로, 기관 측에서 직접 호출할 필요가 없습니다.  
@@ -172,7 +172,7 @@ import io.github.hipstermin.idem.sdk.agency.model.OutboundNotifyRequest;
 OutboundNotifyRequest notify = OutboundNotifyRequest.builder()
         .agencyCode("AGENCY_STUB_001")
         .eventType("USER_PROVISIONED")
-        .payload("{\"status\":\"ok\",\"onepassId\":\"op-abc-123\"}")
+        .payload("{\"status\":\"ok\",\"idemId\":\"op-abc-123\"}")
         .idempotencyKey(IdempotencyKeyGenerator.generate())
         .build();
 
@@ -196,7 +196,7 @@ System.out.println("연동 상태: " + status.getBody());
 
 ```kotlin
 dependencies {
-    // OnePass Agency SDK (런타임 의존성 없음 — JDK 내장 HttpURLConnection 사용)
+    // Idem SDK (런타임 의존성 없음 — JDK 내장 HttpURLConnection 사용)
     implementation("io.github.hipstermin.idem:idem-sdk-java:1.0.0")
 
     // [선택] OkHttp3 어댑터 사용 시
@@ -226,7 +226,7 @@ dependencies {
 ```xml
 <dependency>
     <groupId>io.github.hipstermin.idem</groupId>
-    <artifactId>onepass-agency-sdk</artifactId>
+    <artifactId>idem-sdk-java</artifactId>
     <version>1.0.0</version>
 </dependency>
 
@@ -266,8 +266,8 @@ dependencies {
 
 | 메서드 | 필수 | 기본값 | 설명 |
 |--------|------|--------|------|
-| `baseUrl(String)` | ✅ | — | **IdO 서버** URL (예: `http://localhost:8083`) |
-| `apiKey(String)` | ✅ | — | 발급받은 X-Api-Key (`agency-stub.ido.api-key` 참고) |
+| `baseUrl(String)` | ✅ | — | **idem-hub** URL (예: `http://localhost:8083`) |
+| `apiKey(String)` | ✅ | — | 발급받은 X-Api-Key (`idem.sample.ido.api-key` 참고) |
 | `agencyCode(String)` | — | `null` | 기관 코드 (예: `AGENCY_STUB_001`). 설정 시 모든 요청에 `X-Agency-Code` 헤더 자동 추가 |
 | `httpAdapter(AgencyHttpAdapter)` | — | `HttpUrlConnectionAdapter` | HTTP 구현체 교체 |
 | `hmacSecret(String)` | — | `null` | HMAC 공유 비밀키 (`signRequests=true` 시 필요) |
@@ -306,7 +306,7 @@ boolean valid = response.isValidJson();                // true/false
 
 ### InboundEvent
 
-기관 → OnePass 방향 이벤트 모델. **불변(Immutable)** 객체.
+기관 → Idem 방향 이벤트 모델. **불변(Immutable)** 객체.
 
 ```java
 InboundEvent event = InboundEvent.builder()
@@ -336,13 +336,13 @@ String json = event.toJsonString();
 
 ### OutboundNotifyRequest
 
-OnePass → 기관 Webhook 트리거 요청 모델. **불변(Immutable)** 객체.
+Idem → 기관 Webhook 트리거 요청 모델. **불변(Immutable)** 객체.
 
 ```java
 OutboundNotifyRequest request = OutboundNotifyRequest.builder()
         .agencyCode("AGENCY_STUB_001")                       // [필수] 기관 코드
         .eventType("USER_PROVISIONED")                       // [필수] 이벤트 타입
-        .payload("{\"onepassId\":\"op-abc\"}")               // [선택] JSON 페이로드
+        .payload("{\"idemId\":\"op-abc\"}")               // [선택] JSON 페이로드
         .idempotencyKey(IdempotencyKeyGenerator.generate())  // [선택] 멱등성 키
         .correlationId("corr-xyz")                           // [선택] 요청 추적 ID
         .build();
@@ -424,7 +424,7 @@ SDK는 `AgencyHttpAdapter` 인터페이스 기반으로 HTTP 구현체를 완전
 ```java
 // 기본값 (별도 설정 불필요)
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("http://localhost:8083")           // IdO 서버 URL
+        .baseUrl("http://localhost:8083")           // idem-hub URL
         .apiKey("stub-api-key-dev")
         .agencyCode("AGENCY_STUB_001")
         .connectTimeoutMs(5_000)                    // 연결 타임아웃 (기본 5초)
@@ -453,7 +453,7 @@ OkHttpClient okHttp = new OkHttpClient.Builder()
         .build();
 
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("http://localhost:8083")           // IdO 서버 URL
+        .baseUrl("http://localhost:8083")           // idem-hub URL
         .apiKey("stub-api-key-dev")
         .agencyCode("AGENCY_STUB_001")
         .httpAdapter(new OkHttpAgencyAdapter(okHttp))
@@ -490,7 +490,7 @@ CloseableHttpClient apacheClient = HttpClients.custom()
 ApacheHttpAgencyAdapter adapter = new ApacheHttpAgencyAdapter(apacheClient);
 
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("http://localhost:8083")           // IdO 서버 URL
+        .baseUrl("http://localhost:8083")           // idem-hub URL
         .apiKey("stub-api-key-dev")
         .agencyCode("AGENCY_STUB_001")
         .httpAdapter(adapter)
@@ -525,7 +525,7 @@ AgencyHttpAdapter restTemplateAdapter = (method, url, headers, body) -> {
 };
 
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("http://localhost:8083")           // IdO 서버 URL
+        .baseUrl("http://localhost:8083")           // idem-hub URL
         .apiKey("stub-api-key-dev")
         .agencyCode("AGENCY_STUB_001")
         .httpAdapter(restTemplateAdapter)
@@ -536,7 +536,7 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 
 ## 7. HMAC 서명 설정 가이드
 
-Sprint 17 Phase 4 이후 OnePass Gateway는 `X-Internal-Sig` 헤더 검증을 강제화한다
+Idem Hub 는 `X-Internal-Sig` 헤더 검증을 강제화한다
 (`IDO_HMAC_SIG_REQUIRED=true`). Phase 4 전환 전에 서명을 활성화하고 Staging 환경에서
 48시간 이상 검증을 완료해야 한다.
 
@@ -544,7 +544,7 @@ Sprint 17 Phase 4 이후 OnePass Gateway는 `X-Internal-Sig` 헤더 검증을 �
 
 ```java
 AgencyGatewayClient client = AgencyGatewayClient.builder()
-        .baseUrl("http://localhost:8083")                    // IdO 서버 URL
+        .baseUrl("http://localhost:8083")                    // idem-hub URL
         .apiKey("stub-api-key-dev")                         // X-Agency-Key (API 인증용)
         .agencyCode("AGENCY_STUB_001")
         .hmacSecret("agency-hmac-shared-secret-2026")       // HMAC 전용 키 (API Key와 별개)
@@ -553,7 +553,7 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 ```
 
 > **⚠️ 중요**: `hmacSecret`은 `apiKey`(X-Agency-Key)와 **별개의 비밀키**이다.
-> 서버의 `AgencyHmacKeyStore`에 기관별로 등록된 HMAC 전용 키를 OnePass 관리자로부터 수령한다.
+> 서버의 `AgencyHmacKeyStore`에 기관별로 등록된 HMAC 전용 키를 Idem 관리자로부터 수령한다.
 
 인바운드 요청(`POST /inbound/event`)에 다음 헤더가 자동으로 추가된다:
 - `X-Internal-Sig`: HMAC-SHA256 서명 (64자 소문자 HEX)
@@ -639,7 +639,7 @@ try {
             // 인증/인가 오류 — API 키 또는 기관 코드 확인
         }
     } else if (e.isServerError()) {
-        // 5xx: OnePass 서버 내부 오류 — 지수 백오프(Exponential Backoff) 후 재시도
+        // 5xx: Idem 서버 내부 오류 — 지수 백오프(Exponential Backoff) 후 재시도
     } else {
         // status == -1: 네트워크 오류 (타임아웃, DNS 실패 등)
     }
@@ -674,7 +674,7 @@ try {
 
 ## 9. 멱등성 키 전략
 
-OnePass Gateway는 **멱등성 키(X-Idempotency-Key)**로 중복 요청을 감지한다.
+Idem Hub 는 **멱등성 키(X-Idempotency-Key)**로 중복 요청을 감지한다.
 동일 키로 중복 요청 시 `409 Conflict`를 반환하지만, 이는 정상 동작이다.
 
 | 전략 | 메서드 | 형식 | 적합한 경우 |
@@ -739,22 +739,22 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class OnePassSdkConfig {
+public class IdemSdkConfig {
 
-    // application.yml: onepass.gateway.base-url = IdO 서버 URL
-    @Value("${onepass.gateway.base-url}")
+    // application.yml: idem.gateway.base-url = idem-hub URL
+    @Value("${idem.gateway.base-url}")
     private String baseUrl;
 
-    @Value("${onepass.gateway.api-key}")
+    @Value("${idem.gateway.api-key}")
     private String apiKey;
 
-    @Value("${onepass.gateway.agency-code}")
+    @Value("${idem.gateway.agency-code}")
     private String agencyCode;
 
-    @Value("${onepass.gateway.hmac-secret:}")
+    @Value("${idem.gateway.hmac-secret:}")
     private String hmacSecret;
 
-    @Value("${onepass.gateway.sign-requests:false}")
+    @Value("${idem.gateway.sign-requests:false}")
     private boolean signRequests;
 
     @Bean
@@ -778,18 +778,18 @@ public class OnePassSdkConfig {
 ### 10.2 `application.yml` 설정
 
 ```yaml
-onepass:
+idem:
   gateway:
-    # IdO 서버 URL — onepass-fe(UI 서버)가 아님에 주의
+    # idem-hub URL — idem-gate(로그인 서버)가 아님에 주의
     # 로컬:       http://localhost:8083
-    # Docker:     http://ido:8083
-    # k8s 내부:   http://ido-service:8083
-    # 운영:       http://ido.internal.smes.go.kr:8083  (관리자 확인)
-    base-url: ${IDO_BASE_URL:http://localhost:8083}
+    # Docker:     http://idem-hub:8083
+    # k8s 내부:   http://idem-hub:8083
+    # 운영:       http://idem-hub.internal.example.go.kr:8083  (관리자 확인)
+    base-url: ${IDEM_HUB_BASE_URL:http://localhost:8083}
     api-key: ${AGENCY_API_KEY:stub-api-key-dev}
     agency-code: ${AGENCY_CODE:AGENCY_STUB_001}
-    hmac-secret: ${ONEPASS_HMAC_SECRET:}    # Sprint 17 이후 필수
-    sign-requests: ${ONEPASS_SIGN_REQUESTS:false}
+    hmac-secret: ${IDEM_HMAC_SECRET:}    # Sprint 17 이후 필수
+    sign-requests: ${IDEM_SIGN_REQUESTS:false}
 ```
 
 ### 10.3 Service 클래스에서 사용
@@ -816,10 +816,10 @@ public class UserSyncService {
         GatewayResponse response = agencyGatewayClient.sendInbound(event);
 
         if (!response.isSuccess()) {
-            throw new RuntimeException("OnePass 전송 실패: HTTP " + response.getHttpStatus());
+            throw new RuntimeException("Idem 전송 실패: HTTP " + response.getHttpStatus());
         }
 
-        log.info("OnePass 전송 완료 — correlationId={}", response.getCorrelationId());
+        log.info("Idem 전송 완료 — correlationId={}", response.getCorrelationId());
     }
 }
 ```
@@ -1002,9 +1002,9 @@ repositories {
 □ 3. JAR 패키징 확인
       ./gradlew :idem-sdk-java:build --no-daemon
       → build/libs/ 에 다음 3개 파일 존재 확인:
-        - onepass-agency-sdk-x.y.z.jar           (메인 JAR)
-        - onepass-agency-sdk-x.y.z-sources.jar   (소스 JAR)
-        - onepass-agency-sdk-x.y.z-javadoc.jar   (Javadoc JAR)
+        - idem-sdk-java-x.y.z.jar           (메인 JAR)
+        - idem-sdk-java-x.y.z-sources.jar   (소스 JAR)
+        - idem-sdk-java-x.y.z-javadoc.jar   (Javadoc JAR)
 
 □ 4. POM 검증
       ./gradlew :idem-sdk-java:generatePomFileForMavenJavaPublication --no-daemon
@@ -1015,10 +1015,10 @@ repositories {
 □ 5. 로컬 설치 후 연동 테스트
       SKIP_SIGNING=true ./gradlew :idem-sdk-java:publishToMavenLocal --no-daemon
       → 연동 대상 프로젝트에서 mavenLocal() 저장소로 의존성 추가 후 동작 확인
-        (baseUrl = IdO 서버 URL로 설정하여 테스트)
+        (baseUrl = idem-hub URL로 설정하여 테스트)
 
 □ 6. Git 태그 생성
-      git tag -a sdk-v0.1.0 -m "onepass-agency-sdk 0.1.0 release"
+      git tag -a sdk-v1.0.1 -m "idem-sdk-java 1.0.1 release"
       git push origin sdk-v0.1.0
 
 □ 7. 배포 실행
@@ -1102,9 +1102,9 @@ open idem-sdk-java/build/docs/javadoc/index.html
 
 ## 라이선스
 
-MIT License — 상세 내용은 [LICENSE](../LICENSE) 파일 참고.
+Apache License 2.0 — 상세 내용은 [LICENSE](../LICENSE) 파일 참고.
 
 ---
 
-> **문의:** OnePass Platform Team — onepass@smes.go.kr
+> **문의:** 운영기관의 Idem 연동 담당자 (설치본마다 다름)
 > **이슈:** https://github.com/HipsterMIN/integration-sso/issues

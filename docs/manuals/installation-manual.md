@@ -16,7 +16,7 @@
 
 ## 2. 입력값 준비
 
-`docs/install-inputs.md` 의 표대로 비밀 20종을 만든다(`openssl rand`, CAST 키는 `openssl genpkey ed25519`). compose 는 `infra/docker/install.env`, Helm 은 Secret `idem-db-secret`·`idem-app-secrets`. 공개 URL(gate·hub·console) 을 정한다 — gate URL 이 표준 OIDC issuer 의 베이스(`{gate}/realms/idem`)다.
+`docs/install-inputs.md` 의 표대로 비밀 21종을 만든다(`openssl rand`, CAST 키는 `openssl genpkey ed25519`). compose 는 `infra/docker/install.env`, Helm 은 Secret `idem-db-secret`·`idem-app-secrets`. 공개 URL(gate·hub·console) 을 정한다 — gate URL 이 표준 OIDC issuer 의 베이스(`{gate}/realms/idem`)다.
 
 완료 판정: `grep -E '^[A-Z0-9_]+=$' install.env` 결과가 비어 있다(모든 키가 채워짐).
 
