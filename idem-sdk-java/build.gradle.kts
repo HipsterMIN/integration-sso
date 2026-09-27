@@ -1,5 +1,5 @@
 /**
- * idem-sdk-java — OnePass 기관 연동 Java SDK
+ * idem-sdk-java — Idem 기관 연동 Java SDK
  *
  * ┌─────────────────────────────────────────────────────────────────────────┐
  * │  JDK 버전 프리 설계                                                      │
@@ -135,7 +135,7 @@ tasks.withType<Jar>().configureEach {
     // 아티팩트 메타정보
     manifest {
         attributes(
-            "Implementation-Title"   to "OnePass Agency SDK",
+            "Implementation-Title"   to "Idem SDK for Java",
             "Implementation-Version" to project.version,
             "Build-Jdk-Spec"        to "8+",   // Java 8 이상 호환 명시
             "Automatic-Module-Name" to "io.github.hipstermin.idem.sdk.agency"
@@ -194,7 +194,7 @@ tasks.withType<Test>().configureEach {
 // SDK 아티팩트 메타데이터
 val sdkGroup      = "io.github.hipstermin.idem"
 val sdkArtifactId = "idem-sdk-java"
-val sdkVersion    = project.version.toString()    // 루트 build.gradle.kts: "1.0.0"
+val sdkVersion    = project.version.toString()    // 루트 build.gradle.kts 의 version (1.0.1)
 
 publishing {
     publications {
@@ -218,9 +218,9 @@ publishing {
 
             // ── POM 메타정보 ─────────────────────────────────────────────────
             pom {
-                name.set("OnePass Agency SDK")
+                name.set("Idem SDK for Java")
                 description.set(
-                    "OnePass 기관 연동 Java SDK — 기관 시스템이 OnePass Gateway API를 " +
+                    "Idem 기관 연동 Java SDK — 기관(서비스) 시스템이 Idem Hub 기관 API를 " +
                     "호출하기 위한 경량 클라이언트 라이브러리. Java 8+, 런타임 의존성 없음."
                 )
                 url.set("https://github.com/HipsterMIN/integration-sso")
@@ -228,8 +228,8 @@ publishing {
 
                 licenses {
                     license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
+                        name.set("Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
                     }
                 }
 
@@ -237,9 +237,8 @@ publishing {
                     developer {
                         id.set("idem-team")
                         name.set("Idem Platform Team")
-                        email.set("onepass@smes.go.kr")
-                        organization.set("중소벤처기업부 (MSSB)")
-                        organizationUrl.set("https://www.mss.go.kr")
+                        organization.set("Idem Project")
+                        organizationUrl.set("https://github.com/HipsterMIN/integration-sso")
                     }
                 }
 

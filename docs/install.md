@@ -10,8 +10,8 @@
 | `idem-hub` | Idem SSO | 정책 오케스트레이터·FE BFF·본인확인 SPI·Handoff | 8083 |
 | `idem-gate` | Idem SSO | 인증 결과 SoR, Keycloak OIDC 어댑터 | 8081 |
 | `keycloak` | Idem SSO (숨김) | 표준 OIDC 발급·세션. realm `idem` 자동 import | 8088 (설치자 전용) |
-| `idem-registry` | Idem IM | 사용자·식별자·동의·생명주기 SoR (PostgreSQL `qim` 스키마) | 8082 |
-| `idem-authz` | Idem IM | 역할·할당 SoR (PostgreSQL `authz` 스키마) | 8086 |
+| `idem-registry` | Idem IM | 사용자·식별자·동의·생명주기 SoR (PostgreSQL `idem_registry` 스키마) | 8082 |
+| `idem-authz` | Idem IM | 역할·할당 SoR (PostgreSQL `idem_authz` 스키마) | 8086 |
 | `idem-console-admin` | 관리 콘솔 (S7) | React + Nginx, `/api/v1/admin` → hub 같은 출처. 관리자 로그인(2단계)·기관 온보딩·OIDC client·감사·관리자 관리 | 3001 |
 | `idem-kr-portal` | KR 에디션 회원 포털 (구 `idem-console`, `--profile kr`) | 회원전환·본인확인 위젯·마이페이지 | 3002 |
 | `postgres` | 데이터 | PostgreSQL 16 — DB 1개(`idem`), 스키마 `idem_hub`·`idem_gate`·`idem_registry`·`idem_authz`·`keycloak` | 5432 |

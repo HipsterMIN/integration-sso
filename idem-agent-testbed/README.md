@@ -1,6 +1,8 @@
-# OnePass Agent 멀티 WAS 테스트베드
+# Idem Agent 멀티 WAS 테스트베드
 
-> **목적**: 유관기관 운영 배포 전 `onepass-agent`를 다양한 WAS/JDK 조합에서 안전하게 검증하는 독립 Docker Compose 환경
+> **명칭**: 모듈·JAR 이름은 `idem-agent` 다. 에이전트의 런타임 식별자(`onepass.agent.*`·`onepass-agent.properties`·`ONEPASS_*` 환경변수·`OnePass-*` 헤더)와 이 테스트베드의 `mock-onepass-server` 서비스명은 1.0 에서 **동결**됐고 2.0 에서 바꾼다(`CHANGELOG.md` [1.0.0], `docs/naming.md`).
+
+> **목적**: 연동기관 운영 배포 전 `idem-agent`를 다양한 WAS/JDK 조합에서 안전하게 검증하는 독립 Docker Compose 환경
 
 ---
 
@@ -11,7 +13,7 @@
 3. [사전 조건](#사전-조건)
 4. [빠른 시작 (Quick Start)](#빠른-시작)
 5. [WAS별 환경 상세](#was별-환경-상세)
-6. [Mock OnePass 서버](#mock-onepass-서버)
+6. [Mock Idem 서버](#mock-idem-서버)
 7. [테스트 자동화](#테스트-자동화)
 8. [Agent 교체 및 반복 테스트](#agent-교체-및-반복-테스트)
 9. [설정 참조](#설정-참조)
@@ -21,12 +23,12 @@
 
 ## 개요
 
-OnePass Agent(`onepass-agent-xxx-all.jar`)를 운영 서버에 배포하기 전,  
+Idem Agent(`idem-agent-xxx-all.jar`)를 운영 서버에 배포하기 전,  
 이 테스트베드에서 **위빙 성공 여부**, **SSO 인증 흐름**, **Fail-Open 동작**을 검증합니다.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                  onepass-agent-testbed                    │
+│                  idem-agent-testbed                       │
 │                  (172.20.0.0/24 내부망)                   │
 │                                                           │
 │  ┌──────────────────┐   토큰검증    ┌─────────────────┐  │
@@ -68,7 +70,7 @@ idem-agent-testbed/
 │   ├── Dockerfile.springboot       # Spring Boot 3 Embedded
 │   └── Dockerfile.undertow         # Unknown/Fallback 검증
 ├── apps/
-│   ├── mock-onepass-server/        # 가짜 OnePass SSO 서버
+│   ├── mock-onepass-server/        # 가짜 Idem SSO 서버 (디렉터리·서비스명은 그대로)
 │   │   ├── Dockerfile
 │   │   └── src/.../MockOnePassServer.java
 │   └── sample-webapp/              # 테스트용 서블릿 앱
@@ -100,7 +102,7 @@ idem-agent-testbed/
 ### Agent JAR 준비
 
 ```bash
-# 1. onepass-agent 빌드
+# 1. idem-agent 빌드
 cd /path/to/integration-sso
 ./gradlew :idem-agent:agentJar
 
@@ -113,7 +115,7 @@ cp idem-agent/build/libs/idem-agent-*-all.jar idem-agent-testbed/agent/
 
 # 4. 심볼릭 링크 설정 (replace-agent.sh가 자동 수행)
 cd idem-agent-testbed/agent
-ln -sf onepass-agent-xxx-all.jar onepass-agent-current.jar
+ln -sf idem-agent-xxx-all.jar onepass-agent-current.jar
 ```
 
 ---
@@ -275,9 +277,9 @@ docker compose exec tomcat-8 bash
 
 ---
 
-## Mock OnePass 서버
+## Mock Idem 서버
 
-`mock-onepass-server`는 운영 OnePass SSO 서버를 대체하는 **순수 JDK HTTP 서버**입니다.
+`mock-onepass-server`는 운영 Idem(idem-hub) 서버를 대체하는 **순수 JDK HTTP 서버**입니다.
 
 ### 엔드포인트
 
@@ -383,7 +385,7 @@ cat test-results/tomcat-9.log
 새 버전 Agent를 빌드 후 즉시 테스트:
 
 ```bash
-# 1. onepass-agent 재빌드
+# 1. idem-agent 재빌드
 cd ..
 ./gradlew :idem-agent:agentJar
 
