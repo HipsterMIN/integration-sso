@@ -105,6 +105,27 @@ class QAuthzClientTest {
     }
 
     @Test
+    @DisplayName("1.1 getServiceAccess(attributes): POST /users/{id}/access 에 agencyCode·attributes 를 싣고 응답을 같은 모양으로 파싱")
+    @SuppressWarnings("unchecked")
+    void getServiceAccess_evaluatePost() {
+        ResponseEntity<Map> resp = new ResponseEntity<>(
+                Map.of("qimUserId", "u1", "agencyCode", "GOV_SMES", "assigned", true,
+                        "assignmentSource", "RULE", "roles", List.of()),
+                HttpStatus.OK);
+        org.mockito.ArgumentCaptor<HttpEntity<Map<String, Object>>> entity = org.mockito.ArgumentCaptor.forClass(HttpEntity.class);
+        when(qAuthzRestTemplate.exchange(
+                contains("/users/u1/access"), eq(HttpMethod.POST), entity.capture(), eq(Map.class)))
+                .thenReturn(resp);
+        ServiceAccess access = client.getServiceAccess("u1", "GOV_SMES", Map.of("authLevel", "L2", "providerCode", "X"), "cid");
+        assertThat(access.assigned()).isTrue();
+        assertThat(access.assignmentSource()).isEqualTo("RULE");
+        Map<String, Object> body = entity.getValue().getBody();
+        assertThat(body).containsEntry("agencyCode", "GOV_SMES");
+        assertThat((Map<String, String>) body.get("attributes")).containsEntry("authLevel", "L2");
+        assertThat(entity.getValue().getHeaders().getContentType()).isNotNull();
+    }
+
+    @Test
     @DisplayName("S8-b getServiceAccess: 장애 → IDO_AUTHZ_UNAVAILABLE (미할당으로 위장하지 않는다)")
     void getServiceAccess_failSecure() {
         when(qAuthzRestTemplate.exchange(

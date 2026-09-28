@@ -12,7 +12,14 @@ public record AssignRequest(
         @NotBlank(message = "grantedBy는 필수입니다.")
         String grantedBy,
         Instant expiresAt,
-        /** CONSOLE/SCIM/API/AGENCY_PUSH/SELF_SIGNUP (기본 API) */
+        /** CONSOLE/SCIM/API/AGENCY_PUSH/SELF_SIGNUP/RULE (기본 API) */
         String source,
-        String reason
-) {}
+        String reason,
+        /** 1.1: source=RULE 일 때 실체화한 규칙 id — 외부 API 로는 받지 않는다(AssignmentRuleService 내부용) */
+        String ruleId
+) {
+    public AssignRequest(String qimUserId, String agencyCode, String grantedBy, Instant expiresAt,
+                         String source, String reason) {
+        this(qimUserId, agencyCode, grantedBy, expiresAt, source, reason, null);
+    }
+}

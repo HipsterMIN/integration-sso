@@ -152,3 +152,4 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 |---|---|
 | 2026-09-27 | 플랜 작성. main 30928db. G0 결정 대기 |
 | 2026-09-28 | 1.1 착수(사용자 지시). PR-1: §5 #4 중 authz fail-open 잔여(단일 해석기·prod 가드)·할당 변경 이벤트 전파(authz 아웃박스 → 피드 → hub 폴러 → 웹훅 `ASSIGNMENT_CHANGED`)·SLO IdP 재시도 큐(gate 502·`slo_idp_logout_retry`). 감사 WAL 폴백·규칙 할당은 PR-2 |
+| 2026-09-28 | PR-1 = #251(CI 통과, 머지 대기). PR-2: 감사 WAL 폴백(`AuditWal`·`AuditWalReplayer`, prod 가드, compose 볼륨·Helm `hub.auditWal`) + 그룹·속성 규칙 할당(authz V6 `authz_assignment_rule`, `POST /users/{id}/access` 실체화, 재평가·비활성화 회수, hub `AssignmentContext` = authLevel·providerCode 만). authz 실기동으로 규칙 생성→실체화→회수→피드 확인. 이로써 §5 #4 "남긴 것 5건" 마감 |

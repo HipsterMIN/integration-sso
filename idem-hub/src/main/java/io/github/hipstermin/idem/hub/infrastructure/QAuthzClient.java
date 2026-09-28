@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -118,12 +119,23 @@ public class QAuthzClient {
     }
 
     /**
-     * S8-b: 할당 여부 + 유효 역할을 한 번에 — {@code GET /api/v1/internal/authz/users/{id}/access?agencyCode=}.
+     * S8-b: 할당 여부 + 유효 역할을 한 번에 — {@code GET /api/v1/internal/authz/users/{id}/access?agencyCode=} (읽기 전용, verify 경로).
      * 장애·비정상 응답은 {@link PlatformErrorCode#IDEM_HUB_AUTHZ_UNAVAILABLE} (fail-secure).
      * {@code idem.hub.authz.enabled=false} 면 {@link ServiceAccess#disabled()} — 할당 필수 정책은 그 자체로 거부된다.
      */
-    @SuppressWarnings("unchecked")
     public ServiceAccess getServiceAccess(String qimUserId, String agencyCode, String correlationId) {
+        return getServiceAccess(qimUserId, agencyCode, null, correlationId);
+    }
+
+    /**
+     * 1.1: 발급 경로의 접근 <b>평가</b> — {@code attributes} 가 있으면 {@code POST /users/{id}/access} 로 보내 authz 가
+     * 직접 할당이 없을 때 그룹·속성 규칙을 평가해 할당을 실체화한다(source=RULE). {@code attributes} 가 null 이면 종전 GET(읽기 전용).
+     *
+     * <p>attributes 는 <b>비-PII 발급 컨텍스트</b>(authLevel·providerCode)만 싣는다 — 프로파일 identity 속성(이름 등)은 보내지 않는다.
+     */
+    @SuppressWarnings("unchecked")
+    public ServiceAccess getServiceAccess(String qimUserId, String agencyCode, Map<String, String> attributes,
+                                          String correlationId) {
         if (!enabled) {
             return ServiceAccess.disabled();
         }
@@ -131,14 +143,28 @@ public class QAuthzClient {
             return new ServiceAccess(true, false, null, List.of());
         }
         try {
-            String url = UriComponentsBuilder
-                    .fromHttpUrl(qAuthzBaseUrl)
-                    .path("/api/v1/internal/authz/users/{qimUserId}/access")
-                    .queryParam("agencyCode", agencyCode)
-                    .buildAndExpand(qimUserId)
-                    .toUriString();
-            ResponseEntity<Map> response = qAuthzRestTemplate.exchange(
-                    url, HttpMethod.GET, new HttpEntity<>(buildHeaders(correlationId)), Map.class);
+            ResponseEntity<Map> response;
+            if (attributes == null) {
+                String url = UriComponentsBuilder
+                        .fromHttpUrl(qAuthzBaseUrl)
+                        .path("/api/v1/internal/authz/users/{qimUserId}/access")
+                        .queryParam("agencyCode", agencyCode)
+                        .buildAndExpand(qimUserId)
+                        .toUriString();
+                response = qAuthzRestTemplate.exchange(
+                        url, HttpMethod.GET, new HttpEntity<>(buildHeaders(correlationId)), Map.class);
+            } else {
+                String url = UriComponentsBuilder
+                        .fromHttpUrl(qAuthzBaseUrl)
+                        .path("/api/v1/internal/authz/users/{qimUserId}/access")
+                        .buildAndExpand(qimUserId)
+                        .toUriString();
+                HttpHeaders headers = buildHeaders(correlationId);
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                Map<String, Object> body = Map.of("agencyCode", agencyCode, "attributes", attributes);
+                response = qAuthzRestTemplate.exchange(
+                        url, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+            }
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<?, ?> body = response.getBody();
                 Object rolesObj = body.get("roles");

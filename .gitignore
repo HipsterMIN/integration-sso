@@ -74,3 +74,6 @@ infra/docker/install.env
 
 # Redis 로컬 덤프 (D0 공개 전 점검에서 추적 해제)
 dump.rdb
+
+# 1.1: 감사 WAL 폴백 로컬 디렉터리 (테스트 컨텍스트 기동 시 생성)
+**/data/audit-wal/

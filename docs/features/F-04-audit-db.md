@@ -26,8 +26,11 @@ IDEM_HUB_AUDIT_DB_ENABLED=false  →  법적 감사 추적 불가  →  컴플�
 
 ## 1. 이 기능은 무엇인가?
 
-모든 API 요청·응답 감사 이벤트를 **`idem_hub.audit_log` 테이블에 동기적으로 저장**합니다.  
-트랜잭션 내부에서 동작하므로, 감사 로그 저장 실패 시 요청 처리도 롤백됩니다(무결성 보장).
+감사 이벤트(`AuditLogPublisher.AuditEntry`)를 **`idem_hub.audit_log`(hub V7) 에 저장**합니다. 저장은 `@Async("auditExecutor")` 로
+요청 스레드 밖에서 하며 실패해도 요청을 막지 않습니다(감사 실패는 비치명적). **1.1 부터** DB INSERT 가 실패하면 항목을
+로컬 WAL(`IDEM_HUB_AUDIT_WAL_DIR`, JSON Lines, fsync)에 남기고 `AuditWalReplayer` 가 DB 복구 후 `ON CONFLICT (audit_id) DO NOTHING`
+으로 재삽입합니다 — 1.0.x 의 "WARN 한 줄 남기고 유실" 은 없어졌고, WAL 마저 실패한 경우만 `audit.lost.total` 로 셉니다.
+아래 도식·스키마의 "트랜잭션 내 동기 저장"·MariaDB DDL 은 0.x 설계 메모이며 현재 스키마는 `idem-hub/src/main/resources/db/migration/V7__add_webhook_and_audit.sql` 이 정본입니다.
 
 ```
 API 요청 처리

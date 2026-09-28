@@ -125,6 +125,8 @@ WORKDIR /app
 # 1.0.1 (3차 점검 H4): 숫자 UID/GID 1001 — K8s runAsNonRoot 는 이름 사용자를 검증하지 못한다(Helm 차트 appDefaults.runAsUser 와 같다)
 RUN addgroup -S -g 1001 idem-hub && \
     adduser -S -u 1001 idem-hub -G idem-hub -h /app -s /sbin/nologin && \
+    # 1.1: 감사 WAL 폴백 디렉터리 — 볼륨 마운트 지점을 앱 사용자 소유로 미리 만든다(named volume 이 소유권을 이어받는다)
+    mkdir -p /app/data/audit-wal && chown -R idem-hub:idem-hub /app/data && \
     # 헬스체크용 curl 설치
     apk add --no-cache curl
 

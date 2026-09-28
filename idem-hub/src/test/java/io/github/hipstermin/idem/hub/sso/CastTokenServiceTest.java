@@ -74,7 +74,7 @@ class CastTokenServiceTest {
         // Redis mock 공통 설정 — lenient: 일부 테스트에서 미사용 허용
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
         // 연합 인가 — 기본 빈 역할(개별 테스트에서 필요 시 재정의)
-        lenient().when(qAuthzClient.getServiceAccess(anyString(), anyString(), any()))
+        lenient().when(qAuthzClient.getServiceAccess(anyString(), anyString(), any(), any()))
                 .thenReturn(new ServiceAccess(true, false, null, java.util.List.of()));
         lenient().when(serviceProfileService.find(anyString())).thenReturn(Optional.empty());
     }
@@ -229,7 +229,7 @@ class CastTokenServiceTest {
         when(agencyMetaRepository.findByCode(TARGET_AGENCY)).thenReturn(Optional.of(agency));
         when(valueOps.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
         // q-authz가 역할 2개 반환
-        when(qAuthzClient.getServiceAccess(QIM_USER_ID, TARGET_AGENCY, "issue-cid-roles"))
+        when(qAuthzClient.getServiceAccess(eq(QIM_USER_ID), eq(TARGET_AGENCY), any(), eq("issue-cid-roles")))
                 .thenReturn(new ServiceAccess(true, true, "CONSOLE", java.util.List.of("MANAGER", "REVIEWER")));
 
         // When: 발급 → roles가 토큰 도메인 객체에 반영
@@ -346,7 +346,7 @@ class CastTokenServiceTest {
                 .service(new ServiceProfile.Service(TARGET_AGENCY, "기관 B", ServiceProfile.ServiceStatus.ACTIVE))
                 .policy(ServiceProfile.Policy.builder().minAuthLevel(AuthResult.AuthLevel.L1)
                         .assignment(new ServiceProfile.Assignment(true, true)).build()).build()));
-        when(qAuthzClient.getServiceAccess(QIM_USER_ID, TARGET_AGENCY, "cid-asgn"))
+        when(qAuthzClient.getServiceAccess(eq(QIM_USER_ID), eq(TARGET_AGENCY), any(), eq("cid-asgn")))
                 .thenReturn(new ServiceAccess(true, false, null, java.util.List.of()));
 
         assertThatThrownBy(() -> castTokenService.issue("fe-session-asgn", TARGET_AGENCY, "cid-asgn"))

@@ -9,5 +9,7 @@ public enum AssignmentSource {
     /** 역할 부여(grantRole)로 자동 생성 */
     ROLE_GRANT,
     /** 기관이 셀프 가입 완료를 보고 (프로파일 policy.assignment.selfSignup) */
-    SELF_SIGNUP
+    SELF_SIGNUP,
+    /** 1.1: 그룹·속성 규칙이 접근 평가 시점에 실체화한 할당 ({@code rule_id} 로 추적) */
+    RULE
 }

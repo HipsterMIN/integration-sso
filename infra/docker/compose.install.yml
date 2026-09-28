@@ -44,6 +44,7 @@ volumes:
   pg-data:
   redis-data:
   keycloak-data:
+  hub-audit-wal:    # 1.1: 감사 WAL 폴백 — DB 장애 동안의 감사 항목. 컨테이너 재생성에도 남는다
 
 services:
   # ── 데이터 ────────────────────────────────────────────────────────────────
@@ -236,6 +237,10 @@ services:
       # KR 에디션 벤더 플러그인 (1.0.1, 3차 점검 M8: 종전에는 false 고정이라 kr 설치본이 플러그인을 켤 수 없었다). 자격증명은 plugins/*/README.md
       IDEM_PLUGINS_NICE_OACX_ENABLED: ${IDEM_PLUGINS_NICE_OACX_ENABLED:-false}
       IDEM_PLUGINS_ANYID_ENABLED: ${IDEM_PLUGINS_ANYID_ENABLED:-false}
+      # 1.1: 감사 DB 저장 실패 시 로컬 WAL 폴백 — 볼륨에 둔다(아래 volumes). 운영에서 IDEM_HUB_AUDIT_WAL_ENABLED=false 는 기동 거부
+      IDEM_HUB_AUDIT_WAL_DIR: /app/data/audit-wal
+    volumes:
+      - hub-audit-wal:/app/data/audit-wal
     ports:
       - "127.0.0.1:${IDEM_PORT_HUB:-8083}:8083"
     networks: [idem-net]

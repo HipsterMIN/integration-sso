@@ -19,6 +19,7 @@ import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
 import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
 import io.github.hipstermin.idem.hub.infrastructure.TicketRepository;
 import io.github.hipstermin.idem.hub.policy.PolicyEngine;
+import io.github.hipstermin.idem.hub.policy.rule.AssignmentContext;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
 import io.github.hipstermin.idem.hub.ratelimit.AgencyRateLimiter;
@@ -99,8 +100,10 @@ public class HandoffServiceImpl implements HandoffService {
 
             // 3~5. 정책 평가 (S3 — 프로파일의 규칙 집합: MAINTENANCE → MIN_AUTH_LEVEL → ALLOWED_PROVIDERS → USER_STATUS)
             // S8-b: 할당·역할은 authz 정본을 한 번만 읽는다(규칙 평가와 티켓 페이로드가 같은 값을 쓴다). 장애 = 거부(D2)
+            // 1.1: 발급 컨텍스트(비-PII)를 함께 보내 authz 가 그룹·속성 규칙으로 할당을 실체화할 수 있게 한다
             Supplier<ServiceAccess> access = memoize(() -> qAuthzClient.getServiceAccess(
-                    cmd.getQimUserId(), cmd.getAgencyCode(), cmd.getCorrelationId()));
+                    cmd.getQimUserId(), cmd.getAgencyCode(),
+                    AssignmentContext.of(cmd.getAuthLevel(), cmd.getProviderCode()), cmd.getCorrelationId()));
             PolicyContext policyContext = PolicyContext.builder()
                     .serviceCode(cmd.getAgencyCode())
                     .authLevel(cmd.getAuthLevel())

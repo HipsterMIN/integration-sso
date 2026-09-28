@@ -71,6 +71,7 @@ IDEM_HUB_CAST_PUBLIC_KEY=$(openssl pkey -in cast.pem -pubout -outform DER | base
 | gate 프런트 레이트리밋 | `IDEM_GATE_FRONT_RL_ENABLED` / `_PER_SECOND` / `_PER_MINUTE` / `_TRUST_XFF` | `gate.config.IDEM_GATE_FRONT_RL_*` (env 그대로) | true / 20 / 300 / false | 1.0.1: 공개 OIDC 엔드포인트(`/realms/**`) IP 당 한도. Ingress·리버스 프록시 뒤에서는 `_TRUST_XFF=true`(X-Forwarded-For 마지막 홉이 클라이언트). Redis 장애 시 503 |
 | 할당 변경 전파 | `IDEM_HUB_AUTHZ_EVENTS_POLL_ENABLED` / `_INTERVAL_MS` | `hub.config` | true / 5000 | 1.1: authz 아웃박스 피드를 폴링해 기관 웹훅 `ASSIGNMENT_CHANGED` 적재. Kafka 유무 무관 |
 | SLO IdP 재시도 | `IDEM_HUB_SLO_RETRY_ENABLED` / `_INTERVAL_MS` / `_MAX` | `hub.config` | true / 5000 / 5 | 1.1: Keycloak 세션 종료 실패 재시도 큐 |
+| 감사 WAL 폴백 | `IDEM_HUB_AUDIT_WAL_ENABLED` / `_DIR` / `_REPLAY_INTERVAL_MS` (compose 는 `_DIR=/app/data/audit-wal` 고정, named volume `hub-audit-wal`) | `hub.auditWal.dir` / `hub.auditWal.existingClaim` (+ `hub.config.IDEM_HUB_AUDIT_WAL_*`) | true / `./data/audit-wal` / 60000 | 1.1: 감사 DB 저장 실패 항목을 파일에 남겼다가 재삽입. prod/stage 에서 false 는 기동 거부. Helm 기본 emptyDir 은 파드 삭제와 함께 사라진다 — 그 창까지 없애려면 RWO PVC 를 `existingClaim` 에(복제본 1) |
 | DB 주소 | compose 내부 postgres | `infra.postgres.host/port/database/sslMode` | idem | Helm 은 바깥 PostgreSQL |
 | Redis 주소 | compose 내부 redis | `infra.redis.host/port(+existingSecret)` | | Helm 은 바깥 Redis |
 | Keycloak | compose 내부 | `keycloak.enabled` / `externalUrl` / `adminUrl` | 차트가 올림 | 밖의 Keycloak 은 realm `idem` + client 4개가 있어야 한다 |

@@ -63,7 +63,7 @@ class OidcRpAccessServiceTest {
         given(engine.evaluate(any(), eq(true))).willReturn(PolicyEvaluation.allowedAll());
         given(engine.resolveAgencySubjectId(any(), eq("qim-1"), eq("AG1"), anyString())).willReturn("pairwise-1");
         given(engine.resolveUserStatus(eq("qim-1"), anyString())).willReturn(UserStatus.ACTIVE);
-        given(authz.getServiceAccess("qim-1", "AG1", "cid")).willReturn(new ServiceAccess(true, true, "CONSOLE", List.of("VIEWER")));
+        given(authz.getServiceAccess(eq("qim-1"), eq("AG1"), any(), eq("cid"))).willReturn(new ServiceAccess(true, true, "CONSOLE", List.of("VIEWER")));
     }
 
     private static ServiceProfile profile(String code, IntegrationType type, ServiceProfile.Assignment assignment) {
@@ -149,13 +149,13 @@ class OidcRpAccessServiceTest {
     @DisplayName("할당 필수 + 미할당(selfSignup 통과) → GUEST, authz 비활성 → E-IDO-117")
     void assignmentStates() {
         given(profiles.find("AG1")).willReturn(Optional.of(profile("AG1", IntegrationType.OIDC_RP, new ServiceProfile.Assignment(true, true))));
-        given(authz.getServiceAccess("qim-1", "AG1", "cid")).willReturn(new ServiceAccess(true, false, null, List.of()));
+        given(authz.getServiceAccess(eq("qim-1"), eq("AG1"), any(), eq("cid"))).willReturn(new ServiceAccess(true, false, null, List.of()));
         OidcRpAccessResponse guest = sut.evaluate(req("idem-svc-AG1", "social-kakao", "1"), "cid");
         assertThat(guest.allowed()).isTrue();
         assertThat(guest.state()).isEqualTo(HandoffPayload.HandoffState.GUEST);
         assertThat(guest.assigned()).isFalse();
 
-        given(authz.getServiceAccess("qim-1", "AG1", "cid")).willReturn(ServiceAccess.disabled());
+        given(authz.getServiceAccess(eq("qim-1"), eq("AG1"), any(), eq("cid"))).willReturn(ServiceAccess.disabled());
         OidcRpAccessResponse denied = sut.evaluate(req("idem-svc-AG1", "social-kakao", "1"), "cid");
         assertThat(denied.allowed()).isFalse();
         assertThat(denied.denyCode()).isEqualTo("E-IDO-117");

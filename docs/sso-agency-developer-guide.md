@@ -398,7 +398,7 @@ X-Platform-Version: 1.0.1
 
 이벤트 유형: `HANDOFF_ISSUED` · `HANDOFF_REVOKED` · `USER_LOGOUT` · `MEMBER_WITHDRAWN` · **`ASSIGNMENT_CHANGED`**(1.1). (`MEMBER_LOOKUP_RESULT` 는 0.x 잔재로 1.0 에서 발생하지 않는다.)
 
-`ASSIGNMENT_CHANGED`(1.1) — 이 기관에 대한 사용자의 할당·역할이 바뀌었을 때. `change` 는 `ASSIGNED` · `UNASSIGNED` · `ASSIGNMENT_EXPIRED` · `ROLE_GRANTED` · `ROLE_REVOKED` · `ROLE_EXPIRED`, 역할 변경이면 `roleCode` 가 함께 온다. 기관은 `agencySubjectId` 로 자기 계정을 찾아 `UNASSIGNED`·`ASSIGNMENT_EXPIRED`·`ROLE_REVOKED` 면 그 사용자의 기관 세션을 끊거나 권한을 낮춘다(Idem 은 발급 시점에만 판정하므로 이미 만든 기관 세션은 기관이 끝내야 한다). 옵션 C 기관은 다음 userinfo 호출이 403 이 되므로 이 웹훅은 보완 수단이다.
+`ASSIGNMENT_CHANGED`(1.1) — 이 기관에 대한 사용자의 할당·역할이 바뀌었을 때. `change` 는 `ASSIGNED` · `UNASSIGNED` · `ASSIGNMENT_EXPIRED` · `ROLE_GRANTED` · `ROLE_REVOKED` · `ROLE_EXPIRED`, 역할 변경이면 `roleCode` 가 함께 온다. `ASSIGNED` 는 운영기관의 직접 할당뿐 아니라 규칙 할당(1.1 PR-2, 예: "인증수준 L2 이상이면 이 서비스 사용자") 이 로그인 시점에 실체화될 때도 온다 — 기관 처리는 같다. 기관은 `agencySubjectId` 로 자기 계정을 찾아 `UNASSIGNED`·`ASSIGNMENT_EXPIRED`·`ROLE_REVOKED` 면 그 사용자의 기관 세션을 끊거나 권한을 낮춘다(Idem 은 발급 시점에만 판정하므로 이미 만든 기관 세션은 기관이 끝내야 한다). 옵션 C 기관은 다음 userinfo 호출이 403 이 되므로 이 웹훅은 보완 수단이다.
 
 ```json
 {"eventId":"…","eventType":"ASSIGNMENT_CHANGED","agencyCode":"AGENCY_001","agencySubjectId":"pw_9f3a…",

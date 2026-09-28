@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.hipstermin.idem.common.event.AuditLogEvent;
 import io.github.hipstermin.idem.common.util.UuidV7;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Component;
  * <p><b>설계 원칙</b>:
  * <ol>
  *   <li>DB 우선 저장 ({@code idem_hub.audit_log}) — Kafka 발행 실패 시에도 감사 기록 보존</li>
+ *   <li>1.1: DB 저장 실패 시 로컬 WAL 폴백({@link AuditWal}) — DB 가 돌아오면 {@link AuditWalReplayer} 가 재삽입.
+ *       종전에는 WARN 한 줄 남기고 항목이 사라졌다(H-16)</li>
  *   <li>Kafka 비동기 발행 ({@code platform.audit.log}) — @Async 처리</li>
  *   <li>감사 로그 실패는 비치명적 — 절대 서비스 흐름 차단 금지</li>
  *   <li>개인정보(CI/DN/이름) 포함 금지 — identifierHash, agencyCode만 허용</li>
@@ -49,9 +52,14 @@ public class AuditLogPublisher {
     private static final String SOURCE_SYSTEM = "idem-hub";
     private static final String AUDIT_TOPIC   = "platform.audit.log";
 
+    public static final String METRIC_WAL_APPENDED = "audit.wal.appended.total";
+    public static final String METRIC_LOST         = "audit.lost.total";
+
     private final JdbcTemplate                  jdbcTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper                  objectMapper;
+    private final AuditWal                      auditWal;
+    private final MeterRegistry                 meterRegistry;
 
     // F-03: Kafka 발행 On/Off (IDEM_HUB_AUDIT_KAFKA_ENABLED)
     // false → Kafka 없는 환경에서 연결 오류 없음, 재처리 스케줄러도 건너뜀
@@ -82,10 +90,21 @@ public class AuditLogPublisher {
             String auditId = UuidV7.generate();
             String metadataJson = toJson(entry.metadata());
 
-            // ① DB 저장 (F-04: at-most-once — 실패해도 계속)
+            // ① DB 저장 — 실패하면 WAL 폴백(1.1). WAL 도 실패하면 그때가 진짜 유실이라 ERROR + 메트릭
             boolean dbSaved = false;
             if (dbSaveEnabled) {
                 dbSaved = insertAuditLog(auditId, entry, metadataJson);
+                if (!dbSaved) {
+                    boolean walled = auditWal.append(auditId, entry, metadataJson);
+                    if (walled) {
+                        meterRegistry.counter(METRIC_WAL_APPENDED).increment();
+                        log.warn("[AuditLogPublisher] DB 저장 실패 → WAL 폴백 기록: auditId={} action={}", auditId, entry.eventAction());
+                    } else {
+                        meterRegistry.counter(METRIC_LOST).increment();
+                        log.error("[AuditLogPublisher] 감사 항목 유실 — DB·WAL 모두 실패: auditId={} action={} correlationId={}",
+                                auditId, entry.eventAction(), entry.correlationId());
+                    }
+                }
             } else {
                 log.debug("[AuditLogPublisher] DB 저장 SKIP (IDEM_HUB_AUDIT_DB_ENABLED=false): action={}", entry.eventAction());
             }
@@ -129,6 +148,43 @@ public class AuditLogPublisher {
             return true;
         } catch (Exception e) {
             log.warn("[AuditLogPublisher] DB 저장 실패: action={} error={}", entry.eventAction(), e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 1.1: WAL 재생 — 원래 발생 시각을 보존해 재삽입한다. {@code ON CONFLICT DO NOTHING} 이라 재시도해도 중복이 없다.
+     *
+     * @return DB 에 닿았으면 true(이미 있던 경우 포함). false 면 DB 가 아직 불가 — 호출자가 줄을 남긴다
+     */
+    public boolean reinsertFromWal(AuditWal.Line line) {
+        if (line == null || line.entry() == null || line.auditId() == null) return true;   // 해석 불가 줄은 버린다
+        AuditEntry entry = line.entry();
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO idem_hub.audit_log (
+                        audit_id, event_category, event_action,
+                        actor_type, actor_id,
+                        resource_type, resource_id,
+                        agency_code, correlation_id, source_system, source_ip,
+                        outcome, outcome_detail,
+                        metadata, kafka_published,
+                        occurred_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?::jsonb,?,?)
+                    ON CONFLICT (audit_id) DO NOTHING
+                    """,
+                    line.auditId(),
+                    entry.eventCategory(), entry.eventAction(),
+                    entry.actorType(), entry.actorId(),
+                    entry.resourceType(), entry.resourceId(),
+                    entry.agencyCode(), entry.correlationId(), SOURCE_SYSTEM, entry.sourceIp(),
+                    entry.outcome(), entry.outcomeDetail(),
+                    line.metadataJson(), false,
+                    java.sql.Timestamp.from(line.occurredAt() != null ? line.occurredAt() : java.time.Instant.now())
+            );
+            return true;
+        } catch (Exception e) {
+            log.debug("[AuditLogPublisher] WAL 재삽입 실패(DB 아직 불가?): auditId={} err={}", line.auditId(), e.getMessage());
             return false;
         }
     }

@@ -67,6 +67,17 @@ class AuthzInternalControllerTest {
     }
 
     @Test
+    void assign_ruleSourceOrRuleId_rejected400() throws Exception {
+        mockMvc.perform(post("/api/v1/internal/authz/assignments").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"qimUserId\":\"u1\",\"agencyCode\":\"AG1\",\"grantedBy\":\"ops\",\"source\":\"RULE\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/internal/authz/assignments").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"qimUserId\":\"u1\",\"agencyCode\":\"AG1\",\"grantedBy\":\"ops\",\"ruleId\":\"" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isBadRequest());
+        Mockito.verify(authzService, Mockito.never()).assign(any(), any(), any());
+    }
+
+    @Test
     void grant_missingRequiredField_returns400() throws Exception {
         String body = om.writeValueAsString(java.util.Map.of(
                 "qimUserId", "user-1", "agencyCode", "GOV_SMES")); // roleCode/grantedBy 누락

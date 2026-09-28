@@ -47,6 +47,7 @@ public class FailSecureBootGuard {
     /** 운영·스테이지에서 false 이면 기동 거부 */
     static final List<String> PROD_REQUIRED_TRUE = List.of(
             "idem.hub.audit.db-save-enabled",
+            "idem.hub.audit.wal.enabled",                     // 1.1: DB 장애 시 감사 항목을 버리지 않는다
             "idem.hub.security-headers.enabled",
             "idem.hub.auth.rate-limit.enabled",
             "idem.hub.rate-limit.enabled",

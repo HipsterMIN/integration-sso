@@ -65,6 +65,10 @@ public class AuthzAssignmentEntity {
     @Column(name = "revoked_by", length = 128)
     private String revokedBy;
 
+    /** 1.1: source=RULE 일 때 실체화한 규칙 — 규칙 비활성화·재평가 불일치 시 회수 대상 */
+    @Column(name = "rule_id")
+    private UUID ruleId;
+
     public boolean isEffectiveAt(Instant now) {
         return status == AssignmentStatus.ACTIVE && (expiresAt == null || expiresAt.isAfter(now));
     }

@@ -87,6 +87,8 @@
 | F-2 | selfSignup | `selfSignup=true` | GUEST 로 발급 | UT |
 | F-3 | 역할 클레임 | 할당된 역할 | `idem_roles` 클레임 | UT |
 | F-4 | authz 장애 | authz 정지 | 거부 `E-IDO-117`(fail-secure) | UT |
+| F-5 | 규칙 할당 실체화(1.1) | `POST /assignment-rules{ATTRIBUTE authLevel in [L2,L3]}` 뒤 미할당 사용자가 L2 로 로그인 | 발급 통과, authz `access.assignmentSource=RULE`, `AUTHZ_ASSIGNED` 피드 → 기관 웹훅 `ASSIGNMENT_CHANGED{ASSIGNED}`, 감사 `ASSIGN`; L1 로그인은 여전히 `E-IDO-120` | UT(`AssignmentRuleServiceTest`·`AssignmentRuleControllerTest`·`QAuthzClientTest`) + 로컬 실기동 확인(2026-09-28) |
+| F-6 | 규칙 비활성화 회수(1.1) | `DELETE /assignment-rules/{id}` | 응답 `{revoked:n}`, 그 규칙의 ACTIVE 할당 모두 REVOKED + `UNASSIGNED` 전파, 감사 `RULE_DISABLED`·`UNASSIGN`; 직접 할당(CONSOLE 등)은 영향 없음 | UT + 로컬 실기동 확인 |
 
 ## G. 감사·운영 (F19~F22)
 
@@ -99,6 +101,7 @@
 | G-5 | 백업·복구 | `pg_dump` → 복구 → A-1·B-2 재확인 | 통과 | **수동, 미실시** |
 | G-6 | 오프라인 설치 | 이미지 tar 반입 | A-1~A-4 통과 | **수동, 미실시** |
 | G-7 | 405/415·authz 404(1.0.1) | `DELETE /api/v1/admin/tenants/X`, `text/plain` 로그인, authz 없는 경로 | 405 `E-IDO-405`·415 `E-IDO-415`·404 `E-AUTHZ-404` | UT |
+| G-8 | 감사 WAL 폴백(1.1) | PostgreSQL 을 멈춘 채 로그인 시도 → 재기동 | 시도 중 hub 는 예외 없이 응답, `IDEM_HUB_AUDIT_WAL_DIR/audit-wal.jsonl` 에 줄 추가(`audit.wal.appended.total`); DB 복구 후 60초 내 `audit_log` 에 원래 `occurred_at` 으로 재삽입되고 WAL 파일 삭제(`audit.wal.replayed.total`); 중복 없음 | UT(`AuditWalTest`·`AuditLogPublisherWalTest`·`FailSecureBootGuardTest`) |
 
 ## H. 성능(참고)
 

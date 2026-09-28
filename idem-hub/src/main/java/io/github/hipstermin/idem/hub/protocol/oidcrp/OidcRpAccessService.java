@@ -12,6 +12,7 @@ import io.github.hipstermin.idem.hub.infrastructure.QimClient;
 import io.github.hipstermin.idem.hub.infrastructure.QimMemberInfo;
 import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
 import io.github.hipstermin.idem.hub.policy.PolicyEngine;
+import io.github.hipstermin.idem.hub.policy.rule.AssignmentContext;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyContext;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyDecision;
 import io.github.hipstermin.idem.hub.policy.rule.PolicyEvaluation;
@@ -84,7 +85,8 @@ public class OidcRpAccessService {
         }
 
         // 4. 정책 평가 — Handoff 발급과 같은 규칙 집합
-        Supplier<ServiceAccess> access = memoize(() -> qAuthzClient.getServiceAccess(qimUserId, serviceCode, correlationId));
+        Supplier<ServiceAccess> access = memoize(() -> qAuthzClient.getServiceAccess(qimUserId, serviceCode,
+                AssignmentContext.of(authLevel, providerCode), correlationId));   // 1.1: 규칙 할당 실체화 컨텍스트
         PolicyContext ctx = PolicyContext.builder()
                 .serviceCode(serviceCode).profile(profile)
                 .authLevel(authLevel).providerCode(providerCode)
