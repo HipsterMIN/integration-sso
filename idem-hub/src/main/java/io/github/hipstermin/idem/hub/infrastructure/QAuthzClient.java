@@ -162,6 +162,44 @@ public class QAuthzClient {
         }
     }
 
+    /**
+     * 1.1: 인가 이벤트 피드 — {@code GET /api/v1/internal/authz/events?afterCreatedAt=&afterEventId=&limit=}.
+     * {@code (createdAt, eventId)} 키셋 이후의 이벤트를 생성순으로. authz 비활성이면 빈 목록, 장애는 예외(폴러가 다음 주기에 재시도).
+     */
+    public List<AuthzEventRecord> fetchAssignmentEvents(java.time.Instant afterCreatedAt, String afterEventId,
+                                                        int limit, String correlationId) {
+        if (!enabled) {
+            return Collections.emptyList();
+        }
+        try {
+            String url = UriComponentsBuilder
+                    .fromHttpUrl(qAuthzBaseUrl)
+                    .path("/api/v1/internal/authz/events")
+                    .queryParam("afterCreatedAt", afterCreatedAt != null ? afterCreatedAt.toString() : java.time.Instant.EPOCH.toString())
+                    .queryParam("afterEventId", afterEventId != null ? afterEventId : "")
+                    .queryParam("limit", limit)
+                    .build(true).toUriString();
+            ResponseEntity<String> response = qAuthzRestTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(buildHeaders(correlationId)), String.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId,
+                        "인가 이벤트 피드 응답 이상: " + response.getStatusCode());
+            }
+            return eventFeedMapper.readValue(response.getBody(),
+                    eventFeedMapper.getTypeFactory().constructCollectionType(List.class, AuthzEventRecord.class));
+        } catch (PlatformException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId,
+                    "인가 이벤트 피드 조회 실패: " + e.getMessage());
+        }
+    }
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper eventFeedMapper =
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                    .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+                    .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
     private HttpHeaders buildHeaders(String correlationId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Correlation-Id", correlationId != null ? correlationId : "");

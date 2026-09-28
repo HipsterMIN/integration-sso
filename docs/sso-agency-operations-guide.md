@@ -241,6 +241,8 @@ timedatectl | grep synchronized
 
 ### 5.6 로그아웃 전파 안 됨 (옵션 C)
 
+1.1 부터 Idem 쪽 SLO 의 Keycloak 세션 종료가 실패하면 hub 가 재시도 큐(`slo_idp_logout_retry`)에 넣어 최대 5회(10s~160s 백오프) 다시 시도하고, 끝내 실패하면 감사 `SLO_IDP_LOGOUT_FAILED` 가 남는다. 운영기관 감사 조회에서 이 행위가 보이면 Keycloak 상태를 확인한다.
+
 `backchannelLogoutUri` 가 프로파일에 없거나 내부 호스트라 저장 시 거부됐을 수 있다(공개 http(s) 만 허용). Idem 쪽 세션이 남는 현상은 운영기관 설정(`KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET`) 문제로 gate 로그 `[KeycloakLogout]` 에 남는다.
 
 ---

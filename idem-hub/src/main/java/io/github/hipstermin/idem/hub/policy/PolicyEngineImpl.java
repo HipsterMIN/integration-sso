@@ -196,8 +196,8 @@ public class PolicyEngineImpl implements PolicyEngine {
 
         // 5. S8-b 할당·역할 — authz 정본. 장애는 IDEM_HUB_AUTHZ_UNAVAILABLE 로 전파(verify 는 consume 전이라 티켓은 살아 있다)
         ServiceAccess access = qAuthzClient.getServiceAccess(qimUserId, agencyCode, correlationId);
-        ServiceProfile.Assignment assignment = profile != null && profile.policy() != null ? profile.policy().assignment() : null;
-        boolean assignmentRequired = assignment != null && assignment.requiresAssignment();
+        // 1.1: 할당 정책은 AssignmentRule 과 같은 해석기로 — 규칙 파라미터가 있어도 상태와 규칙이 어긋나지 않는다
+        boolean assignmentRequired = io.github.hipstermin.idem.hub.policy.rule.AssignmentPolicyResolver.resolve(profile).required();
         HandoffPayload.HandoffState state;
         if (assignmentRequired) {
             // 할당 정책이 켜진 프로파일: 상태는 할당이 정한다. 미할당은 발급 단계(AssignmentRule)에서 selfSignup 일 때만 통과했다

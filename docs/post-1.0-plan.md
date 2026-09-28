@@ -151,3 +151,4 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-27 | 플랜 작성. main 30928db. G0 결정 대기 |
+| 2026-09-28 | 1.1 착수(사용자 지시). PR-1: §5 #4 중 authz fail-open 잔여(단일 해석기·prod 가드)·할당 변경 이벤트 전파(authz 아웃박스 → 피드 → hub 폴러 → 웹훅 `ASSIGNMENT_CHANGED`)·SLO IdP 재시도 큐(gate 502·`slo_idp_logout_retry`). 감사 WAL 폴백·규칙 할당은 PR-2 |

@@ -270,6 +270,47 @@ public class WebhookDispatcherService {
                 qimUserId, targets.size());
     }
 
+    /**
+     * 1.1: 할당·역할 변경을 해당 기관에 통보 — 이벤트 유형 {@code ASSIGNMENT_CHANGED}.
+     * 페이로드에는 기관별 식별자만 싣는다(qimUserId 금지). {@code sourceEventId} 는 authz 아웃박스 eventId 라 재폴링에도 멱등이다.
+     *
+     * @return 적재한 대상 수 (기관에 웹훅이 없거나 필터에 안 걸리면 0)
+     */
+    public int enqueueForAssignmentChanged(String agencyCode, String agencySubjectId, String change, String roleCode,
+                                           Instant occurredAt, String sourceEventId, String correlationId) {
+        List<AgencyWebhookConfig> targets = findWebhookTargets("ASSIGNMENT_CHANGED", agencyCode);
+        if (targets.isEmpty()) {
+            log.debug("[WebhookDispatcher] ASSIGNMENT_CHANGED Webhook 대상 없음: agencyCode={}", agencyCode);
+            return 0;
+        }
+        int enqueued = 0;
+        for (AgencyWebhookConfig config : targets) {
+            try {
+                Map<String, Object> payload = new LinkedHashMap<>();
+                payload.put("eventId",         sourceEventId);
+                payload.put("eventType",       "ASSIGNMENT_CHANGED");
+                payload.put("agencyCode",      agencyCode);
+                payload.put("agencySubjectId", agencySubjectId);
+                payload.put("change",          change);
+                if (roleCode != null) payload.put("roleCode", roleCode);
+                payload.put("occurredAt",      (occurredAt != null ? occurredAt : Instant.now()).toString());
+                payload.put("correlationId",   correlationId);
+                payload.put("platformVersion", platformVersion);
+                payload.put("sourceSystem",    "idem-hub");
+                if (insertOutbox(config, sourceEventId, "ASSIGNMENT_CHANGED",
+                        "idem.authz.assignment.events", objectMapper.writeValueAsString(payload), correlationId)) {
+                    enqueued++;
+                }
+            } catch (Exception e) {
+                log.error("[WebhookDispatcher] ASSIGNMENT_CHANGED Outbox 실패: agencyCode={} error={}",
+                        config.agencyCode(), e.getMessage());
+            }
+        }
+        log.info("[WebhookDispatcher] ASSIGNMENT_CHANGED Outbox 적재: agencyCode={} change={} targets={} enqueued={}",
+                agencyCode, change, targets.size(), enqueued);
+        return enqueued;
+    }
+
     public void enqueueForMemberWithdrawn(String instMbrId, String qimUserId,
                                            String correlationId) {
         List<AgencyWebhookConfig> targets = findWebhookTargets("MEMBER_WITHDRAWN", null);

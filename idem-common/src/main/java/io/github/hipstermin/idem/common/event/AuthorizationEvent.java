@@ -26,6 +26,10 @@ public class AuthorizationEvent extends DomainEvent {
     public static final String TYPE_GRANTED = "IDEM_AUTHZ_GRANTED";
     public static final String TYPE_REVOKED = "AUTHZ_REVOKED";
     public static final String TYPE_EXPIRED = "AUTHZ_EXPIRED";
+    /** 1.1: Service 할당 자체의 변경 — 역할과 별개로 발급 가능 여부가 바뀐다 (roleCode 는 null). */
+    public static final String TYPE_ASSIGNED           = "AUTHZ_ASSIGNED";
+    public static final String TYPE_UNASSIGNED         = "AUTHZ_UNASSIGNED";
+    public static final String TYPE_ASSIGNMENT_EXPIRED = "AUTHZ_ASSIGNMENT_EXPIRED";
 
     /** 대상 기관 코드 */
     private final String agencyCode;
@@ -74,5 +78,32 @@ public class AuthorizationEvent extends DomainEvent {
                                              String reason) {
         return new AuthorizationEvent(TYPE_EXPIRED, null, qimUserId,
                 agencyCode, roleCode, "SYSTEM", null, null, reason);
+    }
+
+    // ── 1.1: 할당 변경 (S8-b PR-2 에서 남긴 것 — 할당·해제·만료도 이벤트로 전파) ──
+
+    public static AuthorizationEvent assigned(String qimUserId, String agencyCode, String actor,
+                                              Instant expiresAt, String source, String reason, String correlationId) {
+        return new AuthorizationEvent(TYPE_ASSIGNED, correlationId, qimUserId,
+                agencyCode, null, actor, expiresAt, source, reason);
+    }
+
+    public static AuthorizationEvent unassigned(String qimUserId, String agencyCode, String actor,
+                                                String reason, String correlationId) {
+        return new AuthorizationEvent(TYPE_UNASSIGNED, correlationId, qimUserId,
+                agencyCode, null, actor, null, null, reason);
+    }
+
+    public static AuthorizationEvent assignmentExpired(String qimUserId, String agencyCode, String reason) {
+        return new AuthorizationEvent(TYPE_ASSIGNMENT_EXPIRED, null, qimUserId,
+                agencyCode, null, "SYSTEM", null, null, reason);
+    }
+
+    /** 이 이벤트로 사용자가 해당 Service 에서 무언가를 잃는가(역할 회수·만료, 할당 해제·만료). 기관 통보 우선순위용. 직렬화 대상 아님. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean isAccessLoss() {
+        String t = getEventType();
+        return TYPE_REVOKED.equals(t) || TYPE_EXPIRED.equals(t)
+                || TYPE_UNASSIGNED.equals(t) || TYPE_ASSIGNMENT_EXPIRED.equals(t);
     }
 }

@@ -1,20 +1,16 @@
 package io.github.hipstermin.idem.hub.slo;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.qim.sp.domain.InstMbrIdMapping;
 import io.github.hipstermin.idem.hub.qim.sp.infrastructure.InstMbrIdMappingRepository;
 import io.github.hipstermin.idem.hub.webhook.WebhookDispatcherService;
-import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 /**
  * SLO (Single Logout) 오케스트레이션 서비스 구현체
@@ -22,7 +18,7 @@ import org.springframework.web.client.RestTemplate;
  *
  * <p><b>실행 순서</b>:
  * <ol>
- *   <li>Q-Sign → Keycloak 세션 종료 (비치명적: 실패해도 계속)</li>
+ *   <li>Q-Sign → Keycloak 세션 종료 (실패하면 재시도 큐 — 1.1)</li>
  *   <li>기관 로그아웃 Webhook Outbox 적재 (비치명적)</li>
  *   <li>감사 로그 기록 (비치명적)</li>
  * </ol>
@@ -41,22 +37,12 @@ public class SloServiceImpl implements SloService {
     private static final String ACTOR_TYPE_USER        = "USER";
     private static final String RESOURCE_TYPE_SESSION  = "FE_SESSION";
 
-    private final RestTemplate                 restTemplate;
+    private final IdpSessionRevoker            idpSessionRevoker;       // 1.1: gate 호출 하나로 (첫 시도·재시도 공용)
+    private final SloIdpLogoutRetryQueue       retryQueue;              // 1.1: 실패 시 적재
     private final WebhookDispatcherService     webhookDispatcherService;
     private final AuditLogPublisher            auditLogPublisher;
     private final InstMbrIdMappingRepository   instMbrIdMappingRepository;
     private final ObjectMapper                 objectMapper;
-
-    /** Q-Sign 서비스 내부 베이스 URL */
-    @Value("${idem.hub.gate.base-url:http://localhost:8081}")
-    private String qsignBaseUrl;
-
-    /** Q-Sign 내부 서명 비밀키 (HMAC-SHA256 서명 생성용) */
-    @Value("${idem.hub.gate.internal-sig-secret:}")
-    private String internalSigSecret;
-
-    @Value("${idem.hub.gate.internal-sig-ttl-seconds:60}")
-    private int internalSigTtlSeconds;
 
     // ════════════════════════════════════════════════════════════════════════
 
@@ -70,7 +56,7 @@ public class SloServiceImpl implements SloService {
 
         // ① Q-Sign → Keycloak 세션 종료 (비치명적) — S6 PR-2: FE 세션이 기억하는 Keycloak sub·sid 로 정확히 그 세션만
         if (session.getIdpSub() != null || session.getIdpSid() != null) {
-            revokeKeycloakSessionSafely(session.getIdpSub(), session.getIdpSid(), qimUserId, correlationId);
+            revokeKeycloakSessionOrEnqueue(session, correlationId);
         } else {
             log.info("[SLO] Keycloak 세션 정보 없음(비 Keycloak 로그인) — IdP 단계 건너뜀: qimUserId={} correlationId={}", qimUserId, correlationId);
         }
@@ -87,44 +73,17 @@ public class SloServiceImpl implements SloService {
     // ── private: ① Keycloak 세션 종료 ──────────────────────────────────────
 
     /**
-     * Q-Sign 내부 API를 통해 Keycloak 세션 강제 종료
-     *
-     * <p>POST {qsignBaseUrl}/api/v1/internal/session/logout
-     * X-Internal-Sig HMAC-SHA256 서명 포함
+     * gate 내부 API 로 Keycloak 세션 종료. 1.1: 실패(비 2xx·예외·outcome=FAILED)는 WARN 으로 끝내지 않고
+     * {@code slo_idp_logout_retry} 에 적재해 {@link SloIdpLogoutRetryRelay} 가 지수 백오프로 재시도한다.
      */
-    private void revokeKeycloakSessionSafely(String idpSub, String idpSid, String qimUserId, String correlationId) {
-        try {
-            String url = qsignBaseUrl + "/api/v1/internal/session/logout";
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Correlation-Id",  correlationId);
-            headers.set("X-Internal-Caller", "idem-hub");
-            headers.set("X-Internal-Sig",    buildInternalSig(correlationId));
-
-            // S6 PR-2: 종전에는 qimUserId 를 Keycloak username 으로 넘겨 항상 실패했다 — 이제 id_token 의 sub·sid 를 넘긴다
-            Map<String, String> body = new java.util.HashMap<>();
-            body.put("correlationId", correlationId);
-            body.put("qimUserId", qimUserId);
-            if (idpSub != null) body.put("sub", idpSub);
-            if (idpSid != null) body.put("sid", idpSid);
-
-            ResponseEntity<Void> resp = restTemplate.exchange(
-                    url, HttpMethod.POST,
-                    new HttpEntity<>(body, headers),
-                    Void.class);
-
-            if (resp.getStatusCode().is2xxSuccessful()) {
-                log.info("[SLO] Q-Sign Keycloak 세션 종료 요청 완료: qimUserId={} correlationId={}",
-                        qimUserId, correlationId);
-            } else {
-                log.warn("[SLO] Q-Sign 세션 종료 응답 이상: status={} qimUserId={} correlationId={}",
-                        resp.getStatusCode(), qimUserId, correlationId);
-            }
-        } catch (Exception e) {
-            log.warn("[SLO] Keycloak 세션 종료 실패 (비치명적): qimUserId={} correlationId={} cause={}",
-                    qimUserId, correlationId, e.getMessage());
+    private void revokeKeycloakSessionOrEnqueue(FeSession session, String correlationId) {
+        String qimUserId = session.getQimUserId();
+        IdpSessionRevoker.Result r = idpSessionRevoker.revoke(session.getIdpSub(), session.getIdpSid(), qimUserId, correlationId);
+        if (r.success()) {
+            log.info("[SLO] Q-Sign Keycloak 세션 종료 완료: qimUserId={} outcome={} correlationId={}", qimUserId, r.outcome(), correlationId);
+            return;
         }
+        retryQueue.enqueue(session.getFeSessionId(), qimUserId, session.getIdpSub(), session.getIdpSid(), correlationId, r.error());
     }
 
     // ── private: ② 기관 로그아웃 Webhook ────────────────────────────────────
@@ -175,28 +134,4 @@ public class SloServiceImpl implements SloService {
         }
     }
 
-    // ── private: X-Internal-Sig 생성 ─────────────────────────────────────
-
-    /**
-     * HMAC-SHA256 내부 서명 생성
-     *
-     * <p>payload = "{correlationId}:{epochSeconds}"
-     * sig = HMAC-SHA256(payload, internalSigSecret) → Hex 문자열
-     *
-     * <p>internalSigSecret이 비어 있으면 경고 후 임시 식별자 반환.
-     * (비밀키 미설정 시 Q-Sign 측 검증이 거부하므로 SLO 2단계는 비치명적 실패)
-     */
-    private String buildInternalSig(String correlationId) {
-        if (internalSigSecret == null || internalSigSecret.isBlank()) {
-            // D2 fail-secure: 더미 서명("sig-unsigned")으로 SLO 실패를 숨기지 않는다
-            throw new IllegalStateException("IDEM_HUB_INTERNAL_SIG_SECRET 미설정 — SLO 내부 서명 불가: correlationId=" + correlationId);
-        }
-        try {
-            long epochSeconds = System.currentTimeMillis() / 1000L;
-            String payload = correlationId + ":" + epochSeconds;
-            return CryptoProviders.current().hmacSha256Hex(internalSigSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8), payload);
-        } catch (Exception e) {
-            throw new IllegalStateException("SLO X-Internal-Sig 생성 실패: correlationId=" + correlationId + " — " + e.getMessage(), e);
-        }
-    }
 }

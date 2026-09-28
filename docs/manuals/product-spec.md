@@ -44,7 +44,7 @@
 |---|---|---|
 | F14 | 역할 원장·할당 | 사용자·그룹 ↔ 서비스 할당, 앱 역할, 만료·회수 |
 | F15 | 정책 판정 | 프로파일 `policy.assignment`(required/selfSignup) — 미할당 거부(E-IDO-120) 또는 GUEST |
-| F16 | 클레임 전달 | 역할을 OIDC 클레임(`idem_*`)·Handoff 어설션으로 |
+| F16 | 클레임 전달 | 역할을 OIDC 클레임(`idem_*`)·Handoff 어설션으로. 1.1: 할당·역할 변경은 기관 웹훅 `ASSIGNMENT_CHANGED` 로 전파(authz 아웃박스 피드 → hub 폴러) |
 
 ### 2.4 관리·운영
 

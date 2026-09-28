@@ -63,6 +63,19 @@ class FailSecureBootGuardTest {
     }
 
     @Test
+    @DisplayName("1.1: prod 에서 idem.hub.authz.enabled=false (항상 빈 역할) 는 기동 거부 — 코어 = SSO + IM")
+    void prod_authzDisabled_rejected() {
+        MockEnvironment e = env("prod");
+        e.setProperty("idem.hub.authz.enabled", "false");
+        assertThatThrownBy(() -> new FailSecureBootGuard(e).verify())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("idem.hub.authz.enabled");
+        MockEnvironment local = env("local");
+        local.setProperty("idem.hub.authz.enabled", "false");
+        assertThatCode(() -> new FailSecureBootGuard(local).verify()).doesNotThrowAnyException();
+    }
+
+    @Test
     @DisplayName("prod 에서 탈출구가 모두 꺼져 있으면 통과")
     void prod_clean() {
         assertThatCode(() -> new FailSecureBootGuard(env("prod")).verify()).doesNotThrowAnyException();

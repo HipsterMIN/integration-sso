@@ -69,6 +69,8 @@ IDEM_HUB_CAST_PUBLIC_KEY=$(openssl pkey -in cast.pem -pubout -outform DER | base
 | KR 벤더 플러그인 | `IDEM_PLUGINS_NICE_OACX_ENABLED` / `IDEM_PLUGINS_ANYID_ENABLED` | `plugins.niceOacx` / `plugins.anyid` | false | 1.0.1: compose 도 install.env 로 켠다(종전 false 고정). kr 이미지에서만 뜻이 있다 |
 | 개명 repair | `IDEM_NAMING_LEGACY_REPAIR` | `hub.config` 등 | true | 0.x → 1.0 업그레이드 뒤 false 로 — 이후 Flyway 체크섬 불일치는 repair 대신 기동 거부 |
 | gate 프런트 레이트리밋 | `IDEM_GATE_FRONT_RL_ENABLED` / `_PER_SECOND` / `_PER_MINUTE` / `_TRUST_XFF` | `gate.config.IDEM_GATE_FRONT_RL_*` (env 그대로) | true / 20 / 300 / false | 1.0.1: 공개 OIDC 엔드포인트(`/realms/**`) IP 당 한도. Ingress·리버스 프록시 뒤에서는 `_TRUST_XFF=true`(X-Forwarded-For 마지막 홉이 클라이언트). Redis 장애 시 503 |
+| 할당 변경 전파 | `IDEM_HUB_AUTHZ_EVENTS_POLL_ENABLED` / `_INTERVAL_MS` | `hub.config` | true / 5000 | 1.1: authz 아웃박스 피드를 폴링해 기관 웹훅 `ASSIGNMENT_CHANGED` 적재. Kafka 유무 무관 |
+| SLO IdP 재시도 | `IDEM_HUB_SLO_RETRY_ENABLED` / `_INTERVAL_MS` / `_MAX` | `hub.config` | true / 5000 / 5 | 1.1: Keycloak 세션 종료 실패 재시도 큐 |
 | DB 주소 | compose 내부 postgres | `infra.postgres.host/port/database/sslMode` | idem | Helm 은 바깥 PostgreSQL |
 | Redis 주소 | compose 내부 redis | `infra.redis.host/port(+existingSecret)` | | Helm 은 바깥 Redis |
 | Keycloak | compose 내부 | `keycloak.enabled` / `externalUrl` / `adminUrl` | 차트가 올림 | 밖의 Keycloak 은 realm `idem` + client 4개가 있어야 한다 |

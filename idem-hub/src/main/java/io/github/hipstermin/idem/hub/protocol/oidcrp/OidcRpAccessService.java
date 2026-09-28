@@ -104,9 +104,8 @@ public class OidcRpAccessService {
             // 5. 상태·주체·역할 — buildHandoffPayload 와 같은 의미
             ServiceAccess sa = access.get();
             String agencySubjectId = policyEngine.resolveAgencySubjectId(profile, qimUserId, serviceCode, correlationId);
-            ServiceProfile.Assignment assignment = profile.policy() != null ? profile.policy().assignment() : null;
             HandoffPayload.HandoffState state;
-            if (assignment != null && assignment.requiresAssignment()) {
+            if (io.github.hipstermin.idem.hub.policy.rule.AssignmentPolicyResolver.resolve(profile).required()) {   // 1.1: 단일 해석기
                 if (!sa.authzEnabled()) {
                     return deny(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, "할당 필수 프로파일인데 idem-authz 가 비활성", "ASSIGNMENT", serviceCode, correlationId);
                 }

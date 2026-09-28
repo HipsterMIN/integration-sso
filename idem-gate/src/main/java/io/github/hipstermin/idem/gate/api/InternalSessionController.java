@@ -42,7 +42,8 @@ public class InternalSessionController {
      *
      * <p><b>응답</b>:
      * <ul>
-     *   <li>204 No Content — 세션 종료 성공 또는 비치명적 실패 (Keycloak 불응 시에도 204)</li>
+     *   <li>204 No Content — 세션 종료 성공·이미 없음·건너뜀 (헤더 X-Idp-Logout-Outcome)</li>
+     *   <li>502 Bad Gateway — Keycloak 세션 종료 실패 (1.1: hub 가 재시도 큐에 적재)</li>
      *   <li>401 Unauthorized — X-Internal-Sig 검증 실패</li>
      *   <li>400 Bad Request — sub 누락</li>
      * </ul>
@@ -73,6 +74,11 @@ public class InternalSessionController {
         log.info("[InternalSession] Keycloak 세션 종료 요청: sid={} caller={} correlationId={}", sid != null, caller, cid);
         // ③ Keycloak 세션 강제 종료 (비치명적 — 실패해도 204 반환, 결과는 헤더로)
         KeycloakLogoutService.Outcome outcome = keycloakLogoutService.revoke(sub, sid, cid);
+        if (outcome == KeycloakLogoutService.Outcome.FAILED) {
+            // 1.1: Keycloak 실패를 204 로 감추지 않는다 — hub 가 재시도 큐에 넣을 수 있게 502
+            log.warn("[InternalSession] Keycloak 세션 종료 실패 → 502: sid={} correlationId={}", sid != null, cid);
+            return ResponseEntity.status(502).header("X-Idp-Logout-Outcome", outcome.name()).build();
+        }
         return ResponseEntity.noContent().header("X-Idp-Logout-Outcome", outcome.name()).build();
     }
 

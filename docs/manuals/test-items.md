@@ -32,6 +32,8 @@
 | B-10 | 마지막 SYSTEM_ADMIN 보호 | 유일 SYSTEM_ADMIN 강등 | 409 `E-IDO-136` | UT |
 | B-11 | 위장 경로(1.0.1) | `/api/v1/admin;x/admins`, `/api/v1/%61dmin/admins` | 403 `E-IDO-131`, 감사 `non-canonical path` | UT(`AdminAuthFilterTest`) |
 | B-12 | TOTP 재사용(1.0.1) | 같은 스텝 코드로 두 번째 로그인 | 401 `E-IDO-134`, 실패 카운터 유지 | UT(`AdminAuthServiceTest`) |
+| B-13 | 할당 정책 단일 해석(1.1) | 프로파일 `policy.assignment.required=true` + `rules[ASSIGNMENT].params.required=false` 로 미할당 로그인 | 발급 거부 `E-IDO-120`(규칙 파라미터로 풀리지 않음), prod 에서 `IDEM_HUB_AUTHZ_ENABLED=false` 는 기동 거부 | UT(`AssignmentPolicyResolverTest`·`PolicyRulesTest`·`FailSecureBootGuardTest`) |
+| B-14 | 할당 변경 전파(1.1) | authz `DELETE /assignments` → hub 폴링 | 기관 웹훅 `ASSIGNMENT_CHANGED{change:UNASSIGNED, agencySubjectId}` 적재, `qimUserId` 없음, 감사 `ASSIGNMENT_CHANGED`, 재폴링에 멱등 | UT(`AuthzServiceTest`·`AuthzEventsControllerTest`·`AuthzEventPollerTest`·`AuthzEventConsumerTest`·`WebhookDispatcherServiceTest`) |
 
 ## C. 서비스 프로파일·온보딩 (F18, F1)
 
@@ -64,6 +66,7 @@
 | D-12 | CAST 기관 간 SSO | A 기관 토큰으로 B 진입 | 1회 소비, 재사용 거부 | UT |
 | D-13 | 프록시 경로 이탈(1.0.1) | `/resources/../admin/master/console/`, `/realms/idem/../master/…` | 400 `invalid_request`, Keycloak 미도달 | UT(`OidcFrontControllerTest`) |
 | D-14 | 공개 프런트 레이트리밋(1.0.1) | `/realms/idem/…` IP 당 초당 20 초과 | 429 `rate_limited` | UT(`OidcFrontRateLimitFilterTest`) |
+| D-15 | SLO IdP 재시도(1.1) | Keycloak 이 세션 종료를 거부하는 상태에서 SLO | gate 502 `X-Idp-Logout-Outcome: FAILED`, hub `slo_idp_logout_retry` 적재 → 백오프 재시도 → DONE, 초과 시 FAILED + 감사 `SLO_IDP_LOGOUT_FAILED` | UT(`InternalSessionControllerTest`·`SloServiceImplIdpTest`·`SloIdpLogoutRetryRelayTest`) |
 
 ## E. 회원 원장·전파 (F8~F13)
 
