@@ -10,7 +10,6 @@ import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
 import io.github.hipstermin.idem.hub.infrastructure.QAuthzClient;
 import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
-import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -114,9 +113,11 @@ public class CastTokenServiceImpl implements CastTokenService {
         // S8-b 연합 인가: 대상 Service 의 할당·유효 역할(authz 정본, 장애 = 거부). 플랫폼은 굵은 RBAC 역할만 배송한다.
         // CAST 는 기관 간 SSO 라 GUEST 가 없다 — 대상 프로파일이 할당 필수면 미할당은 E-IDO-120.
         ServiceAccess access = qAuthzClient.getServiceAccess(qimUserId, targetAgencyCode, correlationId);
-        ServiceProfile.Assignment assignment = serviceProfileService.find(targetAgencyCode)
-                .map(ServiceProfile::policy).map(ServiceProfile.Policy::assignment).orElse(null);
-        if (assignment != null && assignment.requiresAssignment()) {
+        boolean assignmentRequired = serviceProfileService.find(targetAgencyCode)
+                .map(io.github.hipstermin.idem.hub.policy.rule.AssignmentPolicyResolver::resolve)
+                .map(io.github.hipstermin.idem.hub.policy.rule.AssignmentPolicyResolver.Effective::required)
+                .orElse(false);   // 1.1: 단일 해석기(규칙 파라미터 포함)
+        if (assignmentRequired) {
             if (!access.authzEnabled()) {
                 throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId,
                         "할당 필수 프로파일인데 idem-authz 가 비활성");

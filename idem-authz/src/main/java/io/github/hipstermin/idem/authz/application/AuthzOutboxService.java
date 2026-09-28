@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthzOutboxService {
 
-    static final String TOPIC = "idem.authz.assignment.events";
+    public static final String TOPIC = "idem.authz.assignment.events";
 
     private final AuthzOutboxRepository outboxRepository;
     private final ObjectMapper          objectMapper;
@@ -32,7 +32,7 @@ public class AuthzOutboxService {
                 .eventId(event.getEventId())
                 .eventType(event.getEventType())
                 .partitionKey(event.getQimUserId())               // Kafka 파티션 키
-                .aggregateId(event.getAgencyCode() + ":" + event.getRoleCode())
+                .aggregateId(event.getAgencyCode() + ":" + (event.getRoleCode() != null ? event.getRoleCode() : "*"))   // 1.1: 할당 이벤트는 역할이 없다
                 .eventVersion(event.getEventVersion())            // authz는 null
                 .payload(serialize(event))
                 .topic(TOPIC)

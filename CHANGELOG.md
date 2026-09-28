@@ -2,6 +2,17 @@
 
 형식: [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/). 버전은 루트 `build.gradle.kts` 와 태그(`vX.Y.Z`)를 따른다. SDK 는 `idem-sdk-java/CHANGELOG.md`.
 
+## [Unreleased] — 1.1 (shipster)
+
+`docs/post-1.0-plan.md` §5. 1.0.x 패치는 `release/1.0`.
+
+### 1.1 PR-1 · 연합 인가 정합성 + 할당 변경 전파 + SLO 재시도 (S8-b PR-2·D2 "남긴 것")
+
+- **할당 정책 단일 해석기 (`AssignmentPolicyResolver`)**: Handoff 페이로드·OIDC 토큰 교환·CAST·`AssignmentRule` 이 같은 답을 낸다. 프로파일 `policy.rules[{type:ASSIGNMENT, params}]` 의 파라미터는 블록 `policy.assignment` 을 **조이기만** 한다(`required` OR, `selfSignup` AND). 종전에는 규칙 파라미터 `required=false` 로 규칙은 통과시키면서 상태는 할당 기준으로 계산되는 불일치가 있었다. **동작 변경**: 규칙 파라미터로 할당 필수를 풀거나 셀프 가입을 열 수 없다.
+- **운영에서 authz 비활성 금지**: `FailSecureBootGuard` 가 prod/stage 에서 `idem.hub.authz.enabled=false`(항상 빈 역할) 를 기동 거부한다 — 코어 = SSO + IM. `application.yml` 의 "fail-open(빈 역할)" 주석 잔재 정정.
+- **할당 변경 이벤트 전파**: authz 가 `assign`(신규·재활성)·`unassign`(상태 변경 시)·할당 만료에 아웃박스 이벤트 `AUTHZ_ASSIGNED`·`AUTHZ_UNASSIGNED`·`AUTHZ_ASSIGNMENT_EXPIRED` 를 적재한다(종전에는 역할 부여·회수·만료만). 새 읽기 전용 피드 `GET /api/v1/internal/authz/events`(키셋 `(createdAt,eventId)`, `X-Internal-Api-Key`). hub `AuthzEventPoller`(`IDEM_HUB_AUTHZ_EVENTS_POLL_ENABLED`, 기본 true, Kafka 유무 무관) → `AuthzEventConsumer` 가 `processed_event` 멱등으로 소비해 기관 웹훅 **`ASSIGNMENT_CHANGED`**(`change`=ASSIGNED·UNASSIGNED·ASSIGNMENT_EXPIRED·ROLE_GRANTED·ROLE_REVOKED·ROLE_EXPIRED, `agencySubjectId`, `roleCode`) 를 적재하고 감사(`AUTHZ/ASSIGNMENT_CHANGED`) 한다. 페이로드에 `qimUserId` 없음. authz V5: 아웃박스 topic 기본값을 코드와 맞추고 피드 인덱스 추가.
+- **SLO IdP 단계 재시도 큐**: gate `POST /api/v1/internal/session/logout` 은 Keycloak 실패를 204 로 감추지 않고 **502**(+`X-Idp-Logout-Outcome: FAILED`) 로 낸다. hub `IdpSessionRevoker` 가 비 2xx·예외·FAILED 헤더를 실패로 판정해 `idem_hub.slo_idp_logout_retry`(V28) 에 적재하고 `SloIdpLogoutRetryRelay` 가 지수 백오프(10s·20s·40s·80s·160s, `IDEM_HUB_SLO_RETRY_*`) 로 재시도, 초과 시 FAILED + 감사 `SLO_IDP_LOGOUT_FAILED`. 종전에는 WARN 만 남고 Keycloak 세션이 살아 있을 수 있었다.
+
 ## [1.0.1] — 2026-09-26
 
 3차 적대적 점검(`docs/analysis/adversarial-review-1.0.md`) 후속. PR-A(보안, #244) → PR-B(설치본, #245) → PR-C(기능·문서). 태그 `v1.0.1`.

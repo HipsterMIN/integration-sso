@@ -182,9 +182,15 @@ class PolicyRulesTest {
             var d = rule.evaluate(ctxWith(new ServiceProfile.Assignment(true, false), null), Map.of());
             assertThat(d.outcome()).isEqualTo(PolicyDecision.Outcome.SKIP);
         }
-        @Test void params_overrideProfile() {
+        @Test void params_tightenProfile() {
             var d = rule.evaluate(ctxWith(null, new ServiceAccess(true, false, null, List.of())), Map.of("required", true));
             assertThat(d.denied()).isTrue();
+        }
+        @Test void params_cannotLoosenProfile_1_1() {
+            // 1.1: 규칙 파라미터로 할당 필수를 풀 수 없다 — 상태 계산(PolicyEngineImpl 등)과 어긋나던 경로
+            var d = rule.evaluate(ctxWith(new ServiceProfile.Assignment(true, false), new ServiceAccess(true, false, null, List.of())), Map.of("required", false));
+            assertThat(d.denied()).isTrue();
+            assertThat(d.errorCode()).isEqualTo(PlatformErrorCode.IDO_ASSIGNMENT_REQUIRED);
         }
     }
 }

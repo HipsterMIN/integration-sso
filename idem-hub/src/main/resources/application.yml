@@ -221,7 +221,7 @@ idem.hub:
   # 연합 인가(Federated Authorization) — Q-Authz 연동
   # 토큰(CAST/Handoff) 발급 시 사용자×대상기관 유효 역할 조회 → roles[] 클레임 임베드.
   # GET /api/v1/internal/authz/users/{qimUserId}/effective-roles?agencyCode=...
-  # ⚠️ 장애·미설정 시 QAuthzClient가 fail-open(빈 역할) — SSO/Handoff 발급은 계속됨.
+  # D2: 장애·비정상 응답은 거부(503 E-IDO-117). 1.1: prod/stage 에서 enabled=false 는 기동 거부(FailSecureBootGuard).
   authz:
     # D2 fail-secure: authz 조회 실패 = 거부(503). authz 없는 SSO 단독 설치는 enabled=false 로 명시
     enabled: ${IDEM_HUB_AUTHZ_ENABLED:true}
@@ -230,7 +230,7 @@ idem.hub:
     connect-timeout-ms: 3000
     read-timeout-ms: 5000
     # 운영: K8s Secret / Vault → IDEM_HUB_AUTHZ_INTERNAL_API_KEY 환경변수 주입
-    # 미설정 시 q-authz가 401 → 빈 역할 fail-open(경고 로그)
+    # 미설정 시 기동 거부(allow-empty-api-key 는 로컬·테스트 전용) — authz 401 은 거부로 전파된다
     internal-api-key: ${IDEM_HUB_AUTHZ_INTERNAL_API_KEY:}
 
   # §11.8 Q-Sign 연동 — X-Internal-Sig
@@ -553,6 +553,26 @@ idem.hub:
       batch-size: 100
       initial-lookback-hours: 24     # 워터마크가 없을 때 이만큼 과거부터 (중복은 processed_event 가 거른다)
       max-failures: 5                # 같은 이벤트가 이만큼 연속 실패하면 FAILED 로 기록하고 건너뛴다
+
+  # ── 1.1: 할당 변경 전파 — authz 아웃박스 피드 폴링 → 기관 웹훅 ASSIGNMENT_CHANGED ─────
+  # Kafka 유무와 무관하게 켠다(피드는 읽기 전용이라 Kafka 릴레이와 간섭하지 않는다). authz 비활성 설치는 자연히 빈 피드.
+  authz-events:
+    poll:
+      enabled: ${IDEM_HUB_AUTHZ_EVENTS_POLL_ENABLED:true}
+      interval-ms: ${IDEM_HUB_AUTHZ_EVENTS_POLL_INTERVAL_MS:5000}
+      initial-delay-ms: 15000
+      batch-size: 100
+      initial-lookback-hours: 24
+      max-failures: 5
+
+  # ── 1.1: SLO IdP(Keycloak) 세션 종료 재시도 큐 — gate 응답이 실패면 idem_hub.slo_idp_logout_retry 에 적재해 지수 백오프로 재시도 ──
+  slo:
+    retry:
+      enabled: ${IDEM_HUB_SLO_RETRY_ENABLED:true}
+      interval-ms: ${IDEM_HUB_SLO_RETRY_INTERVAL_MS:5000}
+      batch-size: 50
+      max-retry: ${IDEM_HUB_SLO_RETRY_MAX:5}          # 10s·20s·40s·80s·160s 뒤 FAILED + 감사(SLO_IDP_LOGOUT_FAILED)
+      backoff-base-seconds: 10
 
   # ── F-14: Webhook Outbox Relay On/Off ────────────────────────────────────
   # false → 기관 webhook 발송 없음 (PENDING은 DB 유지 → 재활성 시 처리)

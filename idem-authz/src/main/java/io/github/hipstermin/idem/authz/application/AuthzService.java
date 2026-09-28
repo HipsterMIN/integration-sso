@@ -210,6 +210,9 @@ public class AuthzService {
             assignmentRepository.save(a);
             auditService.record(AuditEvent.UNASSIGN, a.getQimUserId(), a.getAgencyCode(), null,
                     "SYSTEM", null, "expires_at 경과 자동 만료(할당)", null);
+            // 1.1: 할당 만료도 아웃박스로 — hub 가 기관에 ASSIGNMENT_CHANGED 를 통보한다
+            outboxService.publishInTx(AuthorizationEvent.assignmentExpired(
+                    a.getQimUserId(), a.getAgencyCode(), "expires_at 경과 자동 만료(할당)"));
         }
         if (!page.isEmpty() || !assignments.isEmpty()) {
             log.info("[q-authz] 만료 전이 역할 {}건·할당 {}건 처리 (잔여 추정 hasNext={})",
@@ -255,6 +258,9 @@ public class AuthzService {
         assignmentRepository.save(entity);
         auditService.record(AuditEvent.ASSIGN, req.qimUserId(), req.agencyCode(), null,
                 req.grantedBy(), actorIp, req.reason(), correlationId);
+        // 1.1: 신규·재활성 할당은 아웃박스로 전파 (멱등 재호출은 위에서 이미 반환했다)
+        outboxService.publishInTx(AuthorizationEvent.assigned(req.qimUserId(), req.agencyCode(),
+                req.grantedBy(), req.expiresAt(), source.name(), req.reason(), correlationId));
         return entity;
     }
 
@@ -266,7 +272,8 @@ public class AuthzService {
                 .findByQimUserIdAndAgencyCode(qimUserId, agencyCode)
                 .orElseThrow(() -> new AuthzException(AuthzErrorCode.ASSIGNMENT_NOT_FOUND,
                         "할당 없음: " + qimUserId + "@" + agencyCode));
-        if (entity.getStatus() != AssignmentStatus.REVOKED) {
+        boolean changed = entity.getStatus() != AssignmentStatus.REVOKED;
+        if (changed) {
             entity.setStatus(AssignmentStatus.REVOKED);
             entity.setRevokedAt(Instant.now());
             entity.setRevokedBy(revokedBy);
@@ -274,6 +281,10 @@ public class AuthzService {
         }
         auditService.record(AuditEvent.UNASSIGN, qimUserId, agencyCode, null,
                 revokedBy, actorIp, reason, correlationId);
+        if (changed) {
+            // 1.1: 해제는 발급 거부로 이어지므로 기관이 자기 세션을 끊을 수 있게 전파한다
+            outboxService.publishInTx(AuthorizationEvent.unassigned(qimUserId, agencyCode, revokedBy, reason, correlationId));
+        }
     }
 
     /** 유효 할당 (ACTIVE 이고 만료 전). */

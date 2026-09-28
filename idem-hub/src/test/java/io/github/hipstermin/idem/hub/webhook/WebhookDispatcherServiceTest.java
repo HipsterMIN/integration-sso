@@ -470,4 +470,39 @@ class WebhookDispatcherServiceTest {
                     any(), any(), any(), any(), any(), any());
         }
     }
+
+    // ── 1.1: ASSIGNMENT_CHANGED ──────────────────────────────────────────────
+    @org.junit.jupiter.api.Nested
+    @DisplayName("1.1 enqueueForAssignmentChanged")
+    class AssignmentChanged {
+        @Test
+        @DisplayName("기관 웹훅이 있으면 agencySubjectId·change·roleCode 로 Outbox 1건 — qimUserId 는 싣지 않는다")
+        void enqueuesWithAgencySubjectOnly() {
+            Map<String, Object> configRow = new java.util.HashMap<>();
+            configRow.put("agency_code", AGENCY_CODE); configRow.put("endpoint_url", ENDPOINT_URL);
+            configRow.put("signing_secret_hash", "s"); configRow.put("connect_timeout_ms", 3000); configRow.put("read_timeout_ms", 8000);
+            configRow.put("max_retry_count", 3); configRow.put("retry_backoff_ms", 1000); configRow.put("event_type_filter", "null");
+            given(jdbcTemplate.queryForList(anyString(), any(Object[].class))).willReturn(List.of(configRow));
+            doReturn(1).when(jdbcTemplate).update(anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+            int n = sut.enqueueForAssignmentChanged(AGENCY_CODE, "pw_abc", "UNASSIGNED", null,
+                    java.time.Instant.parse("2026-09-28T00:00:00Z"), "evt-1", CORRELATION_ID);
+
+            assertThat(n).isEqualTo(1);
+            org.mockito.ArgumentCaptor<Object> args = org.mockito.ArgumentCaptor.forClass(Object.class);
+            verify(jdbcTemplate).update(anyString(), args.capture(), args.capture(), args.capture(), args.capture(),
+                    args.capture(), args.capture(), args.capture(), args.capture(), args.capture());
+            String payload = args.getAllValues().stream().filter(o -> o instanceof String st && st.startsWith("{")).map(Object::toString).findFirst().orElse("");
+            assertThat(payload).contains("\"eventType\":\"ASSIGNMENT_CHANGED\"").contains("\"agencySubjectId\":\"pw_abc\"")
+                    .contains("\"change\":\"UNASSIGNED\"").doesNotContain("qimUserId");
+            assertThat(args.getAllValues()).contains("evt-1", "ASSIGNMENT_CHANGED", "idem.authz.assignment.events");
+        }
+
+        @Test
+        @DisplayName("웹훅 대상이 없으면 0")
+        void noTargets() {
+            given(jdbcTemplate.queryForList(anyString(), any(Object[].class))).willReturn(List.of());
+            assertThat(sut.enqueueForAssignmentChanged(AGENCY_CODE, "pw", "ASSIGNED", null, null, "e", CORRELATION_ID)).isZero();
+        }
+    }
 }

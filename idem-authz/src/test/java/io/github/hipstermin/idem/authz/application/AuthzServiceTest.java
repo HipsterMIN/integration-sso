@@ -77,14 +77,16 @@ class AuthzServiceTest {
         assertThat(result.getRoleCode()).isEqualTo(ROLE);
         verify(auditService).record(eq(io.github.hipstermin.idem.authz.domain.AuditEvent.GRANT),
                 eq(USER), eq(AGENCY), eq(ROLE), any(), any(), any(), any());
-        // 회수 전파: GRANTED 이벤트 아웃박스 발행
+        // 회수 전파: 첫 부여는 자동 할당(1.1: ASSIGNED 이벤트) 뒤 GRANTED 이벤트 — 아웃박스 2건, 순서 고정
         ArgumentCaptor<io.github.hipstermin.idem.common.event.AuthorizationEvent> ev =
                 ArgumentCaptor.forClass(io.github.hipstermin.idem.common.event.AuthorizationEvent.class);
-        verify(outboxService).publishInTx(ev.capture());
-        assertThat(ev.getValue().getEventType())
-                .isEqualTo(io.github.hipstermin.idem.common.event.AuthorizationEvent.TYPE_GRANTED);
-        assertThat(ev.getValue().getQimUserId()).isEqualTo(USER);
-        assertThat(ev.getValue().getRoleCode()).isEqualTo(ROLE);
+        verify(outboxService, org.mockito.Mockito.times(2)).publishInTx(ev.capture());
+        assertThat(ev.getAllValues()).extracting(io.github.hipstermin.idem.common.event.AuthorizationEvent::getEventType)
+                .containsExactly(io.github.hipstermin.idem.common.event.AuthorizationEvent.TYPE_ASSIGNED,
+                                 io.github.hipstermin.idem.common.event.AuthorizationEvent.TYPE_GRANTED);
+        assertThat(ev.getAllValues().get(1).getQimUserId()).isEqualTo(USER);
+        assertThat(ev.getAllValues().get(1).getRoleCode()).isEqualTo(ROLE);
+        assertThat(ev.getAllValues().get(0).getSource()).isEqualTo("ROLE_GRANT");
     }
 
     @Test
@@ -269,6 +271,78 @@ class AuthzServiceTest {
         assertThat(result).isSameAs(existing);
         assertThat(result.getSource()).isEqualTo(io.github.hipstermin.idem.authz.domain.AssignmentSource.SCIM);
         verify(auditService, never()).record(eq(io.github.hipstermin.idem.authz.domain.AuditEvent.ASSIGN), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void assign_new_publishesAssignedEvent_1_1() {
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.empty());
+        when(assignmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        service.assign(assignReq("CONSOLE"), "1.2.3.4", "cid-a");
+        ArgumentCaptor<io.github.hipstermin.idem.common.event.AuthorizationEvent> ev =
+                ArgumentCaptor.forClass(io.github.hipstermin.idem.common.event.AuthorizationEvent.class);
+        verify(outboxService).publishInTx(ev.capture());
+        assertThat(ev.getValue().getEventType()).isEqualTo(io.github.hipstermin.idem.common.event.AuthorizationEvent.TYPE_ASSIGNED);
+        assertThat(ev.getValue().getAgencyCode()).isEqualTo(AGENCY);
+        assertThat(ev.getValue().getRoleCode()).isNull();
+        assertThat(ev.getValue().getSource()).isEqualTo("CONSOLE");
+        assertThat(ev.getValue().getCorrelationId()).isEqualTo("cid-a");
+    }
+
+    @Test
+    void assign_alreadyActive_publishesNothing_1_1() {
+        var existing = io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.builder()
+                .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).status(AssignmentStatus.ACTIVE)
+                .source(io.github.hipstermin.idem.authz.domain.AssignmentSource.API)
+                .grantedAt(Instant.now()).grantedBy("x").build();
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.of(existing));
+        when(assignmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        service.assign(assignReq("SCIM"), "1.2.3.4", "cid-b");
+        verify(outboxService, never()).publishInTx(any());
+    }
+
+    @Test
+    void unassign_active_publishesUnassignedEvent_1_1() {
+        var existing = io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.builder()
+                .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).status(AssignmentStatus.ACTIVE)
+                .source(io.github.hipstermin.idem.authz.domain.AssignmentSource.API)
+                .grantedAt(Instant.now()).grantedBy("x").build();
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.of(existing));
+        service.unassign(USER, AGENCY, "admin", "1.2.3.4", "탈퇴", "cid-u");
+        ArgumentCaptor<io.github.hipstermin.idem.common.event.AuthorizationEvent> ev =
+                ArgumentCaptor.forClass(io.github.hipstermin.idem.common.event.AuthorizationEvent.class);
+        verify(outboxService).publishInTx(ev.capture());
+        assertThat(ev.getValue().getEventType()).isEqualTo(io.github.hipstermin.idem.common.event.AuthorizationEvent.TYPE_UNASSIGNED);
+        assertThat(ev.getValue().isAccessLoss()).isTrue();
+    }
+
+    @Test
+    void unassign_alreadyRevoked_publishesNothing_1_1() {
+        var existing = io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.builder()
+                .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).status(AssignmentStatus.REVOKED)
+                .source(io.github.hipstermin.idem.authz.domain.AssignmentSource.API)
+                .grantedAt(Instant.now()).grantedBy("x").build();
+        when(assignmentRepository.findByQimUserIdAndAgencyCode(USER, AGENCY)).thenReturn(Optional.of(existing));
+        service.unassign(USER, AGENCY, "admin", "1.2.3.4", "again", "cid-u2");
+        verify(outboxService, never()).publishInTx(any());
+    }
+
+    @Test
+    void expireOverdue_assignment_publishesAssignmentExpired_1_1() {
+        var overdue = io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.builder()
+                .id(UUID.randomUUID()).qimUserId(USER).agencyCode(AGENCY).status(AssignmentStatus.ACTIVE)
+                .source(io.github.hipstermin.idem.authz.domain.AssignmentSource.API)
+                .grantedAt(Instant.now().minusSeconds(3600)).grantedBy("x").expiresAt(Instant.now().minusSeconds(1)).build();
+        when(userRoleRepository.findByStatusAndExpiresAtNotNullAndExpiresAtBefore(any(), any(), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+        when(assignmentRepository.findByStatusAndExpiresAtNotNullAndExpiresAtBefore(any(), any(), any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(overdue)));
+        int n = service.expireOverdue(Instant.now(), 100);
+        assertThat(n).isEqualTo(1);
+        assertThat(overdue.getStatus()).isEqualTo(AssignmentStatus.EXPIRED);
+        ArgumentCaptor<io.github.hipstermin.idem.common.event.AuthorizationEvent> ev =
+                ArgumentCaptor.forClass(io.github.hipstermin.idem.common.event.AuthorizationEvent.class);
+        verify(outboxService).publishInTx(ev.capture());
+        assertThat(ev.getValue().getEventType()).isEqualTo(io.github.hipstermin.idem.common.event.AuthorizationEvent.TYPE_ASSIGNMENT_EXPIRED);
     }
 
     @Test

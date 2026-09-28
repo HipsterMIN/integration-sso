@@ -2,7 +2,6 @@ package io.github.hipstermin.idem.hub.policy.rule;
 
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.hub.infrastructure.ServiceAccess;
-import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +16,8 @@ import org.springframework.stereotype.Component;
  *   <li>미할당 + selfSignup=false → DENY {@code E-IDO-120}</li>
  *   <li>authz 비활성 설치(idem.hub.authz.enabled=false)인데 required → DENY {@code E-IDO-117} (평가 불가 = 거부, fail-secure)</li>
  * </ul>
- * 규칙 파라미터 {@code required}/{@code selfSignup} 이 있으면 프로파일 블록보다 우선한다(시뮬레이션·에디션 오버라이드용).
+ * 규칙 파라미터 {@code required}/{@code selfSignup} 은 프로파일 블록을 <b>조이기만</b> 한다({@link AssignmentPolicyResolver}, 1.1).
+ * 발급 경로의 상태 계산도 같은 해석기를 쓰므로 규칙과 상태가 어긋나지 않는다.
  * order 95: USER_STATUS(90) 뒤 — 원격 조회이므로 값싼 규칙이 먼저 거른 뒤에 부른다.
  */
 @Component
@@ -31,9 +31,9 @@ public class AssignmentRule implements PolicyRule {
 
     @Override
     public PolicyDecision evaluate(PolicyContext ctx, Map<String, Object> params) {
-        ServiceProfile.Assignment cfg = ctx.policy() != null ? ctx.policy().assignment() : null;
-        boolean required   = flag(params, "required",   cfg != null && cfg.requiresAssignment());
-        boolean selfSignup = flag(params, "selfSignup", cfg != null && cfg.allowsSelfSignup());
+        AssignmentPolicyResolver.Effective eff = AssignmentPolicyResolver.resolve(ctx.policy(), params);
+        boolean required   = eff.required();
+        boolean selfSignup = eff.selfSignup();
         if (!required) {
             return PolicyDecision.allow(TYPE, "할당 정책 미적용");
         }
@@ -55,10 +55,4 @@ public class AssignmentRule implements PolicyRule {
                 "ASSIGNMENT_REQUIRED", PlatformErrorCode.IDO_ASSIGNMENT_REQUIRED);
     }
 
-    private static boolean flag(Map<String, Object> params, String key, boolean fallback) {
-        Object v = params != null ? params.get(key) : null;
-        if (v instanceof Boolean b) return b;
-        if (v instanceof String st) return Boolean.parseBoolean(st.trim());
-        return fallback;
-    }
 }

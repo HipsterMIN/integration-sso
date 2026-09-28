@@ -53,7 +53,8 @@ public class FailSecureBootGuard {
             "idem.hub.redisson.enabled",
             "idem.hub.admin.cookie.secure",                   // S7: 관리자 세션 쿠키는 운영에서 Secure
             "idem.hub.admin.mfa.required",                    // S7: 운영은 2단계 인증 필수
-            "idem.hub.admin.bootstrap.require-password-change"
+            "idem.hub.admin.bootstrap.require-password-change",
+            "idem.hub.authz.enabled"                          // 1.1: 코어 = SSO + IM. 운영에서 authz 없이(항상 빈 역할) 발급하지 않는다
     );
 
     static final Set<String> HARDENED_PROFILES = Set.of("prod", "stage");

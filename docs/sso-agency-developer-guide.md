@@ -396,7 +396,14 @@ X-Platform-Version: 1.0.1
 
 검증 순서: ① `|now - X-Webhook-Timestamp| ≤ 300초` ② `expected = "sha256=" + HEX(HmacSHA256(timestamp + "." + rawBody, secret))` 를 상수 시간 비교 ③ `eventId` 로 중복 제거 ④ 200 응답. 실패는 hub 가 재시도한다. 페이로드에는 `qimUserId` 원본이 없고 개인정보는 마스킹돼 있다. 참조 구현: `idem-tenant-sample` `WebhookInboundController`(`POST /api/v1/webhook/inbound`).
 
-이벤트 유형: `HANDOFF_ISSUED` · `HANDOFF_REVOKED` · `USER_LOGOUT` · `MEMBER_WITHDRAWN`. (`MEMBER_LOOKUP_RESULT` 는 0.x 잔재로 1.0 에서 발생하지 않는다.)
+이벤트 유형: `HANDOFF_ISSUED` · `HANDOFF_REVOKED` · `USER_LOGOUT` · `MEMBER_WITHDRAWN` · **`ASSIGNMENT_CHANGED`**(1.1). (`MEMBER_LOOKUP_RESULT` 는 0.x 잔재로 1.0 에서 발생하지 않는다.)
+
+`ASSIGNMENT_CHANGED`(1.1) — 이 기관에 대한 사용자의 할당·역할이 바뀌었을 때. `change` 는 `ASSIGNED` · `UNASSIGNED` · `ASSIGNMENT_EXPIRED` · `ROLE_GRANTED` · `ROLE_REVOKED` · `ROLE_EXPIRED`, 역할 변경이면 `roleCode` 가 함께 온다. 기관은 `agencySubjectId` 로 자기 계정을 찾아 `UNASSIGNED`·`ASSIGNMENT_EXPIRED`·`ROLE_REVOKED` 면 그 사용자의 기관 세션을 끊거나 권한을 낮춘다(Idem 은 발급 시점에만 판정하므로 이미 만든 기관 세션은 기관이 끝내야 한다). 옵션 C 기관은 다음 userinfo 호출이 403 이 되므로 이 웹훅은 보완 수단이다.
+
+```json
+{"eventId":"…","eventType":"ASSIGNMENT_CHANGED","agencyCode":"AGENCY_001","agencySubjectId":"pw_9f3a…",
+ "change":"UNASSIGNED","occurredAt":"…","correlationId":"…","platformVersion":"1.0.1","sourceSystem":"idem-hub"}
+```
 
 ### 8.2 이벤트 피드 (기관 → Idem, 폴링)
 
