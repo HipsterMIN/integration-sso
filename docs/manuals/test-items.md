@@ -66,6 +66,8 @@
 | D-12 | CAST 기관 간 SSO | A 기관 토큰으로 B 진입 | 1회 소비, 재사용 거부 | UT |
 | D-13 | 프록시 경로 이탈(1.0.1) | `/resources/../admin/master/console/`, `/realms/idem/../master/…` | 400 `invalid_request`, Keycloak 미도달 | UT(`OidcFrontControllerTest`) |
 | D-14 | 공개 프런트 레이트리밋(1.0.1) | `/realms/idem/…` IP 당 초당 20 초과 | 429 `rate_limited` | UT(`OidcFrontRateLimitFilterTest`) |
+| D-16 | Handoff 브라우저 진입(1.1 코어 로그인 프런트) | 브라우저로 `GET {hub}/api/v1/handoff/login?service=X&callback=…&state=s` → 로그인 → 기관 콜백 | 콜백에 `ticketId`·`state` 복귀, `feSessionId` 쿠키 발급, 기관 verify APPROVED, 재검증 409; 화이트리스트 밖 콜백은 403 오류 화면(리다이렉트 없음); OIDC_RP 서비스는 400 `E-IDO-121`; 정책 거부는 콜백 `?error=E-IDO-120` | IT(`HandoffLoginIntegrationTest`, Mock 제공자) · UT(`HandoffLoginControllerTest`) · CI 스모크 ⑦b |
+| D-17 | 발급 API 기관 바인딩(1.1) | 기관 A 키로 본문 `agencyCode=B` 발급 | 403 `E-AGENCY-302` | UT(`HandoffControllerTest`) |
 | D-15 | SLO IdP 재시도(1.1) | Keycloak 이 세션 종료를 거부하는 상태에서 SLO | gate 502 `X-Idp-Logout-Outcome: FAILED`, hub `slo_idp_logout_retry` 적재 → 백오프 재시도 → DONE, 초과 시 FAILED + 감사 `SLO_IDP_LOGOUT_FAILED` | UT(`InternalSessionControllerTest`·`SloServiceImplIdpTest`·`SloIdpLogoutRetryRelayTest`) |
 
 ## E. 회원 원장·전파 (F8~F13)

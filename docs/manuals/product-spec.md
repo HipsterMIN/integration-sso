@@ -20,7 +20,7 @@
 | # | 기능 | 설명 | 위치 |
 |---|---|---|---|
 | F1 | 표준 OIDC 제공(OIDC_RP) | 기관이 표준 Relying Party 로 붙는다. issuer 는 공개 gate URL, Authorization Code + PKCE S256 필수, Keycloak 은 숨김 | gate 프런트 + hub 정책 판정 |
-| F2 | Handoff(1회용 암호화 티켓) | AES-256-GCM + HMAC 서명, 60초·1회 소비, 기관 서버가 `POST /api/v1/handoff/verify` 로 검증(기관 API 키) | hub |
+| F2 | Handoff(1회용 암호화 티켓) | AES-256-GCM + HMAC 서명, 60초·1회 소비, 기관 서버가 `POST /api/v1/handoff/verify` 로 검증(기관 API 키). 1.1: 브라우저 진입은 코어 로그인 프런트 `GET /api/v1/handoff/login?service=&callback=&state=` — 로그인·발급 뒤 `callback?ticketId=` 로 복귀, 기관 키는 브라우저에 없음 | hub |
 | F3 | 본인확인 브로커(SPI) | `IdentityVerificationProvider` 플러그인 — Mock(설치 검증), KR: NICE OACX·Any-ID | hub + plugins |
 | F4 | 인증 수준 L1/L2/L3 | 서비스 프로파일 `policy.minAuthLevel`, 재인증 규칙 | hub PolicyEngine |
 | F5 | 세션·단일 로그아웃 | 세션 정책(유휴·절대·동시), SLO(Keycloak 세션 종료), OIDC Back-Channel Logout 송·수신 | gate·hub |

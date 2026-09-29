@@ -226,7 +226,17 @@ Idem (gate 로그인 → hub 정책 판정 → 티켓 발급)
 ```
 
 - 티켓은 **60초·1회 소비**, AES-256-GCM 암호화 + HMAC 서명이다. verify 가 성공하면 즉시 소비되고 두 번째 verify 는 `409 E-IDO-102` 다.
-- 발급(`POST /api/v1/handoff/issue`)은 Idem 로그인 세션 쿠키(`Fe-Session-Id`)와 기관 API 키를 **함께** 요구한다. 즉 발급은 Idem 로그인 화면을 제공하는 쪽(운영기관의 로그인 프런트·KR 회원 포털)의 일이고, 연동기관은 **verify 만** 한다. 1.0.1 core 에서 이 브라우저 경로는 `idem-tenant-sample` 시뮬레이터와 단위·통합 테스트(시험 항목 D-10)로 검증돼 있고, 운영 도입 시 브라우저 진입은 옵션 C 가 CI 설치본 스모크로 매번 검증되는 경로다.
+- **브라우저 진입 (1.1 코어 로그인 프런트)**: 기관 화면의 "Idem 으로 로그인" 은 아래 URL 로 보낸다. Idem 이 로그인·발급을 모두 처리하고 브라우저를 기관 콜백으로 되돌린다. 기관은 **verify 만** 하면 된다(기관 API 키는 브라우저 어디에도 없다).
+
+  ```
+  GET {hub}/api/v1/handoff/login?service={기관코드}&callback={콜백 URL, callbackWhitelist 안}&state={CSRF 용 불투명 값}
+                                [&provider={인증 제공자 코드}][&level=L1|L2|L3]
+  → 성공: 302 {callback}?ticketId=…&state=…          → 기관 서버가 verify (§6.2)
+  → 정책 거부: 302 {callback}?error=E-IDO-120&error_description=…&state=…   (미할당·상태·점검 등 — §6.4 와 같은 코드)
+  → 기관·콜백 자체가 잘못됐으면 Idem 오류 화면(403/404/400) — 콜백으로 되돌리지 않는다
+  ```
+  `state` 는 기관이 세션·쿠키에 둔 값과 콜백에서 비교한다(참조 구현 `idem-tenant-sample` `/agency/login` → `/agency/callback`). 제공자를 지정하지 않으면 Idem 이 하나면 자동, 여럿이면 선택 화면을 보인다. 운영기관이 자기 로그인 화면을 쓰고 싶으면 같은 URL 계약을 자기 프런트에서 제공하면 된다.
+- 발급 API(`POST /api/v1/handoff/issue`)는 운영기관 프런트가 직접 쓰는 경로로 남아 있다 — Idem 로그인 세션 쿠키(`feSessionId`)와 기관 API 키를 **함께** 요구하고, `X-Agency-Code` 와 본문 `agencyCode` 는 같아야 한다(다르면 `403 E-AGENCY-302`). (1.1 정정: 1.0.1 까지 이 API 는 `Fe-Session-Id` 라는 어느 쪽도 발급하지 않는 쿠키 이름을 읽어 브라우저에서 항상 `E-IDO-107` 이었고, "시뮬레이터·D-10 으로 브라우저 경로가 검증돼 있다" 는 종전 서술은 부정확했다 — 시뮬레이터는 서버 간 발급, D-10 은 API 검증이다. 브라우저 경로는 1.1 부터 시험 항목 D-16 과 설치본 스모크 ⑦b 로 검증된다.)
 
 ### 6.2 verify 요청
 
@@ -495,6 +505,7 @@ Mock 본인확인 제공자로 코어 흐름을 돌리는 절차는 `docs/instal
 |---|---|---|---|
 | OIDC Discovery | `GET {gate}/realms/idem/.well-known/openid-configuration` | 없음 | 옵션 C |
 | OIDC authorize/token/userinfo/end_session | Discovery 참조 | client 인증 + PKCE | 옵션 C |
+| Handoff 브라우저 진입 (1.1) | `GET {hub}/api/v1/handoff/login?service=&callback=&state=` | 없음(브라우저) | 옵션 A·B — 로그인 → 발급 → `callback?ticketId=` |
 | Handoff 검증 | `POST {hub}/api/v1/handoff/verify` | `X-Agency-Code` + `X-Agency-Key` | 옵션 A·B, 1회 소비 |
 | CAST 검증 | `POST {hub}/api/v1/agency/cast/verify` | 기관 키 | 기관 간 SSO |
 | CAST 공개키 | `GET {hub}/api/v1/agency/cast/public-key` | 없음 | |
@@ -508,7 +519,7 @@ Mock 본인확인 제공자로 코어 흐름을 돌리는 절차는 `docs/instal
 |---|---|---|---|
 | OIDC 콜백 (`redirect_uri`) | 옵션 C | 브라우저 | state·nonce·PKCE·id_token |
 | Back-Channel Logout URI | 옵션 C, 선택 | idem-gate/Keycloak | `logout_token` 서명·`sid` |
-| Handoff 콜백 (`callbackWhitelist`) | DIRECT | 브라우저 | `ticketId` → verify |
+| Handoff 콜백 (`callbackWhitelist`) | DIRECT | 브라우저 | `state` 비교 → `ticketId` → verify; `error` 파라미터면 거부 화면 (1.1) |
 | `{bridge}/api/handoff/push` | BRIDGE | idem-hub | `X-Handoff-Signature`(HMAC) |
 | `{apacheGate}` | APACHE_GATE | idem-hub | 헤더 `X-Remote-User`·`X-Auth-Level`·`X-Handoff-Token`·`X-Session-Expiry` |
 | `{ssoDomain}/internal/sso-session` | INTERNAL_SSO | idem-hub | `X-Agency-Code`·`X-Source-System` |

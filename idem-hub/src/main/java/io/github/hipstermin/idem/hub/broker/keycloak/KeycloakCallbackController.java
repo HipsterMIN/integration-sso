@@ -47,7 +47,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class KeycloakCallbackController {
 
-    private static final String COOKIE_NAME = "feSessionId";
+    private static final String COOKIE_NAME = io.github.hipstermin.idem.hub.fe.session.FeSessionCookie.NAME;
 
     private final KeycloakOidcService   keycloakOidcService;
     private final BrokerAuditLogService brokerAuditLogService;

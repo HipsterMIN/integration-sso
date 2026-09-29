@@ -119,6 +119,7 @@ curl -s http://localhost:8083/api/v1/admin/auth/me "${ADM[@]}"                 #
      ```sql
      SELECT event_type, topic, status, retry_count FROM idem_hub.outbox ORDER BY created_at DESC LIMIT 5;
      ```
+   - (1.1) **브라우저 진입**도 같은 Mock 으로 확인할 수 있다: 관리 콘솔(또는 `PUT /api/v1/admin/services/{code}/profile`)로 `protocol.type=DIRECT` + `endpoints.callbackWhitelist` 를 둔 서비스를 만들고, 브라우저에서 `http://localhost:8083/api/v1/handoff/login?service={code}&callback={화이트리스트 URL}&state=x` 를 연다 → Mock 로그인 → `{callback}?ticketId=…&state=x` 로 돌아오면 기관 서버가 verify 한다. `scripts/ci/install-smoke.sh` 의 ⑦b 가 이 순서를 curl 로 돈다. 샘플 기관은 `AGENCY_STUB_URL`(기본 `http://localhost:8084`) 의 `/agency/login` 이 같은 일을 한다(콜백 `{AGENCY_STUB_URL}/agency/callback` 을 화이트리스트에).
 3. `IDEM_PLUGINS_MOCK_AUTH_ENABLED=false` 로 되돌리고 `IDEM_SPRING_PROFILE` 줄을 지운 뒤(=`prod`) hub 재기동.
 
 ### 5.1 표준 OIDC 로 기관 붙이기 (S6 — Keycloak 은 보이지 않는다)

@@ -227,6 +227,8 @@ services:
       # S6: OIDC_RP client 프로비저닝(서비스 계정) + 기관에 알려 줄 issuer
       KEYCLOAK_PROVISIONER_CLIENT_SECRET: ${KEYCLOAK_PROVISIONER_CLIENT_SECRET}
       IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
+      # 1.1: 코어 로그인 프런트가 브라우저를 되돌릴 자기 주소 (리버스 프록시 뒤에서는 바깥 주소)
+      IDEM_PUBLIC_URL_HUB: ${IDEM_PUBLIC_URL_HUB:-http://localhost:8083}
       IDEM_HUB_WEBHOOK_SIGNING_SECRET: ${IDEM_HUB_WEBHOOK_SIGNING_SECRET:?IDEM_HUB_WEBHOOK_SIGNING_SECRET 를 install.env 에 설정하세요}
       IDEM_HUB_HANDOFF_AES_KEY: ${IDEM_HUB_HANDOFF_AES_KEY:?IDEM_HUB_HANDOFF_AES_KEY 를 install.env 에 설정하세요}
       IDEM_HUB_HANDOFF_HMAC_KEY: ${IDEM_HUB_HANDOFF_HMAC_KEY:?IDEM_HUB_HANDOFF_HMAC_KEY 를 install.env 에 설정하세요}

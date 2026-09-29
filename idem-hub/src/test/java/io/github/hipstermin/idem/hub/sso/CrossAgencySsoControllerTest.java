@@ -87,7 +87,7 @@ class CrossAgencySsoControllerTest {
 
     private MockHttpServletRequest requestWithFeSessionCookie() {
         MockHttpServletRequest req = new MockHttpServletRequest();
-        req.setCookies(new Cookie("Fe-Session-Id", FE_SESSION_ID));
+        req.setCookies(new Cookie("feSessionId", FE_SESSION_ID));
         return req;
     }
 

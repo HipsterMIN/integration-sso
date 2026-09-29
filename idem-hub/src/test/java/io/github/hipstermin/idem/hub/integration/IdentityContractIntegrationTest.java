@@ -234,7 +234,7 @@ class IdentityContractIntegrationTest extends IntegrationTestBase {
     private String issue(String code, String qimUserId) throws Exception {
         FeSession session = feSessionService.create(qimUserId, UUID.randomUUID().toString(), "L1", null);
         HttpHeaders h = agencyHeaders(code);
-        h.add(HttpHeaders.COOKIE, "Fe-Session-Id=" + session.getFeSessionId());
+        h.add(HttpHeaders.COOKIE, "feSessionId=" + session.getFeSessionId());
         String body = """
                 {"agencyCode":"%s","authResultId":"%s","authLevel":"L1","providerCode":"MOCK","callbackUrl":"https://tenant.example.org/cb"}
                 """.formatted(code, UUID.randomUUID());

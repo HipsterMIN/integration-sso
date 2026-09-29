@@ -62,14 +62,18 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class OidcCompleteController {
 
-    private static final String COOKIE_NAME      = "feSessionId";
+    private static final String COOKIE_NAME      = io.github.hipstermin.idem.hub.fe.session.FeSessionCookie.NAME;
 
     private final FeSessionService     feSessionService;
+    private final io.github.hipstermin.idem.hub.fe.session.FeSessionBindCodeStore bindCodeStore;
     private final InternalSigVerifier  internalSigVerifier;
     private final QimClient            qimClient;
 
     @Value("${idem.hub.broker.mode:qsign}")
     private String brokerMode;
+
+    @Value("${idem.hub.public-url:http://localhost:8083}")
+    private String publicUrl;
 
     /**
      * D2 fail-secure: CI 가 없는 요청을 identifierHash 로 "임시 사용자" 처리하던 PoC 폴백은 기본 금지.
@@ -168,8 +172,11 @@ public class OidcCompleteController {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         // ── 최종 redirectUrl 결정 ─────────────────────────────────────────
-        String redirectUrl = (returnUrl != null && !returnUrl.isBlank())
-                ? returnUrl : "/conversion/complete";
+        // 1.1: 이 응답은 gate 로 가고 gate 는 위 쿠키를 브라우저에 전달하지 않는다. 브라우저가 hub 에서 직접 쿠키를 받도록
+        //      1회용 바인드 코드 URL 로 보낸다(FeSessionBindCodeStore, 60초). 종전에는 qsign 모드에서 쿠키가 브라우저에 닿지 않았다.
+        String finalTarget = (returnUrl != null && !returnUrl.isBlank()) ? returnUrl : "/conversion/complete";
+        String redirectUrl = publicUrl + "/api/v1/fe-session/bind?code="
+                + bindCodeStore.issue(session.getFeSessionId(), finalTarget);
 
         log.info("[OidcComplete] FE 세션 발급 완료: feSessionId={}... qimUserId={}... redirectUrl={} correlationId={}",
                 session.getFeSessionId().substring(0, Math.min(8, session.getFeSessionId().length())),
