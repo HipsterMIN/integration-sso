@@ -123,6 +123,25 @@ public class AuthzInternalController {
         return ResponseEntity.noContent().build();
     }
 
+    /** 1.1 SCIM 아웃바운드: 사용자의 유효 할당 목록 — registry 상태 변경(정지·탈퇴)을 어느 Service 에 전파할지. */
+    @GetMapping("/users/{qimUserId}/assignments")
+    public ResponseEntity<List<AssignmentResponse>> userAssignments(@PathVariable String qimUserId) {
+        return ResponseEntity.ok(authzService.effectiveAssignmentsOf(qimUserId).stream().map(AssignmentResponse::from).toList());
+    }
+
+    /** 1.1 SCIM 아웃바운드: Service 의 ACTIVE 할당 페이지 — 전체 동기화. 응답 헤더 {@code X-Total-Count}·{@code X-Has-Next}. */
+    @GetMapping("/agencies/{agencyCode}/assignments")
+    public ResponseEntity<List<AssignmentResponse>> agencyAssignments(
+            @PathVariable String agencyCode,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "200") int size) {
+        var p = authzService.assignmentsOfAgency(agencyCode, page, size);
+        return ResponseEntity.ok()
+                .header("X-Total-Count", String.valueOf(p.getTotalElements()))
+                .header("X-Has-Next", String.valueOf(p.hasNext()))
+                .body(p.getContent().stream().map(AssignmentResponse::from).toList());
+    }
+
     /** hub 발급 경로가 한 번에 읽는 접근 정보: 할당 여부 + 유효 역할. */
     @GetMapping("/users/{qimUserId}/access")
     public ResponseEntity<ServiceAccessResponse> access(

@@ -226,6 +226,41 @@ public class QAuthzClient {
                     .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
                     .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+    /** 1.1 SCIM: 사용자의 유효 할당 Service 코드 목록 — {@code GET /users/{id}/assignments}. authz 비활성이면 빈 목록, 장애는 예외. */
+    @SuppressWarnings("unchecked")
+    public List<String> listUserAssignedAgencies(String qimUserId, String correlationId) {
+        if (!enabled || qimUserId == null || qimUserId.isBlank()) return List.of();
+        String url = qAuthzBaseUrl + "/api/v1/internal/authz/users/" + qimUserId + "/assignments";
+        ResponseEntity<List> res = qAuthzRestTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(buildHeaders(correlationId)), List.class);
+        if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
+            throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId, "authz 비정상 응답: " + res.getStatusCode());
+        }
+        List<String> out = new java.util.ArrayList<>();
+        for (Object o : res.getBody()) {
+            if (o instanceof Map<?, ?> m && m.get("agencyCode") instanceof String a) out.add(a);
+        }
+        return out;
+    }
+
+    /** 1.1 SCIM 전체 동기화: Service 의 ACTIVE 할당 사용자 id 페이지 — {@code GET /agencies/{code}/assignments?page&size}. */
+    @SuppressWarnings("unchecked")
+    public AssignmentPage listAgencyAssignments(String agencyCode, int page, int size, String correlationId) {
+        if (!enabled) return new AssignmentPage(List.of(), false);
+        String url = qAuthzBaseUrl + "/api/v1/internal/authz/agencies/" + agencyCode + "/assignments?page=" + page + "&size=" + size;
+        ResponseEntity<List> res = qAuthzRestTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(buildHeaders(correlationId)), List.class);
+        if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
+            throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId, "authz 비정상 응답: " + res.getStatusCode());
+        }
+        List<String> users = new java.util.ArrayList<>();
+        for (Object o : res.getBody()) {
+            if (o instanceof Map<?, ?> m && m.get("qimUserId") instanceof String u) users.add(u);
+        }
+        boolean hasNext = "true".equalsIgnoreCase(res.getHeaders().getFirst("X-Has-Next"));
+        return new AssignmentPage(users, hasNext);
+    }
+
+    public record AssignmentPage(List<String> qimUserIds, boolean hasNext) {}
+
     private HttpHeaders buildHeaders(String correlationId) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Correlation-Id", correlationId != null ? correlationId : "");

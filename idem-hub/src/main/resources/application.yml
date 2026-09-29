@@ -505,6 +505,18 @@ idem.hub:
       replay-interval-ms: ${IDEM_HUB_AUDIT_WAL_REPLAY_INTERVAL_MS:60000}
       replay-initial-delay-ms: 20000
 
+  # ── 1.1 SCIM 2.0 아웃바운드 (Idem → 기관 프로비저닝, 서비스 프로파일 protocol.scim 으로 opt-in) ─────
+  scim:
+    relay-enabled: ${IDEM_HUB_SCIM_RELAY_ENABLED:true}
+    relay-interval-ms: ${IDEM_HUB_SCIM_RELAY_INTERVAL_MS:2000}
+    relay-batch-size: 20
+    max-retry: ${IDEM_HUB_SCIM_MAX_RETRY:5}
+    backoff-base-seconds: 10           # 10s·20s·40s·80s·160s
+    connect-timeout-ms: 3000
+    read-timeout-ms: 8000
+    # 프로파일 baseUrl 에 루프백·사설망 호스트를 허용할지 (SSRF 규칙). 사설망 기관을 붙이는 폐쇄망 설치본만 true
+    allow-private-hosts: ${IDEM_HUB_SCIM_ALLOW_PRIVATE_HOSTS:false}
+
   # ── Rate Limiting (Redis 기반 기관별 TPS/Daily 제한) ──────────────────────
   rate-limit:
     enabled:              ${IDEM_HUB_RATE_LIMIT_ENABLED:true}

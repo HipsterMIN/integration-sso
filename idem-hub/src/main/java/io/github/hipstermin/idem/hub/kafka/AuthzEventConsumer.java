@@ -33,6 +33,7 @@ public class AuthzEventConsumer {
     private final PolicyEngine           policyEngine;
     private final WebhookDispatcherService webhookDispatcherService;
     private final AuditLogPublisher      auditLogPublisher;
+    private final io.github.hipstermin.idem.hub.scim.ScimOutboxService scimOutboxService;
 
     /** @return 처리 결과 코드 (OK / SKIPPED / DUP) — 테스트·로그용 */
     public String handle(AuthorizationEvent event) {
@@ -65,6 +66,9 @@ public class AuthzEventConsumer {
 
         int enqueued = webhookDispatcherService.enqueueForAssignmentChanged(
                 agency, agencySubjectId, change, event.getRoleCode(), event.getOccurredAt(), eventId, cid);
+        // 1.1 SCIM 아웃바운드 — 프로파일에 켜진 기관만, 기관 인바운드 SCIM(actor=SCIM)이 만든 변경은 되돌이 방지
+        int scim = scimOutboxService.onAssignmentChanged(profile.get(), agencySubjectId, change, event.getRoleCode(),
+                event.getActor(), eventId, type, cid);
 
         auditLogPublisher.publish(AuditLogPublisher.AuditEntry.builder()
                 .eventCategory("AUTHZ")
@@ -80,6 +84,7 @@ public class AuthzEventConsumer {
                         "roleCode", event.getRoleCode() != null ? event.getRoleCode() : "",
                         "accessLoss", event.isAccessLoss(),
                         "webhookTargets", enqueued,
+                        "scimOps", scim,
                         "sourceEventId", eventId))
                 .build());
 

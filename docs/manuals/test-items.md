@@ -90,6 +90,8 @@
 | F-3 | 역할 클레임 | 할당된 역할 | `idem_roles` 클레임 | UT |
 | F-4 | authz 장애 | authz 정지 | 거부 `E-IDO-117`(fail-secure) | UT |
 | F-5 | 규칙 할당 실체화(1.1) | `POST /assignment-rules{ATTRIBUTE authLevel in [L2,L3]}` 뒤 미할당 사용자가 L2 로 로그인 | 발급 통과, authz `access.assignmentSource=RULE`, `AUTHZ_ASSIGNED` 피드 → 기관 웹훅 `ASSIGNMENT_CHANGED{ASSIGNED}`, 감사 `ASSIGN`; L1 로그인은 여전히 `E-IDO-120` | UT(`AssignmentRuleServiceTest`·`AssignmentRuleControllerTest`·`QAuthzClientTest`) + 로컬 실기동 확인(2026-09-28) |
+| F-7 | SCIM 아웃바운드(1.1) | 프로파일 `protocol.scim` 켜고 토큰 주입 → 역할 부여 | 기관 SCIM 서버에 `GET /Users?filter` → `POST /Users`(externalId=agencySubjectId) → `POST /Groups` → `PATCH members add`, 아웃박스 DISPATCHED, 감사 `SCIM_DISPATCHED`; 기관 5xx 는 백오프 재시도(PENDING·next_retry_at), 같은 이벤트 재적재는 멱등; 프로파일에 토큰을 넣으려 하면 400 | IT(`ScimOutboundIntegrationTest`) · UT(`ScimClientTest`·`ScimOutboxServiceTest`·`ScimOutboxRelayTest`·`ScimUserLifecycleHandlerTest`) |
+| F-8 | SCIM 되돌이 방지·정책(1.1) | 기관이 authz 인바운드 SCIM 으로 부여한 역할; `onUnassign=NONE` | 아웃바운드 적재 없음; 해제 시 사용자 변경 없음 | UT(`ScimOutboxServiceTest`) |
 | F-6 | 규칙 비활성화 회수(1.1) | `DELETE /assignment-rules/{id}` | 응답 `{revoked:n}`, 그 규칙의 ACTIVE 할당 모두 REVOKED + `UNASSIGNED` 전파, 감사 `RULE_DISABLED`·`UNASSIGN`; 직접 할당(CONSOLE 등)은 영향 없음 | UT + 로컬 실기동 확인 |
 
 ## G. 감사·운영 (F19~F22)

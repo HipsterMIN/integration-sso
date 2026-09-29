@@ -63,6 +63,7 @@ public class ServiceProfileValidator {
     static List<String> semanticViolations(JsonNode profile) {
         List<String> out = new ArrayList<>();
         out.addAll(oidcViolations(profile.get("protocol")));
+        out.addAll(scimViolations(profile.get("protocol")));
         JsonNode identity = profile.get("identity");
         if (identity == null || identity.isNull()) return out;
 
@@ -110,6 +111,41 @@ public class ServiceProfileValidator {
      *   <li>{@code oidc} 블록은 OIDC_RP 유형에서만 뜻이 있다 — 다른 유형에 있으면 설정 실수로 보고 거부</li>
      * </ul>
      */
+    /**
+     * 1.1 SCIM 아웃바운드: 켜져 있으면 baseUrl 은 http(s) 의 절대 URL 이어야 하고, 사설·루프백·이름만인 호스트는 거부한다
+     * (백채널 로그아웃 URI 와 같은 SSRF 규칙 — 설치본이 사설망 기관을 허용하려면 {@code idem.hub.scim.allow-private-hosts=true}).
+     */
+    static List<String> scimViolations(JsonNode protocol) {
+        List<String> out = new ArrayList<>();
+        JsonNode scim = protocol != null ? protocol.get("scim") : null;
+        if (scim == null || scim.isNull() || !scim.path("enabled").asBoolean(false)) return out;
+        String base = scim.path("baseUrl").asText(null);
+        if (base == null || base.isBlank()) return out;   // 스키마(then.required)가 잡는다
+        java.net.URI uri;
+        try {
+            uri = java.net.URI.create(base.trim());
+        } catch (IllegalArgumentException e) {
+            out.add("protocol.scim.baseUrl: URL 형식이 아닙니다");
+            return out;
+        }
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
+        if (!scheme.equals("https") && !scheme.equals("http")) {
+            out.add("protocol.scim.baseUrl: http(s) URL 이어야 합니다");
+        }
+        if (uri.getHost() == null) {
+            out.add("protocol.scim.baseUrl: 호스트가 없습니다");
+        } else if (!ALLOW_PRIVATE_SCIM_HOSTS && isInternalHost(uri.getHost())) {
+            out.add("protocol.scim.baseUrl: 루프백·사설망·내부 이름 호스트는 허용하지 않습니다 (idem.hub.scim.allow-private-hosts)");
+        }
+        return out;
+    }
+
+    /** 설치본 설정 — 정적 검증 메서드가 읽는다(Spring 주입 뒤 세팅). 기본 false. */
+    static volatile boolean ALLOW_PRIVATE_SCIM_HOSTS = false;
+
+    @org.springframework.beans.factory.annotation.Value("${idem.hub.scim.allow-private-hosts:false}")
+    void setAllowPrivateScimHosts(boolean allow) { ALLOW_PRIVATE_SCIM_HOSTS = allow; }
+
     static List<String> oidcViolations(JsonNode protocol) {
         List<String> out = new ArrayList<>();
         if (protocol == null || protocol.isNull()) return out;

@@ -436,6 +436,27 @@ POST {hub}/api/v1/agency/events/{dispatchId}/read      — 처리 완료 표시
 
 ---
 
+### 8.4 SCIM 2.0 아웃바운드 — Idem 이 기관 디렉터리를 채운다 (1.1, 선택)
+
+옵션 A·C 어느 쪽이든, 기관이 SCIM 2.0 서버를 두면 Idem 이 **할당·역할·사용자 상태 변경을 기관 쪽 사용자·그룹으로 밀어낸다**. 웹훅(8.1)이 "무엇이 바뀌었다" 를 알리는 것이라면 SCIM 은 기관 디렉터리 자체를 맞춰 준다. 운영기관이 프로파일 `protocol.scim` 에 켜고(`baseUrl`, 토큰 참조), 기관은 아래 부분집합만 구현하면 된다.
+
+| Idem 이 부르는 것 | 언제 |
+|---|---|
+| `GET {baseUrl}/Users?filter=externalId eq "{agencySubjectId}"` | 모든 사용자 작업 전 조회 (`Resources[0].id` 를 쓴다) |
+| `POST {baseUrl}/Users` `{schemas, externalId, userName, active}` | 할당·역할 부여 시 사용자가 없을 때. `externalId`=`userName`=agencySubjectId (§7 의 식별자, qimUserId 아님) |
+| `PATCH {baseUrl}/Users/{id}` `{Operations:[{op:"replace",path:"active",value:true|false}]}` | 할당 해제·만료·정지(`active=false`), 재할당(`true`) |
+| `DELETE {baseUrl}/Users/{id}` | 프로파일 `onUnassign`/`onWithdraw`=DELETE 일 때(탈퇴 기본) |
+| `GET {baseUrl}/Groups?filter=displayName eq "{roleCode}"` · `POST {baseUrl}/Groups` `{displayName}` | 역할 그룹 조회·생성 |
+| `PATCH {baseUrl}/Groups/{id}` members `add` `[{value:userId}]` / `remove` `members[value eq "userId"]` | 역할 부여·회수 |
+
+- 인증은 `Authorization: Bearer {토큰}` (운영기관과 교환한 토큰). `Content-Type: application/scim+json`, `X-Correlation-Id` 동반.
+- 응답: 2xx 면 성공. 429·5xx·연결 실패는 Idem 이 백오프로 재시도(5회), 400·401·403·501 은 재시도하지 않고 실패로 남긴다(운영기관 감사 `SCIM_DISPATCH_FAILED`). `filter` 를 지원하지 않으면 동기화가 되지 않는다.
+- 기관이 authz 인바운드 SCIM(`/scim/v2/Groups`)으로 Idem 에 넣은 변경은 되돌려 보내지 않는다(loop 방지).
+- 기존 사용자 도입은 운영기관의 전체 동기화(`POST /api/v1/admin/services/{code}/scim/sync`)로 — ACTIVE 할당 전부를 위 절차로 채운다.
+- 참조 구현: `idem-tenant-sample` `/scim/v2`(메모리). 실제 기관은 같은 계약을 자기 디렉터리에 맞춰 구현한다.
+
+---
+
 ## 9. Java SDK 의 역할
 
 `idem-sdk-java`(Maven `io.github.hipstermin.idem:idem-sdk-java:1.0.1`, Java 8+, 런타임 의존성 0)는 **게이트웨이 API 클라이언트**다. Handoff verify 는 들어 있지 않다(§6.5 처럼 직접 호출).
@@ -520,6 +541,7 @@ Mock 본인확인 제공자로 코어 흐름을 돌리는 절차는 `docs/instal
 | OIDC 콜백 (`redirect_uri`) | 옵션 C | 브라우저 | state·nonce·PKCE·id_token |
 | Back-Channel Logout URI | 옵션 C, 선택 | idem-gate/Keycloak | `logout_token` 서명·`sid` |
 | Handoff 콜백 (`callbackWhitelist`) | DIRECT | 브라우저 | `state` 비교 → `ticketId` → verify; `error` 파라미터면 거부 화면 (1.1) |
+| SCIM 2.0 서버 `{baseUrl}/Users`·`/Groups` | 선택 (1.1, `protocol.scim`) | idem-hub | Bearer 토큰, §8.4 부분집합 |
 | `{bridge}/api/handoff/push` | BRIDGE | idem-hub | `X-Handoff-Signature`(HMAC) |
 | `{apacheGate}` | APACHE_GATE | idem-hub | 헤더 `X-Remote-User`·`X-Auth-Level`·`X-Handoff-Token`·`X-Session-Expiry` |
 | `{ssoDomain}/internal/sso-session` | INTERNAL_SSO | idem-hub | `X-Agency-Code`·`X-Source-System` |

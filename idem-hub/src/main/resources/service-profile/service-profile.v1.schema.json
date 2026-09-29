@@ -166,6 +166,65 @@
               "description": "token endpoint 인증 방식 — 기본 CLIENT_SECRET_BASIC"
             }
           }
+        },
+        "scim": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "1.1 SCIM 2.0 아웃바운드(Idem → 기관 프로비저닝) — 서비스별 opt-in. 토큰은 credentialRef 로 가리키고 프로파일에 두지 않는다",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "켜면 할당·역할·사용자 상태 변경을 기관 SCIM 서버에 밀어낸다"
+            },
+            "baseUrl": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 500,
+              "description": "기관 SCIM 베이스 URL(/Users·/Groups 를 붙인다)"
+            },
+            "credentialRef": {
+              "type": "string",
+              "maxLength": 200,
+              "pattern": "^secrets/agency/[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$",
+              "description": "Bearer 토큰 참조 — secrets/agency/{code}/scim-token → 환경변수 SECRETS_AGENCY_{CODE}_SCIM_TOKEN"
+            },
+            "groups": {
+              "type": "boolean",
+              "description": "역할을 SCIM Group(displayName=roleCode) 멤버십으로도 동기화 (기본 true)"
+            },
+            "onUnassign": {
+              "type": "string",
+              "enum": [
+                "DEACTIVATE",
+                "DELETE",
+                "NONE"
+              ],
+              "description": "할당 해제·만료 시 사용자 처리 (기본 DEACTIVATE)"
+            },
+            "onWithdraw": {
+              "type": "string",
+              "enum": [
+                "DELETE",
+                "DEACTIVATE",
+                "NONE"
+              ],
+              "description": "registry 탈퇴 시 (기본 DELETE)"
+            }
+          },
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "enabled",
+              "baseUrl",
+              "credentialRef"
+            ]
+          }
         }
       },
       "if": {

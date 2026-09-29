@@ -77,4 +77,4 @@
 ## 10. 검증한 것 / 못 한 것
 
 - ✅ §1~§8 의 흐름은 관리 콘솔 실기동 끝-끝(S7 PR-2: 첫 로그인 2단계 등록 → 강제 변경 → 온보딩 저장 → client 프로비저닝 → secret 회전 → 시뮬레이션 → 감사 → 관리자 추가 → 테넌트 → 로그아웃 → 재로그인)과 CI 설치본 스모크로 확인했다.
-- ⚠️ 콘솔에는 아직 없는 화면: 할당 관리(authz `assignments`)와 규칙 할당(1.1, authz `assignment-rules` — 지금은 내부 API 를 `X-Internal-Api-Key` 로 직접 호출: `POST /api/v1/internal/authz/assignment-rules {agencyCode, ruleType: GROUP|ATTRIBUTE, matchKey, matchValues[], expiresDays}`, `DELETE …/{id}`), 기관 목록 페이징(500건 한 번에), TOTP QR 이미지(텍스트 URI 만). `post-1.0-plan.md` §2.3.
+- ⚠️ 콘솔에는 아직 없는 화면: 할당 관리(authz `assignments`)와 규칙 할당(1.1, authz `assignment-rules` — 지금은 내부 API 를 `X-Internal-Api-Key` 로 직접 호출: `POST /api/v1/internal/authz/assignment-rules {agencyCode, ruleType: GROUP|ATTRIBUTE, matchKey, matchValues[], expiresDays}`, `DELETE …/{id}`), SCIM 아웃바운드(1.1, 프로파일 `protocol.scim` 블록은 "JSON (전체 스키마)" 탭으로 편집; 상태·전체 동기화는 `GET/POST /api/v1/admin/services/{code}/scim/{status|sync}`), 기관 목록 페이징(500건 한 번에), TOTP QR 이미지(텍스트 URI 만). `post-1.0-plan.md` §2.3.

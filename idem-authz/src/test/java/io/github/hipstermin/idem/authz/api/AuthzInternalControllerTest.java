@@ -67,6 +67,22 @@ class AuthzInternalControllerTest {
     }
 
     @Test
+    void scimListEndpoints() throws Exception {
+        io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity a = io.github.hipstermin.idem.authz.domain.AuthzAssignmentEntity.builder()
+                .id(UUID.randomUUID()).qimUserId("user-1").agencyCode("AG1").status(AssignmentStatus.ACTIVE)
+                .source(io.github.hipstermin.idem.authz.domain.AssignmentSource.CONSOLE).grantedAt(Instant.now()).grantedBy("ops").build();
+        when(authzService.effectiveAssignmentsOf("user-1")).thenReturn(List.of(a));
+        mockMvc.perform(get("/api/v1/internal/authz/users/user-1/assignments"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].agencyCode").value("AG1"));
+        when(authzService.assignmentsOfAgency("AG1", 0, 200))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(a), org.springframework.data.domain.PageRequest.of(0, 200), 1));
+        mockMvc.perform(get("/api/v1/internal/authz/agencies/AG1/assignments"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].qimUserId").value("user-1"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Has-Next", "false"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Total-Count", "1"));
+    }
+
+    @Test
     void assign_ruleSourceOrRuleId_rejected400() throws Exception {
         mockMvc.perform(post("/api/v1/internal/authz/assignments").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"qimUserId\":\"u1\",\"agencyCode\":\"AG1\",\"grantedBy\":\"ops\",\"source\":\"RULE\"}"))

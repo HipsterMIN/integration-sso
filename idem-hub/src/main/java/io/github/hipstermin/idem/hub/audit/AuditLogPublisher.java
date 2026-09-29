@@ -183,6 +183,12 @@ public class AuditLogPublisher {
                     java.sql.Timestamp.from(line.occurredAt() != null ? line.occurredAt() : java.time.Instant.now())
             );
             return true;
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 제약 위반(허용되지 않은 분류 등)은 재시도해도 같다 — 버리고 유실로 센다(무한 재생 방지)
+            meterRegistry.counter(METRIC_LOST).increment();
+            log.error("[AuditLogPublisher] WAL 재삽입 제약 위반 — 항목 폐기(유실): auditId={} action={} category={} err={}",
+                    line.auditId(), entry.eventAction(), entry.eventCategory(), e.getMostSpecificCause().getMessage());
+            return true;
         } catch (Exception e) {
             log.debug("[AuditLogPublisher] WAL 재삽입 실패(DB 아직 불가?): auditId={} err={}", line.auditId(), e.getMessage());
             return false;

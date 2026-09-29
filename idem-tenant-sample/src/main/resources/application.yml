@@ -101,6 +101,9 @@ idem.sample:
     client-secret: ${AGENCY_OIDC_CLIENT_SECRET:}
     redirect-uri: ${AGENCY_OIDC_REDIRECT_URI:http://localhost:8084/agency/oidc/callback}
     post-logout-redirect-uri: ${AGENCY_OIDC_POST_LOGOUT_URI:http://localhost:8084/}
+  # 1.1: SCIM 2.0 서버 참조 구현(/scim/v2, 메모리) — Idem SCIM 아웃바운드가 부른다. 토큰은 Idem 쪽 SECRETS_AGENCY_{CODE}_SCIM_TOKEN 과 같아야 한다
+  scim:
+    token: ${AGENCY_SCIM_TOKEN:stub-scim-token-dev}
   # 1.1: 브라우저 Handoff 진입(/agency/login → hub 코어 로그인 프런트 → /agency/callback) 에서 hub 가 되돌아올 이 기관의 바깥 주소
   public-url: ${AGENCY_STUB_URL:http://localhost:8084}
   # §11 IdO Verify API 연동
