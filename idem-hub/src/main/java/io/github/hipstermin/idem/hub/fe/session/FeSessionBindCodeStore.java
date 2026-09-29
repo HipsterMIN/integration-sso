@@ -1,6 +1,6 @@
 package io.github.hipstermin.idem.hub.fe.session;
 
-import java.security.SecureRandom;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
@@ -24,17 +24,14 @@ public class FeSessionBindCodeStore {
 
     static final String KEY_PREFIX = "idem:fe:bind:";
     static final Duration TTL = Duration.ofSeconds(60);
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final StringRedisTemplate redis;
 
     public record Bound(String feSessionId, String returnUrl) {}
 
-    /** 코드 발급 — 192bit 무작위, URL-safe. */
+    /** 코드 발급 — 192bit 무작위(CryptoProvider), URL-safe. */
     public String issue(String feSessionId, String returnUrl) {
-        byte[] b = new byte[24];
-        RANDOM.nextBytes(b);
-        String code = Base64.getUrlEncoder().withoutPadding().encodeToString(b);
+        String code = Base64.getUrlEncoder().withoutPadding().encodeToString(CryptoProviders.current().randomBytes(24));
         redis.opsForValue().set(KEY_PREFIX + code, feSessionId + "|" + (returnUrl == null ? "" : returnUrl), TTL);
         return code;
     }
