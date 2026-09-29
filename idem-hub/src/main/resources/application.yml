@@ -490,6 +490,12 @@ idem.hub:
     # F-04: DB 감사 저장 On/Off (IDEM_HUB_AUDIT_DB_ENABLED) — ⚠️ 운영에서 false 금지
     db-save-enabled: ${IDEM_HUB_AUDIT_DB_ENABLED:true}
     retry-interval-ms: 600000   # 10분마다 Kafka 미발행 감사 로그 재처리
+    # 1.1: DB 저장 실패 시 로컬 WAL 폴백 — 파일에 남겼다가 DB 가 돌아오면 재삽입(AuditWal·AuditWalReplayer). 운영에서 false 금지(FailSecureBootGuard)
+    wal:
+      enabled: ${IDEM_HUB_AUDIT_WAL_ENABLED:true}
+      dir: ${IDEM_HUB_AUDIT_WAL_DIR:./data/audit-wal}   # 컨테이너에서는 볼륨에 둔다 — 파드 삭제와 함께 사라지지 않게
+      replay-interval-ms: ${IDEM_HUB_AUDIT_WAL_REPLAY_INTERVAL_MS:60000}
+      replay-initial-delay-ms: 20000
 
   # ── Rate Limiting (Redis 기반 기관별 TPS/Daily 제한) ──────────────────────
   rate-limit:

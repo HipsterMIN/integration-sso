@@ -196,7 +196,7 @@ openssl rand -hex 32      # IDEM_REGISTRY_DI_SECRET / IDEM_REGISTRY_INTERNAL_API
 | `idem.hub.kms.local.allow-in-prod`, `idem.hub.kms.vault.allow-empty-token` | KMS 우회 |
 | `IDEM_PLUGINS_MOCK_AUTH_ENABLED` | 무검증 Mock 본인확인 — 플러그인 자체가 `!prod & !stage` 프로파일에서만 로드된다 |
 
-prod/stage 에서 **반드시 true** 여야 하는 것: `IDEM_HUB_AUDIT_DB_ENABLED`, `IDEM_HUB_SECURITY_HEADERS_ENABLED`, `IDEM_HUB_AUTH_RL_ENABLED`, `IDEM_HUB_RATE_LIMIT_ENABLED`, `IDEM_HUB_REDISSON_ENABLED`.
+prod/stage 에서 **반드시 true** 여야 하는 것: `IDEM_HUB_AUDIT_DB_ENABLED`, `IDEM_HUB_AUDIT_WAL_ENABLED`(1.1), `IDEM_HUB_SECURITY_HEADERS_ENABLED`, `IDEM_HUB_AUTH_RL_ENABLED`, `IDEM_HUB_RATE_LIMIT_ENABLED`, `IDEM_HUB_REDISSON_ENABLED`, `IDEM_HUB_AUTHZ_ENABLED`(1.1).
 
 **런타임 거부 코드** (`E-IDO-116` 의존 장애 · `E-IDO-117` authz 장애 · `E-IDO-118` 주체 미확인 · `E-IDO-119` 세션 저장소 장애 · `E-IDO-120` 서비스 미할당 — 403, 프로파일 `policy.assignment.required` 인 서비스에 할당되지 않은 사용자. 관리자 할당(authz `POST /api/v1/internal/authz/assignments`) 또는 프로파일 `selfSignup` 으로 대응 · `E-IDO-121` 연동 유형 불일치 — 400, OIDC_RP 기관에 Handoff 발급 요청 · `E-IDO-122` OIDC client 프로비저닝 실패 — 503, Keycloak 관리 API 장애 또는 `KEYCLOAK_PROVISIONER_CLIENT_SECRET` 미설정, 프로파일 저장이 되돌려진다 · `E-IDO-123` Idem 이 프로비저닝하지 않은 OIDC client — 403, 토큰 교환의 `client_id` 가 `idem-svc-*` 가 아니거나 프로파일이 OIDC_RP 가 아님 · **관리자 인증(S7, `docs/admin-auth.md`)**: `E-IDO-130` 401 관리자 세션 없음/만료 · `E-IDO-131` 403 권한 없음·`X-Requested-With` 없는 쓰기·테넌트 범위 밖 · `E-IDO-132` 401 로그인 실패 · `E-IDO-133` 423 계정 잠김(5회→15분, `POST /api/v1/admin/admins/{id}/unlock`)·비활성 · `E-IDO-134` 401 2단계 실패·대기 토큰 만료 · `E-IDO-135` 400 비밀번호 정책 위반 · `E-IDO-136` 409 마지막 SYSTEM_ADMIN 강등 불가 · `E-IDO-137` 403 첫 로그인 비밀번호 변경 필요 · `E-IDO-138` 404 관리자 없음 · `E-IDO-139` 409 사용자명 중복): 감사 로그(`idem_hub.audit_log`) 의 `RATE_LIMIT_BACKEND_UNAVAILABLE` 등 액션과 함께 §16 플레이북으로 대응한다. 인증 API 가 503 을 내면 먼저 Redis 를 본다.
 
@@ -434,6 +434,7 @@ IdO는 단계적 롤아웃을 위해 다수의 Feature Flag를 가진다. 모두
 | `IDEM_HUB_AGENCY_KEY_AUDIT_LOG` | true | F-27 API Key 감사 |
 | `IDEM_HUB_AUDIT_KAFKA_ENABLED` | true | 감사 Kafka 발행 (Kafka 없는 환경 false 권장) |
 | `IDEM_HUB_AUDIT_DB_ENABLED` | true | **운영에서 false 금지** |
+| `IDEM_HUB_AUDIT_WAL_ENABLED` / `_DIR` / `_REPLAY_INTERVAL_MS` | true / `./data/audit-wal` / 60000 | 1.1: DB 저장 실패 감사 항목의 로컬 WAL 폴백·재생. **운영에서 false 금지**. 디렉터리는 볼륨에(compose `hub-audit-wal`, Helm `hub.auditWal`) |
 | `IDEM_HUB_KMS_ENABLED` | false | KMS 활성화 |
 | `IDEM_HUB_KMS_PROVIDER` | vault | vault / nhn / noop |
 

@@ -112,7 +112,8 @@ public class CastTokenServiceImpl implements CastTokenService {
 
         // S8-b 연합 인가: 대상 Service 의 할당·유효 역할(authz 정본, 장애 = 거부). 플랫폼은 굵은 RBAC 역할만 배송한다.
         // CAST 는 기관 간 SSO 라 GUEST 가 없다 — 대상 프로파일이 할당 필수면 미할당은 E-IDO-120.
-        ServiceAccess access = qAuthzClient.getServiceAccess(qimUserId, targetAgencyCode, correlationId);
+        ServiceAccess access = qAuthzClient.getServiceAccess(qimUserId, targetAgencyCode,
+                io.github.hipstermin.idem.hub.policy.rule.AssignmentContext.of(authLevel, null), correlationId);   // 1.1: 규칙 할당(authLevel 만)
         boolean assignmentRequired = serviceProfileService.find(targetAgencyCode)
                 .map(io.github.hipstermin.idem.hub.policy.rule.AssignmentPolicyResolver::resolve)
                 .map(io.github.hipstermin.idem.hub.policy.rule.AssignmentPolicyResolver.Effective::required)

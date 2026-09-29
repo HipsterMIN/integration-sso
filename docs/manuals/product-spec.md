@@ -42,7 +42,7 @@
 
 | # | 기능 | 설명 |
 |---|---|---|
-| F14 | 역할 원장·할당 | 사용자·그룹 ↔ 서비스 할당, 앱 역할, 만료·회수 |
+| F14 | 역할 원장·할당 | 사용자·그룹 ↔ 서비스 할당, 앱 역할, 만료·회수. 1.1: 규칙 할당 — `GROUP`(다른 서비스 역할 보유)·`ATTRIBUTE`(인증수준·제공자) 조건이 로그인 시점에 할당을 실체화(`source=RULE`), 규칙 비활성화 시 즉시 회수 |
 | F15 | 정책 판정 | 프로파일 `policy.assignment`(required/selfSignup) — 미할당 거부(E-IDO-120) 또는 GUEST |
 | F16 | 클레임 전달 | 역할을 OIDC 클레임(`idem_*`)·Handoff 어설션으로. 1.1: 할당·역할 변경은 기관 웹훅 `ASSIGNMENT_CHANGED` 로 전파(authz 아웃박스 피드 → hub 폴러) |
 
@@ -52,7 +52,7 @@
 |---|---|---|
 | F17 | 관리자 인증·인가 | 자체 계정 + TOTP 2단계, 역할 3종(SYSTEM_ADMIN/POLICY_ADMIN/AUDITOR), 테넌트 범위, 잠금(5회/15분), 비밀번호 정책, CSRF 헤더 |
 | F18 | 관리 콘솔 | 서비스 목록·프로파일 폼(스키마 기반)·OIDC client·secret 회전·정책 시뮬레이션·테넌트·관리자·감사 검색 |
-| F19 | 감사 | 감사 행(분류·행위·행위자·기관·결과·상관관계 ID) — API 로는 추가·검색만(수정·삭제 API 없음; 발행 표시 컬럼만 내부 갱신), 검색 API |
+| F19 | 감사 | 감사 행(분류·행위·행위자·기관·결과·상관관계 ID) — API 로는 추가·검색만(수정·삭제 API 없음; 발행 표시 컬럼만 내부 갱신), 검색 API. 1.1: DB 저장 실패 시 로컬 WAL 에 남겼다가 재삽입(유실 시 `audit.lost.total`) |
 | F20 | 보안 기본값 | 내부 API 키·HMAC 서명·레이트리밋(IP·기관, TPS·일)·보안 헤더·fail-secure(필수 키 없으면 기동 거부, 의존 장애 시 거부) |
 | F21 | 암호 | `CryptoProvider` SPI(교체 가능), AES-256-GCM·HMAC-SHA256·Ed25519·SHA-256, 키 버전·로테이션, Vault Transit(선택) |
 | F22 | 관측 | `/actuator/health`(liveness·readiness), Prometheus 지표(`slo.*`·`personal.data.*`·`idem.kms.healthy`·`idem.outbox.*`; 1.0.1 부터 관리 포트. hub 의 `/actuator/prometheus` 는 1.0.x 미등록 — 알려진 제한), OTel 추적(선택) |

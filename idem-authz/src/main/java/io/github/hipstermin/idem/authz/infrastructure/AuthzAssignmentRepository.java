@@ -16,4 +16,6 @@ public interface AuthzAssignmentRepository extends JpaRepository<AuthzAssignment
     List<AuthzAssignmentEntity> findByQimUserIdAndStatus(String qimUserId, AssignmentStatus status);
     Page<AuthzAssignmentEntity> findByStatusAndExpiresAtNotNullAndExpiresAtBefore(
             AssignmentStatus status, Instant cutoff, Pageable pageable);
+    /** 1.1: 규칙이 실체화한 할당 — 규칙 비활성화 시 회수 대상 */
+    List<AuthzAssignmentEntity> findByRuleIdAndStatus(UUID ruleId, AssignmentStatus status);
 }

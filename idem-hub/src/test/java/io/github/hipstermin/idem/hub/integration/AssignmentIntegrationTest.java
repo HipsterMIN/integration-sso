@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.hub.integration;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,10 +98,13 @@ class AssignmentIntegrationTest extends IntegrationTestBase {
     }
 
     private void stubAccess(boolean assigned, String rolesJson) {
+        String body = "{\"qimUserId\":\"" + qimUserId + "\",\"agencyCode\":\"" + AGENCY_CODE + "\",\"assigned\":" + assigned
+                + ",\"assignmentSource\":" + (assigned ? "\"CONSOLE\"" : "null") + ",\"roles\":" + rolesJson + "}";
+        // 1.1: 발급 경로는 POST(평가·규칙 실체화), verify 경로는 GET(읽기 전용) — 둘 다 같은 응답 모양
+        stubFor(post(urlPathMatching("/api/v1/internal/authz/users/.*/access"))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody(body)));
         stubFor(get(urlPathMatching("/api/v1/internal/authz/users/.*/access"))
-                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
-                        .withBody("{\"qimUserId\":\"" + qimUserId + "\",\"agencyCode\":\"" + AGENCY_CODE + "\",\"assigned\":" + assigned
-                                + ",\"assignmentSource\":" + (assigned ? "\"CONSOLE\"" : "null") + ",\"roles\":" + rolesJson + "}")));
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody(body)));
     }
 
     @Test

@@ -102,6 +102,10 @@ public class AuthzInternalController {
             @Valid @RequestBody AssignRequest req,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             HttpServletRequest request) {
+        // 1.1: source=RULE·ruleId 는 규칙 실체화(AssignmentRuleService) 전용 — 외부에서 규칙 할당인 척 만들 수 없다
+        if (req.ruleId() != null || "RULE".equalsIgnoreCase(req.source())) {
+            throw new AuthzException(AuthzErrorCode.INVALID_REQUEST, "source=RULE·ruleId 는 직접 할당 API 로 지정할 수 없습니다.");
+        }
         AssignmentResponse res = AssignmentResponse.from(
                 authzService.assign(req, clientIp(request), correlationId));
         return ResponseEntity.status(HttpStatus.CREATED).body(res);

@@ -236,6 +236,7 @@ public class AuthzService {
             entity.setExpiresAt(req.expiresAt());
             entity.setSource(source);
             entity.setReason(req.reason());
+            if (req.ruleId() != null) entity.setRuleId(UUID.fromString(req.ruleId()));
             assignmentRepository.save(entity);
             log.info("[q-authz] 할당 멱등(이미 ACTIVE) user={} agency={}", req.qimUserId(), req.agencyCode());
             return entity;
@@ -255,6 +256,7 @@ public class AuthzService {
         entity.setReason(req.reason());
         entity.setRevokedAt(null);
         entity.setRevokedBy(null);
+        entity.setRuleId(req.ruleId() != null ? UUID.fromString(req.ruleId()) : null);   // 1.1: 직접 할당은 규칙 추적을 지운다
         assignmentRepository.save(entity);
         auditService.record(AuditEvent.ASSIGN, req.qimUserId(), req.agencyCode(), null,
                 req.grantedBy(), actorIp, req.reason(), correlationId);

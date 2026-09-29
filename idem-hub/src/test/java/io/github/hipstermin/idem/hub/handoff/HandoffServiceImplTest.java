@@ -128,7 +128,7 @@ class HandoffServiceImplTest {
             given(rateLimiter.tryAcquire(eq(AGENCY_CODE), any(), any())).willReturn(true);
             given(policyEngine.evaluate(any(), eq(true))).willReturn(PolicyEvaluation.allowedAll());
             // S8-b: 할당·역할 조회 기본값 (authz 활성, 미할당, 역할 없음)
-            given(qAuthzClient.getServiceAccess(any(), any(), any())).willReturn(new ServiceAccess(true, false, null, List.of()));
+            given(qAuthzClient.getServiceAccess(any(), any(), any(), any())).willReturn(new ServiceAccess(true, false, null, List.of()));
             given(handoffCryptoService.encrypt(any(), any())).willReturn("encrypted-payload");
             given(handoffCryptoService.sign(any(), any(), any())).willReturn("hmac-signature");
 
@@ -164,7 +164,7 @@ class HandoffServiceImplTest {
         @DisplayName("연합 인가 — authz 접근 정보의 역할이 Handoff 평문 페이로드 roles에 임베드 (S8-b: 규칙 평가와 같은 1회 조회)")
         void issue_embedsRolesFromQAuthz() {
             // given: q-authz가 역할 반환
-            given(qAuthzClient.getServiceAccess(eq(QIM_USER_ID), eq(AGENCY_CODE), any()))
+            given(qAuthzClient.getServiceAccess(eq(QIM_USER_ID), eq(AGENCY_CODE), any(), any()))
                     .willReturn(new ServiceAccess(true, true, "CONSOLE", List.of("MANAGER", "REVIEWER")));
             ArgumentCaptor<String> plainCaptor = ArgumentCaptor.forClass(String.class);
 

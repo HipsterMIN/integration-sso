@@ -76,6 +76,16 @@ class FailSecureBootGuardTest {
     }
 
     @Test
+    @DisplayName("1.1: prod 에서 감사 WAL 폴백을 끄면 기동 거부")
+    void prod_auditWalDisabled_rejected() {
+        MockEnvironment e = env("prod");
+        e.setProperty("idem.hub.audit.wal.enabled", "false");
+        assertThatThrownBy(() -> new FailSecureBootGuard(e).verify())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("idem.hub.audit.wal.enabled");
+    }
+
+    @Test
     @DisplayName("prod 에서 탈출구가 모두 꺼져 있으면 통과")
     void prod_clean() {
         assertThatCode(() -> new FailSecureBootGuard(env("prod")).verify()).doesNotThrowAnyException();

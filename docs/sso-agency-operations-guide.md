@@ -190,7 +190,7 @@ groups:
 
 ### 4.4 Idem 측에서 볼 수 있는 것 (운영기관)
 
-- 관리 포트(Helm 기본 9090)의 `/actuator/health`(liveness·readiness). gate·registry·authz 는 `/actuator/prometheus`(`slo.*`·`idem.kms.healthy`·`idem.outbox.*`), hub 는 1.0.x 미등록(알려진 제한).
+- 관리 포트(Helm 기본 9090)의 `/actuator/health`(liveness·readiness). gate·registry·authz 는 `/actuator/prometheus`(`slo.*`·`idem.kms.healthy`·`idem.outbox.*`), hub 는 1.0.x 미등록(알려진 제한). 1.1 부터 hub 감사 경로 지표 `audit.wal.pending.lines`(DB 장애로 WAL 에 대기 중인 감사 항목, 0 이 정상)·`audit.lost.total`(0 이어야 한다).
 - 관리 콘솔 감사 검색(`GET /api/v1/admin/audit?agencyCode=…`) — 로그인·거부·관리 행위가 `correlationId` 와 함께 남는다.
 - 기관 통계 `GET /api/v1/admin/agencies/{code}/stats`.
 
@@ -219,7 +219,8 @@ curl -sI https://idem-hub.example.go.kr/api/v1/agency/gateway/status/AGENCY_001 
 
 | 증상 | 원인 | 조치 |
 |---|---|---|
-| OIDC `403 access_denied E-IDO-120` / Handoff `GUEST` | 이 서비스에 미할당 | 운영기관 할당 등록 또는 프로파일 `policy.assignment.selfSignup` |
+| OIDC `403 access_denied E-IDO-120` / Handoff `GUEST` | 이 서비스에 미할당 | 운영기관 할당 등록, 규칙 할당(1.1: 인증수준·제공자 조건 또는 다른 서비스의 역할 보유로 자동 할당 — authz `assignment-rules`) 또는 프로파일 `policy.assignment.selfSignup` |
+| 어제는 됐는데 오늘 `E-IDO-120` | 규칙 할당(`source=RULE`)이 재평가에서 불일치(예: 오늘은 L1 로 로그인) 또는 규칙 비활성화 → 회수됨. 기관에는 `ASSIGNMENT_CHANGED{UNASSIGNED}` 가 갔다 | 운영기관 감사(`AUTHZ`, `UNASSIGN` 사유 "규칙 재평가 불일치"/"규칙 비활성화")로 확인 |
 | `E-IDO-114` | 필수 속성 없음 | 사용자 프로필 보완 또는 프로파일 `identity.attributes.required` 조정 |
 | `REJECTED` / `E-AGENCY-305` | 사용자 상태(정지·탈퇴) / 점검 시간 | 운영기관 확인 |
 | 인증수준 미달 | `policy.minAuthLevel` 보다 낮은 방법으로 로그인 | 사용자에게 L2 이상 방법 안내 |

@@ -87,8 +87,21 @@ spec:
             {{ include "idem.secretEnv" (dict "name" "IDEM_HUB_REGISTRY_INTERNAL_API_KEY" "secret" .Values.secrets.existingSecret "key" "IDEM_REGISTRY_INTERNAL_API_KEY") | nindent 12 }}
             {{ include "idem.secretEnv" (dict "name" "IDEM_HUB_AUTHZ_INTERNAL_API_KEY" "secret" .Values.secrets.existingSecret "key" "IDEM_AUTHZ_INTERNAL_API_KEY") | nindent 12 }}
             {{- include "idem.appSecretEnv" (dict "root" . "keys" (list "IDEM_HUB_INTERNAL_SIG_SECRET" "IDEM_HUB_INTERNAL_API_KEY_GATE" "IDEM_HUB_INTERNAL_API_KEY_RELAY" "IDEM_HUB_CAST_PRIVATE_KEY" "IDEM_HUB_CAST_PUBLIC_KEY" "IDEM_REGISTRY_AES_SHARED_KEY" "IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD" "IDEM_HUB_ADMIN_SECRET_KEY" "KEYCLOAK_CLIENT_SECRET" "KEYCLOAK_PROVISIONER_CLIENT_SECRET" "IDEM_HUB_WEBHOOK_SIGNING_SECRET" "IDEM_HUB_HANDOFF_AES_KEY" "IDEM_HUB_HANDOFF_HMAC_KEY")) | nindent 12 }}
+            - name: IDEM_HUB_AUDIT_WAL_DIR
+              value: {{ $c.auditWal.dir | quote }}
             {{- include "idem.mapEnv" $c.extraEnv | nindent 12 }}
           {{- include "idem.probes" (dict "root" . "port" 8083) | nindent 10 }}
           resources:
             {{- toYaml $c.resources | nindent 12 }}
+          volumeMounts:
+            - name: audit-wal
+              mountPath: {{ $c.auditWal.dir | quote }}
+      volumes:
+        - name: audit-wal
+          {{- if $c.auditWal.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ $c.auditWal.existingClaim | quote }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
 {{- end }}

@@ -140,6 +140,11 @@ hub:
   kms:
     enabled: true
     provider: local             # local | vault | nhn
+  # 1.1: 감사 WAL 폴백 — DB 저장 실패 항목을 파일에 남겼다가 재삽입한다(hub application.yml idem.hub.audit.wal.*).
+  # 기본 emptyDir 은 컨테이너 재시작에는 남지만 파드 삭제와 함께 사라진다. 그 창을 없애려면 existingClaim 에 RWO PVC 를 준다(복제본 1 권장, 복제본별 PVC 는 StatefulSet 전환 필요)
+  auditWal:
+    dir: /app/data/audit-wal
+    existingClaim: ""
   extraEnv: {}
   serviceAccount:
     create: true
