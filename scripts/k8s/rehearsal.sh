@@ -50,7 +50,7 @@ HOST_CONSOLE="${HOST_CONSOLE:-console.idem.local}"
 ADD_HOSTS="${ADD_HOSTS:-1}"
 OUT_DIR="${OUT_DIR:-/tmp/idem-rehearsal}"
 KEEP="${KEEP:-0}"
-HELM_TIMEOUT="${HELM_TIMEOUT:-15m}"
+HELM_TIMEOUT="${HELM_TIMEOUT:-12m}"
 
 PORT_SUFFIX=""; [ "$HTTPS_PORT" != "443" ] && PORT_SUFFIX=":$HTTPS_PORT"
 GATE_PUBLIC="https://$HOST_GATE$PORT_SUFFIX"
@@ -87,6 +87,15 @@ diagnose() {
   if [ "$CLUSTER" = "kind" ]; then kubectl -n ingress-nginx get pods -o wide > "$LOGS/ingress-nginx.txt" 2>&1 || true; fi
   cat "$LOGS/pods.txt" >&2 || true
   tail -30 "$LOGS/events.txt" >&2 || true
+  # 준비 안 된 Pod 는 상태(종료 코드·OOMKilled 등)와 로그 꼬리를 잡 출력에도 낸다 — 아티팩트를 못 받는 환경에서도 원인이 보이도록
+  for p in $(kc get pods -o name 2>/dev/null); do
+    local n=${p#pod/} ready
+    ready=$(kc get "$p" -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "")
+    [ "$ready" = true ] && continue
+    { echo "──── $n  state=$(kc get "$p" -o jsonpath='{.status.containerStatuses[0].state}' 2>/dev/null)  lastState=$(kc get "$p" -o jsonpath='{.status.containerStatuses[0].lastState}' 2>/dev/null)"
+      echo "── logs (current, tail 80)"; kc logs "$p" --all-containers --tail=80 2>&1 || true
+      echo "── logs (previous, tail 80)"; kc logs "$p" --all-containers --previous --tail=80 2>&1 || true; } >&2
+  done
 }
 trap 'rc=$?; if [ $rc -ne 0 ]; then diagnose; fi; kill_port_forwards; exit $rc' EXIT
 

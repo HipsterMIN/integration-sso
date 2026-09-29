@@ -14,8 +14,8 @@ appDefaults:
 
 keycloak:
   resources:
-    requests: { cpu: 100m, memory: 512Mi }
-    limits:   { cpu: "2",  memory: 1280Mi }   # production 모드(start)는 첫 기동에 auto-build 를 한다
+    requests: { cpu: 100m, memory: 768Mi }
+    limits:   { cpu: "2",  memory: 1536Mi }   # 메모리는 운영 기본값 그대로 — production 모드(start)는 첫 기동에 auto-build(Quarkus augmentation) 를 한다
 
 hub:
   resources:
