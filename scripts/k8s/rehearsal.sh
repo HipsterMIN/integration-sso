@@ -256,8 +256,15 @@ mgmt_health() {   # 관리 포트(9090) health — Ready Pod 에 port-forward �
   [ "$st" = UP ] && ok "hub 관리 포트 /actuator/health = UP" || fail "hub 관리 포트 health: $st"
 }
 
-providers() {   # 본인확인 제공자 목록(JSON) — Ingress 경유
-  curl -sf --cacert "$OUT_DIR/ca.crt" "$HUB_PUBLIC/api/v1/auth/providers" || fail "providers 조회 실패 ($HUB_PUBLIC)"
+providers() {   # 본인확인 제공자 목록(JSON) — Ingress 경유. 롤링 갱신 직후 엔드포인트 교체 동안 잠시 실패할 수 있어 재시도한다
+  local i code body
+  for i in $(seq 1 15); do
+    body=$(curl -s --cacert "$OUT_DIR/ca.crt" -w '\n%{http_code}' "$HUB_PUBLIC/api/v1/auth/providers" 2>/dev/null) || body=$'\n000'
+    code=${body##*$'\n'}; body=${body%$'\n'*}
+    if [ "$code" = 200 ]; then printf '%s' "$body"; return 0; fi
+    sleep 2
+  done
+  fail "providers 조회 실패 ($HUB_PUBLIC → HTTP $code): $(printf '%s' "$body" | head -c 300)"
 }
 
 phase_install() {
