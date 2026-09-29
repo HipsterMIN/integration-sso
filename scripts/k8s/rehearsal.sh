@@ -101,10 +101,15 @@ trap 'rc=$?; if [ $rc -ne 0 ]; then diagnose; fi; kill_port_forwards; exit $rc' 
 
 PF_PIDS=()
 kill_port_forwards() { for pid in "${PF_PIDS[@]:-}"; do [ -n "$pid" ] && kill "$pid" 2>/dev/null || true; done; PF_PIDS=(); }
-# port_forward <deploy> <local>:<remote> [<local>:<remote>…] — 준비될 때까지 기다린다
+# ready_pod <app> — Ready 이고 종료 중이 아닌 Pod 하나 (deploy/ 로 port-forward 하면 롤링 갱신 직후 종료 중인 옛 Pod 에 붙을 수 있다)
+ready_pod() {
+  kc get pods -l "app=$1" -o json | jq -r '[.items[] | select(.metadata.deletionTimestamp == null) | select([.status.conditions[]? | select(.type=="Ready" and .status=="True")] | length > 0)][0].metadata.name // empty'
+}
+# port_forward <app> <local>:<remote> [<local>:<remote>…] — Ready Pod 에 붙고, 열릴 때까지 기다린다
 port_forward() {
   local target=$1; shift
-  kc port-forward "deploy/$target" "$@" > "$LOGS/pf-$target.txt" 2>&1 &
+  local pod; pod=$(ready_pod "$target"); [ -n "$pod" ] || fail "Ready 인 $target Pod 가 없다"
+  kc port-forward "pod/$pod" "$@" > "$LOGS/pf-$target.txt" 2>&1 &
   PF_PIDS+=($!)
   local first=${1%%:*}
   for _ in $(seq 1 30); do (echo > "/dev/tcp/127.0.0.1/$first") 2>/dev/null && return 0; sleep 1; done
@@ -243,9 +248,10 @@ check_release() {   # check_release <기대 리비전> <기대 프로파일>
   [ "$hosts" = "$HOST_GATE $HOST_HUB $HOST_CONSOLE" ] && ok "Ingress 호스트: $hosts (TLS $(kc get ingress idem -o jsonpath='{.spec.tls[0].secretName}'))" || fail "Ingress 호스트: $hosts"
 }
 
-mgmt_health() {   # 관리 포트(9090) health — port-forward 로. 인자: 기대 status
+mgmt_health() {   # 관리 포트(9090) health — Ready Pod 에 port-forward 로
   port_forward idem-hub 19093:9090
-  local st; st=$(curl -sf http://127.0.0.1:19093/actuator/health | jq -r .status || echo DOWN)
+  local st=DOWN i
+  for i in 1 2 3 4 5; do st=$(curl -sf http://127.0.0.1:19093/actuator/health | jq -r .status 2>/dev/null || echo DOWN); [ "$st" = UP ] && break; sleep 2; done
   kill_port_forwards
   [ "$st" = UP ] && ok "hub 관리 포트 /actuator/health = UP" || fail "hub 관리 포트 health: $st"
 }
