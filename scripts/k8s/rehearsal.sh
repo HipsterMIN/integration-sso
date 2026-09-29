@@ -226,8 +226,14 @@ check_release() {   # check_release <기대 리비전> <기대 프로파일>
   local rev=$1 profile=$2
   local cur; cur=$(helm -n "$NS" list -o json | jq -r ".[] | select(.name==\"$RELEASE\") | .revision")
   [ "$cur" = "$rev" ] && ok "리비전 $cur, status $(helm -n "$NS" list -o json | jq -r ".[] | select(.name==\"$RELEASE\") | .status")" || fail "리비전 기대 $rev, 실제 $cur"
-  local notready; notready=$(kc get pods -l "app.kubernetes.io/instance=$RELEASE" -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{" "}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' | grep -v ' True$' || true)
-  [ -z "$notready" ] && ok "Pod 전부 Ready: $(kc get pods -l "app.kubernetes.io/instance=$RELEASE" --no-headers | wc -l)개" || fail "준비 안 된 Pod: $notready"
+  # Deployment 단위로 본다 — 롤링 갱신 직후에는 종료 중인 옛 Pod(JVM 은 SIGTERM 에 143 으로 끝나 Error 로 보인다)가 잠시 남는다
+  local notready="" total=0 d want ready updated
+  for d in $(kc get deploy -l "app.kubernetes.io/instance=$RELEASE" -o name); do
+    want=$(kc get "$d" -o jsonpath='{.spec.replicas}'); ready=$(kc get "$d" -o jsonpath='{.status.readyReplicas}'); updated=$(kc get "$d" -o jsonpath='{.status.updatedReplicas}')
+    total=$((total + want))
+    [ "${ready:-0}" = "$want" ] && [ "${updated:-0}" = "$want" ] || notready="$notready ${d#deployment.apps/}(ready=${ready:-0}/$want updated=${updated:-0})"
+  done
+  [ -z "$notready" ] && ok "Deployment 전부 Ready·최신: Pod $total개" || fail "준비 안 된 Deployment:$notready"
   local p; p=$(kc get deploy idem-hub -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="SPRING_PROFILES_ACTIVE")].value}')
   [ "$p" = "$profile" ] && ok "hub SPRING_PROFILES_ACTIVE=$p" || fail "hub 프로파일 기대 $profile, 실제 $p"
   # 1.0.1 M7: Service 는 앱 포트만 — 관리 포트 9090 은 밖으로 나가지 않는다
