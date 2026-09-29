@@ -554,7 +554,7 @@ Keycloak 유지 결정(§0)에 따라 자체 IdP 는 만들지 않는다. `Integ
 | 요구 | 수용 방식 | 단계 |
 |---|---|---|
 | "우리는 OIDC 로 붙겠다" / "SAML 만 된다" | 프로파일 `protocol.type` | S6 |
-| "레거시 WAS 라 코드 수정이 어렵다" | `AGENT`(idem-agent) | S6 |
+| "레거시 WAS 라 코드 수정이 어렵다" | Handoff 콜백 서블릿 / 표준 OIDC (에이전트는 1.1 에서 저장소 분리) | S6 |
 | "본인인증은 NICE 만 / 간편인증도" | `policy.allowedProviders` | S3·S5 |
 | "우리 서비스는 L3(전자서명) 필수" | `policy.minAuthLevel`, 재인증 규칙 | S3 |
 | "이름은 마스킹 없이, 전화번호는 뒷자리만" | `identity.attributes` + 카탈로그 마스킹 규칙 | S4 |

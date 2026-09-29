@@ -369,7 +369,7 @@ grep "\[WebhookInbound\]" app.log | grep -v "signatureValid=true"
 
 ## 10. Java Agent — 1.0 에서의 상태
 
-`idem-agent` 가 호출하는 검증 API(`/api/v1/agency/token/verify`)는 Idem 1.0.x 어느 서버에도 없다. 따라서 이 가이드 v1.0 에 있던 Agent 배포·JVM 옵션·롤링 재시작·바이패스 절차는 1.0 운영에 해당하지 않는다. 레거시 WAS 는 콜백 서블릿 + verify(옵션 A) 또는 옵션 C 로 붙이고, 에이전트는 1.x 에서 hub 검증 API 가 생긴 뒤 다시 다룬다. 테스트베드(`idem-agent-testbed`)는 mock 서버 검증용이다.
+`idem-agent` 가 호출하는 검증 API(`/api/v1/agency/token/verify`)는 Idem 1.0.x 어느 서버에도 없다. 따라서 이 가이드 v1.0 에 있던 Agent 배포·JVM 옵션·롤링 재시작·바이패스 절차는 1.0 운영에 해당하지 않는다. 레거시 WAS 는 콜백 서블릿 + verify(옵션 A) 또는 옵션 C 로 붙이고, 에이전트는 1.x 에서 hub 검증 API 가 생긴 뒤 다시 다룬다. 테스트베드(`idem-agent-testbed`)는 mock 서버 검증용이다. 1.1 PR-4 에서 에이전트·테스트베드는 별도 저장소로 분리됐다.
 
 ---
 

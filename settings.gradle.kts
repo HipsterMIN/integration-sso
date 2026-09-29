@@ -23,7 +23,6 @@ include(
     // ── 제품 밖: 운영 도구·샘플·SDK (GS 대상 아님) ──
     "idem-kr-portal",         // KR 에디션 회원 포털 프런트(React, 구 idem-console) — S7 PR-2 에서 에디션으로 이동. 코어 관리 콘솔은 idem-console-admin/ (npm, Gradle 밖)
     "idem-relay",             // Transactional Outbox 분산 릴레이 배치 (ShedLock) — Kafka 배포 옵션 전용
-    "idem-agent",             // Idem Java Agent — 유관기관 WAS 자동 연동 (-javaagent 배포)
     "idem-tenant-sample",     // 기관(Service) 시뮬레이터 샘플
     "idem-sdk-java"           // 기관용 Java SDK
 )

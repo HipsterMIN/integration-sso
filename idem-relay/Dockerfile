@@ -53,7 +53,6 @@ COPY editions/idem-kr-portal/build.gradle.kts editions/idem-kr-portal/
 COPY idem-tenant-sample/build.gradle.kts     idem-tenant-sample/
 COPY idem-sdk-java/build.gradle.kts idem-sdk-java/
 COPY idem-relay/build.gradle.kts idem-relay/
-COPY idem-agent/build.gradle.kts   idem-agent/
 COPY plugins/idem-plugin-mock-auth/build.gradle.kts plugins/idem-plugin-mock-auth/
 COPY plugins/idem-plugin-nice-oacx/build.gradle.kts plugins/idem-plugin-nice-oacx/
 COPY plugins/idem-plugin-anyid/build.gradle.kts plugins/idem-plugin-anyid/

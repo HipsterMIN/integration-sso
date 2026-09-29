@@ -16,7 +16,6 @@
 | `idem-console-admin` | 관리 콘솔 (React + Vite, S7) — 관리자 로그인(2단계)·기관 온보딩·OIDC client·감사·관리자 관리 | 3001 |
 | `editions/idem-kr-portal` | KR 에디션 회원 포털 (구 `idem-console`, React SPA) | 3002 |
 | `idem-sdk-java` | 테넌트(기관)측 Java 8+ SDK — 핸드오프 티켓 검증, HMAC | — |
-| `idem-agent` | 레거시 WAS용 Java Agent (`-javaagent`) | — |
 | `idem-tenant-sample` | 참조 테넌트 앱 (PoC·E2E용) | 8084 |
 | `idem-common` | 공통 라이브러리 | — |
 
@@ -41,7 +40,7 @@
 9. [Sprint 10: SLO FE 완성 + FE 기반](#sprint-10-slo-fe-완성--fe-기반)
 10. [S7-T2: NICE/OACX 본인인증 통합](#s7-t2-niceoacx-본인인증-통합)
 11. [Feature Flag 체계](#feature-flag-체계)
-12. [🆕 OnePass Agency Java Agent](#-onepass-agency-java-agent)
+12. [Java Agent — 별도 저장소](#java-agent--별도-저장소)
 13. [🆕 멀티 WAS 테스트베드](#-멀티-was-테스트베드)
 14. [데이터베이스 구성](#데이터베이스-구성)
 15. [Kafka 토픽](#kafka-토픽)
@@ -900,38 +899,6 @@ integration-sso/
 │       │   └── MypageSideNav/    # 로그아웃 버튼
 │       └── pages/Mypage/pages/InformationStep3.tsx
 │
-├── idem-agent/                # 🆕 OnePass Agency Java Agent (독립 fat-JAR)
-│   └── src/main/java/io/github/hipstermin/idem/agent/
-│       ├── core/OnePassAgentMain.java      # JVM 진입점 (premain/agentmain)
-│       ├── config/AgentConfig.java         # 외부 설정 로더/검증기
-│       ├── was/
-│       │   ├── WasType.java               # 27개 WAS 유형 enum
-│       │   └── WasDetector.java           # 6단계 WAS 자동 감지
-│       ├── weaving/
-│       │   ├── WeavingStrategyFactory.java # WasType → 전략 팩토리
-│       │   ├── TomcatVersionedWeavingStrategy.java  # Tomcat 5~11 버전별
-│       │   ├── LegacyJavassistWeavingStrategy.java  # JBoss/WebLogic/WebSphere 레거시
-│       │   ├── GenericFilterWeavingStrategy.java    # Fallback (javax+jakarta)
-│       │   ├── engine/JavassistWeavingEngine.java   # JDK 1.3+ 호환 위빙 엔진
-│       │   └── jeus/                       # JEUS 버전별 전용 전략 4개
-│       └── http/OnePassHttpClient.java     # 순수 JDK HttpURLConnection
-│
-├── idem-agent-testbed/        # 🆕 멀티 WAS Docker Compose 테스트베드
-│   ├── docker/
-│   │   ├── docker-compose.yml             # 7개 WAS 컨테이너 정의
-│   │   ├── Dockerfile.tomcat8/9/10        # Tomcat 버전별
-│   │   ├── Dockerfile.wildfly             # WildFly (jakarta)
-│   │   ├── Dockerfile.jetty               # Jetty
-│   │   └── Dockerfile.undertow/springboot
-│   ├── apps/
-│   │   ├── mock-onepass-server/           # 순수 JDK Mock SSO 서버
-│   │   └── sample-webapp/                 # 테스트 서블릿 (HealthServlet, ProtectedServlet)
-│   ├── config/onepass-agent.properties    # Agent 설정 템플릿
-│   ├── scripts/
-│   │   ├── run-all-tests.sh               # 7개 WAS 자동화 검증
-│   │   └── replace-agent.sh              # Agent JAR 교체 헬퍼
-│   └── README.md                          # 테스트베드 사용 가이드
-│
 └── infra/
     ├── docker/
     │   ├── docker-compose.yml
@@ -946,102 +913,11 @@ integration-sso/
 
 ---
 
-## 🆕 OnePass Agency Java Agent
+## Java Agent — 별도 저장소
 
-> **모듈**: `idem-agent/` | **아티팩트**: `onepass-agent-{version}-all.jar` (~10MB fat-JAR)  
-> **목적**: 유관기관 WAS에 **소스 코드 수정 없이** OnePass SSO를 적용하는 자바 에이전트  
-> **JDK 지원**: JDK 1.5(JEUS 4/5) ~ JDK 21+(Tomcat 11, WildFly 28+)  
-> **참고 문서**: [통합 가이드](./docs/idem-agent-integration-guide.md) | [아키텍처](./docs/internal/architecture/idem-agent-architecture.md) | [개발자 레퍼런스](./docs/internal/development/idem-agent-developer-reference.md)
-
-### Agent 핵심 특징
-
-| 특징 | 설명 |
-|------|------|
-| **코드 수정 없음** | `-javaagent:` JVM 옵션만으로 SSO 적용 |
-| **27개 WAS 지원** | JEUS 4~21, Tomcat 5~11, JBoss, WildFly, WebLogic, WebSphere, GlassFish, Resin, Jetty, Undertow |
-| **이중 위빙 엔진** | JDK 1.5~7: Javassist 3.x / JDK 8+: byte-buddy 1.17.8 자동 선택 |
-| **6단계 WAS 감지** | 클래스패스→시스템프로퍼티→환경변수→JVM인수→파일시스템→오버라이드 |
-| **Fail-Open 정책** | 위빙 실패 시 WAS 기동 계속 (서비스 가용성 우선) |
-| **javax/jakarta 이중** | Servlet 5.0 전환 WAS(Tomcat 10+, WildFly 27+)에서 자동 분기 |
-
-### 빠른 설치 (Tomcat 9 예시)
-
-```bash
-# 1. Agent JAR 빌드
-./gradlew :idem-agent:agentJar
-# → idem-agent/build/libs/onepass-agent-1.0.0-all.jar
-
-# 2. 설정 파일 작성
-cat > /opt/onepass/onepass-agent.properties << 'EOF'
-onepass.agent.endpoint=https://onepass.go.kr
-onepass.agent.api-key=<행정안전부 발급 API Key>
-onepass.agent.enabled=true
-EOF
-
-# 3. Tomcat JVM 옵션 추가 (catalina.sh 또는 setenv.sh)
-JAVA_OPTS="$JAVA_OPTS -javaagent:/opt/onepass/onepass-agent-1.0.0-all.jar=config=/opt/onepass/onepass-agent.properties"
-
-# 4. Tomcat 재시작 → 로그 확인
-# [OnePassAgent] WAS 유형 감지: Tomcat 9.x (JDK 8+, Servlet 4.0)
-# [OnePassAgent] 위빙 설치 완료: TomcatVersionedWeaving (TOMCAT_9)
-```
-
-### WAS별 지원 매트릭스
-
-| WAS | 버전 | JDK | Servlet | 위빙 엔진 | WasType |
-|-----|------|-----|---------|----------|---------|
-| **JEUS** | 4/5 | 1.4~1.5 | 2.3~2.4 | Javassist | `JEUS_LEGACY` |
-| **JEUS** | 6 | 1.5~1.7 | 2.5 | Javassist | `JEUS_6` |
-| **JEUS** | 7/8 | 1.6~1.8 | 3.0~3.1 | JDK 분기 | `JEUS_7`, `JEUS_8` |
-| **JEUS** | 8.5 | 8/11 | 4.0 | byte-buddy | `JEUS_8_5` |
-| **JEUS** | 9/21 | 11+ | 5.0+ | byte-buddy+jakarta | `JEUS_9_PLUS` |
-| **Tomcat** | 5.x/6.x | 5~6 | 2.4~2.5 | Javassist | `TOMCAT_LEGACY` |
-| **Tomcat** | 7.x | 7 | 3.0 | Javassist/BB | `TOMCAT_7` |
-| **Tomcat** | 8.x/8.5 | 8 | 3.1 | byte-buddy | `TOMCAT_8` |
-| **Tomcat** | 9.x | 8+ | 4.0 | byte-buddy | `TOMCAT_9` |
-| **Tomcat** | 10+/11 | 11+ | 5.0+ | byte-buddy+jakarta | `TOMCAT_10_PLUS` |
-| **JBoss** | EAP 5/6 | 6~7 | 2.x~3.0 | Javassist | `JBOSS_LEGACY` |
-| **JBoss** | EAP 7 | 8+ | 3.1 | byte-buddy | `JBOSS` |
-| **WildFly** | 27+ | 11+ | 5.0+ | byte-buddy+jakarta | `WILDFLY` |
-| **WebLogic** | 10.x/11g | 6~7 | 2.5~3.0 | Javassist | `WEBLOGIC_LEGACY` |
-| **WebLogic** | 12c/14c | 8+ | 3.1~4.0 | byte-buddy | `WEBLOGIC` |
-| **WebSphere** | 7/8 | 6~7 | 2.5~3.0 | Javassist | `WEBSPHERE_LEGACY` |
-| **WebSphere** | Liberty | 8+ | 3.1~6.0 | byte-buddy | `WEBSPHERE` |
-| **GlassFish** | 3/4/Payara | 7~8 | 3.0~3.1 | byte-buddy | `GLASSFISH` |
-| **GlassFish** | 6+/Payara 6+ | 11+ | 5.0+ | byte-buddy+jakarta | `GLASSFISH_JAKARTA` |
-| **Resin** | 3/4 | 6+ | 2.4~3.1 | byte-buddy | `RESIN` |
-| **Jetty** | 7/8 | 7 | 3.0 | Javassist | `JETTY_LEGACY` |
-| **Jetty** | 9~11 | 8~11 | 3.1~4.0 | byte-buddy | `JETTY` |
-| **Jetty** | 12+ | 17+ | 6.0+ | byte-buddy+jakarta | `JETTY_JAKARTA` |
-| **Undertow** | Standalone | 8+ | 3.x~5.x | byte-buddy | `UNDERTOW` |
-| **기타** | — | 8+ | — | byte-buddy (Fallback) | `UNKNOWN` |
-
-### WAS 수동 지정
-
-WAS 자동 감지가 실패하는 경우:
-```bash
-# JVM 옵션에 추가
--Donepass.was.type=TOMCAT_9
-
-# 지원 값: JEUS_LEGACY, JEUS_6, JEUS_7, JEUS_8, JEUS_8_5, JEUS_9_PLUS
-#          TOMCAT_LEGACY, TOMCAT_7, TOMCAT_8, TOMCAT_9, TOMCAT_10_PLUS
-#          JBOSS_LEGACY, JBOSS, WILDFLY, WEBLOGIC_LEGACY, WEBLOGIC
-#          WEBSPHERE_LEGACY, WEBSPHERE, GLASSFISH, GLASSFISH_JAKARTA
-#          RESIN, JETTY_LEGACY, JETTY, JETTY_JAKARTA, UNDERTOW, UNKNOWN
-```
-
-### Agent 관련 문서
-
-| 문서 | 경로 | 설명 |
-|------|------|------|
-| 통합 가이드 | [`docs/idem-agent-integration-guide.md`](./docs/idem-agent-integration-guide.md) | 유관기관 개발자/관리자용 설치 가이드 |
-| 워크스루 | [`docs/idem-agent-walkthrough.md`](./docs/idem-agent-walkthrough.md) | 단계별 설치·검증 워크스루 |
-| 트러블슈팅 | [`docs/idem-agent-troubleshooting.md`](./docs/idem-agent-troubleshooting.md) | 문제 증상별 진단·해결 |
-| 문서 인덱스 | [`docs/idem-agent-index.md`](./docs/idem-agent-index.md) | Agent 전체 문서 목차 |
-| 아키텍처 설계서 | [`docs/internal/architecture/idem-agent-architecture.md`](./docs/internal/architecture/idem-agent-architecture.md) | 내부 아키텍처, 위빙 설계, 클래스로더 격리 |
-| 개발자 레퍼런스 | [`docs/internal/development/idem-agent-developer-reference.md`](./docs/internal/development/idem-agent-developer-reference.md) | 새 WAS 추가, Javassist/byte-buddy 코딩 가이드 |
-
----
+`idem-agent`(-javaagent 로 레거시 WAS 에 끼워 넣는 실험 구현)와 WAS 7종 테스트베드·문서는 **1.1 PR-4(2026-09-29)에서 이 모노레포 밖의 별도 저장소로 분리**했다.
+에이전트가 부르는 검증 API(`POST /api/v1/agency/token/verify`)는 Idem 1.0.x 서버에 없어 1.0 연동 수단이 아니다 — 레거시 WAS 는 Handoff(콜백 서블릿 1개 + verify)
+또는 표준 OIDC 로 붙는다(`docs/sso-agency-developer-guide.md` §6·§10, 제품 설명서 F7).
 
 ## 🆕 멀티 WAS 테스트베드
 
@@ -1528,7 +1404,6 @@ docs/
 ├── phased-rollout-strategy.md      # 단계적 배포 전략 (Phase-Gate Rollout)
 │
 ├── idem-sdk-java-usage-guide.md   # 현행 SDK 사용 가이드 (메인)
-├── onepass-agent-*.md                  # Agency Java Agent 가이드 시리즈
 ├── sso-agency-*.md                     # 자체 SSO 보유 기관 가이드 (개발자/담당자/운영)
 ├── ext_api_proxy_guide.md              # /api/ext/** 프록시 가이드
 ├── kafka_easy_guide_for_*.md           # Kafka 가이드 (개발자/관리자)

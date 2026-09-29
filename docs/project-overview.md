@@ -66,7 +66,7 @@ Java 21 / Spring Boot 기반 마이크로서비스 구조이며, 컨테이너(Ku
 | `q-authz` | 연합 인가 서비스 — 역할·권한 원장, SCIM 동기화 (PostgreSQL) |
 | `idem-console` | 이용자 웹 화면 (React) |
 | `idem-sdk-java` | 기관용 Java SDK (Java 8+) |
-| `idem-agent` | 기관 서버(WAS)에 설치하는 토큰 검증 에이전트 (JDK 8+ 환경) |
+| (`idem-agent`) | 1.1 PR-4 에서 별도 저장소로 분리 — 1.0 연동 수단 아님 |
 | `agency-stub` | 기관 연동 레퍼런스(예제) 서버 |
 | `outbox-relay-batch` | 이벤트 중계 배치 — 데이터 변경을 유실 없이 전파(아웃박스 패턴) |
 

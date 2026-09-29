@@ -23,9 +23,9 @@
 | `outbox-relay-batch` | `idem-relay` | Transactional Outbox 릴레이 배치 |
 | `onepass-fe` | `idem-console` | 관리·사용자 웹 (React SPA) |
 | `onepass-agency-sdk` | `idem-sdk-java` | 테넌트(기관)측 Java SDK |
-| `onepass-agent` | `idem-agent` | 레거시 WAS용 Java Agent |
+| `onepass-agent` | `idem-agent` | 레거시 WAS용 Java Agent — 1.1 PR-4 에서 별도 저장소로 분리 |
 | `agency-stub` | `idem-tenant-sample` | 참조 테넌트 앱 |
-| `onepass-agent-testbed` | `idem-agent-testbed` | 에이전트 테스트베드 (settings 미포함) |
+| `onepass-agent-testbed` | `idem-agent-testbed` | 에이전트 테스트베드 — 1.1 PR-4 에서 에이전트와 함께 분리 |
 | 루트 프로젝트 `onepass-platform` | `idem` | |
 
 Gradle 태스크 경로는 그대로 따라간다 (`:ido:bootJar` → `:idem-hub:bootJar`). 산출물 파일명도 프로젝트명을 따르므로 `ido-0.1.0-SNAPSHOT.jar` → `idem-hub-0.1.0-SNAPSHOT.jar`, `onepass-agent-…-all.jar` → `idem-agent-…-all.jar`.

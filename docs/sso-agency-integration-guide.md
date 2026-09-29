@@ -153,8 +153,7 @@
 □ Idem Agency SDK 통합
 
 Agent 설치 (Idem 토큰 검증 자동화 시):
-□ idem-agent.jar JVM 설치
-□ onepass-agent.properties 설정 파일 작성
+□ (에이전트 없음 — 1.0 은 콜백 서블릿 + verify 또는 표준 OIDC; `idem-agent` 는 별도 저장소의 실험 구현)
 ```
 
 Idem 은 기관 서버의 API 를 호출해 회원을 조회하거나 등록하지 **않습니다**. 기관이 열어야 하는 인바운드 API 는 (선택) 이벤트 웹훅뿐입니다.
