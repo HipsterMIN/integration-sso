@@ -15,7 +15,7 @@ appDefaults:
 keycloak:
   resources:
     requests: { cpu: 100m, memory: 768Mi }
-    limits:   { cpu: "2",  memory: 1536Mi }   # 메모리는 운영 기본값 그대로 — production 모드(start)는 첫 기동에 auto-build(Quarkus augmentation) 를 한다
+    limits:   { cpu: "2",  memory: 2Gi }      # 메모리 한도는 운영 기본값 그대로 — production 모드(start)의 첫 기동 auto-build 가 1536Mi 에서는 OOMKilled 됐다(리허설 1회차)
 
 hub:
   resources:
