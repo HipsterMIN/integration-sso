@@ -29,3 +29,10 @@ CLUSTER=existing IMAGES=registry IMAGE_TAG=1.1.0 HOST_GATE=sso.example.org HOST_
 - 비밀: `install.env`(관리자 초기 비밀번호·내부 키)는 `OUT_DIR` 에 `0600` 으로 있다가 `down` 이 지운다. 로그·아티팩트에는 들어가지 않는다.
 - 운영 기본값과 다른 점은 `rehearsal/values-rehearsal.yaml` 에 이유와 함께 적혀 있다(복제본 1, 자원 축소, startupProbe 300s, default 프로파일 + Mock — 스모크용, NetworkPolicy off — kindnet 은 집행하지 않는다). KR 에디션은 벤더 SDK 이미지가 있는 환경에서만 — 이 스크립트는 코어만 다룬다.
 - 스모크의 첫 관리자 로그인이 비밀번호를 바꾸므로 `smoke` 는 설치 1회당 한 번만 돈다. 다시 돌리려면 `down` 뒤 처음부터.
+
+## 결과 기록
+
+| 실행 | 환경 | up | install | smoke | upgrade | rollback | down | 합계 | 비고 |
+|---|---|---|---|---|---|---|---|---|---|
+| 2026-09-29 PR #256 (CI 첫 통과) | GitHub 호스팅 러너 4 vCPU/16 GB · kind v0.31 · K8s 1.35 · Helm 3.22 · 코어 5종 `idem-*:pr` | 65s | 84s | 10s | 45s | 40s | 13s | 4m17s | 앞선 3회 실패: ① Keycloak auto-build OOMKilled(1536Mi → 2Gi, 차트 수리) ② 릴리스 검사가 종료 중인 옛 Pod 를 셈(Deployment 단위로) ③ port-forward·providers 조회가 롤링 갱신 직후 옛 Pod·엔드포인트 교체 창에 걸림(Ready Pod 선택·재시도) |
+| (미실시) 기관 클러스터 `CLUSTER=existing` | 운영 Ingress · 바깥 PostgreSQL·Redis | | | | | | | | 첫 배포 때 돌리고 여기와 설치 매뉴얼 §8 에 적는다 |
