@@ -6,6 +6,14 @@
 
 `docs/post-1.0-plan.md` §5. 1.0.x 패치는 `release/1.0`.
 
+### 1.1 PR-6 · K8s 실배포 리허설 (플랜 §5 #5)
+
+- **`scripts/k8s/rehearsal.sh`**: Helm 차트를 실제 클러스터에 올려 끝까지 돈다 — `up`(kind + ingress-nginx + 리허설용 PostgreSQL 16·Redis 7) → `install`(비밀 한 벌 Secret, 자체 CA TLS Secret, `helm install --wait`; 리비전·Pod Ready·hub 프로파일·Service 에 관리 포트 없음(M7)·Ingress 호스트·관리 포트 health 검사) → `smoke`(TLS Ingress 경유 + registry·authz·관리 포트 port-forward 로 `install-smoke.sh` ①~⑧) → `upgrade`(운영 전환: prod 프로파일·Mock off, 리비전 2, MOCK 제공자 없음) → `rollback`(리비전 1 로, MOCK 복귀) → `down`(uninstall → Pod 0 → 클러스터 삭제). `CLUSTER=existing` 으로 기관 클러스터에도, `IMAGES=local|archive|registry` 로 이미지 출처를 고른다. 실패하면 Pod·이벤트·로그를 모은다. 코어 에디션만.
+- **CI `k8s-rehearsal` 잡**: 차트·스크립트·워크플로가 바뀐 PR(`changes` 잡, 이미지는 `docker-build-check` 가 남긴 아카이브 `idem-*:pr`)과 main push(GHCR `:<sha>`)·수동 실행(`:latest`) 마다 kind 에서 위 스크립트를 돈다. 단계별 소요가 잡 요약에 남는다. 종전 "실제 클러스터 배포는 아직 못 했다"(설치 매뉴얼 §8·차트 README) 정정 — 기관 클러스터(운영 Ingress·바깥 DB) 1회는 남았다.
+- **첫 통과 기록**(PR #256, GitHub 호스팅 러너, kind): up 65s · install 84s · 스모크 10s · 업그레이드 45s · 롤백 40s · 제거 13s, 합계 4분 17초 — `scripts/k8s/README.md` 결과 기록.
+- **리허설이 드러낸 차트 결함 수리**: Keycloak production 모드(`start`)는 기본 이미지에 없는 빌드 옵션(db·health) 때문에 첫 기동마다 auto-build 를 하는데, 종전 한도 1536Mi 에서 OOMKilled(exit 137) 되어 CrashLoop → 기본 한도 2Gi(Keycloak Operator 기본과 같음) + `keycloak.optimized`(빌드해 둔 이미지로 `start --optimized`) + `KC_PROXY=edge`(deprecated) → `KC_PROXY_HEADERS=xforwarded`.
+- 부수: 설치본 스모크에 `HUB_MGMT_URL` 등 관리 포트 주소(분리 배포에서 ① 헬스는 관리 포트, ②′ 는 앱 포트에 actuator 없음 확인). 비밀 생성기 `scripts/lib/gen-install-env.sh` 를 CI 스모크와 리허설이 공용(예시 파일 키 완전성 검사 포함). `docker-build-check` 의 태그를 차트 규칙(`<tag>-<edition>` 은 hub·registry 만)으로.
+
 ### 1.1 PR-1 · 연합 인가 정합성 + 할당 변경 전파 + SLO 재시도 (S8-b PR-2·D2 "남긴 것")
 
 - **할당 정책 단일 해석기 (`AssignmentPolicyResolver`)**: Handoff 페이로드·OIDC 토큰 교환·CAST·`AssignmentRule` 이 같은 답을 낸다. 프로파일 `policy.rules[{type:ASSIGNMENT, params}]` 의 파라미터는 블록 `policy.assignment` 을 **조이기만** 한다(`required` OR, `selfSignup` AND). 종전에는 규칙 파라미터 `required=false` 로 규칙은 통과시키면서 상태는 할당 기준으로 계산되는 불일치가 있었다. **동작 변경**: 규칙 파라미터로 할당 필수를 풀거나 셀프 가입을 열 수 없다.

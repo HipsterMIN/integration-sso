@@ -48,6 +48,7 @@ helm upgrade --install idem infra/helm/idem -n idem --create-namespace -f my-val
 - `global.imageRegistry` 는 Idem 이미지(짧은 이름)에만 붙는다. Keycloak·postgres 같은 서드파티 이미지는 `image.registry: ""` — 미러를 쓰면 그 값을 준다(H5).
 - 앱은 `SPRING_PROFILES_ACTIVE=prod`(`appDefaults.springProfile`)로 뜨고 actuator 는 관리 포트 9090(`appDefaults.managementPort`)에 있다 — Service·Ingress 는 앱 포트만 내보내므로 `/actuator` 는 클러스터 밖에서 닿지 않는다. 프로브와 Prometheus 수집은 관리 포트로(M6·M7).
 - Keycloak 관리 콘솔 주소 기본값은 `http://localhost:8088`(NOTES 의 port-forward). `keycloak.replicaCount > 1` 은 `extraEnv` 에 `KC_CACHE_STACK` 이 없으면 렌더링을 거부한다(M9).
+- Keycloak 은 production 모드(`start`)다. 기본 이미지에 없는 빌드 옵션(`db=postgres`, `health-enabled`) 때문에 **첫 기동마다 auto-build** 를 하므로 메모리 한도 2Gi 가 필요하다(1.1 리허설에서 1.5Gi 는 OOMKilled). 빌드해 둔 이미지(`FROM quay.io/keycloak/keycloak:24.0` + `RUN /opt/keycloak/bin/kc.sh build --db=postgres --health-enabled=true`)를 쓰면 `keycloak.image` + `keycloak.optimized: true` 로 `start --optimized` — 기동이 빠르고 메모리도 덜 든다. 프록시는 `KC_PROXY_HEADERS=xforwarded`(TLS 종료는 Ingress).
 - 내부 client(`idem-gate`·`idem-hub`)의 redirect URI·webOrigins 는 `global.publicUrl` 을 realm import 때 읽는다(첫 import 에만, M10).
 - 업그레이드(0.x → 1.0): db-init 훅은 구 스키마(`ido` 등)가 있으면 새 스키마를 만들지 않는다 — 앱이 첫 기동에서 옮긴다. 구·신 스키마가 둘 다 있고 새 쪽에 Flyway 이력이 없으면 앱이 기동을 거부한다(H7). 업그레이드가 끝나면 `hub.config` 등에 `IDEM_NAMING_LEGACY_REPAIR: "false"`.
 
@@ -57,4 +58,5 @@ helm upgrade --install idem infra/helm/idem -n idem --create-namespace -f my-val
 
 ## 검증
 
-이 저장소 환경에는 클러스터가 없어 `helm lint` + `helm template`(core·kr) 로 렌더링과 스키마를 확인했고, CI `helm-lint` 잡이 같은 검사와 `files/*` 사본이 `infra/docker` 원본과 같은지 대조하며, 1.0.1 부터 위 보안·운영 항목(레지스트리 접두·UID·관리 포트·admin URL·replica 가드)도 렌더링으로 회귀 검사한다. 실제 클러스터 배포는 아직 해 보지 못했다 — 첫 배포 때 `docs/install.md` §4~§5 확인 절차와 NOTES 를 따라 검증하고 여기에 기록한다.
+- 렌더링: CI `helm-lint` 잡 — `helm lint` + `helm template`(core·kr·Kafka) + kubeconform, `files/*` 사본이 `infra/docker` 원본과 같은지 대조, 1.0.1 보안·운영 항목(레지스트리 접두·UID·관리 포트·admin URL·replica 가드) 회귀.
+- **실배포 (1.1 PR-6)**: CI `k8s-rehearsal` 잡이 kind 클러스터에 이 차트를 실제로 올린다 — `scripts/k8s/rehearsal.sh`: ingress-nginx(TLS, 자체 CA) · 리허설용 PostgreSQL·Redis · 비밀 한 벌 Secret · `helm install --wait`(pre-install 스키마 Job, Keycloak production 모드 `--import-realm`) → 설치본 스모크(`scripts/ci/install-smoke.sh`, Ingress 경유 + 관리 포트 port-forward) → 운영 전환 `helm upgrade`(prod 프로파일·Mock off, pre-upgrade 훅) → `helm rollback 1` → `helm uninstall`. 차트·스크립트가 바뀐 PR 과 main push 마다 돈다. 코어 에디션만 — KR 이미지는 벤더 SDK 가 있는 곳에서 `IMAGES=registry` 로 같은 스크립트를 돌린다. 기관 클러스터(운영 Ingress·바깥 DB)는 `CLUSTER=existing` 으로 첫 배포 때 돌리고 결과를 `docs/manuals/installation-manual.md` §8 에 적는다.
