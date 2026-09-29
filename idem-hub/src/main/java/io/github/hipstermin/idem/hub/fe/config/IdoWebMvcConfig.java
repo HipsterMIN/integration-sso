@@ -69,7 +69,9 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
         // - OPTIONS(CORS preflight)는 인터셉터 내부에서 제외 처리
         registry.addInterceptor(authRateLimitInterceptor)
                 .addPathPatterns("/api/v1/auth/**",
-                        "/api/v1/admin/auth/login", "/api/v1/admin/auth/mfa");   // S7: 관리자 로그인도 IP 레이트리밋
+                        "/api/v1/admin/auth/login", "/api/v1/admin/auth/mfa",   // S7: 관리자 로그인도 IP 레이트리밋
+                        "/api/v1/handoff/login", "/api/v1/handoff/login/**",     // 1.1: 코어 로그인 프런트 진입도 IP 레이트리밋
+                        "/api/v1/fe-session/bind");
 
         // ────────────────────────────────────────────────────────────────
         // F4.8 (Sprint β-2) — 내부 호출자 인증
@@ -87,7 +89,8 @@ public class IdoWebMvcConfig implements WebMvcConfigurer {
                 )
                 .excludePathPatterns(
                         "/api/v1/fe-session/check",
-                        "/api/v1/fe-session/logout"
+                        "/api/v1/fe-session/logout",
+                        "/api/v1/fe-session/bind"     // 1.1: 브라우저가 1회용 코드로 쿠키를 받는 경로
                 );
     }
 

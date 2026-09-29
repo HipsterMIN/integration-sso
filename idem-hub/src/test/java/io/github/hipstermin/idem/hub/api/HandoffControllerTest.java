@@ -42,7 +42,7 @@ import org.springframework.test.util.ReflectionTestUtils;
  *   <li>GAP-API-02: Idempotency-Key HIT 이나 Ticket 만료 → 재발급</li>
  *   <li>GAP-API-02: Idempotency-Key MISS → 신규 발급 + Redis 저장</li>
  *   <li>GAP-API-02: Idempotency-Key 미전달 → 단순 발급 (Redis 저장 없음)</li>
- *   <li>P1 보안: Fe-Session-Id 쿠키 없으면 PlatformException 발생</li>
+ *   <li>P1 보안: feSessionId 쿠키 없으면 PlatformException 발생</li>
  *   <li>P1 보안: FeSession 만료/없음 시 PlatformException 발생</li>
  *   <li>P1 보안: qimUserId를 FeSession에서 추출하여 HandoffIssueCommand에 설정</li>
  * </ul>
@@ -80,11 +80,31 @@ class HandoffControllerTest {
     // ────────────────────────────────────────────────────────────────────────
 
     @Nested
+    @DisplayName("1.1: 인터셉터가 검증한 기관 ≠ 본문 agencyCode → E-AGENCY-302")
+    class AgencyBindingTest {
+        @Test
+        void mismatchRejected() {
+            MockHttpServletRequest req = withFeSessionCookie();
+            req.setAttribute(io.github.hipstermin.idem.hub.config.HandoffAgencyKeyInterceptor.ATTR_VALIDATED_AGENCY_CODE, "OTHER_AGENCY");
+            HandoffIssueRequest body = new HandoffIssueRequest();
+            org.springframework.test.util.ReflectionTestUtils.setField(body, "agencyCode", "AGENCY_001");
+            org.springframework.test.util.ReflectionTestUtils.setField(body, "authResultId", "ar-1");
+            org.springframework.test.util.ReflectionTestUtils.setField(body, "authLevel", "L1");
+            org.springframework.test.util.ReflectionTestUtils.setField(body, "providerCode", "MOCK");
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.issue("cid", null, body, req))
+                    .isInstanceOf(PlatformException.class)
+                    .satisfies(e -> org.assertj.core.api.Assertions.assertThat(((PlatformException) e).getErrorCode())
+                            .isEqualTo(PlatformErrorCode.AGENCY_CODE_MISMATCH));
+            org.mockito.Mockito.verify(handoffService, org.mockito.Mockito.never()).issue(org.mockito.ArgumentMatchers.any());
+        }
+    }
+
+    @Nested
     @DisplayName("P1 보안: FeSession 쿠키 검증")
     class FeSessionSecurityTest {
 
         @Test
-        @DisplayName("Fe-Session-Id 쿠키 없으면 PlatformException(IDO_SESSION_NOT_FOUND) 발생")
+        @DisplayName("feSessionId 쿠키 없으면 PlatformException(IDO_SESSION_NOT_FOUND) 발생")
         void issue_missingFeSessionCookie_throwsPlatformException() {
             MockHttpServletRequest req = new MockHttpServletRequest();
             // 쿠키 없음
@@ -101,7 +121,7 @@ class HandoffControllerTest {
         }
 
         @Test
-        @DisplayName("Fe-Session-Id 쿠키 있으나 FeSession 없음(만료) → PlatformException 발생")
+        @DisplayName("feSessionId 쿠키 있으나 FeSession 없음(만료) → PlatformException 발생")
         void issue_feSessionNotFound_throwsPlatformException() {
             MockHttpServletRequest req = withFeSessionCookie();
             given(feSessionService.findById(FE_SESSION_ID)).willReturn(Optional.empty());
@@ -292,10 +312,10 @@ class HandoffControllerTest {
     // 헬퍼 메서드
     // ────────────────────────────────────────────────────────────────────────
 
-    /** Fe-Session-Id HttpOnly 쿠키가 포함된 MockHttpServletRequest */
+    /** feSessionId HttpOnly 쿠키가 포함된 MockHttpServletRequest */
     private MockHttpServletRequest withFeSessionCookie() {
         MockHttpServletRequest req = new MockHttpServletRequest();
-        req.setCookies(new Cookie("Fe-Session-Id", FE_SESSION_ID));
+        req.setCookies(new Cookie("feSessionId", FE_SESSION_ID));
         return req;
     }
 

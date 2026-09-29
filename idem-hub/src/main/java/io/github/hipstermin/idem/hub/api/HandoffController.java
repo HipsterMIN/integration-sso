@@ -9,6 +9,7 @@ import io.github.hipstermin.idem.common.util.CorrelationIdHolder;
 import io.github.hipstermin.idem.hub.api.dto.HandoffIssueRequest;
 import io.github.hipstermin.idem.hub.api.dto.HandoffVerifyRequest;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
+import io.github.hipstermin.idem.hub.fe.session.FeSessionCookie;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import io.github.hipstermin.idem.hub.handoff.HandoffIssueCommand;
 import io.github.hipstermin.idem.hub.handoff.HandoffService;
@@ -41,8 +42,8 @@ public class HandoffController {
 
     private static final String IDEMPOTENCY_KEY_PREFIX = "idem:idempotency:handoff:";
     private static final Duration IDEMPOTENCY_TTL       = Duration.ofDays(1);
-    /** FE 세션 쿠키명 — §12.3 설계서 참조 */
-    private static final String FE_SESSION_COOKIE_NAME  = "Fe-Session-Id";
+    /** FE 세션 쿠키명 — 1.1: 발급 쪽과 같은 단일 정의({@link FeSessionCookie}). 종전 "Fe-Session-Id" 는 어느 쪽도 쓰지 않던 이름 */
+    private static final String FE_SESSION_COOKIE_NAME  = FeSessionCookie.NAME;
 
     private final HandoffService handoffService;
     private final FeSessionService feSessionService;
@@ -57,7 +58,7 @@ public class HandoffController {
      * <p>§17.5 GAP-API-02: Idempotency-Key 헤더 지원 — 재시도 시 중복 Ticket 발급 방지.
      *
      * <p><b>v2.4.0 P1 보안 수정</b>: {@code qimUserId}를 FE request body가 아닌
-     * {@code Fe-Session-Id} HttpOnly 쿠키로 조회하여 서버 측에서 추출.
+     * {@code feSessionId} HttpOnly 쿠키로 조회하여 서버 측에서 추출.
      * FE가 임의의 qimUserId를 주입하는 공격 차단.
      *
      * <p><b>Idempotency-Key 처리 흐름</b>:
@@ -80,6 +81,14 @@ public class HandoffController {
 
         String cid = correlationId != null ? correlationId : CorrelationIdHolder.generate();
         CorrelationIdHolder.set(cid);
+
+        // 1.1: 인터셉터가 검증한 기관(X-Agency-Code) 과 본문 agencyCode 가 같아야 한다 — 종전에는 어느 기관 키로든 다른 기관 티켓을 발급할 수 있었다
+        Object validated = httpRequest.getAttribute(
+                io.github.hipstermin.idem.hub.config.HandoffAgencyKeyInterceptor.ATTR_VALIDATED_AGENCY_CODE);
+        if (validated instanceof String v && !v.equals(req.getAgencyCode())) {
+            log.warn("[HandoffController] 기관 코드 불일치 — 헤더={} 본문={} cid={}", v, req.getAgencyCode(), cid);
+            throw new PlatformException(PlatformErrorCode.AGENCY_CODE_MISMATCH, cid);
+        }
 
         // ── P1 보안 수정: feSession 쿠키에서 qimUserId 서버 측 추출 ──────────────────
         String feSessionId = extractCookieValue(httpRequest, FE_SESSION_COOKIE_NAME);

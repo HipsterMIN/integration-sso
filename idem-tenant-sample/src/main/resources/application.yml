@@ -101,9 +101,13 @@ idem.sample:
     client-secret: ${AGENCY_OIDC_CLIENT_SECRET:}
     redirect-uri: ${AGENCY_OIDC_REDIRECT_URI:http://localhost:8084/agency/oidc/callback}
     post-logout-redirect-uri: ${AGENCY_OIDC_POST_LOGOUT_URI:http://localhost:8084/}
+  # 1.1: 브라우저 Handoff 진입(/agency/login → hub 코어 로그인 프런트 → /agency/callback) 에서 hub 가 되돌아올 이 기관의 바깥 주소
+  public-url: ${AGENCY_STUB_URL:http://localhost:8084}
   # §11 IdO Verify API 연동
   ido:
     base-url: ${IDEM_HUB_BASE_URL:http://localhost:8083}
+    # 1.1: 브라우저가 가야 하는 hub 주소 (컨테이너 안의 base-url 과 다를 때, 예: compose 에서는 http://localhost:8083)
+    public-url: ${IDEM_PUBLIC_URL_HUB:${IDEM_HUB_BASE_URL:http://localhost:8083}}
     api-key: ${AGENCY_API_KEY:stub-api-key-dev}
     connect-timeout-ms: 3000
     read-timeout-ms: 5000

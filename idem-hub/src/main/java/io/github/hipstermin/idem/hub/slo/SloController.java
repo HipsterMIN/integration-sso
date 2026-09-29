@@ -37,7 +37,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class SloController {
 
-    private static final String COOKIE_NAME = "feSessionId";
+    private static final String COOKIE_NAME = io.github.hipstermin.idem.hub.fe.session.FeSessionCookie.NAME;
 
     private final FeSessionService feSessionService;
     private final SloService       sloService;

@@ -116,7 +116,7 @@ class HandoffIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
-    @DisplayName("FE 세션 쿠키(Fe-Session-Id) 없음 → 401 (P1: qimUserId 는 서버 측 세션에서만 추출)")
+    @DisplayName("FE 세션 쿠키(feSessionId) 없음 → 401 (P1: qimUserId 는 서버 측 세션에서만 추출)")
     void issueHandoff_withoutFeSessionCookie_returns401() {
         String body = """
                 {
@@ -319,11 +319,11 @@ class HandoffIntegrationTest extends IntegrationTestBase {
                 String.class);
     }
 
-    /** 로그인 완료 상태의 FE 세션을 만들고 {@code Fe-Session-Id=<id>} 쿠키 문자열을 돌려준다. */
+    /** 로그인 완료 상태의 FE 세션을 만들고 {@code feSessionId=<id>} 쿠키 문자열을 돌려준다. */
     private String feSessionCookie() {
         FeSession session = feSessionService.create(
                 UUID.randomUUID().toString(), UUID.randomUUID().toString(), "MEDIUM", null); // 36자 이내(handoff_audit 컬럼 길이)
-        return "Fe-Session-Id=" + session.getFeSessionId();
+        return "feSessionId=" + session.getFeSessionId();
     }
 
     private static RestTemplate noRetryRestTemplate() {

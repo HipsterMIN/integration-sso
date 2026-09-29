@@ -8,6 +8,7 @@
 # 검사: ① 4개 헬스 ② gate 를 통한 OIDC Discovery(issuer = gate 공개 URL) ②′ 관리자 로그인(2단계, 무인증 관리 API 401)
 #       ③ OIDC_RP 프로파일 PUT → Keycloak client 생성·secret 회전 ④ gate 프런트가 Keycloak 로그인 화면을 프록시(client 존재·PKCE 사전검사)
 #       ⑤ Mock 본인확인 → registry 등록 라운드트립 ⑥ registry 이벤트 피드(Kafka 없는 상태 전파) ⑦ 코어 에디션이면 KR 전용 엔드포인트 404
+#       ⑦b Handoff 브라우저 진입(1.1 코어 로그인 프런트: DIRECT 프로파일 → 진입 → MOCK → 발급 → 콜백 → verify → 재검증 409)
 #       ⑧ 감사 조회(관리 행위가 남는다) → 로그아웃
 #
 #   HUB_URL GATE_URL REGISTRY_URL IDEM_AUTHZ_URL   기본 localhost:8083/8081/8082/8086
@@ -118,6 +119,45 @@ if [ "$EDITION" = "core" ]; then
   code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$HUB_URL/api/v1/auth/nice/ci-check" "${h[@]}" -d '{"ci":"","mbrDvsnCd":"A101"}')
   [ "$code" = "404" ] && ok "/api/v1/auth/nice/ci-check 404" || fail "KR 엔드포인트가 $code"
 fi
+
+echo "⑦b Handoff 브라우저 진입 — 코어 로그인 프런트 (1.1): 진입 → MOCK 로그인 → 발급 → 콜백 → 서버 간 verify"
+HO_CODE="${SERVICE_CODE}_HO"
+body=$(cat <<JSON
+{"schemaVersion":1,
+ "service":{"code":"$HO_CODE","name":"설치 스모크 Handoff","status":"ACTIVE"},
+ "protocol":{"type":"DIRECT","endpoints":{"callbackWhitelist":["https://agency.example.org/cb"]}},
+ "identity":{"attributes":["name_masked"]},
+ "policy":{"minAuthLevel":"L1"}}
+JSON
+)
+code=$(curl -s -o /tmp/smoke-put-ho.json -w '%{http_code}' -X PUT "$HUB_URL/api/v1/admin/services/$HO_CODE/profile" -H 'Content-Type: application/json' "${adm[@]}" -d "$body")
+[ "$code" = "200" ] || [ "$code" = "201" ] && ok "Handoff 프로파일 PUT $code" || fail "Handoff 프로파일 PUT $code: $(cat /tmp/smoke-put-ho.json)"
+agency_key=$(curl -sf -X POST "$HUB_URL/api/v1/admin/agencies/$HO_CODE/rotate-key" "${adm[@]}" | jq -r '.newApiKey')
+[ -n "$agency_key" ] && [ "$agency_key" != "null" ] && ok "기관 API 키 발급" || fail "rotate-key 실패"
+jar=$(mktemp)
+loc="$HUB_URL/api/v1/handoff/login?service=$HO_CODE&callback=https%3A%2F%2Fagency.example.org%2Fcb&provider=MOCK&state=smoke-state"
+hops=0
+while [ $hops -lt 6 ]; do
+  hops=$((hops+1))
+  resp=$(curl -s -o /tmp/smoke-login-body -w '%{http_code} %{redirect_url}' -b "$jar" -c "$jar" "$loc")
+  code=${resp%% *}; next=${resp#* }
+  case "$code" in
+    302) [ -n "$next" ] || fail "302 인데 Location 없음 (hop $hops)"; case "$next" in "$HUB_URL"*) loc="$next"; continue;; *) loc="$next"; break;; esac;;
+    *) fail "로그인 프런트 hop $hops 가 $code: $(head -c 400 /tmp/smoke-login-body)";;
+  esac
+done
+case "$loc" in https://agency.example.org/cb\?ticketId=*) ok "콜백으로 복귀 ($hops hops)";; *) fail "콜백 복귀 아님: $loc";; esac
+ticket=$(echo "$loc" | sed -n 's/.*[?&]ticketId=\([^&]*\).*/\1/p'); [ -n "$ticket" ] && ok "ticketId=$ticket" || fail "ticketId 없음: $loc"
+echo "$loc" | grep -q 'state=smoke-state' && ok "state 되돌림" || fail "state 없음: $loc"
+grep -q "feSessionId" "$jar" && ok "FE 세션 쿠키 발급 (feSessionId)" || fail "feSessionId 쿠키 없음"
+ver=$(curl -s -o /tmp/smoke-verify.json -w '%{http_code}' -X POST "$HUB_URL/api/v1/handoff/verify" "${h[@]}" -H "X-Agency-Code: $HO_CODE" -H "X-Agency-Key: $agency_key" -d "{\"ticketId\":\"$ticket\"}")
+[ "$ver" = "200" ] && ok "verify 200 state=$(jq -r .state /tmp/smoke-verify.json)" || fail "verify $ver: $(cat /tmp/smoke-verify.json)"
+jq -e '.state | IN("APPROVED","GUEST")' /tmp/smoke-verify.json >/dev/null && ok "state 는 APPROVED/GUEST" || fail "state 이상: $(cat /tmp/smoke-verify.json)"
+ver2=$(curl -s -o /tmp/smoke-verify2.json -w '%{http_code}' -X POST "$HUB_URL/api/v1/handoff/verify" "${h[@]}" -H "X-Agency-Code: $HO_CODE" -H "X-Agency-Key: $agency_key" -d "{\"ticketId\":\"$ticket\"}")
+[ "$ver2" = "409" ] && grep -q 'E-IDO-102' /tmp/smoke-verify2.json && ok "재검증 409 E-IDO-102 (1회 소비, D-10)" || fail "재검증이 $ver2: $(cat /tmp/smoke-verify2.json)"
+code=$(curl -s -o /tmp/smoke-login-bad -w '%{http_code}' "$HUB_URL/api/v1/handoff/login?service=$HO_CODE&callback=https%3A%2F%2Fevil.example.org%2Fcb")
+[ "$code" = "403" ] && ok "화이트리스트 밖 콜백은 403 오류 화면" || fail "화이트리스트 밖 콜백이 $code"
+rm -f "$jar"
 
 echo "⑧ 감사 조회 → 로그아웃"
 sleep 1   # 감사 발행은 비동기

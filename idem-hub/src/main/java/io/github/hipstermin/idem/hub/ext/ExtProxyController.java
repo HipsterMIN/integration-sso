@@ -78,7 +78,7 @@ public class ExtProxyController {
     private final QAuthzClient qAuthzClient;
 
     /** FE 세션 쿠키명 ({@code FeSessionController.COOKIE_NAME}와 동일) */
-    private static final String FE_SESSION_COOKIE = "feSessionId";
+    private static final String FE_SESSION_COOKIE = io.github.hipstermin.idem.hub.fe.session.FeSessionCookie.NAME;
 
     /**
      * 인가 속성 전파 스코프. /api/ext/** 는 플랫폼 백엔드(Q-IM) 대상이므로

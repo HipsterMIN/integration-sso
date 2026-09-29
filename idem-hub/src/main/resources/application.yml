@@ -385,6 +385,14 @@ idem.hub:
   # §16.4.1 Clock Skew 허용
   clock-skew-tolerance-minutes: 5
 
+  # ── 1.1 코어 로그인 프런트 (GET /api/v1/handoff/login) ─────────────────────
+  # 브라우저가 이 hub 로 돌아올 절대 URL 의 베이스 — 리버스 프록시 뒤에서는 바깥 주소(IDEM_PUBLIC_URL_HUB)
+  public-url: ${IDEM_PUBLIC_URL_HUB:http://localhost:8083}
+  handoff:
+    login:
+      # 선택 화면에 함께 보일 브로커 제공자(쉼표 구분, /api/v1/broker/{name}/authorize 로 보낸다). 비면 SPI 제공자만
+      broker-providers: ${IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS:}
+
   # ── FE 세션 설정 (onepass-fe BFF 이관) ──────────────────────────────────
   fe:
     session:

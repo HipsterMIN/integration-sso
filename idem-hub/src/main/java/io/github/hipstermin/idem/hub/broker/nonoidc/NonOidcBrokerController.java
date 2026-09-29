@@ -59,7 +59,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class NonOidcBrokerController {
 
-    private static final String COOKIE_NAME = "feSessionId";
+    private static final String COOKIE_NAME = io.github.hipstermin.idem.hub.fe.session.FeSessionCookie.NAME;
 
     private final IdpBrokerService idpBrokerService;   // NonOidcBrokerAdapter 주입
     private final FeSessionService feSessionService;

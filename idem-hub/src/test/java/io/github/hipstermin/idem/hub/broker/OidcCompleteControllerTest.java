@@ -55,6 +55,9 @@ class OidcCompleteControllerTest {
     @Mock
     private QimClient qimClient;
 
+    @Mock
+    private io.github.hipstermin.idem.hub.fe.session.FeSessionBindCodeStore bindCodeStore;
+
     @InjectMocks
     private OidcCompleteController controller;
 
@@ -62,6 +65,32 @@ class OidcCompleteControllerTest {
     void setUp() {
         // broker.mode=qsign (기본값)
         ReflectionTestUtils.setField(controller, "brokerMode", "qsign");
+        ReflectionTestUtils.setField(controller, "publicUrl", "http://hub.test");
+        org.mockito.Mockito.lenient().when(bindCodeStore.issue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn("bind-code-1");
+    }
+
+    @Test
+    @DisplayName("1.1: 응답 redirectUrl 은 hub 의 1회용 바인드 URL — gate 가 쿠키를 전달하지 못해도 브라우저가 hub 에서 쿠키를 받는다")
+    void redirectGoesThroughBindCode() {
+        ReflectionTestUtils.setField(controller, "allowCilessIdentity", true);   // 주체 키 없는 요청 → identifierHash 를 임시 id 로 (로컬 전용 경로)
+        given(feSessionService.isValidReturnUrl("http://localhost:8084/callback")).willReturn(true);
+        given(internalSigVerifier.verify(any(), any())).willReturn(true);
+        given(feSessionService.create(any(), any(), any(), any(), any(), any()))
+                .willReturn(io.github.hipstermin.idem.hub.fe.session.FeSession.builder()
+                        .feSessionId("fe-1").qimUserId("h1").authResultId("a1").authLevel("L1").build());
+        OidcCompleteRequest req = new OidcCompleteRequest();
+        ReflectionTestUtils.setField(req, "authResultId", "a1");
+        ReflectionTestUtils.setField(req, "identifierHash", "h1");
+        ReflectionTestUtils.setField(req, "authLevel", "L1");
+        ReflectionTestUtils.setField(req, "providerCode", "KAKAO_OIDC");
+        ReflectionTestUtils.setField(req, "correlationId", "cid-bind");
+        ReflectionTestUtils.setField(req, "returnUrl", "http://localhost:8084/callback");
+
+        var result = controller.complete("valid-sig", "idem-gate", "cid-bind", req, new MockHttpServletResponse());
+
+        org.assertj.core.api.Assertions.assertThat(result.getBody())
+                .containsEntry("redirectUrl", "http://hub.test/api/v1/fe-session/bind?code=bind-code-1");
+        verify(bindCodeStore).issue("fe-1", "http://localhost:8084/callback");
     }
 
     // ── qimUserId 해석 테스트 ─────────────────────────────────────────────

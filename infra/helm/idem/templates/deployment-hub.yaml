@@ -74,6 +74,8 @@ spec:
             # S6: OIDC_RP client 프로비저닝 + 기관에 알려 줄 issuer 베이스
             - name: IDEM_PUBLIC_URL_GATE
               value: {{ .Values.global.publicUrl.gate | quote }}
+            - name: IDEM_PUBLIC_URL_HUB
+              value: {{ .Values.global.publicUrl.hub | quote }}
             - name: CORS_ORIGIN_DEV
               value: {{ .Values.global.publicUrl.console | quote }}
             - name: CORS_ORIGIN_PROD

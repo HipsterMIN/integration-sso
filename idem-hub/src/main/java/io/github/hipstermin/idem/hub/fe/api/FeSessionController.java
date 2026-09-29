@@ -3,6 +3,8 @@ package io.github.hipstermin.idem.hub.fe.api;
 import io.github.hipstermin.idem.common.util.CorrelationIdHolder;
 import io.github.hipstermin.idem.hub.fe.config.InternalCallerAuthInterceptor;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
+import io.github.hipstermin.idem.hub.fe.session.FeSessionBindCodeStore;
+import io.github.hipstermin.idem.hub.fe.session.FeSessionCookie;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,10 +31,11 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class FeSessionController {
 
-    private static final String COOKIE_NAME = "feSessionId";
+    private static final String COOKIE_NAME = io.github.hipstermin.idem.hub.fe.session.FeSessionCookie.NAME;
 
 
     private final FeSessionService feSessionService;
+    private final FeSessionBindCodeStore bindCodeStore;
 
     // ── GET /api/v1/fe-session/check ──────────────────────────────────────
 
@@ -80,6 +83,28 @@ public class FeSessionController {
      * FE 세션 로그아웃 (쿠키 제거)
      * 설계서 §12.4 외부 채널 로그아웃
      */
+    /**
+     * 1.1: 1회용 바인드 코드로 FE 세션 쿠키를 받는다 — qsign 모드에서 gate 가 hub 의 {@code /oidc/complete} 응답 쿠키를
+     * 전달하지 못하는 구조를 메운다({@link FeSessionBindCodeStore}). 코드가 없거나 만료면 401.
+     */
+    @GetMapping("/bind")
+    public ResponseEntity<?> bind(@RequestParam("code") String code, HttpServletResponse response) {
+        var bound = bindCodeStore.consume(code);
+        if (bound.isEmpty()) {
+            log.warn("[FeSession] 바인드 코드 없음·만료");
+            return ResponseEntity.status(401).body(Map.of("code", "INVALID_BIND_CODE", "message", "세션 바인드 코드가 없거나 만료되었습니다."));
+        }
+        if (feSessionService.findById(bound.get().feSessionId()).isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("code", "SESSION_NOT_FOUND", "message", "FE 세션이 없거나 만료되었습니다."));
+        }
+        response.addHeader(HttpHeaders.SET_COOKIE, FeSessionCookie.build(bound.get().feSessionId()).toString());
+        String target = bound.get().returnUrl() != null ? bound.get().returnUrl() : "/conversion/complete";
+        HttpHeaders h = new HttpHeaders();
+        h.setLocation(java.net.URI.create(target));
+        h.setCacheControl("no-store");
+        return ResponseEntity.status(302).headers(h).build();
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,

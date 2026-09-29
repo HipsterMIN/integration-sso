@@ -162,7 +162,7 @@ class AssignmentIntegrationTest extends IntegrationTestBase {
         headers.set("X-Correlation-Id", UUID.randomUUID().toString());
         headers.set("X-Agency-Code", AGENCY_CODE);
         headers.set("X-Agency-Key", AGENCY_KEY);
-        headers.add(HttpHeaders.COOKIE, "Fe-Session-Id=" + session.getFeSessionId());
+        headers.add(HttpHeaders.COOKIE, "feSessionId=" + session.getFeSessionId());
         String body = """
                 {"agencyCode":"%s","authResultId":"%s","authLevel":"L2","providerCode":"MOCK",
                  "callbackUrl":"https://agency.example.com/callback"}

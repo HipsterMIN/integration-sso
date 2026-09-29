@@ -92,6 +92,8 @@ idem:
 
 비밀 3종(API 키·client secret·웹훅 비밀)은 환경변수·Vault·Secrets Manager 로 주입하고 파일이면 600 권한. 소스·Git·메신저 금지.
 
+옵션 A(DIRECT) 의 브라우저 진입(1.1): 로그인 버튼은 `{hub-url}/api/v1/handoff/login?service={code}&callback={우리 콜백}&state=…` 로 보내고, 콜백 URL 은 운영기관 프로파일의 `callbackWhitelist` 에 등록돼 있어야 한다(밖이면 사용자에게 Idem 오류 화면 403 이 보이고 우리 콜백은 호출되지 않는다). 콜백은 `ticketId` 외에 `error=E-IDO-…` 로 올 수 있으니 거부 화면을 준비한다.
+
 ### 2.2 배포 전 확인
 
 ```bash

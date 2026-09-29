@@ -55,7 +55,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class CrossAgencySsoController {
 
-    private static final String FE_SESSION_COOKIE_NAME = "Fe-Session-Id";
+    private static final String FE_SESSION_COOKIE_NAME = io.github.hipstermin.idem.hub.fe.session.FeSessionCookie.NAME;   // 1.1: 발급 쪽과 같은 이름
 
     private final CastTokenService  castTokenService;
     private final HandoffService    handoffService;
