@@ -53,7 +53,7 @@ GS 를 먼저 받는다. 배포본·매뉴얼이 고정되고 그 산출물이 C
 | idem-authz (8086) | **TOE** | 연합 역할, RLS 적용 감사 테이블 |
 | idem-console (SPA) | **TOE (관리 인터페이스)** | 단, 서버 측 관리자 인증·권한이 새로 필요 (§3 FIA) |
 | idem-relay (8090) | **TOE** | Outbox 릴레이·웹훅 서명 |
-| idem-sdk-java / idem-agent | ❔ | 기관 측 배포물. 경계 밖(운영환경) 으로 두되 인터페이스(HMAC 서명·CAST 공개키)는 TSFI 로 기술 |
+| idem-sdk-java (idem-agent 는 1.1 에서 저장소 분리, 제품 밖) | ❔ | 기관 측 배포물. 경계 밖(운영환경) 으로 두되 인터페이스(HMAC 서명·CAST 공개키)는 TSFI 로 기술 |
 | plugins/idem-plugin-nice-oacx, AnyID 브로커 | **TOE 밖** | 벤더 SDK 재배포 불가(`docs/open-source-readiness.md` B2). SPI(`docs/identity-provider-spi.md`) 를 경계로 두고 Mock 플러그인으로 시험 |
 | Nginx(TLS 종단), Keycloak, PostgreSQL/MariaDB, Redis, Kafka, Vault | **운영환경** | ST 의 운영환경 보안목적(OE)으로 기술. 단, TOE↔운영환경 채널은 TOE 가 TLS 로 보호해야 함(§3 FTP) |
 

@@ -452,7 +452,7 @@ HMAC 서명(`signRequests(true)`)은 `X-Internal-Sig = HMAC-SHA256("{agencyCode}
 
 ## 10. Java Agent — 1.0 에서의 상태
 
-`idem-agent`(`-javaagent`)는 요청의 `Authorization: Bearer` 토큰을 `POST {endpoint}/api/v1/agency/token/verify` 로 검증하는 구조인데, **이 엔드포인트를 제공하는 서버가 Idem 1.0.x 에 없다**(hub·gate 어디에도 없고 저장소 이력에도 없다). 테스트베드(`idem-agent-testbed`)는 `mock-onepass-server` 로만 검증돼 있다. 따라서 1.0 에서 에이전트는 **운영 연동 수단이 아니다**. 레거시 WAS 는 옵션 A(콜백 서블릿 하나 + verify 호출) 또는 옵션 C 로 붙인다. 에이전트가 Idem 1.0 어설션을 검증하려면 hub 쪽 검증 API 와 브라우저 토큰 발급 경로가 함께 필요하며 이는 1.x 과제다(`docs/idem-agent-integration-guide.md` 머리 안내).
+`idem-agent`(`-javaagent`)는 요청의 `Authorization: Bearer` 토큰을 `POST {endpoint}/api/v1/agency/token/verify` 로 검증하는 구조인데, **이 엔드포인트를 제공하는 서버가 Idem 1.0.x 에 없다**(hub·gate 어디에도 없고 저장소 이력에도 없다). 테스트베드(`idem-agent-testbed`)는 `mock-onepass-server` 로만 검증돼 있다. 따라서 1.0 에서 에이전트는 **운영 연동 수단이 아니다**. 레거시 WAS 는 옵션 A(콜백 서블릿 하나 + verify 호출) 또는 옵션 C 로 붙인다. 에이전트가 Idem 1.0 어설션을 검증하려면 hub 쪽 검증 API 와 브라우저 토큰 발급 경로가 함께 필요하며 이는 1.x 과제다. **1.1 PR-4(2026-09-29)**: 에이전트·테스트베드·문서는 이 모노레포 밖의 별도 저장소 `idem-agent` 로 분리했다 — 여기서는 더 이상 빌드·배포되지 않는다.
 
 ---
 
@@ -527,4 +527,4 @@ Mock 본인확인 제공자로 코어 흐름을 돌리는 절차는 `docs/instal
 
 ---
 
-*이 문서는 `idem-hub`(`HandoffController`·`AgencyEventController`·`CrossAgencySsoController`·`WebhookDispatchOutboxRelay`), `idem-gate`(OIDC 프런트), `idem-tenant-sample`, `idem-sdk-java`, `idem-agent` 1.0.1 소스를 기준으로 작성했다. 코드와 문서가 다르면 코드가 우선한다.*
+*이 문서는 `idem-hub`(`HandoffController`·`AgencyEventController`·`CrossAgencySsoController`·`WebhookDispatchOutboxRelay`), `idem-gate`(OIDC 프런트), `idem-tenant-sample`, `idem-sdk-java` 1.0.1·1.1 소스를 기준으로 작성했다. 코드와 문서가 다르면 코드가 우선한다.*

@@ -11,7 +11,7 @@
 | 제품명 / 버전 | Idem 1.0.1 (태그 `v1.0.1`, 2026-09-26 — 1.0.0 동결 뒤 3차 적대적 점검 후속) |
 | 라이선스 | Apache-2.0 (저장소 공개) |
 | 에디션 | **core** — Idem SSO + Idem IM · **kr** — 코어 + KR 에디션(SMES 회원 개념·NICE/Any-ID 본인확인 플러그인·회원 포털) |
-| 제품 구성 | 제품 1 Idem SSO(`idem-gate`·`idem-hub`) · 제품 2 Idem IM(`idem-registry`·`idem-authz`) · 관리 콘솔 · 기관 연동 도구(SDK·에이전트·참조 앱) |
+| 제품 구성 | 제품 1 Idem SSO(`idem-gate`·`idem-hub`) · 제품 2 Idem IM(`idem-registry`·`idem-authz`) · 관리 콘솔 · 기관 연동 도구(SDK·참조 앱) |
 
 ## 2. 기능 목록
 
@@ -25,7 +25,7 @@
 | F4 | 인증 수준 L1/L2/L3 | 서비스 프로파일 `policy.minAuthLevel`, 재인증 규칙 | hub PolicyEngine |
 | F5 | 세션·단일 로그아웃 | 세션 정책(유휴·절대·동시), SLO(Keycloak 세션 종료), OIDC Back-Channel Logout 송·수신 | gate·hub |
 | F6 | 기관 간 SSO(CAST) | Ed25519 서명 토큰으로 A기관 → B기관 재로그인 없이 이동, 원자 소비 | hub |
-| F7 | 레거시 WAS 연동 | `idem-sdk-java`(Java 8+, 의존성 0 — 게이트웨이·상태 조회) · 콜백 서블릿 + Handoff verify. `idem-agent`(-javaagent)는 검증 API(`/api/v1/agency/token/verify`)가 1.0.x 서버에 없어 **1.0 연동 수단 아님**(1.x 과제) | 도구 |
+| F7 | 레거시 WAS 연동 | `idem-sdk-java`(Java 8+, 의존성 0 — 게이트웨이·상태 조회) · 콜백 서블릿 + Handoff verify. `idem-agent`(-javaagent)는 검증 API(`/api/v1/agency/token/verify`)가 1.0.x 서버에 없어 **1.0 연동 수단 아님** — 1.1 PR-4 에서 별도 저장소로 분리 | 도구 |
 
 ### 2.2 통합 회원(Idem IM)
 
@@ -79,7 +79,7 @@
 | 런타임(이미지 안) | Java 21(Temurin), Spring Boot 3.5, Keycloak 24.0 |
 | 데이터 | PostgreSQL 16(엔진 1종), Redis 7. Kafka 선택 |
 | 브라우저(관리 콘솔·로그인 화면) | 최신 Chrome·Edge·Firefox·Safari (ES2020) |
-| 기관 측 | 표준 OIDC 라이브러리 / Java 8+ SDK / JDK 8+ WAS 에이전트(Tomcat 8~10·Jetty·WildFly·Undertow·JEUS 검증 테스트베드) |
+| 기관 측 | 표준 OIDC 라이브러리 / Java 8+ SDK / 콜백 서블릿(JDK 8+ WAS) |
 | 규모 | 기관(서비스) 수 제한 없음(프로파일 단위). 한도는 프로파일 `limits.tps/daily` 로 기관별(1.0.1 부터 적용; 없으면 설치본 기본 200 tps·1,000,000/일) |
 
 ## 5. 보안 기능 요약 (GS 보안성 항목 대응)

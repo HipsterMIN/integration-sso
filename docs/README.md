@@ -108,10 +108,6 @@ docs/
 | [`post-1.0-plan.md`](post-1.0-plan.md) | **1.0 이후 실행 플랜 (2026-09-27)** — G0 사용자 결정 10건 → G1 시험 준비(58 항목 완주·오프라인 설치·백업 복구·콘솔 3건·웹훅 비밀 API) → G2 제출물 → G3 GS 신청·시험 → 1.1(에이전트 결정·코어 로그인 프런트·SCIM 아웃바운드·남긴 것·AI 운영 보조) → 2.0 |
 | [`certification/cc-gs-gap-analysis.md`](certification/cc-gs-gap-analysis.md) | **CC·GS 인증 갭 분석 (초안)** — 국가용 보안요구사항(SSO) 클래스별 현재 구현 대조, TOE 범위 제안, 보증 산출물·GS 품질 특성 갭, 로드맵·질의 목록 |
 | [`idem-sdk-java-usage-guide.md`](idem-sdk-java-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |
-| [`idem-agent-index.md`](idem-agent-index.md) | Agency Java Agent — 문서 인덱스 |
-| [`idem-agent-integration-guide.md`](idem-agent-integration-guide.md) | Agency Java Agent — 통합 가이드 |
-| [`idem-agent-walkthrough.md`](idem-agent-walkthrough.md) | Agency Java Agent — 설치·운영 워크스루 |
-| [`idem-agent-troubleshooting.md`](idem-agent-troubleshooting.md) | Agency Java Agent — 트러블슈팅 |
 | [`sso-agency-developer-guide.md`](sso-agency-developer-guide.md) | 자체 SSO 보유 기관 — 개발자 레퍼런스 |
 | [`sso-agency-integration-guide.md`](sso-agency-integration-guide.md) | 자체 SSO 보유 기관 — 담당자용 |
 | [`../scripts/kr-member-import/README.md`](../scripts/kr-member-import/README.md) | **KR 회원 일회성 이관 도구 (S9 PR-3)** — 구 플랫폼 회원 CSV → idem-kr-registry 내부 API(멱등, 기업회원 전환, 매핑 CSV) |
@@ -141,8 +137,6 @@ docs/
 | `qim-ido-integration-architecture.md` | Q-IM ↔ IdO 연동 아키텍처 설계서 |
 | `agency-external-arch-supplement.md` | 유관기관 외부망 배치 설계 보완 (ARCH-SUPP-001) |
 | `FEATURE_FLAGS.md` | IdO 기능 플래그 완전 가이드 |
-| `idem-agent-architecture.md` | OnePass Agency Java Agent 아키텍처 |
-| `jeus-sso-deep-dive.md` | JEUS SSO 심층 분석 |
 | `EDA-2026-001-eda-architecture-proposal-analysis.md` | EDA 아키텍처 제안 분석 |
 | `ADR-2026-004-internal-sso-integration-pattern.md` | ADR: 내부 SSO 통합 패턴 |
 | `ADR-2026-005-outbox-scheduler-module.md` | ADR: Outbox Scheduler 모듈 |
@@ -175,7 +169,6 @@ docs/
 | `local-dev-guide.md` | 로컬 개발 환경 구동 가이드 |
 | `member-conversion-implementation-plan.md` | 회원 전환 구현 플랜 |
 | `idem-be-integration-plan.md` | idem-hub 통합 플랜 |
-| `idem-agent-developer-reference.md` | Agent 개발자 레퍼런스 |
 | `sso-agency-integration-plan.md` | SSO 유관기관 통합 플랜 |
 | `01~13-*.md` | 프로젝트 개요 / 아키텍처 / 모듈별 가이드 (시리즈) |
 | `handoff-note.md` | integration-sso 인수인계 노트 |
@@ -270,7 +263,7 @@ git mv docs/_archive/2026-05-22/<path> docs/<path>
 |---|---|---|
 | 최신 분석 | `docs/analysis/sso-im-readiness/` | ❌ 검토 후 |
 | 운영/배포 | `docs/deployment/`, `docs/OPERATION_INVENTORY.md`, `docs/RUNBOOK_SSO_METRICS.md` | ❌ 검토 후 |
-| 외부 개발자용 SDK | `docs/idem-sdk-java-usage-guide.md`, `docs/idem-agent-*.md`, `docs/sso-agency-*.md` | ✅ 배포 가능 |
+| 외부 개발자용 SDK | `docs/idem-sdk-java-usage-guide.md`, `docs/sso-agency-*.md` (에이전트 문서는 별도 저장소 `idem-agent`) | ✅ 배포 가능 |
 | 기능 명세 | `docs/features/` | ❌ 검토 후 |
 | 내부 개발 문서 | `docs/internal/` | ❌ 검토 후 |
 | SMEP 인계 | `docs/smep-handover/` | ✅ 직접 전달 |

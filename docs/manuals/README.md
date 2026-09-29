@@ -9,4 +9,4 @@
 | [`product-spec.md`](product-spec.md) | 시험원·구매자 | 제품 설명서 — 기능 목록, 구성, 에디션, 지원 플랫폼, 인터페이스, 한도, 보안 기능 |
 | [`test-items.md`](test-items.md) | 시험원·QA | 시험 항목표 — 기능별 시험 절차·기대 결과·자동화 여부(CI 스모크·E2E·단위) |
 
-사용자(최종 이용자·기관 개발자) 쪽 문서는 기존 가이드가 맡는다: 기관 담당자 `docs/sso-agency-integration-guide.md`, 기관 개발자 `docs/sso-agency-developer-guide.md`·`docs/idem-sdk-java-usage-guide.md`·`docs/idem-agent-integration-guide.md`, 운영기관 관리자 온보딩 `docs/onboarding-guide.md`.
+사용자(최종 이용자·기관 개발자) 쪽 문서는 기존 가이드가 맡는다: 기관 담당자 `docs/sso-agency-integration-guide.md`, 기관 개발자 `docs/sso-agency-developer-guide.md`·`docs/idem-sdk-java-usage-guide.md`, 운영기관 관리자 온보딩 `docs/onboarding-guide.md`.

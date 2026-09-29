@@ -77,9 +77,8 @@ subprojects {
     //   사용하므로, mockitoAgent를 생성한 뒤 resolutionStrategy 변경이 충돌함.
     //   SDK는 Spring 테스트 스택 없이 JUnit 5 + Mockito 직접 버전 명시 모듈이므로
     //   여기서는 SDK를 제외하고, SDK 자체 build.gradle.kts에서 별도 처리함.
-    // idem-agent: 완전 독립 모듈 — Spring/Lombok/Testcontainers 비의존
-    //               자체 byte-buddy shading(relocated) 사용하므로 mockitoAgent 제외
-    if (project.name != "idem-sdk-java" && project.name != "idem-agent") {
+    // (1.1 PR-4: idem-agent 는 별도 저장소로 분리 — 종전의 제외 분기 제거)
+    if (project.name != "idem-sdk-java") {
         val mockitoAgent by configurations.creating {
             isCanBeResolved = true
             isCanBeConsumed = false
@@ -107,9 +106,7 @@ subprojects {
 
     val testcontainersVersion = "1.20.4"
 
-    // idem-agent는 Spring/Lombok/Testcontainers 비의존 완전 독립 모듈
-    // 자체 build.gradle.kts에서 JUnit 5 직접 버전 명시로 처리
-    if (project.name != "idem-agent") {
+    run {
         dependencies {
             // Lombok
             "compileOnly"("org.projectlombok:lombok")
@@ -145,7 +142,7 @@ subprojects {
             "-XX:+EnableDynamicAgentLoading",  // 방법 A: JDK 버전 교차 환경 대응
             "-Djdk.instrument.traceUsage=false"
         )
-        if (project.name != "idem-sdk-java" && project.name != "idem-agent") {
+        if (project.name != "idem-sdk-java") {
             // 방법 B: -javaagent 명시 (mockitoAgent configuration이 있는 모듈만)
             args.add(0, "-javaagent:${configurations["mockitoAgent"].asPath}")
         }

@@ -38,7 +38,7 @@
 | `idem-hub/**` 이고 Docker 가 있으면 | `:idem-hub:integrationTest` 추가 (Testcontainers) |
 | `editions/idem-kr-portal/frontend/**` | `yarn typecheck` (yarn 있을 때) |
 | `idem-console-admin/**` | `npm run typecheck && npm test` (node_modules 있을 때) |
-| `docs/`, `k6/`, `infra/`, `.github/`, `idem-agent-testbed/` | 테스트 없음 — 바로 push |
+| `docs/`, `k6/`, `infra/`, `.github/` | 테스트 없음 — 바로 push |
 
 - 실패하면 push 가 중단된다. 리포트: `<module>/build/reports/tests/test/index.html`.
 - 건너뛰기: `SKIP_TESTS=1 git push …` / `git push --no-verify`. 통합 테스트만 제외: `SKIP_IT=1`.

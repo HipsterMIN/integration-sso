@@ -28,7 +28,7 @@
 | 3 | 시험 환경 | 신청기관 반입 서버 1대(Compose). 시험원 제공 시 오프라인 설치본 | G1 의 리허설 대상이 정해진다 |
 | 4 | 대상 에디션 | **core**, kr 은 부가 모듈로 기술 (벤더 SDK 라이선스가 시험원에 못 들어감) | 제품 설명서 확정 |
 | 5 | 할당 관리 화면을 1.0.2 에 넣을지 | **넣는다** — 사용성 시험에서 "인가" 기능을 화면으로 보여야 한다 | G1 범위 |
-| 6 | Java 에이전트 처리 | **제품 설명서·요구사항 체크리스트에서 1.0 연동 수단에서 제외**(이미 문서 반영). hub 검증 API 는 1.1 에서 결정 | 시험 범위 밖으로 명확히 |
+| 6 | Java 에이전트 처리 | **제품 설명서·요구사항 체크리스트에서 1.0 연동 수단에서 제외**(이미 문서 반영). hub 검증 API 는 1.1 에서 결정 → **2026-09-29 결정: 저장소 분리(§5 #1 (b))**, 1.1 PR-4 | 시험 범위 밖으로 명확히 |
 | 7 | Handoff 브라우저 진입 시연 방식 | GS 기능 시험은 **표준 OIDC(OIDC_RP)** 경로로. Handoff 는 `idem-tenant-sample` 시뮬레이터 + D-10 으로 시연 | core 에 Handoff 발급 로그인 프런트가 없다 → **1.1 PR-3 로 해소**(코어 로그인 프런트, D-16·스모크 ⑦b) — 1.1 이후에는 Handoff 도 브라우저로 시연 가능 |
 | 8 | 태그 `v1.0.1` | `a81b0cf`(버전 커밋) 또는 `30928db`(현재 main) 중 택일 | 이후 문서 PR 은 docs 만 |
 | 9 | 벤더 개발 키 회전 (NICE·Any-ID) | 벤더에 요청 | 소스 tar 반출 전 필수 |
@@ -105,7 +105,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 
 | # | 항목 | 내용 | 근거 |
 |---|---|---|---|
-| 1 | Java 에이전트 결정 실행 | (a) hub 에 `POST /api/v1/agency/token/verify` + 브라우저 토큰 발급 경로 추가해 살리거나 (b) 저장소에서 `idem-agent`·테스트베드를 별도 저장소로 분리. **제안 (b)** — 1.0 연동 방식(OIDC·Handoff)이 레거시 WAS 도 콜백 서블릿 하나로 덮는다 | 개발자 레퍼런스 §10 |
+| 1 | Java 에이전트 결정 실행 | (a) hub 에 `POST /api/v1/agency/token/verify` + 브라우저 토큰 발급 경로 추가해 살리거나 (b) 저장소에서 `idem-agent`·테스트베드를 별도 저장소로 분리. **결정 (b), 2026-09-29 사용자** — 1.0 연동 방식(OIDC·Handoff)이 레거시 WAS 도 콜백 서블릿 하나로 덮는다. 1.1 PR-4: 모노레포에서 제거, 코드·테스트베드·문서를 단일 커밋 번들로 새 저장소에 | 개발자 레퍼런스 §10 |
 | 2 | 코어 로그인 프런트 | Handoff 유형 서비스의 브라우저 진입(로그인 → 발급 → 콜백)을 core 가 제공. 지금은 KR 포털만 | gs-kickoff 결정 #7 의 후속 |
 | 3 | SCIM 아웃바운드 | Idem → 기관 프로비저닝(사용자·그룹) | requirements-checklist §3 |
 | 4 | 남긴 것 5건 | 감사 경로 WAL 폴백, SLO 재시도 큐, 그룹·속성 규칙 할당, 할당 변경 이벤트 전파, authz fail-open 잔여 경로 | generalization-plan "남긴 것" |
@@ -120,7 +120,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 
 ## 6. 2.0 — 개명 완료·SAML·CC 준비
 
-- API 경로·오류 코드 개명(`E-IDO-1xx` → `E-IDEM-…`, `/admin/agencies` → `/admin/services`), `LegacyNames` 호환 계층·`LegacySchemaRename` 제거, 에이전트 런타임 이름 정리(남겨 둔 경우).
+- API 경로·오류 코드 개명(`E-IDO-1xx` → `E-IDEM-…`, `/admin/agencies` → `/admin/services`), `LegacyNames` 호환 계층·`LegacySchemaRename` 제거, 에이전트 런타임 이름 정리는 분리된 저장소의 몫.
 - SAML SP(`protocol.type=SAML_SP`, Keycloak SAML client 활용) — `saml-sp-design.md`.
 - CC: `execution-plan.md` P4 — ST·기능명세·지침서, KCMVP 모듈 교체(P2 잔여), 평가기관 계약. GS 인증서·조달 등록이 선행.
 
@@ -153,4 +153,5 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 | 2026-09-27 | 플랜 작성. main 30928db. G0 결정 대기 |
 | 2026-09-28 | 1.1 착수(사용자 지시). PR-1: §5 #4 중 authz fail-open 잔여(단일 해석기·prod 가드)·할당 변경 이벤트 전파(authz 아웃박스 → 피드 → hub 폴러 → 웹훅 `ASSIGNMENT_CHANGED`)·SLO IdP 재시도 큐(gate 502·`slo_idp_logout_retry`). 감사 WAL 폴백·규칙 할당은 PR-2 |
 | 2026-09-28 | PR-1 = #251(CI 통과, 머지 대기). PR-2: 감사 WAL 폴백(`AuditWal`·`AuditWalReplayer`, prod 가드, compose 볼륨·Helm `hub.auditWal`) + 그룹·속성 규칙 할당(authz V6 `authz_assignment_rule`, `POST /users/{id}/access` 실체화, 재평가·비활성화 회수, hub `AssignmentContext` = authLevel·providerCode 만). authz 실기동으로 규칙 생성→실체화→회수→피드 확인. 이로써 §5 #4 "남긴 것 5건" 마감 |
+| 2026-09-29 | #253 머지(main 1842677). 사용자 결정: Java 에이전트 저장소 분리 → PR-4: `idem-agent`·`idem-agent-testbed`·에이전트 문서 7건 제거, settings/build/Dockerfile/githook/notice 정리, 새 저장소용 번들(`idem-agent.bundle`, 이력 없이 단일 커밋 — 옛 설정 파일 비밀값 정리 이력을 끌고 가지 않기 위해) 전달 |
 | 2026-09-29 | #251·#252 머지(main a27ef20). PR-3 = §5 #2 코어 로그인 프런트: `GET /api/v1/handoff/login` 진입 → SPI/브로커 로그인 → hub 내부 발급 → `callback?ticketId&state`. 조사에서 드러난 결함 셋도 수리: FE 세션 쿠키 이름 불일치(발급 API·CAST 가 `Fe-Session-Id` 를 읽어 브라우저 발급 불가), 발급 API 기관 바인딩 없음, qsign 모드 쿠키 미전달(바인드 코드). 샘플 기관 `/agency/login`·`/agency/callback`, 스모크 ⑦b, D-16·D-17 |

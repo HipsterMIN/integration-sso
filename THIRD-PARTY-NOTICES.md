@@ -22,14 +22,12 @@ Idem 은 Apache-2.0 으로 배포되며 아래 제3자 구성요소를 사용한
 | Micrometer (prometheus registry, tracing bridge OTel) | Apache-2.0 | |
 | OpenTelemetry (exporter-otlp, sdk-extension-autoconfigure) | Apache-2.0 | |
 | Reactor Netty | Apache-2.0 | |
-| Byte Buddy (agent) | Apache-2.0 | idem-agent |
 | ShedLock | Apache-2.0 | idem-relay |
 | Flyway (core, postgresql, mysql) | Apache-2.0 | |
 | Redisson | Apache-2.0 | |
 | springdoc-openapi | Apache-2.0 | |
 | PostgreSQL JDBC Driver | BSD-2-Clause | |
 | MariaDB Connector/J | LGPL-2.1 | `mariadb` 레거시 프로파일 전용 런타임 의존(동적 링크). S9 에서 제거 예정 |
-| Javassist | MPL-1.1 / LGPL-2.1 / Apache-2.0 (삼중) | Apache-2.0 조건으로 사용 |
 | Bouncy Castle (bcprov, bcpkix) | MIT 계열 (Bouncy Castle License) | |
 | Lombok | MIT | 컴파일 시점 전용 |
 | JUnit 5 | EPL-2.0 | 테스트 전용 |

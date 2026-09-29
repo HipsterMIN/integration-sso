@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>{@link #DIRECT} — 후처리 없음. 기관이 직접 verify 호출</li>
  *   <li>{@link #BRIDGE} — Bridge 서버에 Payload 를 미리 푸시 ({@code bridge_endpoint})</li>
- *   <li>{@link #APACHE_GATE} — 게이트웨이(idem-agent)에 세션 헤더 사전 등록 ({@code apache_gate_endpoint})</li>
+ *   <li>{@link #APACHE_GATE} — 기관 웹서버 게이트웨이에 세션 헤더 사전 등록 ({@code apache_gate_endpoint})</li>
  *   <li>{@link #INTERNAL_SSO} — 기관 SSO 도메인 쿠키 세션 사전 등록 ({@code sso_domain})</li>
  *   <li>{@link #OIDC_RP} — S6 표준 프로토콜. 기관은 OIDC Relying Party 로 Idem(gate 가 앞에 선 Keycloak)에 붙는다.
  *       Handoff 티켓을 발급하지 않으며(E-IDO-121), Keycloak client 는 Idem 이 프로파일에서 프로비저닝한다</li>

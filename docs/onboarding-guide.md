@@ -18,7 +18,7 @@
 
 ### 1.1 기관에서 받아 둘 것 (`sso-agency-integration-guide.md` §4)
 
-- 연동 방식: 표준 OIDC(`OIDC_RP`, 권장) / Handoff 계열(`DIRECT`·`BRIDGE`·`APACHE_GATE`·`INTERNAL_SSO`) / 레거시 WAS 는 `idem-agent`
+- 연동 방식: 표준 OIDC(`OIDC_RP`, 권장) / Handoff 계열(`DIRECT`·`BRIDGE`·`APACHE_GATE`·`INTERNAL_SSO`) / 레거시 WAS 는 Handoff(콜백 서블릿 + verify) 또는 표준 OIDC(에이전트는 1.0 연동 수단 아님, 별도 저장소)
 - `OIDC_RP`: redirect URI 목록, 로그아웃 뒤 돌아갈 URI, 백채널 로그아웃 수신 URI(선택), client 인증 방식
 - 필요한 사용자 속성과 기관 필드명(`identity.attributes` · `attributeMapping`), 주체 식별자 스킴(`identity.subjectScheme`, 기본 `PAIRWISE_HMAC` = 기관별 가명)
 - 인증 수준(`policy.minAuthLevel` L1/L2/L3), 허용 본인확인 제공자, 세션(시간·동시 수), 점검 시간, 접근 대상(전원 / 할당된 사용자만 `policy.assignment`)
