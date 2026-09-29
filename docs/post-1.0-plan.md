@@ -109,7 +109,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 | 2 | 코어 로그인 프런트 | Handoff 유형 서비스의 브라우저 진입(로그인 → 발급 → 콜백)을 core 가 제공. 지금은 KR 포털만 | gs-kickoff 결정 #7 의 후속 |
 | 3 | SCIM 아웃바운드 | Idem → 기관 프로비저닝(사용자·그룹) | requirements-checklist §3 |
 | 4 | 남긴 것 5건 | 감사 경로 WAL 폴백, SLO 재시도 큐, 그룹·속성 규칙 할당, 할당 변경 이벤트 전파, authz fail-open 잔여 경로 | generalization-plan "남긴 것" |
-| 5 | K8s 실배포 리허설 | Helm 차트를 실제 클러스터(kind 또는 운영기관 K8s)에 배포·업그레이드·롤백 1회, 매뉴얼 §3.2 갱신 | installation-manual §8 |
+| 5 | K8s 실배포 리허설 | Helm 차트를 실제 클러스터(kind 또는 운영기관 K8s)에 배포·업그레이드·롤백 1회, 매뉴얼 §3.2 갱신. **1.1 PR-6**: `scripts/k8s/rehearsal.sh` + CI `k8s-rehearsal`(kind, PR·main 마다). 기관 클러스터 1회는 사용자 환경에서 `CLUSTER=existing` | installation-manual §8 |
 | 6 | AI 운영 보조 (선택 컨테이너) | 관리 콘솔: 자연어 → 프로파일 초안(스키마 검증 필수), 감사 요약, 장애 요약. 온프레미스 LLM, 기본 설치에서 제외. 인증 경로에는 넣지 않는다 | AI 도입 검토(2026-09-27 대화) |
 | 7 | 감사 로그 이상 탐지 (관찰 모드) | 아웃박스 이후 비동기 점수, 감사 플래그만. 기준선 3개월 뒤 경보 승격 결정 | 같은 검토 |
 | 8 | 동의 카탈로그 | S8 에서 남긴 것 | requirements-checklist §3 |
@@ -156,3 +156,4 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 | 2026-09-29 | PR-5 = §5 #3 SCIM 아웃바운드: 프로파일 `protocol.scim`(토큰은 참조만) → `scim_outbox`(V29) → 릴레이 → 기관 SCIM 서버(Users·Groups 부분집합), registry 정지·탈퇴 전파, 전체 동기화 관리 API, authz 할당 목록 API, 샘플 SCIM 서버. 부수: PR-1 감사 분류 `AUTHZ` 가 CHECK 에 없어 INSERT 가 조용히 실패하던 결함 수리 |
 | 2026-09-29 | #253 머지(main 1842677). 사용자 결정: Java 에이전트 저장소 분리 → PR-4: `idem-agent`·`idem-agent-testbed`·에이전트 문서 7건 제거, settings/build/Dockerfile/githook/notice 정리, 새 저장소용 번들(`idem-agent.bundle`, 이력 없이 단일 커밋 — 옛 설정 파일 비밀값 정리 이력을 끌고 가지 않기 위해) 전달 |
 | 2026-09-29 | #251·#252 머지(main a27ef20). PR-3 = §5 #2 코어 로그인 프런트: `GET /api/v1/handoff/login` 진입 → SPI/브로커 로그인 → hub 내부 발급 → `callback?ticketId&state`. 조사에서 드러난 결함 셋도 수리: FE 세션 쿠키 이름 불일치(발급 API·CAST 가 `Fe-Session-Id` 를 읽어 브라우저 발급 불가), 발급 API 기관 바인딩 없음, qsign 모드 쿠키 미전달(바인드 코드). 샘플 기관 `/agency/login`·`/agency/callback`, 스모크 ⑦b, D-16·D-17 |
+| 2026-09-29 | #254·#255 머지(main bf399bd). PR-6 = §5 #5 K8s 실배포 리허설: `scripts/k8s/rehearsal.sh`(up·install·smoke·upgrade·rollback·down, kind 또는 기존 클러스터, 이미지 local/archive/registry) + 리허설 값·인프라 매니페스트 + CI `k8s-rehearsal` 잡(PR 은 차트·스크립트 변경 시 docker-build-check 아카이브로, main 은 GHCR :sha 로). 스모크에 `*_MGMT_URL`(관리 포트 분리 배포), 비밀 생성기 `scripts/lib/gen-install-env.sh` 로 CI 스모크와 공용. 기관 클러스터 1회는 사용자 몫 |

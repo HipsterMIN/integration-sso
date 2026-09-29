@@ -1,0 +1,65 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# K8s 실배포 리허설 값 (scripts/k8s/rehearsal.sh, 1.1 PR-6) — 노드 1대(kind / CI 러너)에 코어 에디션 전부를 올린다.
+# 운영 기본값(values.yaml)과 다른 항목만 적고 이유를 남긴다. 공개 URL·이미지·인프라 주소는 스크립트가 values-env.yaml 로 덧붙인다.
+# ═══════════════════════════════════════════════════════════════════════════
+global:
+  env: rehearsal
+
+appDefaults:
+  replicaCount: 1                  # 운영 기본 2 — 노드 1대. 롤링 갱신(maxUnavailable 0 · maxSurge 1)은 복제본 1 에서도 무중단이다
+  podAntiAffinity: none            # 노드 1대 — soft 도 무해하지만 스케줄링 이유를 단순하게
+  springProfile: default           # 스모크의 Mock 본인확인 플러그인은 prod/stage 에서 켤 수 없다(D2 @Profile("!prod & !stage")).
+                                   # upgrade 단계가 values-prod-switch.yaml 로 prod 로 전환하고, rollback 이 이 값으로 되돌린다
+  startupProbe: { failureThreshold: 60, periodSeconds: 5 }   # 운영 30×5s=150s. JVM 5개가 러너 1대에서 동시에 부팅 — 300s 까지 기다린다
+
+keycloak:
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits:   { cpu: "2",  memory: 1280Mi }   # production 모드(start)는 첫 기동에 auto-build 를 한다
+
+hub:
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits:   { cpu: "2",  memory: 1024Mi }
+  config:
+    IDEM_HUB_AUTHZ_ENABLED: "true"
+    IDEM_PLUGINS_MOCK_AUTH_ENABLED: "true"   # 설치 검증(설치 매뉴얼 §4·§5)에만 켠다 — upgrade 단계가 false 로 되돌리는 것까지가 리허설이다
+
+gate:
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits:   { cpu: "1",  memory: 768Mi }
+
+registry:
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits:   { cpu: "1",  memory: 768Mi }
+
+authz:
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits:   { cpu: "1",  memory: 768Mi }
+
+# 바깥 인프라 — infra.yaml 이 같은 네임스페이스에 올린 postgres · redis Service
+infra:
+  postgres:
+    host: postgres
+    port: 5432
+    database: idem
+    existingSecret: idem-db-secret
+  redis:
+    host: redis
+    port: 6379
+
+secrets:
+  existingSecret: idem-app-secrets   # 스크립트가 scripts/lib/gen-install-env.sh 출력으로 만든다 (secrets.create 는 쓰지 않는다 — 운영과 같은 경로)
+
+# TLS Ingress — 스크립트가 만든 자체 CA 의 인증서(Secret idem-tls). Secure 쿠키(관리 세션·FE 세션)와 KC_PROXY=edge 가 실제 조건으로 검증된다
+ingress:
+  enabled: true
+  className: nginx
+  tlsSecretName: idem-tls
+
+# kind 기본 CNI(kindnet)는 NetworkPolicy 를 집행하지 않는다 — 켜도 검증이 안 되므로 끈 채 둔다. 운영 클러스터(Calico·Cilium 등)에서는 켠다
+networkPolicy:
+  enabled: false

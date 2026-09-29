@@ -44,6 +44,8 @@ helm upgrade --install idem infra/helm/idem -n idem -f my-values.yaml -f infra/h
 
 `my-values.yaml` 은 공개 URL·PostgreSQL/Redis 주소·Ingress(차트 README 예). pre-install Job 이 스키마를 만들고, 앱은 첫 기동에서 Flyway 로 테이블을 만든다.
 
+**리허설(1.1)**: `scripts/k8s/rehearsal.sh` 가 위 절차를 kind 클러스터(또는 `CLUSTER=existing` 으로 기관 클러스터)에서 처음부터 끝까지 돈다 — 비밀 한 벌·TLS Ingress·`helm install --wait` → §4 확인(스모크 ①~⑧, 관리 포트) → 운영 전환 `helm upgrade`(prod 프로파일·Mock off) → `helm rollback` → `helm uninstall`. CI `k8s-rehearsal` 잡이 차트·스크립트가 바뀐 PR 과 main push 마다 같은 스크립트를 돈다(`scripts/k8s/README.md`). 기관 클러스터에 처음 올릴 때 이 스크립트로 한 번 돌려 보고 그 결과(소요·문제)를 §8 에 보탠다.
+
 ### 3.3 (C) 오프라인(폐쇄망) 설치
 
 1. 인터넷이 되는 곳에서 이미지를 만들고 tar 로 뽑는다:
@@ -103,6 +105,6 @@ helm uninstall idem -n idem && kubectl delete ns idem                           
 ## 8. 이 문서에서 검증한 것 / 못 한 것
 
 - ✅ (A) compose 절차와 §4 확인 8단계: CI(`k6 Smoke Test` 잡의 설치본 스모크)가 PR 마다 실기동으로 확인한다. 로컬 리허설(S9 PR-2)로 0.x → 1.0 업그레이드 3경로(DB 이름만 변경·업그레이드 스크립트·새 DB) 확인.
-- ✅ (B) Helm: `helm lint`·`helm template`·kubeconform(CI `helm-lint` 잡). **실제 클러스터 배포는 아직 못 했다** — 첫 배포 때 §4 로 검증하고 여기에 기록한다.
+- ✅ (B) Helm: `helm lint`·`helm template`·kubeconform(CI `helm-lint` 잡) + **실제 클러스터 배포·업그레이드·롤백**(1.1 PR-6, CI `k8s-rehearsal` 잡 — kind 1노드에 코어 에디션 전부: ingress-nginx TLS, pre-install 스키마 Job, Keycloak production 모드 realm import, `helm install --wait` → §4 확인(스모크 ①~⑧ + 관리 포트 9090 비노출) → prod 프로파일·Mock off 로 `helm upgrade` → `helm rollback 1` → `helm uninstall`). 소요는 CI 잡 요약의 단계별 표(첫 실행 기록은 §3.2 의 `scripts/k8s/README.md`). **기관 클러스터(운영 Ingress·바깥 DB)에서는 아직 안 돌렸다** — 첫 배포 때 `CLUSTER=existing` 으로 돌리고 여기에 적는다.
 - ⚠️ (C) 오프라인: 이미지 tar 절차는 표준 docker 명령이지만 이 저장소 환경에는 docker 가 없어 실행해 보지 못했다. GS 시험 환경 준비 때 실행하고 소요 시간·크기를 적는다.
 - ⚠️ 백업·복구: `pg_dump/pg_restore` 절차는 아직 리허설하지 않았다(1.0.1 과제).

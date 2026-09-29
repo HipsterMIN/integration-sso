@@ -110,6 +110,7 @@ docs/
 | [`idem-sdk-java-usage-guide.md`](idem-sdk-java-usage-guide.md) | **현행 SDK 사용 가이드 (메인)** — Quick Start, API 레퍼런스, HMAC 서명, 에러 처리, Spring Boot 연동 |
 | [`sso-agency-developer-guide.md`](sso-agency-developer-guide.md) | 자체 SSO 보유 기관 — 개발자 레퍼런스 |
 | [`sso-agency-integration-guide.md`](sso-agency-integration-guide.md) | 자체 SSO 보유 기관 — 담당자용 |
+| [`../scripts/k8s/README.md`](../scripts/k8s/README.md) | **K8s 실배포 리허설 (1.1 PR-6)** — `rehearsal.sh`: kind/기존 클러스터에 Helm 차트 설치 → 스모크(TLS Ingress·관리 포트) → prod 전환 업그레이드 → 롤백 → 제거, CI `k8s-rehearsal` 잡 |
 | [`../scripts/kr-member-import/README.md`](../scripts/kr-member-import/README.md) | **KR 회원 일회성 이관 도구 (S9 PR-3)** — 구 플랫폼 회원 CSV → idem-kr-registry 내부 API(멱등, 기업회원 전환, 매핑 CSV) |
 | [`sso-agency-operations-guide.md`](sso-agency-operations-guide.md) | 자체 SSO 보유 기관 — 운영 가이드 |
 

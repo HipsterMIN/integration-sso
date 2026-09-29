@@ -57,4 +57,5 @@ helm upgrade --install idem infra/helm/idem -n idem --create-namespace -f my-val
 
 ## 검증
 
-이 저장소 환경에는 클러스터가 없어 `helm lint` + `helm template`(core·kr) 로 렌더링과 스키마를 확인했고, CI `helm-lint` 잡이 같은 검사와 `files/*` 사본이 `infra/docker` 원본과 같은지 대조하며, 1.0.1 부터 위 보안·운영 항목(레지스트리 접두·UID·관리 포트·admin URL·replica 가드)도 렌더링으로 회귀 검사한다. 실제 클러스터 배포는 아직 해 보지 못했다 — 첫 배포 때 `docs/install.md` §4~§5 확인 절차와 NOTES 를 따라 검증하고 여기에 기록한다.
+- 렌더링: CI `helm-lint` 잡 — `helm lint` + `helm template`(core·kr·Kafka) + kubeconform, `files/*` 사본이 `infra/docker` 원본과 같은지 대조, 1.0.1 보안·운영 항목(레지스트리 접두·UID·관리 포트·admin URL·replica 가드) 회귀.
+- **실배포 (1.1 PR-6)**: CI `k8s-rehearsal` 잡이 kind 클러스터에 이 차트를 실제로 올린다 — `scripts/k8s/rehearsal.sh`: ingress-nginx(TLS, 자체 CA) · 리허설용 PostgreSQL·Redis · 비밀 한 벌 Secret · `helm install --wait`(pre-install 스키마 Job, Keycloak production 모드 `--import-realm`) → 설치본 스모크(`scripts/ci/install-smoke.sh`, Ingress 경유 + 관리 포트 port-forward) → 운영 전환 `helm upgrade`(prod 프로파일·Mock off, pre-upgrade 훅) → `helm rollback 1` → `helm uninstall`. 차트·스크립트가 바뀐 PR 과 main push 마다 돈다. 코어 에디션만 — KR 이미지는 벤더 SDK 가 있는 곳에서 `IMAGES=registry` 로 같은 스크립트를 돌린다. 기관 클러스터(운영 Ingress·바깥 DB)는 `CLUSTER=existing` 으로 첫 배포 때 돌리고 결과를 `docs/manuals/installation-manual.md` §8 에 적는다.

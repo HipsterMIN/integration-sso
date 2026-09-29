@@ -1,0 +1,10 @@
+# 운영 전환 (설치 매뉴얼 §5 "확인 뒤 반드시 되돌린다") — 리허설 upgrade 단계가 이 파일을 겹쳐 리비전 2 를 만든다.
+#   · Mock 본인확인 off  · prod 프로파일(WARN 로깅, health 상세 비공개, flyway/features 비노출)
+# rollback 단계는 리비전 1(Mock on·default 프로파일)로 되돌려 롤백 경로를 확인한다.
+appDefaults:
+  springProfile: prod
+
+hub:
+  config:
+    IDEM_HUB_AUTHZ_ENABLED: "true"
+    IDEM_PLUGINS_MOCK_AUTH_ENABLED: "false"

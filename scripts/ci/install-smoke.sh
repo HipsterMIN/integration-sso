@@ -12,6 +12,9 @@
 #       ⑧ 감사 조회(관리 행위가 남는다) → 로그아웃
 #
 #   HUB_URL GATE_URL REGISTRY_URL IDEM_AUTHZ_URL   기본 localhost:8083/8081/8082/8086
+#   HUB_MGMT_URL GATE_MGMT_URL REGISTRY_MGMT_URL IDEM_AUTHZ_MGMT_URL
+#                                              actuator 주소 — 관리 포트를 분리한 배포(Helm, IDEM_MANAGEMENT_PORT=9090)에서 ① 헬스가 이 주소를 본다.
+#                                              없으면 앱 주소와 같다(compose·로컬). 있으면 ②′ 는 앱 포트에 actuator 가 없음을 확인한다 (1.0.1 M7)
 #   ISSUER                                     기본 $GATE_URL/realms/idem
 #   IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD              관리자(admin) 비밀번호 (S7). IDEM_ADMIN_PASSWORD 가 있으면 그것을 쓴다
 #   IDEM_ADMIN_NEW_PASSWORD                    첫 로그인 비밀번호 변경이 요구되면 이 값으로(없으면 1회용 값을 만든다 — 다시 로그인할 수 없다)
@@ -25,6 +28,10 @@ HUB_URL="${HUB_URL:-http://localhost:8083}"
 GATE_URL="${GATE_URL:-http://localhost:8081}"
 REGISTRY_URL="${REGISTRY_URL:-http://localhost:8082}"
 IDEM_AUTHZ_URL="${IDEM_AUTHZ_URL:-http://localhost:8086}"
+HUB_MGMT_URL="${HUB_MGMT_URL:-$HUB_URL}"
+GATE_MGMT_URL="${GATE_MGMT_URL:-$GATE_URL}"
+REGISTRY_MGMT_URL="${REGISTRY_MGMT_URL:-$REGISTRY_URL}"
+IDEM_AUTHZ_MGMT_URL="${IDEM_AUTHZ_MGMT_URL:-$IDEM_AUTHZ_URL}"
 ISSUER="${ISSUER:-$GATE_URL/realms/idem}"
 SERVICE_CODE="${SERVICE_CODE:-SMOKE_RP}"
 EDITION="${IDEM_EDITION:-core}"
@@ -35,10 +42,11 @@ fail() { echo "  ❌ $*" >&2; exit 1; }
 for t in curl jq python3; do command -v "$t" >/dev/null 2>&1 || fail "필요한 명령이 없습니다: $t"; done
 LIB="$(cd "$(dirname "$0")/../lib" && pwd)"
 
-echo "① 헬스"
-for u in "$HUB_URL" "$GATE_URL" "$REGISTRY_URL" "$IDEM_AUTHZ_URL"; do
-  st=$(curl -sf "$u/actuator/health" | jq -r '.status' 2>/dev/null || echo "DOWN")
-  [ "$st" = "UP" ] && ok "$u UP" || fail "$u 헬스 실패: $st"
+echo "① 헬스 (actuator — 관리 포트를 분리한 배포는 *_MGMT_URL)"
+for pair in "$HUB_URL|$HUB_MGMT_URL" "$GATE_URL|$GATE_MGMT_URL" "$REGISTRY_URL|$REGISTRY_MGMT_URL" "$IDEM_AUTHZ_URL|$IDEM_AUTHZ_MGMT_URL"; do
+  u=${pair%%|*}; m=${pair#*|}
+  st=$(curl -sf "$m/actuator/health" | jq -r '.status' 2>/dev/null || echo "DOWN")
+  [ "$st" = "UP" ] && ok "$u UP$([ "$m" != "$u" ] && echo " (health: $m)")" || fail "$u 헬스 실패($m): $st"
 done
 
 echo "② Discovery (gate 프런트)"
@@ -55,7 +63,11 @@ echo "②′ 관리자 로그인 (S7 — 관리 API 는 세션 + 2단계 뒤에 
 code=$(curl -s -o /dev/null -w '%{http_code}' "$HUB_URL/api/v1/admin/agencies" -H 'X-Admin-Id: install-smoke')
 [ "$code" = "401" ] && ok "무인증(종전 X-Admin-Id) 관리 API 는 401" || fail "무인증 관리 API 가 $code"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$HUB_URL/actuator/flyway")
-[ "$code" = "401" ] && ok "무인증 actuator 는 401" || fail "무인증 actuator 가 $code"
+if [ "$HUB_MGMT_URL" = "$HUB_URL" ]; then
+  [ "$code" = "401" ] && ok "무인증 actuator 는 401" || fail "무인증 actuator 가 $code"
+else
+  case "$code" in 401|404) ok "앱 포트에 actuator 없음 ($code) — 관리 포트는 Service·Ingress 밖으로 나가지 않는다 (M7)";; *) fail "앱 포트의 actuator 가 $code";; esac
+fi
 export IDEM_ADMIN_PASSWORD="${IDEM_ADMIN_PASSWORD:-${IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD:-}}"
 [ -n "$IDEM_ADMIN_PASSWORD" ] || fail "IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD(또는 IDEM_ADMIN_PASSWORD) 가 없다"
 export IDEM_ADMIN_NEW_PASSWORD="${IDEM_ADMIN_NEW_PASSWORD:-Smoke-$(head -c 12 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 12)-1}"
