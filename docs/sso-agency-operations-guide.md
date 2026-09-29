@@ -250,6 +250,12 @@ timedatectl | grep synchronized
 
 ---
 
+### 5.7 SCIM 아웃바운드가 반영 안 됨 (1.1, 선택)
+
+운영기관 `GET /api/v1/admin/services/{code}/scim/status` 로 아웃박스 집계(`pending/dispatched/failed/skipped`)와 마지막 오류를 본다. `skipped` 가 늘면 hub 에 토큰(`SECRETS_AGENCY_{CODE}_SCIM_TOKEN`)이 없거나 프로파일이 꺼진 것, `failed` 에 401/403 은 토큰 불일치, 400/501 은 우리 SCIM 서버가 `filter`·PATCH 를 지원하지 않는 것이다(재시도하지 않는다). 우리 쪽 데이터가 어긋났으면 운영기관에 전체 동기화(`POST …/scim/sync`)를 요청한다.
+
+---
+
 ## 6. 배포·업그레이드
 
 ### 6.1 기관 앱

@@ -27,6 +27,21 @@ class ServiceProfileValidatorTest {
             """;
 
     @Test
+    void scim_block_validation() throws Exception {
+        String base = MINIMAL.substring(0, MINIMAL.lastIndexOf('}'));
+        List<String> missing = validator.violations(json(base.replace("\"protocol\":{", "\"protocol\":{\"scim\":{\"enabled\":true},") + "}"));
+        assertThat(missing).as("켜져 있는데 baseUrl·credentialRef 없음").isNotEmpty();
+        String ok = base.replace("\"protocol\":{", "\"protocol\":{\"scim\":{\"enabled\":true,\"baseUrl\":\"https://agency.example.org/scim/v2\",\"credentialRef\":\"secrets/agency/AG1/scim-token\",\"onUnassign\":\"DELETE\"},") + "}";
+        assertThat(validator.violations(json(ok))).isEmpty();
+        String priv = ok.replace("https://agency.example.org/scim/v2", "http://10.0.0.5/scim/v2");
+        assertThat(validator.violations(json(priv))).as("사설망 호스트 기본 거부").anyMatch(v -> v.contains("protocol.scim.baseUrl"));
+        String badRef = ok.replace("secrets/agency/AG1/scim-token", "token-in-profile");
+        assertThat(validator.violations(json(badRef))).as("credentialRef 형식").isNotEmpty();
+        String off = base.replace("\"protocol\":{", "\"protocol\":{\"scim\":{\"enabled\":false},") + "}";
+        assertThat(validator.violations(json(off))).isEmpty();
+    }
+
+    @Test
     @DisplayName("필수 4개 블록만 있는 최소 프로파일은 유효하다")
     void minimalProfile_isValid() throws Exception {
         assertThat(validator.violations(json(MINIMAL))).isEmpty();

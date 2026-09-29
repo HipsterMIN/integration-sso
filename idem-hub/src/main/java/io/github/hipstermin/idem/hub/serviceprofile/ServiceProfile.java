@@ -69,7 +69,7 @@ public record ServiceProfile(
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)
-    public record Protocol(IntegrationType type, Endpoints endpoints, Security security, Oidc oidc) {
+    public record Protocol(IntegrationType type, Endpoints endpoints, Security security, Oidc oidc, Scim scim) {
         @JsonIgnore
         public IntegrationType typeOrDefault() {
             return type != null ? type : IntegrationType.DEFAULT;
@@ -95,6 +95,31 @@ public record ServiceProfile(
         public String clientAuthMethodOrDefault() {
             return clientAuthMethod == null || clientAuthMethod.isBlank() ? AUTH_BASIC : clientAuthMethod;
         }
+    }
+
+    /**
+     * 1.1 SCIM 2.0 아웃바운드(Idem → 기관 프로비저닝) 설정 — 서비스별 opt-in.
+     *
+     * @param enabled       켜면 할당·역할·사용자 상태 변경을 기관 SCIM 서버에 밀어낸다
+     * @param baseUrl       기관 SCIM 베이스 URL (예 {@code https://agency.example.org/scim/v2}) — {@code /Users}·{@code /Groups} 를 붙인다
+     * @param credentialRef Bearer 토큰의 자격증명 참조({@code secrets/agency/{code}/scim-token} → 환경변수 {@code SECRETS_AGENCY_{CODE}_SCIM_TOKEN}).
+     *                      토큰 자체는 프로파일에 없다
+     * @param groups        역할을 SCIM Group(displayName = roleCode) 멤버십으로도 동기화 (기본 true)
+     * @param onUnassign    할당 해제·만료 시 사용자 처리 — DEACTIVATE(기본, active=false) | DELETE | NONE
+     * @param onWithdraw    registry 탈퇴 시 — DELETE(기본) | DEACTIVATE | NONE
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Builder(toBuilder = true)
+    public record Scim(Boolean enabled, String baseUrl, String credentialRef, Boolean groups, String onUnassign, String onWithdraw) {
+        public static final String DEACTIVATE = "DEACTIVATE";
+        public static final String DELETE = "DELETE";
+        public static final String NONE = "NONE";
+
+        // 헬퍼를 isXxx/getXxx 로 짓지 않는다 — @JsonIgnore 가 붙은 getter 이름은 그 속성(enabled) 자체를 Jackson 이 무시해 역직렬화에서 사라진다
+        public boolean enabledOrFalse() { return Boolean.TRUE.equals(enabled); }
+        public boolean groupsEnabled() { return groups == null || groups; }
+        public String onUnassignOrDefault() { return onUnassign == null || onUnassign.isBlank() ? DEACTIVATE : onUnassign; }
+        public String onWithdrawOrDefault() { return onWithdraw == null || onWithdraw.isBlank() ? DELETE : onWithdraw; }
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

@@ -289,6 +289,21 @@ public class AuthzService {
         }
     }
 
+    /** 1.1 SCIM 아웃바운드: 사용자가 유효하게 할당된 Service 목록 (registry 상태 변경을 어느 기관에 전파할지). */
+    @Transactional(readOnly = true)
+    public List<AuthzAssignmentEntity> effectiveAssignmentsOf(String qimUserId) {
+        Instant now = Instant.now();
+        return assignmentRepository.findByQimUserIdAndStatus(qimUserId, AssignmentStatus.ACTIVE).stream()
+                .filter(a -> a.isEffectiveAt(now)).toList();
+    }
+
+    /** 1.1 SCIM 아웃바운드: Service 의 ACTIVE 할당 페이지 (전체 동기화). */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<AuthzAssignmentEntity> assignmentsOfAgency(String agencyCode, int page, int size) {
+        return assignmentRepository.findByAgencyCodeAndStatusOrderByGrantedAtAsc(agencyCode, AssignmentStatus.ACTIVE,
+                org.springframework.data.domain.PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 500)));
+    }
+
     /** 유효 할당 (ACTIVE 이고 만료 전). */
     @Transactional(readOnly = true)
     public Optional<AuthzAssignmentEntity> effectiveAssignment(String qimUserId, String agencyCode) {

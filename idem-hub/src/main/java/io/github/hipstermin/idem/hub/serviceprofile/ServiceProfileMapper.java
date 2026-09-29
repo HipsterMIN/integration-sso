@@ -62,6 +62,7 @@ public class ServiceProfileMapper {
                                 .build())
                         .security(exProtocol != null ? exProtocol.security() : null)
                         .oidc(exProtocol != null ? exProtocol.oidc() : null)   // S6: 컬럼이 없어 프로파일에서만 온다
+                        .scim(exProtocol != null ? exProtocol.scim() : null)   // 1.1: SCIM 아웃바운드 — 프로파일에서만
                         .build())
                 .identity(ServiceProfile.Identity.builder()
                         .subjectScheme(exIdentity != null ? exIdentity.subjectScheme() : null)

@@ -36,6 +36,7 @@ class AuthzEventConsumerTest {
     @Mock PolicyEngine policyEngine;
     @Mock WebhookDispatcherService webhook;
     @Mock AuditLogPublisher audit;
+    @Mock io.github.hipstermin.idem.hub.scim.ScimOutboxService scim;
     @InjectMocks AuthzEventConsumer sut;
 
     private static final ServiceProfile PROFILE = ServiceProfile.builder().build();

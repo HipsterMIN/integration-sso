@@ -37,6 +37,7 @@ public class QimEventConsumer {
     private final IdempotentEventStore  idempotentEventStore;
     private final QimClient             qimClient;
     private final io.github.hipstermin.idem.hub.fe.session.FeSessionService feSessionService;
+    private final io.github.hipstermin.idem.hub.scim.ScimUserLifecycleHandler scimUserLifecycleHandler;
     // consumer group 전용 버전 저장 → 단순 qimUserId 기반 LastEventVersionStore 래핑
     // (consumerGroup prefix 는 key 에 포함하여 구분)
 
@@ -147,6 +148,10 @@ public class QimEventConsumer {
             idempotentEventStore.markProcessed(eventId, CONSUMER_GROUP, event.getEventType(), "OK");
 
             // S4b: 전 기관 프로비저닝 트리거 제거 — 서비스에는 어설션·백채널 로그아웃·보안/감사 이벤트만 push 한다(플랜 §2.0)
+            // 1.1: 예외 — 프로파일에 SCIM 아웃바운드를 켠 기관에는 정지·탈퇴를 밀어낸다(할당된 기관만). 실패는 로그만(이벤트 처리 자체는 끝난 것)
+            if (isTerminal(event)) {
+                scimUserLifecycleHandler.onTerminal(qimUserId, event, eventId);
+            }
 
             log.info("[QimEventConsumer] 처리 완료: qimUserId={} eventType={} version={}",
                     qimUserId, event.getEventType(), version);

@@ -155,6 +155,9 @@ public abstract class IntegrationTestBase {
         // Kafka 비활성화 (통합 테스트 범위 외)
         registry.add("spring.kafka.bootstrap-servers",  () -> "localhost:19092");
         registry.add("idem.hub.audit.kafka-publish-enabled", () -> "false");
+        // 1.1 SCIM 아웃박스 릴레이 스케줄러 비활성화 — 컨텍스트 캐시로 여러 컨텍스트가 같은 DB 를 보므로
+        // 다른 컨텍스트의 스케줄러가 행을 먼저 집어 SKIPPED 처리하지 않도록. ScimOutboundIntegrationTest 는 relayOnce() 로 결정적으로 돌린다
+        registry.add("idem.hub.scim.relay-enabled", () -> "false");
 
         // Rate Limiter 활성화 (Redis Testcontainer 대상)
         registry.add("idem.hub.rate-limit.enabled",           () -> "true");

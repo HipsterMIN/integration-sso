@@ -31,11 +31,12 @@ class QimEventConsumerTest {
     @Mock IdempotentEventStore idempotent;
     @Mock QimClient qim;
     @Mock FeSessionService sessions;
+    @Mock io.github.hipstermin.idem.hub.scim.ScimUserLifecycleHandler scimLifecycle;
     QimEventConsumer sut;
 
     @BeforeEach
     void setUp() {
-        sut = new QimEventConsumer(versions, cache, idempotent, qim, sessions);
+        sut = new QimEventConsumer(versions, cache, idempotent, qim, sessions, scimLifecycle);
         given(idempotent.isAlreadyProcessed(anyString(), anyString())).willReturn(false);
         given(versions.get(anyString())).willReturn(null);
     }

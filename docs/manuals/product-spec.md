@@ -35,7 +35,7 @@
 | F9 | 기관별 가명 식별자 | `PAIRWISE_HMAC`(기본) — 기관 간 결합 불가. CI 는 registry 밖으로 나가지 않는다 |
 | F10 | 속성 카탈로그·마스킹·매핑 | 프로파일 `identity.attributes/attributeMapping`, 필수 속성 없으면 거부(E-IDO-114) |
 | F11 | 탈퇴·파기·보존 | 즉시/예약/기관요청/관리자 탈퇴, 개인정보 파기 스케줄, 상태 이력 |
-| F12 | 상태변경 전파 | 아웃박스 → 이벤트 피드(DB 폴링, Kafka 없음) / 웹훅(서명) / Kafka(선택) |
+| F12 | 상태변경 전파 | 아웃박스 → 이벤트 피드(DB 폴링, Kafka 없음) / 웹훅(서명) / Kafka(선택). 1.1: SCIM 2.0 아웃바운드(서비스별 opt-in `protocol.scim`) — 할당·역할·상태 변경을 기관 SCIM 서버의 Users·Groups 로 반영, 전체 동기화 관리 API |
 | F13 | KR: 기업회원·CI 조회·회원전환 | `biz_member`, `/api/v1/internal/member/lookup-by-ci`, 회원 포털 |
 
 ### 2.3 연합 인가(Idem AuthZ)
@@ -88,6 +88,6 @@
 
 ## 6. 제한·알려진 것
 
-- SAML SP·SCIM **아웃바운드**(Idem → 기관 프로비저닝)·동의 카탈로그·Audit Sink SPI 는 1.0 에 없다(`docs/requirements-checklist.md` §3). SCIM 2.0 Groups **인바운드**(`/scim/v2/Groups`, authz, 내부 키)는 있다.
+- SAML SP·동의 카탈로그·Audit Sink SPI 는 1.0 에 없다(`docs/requirements-checklist.md` §3). SCIM 2.0 Groups **인바운드**(`/scim/v2/Groups`, authz, 내부 키)는 1.0 에, **아웃바운드**(Idem → 기관 Users·Groups)는 1.1 에 있다.
 - 오류 코드·API 경로는 1.0 에서 **동결**한다(`E-IDO-1xx`, `/api/v1/admin/agencies` 등 구 이름 포함). 개명은 2.0 에서.
 - 실제 K8s 클러스터 배포·오프라인 설치·백업 복구 리허설은 아직(설치 매뉴얼 §8).

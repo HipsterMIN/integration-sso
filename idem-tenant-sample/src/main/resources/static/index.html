@@ -179,6 +179,7 @@
         <p style="font-size:13px;color:#555">표준 OIDC 로 붙는 기관은 <code>agency-stub.protocol=OIDC_RP</code> 로 바꾸고
           <a href="/agency/oidc/login">/agency/oidc/login</a> 으로 들어온다 (Handoff 와 세션·쿠키·웹훅은 같다). 로그아웃: <a href="/agency/oidc/logout">/agency/oidc/logout</a></p>
         <p>Handoff 유형의 <b>브라우저 진입</b>(1.1 코어 로그인 프런트): <a href="/agency/login">/agency/login</a> → Idem 로그인 → <code>/agency/callback?ticketId=</code> 에서 서버 간 verify → AGSID 세션. Idem 쪽 프로파일 <code>callbackWhitelist</code> 에 <code>{AGENCY_STUB_URL}/agency/callback</code> 이 있어야 한다.</p>
+        <p>SCIM 2.0 <b>아웃바운드</b>(1.1, Idem → 기관 프로비저닝) 참조 서버: <code>/scim/v2/Users</code>·<code>/scim/v2/Groups</code>(메모리, Bearer <code>AGENCY_SCIM_TOKEN</code>). Idem 프로파일 <code>protocol.scim</code> 에 <code>baseUrl={AGENCY_STUB_URL}/scim/v2</code>, <code>credentialRef=secrets/agency/{code}/scim-token</code> 을 두고 hub 에 <code>SECRETS_AGENCY_{CODE}_SCIM_TOKEN</code> 을 주입하면 할당·역할·상태 변경이 여기로 반영된다.</p>
         <p class="sub">Ticket 발급 → Verify → 세션 생성까지 3단계를 한 번에 수행합니다.</p>
 
         <!-- 스텝 표시 -->

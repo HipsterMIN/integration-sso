@@ -18,4 +18,6 @@ public interface AuthzAssignmentRepository extends JpaRepository<AuthzAssignment
             AssignmentStatus status, Instant cutoff, Pageable pageable);
     /** 1.1: 규칙이 실체화한 할당 — 규칙 비활성화 시 회수 대상 */
     List<AuthzAssignmentEntity> findByRuleIdAndStatus(UUID ruleId, AssignmentStatus status);
+    /** 1.1 SCIM 아웃바운드: 한 Service 의 할당 목록(전체 동기화·재조정) — 페이지 */
+    Page<AuthzAssignmentEntity> findByAgencyCodeAndStatusOrderByGrantedAtAsc(String agencyCode, AssignmentStatus status, Pageable pageable);
 }
