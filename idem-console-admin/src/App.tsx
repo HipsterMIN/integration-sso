@@ -8,10 +8,13 @@ import { ServiceDetail } from './pages/ServiceDetail';
 import { Audit } from './pages/Audit';
 import { Admins } from './pages/Admins';
 import { Tenants } from './pages/Tenants';
+import { Ops } from './pages/Ops';
+import { useAiStatus } from './lib/ai';
 
 export function App() {
   const { me, ready, logout } = useAuth();
   const route = useRoute();
+  const ai = useAiStatus();
 
   if (!ready) return <main className="muted">불러오는 중…</main>;
   if (!me) return <Login />;
@@ -23,6 +26,7 @@ export function App() {
   else if (head === 'audit') page = <Audit />;
   else if (head === 'admins' && isGlobalSystemAdmin(me)) page = <Admins />;
   else if (head === 'tenants') page = <Tenants />;
+  else if (head === 'ops' && !me.tenantCode) page = <Ops />;
   else if (head === 'password') page = <Password />;
   else page = <Services />;
 
@@ -39,6 +43,7 @@ export function App() {
           {nav('/tenants', '테넌트')}
           {nav('/audit', '감사')}
           {isGlobalSystemAdmin(me) && nav('/admins', '관리자')}
+          {!me.tenantCode && ai?.enabled && nav('/ops', 'AI 운영')}
         </nav>
         <span className="spacer" />
         <span className="who">{me.username} · {me.role}{me.tenantCode ? ` · ${me.tenantCode}` : ''} · <a href={href('/password')} style={{ color: '#fff' }}>비밀번호</a></span>

@@ -95,6 +95,12 @@ public enum PlatformErrorCode {
     ADMIN_NOT_FOUND("E-IDO-138", HttpStatus.NOT_FOUND, "관리자를 찾을 수 없습니다."),
     ADMIN_CONFLICT("E-IDO-139", HttpStatus.CONFLICT, "이미 있는 관리자입니다."),
 
+    // 1.1 AI 운영 보조 (E-IDO-14x) — 선택 컨테이너. 인증 경로에는 없다
+    AI_DISABLED("E-IDO-140", HttpStatus.NOT_FOUND, "AI 운영 보조가 이 설치본에서 꺼져 있습니다."),
+    AI_UPSTREAM_FAILED("E-IDO-141", HttpStatus.BAD_GATEWAY, "LLM 호출에 실패했습니다."),
+    AI_OUTPUT_INVALID("E-IDO-142", HttpStatus.BAD_GATEWAY, "LLM 응답을 해석할 수 없습니다."),
+    AI_INVALID_INPUT("E-IDO-143", HttpStatus.BAD_REQUEST, "AI 요청이 올바르지 않습니다."),
+
     // ── 기관 오류 (E-AGENCY-3xx) ─────────────────────────────────────────────
     AGENCY_NOT_REGISTERED ("E-AGENCY-301", HttpStatus.FORBIDDEN,   "등록되지 않은 기관 코드입니다."),
     AGENCY_CODE_MISMATCH  ("E-AGENCY-302", HttpStatus.FORBIDDEN,   "기관 코드 불일치."),

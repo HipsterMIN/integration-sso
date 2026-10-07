@@ -435,6 +435,7 @@ IdO는 단계적 롤아웃을 위해 다수의 Feature Flag를 가진다. 모두
 | `IDEM_HUB_AUDIT_KAFKA_ENABLED` | true | 감사 Kafka 발행 (Kafka 없는 환경 false 권장) |
 | `IDEM_HUB_AUDIT_DB_ENABLED` | true | **운영에서 false 금지** |
 | `IDEM_HUB_SCIM_RELAY_ENABLED` / `_RELAY_INTERVAL_MS` / `_MAX_RETRY` / `_ALLOW_PRIVATE_HOSTS` · 비밀 `SECRETS_AGENCY_{CODE}_SCIM_TOKEN` | true / 2000 / 5 / false | 1.1: SCIM 아웃바운드 릴레이 · 기관별 Bearer 토큰(프로파일 `credentialRef` 가 가리킨다) |
+| `IDEM_HUB_AI_ENABLED` / `_BASE_URL` / `_MODEL` / `_ALLOW_PUBLIC_ENDPOINT` · 비밀 `IDEM_HUB_AI_API_KEY` | false / http://idem-ai:11434/v1 / qwen2.5:7b / false | 1.1: AI 운영 보조(선택 컨테이너 `idem-ai`) — 콘솔의 프로파일 초안·감사 요약·장애 요약. 호출마다 감사 `ADMIN/AI_*`(내용 없이 모델·크기). 인증 경로와 무관 |
 | `IDEM_PUBLIC_URL_HUB` / `IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS` | localhost:8083 / (없음) | 1.1: 코어 로그인 프런트가 브라우저를 되돌릴 hub 바깥 주소 / 선택 화면의 브로커 제공자 |
 | `IDEM_HUB_AUDIT_WAL_ENABLED` / `_DIR` / `_REPLAY_INTERVAL_MS` | true / `./data/audit-wal` / 60000 | 1.1: DB 저장 실패 감사 항목의 로컬 WAL 폴백·재생. **운영에서 false 금지**. 디렉터리는 볼륨에(compose `hub-audit-wal`, Helm `hub.auditWal`) |
 | `IDEM_HUB_KMS_ENABLED` | false | KMS 활성화 |

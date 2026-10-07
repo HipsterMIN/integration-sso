@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAiStatus } from '../lib/ai';
 import { ApiError, get, post, put } from '../lib/api';
 import { emptyForm, fromProfile } from '../lib/profile';
 import type { Agency, OidcClientSecret, OidcClientStatus, PolicySimulation, Profile } from '../lib/types';
@@ -9,6 +10,7 @@ import { ProfileForm } from './ProfileForm';
 
 export function ServiceDetail({ code }: { code: string }) {
   const { me } = useAuth();
+  const ai = useAiStatus();
   const isNew = code === 'new';
   const [profile, setProfile] = useState<Profile | null>(null);
   const [agency, setAgency] = useState<Agency | null>(null);
@@ -58,7 +60,7 @@ export function ServiceDetail({ code }: { code: string }) {
         {saved && <Alert kind="ok">{saved}</Alert>}
         <ErrorBox error={saveError} />
         {canWrite(me)
-          ? <ProfileForm key={formKey} initial={form} base={profile ?? {}} codeLocked={!isNew} busy={busy} onSubmit={save} />
+          ? <ProfileForm key={formKey} initial={form} base={profile ?? {}} codeLocked={!isNew} busy={busy} onSubmit={save} aiEnabled={!!ai?.enabled} lockedCode={isNew ? null : code} />
           : <pre className="mono">{JSON.stringify(profile, null, 2)}</pre>}
       </Section>
       {!isNew && agency && <StatusCard agency={agency} onChange={load} />}

@@ -193,7 +193,7 @@ public class ServiceProfileValidator {
     }
 
     /** 루프백·사설·링크로컬·메타데이터 주소, 점 없는 호스트 이름(컨테이너·서비스 이름), {@code .local}·{@code .internal} */
-    static boolean isInternalHost(String host) {
+    public static boolean isInternalHost(String host) {
         String h = host.startsWith("[") && host.endsWith("]") ? host.substring(1, host.length() - 1) : host;
         if (h.equals("localhost") || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
         if (!h.contains(".") && !h.contains(":")) return true;

@@ -229,3 +229,24 @@ networkPolicy:
 dbInit:
   enabled: true
   image: { repository: postgres, tag: 16-alpine, registry: "" }   # 서드파티 이미지 — global.imageRegistry 를 붙이지 않는다(1.0.1, H5)
+
+# ── 1.1 선택: AI 운영 보조 — 관리 콘솔의 프로파일 초안·감사 요약·장애 요약. 인증 경로에는 없다. 기본 꺼짐 ─────────────
+ai:
+  enabled: false                # hub 에 IDEM_HUB_AI_ENABLED 를 준다
+  baseUrl: http://idem-ai:11434/v1   # OpenAI 호환 /v1 — 아래 ollama 를 켜면 그 Service, 아니면 기관의 온프레미스 LLM 주소
+  model: qwen2.5:7b
+  # Bearer 가 필요한 LLM(vLLM·게이트웨이)이면 Secret 이름(키 IDEM_HUB_AI_API_KEY). 비면 없음
+  apiKeySecret: ""
+  allowPublicEndpoint: false    # 사설망·루프백 밖 호스트는 명시해야 켜진다 — 감사 요약이 설치본 밖으로 나가지 않게
+  # 차트가 Ollama 를 같이 올린다 (GPU 없이도 7B 양자화 모델은 돈다, 느릴 뿐). 모델은 첫 기동 뒤 한 번 받는다:
+  #   kubectl -n idem exec deploy/idem-ai -- ollama pull qwen2.5:7b
+  ollama:
+    enabled: false
+    image: { repository: ollama/ollama, tag: "0.6.8", registry: "" }   # 서드파티 이미지 — global.imageRegistry 를 붙이지 않는다
+    resources:
+      requests: { cpu: "1",  memory: 6Gi }
+      limits:   { cpu: "4",  memory: 12Gi }
+    # 모델 캐시(/root/.ollama) — 비면 emptyDir(파드 삭제 시 다시 받는다). RWO PVC 이름을 주면 유지
+    existingClaim: ""
+    extraEnv: {}
+

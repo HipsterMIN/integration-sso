@@ -110,3 +110,54 @@ export interface TenantView {
 
 /** 프로파일 JSON — 스키마(service-profile.v1.schema.json)를 따르는 느슨한 객체 */
 export type Profile = Record<string, unknown>;
+
+// ── 1.1 AI 운영 보조 (/api/v1/admin/ai, AiAdminController) — 선택 컨테이너, 꺼져 있으면 status.enabled=false ──
+export interface AiStatus {
+  enabled: boolean;
+  model: string | null;
+  endpointHost: string | null;
+  reason: string | null;
+}
+
+export interface AiDraft {
+  draft: Profile;
+  violations: string[];
+  model: string;
+  note: string;
+}
+
+export interface AuditDigest {
+  total: number;
+  rows: number;
+  from: string | null;
+  to: string | null;
+  byCategory: Record<string, number>;
+  byOutcome: Record<string, number>;
+  topActions: { key: string; n: number }[];
+  topAgencies: { key: string; n: number }[];
+  topFailures: { action: string; detail: string; n: number }[];
+  sample: { occurredAt: string; category: string; action: string; actorType: string; actor: string | null; agencyCode: string | null; outcome: string; detail: string | null }[];
+}
+
+export interface AiAuditSummary {
+  digest: AuditDigest;
+  summary: string;
+  model: string;
+}
+
+export interface OpsSnapshot {
+  at: string;
+  health: Record<string, string>;
+  webhookOutbox: Record<string, unknown>;
+  scimOutbox: Record<string, unknown>;
+  sloRetry: Record<string, unknown>;
+  auditFailures1h: Record<string, number>;
+  auditFailures24h: Record<string, number>;
+  metrics: Record<string, number>;
+}
+
+export interface AiIncidentSummary {
+  snapshot: OpsSnapshot;
+  summary: string;
+  model: string;
+}

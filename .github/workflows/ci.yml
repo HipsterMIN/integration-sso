@@ -740,12 +740,14 @@ jobs:
           helm template idem infra/helm/idem -n idem --set ingress.enabled=true --set networkPolicy.enabled=true > /tmp/core.yaml
           helm template idem infra/helm/idem -n idem -f infra/helm/idem/values-kr.yaml --set ingress.enabled=true > /tmp/kr.yaml
           helm template idem infra/helm/idem -n idem --set infra.kafka.enabled=true --set infra.kafka.bootstrapServers=kafka:9092 --set relay.enabled=true > /tmp/kafka.yaml
+          helm template idem infra/helm/idem -n idem --set ai.enabled=true --set ai.ollama.enabled=true --set ai.apiKeySecret=idem-ai-secret > /tmp/ai.yaml   # 1.1 AI 운영 보조(선택 컨테이너)
+          grep -q 'name: idem-ai' /tmp/ai.yaml && grep -q 'IDEM_HUB_AI_BASE_URL' /tmp/ai.yaml && ! grep -q 'IDEM_HUB_AI_BASE_URL' /tmp/core.yaml
           grep -q 'idem-hub:latest-core' /tmp/core.yaml && grep -q 'idem-hub:latest-kr' /tmp/kr.yaml && grep -q 'name: idem-kr-portal' /tmp/kr.yaml
           ! helm template idem infra/helm/idem -n idem --set krPortal.enabled=true 2>/dev/null   # core 에서 KR 포털은 거부
       - name: kubeconform (K8s 스키마 검사)
         run: |
           curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz -C /tmp kubeconform
-          for f in core kr kafka; do /tmp/kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/$f.yaml; done
+          for f in core kr kafka ai; do /tmp/kubeconform -strict -summary -kubernetes-version 1.29.0 /tmp/$f.yaml; done
       - name: 1.0.1 설치본 회귀 (H4 숫자 UID · H5 레지스트리 접두 · M7 관리 포트 · M9 admin URL)
         run: |
           helm template idem infra/helm/idem -n idem --set global.imageRegistry=ghcr.io/example > /tmp/reg.yaml

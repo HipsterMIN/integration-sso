@@ -107,6 +107,7 @@
 | G-6 | 오프라인 설치 | 이미지 tar 반입 | A-1~A-4 통과 | **수동, 미실시** |
 | G-7 | 405/415·authz 404(1.0.1) | `DELETE /api/v1/admin/tenants/X`, `text/plain` 로그인, authz 없는 경로 | 405 `E-IDO-405`·415 `E-IDO-415`·404 `E-AUTHZ-404` | UT |
 | G-8 | 감사 WAL 폴백(1.1) | PostgreSQL 을 멈춘 채 로그인 시도 → 재기동 | 시도 중 hub 는 예외 없이 응답, `IDEM_HUB_AUDIT_WAL_DIR/audit-wal.jsonl` 에 줄 추가(`audit.wal.appended.total`); DB 복구 후 60초 내 `audit_log` 에 원래 `occurred_at` 으로 재삽입되고 WAL 파일 삭제(`audit.wal.replayed.total`); 중복 없음 | UT(`AuditWalTest`·`AuditLogPublisherWalTest`·`FailSecureBootGuardTest`) |
+| G-9 | AI 운영 보조(1.1, 선택) | `IDEM_HUB_AI_ENABLED=true` + LLM 컨테이너. 콘솔 AI 초안 → JSON 탭 → 저장, 감사 "AI 요약", "AI 운영" 요약; 꺼진 설치본 | 초안은 스키마 위반을 함께 보이고 저장 전에는 반영 없음; 요약 요청에 IP·metadata 가 가지 않고 행위자는 `ab***`; 테넌트 관리자는 기관 코드 없이 403, 장애 요약은 전역만; 꺼지면 `/api/v1/admin/ai/*` 404 `E-IDO-140`, 공개 호스트는 명시 없이 안 켜짐; 감사 `AI_*` 남음 | UT(`AiAssistantServiceTest`·`LlmClientTest`·`AuditDigestTest`·`AiAdminControllerTest`) · 콘솔 UT(`ai.test.ts`) · LLM 끝-끝은 수동 |
 
 ## H. 성능(참고)
 
@@ -118,7 +119,7 @@ k6 스모크(CI `k6 Smoke Test`)가 Discovery·헬스·로그인 화면을 짧�
 |---|---|---|---|---|---|
 | A~G (1.0 원표) | 51 | 41 | 37 | 4 (B-3, B-5, E-1, E-3) | 10 (A-2, A-5, B-8, C-7, D-8, E-6, G-2, G-3, G-5, G-6) |
 | 1.0.1 추가 | 7 (A-7, B-11, B-12, C-8, D-13, D-14, G-7) | 7 | 7 | 0 | 0 |
-| 1.1 추가 | 4 (A-8, F-7, F-8, G-8) | 4 | 3 (A-8, F-8, G-8) | 1 (F-7) | 0 |
+| 1.1 추가 | 5 (A-8, F-7, F-8, G-8, G-9) | 5 | 4 (A-8, F-8, G-8, G-9) | 1 (F-7) | 0 (G-9 의 LLM 끝-끝은 수동) |
 
 3차 점검(2026-09-26) 이전 표는 "자동 47" 로 적혀 있었다 — E2E 헤드리스 브라우저(B-2·B-3·C-7·D-8)는 S7 PR-2 의 1회성 수동 실행이었고, A-2·B-8·E-6·G-3 도 자동 검사가 없었다. 위 수치가 실제다.
 

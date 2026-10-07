@@ -45,6 +45,7 @@ volumes:
   redis-data:
   keycloak-data:
   hub-audit-wal:    # 1.1: 감사 WAL 폴백 — DB 장애 동안의 감사 항목. 컨테이너 재생성에도 남는다
+  ai-models:        # 1.1: AI 운영 보조(--profile ai) 의 LLM 모델 캐시 — 수 GB, 최초 pull 뒤 재사용
 
 services:
   # ── 데이터 ────────────────────────────────────────────────────────────────
@@ -241,6 +242,12 @@ services:
       IDEM_PLUGINS_ANYID_ENABLED: ${IDEM_PLUGINS_ANYID_ENABLED:-false}
       # 1.1: 감사 DB 저장 실패 시 로컬 WAL 폴백 — 볼륨에 둔다(아래 volumes). 운영에서 IDEM_HUB_AUDIT_WAL_ENABLED=false 는 기동 거부
       IDEM_HUB_AUDIT_WAL_DIR: /app/data/audit-wal
+      # 1.1: AI 운영 보조(선택 컨테이너 idem-ai, --profile ai). 기본 꺼짐. 인증 경로에는 없다 — 관리 콘솔의 프로파일 초안·감사 요약·장애 요약만
+      IDEM_HUB_AI_ENABLED: ${IDEM_HUB_AI_ENABLED:-false}
+      IDEM_HUB_AI_BASE_URL: ${IDEM_HUB_AI_BASE_URL:-http://idem-ai:11434/v1}
+      IDEM_HUB_AI_MODEL: ${IDEM_HUB_AI_MODEL:-qwen2.5:7b}
+      IDEM_HUB_AI_API_KEY: ${IDEM_HUB_AI_API_KEY:-}
+      IDEM_HUB_AI_ALLOW_PUBLIC_ENDPOINT: ${IDEM_HUB_AI_ALLOW_PUBLIC_ENDPOINT:-false}
     volumes:
       - hub-audit-wal:/app/data/audit-wal
     ports:
@@ -349,6 +356,27 @@ services:
       retries: 5
       start_period: 15s
     logging: *log
+
+  # ── 1.1 AI 운영 보조 — 온프레미스 LLM(Ollama, OpenAI 호환 /v1). `--profile ai` 로만 올라간다. 기본 설치에는 없다 ──
+  # 처음 한 번 모델을 받는다(수 GB): docker compose --profile ai exec idem-ai ollama pull qwen2.5:7b
+  # hub 는 IDEM_HUB_AI_ENABLED=true 로 켠다. 포트는 밖으로 내지 않는다 — hub 만 부른다. GPU 가 있으면 deploy.resources 에 device 를 더한다
+  idem-ai:
+    profiles: ["ai"]
+    image: ollama/ollama:0.6.8
+    container_name: idem-ai
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_KEEP_ALIVE: 30m
+    volumes:
+      - ai-models:/root/.ollama
+    networks: [idem-net]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # ── KR 에디션 회원 포털 (구 idem-console — 회원전환·본인확인 위젯·마이페이지). `--profile kr` 로만 올라간다 ──
   idem-kr-portal:

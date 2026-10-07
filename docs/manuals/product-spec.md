@@ -56,6 +56,7 @@
 | F20 | 보안 기본값 | 내부 API 키·HMAC 서명·레이트리밋(IP·기관, TPS·일)·보안 헤더·fail-secure(필수 키 없으면 기동 거부, 의존 장애 시 거부) |
 | F21 | 암호 | `CryptoProvider` SPI(교체 가능), AES-256-GCM·HMAC-SHA256·Ed25519·SHA-256, 키 버전·로테이션, Vault Transit(선택) |
 | F22 | 관측 | `/actuator/health`(liveness·readiness), Prometheus 지표(`slo.*`·`personal.data.*`·`idem.kms.healthy`·`idem.outbox.*`; 1.0.1 부터 관리 포트. hub 의 `/actuator/prometheus` 는 1.0.x 미등록 — 알려진 제한), OTel 추적(선택) |
+| F23 | AI 운영 보조 (1.1, 선택) | 관리 콘솔: 자연어 → 프로파일 초안(스키마 검증 필수, 저장은 관리자), 감사 요약(집계·표본만, IP·metadata 제외·행위자 마스킹), 장애 요약(운영 스냅샷 판정). 온프레미스 LLM(OpenAI 호환 `/v1`, compose `--profile ai`/Helm `ai.*`), 기본 설치 제외, 사설망 밖 엔드포인트는 명시 허용 필요, 인증 경로 무관, 호출마다 감사 `AI_*` |
 
 ## 3. 구성과 인터페이스
 

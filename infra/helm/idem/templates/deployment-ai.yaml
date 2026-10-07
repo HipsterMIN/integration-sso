@@ -1,0 +1,65 @@
+{{- /*
+1.1 AI 운영 보조 — 선택 컨테이너(Ollama, OpenAI 호환 /v1). ai.enabled 와 ai.ollama.enabled 가 둘 다 true 일 때만.
+hub 만 부른다(Service ClusterIP, Ingress 없음). 모델은 첫 기동 뒤 한 번 받는다: kubectl -n <ns> exec deploy/idem-ai -- ollama pull <model>
+*/ -}}
+{{- if and .Values.ai.enabled .Values.ai.ollama.enabled }}
+{{- $c := .Values.ai.ollama }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idem-ai
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "idem.labels" . | nindent 4 }}
+    {{- include "idem.selectorLabels" "idem-ai" | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: idem-ai
+  strategy:
+    type: Recreate          # 모델 캐시 볼륨(RWO) 하나
+  template:
+    metadata:
+      labels:
+        {{- include "idem.labels" . | nindent 8 }}
+        {{- include "idem.selectorLabels" "idem-ai" | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: ollama
+          image: {{ include "idem.image" (dict "root" . "image" $c.image "edition" false) }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: http, containerPort: 11434 }
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:11434"
+            - name: OLLAMA_KEEP_ALIVE
+              value: "30m"
+            {{- include "idem.mapEnv" $c.extraEnv | nindent 12 }}
+          startupProbe:
+            httpGet: { path: /api/tags, port: 11434 }
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet: { path: /api/tags, port: 11434 }
+            periodSeconds: 15
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+      volumes:
+        - name: models
+          {{- if $c.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ $c.existingClaim | quote }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}
