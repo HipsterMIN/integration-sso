@@ -94,7 +94,7 @@ class NamingGuardTest {
                         var m = p.matcher(text);
                         int n = 0;
                         while (m.find() && n < 3) {
-                                            if (m.group().startsWith("authz:") && rel.startsWith("infra/helm/")) continue;           // Helm values 의 모듈 키
+                            if (m.group().startsWith("authz:") && (rel.startsWith("infra/helm/") || rel.startsWith("scripts/k8s/rehearsal/"))) continue;   // Helm values 의 모듈 키 (차트·리허설 값)
                             int line = (int) text.chars().limit(m.start()).filter(c -> c == '\n').count() + 1;
                             violations.add(rel + ":" + line + "  " + m.group());
                             n++;

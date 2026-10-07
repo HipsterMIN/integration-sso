@@ -1,7 +1,8 @@
 {{- /*
 숨긴 Keycloak (S6) — 토큰 iss·로그인 화면 링크가 gate 공개 URL 로 나오도록 KC_HOSTNAME_URL 을 gate 로 고정한다.
 관리 콘솔은 keycloak.adminUrl(비면 클러스터 안 주소) 로만. realm `idem` 은 files/realm-export.json 을 --import-realm (이미 있으면 건너뜀).
-compose 는 start-dev 지만 여기서는 production 모드(start) 다 — KC_HTTP_ENABLED + KC_PROXY=edge 로 TLS 종료는 Ingress 가 한다.
+compose 는 start-dev 지만 여기서는 production 모드(start) 다 — KC_HTTP_ENABLED + KC_PROXY_HEADERS=xforwarded 로 TLS 종료는 Ingress 가 한다.
+production 모드는 기본 이미지에 없는 빌드 옵션(db·health) 때문에 첫 기동마다 auto-build 를 한다 — 메모리 2Gi(values.keycloak.resources), 빌드해 둔 이미지는 keycloak.optimized=true.
 */ -}}
 {{- if .Values.keycloak.enabled }}
 {{- $kc := .Values.keycloak }}
@@ -36,7 +37,7 @@ spec:
         - name: keycloak
           image: {{ include "idem.image" (dict "root" . "image" $kc.image "edition" false) }}
           imagePullPolicy: {{ $kc.image.pullPolicy }}
-          args: ["start", "--http-port=8080"{{ if $kc.realmImport }}, "--import-realm"{{ end }}]
+          args: ["start", "--http-port=8080"{{ if $kc.optimized }}, "--optimized"{{ end }}{{ if $kc.realmImport }}, "--import-realm"{{ end }}]
           {{- include "idem.containerSecurity" . | nindent 10 }}
           ports:
             - { name: http, containerPort: 8080 }
@@ -69,8 +70,9 @@ spec:
               value: "false"
             - name: KC_HTTP_ENABLED
               value: "true"
-            - name: KC_PROXY
-              value: edge
+            # 1.1: KC_PROXY=edge 는 24 에서 deprecated — proxy-headers 로. TLS 종료는 Ingress, X-Forwarded-* 를 믿는다
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
             - name: KC_HEALTH_ENABLED
               value: "true"
             - name: KC_LOG_LEVEL

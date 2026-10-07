@@ -1,0 +1,21 @@
+# kind 클러스터 — K8s 실배포 리허설 (scripts/k8s/rehearsal.sh, 1.1 PR-6)
+# ingress-nginx(kind provider 매니페스트)가 이 노드의 80/443 hostPort 를 쓰고, 그 포트를 호스트의 ${HTTP_PORT}/${HTTPS_PORT} 로 낸다.
+# 스크립트가 ${…} 를 실제 값으로 바꿔 쓴다.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ${KIND_CLUSTER}
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: ${HTTP_PORT}
+        protocol: TCP
+      - containerPort: 443
+        hostPort: ${HTTPS_PORT}
+        protocol: TCP

@@ -15,6 +15,7 @@
 | A-5 | 업그레이드(0.x→1.0) | 구 DB 이름·스키마로 기동 | 자동 rename + 체크섬 불일치만 1회 repair, 로그 `[Idem 개명]`; 구·신 스키마 공존 시 기동 거부 | 리허설(수동, PR-2·1.0.1 PR-B 기록) |
 | A-6 | Helm 렌더 | `helm lint` · `helm template` core/kr | 오류 0, kubeconform 통과, 숫자 UID·관리 포트·레지스트리 접두 규칙 | CI helm-lint |
 | A-7 | prod 프로파일 | hub 를 `SPRING_PROFILES_ACTIVE=prod` + 로컬 KMS + 관리 포트로 기동 | 앱 포트에 actuator 없음, 관리 포트 health 200·flyway 404, 관리 API 401 | CI prod 단계 |
+| A-8 | K8s 실배포(1.1) | `scripts/k8s/rehearsal.sh` — kind 에 차트 설치(TLS Ingress·비밀 Secret·스키마 Job) → A-1·A-3·B·C·D 스모크 ①~⑧ → prod 전환 `helm upgrade` → `helm rollback` → `helm uninstall` | 리비전 1 Pod 전부 Ready, Service 에 관리 포트 없음, Ingress 호스트 3(TLS), 스모크 통과; 리비전 2 는 prod 프로파일·MOCK 없음; 롤백(리비전 3)은 MOCK 복귀; 제거 뒤 Pod 0 | CI `k8s-rehearsal`(차트·스크립트 변경 PR·main) |
 
 ## B. 관리자 인증·인가 (F17)
 
@@ -117,6 +118,7 @@ k6 스모크(CI `k6 Smoke Test`)가 Discovery·헬스·로그인 화면을 짧�
 |---|---|---|---|---|---|
 | A~G (1.0 원표) | 51 | 41 | 37 | 4 (B-3, B-5, E-1, E-3) | 10 (A-2, A-5, B-8, C-7, D-8, E-6, G-2, G-3, G-5, G-6) |
 | 1.0.1 추가 | 7 (A-7, B-11, B-12, C-8, D-13, D-14, G-7) | 7 | 7 | 0 | 0 |
+| 1.1 추가 | 4 (A-8, F-7, F-8, G-8) | 4 | 3 (A-8, F-8, G-8) | 1 (F-7) | 0 |
 
 3차 점검(2026-09-26) 이전 표는 "자동 47" 로 적혀 있었다 — E2E 헤드리스 브라우저(B-2·B-3·C-7·D-8)는 S7 PR-2 의 1회성 수동 실행이었고, A-2·B-8·E-6·G-3 도 자동 검사가 없었다. 위 수치가 실제다.
 

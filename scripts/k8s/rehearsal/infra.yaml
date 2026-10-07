@@ -1,0 +1,84 @@
+# 리허설용 바깥 인프라 대역 — PostgreSQL 16 · Redis 7 을 같은 네임스페이스에 올린다 (scripts/k8s/rehearsal.sh, 1.1 PR-6).
+# 차트는 PostgreSQL·Redis 를 바깥 서비스로 본다(infra.postgres/redis). 운영에서는 이 파일을 쓰지 않는다 — 기관의 DB·Redis 를 values 에 적는다.
+# 저장은 emptyDir — 리허설이 끝나면 데이터도 사라진다. DB 비밀번호는 차트와 같은 Secret idem-db-secret(키 username/password) 에서 읽는다.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels: { app: postgres, app.kubernetes.io/part-of: idem-rehearsal }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: postgres } }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine          # compose.install.yml · CI smoke-test 와 같은 메이저
+          env:
+            - { name: POSTGRES_DB, value: idem }
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: idem-db-secret, key: username } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: idem-db-secret, key: password } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports:
+            - { name: pg, containerPort: 5432 }
+          readinessProbe:
+            exec: { command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d idem"] }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits:   { cpu: "1",  memory: 512Mi }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels: { app: postgres, app.kubernetes.io/part-of: idem-rehearsal }
+spec:
+  selector: { app: postgres }
+  ports:
+    - { name: pg, port: 5432, targetPort: pg }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels: { app: redis, app.kubernetes.io/part-of: idem-rehearsal }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: redis } }
+  template:
+    metadata:
+      labels: { app: redis }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          args: ["--save", "", "--appendonly", "no"]
+          ports:
+            - { name: redis, containerPort: 6379 }
+          readinessProbe:
+            exec: { command: ["redis-cli", "ping"] }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits:   { cpu: 500m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels: { app: redis, app.kubernetes.io/part-of: idem-rehearsal }
+spec:
+  selector: { app: redis }
+  ports:
+    - { name: redis, port: 6379, targetPort: redis }
