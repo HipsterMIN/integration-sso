@@ -1,4 +1,4 @@
-// Service Profile(JSON) ↔ 온보딩 폼 모델. 폼이 다루지 않는 키(rules·maintenance·ui·attributeMapping·security 등)는 그대로 보존한다.
+// Service Profile(JSON) ↔ 온보딩 폼 모델. 폼이 다루지 않는 키(rules·maintenance·ui·attributeMapping·security·scim 등)는 그대로 보존한다.
 import type { Profile } from './types';
 
 export const PROTOCOL_TYPES = ['OIDC_RP', 'DIRECT', 'BRIDGE', 'APACHE_GATE', 'INTERNAL_SSO'] as const;
@@ -33,6 +33,8 @@ export interface ProfileForm {
   selfSignup: boolean;
   tps: string;
   daily: string;
+  consentEnabled: boolean;          // 1.1 consent.enabled — 코어 로그인 프런트의 동의 단계
+  consentIncludePlatform: boolean;  // consent.includePlatform (기본 true)
 }
 
 export function emptyForm(code = ''): ProfileForm {
@@ -43,6 +45,7 @@ export function emptyForm(code = ''): ProfileForm {
     subjectScheme: '', attributes: '', minAuthLevel: 'L1', allowedProviders: '',
     idleMinutes: '', absoluteMinutes: '', concurrent: '', assignmentRequired: false, selfSignup: false,
     tps: '', daily: '',
+    consentEnabled: false, consentIncludePlatform: true,
   };
 }
 
@@ -98,9 +101,13 @@ export function toProfile(f: ProfileForm, base: Profile = {}): Profile {
   if (assignment) policy.assignment = assignment; else delete policy.assignment;
   const limits = prune({ ...obj(base.limits), tps: num(f.tps), daily: num(f.daily) });
 
+  // 1.1 동의 카탈로그: 켜질 때만 블록을 낸다(항목 자체는 registry 에 있다). 끄면 블록을 지운다(스키마 기본 false)
+  const consent = f.consentEnabled ? { ...obj(base.consent), enabled: true, includePlatform: f.consentIncludePlatform } : undefined;
+
   const out: Profile = { ...base, schemaVersion: base.schemaVersion ?? 1, service, protocol, policy };
   if (identity) out.identity = identity; else delete out.identity;
   if (limits) out.limits = limits; else delete out.limits;
+  if (consent) out.consent = consent; else delete out.consent;
   return out;
 }
 
@@ -115,6 +122,7 @@ export function fromProfile(p: Profile): ProfileForm {
   const session = obj(policy.session);
   const assignment = obj(policy.assignment);
   const limits = obj(p.limits);
+  const consent = obj(p.consent);
   const type = PROTOCOL_TYPES.includes(protocol.type as ProtocolType) ? (protocol.type as ProtocolType) : 'DIRECT';
   const level = AUTH_LEVELS.includes(policy.minAuthLevel as 'L1') ? (policy.minAuthLevel as 'L1' | 'L2' | 'L3') : 'L1';
   return {
@@ -129,6 +137,7 @@ export function fromProfile(p: Profile): ProfileForm {
     idleMinutes: str(session.idleMinutes), absoluteMinutes: str(session.absoluteMinutes), concurrent: str(session.concurrent),
     assignmentRequired: assignment.required === true, selfSignup: assignment.selfSignup === true,
     tps: str(limits.tps), daily: str(limits.daily),
+    consentEnabled: consent.enabled === true, consentIncludePlatform: consent.includePlatform !== false,
   };
 }
 

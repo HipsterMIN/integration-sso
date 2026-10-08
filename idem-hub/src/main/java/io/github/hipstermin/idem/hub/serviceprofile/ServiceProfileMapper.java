@@ -84,6 +84,7 @@ public class ServiceProfileMapper {
                         .tps(exLimits != null ? exLimits.tps() : null)
                         .build())
                 .ui(existing != null ? existing.ui() : null)
+                .consent(existing != null ? existing.consent() : null)   // 1.1: 동의 카탈로그 — 프로파일에서만
                 .build();
     }
 

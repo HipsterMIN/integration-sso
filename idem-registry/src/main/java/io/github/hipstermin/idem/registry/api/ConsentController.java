@@ -1,9 +1,11 @@
 package io.github.hipstermin.idem.registry.api;
 
 import io.github.hipstermin.idem.registry.consent.*;
+import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -101,8 +103,47 @@ public class ConsentController {
      */
     @GetMapping("/api/v1/internal/consent-versions")
     public ResponseEntity<List<ConsentVersionInfo>> getActiveVersions(
-            @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
-
+            @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey,
+            @RequestParam(required = false) String serviceCode,
+            @RequestParam(defaultValue = "false") boolean includeInactive,
+            @RequestParam(defaultValue = "false") boolean catalog) {
+        // 1.1 동의 카탈로그: serviceCode 가 있으면 그 범위. catalog=true 면 서비스가 보는 합(플랫폼 공통 + 서비스 전용, ACTIVE)
+        if (catalog) return ResponseEntity.ok(consentService.catalog(serviceCode));
+        if (serviceCode != null || includeInactive) return ResponseEntity.ok(consentService.listVersions(serviceCode, includeInactive));
         return ResponseEntity.ok(consentService.getActiveVersions());
+    }
+
+    // ── 1.1 동의 카탈로그 (플랜 §5 #8) — hub 관리 API·로그인 프런트가 부른다 ────
+
+    public record PublishBody(String serviceCode, String consentType, String versionTag, String title, String contentUrl,
+                              Boolean required, Instant effectiveAt) {}
+
+    /** 새 버전 발행 — 같은 범위·유형의 ACTIVE 는 SUPERSEDED. POST /api/v1/internal/consent-versions */
+    @PostMapping("/api/v1/internal/consent-versions")
+    public ResponseEntity<ConsentVersionInfo> publish(
+            @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @RequestBody PublishBody body) {
+        ConsentVersionInfo v = consentService.publish(new ConsentService.PublishRequest(body.serviceCode(), body.consentType(), body.versionTag(),
+                body.title(), body.contentUrl(), body.required(), body.effectiveAt(), correlationId));
+        return ResponseEntity.status(HttpStatus.CREATED).body(v);
+    }
+
+    /** 버전 종료(카탈로그에서 뺀다). POST /api/v1/internal/consent-versions/{versionId}/retire */
+    @PostMapping("/api/v1/internal/consent-versions/{versionId}/retire")
+    public ResponseEntity<ConsentVersionInfo> retire(
+            @PathVariable String versionId,
+            @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
+        return ResponseEntity.ok(consentService.retire(versionId, correlationId));
+    }
+
+    /** 사용자가 아직 동의하지 않은 카탈로그 항목. GET /api/v1/internal/users/{qimUserId}/consents/missing?serviceCode= */
+    @GetMapping("/api/v1/internal/users/{qimUserId}/consents/missing")
+    public ResponseEntity<List<ConsentVersionInfo>> missing(
+            @PathVariable String qimUserId,
+            @RequestParam(required = false) String serviceCode,
+            @RequestHeader(value = "X-Internal-Api-Key", required = false) String apiKey) {
+        return ResponseEntity.ok(consentService.missing(qimUserId, serviceCode));
     }
 }

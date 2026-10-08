@@ -41,7 +41,8 @@ public record ServiceProfile(
         Identity identity,
         Policy policy,
         Limits limits,
-        Ui ui) {
+        Ui ui,
+        Consent consent) {
 
     public static final int SCHEMA_VERSION = 1;
     /** 설치본의 기본 Tenant(Realm) — V22 시드 */
@@ -256,6 +257,19 @@ public record ServiceProfile(
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Builder(toBuilder = true)
     public record Ui(String brandName, String logoUrl, String locale) {}
+
+    /**
+     * 1.1 동의 카탈로그 (플랜 §5 #8) — 켜면 코어 로그인 프런트가 발급 전에 registry 카탈로그(플랫폼 공통 + 이 서비스 전용)의
+     * 미동의 항목을 보여 주고 동의를 기록한다. 항목(문구·버전·필수 여부)은 프로파일이 아니라 registry 가 가진다(관리 API·콘솔 "동의 항목").
+     * 헬퍼는 getter 꼴 이름을 피한다 — Jackson 이 {@code isEnabled()} 를 속성으로 보면 역직렬화에서 값을 잃는다.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @Builder(toBuilder = true)
+    public record Consent(Boolean enabled, Boolean includePlatform) {
+        public boolean enabledOrFalse() { return Boolean.TRUE.equals(enabled); }
+        /** 플랫폼 공통 항목(service_code NULL)도 이 서비스 로그인에서 받을지 — 기본 true */
+        public boolean includePlatformOrTrue() { return includePlatform == null || includePlatform; }
+    }
 
     /** 활성 여부 — status 가 없으면 ACTIVE 로 본다. (파생 값 — JSON 에는 싣지 않는다) */
     @JsonIgnore

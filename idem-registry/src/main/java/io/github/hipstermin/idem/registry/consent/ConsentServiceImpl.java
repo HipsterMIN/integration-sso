@@ -113,17 +113,114 @@ public class ConsentServiceImpl implements ConsentService {
     @Override
     @Transactional(readOnly = true)
     public List<ConsentVersionInfo> getActiveVersions() {
-        return versionRepository.findAllActive(Instant.now()).stream()
-                .map(v -> ConsentVersionInfo.builder()
-                        .versionId(v.getVersionId())
-                        .consentType(v.getConsentType())
-                        .versionTag(v.getVersionTag())
-                        .title(v.getTitle())
-                        .contentUrl(v.getContentUrl())
-                        .required(v.isRequired())
-                        .effectiveAt(v.getEffectiveAt())
-                        .build())
-                .collect(Collectors.toList());
+        return versionRepository.findAllActive(Instant.now()).stream().map(ConsentServiceImpl::toInfo).collect(Collectors.toList());
+    }
+
+    // ── 1.1 동의 카탈로그 ──────────────────────────────────────────────────────
+
+    static final java.util.regex.Pattern TYPE = java.util.regex.Pattern.compile("[A-Z][A-Z0-9_]{1,49}");
+    static final java.util.regex.Pattern CODE = java.util.regex.Pattern.compile("[A-Za-z0-9_-]{2,64}");
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ConsentVersionInfo> catalog(String serviceCode) {
+        return versionRepository.findCatalog(serviceCode == null ? "" : serviceCode, Instant.now()).stream()
+                .map(ConsentServiceImpl::toInfo).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ConsentVersionInfo> listVersions(String serviceCode, boolean includeInactive) {
+        List<ConsentVersionJpaEntity> all = serviceCode == null || serviceCode.isBlank()
+                ? versionRepository.findByServiceCodeIsNullOrderByConsentTypeAscEffectiveAtDesc()
+                : versionRepository.findByServiceCodeOrderByConsentTypeAscEffectiveAtDesc(serviceCode);
+        return all.stream().filter(v -> includeInactive || "ACTIVE".equals(v.getStatus()))
+                .map(ConsentServiceImpl::toInfo).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public ConsentVersionInfo publish(PublishRequest req) {
+        String cid = req.correlationId();
+        if (req.consentType() == null || !TYPE.matcher(req.consentType()).matches()) {
+            throw new PlatformException(PlatformErrorCode.IM_CONSENT_VERSION_INVALID, cid, "consentType 은 영문 대문자·숫자·_ 2~50자");
+        }
+        if (req.title() == null || req.title().isBlank() || req.title().length() > 200) {
+            throw new PlatformException(PlatformErrorCode.IM_CONSENT_VERSION_INVALID, cid, "title 은 1~200자");
+        }
+        if (req.versionTag() == null || req.versionTag().isBlank() || req.versionTag().length() > 50) {
+            throw new PlatformException(PlatformErrorCode.IM_CONSENT_VERSION_INVALID, cid, "versionTag 은 1~50자");
+        }
+        if (req.contentUrl() != null && !req.contentUrl().isBlank()
+                && (req.contentUrl().length() > 500 || !(req.contentUrl().startsWith("https://") || req.contentUrl().startsWith("http://")))) {
+            throw new PlatformException(PlatformErrorCode.IM_CONSENT_VERSION_INVALID, cid, "contentUrl 은 http(s) URL, 500자 이하");
+        }
+        String scope = req.serviceCode() == null || req.serviceCode().isBlank() ? null : req.serviceCode().trim();
+        if (scope != null && !CODE.matcher(scope).matches()) {
+            throw new PlatformException(PlatformErrorCode.IM_CONSENT_VERSION_INVALID, cid, "serviceCode 형식");
+        }
+        Instant now = Instant.now();
+        Instant effective = req.effectiveAt() != null ? req.effectiveAt() : now;
+        // 같은 범위·유형의 ACTIVE 는 대체된다 — 사용자는 새 버전에 다시 동의해야 한다
+        List<ConsentVersionJpaEntity> actives = scope == null
+                ? versionRepository.findByServiceCodeIsNullAndConsentTypeAndStatus(req.consentType(), "ACTIVE")
+                : versionRepository.findByServiceCodeAndConsentTypeAndStatus(scope, req.consentType(), "ACTIVE");
+        for (ConsentVersionJpaEntity a : actives) {
+            a.setStatus("SUPERSEDED");
+            a.setSupersededAt(now);
+            versionRepository.save(a);
+        }
+        ConsentVersionJpaEntity v = ConsentVersionJpaEntity.builder()
+                .versionId(UuidV7.generate())
+                .consentType(req.consentType())
+                .serviceCode(scope)
+                .versionTag(req.versionTag().trim())
+                .title(req.title().trim())
+                .contentUrl(req.contentUrl() == null || req.contentUrl().isBlank() ? null : req.contentUrl().trim())
+                .required(req.required() == null || req.required())
+                .status("ACTIVE")
+                .effectiveAt(effective)
+                .build();
+        versionRepository.save(v);
+        log.info("[Consent] 버전 발행: scope={} type={} tag={} superseded={}", scope == null ? "(platform)" : scope, req.consentType(), req.versionTag(), actives.size());
+        return toInfo(v);
+    }
+
+    @Override
+    @Transactional
+    public ConsentVersionInfo retire(String versionId, String correlationId) {
+        ConsentVersionJpaEntity v = versionRepository.findById(versionId)
+                .orElseThrow(() -> new PlatformException(PlatformErrorCode.IM_CONSENT_VERSION_INVALID, correlationId, "버전 없음: " + versionId));
+        if ("ACTIVE".equals(v.getStatus())) {
+            v.setStatus("SUPERSEDED");
+            v.setSupersededAt(Instant.now());
+            versionRepository.save(v);
+            log.info("[Consent] 버전 종료: scope={} type={} tag={}", v.getServiceCode() == null ? "(platform)" : v.getServiceCode(), v.getConsentType(), v.getVersionTag());
+        }
+        return toInfo(v);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ConsentVersionInfo> missing(String qimUserId, String serviceCode) {
+        java.util.Set<String> agreed = new java.util.HashSet<>(recordRepository.findAgreedVersionIds(qimUserId));
+        return versionRepository.findCatalog(serviceCode == null ? "" : serviceCode, Instant.now()).stream()
+                .filter(v -> !agreed.contains(v.getVersionId()))
+                .map(ConsentServiceImpl::toInfo).collect(Collectors.toList());
+    }
+
+    static ConsentVersionInfo toInfo(ConsentVersionJpaEntity v) {
+        return ConsentVersionInfo.builder()
+                .versionId(v.getVersionId())
+                .consentType(v.getConsentType())
+                .serviceCode(v.getServiceCode())
+                .status(v.getStatus())
+                .versionTag(v.getVersionTag())
+                .title(v.getTitle())
+                .contentUrl(v.getContentUrl())
+                .required(v.isRequired())
+                .effectiveAt(v.getEffectiveAt())
+                .build();
     }
 
     // ── private ───────────────────────────────────────────────────────────────

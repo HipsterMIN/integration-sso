@@ -6,6 +6,14 @@
 
 `docs/post-1.0-plan.md` §5. 1.0.x 패치는 `release/1.0`.
 
+### 1.1 PR-9 · 동의 카탈로그 (플랜 §5 #8)
+
+- **registry 카탈로그에 범위**: `consent_version.service_code`(V2, null = 플랫폼 공통). 내부 API `GET /api/v1/internal/consent-versions?serviceCode&includeInactive&catalog`(catalog = 공통 + 서비스 전용 ACTIVE), `POST …/consent-versions`(발행 — 같은 범위·유형의 ACTIVE 는 SUPERSEDED, 유형 `[A-Z][A-Z0-9_]{1,49}`, 위반 `E-IM-208`), `POST …/consent-versions/{id}/retire`, `GET …/users/{id}/consents/missing?serviceCode`(미동의 항목). 종전 활성 목록·최신 버전 조회는 플랫폼 공통만 본다(서비스 전용 버전이 공통 목록에 섞이지 않는다).
+- **hub 관리 API·콘솔**: `/api/v1/admin/services/{code}/consents`(목록·발행·종료, 테넌트 범위; 종료는 그 서비스 범위의 버전만 — 아니면 `404 E-IM-207`), `/api/v1/admin/consents`(플랫폼 공통, 전역 관리자만). 감사 `ADMIN/CONSENT_VERSION_PUBLISHED·RETIRED`. 콘솔 "동의 항목" 메뉴(전역)·기관 상세 카드·프로파일 폼 체크박스. `ConsentRegistryClient`(registry 4xx 는 그 코드·본문 그대로, 장애 `E-IDO-106`).
+- **코어 로그인 프런트의 동의 단계**: 프로파일 `consent {enabled, includePlatform}`(스키마 블록, 폼 밖 키처럼 보존). 켜진 서비스는 발급 전에 registry 미동의 항목을 확인해 **필수**가 남아 있으면 동의 화면(같은 경로 `POST /api/v1/handoff/login/consent` 로 form, 선택 항목도 함께; 서버가 다시 계산한 목록 안의 항목만 기록, 출처 `LOGIN_FRONT:<서비스>`·IP), 감사 `MEMBER/CONSENT_AGREED`; 거부는 `302 callback?error=E-IDO-125`(감사 `CONSENT_DECLINED`); registry 장애는 발급하지 않는다(오류 화면, 콜백 없음). 선택 항목만 남았거나 이미 동의한 사용자는 화면 없이 발급. hub CSP 는 `/api/v1/handoff/login/**` 만 `form-action 'self'`(그 밖은 종전 `'none'`). OIDC_RP·발급 API 직접 호출 경로는 적용 밖(개발자 가이드 §6.1).
+- 테스트: hub UT(신규 `ConsentRegistryClientTest`·`ConsentAdminControllerTest`·`SecurityHeadersFilterTest`, `HandoffLoginControllerTest` 동의 7건, 검증기·인가 행), IT `HandoffLoginIntegrationTest.consentFlow`, registry UT(`ConsentControllerTest`·`ConsentServiceImplTest`), 콘솔 `consent.test.ts`·`profile.test.ts`. 문서: 개발자 가이드 §6.1·§11·§13.1, 관리자 매뉴얼 §13, 제품 설명서 F25, 시험 항목 D-18(+1.1 집계에 D-16·D-17 누락 정정), 요구 체크리스트 §3, 인가 매트릭스, 플랜 §5 #8·§9.
+- 알려진 것: KR 회원 포털(`editions/idem-kr-portal`)이 부르는 `/api/v1/ext/consent/token`·`/api/v1/ext/consent` 는 hub 에 없다(구 경로) — KR 에디션 후속.
+
 ### 1.1 PR-8 · 감사 로그 이상 탐지 — 관찰 모드 (플랜 §5 #7)
 
 - **아웃박스 이후 비동기 점수, 플래그만**: `AuditAnomalyScorer` 가 30초마다 커서(`audit_anomaly_cursor`, UUIDv7 순서) 뒤의 감사 행을 최대 200행 읽어 `AnomalyRules` 5개를 평가하고 `idem_hub.audit_anomaly_flag`(V30) 에 점수·심각도·축·근거를 남긴다. `audit_log` 는 불변, 경보·차단 없음, 인증 경로와 무관. 복제본은 커서 잠금(SKIP LOCKED)으로 하나만 돈다. 첫 실행은 현재 최대 `audit_id` 에 맞춘다(소급 없음), `lag-seconds` 창, WAL 재삽입 행은 제외. 기준 시각은 행의 `occurred_at`.

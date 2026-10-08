@@ -83,6 +83,8 @@ public enum PlatformErrorCode {
     IDO_OIDC_PROVISION_FAILED("E-IDO-122", HttpStatus.SERVICE_UNAVAILABLE, "OIDC client 프로비저닝에 실패해 프로파일을 저장하지 않았습니다."),
     /** S6: 토큰 교환 시 client_id 가 Idem 이 프로비저닝한 OIDC_RP 서비스와 대응하지 않음. */
     IDO_OIDC_CLIENT_UNKNOWN("E-IDO-123", HttpStatus.FORBIDDEN, "Idem 이 프로비저닝한 OIDC 클라이언트가 아닙니다."),
+    // 1.1 동의 카탈로그 (플랜 §5 #8) — 코어 로그인 프런트가 콜백 error 로 돌려준다 (E-IDO-124 는 비워 둔다)
+    IDO_CONSENT_DECLINED("E-IDO-125", HttpStatus.FORBIDDEN, "사용자가 필수 동의를 거부했습니다."),
     // S7 관리자 인증 (E-IDO-13x)
     ADMIN_UNAUTHENTICATED("E-IDO-130", HttpStatus.UNAUTHORIZED, "관리자 인증이 필요합니다."),
     ADMIN_FORBIDDEN("E-IDO-131", HttpStatus.FORBIDDEN, "이 관리 작업을 수행할 권한이 없습니다."),

@@ -46,6 +46,18 @@ describe('profile form ↔ JSON', () => {
     expect(fromProfile(toProfile(f))).toEqual(f);
   });
 
+  it('1.1 consent: 켜면 {enabled, includePlatform} 블록을 내고, 끄면 블록을 지운다; 왕복', () => {
+    const on = toProfile({ ...emptyForm('AG_E'), name: 'E', type: 'DIRECT', consentEnabled: true, consentIncludePlatform: false }) as Record<string, any>;
+    expect(on.consent).toEqual({ enabled: true, includePlatform: false });
+    expect(fromProfile(on).consentEnabled).toBe(true);
+    expect(fromProfile(on).consentIncludePlatform).toBe(false);
+    const off = toProfile({ ...fromProfile(on), consentEnabled: false }, on) as Record<string, any>;
+    expect(off.consent).toBeUndefined();
+    const f = fromProfile({ consent: { enabled: true } });
+    expect(f.consentEnabled).toBe(true);
+    expect(f.consentIncludePlatform).toBe(true);
+  });
+
   it('validate 가 코드·이름·OIDC redirect·URL 형식·정수를 잡는다', () => {
     const v = validate({ ...emptyForm('a'), name: '', redirectUris: 'ftp://x', idleMinutes: 'ten' });
     expect(v.join('|')).toContain('기관 코드');

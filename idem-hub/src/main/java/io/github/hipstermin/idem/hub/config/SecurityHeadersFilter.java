@@ -70,8 +70,8 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        // ① Content-Security-Policy
-        response.setHeader("Content-Security-Policy", buildCspDirective());
+        // ① Content-Security-Policy — 1.1: 코어 로그인 프런트(/api/v1/handoff/login/**)만 form-action 'self' (동의 화면의 form POST)
+        response.setHeader("Content-Security-Policy", buildCspDirective(isLoginFrontRequest(request)));
 
         // ② MIME 스니핑 방지 (브라우저가 Content-Type을 임의 변경하지 못하도록)
         response.setHeader("X-Content-Type-Options", "nosniff");
@@ -116,6 +116,16 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
      * </ul>
      */
     private String buildCspDirective() {
+        return buildCspDirective(false);
+    }
+
+    /** 1.1 코어 로그인 프런트 경로 — HTML 화면이 자기 자신에게 form POST 한다(동의 화면). 그 밖의 경로는 종전처럼 'none' */
+    static boolean isLoginFrontRequest(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path != null && (path.equals("/api/v1/handoff/login") || path.startsWith("/api/v1/handoff/login/"));
+    }
+
+    private String buildCspDirective(boolean loginFront) {
         StringBuilder csp = new StringBuilder();
 
         // default-src: 기본 모든 리소스 로드 차단
@@ -130,8 +140,8 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
         // frame-ancestors: Clickjacking 방어 (X-Frame-Options 보완)
         csp.append("; frame-ancestors 'none'");
 
-        // form-action: form 제출 대상 제한 (CSRF 방어 보완)
-        csp.append("; form-action 'none'");
+        // form-action: form 제출 대상 제한 (CSRF 방어 보완). 코어 로그인 프런트만 'self'
+        csp.append(loginFront ? "; form-action 'self'" : "; form-action 'none'");
 
         // base-uri: base 태그 조작 방지
         csp.append("; base-uri 'none'");

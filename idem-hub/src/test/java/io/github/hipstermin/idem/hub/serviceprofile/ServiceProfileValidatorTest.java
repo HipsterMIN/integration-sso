@@ -42,6 +42,16 @@ class ServiceProfileValidatorTest {
     }
 
     @Test
+    @DisplayName("1.1 consent 블록: enabled·includePlatform 만 허용 — 항목 자체는 registry 카탈로그에 있어 프로파일에 넣으면 위반")
+    void consent_block_validation() throws Exception {
+        String base = MINIMAL.substring(0, MINIMAL.lastIndexOf('}'));
+        assertThat(validator.violations(json(base + ",\"consent\":{\"enabled\":true,\"includePlatform\":false}}"))).isEmpty();
+        assertThat(validator.violations(json(base + ",\"consent\":{\"enabled\":true}}"))).isEmpty();
+        assertThat(validator.violations(json(base + ",\"consent\":{\"enabled\":true,\"items\":[]}}"))).as("미지 키").isNotEmpty();
+        assertThat(validator.violations(json(base + ",\"consent\":{\"enabled\":\"yes\"}}"))).as("타입").isNotEmpty();
+    }
+
+    @Test
     @DisplayName("필수 4개 블록만 있는 최소 프로파일은 유효하다")
     void minimalProfile_isValid() throws Exception {
         assertThat(validator.violations(json(MINIMAL))).isEmpty();

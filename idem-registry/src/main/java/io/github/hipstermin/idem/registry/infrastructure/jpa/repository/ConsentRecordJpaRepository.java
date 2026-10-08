@@ -65,4 +65,12 @@ public interface ConsentRecordJpaRepository
     int markWithdrawn(@Param("recordId")   String recordId,
                       @Param("withdrawnAt") Instant withdrawnAt,
                       @Param("reason")      String reason);
+
+    /** 1.1: 사용자가 AGREED 한 버전 id 집합 — 카탈로그의 필수 항목 중 빠진 것을 찾는 데 쓴다 */
+    @Query("""
+        SELECT r.versionId FROM ConsentRecordJpaEntity r
+        WHERE r.qimUserId     = :qimUserId
+          AND r.consentStatus = 'AGREED'
+        """)
+    List<String> findAgreedVersionIds(@Param("qimUserId") String qimUserId);
 }
