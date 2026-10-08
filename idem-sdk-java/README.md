@@ -6,7 +6,7 @@
 좌표(Coordinates):
   groupId:    io.github.hipstermin.idem
   artifactId: idem-sdk-java
-  version:    1.0.1
+  version:    1.1.0
 ```
 
 ---
@@ -1018,8 +1018,8 @@ repositories {
         (baseUrl = idem-hub URL로 설정하여 테스트)
 
 □ 6. Git 태그 생성
-      git tag -a sdk-v1.0.1 -m "idem-sdk-java 1.0.1 release"
-      git push origin sdk-v0.1.0
+      git tag -a sdk-v1.1.0 -m "idem-sdk-java 1.1.0 release"
+      git push origin sdk-v1.1.0
 
 □ 7. 배포 실행
       (Maven Central)  ./gradlew :idem-sdk-java:publish --no-daemon

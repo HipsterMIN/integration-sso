@@ -19,7 +19,7 @@ plugins {
 // ── 전체 공통 설정 ────────────────────────────────────────────────────────────
 allprojects {
     group   = "io.github.hipstermin.idem"
-    version = "1.0.1"   // 1.0.1: 3차 적대적 점검 후속 PR-A/B/C (릴리스 태그 v1.0.1)
+    version = "1.1.0"   // 1.1.0: 플랜 §5 1.1 기능 공백 해소 8건 — PR-1~PR-9 (#251~#259) (릴리스 태그 v1.1.0)
 
     repositories {
         mavenCentral()

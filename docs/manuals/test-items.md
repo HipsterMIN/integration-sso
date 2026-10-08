@@ -1,4 +1,4 @@
-# Idem 1.0 시험 항목표 (초안, 1.0.1 재집계)
+# Idem 시험 항목표 (초안 — 1.1.0 집계: 1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 9 = 67항목)
 
 > 대상: 시험원(GS 기능 적합성)·QA. 기능 번호는 `product-spec.md` §2. "자동" 열은 저장소의 어느 검사가 이 항목을 **실제로** 돌리는지다 — **CI 스모크** `scripts/ci/install-smoke.sh`(PR 마다 boot jar 실기동), **CI prod** 단계(1.0.1: prod 프로파일·관리 포트), **UT** 단위 테스트(`Build & Unit Test`), **IT** Testcontainers 통합 테스트(로컬 `git push` 전에만 돈다 — CI 는 `DOCKER_UNAVAILABLE=true`), **helm-lint**. `수동` 은 저장소에 자동 검사가 없는 항목이다(3차 점검에서 "E2E 헤드리스 브라우저" 표기가 실제 자동화가 아님을 확인해 1.0.1 에서 재집계). 수동 항목은 GS 시험 때 이 표 순서대로 한다.
 
