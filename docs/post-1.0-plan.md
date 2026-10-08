@@ -53,7 +53,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 - `scripts/ops/backup.sh`·`restore.sh`: `pg_dump`(DB `idem` 전체 스키마) + Redis 는 재로그인으로 갈음 + `install.env` 제외 안내. 복구 후 A-1·B-2 재확인 절차.
 - 리허설 결과(시간·용량·문제)를 `docs/manuals/installation-manual.md` §3.3·§6 "검증한 것" 으로 옮기고 "미실시" 문구 제거.
 - 완료 기준: G-5·G-6 통과 기록.
-- **2026-10-08 상태**: 스크립트 4종(`scripts/release/make-offline-bundle.sh`·`load-offline-bundle.sh`, `scripts/ops/backup.sh`·`restore.sh`) + CI(스모크 "백업·복구" 단계, `offline-bundle-check` 잡) + 매뉴얼 §3.3·§6·§8 반영. 남은 것은 사용자 환경 리허설 — 운영 DB 복구(앱 정지→복구→재기동, G-5)와 폐쇄망 반입·설치(G-6). 1.1.0 이 나갔으므로 G1 동결 버전은 1.0.2 가 아니라 **1.1.1**.
+- **2026-10-08 상태**: 스크립트 4종(`scripts/release/make-offline-bundle.sh`·`load-offline-bundle.sh`, `scripts/ops/backup.sh`·`restore.sh`) + CI(스모크 "백업·복구" 단계, `offline-bundle-check` 잡) + 매뉴얼 §3.3·§6·§8 반영. CI 첫 통과(PR #261): 번들 1.4 GB(이미지 8종)·소스 14 MB·차트 24 KB, 생성→삭제→복원→대조 OK; 스모크 DB(스키마 4개 75표) 백업 244 KB → 새 DB 복구 → 표 수·행 수 대조 OK. 남은 것은 사용자 환경 리허설 — 운영 DB 복구(앱 정지→복구→재기동, G-5)와 폐쇄망 반입·설치(G-6). 1.1.0 이 나갔으므로 G1 동결 버전은 1.0.2 가 아니라 **1.1.1**.
 
 ### 2.3 PR-G1-3 · 관리 콘솔 보완 3건 (1~2주, AI) — 병행 가능
 

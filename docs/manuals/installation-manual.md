@@ -53,7 +53,7 @@ helm upgrade --install idem infra/helm/idem -n idem -f my-values.yaml -f infra/h
    git checkout v1.1.0
    VERSION=1.1.0 IDEM_EDITION=core scripts/release/make-offline-bundle.sh      # dist/idem-1.1.0-core/
    ```
-   산출: `idem-1.1.0-core-images.tar`(Idem 이미지 5종 — compose 와 같은 이름·태그 `idem-hub:1.1.0-core` … + `postgres:16-alpine`·`redis:7.2-alpine`·`keycloak:24.0`), `idem-1.1.0-src.tar.gz`(소스 — `infra/`·`scripts/`·`docs/`, 비밀 없음), Helm 차트 `.tgz`(helm 이 있을 때), `MANIFEST.txt`(이미지 ID·크기·git sha), `SHA256SUMS`. 이미지 tar 는 약 1.5~2.5 GB. kr 에디션은 벤더 SDK 가 있는 곳에서 `IDEM_EDITION=kr`(회원 포털 이미지 포함).
+   산출: `idem-1.1.0-core-images.tar`(Idem 이미지 5종 — compose 와 같은 이름·태그 `idem-hub:1.1.0-core` … + `postgres:16-alpine`·`redis:7.2-alpine`·`keycloak:24.0`), `idem-1.1.0-src.tar.gz`(소스 — `infra/`·`scripts/`·`docs/`, 비밀 없음), Helm 차트 `.tgz`(helm 이 있을 때), `MANIFEST.txt`(이미지 ID·크기·git sha), `SHA256SUMS`. 크기(코어, CI 측정 2026-10-08): 이미지 tar **1.4 GB**(gate 285·hub 315·registry 285·authz 279·console 46 MB + postgres 281·redis 37·keycloak 437 MB), 소스 tar 14 MB, 차트 24 KB — `docker save` 약 10초, 반입 `docker load` 약 15초. kr 에디션은 벤더 SDK 가 있는 곳에서 `IDEM_EDITION=kr`(회원 포털 이미지 포함).
 2. 반입: 디렉터리 `dist/idem-1.1.0-core/` 통째로 (체크섬은 `SHA256SUMS`).
 3. 폐쇄망에서 검증·적재 뒤 §3.1/§3.2 와 같다(`--build` 없이):
    ```bash

@@ -22,7 +22,7 @@
 #   SOURCE=1  HELM=1  OUT_DIR=dist/idem-<V>-<ED>  DRY_RUN=0 (1 이면 docker 없이 계획만 출력한다)
 #
 # 반입 뒤: scripts/release/load-offline-bundle.sh <OUT_DIR>   (체크섬 검증 → docker load → install.env 의 IDEM_VERSION 안내)
-# 필요: docker(compose 플러그인) · git · tar · sha256sum. 디스크: 이미지 tar 약 1.5~2.5 GB.
+# 필요: docker(compose 플러그인) · git · tar · sha256sum. 디스크: 이미지 tar 약 1.4 GB(코어 — CI 측정: Idem 5종 1.2 GB + postgres·redis·keycloak 0.75 GB, 저장 시 압축 없음).
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 

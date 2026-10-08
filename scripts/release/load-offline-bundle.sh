@@ -44,7 +44,7 @@ if [ "${EXTRACT_SOURCE:-0}" = "1" ]; then
   [ -n "$src" ] || fail "소스 tar(idem-*-src.tar.gz)가 없습니다"
   DEST="${DEST:-.}"; mkdir -p "$DEST"
   tar -xzf "$src" -C "$DEST"
-  ok "$DEST/$(tar -tzf "$src" | head -1)"
+  ok "$DEST/$(tar -tzf "$src" | sed -n '1p')"   # head 는 파이프를 일찍 닫아 tar 가 write error 를 낸다
 fi
 
 echo
