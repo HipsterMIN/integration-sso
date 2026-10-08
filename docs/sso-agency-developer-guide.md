@@ -236,6 +236,7 @@ Idem (gate 로그인 → hub 정책 판정 → 티켓 발급)
   → 기관·콜백 자체가 잘못됐으면 Idem 오류 화면(403/404/400) — 콜백으로 되돌리지 않는다
   ```
   `state` 는 기관이 세션·쿠키에 둔 값과 콜백에서 비교한다(참조 구현 `idem-tenant-sample` `/agency/login` → `/agency/callback`). 제공자를 지정하지 않으면 Idem 이 하나면 자동, 여럿이면 선택 화면을 보인다. 운영기관이 자기 로그인 화면을 쓰고 싶으면 같은 URL 계약을 자기 프런트에서 제공하면 된다.
+- **동의 단계 (1.1 동의 카탈로그)**: 프로파일 `consent.enabled` 가 켜진 서비스는 발급 전에 Idem 이 registry 동의 카탈로그(플랫폼 공통 + 이 서비스 전용)의 **필수 미동의** 항목을 확인한다. 있으면 Idem 동의 화면(같은 경로로 form POST, 선택 항목도 함께)을 보이고, 동의를 registry 에 기록(감사 `MEMBER/CONSENT_AGREED`)한 뒤 발급한다. 사용자가 거부하면 `302 {callback}?error=E-IDO-125&error_description=…&state=…`(감사 `CONSENT_DECLINED`) — 기관은 안내 화면으로 처리한다. 이미 동의한 사용자(선택 항목만 남은 경우 포함)는 화면 없이 바로 발급된다. 항목(문구·버전·필수)은 운영기관 콘솔 "동의 항목"·기관 상세의 카드에서 발행·종료하며, 새 버전이 발행되면 사용자는 다음 로그인에서 다시 동의한다. **OIDC_RP(표준 OIDC) 서비스에는 적용되지 않는다** — 기관 RP 화면의 몫. 발급 API(`POST /api/v1/handoff/issue`)로 직접 발급하는 운영기관 프런트도 이 단계를 거치지 않는다.
 - 발급 API(`POST /api/v1/handoff/issue`)는 운영기관 프런트가 직접 쓰는 경로로 남아 있다 — Idem 로그인 세션 쿠키(`feSessionId`)와 기관 API 키를 **함께** 요구하고, `X-Agency-Code` 와 본문 `agencyCode` 는 같아야 한다(다르면 `403 E-AGENCY-302`). (1.1 정정: 1.0.1 까지 이 API 는 `Fe-Session-Id` 라는 어느 쪽도 발급하지 않는 쿠키 이름을 읽어 브라우저에서 항상 `E-IDO-107` 이었고, "시뮬레이터·D-10 으로 브라우저 경로가 검증돼 있다" 는 종전 서술은 부정확했다 — 시뮬레이터는 서버 간 발급, D-10 은 API 검증이다. 브라우저 경로는 1.1 부터 시험 항목 D-16 과 설치본 스모크 ⑦b 로 검증된다.)
 
 ### 6.2 verify 요청
@@ -489,6 +490,7 @@ HMAC 서명(`signRequests(true)`)은 `X-Internal-Sig = HMAC-SHA256("{agencyCode}
 | 401 | `E-IDO-108` | 티켓 서명 검증 실패 | 재로그인 |
 | 403 | `E-AGENCY-301` · `302` · `304` | 미등록 기관 · 코드 불일치 · 콜백 미허용 | 프로파일 확인 |
 | 403 | `access_denied` + `E-IDO-120` (OIDC) | 미할당 | 가입·할당 안내 |
+| 302 콜백 | `?error=E-IDO-125` (브라우저 진입, 1.1) | 사용자가 필수 동의를 거부 | 안내 화면 → "Idem 으로 로그인" 재시도 |
 | 404 | `E-AGENCY-307` | 기관 없음/비활성 | 운영기관 확인 |
 | 409 | `E-IDO-102` | 티켓 이미 소비 | 재로그인(재사용 공격 의심 시 로그) |
 | 410 | `E-IDO-101` · `103` | 티켓 만료 · 취소 | 재로그인 |
@@ -526,7 +528,7 @@ Mock 본인확인 제공자로 코어 흐름을 돌리는 절차는 `docs/instal
 |---|---|---|---|
 | OIDC Discovery | `GET {gate}/realms/idem/.well-known/openid-configuration` | 없음 | 옵션 C |
 | OIDC authorize/token/userinfo/end_session | Discovery 참조 | client 인증 + PKCE | 옵션 C |
-| Handoff 브라우저 진입 (1.1) | `GET {hub}/api/v1/handoff/login?service=&callback=&state=` | 없음(브라우저) | 옵션 A·B — 로그인 → 발급 → `callback?ticketId=` |
+| Handoff 브라우저 진입 (1.1) | `GET {hub}/api/v1/handoff/login?service=&callback=&state=` | 없음(브라우저) | 옵션 A·B — 로그인 → (동의 단계) → 발급 → `callback?ticketId=`; 동의 거부 `callback?error=E-IDO-125` |
 | Handoff 검증 | `POST {hub}/api/v1/handoff/verify` | `X-Agency-Code` + `X-Agency-Key` | 옵션 A·B, 1회 소비 |
 | CAST 검증 | `POST {hub}/api/v1/agency/cast/verify` | 기관 키 | 기관 간 SSO |
 | CAST 공개키 | `GET {hub}/api/v1/agency/cast/public-key` | 없음 | |

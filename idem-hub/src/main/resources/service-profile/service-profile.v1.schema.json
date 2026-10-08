@@ -460,6 +460,23 @@
           "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
         }
       }
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "1.1 동의 카탈로그 — 켜면 코어 로그인 프런트(Handoff 브라우저 진입)가 발급 전에 미동의 항목을 보여 주고 동의를 기록한다. 항목 자체(문구·버전·필수)는 registry 카탈로그(관리 API /api/v1/admin/services/{code}/consents, 콘솔 '동의 항목')에 있다",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "코어 로그인 프런트의 동의 단계 on/off. OIDC_RP(표준 OIDC) 서비스에는 적용되지 않는다 — 기관 RP 화면의 몫"
+        },
+        "includePlatform": {
+          "type": "boolean",
+          "default": true,
+          "description": "플랫폼 공통 항목(TERMS_OF_SERVICE·PRIVACY_POLICY 등, 서비스 코드 없는 버전)도 이 서비스 로그인에서 받을지"
+        }
+      }
     }
   }
 }

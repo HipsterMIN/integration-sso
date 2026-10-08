@@ -10,6 +10,7 @@ import { Admins } from './pages/Admins';
 import { Tenants } from './pages/Tenants';
 import { Ops } from './pages/Ops';
 import { Anomalies } from './pages/Anomalies';
+import { Consents } from './pages/Consents';
 import { useAiStatus } from './lib/ai';
 
 export function App() {
@@ -29,6 +30,7 @@ export function App() {
   else if (head === 'admins' && isGlobalSystemAdmin(me)) page = <Admins />;
   else if (head === 'tenants') page = <Tenants />;
   else if (head === 'ops' && !me.tenantCode) page = <Ops />;
+  else if (head === 'consents' && !me.tenantCode) page = <Consents />;
   else if (head === 'password') page = <Password />;
   else page = <Services />;
 
@@ -45,6 +47,7 @@ export function App() {
           {nav('/tenants', '테넌트')}
           {nav('/audit', '감사')}
           {nav('/anomalies', '이상 징후')}
+          {!me.tenantCode && nav('/consents', '동의 항목')}
           {isGlobalSystemAdmin(me) && nav('/admins', '관리자')}
           {!me.tenantCode && ai?.enabled && nav('/ops', 'AI 운영')}
         </nav>

@@ -4,10 +4,15 @@ import io.github.hipstermin.idem.common.domain.AuthResult;
 import io.github.hipstermin.idem.common.domain.HandoffTicket;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
+import io.github.hipstermin.idem.common.event.AuditLogEvent;
 import io.github.hipstermin.idem.common.spi.identity.IdentityProviderRegistry;
 import io.github.hipstermin.idem.common.spi.identity.IdentityVerificationProvider;
 import io.github.hipstermin.idem.common.spi.identity.VerificationStart;
 import io.github.hipstermin.idem.common.util.CorrelationIdHolder;
+import io.github.hipstermin.idem.hub.admin.auth.AdminAuthFilter;
+import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
+import io.github.hipstermin.idem.hub.consent.ConsentItem;
+import io.github.hipstermin.idem.hub.consent.ConsentRegistryClient;
 import io.github.hipstermin.idem.hub.domain.AgencyMeta;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
 import io.github.hipstermin.idem.hub.fe.session.FeSessionCookie;
@@ -18,6 +23,8 @@ import io.github.hipstermin.idem.hub.handoff.HandoffService;
 import io.github.hipstermin.idem.hub.handoff.validate.CallbackUrlValidator;
 import io.github.hipstermin.idem.hub.identity.spi.IdentityLoginService;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.net.URI;
@@ -25,11 +32,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -37,6 +46,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -56,6 +66,9 @@ import org.springframework.web.util.UriComponentsBuilder;
  *         · broker:&lt;name&gt;: {hub}/api/v1/broker/&lt;name&gt;/authorize?returnUrl=…/login/continue?req= 로 302 (Keycloak·NonOidc)
  *     → GET …/login/continue?req=&amp;…제공자 콜백 파라미터                                                             ③
  *         · FE 세션 쿠키가 있으면(브로커 경로) 그대로, 없으면 SPI complete → registry 확정 → FE 세션 + 쿠키
+ *     → (1.1 동의 카탈로그) 프로파일 consent.enabled 이고 registry 카탈로그에 <b>필수</b> 미동의 항목이 있으면 동의 화면 200    ③′
+ *         · POST …/login/consent (req, agree=&lt;versionId&gt;…, decline) — 같은 경로로 form POST (CSP form-action 'self')
+ *         · 동의 → registry 에 기록(감사 MEMBER/CONSENT_AGREED) 후 ④, 거부 → 302 callback?error=E-IDO-125 (감사 CONSENT_DECLINED)
  *     → 발급(HandoffService.issue — 정책·레이트리밋·화이트리스트·감사는 API 발급과 같다)                                     ④
  *     → 302 callback?ticketId=…[&amp;state=…]  /  정책 거부는 302 callback?error=E-IDO-120&amp;error_description=…[&amp;state=…]
  * </pre>
@@ -69,6 +82,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class HandoffLoginController {
 
     static final String PARAM_REQ = "req";
+    static final String AUDIT_CONSENT_AGREED = "CONSENT_AGREED";
+    static final String AUDIT_CONSENT_DECLINED = "CONSENT_DECLINED";
     private static final List<String> LEVELS = List.of("L1", "L2", "L3");
 
     private final HandoffLoginRequestStore store;
@@ -79,6 +94,9 @@ public class HandoffLoginController {
     private final FeSessionService feSessionService;
     private final FeSessionPolicyEnforcer feSessionPolicyEnforcer;
     private final HandoffService handoffService;
+    private final ServiceProfileService serviceProfileService;
+    private final ConsentRegistryClient consentClient;
+    private final AuditLogPublisher auditLogPublisher;
     private final String publicUrl;
     private final List<String> brokerProviders;
 
@@ -90,6 +108,9 @@ public class HandoffLoginController {
                                   FeSessionService feSessionService,
                                   FeSessionPolicyEnforcer feSessionPolicyEnforcer,
                                   HandoffService handoffService,
+                                  ServiceProfileService serviceProfileService,
+                                  ConsentRegistryClient consentClient,
+                                  AuditLogPublisher auditLogPublisher,
                                   @Value("${idem.hub.public-url:http://localhost:8083}") String publicUrl,
                                   @Value("${idem.hub.handoff.login.broker-providers:}") String brokerProviders) {
         this.store = store;
@@ -100,6 +121,9 @@ public class HandoffLoginController {
         this.feSessionService = feSessionService;
         this.feSessionPolicyEnforcer = feSessionPolicyEnforcer;
         this.handoffService = handoffService;
+        this.serviceProfileService = serviceProfileService;
+        this.consentClient = consentClient;
+        this.auditLogPublisher = auditLogPublisher;
         this.publicUrl = publicUrl.endsWith("/") ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl;
         this.brokerProviders = Arrays.stream(brokerProviders.split(","))
                 .map(String::trim).filter(s -> !s.isEmpty()).toList();
@@ -266,9 +290,138 @@ public class HandoffLoginController {
         return complete(req, fe, cid);
     }
 
+    // ── ③′ 동의 (1.1 동의 카탈로그, 플랜 §5 #8) ──────────────────────────────────
+
+    /**
+     * 동의 화면의 form POST — {@code req}, {@code agree=<versionId>}(여러 개), {@code decline=1}.
+     * 기록 대상은 서버가 다시 계산한 미동의 목록 안의 항목만이다(브라우저가 임의 versionId 를 보내도 기록되지 않는다).
+     */
+    @PostMapping(value = "/consent", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public ResponseEntity<String> consent(@RequestParam(PARAM_REQ) String requestId,
+                                          @RequestParam(value = "agree", required = false) List<String> agree,
+                                          @RequestParam(value = "decline", required = false) String decline,
+                                          HttpServletRequest request) {
+        Optional<HandoffLoginRequest> found = store.find(requestId);
+        if (found.isEmpty()) {
+            return expiredPage(null);
+        }
+        HandoffLoginRequest req = found.get();
+        String cid = req.correlationId();
+        CorrelationIdHolder.set(cid);
+
+        Optional<FeSession> session = currentSession(request);
+        if (session.isEmpty()) {
+            return errorPage(HttpStatus.UNAUTHORIZED, PlatformErrorCode.IDO_SESSION_NOT_FOUND.getCode(),
+                    "로그인 세션이 없습니다. 처음부터 다시 시도하세요.", cid);
+        }
+        FeSession fe = session.get();
+        List<ConsentItem> missing;
+        try {
+            missing = missingConsents(req, fe, cid);
+        } catch (PlatformException e) {
+            return consentUnavailable(req, e, cid);
+        }
+
+        if (decline != null && !decline.isBlank()) {
+            store.delete(req.requestId());
+            auditConsent(AUDIT_CONSENT_DECLINED, req, fe, missing, AdminAuthFilter.clientIp(request), cid);
+            log.info("[HandoffLogin] 동의 거부 → 콜백: req={} service={} cid={}", req.requestId(), req.agencyCode(), cid);
+            Map<String, String> q = new LinkedHashMap<>();
+            q.put("error", PlatformErrorCode.IDO_CONSENT_DECLINED.getCode());
+            q.put("error_description", PlatformErrorCode.IDO_CONSENT_DECLINED.getDefaultMessage());
+            return redirect(appendQuery(req.callbackUrl(), q, req.state()));
+        }
+
+        Set<String> agreed = agree == null ? Set.of() : new HashSet<>(agree);
+        boolean requiredLeft = missing.stream().anyMatch(i -> i.required() && !agreed.contains(i.versionId()));
+        if (requiredLeft) {
+            return consentPage(req, missing, "필수 항목에 모두 동의해야 계속할 수 있습니다.");
+        }
+        List<ConsentItem> toRecord = missing.stream().filter(i -> agreed.contains(i.versionId())).toList();
+        String ip = AdminAuthFilter.clientIp(request);
+        try {
+            for (ConsentItem it : toRecord) {
+                consentClient.agree(fe.getQimUserId(), it.versionId(), it.consentType(), "LOGIN_FRONT:" + req.agencyCode(), ip, cid);
+            }
+        } catch (PlatformException e) {
+            log.warn("[HandoffLogin] 동의 기록 실패: req={} service={} code={} cid={}", req.requestId(), req.agencyCode(), e.getErrorCode().getCode(), cid);
+            return errorPage(e.getErrorCode().getHttpStatus(), e.getErrorCode().getCode(),
+                    "동의를 기록하지 못해 로그인을 진행할 수 없습니다. 잠시 후 다시 시도하세요.", cid);
+        }
+        if (!toRecord.isEmpty()) {
+            auditConsent(AUDIT_CONSENT_AGREED, req, fe, toRecord, ip, cid);
+        }
+        log.info("[HandoffLogin] 동의 기록 → 발급: req={} service={} agreed={} cid={}", req.requestId(), req.agencyCode(), toRecord.size(), cid);
+        return issue(req, fe, cid);
+    }
+
+    /**
+     * 프로파일 {@code consent.enabled} 인 서비스의 미동의 카탈로그 항목(플랫폼 공통 포함 여부는 {@code includePlatform}).
+     * 꺼져 있으면 빈 목록. registry 장애는 {@link PlatformException}(E-IDO-106) 으로 올라온다.
+     */
+    private List<ConsentItem> missingConsents(HandoffLoginRequest req, FeSession fe, String cid) {
+        ServiceProfile.Consent consent = serviceProfileService.find(req.agencyCode()).map(ServiceProfile::consent).orElse(null);
+        if (consent == null || !consent.enabledOrFalse()) {
+            return List.of();
+        }
+        List<ConsentItem> missing = consentClient.missing(fe.getQimUserId(), req.agencyCode(), cid);
+        if (!consent.includePlatformOrTrue()) {
+            missing = missing.stream().filter(i -> !i.platformItem()).toList();
+        }
+        return missing;
+    }
+
+    private ResponseEntity<String> consentPage(HandoffLoginRequest req, List<ConsentItem> missing, String error) {
+        String serviceName = agencyMetaRepository.findByCode(req.agencyCode()).map(AgencyMeta::getOfficialName).orElse(req.agencyCode());
+        String action = publicUrl + "/api/v1/handoff/login/consent";
+        return html(HttpStatus.OK, LoginPages.consent(serviceName, action, req.requestId(), missing, error));
+    }
+
+    /** 동의 상태를 확인할 수 없으면 발급하지 않는다(fail-secure) — 콜백으로 보내지도 않는다 */
+    private ResponseEntity<String> consentUnavailable(HandoffLoginRequest req, PlatformException e, String cid) {
+        log.warn("[HandoffLogin] 동의 확인 실패: req={} service={} code={} cid={}", req.requestId(), req.agencyCode(), e.getErrorCode().getCode(), cid);
+        return errorPage(e.getErrorCode().getHttpStatus(), e.getErrorCode().getCode(),
+                "동의 상태를 확인할 수 없어 로그인을 진행할 수 없습니다. 잠시 후 다시 시도하세요.", cid);
+    }
+
+    private void auditConsent(String action, HandoffLoginRequest req, FeSession fe, List<ConsentItem> items, String ip, String cid) {
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("via", "LOGIN_FRONT");
+        meta.put("versionIds", items.stream().map(ConsentItem::versionId).toList());
+        meta.put("consentTypes", items.stream().map(ConsentItem::consentType).toList());
+        auditLogPublisher.publish(AuditLogPublisher.AuditEntry.builder()
+                .eventCategory(AuditLogEvent.CATEGORY_MEMBER)
+                .eventAction(action)
+                .actorType(AuditLogEvent.ACTOR_USER)
+                .actorId(fe.getQimUserId())
+                .resourceType("CONSENT")
+                .resourceId(req.agencyCode())
+                .agencyCode(req.agencyCode())
+                .correlationId(cid)
+                .sourceIp(ip)
+                .outcome(AuditLogEvent.OUTCOME_SUCCESS)
+                .metadata(meta)
+                .build());
+    }
+
     // ── ④ 발급 → 콜백 ─────────────────────────────────────────────────────────
 
+    /** 발급 전 동의 관문 — 필수 미동의 항목이 있으면 동의 화면(요청 상태는 유지), 아니면 발급 */
     private ResponseEntity<String> complete(HandoffLoginRequest req, FeSession fe, String cid) {
+        List<ConsentItem> missing;
+        try {
+            missing = missingConsents(req, fe, cid);
+        } catch (PlatformException e) {
+            return consentUnavailable(req, e, cid);
+        }
+        if (missing.stream().anyMatch(ConsentItem::required)) {
+            log.info("[HandoffLogin] 동의 필요: req={} service={} missing={} cid={}", req.requestId(), req.agencyCode(), missing.size(), cid);
+            return consentPage(req, missing, null);
+        }
+        return issue(req, fe, cid);
+    }
+
+    private ResponseEntity<String> issue(HandoffLoginRequest req, FeSession fe, String cid) {
         store.delete(req.requestId());   // 1회 — 새로고침으로 두 번 발급하지 않는다
         AuthResult.AuthLevel level = AuthResult.AuthLevel.parseOrDefault(fe.getAuthLevel(), AuthResult.AuthLevel.L1);
         String providerCode = req.providerCode() == null ? "SESSION"

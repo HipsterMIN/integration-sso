@@ -119,6 +119,10 @@ export function ProfileForm({ initial, base, codeLocked, busy, onSubmit, aiEnabl
             <label><input type="checkbox" checked={f.assignmentRequired} onChange={(e) => up('assignmentRequired', e.target.checked)} /> 할당된 사용자만 허용 (assignment.required)</label>
             <label><input type="checkbox" checked={f.selfSignup} onChange={(e) => up('selfSignup', e.target.checked)} /> 셀프 가입 (assignment.selfSignup)</label>
           </div>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <label><input type="checkbox" checked={f.consentEnabled} onChange={(e) => up('consentEnabled', e.target.checked)} /> 로그인 화면 동의 단계 (consent.enabled — Handoff 유형, 1.1)</label>
+            <label><input type="checkbox" checked={f.consentIncludePlatform} disabled={!f.consentEnabled} onChange={(e) => up('consentIncludePlatform', e.target.checked)} /> 플랫폼 공통 항목 포함 (consent.includePlatform)</label>
+          </div>
 
           <h3>한도</h3>
           <div className="grid3">

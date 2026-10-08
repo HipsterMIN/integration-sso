@@ -69,6 +69,7 @@
 | D-14 | 공개 프런트 레이트리밋(1.0.1) | `/realms/idem/…` IP 당 초당 20 초과 | 429 `rate_limited` | UT(`OidcFrontRateLimitFilterTest`) |
 | D-16 | Handoff 브라우저 진입(1.1 코어 로그인 프런트) | 브라우저로 `GET {hub}/api/v1/handoff/login?service=X&callback=…&state=s` → 로그인 → 기관 콜백 | 콜백에 `ticketId`·`state` 복귀, `feSessionId` 쿠키 발급, 기관 verify APPROVED, 재검증 409; 화이트리스트 밖 콜백은 403 오류 화면(리다이렉트 없음); OIDC_RP 서비스는 400 `E-IDO-121`; 정책 거부는 콜백 `?error=E-IDO-120` | IT(`HandoffLoginIntegrationTest`, Mock 제공자) · UT(`HandoffLoginControllerTest`) · CI 스모크 ⑦b |
 | D-17 | 발급 API 기관 바인딩(1.1) | 기관 A 키로 본문 `agencyCode=B` 발급 | 403 `E-AGENCY-302` | UT(`HandoffControllerTest`) |
+| D-18 | 동의 카탈로그(1.1) | 프로파일 `consent.enabled`, 카탈로그에 필수(공통)·선택(전용) 버전 → 브라우저 진입 → 로그인 → 동의 화면 → 필수 빼고 제출 → 전부 제출 → 콜백; 같은 브라우저로 다시 진입 → 거부 | 발급 대신 동의 화면 200(CSP `form-action 'self'`, 전문 링크는 http(s) 만), 필수 누락은 재표시·기록 없음, 제출 시 registry 기록(`LOGIN_FRONT:<서비스>`)·`callback?ticketId&state`, 같은 제출 재요청 410, 거부는 `callback?error=E-IDO-125`, 감사 `MEMBER/CONSENT_AGREED·CONSENT_DECLINED`; 관리 API 발행 201·범위 밖 종료 404 `E-IM-207`·테넌트 403, 플랫폼 공통은 전역 관리자만 | IT(`HandoffLoginIntegrationTest.consentFlow`) · UT(`HandoffLoginControllerTest`·`ConsentAdminControllerTest`·`ConsentRegistryClientTest`·`SecurityHeadersFilterTest`·`ServiceProfileValidatorTest`·`AdminAuthorizationTest`) · registry UT(`ConsentControllerTest`·`ConsentServiceImplTest`) · 콘솔 UT(`consent.test.ts`·`profile.test.ts`) |
 | D-15 | SLO IdP 재시도(1.1) | Keycloak 이 세션 종료를 거부하는 상태에서 SLO | gate 502 `X-Idp-Logout-Outcome: FAILED`, hub `slo_idp_logout_retry` 적재 → 백오프 재시도 → DONE, 초과 시 FAILED + 감사 `SLO_IDP_LOGOUT_FAILED` | UT(`InternalSessionControllerTest`·`SloServiceImplIdpTest`·`SloIdpLogoutRetryRelayTest`) |
 
 ## E. 회원 원장·전파 (F8~F13)
@@ -120,7 +121,7 @@ k6 스모크(CI `k6 Smoke Test`)가 Discovery·헬스·로그인 화면을 짧�
 |---|---|---|---|---|---|
 | A~G (1.0 원표) | 51 | 41 | 37 | 4 (B-3, B-5, E-1, E-3) | 10 (A-2, A-5, B-8, C-7, D-8, E-6, G-2, G-3, G-5, G-6) |
 | 1.0.1 추가 | 7 (A-7, B-11, B-12, C-8, D-13, D-14, G-7) | 7 | 7 | 0 | 0 |
-| 1.1 추가 | 6 (A-8, F-7, F-8, G-8, G-9, G-10) | 6 | 4 (A-8, F-8, G-8, G-9) | 2 (F-7, G-10) | 0 (G-9 의 LLM 끝-끝은 수동) |
+| 1.1 추가 | 9 (A-8, D-16, D-17, D-18, F-7, F-8, G-8, G-9, G-10) | 9 | 6 (A-8, D-16, D-17, F-8, G-8, G-9) | 3 (D-18, F-7, G-10) | 0 (G-9 의 LLM 끝-끝은 수동) |
 
 3차 점검(2026-09-26) 이전 표는 "자동 47" 로 적혀 있었다 — E2E 헤드리스 브라우저(B-2·B-3·C-7·D-8)는 S7 PR-2 의 1회성 수동 실행이었고, A-2·B-8·E-6·G-3 도 자동 검사가 없었다. 위 수치가 실제다.
 

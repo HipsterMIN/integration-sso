@@ -42,6 +42,9 @@ public class ConsentVersionJpaEntity {
      */
     @Column(name = "consent_type", length = 50, nullable = false)
     private String consentType;
+    /** 1.1 동의 카탈로그 범위 — null 이면 플랫폼 공통, 값이 있으면 그 서비스(기관) 전용 */
+    @Column(name = "service_code", length = 50)
+    private String serviceCode;
 
     /** 버전 식별자 (예: "2026-05-01", "v3.2") */
     @Column(name = "version_tag", length = 50, nullable = false)

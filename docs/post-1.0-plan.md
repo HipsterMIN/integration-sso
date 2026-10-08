@@ -112,7 +112,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 | 5 | K8s 실배포 리허설 | Helm 차트를 실제 클러스터(kind 또는 운영기관 K8s)에 배포·업그레이드·롤백 1회, 매뉴얼 §3.2 갱신. **1.1 PR-6**: `scripts/k8s/rehearsal.sh` + CI `k8s-rehearsal`(kind, PR·main 마다). 기관 클러스터 1회는 사용자 환경에서 `CLUSTER=existing` | installation-manual §8 |
 | 6 | AI 운영 보조 (선택 컨테이너) | 관리 콘솔: 자연어 → 프로파일 초안(스키마 검증 필수), 감사 요약, 장애 요약. 온프레미스 LLM, 기본 설치에서 제외. 인증 경로에는 넣지 않는다. **1.1 PR-7**: `/api/v1/admin/ai/**` + 콘솔 카드·메뉴 + compose `--profile ai`/Helm `ai.*` | AI 도입 검토(2026-09-27 대화) |
 | 7 | 감사 로그 이상 탐지 (관찰 모드) | 아웃박스 이후 비동기 점수, 감사 플래그만. 기준선 3개월 뒤 경보 승격 결정. **1.1 PR-8**: `AuditAnomalyScorer` + 규칙 5개 + `audit_anomaly_flag`(V30) + 검토 API·콘솔 "이상 징후" + `docs/audit-anomaly.md` §4 승격 기준 | 같은 검토 |
-| 8 | 동의 카탈로그 | S8 에서 남긴 것 | requirements-checklist §3 |
+| 8 | 동의 카탈로그 | S8 에서 남긴 것. **1.1 PR-9**: registry 카탈로그 범위(플랫폼 공통/서비스 전용)·발행·종료·미동의 API + hub 관리 API·콘솔 "동의 항목"·기관 상세 카드 + 프로파일 `consent` + 코어 로그인 프런트 동의 단계(거부 `E-IDO-125`). OIDC_RP 는 기관 RP 화면 | requirements-checklist §3 |
 
 완료 기준: `v1.1.0`, 시험 항목표에 신규 기능 행 추가, 설치본 스모크 갱신.
 
@@ -159,4 +159,5 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 | 2026-09-29 | #254·#255 머지(main bf399bd). PR-6 = §5 #5 K8s 실배포 리허설: `scripts/k8s/rehearsal.sh`(up·install·smoke·upgrade·rollback·down, kind 또는 기존 클러스터, 이미지 local/archive/registry) + 리허설 값·인프라 매니페스트 + CI `k8s-rehearsal` 잡(PR 은 차트·스크립트 변경 시 docker-build-check 아카이브로, main 은 GHCR :sha 로). 스모크에 `*_MGMT_URL`(관리 포트 분리 배포), 비밀 생성기 `scripts/lib/gen-install-env.sh` 로 CI 스모크와 공용. 기관 클러스터 1회는 사용자 몫. CI 첫 통과(4회차): up 65s · install 84s · smoke 10s · upgrade 45s · rollback 40s · down 13s = 4m17s. 드러난 결함: Keycloak production 모드 auto-build OOMKilled(1536Mi) → 한도 2Gi + `keycloak.optimized` + `KC_PROXY_HEADERS` |
 | 2026-10-07 | #256 머지(main f57718d). PR-7 = §5 #6 AI 운영 보조: hub `ai` 패키지(OpenAI 호환 LLM 클라이언트, 프로파일 초안 + 스키마 검증, 감사 집계 요약, 운영 스냅샷 장애 요약, 공개 엔드포인트 가드, 감사 `AI_*`), 콘솔(AI 초안 카드·감사 AI 요약·AI 운영 메뉴), compose `--profile ai`(Ollama)·Helm `ai.*`. 끝-끝 LLM 검증은 설치본에서 운영자 1회(모델 품질은 모델 몫) |
 | 2026-10-08 | #257 머지(main 23d2977). PR-8 = §5 #7 감사 이상 탐지(관찰 모드): 커서 기반 비동기 점수기(SKIP LOCKED, 소급 없음, 행 occurred_at 기준), 규칙 5개(로그인 실패 버스트·새 IP·업무 외 쓰기·기관 실패 버스트(7일 기준선)·티켓 재검증 반복), `audit_anomaly_flag` + 검토(정탐/오탐/모름) → 규칙별 정밀도 → 3개월 뒤 승격 판단(콘솔 "판단" 열). 인가 매트릭스에 anomalies 행(AUDITOR 검토 가능). 운영 기준선은 설치 뒤 쌓인다 |
+| 2026-10-08 | PR-8 = #258(CI 통과, 머지 대기). PR-9 = §5 #8 동의 카탈로그: registry `consent_version.service_code`(V2) + 발행/종료/미동의 내부 API, hub `ConsentRegistryClient`·관리 API(`/api/v1/admin/consents`·`/services/{code}/consents`)·콘솔, 프로파일 `consent {enabled, includePlatform}`, 코어 로그인 프런트 동의 단계(필수 미동의 때만 화면, form POST `…/login/consent`, CSP form-action 'self' 그 경로만, 거부 `E-IDO-125`, registry 장애는 발급 거부). 이로써 §5 1.1 항목 8건이 모두 PR 로 올라갔다 — 남은 완료 기준: `v1.1.0` 태그(사용자), 설치본 스모크에 동의 단계 추가 여부 결정. KR 포털의 구 동의 경로(`/api/v1/ext/consent*`)는 hub 에 없음 — KR 후속 |
 

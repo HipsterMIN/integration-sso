@@ -40,4 +40,25 @@ public interface ConsentService {
      * 최신 동의 버전 목록 조회 (회원가입/재동의 화면 로딩)
      */
     List<ConsentVersionInfo> getActiveVersions();
+
+    // ── 1.1 동의 카탈로그 (플랜 §5 #8) ───────────────────────────────────────
+
+    /** 서비스가 보는 카탈로그 — 플랫폼 공통 + 서비스 전용, ACTIVE·적용 중 */
+    List<ConsentVersionInfo> catalog(String serviceCode);
+
+    /** 한 범위의 버전 목록 — serviceCode null 이면 플랫폼 공통. includeInactive 면 SUPERSEDED 이력까지 */
+    List<ConsentVersionInfo> listVersions(String serviceCode, boolean includeInactive);
+
+    /** 새 버전 발행 — 같은 범위·유형의 ACTIVE 는 SUPERSEDED 로. 사용자는 새 버전에 다시 동의해야 한다 */
+    ConsentVersionInfo publish(PublishRequest request);
+
+    /** 버전 종료(카탈로그에서 뺀다) — ACTIVE → SUPERSEDED, 대체 없음 */
+    ConsentVersionInfo retire(String versionId, String correlationId);
+
+    /** 사용자가 아직 동의하지 않은 카탈로그 항목(버전 단위) — 필수·선택 모두 */
+    List<ConsentVersionInfo> missing(String qimUserId, String serviceCode);
+
+    /** 발행 요청 — consentType 은 영문 대문자·숫자·_ (2~50자), 유형은 자유(TERMS_OF_SERVICE·PRIVACY_POLICY·THIRD_PARTY_SHARE·MARKETING 또는 서비스 고유) */
+    record PublishRequest(String serviceCode, String consentType, String versionTag, String title, String contentUrl,
+                          Boolean required, java.time.Instant effectiveAt, String correlationId) {}
 }

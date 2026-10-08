@@ -211,3 +211,17 @@ export interface AnomalyStats {
   byDay: { day: string; rule: string; n: number }[];
   cursor: { lastOccurredAt?: string | null; scannedTotal?: number; updatedAt?: string | null };
 }
+
+// ── 1.1 동의 카탈로그 (/api/v1/admin/services/{code}/consents · /api/v1/admin/consents, ConsentAdminController) ──
+/** registry 동의 버전 — serviceCode 없음 = 플랫폼 공통(모든 서비스 로그인에서 묻는다) */
+export interface ConsentItem {
+  versionId: string;
+  consentType: string;
+  serviceCode?: string | null;
+  status: 'DRAFT' | 'ACTIVE' | 'SUPERSEDED' | string;
+  versionTag?: string | null;
+  title?: string | null;
+  contentUrl?: string | null;
+  required: boolean;
+  effectiveAt?: string | null;
+}

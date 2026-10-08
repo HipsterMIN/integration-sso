@@ -233,4 +233,49 @@ class ConsentServiceImplTest {
         assertThat(versions.get(0).getConsentType()).isEqualTo(CONSENT_TYPE);
         assertThat(versions.get(0).isRequired()).isTrue();
     }
+
+    // ── 1.1 동의 카탈로그 ──────────────────────────────────────────────────────
+
+    private static ConsentVersionJpaEntity v(String id, String scope, String type, boolean required, String status) {
+        return ConsentVersionJpaEntity.builder().versionId(id).serviceCode(scope).consentType(type).versionTag("v").title("t")
+                .required(required).status(status).effectiveAt(java.time.Instant.parse("2026-10-01T00:00:00Z")).build();
+    }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("1.1 publish — 같은 범위·유형의 ACTIVE 를 SUPERSEDED 로 바꾸고 새 ACTIVE 를 만든다; 형식 오류는 E-IM-208")
+    void publishSupersedesSameScopeAndType() {
+        ConsentVersionJpaEntity old = v("old", "AG1", "THIRD_PARTY_SHARE", true, "ACTIVE");
+        org.mockito.BDDMockito.given(versionRepository.findByServiceCodeAndConsentTypeAndStatus("AG1", "THIRD_PARTY_SHARE", "ACTIVE")).willReturn(java.util.List.of(old));
+        org.mockito.BDDMockito.given(versionRepository.save(org.mockito.ArgumentMatchers.any())).willAnswer(i -> i.getArgument(0));
+        ConsentVersionInfo out = sut.publish(new ConsentService.PublishRequest("AG1", "THIRD_PARTY_SHARE", "2026-10", "제3자 제공", "https://agency.example.org/consent", true, null, "c"));
+        org.assertj.core.api.Assertions.assertThat(old.getStatus()).isEqualTo("SUPERSEDED");
+        org.assertj.core.api.Assertions.assertThat(old.getSupersededAt()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(out.getServiceCode()).isEqualTo("AG1");
+        org.assertj.core.api.Assertions.assertThat(out.getStatus()).isEqualTo("ACTIVE");
+        org.assertj.core.api.Assertions.assertThat(out.isRequired()).isTrue();
+        org.assertj.core.api.Assertions.assertThat(out.getVersionId()).isNotBlank();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.publish(new ConsentService.PublishRequest(null, "bad type", "v", "t", null, null, null, "c")))
+                .isInstanceOf(io.github.hipstermin.idem.common.error.PlatformException.class)
+                .satisfies(e -> org.assertj.core.api.Assertions.assertThat(((io.github.hipstermin.idem.common.error.PlatformException) e).getErrorCode().getCode()).isEqualTo("E-IM-208"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.publish(new ConsentService.PublishRequest(null, "MARKETING", "v", "t", "ftp://x", null, null, "c")))
+                .isInstanceOf(io.github.hipstermin.idem.common.error.PlatformException.class);
+    }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("1.1 missing — 카탈로그(플랫폼+서비스) 중 AGREED 버전이 없는 것만; retire 는 ACTIVE 만 바꾼다")
+    void missingAndRetire() {
+        org.mockito.BDDMockito.given(versionRepository.findCatalog(org.mockito.ArgumentMatchers.eq("AG1"), org.mockito.ArgumentMatchers.any()))
+                .willReturn(java.util.List.of(v("p1", null, "TERMS_OF_SERVICE", true, "ACTIVE"), v("s1", "AG1", "THIRD_PARTY_SHARE", true, "ACTIVE"), v("s2", "AG1", "MARKETING", false, "ACTIVE")));
+        org.mockito.BDDMockito.given(recordRepository.findAgreedVersionIds("u1")).willReturn(java.util.List.of("p1"));
+        java.util.List<ConsentVersionInfo> missing = sut.missing("u1", "AG1");
+        org.assertj.core.api.Assertions.assertThat(missing).extracting(ConsentVersionInfo::getVersionId).containsExactly("s1", "s2");
+        org.assertj.core.api.Assertions.assertThat(sut.catalog("AG1")).hasSize(3);
+
+        ConsentVersionJpaEntity sup = v("s9", "AG1", "MARKETING", false, "SUPERSEDED");
+        org.mockito.BDDMockito.given(versionRepository.findById("s9")).willReturn(java.util.Optional.of(sup));
+        org.assertj.core.api.Assertions.assertThat(sut.retire("s9", "c").getStatus()).isEqualTo("SUPERSEDED");
+        org.mockito.Mockito.verify(versionRepository, org.mockito.Mockito.never()).save(sup);
+        org.mockito.BDDMockito.given(versionRepository.findById("nope")).willReturn(java.util.Optional.empty());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut.retire("nope", "c")).isInstanceOf(io.github.hipstermin.idem.common.error.PlatformException.class);
+    }
 }

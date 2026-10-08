@@ -18,6 +18,9 @@ import io.github.hipstermin.idem.common.spi.identity.IdentityProviderRegistry;
 import io.github.hipstermin.idem.common.spi.identity.IdentityVerificationProvider;
 import io.github.hipstermin.idem.common.spi.identity.VerificationStart;
 import io.github.hipstermin.idem.common.spi.identity.VerifiedIdentity;
+import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
+import io.github.hipstermin.idem.hub.consent.ConsentItem;
+import io.github.hipstermin.idem.hub.consent.ConsentRegistryClient;
 import io.github.hipstermin.idem.hub.domain.AgencyMeta;
 import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.fe.session.FeSession;
@@ -29,6 +32,8 @@ import io.github.hipstermin.idem.hub.handoff.HandoffService;
 import io.github.hipstermin.idem.hub.handoff.validate.CallbackUrlValidator;
 import io.github.hipstermin.idem.hub.identity.spi.IdentityLoginService;
 import io.github.hipstermin.idem.hub.infrastructure.AgencyMetaRepository;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfile;
+import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileService;
 import jakarta.servlet.http.Cookie;
 import java.time.Instant;
 import java.util.HashMap;
@@ -60,6 +65,9 @@ class HandoffLoginControllerTest {
     @Mock FeSessionService feSessionService;
     @Mock FeSessionPolicyEnforcer feSessionPolicyEnforcer;
     @Mock HandoffService handoffService;
+    @Mock ServiceProfileService serviceProfileService;
+    @Mock ConsentRegistryClient consentClient;
+    @Mock AuditLogPublisher auditLogPublisher;
 
     /** 메모리 저장소 — Redis 없이 동작 */
     private final Map<String, HandoffLoginRequest> mem = new HashMap<>();
@@ -82,7 +90,7 @@ class HandoffLoginControllerTest {
 
         sut = new HandoffLoginController(store, agencyMetaRepository, new CallbackUrlValidator(), registry,
                 identityLoginService, feSessionService, feSessionPolicyEnforcer, handoffService,
-                "http://hub.test/", "");
+                serviceProfileService, consentClient, auditLogPublisher, "http://hub.test/", "");
     }
 
     private void agency(IntegrationType type, boolean active) {
@@ -162,7 +170,8 @@ class HandoffLoginControllerTest {
     @DisplayName("제공자가 여럿(브로커 설정 포함)이면 선택 화면 200 — 링크는 /start?req=&provider=")
     void entry_chooser() {
         sut = new HandoffLoginController(store, agencyMetaRepository, new CallbackUrlValidator(), registry,
-                identityLoginService, feSessionService, feSessionPolicyEnforcer, handoffService, "http://hub.test", "keycloak");
+                identityLoginService, feSessionService, feSessionPolicyEnforcer, handoffService,
+                serviceProfileService, consentClient, auditLogPublisher, "http://hub.test", "keycloak");
         agency(IntegrationType.DIRECT, true);
         ResponseEntity<String> r = sut.entry(AG, CB, null, null, null, new MockHttpServletRequest());
         assertThat(r.getStatusCode().value()).isEqualTo(200);
@@ -174,7 +183,8 @@ class HandoffLoginControllerTest {
     @DisplayName("broker:<name> 시작 → /api/v1/broker/<name>/authorize?returnUrl=…/continue?req=… 로 302 (허용 목록 밖은 400)")
     void start_broker() {
         sut = new HandoffLoginController(store, agencyMetaRepository, new CallbackUrlValidator(), registry,
-                identityLoginService, feSessionService, feSessionPolicyEnforcer, handoffService, "http://hub.test", "keycloak");
+                identityLoginService, feSessionService, feSessionPolicyEnforcer, handoffService,
+                serviceProfileService, consentClient, auditLogPublisher, "http://hub.test", "keycloak");
         agency(IntegrationType.DIRECT, true);
         sut.entry(AG, CB, null, null, null, new MockHttpServletRequest());
         String req = mem.keySet().iterator().next();
@@ -290,7 +300,8 @@ class HandoffLoginControllerTest {
     @DisplayName("브로커 경로 복귀인데 쿠키가 없으면 401 오류 화면")
     void resume_brokerWithoutCookie() {
         sut = new HandoffLoginController(store, agencyMetaRepository, new CallbackUrlValidator(), registry,
-                identityLoginService, feSessionService, feSessionPolicyEnforcer, handoffService, "http://hub.test", "keycloak");
+                identityLoginService, feSessionService, feSessionPolicyEnforcer, handoffService,
+                serviceProfileService, consentClient, auditLogPublisher, "http://hub.test", "keycloak");
         agency(IntegrationType.DIRECT, true);
         sut.entry(AG, CB, null, null, null, new MockHttpServletRequest());
         String req = mem.keySet().iterator().next();
@@ -298,6 +309,160 @@ class HandoffLoginControllerTest {
         ResponseEntity<String> r = sut.resume(req, Map.of("req", req), new MockHttpServletRequest(), new MockHttpServletResponse());
         assertThat(r.getStatusCode().value()).isEqualTo(401);
         assertThat(r.getBody()).contains("E-IDO-107");
+    }
+
+    // ── 1.1 동의 카탈로그 (플랜 §5 #8) ─────────────────────────────────────────
+
+    private static final ConsentItem TERMS = new ConsentItem("v-terms", "TERMS_OF_SERVICE", null, "ACTIVE", "2026-10", "이용약관", "https://idem.example.org/terms", true, Instant.EPOCH);
+    private static final ConsentItem MARKETING = new ConsentItem("v-mkt", "MARKETING", AG, "ACTIVE", "1", "마케팅 수신", "javascript:alert(1)", false, Instant.EPOCH);
+
+    private void consentProfile(boolean enabled, Boolean includePlatform) {
+        ServiceProfile profile = ServiceProfile.builder().consent(new ServiceProfile.Consent(enabled, includePlatform)).build();
+        given(serviceProfileService.find(AG)).willReturn(Optional.of(profile));
+    }
+
+    private MockHttpServletRequest withCookie() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setCookies(new Cookie(FeSessionCookie.NAME, "fe-1"));
+        request.setRemoteAddr("203.0.113.9");
+        return request;
+    }
+
+    @Test
+    @DisplayName("동의 켜짐 + 필수 미동의 → 발급 대신 동의 화면 200 (form action=…/login/consent, agree=versionId, 요청 상태 유지, 링크는 http(s) 만)")
+    void consent_pageWhenRequiredMissing() {
+        agency(IntegrationType.DIRECT, true);
+        consentProfile(true, null);
+        given(feSessionService.findById("fe-1")).willReturn(Optional.of(fe("L1")));
+        given(consentClient.missing(eq("u1"), eq(AG), anyString())).willReturn(List.of(TERMS, MARKETING));
+
+        ResponseEntity<String> r = sut.entry(AG, CB, null, null, "st-c", withCookie());
+
+        assertThat(r.getStatusCode().value()).isEqualTo(200);
+        assertThat(r.getBody()).contains("action=\"http://hub.test/api/v1/handoff/login/consent\"")
+                .contains("name=\"agree\" value=\"v-terms\"").contains("이용약관").contains("(필수)")
+                .contains("value=\"v-mkt\"").contains("(선택)")
+                .contains("https://idem.example.org/terms").doesNotContain("javascript:")
+                .contains("name=\"decline\"");
+        assertThat(mem).hasSize(1);
+        verify(handoffService, never()).issue(any());
+    }
+
+    @Test
+    @DisplayName("선택 항목만 미동의면 화면 없이 바로 발급; 동의가 꺼진 서비스는 registry 를 부르지 않는다")
+    void consent_optionalOnlyOrDisabledIssuesDirectly() {
+        agency(IntegrationType.DIRECT, true);
+        consentProfile(true, null);
+        given(feSessionService.findById("fe-1")).willReturn(Optional.of(fe("L1")));
+        given(consentClient.missing(eq("u1"), eq(AG), anyString())).willReturn(List.of(MARKETING));
+        given(handoffService.issue(any())).willReturn(HandoffTicket.builder().ticketId("t-1").agencyCode(AG).qimUserId("u1").build());
+        assertThat(location(sut.entry(AG, CB, null, null, null, withCookie()))).isEqualTo(CB + "?ticketId=t-1");
+
+        consentProfile(false, null);
+        assertThat(location(sut.entry(AG, CB, null, null, null, withCookie()))).isEqualTo(CB + "?ticketId=t-1");
+        verify(consentClient, org.mockito.Mockito.times(1)).missing(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("includePlatform=false 면 플랫폼 공통 항목은 묻지 않는다")
+    void consent_includePlatformFalse() {
+        agency(IntegrationType.DIRECT, true);
+        consentProfile(true, false);
+        given(feSessionService.findById("fe-1")).willReturn(Optional.of(fe("L1")));
+        given(consentClient.missing(eq("u1"), eq(AG), anyString())).willReturn(List.of(TERMS, MARKETING));
+        given(handoffService.issue(any())).willReturn(HandoffTicket.builder().ticketId("t-2").agencyCode(AG).qimUserId("u1").build());
+        assertThat(location(sut.entry(AG, CB, null, null, null, withCookie()))).isEqualTo(CB + "?ticketId=t-2");
+    }
+
+    @Test
+    @DisplayName("동의 제출: 서버가 다시 계산한 미동의 목록 안의 항목만 기록(LOGIN_FRONT:<service>, IP) → 감사 CONSENT_AGREED → 발급 → 콜백, 상태 1회 소비")
+    void consent_submitRecordsAndIssues() {
+        agency(IntegrationType.DIRECT, true);
+        consentProfile(true, null);
+        given(feSessionService.findById("fe-1")).willReturn(Optional.of(fe("L1")));
+        given(consentClient.missing(eq("u1"), eq(AG), anyString())).willReturn(List.of(TERMS, MARKETING));
+        sut.entry(AG, CB, null, null, "st-c", withCookie());
+        String req = mem.keySet().iterator().next();
+        given(handoffService.issue(any())).willReturn(HandoffTicket.builder().ticketId("t-3").agencyCode(AG).qimUserId("u1").build());
+
+        ResponseEntity<String> r = sut.consent(req, List.of("v-terms", "v-forged"), null, withCookie());
+
+        assertThat(r.getStatusCode().value()).isEqualTo(302);
+        assertThat(location(r)).isEqualTo(CB + "?ticketId=t-3&state=st-c");
+        verify(consentClient).agree(eq("u1"), eq("v-terms"), eq("TERMS_OF_SERVICE"), eq("LOGIN_FRONT:" + AG), eq("203.0.113.9"), anyString());
+        verify(consentClient, never()).agree(any(), eq("v-forged"), any(), any(), any(), any());
+        verify(consentClient, never()).agree(any(), eq("v-mkt"), any(), any(), any(), any());
+        ArgumentCaptor<AuditLogPublisher.AuditEntry> audit = ArgumentCaptor.forClass(AuditLogPublisher.AuditEntry.class);
+        verify(auditLogPublisher).publish(audit.capture());
+        assertThat(audit.getValue().eventAction()).isEqualTo("CONSENT_AGREED");
+        assertThat(audit.getValue().actorId()).isEqualTo("u1");
+        assertThat(audit.getValue().agencyCode()).isEqualTo(AG);
+        assertThat(audit.getValue().metadata()).containsEntry("versionIds", List.of("v-terms"));
+        assertThat(mem).isEmpty();
+    }
+
+    @Test
+    @DisplayName("필수 항목을 빼고 제출하면 오류 문구와 함께 동의 화면을 다시 보이고 기록·발급하지 않는다")
+    void consent_submitWithoutRequiredRerenders() {
+        agency(IntegrationType.DIRECT, true);
+        consentProfile(true, null);
+        given(feSessionService.findById("fe-1")).willReturn(Optional.of(fe("L1")));
+        given(consentClient.missing(eq("u1"), eq(AG), anyString())).willReturn(List.of(TERMS, MARKETING));
+        sut.entry(AG, CB, null, null, null, withCookie());
+        String req = mem.keySet().iterator().next();
+
+        ResponseEntity<String> r = sut.consent(req, List.of("v-mkt"), null, withCookie());
+
+        assertThat(r.getStatusCode().value()).isEqualTo(200);
+        assertThat(r.getBody()).contains("필수 항목에 모두 동의해야").contains("value=\"v-terms\"");
+        verify(consentClient, never()).agree(any(), any(), any(), any(), any(), any());
+        verify(handoffService, never()).issue(any());
+        assertThat(mem).containsKey(req);
+    }
+
+    @Test
+    @DisplayName("동의 거부 → 상태 삭제, 감사 CONSENT_DECLINED, 302 callback?error=E-IDO-125&error_description&state")
+    void consent_declineRedirectsError() {
+        agency(IntegrationType.DIRECT, true);
+        consentProfile(true, null);
+        given(feSessionService.findById("fe-1")).willReturn(Optional.of(fe("L1")));
+        given(consentClient.missing(eq("u1"), eq(AG), anyString())).willReturn(List.of(TERMS));
+        sut.entry(AG, CB, null, null, "st-d", withCookie());
+        String req = mem.keySet().iterator().next();
+
+        ResponseEntity<String> r = sut.consent(req, null, "1", withCookie());
+
+        assertThat(r.getStatusCode().value()).isEqualTo(302);
+        assertThat(location(r)).startsWith(CB + "?error=E-IDO-125&error_description=").endsWith("&state=st-d");
+        ArgumentCaptor<AuditLogPublisher.AuditEntry> audit = ArgumentCaptor.forClass(AuditLogPublisher.AuditEntry.class);
+        verify(auditLogPublisher).publish(audit.capture());
+        assertThat(audit.getValue().eventAction()).isEqualTo("CONSENT_DECLINED");
+        verify(handoffService, never()).issue(any());
+        verify(consentClient, never()).agree(any(), any(), any(), any(), any(), any());
+        assertThat(mem).isEmpty();
+    }
+
+    @Test
+    @DisplayName("동의 제출: 만료 요청 410, 세션 쿠키 없음 401; registry 장애는 오류 화면(503) — 콜백으로 보내지 않고 발급하지 않는다")
+    void consent_expiredNoSessionAndRegistryDown() {
+        assertThat(sut.consent("nope", null, null, withCookie()).getStatusCode().value()).isEqualTo(410);
+
+        agency(IntegrationType.DIRECT, true);
+        consentProfile(true, null);
+        given(feSessionService.findById("fe-1")).willReturn(Optional.of(fe("L1")));
+        given(consentClient.missing(eq("u1"), eq(AG), anyString())).willReturn(List.of(TERMS));
+        sut.entry(AG, CB, null, null, null, withCookie());
+        String req = mem.keySet().iterator().next();
+        ResponseEntity<String> noCookie = sut.consent(req, List.of("v-terms"), null, new MockHttpServletRequest());
+        assertThat(noCookie.getStatusCode().value()).isEqualTo(401);
+        assertThat(noCookie.getBody()).contains("E-IDO-107");
+
+        given(consentClient.missing(eq("u1"), eq(AG), anyString())).willThrow(new PlatformException(PlatformErrorCode.IDO_QIM_UNREACHABLE, "cid", "down"));
+        ResponseEntity<String> down = sut.entry(AG, CB, null, null, null, withCookie());
+        assertThat(down.getStatusCode().value()).isEqualTo(PlatformErrorCode.IDO_QIM_UNREACHABLE.getHttpStatus().value());
+        assertThat(down.getBody()).contains("E-IDO-106");
+        assertThat(location(down)).isNull();
+        verify(handoffService, never()).issue(any());
     }
 
     @Test

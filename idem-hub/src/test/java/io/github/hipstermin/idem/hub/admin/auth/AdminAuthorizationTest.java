@@ -28,6 +28,11 @@ class AdminAuthorizationTest {
         assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/anomalies/f1/review")).isTrue();
         assertThat(sut.allowed(auditor, "GET", "/api/v1/admin/ai/status")).isTrue();
         assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/ai/profile-draft")).isFalse();
+        // 1.1 동의 카탈로그: "그 외" 규칙 — 목록은 전 역할, 발행·종료는 쓰기 권한자만 (플랫폼 공통의 전역 제한은 컨트롤러가 본다)
+        assertThat(sut.allowed(auditor, "GET", "/api/v1/admin/services/A/consents")).isTrue();
+        assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/services/A/consents")).isFalse();
+        assertThat(sut.allowed(auditor, "GET", "/api/v1/admin/consents")).isTrue();
+        assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/consents/v1/retire")).isFalse();
     }
 
     @Test
