@@ -23,6 +23,11 @@ class AdminAuthorizationTest {
         assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/auth/password")).isTrue();
         assertThat(sut.allowed(auditor, "GET", "/api/v1/admin/admins")).isFalse();
         assertThat(sut.allowed(auditor, "DELETE", "/api/v1/handoff/t1")).isFalse();
+        // 1.1 관찰 모드: 이상 플래그는 읽고 검토(POST)할 수 있다 — 감사자의 일. AI 초안(POST)은 쓰기 권한자만
+        assertThat(sut.allowed(auditor, "GET", "/api/v1/admin/anomalies")).isTrue();
+        assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/anomalies/f1/review")).isTrue();
+        assertThat(sut.allowed(auditor, "GET", "/api/v1/admin/ai/status")).isTrue();
+        assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/ai/profile-draft")).isFalse();
     }
 
     @Test

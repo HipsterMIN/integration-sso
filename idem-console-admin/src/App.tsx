@@ -9,6 +9,7 @@ import { Audit } from './pages/Audit';
 import { Admins } from './pages/Admins';
 import { Tenants } from './pages/Tenants';
 import { Ops } from './pages/Ops';
+import { Anomalies } from './pages/Anomalies';
 import { useAiStatus } from './lib/ai';
 
 export function App() {
@@ -24,6 +25,7 @@ export function App() {
   let page: ReactElement;
   if (head === 'services' && second) page = <ServiceDetail code={second} />;
   else if (head === 'audit') page = <Audit />;
+  else if (head === 'anomalies') page = <Anomalies />;
   else if (head === 'admins' && isGlobalSystemAdmin(me)) page = <Admins />;
   else if (head === 'tenants') page = <Tenants />;
   else if (head === 'ops' && !me.tenantCode) page = <Ops />;
@@ -42,6 +44,7 @@ export function App() {
           {nav('/services', '기관')}
           {nav('/tenants', '테넌트')}
           {nav('/audit', '감사')}
+          {nav('/anomalies', '이상 징후')}
           {isGlobalSystemAdmin(me) && nav('/admins', '관리자')}
           {!me.tenantCode && ai?.enabled && nav('/ops', 'AI 운영')}
         </nav>

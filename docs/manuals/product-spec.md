@@ -57,6 +57,7 @@
 | F21 | 암호 | `CryptoProvider` SPI(교체 가능), AES-256-GCM·HMAC-SHA256·Ed25519·SHA-256, 키 버전·로테이션, Vault Transit(선택) |
 | F22 | 관측 | `/actuator/health`(liveness·readiness), Prometheus 지표(`slo.*`·`personal.data.*`·`idem.kms.healthy`·`idem.outbox.*`; 1.0.1 부터 관리 포트. hub 의 `/actuator/prometheus` 는 1.0.x 미등록 — 알려진 제한), OTel 추적(선택) |
 | F23 | AI 운영 보조 (1.1, 선택) | 관리 콘솔: 자연어 → 프로파일 초안(스키마 검증 필수, 저장은 관리자), 감사 요약(집계·표본만, IP·metadata 제외·행위자 마스킹), 장애 요약(운영 스냅샷 판정). 온프레미스 LLM(OpenAI 호환 `/v1`, compose `--profile ai`/Helm `ai.*`), 기본 설치 제외, 사설망 밖 엔드포인트는 명시 허용 필요, 인증 경로 무관, 호출마다 감사 `AI_*` |
+| F24 | 감사 이상 탐지 (1.1, 관찰 모드) | 감사 행이 실린 뒤 비동기 점수기가 규칙 5개(관리자 로그인 실패 버스트·새 출처 IP·업무 외 시간 쓰기·기관 실패 버스트(7일 기준선 대비)·Handoff 티켓 재검증 반복)를 평가해 `audit_anomaly_flag` 에 플래그만(점수·심각도·근거). 경보·차단 없음, 인증 경로 무관, `audit_log` 불변. 관리자 검토(정탐/오탐) → 규칙별 정밀도 → 3개월 뒤 경보 승격 결정(`docs/audit-anomaly.md`). 지표 `audit.anomaly.*` |
 
 ## 3. 구성과 인터페이스
 

@@ -158,6 +158,9 @@ public abstract class IntegrationTestBase {
         // 1.1 SCIM 아웃박스 릴레이 스케줄러 비활성화 — 컨텍스트 캐시로 여러 컨텍스트가 같은 DB 를 보므로
         // 다른 컨텍스트의 스케줄러가 행을 먼저 집어 SKIPPED 처리하지 않도록. ScimOutboundIntegrationTest 는 relayOnce() 로 결정적으로 돌린다
         registry.add("idem.hub.scim.relay-enabled", () -> "false");
+        // 1.1 감사 이상 탐지 점수기 — 같은 이유로 스케줄러 off(AuditAnomalyIntegrationTest 가 scoreOnce() 로), 지연 창 0
+        registry.add("idem.hub.audit.anomaly.enabled", () -> "false");
+        registry.add("idem.hub.audit.anomaly.lag-seconds", () -> "0");
 
         // Rate Limiter 활성화 (Redis Testcontainer 대상)
         registry.add("idem.hub.rate-limit.enabled",           () -> "true");

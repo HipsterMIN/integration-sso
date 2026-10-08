@@ -504,6 +504,26 @@ idem.hub:
       dir: ${IDEM_HUB_AUDIT_WAL_DIR:./data/audit-wal}   # 컨테이너에서는 볼륨에 둔다 — 파드 삭제와 함께 사라지지 않게
       replay-interval-ms: ${IDEM_HUB_AUDIT_WAL_REPLAY_INTERVAL_MS:60000}
       replay-initial-delay-ms: 20000
+    # 1.1: 감사 이상 탐지 — 관찰 모드. audit_log 에 실린 뒤 비동기로 규칙 5개를 평가해 audit_anomaly_flag 에 플래그만 남긴다(경보·차단 없음).
+    # 규칙·기본값·3개월 기준선 뒤 경보 승격 기준은 docs/audit-anomaly.md. 기준 시각은 행의 occurred_at, 시간대는 idem.hub.zone
+    anomaly:
+      enabled: ${IDEM_HUB_AUDIT_ANOMALY_ENABLED:true}
+      mode: observe                       # observe 만. alert 는 예약
+      interval-ms: ${IDEM_HUB_AUDIT_ANOMALY_INTERVAL_MS:30000}
+      initial-delay-ms: 30000
+      batch-size: 200
+      lag-seconds: 5                      # 이보다 새 행은 다음 주기 — 비동기 발행 지연과 UUIDv7 순서 어긋남 대비
+      window-minutes: 10
+      baseline-days: 7
+      new-ip-baseline-days: 30
+      off-hours-start: ${IDEM_HUB_AUDIT_ANOMALY_OFF_HOURS_START:22}
+      off-hours-end: ${IDEM_HUB_AUDIT_ANOMALY_OFF_HOURS_END:7}
+      weekend-off-hours: true
+      thresholds:
+        login-failure-burst: ${IDEM_HUB_AUDIT_ANOMALY_LOGIN_FAILURE_BURST:5}
+        agency-failure-burst: ${IDEM_HUB_AUDIT_ANOMALY_AGENCY_FAILURE_BURST:20}
+        agency-failure-burst-ratio: 3.0
+        ticket-replay: 3
 
   # ── 1.1 SCIM 2.0 아웃바운드 (Idem → 기관 프로비저닝, 서비스 프로파일 protocol.scim 으로 opt-in) ─────
   scim:

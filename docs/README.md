@@ -88,6 +88,7 @@ docs/
 | [`onboarding-guide.md`](onboarding-guide.md) | **기관 온보딩 가이드 (S9 PR-3)** — 운영기관 관리자용: 프로파일 작성 → 검증(스키마·client·시뮬레이션) → 시험 → 승인(ACTIVE), 역할, 흔한 문제 |
 | [`requirements-checklist.md`](requirements-checklist.md) | **기관 요구사항 수용 체크리스트 (S9 PR-3)** — 요구 → 프로파일 키 → 확인 방법, 설치본 쪽 수용, 아직 안 되는 것 |
 | [`admin-auth.md`](admin-auth.md) | **관리자 인증·인가 (S7)** — 관리 API 뒤의 관리자 세션·2단계(TOTP)·역할 3종·테넌트 범위·잠금·비밀번호 정책·감사, 설정 키·API·인가 매트릭스·오류 코드 E-IDO-130~139 |
+| [`audit-anomaly.md`](audit-anomaly.md) | **감사 로그 이상 탐지 — 관찰 모드 (1.1 PR-8)** — 아웃박스 이후 비동기 점수기·커서, 규칙 5개(창·기준선·점수), 플래그 검토 API·콘솔, 3개월 기준선 뒤 경보 승격 기준, 한계 |
 | [`deployment/README.md`](deployment/README.md) | 운영 배포 가이드 (2026-05-21, **구판** — Kafka·MariaDB 시절. 현행은 `install.md` + Helm 차트 README) |
 | [`OPERATION_INVENTORY.md`](OPERATION_INVENTORY.md) | 운영 관리 포인트 인벤토리 — 신규 운영자 온보딩 |
 | [`RUNBOOK_SSO_METRICS.md`](RUNBOOK_SSO_METRICS.md) | SSO/IM 본질 메트릭 RUNBOOK (PR-B1-new 산출물) |

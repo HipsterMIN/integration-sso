@@ -36,14 +36,23 @@ public class OpsSnapshotService {
 
     public record Snapshot(String at, Map<String, String> health, Map<String, Object> webhookOutbox, Map<String, Object> scimOutbox,
                            Map<String, Object> sloRetry, Map<String, Long> auditFailures1h, Map<String, Long> auditFailures24h,
-                           Map<String, Double> metrics) {}
+                           Map<String, Double> metrics, Map<String, Long> auditAnomalies24h) {}
 
     public Snapshot snapshot() {
         return new Snapshot(Instant.now().toString(), health(),
                 safe(() -> outbox("idem_hub.webhook_dispatch_outbox", "created_at", "last_error_message")),
                 safe(() -> outbox("idem_hub.scim_outbox", "created_at", "last_error_message")),
                 safe(() -> outbox("idem_hub.slo_idp_logout_retry", "created_at", "last_error")),
-                safeCounts(() -> auditFailures("1 hour")), safeCounts(() -> auditFailures("24 hours")), metrics());
+                safeCounts(() -> auditFailures("1 hour")), safeCounts(() -> auditFailures("24 hours")), metrics(),
+                safeCounts(this::anomalies24h));
+    }
+
+    /** 1.1 감사 이상 탐지(관찰 모드) — 24시간 규칙별 플래그 수 */
+    Map<String, Long> anomalies24h() {
+        Map<String, Long> out = new LinkedHashMap<>();
+        jdbc.query("SELECT rule, COUNT(*) AS n FROM idem_hub.audit_anomaly_flag WHERE occurred_at > NOW() - INTERVAL '24 hours' GROUP BY rule ORDER BY n DESC",
+                rs -> { out.put(rs.getString("rule"), rs.getLong("n")); });
+        return out;
     }
 
     Map<String, String> health() {

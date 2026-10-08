@@ -133,7 +133,7 @@ class AiAssistantServiceTest {
         assertThatThrownBy(() -> sut.summarizeIncident(TENANT, "c"))
                 .satisfies(e -> assertThat(((PlatformException) e).getErrorCode().getCode()).isEqualTo("E-IDO-131"));
 
-        OpsSnapshotService.Snapshot snap = new OpsSnapshotService.Snapshot("now", Map.of("db", "UP"), Map.of("PENDING", 3L), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
+        OpsSnapshotService.Snapshot snap = new OpsSnapshotService.Snapshot("now", Map.of("db", "UP"), Map.of("PENDING", 3L), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
         given(ops.snapshot()).willReturn(snap);
         given(llm.chat(anyString(), anyString(), eq(false), anyString())).willReturn("정상");
         AiAssistantService.IncidentSummary inc = sut.summarizeIncident(GLOBAL, "c");
