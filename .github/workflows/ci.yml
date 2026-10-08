@@ -433,6 +433,15 @@ jobs:
           echo "::add-mask::$IDEM_ADMIN_NEW_PASSWORD"
           IDEM_EDITION=core scripts/ci/install-smoke.sh
 
+      - name: "백업·복구 (scripts/ops — pg_dump → 새 DB 에 복구 → 표·행 수 대조; 시험 항목 G-5 의 자동 부분)"
+        run: |
+          # 서비스 컨테이너 안의 pg_dump/pg_restore 를 쓴다 — 러너의 클라이언트 버전과 무관(TARGET=docker)
+          CONTAINER=$(docker ps -q --filter ancestor=postgres:16-alpine | head -1)
+          [ -n "$CONTAINER" ] || { echo "postgres 서비스 컨테이너를 찾지 못했습니다"; docker ps; exit 1; }
+          export TARGET=docker CONTAINER PGUSER=idem OUT_DIR=/tmp/idem-backup
+          scripts/ops/backup.sh
+          TARGET_DB=idem_restore_check VERIFY_SOURCE_DB=idem YES=1 scripts/ops/restore.sh /tmp/idem-backup/idem-idem-*.dump
+
       - name: k6 설치
         run: |
           if command -v k6 >/dev/null 2>&1; then echo "k6 already installed: $(k6 version)"; exit 0; fi
@@ -653,6 +662,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       k8s: ${{ steps.filter.outputs.k8s }}
+      release: ${{ steps.filter.outputs.release }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -664,6 +674,10 @@ jobs:
               - 'scripts/k8s/**'
               - 'scripts/ci/install-smoke.sh'
               - 'scripts/lib/**'
+              - '.github/workflows/ci.yml'
+            release:
+              - 'scripts/release/**'
+              - 'infra/docker/compose.install.yml'
               - '.github/workflows/ci.yml'
 
   docker-build-check:
@@ -691,7 +705,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: 리허설 아카이브 여부
         id: save
-        run: echo "tar=${{ needs.changes.outputs.k8s == 'true' && matrix.image.rehearsal && 'yes' || 'no' }}" >> "$GITHUB_OUTPUT"
+        run: echo "tar=${{ (needs.changes.outputs.k8s == 'true' || needs.changes.outputs.release == 'true') && matrix.image.rehearsal && 'yes' || 'no' }}" >> "$GITHUB_OUTPUT"
       # 태그는 차트의 이미지 규칙과 같다: 에디션 있는 모듈(hub·registry)은 <tag>-<edition>, 없는 모듈은 <tag> (global.imageTag=pr)
       - name: 이미지 빌드 (push 없음, vendor-libs 없이)
         uses: docker/build-push-action@v5
@@ -812,3 +826,40 @@ jobs:
           path: /tmp/idem-rehearsal/logs/
           retention-days: 3
           if-no-files-found: ignore
+
+  # G1-2: 오프라인 설치본 — 스크립트가 바뀐 PR 에서 docker-build-check 의 코어 이미지 5종으로 번들을 만들고(서드파티·소스·Helm 포함),
+  # 이미지를 지운 뒤 load-offline-bundle.sh 로 되살려 MANIFEST 와 대조한다 (시험 항목 G-6 의 자동 부분 — 폐쇄망 반입·설치는 수동).
+  offline-bundle-check:
+    name: 오프라인 설치본 (make → SHA256 → load)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [changes, docker-build-check]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.release == 'true' && needs.docker-build-check.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # git archive 의 ref 판정(v* 태그)
+      - name: 이미지 아카이브 내려받기 (docker-build-check 산출물)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          path: /tmp/images
+          merge-multiple: true
+      - name: 이미지 적재 (idem-*:pr[-core])
+        run: |
+          for t in /tmp/images/*.tar; do docker load -i "$t"; done
+          docker image ls --format '{{.Repository}}:{{.Tag}}' | grep '^idem-' | sort
+      - name: 번들 만들기 (VERSION=pr · IMAGES=local · 서드파티·소스·Helm 포함)
+        run: VERSION=pr IDEM_EDITION=core IMAGES=local OUT_DIR=/tmp/idem-bundle scripts/release/make-offline-bundle.sh
+      - name: 반입 검증 (이미지를 지운 뒤 load-offline-bundle.sh 로 되살린다)
+        run: |
+          imgs=$(docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '^idem-[a-z-]+:pr(-core)?$' || true)
+          tp=$(grep -oE 'image: (postgres|redis|quay.io/keycloak/keycloak):[^ ]+' infra/docker/compose.install.yml | awk '{print $2}')
+          docker rmi -f $imgs $tp >/dev/null
+          EXTRACT_SOURCE=1 DEST=/tmp/idem-src scripts/release/load-offline-bundle.sh /tmp/idem-bundle
+          test -f /tmp/idem-src/idem-pr/infra/docker/compose.install.yml
+          ls -la /tmp/idem-bundle
+      - name: 번들 요약
+        if: always()
+        run: |
+          { echo '## 오프라인 설치본 (G1-2)'; echo '```'; cat /tmp/idem-bundle/MANIFEST.txt 2>/dev/null || echo '(없음)'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

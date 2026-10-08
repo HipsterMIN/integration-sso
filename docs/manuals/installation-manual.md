@@ -48,14 +48,21 @@ helm upgrade --install idem infra/helm/idem -n idem -f my-values.yaml -f infra/h
 
 ### 3.3 (C) 오프라인(폐쇄망) 설치
 
-1. 인터넷이 되는 곳에서 이미지를 만들고 tar 로 뽑는다:
+1. 인터넷이 되는 곳에서 번들을 만든다 (`scripts/release/make-offline-bundle.sh`, 1.1.1 G1-2):
    ```bash
-   IDEM_EDITION=core docker compose -f infra/docker/compose.install.yml build
-   docker save idem-gate:latest idem-hub:latest-core idem-registry:latest-core idem-authz:latest idem-console-admin:latest \
-               postgres:16-alpine redis:7.2-alpine quay.io/keycloak/keycloak:24.0 -o idem-1.1.0-images.tar
+   git checkout v1.1.0
+   VERSION=1.1.0 IDEM_EDITION=core scripts/release/make-offline-bundle.sh      # dist/idem-1.1.0-core/
    ```
-2. 반입: `idem-1.1.0-images.tar` + 저장소 `infra/`·`scripts/`·`docs/`(또는 `v1.1.0` 소스 tar) + Helm 은 `helm package infra/helm/idem`.
-3. 폐쇄망에서 `docker load -i idem-1.1.0-images.tar` 뒤 §3.1/§3.2 와 같다(`--build` 없이). K8s 는 사설 레지스트리에 `docker push` 하고 `global.imageRegistry` 를 준다.
+   산출: `idem-1.1.0-core-images.tar`(Idem 이미지 5종 — compose 와 같은 이름·태그 `idem-hub:1.1.0-core` … + `postgres:16-alpine`·`redis:7.2-alpine`·`keycloak:24.0`), `idem-1.1.0-src.tar.gz`(소스 — `infra/`·`scripts/`·`docs/`, 비밀 없음), Helm 차트 `.tgz`(helm 이 있을 때), `MANIFEST.txt`(이미지 ID·크기·git sha), `SHA256SUMS`. 이미지 tar 는 약 1.5~2.5 GB. kr 에디션은 벤더 SDK 가 있는 곳에서 `IDEM_EDITION=kr`(회원 포털 이미지 포함).
+2. 반입: 디렉터리 `dist/idem-1.1.0-core/` 통째로 (체크섬은 `SHA256SUMS`).
+3. 폐쇄망에서 검증·적재 뒤 §3.1/§3.2 와 같다(`--build` 없이):
+   ```bash
+   EXTRACT_SOURCE=1 DEST=/opt scripts/release/load-offline-bundle.sh /media/idem-1.1.0-core   # SHA256 검증 → docker load → MANIFEST 대조 → 소스 풀기
+   cd /opt/idem-1.1.0 && cp infra/docker/install.env.example install.env                     # IDEM_VERSION=1.1.0 IDEM_EDITION=core 를 넣는다
+   docker compose -f infra/docker/compose.install.yml --env-file install.env up -d
+   ```
+   K8s 는 적재한 이미지를 사설 레지스트리에 `docker push` 하고 Helm `global.imageRegistry`·`global.imageTag=1.1.0` 을 준다.
+   CI 는 스크립트가 바뀐 PR 마다 번들 생성 → 이미지 삭제 → 반입 스크립트로 복원을 돌린다(`offline-bundle-check` 잡). 실제 폐쇄망 반입은 §8.
 
 ## 4. 설치 확인 (완료 판정)
 
@@ -88,7 +95,7 @@ Mock 본인확인(`IDEM_PLUGINS_MOCK_AUTH_ENABLED`)은 검증 동안 `IDEM_SPRIN
 
 | 대상 | 백업 | 복구 |
 |---|---|---|
-| PostgreSQL `idem`(스키마 `idem_hub`·`idem_gate`·`idem_registry`·`idem_authz`·`keycloak`) | `pg_dump -Fc -U idem idem > idem-YYYYMMDD.dump` (compose: `docker exec idem-postgres …`) | 앱 정지 → `pg_restore -c -d idem` → 기동. Flyway 이력이 덤프 안에 있으므로 재적용 없음 |
+| PostgreSQL `idem`(스키마 `idem_hub`·`idem_gate`·`idem_registry`·`idem_authz`·`keycloak`·`agency_stub`) | `scripts/ops/backup.sh` (1.1.1 G1-2) — 컨테이너 안의 `pg_dump -Fc`(compose 기본, `TARGET=k8s`·`direct` 도), `backups/idem-idem-<UTC>.dump` + `.sha256` + `.meta`(서버 버전·Flyway 최신 버전·주요 표 행 수). cron 에는 `KEEP=14` 로 보존 수 제한. 덤프 뒤 `pg_restore -l` 로 아카이브를 확인한다 | 앱·Keycloak 정지(`docker compose … stop idem-hub idem-gate idem-registry idem-authz idem-console-admin keycloak`) → `scripts/ops/restore.sh backups/<dump>` — 체크섬 확인, 살아 있는 접속이 있으면 중단(`FORCE=1` 이면 끊는다), DB 를 지우고 새로 만들어 `pg_restore --no-owner`, ANALYZE, 표·행 수 요약 → `up -d`. Flyway 이력이 덤프 안에 있으므로 재적용 없음. **백업 유효성 검증**(운영 DB 를 건드리지 않고): `TARGET_DB=idem_restore_check VERIFY_SOURCE_DB=idem scripts/ops/restore.sh <dump>` — CI 가 매 PR 스모크 뒤 이렇게 돈다 |
 | Redis | 세션·캐시·레이트리밋 카운터만 — 백업 불필요(유실 시 재로그인) | — |
 | `install.env` / Secret | 비밀 저장소에 사본. **`IDEM_REGISTRY_CI_AES_KEY_V1`·`IDEM_REGISTRY_DI_SECRET`·`IDEM_HUB_ADMIN_SECRET_KEY` 를 잃으면 CI·기관 식별자·관리자 2단계를 복구할 수 없다** | 같은 값으로 복원 |
 | Keycloak | DB 덤프에 포함(`keycloak` 스키마). 기관 client 는 프로파일 재저장으로 재생성 가능 | 덤프 복구 또는 realm 재import + 프로파일 재저장 |
@@ -107,4 +114,5 @@ helm uninstall idem -n idem && kubectl delete ns idem                           
 - ✅ (A) compose 절차와 §4 확인 8단계: CI(`k6 Smoke Test` 잡의 설치본 스모크)가 PR 마다 실기동으로 확인한다. 로컬 리허설(S9 PR-2)로 0.x → 1.0 업그레이드 3경로(DB 이름만 변경·업그레이드 스크립트·새 DB) 확인.
 - ✅ (B) Helm: `helm lint`·`helm template`·kubeconform(CI `helm-lint` 잡) + **실제 클러스터 배포·업그레이드·롤백**(1.1 PR-6, CI `k8s-rehearsal` 잡 — kind 1노드에 코어 에디션 전부: ingress-nginx TLS, pre-install 스키마 Job, Keycloak production 모드 realm import, `helm install --wait` → §4 확인(스모크 ①~⑧ + 관리 포트 9090 비노출) → prod 프로파일·Mock off 로 `helm upgrade` → `helm rollback 1` → `helm uninstall`). 첫 통과 기록(PR #256, 2026-09-29, GitHub 호스팅 러너 4 vCPU/16 GB, kind v0.31 · K8s 1.35 · Helm 3.22): up 65s · install 84s(`helm install --wait` — 스키마 Job, Keycloak auto-build + realm import, 앱 4종 Flyway·기동) · 스모크 10s · 운영 전환 업그레이드 45s · 롤백 40s · 제거 13s, **합계 4분 17초**. 리허설이 드러낸 결함 1건 — Keycloak production 모드의 첫 기동 auto-build 가 종전 한도 1536Mi 에서 OOMKilled 되어 CrashLoop → 한도 2Gi + `keycloak.optimized`(차트 README). **기관 클러스터(운영 Ingress·바깥 DB)에서는 아직 안 돌렸다** — 첫 배포 때 `CLUSTER=existing` 으로 돌리고 여기에 적는다.
 - ⚠️ (C) 오프라인: 이미지 tar 절차는 표준 docker 명령이지만 이 저장소 환경에는 docker 가 없어 실행해 보지 못했다. GS 시험 환경 준비 때 실행하고 소요 시간·크기를 적는다.
-- ⚠️ 백업·복구: `pg_dump/pg_restore` 절차는 아직 리허설하지 않았다(1.0.1 과제).
+- 백업·복구(1.1.1 G1-2): CI 가 매 PR 설치본 스모크 뒤 `scripts/ops/backup.sh` → 새 DB 에 `restore.sh` → 스키마별 표 수·주요 표 행 수 대조를 돈다(검증됨). ⚠️ **운영 DB 복구**(앱 정지 → DB 재생성 → 복구 → 재기동 → §4 ①·②·②′ + 기존 관리자·기관 로그인)는 시험 환경에서 아직 리허설하지 않았다 — G1-1 수동 항목 G-5.
+- 오프라인 설치본(1.1.1 G1-2): CI 가 스크립트 변경 PR 마다 번들 생성 → 이미지 삭제 → `load-offline-bundle.sh` 복원 → MANIFEST 대조를 돈다(검증됨). ⚠️ **실제 폐쇄망 반입·설치(§3.3, A-1~A-4)** 는 아직 하지 않았다 — G1-1 수동 항목 G-6.

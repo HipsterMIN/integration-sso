@@ -2,9 +2,13 @@
 
 형식: [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/). 버전은 루트 `build.gradle.kts` 와 태그(`vX.Y.Z`)를 따른다. SDK 는 `idem-sdk-java/CHANGELOG.md`.
 
-## [Unreleased]
+## [Unreleased] — 1.1.1 (G1 시험 준비, 플랜 §2)
 
-_(없음)_
+### G1-2 · 오프라인 설치본 + 백업·복구 스크립트 (플랜 §2.2)
+
+- **오프라인 설치본**: `scripts/release/make-offline-bundle.sh` — compose 와 같은 이름·태그의 Idem 이미지(`idem-hub:<V>-<ED>` …, `IMAGES=build|local|pull`) + 서드파티(postgres·redis·keycloak, compose 에서 읽는다) `docker save`, 소스 `git archive`(v 태그), Helm 차트 패키지, `MANIFEST.txt`·`SHA256SUMS`. `scripts/release/load-offline-bundle.sh` — 체크섬 검증 → `docker load` → MANIFEST 대조 → (`EXTRACT_SOURCE=1`) 소스 풀기 → `IDEM_VERSION` 안내. CI `offline-bundle-check`(스크립트·compose 변경 PR): 번들 생성 → 이미지 삭제 → 복원 → 대조.
+- **백업·복구**: `scripts/ops/backup.sh`(컨테이너 안 `pg_dump -Fc` — `TARGET=compose|docker|k8s|direct`, `.sha256`·`.meta`(Flyway 최신 버전·주요 표 행 수), `pg_restore -l` 아카이브 확인, `KEEP=N`), `scripts/ops/restore.sh`(체크섬 → 살아 있는 접속 확인(`FORCE=1`) → DB 재생성 → `pg_restore --no-owner` → ANALYZE → 요약, `TARGET_DB`·`VERIFY_SOURCE_DB` 로 운영 DB 를 건드리지 않는 유효성 검증). CI 설치본 스모크에 "백업·복구" 단계(백업 → 새 DB 복구 → 표·행 수 대조).
+- 문서: 설치 매뉴얼 §3.3·§6·§8, 운영 매뉴얼 §4, 시험 항목 G-5·G-6(자동 부분 명시), `docs/install.md` 체크리스트. 운영 DB 복구·폐쇄망 반입의 실제 리허설은 G1-1(사용자 환경).
 
 ## [1.1.0] — 2026-10-08
 

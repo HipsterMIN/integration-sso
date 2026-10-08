@@ -104,8 +104,8 @@
 | G-2 | 감사 불변 | 감사 행 UPDATE/DELETE API | 없음(404/405) | 설계 |
 | G-3 | 지표 | 관리 포트 `/actuator/prometheus` (gate·registry·authz) | `slo.*`·`personal.data.*`·`idem.kms.healthy`·`idem.outbox.*` 지표; hub 는 1.0.x 미등록(알려진 제한) | 수동 |
 | G-4 | 보안 헤더 | 응답 헤더 | HSTS·CSP·X-Frame-Options 등 | UT(F-10) |
-| G-5 | 백업·복구 | `pg_dump` → 복구 → A-1·B-2 재확인 | 통과 | **수동, 미실시** |
-| G-6 | 오프라인 설치 | 이미지 tar 반입 | A-1~A-4 통과 | **수동, 미실시** |
+| G-5 | 백업·복구 | `scripts/ops/backup.sh`(pg_dump -Fc + sha256 + meta) → 앱 정지 → `scripts/ops/restore.sh`(DB 재생성·pg_restore·ANALYZE) → 기동 → A-1·B-2 재확인 | 복구 DB 의 스키마별 표 수·주요 표 행 수가 백업 시점과 같다, A-1·B-2 통과 | 자동 부분: CI 스모크 "백업·복구" 단계(백업 → 새 DB `idem_restore_check` 에 복구 → `VERIFY_SOURCE_DB` 대조) · 운영 DB 복구(앱 정지→재기동)는 **수동, 리허설 미실시** |
+| G-6 | 오프라인 설치 | `scripts/release/make-offline-bundle.sh`(이미지 tar·소스 tar·Helm·SHA256SUMS·MANIFEST) 반입 → `scripts/release/load-offline-bundle.sh` → `up -d`(`--build` 없이) | 체크섬 일치, MANIFEST 의 이미지 전부 적재, A-1~A-4 통과 | 자동 부분: CI `offline-bundle-check`(번들 생성 → 이미지 삭제 → 반입 스크립트 복원 → 대조, 스크립트 변경 PR) · 폐쇄망 반입·설치는 **수동, 미실시** |
 | G-7 | 405/415·authz 404(1.0.1) | `DELETE /api/v1/admin/tenants/X`, `text/plain` 로그인, authz 없는 경로 | 405 `E-IDO-405`·415 `E-IDO-415`·404 `E-AUTHZ-404` | UT |
 | G-8 | 감사 WAL 폴백(1.1) | PostgreSQL 을 멈춘 채 로그인 시도 → 재기동 | 시도 중 hub 는 예외 없이 응답, `IDEM_HUB_AUDIT_WAL_DIR/audit-wal.jsonl` 에 줄 추가(`audit.wal.appended.total`); DB 복구 후 60초 내 `audit_log` 에 원래 `occurred_at` 으로 재삽입되고 WAL 파일 삭제(`audit.wal.replayed.total`); 중복 없음 | UT(`AuditWalTest`·`AuditLogPublisherWalTest`·`FailSecureBootGuardTest`) |
 | G-9 | AI 운영 보조(1.1, 선택) | `IDEM_HUB_AI_ENABLED=true` + LLM 컨테이너. 콘솔 AI 초안 → JSON 탭 → 저장, 감사 "AI 요약", "AI 운영" 요약; 꺼진 설치본 | 초안은 스키마 위반을 함께 보이고 저장 전에는 반영 없음; 요약 요청에 IP·metadata 가 가지 않고 행위자는 `ab***`; 테넌트 관리자는 기관 코드 없이 403, 장애 요약은 전역만; 꺼지면 `/api/v1/admin/ai/*` 404 `E-IDO-140`, 공개 호스트는 명시 없이 안 켜짐; 감사 `AI_*` 남음 | UT(`AiAssistantServiceTest`·`LlmClientTest`·`AuditDigestTest`·`AiAdminControllerTest`) · 콘솔 UT(`ai.test.ts`) · LLM 끝-끝은 수동 |

@@ -175,7 +175,7 @@ issuer 는 `{IDEM_PUBLIC_URL_GATE}/realms/idem` 다. gate 가 `/realms/**`·`/re
 - [ ] (S9 5단계) **S9 이전 설치본을 올리는 경우**: 앱·Keycloak 을 내리고 `scripts/upgrade/rename-db-1.0.sh`(DB `onepass`→`idem`, 역할, 스키마 `ido/qsign/qim/authz`→`idem_hub/idem_gate/idem_registry/idem_authz`)를 postgres 에 실행한다 — `docker compose … exec -e PGUSER=onepass -e PGPASSWORD=$IDEM_DB_PASSWORD -e IDEM_DB_PASSWORD=$IDEM_DB_PASSWORD postgres bash -s < scripts/upgrade/rename-db-1.0.sh`. 1.0.1 부터 실행 사용자가 `onepass` 여도 된다(임시 슈퍼유저를 만들어 역할을 옮기고 지운다) 하고, `IDEM_DB_PASSWORD` 를 주면 역할 rename 으로 지워질 수 있는 MD5 비밀번호를 다시 설정한다. 스키마는 앱이 첫 기동에서 자동으로도 옮기지만(`[Idem 개명] 스키마 …` WARN 뒤 체크섬 불일치만 1회 repair), DB 이름은 앱 밖에서만 바꿀 수 있다. 구 스키마와 새 스키마가 **둘 다** 있고 새 쪽에 Flyway 이력이 없으면(새 스키마가 먼저 만들어진 상태) 스크립트와 앱이 멈춘다 — 빈 새 스키마를 DROP 한 뒤 다시. 업그레이드가 끝나면 `IDEM_NAMING_LEGACY_REPAIR=false` 로 두어 이후의 체크섬 불일치는 기동 거부가 되게 한다. Keycloak realm `onepass`→`idem` 은 import 로만 되므로 `keycloak-data` 볼륨을 지우고 다시 올린다 — 기관 OIDC client 는 프로파일을 다시 저장하면 hub 가 다시 만든다(secret 은 새로 회전·전달). issuer 가 `…/realms/idem` 으로 바뀌므로 기관 RP 설정도 함께 바꾼다. 관리자 계정은 DB 와 함께 옮겨지므로 기존 비밀번호·인증 앱 그대로다
 - [ ] `install.env` 백업을 비밀 저장소에. 키 교체 절차는 `docs/sso-im-operations-manual.md`
 - [ ] KR 에디션이 필요하면 `IDEM_EDITION=kr` 로 재빌드. 벤더 플러그인은 `~/.idem/vendor-libs` 공급 후 이미지 재빌드 (`plugins/*/README.md`)
-- [ ] 백업: `pg-data` 볼륨(스키마 5개), `keycloak-data`
+- [ ] 백업: `scripts/ops/backup.sh`(컨테이너 안 `pg_dump -Fc`, DB `idem` 전체 — `keycloak` 스키마 포함)를 cron 으로(`KEEP=14`), 복구는 `scripts/ops/restore.sh`(설치 매뉴얼 §6). `install.env` 는 덤프에 없다 — 비밀 저장소에 따로
 
 ## 8. 제거
 

@@ -276,6 +276,14 @@ curl -s http://localhost:8083/actuator/flyway | jq .
 
 ---
 
+### 4.4 백업·복구 (1.1.1 G1-2 — `scripts/ops`)
+
+| 작업 | 명령 | 비고 |
+|---|---|---|
+| 백업 | `scripts/ops/backup.sh` (compose 기본: 컨테이너 `idem-postgres` 안의 `pg_dump -Fc`; `TARGET=k8s NS=idem` / `TARGET=direct PGHOST=…`) | `backups/idem-idem-<UTC>.dump` + `.sha256` + `.meta`(Flyway 최신 버전·주요 표 행 수). cron: `KEEP=14`. `install.env`·Secret 은 덤프에 없다 |
+| 백업 유효성 검증 | `TARGET_DB=idem_restore_check VERIFY_SOURCE_DB=idem scripts/ops/restore.sh backups/<dump>` | 운영 DB 는 그대로, 새 DB 에 복구해 표·행 수 대조. CI 가 매 PR 이렇게 돈다 |
+| 운영 DB 복구 | 앱·Keycloak 정지 → `scripts/ops/restore.sh backups/<dump>` → `up -d` → 설치 매뉴얼 §4 ①·②·②′ + 기존 관리자·기관 로그인 | 살아 있는 접속이 있으면 중단(`FORCE=1` 이면 끊는다), DB 재생성 뒤 `pg_restore --no-owner`, Flyway 재적용 없음 |
+
 ## 5. Kafka 토픽 운영
 
 > **D1-b (2026-09-21)**: Kafka 는 선택 의존이다. `IDEM_KAFKA_ENABLED`(`idem.messaging.kafka.enabled`) 기본 **false** — 브로커 없이 기동하고 hub 아웃박스는 프로세스 내 배달, 감사는 DB 만, gate·registry·relay 의 Kafka 릴레이는 정지한다(어느 흐름이 멈추는지는 `docs/install.md` §6). 이 절은 `true`(다중 인스턴스·외부 연동, `compose.sso-im*.yml`·Helm 기본) 일 때만 해당한다.
