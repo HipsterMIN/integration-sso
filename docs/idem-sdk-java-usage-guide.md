@@ -3,11 +3,11 @@
 > **명칭 안내 (2026-09-27 갱신)** — 제품명은 **Idem**(구 OnePass·원패스, 2026-09-04 개명)이다. 에이전트의 `onepass.agent.*` 설정 키, `onepass-agent.properties`, `OnePass-*` 헤더, `[OnePassAgent]` 로그 태그는 1.0 에서 **동결**됐고 2.0 에서 바꾼다(`CHANGELOG.md` [1.0.0]). 대응표: [docs/naming.md](naming.md) §3.
 
 > **대상**: 유관기관 개발자
-> **버전**: `idem-sdk-java 1.0.1`
+> **버전**: `idem-sdk-java 1.1.0`
 > **최종 수정**: 2026-05-18
 > **브랜치**: `shipster`
 
-> **1.0.1 기본 설치본에서의 동작** — `sendInbound()`(`/gateway/inbound/event`)·`triggerOutbound()` 는 운영기관 설치본의 `IDEM_HUB_GATEWAY_INBOUND_ENABLED` / `IDEM_HUB_GATEWAY_OUTBOUND_ENABLED` 가 `false`(기본)면 `503 FEATURE_DISABLED` 를 받는다. `getStatus()` 는 항상 동작한다. Handoff 티켓 검증은 SDK 에 없고 기관 서버가 `POST /api/v1/handoff/verify` 를 직접 호출한다(`docs/sso-agency-developer-guide.md` §6).
+> **1.1.0 기본 설치본에서의 동작** — `sendInbound()`(`/gateway/inbound/event`)·`triggerOutbound()` 는 운영기관 설치본의 `IDEM_HUB_GATEWAY_INBOUND_ENABLED` / `IDEM_HUB_GATEWAY_OUTBOUND_ENABLED` 가 `false`(기본)면 `503 FEATURE_DISABLED` 를 받는다. `getStatus()` 는 항상 동작한다. Handoff 티켓 검증은 SDK 에 없고 기관 서버가 `POST /api/v1/handoff/verify` 를 직접 호출한다(`docs/sso-agency-developer-guide.md` §6).
 
 ---
 

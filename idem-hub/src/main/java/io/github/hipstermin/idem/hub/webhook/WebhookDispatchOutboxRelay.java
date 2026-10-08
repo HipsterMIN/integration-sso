@@ -104,7 +104,7 @@ public class WebhookDispatchOutboxRelay {
     private int readTimeoutMs;
 
     /** 플랫폼 API 버전 헤더값 (하드코딩 "1.0" 제거) */
-    @Value("${idem.hub.platform-version:1.0}")
+    @Value("${idem.hub.platform-version:1.1.0}")
     private String platformVersion;
 
     // ═══════════════════════════════════════════════════════════════════════

@@ -2,9 +2,21 @@
 
 형식: [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/). 버전은 루트 `build.gradle.kts` 와 태그(`vX.Y.Z`)를 따른다. SDK 는 `idem-sdk-java/CHANGELOG.md`.
 
-## [Unreleased] — 1.1 (shipster)
+## [Unreleased]
 
-`docs/post-1.0-plan.md` §5. 1.0.x 패치는 `release/1.0`.
+_(없음)_
+
+## [1.1.0] — 2026-10-08
+
+`docs/post-1.0-plan.md` §5 "1.1 — 기능 공백 해소" 8건이 PR 9개로 들어갔다: PR-1 #251(연합 인가 정합성·할당 변경 전파·SLO IdP 재시도) · PR-2 #252(감사 WAL 폴백·그룹·속성 규칙 할당) · PR-3 #253(코어 로그인 프런트) · PR-4 #254(Java 에이전트 저장소 분리) · PR-5 #255(SCIM 2.0 아웃바운드) · PR-6 #256(K8s 실배포 리허설) · PR-7 #257(AI 운영 보조, 선택) · PR-8 #258(감사 이상 탐지, 관찰 모드) · PR-9 #259(동의 카탈로그). 태그 `v1.1.0`. 1.0.x 패치는 `release/1.0`.
+
+### 1.1.0 업그레이드 메모
+
+- **DB**: 첫 기동에서 Flyway 가 hub V27~V30(shedlock·SLO 재시도·SCIM 아웃박스·이상 플래그), authz V5~V6(아웃박스 topic·피드 인덱스·규칙 할당), registry PostgreSQL V2 / MariaDB V10(동의 버전 범위)을 자동 적용한다. 되돌리는 마이그레이션은 없다 — 올리기 전 백업.
+- **동작 변경**: 규칙 파라미터로 할당 필수를 풀거나 셀프 가입을 열 수 없다(PR-1). prod/stage 에서 `idem.hub.authz.enabled=false` 는 기동 거부(PR-1). gate `POST /api/v1/internal/session/logout` 은 Keycloak 실패를 502 로 낸다(PR-1). Keycloak 기본 메모리 한도 1536Mi → 2Gi(PR-6). 감사 분류 `AUTHZ`·`SCIM` 추가(PR-1·PR-5). 웹훅 `platformVersion`/`X-Platform-Version` 기본값 `1.0` → `1.1.0`(`IDEM_HUB_PLATFORM_VERSION`).
+- **새 선택 구성**: 프로파일 `protocol.scim`(PR-5)·`consent`(PR-9), compose `--profile ai`/Helm `ai.*`(PR-7, 기본 꺼짐), `idem.hub.audit.anomaly.*`(PR-8, 기본 켜짐·관찰 모드 — 플래그만), 감사 WAL 디렉터리(PR-2, compose 볼륨·Helm `hub.auditWal`), `IDEM_HUB_AUTHZ_EVENTS_POLL_ENABLED`(PR-1, 기본 true).
+- **제거**: `idem-agent`·`idem-agent-testbed`(PR-4, 별도 저장소 번들로 전달). Java 에이전트 사용 기관은 1.0 연동 방식(OIDC·Handoff)으로 — 개발자 가이드 §10.
+- **설치본 검증**: CI 가 PR 마다 kind 에 Helm 설치→스모크→prod 전환→롤백→제거를 돈다(PR-6). 기관 클러스터 1회(`CLUSTER=existing`)와 설치본 스모크의 동의 단계는 남아 있다.
 
 ### 1.1 PR-9 · 동의 카탈로그 (플랜 §5 #8)
 

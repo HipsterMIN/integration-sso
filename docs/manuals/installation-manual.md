@@ -12,7 +12,7 @@
 | 데이터 | PostgreSQL 16 (compose 는 포함) · Redis 7 (포함). Kafka 없음 |
 | 네트워크 | 브라우저 → gate(공개 URL, TLS 종료는 리버스 프록시/Ingress) · 기관 RP → gate · 기관 서버 ← hub 웹훅(아웃바운드) · KR 에디션: hub → 본인확인 벤더 API |
 | 에디션 | core(Idem SSO + IM) / kr(코어 + KR 에디션 — SMES 회원·NICE/Any-ID 플러그인·회원 포털). kr 이미지는 벤더 SDK 를 빌드 때 넣는다 |
-| 소프트웨어 버전 | Idem 1.0.1 (태그 `v1.0.1`), Keycloak 24.0, Spring Boot 3.5 / Java 21 (이미지 안) |
+| 소프트웨어 버전 | Idem 1.1.0 (태그 `v1.1.0`), Keycloak 24.0, Spring Boot 3.5 / Java 21 (이미지 안) |
 
 ## 2. 입력값 준비
 
@@ -52,10 +52,10 @@ helm upgrade --install idem infra/helm/idem -n idem -f my-values.yaml -f infra/h
    ```bash
    IDEM_EDITION=core docker compose -f infra/docker/compose.install.yml build
    docker save idem-gate:latest idem-hub:latest-core idem-registry:latest-core idem-authz:latest idem-console-admin:latest \
-               postgres:16-alpine redis:7.2-alpine quay.io/keycloak/keycloak:24.0 -o idem-1.0.1-images.tar
+               postgres:16-alpine redis:7.2-alpine quay.io/keycloak/keycloak:24.0 -o idem-1.1.0-images.tar
    ```
-2. 반입: `idem-1.0.1-images.tar` + 저장소 `infra/`·`scripts/`·`docs/`(또는 `v1.0.1` 소스 tar) + Helm 은 `helm package infra/helm/idem`.
-3. 폐쇄망에서 `docker load -i idem-1.0.1-images.tar` 뒤 §3.1/§3.2 와 같다(`--build` 없이). K8s 는 사설 레지스트리에 `docker push` 하고 `global.imageRegistry` 를 준다.
+2. 반입: `idem-1.1.0-images.tar` + 저장소 `infra/`·`scripts/`·`docs/`(또는 `v1.1.0` 소스 tar) + Helm 은 `helm package infra/helm/idem`.
+3. 폐쇄망에서 `docker load -i idem-1.1.0-images.tar` 뒤 §3.1/§3.2 와 같다(`--build` 없이). K8s 는 사설 레지스트리에 `docker push` 하고 `global.imageRegistry` 를 준다.
 
 ## 4. 설치 확인 (완료 판정)
 
