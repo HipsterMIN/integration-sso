@@ -11,6 +11,7 @@ import org.springframework.util.AntPathMatcher;
  *   /api/v1/admin/admins/**           SYSTEM   SYSTEM (글로벌 범위만)
  *   /api/v1/admin/tenants/**          전 역할   SYSTEM (글로벌 범위만)
  *   /api/v1/admin/audit/**            전 역할   —
+ *   /api/v1/admin/anomalies/** (1.1)  전 역할   전 역할 (검토 기록 — AUDITOR 의 몫)
  *   /api/v1/admin/ai/**  (1.1 선택)   전 역할   SYSTEM·POLICY (profile-draft) — "그 외" 규칙과 같다
  *   /api/v1/admin/** (그 외)           전 역할   SYSTEM·POLICY
  *   DELETE /api/v1/handoff/{id}       —        SYSTEM·POLICY
@@ -32,6 +33,7 @@ public class AdminAuthorization {
             return read || (p.role() == AdminRole.SYSTEM_ADMIN && p.isGlobal());
         }
         if (matcher.match("/api/v1/admin/audit/**", path)) return read;
+        if (matcher.match("/api/v1/admin/anomalies/**", path)) return true;   // 1.1 관찰 모드: 검토(POST)는 감사자의 일 — 테넌트 범위는 서비스가 본다
         if (matcher.match("/actuator/**", path)) return p.role() == AdminRole.SYSTEM_ADMIN;
         if (read) return true;
         return p.role() == AdminRole.SYSTEM_ADMIN || p.role() == AdminRole.POLICY_ADMIN;

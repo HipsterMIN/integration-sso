@@ -6,6 +6,13 @@
 
 `docs/post-1.0-plan.md` §5. 1.0.x 패치는 `release/1.0`.
 
+### 1.1 PR-8 · 감사 로그 이상 탐지 — 관찰 모드 (플랜 §5 #7)
+
+- **아웃박스 이후 비동기 점수, 플래그만**: `AuditAnomalyScorer` 가 30초마다 커서(`audit_anomaly_cursor`, UUIDv7 순서) 뒤의 감사 행을 최대 200행 읽어 `AnomalyRules` 5개를 평가하고 `idem_hub.audit_anomaly_flag`(V30) 에 점수·심각도·축·근거를 남긴다. `audit_log` 는 불변, 경보·차단 없음, 인증 경로와 무관. 복제본은 커서 잠금(SKIP LOCKED)으로 하나만 돈다. 첫 실행은 현재 최대 `audit_id` 에 맞춘다(소급 없음), `lag-seconds` 창, WAL 재삽입 행은 제외. 기준 시각은 행의 `occurred_at`.
+- **규칙** (`docs/audit-anomaly.md`): `ADMIN_LOGIN_FAILURE_BURST`(10분 5건, 50+10×초과) · `ADMIN_NEW_SOURCE_IP`(30일 기준선, 첫 로그인 제외, 40) · `ADMIN_OFF_HOURS_WRITE`(`idem.hub.zone` 22~07시·주말, 30) · `AGENCY_FAILURE_BURST`(10분 20건 이상 **그리고** 7일 창 평균의 3배, 50+비율×5) · `TICKET_REPLAY`(10분 3건, 70). 축당 창 안 플래그 하나. 설정 `idem.hub.audit.anomaly.*`.
+- **검토가 산출물**: `GET/POST /api/v1/admin/anomalies/**`(목록·통계·검토, 전 역할 — AUDITOR 도 검토한다, 인가 매트릭스 별도 행; 테넌트 관리자는 `agencyCode` 필수) → 콘솔 "이상 징후"(필터·근거·정탐/오탐/모름·규칙별 정밀도·"판단"). 검토는 감사 `ADMIN/ANOMALY_REVIEWED`. **3개월 뒤**: 규칙당 검토 20건 이상에서 정밀도 0.7↑ 승격 후보, 0.3↓ 규칙 조정(§4). 지표 `audit.anomaly.scanned.total`·`audit.anomaly.flagged.total{rule}`. AI 장애 요약 스냅샷에 24시간 규칙별 플래그 수.
+- 테스트: `AnomalyRulesTest`·`AnomalyAdminControllerTest`·`AdminAuthorizationTest`(+anomalies·ai 행), IT `AuditAnomalyIntegrationTest`, 콘솔 `anomaly.test.ts`. 문서: `docs/audit-anomaly.md`, 관리자 매뉴얼 §12, 제품 설명서 F24, 시험 항목 G-10, 설치 입력, 운영 매뉴얼, 인가 매트릭스.
+
 ### 1.1 PR-7 · AI 운영 보조 — 선택 컨테이너 (플랜 §5 #6)
 
 - **세 가지 보조, 전부 관리 API 뒤·인증 경로 밖·저장 없음** (`/api/v1/admin/ai/**`, `AiAssistantService`): ① `POST /profile-draft` 자연어 → 프로파일 JSON 초안 — 서버가 `ServiceProfileValidator` 로 검증해 위반 목록을 같이 돌려주고, 기존 기관이면 `service.code`·테넌트 관리자면 `service.tenant` 를 고정한다. 콘솔 "AI 초안" 카드 → "JSON 탭에 넣기" → 저장은 관리자. ② `GET /audit-summary` 감사 요약 — `AuditDigest` 가 집계(분류·결과·행위·기관별, 실패 상위)와 표본 40행만 보낸다(IP·metadata 제외, 행위자 `ab***`), 테넌트 규칙은 감사 조회와 같다. ③ `GET /incident-summary` 장애 요약(전역 관리자) — `OpsSnapshotService` 가 health 구성요소·웹훅/SCIM 아웃박스·SLO 재시도 큐(상태별·5분 초과 PENDING·24h FAILED·마지막 오류)·감사 FAILURE 1h/24h·감사 유실/WAL 지표를 모으고 LLM 이 판정·확인 순서를 적는다. 콘솔 "AI 운영" 메뉴(스냅샷 표도 그대로 보인다).

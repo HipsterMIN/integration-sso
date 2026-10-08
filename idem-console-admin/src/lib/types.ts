@@ -161,3 +161,53 @@ export interface AiIncidentSummary {
   summary: string;
   model: string;
 }
+
+// ── 1.1 감사 이상 탐지 (관찰 모드, /api/v1/admin/anomalies, AnomalyAdminController) ──
+export type AnomalyReview = 'TRUE_POSITIVE' | 'FALSE_POSITIVE' | 'UNSURE';
+
+export interface AnomalyFlagItem {
+  flagId: string;
+  auditId: string;
+  rule: string;
+  score: number;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  subjectType: string;
+  subject: string;
+  details: string | null;
+  category: string;
+  action: string;
+  agencyCode: string | null;
+  actorId: string | null;
+  sourceIp: string | null;
+  correlationId: string | null;
+  occurredAt: string;
+  review: AnomalyReview | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+export interface AnomalyPage {
+  items: AnomalyFlagItem[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+export interface AnomalyRuleStat {
+  rule: string;
+  total: number;
+  truePositive: number;
+  falsePositive: number;
+  unsure: number;
+  unreviewed: number;
+  precision: number | null;
+}
+
+export interface AnomalyStats {
+  days: number;
+  byRule: AnomalyRuleStat[];
+  byDay: { day: string; rule: string; n: number }[];
+  cursor: { lastOccurredAt?: string | null; scannedTotal?: number; updatedAt?: string | null };
+}

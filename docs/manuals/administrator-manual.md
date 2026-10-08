@@ -77,6 +77,7 @@
 ## 10. 검증한 것 / 못 한 것
 
 - ✅ §1~§8 의 흐름은 관리 콘솔 실기동 끝-끝(S7 PR-2: 첫 로그인 2단계 등록 → 강제 변경 → 온보딩 저장 → client 프로비저닝 → secret 회전 → 시뮬레이션 → 감사 → 관리자 추가 → 테넌트 → 로그아웃 → 재로그인)과 CI 설치본 스모크로 확인했다.
+- ✅ 감사 이상 징후(§12)는 통합 테스트(`AuditAnomalyIntegrationTest`: 적재 → 점수 → 플래그 → 목록·통계 → 검토 → 감사)로 확인했다. 운영 기준선(3개월)은 설치 뒤 쌓인다.
 - ⚠️ AI 운영 보조(§11)는 단위 테스트(스키마 검증·마스킹·가드)와 콘솔 빌드로만 확인했다 — 실제 LLM 컨테이너와의 끝-끝은 `--profile ai` 설치본에서 운영자가 한 번 돌려 본다(응답 품질은 모델에 달렸다).
 - ⚠️ 콘솔에는 아직 없는 화면: 할당 관리(authz `assignments`)와 규칙 할당(1.1, authz `assignment-rules` — 지금은 내부 API 를 `X-Internal-Api-Key` 로 직접 호출: `POST /api/v1/internal/authz/assignment-rules {agencyCode, ruleType: GROUP|ATTRIBUTE, matchKey, matchValues[], expiresDays}`, `DELETE …/{id}`), SCIM 아웃바운드(1.1, 프로파일 `protocol.scim` 블록은 "JSON (전체 스키마)" 탭으로 편집; 상태·전체 동기화는 `GET/POST /api/v1/admin/services/{code}/scim/{status|sync}`), 기관 목록 페이징(500건 한 번에), TOTP QR 이미지(텍스트 URI 만). `post-1.0-plan.md` §2.3.
 
@@ -93,4 +94,13 @@
 - 모든 호출은 감사 `ADMIN / AI_PROFILE_DRAFT · AI_AUDIT_SUMMARY · AI_INCIDENT_SUMMARY` 로 남는다 — 내용은 남기지 않고 모델·크기·위반 수만.
 - LLM 출력은 참고다. 수치는 스냅샷·집계 표에서 직접 확인한다(화면에 같이 나온다). 사설망 밖 LLM 은 `IDEM_HUB_AI_ALLOW_PUBLIC_ENDPOINT=true` 를 명시해야 켜진다.
 - 오류 코드: `E-IDO-140`(꺼짐, 404) · `E-IDO-141`(LLM 호출 실패, 502) · `E-IDO-142`(응답 해석 실패) · `E-IDO-143`(요청 오류).
+
+## 12. 감사 이상 징후 — 관찰 모드 (1.1)
+
+메뉴 "이상 징후". 감사 기록이 저장된 뒤 비동기로 규칙 5개(관리자 로그인 실패 버스트 · 새 출처 IP · 업무 외 시간 쓰기 · 기관 실패 버스트 · Handoff 티켓 재검증 반복)를 평가해 **플래그만** 남긴다 — 경보·차단은 없고 인증 경로와 무관하다. 규칙·임계·근거는 `docs/audit-anomaly.md`.
+
+1. **검토**: 미검토 필터로 보고, 행을 펼쳐 근거(건수·창·기준선)·행위자·IP·correlationId 를 확인한 뒤 **정탐 / 오탐 / 모름** 을 누른다(메모 선택). 전 역할이 할 수 있다 — 감사자의 일이다. 검토는 감사 `ANOMALY_REVIEWED` 로 남는다.
+2. **기준선 표**: 아래 표가 최근 90일 규칙별 플래그·정탐·오탐·정밀도와 "판단"(승격 후보 / 규칙 조정 / 관찰 계속)을 보인다. 설치 뒤 약 3개월, 규칙당 검토 20건 이상 모이면 그 판단으로 경보 승격을 정한다.
+3. 테넌트 관리자는 기관 코드를 지정해야 하고 자기 기관의 플래그만 본다·검토한다.
+4. 플래그가 하루에 수십 건이면 임계를 올린다(`IDEM_HUB_AUDIT_ANOMALY_*`). 야간 점검이 잦은 설치본은 업무 외 시간 규칙의 오탐이 많다 — 정밀도대로 조정한다.
 
