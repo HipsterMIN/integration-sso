@@ -6,6 +6,13 @@
 
 `docs/post-1.0-plan.md` §5. 1.0.x 패치는 `release/1.0`.
 
+### 1.1 PR-7 · AI 운영 보조 — 선택 컨테이너 (플랜 §5 #6)
+
+- **세 가지 보조, 전부 관리 API 뒤·인증 경로 밖·저장 없음** (`/api/v1/admin/ai/**`, `AiAssistantService`): ① `POST /profile-draft` 자연어 → 프로파일 JSON 초안 — 서버가 `ServiceProfileValidator` 로 검증해 위반 목록을 같이 돌려주고, 기존 기관이면 `service.code`·테넌트 관리자면 `service.tenant` 를 고정한다. 콘솔 "AI 초안" 카드 → "JSON 탭에 넣기" → 저장은 관리자. ② `GET /audit-summary` 감사 요약 — `AuditDigest` 가 집계(분류·결과·행위·기관별, 실패 상위)와 표본 40행만 보낸다(IP·metadata 제외, 행위자 `ab***`), 테넌트 규칙은 감사 조회와 같다. ③ `GET /incident-summary` 장애 요약(전역 관리자) — `OpsSnapshotService` 가 health 구성요소·웹훅/SCIM 아웃박스·SLO 재시도 큐(상태별·5분 초과 PENDING·24h FAILED·마지막 오류)·감사 FAILURE 1h/24h·감사 유실/WAL 지표를 모으고 LLM 이 판정·확인 순서를 적는다. 콘솔 "AI 운영" 메뉴(스냅샷 표도 그대로 보인다).
+- **LLM**: OpenAI 호환 Chat Completions(`LlmClient`, Ollama·vLLM·LM Studio). `idem.hub.ai.*`(`IDEM_HUB_AI_ENABLED` 기본 false, `_BASE_URL`, `_MODEL`, 비밀 `_API_KEY`). **사설망·루프백 밖 엔드포인트는 `_ALLOW_PUBLIC_ENDPOINT=true` 없이는 켜지지 않는다**(데이터가 설치본 밖으로 안 나가게). 꺼지면 `/status` 만 200(콘솔이 메뉴를 숨긴다), 나머지 404 `E-IDO-140`; `E-IDO-141` LLM 실패, `E-IDO-142` 응답 해석 실패, `E-IDO-143` 요청 오류. 호출마다 감사 `ADMIN/AI_PROFILE_DRAFT·AI_AUDIT_SUMMARY·AI_INCIDENT_SUMMARY`(내용 없이 모델·크기·위반 수).
+- **설치본**: compose `--profile ai` 의 `idem-ai`(Ollama 0.6.8, 볼륨 `ai-models`, 포트 비공개) + hub 환경변수 pass-through; Helm `ai.*`(hub env, `ai.ollama.enabled` 면 `idem-ai` Deployment/Service, `apiKeySecret`), CI helm-lint 가 렌더·kubeconform. 콘솔 nginx 는 `/api/v1/admin/ai/` 만 읽기 타임아웃 180s.
+- 문서: 관리자 매뉴얼 §11, 제품 설명서 F23, 시험 항목 G-9, 설치 입력, 운영 매뉴얼, 인가 매트릭스(`docs/admin-auth.md`).
+
 ### 1.1 PR-6 · K8s 실배포 리허설 (플랜 §5 #5)
 
 - **`scripts/k8s/rehearsal.sh`**: Helm 차트를 실제 클러스터에 올려 끝까지 돈다 — `up`(kind + ingress-nginx + 리허설용 PostgreSQL 16·Redis 7) → `install`(비밀 한 벌 Secret, 자체 CA TLS Secret, `helm install --wait`; 리비전·Pod Ready·hub 프로파일·Service 에 관리 포트 없음(M7)·Ingress 호스트·관리 포트 health 검사) → `smoke`(TLS Ingress 경유 + registry·authz·관리 포트 port-forward 로 `install-smoke.sh` ①~⑧) → `upgrade`(운영 전환: prod 프로파일·Mock off, 리비전 2, MOCK 제공자 없음) → `rollback`(리비전 1 로, MOCK 복귀) → `down`(uninstall → Pod 0 → 클러스터 삭제). `CLUSTER=existing` 으로 기관 클러스터에도, `IMAGES=local|archive|registry` 로 이미지 출처를 고른다. 실패하면 Pod·이벤트·로그를 모은다. 코어 에디션만.

@@ -9,6 +9,7 @@
 | `idem-console-admin` | 켬 | 관리 콘솔 (Nginx, `/api/v1/admin/` → hub) |
 | `idem-kr-portal` | KR 만 | `values-kr.yaml` |
 | `idem-relay` | 끔 | Kafka 를 쓰는 배포에서만(`infra.kafka.enabled`) |
+| `idem-ai` | 끔 | 1.1 AI 운영 보조(선택) — `ai.enabled` + `ai.ollama.enabled` 면 Ollama 를 올린다. 기관의 온프레미스 LLM 을 쓰면 `ai.baseUrl` 만. 인증 경로에는 없다 |
 | PostgreSQL · Redis | 바깥 | `infra.postgres` / `infra.redis`. 스키마는 pre-install Job 이 `files/init-db.sql` 로 만든다 |
 
 ## 설치

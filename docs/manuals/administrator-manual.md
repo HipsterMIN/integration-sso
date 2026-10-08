@@ -77,4 +77,20 @@
 ## 10. 검증한 것 / 못 한 것
 
 - ✅ §1~§8 의 흐름은 관리 콘솔 실기동 끝-끝(S7 PR-2: 첫 로그인 2단계 등록 → 강제 변경 → 온보딩 저장 → client 프로비저닝 → secret 회전 → 시뮬레이션 → 감사 → 관리자 추가 → 테넌트 → 로그아웃 → 재로그인)과 CI 설치본 스모크로 확인했다.
+- ⚠️ AI 운영 보조(§11)는 단위 테스트(스키마 검증·마스킹·가드)와 콘솔 빌드로만 확인했다 — 실제 LLM 컨테이너와의 끝-끝은 `--profile ai` 설치본에서 운영자가 한 번 돌려 본다(응답 품질은 모델에 달렸다).
 - ⚠️ 콘솔에는 아직 없는 화면: 할당 관리(authz `assignments`)와 규칙 할당(1.1, authz `assignment-rules` — 지금은 내부 API 를 `X-Internal-Api-Key` 로 직접 호출: `POST /api/v1/internal/authz/assignment-rules {agencyCode, ruleType: GROUP|ATTRIBUTE, matchKey, matchValues[], expiresDays}`, `DELETE …/{id}`), SCIM 아웃바운드(1.1, 프로파일 `protocol.scim` 블록은 "JSON (전체 스키마)" 탭으로 편집; 상태·전체 동기화는 `GET/POST /api/v1/admin/services/{code}/scim/{status|sync}`), 기관 목록 페이징(500건 한 번에), TOTP QR 이미지(텍스트 URI 만). `post-1.0-plan.md` §2.3.
+
+## 11. AI 운영 보조 (1.1, 선택)
+
+설치본이 `IDEM_HUB_AI_ENABLED=true`(compose `--profile ai` 의 Ollama 컨테이너 또는 기관의 온프레미스 LLM, `docs/install-inputs.md`)로 켜져 있을 때만 보인다. 꺼져 있으면 버튼·메뉴가 없다(`GET /api/v1/admin/ai/status`). **인증 경로와 무관하다** — 관리 API 뒤에서만 돌고, 아무것도 저장하지 않는다.
+
+| 어디서 | 무엇 | 보내는 것 | 역할 |
+|---|---|---|---|
+| 기관 상세 → 프로파일 폼 위 "AI 초안" | 자연어 요청 → 프로파일 JSON 초안. 서버가 스키마로 검증해 위반 목록을 함께 준다. "JSON 탭에 넣기" 뒤 **저장은 관리자가 검토해 누른다**(기존 기관이면 코드 고정, 테넌트 관리자는 자기 테넌트로 고정) | 요청 문장 + (선택) 현재 프로파일 + 스키마 | SYSTEM·POLICY |
+| 감사 → "AI 요약" | 현재 필터의 기록을 집계(분류·결과·행위·기관별 건수, 실패 상위)해 요약 | **집계와 표본 40행만** — IP·metadata 는 빼고 행위자 ID 는 앞 두 글자만 | 전 역할(테넌트 관리자는 기관 코드 필수) |
+| "AI 운영" 메뉴 → "지금 상태 요약" | 운영 스냅샷(health 구성요소, 웹훅·SCIM 아웃박스·SLO 재시도 큐의 상태별 건수·5분 초과 PENDING·24h FAILED·마지막 오류, 감사 FAILURE 1h/24h, 감사 유실·WAL 지표)을 읽고 정상/주의/장애 의심 판정과 확인 순서 | 건수·상태·지표만 | 전역 관리자 |
+
+- 모든 호출은 감사 `ADMIN / AI_PROFILE_DRAFT · AI_AUDIT_SUMMARY · AI_INCIDENT_SUMMARY` 로 남는다 — 내용은 남기지 않고 모델·크기·위반 수만.
+- LLM 출력은 참고다. 수치는 스냅샷·집계 표에서 직접 확인한다(화면에 같이 나온다). 사설망 밖 LLM 은 `IDEM_HUB_AI_ALLOW_PUBLIC_ENDPOINT=true` 를 명시해야 켜진다.
+- 오류 코드: `E-IDO-140`(꺼짐, 404) · `E-IDO-141`(LLM 호출 실패, 502) · `E-IDO-142`(응답 해석 실패) · `E-IDO-143`(요청 오류).
+

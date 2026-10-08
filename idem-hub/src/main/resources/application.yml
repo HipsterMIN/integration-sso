@@ -517,6 +517,21 @@ idem.hub:
     # 프로파일 baseUrl 에 루프백·사설망 호스트를 허용할지 (SSRF 규칙). 사설망 기관을 붙이는 폐쇄망 설치본만 true
     allow-private-hosts: ${IDEM_HUB_SCIM_ALLOW_PRIVATE_HOSTS:false}
 
+  # ── 1.1 AI 운영 보조 (선택 컨테이너) — 관리 콘솔의 프로파일 초안·감사 요약·장애 요약. 인증 경로에는 없다 ─────
+  # OpenAI 호환 Chat Completions({base-url}/chat/completions) — Ollama(http://idem-ai:11434/v1)·vLLM·LM Studio.
+  # 기본 설치에서는 꺼져 있다. 엔드포인트가 사설망·루프백이 아니면 allow-public-endpoint 없이는 켜지지 않는다(데이터가 밖으로 안 나가게).
+  ai:
+    enabled: ${IDEM_HUB_AI_ENABLED:false}
+    base-url: ${IDEM_HUB_AI_BASE_URL:http://idem-ai:11434/v1}
+    model: ${IDEM_HUB_AI_MODEL:qwen2.5:7b}
+    api-key: ${IDEM_HUB_AI_API_KEY:}                       # 비밀 — vLLM·게이트웨이가 요구할 때만
+    allow-public-endpoint: ${IDEM_HUB_AI_ALLOW_PUBLIC_ENDPOINT:false}
+    connect-timeout-ms: 3000
+    read-timeout-ms: ${IDEM_HUB_AI_READ_TIMEOUT_MS:90000}   # 온프레미스 7B 모델은 수십 초
+    max-tokens: 1500
+    temperature: 0.2
+    audit-sample-rows: 40                                  # 감사 요약에 표본으로 보내는 행 수(집계는 전부)
+
   # ── Rate Limiting (Redis 기반 기관별 TPS/Daily 제한) ──────────────────────
   rate-limit:
     enabled:              ${IDEM_HUB_RATE_LIMIT_ENABLED:true}

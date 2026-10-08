@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { post } from '../lib/api';
+import { draftText, pinDraft } from '../lib/ai';
 import { AUTH_LEVELS, CLIENT_AUTH_METHODS, PROTOCOL_TYPES, SUBJECT_SCHEMES, fromProfile, toProfile, validate, type ProfileForm as Form } from '../lib/profile';
-import type { Profile } from '../lib/types';
-import { Alert, Field } from '../ui';
+import type { AiDraft, Profile } from '../lib/types';
+import { Alert, ErrorBox, Field } from '../ui';
 
 interface Props {
   initial: Form;
@@ -9,10 +11,14 @@ interface Props {
   codeLocked: boolean;
   busy: boolean;
   onSubmit: (profile: Profile, reason: string) => void;
+  /** 1.1 AI 운영 보조가 켜진 설치본이면 자연어 → 초안 카드를 보인다 (초안은 JSON 탭에 들어갈 뿐, 저장은 관리자의 저장 버튼) */
+  aiEnabled?: boolean;
+  /** 기존 기관이면 그 코드 — 초안의 service.code 를 이 값으로 고정한다 */
+  lockedCode?: string | null;
 }
 
 /** 온보딩·편집 폼. "JSON" 탭은 같은 문서를 직접 편집한다(스키마의 모든 키). */
-export function ProfileForm({ initial, base, codeLocked, busy, onSubmit }: Props) {
+export function ProfileForm({ initial, base, codeLocked, busy, onSubmit, aiEnabled = false, lockedCode = null }: Props) {
   const [f, setF] = useState<Form>(initial);
   const [mode, setMode] = useState<'form' | 'json'>('form');
   const [json, setJson] = useState('');
@@ -39,8 +45,19 @@ export function ProfileForm({ initial, base, codeLocked, busy, onSubmit }: Props
   };
 
   const oidc = f.type === 'OIDC_RP';
+  /** AI 초안을 JSON 탭에 넣는다 — 폼 값은 JSON 탭에서 "폼" 으로 돌아올 때 다시 읽힌다 */
+  const applyDraft = (draft: Profile) => {
+    setJson(draftText(pinDraft(draft, lockedCode)));
+    setJsonError(null);
+    setMode('json');
+  };
+  const currentDoc = (): Profile => {
+    if (mode === 'json') { try { return JSON.parse(json) as Profile; } catch { return toProfile(f, base); } }
+    return toProfile(f, base);
+  };
   return (
     <div>
+      {aiEnabled && <AiDraftCard lockedCode={lockedCode} current={currentDoc} onApply={applyDraft} />}
       <div className="tabs">
         <button type="button" className={mode === 'form' ? 'active' : ''} onClick={() => switchMode('form')}>폼</button>
         <button type="button" className={mode === 'json' ? 'active' : ''} onClick={() => switchMode('json')}>JSON (전체 스키마)</button>
@@ -118,3 +135,42 @@ export function ProfileForm({ initial, base, codeLocked, busy, onSubmit }: Props
     </div>
   );
 }
+
+/** 1.1 AI 운영 보조 — 자연어 요청 → 프로파일 초안. 서버가 스키마 검증 결과를 함께 주며 저장하지 않는다. */
+function AiDraftCard({ lockedCode, current, onApply }: { lockedCode: string | null; current: () => Profile; onApply: (draft: Profile) => void }) {
+  const [prompt, setPrompt] = useState('');
+  const [useCurrent, setUseCurrent] = useState(!!lockedCode);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [result, setResult] = useState<AiDraft | null>(null);
+  const run = async () => {
+    if (!prompt.trim()) return;
+    setBusy(true); setError(null); setResult(null);
+    try {
+      setResult(await post<AiDraft>('/ai/profile-draft', { prompt: prompt.trim(), serviceCode: lockedCode ?? undefined, base: useCurrent ? current() : undefined }));
+    } catch (e) { setError(e); } finally { setBusy(false); }
+  };
+  return (
+    <div className="card" style={{ background: '#f8fafc' }}>
+      <div className="card-head"><h2>AI 초안 (선택)</h2><span className="muted">초안은 JSON 탭에 들어갈 뿐입니다 — 검토 후 저장 버튼을 눌러야 반영됩니다</span></div>
+      <Field label="요청 (자연어)" hint="예: 표준 OIDC 로 붙는 세무 민원 포털, redirect https://tax.example.org/cb, L2 이상, 할당된 사용자만">
+        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} maxLength={4000} style={{ minHeight: 60 }} />
+      </Field>
+      <div className="row">
+        <button type="button" className="btn secondary small" disabled={busy || !prompt.trim()} onClick={() => void run()}>{busy ? '만드는 중…' : '초안 만들기'}</button>
+        <label><input type="checkbox" checked={useCurrent} onChange={(e) => setUseCurrent(e.target.checked)} /> 현재 문서를 출발점으로</label>
+      </div>
+      <ErrorBox error={error} />
+      {result && (
+        <>
+          {result.violations.length === 0
+            ? <Alert kind="ok">{result.note} (모델 {result.model})</Alert>
+            : <Alert kind="warn"><div>{result.note} (모델 {result.model})</div><ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>{result.violations.map((v) => <li key={v}>{v}</li>)}</ul></Alert>}
+          <pre className="mono" style={{ maxHeight: 260, overflow: 'auto', background: '#fff', border: '1px solid var(--line)', padding: 8 }}>{draftText(result.draft)}</pre>
+          <button type="button" className="btn small" onClick={() => onApply(result.draft)}>JSON 탭에 넣기</button>
+        </>
+      )}
+    </div>
+  );
+}
+

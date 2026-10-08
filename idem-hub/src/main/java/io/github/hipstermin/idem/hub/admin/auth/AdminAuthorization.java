@@ -11,6 +11,7 @@ import org.springframework.util.AntPathMatcher;
  *   /api/v1/admin/admins/**           SYSTEM   SYSTEM (글로벌 범위만)
  *   /api/v1/admin/tenants/**          전 역할   SYSTEM (글로벌 범위만)
  *   /api/v1/admin/audit/**            전 역할   —
+ *   /api/v1/admin/ai/**  (1.1 선택)   전 역할   SYSTEM·POLICY (profile-draft) — "그 외" 규칙과 같다
  *   /api/v1/admin/** (그 외)           전 역할   SYSTEM·POLICY
  *   DELETE /api/v1/handoff/{id}       —        SYSTEM·POLICY
  *   /actuator/** (health·info·prometheus 제외)  SYSTEM   SYSTEM

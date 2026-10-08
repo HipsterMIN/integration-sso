@@ -8,6 +8,7 @@
 {{- if .Values.relay.enabled }}{{ $svcs = append $svcs (dict "name" "idem-relay" "port" 8090) }}{{ end }}
 {{- if .Values.consoleAdmin.enabled }}{{ $svcs = append $svcs (dict "name" "idem-console-admin" "port" 80) }}{{ end }}
 {{- if .Values.krPortal.enabled }}{{ $svcs = append $svcs (dict "name" "idem-kr-portal" "port" 80) }}{{ end }}
+{{- if and .Values.ai.enabled .Values.ai.ollama.enabled }}{{ $svcs = append $svcs (dict "name" "idem-ai" "port" 11434) }}{{ end }}
 {{- range $svcs }}
 apiVersion: v1
 kind: Service
