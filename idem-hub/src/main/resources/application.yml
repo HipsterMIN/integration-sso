@@ -349,7 +349,7 @@ idem.hub:
       history: 3
 
   # 플랫폼 API 버전 (Webhook 헤더, Payload 등에 사용)
-  platform-version: ${IDEM_HUB_PLATFORM_VERSION:1.1.0}
+  platform-version: ${IDEM_HUB_PLATFORM_VERSION:1.1.1}
   # D3: 이 설치본의 플랫폼 코드 — CAST(기관 간 SSO) 의 sourceAgency 등 (종전 고정값 "ONEPASS")
   platform:
     code: ${IDEM_PLATFORM_CODE:IDEM}

@@ -2,8 +2,8 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # 오프라인(폐쇄망) 설치본 만들기 (플랜 §2.2 PR-G1-2, 시험 항목 G-6) — 인터넷이 되는 곳에서 한 번 돌려 반입할 꾸러미를 만든다.
 #
-#   scripts/release/make-offline-bundle.sh                                   # VERSION = HEAD 의 v* 태그(v1.1.0 → 1.1.0), 없으면 build.gradle.kts
-#   VERSION=1.1.0 IDEM_EDITION=core IMAGES=build scripts/release/make-offline-bundle.sh
+#   scripts/release/make-offline-bundle.sh                                   # VERSION = HEAD 의 v* 태그(v1.1.1 → 1.1.1), 없으면 build.gradle.kts
+#   VERSION=1.1.1 IDEM_EDITION=core IMAGES=build scripts/release/make-offline-bundle.sh
 #
 # 산출물 (OUT_DIR, 기본 dist/idem-<VERSION>-<EDITION>/):
 #   idem-<VERSION>-<EDITION>-images.tar   Idem 이미지 — compose.install.yml 의 이름·태그 그대로(idem-gate:<V> · idem-hub:<V>-<ED> · idem-registry:<V>-<ED>
@@ -50,7 +50,7 @@ if [ -z "${VERSION:-}" ]; then
   if [ -n "$tag" ]; then VERSION="${tag#v}"
   else VERSION=$(grep -m1 -E '^\s*version\s*=\s*"' "$ROOT/build.gradle.kts" | sed -E 's/.*"([^"]+)".*/\1/'); fi
 fi
-[ -n "$VERSION" ] || fail "VERSION 을 정하지 못했습니다 — VERSION=1.1.0 처럼 지정하세요"
+[ -n "$VERSION" ] || fail "VERSION 을 정하지 못했습니다 — VERSION=1.1.1 처럼 지정하세요"
 GIT_SHA=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
 SRC_REF="HEAD"
 git -C "$ROOT" rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null 2>&1 && SRC_REF="v$VERSION"
