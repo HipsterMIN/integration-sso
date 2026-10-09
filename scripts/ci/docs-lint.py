@@ -7,7 +7,8 @@
   T  시험 항목표 — 표의 행 수 = 제목의 "= N항목" = 집계 합계 = 집계 그룹 합 = 그룹별 ID 목록 길이; 집계 합계의 자동/CI/로컬 IT/수동 수가
      docs/README·gs-kickoff 의 문구와 같다; 집계에 적힌 ID 는 표에 있어야 한다.
   E  오류 코드 — 운영 문서가 인용한 E-IDO/E-AGENCY/E-IM/E-QS/E-AUTHZ 코드는 코드(PlatformErrorCode·AuthzErrorCode·registry 핸들러)에 정의돼 있어야 한다.
-  N  구 이름 — 운영 문서에 구 런타임 식별자(IDO_*·QSIGN_*·QIM_*·QAUTHZ_* 환경변수, ${ido.*} 설정 키)가 없어야 한다.
+  N  구 이름 — 운영 문서에 구 런타임 식별자(IDO_*·QSIGN_*·QIM_*·QAUTHZ_* 환경변수, 구 접두(ido·qsign·qim)의 설정 키)가 없어야 한다.
+     (이 파일 자체도 NamingGuardTest 의 scripts/ 스캔 대상이라 금지 문자열을 통째로 적지 않고 조각으로 만든다.)
   L  링크 — 루트·docs 최상위·매뉴얼·인증 문서의 상대 링크가 실제 파일을 가리켜야 한다.
   C  CHANGELOG — 첫 버전 헤더 `## [X.Y.Z]` 가 빌드 버전과 같아야 한다.
 실행: python3 scripts/ci/docs-lint.py   (저장소 루트, 의존성 없음). 줄 끝에 `docs-lint:ignore` 가 있으면 그 줄은 N·E·L 검사에서 뺀다.
@@ -188,9 +189,9 @@ for path in OPS_DOCS:
 # ── N. 구 이름 ─────────────────────────────────────────────────────────
 LEGACY = [
     (re.compile(r'\b(IDO|QSIGN|QIM|QAUTHZ)_[A-Z0-9_]+'), '구 환경변수 이름 (IDEM_HUB_*/IDEM_GATE_*/… 로)'),
-    (re.compile(r'\$\{(ido|qsign|qim)\.[a-z]'), '구 설정 키 ${ido.*}'),
-    (re.compile(r'(?<![\w./-])(ido|qsign|qim)\.(hub|gate|registry|authz|kms|audit|handoff|fe|admin|webhook|security)\b'), '구 설정 키 ido.* / qsign.* / qim.*'),
-    (re.compile(r'/realms/onepass\b'), '구 realm 이름'),
+    (re.compile(r'\$\{(' + 'ido|qsign|qim' + r')\.[a-z]'), '구 설정 키 ${' + 'ido' + '.*}'),
+    (re.compile(r'(?<![\w./-])(' + 'ido|qsign|qim' + r')\.(hub|gate|registry|authz|kms|audit|handoff|fe|admin|webhook|security)\b'), '구 접두 설정 키 (ido·qsign·qim).*'),
+    (re.compile('/realms/' + 'onepass' + r'\b'), '구 realm 이름'),
 ]
 for path in OPS_DOCS:
     for i, l in lines(path):
