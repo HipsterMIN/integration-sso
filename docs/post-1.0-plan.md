@@ -67,6 +67,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 - `POST /api/v1/admin/agencies/{code}/webhook/rotate-secret`: 비밀 생성·해시 저장·응답 1회 노출, `agency_webhook_config.signing_secret_hash` 의 의미 정리(현재 원문 저장 위치로 쓰임 — 발송 시 원문이 필요하므로 KMS 봉인 저장으로 바꾼다). 운영 가이드 §3 갱신.
 - hub `/actuator/prometheus` 등록(관리 포트). 시험 항목 G-3 의 "hub 미등록" 제한 해소.
 - 완료 기준: UT, 설치본 스모크에 지표 200 확인 1줄 추가.
+- **2026-10-09 상태**: 완료(PR-G1-4). 회전 API `POST /api/v1/admin/agencies/{code}/webhook/rotate-secret` + `GET …/webhook`, `signing_secret_sealed`(V31, KMS 봉인)·해시는 지문용, 1.0.x 원문 행은 첫 기동에 봉인. 조사에서 드러난 결함 2건도 수리(관리 API 로 만든 기관의 웹훅 설정 INSERT 가 FK(미flush)·NOT NULL 에 걸려 조용히 실패, `webhook_enabled` 를 켜는 코드 없음). Prometheus 는 **네 앱 모두** 레지스트리가 없었다(hub 만이 아니라) → 네 앱에 추가, 스모크 ⑧a·prod 단계·리허설이 200 을 본다. 경로는 플랜의 `/api/v1/admin/agencies/{code}/webhook/rotate-secret` 그대로(기존 `rotate-key` 와 나란히; 2.0 개명 때 `/services/` 로).
 
 ### 2.5 PR-G1-5 · 1.0.2 동결 (2일)
 
@@ -163,4 +164,5 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 | 2026-10-08 | PR-8 = #258(CI 통과, 머지 대기). PR-9 = §5 #8 동의 카탈로그: registry `consent_version.service_code`(V2) + 발행/종료/미동의 내부 API, hub `ConsentRegistryClient`·관리 API(`/api/v1/admin/consents`·`/services/{code}/consents`)·콘솔, 프로파일 `consent {enabled, includePlatform}`, 코어 로그인 프런트 동의 단계(필수 미동의 때만 화면, form POST `…/login/consent`, CSP form-action 'self' 그 경로만, 거부 `E-IDO-125`, registry 장애는 발급 거부). 이로써 §5 1.1 항목 8건이 모두 PR 로 올라갔다 — 남은 완료 기준: `v1.1.0` 태그(사용자), 설치본 스모크에 동의 단계 추가 여부 결정. KR 포털의 구 동의 경로(`/api/v1/ext/consent*`)는 hub 에 없음 — KR 후속 |
 | 2026-10-08 | #258·#259 머지(main 6abb5a7) — §5 1.1 항목 8건 완료. 버전 커밋 1.1.0(PR-10): 루트 `build.gradle.kts`·Helm Chart·콘솔 package·현재 버전 문구(CLAUDE/AGENTS/README)·제품 설명서·설치 매뉴얼·시험 항목표 제목(67항목)·GS 착수 문서(시험 대상 1.1.0)·연동 가이드 버전 표·SDK README/CHANGELOG, 웹훅 `platformVersion` 기본 1.1.0, CHANGELOG `[1.1.0]` + 업그레이드 메모. 태그 `v1.1.0` 은 머지 커밋에 사용자가 만든다(`v1.0.1` 태그 미생성 확인 — §1 #8) |
 | 2026-10-08 | #260 머지(main 7eb263e) → 태그 `v1.1.0`(사용자 push, e74f494). `v1.0.1` 태그는 건너뜀(§1 #8). G1 착수 — PR-G1-2: 오프라인 설치본·백업·복구 스크립트 + CI 자동 검증(스모크 백업→새 DB 복구→대조, `offline-bundle-check`) + 매뉴얼. G1 동결은 1.1.1 |
+| 2026-10-09 | #261 머지(main f854f67). PR-G1-4: 웹훅 서명 비밀 KMS 봉인 + 회전 API·콘솔 카드 + 네 앱 Prometheus 레지스트리(1.0.x 전부 404 였음 — G-3 정정) + 결함 2건 수리(웹훅 설정 INSERT 조용한 실패, webhook_enabled 미반영) + 스모크 ⑧a·⑧b. 시험 항목 B-15, 집계 68 |
 

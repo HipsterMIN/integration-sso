@@ -73,6 +73,7 @@
 | 장애 "로그인이 거부된다" | 시뮬레이션(§5) → 감사(§8, `correlationId`) → hub 로그 `[PolicyEngine]` |
 | 장애 "client 프로비저닝 실패" | Keycloak 헬스 → `idem-provisioner` secret → hub 로그 `[OidcRpClientProvisioner]` → 프로파일 재저장 |
 | 업그레이드·백업 | `installation-manual.md` §5·§6 |
+- **웹훅 서명 비밀 회전 (1.1.1)**: 기관 상세 → "웹훅 서명 비밀" 카드 → **서명 비밀 회전** → 한 번만 보이는 새 비밀을 기관 수신기 담당자에게 전달한다. 서버에는 KMS 봉인값과 지문(해시 앞 8자)만 남는다. 구 비밀은 즉시 무효이므로 기관이 두 비밀을 잠시 함께 받도록 준비한 뒤 회전한다. 엔드포인트가 없는 기관(카드에 "웹훅 엔드포인트가 없습니다")은 기관 등록·수정 API 의 `webhookEndpoint` 로 먼저 둔다. 비밀이 없는 기관에는 웹훅이 나가지 않고 감사 `WEBHOOK_DISPATCH_FAILED(NO_SIGNING_SECRET)` 만 남는다.
 
 ## 10. 검증한 것 / 못 한 것
 

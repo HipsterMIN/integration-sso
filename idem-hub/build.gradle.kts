@@ -73,6 +73,7 @@ dependencies {
     // Tenant Profile JSON Schema 검증 (범용화 S2) — 1.5.x 는 Jackson 2 계열
     implementation("com.networknt:json-schema-validator:1.5.9")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")   // 1.1.1 G1-4: /actuator/prometheus (종전에는 노출 설정만 있고 레지스트리가 없어 404)
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.postgresql:postgresql")

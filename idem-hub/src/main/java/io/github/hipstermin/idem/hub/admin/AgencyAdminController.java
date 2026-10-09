@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
  *   <li>POST   /api/v1/admin/agencies/{code}/activate   — 기관 활성화</li>
  *   <li>POST   /api/v1/admin/agencies/{code}/deactivate — 기관 비활성화</li>
  *   <li>POST   /api/v1/admin/agencies/{code}/rotate-key — API Key 로테이션</li>
+ *   <li>POST   /api/v1/admin/agencies/{code}/webhook/rotate-secret — 웹훅 서명 비밀 회전 (1.1.1), GET …/webhook 상태</li>
  *   <li>GET    /api/v1/admin/agencies/{code}/history    — 변경 이력 조회</li>
  *   <li>GET    /api/v1/admin/agencies/{code}/stats      — 연동 통계 조회</li>
  * </ol>
@@ -150,6 +151,30 @@ public class AgencyAdminController {
         tenantScope.checkService(admin, agencyCode);
         Map<String, String> result = agencyAdminService.rotateApiKey(agencyCode, admin.username());
         return ResponseEntity.ok(result);
+    }
+
+    // ──────────────────────────────────────────────────────
+    // 7b. 웹훅 서명 비밀 회전 · 상태 (1.1.1 G1-4) — 비밀은 응답에서 1회만, 저장은 KMS 봉인
+    // POST /api/v1/admin/agencies/{agencyCode}/webhook/rotate-secret
+    // GET  /api/v1/admin/agencies/{agencyCode}/webhook
+    // ──────────────────────────────────────────────────────
+
+    @PostMapping("/{agencyCode}/webhook/rotate-secret")
+    public ResponseEntity<Map<String, Object>> rotateWebhookSecret(
+            @PathVariable String agencyCode,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
+
+        log.warn("[AdminCtrl] 웹훅 서명 비밀 회전: agencyCode={} adminId={}", agencyCode, admin.username());
+        tenantScope.checkService(admin, agencyCode);
+        return ResponseEntity.ok(agencyAdminService.rotateWebhookSecret(agencyCode, admin.username()));
+    }
+
+    @GetMapping("/{agencyCode}/webhook")
+    public ResponseEntity<Map<String, Object>> webhookStatus(
+            @PathVariable String agencyCode,
+            io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
+        tenantScope.checkService(admin, agencyCode);
+        return ResponseEntity.ok(agencyAdminService.webhookStatus(agencyCode));
     }
 
     // ────────────────────────────────────────────────────────────────────────

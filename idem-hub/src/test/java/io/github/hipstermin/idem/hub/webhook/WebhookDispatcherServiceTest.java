@@ -43,6 +43,7 @@ class WebhookDispatcherServiceTest {
 
     @Mock JdbcTemplate        jdbcTemplate;
     @Mock AuditLogPublisher   auditLogPublisher;
+    @Mock WebhookSigningSecrets signingSecrets;
 
     WebhookDispatcherService sut;
 
@@ -53,7 +54,7 @@ class WebhookDispatcherServiceTest {
 
     @BeforeEach
     void setUp() {
-        sut = new WebhookDispatcherService(jdbcTemplate, new ObjectMapper(), auditLogPublisher);
+        sut = new WebhookDispatcherService(jdbcTemplate, new ObjectMapper(), auditLogPublisher, signingSecrets);
         ReflectionTestUtils.setField(sut, "defaultMaxRetry",     3);
         ReflectionTestUtils.setField(sut, "defaultSigningSecret", DEFAULT_SECRET);
         // Sprint α-3 / F4.3 — 기본 테스트는 default secret이 주입된 상태이므로 escape hatch 비활성.
@@ -170,7 +171,7 @@ class WebhookDispatcherServiceTest {
     class ValidateSigningSecretTests {
 
         private WebhookDispatcherService freshSut() {
-            return new WebhookDispatcherService(jdbcTemplate, new ObjectMapper(), auditLogPublisher);
+            return new WebhookDispatcherService(jdbcTemplate, new ObjectMapper(), auditLogPublisher, signingSecrets);
         }
 
         @Test

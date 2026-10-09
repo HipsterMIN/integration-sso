@@ -85,6 +85,8 @@ public enum PlatformErrorCode {
     IDO_OIDC_CLIENT_UNKNOWN("E-IDO-123", HttpStatus.FORBIDDEN, "Idem 이 프로비저닝한 OIDC 클라이언트가 아닙니다."),
     // 1.1 동의 카탈로그 (플랜 §5 #8) — 코어 로그인 프런트가 콜백 error 로 돌려준다 (E-IDO-124 는 비워 둔다)
     IDO_CONSENT_DECLINED("E-IDO-125", HttpStatus.FORBIDDEN, "사용자가 필수 동의를 거부했습니다."),
+    /** 1.1.1 G1-4: 웹훅 엔드포인트가 등록되지 않은 기관에 서명 비밀 회전을 요청. */
+    IDO_WEBHOOK_NOT_CONFIGURED("E-IDO-126", HttpStatus.NOT_FOUND, "이 기관에는 웹훅 엔드포인트가 등록되지 않았습니다."),
     // S7 관리자 인증 (E-IDO-13x)
     ADMIN_UNAUTHENTICATED("E-IDO-130", HttpStatus.UNAUTHORIZED, "관리자 인증이 필요합니다."),
     ADMIN_FORBIDDEN("E-IDO-131", HttpStatus.FORBIDDEN, "이 관리 작업을 수행할 권한이 없습니다."),

@@ -125,7 +125,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://www.xxxx.go.kr/idem/web
 |---|---|---|---|
 | 기관 API 키 | 운영기관 `POST /api/v1/admin/agencies/{code}/rotate-key` | 응답에 새 키가 **한 번만** 나온다. 서버는 해시만 저장하므로 다시 볼 수 없다 | 구 키는 즉시 무효 — **병행 기간 없음**. 기관 배포 창을 맞춘 뒤 회전하고, 기관은 새 키를 받는 즉시 재기동 |
 | OIDC client secret | 운영기관 `POST /api/v1/admin/services/{code}/oidc-client/secret` | 응답에 secret 한 번만. 기관 설정 교체 후 재기동 | 시험 중 만든 secret 은 승인 전에 한 번 더 회전한다(온보딩 가이드) |
-| 웹훅 서명 비밀 | 운영기관 | 1.0.x 에는 회전 관리 API 가 없다 — 운영기관 DB 작업(`idem_hub.agency_webhook_config`) | 기관 수신기는 신·구 두 비밀을 잠시 함께 받도록 만들면 무중단 |
+| 웹훅 서명 비밀 | 운영기관 `POST /api/v1/admin/agencies/{code}/webhook/rotate-secret` (1.1.1; 콘솔 기관 상세 "웹훅 서명 비밀" 카드) | 응답에 비밀이 **한 번만** 나온다. 서버는 KMS 봉인값과 SHA-256 지문만 저장하고(`GET …/webhook` 으로 지문·회전 시각 확인) 원문은 다시 볼 수 없다. 비밀이 없는 기관에는 발송되지 않는다(`WEBHOOK_DISPATCH_FAILED/NO_SIGNING_SECRET`) | 구 비밀은 즉시 무효 — 기관 수신기는 신·구 두 비밀을 잠시 함께 받도록 만들면 무중단. 1.0.x 는 DB 작업이었다 |
 | 콜백·redirect URI | 운영기관 프로파일 PUT (`protocol.oidc.redirectUris` / `protocol.endpoints.callbackWhitelist`) | `X-Change-Reason` 헤더로 사유 기록 | OIDC_RP 는 저장 시 Keycloak client 가 갱신된다 |
 | CAST 공개키 | 운영기관 `IDEM_HUB_CAST_PRIVATE_KEY` 교체 | 기관은 `GET /api/v1/agency/cast/public-key` 재조회 | 캐시하면 TTL 을 짧게 |
 

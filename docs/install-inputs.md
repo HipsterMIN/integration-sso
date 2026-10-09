@@ -29,7 +29,7 @@
 | `KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET` | hex-32 | Keycloak client `idem-session-manager` · gate(단일 로그아웃) | 같음 |
 | `IDEM_HUB_HANDOFF_AES_KEY` | b64-32 | hub Handoff 티켓 암호화 | 발급된 티켓(수 분) 무효 |
 | `IDEM_HUB_HANDOFF_HMAC_KEY` | b64-32 | hub Handoff 티켓 서명 | 같음 |
-| `IDEM_HUB_WEBHOOK_SIGNING_SECRET` | hex-32 | hub(·relay) 기관 웹훅 서명 | 기관에 새 값 전달 |
+| `IDEM_HUB_WEBHOOK_SIGNING_SECRET` | hex-32 | hub 기동 검증용(F4.3 가드) — **1.1.1 부터 실제 서명은 기관별 비밀**(KMS 봉인, `POST /api/v1/admin/agencies/{code}/webhook/rotate-secret`)로 하고 이 값은 쓰이지 않는다(테스트 폴백만). 2.0 에서 제거 예정 | 기관 비밀 회전은 관리 API 로 |
 | `IDEM_REGISTRY_AES_SHARED_KEY` | b64-32 | hub 만 읽는다(registry 로 보내는 CI 봉인; registry 쪽은 `IDEM_REGISTRY_CI_AES_KEY_V1`) | hub 재기동 |
 | `IDEM_REGISTRY_DI_SECRET` | hex-32 | registry 기관별 식별자(DI) HMAC | **바꾸면 모든 기관 식별자가 바뀐다 — 사실상 회전 불가** |
 | `IDEM_REGISTRY_CI_AES_KEY_V1` | b64-32 | registry 저장 CI 암호화 키 v1 | **바꾸면 기존 CI 를 복호화하지 못한다** — 키 버전을 올리는 절차(F-12)로만 |
