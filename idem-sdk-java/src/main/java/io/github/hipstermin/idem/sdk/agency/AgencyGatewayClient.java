@@ -434,7 +434,7 @@ public final class AgencyGatewayClient {
          * {@link #hmacSecret(String)} 설정이 선행되어야 한다.
          *
          * <p><b>⚠️ Sprint 17 Phase 4 전환 시 필수화:</b><br>
-         * {@code IDO_HMAC_SIG_REQUIRED=true} 설정 후에는 X-Internal-Sig 헤더가 없으면
+         * {@code IDEM_HUB_HMAC_SIG_REQUIRED=true} 설정 후에는 X-Internal-Sig 헤더가 없으면
          * 모든 인바운드 요청이 401로 거부된다. Phase 4 진입 전에 반드시 서명을 활성화하고
          * Staging 환경에서 검증해야 한다.
          *

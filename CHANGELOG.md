@@ -4,7 +4,10 @@
 
 ## [Unreleased]
 
-_(없음)_
+### G2-2 · 문서 정합성 검사 docs-lint (플랜 §7)
+
+- `scripts/ci/docs-lint.py`(의존성 없음): 버전 단일 출처(루트 `build.gradle.kts` ↔ Helm 차트·콘솔 package·SDK README/CHANGELOG·웹훅 `platformVersion` 기본값·현재 버전 문구·제품 설명서·GS 착수·설치 매뉴얼 번들 이름·연동 가이드 예시 21곳), 시험 항목표 집계(표 행 수 = 제목 = 합계 = 그룹 합 = ID 목록, docs/README·gs-kickoff 수치), 운영 문서가 인용한 오류 코드의 정의 여부, 구 런타임 이름(`IDO_*`·`${ido.*}`), 상대 링크, CHANGELOG 첫 헤더 = 빌드 버전. CI 잡 `문서 정합성`(PR 마다), pre-commit 훅(문서·버전 파일 스테이징 시). 제외는 줄 끝 `<!-- docs-lint:ignore -->`.
+- 첫 실행이 잡은 결함: SDK 문서·javadoc 의 `IDO_HMAC_SIG_REQUIRED`(hub 는 `IDEM_HUB_HMAC_SIG_REQUIRED` 를 읽는다), README 의 깨진 링크 4개(내부 문서 이동·분리된 테스트베드), 단계적 전환 문서의 FeatureFlags 경로. <!-- docs-lint:ignore -->
 
 ## [1.1.1] — 2026-10-09
 
@@ -150,7 +153,7 @@ _(없음)_
 - **Keycloak (M9·M10)**: Helm `KC_HOSTNAME_ADMIN_URL` 기본 `http://localhost:8088`(port-forward), `replicaCount>1` 은 `KC_CACHE_STACK` 없이는 렌더링 거부. realm-export 의 내부 client redirect URI·webOrigins 는 `${IDEM_PUBLIC_URL_GATE}`·`_HUB`·`_CONSOLE` 자리표시자 — compose·Helm·CI 가 Keycloak 에 그 값을 준다.
 - **프로파일 `limits.tps/daily` 적용 (H9, PR-C)**: Handoff 발급(`HandoffServiceImpl`)과 표준 OIDC 토큰 교환(`OidcRpAccessService`)이 프로파일 한도를 `AgencyRateLimiter` 에 전달한다(없으면 설치본 기본 200 tps·1,000,000/일). 초과는 Handoff `429 E-AGENCY-306`, OIDC 토큰 교환 `429 temporarily_unavailable` + `Retry-After`(gate).
 - **문서 정정 (PR-C)**: 온보딩 예시 `schemaVersion: 1`(정수)·모르는 키는 400·`INACTIVE` 는 authorize 단계 400·`status` 생략 시 ACTIVE·admin-login 환경변수 이름; 관리자 매뉴얼 PUT 순서(테넌트 → 스키마 → 저장 → Keycloak, 같은 트랜잭션); `install-inputs` 읽는 쪽 3건·`IDEM_HUB_INTERNAL_SIG_SECRET` 규칙·완료 판정 regex `[A-Z0-9_]`(CI 도); 제품 설명서 지표 이름(`slo.*` 등, hub prometheus 미등록)·감사 표현·K8s/Helm 버전 근거·주체 스킴 `PLATFORM_ID`·SCIM 인바운드; 시험 항목표 자동화 재집계(51 중 자동 41 = CI 37 + 로컬 IT 4, 수동 10)와 GS 착수 문서.
-- **개명 잔재·가드 (PR-C)**: KR 포털 FE 의 `IDO_API_*`·`X-IDO-API-Key`·`ucube-qsign`·`onepassCli`·`QSIGN_*`, 스모크의 `AUTHZ_URL` 정리. `NamingGuardTest` 가 FE 소스(`.ts/.tsx`)·`.py`·Dockerfile·`AUTHZ_/BATCH_` 접두도 본다.
+- **개명 잔재·가드 (PR-C)**: KR 포털 FE 의 `IDO_API_*`·`X-IDO-API-Key`·`ucube-qsign`·`onepassCli`·`QSIGN_*`, 스모크의 `AUTHZ_URL` 정리. `NamingGuardTest` 가 FE 소스(`.ts/.tsx`)·`.py`·Dockerfile·`AUTHZ_/BATCH_` 접두도 본다. <!-- docs-lint:ignore -->
 - 버전 1.0.1 (루트 build, 콘솔 package, Helm Chart, 매뉴얼).
 - LOW: Trivy 스캔이 `docker-build` 의 실제 이미지를 스캔한다(종전 `helm-lint` 끝에서 존재하지 않는 이미지를 스캔하고 항상 통과). `DB_SSLMODE`/`IDEM_*_DB_SSLMODE` 로 gate·hub·authz 도 JDBC TLS 를 켤 수 있다(Helm `infra.postgres.sslMode`). Helm `idem.host` 가 경로·포트 있는 URL 을 다룬다. 문서: Docker Compose ≥ 2.17.
 

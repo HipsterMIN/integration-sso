@@ -258,7 +258,7 @@ String active    = response.getBodyField("active");    // "true"
 
 ## 5. HMAC 서명 설정 (Phase 4 대비)
 
-> 현재(`IDO_HMAC_SIG_REQUIRED=false`)는 서명이 없어도 동작한다.  
+> 현재(`IDEM_HUB_HMAC_SIG_REQUIRED=false`)는 서명이 없어도 동작한다.  
 > **Sprint 17 Phase 4 전환 이후** 서명이 없으면 모든 요청이 401로 거부된다.  
 > 전환 전에 미리 설정하고 Staging 환경에서 검증해 두는 것을 강력히 권장한다.
 
@@ -746,7 +746,7 @@ IdO 서버의 기본 포트는 **8083**이다. 로드밸런서나 프록시를 �
 
 **Q. HMAC 서명 없이도 지금 당장 연동 테스트를 할 수 있나요?**
 
-할 수 있다. `IDO_HMAC_SIG_REQUIRED=false`(기본값)인 동안은 `X-Internal-Sig` 헤더가 없어도 서버가 요청을 처리한다. `hmacSecret`과 `signRequests` 설정 없이 3장의 기본 예시대로 진행하면 된다.
+할 수 있다. `IDEM_HUB_HMAC_SIG_REQUIRED=false`(기본값)인 동안은 `X-Internal-Sig` 헤더가 없어도 서버가 요청을 처리한다. `hmacSecret`과 `signRequests` 설정 없이 3장의 기본 예시대로 진행하면 된다.
 
 ---
 

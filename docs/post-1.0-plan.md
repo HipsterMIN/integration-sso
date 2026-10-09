@@ -135,7 +135,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 ## 7. 병행 트랙 (상시)
 
 - **오픈소스 공개 절차**: 벤더 키 회전 확인 → 이력 정리 방식 결정(스냅샷 저장소) → `vendor-plugin-plan.md` P5.
-- **문서 정합성 검사 자동화**: 이번 주에 사람이 찾은 불일치(스키마 이름·수치·구명)를 CI 에서 grep 규칙으로 막는 `docs-lint` 스텝(NamingGuard 의 문서판).
+- **문서 정합성 검사 자동화**: 이번 주에 사람이 찾은 불일치(스키마 이름·수치·구명)를 CI 에서 grep 규칙으로 막는 `docs-lint` 스텝(NamingGuard 의 문서판). **2026-10-09 완료(PR-G2-2)**: `scripts/ci/docs-lint.py` — 버전 단일 출처 21곳·시험 항목표 집계·오류 코드 정의·구 이름·상대 링크·CHANGELOG 헤더. CI 잡 `문서 정합성` + pre-commit 훅. 첫 실행에서 잡은 것: 시험 항목표 집계 파싱 범위, `IDO_HMAC_SIG_REQUIRED`(SDK 문서·javadoc 3곳 → `IDEM_HUB_HMAC_SIG_REQUIRED`), README 깨진 링크 4개(이동한 내부 문서·분리된 테스트베드), 단계적 전환 문서의 FeatureFlags 경로.
 - **의존성·이미지 취약점**: OWASP 수동 실행 월 1회, Trivy 결과 검토.
 
 ---

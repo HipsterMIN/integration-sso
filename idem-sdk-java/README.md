@@ -537,7 +537,7 @@ AgencyGatewayClient client = AgencyGatewayClient.builder()
 ## 7. HMAC 서명 설정 가이드
 
 Idem Hub 는 `X-Internal-Sig` 헤더 검증을 강제화한다
-(`IDO_HMAC_SIG_REQUIRED=true`). Phase 4 전환 전에 서명을 활성화하고 Staging 환경에서
+(`IDEM_HUB_HMAC_SIG_REQUIRED=true`). Phase 4 전환 전에 서명을 활성화하고 Staging 환경에서
 48시간 이상 검증을 완료해야 한다.
 
 ### 7.1 서명 활성화

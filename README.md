@@ -708,14 +708,14 @@ export const Logout = (): void => {
 | `POST` | `/api/v1/auth/oacx/easysign` | OACX 간편서명 결과 처리 |
 | `POST` | `/api/v1/auth/callback` | 기업 간편인증 콜백 |
 
-> 전체 명세: [`docs/api-auth-spec.md`](docs/api-auth-spec.md)
+> 전체 명세: [`docs/internal/development/api-auth-spec.md`](docs/internal/development/api-auth-spec.md)
 
 ---
 
 ## Feature Flag 체계
 
 > **Sprint 9 FF 완료** — 18개 Feature Flag으로 환경별 기능 On/Off 완전 제어.  
-> 전체 가이드: [`docs/FEATURE_FLAGS.md`](docs/FEATURE_FLAGS.md)
+> 전체 가이드: [`docs/internal/architecture/FEATURE_FLAGS.md`](docs/internal/architecture/FEATURE_FLAGS.md)
 
 ### 빠른 참조표
 
@@ -922,7 +922,7 @@ integration-sso/
 ## 🆕 멀티 WAS 테스트베드
 
 > **위치**: `idem-agent-testbed/` | **목적**: Docker Compose로 7개 WAS에 Agent 동시 검증  
-> **참고**: [테스트베드 README](./idem-agent-testbed/README.md)
+> **참고**: 테스트베드(`idem-agent-testbed/`)는 1.1 PR-4(#254)에서 에이전트와 함께 별도 저장소로 분리됐다 — `CHANGELOG.md` [1.1.0]
 
 ### 테스트베드 구성
 
@@ -1307,7 +1307,7 @@ Annotation Processors: 활성화 (Lombok)
 | **Q-IM 백엔드** | [`docs/internal/development/guide-backend-qim-2026-05-12.md`](docs/internal/development/guide-backend-qim-2026-05-12.md) | (v3.0.0) CI 암호화, 소셜 SSO API, InternalApiKeyInterceptor, 회원 원장 API, 파기 스케줄러 |
 | **프론트엔드** | [`docs/internal/development/guide-frontend-2026-05-12.md`](docs/internal/development/guide-frontend-2026-05-12.md) | (v3.0.0) SLO 연동, useAuthState 훅, ErrorBoundary, 회원정보 수정, API 클라이언트 패턴 |
 | **인프라/DevOps** | [`docs/internal/development/guide-infra-2026-05-12.md`](docs/internal/development/guide-infra-2026-05-12.md) | (v3.0.0) Docker Compose, K8s ConfigMap, Keycloak realm 구성, Feature Flag 운영 |
-| **Q-IM 상세** | [`docs/qim-development-guide.md`](docs/qim-development-guide.md) | Q-IM 전체 아키텍처 + 운영 피드백 |
+| **Q-IM 상세** | [`docs/internal/development/qim-development-guide.md`](docs/internal/development/qim-development-guide.md) | Q-IM 전체 아키텍처 + 운영 피드백 |
 
 ---
 
