@@ -5,7 +5,7 @@
 ## 1. 목표와 범위
 
 - **목표**: GS(Good Software) 인증 1등급 취득 → 조달청 종합쇼핑몰 등록. (CC 는 별도 프로젝트, `execution-plan.md` P4.)
-- **시험 대상 제품**: Idem 1.1.0 (1.0.1 + 1.1 기능 공백 해소 8건, `post-1.0-plan.md` §5 — 2026-10-08 버전 커밋) — 제품 설명서 `docs/manuals/product-spec.md` 의 구성(Idem SSO · Idem IM · 관리 콘솔). 에디션은 **core** 로 신청하고 kr 은 부가 모듈로 기술한다(벤더 SDK 라이선스가 시험원 환경에 들어갈 수 없으므로).
+- **시험 대상 제품**: Idem 1.1.1 (1.1.0 + G1 시험 준비 — 오프라인 설치본·백업/복구, 웹훅 서명 비밀 API·네 앱 지표, 콘솔 보완 3건, `post-1.0-plan.md` §2 — 2026-10-09 버전 커밋) — 제품 설명서 `docs/manuals/product-spec.md` 의 구성(Idem SSO · Idem IM · 관리 콘솔). 에디션은 **core** 로 신청하고 kr 은 부가 모듈로 기술한다(벤더 SDK 라이선스가 시험원 환경에 들어갈 수 없으므로).
 - **시험 환경**: Docker Compose 단일 설치본(설치 매뉴얼 §3.1)을 기본으로, 오프라인 설치(§3.3)로 반입. Helm 은 문서로만.
 
 ## 2. 제출물과 현재 상태
@@ -13,12 +13,12 @@
 | 제출물 | 저장소 초안 | 상태 | 남은 일 |
 |---|---|---|---|
 | 제품 설명서 | `docs/manuals/product-spec.md` | 초안 | 시험원 양식 변환, 스크린샷 |
-| 설치 매뉴얼 | `docs/manuals/installation-manual.md` + `docs/install.md` + `docs/install-inputs.md` | 초안(compose 는 CI 로 검증) | 오프라인 설치 실행·시간 기록, 백업·복구 리허설 |
-| 관리자 매뉴얼 | `docs/manuals/administrator-manual.md` + `docs/admin-auth.md` | 초안(E2E 로 검증) | 화면 캡처, 할당 화면 추가 여부 결정 |
+| 설치 매뉴얼 | `docs/manuals/installation-manual.md` + `docs/install.md` + `docs/install-inputs.md` | 초안(compose·Helm 은 CI 로 검증 — 1.1.1: 오프라인 번들 생성→복원, 백업→새 DB 복구 단계 포함) | 폐쇄망 반입·설치 실행·시간 기록, 운영 DB 복구 리허설(앱 정지→복구→재기동) — G1-1 |
+| 관리자 매뉴얼 | `docs/manuals/administrator-manual.md` + `docs/admin-auth.md` | 초안(CI 스모크·E2E 로 검증; 1.1.1 에 §9 웹훅 비밀·§14 할당 관리 추가) | 화면 캡처(2단계 QR·할당 관리 포함) |
 | 사용자 매뉴얼 | `docs/sso-agency-integration-guide.md`·`sso-agency-developer-guide.md`·`idem-sdk-java-usage-guide.md`·`onboarding-guide.md` | 있음 | 이용자(최종 사용자) 관점 1~2쪽 요약 추가 |
 | 시험 항목표 | `docs/manuals/test-items.md` | 초안 70항목(1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 9 + 1.1.1 추가 3; 자동 61 — CI 54 + 로컬 IT 7, 수동 9) | 시험 환경에서 1회 완주, 결함 밀도 산출 |
-| 설치본 | 이미지 tar + 소스 tar(`v1.1.0`) | 절차만 | 만들어서 체크섬·크기 기록 |
-| 결함 관리·형상 | GitHub PR(`shipster→main`), 태그 `v1.0.0`·브랜치 `release/1.0`, `CHANGELOG.md`(제품)·SDK CHANGELOG | 있음 | 1.0.x 항목을 계속 적는다 |
+| 설치본 | `scripts/release/make-offline-bundle.sh` → 이미지 tar + 소스 tar + Helm 차트 + `MANIFEST.txt`·`SHA256SUMS`(`v1.1.1`) | 스크립트 + CI 검증(1.4 GB, 생성→삭제→복원→대조) | `v1.1.1` 태그로 만들어 체크섬·크기 기록, 폐쇄망 반입 리허설(G-6) |
+| 결함 관리·형상 | GitHub PR(`shipster→main`), 태그 `v1.0.0`·`v1.1.0`·`v1.1.1`, 브랜치 `release/1.0`(1.0.x 패치), `CHANGELOG.md`(제품)·SDK CHANGELOG | 있음 | 1.1.x 항목을 계속 적는다 |
 | 성능 | k6 시나리오·CI 스모크 | 있음 | 시험 환경 재측정 보고 |
 | 호환성 | 지원 플랫폼 표(제품 설명서 §4) | 있음 | 브라우저·OS 조합 확인 기록 |
 
@@ -27,7 +27,7 @@
 | 주 | 할 일 | 산출 |
 |---|---|---|
 | 1~2 | 시험원 선정(TTA SW시험인증연구소 / KTL), 신청 법인·중소기업 감면 확인, 시험 환경 방식(시험원 제공 서버 vs 신청기관 반입) 확정 | 신청서 초안, 견적 |
-| 2~4 | 오프라인 설치본 제작·설치 리허설(§2), 백업·복구 리허설, 시험 항목표 1회 완주 → 결함 수정(1.0.x) | 설치본, 결함 목록, 결함 밀도 |
+| 2~4 | 오프라인 설치본 제작·설치 리허설(§2), 백업·복구 리허설, 시험 항목표 1회 완주 → 결함 수정(1.1.x) | 설치본, 결함 목록, 결함 밀도 |
 | 4~6 | 매뉴얼 양식 변환·스크린샷, 한국어 오류 메시지 검토, 제품 CHANGELOG | 제출 문서 세트 |
 | 6~8 | 사전 검토(시험원 컨설팅), 보완 | 신청 접수 |
 | 8~16 | 시험(기능·성능·보안성·사용성·호환성), 보완, 인증서 | GS 1등급, 조달 등록 신청 |

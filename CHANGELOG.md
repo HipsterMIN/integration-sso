@@ -2,7 +2,21 @@
 
 형식: [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/). 버전은 루트 `build.gradle.kts` 와 태그(`vX.Y.Z`)를 따른다. SDK 는 `idem-sdk-java/CHANGELOG.md`.
 
-## [Unreleased] — 1.1.1 (G1 시험 준비, 플랜 §2)
+## [Unreleased]
+
+_(없음)_
+
+## [1.1.1] — 2026-10-09
+
+`docs/post-1.0-plan.md` §2 "G1 — 시험 준비" 의 AI 몫 4건이 들어갔다: PR-G1-2 #261(오프라인 설치본·백업/복구 스크립트) · PR-G1-4 #262(웹훅 서명 비밀 KMS 봉인·회전 API, 네 앱 Prometheus 지표) · PR-G1-3 #263(할당 관리 화면·기관 목록 페이징·TOTP 등록 QR) · PR-G1-5(이 버전 커밋). 태그 `v1.1.1`. 남은 G1-1(시험 항목 70 전수 1회 완주, 운영 DB 복구·폐쇄망 반입 리허설)은 사용자 환경에서 한다. 1.0.x 패치는 `release/1.0`.
+
+### 1.1.1 업그레이드 메모
+
+- **DB**: 첫 기동에서 Flyway 가 hub V31(`agency_webhook_config.signing_secret_sealed`·`secret_rotated_at`, `signing_secret_hash` NOT NULL 해제)을 자동 적용한다. 되돌리는 마이그레이션은 없다 — 올리기 전 `scripts/ops/backup.sh` 로 백업(`restore.sh` 로 새 DB 에 복구해 보면 백업이 유효한지 확인된다).
+- **웹훅 서명 비밀**: 1.0.x·1.1.0 이 `signing_secret_hash` 에 **원문**으로 두던 비밀을 첫 기동에 KMS 로 봉인하고 해시로 바꾼다(`idem.hub.webhook.seal-legacy-on-boot`, 기본 true). KMS 제공자(`idem.hub.kms.provider` — local 마스터키·Vault·NHN)와 키가 운영과 같아야 발송 때 풀 수 있다. 비밀이 없는 기관(관리 API 로 만든 기관 — 1.0.x 는 웹훅 설정 INSERT 가 조용히 실패했다)은 발송이 재시도 없이 FAILED(`NO_SIGNING_SECRET` 감사)로 남는다 — `POST /api/v1/admin/agencies/{code}/webhook/rotate-secret`(콘솔 "웹훅 서명 비밀" 카드)로 발급해 기관 수신기에 전달한다.
+- **동작 변경**: `GET /api/v1/admin/agencies` 응답이 배열에서 봉투 `{items, page, size, total}` 로 바뀌었다(콘솔 전용 관리 API — SDK·기관 API 무관). hub 이미지와 콘솔 이미지를 **함께** 올린다(구 콘솔은 목록이 비어 보인다). 네 앱 `/actuator/prometheus` 가 200 을 낸다(1.0.x·1.1.0 은 레지스트리가 없어 404) — 스크랩 설정을 걸 수 있다. 관리 API 로 기관을 등록·수정하면 `agency_meta.webhook_enabled`·`webhook_endpoint` 가 반영된다(종전엔 아무 코드도 켜지 않았다).
+- **새 것(기본 켜짐, 추가 설정 없음)**: 할당 관리 API `/api/v1/admin/services/{code}/assignments·roles`(idem-authz 필요 — authz 를 끈 SSO 단독 설치본은 `503 E-IDO-116`), 기관 목록 `page/size/q`, 콘솔 2단계 등록 QR, 오류 코드 `E-IDO-126`~`E-IDO-129`. 스크립트 `scripts/release/make-offline-bundle.sh`·`load-offline-bundle.sh`, `scripts/ops/backup.sh`·`restore.sh`(설치 매뉴얼 §3.3·§6·§8, 운영 매뉴얼 §4).
+- **설치본 검증**: CI 가 PR 마다 보태진 것 — 백업→새 DB 복구→표·행 수 대조, 오프라인 번들 생성→이미지 삭제→복원→대조(`offline-bundle-check`), 네 앱 지표 200, 웹훅 비밀 회전(봉인·지문), 실제 authz 로 할당 끝-끝(스모크 ⑧c). 기관 클러스터 1회(`CLUSTER=existing`)·운영 DB 복구·폐쇄망 반입은 사용자 리허설(시험 항목 G-5·G-6).
 
 ### G1-2 · 오프라인 설치본 + 백업·복구 스크립트 (플랜 §2.2)
 

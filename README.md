@@ -19,7 +19,7 @@
 | `idem-tenant-sample` | 참조 테넌트 앱 (PoC·E2E용) | 8084 |
 | `idem-common` | 공통 라이브러리 | — |
 
-> **현재 버전**: **v1.1.0** (2026-10-08, 1.1 기능 공백 해소 — 코어 로그인 프런트·SCIM 아웃바운드·감사 WAL·SLO 재시도·규칙 할당·할당 변경 전파·K8s 실배포 리허설·AI 운영 보조·감사 이상 탐지·동의 카탈로그, PR #251~#259 — `CHANGELOG.md`; 1.0.1 은 3차 적대적 점검 후속, 1.0 동결은 S9 PR-4, 태그 `v1.0.0`, 릴리스 브랜치 `release/1.0`). 이 README 의 아래 절들은 개발 과정의 기록이며 최신 구조·절차는 다음 문서가 기준이다.
+> **현재 버전**: **v1.1.1** (2026-10-09, G1 시험 준비 — 오프라인 설치본·백업/복구 스크립트, 웹훅 서명 비밀 KMS 봉인·회전 API, 네 앱 Prometheus 지표, 할당 관리 화면·기관 목록 페이징·TOTP 등록 QR; 1.1.0(2026-10-08) 은 1.1 기능 공백 해소 — 코어 로그인 프런트·SCIM 아웃바운드·감사 WAL·SLO 재시도·규칙 할당·할당 변경 전파·K8s 실배포 리허설·AI 운영 보조·감사 이상 탐지·동의 카탈로그, PR #251~#259 — `CHANGELOG.md`; 1.0.1 은 3차 적대적 점검 후속, 1.0 동결은 S9 PR-4, 태그 `v1.0.0`, 릴리스 브랜치 `release/1.0`). 이 README 의 아래 절들은 개발 과정의 기록이며 최신 구조·절차는 다음 문서가 기준이다.
 > **1.0 문서**: 설치 [`docs/install.md`](docs/install.md)(compose) · [`infra/helm/idem/README.md`](infra/helm/idem/README.md)(Helm) · 입력값 [`docs/install-inputs.md`](docs/install-inputs.md) · 매뉴얼 [`docs/manuals/`](docs/manuals/README.md)(설치·관리자·제품 설명·시험 항목표) · 온보딩 [`docs/onboarding-guide.md`](docs/onboarding-guide.md) · 요구사항 [`docs/requirements-checklist.md`](docs/requirements-checklist.md) · 관리자 인증 [`docs/admin-auth.md`](docs/admin-auth.md) · 개명 [`docs/naming.md`](docs/naming.md)
 > **계획**: 범용화 [`docs/generalization-plan.md`](docs/generalization-plan.md)(S1~S9 완료) · 인증 [`docs/execution-plan.md`](docs/execution-plan.md)(P3 GS 착수) · GS 시작 [`docs/certification/gs-kickoff.md`](docs/certification/gs-kickoff.md)
 > **에디션**: core(Idem SSO + IM) · kr(코어 + KR 에디션 — SMES 회원·NICE/Any-ID 플러그인·회원 포털). 이미지 `<tag>-<edition>`

@@ -11,6 +11,12 @@ _(다음 릴리즈 예정 변경사항 없음)_
 
 ---
 
+## [1.1.1] — 2026-10-09
+
+- 버전을 루트 `build.gradle.kts`(1.1.1) 와 맞춘다. SDK 코드 변경 없음 — 플랫폼 1.1.1(G1 시험 준비: 오프라인 설치본·백업/복구, 웹훅 서명 비밀 API, 할당 관리 API)의 변경 이력은 루트 `CHANGELOG.md`.
+
+---
+
 ## [1.1.0] — 2026-10-08
 
 - 버전을 루트 `build.gradle.kts`(1.1.0) 와 맞춘다. SDK 코드 변경 없음 — 1.0.0(패키지 `io.github.hipstermin.idem.sdk` 개명)·1.0.1 포함 플랫폼 변경 이력은 루트 `CHANGELOG.md`, 설치본에서의 동작 범위는 `docs/idem-sdk-java-usage-guide.md`.
