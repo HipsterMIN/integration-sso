@@ -252,8 +252,11 @@ mgmt_health() {   # 관리 포트(9090) health — Ready Pod 에 port-forward �
   port_forward idem-hub 19093:9090
   local st=DOWN i
   for i in 1 2 3 4 5; do st=$(curl -sf http://127.0.0.1:19093/actuator/health | jq -r .status 2>/dev/null || echo DOWN); [ "$st" = UP ] && break; sleep 2; done
+  local prom
+  prom=$(curl -sf http://127.0.0.1:19093/actuator/prometheus 2>/dev/null | grep -c '^jvm_memory_used_bytes' || true)   # 1.1.1 G1-4
   kill_port_forwards
   [ "$st" = UP ] && ok "hub 관리 포트 /actuator/health = UP" || fail "hub 관리 포트 health: $st"
+  [ "${prom:-0}" -ge 1 ] && ok "hub 관리 포트 /actuator/prometheus 에 jvm 지표" || fail "hub 관리 포트 prometheus 지표 없음"
 }
 
 providers() {   # 본인확인 제공자 목록(JSON) — Ingress 경유. 롤링 갱신 직후 엔드포인트 교체 동안 잠시 실패할 수 있어 재시도한다

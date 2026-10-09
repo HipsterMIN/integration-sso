@@ -59,6 +59,7 @@ public class WebhookDispatcherService {
     private final JdbcTemplate      jdbcTemplate;
     private final ObjectMapper       objectMapper;
     private final AuditLogPublisher  auditLogPublisher;
+    private final WebhookSigningSecrets signingSecrets;   // 1.1.1 G1-4: KMS 봉인 서명 비밀
 
     @Value("${idem.hub.webhook.default-max-retry:3}")
     private int defaultMaxRetry;
@@ -357,8 +358,8 @@ public class WebhookDispatcherService {
                 rawSecret = defaultSigningSecret;
             } else {
                 throw new IllegalArgumentException(
-                    "[F4.3 Guard] webhook rawSecret 누락 — 기관별 signing_secret 미설정. " +
-                    "agency_webhook_config.signing_secret_hash 컬럼 확인 필요."
+                    "[F4.3 Guard] webhook rawSecret 누락 — 기관별 서명 비밀이 없다. " +
+                    "관리 API POST /api/v1/admin/agencies/{code}/webhook/rotate-secret 으로 발급(agency_webhook_config.signing_secret_sealed)."
                 );
             }
         }
@@ -388,7 +389,7 @@ public class WebhookDispatcherService {
         if (agencyCode != null) {
             sql = """
                     SELECT wc.agency_code, wc.endpoint_url,
-                           wc.signing_secret_hash, wc.connect_timeout_ms, wc.read_timeout_ms,
+                           wc.signing_secret_sealed, wc.signing_secret_hash, wc.connect_timeout_ms, wc.read_timeout_ms,
                            wc.max_retry_count, wc.retry_backoff_ms, wc.event_type_filter::text
                     FROM idem_hub.agency_webhook_config wc
                     JOIN idem_hub.agency_meta am ON am.agency_code = wc.agency_code
@@ -401,7 +402,7 @@ public class WebhookDispatcherService {
         } else {
             sql = """
                     SELECT wc.agency_code, wc.endpoint_url,
-                           wc.signing_secret_hash, wc.connect_timeout_ms, wc.read_timeout_ms,
+                           wc.signing_secret_sealed, wc.signing_secret_hash, wc.connect_timeout_ms, wc.read_timeout_ms,
                            wc.max_retry_count, wc.retry_backoff_ms, wc.event_type_filter::text
                     FROM idem_hub.agency_webhook_config wc
                     JOIN idem_hub.agency_meta am ON am.agency_code = wc.agency_code
@@ -426,7 +427,7 @@ public class WebhookDispatcherService {
             result.add(new AgencyWebhookConfig(
                     (String) row.get("agency_code"),
                     (String) row.get("endpoint_url"),
-                    (String) row.get("signing_secret_hash"),
+                    signingSecrets.resolve((String) row.get("signing_secret_sealed"), (String) row.get("signing_secret_hash")),
                     toInt(row.get("connect_timeout_ms"), 3000),
                     toInt(row.get("read_timeout_ms"), 8000),
                     toInt(row.get("max_retry_count"), defaultMaxRetry),
@@ -657,7 +658,7 @@ public class WebhookDispatcherService {
     record AgencyWebhookConfig(
             String agencyCode,
             String endpointUrl,
-            String signingSecretHash,
+            String signingSecret,   // 발송용 원문(KMS 복호화 결과) — 없으면 null (엔드포인트만 등록, 비밀 미회전)
             int connectTimeoutMs,
             int readTimeoutMs,
             int maxRetry,

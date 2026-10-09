@@ -10,6 +10,15 @@
 - **백업·복구**: `scripts/ops/backup.sh`(컨테이너 안 `pg_dump -Fc` — `TARGET=compose|docker|k8s|direct`, `.sha256`·`.meta`(Flyway 최신 버전·주요 표 행 수), `pg_restore -l` 아카이브 확인, `KEEP=N`), `scripts/ops/restore.sh`(체크섬 → 살아 있는 접속 확인(`FORCE=1`) → DB 재생성 → `pg_restore --no-owner` → ANALYZE → 요약, `TARGET_DB`·`VERIFY_SOURCE_DB` 로 운영 DB 를 건드리지 않는 유효성 검증). CI 설치본 스모크에 "백업·복구" 단계(백업 → 새 DB 복구 → 표·행 수 대조).
 - 문서: 설치 매뉴얼 §3.3·§6·§8, 운영 매뉴얼 §4, 시험 항목 G-5·G-6(자동 부분 명시), `docs/install.md` 체크리스트. 운영 DB 복구·폐쇄망 반입의 실제 리허설은 G1-1(사용자 환경).
 
+### G1-4 · 웹훅 서명 비밀 관리 API + Prometheus 지표 (플랜 §2.4)
+
+- **웹훅 서명 비밀을 KMS 로 봉인 저장**: `agency_webhook_config.signing_secret_sealed`(V31, `KmsClient.encrypt`) + `signing_secret_hash` 는 이제 이름대로 SHA-256(지문용). 종전에는 `signing_secret_hash` 컬럼에 **원문**이 있었다. 1.0.x 행은 첫 기동에 `WebhookSigningSecrets` 가 봉인하고 해시로 바꾼다(`idem.hub.webhook.seal-legacy-on-boot`, 기본 true). 발송 때 봉인값을 풀어 서명한다(봉인값 기준 캐시).
+- **회전 API** `POST /api/v1/admin/agencies/{code}/webhook/rotate-secret`(SYSTEM·POLICY, 테넌트 범위): 32바이트 난수 → 봉인 저장, 원문은 응답에 1회, 감사 `WEBHOOK_SECRET_ROTATED`. 엔드포인트 없는 기관은 `404 E-IDO-126`. `GET …/webhook` 상태(엔드포인트·발송 여부·봉인 여부·지문·회전 시각 — 원문 없음). 콘솔 기관 상세 "웹훅 서명 비밀" 카드.
+- **수리한 결함 2건**: ① 관리 API 로 기관을 만들 때 웹훅 설정 INSERT 가 조용히 실패했다(경고만) — 등록 시에는 JPA 가 아직 flush 하지 않아 FK(agency_meta) 위반, 수정 시에는 `signing_secret_hash NOT NULL` 위반 → `saveAndFlush` 뒤 INSERT, NOT NULL 해제, 실패는 오류로. ② `agency_meta.webhook_enabled` 를 아무 코드도 켜지 않아 관리 API 로 만든 기관은 발송 대상이 아니었다 → 등록·수정 때 `webhook_enabled`·`webhook_endpoint` 반영. 비밀이 없는 기관의 발송은 재시도 없이 FAILED(`NO_SIGNING_SECRET` 감사) — 비밀을 발급하면 다음 이벤트부터 나간다.
+- **Prometheus 지표**: hub·gate·registry·authz 에 `micrometer-registry-prometheus` 추가 — 1.0.x 는 네 앱 모두 노출 설정만 있고 레지스트리가 없어 `/actuator/prometheus` 가 404 였다(시험 항목 G-3 의 "gate·registry·authz 는 됨" 은 잘못이었다 — 정정). CI 스모크 ⑧a(네 앱 200 + jvm 지표)·prod 단계(hub 관리 포트 200)·K8s 리허설(hub 관리 포트)에서 확인한다.
+- 설치본 스모크 ⑧b: 웹훅 기관 등록 → 회전 → 상태(봉인·지문·원문 없음). `IDEM_HUB_WEBHOOK_SIGNING_SECRET` 는 기동 검증(F4.3)에만 남는다 — 2.0 에서 제거 예정(설치 입력 문서).
+- 테스트: `WebhookSigningSecretsTest`, `AgencyAdminServiceTest`(+3), `WebhookDispatchOutboxRelayTest`(+2), IT `WebhookSecretIntegrationTest`(등록 → 회전 → 봉인·지문 → 실제 발송 서명 검증 → 1.0.x 행 봉인 → 404). 문서: 운영 가이드 §3, 개발자 가이드 §8.1, 관리자 매뉴얼 §9, 제품 설명서 F20·F22, 시험 항목 B-15·G-3(+집계 68), 설치 입력, 운영 매뉴얼 §13.
+
 ## [1.1.0] — 2026-10-08
 
 `docs/post-1.0-plan.md` §5 "1.1 — 기능 공백 해소" 8건이 PR 9개로 들어갔다: PR-1 #251(연합 인가 정합성·할당 변경 전파·SLO IdP 재시도) · PR-2 #252(감사 WAL 폴백·그룹·속성 규칙 할당) · PR-3 #253(코어 로그인 프런트) · PR-4 #254(Java 에이전트 저장소 분리) · PR-5 #255(SCIM 2.0 아웃바운드) · PR-6 #256(K8s 실배포 리허설) · PR-7 #257(AI 운영 보조, 선택) · PR-8 #258(감사 이상 탐지, 관찰 모드) · PR-9 #259(동의 카탈로그). 태그 `v1.1.0`. 1.0.x 패치는 `release/1.0`.

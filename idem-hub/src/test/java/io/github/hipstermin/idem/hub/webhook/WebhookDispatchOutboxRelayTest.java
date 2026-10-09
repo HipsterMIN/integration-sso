@@ -51,6 +51,7 @@ class WebhookDispatchOutboxRelayTest {
     @Mock RestTemplate               restTemplate;
     @Mock WebhookDispatcherService   webhookDispatcherService;
     @Mock AuditLogPublisher          auditLogPublisher;
+    @Mock WebhookSigningSecrets      signingSecrets;
 
     WebhookDispatchOutboxRelay sut;
 
@@ -65,7 +66,10 @@ class WebhookDispatchOutboxRelayTest {
     @BeforeEach
     void setUp() {
         sut = new WebhookDispatchOutboxRelay(
-                jdbcTemplate, restTemplate, webhookDispatcherService, auditLogPublisher);
+                jdbcTemplate, restTemplate, webhookDispatcherService, auditLogPublisher, signingSecrets);
+        // 1.1.1 G1-4: 봉인값이 없으면 종전 컬럼(signing_secret_hash)의 원문을 돌려주는 실제 규칙과 같게
+        given(signingSecrets.resolve(any(), any()))
+                .willAnswer(inv -> inv.getArgument(0) != null ? "unsealed:" + inv.getArgument(0) : inv.getArgument(1));
         ReflectionTestUtils.setField(sut, "relayEnabled",       true);   // @Value 주입 없이 boolean 기본값=false → 명시 활성화
         ReflectionTestUtils.setField(sut, "relayIntervalMs",   500L);
         ReflectionTestUtils.setField(sut, "relayBatchSize",    50);
@@ -397,6 +401,45 @@ class WebhookDispatchOutboxRelayTest {
                     .willThrow(new RuntimeException("HMAC key error"));
 
             assertThatNoException().isThrownBy(() -> sut.relay());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 1.1.1 G1-4 — 서명 비밀 봉인
+    // ═══════════════════════════════════════════════════════════════════════
+    @Nested
+    @DisplayName("서명 비밀 (KMS 봉인)")
+    class SigningSecretTests {
+
+        @Test
+        @DisplayName("봉인값(signing_secret_sealed)이 있으면 복호화한 원문으로 서명한다")
+        void sealedSecretIsUnsealedForSigning() {
+            Map<String, Object> row = new java.util.HashMap<>(buildRow(0, 3));
+            row.put("signing_secret_sealed", "local:v1:abc");
+            given(jdbcTemplate.queryForList(anyString(), (Object[]) any())).willReturn(List.of(row));
+            given(restTemplate.exchange(anyString(), any(), any(), eq(String.class)))
+                    .willReturn(ResponseEntity.ok("ok"));
+
+            sut.relay();
+
+            verify(webhookDispatcherService).computeHmacSignature(any(), eq("unsealed:local:v1:abc"));
+        }
+
+        @Test
+        @DisplayName("서명 비밀이 없는 기관(엔드포인트만 등록)은 HTTP 를 부르지 않고 즉시 FAILED + WEBHOOK_DISPATCH_FAILED(NO_SIGNING_SECRET)")
+        void noSecretFailsImmediately() {
+            Map<String, Object> row = new java.util.HashMap<>(buildRow(0, 3));
+            row.put("signing_secret_hash", null);
+            given(jdbcTemplate.queryForList(anyString(), (Object[]) any())).willReturn(List.of(row));
+
+            sut.relay();
+
+            verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+            verify(webhookDispatcherService, never()).computeHmacSignature(any(), any());
+            ArgumentCaptor<AuditLogPublisher.AuditEntry> entry = ArgumentCaptor.forClass(AuditLogPublisher.AuditEntry.class);
+            verify(auditLogPublisher).publish(entry.capture());
+            assertThat(entry.getValue().eventAction()).isEqualTo("WEBHOOK_DISPATCH_FAILED");
+            assertThat(entry.getValue().outcomeDetail()).contains("NO_SIGNING_SECRET");
         }
     }
 }

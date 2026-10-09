@@ -9,6 +9,8 @@
 #       ③ OIDC_RP 프로파일 PUT → Keycloak client 생성·secret 회전 ④ gate 프런트가 Keycloak 로그인 화면을 프록시(client 존재·PKCE 사전검사)
 #       ⑤ Mock 본인확인 → registry 등록 라운드트립 ⑥ registry 이벤트 피드(Kafka 없는 상태 전파) ⑦ 코어 에디션이면 KR 전용 엔드포인트 404
 #       ⑦b Handoff 브라우저 진입(1.1 코어 로그인 프런트: DIRECT 프로파일 → 진입 → MOCK → 발급 → 콜백 → verify → 재검증 409)
+#       ⑧a 지표(1.1.1 G1-4): 네 앱 관리 주소의 /actuator/prometheus 200 + jvm 지표 — 1.0.x 는 레지스트리 미등록이라 404 였다
+#       ⑧b 웹훅 서명 비밀 회전(1.1.1 G1-4): 기관 등록(webhookEndpoint) → rotate-secret(원문 1회) → 상태(봉인·지문, 원문 없음)
 #       ⑧ 감사 조회(관리 행위가 남는다) → 로그아웃
 #
 #   HUB_URL GATE_URL REGISTRY_URL IDEM_AUTHZ_URL   기본 localhost:8083/8081/8082/8086
@@ -170,6 +172,40 @@ ver2=$(curl -s -o /tmp/smoke-verify2.json -w '%{http_code}' -X POST "$HUB_URL/ap
 code=$(curl -s -o /tmp/smoke-login-bad -w '%{http_code}' "$HUB_URL/api/v1/handoff/login?service=$HO_CODE&callback=https%3A%2F%2Fevil.example.org%2Fcb")
 [ "$code" = "403" ] && ok "화이트리스트 밖 콜백은 403 오류 화면" || fail "화이트리스트 밖 콜백이 $code"
 rm -f "$jar"
+
+echo "⑧a 지표 — /actuator/prometheus (네 앱, 1.1.1 G1-4)"
+for pair in "$HUB_URL|$HUB_MGMT_URL" "$GATE_URL|$GATE_MGMT_URL" "$REGISTRY_URL|$REGISTRY_MGMT_URL" "$IDEM_AUTHZ_URL|$IDEM_AUTHZ_MGMT_URL"; do
+  u=${pair%%|*}; m=${pair#*|}
+  code=$(curl -s -o /tmp/smoke-prom -w '%{http_code}' "$m/actuator/prometheus")
+  [ "$code" = "401" ] && [ "$u" = "$HUB_URL" ] && code=$(curl -s -o /tmp/smoke-prom -w '%{http_code}' "$m/actuator/prometheus" "${adm[@]}")   # 앱 포트에 같이 뜬 hub actuator 는 관리자 세션 뒤
+  [ "$code" = "200" ] && grep -q '^jvm_memory_used_bytes' /tmp/smoke-prom && ok "$u /actuator/prometheus 200 (jvm_memory_used_bytes 있음)" || fail "$u /actuator/prometheus $code (1.0.x 미등록 결함 — 1.1.1 레지스트리 추가)"
+done
+grep -q '^audit_' /tmp/smoke-prom && ok "hub 지표에 audit_* 가 있다" || ok "hub 지표에 audit_* 는 아직 없다(해당 경로 미호출)"
+
+echo "⑧b 웹훅 서명 비밀 회전 (1.1.1 G1-4 — 관리 API, KMS 봉인 저장, 원문 1회 노출)"
+WH_CODE="${WH_CODE:-SMOKE_WH}"
+body=$(cat <<JSON
+{"agencyCode":"$WH_CODE","officialName":"설치 스모크 웹훅 기관","minAuthLevel":"L1","integrationType":"DIRECT",
+ "callbackWhitelist":["https://wh.example.org/cb"],"webhookEndpoint":"https://wh.example.org/hook","webhookEnabled":true}
+JSON
+)
+code=$(curl -s -o /tmp/smoke-wh.json -w '%{http_code}' -X POST "$HUB_URL/api/v1/admin/agencies" -H 'Content-Type: application/json' "${adm[@]}" -d "$body")
+case "$code" in
+  200|201) ok "웹훅 기관 등록 $code" ;;
+  *) code=$(curl -s -o /tmp/smoke-wh.json -w '%{http_code}' -X PUT "$HUB_URL/api/v1/admin/agencies/$WH_CODE" -H 'Content-Type: application/json' "${adm[@]}" -d "$body")
+     [ "$code" = "200" ] && ok "웹훅 기관 갱신(재실행) $code" || fail "웹훅 기관 등록·갱신 실패 $code: $(cat /tmp/smoke-wh.json)" ;;
+esac
+st=$(curl -sf "$HUB_URL/api/v1/admin/agencies/$WH_CODE/webhook" "${adm[@]}") || fail "웹훅 상태 조회 실패"
+[ "$(echo "$st" | jq -r .configured)" = "true" ] && [ "$(echo "$st" | jq -r .webhookEnabled)" = "true" ] && ok "웹훅 설정 있음 (endpoint=$(echo "$st" | jq -r .endpointUrl))" || fail "웹훅 설정 없음: $st"
+rot=$(curl -sf -X POST "$HUB_URL/api/v1/admin/agencies/$WH_CODE/webhook/rotate-secret" "${adm[@]}") || fail "서명 비밀 회전 실패"
+sec=$(echo "$rot" | jq -r .signingSecret); fp=$(echo "$rot" | jq -r .fingerprint)
+[ ${#sec} -ge 32 ] && [ ${#fp} -eq 8 ] && ok "서명 비밀 회전 (길이 ${#sec}, 지문 $fp)" || fail "회전 응답 이상: $rot"
+exp=$(printf '%s' "$sec" | sha256sum | cut -c1-8)
+[ "$fp" = "$exp" ] && ok "지문 = SHA-256(비밀) 앞 8자" || fail "지문 불일치: $fp != $exp"
+st=$(curl -sf "$HUB_URL/api/v1/admin/agencies/$WH_CODE/webhook" "${adm[@]}") || fail "웹훅 상태 조회 실패"
+[ "$(echo "$st" | jq -r .sealed)" = "true" ] && [ "$(echo "$st" | jq -r .fingerprint)" = "$fp" ] && ok "상태: 봉인됨 · 지문 일치 · 회전 시각 $(echo "$st" | jq -r .secretRotatedAt)" || fail "상태 이상: $st"
+echo "$st" | grep -q "$sec" && fail "상태 응답에 비밀 원문이 있다" || ok "상태 응답에 원문 없음"
+unset sec
 
 echo "⑧ 감사 조회 → 로그아웃"
 sleep 1   # 감사 발행은 비동기

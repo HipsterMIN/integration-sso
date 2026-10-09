@@ -81,6 +81,7 @@ public class WebhookDispatchOutboxRelay {
     private final RestTemplate          restTemplate;
     private final WebhookDispatcherService webhookDispatcherService;
     private final AuditLogPublisher     auditLogPublisher;
+    private final WebhookSigningSecrets signingSecrets;   // 1.1.1 G1-4: KMS 봉인 서명 비밀
 
     // F-14: Webhook Relay On/Off (IDEM_HUB_WEBHOOK_RELAY_ENABLED)
     // false → @Scheduled 실행되어도 즉시 return, 기관 webhook 발송 없음
@@ -167,12 +168,22 @@ public class WebhookDispatchOutboxRelay {
         String correlationId = (String) row.get("correlation_id");
         String sourceEventId = (String) row.get("source_event_id");
         String eventType     = (String) row.get("source_event_type");
-        String signingSecret = (String) row.get("signing_secret_hash");  // 실제로는 signing 원본 저장 위치
+        // 1.1.1 G1-4: 봉인값(signing_secret_sealed)을 풀어 원문으로 — 없으면 1.0.x 호환으로 종전 컬럼 값
+        String signingSecret = signingSecrets.resolve((String) row.get("signing_secret_sealed"), (String) row.get("signing_secret_hash"));
         int    retryCount    = toInt(row.get("retry_count"), 0);
         int    maxRetry      = toInt(row.get("max_retry"), defaultMaxRetry);
 
         log.debug("[WebhookRelay] 발송 시도: dispatchId={} agencyCode={} endpoint={} retry={}/{}",
                 dispatchId, agencyCode, endpointUrl, retryCount, maxRetry);
+
+        if (signingSecret == null || signingSecret.isBlank()) {
+            // 서명 비밀이 없는 기관(엔드포인트만 등록) — 재시도해도 달라지지 않으므로 바로 FAILED. 관리 API 로 비밀을 발급하면 다음 이벤트부터 나간다
+            log.warn("[WebhookRelay] 서명 비밀 없음 → FAILED: dispatchId={} agencyCode={} (POST /api/v1/admin/agencies/{}/webhook/rotate-secret)",
+                    dispatchId, agencyCode, agencyCode);
+            markFailed(dispatchId, null, "no signing secret — rotate-secret first");
+            publishAuditFailure(agencyCode, dispatchId, sourceEventId, eventType, correlationId, null, "NO_SIGNING_SECRET");
+            return DispatchResult.FAILED;
+        }
 
         try {
             // ① HMAC-SHA256 서명 + 타임스탬프
@@ -309,7 +320,7 @@ public class WebhookDispatchOutboxRelay {
                            w.source_event_id, w.source_event_type, w.correlation_id,
                            w.payload::text AS payload,
                            w.retry_count, w.max_retry,
-                           c.signing_secret_hash
+                           c.signing_secret_sealed, c.signing_secret_hash
                     FROM   idem_hub.webhook_dispatch_outbox w
                     LEFT JOIN idem_hub.agency_webhook_config c
                            ON c.agency_code = w.agency_code AND c.active = TRUE

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAiStatus } from '../lib/ai';
 import { ApiError, get, post, put } from '../lib/api';
 import { emptyForm, fromProfile } from '../lib/profile';
-import type { Agency, OidcClientSecret, OidcClientStatus, PolicySimulation, Profile } from '../lib/types';
+import type { Agency, OidcClientSecret, OidcClientStatus, PolicySimulation, Profile, WebhookSecretRotation, WebhookStatus } from '../lib/types';
 import { canWrite, useAuth } from '../auth';
 import { href, navigate } from '../router';
 import { Alert, ErrorBox, Field, Secret, Section, fmt } from '../ui';
@@ -65,6 +65,7 @@ export function ServiceDetail({ code }: { code: string }) {
           : <pre className="mono">{JSON.stringify(profile, null, 2)}</pre>}
       </Section>
       {!isNew && agency && <StatusCard agency={agency} onChange={load} />}
+      {!isNew && agency && <WebhookCard code={code} />}
       {!isNew && type === 'OIDC_RP' && <OidcCard code={code} />}
       {!isNew && profile && <SimulateCard code={code} />}
       {!isNew && profile && <ConsentCatalog serviceCode={code} title="동의 항목 — 이 서비스 전용 (1.1)" />}
@@ -103,6 +104,43 @@ function StatusCard({ agency, onChange }: { agency: Agency; onChange: () => Prom
         <dt>일 조회 한도</dt><dd>{agency.dailyLookupLimit ?? '—'}</dd>
         <dt>생성 / 수정</dt><dd>{fmt(agency.createdAt)} / {fmt(agency.updatedAt)}</dd>
       </dl>
+    </Section>
+  );
+}
+
+/** 1.1.1 G1-4 — 웹훅 서명 비밀: 상태(봉인·지문·회전 시각)와 회전(원문 1회 표시). 비밀 원문은 서버에 없다(KMS 봉인). */
+function WebhookCard({ code }: { code: string }) {
+  const { me } = useAuth();
+  const [status, setStatus] = useState<WebhookStatus | null>(null);
+  const [rotated, setRotated] = useState<WebhookSecretRotation | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const refresh = useCallback(() => get<WebhookStatus>(`/agencies/${encodeURIComponent(code)}/webhook`).then(setStatus).catch(setError), [code]);
+  useEffect(() => { void refresh(); }, [refresh]);
+  const rotate = async () => {
+    if (!confirm('웹훅 서명 비밀을 회전하면 구 비밀은 즉시 무효가 됩니다. 기관 수신기에 새 비밀을 전달할 준비가 됐을 때 계속하세요.')) return;
+    setBusy(true); setError(null);
+    try { setRotated(await post<WebhookSecretRotation>(`/agencies/${encodeURIComponent(code)}/webhook/rotate-secret`)); await refresh(); }
+    catch (e) { setError(e); } finally { setBusy(false); }
+  };
+  return (
+    <Section title="웹훅 서명 비밀 (1.1.1)" actions={canWrite(me) && status?.configured && <button className="btn secondary small" disabled={busy} onClick={() => void rotate()}>서명 비밀 회전</button>}>
+      <ErrorBox error={error} />
+      {rotated && (
+        <>
+          <Secret label="새 서명 비밀 (기관 수신기에 전달)" value={rotated.signingSecret} />
+          <p className="muted">{rotated.warning} 지문 {rotated.fingerprint}.</p>
+        </>
+      )}
+      {status && !status.configured && <p className="muted">웹훅 엔드포인트가 없습니다 — 기관 등록·수정 API 의 <span className="mono">webhookEndpoint</span>·<span className="mono">webhookEnabled</span> 로 둡니다.</p>}
+      {status && status.configured && (
+        <dl className="kv">
+          <dt>엔드포인트</dt><dd className="mono">{status.endpointUrl}</dd>
+          <dt>상태</dt><dd><span className={`pill ${status.active && status.webhookEnabled ? 'ok' : 'warn'}`}>{status.active && status.webhookEnabled ? '발송' : '중지'}</span></dd>
+          <dt>서명 비밀</dt><dd>{status.hasSecret ? <><span className={`pill ${status.sealed ? 'ok' : 'warn'}`}>{status.sealed ? 'KMS 봉인' : '1.0.x 원문 — 재기동 때 봉인'}</span> {status.fingerprint && <span className="mono">지문 {status.fingerprint}</span>}</> : <span className="pill bad">없음 — 회전해서 발급</span>}</dd>
+          <dt>마지막 회전</dt><dd>{fmt(status.secretRotatedAt)}</dd>
+        </dl>
+      )}
     </Section>
   );
 }

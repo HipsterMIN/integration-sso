@@ -225,3 +225,24 @@ export interface ConsentItem {
   required: boolean;
   effectiveAt?: string | null;
 }
+
+// ── 1.1.1 G1-4 웹훅 서명 비밀 (/api/v1/admin/agencies/{code}/webhook, AgencyAdminController) ──
+export interface WebhookStatus {
+  agencyCode: string;
+  configured: boolean;
+  endpointUrl?: string | null;
+  active?: boolean | null;
+  webhookEnabled?: boolean | null;
+  hasSecret?: boolean;
+  sealed?: boolean;
+  fingerprint?: string | null;
+  secretRotatedAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface WebhookSecretRotation {
+  agencyCode: string;
+  signingSecret: string;
+  fingerprint: string;
+  warning: string;
+}

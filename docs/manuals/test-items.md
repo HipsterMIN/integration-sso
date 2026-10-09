@@ -1,4 +1,4 @@
-# Idem 시험 항목표 (초안 — 1.1.0 집계: 1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 9 = 67항목)
+# Idem 시험 항목표 (초안 — 1.1.1 집계: 1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 9 + 1.1.1 추가 1 = 68항목)
 
 > 대상: 시험원(GS 기능 적합성)·QA. 기능 번호는 `product-spec.md` §2. "자동" 열은 저장소의 어느 검사가 이 항목을 **실제로** 돌리는지다 — **CI 스모크** `scripts/ci/install-smoke.sh`(PR 마다 boot jar 실기동), **CI prod** 단계(1.0.1: prod 프로파일·관리 포트), **UT** 단위 테스트(`Build & Unit Test`), **IT** Testcontainers 통합 테스트(로컬 `git push` 전에만 돈다 — CI 는 `DOCKER_UNAVAILABLE=true`), **helm-lint**. `수동` 은 저장소에 자동 검사가 없는 항목이다(3차 점검에서 "E2E 헤드리스 브라우저" 표기가 실제 자동화가 아님을 확인해 1.0.1 에서 재집계). 수동 항목은 GS 시험 때 이 표 순서대로 한다.
 
@@ -35,6 +35,7 @@
 | B-12 | TOTP 재사용(1.0.1) | 같은 스텝 코드로 두 번째 로그인 | 401 `E-IDO-134`, 실패 카운터 유지 | UT(`AdminAuthServiceTest`) |
 | B-13 | 할당 정책 단일 해석(1.1) | 프로파일 `policy.assignment.required=true` + `rules[ASSIGNMENT].params.required=false` 로 미할당 로그인 | 발급 거부 `E-IDO-120`(규칙 파라미터로 풀리지 않음), prod 에서 `IDEM_HUB_AUTHZ_ENABLED=false` 는 기동 거부 | UT(`AssignmentPolicyResolverTest`·`PolicyRulesTest`·`FailSecureBootGuardTest`) |
 | B-14 | 할당 변경 전파(1.1) | authz `DELETE /assignments` → hub 폴링 | 기관 웹훅 `ASSIGNMENT_CHANGED{change:UNASSIGNED, agencySubjectId}` 적재, `qimUserId` 없음, 감사 `ASSIGNMENT_CHANGED`, 재폴링에 멱등 | UT(`AuthzServiceTest`·`AuthzEventsControllerTest`·`AuthzEventPollerTest`·`AuthzEventConsumerTest`·`WebhookDispatcherServiceTest`) |
+| B-15 | 웹훅 서명 비밀 회전(1.1.1) | 기관 등록(`webhookEndpoint`) → `POST /api/v1/admin/agencies/{code}/webhook/rotate-secret` → `GET …/webhook` → 이벤트 발송 | 비밀은 응답에 1회, DB 는 KMS 봉인값 + SHA-256(지문), 상태 응답에 원문 없음, 발송 `X-Webhook-Signature` 가 새 비밀로 검증, 엔드포인트 없는 기관 404 `E-IDO-126`, 비밀 없는 기관은 발송 FAILED(`NO_SIGNING_SECRET`), 1.0.x 원문 행은 첫 기동에 봉인, 감사 `WEBHOOK_SECRET_ROTATED` | IT(`WebhookSecretIntegrationTest`) · UT(`WebhookSigningSecretsTest`·`AgencyAdminServiceTest`·`WebhookDispatchOutboxRelayTest`) · CI 스모크 ⑧b |
 
 ## C. 서비스 프로파일·온보딩 (F18, F1)
 
@@ -102,7 +103,7 @@
 |---|---|---|---|---|
 | G-1 | 감사 검색 | `agencyCode`·`category=ADMIN` | 위 행위가 모두 있다(n≥6) | CI 스모크 ⑧ |
 | G-2 | 감사 불변 | 감사 행 UPDATE/DELETE API | 없음(404/405) | 설계 |
-| G-3 | 지표 | 관리 포트 `/actuator/prometheus` (gate·registry·authz) | `slo.*`·`personal.data.*`·`idem.kms.healthy`·`idem.outbox.*` 지표; hub 는 1.0.x 미등록(알려진 제한) | 수동 |
+| G-3 | 지표 | 관리 포트 `/actuator/prometheus` (hub·gate·registry·authz) | 200 + `jvm_*`·`slo.*`·`personal.data.*`·`idem.kms.healthy`·`idem.outbox.*`·`audit.anomaly.*` 지표. **정정(1.1.1)**: 1.0.x 는 네 앱 모두 Prometheus 레지스트리가 없어 404 였다(종전 "gate·registry·authz 는 됨" 은 잘못) — G1-4 에서 네 앱에 추가 | CI 스모크 ⑧a(네 앱 200 + jvm 지표) · CI prod 단계(hub 관리 포트 200) · K8s 리허설(hub 관리 포트) |
 | G-4 | 보안 헤더 | 응답 헤더 | HSTS·CSP·X-Frame-Options 등 | UT(F-10) |
 | G-5 | 백업·복구 | `scripts/ops/backup.sh`(pg_dump -Fc + sha256 + meta) → 앱 정지 → `scripts/ops/restore.sh`(DB 재생성·pg_restore·ANALYZE) → 기동 → A-1·B-2 재확인 | 복구 DB 의 스키마별 표 수·주요 표 행 수가 백업 시점과 같다, A-1·B-2 통과 | 자동 부분: CI 스모크 "백업·복구" 단계(백업 → 새 DB `idem_restore_check` 에 복구 → `VERIFY_SOURCE_DB` 대조) · 운영 DB 복구(앱 정지→재기동)는 **수동, 리허설 미실시** |
 | G-6 | 오프라인 설치 | `scripts/release/make-offline-bundle.sh`(이미지 tar·소스 tar·Helm·SHA256SUMS·MANIFEST) 반입 → `scripts/release/load-offline-bundle.sh` → `up -d`(`--build` 없이) | 체크섬 일치, MANIFEST 의 이미지 전부 적재, A-1~A-4 통과 | 자동 부분: CI `offline-bundle-check`(번들 생성 → 이미지 삭제 → 반입 스크립트 복원 → 대조, 스크립트 변경 PR) · 폐쇄망 반입·설치는 **수동, 미실시** |
@@ -119,9 +120,10 @@ k6 스모크(CI `k6 Smoke Test`)가 Discovery·헬스·로그인 화면을 짧�
 
 | 구분 | 항목 수 | 자동 | 그중 CI 에서 도는 것 | 로컬 IT 만 | 수동·설계·리허설 |
 |---|---|---|---|---|---|
-| A~G (1.0 원표) | 51 | 41 | 37 | 4 (B-3, B-5, E-1, E-3) | 10 (A-2, A-5, B-8, C-7, D-8, E-6, G-2, G-3, G-5, G-6) |
+| A~G (1.0 원표) | 51 | 42 | 38 | 4 (B-3, B-5, E-1, E-3) | 9 (A-2, A-5, B-8, C-7, D-8, E-6, G-2, G-5, G-6) — G-3 은 1.1.1 에서 자동 |
 | 1.0.1 추가 | 7 (A-7, B-11, B-12, C-8, D-13, D-14, G-7) | 7 | 7 | 0 | 0 |
 | 1.1 추가 | 9 (A-8, D-16, D-17, D-18, F-7, F-8, G-8, G-9, G-10) | 9 | 6 (A-8, D-16, D-17, F-8, G-8, G-9) | 3 (D-18, F-7, G-10) | 0 (G-9 의 LLM 끝-끝은 수동) |
+| 1.1.1 추가 | 1 (B-15) | 1 | 1 (B-15) | 0 | 0 |
 
 3차 점검(2026-09-26) 이전 표는 "자동 47" 로 적혀 있었다 — E2E 헤드리스 브라우저(B-2·B-3·C-7·D-8)는 S7 PR-2 의 1회성 수동 실행이었고, A-2·B-8·E-6·G-3 도 자동 검사가 없었다. 위 수치가 실제다.
 

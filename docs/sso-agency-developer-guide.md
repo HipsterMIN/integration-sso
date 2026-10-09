@@ -390,7 +390,7 @@ Idem 은 로그아웃·탈퇴·티켓 취소 같은 변화를 기관에 **밀어
 
 ### 8.1 웹훅 (Idem → 기관)
 
-운영기관이 기관 등록에 `webhookEndpoint` 를 넣으면 hub 가 HTTPS POST 한다.
+운영기관이 기관 등록에 `webhookEndpoint` 를 넣으면 hub 가 HTTPS POST 한다. 서명 비밀(`signingSecret`)은 운영기관이 관리 콘솔(기관 상세 "웹훅 서명 비밀" 카드) 또는 `POST /api/v1/admin/agencies/{code}/webhook/rotate-secret` 으로 발급해 기관에 전달한다(1.1.1 — 서버에는 KMS 봉인값만 남고 원문은 응답에 한 번). 비밀이 없는 기관에는 발송되지 않는다. 회전하면 구 비밀은 즉시 무효이므로 수신기가 잠시 두 비밀을 받게 해 두면 무중단이다.
 
 ```
 POST {webhookEndpoint}

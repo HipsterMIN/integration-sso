@@ -600,7 +600,7 @@ CB 상태 메트릭:
 - `/actuator/health` (probes: liveness, readiness)
 - `/actuator/info`
 - `/actuator/metrics`
-- `/actuator/prometheus` — Prometheus scrape
+- `/actuator/prometheus` — Prometheus scrape (1.1.1 부터 hub·gate·registry·authz 네 앱 모두; 1.0.x 는 레지스트리 미등록으로 404 였다)
 - `/actuator/flyway`
 - (IdO 전용) `/actuator/features`
 
