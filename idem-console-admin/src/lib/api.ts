@@ -60,6 +60,7 @@ export async function api<T>(method: Method, path: string, body?: unknown, extra
 export const get = <T,>(path: string) => api<T>('GET', path);
 export const post = <T,>(path: string, body?: unknown, headers?: Record<string, string>) => api<T>('POST', path, body, headers);
 export const put = <T,>(path: string, body?: unknown, headers?: Record<string, string>) => api<T>('PUT', path, body, headers);
+export const del = <T,>(path: string) => api<T>('DELETE', path);
 
 export function describe(e: unknown): string {
   if (e instanceof ApiError) return `${e.code}: ${e.message}`;

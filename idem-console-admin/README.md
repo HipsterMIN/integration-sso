@@ -6,8 +6,8 @@
 
 | 화면 | 하는 일 | 필요한 역할 |
 |---|---|---|
-| 로그인 | 비밀번호 → 2단계(TOTP). 첫 로그인은 비밀 등록(1회 표시) → 비밀번호 변경 강제 | 전부 |
-| 기관 | 목록·검색, **온보딩 폼**(서비스·프로토콜(OIDC_RP/DIRECT/…)·식별자·정책·한도) 또는 JSON 전체 편집, 저장(변경 사유), 활성화/비활성화, API 키 회전(1회 표시), **표준 OIDC client** 상태·secret 회전(1회 표시), 정책 시뮬레이션, 변경 이력 | 읽기 전부 · 쓰기 SYSTEM/POLICY |
+| 로그인 | 비밀번호 → 2단계(TOTP). 첫 로그인은 비밀 등록(QR + base32, 1회 표시 — QR 은 브라우저 안에서 그린다, 1.1.1) → 비밀번호 변경 강제 | 전부 |
+| 기관 | 목록·검색, **온보딩 폼**(서비스·프로토콜(OIDC_RP/DIRECT/…)·식별자·정책·한도) 또는 JSON 전체 편집, 저장(변경 사유), 활성화/비활성화, API 키 회전(1회 표시), **표준 OIDC client** 상태·secret 회전(1회 표시), 정책 시뮬레이션, 변경 이력, 웹훅 서명 비밀(1.1.1), 동의 항목(1.1), **할당 관리**(사용자 할당·해제, 역할 카탈로그·생성, 사용자별 역할 부여·회수 — 1.1.1). 목록은 서버 페이징·검색(1.1.1) | 읽기 전부 · 쓰기 SYSTEM/POLICY |
 | 테넌트 | 목록, 추가·수정 | 읽기 전부 · 쓰기 전역 SYSTEM |
 | 감사 | 기간·분류·사건·주체·기관·결과 필터, 상세 펼침, 쪽 이동 | 전부(테넌트 관리자는 자기 기관) |
 | 관리자 | 추가(임시 비밀번호 1회 표시)·역할/테넌트/상태 변경·비밀번호 재설정·잠금 해제·2단계 초기화 | 전역 SYSTEM_ADMIN |
@@ -25,6 +25,7 @@ npm run preview      # dist/ 를 3001 에서 같은 프록시로
 - `src/lib/api.ts` — fetch 래퍼(CSRF 헤더·401 → 로그인 화면·오류 `{code,message,detail}`)
 - `src/lib/profile.ts` — Service Profile JSON ↔ 폼 모델(폼 밖 키 보존), 자체 검사
 - `src/pages/*` — 화면. 라우팅은 해시(`#/services/CODE`), 상태는 React 만
-- `test/*.test.ts` — Vitest(Node): 프로파일 모델·API 클라이언트
+- `src/lib/assignments.ts`·`agencies.ts`·`qr.ts` — 할당 관리 폼·경로, 기관 목록 쿼리, TOTP 등록 QR(`qrcode`, data URL) — 1.1.1
+- `test/*.test.ts` — Vitest(Node): 프로파일 모델·API 클라이언트·동의·할당·QR
 
 KR 에디션의 회원 포털(구 `idem-console`)은 `editions/idem-kr-portal/` 이다 — 이 콘솔과 무관하다.

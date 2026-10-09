@@ -1,28 +1,19 @@
 package io.github.hipstermin.idem.hub.admin;
 
-import static org.mockito.Mockito.when;
-
-import static org.mockito.ArgumentMatchers.eq;
-
-import static org.mockito.ArgumentMatchers.contains;
-
-import static org.mockito.ArgumentMatchers.anyString;
-
-import java.util.Map;
-
-import java.util.List;
-
-import io.github.hipstermin.idem.common.crypto.CryptoProviders;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.hipstermin.idem.common.crypto.CryptoProviders;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import io.github.hipstermin.idem.hub.admin.dto.AgencyCreateRequest;
@@ -32,6 +23,8 @@ import io.github.hipstermin.idem.hub.domain.IntegrationType;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEntity;
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
 import io.github.hipstermin.idem.hub.serviceprofile.ServiceProfileMapper;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -187,5 +180,27 @@ class AgencyAdminServiceTest {
         st = service.webhookStatus("AG_W");
         assertThat(st).containsEntry("hasSecret", true).containsEntry("sealed", false);
         assertThat(st.get("fingerprint")).isNull();
+    }
+
+    // ── 1.1.1 G1-3 기관 목록 페이징·검색 ────────────────────────────────────────
+
+    @Test
+    @DisplayName("listAgencies: q 는 소문자 LIKE 패턴, size 는 1~200, 테넌트가 있으면 searchInTenant, 응답은 items·page·size·total")
+    void listAgencies_pagingAndSearch() {
+        AgencyMetaJpaEntity e = AgencyMetaJpaEntity.builder().agencyCode("AG_1").officialName("기관").minAuthLevel("L1").policyVersion("1.0").apiKeyHash("h").active(true).build();
+        when(jpaRepository.search(eq("%ag%"), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(e), org.springframework.data.domain.PageRequest.of(0, 200), 321));
+        AgencyAdminService.AgencyPage page = service.listAgencies(0, 999, " Ag ", null);
+        assertThat(page.items()).singleElement().satisfies(a -> assertThat(a.getAgencyCode()).isEqualTo("AG_1"));
+        assertThat(page.size()).isEqualTo(200);
+        assertThat(page.total()).isEqualTo(321);
+
+        when(jpaRepository.searchInTenant(eq("T1"), eq("%%"), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(), org.springframework.data.domain.PageRequest.of(0, 50), 0));
+        AgencyAdminService.AgencyPage t = service.listAgencies(-3, 0, null, "T1");
+        assertThat(t.items()).isEmpty();
+        assertThat(t.page()).isZero();
+        assertThat(t.size()).isEqualTo(1);
+        verify(jpaRepository, never()).search(eq("%%"), any(org.springframework.data.domain.Pageable.class));
     }
 }

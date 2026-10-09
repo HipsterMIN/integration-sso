@@ -118,14 +118,25 @@ public class AgencyAdminService {
 
     // ── 기관 목록 조회 ─────────────────────────────────────────────────────
 
+    public static final int MAX_PAGE_SIZE = 200;
+
+    /** 1.1.1 G1-3: 페이지 응답 — 콘솔 목록·검색 */
+    public record AgencyPage(List<AgencyResponse> items, int page, int size, long total) {}
+
+    /**
+     * 기관 목록 — {@code q} 는 코드·이름 부분 일치(대소문자 무시), {@code tenantCode} 가 있으면 그 Tenant 만(DB 에서 거른다).
+     * size 는 1~{@value #MAX_PAGE_SIZE}. 정렬은 코드.
+     */
     @Transactional(readOnly = true)
-    public List<AgencyResponse> listAgencies(int page, int size) {
-        return jpaRepository.findAll(
-                org.springframework.data.domain.PageRequest.of(page, size,
-                        org.springframework.data.domain.Sort.by("agencyCode")))
-                .stream()
-                .map(e -> toResponse(e, null, null))
-                .toList();
+    public AgencyPage listAgencies(int page, int size, String q, String tenantCode) {
+        int p = Math.max(0, page);
+        int s = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
+        String like = "%" + (q == null ? "" : q.trim().toLowerCase(java.util.Locale.ROOT)) + "%";
+        var pageable = org.springframework.data.domain.PageRequest.of(p, s, org.springframework.data.domain.Sort.by("agencyCode"));
+        org.springframework.data.domain.Page<AgencyMetaJpaEntity> res = tenantCode == null || tenantCode.isBlank()
+                ? jpaRepository.search(like, pageable)
+                : jpaRepository.searchInTenant(tenantCode, like, pageable);
+        return new AgencyPage(res.getContent().stream().map(e -> toResponse(e, null, null)).toList(), p, s, res.getTotalElements());
     }
 
     // ── 기관 단건 조회 ─────────────────────────────────────────────────────

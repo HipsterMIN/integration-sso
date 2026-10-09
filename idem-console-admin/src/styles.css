@@ -43,3 +43,11 @@ tr.click { cursor: pointer; } tr.click:hover { background:#f2f5fa; }
 .tabs button { font: inherit; background: none; border: none; border-bottom: 2px solid transparent; padding: 6px 10px; cursor: pointer; color: var(--muted); }
 .tabs button.active { color: var(--brand); border-bottom-color: var(--brand); }
 .kv { display:grid; grid-template-columns: 160px 1fr; gap: 4px 12px; font-size: 13px; } .kv dt { color: var(--muted); } .kv dd { margin:0; word-break: break-all; }
+
+/* 1.1.1 G1-3 — 할당 관리 카드 안의 하위 영역·폼, 로그인 QR */
+.subcard { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line, #e5e7eb); }
+.subcard h3 { font-size: 15px; margin: 0 0 8px; }
+.subform { margin-bottom: 12px; }
+tr.selected td { background: var(--accent-soft, #eef2ff); }
+.qr { text-align: center; margin: 8px 0 12px; }
+.qr img { image-rendering: pixelated; border: 1px solid var(--line, #e5e7eb); border-radius: 4px; background: #fff; }

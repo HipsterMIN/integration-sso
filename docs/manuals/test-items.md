@@ -1,4 +1,4 @@
-# Idem 시험 항목표 (초안 — 1.1.1 집계: 1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 9 + 1.1.1 추가 1 = 68항목)
+# Idem 시험 항목표 (초안 — 1.1.1 집계: 1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 9 + 1.1.1 추가 3 = 70항목)
 
 > 대상: 시험원(GS 기능 적합성)·QA. 기능 번호는 `product-spec.md` §2. "자동" 열은 저장소의 어느 검사가 이 항목을 **실제로** 돌리는지다 — **CI 스모크** `scripts/ci/install-smoke.sh`(PR 마다 boot jar 실기동), **CI prod** 단계(1.0.1: prod 프로파일·관리 포트), **UT** 단위 테스트(`Build & Unit Test`), **IT** Testcontainers 통합 테스트(로컬 `git push` 전에만 돈다 — CI 는 `DOCKER_UNAVAILABLE=true`), **helm-lint**. `수동` 은 저장소에 자동 검사가 없는 항목이다(3차 점검에서 "E2E 헤드리스 브라우저" 표기가 실제 자동화가 아님을 확인해 1.0.1 에서 재집계). 수동 항목은 GS 시험 때 이 표 순서대로 한다.
 
@@ -22,7 +22,7 @@
 | ID | 항목 | 절차 | 기대 결과 | 자동 |
 |---|---|---|---|---|
 | B-1 | 무인증 관리 API | 세션 없이 `GET /api/v1/admin/agencies` | 401 `E-IDO-130` | CI 스모크 ②′ |
-| B-2 | 첫 로그인 2단계 등록 | 부트스트랩 비밀번호 로그인 → `MFA_ENROLL_REQUIRED` → 코드 | 세션 발급, `mustChangePassword=true` | CI 스모크(`admin-login.sh`) |
+| B-2 | 첫 로그인 2단계 등록 | 부트스트랩 비밀번호 로그인 → `MFA_ENROLL_REQUIRED` → 코드 | 세션 발급, `mustChangePassword=true`. 1.1.1: 콘솔 등록 화면에 `otpauth://` QR(브라우저 안 생성, `otpauth://totp/` 아니면 그리지 않음) | CI 스모크(`admin-login.sh`) · 콘솔 vitest(`qr.test.ts`) — QR 을 인증 앱으로 찍는 끝-끝은 수동 |
 | B-3 | 비밀번호 변경 강제 | 변경 전 다른 API 호출 | 403 `E-IDO-137` | IT(로컬, `AdminAuthIntegrationTest`) |
 | B-4 | 비밀번호 정책 | 9자·사용자명 포함 | 400 `E-IDO-135` + 사유 | UT |
 | B-5 | 잠금 | 틀린 비밀번호 5회 | 423 `E-IDO-133`, 15분 뒤 해제 / unlock API | IT(로컬) |
@@ -36,6 +36,8 @@
 | B-13 | 할당 정책 단일 해석(1.1) | 프로파일 `policy.assignment.required=true` + `rules[ASSIGNMENT].params.required=false` 로 미할당 로그인 | 발급 거부 `E-IDO-120`(규칙 파라미터로 풀리지 않음), prod 에서 `IDEM_HUB_AUTHZ_ENABLED=false` 는 기동 거부 | UT(`AssignmentPolicyResolverTest`·`PolicyRulesTest`·`FailSecureBootGuardTest`) |
 | B-14 | 할당 변경 전파(1.1) | authz `DELETE /assignments` → hub 폴링 | 기관 웹훅 `ASSIGNMENT_CHANGED{change:UNASSIGNED, agencySubjectId}` 적재, `qimUserId` 없음, 감사 `ASSIGNMENT_CHANGED`, 재폴링에 멱등 | UT(`AuthzServiceTest`·`AuthzEventsControllerTest`·`AuthzEventPollerTest`·`AuthzEventConsumerTest`·`WebhookDispatcherServiceTest`) |
 | B-15 | 웹훅 서명 비밀 회전(1.1.1) | 기관 등록(`webhookEndpoint`) → `POST /api/v1/admin/agencies/{code}/webhook/rotate-secret` → `GET …/webhook` → 이벤트 발송 | 비밀은 응답에 1회, DB 는 KMS 봉인값 + SHA-256(지문), 상태 응답에 원문 없음, 발송 `X-Webhook-Signature` 가 새 비밀로 검증, 엔드포인트 없는 기관 404 `E-IDO-126`, 비밀 없는 기관은 발송 FAILED(`NO_SIGNING_SECRET`), 1.0.x 원문 행은 첫 기동에 봉인, 감사 `WEBHOOK_SECRET_ROTATED` | IT(`WebhookSecretIntegrationTest`) · UT(`WebhookSigningSecretsTest`·`AgencyAdminServiceTest`·`WebhookDispatchOutboxRelayTest`) · CI 스모크 ⑧b |
+| B-16 | 할당 관리(1.1.1) | 기관 상세 "할당 관리": `POST /api/v1/admin/services/{code}/assignments` → 목록 → `POST …/roles` → `POST …/assignments/{u}/roles` → `GET …/roles` → `DELETE …/roles/{r}` → `DELETE …/assignments/{u}` | 201(ACTIVE, source=CONSOLE)·목록 봉투 `{items,page,size,total,hasNext}`·역할 201(재실행 `409 E-IDO-128`)·부여 201·회수 204·해제 204, 없는 서비스 `404 E-AGENCY-307`, 범위 밖 기관 403, AUDITOR 쓰기 403, authz 꺼짐 `503 E-IDO-116`, 감사 `ADMIN/ASSIGNMENT_GRANTED·ASSIGNMENT_REVOKED·ROLE_CREATED·ROLE_GRANTED·ROLE_REVOKED` | IT(`AssignmentAdminIntegrationTest`, authz WireMock) · UT(`AssignmentAdminServiceTest`·`AssignmentAdminControllerTest`·`QAuthzClientAdminTest`·`AdminAuthorizationTest`) · 콘솔 vitest(`assignments.test.ts`) · CI 스모크 ⑧c(실제 authz) |
+| B-17 | 기관 목록 페이징·검색(1.1.1) | `GET /api/v1/admin/agencies?page=0&size=1`, `?q=<코드 일부 소문자>&size=10`, `size=999` | 봉투 `{items,page,size,total}`, size 는 1~200 으로 잘림, `q` 는 코드·이름 부분 일치(대소문자 무시), 테넌트 관리자는 자기 테넌트만(DB 에서 거른 뒤 셈) | UT(`AgencyAdminServiceTest.listAgencies_pagingAndSearch`) · IT(`AssignmentAdminIntegrationTest`) · CI 스모크 ⑧c |
 
 ## C. 서비스 프로파일·온보딩 (F18, F1)
 
@@ -123,7 +125,7 @@ k6 스모크(CI `k6 Smoke Test`)가 Discovery·헬스·로그인 화면을 짧�
 | A~G (1.0 원표) | 51 | 42 | 38 | 4 (B-3, B-5, E-1, E-3) | 9 (A-2, A-5, B-8, C-7, D-8, E-6, G-2, G-5, G-6) — G-3 은 1.1.1 에서 자동 |
 | 1.0.1 추가 | 7 (A-7, B-11, B-12, C-8, D-13, D-14, G-7) | 7 | 7 | 0 | 0 |
 | 1.1 추가 | 9 (A-8, D-16, D-17, D-18, F-7, F-8, G-8, G-9, G-10) | 9 | 6 (A-8, D-16, D-17, F-8, G-8, G-9) | 3 (D-18, F-7, G-10) | 0 (G-9 의 LLM 끝-끝은 수동) |
-| 1.1.1 추가 | 1 (B-15) | 1 | 1 (B-15) | 0 | 0 |
+| 1.1.1 추가 | 3 (B-15, B-16, B-17) | 3 | 3 (B-15, B-16, B-17) | 0 | 0 (B-2 의 QR 끝-끝은 B-2 수동 부분) |
 
 3차 점검(2026-09-26) 이전 표는 "자동 47" 로 적혀 있었다 — E2E 헤드리스 브라우저(B-2·B-3·C-7·D-8)는 S7 PR-2 의 1회성 수동 실행이었고, A-2·B-8·E-6·G-3 도 자동 검사가 없었다. 위 수치가 실제다.
 

@@ -11,6 +11,7 @@
 #       ⑦b Handoff 브라우저 진입(1.1 코어 로그인 프런트: DIRECT 프로파일 → 진입 → MOCK → 발급 → 콜백 → verify → 재검증 409)
 #       ⑧a 지표(1.1.1 G1-4): 네 앱 관리 주소의 /actuator/prometheus 200 + jvm 지표 — 1.0.x 는 레지스트리 미등록이라 404 였다
 #       ⑧b 웹훅 서명 비밀 회전(1.1.1 G1-4): 기관 등록(webhookEndpoint) → rotate-secret(원문 1회) → 상태(봉인·지문, 원문 없음)
+#       ⑧c 할당 관리·기관 목록 페이징(1.1.1 G1-3): 목록 봉투·검색 → 직접 할당 → 역할 생성(201|409) → 부여 → 회수 → 해제 → 없는 서비스 404
 #       ⑧ 감사 조회(관리 행위가 남는다) → 로그아웃
 #
 #   HUB_URL GATE_URL REGISTRY_URL IDEM_AUTHZ_URL   기본 localhost:8083/8081/8082/8086
@@ -207,10 +208,44 @@ st=$(curl -sf "$HUB_URL/api/v1/admin/agencies/$WH_CODE/webhook" "${adm[@]}") || 
 echo "$st" | grep -q "$sec" && fail "상태 응답에 비밀 원문이 있다" || ok "상태 응답에 원문 없음"
 unset sec
 
+echo "⑧c 할당 관리·기관 목록 페이징 (1.1.1 G1-3 — hub 관리 API → idem-authz, 테넌트 범위·감사)"
+lst=$(curl -sf "$HUB_URL/api/v1/admin/agencies?page=0&size=1" "${adm[@]}") || fail "기관 목록(페이징) 조회 실패"
+[ "$(echo "$lst" | jq -r .size)" = "1" ] && [ "$(echo "$lst" | jq '.items|length')" = "1" ] && [ "$(echo "$lst" | jq -r .total)" -ge 2 ] \
+  && ok "기관 목록 봉투 {items,page,size,total} (총 $(echo "$lst" | jq -r .total), size=1 → 1건)" || fail "기관 목록 봉투 이상: $lst"
+q=$(printf '%s' "$HO_CODE" | tr 'A-Z' 'a-z')   # 대소문자 무시 부분 일치
+lst=$(curl -sf "$HUB_URL/api/v1/admin/agencies?q=$q&size=10" "${adm[@]}") || fail "기관 검색 실패"
+echo "$lst" | jq -e --arg c "$HO_CODE" '[.items[].agencyCode] | index($c)' >/dev/null && ok "기관 검색 q=$q → $HO_CODE" || fail "기관 검색 결과에 $HO_CODE 없음: $(echo "$lst" | jq -c '[.items[].agencyCode]')"
+AS_SVC="$HUB_URL/api/v1/admin/services/$HO_CODE"
+AS_USER="smoke-user-$(date +%s)"
+code=$(curl -s -o /tmp/smoke-asg.json -w '%{http_code}' -X POST "$AS_SVC/assignments" -H 'Content-Type: application/json' "${adm[@]}" -d "{\"qimUserId\":\"$AS_USER\",\"reason\":\"install-smoke\"}")
+[ "$code" = "201" ] && [ "$(jq -r .status /tmp/smoke-asg.json)" = "ACTIVE" ] && ok "직접 할당 201 ($AS_USER, source=$(jq -r .source /tmp/smoke-asg.json))" || fail "직접 할당 $code: $(cat /tmp/smoke-asg.json)"
+lst=$(curl -sf "$AS_SVC/assignments?page=0&size=50" "${adm[@]}") || fail "할당 목록 조회 실패"
+echo "$lst" | jq -e --arg u "$AS_USER" '[.items[].qimUserId] | index($u)' >/dev/null && [ "$(echo "$lst" | jq -r .total)" -ge 1 ] && ok "할당 목록에 $AS_USER (총 $(echo "$lst" | jq -r .total), hasNext=$(echo "$lst" | jq -r .hasNext))" || fail "할당 목록 이상: $lst"
+code=$(curl -s -o /tmp/smoke-role.json -w '%{http_code}' -X POST "$AS_SVC/roles" -H 'Content-Type: application/json' "${adm[@]}" -d '{"roleCode":"SMOKE_ROLE","name":"설치 스모크 역할","description":"install-smoke"}')
+case "$code" in
+  201) ok "역할 생성 201 SMOKE_ROLE" ;;
+  409) grep -q 'E-IDO-128' /tmp/smoke-role.json && ok "역할 SMOKE_ROLE 은 이미 있음 (재실행, 409 E-IDO-128)" || fail "역할 생성 409 인데 코드 이상: $(cat /tmp/smoke-role.json)" ;;
+  *) fail "역할 생성 $code: $(cat /tmp/smoke-role.json)" ;;
+esac
+roles=$(curl -sf "$AS_SVC/roles" "${adm[@]}") || fail "역할 카탈로그 조회 실패"
+echo "$roles" | jq -e '[.[].roleCode] | index("SMOKE_ROLE")' >/dev/null && ok "역할 카탈로그에 SMOKE_ROLE ($(echo "$roles" | jq length)개)" || fail "역할 카탈로그 이상: $roles"
+code=$(curl -s -o /tmp/smoke-grant.json -w '%{http_code}' -X POST "$AS_SVC/assignments/$AS_USER/roles" -H 'Content-Type: application/json' "${adm[@]}" -d '{"roleCode":"SMOKE_ROLE","reason":"install-smoke"}')
+[ "$code" = "201" ] && ok "역할 부여 201" || fail "역할 부여 $code: $(cat /tmp/smoke-grant.json)"
+ur=$(curl -sf "$AS_SVC/assignments/$AS_USER/roles" "${adm[@]}") || fail "사용자 역할 조회 실패"
+echo "$ur" | jq -e '[.[] | select(.status=="ACTIVE") | .roleCode] | index("SMOKE_ROLE")' >/dev/null && ok "사용자 역할에 SMOKE_ROLE ACTIVE" || fail "사용자 역할 이상: $ur"
+code=$(curl -s -o /tmp/smoke-revoke.json -w '%{http_code}' -X DELETE "$AS_SVC/assignments/$AS_USER/roles/SMOKE_ROLE?reason=install-smoke" "${adm[@]}")
+[ "$code" = "204" ] && ok "역할 회수 204" || fail "역할 회수 $code: $(cat /tmp/smoke-revoke.json)"
+code=$(curl -s -o /tmp/smoke-unassign.json -w '%{http_code}' -X DELETE "$AS_SVC/assignments/$AS_USER?reason=install-smoke" "${adm[@]}")
+[ "$code" = "204" ] && ok "할당 해제 204" || fail "할당 해제 $code: $(cat /tmp/smoke-unassign.json)"
+lst=$(curl -sf "$AS_SVC/assignments?page=0&size=50" "${adm[@]}") || fail "할당 목록 재조회 실패"
+echo "$lst" | jq -e --arg u "$AS_USER" '[.items[] | select(.status=="ACTIVE") | .qimUserId] | index($u)' >/dev/null && fail "해제 뒤에도 $AS_USER 가 ACTIVE: $lst" || ok "해제 뒤 목록에 ACTIVE 로 없음"
+code=$(curl -s -o /tmp/smoke-asg404.json -w '%{http_code}' "$HUB_URL/api/v1/admin/services/NO_SUCH_SVC_$$/assignments" "${adm[@]}")
+[ "$code" = "404" ] && grep -q 'E-AGENCY-307' /tmp/smoke-asg404.json && ok "없는 서비스의 할당 목록 404 E-AGENCY-307" || fail "없는 서비스 할당 목록이 $code: $(cat /tmp/smoke-asg404.json)"
+
 echo "⑧ 감사 조회 → 로그아웃"
 sleep 1   # 감사 발행은 비동기
 audit=$(curl -sf "$HUB_URL/api/v1/admin/audit?category=ADMIN&size=50" "${adm[@]}") || fail "감사 조회 실패"
-for a in ADMIN_LOGIN_SUCCESS ADMIN_PASSWORD_CHANGED ADMIN_ACCESS_DENIED; do
+for a in ADMIN_LOGIN_SUCCESS ADMIN_PASSWORD_CHANGED ADMIN_ACCESS_DENIED ASSIGNMENT_GRANTED ROLE_GRANTED ASSIGNMENT_REVOKED; do
   echo "$audit" | jq -e --arg a "$a" '[.items[].action] | index($a)' >/dev/null && ok "감사에 $a" || fail "감사에 $a 없음: $(echo "$audit" | jq -c '[.items[].action]')"
 done
 audit=$(curl -sf "$HUB_URL/api/v1/admin/audit?agencyCode=$SERVICE_CODE&size=50" "${adm[@]}") || fail "감사(기관) 조회 실패"

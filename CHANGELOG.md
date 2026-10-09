@@ -19,6 +19,15 @@
 - 설치본 스모크 ⑧b: 웹훅 기관 등록 → 회전 → 상태(봉인·지문·원문 없음). `IDEM_HUB_WEBHOOK_SIGNING_SECRET` 는 기동 검증(F4.3)에만 남는다 — 2.0 에서 제거 예정(설치 입력 문서).
 - 테스트: `WebhookSigningSecretsTest`, `AgencyAdminServiceTest`(+3), `WebhookDispatchOutboxRelayTest`(+2), IT `WebhookSecretIntegrationTest`(등록 → 회전 → 봉인·지문 → 실제 발송 서명 검증 → 1.0.x 행 봉인 → 404). 문서: 운영 가이드 §3, 개발자 가이드 §8.1, 관리자 매뉴얼 §9, 제품 설명서 F20·F22, 시험 항목 B-15·G-3(+집계 68), 설치 입력, 운영 매뉴얼 §13.
 
+### G1-3 · 관리 콘솔 보완 3건 (플랜 §2.3)
+
+- **할당 관리 화면**: 기관 상세 "할당 관리 — 사용자·역할" 카드 — 할당 목록(페이징)·직접 할당·해제, 역할(그룹) 카탈로그·생성, 사용자별 역할 부여·회수. hub 관리 API `/api/v1/admin/services/{code}/assignments`(GET 봉투 `{items,page,size,total,hasNext}` · POST 201 · DELETE 204), `…/roles`(GET · POST 201), `…/assignments/{qimUserId}/roles`(GET · POST 201 · DELETE …/{roleCode} 204) — `AssignmentAdminController`·`AssignmentAdminService`(서비스 존재 `404 E-AGENCY-307`·테넌트 범위·입력 `[A-Za-z0-9_.:-]{1,100}`), 상태는 idem-authz(`QAuthzClient` 관리 호출 8종, source `CONSOLE`, `X-Actor`). authz 거부 매핑 새 코드 `E-IDO-127`(없음)·`E-IDO-128`(중복·부여 불가)·`E-IDO-129`(그 밖 4xx), 장애 `E-IDO-117`, 꺼진 설치본 `E-IDO-116`. 감사 `ADMIN/ASSIGNMENT_GRANTED·ASSIGNMENT_REVOKED·ROLE_CREATED·ROLE_GRANTED·ROLE_REVOKED`. 인가 매트릭스는 "그 외" 규칙(GET 전 역할, 쓰기 SYSTEM·POLICY).
+- **기관 목록 페이징·검색**: `GET /api/v1/admin/agencies?page&size&q` — 응답이 배열에서 봉투 `{items, page, size, total}` 로 바뀌었다(size 기본 50·최대 200, `q` 는 코드·이름 부분 일치 대소문자 무시, 테넌트 범위는 DB 에서 거른다 — 종전엔 500건을 받아 메모리에서 걸렀다). 콘솔 목록은 서버 페이징 + 300ms 지연 검색.
+- **TOTP 등록 QR**: 콘솔 첫 로그인 등록 화면에 `otpauth://` QR(`qrcode` 1.5.4, 브라우저 안에서 PNG data URL — 비밀이 서버·네트워크로 다시 나가지 않는다, `otpauth://totp/` 아니면 그리지 않음). base32 비밀·URI 문구는 그대로(QR 을 못 찍을 때).
+- 설치본 스모크 ⑧c(실제 authz): 목록 봉투·검색 → 직접 할당 → 역할 생성(201|재실행 409) → 부여 → 사용자 역할 → 회수 → 해제 → 없는 서비스 404, 감사에 `ASSIGNMENT_GRANTED·ROLE_GRANTED·ASSIGNMENT_REVOKED`.
+- 테스트: UT `QAuthzClientAdminTest`·`AssignmentAdminServiceTest`·`AssignmentAdminControllerTest`·`AgencyAdminServiceTest.listAgencies_pagingAndSearch`·`AdminAuthorizationTest`(+행), IT `AssignmentAdminIntegrationTest`(authz WireMock), 콘솔 `assignments.test.ts`·`qr.test.ts`. 문서: 관리자 매뉴얼 §1·§2·§14, 제품 설명서 F18, 시험 항목 B-2·B-16·B-17(집계 70, 자동 61), GS 착수, 인가 매트릭스.
+- 호환: 기관 목록 API 의 응답 모양 변경은 콘솔 전용 관리 API 에 한한다(SDK·기관 API 무관). 이전 콘솔 빌드와 새 hub 를 섞어 쓰면 목록이 비어 보인다 — 콘솔 이미지를 함께 올린다.
+
 ## [1.1.0] — 2026-10-08
 
 `docs/post-1.0-plan.md` §5 "1.1 — 기능 공백 해소" 8건이 PR 9개로 들어갔다: PR-1 #251(연합 인가 정합성·할당 변경 전파·SLO IdP 재시도) · PR-2 #252(감사 WAL 폴백·그룹·속성 규칙 할당) · PR-3 #253(코어 로그인 프런트) · PR-4 #254(Java 에이전트 저장소 분리) · PR-5 #255(SCIM 2.0 아웃바운드) · PR-6 #256(K8s 실배포 리허설) · PR-7 #257(AI 운영 보조, 선택) · PR-8 #258(감사 이상 탐지, 관찰 모드) · PR-9 #259(동의 카탈로그). 태그 `v1.1.0`. 1.0.x 패치는 `release/1.0`.

@@ -33,12 +33,18 @@ class AdminAuthorizationTest {
         assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/services/A/consents")).isFalse();
         assertThat(sut.allowed(auditor, "GET", "/api/v1/admin/consents")).isTrue();
         assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/consents/v1/retire")).isFalse();
+        // 1.1.1 할당 관리: "그 외" 규칙 — 목록은 전 역할, 할당·역할 부여는 쓰기 권한자만
+        assertThat(sut.allowed(auditor, "GET", "/api/v1/admin/services/A/assignments")).isTrue();
+        assertThat(sut.allowed(auditor, "POST", "/api/v1/admin/services/A/assignments")).isFalse();
+        assertThat(sut.allowed(auditor, "DELETE", "/api/v1/admin/services/A/assignments/u1/roles/R")).isFalse();
     }
 
     @Test
     void policyAdminManagesServicesNotAdmins() {
         assertThat(sut.allowed(policy, "PUT", "/api/v1/admin/services/A/profile")).isTrue();
         assertThat(sut.allowed(policy, "POST", "/api/v1/admin/agencies/A/rotate-key")).isTrue();
+        assertThat(sut.allowed(policy, "POST", "/api/v1/admin/services/A/assignments")).isTrue();
+        assertThat(sut.allowed(policy, "DELETE", "/api/v1/admin/services/A/assignments/u1")).isTrue();
         assertThat(sut.allowed(policy, "DELETE", "/api/v1/handoff/t1")).isTrue();
         assertThat(sut.allowed(policy, "GET", "/api/v1/admin/tenants")).isTrue();
         assertThat(sut.allowed(policy, "PUT", "/api/v1/admin/tenants/T1")).isFalse();
