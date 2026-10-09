@@ -3,6 +3,7 @@ package io.github.hipstermin.idem.hub.infrastructure;
 import io.github.hipstermin.idem.common.error.PlatformErrorCode;
 import io.github.hipstermin.idem.common.error.PlatformException;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -268,5 +270,141 @@ public class QAuthzClient {
             headers.set("X-Internal-Api-Key", qAuthzInternalApiKey);
         }
         return headers;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 1.1.1 G1-3 — 관리 콘솔 할당 관리 (hub 관리 API → authz 내부 API). authz 4xx 는 상태 그대로(E-IDO-127/128/129), 장애는 E-IDO-117
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public record AssignmentRecord(String qimUserId, String agencyCode, String status, String source, String grantedAt, String grantedBy, String expiresAt) {}
+    public record AssignmentListPage(List<AssignmentRecord> items, long total, boolean hasNext) {}
+    public record RoleRecord(String agencyCode, String roleCode, String name, String description, boolean assignable, String createdAt) {}
+    public record UserRoleRecord(String id, String qimUserId, String agencyCode, String roleCode, String status, String grantedAt, String grantedBy, String expiresAt, String source) {}
+
+    /** Service 의 할당 목록(상태 ACTIVE 순, 페이지) — authz {@code GET /agencies/{code}/assignments} */
+    public AssignmentListPage listAgencyAssignmentRecords(String agencyCode, int page, int size, String correlationId) {
+        ResponseEntity<List<Map<String, Object>>> res = adminExchange(HttpMethod.GET,
+                "/api/v1/internal/authz/agencies/" + agencyCode + "/assignments?page=" + page + "&size=" + size, null, correlationId, null);
+        List<AssignmentRecord> items = new java.util.ArrayList<>();
+        for (Map<String, Object> m : res.getBody() == null ? List.<Map<String, Object>>of() : res.getBody()) items.add(toAssignment(m));
+        long total = items.size();
+        try { total = Long.parseLong(String.valueOf(res.getHeaders().getFirst("X-Total-Count"))); } catch (NumberFormatException ignore) { /* 헤더 없음 */ }
+        return new AssignmentListPage(items, total, "true".equalsIgnoreCase(res.getHeaders().getFirst("X-Has-Next")));
+    }
+
+    /** 직접 할당(source=CONSOLE) — authz {@code POST /assignments} */
+    public AssignmentRecord assign(String agencyCode, String qimUserId, String grantedBy, java.time.Instant expiresAt, String reason, String correlationId) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("qimUserId", qimUserId); body.put("agencyCode", agencyCode); body.put("grantedBy", grantedBy);
+        if (expiresAt != null) body.put("expiresAt", expiresAt.toString());
+        body.put("source", "CONSOLE"); if (reason != null) body.put("reason", reason);
+        return toAssignment(adminExchangeMap(HttpMethod.POST, "/api/v1/internal/authz/assignments", body, correlationId, null));
+    }
+
+    /** 할당 해제 — authz {@code DELETE /assignments} */
+    public void unassign(String agencyCode, String qimUserId, String revokedBy, String reason, String correlationId) {
+        adminExchange(HttpMethod.DELETE, UriComponentsBuilder.fromPath("/api/v1/internal/authz/assignments")
+                .queryParam("qimUserId", qimUserId).queryParam("agencyCode", agencyCode).queryParam("revokedBy", revokedBy)
+                .queryParamIfPresent("reason", java.util.Optional.ofNullable(reason)).build().encode().toUriString(), null, correlationId, null);
+    }
+
+    /** 역할 카탈로그 — authz {@code GET /roles?agencyCode} */
+    public List<RoleRecord> listRoles(String agencyCode, String correlationId) {
+        ResponseEntity<List<Map<String, Object>>> res = adminExchange(HttpMethod.GET, "/api/v1/internal/authz/roles?agencyCode=" + agencyCode, null, correlationId, null);
+        List<RoleRecord> out = new java.util.ArrayList<>();
+        for (Map<String, Object> m : res.getBody() == null ? List.<Map<String, Object>>of() : res.getBody()) out.add(toRole(m));
+        return out;
+    }
+
+    /** 역할 만들기 — authz {@code POST /roles} (X-Actor = 관리자) */
+    public RoleRecord createRole(String agencyCode, String roleCode, String name, String description, String actor, String correlationId) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("agencyCode", agencyCode); body.put("roleCode", roleCode); body.put("name", name); if (description != null) body.put("description", description);
+        return toRole(adminExchangeMap(HttpMethod.POST, "/api/v1/internal/authz/roles", body, correlationId, actor));
+    }
+
+    /** 사용자의 역할 부여 내역 — authz {@code GET /users/{id}/roles?agencyCode} */
+    public List<UserRoleRecord> listUserRoles(String qimUserId, String agencyCode, String correlationId) {
+        ResponseEntity<List<Map<String, Object>>> res = adminExchange(HttpMethod.GET,
+                "/api/v1/internal/authz/users/" + qimUserId + "/roles?agencyCode=" + agencyCode, null, correlationId, null);
+        List<UserRoleRecord> out = new java.util.ArrayList<>();
+        for (Map<String, Object> m : res.getBody() == null ? List.<Map<String, Object>>of() : res.getBody()) out.add(toUserRole(m));
+        return out;
+    }
+
+    /** 역할 부여(source=CONSOLE) — authz {@code POST /grants} */
+    public UserRoleRecord grantRole(String agencyCode, String qimUserId, String roleCode, String grantedBy, java.time.Instant expiresAt, String reason, String correlationId) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("qimUserId", qimUserId); body.put("agencyCode", agencyCode); body.put("roleCode", roleCode); body.put("grantedBy", grantedBy);
+        if (expiresAt != null) body.put("expiresAt", expiresAt.toString());
+        body.put("source", "CONSOLE"); if (reason != null) body.put("reason", reason);
+        return toUserRole(adminExchangeMap(HttpMethod.POST, "/api/v1/internal/authz/grants", body, correlationId, null));
+    }
+
+    /** 역할 회수 — authz {@code DELETE /grants} */
+    public void revokeRole(String agencyCode, String qimUserId, String roleCode, String revokedBy, String reason, String correlationId) {
+        adminExchange(HttpMethod.DELETE, UriComponentsBuilder.fromPath("/api/v1/internal/authz/grants")
+                .queryParam("qimUserId", qimUserId).queryParam("agencyCode", agencyCode).queryParam("roleCode", roleCode).queryParam("revokedBy", revokedBy)
+                .queryParamIfPresent("reason", java.util.Optional.ofNullable(reason)).build().encode().toUriString(), null, correlationId, null);
+    }
+
+    // ── 내부 ──
+    private static String str(Object o) { return o == null ? null : String.valueOf(o); }
+    private static AssignmentRecord toAssignment(Map<String, Object> m) {
+        return new AssignmentRecord(str(m.get("qimUserId")), str(m.get("agencyCode")), str(m.get("status")), str(m.get("source")),
+                str(m.get("grantedAt")), str(m.get("grantedBy")), str(m.get("expiresAt")));
+    }
+    private static RoleRecord toRole(Map<String, Object> m) {
+        return new RoleRecord(str(m.get("agencyCode")), str(m.get("roleCode")), str(m.get("name")), str(m.get("description")),
+                Boolean.TRUE.equals(m.get("assignable")), str(m.get("createdAt")));
+    }
+    private static UserRoleRecord toUserRole(Map<String, Object> m) {
+        return new UserRoleRecord(str(m.get("id")), str(m.get("qimUserId")), str(m.get("agencyCode")), str(m.get("roleCode")), str(m.get("status")),
+                str(m.get("grantedAt")), str(m.get("grantedBy")), str(m.get("expiresAt")), str(m.get("source")));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> adminExchangeMap(HttpMethod method, String path, Object body, String correlationId, String actor) {
+        ResponseEntity<Map> res = adminExchangeRaw(method, path, body, correlationId, actor, Map.class);
+        return res.getBody() == null ? Map.of() : (Map<String, Object>) res.getBody();
+    }
+
+    @SuppressWarnings("unchecked")
+    private ResponseEntity<List<Map<String, Object>>> adminExchange(HttpMethod method, String path, Object body, String correlationId, String actor) {
+        ResponseEntity<List> res = adminExchangeRaw(method, path, body, correlationId, actor, List.class);
+        return ResponseEntity.status(res.getStatusCode()).headers(res.getHeaders()).body((List<Map<String, Object>>) res.getBody());
+    }
+
+    private <T> ResponseEntity<T> adminExchangeRaw(HttpMethod method, String path, Object body, String correlationId, String actor, Class<T> type) {
+        if (!enabled) {
+            throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId, "idem.hub.authz.enabled=false — 할당 관리를 쓸 수 없습니다");
+        }
+        HttpHeaders headers = buildHeaders(correlationId);
+        if (actor != null) headers.set("X-Actor", actor);
+        if (body != null) headers.setContentType(MediaType.APPLICATION_JSON);
+        try {
+            ResponseEntity<T> res = qAuthzRestTemplate.exchange(qAuthzBaseUrl + path, method, new HttpEntity<>(body, headers), type);
+            if (!res.getStatusCode().is2xxSuccessful()) {
+                throw rejected(res.getStatusCode().value(), String.valueOf(res.getBody()), correlationId);
+            }
+            return res;
+        } catch (HttpStatusCodeException e) {
+            throw rejected(e.getStatusCode().value(), e.getResponseBodyAsString(), correlationId);
+        } catch (PlatformException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[QAuthzClient] 관리 호출 실패: {} {} err={}", method, path, e.getMessage());
+            throw new PlatformException(PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE, correlationId, "authz 호출 실패: " + e.getMessage());
+        }
+    }
+
+    /** authz 응답 상태 → 플랫폼 오류 (404/409/그 밖 4xx 는 거부로, 5xx 는 장애로). detail 에 authz 본문({error, message}) */
+    private static PlatformException rejected(int status, String body, String correlationId) {
+        String detail = body == null ? "" : (body.length() > 300 ? body.substring(0, 300) : body);
+        PlatformErrorCode code = status == 404 ? PlatformErrorCode.IDO_AUTHZ_NOT_FOUND
+                : status == 409 ? PlatformErrorCode.IDO_AUTHZ_CONFLICT
+                : status >= 400 && status < 500 ? PlatformErrorCode.IDO_AUTHZ_REJECTED
+                : PlatformErrorCode.IDO_AUTHZ_UNAVAILABLE;
+        return new PlatformException(code, correlationId, "authz " + status + " " + detail);
     }
 }

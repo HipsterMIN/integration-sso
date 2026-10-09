@@ -246,3 +246,51 @@ export interface WebhookSecretRotation {
   fingerprint: string;
   warning: string;
 }
+
+// ── 1.1.1 G1-3 기관 목록 페이징·검색 (GET /api/v1/admin/agencies?page&size&q, AgencyAdminController) ──
+export interface AgencyPage {
+  items: Agency[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+// ── 1.1.1 G1-3 할당 관리 (/api/v1/admin/services/{code}/assignments · /roles, AssignmentAdminController — 상태는 idem-authz) ──
+export interface Assignment {
+  qimUserId: string;
+  agencyCode: string;
+  status: string;
+  source: string | null;
+  grantedAt: string | null;
+  grantedBy: string | null;
+  expiresAt: string | null;
+}
+
+export interface AssignmentPage {
+  items: Assignment[];
+  page: number;
+  size: number;
+  total: number;
+  hasNext: boolean;
+}
+
+export interface RoleItem {
+  agencyCode: string;
+  roleCode: string;
+  name: string;
+  description: string | null;
+  assignable: boolean;
+  createdAt: string | null;
+}
+
+export interface UserRole {
+  id: string;
+  qimUserId: string;
+  agencyCode: string;
+  roleCode: string;
+  status: string;
+  grantedAt: string | null;
+  grantedBy: string | null;
+  expiresAt: string | null;
+  source: string | null;
+}

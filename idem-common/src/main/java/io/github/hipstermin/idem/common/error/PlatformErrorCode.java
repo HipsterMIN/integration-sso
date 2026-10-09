@@ -87,6 +87,10 @@ public enum PlatformErrorCode {
     IDO_CONSENT_DECLINED("E-IDO-125", HttpStatus.FORBIDDEN, "사용자가 필수 동의를 거부했습니다."),
     /** 1.1.1 G1-4: 웹훅 엔드포인트가 등록되지 않은 기관에 서명 비밀 회전을 요청. */
     IDO_WEBHOOK_NOT_CONFIGURED("E-IDO-126", HttpStatus.NOT_FOUND, "이 기관에는 웹훅 엔드포인트가 등록되지 않았습니다."),
+    /** 1.1.1 G1-3: 관리 콘솔 할당 관리 — 인가 서비스(idem-authz)의 거부를 상태 그대로 옮긴다(detail 에 authz 코드·메시지). */
+    IDO_AUTHZ_NOT_FOUND("E-IDO-127", HttpStatus.NOT_FOUND, "인가 서비스에 해당 역할·할당이 없습니다."),
+    IDO_AUTHZ_CONFLICT("E-IDO-128", HttpStatus.CONFLICT, "인가 서비스가 요청을 거부했습니다(중복·부여 불가)."),
+    IDO_AUTHZ_REJECTED("E-IDO-129", HttpStatus.BAD_REQUEST, "인가 서비스가 요청을 거부했습니다."),
     // S7 관리자 인증 (E-IDO-13x)
     ADMIN_UNAUTHENTICATED("E-IDO-130", HttpStatus.UNAUTHORIZED, "관리자 인증이 필요합니다."),
     ADMIN_FORBIDDEN("E-IDO-131", HttpStatus.FORBIDDEN, "이 관리 작업을 수행할 권한이 없습니다."),

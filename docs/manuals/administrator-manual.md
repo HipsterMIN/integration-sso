@@ -7,7 +7,7 @@
 | 화면 | 하는 일 | 규칙 |
 |---|---|---|
 | 로그인 | 사용자명·비밀번호 → 2단계 코드 | 실패 5회 → 15분 잠금(`E-IDO-133`). 세션 쿠키 `idemAdminSid`, 유휴 만료 |
-| 첫 로그인 | 인증 앱에 TOTP 비밀 등록(otpauth URI) → 코드 입력 → **비밀번호 변경 강제**(`E-IDO-137`) | 비밀번호 정책: 10자 이상, 대/소문자·숫자·특수문자 중 3종, 사용자명 포함 금지 |
+| 첫 로그인 | 인증 앱으로 **QR 을 찍거나**(1.1.1 — `otpauth://` URI 를 브라우저 안에서 QR 로 그린다, 서버·네트워크로 다시 나가지 않는다) base32 비밀을 직접 입력 → 코드 입력 → **비밀번호 변경 강제**(`E-IDO-137`) | 비밀번호 정책: 10자 이상, 대/소문자·숫자·특수문자 중 3종, 사용자명 포함 금지 |
 | 비밀번호 변경 | 현재 비밀번호 + 새 비밀번호 | 감사 `ADMIN_PASSWORD_CHANGED` |
 | 로그아웃 | 세션 종료 | 이후 같은 쿠키는 401 |
 
@@ -15,9 +15,9 @@
 
 ## 2. 서비스(연동기관) 목록·상세
 
-- **목록**: 관리자의 Tenant 범위 안 서비스만 보인다(SYSTEM_ADMIN 은 전부). 코드·이름·상태(ACTIVE/INACTIVE)·프로토콜.
-- **상세**: 프로파일 JSON(스키마 기반 폼), 변경 이력, OIDC client 상태, 정책 시뮬레이션.
-- API: `GET /api/v1/admin/services/{code}/profile`, `GET …/profile-schema`.
+- **목록**: 관리자의 Tenant 범위 안 서비스만 보인다(SYSTEM_ADMIN 은 전부). 코드·이름·상태(ACTIVE/INACTIVE)·프로토콜. **1.1.1**: 서버 페이징(한 페이지 50, 최대 200)과 검색(코드·이름 부분 일치, 대소문자 무시) — 입력 300ms 뒤에 검색하고 검색어가 바뀌면 1쪽으로 돌아간다.
+- **상세**: 프로파일 JSON(스키마 기반 폼), 변경 이력, OIDC client 상태, 정책 시뮬레이션, 웹훅 서명 비밀(§9), 동의 항목(§13), 할당 관리(§14, 1.1.1).
+- API: `GET /api/v1/admin/services/{code}/profile`, `GET …/profile-schema`, `GET /api/v1/admin/agencies?page&size&q` → `{items, page, size, total}`(1.1.1 — 종전의 배열 응답은 봉투로 바뀌었다).
 
 ## 3. 프로파일 작성·수정
 
@@ -115,3 +115,15 @@
 4. **동작** — 필수 미동의 항목이 있을 때만 동의 화면이 뜨고, 그때 선택 항목도 같이 보인다. 필수를 빼고 제출하면 다시 묻고, "동의하지 않음" 은 기관 콜백으로 `error=E-IDO-125` 를 보낸다. registry 가 응답하지 않으면 발급하지 않는다(오류 화면 `E-IDO-106`).
 5. **감사** — 발행·종료는 `ADMIN/CONSENT_VERSION_PUBLISHED·CONSENT_VERSION_RETIRED`(범위·유형·버전), 사용자의 동의·거부는 `MEMBER/CONSENT_AGREED·CONSENT_DECLINED`(버전 ID 목록, 출처 IP). 동의 기록 자체는 registry `consent_record`(INSERT 전용, 경로 `LOGIN_FRONT:<서비스코드>`).
 6. **권한** — 목록은 전 역할, 발행·종료는 SYSTEM_ADMIN·POLICY_ADMIN. 플랫폼 공통은 전역 관리자만(테넌트 관리자는 403).
+
+## 14. 할당 관리 — 사용자·역할 (1.1.1)
+
+서비스에 누가 들어갈 수 있는지(할당)와 그 안에서 어떤 역할(그룹)을 갖는지를 기관 상세의 "할당 관리" 카드에서 본다. 상태는 `idem-authz` 가 가진다 — hub 는 테넌트 범위를 검사하고 감사를 남기며 authz 내부 API 를 대신 부른다. authz 를 끈 설치본(`IDEM_HUB_AUTHZ_ENABLED=false`, SSO 단독)에서는 카드가 안내만 보인다(`503 E-IDO-116`).
+
+1. **할당 목록** — 사용자 ID(registry `qimUserId`)·상태·출처(CONSOLE·SCIM·RULE …)·부여 시각/부여자·만료. 한 페이지 50, "이전/다음". API `GET /api/v1/admin/services/{code}/assignments?page&size` → `{items, page, size, total, hasNext}`.
+2. **직접 할당** — 사용자 ID(영숫자·`_ . : -` 1~100자), 만료(비우면 무기한, 과거는 거부), 사유(선택). 이미 할당된 사용자는 authz 가 멱등 처리(만료·출처·사유 갱신)한다. API `POST …/assignments {qimUserId, expiresAt?, reason?}` → 201, 출처 `CONSOLE`, 부여자 = 관리자 사용자명. 감사 `ADMIN/ASSIGNMENT_GRANTED`.
+3. **해제** — 행의 "해제"(사유 입력, 선택). API `DELETE …/assignments/{qimUserId}?reason` → 204. 감사 `ASSIGNMENT_REVOKED`. 해제는 기관 웹훅 `ASSIGNMENT_CHANGED{UNASSIGNED}` 로 전파된다(1.1 B-14).
+4. **역할(그룹) 카탈로그** — 서비스 안의 역할 목록과 "역할 만들기"(코드·이름·설명). API `GET …/roles`, `POST …/roles {roleCode, name, description?}` → 201, 같은 코드가 있으면 `409 E-IDO-128`. 감사 `ROLE_CREATED`. 부여 가능(`assignable`)이 꺼진 역할은 부여할 수 없다(authz `E-AUTHZ-409-ROLE` → `409 E-IDO-128`).
+5. **사용자 역할** — 행의 "역할" 을 누르면 그 사용자의 역할(상태·부여·만료·출처)과 부여 폼(카탈로그에서 고른다, 만료·사유 선택). API `GET …/assignments/{qimUserId}/roles`, `POST …/assignments/{qimUserId}/roles {roleCode, expiresAt?, reason?}` → 201, `DELETE …/assignments/{qimUserId}/roles/{roleCode}?reason` → 204. 감사 `ROLE_GRANTED`·`ROLE_REVOKED`. 부여된 역할은 authz `effective-roles`(SDK 의 `roles` 클레임)로 내려간다.
+6. **오류** — 없는 서비스 `404 E-AGENCY-307`, 범위 밖 기관 `403`, 입력 형식 `400 E-IDO-129`, authz 가 모르는 사용자·역할 `404 E-IDO-127`, 중복·부여 불가 `409 E-IDO-128`, authz 장애 `503 E-IDO-117`. authz 의 원래 코드(`E-AUTHZ-*`)는 hub 로그에 남는다.
+7. **권한** — 목록·역할·사용자 역할 GET 은 전 역할(AUDITOR 포함), 할당·해제·역할 생성·부여·회수는 SYSTEM_ADMIN·POLICY_ADMIN. 테넌트 관리자는 자기 테넌트 기관만.

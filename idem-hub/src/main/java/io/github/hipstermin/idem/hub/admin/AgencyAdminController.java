@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
  * <p><b>9개 엔드포인트 (설계서 §18.2)</b>:
  * <ol>
  *   <li>POST   /api/v1/admin/agencies            — 기관 등록</li>
- *   <li>GET    /api/v1/admin/agencies            — 기관 목록 조회</li>
+ *   <li>GET    /api/v1/admin/agencies?page&size&q — 기관 목록 조회 (1.1.1: 페이지 응답·검색)</li>
  *   <li>GET    /api/v1/admin/agencies/{code}     — 기관 단건 조회</li>
  *   <li>PUT    /api/v1/admin/agencies/{code}     — 기관 정보 수정</li>
  *   <li>POST   /api/v1/admin/agencies/{code}/activate   — 기관 활성화</li>
@@ -66,17 +66,14 @@ public class AgencyAdminController {
     // ────────────────────────────────────────────────────────────────────────
 
     @GetMapping
-    public ResponseEntity<List<AgencyResponse>> listAgencies(
+    public ResponseEntity<AgencyAdminService.AgencyPage> listAgencies(
             @RequestParam(defaultValue = "0")  int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String q,
             io.github.hipstermin.idem.hub.admin.auth.AdminPrincipal admin) {
 
-        List<AgencyResponse> list = agencyAdminService.listAgencies(page, size);
-        if (!admin.isGlobal()) {
-            // S7 테넌트 범위: 자기 Tenant 의 Service 만
-            list = list.stream().filter(a -> tenantScope.inScope(admin, a.getAgencyCode())).toList();
-        }
-        return ResponseEntity.ok(list);
+        // 1.1.1 G1-3: 페이지 응답(items·page·size·total)·검색(q). S7 테넌트 범위는 DB 에서 거른다
+        return ResponseEntity.ok(agencyAdminService.listAgencies(page, size, q, admin.isGlobal() ? null : admin.tenantCode()));
     }
 
     // ────────────────────────────────────────────────────────────────────────

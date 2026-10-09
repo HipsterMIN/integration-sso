@@ -78,6 +78,7 @@ curl http://localhost:8083/api/v1/admin/agencies -H "Cookie: idemAdminSid=$SID" 
 | `/api/v1/admin/anomalies/**` (1.1 관찰 모드) — 목록·통계 GET, 검토 `POST …/{flagId}/review` | ✅ | ✅ | ✅ | 검토는 감사자의 일이라 AUDITOR 도 쓴다(명시 행). 테넌트 관리자는 `agencyCode` 필수(자기 기관), 범위 밖 플래그 검토 `403` |
 | `/api/v1/admin/services/{code}/consents` (1.1 동의 카탈로그) — 목록 GET / 발행·종료 POST | ✅ / ✅ | ✅ / ✅ | ✅ / ❌ | "그 외" 규칙 + 자기 테넌트 기관만(`403`); 종료는 그 서비스 범위의 버전만(`404 E-IM-207`) |
 | `/api/v1/admin/consents` (플랫폼 공통 동의 항목) — 목록 GET / 발행·종료 POST | ✅ / ✅ (전역만) | ✅ / ✅ (전역만) | ✅ / ❌ (전역만) | 테넌트 관리자는 읽기도 `403 E-IDO-131`(컨트롤러) |
+| `/api/v1/admin/services/{code}/assignments` · `…/roles` · `…/assignments/{u}/roles` (1.1.1 할당 관리) — 목록 GET / 할당·해제·역할 생성·부여·회수 POST·DELETE | ✅ / ✅ | ✅ / ✅ | ✅ / ❌ | "그 외" 규칙 + 자기 테넌트 기관만(`403`), 없는 서비스 `404 E-AGENCY-307`. 상태는 idem-authz — 거부 `E-IDO-127/128/129`, 장애 `503 E-IDO-117`, 꺼진 설치본 `503 E-IDO-116` |
 | `/api/v1/admin/**` 그 밖의 GET | ✅ | ✅ | ✅ | 목록은 범위 밖 기관 제외, 단건은 `403` |
 | `/api/v1/admin/**` 그 밖의 쓰기 (프로파일 PUT·기관 활성화·키 회전·OIDC secret …) | ✅ | ✅ | ❌ | 범위 밖 기관 `403`; 새 프로파일의 `service.tenant` 도 범위 안이어야 한다 |
 | `DELETE /api/v1/handoff/{id}` | ✅ | ✅ | ❌ | — |

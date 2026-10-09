@@ -8,6 +8,7 @@ import { href, navigate } from '../router';
 import { Alert, ErrorBox, Field, Secret, Section, fmt } from '../ui';
 import { ProfileForm } from './ProfileForm';
 import { ConsentCatalog } from './ConsentCatalog';
+import { AssignmentsCard } from './Assignments';
 
 export function ServiceDetail({ code }: { code: string }) {
   const { me } = useAuth();
@@ -69,6 +70,7 @@ export function ServiceDetail({ code }: { code: string }) {
       {!isNew && type === 'OIDC_RP' && <OidcCard code={code} />}
       {!isNew && profile && <SimulateCard code={code} />}
       {!isNew && profile && <ConsentCatalog serviceCode={code} title="동의 항목 — 이 서비스 전용 (1.1)" />}
+      {!isNew && agency && <AssignmentsCard serviceCode={code} />}
       {!isNew && agency && <HistoryCard code={code} />}
     </>
   );
