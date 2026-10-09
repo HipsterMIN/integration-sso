@@ -8,7 +8,7 @@ _(없음)_
 
 ## [1.1.1] — 2026-10-09
 
-`docs/post-1.0-plan.md` §2 "G1 — 시험 준비" 의 AI 몫 4건이 들어갔다: PR-G1-2 #261(오프라인 설치본·백업/복구 스크립트) · PR-G1-4 #262(웹훅 서명 비밀 KMS 봉인·회전 API, 네 앱 Prometheus 지표) · PR-G1-3 #263(할당 관리 화면·기관 목록 페이징·TOTP 등록 QR) · PR-G1-5(이 버전 커밋). 태그 `v1.1.1`. 남은 G1-1(시험 항목 70 전수 1회 완주, 운영 DB 복구·폐쇄망 반입 리허설)은 사용자 환경에서 한다. 1.0.x 패치는 `release/1.0`.
+`docs/post-1.0-plan.md` §2 "G1 — 시험 준비" 의 AI 몫 4건이 들어갔다: PR-G1-2 #261(오프라인 설치본·백업/복구 스크립트) · PR-G1-4 #262(웹훅 서명 비밀 KMS 봉인·회전 API, 네 앱 Prometheus 지표) · PR-G1-3 #263(할당 관리 화면·기관 목록 페이징·TOTP 등록 QR) · PR-G1-5(이 버전 커밋). 태그 `v1.1.1`. 남은 G1-1(시험 항목 75 전수 1회 완주 — 자동 66 은 CI, 수동 9·로컬 IT 는 사용자 환경, 운영 DB 복구·폐쇄망 반입 리허설)은 사용자 환경에서 한다. 1.0.x 패치는 `release/1.0`.
 
 ### 1.1.1 업그레이드 메모
 
@@ -39,7 +39,7 @@ _(없음)_
 - **기관 목록 페이징·검색**: `GET /api/v1/admin/agencies?page&size&q` — 응답이 배열에서 봉투 `{items, page, size, total}` 로 바뀌었다(size 기본 50·최대 200, `q` 는 코드·이름 부분 일치 대소문자 무시, 테넌트 범위는 DB 에서 거른다 — 종전엔 500건을 받아 메모리에서 걸렀다). 콘솔 목록은 서버 페이징 + 300ms 지연 검색.
 - **TOTP 등록 QR**: 콘솔 첫 로그인 등록 화면에 `otpauth://` QR(`qrcode` 1.5.4, 브라우저 안에서 PNG data URL — 비밀이 서버·네트워크로 다시 나가지 않는다, `otpauth://totp/` 아니면 그리지 않음). base32 비밀·URI 문구는 그대로(QR 을 못 찍을 때).
 - 설치본 스모크 ⑧c(실제 authz): 목록 봉투·검색 → 직접 할당 → 역할 생성(201|재실행 409) → 부여 → 사용자 역할 → 회수 → 해제 → 없는 서비스 404, 감사에 `ASSIGNMENT_GRANTED·ROLE_GRANTED·ASSIGNMENT_REVOKED`.
-- 테스트: UT `QAuthzClientAdminTest`·`AssignmentAdminServiceTest`·`AssignmentAdminControllerTest`·`AgencyAdminServiceTest.listAgencies_pagingAndSearch`·`AdminAuthorizationTest`(+행), IT `AssignmentAdminIntegrationTest`(authz WireMock), 콘솔 `assignments.test.ts`·`qr.test.ts`. 문서: 관리자 매뉴얼 §1·§2·§14, 제품 설명서 F18, 시험 항목 B-2·B-16·B-17(집계 70, 자동 61), GS 착수, 인가 매트릭스.
+- 테스트: UT `QAuthzClientAdminTest`·`AssignmentAdminServiceTest`·`AssignmentAdminControllerTest`·`AgencyAdminServiceTest.listAgencies_pagingAndSearch`·`AdminAuthorizationTest`(+행), IT `AssignmentAdminIntegrationTest`(authz WireMock), 콘솔 `assignments.test.ts`·`qr.test.ts`. 문서: 관리자 매뉴얼 §1·§2·§14, 제품 설명서 F18, 시험 항목 B-2·B-16·B-17(집계는 G2 에서 75 로 정정 — 1.1 추가 14 누락분), GS 착수, 인가 매트릭스.
 - 호환: 기관 목록 API 의 응답 모양 변경은 콘솔 전용 관리 API 에 한한다(SDK·기관 API 무관). 이전 콘솔 빌드와 새 hub 를 섞어 쓰면 목록이 비어 보인다 — 콘솔 이미지를 함께 올린다.
 
 ## [1.1.0] — 2026-10-08
