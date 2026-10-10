@@ -84,6 +84,7 @@ docs/
 | [`manuals/README.md`](manuals/README.md) | **1.0 매뉴얼 초안 (S9 PR-4)** — 설치 매뉴얼·관리자 매뉴얼·제품 설명서·시험 항목표(75항목 — 1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 14 + 1.1.1 추가 3; 실행 결과 열 포함) — GS 제출물의 초안 |
 | [`certification/gs-kickoff.md`](certification/gs-kickoff.md) | **GS 인증 착수 문서 (S9 PR-4)** — 범위·제출물 상태·일정·사용자 결정·1.0.x 과제 |
 | [`certification/configuration-management.md`](certification/configuration-management.md) | **형상·결함 관리 (1.1.1 G2)** — 브랜치·버전·태그 규칙, 릴리스·PR 목록, CI 게이트, 결함 흐름과 1.0 이후 수리 목록, 결함 밀도 산식 |
+| [`certification/vulnerability-review-2026-10.md`](certification/vulnerability-review-2026-10.md) | **의존성·이미지 취약점 점검 1회차 (2026-10, PR-G2-5)** — 1.1.1 이미지 10종 Trivy·OWASP·npm/yarn audit 결과, 조치(Spring Boot 3.5.16·BOM 덮어쓰기·nginx 1.30), 억제 3건의 근거와 가드, 잔여 위험, 월 1회 절차 |
 | [`install-inputs.md`](install-inputs.md) | **설치 입력값 목록 (S9 PR-3)** — 비밀·설정 전부, 생성 규칙, 회전 영향, compose ↔ Helm 키 대응, 기관에 전달하는 값 |
 | [`../infra/helm/idem/README.md`](../infra/helm/idem/README.md) | **Helm 차트 (S9 PR-3)** — 단일 설치본과 같은 계약을 K8s 로: 숨긴 Keycloak·앱 5종·콘솔(+KR 포털), `global.edition` core/kr, 비밀 한 벌, pre-install 스키마 Job |
 | [`onboarding-guide.md`](onboarding-guide.md) | **기관 온보딩 가이드 (S9 PR-3)** — 운영기관 관리자용: 프로파일 작성 → 검증(스키마·client·시뮬레이션) → 시험 → 승인(ACTIVE), 역할, 흔한 문제 |

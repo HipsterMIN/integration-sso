@@ -135,7 +135,7 @@ jobs:
       - name: Node.js 설정
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'   # G2-5: vitest 5 가 Node 22 를 요구, Node 20 은 2026-04 지원 종료 (KR 포털은 아직 20)
           cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
           cache-dependency-path: idem-console-admin/package-lock.json
 
@@ -657,6 +657,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+          trivyignores: .trivyignore   # G2-5: OSS 수정판이 없고 전제 조건이 제품에 없는 것만, 만료일 포함(근거는 취약점 점검 문서 §4)
         continue-on-error: true  # Trivy 오류 시 전체 Job 실패 방지
 
   # ═══════════════════════════════════════════════════════════════════════════

@@ -57,7 +57,7 @@ GS 를 먼저 받는다. 배포본·매뉴얼이 고정되고 그 산출물이 C
 | plugins/idem-plugin-nice-oacx, AnyID 브로커 | **TOE 밖** | 벤더 SDK 재배포 불가(`docs/open-source-readiness.md` B2). SPI(`docs/identity-provider-spi.md`) 를 경계로 두고 Mock 플러그인으로 시험 |
 | Nginx(TLS 종단), Keycloak, PostgreSQL/MariaDB, Redis, Kafka, Vault | **운영환경** | ST 의 운영환경 보안목적(OE)으로 기술. 단, TOE↔운영환경 채널은 TOE 가 TLS 로 보호해야 함(§3 FTP) |
 
-플랫폼(코드 기준): JDK 21, Spring Boot 3.5.9, PostgreSQL 16, MariaDB 11.4, Redis 7.2, Kafka 7.6.1(CP), Keycloak 24, Vault 1.17, Node 20/Yarn 1.22 (`build.gradle.kts`, `infra/docker/docker-compose.yml`). 평가용으로는 **지원 플랫폼을 한 조합으로 고정**한다.
+플랫폼(코드 기준): JDK 21, Spring Boot 3.5.16, PostgreSQL 16, MariaDB 11.4, Redis 7.2, Kafka 7.6.1(CP), Keycloak 24, Vault 1.17, Node 20/Yarn 1.22 (`build.gradle.kts`, `infra/docker/docker-compose.yml`). 평가용으로는 **지원 플랫폼을 한 조합으로 고정**한다.
 
 ---
 

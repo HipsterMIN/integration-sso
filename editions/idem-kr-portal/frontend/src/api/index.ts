@@ -4,7 +4,7 @@
 import getLocalStorageApi from 'api/browser/localstorage/get';
 import loginApi from 'api/user/login';
 import afterLogin from 'AppRoutes/utils';
-import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { ENVIRONMENT } from 'constants/env';
 import { LOCALSTORAGE } from 'constants/localStorage';
 import store from 'store';
@@ -58,14 +58,14 @@ const interceptorRejected = async (
 					);
 
 					if (user) {
+						// axios 1.20 타입: AxiosHeaders 인스턴스를 펼치면 index signature 와 충돌 — AxiosHeaders.from 으로 복사해 set (G2-5)
+						const retryHeaders = AxiosHeaders.from(value.config.headers);
+						retryHeaders.set('Authorization', `Bearer ${response.payload.accessJwt}`);
 						const reResponse = await axios(
 							`${value.config.baseURL}${value.config.url?.substring(1)}`,
 							{
 								method: value.config.method,
-								headers: {
-									...value.config.headers,
-									Authorization: `Bearer ${response.payload.accessJwt}`,
-								},
+								headers: retryHeaders,
 								data: {
 									...JSON.parse(value.config.data || '{}'),
 								},
