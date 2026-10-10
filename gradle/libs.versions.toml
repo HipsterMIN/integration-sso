@@ -12,7 +12,7 @@ testcontainers      = "1.20.4"
 flyway              = "11.8.0"
 
 # ── 유틸리티 ─────────────────────────────────────────────────────────────────
-commons-lang3       = "3.17.0"
+commons-lang3       = "3.18.0"       # G2-5: CVE-2025-48924 — 루트 BOM 속성(commons-lang3.version)과 같이 올린다
 guava               = "33.4.0-jre"
 
 [libraries]

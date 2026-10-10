@@ -100,7 +100,9 @@ dependencies {
     compileOnly("com.squareup.okhttp3:okhttp:$okhttpVersion")
 
     // ── 선택적 HTTP 어댑터: Apache HttpClient 5.x ───────────────────────────
-    compileOnly("org.apache.httpcomponents.client5:httpclient5:5.3.1")
+    // 5.6.4: G2-5 취약점 점검 — 5.3.1 의 CVE-2026-64607(연결 누수 DoS), 5.4+ 의 CVE-2026-71290(비동기 클라이언트 호스트명 검증 무시, 5.6.4 에서 수정)
+    // 5.6.x 도 Java 8 타겟(maven.compiler.target 1.8)이라 SDK 의 Java 8 호환을 깨지 않는다
+    compileOnly("org.apache.httpcomponents.client5:httpclient5:5.6.4")
 
     // ── 테스트 의존성: Spring BOM 없이 직접 버전 명시 ────────────────────────
     testCompileOnly("org.projectlombok:lombok")
@@ -125,7 +127,7 @@ dependencies {
 
     // Apache HC5 테스트 의존성 (P1: ApacheHttpAgencyAdapter 테스트용)
     // compileOnly는 테스트 classpath에 포함되지 않으므로 별도 선언 필요
-    testImplementation("org.apache.httpcomponents.client5:httpclient5:5.3.1")
+    testImplementation("org.apache.httpcomponents.client5:httpclient5:5.6.4")
 }
 
 // ── BootJar: SDK 모듈은 Spring Boot 플러그인이 없으므로 설정 불필요 ─────────────

@@ -17,4 +17,40 @@
             <cve>CVE-2023-20860</cve>
           </suppress>
     -->
+
+    <!-- ══ G2-5 취약점 점검 1회차 (2026-10-10, docs/certification/vulnerability-review-2026-10.md §4) ══
+         규칙: (1) OSS 수정판이 없고 전제 조건이 제품에 없음을 가드 테스트로 묶은 것은 until(만료일)을 단다,
+               (2) CPE 오탐(다른 아티팩트·다른 생태계의 CVE)은 근거를 적고 만료일 없이 둔다. -->
+
+    <!-- Spring Framework 6.2.x — 수정판 6.2.20 은 Enterprise 전용, OSS 수정판은 7.0.9(Spring Boot 4) 뿐.
+         전제 조건(XsltView / SSE 조각 렌더링 / WebFlux 함수형 엔드포인트)이 코어·에디션에 없다 — SpringAdvisoryGuardTest. 루트 .trivyignore 와 같은 만료일. -->
+    <suppress until="2027-01-31Z">
+        <notes>CVE-2026-47884 — XsltView + "/**" 뷰 매핑 전제, 미사용. Spring 자체 등급 MEDIUM. 2027-01 회차에서 Spring Boot 4 이행 결정 (2026-10-10)</notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring\-.*@6\.2\..*$</packageUrl>
+        <cve>CVE-2026-47884</cve>
+    </suppress>
+    <suppress until="2027-01-31Z">
+        <notes>CVE-2026-47890 — 뷰 조각을 SSE 로 전송하는 전제, 미사용 (LOW) (2026-10-10)</notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring\-.*@6\.2\..*$</packageUrl>
+        <cve>CVE-2026-47890</cve>
+    </suppress>
+    <suppress until="2027-01-31Z">
+        <notes>CVE-2026-47892 — WebFlux 함수형 엔드포인트 + DispatcherServlet 전제, WebFlux 는 WebClient(발신)만 (MEDIUM) (2026-10-10)</notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring\-.*@6\.2\..*$</packageUrl>
+        <cve>CVE-2026-47892</cve>
+    </suppress>
+
+    <!-- CPE 오탐 — 다른 아티팩트의 CVE 가 같은 CPE(jetbrains:kotlin)로 잡힌 것 -->
+    <suppress>
+        <notes>CVE-2026-53914 는 kotlin-gradle-plugin(빌드 캐시 역직렬화)만 해당, 런타임 kotlin-stdlib 와 무관. CVE-2020-29582 는 kotlin-stdlib 1.4.21 미만(임시 디렉터리) — 1.9.25 는 범위 밖 (2026-10-10)</notes>
+        <packageUrl regex="true">^pkg:maven/org\.jetbrains\.kotlin/kotlin\-stdlib.*@1\.9\..*$</packageUrl>
+        <cve>CVE-2026-53914</cve>
+        <cve>CVE-2020-29582</cve>
+    </suppress>
+    <!-- CPE 오탐 — npm @opentelemetry/core 의 CVE 가 Java SDK(io.opentelemetry) 에 잡힌 것 -->
+    <suppress>
+        <notes>CVE-2026-54285 는 npm @opentelemetry/core(W3C Baggage 전파 메모리) 의 것, Java opentelemetry-* 1.49 와 무관 (2026-10-10)</notes>
+        <packageUrl regex="true">^pkg:maven/io\.opentelemetry/opentelemetry\-.*$</packageUrl>
+        <cve>CVE-2026-54285</cve>
+    </suppress>
 </suppressions>

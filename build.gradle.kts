@@ -106,6 +106,8 @@ subprojects {
     extra["postgresql.version"]  = "42.7.14"       // BOM 42.7.11 — CVE-2026-54291(scram-client) 은 42.7.12+
     extra["httpclient5.version"] = "5.6.4"         // BOM 5.5.2 — httpcore5 5.4 계열을 요구하는 첫 줄기
     extra["httpcore5.version"]   = "5.4.4"         // BOM 5.3.6 — CVE-2026-54399·54428 은 5.4.3+
+    extra["log4j2.version"]      = "2.25.5"        // BOM 2.24.3 — log4j-api CVE-2026-49844 은 2.25.5+ (우리는 api + to-slf4j 브리지만 싣는다, OWASP 가 잡음)
+    extra["commons-lang3.version"] = "3.18.0"      // BOM 3.17.0 — CVE-2025-48924(ClassUtils 재귀) 는 3.18.0+ (OWASP 가 잡음)
 
     // BOM import — 플러그인 apply 후 타입 캐스팅으로 접근
     configure<DependencyManagementExtension> {

@@ -21,6 +21,8 @@ import org.junit.jupiter.api.Test;
  *   <li>CVE-2026-47884 — {@code XsltView} 와 {@code "/**"} 뷰 매핑이 있어야 한다.</li>
  *   <li>CVE-2026-47890 — 뷰 조각(fragments)을 Server-Sent Events 로 보내야 한다.</li>
  *   <li>CVE-2026-47892 — WebFlux 함수형 엔드포인트({@code RouterFunction})를 DispatcherServlet 과 함께 써야 한다.</li>
+ *   <li>CVE-2026-47874(Reactor Netty, OSS 수정판 1.3.7 = Spring Boot 4) — Reactor Netty 를 <b>HTTP 서버</b>로 써야 한다.
+ *       우리는 {@code WebClient}(발신)만 쓰고 서버는 Tomcat 이다(빌드 파일에 {@code spring-boot-starter-webflux} 없음).</li>
  * </ul>
  *
  * <p>이 토큰 중 하나라도 main 소스에 들어오면 억제 근거가 사라지므로, 그때는 {@code .trivyignore} 의 해당 줄을 지우고
@@ -43,7 +45,14 @@ class SpringAdvisoryGuardTest {
             new String[] {"text/event-stream", "CVE-2026-47890"},
             new String[] {"RouterFunction", "CVE-2026-47892"},
             new String[] {"HandlerFunction", "CVE-2026-47892"},
-            new String[] {"RequestPredicates", "CVE-2026-47892"});
+            new String[] {"RequestPredicates", "CVE-2026-47892"},
+            new String[] {"reactor.netty.http.server", "CVE-2026-47874"},
+            new String[] {"NettyReactiveWebServerFactory", "CVE-2026-47874"},
+            new String[] {"ReactorHttpHandlerAdapter", "CVE-2026-47874"},
+            new String[] {"HttpServer.create(", "CVE-2026-47874"});
+
+    /** 빌드 파일에서 금지하는 의존성 — Reactor Netty 서버 전환(WebFlux 스타터)은 CVE-2026-47874 의 전제 조건이 된다. */
+    private static final String[] FORBIDDEN_BUILD_DEPENDENCY = {"spring-boot-starter-webflux", "CVE-2026-47874"};
 
     @Test
     @DisplayName("main 소스에 XsltView·SSE 조각 렌더링·WebFlux 함수형 엔드포인트가 없다")
@@ -64,6 +73,29 @@ class SpringAdvisoryGuardTest {
         assertThat(scanned).as("검사한 main 소스 파일 수").isGreaterThan(100);
         assertThat(violations)
                 .as("억제한 Spring 권고의 전제 조건이 코드에 들어왔다 — .trivyignore 의 해당 줄을 지우고 수정판으로 올려야 한다. 위반:\n"
+                        + String.join("\n", violations))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("빌드 파일에 WebFlux 스타터(Reactor Netty 서버 전환)가 없다")
+    void buildFilesDoNotSwitchToReactorNettyServer() throws IOException {
+        Path root = repositoryRoot();
+        List<String> violations = new ArrayList<>();
+        for (String module : MODULES) {
+            Path build = root.resolve(module).resolve("build.gradle.kts");
+            if (!Files.isRegularFile(build)) continue;
+            List<String> lines = Files.readAllLines(build);
+            for (int i = 0; i < lines.size(); i++) {
+                String code = lines.get(i).contains("//") ? lines.get(i).substring(0, lines.get(i).indexOf("//")) : lines.get(i);
+                if (code.contains(FORBIDDEN_BUILD_DEPENDENCY[0])) {
+                    violations.add(module + "/build.gradle.kts:" + (i + 1) + "  [" + FORBIDDEN_BUILD_DEPENDENCY[0] + " → "
+                            + FORBIDDEN_BUILD_DEPENDENCY[1] + "]  " + lines.get(i).trim());
+                }
+            }
+        }
+        assertThat(violations)
+                .as("Reactor Netty 를 서버로 쓰면 CVE-2026-47874(OSS 수정판은 Spring Boot 4) 의 전제 조건이 생긴다. 위반:\n"
                         + String.join("\n", violations))
                 .isEmpty();
     }
