@@ -80,7 +80,7 @@ public class ServiceProfileAdminController {
         tenantScope.checkService(admin, serviceCode);
         tenantScope.checkTenant(admin, body != null ? body.path("service").path("tenant").asText(null) : null);
         log.info("[ServiceProfileCtrl] PUT profile: serviceCode={} adminId={} cid={}", serviceCode, admin.username(), cid);
-        return ResponseEntity.ok(serviceProfileService.put(serviceCode, body, admin.username(), changeReason, cid));
+        return ResponseEntity.ok(serviceProfileService.put(serviceCode, body, admin.username(), ChangeReason.decode(changeReason), cid));
     }
 
     /** S6: 프로비저닝된 OIDC client 상태 — secret 은 보이지 않는다. */

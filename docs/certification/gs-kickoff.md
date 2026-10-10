@@ -14,7 +14,7 @@
 |---|---|---|---|
 | 제품 설명서 | `docs/manuals/product-spec.md` | 초안 | 시험원 양식 변환, 스크린샷 |
 | 설치 매뉴얼 | `docs/manuals/installation-manual.md` + `docs/install.md` + `docs/install-inputs.md` | 초안(compose·Helm 은 CI 로 검증 — 1.1.1: 오프라인 번들 생성→복원, 백업→새 DB 복구 단계 포함) | 폐쇄망 반입·설치 실행·시간 기록, 운영 DB 복구 리허설(앱 정지→복구→재기동) — G1-1 |
-| 관리자 매뉴얼 | `docs/manuals/administrator-manual.md` + `docs/admin-auth.md` | 초안(CI 스모크·E2E 로 검증; 1.1.1 에 §9 웹훅 비밀·§14 할당 관리 추가) | 화면 캡처(2단계 QR·할당 관리 포함) |
+| 관리자 매뉴얼 | `docs/manuals/administrator-manual.md` + `docs/admin-auth.md` | 초안(CI 스모크·E2E 로 검증; 1.1.1 에 §9 웹훅 비밀·§14 할당 관리 추가, 화면 18장 — `scripts/dev/console-screenshots.cjs` 로 재생성) | OIDC client·AI 운영 화면(시험 환경에서 같은 스크립트), 시험원 양식 변환 |
 | 사용자 매뉴얼 | `docs/sso-agency-integration-guide.md`·`sso-agency-developer-guide.md`·`idem-sdk-java-usage-guide.md`·`onboarding-guide.md` | 있음 | 이용자(최종 사용자) 관점 1~2쪽 요약 추가 |
 | 시험 항목표 | `docs/manuals/test-items.md` | 초안 75항목(1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 14 + 1.1.1 추가 3; 자동 66 — CI 59 + 로컬 IT 7, 수동 9) + 실행 결과 열(CI·로컬 IT 는 채움) | 수동 9·로컬 IT 3 을 시험 환경에서 1회 완주(G1-1), 결함 밀도 산출 |
 | 설치본 | `scripts/release/make-offline-bundle.sh` → 이미지 tar + 소스 tar + Helm 차트 + `MANIFEST.txt`·`SHA256SUMS`(`v1.1.1`) | 스크립트 + CI 검증(1.4 GB, 생성→삭제→복원→대조) | `v1.1.1` 태그로 만들어 체크섬·크기 기록, 폐쇄망 반입 리허설(G-6) |

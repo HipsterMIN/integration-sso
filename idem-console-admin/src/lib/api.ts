@@ -62,6 +62,13 @@ export const post = <T,>(path: string, body?: unknown, headers?: Record<string, 
 export const put = <T,>(path: string, body?: unknown, headers?: Record<string, string>) => api<T>('PUT', path, body, headers);
 export const del = <T,>(path: string) => api<T>('DELETE', path);
 
+/** 변경 사유 헤더 — HTTP 헤더 값은 ASCII 만 허용되므로(한글 사유는 fetch 가 거부) percent-encoding 으로 보낸다. hub 가 디코드한다(1.1.1 G2-3) */
+export const CHANGE_REASON_HEADER = 'X-Change-Reason';
+export function changeReasonHeaders(reason: string | null | undefined): Record<string, string> | undefined {
+  const r = (reason ?? '').trim();
+  return r ? { [CHANGE_REASON_HEADER]: encodeURIComponent(r) } : undefined;
+}
+
 export function describe(e: unknown): string {
   if (e instanceof ApiError) return `${e.code}: ${e.message}`;
   if (e instanceof Error) return e.message;

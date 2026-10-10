@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### G2-3 · 관리 콘솔 화면 캡처 자동화 + 변경 사유 헤더 결함 (플랜 §3)
+
+- `scripts/dev/console-screenshots.cjs`(Playwright·Chromium): 실제 스택과 콘솔 앞에서 첫 로그인(2단계 등록 QR → 코드 → 비밀번호 변경 강제) → 데모 데이터 시드(기관 3·플랫폼/서비스 동의 항목·역할 2·할당 2·역할 부여·테넌트·관리자) → 화면 18장을 `docs/manuals/images/console/` 에 쓴다. 재실행(바뀐 비밀번호·2단계 비밀 파일·같은 스텝 코드 재사용 거부)도 처리. 관리자 매뉴얼 §1~§14 에 그림 삽입, 재생성 절차는 `docs/local-dev-workflow.md` §5. 시험 항목 B-2(QR 끝-끝)·B-16 의 E2E 기록.
+- **수리한 결함**: 콘솔이 프로파일 저장의 변경 사유를 `X-Change-Reason` 헤더에 원문으로 넣어 **한글 사유면 브라우저 fetch 가 헤더를 거부**해 저장이 실패했다(`Invalid character in header content`). 콘솔은 percent-encoding(`changeReasonHeaders`)으로 보내고 hub 는 `ChangeReason.decode` 로 풀어 감사·이력에 원문을 남긴다(`%` 없는 ASCII 사유는 그대로, `+` 유지, 500자 절단). UT `ChangeReasonTest`, 콘솔 `api.test.ts`.
+
 ### G2-2 · 문서 정합성 검사 docs-lint (플랜 §7)
 
 - `scripts/ci/docs-lint.py`(의존성 없음): 버전 단일 출처(루트 `build.gradle.kts` ↔ Helm 차트·콘솔 package·SDK README/CHANGELOG·웹훅 `platformVersion` 기본값·현재 버전 문구·제품 설명서·GS 착수·설치 매뉴얼 번들 이름·연동 가이드 예시 21곳), 시험 항목표 집계(표 행 수 = 제목 = 합계 = 그룹 합 = ID 목록, docs/README·gs-kickoff 수치), 운영 문서가 인용한 오류 코드의 정의 여부, 구 런타임 이름(`IDO_*`·`${ido.*}`), 상대 링크, CHANGELOG 첫 헤더 = 빌드 버전. CI 잡 `문서 정합성`(PR 마다), pre-commit 훅(문서·버전 파일 스테이징 시). 제외는 줄 끝 `<!-- docs-lint:ignore -->`.

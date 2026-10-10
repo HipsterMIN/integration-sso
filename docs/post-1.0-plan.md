@@ -61,7 +61,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 - **기관 목록 페이징**: `GET /api/v1/admin/services` 에 `page/size`(기본 50, 최대 200), 콘솔 목록 페이징.
 - **TOTP QR**: 등록 화면에 `otpauth://` QR 이미지(클라이언트 측 생성, 비밀은 서버에서 1회만).
 - 완료 기준: vitest·UT 추가, E2E 1회 수동 기록(관리자 매뉴얼 스크린샷과 겸함).
-- **2026-10-09 상태**: 셋 다 들어갔다 — 할당 관리 카드 + hub 관리 API(`/services/{code}/assignments·roles`, authz 위임, 감사 5종, 새 오류 코드 E-IDO-127~129), 기관 목록 `page/size/q` 봉투(DB 에서 테넌트 거름), 등록 QR(브라우저 생성). CI 스모크 ⑧c 가 실제 authz 로 끝-끝을 돈다. 남은 것은 E2E 1회 수동 기록(QR 을 인증 앱으로 찍는 부분, 관리자 매뉴얼 스크린샷)·시험 항목 B-16·B-17 완주 — G1-1 과 함께.
+- **2026-10-09 상태**: 셋 다 들어갔다 — 할당 관리 카드 + hub 관리 API(`/services/{code}/assignments·roles`, authz 위임, 감사 5종, 새 오류 코드 E-IDO-127~129), 기관 목록 `page/size/q` 봉투(DB 에서 테넌트 거름), 등록 QR(브라우저 생성). CI 스모크 ⑧c 가 실제 authz 로 끝-끝을 돈다. E2E 기록은 2026-10-10 PR-G2-3 의 화면 캡처 스크립트로 끝(QR 등록 → 코드, 할당 관리 화면 — `docs/manuals/images/console/`). 시험 항목 B-16·B-17 의 시험원 완주는 G1-1.
 
 ### 2.4 PR-G1-4 · 웹훅 서명 비밀 관리 API + hub 지표 (1주, AI) — 병행 가능
 
@@ -93,6 +93,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 완료 기준: 시험원 사전 검토에 낼 수 있는 문서 세트 v1 과 설치본 tar.
 
 - **2026-10-09 상태(PR-G2-1)**: 사용자 매뉴얼 신규(`docs/manuals/user-manual.md`), 시험 항목표 실행 결과 열(CI·로컬 IT 채움, 집계를 표 행 수대로 75 로 정정), 형상·결함 관리 문서(`docs/certification/configuration-management.md` — 릴리스·PR 목록, CI 게이트, 수리 결함 목록, 결함 밀도 산식). 남은 것: 제품·설치·관리자 매뉴얼의 시험원 양식 변환과 화면 캡처(양식·시험 환경 필요), 성능 재측정·호환성 확인(사용자 환경), 결함 밀도 수치(G1-1).
+- **2026-10-10 상태(PR-G2-3)**: 관리자 매뉴얼 화면 18장 — `scripts/dev/console-screenshots.cjs`(Playwright)가 실제 스택(hub·registry·authz, 로컬 PG·Redis) 앞에서 첫 로그인(QR 등록)·시드·캡처를 자동으로 한다(`docs/local-dev-workflow.md` §5). 매뉴얼 §1~§14 에 그림 삽입. 캡처 중 드러난 결함: 콘솔이 한글 변경 사유를 `X-Change-Reason` 헤더에 그대로 넣어 브라우저 fetch 가 거부(저장 실패) → 콘솔은 percent-encoding, hub 는 디코드(`ChangeReason`). OIDC client 카드·AI 운영은 Keycloak·LLM 이 없어 미캡처 — 시험 환경에서 같은 스크립트로.
 
 ---
 

@@ -11,13 +11,29 @@
 | 비밀번호 변경 | 현재 비밀번호 + 새 비밀번호 | 감사 `ADMIN_PASSWORD_CHANGED` |
 | 로그아웃 | 세션 종료 | 이후 같은 쿠키는 401 |
 
+![로그인 화면](images/console/01-login.png)
+
+![첫 로그인 — 2단계 등록 QR 과 base32 비밀](images/console/02-mfa-enroll-qr.png)
+
+![첫 로그인 — 비밀번호 변경 강제](images/console/03-password-change-forced.png)
+
 첫 관리자(`admin`)는 설치 때 `IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD` 로 만들어진다. 관리자가 한 명이라도 있으면 그 값은 더 쓰이지 않는다. 인증 앱을 잃은 관리자는 다른 SYSTEM_ADMIN 이 **2단계 초기화**(§6) 한다.
+
+
 
 ## 2. 서비스(연동기관) 목록·상세
 
 - **목록**: 관리자의 Tenant 범위 안 서비스만 보인다(SYSTEM_ADMIN 은 전부). 코드·이름·상태(ACTIVE/INACTIVE)·프로토콜. **1.1.1**: 서버 페이징(한 페이지 50, 최대 200)과 검색(코드·이름 부분 일치, 대소문자 무시) — 입력 300ms 뒤에 검색하고 검색어가 바뀌면 1쪽으로 돌아간다.
 - **상세**: 프로파일 JSON(스키마 기반 폼), 변경 이력, OIDC client 상태, 정책 시뮬레이션, 웹훅 서명 비밀(§9), 동의 항목(§13), 할당 관리(§14, 1.1.1).
 - API: `GET /api/v1/admin/services/{code}/profile`, `GET …/profile-schema`, `GET /api/v1/admin/agencies?page&size&q` → `{items, page, size, total}`(1.1.1 — 종전의 배열 응답은 봉투로 바뀌었다).
+
+![기관 목록 — 검색·페이징](images/console/04-services-list.png)
+
+![기관 상세 — 프로파일 폼](images/console/05-service-detail-profile.png)
+
+![기관 상세 — 상태·API 키 카드](images/console/06-status-api-key.png)
+
+![기관 상세 — 변경 이력(변경 사유 포함)](images/console/11-history.png)
 
 ## 3. 프로파일 작성·수정
 
@@ -30,6 +46,8 @@
 
 상태 `service.status`: `INACTIVE`(작성·시험 — Keycloak client 비활성, authorize 단계 400) / `ACTIVE`(운영). 생략하면 스키마 기본값 **ACTIVE** 다. 승인은 SYSTEM_ADMIN 이 ACTIVE 로 저장하는 것이다(`onboarding-guide.md` §4). 프로토콜 유형·주체 스킴 변경은 사용자 식별자가 바뀌므로 점검 시간에 기관과 합의해 한다.
 
+![새 기관 온보딩 — 프로파일 폼(서비스·연동 프로토콜·식별자·속성·정책·한도·동의)](images/console/12-onboarding-new.png)
+
 ## 4. OIDC client
 
 - **상태 보기**(`GET …/{code}/oidc-client`): `provisioned`, `clientId`, issuer, discovery URL, redirect URI, `enabled`(= 서비스 ACTIVE 여부). secret 은 보이지 않는다.
@@ -38,6 +56,8 @@
 ## 5. 정책 시뮬레이션
 
 `POST …/{code}/policy/simulate` `{authLevel, providerCode, userStatus, at, assigned}` → `{allowed, decisions[]}`. 저장된 프로파일로 "이런 요청이 오면 어느 규칙이 어떻게 판정하는가"를 실제 발급 없이 본다. 모든 규칙을 끝까지 평가하므로 거부 사유가 여럿이면 모두 보인다. 온보딩 검증(§2 of onboarding-guide)과 장애 문의("왜 거부됐나") 에 쓴다.
+
+![정책 시뮬레이션 — 규칙별 판정](images/console/08-policy-simulation.png)
 
 ## 6. 관리자 관리 (SYSTEM_ADMIN, 전역만)
 
@@ -52,15 +72,21 @@
 
 역할: `SYSTEM_ADMIN`(전부) · `POLICY_ADMIN`(자기 Tenant 의 서비스 프로파일·시뮬레이션·secret 회전) · `AUDITOR`(읽기·감사만). 인가 매트릭스는 `docs/admin-auth.md` §4. 모든 거부는 `403 E-IDO-131` 로 감사(`ADMIN_ACCESS_DENIED`)된다.
 
+![관리자 관리](images/console/17-admins.png)
+
 ## 7. 테넌트
 
 여러 Realm(예: 본부/지방청)을 나눌 때 쓴다. `GET/PUT /api/v1/admin/tenants/{code}` `{name, status}`(쓰기는 SYSTEM_ADMIN). 서비스 프로파일의 `service.tenant` 와 관리자의 `tenantCode` 가 이 코드를 가리킨다. 단일 기관 설치는 `DEFAULT` 하나로 충분하다.
+
+![테넌트](images/console/13-tenants.png)
 
 ## 8. 감사 조회
 
 `GET /api/v1/admin/audit?from&to&category&action&actorId&agencyCode&outcome&correlationId&page&size(≤200)`. 콘솔 **감사** 화면에서 기간·분류(`ADMIN`·인증·핸드오프 …)·행위자·기관 코드·결과로 검색한다. Tenant 관리자는 자기 기관(`agencyCode`)만. 감사 행은 삭제·수정 API 가 없다(INSERT 전용). 보존 기간과 외부 반출은 운영 정책(`docs/sso-im-operations-manual.md`).
 
 자주 쓰는 검색: 기관별 관리 행위(`agencyCode=…&category=ADMIN`), 로그인 실패 추적(`action=ADMIN_LOGIN_FAILED`), 특정 요청 추적(`correlationId=…`).
+
+![감사 조회 — 필터와 결과(관리 행위·웹훅 발송 실패·할당 변경이 섞여 보인다)](images/console/14-audit.png)
 
 ## 9. 운영 작업
 
@@ -75,7 +101,11 @@
 | 업그레이드·백업 | `installation-manual.md` §5·§6 |
 - **웹훅 서명 비밀 회전 (1.1.1)**: 기관 상세 → "웹훅 서명 비밀" 카드 → **서명 비밀 회전** → 한 번만 보이는 새 비밀을 기관 수신기 담당자에게 전달한다. 서버에는 KMS 봉인값과 지문(해시 앞 8자)만 남는다. 구 비밀은 즉시 무효이므로 기관이 두 비밀을 잠시 함께 받도록 준비한 뒤 회전한다. 엔드포인트가 없는 기관(카드에 "웹훅 엔드포인트가 없습니다")은 기관 등록·수정 API 의 `webhookEndpoint` 로 먼저 둔다. 비밀이 없는 기관에는 웹훅이 나가지 않고 감사 `WEBHOOK_DISPATCH_FAILED(NO_SIGNING_SECRET)` 만 남는다.
 
+![웹훅 서명 비밀 카드 — 회전 직후(원문 1회 표시, 봉인·지문·회전 시각)](images/console/07-webhook-secret.png)
+
 ## 10. 검증한 것 / 못 한 것
+
+- **화면 캡처(1.1.1 G2-3, 2026-10-10)**: 이 문서의 그림은 `scripts/dev/console-screenshots.cjs`(Playwright·Chromium)가 실제 스택(hub·registry·authz 1.1.1, 로컬 PostgreSQL·Redis, Keycloak 없음)과 콘솔 앞에서 첫 로그인(2단계 등록 QR → 코드 → 비밀번호 변경) → 데모 데이터 시드 → 화면별 캡처로 만들었다. 재생성 절차는 `docs/local-dev-workflow.md` §5. Keycloak 이 없어 OIDC client 카드(§4)와 AI 운영(§11)은 캡처하지 않았다 — GS 시험 환경(설치본)에서 같은 스크립트로 다시 뜬다. 캡처 과정이 시험 항목 B-2(QR 끝-끝)·B-16(할당 관리 화면)의 E2E 기록이다.
 
 - ✅ §1~§8 의 흐름은 관리 콘솔 실기동 끝-끝(S7 PR-2: 첫 로그인 2단계 등록 → 강제 변경 → 온보딩 저장 → client 프로비저닝 → secret 회전 → 시뮬레이션 → 감사 → 관리자 추가 → 테넌트 → 로그아웃 → 재로그인)과 CI 설치본 스모크로 확인했다.
 - ✅ 감사 이상 징후(§12)는 통합 테스트(`AuditAnomalyIntegrationTest`: 적재 → 점수 → 플래그 → 목록·통계 → 검토 → 감사)로 확인했다. 운영 기준선(3개월)은 설치 뒤 쌓인다.
@@ -105,6 +135,8 @@
 3. 테넌트 관리자는 기관 코드를 지정해야 하고 자기 기관의 플래그만 본다·검토한다.
 4. 플래그가 하루에 수십 건이면 임계를 올린다(`IDEM_HUB_AUDIT_ANOMALY_*`). 야간 점검이 잦은 설치본은 업무 외 시간 규칙의 오탐이 많다 — 정밀도대로 조정한다.
 
+![감사 이상 징후 — 플래그 목록·규칙별 통계(기준선이 쌓이기 전이라 비어 있다)](images/console/15-anomalies.png)
+
 ## 13. 동의 카탈로그 (1.1)
 
 서비스 이용에 필요한 동의 항목(이용약관·개인정보 처리방침·마케팅 수신 등)을 **버전**으로 관리하고, 코어 로그인 프런트(Handoff 브라우저 진입)가 발급 전에 미동의 항목을 묻는다. 항목은 registry 가 가진다 — 프로파일에는 켜고 끄는 스위치만 있다.
@@ -115,6 +147,10 @@
 4. **동작** — 필수 미동의 항목이 있을 때만 동의 화면이 뜨고, 그때 선택 항목도 같이 보인다. 필수를 빼고 제출하면 다시 묻고, "동의하지 않음" 은 기관 콜백으로 `error=E-IDO-125` 를 보낸다. registry 가 응답하지 않으면 발급하지 않는다(오류 화면 `E-IDO-106`).
 5. **감사** — 발행·종료는 `ADMIN/CONSENT_VERSION_PUBLISHED·CONSENT_VERSION_RETIRED`(범위·유형·버전), 사용자의 동의·거부는 `MEMBER/CONSENT_AGREED·CONSENT_DECLINED`(버전 ID 목록, 출처 IP). 동의 기록 자체는 registry `consent_record`(INSERT 전용, 경로 `LOGIN_FRONT:<서비스코드>`).
 6. **권한** — 목록은 전 역할, 발행·종료는 SYSTEM_ADMIN·POLICY_ADMIN. 플랫폼 공통은 전역 관리자만(테넌트 관리자는 403).
+
+![플랫폼 공통 동의 항목](images/console/16-consents-platform.png)
+
+![기관 상세 — 이 서비스 전용 동의 항목](images/console/09-consent-service.png)
 
 ## 14. 할당 관리 — 사용자·역할 (1.1.1)
 
@@ -127,3 +163,5 @@
 5. **사용자 역할** — 행의 "역할" 을 누르면 그 사용자의 역할(상태·부여·만료·출처)과 부여 폼(카탈로그에서 고른다, 만료·사유 선택). API `GET …/assignments/{qimUserId}/roles`, `POST …/assignments/{qimUserId}/roles {roleCode, expiresAt?, reason?}` → 201, `DELETE …/assignments/{qimUserId}/roles/{roleCode}?reason` → 204. 감사 `ROLE_GRANTED`·`ROLE_REVOKED`. 부여된 역할은 authz `effective-roles`(SDK 의 `roles` 클레임)로 내려간다.
 6. **오류** — 없는 서비스 `404 E-AGENCY-307`, 범위 밖 기관 `403`, 입력 형식 `400 E-IDO-129`, authz 가 모르는 사용자·역할 `404 E-IDO-127`, 중복·부여 불가 `409 E-IDO-128`, authz 장애 `503 E-IDO-117`. authz 의 원래 코드(`E-AUTHZ-*`)는 hub 로그에 남는다.
 7. **권한** — 목록·역할·사용자 역할 GET 은 전 역할(AUDITOR 포함), 할당·해제·역할 생성·부여·회수는 SYSTEM_ADMIN·POLICY_ADMIN. 테넌트 관리자는 자기 테넌트 기관만.
+
+![할당 관리 카드 — 할당 목록·직접 할당 폼·사용자 역할(user-1001)·역할 카탈로그](images/console/10-assignments.png)
