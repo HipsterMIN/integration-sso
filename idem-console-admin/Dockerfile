@@ -8,6 +8,8 @@ COPY idem-console-admin/ .
 RUN npm run build
 
 FROM nginx:1.30-alpine
+# 1.1.2: 베이스 태그가 아직 담지 못한 alpine 3.24 패키지 수정(libexpat·pcre2·tiff — 2026-10-10 Trivy)을 빌드 때 받는다
+RUN apk upgrade --no-cache
 LABEL description="Idem admin console (React + nginx, /api/v1/admin -> idem-hub)"
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY idem-console-admin/nginx/default.conf /etc/nginx/conf.d/default.conf

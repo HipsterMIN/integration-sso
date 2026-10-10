@@ -19,7 +19,7 @@ plugins {
 // ── 전체 공통 설정 ────────────────────────────────────────────────────────────
 allprojects {
     group   = "io.github.hipstermin.idem"
-    version = "1.1.1"   // 1.1.1: 플랜 §2 G1 시험 준비 — PR-G1-2·G1-4·G1-3 (#261~#263) + G1-5 동결 (릴리스 태그 v1.1.1)
+    version = "1.1.2"   // 1.1.2: 보안·결함 패치 — G2-2 docs-lint·G2-3 변경 사유 헤더·G2-4 동의 CSP·G2-5 취약점 점검 1회차 (#266~#269, 릴리스 태그 v1.1.2)
 
     repositories {
         mavenCentral()
@@ -113,6 +113,11 @@ subprojects {
     configure<DependencyManagementExtension> {
         imports {
             mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.16")
+        }
+        dependencies {
+            // kafka-clients 3.9.2 가 전이하는 유지 관리 포크 at.yawk.lz4:lz4-java 1.10.1 — CVE-2026-106451(네이티브 라이브러리를
+            // 공유 임시 디렉터리에 풀어 다른 로컬 사용자가 바꿔치기 가능, HIGH) 는 1.11.4+. BOM 에 속성이 없어 직접 관리 (1.1.2, 머지 뒤 Trivy)
+            dependency("at.yawk.lz4:lz4-java:1.11.4")
         }
     }
 

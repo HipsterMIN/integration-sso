@@ -7,7 +7,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * 내부 API 키 인터셉터를 {@code /api/v1/internal/**} 에 적용.
- * Actuator·Swagger 경로는 제외하여 헬스체크/문서 접근을 허용한다.
+ * Actuator·OpenAPI 문서(/api-docs) 경로는 제외하여 헬스체크/문서 접근을 허용한다 (1.1.2: Swagger UI 는 싣지 않는다 — API 전용 springdoc 스타터).
  */
 @Configuration
 @RequiredArgsConstructor
@@ -20,6 +20,6 @@ public class AuthzWebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(internalApiKeyInterceptor)
                 // 내부 인가 API + SCIM 2.0 프로비저닝(기관 동기화) 모두 키 보호
                 .addPathPatterns("/api/v1/internal/**", "/scim/v2/**")
-                .excludePathPatterns("/actuator/**", "/api-docs/**", "/swagger-ui/**", "/swagger-ui.html");
+                .excludePathPatterns("/actuator/**", "/api-docs/**");
     }
 }
