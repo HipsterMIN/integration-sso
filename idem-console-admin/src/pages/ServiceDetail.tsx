@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAiStatus } from '../lib/ai';
-import { ApiError, get, post, put } from '../lib/api';
+import { ApiError, changeReasonHeaders, get, post, put } from '../lib/api';
 import { emptyForm, fromProfile } from '../lib/profile';
 import type { Agency, OidcClientSecret, OidcClientStatus, PolicySimulation, Profile, WebhookSecretRotation, WebhookStatus } from '../lib/types';
 import { canWrite, useAuth } from '../auth';
@@ -42,7 +42,7 @@ export function ServiceDetail({ code }: { code: string }) {
     const svc = (doc.service as Record<string, unknown> | undefined)?.code;
     const target = isNew ? String(svc ?? '') : code;
     try {
-      const r = await put<Profile>(`/services/${encodeURIComponent(target)}/profile`, doc, reason ? { 'X-Change-Reason': reason } : undefined);
+      const r = await put<Profile>(`/services/${encodeURIComponent(target)}/profile`, doc, changeReasonHeaders(reason));
       setSaved(`저장했습니다 (${target})`);
       if (isNew) navigate(`/services/${encodeURIComponent(target)}`);
       else { setProfile(r); await load(); }

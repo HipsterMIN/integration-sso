@@ -16,6 +16,20 @@
 
 첫 빌드: `./gradlew build -x test --no-daemon` (Gradle 9.5 배포판·의존성 다운로드 수 분).
 
+## 5. 관리 콘솔 화면 캡처 — 관리자 매뉴얼 그림 재생성 (1.1.1 G2-3)
+
+`scripts/dev/console-screenshots.cjs` 가 실제 스택과 콘솔 앞에서 Playwright(Chromium)로 첫 로그인(2단계 등록 QR → 코드 → 비밀번호 변경) → 데모 데이터 시드(기관 3·동의 항목·역할·할당·테넌트·관리자, 관리 API) → 화면 18장을 `docs/manuals/images/console/` 에 쓴다.
+
+```bash
+# 스택: hub(8083)·registry(8082)·authz(8086) — 설치본(compose) 또는 CI smoke-test 잡의 기동 레시피. 콘솔: idem-console-admin 에서 npm run build && npm run preview (3001, /api → hub)
+CONSOLE_URL=http://127.0.0.1:3001 IDEM_ADMIN_PASSWORD=<부트스트랩 비밀번호> IDEM_ADMIN_NEW_PASSWORD=<첫 로그인 뒤 값> \
+IDEM_ADMIN_TOTP_SECRET_FILE=/tmp/idem-admin-totp NODE_PATH=$(npm root -g) node scripts/dev/console-screenshots.cjs
+```
+
+- 첫 실행이 2단계를 등록하고 비밀번호를 바꾼다(QR 캡처). 재실행은 `IDEM_ADMIN_PASSWORD` 가 틀리면 `IDEM_ADMIN_NEW_PASSWORD` 로 다시 로그인하고, 2단계 비밀은 `IDEM_ADMIN_TOTP_SECRET_FILE`(0600)에서 읽는다. 같은 30초 스텝의 코드 재사용 거부(1.0.1)는 다음 스텝 코드로 자동 재시도한다.
+- `SEED=0` 이면 시드를 건너뛴다(이미 시드된 스택 — 동의 항목은 매번 새 버전이 발행되므로 재실행은 `SEED=0`).
+- Playwright 패키지는 전역 설치(`NODE_PATH`)나 프로젝트 설치 어느 쪽이든 되고, Chromium 은 `PLAYWRIGHT_BROWSERS_PATH` 의 것을 쓴다. 비밀번호·2단계 비밀은 출력하지 않는다.
+
 ## 2. 커밋할 때 — docs-lint + Spotless (pre-commit)
 
 **docs-lint(1.1.1 G2)**: 스테이징에 `.md`·버전 파일(`build.gradle.kts`·Helm `Chart.yaml`·콘솔 `package.json`·hub `application.yml`·웹훅 디스패처)이 있으면 `python3 scripts/ci/docs-lint.py` 가 먼저 돈다 — 버전 단일 출처(루트 `build.gradle.kts` ↔ 차트·콘솔·SDK·웹훅 `platformVersion`·현재 버전 문구·매뉴얼), 시험 항목표 집계(표 행 수 = 제목 = 합계 = 그룹 합, docs/README·gs-kickoff 수치), 운영 문서의 오류 코드가 코드에 정의돼 있는지, 구 이름(`IDO_*`·`${ido.*}`), 상대 링크. CI 잡 `문서 정합성` 이 같은 스크립트를 돌린다. 건너뛰기 `SKIP_DOCS_LINT=1`, 특정 줄 제외는 줄 끝 `<!-- docs-lint:ignore -->`.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, CSRF_HEADER, CSRF_VALUE, api, onUnauthorized } from '../src/lib/api';
+import { ApiError, CSRF_HEADER, CSRF_VALUE, api, changeReasonHeaders, onUnauthorized } from '../src/lib/api';
 
 function stub(status: number, body: string | null, headers: Record<string, string> = {}) {
   const fn = vi.fn(async () => new Response(body, { status, headers }));
@@ -44,5 +44,15 @@ describe('api client', () => {
     stub(401, '{"code":"E-IDO-132","message":"x"}');
     await expect(api('POST', '/auth/login', {})).rejects.toBeInstanceOf(ApiError);
     expect(h).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('changeReasonHeaders (1.1.1 G2-3)', () => {
+  it('한글 사유는 percent-encoding, 빈 사유는 헤더 없음', () => {
+    expect(changeReasonHeaders('  데모 온보딩 ')).toEqual({ 'X-Change-Reason': encodeURIComponent('데모 온보딩') });
+    expect(changeReasonHeaders('plain ascii')).toEqual({ 'X-Change-Reason': 'plain%20ascii' });
+    expect(changeReasonHeaders('')).toBeUndefined();
+    expect(changeReasonHeaders(null)).toBeUndefined();
+    expect(/^[\x21-\x7e]+$/.test(changeReasonHeaders('사유: 재발급 & 회전')!['X-Change-Reason'])).toBe(true);
   });
 });
