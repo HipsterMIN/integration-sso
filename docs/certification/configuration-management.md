@@ -52,13 +52,18 @@
 | #262 | 2026-10-09 | G1-4: 웹훅 서명 비밀 KMS 봉인·회전 API + 네 앱 Prometheus 지표 | 기능·결함 |
 | #263 | 2026-10-09 | G1-3: 관리 콘솔 보완 3건 — 할당 관리 화면·기관 목록 페이징·검색·2단계 등록 QR | 기능 |
 | #264 | 2026-10-09 | 버전 1.1.1 — CHANGELOG [1.1.1]·업그레이드 메모·GS 착수 상태 | 릴리스 |
+| #265 | 2026-10-09 | G2-1: 사용자 매뉴얼 신규·시험 항목표 실행 결과 열·형상·결함 관리 문서 | 문서 |
+| #266 | 2026-10-09 | G2-2: 문서 정합성 검사 docs-lint(CI 잡·pre-commit) | CI·문서 결함 |
+| #267 | 2026-10-10 | G2-3: 관리 콘솔 화면 캡처 자동화 + 변경 사유 헤더 결함 | 문서·결함 |
+| #268 | 2026-10-10 | G2-4: 사용자 매뉴얼 화면 캡처 자동화 + 동의 화면 CSP form-action 결함 | 문서·결함 |
+| #269 | 2026-10-10 | G2-5: 의존성·이미지 취약점 점검 1회차 — Spring Boot 3.5.16·BOM 덮어쓰기·BC 1.86·nginx 1.30·프런트엔드 패치, 억제 3건 가드 | 보안 패치 |
 
 ## 2. 변경 통제
 
 1. **모든 변경은 PR** — `shipster → main`, 머지는 사용자가 지시한다("머지"). 커밋 작성자는 프로젝트 계정, AI 세션은 트레일러로 남긴다.
 2. **CI 게이트**(`.github/workflows/ci.yml`, PR 마다): Build & Unit Test(전 모듈, 약 1,900 테스트 실행) · Frontend Build(관리 콘솔·KR 포털, typecheck+vitest+build) · Helm Lint & Template · Docker Build Check(이미지 9종) · **k6 Smoke Test**(boot jar 실기동 — 설치본 스모크 ①~⑧c·백업/복구 단계·prod 프로파일 단계·k6) · **K8s 실배포 리허설**(kind: 설치→스모크→prod 업그레이드→롤백→제거, 차트·스크립트 변경 PR) · 오프라인 설치본 검증(스크립트·compose 변경 PR) · OWASP Dependency-Check(수동 실행). 실패하면 머지하지 않는다.
 3. **로컬 훅**(`scripts/dev/install-git-hooks.sh`): pre-commit Spotless(변경 Java 파일), pre-push 변경 모듈 테스트 + Testcontainers 통합 테스트(CI 는 Docker 없음 — `DOCKER_UNAVAILABLE=true`).
-4. **가드 테스트**가 명명·범용화·암호 경계 규칙을 코드로 지킨다: `NamingGuardTest`(구 식별자 금지), `GeneralizationGuardTest`(코어에 고객 고유값 금지), `CryptoBoundaryGuardTest`(암호 연산은 `CryptoProvider` 경유).
+4. **가드 테스트**가 명명·범용화·암호 경계 규칙을 코드로 지킨다: `NamingGuardTest`(구 식별자 금지), `GeneralizationGuardTest`(코어에 고객 고유값 금지), `CryptoBoundaryGuardTest`(암호 연산은 `CryptoProvider` 경유), `SpringAdvisoryGuardTest`(OSS 수정판이 없어 `.trivyignore` 로 억제한 Spring 권고의 전제 조건이 코드에 없음 — `docs/certification/vulnerability-review-2026-10.md` §4).
 5. **동결 규칙**: 1.0 에서 오류 코드(`E-IDO-1xx`·`E-AGENCY-3xx`)와 API 경로를 동결했다(제품 설명서 §6). GS 시험 중 변경은 `release/1.0`(1.0.x) 또는 1.1.x 패치로 **보안·결함 수정만**, 매 패치는 CI 초록 + 시험 항목 재실행 기록(플랜 §4).
 6. **릴리스 절차**: 버전 커밋 PR(버전 문자열·CHANGELOG·업그레이드 메모) → 머지 → 태그 → 오프라인 번들(`scripts/release/make-offline-bundle.sh`, `SHA256SUMS`) → 설치 매뉴얼의 체크섬·크기 기록.
 
@@ -101,6 +106,6 @@
 
 ## 4. 검증한 것 / 못 한 것
 
-- §1·§2 는 저장소의 실제 설정(`ci.yml`, 훅 스크립트, 가드 테스트)과 PR 이력에서 옮겼다. §1.2 PR 목록은 GitHub API 로 2026-10-09 에 뽑았다.
+- §1·§2 는 저장소의 실제 설정(`ci.yml`, 훅 스크립트, 가드 테스트)과 PR 이력에서 옮겼다. §1.2 PR 목록은 GitHub API 로 2026-10-09 에 뽑았고 #265 이후는 각 PR 이 더한다.
 - §3.2 는 CHANGELOG 와 PR 본문에 적힌 결함만 모았다(적대적 점검 보고서의 47건은 보고서 쪽 표가 원본).
 - §3.3 의 밀도는 G1-1·GS 시험 전까지 비어 있다 — 산식과 입력만 확정했다.

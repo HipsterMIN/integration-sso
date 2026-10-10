@@ -1,0 +1,14 @@
+# Trivy 억제 목록 — CI "Docker Build (Multistage)" 의 이미지 스캔(ci.yml, trivyignores)에만 적용된다.
+# 근거와 재검토 주기: docs/certification/vulnerability-review-2026-10.md §4.
+# 규칙: 억제는 (1) OSS 에 수정판이 없고 (2) 전제 조건이 이 제품에 없음을 코드 가드로 묶은 것만, 만료일(exp)을 반드시 단다.
+# 형식: 한 줄에 ID 하나, 주석은 별도 줄(인라인 주석 없음).
+#
+# Spring Framework 6.2.x — 수정판 6.2.20 은 Enterprise 전용, OSS 수정판은 7.0.9(Spring Boot 4) 뿐.
+# 세 건 모두 전제 조건이 코어·에디션에 없다(SpringAdvisoryGuardTest 가 main 소스에서 막는다).
+#
+# CVE-2026-47884: XsltView + "/**" 뷰 매핑 전제 — XsltView 미사용 (Spring 자체 등급 MEDIUM)
+CVE-2026-47884 exp:2027-01-31
+# CVE-2026-47890: SSE 로 뷰 조각(fragments) 전송 전제 — 미사용 (LOW)
+CVE-2026-47890 exp:2027-01-31
+# CVE-2026-47892: WebFlux 함수형 엔드포인트(RouterFunction) + DispatcherServlet 전제 — 미사용 (MEDIUM)
+CVE-2026-47892 exp:2027-01-31

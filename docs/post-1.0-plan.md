@@ -138,7 +138,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 
 - **오픈소스 공개 절차**: 벤더 키 회전 확인 → 이력 정리 방식 결정(스냅샷 저장소) → `vendor-plugin-plan.md` P5.
 - **문서 정합성 검사 자동화**: 이번 주에 사람이 찾은 불일치(스키마 이름·수치·구명)를 CI 에서 grep 규칙으로 막는 `docs-lint` 스텝(NamingGuard 의 문서판). **2026-10-09 완료(PR-G2-2)**: `scripts/ci/docs-lint.py` — 버전 단일 출처 21곳·시험 항목표 집계·오류 코드 정의·구 이름·상대 링크·CHANGELOG 헤더. CI 잡 `문서 정합성` + pre-commit 훅. 첫 실행에서 잡은 것: 시험 항목표 집계 파싱 범위, `IDO_HMAC_SIG_REQUIRED`(SDK 문서·javadoc 3곳 → `IDEM_HUB_HMAC_SIG_REQUIRED`), README 깨진 링크 4개(이동한 내부 문서·분리된 테스트베드), 단계적 전환 문서의 FeatureFlags 경로.
-- **의존성·이미지 취약점**: OWASP 수동 실행 월 1회, Trivy 결과 검토.
+- **의존성·이미지 취약점**: OWASP 수동 실행 월 1회, Trivy 결과 검토. **2026-10-10 1회차(PR-G2-5)**: `docs/certification/vulnerability-review-2026-10.md` — 1.1.1 앱 이미지는 OS 0건·Java 라이브러리 36~62건(Spring Boot 3.5.9 BOM 세대), 콘솔 이미지는 `nginx:1.27-alpine` OS 43건. 조치: Spring Boot 3.5.16 + BOM 속성 덮어쓰기 7종(Tomcat·Netty·Jackson·pgjdbc·httpclient5/httpcore5·log4j·commons-lang3) + BC 1.86 + `nginx:1.30-alpine` + 프런트엔드 패치. OSS 수정판 없는 Spring Framework 6.2.x 3건은 가드(`SpringAdvisoryGuardTest`) + `.trivyignore`(만료 2027-01-31). 다음 회차 2026-11, 2027-01 에 Spring Boot 4 이행 결정.
 
 ---
 
@@ -174,4 +174,5 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 | 2026-10-09 | #263 머지(main 9bdfc99). PR-G1-5 = 1.1.1 동결: 버전 1.1.1(루트 `build.gradle.kts`·Helm Chart·콘솔 package·SDK README/CHANGELOG·웹훅 `platformVersion` 기본값·현재 버전 문구·설치 매뉴얼 tar 이름), CHANGELOG `[1.1.1]` + 업그레이드 메모(V31·비밀 봉인·기관 목록 봉투·지표), gs-kickoff §1 시험 대상 1.1.1·§2 상태(설치본 스크립트·CI 검증, 할당 화면 결정 완료), 플랜 §2.5. 태그 `v1.1.1` 은 머지 커밋에 사용자 |
 | 2026-10-09 | #262 머지(main 14973b2). PR-G1-3: 할당 관리 화면(hub 관리 API 8개 + `QAuthzClient` 관리 호출, E-IDO-127~129, 감사 `ASSIGNMENT_*`·`ROLE_*`), 기관 목록 서버 페이징·검색(봉투 응답, DB 테넌트 거름), 2단계 등록 QR(`qrcode`, 브라우저 생성). 스모크 ⑧c(실제 authz 끝-끝). 시험 항목 B-16·B-17, 집계 70·자동 61 |
 | 2026-10-09 | #261 머지(main f854f67). PR-G1-4: 웹훅 서명 비밀 KMS 봉인 + 회전 API·콘솔 카드 + 네 앱 Prometheus 레지스트리(1.0.x 전부 404 였음 — G-3 정정) + 결함 2건 수리(웹훅 설정 INSERT 조용한 실패, webhook_enabled 미반영) + 스모크 ⑧a·⑧b. 시험 항목 B-15, 집계 68 |
+| 2026-10-10 | #265~#268 머지(G2-1 사용자 매뉴얼·CM 문서, G2-2 docs-lint, G2-3 콘솔 캡처 + 변경 사유 헤더 결함, G2-4 이용자 화면 캡처 + 동의 CSP 결함; main 59f3e73). PR-G2-5 = §7 취약점 점검 1회차: 1.1.1 이미지 Trivy(run 38017327913)·OWASP(run 38023842455 — NVD 장애로 타임아웃, CI 잡 보강 후 재실행)·npm/yarn audit → Spring Boot 3.5.16 + BOM 덮어쓰기 7종 + BC 1.86 + nginx 1.30 + 프런트엔드 패치, Spring 6.2.x 3건 억제(Trivy·OWASP)·가드, OWASP 재실행이 더 잡은 commons-lang3·log4j·httpclient5(SDK 포함) 올림. 기록 `docs/certification/vulnerability-review-2026-10.md` |
 

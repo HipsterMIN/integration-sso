@@ -7,7 +7,7 @@ val sonarVersion   = "5.1.0.4882"  // SonarQube/SonarCloud
 
 plugins {
     java
-    id("org.springframework.boot")            version "3.5.9"       apply false
+    id("org.springframework.boot")            version "3.5.16"      apply false
     id("io.spring.dependency-management")     version "1.1.7"       apply false
     // ── P3-04: 보안 스캔 & 코드 품질 플러그인 (루트 전용) ──────────────────────
     id("org.owasp.dependencycheck")           version "12.2.2"      apply true
@@ -97,10 +97,22 @@ subprojects {
         }
     }
 
+    // G2-5 취약점 점검 1회차(2026-10, docs/certification/vulnerability-review-2026-10.md): Spring Boot 3.5.16 BOM 이
+    // 아직 못 미치는 패치는 BOM 속성을 덮어쓴다(io.spring.dependency-management — 프로젝트 속성이 BOM 속성보다 우선).
+    // 다음 Spring Boot 올림 때 BOM 값이 여기 값 이상이면 줄을 지운다.
+    extra["tomcat.version"]      = "10.1.60"       // BOM 10.1.55 — CVE-2026-65182·65905·68525 는 10.1.58+
+    extra["netty.version"]       = "4.1.139.Final" // BOM 4.1.135 — CVE-2026-75595(SNI 우회, CRITICAL) 는 4.1.137+, DoS 5건은 4.1.136+
+    extra["jackson-bom.version"] = "2.21.7"        // BOM 2.21.4 — CVE-2026-68497 은 2.21.6+, 89407·89425·91776·91777 은 2.21.7+
+    extra["postgresql.version"]  = "42.7.14"       // BOM 42.7.11 — CVE-2026-54291(scram-client) 은 42.7.12+
+    extra["httpclient5.version"] = "5.6.4"         // BOM 5.5.2 — httpcore5 5.4 계열을 요구하는 첫 줄기
+    extra["httpcore5.version"]   = "5.4.4"         // BOM 5.3.6 — CVE-2026-54399·54428 은 5.4.3+
+    extra["log4j2.version"]      = "2.25.5"        // BOM 2.24.3 — log4j-api CVE-2026-49844 은 2.25.5+ (우리는 api + to-slf4j 브리지만 싣는다, OWASP 가 잡음)
+    extra["commons-lang3.version"] = "3.18.0"      // BOM 3.17.0 — CVE-2025-48924(ClassUtils 재귀) 는 3.18.0+ (OWASP 가 잡음)
+
     // BOM import — 플러그인 apply 후 타입 캐스팅으로 접근
     configure<DependencyManagementExtension> {
         imports {
-            mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.9")
+            mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.16")
         }
     }
 

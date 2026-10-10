@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### G2-5 · 의존성·이미지 취약점 점검 1회차 (플랜 §7)
+
+- **점검**: 1.1.1 이미지 10종의 Trivy 표(main run 38017327913), OWASP Dependency-Check 수동 실행(첫 실행은 NVD API 장애로 60분 타임아웃 — CI 잡의 정리 단계가 프로세스 종료를 기다려 NVD 캐시 진행분을 보존하도록 고치고 타임아웃 90분; 재실행은 완주해 Trivy 가 못 보는 MEDIUM·CPE 매치를 더 잡았다: commons-lang3·log4j-api·httpclient5·spring-retry·reactor-netty, kotlin/OTel 오탐), 관리 콘솔 `npm audit`·KR 포털 `yarn audit`. 앱 이미지는 OS 층 0건이지만 Java 라이브러리 CRITICAL 8~13·HIGH 28~49(Tomcat 인증 우회·Netty SNI 우회·Spring Boot/Kafka 원격 코드 실행 계열 포함), 콘솔 이미지 2종은 `nginx:1.27-alpine` OS 층 43건(OpenSSL CVE-2026-31789 CRITICAL). 결과·근거·잔여 위험·다음 회차 절차는 `docs/certification/vulnerability-review-2026-10.md`.
+- **올림**: Spring Boot 3.5.9 → **3.5.16**(Framework 6.2.19·Security 6.5.11·Data 2025.0.13·Kafka 3.3.16·Micrometer 1.15.12·Jackson 2.21). BOM 이 못 미치는 것은 루트 `build.gradle.kts` 에서 BOM 속성으로 덮어쓴다 — Tomcat 10.1.60, Netty 4.1.139, Jackson 2.21.7, pgjdbc 42.7.14, httpclient5 5.6.4/httpcore5 5.4.4, log4j 2.25.5(api·브리지), commons-lang3 3.18.0(lz4 는 kafka-clients 3.9.2 가 유지 관리 포크 1.10.1 로 옮김). hub BouncyCastle 1.78.1 → 1.86, SDK 선택 어댑터 httpclient5 5.3.1 → 5.6.4(Java 8 타겟 유지). 콘솔·KR 포털 이미지 베이스 `nginx:1.30-alpine`. 관리 콘솔 lockfile(source-map-js)·vitest 5(Node 22 — CI·Dockerfile 빌더·`engines`), KR 포털 번들 라이브러리(axios 1.20·dompurify 3.4.16·react-router-dom-v5-compat 6.30.6 — axios 1.20 타입에 맞춰 토큰 재발급 재요청 헤더 복사 한 곳 수정).
+- **억제·가드**: OSS 수정판이 없는 Spring Framework 6.2.x 3건(CVE-2026-47884·47890·47892 — 6.2.20 은 Enterprise 전용)은 전제 조건(XsltView·SSE 조각 렌더링·WebFlux 함수형 엔드포인트)이 제품에 없음을 `SpringAdvisoryGuardTest` 로 묶고 루트 `.trivyignore` 와 `infra/owasp/suppressions.xml`(둘 다 만료 2027-01-31)로 CI 표·OWASP 게이트에서 뺀다. Reactor Netty CVE-2026-47874(서버 전용, OSS 수정판은 Spring Boot 4)는 같은 가드가 서버 전환(`spring-boot-starter-webflux`·Netty 서버 API)을 막는다. kotlin-stdlib·opentelemetry 의 CPE 오탐 2건은 OWASP 억제 파일에 근거와 함께. 2027-01 회차에서 Spring Boot 4 이행을 결정한다.
+- **업그레이드 영향**: 의존성 패치만 — DB·설정·API 변경 없음. 설치본에는 다음 버전 커밋(1.1.2)으로 들어간다.
+
 ### G2-4 · 사용자 매뉴얼 화면 캡처 + 동의 화면 CSP 결함 (플랜 §3)
 
 - `scripts/dev/login-front-screenshots.cjs`(Playwright·Chromium): 코어 로그인 프런트를 Mock 본인확인으로 끝까지 밟으며 이용자 화면 9장을 `docs/manuals/images/login/` 에 — 인증 방법 선택, 동의(거부·필수 누락·동의), 기관 콜백 복귀(스크립트가 띄운 예시 서버), 이미 로그인된 재진입, 오류 3종(E-AGENCY-307·E-AGENCY-304·E-IDO-400). 사용자 매뉴얼 §2·§5 에 그림 삽입. 시험 항목 D-16·D-18 의 브라우저 E2E 기록.

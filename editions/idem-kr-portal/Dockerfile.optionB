@@ -31,7 +31,7 @@ COPY editions/idem-kr-portal/frontend/ .
 RUN yarn build:prod
 
 # ── Stage 2: Nginx 서빙 ──────────────────────────────────────────────────────
-FROM nginx:1.27-alpine AS react-nginx
+FROM nginx:1.30-alpine AS react-nginx
 LABEL maintainer="io.github.hipstermin.idem"
 LABEL description="Idem KR Public Edition portal (React + Nginx)"
 

@@ -155,7 +155,7 @@ ANYID_LIB=/home/user/anyid-sdk/AuthResourceInstall/webapp/WEB-INF/lib
 IDO_LIB=/home/user/webapp/idem-hub/libs
 
 # BouncyCastle 본체(bcprov-jdk15to18-1.68, bcpkix-jdk15to18-1.68)는
-# 기존 bcprov-jdk18on:1.78.1 / bcpkix-jdk18on:1.78.1 로 대체 — 복사 제외
+# 기존 bcprov-jdk18on:1.86 / bcpkix-jdk18on:1.86 로 대체 — 복사 제외
 JARS=(
   anyid-auth-sdk-1.0.19.jar
   anyid-auth-util-sdk-1.0.19.jar
@@ -191,12 +191,12 @@ implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
 
 | 항목 | SDK 제공 | 기존 선언 | 해결 방법 |
 |------|----------|-----------|-----------|
-| BouncyCastle 본체 | `bcprov-jdk15to18-1.68` | `bcprov-jdk18on:1.78.1` | SDK 본체 제외, 기존 1.78.1 사용 |
-| BouncyCastle PKI | `bcpkix-jdk15to18-1.68` | `bcpkix-jdk18on:1.78.1` | SDK 본체 제외, 기존 1.78.1 사용 |
+| BouncyCastle 본체 | `bcprov-jdk15to18-1.68` | `bcprov-jdk18on:1.86` | SDK 본체 제외, 기존 1.86 사용 |
+| BouncyCastle PKI | `bcpkix-jdk15to18-1.68` | `bcpkix-jdk18on:1.86` | SDK 본체 제외, 기존 1.86 사용 |
 | BouncyCastle 래퍼 | `anyid-bc-ref-1.0.2.jar` | — | **복사 포함** (JDK14 호환 레이어) |
 
 > **핵심 원칙**: `bcprov-jdk15to18` ≠ `bcprov-jdk18on`. 전자는 JDK14 이하 호환, 후자는 JDK18+ 전용.  
-> Spring Boot 3.x는 JDK 17+ 기반이므로 `bcprov-jdk18on:1.78.1`로 통일한다.  
+> Spring Boot 3.x는 JDK 17+ 기반이므로 `bcprov-jdk18on:1.86`로 통일한다.  
 > SDK가 BouncyCastle 호출 시 `anyid-bc-ref-1.0.2.jar`가 런타임에 올바른 클래스를 제공한다.
 
 ---
@@ -885,7 +885,7 @@ Browser             anyidAdaptor.js    AnyidC SDK(FE)   Any-ID SSO Server
 | | 버전 | JDK 지원 |
 |--|------|----------|
 | SDK 제공 (`bcprov-jdk15to18-1.68`) | 1.68 | JDK 1.5~1.8 |
-| 기존 선언 (`bcprov-jdk18on:1.78.1`) | 1.78.1 | JDK 18+ |
+| 기존 선언 (`bcprov-jdk18on:1.86`) | 1.86 | JDK 18+ |
 
 Spring Boot 3.x는 JDK 17+이므로 `jdk18on` 계열 사용이 적합하다.  
 두 버전을 classpath에 동시에 두면 클래스 중복 로드 오류 발생 가능.
@@ -895,15 +895,15 @@ Spring Boot 3.x는 JDK 17+이므로 `jdk18on` 계열 사용이 적합하다.
 ```kotlin
 // build.gradle.kts — BouncyCastle 의존성
 // SDK bcprov-jdk15to18-1.68 / bcpkix-jdk15to18-1.68 는 libs에서 제외
-// 기존 jdk18on:1.78.1 유지
+// 기존 jdk18on:1.86 유지
 
-implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")  // 기존 유지
-implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")  // 기존 유지
+implementation("org.bouncycastle:bcprov-jdk18on:1.86")  // 기존 유지
+implementation("org.bouncycastle:bcpkix-jdk18on:1.86")  // 기존 유지
 // libs/ 디렉토리에는 anyid-bc-ref-1.0.2.jar만 포함 (래퍼)
 ```
 
 `anyid-bc-ref-1.0.2.jar`는 `bcprov-jdk15to18-1.68`의 JDK14 대응 래퍼 계층이다.  
-실제 암호화 연산은 `bcprov-jdk18on:1.78.1`에서 처리되어 호환성이 유지된다.
+실제 암호화 연산은 `bcprov-jdk18on:1.86`에서 처리되어 호환성이 유지된다.
 
 ### 12.3 런타임 검증
 

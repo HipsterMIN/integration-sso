@@ -112,8 +112,10 @@ dependencies {
 
     // BouncyCastle: NICE 인증 결과 복호화 (PBKDF2WithHmacSHA256 / AES-GCM)
     // JDK 11+ 기본 JCE로 처리 가능하나 bcprov를 명시적 추가하여 일관성 보장
-    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
-    implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
+    // (코어는 직접 부르지 않는다 — CryptoBoundaryGuardTest; KR 에디션 벤더 플러그인이 런타임에 쓴다)
+    // 1.86: G2-5 취약점 점검 — 1.78.1 의 CVE-2025-14813(CRITICAL)·CVE-2026-8763·CVE-2026-13506
+    implementation("org.bouncycastle:bcprov-jdk18on:1.86")
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.86")
 
     // Apache HttpClient 5 — mTLS 클라이언트 인증서 장착 RestTemplate (Sprint 17)
     // Spring Boot 3.x 기본 SimpleClientHttpRequestFactory는 mTLS 미지원
