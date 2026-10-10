@@ -128,17 +128,17 @@ const card = (page, title) => page.locator('section.card', { hasText: title }).f
   };
   const profile = (code, name, type, cb, level, extra = {}) => ({
     schemaVersion: 1, service: { code, name, status: 'ACTIVE' },
-    protocol: { type, endpoints: { callbackWhitelist: [cb] } },
+    protocol: { type, endpoints: { callbackWhitelist: Array.isArray(cb) ? cb : [cb] } },
     identity: { attributes: ['name_masked'] }, policy: { minAuthLevel: level }, ...extra,
   });
   if (SEED) {
     console.log('  데모 데이터 시드');
-    await api('PUT', '/services/DEMO_PORTAL/profile', profile('DEMO_PORTAL', '시민 포털', 'DIRECT', 'https://portal.example.go.kr/idem/callback', 'L1',
+    await api('PUT', '/services/DEMO_PORTAL/profile', profile('DEMO_PORTAL', '시민 포털', 'DIRECT', ['https://portal.example.go.kr/idem/callback', 'http://portal.example.go.kr:8444/idem/callback'], 'L1',
       { consent: { enabled: true, includePlatform: true } }), { 'X-Change-Reason': encodeURIComponent('데모 온보딩') });
     await api('PUT', '/services/DEMO_HR/profile', profile('DEMO_HR', '인사 시스템', 'DIRECT', 'https://hr.example.go.kr/sso/callback', 'L2'), { 'X-Change-Reason': encodeURIComponent('데모 온보딩') });
     await api('PUT', '/services/DEMO_LIB/profile', profile('DEMO_LIB', '도서관 서비스', 'DIRECT', 'https://lib.example.go.kr/cb', 'L1'), { 'X-Change-Reason': encodeURIComponent('데모 온보딩') });
     await api('PUT', '/agencies/DEMO_PORTAL', { agencyCode: 'DEMO_PORTAL', officialName: '시민 포털', minAuthLevel: 'L1', integrationType: 'DIRECT',
-      callbackWhitelist: ['https://portal.example.go.kr/idem/callback'], webhookEndpoint: 'https://portal.example.go.kr/idem/hook', webhookEnabled: true });
+      callbackWhitelist: ['https://portal.example.go.kr/idem/callback', 'http://portal.example.go.kr:8444/idem/callback'], webhookEndpoint: 'https://portal.example.go.kr/idem/hook', webhookEnabled: true });
     await api('POST', '/consents', { consentType: 'TERMS_OF_SERVICE', versionTag: '2026-10', title: 'Idem 이용약관', contentUrl: 'https://idem.example.go.kr/terms', required: true });
     await api('POST', '/consents', { consentType: 'PRIVACY_POLICY', versionTag: '2026-10', title: '개인정보 처리방침', contentUrl: 'https://idem.example.go.kr/privacy', required: true });
     await api('POST', '/services/DEMO_PORTAL/consents', { consentType: 'MARKETING', versionTag: '2026-10', title: '포털 소식 수신(선택)', required: false });

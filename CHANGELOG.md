@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### G2-4 · 사용자 매뉴얼 화면 캡처 + 동의 화면 CSP 결함 (플랜 §3)
+
+- `scripts/dev/login-front-screenshots.cjs`(Playwright·Chromium): 코어 로그인 프런트를 Mock 본인확인으로 끝까지 밟으며 이용자 화면 9장을 `docs/manuals/images/login/` 에 — 인증 방법 선택, 동의(거부·필수 누락·동의), 기관 콜백 복귀(스크립트가 띄운 예시 서버), 이미 로그인된 재진입, 오류 3종(E-AGENCY-307·E-AGENCY-304·E-IDO-400). 사용자 매뉴얼 §2·§5 에 그림 삽입. 시험 항목 D-16·D-18 의 브라우저 E2E 기록.
+- **수리한 결함(HIGH)**: 동의 화면의 CSP `form-action 'self'` 를 **Chromium 이 form POST 뒤의 302 대상에도 적용**해, "동의하고 계속"·"동의하지 않음" 을 눌러도 기관 콜백으로 돌아가지 못하고 동의 화면이 그대로 남았다(서버는 302 를 냈고 감사도 남아 서버 단 테스트·IT 는 통과했다; Firefox 는 막지 않는다). 동의 화면 응답의 CSP 에 그 요청의 기관 콜백 출처를 더한다(`SecurityHeadersFilter.allowFormActionOrigin`, 콜백은 이미 화이트리스트 검증을 지난 값). 그 밖의 경로는 종전(`'self'`/`'none'`) 그대로. UT `SecurityHeadersFilterTest`·`HandoffLoginControllerTest`(+1), IT `consentFlow` 헤더 단언, 브라우저 E2E.
+
 ### G2-3 · 관리 콘솔 화면 캡처 자동화 + 변경 사유 헤더 결함 (플랜 §3)
 
 - `scripts/dev/console-screenshots.cjs`(Playwright·Chromium): 실제 스택과 콘솔 앞에서 첫 로그인(2단계 등록 QR → 코드 → 비밀번호 변경 강제) → 데모 데이터 시드(기관 3·플랫폼/서비스 동의 항목·역할 2·할당 2·역할 부여·테넌트·관리자) → 화면 18장을 `docs/manuals/images/console/` 에 쓴다. 재실행(바뀐 비밀번호·2단계 비밀 파일·같은 스텝 코드 재사용 거부)도 처리. 관리자 매뉴얼 §1~§14 에 그림 삽입, 재생성 절차는 `docs/local-dev-workflow.md` §5. 시험 항목 B-2(QR 끝-끝)·B-16 의 E2E 기록.

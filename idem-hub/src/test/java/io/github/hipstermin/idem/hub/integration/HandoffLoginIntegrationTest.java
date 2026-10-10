@@ -204,7 +204,8 @@ class HandoffLoginIntegrationTest extends IntegrationTestBase {
         assertThat(r2.getBody()).contains("name=\"agree\" value=\"v-terms\"").contains("이용약관").contains("(필수)")
                 .contains("value=\"v-mkt\"").contains("(선택)").contains("https://idem.example.org/terms")
                 .contains("action=\"" + PUBLIC_URL + "/api/v1/handoff/login/consent\"");
-        assertThat(r2.getHeaders().getFirst("Content-Security-Policy")).contains("form-action 'self'");
+        assertThat(r2.getHeaders().getFirst("Content-Security-Policy")).as("동의 화면: form POST 뒤 콜백 302 를 Chromium 이 막지 않도록 콜백 출처까지 (G2-4)")
+                .contains("form-action 'self' https://agency.example.org;");
         String setCookie = String.join(";", r2.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE));
         assertThat(setCookie).contains(FeSessionCookie.NAME + "=");
         String cookie = setCookie.substring(setCookie.indexOf(FeSessionCookie.NAME), setCookie.indexOf(';', setCookie.indexOf(FeSessionCookie.NAME)));

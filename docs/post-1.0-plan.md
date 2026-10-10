@@ -94,6 +94,7 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 
 - **2026-10-09 상태(PR-G2-1)**: 사용자 매뉴얼 신규(`docs/manuals/user-manual.md`), 시험 항목표 실행 결과 열(CI·로컬 IT 채움, 집계를 표 행 수대로 75 로 정정), 형상·결함 관리 문서(`docs/certification/configuration-management.md` — 릴리스·PR 목록, CI 게이트, 수리 결함 목록, 결함 밀도 산식). 남은 것: 제품·설치·관리자 매뉴얼의 시험원 양식 변환과 화면 캡처(양식·시험 환경 필요), 성능 재측정·호환성 확인(사용자 환경), 결함 밀도 수치(G1-1).
 - **2026-10-10 상태(PR-G2-3)**: 관리자 매뉴얼 화면 18장 — `scripts/dev/console-screenshots.cjs`(Playwright)가 실제 스택(hub·registry·authz, 로컬 PG·Redis) 앞에서 첫 로그인(QR 등록)·시드·캡처를 자동으로 한다(`docs/local-dev-workflow.md` §5). 매뉴얼 §1~§14 에 그림 삽입. 캡처 중 드러난 결함: 콘솔이 한글 변경 사유를 `X-Change-Reason` 헤더에 그대로 넣어 브라우저 fetch 가 거부(저장 실패) → 콘솔은 percent-encoding, hub 는 디코드(`ChangeReason`). OIDC client 카드·AI 운영은 Keycloak·LLM 이 없어 미캡처 — 시험 환경에서 같은 스크립트로.
+- **2026-10-10 상태(PR-G2-4)**: 사용자 매뉴얼 화면 9장 — `scripts/dev/login-front-screenshots.cjs` 가 Mock 제공자로 코어 로그인 프런트(선택·동의·콜백·오류)를 끝까지 밟는다. 이 브라우저 E2E 가 **동의 화면 CSP form-action 결함(Chromium 에서 동의 뒤 콜백 복귀 불가)** 을 잡아 고쳤다 — 서버 단 테스트만으로는 못 잡는 종류라 G2 캡처 스크립트 둘을 시험 환경에서도 돌린다(설치 뒤 1회).
 
 ---
 

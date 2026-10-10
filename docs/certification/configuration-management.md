@@ -83,6 +83,8 @@
 | G1-4 조사 | `agency_meta.webhook_enabled` 를 아무 코드도 켜지 않아 관리 API 기관은 발송 대상이 아님 | MED | #262 | IT, 스모크 ⑧b |
 | G1-4 조사 | 네 앱 모두 Prometheus 레지스트리 미등록 — `/actuator/prometheus` 404(시험 항목 G-3 의 기록이 잘못돼 있었음) | MED(운영) | #262 — `micrometer-registry-prometheus` | 스모크 ⑧a, prod 단계, K8s 리허설, G-3 |
 | G1-3 조사 | 웹훅 비밀이 `signing_secret_hash` 컬럼에 원문으로 저장(이름과 달리 해시가 아님) | HIGH(보안) | #262 — KMS 봉인 + 첫 기동 자동 봉인 | IT, B-15 |
+| G2-3 화면 캡처 | 콘솔이 한글 변경 사유를 `X-Change-Reason` 헤더에 원문으로 넣어 브라우저 fetch 가 거부 — 프로파일 저장 실패 | MED(기능) | #267 — percent-encoding + hub 디코드 | UT `ChangeReasonTest`, 콘솔 `api.test.ts`, 화면 캡처 |
+| G2-4 화면 캡처 | 동의 화면 CSP `form-action 'self'` 를 Chromium 이 form POST 뒤 **콜백 302 에도 적용**해 "동의하고 계속"·"동의하지 않음" 뒤 서비스로 돌아가지 못함(화면이 그대로 남음, Firefox 는 통과 — 서버 단 테스트로는 안 잡힘) | HIGH(기능) | PR-G2-4 — 동의 화면 CSP 에 기관 콜백 출처 추가(`SecurityHeadersFilter.allowFormActionOrigin`) | UT, IT `consentFlow`(헤더), 브라우저 E2E(`login-front-screenshots.cjs`) |
 
 문서 결함(수치·이름 불일치)은 #247·#248·#249 와 각 기능 PR 의 "문서" 항목에, 시험 항목표 집계 정정(68→70→75)은 `test-items.md` 집계 절에 적었다.
 
