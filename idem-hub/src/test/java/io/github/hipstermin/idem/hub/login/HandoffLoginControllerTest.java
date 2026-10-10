@@ -349,6 +349,28 @@ class HandoffLoginControllerTest {
     }
 
     @Test
+    @DisplayName("동의 화면은 필터가 넣은 CSP form-action 'self' 에 기관 콜백 출처를 더한다 — Chromium 이 form POST 뒤 콜백 302 를 막지 않도록 (G2-4)")
+    void consent_pageAllowsCallbackOriginInFormAction() {
+        agency(IntegrationType.DIRECT, true);
+        consentProfile(true, null);
+        given(feSessionService.findById("fe-1")).willReturn(Optional.of(fe("L1")));
+        given(consentClient.missing(eq("u1"), eq(AG), anyString())).willReturn(List.of(TERMS));
+        MockHttpServletRequest request = withCookie();
+        org.springframework.mock.web.MockHttpServletResponse response = new org.springframework.mock.web.MockHttpServletResponse();
+        response.setHeader("Content-Security-Policy", "default-src 'none'; form-action 'self'; base-uri 'none'");
+        org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
+                new org.springframework.web.context.request.ServletRequestAttributes(request, response));
+        try {
+            ResponseEntity<String> r = sut.entry(AG, CB, null, null, "st-c", request);
+            assertThat(r.getStatusCode().value()).isEqualTo(200);
+            assertThat(response.getHeader("Content-Security-Policy"))
+                    .isEqualTo("default-src 'none'; form-action 'self' https://agency.example.org; base-uri 'none'");
+        } finally {
+            org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    @Test
     @DisplayName("선택 항목만 미동의면 화면 없이 바로 발급; 동의가 꺼진 서비스는 registry 를 부르지 않는다")
     void consent_optionalOnlyOrDisabledIssuesDirectly() {
         agency(IntegrationType.DIRECT, true);

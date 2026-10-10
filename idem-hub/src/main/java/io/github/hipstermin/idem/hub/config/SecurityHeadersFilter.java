@@ -119,6 +119,29 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
         return buildCspDirective(false);
     }
 
+    /**
+     * 1.1.1 G2-4 — 동의 화면처럼 form POST 뒤 <b>기관 콜백으로 302</b> 하는 화면은 {@code form-action} 에 콜백 출처도 있어야 한다.
+     * Chromium 은 form 제출 뒤의 리다이렉트 대상에도 {@code form-action} 을 적용하므로 {@code 'self'} 만 있으면 콜백 복귀가 조용히 막힌다
+     * (Firefox 는 막지 않는다 — 브라우저에 따라 증상이 달랐다). 이미 설정된 CSP 헤더 값에 콜백 출처(scheme://host[:port])를 더해 돌려준다.
+     *
+     * @return 바뀐 CSP, 바꿀 것이 없으면(헤더 없음·form-action 'self' 아님·URL 이상) {@code null}
+     */
+    public static String allowFormActionOrigin(String csp, String callbackUrl) {
+        if (csp == null || callbackUrl == null || !csp.contains("form-action 'self'")) return null;
+        String origin;
+        try {
+            java.net.URI u = java.net.URI.create(callbackUrl.trim());
+            if (u.getScheme() == null || u.getHost() == null) return null;
+            String scheme = u.getScheme().toLowerCase(java.util.Locale.ROOT);
+            if (!scheme.equals("https") && !scheme.equals("http")) return null;
+            origin = scheme + "://" + u.getHost().toLowerCase(java.util.Locale.ROOT) + (u.getPort() > 0 ? ":" + u.getPort() : "");
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        if (csp.contains("form-action 'self' " + origin)) return csp;
+        return csp.replace("form-action 'self'", "form-action 'self' " + origin);
+    }
+
     /** 1.1 코어 로그인 프런트 경로 — HTML 화면이 자기 자신에게 form POST 한다(동의 화면). 그 밖의 경로는 종전처럼 'none' */
     static boolean isLoginFrontRequest(HttpServletRequest request) {
         String path = request.getRequestURI();

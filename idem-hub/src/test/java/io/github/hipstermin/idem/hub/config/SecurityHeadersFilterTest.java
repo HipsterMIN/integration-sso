@@ -31,6 +31,24 @@ class SecurityHeadersFilterTest {
     }
 
     @Test
+    @DisplayName("allowFormActionOrigin — 동의 화면의 form-action 'self' 에 기관 콜백 출처를 더한다 (Chromium 은 form POST 뒤 302 대상에도 form-action 을 적용)")
+    void allowFormActionOrigin() {
+        String csp = "default-src 'none'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'";
+        assertThat(SecurityHeadersFilter.allowFormActionOrigin(csp, "https://portal.example.go.kr/idem/callback?x=1"))
+                .isEqualTo("default-src 'none'; connect-src 'self'; frame-ancestors 'none'; form-action 'self' https://portal.example.go.kr; base-uri 'none'");
+        assertThat(SecurityHeadersFilter.allowFormActionOrigin(csp, "http://localhost:8080/cb")).contains("form-action 'self' http://localhost:8080;");
+        assertThat(SecurityHeadersFilter.allowFormActionOrigin(csp, "HTTPS://Agency.Example.org/cb")).contains("form-action 'self' https://agency.example.org;");
+        // 이미 있으면 그대로, 바꿀 것이 없으면 null
+        String done = SecurityHeadersFilter.allowFormActionOrigin(csp, "https://a.example.org/cb");
+        assertThat(SecurityHeadersFilter.allowFormActionOrigin(done, "https://a.example.org/other")).isEqualTo(done);
+        assertThat(SecurityHeadersFilter.allowFormActionOrigin(null, "https://a.example.org/cb")).isNull();
+        assertThat(SecurityHeadersFilter.allowFormActionOrigin(csp, null)).isNull();
+        assertThat(SecurityHeadersFilter.allowFormActionOrigin("default-src 'none'; form-action 'none'", "https://a.example.org/cb")).isNull();
+        assertThat(SecurityHeadersFilter.allowFormActionOrigin(csp, "javascript:alert(1)")).isNull();
+        assertThat(SecurityHeadersFilter.allowFormActionOrigin(csp, "not a url")).isNull();
+    }
+
+    @Test
     void isLoginFrontRequest() {
         MockHttpServletRequest r = new MockHttpServletRequest("GET", "/api/v1/admin/services");
         r.setRequestURI("/api/v1/admin/services");

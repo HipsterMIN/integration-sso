@@ -29,6 +29,7 @@ IDEM_ADMIN_TOTP_SECRET_FILE=/tmp/idem-admin-totp NODE_PATH=$(npm root -g) node s
 - 첫 실행이 2단계를 등록하고 비밀번호를 바꾼다(QR 캡처). 재실행은 `IDEM_ADMIN_PASSWORD` 가 틀리면 `IDEM_ADMIN_NEW_PASSWORD` 로 다시 로그인하고, 2단계 비밀은 `IDEM_ADMIN_TOTP_SECRET_FILE`(0600)에서 읽는다. 같은 30초 스텝의 코드 재사용 거부(1.0.1)는 다음 스텝 코드로 자동 재시도한다.
 - `SEED=0` 이면 시드를 건너뛴다(이미 시드된 스택 — 동의 항목은 매번 새 버전이 발행되므로 재실행은 `SEED=0`).
 - Playwright 패키지는 전역 설치(`NODE_PATH`)나 프로젝트 설치 어느 쪽이든 되고, Chromium 은 `PLAYWRIGHT_BROWSERS_PATH` 의 것을 쓴다. 비밀번호·2단계 비밀은 출력하지 않는다.
+- **이용자 화면(사용자 매뉴얼)**: `scripts/dev/login-front-screenshots.cjs` — hub 에 Mock 제공자(`IDEM_PLUGINS_MOCK_AUTH_ENABLED=true`)와 두 번째 인증 방법(`IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS=keycloak`, 선택 화면용)이 있고 위 시드가 끝난 뒤 `NODE_PATH=$(npm root -g) node scripts/dev/login-front-screenshots.cjs`. 기관 콜백(`http://portal.example.go.kr:8444/idem/callback`, 시드가 화이트리스트에 넣는다)은 스크립트가 띄우는 예시 서버가 받고 호스트는 Chromium `host-resolver-rules` 로 127.0.0.1 에 맵한다 — DNS·TLS 불필요. 이 둘은 서버 단 테스트가 못 잡는 브라우저 결함(CSP·헤더 인코딩)을 잡았으니 설치본 검증 때도 한 번 돌린다.
 
 ## 2. 커밋할 때 — docs-lint + Spotless (pre-commit)
 

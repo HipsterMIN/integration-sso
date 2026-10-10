@@ -11,6 +11,7 @@ import io.github.hipstermin.idem.common.spi.identity.VerificationStart;
 import io.github.hipstermin.idem.common.util.CorrelationIdHolder;
 import io.github.hipstermin.idem.hub.admin.auth.AdminAuthFilter;
 import io.github.hipstermin.idem.hub.audit.AuditLogPublisher;
+import io.github.hipstermin.idem.hub.config.SecurityHeadersFilter;
 import io.github.hipstermin.idem.hub.consent.ConsentItem;
 import io.github.hipstermin.idem.hub.consent.ConsentRegistryClient;
 import io.github.hipstermin.idem.hub.domain.AgencyMeta;
@@ -50,6 +51,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
@@ -374,7 +378,21 @@ public class HandoffLoginController {
     private ResponseEntity<String> consentPage(HandoffLoginRequest req, List<ConsentItem> missing, String error) {
         String serviceName = agencyMetaRepository.findByCode(req.agencyCode()).map(AgencyMeta::getOfficialName).orElse(req.agencyCode());
         String action = publicUrl + "/api/v1/handoff/login/consent";
+        allowCallbackFormAction(req.callbackUrl());
         return html(HttpStatus.OK, LoginPages.consent(serviceName, action, req.requestId(), missing, error));
+    }
+
+    /**
+     * 1.1.1 G2-4 — 동의 화면의 CSP {@code form-action} 에 기관 콜백 출처를 더한다. Chromium 은 form POST 뒤의 302 대상에도
+     * {@code form-action} 을 적용해서, {@code 'self'} 만으로는 "동의하고 계속"·"동의하지 않음" 뒤 콜백 복귀가 막혔다(화면이 그대로 남는다).
+     * {@link SecurityHeadersFilter} 가 체인 앞에서 넣은 헤더를 덮어쓴다(필터가 꺼져 있으면 헤더가 없으니 아무것도 하지 않는다).
+     */
+    private static void allowCallbackFormAction(String callbackUrl) {
+        RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+        if (!(attrs instanceof ServletRequestAttributes sra) || sra.getResponse() == null) return;
+        HttpServletResponse response = sra.getResponse();
+        String updated = SecurityHeadersFilter.allowFormActionOrigin(response.getHeader("Content-Security-Policy"), callbackUrl);
+        if (updated != null) response.setHeader("Content-Security-Policy", updated);
     }
 
     /** 동의 상태를 확인할 수 없으면 발급하지 않는다(fail-secure) — 콜백으로 보내지도 않는다 */
