@@ -12,7 +12,7 @@
 | 데이터 | PostgreSQL 16 (compose 는 포함) · Redis 7 (포함). Kafka 없음 |
 | 네트워크 | 브라우저 → gate(공개 URL, TLS 종료는 리버스 프록시/Ingress) · 기관 RP → gate · 기관 서버 ← hub 웹훅(아웃바운드) · KR 에디션: hub → 본인확인 벤더 API |
 | 에디션 | core(Idem SSO + IM) / kr(코어 + KR 에디션 — SMES 회원·NICE/Any-ID 플러그인·회원 포털). kr 이미지는 벤더 SDK 를 빌드 때 넣는다 |
-| 소프트웨어 버전 | Idem 1.1.1 (태그 `v1.1.1`), Keycloak 24.0, Spring Boot 3.5 / Java 21 (이미지 안) |
+| 소프트웨어 버전 | Idem 1.1.2 (태그 `v1.1.2`), Keycloak 24.0, Spring Boot 3.5.16 / Java 21 (이미지 안) |
 
 ## 2. 입력값 준비
 
@@ -50,18 +50,18 @@ helm upgrade --install idem infra/helm/idem -n idem -f my-values.yaml -f infra/h
 
 1. 인터넷이 되는 곳에서 번들을 만든다 (`scripts/release/make-offline-bundle.sh`, 1.1.1 G1-2):
    ```bash
-   git checkout v1.1.1
-   VERSION=1.1.1 IDEM_EDITION=core scripts/release/make-offline-bundle.sh      # dist/idem-1.1.1-core/
+   git checkout v1.1.2
+   VERSION=1.1.2 IDEM_EDITION=core scripts/release/make-offline-bundle.sh      # dist/idem-1.1.2-core/
    ```
-   산출: `idem-1.1.1-core-images.tar`(Idem 이미지 5종 — compose 와 같은 이름·태그 `idem-hub:1.1.1-core` … + `postgres:16-alpine`·`redis:7.2-alpine`·`keycloak:24.0`), `idem-1.1.1-src.tar.gz`(소스 — `infra/`·`scripts/`·`docs/`, 비밀 없음), Helm 차트 `.tgz`(helm 이 있을 때), `MANIFEST.txt`(이미지 ID·크기·git sha), `SHA256SUMS`. 크기(코어, CI 측정 2026-10-08): 이미지 tar **1.4 GB**(gate 285·hub 315·registry 285·authz 279·console 46 MB + postgres 281·redis 37·keycloak 437 MB), 소스 tar 14 MB, 차트 24 KB — `docker save` 약 10초, 반입 `docker load` 약 15초. kr 에디션은 벤더 SDK 가 있는 곳에서 `IDEM_EDITION=kr`(회원 포털 이미지 포함).
-2. 반입: 디렉터리 `dist/idem-1.1.1-core/` 통째로 (체크섬은 `SHA256SUMS`).
+   산출: `idem-1.1.2-core-images.tar`(Idem 이미지 5종 — compose 와 같은 이름·태그 `idem-hub:1.1.2-core` … + `postgres:16-alpine`·`redis:7.2-alpine`·`keycloak:24.0`), `idem-1.1.2-src.tar.gz`(소스 — `infra/`·`scripts/`·`docs/`, 비밀 없음), Helm 차트 `.tgz`(helm 이 있을 때), `MANIFEST.txt`(이미지 ID·크기·git sha), `SHA256SUMS`. 크기(코어, CI 측정 2026-10-08): 이미지 tar **1.4 GB**(gate 285·hub 315·registry 285·authz 279·console 46 MB + postgres 281·redis 37·keycloak 437 MB), 소스 tar 14 MB, 차트 24 KB — `docker save` 약 10초, 반입 `docker load` 약 15초. kr 에디션은 벤더 SDK 가 있는 곳에서 `IDEM_EDITION=kr`(회원 포털 이미지 포함).
+2. 반입: 디렉터리 `dist/idem-1.1.2-core/` 통째로 (체크섬은 `SHA256SUMS`).
 3. 폐쇄망에서 검증·적재 뒤 §3.1/§3.2 와 같다(`--build` 없이):
    ```bash
-   EXTRACT_SOURCE=1 DEST=/opt scripts/release/load-offline-bundle.sh /media/idem-1.1.1-core   # SHA256 검증 → docker load → MANIFEST 대조 → 소스 풀기
-   cd /opt/idem-1.1.1 && cp infra/docker/install.env.example install.env                     # IDEM_VERSION=1.1.1 IDEM_EDITION=core 를 넣는다
+   EXTRACT_SOURCE=1 DEST=/opt scripts/release/load-offline-bundle.sh /media/idem-1.1.2-core   # SHA256 검증 → docker load → MANIFEST 대조 → 소스 풀기
+   cd /opt/idem-1.1.2 && cp infra/docker/install.env.example install.env                     # IDEM_VERSION=1.1.2 IDEM_EDITION=core 를 넣는다
    docker compose -f infra/docker/compose.install.yml --env-file install.env up -d
    ```
-   K8s 는 적재한 이미지를 사설 레지스트리에 `docker push` 하고 Helm `global.imageRegistry`·`global.imageTag=1.1.1` 을 준다.
+   K8s 는 적재한 이미지를 사설 레지스트리에 `docker push` 하고 Helm `global.imageRegistry`·`global.imageTag=1.1.2` 을 준다.
    CI 는 스크립트가 바뀐 PR 마다 번들 생성 → 이미지 삭제 → 반입 스크립트로 복원을 돌린다(`offline-bundle-check` 잡). 실제 폐쇄망 반입은 §8.
 
 ## 4. 설치 확인 (완료 판정)

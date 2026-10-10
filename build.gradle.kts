@@ -19,7 +19,7 @@ plugins {
 // ── 전체 공통 설정 ────────────────────────────────────────────────────────────
 allprojects {
     group   = "io.github.hipstermin.idem"
-    version = "1.1.1"   // 1.1.1: 플랜 §2 G1 시험 준비 — PR-G1-2·G1-4·G1-3 (#261~#263) + G1-5 동결 (릴리스 태그 v1.1.1)
+    version = "1.1.2"   // 1.1.2: 보안·결함 패치 — G2-2 docs-lint·G2-3 변경 사유 헤더·G2-4 동의 CSP·G2-5 취약점 점검 1회차 (#266~#269, 릴리스 태그 v1.1.2)
 
     repositories {
         mavenCentral()
