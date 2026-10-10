@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# pre-commit — Spotless 포맷팅 (Java, origin/main 대비 변경 파일만)
+# pre-commit — ① 문서 정합성(docs-lint: 문서·버전 파일이 스테이징됐을 때) ② Spotless 포맷팅 (Java, origin/main 대비 변경 파일만)
 #
 # 설치: scripts/dev/install-git-hooks.sh  (git config core.hooksPath .githooks)
-# 건너뛰기: SKIP_SPOTLESS=1 git commit ...   또는 git commit --no-verify
+# 건너뛰기: SKIP_DOCS_LINT=1 / SKIP_SPOTLESS=1 git commit ...   또는 git commit --no-verify
 #
 # 동작: 스테이징된 Java 파일이 있으면 ./gradlew spotlessApply 를 돌리고, 포맷이 바뀐 "스테이징 파일"만 다시 add 한다.
 #       스테이징되지 않은 변경은 손대지 않는다(포맷은 적용될 수 있으나 add 하지 않음).
@@ -16,7 +16,15 @@ fi
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-# 스테이징된 Java 파일 (삭제 제외)
+# ① docs-lint — 문서·버전 파일이 스테이징돼 있으면 (python3, 의존성 없음, 1초 안팎)
+if [[ "${SKIP_DOCS_LINT:-}" != "1" ]]; then
+    if git diff --cached --name-only --diff-filter=ACMRD | grep -qE '\.md$|^build\.gradle\.kts$|infra/helm/idem/Chart\.yaml$|idem-console-admin/package(-lock)?\.json$|idem-hub/src/main/resources/application\.yml$|hub/webhook/WebhookDispatch(erService|OutboxRelay)\.java$|scripts/ci/docs-lint\.py$'; then
+        echo "[pre-commit] docs-lint — 문서 정합성"
+        python3 scripts/ci/docs-lint.py || { echo "[pre-commit] docs-lint 실패 — 고치거나 SKIP_DOCS_LINT=1" >&2; exit 1; }
+    fi
+fi
+
+# ② Spotless — 스테이징된 Java 파일 (삭제 제외)
 mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACMR -- '*.java')
 if [[ ${#STAGED[@]} -eq 0 ]]; then
     exit 0

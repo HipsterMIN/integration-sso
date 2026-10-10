@@ -12,7 +12,7 @@ import javax.crypto.spec.SecretKeySpec;
  * HMAC-SHA256 서명 생성/검증 유틸리티
  *
  * <p>OnePass Gateway API의 {@code X-Internal-Sig} 헤더 생성에 사용된다.
- * Sprint 17 Phase 4에서 서명 강제화 예정 ({@code IDO_HMAC_SIG_REQUIRED=true}).
+ * Sprint 17 Phase 4에서 서명 강제화 예정 ({@code IDEM_HUB_HMAC_SIG_REQUIRED=true}).
  *
  * <h3>서명 규칙 (OnePass 설계서 §17.2 — 서버 {@code HmacSignatureFilter} 기준)</h3>
  * <pre>

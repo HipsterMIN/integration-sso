@@ -16,7 +16,9 @@
 
 첫 빌드: `./gradlew build -x test --no-daemon` (Gradle 9.5 배포판·의존성 다운로드 수 분).
 
-## 2. 커밋할 때 — Spotless (pre-commit)
+## 2. 커밋할 때 — docs-lint + Spotless (pre-commit)
+
+**docs-lint(1.1.1 G2)**: 스테이징에 `.md`·버전 파일(`build.gradle.kts`·Helm `Chart.yaml`·콘솔 `package.json`·hub `application.yml`·웹훅 디스패처)이 있으면 `python3 scripts/ci/docs-lint.py` 가 먼저 돈다 — 버전 단일 출처(루트 `build.gradle.kts` ↔ 차트·콘솔·SDK·웹훅 `platformVersion`·현재 버전 문구·매뉴얼), 시험 항목표 집계(표 행 수 = 제목 = 합계 = 그룹 합, docs/README·gs-kickoff 수치), 운영 문서의 오류 코드가 코드에 정의돼 있는지, 구 이름(`IDO_*`·`${ido.*}`), 상대 링크. CI 잡 `문서 정합성` 이 같은 스크립트를 돌린다. 건너뛰기 `SKIP_DOCS_LINT=1`, 특정 줄 제외는 줄 끝 `<!-- docs-lint:ignore -->`.
 
 `.githooks/pre-commit` 이 스테이징된 Java 파일이 있을 때 `./gradlew spotlessApply` 를 돌리고, 포맷이 바뀐 **스테이징 파일만** 다시 `git add` 한다.
 

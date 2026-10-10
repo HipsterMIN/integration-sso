@@ -110,6 +110,16 @@ jobs:
   # ── Job 2: FE 빌드 검증 ───────────────────────────────────────────────────────
   #   frontend-check    — 코어 관리 콘솔 idem-console-admin (npm·Vite·TypeScript, S7 PR-2): typecheck + 단위 테스트 + 빌드
   #   frontend-check-kr — KR 에디션 회원 포털 editions/idem-kr-portal/frontend (yarn·Webpack, 구 idem-console): typecheck + 빌드
+  docs-lint:
+    name: 문서 정합성
+    # 플랜 §7 — NamingGuard 의 문서판: 버전 단일 출처·시험 항목표 집계·오류 코드·구 이름·링크 (scripts/ci/docs-lint.py, 의존성 없음)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: docs-lint
+        run: python3 scripts/ci/docs-lint.py
+
   frontend-check:
     name: Frontend Build
     runs-on: ${{ vars.CI_HEAVY_RUNNER || 'ubuntu-latest' }}
