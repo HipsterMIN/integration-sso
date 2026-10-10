@@ -32,6 +32,8 @@ RUN yarn build:prod
 
 # ── Stage 2: Nginx 서빙 ──────────────────────────────────────────────────────
 FROM nginx:1.30-alpine AS react-nginx
+# 1.1.2: 베이스 태그가 아직 담지 못한 alpine 3.24 패키지 수정(libexpat·pcre2·tiff — 2026-10-10 Trivy)을 빌드 때 받는다
+RUN apk upgrade --no-cache
 LABEL maintainer="io.github.hipstermin.idem"
 LABEL description="Idem KR Public Edition portal (React + Nginx)"
 

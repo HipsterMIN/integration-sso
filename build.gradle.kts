@@ -114,6 +114,11 @@ subprojects {
         imports {
             mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.16")
         }
+        dependencies {
+            // kafka-clients 3.9.2 가 전이하는 유지 관리 포크 at.yawk.lz4:lz4-java 1.10.1 — CVE-2026-106451(네이티브 라이브러리를
+            // 공유 임시 디렉터리에 풀어 다른 로컬 사용자가 바꿔치기 가능, HIGH) 는 1.11.4+. BOM 에 속성이 없어 직접 관리 (1.1.2, 머지 뒤 Trivy)
+            dependency("at.yawk.lz4:lz4-java:1.11.4")
+        }
     }
 
     val testcontainersVersion = "1.20.4"
