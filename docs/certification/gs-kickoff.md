@@ -5,7 +5,7 @@
 ## 1. 목표와 범위
 
 - **목표**: GS(Good Software) 인증 1등급 취득 → 조달청 종합쇼핑몰 등록. (CC 는 별도 프로젝트, `execution-plan.md` P4.)
-- **시험 대상 제품**: Idem 1.1.1 (1.1.0 + G1 시험 준비 — 오프라인 설치본·백업/복구, 웹훅 서명 비밀 API·네 앱 지표, 콘솔 보완 3건, `post-1.0-plan.md` §2 — 2026-10-09 버전 커밋) — 제품 설명서 `docs/manuals/product-spec.md` 의 구성(Idem SSO · Idem IM · 관리 콘솔). 에디션은 **core** 로 신청하고 kr 은 부가 모듈로 기술한다(벤더 SDK 라이선스가 시험원 환경에 들어갈 수 없으므로).
+- **시험 대상 제품**: Idem 1.1.2 (1.1.1 + 보안·결함 패치 — 의존성·이미지 취약점 점검 1회차 조치, 동의 화면 CSP·변경 사유 헤더 결함 수정, 문서 정합성 검사, `post-1.0-plan.md` §7·§3 — 2026-10-10 버전 커밋; 1.1.1 은 G1 시험 준비 — 오프라인 설치본·백업/복구, 웹훅 서명 비밀 API·네 앱 지표, 콘솔 보완 3건, `post-1.0-plan.md` §2 — 2026-10-09 버전 커밋) — 제품 설명서 `docs/manuals/product-spec.md` 의 구성(Idem SSO · Idem IM · 관리 콘솔). 에디션은 **core** 로 신청하고 kr 은 부가 모듈로 기술한다(벤더 SDK 라이선스가 시험원 환경에 들어갈 수 없으므로).
 - **시험 환경**: Docker Compose 단일 설치본(설치 매뉴얼 §3.1)을 기본으로, 오프라인 설치(§3.3)로 반입. Helm 은 문서로만.
 
 ## 2. 제출물과 현재 상태
@@ -17,9 +17,9 @@
 | 관리자 매뉴얼 | `docs/manuals/administrator-manual.md` + `docs/admin-auth.md` | 초안(CI 스모크·E2E 로 검증; 1.1.1 에 §9 웹훅 비밀·§14 할당 관리 추가, 화면 18장 — `scripts/dev/console-screenshots.cjs` 로 재생성) | OIDC client·AI 운영 화면(시험 환경에서 같은 스크립트), 시험원 양식 변환 |
 | 사용자 매뉴얼 | `docs/manuals/user-manual.md`(최종 이용자, 1.1.1 G2 — 화면 9장) + 기관용 `docs/sso-agency-integration-guide.md`·`sso-agency-developer-guide.md`·`idem-sdk-java-usage-guide.md`·`onboarding-guide.md` | 있음(이용자 화면은 `login-front-screenshots.cjs` 로 재생성) | 표준 로그인 화면(Keycloak) 캡처는 시험 환경에서, 시험원 양식 변환 |
 | 시험 항목표 | `docs/manuals/test-items.md` | 초안 75항목(1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 14 + 1.1.1 추가 3; 자동 66 — CI 59 + 로컬 IT 7, 수동 9) + 실행 결과 열(CI·로컬 IT 는 채움) | 수동 9·로컬 IT 3 을 시험 환경에서 1회 완주(G1-1), 결함 밀도 산출 |
-| 설치본 | `scripts/release/make-offline-bundle.sh` → 이미지 tar + 소스 tar + Helm 차트 + `MANIFEST.txt`·`SHA256SUMS`(`v1.1.1`) | 스크립트 + CI 검증(1.4 GB, 생성→삭제→복원→대조) | `v1.1.1` 태그로 만들어 체크섬·크기 기록, 폐쇄망 반입 리허설(G-6) |
-| 결함 관리·형상 | GitHub PR(`shipster→main`), 태그 `v1.0.0`·`v1.1.0`·`v1.1.1`, 브랜치 `release/1.0`(1.0.x 패치), `CHANGELOG.md`(제품)·SDK CHANGELOG | 있음 | 1.1.x 항목을 계속 적는다 |
-| 취약점 점검 | `docs/certification/vulnerability-review-2026-10.md`(1회차 — 1.1.1 이미지 Trivy·OWASP·npm/yarn audit, 조치 PR-G2-5, 억제 3건 근거·가드) | 1회차 완료 | 월 1회 반복(다음 2026-11), 조치가 담긴 1.1.2 버전 커밋, 2027-01 Spring Boot 4 이행 결정 |
+| 설치본 | `scripts/release/make-offline-bundle.sh` → 이미지 tar + 소스 tar + Helm 차트 + `MANIFEST.txt`·`SHA256SUMS`(`v1.1.2`) | 스크립트 + CI 검증(1.4 GB, 생성→삭제→복원→대조) | `v1.1.2` 태그로 만들어 체크섬·크기 기록, 폐쇄망 반입 리허설(G-6) |
+| 결함 관리·형상 | GitHub PR(`shipster→main`), 태그 `v1.0.0`·`v1.1.0`·`v1.1.1`·`v1.1.2`, 브랜치 `release/1.0`(1.0.x 패치), `CHANGELOG.md`(제품)·SDK CHANGELOG | 있음 | 1.1.x 항목을 계속 적는다 |
+| 취약점 점검 | `docs/certification/vulnerability-review-2026-10.md`(1회차 — 1.1.1 이미지 Trivy·OWASP·npm/yarn audit, 조치 PR-G2-5, 억제 3건 근거·가드) | 1회차 완료 | 월 1회 반복(다음 2026-11; 조치는 1.1.2 에 반영), 머지 뒤 Trivy·OWASP '후' 확인 기록, 2027-01 Spring Boot 4 이행 결정 |
 | 성능 | k6 시나리오·CI 스모크 | 있음 | 시험 환경 재측정 보고 |
 | 호환성 | 지원 플랫폼 표(제품 설명서 §4) | 있음 | 브라우저·OS 조합 확인 기록 |
 

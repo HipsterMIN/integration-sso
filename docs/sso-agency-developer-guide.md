@@ -399,10 +399,10 @@ X-Webhook-Signature: sha256={HEX(HmacSHA256(timestamp + "." + body, signingSecre
 X-Webhook-Timestamp: {epoch seconds}
 X-Correlation-Id: …
 X-Source-System: idem-hub
-X-Platform-Version: 1.1.1
+X-Platform-Version: 1.1.2
 
 {"eventId":"…","eventType":"HANDOFF_REVOKED","agencyCode":"AGENCY_001","ticketId":"…","ticketState":"REVOKED",
- "revokeReason":"ADMIN","correlationId":"…","occurredAt":"…","platformVersion":"1.1.1","sourceSystem":"idem-hub"}
+ "revokeReason":"ADMIN","correlationId":"…","occurredAt":"…","platformVersion":"1.1.2","sourceSystem":"idem-hub"}
 ```
 
 검증 순서: ① `|now - X-Webhook-Timestamp| ≤ 300초` ② `expected = "sha256=" + HEX(HmacSHA256(timestamp + "." + rawBody, secret))` 를 상수 시간 비교 ③ `eventId` 로 중복 제거 ④ 200 응답. 실패는 hub 가 재시도한다. 페이로드에는 `qimUserId` 원본이 없고 개인정보는 마스킹돼 있다. 참조 구현: `idem-tenant-sample` `WebhookInboundController`(`POST /api/v1/webhook/inbound`).
@@ -413,7 +413,7 @@ X-Platform-Version: 1.1.1
 
 ```json
 {"eventId":"…","eventType":"ASSIGNMENT_CHANGED","agencyCode":"AGENCY_001","agencySubjectId":"pw_9f3a…",
- "change":"UNASSIGNED","occurredAt":"…","correlationId":"…","platformVersion":"1.1.1","sourceSystem":"idem-hub"}
+ "change":"UNASSIGNED","occurredAt":"…","correlationId":"…","platformVersion":"1.1.2","sourceSystem":"idem-hub"}
 ```
 
 ### 8.2 이벤트 피드 (기관 → Idem, 폴링)
@@ -460,9 +460,9 @@ POST {hub}/api/v1/agency/events/{dispatchId}/read      — 처리 완료 표시
 
 ## 9. Java SDK 의 역할
 
-`idem-sdk-java`(Maven `io.github.hipstermin.idem:idem-sdk-java:1.1.1`, Java 8+, 런타임 의존성 0)는 **게이트웨이 API 클라이언트**다. Handoff verify 는 들어 있지 않다(§6.5 처럼 직접 호출).
+`idem-sdk-java`(Maven `io.github.hipstermin.idem:idem-sdk-java:1.1.2`, Java 8+, 런타임 의존성 0)는 **게이트웨이 API 클라이언트**다. Handoff verify 는 들어 있지 않다(§6.5 처럼 직접 호출).
 
-| 메서드 | 경로 | 1.1.1 기본 설치본에서 |
+| 메서드 | 경로 | 1.1.2 기본 설치본에서 |
 |---|---|---|
 | `getStatus(agencyCode)` | `GET /api/v1/agency/gateway/status/{code}` | 동작. 연동 상태(활성 여부·마지막 수신 시각) 조회 |
 | `sendInbound(event)` | `POST /api/v1/agency/gateway/inbound/event` | `IDEM_HUB_GATEWAY_INBOUND_ENABLED=false`(기본)면 `503 FEATURE_DISABLED` |

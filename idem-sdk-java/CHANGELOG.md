@@ -11,6 +11,12 @@ _(다음 릴리즈 예정 변경사항 없음)_
 
 ---
 
+## [1.1.2] — 2026-10-10
+
+- 버전을 루트 `build.gradle.kts`(1.1.2) 와 맞춘다. SDK 코드 변경 없음. 선택 Apache HttpClient 어댑터의 권장 버전 `httpclient5` 5.3.1 → 5.6.4(CVE-2026-64607·71290 — `compileOnly` 라 기관이 직접 고른다, Java 8 타겟 유지). README·사용 가이드의 HMAC 필수 환경변수 이름 정정(`IDEM_HUB_HMAC_SIG_REQUIRED`, 1.1.1 G2-2). 플랫폼 1.1.2 의 변경 이력은 루트 `CHANGELOG.md`.
+
+---
+
 ## [1.1.1] — 2026-10-09
 
 - 버전을 루트 `build.gradle.kts`(1.1.1) 와 맞춘다. SDK 코드 변경 없음 — 플랫폼 1.1.1(G1 시험 준비: 오프라인 설치본·백업/복구, 웹훅 서명 비밀 API, 할당 관리 API)의 변경 이력은 루트 `CHANGELOG.md`.

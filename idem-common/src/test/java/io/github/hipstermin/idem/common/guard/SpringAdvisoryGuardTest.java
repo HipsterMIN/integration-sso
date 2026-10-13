@@ -23,6 +23,9 @@ import org.junit.jupiter.api.Test;
  *   <li>CVE-2026-47892 — WebFlux 함수형 엔드포인트({@code RouterFunction})를 DispatcherServlet 과 함께 써야 한다.</li>
  *   <li>CVE-2026-47874(Reactor Netty, OSS 수정판 1.3.7 = Spring Boot 4) — Reactor Netty 를 <b>HTTP 서버</b>로 써야 한다.
  *       우리는 {@code WebClient}(발신)만 쓰고 서버는 Tomcat 이다(빌드 파일에 {@code spring-boot-starter-webflux} 없음).</li>
+ *   <li>Spring Framework 6.2.x 2026-08-20 일괄 14건(CVE-2026-47883·47885~47889·47891·47893·59280~59283·59313·59314, 6.2.20 은 Enterprise 전용)
+ *       — UrlHandlerFilter·WebFlux 업로드·신뢰할 수 없는 SpEL·UrlFileNameViewController·RSocket·Jetty·Jaxb2/Aalto·WebSocket 핸드셰이크·FreeMarker·
+ *       EscapedErrors·자가 확장 List 바인딩·SpEL 컴파일러·함수형 SSE·ContentDisposition 중 하나를 써야 한다. 하나도 쓰지 않는다.</li>
  * </ul>
  *
  * <p>이 토큰 중 하나라도 main 소스에 들어오면 억제 근거가 사라지므로, 그때는 {@code .trivyignore} 의 해당 줄을 지우고
@@ -46,6 +49,23 @@ class SpringAdvisoryGuardTest {
             new String[] {"RouterFunction", "CVE-2026-47892"},
             new String[] {"HandlerFunction", "CVE-2026-47892"},
             new String[] {"RequestPredicates", "CVE-2026-47892"},
+            // 2026-08-20 일괄 공개 Spring Framework 6.2.x 14건 — 머지 뒤 OWASP 가 잡음(점검 문서 §4.1). 전제 조건별 토큰.
+            new String[] {"UrlHandlerFilter", "CVE-2026-47883"},
+            new String[] {"PartEvent", "CVE-2026-47885"},
+            new String[] {"SpelExpressionParser", "CVE-2026-47886"},   // 신뢰할 수 없는 SpEL 평가 — 코어는 SpEL 파서를 쓰지 않는다
+            new String[] {"UrlFileNameViewController", "CVE-2026-47887"},
+            new String[] {"RSocket", "CVE-2026-47888"},
+            new String[] {"org.eclipse.jetty", "CVE-2026-47889"},
+            new String[] {"Jaxb2Decoder", "CVE-2026-47891"},
+            new String[] {"HandshakeWebSocketService", "CVE-2026-47893"},
+            new String[] {"SpringTemplateLoader", "CVE-2026-59280"},
+            new String[] {"freemarker", "CVE-2026-59280"},
+            new String[] {"EscapedErrors", "CVE-2026-59281"},
+            new String[] {"AutoPopulatingList", "CVE-2026-59282"},
+            new String[] {"SpelCompilerMode", "CVE-2026-59283"},
+            new String[] {"spring.expression.compiler.mode", "CVE-2026-59283"},
+            new String[] {"ServerResponse.sse", "CVE-2026-59313"},
+            new String[] {"ContentDisposition", "CVE-2026-59314"},   // 신뢰할 수 없는 입력으로 만드는 Content-Disposition — 쓰게 되면 입력 검증과 함께 이 줄을 재검토
             new String[] {"reactor.netty.http.server", "CVE-2026-47874"},
             new String[] {"NettyReactiveWebServerFactory", "CVE-2026-47874"},
             new String[] {"ReactorHttpHandlerAdapter", "CVE-2026-47874"},

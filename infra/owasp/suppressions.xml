@@ -40,6 +40,40 @@
         <cve>CVE-2026-47892</cve>
     </suppress>
 
+    <!-- Spring Framework 6.2.19 — 2026-08-20 일괄 공개 14건(1.1.2 머지 뒤 OWASP run 38062705804 에서 확인). 전부 6.2.20 Enterprise 전용 / OSS 7.0.9.
+         전제 조건이 코어·에디션에 없다(SpringAdvisoryGuardTest 토큰, 점검 문서 §4.1): UrlHandlerFilter(47883) · WebFlux PartEvent 업로드(47885) ·
+         신뢰할 수 없는 SpEL 평가(47886)·SpEL 컴파일러 모드(59283) · UrlFileNameViewController(47887) · RSocket(47888) · Jetty Core WebFlux(47889) ·
+         Jaxb2Decoder/Aalto(47891) · WebFlux WebSocket 핸드셰이크(47893) · FreeMarker SpringTemplateLoader(59280) · EscapedErrors 뷰 렌더링(59281) ·
+         자가 확장 List 데이터 바인딩(59282) · MVC 함수형 SSE(59313) · 신뢰할 수 없는 입력의 ContentDisposition(59314). Trivy 는 ignore-unfixed 로 표시하지 않는다. -->
+    <suppress until="2027-01-31Z">
+        <notes>Spring Framework 6.2.x 2026-08-20 일괄 14건 — OSS 수정판 없음(7.0.9 = Spring Boot 4), 전제 조건 없음을 가드로 묶음. 2027-01 회차에서 Spring Boot 4 이행 결정 (2026-10-10)</notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework/spring\-.*@6\.2\..*$</packageUrl>
+        <cve>CVE-2026-47883</cve>
+        <cve>CVE-2026-47885</cve>
+        <cve>CVE-2026-47886</cve>
+        <cve>CVE-2026-47887</cve>
+        <cve>CVE-2026-47888</cve>
+        <cve>CVE-2026-47889</cve>
+        <cve>CVE-2026-47891</cve>
+        <cve>CVE-2026-47893</cve>
+        <cve>CVE-2026-59280</cve>
+        <cve>CVE-2026-59281</cve>
+        <cve>CVE-2026-59282</cve>
+        <cve>CVE-2026-59283</cve>
+        <cve>CVE-2026-59313</cve>
+        <cve>CVE-2026-59314</cve>
+    </suppress>
+    <suppress until="2027-01-31Z">
+        <notes>CVE-2026-47834 Spring Data JPA 3.5.x — 네이티브 쿼리에 Sort/Pageable 을 받는 저장소 메서드 전제(우리 네이티브 쿼리는 아웃박스 2개, 정렬 인자 없음). 수정판 3.5.14 는 Enterprise 전용, OSS 4.0.7 (2026-10-10)</notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework\.data/spring\-data\-jpa@3\.5\..*$</packageUrl>
+        <cve>CVE-2026-47834</cve>
+    </suppress>
+    <suppress until="2027-01-31Z">
+        <notes>CVE-2026-47874 Reactor Netty 1.2.x — HTTP 서버 전제(우리는 WebClient 발신 전용, 서버는 Tomcat — 가드가 서버 전환을 막는다). 수정판 1.2.19 는 Enterprise 전용, OSS 1.3.7 (2026-10-10)</notes>
+        <packageUrl regex="true">^pkg:maven/io\.projectreactor\.netty/reactor\-netty\-.*@1\.2\..*$</packageUrl>
+        <cve>CVE-2026-47874</cve>
+    </suppress>
+
     <!-- CPE 오탐 — 다른 아티팩트의 CVE 가 같은 CPE(jetbrains:kotlin)로 잡힌 것 -->
     <suppress>
         <notes>CVE-2026-53914 는 kotlin-gradle-plugin(빌드 캐시 역직렬화)만 해당, 런타임 kotlin-stdlib 와 무관. CVE-2020-29582 는 kotlin-stdlib 1.4.21 미만(임시 디렉터리) — 1.9.25 는 범위 밖 (2026-10-10)</notes>

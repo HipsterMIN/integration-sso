@@ -22,7 +22,7 @@ scripts/k8s/rehearsal.sh up install smoke      # 일부만. KEEP=1 … down 이�
 IMAGES=registry IMAGE_REGISTRY=ghcr.io/hipstermin IMAGE_TAG=latest REGISTRY_USER=<github id> REGISTRY_TOKEN=<PAT read:packages> scripts/k8s/rehearsal.sh
 
 # 운영기관 클러스터 (Ingress 컨트롤러가 있고 HOST_* 가 그 주소로 풀린다. 바깥 PG·Redis 를 쓰려면 values-rehearsal.yaml 의 infra.* 를 바꾼 사본을 HERE 에 두거나 up 을 건너뛴다)
-CLUSTER=existing IMAGES=registry IMAGE_TAG=1.1.1 HOST_GATE=sso.example.org HOST_HUB=hub.example.org HOST_CONSOLE=console.example.org ADD_HOSTS=0 scripts/k8s/rehearsal.sh
+CLUSTER=existing IMAGES=registry IMAGE_TAG=1.1.2 HOST_GATE=sso.example.org HOST_HUB=hub.example.org HOST_CONSOLE=console.example.org ADD_HOSTS=0 scripts/k8s/rehearsal.sh
 ```
 
 - 결과: 단계별 소요가 `OUT_DIR/timings.txt`(기본 `/tmp/idem-rehearsal`) 와 CI 잡 요약에 남는다. 실패하면 Pod·이벤트·describe·로그를 `OUT_DIR/logs/` 에 모은다(CI 는 아티팩트 `k8s-rehearsal-logs`).
