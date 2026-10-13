@@ -4,7 +4,11 @@
 
 ## [Unreleased]
 
-_(없음)_
+### G2-7 · 취약점 트랙 후속 — Spring Boot 4 이행 영향 평가·서드파티 이미지 Trivy·1.1.2 '후' 기록 (플랜 §7)
+
+- `docs/analysis/spring-boot-4-assessment.md`: 1.1.2 코드를 Spring Boot 4.1.1 에 시험 컴파일한 결과(2회 — 모듈화가 1차 장벽, Jackson 3 가 코드 수준의 큰 일, Security 미사용), BOM·생태계 호환 표, 영향 지표, 단계 계획(1단계 Jackson 2 공존 2~3주 → 2단계 Jackson 3 1~2주 → 리허설), 2026-11 회차 결정 사항(1.2 vs 2.0).
+- CI: main push 마다 설치본 서드파티 이미지 3종(postgres:16-alpine·redis:7.2-alpine·keycloak:24.0)도 Trivy 로 본다(`third-party-scan`, 보고만).
+- 취약점 점검 문서 §7: 1.1.2 머지 뒤 main Trivy·OWASP 재실행 결과.
 
 ## [1.1.2] — 2026-10-10
 

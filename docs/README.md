@@ -80,6 +80,7 @@ docs/
 |---|---|
 | [`public-release-checklist.md`](public-release-checklist.md) | **공개 전 점검 (D0)** — Apache-2.0 전환에서 한 일, 자격증명 교체·히스토리 정리·고객 문서 결정 목록, 전환 직후 GitHub 설정 |
 | [`install.md`](install.md) | **설치 가이드 — 단일 설치본 (D1-b)** — PostgreSQL·Redis·Keycloak·SSO·IM 을 compose 하나로, Kafka 없음. 30분 설치·로그인 확인·Kafka 없이 도는 흐름 표 |
+| [`analysis/spring-boot-4-assessment.md`](analysis/spring-boot-4-assessment.md) | **Spring Boot 4 이행 영향 평가 (2026-10-13, 1.1.2 기준)** — 4.1.1 BOM 차이, 생태계 호환(Redisson 4.8·Resilience4j spring-boot4·springdoc 3·networknt 3·jjwt), 코드 영향(Jackson 3 154 파일·모듈화·테스트 슬라이스), 시험 컴파일 2회 기록, 단계 계획·공수, 2026-11 결정 사항 |
 | [`analysis/adversarial-review-1.0.md`](analysis/adversarial-review-1.0.md) | **1.0 적대적 점검 (3차, 2026-09-26)** — HIGH 10(관리 API 인증 우회·gate 프록시로 Keycloak 노출·relay 가 hub Flyway 이력 파괴·Helm Pod 기동 불가·콘솔 이미지 빌드 불가 …)·MED 17·LOW 20, 실기동 재현, 1.0.1 조치 계획 |
 | [`manuals/README.md`](manuals/README.md) | **1.0 매뉴얼 초안 (S9 PR-4)** — 설치 매뉴얼·관리자 매뉴얼·제품 설명서·시험 항목표(75항목 — 1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 14 + 1.1.1 추가 3; 실행 결과 열 포함) — GS 제출물의 초안 |
 | [`certification/gs-kickoff.md`](certification/gs-kickoff.md) | **GS 인증 착수 문서 (S9 PR-4)** — 범위·제출물 상태·일정·사용자 결정·1.0.x 과제 |
