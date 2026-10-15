@@ -116,7 +116,7 @@
 
 ## H. 성능(참고)
 
-k6 스모크(CI `k6 Smoke Test`)가 Discovery·헬스·로그인 화면을 짧게 친다. 부하 목표(Handoff p95 < 2000ms 등)는 `k6/` 시나리오로 GS 시험 환경에서 재측정한다(`RUNBOOK_SSO_METRICS.md`).
+k6 스모크(CI `k6 Smoke Test`)가 헬스·제공자 목록·MOCK 라운드트립·발급 응답을 짧게 친다. 부하 목표(Handoff p95 < 2,000 ms · 토큰 교환 p95 < 2,000 ms · 기관 한도 200 tps)는 1.1 계약의 `k6/scripts/1x-*.js` 를 실행기 `scripts/perf/run-k6.sh` 로 돌려 잰다 — 절차·시나리오·문턱·샌드박스 측정값·시험 환경 기입란은 **`performance-report.md`**(1.1.2 G2-8). GS 시험 환경에서는 같은 실행기로 재측정해 그 보고서 §4 의 '시험 환경' 열을 채운다. 운영 지표(Prometheus p95)는 `../RUNBOOK_SSO_METRICS.md`.
 
 ## 집계
 

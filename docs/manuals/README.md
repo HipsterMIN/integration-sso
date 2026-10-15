@@ -9,5 +9,6 @@
 | [`product-spec.md`](product-spec.md) | 시험원·구매자 | 제품 설명서 — 기능 목록, 구성, 에디션, 지원 플랫폼, 인터페이스, 한도, 보안 기능 |
 | [`test-items.md`](test-items.md) | 시험원·QA | 시험 항목표 — 기능별 시험 절차·기대 결과·자동화 여부(CI 스모크·IT·단위) + 실행 결과 열(1.1.1 G2: CI·로컬 IT 는 채움, 수동은 G1-1) |
 | [`user-manual.md`](user-manual.md) | 최종 이용자 | 사용자 매뉴얼(1.1.1 G2 신규) — 로그인 두 흐름·동의 화면·기존 계정 연결·로그아웃/세션·오류 화면 대처·개인정보 안내 |
+| [`performance-report.md`](performance-report.md) | 시험원·QA | 성능 시험 보고서(1.1.2 G2-8) — 측정 항목(Handoff p95·토큰 교환 p95·200 tps 한도)·시나리오·절차·샌드박스 측정값·시험 환경 결과 기입란 |
 
 최종 이용자용은 `user-manual.md`(1.1.1 G2) 가 맡고, 기관 쪽 문서는 기존 가이드가 맡는다: 기관 담당자 `docs/sso-agency-integration-guide.md`, 기관 개발자 `docs/sso-agency-developer-guide.md`·`docs/idem-sdk-java-usage-guide.md`, 운영기관 관리자 온보딩 `docs/onboarding-guide.md`.

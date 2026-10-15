@@ -1,0 +1,236 @@
+{
+    "metrics": {
+        "vus": {
+            "min": 0,
+            "max": 30,
+            "value": 1
+        },
+        "http_req_duration": {
+            "avg": 10.894200356901303,
+            "min": 0.887033,
+            "med": 11.158692,
+            "p(90)": 18.854157,
+            "p(95)": 22.593294,
+            "p(99)": 33.65560279999997,
+            "max": 184.338966
+        },
+        "http_req_connecting": {
+            "avg": 0.003076495031475989,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0.11535059999999923,
+            "max": 5.991359
+        },
+        "http_req_waiting": {
+            "p(90)": 18.624362,
+            "p(95)": 22.327614,
+            "p(99)": 33.358353799999996,
+            "max": 184.159302,
+            "avg": 10.696674248218104,
+            "min": 0.831388,
+            "med": 10.929665
+        },
+        "handoff_verify_duration": {
+            "max": 113.368362,
+            "avg": 12.472748652879675,
+            "min": 6.262686,
+            "med": 11.214523,
+            "p(90)": 17.510213800000002,
+            "p(95)": 21.222535799999992,
+            "p(99)": 31.23909135999984,
+            "thresholds": {
+                "p(95)<2000": false
+            }
+        },
+        "handoff_login_e2e_duration": {
+            "avg": 20.209852417824216,
+            "min": 10.889554,
+            "med": 18.193778000000002,
+            "p(90)": 27.900752200000003,
+            "p(95)": 33.4609763,
+            "p(99)": 48.05858243999999,
+            "max": 214.677445,
+            "thresholds": {
+                "p(95)<3000": false
+            }
+        },
+        "http_reqs": {
+            "rate": 96.04051985334576,
+            "count": 19221
+        },
+        "http_req_sending": {
+            "p(90)": 0.050589,
+            "p(95)": 0.063193,
+            "p(99)": 0.13853799999999952,
+            "max": 4.765763,
+            "avg": 0.032501368607252466,
+            "min": 0.005142,
+            "med": 0.023435
+        },
+        "http_req_receiving": {
+            "p(99)": 0.9195505999999996,
+            "max": 5.635931,
+            "avg": 0.16502474007595802,
+            "min": 0.021134,
+            "med": 0.119391,
+            "p(90)": 0.269607,
+            "p(95)": 0.407148
+        },
+        "vus_max": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "data_received": {
+            "count": 21176298,
+            "rate": 105810.45047028594
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 19221,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "checks": {
+            "passes": 51256,
+            "fails": 0,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 1
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "max": 0,
+            "avg": 0
+        },
+        "handoff_login_entry_duration": {
+            "avg": 3.296899173404096,
+            "min": 0.887033,
+            "med": 2.751183,
+            "p(90)": 5.0464688,
+            "p(95)": 6.479275799999997,
+            "p(99)": 11.31934908,
+            "max": 42.281726
+        },
+        "handoff_login_continue_duration": {
+            "p(99)": 38.85640195999992,
+            "max": 184.338966,
+            "avg": 16.912953244420226,
+            "min": 9.385646,
+            "med": 15.27979,
+            "p(90)": 23.0647968,
+            "p(95)": 27.440322299999988,
+            "thresholds": {
+                "p(95)<2000": false
+            }
+        },
+        "data_sent": {
+            "count": 5277166,
+            "rate": 26368.126840039604
+        },
+        "iteration_duration": {
+            "p(95)": 716.4115518,
+            "p(99)": 734.4525336799998,
+            "max": 935.687942,
+            "avg": 536.6676850939605,
+            "min": 326.478257,
+            "med": 537.148396,
+            "p(90)": 695.509221
+        },
+        "http_req_blocked": {
+            "avg": 0.010969573123146515,
+            "min": 0.001357,
+            "med": 0.005178,
+            "p(90)": 0.008956,
+            "p(95)": 0.010915,
+            "p(99)": 0.19980859999999884,
+            "max": 6.07931
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 0.887033,
+            "med": 11.158692,
+            "p(90)": 18.854157,
+            "p(95)": 22.593294,
+            "p(99)": 33.65560279999997,
+            "max": 184.338966,
+            "avg": 10.894200356901303
+        },
+        "iterations": {
+            "count": 6407,
+            "rate": 32.01350661778192
+        }
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "login: entry 302": {
+                    "fails": 0,
+                    "name": "login: entry 302",
+                    "path": "::login: entry 302",
+                    "id": "cf6078a6f1813baccfffd0014265ac97",
+                    "passes": 6407
+                },
+                "login: entry → continue(mockTxId)": {
+                    "path": "::login: entry → continue(mockTxId)",
+                    "id": "bbc604806ffcd04d5a354c4e49b36060",
+                    "passes": 6407,
+                    "fails": 0,
+                    "name": "login: entry → continue(mockTxId)"
+                },
+                "login: continue 302 → callback": {
+                    "name": "login: continue 302 → callback",
+                    "path": "::login: continue 302 → callback",
+                    "id": "1a7a108b922d1adb21d6a27099388d0a",
+                    "passes": 6407,
+                    "fails": 0
+                },
+                "login: callback has ticketId": {
+                    "passes": 6407,
+                    "fails": 0,
+                    "name": "login: callback has ticketId",
+                    "path": "::login: callback has ticketId",
+                    "id": "029f178839e534b43088d1ece4e915f1"
+                },
+                "login: state echoed": {
+                    "name": "login: state echoed",
+                    "path": "::login: state echoed",
+                    "id": "90d9d0cfe08b0724c2eb892012f1e761",
+                    "passes": 6407,
+                    "fails": 0
+                },
+                "login: feSessionId cookie": {
+                    "fails": 0,
+                    "name": "login: feSessionId cookie",
+                    "path": "::login: feSessionId cookie",
+                    "id": "1ad48e452f9fc524d9b4f3045178192b",
+                    "passes": 6407
+                },
+                "verify: 200": {
+                    "passes": 6407,
+                    "fails": 0,
+                    "name": "verify: 200",
+                    "path": "::verify: 200",
+                    "id": "ccc10dee75bf33212c9fe105762e18a9"
+                },
+                "verify: state APPROVED|GUEST": {
+                    "passes": 6407,
+                    "fails": 0,
+                    "name": "verify: state APPROVED|GUEST",
+                    "path": "::verify: state APPROVED|GUEST",
+                    "id": "490e7184dbb654c1740ebe40bdb4138a"
+                }
+            }
+    }
+}

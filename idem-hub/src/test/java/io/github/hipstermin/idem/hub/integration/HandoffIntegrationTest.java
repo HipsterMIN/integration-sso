@@ -23,6 +23,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
@@ -61,6 +62,9 @@ class HandoffIntegrationTest extends IntegrationTestBase {
 
     @Autowired
     private FeSessionService feSessionService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private static final String AGENCY_CODE = "INTEG_TEST_001";
     /** HandoffAgencyKeyInterceptor 는 X-Agency-Key 의 SHA-256 hex 를 agency_meta.api_key_hash 와 비교한다. */
@@ -171,6 +175,34 @@ class HandoffIntegrationTest extends IntegrationTestBase {
                 objectMapper.readValue(response.getBody(), Map.class);
         assertThat(responseBody).containsKey("ticketId");
         assertThat(responseBody.get("ticketId").toString()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("1.1.2 G2-8: X-Correlation-Id 가 36자 규격 밖이면 새 id 로 대체(응답 헤더)되고 감사 이력에는 그 id 가 남는다 — 종전엔 INSERT 실패로 감사·outbox 유실")
+    void issueHandoff_longCorrelationId_isReplacedAndAudited() throws Exception {
+        String longCid = "k6-issue-sustain-" + "x".repeat(40);   // 57자 — handoff_audit.correlation_id VARCHAR(36) 을 넘는다
+        String body = """
+                {
+                  "agencyCode": "%s",
+                  "authResultId": "%s",
+                  "authLevel": "L1",
+                  "providerCode": "NICE",
+                  "callbackUrl": "https://agency.example.com/callback"
+                }
+                """.formatted(AGENCY_CODE, UUID.randomUUID());
+
+        ResponseEntity<String> response = postJson("/api/v1/handoff/issue", body, longCid);
+
+        assertThat(response.getStatusCode().value()).as("body=%s", response.getBody()).isEqualTo(200);
+        String effective = response.getHeaders().getFirst("X-Correlation-Id");
+        assertThat(effective).isNotNull().isNotEqualTo(longCid).hasSize(36);
+        String ticketId = objectMapper.readTree(response.getBody()).get("ticketId").asText();
+        Map<String, Object> audit = jdbcTemplate.queryForMap(
+                "SELECT correlation_id, auth_result_id FROM idem_hub.handoff_audit WHERE ticket_id = ?", ticketId);
+        assertThat(audit.get("correlation_id")).isEqualTo(effective);
+        Integer outbox = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM idem_hub.outbox WHERE aggregate_id = ? AND event_type = 'HANDOFF_ISSUED'", Integer.class, ticketId);
+        assertThat(outbox).as("outbox HANDOFF_ISSUED").isEqualTo(1);
     }
 
     @Test

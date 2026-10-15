@@ -21,6 +21,7 @@ import io.github.hipstermin.idem.hub.infrastructure.jpa.entity.AgencyMetaJpaEnti
 import io.github.hipstermin.idem.hub.infrastructure.jpa.repository.AgencyMetaJpaRepository;
 import java.net.HttpURLConnection;
 import java.net.URI;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -122,6 +123,16 @@ class HandoffLoginIntegrationTest extends IntegrationTestBase {
         ResponseEntity<String> v2 = verify(ticketId);
         assertThat(v2.getStatusCode().value()).isEqualTo(409);
         assertThat(v2.getBody()).contains("E-IDO-102");
+
+        // ③′ 1.1.2 G2-8: 감사 이력·outbox — 제공자 txId("mock-"+UUID, 41자)가 handoff_audit.auth_result_id 에 들어가고(V32 100자),
+        //    같은 트랜잭션의 HANDOFF_ISSUED outbox 행도 남는다. 종전에는 36자 INSERT 실패가 트랜잭션을 깨 둘 다 조용히 유실됐다(발급은 성공)
+        Map<String, Object> audit = jdbcTemplate.queryForMap(
+                "SELECT auth_result_id, correlation_id, state FROM idem_hub.handoff_audit WHERE ticket_id = ?", ticketId);
+        assertThat((String) audit.get("auth_result_id")).startsWith("mock-").hasSizeGreaterThan(36);
+        assertThat(audit.get("state")).isEqualTo("CONSUMED");
+        Integer outbox = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM idem_hub.outbox WHERE aggregate_id = ? AND event_type = 'HANDOFF_ISSUED'", Integer.class, ticketId);
+        assertThat(outbox).as("outbox HANDOFF_ISSUED").isEqualTo(1);
 
         // ④ 같은 브라우저(쿠키)로 다시 진입 → 로그인 없이 바로 발급
         String cookie = setCookie.substring(setCookie.indexOf(FeSessionCookie.NAME), setCookie.indexOf(';', setCookie.indexOf(FeSessionCookie.NAME)));

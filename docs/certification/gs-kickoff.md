@@ -20,7 +20,7 @@
 | 설치본 | `scripts/release/make-offline-bundle.sh` → 이미지 tar + 소스 tar + Helm 차트 + `MANIFEST.txt`·`SHA256SUMS`(`v1.1.2`) | 스크립트 + CI 검증(1.4 GB, 생성→삭제→복원→대조) | `v1.1.2` 태그로 만들어 체크섬·크기 기록, 폐쇄망 반입 리허설(G-6) |
 | 결함 관리·형상 | GitHub PR(`shipster→main`), 태그 `v1.0.0`·`v1.1.0`·`v1.1.1`·`v1.1.2`, 브랜치 `release/1.0`(1.0.x 패치), `CHANGELOG.md`(제품)·SDK CHANGELOG | 있음 | 1.1.x 항목을 계속 적는다 |
 | 취약점 점검 | `docs/certification/vulnerability-review-2026-10.md`(1회차 — 1.1.1 이미지 Trivy·OWASP·npm/yarn audit, 조치 PR-G2-5, 억제 3건 근거·가드) | 1회차 완료 | 월 1회 반복(다음 2026-11; 조치는 1.1.2 에 반영), 머지 뒤 Trivy·OWASP '후' 확인 기록, 2027-01 Spring Boot 4 이행 결정 |
-| 성능 | k6 시나리오·CI 스모크 | 있음 | 시험 환경 재측정 보고 |
+| 성능 | k6 시나리오(1.1 계약 — `k6/scripts/1x-*.js`)·실행기 `scripts/perf/run-k6.sh`·보고서 `docs/manuals/performance-report.md`(샌드박스 측정값 포함)·CI 스모크 | 있음(G2-8) | 시험 환경에서 같은 실행기로 재측정해 보고서 §4 의 '시험 환경' 열 채움 |
 | 호환성 | 지원 플랫폼 표(제품 설명서 §4) | 있음 | 브라우저·OS 조합 확인 기록 |
 
 ## 3. 일정 (초안, 8~16주)
