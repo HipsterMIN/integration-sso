@@ -671,6 +671,40 @@ jobs:
         continue-on-error: true  # Trivy 오류 시 전체 Job 실패 방지
 
   # ═══════════════════════════════════════════════════════════════════════════
+  # 취약점 점검 1회차 후속(2026-10): 설치본이 그대로 당겨 쓰는 서드파티 이미지 3종(compose.install.yml 의 postgres·redis·keycloak)도
+  # main push 마다 Trivy 로 본다 — 우리 이미지와 같은 기준(CRITICAL·HIGH, 수정판 있는 것만), 보고만(게이트 아님).
+  # 결과는 월 1회 점검 문서(docs/certification/vulnerability-review-*.md)에 옮겨 적는다.
+  # ═══════════════════════════════════════════════════════════════════════════
+  third-party-scan:
+    name: 서드파티 이미지 Trivy (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - postgres:16-alpine
+          - redis:7.2-alpine
+          - quay.io/keycloak/keycloak:24.0
+    steps:
+      - name: 소스 체크아웃 (.trivyignore)
+        uses: actions/checkout@v4
+      - name: Trivy 보안 스캔 (서드파티 이미지)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.image }}
+          format: table
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+          trivyignores: .trivyignore
+        continue-on-error: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
   # S9 PR-3/1.0.1: PR 에서 모든 Dockerfile(hub 는 core·kr 둘 다)이 빌드되는지 확인 (push 없음).
   # main 의 docker-build 는 PR 뒤에야 돌므로, Dockerfile 이 settings.gradle.kts 와 어긋나거나 vendor-libs 컨텍스트가 깨지면 여기서 먼저 잡는다.
   # ═══════════════════════════════════════════════════════════════════════════
