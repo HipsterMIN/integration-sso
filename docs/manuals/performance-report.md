@@ -35,7 +35,7 @@
 
 | 항목 | 샌드박스 2026-10-15 | 시험 환경 |
 |---|---|---|
-| 대상 버전 | 1.1.2 (main 809e215) boot jar + PR #272 의 수정(V32·`TraceparentFilter`) | |
+| 대상 버전 | 1.1.2 (main 809e215) boot jar + PR #272 의 수정(V32·`TraceparentFilter`) = **1.1.3** 코드 상태 | |
 | 배포 형태 | boot jar 직접 기동 — `infra/docker/compose.install.yml` 과 같은 환경변수 계약(CI `k6 Smoke Test` 잡의 기동 레시피) | compose / Helm (`docs/manuals/installation-manual.md`) |
 | 호스트 | **1 대**, 4 vCPU, 15 GB, Linux 6.18 — PostgreSQL·Redis·Keycloak·registry·authz·gate·hub·k6 **동거** | 앱 / DB / 발생기 분리 권장 |
 | PostgreSQL / Redis | 16 / 7 (로컬 인스턴스) | |

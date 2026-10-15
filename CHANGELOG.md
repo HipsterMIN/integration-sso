@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+_(없음)_
+
+## [1.1.3] — 2026-10-15
+
+1.1.2 의 **보안·결함 패치**다(플랜 §4 — 기능 추가 없음, 설정·API 변경 없음, **DB 변경 1건** Flyway V32): PR-G2-8 #272(성능 측정이 드러낸 감사 유실 결함 2건 — 코어 로그인 프런트 발급의 `handoff_audit`·outbox 유실(V32), 호출자 `X-Correlation-Id` 무검증에 의한 감사 유실(`TraceparentFilter`) — 와 성능 측정 자산·보고서) · PR-G2-7 #271(Spring Boot 4 이행 영향 평가, 서드파티 이미지 Trivy 잡, 1.1.2 '후' 기록). 태그 `v1.1.3`.
+
+### 1.1.3 업그레이드 메모
+
+- **DB 변경 1건(자동)**: Flyway V32 가 `idem_hub.handoff_audit.auth_result_id` 를 VARCHAR(36) → VARCHAR(100) 으로 넓힌다 — hub 첫 기동에서 자동 적용, 데이터 변환 없음(ALTER 한 번, 행 재작성 없음). 1.1.2 로 되돌릴 때 100자 값이 있으면 열을 36 으로 줄일 수 없다 — 그 행을 먼저 지운다.
+- **호출자에 보이는 동작 변경**: `X-Correlation-Id` 가 규격(`[A-Za-z0-9._:-]` 1~36자) 밖이면 hub 가 새 id 로 바꿔 응답 헤더로 돌려준다(종전에는 그대로 메아리쳤고 감사가 유실됐다). SDK 는 UUID 를 보내므로 영향 없음. 기관 연동 코드가 37자 이상의 추적 id 를 쓰고 있었다면 응답 헤더의 값을 기록하도록 바꾼다.
+- **1.1.0~1.1.2 설치본의 과거 데이터는 복구되지 않는다**: 코어 로그인 프런트로 발급된 티켓의 `handoff_audit` 행과 outbox `HANDOFF_ISSUED` 이벤트는 남아 있지 않다(`audit_log` 의 `HANDOFF_ISSUED` 감사는 남아 있다). 37자 이상의 `X-Correlation-Id` 로 들어온 호출의 감사는 `audit_log` 에서도 빠져 있다(WAL 재생에서 폐기). 1.1.3 부터 정상.
+- **설정·API 변경 없음**. 이미지 태그만 바꾼다(compose `IDEM_VERSION=1.1.3`, Helm `global.imageTag`). hub 만 올려도 된다(콘솔·gate·registry·authz 는 1.1.2 와 코드 차이 없음 — 버전 문자열만).
+- **SDK**: `idem-sdk-java 1.1.3` — 코드 변경 없음.
+- **검증**: 1.1.3 코드 상태의 CI(PR #272 최종 커밋 run 38670726832 — Build & Unit Test·프런트엔드 두 벌·k6 스모크 ①~⑧c·Docker Build Check 9종·Helm lint·문서 정합성; K8s 리허설·오프라인 설치본 검증은 버전 커밋 PR #273 의 run 38680800783 에서 통과) + 시험 항목표 재실행 기록(`docs/manuals/test-items.md`) + 로컬 전체 스택(Keycloak 포함)의 설치본 스모크·k6 3종(`docs/manuals/performance-report.md`).
+
 ### G2-8 · 성능 보고 — 1.1 계약의 k6 시나리오·실행기·보고서 + 측정 중 발견한 결함 2건 (플랜 §3)
 
 - `k6/scripts/10-handoff-login.js`(브라우저 Handoff 로그인 끝-끝, MOCK 제공자)·`11-handoff-issue-api.js`(발급·검증 API p95 + 기관 한도 200 tps — 100 rps 유지 → 300 rps 초과 → 회복)·`12-oidc-token.js`(표준 OIDC code+PKCE: gate → Keycloak 로그인 → **토큰 교환(hub 정책 판정)** → userinfo), 공통 `k6/lib/idem.js`. 2026-05 의 OnePass·Mock 서버 스위트는 `k6/legacy/` 로 — 1.1 계약(기관 키 `X-Agency-Key`·FE 세션 쿠키·봉투 없는 응답·KR 전용 엔드포인트 404)과 맞지 않는다.
