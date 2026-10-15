@@ -93,6 +93,47 @@ class OidcCompleteControllerTest {
         verify(bindCodeStore).issue("fe-1", "http://localhost:8084/callback");
     }
 
+    @Test
+    @DisplayName("1.1.4: returnUrl 이 hub 자신의 로그인 프런트 continue 주소면 화이트리스트 없이 통과한다(broker:<name> 경로)")
+    void ownLoginContinueUrlIsAccepted() {
+        ReflectionTestUtils.setField(controller, "allowCilessIdentity", true);
+        given(internalSigVerifier.verify(any(), any())).willReturn(true);
+        given(feSessionService.create(any(), any(), any(), any(), any(), any()))
+                .willReturn(io.github.hipstermin.idem.hub.fe.session.FeSession.builder()
+                        .feSessionId("fe-2").qimUserId("h1").authResultId("a1").authLevel("L1").build());
+        String cont = "http://hub.test/api/v1/handoff/login/continue?req=r1";
+
+        var result = controller.complete("valid-sig", "idem-gate", "cid-own", completeRequest(cont), new MockHttpServletResponse());
+
+        org.assertj.core.api.Assertions.assertThat(result.getStatusCode().value()).isEqualTo(200);
+        verify(bindCodeStore).issue("fe-2", cont);
+        verify(feSessionService, never()).isValidReturnUrl(any());
+    }
+
+    @Test
+    @DisplayName("1.1.4: 다른 호스트의 continue 모양 주소는 여전히 화이트리스트를 거친다")
+    void foreignContinueLookalikeIsRejected() {
+        given(internalSigVerifier.verify(any(), any())).willReturn(true);
+        String foreign = "http://evil.test/api/v1/handoff/login/continue?req=r1";
+        given(feSessionService.isValidReturnUrl(foreign)).willReturn(false);
+
+        var result = controller.complete("valid-sig", "idem-gate", "cid-evil", completeRequest(foreign), new MockHttpServletResponse());
+
+        org.assertj.core.api.Assertions.assertThat(result.getStatusCode().value()).isEqualTo(400);
+        org.assertj.core.api.Assertions.assertThat(result.getBody()).containsEntry("redirectUrl", "/error?code=INVALID_RETURN_URL");
+    }
+
+    private static OidcCompleteRequest completeRequest(String returnUrl) {
+        OidcCompleteRequest req = new OidcCompleteRequest();
+        ReflectionTestUtils.setField(req, "authResultId", "a1");
+        ReflectionTestUtils.setField(req, "identifierHash", "h1");
+        ReflectionTestUtils.setField(req, "authLevel", "L1");
+        ReflectionTestUtils.setField(req, "providerCode", "KAKAO_OIDC");
+        ReflectionTestUtils.setField(req, "correlationId", "cid-x");
+        ReflectionTestUtils.setField(req, "returnUrl", returnUrl);
+        return req;
+    }
+
     // ── qimUserId 해석 테스트 ─────────────────────────────────────────────
 
     @Nested

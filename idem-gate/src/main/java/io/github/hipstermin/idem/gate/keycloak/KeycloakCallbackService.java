@@ -390,6 +390,13 @@ public class KeycloakCallbackService {
         // S6 PR-2: hub FE 세션이 Keycloak sub·sid 를 기억해 SLO·Back-Channel Logout 이 정확히 그 세션을 찾는다
         if (idpSub != null) body.put("idpSub", idpSub);
         if (idpSid != null) body.put("idpSid", idpSid);
+        // 1.1.4 G2-10: hub 는 주체 키 없는 인증 결과로 세션을 발급하지 않는다(idem.hub.broker.allow-ciless-identity=false 가 기본) —
+        //   Keycloak sub 를 EXTERNAL_SUB 스킴의 주체 키로 보낸다(표준 OIDC(OIDC_RP) 경로의 등록 기준과 같다).
+        //   종전에는 identifierHash 만 보내 운영 기본값에서 완료 호출이 항상 거부됐다(Keycloak 26 시험 중 발견)
+        if (idpSub != null && !idpSub.isBlank()) {
+            body.put("subjectScheme", "EXTERNAL_SUB");
+            body.put("subjectKey", idpSub);
+        }
 
         try {
             ResponseEntity<Map> resp = restTemplate.exchange(

@@ -30,3 +30,25 @@ dependencies {
     testImplementation("com.h2database:h2")
     testImplementation("org.wiremock:wiremock-standalone:3.10.0")   // S6: OIDC 프런트(Keycloak·hub 스텁)
 }
+
+// ── 1.1.4 G2-10: Testcontainers 통합 테스트(PostgreSQL, @Tag("integration")) — 단위 테스트(test)에서 제외,
+//    `./gradlew :idem-gate:integrationTest` 로 실행(Docker 필요). hub 의 integrationTest 와 같은 규칙(CI 는 돌리지 않고 로컬 push 전에)
+tasks.named<Test>("test") {
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
+}
+
+tasks.register<Test>("integrationTest") {
+    description = "Testcontainers 기반 통합 테스트 실행 (PostgreSQL — auth_result jsonb 바인딩)"
+    group       = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath       = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+    if (System.getenv("DOCKER_UNAVAILABLE") == "true") {
+        enabled = false
+        logger.lifecycle("⚠️  DOCKER_UNAVAILABLE=true — integrationTest 비활성화")
+    }
+}

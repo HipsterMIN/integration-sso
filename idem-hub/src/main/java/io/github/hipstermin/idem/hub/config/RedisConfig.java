@@ -3,6 +3,7 @@ package io.github.hipstermin.idem.hub.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.github.hipstermin.idem.hub.broker.provider.ProviderConfig;
 import java.time.Duration;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +13,7 @@ import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
@@ -79,7 +81,12 @@ public class RedisConfig {
                 .entryTtl(Duration.ofMinutes(60));
 
         // provider_config 캐시 TTL 60분 (ProviderConfigRepository @Cacheable)
+        // 1.1.4 G2-10: 값 타입을 지정해 복원한다 — 위 범용 직렬화기는 타입 정보(@class) 없이 쓰므로 적중 시 LinkedHashMap 이 돌아와
+        // ProviderConfig 로 캐스트할 수 없었다(브로커 인증 시작 500). 이 캐시의 값은 ProviderConfig 뿐이다(빈 결과는 unless 로 제외)
         RedisCacheConfiguration providerConfigCfg = defaultCfg
+                .serializeValuesWith(
+                        RedisSerializationContext.SerializationPair
+                                .fromSerializer(new Jackson2JsonRedisSerializer<>(om, ProviderConfig.class)))
                 .entryTtl(Duration.ofMinutes(60));
 
         return RedisCacheManager.builder(factory)
