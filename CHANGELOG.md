@@ -17,7 +17,7 @@ _(없음)_
 - **1.1.0~1.1.2 설치본의 과거 데이터는 복구되지 않는다**: 코어 로그인 프런트로 발급된 티켓의 `handoff_audit` 행과 outbox `HANDOFF_ISSUED` 이벤트는 남아 있지 않다(`audit_log` 의 `HANDOFF_ISSUED` 감사는 남아 있다). 37자 이상의 `X-Correlation-Id` 로 들어온 호출의 감사는 `audit_log` 에서도 빠져 있다(WAL 재생에서 폐기). 1.1.3 부터 정상.
 - **설정·API 변경 없음**. 이미지 태그만 바꾼다(compose `IDEM_VERSION=1.1.3`, Helm `global.imageTag`). hub 만 올려도 된다(콘솔·gate·registry·authz 는 1.1.2 와 코드 차이 없음 — 버전 문자열만).
 - **SDK**: `idem-sdk-java 1.1.3` — 코드 변경 없음.
-- **검증**: 1.1.3 코드 상태의 CI(PR #272 최종 커밋 run 38670726832 — Build & Unit Test·프런트엔드 두 벌·k6 스모크 ①~⑧c·Docker Build Check 9종·Helm lint·문서 정합성; 차트·스크립트 변경이 없어 K8s 리허설·오프라인 설치본 검증은 건너뜀 — 1.1.2 기록 유효) + 시험 항목표 재실행 기록(`docs/manuals/test-items.md`) + 로컬 전체 스택(Keycloak 포함)의 설치본 스모크·k6 3종(`docs/manuals/performance-report.md`).
+- **검증**: 1.1.3 코드 상태의 CI(PR #272 최종 커밋 run 38670726832 — Build & Unit Test·프런트엔드 두 벌·k6 스모크 ①~⑧c·Docker Build Check 9종·Helm lint·문서 정합성; K8s 리허설·오프라인 설치본 검증은 버전 커밋 PR #273 의 run 38680800783 에서 통과) + 시험 항목표 재실행 기록(`docs/manuals/test-items.md`) + 로컬 전체 스택(Keycloak 포함)의 설치본 스모크·k6 3종(`docs/manuals/performance-report.md`).
 
 ### G2-8 · 성능 보고 — 1.1 계약의 k6 시나리오·실행기·보고서 + 측정 중 발견한 결함 2건 (플랜 §3)
 
