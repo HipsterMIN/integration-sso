@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### G2-8 · 성능 보고 — 1.1 계약의 k6 시나리오·실행기·보고서 + 측정 중 발견한 결함 2건 (플랜 §3)
+
+- `k6/scripts/10-handoff-login.js`(브라우저 Handoff 로그인 끝-끝, MOCK 제공자)·`11-handoff-issue-api.js`(발급·검증 API p95 + 기관 한도 200 tps — 100 rps 유지 → 300 rps 초과 → 회복)·`12-oidc-token.js`(표준 OIDC code+PKCE: gate → Keycloak 로그인 → **토큰 교환(hub 정책 판정)** → userinfo), 공통 `k6/lib/idem.js`. 2026-05 의 OnePass·Mock 서버 스위트는 `k6/legacy/` 로 — 1.1 계약(기관 키 `X-Agency-Key`·FE 세션 쿠키·봉투 없는 응답·KR 전용 엔드포인트 404)과 맞지 않는다.
+- 실행기 `scripts/perf/run-k6.sh`(헬스 → 관리자 로그인 → 시험 서비스 프로파일·기관 키·OIDC client 준비 → k6 `--summary-export` → `scripts/perf/summarize-k6.py` 요약) — 같은 명령을 샌드박스·GS 시험 환경에서 쓴다. 보고서 양식과 샌드박스 측정값 `docs/manuals/performance-report.md`, 결과 `k6/reports/2026-10-15-sandbox/`.
+- **결함(HIGH, 1.1 코어 로그인 프런트)**: `handoff_audit.auth_result_id` 가 VARCHAR(36) 이라 제공자 txId(MOCK `mock-`+UUID 41자, SPI 제공자는 형식 자유)로 발급하면 감사 INSERT 가 "value too long" 으로 실패하고('무시' 로그) 같은 `@Transactional` 발급 안의 outbox 적재(HANDOFF_ISSUED)까지 "current transaction is aborted" 로 따라 실패했다 — 발급 자체는 Redis 라 성공으로 끝나 CI 스모크·IT 가 잡지 못했고, 감사 이력과 기관 이벤트가 조용히 유실되고 있었다(1.1.0 부터). **Flyway V32** 로 100자로 넓힘. IT `HandoffLoginIntegrationTest` 가 감사 행·outbox 행을 확인한다.
+- **결함(HIGH, 보안)**: 호출자의 `X-Correlation-Id` 를 길이·문자 검사 없이 그대로 저장했다 — 37자 이상이면 `handoff_audit`·`audit_log` 의 `correlation_id`(VARCHAR(36)) INSERT 가 실패해 감사 이력이 WAL 로 갔다가 재생 때 제약 위반으로 폐기(유실)되고 outbox 적재도 실패했다. 기관 키를 가진 외부 호출자가 헤더 하나로 감사를 비울 수 있었다. `TraceparentFilter` 가 규격(`[A-Za-z0-9._:-]` 1~36자) 밖이면 새 id 로 바꾸고 응답 헤더·컨트롤러(`@RequestHeader`)·감사가 같은 값을 본다(길이만 경고 로그). UT `TraceparentFilterTest`, IT `HandoffIntegrationTest`.
+- 취약점 점검 문서 §4.4·§7: 설치본 서드파티 이미지 3종의 첫 Trivy 결과(run 38665901991 — `keycloak:24.0` OS 21 HIGH + jar 77(CRITICAL 6, 수정판은 26.x → 2026-11 결정 사항에 Keycloak 26 올림 추가), `postgres:16-alpine` gosu 25(Go 1.24.6), `redis:7.2-alpine` openssl 2).
+- DB 변경: Flyway V32(열 넓힘, 데이터 변환 없음). 설정·API 변경 없음(응답 헤더 `X-Correlation-Id` 가 규격 밖 입력에서만 달라진다).
+
 ### G2-7 · 취약점 트랙 후속 — Spring Boot 4 이행 영향 평가·서드파티 이미지 Trivy·1.1.2 '후' 기록 (플랜 §7)
 
 - `docs/analysis/spring-boot-4-assessment.md`: 1.1.2 코드를 Spring Boot 4.1.1 에 시험 컴파일한 결과(2회 — 모듈화가 1차 장벽, Jackson 3 가 코드 수준의 큰 일, Security 미사용), BOM·생태계 호환 표, 영향 지표, 단계 계획(1단계 Jackson 2 공존 2~3주 → 2단계 Jackson 3 1~2주 → 리허설), 2026-11 회차 결정 사항(1.2 vs 2.0).

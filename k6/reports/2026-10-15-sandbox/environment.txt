@@ -1,0 +1,8 @@
+label: sandbox 4 vCPU·15 GB 단일 호스트(PG·Redis·Keycloak·registry·authz·gate·hub·k6 동거), 1.1.2 boot jar, http
+date: 2026-10-15T02:10:25+00:00
+k6: k6 v1.4.0 (commit/a9f9e3b28a, go1.25.4, linux/amd64)
+hub: http://localhost:8083 (build 1.1.2 (main 809e215) + PR #272 수정(V32·TraceparentFilter))
+gate: http://localhost:8081
+service: PERF_HO (DIRECT) / PERF_RP (OIDC_RP)
+generator: Linux 6.18.44-fc-v114 x86_64, 4 vCPU, 16093 MB
+scenarios: 10 11 12

@@ -59,6 +59,8 @@
 | #268 | 2026-10-10 | G2-4: 사용자 매뉴얼 화면 캡처 자동화 + 동의 화면 CSP form-action 결함 | 문서·결함 |
 | #269 | 2026-10-10 | G2-5: 의존성·이미지 취약점 점검 1회차 — Spring Boot 3.5.16·BOM 덮어쓰기·BC 1.86·nginx 1.30·프런트엔드 패치, 억제 3건 가드 | 보안 패치 |
 | #270 | 2026-10-10 | 버전 1.1.2 — CHANGELOG [1.1.2]·업그레이드 메모·시험 항목 재실행 기록·취약점 점검 '후' 결과 | 릴리스 |
+| #271 | 2026-10-13 | G2-7: Spring Boot 4 이행 영향 평가·서드파티 이미지 Trivy 잡·1.1.2 '후' 기록 | 문서·CI |
+| #272 | 2026-10-15 | G2-8: 성능 보고 — 1.1 계약의 k6 시나리오 3종(Handoff 로그인·발급 API+200 tps·OIDC 토큰 교환)·실행기·보고서 양식, 샌드박스 측정 + 측정 중 발견한 감사 유실 결함 2건(V32·`TraceparentFilter`) | 문서·시험 자산·결함 |
 
 ## 2. 변경 통제
 
@@ -92,6 +94,9 @@
 | G1-3 조사 | 웹훅 비밀이 `signing_secret_hash` 컬럼에 원문으로 저장(이름과 달리 해시가 아님) | HIGH(보안) | #262 — KMS 봉인 + 첫 기동 자동 봉인 | IT, B-15 |
 | G2-3 화면 캡처 | 콘솔이 한글 변경 사유를 `X-Change-Reason` 헤더에 원문으로 넣어 브라우저 fetch 가 거부 — 프로파일 저장 실패 | MED(기능) | #267 — percent-encoding + hub 디코드 | UT `ChangeReasonTest`, 콘솔 `api.test.ts`, 화면 캡처 |
 | G2-4 화면 캡처 | 동의 화면 CSP `form-action 'self'` 를 Chromium 이 form POST 뒤 **콜백 302 에도 적용**해 "동의하고 계속"·"동의하지 않음" 뒤 서비스로 돌아가지 못함(화면이 그대로 남음, Firefox 는 통과 — 서버 단 테스트로는 안 잡힘) | HIGH(기능) | PR-G2-4 — 동의 화면 CSP 에 기관 콜백 출처 추가(`SecurityHeadersFilter.allowFormActionOrigin`) | UT, IT `consentFlow`(헤더), 브라우저 E2E(`login-front-screenshots.cjs`) |
+
+| G2-8 성능 측정 | 코어 로그인 프런트(1.1) 발급의 `handoff_audit.auth_result_id`(VARCHAR(36)) 에 제공자 txId(MOCK 41자)가 안 들어가 감사 INSERT 실패 → 같은 트랜잭션의 outbox(HANDOFF_ISSUED) 적재까지 실패, 둘 다 '무시' 로그로 조용히 유실(발급은 성공) — 1.1.0 부터 | HIGH | #272 — Flyway V32 100자 | IT `HandoffLoginIntegrationTest`(감사·outbox 행 확인) |
+| G2-8 성능 측정 | 호출자 `X-Correlation-Id` 무검증 — 37자 이상이면 `handoff_audit`·`audit_log` 의 correlation_id INSERT 실패 → WAL → 재생 때 제약 위반으로 폐기(감사 유실), outbox 실패. 기관 키를 가진 호출자가 헤더로 감사를 비울 수 있었다 | HIGH(보안) | #272 — `TraceparentFilter` 규격 검사(`[A-Za-z0-9._:-]` 1~36자)·대체 + 요청 래퍼 | UT `TraceparentFilterTest`, IT `HandoffIntegrationTest` |
 
 문서 결함(수치·이름 불일치)은 #247·#248·#249 와 각 기능 PR 의 "문서" 항목에, 시험 항목표 집계 정정(68→70→75)은 `test-items.md` 집계 절에 적었다.
 

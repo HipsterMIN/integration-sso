@@ -1,0 +1,318 @@
+{
+    "metrics": {
+        "handoff_verify_duration": {
+            "med": 10.2581255,
+            "p(90)": 263.2069329000001,
+            "p(95)": 481.45494779999996,
+            "p(99)": 950.657832329997,
+            "max": 2115.620895,
+            "avg": 79.72086432048881,
+            "min": 6.082792
+        },
+        "http_req_blocked": {
+            "p(95)": 0.01093075,
+            "p(99)": 0.3732225,
+            "max": 117.31736,
+            "avg": 0.05041400614743003,
+            "min": 0.001226,
+            "med": 0.005317,
+            "p(90)": 0.00865
+        },
+        "handoff_issue_duration{phase:sustain}": {
+            "p(95)": 14.931158,
+            "p(99)": 28.207179,
+            "max": 99.267186,
+            "avg": 9.607743832597285,
+            "min": 5.152572,
+            "med": 8.584737,
+            "p(90)": 12.202877,
+            "thresholds": {
+                "p(95)<2000": false
+            }
+        },
+        "vus_max": {
+            "value": 460,
+            "min": 180,
+            "max": 460
+        },
+        "data_sent": {
+            "count": 15488225,
+            "rate": 75540.90684507751
+        },
+        "iterations": {
+            "count": 18826,
+            "rate": 91.82027716316294
+        },
+        "handoff_issue_rate_limited": {
+            "passes": 1646,
+            "fails": 17180,
+            "value": 0.08743227451397004
+        },
+        "data_received": {
+            "count": 53194215,
+            "rate": 259444.7872504451
+        },
+        "iteration_duration": {
+            "med": 21.2675285,
+            "p(90)": 637.2590749999999,
+            "p(95)": 1184.49254225,
+            "p(99)": 2859.2916942499996,
+            "max": 4696.51279,
+            "avg": 221.57830052315865,
+            "min": 5.910981
+        },
+        "handoff_login_continue_duration": {
+            "p(95)": 1604.9450886499978,
+            "p(99)": 2119.060111,
+            "max": 2556.062904,
+            "avg": 755.4534749282608,
+            "min": 13.369635,
+            "med": 758.1666775,
+            "p(90)": 1421.4189149
+        },
+        "vus": {
+            "value": 2,
+            "min": 0,
+            "max": 387
+        },
+        "handoff_login_e2e_duration": {
+            "avg": 1064.6409176826085,
+            "min": 16.060095,
+            "med": 1037.159278,
+            "p(90)": 2062.4952786000003,
+            "p(95)": 2410.1886171999995,
+            "p(99)": 2755.5410568499983,
+            "max": 3009.485934
+        },
+        "http_req_tls_handshaking": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0,
+            "max": 0
+        },
+        "checks": {
+            "passes": 73105,
+            "fails": 21,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 0.9997128244400076
+        },
+        "http_req_sending": {
+            "med": 0.0268105,
+            "p(90)": 0.059067,
+            "p(95)": 0.0932345,
+            "p(99)": 0.871122,
+            "max": 128.285794,
+            "avg": 0.12666329716189095,
+            "min": 0.005229
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 36926,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "http_req_waiting": {
+            "p(95)": 642.21114075,
+            "p(99)": 1208.732273,
+            "max": 2816.1802,
+            "avg": 111.6396804820184,
+            "min": 1.461672,
+            "med": 9.907598,
+            "p(90)": 385.46990500000004
+        },
+        "http_req_receiving": {
+            "min": 0.017706,
+            "med": 0.105184,
+            "p(90)": 0.3559245,
+            "p(95)": 0.6410095,
+            "p(99)": 5.6884612500000005,
+            "max": 222.149279,
+            "avg": 0.3943484352759578
+        },
+        "handoff_rate_limited_total": {
+            "count": 1667,
+            "rate": 8.130479232497217
+        },
+        "handoff_verify_duration{phase:sustain}": {
+            "avg": 10.565480809015943,
+            "min": 6.082792,
+            "med": 9.560289,
+            "p(90)": 13.117596,
+            "p(95)": 16.151962,
+            "p(99)": 29.119036,
+            "max": 93.224866,
+            "thresholds": {
+                "p(95)<2000": false
+            }
+        },
+        "handoff_issue_rate_limited{phase:sustain}": {
+            "passes": 0,
+            "fails": 12001,
+            "thresholds": {
+                "rate<0.001": false
+            },
+            "value": 0
+        },
+        "handoff_login_entry_duration": {
+            "p(99)": 1418.3907512399999,
+            "max": 1573.179833,
+            "avg": 309.1874427543476,
+            "min": 1.589201,
+            "med": 195.8955455,
+            "p(90)": 751.7887981000002,
+            "p(95)": 1052.4381245999998
+        },
+        "http_req_duration": {
+            "med": 10.14409,
+            "p(90)": 386.5807115,
+            "p(95)": 644.986782,
+            "p(99)": 1216.00187175,
+            "max": 2816.256294,
+            "avg": 112.16069221445565,
+            "min": 1.589201
+        },
+        "http_req_duration{expected_response:true}": {
+            "max": 2816.256294,
+            "avg": 112.16069221445565,
+            "min": 1.589201,
+            "med": 10.14409,
+            "p(90)": 386.5807115,
+            "p(95)": 644.986782,
+            "p(99)": 1216.00187175
+        },
+        "handoff_issue_rate_limited{phase:limit}": {
+            "fails": 3577,
+            "passes": 1646,
+            "thresholds": {
+                "rate>0.17": false
+            },
+            "value": 0.315144552938924
+        },
+        "http_req_connecting": {
+            "avg": 0.029777974760331474,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0.20637624999999998,
+            "max": 117.242402
+        },
+        "dropped_iterations": {
+            "count": 778,
+            "rate": 3.794548795970507
+        },
+        "handoff_issue_rate_limited{phase:recovery}": {
+            "passes": 0,
+            "fails": 1001,
+            "thresholds": {
+                "rate<0.001": false
+            },
+            "value": 0
+        },
+        "http_reqs": {
+            "count": 36926,
+            "rate": 180.0996257583637
+        },
+        "handoff_issue_duration": {
+            "avg": 100.22845266530886,
+            "min": 5.152572,
+            "med": 9.4060125,
+            "p(90)": 329.1563633,
+            "p(95)": 622.4077024999999,
+            "p(99)": 1232.8824545699947,
+            "max": 2816.256294
+        }
+    },
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "login: entry 302": {
+                    "name": "login: entry 302",
+                    "path": "::login: entry 302",
+                    "id": "cf6078a6f1813baccfffd0014265ac97",
+                    "passes": 460,
+                    "fails": 0
+                },
+                "login: entry → continue(mockTxId)": {
+                    "id": "bbc604806ffcd04d5a354c4e49b36060",
+                    "passes": 460,
+                    "fails": 0,
+                    "name": "login: entry → continue(mockTxId)",
+                    "path": "::login: entry → continue(mockTxId)"
+                },
+                "login: continue 302 → callback": {
+                    "name": "login: continue 302 → callback",
+                    "path": "::login: continue 302 → callback",
+                    "id": "1a7a108b922d1adb21d6a27099388d0a",
+                    "passes": 460,
+                    "fails": 0
+                },
+                "login: callback has ticketId": {
+                    "name": "login: callback has ticketId",
+                    "path": "::login: callback has ticketId",
+                    "id": "029f178839e534b43088d1ece4e915f1",
+                    "passes": 439,
+                    "fails": 21
+                },
+                "login: state echoed": {
+                    "name": "login: state echoed",
+                    "path": "::login: state echoed",
+                    "id": "90d9d0cfe08b0724c2eb892012f1e761",
+                    "passes": 460,
+                    "fails": 0
+                },
+                "login: feSessionId cookie": {
+                    "name": "login: feSessionId cookie",
+                    "path": "::login: feSessionId cookie",
+                    "id": "1ad48e452f9fc524d9b4f3045178192b",
+                    "passes": 460,
+                    "fails": 0
+                },
+                "issue: 200": {
+                    "id": "991ed5d7a11eacb83c36f8165dd23edc",
+                    "passes": 17180,
+                    "fails": 0,
+                    "name": "issue: 200",
+                    "path": "::issue: 200"
+                },
+                "issue: ticketId": {
+                    "name": "issue: ticketId",
+                    "path": "::issue: ticketId",
+                    "id": "e0730ea8b7c95a6b71cfb56f0e077b25",
+                    "passes": 17180,
+                    "fails": 0
+                },
+                "verify: 200": {
+                    "path": "::verify: 200",
+                    "id": "ccc10dee75bf33212c9fe105762e18a9",
+                    "passes": 17180,
+                    "fails": 0,
+                    "name": "verify: 200"
+                },
+                "verify: state APPROVED|GUEST": {
+                    "name": "verify: state APPROVED|GUEST",
+                    "path": "::verify: state APPROVED|GUEST",
+                    "id": "490e7184dbb654c1740ebe40bdb4138a",
+                    "passes": 17180,
+                    "fails": 0
+                },
+                "issue: 429 is E-AGENCY-306": {
+                    "path": "::issue: 429 is E-AGENCY-306",
+                    "id": "60b7f041ffbea70053c0ac168629a2b5",
+                    "passes": 1646,
+                    "fails": 0,
+                    "name": "issue: 429 is E-AGENCY-306"
+                }
+            },
+        "name": "",
+        "path": ""
+    }
+}

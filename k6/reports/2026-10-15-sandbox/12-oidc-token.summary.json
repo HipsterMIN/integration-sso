@@ -1,0 +1,245 @@
+{
+    "metrics": {
+        "iterations": {
+            "count": 1305,
+            "rate": 6.524766610272809
+        },
+        "checks": {
+            "passes": 9135,
+            "fails": 0,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 1
+        },
+        "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 6525,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "iteration_duration": {
+            "max": 1544.144531,
+            "avg": 983.7556565187741,
+            "min": 664.810293,
+            "med": 971.074662,
+            "p(90)": 1187.5108820000005,
+            "p(95)": 1270.7109555999998,
+            "p(99)": 1387.4423951200004
+        },
+        "http_req_tls_handshaking": {
+            "p(99)": 0,
+            "max": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "oidc_login_duration": {
+            "avg": 397.20173333793036,
+            "min": 285.152553,
+            "med": 358.907174,
+            "p(90)": 547.8779054,
+            "p(95)": 614.8717679999999,
+            "p(99)": 709.2291622800001,
+            "max": 907.021489,
+            "thresholds": {
+                "p(95)<3000": false
+            }
+        },
+        "http_req_duration": {
+            "avg": 96.77562439724122,
+            "min": 2.557032,
+            "med": 25.862654,
+            "p(90)": 358.88303160000004,
+            "p(95)": 445.1502881999999,
+            "p(99)": 614.7637484000006,
+            "max": 907.021489
+        },
+        "http_req_receiving": {
+            "avg": 0.18885179678160935,
+            "min": 0.017867,
+            "med": 0.14583,
+            "p(90)": 0.26626500000000003,
+            "p(95)": 0.34642279999999986,
+            "p(99)": 0.8494822000000016,
+            "max": 7.632525
+        },
+        "http_req_waiting": {
+            "avg": 96.54592441915689,
+            "min": 2.445139,
+            "med": 25.649803,
+            "p(90)": 358.6964656,
+            "p(95)": 444.91881859999995,
+            "p(99)": 614.6218244800007,
+            "max": 906.811236
+        },
+        "data_sent": {
+            "count": 6941295,
+            "rate": 34705.23360004107
+        },
+        "oidc_token_denied_total": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count<1": false
+            }
+        },
+        "oidc_token_duration": {
+            "p(99)": 66.7972848000001,
+            "max": 247.799742,
+            "avg": 32.28502903908043,
+            "min": 19.005223,
+            "med": 30.318081,
+            "p(90)": 41.8799088,
+            "p(95)": 48.02375339999999,
+            "thresholds": {
+                "p(95)<2000": false
+            }
+        },
+        "http_req_connecting": {
+            "avg": 0.003045694559386973,
+            "min": 0,
+            "med": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "p(99)": 0.13604448000000033,
+            "max": 1.172947
+        },
+        "data_received": {
+            "count": 21694174,
+            "rate": 108466.9901552862
+        },
+        "http_reqs": {
+            "count": 6525,
+            "rate": 32.623833051364045
+        },
+        "http_req_blocked": {
+            "max": 1.300135,
+            "avg": 0.012085490421455937,
+            "min": 0.001645,
+            "med": 0.005277,
+            "p(90)": 0.009120200000000002,
+            "p(95)": 0.014296999999999935,
+            "p(99)": 0.23040704000000073
+        },
+        "oidc_e2e_duration": {
+            "max": 981,
+            "avg": 458.5478927203065,
+            "min": 327,
+            "med": 421,
+            "p(90)": 621,
+            "p(95)": 685.8,
+            "p(99)": 778.6800000000003,
+            "thresholds": {
+                "p(95)<5000": false
+            }
+        },
+        "http_req_duration{expected_response:true}": {
+            "med": 25.862654,
+            "p(90)": 358.88303160000004,
+            "p(95)": 445.1502881999999,
+            "p(99)": 614.7637484000006,
+            "max": 907.021489,
+            "avg": 96.77562439724122,
+            "min": 2.557032
+        },
+        "oidc_userinfo_duration": {
+            "avg": 7.1069692429118785,
+            "min": 2.557032,
+            "med": 5.371055,
+            "p(90)": 11.570774800000002,
+            "p(95)": 17.77792919999999,
+            "p(99)": 30.735167280000013,
+            "max": 84.171014
+        },
+        "vus": {
+            "value": 1,
+            "min": 0,
+            "max": 10
+        },
+        "oidc_authorize_duration": {
+            "med": 17.572173,
+            "p(90)": 30.679797200000014,
+            "p(95)": 36.86606439999999,
+            "p(99)": 45.91180428000001,
+            "max": 101.722697,
+            "avg": 19.607907199233704,
+            "min": 8.584054
+        },
+        "http_req_sending": {
+            "p(99)": 0.1571870400000004,
+            "max": 3.537914,
+            "avg": 0.040848181302682085,
+            "min": 0.006722,
+            "med": 0.027345,
+            "p(90)": 0.07330140000000004,
+            "p(95)": 0.09200079999999994
+        }
+    },
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "authorize: login form (200)": {
+                    "name": "authorize: login form (200)",
+                    "path": "::authorize: login form (200)",
+                    "id": "f946b30c2f8e365626531cf3d9b3eec3",
+                    "passes": 1305,
+                    "fails": 0
+                },
+                "login: 302 to redirect_uri with code": {
+                    "path": "::login: 302 to redirect_uri with code",
+                    "id": "a40fc05a658c2e0c765c0798c11b7bf7",
+                    "passes": 1305,
+                    "fails": 0,
+                    "name": "login: 302 to redirect_uri with code"
+                },
+                "login: state echoed": {
+                    "name": "login: state echoed",
+                    "path": "::login: state echoed",
+                    "id": "90d9d0cfe08b0724c2eb892012f1e761",
+                    "passes": 1305,
+                    "fails": 0
+                },
+                "token: 200": {
+                    "name": "token: 200",
+                    "path": "::token: 200",
+                    "id": "f252374bf51fc49f89735b7c078893e1",
+                    "passes": 1305,
+                    "fails": 0
+                },
+                "token: id_token present": {
+                    "id": "59c1a18dff92c2485efaf70d58990b8a",
+                    "passes": 1305,
+                    "fails": 0,
+                    "name": "token: id_token present",
+                    "path": "::token: id_token present"
+                },
+                "userinfo: 200": {
+                    "name": "userinfo: 200",
+                    "path": "::userinfo: 200",
+                    "id": "c2c9d81f7727f24c8f8cf9e302a3f6ba",
+                    "passes": 1305,
+                    "fails": 0
+                },
+                "userinfo: idem_state APPROVED|GUEST": {
+                    "fails": 0,
+                    "name": "userinfo: idem_state APPROVED|GUEST",
+                    "path": "::userinfo: idem_state APPROVED|GUEST",
+                    "id": "3c2dd14111696b5c2afad20ae448bc39",
+                    "passes": 1305
+                }
+            },
+        "name": ""
+    }
+}
