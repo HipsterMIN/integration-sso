@@ -122,7 +122,7 @@ registry·authz·gate·hub(1.1.3 boot jar, CI 스모크와 같은 환경변수, 
 
 수정 뒤: 26.8.1 에서 끝-끝 2회 통과(두 번째는 캐시 적중·registry 기존 사용자 경로), gate `auth_result`(`KEYCLOAK_OIDC`, `STANDARD_OIDC_KEYCLOAK_OIDC`, SUCCESS)·outbox(`AUTH_COMPLETED`) 행 확인, hub `handoff_audit` CONSUMED. 설치본 버전 **24.0.5** 로 되돌려(원래 `keycloak` 스키마) 같은 프로브 2회 통과 — 수정은 Keycloak 버전과 무관하게 통한다. 회귀 검사: hub IT `BrokerLoginIntegrationTest`(q-sign 모드 — gate 를 WireMock 으로, 내부 서명·EXTERNAL_SUB 주체 키로 완료 콜백 → 바인드 → continue → verify; 캐시 적중·빈 결과 미캐시), gate IT `AuthResultJpaPostgresIntegrationTest`(실제 PostgreSQL 에 Flyway 적용 뒤 `claims` null/JSON·outbox payload·V6 FK), UT `OidcCompleteControllerTest`(+2)·`KeycloakCallbackServicePkceIssuerTest`(+1). 시험 항목표 **D-19**.
 
-관찰(결함 아님): hub·gate 가 `kc_idp_hint=keycloak` 을 보내면 26 은 `Provider not found or not enabled for realm keycloak` WARN 을 남기고 로그인 폼으로 간다(24 는 조용) — 별칭 매핑이 없는 브로커 이름이면 `kc_idp_hint` 를 빼는 것이 깔끔하다(후속).
+관찰(결함 아님): hub·gate 가 `kc_idp_hint=keycloak` 을 보내면 26 은 `Provider not found or not enabled for realm keycloak` WARN 을 남기고 로그인 폼으로 간다(24 는 조용) — 별칭 매핑이 없는 브로커 이름이면 `kc_idp_hint` 를 빼는 것이 깔끔하다 — **PR-G2-12 에서 정리**(hub·gate 모두 매핑이 있을 때만 붙인다).
 
 ## 6. 단계 계획과 공수
 

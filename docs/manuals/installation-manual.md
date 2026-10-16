@@ -32,6 +32,8 @@ docker compose --env-file infra/docker/install.env -f infra/docker/compose.insta
 
 기동 순서는 compose 가 헬스체크로 잡는다(postgres → redis → keycloak → registry·authz → gate → hub → console). 첫 기동은 Keycloak realm import 와 Flyway 마이그레이션 때문에 2~3분 걸린다.
 
+**소요 시간 참고(CI 러너 — GitHub Actions ubuntu 4 vCPU, 이미지는 미리 빌드)**: Keycloak 기동(realm import 포함) 약 30 초, registry·authz·gate·hub 기동 약 36 초(헬스 200 까지), 오프라인 번들 만들기 약 27 초(이미지 tar·소스 tar·Helm·체크섬, 1.4 GB), K8s 리허설 전 과정(설치 → 스모크 → 업그레이드 → 롤백 → 삭제) 약 4 분 30 초 — 2026-10-16 run 38847819956(`k6 Smoke Test`·`오프라인 설치본`·`K8s 실배포 리허설` 잡). `--build` 로 이미지를 처음 빌드하면 Gradle·npm 빌드 시간이 더 든다(CI 의 Docker Build 잡 기준 모듈당 2~5 분). 폐쇄망 실제 환경의 반입·설치 시간은 G1-1 에서 기록한다.
+
 ### 3.2 (B) Kubernetes Helm
 
 ```bash
