@@ -6,10 +6,10 @@
 
 ## A. 설치·기동
 
-| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.3) |
+| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.4) |
 |---|---|---|---|---|---|
 | A-1 | 헬스 | 4개 앱 `/actuator/health` | 모두 `UP` | CI 스모크 ① | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
-| A-2 | 필수 비밀 없이 기동 | `IDEM_HUB_CAST_PRIVATE_KEY` 를 비우고 hub 기동 | 기동 거부(로그에 키 이름), 헬스 없음 | 수동 | 미실행 — G1-1(사용자 환경) |
+| A-2 | 필수 비밀 없이 기동 | `IDEM_HUB_CAST_PRIVATE_KEY` 를 비우고 hub 기동(UT 는 키 없음·공개키만·깨진 값·탈출구·정상 키의 5 경우) | 기동 거부(로그에 키 이름 `idem.hub.cast.private-key` 와 탈출구 `allow-generated-keys`), 헬스 없음; 탈출구는 명시한 로컬에서만 임시 키 | UT(`CastKeyConfigTest` — 기동 거부 조건 5건; `FailSecureBootGuardTest` — 내부 서명 비밀·prod 탈출구) · 컨테이너 실기동(헬스 없음)은 수동 | ✅ [CI #38854769385](https://github.com/HipsterMIN/integration-sso/actions/runs/38854769385) (2026-10-16, PR #277 G2-13 — `CastKeyConfigTest` 5) · 로컬 UT ✅ 2026-10-16 · 실기동 부분 미실행 — G1-1(사용자 환경) |
 | A-3 | Discovery | `{gate}/realms/idem/.well-known/openid-configuration` | issuer = 공개 gate URL, PKCE S256 | CI 스모크 ② | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | A-4 | 에디션 | core 에서 `/api/v1/auth/nice/ci-check` | 404 (kr 에서는 존재) | CI 스모크 ⑦ | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | A-5 | 업그레이드(0.x→1.0) | 구 DB 이름·스키마로 기동 | 자동 rename + 체크섬 불일치만 1회 repair, 로그 `[Idem 개명]`; 구·신 스키마 공존 시 기동 거부 | 리허설(수동, PR-2·1.0.1 PR-B 기록) | 미실행 — G1-1(사용자 환경) |
@@ -19,7 +19,7 @@
 
 ## B. 관리자 인증·인가 (F17)
 
-| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.3) |
+| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.4) |
 |---|---|---|---|---|---|
 | B-1 | 무인증 관리 API | 세션 없이 `GET /api/v1/admin/agencies` | 401 `E-IDO-130` | CI 스모크 ②′ | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | B-2 | 첫 로그인 2단계 등록 | 부트스트랩 비밀번호 로그인 → `MFA_ENROLL_REQUIRED` → 코드 | 세션 발급, `mustChangePassword=true`. 1.1.1: 콘솔 등록 화면에 `otpauth://` QR(브라우저 안 생성, `otpauth://totp/` 아니면 그리지 않음) | CI 스모크(`admin-login.sh`) · 콘솔 vitest(`qr.test.ts`) — QR 을 인증 앱으로 찍는 끝-끝은 수동 | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) · QR 끝-끝 E2E ✅ 2026-10-10 (`scripts/dev/console-screenshots.cjs` — 화면의 QR·비밀로 등록 → 코드 통과, `images/console/02-mfa-enroll-qr.png`) · 수동 부분 미실행 — G1-1(사용자 환경) |
@@ -28,7 +28,7 @@
 | B-5 | 잠금 | 틀린 비밀번호 5회 | 423 `E-IDO-133`, 15분 뒤 해제 / unlock API | IT(로컬) | 로컬 IT — G1-1 `git push` 훅 기록으로 확정 |
 | B-6 | CSRF | `X-Requested-With` 없이 PUT | 403 | CI 스모크 | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | B-7 | 역할 | AUDITOR 로 프로파일 PUT | 403 `E-IDO-131`, 감사 `ADMIN_ACCESS_DENIED` | UT·CI 스모크 | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
-| B-8 | 테넌트 범위 | 다른 Tenant 의 서비스 조회 | 403 / 목록에서 제외 | 수동 (3차 점검 A7 로 실측) | 미실행 — G1-1(사용자 환경) |
+| B-8 | 테넌트 범위 | 전역 SYSTEM_ADMIN 이 Tenant T2·Service 둘(DEFAULT·T2)·T2 의 POLICY_ADMIN 을 만든다 → 그 관리자로 로그인(임시 비밀번호 → 변경) → DEFAULT Service 의 프로파일·기관 목록 조회, Service 목록, 프로파일 저장(본문 `service.tenant` 를 DEFAULT 로 위장, DEFAULT Service 직접, 자기 Service) | 다른 Tenant 는 403 `E-IDO-131`, 목록에서 제외(전역 관리자는 둘 다), 위장 저장·다른 Service 저장 403, 자기 Service 조회·저장 200 | IT(`TenantScopeIntegrationTest` — 실제 hub·PG·Redis) · UT(`AdminTenantScopeTest`·`AdminAuthorizationTest`) · 3차 점검 A7 실측 | 로컬 IT ✅ 2026-10-16 (`TenantScopeIntegrationTest`, G2-13 — 1.1.4 코드) · ✅ [CI #38854769385](https://github.com/HipsterMIN/integration-sso/actions/runs/38854769385) (2026-10-16, PR #277 — `AdminTenantScopeTest`·`AdminAuthorizationTest`) |
 | B-9 | 로그아웃 | 로그아웃 뒤 같은 쿠키 | 401 | CI 스모크 ⑧ | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | B-10 | 마지막 SYSTEM_ADMIN 보호 | 유일 SYSTEM_ADMIN 강등 | 409 `E-IDO-136` | UT | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | B-11 | 위장 경로(1.0.1) | `/api/v1/admin;x/admins`, `/api/v1/%61dmin/admins` | 403 `E-IDO-131`, 감사 `non-canonical path` | UT(`AdminAuthFilterTest`) | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
@@ -41,7 +41,7 @@
 
 ## C. 서비스 프로파일·온보딩 (F18, F1)
 
-| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.3) |
+| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.4) |
 |---|---|---|---|---|---|
 | C-1 | 스키마 위반 | `protocol.type` 오타로 PUT | 400 + 오류 목록, 저장 안 됨 | UT | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | C-2 | OIDC_RP 저장 → client | 유효 프로파일 PUT | 200, Keycloak 에 `idem-svc-{code}`(provisioned) | CI 스모크 ③ | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
@@ -54,7 +54,7 @@
 
 ## D. 로그인 흐름 (F1~F5)
 
-| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.3) |
+| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.4) |
 |---|---|---|---|---|---|
 | D-1 | gate 프런트 로그인 화면 | `…/protocol/openid-connect/auth?client_id=idem-svc-X&code_challenge…` | 200 로그인 화면(Keycloak 주소 노출 없음) | CI 스모크 ④ | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | D-2 | PKCE 없음 | code_challenge 없이 | 400 | CI 스모크 ④ | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
@@ -78,7 +78,7 @@
 
 ## E. 회원 원장·전파 (F8~F13)
 
-| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.3) |
+| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.4) |
 |---|---|---|---|---|---|
 | E-1 | 동일인 병합 | 같은 CI 로 두 번 등록 | 같은 `qimUserId`, `isNew=false` | IT(로컬)·이관 도구 리허설 | 로컬 IT — G1-1 `git push` 훅 기록으로 확정 · 수동 부분 미실행 — G1-1(사용자 환경) |
 | E-2 | CI 비반출 | `GET …/subject?scheme=CI` | 400 `SUBJECT_SCHEME_NOT_SELECTABLE` | UT | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
@@ -89,7 +89,7 @@
 
 ## F. 인가 (F14~F16)
 
-| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.3) |
+| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.4) |
 |---|---|---|---|---|---|
 | F-1 | 미할당 거부 | `policy.assignment.required=true`, 미할당 사용자 | 403 `E-IDO-120` | UT | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | F-2 | selfSignup | `selfSignup=true` | GUEST 로 발급 | UT | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
@@ -102,10 +102,10 @@
 
 ## G. 감사·운영 (F19~F22)
 
-| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.3) |
+| ID | 항목 | 절차 | 기대 결과 | 자동 | 실행 결과 (1.1.4) |
 |---|---|---|---|---|---|
 | G-1 | 감사 검색 | `agencyCode`·`category=ADMIN` | 위 행위가 모두 있다(n≥6) | CI 스모크 ⑧ | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
-| G-2 | 감사 불변 | 감사 행 UPDATE/DELETE API | 없음(404/405) | 설계 | 미실행 — G1-1(사용자 환경) |
+| G-2 | 감사 불변 | 감사 행 쓰기 API(`/api/v1/admin/audit`·행 단위에 PUT/POST/DELETE/PATCH, SYSTEM_ADMIN 으로) 호출; 코드에서 `audit_log` 를 고치거나 지우는 SQL·JPA·컨트롤러 매핑 검색 | 쓰기 API 없음 — 인가 매트릭스가 전 역할 403 `E-IDO-131`, 컨트롤러는 GET 매핑만; 코어·KR 에디션 main 소스에 `audit_log` UPDATE/DELETE/TRUNCATE 없음(Kafka 발행 표식 갱신 1건만 허용), 감사 저장소에 `@Modifying`·`delete*` 없음 | UT(`AuditImmutabilityGuardTest` 가드 3건 · `AdminAuthorizationTest.auditIsReadOnlyForEveryRole`) · IT(`AdminAuthIntegrationTest.auditEndpointsAreReadOnly`) · DB 계정 권한(앱 계정의 `audit_log` UPDATE/DELETE 박탈)은 설치본 설계 몫 | ✅ [CI #38854769385](https://github.com/HipsterMIN/integration-sso/actions/runs/38854769385) (2026-10-16, PR #277 G2-13 — `AuditImmutabilityGuardTest` 3·`AdminAuthorizationTest`) · 로컬 UT ✅ 2026-10-16 · 로컬 IT ✅ 2026-10-16 (`AdminAuthIntegrationTest` 4, 1.1.4 코드) |
 | G-3 | 지표 | 관리 포트 `/actuator/prometheus` (hub·gate·registry·authz) | 200 + `jvm_*`·`slo.*`·`personal.data.*`·`idem.kms.healthy`·`idem.outbox.*`·`audit.anomaly.*` 지표. **정정(1.1.1)**: 1.0.x 는 네 앱 모두 Prometheus 레지스트리가 없어 404 였다(종전 "gate·registry·authz 는 됨" 은 잘못) — G1-4 에서 네 앱에 추가 | CI 스모크 ⑧a(네 앱 200 + jvm 지표) · CI prod 단계(hub 관리 포트 200) · K8s 리허설(hub 관리 포트) | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) · 수동 부분 미실행 — G1-1(사용자 환경) |
 | G-4 | 보안 헤더 | 응답 헤더 | HSTS·CSP·X-Frame-Options 등 | UT(F-10) | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) |
 | G-5 | 백업·복구 | `scripts/ops/backup.sh`(pg_dump -Fc + sha256 + meta) → 앱 정지 → `scripts/ops/restore.sh`(DB 재생성·pg_restore·ANALYZE) → 기동 → A-1·B-2 재확인 | 복구 DB 의 스키마별 표 수·주요 표 행 수가 백업 시점과 같다, A-1·B-2 통과 | 자동 부분: CI 스모크 "백업·복구" 단계(백업 → 새 DB `idem_restore_check` 에 복구 → `VERIFY_SOURCE_DB` 대조) · 운영 DB 복구(앱 정지→재기동)는 **수동, 리허설 미실시** | ✅ [CI #38706630581](https://github.com/HipsterMIN/integration-sso/actions/runs/38706630581) (2026-10-15, PR #274 최종 커밋 = 1.1.4 코드 상태 — 전체 CI) · 수동 부분 미실행 — G1-1(사용자 환경) |
@@ -123,16 +123,16 @@ k6 스모크(CI `k6 Smoke Test`)가 헬스·제공자 목록·MOCK 라운드트�
 
 | 구분 | 항목 수 | 자동 | 그중 CI 에서 도는 것 | 로컬 IT 만 | 수동·설계·리허설 |
 |---|---|---|---|---|---|
-| A~G (1.0 원표) | 51 | 42 | 38 | 4 (B-3, B-5, E-1, E-3) | 9 (A-2, A-5, B-8, C-7, D-8, E-6, G-2, G-5, G-6) — G-3 은 1.1.1 에서 자동 |
+| A~G (1.0 원표) | 51 | 45 | 40 | 5 (B-3, B-5, E-1, E-3, B-8) | 6 (A-5, C-7, D-8, E-6, G-5, G-6) — G-3 은 1.1.1 에서 자동, A-2·G-2 는 G2-13(2026-10-16)에서 UT, B-8 은 IT |
 | 1.0.1 추가 | 7 (A-7, B-11, B-12, C-8, D-13, D-14, G-7) | 7 | 7 | 0 | 0 |
 | 1.1 추가 | 14 (A-8, B-13, B-14, D-15, D-16, D-17, D-18, F-5, F-6, F-7, F-8, G-8, G-9, G-10) | 14 | 11 (A-8, B-13, B-14, D-15, D-16, D-17, F-5, F-6, F-8, G-8, G-9) | 3 (D-18, F-7, G-10) | 0 (G-9 의 LLM 끝-끝은 수동) |
 | 1.1.1 추가 | 3 (B-15, B-16, B-17) | 3 | 3 (B-15, B-16, B-17) | 0 | 0 (B-2 의 QR 끝-끝은 B-2 수동 부분) |
 | 1.1.4 추가 | 1 (D-19) | 1 | 0 | 1 (D-19) | 0 |
-| **합계** | **76** | **67** | **59** | **8** | **9** |
+| **합계** | **76** | **70** | **61** | **9** | **6** |
 
-1.1.1 G2 재집계(2026-10-09): 1.1 추가 행은 9 가 아니라 **14** 였다 — B-13·B-14·D-15·F-5·F-6 이 "(1.1)" 로 표에는 있었으나 집계에 빠져 있었다. 종전 "68항목"·"70항목" 표기는 표 행 수와 달랐고, 이제 집계는 표에서 세어 낸 값이다(`grep -c "^| [A-G]-" test-items.md` = 76 — 1.1.4 G2-10 에서 D-19 추가).
+1.1.1 G2 재집계(2026-10-09): 1.1 추가 행은 9 가 아니라 **14** 였다 — B-13·B-14·D-15·F-5·F-6 이 "(1.1)" 로 표에는 있었으나 집계에 빠져 있었다. 종전 "68항목"·"70항목" 표기는 표 행 수와 달랐고, 이제 집계는 표에서 세어 낸 값이다(`grep -c "^| [A-G]-" test-items.md` = 76 — 1.1.4 G2-10 에서 D-19 추가). G2-13(2026-10-16, PR #277): 수동 9 중 A-2·G-2 를 UT 로, B-8 을 IT(+UT)로 옮겨 **자동 70(CI 61 + 로컬 IT 9)·수동 6** — 남은 수동 6건(A-5·C-7·D-8·E-6·G-5·G-6)은 업그레이드·브라우저·이관·백업·오프라인처럼 실제 환경이 있어야 하는 것들이라 G1-1 에서 한다.
 
-**실행 결과 열(1.1.4, G2 산출물)**: 자동 항목은 1.1.4 코드 상태의 CI(PR #274 최종 커밋 run 38706630581 — 1.1.4 버전 커밋과 버전 문자열만 다르다; K8s 리허설·오프라인 설치본 잡은 거기서 건너뛰었고(차트·스크립트 변경 없음) 버전 커밋 PR #275 의 run 38847819956 에서 돌았다 → A-8·G-6 은 그 run)와 2026-10-15 로컬 IT(`BrokerLoginIntegrationTest`·`HandoffLoginIntegrationTest`·`HandoffIntegrationTest`, gate `AuthResultJpaPostgresIntegrationTest` — Keycloak 중계 로그인 경로 D-19 가 추가됐다)로 갱신했다. 1.1.3 때는 PR #272 run 38670726832(A-8·G-6 은 #273 run 38680800783), 1.1.2 때는 PR #269 run 38029938285, 1.1.1 때는 PR #264 run 37926324522 — Build & Unit Test·k6 스모크(설치본 스모크 ①~⑧c·백업/복구·prod 단계)·Helm lint·docker build 9종·K8s 리허설·오프라인 설치본 검증)와 이 세션에서 돌린 로컬 IT 로 채웠다. 수동 항목과 나머지 로컬 IT 는 G1-1(사용자 환경·`git push` 훅)에서 채운다 — GS 시험 때는 이 열을 시험원 실행 결과로 바꾼다. 1.1.2 의 로컬 IT 는 2026-10-10 에 hub 14 클래스 54 테스트 + KR hub 7 테스트를 샌드박스 PG·Redis(Testcontainers 대신 로컬 인스턴스)로 재실행해 실패 0 — 클래스가 특정된 행에 적었다.
+**실행 결과 열(1.1.4, G2 산출물)**: G2-13 이 더한 UT(A-2·G-2·B-8)는 PR #277 의 CI(run 38854769385, 1.1.4 코드 + 테스트만 추가)로 채웠다(로컬 UT 2026-10-16 먼저), IT(`TenantScopeIntegrationTest`·`AdminAuthIntegrationTest`)는 같은 날 샌드박스 PG·Redis 로컬 IT. 그 밖의 자동 항목은 1.1.4 코드 상태의 CI(PR #274 최종 커밋 run 38706630581 — 1.1.4 버전 커밋과 버전 문자열만 다르다; K8s 리허설·오프라인 설치본 잡은 거기서 건너뛰었고(차트·스크립트 변경 없음) 버전 커밋 PR #275 의 run 38847819956 에서 돌았다 → A-8·G-6 은 그 run)와 2026-10-15 로컬 IT(`BrokerLoginIntegrationTest`·`HandoffLoginIntegrationTest`·`HandoffIntegrationTest`, gate `AuthResultJpaPostgresIntegrationTest` — Keycloak 중계 로그인 경로 D-19 가 추가됐다)로 갱신했다. 1.1.3 때는 PR #272 run 38670726832(A-8·G-6 은 #273 run 38680800783), 1.1.2 때는 PR #269 run 38029938285, 1.1.1 때는 PR #264 run 37926324522 — Build & Unit Test·k6 스모크(설치본 스모크 ①~⑧c·백업/복구·prod 단계)·Helm lint·docker build 9종·K8s 리허설·오프라인 설치본 검증)와 이 세션에서 돌린 로컬 IT 로 채웠다. 수동 항목과 나머지 로컬 IT 는 G1-1(사용자 환경·`git push` 훅)에서 채운다 — GS 시험 때는 이 열을 시험원 실행 결과로 바꾼다. 1.1.2 의 로컬 IT 는 2026-10-10 에 hub 14 클래스 54 테스트 + KR hub 7 테스트를 샌드박스 PG·Redis(Testcontainers 대신 로컬 인스턴스)로 재실행해 실패 0 — 클래스가 특정된 행에 적었다.
 
 3차 점검(2026-09-26) 이전 표는 "자동 47" 로 적혀 있었다 — E2E 헤드리스 브라우저(B-2·B-3·C-7·D-8)는 S7 PR-2 의 1회성 수동 실행이었고, A-2·B-8·E-6·G-3 도 자동 검사가 없었다. 위 수치가 실제다.
 

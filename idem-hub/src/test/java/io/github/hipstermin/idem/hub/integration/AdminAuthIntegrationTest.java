@@ -122,6 +122,23 @@ class AdminAuthIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    @DisplayName("G-2 감사 불변: /api/v1/admin/audit 는 조회(GET)만 — 쓰기(PUT/POST/DELETE, 행 단위 포함)는 SYSTEM_ADMIN 이라도 인가 매트릭스가 403")
+    void auditEndpointsAreReadOnly() throws Exception {
+        HttpHeaders admin = json(adminHeaders(rest, url("")));
+        assertThat(call(HttpMethod.GET, "/api/v1/admin/audit?size=1", null, admin).getStatusCode().value()).isEqualTo(200);
+        // 부트스트랩 관리자(SYSTEM_ADMIN·글로벌)도 쓰기는 컨트롤러에 닿기 전에 거부된다 — 매핑 자체가 없다는 것은 AuditImmutabilityGuardTest 가 본다
+        for (HttpMethod m : new HttpMethod[] {HttpMethod.PUT, HttpMethod.POST, HttpMethod.DELETE, HttpMethod.PATCH}) {
+            for (String path : new String[] {"/api/v1/admin/audit", "/api/v1/admin/audit/00000000-0000-0000-0000-000000000000"}) {
+                ResponseEntity<String> r = call(m, path, m == HttpMethod.DELETE ? null : "{}", admin);
+                assertThat(r.getStatusCode().value()).as(m + " " + path).isEqualTo(403);
+                assertThat(read(r.getBody()).path("code").asText()).as(m + " " + path).isEqualTo("E-IDO-131");
+            }
+        }
+        // 세션은 그대로다(거부가 세션을 끊지 않는다) — 조회는 여전히 된다
+        assertThat(call(HttpMethod.GET, "/api/v1/admin/audit?size=1", null, admin).getStatusCode().value()).isEqualTo(200);
+    }
+
+    @Test
     @DisplayName("TOTP 코드가 틀리면 세션이 나가지 않고, 대기 토큰은 1회용이다")
     void wrongTotpRejected() throws Exception {
         ResponseEntity<String> login = call(HttpMethod.POST, "/api/v1/admin/auth/login",

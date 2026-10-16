@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### G2-13 · 시험 항목표 수동 항목 자동화 1차 (플랜 §3 후속)
+
+- 수동 9건 가운데 저장소 안에서 검증할 수 있는 3건을 자동 검사로 옮겼다 — 집계 **자동 67 → 70(CI 59 → 61, 로컬 IT 8 → 9)·수동 9 → 6**. 제품 코드 변경 없음.
+  - **A-2 필수 비밀 없이 기동**: UT `CastKeyConfigTest` — `IDEM_HUB_CAST_PRIVATE_KEY` 가 비거나 공개키만 있거나 값이 깨지면 키 이름(`idem.hub.cast.private-key`)과 탈출구(`allow-generated-keys`)를 담은 예외로 기동 거부, 탈출구는 명시할 때만 임시 키, 정상 Ed25519 키는 복원.
+  - **G-2 감사 불변**: 가드 UT `AuditImmutabilityGuardTest` — 코어·KR 에디션 main 소스에 `audit_log` UPDATE/DELETE/TRUNCATE 없음(Kafka 발행 표식 갱신 1건만 허용), 감사 JPA 저장소에 `@Modifying`·`delete*` 없음, 감사 조회 컨트롤러는 GET 매핑만; `AdminAuthorizationTest.auditIsReadOnlyForEveryRole`(쓰기는 어떤 역할·범위도 불허); IT `AdminAuthIntegrationTest.auditEndpointsAreReadOnly`(SYSTEM_ADMIN 의 PUT/POST/DELETE/PATCH 가 전부 403 `E-IDO-131`, 세션 유지).
+  - **B-8 테넌트 범위**: IT `TenantScopeIntegrationTest`(실제 hub·PG·Redis — Tenant·Service 둘·Tenant 관리자 생성 → 임시 비밀번호 로그인·변경 → 다른 Tenant 조회 403 `E-IDO-131`·목록 제외·본문 `service.tenant` 위장 403·자기 Service 200), UT `AdminTenantScopeTest`.
+- 시험 항목표 실행 결과 열 머리글을 1.1.4 로(1.1.3 표기 잔재), 형상·결함 관리 §1.2 에 #276·#277, §2 가드 테스트 목록에 `AuditImmutabilityGuardTest`.
+
 ### G2-12 · G2 잔여 정리 + `kc_idp_hint` 정리 (플랜 §3·§7 후속)
 
 - **hub·gate — 매핑 없는 브로커 이름은 `kc_idp_hint` 를 붙이지 않는다(LOW)**: `idp-hint-mapping`(kakao→social-kakao 등)에 없는 이름(코어 로그인 프런트의 `broker:keycloak` = Keycloak 계정 직접 로그인)도 종전에는 이름 그대로 `kc_idp_hint` 에 실려 realm 에 없는 별칭이 갔다 — Keycloak 24 는 조용히 무시, 26 은 로그인마다 `Provider not found or not enabled` WARN(Keycloak 26 시험에서 관찰). 이제 매핑이 있을 때만 붙인다(gate `KeycloakProperties.resolveIdpHint`·`KeycloakAuthUrlController`, hub `KeycloakProperties.resolveIdpHint`·`BrokerService`). 매핑된 이름(kakao·naver·pass·gpki)의 동작은 그대로. UT `KeycloakAuthUrlControllerSigTest`(+1)·`KeycloakPropertiesTest`(hub, 신규).

@@ -65,6 +65,8 @@
 | #272 | 2026-10-15 | G2-8: 성능 보고 — 1.1 계약의 k6 시나리오 3종(Handoff 로그인·발급 API+200 tps·OIDC 토큰 교환)·실행기·보고서 양식, 샌드박스 측정 + 측정 중 발견한 감사 유실 결함 2건(V32·`TraceparentFilter`) | 문서·시험 자산·결함 |
 | #273 | 2026-10-15 | 버전 1.1.3 — CHANGELOG [1.1.3]·업그레이드 메모(V32 자동 적용, `X-Correlation-Id` 규격)·시험 항목 재실행 기록(run 38670726832, K8s 리허설·오프라인 설치본은 run 38680800783)·점검 문서 '1.1.3 후' | 릴리스 |
 | #274 | 2026-10-15 | G2-10: Keycloak 26 올림 영향 평가(26.8.1 샌드박스 시험 — 업그레이드·새 설치·스모크·k6 12·브로커 로그인) + 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건(hub 캐시 SpEL·완료 콜백 화이트리스트, gate 주체 키·jsonb 바인딩·`idp_provider` V6) + IT 2종(D-19) | 문서·결함 |
+| #276 | 2026-10-16 | G2-12: G2 잔여 정리 — 결함 밀도 참고치·76항목 산식(§3.3), 설치 소요 시간 CI 참고치(설치 매뉴얼 §3), `kc_idp_hint` 정리(hub·gate — 매핑 없는 브로커 이름은 파라미터를 붙이지 않는다, LOW) | 문서·결함 |
+| #277 | 2026-10-16 | G2-13: 시험 항목표 수동 항목 자동화 1차 — A-2(CAST 키 없이 기동 거부 UT)·G-2(감사 불변 가드 UT + 인가 매트릭스 UT + IT)·B-8(테넌트 범위 IT + UT); 집계 자동 67→70·수동 9→6 | 테스트·문서 |
 | #275 | 2026-10-16 | 버전 1.1.4 — CHANGELOG [1.1.4]·업그레이드 메모(gate V6 자동 적용, hub·gate 동시 올림)·시험 항목 재실행 기록(run 38706630581, K8s 리허설·오프라인 설치본은 run 38847819956)·점검 문서 '1.1.4 후'(main run 38847381374, 이미지 10종 0건) | 릴리스 |
 
 ## 2. 변경 통제
@@ -72,7 +74,7 @@
 1. **모든 변경은 PR** — `shipster → main`, 머지는 사용자가 지시한다("머지"). 커밋 작성자는 프로젝트 계정, AI 세션은 트레일러로 남긴다.
 2. **CI 게이트**(`.github/workflows/ci.yml`, PR 마다): Build & Unit Test(전 모듈, 약 1,900 테스트 실행) · Frontend Build(관리 콘솔·KR 포털, typecheck+vitest+build) · Helm Lint & Template · Docker Build Check(이미지 9종) · **k6 Smoke Test**(boot jar 실기동 — 설치본 스모크 ①~⑧c·백업/복구 단계·prod 프로파일 단계·k6) · **K8s 실배포 리허설**(kind: 설치→스모크→prod 업그레이드→롤백→제거, 차트·스크립트 변경 PR) · 오프라인 설치본 검증(스크립트·compose 변경 PR) · OWASP Dependency-Check(수동 실행). 실패하면 머지하지 않는다.
 3. **로컬 훅**(`scripts/dev/install-git-hooks.sh`): pre-commit Spotless(변경 Java 파일), pre-push 변경 모듈 테스트 + Testcontainers 통합 테스트(CI 는 Docker 없음 — `DOCKER_UNAVAILABLE=true`).
-4. **가드 테스트**가 명명·범용화·암호 경계 규칙을 코드로 지킨다: `NamingGuardTest`(구 식별자 금지), `GeneralizationGuardTest`(코어에 고객 고유값 금지), `CryptoBoundaryGuardTest`(암호 연산은 `CryptoProvider` 경유), `SpringAdvisoryGuardTest`(OSS 수정판이 없어 `.trivyignore` 로 억제한 Spring 권고의 전제 조건이 코드에 없음 — `docs/certification/vulnerability-review-2026-10.md` §4).
+4. **가드 테스트**가 명명·범용화·암호 경계 규칙을 코드로 지킨다: `NamingGuardTest`(구 식별자 금지), `GeneralizationGuardTest`(코어에 고객 고유값 금지), `CryptoBoundaryGuardTest`(암호 연산은 `CryptoProvider` 경유), `AuditImmutabilityGuardTest`(감사 행을 고치거나 지우는 SQL·JPA·컨트롤러 매핑 금지 — 시험 항목 G-2), `SpringAdvisoryGuardTest`(OSS 수정판이 없어 `.trivyignore` 로 억제한 Spring 권고의 전제 조건이 코드에 없음 — `docs/certification/vulnerability-review-2026-10.md` §4).
 5. **동결 규칙**: 1.0 에서 오류 코드(`E-IDO-1xx`·`E-AGENCY-3xx`)와 API 경로를 동결했다(제품 설명서 §6). GS 시험 중 변경은 `release/1.0`(1.0.x) 또는 1.1.x 패치로 **보안·결함 수정만**, 매 패치는 CI 초록 + 시험 항목 재실행 기록(플랜 §4).
 6. **릴리스 절차**: 버전 커밋 PR(버전 문자열·CHANGELOG·업그레이드 메모) → 머지 → 태그 → 오프라인 번들(`scripts/release/make-offline-bundle.sh`, `SHA256SUMS`) → 설치 매뉴얼의 체크섬·크기 기록.
 
