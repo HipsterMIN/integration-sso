@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### G2-14 · 시험 항목표 수동 항목 자동화 2차 (플랜 §3 후속)
+
+- 수동 6건 가운데 실제 PostgreSQL·WireMock 으로 검증할 수 있는 2건을 로컬 IT 로 옮겼다 — 집계 **자동 70 → 72(로컬 IT 9 → 11)·수동 6 → 4**. 제품 코드 변경 없음.
+  - **A-5 업그레이드(0.x→1.0)**: IT `LegacySchemaRenamePostgresIntegrationTest` — 현재 마이그레이션을 적용한 뒤 스키마를 `ido` 로 되돌리고 이력 체크섬을 바꿔 "개명 전 파일로 적용된" 설치본을 만들고 hub 기동 때의 Flyway 전략을 호출: 자동 rename·체크섬 repair 1회·데이터 보존·로그 `[Idem 개명]`·두 번째 기동 무동작, 구·신 스키마 공존(새 쪽 이력 없음) 기동 거부·무변경, 이관 끝난 잔재는 경고만, 실패 이력은 repair 없이 거부.
+  - **C-7 승인**: IT `ServiceApprovalIntegrationTest` — OIDC_RP 서비스를 INACTIVE 로 등록(Keycloak client `enabled=false`) → gate 의 RP 로그인 판정 거부 `E-AGENCY-301`(registry 등록 없음) → 사유(`X-Change-Reason`)를 달아 ACTIVE 저장 → 판정 허용(APPROVED)·client `enabled=true`·감사 `TENANT_PROFILE_CREATED/UPDATED`·이력 `change_reason` 원문.
+- 시험 항목표 A-5·C-7 행·집계, gs-kickoff 수치, 형상·결함 관리 §1.2 #278, 플랜 §3 상태·§9.
+
 ### G2-13 · 시험 항목표 수동 항목 자동화 1차 (플랜 §3 후속)
 
 - 수동 9건 가운데 저장소 안에서 검증할 수 있는 3건을 자동 검사로 옮겼다 — 집계 **자동 67 → 70(CI 59 → 61, 로컬 IT 8 → 9)·수동 9 → 6**. 제품 코드 변경 없음.
