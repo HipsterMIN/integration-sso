@@ -97,3 +97,20 @@ tenant-sample 은 `AGENCY_STUB_IDO_API_KEY=<출력값>` 으로 띄운다.
   `keytool -importcert -cacerts -storepass changeit -noprompt -alias corp-proxy-root -file /usr/local/share/ca-certificates/corp-proxy-root.crt`.
 - **Docker 이미지 빌드는 사무실 망에서 실패한다**(컨테이너 안에는 회사 CA 가 없어 `apk add`·Maven 이 TLS 거부). 이미지는 집 망에서 main 런 재실행(`gh run rerun <id> --failed`)으로 만든다.
 - 러너 관련 세부: `docs/ci-runner-guide.md`.
+
+## 7. SLO(단일 로그아웃) 끝-끝 프로브 — 시험 항목 D-8 (G2-16)
+
+`scripts/dev/slo-probe.py` 가 기관 RP 를 브라우저 없이 흉내 내 RP-Initiated Logout 을 끝까지 밟고 13 단계를 판정한다 — RP1 로그인(gate 프런트 → Keycloak 화면 → 토큰 교환) → RP2 는 같은 쿠키로 SSO(같은 sid) → RP1 이 `end_session_endpoint` 로 로그아웃 → RP2 의 `backchannelLogoutUri` 에 `logout_token` 수신(events·aud·sid 검사) → Keycloak 세션 0 → 옛 토큰 401. 표준 라이브러리만 쓰고 비밀·토큰은 출력하지 않는다.
+
+```bash
+# 스택: gate(8081)·hub(8083)·registry·authz + 실제 Keycloak. 기관 RP 프로파일 둘(OIDC_RP) — backchannelLogoutUri 는 이 스크립트의 수신기(BC_LISTEN) 주소
+#   (프로파일 검증은 루프백·사설 주소를 거부하므로 공개 이름을 쓴다 — 샌드박스는 /etc/hosts 로 127.0.0.1 에 맵핑). client secret 은 관리 API 의 secret 회전 응답에서.
+OIDC_CLIENT_ID=idem-svc-SLO_RP   OIDC_CLIENT_SECRET=…  OIDC_CLIENT_ID_2=idem-svc-SLO_RP2  OIDC_CLIENT_SECRET_2=… \
+OIDC_REDIRECT_URI=https://rp.example.org/callback OIDC_USER=poc-testuser OIDC_PASSWORD=… \
+BC_LISTEN=0.0.0.0:9099 BC_PATH=/bc BC_PATH_2=/bc2 KC_ADMIN_URL=http://localhost:8088 KC_ADMIN_USER=admin KC_ADMIN_PASSWORD=… \
+python3 -I scripts/dev/slo-probe.py
+```
+
+- 판정은 RP2 로 한다(SLO 의 의미 — 다른 RP 의 세션이 끝나는가). Keycloak 24 는 로그아웃을 시작한 RP1 에도 보내는데 참고로만 찍는다. `KC_ADMIN_*` 이 없으면 Keycloak 세션 확인은 건너뛴다.
+- **프록시가 있는 환경**(샌드박스·사무실 망): Keycloak 의 아웃바운드(Back-Channel Logout)가 `HTTPS_PROXY` 로 가서 수신기에 닿지 않는다 — Keycloak 을 `NO_PROXY` 에 RP 호스트를 넣어(또는 프록시 없이) 띄운다. 2026-10-16 샌드박스에서 이 때문에 두 번 실패한 뒤 13/13.
+- gate 로그 `[OIDC-FRONT] RP-Initiated Logout: … cacheEvicted=N feExpired=M`, hub 로그 `[IdpLogout] FE 세션 만료` 가 Idem 쪽 정리의 증거다(브로커 로그인 FE 세션이 없으면 `feExpired=0`).

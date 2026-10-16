@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### G2-16 · D-8 SLO 끝-끝 프로브 (플랜 §3 후속)
+
+- `scripts/dev/slo-probe.py`(표준 라이브러리, 비밀 비출력): 기관 RP 둘을 브라우저 없이 흉내 내 RP-Initiated Logout 을 끝까지 밟고 13 단계를 판정한다 — RP1 로그인(gate 프런트·PKCE → Keycloak 화면 → 토큰 교환·userinfo) → RP2 는 같은 쿠키로 SSO(같은 sid) → RP1 이 `end_session_endpoint` 로 로그아웃 → RP2 의 `backchannelLogoutUri` 에 `logout_token`(events·aud·sid) 수신 → Keycloak 관리 API 세션 0 → RP1·RP2 의 옛 access_token 은 401. 샌드박스 실스택(Keycloak 24.0.5·gate·hub)에서 13/13 — 시험 항목표 D-8 실행 결과에 기록(수동 분류는 그대로, 시험 환경에서 같은 스크립트를 한 번 더). 제품 코드 변경 없음.
+- 환경 함정(문서 `docs/local-dev-workflow.md` §7): 프록시가 있는 환경에서는 Keycloak 의 Back-Channel 호출이 `HTTPS_PROXY` 로 가서 RP 에 닿지 않는다 — Keycloak 의 `NO_PROXY` 에 RP 호스트를 넣는다. 프로파일 검증이 루프백·사설 주소를 거부하므로 수신기는 공개 이름이어야 한다.
+
 ### G2-15 · 시험 항목표 수동 항목 자동화 3차 — E-6 KR 기업회원 이관 (플랜 §3 후속)
 
 - **E-6 KR 기업회원 이관**을 자동 검사로 — 집계 **자동 72 → 73(로컬 IT 11 → 12)·수동 4 → 3**. 제품 코드 변경 없음.
