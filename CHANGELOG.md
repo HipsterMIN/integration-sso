@@ -18,7 +18,7 @@ _(없음)_
 - **Keycloak 은 그대로 24.0**(= 24.0.5). 26 올림은 1.2 의 일이다(`docs/analysis/keycloak-26-assessment.md` — 설치본 환경변수 계약이 바뀐다).
 - **설정·API 변경 없음**. 이미지 태그만 바꾼다(compose `IDEM_VERSION=1.1.4`, Helm `global.imageTag`). 콘솔·registry·authz 는 1.1.3 과 코드 차이 없음(버전 문자열만).
 - **SDK**: `idem-sdk-java 1.1.4` — 코드 변경 없음.
-- **검증**: 1.1.4 코드 상태의 CI(PR #274 최종 커밋 run 38706630581 — Build & Unit Test·프런트엔드 두 벌·k6 스모크 ①~⑧c·Docker Build Check 9종·Helm lint·문서 정합성; 차트·스크립트 변경이 없어 K8s 리허설·오프라인 설치본 검증은 건너뜀 — 버전 커밋 PR #275 에서 돈다) + 시험 항목표 재실행 기록(`docs/manuals/test-items.md`, D-19 추가) + 로컬 IT(hub 3종 15·gate 1종 3) + 샌드박스 끝-끝 프로브(Keycloak 26.8.1·24.0.5 각 2회).
+- **검증**: 1.1.4 코드 상태의 CI(PR #274 최종 커밋 run 38706630581 — Build & Unit Test·프런트엔드 두 벌·k6 스모크 ①~⑧c·Docker Build Check 9종·Helm lint·문서 정합성; K8s 리허설·오프라인 설치본 검증은 버전 커밋 PR #275 의 run 38847819956 에서 통과) + 시험 항목표 재실행 기록(`docs/manuals/test-items.md`, D-19 추가) + 로컬 IT(hub 3종 15·gate 1종 3) + 샌드박스 끝-끝 프로브(Keycloak 26.8.1·24.0.5 각 2회).
 
 ### G2-10 · Keycloak 26 올림 영향 평가 + 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건 (플랜 §7)
 
