@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### G2-15 · 시험 항목표 수동 항목 자동화 3차 — E-6 KR 기업회원 이관 (플랜 §3 후속)
+
+- **E-6 KR 기업회원 이관**을 자동 검사로 — 집계 **자동 72 → 73(로컬 IT 11 → 12)·수동 4 → 3**. 제품 코드 변경 없음.
+  - IT `KrMemberImportIntegrationTest`(KR registry, 실제 PostgreSQL, Kafka 없음): 이관 도구 `scripts/kr-member-import/import_members.py` 가 registry 에 보내는 호출을 같은 순서·본문·헤더로 — 개인(CI)·기업(EMAIL) `register-subject` 201 신규 → `biz-members/convert` 201 → `biz_member` 1행; 같은 CSV 재실행은 `register-subject` 200(같은 qimUserId) → `convert` 409 `E-IM-216` → `GET biz-members/{id}` 200 = 도구의 `exists`; `--verify` 조회에 CI 원문 없음; 내부 API 키 없음·불일치 401.
+  - 도구 UT `scripts/kr-member-import/test_import_members.py`(표준 라이브러리 unittest 11건 — CSV 검사·본문 조립·재개 목록·`--dry-run`), CI `문서 정합성` 잡에 추가.
+- 시험 항목표 E-6 행·집계, gs-kickoff 수치, 형상·결함 관리 §1.2 #279, 플랜 §3 상태·§9, 이관 도구 README.
+
 ### G2-14 · 시험 항목표 수동 항목 자동화 2차 (플랜 §3 후속)
 
 - 수동 6건 가운데 실제 PostgreSQL·WireMock 으로 검증할 수 있는 2건을 로컬 IT 로 옮겼다 — 집계 **자동 70 → 72(로컬 IT 9 → 11)·수동 6 → 4**. 제품 코드 변경 없음.
