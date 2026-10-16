@@ -19,7 +19,7 @@ plugins {
 // ── 전체 공통 설정 ────────────────────────────────────────────────────────────
 allprojects {
     group   = "io.github.hipstermin.idem"
-    version = "1.1.3"   // 1.1.3: 보안·결함 패치 — G2-8 성능 측정이 드러낸 감사 유실 결함 2건(V32·TraceparentFilter) + G2-7 Spring Boot 4 평가·서드파티 Trivy (#271~#272, 릴리스 태그 v1.1.3); 1.1.2 는 G2-2~G2-5 (#266~#269)
+    version = "1.1.4"   // 1.1.4: 결함 패치 — G2-10 Keycloak 26 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건(hub 캐시 SpEL·완료 콜백 화이트리스트, gate 주체 키·jsonb·V6) + Keycloak 26 올림 영향 평가 (#274, 릴리스 태그 v1.1.4); 1.1.3 은 G2-7·G2-8 (#271~#272), 1.1.2 는 G2-2~G2-5 (#266~#269)
 
     repositories {
         mavenCentral()

@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+_(없음)_
+
+## [1.1.4] — 2026-10-16
+
+1.1.3 의 **결함 패치**다(플랜 §4 — 기능 추가 없음, 설정·API 변경 없음, **DB 변경 1건** gate Flyway V6): PR-G2-10 #274(Keycloak 26 올림 영향 평가 + 그 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건 — 1.0.0 부터 한 번도 끝까지 간 적이 없던 경로). 태그 `v1.1.4`.
+
+### 1.1.4 업그레이드 메모
+
+- **DB 변경 1건(자동)**: gate Flyway V6 가 `idem_gate.idp_provider` 에 `KEYCLOAK_OIDC`·`PASS_OIDC`·`GPKI_OIDC` 행 3건을 넣는다 — gate 첫 기동에서 자동 적용, 데이터 변환 없음(`ON CONFLICT DO NOTHING`). 1.1.3 으로 되돌려도 행은 해가 없다.
+- **hub 와 gate 를 함께 올린다**: gate 가 hub 완료 콜백(`/api/internal/v1/oidc/complete`) 본문에 `subjectScheme`/`subjectKey` 를 더 보낸다(hub 는 이미 받는 필드). 새 gate + 옛 hub 는 동작하지만, 옛 gate + 새 hub 는 종전처럼 주체 키 없음으로 거부된다 — Keycloak 중계 로그인을 쓰려면 둘 다 1.1.4.
+- **Keycloak 중계 로그인(1.0 브로커 경로·1.1 `broker:<name>`)이 처음으로 끝까지 간다**: 1.0.0~1.1.3 설치본에서 이 경로로 시도된 로그인은 전부 실패했고 gate `auth_result`·outbox 에도 남지 않았다(복구할 데이터 없음). MOCK(SPI) 제공자·표준 OIDC(OIDC_RP)·Handoff 발급 API 는 영향 없었다.
+- **Keycloak 은 그대로 24.0**(= 24.0.5). 26 올림은 1.2 의 일이다(`docs/analysis/keycloak-26-assessment.md` — 설치본 환경변수 계약이 바뀐다).
+- **설정·API 변경 없음**. 이미지 태그만 바꾼다(compose `IDEM_VERSION=1.1.4`, Helm `global.imageTag`). 콘솔·registry·authz 는 1.1.3 과 코드 차이 없음(버전 문자열만).
+- **SDK**: `idem-sdk-java 1.1.4` — 코드 변경 없음.
+- **검증**: 1.1.4 코드 상태의 CI(PR #274 최종 커밋 run 38706630581 — Build & Unit Test·프런트엔드 두 벌·k6 스모크 ①~⑧c·Docker Build Check 9종·Helm lint·문서 정합성; 차트·스크립트 변경이 없어 K8s 리허설·오프라인 설치본 검증은 건너뜀 — 버전 커밋 PR #275 에서 돈다) + 시험 항목표 재실행 기록(`docs/manuals/test-items.md`, D-19 추가) + 로컬 IT(hub 3종 15·gate 1종 3) + 샌드박스 끝-끝 프로브(Keycloak 26.8.1·24.0.5 각 2회).
+
 ### G2-10 · Keycloak 26 올림 영향 평가 + 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건 (플랜 §7)
 
 - `docs/analysis/keycloak-26-assessment.md`: Keycloak **26.8.1** 을 샌드박스에서 실제로 띄워(24.0.5 스키마 복사본의 자동 마이그레이션 25.0.0→26.8.0, 빈 스키마에 저장소 `realm-export.json` 새 설치) 전체 스택 + 설치본 스모크 ①~⑧·k6 시나리오 12(표준 OIDC 토큰 교환)·브로커(Keycloak 중계) 로그인 끝-끝을 돌렸다. **Idem 코드 변경 없음**. 설치본 계약은 바뀐다 — hostname v1·`KC_PROXY` 제거(26.0) → `KC_HOSTNAME`/`KC_HOSTNAME_ADMIN`/`KC_PROXY_HEADERS=xforwarded`, `KEYCLOAK_ADMIN` → `KC_BOOTSTRAP_ADMIN_*`, compose `start-dev` 는 26.6 부터 localhost 바인드 → `KC_HTTP_HOST=0.0.0.0`, Helm 프로브 `/health/*` 는 관리 포트 9000, 업그레이드 창에 Keycloak 세션 유실. 구 환경변수 그대로 올리면 기동은 되지만 옵션이 무시돼 issuer 가 틀어진다. 권고: **1.2 에서 올림**(Spring Boot 4 와 독립, 먼저) — 결정은 2026-11 회차.
