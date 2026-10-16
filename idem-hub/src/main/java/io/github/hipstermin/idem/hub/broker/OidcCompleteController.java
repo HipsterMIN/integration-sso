@@ -140,6 +140,7 @@ public class OidcCompleteController {
         // ── returnUrl 화이트리스트 검증 ────────────────────────────────────
         String returnUrl = req.getReturnUrl();
         if (returnUrl != null && !returnUrl.isBlank()
+                && !isOwnLoginContinueUrl(returnUrl)
                 && !feSessionService.isValidReturnUrl(returnUrl)) {
             log.warn("[OidcComplete] returnUrl 화이트리스트 거부: {}", returnUrl);
             return ResponseEntity.badRequest()
@@ -190,6 +191,16 @@ public class OidcCompleteController {
     }
 
     // ── 내부 헬퍼 ────────────────────────────────────────────────────────
+
+    /**
+     * 1.1.4 G2-10: 1.1 코어 로그인 프런트의 {@code provider=broker:<name>} 경로는 returnUrl 이 hub 자신의
+     * {@code /api/v1/handoff/login/continue?req=} 다 — 기관 콜백은 continue 가 저장된 로그인 요청(진입 때 화이트리스트 검증 완료)으로 보낸다.
+     * 종전에는 {@code idem.hub.fe.allowed-return-urls}(기본 localhost:3000/3001, 설치본은 설정하지 않는다)에 hub 공개 URL 이 없어
+     * q-sign 모드의 브로커 로그인이 여기서 {@code INVALID_RETURN_URL} 로 끝났다(Keycloak 26 시험 중 발견).
+     */
+    boolean isOwnLoginContinueUrl(String returnUrl) {
+        return returnUrl != null && returnUrl.startsWith(publicUrl + "/api/v1/handoff/login/continue?");
+    }
 
     /**
      * S8-a: 주체 스킴·키로 registry 사용자를 찾고, 없으면 등록한다 (스킴 중립).

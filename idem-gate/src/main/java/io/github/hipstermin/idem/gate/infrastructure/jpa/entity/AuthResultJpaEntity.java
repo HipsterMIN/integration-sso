@@ -3,6 +3,8 @@ package io.github.hipstermin.idem.gate.infrastructure.jpa.entity;
 import jakarta.persistence.*;
 import java.time.Instant;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Q-Sign auth_result 테이블 JPA 엔티티
@@ -49,8 +51,14 @@ public class AuthResultJpaEntity {
     @Column(name = "authenticated_at")
     private Instant authenticatedAt;
 
+    /**
+     * JSON — PII 마스킹 후 저장. 1.1.4 G2-10: {@code jsonb} 열에 String 을 그대로 바인딩하면 PostgreSQL 이
+     * "column is of type jsonb but expression is of type character varying" 으로 INSERT 를 거부한다(값이 null 이어도) —
+     * Keycloak 중계 로그인의 auth_result 저장이 항상 실패했다. JSON 타입 코드로 바인딩한다({@code ?::jsonb}).
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "claims", columnDefinition = "jsonb")
-    private String claims;  // JSON — PII 마스킹 후 저장
+    private String claims;
 
     @Column(name = "internal_signature", columnDefinition = "text")
     private String internalSignature;  // HMAC-SHA256 서명

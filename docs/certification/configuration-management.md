@@ -63,6 +63,7 @@
 | #271 | 2026-10-13 | G2-7: Spring Boot 4 이행 영향 평가·서드파티 이미지 Trivy 잡·1.1.2 '후' 기록 | 문서·CI |
 | #272 | 2026-10-15 | G2-8: 성능 보고 — 1.1 계약의 k6 시나리오 3종(Handoff 로그인·발급 API+200 tps·OIDC 토큰 교환)·실행기·보고서 양식, 샌드박스 측정 + 측정 중 발견한 감사 유실 결함 2건(V32·`TraceparentFilter`) | 문서·시험 자산·결함 |
 | #273 | 2026-10-15 | 버전 1.1.3 — CHANGELOG [1.1.3]·업그레이드 메모(V32 자동 적용, `X-Correlation-Id` 규격)·시험 항목 재실행 기록(run 38670726832, K8s 리허설·오프라인 설치본은 run 38680800783)·점검 문서 '1.1.3 후' | 릴리스 |
+| #274 | 2026-10-15 | G2-10: Keycloak 26 올림 영향 평가(26.8.1 샌드박스 시험 — 업그레이드·새 설치·스모크·k6 12·브로커 로그인) + 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건(hub 캐시 SpEL·완료 콜백 화이트리스트, gate 주체 키·jsonb 바인딩·`idp_provider` V6) + IT 2종(D-19) | 문서·결함 |
 
 ## 2. 변경 통제
 
@@ -99,6 +100,11 @@
 
 | G2-8 성능 측정 | 코어 로그인 프런트(1.1) 발급의 `handoff_audit.auth_result_id`(VARCHAR(36)) 에 제공자 txId(MOCK 41자)가 안 들어가 감사 INSERT 실패 → 같은 트랜잭션의 outbox(HANDOFF_ISSUED) 적재까지 실패, 둘 다 '무시' 로그로 조용히 유실(발급은 성공) — 1.1.0 부터 | HIGH | #272 — Flyway V32 100자 | IT `HandoffLoginIntegrationTest`(감사·outbox 행 확인) |
 | G2-8 성능 측정 | 호출자 `X-Correlation-Id` 무검증 — 37자 이상이면 `handoff_audit`·`audit_log` 의 correlation_id INSERT 실패 → WAL → 재생 때 제약 위반으로 폐기(감사 유실), outbox 실패. 기관 키를 가진 호출자가 헤더로 감사를 비울 수 있었다 | HIGH(보안) | #272 — `TraceparentFilter` 규격 검사(`[A-Za-z0-9._:-]` 1~36자)·대체 + 요청 래퍼 | UT `TraceparentFilterTest`, IT `HandoffIntegrationTest` |
+| G2-10 Keycloak 26 시험 | hub `ProviderConfigRepository.findByCode` 의 `@Cacheable(unless = "#result.isEmpty()")` — Spring 이 `Optional` 의 `#result` 를 벗겨 넘겨 SpEL 이 항상 던짐 → 브로커 인증 시작(`/api/v1/broker/{provider}/authorize`)이 **항상 500**(모든 브로커 모드·제공자) + 캐시 값에 타입 정보가 없어 적중 시 `LinkedHashMap` — 1.0.0 부터 | HIGH | #274 — `unless = "#result == null"`, `@Jacksonized`, 타입 지정 직렬화기 | IT `BrokerLoginIntegrationTest`(캐시 적중·미캐시) |
+| G2-10 Keycloak 26 시험 | hub 완료 콜백(`/api/internal/v1/oidc/complete`)의 returnUrl 화이트리스트(`idem.hub.fe.allowed-return-urls`, 설치본 미설정)가 hub 자신의 로그인 프런트 continue 주소를 거부 → q-sign 모드 `broker:<name>` 로그인이 `INVALID_RETURN_URL` 로 종료 — 1.1.0 부터 | HIGH | #274 — `isOwnLoginContinueUrl` | UT `OidcCompleteControllerTest`, IT `BrokerLoginIntegrationTest` |
+| G2-10 Keycloak 26 시험 | gate 완료 콜백 본문에 주체 키(`subjectScheme`/`subjectKey`)가 없어 hub 가 거부(`allow-ciless-identity=false` 운영 기본) — 1.0.0 부터 | HIGH | #274 — Keycloak `sub` 를 `EXTERNAL_SUB` 주체 키로 | UT `KeycloakCallbackServicePkceIssuerTest`, IT `BrokerLoginIntegrationTest`(같은 규격으로 호출) |
+| G2-10 Keycloak 26 시험 | gate `auth_result.claims`·`outbox.payload`(jsonb)를 String 으로 바인딩 → PostgreSQL 이 INSERT 거부(값이 null 이어도) → 인증 결과 저장 트랜잭션 롤백 — 1.0.0 부터 | HIGH | #274 — `@JdbcTypeCode(SqlTypes.JSON)` | IT `AuthResultJpaPostgresIntegrationTest`(실제 PostgreSQL + Flyway) |
+| G2-10 Keycloak 26 시험 | gate `idp_provider` 시드에 `KEYCLOAK_OIDC`(Keycloak 계정 직접 로그인)·`PASS_OIDC`·`GPKI_OIDC`(realm IdP 별칭에서 gate 가 만드는 코드) 없음 → FK 위반 — 1.0.0 부터 | MED | #274 — Flyway V6 | IT `AuthResultJpaPostgresIntegrationTest` |
 
 문서 결함(수치·이름 불일치)은 #247·#248·#249 와 각 기능 PR 의 "문서" 항목에, 시험 항목표 집계 정정(68→70→75)은 `test-items.md` 집계 절에 적었다.
 

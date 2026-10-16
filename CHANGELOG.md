@@ -4,7 +4,12 @@
 
 ## [Unreleased]
 
-_(없음)_
+### G2-10 · Keycloak 26 올림 영향 평가 + 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건 (플랜 §7)
+
+- `docs/analysis/keycloak-26-assessment.md`: Keycloak **26.8.1** 을 샌드박스에서 실제로 띄워(24.0.5 스키마 복사본의 자동 마이그레이션 25.0.0→26.8.0, 빈 스키마에 저장소 `realm-export.json` 새 설치) 전체 스택 + 설치본 스모크 ①~⑧·k6 시나리오 12(표준 OIDC 토큰 교환)·브로커(Keycloak 중계) 로그인 끝-끝을 돌렸다. **Idem 코드 변경 없음**. 설치본 계약은 바뀐다 — hostname v1·`KC_PROXY` 제거(26.0) → `KC_HOSTNAME`/`KC_HOSTNAME_ADMIN`/`KC_PROXY_HEADERS=xforwarded`, `KEYCLOAK_ADMIN` → `KC_BOOTSTRAP_ADMIN_*`, compose `start-dev` 는 26.6 부터 localhost 바인드 → `KC_HTTP_HOST=0.0.0.0`, Helm 프로브 `/health/*` 는 관리 포트 9000, 업그레이드 창에 Keycloak 세션 유실. 구 환경변수 그대로 올리면 기동은 되지만 옵션이 무시돼 issuer 가 틀어진다. 권고: **1.2 에서 올림**(Spring Boot 4 와 독립, 먼저) — 결정은 2026-11 회차.
+- **결함(HIGH, Keycloak 중계 로그인 경로 — 1.0.0 부터)**: `/api/v1/broker/{provider}/authorize` → gate → hub 완료 콜백 경로(1.1 로그인 프런트의 `broker:<name>` 포함)가 한 번도 끝까지 간 적이 없었다. ① hub `ProviderConfigRepository` 의 `@Cacheable(unless = "#result.isEmpty()")` — Spring 은 `Optional` 의 `#result` 를 벗겨 넘기므로 SpEL 이 항상 던져 **브로커 시작이 항상 500**(+ 캐시 값에 타입 정보가 없어 적중해도 캐스트 실패) ② hub 완료 콜백의 returnUrl 화이트리스트가 hub 자신의 로그인 프런트 continue 주소를 거부 ③ gate 가 주체 키(`subjectScheme`/`subjectKey`) 없이 완료를 알려 hub 가 거부(운영 기본 `allow-ciless-identity=false`) ④ gate `auth_result.claims`·`outbox.payload` 의 jsonb 바인딩 실패(PostgreSQL 이 INSERT 거부 → 인증 결과 트랜잭션 롤백) ⑤ gate `idp_provider` 에 `KEYCLOAK_OIDC`·`PASS_OIDC`·`GPKI_OIDC` 없음(FK 위반). 수정 + hub IT `BrokerLoginIntegrationTest`(q-sign 모드 끝-끝·캐시 적중·미캐시)·gate IT `AuthResultJpaPostgresIntegrationTest`(실제 PostgreSQL, gate 에 `integrationTest` 태스크 신설)·UT. 시험 항목 **D-19**.
+- DB 변경: gate Flyway **V6**(`idp_provider` 행 3건, 데이터 변환 없음) — gate 첫 기동에서 자동. 설정·API 변경 없음(gate → hub 완료 콜백 본문에 `subjectScheme`/`subjectKey` 가 추가됐으므로 hub·gate 를 같이 올린다).
+- `lombok.config`(루트): `@Jacksonized` 를 Jackson 2 로 고정 — 컴파일 클래스패스에 Jackson 3 가 함께 있어 Lombok 1.18.46 이 내던 "Ambiguous: Jackson2 and Jackson3 exist" 경고.
 
 ## [1.1.3] — 2026-10-15
 

@@ -6,6 +6,8 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Q-Sign Transactional Outbox 레코드 엔티티
@@ -35,6 +37,8 @@ public class QSignOutboxRecord {
     @Column(name = "event_version", nullable = false, updatable = false)
     private Long eventVersion;
 
+    /** 1.1.4 G2-10: jsonb 열 — JSON 타입 코드로 바인딩(String 그대로면 PostgreSQL 이 INSERT 를 거부, auth_result.claims 와 같은 결함) */
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", columnDefinition = "jsonb", nullable = false, updatable = false)
     private String payload;
 

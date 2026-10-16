@@ -2,6 +2,7 @@ package io.github.hipstermin.idem.hub.broker.provider;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.jackson.Jacksonized;
 
 /**
  * IdP 사업자 설정 도메인 모델
@@ -15,9 +16,13 @@ import lombok.Getter;
  *   <li>{@code SEMI_STANDARD_OIDC} — OIDC 부분 준수 (국내 간편인증 등)</li>
  *   <li>{@code NON_STANDARD}       — 독자 프로토콜 (PASS, GPKI, 금융인증서 등)</li>
  * </ul>
+ *
+ * <p>Redis 캐시({@code provider-config}) 값으로 JSON 저장·복원된다 — {@code @Jacksonized} 가 빌더를 Jackson 생성자로 쓴다
+ * (1.1.4 G2-10: 종전에는 복원 생성자가 없어 캐시 적중이 불가능했다).
  */
 @Getter
 @Builder
+@Jacksonized
 public class ProviderConfig {
 
     /** 인증 수단 코드 (PK) — KAKAO_OIDC, PASS, FINANCIAL_CERT 등 */

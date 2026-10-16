@@ -1,4 +1,4 @@
-# Idem 시험 항목표 (초안 — 1.1.1 집계: 1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 14 + 1.1.1 추가 3 = 75항목)
+# Idem 시험 항목표 (초안 — 1.1.4 집계: 1.0 원표 51 + 1.0.1 추가 7 + 1.1 추가 14 + 1.1.1 추가 3 + 1.1.4 추가 1 = 76항목)
 
 > 대상: 시험원(GS 기능 적합성)·QA. 기능 번호는 `product-spec.md` §2. "자동" 열은 저장소의 어느 검사가 이 항목을 **실제로** 돌리는지다 — **CI 스모크** `scripts/ci/install-smoke.sh`(PR 마다 boot jar 실기동), **CI prod** 단계(1.0.1: prod 프로파일·관리 포트), **UT** 단위 테스트(`Build & Unit Test`), **IT** Testcontainers 통합 테스트(로컬 `git push` 전에만 돈다 — CI 는 `DOCKER_UNAVAILABLE=true`), **helm-lint**. `수동` 은 저장소에 자동 검사가 없는 항목이다(3차 점검에서 "E2E 헤드리스 브라우저" 표기가 실제 자동화가 아님을 확인해 1.0.1 에서 재집계). 수동 항목은 GS 시험 때 이 표 순서대로 한다.
 
@@ -74,6 +74,7 @@
 | D-17 | 발급 API 기관 바인딩(1.1) | 기관 A 키로 본문 `agencyCode=B` 발급 | 403 `E-AGENCY-302` | UT(`HandoffControllerTest`) | ✅ [CI #38670726832](https://github.com/HipsterMIN/integration-sso/actions/runs/38670726832) (2026-10-15, PR #272 최종 커밋 = 1.1.3 코드 상태 — 전체 CI) |
 | D-18 | 동의 카탈로그(1.1) | 프로파일 `consent.enabled`, 카탈로그에 필수(공통)·선택(전용) 버전 → 브라우저 진입 → 로그인 → 동의 화면 → 필수 빼고 제출 → 전부 제출 → 콜백; 같은 브라우저로 다시 진입 → 거부 | 발급 대신 동의 화면 200(CSP `form-action 'self'`, 전문 링크는 http(s) 만), 필수 누락은 재표시·기록 없음, 제출 시 registry 기록(`LOGIN_FRONT:<서비스>`)·`callback?ticketId&state`, 같은 제출 재요청 410, 거부는 `callback?error=E-IDO-125`, 감사 `MEMBER/CONSENT_AGREED·CONSENT_DECLINED`; 관리 API 발행 201·범위 밖 종료 404 `E-IM-207`·테넌트 403, 플랫폼 공통은 전역 관리자만 | IT(`HandoffLoginIntegrationTest.consentFlow`) · UT(`HandoffLoginControllerTest`·`ConsentAdminControllerTest`·`ConsentRegistryClientTest`·`SecurityHeadersFilterTest`·`ServiceProfileValidatorTest`·`AdminAuthorizationTest`) · registry UT(`ConsentControllerTest`·`ConsentServiceImplTest`) · 콘솔 UT(`consent.test.ts`·`profile.test.ts`) | ✅ [CI #38670726832](https://github.com/HipsterMIN/integration-sso/actions/runs/38670726832) (2026-10-15, PR #272 최종 커밋 = 1.1.3 코드 상태 — 전체 CI) · 로컬 IT ✅ 2026-10-10 (`HandoffLoginIntegrationTest.consentFlow`, 1.1.2 — CSP form-action 헤더 단언 포함) · 브라우저 E2E ✅ 2026-10-10 (Chromium: 동의 거부·필수 누락·동의 → 콜백 복귀 — 이 캡처가 CSP form-action 결함을 잡았다) |
 | D-15 | SLO IdP 재시도(1.1) | Keycloak 이 세션 종료를 거부하는 상태에서 SLO | gate 502 `X-Idp-Logout-Outcome: FAILED`, hub `slo_idp_logout_retry` 적재 → 백오프 재시도 → DONE, 초과 시 FAILED + 감사 `SLO_IDP_LOGOUT_FAILED` | UT(`InternalSessionControllerTest`·`SloServiceImplIdpTest`·`SloIdpLogoutRetryRelayTest`) | ✅ [CI #38670726832](https://github.com/HipsterMIN/integration-sso/actions/runs/38670726832) (2026-10-15, PR #272 최종 커밋 = 1.1.3 코드 상태 — 전체 CI) |
+| D-19 | Keycloak 중계 로그인(1.0 브로커 경로 · 1.1 로그인 프런트 `broker:<name>`, 1.1.4) | 로그인 프런트 `provider=broker:keycloak` → `/api/v1/broker/keycloak/authorize` → Keycloak 로그인 → gate 콜백 → hub 완료 콜백 → 바인드 → continue → 기관 콜백 | 브로커 시작 302(두 번째 호출은 캐시 적중, `provider_config` 행 없는 제공자는 휴리스틱·미캐시), 완료 콜백 200(hub 자신의 continue 주소 허용, EXTERNAL_SUB 주체 키로 registry 등록), 바인드 302 + `feSessionId` 쿠키, 콜백 `?ticketId=&state=`, verify APPROVED, `handoff_audit` CONSUMED; gate `auth_result`(`KEYCLOAK_OIDC`, claims jsonb)·outbox(payload jsonb) 저장, `idp_provider` 에 `KEYCLOAK_OIDC`·`PASS_OIDC`·`GPKI_OIDC`(V6) | IT(`BrokerLoginIntegrationTest` q-sign 모드 — gate 는 WireMock, 완료 콜백은 내부 서명으로 직접 호출; gate `AuthResultJpaPostgresIntegrationTest` 실제 PostgreSQL + Flyway) · UT(`OidcCompleteControllerTest`·`KeycloakCallbackServicePkceIssuerTest`) | 로컬 IT ✅ 2026-10-15 (hub 3 + gate 3 테스트, 1.1.3 + G2-10 코드) · 샌드박스 끝-끝 프로브 ✅ 2026-10-15 (Keycloak 26.8.1 2회 · 24.0.5 2회 — `docs/analysis/keycloak-26-assessment.md` §5.5) |
 
 ## E. 회원 원장·전파 (F8~F13)
 
@@ -126,9 +127,10 @@ k6 스모크(CI `k6 Smoke Test`)가 헬스·제공자 목록·MOCK 라운드트�
 | 1.0.1 추가 | 7 (A-7, B-11, B-12, C-8, D-13, D-14, G-7) | 7 | 7 | 0 | 0 |
 | 1.1 추가 | 14 (A-8, B-13, B-14, D-15, D-16, D-17, D-18, F-5, F-6, F-7, F-8, G-8, G-9, G-10) | 14 | 11 (A-8, B-13, B-14, D-15, D-16, D-17, F-5, F-6, F-8, G-8, G-9) | 3 (D-18, F-7, G-10) | 0 (G-9 의 LLM 끝-끝은 수동) |
 | 1.1.1 추가 | 3 (B-15, B-16, B-17) | 3 | 3 (B-15, B-16, B-17) | 0 | 0 (B-2 의 QR 끝-끝은 B-2 수동 부분) |
-| **합계** | **75** | **66** | **59** | **7** | **9** |
+| 1.1.4 추가 | 1 (D-19) | 1 | 0 | 1 (D-19) | 0 |
+| **합계** | **76** | **67** | **59** | **8** | **9** |
 
-1.1.1 G2 재집계(2026-10-09): 1.1 추가 행은 9 가 아니라 **14** 였다 — B-13·B-14·D-15·F-5·F-6 이 "(1.1)" 로 표에는 있었으나 집계에 빠져 있었다. 종전 "68항목"·"70항목" 표기는 표 행 수와 달랐고, 이제 집계는 표에서 세어 낸 값이다(`grep -c "^| [A-G]-" test-items.md` = 75).
+1.1.1 G2 재집계(2026-10-09): 1.1 추가 행은 9 가 아니라 **14** 였다 — B-13·B-14·D-15·F-5·F-6 이 "(1.1)" 로 표에는 있었으나 집계에 빠져 있었다. 종전 "68항목"·"70항목" 표기는 표 행 수와 달랐고, 이제 집계는 표에서 세어 낸 값이다(`grep -c "^| [A-G]-" test-items.md` = 76 — 1.1.4 G2-10 에서 D-19 추가).
 
 **실행 결과 열(1.1.3, G2 산출물)**: 자동 항목은 1.1.3 코드 상태의 CI(PR #272 최종 커밋 run 38670726832 — 1.1.3 버전 커밋과 버전 문자열만 다르다; K8s 리허설·오프라인 설치본 잡은 거기서 건너뛰었고 버전 커밋 PR #273 의 run 38680800783 에서 돌았다 → A-8·G-6 은 그 run)와 2026-10-15 로컬 IT(`HandoffIntegrationTest`·`HandoffLoginIntegrationTest` — 1.1.3 결함 수정의 감사·outbox 행 확인이 추가됐다)로 갱신했다. 1.1.2 때는 PR #269 run 38029938285, 1.1.1 때는 PR #264 run 37926324522 — Build & Unit Test·k6 스모크(설치본 스모크 ①~⑧c·백업/복구·prod 단계)·Helm lint·docker build 9종·K8s 리허설·오프라인 설치본 검증)와 이 세션에서 돌린 로컬 IT 로 채웠다. 수동 항목과 나머지 로컬 IT 는 G1-1(사용자 환경·`git push` 훅)에서 채운다 — GS 시험 때는 이 열을 시험원 실행 결과로 바꾼다. 1.1.2 의 로컬 IT 는 2026-10-10 에 hub 14 클래스 54 테스트 + KR hub 7 테스트를 샌드박스 PG·Redis(Testcontainers 대신 로컬 인스턴스)로 재실행해 실패 0 — 클래스가 특정된 행에 적었다.
 

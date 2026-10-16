@@ -141,4 +141,19 @@ class KeycloakCallbackServicePkceIssuerTest {
         verify(rest).exchange(anyString(), eq(HttpMethod.POST), form.capture(), eq(KeycloakTokenResponse.class));
         assertThat(form.getValue().getBody().containsKey("code_verifier")).isFalse();
     }
+
+    @Test
+    @DisplayName("1.1.4: hub 완료 호출에 EXTERNAL_SUB 주체 키(Keycloak sub)·idpSub·idpSid 가 실린다 — 주체 키 없는 요청은 hub 가 거부한다")
+    void hubCompleteCarriesSubjectKey() throws Exception {
+        given(jwks.verify("h.p.s", "cid-1")).willReturn(claims("http://keycloak:8080/realms/idem"));
+
+        sut.handleCallback("code-1", "st");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<HttpEntity<Map<String, Object>>> entity = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(rest).exchange(eq("http://hub/api/internal/v1/oidc/complete"), eq(HttpMethod.POST), entity.capture(), eq(Map.class));
+        Map<String, Object> body = entity.getValue().getBody();
+        assertThat(body).containsEntry("subjectScheme", "EXTERNAL_SUB").containsEntry("subjectKey", "kc-sub")
+                .containsEntry("idpSub", "kc-sub").containsEntry("idpSid", "sid-1").containsKey("identifierHash");
+    }
 }
