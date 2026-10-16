@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### G2-17 · G-5 운영 DB 복구 리허설을 CI 스모크에 (플랜 §3 후속)
+
+- CI `k6 Smoke Test` 잡에 **"운영 DB 복구 리허설"** 단계 — 설치 매뉴얼 §6 의 운영 절차 그대로: 앱 정지 → `scripts/ops/restore.sh` 로 운영 DB `idem` 를 직전 백업으로 복구(접속 0 확인·DROP·CREATE·pg_restore·ANALYZE) → 첫 기동과 같은 레시피로 재기동 → 헬스 4종·Discovery·기존 관리자 로그인(첫 스모크가 바꾼 비밀번호 + 등록한 2단계 비밀, 러너 임시 파일 0600)·복구된 기관 목록 → 이어지는 k6 스모크가 복구된 DB 로 라운드트립. 시험 항목 **G-5** 의 수동 부분이 CI 로 — 집계 **자동 73 → 74(CI 61 → 62)·수동 3 → 2**. 샌드박스에서 `TARGET=direct` 로 같은 절차를 먼저 1회(주요 표 7개 행 수 일치, 재기동 뒤 관리자·RP 로그인 13/13).
+- `scripts/ci/start-apps.sh`: registry·authz·gate·hub 기동 레시피를 ci.yml 에서 스크립트로 추출(첫 기동·재기동이 같은 파일). 설치본 계약(환경변수 이름)은 그대로. 제품 코드 변경 없음.
+
 ### G2-16 · D-8 SLO 끝-끝 프로브 (플랜 §3 후속)
 
 - `scripts/dev/slo-probe.py`(표준 라이브러리, 비밀 비출력): 기관 RP 둘을 브라우저 없이 흉내 내 RP-Initiated Logout 을 끝까지 밟고 13 단계를 판정한다 — RP1 로그인(gate 프런트·PKCE → Keycloak 화면 → 토큰 교환·userinfo) → RP2 는 같은 쿠키로 SSO(같은 sid) → RP1 이 `end_session_endpoint` 로 로그아웃 → RP2 의 `backchannelLogoutUri` 에 `logout_token`(events·aud·sid) 수신 → Keycloak 관리 API 세션 0 → RP1·RP2 의 옛 access_token 은 401. 샌드박스 실스택(Keycloak 24.0.5·gate·hub)에서 13/13 — 시험 항목표 D-8 실행 결과에 기록(수동 분류는 그대로, 시험 환경에서 같은 스크립트를 한 번 더). 제품 코드 변경 없음.
