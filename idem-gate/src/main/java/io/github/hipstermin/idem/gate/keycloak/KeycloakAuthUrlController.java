@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.*;
  * <ul>
  *   <li>authorizationUrl 은 Keycloak 주소({@code keycloak.base-url/realms/...}) 로 시작해야 한다.</li>
  *   <li>kauth.kakao.com, nid.naver.com 등 외부 IdP URL 이 포함되어서는 안 된다.</li>
- *   <li>{@code kc_idp_hint} 파라미터가 반드시 포함되어야 한다.</li>
+ *   <li>{@code kc_idp_hint} 파라미터는 provider 가 {@code idp-hint-mapping} 에 있을 때만 포함된다(1.1.5 G2-12 — 매핑 없는 이름은 Keycloak 로그인 화면으로).</li>
  * </ul>
  *
  * <p>호출자: ido (내부 서비스, X-Internal-Caller: ido)
@@ -110,11 +110,11 @@ public class KeycloakAuthUrlController {
      *     &scope=openid profile email
      *     &state={state}
      *     &nonce={nonce}
-     *     &kc_idp_hint={social-kakao|social-naver|...}
+     *     &kc_idp_hint={social-kakao|social-naver|...}   (매핑이 있을 때만)
      * </pre>
      *
      * @param stateEntry 생성된 state/nonce 엔트리
-     * @param idpHint    Keycloak kc_idp_hint 값 (예: "social-kakao")
+     * @param idpHint    Keycloak kc_idp_hint 값 (예: "social-kakao"), 매핑이 없으면 null — 파라미터를 붙이지 않는다
      * @return 완성된 Keycloak Authorization URL
      */
     private String buildKeycloakAuthUrl(KeycloakStateEntry stateEntry, String idpHint) {
@@ -127,8 +127,10 @@ public class KeycloakAuthUrlController {
                 + "&redirect_uri=" + redirectUri
                 + "&scope="        + scope
                 + "&state="        + stateEntry.getState()
-                + "&nonce="        + stateEntry.getNonce()
-                + "&kc_idp_hint="  + encode(idpHint);
+                + "&nonce="        + stateEntry.getNonce();
+        if (idpHint != null && !idpHint.isBlank()) {
+            url += "&kc_idp_hint=" + encode(idpHint);
+        }
         // D3: PKCE S256 — state 에 묶인 verifier 의 challenge. 콜백 token 교환이 같은 verifier 를 낸다
         if (stateEntry.getCodeVerifier() != null) {
             url += "&code_challenge=" + codeChallengeOf(stateEntry.getCodeVerifier()) + "&code_challenge_method=S256";

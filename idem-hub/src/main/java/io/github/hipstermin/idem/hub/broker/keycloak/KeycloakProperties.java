@@ -125,11 +125,15 @@ public class KeycloakProperties {
     }
 
     /**
-     * provider 코드(kakao/naver)에 대응하는 kc_idp_hint 반환
-     * 매핑이 없으면 provider 값 그대로 반환 (안전한 fallback)
+     * provider 코드(kakao/naver)에 대응하는 kc_idp_hint 반환 — 매핑이 없으면 {@code null}(파라미터를 붙이지 않는다).
+     *
+     * <p>1.1.5 G2-12: 종전에는 provider 값을 그대로 돌려줘 realm 에 없는 별칭이 {@code kc_idp_hint} 로 실렸다
+     * (Keycloak 26 은 로그인마다 WARN, 24 는 조용히 무시). gate 의 {@code KeycloakProperties#resolveIdpHint} 와 같은 규칙.
      */
     public String resolveIdpHint(String provider) {
-        return idpHintMapping.getOrDefault(provider, provider);
+        if (provider == null || provider.isBlank() || idpHintMapping == null) return null;
+        String hint = idpHintMapping.get(provider);
+        return hint != null ? hint : idpHintMapping.get(provider.toLowerCase());
     }
 
     /**

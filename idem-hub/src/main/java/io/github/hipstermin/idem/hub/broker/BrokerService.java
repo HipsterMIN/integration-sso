@@ -307,7 +307,7 @@ public class BrokerService {
                 .queryParam("scope",         "openid profile email")
                 .queryParam("state",         entry.getState())
                 .queryParam("nonce",         entry.getNonce())
-                .queryParam("kc_idp_hint",   idpHint)
+                .queryParamIfPresent("kc_idp_hint", Optional.ofNullable(idpHint))   // G2-12: 매핑 없는 이름은 붙이지 않는다
                 .build(false)
                 .toUriString();
 

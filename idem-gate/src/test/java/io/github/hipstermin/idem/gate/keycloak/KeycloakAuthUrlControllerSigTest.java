@@ -61,6 +61,19 @@ class KeycloakAuthUrlControllerSigTest {
     }
 
     @Test
+    @DisplayName("1.1.5 G2-12: idp-hint-mapping 에 없는 이름(broker:keycloak 등)은 kc_idp_hint 를 붙이지 않는다 — Keycloak 로그인 화면으로")
+    void unmappedProvider_noIdpHint() throws Exception {
+        given(verifier.verify("good", "cid-2")).willReturn(true);
+        KeycloakStateEntry entry = KeycloakStateEntry.builder().state("st").nonce("nc").build();
+        given(stateStore.create(anyString(), anyString(), anyString(), anyString())).willReturn(entry);
+        mvc.perform(post("/api/v1/oidc/keycloak/auth-url").contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Internal-Sig", "good").content("{\"correlationId\":\"cid-2\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authorizationUrl").value(org.hamcrest.Matchers.startsWith("http://kc/realms/idem/protocol/openid-connect/auth?response_type=code")))
+                .andExpect(jsonPath("$.authorizationUrl").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("kc_idp_hint"))));
+    }
+
+    @Test
     @DisplayName("[D3] state 에 code_verifier 가 있으면 code_challenge(S256) 가 URL 에 붙는다")
     void pkceChallengeInUrl() throws Exception {
         given(verifier.verify("good", "cid-1")).willReturn(true);

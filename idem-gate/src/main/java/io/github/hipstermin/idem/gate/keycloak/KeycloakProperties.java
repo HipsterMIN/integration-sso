@@ -143,14 +143,18 @@ public class KeycloakProperties {
 
     /**
      * provider 이름에서 Keycloak kc_idp_hint 값을 조회한다.
-     * idpHintMapping 에 없으면 provider 원문을 그대로 반환한다.
+     *
+     * <p>1.1.5 G2-12: {@code idpHintMapping} 에 없는 이름이면 {@code null} — 호출자는 {@code kc_idp_hint} 를 붙이지 않는다.
+     * 종전에는 provider 원문을 그대로 돌려줘 {@code kc_idp_hint=keycloak} 처럼 realm 에 없는 별칭이 실렸고,
+     * Keycloak 26 은 로그인마다 {@code Provider not found or not enabled} WARN 을 남기며 무시했다(24 는 조용히 무시).
+     * 별칭이 없는 이름(코어 로그인 프런트의 {@code broker:keycloak} = Keycloak 계정 직접 로그인)은 Keycloak 의 로그인 화면으로 간다.
      *
      * @param provider ido 가 전달한 provider 식별자 (예: "kakao")
-     * @return Keycloak IdP alias (예: "social-kakao")
+     * @return Keycloak IdP alias (예: "social-kakao"), 매핑이 없으면 {@code null}
      */
     public String resolveIdpHint(String provider) {
-        if (provider == null) return "";
-        return idpHintMapping.getOrDefault(provider.toLowerCase(), provider);
+        if (provider == null || provider.isBlank()) return null;
+        return idpHintMapping.get(provider.toLowerCase());
     }
 
     // ── 부팅 시 안전 검증 (Sprint γ-1 / F2.1) ─────────────────────────────────

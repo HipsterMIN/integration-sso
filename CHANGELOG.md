@@ -4,7 +4,10 @@
 
 ## [Unreleased]
 
-_(없음)_
+### G2-12 · G2 잔여 정리 + `kc_idp_hint` 정리 (플랜 §3·§7 후속)
+
+- **hub·gate — 매핑 없는 브로커 이름은 `kc_idp_hint` 를 붙이지 않는다(LOW)**: `idp-hint-mapping`(kakao→social-kakao 등)에 없는 이름(코어 로그인 프런트의 `broker:keycloak` = Keycloak 계정 직접 로그인)도 종전에는 이름 그대로 `kc_idp_hint` 에 실려 realm 에 없는 별칭이 갔다 — Keycloak 24 는 조용히 무시, 26 은 로그인마다 `Provider not found or not enabled` WARN(Keycloak 26 시험에서 관찰). 이제 매핑이 있을 때만 붙인다(gate `KeycloakProperties.resolveIdpHint`·`KeycloakAuthUrlController`, hub `KeycloakProperties.resolveIdpHint`·`BrokerService`). 매핑된 이름(kakao·naver·pass·gpki)의 동작은 그대로. UT `KeycloakAuthUrlControllerSigTest`(+1)·`KeycloakPropertiesTest`(hub, 신규).
+- 형상·결함 관리 §3.3: 결함 밀도 산식을 76항목으로, AI 조사·리허설·캡처·측정·시험(1.0.1 → 1.1.4)이 찾은 제품 결함 17건의 참고 밀도(0.22) 행 추가. 설치 매뉴얼 §3: CI 러너 기준 소요 시간 참고치. 설정·API·DB 변경 없음.
 
 ## [1.1.4] — 2026-10-16
 
