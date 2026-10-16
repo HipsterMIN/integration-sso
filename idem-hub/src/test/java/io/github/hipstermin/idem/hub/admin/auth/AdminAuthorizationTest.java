@@ -15,6 +15,19 @@ class AdminAuthorizationTest {
     final AdminPrincipal tenantSys = new AdminPrincipal("4", "tsys", AdminRole.SYSTEM_ADMIN, "T1", "s", false);
 
     @Test
+    @DisplayName("G-2 감사 불변: /api/v1/admin/audit/** 쓰기는 어떤 역할·범위도 불허, 읽기는 전 역할")
+    void auditIsReadOnlyForEveryRole() {
+        for (AdminPrincipal p : new AdminPrincipal[] {system, policy, auditor, tenantSys}) {
+            for (String path : new String[] {"/api/v1/admin/audit", "/api/v1/admin/audit/a1"}) {
+                assertThat(sut.allowed(p, "GET", path)).as(p.username() + " GET " + path).isTrue();
+                for (String m : new String[] {"PUT", "POST", "DELETE", "PATCH"}) {
+                    assertThat(sut.allowed(p, m, path)).as(p.username() + " " + m + " " + path).isFalse();
+                }
+            }
+        }
+    }
+
+    @Test
     void auditorIsReadOnlyExceptSelfService() {
         assertThat(sut.allowed(auditor, "GET", "/api/v1/admin/services/A/profile")).isTrue();
         assertThat(sut.allowed(auditor, "PUT", "/api/v1/admin/services/A/profile")).isFalse();
