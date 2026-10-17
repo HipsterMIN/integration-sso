@@ -15,7 +15,7 @@ _(없음)_
 - **설정·API·DB 변경 없음**. 이미지 태그만 바꾼다(compose `IDEM_VERSION=1.1.5`, Helm `global.imageTag`). registry·authz·콘솔은 1.1.4 와 코드 차이 없음(버전 문자열만) — hub·gate 만 G2-12 변경.
 - **동작 변화(hub·gate, G2-12)**: `idp-hint-mapping` 에 없는 브로커 이름(코어 로그인 프런트의 `broker:keycloak` 등)은 Keycloak authorize 요청에 `kc_idp_hint` 를 붙이지 않는다 — Keycloak 24 는 종전에도 조용히 무시했고(동작 동일), 26 은 로그인마다 WARN 을 남기던 값. 매핑된 이름(kakao·naver·pass·gpki)은 그대로.
 - **SDK**: `idem-sdk-java 1.1.5` — 코드 변경 없음.
-- **검증**: 1.1.5 코드 상태의 CI(PR #281 최종 커밋 run 38866996154 — Build & Unit Test·프런트엔드 두 벌·k6 스모크 ①~⑧c + 백업·복구 + 운영 DB 복구 리허설·Docker Build Check 9종·Helm lint·문서 정합성·이관 도구 UT; 차트·번들 스크립트의 버전 문자열이 바뀌는 버전 커밋 PR #282 에서 K8s 리허설·오프라인 설치본 검증이 돈다) + 시험 항목표 재실행 기록(`docs/manuals/test-items.md` — 자동 74·수동 2) + 로컬 IT(hub 5종·KR registry 1종, 2026-10-16) + 샌드박스 끝-끝(SLO 프로브 13/13, 운영 DB 복구 리허설).
+- **검증**: 1.1.5 코드 상태의 CI(PR #281 최종 커밋 run 38866996154 — Build & Unit Test·프런트엔드 두 벌·k6 스모크 ①~⑧c + 백업·복구 + 운영 DB 복구 리허설·Docker Build Check 9종·Helm lint·문서 정합성·이관 도구 UT; 차트·번들 스크립트의 버전 문자열이 바뀐 버전 커밋 PR #282 의 run 39015412056 에서 K8s 리허설·오프라인 설치본 검증까지 통과) + 시험 항목표 재실행 기록(`docs/manuals/test-items.md` — 자동 74·수동 2) + 로컬 IT(hub 5종·KR registry 1종, 2026-10-16) + 샌드박스 끝-끝(SLO 프로브 13/13, 운영 DB 복구 리허설).
 
 ### G2-17 · G-5 운영 DB 복구 리허설을 CI 스모크에 (플랜 §3 후속)
 
