@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+_(없음)_
+
+## [1.1.5] — 2026-10-17
+
+1.1.4 의 **결함 패치(LOW) + 시험 자동화**다(플랜 §4 — 기능 추가 없음, 설정·API·DB 변경 없음): PR-G2-12 #276(매핑 없는 브로커 이름의 `kc_idp_hint`, LOW — hub·gate 코드 변경은 이것뿐) + 시험 항목표 수동 항목 자동화 PR-G2-13~G2-17 #277~#281(테스트·CI·도구·문서 — 자동 67 → 74, 수동 9 → 2). 태그 `v1.1.5`.
+
+### 1.1.5 업그레이드 메모
+
+- **설정·API·DB 변경 없음**. 이미지 태그만 바꾼다(compose `IDEM_VERSION=1.1.5`, Helm `global.imageTag`). registry·authz·콘솔은 1.1.4 와 코드 차이 없음(버전 문자열만) — hub·gate 만 G2-12 변경.
+- **동작 변화(hub·gate, G2-12)**: `idp-hint-mapping` 에 없는 브로커 이름(코어 로그인 프런트의 `broker:keycloak` 등)은 Keycloak authorize 요청에 `kc_idp_hint` 를 붙이지 않는다 — Keycloak 24 는 종전에도 조용히 무시했고(동작 동일), 26 은 로그인마다 WARN 을 남기던 값. 매핑된 이름(kakao·naver·pass·gpki)은 그대로.
+- **SDK**: `idem-sdk-java 1.1.5` — 코드 변경 없음.
+- **검증**: 1.1.5 코드 상태의 CI(PR #281 최종 커밋 run 38866996154 — Build & Unit Test·프런트엔드 두 벌·k6 스모크 ①~⑧c + 백업·복구 + 운영 DB 복구 리허설·Docker Build Check 9종·Helm lint·문서 정합성·이관 도구 UT; 차트·번들 스크립트의 버전 문자열이 바뀐 버전 커밋 PR #282 의 run 39015412056 에서 K8s 리허설·오프라인 설치본 검증까지 통과) + 시험 항목표 재실행 기록(`docs/manuals/test-items.md` — 자동 74·수동 2) + 로컬 IT(hub 5종·KR registry 1종, 2026-10-16) + 샌드박스 끝-끝(SLO 프로브 13/13, 운영 DB 복구 리허설).
+
 ### G2-17 · G-5 운영 DB 복구 리허설을 CI 스모크에 (플랜 §3 후속)
 
 - CI `k6 Smoke Test` 잡에 **"운영 DB 복구 리허설"** 단계 — 설치 매뉴얼 §6 의 운영 절차 그대로: 앱 정지 → `scripts/ops/restore.sh` 로 운영 DB `idem` 를 직전 백업으로 복구(접속 0 확인·DROP·CREATE·pg_restore·ANALYZE) → 첫 기동과 같은 레시피로 재기동 → 헬스 4종·Discovery·기존 관리자 로그인(첫 스모크가 바꾼 비밀번호 + 등록한 2단계 비밀, 러너 임시 파일 0600)·복구된 기관 목록 → 이어지는 k6 스모크가 복구된 DB 로 라운드트립. 시험 항목 **G-5** 의 수동 부분이 CI 로 — 집계 **자동 73 → 74(CI 61 → 62)·수동 3 → 2**. 샌드박스에서 `TARGET=direct` 로 같은 절차를 먼저 1회(주요 표 7개 행 수 일치, 재기동 뒤 관리자·RP 로그인 13/13).

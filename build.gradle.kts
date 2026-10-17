@@ -19,7 +19,7 @@ plugins {
 // ── 전체 공통 설정 ────────────────────────────────────────────────────────────
 allprojects {
     group   = "io.github.hipstermin.idem"
-    version = "1.1.4"   // 1.1.4: 결함 패치 — G2-10 Keycloak 26 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건(hub 캐시 SpEL·완료 콜백 화이트리스트, gate 주체 키·jsonb·V6) + Keycloak 26 올림 영향 평가 (#274, 릴리스 태그 v1.1.4); 1.1.3 은 G2-7·G2-8 (#271~#272), 1.1.2 는 G2-2~G2-5 (#266~#269)
+    version = "1.1.5"   // 1.1.5: 결함 패치(LOW) + 시험 자동화 — G2-12 kc_idp_hint 정리 + G2-13~G2-17 시험 항목 자동화·CI 운영 DB 복구 리허설·SLO 프로브 (#276~#281, 릴리스 태그 v1.1.5); 1.1.4 는 G2-10 Keycloak 26 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건(hub 캐시 SpEL·완료 콜백 화이트리스트, gate 주체 키·jsonb·V6) + Keycloak 26 올림 영향 평가 (#274, 릴리스 태그 v1.1.4); 1.1.3 은 G2-7·G2-8 (#271~#272), 1.1.2 는 G2-2~G2-5 (#266~#269)
 
     repositories {
         mavenCentral()
