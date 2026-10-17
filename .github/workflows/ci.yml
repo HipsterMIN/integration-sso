@@ -408,52 +408,19 @@ jobs:
           done
           echo "❌ Keycloak 기동 실패"; docker logs idem-keycloak | tail -50; exit 1
 
-      - name: registry·authz·gate·hub 기동 (compose.install.yml 의 환경변수 이름 그대로)
+      - name: registry·authz·gate·hub 기동 (compose.install.yml 의 환경변수 이름 그대로 — scripts/ci/start-apps.sh)
         run: |
-          mkdir -p /tmp/idem
-          jar() { find "$1/build/libs" -name "$1-*.jar" -not -name "*-plain.jar" -not -name "*-test-fixtures.jar" | head -1; }
-          # x-app-common
-          export DB_HOST=localhost DB_PORT=5432 DB_NAME=idem DB_USERNAME=idem DB_PASSWORD=idem DB_SSLMODE=disable
-          export REDIS_HOST=localhost REDIS_PORT=6379 IDEM_KAFKA_ENABLED=false TZ=Asia/Seoul SPRING_PROFILES_ACTIVE=prod   # 1.0.1: 설치본과 같은 prod 프로파일
-          # registry
-          IDEM_REGISTRY_DB_HOST=localhost IDEM_REGISTRY_DB_PORT=5432 IDEM_REGISTRY_DB_NAME=idem IDEM_REGISTRY_DB_SCHEMA=idem_registry IDEM_REGISTRY_DB_USERNAME=idem IDEM_REGISTRY_DB_PASSWORD=idem IDEM_REGISTRY_DB_SSL=false \
-            nohup java -Xmx512m -jar "$(jar idem-registry)" --server.port=8082 > /tmp/idem/registry.log 2>&1 &
-          # authz
-          nohup java -Xmx384m -jar "$(jar idem-authz)" --server.port=8086 > /tmp/idem/authz.log 2>&1 &
-          # gate
-          IDEM_HUB_BASE_URL=http://localhost:8083 KEYCLOAK_URL=http://localhost:8088 KEYCLOAK_REALM=idem IDEM_GATE_KEYCLOAK_CLIENT_ID=idem-gate \
-            IDEM_GATE_KEYCLOAK_REDIRECT_URI=http://localhost:8081/api/v1/oidc/keycloak/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
-            nohup java -Xmx512m -jar "$(jar idem-gate)" --server.port=8081 > /tmp/idem/gate.log 2>&1 &
-          # hub
-          IDEM_REGISTRY_BASE_URL=http://localhost:8082 IDEM_GATE_BASE_URL=http://localhost:8081 IDEM_HUB_AUTHZ_BASE_URL=http://localhost:8086 \
-            IDEM_HUB_REGISTRY_INTERNAL_API_KEY="$IDEM_REGISTRY_INTERNAL_API_KEY" IDEM_HUB_AUTHZ_INTERNAL_API_KEY="$IDEM_AUTHZ_INTERNAL_API_KEY" \
-            IDEM_HUB_BROKER_MODE=qsign KEYCLOAK_BASE_URL=http://localhost:8088 KEYCLOAK_REALM=idem KEYCLOAK_CLIENT_ID=idem-hub \
-            KEYCLOAK_REDIRECT_URI=http://localhost:8083/api/v1/broker/callback IDEM_PUBLIC_URL_GATE=http://localhost:8081 \
-            IDEM_PLATFORM_CODE=IDEM IDEM_PLUGINS_NICE_OACX_ENABLED=false IDEM_PLUGINS_ANYID_ENABLED=false \
-            IDEM_HUB_KMS_ENABLED=true IDEM_HUB_KMS_PROVIDER=local \
-            CORS_ORIGIN_DEV=http://localhost:3001 CORS_ORIGIN_PROD=http://localhost:3001 \
-            SPRING_PROFILES_ACTIVE=default \
-            nohup java -Xmx768m -jar "$(jar idem-hub)" --server.port=8083 > /tmp/idem/hub.log 2>&1 &
-          # hub 만 기본 프로파일: 스모크가 Mock 제공자(IDEM_PLUGINS_MOCK_AUTH_ENABLED=true)를 쓰는데 prod 는 fail-secure 가드가 Mock 을 거부한다(docs/install.md §5 와 같은 절차).
-          # hub 의 prod 프로파일은 아래 "hub prod 프로파일 기동" 단계가 Mock 없이 따로 확인한다
-          # bash -e: 연결 거부(curl 종료 7)가 스크립트를 끝내지 않도록 || true
-          for i in $(seq 1 90); do
-            r=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8082/actuator/health || true)
-            a=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8086/actuator/health || true)
-            g=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8081/actuator/health || true)
-            h=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8083/actuator/health || true)
-            if [ "$r$a$g$h" = "200200200200" ]; then echo "✅ registry·authz·gate·hub UP (${i}x3s)"; exit 0; fi
-            sleep 3
-          done
-          echo "❌ 기동 실패: registry=$r authz=$a gate=$g hub=$h"
-          for n in registry authz gate hub; do echo "──── $n ────"; grep -m5 -iE "error|exception|Caused by" /tmp/idem/$n.log | cut -c1-400; done
-          exit 1
+          # 레시피는 scripts/ci/start-apps.sh 하나다 — 아래 "운영 DB 복구 리허설" 단계가 같은 스크립트로 재기동한다 (G2-17)
+          LOG_DIR=/tmp/idem scripts/ci/start-apps.sh
 
       - name: 설치본 스모크 (scripts/ci/install-smoke.sh — 관리자 로그인(2단계)·온보딩·감사까지)
         run: |
           # 첫 로그인 비밀번호 변경(S7)에 쓸 1회용 값 — 로그에 남지 않도록 마스킹
           export IDEM_ADMIN_NEW_PASSWORD="Ci-$(openssl rand -hex 12)-Bb"
           echo "::add-mask::$IDEM_ADMIN_NEW_PASSWORD"
+          # 복구 리허설 단계(G-5)가 같은 관리자로 다시 로그인한다 — 바뀐 비밀번호와 등록된 2단계 비밀을 러너 임시 파일(0600)에 둔다
+          mkdir -p /tmp/idem; (umask 077; printf '%s' "$IDEM_ADMIN_NEW_PASSWORD" > /tmp/idem/admin-new-pw)
+          export IDEM_ADMIN_TOTP_SECRET_FILE=/tmp/idem/admin-totp
           IDEM_EDITION=core scripts/ci/install-smoke.sh
 
       - name: "백업·복구 (scripts/ops — pg_dump → 새 DB 에 복구 → 표·행 수 대조; 시험 항목 G-5 의 자동 부분)"
@@ -464,6 +431,25 @@ jobs:
           export TARGET=docker CONTAINER PGUSER=idem OUT_DIR=/tmp/idem-backup
           scripts/ops/backup.sh
           TARGET_DB=idem_restore_check VERIFY_SOURCE_DB=idem YES=1 scripts/ops/restore.sh /tmp/idem-backup/idem-idem-*.dump
+
+      - name: "운영 DB 복구 리허설 (앱 정지 → 운영 DB idem 를 덤프로 복구 → 재기동 → Discovery·기존 관리자 로그인·기관 목록; 시험 항목 G-5 의 수동 부분 = 설치 매뉴얼 §6 절차, G2-17)"
+        run: |
+          # ① 앱 정지 — restore.sh 는 살아 있는 접속이 있으면 멈추므로 FORCE 없이 정석대로. CI 의 Keycloak 은 자체 dev DB(H2)라 PostgreSQL 접속이 없다(compose 설치본은 Keycloak 도 내린다 — §6)
+          pkill -f 'idem-(registry|authz|gate|hub)-.*\.jar' || true
+          for i in $(seq 1 30); do pgrep -f '^java .*idem-(registry|authz|gate|hub)-' >/dev/null || break; sleep 1; done
+          pgrep -f '^java .*idem-(registry|authz|gate|hub)-' >/dev/null && { echo "❌ 앱이 ${i}초 안에 내려가지 않았다"; exit 1; } || echo "✅ 앱 정지 (${i}s)"
+          # ② 운영 DB 복구 (체크섬 → 접속 0 확인 → DROP → CREATE → pg_restore → ANALYZE → 요약)
+          CONTAINER=$(docker ps -q --filter ancestor=postgres:16-alpine | head -1)
+          TARGET=docker CONTAINER=$CONTAINER PGUSER=idem TARGET_DB=idem YES=1 scripts/ops/restore.sh /tmp/idem-backup/idem-idem-*.dump
+          # ③ 재기동 — 첫 기동과 같은 레시피 (헬스 4종까지 본다)
+          LOG_DIR=/tmp/idem scripts/ci/start-apps.sh
+          # ④ 판정 — Discovery, 기존 관리자(첫 스모크가 바꾼 비밀번호 + 등록한 2단계 비밀) 로그인, 복구된 기관 목록. 라운드트립은 이어지는 k6 스모크가 복구된 DB 로 돈다
+          iss=$(curl -sf http://localhost:8081/realms/idem/.well-known/openid-configuration | jq -r '.issuer')
+          [ "$iss" = "http://localhost:8081/realms/idem" ] && echo "✅ discovery issuer = $iss" || { echo "❌ issuer $iss"; exit 1; }
+          export HUB_URL=http://localhost:8083 IDEM_ADMIN_PASSWORD="$(cat /tmp/idem/admin-new-pw)" IDEM_ADMIN_TOTP_SECRET_FILE=/tmp/idem/admin-totp
+          SID=$(scripts/lib/admin-login.sh) && echo "✅ 복구 뒤 기존 관리자 로그인(2단계)" || { echo "❌ 복구 뒤 관리자 로그인 실패"; exit 1; }
+          n=$(curl -sf "$HUB_URL/api/v1/admin/agencies?size=100" -H "Cookie: idemAdminSid=$SID" -H 'X-Requested-With: ci-restore' | jq '.items | length')
+          [ "${n:-0}" -ge 1 ] && echo "✅ 복구된 기관 목록 $n" || { echo "❌ 복구된 기관 목록이 비어 있다"; exit 1; }
 
       - name: k6 설치
         run: |
