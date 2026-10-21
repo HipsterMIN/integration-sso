@@ -104,6 +104,7 @@ RUN --mount=type=cache,target=/root/.gradle \
 
 # ── Stage 3: Runtime ─────────────────────────────────────────────────────────
 FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine AS runtime
+# 1.1.6 G2-19: 런타임 단계는 apk upgrade 로 alpine 패키지 수정을 빌드 때 받는다(libexpat CVE-2026-77214, 2026-10-21 Trivy) — CI 는 이 단계를 캐시하지 않는다(no-cache-filters)
 
 # OCI 이미지 레이블 (표준 메타데이터)
 ARG APP_VERSION
@@ -127,6 +128,7 @@ RUN addgroup -S -g 1001 idem-hub && \
     # 1.1: 감사 WAL 폴백 디렉터리 — 볼륨 마운트 지점을 앱 사용자 소유로 미리 만든다(named volume 이 소유권을 이어받는다)
     mkdir -p /app/data/audit-wal && chown -R idem-hub:idem-hub /app/data && \
     # 헬스체크용 curl 설치
+    apk upgrade --no-cache && \
     apk add --no-cache curl
 
 # Spring Boot Layered JAR 레이어 순서대로 복사

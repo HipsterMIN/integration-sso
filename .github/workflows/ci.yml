@@ -622,6 +622,7 @@ jobs:
           context: .
           file: ${{ matrix.module.dockerfile }}
           target: ${{ matrix.module.target || '' }}
+          no-cache-filters: runtime,react-nginx,nginx   # G2-19: apk upgrade 가 있는 마지막 단계는 매번 새로 — 캐시된 층이 alpine 수정을 놓친다(2026-10-21 Trivy)
           push: true    # GHCR로 push (이 잡은 보호 브랜치 push 이벤트에서만 실행)
           tags: ${{ env.IMAGE_TAGS }}
           build-args: |
@@ -757,6 +758,7 @@ jobs:
           context: .
           file: ${{ matrix.image.dockerfile }}
           target: ${{ matrix.image.target || '' }}
+          no-cache-filters: runtime,react-nginx,nginx   # G2-19: 위와 같다
           push: false
           load: false
           tags: ${{ matrix.image.name }}:pr${{ matrix.image.edition && format('-{0}', matrix.image.edition) || '' }}
