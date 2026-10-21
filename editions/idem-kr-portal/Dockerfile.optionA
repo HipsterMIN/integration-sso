@@ -46,6 +46,8 @@ RUN chmod +x gradlew && \
 
 # ── Stage 3: 런타임 ──────────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre-alpine AS runtime
+# 1.1.6 G2-19: 런타임 단계는 apk upgrade 로 alpine 패키지 수정을 빌드 때 받는다(libexpat CVE-2026-77214, 2026-10-21 Trivy) — 옵션 B 와 같은 처방(CI 는 옵션 B 만 빌드)
+RUN apk upgrade --no-cache
 WORKDIR /app
 
 # 비루트 사용자

@@ -4,7 +4,10 @@
 
 ## [Unreleased]
 
-_(없음)_
+### G2-19 · 이미지 OS 층 패치 — alpine libexpat·libx11 (플랜 §7 취약점 점검, 1.1.5 '후' 결과)
+
+- 1.1.5 머지 뒤 main Trivy(DB 2026-10-21)가 **앱 이미지 8종 전부에 HIGH 1건**(alpine 3.24.2 `libexpat` CVE-2026-77214, 수정판 2.9.0-r0)과 KR 포털에 **2건**(같은 libexpat + `libx11` CVE-2026-88806)을 보였다 — 베이스 태그가 아직 담지 못한 alpine 수정이고, 콘솔·포털의 `apk upgrade` 층은 CI 캐시에서 복원돼 새 수정을 받지 못했다. 조치: 앱 이미지 6종(hub·gate·registry·authz·relay·tenant-sample) Dockerfile 런타임 단계에 `apk upgrade --no-cache`(점검 문서 §4.3 의 약속대로; CI 가 빌드하지 않는 KR 포털 옵션 A Dockerfile 도 같이), CI 두 빌드 단계(`Docker Build Check`·`Docker Build (Multistage)`)에 `no-cache-filters: runtime,react-nginx,nginx` — 마지막 단계만 매번 새로 빌드(Gradle·yarn 캐시는 그대로). 콘솔 Dockerfile 의 nginx 단계에 이름(`AS nginx`). 제품 코드·설정·API·DB 변경 없음, 이미지 내용만.
+- 점검 문서 §7 에 '2026-10-21 (1.1.5 후)' 행(서드파티 3종은 1.1.4 '후' 와 같음), §4.3 갱신.
 
 ## [1.1.5] — 2026-10-17
 

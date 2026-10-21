@@ -7,8 +7,9 @@ RUN npm ci --no-audit --no-fund
 COPY idem-console-admin/ .
 RUN npm run build
 
-FROM nginx:1.30-alpine
-# 1.1.2: 베이스 태그가 아직 담지 못한 alpine 3.24 패키지 수정(libexpat·pcre2·tiff — 2026-10-10 Trivy)을 빌드 때 받는다
+FROM nginx:1.30-alpine AS nginx
+# 1.1.2: 베이스 태그가 아직 담지 못한 alpine 3.24 패키지 수정(libexpat·pcre2·tiff — 2026-10-10 Trivy)을 빌드 때 받는다.
+# 1.1.6 G2-19: 이 단계는 CI 가 캐시하지 않는다(no-cache-filters) — 캐시된 apk upgrade 층이 새 수정(libx11 CVE-2026-88806)을 놓쳤다
 RUN apk upgrade --no-cache
 LABEL description="Idem admin console (React + nginx, /api/v1/admin -> idem-hub)"
 COPY --from=build /app/dist /usr/share/nginx/html

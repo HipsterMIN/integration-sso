@@ -61,6 +61,7 @@ RUN --mount=type=cache,target=/root/.gradle \
 
 # ── Stage 3: Runtime ─────────────────────────────────────────────────────────
 FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine AS runtime
+# 1.1.6 G2-19: 런타임 단계는 apk upgrade 로 alpine 패키지 수정을 빌드 때 받는다(libexpat CVE-2026-77214, 2026-10-21 Trivy) — CI 는 이 단계를 캐시하지 않는다(no-cache-filters)
 
 ARG APP_VERSION
 ARG GIT_SHA
@@ -79,6 +80,7 @@ WORKDIR /app
 # 1.0.1 (3차 점검 H4): 숫자 UID/GID 1001 — K8s runAsNonRoot 는 이름 사용자를 검증하지 못한다(Helm 차트 appDefaults.runAsUser 와 같다)
 RUN addgroup -S -g 1001 qauthz && \
     adduser -S -u 1001 qauthz -G qauthz -h /app -s /sbin/nologin && \
+    apk upgrade --no-cache && \
     apk add --no-cache curl
 
 # Spring Boot Layered JAR 레이어 순서 복사
