@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+_(없음)_
+
+## [1.1.7] — 2026-10-27
+
+1.1.6 의 **보안 패치(프런트엔드) + CI 정의** 다(플랜 §4 — 기능 추가 없음, 제품 코드·설정·API·DB 변경 없음): PR-G2-22 #286 — 취약점 점검 2회차(`docs/certification/vulnerability-review-2026-11.md`)가 찾은 관리 콘솔 `vite` 7.3.7(lockfile), KR 포털 `dompurify` 3.4.17·`js-cookie` 3.0.7, KR 포털 빌더 Node 20(지원 종료) → 22; PR-G2-23 #287 — CI 액션 Node 24 세대·`trivy-action` v0.36.0 고정. 네 앱·SDK 의 코드는 1.1.6 과 같고(버전 문자열만), 바뀌는 이미지는 콘솔·KR 포털 둘(정적 번들)이다. 태그 `v1.1.7`.
+
+### 1.1.7 업그레이드 메모
+
+- **설정·API·DB 변경 없음, 제품 코드 변경 없음** — 바뀌는 것은 콘솔·KR 포털 이미지의 정적 번들(과 KR 포털 빌더)뿐이다. 설치본은 이미지 태그만 바꾼다(compose `IDEM_VERSION=1.1.7`, Helm `global.imageTag=1.1.7`); 네 앱 이미지는 내용이 1.1.6 과 같아 바꾸지 않아도 되지만 태그를 맞추는 쪽이 단순하다. 세션·DB 에 영향이 없어 롤링 교체로 충분하다.
+- **왜 새 버전인가**: `v1.1.6` 태그의 KR 포털 Dockerfile 은 `node:20-alpine` 빌더·구 `yarn.lock`(dompurify 3.4.16·js-cookie 2.2.1)이라 그 태그로 만든 포털 이미지에는 수정이 없다 — 수정이 저장소에 있으므로 태그가 있어야 설치본(온라인 재빌드·오프라인 번들)이 따라간다. 콘솔의 `vite` 는 개발 서버 기능이라 산출 번들은 같다. CI 가 GHCR 에 올리는 `latest` 는 #286 머지 뒤 이미 패치본.
+- **SDK**: `idem-sdk-java 1.1.7` — 코드 변경 없음.
+- **검증**: 1.1.7 코드 상태의 CI(PR #287 최종 커밋 run 40466089318 — `ci.yml` 변경으로 전체: Build & Unit Test·프런트엔드 두 벌(Node 22)·k6 스모크 ①~⑧c + 백업·복구 + 운영 DB 복구 리허설·Docker Build Check 10종·K8s 리허설·오프라인 설치본·Helm lint·문서 정합성) + 시험 항목표 재인용(자동 74·수동 2; 로컬 IT 12건은 코드 변경이 없어 1.1.5 기록 그대로). 머지 뒤 main run 의 Trivy '후' 는 2회차 문서 §8.
+
 ### G2-23 · CI 액션 Node 24 세대 (2회차 문서 §3.5 후속)
 
 - `.github/workflows/ci.yml`·`cd.yml` 의 GitHub Actions 를 현재 메이저로 — `actions/checkout` v4 → v7, `actions/cache`(+restore·save) v4 → v6, `actions/upload-artifact` v4 → v7 · `download-artifact` v4 → v8(같은 run 안의 아카이브 주고받기라 함께), `actions/setup-java` v4 → v6, `actions/setup-node` v4 → v7, `docker/build-push-action` v5 → v7 · `setup-buildx-action` v3 → v4 · `login-action` v3 → v4, `github/codeql-action/upload-sarif` v3 → v4, `dorny/paths-filter` v3 → v4, `azure/setup-helm` v4 → v5. 전부 `runs.using: node24` — 러너의 "Node.js 20 is deprecated" 경고가 사라진다. 우리가 넘기는 입력은 전부 새 판에도 있다(각 `action.yml` 대조).

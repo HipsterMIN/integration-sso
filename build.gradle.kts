@@ -19,7 +19,7 @@ plugins {
 // ── 전체 공통 설정 ────────────────────────────────────────────────────────────
 allprojects {
     group   = "io.github.hipstermin.idem"
-    version = "1.1.6"   // 1.1.6: 보안 패치(이미지 OS 층) — G2-19 앱 이미지 런타임 apk upgrade(alpine libexpat CVE-2026-77214)·CI no-cache-filters(libx11 CVE-2026-88806), 제품 코드 변경 없음 (#283, 릴리스 태그 v1.1.6); 1.1.5 는 결함 패치(LOW) + 시험 자동화 — G2-12 kc_idp_hint 정리 + G2-13~G2-17 시험 항목 자동화·CI 운영 DB 복구 리허설·SLO 프로브 (#276~#281, 릴리스 태그 v1.1.5); 1.1.4 는 G2-10 Keycloak 26 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건(hub 캐시 SpEL·완료 콜백 화이트리스트, gate 주체 키·jsonb·V6) + Keycloak 26 올림 영향 평가 (#274, 릴리스 태그 v1.1.4); 1.1.3 은 G2-7·G2-8 (#271~#272), 1.1.2 는 G2-2~G2-5 (#266~#269)
+    version = "1.1.7"   // 1.1.7: 보안 패치(프런트엔드) + CI 정의 — G2-22 콘솔 vite 7.3.7·KR 포털 dompurify 3.4.17/js-cookie 3.0.7·빌더 Node 22, G2-23 CI 액션 Node 24 세대·trivy-action 고정, 제품 코드 변경 없음 (#286~#287, 릴리스 태그 v1.1.7); 1.1.6 은 보안 패치(이미지 OS 층) — G2-19 앱 이미지 런타임 apk upgrade(alpine libexpat CVE-2026-77214)·CI no-cache-filters(libx11 CVE-2026-88806), 제품 코드 변경 없음 (#283, 릴리스 태그 v1.1.6); 1.1.5 는 결함 패치(LOW) + 시험 자동화 — G2-12 kc_idp_hint 정리 + G2-13~G2-17 시험 항목 자동화·CI 운영 DB 복구 리허설·SLO 프로브 (#276~#281, 릴리스 태그 v1.1.5); 1.1.4 는 G2-10 Keycloak 26 시험이 드러낸 Keycloak 중계 로그인 경로 결함 5건(hub 캐시 SpEL·완료 콜백 화이트리스트, gate 주체 키·jsonb·V6) + Keycloak 26 올림 영향 평가 (#274, 릴리스 태그 v1.1.4); 1.1.3 은 G2-7·G2-8 (#271~#272), 1.1.2 는 G2-2~G2-5 (#266~#269)
 
     repositories {
         mavenCentral()
