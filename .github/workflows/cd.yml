@@ -45,7 +45,7 @@ jobs:
     environment: ${{ inputs.environment }}   # GitHub Environment 보호규칙(승인 게이트) 연계
     steps:
       - name: 소스 체크아웃
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: KUBE_CONFIG 시크릿 확인 (미설정 시 중단)
         env:
@@ -65,7 +65,7 @@ jobs:
           chmod 600 "$HOME/.kube/config"
 
       - name: Helm 설치
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: 이미지 레포(소유자 소문자) 계산
         run: echo "IMAGE_REPO=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
