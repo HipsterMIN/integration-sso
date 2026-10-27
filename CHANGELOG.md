@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### G2-23 · CI 액션 Node 24 세대 (2회차 문서 §3.5 후속)
+
+- `.github/workflows/ci.yml`·`cd.yml` 의 GitHub Actions 를 현재 메이저로 — `actions/checkout` v4 → v7, `actions/cache`(+restore·save) v4 → v6, `actions/upload-artifact` v4 → v7 · `download-artifact` v4 → v8(같은 run 안의 아카이브 주고받기라 함께), `actions/setup-java` v4 → v6, `actions/setup-node` v4 → v7, `docker/build-push-action` v5 → v7 · `setup-buildx-action` v3 → v4 · `login-action` v3 → v4, `github/codeql-action/upload-sarif` v3 → v4, `dorny/paths-filter` v3 → v4, `azure/setup-helm` v4 → v5. 전부 `runs.using: node24` — 러너의 "Node.js 20 is deprecated" 경고가 사라진다. 우리가 넘기는 입력은 전부 새 판에도 있다(각 `action.yml` 대조).
+- `aquasecurity/trivy-action` 을 `@master` 에서 **v0.36.0 으로 고정**하고 스캐너 `version: v0.76.1`(master 가 쓰던 판; v0.36.0 기본값은 v0.70.0)을 명시 — 재현성. `DOCKER_BUILD_RECORD_UPLOAD=false` 로 build-push v6+ 의 빌드 기록 아티팩트(run 당 10개)는 끈다. `helm/kind-action@v1` 은 그대로(v1 최신이 이미 node24).
+- 제품 코드·설정·API·DB 변경 없음 — CI 정의만. 검증은 PR 의 CI 전체(아카이브 업로드 → K8s 리허설·오프라인 설치본 다운로드 포함).
+
 ### G2-22 · 취약점 점검 2회차 (2026-11 회차, 2026-10-27 착수 — 플랜 §7)
 
 - `docs/certification/vulnerability-review-2026-11.md`: 1.1.6 이미지 10종 Trivy 0건(베이스 alpine 3.24.3), 서드파티 3종 변화(redis 0·postgres gosu 26·keycloak OS 22 + `ca-certificates` CRITICAL), Java 라이브러리 최신판 조사(Tomcat 10.1.61·httpclient5 5.6.5·Jackson 2.21.8 등은 CVE 가 없어 **유지**), OWASP 10-26 NVD 503 중단 → 10-27 재실행 0건·게이트 통과, Spring Boot 4·Keycloak 26 → 1.2 결정안(§5).
