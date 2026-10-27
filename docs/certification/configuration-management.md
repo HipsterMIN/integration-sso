@@ -72,6 +72,7 @@
 | #278 | 2026-10-16 | G2-14: 수동 항목 자동화 2차 — A-5(구 스키마 `ido` 자동 rename·체크섬 repair·기동 거부, 실제 PostgreSQL IT)·C-7(승인: INACTIVE 등록 → RP 판정 거부 → 사유 달아 ACTIVE 저장 → 허용·감사·이력 IT); 집계 자동 70→72·수동 6→4 | 테스트·문서 |
 | #279 | 2026-10-16 | G2-15: 수동 항목 자동화 3차 — E-6(KR 기업회원 이관: 이관 도구의 registry 호출 순서를 KR registry 실제 PostgreSQL IT 로 — 신규 201·convert·재실행 existing·409→GET=exists·401) + 도구 UT(CI `문서 정합성` 잡); 집계 자동 72→73·수동 4→3 | 테스트·문서·CI |
 | #281 | 2026-10-16 | G2-17: G-5 운영 DB 복구를 CI 스모크 단계로(앱 정지 → `restore.sh` 운영 DB 복구 → `scripts/ci/start-apps.sh` 재기동 → Discovery·기존 관리자 로그인·기관 목록 → k6) + 샌드박스 direct 리허설; 집계 자동 73→74·수동 3→2 | CI·문서 |
+| #285 | 2026-10-26 | G2-21: '1.1.6 후' 기록 — main run 40332554665 Trivy 이미지 10종 0건(alpine 3.24.3), 서드파티 3종 변화(redis 0·postgres gosu 26·keycloak OS 22 + ca-certificates CRITICAL), OWASP 수동 재실행은 NVD 503 으로 중단(2026-11 회차에) — 점검 문서 §4.4·§7, 플랜 §9 | 문서 |
 | #284 | 2026-10-21 | 버전 1.1.6 — CHANGELOG [1.1.6](G2-19 이미지 OS 층 패치)·업그레이드 메모(이미지 태그만 — `v1.1.5` 태그로 만든 이미지에는 수정이 없으므로 새 태그가 필요)·시험 항목 재실행 기록(run 39544746680 = 1.1.6 코드 상태, 빌드 로그의 libexpat·libx11 올림 확인)·점검 문서 '후' 기록(main run 39550082266 Trivy 이미지 10종 0건) | 릴리스 |
 | #283 | 2026-10-21 | G2-19: 이미지 OS 층 패치 — 1.1.5 '후' Trivy 가 보인 alpine libexpat(앱 8종 HIGH 1)·libx11(KR 포털): 앱 이미지 6종 런타임 단계 `apk upgrade`, CI 빌드 `no-cache-filters`(마지막 단계 매번 새로), 점검 문서 §7·§4.3 | 보안 패치(이미지) |
 | #282 | 2026-10-17 | 버전 1.1.5 — CHANGELOG [1.1.5](G2-12 kc_idp_hint LOW + G2-13~G2-17 시험 자동화·CI 운영 DB 복구 리허설·SLO 프로브)·업그레이드 메모(설정·API·DB 변경 없음)·시험 항목 재실행 기록(run 38866996154, K8s 리허설·오프라인 설치본은 run 39015412056) | 릴리스 |
