@@ -185,6 +185,8 @@
 | D6 | KCMVP 모듈 선정 | P2 어댑터 | P0 말 |
 | D7 | 라이선스 (Apache-2.0 권장) | 오픈소스·SBOM | P1 |
 | D8 | 개인정보 보존 기간(현재 임시 365일) | 파기 배치 활성화 | P1 |
+| D9 | **1.2(Keycloak 26.8) 착수 시점** — GS 사전 검토 전(시험 대상 1.2) vs 후(1.1.x 로 시험, 1.2 는 인증 뒤) + 업그레이드 창(Keycloak 세션 유실 공지) — `post-1.0-plan.md` §5.5, `analysis/keycloak-26-assessment.md` §7 | P3 시험 대상 버전, 설치본 계약 | 사전 검토 일정 확정 시 |
+| D10 | **Spring Boot 4 의 자리** — 1.3(사전 검토까지 4~6주 있을 때, Jackson 3 포함 여부) vs 2.0(억제 만료 2027-06-30 연장) + SDK 테스트 스택 분리 방식 — `analysis/spring-boot-4-assessment.md` §7 | 억제 17건 제거 시점, 2.0 범위 | D9 와 함께 |
 
 ---
 

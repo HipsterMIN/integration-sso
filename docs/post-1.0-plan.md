@@ -15,6 +15,7 @@
 | **G2 제출물** | 2주 (G1 후반 병행) | 매뉴얼 양식 변환·스크린샷, 사용자 매뉴얼 요약, 설치본 tar·체크섬, 성능 재측정 | 제출 문서 세트 v1, 설치본 tar |
 | **G3 신청·시험** | 8~16주 | 시험원 사전 검토 → 신청 → 시험 → 보완(1.0.x 패치) | GS 1등급, 조달 등록 |
 | **1.1** | G3 와 병행 시작, 8~12주 | 에이전트 결정 실행, SCIM 아웃바운드, 코어 로그인 프런트(Handoff 브라우저 진입), 남긴 것 5건, K8s 실배포, AI 운영 보조(선택 컨테이너) | 1.1.0 태그, 시험 항목표 갱신 |
+| **1.2** | 결정 대기(§5.5) | Keycloak 24.0 → **26.8**(설치본 환경변수 계약 변경, Idem 코드 변경 없음) — 작고 독립적이라 먼저. Spring Boot 4 는 일정이 정한다(1.3 또는 2.0) | `v1.2.0`, `third-party-scan` 26 결과, 업그레이드 절차 + 사용자 리허설 1회 |
 | **2.0** | 1.1 후 | API 경로·오류 코드 개명 완료, 호환 계층 제거, SAML SP, CC 산출물 착수 | `execution-plan.md` P4 |
 
 ---
@@ -134,10 +135,35 @@ PR 단위로 나눈다. 순서는 의존 관계 순이며 병행 가능한 것�
 
 ---
 
+## 5.5 1.2 — Keycloak 26 먼저, Spring Boot 4 는 일정이 정한다 (범위 초안, 2026-10-27 — 사용자 결정 대기)
+
+1.1.x 는 §4 규칙대로 보안·결함 패치만 받는다(1.1.7 까지). 두 영향 평가(`analysis/keycloak-26-assessment.md`·`analysis/spring-boot-4-assessment.md`)와 취약점 점검 2회차 결정안(`certification/vulnerability-review-2026-11.md` §5)의 요지를 PR 단위로 옮긴 초안이다. **결정이 나기 전에는 착수하지 않는다**(main = GS 시험 대상 1.1.x).
+
+**결정 사항(사용자, `execution-plan.md` §8 D9·D10)**
+1. **1.2 착수 시점** — GS 사전 검토 **전**이면 시험 대상이 1.2(Keycloak 26)가 되고, **후**면 1.1.x 로 시험을 치르고 1.2 는 인증 뒤. 전자는 매뉴얼·시험 항목표·설치본 tar 를 26 기준으로 다시 만든다(AI 1일).
+2. **Spring Boot 4 의 자리** — 사전 검토까지 4~6주가 있으면 **1.3**(Boot 4.1 + Jackson 2 공존 → Jackson 3), 없으면 **2.0**(억제 만료 2027-01-31 → 2027-06-30 연장). Keycloak 26 과 한 릴리스에 섞지 않는다 — 리허설 범위를 좁히고(평가 문서 §6), §4 규칙상 Boot 4 는 패치가 아니라 마이너다. 2회차 결정안의 "1.2 = Keycloak 26 + (일정이 되면) Spring Boot 4" 는 이 두 릴리스(1.2 → 1.3)로 읽는다.
+3. **업그레이드 창** — 26 올림 때 Keycloak 세션이 전부 사라진다(Infinispan 마샬링, 25 경유 안 함). 기관 RP 사용자 재로그인 공지 방식.
+
+**1.2.0 = Keycloak 26.8 (AI 2.5일 + 사용자 리허설 1회)**
+
+| # | PR | 내용 | 검증 |
+|---|---|---|---|
+| 1 | PR-1.2-1 설치본 계약 | compose `quay.io/keycloak/keycloak:26.8`(마이너 고정) · hostname v2(`KC_HOSTNAME`·`KC_HOSTNAME_ADMIN`, `KC_HOSTNAME_STRICT_HTTPS` 제거) · `KC_PROXY=edge` → `KC_PROXY_HEADERS=xforwarded` · `KEYCLOAK_ADMIN*` → `KC_BOOTSTRAP_ADMIN_*` · `start-dev` 에 `KC_HTTP_HOST=0.0.0.0`(26.6 기본 localhost) · Helm(태그·환경변수·프로브 **9000**·`values.yaml` 주석) · CI 스모크 잡 · 개발 compose 2종 · `install.env.example`·`gen-install-env.sh` · 문서(`install.md`·`install-inputs.md`·설치 매뉴얼·ADR-014·`application.yml` 주석) · realm-export 내부 client `fullScopeAllowed=false`(선택). Idem 코드 변경 없음(평가 §4) | PR CI 전체(스모크 ①~⑧c 가 26 으로), `docs-lint` |
+| 2 | PR-1.2-2 리허설·기록 | K8s 리허설(auto-build 메모리 2Gi 재확인) · 오프라인 번들 이미지 목록(`keycloak:26.8`) · `third-party-scan` 26 첫 결과(24 의 OS 22 + jar 77 → ?)를 점검 문서에 · 시험 항목표의 Keycloak 관련 행(C-2·C-3·C-7·D-1·D-8·D-9·D-13·D-15·D-19·G-5 + 설치본 행 A-8·G-6) 재실행 기록 · 관리자/사용자 매뉴얼 캡처 중 Keycloak 화면 | main run Trivy, 리허설 잡, 캡처 스크립트 2종 |
+| 3 | PR-1.2-3 업그레이드 절차 | `CHANGELOG` 업그레이드 메모(세션 유실·DB 백업 → 올림 → 스모크·변수명 치환표) · 운영 가이드 · `scripts/upgrade/kc26-env.sh`(옛 변수명 → 새 변수명 치환 도우미, 선택) | 사용자 환경 리허설 1회(설치본 올림 → 스모크 → 기관 OIDC_RP 재로그인) |
+| 4 | 버전 커밋 1.2.0 | §4 규칙(설치본 계약 변경 = 마이너) — 버전 21곳·CHANGELOG [1.2.0]·시험 항목표·형상 관리·GS 착수(시험 대상 제품) | `v1.2.0` 태그(사용자) |
+
+완료 기준: `v1.2.0`, 설치본 스모크·K8s 리허설·오프라인 번들이 26 으로 초록, `third-party-scan` 26 결과가 점검 문서에, 업그레이드 절차가 매뉴얼에, 사용자 리허설 1회 기록.
+
+**1.3.0 또는 2.0 = Spring Boot 4** — 첫 작업은 시험 컴파일 3회차(aspectj·테스트 패키지, 반나절). 그다음 1단계 Boot 4.1 + Jackson 2 공존(2~3주, 억제 17건 제거 → OWASP 게이트 0) → 2단계 Jackson 3 패키지 이행(1~2주, 직렬화 골든 테스트) → 리허설(1주 + 사용자 1일). 세부는 평가 문서 §6.
+
+---
+
 ## 6. 2.0 — 개명 완료·SAML·CC 준비
 
 - API 경로·오류 코드 개명(`E-IDO-1xx` → `E-IDEM-…`, `/admin/agencies` → `/admin/services`), `LegacyNames` 호환 계층·`LegacySchemaRename` 제거, 에이전트 런타임 이름 정리는 분리된 저장소의 몫.
 - SAML SP(`protocol.type=SAML_SP`, Keycloak SAML client 활용) — `saml-sp-design.md`.
+- Spring Boot 4 이행을 1.3 으로 당기지 않았을 때는 여기서(§5.5 결정 2, 억제 만료 2027-06-30 까지 연장).
 - CC: `execution-plan.md` P4 — ST·기능명세·지침서, KCMVP 모듈 교체(P2 잔여), 평가기관 계약. GS 인증서·조달 등록이 선행.
 
 ---
