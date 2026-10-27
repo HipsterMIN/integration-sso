@@ -19,7 +19,8 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Stage 1: React 빌드 ──────────────────────────────────────────────────────
-FROM node:20-alpine AS react-builder
+# 1.1.7 G2-22: Node 20 은 2026-04 지원 종료 — 빌더를 Node 22(LTS)로 (toolchain 은 샌드박스 Node 22.22.2 로 typecheck·build:prod 확인)
+FROM node:22-alpine AS react-builder
 WORKDIR /app
 
 # package.json / yarn.lock만 먼저 복사 → yarn install 레이어 캐시 활용

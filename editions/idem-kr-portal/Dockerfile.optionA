@@ -13,7 +13,8 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Stage 1: React 빌드 ──────────────────────────────────────────────────────
-FROM node:20-alpine AS frontend-builder
+# 1.1.7 G2-22: Node 20 은 2026-04 지원 종료 — 빌더를 Node 22(LTS)로
+FROM node:22-alpine AS frontend-builder
 WORKDIR /frontend
 COPY editions/idem-kr-portal/frontend/package.json editions/idem-kr-portal/frontend/yarn.lock* ./
 RUN yarn install --frozen-lockfile --network-timeout 120000

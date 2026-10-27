@@ -4,7 +4,12 @@
 
 ## [Unreleased]
 
-_(없음)_
+### G2-22 · 취약점 점검 2회차 (2026-11 회차, 2026-10-27 착수 — 플랜 §7)
+
+- `docs/certification/vulnerability-review-2026-11.md`: 1.1.6 이미지 10종 Trivy 0건(베이스 alpine 3.24.3), 서드파티 3종 변화(redis 0·postgres gosu 26·keycloak OS 22 + `ca-certificates` CRITICAL), Java 라이브러리 최신판 조사(Tomcat 10.1.61·httpclient5 5.6.5·Jackson 2.21.8 등은 CVE 가 없어 **유지**), OWASP 10-26 NVD 503 중단·재실행, Spring Boot 4·Keycloak 26 → 1.2 결정안(§5).
+- **관리 콘솔**: `vite` 7.3.6 → 7.3.7(lockfile 만 — `launch-editor` 경유 HIGH, 개발 서버 기능). `npm audit` 0건.
+- **KR 포털**: `dompurify` 3.4.16 → 3.4.17(SAFE_FOR_TEMPLATES 우회 CRITICAL 등 3건), `js-cookie` 2.2.1 → 3.0.7(`resolutions`, react-use 경유 CVE-2026-46625) — 번들 쪽 CRITICAL·HIGH 0. **빌더 Node 20(2026-04 지원 종료) → 22**(Dockerfile 옵션 A/B·CI·Gradle node 플러그인 22.22.2). 제품 코드·설정·API·DB 변경 없음 — 콘솔·KR 포털 이미지의 정적 번들만 바뀐다.
+- CI 액션 Node 24 세대 올림은 별도 PR(G2-23).
 
 ## [1.1.6] — 2026-10-21
 

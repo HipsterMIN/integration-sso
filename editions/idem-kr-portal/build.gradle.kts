@@ -30,8 +30,10 @@ plugins {
 // 사유: yarn install 시 transitive 의존 `sass@1.100.0` 이 Node `>=20.19.0` 요구.
 // 기존 20.14.0 은 engine mismatch 로 :idem-console:yarnInstall 실패.
 // 향후 sass major 업데이트 시 다시 확인 필요.
+// [G2-22 — 2026-10-27] Node 20 지원 종료(2026-04) → 22.22.2(LTS). Dockerfile 빌더·CI node-version 과 같이 올렸다;
+// 샌드박스 Node 22.22.2 로 yarn install·typecheck·build:prod 통과.
 node {
-    version        = "20.19.0"
+    version        = "22.22.2"
     yarnVersion    = "1.22.22"
     download       = true
     nodeProjectDir = file("${projectDir}/frontend")
