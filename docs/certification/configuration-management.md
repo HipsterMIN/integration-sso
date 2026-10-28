@@ -16,6 +16,8 @@
 
 ### 1.1 릴리스 목록
 
+> **태그 현황(2026-10-27)**: 원격 태그는 `v1.0.0`·`v1.1.0` 뿐이다. 아래 "(머지 뒤 사용자)" 태그는 아직 만들어지지 않았다 — 버전별 main 머지 커밋과 생성 명령은 `../post-1.0-plan.md` §0.1.
+
 | 버전 | 태그 | 날짜 | 내용 | PR |
 |---|---|---|---|---|
 | 1.0.0 | `v1.0.0` | 2026-09-26 | 1.0 동결 — 제품 CHANGELOG·매뉴얼 4종·GS 착수 문서 | #240(S9 PR-4), #241·#242 |
@@ -73,6 +75,7 @@
 | #278 | 2026-10-16 | G2-14: 수동 항목 자동화 2차 — A-5(구 스키마 `ido` 자동 rename·체크섬 repair·기동 거부, 실제 PostgreSQL IT)·C-7(승인: INACTIVE 등록 → RP 판정 거부 → 사유 달아 ACTIVE 저장 → 허용·감사·이력 IT); 집계 자동 70→72·수동 6→4 | 테스트·문서 |
 | #279 | 2026-10-16 | G2-15: 수동 항목 자동화 3차 — E-6(KR 기업회원 이관: 이관 도구의 registry 호출 순서를 KR registry 실제 PostgreSQL IT 로 — 신규 201·convert·재실행 existing·409→GET=exists·401) + 도구 UT(CI `문서 정합성` 잡); 집계 자동 72→73·수동 4→3 | 테스트·문서·CI |
 | #281 | 2026-10-16 | G2-17: G-5 운영 DB 복구를 CI 스모크 단계로(앱 정지 → `restore.sh` 운영 DB 복구 → `scripts/ci/start-apps.sh` 재기동 → Discovery·기존 관리자 로그인·기관 목록 → k6) + 샌드박스 direct 리허설; 집계 자동 73→74·수동 3→2 | CI·문서 |
+| #290 | 2026-10-28 | G2-26: 플랜 §0.1 '2026-10-27 현황'(목표·판정, 태그 누락과 생성 명령, 된 것, 임계 경로, Keycloak 26·Spring Boot 4 권고, 결정 대기) + GS 착수 §2·형상 관리 §1.1 태그 현황 주석 | 문서 |
 | #289 | 2026-10-27 | G2-25: '1.1.7 후' 기록(main 2eb5586 run 40475341080 — Trivy 이미지 10종 0건·서드파티 3종 동일·Node 20 경고 0건, 점검 문서 §8) + 플랜 1.2 범위 초안(§5.5·§0·§6 — Keycloak 26.8 먼저, Spring Boot 4 는 1.3 또는 2.0) + 실행 계획 §8 결정 항목 D9·D10 | 문서 |
 | #288 | 2026-10-27 | 버전 1.1.7 — CHANGELOG [1.1.7](G2-22 프런트엔드 패치·빌더 Node 22 + G2-23 CI 액션)·업그레이드 메모(콘솔·KR 포털 이미지 태그만 — `v1.1.6` 태그의 KR 포털 Dockerfile 은 Node 20 빌더·구 yarn.lock 이라 새 태그가 필요)·시험 항목 재실행 기록(run 40466089318 = 1.1.7 코드 상태, ci.yml 변경으로 전체 CI)·SDK CHANGELOG·GS 착수·플랜 | 릴리스 |
 | #287 | 2026-10-27 | G2-23: CI 액션 Node 24 세대 — checkout v7·cache v6·upload v7/download v8·setup-java v6·setup-node v7·build-push v7·buildx v4·login v4·codeql v4·paths-filter v4·setup-helm v5, trivy-action v0.36.0 고정(+스캐너 v0.76.1), build record 아티팩트 끔(ci.yml·cd.yml) | CI |
