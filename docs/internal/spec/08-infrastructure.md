@@ -43,7 +43,7 @@ infra/docker/
 | `idem-zookeeper` | `confluentinc/cp-zookeeper:7.6.1` | 2181 | Kafka 코디네이터 |
 | `idem-kafka` | `confluentinc/cp-kafka:7.6.1` | 9092 | 이벤트 버스 |
 | `kafka-init` | (init 전용) | — | 토픽 자동 생성 |
-| `idem-keycloak` | `quay.io/keycloak/keycloak:24` | 8085→8080 | OIDC IdP |
+| `idem-keycloak` | `quay.io/keycloak/keycloak:26.8` | 8085→8080 | OIDC IdP |
 | `idem-nginx` | `nginx:1.30-alpine` | 3001→80 | FE 운영 서빙 |
 | `idem-console` | (빌드) | 3000 | FE 개발 서버 |
 | `idem-tenant-sample` | (빌드) | 8084 | 기관 시뮬레이터 |

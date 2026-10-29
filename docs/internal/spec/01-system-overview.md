@@ -76,7 +76,7 @@
 | Redis | `redis:7.2-alpine` | FE 세션, Idempotency-Key, agencyMeta 캐시 |
 | Kafka | `confluentinc/cp-kafka:7.6.1` | 전 서비스 이벤트 버스 |
 | Zookeeper | `confluentinc/cp-zookeeper:7.6.1` | Kafka 코디네이터 |
-| Keycloak | `quay.io/keycloak/keycloak:24` | OIDC IdP 브로커 |
+| Keycloak | `quay.io/keycloak/keycloak:26.8` | OIDC IdP 브로커 |
 | Nginx | `nginx:1.30-alpine` | idem-console 운영 서빙 |
 
 ---

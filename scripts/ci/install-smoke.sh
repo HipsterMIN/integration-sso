@@ -3,7 +3,7 @@
 # 설치본 스모크 (D3) — CI(.github/workflows/ci.yml smoke-test)와 로컬이 같은 스크립트를 쓴다.
 #
 # 전제: registry·authz·gate·hub 가 compose.install.yml 의 환경 계약으로 떠 있고, Keycloak(realm idem, import 완료)이
-#       gate 뒤에 있다(KC_HOSTNAME_URL = gate 공개 URL). hub 는 Mock 본인확인 플러그인이 켜져 있다.
+#       gate 뒤에 있다(KC_HOSTNAME = gate 공개 URL). hub 는 Mock 본인확인 플러그인이 켜져 있다.
 #
 # 검사: ① 4개 헬스 ② gate 를 통한 OIDC Discovery(issuer = gate 공개 URL) ②′ 관리자 로그인(2단계, 무인증 관리 API 401)
 #       ③ OIDC_RP 프로파일 PUT → Keycloak client 생성·secret 회전 ④ gate 프런트가 Keycloak 로그인 화면을 프록시(client 존재·PKCE 사전검사)

@@ -69,7 +69,7 @@
 | idem-registry | 8082 | 회원 원장 | `/api/v1/internal/**`(내부 API 키), 이벤트 피드 |
 | idem-authz | 8086 | 인가 원장 | `/api/v1/internal/**` |
 | idem-console-admin | 3001 | 관리 콘솔(정적 + `/api/v1/admin` 프록시) | 브라우저 |
-| Keycloak 24 | 내부 | 토큰 발급·세션(숨김) | gate 뒤에서만 |
+| Keycloak 26 | 내부 | 토큰 발급·세션(숨김) | gate 뒤에서만 |
 | PostgreSQL 16 · Redis 7 | — | 데이터·세션 | — |
 | idem-relay(선택) | 8090 | 아웃박스 → Kafka | Kafka 배포만 |
 
@@ -79,7 +79,7 @@
 |---|---|
 | 서버 OS | Linux x86-64 (컨테이너) |
 | 배포 | Docker Compose(≥ 2.17) 단일 설치본 · Kubernetes Helm 차트(매니페스트는 K8s 1.29 스키마로 검증, Helm 3) · 오프라인(이미지 tar) |
-| 런타임(이미지 안) | Java 21(Temurin), Spring Boot 3.5, Keycloak 24.0 |
+| 런타임(이미지 안) | Java 21(Temurin), Spring Boot 3.5, Keycloak 26.8 |
 | 데이터 | PostgreSQL 16(엔진 1종), Redis 7. Kafka 선택 |
 | 브라우저(관리 콘솔·로그인 화면) | 최신 Chrome·Edge·Firefox·Safari (ES2020) |
 | 기관 측 | 표준 OIDC 라이브러리 / Java 8+ SDK / 콜백 서블릿(JDK 8+ WAS) |

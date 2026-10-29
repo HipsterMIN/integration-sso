@@ -788,7 +788,7 @@ export const Logout = (): void => {
 | PostgreSQL | `postgres:16-alpine` | q-sign, ido 스키마 |
 | Redis | `redis:7.2-alpine` | 세션, PKCE, 캐시, Rate Limit, NICE 토큰/세션 |
 | Kafka | `confluentinc/cp-kafka:7.6.1` | 이벤트 버스 |
-| Keycloak | `quay.io/keycloak/keycloak:24` | OIDC IdP 브로커 (SSO) |
+| Keycloak | `quay.io/keycloak/keycloak:26.8` | OIDC IdP 브로커 (SSO) |
 | Prometheus | `prom/prometheus:v2.51.2` | 메트릭 수집 |
 | Grafana | `grafana/grafana-oss:10.4.2` | 대시보드 |
 | Loki | `grafana/loki:2.9.6` | 로그 집계 |

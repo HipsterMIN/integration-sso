@@ -108,7 +108,7 @@
 
 | 단계 | 내용 | 검증 | 공수(AI) |
 |---|---|---|---|
-| 0 | 현상 유지(1.1.x): 억제 17건, 월 1회 전제 조건 재확인, 2027-01-31 전에 연장 여부 결정 | 점검 회차 | 회차당 반나절 |
+| 0 | 현상 유지(1.1.x): 억제 17건, 월 1회 전제 조건 재확인, 2027-01-31 전에 연장 여부 결정 → **2026-10-29 D10: 2.0 으로, 만료 2027-06-30 연장(PR-1.2-1)** | 점검 회차 | 회차당 반나절 |
 | 1 | **Boot 4.1 + Jackson 2 공존**: 빌드 파일(스타터 이름·aspectj·flyway·redisson 4.8·resilience4j·springdoc·testcontainers 2·JUnit 6), 자동 구성 패키지 3곳, 테스트 슬라이스·`@SpringBootTest` 보강, `NoResourceFoundException`, 속성 이름(`management.tracing.export.enabled`·`spring.jackson2.*`), Hibernate 7 차이(ID 생성·쿼리·`@Entity` 20), Kafka 4 클라이언트, SDK JUnit 분리 | 단위 1,844 + IT 61 + CI 스모크 ①~⑧c + K8s 리허설 + 캡처 스크립트 2종 + OWASP 게이트(억제 17건 제거) | 2~3주 |
 | 2 | **Jackson 3 패키지 이행**: 154 파일 import, `ObjectMapper` 빈 3 → `JsonMapper`, 예외 타입, builder customizer, networknt 3.x, jjwt-gson; `spring-boot-jackson2` 제거 | 직렬화 골든 테스트(웹훅 봉투·감사 행·기관 API·프로파일 JSON·콘솔 응답) + 위 전체 | 1~2주 |
 | 3 | 리허설: 오프라인 번들 → 설치 → 1.1.x 에서 업그레이드 → 스모크·백업/복구 — 설치 매뉴얼 업그레이드 절차 갱신 | 사용자 환경 1회 | 1주 + 사용자 1일 |
