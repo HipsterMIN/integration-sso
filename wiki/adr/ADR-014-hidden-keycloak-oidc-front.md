@@ -18,7 +18,7 @@ gate 의 Discovery 문서는 Keycloak 의 URL 과 기능 목록(implicit·passwo
 
 ## 결정
 
-1. **gate 가 OIDC Provider 의 공개 얼굴이다.** issuer 는 `{gate 공개 URL}/realms/{realm}` 이고 Keycloak 의 `KC_HOSTNAME_URL` 을 같은 값으로
+1. **gate 가 OIDC Provider 의 공개 얼굴이다.** issuer 는 `{gate 공개 URL}/realms/{realm}` 이고 Keycloak 의 `KC_HOSTNAME`(26 hostname v2; 24 는 `KC_HOSTNAME_URL`)을 같은 값으로
    고정한다(id_token `iss` 일치). gate 는 `/realms/{realm}/.well-known/openid-configuration` 에 **정직한** Discovery(실제 지원: code·PKCE S256·
    RS256·client_secret_basic/post·refresh_token) 를 내고, `/realms/**`·`/resources/**` 를 Keycloak 으로 투명 프록시한다(302·쿠키 통과,
    내부 주소 `Location` 재작성, `X-Forwarded-*` 공급). Keycloak 포트는 loopback 관리 콘솔 외에 열지 않는다.

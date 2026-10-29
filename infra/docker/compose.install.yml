@@ -91,28 +91,31 @@ services:
 
   # ── 숨긴 Keycloak (표준 OIDC 발급·세션, S6 에서 프로비저닝 정식화) ─────────────
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0
+    image: quay.io/keycloak/keycloak:26.8   # 1.2: 24.0 → 26.8(마이너 고정, 패치 자동) — docs/analysis/keycloak-26-assessment.md
     container_name: idem-keycloak
     restart: unless-stopped
     command: start-dev --http-port=8080 --import-realm
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD 를 install.env 에 설정하세요}
+      # 1.2 (Keycloak 26): 임시 부트스트랩 관리자 — 첫 기동(빈 DB)에만 만들어진다. install.env 키 이름(KEYCLOAK_ADMIN_PASSWORD)은 그대로, 컨테이너 변수만 26 이름
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD 를 install.env 에 설정하세요}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/idem?currentSchema=keycloak
       KC_DB_USERNAME: idem
       KC_DB_PASSWORD: ${IDEM_DB_PASSWORD}
       KC_DB_SCHEMA: keycloak
       KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
+      # 1.2 (Keycloak 26.6+): start-dev 는 기본으로 localhost 에만 바인드한다 — 다른 컨테이너(gate·hub)가 붙도록 0.0.0.0
+      KC_HTTP_HOST: 0.0.0.0
       KC_HEALTH_ENABLED: "true"
-      KC_PROXY: edge
+      # 1.2: KC_PROXY=edge 는 26 에서 제거 — proxy-headers 로(Helm 과 같다). gate 가 붙이는 X-Forwarded-* 를 믿는다
+      KC_PROXY_HEADERS: xforwarded
       KC_LOG_LEVEL: INFO
       # S6: Keycloak 은 gate 뒤에 숨는다 — 토큰 iss·로그인 화면 링크가 gate 공개 URL 로 나오도록 hostname 을 gate 로 고정.
-      # 관리 콘솔(설치자 전용)만 loopback 포트로.
-      KC_HOSTNAME_URL: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
-      KC_HOSTNAME_ADMIN_URL: http://localhost:${IDEM_PORT_KEYCLOAK:-8088}
+      # 관리 콘솔(설치자 전용)만 loopback 포트로. 1.2: hostname v1(KC_HOSTNAME_URL·KC_HOSTNAME_ADMIN_URL·KC_HOSTNAME_STRICT_HTTPS)은 26 에서 제거 — v2 이름
+      KC_HOSTNAME: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
+      KC_HOSTNAME_ADMIN: http://localhost:${IDEM_PORT_KEYCLOAK:-8088}
       # 1.0.1 (3차 점검 M10): realm-export.json 의 내부 client(idem-gate·idem-hub) redirect URI·webOrigins 가 공개 URL 을 읽는다 (첫 import 때만 적용)
       IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
       IDEM_PUBLIC_URL_HUB: ${IDEM_PUBLIC_URL_HUB:-http://localhost:8083}
@@ -160,7 +163,7 @@ services:
       IDEM_GATE_KEYCLOAK_CLIENT_SECRET: ${IDEM_GATE_KEYCLOAK_CLIENT_SECRET}
       IDEM_GATE_KEYCLOAK_REDIRECT_URI: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}/api/v1/oidc/keycloak/callback
       IDEM_GATE_INTERNAL_SIG_STRICT: "true"
-      # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/idem (Keycloak KC_HOSTNAME_URL 과 같다)
+      # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/idem (Keycloak KC_HOSTNAME 과 같다)
       IDEM_PUBLIC_URL_GATE: ${IDEM_PUBLIC_URL_GATE:-http://localhost:8081}
       # S6 PR-2: SLO 의 Keycloak 세션 종료 (Back-Channel Logout 수신은 /api/v1/oidc/backchannel-logout — realm-export 의 내부 client 가 가리킨다)
       KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET: ${KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET}

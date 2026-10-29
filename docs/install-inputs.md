@@ -17,7 +17,7 @@
 | 키 | 규칙 | 누가 읽나 | 회전 영향 |
 |---|---|---|---|
 | `IDEM_DB_PASSWORD` (Helm: `idem-db-secret`/password) | pw | PostgreSQL 사용자 `idem` · Keycloak · 모든 앱 | DB 쪽과 같이 바꾸고 전부 재기동 |
-| `KEYCLOAK_ADMIN_PASSWORD` | pw | Keycloak 관리 콘솔(설치자만) | 없음 |
+| `KEYCLOAK_ADMIN_PASSWORD` | pw | Keycloak 관리 콘솔(설치자만) — 1.2 부터 컨테이너 안에서는 Keycloak 26 의 `KC_BOOTSTRAP_ADMIN_PASSWORD`(첫 기동·빈 DB 에만 쓰인다; 키 이름은 그대로) | 없음(기존 설치본의 관리자는 DB 에 있다) |
 | `IDEM_HUB_INTERNAL_SIG_SECRET` | 32자 이상 문자열(base64 디코딩 없이 그대로 HMAC 키) | gate ↔ hub 내부 서명 | 둘 다 재기동. 진행 중 요청 실패 |
 | `IDEM_HUB_INTERNAL_API_KEY_GATE` | hex-32 | hub(내부 호출자 키 목록 — gate 는 1.0 에서 서명(`IDEM_HUB_INTERNAL_SIG_SECRET`)만 쓰고 이 키는 부르지 않는다; 필수 검사 때문에 값은 있어야 한다) | hub 재기동 |
 | `IDEM_HUB_INTERNAL_API_KEY_RELAY` | hex-32 | hub(내부 호출자 키 목록 — relay 는 1.0 에서 이 키를 쓰지 않는다; 필수 검사 때문에 값은 있어야 한다) | hub 재기동 |
@@ -53,7 +53,7 @@ IDEM_HUB_CAST_PUBLIC_KEY=$(openssl pkey -in cast.pem -pubout -outform DER | base
 |---|---|---|---|---|
 | 에디션 | `IDEM_EDITION` | `global.edition` (+ `values-kr.yaml`) | core | core / kr. hub·registry 이미지 `<tag>-<edition>` |
 | 벤더 SDK(kr) | `IDEM_VENDOR_LIBS_DIR` | 이미지 빌드 시 `--build-context vendor-libs=` | 없음 | OACX·Any-ID SDK jar 디렉터리 |
-| 공개 URL | `IDEM_PUBLIC_URL_GATE` / `_HUB` / `_CONSOLE` | `global.publicUrl.gate/hub/console/krPortal` | localhost | gate URL = 표준 OIDC issuer 베이스(`…/realms/idem`). Keycloak `KC_HOSTNAME_URL` 과 같아야 한다. hub URL = 1.1 코어 로그인 프런트(`/api/v1/handoff/login`)·FE 세션 바인드가 브라우저를 되돌릴 주소 — 리버스 프록시 뒤에서는 바깥 주소 |
+| 공개 URL | `IDEM_PUBLIC_URL_GATE` / `_HUB` / `_CONSOLE` | `global.publicUrl.gate/hub/console/krPortal` | localhost | gate URL = 표준 OIDC issuer 베이스(`…/realms/idem`). Keycloak `KC_HOSTNAME`(26 hostname v2; 24 는 `KC_HOSTNAME_URL`)과 같아야 한다. hub URL = 1.1 코어 로그인 프런트(`/api/v1/handoff/login`)·FE 세션 바인드가 브라우저를 되돌릴 주소 — 리버스 프록시 뒤에서는 바깥 주소 |
 | 포트 | `IDEM_PORT_*` | Service 고정 | 8081~ | compose 만 |
 | 시간대 | `IDEM_TZ` | `global.timezone` | Asia/Seoul | 일 단위 제한·점검 시간·파기 스케줄 기준 |
 | 플랫폼 코드 | `IDEM_PLATFORM_CODE` | `global.platformCode` | IDEM | 기관 간 SSO(CAST) sourceAgency |

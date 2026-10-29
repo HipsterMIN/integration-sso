@@ -54,7 +54,7 @@ infra/docker/
 
 | 서비스 | 이미지 | 포트 | IP |
 |--------|--------|------|-----|
-| keycloak | quay.io/keycloak/keycloak:24 | 8088 | 172.20.0.18 |
+| keycloak | quay.io/keycloak/keycloak:26.8 | 8088 | 172.20.0.18 |
 
 #### monitoring 프로파일 (`--profile monitoring`)
 
