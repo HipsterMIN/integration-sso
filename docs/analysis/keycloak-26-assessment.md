@@ -230,11 +230,11 @@ hub 를 `IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS=keycloak` 로 띄우고 로그�
 PR #293 의 첫 run 43168960722(커밋 `c56974f`, 러너 `ubuntu-26.04`) — 샌드박스가 못 보는 컨테이너 이미지·Helm 을 본다.
 
 - `k6 Smoke Test`: 컨테이너 `quay.io/keycloak/keycloak:26.8.2`(compose 계약, H2) started in 14.2 s·realm import → 앱 UP → **설치본 스모크 통과**(③ secret 86자, ④′ 204) → 백업·복구 → 운영 DB 복구 리허설까지 통과. 그 뒤 `k6 설치` 단계에서 멈췄다 — Keycloak 과 무관한 러너 이미지 문제(같은 날 `ubuntu-latest` 가 26.04 로 넘어가 apt 키링 형식이 깨짐)이고 같은 PR 에서 고쳤다(CHANGELOG).
-- `K8s 실배포 리허설` ✅ — kind v0.31·K8s 1.35·Helm 4.3: up 71 s · **install 100 s**(Pod 6개 Ready — Keycloak production `start` + realm import, 프로브 9000; 24 때 84 s, 26.8.1 때 104 s) · 스모크 11 s(TLS Ingress 경유 ①~⑧c, **④′ 포함**) · 운영 전환 upgrade 56 s · rollback 45 s · down 13 s, 합계 296 s.
+- `K8s 실배포 리허설` ✅ — kind v0.31·K8s 1.35·Helm 4.3: up 71 s · **install 100 s**(Pod 6개 Ready — Keycloak production `start` + realm import, 프로브 9000; 24 때 84 s, 26.8.1 때 104 s) · 스모크 11 s(TLS Ingress 경유 ①~⑧c, **④′ 포함**) · 운영 전환 upgrade 56 s · rollback 45 s · down 13 s, 합계 296 s. Keycloak 의 메모리 한도는 2Gi 그대로다(§6 의 "auto-build 메모리 재확인" — OOM 없이 Ready).
 - `오프라인 설치본` ✅ — 서드파티 목록이 `quay.io/keycloak/keycloak:26.8.2`, digest `sha256:723b1d6e…`(main run 이 `26.8` 로 받은 것과 같다 — 고정한 태그가 그 이미지다), 번들 808 MB → SHA256 → load → MANIFEST 8종 대조.
 - Docker Build Check 10종·Helm Lint(회귀 검사의 태그 `26.8.2`)·Build & Unit Test·문서 정합성(K 규칙) ✅.
 
-수리 뒤의 초록 run 은 CHANGELOG·시험 항목표에 적는다.
+수리 뒤 **run 43171446108(커밋 `514ab14`) 은 잡 전부 성공** — `k6 Smoke Test` 가 k6 스모크·hub prod 프로파일 단계까지 끝났고, K8s 리허설·오프라인 번들도 다시 통과했다. 시험 항목표의 Keycloak 관련 행이 이 run 을 인용한다.
 
 ### 8.5 `third-party-scan` — 26 의 첫 결과
 
