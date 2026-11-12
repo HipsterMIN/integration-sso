@@ -5,10 +5,11 @@
 #
 # Spring Framework 6.2.x — 수정판 6.2.20 은 Enterprise 전용, OSS 수정판은 7.0.9(Spring Boot 4) 뿐.
 # 세 건 모두 전제 조건이 코어·에디션에 없다(SpringAdvisoryGuardTest 가 main 소스에서 막는다).
+# D10 결정(2026-10-29): Spring Boot 4(Framework 7) 이행은 2.0 — 만료를 2027-01-31 에서 2027-06-30 으로 연장, 매 회차 전제 조건 재확인(점검 문서 §7).
 #
 # CVE-2026-47884: XsltView + "/**" 뷰 매핑 전제 — XsltView 미사용 (Spring 자체 등급 MEDIUM)
-CVE-2026-47884 exp:2027-01-31
+CVE-2026-47884 exp:2027-06-30
 # CVE-2026-47890: SSE 로 뷰 조각(fragments) 전송 전제 — 미사용 (LOW)
-CVE-2026-47890 exp:2027-01-31
+CVE-2026-47890 exp:2027-06-30
 # CVE-2026-47892: WebFlux 함수형 엔드포인트(RouterFunction) + DispatcherServlet 전제 — 미사용 (MEDIUM)
-CVE-2026-47892 exp:2027-01-31
+CVE-2026-47892 exp:2027-06-30

@@ -71,14 +71,14 @@ keycloak:
   enabled: true
   image:
     repository: quay.io/keycloak/keycloak
-    tag: "24.0"
+    tag: "26.8"                 # 1.2: Keycloak 24.0 → 26.8(마이너 고정) — docs/analysis/keycloak-26-assessment.md
     pullPolicy: IfNotPresent
     registry: ""                # 서드파티 이미지 — global.imageRegistry 를 붙이지 않는다(1.0.1, H5). 미러를 쓰면 여기에
   runAsUser: 1000               # Keycloak 이미지의 사용자(USER 1000, 그룹 0 쓰기 가능)
   # enabled=false 일 때 앱이 부를 Keycloak 주소 (realm idem 과 client 4개가 이미 있어야 한다 — files/realm-export.json)
   externalUrl: ""
   realmImport: true             # files/realm-export.json 을 ConfigMap 으로 마운트해 --import-realm
-  adminUser: admin              # 관리 콘솔(설치자 전용) 계정 — 비밀번호는 Secret 의 KEYCLOAK_ADMIN_PASSWORD
+  adminUser: admin              # 관리 콘솔(설치자 전용) 계정 — 비밀번호는 Secret 의 KEYCLOAK_ADMIN_PASSWORD(키 이름 그대로). 1.2: 컨테이너에는 Keycloak 26 의 임시 부트스트랩 관리자 KC_BOOTSTRAP_ADMIN_* 로 넘긴다(첫 기동·빈 DB 에만)
   # 관리 콘솔 주소: 기본 http://localhost:8088 (NOTES 의 port-forward 와 같다 — 콘솔은 admin URL 로 리다이렉트하므로 클러스터 안 주소면 열리지 않는다, 1.0.1 M9).
   # 공개하려면 ingress.exposeKeycloakAdmin=true 와 함께 그 URL
   adminUrl: ""

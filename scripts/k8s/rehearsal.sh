@@ -311,7 +311,7 @@ phase_smoke() {
   local admin_pw reg_key
   admin_pw=$(grep '^IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD=' "$OUT_DIR/install.env" | cut -d= -f2-)
   reg_key=$(grep '^IDEM_REGISTRY_INTERNAL_API_KEY=' "$OUT_DIR/install.env" | cut -d= -f2-)
-  # Ingress → gate·hub·console (TLS, 자체 CA). 리다이렉트·Secure 쿠키·KC_PROXY=edge 가 실제 조건으로 검증된다
+  # Ingress → gate·hub·console (TLS, 자체 CA). 리다이렉트·Secure 쿠키·KC_PROXY_HEADERS=xforwarded 가 실제 조건으로 검증된다
   local code
   code=$(curl -s --cacert "$OUT_DIR/ca.crt" -o /dev/null -w '%{http_code}' "$CONSOLE_PUBLIC/")
   [ "$code" = 200 ] && ok "관리 콘솔 $CONSOLE_PUBLIC → 200" || fail "관리 콘솔이 $code"

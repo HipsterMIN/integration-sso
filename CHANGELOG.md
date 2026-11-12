@@ -4,7 +4,16 @@
 
 ## [Unreleased]
 
-_(없음)_
+### 1.2 · PR-1.2-1 — Keycloak 24.0 → 26.8 설치본 계약 (D9 결정 2026-10-29, 플랜 §5.5)
+
+- **설치본 계약 변경(§4 규칙상 마이너 — 1.2)**: `infra/docker/compose.install.yml`·개발 compose 2종·CI 스모크·Helm 의 Keycloak 을 `quay.io/keycloak/keycloak:26.8`(마이너 고정)로. 26 에서 제거된 hostname v1·`proxy` 옵션을 v2 이름으로 — `KC_HOSTNAME_URL`→`KC_HOSTNAME`, `KC_HOSTNAME_ADMIN_URL`→`KC_HOSTNAME_ADMIN`, `KC_HOSTNAME_STRICT_HTTPS` 삭제, `KC_PROXY=edge`→`KC_PROXY_HEADERS=xforwarded`; `KEYCLOAK_ADMIN(_PASSWORD)`→`KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD`(임시 부트스트랩 관리자, 첫 기동·빈 DB 에만); `start-dev` 에 `KC_HTTP_HOST=0.0.0.0`(26.6 부터 기본 바인드가 localhost). **설치본 키 이름(`install.env`·Helm Secret 의 `KEYCLOAK_ADMIN_PASSWORD`)은 그대로** — 컨테이너 변수만 바뀐다. 개발 compose 의 Keycloak 헬스체크는 설치본과 같은 realm 엔드포인트 확인으로.
+- Helm: 26 은 health/metrics 가 관리 포트 9000 — `containerPort 9000` 추가, startup/liveness 프로브 9000(readiness 는 `/realms/idem` 8080 그대로, Service 는 내보내지 않는다). CI `third-party-scan` 매트릭스·Helm 회귀 검사의 이미지 태그.
+- Idem 코드 변경 없음(`docs/analysis/keycloak-26-assessment.md` §4). 문서: 설치 매뉴얼·`install.md`·`install-inputs.md`·제품 사양·README·내부 스펙·ADR-014·application.yml 주석.
+- 업그레이드 절차(세션 유실·DB 백업·변수명 치환)는 PR-1.2-3, 리허설·`third-party-scan` 26 결과 기록·시험 항목표 재실행은 PR-1.2-2, 버전 커밋은 1.2.0.
+
+### D10 반영 · Spring Boot 4 는 2.0 — 억제 만료 2027-06-30 연장 (2026-10-29)
+
+- `.trivyignore` 3건·`infra/owasp/suppressions.xml` 의 `until` 6건을 2027-01-31 → **2027-06-30** 으로(2회차 결정안 §5 → 2026-10-29 결정 (나)). 전제 조건은 `SpringAdvisoryGuardTest` 가 계속 막고, 매 회차 재확인한다. 코드 변경 없음.
 
 ## [1.1.7] — 2026-10-27
 

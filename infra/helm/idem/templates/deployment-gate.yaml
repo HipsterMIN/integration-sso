@@ -47,7 +47,7 @@ spec:
               value: idem-gate
             - name: IDEM_GATE_KEYCLOAK_REDIRECT_URI
               value: {{ printf "%s/api/v1/oidc/keycloak/callback" .Values.global.publicUrl.gate | quote }}
-            # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/idem (Keycloak KC_HOSTNAME_URL 과 같다)
+            # S6 OIDC 프런트: 기관 RP 가 보는 issuer = gate 공개 URL/realms/idem (Keycloak KC_HOSTNAME 과 같다)
             - name: IDEM_PUBLIC_URL_GATE
               value: {{ .Values.global.publicUrl.gate | quote }}
             {{- include "idem.appSecretEnv" (dict "root" . "keys" (list "IDEM_HUB_INTERNAL_SIG_SECRET" "IDEM_GATE_KEYCLOAK_CLIENT_SECRET" "KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET")) | nindent 12 }}

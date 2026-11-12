@@ -303,7 +303,7 @@ idem.hub:
       "3": L3
 
   # ── S6 표준 프로토콜(OIDC_RP): Keycloak 을 숨긴 채 기관 RP 를 붙인다 ──────────────
-  # issuer 는 gate 공개 URL 아래 /realms/{realm} — Keycloak 의 KC_HOSTNAME_URL(=gate 공개 URL)과 같아야 한다.
+  # issuer 는 gate 공개 URL 아래 /realms/{realm} — Keycloak 의 KC_HOSTNAME(=gate 공개 URL; 24 는 KC_HOSTNAME_URL)과 같아야 한다.
   # Keycloak client 는 Idem 이 Service Profile(protocol.oidc)에서 프로비저닝한다(콘솔 조작 없음).
   oidc-rp:
     enabled: ${IDEM_HUB_OIDC_RP_ENABLED:true}
