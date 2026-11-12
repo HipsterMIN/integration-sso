@@ -452,17 +452,20 @@ jobs:
           n=$(curl -sf "$HUB_URL/api/v1/admin/agencies?size=100" -H "Cookie: idemAdminSid=$SID" -H 'X-Requested-With: ci-restore' | jq '.items | length')
           [ "${n:-0}" -ge 1 ] && echo "✅ 복구된 기관 목록 $n" || { echo "❌ 복구된 기관 목록이 비어 있다"; exit 1; }
 
-      - name: k6 설치
+      - name: k6 설치 (GitHub 릴리스 tarball — 버전·체크섬 고정)
+        env:
+          K6_VERSION: v2.3.0     # 직전까지 apt 가 깔던 판(2026-10-29 run 40803781773). 올릴 때는 릴리스의 checksums.txt 값으로 K6_SHA256 도 같이
+          K6_SHA256: 39c3117b6af817592dcd0ce4242105c0a7af10948c2a425306f0be8f7a8a8ab1
         run: |
+          # 1.2 PR-1.2-2: apt 저장소(dl.k6.io) + keyserver 대신 릴리스 tarball 을 받는다. ubuntu-latest 가 24.04 → 26.04 로 넘어가자(2026-11)
+          # `gpg --no-default-keyring --keyring … --recv-keys` 가 keybox 형식 키링을 만들어 apt 가 읽지 못했다
+          # (NO_PUBKEY C780D0BDB1A69C86 → "k6: command not found"). 버전도 고정된다 — 종전은 그날의 apt 최신이었다.
           if command -v k6 >/dev/null 2>&1; then echo "k6 already installed: $(k6 version)"; exit 0; fi
-          sudo gpg -k
-          sudo gpg --no-default-keyring \
-            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 \
-            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update && sudo apt-get install -y k6
+          curl -fsSL --retry 3 --retry-delay 5 -o /tmp/k6.tar.gz \
+            "https://github.com/grafana/k6/releases/download/${K6_VERSION}/k6-${K6_VERSION}-linux-amd64.tar.gz"
+          echo "${K6_SHA256}  /tmp/k6.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/k6.tar.gz -C /tmp
+          sudo install -m 0755 "/tmp/k6-${K6_VERSION}-linux-amd64/k6" /usr/local/bin/k6
           k6 version
 
       - name: k6 스모크 (hub + 실제 registry)
