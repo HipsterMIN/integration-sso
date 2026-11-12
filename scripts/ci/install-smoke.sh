@@ -126,8 +126,13 @@ print(hmac.new(os.environ["SIG_SECRET"].encode(), f"{sys.argv[1]}:{int(time.time
          -H 'Content-Type: application/json' -H "X-Correlation-Id: $lcid" -H 'X-Internal-Caller: install-smoke' -H "X-Internal-Sig: $sig" \
          -d "{\"sid\":\"$nosid\"}")
   outcome=$(tr -d '\r' < /tmp/smoke-slo.hdr | awk -F': ' 'tolower($1) == "x-idp-logout-outcome" { print $2 }')
-  [ "$code" = "204" ] && [ "$outcome" = "NOT_FOUND" ] && ok "없는 세션 종료 요청 204 (X-Idp-Logout-Outcome: NOT_FOUND) — 서비스 계정 토큰으로 Keycloak 관리 API 왕복" \
-    || fail "gate 내부 세션 종료가 $code (outcome=${outcome:-없음}) — Keycloak 관리 API 가 idem-session-manager 토큰을 받지 않는다 (Keycloak 26.8.2+: client scope kc-admin-api — scripts/upgrade/keycloak-realm-1.2.sh)"
+  if [ "$code" = "204" ] && [ "$outcome" = "NOT_FOUND" ]; then
+    ok "없는 세션 종료 요청 204 (X-Idp-Logout-Outcome: NOT_FOUND) — 서비스 계정 토큰으로 Keycloak 관리 API 왕복"
+  elif [ "$code" = "401" ]; then
+    fail "gate 내부 세션 종료가 401 — 내부 서명이 맞지 않는다 (IDEM_HUB_INTERNAL_SIG_SECRET 이 gate 의 값과 같은지, 이 호스트와 gate 의 시계 차이가 60초 안인지)"
+  else
+    fail "gate 내부 세션 종료가 $code (outcome=${outcome:-없음}) — Keycloak 관리 API 가 idem-session-manager 토큰을 받지 않는다 (Keycloak 26.8.2+: client scope kc-admin-api — scripts/upgrade/keycloak-realm-1.2.sh)"
+  fi
   code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$GATE_URL/api/v1/internal/session/logout" \
          -H 'Content-Type: application/json' -H "X-Correlation-Id: $lcid" -d "{\"sid\":\"$nosid\"}")
   [ "$code" = "401" ] && ok "서명 없는 내부 호출은 401" || fail "서명 없는 내부 호출이 $code"
