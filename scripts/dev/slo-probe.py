@@ -8,7 +8,7 @@
     ④ (KC_ADMIN_* 가 있으면) Keycloak 관리 API 로 사용자 세션이 있는지
     ⑤ RP1 이 end_session_endpoint(gate) 에 id_token_hint 로 로그아웃 → gate 가 Idem 쪽을 먼저 정리하고 Keycloak 에 넘긴다
     ⑥ RP2 의 수신기(BC_PATH_2)에 logout_token 이 오는지(BC_WAIT_SECONDS 안) → events 에 backchannel-logout, aud=RP2, sid 가 같은지.
-       판정은 RP2 로 한다(SLO 의 의미 — 다른 RP 의 세션이 끝나는가). Keycloak 24 는 로그아웃을 시작한 RP1 에도 보내는데 참고로만 적는다.
+       판정은 RP2 로 한다(SLO 의 의미 — 다른 RP 의 세션이 끝나는가). Keycloak(24.0.5·26.8.2 에서 확인)은 로그아웃을 시작한 RP1 에도 보내는데 참고로만 적는다.
        RP2 가 없으면 이 단계는 건너뛴다.
     ※ 프록시가 있는 환경(샌드박스·CI 러너)에서는 Keycloak 의 아웃바운드가 HTTPS_PROXY 로 가서 수신기에 닿지 않는다 — Keycloak 을
        NO_PROXY 에 RP 호스트를 넣어(또는 프록시 없이) 띄운다. 프로파일 검증은 루프백·사설 주소를 거부하므로 수신기 호스트는 공개 이름이어야
@@ -266,7 +266,7 @@ def main() -> int:
             step("backchannel: logout_token 의 events·aud(rp2)·sid", "http://schemas.openid.net/event/backchannel-logout" in events and aud_ok and lt.get("sid") == sid,
                  f"iss={lt.get('iss', '-')} aud_ok={aud_ok} sid_match={lt.get('sid') == sid} sub_match={lt.get('sub') == sub}")
             r1 = wait_for(BC_PATH, 3.0)
-            print(f"  [INFO] rp1 수신기({BC_PATH}): {'도착' if r1 else '없음'} — Keycloak 24 는 로그아웃을 시작한 RP 에도 logout_token 을 보낸다(판정에는 넣지 않는다)")
+            print(f"  [INFO] rp1 수신기({BC_PATH}): {'도착' if r1 else '없음'} — Keycloak(24.0.5·26.8.2 에서 확인)은 로그아웃을 시작한 RP 에도 logout_token 을 보낸다(판정에는 넣지 않는다)")
         # ⑦ 뒤처리 확인
         if admin_tok is not None:
             time.sleep(1.0)

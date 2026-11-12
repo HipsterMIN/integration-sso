@@ -113,7 +113,7 @@ jobs:
   #   frontend-check-kr — KR 에디션 회원 포털 editions/idem-kr-portal/frontend (yarn·Webpack, 구 idem-console): typecheck + 빌드
   docs-lint:
     name: 문서 정합성
-    # 플랜 §7 — NamingGuard 의 문서판: 버전 단일 출처·시험 항목표 집계·오류 코드·구 이름·링크 (scripts/ci/docs-lint.py, 의존성 없음)
+    # 플랜 §7 — NamingGuard 의 문서판: 버전 단일 출처·Keycloak 이미지 태그 단일 출처(1.2, 패치 고정)·시험 항목표 집계·오류 코드·구 이름·링크 (scripts/ci/docs-lint.py, 의존성 없음)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -393,7 +393,7 @@ jobs:
       - name: DB 스키마 초기화 (compose 의 init-db.sql 과 동일)
         run: PGPASSWORD=idem psql -h localhost -U idem -d idem -v ON_ERROR_STOP=1 -f infra/docker/init-db.sql
 
-      - name: Keycloak 기동 (compose 와 같은 image 26.8·realm import·hostname v2 — gate 뒤에 숨는다, 1.2)
+      - name: Keycloak 기동 (compose 와 같은 image 26.8.2·realm import·hostname v2 — gate 뒤에 숨는다, 1.2)
         run: |
           docker run -d --name idem-keycloak --network host \
             -v "$PWD/infra/docker/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro" \
@@ -402,7 +402,7 @@ jobs:
             -e KC_HOSTNAME=http://localhost:8081 -e KC_HOSTNAME_ADMIN=http://localhost:8088 \
             -e IDEM_PUBLIC_URL_GATE=http://localhost:8081 -e IDEM_PUBLIC_URL_HUB=http://localhost:8083 -e IDEM_PUBLIC_URL_CONSOLE=http://localhost:3001 \
             -e IDEM_GATE_KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_PROVISIONER_CLIENT_SECRET -e KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET \
-            quay.io/keycloak/keycloak:26.8 start-dev --http-port=8088 --import-realm
+            quay.io/keycloak/keycloak:26.8.2 start-dev --http-port=8088 --import-realm
           for i in $(seq 1 60); do
             if curl -sf http://localhost:8088/realms/idem > /dev/null 2>&1; then echo "✅ Keycloak realm idem UP (${i}x3s)"; exit 0; fi
             sleep 3
@@ -680,7 +680,7 @@ jobs:
         image:
           - postgres:16-alpine
           - redis:7.2-alpine
-          - quay.io/keycloak/keycloak:26.8
+          - quay.io/keycloak/keycloak:26.8.2
     steps:
       - name: 소스 체크아웃 (.trivyignore)
         uses: actions/checkout@v7
@@ -815,7 +815,7 @@ jobs:
         run: |
           helm template idem infra/helm/idem -n idem --set global.imageRegistry=ghcr.io/example > /tmp/reg.yaml
           grep -q 'image: ghcr.io/example/idem-hub:latest-core' /tmp/reg.yaml
-          grep -q 'image: quay.io/keycloak/keycloak:26.8' /tmp/reg.yaml && ! grep -q 'ghcr.io/example/quay.io' /tmp/reg.yaml
+          grep -q 'image: quay.io/keycloak/keycloak:26.8.2' /tmp/reg.yaml && ! grep -q 'ghcr.io/example/quay.io' /tmp/reg.yaml
           grep -q 'image: postgres:16-alpine' /tmp/reg.yaml && ! grep -q 'ghcr.io/example/postgres' /tmp/reg.yaml
           [ "$(grep -c 'runAsUser: 1001' /tmp/core.yaml)" -ge 4 ] && grep -q 'runAsUser: 1000' /tmp/core.yaml
           grep -q 'containerPort: 9090' /tmp/core.yaml && grep -q 'port: 9090 }' /tmp/core.yaml && ! grep -q 'port: 9090$' <(grep -A3 'kind: Service' /tmp/core.yaml)

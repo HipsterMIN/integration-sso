@@ -4,12 +4,29 @@
 
 ## [Unreleased]
 
+### 1.2 · PR-1.2-2 — Keycloak 26.8.2 대응(관리 API 강화 2건) · 이미지 태그 패치 고정 · 리허설 기록 (2026-11-12, 플랜 §5.5)
+
+- **무엇이 깨졌나**: PR-1.2-1(#292) 머지 뒤 main run 43160969761 의 `k6 Smoke Test`·`K8s 실배포 리허설` 이 스모크 ③ 에서 실패 — `E-IDO-122 … Keycloak Admin GET …/clients → 401`. 롤링 태그 `keycloak:26.8` 이 PR 검증 때의 26.8.1 에서 **26.8.2** 로 넘어갔고, 26.8.2 는 관리 REST API 를 두 군데 조였다(샌드박스 재현 + 26.8.1 ↔ 26.8.2 소스 대조, `docs/analysis/keycloak-26-assessment.md` §8):
+  1. **scope·audience 검사** — 관리 API 는 토큰에 client scope `kc-admin-api`(와 그 scope 가 넣는 audience `{공개 URL}/admin/realms/{realm}`)가 있어야 받는다. 마이그레이션·새 realm 설정은 이 scope 를 내장 client(`admin-cli`·`security-admin-console`)에만 붙인다 → Idem 의 서비스 계정 `idem-provisioner`(hub 프로비저닝)·`idem-session-manager`(gate 세션 종료)가 **401**.
+  2. **protocol mapper 허용 목록** — `manage-realm` 이 없는 관리자는 realm 속성 `allowedProtocolMapperTypesForClientAdministrators` 에 적힌 mapper 종류만 다룰 수 있다(기본값 없음 = 전부 거부) → hub 가 기관 client 를 만들 때 넣는 mapper 둘 때문에 **새 기관 OIDC_RP 온보딩이 403**(이미 만든 client 의 갱신·secret 회전은 된다).
+- **수정 — 새 설치**: `realm-export.json`(compose·Helm 두 벌)의 서비스 계정 client 둘에 `defaultClientScopes`(realm 기본 scope + `kc-admin-api`), realm `attributes` 에 hub 가 쓰는 mapper 두 종류(`oidc-usersessionmodel-note-mapper`·`oidc-hardcoded-claim-mapper`)만 허용. 서비스 계정에 `manage-realm` 을 주지 않는다(최소 권한 유지). 24.0.5 에서도 import 된다(모르는 scope 는 WARN 후 무시).
+- **수정 — 기존 realm(업그레이드)**: `scripts/upgrade/keycloak-realm-1.2.sh` — Keycloak 관리자 계정으로 두 client 에 scope 를 붙이고 realm 속성에 mapper 두 종류를 더한다(있던 값 유지, 바뀌는 속성은 하나). 멱등이고, 서비스 계정 토큰으로 **실제 호출**(client 조회 · mapper 포함 시험 client 생성 → 삭제 · 사용자 조회)해 확인한다. 비밀은 출력하지 않는다.
+- **hub·gate**: hub `KeycloakAdminClient` — 관리 API **401 이면 캐시한 서비스 계정 토큰을 버리고**(운영자가 고친 뒤 재기동·만료 대기 없이 다음 호출이 새 토큰으로) 오류 문구에 조치를 싣는다(콘솔의 E-IDO-122 문구·로그), **403** 에는 mapper 허용 목록 안내. gate `KeycloakLogoutService` — 401 에 같은 처리(캐시 폐기 + ERROR 로그 안내, hub 재시도 큐가 이어 받는다). 그 밖의 동작·API·DB 변경 없음.
+- **이미지 태그 정책 변경**: `quay.io/keycloak/keycloak:26.8`(마이너 고정·패치 자동) → **`26.8.2`(패치 고정)** — compose 설치본·개발 compose 2종·Helm `keycloak.image.tag`·CI(스모크 `docker run`·`third-party-scan`·Helm 회귀)·문서. 패치 릴리스가 관리 API 의미를 바꿀 수 있음을 이번에 봤다 — 패치 올림은 한 PR 에서 CI(스모크·K8s 리허설·Trivy)를 거친다. `docs-lint` 에 **K 규칙**(compose.install.yml 의 태그가 단일 출처, 패치까지 X.Y.Z, 11곳 일치) — pre-commit 훅도 그 파일들에서 돈다.
+- **회귀 방지**: 설치본 스모크 **④′** — gate 내부 세션 종료 API(`/api/v1/internal/session/logout`, 내부 서명)를 없는 세션 ID 로 불러 `idem-session-manager` 토큰이 Keycloak 관리 API 를 왕복하는지(204 `NOT_FOUND`), 서명 없는 호출이 401 인지 본다. ③ 은 그대로 `idem-provisioner` 의 client 생성(mapper 포함)을 본다. K8s 리허설도 ④′ 를 돈다(`IDEM_HUB_INTERNAL_SIG_SECRET` 전달). 단위 테스트 hub `KeycloakAdminClientTest`(+3)·gate `KeycloakLogoutServiceTest`(+1).
+- **리허설(샌드박스 실스택, 2026-11-12 — PostgreSQL 16·Redis·Keycloak 배포본·부트 jar)**: ① 새 설치(26.8.2) — 스모크 74 ✅·D-8 SLO 프로브 13/13 ② 업그레이드(1.1.7 + Keycloak 24.0.5 → 26.8.2, 같은 DB) — 모델 마이그레이션 25.0.0 … 26.8.2, 업그레이드 전 세션 유실 확인, 스크립트 전 401(안내 문구) → 스크립트 1초 → **앱 재기동 없이** 새 기관 온보딩·스모크 74 ✅·SLO 13/13(업그레이드 전에 만든 기관의 32자 secret 그대로) ③ 롤백(백업 복구 + 24.0.5 + 1.1.7) — 스모크·SLO 통과. 26 으로 올라간 스키마에서 24 는 **오류 없이 뜨지만** 26 에서 로그인한 계정의 비밀번호 검증이 실패한다(argon2 재해시) — 되돌릴 때는 반드시 백업 복구. 상세·수치는 평가 문서 §8.
+- **`third-party-scan` 26 첫 결과**(main `8ad3cbe` run 43160969761): `keycloak:26.8`(= 26.8.2, redhat 9.8) **OS 0 · jar 1**(HIGH — guava 33.6.0-jre CVE-2026-102554) ← 24.0 의 OS 22 + jar 77. 점검 문서 2회차 §8.
+
+### 1.2 업그레이드 메모 (1.1.x → 1.2, 작성 중 — 버전 커밋에서 확정)
+
+1. **백업**(`scripts/ops/backup.sh`) — Keycloak 26 의 스키마·모델 마이그레이션은 되돌릴 수 없다. 2. 앱·Keycloak 정지 → 1.2 설치본(compose·`install.env.example` 의 Keycloak 변수 계약, PR-1.2-1) 으로 교체 → 기동(Keycloak 첫 기동에서 자동 마이그레이션, 샌드박스 12초). 3. **`scripts/upgrade/keycloak-realm-1.2.sh`** 를 한 번 실행. 4. 설치본 스모크. Keycloak 세션은 전부 사라진다(기관 RP 사용자 재로그인; hub FE 세션·Handoff 티켓은 무관). 되돌리기 = 백업 복구 + 이전 이미지·설치본(이미지 태그만 되돌리지 않는다). 절차 전문은 설치 매뉴얼 §5.
+
 ### 1.2 · PR-1.2-1 — Keycloak 24.0 → 26.8 설치본 계약 (D9 결정 2026-10-29, 플랜 §5.5)
 
 - **설치본 계약 변경(§4 규칙상 마이너 — 1.2)**: `infra/docker/compose.install.yml`·개발 compose 2종·CI 스모크·Helm 의 Keycloak 을 `quay.io/keycloak/keycloak:26.8`(마이너 고정)로. 26 에서 제거된 hostname v1·`proxy` 옵션을 v2 이름으로 — `KC_HOSTNAME_URL`→`KC_HOSTNAME`, `KC_HOSTNAME_ADMIN_URL`→`KC_HOSTNAME_ADMIN`, `KC_HOSTNAME_STRICT_HTTPS` 삭제, `KC_PROXY=edge`→`KC_PROXY_HEADERS=xforwarded`; `KEYCLOAK_ADMIN(_PASSWORD)`→`KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD`(임시 부트스트랩 관리자, 첫 기동·빈 DB 에만); `start-dev` 에 `KC_HTTP_HOST=0.0.0.0`(26.6 부터 기본 바인드가 localhost). **설치본 키 이름(`install.env`·Helm Secret 의 `KEYCLOAK_ADMIN_PASSWORD`)은 그대로** — 컨테이너 변수만 바뀐다. 개발 compose 의 Keycloak 헬스체크는 설치본과 같은 realm 엔드포인트 확인으로.
 - Helm: 26 은 health/metrics 가 관리 포트 9000 — `containerPort 9000` 추가, startup/liveness 프로브 9000(readiness 는 `/realms/idem` 8080 그대로, Service 는 내보내지 않는다). CI `third-party-scan` 매트릭스·Helm 회귀 검사의 이미지 태그.
 - Idem 코드 변경 없음(`docs/analysis/keycloak-26-assessment.md` §4). 문서: 설치 매뉴얼·`install.md`·`install-inputs.md`·제품 사양·README·내부 스펙·ADR-014·application.yml 주석.
-- 업그레이드 절차(세션 유실·DB 백업·변수명 치환)는 PR-1.2-3, 리허설·`third-party-scan` 26 결과 기록·시험 항목표 재실행은 PR-1.2-2, 버전 커밋은 1.2.0.
+- 업그레이드 절차(세션 유실·DB 백업·변수명 치환)는 PR-1.2-3, 리허설·`third-party-scan` 26 결과 기록·시험 항목표 재실행은 PR-1.2-2, 버전 커밋은 1.2.0. (PR-1.2-2 에서 태그를 `26.8.2` 로 고정했다 — 위.)
 
 ### D10 반영 · Spring Boot 4 는 2.0 — 억제 만료 2027-06-30 연장 (2026-10-29)
 

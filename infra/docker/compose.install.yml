@@ -91,7 +91,7 @@ services:
 
   # ── 숨긴 Keycloak (표준 OIDC 발급·세션, S6 에서 프로비저닝 정식화) ─────────────
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8   # 1.2: 24.0 → 26.8(마이너 고정, 패치 자동) — docs/analysis/keycloak-26-assessment.md
+    image: quay.io/keycloak/keycloak:26.8.2   # 1.2: 24.0 → 26.8.2 — 패치까지 고정한다(롤링 태그 26.8 이 26.8.1 → 26.8.2 로 넘어가며 관리 API 가 바뀌어 프로비저닝·세션 종료가 401 이 됐다. 패치 올림은 CI 를 거친 PR 로) — docs/analysis/keycloak-26-assessment.md §8
     container_name: idem-keycloak
     restart: unless-stopped
     command: start-dev --http-port=8080 --import-realm

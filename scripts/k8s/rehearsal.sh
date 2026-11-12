@@ -308,9 +308,10 @@ phase_smoke() {
   port_forward idem-authz    18086:8086 19096:9090
   port_forward idem-gate     19091:9090
   port_forward idem-hub      19093:9090
-  local admin_pw reg_key
+  local admin_pw reg_key sig_secret
   admin_pw=$(grep '^IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD=' "$OUT_DIR/install.env" | cut -d= -f2-)
   reg_key=$(grep '^IDEM_REGISTRY_INTERNAL_API_KEY=' "$OUT_DIR/install.env" | cut -d= -f2-)
+  sig_secret=$(grep '^IDEM_HUB_INTERNAL_SIG_SECRET=' "$OUT_DIR/install.env" | cut -d= -f2-)   # 스모크 ④′ (gate 내부 세션 종료 → Keycloak 관리 API, 1.2)
   # Ingress → gate·hub·console (TLS, 자체 CA). 리다이렉트·Secure 쿠키·KC_PROXY_HEADERS=xforwarded 가 실제 조건으로 검증된다
   local code
   code=$(curl -s --cacert "$OUT_DIR/ca.crt" -o /dev/null -w '%{http_code}' "$CONSOLE_PUBLIC/")
@@ -321,7 +322,7 @@ phase_smoke() {
   HUB_URL="$HUB_PUBLIC" GATE_URL="$GATE_PUBLIC" ISSUER="$GATE_PUBLIC/realms/idem" \
   REGISTRY_URL=http://127.0.0.1:18082 IDEM_AUTHZ_URL=http://127.0.0.1:18086 \
   HUB_MGMT_URL=http://127.0.0.1:19093 GATE_MGMT_URL=http://127.0.0.1:19091 REGISTRY_MGMT_URL=http://127.0.0.1:19092 IDEM_AUTHZ_MGMT_URL=http://127.0.0.1:19096 \
-  IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD="$admin_pw" IDEM_REGISTRY_INTERNAL_API_KEY="$reg_key" IDEM_EDITION=core SERVICE_CODE=K8S_RP \
+  IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD="$admin_pw" IDEM_REGISTRY_INTERNAL_API_KEY="$reg_key" IDEM_HUB_INTERNAL_SIG_SECRET="$sig_secret" IDEM_EDITION=core SERVICE_CODE=K8S_RP \
     "$ROOT/scripts/ci/install-smoke.sh" > "$LOGS/smoke.txt" 2>&1 && rc=0 || rc=$?
   sed 's/^/  /' "$LOGS/smoke.txt"
   [ "$rc" -eq 0 ] || fail "설치본 스모크 실패"

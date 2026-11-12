@@ -11,6 +11,9 @@
      (이 파일 자체도 NamingGuardTest 의 scripts/ 스캔 대상이라 금지 문자열을 통째로 적지 않고 조각으로 만든다.)
   L  링크 — 루트·docs 최상위·매뉴얼·인증 문서의 상대 링크가 실제 파일을 가리켜야 한다.
   C  CHANGELOG — 첫 버전 헤더 `## [X.Y.Z]` 가 빌드 버전과 같아야 한다.
+  K  Keycloak 이미지 태그 — infra/docker/compose.install.yml 의 `quay.io/keycloak/keycloak:<태그>` 가 단일 출처이고 패치까지(X.Y.Z) 적는다.
+     개발 compose 2종·Helm values·CI(스모크 docker run·third-party-scan·Helm 회귀)·현재 상태 문서가 같은 태그여야 한다
+     (1.2: 롤링 태그 26.8 이 26.8.1 → 26.8.2 로 넘어가며 main 이 깨졌다 — 패치 올림은 한 PR 에서 전부 바꾸고 CI 를 거친다).
 실행: python3 scripts/ci/docs-lint.py   (저장소 루트, 의존성 없음). 줄 끝에 `docs-lint:ignore` 가 있으면 그 줄은 N·E·L 검사에서 뺀다.
 """
 import glob
@@ -91,6 +94,42 @@ if not mv:
     err('CHANGELOG.md', 1, '[C] 버전 헤더 `## [X.Y.Z]` 없음')
 elif mv.group(1) != V:
     err('CHANGELOG.md', find_line('CHANGELOG.md', mv.group(0)), f'[C] 첫 버전 헤더 {mv.group(1)} ≠ 빌드 버전 {V}')
+
+# ── K. Keycloak 이미지 태그 ─────────────────────────────────────────────
+KC_IMAGE = 'quay.io/keycloak/keycloak'
+KC_SOURCE = 'infra/docker/compose.install.yml'
+KC_SITES = [
+    'infra/docker/docker-compose.yml', 'infra/docker/compose.sso-im.yml', '.github/workflows/ci.yml', 'README.md',
+    'docs/manuals/installation-manual.md', 'docs/internal/spec/01-system-overview.md', 'docs/internal/spec/08-infrastructure.md',
+    'docs/internal/development/11-infrastructure.md',
+]
+kc_tags = re.findall(r'^\s*image:\s*' + re.escape(KC_IMAGE) + r':(\S+)', read(KC_SOURCE), re.M)
+KC_TAG = kc_tags[0] if len(kc_tags) == 1 else ''
+kc_sites = 0
+if not KC_TAG:
+    err(KC_SOURCE, 1, f'[K] `image: {KC_IMAGE}:<태그>` 가 정확히 한 번 있어야 한다 (찾은 수 {len(kc_tags)})')
+else:
+    if not re.fullmatch(r'\d+\.\d+\.\d+', KC_TAG):
+        err(KC_SOURCE, find_line(KC_SOURCE, KC_IMAGE + ':'), f'[K] Keycloak 이미지 태그는 패치까지 고정한다(X.Y.Z): {KC_TAG}')
+    kc_ref = re.compile(re.escape(KC_IMAGE) + r':([0-9][0-9A-Za-z.\-]*)')
+    for path in KC_SITES:
+        if not os.path.exists(path):
+            err(path, 1, '[K] 파일 없음'); continue
+        found = False
+        for i, l in lines(path):
+            for mk in kc_ref.finditer(l):
+                found = True; kc_sites += 1
+                if mk.group(1) != KC_TAG:
+                    err(path, i, f'[K] Keycloak 이미지 태그 {mk.group(1)} ≠ {KC_SOURCE} 의 {KC_TAG}')
+        if not found:
+            err(path, 1, f'[K] `{KC_IMAGE}:<태그>` 표기가 없다 (기대 {KC_TAG})')
+    hv = 'infra/helm/idem/values.yaml'
+    mh = re.search(r'repository:\s*' + re.escape(KC_IMAGE) + r'\s*\n\s*tag:\s*"([^"]+)"', read(hv))
+    kc_sites += 1
+    if not mh:
+        err(hv, 1, f'[K] keycloak.image.repository 다음 줄의 tag: "…" 를 찾지 못함')
+    elif mh.group(1) != KC_TAG:
+        err(hv, find_line(hv, 'tag: "' + mh.group(1) + '"'), f'[K] Helm keycloak.image.tag {mh.group(1)} ≠ {KC_SOURCE} 의 {KC_TAG}')
 
 # ── T. 시험 항목표 ─────────────────────────────────────────────────────
 TI = 'docs/manuals/test-items.md'
@@ -220,4 +259,4 @@ if errors:
     for e in errors:
         print('  ' + e)
     sys.exit(1)
-print(f'docs-lint: OK — 버전 {V} 일치({len(VERSION_SITES)}곳), 시험 항목 {n_rows}행·집계 일치, 오류 코드·구 이름·링크 이상 없음 ({len(OPS_DOCS)}개 문서)')
+print(f'docs-lint: OK — 버전 {V} 일치({len(VERSION_SITES)}곳), Keycloak 이미지 태그 {KC_TAG} 일치({kc_sites}곳), 시험 항목 {n_rows}행·집계 일치, 오류 코드·구 이름·링크 이상 없음 ({len(OPS_DOCS)}개 문서)')

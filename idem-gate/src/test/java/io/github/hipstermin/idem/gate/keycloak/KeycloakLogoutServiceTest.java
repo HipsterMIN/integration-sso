@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import io.github.hipstermin.idem.gate.metrics.AuthMetrics;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -75,6 +76,28 @@ class KeycloakLogoutServiceTest {
         assertThat(sut.revoke(null, "boom", "cid")).isEqualTo(KeycloakLogoutService.Outcome.FAILED);
         verify(metrics).incrementSloKeycloakFailure();
         assertThat(sut.revoke(null, null, "cid")).isEqualTo(KeycloakLogoutService.Outcome.SKIPPED);
+    }
+
+    @Test
+    @DisplayName("1.2: 관리 API 401 은 실패로 세고 캐시한 토큰을 버린다 — scope 를 고친 뒤 다음 호출은 새 토큰으로 성공한다")
+    void unauthorized_dropsCachedToken() {
+        // Keycloak 26.8.2+: client scope kc-admin-api 가 없는 토큰(sm-tok)은 401 — 운영자가 scope 를 붙인 뒤의 토큰(sm-tok-2)은 204
+        kc.stubFor(WireMock.post(urlEqualTo("/realms/idem/protocol/openid-connect/token")).inScenario("scope").whenScenarioStateIs(Scenario.STARTED)
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+                        .withBody("{\"access_token\":\"sm-tok\",\"expires_in\":300}")).willSetStateTo("fixed"));
+        kc.stubFor(WireMock.post(urlEqualTo("/realms/idem/protocol/openid-connect/token")).inScenario("scope").whenScenarioStateIs("fixed")
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+                        .withBody("{\"access_token\":\"sm-tok-2\",\"expires_in\":300}")));
+        kc.stubFor(WireMock.delete(urlEqualTo("/admin/realms/idem/sessions/sid-1")).withHeader("Authorization", WireMock.equalTo("Bearer sm-tok"))
+                .willReturn(aResponse().withStatus(401)));
+        kc.stubFor(WireMock.delete(urlEqualTo("/admin/realms/idem/sessions/sid-1")).withHeader("Authorization", WireMock.equalTo("Bearer sm-tok-2"))
+                .willReturn(aResponse().withStatus(204)));
+
+        assertThat(sut.revoke("kc-sub", "sid-1", "cid")).isEqualTo(KeycloakLogoutService.Outcome.FAILED);
+        verify(metrics).incrementSloKeycloakFailure();
+        // 캐시를 버렸으므로 만료(300초)를 기다리지 않고 새 토큰으로 간다
+        assertThat(sut.revoke("kc-sub", "sid-1", "cid")).isEqualTo(KeycloakLogoutService.Outcome.REVOKED_SESSION);
+        kc.verify(2, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token")));
     }
 
     @Test
