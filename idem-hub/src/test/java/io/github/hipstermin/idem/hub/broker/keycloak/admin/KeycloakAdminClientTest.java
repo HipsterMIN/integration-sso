@@ -7,6 +7,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -82,6 +83,53 @@ class KeycloakAdminClientTest {
         wm.stubFor(post(urlEqualTo("/admin/realms/idem/clients")).willReturn(aResponse().withStatus(403)));
         assertThatThrownBy(() -> sut.createClient(Map.of()))
                 .isInstanceOf(KeycloakAdminException.class).hasMessageContaining("403");
+    }
+
+    @Test
+    @DisplayName("1.2: 관리 API 401 은 캐시한 토큰을 버리고 조치(kc-admin-api scope)를 알린다 — 다음 호출은 새 토큰으로 간다")
+    void unauthorized_dropsCachedTokenAndHints() {
+        // Keycloak 26.8.2+: client scope kc-admin-api 가 없는 토큰(tok-1)은 관리 API 가 401 — 운영자가 scope 를 붙인 뒤의 토큰(tok-2)은 200
+        wm.stubFor(post(urlEqualTo("/realms/idem/protocol/openid-connect/token")).inScenario("scope").whenScenarioStateIs(STARTED)
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+                        .withBody("{\"access_token\":\"tok-1\",\"expires_in\":300}")).willSetStateTo("fixed"));
+        wm.stubFor(post(urlEqualTo("/realms/idem/protocol/openid-connect/token")).inScenario("scope").whenScenarioStateIs("fixed")
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+                        .withBody("{\"access_token\":\"tok-2\",\"expires_in\":300}")));
+        wm.stubFor(get(urlPathEqualTo("/admin/realms/idem/clients")).withHeader("Authorization", equalTo("Bearer tok-1"))
+                .willReturn(aResponse().withStatus(401)));
+        wm.stubFor(get(urlPathEqualTo("/admin/realms/idem/clients")).withHeader("Authorization", equalTo("Bearer tok-2"))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+                        .withBody("[{\"id\":\"u1\",\"clientId\":\"idem-svc-AG1\"}]")));
+
+        assertThatThrownBy(() -> sut.findClientByClientId("idem-svc-AG1"))
+                .isInstanceOf(KeycloakAdminException.class)
+                .hasMessageContaining("401").hasMessageContaining("kc-admin-api").hasMessageContaining("scripts/upgrade/keycloak-realm-1.2.sh");
+        // 캐시를 버렸으므로 만료(300초)를 기다리지 않고 새 토큰을 받아 성공한다
+        assertThat(sut.findClientByClientId("idem-svc-AG1")).isPresent();
+        wm.verify(2, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token")));
+    }
+
+    @Test
+    @DisplayName("1.2: 403 은 조치(protocol mapper 허용 목록)를 알리고 토큰은 버리지 않는다 — 권한 문제에 토큰 재발급을 되풀이하지 않는다")
+    void forbidden_hintsMapperAllowlistAndKeepsToken() {
+        // Keycloak 26.8.2+: realm 속성 allowedProtocolMapperTypesForClientAdministrators 가 비어 있으면 mapper 를 넣는 client 생성이 403
+        wm.stubFor(post(urlEqualTo("/admin/realms/idem/clients")).willReturn(aResponse().withStatus(403)));
+        assertThatThrownBy(() -> sut.createClient(Map.of("clientId", "idem-svc-X")))
+                .isInstanceOf(KeycloakAdminException.class).hasMessageContaining("403")
+                .hasMessageContaining("allowedProtocolMapperTypesForClientAdministrators").hasMessageContaining("scripts/upgrade/keycloak-realm-1.2.sh")
+                .satisfies(e -> assertThat(e.getMessage()).doesNotContain("kc-admin-api"));
+        assertThatThrownBy(() -> sut.createClient(Map.of("clientId", "idem-svc-X"))).isInstanceOf(KeycloakAdminException.class);
+        wm.verify(1, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token")));
+    }
+
+    @Test
+    @DisplayName("1.2: 5xx 는 안내 없이 상태만 — 토큰도 그대로")
+    void serverError_noHint() {
+        wm.stubFor(get(urlPathEqualTo("/admin/realms/idem/clients")).willReturn(aResponse().withStatus(503)));
+        assertThatThrownBy(() -> sut.findClientByClientId("x")).isInstanceOf(KeycloakAdminException.class).hasMessageContaining("503")
+                .satisfies(e -> assertThat(e.getMessage()).doesNotContain("kc-admin-api").doesNotContain("allowedProtocolMapperTypes"));
+        assertThatThrownBy(() -> sut.findClientByClientId("x")).isInstanceOf(KeycloakAdminException.class);
+        wm.verify(1, postRequestedFor(urlEqualTo("/realms/idem/protocol/openid-connect/token")));
     }
 
     @Test

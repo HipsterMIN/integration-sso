@@ -111,6 +111,23 @@ BC_LISTEN=0.0.0.0:9099 BC_PATH=/bc BC_PATH_2=/bc2 KC_ADMIN_URL=http://localhost:
 python3 -I scripts/dev/slo-probe.py
 ```
 
-- 판정은 RP2 로 한다(SLO 의 의미 — 다른 RP 의 세션이 끝나는가). Keycloak 24 는 로그아웃을 시작한 RP1 에도 보내는데 참고로만 찍는다. `KC_ADMIN_*` 이 없으면 Keycloak 세션 확인은 건너뛴다.
+- 판정은 RP2 로 한다(SLO 의 의미 — 다른 RP 의 세션이 끝나는가). Keycloak(24.0.5·26.8.2 에서 확인)은 로그아웃을 시작한 RP1 에도 보내는데 참고로만 찍는다. `KC_ADMIN_*` 이 없으면 Keycloak 세션 확인은 건너뛴다.
 - **프록시가 있는 환경**(샌드박스·사무실 망): Keycloak 의 아웃바운드(Back-Channel Logout)가 `HTTPS_PROXY` 로 가서 수신기에 닿지 않는다 — Keycloak 을 `NO_PROXY` 에 RP 호스트를 넣어(또는 프록시 없이) 띄운다. 2026-10-16 샌드박스에서 이 때문에 두 번 실패한 뒤 13/13.
 - gate 로그 `[OIDC-FRONT] RP-Initiated Logout: … cacheEvicted=N feExpired=M`, hub 로그 `[IdpLogout] FE 세션 만료` 가 Idem 쪽 정리의 증거다(브로커 로그인 FE 세션이 없으면 `feExpired=0`).
+
+## 8. Keycloak 중계 로그인 끝-끝 프로브 — 시험 항목 D-19 (1.2 PR-1.2-2)
+
+`scripts/dev/broker-login-probe.py` 가 코어 로그인 프런트에 `provider=broker:<이름>` 으로 들어가 브라우저처럼 홉을 밟고 7 단계를 판정한다 — 진입 302 → 브로커 시작 302 → Keycloak 로그인 화면 200 → 폼 POST 302 → gate 콜백 → hub 바인드 → continue → 기관 콜백(`?ticketId=&state=`) → 서버 간 verify(`APPROVED`/`GUEST`) → 재검증 409 `E-IDO-102`. IT(`BrokerLoginIntegrationTest`)는 gate 를 WireMock 으로 바꾸므로, 실제 Keycloak·gate·hub 를 지나는 확인은 이 프로브다. HTTP 도우미는 §7 의 `slo-probe.py` 를 그대로 쓴다.
+
+```bash
+# 스택: §7 과 같다. hub 만 브로커 제공자를 켜서 띄운다(기본은 비어 있다):  IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS=keycloak
+# 준비(설치본 스모크 ⑦b 와 같다): DIRECT 프로파일의 서비스 + 기관 API 키
+#   PUT  $HUB_URL/api/v1/admin/services/BRK_HO/profile   {"schemaVersion":1,"service":{"code":"BRK_HO","name":"…","status":"ACTIVE"},
+#        "protocol":{"type":"DIRECT","endpoints":{"callbackWhitelist":["https://agency.example.org/cb"]}},"identity":{"attributes":["name_masked"]},"policy":{"minAuthLevel":"L1"}}
+#   POST $HUB_URL/api/v1/admin/agencies/BRK_HO/rotate-key  → newApiKey
+SERVICE=BRK_HO AGENCY_KEY=… OIDC_USER=poc-testuser OIDC_PASSWORD=… python3 -I scripts/dev/broker-login-probe.py
+```
+
+- 2026-11-12 샌드박스(Keycloak 26.8.2, 24.0.5 에서 올린 realm): 7/7, 2회. gate `auth_result`(`KEYCLOAK_OIDC`·SUCCESS)·hub `handoff_audit` `CONSUMED` 로 뒤를 확인했다.
+- **로그인 화면의 주소를 본다**: 프로브는 홉마다 주소를 찍고, Keycloak 로그인 화면이 gate 공개 URL 이 아니면 `[INFO]` 를 남긴다. 지금 gate 는 인가 URL 을 Keycloak 내부 주소(`KEYCLOAK_URL`)로 만든다 — 샌드박스·CI 처럼 그 주소가 브라우저에서 닿는 배치에서만 끝까지 간다(`docs/analysis/keycloak-26-assessment.md` §8.6 #7, 플랜 §5.5 의 3c).
+

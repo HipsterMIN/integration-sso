@@ -259,7 +259,7 @@ services:
     logging: *log-small
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8   # 1.2: 설치본(compose.install.yml)과 같은 26.8
+    image: quay.io/keycloak/keycloak:26.8.2   # 1.2: 설치본(compose.install.yml)과 같은 26.8.2 (패치 고정)
     container_name: idem-keycloak
     restart: unless-stopped
     command: start-dev --http-port=8080 --import-realm

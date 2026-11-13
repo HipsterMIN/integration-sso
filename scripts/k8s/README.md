@@ -6,7 +6,7 @@ Helm 차트 `infra/helm/idem` 을 **실제 클러스터**에 올려 설치 → �
 |---|---|---|
 | `up` | kind 클러스터(호스트 80/443 → 노드) + ingress-nginx + 네임스페이스 + `idem-db-secret` + 리허설용 PostgreSQL 16·Redis 7(`rehearsal/infra.yaml`, emptyDir) | Pod Ready |
 | `install` | 이미지 반입 → 비밀 한 벌(`scripts/lib/gen-install-env.sh` → Secret `idem-app-secrets`) → 자체 CA 로 TLS Secret `idem-tls` → `helm upgrade --install --wait` (`rehearsal/values-rehearsal.yaml` + 생성된 `values-env.yaml`) | 리비전 1 deployed · Pod 전부 Ready · hub 프로파일 default · Service 에 관리 포트 없음(M7) · Ingress 호스트 3개(TLS) · 관리 포트 health UP |
-| `smoke` | TLS Ingress(gate·hub·console) + port-forward(registry·authz·관리 포트)로 `scripts/ci/install-smoke.sh` ①~⑧ (`*_MGMT_URL`) | 관리 콘솔 200 · HTTP→HTTPS 리다이렉트 · 스모크 통과 · 감사 WAL 볼륨 |
+| `smoke` | TLS Ingress(gate·hub·console) + port-forward(registry·authz·관리 포트)로 `scripts/ci/install-smoke.sh` ①~⑧ (`*_MGMT_URL`; 1.2: ④′ gate 내부 세션 종료 → Keycloak 관리 API 도 — 내부 서명 비밀을 `install.env` 에서 넘긴다) | 관리 콘솔 200 · HTTP→HTTPS 리다이렉트 · 스모크 통과 · 감사 WAL 볼륨 |
 | `upgrade` | `rehearsal/values-prod-switch.yaml`(prod 프로파일 · Mock off) 로 `helm upgrade --wait` — 설치 매뉴얼 §5 "확인 뒤 되돌린다" 를 그대로 | 리비전 2 · hub 프로파일 prod · MOCK 제공자 없음 · Discovery issuer · pre-upgrade 훅 Job 정리 |
 | `rollback` | `helm rollback 1 --wait` | 리비전 3 · 프로파일 default · MOCK 제공자 복귀 |
 | `down` | `helm uninstall --wait` → Idem Pod 0 → 네임스페이스·kind 클러스터 삭제, 비밀 파일 삭제 | |

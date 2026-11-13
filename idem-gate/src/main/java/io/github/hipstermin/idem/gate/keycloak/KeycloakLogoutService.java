@@ -30,6 +30,10 @@ import org.springframework.web.client.RestTemplate;
  * </ul>
  * Keycloak 은 세션이 끝나면 그 세션에 참여한 client(기관 RP 의 {@code backchannel.logout.url}, gate 자신의 수신기)에
  * Back-Channel Logout 을 보낸다 — 그래서 이 한 호출로 RP 세션까지 정리된다.
+ *
+ * <p>1.2: 관리 API 가 401 이면 캐시한 토큰을 버리고 조치를 로그에 남긴다 — Keycloak 26.8.2 부터 관리 API 는 토큰에 client scope
+ * {@code kc-admin-api} 를 요구한다({@code scripts/upgrade/keycloak-realm-1.2.sh}). 운영자가 고치면 재기동·만료 대기 없이 다음 호출
+ * (hub 의 재시도 큐 포함)이 새 토큰으로 간다.
  */
 @Slf4j
 @Service
@@ -53,8 +57,9 @@ public class KeycloakLogoutService {
             log.warn("[KeycloakLogout] sub·sid 모두 없음 — 세션 종료 스킵: correlationId={}", correlationId);
             return Outcome.SKIPPED;
         }
+        String token = null;
         try {
-            String token = serviceAccountToken();
+            token = serviceAccountToken();
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(token);
             headers.set("X-Correlation-Id", correlationId);
@@ -78,6 +83,14 @@ public class KeycloakLogoutService {
             authMetrics.incrementSloKeycloakSuccess();
             log.info("[KeycloakLogout] Keycloak 에 세션 없음(이미 종료): sid={} correlationId={}", hasSid, correlationId);
             return Outcome.NOT_FOUND;
+        } catch (HttpClientErrorException.Unauthorized e) {
+            // 토큰이 통하지 않는다 — 캐시를 버려 다음 호출(hub 재시도 포함)이 새 토큰으로 가게 한다. 토큰 발급 자체의 401(비밀 불일치)도 여기로 온다(버릴 토큰 없음)
+            invalidateToken(token);
+            authMetrics.incrementSloKeycloakFailure();
+            log.error("[KeycloakLogout] Keycloak 이 401 로 거부 — 세션을 끊지 못했다: sid={} correlationId={}. 서비스 계정 {} 의 client secret 과, "
+                    + "Keycloak 26.8.2 이상이면 client scope 'kc-admin-api'(기존 realm 은 scripts/upgrade/keycloak-realm-1.2.sh 를 한 번 실행)를 확인하세요",
+                    hasSid, correlationId, keycloakProperties.getSessionManager().getClientId());
+            return Outcome.FAILED;
         } catch (Exception e) {
             authMetrics.incrementSloKeycloakFailure();
             log.warn("[KeycloakLogout] Keycloak 세션 종료 실패 (비치명적): sid={} correlationId={} cause={}", hasSid, correlationId, e.getMessage());
@@ -88,6 +101,14 @@ public class KeycloakLogoutService {
     /** 종전 시그니처 호환 — sub 만으로 사용자 전체 종료. */
     public void revokeKeycloakSession(String sub, String correlationId) {
         revoke(sub, null, correlationId);
+    }
+
+    /** 거절당한 토큰이 아직 캐시에 있으면 버린다 — 다음 {@link #serviceAccountToken()} 이 새로 받는다(그 사이 다른 스레드가 받은 새 토큰은 건드리지 않는다). */
+    synchronized void invalidateToken(String rejected) {
+        if (rejected != null && rejected.equals(cachedToken)) {
+            cachedToken = null;
+            cachedTokenExpiry = Instant.EPOCH;
+        }
     }
 
     @SuppressWarnings("unchecked")

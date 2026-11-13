@@ -113,7 +113,7 @@ jobs:
   #   frontend-check-kr — KR 에디션 회원 포털 editions/idem-kr-portal/frontend (yarn·Webpack, 구 idem-console): typecheck + 빌드
   docs-lint:
     name: 문서 정합성
-    # 플랜 §7 — NamingGuard 의 문서판: 버전 단일 출처·시험 항목표 집계·오류 코드·구 이름·링크 (scripts/ci/docs-lint.py, 의존성 없음)
+    # 플랜 §7 — NamingGuard 의 문서판: 버전 단일 출처·Keycloak 이미지 태그 단일 출처(1.2, 패치 고정)·시험 항목표 집계·오류 코드·구 이름·링크 (scripts/ci/docs-lint.py, 의존성 없음)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -393,7 +393,7 @@ jobs:
       - name: DB 스키마 초기화 (compose 의 init-db.sql 과 동일)
         run: PGPASSWORD=idem psql -h localhost -U idem -d idem -v ON_ERROR_STOP=1 -f infra/docker/init-db.sql
 
-      - name: Keycloak 기동 (compose 와 같은 image 26.8·realm import·hostname v2 — gate 뒤에 숨는다, 1.2)
+      - name: Keycloak 기동 (compose 와 같은 image 26.8.2·realm import·hostname v2 — gate 뒤에 숨는다, 1.2)
         run: |
           docker run -d --name idem-keycloak --network host \
             -v "$PWD/infra/docker/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro" \
@@ -402,7 +402,7 @@ jobs:
             -e KC_HOSTNAME=http://localhost:8081 -e KC_HOSTNAME_ADMIN=http://localhost:8088 \
             -e IDEM_PUBLIC_URL_GATE=http://localhost:8081 -e IDEM_PUBLIC_URL_HUB=http://localhost:8083 -e IDEM_PUBLIC_URL_CONSOLE=http://localhost:3001 \
             -e IDEM_GATE_KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_CLIENT_SECRET -e KEYCLOAK_PROVISIONER_CLIENT_SECRET -e KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET \
-            quay.io/keycloak/keycloak:26.8 start-dev --http-port=8088 --import-realm
+            quay.io/keycloak/keycloak:26.8.2 start-dev --http-port=8088 --import-realm
           for i in $(seq 1 60); do
             if curl -sf http://localhost:8088/realms/idem > /dev/null 2>&1; then echo "✅ Keycloak realm idem UP (${i}x3s)"; exit 0; fi
             sleep 3
@@ -452,17 +452,20 @@ jobs:
           n=$(curl -sf "$HUB_URL/api/v1/admin/agencies?size=100" -H "Cookie: idemAdminSid=$SID" -H 'X-Requested-With: ci-restore' | jq '.items | length')
           [ "${n:-0}" -ge 1 ] && echo "✅ 복구된 기관 목록 $n" || { echo "❌ 복구된 기관 목록이 비어 있다"; exit 1; }
 
-      - name: k6 설치
+      - name: k6 설치 (GitHub 릴리스 tarball — 버전·체크섬 고정)
+        env:
+          K6_VERSION: v2.3.0     # 직전까지 apt 가 깔던 판(2026-10-29 run 40803781773). 올릴 때는 릴리스의 checksums.txt 값으로 K6_SHA256 도 같이
+          K6_SHA256: 39c3117b6af817592dcd0ce4242105c0a7af10948c2a425306f0be8f7a8a8ab1
         run: |
+          # 1.2 PR-1.2-2: apt 저장소(dl.k6.io) + keyserver 대신 릴리스 tarball 을 받는다. ubuntu-latest 가 24.04 → 26.04 로 넘어가자(2026-11)
+          # `gpg --no-default-keyring --keyring … --recv-keys` 가 keybox 형식 키링을 만들어 apt 가 읽지 못했다
+          # (NO_PUBKEY C780D0BDB1A69C86 → "k6: command not found"). 버전도 고정된다 — 종전은 그날의 apt 최신이었다.
           if command -v k6 >/dev/null 2>&1; then echo "k6 already installed: $(k6 version)"; exit 0; fi
-          sudo gpg -k
-          sudo gpg --no-default-keyring \
-            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 \
-            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update && sudo apt-get install -y k6
+          curl -fsSL --retry 3 --retry-delay 5 -o /tmp/k6.tar.gz \
+            "https://github.com/grafana/k6/releases/download/${K6_VERSION}/k6-${K6_VERSION}-linux-amd64.tar.gz"
+          echo "${K6_SHA256}  /tmp/k6.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/k6.tar.gz -C /tmp
+          sudo install -m 0755 "/tmp/k6-${K6_VERSION}-linux-amd64/k6" /usr/local/bin/k6
           k6 version
 
       - name: k6 스모크 (hub + 실제 registry)
@@ -680,7 +683,7 @@ jobs:
         image:
           - postgres:16-alpine
           - redis:7.2-alpine
-          - quay.io/keycloak/keycloak:26.8
+          - quay.io/keycloak/keycloak:26.8.2
     steps:
       - name: 소스 체크아웃 (.trivyignore)
         uses: actions/checkout@v7
@@ -815,7 +818,7 @@ jobs:
         run: |
           helm template idem infra/helm/idem -n idem --set global.imageRegistry=ghcr.io/example > /tmp/reg.yaml
           grep -q 'image: ghcr.io/example/idem-hub:latest-core' /tmp/reg.yaml
-          grep -q 'image: quay.io/keycloak/keycloak:26.8' /tmp/reg.yaml && ! grep -q 'ghcr.io/example/quay.io' /tmp/reg.yaml
+          grep -q 'image: quay.io/keycloak/keycloak:26.8.2' /tmp/reg.yaml && ! grep -q 'ghcr.io/example/quay.io' /tmp/reg.yaml
           grep -q 'image: postgres:16-alpine' /tmp/reg.yaml && ! grep -q 'ghcr.io/example/postgres' /tmp/reg.yaml
           [ "$(grep -c 'runAsUser: 1001' /tmp/core.yaml)" -ge 4 ] && grep -q 'runAsUser: 1000' /tmp/core.yaml
           grep -q 'containerPort: 9090' /tmp/core.yaml && grep -q 'port: 9090 }' /tmp/core.yaml && ! grep -q 'port: 9090$' <(grep -A3 'kind: Service' /tmp/core.yaml)

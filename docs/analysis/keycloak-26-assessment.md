@@ -1,4 +1,4 @@
-# Keycloak 26 올림 영향 평가 (2026-10-15, 1.1.3 기준)
+# Keycloak 26 올림 영향 평가 (2026-10-15, 1.1.3 기준 — 추록 §8: 26.8.2 대응·최종 계약 리허설, 2026-11-12)
 
 취약점 점검 1회차의 서드파티 이미지 결과(`docs/certification/vulnerability-review-2026-10.md` §4.4·§6)가 남긴 숙제다. 설치본이 쓰는 `quay.io/keycloak/keycloak:24.0`(= 24.0.5)은 OS 21 HIGH + Java jar 77(CRITICAL 6)을 안고 있고, 24.0 줄기의 수정판은 24.0.9 까지만 나왔으며 2025 년 이후 CVE(SAML·조직 초대·redirect_uri·authorization code 위조 등)는 **26.x 에서만** 고쳐졌다. 이 문서는 "언제·어떻게 26 으로 가는가" 를 2026-11 점검 회차에서 결정할 수 있게, **Keycloak 26.8.1 을 샌드박스에서 실제로 띄워**(24 스키마 복사본 위의 마이그레이션과 빈 스키마 새 설치, 둘 다) 설치본 계약·Idem 코드 영향·시험 결과·단계 계획·권고를 적는다.
 
@@ -55,7 +55,7 @@ Keycloak 업그레이드 가이드(26.0 ~ 26.8.1)에서 Idem 에 닿는 항목�
 |---|---|---|
 | `infra/docker/compose.install.yml` keycloak | `image: quay.io/keycloak/keycloak:24.0`, `start-dev --http-port=8080 --import-realm`, `KEYCLOAK_ADMIN(_PASSWORD)`, `KC_HOSTNAME_STRICT_HTTPS`, `KC_PROXY: edge`, `KC_HOSTNAME_URL`, `KC_HOSTNAME_ADMIN_URL` | `keycloak:26.8`, `KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD`, `KC_HOSTNAME`/`KC_HOSTNAME_ADMIN`, `KC_PROXY_HEADERS=xforwarded`, **`KC_HTTP_HOST=0.0.0.0`**, `KC_HOSTNAME_STRICT_HTTPS` 삭제. 헬스체크(`/realms/idem` 200)는 그대로 |
 | `infra/helm/idem/templates/deployment-keycloak.yaml`·`values.yaml` | `start`(production), `KC_HOSTNAME_URL`·`KC_HOSTNAME_ADMIN_URL`·`KC_HOSTNAME_STRICT_HTTPS`·`KEYCLOAK_ADMIN`, 프로브 `/health/started`·`/health/live` **8080** | `tag: "26.8"`, hostname v2 환경변수, `KC_BOOTSTRAP_ADMIN_*`, 프로브는 관리 포트 **9000**(`containerPort` 추가, `KC_HTTP_MANAGEMENT_PORT` 기본 9000). `optimized` 이미지(`kc.sh build --db=postgres --health-enabled=true`)도 26 베이스로 |
-| `.github/workflows/ci.yml` k6 스모크 잡(`docker run … keycloak:24.0 start-dev`) | compose 와 같은 24 환경변수 | compose 와 같이 바꾼다(`--network host` 라 바인드 주소는 문제가 안 되지만 환경변수 계약은 compose 와 같게). `third-party-scan` 은 compose 의 이미지 태그를 읽으므로 자동으로 26 을 긁는다 |
+| `.github/workflows/ci.yml` k6 스모크 잡(`docker run … keycloak:24.0 start-dev`) | compose 와 같은 24 환경변수 | compose 와 같이 바꾼다(`--network host` 라 바인드 주소는 문제가 안 되지만 환경변수 계약은 compose 와 같게). `third-party-scan` 은 compose 의 이미지 태그를 읽으므로 자동으로 26 을 긁는다(정정 §8.3: 매트릭스는 고정 문자열이다 — 지금은 `docs-lint` K 규칙이 compose 와 같은 태그임을 강제한다) |
 | `infra/docker/docker-compose.yml`·`compose.sso-im.yml`(개발용) | 24 환경변수 | 같이 바꾼다(개발자 로컬) |
 | `scripts/k8s/rehearsal/values-rehearsal.yaml`·`rehearsal.sh` 주석 | `KC_PROXY=edge` 언급 | 문구 |
 | `docs/install.md`·`docs/install-inputs.md`·`docs/manuals/installation-manual.md`·`ADR-014`·gate/hub `application.yml` 주석 | `KC_HOSTNAME_URL` = gate 공개 URL 이라는 설명 | `KC_HOSTNAME` 으로 |
@@ -139,6 +139,118 @@ Spring Boot 4 이행(`spring-boot-4-assessment.md`)과 **독립** — 코드 변
 
 1. **1.2 에서 Keycloak 26.8.x 로 올린다** — 설치본 환경변수 계약이 바뀌므로 1.1.x 패치가 아니다(플랜 §4). 작고(코드 변경 없음) 독립적이며 취약점 수가 가장 많은 이미지라 Spring Boot 4 보다 먼저 한다. GS 시험 대상을 1.2 로 잡으면 26 이 시험 대상이 된다.
 2. 그 전 1.1.x 설치본은 `keycloak:24.0`(= 24.0.5) 그대로 — 24.0 라인에 더 나올 수정판이 없고, Keycloak 이 gate 뒤에 숨어 있어(관리 콘솔 로컬 포트, `/clients-registrations`·SAML 미사용) 노출면이 좁다는 점을 점검 문서 §4.4 에 유지한다.
-3. 올릴 때 태그는 **`26.8`**(마이너 고정, 패치 자동) — 24 와 같은 규칙. `third-party-scan` 이 자동으로 따라온다.
+3. 올릴 때 태그는 **`26.8`**(마이너 고정, 패치 자동) — 24 와 같은 규칙. `third-party-scan` 이 자동으로 따라온다. **→ 2026-11-12 에 바꿨다: `26.8.2` 패치 고정(§8.3).** 롤링 태그가 26.8.1 → 26.8.2 로 넘어가며 main 이 깨졌다.
 4. 업그레이드 창에 Keycloak 세션이 전부 사라진다는 것을 운영 절차에 적는다(기관 RP 사용자 재로그인, hub FE 세션·티켓은 무관). 25 경유(persistent sessions 보존)는 하지 않는다.
 5. 2026-11 회차에서 확인할 것: 26.8.x 최신 패치, `third-party-scan` 의 26 이미지 결과(24 대비 jar 77 → ?), Spring Boot 4 와의 릴리스 순서.
+
+## 8. 추록 — 26.8.2 대응과 최종 계약 리허설 (2026-11-12, 1.2 PR-1.2-2)
+
+§0~§7 은 26.8.1 기준(2026-10-15)이다. PR-1.2-1(#292, 2026-10-29)이 §3 의 계약을 설치본에 넣었고 그 PR 의 CI 는 26.8.1 로 초록이었다. 머지(2026-11-12) 뒤 main run 43160969761 의 `k6 Smoke Test`·`K8s 실배포 리허설` 이 스모크 ③ 에서 실패했다(`E-IDO-122 … Keycloak Admin GET …/clients?clientId=… → 401`) — 그 사이 26.8.2 가 나와 롤링 태그 `26.8` 이 따라갔기 때문이다(main run 의 이미지 jar 이름이 `keycloak-…-26.8.2.jar`). 이 절은 26.8.2 가 바꾼 것, Idem 의 대응, 태그 정책 변경, 최종 계약으로 다시 돈 리허설(새 설치·업그레이드·롤백)을 적는다.
+
+### 8.1 26.8.2 가 바꾼 것 (26.8.1 ↔ 26.8.2 소스 대조)
+
+Maven Central 의 sources jar(`keycloak-services`·`keycloak-server-spi-private`·`keycloak-model-storage-private`·`keycloak-server-spi`·`keycloak-core`, 두 버전)를 받아 비교했다. `keycloak-services` 87개 파일이 다르다 — Idem 에 닿는 것만.
+
+| # | 변경 | 근거(소스) | Idem 영향 |
+|---|---|---|---|
+| ① | **관리 REST API 의 scope·audience 검사** — bearer 토큰에 audience `{공개(frontend) URL}/admin/realms/{realm}` 과 scope `kc-admin-api` 가 있어야 한다. 없으면 401 | `AdminRoot`: `authenticator.setAudience(getAdminApiAudience(…))`, `TokenUtil.hasScope(token.getScope(), "kc-admin-api")` 아니면 `NotAuthorizedException`. 새 client scope `kc-admin-api`(mapper `oidc-admin-api-audience-mapper`)는 realm 기본 scope 생성(`OIDCLoginProtocolFactory.createDefaultClientScopesImpl`)과 `MigrateTo26_8_2` 가 만들고 **`admin-cli`·`security-admin-console` 에만** 붙인다. 끄는 설정(`Config.scope("admin")` 의 `audienceCheckEnabled`, 기본 true)이 있으나 쓰지 않는다 | ✗ **`idem-provisioner`·`idem-session-manager` 의 토큰이 401** — hub 프로비저닝(OIDC_RP 프로파일 저장·상태 조회·secret 회전)과 gate 의 Keycloak 세션 종료(hub 가 시작하는 단일 로그아웃)가 전부 막힌다. 토큰 발급 자체는 200 이라 기동·헬스로는 보이지 않는다 |
+| ② | **protocol mapper 허용 목록** — `manage-realm` 이 없는 관리자가 mapper 를 만들기·고치기·지우기 하려면 그 mapper 종류가 realm 속성 `allowedProtocolMapperTypesForClientAdministrators`(쉼표 구분)에 있어야 한다. 속성이 없거나 비면 전부 403 | `ProtocolMappersResource.requireManageProtocolMappers`(`auth.realm().canManageRealm()` 이면 통과, 아니면 허용 목록) — `ClientsResource.createClientModel`(표현에 `protocolMappers` 가 있을 때)·`ClientResource.update`(바뀐 mapper)·`ProtocolMappersResource` 의 생성·수정·삭제·client scope 쪽에서 부른다. 마이그레이션은 이 속성을 넣지 않는다 | ✗ **새 기관 OIDC_RP 온보딩이 403** — hub 는 client 를 만들 때 mapper 둘(`oidc-usersessionmodel-note-mapper` = `identity_provider`, `oidc-hardcoded-claim-mapper` = `idem_service`)을 표현에 넣는다(`OidcRpClientProvisioner`). 이미 만든 client 의 갱신(표현에 mapper 없음)·secret 회전은 된다 — 그래서 업그레이드 직후에는 드러나지 않고 다음 온보딩에서 터진다 |
+| ③ | 동적 client 등록(DCR) 정책 추가 — "Default Roles Disabled"(anonymous·authenticated), "Full Scope Disabled"(authenticated) | `MigrateTo26_8_2.addPolicyIfMissing` | ✓ Idem 은 DCR(`/clients-registrations`)을 쓰지 않는다 |
+| ④ | 로그아웃 엔드포인트가 `id_token_hint` 를 일찍 검증하고(낡은 토큰은 400), 로그아웃 세션의 이전 값을 지운다. 사용자 세션과 루트 인증 세션을 함께 지우는 경로 정리 | `LogoutEndpoint`, `AuthenticationManager.removeUserSessionAndRootAuthSession` | ✓ D-8 SLO 프로브 13/13(§8.4) — RP-initiated 로그아웃·back-channel·세션 종료 그대로 |
+| ⑤ | `acr_values` 가 필수가 아닐 때의 LoA 계산, 오프라인 세션 정리, 관리 권한(역할 부여 검사) 세부 | `AuthorizationEndpoint`, `UserSessionManager`, `fgap/RolePermissions` | ✓ 사용하지 않거나 영향 없음(스모크·프로브 통과) |
+
+①·② 는 둘 다 보안 강화다 — manage-clients 만 가진 관리자가 mapper 로 임의 claim(예: audience)을 넣어 권한을 넓히는 길을 막는다. 그래서 끄지 않고 조건을 맞췄다.
+
+### 8.2 대응 (PR-1.2-2)
+
+| 어디 | 무엇 |
+|---|---|
+| `infra/docker/keycloak/realm-export.json` = `infra/helm/idem/files/realm-export.json`(새 설치) | 서비스 계정 client 둘에 `defaultClientScopes: [web-origins, acr, roles, profile, basic, email, kc-admin-api]` — realm 기본 scope 에 `kc-admin-api` 를 더한 것(표현에 scope 목록을 적으면 realm 기본값을 대신하므로 전부 적는다; 업그레이드한 realm 에 스크립트를 돌린 결과와 같은 집합). realm `attributes.allowedProtocolMapperTypesForClientAdministrators` = hub 가 쓰는 두 종류. import 순서상 기본 scope 생성이 client import 보다 먼저라 `kc-admin-api` 를 이름으로 참조할 수 있다(`RealmManager.importRealm`). `manage-realm` 은 주지 않는다 |
+| `scripts/upgrade/keycloak-realm-1.2.sh`(기존 realm) | Keycloak 관리자 계정으로 ① 두 client 에 `kc-admin-api` 를 기본 scope 로 붙이고 ② realm 속성에 두 mapper 종류를 더한다(지금 속성 맵을 읽어 값 하나만 더해 보낸다 — realm 갱신은 보낸 `attributes` 맵으로 속성을 교체하기 때문) ③ 서비스 계정 토큰으로 실제 호출해 확인(client 조회 200 · mapper 둘을 넣은 시험 client 생성 201 → 삭제 204 · 사용자 조회 200). 멱등, 26.8.2 미만이면 "할 일 없음". 비밀·토큰은 출력하지 않는다 |
+| hub `KeycloakAdminClient` | 관리 API **401** → 거절당한 캐시 토큰을 버리고(다음 호출이 새 토큰으로 — 운영자가 스크립트를 돌린 뒤 재기동·만료 대기가 없다) 오류 문구에 조치를 싣는다. **403** → mapper 허용 목록 안내. 문구는 콘솔의 E-IDO-122 와 로그에 그대로 보인다 |
+| gate `KeycloakLogoutService` | 401 → 캐시 폐기 + ERROR 로그 안내(결과는 종전대로 `FAILED` → 502 → hub 재시도 큐) |
+| 설치본 스모크 `scripts/ci/install-smoke.sh` | **④′** — gate 내부 세션 종료 API 를 없는 세션 ID 로 불러 `idem-session-manager` 토큰이 관리 API 를 왕복하는지(204 `NOT_FOUND`), 서명 없는 호출이 401 인지. ③ 은 종전대로 `idem-provisioner` 의 client 생성(mapper 포함)을 본다 — 두 서비스 계정을 다 밟는다. K8s 리허설도 같다 |
+| 이미지 태그 | §8.3 |
+
+### 8.3 태그 정책 — 패치까지 고정한다 (§7.3 의 권고를 바꾼다)
+
+§7.3 은 "`26.8`(마이너 고정, 패치 자동)" 을 권했고 PR-1.2-1 이 그렇게 넣었다. 2주 만에 패치 릴리스가 관리 API 의 의미를 바꿔 프로비저닝과 세션 종료를 막았다 — PR 에서 검증한 것(26.8.1)과 main·설치 현장이 받는 것(26.8.2)이 달라질 수 있다는 뜻이다. 그래서 **`quay.io/keycloak/keycloak:26.8.2`** 로 패치까지 고정한다.
+
+- 고정한 곳: `compose.install.yml`(단일 출처)·개발 compose 2종·Helm `keycloak.image.tag`·CI(스모크 `docker run`·`third-party-scan` 매트릭스·Helm 회귀 검사)·현재 상태 문서 — 11곳. `docs-lint` **K 규칙**이 같은 값(과 X.Y.Z 형식)임을 CI·pre-commit 에서 강제한다. §3 의 "`third-party-scan` 은 compose 의 태그를 읽는다" 는 틀린 서술이었다(매트릭스는 고정 문자열) — 지금은 K 규칙이 묶는다.
+- 비용: Keycloak 보안 패치가 자동으로 오지 않는다. 월 1회 점검에서 `third-party-scan`(main push 마다 고정한 그 태그를 긁는다)과 상류 릴리스 노트를 보고 패치 올림 PR 을 낸다 — 한 PR 에서 11곳을 바꾸고 스모크·K8s 리허설·오프라인 번들이 그 패치로 돈다.
+- 오프라인 번들·GS 시험 대상의 구성품이 빌드 날짜에 따라 달라지지 않는다.
+
+### 8.4 리허설 기록 (샌드박스, 2026-11-12)
+
+환경: 4 vCPU·16 GB 단일 호스트, PostgreSQL 16.15·Redis 로컬. Keycloak 은 배포본 zip(Maven Central `keycloak-quarkus-dist` 24.0.5·26.8.2)을 `start-dev --import-realm` 으로 — 환경변수는 compose 파일(1.1.7 은 태그 `v1.1.7` 의 것, 1.2 는 작업 트리의 것)의 keycloak 서비스 `environment` 를 기계적으로 뽑아 썼다. 앱은 부트 jar + `scripts/ci/start-apps.sh`(CI 스모크와 같은 레시피). 샌드박스에는 Docker 데몬이 없다 — 컨테이너 이미지·compose·Helm(production `start`)은 CI 가 본다(§8.4 e).
+
+**(a) 새 설치 — 26.8.2, 1.2 계약, 수정한 realm export**
+
+- 빈 DB(`init-db.sql`)·빈 Redis → Keycloak realm UP **22 s**(`Realm 'idem' imported`, started in 20.5 s; WARN 은 종전과 같은 `Referenced client scope 'openid' doesn't exist. Ignoring` ×2) → 앱 4종 UP **33 s** → 설치본 스모크 **74 ✅**(③ client 생성·secret 86자, ④′ 204 `NOT_FOUND`) → 기관 RP 2개 생성 → **D-8 SLO 프로브 13/13** → `keycloak-realm-1.2.sh` 는 "바꾼 곳 0".
+- 서비스 계정 client 의 기본 scope = `acr, basic, email, kc-admin-api, profile, roles, web-origins`. 토큰: `scope = "kc-admin-api profile email"`, `aud = [{KC_HOSTNAME}/admin/realms/idem, realm-management]`. audience 는 공개(frontend) URL 로 계산된다 — hub·gate 가 내부 주소(`KEYCLOAK_URL`)로 불러도 `KC_HOSTNAME` 이 고정이면 발급·검증이 같은 값을 쓴다(설치본 계약).
+- 대조 — 수정 **전** export 를 26.8.2 에 새로 import: 두 서비스 계정 토큰은 200 이지만 관리 API 가 401(CI 실패 그대로). scope 만 붙이고 속성이 없으면: 조회 200, mapper 를 넣은 `POST /clients` 403.
+- 하위 호환 — 수정한 export 를 **24.0.5** 에 import: WARN `Referenced client scope 'basic' doesn't exist. Ignoring`·`… 'kc-admin-api' …`(client 마다) 뒤 정상, 관리 API 200. 모르는 realm 속성은 그대로 저장된다.
+
+**(b) 업그레이드 — 1.1.7 + Keycloak 24.0.5 → 1.2 + 26.8.2, 같은 DB**
+
+준비(1.1.7 상태를 처음부터): 1.1.7 계약·1.1.7 realm export·1.1.7 부트 jar 로 새 설치 → 스모크 74 ✅(secret 32자) → 기관 RP 2개 + SLO 13/13 → 로그인 세션 1개 유지 → `scripts/ops/backup.sh`(1 s, 856 KB, 표 167).
+
+| 단계 | 결과 |
+|---|---|
+| 1. 앱·Keycloak 정지 | 앱 10~12 s, Keycloak 3~4 s |
+| 2. Keycloak 26.8.2(1.2 계약) 기동 | realm UP **12~14 s**(4회; 첫 회는 배포본의 최초 빌드가 겹쳐 33 s) — 모델 마이그레이션 `25.0.0 → 26.0.0 → 26.1.0 → 26.2.0 → 26.3.0 → 26.4.0 → 26.4.3 → 26.6.1 → 26.6.2 → 26.7.0 → 26.8.0 → 26.8.2`(§5.1 의 26.8.1 보다 한 단계 더), `Realm 'idem' already exists. Import skipped`, Bootstrap 6.9~7.8 s, started in 11.1~12.4 s. `keycloak` 스키마 92 → 101 표, `migration_model` 24.0.5 → 26.8.2 |
+| 3. 앱(1.2 빌드) 기동 | UP 30~31 s |
+| 4. 업그레이드 전 세션 | authorize → 로그인 화면(SSO 없음), `refresh_token` → 400 `invalid_grant`(Session not active), userinfo 401, Keycloak 사용자 세션 0 — **세션 유실 확인**(§2 26.0, 예상대로) |
+| 5. 스크립트 전 | 새 기관 프로파일 PUT → 503 `E-IDO-122 … → 401 UNAUTHORIZED — Keycloak 이 서비스 계정 토큰을 거부했다. Keycloak 26.8.2 이상은 … scripts/upgrade/keycloak-realm-1.2.sh …`. gate 내부 세션 종료 → 502 `FAILED` + ERROR 로그에 같은 안내 |
+| 6. `keycloak-realm-1.2.sh` | **1 s** — scope 2건 부착, 속성 추가, 확인 3건 통과. realm 표현을 앞뒤로 받아 대조: 바뀐 것은 `attributes.allowedProtocolMapperTypesForClientAdministrators` 하나 |
+| 7. **앱 재기동 없이** | 새 기관 온보딩(client 생성 + mapper) 200 → 스모크 **74 ✅**(secret 86자) → gate 내부 세션 종료 204(`NOT_FOUND`; 실제 세션은 sid 로 `REVOKED_SESSION`, sub 로 `REVOKED_USER` — 뒤이어 그 세션의 SSO·refresh·userinfo 가 끊긴 것 확인) → **SLO 13/13**(업그레이드 전에 만든 기관, 32자 secret 그대로) |
+| 8. 속성만 없는 상태(scope 는 있음)를 만들어 새 기관 온보딩 | 503 `E-IDO-122 … POST …/clients → 403 FORBIDDEN — … allowedProtocolMapperTypesForClientAdministrators …` → 스크립트를 다시 돌리면 해소 |
+
+- 26 은 사용자 세션을 DB 에 둔다(§2): 로그인 뒤 Keycloak 만 재기동(6.7 s) → 같은 쿠키로 authorize 302(로그인 화면 없음)·같은 `sid`·`refresh_token` 200·userinfo 200. 24 는 재기동에도 세션이 사라졌다.
+- 그 밖의 관찰: `sid` 는 24자(UUID 아님, §2 26.5), 쿠키는 `AUTH_SESSION_ID`·`KC_AUTH_SESSION_HASH`·`KEYCLOAK_IDENTITY`·`KEYCLOAK_SESSION`(24 의 `*_LEGACY` 쌍 없음), 26 에서 로그인한 계정의 비밀번호 해시는 `pbkdf2-sha512`(210,000) → `argon2` 로 다시 저장된다.
+
+**(c) 롤백 — 백업 복구가 유일한 길**
+
+- 앱·Keycloak 정지 → `scripts/ops/restore.sh`(업그레이드 전 덤프, **2 s**) → Keycloak 24.0.5(1.1.7 계약) realm UP 7 s → 1.1.7 부트 jar UP 30 s → 스모크 74 ✅ → SLO 13/13.
+- **이미지 태그만 되돌리면 안 된다**: 26.8.2 로 올라간 스키마(사본)에 24.0.5 를 붙이면 오류·경고 없이 기동하고 realm 엔드포인트도 200 을 준다(10 s). 그러나 26 에서 로그인한 계정(관리자)은 `invalid_user_credentials` 로 로그인이 안 된다 — 해시가 argon2 로 바뀌어 있다. 서비스 계정 토큰은 발급된다. 버전 검사가 막아 주지 않으므로 절차로 막는다(설치 매뉴얼 §5).
+
+**(d) 로그인 화면 (gate 경유, 헤드리스 브라우저)**
+
+- 26.8.2 의 로그인 테마는 `keycloak.v2`(PatternFly 5) — 24 의 화면과 모양이 다르다. realm 에 `loginTheme` 을 지정하지 않아 기본값을 따르며, 새 설치와 업그레이드한 realm 의 화면이 픽셀 단위로 같다. 폼 `#kc-form-login`(스모크 ④·SLO 프로브가 찾는 것)·필드 `username`·`password`·`credentialId`, 폼 action 은 gate 공개 URL, 테마 리소스 실패 0(전부 gate 프록시 경유).
+- 사용자 매뉴얼 §2.1 은 이 화면의 캡처를 GS 시험 환경에서 넣기로 되어 있다 — 지금 매뉴얼에 Keycloak 화면 캡처는 없다(바꿀 그림 없음).
+
+**(f) Keycloak 중계 로그인 (시험 항목 D-19) — 26.8.2 재실행**
+
+hub 를 `IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS=keycloak` 로 띄우고 로그인 프런트 `provider=broker:keycloak` 로 브라우저처럼 7홉을 밟았다(업그레이드한 realm): 진입 302 → 브로커 시작 302 → Keycloak 로그인 화면 200 → 폼 POST 302 → gate 콜백 302 → hub 바인드 302 → continue 302 → 기관 콜백 `?ticketId=&state=`. **2회 통과** — verify `APPROVED`, 재검증 409 `E-IDO-102`, `feSessionId` 쿠키, gate `auth_result`(`KEYCLOAK_OIDC`·`STANDARD_OIDC_KEYCLOAK_OIDC`·SUCCESS)·hub `handoff_audit` CONSUMED. Keycloak 과의 계약(code 교환·ID Token·`sid`·`sub`)은 26.8.2 에서도 같다 — gate 는 주체를 ID Token 의 `sub` 에서 읽고, ID Token 은 `basic` scope 가 없어도 `sub` 를 싣는다(`TokenManager`).
+
+단, 세 번째 홉에서 브라우저가 간 곳은 gate 공개 URL 이 아니라 **Keycloak 의 내부 주소**(`KEYCLOAK_URL`)였다 — 샌드박스는 Keycloak 이 localhost 라 닿는다. 설치본 배치에서는 닿지 않는다: §8.6 #7.
+
+**(e) CI 가 본 것**
+
+PR #293 의 첫 run 43168960722(커밋 `c56974f`, 러너 `ubuntu-26.04`) — 샌드박스가 못 보는 컨테이너 이미지·Helm 을 본다.
+
+- `k6 Smoke Test`: 컨테이너 `quay.io/keycloak/keycloak:26.8.2`(compose 계약, H2) started in 14.2 s·realm import → 앱 UP → **설치본 스모크 통과**(③ secret 86자, ④′ 204) → 백업·복구 → 운영 DB 복구 리허설까지 통과. 그 뒤 `k6 설치` 단계에서 멈췄다 — Keycloak 과 무관한 러너 이미지 문제(같은 날 `ubuntu-latest` 가 26.04 로 넘어가 apt 키링 형식이 깨짐)이고 같은 PR 에서 고쳤다(CHANGELOG).
+- `K8s 실배포 리허설` ✅ — kind v0.31·K8s 1.35·Helm 4.3: up 71 s · **install 100 s**(Pod 6개 Ready — Keycloak production `start` + realm import, 프로브 9000; 24 때 84 s, 26.8.1 때 104 s) · 스모크 11 s(TLS Ingress 경유 ①~⑧c, **④′ 포함**) · 운영 전환 upgrade 56 s · rollback 45 s · down 13 s, 합계 296 s. Keycloak 의 메모리 한도는 2Gi 그대로다(§6 의 "auto-build 메모리 재확인" — OOM 없이 Ready).
+- `오프라인 설치본` ✅ — 서드파티 목록이 `quay.io/keycloak/keycloak:26.8.2`, digest `sha256:723b1d6e…`(main run 이 `26.8` 로 받은 것과 같다 — 고정한 태그가 그 이미지다), 번들 808 MB → SHA256 → load → MANIFEST 8종 대조.
+- Docker Build Check 10종·Helm Lint(회귀 검사의 태그 `26.8.2`)·Build & Unit Test·문서 정합성(K 규칙) ✅.
+
+수리 뒤 **run 43171446108(커밋 `514ab14`) 은 잡 전부 성공** — `k6 Smoke Test` 가 k6 스모크·hub prod 프로파일 단계까지 끝났고, K8s 리허설·오프라인 번들도 다시 통과했다. 시험 항목표의 Keycloak 관련 행이 이 run 을 인용한다.
+
+### 8.5 `third-party-scan` — 26 의 첫 결과
+
+main `8ad3cbe` run 43160969761(Trivy v0.76.1, 2026-11-12): `quay.io/keycloak/keycloak:26.8`(= 26.8.2, redhat 9.8) — **OS 0 · Java jar 1**(HIGH 1: `com.google.guava:guava` 33.6.0-jre, CVE-2026-102554, 수정판 33.7.2). 24.0(= 24.0.5)은 OS 22(HIGH 21·CRITICAL 1) + jar 77(HIGH 71·CRITICAL 6)이었다 — §1 이 이 올림의 이유로 든 숫자다. guava 1건은 상류 이미지의 구성품이라 다음 패치(26.8.x)를 기다린다(점검 문서 2회차 §8).
+
+### 8.6 관찰 — 설치 realm (이번 PR 밖, 다음 PR 후보)
+
+로그인 화면을 확인하다 본 것들이다. 전부 24 시절부터 있던 것으로 26 올림과 무관하지만, 설치본(compose)과 Helm 이 같은 `realm-export.json` 을 import 하므로 **운영 설치에도 들어간다**. 고치는 일은 이 PR 에 넣지 않았다(범위·시험 도구 영향) — 플랜 §5.5.
+
+| # | 관찰 | 영향 | 제안 |
+|---|---|---|---|
+| 1 | 시험 계정 `poc-testuser` 가 realm export 에 있고 비밀번호가 저장소에 평문으로 있다 | **기본 계정**. 이 계정으로 표준 로그인 화면에서 로그인하면 OIDC_RP 기관에 들어가고 hub 판정도 `idem_state=APPROVED` 다(SLO 프로브·k6 12 가 그렇게 돈다). k6 README 는 "설치 검증용 realm 에만 있다" 고 적었지만 설치본·Helm 이 쓰는 파일이 그 파일이다 | realm export 에서 뺀다. CI 스모크는 쓰지 않는다 — SLO 프로브·k6 12·성능 보고서는 시험 때 관리 API 로 만들게 바꾼다. 기존 설치본은 삭제 안내(업그레이드 절차) |
+| 2 | realm `displayName` 이 "OnePass 통합인증"(역할 설명도 OnePass) | 로그인 화면 머리글·브라우저 제목에 옛 제품명 — 제품 설명서의 이름(Idem)과 다르다 | "Idem 통합인증" 으로. 기존 realm 은 관리 콘솔 Realm settings 또는 스크립트 |
+| 3 | IdP `social-kakao` 가 자리표시자 client id(`your-kakao-client-id`)로 `enabled: true` | 기본 설치의 로그인 화면에 동작하지 않는 "카카오 로그인" 버튼 | 기본 비활성(나머지 셋처럼), 켜는 법은 문서로 |
+| 4 | 국제화 미설정 — 로그인 화면이 영어("Sign in to your account") | 한국어 제품의 표준 로그인 화면이 영어 | `internationalizationEnabled`·`supportedLocales [ko, en]`·`defaultLocale ko` |
+| 5 | `sslRequired: none` | TLS 종단이 프록시라는 전제(ADR-014). 값의 근거가 문서에 없다 | `external` 검토 + 근거 기록 |
+| 6 | 내부 client 4개 `fullScopeAllowed: true` | 26.8 deprecation WARN(토큰 발급마다) — §2 에서 이미 적은 것 | false + 필요한 scope 매핑(선택) |
+| 7 | **Keycloak 중계 로그인(D-19)의 인가 URL 이 Keycloak 내부 주소로 만들어진다** — gate `KeycloakAuthUrlController` 가 `KeycloakProperties.authorizationEndpoint()`(= `KEYCLOAK_URL`)로, hub 의 `keycloak` 브로커 모드(`BrokerService`)도 `KEYCLOAK_BASE_URL` 로 (설치 realm 이 아니라 코드 쪽 관찰) | 설치본은 `KEYCLOAK_URL=http://keycloak:8080`(컨테이너 내부 이름)이라 **브라우저가 그 주소로 보내지면 닿지 않는다**. 샌드박스·CI 는 Keycloak 이 localhost 여서 통과해 왔다(§5.5 의 2026-10-15 프로브도 같은 배치). 주소만 gate 공개 URL 로 바꿔서는 안 된다 — gate 공개 프런트(`/realms/idem/protocol/openid-connect/auth`)는 `idem-gate`·`idem-hub` client 를 400 `unauthorized_client` 로 막는다. 이 경로는 기본 꺼짐(`IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS` 비어 있음, 브로커 모드 `qsign`)이라 기본 설치의 로그인·OIDC_RP 흐름에는 영향이 없다 | 브라우저용 인가 URL 을 gate 공개 URL 로 만들고 프런트가 내부 client 의 브로커 요청을 통과시키는 경로를 둔다 → 시험 항목 D-19 를 설치본 배치(compose)로 1회. 결정 전까지는 지원 배치를 문서에 적는다 |
+

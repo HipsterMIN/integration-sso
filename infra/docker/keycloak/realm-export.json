@@ -12,6 +12,9 @@
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
+  "attributes": {
+    "allowedProtocolMapperTypesForClientAdministrators": "oidc-usersessionmodel-note-mapper,oidc-hardcoded-claim-mapper"
+  },
   "clients": [
     {
       "clientId": "idem-gate",
@@ -93,6 +96,15 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "basic",
+        "email",
+        "kc-admin-api"
+      ],
       "attributes": {
         "idem.managed": "true"
       }
@@ -109,6 +121,15 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "basic",
+        "email",
+        "kc-admin-api"
+      ],
       "attributes": {
         "idem.managed": "true"
       }

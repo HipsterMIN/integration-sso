@@ -71,7 +71,7 @@ keycloak:
   enabled: true
   image:
     repository: quay.io/keycloak/keycloak
-    tag: "26.8"                 # 1.2: Keycloak 24.0 → 26.8(마이너 고정) — docs/analysis/keycloak-26-assessment.md
+    tag: "26.8.2"               # 1.2: Keycloak 24.0 → 26.8.2(패치 고정 — compose.install.yml 과 같다. 패치 올림은 CI 를 거친 PR 로) — docs/analysis/keycloak-26-assessment.md §8
     pullPolicy: IfNotPresent
     registry: ""                # 서드파티 이미지 — global.imageRegistry 를 붙이지 않는다(1.0.1, H5). 미러를 쓰면 여기에
   runAsUser: 1000               # Keycloak 이미지의 사용자(USER 1000, 그룹 0 쓰기 가능)

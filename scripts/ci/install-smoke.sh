@@ -7,6 +7,8 @@
 #
 # 검사: ① 4개 헬스 ② gate 를 통한 OIDC Discovery(issuer = gate 공개 URL) ②′ 관리자 로그인(2단계, 무인증 관리 API 401)
 #       ③ OIDC_RP 프로파일 PUT → Keycloak client 생성·secret 회전 ④ gate 프런트가 Keycloak 로그인 화면을 프록시(client 존재·PKCE 사전검사)
+#       ④′ gate 내부 세션 종료 API → Keycloak 관리 API(1.2: 서비스 계정 idem-session-manager 토큰이 통하는가 — ③ 은 idem-provisioner 를 본다.
+#          Keycloak 26.8.2+ 는 두 client 에 client scope kc-admin-api 가, realm 에 mapper 허용 목록이 있어야 한다 — 기존 realm 은 scripts/upgrade/keycloak-realm-1.2.sh)
 #       ⑤ Mock 본인확인 → registry 등록 라운드트립 ⑥ registry 이벤트 피드(Kafka 없는 상태 전파) ⑦ 코어 에디션이면 KR 전용 엔드포인트 404
 #       ⑦b Handoff 브라우저 진입(1.1 코어 로그인 프런트: DIRECT 프로파일 → 진입 → MOCK → 발급 → 콜백 → verify → 재검증 409)
 #       ⑧a 지표(1.1.1 G1-4): 네 앱 관리 주소의 /actuator/prometheus 200 + jvm 지표 — 1.0.x 는 레지스트리 미등록이라 404 였다
@@ -23,6 +25,7 @@
 #   IDEM_ADMIN_NEW_PASSWORD                    첫 로그인 비밀번호 변경이 요구되면 이 값으로(없으면 1회용 값을 만든다 — 다시 로그인할 수 없다)
 #   IDEM_ADMIN_TOTP_SECRET                     이미 2단계 등록된 관리자면 그 비밀 (첫 로그인은 스크립트가 등록한다)
 #   IDEM_REGISTRY_INTERNAL_API_KEY                       있으면 ⑥ 을 검사한다
+#   IDEM_HUB_INTERNAL_SIG_SECRET               있으면 ④′ 를 검사한다 (hub ↔ gate 내부 서명 비밀 — 설치본의 그 값)
 #   IDEM_EDITION                               core(기본) | kr
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
@@ -110,6 +113,32 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$GATE_URL/realms/idem/protocol/op
 [ "$code" = "400" ] && ok "PKCE 없는 요청은 400" || fail "PKCE 없는 요청이 $code"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$GATE_URL/realms/idem/protocol/openid-connect/auth?client_id=not-idem&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Frp.example.org%2Fcallback&state=smoke&code_challenge=$challenge&code_challenge_method=S256")
 [ "$code" = "400" ] || [ "$code" = "403" ] && ok "Idem 이 만들지 않은 client 는 $code" || fail "타 client 요청이 $code"
+
+if [ -n "${IDEM_HUB_INTERNAL_SIG_SECRET:-}" ]; then
+  echo "④′ gate 내부 세션 종료 API → Keycloak 관리 API (서비스 계정 idem-session-manager, 1.2)"
+  # hub 가 단일 로그아웃 때 부르는 경로다. 없는 세션 ID 로 불러 Keycloak 까지 다녀오는지만 본다 — 관리 API 가 서비스 계정 토큰을 받으면
+  # 404 → NOT_FOUND(204), 받지 않으면(Keycloak 26.8.2+ 에서 client scope kc-admin-api 누락) 401 → FAILED(502)
+  lcid="$CID-slo"
+  sig=$(SIG_SECRET="$IDEM_HUB_INTERNAL_SIG_SECRET" python3 -c 'import hashlib, hmac, os, sys, time
+print(hmac.new(os.environ["SIG_SECRET"].encode(), f"{sys.argv[1]}:{int(time.time())}".encode(), hashlib.sha256).hexdigest())' "$lcid")
+  nosid=$(python3 -c 'import uuid; print(uuid.uuid4())')
+  code=$(curl -s -o /dev/null -D /tmp/smoke-slo.hdr -w '%{http_code}' -X POST "$GATE_URL/api/v1/internal/session/logout" \
+         -H 'Content-Type: application/json' -H "X-Correlation-Id: $lcid" -H 'X-Internal-Caller: install-smoke' -H "X-Internal-Sig: $sig" \
+         -d "{\"sid\":\"$nosid\"}")
+  outcome=$(tr -d '\r' < /tmp/smoke-slo.hdr | awk -F': ' 'tolower($1) == "x-idp-logout-outcome" { print $2 }')
+  if [ "$code" = "204" ] && [ "$outcome" = "NOT_FOUND" ]; then
+    ok "없는 세션 종료 요청 204 (X-Idp-Logout-Outcome: NOT_FOUND) — 서비스 계정 토큰으로 Keycloak 관리 API 왕복"
+  elif [ "$code" = "401" ]; then
+    fail "gate 내부 세션 종료가 401 — 내부 서명이 맞지 않는다 (IDEM_HUB_INTERNAL_SIG_SECRET 이 gate 의 값과 같은지, 이 호스트와 gate 의 시계 차이가 60초 안인지)"
+  else
+    fail "gate 내부 세션 종료가 $code (outcome=${outcome:-없음}) — Keycloak 관리 API 가 idem-session-manager 토큰을 받지 않는다 (Keycloak 26.8.2+: client scope kc-admin-api — scripts/upgrade/keycloak-realm-1.2.sh)"
+  fi
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$GATE_URL/api/v1/internal/session/logout" \
+         -H 'Content-Type: application/json' -H "X-Correlation-Id: $lcid" -d "{\"sid\":\"$nosid\"}")
+  [ "$code" = "401" ] && ok "서명 없는 내부 호출은 401" || fail "서명 없는 내부 호출이 $code"
+else
+  echo "④′ (IDEM_HUB_INTERNAL_SIG_SECRET 없음 — gate 내부 세션 종료 검사 생략)"
+fi
 
 echo "⑤ Mock 본인확인 → registry 등록 라운드트립"
 h=(-H 'Content-Type: application/json' -H "X-Correlation-Id: $CID")
