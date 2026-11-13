@@ -118,6 +118,12 @@ subprojects {
             // kafka-clients 3.9.2 가 전이하는 유지 관리 포크 at.yawk.lz4:lz4-java 1.10.1 — CVE-2026-106451(네이티브 라이브러리를
             // 공유 임시 디렉터리에 풀어 다른 로컬 사용자가 바꿔치기 가능, HIGH) 는 1.11.4+. BOM 에 속성이 없어 직접 관리 (1.1.2, 머지 뒤 Trivy)
             dependency("at.yawk.lz4:lz4-java:1.11.4")
+            // kafka-clients 3.9.2 가 전이하는 org.xerial.snappy:snappy-java 1.1.10.5 — CVE-2026-108106(해제 버퍼를 입력이 적어 온 길이대로
+            // 잡음)·CVE-2026-93451(uncompress*Array 버퍼 넘침, 둘 다 HIGH) 는 1.1.10.9+, kafka-clients 가 배치를 풀 때 쓰는
+            // SnappyInputStream 의 보강(헤더만으로 큰 버퍼를 잡게 하는 입력·연결 헤더 재귀)과 버퍼 이중 반납은 1.1.10.10+, 그 뒤 두 판은
+            // 보강이 만든 회귀 수정. BOM 에 속성이 없어 직접 관리 (1.2 PR-1.2-3b, main run 43160969761·43353550972 의 Trivy). Idem 은 lz4 로만 보낸다 —
+            // snappy 는 받은 배치가 snappy 일 때만 닿는다. 압축 코덱 왕복은 idem-common KafkaCompressionCodecTest 가 지킨다
+            dependency("org.xerial.snappy:snappy-java:1.1.10.12")
         }
     }
 
