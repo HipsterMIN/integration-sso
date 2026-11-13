@@ -35,7 +35,7 @@ import org.testcontainers.utility.DockerImageName;
 class AuthResultJpaPostgresIntegrationTest {
 
     static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+            new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
                     .withDatabaseName("idem").withUsername("idem").withPassword("idem")
                     .waitingFor(Wait.forListeningPort());
 

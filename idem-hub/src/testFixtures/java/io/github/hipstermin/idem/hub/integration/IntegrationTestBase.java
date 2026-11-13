@@ -49,7 +49,7 @@ public abstract class IntegrationTestBase {
 
     // ── PostgreSQL 컨테이너 (Flyway 마이그레이션 포함) ──────────────────────
     protected static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+            new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
                     .withDatabaseName("idem")
                     .withUsername("idem")
                     .withPassword("idem")

@@ -40,7 +40,7 @@ import org.testcontainers.utility.DockerImageName;
 class LegacySchemaRenamePostgresIntegrationTest {
 
     static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+            new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
                     .withDatabaseName("idem_a5").withUsername("idem").withPassword("idem")
                     .waitingFor(Wait.forListeningPort());
 

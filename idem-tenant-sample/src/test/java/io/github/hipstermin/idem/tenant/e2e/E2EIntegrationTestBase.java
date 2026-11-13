@@ -70,7 +70,7 @@ public abstract class E2EIntegrationTestBase {
     static final PostgreSQLContainer<?> POSTGRES;
 
     static {
-        POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+        POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
                 .withDatabaseName("idem")
                 .withUsername("idem")
                 .withPassword("idem")
