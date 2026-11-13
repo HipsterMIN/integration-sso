@@ -12,7 +12,9 @@
  *
  * 환경변수: GATE_URL(기본 http://localhost:8081) GATE_PUBLIC_URL(폼 action 이 공개 주소면 바꿔 친다) OIDC_REALM(idem)
  *          OIDC_CLIENT_ID(idem-svc-PERF_RP) OIDC_CLIENT_SECRET(export) OIDC_REDIRECT_URI(https://rp.example.org/callback — 프로파일 redirectUris)
- *          OIDC_USER / OIDC_PASSWORD(export) — Keycloak realm 의 시험 사용자. OIDC_LOGOUT=false 면 ⑤ 생략
+ *          OIDC_USER / OIDC_PASSWORD(export) — Keycloak realm 의 시험 사용자(필수). 설치 realm 에는 기본 사용자가 없다 —
+ *          scripts/perf/run-k6.sh 는 KC_ADMIN_PASSWORD 가 있으면 임시 사용자를 만들어 넘기고 끝나면 지운다
+ *          (직접 돌릴 때는 scripts/dev/kc-test-user.py create). OIDC_LOGOUT=false 면 ⑤ 생략
  *
  * 전제: 부하 발생기가 한 IP 이면 gate OIDC 프런트의 IP 레이트리밋(기본 20/초·300/분, `/realms/**`)이 1분 안에 걸린다 —
  *       시험 동안 IDEM_GATE_FRONT_RL_ENABLED=false 또는 한도를 올린다(성능 보고서 §3). 기관 한도(200 tps)는 그대로 둔다.
@@ -31,7 +33,7 @@ const REALM           = __ENV.OIDC_REALM || 'idem';
 const CLIENT_ID       = __ENV.OIDC_CLIENT_ID || 'idem-svc-PERF_RP';
 const CLIENT_SECRET   = __ENV.OIDC_CLIENT_SECRET || '';
 const REDIRECT_URI    = __ENV.OIDC_REDIRECT_URI || 'https://rp.example.org/callback';
-const USER            = __ENV.OIDC_USER || 'poc-testuser';
+const USER            = __ENV.OIDC_USER || '';
 const PASSWORD        = __ENV.OIDC_PASSWORD || '';
 const LOGOUT          = (__ENV.OIDC_LOGOUT || 'true') !== 'false';
 const OIDC            = `${GATE_URL}/realms/${REALM}/protocol/openid-connect`;
@@ -67,6 +69,14 @@ export const options = {
     'checks':                 ['rate>0.99'],
   },
 };
+
+// 자격이 없으면 부하를 걸기 전에 멈춘다 — 종전 기본 사용자(poc-testuser)는 1.2 에서 설치 realm 에서 빠졌다
+export function setup() {
+  if (!USER || !PASSWORD || !CLIENT_SECRET) {
+    throw new Error('OIDC_USER · OIDC_PASSWORD · OIDC_CLIENT_SECRET 가 필요하다 — 설치 realm 에는 기본 사용자가 없다. '
+      + 'scripts/perf/run-k6.sh 에 KC_ADMIN_PASSWORD 를 주면 임시 사용자를 만든다(또는 scripts/dev/kc-test-user.py create)');
+  }
+}
 
 function rebaseGate(url) {
   if (url && GATE_PUBLIC_URL !== GATE_URL && url.indexOf(GATE_PUBLIC_URL) === 0) return GATE_URL + url.substring(GATE_PUBLIC_URL.length);
