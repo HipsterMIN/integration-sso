@@ -13,7 +13,16 @@
 #      이 속성이 없으면 **새 기관의 OIDC_RP 온보딩이 503 E-IDO-122 / 403** 이 된다(이미 만든 client 의 갱신·secret 회전은 된다).
 # 이 스크립트: ① 두 client 에 `kc-admin-api` 를 기본 client scope 로 붙이고 ② realm 속성에 그 두 mapper 종류를 더한다(있던 값은 유지)
 #             ③ 서비스 계정 토큰으로 실제 호출해 확인한다(비밀이 있을 때 — 시험 client 를 만들었다 지운다).
-# 새 설치는 realm-export.json 이 처음부터 넣으므로 필요 없다(돌려도 "이미 있음").
+#
+# 설치 realm 정리(1.2 PR-1.2-3a) — 1.1.x 까지의 realm import 가 넣던 것 가운데 운영 설치에 남으면 안 되는 것을 걷어 낸다.
+# Keycloak 판과 무관하다(24 에 머문 1.1.x 설치본에서도 돌릴 수 있다 — 그때 ①~③ 은 건너뛴다):
+#   ④ 기본 시험 계정 `poc-testuser` — **비밀번호가 저장소에 공개돼 있다**. 표준 로그인 화면에서 이 계정으로 OIDC_RP 서비스에 들어갈 수 있다.
+#      기본은 비활성화 + 세션 종료(되돌릴 수 있다). TEST_USER_ACTION=delete 면 지운다. 시험에는 scripts/dev/kc-test-user.py 로 만든 사용자를 쓴다
+#   ⑤ realm 표시 이름이 옛 제품명 "OnePass 통합인증" 그대로면 "Idem 통합인증" 으로, 국제화가 꺼져 있으면 켠다(ko 기본, en) — 로그인 화면이 한국어로 뜬다.
+#      운영자가 바꿔 둔 값(다른 표시 이름·이미 켠 국제화)은 건드리지 않는다
+#   ⑥ 자리표시자 client id(`your-…-client-id`)인 채로 켜져 있는 인증 제공자(기본 설치의 "카카오 로그인")를 끈다 — 눌러도 동작하지 않는 버튼이다
+#   ⑦ `sslRequired` 는 알리기만 한다(새 설치의 기본은 external — 사설망 밖에서 오는 요청은 HTTPS 여야 한다). SSL_REQUIRED=external 을 주면 바꾼다
+# 새 설치는 realm-export.json 이 처음부터 이 상태다(돌려도 전부 "이미 있음"·"없음").
 #
 #   compose:  set -a; . infra/docker/install.env; set +a
 #             KC_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" scripts/upgrade/keycloak-realm-1.2.sh
@@ -26,6 +35,9 @@
 #   MAPPER_TYPES       허용할 mapper 종류 (기본 "oidc-usersessionmodel-note-mapper oidc-hardcoded-claim-mapper" — hub 가 쓰는 둘)
 #   KEYCLOAK_PROVISIONER_CLIENT_SECRET / KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET
 #                      있으면 ③ 을 한다 (install.env 를 읽었으면 자동). VERIFY=0 이면 건너뛴다
+#   TEST_USER          ④ 의 계정 이름 (기본 poc-testuser)      TEST_USER_ACTION  disable(기본) | delete | keep
+#   SSL_REQUIRED       ⑦ 주면 그 값으로 바꾼다 (external | all | none). 안 주면 지금 값만 알린다
+#   REALM_CLEANUP=0    ④~⑦ 을 건너뛴다
 #
 # 비밀번호·토큰은 출력하지 않는다. 필요: curl, python3.
 # 끝난 뒤 hub·gate 는 재기동하지 않아도 된다 — 1.2 의 hub·gate 는 401 을 받으면 캐시한 토큰을 버리고 새로 받는다.
@@ -40,6 +52,12 @@ REALM="${REALM:-idem}"
 CLIENTS="${CLIENTS:-idem-provisioner idem-session-manager}"
 MAPPER_TYPES="${MAPPER_TYPES:-oidc-usersessionmodel-note-mapper oidc-hardcoded-claim-mapper}"
 VERIFY="${VERIFY:-1}"
+TEST_USER="${TEST_USER:-poc-testuser}"
+TEST_USER_ACTION="${TEST_USER_ACTION:-disable}"
+SSL_REQUIRED="${SSL_REQUIRED:-}"
+REALM_CLEANUP="${REALM_CLEANUP:-1}"
+OLD_DISPLAY_NAME="OnePass 통합인증"
+NEW_DISPLAY_NAME="Idem 통합인증"
 SCOPE="kc-admin-api"
 ATTR="allowedProtocolMapperTypesForClientAdministrators"
 
@@ -52,7 +70,10 @@ tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 # json <파이썬 식> — stdin 의 JSON 을 d 로 받아 식을 출력
 json() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1]))' "$1"; }
 
-echo "Keycloak $KC — realm $REALM 을 26.8.2 의 관리 API 조건에 맞춘다"
+case "$TEST_USER_ACTION" in disable|delete|keep) ;; *) fail "TEST_USER_ACTION 은 disable | delete | keep 가운데 하나다: $TEST_USER_ACTION" ;; esac
+case "$SSL_REQUIRED" in ""|external|all|none) ;; *) fail "SSL_REQUIRED 는 external | all | none 가운데 하나다: $SSL_REQUIRED" ;; esac
+
+echo "Keycloak $KC — realm $REALM 을 1.2 의 계약에 맞춘다(26.8.2 의 관리 API 조건 + 설치 realm 정리)"
 code=$(curl -s -o "$tmp/tok.json" -w '%{http_code}' -X POST "$KC/realms/$ADMIN_REALM/protocol/openid-connect/token" \
   -d grant_type=password -d client_id=admin-cli --data-urlencode "username=$ADMIN_USER" --data-urlencode "password=$ADMIN_PASSWORD") || fail "Keycloak 에 닿지 않는다: $KC"
 [ "$code" = "200" ] || fail "관리자 토큰 발급 실패($code) — KC_ADMIN_USER/KC_ADMIN_PASSWORD 를 확인하세요 (임시 관리자를 지웠다면 realm 관리 권한이 있는 계정으로)"
@@ -65,13 +86,115 @@ info "Keycloak 버전 $ver"
 code=$(adm -o "$tmp/scopes.json" -w '%{http_code}' "$KC/admin/realms/$REALM/client-scopes")
 [ "$code" = "200" ] || fail "client scope 목록 조회 실패($code) — realm '$REALM' 이 있는지, 계정에 realm 관리 권한이 있는지 확인하세요"
 SCOPE_ID=$(json "next((s['id'] for s in d if s['name']=='$SCOPE'), '')" < "$tmp/scopes.json")
+changed=0
+
+# ── ④~⑦ 설치 realm 정리 — 운영자가 바꿔 둔 값은 건드리지 않는다(옛 기본값 그대로일 때만 바꾼다) ──────────────────────────
+realm_cleanup() {
+  if [ "$REALM_CLEANUP" != "1" ]; then info "REALM_CLEANUP=0 — 설치 realm 정리(④~⑦)는 건너뛴다"; return 0; fi
+  local code uid enabled plan aliases alias now
+
+  echo "④ 기본 시험 계정 '$TEST_USER' — 1.1.x 까지 realm import 에 들어 있던 계정(비밀번호가 저장소에 공개돼 있다)"
+  code=$(adm -o "$tmp/users.json" -w '%{http_code}' -G "$KC/admin/realms/$REALM/users" --data-urlencode "username=$TEST_USER" -d exact=true)
+  [ "$code" = "200" ] || fail "사용자 조회 실패($code)"
+  uid=$(json "d[0]['id'] if d else ''" < "$tmp/users.json")
+  enabled=$(json "d[0].get('enabled') if d else ''" < "$tmp/users.json")
+  if [ -z "$uid" ]; then
+    ok "없음"
+  elif [ "$TEST_USER_ACTION" = "delete" ]; then
+    code=$(adm -o /dev/null -w '%{http_code}' -X DELETE "$KC/admin/realms/$REALM/users/$uid")
+    [ "$code" = "204" ] || fail "'$TEST_USER' 를 지우지 못했다($code)"
+    ok "지웠다"; changed=$((changed + 1))
+  elif [ "$TEST_USER_ACTION" = "keep" ]; then
+    echo "  ⚠ 남겨 둔다(TEST_USER_ACTION=keep, enabled=$enabled) — 비밀번호가 공개된 계정이다. 운영 realm 이면 비밀번호를 바꾸거나 지운다"
+  elif [ "$enabled" = "False" ]; then
+    ok "이미 비활성 — 쓰지 않는 계정이면 TEST_USER_ACTION=delete 로 지운다"
+  else
+    # 사용자 표현을 통째로 읽어 enabled 만 바꿔 되쓴다(일부만 보내면 판에 따라 프로필 항목이 비워질 수 있다)
+    code=$(adm -o "$tmp/user.json" -w '%{http_code}' "$KC/admin/realms/$REALM/users/$uid")
+    [ "$code" = "200" ] || fail "'$TEST_USER' 조회 실패($code)"
+    python3 - "$tmp/user.json" "$tmp/user-new.json" <<'PY'
+import json, sys
+u = json.load(open(sys.argv[1], encoding='utf-8'))
+u['enabled'] = False
+json.dump(u, open(sys.argv[2], 'w', encoding='utf-8'), ensure_ascii=False)
+PY
+    code=$(adm -o "$tmp/user-put.txt" -w '%{http_code}' -X PUT "$KC/admin/realms/$REALM/users/$uid" --data-binary "@$tmp/user-new.json")
+    [ "$code" = "204" ] || fail "'$TEST_USER' 를 비활성화하지 못했다($code): $(head -c 200 "$tmp/user-put.txt")"
+    code=$(adm -o /dev/null -w '%{http_code}' -X POST "$KC/admin/realms/$REALM/users/$uid/logout")
+    [ "$code" = "204" ] || info "세션 종료 응답 $code (계정은 비활성화됐다)"
+    ok "비활성화하고 세션을 끊었다 — 로그인할 수 없다. 쓰지 않는 계정이면 TEST_USER_ACTION=delete 로 지운다"; changed=$((changed + 1))
+  fi
+
+  echo "⑤ 표시 이름·국제화${SSL_REQUIRED:+·sslRequired}"
+  code=$(adm -o "$tmp/realm-now.json" -w '%{http_code}' "$KC/admin/realms/$REALM")
+  [ "$code" = "200" ] || fail "realm 조회 실패($code)"
+  # 보내는 것은 바꿀 항목뿐이다(attributes 는 보내지 않는다 — 보내면 속성 맵이 통째로 교체된다)
+  plan=$(OLD="$OLD_DISPLAY_NAME" NEW="$NEW_DISPLAY_NAME" SSL="$SSL_REQUIRED" python3 - "$tmp/realm-now.json" "$tmp/realm-cleanup.json" <<'PY'
+import json, os, sys
+r = json.load(open(sys.argv[1], encoding='utf-8'))
+out, notes = {}, []
+name = r.get('displayName') or ''
+if name == os.environ['OLD']:
+    out['displayName'] = os.environ['NEW']; notes.append('표시 이름 "%s" → "%s"' % (name, os.environ['NEW']))
+elif name and name != os.environ['NEW']:
+    notes.append('KEEP 표시 이름 "%s"(운영자가 정한 값 — 그대로 둔다)' % name)
+if not r.get('internationalizationEnabled'):
+    out.update(internationalizationEnabled=True, supportedLocales=['ko', 'en'], defaultLocale='ko')
+    notes.append('국제화 켬(ko 기본, en)')
+ssl = os.environ['SSL']
+if ssl and (r.get('sslRequired') or '').lower() != ssl:
+    out['sslRequired'] = ssl; notes.append('sslRequired %s → %s' % (r.get('sslRequired'), ssl))
+json.dump(out, open(sys.argv[2], 'w', encoding='utf-8'), ensure_ascii=False)
+print(('CHANGE' if out else 'SAME') + '|' + ' · '.join(n for n in notes if not n.startswith('KEEP')) + '|' + ' · '.join(n[5:] for n in notes if n.startswith('KEEP')))
+PY
+)
+  [ -n "${plan##*|}" ] && info "${plan##*|}"
+  if [ "${plan%%|*}" = "SAME" ]; then
+    ok "이미 있음 (표시 이름 \"$(json "d.get('displayName')" < "$tmp/realm-now.json")\", 국제화 $(json "d.get('internationalizationEnabled')" < "$tmp/realm-now.json") 기본 $(json "d.get('defaultLocale')" < "$tmp/realm-now.json"))"
+  else
+    code=$(adm -o "$tmp/realm-put2.txt" -w '%{http_code}' -X PUT "$KC/admin/realms/$REALM" --data-binary "@$tmp/realm-cleanup.json")
+    [ "$code" = "204" ] || fail "realm 설정을 쓰지 못했다($code): $(head -c 300 "$tmp/realm-put2.txt")"
+    plan="${plan#*|}"; ok "바꿨다: ${plan%%|*}"; changed=$((changed + 1))
+  fi
+
+  echo "⑥ 자리표시자 인증 제공자 — client id 가 'your-…-client-id' 인 채로 켜져 있는 것"
+  code=$(adm -o "$tmp/idps.json" -w '%{http_code}' "$KC/admin/realms/$REALM/identity-provider/instances")
+  [ "$code" = "200" ] || fail "인증 제공자 목록 조회 실패($code)"
+  aliases=$(json "' '.join(i['alias'] for i in d if i.get('enabled') and __import__('re').fullmatch(r'your-[a-z0-9-]+-client-id', (i.get('config') or {}).get('clientId') or ''))" < "$tmp/idps.json")
+  if [ -z "$aliases" ]; then
+    ok "없음"
+  else
+    for alias in $aliases; do
+      code=$(adm -o "$tmp/idp.json" -w '%{http_code}' "$KC/admin/realms/$REALM/identity-provider/instances/$alias")
+      [ "$code" = "200" ] || fail "인증 제공자 '$alias' 조회 실패($code)"
+      python3 - "$tmp/idp.json" "$tmp/idp-new.json" <<'PY'
+import json, sys
+i = json.load(open(sys.argv[1], encoding='utf-8'))
+i['enabled'] = False
+json.dump(i, open(sys.argv[2], 'w', encoding='utf-8'), ensure_ascii=False)
+PY
+      code=$(adm -o "$tmp/idp-put.txt" -w '%{http_code}' -X PUT "$KC/admin/realms/$REALM/identity-provider/instances/$alias" --data-binary "@$tmp/idp-new.json")
+      [ "$code" = "204" ] || fail "인증 제공자 '$alias' 를 끄지 못했다($code): $(head -c 200 "$tmp/idp-put.txt")"
+      ok "$alias — 껐다(로그인 화면에서 버튼이 사라진다). 실제 client id·secret 을 넣은 뒤 Keycloak 관리 콘솔에서 켠다"; changed=$((changed + 1))
+    done
+  fi
+
+  now=$(adm "$KC/admin/realms/$REALM" | json "d.get('sslRequired')")
+  echo "⑦ sslRequired — 지금 값 $now"
+  case "$now" in
+    none|NONE) info "HTTP 를 어디서나 받는다. 새 설치의 기본은 external(사설망·루프백 밖에서 오는 요청은 HTTPS 여야 한다) — 공개 주소가 HTTPS 면 SSL_REQUIRED=external 로 다시 실행해 맞춘다" ;;
+    *) ok "$now" ;;
+  esac
+}
+
 if [ -z "$SCOPE_ID" ]; then
-  ok "realm 에 '$SCOPE' scope 가 없다 — Keycloak $ver 는 26.8.2 의 관리 API 검사를 하지 않는다. 할 일 없음"
+  ok "realm 에 '$SCOPE' scope 가 없다 — Keycloak $ver 는 26.8.2 의 관리 API 검사를 하지 않는다. ①~③ 은 할 일 없음"
+  realm_cleanup
+  echo "끝 — 바꾼 곳 $changed."
   exit 0
 fi
 
 echo "① client scope '$SCOPE' — 서비스 계정 client 의 기본 scope"
-changed=0
 for cid in $CLIENTS; do
   code=$(adm -o "$tmp/client.json" -w '%{http_code}' "$KC/admin/realms/$REALM/clients?clientId=$cid")
   [ "$code" = "200" ] || fail "client '$cid' 조회 실패($code)"
@@ -154,5 +277,7 @@ print(json.dumps({"clientId": os.environ["PROBE"], "name": "Idem 1.2 upgrade che
     info "idem-session-manager — client secret 이 없어 호출 확인은 건너뛴다 (KEYCLOAK_SESSION_MANAGER_CLIENT_SECRET)"
   fi
 fi
+
+realm_cleanup
 
 echo "끝 — 바꾼 곳 $changed. 이어서: 설치본 스모크(scripts/ci/install-smoke.sh ③·④′) 또는 관리 콘솔에서 OIDC_RP 프로파일 저장"
