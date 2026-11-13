@@ -91,7 +91,7 @@ Mock 본인확인(`IDEM_PLUGINS_MOCK_AUTH_ENABLED`)은 검증 동안 `IDEM_SPRIN
 
 **설치 직후의 Keycloak realm(1.2)** — `realm-export.json` 이 넣는 것은 realm 설정·내부 client 넷·서비스 계정 둘뿐이다.
 
-- **사람 계정이 없다.** 1.1.x 까지는 시험 계정 `poc-testuser` 가 들어 있었고 그 비밀번호가 저장소에 공개돼 있었다 — 1.2 에서 뺐다. 표준 로그인(OIDC_RP)의 사용자는 운영자가 Keycloak 에 만들거나 연동한다. 설치 확인·성능 측정처럼 시험 사용자가 필요할 때는 그때 만들고 끝나면 지운다: `KC_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" OIDC_PASSWORD_FILE=<파일> python3 -I scripts/dev/kc-test-user.py create` … `delete`(무작위 비밀번호를 0600 파일로 쓴다). SLO 프로브·성능 실행기는 `KC_ADMIN_*` 만 주면 임시 사용자를 만들어 쓰고 지운다(`docs/local-dev-workflow.md` §7, `k6/README.md` §2).
+- **사람 계정이 없다.** 1.1.x 까지는 시험 계정 `poc-testuser` 가 들어 있었고 그 비밀번호가 저장소에 공개돼 있었다 — 1.2 에서 뺐다. 표준 로그인(OIDC_RP)의 이용자는 운영기관이 켠 인증 제공자로 들어오거나 운영자가 Keycloak 에 만든 계정으로 로그인한다 — **설치 직후에는 둘 다 없으므로 표준 로그인 화면에서 로그인할 수 있는 계정이 없다**(화면은 뜬다 — §4 ④). 설치 확인·성능 측정처럼 시험 사용자가 필요할 때는 그때 만들고 끝나면 지운다: `KC_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" OIDC_PASSWORD_FILE=<파일> python3 -I scripts/dev/kc-test-user.py create` … `delete`(무작위 비밀번호를 0600 파일로 쓴다). SLO 프로브·성능 실행기는 `KC_ADMIN_*` 만 주면 임시 사용자를 만들어 쓰고 지운다(`docs/local-dev-workflow.md` §7, `k6/README.md` §2).
 - **로그인 화면은 한국어**다(표시 이름 "Idem 통합인증", 브라우저 언어가 영어면 영어). 인증 제공자(카카오·네이버·PASS·GPKI)는 넷 다 꺼져 있다 — 실제 client id·secret 을 넣은 뒤 Keycloak 관리 콘솔에서 켠다.
 - **`sslRequired` 는 `external`** 이다. 공개 주소(`IDEM_PUBLIC_URL_GATE`)가 https 면 전부 통과한다(§1 의 전제 — TLS 종단은 리버스 프록시·Ingress). 공개 주소가 http 일 때는 gate 에 연결한 쪽의 주소를 본다: 같은 호스트·사설 대역(10/8·172.16/12·192.168/16)·리버스 프록시 뒤면 통과하고, gate 포트를 바깥에 직접 열어 공인 주소에서 연결이 오면 로그인 화면 대신 **"HTTPS 필요"** 가 뜬다 — 평문으로 직접 노출된 접속을 막는 안전망이다. 파드 대역이 사설 대역이 아닌 클러스터(예: 100.64/10)에 http 공개 주소로 설치하면 같은 이유로 막힌다. 공개 주소를 https 로 두는 것이 답이고, 꼭 필요하면 `SSL_REQUIRED=none scripts/upgrade/keycloak-realm-1.2.sh` 로 푼다(`docs/analysis/keycloak-26-assessment.md` §9.2).
 
@@ -105,7 +105,7 @@ Mock 본인확인(`IDEM_PLUGINS_MOCK_AUTH_ENABLED`)은 검증 동안 `IDEM_SPRIN
   4. **기동**: `… up -d`. Keycloak 이 첫 기동에서 스키마·모델을 26.8.2 로 올린다(리허설 12초, 로그 `Migrating older model to 25.0.0 … 26.8.2`). realm 은 이미 있으므로 `realm-export.json` 은 다시 읽지 않는다. 기존 Keycloak 관리자 계정은 그대로 유효하다.
   5. **realm 맞춤(한 번)**: `set -a; . infra/docker/install.env; set +a; KC_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" scripts/upgrade/keycloak-realm-1.2.sh` — ①~③ Keycloak 26.8.2 의 관리 API 조건 두 가지(서비스 계정 client 의 `kc-admin-api` scope, protocol mapper 허용 목록)를 기존 realm 에 넣고 실제 호출로 확인한다. ④~⑦ **설치 realm 정리**(1.2 PR-1.2-3a): 1.1.x 의 realm import 가 넣은 기본 시험 계정 `poc-testuser`(비밀번호가 저장소에 공개돼 있다)를 **비활성화하고 세션을 끊는다** — 지우려면 `TEST_USER_ACTION=delete`, 남기려면 `keep`(경고만). 표시 이름이 옛 기본값 그대로면 "Idem 통합인증" 으로, 국제화가 꺼져 있으면 켜고(로그인 화면 한국어), 자리표시자 client id 로 켜져 있는 "카카오 로그인" 을 끈다. 운영자가 바꿔 둔 값은 건드리지 않는다. `sslRequired` 는 지금 값을 알리기만 한다 — 공개 주소가 https 면 `SSL_REQUIRED=external` 을 붙여 새 설치와 맞춘다(§4). 멱등이다. K8s 는 `kubectl -n idem port-forward svc/idem-keycloak 8088:8080` 뒤 같은 명령. **빼먹으면** 기관 OIDC_RP 프로파일 저장이 503 `E-IDO-122`(문구에 이 스크립트가 적혀 나온다)가 되고 hub 가 시작하는 단일 로그아웃이 Keycloak 세션을 끊지 못하며, **공개된 비밀번호의 기본 계정이 그대로 남는다**(설치본을 올려도 realm import 는 다시 읽지 않는다 — §4 의 스모크 ④ 가 실패로 알린다). 앱 재기동은 필요 없다. Keycloak 을 아직 올리지 않은 1.1.x 설치본에서도 이 스크립트를 돌릴 수 있다(④~⑦ 만 한다) — 기본 계정은 업그레이드를 기다리지 말고 먼저 정리한다.
   6. **확인**: §4 의 스모크(③·④′ 가 두 서비스 계정을, ④ 가 기본 계정이 막혔는지를 본다) + 기존 관리자 로그인 + 기존 기관 RP 로그인(기관의 client secret 은 그대로다).
-  - **되돌리기**: 정지 → §6 의 복구(1 의 덤프) → 1.1.x 설치본·이미지로 기동. **Keycloak 이미지 태그만 24.0 으로 되돌리지 않는다** — 26 으로 올라간 스키마 위에서 24 는 오류 없이 뜨지만 26 에서 로그인한 계정의 비밀번호 검증이 실패한다(해시가 argon2 로 다시 저장된다).
+  - **되돌리기**: 정지 → §6 의 복구(1 의 덤프) → 1.1.x 설치본·이미지로 기동. **Keycloak 이미지 태그만 24.0 으로 되돌리지 않는다** — 26 으로 올라간 스키마 위에서 24 는 오류 없이 뜨지만 26 에서 로그인한 계정의 비밀번호 검증이 실패한다(해시가 argon2 로 다시 저장된다). **정리 전에 받은 백업을 복구하면 기본 시험 계정도 되살아난다** — 복구 뒤 `keycloak-realm-1.2.sh` 를 다시 돌린다(Keycloak 24 에서는 ④~⑦ 만 한다; §4 의 스모크 ④ 가 남아 있으면 실패로 알린다).
   - 리허설 기록(샌드박스 실스택 2026-11-12 — 정지·기동·확인까지 2분 안팎(이미지 내려받기 제외), 스크립트 1초, 롤백의 DB 복구 2초): `docs/analysis/keycloak-26-assessment.md` §8.4. 설치 realm 정리(④~⑦)의 리허설(2026-11-13 — 올린 realm · 24 에 머문 1.1.7 · 1.1.7 → 1.2 한 번에)은 같은 문서 §9.3.
 - **S9 이전(0.x, OnePass 이름) → 1.0**: `docs/install.md` §7 — 앱·Keycloak 정지 → `scripts/upgrade/rename-db-1.0.sh`(DB `onepass→idem`·역할·스키마; `IDEM_DB_PASSWORD` 를 함께 준다) → `install.env` 변수명(`IDEM_HUB_*` …) → `keycloak-data` 볼륨 재생성(realm `idem` import) → 기동. 구 환경변수는 1 릴리스 동안 호환 계층이 `[Idem 개명]` 경고와 함께 받는다. Helm 은 db-init 훅이 구 스키마가 있으면 새 스키마를 만들지 않고, 앱이 첫 기동에서 옮긴다(1.0.1). 구·신 스키마가 둘 다 있고 새 쪽에 Flyway 이력이 없으면 앱이 기동을 거부한다 — 빈 새 스키마를 지운다.
 
@@ -118,7 +118,7 @@ Mock 본인확인(`IDEM_PLUGINS_MOCK_AUTH_ENABLED`)은 검증 동안 `IDEM_SPRIN
 | `install.env` / Secret | 비밀 저장소에 사본. **`IDEM_REGISTRY_CI_AES_KEY_V1`·`IDEM_REGISTRY_DI_SECRET`·`IDEM_HUB_ADMIN_SECRET_KEY` 를 잃으면 CI·기관 식별자·관리자 2단계를 복구할 수 없다** | 같은 값으로 복원 |
 | Keycloak | DB 덤프에 포함(`keycloak` 스키마). 기관 client 는 프로파일 재저장으로 재생성 가능 | 덤프 복구 또는 realm 재import + 프로파일 재저장 |
 
-복구 판정: §4 의 ①·②·②′ 통과 + 기존 관리자 로그인(기존 비밀번호·인증 앱) + 기존 기관 RP 로그인.
+복구 판정: §4 의 ①·②·②′ 통과 + 기존 관리자 로그인(기존 비밀번호·인증 앱) + 기존 기관 RP 로그인. (1.2) 덤프에는 Keycloak realm 이 통째로 들어 있다 — **1.1.x 때 받은 덤프나 realm 정리(§5 의 5) 전에 받은 덤프를 복구했으면 `scripts/upgrade/keycloak-realm-1.2.sh` 를 다시 돌린다**(기본 시험 계정이 덤프와 함께 되살아난다; 리허설: 1.1.7 백업 복구 → 스크립트 → 종전 계정 거부).
 
 ## 7. 제거
 
