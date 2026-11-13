@@ -9,7 +9,7 @@
 - **무엇**: main run 43160969761(11-12)·43353550972(11-13)의 Trivy 가 앱 이미지 8종에 `org.xerial.snappy:snappy-java 1.1.10.5` HIGH 2건을 보였다(CVE-2026-108106 해제 때 입력이 적어 온 길이대로 메모리를 잡음, CVE-2026-93451 잘못된 압축 입력의 버퍼 넘침 — 수정판 1.1.10.9). kafka-clients 3.9.2 의 전이 의존성이고 Spring Boot BOM 에 속성이 없다 → 루트 `build.gradle.kts` 의 `dependencyManagement` 에 **`org.xerial.snappy:snappy-java:1.1.10.12`**(1.1.2 의 lz4-java 포크와 같은 방식). 제품 코드·설정·API·DB 변경 없음 — 부트 jar 8종의 `BOOT-INF/lib` 에서 `snappy-java-1.1.10.5.jar` 가 `1.1.10.12.jar` 로 바뀔 뿐이다.
 - **왜 1.1.10.9 가 아니라 1.1.10.12 인가** — Maven Central 의 판별 소스 jar 를 직접 대조했다(1.1.10.5 → 9 → 10 → 11 → 12):
   - 1.1.10.9: Trivy 가 든 2건의 수정 + **musl 네이티브**(`Linux/x86_64-musl`) 추가.
-  - 1.1.10.10: kafka-clients 가 배치를 풀 때 쓰는 **`SnappyInputStream`** 보강 — 청크 헤더가 적어 온 크기만큼 한 번에 잡던 버퍼를 데이터가 오는 만큼 늘리고, 이어 붙인 스트림 헤더를 재귀 대신 반복으로 건너뛴다. `SnappyFramedInputStream` 의 버퍼 이중 반납도 여기서 고쳤다. Trivy DB(11-13)에는 아직 이 판의 CVE 가 없다.
+  - 1.1.10.10: kafka-clients 가 배치를 풀 때 쓰는 **`SnappyInputStream`** 보강 — 청크 헤더가 적어 온 크기만큼 한 번에 잡던 버퍼를 데이터가 오는 만큼 늘리고, 이어 붙인 스트림 헤더를 재귀 대신 반복으로 건너뛴다. `SnappyFramedInputStream` 의 버퍼 이중 반납도 여기서 고쳤다. Trivy DB(11-13)에는 아직 이 판에서 고친 것의 CVE 가 없다(전 심각도로 보면 1.1.10.5 에 MEDIUM 1건 CVE-2026-116590 이 더 있고 그것도 1.1.10.9 에서 고쳐졌다; 1.1.10.9 ~ 12 는 0건).
   - 1.1.10.11·12: 그 보강이 만든 회귀 2건 수정(`Snappy.compress(ByteBuffer, ByteBuffer)` 출력 공간 검사, `SnappyOutputStream` 블록 헤더 크기).
   - Linux x86_64 네이티브 라이브러리는 1.1.10.5 ~ 12 가 바이트 단위로 같다(sha256 대조) — 고친 것은 Java 쪽이다.
 - **런타임 이미지에서 본 것**(Docker, 앱 이미지의 기반 `eclipse-temurin:21-jre-alpine` — musl, uid 1001): kafka-clients 의 코덱 5종으로 레코드 배치를 만들어 다시 읽었다. 종전 1.1.10.5 는 **snappy 가 아예 동작하지 않았다**(`UnsatisfiedLinkError … ld-linux-x86-64.so.2` — glibc 용 네이티브뿐), 1.1.10.12 는 통과(`Linux/x86_64-musl`). none·gzip·lz4(JNI)·zstd 는 두 판 모두 통과. Idem 의 프로듀서는 전부 lz4 라 드러나지 않았을 뿐, 지금까지의 이미지는 snappy 로 압축된 배치를 받으면 풀지 못했다 — 이번 올림으로 풀린다. 호스트(glibc) JVM 에서는 두 판 모두 통과하고 압축 결과도 같다.
@@ -19,7 +19,8 @@
 - **push 전 훅 수리**: `.githooks/pre-push` 는 `:idem-hub:integrationTest` 만 붙이고 있었다 — gate(1.1.4 G2-10)·KR hub 의 `integrationTest` 태스크는 훅도 CI 도 돌리지 않는 테스트였다(D-19 의 gate 쪽 증거 `AuthResultJpaPostgresIntegrationTest` 가 여기에 든다). 세 모듈 모두 붙인다(`docs/local-dev-workflow.md` §3).
 - **#293 머지 뒤 main**(run 43353550972, main `de73363`): 잡 21개 성공 — **main 초록 복구**. Trivy: 앱 8종 snappy 2건씩(이 PR 이 메운다)·콘솔 2종 0, `postgres:16-alpine` OS 18 → **0**(상류 재빌드)·gosu 26, `redis:7.2-alpine` 0, `keycloak:26.8.2` OS 0 · jar 1(guava). 점검 문서 2회차 §8.
 - **관찰 — Keycloak 패치 태그도 다시 밀린다**: 같은 `quay.io/keycloak/keycloak:26.8.2` 의 digest 가 하루 사이에 `sha256:723b1d6e…`(redhat 9.8) → `sha256:c68e286c…`(redhat 9.9)로 바뀌었다. Keycloak jar 479개는 이름·판이 같다(기반 이미지 갱신). #293 의 "패치 고정" 은 Keycloak 판을 고정할 뿐 이미지 내용을 고정하지 않는다 — digest 까지 고정할지는 결정 사항(`docs/analysis/keycloak-26-assessment.md` §8.3, 권고는 태그 고정 + digest 기록).
-- **관찰 — IT 의 PostgreSQL 판**: hub(와 그 기반을 쓰는 KR hub)·gate 의 IT 는 `postgres:15-alpine` 에서 돈다(설치본·CI 스모크·registry·KR registry IT 는 16). 실패는 없었지만 시험 대상과 판을 맞추는 편이 낫다 — 플랜 §5.5 에 후속으로 적었다(이 PR 에서 바꾸지 않았다).
+- **검증(CI)**: PR #294 run 43358013483(커밋 `f5253dd`) — 잡 16개 성공: Build & Unit Test(새 가드 포함) · 문서 정합성 · 프런트엔드 두 벌 · Helm Lint · `k6 Smoke Test`(설치본 스모크 → 백업·복구 → k6) · Docker Build Check 9종. K8s 리허설·오프라인 설치본은 차트·스크립트 변경이 없어 건너뛰었다. **OWASP 는 끝내지 못했다** — 수동 실행 run 43358073066 이 두 번 모두 NVD API 503 으로 분석 전에 멈췄다(결과 없음). 머지 뒤 main 에서 다시 돌린다.
+- **관찰 — IT 의 PostgreSQL 판**: hub(와 그 기반을 쓰는 KR hub)·gate 의 IT 는 `postgres:15-alpine` 에서 돈다(설치본·CI 스모크·registry·KR registry IT 는 16). 실패는 없었지만 시험 대상과 판을 맞추는 편이 낫다 — 플랜 §5.5 에 후속으로 적었다(이 PR 에서 바꾸지 않았다; 16 으로 바꿔 돌린 실험은 75건 실패 0).
 
 ### 1.2 · PR-1.2-2 — Keycloak 26.8.2 대응(관리 API 강화 2건) · 이미지 태그 패치 고정 · 리허설 기록 (2026-11-12, 플랜 §5.5)
 
