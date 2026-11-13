@@ -52,7 +52,7 @@ IDEM_ADMIN_TOTP_SECRET_FILE=/tmp/idem-admin-totp NODE_PATH=$(npm root -g) node s
 | `plugins/idem-plugin-mock-auth/**` | `:idem-plugin-mock-auth:test` + `:idem-hub:test` (runtimeOnly 의존) |
 | `plugins/idem-plugin-nice-oacx/**` | `:idem-plugin-nice-oacx:test` |
 | `idem-common/**`, 루트 `build.gradle.kts`·`settings.gradle.kts`·`gradle/**` | **전체** 모듈 테스트 |
-| `idem-hub/**` 이고 Docker 가 있으면 | `:idem-hub:integrationTest` 추가 (Testcontainers) |
+| `idem-hub/**`·`idem-gate/**`·`editions/idem-kr-hub/**`(또는 전체) 이고 Docker 가 있으면 | 그 모듈의 `integrationTest` 추가 (Testcontainers) — `:idem-hub:`·`:idem-gate:`·`:idem-kr-hub:integrationTest`. 1.2 PR-1.2-3b 전에는 hub 만 붙었다(gate·KR hub 의 `integrationTest` 는 훅도 CI 도 돌리지 않았다) |
 | `editions/idem-kr-portal/frontend/**` | `yarn typecheck` (yarn 있을 때) |
 | `idem-console-admin/**` | `npm run typecheck && npm test` (node_modules 있을 때) |
 | `docs/`, `k6/`, `infra/`, `.github/` | 테스트 없음 — 바로 push |
@@ -61,6 +61,7 @@ IDEM_ADMIN_TOTP_SECRET_FILE=/tmp/idem-admin-totp NODE_PATH=$(npm root -g) node s
 - 건너뛰기: `SKIP_TESTS=1 git push …` / `git push --no-verify`. 통합 테스트만 제외: `SKIP_IT=1`.
 - 계획만 확인: `PREPUSH_DRY_RUN=1 .githooks/pre-push`. 범위 지정 실행: `PREPUSH_RANGE=origin/main~3..HEAD .githooks/pre-push`.
 - Testcontainers 테스트(`@Testcontainers(disabledWithoutDocker = true)`, `idem-registry` `QimLifecycleIntegrationTest`·`OutboxIntegrationTest` — D1 부터 PostgreSQL 컨테이너)는 Docker 가 있으면 일반 `test` 태스크 안에서 자동으로 돈다. CI 에서는 항상 skip 이므로 **로컬 push 전이 유일한 실행 지점**이다 (2026-09-07 Hibernate 6.6 `@MapsId` 결함이 넉 달간 묻혔던 이유).
+- **이미지를 못 받을 때**: Docker Hub 가 익명 한도(HTTP 429)에 걸리면 미러에서 받아 원래 이름으로 태그해 둔다 — Testcontainers 는 로컬에 있는 이미지를 그대로 쓴다. 필요한 것은 `postgres:15-alpine`·`postgres:16-alpine`·`redis:7-alpine`(과 Testcontainers 가 스스로 받는 `testcontainers/ryuk`). 예: `docker pull mirror.gcr.io/library/postgres:16-alpine && docker tag mirror.gcr.io/library/postgres:16-alpine postgres:16-alpine`. 2026-11-13 샌드박스에서 이렇게 받아 전량(`./gradlew test integrationTest --continue`, 1,954건·16분)을 돌렸다.
 - `idem-hub` `integrationTest`(PostgreSQL·Redis·WireMock) 도 마찬가지로 CI 에서 돌지 않는다. 2026-09-08 훅으로 처음 실행했을 때 35건 중 32건이 실패했고, 원인은 4a 개명이 아니라 누적된 미검출 결함이었다:
   - 테스트용 `application.yml` 이 main 의 것을 가려 `idem.hub.kms.enabled`·`idem.hub.auth.*`·`idem.hub.registry.aes-shared-key` 가 비어 컨텍스트 기동 실패 (Sprint α-1 이후).
   - `AgencyRateLimiter` 의 Lua ARGV 가 JSON 직렬화(`"\"5\""`)로 전달되어 스크립트가 실패하고 fail-open → **운영에서도 기관별 TPS·일일 한도가 전혀 걸리지 않던 결함**. 인자 직렬화기를 `StringRedisSerializer` 로 고정해 수정.

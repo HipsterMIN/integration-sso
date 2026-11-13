@@ -3,7 +3,7 @@
 #
 # 설치: scripts/dev/install-git-hooks.sh  (git config core.hooksPath .githooks)
 # 건너뛰기: SKIP_TESTS=1 git push ...   또는 git push --no-verify
-# 통합 테스트 제외: SKIP_IT=1 git push ...   (idem-hub integrationTest — Docker/Testcontainers 필요)
+# 통합 테스트 제외: SKIP_IT=1 git push ...   (idem-hub·idem-gate·idem-kr-hub integrationTest — Docker/Testcontainers 필요)
 # 계획만 보기: PREPUSH_DRY_RUN=1 .githooks/pre-push   (범위는 PREPUSH_RANGE, 기본 origin/main..HEAD)
 # 수동 실행: PREPUSH_RANGE=origin/main~3..HEAD .githooks/pre-push   (범위를 직접 지정해 실제 테스트 실행)
 #
@@ -84,9 +84,14 @@ else
         printf '%s\n' "${ALL_PROJECTS[@]}" | grep -qx "$m" && TASKS+=(":${m}:test")
     done
 fi
-# idem-hub 통합 테스트(Testcontainers) — Docker 가 있으면 함께 실행
-if [[ "${SKIP_IT:-}" != "1" ]] && printf '%s\n' "${TASKS[@]}" | grep -qx ":idem-hub:test"; then
-    if docker info >/dev/null 2>&1; then TASKS+=(":idem-hub:integrationTest"); fi
+# 통합 테스트(Testcontainers) — 별도 integrationTest 태스크가 있는 모듈은 Docker 가 있으면 함께 실행한다.
+# 1.2 PR-1.2-3b: hub 만 적혀 있어 gate(1.1.4 G2-10)·KR hub(S8-a) 의 integrationTest 는 훅에서 돈 적이 없었다 — CI 도 돌리지 않으니
+# 누구도 돌리지 않는 테스트였다. registry·KR registry·tenant-sample 의 Testcontainers 테스트는 test 태스크 안에서 돈다.
+IT_PROJECTS=(idem-hub idem-gate idem-kr-hub)
+if [[ "${SKIP_IT:-}" != "1" ]] && docker info >/dev/null 2>&1; then
+    for m in "${IT_PROJECTS[@]}"; do
+        if printf '%s\n' "${TASKS[@]}" | grep -qx ":${m}:test"; then TASKS+=(":${m}:integrationTest"); fi
+    done
 fi
 
 if [[ ${#TASKS[@]} -eq 0 && $FRONTEND -eq 0 ]]; then
