@@ -80,7 +80,7 @@ IDEM_EDITION=core scripts/ci/install-smoke.sh     # HUB_URL·GATE_URL 등은 환
 | ② Discovery | `{gate}/realms/idem/.well-known/openid-configuration` | `issuer` = 공개 gate URL, PKCE S256 |
 | ②′ 관리자 | 무인증 관리 API 401 → 첫 로그인(2단계 등록 + 비밀번호 변경) | 세션 발급, 감사 `ADMIN_LOGIN_SUCCESS` |
 | ③ 프로파일 | OIDC_RP 프로파일 PUT | Keycloak 에 `idem-svc-*` client 생성, secret 회전 |
-| ④ 로그인 화면 | gate 프런트 → Keycloak 로그인 화면 | 200, PKCE 없는 요청 400 |
+| ④ 로그인 화면 | gate 프런트 → Keycloak 로그인 화면 · (1.2) 1.1.x 의 기본 시험 계정 `poc-testuser` 로 로그인 시도 · 화면의 제품명 | 200, PKCE 없는 요청 400 · 기본 계정 로그인 **거부** · 옛 제품명 없음 |
 | ④′ 세션 종료 경로(1.2) | gate 내부 세션 종료 API(내부 서명) → Keycloak 관리 API — 없는 세션 ID 로 | 204 `X-Idp-Logout-Outcome: NOT_FOUND`, 서명 없는 호출 401. `IDEM_HUB_INTERNAL_SIG_SECRET`(설치본의 그 값)을 환경에 줄 때 검사한다 |
 | ⑤ 본인확인 | Mock 제공자 → registry 등록 | `qimUserId` 발급 |
 | ⑥ 이벤트 | registry 이벤트 피드 | 응답 있음 |
@@ -88,6 +88,12 @@ IDEM_EDITION=core scripts/ci/install-smoke.sh     # HUB_URL·GATE_URL 등은 환
 | ⑧ 감사·로그아웃 | 감사 검색 → 로그아웃 204 → 세션 401 | 통과 |
 
 Mock 본인확인(`IDEM_PLUGINS_MOCK_AUTH_ENABLED`)은 검증 동안 `IDEM_SPRING_PROFILE=default` 와 함께 켜고(1.0.1: `prod` 프로파일에서는 기동 거부), 확인 뒤 **반드시 false** 로 되돌린다. Helm 은 `helm get notes idem -n idem` 의 절차로 같은 항목을 본다.
+
+**설치 직후의 Keycloak realm(1.2)** — `realm-export.json` 이 넣는 것은 realm 설정·내부 client 넷·서비스 계정 둘뿐이다.
+
+- **사람 계정이 없다.** 1.1.x 까지는 시험 계정 `poc-testuser` 가 들어 있었고 그 비밀번호가 저장소에 공개돼 있었다 — 1.2 에서 뺐다. 표준 로그인(OIDC_RP)의 사용자는 운영자가 Keycloak 에 만들거나 연동한다. 설치 확인·성능 측정처럼 시험 사용자가 필요할 때는 그때 만들고 끝나면 지운다: `KC_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" OIDC_PASSWORD_FILE=<파일> python3 -I scripts/dev/kc-test-user.py create` … `delete`(무작위 비밀번호를 0600 파일로 쓴다). SLO 프로브·성능 실행기는 `KC_ADMIN_*` 만 주면 임시 사용자를 만들어 쓰고 지운다(`docs/local-dev-workflow.md` §7, `k6/README.md` §2).
+- **로그인 화면은 한국어**다(표시 이름 "Idem 통합인증", 브라우저 언어가 영어면 영어). 인증 제공자(카카오·네이버·PASS·GPKI)는 넷 다 꺼져 있다 — 실제 client id·secret 을 넣은 뒤 Keycloak 관리 콘솔에서 켠다.
+- **`sslRequired` 는 `external`** 이다. 공개 주소(`IDEM_PUBLIC_URL_GATE`)가 https 면 전부 통과한다(§1 의 전제 — TLS 종단은 리버스 프록시·Ingress). 공개 주소가 http 일 때는 gate 에 연결한 쪽의 주소를 본다: 같은 호스트·사설 대역(10/8·172.16/12·192.168/16)·리버스 프록시 뒤면 통과하고, gate 포트를 바깥에 직접 열어 공인 주소에서 연결이 오면 로그인 화면 대신 **"HTTPS 필요"** 가 뜬다 — 평문으로 직접 노출된 접속을 막는 안전망이다. 파드 대역이 사설 대역이 아닌 클러스터(예: 100.64/10)에 http 공개 주소로 설치하면 같은 이유로 막힌다. 공개 주소를 https 로 두는 것이 답이고, 꼭 필요하면 `SSL_REQUIRED=none scripts/upgrade/keycloak-realm-1.2.sh` 로 푼다(`docs/analysis/keycloak-26-assessment.md` §9.2).
 
 ## 5. 업그레이드
 
@@ -97,10 +103,10 @@ Mock 본인확인(`IDEM_PLUGINS_MOCK_AUTH_ENABLED`)은 검증 동안 `IDEM_SPRIN
   2. **정지**: `docker compose -f infra/docker/compose.install.yml --env-file infra/docker/install.env stop idem-hub idem-gate idem-registry idem-authz idem-console-admin keycloak`.
   3. **1.2 설치본으로 교체**: 저장소(또는 오프라인 번들)를 1.2 로 — `compose.install.yml` 이 Keycloak 변수를 새 이름으로 준다(`KC_HOSTNAME`·`KC_HOSTNAME_ADMIN`·`KC_PROXY_HEADERS`·`KC_BOOTSTRAP_ADMIN_*`·`KC_HTTP_HOST`). **`install.env` 의 키 이름·값은 그대로다**(`KEYCLOAK_ADMIN_PASSWORD` 포함). `IDEM_VERSION=1.2.0`. Helm 은 차트를 1.2 로 올린다(`keycloak.image.tag` = `26.8.2`, 프로브 9000).
   4. **기동**: `… up -d`. Keycloak 이 첫 기동에서 스키마·모델을 26.8.2 로 올린다(리허설 12초, 로그 `Migrating older model to 25.0.0 … 26.8.2`). realm 은 이미 있으므로 `realm-export.json` 은 다시 읽지 않는다. 기존 Keycloak 관리자 계정은 그대로 유효하다.
-  5. **realm 맞춤(한 번)**: `set -a; . infra/docker/install.env; set +a; KC_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" scripts/upgrade/keycloak-realm-1.2.sh` — Keycloak 26.8.2 의 관리 API 조건 두 가지(서비스 계정 client 의 `kc-admin-api` scope, protocol mapper 허용 목록)를 기존 realm 에 넣고 실제 호출로 확인한다. 멱등이다. K8s 는 `kubectl -n idem port-forward svc/idem-keycloak 8088:8080` 뒤 같은 명령. **빼먹으면** 기관 OIDC_RP 프로파일 저장이 503 `E-IDO-122`(문구에 이 스크립트가 적혀 나온다)가 되고 hub 가 시작하는 단일 로그아웃이 Keycloak 세션을 끊지 못한다. 앱 재기동은 필요 없다.
-  6. **확인**: §4 의 스모크(③·④′ 가 두 서비스 계정을 본다) + 기존 관리자 로그인 + 기존 기관 RP 로그인(기관의 client secret 은 그대로다).
+  5. **realm 맞춤(한 번)**: `set -a; . infra/docker/install.env; set +a; KC_ADMIN_PASSWORD="$KEYCLOAK_ADMIN_PASSWORD" scripts/upgrade/keycloak-realm-1.2.sh` — ①~③ Keycloak 26.8.2 의 관리 API 조건 두 가지(서비스 계정 client 의 `kc-admin-api` scope, protocol mapper 허용 목록)를 기존 realm 에 넣고 실제 호출로 확인한다. ④~⑦ **설치 realm 정리**(1.2 PR-1.2-3a): 1.1.x 의 realm import 가 넣은 기본 시험 계정 `poc-testuser`(비밀번호가 저장소에 공개돼 있다)를 **비활성화하고 세션을 끊는다** — 지우려면 `TEST_USER_ACTION=delete`, 남기려면 `keep`(경고만). 표시 이름이 옛 기본값 그대로면 "Idem 통합인증" 으로, 국제화가 꺼져 있으면 켜고(로그인 화면 한국어), 자리표시자 client id 로 켜져 있는 "카카오 로그인" 을 끈다. 운영자가 바꿔 둔 값은 건드리지 않는다. `sslRequired` 는 지금 값을 알리기만 한다 — 공개 주소가 https 면 `SSL_REQUIRED=external` 을 붙여 새 설치와 맞춘다(§4). 멱등이다. K8s 는 `kubectl -n idem port-forward svc/idem-keycloak 8088:8080` 뒤 같은 명령. **빼먹으면** 기관 OIDC_RP 프로파일 저장이 503 `E-IDO-122`(문구에 이 스크립트가 적혀 나온다)가 되고 hub 가 시작하는 단일 로그아웃이 Keycloak 세션을 끊지 못하며, **공개된 비밀번호의 기본 계정이 그대로 남는다**(설치본을 올려도 realm import 는 다시 읽지 않는다 — §4 의 스모크 ④ 가 실패로 알린다). 앱 재기동은 필요 없다. Keycloak 을 아직 올리지 않은 1.1.x 설치본에서도 이 스크립트를 돌릴 수 있다(④~⑦ 만 한다) — 기본 계정은 업그레이드를 기다리지 말고 먼저 정리한다.
+  6. **확인**: §4 의 스모크(③·④′ 가 두 서비스 계정을, ④ 가 기본 계정이 막혔는지를 본다) + 기존 관리자 로그인 + 기존 기관 RP 로그인(기관의 client secret 은 그대로다).
   - **되돌리기**: 정지 → §6 의 복구(1 의 덤프) → 1.1.x 설치본·이미지로 기동. **Keycloak 이미지 태그만 24.0 으로 되돌리지 않는다** — 26 으로 올라간 스키마 위에서 24 는 오류 없이 뜨지만 26 에서 로그인한 계정의 비밀번호 검증이 실패한다(해시가 argon2 로 다시 저장된다).
-  - 리허설 기록(샌드박스 실스택 2026-11-12 — 정지·기동·확인까지 2분 안팎(이미지 내려받기 제외), 스크립트 1초, 롤백의 DB 복구 2초): `docs/analysis/keycloak-26-assessment.md` §8.4.
+  - 리허설 기록(샌드박스 실스택 2026-11-12 — 정지·기동·확인까지 2분 안팎(이미지 내려받기 제외), 스크립트 1초, 롤백의 DB 복구 2초): `docs/analysis/keycloak-26-assessment.md` §8.4. 설치 realm 정리(④~⑦)의 리허설(2026-11-13 — 올린 realm · 24 에 머문 1.1.7 · 1.1.7 → 1.2 한 번에)은 같은 문서 §9.3.
 - **S9 이전(0.x, OnePass 이름) → 1.0**: `docs/install.md` §7 — 앱·Keycloak 정지 → `scripts/upgrade/rename-db-1.0.sh`(DB `onepass→idem`·역할·스키마; `IDEM_DB_PASSWORD` 를 함께 준다) → `install.env` 변수명(`IDEM_HUB_*` …) → `keycloak-data` 볼륨 재생성(realm `idem` import) → 기동. 구 환경변수는 1 릴리스 동안 호환 계층이 `[Idem 개명]` 경고와 함께 받는다. Helm 은 db-init 훅이 구 스키마가 있으면 새 스키마를 만들지 않고, 앱이 첫 기동에서 옮긴다(1.0.1). 구·신 스키마가 둘 다 있고 새 쪽에 Flyway 이력이 없으면 앱이 기동을 거부한다 — 빈 새 스키마를 지운다.
 
 ## 6. 백업·복구
@@ -125,7 +131,7 @@ helm uninstall idem -n idem && kubectl delete ns idem                           
 
 - ✅ (A) compose 절차와 §4 확인 8단계: CI(`k6 Smoke Test` 잡의 설치본 스모크)가 PR 마다 실기동으로 확인한다. 로컬 리허설(S9 PR-2)로 0.x → 1.0 업그레이드 3경로(DB 이름만 변경·업그레이드 스크립트·새 DB) 확인.
 - ✅ (B) Helm: `helm lint`·`helm template`·kubeconform(CI `helm-lint` 잡) + **실제 클러스터 배포·업그레이드·롤백**(1.1 PR-6, CI `k8s-rehearsal` 잡 — kind 1노드에 코어 에디션 전부: ingress-nginx TLS, pre-install 스키마 Job, Keycloak production 모드 realm import, `helm install --wait` → §4 확인(스모크 ①~⑧ + 관리 포트 9090 비노출) → prod 프로파일·Mock off 로 `helm upgrade` → `helm rollback 1` → `helm uninstall`). 첫 통과 기록(PR #256, 2026-09-29, GitHub 호스팅 러너 4 vCPU/16 GB, kind v0.31 · K8s 1.35 · Helm 3.22): up 65s · install 84s(`helm install --wait` — 스키마 Job, Keycloak auto-build + realm import, 앱 4종 Flyway·기동) · 스모크 10s · 운영 전환 업그레이드 45s · 롤백 40s · 제거 13s, **합계 4분 17초**. 리허설이 드러낸 결함 1건 — Keycloak production 모드의 첫 기동 auto-build 가 종전 한도 1536Mi 에서 OOMKilled 되어 CrashLoop → 한도 2Gi + `keycloak.optimized`(차트 README). **기관 클러스터(운영 Ingress·바깥 DB)에서는 아직 안 돌렸다** — 첫 배포 때 `CLUSTER=existing` 으로 돌리고 여기에 적는다.
-- ✅/⚠️ **1.1.x → 1.2 업그레이드·롤백(§5)**: 샌드박스 실스택(PostgreSQL 16·Redis·Keycloak 배포본 24.0.5 → 26.8.2·부트 jar, 2026-11-12)에서 절차 1~6 과 되돌리기를 끝까지 돌렸다 — 업그레이드 뒤 스모크 74 ✅·SLO 프로브 13/13(업그레이드 전에 만든 기관으로)·새 기관 온보딩, 롤백 뒤 스모크·SLO 통과(`docs/analysis/keycloak-26-assessment.md` §8.4). ⚠️ compose 컨테이너(이미지·볼륨)로의 1회는 사용자 환경 리허설에서 한다 — 샌드박스에는 docker 가 없다. CI 는 새 설치만 돈다(스모크·K8s 리허설).
+- ✅/⚠️ **1.1.x → 1.2 업그레이드·롤백(§5)**: 샌드박스 실스택(PostgreSQL 16·Redis·Keycloak 배포본 24.0.5 → 26.8.2·부트 jar, 2026-11-12)에서 절차 1~6 과 되돌리기를 끝까지 돌렸다 — 업그레이드 뒤 스모크 74 ✅·SLO 프로브 13/13(업그레이드 전에 만든 기관으로)·새 기관 온보딩, 롤백 뒤 스모크·SLO 통과(`docs/analysis/keycloak-26-assessment.md` §8.4). **설치 realm 정리(2026-11-13, PR-1.2-3a)**: 같은 실스택에서 새 설치(정리한 realm import — 스모크 76 ✅·SLO 프로브 13/13·D-19 프로브 7/7) · 26.8.2 로 올려 둔 realm · Keycloak 24.0.5 에 머문 1.1.7 · 1.1.7 → 1.2 를 한 번에 올리는 경우를 돌렸다 — 스크립트 전에는 기본 계정으로 로그인되고, 뒤에는 거부되며, 임시 사용자로 SLO 프로브 13/13(같은 문서 §9.3). ⚠️ compose 컨테이너(이미지·볼륨)로의 1회는 사용자 환경 리허설에서 한다 — 샌드박스에서는 앱 이미지를 받을 수 없다(2026-11-13 부터 Docker 데몬은 있다). CI 는 새 설치만 돈다(스모크·K8s 리허설).
 - ⚠️ (C) 오프라인: 이미지 tar 절차는 표준 docker 명령이지만 이 저장소 환경에는 docker 가 없어 실행해 보지 못했다. GS 시험 환경 준비 때 실행하고 소요 시간·크기를 적는다.
 - 백업·복구(1.1.1 G1-2): CI 가 매 PR 설치본 스모크 뒤 `scripts/ops/backup.sh` → 새 DB 에 `restore.sh` → 스키마별 표 수·주요 표 행 수 대조를 돈다(검증됨). **운영 DB 복구**(앱 정지 → DB 재생성 → 복구 → 재기동 → §4 ①·②·②′ + 기존 관리자·기관 로그인)도 CI 가 매 PR 리허설한다(G2-17 — 앱 정지 → `restore.sh` 로 운영 DB 복구 → 같은 레시피로 재기동 → Discovery·기존 관리자 로그인(바뀐 비밀번호 + 2단계)·기관 목록, 이어서 k6 라운드트립; 2026-10-16 샌드박스에서도 `TARGET=direct` 로 1회 — 주요 표 행 수 일치·RP 로그인 13/13). CI 의 Keycloak 은 자체 dev DB 라 compose 설치본(Keycloak 도 PostgreSQL)에서의 1회는 시험 환경에서 위 §6 절차대로 — G1-1.
 - 오프라인 설치본(1.1.1 G1-2): CI 가 스크립트 변경 PR 마다 번들 생성 → 이미지 삭제 → `load-offline-bundle.sh` 복원 → MANIFEST 대조를 돈다(검증됨). ⚠️ **실제 폐쇄망 반입·설치(§3.3, A-1~A-4)** 는 아직 하지 않았다 — G1-1 수동 항목 G-6.

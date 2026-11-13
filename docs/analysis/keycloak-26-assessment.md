@@ -1,4 +1,4 @@
-# Keycloak 26 올림 영향 평가 (2026-10-15, 1.1.3 기준 — 추록 §8: 26.8.2 대응·최종 계약 리허설, 2026-11-12)
+# Keycloak 26 올림 영향 평가 (2026-10-15, 1.1.3 기준 — 추록 §8: 26.8.2 대응·최종 계약 리허설, 2026-11-12 · §9: 설치 realm 정리, 2026-11-13)
 
 취약점 점검 1회차의 서드파티 이미지 결과(`docs/certification/vulnerability-review-2026-10.md` §4.4·§6)가 남긴 숙제다. 설치본이 쓰는 `quay.io/keycloak/keycloak:24.0`(= 24.0.5)은 OS 21 HIGH + Java jar 77(CRITICAL 6)을 안고 있고, 24.0 줄기의 수정판은 24.0.9 까지만 나왔으며 2025 년 이후 CVE(SAML·조직 초대·redirect_uri·authorization code 위조 등)는 **26.x 에서만** 고쳐졌다. 이 문서는 "언제·어떻게 26 으로 가는가" 를 2026-11 점검 회차에서 결정할 수 있게, **Keycloak 26.8.1 을 샌드박스에서 실제로 띄워**(24 스키마 복사본 위의 마이그레이션과 빈 스키마 새 설치, 둘 다) 설치본 계약·Idem 코드 영향·시험 결과·단계 계획·권고를 적는다.
 
@@ -251,9 +251,9 @@ PR #293 의 첫 run 43168960722(커밋 `c56974f`, 러너 `ubuntu-26.04`) — 샌
 
 main `8ad3cbe` run 43160969761(Trivy v0.76.1, 2026-11-12): `quay.io/keycloak/keycloak:26.8`(= 26.8.2, redhat 9.8) — **OS 0 · Java jar 1**(HIGH 1: `com.google.guava:guava` 33.6.0-jre, CVE-2026-102554, 수정판 33.7.2). 24.0(= 24.0.5)은 OS 22(HIGH 21·CRITICAL 1) + jar 77(HIGH 71·CRITICAL 6)이었다 — §1 이 이 올림의 이유로 든 숫자다. guava 1건은 상류 이미지의 구성품이라 다음 패치(26.8.x)를 기다린다(점검 문서 2회차 §8).
 
-### 8.6 관찰 — 설치 realm (이번 PR 밖, 다음 PR 후보)
+### 8.6 관찰 — 설치 realm (#1~#5 는 PR-1.2-3a 에서 고쳤다 — §9)
 
-로그인 화면을 확인하다 본 것들이다. 전부 24 시절부터 있던 것으로 26 올림과 무관하지만, 설치본(compose)과 Helm 이 같은 `realm-export.json` 을 import 하므로 **운영 설치에도 들어간다**. 고치는 일은 이 PR 에 넣지 않았다(범위·시험 도구 영향) — 플랜 §5.5.
+로그인 화면을 확인하다 본 것들이다. 전부 24 시절부터 있던 것으로 26 올림과 무관하지만, 설치본(compose)과 Helm 이 같은 `realm-export.json` 을 import 하므로 **운영 설치에도 들어간다**. 고치는 일은 이 PR 에 넣지 않았다(범위·시험 도구 영향) — 플랜 §5.5. **2026-11-13: #1~#5 는 PR-1.2-3a(#295)에서 고쳤다(§9). 아래 표는 그 전의 관찰 기록이다.**
 
 | # | 관찰 | 영향 | 제안 |
 |---|---|---|---|
@@ -265,3 +265,60 @@ main `8ad3cbe` run 43160969761(Trivy v0.76.1, 2026-11-12): `quay.io/keycloak/key
 | 6 | 내부 client 4개 `fullScopeAllowed: true` | 26.8 deprecation WARN(토큰 발급마다) — §2 에서 이미 적은 것 | false + 필요한 scope 매핑(선택) |
 | 7 | **Keycloak 중계 로그인(D-19)의 인가 URL 이 Keycloak 내부 주소로 만들어진다** — gate `KeycloakAuthUrlController` 가 `KeycloakProperties.authorizationEndpoint()`(= `KEYCLOAK_URL`)로, hub 의 `keycloak` 브로커 모드(`BrokerService`)도 `KEYCLOAK_BASE_URL` 로 (설치 realm 이 아니라 코드 쪽 관찰) | 설치본은 `KEYCLOAK_URL=http://keycloak:8080`(컨테이너 내부 이름)이라 **브라우저가 그 주소로 보내지면 닿지 않는다**. 샌드박스·CI 는 Keycloak 이 localhost 여서 통과해 왔다(§5.5 의 2026-10-15 프로브도 같은 배치). 주소만 gate 공개 URL 로 바꿔서는 안 된다 — gate 공개 프런트(`/realms/idem/protocol/openid-connect/auth`)는 `idem-gate`·`idem-hub` client 를 400 `unauthorized_client` 로 막는다. 이 경로는 기본 꺼짐(`IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS` 비어 있음, 브로커 모드 `qsign`)이라 기본 설치의 로그인·OIDC_RP 흐름에는 영향이 없다 | 브라우저용 인가 URL 을 gate 공개 URL 로 만들고 프런트가 내부 client 의 브로커 요청을 통과시키는 경로를 둔다 → 시험 항목 D-19 를 설치본 배치(compose)로 1회. 결정 전까지는 지원 배치를 문서에 적는다 |
 
+
+## 9. 추록 — 설치 realm 정리 (2026-11-13, 1.2 PR-1.2-3a)
+
+§8.6 의 #1~#5 를 고쳤다(#295). 새 설치는 `realm-export.json` 이 처음부터 정리된 상태이고, 이미 있는 realm 은 `scripts/upgrade/keycloak-realm-1.2.sh` 의 ④~⑦ 이 맞춘다. #6(내부 client `fullScopeAllowed`)과 #7(중계 로그인 인가 URL — 플랜 §5.5 의 3c)은 그대로 남아 있다.
+
+### 9.1 바꾼 것
+
+| §8.6 # | 종전(1.0.0 ~ 1.1.7) | 새 설치 — realm import | 기존 realm — `keycloak-realm-1.2.sh` |
+|---|---|---|---|
+| 1 | 시험 계정 `poc-testuser`, 비밀번호가 저장소에 평문 | 사람 계정 없음(서비스 계정 둘뿐) | ④ 비활성화 + 세션 종료(기본) · `TEST_USER_ACTION=delete` 로 삭제 · `keep` 은 경고만 |
+| 2 | 표시 이름 "OnePass 통합인증", client·역할 설명에 옛 이름 | "Idem 통합인증", 설명도 Idem | ⑤ 표시 이름이 옛 기본값 그대로일 때만 바꾼다 — 운영자가 정한 이름은 그대로. client·역할 설명은 로그인 화면에 나오지 않아 건드리지 않는다 |
+| 3 | `social-kakao` 가 자리표시자 client id 로 켜져 있음 | 인증 제공자 넷 모두 꺼짐 | ⑥ client id 가 `your-…-client-id` 인 채 켜진 것만 끈다 — 실제 값을 넣은 제공자는 그대로 |
+| 4 | 국제화 꺼짐(영어 화면) | 켬 — `ko` 기본, `en` | ⑤ 꺼져 있을 때만 켠다 |
+| 5 | `sslRequired: none` | `external`(§9.2) | ⑦ 지금 값을 알리기만 한다. `SSL_REQUIRED=external` 을 주면 바꾼다 |
+
+이미 있는 realm 은 import 를 다시 읽지 않는다 — **설치본을 1.2 로 올리는 것만으로는 #1 이 없어지지 않는다**(§9.3 의 리허설 B). 스크립트의 ④~⑦ 은 Keycloak 판과 무관해서 24 에 머문 1.1.x 설치본에서도 돈다(①~③ 은 `kc-admin-api` scope 가 없으면 건너뛴다). 스크립트는 운영자가 바꿔 둔 값을 건드리지 않고, realm 갱신은 바꿀 항목만 보낸다(26.8.2 에서 보내지 않은 항목은 그대로임을 앞뒤 표현 대조로 확인 — 131개 가운데 4개만 달라졌다).
+
+시험 도구는 realm 에 든 계정에 기대지 않는다. `scripts/dev/kc-test-user.py` 가 Keycloak 관리 API 로 사용자를 만들고 지운다 — `slo-probe.py`·`broker-login-probe.py`·`scripts/perf/run-k6.sh` 는 `KC_ADMIN_*` 가 있으면 임시 사용자를 만들어 쓰고 끝나면 지운다(무작위 비밀번호, 출력하지 않는다). k6 `12-oidc-token.js` 는 자격이 없으면 부하를 걸기 전에 멈춘다.
+
+회귀는 둘이 막는다. `docs-lint` 의 R 규칙이 realm import 를 검사한다(두 벌 일치·사람 계정 없음·`credentials` 없음·client secret 은 `${VAR}` 뿐·자리표시자 제공자 꺼짐·`sslRequired` none 아님·옛 이름 없음 — 1.1.7 의 파일에 돌리면 12건). 설치본 스모크 ④ 가 종전 계정과 공개된 비밀번호로 로그인을 시도해 거부되는지, 로그인 화면에 옛 제품명이 없는지 본다 — 올린 realm 에서 스크립트를 빼먹으면 스모크가 잡는다.
+
+### 9.2 `sslRequired=external` — 뜻과 경우별 동작
+
+Keycloak 은 "요청의 기준 주소가 https 가 아니고, 그 연결이 realm 의 `sslRequired` 에 걸리면" 거부한다(소스: `!"https".equals(baseUri.getScheme()) && realm.getSslRequired().isRequired(connection)`). 기준 주소의 scheme 은 `KC_HOSTNAME`(= 설치본의 `IDEM_PUBLIC_URL_GATE`)에서 온다. 연결의 주소는 `X-Forwarded-For` 에서 오는데(`KC_PROXY_HEADERS=xforwarded`), gate 프록시는 클라이언트가 보낸 `X-Forwarded-*` 를 버리고 **자기가 받은 연결의 상대 주소**를 넣는다 — 즉 Keycloak 이 보는 것은 "gate 에 연결한 쪽" 이다. `external` 은 루프백·사설 대역이 **아닌** 주소를 건다.
+
+| 공개 주소(`IDEM_PUBLIC_URL_GATE`) | gate 에 연결한 쪽 | 결과 |
+|---|---|---|
+| `https://…` | 어디든 | 통과 — 운영 설치(ADR-014)는 `none` 일 때와 같다 |
+| `http://…` | 루프백, 10/8 · 172.16/12 · 192.168/16 — 같은 호스트·사설망의 브라우저, **리버스 프록시·Ingress**(그 프록시의 주소) | 통과 |
+| `http://…` | 공인 IP, 100.64/10(CGNAT 대역) — gate 포트를 바깥에 직접 연 경우, 파드 대역이 사설 대역이 아닌 클러스터 | 인가 엔드포인트 **400** — 로그인 화면 대신 "HTTPS 필요" · 토큰 엔드포인트 **403** `invalid_request` "HTTPS required" |
+
+확인(샌드박스, Keycloak 26.8.2, 정리한 realm import 의 새 설치 — `X-Forwarded-For` 를 바꿔 가며 Keycloak 을 직접 불렀다, 2026-11-13): 공개 주소 http 에서 주소 없음·127.0.0.1·10.1.2.3·172.20.0.5·192.168.1.7 은 인가 200(로그인 화면)·토큰 200, 100.64.1.1·8.8.8.8·203.0.113.9 는 인가 400("HTTPS 필요")·토큰 403. 이미 받은 서비스 계정 토큰으로 부르는 관리 API 는 주소와 무관하게 200 이다(막히는 것은 토큰 발급). gate 를 거치면 클라이언트가 `X-Forwarded-For: 8.8.8.8` 을 붙여 보내도 로그인 화면이 뜬다(gate 가 덮어쓴다 — 반대로 사설 주소를 사칭해 통과할 수도 없다). 공개 주소를 https 로 띄운 Keycloak 에서는 같은 호출이 전부 통과한다.
+
+- **근거**: TLS 종단은 앞단 프록시다(ADR-014) — `external` 은 TLS 를 강제하는 장치가 아니다. 프록시 뒤에서는 Keycloak 이 프록시의 사설 주소를 보므로 http 공개 주소라도 통과한다(설치본 compose 는 앱 포트를 127.0.0.1 에만 열어 항상 이 경우다). 이 값이 막는 것은 **프록시 없이 평문으로 직접 노출된 접속**이고, 그때 비밀번호와 토큰이 평문으로 오간다. `none` 은 그것을 조용히 받는다. `external` 은 Keycloak 이 새 realm 에 주는 기본값이기도 하다. `all` 은 루프백·사설망의 http(개발·CI·폐쇄망 평가)까지 막아 쓰지 않았다.
+- **영향**: 로컬·사설망·프록시 뒤의 설치는 http 공개 주소라도 그대로 돈다. 달라지는 배치는 둘이다 — ① gate 포트를 바깥에 직접 연 http 설치(로그인 화면이 뜨지 않는다) ② http 공개 주소에 파드 대역이 사설 대역이 아닌 클러스터(예: 100.64/10) — 이때는 hub·gate 가 Keycloak 을 직접 부르는 서비스 계정 토큰 발급도 403 이 되어 OIDC_RP 프로파일 저장과 단일 로그아웃이 실패한다. 답은 공개 주소를 https 로 두는 것이고, 일시적으로 풀려면 `SSL_REQUIRED=none scripts/upgrade/keycloak-realm-1.2.sh`(또는 Keycloak 관리 콘솔 Realm settings → Require SSL).
+- **기존 realm 은 바꾸지 않는다**: 운영 중인 realm 의 값을 스크립트가 올리면 위 두 배치가 업그레이드 직후 로그인 불가가 된다. 스크립트는 지금 값을 알리고, 운영자가 `SSL_REQUIRED=external` 로 올린다.
+
+### 9.3 리허설 기록 (샌드박스 실스택, 2026-11-13 — PostgreSQL 16·Redis·Keycloak 배포본·부트 jar)
+
+| 대상 | 한 일 | 결과 |
+|---|---|---|
+| 26.8.2 로 올려 둔 realm(§8.4 의 업그레이드 리허설 상태) | 스크립트 1회 | 계정 비활성 · realm 항목 131개 가운데 4개(`displayName`·`internationalizationEnabled`·`supportedLocales`·`defaultLocale`) · `social-kakao` 끔. 2회째 바꾼 곳 0. `TEST_USER_ACTION=keep`·`delete`·잘못된 값 거부·`REALM_CLEANUP=0` 확인 |
+| 〃 | 종전 계정으로 표준 로그인 | 거부(로그인 화면이 다시 뜬다) |
+| 〃 | 임시 사용자로 D-8 SLO 프로브 · D-19 브로커 프로브 · k6 12 드라이런(`run-k6.sh`) | 13/13 · 7/7 · 체크 7 통과. 끝난 뒤 realm 에 임시 사용자 없음 |
+| 〃 | 로그인 화면(Chromium 헤드리스) | 브라우저 제목 "Idem 통합인증에 로그인", `lang="ko"`, 라벨 한국어, 소셜 버튼 없음, 언어 선택(한국어·영어). 영어 브라우저에는 영어. 머리글은 테마가 대문자로 바꿔 "IDEM 통합인증" |
+| 새 설치(정리한 import, 26.8.2 빈 스키마) | 기동 → 스모크 → 프로브 → 스크립트 | Keycloak 기동 21초(realm import 포함) · 앱 넷 30초 · 스모크 **76 ✅** · SLO 13/13 · D-19 7/7(둘 다 임시 사용자, 끝난 뒤 삭제) · 스크립트 "바꾼 곳 0"(`sslRequired` external) · realm 사용자는 서비스 계정 둘뿐. 두 번 돌렸다 — 스모크의 새 검사를 넣기 전(74 ✅)과 넣은 뒤(76 ✅) |
+| **리허설 A** — 1.1.7 + Keycloak 24.0.5(올리지 않은 설치본, §8.4 의 업그레이드 전 백업을 복구) | 스크립트 1회 → 1.1.7 앱으로 확인 | `kc-admin-api` scope 가 없어 ①~③ 건너뜀 · ④~⑥ 적용(24 의 realm 표현 119개 항목 가운데 5개 — 24 는 인증 제공자 목록이 realm 표현에 든다) · 2회째 0. 종전 계정 거부, 임시 사용자 SLO 13/13 |
+| **리허설 B** — 1.1.7 + 24.0.5 → 26.8.2(설치 매뉴얼 §5 의 절차), 스크립트 한 번 | 스크립트 전·후 비교 | 전: **종전 계정으로 로그인된다**(SLO 13/13). 스크립트가 6곳을 바꿨다(scope 둘·mapper 허용 목록·계정·표시 이름과 국제화·카카오). 후: 종전 계정 거부 · 스모크 통과 · 업그레이드 전에 만든 기관으로 SLO 13/13 · 2회째 0 |
+| 스모크의 새 검사(부정 시험) | 계정을 다시 켬 / 표시 이름을 되돌림 | 각각 의도한 문구로 실패(계정 쪽은 스크립트를 안내) → 스크립트 뒤 76 ✅ |
+
+화면 캡처는 저장소에 넣지 않았다(사용자 매뉴얼의 로그인 화면은 시험 환경에서 찍기로 되어 있다 — 플랜 §3).
+
+### 9.4 돌리지 못한 것 · 남은 것
+
+- **compose 컨테이너로의 1회**(이미지·볼륨): 샌드박스에 Docker 는 생겼지만 앱 이미지를 레지스트리에서 받을 수 없고(접근 거부) 샌드박스 안 이미지 빌드는 시도하지 않았다 — 설치 매뉴얼 §5 절차의 컨테이너 리허설은 사용자 환경 몫 그대로다. CI 의 `k6 Smoke Test`(컨테이너 Keycloak)·`K8s 실배포 리허설`(Helm realm import)이 새 설치를 돈다.
+- **#6** 내부 client `fullScopeAllowed`(26.8 deprecation WARN) — 선택, 손대지 않았다.
+- **#7** Keycloak 중계 로그인의 브라우저 인가 URL — 플랜 §5.5 의 3c(결정 대기).

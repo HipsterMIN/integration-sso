@@ -107,12 +107,14 @@ tenant-sample 은 `AGENCY_STUB_IDO_API_KEY=<출력값>` 으로 띄운다.
 # 스택: gate(8081)·hub(8083)·registry·authz + 실제 Keycloak. 기관 RP 프로파일 둘(OIDC_RP) — backchannelLogoutUri 는 이 스크립트의 수신기(BC_LISTEN) 주소
 #   (프로파일 검증은 루프백·사설 주소를 거부하므로 공개 이름을 쓴다 — 샌드박스는 /etc/hosts 로 127.0.0.1 에 맵핑). client secret 은 관리 API 의 secret 회전 응답에서.
 OIDC_CLIENT_ID=idem-svc-SLO_RP   OIDC_CLIENT_SECRET=…  OIDC_CLIENT_ID_2=idem-svc-SLO_RP2  OIDC_CLIENT_SECRET_2=… \
-OIDC_REDIRECT_URI=https://rp.example.org/callback OIDC_USER=poc-testuser OIDC_PASSWORD=… \
+OIDC_REDIRECT_URI=https://rp.example.org/callback \
 BC_LISTEN=0.0.0.0:9099 BC_PATH=/bc BC_PATH_2=/bc2 KC_ADMIN_URL=http://localhost:8088 KC_ADMIN_USER=admin KC_ADMIN_PASSWORD=… \
 python3 -I scripts/dev/slo-probe.py
 ```
 
-- 판정은 RP2 로 한다(SLO 의 의미 — 다른 RP 의 세션이 끝나는가). Keycloak(24.0.5·26.8.2 에서 확인)은 로그아웃을 시작한 RP1 에도 보내는데 참고로만 찍는다. `KC_ADMIN_*` 이 없으면 Keycloak 세션 확인은 건너뛴다.
+- **시험 사용자(1.2)**: 설치 realm 에는 기본 사용자가 없다(1.1.x 의 `poc-testuser` 는 비밀번호가 저장소에 있는 기본 계정이어서 뺐다). 프로브는 `KC_ADMIN_*` 로 임시 사용자 `idem-probe-<난수>` 를 만들어(무작위 비밀번호) 쓰고 끝나면 지운다. 이미 있는 사용자로 돌리려면 `OIDC_USER` + `OIDC_PASSWORD` 를 준다 — 그때는 만들거나 지우지 않는다. 손으로 만들고 지우려면 `scripts/dev/kc-test-user.py create|delete|status`(비밀번호는 `OIDC_PASSWORD_FILE` 의 0600 파일로).
+
+- 판정은 RP2 로 한다(SLO 의 의미 — 다른 RP 의 세션이 끝나는가). Keycloak(24.0.5·26.8.2 에서 확인)은 로그아웃을 시작한 RP1 에도 보내는데 참고로만 찍는다. `OIDC_USER`·`OIDC_PASSWORD` 로 돌릴 때 `KC_ADMIN_*` 이 없으면 Keycloak 세션 확인은 건너뛴다.
 - **프록시가 있는 환경**(샌드박스·사무실 망): Keycloak 의 아웃바운드(Back-Channel Logout)가 `HTTPS_PROXY` 로 가서 수신기에 닿지 않는다 — Keycloak 을 `NO_PROXY` 에 RP 호스트를 넣어(또는 프록시 없이) 띄운다. 2026-10-16 샌드박스에서 이 때문에 두 번 실패한 뒤 13/13.
 - gate 로그 `[OIDC-FRONT] RP-Initiated Logout: … cacheEvicted=N feExpired=M`, hub 로그 `[IdpLogout] FE 세션 만료` 가 Idem 쪽 정리의 증거다(브로커 로그인 FE 세션이 없으면 `feExpired=0`).
 
@@ -126,9 +128,10 @@ python3 -I scripts/dev/slo-probe.py
 #   PUT  $HUB_URL/api/v1/admin/services/BRK_HO/profile   {"schemaVersion":1,"service":{"code":"BRK_HO","name":"…","status":"ACTIVE"},
 #        "protocol":{"type":"DIRECT","endpoints":{"callbackWhitelist":["https://agency.example.org/cb"]}},"identity":{"attributes":["name_masked"]},"policy":{"minAuthLevel":"L1"}}
 #   POST $HUB_URL/api/v1/admin/agencies/BRK_HO/rotate-key  → newApiKey
-SERVICE=BRK_HO AGENCY_KEY=… OIDC_USER=poc-testuser OIDC_PASSWORD=… python3 -I scripts/dev/broker-login-probe.py
+SERVICE=BRK_HO AGENCY_KEY=… KC_ADMIN_URL=http://localhost:8088 KC_ADMIN_PASSWORD=… python3 -I scripts/dev/broker-login-probe.py   # 시험 사용자는 §7 과 같다
 ```
 
-- 2026-11-12 샌드박스(Keycloak 26.8.2, 24.0.5 에서 올린 realm): 7/7, 2회. gate `auth_result`(`KEYCLOAK_OIDC`·SUCCESS)·hub `handoff_audit` `CONSUMED` 로 뒤를 확인했다.
+- 2026-11-12 샌드박스(Keycloak 26.8.2, 24.0.5 에서 올린 realm): 7/7, 2회. gate `auth_result`(`KEYCLOAK_OIDC`·SUCCESS)·hub `handoff_audit` `CONSUMED` 로 뒤를 확인했다. 2026-11-13(임시 사용자, 정리한 realm · 새 설치): 7/7.
+- hub 관리자 로그인을 하는 도구(스모크·성능 실행기·프로파일 준비)를 잇달아 돌릴 때는 30초 넘게 띄운다 — 같은 TOTP 주기의 코드를 두 번 쓰면 hub 가 `E-IDO-134` 로 거부한다.
 - **로그인 화면의 주소를 본다**: 프로브는 홉마다 주소를 찍고, Keycloak 로그인 화면이 gate 공개 URL 이 아니면 `[INFO]` 를 남긴다. 지금 gate 는 인가 URL 을 Keycloak 내부 주소(`KEYCLOAK_URL`)로 만든다 — 샌드박스·CI 처럼 그 주소가 브라우저에서 닿는 배치에서만 끝까지 간다(`docs/analysis/keycloak-26-assessment.md` §8.6 #7, 플랜 §5.5 의 3c).
 

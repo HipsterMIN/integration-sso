@@ -21,20 +21,21 @@
 # 설치본이 떠 있고(hub·registry·authz, 12 번은 gate+Keycloak 도), 관리자 로그인 정보가 있다
 export IDEM_ADMIN_PASSWORD=…            # 또는 IDEM_HUB_ADMIN_BOOTSTRAP_PASSWORD
 export IDEM_ADMIN_TOTP_SECRET=…         # 2단계 등록이 끝난 관리자의 비밀 (또는 IDEM_ADMIN_TOTP_SECRET_FILE)
-export OIDC_PASSWORD=…                  # 12 번: Keycloak realm 의 시험 사용자 비밀번호 (OIDC_USER 기본 poc-testuser)
+export KC_ADMIN_PASSWORD=…              # 12 번: Keycloak 관리자(설치본의 KEYCLOAK_ADMIN_PASSWORD; KC_ADMIN_URL 기본 http://localhost:8088) — 실행기가 임시 시험 사용자를 만들어 쓰고 지운다
+                                        #        이미 있는 사용자로 돌리려면 대신 OIDC_USER=… OIDC_PASSWORD=…
 export HUB_URL=https://idem.example.org GATE_URL=https://sso.example.org   # 기본 localhost:8083 / 8081
 PERF_LABEL="GS 시험 환경" scripts/perf/run-k6.sh                 # 10·11·12 → k6/reports/<일시>/
 PERF_SCENARIOS="10 11" scripts/perf/run-k6.sh                   # gate·Keycloak 없이
 PERF_DRY_RUN=1 scripts/perf/run-k6.sh                           # 1 VU × 1 반복 — 자격·계약 확인(측정값 아님)
 ```
 
-실행기가 하는 일: ① 헬스 → ② 관리자 로그인(`scripts/lib/admin-login.sh`) → ③ Handoff 시험 서비스 `PERF_HO` 프로파일 PUT(DIRECT, `callbackWhitelist`) + 기관 키 회전 → ④ (12 번) OIDC_RP 시험 서비스 `PERF_RP` PUT → Keycloak client `idem-svc-PERF_RP` 프로비저닝 + secret 회전 → ⑤ 환경 기록 → ⑥ k6 (`--summary-export`) → ⑦ `scripts/perf/summarize-k6.py` 로 `summary.md`. 비밀(기관 키·client secret·비밀번호)은 환경변수로만 k6 에 넘기고 어디에도 쓰지 않는다. 결과 디렉터리의 `*.summary.json` 은 작아서(수 KB) 커밋해 근거로 남긴다(`--out json` 원시 출력은 `.gitignore`).
+실행기가 하는 일: ① 헬스 → ② 관리자 로그인(`scripts/lib/admin-login.sh`) → ③ Handoff 시험 서비스 `PERF_HO` 프로파일 PUT(DIRECT, `callbackWhitelist`) + 기관 키 회전 → ④ (12 번) OIDC_RP 시험 서비스 `PERF_RP` PUT → Keycloak client `idem-svc-PERF_RP` 프로비저닝 + secret 회전 + 임시 시험 사용자 생성(끝나면 삭제 — `KC_ADMIN_*` 를 줬을 때) → ⑤ 환경 기록 → ⑥ k6 (`--summary-export`) → ⑦ `scripts/perf/summarize-k6.py` 로 `summary.md`. 비밀(기관 키·client secret·비밀번호)은 환경변수로만 k6 에 넘기고 어디에도 쓰지 않는다. 결과 디렉터리의 `*.summary.json` 은 작아서(수 KB) 커밋해 근거로 남긴다(`--out json` 원시 출력은 `.gitignore`).
 
 시나리오를 직접 돌릴 때는 환경변수를 손으로 준다:
 
 ```bash
 PERF_AGENCY_KEY=… k6 run k6/scripts/10-handoff-login.js --env HUB_URL=http://localhost:8083
-OIDC_CLIENT_SECRET=… OIDC_PASSWORD=… k6 run k6/scripts/12-oidc-token.js --env GATE_URL=http://localhost:8081 --env OIDC_CLIENT_ID=idem-svc-PERF_RP
+OIDC_CLIENT_SECRET=… OIDC_USER=… OIDC_PASSWORD=… k6 run k6/scripts/12-oidc-token.js --env GATE_URL=http://localhost:8081 --env OIDC_CLIENT_ID=idem-svc-PERF_RP   # 자격이 없으면 setup() 에서 멈춘다
 ```
 
 ### 시험 대상(설치본) 쪽 준비
@@ -44,7 +45,7 @@ OIDC_CLIENT_SECRET=… OIDC_PASSWORD=… k6 run k6/scripts/12-oidc-token.js --en
 | hub `IDEM_PLUGINS_MOCK_AUTH_ENABLED=true` + 기본 프로파일(`IDEM_SPRING_PROFILE=default`) | 10·11 번이 MOCK 제공자로 로그인한다 | `docs/install.md` §5 의 설치 검증 절차와 같다(측정 뒤 되돌린다). 실 제공자(NICE 등)는 외부 응답시간이 섞이므로 부하 측정에 쓰지 않는다 |
 | hub `IDEM_HUB_AUTH_RL_ENABLED=false` (또는 `IDEM_HUB_AUTH_RL_TPS`·`_PER_MIN`·`_DAILY` 상향) | 부하 발생기가 **한 IP** 라 `/api/v1/handoff/login*`·`/api/v1/auth/**` 의 IP 레이트리밋(기본 20 tps·100/분·1,000/일)이 먼저 걸린다 | 기관 한도(`AgencyRateLimiter`, 200 tps)는 그대로 둔다 — 11 번이 그것을 잰다 |
 | gate `IDEM_GATE_FRONT_RL_ENABLED=false` (또는 `IDEM_GATE_FRONT_RL_PER_SECOND`·`_PER_MINUTE` 상향) | 12 번: gate OIDC 프런트(`/realms/**`)의 IP 레이트리밋(기본 20/초·300/분)이 한 IP 의 발생기를 1분 안에 막는다(429 `rate_limited`) | 기관 한도는 OIDC 토큰 교환에도 걸리므로(`E-AGENCY-306` → 429 `temporarily_unavailable`) 그대로 둔다 |
-| Keycloak realm 에 시험 사용자 | 12 번의 `OIDC_USER`/`OIDC_PASSWORD` | `infra/docker/keycloak/realm-export.json` 의 `poc-testuser` 는 설치 검증용 realm 에만 있다 |
+| Keycloak realm 에 시험 사용자 | 12 번 — 실행기가 `KC_ADMIN_*` 로 임시 사용자 `idem-perf-<시각>` 을 만들어 쓰고 끝나면 지운다(`scripts/dev/kc-test-user.py`). 또는 이미 있는 사용자의 `OIDC_USER`/`OIDC_PASSWORD` | 설치 realm 에는 기본 사용자가 없다(1.2 — 1.1.x 의 `poc-testuser` 는 비밀번호가 저장소에 공개된 기본 계정이어서 뺐다). 시험 사용자를 운영 realm 에 남겨 두지 않는다. Keycloak 관리 포트(8088)는 설치 호스트의 로컬 포트다 — 발생기가 다른 호스트면 설치 호스트에서 `kc-test-user.py create` 로 만들어 `OIDC_USER`/`OIDC_PASSWORD` 로 넘기고, 끝나면 `delete` |
 | 프로파일 `limits.tps` | 비우면 설치본 기본 200 | 다른 값이면 `PERF_TPS_LIMIT=<값>` 으로 실행기에 알린다(11 번의 기대 429 비율) |
 
 ### 부하 발생기
