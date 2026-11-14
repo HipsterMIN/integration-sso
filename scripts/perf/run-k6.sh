@@ -21,7 +21,9 @@
 #   PERF_TPS_LIMIT                   있으면 프로파일 limits.tps 로 둔다(없으면 설치본 기본 200 tps). 시나리오 11 의 기대 429 비율에 반영
 #   PERF_RP (PERF_RP)                OIDC_RP 시험 서비스 코드 (시나리오 12) — client_id = idem-svc-PERF_RP
 #   OIDC_REDIRECT_URI (https://rp.example.org/callback)   그 프로파일의 redirectUris 겸 시나리오 redirect_uri
-#   OIDC_USER / OIDC_PASSWORD        Keycloak realm 의 시험 사용자 (기본 realm-export.json 의 poc-testuser — 운영 realm 에는 없다)
+#   시험 사용자 (시나리오 12)        설치 realm 에는 기본 사용자가 없다(1.2 — 종전 poc-testuser 는 뺐다). 둘 중 하나:
+#     KC_ADMIN_PASSWORD (+ KC_ADMIN_URL http://localhost:8088, KC_ADMIN_USER admin)   임시 사용자를 만들어 쓰고 끝나면 지운다(scripts/dev/kc-test-user.py)
+#     OIDC_USER + OIDC_PASSWORD      이미 있는 사용자로 로그인한다(만들거나 지우지 않는다)
 #   PERF_SCENARIOS ("10 11 12")      돌릴 스크립트 접두 번호
 #   K6_BIN (k6)  K6_EXTRA_ARGS       k6 바이너리·추가 인자(예: "--out json=…" — 크다)
 #   PERF_DRY_RUN=1                   시나리오마다 1 VU × 1 반복만(k6 가 scenarios 를 CLI 로 덮는다) — 계약·자격 확인용, 측정값 아님
@@ -37,7 +39,7 @@ PERF_SERVICE="${PERF_SERVICE:-PERF_HO}"
 PERF_CALLBACK="${PERF_CALLBACK:-https://agency.example.org/cb}"
 PERF_RP="${PERF_RP:-PERF_RP}"
 OIDC_REDIRECT_URI="${OIDC_REDIRECT_URI:-https://rp.example.org/callback}"
-OIDC_USER="${OIDC_USER:-poc-testuser}"
+OIDC_USER="${OIDC_USER:-}"
 PERF_SCENARIOS="${PERF_SCENARIOS:-10 11 12}"
 K6_BIN="${K6_BIN:-k6}"
 PERF_LABEL="${PERF_LABEL:-$(hostname)}"
@@ -107,9 +109,22 @@ JSON
   [ "$(echo "$status" | jq -r .provisioned)" = "true" ] && ok "client 프로비저닝 $(echo "$status" | jq -r .clientId)" || fail "client 미프로비저닝: $status"
   OIDC_CLIENT_SECRET=$(curl -sf -X POST "$HUB_URL/api/v1/admin/services/$PERF_RP/oidc-client/secret" "${adm[@]}" | jq -r '.clientSecret')
   [ -n "$OIDC_CLIENT_SECRET" ] && [ "$OIDC_CLIENT_SECRET" != "null" ] && ok "client secret 회전" || fail "secret 회전 실패"
-  export OIDC_CLIENT_SECRET OIDC_CLIENT_ID="idem-svc-$PERF_RP" OIDC_REDIRECT_URI OIDC_USER GATE_URL
+  # 시험 사용자 — 설치 realm 에는 기본 사용자가 없다. 비밀번호를 주지 않았으면 Keycloak 관리 API 로 임시 사용자를 만들고 끝날 때 지운다
+  if [ -n "${OIDC_PASSWORD:-}" ]; then
+    [ -n "$OIDC_USER" ] || fail "OIDC_PASSWORD 를 줬으면 OIDC_USER(그 사용자 이름)도 필요하다"
+    ok "시험 사용자 $OIDC_USER (이미 있는 사용자)"
+  elif [ -n "${KC_ADMIN_PASSWORD:-}" ]; then
+    OIDC_USER="${OIDC_USER:-idem-perf-$(date +%s)}"
+    pwf=$(mktemp); chmod 600 "$pwf"
+    OIDC_USER="$OIDC_USER" OIDC_PASSWORD_FILE="$pwf" python3 "$ROOT/scripts/dev/kc-test-user.py" create || { rm -f "$pwf"; fail "시험 사용자 생성 실패"; }
+    OIDC_PASSWORD=$(cat "$pwf"); rm -f "$pwf"
+    PERF_TEMP_USER="$OIDC_USER"
+    trap 'OIDC_USER="$PERF_TEMP_USER" python3 "$ROOT/scripts/dev/kc-test-user.py" delete || echo "  ⚠ 임시 시험 사용자 $PERF_TEMP_USER 를 지우지 못했다 — Keycloak 에서 직접 지운다"' EXIT
+  else
+    fail "시나리오 12 의 시험 사용자가 없다 — KC_ADMIN_PASSWORD(임시 사용자를 만들었다 지운다) 또는 OIDC_USER·OIDC_PASSWORD(이미 있는 사용자)를 준다"
+  fi
+  export OIDC_CLIENT_SECRET OIDC_CLIENT_ID="idem-svc-$PERF_RP" OIDC_REDIRECT_URI OIDC_USER OIDC_PASSWORD GATE_URL
   [ -n "${GATE_PUBLIC_URL:-}" ] && export GATE_PUBLIC_URL
-  [ -n "${OIDC_PASSWORD:-}" ] || echo "  ⚠ OIDC_PASSWORD 가 비어 있다 — 시나리오 12 의 로그인이 실패할 것이다"
 fi
 
 echo "⑤ 환경 기록"

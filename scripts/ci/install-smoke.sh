@@ -7,6 +7,8 @@
 #
 # 검사: ① 4개 헬스 ② gate 를 통한 OIDC Discovery(issuer = gate 공개 URL) ②′ 관리자 로그인(2단계, 무인증 관리 API 401)
 #       ③ OIDC_RP 프로파일 PUT → Keycloak client 생성·secret 회전 ④ gate 프런트가 Keycloak 로그인 화면을 프록시(client 존재·PKCE 사전검사)
+#          + 설치 realm 정리(1.2 PR-1.2-3a): 1.1.x 의 기본 시험 계정(poc-testuser, 비밀번호가 저장소에 공개돼 있었다)으로 로그인되지 않는다 ·
+#            로그인 화면에 옛 제품명이 없다 — 기존 realm 은 scripts/upgrade/keycloak-realm-1.2.sh 가 걷어 낸다
 #       ④′ gate 내부 세션 종료 API → Keycloak 관리 API(1.2: 서비스 계정 idem-session-manager 토큰이 통하는가 — ③ 은 idem-provisioner 를 본다.
 #          Keycloak 26.8.2+ 는 두 client 에 client scope kc-admin-api 가, realm 에 mapper 허용 목록이 있어야 한다 — 기존 realm 은 scripts/upgrade/keycloak-realm-1.2.sh)
 #       ⑤ Mock 본인확인 → registry 등록 라운드트립 ⑥ registry 이벤트 피드(Kafka 없는 상태 전파) ⑦ 코어 에디션이면 KR 전용 엔드포인트 404
@@ -113,6 +115,44 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$GATE_URL/realms/idem/protocol/op
 [ "$code" = "400" ] && ok "PKCE 없는 요청은 400" || fail "PKCE 없는 요청이 $code"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$GATE_URL/realms/idem/protocol/openid-connect/auth?client_id=not-idem&response_type=code&scope=openid&redirect_uri=https%3A%2F%2Frp.example.org%2Fcallback&state=smoke&code_challenge=$challenge&code_challenge_method=S256")
 [ "$code" = "400" ] || [ "$code" = "403" ] && ok "Idem 이 만들지 않은 client 는 $code" || fail "타 client 요청이 $code"
+# 설치 realm 에 기본 계정이 없다(1.2 PR-1.2-3a). 1.1.x 까지 realm import 에는 시험 계정 poc-testuser 가 들어 있었고 그 비밀번호가 저장소에
+# 공개돼 있었다 — 어느 설치본에서나 그 계정으로 표준 로그인 화면을 지나 OIDC_RP 서비스에 들어갈 수 있었다. 그 계정·그 비밀번호로 로그인을
+# 시도해 거부되는지 본다(계정이 없거나, 비활성이거나, 비밀번호가 바뀌었으면 200 = 로그인 화면이 다시 뜬다. 통하면 302 + code)
+OLD_DEFAULT_USER="poc-testuser"; OLD_DEFAULT_PASSWORD='Test1234!'   # 1.1.x realm import 에 공개돼 있던 값 — 비밀이 아니다
+code=$(curl -s -D /tmp/smoke-auth2.hdr -o /tmp/smoke-auth2.html -w '%{http_code}' "$auth_url")
+action=$(python3 - /tmp/smoke-auth2.hdr /tmp/smoke-auth2.html /tmp/smoke-auth2.cookie <<'PY'
+import html, re, sys
+cookies = {}
+for line in open(sys.argv[1], encoding='utf-8', errors='replace'):
+    if line.lower().startswith('set-cookie:'):
+        nv = line.split(':', 1)[1].strip().split(';', 1)[0]
+        if '=' in nv:
+            n, v = nv.split('=', 1)
+            if v:
+                cookies[n.strip()] = v
+open(sys.argv[3], 'w', encoding='utf-8').write('; '.join(f'{k}={v}' for k, v in cookies.items()))
+m = re.search(r'<form[^>]*id="kc-form-login"[^>]*action="([^"]+)"', open(sys.argv[2], encoding='utf-8', errors='replace').read())
+print(html.unescape(m.group(1)) if m else '')
+PY
+)
+[ "$code" = "200" ] && [ -n "$action" ] || fail "로그인 폼을 읽지 못했다(auth $code)"
+# 폼 action 은 Keycloak 이 아는 공개 주소다 — 경로·쿼리만 떼어 이 스모크가 보는 gate 주소에 붙인다
+code=$(curl -s -o /dev/null -D /tmp/smoke-login.hdr -w '%{http_code}' -X POST "$GATE_URL/${action#*://*/}" -H "Cookie: $(cat /tmp/smoke-auth2.cookie)" \
+       --data-urlencode "username=$OLD_DEFAULT_USER" --data-urlencode "password=$OLD_DEFAULT_PASSWORD" -d 'credentialId=')
+loc=$(tr -d '\r' < /tmp/smoke-login.hdr | awk -F': ' 'tolower($1) == "location" { print $2 }')
+rm -f /tmp/smoke-auth2.hdr /tmp/smoke-auth2.html /tmp/smoke-auth2.cookie /tmp/smoke-login.hdr
+if [ "$code" = "302" ] && [[ "$loc" == *"code="* ]]; then
+  fail "기본 시험 계정 $OLD_DEFAULT_USER 로 로그인된다(1.1.x 의 공개된 비밀번호) — 운영 realm 에 기본 계정이 남아 있다. scripts/upgrade/keycloak-realm-1.2.sh 를 실행한다(④ 가 비활성화한다)"
+elif [ "$code" = "200" ]; then
+  ok "기본 시험 계정($OLD_DEFAULT_USER, 1.1.x 의 공개된 비밀번호)으로는 로그인되지 않는다"
+else
+  fail "기본 계정 로그인 시도가 예상 밖의 응답 $code (200 = 거부, 302 + code = 로그인됨)"
+fi
+if grep -q "OnePass" /tmp/smoke-auth.html; then
+  fail "로그인 화면에 옛 제품명 OnePass 가 있다(realm 표시 이름) — scripts/upgrade/keycloak-realm-1.2.sh 를 실행한다(⑤)"
+else
+  ok "로그인 화면에 옛 제품명 없음"
+fi
 
 if [ -n "${IDEM_HUB_INTERNAL_SIG_SECRET:-}" ]; then
   echo "④′ gate 내부 세션 종료 API → Keycloak 관리 API (서비스 계정 idem-session-manager, 1.2)"

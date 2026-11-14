@@ -14,9 +14,13 @@
   K  Keycloak 이미지 태그 — infra/docker/compose.install.yml 의 `quay.io/keycloak/keycloak:<태그>` 가 단일 출처이고 패치까지(X.Y.Z) 적는다.
      개발 compose 2종·Helm values·CI(스모크 docker run·third-party-scan·Helm 회귀)·현재 상태 문서가 같은 태그여야 한다
      (1.2: 롤링 태그 26.8 이 26.8.1 → 26.8.2 로 넘어가며 main 이 깨졌다 — 패치 올림은 한 PR 에서 전부 바꾸고 CI 를 거친다).
+  R  설치 realm — infra/docker/keycloak/realm-export.json(= Helm 사본)은 모든 설치본이 import 한다. 사람 계정·비밀번호가 없어야 하고
+     (서비스 계정만 — 1.1.x 까지 든 시험 계정은 비밀번호가 저장소에 공개된 기본 계정이었다), client secret 은 ${환경변수} 자리표시자,
+     자리표시자 client id 의 인증 제공자는 꺼져 있고, sslRequired 는 none 이 아니며, 표시 문자열에 옛 제품·모듈 이름이 없어야 한다.
 실행: python3 scripts/ci/docs-lint.py   (저장소 루트, 의존성 없음). 줄 끝에 `docs-lint:ignore` 가 있으면 그 줄은 N·E·L 검사에서 뺀다.
 """
 import glob
+import json
 import os
 import re
 import sys
@@ -130,6 +134,45 @@ else:
         err(hv, 1, f'[K] keycloak.image.repository 다음 줄의 tag: "…" 를 찾지 못함')
     elif mh.group(1) != KC_TAG:
         err(hv, find_line(hv, 'tag: "' + mh.group(1) + '"'), f'[K] Helm keycloak.image.tag {mh.group(1)} ≠ {KC_SOURCE} 의 {KC_TAG}')
+
+# ── R. 설치 realm ───────────────────────────────────────────────────────
+REALM_SRC = 'infra/docker/keycloak/realm-export.json'
+REALM_COPY = 'infra/helm/idem/files/realm-export.json'
+realm_people = -1
+try:
+    realm = json.loads(read(REALM_SRC))
+except (OSError, ValueError) as e:
+    realm = None
+    err(REALM_SRC, 1, f'[R] realm export 를 읽지 못함: {e}')
+if realm is not None:
+    if not os.path.exists(REALM_COPY) or read(REALM_SRC) != read(REALM_COPY):
+        err(REALM_COPY, 1, f'[R] Helm 사본이 {REALM_SRC} 과 다르다')
+    realm_people = 0
+    for u in realm.get('users') or []:
+        uname = u.get('username', '?')
+        uline = find_line(REALM_SRC, f'"username": "{uname}"')
+        if not u.get('serviceAccountClientId'):
+            realm_people += 1
+            err(REALM_SRC, uline, f'[R] 설치 realm 에 사람 계정 {uname} — realm import 의 계정은 모든 설치본의 기본 계정이 된다. '
+                                  f'시험 사용자는 scripts/dev/kc-test-user.py 로 만든다')
+        if u.get('credentials'):
+            err(REALM_SRC, uline, f'[R] 계정 {uname} 에 credentials — 비밀번호를 저장소에 두지 않는다')
+    for c in realm.get('clients') or []:
+        sec = c.get('secret')
+        if sec is not None and not re.fullmatch(r'\$\{[A-Z][A-Z0-9_]*\}', sec):
+            err(REALM_SRC, find_line(REALM_SRC, f'"clientId": "{c.get("clientId")}"'),
+                f'[R] client {c.get("clientId")} 의 secret 은 ${{환경변수}} 자리표시자여야 한다(값을 저장소에 두지 않는다)')
+    for idp in realm.get('identityProviders') or []:
+        if idp.get('enabled') and re.search(r'your-[a-z0-9-]+-client-id', (idp.get('config') or {}).get('clientId') or ''):
+            err(REALM_SRC, find_line(REALM_SRC, f'"alias": "{idp.get("alias")}"'),
+                f'[R] 인증 제공자 {idp.get("alias")} 가 자리표시자 client id 인 채로 켜져 있다 — 로그인 화면에 동작하지 않는 버튼이 생긴다')
+    if (realm.get('sslRequired') or '').lower() == 'none':
+        err(REALM_SRC, find_line(REALM_SRC, '"sslRequired"'), '[R] sslRequired 가 none — 사설망 밖의 평문 HTTP 를 받는다(새 설치의 기본은 external)')
+    old_names = ['One' + 'Pass', 'Q-' + 'Sign', 'q-' + 'sign', 'Id' + 'O ', 'ido ' + '모듈']
+    for i, l in lines(REALM_SRC):
+        for t in old_names:
+            if t in l:
+                err(REALM_SRC, i, f'[R] 옛 제품·모듈 이름 "{t.strip()}" — 로그인 화면·관리 콘솔에 보이는 문자열이다')
 
 # ── T. 시험 항목표 ─────────────────────────────────────────────────────
 TI = 'docs/manuals/test-items.md'
@@ -259,4 +302,4 @@ if errors:
     for e in errors:
         print('  ' + e)
     sys.exit(1)
-print(f'docs-lint: OK — 버전 {V} 일치({len(VERSION_SITES)}곳), Keycloak 이미지 태그 {KC_TAG} 일치({kc_sites}곳), 시험 항목 {n_rows}행·집계 일치, 오류 코드·구 이름·링크 이상 없음 ({len(OPS_DOCS)}개 문서)')
+print(f'docs-lint: OK — 버전 {V} 일치({len(VERSION_SITES)}곳), Keycloak 이미지 태그 {KC_TAG} 일치({kc_sites}곳), 설치 realm 사람 계정 {realm_people}, 시험 항목 {n_rows}행·집계 일치, 오류 코드·구 이름·링크 이상 없음 ({len(OPS_DOCS)}개 문서)')

@@ -16,14 +16,18 @@
     ⑦ (KC_ADMIN_*) 세션이 사라졌는지, 옛 access_token(RP1·RP2) 으로 userinfo 가 401 인지
 
 환경변수: GATE_URL(http://localhost:8081) GATE_PUBLIC_URL(폼 action 이 공개 주소면 바꿔 친다) OIDC_REALM(idem)
-          OIDC_CLIENT_ID OIDC_CLIENT_SECRET(필수) OIDC_REDIRECT_URI(프로파일 redirectUris 중 하나) OIDC_USER OIDC_PASSWORD(필수)
+          OIDC_CLIENT_ID OIDC_CLIENT_SECRET(필수) OIDC_REDIRECT_URI(프로파일 redirectUris 중 하나)
+          시험 사용자 — 설치 realm 에는 기본 사용자가 없다(1.2). 둘 중 하나:
+            · KC_ADMIN_* 만 준다 → 임시 사용자(idem-probe-<무작위>, OIDC_USER 를 주면 그 이름)를 만들어 쓰고 끝나면 지운다
+            · OIDC_USER + OIDC_PASSWORD → 이미 있는 사용자로 로그인한다(만들거나 지우지 않는다)
           OIDC_CLIENT_ID_2 OIDC_CLIENT_SECRET_2 OIDC_REDIRECT_URI_2(기본 OIDC_REDIRECT_URI) — 두 번째 RP(Back-Channel 수신 확인용)
           BC_LISTEN(0.0.0.0:9099) BC_PATH(/bc, RP1) BC_PATH_2(/bc2, RP2) BC_WAIT_SECONDS(15)
-          KC_ADMIN_URL(예 http://localhost:8088, 선택) KC_ADMIN_USER KC_ADMIN_PASSWORD KC_ADMIN_REALM(master)
+          KC_ADMIN_URL(예 http://localhost:8088) KC_ADMIN_USER(admin) KC_ADMIN_PASSWORD KC_ADMIN_REALM(master)
+            — 임시 사용자 생성과 Keycloak 세션 확인(④·⑦)에 쓴다. 없으면 세션 확인은 건너뛴다
 표준 라이브러리만 쓴다. 비밀·토큰은 출력하지 않는다. 모든 필수 단계가 통과하면 종료 코드 0.
 """
 from __future__ import annotations
-import base64, hashlib, html, http.server, json, os, re, secrets, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import base64, hashlib, html, http.server, importlib.util, json, os, re, secrets, sys, threading, time, urllib.error, urllib.parse, urllib.request
 
 GATE = os.environ.get("GATE_URL", "http://localhost:8081").rstrip("/")
 GATE_PUBLIC = os.environ.get("GATE_PUBLIC_URL", GATE).rstrip("/")
@@ -34,14 +38,14 @@ REDIRECT_URI = os.environ.get("OIDC_REDIRECT_URI", "https://rp.example.org/callb
 CLIENT_ID_2 = os.environ.get("OIDC_CLIENT_ID_2", "")
 CLIENT_SECRET_2 = os.environ.get("OIDC_CLIENT_SECRET_2", "")
 REDIRECT_URI_2 = os.environ.get("OIDC_REDIRECT_URI_2", REDIRECT_URI)
-USER = os.environ.get("OIDC_USER", "poc-testuser")
+USER = os.environ.get("OIDC_USER", "")
 PASSWORD = os.environ.get("OIDC_PASSWORD", "")
 BC_LISTEN = os.environ.get("BC_LISTEN", "0.0.0.0:9099")
 BC_PATH = os.environ.get("BC_PATH", "/bc")
 BC_PATH_2 = os.environ.get("BC_PATH_2", "/bc2")
 BC_WAIT = float(os.environ.get("BC_WAIT_SECONDS", "15"))
 KC_ADMIN_URL = os.environ.get("KC_ADMIN_URL", "").rstrip("/")
-KC_ADMIN_USER = os.environ.get("KC_ADMIN_USER", "")
+KC_ADMIN_USER = os.environ.get("KC_ADMIN_USER") or "admin"
 KC_ADMIN_PASSWORD = os.environ.get("KC_ADMIN_PASSWORD", "")
 KC_ADMIN_REALM = os.environ.get("KC_ADMIN_REALM", "master")
 OIDC = f"{GATE}/realms/{REALM}/protocol/openid-connect"
@@ -174,6 +178,48 @@ def kc_sessions(admin_tok: str) -> list[dict] | None:
     return json.loads(body) if st == 200 else None
 
 
+def ensure_user():
+    """시험 사용자를 정한다 — OIDC_PASSWORD 가 있으면 그 사용자(OIDC_USER)로, 없으면 KC_ADMIN_* 로 임시 사용자를 만든다.
+
+    돌려주는 값은 뒤처리 함수다(임시 사용자를 지운다; 이미 있던 사용자면 아무 일도 하지 않는다). 준비하지 못하면 None.
+    설치 realm 에는 기본 사용자가 없다 — 1.1.x 의 `poc-testuser` 는 비밀번호가 저장소에 있는 기본 계정이어서 1.2 에서 뺐다."""
+    global USER, PASSWORD
+    if PASSWORD:
+        if not USER:
+            print("OIDC_PASSWORD 를 줬으면 OIDC_USER(그 사용자 이름)도 필요합니다", file=sys.stderr)
+            return None
+        return lambda: None
+    if not (KC_ADMIN_URL and KC_ADMIN_PASSWORD):
+        print("시험 사용자가 필요합니다 — KC_ADMIN_URL·KC_ADMIN_PASSWORD(임시 사용자를 만들었다 지운다) 또는 "
+              "OIDC_USER·OIDC_PASSWORD(이미 있는 사용자)", file=sys.stderr)
+        return None
+    spec = importlib.util.spec_from_file_location("kc_test_user", os.path.join(os.path.dirname(os.path.abspath(__file__)), "kc-test-user.py"))
+    ktu = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ktu)
+    kc = ktu.KcAdmin(KC_ADMIN_URL, KC_ADMIN_USER, KC_ADMIN_PASSWORD, KC_ADMIN_REALM, REALM)
+    name = USER or f"idem-probe-{secrets.token_hex(4)}"
+    try:
+        if kc.find_user(name):
+            print(f"사용자 '{name}' 이(가) 이미 있다 — 그 계정으로 돌리려면 OIDC_PASSWORD 를 주고, 임시 사용자를 쓰려면 다른 이름(OIDC_USER)을", file=sys.stderr)
+            return None
+        password = ktu.random_password()
+        uid = kc.create_user(name, password)
+    except ktu.KcAdminError as e:
+        print(f"임시 시험 사용자를 만들지 못했다: {e}", file=sys.stderr)
+        return None
+    USER, PASSWORD = name, password
+    print(f"  [INFO] 임시 시험 사용자 {name} 을(를) 만들었다 — 끝나면 지운다")
+
+    def cleanup():
+        try:
+            kc.delete_user(uid)
+            print(f"  [INFO] 임시 시험 사용자 {name} 을(를) 지웠다")
+        except Exception as e:  # noqa: BLE001 — 뒤처리 실패가 판정을 가리지 않게
+            print(f"  [WARN] 임시 시험 사용자 {name} 을(를) 지우지 못했다 — Keycloak 에서 직접 지우세요: {e}")
+
+    return cleanup
+
+
 def authorize(client_id: str, redirect_uri: str):
     """authorize 요청 — 로그인 화면(200, 폼 action) 또는 SSO 로 바로 302(code). (status, action, code, state, verifier)"""
     verifier = secrets.token_hex(32)
@@ -205,8 +251,11 @@ def userinfo(access_token: str):
 
 
 def main() -> int:
-    if not CLIENT_SECRET or not PASSWORD:
-        print("OIDC_CLIENT_SECRET / OIDC_PASSWORD 가 필요합니다", file=sys.stderr)
+    if not CLIENT_SECRET:
+        print("OIDC_CLIENT_SECRET 이 필요합니다", file=sys.stderr)
+        return 2
+    cleanup = ensure_user()
+    if cleanup is None:
         return 2
     two = bool(CLIENT_ID_2 and CLIENT_SECRET_2)
     print(f"SLO 프로브: gate={GATE} realm={REALM} rp1={CLIENT_ID} rp2={CLIENT_ID_2 or '-'} user={USER} receiver={BC_LISTEN}{BC_PATH}{(',' + BC_PATH_2) if two else ''}")
@@ -279,6 +328,7 @@ def main() -> int:
             step("rp2 userinfo: 옛 access_token 은 401 (SLO)", st == 401, f"status={st}")
     finally:
         srv.shutdown()
+        cleanup()
     failed = [n for n, ok, _ in results if not ok]
     print(f"결과: {len(results) - len(failed)}/{len(results)} 통과" + (f" — 실패: {', '.join(failed)}" if failed else ""))
     return 1 if failed else 0

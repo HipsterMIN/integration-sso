@@ -1,8 +1,14 @@
 {
   "realm": "idem",
   "enabled": true,
-  "displayName": "OnePass 통합인증",
-  "sslRequired": "none",
+  "displayName": "Idem 통합인증",
+  "sslRequired": "external",
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "ko",
+    "en"
+  ],
+  "defaultLocale": "ko",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
@@ -18,8 +24,8 @@
   "clients": [
     {
       "clientId": "idem-gate",
-      "name": "Q-Sign OIDC 어댑터 클라이언트",
-      "description": "q-sign 모듈이 Keycloak Authorization Code Flow 를 처리하는 Confidential Client",
+      "name": "Idem gate — OIDC 어댑터 client",
+      "description": "idem-gate 가 Keycloak Authorization Code Flow 를 처리하는 confidential client",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -55,8 +61,8 @@
     },
     {
       "clientId": "idem-hub",
-      "name": "IdO BFF 클라이언트",
-      "description": "ido 모듈 (Policy Orchestrator + FE BFF) — broker.mode=keycloak 전환 시 사용",
+      "name": "Idem hub — 브로커 client",
+      "description": "idem-hub(정책 오케스트레이터 + FE BFF) 가 브로커 모드 keycloak 일 때 쓰는 confidential client",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
@@ -140,7 +146,7 @@
       "alias": "social-kakao",
       "displayName": "카카오 로그인",
       "providerId": "oidc",
-      "enabled": true,
+      "enabled": false,
       "updateProfileFirstLoginMode": "on",
       "trustEmail": false,
       "storeToken": false,
@@ -204,33 +210,15 @@
     "realm": [
       {
         "name": "idem-user",
-        "description": "OnePass 일반 사용자"
+        "description": "Idem 일반 사용자"
       },
       {
         "name": "idem-admin",
-        "description": "OnePass 관리자"
+        "description": "Idem 관리자"
       }
     ]
   },
   "users": [
-    {
-      "username": "poc-testuser",
-      "email": "poc@idem.test",
-      "enabled": true,
-      "emailVerified": true,
-      "firstName": "PoC",
-      "lastName": "테스터",
-      "credentials": [
-        {
-          "type": "password",
-          "value": "Test1234!",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "idem-user"
-      ]
-    },
     {
       "username": "service-account-idem-provisioner",
       "enabled": true,

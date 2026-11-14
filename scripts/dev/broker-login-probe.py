@@ -13,7 +13,8 @@ IT(`BrokerLoginIntegrationTest`)는 gate 를 WireMock 으로 바꿔 Idem 쪽 논
 환경변수:
   HUB_URL(기본 http://localhost:8083)  GATE_PUBLIC_URL(기본 http://localhost:8081 — 브라우저가 보는 gate 주소)
   SERVICE  AGENCY_KEY  CALLBACK(기본 https://agency.example.org/cb)  BROKER(기본 keycloak)
-  OIDC_USER / OIDC_PASSWORD   Keycloak realm 의 시험 사용자
+  시험 사용자(slo-probe.py 와 같다 — 설치 realm 에는 기본 사용자가 없다): KC_ADMIN_URL·KC_ADMIN_PASSWORD(KC_ADMIN_USER 기본 admin)만 주면
+  임시 사용자를 만들어 쓰고 끝나면 지운다. 이미 있는 사용자로 돌리려면 OIDC_USER + OIDC_PASSWORD
 표준 라이브러리만 쓴다(HTTP 도우미는 같은 디렉터리의 slo-probe.py). 비밀·토큰·티켓은 출력하지 않는다. 종료 코드 0 = 전 단계 통과.
 
 알아 둘 것(2026-11-12, docs/analysis/keycloak-26-assessment.md §8.6 #7): 인가 URL 은 gate 가 Keycloak **내부 주소**(KEYCLOAK_URL)로 만든다 —
@@ -45,9 +46,19 @@ def hostpath(url: str) -> str:
 
 
 def main() -> int:
-    if not (SERVICE and AGENCY_KEY and slo.PASSWORD):
-        print("SERVICE / AGENCY_KEY / OIDC_PASSWORD 가 필요합니다", file=sys.stderr)
+    if not (SERVICE and AGENCY_KEY):
+        print("SERVICE / AGENCY_KEY 가 필요합니다", file=sys.stderr)
         return 2
+    cleanup = slo.ensure_user()
+    if cleanup is None:
+        return 2
+    try:
+        return run()
+    finally:
+        cleanup()
+
+
+def run() -> int:
     print(f"브로커 로그인 프로브: hub={HUB} gate(공개)={GATE_PUBLIC} service={SERVICE} provider=broker:{BROKER} user={slo.USER}")
     q = urllib.parse.urlencode({"service": SERVICE, "callback": CALLBACK, "provider": f"broker:{BROKER}", "state": STATE})
     loc = f"{HUB}/api/v1/handoff/login?{q}"

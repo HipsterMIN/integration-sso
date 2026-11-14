@@ -44,7 +44,7 @@
 | 부하 발생기 | k6 v1.4.0, 대상과 같은 호스트 | 별도 호스트의 k6 v1.x |
 | 대상 설정 차이 | hub `IDEM_PLUGINS_MOCK_AUTH_ENABLED=true` + 기본 프로파일(설치 검증과 같다, `docs/install.md` §5) · hub `IDEM_HUB_AUTH_RL_ENABLED=false` · gate `IDEM_GATE_FRONT_RL_ENABLED=false`(발생기가 한 IP — IP 레이트리밋만 끈다, 기관 한도 200 tps 는 그대로) · Kafka 없음(outbox 경로) | 같은 네 가지, 측정 뒤 되돌림 |
 | 시험 서비스 | `PERF_HO`(DIRECT, `callbackWhitelist` 1개, `limits` 없음 = 200 tps) · `PERF_RP`(OIDC_RP, `redirectUris` 1개, client `idem-svc-PERF_RP`) — 실행기가 만든다 | 〃 |
-| 시험 사용자 | MOCK: VU 마다 `k6-u<n>` / OIDC: realm import 의 `poc-testuser` | OIDC: 시험용 realm 사용자 |
+| 시험 사용자 | MOCK: VU 마다 `k6-u<n>` / OIDC: realm import 의 `poc-testuser`(측정 당시 — 1.2 에서 realm import 에서 뺐다) | OIDC: 실행기가 만드는 임시 사용자(`KC_ADMIN_*`) 또는 시험용 realm 사용자 |
 
 ### 2.2 샌드박스 값을 참고치로만 보는 이유
 
@@ -55,18 +55,20 @@
 
 ## 3. 절차 (시험 환경에서 그대로)
 
-1. 설치본을 띄우고(`docs/manuals/installation-manual.md`) 대상 쪽 준비 네 가지를 적용한다 — `k6/README.md` §2 "시험 대상 쪽 준비" 표(MOCK 제공자·기본 프로파일, hub·gate IP 레이트리밋 off, Keycloak 시험 사용자).
+1. 설치본을 띄우고(`docs/manuals/installation-manual.md`) 대상 쪽 준비 네 가지를 적용한다 — `k6/README.md` §2 "시험 대상 쪽 준비" 표(MOCK 제공자·기본 프로파일, hub·gate IP 레이트리밋 off, Keycloak 시험 사용자 — 1.2 부터 설치 realm 에 기본 사용자가 없어 실행기가 만들거나 미리 만들어 준다).
 2. `IDEM_EDITION=core scripts/ci/install-smoke.sh` 가 통과하는지 본다(⑦b Handoff 브라우저 진입·③ OIDC client 프로비저닝이 성능 시나리오의 전제다).
 3. 발생기에서:
    ```bash
    export IDEM_ADMIN_PASSWORD=… IDEM_ADMIN_TOTP_SECRET=…   # 관리자(2단계 등록 완료)
-   export OIDC_PASSWORD=…                                   # Keycloak 시험 사용자 (OIDC_USER 기본 poc-testuser)
+   export KC_ADMIN_PASSWORD=…                               # Keycloak 관리자 — 실행기가 임시 시험 사용자를 만들어 쓰고 지운다
+   #  발생기가 설치 호스트가 아니면(관리 포트 8088 은 설치 호스트 로컬) 설치 호스트에서 scripts/dev/kc-test-user.py create 로 만들어
+   #  대신 OIDC_USER=… OIDC_PASSWORD=… 를 주고, 측정 뒤 delete — k6/README.md §2
    export HUB_URL=https://<hub> GATE_URL=https://<gate>     # 공개 주소와 다르면 HUB_PUBLIC_URL / GATE_PUBLIC_URL 도
    PERF_LABEL="GS 시험 환경 — <호스트 사양>" PERF_BUILD=1.1.x scripts/perf/run-k6.sh
    ```
    먼저 `PERF_DRY_RUN=1` 로 1 VU × 1 반복을 돌려 자격·계약을 확인하면 11 분을 아낀다. 실행기 종료 코드 0 = 전 시나리오 문턱 통과, 2 = 미달 시나리오 있음.
 4. `k6/reports/<일시>/summary.md` 의 값을 §4.2 와 §0 의 '시험 환경' 열에 옮기고, 결과 디렉터리(요약 JSON·로그·`environment.txt`, 모두 작다)를 커밋한다.
-5. 되돌린다: MOCK 제공자 off + `prod` 프로파일, IP 레이트리밋 on, 시험 서비스 `PERF_HO`·`PERF_RP` 는 콘솔에서 `INACTIVE`(또는 삭제).
+5. 되돌린다: MOCK 제공자 off + `prod` 프로파일, IP 레이트리밋 on, 시험 서비스 `PERF_HO`·`PERF_RP` 는 콘솔에서 `INACTIVE`(또는 삭제). 임시 시험 사용자는 실행기가 지운다 — 미리 만든 사용자는 `scripts/dev/kc-test-user.py delete`.
 
 ## 4. 결과
 
