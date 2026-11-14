@@ -18,13 +18,15 @@ IT(`BrokerLoginIntegrationTest`)는 gate 를 WireMock 으로 바꿔 Idem 쪽 논
 표준 라이브러리만 쓴다(HTTP 도우미는 같은 디렉터리의 slo-probe.py). 비밀·토큰·티켓은 출력하지 않는다. 종료 코드 0 = 전 단계 통과.
 
 알아 둘 것(2026-11-12, docs/analysis/keycloak-26-assessment.md §8.6 #7): 인가 URL 은 gate 가 Keycloak **내부 주소**(KEYCLOAK_URL)로 만든다 —
-로그인 화면의 호스트가 GATE_PUBLIC_URL 과 다르면 [INFO] 로 알린다. 그 주소가 브라우저에서 닿지 않는 배치(설치본 compose·K8s)에서는 이 경로가 끝까지 가지 못한다.
+로그인 화면의 호스트가 GATE_PUBLIC_URL 과 다르면 [INFO] 로 알린다. 그 주소가 브라우저에서 닿지 않는 배치(설치본 compose·K8s)에서는 이 경로가 끝까지 가지 못한다 —
+프로브는 닿지 않는 홉을 `ERR <주소>` 로 적고 "Keycloak 로그인 화면" 단계를 실패로 판정한다(2026-11-14 compose 컨테이너에서 확인 — 진입·브로커 시작까지 통과, 세 번째 홉 `http://keycloak:8080/…` 에서 실패).
 """
 import importlib.util
 import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.parse
 
 _spec = importlib.util.spec_from_file_location("slo_probe", os.path.join(os.path.dirname(os.path.abspath(__file__)), "slo-probe.py"))
@@ -66,8 +68,15 @@ def run() -> int:
     form_seen = False
     login_host = ""
     reached = False
+    unreachable = ""
     for _ in range(16):
-        st, hdr, body = slo.call("GET", loc)
+        try:
+            st, hdr, body = slo.call("GET", loc)
+        except (urllib.error.URLError, OSError) as e:
+            # 브라우저가 닿을 수 없는 주소로 보내졌다 — 설치본 배치(compose·K8s)에서 인가 URL 이 Keycloak 내부 주소일 때 여기서 끊긴다
+            unreachable = hostpath(loc)
+            hops.append(f"ERR {unreachable} ({getattr(e, 'reason', e)})")
+            break
         hops.append(f"{st} {hostpath(loc)}")
         if st in (301, 302, 303, 307):
             nxt = urllib.parse.urljoin(loc, hdr.get("Location", ""))
@@ -97,7 +106,8 @@ def run() -> int:
         print(f"    hop: {h}")
     slo.step("진입 → 브로커 시작: 302 둘(hub 로그인 프런트 → /api/v1/broker/…/authorize)",
              len(hops) >= 2 and hops[0].startswith("302") and hops[1].startswith("302") and "/api/v1/broker/" in hops[1])
-    slo.step("Keycloak 로그인 화면(200, 폼)", form_seen, login_host or "-")
+    slo.step("Keycloak 로그인 화면(200, 폼)", form_seen,
+             login_host or (f"닿지 않는 주소로 보내졌다: {unreachable} — 인가 URL 이 Keycloak 내부 주소다(docs/analysis/keycloak-26-assessment.md §8.6 #7)" if unreachable else "-"))
     if form_seen and not login_host.startswith(GATE_PUBLIC):
         print(f"  [INFO] 로그인 화면의 주소가 gate 공개 URL({GATE_PUBLIC})이 아니다 — 브라우저가 Keycloak 내부 주소로 보내졌다. "
               f"그 주소가 브라우저에서 닿지 않는 배치에서는 여기서 끊긴다(판정에는 넣지 않는다)")
