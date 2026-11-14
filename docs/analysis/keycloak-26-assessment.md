@@ -1,4 +1,4 @@
-# Keycloak 26 올림 영향 평가 (2026-10-15, 1.1.3 기준 — 추록 §8: 26.8.2 대응·최종 계약 리허설, 2026-11-12 · §9: 설치 realm 정리, 2026-11-13)
+# Keycloak 26 올림 영향 평가 (2026-10-15, 1.1.3 기준 — 추록 §8: 26.8.2 대응·최종 계약 리허설, 2026-11-12 · §9: 설치 realm 정리, 2026-11-13 · §10: compose 컨테이너 리허설·보수 창, 2026-11-14)
 
 취약점 점검 1회차의 서드파티 이미지 결과(`docs/certification/vulnerability-review-2026-10.md` §4.4·§6)가 남긴 숙제다. 설치본이 쓰는 `quay.io/keycloak/keycloak:24.0`(= 24.0.5)은 OS 21 HIGH + Java jar 77(CRITICAL 6)을 안고 있고, 24.0 줄기의 수정판은 24.0.9 까지만 나왔으며 2025 년 이후 CVE(SAML·조직 초대·redirect_uri·authorization code 위조 등)는 **26.x 에서만** 고쳐졌다. 이 문서는 "언제·어떻게 26 으로 가는가" 를 2026-11 점검 회차에서 결정할 수 있게, **Keycloak 26.8.1 을 샌드박스에서 실제로 띄워**(24 스키마 복사본 위의 마이그레이션과 빈 스키마 새 설치, 둘 다) 설치본 계약·Idem 코드 영향·시험 결과·단계 계획·권고를 적는다.
 
@@ -320,6 +320,75 @@ Keycloak 은 "요청의 기준 주소가 https 가 아니고, 그 연결이 real
 
 ### 9.4 돌리지 못한 것 · 남은 것
 
-- **compose 컨테이너로의 1회**(이미지·볼륨): 샌드박스에 Docker 는 생겼지만 앱 이미지를 레지스트리에서 받을 수 없고(접근 거부) 샌드박스 안 이미지 빌드는 시도하지 않았다 — 설치 매뉴얼 §5 절차의 컨테이너 리허설은 사용자 환경 몫 그대로다. CI 의 `k6 Smoke Test`(컨테이너 Keycloak)·`K8s 실배포 리허설`(Helm realm import)이 새 설치를 돈다.
+- **compose 컨테이너로의 1회**(이미지·볼륨): 샌드박스에 Docker 는 생겼지만 앱 이미지를 레지스트리에서 받을 수 없고(접근 거부) 샌드박스 안 이미지 빌드는 시도하지 않았다 — 설치 매뉴얼 §5 절차의 컨테이너 리허설은 사용자 환경 몫 그대로다. **→ 2026-11-14: 제품 Dockerfile 의 런타임 단계 + 호스트에서 만든 jar 로 이미지를 꾸려 compose 컨테이너로 돌렸다(§10).** CI 의 `k6 Smoke Test`(컨테이너 Keycloak)·`K8s 실배포 리허설`(Helm realm import)이 새 설치를 돈다.
 - **#6** 내부 client `fullScopeAllowed`(26.8 deprecation WARN) — 선택, 손대지 않았다.
 - **#7** Keycloak 중계 로그인의 브라우저 인가 URL — 플랜 §5.5 의 3c(결정 대기).
+
+## 10. 추록 — compose 컨테이너 리허설과 보수 창 (2026-11-14, 1.2 PR-1.2-3)
+
+§8.4·§9.3 의 리허설은 Keycloak 배포본과 부트 jar 를 호스트 프로세스로 띄운 것이었고, "compose 컨테이너(이미지·볼륨)로의 1회" 는 사용자 환경 몫으로 남아 있었다(§9.4). 작업 환경의 Docker 로 설치본 `compose.install.yml` 을 **고치지 않고** 실제 컨테이너로 돌렸다 — 1.1.7 새 설치 → 1.2 업그레이드(설치 매뉴얼 §5) → 되돌리기 → 다시 업그레이드 → 1.2 새 설치. 여기서 잰 값으로 보수 창 길이와 연동기관 공지 내용을 정했다(설치 매뉴얼 §5, `docs/sso-agency-operations-guide.md` §6.2, `docs/sso-im-operations-manual.md` §2.4).
+
+### 10.1 무엇이 실물이고 무엇이 대역인가
+
+| 항목 | 리허설에서 쓴 것 | 제품과의 차이 |
+|---|---|---|
+| compose 파일 | 태그 `v1.1.7` 과 main `42d818b` 의 `infra/docker/compose.install.yml` 그대로, `install.env` 는 생성기(`scripts/lib/gen-install-env.sh`) | 없음. 시험용 기관 RP 의 Back-Channel 주소를 Keycloak 컨테이너에서 풀려고 `extra_hosts` 한 줄을 덧파일로 얹었다 |
+| Keycloak | 공식 이미지 `keycloak/keycloak:24.0`(= 24.0.5, `sha256:f8ade94c…`) · `:26.8.2`(`sha256:c68e286c…bbf0`) — 미러에서 받아 `quay.io/…` 이름으로 태그 | 26.8.2 의 digest 는 2026-11-13 에 CI 가 `quay.io` 에서 받은 것과 같다(§8.3) |
+| PostgreSQL · Redis | `postgres:16-alpine`(16.16) · `redis:7.2-alpine`(7.2.17), compose 의 볼륨 그대로 | 없음 |
+| 앱 이미지 5종 × 2판 | 제품 Dockerfile 의 **런타임 단계 그대로**(기반 `eclipse-temurin:21-jre-alpine`, UID 1001, 레이어 복사, ENTRYPOINT·HEALTHCHECK) + 호스트에서 만든 부트 jar·콘솔 번들 — 1.1.7 은 태그 `v1.1.7`, 1.2 는 main `42d818b`(이미지 태그 `1.2.0-pre`) | **빌더 단계(이미지 안의 Gradle·npm 빌드)는 돌리지 않았다** — CI 의 Docker Build Check 가 본다. `apk upgrade`·`apk add curl` 도 뺐다(Alpine 패키지 저장소가 이 환경의 망 정책에 막혀 있다) — 헬스체크의 `curl` 은 busybox `wget` 을 부르는 대역 스크립트다 |
+| 호스트 | 4 vCPU · 15.7 GiB, Docker 29.9.2 · Compose 5.6.1 | 이미지를 미리 만들어 두고 `up -d --no-build --wait` 로 돌렸다 — 보수 창 안에서 빌드하면 그 시간이 더해진다(§10.4) |
+
+제품 이미지 그대로(빌더 단계 포함)의 1회는 여전히 사용자 환경 몫이다. 남는 차이는 이미지를 만드는 과정이고, compose 의 배선·볼륨·헬스체크·기동 순서와 Keycloak·PostgreSQL 컨테이너의 마이그레이션은 여기서 봤다.
+
+### 10.2 단계별 결과
+
+| 단계 | 한 일 | 결과 |
+|---|---|---|
+| ① 1.1.7 새 설치 | `up -d --wait`(컨테이너 8개) → 1.1.7 의 스모크 → 기관 RP 둘 → SLO 프로브 → `backup.sh` | 기동 **55초** · 스모크 72 ✅(secret 32자) · SLO 13/13(1.1.7 의 기본 계정 `poc-testuser` 로) · 백업 2초(460 KB, 표 167) |
+| ② 업그레이드 1회차 | 설치 매뉴얼 §5 의 2~4: `stop`(앱·Keycloak) → 1.2 트리·`IDEM_VERSION` → `up -d --wait` | 정지 **11초** · 기동 **56초** — Keycloak 26.8.2 가 augmentation 17.7초 뒤 DB 를 올렸다(`Migrating older model to 25.0.0 … 26.8.2`, `migration_model` 26.8.2, `keycloak` 스키마 92 → 101 표). 헬스체크·`depends_on` 은 첫 기동의 마이그레이션을 기다려 줬다(실패·재시도 없음) |
+| ②′ 스크립트 전 | 세션·기관 화면·기본 계정·새 기관 온보딩 | 업그레이드 전 세션 유실(§10.3) · **기본 계정으로 여전히 로그인된다**(SLO 13/13) · 새 기관 프로파일 PUT 은 503 `E-IDO-122`(조치 안내 문구) |
+| ②″ `keycloak-realm-1.2.sh` | §5 의 5 | **1.1초**, 바꾼 곳 6(scope 둘·mapper 허용 목록·기본 계정 비활성·표시 이름과 국제화·카카오 제공자) |
+| ②‴ 확인(앱 재기동 없음) | 1.2 의 스모크 → 프로브 | 스모크 **76 ✅**(기존 관리자 비밀번호·2단계 그대로, 새 secret 86자) · 기본 계정 로그인 거부 · 임시 사용자로 SLO 13/13(업그레이드 전에 만든 기관, 32자 secret 그대로) |
+| ③ 되돌리기 | `stop` → `restore.sh`(①의 덤프) → 1.1.7 트리로 `up -d --wait` | 정지 13초 · 복구 **3초** · 기동 55초 → 스모크 72 ✅ · `migration_model` 24.0.5 · 92 표 · **기본 계정이 다시 켜져 있다**(SLO 13/13) → 스크립트(24.0.5, 0.8초: ①~③ 건너뜀, 바꾼 곳 3) → 기본 계정 거부 · 임시 사용자 SLO 13/13 |
+| ④ 업그레이드 2회차 | 정리한 realm 에서 다시 — 1초 간격으로 gate·hub·Keycloak 응답을 쟀다 | 정지 10초 · 기동 55초 · 스크립트 2.5초(바꾼 곳 3) — **정지 시작부터 스크립트 끝까지 68초**. 스모크 76 ✅ · SLO 13/13 |
+| ④′ 업그레이드 3회차 | hub 쪽 상태(관리자 세션·FE 세션·티켓)를 만들어 두고 올렸다 | 정지 11초 · 기동 60초. 결과는 §10.3 |
+| ⑤ 1.2 새 설치 | `down -v` → 새 `install.env` → `up -d --wait` | 기동 **62초**(Keycloak 22.5초, `Realm 'idem' imported`) · 스모크 76 ✅ · SLO 13/13(임시 사용자, secret 86자) · realm 은 `sslRequired` EXTERNAL·`ko`·서비스 계정 둘뿐 — **§9.2 의 "compose 는 http 공개 주소로도 통과한다" 를 컨테이너로 확인** |
+
+- 메모리(`docker stats`): 1.1.7 묶음 약 3.8 GiB(Keycloak 24 가 1.35 GiB), 1.2 묶음 약 3.0 GiB(Keycloak 26 은 0.66 GiB). hub 1.0~1.1 GiB · gate 0.45 · registry·authz 0.37 · PostgreSQL 0.1.
+- `keycloak-data` 볼륨에는 24 에서 `import` 하나, 26 에서 `import`·`transaction-logs` 둘뿐이다(수십 KB) — Keycloak 의 데이터는 PostgreSQL 에 있고, 볼륨을 그대로 둔 채 이미지를 바꿔도 걸리는 것이 없었다. Redis 는 업그레이드·되돌리기 내내 그대로 떠 있었다(hub FE 세션·캐시 유지).
+- 리허설은 두 판의 트리를 **다른 디렉터리**에 두고 오갔다 — `init-db.sql` 바인드 마운트 경로가 달라져 PostgreSQL 컨테이너도 다시 만들어졌다(볼륨은 그대로). 같은 디렉터리에서 저장소만 1.2 로 바꾸면 PostgreSQL 컨테이너도 Redis 처럼 그대로일 것이다(두 판의 `postgres` 서비스 정의가 같다 — 이 경우는 돌려 보지 않았다).
+
+### 10.3 연동기관이 겪는 것 (측정)
+
+| 무엇 | 업그레이드 전 (24.0.5) | 업그레이드 뒤 (26.8.2) |
+|---|---|---|
+| Keycloak 로그인 세션(SSO) | 있음 | **없음** — authorize 가 로그인 화면을 낸다, 사용자 세션 0 |
+| `refresh_token` 교환 | 200 | **400 `invalid_grant`**(`Session not active`) |
+| 만료 전 `access_token` 으로 userinfo | 200 | **401** — 발급 106초 뒤(수명 300초)에도. 서명과 `exp` 만 보는 RP 에서는 만료까지 유효해 보인다 |
+| Back-Channel Logout | — | **오지 않는다** — 보수 창 동안 기관 수신 주소에 0건(2회) |
+| 옛 `id_token` 을 `id_token_hint` 로 넣은 RP-Initiated Logout | — | 302 로 `post_logout_redirect_uri` 와 `state` 를 돌려준다(오류 없음) |
+| Discovery(gate 가 내는 26개 항목) | — | 같다 — 추가·삭제·값 변화 없음 |
+| JWKS | kid 2개(RS256/sig · RSA-OAEP/enc) | **같은 kid, 같은 공개키** — RP 의 JWKS 캐시와 옛 `id_token` 의 서명 검증이 그대로 통한다 |
+| 기관 client secret | 32자 | 그대로 유효하다. **새로 회전하면 86자**(§2 26.7) |
+| `sid` | 36자 UUID | **24자, UUID 아님**(§2 26.5) |
+| Keycloak 만 재기동 | 세션 유실 | 세션 유지 — 컨테이너 재기동 8초 뒤 같은 `sid` 로 SSO·refresh·userinfo 통과 |
+| hub 의 FE 세션(Handoff·옵션 A) | 있음 | **유지** — 업그레이드 전 쿠키로 `fe-session/check` valid, 진입 1홉에 티켓 발급(쿠키 없으면 2홉) |
+| hub 관리자 세션 | 있음 | **유지** — 업그레이드 전 세션으로 관리 API 200 |
+| 창 직전에 받은 Handoff 티켓(수명 60초) | — | verify **410 `E-IDO-101`**(83초 뒤) — 만료. 다시 진입하면 FE 세션으로 바로 재발급 |
+| 서비스 중단(2회차, 1초 간격) | — | gate Discovery **30초** · Keycloak **42초** · hub **57초** — 정지 시작에서 전 구성요소 복귀까지 약 1분 |
+
+기관 설정(issuer·client_id·client_secret·JWKS)은 바꿀 것이 없다. 기관 쪽에서 확인할 것은 셋이다 — `refresh_token` 실패를 재로그인으로 처리하는지, `sid` 를 UUID 형식·36자로 가정하지 않는지, client secret 저장 길이가 86자를 담는지.
+
+### 10.4 보수 창
+
+- **측정**: 정지 → 기동 → 스크립트가 68초(1·2회차; 3회차는 정지 → 기동 71초), 되돌리기(정지 → 복구 → 1.1.7 기동)가 71초다. 이미지가 준비돼 있고 DB 가 17 MB 인 경우의 값이다.
+- **창 안에서 늘어나는 것**: 백업(DB 크기에 비례), 이미지 빌드(미리 하지 않았을 때 — CI 기준 모듈당 2~5분), 확인(스모크·기존 관리자·기관 로그인), 되돌리기 여유.
+- **권고 — 30분 창, 업무 시간 밖**. 1.2 이미지는 창 **전에** 만들어 둔다: 1.2 소스를 다른 디렉터리에 받아 `IDEM_VERSION=1.2.0 docker compose --env-file <운영 중인 install.env> -f infra/docker/compose.install.yml build`(셸 변수가 `install.env` 의 값을 덮는다 — `config --images` 로 확인. 새 태그로 남아 떠 있는 1.1.x 에는 영향이 없다) 또는 오프라인 번들 적재. 창에서는 `up -d --no-build` 가 그 이미지를 쓴다(리허설이 그렇게 돌았다). 백업 유효성도 창 전에 본다(`TARGET_DB=idem_restore_check VERIFY_SOURCE_DB=idem scripts/ops/restore.sh <dump>`).
+- **공지**: 연동기관 담당자에게 3영업일 전과 당일. 문안과 기관 확인 항목은 `docs/sso-agency-operations-guide.md` §6.2.
+
+### 10.5 Keycloak 중계 로그인(D-19)을 compose 배치로 — §8.6 #7 의 확인
+
+- 설치본에는 이 경로를 켜는 길이 없다 — `IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS` 는 `compose.install.yml`·`install.env.example`·Helm 차트 어디에도 없다(hub 컨테이너에 전달되지 않는다).
+- 덧파일로 그 변수를 hub 에 넣고 `scripts/dev/broker-login-probe.py` 를 돌렸다: 진입 302 → 브로커 시작 302 → **세 번째 홉이 `http://keycloak:8080/realms/idem/protocol/openid-connect/auth`**(compose 내부 이름) — 브라우저 자리에서는 이름이 풀리지 않는다. 판정 1/5.
+- 프로브는 닿지 않는 홉을 `ERR <주소>` 로 적고 "Keycloak 로그인 화면" 단계를 실패로 판정하게 고쳤다(종전에는 예외로 끝났다).
+- 즉 지금의 1.2 는 **설치본 배치에서 Keycloak 중계 로그인을 제공하지 않는다**(켤 수 없고, 켜도 끊긴다). 기본 로그인 경로(표준 OIDC·Handoff)와는 무관하다. 고칠지 문서로 한정할지는 플랜 §5.5 의 3c.
