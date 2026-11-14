@@ -15,6 +15,7 @@
 - **Keycloak 중계 로그인(D-19)을 compose 배치로 — 3c 의 근거**: 설치본에는 이 경로를 켜는 변수(`IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS`)가 compose·`install.env.example`·Helm 어디에도 없다. 덧파일로 켜서 프로브를 돌리면 세 번째 홉이 `http://keycloak:8080/…`(compose 내부 이름)라 브라우저 자리에서 끊긴다(판정 1/5). `scripts/dev/broker-login-probe.py` 는 닿지 않는 홉을 예외 대신 `ERR <주소>` 와 실패 판정으로 알리게 고쳤다. 고칠지 문서로 한정할지는 여전히 결정 사항이다(플랜 §5.5 3c).
 - **#295 머지 뒤 main**(run 43602699845, main `42d818b`): 잡 21개 성공. Trivy 이미지 10종 **0건**(앱 8종 OS 0·jar 0, 콘솔 2종 0), 서드파티는 그대로(`postgres:16-alpine` gosu 26, `keycloak:26.8.2` jar 1 guava, `redis:7.2-alpine` 0). **OWASP 는 또 끝내지 못했다** — main 수동 실행 run 43604343408 이 이번에는 NVD API **522** 로 2분 28초 만에 멈췄다(11-13 의 503 세 번에 이어 네 번째, 결과 없음).
 - **돌리지 못한 것**: 제품 이미지 그대로(빌더 단계·`apk upgrade` 포함)의 compose 1회 — 사용자 환경 리허설 몫으로 남는다. 운영 규모 DB 의 백업·마이그레이션 시간(리허설 DB 는 17 MB).
+- **검증**: 고친 프로브의 정상 경로 — 호스트 프로세스 스택(Keycloak 26.8.2 배포본·부트 jar, 새 설치)에서 스모크 76 ✅·SLO 13/13·D-19 **7/7**. `docs-lint` OK, hub `NamingGuardTest` 통과. **CI**: PR #296 run 43606689506(커밋 `fcfd134`) — 잡 16개 성공(Build & Unit Test · 문서 정합성 · 프런트엔드 두 벌 · Helm Lint · `k6 Smoke Test` · Docker Build Check 9종). K8s 리허설·오프라인 설치본 잡은 차트·설치 스크립트 변경이 없어 건너뛰었다.
 
 ### 1.2 · PR-1.2-3a — 설치 realm 정리: 기본 시험 계정 제거(보안) · 표시 이름 Idem · 한국어 로그인 화면 · IT 의 PostgreSQL 16 (2026-11-13, 플랜 §5.5 3a)
 
