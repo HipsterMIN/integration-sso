@@ -133,5 +133,5 @@ SERVICE=BRK_HO AGENCY_KEY=… KC_ADMIN_URL=http://localhost:8088 KC_ADMIN_PASSWO
 
 - 2026-11-12 샌드박스(Keycloak 26.8.2, 24.0.5 에서 올린 realm): 7/7, 2회. gate `auth_result`(`KEYCLOAK_OIDC`·SUCCESS)·hub `handoff_audit` `CONSUMED` 로 뒤를 확인했다. 2026-11-13(임시 사용자, 정리한 realm · 새 설치): 7/7.
 - hub 관리자 로그인을 하는 도구(스모크·성능 실행기·프로파일 준비)를 잇달아 돌릴 때는 30초 넘게 띄운다 — 같은 TOTP 주기의 코드를 두 번 쓰면 hub 가 `E-IDO-134` 로 거부한다.
-- **로그인 화면의 주소를 본다**: 프로브는 홉마다 주소를 찍고, Keycloak 로그인 화면이 gate 공개 URL 이 아니면 `[INFO]` 를 남긴다. 지금 gate 는 인가 URL 을 Keycloak 내부 주소(`KEYCLOAK_URL`)로 만든다 — 샌드박스·CI 처럼 그 주소가 브라우저에서 닿는 배치에서만 끝까지 간다(`docs/analysis/keycloak-26-assessment.md` §8.6 #7, 플랜 §5.5 의 3c).
+- **로그인 화면의 주소를 본다**: 프로브는 홉마다 주소를 찍고, Keycloak 로그인 화면이 gate 공개 URL 이 아니면 `[INFO]` 를 남긴다. 그 주소가 닿지 않으면 홉을 `ERR <주소>` 로 적고 "Keycloak 로그인 화면" 단계를 실패로 판정한다 — 2026-11-14 설치본 compose 를 컨테이너로 띄워 돌리니 세 번째 홉이 `http://keycloak:8080/…` 라 1/5 였다(설치본에는 `IDEM_HUB_HANDOFF_LOGIN_BROKER_PROVIDERS` 를 넘기는 자리도 없다). 지금 gate 는 인가 URL 을 Keycloak 내부 주소(`KEYCLOAK_URL`)로 만든다 — 샌드박스·CI 처럼 그 주소가 브라우저에서 닿는 배치에서만 끝까지 간다(`docs/analysis/keycloak-26-assessment.md` §8.6 #7, 플랜 §5.5 의 3c).
 
